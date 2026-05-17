@@ -27,7 +27,7 @@ function ProtectedLayout({ children }) {
     <div className="min-h-screen flex flex-col">
       <header className="bg-white border-b border-iip-gold/30 px-6 py-3 flex items-center justify-between sticky top-0 z-20 shadow-sm">
         <div className="flex items-center gap-6">
-          <div className="font-title text-2xl text-iip-gold font-bold">Attributions IIP</div>
+          <div className="font-title text-2xl text-iip-gold font-bold">Attributions IIP — 2025-2026</div>
           <nav className="flex gap-1">
             {nav.map(([to, lbl]) => (
               <NavLink key={to} to={to} end={to === '/'} className={({ isActive }) =>
