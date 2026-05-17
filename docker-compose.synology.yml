@@ -1,0 +1,46 @@
+# =================================================================
+# docker-compose pour Synology — utilise les images publiées sur GHCR
+# (= déploiement automatique via GitHub Actions)
+#
+# À placer dans /volume1/docker/attributions-app/docker-compose.yml
+# en lieu et place du fichier "build:" original.
+# =================================================================
+
+services:
+  backend:
+    image: ghcr.io/jeromevde77/attributions-backend:latest
+    pull_policy: always
+    container_name: attributions-backend
+    restart: unless-stopped
+    security_opt:
+      - seccomp:unconfined
+    environment:
+      NODE_ENV: production
+      PORT: 3001
+      JWT_SECRET: ${JWT_SECRET:-change-me-jwt-secret-please}
+      DB_PATH: /app/data/attributions.db
+      CORS_ORIGIN: ${CORS_ORIGIN:-http://localhost:8080}
+    volumes:
+      - ./backend/data:/app/data
+    expose:
+      - "3001"
+    networks:
+      - attributions-net
+
+  frontend:
+    image: ghcr.io/jeromevde77/attributions-frontend:latest
+    pull_policy: always
+    container_name: attributions-frontend
+    restart: unless-stopped
+    security_opt:
+      - seccomp:unconfined
+    depends_on:
+      - backend
+    ports:
+      - "${HTTP_PORT:-8080}:80"
+    networks:
+      - attributions-net
+
+networks:
+  attributions-net:
+    driver: bridge
