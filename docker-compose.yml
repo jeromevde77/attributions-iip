@@ -1,0 +1,42 @@
+services:
+  backend:
+    build:
+      context: ./backend
+      # Désactive BuildKit qui ignore le profil seccomp du démon
+      # sur certains Synology (kernel 4.4.x)
+    image: attributions-backend:latest
+    container_name: attributions-backend
+    restart: unless-stopped
+    security_opt:
+      - seccomp:unconfined
+    environment:
+      NODE_ENV: production
+      PORT: 3001
+      JWT_SECRET: ${JWT_SECRET:-change-me-jwt-secret-please}
+      DB_PATH: /app/data/attributions.db
+      CORS_ORIGIN: ${CORS_ORIGIN:-http://localhost:8080}
+    volumes:
+      - ./backend/data:/app/data
+    expose:
+      - "3001"
+    networks:
+      - attributions-net
+
+  frontend:
+    build:
+      context: ./frontend
+    image: attributions-frontend:latest
+    container_name: attributions-frontend
+    restart: unless-stopped
+    security_opt:
+      - seccomp:unconfined
+    depends_on:
+      - backend
+    ports:
+      - "${HTTP_PORT:-8080}:80"
+    networks:
+      - attributions-net
+
+networks:
+  attributions-net:
+    driver: bridge

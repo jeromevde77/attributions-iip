@@ -1,0 +1,514 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Maquette V2 — Attributions IIP</title>
+<link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@500;600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<script src="https://cdn.tailwindcss.com"></script>
+<script>
+tailwind.config = {
+  theme: {
+    extend: {
+      colors: {
+        iip: { gold: '#D4A017', amber: '#F59E0B', mauve: '#8E6BB0', orange: '#E76F2D' }
+      }
+    }
+  }
+};
+</script>
+<style>
+  body { font-family: 'Inter', sans-serif; background: #FAFAF7; margin: 0; }
+  h1, h2, h3, .font-title { font-family: 'Cinzel', serif; }
+  table.grid-excel { border-collapse: collapse; width: 100%; font-size: 0.8125rem; }
+  table.grid-excel th, table.grid-excel td { border: 1px solid #e5e7eb; padding: 0.45rem 0.6rem; text-align: left; white-space: nowrap; }
+  table.grid-excel thead th { background: #D4A017; color: white; position: sticky; top: 0; font-weight: 600; font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.025em; }
+  table.grid-excel tbody tr:nth-child(even) { background: #fafafa; }
+  table.grid-excel tbody tr:hover { background: #fff7e6; }
+  table.grid-excel td.num { text-align: right; font-variant-numeric: tabular-nums; }
+  .input-cell { width: 100%; background: transparent; border: none; outline: none; font-size: inherit; font-family: inherit; padding: 0; text-align: right; }
+  .input-cell:focus { background: #fef3c7; outline: 2px solid #D4A017; }
+  .badge { display: inline-block; padding: 0.15rem 0.5rem; border-radius: 0.375rem; font-size: 0.7rem; font-weight: 600; }
+  .badge-iip { background: #fef3c7; color: #92400e; }
+  .badge-helb { background: #ede9fe; color: #5b21b6; }
+  .badge-ct { background: #dbeafe; color: #1e40af; }
+  .badge-pp { background: #dcfce7; color: #166534; }
+  .badge-cc { background: #fce7f3; color: #9d174d; }
+  .badge-exp { background: #f1f5f9; color: #475569; }
+  .badge-complete { background: #dcfce7; color: #166534; }
+  .badge-incomplete { background: #fef3c7; color: #92400e; }
+  .page { display: none; }
+  .page.active { display: block; }
+  .nav-link { padding: 0.4rem 0.75rem; border-radius: 0.375rem; font-size: 0.875rem; font-weight: 500; transition: all 0.15s; cursor: pointer; user-select: none; }
+  .nav-link.active { background: #D4A017; color: white; }
+  .nav-link:not(.active) { color: #374151; }
+  .nav-link:not(.active):hover { background: rgba(212, 160, 23, 0.1); }
+  .bar { transition: opacity 0.2s; }
+  .bar:hover { opacity: 0.8; cursor: pointer; }
+  .demo-banner { position: fixed; bottom: 12px; right: 12px; z-index: 50; background: #1f2937; color: white; padding: 8px 14px; border-radius: 8px; font-size: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.15); }
+  .modal-backdrop { position: fixed; inset: 0; background: rgba(0,0,0,0.4); display: flex; align-items: center; justify-content: center; padding: 1rem; z-index: 30; }
+  .modal { background: white; border-radius: 0.75rem; box-shadow: 0 20px 50px rgba(0,0,0,0.3); max-width: 56rem; width: 100%; max-height: 90vh; overflow: auto; }
+</style>
+</head>
+<body class="text-gray-800">
+
+<!-- LOGIN -->
+<div id="page-login" class="page min-h-screen flex items-center justify-center p-4" style="background: linear-gradient(135deg, rgba(212,160,23,0.10), rgba(142,107,176,0.10));">
+  <div class="bg-white rounded-2xl shadow-xl p-10 w-full max-w-sm border-t-4 border-iip-gold">
+    <div class="text-center mb-8">
+      <div class="inline-block bg-iip-gold rounded-xl p-3 mb-3">
+        <svg class="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 14l6-6m-5.5.5h.01m4.99 5h.01M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16l3.5-2 3.5 2 3.5-2 3.5 2z"/>
+        </svg>
+      </div>
+      <h1 class="font-title text-3xl text-iip-gold font-bold">Attributions IIP</h1>
+      <p class="text-sm text-gray-500 mt-1">Institut Prigogine — 2025-2026</p>
+    </div>
+    <form id="login-form" autocomplete="off">
+      <label class="block text-sm font-medium text-gray-700 mb-1">Email</label>
+      <input type="email" value="admin@example.be" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-iip-gold focus:border-iip-gold outline-none mb-4 text-sm">
+      <label class="block text-sm font-medium text-gray-700 mb-1">Mot de passe</label>
+      <input type="password" value="demo" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-iip-gold focus:border-iip-gold outline-none mb-6 text-sm">
+      <button type="submit" class="w-full bg-iip-gold hover:bg-iip-amber text-white font-medium py-2.5 rounded-md transition shadow-sm cursor-pointer">Se connecter →</button>
+    </form>
+    <div class="mt-6 pt-4 border-t border-gray-100 text-xs text-gray-400 text-center">💡 Maquette de démo — n'importe quel mot de passe fonctionne</div>
+  </div>
+</div>
+
+<!-- LAYOUT -->
+<div id="layout" style="display:none;" class="min-h-screen flex flex-col">
+  <header class="bg-white border-b border-iip-gold/30 px-6 py-3 flex items-center justify-between sticky top-0 z-20 shadow-sm">
+    <div class="flex items-center gap-6">
+      <div class="flex items-center gap-2">
+        <div class="bg-iip-gold rounded-lg p-1.5">
+          <svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/></svg>
+        </div>
+        <span class="font-title text-xl text-iip-gold font-bold">Attributions IIP</span>
+      </div>
+      <nav class="flex gap-1">
+        <div class="nav-link" data-page="dashboard">Tableau de bord</div>
+        <div class="nav-link" data-page="attributions">Attributions</div>
+        <div class="nav-link" data-page="planning">Planning</div>
+        <div class="nav-link" data-page="professeurs">Professeurs</div>
+        <div class="nav-link" data-page="pilotage">Pilotage</div>
+        <div class="nav-link" data-page="users">Utilisateurs</div>
+      </nav>
+    </div>
+    <div class="flex items-center gap-3 text-sm">
+      <div class="text-right">
+        <div class="text-gray-700 font-medium">Admin Démo</div>
+        <div class="text-xs text-gray-400">IT Manager</div>
+      </div>
+      <span class="text-xs bg-iip-mauve/15 text-iip-mauve px-2 py-0.5 rounded font-medium">admin</span>
+      <button id="logout-btn" class="text-gray-500 hover:text-iip-orange text-sm cursor-pointer">Déconnexion</button>
+    </div>
+  </header>
+
+  <main class="flex-1">
+
+  <!-- DASHBOARD -->
+  <div id="page-dashboard" class="page p-6 max-w-7xl mx-auto">
+    <div class="flex items-baseline justify-between mb-6">
+      <h1 class="text-3xl font-title text-iip-gold">Tableau de bord</h1>
+      <span class="text-sm text-gray-500">Année académique 2025-2026</span>
+    </div>
+    <div class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-8">
+      <div class="bg-white rounded-xl border border-gray-200 p-5 shadow-sm">
+        <div class="text-xs uppercase tracking-wider text-gray-500">Attributions</div>
+        <div class="text-3xl font-bold mt-1 text-gray-900">435</div>
+        <div class="text-xs text-gray-500 mt-1">120 UE · 131 professeurs</div>
+      </div>
+      <div class="bg-white rounded-xl border border-gray-200 p-5 shadow-sm relative overflow-hidden">
+        <div class="absolute top-0 right-0 w-20 h-20 bg-iip-gold/10 rounded-full -mr-8 -mt-8"></div>
+        <div class="text-xs uppercase tracking-wider text-gray-500 relative">Périodes IIP</div>
+        <div class="text-3xl font-bold mt-1 text-iip-gold relative">9 303</div>
+        <div class="text-xs text-gray-500 mt-1 relative">contrats IIP</div>
+      </div>
+      <div class="bg-white rounded-xl border border-gray-200 p-5 shadow-sm relative overflow-hidden">
+        <div class="absolute top-0 right-0 w-20 h-20 bg-iip-mauve/10 rounded-full -mr-8 -mt-8"></div>
+        <div class="text-xs uppercase tracking-wider text-gray-500 relative">Périodes HELB</div>
+        <div class="text-3xl font-bold mt-1 text-iip-mauve relative">2 825</div>
+        <div class="text-xs text-gray-500 mt-1 relative">section TIM principalement</div>
+      </div>
+      <div class="bg-white rounded-xl border border-gray-200 p-5 shadow-sm relative overflow-hidden">
+        <div class="absolute top-0 right-0 w-20 h-20 bg-green-100 rounded-full -mr-8 -mt-8"></div>
+        <div class="text-xs uppercase tracking-wider text-gray-500 relative">Solde dispo</div>
+        <div class="text-3xl font-bold mt-1 text-green-600 relative">4 177</div>
+        <div class="text-xs text-gray-500 mt-1 relative">sur 13 480</div>
+      </div>
+    </div>
+
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+      <div class="bg-white rounded-xl border border-gray-200 p-6 shadow-sm lg:col-span-2">
+        <h2 class="font-title text-lg text-iip-gold mb-4">Répartition des périodes par section</h2>
+        <svg viewBox="0 0 700 350" class="w-full" xmlns="http://www.w3.org/2000/svg">
+          <g stroke="#f3f4f6" stroke-width="1">
+            <line x1="80" y1="50" x2="690" y2="50"/><line x1="80" y1="110" x2="690" y2="110"/>
+            <line x1="80" y1="170" x2="690" y2="170"/><line x1="80" y1="230" x2="690" y2="230"/>
+            <line x1="80" y1="290" x2="690" y2="290"/>
+          </g>
+          <g font-size="10" fill="#9ca3af" text-anchor="end">
+            <text x="75" y="55">5000</text><text x="75" y="115">3750</text>
+            <text x="75" y="175">2500</text><text x="75" y="235">1250</text>
+            <text x="75" y="295">0</text>
+          </g>
+          <g>
+            <rect class="bar" x="100" y="50" width="50" height="240" fill="#D4A017"/>
+            <rect class="bar" x="100" y="13" width="50" height="37" fill="#8E6BB0"/>
+            <text x="125" y="305" font-size="11" fill="#4b5563" text-anchor="middle" font-weight="600">TIM</text>
+            <text x="125" y="318" font-size="9" fill="#9ca3af" text-anchor="middle">4 911</text>
+            <rect class="bar" x="160" y="161" width="50" height="129" fill="#D4A017"/>
+            <text x="185" y="305" font-size="11" fill="#4b5563" text-anchor="middle" font-weight="600">Optométrie</text>
+            <text x="185" y="318" font-size="9" fill="#9ca3af" text-anchor="middle">2 676</text>
+            <rect class="bar" x="220" y="189" width="50" height="101" fill="#D4A017"/>
+            <text x="245" y="305" font-size="11" fill="#4b5563" text-anchor="middle" font-weight="600">Psycho</text>
+            <text x="245" y="318" font-size="9" fill="#9ca3af" text-anchor="middle">2 102</text>
+            <rect class="bar" x="280" y="259" width="50" height="31" fill="#D4A017"/>
+            <text x="305" y="305" font-size="11" fill="#4b5563" text-anchor="middle" font-weight="600">ATNUP</text>
+            <text x="305" y="318" font-size="9" fill="#9ca3af" text-anchor="middle">648</text>
+            <rect class="bar" x="340" y="263" width="50" height="27" fill="#D4A017"/>
+            <text x="365" y="305" font-size="11" fill="#4b5563" text-anchor="middle" font-weight="600">Optique</text>
+            <text x="365" y="318" font-size="9" fill="#9ca3af" text-anchor="middle">568</text>
+            <rect class="bar" x="400" y="267" width="50" height="23" fill="#D4A017"/>
+            <text x="425" y="305" font-size="11" fill="#4b5563" text-anchor="middle" font-weight="600">ME</text>
+            <text x="425" y="318" font-size="9" fill="#9ca3af" text-anchor="middle">480</text>
+            <rect class="bar" x="460" y="270" width="50" height="20" fill="#D4A017"/>
+            <text x="485" y="305" font-size="11" fill="#4b5563" text-anchor="middle" font-weight="600">SAR</text>
+            <text x="485" y="318" font-size="9" fill="#9ca3af" text-anchor="middle">420</text>
+            <rect class="bar" x="520" y="282" width="50" height="8" fill="#D4A017"/>
+            <text x="545" y="305" font-size="11" fill="#4b5563" text-anchor="middle" font-weight="600">RESTART</text>
+            <text x="545" y="318" font-size="9" fill="#9ca3af" text-anchor="middle">180</text>
+            <rect class="bar" x="580" y="285" width="50" height="5" fill="#D4A017"/>
+            <text x="605" y="305" font-size="11" fill="#4b5563" text-anchor="middle" font-weight="600">FID</text>
+            <text x="605" y="318" font-size="9" fill="#9ca3af" text-anchor="middle">95</text>
+            <rect class="bar" x="640" y="287" width="50" height="3" fill="#D4A017"/>
+            <text x="665" y="305" font-size="11" fill="#4b5563" text-anchor="middle" font-weight="600">Soins</text>
+            <text x="665" y="318" font-size="9" fill="#9ca3af" text-anchor="middle">48</text>
+          </g>
+          <g transform="translate(530, 10)">
+            <rect width="12" height="12" fill="#D4A017"/><text x="18" y="10" font-size="11" fill="#374151">IIP</text>
+            <rect x="50" width="12" height="12" fill="#8E6BB0"/><text x="68" y="10" font-size="11" fill="#374151">HELB</text>
+          </g>
+        </svg>
+      </div>
+      <div class="space-y-4">
+        <div class="bg-white rounded-xl border border-gray-200 p-6 shadow-sm">
+          <h2 class="font-title text-lg text-iip-gold mb-4">Coût dotation</h2>
+          <div class="text-4xl font-bold text-iip-orange">13 954</div>
+          <div class="text-sm text-gray-500 mt-2">Périodes pondérées</div>
+        </div>
+        <div class="bg-white rounded-xl border border-gray-200 p-6 shadow-sm">
+          <h2 class="font-title text-lg text-iip-gold mb-3">Quadrimestres</h2>
+          <div class="space-y-3">
+            <div><div class="flex justify-between text-sm mb-1"><span>Q1</span><span class="font-medium">5 432</span></div>
+              <div class="h-2 bg-gray-100 rounded"><div class="h-full bg-iip-gold rounded" style="width:39%"></div></div></div>
+            <div><div class="flex justify-between text-sm mb-1"><span>Q2</span><span class="font-medium">3 891</span></div>
+              <div class="h-2 bg-gray-100 rounded"><div class="h-full bg-iip-amber rounded" style="width:28%"></div></div></div>
+            <div><div class="flex justify-between text-sm mb-1"><span>Q1/Q2</span><span class="font-medium">4 631</span></div>
+              <div class="h-2 bg-gray-100 rounded"><div class="h-full bg-iip-mauve rounded" style="width:33%"></div></div></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ATTRIBUTIONS -->
+  <div id="page-attributions" class="page p-4">
+    <div class="bg-white rounded-lg border border-gray-200 p-3 mb-3 flex flex-wrap items-end gap-2">
+      <div><label class="block text-xs text-gray-600 mb-0.5 font-medium">Section</label>
+        <select class="border border-gray-300 rounded px-2 py-1 text-sm bg-white">
+          <option>— Toutes —</option><option selected>TIM</option><option>Optométrie</option>
+        </select></div>
+      <div><label class="block text-xs text-gray-600 mb-0.5 font-medium">Professeur</label>
+        <select class="border border-gray-300 rounded px-2 py-1 text-sm bg-white min-w-[180px]">
+          <option>— Tous —</option><option>Prof Démo</option>
+        </select></div>
+      <div><label class="block text-xs text-gray-600 mb-0.5 font-medium">Contrat</label>
+        <select class="border border-gray-300 rounded px-2 py-1 text-sm bg-white"><option>—</option><option>IIP</option></select></div>
+      <div><label class="block text-xs text-gray-600 mb-0.5 font-medium">Type</label>
+        <select class="border border-gray-300 rounded px-2 py-1 text-sm bg-white"><option>—</option><option>CT</option></select></div>
+      <div class="flex-1 min-w-[200px]"><label class="block text-xs text-gray-600 mb-0.5 font-medium">Recherche libre</label>
+        <input placeholder="UE, cours, professeur..." class="border border-gray-300 rounded px-2 py-1 text-sm w-full"></div>
+      <button class="bg-iip-gold hover:bg-iip-amber text-white text-sm px-4 py-1.5 rounded font-medium">Filtrer</button>
+      <button class="text-gray-600 hover:text-iip-orange text-sm px-2 py-1.5">Réinitialiser</button>
+      <div class="ml-auto flex gap-2">
+        <button onclick="document.getElementById('modal-new').style.display='flex'" class="bg-iip-gold hover:bg-iip-amber text-white text-sm px-3 py-1.5 rounded font-medium">➕ Nouvelle</button>
+        <button class="bg-iip-mauve hover:opacity-90 text-white text-sm px-3 py-1.5 rounded font-medium">📥 Export Excel</button>
+      </div>
+    </div>
+    <div class="flex gap-4 mb-3 text-sm">
+      <span class="bg-white rounded px-3 py-1.5 border border-gray-200"><b>8</b> lignes • Total <b>361</b> per. • IIP <b class="text-iip-gold">320</b> • HELB <b class="text-iip-mauve">41</b></span>
+    </div>
+    <div class="bg-white rounded-lg border border-gray-200 overflow-auto" style="max-height:calc(100vh - 260px);">
+      <table class="grid-excel">
+        <thead><tr><th>Section</th><th>Contrat</th><th>UE</th><th>Nom de l'UE</th><th>Bloc</th><th>Q</th><th>Code</th><th>Cours</th><th>Type</th><th>Gr.</th><th>Professeur</th><th>Stat.</th><th class="text-right">Per.</th><th class="text-right">Aut.</th><th class="text-right">Total</th><th class="text-right">Hrs</th><th class="text-right">Coût</th><th></th></tr></thead>
+        <tbody>
+          <tr><td>TIM</td><td><span class="badge badge-iip">IIP</span></td><td class="num">250</td><td>Technique de positionnement d'imagerie</td><td>BA2</td><td>Q1/Q2</td><td>250.1</td><td>Technique CT</td><td><span class="badge badge-ct">CT</span></td><td>B</td><td class="font-medium">Prof Démo</td><td><span class="badge badge-cc">CC</span></td><td class="num"><input class="input-cell" value="40"></td><td class="num"><input class="input-cell" value="0"></td><td class="num font-semibold">40</td><td class="num">33</td><td class="num">60</td><td class="text-center"><span class="text-red-500 cursor-pointer">🗑</span></td></tr>
+          <tr><td>TIM</td><td><span class="badge badge-iip">IIP</span></td><td class="num">250</td><td>Technique de positionnement d'imagerie</td><td>BA2</td><td>Q1/Q2</td><td>250.2</td><td>Radiographie, mammographie...</td><td><span class="badge badge-ct">CT</span></td><td>0</td><td class="font-medium">Prof Démo</td><td><span class="badge badge-cc">CC</span></td><td class="num"><input class="input-cell" value="38"></td><td class="num"><input class="input-cell" value="10"></td><td class="num font-semibold">48</td><td class="num">40</td><td class="num">72</td><td class="text-center"><span class="text-red-500 cursor-pointer">🗑</span></td></tr>
+          <tr><td>TIM</td><td><span class="badge badge-helb">HELB</span></td><td class="num">254</td><td>Anatomie et physiologie</td><td>BA2</td><td>Q1/Q2</td><td>254.1</td><td>Anatomie</td><td><span class="badge badge-ct">CT</span></td><td>A2</td><td class="font-medium">Prof Démo</td><td><span class="badge badge-cc">CC</span></td><td class="num"><input class="input-cell" value="17"></td><td class="num"><input class="input-cell" value="0"></td><td class="num font-semibold">17</td><td class="num">14</td><td class="num">—</td><td class="text-center"><span class="text-red-500 cursor-pointer">🗑</span></td></tr>
+          <tr><td>TIM</td><td><span class="badge badge-iip">IIP</span></td><td class="num">256</td><td>Radioprotection et législation</td><td>BA3</td><td>Q1</td><td>256.1</td><td>Radioprotection</td><td><span class="badge badge-ct">CT</span></td><td>B</td><td class="font-medium">Prof Démo</td><td><span class="badge badge-cc">CC</span></td><td class="num"><input class="input-cell" value="32"></td><td class="num"><input class="input-cell" value="0"></td><td class="num font-semibold">32</td><td class="num">27</td><td class="num">48</td><td class="text-center"><span class="text-red-500 cursor-pointer">🗑</span></td></tr>
+          <tr><td>TIM</td><td><span class="badge badge-iip">IIP</span></td><td class="num">258</td><td>Stage d'intégration professionnelle</td><td>BA3</td><td>Q1/Q2</td><td>258.1</td><td>Stage TIM</td><td><span class="badge badge-pp">PP</span></td><td>A</td><td class="font-medium">Prof Démo</td><td><span class="badge badge-cc">CC</span></td><td class="num"><input class="input-cell" value="80"></td><td class="num"><input class="input-cell" value="20"></td><td class="num font-semibold">100</td><td class="num">83</td><td class="num">150</td><td class="text-center"><span class="text-red-500 cursor-pointer">🗑</span></td></tr>
+          <tr><td>TIM</td><td><span class="badge badge-iip">IIP</span></td><td class="num">259</td><td>Travail de fin d'études</td><td>BA3</td><td>Q1/Q2</td><td>259.1</td><td>TFE encadrement</td><td><span class="badge badge-pp">PP</span></td><td>A</td><td class="font-medium">Prof Démo</td><td><span class="badge badge-cc">CC</span></td><td class="num"><input class="input-cell" value="60"></td><td class="num"><input class="input-cell" value="0"></td><td class="num font-semibold">60</td><td class="num">50</td><td class="num">90</td><td class="text-center"><span class="text-red-500 cursor-pointer">🗑</span></td></tr>
+          <tr><td>TIM</td><td><span class="badge badge-helb">HELB</span></td><td class="num">261</td><td>Imagerie numérique</td><td>BA3</td><td>Q1</td><td>261.1</td><td>Imagerie numérique</td><td><span class="badge badge-ct">CT</span></td><td>B</td><td class="font-medium">Prof Démo</td><td><span class="badge badge-cc">CC</span></td><td class="num"><input class="input-cell" value="24"></td><td class="num"><input class="input-cell" value="0"></td><td class="num font-semibold">24</td><td class="num">20</td><td class="num">—</td><td class="text-center"><span class="text-red-500 cursor-pointer">🗑</span></td></tr>
+          <tr><td>TIM</td><td><span class="badge badge-iip">IIP</span></td><td class="num">252</td><td>Physique appliquée à l'imagerie</td><td>BA1</td><td>Q1</td><td>252.1</td><td>Physique des rayonnements</td><td><span class="badge badge-ct">CT</span></td><td>B</td><td class="font-medium">Prof Démo</td><td><span class="badge badge-cc">CC</span></td><td class="num"><input class="input-cell" value="40"></td><td class="num"><input class="input-cell" value="0"></td><td class="num font-semibold">40</td><td class="num">33</td><td class="num">60</td><td class="text-center"><span class="text-red-500 cursor-pointer">🗑</span></td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- MODALE NOUVELLE ATTRIBUTION -->
+  <div id="modal-new" class="modal-backdrop" style="display:none;" onclick="if(event.target===this) this.style.display='none'">
+    <div class="modal">
+      <div class="sticky top-0 bg-white border-b border-gray-200 p-5 flex items-center justify-between">
+        <h2 class="text-xl font-title text-iip-gold">Nouvelle attribution</h2>
+        <button onclick="document.getElementById('modal-new').style.display='none'" class="text-gray-400 hover:text-red-500 text-2xl leading-none">×</button>
+      </div>
+      <div class="p-6 space-y-5">
+        <fieldset class="grid grid-cols-4 gap-3">
+          <legend class="text-sm font-medium text-gray-700 mb-2 col-span-full">📋 Contexte</legend>
+          <div><label class="block text-xs text-gray-600 mb-0.5">Section *</label>
+            <select class="w-full border border-gray-300 rounded px-2 py-1.5 text-sm"><option>TIM</option><option>Optométrie</option><option>Psychomotricité</option></select></div>
+          <div><label class="block text-xs text-gray-600 mb-0.5">Contrat MDP</label>
+            <select class="w-full border border-gray-300 rounded px-2 py-1.5 text-sm"><option>IIP</option><option>HELB</option></select></div>
+          <div><label class="block text-xs text-gray-600 mb-0.5">Étab. réf.</label>
+            <select class="w-full border border-gray-300 rounded px-2 py-1.5 text-sm"><option>IIP</option></select></div>
+          <div><label class="block text-xs text-gray-600 mb-0.5">Organisation</label>
+            <select class="w-full border border-gray-300 rounded px-2 py-1.5 text-sm"><option>Organisé (x)</option></select></div>
+        </fieldset>
+        <fieldset class="grid grid-cols-4 gap-3">
+          <legend class="text-sm font-medium text-gray-700 mb-2 col-span-full">📚 UE et cours</legend>
+          <div class="col-span-2"><label class="block text-xs text-gray-600 mb-0.5">UE *</label>
+            <select class="w-full border border-gray-300 rounded px-2 py-1.5 text-sm"><option>250 — Technique de positionnement, d'acquisition et de formation d'images</option><option>254 — Anatomie</option></select></div>
+          <div><label class="block text-xs text-gray-600 mb-0.5">N° orga</label><input type="number" value="1" class="w-full border border-gray-300 rounded px-2 py-1.5 text-sm"></div>
+          <div><label class="block text-xs text-gray-600 mb-0.5">Quadri</label>
+            <select class="w-full border border-gray-300 rounded px-2 py-1.5 text-sm"><option>Q1/Q2</option><option>Q1</option><option>Q2</option></select></div>
+          <div class="col-span-2"><label class="block text-xs text-gray-600 mb-0.5">Cours *</label>
+            <select class="w-full border border-gray-300 rounded px-2 py-1.5 text-sm"><option>250.1 — Technique CT</option><option>250.2 — Radiographie</option></select></div>
+          <div><label class="block text-xs text-gray-600 mb-0.5">Type</label>
+            <select class="w-full border border-gray-300 rounded px-2 py-1.5 text-sm"><option>CT (800ᵉ)</option><option>PP (1000ᵉ)</option></select></div>
+          <div><label class="block text-xs text-gray-600 mb-0.5">Type HELB</label>
+            <select class="w-full border border-gray-300 rounded px-2 py-1.5 text-sm"><option>—</option><option>MFP (750h)</option><option>MA (480h)</option></select></div>
+        </fieldset>
+        <fieldset class="grid grid-cols-4 gap-3">
+          <legend class="text-sm font-medium text-gray-700 mb-2 col-span-full">👨‍🏫 Professeur</legend>
+          <div class="col-span-2"><label class="block text-xs text-gray-600 mb-0.5">Professeur *</label>
+            <select class="w-full border border-gray-300 rounded px-2 py-1.5 text-sm"><option>Prof Démo (CC)</option><option>Prof Démo (CC)</option></select></div>
+          <div><label class="block text-xs text-gray-600 mb-0.5">Cours/EPT/AD</label>
+            <select class="w-full border border-gray-300 rounded px-2 py-1.5 text-sm"><option>C</option><option>EPT</option><option>AD</option></select></div>
+          <div><label class="block text-xs text-gray-600 mb-0.5">Coordination</label>
+            <select class="w-full border border-gray-300 rounded px-2 py-1.5 text-sm"><option>Cours</option><option>COCUR</option><option>COSTA</option></select></div>
+        </fieldset>
+        <fieldset class="bg-iip-gold/5 rounded-lg p-4 border border-iip-gold/20">
+          <legend class="text-sm font-medium text-iip-gold mb-2 px-1">⭐ Charge (inputs principaux)</legend>
+          <div class="grid grid-cols-5 gap-3">
+            <div><label class="block text-xs text-gray-600 mb-0.5">Périodes</label>
+              <input type="number" value="40" step="0.5" class="w-full border border-iip-gold/40 rounded px-2 py-1.5 text-sm bg-white"></div>
+            <div><label class="block text-xs text-gray-600 mb-0.5">Autonomie</label>
+              <input type="number" value="0" step="0.5" class="w-full border border-iip-gold/40 rounded px-2 py-1.5 text-sm bg-white"></div>
+            <div><label class="block text-xs text-gray-500 mb-0.5">Total</label>
+              <div class="border border-gray-200 rounded px-2 py-1.5 text-sm bg-gray-50 font-semibold">40</div></div>
+            <div><label class="block text-xs text-gray-500 mb-0.5">Heures (50/60)</label>
+              <div class="border border-gray-200 rounded px-2 py-1.5 text-sm bg-gray-50">33</div></div>
+            <div><label class="block text-xs text-gray-500 mb-0.5">Coût dot. SUP×1.5</label>
+              <div class="border border-gray-200 rounded px-2 py-1.5 text-sm bg-gray-50">60</div></div>
+          </div>
+        </fieldset>
+      </div>
+      <div class="sticky bottom-0 bg-gray-50 border-t border-gray-200 p-4 flex justify-end gap-2">
+        <button onclick="document.getElementById('modal-new').style.display='none'" class="px-4 py-2 text-sm text-gray-600 hover:text-gray-800">Annuler</button>
+        <button onclick="document.getElementById('modal-new').style.display='none'" class="bg-iip-gold hover:bg-iip-amber text-white text-sm px-5 py-2 rounded font-medium">✓ Créer l'attribution</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- PLANNING -->
+  <div id="page-planning" class="page p-4">
+    <div class="flex items-center gap-3 mb-3">
+      <h1 class="text-2xl font-title text-iip-gold">Planning hebdomadaire 2025-2026</h1>
+      <span class="text-sm text-gray-500">— 43 semaines (S0 → S42)</span>
+    </div>
+    <div class="bg-white rounded-lg border border-gray-200 p-3 mb-3 flex items-end gap-2">
+      <div><label class="block text-xs text-gray-600 mb-0.5 font-medium">Section</label>
+        <select class="border border-gray-300 rounded px-2 py-1 text-sm"><option>TIM</option></select></div>
+      <div><label class="block text-xs text-gray-600 mb-0.5 font-medium">Professeur</label>
+        <select class="border border-gray-300 rounded px-2 py-1 text-sm min-w-[200px]"><option>— Tous —</option></select></div>
+      <button class="bg-iip-gold hover:bg-iip-amber text-white text-sm px-4 py-1.5 rounded">Filtrer</button>
+      <span class="ml-auto text-xs text-gray-500">Code couleur : <span class="text-green-600">●</span> placé ok · <span class="text-red-600">●</span> reste à placer · <span class="text-orange-600">●</span> sur-placé</span>
+    </div>
+    <div class="bg-white rounded-lg border border-gray-200 overflow-auto" style="max-height:calc(100vh - 200px);">
+      <table class="grid-excel">
+        <thead><tr>
+          <th class="sticky left-0 z-10" style="background:#D4A017; min-width:200px;">Professeur</th>
+          <th>Sect</th><th>UE</th><th>Cours</th><th>Type</th><th>Gr</th><th>Q</th>
+          <th class="text-right">Hrs cible</th><th class="text-right">Placé</th><th class="text-right">Solde</th>
+          <th class="text-center" style="min-width:32px;">S0</th><th class="text-center" style="min-width:32px;">S1</th>
+          <th class="text-center" style="min-width:32px;">S2</th><th class="text-center" style="min-width:32px;">S3</th>
+          <th class="text-center" style="min-width:32px;">S4</th><th class="text-center" style="min-width:32px;">S5</th>
+          <th class="text-center" style="min-width:32px;">S6</th><th class="text-center" style="min-width:32px;">S7</th>
+          <th class="text-center" style="min-width:32px;">S8</th><th class="text-center" style="min-width:32px;">S9</th>
+          <th class="text-center" style="min-width:32px;">S10</th><th class="text-center" style="min-width:32px;">S11</th>
+          <th class="text-center" style="min-width:32px;">S12</th><th class="text-center" style="min-width:32px;">...</th>
+          <th class="text-center" style="min-width:36px;">S42</th>
+        </tr></thead>
+        <tbody>
+          <tr><td class="sticky left-0 bg-white z-10 font-medium">Prof Démo</td>
+            <td>Optométrie</td><td>303</td><td class="text-xs">Optométrie clinique</td><td>CT</td><td>A</td><td>Q1/Q2</td>
+            <td class="num">217</td><td class="num font-medium">217</td><td class="num text-green-600 font-semibold">0</td>
+            <td class="num">5</td><td class="num">5</td><td class="num">5</td><td class="num">5</td>
+            <td class="num">5</td><td class="num">5</td><td class="num">5</td><td class="num">—</td>
+            <td class="num">5</td><td class="num">5</td><td class="num">5</td><td class="num">5</td>
+            <td class="num">5</td><td class="text-center">...</td><td class="num">5</td></tr>
+          <tr><td class="sticky left-0 bg-white z-10 font-medium">Prof Démo</td>
+            <td>TIM</td><td>182</td><td class="text-xs">Imagerie médicale 2</td><td>CT</td><td>B</td><td>Q2</td>
+            <td class="num">73</td><td class="num font-medium">72</td><td class="num text-red-600 font-semibold">1</td>
+            <td class="num">—</td><td class="num">—</td><td class="num">—</td><td class="num">—</td>
+            <td class="num">—</td><td class="num">—</td><td class="num">—</td><td class="num">—</td>
+            <td class="num">—</td><td class="num">—</td><td class="num">—</td><td class="num">—</td>
+            <td class="num">—</td><td class="text-center">...</td><td class="num">—</td></tr>
+          <tr><td class="sticky left-0 bg-white z-10 font-medium">Prof Démo</td>
+            <td>TIM</td><td>250</td><td class="text-xs">Technique d'imagerie</td><td>CT</td><td>B</td><td>Q1/Q2</td>
+            <td class="num">33</td><td class="num font-medium">15</td><td class="num text-red-600 font-semibold">18</td>
+            <td class="num">2</td><td class="num">2</td><td class="num">2</td><td class="num">2</td>
+            <td class="num">2</td><td class="num">—</td><td class="num">—</td><td class="num">—</td>
+            <td class="num">—</td><td class="num">—</td><td class="num">—</td><td class="num">2</td>
+            <td class="num">3</td><td class="text-center">...</td><td class="num">—</td></tr>
+          <tr><td class="sticky left-0 bg-white z-10 font-medium">Prof Démo</td>
+            <td>TIM</td><td>258</td><td class="text-xs">Stage TIM supervision</td><td>PP</td><td>A</td><td>Q1/Q2</td>
+            <td class="num">83</td><td class="num font-medium">85</td><td class="num text-orange-600 font-semibold">-2</td>
+            <td class="num">2</td><td class="num">2</td><td class="num">2</td><td class="num">2</td>
+            <td class="num">3</td><td class="num">3</td><td class="num">3</td><td class="num">3</td>
+            <td class="num">3</td><td class="num">3</td><td class="num">2</td><td class="num">2</td>
+            <td class="num">2</td><td class="text-center">...</td><td class="num">2</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- PROFESSEURS -->
+  <div id="page-professeurs" class="page p-6 max-w-7xl mx-auto">
+    <div class="flex items-center justify-between mb-4">
+      <h1 class="text-2xl font-title text-iip-gold">Corps professoral</h1>
+      <input placeholder="Rechercher..." class="border border-gray-300 rounded px-3 py-1.5 text-sm w-80">
+    </div>
+    <div class="bg-white rounded-lg border border-gray-200 overflow-auto">
+      <table class="grid-excel">
+        <thead><tr><th>Nom et prénom</th><th>Statut</th><th>Email</th><th class="text-right">Total IIP</th><th class="text-right">HELB (hrs)</th><th>Prestations</th><th>Ancien.</th><th></th></tr></thead>
+        <tbody>
+          <tr><td class="font-medium">Prof Démo</td><td><span class="badge badge-cc">CC</span></td><td class="text-xs text-gray-600">redacted@example.be</td><td class="num font-semibold">448</td><td class="num">0</td><td><span class="badge badge-incomplete">incomplètes</span></td><td class="num">8</td><td><button class="text-iip-orange hover:underline text-sm">Voir attributions</button></td></tr>
+          <tr><td class="font-medium">Prof Démo</td><td><span class="badge badge-cc">CC</span></td><td class="text-xs text-gray-600">redacted@example.be</td><td class="num font-semibold">419</td><td class="num">61</td><td><span class="badge badge-incomplete">incomplètes</span></td><td class="num">12</td><td><button class="text-iip-orange hover:underline text-sm">Voir attributions</button></td></tr>
+          <tr><td class="font-medium">Prof Démo</td><td><span class="badge badge-cc">CC</span></td><td class="text-xs text-gray-600">redacted@example.be</td><td class="num font-semibold">413</td><td class="num">0</td><td><span class="badge badge-incomplete">incomplètes</span></td><td class="num">5</td><td><button class="text-iip-orange hover:underline text-sm">Voir attributions</button></td></tr>
+          <tr><td class="font-medium">Prof Démo</td><td><span class="badge badge-cc">CC</span></td><td class="text-xs text-gray-600">redacted@example.be</td><td class="num font-semibold">364</td><td class="num">0</td><td><span class="badge badge-incomplete">incomplètes</span></td><td class="num">15</td><td><button class="text-iip-orange hover:underline text-sm">Voir attributions</button></td></tr>
+          <tr><td class="font-medium">Prof Démo</td><td><span class="badge badge-cc">CC</span></td><td class="text-xs text-gray-600">redacted@example.be</td><td class="num font-semibold">319</td><td class="num">0</td><td><span class="badge badge-incomplete">incomplètes</span></td><td class="num">10</td><td><button class="text-iip-orange hover:underline text-sm">Voir attributions</button></td></tr>
+          <tr><td class="font-medium">Prof Démo</td><td><span class="badge badge-cc">CC</span></td><td class="text-xs text-gray-600">redacted@example.be</td><td class="num font-semibold">298</td><td class="num">0</td><td><span class="badge badge-incomplete">incomplètes</span></td><td class="num">7</td><td><button class="text-iip-orange hover:underline text-sm">Voir attributions</button></td></tr>
+          <tr><td class="font-medium">Prof Démo</td><td><span class="badge badge-exp">EXP</span></td><td class="text-xs text-gray-600">redacted@example.be</td><td class="num font-semibold">280</td><td class="num">0</td><td><span class="badge badge-incomplete">incomplètes</span></td><td class="num">0</td><td><button class="text-iip-orange hover:underline text-sm">Voir attributions</button></td></tr>
+          <tr><td class="font-medium">Prof Démo</td><td><span class="badge badge-exp">EXP</span></td><td class="text-xs text-gray-600">redacted@example.be</td><td class="num font-semibold">157</td><td class="num">44</td><td><span class="badge badge-incomplete">incomplètes</span></td><td class="num">0</td><td><button class="text-iip-orange hover:underline text-sm">Voir attributions</button></td></tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="text-sm text-gray-500 mt-3">131 professeurs au total · affichage des 8 premiers</div>
+  </div>
+
+  <!-- PILOTAGE -->
+  <div id="page-pilotage" class="page p-6 max-w-7xl mx-auto space-y-6">
+    <h1 class="text-2xl font-title text-iip-gold">Pilotage 2025-2026</h1>
+    <section class="bg-white rounded-lg border border-gray-200 overflow-auto">
+      <div class="p-3 border-b flex items-center justify-between">
+        <h2 class="font-title text-lg text-iip-gold">Par section × niveau</h2>
+        <span class="text-xs text-gray-400">≡ Tableau8 Excel</span>
+      </div>
+      <table class="grid-excel">
+        <thead><tr><th>Section</th><th>Niv</th><th class="text-right">Per</th><th class="text-right">IIP</th><th class="text-right">HELB</th><th class="text-right">Coût</th><th class="text-right">Q1</th><th class="text-right">Q2</th><th class="text-right">Q1/Q2</th><th class="text-right">S-D</th><th class="text-right">J-J</th></tr></thead>
+        <tbody>
+          <tr><td class="font-medium">TIM</td><td>BA1</td><td class="num">1128</td><td class="num text-iip-gold">820</td><td class="num text-iip-mauve">308</td><td class="num">750</td><td class="num">312</td><td class="num">208</td><td class="num">230</td><td class="num">403</td><td class="num">346</td></tr>
+          <tr><td class="font-medium">TIM</td><td>BA2</td><td class="num">1495</td><td class="num text-iip-gold">980</td><td class="num text-iip-mauve">515</td><td class="num">1203</td><td class="num">588</td><td class="num">365</td><td class="num">250</td><td class="num">688</td><td class="num">515</td></tr>
+          <tr><td class="font-medium">TIM</td><td>BA3</td><td class="num">2288</td><td class="num text-iip-gold">1486</td><td class="num text-iip-mauve">802</td><td class="num">1176</td><td class="num">469</td><td class="num">407</td><td class="num">300</td><td class="num">589</td><td class="num">587</td></tr>
+          <tr><td class="font-medium">Optométrie</td><td>BA1</td><td class="num">1220</td><td class="num text-iip-gold">1220</td><td class="num text-iip-mauve">0</td><td class="num">1830</td><td class="num">488</td><td class="num">488</td><td class="num">244</td><td class="num">586</td><td class="num">634</td></tr>
+          <tr><td class="font-medium">Optométrie</td><td>BA2</td><td class="num">733</td><td class="num text-iip-gold">733</td><td class="num text-iip-mauve">0</td><td class="num">1100</td><td class="num">440</td><td class="num">220</td><td class="num">73</td><td class="num">469</td><td class="num">264</td></tr>
+          <tr><td class="font-medium">Optométrie</td><td>BA3</td><td class="num">723</td><td class="num text-iip-gold">723</td><td class="num text-iip-mauve">0</td><td class="num">1085</td><td class="num">362</td><td class="num">145</td><td class="num">216</td><td class="num">449</td><td class="num">274</td></tr>
+          <tr><td class="font-medium">Psychomotricité</td><td>BA1</td><td class="num">860</td><td class="num text-iip-gold">860</td><td class="num text-iip-mauve">0</td><td class="num">1290</td><td class="num">344</td><td class="num">516</td><td class="num">0</td><td class="num">344</td><td class="num">516</td></tr>
+          <tr><td class="font-medium">Psychomotricité</td><td>BA2</td><td class="num">622</td><td class="num text-iip-gold">622</td><td class="num text-iip-mauve">0</td><td class="num">933</td><td class="num">187</td><td class="num">373</td><td class="num">62</td><td class="num">212</td><td class="num">410</td></tr>
+          <tr><td class="font-medium">Psychomotricité</td><td>BA3</td><td class="num">620</td><td class="num text-iip-gold">620</td><td class="num text-iip-mauve">0</td><td class="num">930</td><td class="num">248</td><td class="num">248</td><td class="num">124</td><td class="num">298</td><td class="num">322</td></tr>
+          <tr><td class="font-medium">ATNUP</td><td>FC</td><td class="num">648</td><td class="num text-iip-gold">648</td><td class="num text-iip-mauve">0</td><td class="num">810</td><td class="num">810</td><td class="num">0</td><td class="num">0</td><td class="num">810</td><td class="num">0</td></tr>
+        </tbody>
+      </table>
+    </section>
+    <section class="bg-white rounded-lg border border-gray-200 overflow-auto">
+      <div class="p-3 border-b flex items-center justify-between">
+        <h2 class="font-title text-lg text-iip-gold">DOC 2-3 — Concordance par UE</h2>
+        <span class="text-xs text-gray-400">Écart entre votre planning et le document FWB</span>
+      </div>
+      <table class="grid-excel">
+        <thead><tr><th>UE</th><th>Nom</th><th>Sect</th><th class="text-right">DOC2 cours</th><th class="text-right">DOC2 auto</th><th class="text-right">DOC2 tot</th><th class="text-right">DP cours</th><th class="text-right">DP auto</th><th class="text-right">DP tot</th><th class="text-right">Écart</th></tr></thead>
+        <tbody>
+          <tr><td>219</td><td class="text-xs">Premiers secours (convention)</td><td>ATNUP</td><td class="num">164</td><td class="num">20</td><td class="num font-semibold">184</td><td class="num">38</td><td class="num">10</td><td class="num font-semibold">48</td><td class="num text-red-600 font-bold">136</td></tr>
+          <tr><td>250</td><td class="text-xs">Technique de positionnement d'imagerie</td><td>TIM</td><td class="num">120</td><td class="num">30</td><td class="num font-semibold">150</td><td class="num">118</td><td class="num">32</td><td class="num font-semibold">150</td><td class="num text-green-600">0</td></tr>
+          <tr><td>252</td><td class="text-xs">Physique appliquée à l'imagerie</td><td>TIM</td><td class="num">80</td><td class="num">20</td><td class="num font-semibold">100</td><td class="num">80</td><td class="num">20</td><td class="num font-semibold">100</td><td class="num text-green-600">0</td></tr>
+          <tr><td>254</td><td class="text-xs">Anatomie, physiologie et pathologies</td><td>TIM</td><td class="num">90</td><td class="num">10</td><td class="num font-semibold">100</td><td class="num">85</td><td class="num">10</td><td class="num font-semibold">95</td><td class="num text-red-600 font-bold">5</td></tr>
+          <tr><td>303</td><td class="text-xs">Optométrie clinique</td><td>Optométrie</td><td class="num">220</td><td class="num">40</td><td class="num font-semibold">260</td><td class="num">217</td><td class="num">42</td><td class="num font-semibold">259</td><td class="num text-red-600 font-bold">1</td></tr>
+        </tbody>
+      </table>
+    </section>
+  </div>
+
+  <!-- UTILISATEURS -->
+  <div id="page-users" class="page p-6 max-w-5xl mx-auto">
+    <div class="flex items-center justify-between mb-4">
+      <h1 class="text-2xl font-title text-iip-gold">Utilisateurs</h1>
+      <button class="bg-iip-gold hover:bg-iip-amber text-white text-sm px-4 py-1.5 rounded font-medium">➕ Nouvel utilisateur</button>
+    </div>
+    <div class="bg-white rounded-lg border border-gray-200 overflow-auto">
+      <table class="grid-excel">
+        <thead><tr><th>Nom</th><th>Email</th><th>Rôle</th><th>Actif</th><th>Créé</th><th>Dernière connex.</th><th>Actions</th></tr></thead>
+        <tbody>
+          <tr><td class="font-medium">Admin Démo</td><td class="text-xs">admin@example.be</td><td><select class="border border-gray-200 rounded px-2 py-1 text-xs" disabled><option>Administrateur</option></select></td><td><span class="badge badge-pp">Actif</span></td><td class="text-xs text-gray-500">2026-05-14</td><td class="text-xs text-gray-500">2026-05-14 22:30</td><td class="text-xs"><span class="text-iip-orange">🔑 MDP</span></td></tr>
+          <tr><td class="font-medium">Secrétariat IIP</td><td class="text-xs">secretariat@institut-prigogine.be</td><td><select class="border border-gray-200 rounded px-2 py-1 text-xs"><option>Administrateur</option><option selected>Éditeur</option><option>Consultation</option></select></td><td><span class="badge badge-pp">Actif</span></td><td class="text-xs text-gray-500">2026-05-14</td><td class="text-xs text-gray-500">2026-05-14 14:12</td><td class="text-xs"><span class="text-iip-orange">🔑 MDP</span> · <span class="text-red-500">🗑</span></td></tr>
+          <tr><td class="font-medium">Direction</td><td class="text-xs">direction@institut-prigogine.be</td><td><select class="border border-gray-200 rounded px-2 py-1 text-xs"><option>Administrateur</option><option>Éditeur</option><option selected>Consultation</option></select></td><td><span class="badge badge-pp">Actif</span></td><td class="text-xs text-gray-500">2026-05-14</td><td class="text-xs text-gray-500">—</td><td class="text-xs"><span class="text-iip-orange">🔑 MDP</span> · <span class="text-red-500">🗑</span></td></tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="mt-4 bg-iip-gold/5 border border-iip-gold/20 rounded p-3 text-sm">
+      <b>3 rôles disponibles :</b>
+      <ul class="mt-1 ml-4 list-disc">
+        <li><b>Administrateur</b> — tout (y compris gestion utilisateurs)</li>
+        <li><b>Éditeur</b> — création/modification/suppression d'attributions</li>
+        <li><b>Consultation</b> — lecture seule (idéal pour la direction ou les enseignants)</li>
+      </ul>
+    </div>
+  </div>
+
+  </main>
+</div>
+
+<div class="demo-banner">🎨 Maquette V2 — n'importe quel mot de passe fonctionne</div>
+
+<script>
+(function() {
+  'use strict';
+  function showPage(name) {
+    const layout = document.getElementById('layout');
+    const loginPage = document.getElementById('page-login');
+    if (name === 'login') { layout.style.display = 'none'; loginPage.classList.add('active'); }
+    else { layout.style.display = 'flex'; loginPage.classList.remove('active'); }
+    ['dashboard','attributions','planning','professeurs','pilotage','users'].forEach(p => {
+      const el = document.getElementById('page-' + p);
+      if (el) el.classList.toggle('active', p === name);
+    });
+    document.querySelectorAll('.nav-link').forEach(n => n.classList.toggle('active', n.dataset.page === name));
+    window.scrollTo(0, 0);
+  }
+  function init() {
+    const loginForm = document.getElementById('login-form');
+    if (loginForm) loginForm.addEventListener('submit', function(e) { e.preventDefault(); showPage('dashboard'); return false; });
+    document.querySelectorAll('.nav-link').forEach(link => {
+      link.addEventListener('click', function() { if (this.dataset.page) showPage(this.dataset.page); });
+    });
+    const logoutBtn = document.getElementById('logout-btn');
+    if (logoutBtn) logoutBtn.addEventListener('click', function() { showPage('login'); });
+    showPage('login');
+  }
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init);
+  else init();
+})();
+</script>
+</body>
+</html>

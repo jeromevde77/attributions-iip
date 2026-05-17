@@ -1,0 +1,64 @@
+import { Router } from 'express';
+import db from '../db/index.js';
+import { authRequired } from '../middleware/auth.js';
+
+const r = Router();
+
+r.get('/sections', authRequired, (req, res) => {
+  res.json(db.prepare('SELECT * FROM section ORDER BY code').all());
+});
+
+r.get('/ue', authRequired, (req, res) => {
+  const { section } = req.query;
+  let sql = 'SELECT * FROM ue';
+  const params = [];
+  if (section) { sql += ' WHERE section = ?'; params.push(section); }
+  sql += ' ORDER BY ue_num';
+  res.json(db.prepare(sql).all(...params));
+});
+
+r.get('/ue/:num', authRequired, (req, res) => {
+  const ue = db.prepare('SELECT * FROM ue WHERE ue_num = ?').get(req.params.num);
+  if (!ue) return res.status(404).json({ error: 'UE introuvable' });
+  const cours = db.prepare('SELECT * FROM cours WHERE ue_num = ?').all(req.params.num);
+  const aa = db.prepare('SELECT * FROM aa WHERE ue_num = ?').all(req.params.num);
+  res.json({ ...ue, cours, aa });
+});
+
+r.get('/cours', authRequired, (req, res) => {
+  const { ue_num, section } = req.query;
+  let sql = 'SELECT * FROM cours WHERE 1=1';
+  const params = [];
+  if (ue_num)  { sql += ' AND ue_num = ?'; params.push(ue_num); }
+  if (section) { sql += ' AND section = ?'; params.push(section); }
+  sql += ' ORDER BY cours_code';
+  res.json(db.prepare(sql).all(...params));
+});
+
+r.get('/professeurs', authRequired, (req, res) => {
+  res.json(db.prepare('SELECT * FROM v_professeur_total ORDER BY nom, prenom').all());
+});
+
+r.get('/professeurs/:id', authRequired, (req, res) => {
+  const p = db.prepare('SELECT * FROM v_professeur_total WHERE id = ?').get(req.params.id);
+  if (!p) return res.status(404).json({ error: 'Professeur introuvable' });
+  const attrs = db.prepare(`
+    SELECT * FROM v_attribution_complete
+    WHERE professeur_id = ? ORDER BY section, ue_num
+  `).all(req.params.id);
+  res.json({ ...p, attributions: attrs });
+});
+
+r.get('/locaux', authRequired, (req, res) => {
+  res.json(db.prepare('SELECT * FROM local ORDER BY nom').all());
+});
+
+r.get('/parametres', authRequired, (req, res) => {
+  res.json(db.prepare('SELECT * FROM parametre_financier').all());
+});
+
+r.get('/types-encadrement', authRequired, (req, res) => {
+  res.json(db.prepare('SELECT * FROM type_encadrement').all());
+});
+
+export default r;
