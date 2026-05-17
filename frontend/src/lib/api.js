@@ -68,6 +68,15 @@ export const api = {
   adminStats() { return request('/admin/stats'); },
   adminReimportExcel() { return request('/admin/reimport-excel', { method: 'POST' }); },
 
+  // création en masse depuis section
+  sectionUeCours(section) { return request(`/ref/sections/${encodeURIComponent(section)}/ue-cours`); },
+  bulkCreateFromSection(section, ue_nums) {
+    return request('/attributions/bulk-create-from-section', {
+      method: 'POST',
+      body: { section, ue_nums }
+    });
+  },
+
   // référentiels
   sections() { return request('/ref/sections'); },
   ue(section) { return request('/ref/ue' + (section ? `?section=${encodeURIComponent(section)}` : '')); },

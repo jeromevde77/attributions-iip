@@ -1,6 +1,7 @@
 import { useEffect, useState, useMemo } from 'react';
 import { api } from '../lib/api.js';
 import AttributionForm from '../components/AttributionForm.jsx';
+import BulkCreateForm from '../components/BulkCreateForm.jsx';
 
 const COLS = [
   {
@@ -58,6 +59,7 @@ export default function Attributions() {
   const [loading, setLoading] = useState(true);
   const [editing, setEditing] = useState({}); // { rowId: { field: value } }
   const [showForm, setShowForm] = useState(false);
+  const [showBulkCreate, setShowBulkCreate] = useState(false);
   const [sortBy, setSortBy] = useState({ key: null, dir: 'asc' });
   const [selected, setSelected] = useState(new Set());
   const [bulkDeleteModal, setBulkDeleteModal] = useState(null); // null | 'selection' | 'filtered' | 'all'
@@ -279,6 +281,10 @@ export default function Attributions() {
           <button onClick={() => setShowForm(true)} className="bg-iip-gold hover:bg-iip-amber text-white text-sm px-3 py-1.5 rounded font-medium">
             ➕ Nouvelle
           </button>
+          <button onClick={() => setShowBulkCreate(true)} className="bg-iip-gold hover:bg-iip-amber text-white text-sm px-3 py-1.5 rounded font-medium"
+                  title="Créer toutes les attributions d'une section d'un coup">
+            ➕➕ Créer une section
+          </button>
           <button onClick={() => api.exportExcel()} className="bg-iip-mauve hover:opacity-90 text-white text-sm px-3 py-1.5 rounded font-medium">
             📥 Export Excel
           </button>
@@ -404,6 +410,7 @@ export default function Attributions() {
       </div>
 
       {showForm && <AttributionForm onClose={() => setShowForm(false)} onCreated={load} />}
+      {showBulkCreate && <BulkCreateForm onClose={() => setShowBulkCreate(false)} onCreated={load} />}
 
       {bulkDeleteModal && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-40"

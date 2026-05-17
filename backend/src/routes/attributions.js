@@ -207,4 +207,59 @@ r.post('/bulk-delete-filtered', authRequired, roleRequired('admin'), (req, res) 
   res.json({ deleted });
 });
 
+/**
+ * Création en masse d'attributions à partir d'une sélection d'UE d'une section.
+ * Pour chaque cours des UE sélectionnées :
+ *   - si aucune attribution n'existe (section + code_cours), créer une attribution
+ *     squelette avec les infos issues de BD_UE_COURS (type_cours, quadrimestre)
+ *   - sinon, sauter (idempotent)
+ *
+ * Body : { section: "TIM", ue_nums: [250, 251, ...] }
+ */
+r.post('/bulk-create-from-section', authRequired, roleRequired('admin', 'editeur'), (req, res) => {
+  const { section, ue_nums } = req.body || {};
+  if (!section || !Array.isArray(ue_nums) || ue_nums.length === 0) {
+    return res.status(400).json({ error: 'section et ue_nums (tableau non vide) requis' });
+  }
+
+  const placeholders = ue_nums.map(() => '?').join(',');
+  // Récupérer tous les cours des UE sélectionnées pour cette section
+  const coursList = db.prepare(`
+    SELECT cours_code, ue_num, ct_pp, quadrimestre_cours
+    FROM cours
+    WHERE section = ? AND ue_num IN (${placeholders})
+    ORDER BY cours_code
+  `).all(section, ...ue_nums);
+
+  // Pour chaque cours, vérifier s'il a déjà une attribution dans cette section
+  const checkStmt = db.prepare(
+    'SELECT COUNT(*) AS n FROM attribution WHERE section = ? AND code_cours = ?'
+  );
+  const insertStmt = db.prepare(`
+    INSERT INTO attribution
+      (section, ue_num, code_cours, type_cours, quadrimestre_attribue,
+       contrat_mdp, etablissement_referent, organisation,
+       num_organisation, code, nb_groupes, split_groupe,
+       periodes_attribuees, autonomie_attribuee, annee_scolaire)
+    VALUES (?, ?, ?, ?, ?, NULL, 'IIP', 'x', 1, 'A', 1, 'N', 0, 0, '2025-2026')
+  `);
+
+  let created = 0;
+  let skipped = 0;
+  const tx = db.transaction(() => {
+    for (const c of coursList) {
+      const exists = checkStmt.get(section, c.cours_code).n;
+      if (exists > 0) { skipped++; continue; }
+      insertStmt.run(
+        section, c.ue_num, c.cours_code,
+        c.ct_pp, c.quadrimestre_cours
+      );
+      created++;
+    }
+  });
+  tx();
+
+  res.json({ created, skipped, total: coursList.length });
+});
+
 export default r;
