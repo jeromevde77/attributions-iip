@@ -51,6 +51,22 @@ export const api = {
   createAttribution(data) { return request('/attributions', { method: 'POST', body: data }); },
   updateAttribution(id, data) { return request(`/attributions/${id}`, { method: 'PATCH', body: data }); },
   deleteAttribution(id) { return request(`/attributions/${id}`, { method: 'DELETE' }); },
+  bulkDeleteAttributions(ids) {
+    return request('/attributions/bulk-delete', { method: 'POST', body: { ids } });
+  },
+  bulkDeletePreview(filters = {}) {
+    return request('/attributions/bulk-delete-preview', { method: 'POST', body: filters });
+  },
+  bulkDeleteFiltered(filters = {}) {
+    return request('/attributions/bulk-delete-filtered', {
+      method: 'POST',
+      body: { ...filters, confirm: 'OUI-SUPPRIMER' }
+    });
+  },
+
+  // admin
+  adminStats() { return request('/admin/stats'); },
+  adminReimportExcel() { return request('/admin/reimport-excel', { method: 'POST' }); },
 
   // référentiels
   sections() { return request('/ref/sections'); },

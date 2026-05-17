@@ -11,6 +11,7 @@ import pilotRoutes from './routes/pilotage.js';
 import exportRoutes from './routes/exports.js';
 import planningRoutes from './routes/planning.js';
 import usersRoutes from './routes/users.js';
+import adminRoutes from './routes/admin.js';
 
 const app = express();
 
@@ -28,6 +29,7 @@ app.use('/api/pilotage',     pilotRoutes);
 app.use('/api/exports',      exportRoutes);
 app.use('/api/planning',     planningRoutes);
 app.use('/api/users',        usersRoutes);
+app.use('/api/admin',        adminRoutes);
 
 // Erreurs
 app.use((err, req, res, next) => {

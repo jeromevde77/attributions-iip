@@ -4,6 +4,11 @@ import AttributionForm from '../components/AttributionForm.jsx';
 
 const COLS = [
   {
+    key: '__select',
+    label: '',
+    w: 'w-8'
+  },
+  {
     key: '__conformite',
     label: '✓',
     w: 'w-10',
@@ -54,9 +59,30 @@ export default function Attributions() {
   const [editing, setEditing] = useState({}); // { rowId: { field: value } }
   const [showForm, setShowForm] = useState(false);
   const [sortBy, setSortBy] = useState({ key: null, dir: 'asc' });
+  const [selected, setSelected] = useState(new Set());
+  const [bulkDeleteModal, setBulkDeleteModal] = useState(null); // null | 'selection' | 'filtered' | 'all'
+  const [bulkPreview, setBulkPreview] = useState(null);
+  const [bulkConfirmText, setBulkConfirmText] = useState('');
+
+  const me = JSON.parse(localStorage.getItem('user') || 'null');
+  const isAdmin = me?.role === 'admin';
+
+  function toggleSelect(id) {
+    setSelected(s => {
+      const next = new Set(s);
+      if (next.has(id)) next.delete(id); else next.add(id);
+      return next;
+    });
+  }
+  function toggleSelectAll() {
+    setSelected(s => {
+      if (s.size === sortedData.length) return new Set();
+      return new Set(sortedData.map(r => r.id));
+    });
+  }
 
   function toggleSort(key) {
-    if (key === '__actions' || key === '__conformite') return;
+    if (key === '__actions' || key === '__conformite' || key === '__select') return;
     setSortBy(s => {
       if (s.key !== key) return { key, dir: 'asc' };
       if (s.dir === 'asc') return { key, dir: 'desc' };
@@ -88,7 +114,68 @@ export default function Attributions() {
     try {
       await api.deleteAttribution(id);
       setData(d => d.filter(r => r.id !== id));
+      setSelected(s => { const n = new Set(s); n.delete(id); return n; });
     } catch (e) { alert('Suppression échouée : ' + e.message); }
+  }
+
+  async function openBulkModal(mode) {
+    setBulkConfirmText('');
+    setBulkDeleteModal(mode);
+    setBulkPreview(null);
+    if (mode === 'selection') {
+      setBulkPreview({ count: selected.size });
+    } else if (mode === 'filtered') {
+      try {
+        const f = {};
+        if (filters.section)  f.section = filters.section;
+        if (filters.prof_id)  f.professeur_id = filters.prof_id;
+        if (filters.contrat)  f.contrat = filters.contrat;
+        const r = await api.bulkDeletePreview(f);
+        setBulkPreview(r);
+      } catch (e) { alert(e.message); setBulkDeleteModal(null); }
+    } else if (mode === 'all') {
+      try {
+        const r = await api.bulkDeletePreview({});
+        setBulkPreview(r);
+      } catch (e) { alert(e.message); setBulkDeleteModal(null); }
+    }
+  }
+
+  async function confirmBulkDelete() {
+    if (bulkConfirmText !== 'SUPPRIMER') {
+      alert('Tapez exactement SUPPRIMER pour confirmer.');
+      return;
+    }
+    try {
+      let result;
+      if (bulkDeleteModal === 'selection') {
+        result = await api.bulkDeleteAttributions(Array.from(selected));
+      } else if (bulkDeleteModal === 'filtered') {
+        const f = {};
+        if (filters.section)  f.section = filters.section;
+        if (filters.prof_id)  f.professeur_id = filters.prof_id;
+        if (filters.contrat)  f.contrat = filters.contrat;
+        result = await api.bulkDeleteFiltered(f);
+      } else {
+        result = await api.bulkDeleteFiltered({});
+      }
+      alert(`${result.deleted} attribution(s) supprimée(s).`);
+      setBulkDeleteModal(null);
+      setSelected(new Set());
+      load();
+    } catch (e) { alert('Erreur : ' + e.message); }
+  }
+
+  async function reimportExcel() {
+    if (!confirm('Réimporter depuis les fichiers Excel ? Cela va remplacer les UE/cours/professeurs et ajouter les attributions du fichier.')) return;
+    try {
+      const r = await api.adminReimportExcel();
+      alert('Réimport terminé. Voir log dans la console.');
+      console.log(r.log);
+      load();
+    } catch (e) {
+      alert('Erreur : ' + e.message);
+    }
   }
 
   async function load() {
@@ -188,13 +275,38 @@ export default function Attributions() {
         </div>
         <button onClick={applyFilters} className="bg-iip-gold hover:bg-iip-amber text-white text-sm px-4 py-1.5 rounded">Filtrer</button>
         <button onClick={resetFilters} className="text-gray-600 hover:text-iip-orange text-sm px-2 py-1.5">Réinitialiser</button>
-        <div className="ml-auto flex gap-2">
+        <div className="ml-auto flex gap-2 flex-wrap">
           <button onClick={() => setShowForm(true)} className="bg-iip-gold hover:bg-iip-amber text-white text-sm px-3 py-1.5 rounded font-medium">
             ➕ Nouvelle
           </button>
           <button onClick={() => api.exportExcel()} className="bg-iip-mauve hover:opacity-90 text-white text-sm px-3 py-1.5 rounded font-medium">
             📥 Export Excel
           </button>
+          {isAdmin && (
+            <>
+              {selected.size > 0 && (
+                <button onClick={() => openBulkModal('selection')}
+                        className="bg-iip-orange hover:opacity-90 text-white text-sm px-3 py-1.5 rounded font-medium">
+                  🗑 Supprimer sélection ({selected.size})
+                </button>
+              )}
+              <button onClick={() => openBulkModal('filtered')}
+                      className="bg-orange-500 hover:bg-orange-600 text-white text-sm px-3 py-1.5 rounded font-medium"
+                      title="Supprimer toutes les attributions correspondant aux filtres actifs">
+                🗑 Suppr. filtre
+              </button>
+              <button onClick={() => openBulkModal('all')}
+                      className="bg-red-600 hover:bg-red-700 text-white text-sm px-3 py-1.5 rounded font-medium"
+                      title="Supprimer TOUTES les attributions">
+                🗑 Tout supprimer
+              </button>
+              <button onClick={reimportExcel}
+                      className="bg-blue-600 hover:bg-blue-700 text-white text-sm px-3 py-1.5 rounded font-medium"
+                      title="Réimporter depuis les Excel sources">
+                ↻ Réimporter Excel
+              </button>
+            </>
+          )}
         </div>
       </div>
 
@@ -216,7 +328,18 @@ export default function Attributions() {
             <thead>
               <tr>
                 {COLS.map(c => {
-                  const isSortable = c.key !== '__actions' && c.key !== '__conformite';
+                  if (c.key === '__select') {
+                    return (
+                      <th key={c.key} className={c.w}>
+                        <input type="checkbox"
+                               checked={selected.size > 0 && selected.size === sortedData.length}
+                               onChange={toggleSelectAll}
+                               title="Tout sélectionner / désélectionner"
+                               className="cursor-pointer" />
+                      </th>
+                    );
+                  }
+                  const isSortable = c.key !== '__actions' && c.key !== '__conformite' && c.key !== '__select';
                   const arrow = sortBy.key === c.key ? (sortBy.dir === 'asc' ? ' ▲' : ' ▼') : '';
                   return (
                     <th key={c.key}
@@ -231,8 +354,17 @@ export default function Attributions() {
             </thead>
             <tbody>
               {sortedData.map(row => (
-                <tr key={row.id}>
+                <tr key={row.id} className={selected.has(row.id) ? 'bg-yellow-50' : ''}>
                   {COLS.map(c => {
+                    if (c.key === '__select') {
+                      return (
+                        <td key={c.key} className="text-center">
+                          <input type="checkbox" checked={selected.has(row.id)}
+                                 onChange={() => toggleSelect(row.id)}
+                                 className="cursor-pointer" />
+                        </td>
+                      );
+                    }
                     if (c.key === '__actions') {
                       return (
                         <td key={c.key} className="text-center">
@@ -272,6 +404,48 @@ export default function Attributions() {
       </div>
 
       {showForm && <AttributionForm onClose={() => setShowForm(false)} onCreated={load} />}
+
+      {bulkDeleteModal && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-40"
+             onClick={e => e.target === e.currentTarget && setBulkDeleteModal(null)}>
+          <div className="bg-white rounded-xl shadow-2xl max-w-md w-full p-6 border-t-4 border-red-600">
+            <h2 className="text-xl font-title text-red-700 mb-3">⚠️ Suppression en masse</h2>
+
+            <p className="text-sm text-gray-700 mb-4">
+              {bulkDeleteModal === 'selection' && <>Vous allez supprimer <b>{bulkPreview?.count ?? '…'}</b> attribution(s) sélectionnée(s).</>}
+              {bulkDeleteModal === 'filtered'  && <>Vous allez supprimer <b>{bulkPreview?.count ?? '…'}</b> attribution(s) correspondant aux <b>filtres actifs</b>.</>}
+              {bulkDeleteModal === 'all'       && <>Vous allez supprimer <b className="text-red-600">TOUTES les {bulkPreview?.count ?? '…'} attributions</b> de la base.</>}
+            </p>
+
+            <p className="text-xs text-gray-500 mb-3">
+              Les heures de planning hebdomadaire associées seront également supprimées.
+              <br/>
+              Cette action est <b>irréversible</b>.
+            </p>
+
+            <label className="block text-xs text-gray-600 mb-1">
+              Pour confirmer, tapez <code className="bg-gray-100 px-1 rounded font-mono">SUPPRIMER</code> :
+            </label>
+            <input value={bulkConfirmText}
+                   onChange={e => setBulkConfirmText(e.target.value)}
+                   autoFocus
+                   className="w-full border border-gray-300 rounded px-3 py-2 text-sm font-mono mb-4"
+                   placeholder="SUPPRIMER" />
+
+            <div className="flex justify-end gap-2">
+              <button onClick={() => setBulkDeleteModal(null)}
+                      className="px-4 py-2 text-sm text-gray-600 hover:text-gray-800">
+                Annuler
+              </button>
+              <button onClick={confirmBulkDelete}
+                      disabled={bulkConfirmText !== 'SUPPRIMER'}
+                      className="bg-red-600 hover:bg-red-700 disabled:opacity-30 disabled:cursor-not-allowed text-white text-sm px-5 py-2 rounded font-medium">
+                Confirmer la suppression
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

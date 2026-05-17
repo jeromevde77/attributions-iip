@@ -143,9 +143,68 @@ r.patch('/:id', authRequired, roleRequired('admin', 'editeur'), (req, res) => {
 
 // Suppression
 r.delete('/:id', authRequired, roleRequired('admin'), (req, res) => {
+  db.prepare('DELETE FROM planning_hebdo WHERE attribution_id = ?').run(req.params.id);
   const result = db.prepare('DELETE FROM attribution WHERE id = ?').run(req.params.id);
   if (result.changes === 0) return res.status(404).json({ error: 'Attribution introuvable' });
   res.json({ ok: true });
+});
+
+// =========================================================
+// SUPPRESSION EN MASSE — admin only
+// =========================================================
+
+// Suppression par liste d'IDs (cases à cocher dans l'UI)
+r.post('/bulk-delete', authRequired, roleRequired('admin'), (req, res) => {
+  const { ids } = req.body || {};
+  if (!Array.isArray(ids) || ids.length === 0) {
+    return res.status(400).json({ error: 'Liste d\'IDs requise' });
+  }
+  const placeholders = ids.map(() => '?').join(',');
+  const tx = db.transaction(() => {
+    db.prepare(`DELETE FROM planning_hebdo WHERE attribution_id IN (${placeholders})`).run(...ids);
+    const result = db.prepare(`DELETE FROM attribution WHERE id IN (${placeholders})`).run(...ids);
+    return result.changes;
+  });
+  const deleted = tx();
+  res.json({ deleted });
+});
+
+// Compter ce qui serait supprimé selon les filtres (pour l'aperçu)
+r.post('/bulk-delete-preview', authRequired, roleRequired('admin'), (req, res) => {
+  const { section, professeur_id, contrat } = req.body || {};
+  const where = [];
+  const params = [];
+  if (section)       { where.push('section = ?');        params.push(section); }
+  if (professeur_id) { where.push('professeur_id = ?');  params.push(Number(professeur_id)); }
+  if (contrat)       { where.push('contrat_mdp = ?');    params.push(contrat); }
+  const whereClause = where.length ? 'WHERE ' + where.join(' AND ') : '';
+  const row = db.prepare(`SELECT COUNT(*) AS n FROM attribution ${whereClause}`).get(...params);
+  res.json({ count: row.n });
+});
+
+// Suppression par filtres (= filtres actifs de la grille, ou aucun = TOUT)
+r.post('/bulk-delete-filtered', authRequired, roleRequired('admin'), (req, res) => {
+  const { confirm, section, professeur_id, contrat } = req.body || {};
+  if (confirm !== 'OUI-SUPPRIMER') {
+    return res.status(400).json({ error: 'Confirmation requise (confirm = "OUI-SUPPRIMER")' });
+  }
+  const where = [];
+  const params = [];
+  if (section)       { where.push('section = ?');        params.push(section); }
+  if (professeur_id) { where.push('professeur_id = ?');  params.push(Number(professeur_id)); }
+  if (contrat)       { where.push('contrat_mdp = ?');    params.push(contrat); }
+  const whereClause = where.length ? 'WHERE ' + where.join(' AND ') : '';
+
+  const tx = db.transaction(() => {
+    const ids = db.prepare(`SELECT id FROM attribution ${whereClause}`).all(...params).map(r => r.id);
+    if (ids.length === 0) return 0;
+    const placeholders = ids.map(() => '?').join(',');
+    db.prepare(`DELETE FROM planning_hebdo WHERE attribution_id IN (${placeholders})`).run(...ids);
+    const result = db.prepare(`DELETE FROM attribution WHERE id IN (${placeholders})`).run(...ids);
+    return result.changes;
+  });
+  const deleted = tx();
+  res.json({ deleted });
 });
 
 export default r;
