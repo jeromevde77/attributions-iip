@@ -2,6 +2,7 @@ import { useEffect, useState, useMemo } from 'react';
 import { api } from '../lib/api.js';
 import AttributionForm from '../components/AttributionForm.jsx';
 import BulkCreateForm from '../components/BulkCreateForm.jsx';
+import AttributionCard from '../components/AttributionCard.jsx';
 
 const COLS = [
   {
@@ -62,6 +63,7 @@ export default function Attributions() {
   const [showBulkCreate, setShowBulkCreate] = useState(false);
   const [sortBy, setSortBy] = useState({ key: null, dir: 'asc' });
   const [selected, setSelected] = useState(new Set());
+  const [filtersOpenMobile, setFiltersOpenMobile] = useState(false);
   const [bulkDeleteModal, setBulkDeleteModal] = useState(null); // null | 'selection' | 'filtered' | 'all'
   const [bulkPreview, setBulkPreview] = useState(null);
   const [bulkConfirmText, setBulkConfirmText] = useState('');
@@ -231,9 +233,21 @@ export default function Attributions() {
   }, [data]);
 
   return (
-    <div className="p-4">
+    <div className="p-2 md:p-4">
+      {/* Barre compacte mobile : recherche rapide + toggle filtres */}
+      <div className="md:hidden mb-2 flex gap-2">
+        <input value={filters.q} onChange={e=>setFilters({...filters, q: e.target.value})}
+               onKeyDown={e => e.key === 'Enter' && applyFilters()}
+               placeholder="🔍 Rechercher…"
+               className="flex-1 border border-gray-300 rounded-lg px-3 py-2 text-sm" />
+        <button onClick={() => setFiltersOpenMobile(o => !o)}
+                className="bg-white border border-gray-300 rounded-lg px-3 py-2 text-sm font-medium">
+          {filtersOpenMobile ? '✕' : '⚙'}
+        </button>
+      </div>
+
       {/* Filtres */}
-      <div className="bg-white rounded-lg border border-gray-200 p-3 mb-3 flex flex-wrap items-end gap-2">
+      <div className={`bg-white rounded-lg border border-gray-200 p-3 mb-3 flex flex-wrap items-end gap-2 ${filtersOpenMobile ? '' : 'hidden md:flex'}`}>
         <div>
           <label className="block text-xs text-gray-600 mb-0.5">Section</label>
           <select value={filters.section} onChange={e=>setFilters({...filters, section: e.target.value})}
@@ -325,8 +339,8 @@ export default function Attributions() {
         </span>
       </div>
 
-      {/* Grille */}
-      <div className="bg-white rounded-lg border border-gray-200 overflow-auto max-h-[calc(100vh-260px)]">
+      {/* Grille — desktop uniquement */}
+      <div className="hidden md:block bg-white rounded-lg border border-gray-200 overflow-auto max-h-[calc(100vh-260px)]">
         {loading ? (
           <div className="p-8 text-center text-gray-400">Chargement…</div>
         ) : (
@@ -408,6 +422,39 @@ export default function Attributions() {
           </table>
         )}
       </div>
+
+      {/* Vue cartes — mobile uniquement */}
+      <div className="md:hidden">
+        {loading ? (
+          <div className="p-8 text-center text-gray-400">Chargement…</div>
+        ) : sortedData.length === 0 ? (
+          <div className="p-8 text-center text-gray-400 bg-white rounded-lg border border-gray-200">
+            Aucune attribution trouvée
+          </div>
+        ) : (
+          <div className="space-y-2 pb-24">
+            {sortedData.map(row => (
+              <AttributionCard
+                key={row.id}
+                row={row}
+                selected={selected.has(row.id)}
+                onToggleSelect={toggleSelect}
+                onChange={load}
+                onDelete={deleteRow}
+                isAdmin={isAdmin}
+              />
+            ))}
+          </div>
+        )}
+      </div>
+
+      {/* FAB mobile — bouton flottant "Nouvelle attribution" */}
+      <button onClick={() => setShowForm(true)}
+              className="md:hidden fixed bottom-6 right-6 bg-iip-gold hover:bg-iip-amber text-white rounded-full w-14 h-14 shadow-2xl flex items-center justify-center text-3xl z-30"
+              aria-label="Nouvelle attribution"
+              title="Nouvelle attribution">
+        +
+      </button>
 
       {showForm && <AttributionForm onClose={() => setShowForm(false)} onCreated={load} />}
       {showBulkCreate && <BulkCreateForm onClose={() => setShowBulkCreate(false)} onCreated={load} />}
