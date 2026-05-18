@@ -3,17 +3,17 @@ import { api } from '../lib/api.js';
 import AttributionForm from '../components/AttributionForm.jsx';
 import BulkCreateForm from '../components/BulkCreateForm.jsx';
 import AttributionCard from '../components/AttributionCard.jsx';
+import ResizableHeader from '../components/ResizableHeader.jsx';
 
-const COLS = [
-  {
-    key: '__select',
-    label: '',
-    w: 'w-8'
-  },
+// Définition des colonnes.
+// width : largeur par défaut en pixels (ajustable au drag par l'utilisateur).
+// rowClickable : true => clic sur la cellule ouvre la modale d'édition complète.
+const DEFAULT_COLS = [
+  { key: '__select',       label: '',     width: 36 },
   {
     key: '__conformite',
     label: '✓',
-    w: 'w-10',
+    width: 38,
     render: (_, row) => {
       const conforme = row.cours_conforme;
       const total = row.cours_total_attribue;
@@ -28,39 +28,41 @@ const COLS = [
         : <span className="text-red-600 font-bold" title={`NON conforme : le total n'est pas un multiple entier de Cours_per. ${tooltip}`}>✗</span>;
     }
   },
-  { key: 'section',                label: 'Section',     w: 'w-28' },
-  { key: 'contrat_mdp',            label: 'Contrat',     w: 'w-20', edit: 'select',
+  { key: 'section',                label: 'Section',  width: 110, rowClickable: true },
+  { key: 'contrat_mdp',            label: 'Contrat',  width: 110, edit: 'select',
     options: [['', '—'], ['IIP', 'IIP'], ['HELB', 'HELB']],
     render: v =>
       v === 'IIP'  ? <span className="badge badge-iip">IIP</span> :
       v === 'HELB' ? <span className="badge badge-helb">HELB</span> : v },
-  { key: 'ue_num',                 label: 'UE',          w: 'w-16',  num: true },
-  { key: 'ue_nom',                 label: "Nom de l'UE", w: 'min-w-[260px]' },
-  { key: 'bloc',                   label: 'Bloc',        w: 'w-16' },
-  { key: 'quadrimestre_attribue',  label: 'Quadri',      w: 'w-24', edit: 'select',
+  { key: 'ue_num',                 label: 'UE',       width: 70,  num: true, rowClickable: true },
+  { key: 'ue_nom',                 label: "Nom de l'UE", width: 280, rowClickable: true },
+  { key: 'bloc',                   label: 'Bloc',     width: 70,  rowClickable: true },
+  { key: 'quadrimestre_attribue',  label: 'Quadri',   width: 110, edit: 'select',
     options: [['', '—'], ['Q1', 'Q1'], ['Q2', 'Q2'], ['Q1/Q2', 'Q1/Q2']] },
-  { key: 'code_cours',             label: 'Code',        w: 'w-20' },
-  { key: 'nom_cours',              label: 'Cours',       w: 'min-w-[220px]' },
-  { key: 'type_cours',             label: 'Type',        w: 'w-16', edit: 'select',
-    options: [['', '—'], ['CT', 'CT'], ['PP', 'PP']],
+  { key: 'code_cours',             label: 'Code',     width: 80,  rowClickable: true },
+  { key: 'nom_cours',              label: 'Cours',    width: 240, rowClickable: true },
+  // Type non modifiable (lecture seule, juste badge)
+  { key: 'type_cours',             label: 'Type',     width: 70,
     render: v =>
       v === 'CT' ? <span className="badge badge-ct">CT</span> :
-      v === 'PP' ? <span className="badge badge-pp">PP</span> : v },
-  { key: 'code',                   label: 'Gr.',         w: 'w-14', edit: 'text' },
-  { key: 'professeur_id',          label: 'Professeur',  w: 'min-w-[200px]', edit: 'prof',
+      v === 'PP' ? <span className="badge badge-pp">PP</span> : v,
+    rowClickable: true },
+  { key: 'code',                   label: 'Gr.',      width: 70,  edit: 'text' },
+  { key: 'professeur_id',          label: 'Professeur', width: 220, edit: 'prof',
     render: (_, row) => row.professeur || <span className="italic text-orange-500">—</span> },
-  { key: 'contrat',                label: 'Stat.',       w: 'w-20', edit: 'statut',
+  { key: 'contrat',                label: 'Stat.',    width: 90,  edit: 'statut',
     options: [['', '—'], ['CC', 'CC'], ['EXP', 'EXP']] },
-  { key: 'periodes_attribuees',    label: 'Per.',        w: 'w-20', num: true, edit: 'number' },
-  { key: 'cours_per_prevu',        label: 'Per. prévu',  w: 'w-20', num: true, readonly: true,
-    tooltip: 'Périodes prévues pour ce cours (BD_UE_COURS)' },
-  { key: 'autonomie_attribuee',    label: 'Aut.',        w: 'w-20', num: true, edit: 'number' },
-  { key: 'ue_autonomie_prevu',     label: 'Aut. prévu',  w: 'w-20', num: true, readonly: true,
-    tooltip: 'Autonomie max prévue pour l\'UE (BD_UE_COURS)' },
-  { key: 'total_attribue_professeur', label: 'Total',    w: 'w-20', num: true, calc: true },
-  { key: 'charge_en_heures',       label: 'Hrs',         w: 'w-20', num: true, calc: true },
-  { key: 'cout_dotation',          label: 'Coût dot.',   w: 'w-24', num: true, calc: true },
-  { key: '__actions',              label: '',            w: 'w-16' },
+  { key: 'periodes_attribuees',    label: 'Per.',     width: 70,  num: true, edit: 'number' },
+  // Per. prévu : pas de label, juste un fond gris cliquable pour ouvrir la modale
+  { key: 'cours_per_prevu',        label: '',         width: 50,  num: true, readonly: true,
+    tooltip: 'Périodes prévues pour ce cours (BD_UE_COURS)', rowClickable: true },
+  { key: 'autonomie_attribuee',    label: 'Aut.',     width: 70,  num: true, edit: 'number' },
+  // Aut. prévu : pas de label
+  { key: 'ue_autonomie_prevu',     label: '',         width: 50,  num: true, readonly: true,
+    tooltip: "Autonomie max prévue pour l'UE (BD_UE_COURS)", rowClickable: true },
+  { key: 'total_attribue_professeur', label: 'Total', width: 70,  num: true, calc: true, rowClickable: true },
+  { key: 'charge_en_heures',       label: 'Hrs',      width: 70,  num: true, calc: true, rowClickable: true },
+  { key: '__actions',              label: '',         width: 50 },
 ];
 
 export default function Attributions() {
@@ -78,6 +80,28 @@ export default function Attributions() {
   const [bulkDeleteModal, setBulkDeleteModal] = useState(null); // null | 'selection' | 'filtered' | 'all'
   const [bulkPreview, setBulkPreview] = useState(null);
   const [bulkConfirmText, setBulkConfirmText] = useState('');
+  const [editRow, setEditRow] = useState(null); // ouvre la modale d'édition complète
+
+  // Largeurs de colonnes persistées dans localStorage
+  const [colWidths, setColWidths] = useState(() => {
+    try {
+      const saved = JSON.parse(localStorage.getItem('attr_col_widths') || '{}');
+      const base = {};
+      for (const c of DEFAULT_COLS) base[c.key] = saved[c.key] || c.width;
+      return base;
+    } catch {
+      return Object.fromEntries(DEFAULT_COLS.map(c => [c.key, c.width]));
+    }
+  });
+  function setColWidth(key, width) {
+    setColWidths(w => {
+      const next = { ...w, [key]: Math.max(30, Math.round(width)) };
+      try { localStorage.setItem('attr_col_widths', JSON.stringify(next)); } catch {}
+      return next;
+    });
+  }
+  // COLS avec largeur dynamique appliquée
+  const COLS = useMemo(() => DEFAULT_COLS.map(c => ({ ...c, width: colWidths[c.key] || c.width })), [colWidths]);
 
   const me = JSON.parse(localStorage.getItem('user') || 'null');
   const isAdmin = me?.role === 'admin';
@@ -355,13 +379,14 @@ export default function Attributions() {
         {loading ? (
           <div className="p-8 text-center text-gray-400">Chargement…</div>
         ) : (
-          <table className="grid-excel">
+          <table className="grid-excel" style={{ tableLayout: 'fixed' }}>
             <thead>
               <tr>
                 {COLS.map(c => {
                   if (c.key === '__select') {
                     return (
-                      <th key={c.key} className={c.w}>
+                      <th key={c.key}
+                          style={{ width: c.width, minWidth: c.width, maxWidth: c.width }}>
                         <input type="checkbox"
                                checked={selected.size > 0 && selected.size === sortedData.length}
                                onChange={toggleSelectAll}
@@ -370,15 +395,16 @@ export default function Attributions() {
                       </th>
                     );
                   }
-                  const isSortable = c.key !== '__actions' && c.key !== '__conformite' && c.key !== '__select';
-                  const arrow = sortBy.key === c.key ? (sortBy.dir === 'asc' ? ' ▲' : ' ▼') : '';
                   return (
-                    <th key={c.key}
-                        className={`${c.w} ${isSortable ? 'cursor-pointer select-none hover:bg-iip-amber' : ''}`}
-                        onClick={() => toggleSort(c.key)}
-                        title={isSortable ? 'Cliquer pour trier' : undefined}>
-                      {c.label}{arrow}
-                    </th>
+                    <ResizableHeader
+                      key={c.key}
+                      col={c}
+                      sortKey={sortBy.key}
+                      sortDir={sortBy.dir}
+                      onSort={toggleSort}
+                      onResize={setColWidth}>
+                      {c.label}
+                    </ResizableHeader>
                   );
                 })}
               </tr>
@@ -387,9 +413,20 @@ export default function Attributions() {
               {sortedData.map(row => (
                 <tr key={row.id} className={selected.has(row.id) ? 'bg-yellow-50' : ''}>
                   {COLS.map(c => {
+                    const tdStyle = {
+                      width: c.width,
+                      minWidth: c.width,
+                      maxWidth: c.width,
+                      overflow: 'hidden',
+                      textOverflow: 'ellipsis',
+                      whiteSpace: 'nowrap'
+                    };
+                    const onCellClick = c.rowClickable ? () => setEditRow(row) : undefined;
+                    const clickableClass = c.rowClickable ? 'cursor-pointer hover:bg-iip-gold/5' : '';
+
                     if (c.key === '__select') {
                       return (
-                        <td key={c.key} className="text-center">
+                        <td key={c.key} className="text-center" style={tdStyle}>
                           <input type="checkbox" checked={selected.has(row.id)}
                                  onChange={() => toggleSelect(row.id)}
                                  className="cursor-pointer" />
@@ -398,7 +435,7 @@ export default function Attributions() {
                     }
                     if (c.key === '__actions') {
                       return (
-                        <td key={c.key} className="text-center">
+                        <td key={c.key} className="text-center" style={tdStyle}>
                           <button onClick={() => deleteRow(row.id)}
                                   className="text-red-500 hover:text-red-700 text-sm" title="Supprimer">🗑</button>
                         </td>
@@ -406,7 +443,7 @@ export default function Attributions() {
                     }
                     if (c.key === '__conformite') {
                       return (
-                        <td key={c.key} className="text-center">
+                        <td key={c.key} className="text-center" style={tdStyle}>
                           {c.render(null, row)}
                         </td>
                       );
@@ -414,11 +451,13 @@ export default function Attributions() {
                     const v = row[c.key];
                     const display = c.render ? c.render(v, row) : v;
 
-                    // Colonne en lecture seule (Per. prévu, Aut. prévu)
+                    // Colonne en lecture seule (Per. prévu, Aut. prévu) → clic = modale
                     if (c.readonly) {
                       return (
                         <td key={c.key}
-                            className={`${c.num ? 'num' : ''} bg-gray-100 text-gray-500 cursor-not-allowed`}
+                            style={tdStyle}
+                            onClick={onCellClick}
+                            className={`${c.num ? 'num' : ''} bg-gray-100 text-gray-500 ${clickableClass}`}
                             title={c.tooltip}>
                           {v != null
                             ? Number(v).toLocaleString('fr-BE', { maximumFractionDigits: 2 })
@@ -427,15 +466,16 @@ export default function Attributions() {
                       );
                     }
 
-                    // Édition selon le type
+                    // Édition inline
                     if (c.edit === 'number') {
                       return (
-                        <td key={c.key} className={c.num ? 'num' : ''}>
+                        <td key={c.key} className={c.num ? 'num' : ''} style={tdStyle}>
                           <input
                             type="text"
                             inputMode="decimal"
                             defaultValue={v ?? 0}
                             className="input-cell text-right w-full no-spinner"
+                            onClick={e => e.stopPropagation()}
                             onBlur={e => {
                               const val = e.target.value.replace(',', '.');
                               if (Number(val) !== Number(v)) saveCell(row.id, c.key, val);
@@ -445,11 +485,12 @@ export default function Attributions() {
                     }
                     if (c.edit === 'text') {
                       return (
-                        <td key={c.key} className={c.num ? 'num' : ''}>
+                        <td key={c.key} className={c.num ? 'num' : ''} style={tdStyle}>
                           <input
                             type="text"
                             defaultValue={v ?? ''}
                             className="input-cell w-full text-center"
+                            onClick={e => e.stopPropagation()}
                             onBlur={e => {
                               if (e.target.value !== (v ?? '')) saveCell(row.id, c.key, e.target.value);
                             }} />
@@ -458,10 +499,11 @@ export default function Attributions() {
                     }
                     if (c.edit === 'select') {
                       return (
-                        <td key={c.key} className={c.num ? 'num' : ''}>
+                        <td key={c.key} className={c.num ? 'num' : ''} style={tdStyle}>
                           <select
                             defaultValue={v ?? ''}
                             className="bg-transparent border-0 outline-none w-full text-sm cursor-pointer focus:bg-yellow-50 focus:outline-1 focus:outline-iip-gold"
+                            onClick={e => e.stopPropagation()}
                             onChange={e => {
                               if (e.target.value !== (v ?? '')) saveCell(row.id, c.key, e.target.value);
                             }}>
@@ -474,10 +516,11 @@ export default function Attributions() {
                     }
                     if (c.edit === 'prof') {
                       return (
-                        <td key={c.key} className={c.num ? 'num' : ''}>
+                        <td key={c.key} className={c.num ? 'num' : ''} style={tdStyle}>
                           <select
                             defaultValue={row.professeur_id ?? ''}
                             className="bg-transparent border-0 outline-none w-full text-sm cursor-pointer focus:bg-yellow-50 focus:outline-1 focus:outline-iip-gold"
+                            onClick={e => e.stopPropagation()}
                             onChange={e => {
                               const newId = e.target.value ? Number(e.target.value) : null;
                               if (newId !== row.professeur_id) saveCell(row.id, 'professeur_id', newId);
@@ -491,13 +534,13 @@ export default function Attributions() {
                       );
                     }
                     if (c.edit === 'statut') {
-                      // Statut = champ professeur.statut. On l'édite via une route dédiée.
                       return (
-                        <td key={c.key} className={c.num ? 'num' : ''}>
+                        <td key={c.key} className={c.num ? 'num' : ''} style={tdStyle}>
                           {row.professeur_id ? (
                             <select
                               defaultValue={v ?? ''}
                               className="bg-transparent border-0 outline-none w-full text-sm cursor-pointer focus:bg-yellow-50 focus:outline-1 focus:outline-iip-gold"
+                              onClick={e => e.stopPropagation()}
                               onChange={async e => {
                                 try {
                                   await api.updateProfStatut(row.professeur_id, e.target.value);
@@ -515,8 +558,12 @@ export default function Attributions() {
                       );
                     }
 
+                    // Cellule en lecture seule : clic = ouvre la modale d'édition complète
                     return (
-                      <td key={c.key} className={c.num ? 'num' : ''}>
+                      <td key={c.key}
+                          className={`${c.num ? 'num' : ''} ${clickableClass}`}
+                          style={tdStyle}
+                          onClick={onCellClick}>
                         {c.num && v != null
                           ? Number(v).toLocaleString('fr-BE', { maximumFractionDigits: 2 })
                           : display}
@@ -565,6 +612,7 @@ export default function Attributions() {
 
       {showForm && <AttributionForm onClose={() => setShowForm(false)} onCreated={load} />}
       {showBulkCreate && <BulkCreateForm onClose={() => setShowBulkCreate(false)} onCreated={load} />}
+      {editRow && <AttributionForm editRow={editRow} onClose={() => setEditRow(null)} onCreated={load} />}
 
       {bulkDeleteModal && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-40"

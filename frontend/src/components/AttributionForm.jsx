@@ -2,11 +2,16 @@ import { useEffect, useState } from 'react';
 import { api } from '../lib/api.js';
 
 /**
- * Modale de création d'une attribution.
+ * Modale de création OU d'édition d'une attribution.
  * Charge automatiquement les UE de la section choisie, puis les cours de l'UE,
  * et propose une liste de professeurs.
+ *
+ * @param onClose      - callback à la fermeture
+ * @param onCreated    - callback après création (recharge la liste)
+ * @param editRow      - attribution existante à éditer (null = mode création)
  */
-export default function AttributionForm({ onClose, onCreated }) {
+export default function AttributionForm({ onClose, onCreated, editRow = null }) {
+  const isEdit = !!editRow;
   const [sections, setSections] = useState([]);
   const [ueList, setUeList] = useState([]);
   const [coursList, setCoursList] = useState([]);
@@ -15,7 +20,28 @@ export default function AttributionForm({ onClose, onCreated }) {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
 
-  const [form, setForm] = useState({
+  const [form, setForm] = useState(isEdit ? {
+    section: editRow.section || '',
+    contrat_mdp: editRow.contrat_mdp || 'IIP',
+    etablissement_referent: editRow.etablissement_referent || 'IIP',
+    organisation: editRow.organisation || 'x',
+    ue_num: editRow.ue_num || '',
+    num_organisation: editRow.num_organisation || 1,
+    code_cours: editRow.code_cours || '',
+    type_cours: editRow.type_cours || 'CT',
+    type_cours_helb: editRow.type_cours_helb || '',
+    code: editRow.code || 'A',
+    nb_groupes: editRow.nb_groupes || 1,
+    split_groupe: editRow.split_groupe || 'N',
+    professeur_id: editRow.professeur_id || '',
+    cours_ept_ad: editRow.cours_ept_ad || 'C',
+    coordination_encadrement: editRow.coordination_encadrement || 'Cours',
+    quadrimestre_attribue: editRow.quadrimestre_attribue || '',
+    commentaire: editRow.commentaire || '',
+    periodes_attribuees: editRow.periodes_attribuees ?? 0,
+    autonomie_attribuee: editRow.autonomie_attribuee ?? 0,
+    per_etudiant_total_dp: editRow.per_etudiant_total_dp ?? 0
+  } : {
     section: '',
     contrat_mdp: 'IIP',
     etablissement_referent: 'IIP',
@@ -45,11 +71,15 @@ export default function AttributionForm({ onClose, onCreated }) {
   }, []);
 
   // Charger les UE quand la section change
+  // En mode édition, on évite de réinitialiser ue_num/code_cours au premier rendu.
+  const [hydrated, setHydrated] = useState(false);
   useEffect(() => {
     if (form.section) {
       api.ue(form.section).then(setUeList).catch(console.error);
     } else { setUeList([]); }
-    setForm(f => ({ ...f, ue_num: '', code_cours: '' }));
+    if (hydrated) {
+      setForm(f => ({ ...f, ue_num: '', code_cours: '' }));
+    }
   }, [form.section]);
 
   // Charger les cours quand l'UE change
@@ -57,14 +87,19 @@ export default function AttributionForm({ onClose, onCreated }) {
     if (form.ue_num) {
       api.cours({ ue_num: form.ue_num }).then(setCoursList).catch(console.error);
     } else { setCoursList([]); }
-    setForm(f => ({ ...f, code_cours: '' }));
+    if (hydrated) {
+      setForm(f => ({ ...f, code_cours: '' }));
+    }
   }, [form.ue_num]);
+
+  // Active la réinitialisation après le premier rendu
+  useEffect(() => { setHydrated(true); }, []);
 
   function set(k, v) { setForm(f => ({ ...f, [k]: v })); }
 
   async function submit() {
-    if (!form.section || !form.ue_num || !form.code_cours || !form.professeur_id) {
-      setError('Section, UE, cours et professeur sont obligatoires.');
+    if (!form.section || !form.ue_num || !form.code_cours) {
+      setError('Section, UE et cours sont obligatoires.');
       return;
     }
     setSaving(true); setError('');
@@ -72,14 +107,18 @@ export default function AttributionForm({ onClose, onCreated }) {
       const payload = {
         ...form,
         ue_num: Number(form.ue_num),
-        professeur_id: Number(form.professeur_id),
+        professeur_id: form.professeur_id ? Number(form.professeur_id) : null,
         num_organisation: Number(form.num_organisation),
         nb_groupes: Number(form.nb_groupes),
         periodes_attribuees: Number(form.periodes_attribuees),
         autonomie_attribuee: Number(form.autonomie_attribuee),
         per_etudiant_total_dp: Number(form.per_etudiant_total_dp)
       };
-      await api.createAttribution(payload);
+      if (isEdit) {
+        await api.updateAttribution(editRow.id, payload);
+      } else {
+        await api.createAttribution(payload);
+      }
       onCreated?.();
       onClose();
     } catch (e) {
@@ -97,7 +136,7 @@ export default function AttributionForm({ onClose, onCreated }) {
     <div className="fixed inset-0 bg-black/40 flex items-center justify-center p-4 z-30" onClick={onClose}>
       <div className="bg-white rounded-xl shadow-2xl max-w-4xl w-full max-h-[90vh] overflow-auto" onClick={e => e.stopPropagation()}>
         <div className="sticky top-0 bg-white border-b border-gray-200 p-5 flex items-center justify-between">
-          <h2 className="text-xl font-title text-iip-gold">Nouvelle attribution</h2>
+          <h2 className="text-xl font-title text-iip-gold">{isEdit ? 'Modifier l\'attribution' : 'Nouvelle attribution'}</h2>
           <button onClick={onClose} className="text-gray-400 hover:text-red-500 text-2xl leading-none">×</button>
         </div>
 
@@ -298,7 +337,7 @@ export default function AttributionForm({ onClose, onCreated }) {
           <button onClick={onClose} className="px-4 py-2 text-sm text-gray-600 hover:text-gray-800">Annuler</button>
           <button onClick={submit} disabled={saving}
                   className="bg-iip-gold hover:bg-iip-amber text-white text-sm px-5 py-2 rounded font-medium disabled:opacity-50">
-            {saving ? 'Enregistrement…' : '✓ Créer l\'attribution'}
+            {saving ? 'Enregistrement…' : (isEdit ? '✓ Enregistrer' : '✓ Créer l\'attribution')}
           </button>
         </div>
       </div>
