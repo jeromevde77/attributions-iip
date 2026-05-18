@@ -122,15 +122,15 @@ export default function AttributionCard({ row, selected, onToggleSelect, onChang
               <div className="grid grid-cols-2 gap-3 pt-2 border-t border-gray-100">
                 <label className="block">
                   <div className="text-xs text-gray-600 mb-1">Périodes</div>
-                  <input type="number" step="0.5" inputMode="decimal" value={periodes}
+                  <input type="text" inputMode="decimal" value={periodes}
                          onChange={e => setPeriodes(e.target.value)}
-                         className="w-full border border-iip-gold/40 rounded px-3 py-2 text-base bg-iip-gold/5" />
+                         className="w-full border border-iip-gold/40 rounded px-3 py-2 text-base bg-iip-gold/5 no-spinner" />
                 </label>
                 <label className="block">
                   <div className="text-xs text-gray-600 mb-1">Autonomie</div>
-                  <input type="number" step="0.5" inputMode="decimal" value={autonomie}
+                  <input type="text" inputMode="decimal" value={autonomie}
                          onChange={e => setAutonomie(e.target.value)}
-                         className="w-full border border-iip-gold/40 rounded px-3 py-2 text-base bg-iip-gold/5" />
+                         className="w-full border border-iip-gold/40 rounded px-3 py-2 text-base bg-iip-gold/5 no-spinner" />
                 </label>
               </div>
 

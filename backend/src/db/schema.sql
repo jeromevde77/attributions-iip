@@ -343,6 +343,10 @@ SELECT
     a.coordination_encadrement,
     a.per_etudiant_total_dp,
 
+    -- Guides (depuis BD_UE_COURS pour aider le coordinateur)
+    c.cours_per      AS cours_per_prevu,
+    c.ue_autonomie   AS ue_autonomie_prevu,
+
     -- Professeur
     a.professeur_id,
     p.nom            AS prof_nom,

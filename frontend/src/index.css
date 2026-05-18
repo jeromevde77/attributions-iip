@@ -39,6 +39,16 @@ table.grid-excel td.num { text-align: right; font-variant-numeric: tabular-nums;
 }
 .input-cell:focus { background: #e0f4f9; outline: 2px solid #00AACC; }
 
+/* Supprimer les flèches/spinners des input number et type="text" inputMode="decimal" */
+.no-spinner::-webkit-outer-spin-button,
+.no-spinner::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+.no-spinner {
+  -moz-appearance: textfield;
+}
+
 .badge { display: inline-block; padding: 0.15rem 0.5rem; border-radius: 0.375rem; font-size: 0.75rem; font-weight: 600; }
 .badge-iip   { background: #dbeafe; color: #1B2B4B; }
 .badge-helb  { background: #cffafe; color: #0e7490; }

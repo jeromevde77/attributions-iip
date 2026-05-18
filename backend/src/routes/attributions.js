@@ -141,6 +141,17 @@ r.patch('/:id', authRequired, roleRequired('admin', 'editeur'), (req, res) => {
   res.json({ ok: true });
 });
 
+// Modifier le statut d'un professeur depuis la grille d'attributions
+r.patch('/professeur/:id/statut', authRequired, roleRequired('admin', 'editeur'), (req, res) => {
+  const { statut } = req.body || {};
+  if (!['CC', 'EXP', null, ''].includes(statut)) {
+    return res.status(400).json({ error: 'Statut doit être CC, EXP ou vide' });
+  }
+  const result = db.prepare('UPDATE professeur SET statut = ? WHERE id = ?').run(statut || null, req.params.id);
+  if (result.changes === 0) return res.status(404).json({ error: 'Professeur introuvable' });
+  res.json({ ok: true });
+});
+
 // Suppression
 r.delete('/:id', authRequired, roleRequired('admin'), (req, res) => {
   db.prepare('DELETE FROM planning_hebdo WHERE attribution_id = ?').run(req.params.id);

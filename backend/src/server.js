@@ -3,7 +3,11 @@ import express from 'express';
 import cors from 'cors';
 import morgan from 'morgan';
 import helmet from 'helmet';
+import { readFileSync } from 'node:fs';
+import { dirname, resolve } from 'node:path';
+import { fileURLToPath } from 'node:url';
 
+import db from './db/index.js';
 import authRoutes from './routes/auth.js';
 import attrRoutes from './routes/attributions.js';
 import refRoutes  from './routes/referentiels.js';
@@ -12,6 +16,28 @@ import exportRoutes from './routes/exports.js';
 import planningRoutes from './routes/planning.js';
 import usersRoutes from './routes/users.js';
 import adminRoutes from './routes/admin.js';
+
+const __dirname = dirname(fileURLToPath(import.meta.url));
+
+// Recréer les VIEW à chaque démarrage pour qu'elles soient à jour
+// quand le schéma évolue (sans nécessiter un init-db complet).
+try {
+  const schema = readFileSync(resolve(__dirname, 'db/schema.sql'), 'utf8');
+  // Extraire et exécuter uniquement les blocs DROP VIEW + CREATE VIEW
+  const viewBlocks = schema.match(/DROP VIEW[\s\S]*?CREATE VIEW[\s\S]*?;(?=\s*(DROP|CREATE TRIGGER|--|$))/g);
+  if (viewBlocks) {
+    for (const block of viewBlocks) {
+      try {
+        db.exec(block);
+      } catch (e) {
+        console.warn(`[views] Erreur lors de la recréation d'une vue : ${e.message}`);
+      }
+    }
+    console.log(`[views] ${viewBlocks.length} vue(s) recréée(s)`);
+  }
+} catch (e) {
+  console.warn('[views] Impossible de recréer les vues :', e.message);
+}
 
 const app = express();
 

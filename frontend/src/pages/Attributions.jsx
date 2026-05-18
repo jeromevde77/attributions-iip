@@ -29,23 +29,34 @@ const COLS = [
     }
   },
   { key: 'section',                label: 'Section',     w: 'w-28' },
-  { key: 'contrat_mdp',            label: 'Contrat',     w: 'w-20', render: v =>
+  { key: 'contrat_mdp',            label: 'Contrat',     w: 'w-20', edit: 'select',
+    options: [['', '—'], ['IIP', 'IIP'], ['HELB', 'HELB']],
+    render: v =>
       v === 'IIP'  ? <span className="badge badge-iip">IIP</span> :
       v === 'HELB' ? <span className="badge badge-helb">HELB</span> : v },
   { key: 'ue_num',                 label: 'UE',          w: 'w-16',  num: true },
   { key: 'ue_nom',                 label: "Nom de l'UE", w: 'min-w-[260px]' },
   { key: 'bloc',                   label: 'Bloc',        w: 'w-16' },
-  { key: 'quadri_pour_tous_prevu', label: 'Quadri',      w: 'w-20' },
+  { key: 'quadrimestre_attribue',  label: 'Quadri',      w: 'w-24', edit: 'select',
+    options: [['', '—'], ['Q1', 'Q1'], ['Q2', 'Q2'], ['Q1/Q2', 'Q1/Q2']] },
   { key: 'code_cours',             label: 'Code',        w: 'w-20' },
   { key: 'nom_cours',              label: 'Cours',       w: 'min-w-[220px]' },
-  { key: 'type_cours',             label: 'Type',        w: 'w-16', render: v =>
+  { key: 'type_cours',             label: 'Type',        w: 'w-16', edit: 'select',
+    options: [['', '—'], ['CT', 'CT'], ['PP', 'PP']],
+    render: v =>
       v === 'CT' ? <span className="badge badge-ct">CT</span> :
       v === 'PP' ? <span className="badge badge-pp">PP</span> : v },
-  { key: 'code',                   label: 'Gr.',         w: 'w-14' },
-  { key: 'professeur',             label: 'Professeur',  w: 'min-w-[200px]' },
-  { key: 'contrat',                label: 'Stat.',       w: 'w-16' },
-  { key: 'periodes_attribuees',    label: 'Per.',        w: 'w-20', num: true, edit: true },
-  { key: 'autonomie_attribuee',    label: 'Aut.',        w: 'w-20', num: true, edit: true },
+  { key: 'code',                   label: 'Gr.',         w: 'w-14', edit: 'text' },
+  { key: 'professeur_id',          label: 'Professeur',  w: 'min-w-[200px]', edit: 'prof',
+    render: (_, row) => row.professeur || <span className="italic text-orange-500">—</span> },
+  { key: 'contrat',                label: 'Stat.',       w: 'w-20', edit: 'statut',
+    options: [['', '—'], ['CC', 'CC'], ['EXP', 'EXP']] },
+  { key: 'periodes_attribuees',    label: 'Per.',        w: 'w-20', num: true, edit: 'number' },
+  { key: 'cours_per_prevu',        label: 'Per. prévu',  w: 'w-20', num: true, readonly: true,
+    tooltip: 'Périodes prévues pour ce cours (BD_UE_COURS)' },
+  { key: 'autonomie_attribuee',    label: 'Aut.',        w: 'w-20', num: true, edit: 'number' },
+  { key: 'ue_autonomie_prevu',     label: 'Aut. prévu',  w: 'w-20', num: true, readonly: true,
+    tooltip: 'Autonomie max prévue pour l\'UE (BD_UE_COURS)' },
   { key: 'total_attribue_professeur', label: 'Total',    w: 'w-20', num: true, calc: true },
   { key: 'charge_en_heures',       label: 'Hrs',         w: 'w-20', num: true, calc: true },
   { key: 'cout_dotation',          label: 'Coût dot.',   w: 'w-24', num: true, calc: true },
@@ -402,17 +413,113 @@ export default function Attributions() {
                     }
                     const v = row[c.key];
                     const display = c.render ? c.render(v, row) : v;
+
+                    // Colonne en lecture seule (Per. prévu, Aut. prévu)
+                    if (c.readonly) {
+                      return (
+                        <td key={c.key}
+                            className={`${c.num ? 'num' : ''} bg-gray-100 text-gray-500 cursor-not-allowed`}
+                            title={c.tooltip}>
+                          {v != null
+                            ? Number(v).toLocaleString('fr-BE', { maximumFractionDigits: 2 })
+                            : <span className="text-gray-300">—</span>}
+                        </td>
+                      );
+                    }
+
+                    // Édition selon le type
+                    if (c.edit === 'number') {
+                      return (
+                        <td key={c.key} className={c.num ? 'num' : ''}>
+                          <input
+                            type="text"
+                            inputMode="decimal"
+                            defaultValue={v ?? 0}
+                            className="input-cell text-right w-full no-spinner"
+                            onBlur={e => {
+                              const val = e.target.value.replace(',', '.');
+                              if (Number(val) !== Number(v)) saveCell(row.id, c.key, val);
+                            }} />
+                        </td>
+                      );
+                    }
+                    if (c.edit === 'text') {
+                      return (
+                        <td key={c.key} className={c.num ? 'num' : ''}>
+                          <input
+                            type="text"
+                            defaultValue={v ?? ''}
+                            className="input-cell w-full text-center"
+                            onBlur={e => {
+                              if (e.target.value !== (v ?? '')) saveCell(row.id, c.key, e.target.value);
+                            }} />
+                        </td>
+                      );
+                    }
+                    if (c.edit === 'select') {
+                      return (
+                        <td key={c.key} className={c.num ? 'num' : ''}>
+                          <select
+                            defaultValue={v ?? ''}
+                            className="bg-transparent border-0 outline-none w-full text-sm cursor-pointer focus:bg-yellow-50 focus:outline-1 focus:outline-iip-gold"
+                            onChange={e => {
+                              if (e.target.value !== (v ?? '')) saveCell(row.id, c.key, e.target.value);
+                            }}>
+                            {c.options.map(([val, lbl]) => (
+                              <option key={val} value={val}>{lbl}</option>
+                            ))}
+                          </select>
+                        </td>
+                      );
+                    }
+                    if (c.edit === 'prof') {
+                      return (
+                        <td key={c.key} className={c.num ? 'num' : ''}>
+                          <select
+                            defaultValue={row.professeur_id ?? ''}
+                            className="bg-transparent border-0 outline-none w-full text-sm cursor-pointer focus:bg-yellow-50 focus:outline-1 focus:outline-iip-gold"
+                            onChange={e => {
+                              const newId = e.target.value ? Number(e.target.value) : null;
+                              if (newId !== row.professeur_id) saveCell(row.id, 'professeur_id', newId);
+                            }}>
+                            <option value="">— Aucun —</option>
+                            {professeurs.map(p => (
+                              <option key={p.id} value={p.id}>{p.nom_prenom}</option>
+                            ))}
+                          </select>
+                        </td>
+                      );
+                    }
+                    if (c.edit === 'statut') {
+                      // Statut = champ professeur.statut. On l'édite via une route dédiée.
+                      return (
+                        <td key={c.key} className={c.num ? 'num' : ''}>
+                          {row.professeur_id ? (
+                            <select
+                              defaultValue={v ?? ''}
+                              className="bg-transparent border-0 outline-none w-full text-sm cursor-pointer focus:bg-yellow-50 focus:outline-1 focus:outline-iip-gold"
+                              onChange={async e => {
+                                try {
+                                  await api.updateProfStatut(row.professeur_id, e.target.value);
+                                  load();
+                                } catch (err) { alert(err.message); }
+                              }}>
+                              {c.options.map(([val, lbl]) => (
+                                <option key={val} value={val}>{lbl}</option>
+                              ))}
+                            </select>
+                          ) : (
+                            <span className="text-gray-300">—</span>
+                          )}
+                        </td>
+                      );
+                    }
+
                     return (
                       <td key={c.key} className={c.num ? 'num' : ''}>
-                        {c.edit ? (
-                          <input type="number" step="0.5" defaultValue={v ?? 0}
-                                 className="input-cell text-right w-full"
-                                 onBlur={e => {
-                                   if (Number(e.target.value) !== Number(v)) saveCell(row.id, c.key, e.target.value);
-                                 }} />
-                        ) : c.num && v != null ? (
-                          Number(v).toLocaleString('fr-BE', { maximumFractionDigits: 2 })
-                        ) : display}
+                        {c.num && v != null
+                          ? Number(v).toLocaleString('fr-BE', { maximumFractionDigits: 2 })
+                          : display}
                       </td>
                     );
                   })}

@@ -50,6 +50,9 @@ export const api = {
   attribution(id) { return request(`/attributions/${id}`); },
   createAttribution(data) { return request('/attributions', { method: 'POST', body: data }); },
   updateAttribution(id, data) { return request(`/attributions/${id}`, { method: 'PATCH', body: data }); },
+  updateProfStatut(profId, statut) {
+    return request(`/attributions/professeur/${profId}/statut`, { method: 'PATCH', body: { statut } });
+  },
   deleteAttribution(id) { return request(`/attributions/${id}`, { method: 'DELETE' }); },
   bulkDeleteAttributions(ids) {
     return request('/attributions/bulk-delete', { method: 'POST', body: { ids } });
