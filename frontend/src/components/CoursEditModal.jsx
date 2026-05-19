@@ -286,13 +286,9 @@ export default function CoursEditModal({ section, codeCours, onClose, onChanged 
                     <tr className="bg-iip-gold/10 font-semibold">
                       <td colSpan="4" className="p-2 text-right text-gray-700">TOTAUX</td>
                       <td className="p-2 text-right tabular-nums">{totals.periodes.toLocaleString('fr-BE')}</td>
-                      <td className="p-2 text-right bg-gray-100 text-gray-500 tabular-nums" title="Cours_per × nb de lignes">
-                        {coursPer != null
-                          ? Number(coursPer * visibleRows.length).toLocaleString('fr-BE')
-                          : '—'}
-                      </td>
+                      <td className="p-2 bg-gray-100"></td>
                       <td className="p-2 text-right tabular-nums">{totals.autonomie.toLocaleString('fr-BE')}</td>
-                      <td className="p-2 text-right bg-gray-100 text-gray-500 tabular-nums">—</td>
+                      <td className="p-2 bg-gray-100"></td>
                       <td className="p-2 text-right tabular-nums">{totals.total.toLocaleString('fr-BE')}</td>
                       <td className="p-2 text-center">
                         {totals.conforme === true && <span className="text-green-600 text-lg" title={`Total = ${totals.multiple} × ${coursPer}`}>✓</span>}
@@ -303,15 +299,38 @@ export default function CoursEditModal({ section, codeCours, onClose, onChanged 
                 </table>
               </div>
 
-              {/* Récap conformité */}
-              {coursPer != null && coursPer > 0 && (
-                <div className={`mt-3 text-xs rounded p-2 ${totals.conforme ? 'bg-green-50 text-green-700' : 'bg-red-50 text-red-700'}`}>
-                  {totals.conforme
-                    ? <>✓ Conforme : {totals.periodes} = {totals.multiple} × {coursPer} (multiple entier de cours_per)</>
-                    : <>✗ Non conforme : {totals.periodes} périodes attribuées, ne sont pas un multiple entier de {coursPer} (cours_per)</>
-                  }
-                </div>
-              )}
+              {/* Récap multiples sous le tableau */}
+              {(() => {
+                const ueAut = visibleRows.find(r => r.ue_autonomie_prevu != null)?.ue_autonomie_prevu;
+                const perMultiple = coursPer && coursPer > 0 ? (totals.periodes / coursPer) : null;
+                const autMultiple = ueAut && ueAut > 0 ? (totals.autonomie / ueAut) : null;
+                const perEntier = perMultiple != null && Number.isInteger(perMultiple);
+
+                return (
+                  <div className="mt-3 flex flex-col gap-1.5 text-xs">
+                    {coursPer != null && coursPer > 0 && (
+                      <div className={`rounded p-2.5 flex items-center gap-2 ${perEntier ? 'bg-green-50 text-green-700' : 'bg-red-50 text-red-700'}`}>
+                        <span className="text-base">{perEntier ? '✓' : '✗'}</span>
+                        <span>
+                          <b>Périodes</b> : {coursNom} <b>{coursPer}p</b> × <b>{perMultiple != null ? perMultiple.toLocaleString('fr-BE', { maximumFractionDigits: 2 }) : '?'}</b> = <b>{totals.periodes}p</b>
+                          {perEntier
+                            ? <> — multiple entier </>
+                            : <> — <span className="font-semibold">pas un multiple entier</span></>
+                          }
+                        </span>
+                      </div>
+                    )}
+                    {ueAut != null && ueAut > 0 && (
+                      <div className="rounded p-2.5 bg-blue-50 text-blue-700 flex items-center gap-2">
+                        <span className="text-base">ℹ</span>
+                        <span>
+                          <b>Autonomie</b> : UE autonomie <b>{Number(ueAut).toLocaleString('fr-BE')}p</b> × <b>{autMultiple != null ? autMultiple.toLocaleString('fr-BE', { maximumFractionDigits: 2 }) : '?'}</b> = <b>{totals.autonomie}p</b>
+                        </span>
+                      </div>
+                    )}
+                  </div>
+                );
+              })()}
 
               {canEdit && (
                 <button onClick={addRow}
