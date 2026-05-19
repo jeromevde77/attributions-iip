@@ -3,12 +3,12 @@
 @tailwind utilities;
 
 body {
-  font-family: 'Inter', system-ui, sans-serif;
+  font-family: 'Aptos', Arial, Helvetica, sans-serif;
   background: #F5F7FA;
   color: #1f2937;
 }
 
-h1, h2, h3, .font-title { font-family: 'Cinzel', serif; }
+h1, h2, h3, .font-title { font-family: 'Aptos', Arial, Helvetica, sans-serif; font-weight: 700; }
 
 /* Grille type Excel */
 table.grid-excel { border-collapse: collapse; width: 100%; font-size: 0.875rem; }

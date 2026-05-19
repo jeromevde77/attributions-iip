@@ -12,7 +12,8 @@ export default {
         }
       },
       fontFamily: {
-        title: ['Cinzel', 'serif']
+        sans:  ['Aptos', 'Arial', 'Helvetica', 'sans-serif'],
+        title: ['Aptos', 'Arial', 'Helvetica', 'sans-serif']
       }
     }
   },
