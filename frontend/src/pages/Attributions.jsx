@@ -111,24 +111,54 @@ export default function Attributions() {
     });
   }, [data, sortBy]);
 
-  /* --- Groupement par UE --- */
-  const ueGroups = useMemo(() => {
-    const map = new Map();
+  /* --- Groupement Section → UE → Cours --- */
+  const sectionGroups = useMemo(() => {
+    const secMap = new Map();
     for (const r of sortedData) {
-      const key = r.ue_num ?? 0;
-      if (!map.has(key)) map.set(key, { ue_num: r.ue_num, ue_nom: r.ue_nom, bloc: r.bloc, section: r.section, rows: [] });
-      map.get(key).rows.push(r);
+      const sec = r.section || '(sans section)';
+      if (!secMap.has(sec)) secMap.set(sec, new Map());
+      const ueMap = secMap.get(sec);
+      const ueKey = r.ue_num ?? 0;
+      if (!ueMap.has(ueKey)) ueMap.set(ueKey, { ue_num: r.ue_num, ue_nom: r.ue_nom, bloc: r.bloc, coursMap: new Map(), rows: [] });
+      const ueGroup = ueMap.get(ueKey);
+      ueGroup.rows.push(r);
+      const coursKey = r.code_cours || '?';
+      if (!ueGroup.coursMap.has(coursKey)) ueGroup.coursMap.set(coursKey, { code_cours: r.code_cours, nom_cours: r.nom_cours, type_cours: r.type_cours, rows: [] });
+      ueGroup.coursMap.get(coursKey).rows.push(r);
     }
-    return Array.from(map.values()).sort((a,b) => {
-      const ba=a.bloc||'', bb=b.bloc||'';
-      if (ba!==bb) return ba.localeCompare(bb,'fr',{numeric:true});
-      return (a.ue_num||0)-(b.ue_num||0);
-    });
+    // Convertir en array structuré
+    const result = [];
+    for (const [sec, ueMap] of secMap) {
+      const ues = Array.from(ueMap.values()).map(ue => ({
+        ...ue,
+        cours: Array.from(ue.coursMap.values()).sort((a,b) => (a.code_cours||'').localeCompare(b.code_cours||'','fr',{numeric:true}))
+      })).sort((a,b) => {
+        const ba=a.bloc||'', bb=b.bloc||'';
+        if (ba!==bb) return ba.localeCompare(bb,'fr',{numeric:true});
+        return (a.ue_num||0)-(b.ue_num||0);
+      });
+      const allRows = ues.flatMap(u=>u.rows);
+      result.push({ section: sec, ues, rows: allRows });
+    }
+    return result.sort((a,b) => a.section.localeCompare(b.section,'fr',{numeric:true}));
   }, [sortedData]);
 
-  function toggleUE(n) { setOpenUEs(s=>{const x=new Set(s); x.has(n)?x.delete(n):x.add(n); return x;}); }
-  function expandAll() { setOpenUEs(new Set(ueGroups.map(g=>g.ue_num))); }
+  // Clés ouvertes : "sec:TIM", "ue:TIM/250", "cours:TIM/250/CHEM101"
+  function toggle(key) { setOpenUEs(s=>{const x=new Set(s); x.has(key)?x.delete(key):x.add(key); return x;}); }
+  function expandAll() {
+    const keys = new Set();
+    for (const sg of sectionGroups) {
+      keys.add('sec:'+sg.section);
+      for (const ue of sg.ues) {
+        keys.add('ue:'+sg.section+'/'+ue.ue_num);
+        for (const c of ue.cours) keys.add('cours:'+sg.section+'/'+ue.ue_num+'/'+c.code_cours);
+      }
+    }
+    setOpenUEs(keys);
+  }
   function collapseAll() { setOpenUEs(new Set()); }
+  // Nombre total d'UE pour les stats
+  const totalUECount = useMemo(() => sectionGroups.reduce((s,g)=>s+g.ues.length,0), [sectionGroups]);
 
   /* --- CRUD --- */
   async function deleteRow(id) {
@@ -226,52 +256,114 @@ export default function Attributions() {
     );
   }
 
-  /* === Rendu d'un accordéon UE === */
-  function renderUE(g) {
-    const open = openUEs.has(g.ue_num);
-    const tPer = g.rows.reduce((s,r)=>s+(Number(r.periodes_attribuees)||0),0);
-    const tAut = g.rows.reduce((s,r)=>s+(Number(r.autonomie_attribuee)||0),0);
-    const nConf = g.rows.filter(r=>r.cours_conforme===1).length;
-    const nBad  = g.rows.filter(r=>r.cours_conforme===0).length;
-    const nProf = new Set(g.rows.filter(r=>r.professeur_id).map(r=>r.professeur_id)).size;
-    const nCours = new Set(g.rows.map(r=>r.code_cours)).size;
+  /* === Stats helper === */
+  function groupStats(rows) {
+    const tPer = rows.reduce((s,r)=>s+(Number(r.periodes_attribuees)||0),0);
+    const tAut = rows.reduce((s,r)=>s+(Number(r.autonomie_attribuee)||0),0);
+    const nBad = rows.filter(r=>r.cours_conforme===0).length;
+    const nConf = rows.filter(r=>r.cours_conforme===1).length;
+    const nProf = new Set(rows.filter(r=>r.professeur_id).map(r=>r.professeur_id)).size;
+    const nCours = new Set(rows.map(r=>r.code_cours)).size;
+    return { tPer, tAut, nBad, nConf, nProf, nCours };
+  }
+
+  /* === Rendu d'un cours (niveau 3) === */
+  function renderCours(sec, ueNum, cg) {
+    const key = 'cours:'+sec+'/'+ueNum+'/'+cg.code_cours;
+    const open = openUEs.has(key);
+    const st = groupStats(cg.rows);
     return (
-      <div key={g.ue_num} className="bg-white rounded-lg border border-gray-200 overflow-hidden">
-        <button onClick={()=>toggleUE(g.ue_num)} className="w-full flex items-center gap-3 px-4 py-3 hover:bg-iip-gold/5 transition text-left">
-          <span className={`text-iip-gold transition-transform ${open?'rotate-90':''}`}>▶</span>
-          <div className="flex-1 min-w-0">
-            <div className="flex items-center gap-2 flex-wrap">
-              <span className="font-semibold text-iip-gold">UE {g.ue_num}</span>
-              {g.bloc && <span className="text-xs bg-iip-gold/10 text-iip-gold px-2 py-0.5 rounded">{g.bloc}</span>}
-              {g.section && <span className="text-xs bg-gray-100 text-gray-600 px-2 py-0.5 rounded">{g.section}</span>}
-            </div>
-            <div className="text-sm text-gray-700 truncate">{g.ue_nom || 'UE sans nom'}</div>
-          </div>
-          <div className="flex items-center gap-3 text-xs text-gray-500 flex-shrink-0">
-            <span>{g.rows.length} attr.</span>
-            <span>{nCours} cours</span>
-            <span>{nProf} prof.</span>
-            <span className="font-semibold text-iip-gold">{tPer}p</span>
-            {tAut > 0 && <span className="text-gray-400">+{tAut}a</span>}
-            {nBad > 0 && <span className="text-red-600 font-bold">✗ {nBad}</span>}
-            {nBad === 0 && nConf > 0 && <span className="text-green-600 font-bold">✓</span>}
-          </div>
+      <div key={key} className="border-t border-gray-100">
+        <button onClick={()=>toggle(key)} className="w-full flex items-center gap-2 px-6 py-2 hover:bg-gray-50 transition text-left text-sm">
+          <span className={`text-gray-400 text-xs transition-transform ${open?'rotate-90':''}`}>▶</span>
+          <span className="font-mono text-xs text-gray-500">{cg.code_cours}</span>
+          <span className="text-gray-700 truncate flex-1">{cg.nom_cours}</span>
+          {cg.type_cours && <span className={`text-xs px-1.5 py-0.5 rounded ${cg.type_cours==='CT'?'bg-blue-100 text-blue-700':'bg-purple-100 text-purple-700'}`}>{cg.type_cours}</span>}
+          <span className="text-xs text-gray-500">{cg.rows.length} attr.</span>
+          <span className="text-xs font-semibold text-iip-gold">{st.tPer}p</span>
+          {st.tAut>0 && <span className="text-xs text-gray-400">+{st.tAut}a</span>}
+          {st.nBad>0 ? <span className="text-xs text-red-600 font-bold">✗</span> : st.nConf>0 ? <span className="text-xs text-green-600 font-bold">✓</span> : null}
         </button>
         {open && (
-          <div className="border-t border-gray-200 overflow-auto max-h-[50vh]">
+          <div className="overflow-auto max-h-[40vh] ml-6 mr-2 mb-2 border border-gray-200 rounded">
             <table className="grid-excel" style={{tableLayout:'fixed'}}>
               <thead><tr>
                 {COLS.map(c => c.key==='__select'
                   ? <th key={c.key} style={{width:c.width,minWidth:c.width,maxWidth:c.width}}>
-                      <input type="checkbox" checked={g.rows.length>0&&g.rows.every(r=>selected.has(r.id))}
-                        onChange={()=>{const all=g.rows.every(r=>selected.has(r.id));setSelected(s=>{const n=new Set(s);g.rows.forEach(r=>all?n.delete(r.id):n.add(r.id));return n;});}}
+                      <input type="checkbox" checked={cg.rows.length>0&&cg.rows.every(r=>selected.has(r.id))}
+                        onChange={()=>{const all=cg.rows.every(r=>selected.has(r.id));setSelected(s=>{const n=new Set(s);cg.rows.forEach(r=>all?n.delete(r.id):n.add(r.id));return n;});}}
                         className="cursor-pointer"/>
                     </th>
                   : <ResizableHeader key={c.key} col={c} sortKey={sortBy.key} sortDir={sortBy.dir} onSort={toggleSort} onResize={setColWidth}>{c.label}</ResizableHeader>
                 )}
               </tr></thead>
-              <tbody>{g.rows.map(renderRow)}</tbody>
+              <tbody>{cg.rows.map(renderRow)}</tbody>
             </table>
+          </div>
+        )}
+      </div>
+    );
+  }
+
+  /* === Rendu d'un accordéon UE (niveau 2) === */
+  function renderUE(sec, ue) {
+    const key = 'ue:'+sec+'/'+ue.ue_num;
+    const open = openUEs.has(key);
+    const st = groupStats(ue.rows);
+    return (
+      <div key={key} className="border-t border-gray-200">
+        <button onClick={()=>toggle(key)} className="w-full flex items-center gap-3 px-5 py-2.5 hover:bg-iip-gold/5 transition text-left">
+          <span className={`text-iip-gold text-sm transition-transform ${open?'rotate-90':''}`}>▶</span>
+          <div className="flex-1 min-w-0">
+            <div className="flex items-center gap-2 flex-wrap">
+              <span className="font-semibold text-iip-gold text-sm">UE {ue.ue_num}</span>
+              {ue.bloc && <span className="text-xs bg-iip-gold/10 text-iip-gold px-1.5 py-0.5 rounded">{ue.bloc}</span>}
+            </div>
+            <div className="text-xs text-gray-600 truncate">{ue.ue_nom || 'UE sans nom'}</div>
+          </div>
+          <div className="flex items-center gap-3 text-xs text-gray-500 flex-shrink-0">
+            <span>{ue.rows.length} attr.</span>
+            <span>{st.nCours} cours</span>
+            <span>{st.nProf} prof.</span>
+            <span className="font-semibold text-iip-gold">{st.tPer}p</span>
+            {st.tAut>0 && <span className="text-gray-400">+{st.tAut}a</span>}
+            {st.nBad>0 && <span className="text-red-600 font-bold">✗ {st.nBad}</span>}
+            {st.nBad===0 && st.nConf>0 && <span className="text-green-600 font-bold">✓</span>}
+          </div>
+        </button>
+        {open && (
+          <div className="bg-gray-50/50">
+            {ue.cours.map(cg => renderCours(sec, ue.ue_num, cg))}
+          </div>
+        )}
+      </div>
+    );
+  }
+
+  /* === Rendu d'un accordéon Section (niveau 1) === */
+  function renderSection(sg) {
+    const key = 'sec:'+sg.section;
+    const open = openUEs.has(key);
+    const st = groupStats(sg.rows);
+    return (
+      <div key={key} className="bg-white rounded-lg border border-gray-200 overflow-hidden">
+        <button onClick={()=>toggle(key)} className="w-full flex items-center gap-3 px-4 py-3 hover:bg-iip-gold/10 transition text-left bg-iip-gold/5">
+          <span className={`text-iip-gold font-bold transition-transform ${open?'rotate-90':''}`}>▶</span>
+          <span className="font-bold text-iip-gold text-lg">{sg.section}</span>
+          <div className="flex items-center gap-3 text-xs text-gray-500 flex-shrink-0 ml-auto">
+            <span>{sg.ues.length} UE</span>
+            <span>{sg.rows.length} attr.</span>
+            <span>{st.nCours} cours</span>
+            <span>{st.nProf} prof.</span>
+            <span className="font-bold text-iip-gold text-sm">{st.tPer}p</span>
+            {st.tAut>0 && <span className="text-gray-400">+{st.tAut}a</span>}
+            {st.nBad>0 && <span className="text-red-600 font-bold">✗ {st.nBad}</span>}
+            {st.nBad===0 && st.nConf>0 && <span className="text-green-600 font-bold">✓</span>}
+          </div>
+        </button>
+        {open && (
+          <div>
+            {sg.ues.map(ue => renderUE(sg.section, ue))}
           </div>
         )}
       </div>
@@ -308,7 +400,7 @@ export default function Attributions() {
       {/* Barre d'actions desktop */}
       <div className="hidden md:flex items-center gap-2 mb-3 flex-wrap">
         <div className="bg-white border border-gray-200 rounded-lg flex overflow-hidden text-sm mr-2">
-          <button onClick={()=>setViewMode('ue')} className={`px-3 py-1.5 font-medium transition ${viewMode==='ue'?'bg-iip-gold text-white':'text-gray-600 hover:bg-gray-50'}`}>📂 Par UE</button>
+          <button onClick={()=>setViewMode('ue')} className={`px-3 py-1.5 font-medium transition ${viewMode==='ue'?'bg-iip-gold text-white':'text-gray-600 hover:bg-gray-50'}`}>📂 Par section</button>
           <button onClick={()=>setViewMode('flat')} className={`px-3 py-1.5 font-medium transition ${viewMode==='flat'?'bg-iip-gold text-white':'text-gray-600 hover:bg-gray-50'}`}>📋 Vue complète</button>
         </div>
         {viewMode==='ue' && <div className="flex gap-1 text-xs mr-2">
@@ -316,7 +408,7 @@ export default function Attributions() {
           <button onClick={collapseAll} className="text-gray-500 hover:text-iip-gold px-2 py-1">Tout replier</button>
         </div>}
         <span className="bg-white rounded px-3 py-1 border border-gray-200 text-sm">
-          <b>{data.length}</b> attr. · {ueGroups.length} UE · <b>{stats.total.toLocaleString('fr-BE')}</b> per.
+          <b>{data.length}</b> attr. · {sectionGroups.length} sect. · {totalUECount} UE · <b>{stats.total.toLocaleString('fr-BE')}</b> per.
           · IIP <b className="text-iip-gold">{stats.iip.toLocaleString('fr-BE')}</b>
           · HELB <b className="text-iip-mauve">{stats.helb.toLocaleString('fr-BE')}</b>
         </span>
@@ -333,11 +425,11 @@ export default function Attributions() {
         </div>
       </div>
 
-      {/* VUE PAR UE */}
+      {/* VUE PAR SECTION/UE/COURS */}
       {viewMode==='ue' && <div className="hidden md:flex flex-col gap-2">
         {loading ? <div className="p-8 text-center text-gray-400">Chargement…</div>
-         : ueGroups.length===0 ? <div className="p-8 text-center text-gray-400 bg-white rounded-lg border">Aucune attribution</div>
-         : ueGroups.map(renderUE)}
+         : sectionGroups.length===0 ? <div className="p-8 text-center text-gray-400 bg-white rounded-lg border">Aucune attribution</div>
+         : sectionGroups.map(renderSection)}
       </div>}
 
       {/* VUE COMPLÈTE */}
