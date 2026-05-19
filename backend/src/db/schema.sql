@@ -420,22 +420,23 @@ SELECT
              ELSE 0 END
         ELSE 0 END                                           AS cout_helb,
 
-    -- Coût Q1 / Q2 (selon quadri pour tous prévu)
-    CASE WHEN u.ue_quad='Q1' THEN
+    -- Coût S-D / J-J (selon quadrimestre attribué, sinon quadri UE)
+    -- quad_eff = quadrimestre effectif pour le calcul
+    CASE WHEN COALESCE(a.quadrimestre_attribue, u.ue_quad)='Q1' THEN
             CASE WHEN a.contrat_mdp='IIP' AND u.ue_niveau='SUP' THEN a.total_attribue_professeur*1.5
                  WHEN a.contrat_mdp='IIP' AND u.ue_niveau='DS'  THEN a.total_attribue_professeur*1.25
                  ELSE 0 END
-         WHEN u.ue_quad='Q1/Q2' THEN
+         WHEN COALESCE(a.quadrimestre_attribue, u.ue_quad)='Q1/Q2' THEN
             CASE WHEN a.contrat_mdp='IIP' AND u.ue_niveau='SUP' THEN a.total_attribue_professeur*1.5*0.4
                  WHEN a.contrat_mdp='IIP' AND u.ue_niveau='DS'  THEN a.total_attribue_professeur*1.25*0.4
                  ELSE 0 END
          ELSE 0 END                                          AS cout_dotation_q1,
 
-    CASE WHEN u.ue_quad='Q2' THEN
+    CASE WHEN COALESCE(a.quadrimestre_attribue, u.ue_quad)='Q2' THEN
             CASE WHEN a.contrat_mdp='IIP' AND u.ue_niveau='SUP' THEN a.total_attribue_professeur*1.5
                  WHEN a.contrat_mdp='IIP' AND u.ue_niveau='DS'  THEN a.total_attribue_professeur*1.25
                  ELSE 0 END
-         WHEN u.ue_quad='Q1/Q2' THEN
+         WHEN COALESCE(a.quadrimestre_attribue, u.ue_quad)='Q1/Q2' THEN
             CASE WHEN a.contrat_mdp='IIP' AND u.ue_niveau='SUP' THEN a.total_attribue_professeur*1.5*0.6
                  WHEN a.contrat_mdp='IIP' AND u.ue_niveau='DS'  THEN a.total_attribue_professeur*1.25*0.6
                  ELSE 0 END
