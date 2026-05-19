@@ -6,13 +6,13 @@ const r = Router();
 
 // Liste avec filtres : ?section=...&prof_id=...&contrat=...&ue=...&q=...
 r.get('/', authRequired, (req, res) => {
-  const { section, prof_id, contrat, ue, q, type_cours } = req.query;
+  const { section, prof_id, contrat, ue, ue_num, q, type_cours } = req.query;
   const where = [];
   const params = {};
   if (section)   { where.push('section = @section');         params.section = section; }
   if (prof_id)   { where.push('professeur_id = @prof_id');   params.prof_id = prof_id; }
   if (contrat)   { where.push('contrat_mdp = @contrat');     params.contrat = contrat; }
-  if (ue)        { where.push('ue_num = @ue');               params.ue = ue; }
+  if (ue || ue_num) { where.push('ue_num = @ue');            params.ue = ue || ue_num; }
   if (type_cours){ where.push('type_cours = @type_cours');   params.type_cours = type_cours; }
   if (q) {
     where.push('(ue_nom LIKE @q OR nom_cours LIKE @q OR professeur LIKE @q)');
