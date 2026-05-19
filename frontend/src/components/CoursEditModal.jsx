@@ -207,7 +207,11 @@ export default function CoursEditModal({ section, codeCours, onClose, onChanged 
                       <th className="text-left p-2 border-b">Groupe</th>
                       <th className="text-left p-2 border-b">Professeur</th>
                       <th className="text-right p-2 border-b">Périodes</th>
+                      <th className="text-right p-2 border-b bg-gray-100 text-gray-500"
+                          title="Périodes prévues pour ce cours (BD_UE_COURS)">Per. prévu</th>
                       <th className="text-right p-2 border-b">Autonomie</th>
+                      <th className="text-right p-2 border-b bg-gray-100 text-gray-500"
+                          title="Autonomie max prévue pour l'UE (BD_UE_COURS)">Aut. prévu</th>
                       <th className="text-right p-2 border-b">Total</th>
                       <th className="p-2 border-b w-10"></th>
                     </tr>
@@ -248,11 +252,23 @@ export default function CoursEditModal({ section, codeCours, onClose, onChanged 
                                    onChange={e => updateRow(r.id, 'periodes_attribuees', e.target.value.replace(',', '.'))}
                                    className="w-20 border border-gray-200 rounded px-2 py-1 text-right text-sm focus:border-iip-gold outline-none no-spinner" />
                           </td>
+                          <td className="p-2 border-b text-right bg-gray-50 text-gray-500 tabular-nums"
+                              title="Périodes prévues pour ce cours (BD_UE_COURS)">
+                            {r.cours_per_prevu != null
+                              ? Number(r.cours_per_prevu).toLocaleString('fr-BE')
+                              : <span className="text-gray-300">—</span>}
+                          </td>
                           <td className="p-2 border-b text-right">
                             <input type="text" inputMode="decimal" value={r.autonomie_attribuee ?? 0}
                                    disabled={!canEdit}
                                    onChange={e => updateRow(r.id, 'autonomie_attribuee', e.target.value.replace(',', '.'))}
                                    className="w-20 border border-gray-200 rounded px-2 py-1 text-right text-sm focus:border-iip-gold outline-none no-spinner" />
+                          </td>
+                          <td className="p-2 border-b text-right bg-gray-50 text-gray-500 tabular-nums"
+                              title="Autonomie max prévue pour l'UE (BD_UE_COURS)">
+                            {r.ue_autonomie_prevu != null
+                              ? Number(r.ue_autonomie_prevu).toLocaleString('fr-BE')
+                              : <span className="text-gray-300">—</span>}
                           </td>
                           <td className="p-2 border-b text-right font-medium tabular-nums">{lineTotal.toLocaleString('fr-BE')}</td>
                           <td className="p-2 border-b text-center">
@@ -270,7 +286,13 @@ export default function CoursEditModal({ section, codeCours, onClose, onChanged 
                     <tr className="bg-iip-gold/10 font-semibold">
                       <td colSpan="4" className="p-2 text-right text-gray-700">TOTAUX</td>
                       <td className="p-2 text-right tabular-nums">{totals.periodes.toLocaleString('fr-BE')}</td>
+                      <td className="p-2 text-right bg-gray-100 text-gray-500 tabular-nums" title="Cours_per × nb de lignes">
+                        {coursPer != null
+                          ? Number(coursPer * visibleRows.length).toLocaleString('fr-BE')
+                          : '—'}
+                      </td>
                       <td className="p-2 text-right tabular-nums">{totals.autonomie.toLocaleString('fr-BE')}</td>
+                      <td className="p-2 text-right bg-gray-100 text-gray-500 tabular-nums">—</td>
                       <td className="p-2 text-right tabular-nums">{totals.total.toLocaleString('fr-BE')}</td>
                       <td className="p-2 text-center">
                         {totals.conforme === true && <span className="text-green-600 text-lg" title={`Total = ${totals.multiple} × ${coursPer}`}>✓</span>}
