@@ -27,6 +27,9 @@ const DEFAULT_COLS = [
   { key: 'ue_num',                label: 'UE',         width: 70,  num: true, rowClickable: true },
   { key: 'ue_nom',                label: "Nom de l'UE",width: 280, rowClickable: true },
   { key: 'bloc',                  label: 'Bloc',       width: 70,  rowClickable: true },
+  { key: 'num_organisation',      label: 'Org.',       width: 60,  num: true, edit: 'select',
+    options: [['1','1'],['2','2'],['3','3'],['4','4']],
+    render: v => v && v > 1 ? <span className="bg-amber-100 text-amber-800 text-xs px-1.5 py-0.5 rounded font-semibold">{v}</span> : <span className="text-gray-400">{v || 1}</span> },
   { key: 'quadrimestre_attribue', label: 'Quadri',     width: 110, edit: 'select',
     options: [['','—'],['Q1','Q1'],['Q2','Q2'],['Q1/Q2','Q1/Q2']] },
   { key: 'code_cours',            label: 'Code',       width: 80,  rowClickable: true },
@@ -111,15 +114,16 @@ export default function Attributions() {
     });
   }, [data, sortBy]);
 
-  /* --- Groupement Section → UE → Cours --- */
+  /* --- Groupement Section → UE (par organisation) → Cours --- */
   const sectionGroups = useMemo(() => {
     const secMap = new Map();
     for (const r of sortedData) {
       const sec = r.section || '(sans section)';
       if (!secMap.has(sec)) secMap.set(sec, new Map());
       const ueMap = secMap.get(sec);
-      const ueKey = r.ue_num ?? 0;
-      if (!ueMap.has(ueKey)) ueMap.set(ueKey, { ue_num: r.ue_num, ue_nom: r.ue_nom, bloc: r.bloc, coursMap: new Map(), rows: [] });
+      const org = r.num_organisation || 1;
+      const ueKey = (r.ue_num ?? 0) + '/org' + org;
+      if (!ueMap.has(ueKey)) ueMap.set(ueKey, { ue_num: r.ue_num, ue_nom: r.ue_nom, bloc: r.bloc, num_organisation: org, coursMap: new Map(), rows: [] });
       const ueGroup = ueMap.get(ueKey);
       ueGroup.rows.push(r);
       const coursKey = r.code_cours || '?';
@@ -135,7 +139,8 @@ export default function Attributions() {
       })).sort((a,b) => {
         const ba=a.bloc||'', bb=b.bloc||'';
         if (ba!==bb) return ba.localeCompare(bb,'fr',{numeric:true});
-        return (a.ue_num||0)-(b.ue_num||0);
+        if ((a.ue_num||0) !== (b.ue_num||0)) return (a.ue_num||0)-(b.ue_num||0);
+        return (a.num_organisation||1)-(b.num_organisation||1);
       });
       const allRows = ues.flatMap(u=>u.rows);
       result.push({ section: sec, ues, rows: allRows });
@@ -143,15 +148,16 @@ export default function Attributions() {
     return result.sort((a,b) => a.section.localeCompare(b.section,'fr',{numeric:true}));
   }, [sortedData]);
 
-  // Clés ouvertes : "sec:TIM", "ue:TIM/250", "cours:TIM/250/CHEM101"
+  // Clés ouvertes : "sec:TIM", "ue:TIM/250/1", "cours:TIM/250/1/CHEM101"
   function toggle(key) { setOpenUEs(s=>{const x=new Set(s); x.has(key)?x.delete(key):x.add(key); return x;}); }
   function expandAll() {
     const keys = new Set();
     for (const sg of sectionGroups) {
       keys.add('sec:'+sg.section);
       for (const ue of sg.ues) {
-        keys.add('ue:'+sg.section+'/'+ue.ue_num);
-        for (const c of ue.cours) keys.add('cours:'+sg.section+'/'+ue.ue_num+'/'+c.code_cours);
+        const uk = sg.section+'/'+ue.ue_num+'/'+(ue.num_organisation||1);
+        keys.add('ue:'+uk);
+        for (const c of ue.cours) keys.add('cours:'+uk+'/'+c.code_cours);
       }
     }
     setOpenUEs(keys);
@@ -168,7 +174,7 @@ export default function Attributions() {
   }
   async function saveCell(id, field, value) {
     try {
-      const numF = ['periodes_attribuees','autonomie_attribuee'];
+      const numF = ['periodes_attribuees','autonomie_attribuee','num_organisation'];
       const payload = { [field]: numF.includes(field) ? Number(value) : value };
       await api.updateAttribution(id, payload);
       setData(prev=>prev.map(r=>r.id===id?{...r,...payload,...recompute(r,payload)}:r));
@@ -268,8 +274,8 @@ export default function Attributions() {
   }
 
   /* === Rendu d'un cours (niveau 3) === */
-  function renderCours(sec, ueNum, cg) {
-    const key = 'cours:'+sec+'/'+ueNum+'/'+cg.code_cours;
+  function renderCours(ueKey, cg) {
+    const key = 'cours:'+ueKey+'/'+cg.code_cours;
     const open = openUEs.has(key);
     const st = groupStats(cg.rows);
     return (
@@ -307,7 +313,9 @@ export default function Attributions() {
 
   /* === Rendu d'un accordéon UE (niveau 2) === */
   function renderUE(sec, ue) {
-    const key = 'ue:'+sec+'/'+ue.ue_num;
+    const org = ue.num_organisation || 1;
+    const ueKey = sec+'/'+ue.ue_num+'/'+org;
+    const key = 'ue:'+ueKey;
     const open = openUEs.has(key);
     const st = groupStats(ue.rows);
     return (
@@ -317,6 +325,7 @@ export default function Attributions() {
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-2 flex-wrap">
               <span className="font-semibold text-iip-gold text-sm">UE {ue.ue_num}</span>
+              {org > 1 && <span className="text-xs bg-amber-100 text-amber-800 px-1.5 py-0.5 rounded font-semibold">Org. {org}</span>}
               {ue.bloc && <span className="text-xs bg-iip-gold/10 text-iip-gold px-1.5 py-0.5 rounded">{ue.bloc}</span>}
             </div>
             <div className="text-xs text-gray-600 truncate">{ue.ue_nom || 'UE sans nom'}</div>
@@ -333,7 +342,7 @@ export default function Attributions() {
         </button>
         {open && (
           <div className="bg-gray-50/50">
-            {ue.cours.map(cg => renderCours(sec, ue.ue_num, cg))}
+            {ue.cours.map(cg => renderCours(ueKey, cg))}
           </div>
         )}
       </div>
