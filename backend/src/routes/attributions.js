@@ -48,6 +48,30 @@ r.get('/conformite', authRequired, (req, res) => {
   `).all(params));
 });
 
+// Toutes les attributions d'un cours (un cours = section + code_cours)
+// Utilisé par la modale d'édition multi-lignes
+r.get('/by-cours', authRequired, (req, res) => {
+  const { section, code_cours } = req.query;
+  if (!section || !code_cours) {
+    return res.status(400).json({ error: 'section et code_cours requis' });
+  }
+  const rows = db.prepare(`
+    SELECT * FROM v_attribution_complete
+    WHERE section = ? AND code_cours = ?
+    ORDER BY code, activite_id
+  `).all(section, code_cours);
+
+  // Récupérer le cours_per et calculer la conformité
+  const conf = db.prepare(`
+    SELECT * FROM v_cours_conformite WHERE section = ? AND code_cours = ?
+  `).get(section, code_cours);
+
+  res.json({
+    attributions: rows,
+    conformite: conf || null
+  });
+});
+
 // Détail
 r.get('/:id', authRequired, (req, res) => {
   const row = db.prepare('SELECT * FROM v_attribution_complete WHERE id = ?').get(req.params.id);
@@ -63,7 +87,7 @@ r.post('/', authRequired, roleRequired('admin', 'editeur'), (req, res) => {
       (section, etablissement_referent, contrat_mdp, organisation,
        ue_num, num_organisation, quadrimestre_attribue,
        code_cours, type_cours, type_cours_helb, code, nb_groupes,
-       split_groupe, num_split, num_groupe,
+       split_groupe, num_split, num_groupe, activite_id,
        professeur_id, cours_ept_ad, coordination_encadrement,
        modification_attribution, commentaire, commentaire_2,
        per_etudiant_total_dp, periodes_attribuees, autonomie_attribuee,
@@ -71,7 +95,7 @@ r.post('/', authRequired, roleRequired('admin', 'editeur'), (req, res) => {
     VALUES (@section, @etablissement_referent, @contrat_mdp, @organisation,
             @ue_num, @num_organisation, @quadrimestre_attribue,
             @code_cours, @type_cours, @type_cours_helb, @code, @nb_groupes,
-            @split_groupe, @num_split, @num_groupe,
+            @split_groupe, @num_split, @num_groupe, @activite_id,
             @professeur_id, @cours_ept_ad, @coordination_encadrement,
             @modification_attribution, @commentaire, @commentaire_2,
             @per_etudiant_total_dp, @periodes_attribuees, @autonomie_attribuee,
@@ -93,6 +117,7 @@ r.post('/', authRequired, roleRequired('admin', 'editeur'), (req, res) => {
     split_groupe: a.split_groupe ?? 'N',
     num_split: a.num_split ?? null,
     num_groupe: a.num_groupe ?? null,
+    activite_id: a.activite_id ?? null,
     professeur_id: a.professeur_id ?? null,
     cours_ept_ad: a.cours_ept_ad ?? null,
     coordination_encadrement: a.coordination_encadrement ?? null,
@@ -117,6 +142,7 @@ r.patch('/:id', authRequired, roleRequired('admin', 'editeur'), (req, res) => {
     'section','etablissement_referent','contrat_mdp','organisation','ue_num',
     'num_organisation','quadrimestre_attribue','code_cours','type_cours',
     'type_cours_helb','code','nb_groupes','split_groupe','num_split','num_groupe',
+    'activite_id',
     'professeur_id','cours_ept_ad','coordination_encadrement',
     'modification_attribution','commentaire','commentaire_2',
     'per_etudiant_total_dp','periodes_attribuees','autonomie_attribuee'

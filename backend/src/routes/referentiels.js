@@ -101,4 +101,8 @@ r.get('/types-encadrement', authRequired, (req, res) => {
   res.json(db.prepare('SELECT * FROM type_encadrement').all());
 });
 
+r.get('/activites', authRequired, (req, res) => {
+  res.json(db.prepare('SELECT * FROM activite_type ORDER BY ordre, libelle').all());
+});
+
 export default r;

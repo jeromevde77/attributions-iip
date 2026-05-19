@@ -4,6 +4,7 @@ import AttributionForm from '../components/AttributionForm.jsx';
 import BulkCreateForm from '../components/BulkCreateForm.jsx';
 import AttributionCard from '../components/AttributionCard.jsx';
 import ResizableHeader from '../components/ResizableHeader.jsx';
+import CoursEditModal from '../components/CoursEditModal.jsx';
 
 // Définition des colonnes.
 // width : largeur par défaut en pixels (ajustable au drag par l'utilisateur).
@@ -41,6 +42,8 @@ const DEFAULT_COLS = [
     options: [['', '—'], ['Q1', 'Q1'], ['Q2', 'Q2'], ['Q1/Q2', 'Q1/Q2']] },
   { key: 'code_cours',             label: 'Code',     width: 80,  rowClickable: true },
   { key: 'nom_cours',              label: 'Cours',    width: 240, rowClickable: true },
+  { key: 'activite_nom',           label: 'Activité', width: 130, rowClickable: true,
+    render: v => v || <span className="text-gray-300 text-xs italic">—</span> },
   // Type non modifiable (lecture seule, juste badge)
   { key: 'type_cours',             label: 'Type',     width: 70,
     render: v =>
@@ -612,7 +615,14 @@ export default function Attributions() {
 
       {showForm && <AttributionForm onClose={() => setShowForm(false)} onCreated={load} />}
       {showBulkCreate && <BulkCreateForm onClose={() => setShowBulkCreate(false)} onCreated={load} />}
-      {editRow && <AttributionForm editRow={editRow} onClose={() => setEditRow(null)} onCreated={load} />}
+      {editRow && (
+        <CoursEditModal
+          section={editRow.section}
+          codeCours={editRow.code_cours}
+          onClose={() => setEditRow(null)}
+          onChanged={load}
+        />
+      )}
 
       {bulkDeleteModal && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-40"

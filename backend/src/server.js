@@ -19,6 +19,44 @@ import adminRoutes from './routes/admin.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
+// ---------------------------------------------------------------------------
+// Migrations légères : CREATE TABLE IF NOT EXISTS + ADD COLUMN si absent.
+// Ces opérations sont idempotentes — peuvent être exécutées à chaque démarrage.
+// ---------------------------------------------------------------------------
+try {
+  // 1. Créer la table activite_type si elle n'existe pas
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS activite_type (
+      id      INTEGER PRIMARY KEY AUTOINCREMENT,
+      libelle TEXT NOT NULL UNIQUE,
+      ordre   INTEGER DEFAULT 0
+    );
+  `);
+  const count = db.prepare('SELECT COUNT(*) AS n FROM activite_type').get().n;
+  if (count === 0) {
+    db.exec(`
+      INSERT INTO activite_type (id, libelle, ordre) VALUES
+        (1, 'Théorie',                1),
+        (2, 'Exercices',              2),
+        (3, 'Travaux pratiques (TP)', 3),
+        (4, 'Laboratoire',            4),
+        (5, 'Stage',                  5),
+        (6, 'Séminaire',              6),
+        (7, 'TFE',                    7);
+    `);
+    console.log('[migration] Table activite_type initialisée');
+  }
+
+  // 2. Ajouter la colonne attribution.activite_id si elle n'existe pas
+  const cols = db.prepare("PRAGMA table_info(attribution)").all();
+  if (!cols.find(c => c.name === 'activite_id')) {
+    db.exec(`ALTER TABLE attribution ADD COLUMN activite_id INTEGER REFERENCES activite_type(id);`);
+    console.log('[migration] Colonne attribution.activite_id ajoutée');
+  }
+} catch (e) {
+  console.warn('[migration] Erreur :', e.message);
+}
+
 // Recréer les VIEW à chaque démarrage pour qu'elles soient à jour
 // quand le schéma évolue (sans nécessiter un init-db complet).
 try {

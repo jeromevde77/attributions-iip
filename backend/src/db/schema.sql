@@ -154,6 +154,24 @@ INSERT OR IGNORE INTO type_encadrement (code, libelle) VALUES
     ('COPEDA', 'Coordination pédagogique');
 
 -- ----------------------------------------------------------------------------
+-- 3bis. Types d'activités au sein d'un cours (Théorie / Exercices / TP / ...)
+-- ----------------------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS activite_type (
+    id              INTEGER PRIMARY KEY AUTOINCREMENT,
+    libelle         TEXT NOT NULL UNIQUE,
+    ordre           INTEGER DEFAULT 0
+);
+
+INSERT OR IGNORE INTO activite_type (id, libelle, ordre) VALUES
+    (1, 'Théorie',                1),
+    (2, 'Exercices',              2),
+    (3, 'Travaux pratiques (TP)', 3),
+    (4, 'Laboratoire',            4),
+    (5, 'Stage',                  5),
+    (6, 'Séminaire',              6),
+    (7, 'TFE',                    7);
+
+-- ----------------------------------------------------------------------------
 -- 4. Table CENTRALE : Attributions (les 115 colonnes Excel → ~45 colonnes utiles)
 -- ----------------------------------------------------------------------------
 -- Tout ce qui était VLOOKUP est remplacé par FK + JOIN.
@@ -184,6 +202,7 @@ CREATE TABLE IF NOT EXISTS attribution (
     split_groupe    TEXT DEFAULT 'N',                        -- N / O (cours splitté)
     num_split       INTEGER,                                 -- numéro du split
     num_groupe      INTEGER,                                 -- numéro groupe
+    activite_id     INTEGER REFERENCES activite_type(id),    -- Théorie, Exercices, TP, ...
 
     -- Affectation
     professeur_id   INTEGER REFERENCES professeur(id),
@@ -346,6 +365,8 @@ SELECT
     -- Guides (depuis BD_UE_COURS pour aider le coordinateur)
     c.cours_per      AS cours_per_prevu,
     c.ue_autonomie   AS ue_autonomie_prevu,
+    a.activite_id,
+    at.libelle       AS activite_nom,
 
     -- Professeur
     a.professeur_id,
@@ -433,9 +454,10 @@ SELECT
     a.created_at,
     a.updated_at
 FROM attribution a
-LEFT JOIN ue          u ON u.ue_num = a.ue_num
-LEFT JOIN cours       c ON c.cours_code = a.code_cours
-LEFT JOIN professeur  p ON p.id = a.professeur_id;
+LEFT JOIN ue            u  ON u.ue_num     = a.ue_num
+LEFT JOIN cours         c  ON c.cours_code = a.code_cours
+LEFT JOIN professeur    p  ON p.id         = a.professeur_id
+LEFT JOIN activite_type at ON at.id        = a.activite_id;
 
 -- Vue Total_per par professeur (= colonne Total_per du Tableau4 Coordonnées_professeurs)
 DROP VIEW IF EXISTS v_professeur_total;
