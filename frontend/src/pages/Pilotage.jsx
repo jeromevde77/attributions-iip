@@ -38,11 +38,13 @@ export default function Pilotage() {
   const sectionSummary = useMemo(() => {
     const map = {};
     for (const r of secNiv) {
-      if (!map[r.section]) map[r.section] = { section: r.section, per: 0, iip: 0, helb: 0, cout: 0, blocs: [] };
+      if (!map[r.section]) map[r.section] = { section: r.section, per: 0, iip: 0, helb: 0, cout: 0, sd: 0, jj: 0, blocs: [] };
       map[r.section].per  += Number(r.periodes_att || 0);
       map[r.section].iip  += Number(r.iip || 0);
       map[r.section].helb += Number(r.helb || 0);
       map[r.section].cout += Number(r.per_b || 0);
+      map[r.section].sd   += Number(r.sd || 0);
+      map[r.section].jj   += Number(r.jj || 0);
       map[r.section].blocs.push(r);
     }
     return Object.values(map).sort((a, b) => b.per - a.per);
@@ -92,15 +94,24 @@ export default function Pilotage() {
       <h1 className="text-2xl font-title text-iip-gold">Pilotage 2025-2026</h1>
 
       {/* ═══════════════ KPIs ═══════════════ */}
-      <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
-        <Kpi label="Attributions" value={totaux?.nb_attributions} sub={`${totaux?.nb_ue || 0} UE · ${totaux?.nb_professeurs || 0} profs`} />
-        <Kpi label="Périodes totales" value={n(totaux?.total_periodes)} />
-        <Kpi label="IIP" value={n(totaux?.total_iip)} color="text-iip-gold" />
-        <Kpi label="HELB" value={n(totaux?.total_helb)} color="text-iip-mauve" />
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+        <Kpi label="Attributions" value={totaux?.nb_attributions}
+          sub={`${totaux?.nb_sections || 0} sections · ${totaux?.nb_ue || 0} UE · ${totaux?.nb_professeurs || 0} profs`} />
+        <Kpi label="Périodes totales" value={n(totaux?.total_periodes)}
+          sub={`IIP ${n(totaux?.total_iip)} · HELB ${n(totaux?.total_helb)}`} />
+        <Kpi label="Coût dotation IIP" value={n(totaux?.cout_dotation_total)}
+          sub={`S-D ${n(totaux?.cout_sd, 1)} · J-J ${n(totaux?.cout_jj, 1)}`} />
         <Kpi label="Solde dispo"
           value={totaux?.solde != null ? n(totaux.solde) : '—'}
-          sub={totaux?.periodes_disponibles ? `sur ${n(totaux.periodes_disponibles)}` : ''}
+          sub={totaux?.periodes_disponibles ? `sur ${n(totaux.periodes_disponibles)} disponibles` : ''}
           color={totaux?.solde >= 0 ? 'text-green-600' : 'text-red-600'} />
+      </div>
+
+      {/* Légende année civile */}
+      <div className="text-xs text-gray-500 bg-gray-50 rounded px-3 py-2 border border-gray-200">
+        💡 <b>S-D</b> = Sept–Déc (année civile en cours) — UE Q1 : 100%, UE Q1/Q2 : 40% · 
+        <b>J-J</b> = Jan–Juin (année civile suivante) — UE Q2 : 100%, UE Q1/Q2 : 60% · 
+        <b>Coût dotation</b> = périodes × coef. niveau (SUP ×1.5, DS ×1.25), IIP uniquement
       </div>
 
       {/* ═══════════════ Récap global par section ═══════════════ */}
@@ -115,6 +126,8 @@ export default function Pilotage() {
                 <th className="text-right">IIP</th>
                 <th className="text-right">HELB</th>
                 <th className="text-right">Coût dot.</th>
+                <th className="text-right" title="Sept–Déc (année civile en cours)">S-D</th>
+                <th className="text-right" title="Jan–Juin (année civile suivante)">J-J</th>
                 <th className="text-right">CC</th>
                 <th className="text-right">EXP</th>
                 <th className="text-right">% IIP</th>
@@ -131,6 +144,8 @@ export default function Pilotage() {
                     <td className="num text-iip-gold">{n(s.iip)}</td>
                     <td className="num text-iip-mauve">{n(s.helb)}</td>
                     <td className="num">{n(s.cout)}</td>
+                    <td className="num">{n(s.sd, 1)}</td>
+                    <td className="num">{n(s.jj, 1)}</td>
                     <td className="num">{n(st?.cc)}</td>
                     <td className="num">{n(st?.exp)}</td>
                     <td className="num">
@@ -151,6 +166,8 @@ export default function Pilotage() {
                 <td className="num text-iip-gold">{n(sectionSummary.reduce((s, r) => s + r.iip, 0))}</td>
                 <td className="num text-iip-mauve">{n(sectionSummary.reduce((s, r) => s + r.helb, 0))}</td>
                 <td className="num">{n(sectionSummary.reduce((s, r) => s + r.cout, 0))}</td>
+                <td className="num">{n(sectionSummary.reduce((s, r) => s + r.sd, 0), 1)}</td>
+                <td className="num">{n(sectionSummary.reduce((s, r) => s + r.jj, 0), 1)}</td>
                 <td className="num">{n(secStat.reduce((s, r) => s + (r.cc || 0), 0))}</td>
                 <td className="num">{n(secStat.reduce((s, r) => s + (r.exp || 0), 0))}</td>
                 <td></td>
@@ -196,9 +213,8 @@ export default function Pilotage() {
                             <th className="text-right">IIP</th>
                             <th className="text-right">HELB</th>
                             <th className="text-right">Coût dot.</th>
-                            <th className="text-right">Q1</th>
-                            <th className="text-right">Q2</th>
-                            <th className="text-right">Q1/Q2</th>
+                            <th className="text-right" title="Sept–Déc (année civile en cours) — Q1: 100%, Q1/Q2: 40%">S-D</th>
+                            <th className="text-right" title="Jan–Juin (année civile suivante) — Q2: 100%, Q1/Q2: 60%">J-J</th>
                           </tr></thead>
                           <tbody>
                             {sec.blocs.map((r, i) => (
@@ -208,9 +224,8 @@ export default function Pilotage() {
                                 <td className="num text-iip-gold">{n(r.iip)}</td>
                                 <td className="num text-iip-mauve">{n(r.helb)}</td>
                                 <td className="num">{n(r.per_b)}</td>
-                                <td className="num">{n(r.q1)}</td>
-                                <td className="num">{n(r.q2)}</td>
-                                <td className="num">{n(r.q1q2)}</td>
+                                <td className="num">{n(r.sd, 1)}</td>
+                                <td className="num">{n(r.jj, 1)}</td>
                               </tr>
                             ))}
                           </tbody>

@@ -94,10 +94,13 @@ r.get('/totaux', authRequired, (req, res) => {
       COUNT(*)                                       AS nb_attributions,
       COUNT(DISTINCT professeur_id)                  AS nb_professeurs,
       COUNT(DISTINCT ue_num)                         AS nb_ue,
+      COUNT(DISTINCT section)                        AS nb_sections,
       ROUND(SUM(total_attribue_professeur), 2)       AS total_periodes,
       ROUND(SUM(CASE WHEN contrat_mdp='IIP'  THEN total_attribue_professeur ELSE 0 END), 2) AS total_iip,
       ROUND(SUM(CASE WHEN contrat_mdp='HELB' THEN total_attribue_professeur ELSE 0 END), 2) AS total_helb,
-      ROUND(SUM(cout_dotation), 2)                   AS cout_dotation_total
+      ROUND(SUM(cout_dotation), 2)                   AS cout_dotation_total,
+      ROUND(SUM(cout_dotation_q1), 2)                AS cout_sd,
+      ROUND(SUM(cout_dotation_q2), 2)                AS cout_jj
     FROM v_attribution_complete
   `).get();
   const dispo = db.prepare(`
