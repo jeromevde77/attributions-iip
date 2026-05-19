@@ -20,20 +20,20 @@ const DEFAULT_COLS = [
         ? <span className="text-green-600 font-bold" title={`Conforme. ${tip}`}>✓</span>
         : <span className="text-red-600 font-bold" title={`NON conforme. ${tip}`}>✗</span>;
     }},
-  { key: 'section',               label: 'Section',    width: 110, rowClickable: true },
+  { key: 'section',               label: 'Section',    width: 110, rowClickable: true, flatOnly: true },
   { key: 'contrat_mdp',           label: 'Contrat',    width: 110, edit: 'select',
     options: [['','—'],['IIP','IIP'],['HELB','HELB']],
     render: v => v === 'IIP' ? <span className="badge badge-iip">IIP</span> : v === 'HELB' ? <span className="badge badge-helb">HELB</span> : v },
-  { key: 'ue_num',                label: 'UE',         width: 70,  num: true, rowClickable: true },
-  { key: 'ue_nom',                label: "Nom de l'UE",width: 280, rowClickable: true },
-  { key: 'bloc',                  label: 'Bloc',       width: 70,  rowClickable: true },
-  { key: 'num_organisation',      label: 'Org.',       width: 60,  num: true, edit: 'select',
+  { key: 'ue_num',                label: 'UE',         width: 70,  num: true, rowClickable: true, flatOnly: true },
+  { key: 'ue_nom',                label: "Nom de l'UE",width: 280, rowClickable: true, flatOnly: true },
+  { key: 'bloc',                  label: 'Bloc',       width: 70,  rowClickable: true, flatOnly: true },
+  { key: 'num_organisation',      label: 'Org.',       width: 60,  num: true, edit: 'select', flatOnly: true,
     options: [['1','1'],['2','2'],['3','3'],['4','4']],
     render: v => v && v > 1 ? <span className="bg-amber-100 text-amber-800 text-xs px-1.5 py-0.5 rounded font-semibold">{v}</span> : <span className="text-gray-400">{v || 1}</span> },
   { key: 'quadrimestre_attribue', label: 'Quadri',     width: 110, edit: 'select',
     options: [['','—'],['Q1','Q1'],['Q2','Q2'],['Q1/Q2','Q1/Q2']] },
-  { key: 'code_cours',            label: 'Code',       width: 80,  rowClickable: true },
-  { key: 'nom_cours',             label: 'Cours',      width: 240, rowClickable: true },
+  { key: 'code_cours',            label: 'Code',       width: 80,  rowClickable: true, coursOnly: true },
+  { key: 'nom_cours',             label: 'Cours',      width: 240, rowClickable: true, coursOnly: true },
   { key: 'activite_nom',          label: 'Activité',   width: 130, rowClickable: true,
     render: v => v || <span className="text-gray-300 text-xs italic">—</span> },
   { key: 'type_cours',            label: 'Type',       width: 70, rowClickable: true,
@@ -89,6 +89,10 @@ export default function Attributions() {
     });
   }
   const COLS = useMemo(() => DEFAULT_COLS.map(c => ({ ...c, width: colWidths[c.key] || c.width })), [colWidths]);
+  // Colonnes pour la vue accordéon niveau UE (masque section/ue/bloc/org, garde code_cours/nom_cours)
+  const COLS_UE = useMemo(() => COLS.filter(c => !c.flatOnly), [COLS]);
+  // Colonnes pour la vue accordéon niveau Cours (masque aussi code_cours/nom_cours)
+  const COLS_COURS = useMemo(() => COLS.filter(c => !c.flatOnly && !c.coursOnly), [COLS]);
 
   const me = JSON.parse(localStorage.getItem('user') || 'null');
   const isAdmin = me?.role === 'admin';
@@ -238,11 +242,12 @@ export default function Attributions() {
     return a;
   },{total:0,iip:0,helb:0}), [data]);
 
-  /* === Rendu d'une ligne de grille (réutilisé par les deux modes) === */
-  function renderRow(row) {
+  /* === Rendu d'une ligne de grille (cols paramétrable) === */
+  function renderRow(row, cols) {
+    const colSet = cols || COLS;
     return (
       <tr key={row.id} className={selected.has(row.id)?'bg-yellow-50':''}>
-        {COLS.map(c => {
+        {colSet.map(c => {
           const sty = { width:c.width, minWidth:c.width, maxWidth:c.width, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' };
           const click = c.rowClickable ? ()=>setEditRow(row) : undefined;
           const cClass = c.rowClickable ? 'cursor-pointer hover:bg-iip-gold/5' : '';
@@ -294,7 +299,7 @@ export default function Attributions() {
           <div className="overflow-auto max-h-[40vh] ml-6 mr-2 mb-2 border border-gray-200 rounded">
             <table className="grid-excel" style={{tableLayout:'fixed'}}>
               <thead><tr>
-                {COLS.map(c => c.key==='__select'
+                {COLS_COURS.map(c => c.key==='__select'
                   ? <th key={c.key} style={{width:c.width,minWidth:c.width,maxWidth:c.width}}>
                       <input type="checkbox" checked={cg.rows.length>0&&cg.rows.every(r=>selected.has(r.id))}
                         onChange={()=>{const all=cg.rows.every(r=>selected.has(r.id));setSelected(s=>{const n=new Set(s);cg.rows.forEach(r=>all?n.delete(r.id):n.add(r.id));return n;});}}
@@ -303,7 +308,7 @@ export default function Attributions() {
                   : <ResizableHeader key={c.key} col={c} sortKey={sortBy.key} sortDir={sortBy.dir} onSort={toggleSort} onResize={setColWidth}>{c.label}</ResizableHeader>
                 )}
               </tr></thead>
-              <tbody>{cg.rows.map(renderRow)}</tbody>
+              <tbody>{cg.rows.map(r => renderRow(r, COLS_COURS))}</tbody>
             </table>
           </div>
         )}
@@ -451,7 +456,7 @@ export default function Attributions() {
                 : <ResizableHeader key={c.key} col={c} sortKey={sortBy.key} sortDir={sortBy.dir} onSort={toggleSort} onResize={setColWidth}>{c.label}</ResizableHeader>
               )}
             </tr></thead>
-            <tbody>{sortedData.map(renderRow)}</tbody>
+            <tbody>{sortedData.map(r => renderRow(r, COLS))}</tbody>
           </table>
         )}
       </div>}
