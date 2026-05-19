@@ -33,7 +33,15 @@ export default function Login() {
         <input type="password" value={password} onChange={e=>setPassword(e.target.value)} required
                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-iip-gold focus:border-iip-gold outline-none mb-4" />
 
-        {error && <div className="bg-red-50 text-red-700 text-sm rounded p-2 mb-4">{error}</div>}
+        {error && (
+          <div className="bg-red-50 border border-red-200 text-red-700 text-sm rounded p-3 mb-4 flex items-start gap-2">
+            <span className="text-lg leading-none">⚠</span>
+            <div>
+              <div className="font-semibold">Connexion impossible</div>
+              <div className="text-xs mt-0.5">{error}</div>
+            </div>
+          </div>
+        )}
 
         <button type="submit" disabled={loading}
                 className="w-full bg-iip-gold hover:bg-iip-amber text-white font-medium py-2 rounded-md transition disabled:opacity-50">

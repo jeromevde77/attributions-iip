@@ -17,15 +17,19 @@ async function request(path, { method = 'GET', body, headers = {} } = {}) {
   if (body !== undefined) opts.body = JSON.stringify(body);
 
   const res = await fetch(BASE + path, opts);
-  if (res.status === 401) {
+
+  // 401 sur une route AUTRE que /auth/login = token expiré → on déconnecte.
+  // Sur /auth/login lui-même = identifiants invalides → on laisse remonter l'erreur.
+  if (res.status === 401 && !path.startsWith('/auth/login')) {
     clearToken();
     window.location.href = '/login';
     return;
   }
+
   const isJson = res.headers.get('content-type')?.includes('application/json');
   const data = isJson ? await res.json() : await res.blob();
   if (!res.ok) {
-    const msg = (isJson && data?.error) || res.statusText;
+    const msg = (isJson && data?.error) || res.statusText || 'Erreur réseau';
     throw new Error(msg);
   }
   return data;
