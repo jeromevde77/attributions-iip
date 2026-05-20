@@ -171,6 +171,13 @@ export default function Attributions() {
     setOpenUEs(keys);
   }
   function collapseAll() { setOpenUEs(new Set()); }
+  // Mobile : replier/déplier toutes les sections (clé mobsec:)
+  function mobileCollapseAll() {
+    setOpenUEs(s => { const n = new Set(s); sectionGroups.forEach(g => n.add('mobsec:' + g.section)); return n; });
+  }
+  function mobileExpandAll() {
+    setOpenUEs(s => { const n = new Set(s); sectionGroups.forEach(g => n.delete('mobsec:' + g.section)); return n; });
+  }
   // Nombre total d'UE pour les stats
   const totalUECount = useMemo(() => sectionGroups.reduce((s,g)=>s+g.ues.length,0), [sectionGroups]);
 
@@ -402,6 +409,8 @@ export default function Attributions() {
       {/* Barre mobile */}
       <div className="md:hidden mb-2 flex gap-2">
         <input value={filters.q} onChange={e=>setFilters({...filters,q:e.target.value})} onKeyDown={e=>e.key==='Enter'&&applyFilters()} placeholder="🔍 Rechercher…" className="flex-1 border border-gray-300 rounded-lg px-3 py-2 text-sm"/>
+        <button onClick={mobileCollapseAll} title="Tout replier" className="bg-white border border-gray-300 rounded-lg px-3 py-2 text-sm font-medium">⊟</button>
+        <button onClick={mobileExpandAll} title="Tout déplier" className="bg-white border border-gray-300 rounded-lg px-3 py-2 text-sm font-medium">⊞</button>
         <button onClick={()=>setFiltersOpenMobile(o=>!o)} className="bg-white border border-gray-300 rounded-lg px-3 py-2 text-sm font-medium">{filtersOpenMobile?'✕':'⚙'}</button>
       </div>
 
@@ -478,17 +487,27 @@ export default function Attributions() {
         {loading ? <div className="p-8 text-center text-gray-400">Chargement…</div>
          : sortedData.length===0 ? <div className="p-8 text-center text-gray-400 bg-white rounded-lg border">Aucune attribution</div>
          : <div className="pb-24 space-y-4">
-             {sectionGroups.map(sg => (
+             {sectionGroups.map(sg => {
+               const secKey = 'mobsec:' + sg.section;
+               const closed = openUEs.has(secKey); // présent = replié
+               return (
                <div key={sg.section}>
-                 <div className="sticky top-0 z-10 bg-iip-gold text-white px-3 py-1.5 rounded-t-lg text-sm font-semibold flex items-center justify-between">
-                   <span>{sg.section}</span>
+                 <button onClick={() => toggle(secKey)}
+                   className="w-full sticky top-0 z-10 bg-iip-gold text-white px-3 py-2.5 rounded-lg text-sm font-semibold flex items-center justify-between gap-2">
+                   <span className="flex items-center gap-2">
+                     <span className={`transition-transform ${closed ? '' : 'rotate-90'}`}>▶</span>
+                     {sg.section}
+                   </span>
                    <span className="text-xs font-normal opacity-90">{sg.rows.length} attr. · {sg.rows.reduce((s,r)=>s+(Number(r.periodes_attribuees)||0),0)}p</span>
-                 </div>
-                 <div className="space-y-2 mt-2">
-                   {sg.rows.map(row=><AttributionCard key={row.id} row={row} selected={selected.has(row.id)} onToggleSelect={toggleSelect} onChange={load} onDelete={deleteRow} isAdmin={isAdmin} professeurs={professeurs} activites={activitesList}/>)}
-                 </div>
+                 </button>
+                 {!closed && (
+                   <div className="space-y-2 mt-2">
+                     {sg.rows.map(row=><AttributionCard key={row.id} row={row} selected={selected.has(row.id)} onToggleSelect={toggleSelect} onChange={load} onDelete={deleteRow} isAdmin={isAdmin} professeurs={professeurs} activites={activitesList}/>)}
+                   </div>
+                 )}
                </div>
-             ))}
+               );
+             })}
            </div>}
       </div>
 
