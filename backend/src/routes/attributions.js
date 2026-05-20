@@ -12,13 +12,13 @@ r.get('/', authRequired, (req, res) => {
   const params = {};
   const anneeVal = annee || '2025-2026';
   where.push('a.annee_scolaire = @annee'); params.annee = anneeVal;
-  if (section)   { where.push('section = @section');         params.section = section; }
-  if (prof_id)   { where.push('professeur_id = @prof_id');   params.prof_id = prof_id; }
-  if (contrat)   { where.push('contrat_mdp = @contrat');     params.contrat = contrat; }
-  if (ue || ue_num) { where.push('ue_num = @ue');            params.ue = ue || ue_num; }
-  if (type_cours){ where.push('type_cours = @type_cours');   params.type_cours = type_cours; }
+  if (section)   { where.push('a.section = @section');         params.section = section; }
+  if (prof_id)   { where.push('a.professeur_id = @prof_id');   params.prof_id = prof_id; }
+  if (contrat)   { where.push('a.contrat_mdp = @contrat');     params.contrat = contrat; }
+  if (ue || ue_num) { where.push('a.ue_num = @ue');            params.ue = ue || ue_num; }
+  if (type_cours){ where.push('a.type_cours = @type_cours');   params.type_cours = type_cours; }
   if (q) {
-    where.push('(ue_nom LIKE @q OR nom_cours LIKE @q OR professeur LIKE @q)');
+    where.push('(a.ue_nom LIKE @q OR a.nom_cours LIKE @q OR a.professeur LIKE @q)');
     params.q = `%${q}%`;
   }
   const sql = `
