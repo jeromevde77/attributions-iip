@@ -217,17 +217,22 @@ export default function Attributions() {
   }
 
   /* --- Chargement --- */
-  async function load() {
+  async function load(overrideFilters) {
     setLoading(true);
+    const f = overrideFilters ?? filters;
     try {
-      const [a,s,p] = await Promise.all([api.attributions(filters), api.sections(), api.professeurs()]);
+      const [a,s,p] = await Promise.all([api.attributions(f), api.sections(), api.professeurs()]);
       setData(a); setSections(s); setProfesseurs(p);
     } catch(e){ console.error(e); }
     finally { setLoading(false); }
   }
   useEffect(()=>{ load(); },[]);
-  function applyFilters() { load(); }
-  function resetFilters() { setFilters({section:'',prof_id:'',contrat:'',type_cours:'',ue_num:'',q:''}); setTimeout(load,0); }
+  function applyFilters() { load(filters); }
+  function resetFilters() {
+    const empty = {section:'',prof_id:'',contrat:'',type_cours:'',ue_num:'',q:''};
+    setFilters(empty);
+    load(empty);
+  }
 
   const ueList = useMemo(() => {
     const m = new Map();
@@ -396,15 +401,15 @@ export default function Attributions() {
       {/* Filtres */}
       <div className={`bg-white rounded-lg border border-gray-200 p-3 mb-3 flex flex-wrap items-end gap-2 ${filtersOpenMobile?'':'hidden md:flex'}`}>
         <div><label className="block text-xs text-gray-600 mb-0.5">Section</label>
-          <select value={filters.section} onChange={e=>setFilters({...filters,section:e.target.value})} className="border border-gray-300 rounded px-2 py-1 text-sm"><option value="">— Toutes —</option>{sections.map(s=><option key={s.code} value={s.code}>{s.code}</option>)}</select></div>
+          <select value={filters.section} onChange={e=>{const f={...filters,section:e.target.value};setFilters(f);load(f);}} className="border border-gray-300 rounded px-2 py-1 text-sm"><option value="">— Toutes —</option>{sections.map(s=><option key={s.code} value={s.code}>{s.code}</option>)}</select></div>
         <div><label className="block text-xs text-gray-600 mb-0.5">UE</label>
-          <select value={filters.ue_num} onChange={e=>setFilters({...filters,ue_num:e.target.value})} className="border border-gray-300 rounded px-2 py-1 text-sm min-w-[180px]"><option value="">— Toutes —</option>{ueList.map(([n,nom])=><option key={n} value={n}>UE {n} — {nom}</option>)}</select></div>
+          <select value={filters.ue_num} onChange={e=>{const f={...filters,ue_num:e.target.value};setFilters(f);load(f);}} className="border border-gray-300 rounded px-2 py-1 text-sm min-w-[180px]"><option value="">— Toutes —</option>{ueList.map(([n,nom])=><option key={n} value={n}>UE {n} — {nom}</option>)}</select></div>
         <div><label className="block text-xs text-gray-600 mb-0.5">Professeur</label>
-          <select value={filters.prof_id} onChange={e=>setFilters({...filters,prof_id:e.target.value})} className="border border-gray-300 rounded px-2 py-1 text-sm min-w-[200px]"><option value="">— Tous —</option>{professeurs.map(p=><option key={p.id} value={p.id}>{p.nom_prenom}</option>)}</select></div>
+          <select value={filters.prof_id} onChange={e=>{const f={...filters,prof_id:e.target.value};setFilters(f);load(f);}} className="border border-gray-300 rounded px-2 py-1 text-sm min-w-[200px]"><option value="">— Tous —</option>{professeurs.map(p=><option key={p.id} value={p.id}>{p.nom_prenom}</option>)}</select></div>
         <div><label className="block text-xs text-gray-600 mb-0.5">Contrat</label>
-          <select value={filters.contrat} onChange={e=>setFilters({...filters,contrat:e.target.value})} className="border border-gray-300 rounded px-2 py-1 text-sm"><option value="">—</option><option value="IIP">IIP</option><option value="HELB">HELB</option></select></div>
+          <select value={filters.contrat} onChange={e=>{const f={...filters,contrat:e.target.value};setFilters(f);load(f);}} className="border border-gray-300 rounded px-2 py-1 text-sm"><option value="">—</option><option value="IIP">IIP</option><option value="HELB">HELB</option></select></div>
         <div><label className="block text-xs text-gray-600 mb-0.5">Type</label>
-          <select value={filters.type_cours} onChange={e=>setFilters({...filters,type_cours:e.target.value})} className="border border-gray-300 rounded px-2 py-1 text-sm"><option value="">—</option><option value="CT">CT</option><option value="PP">PP</option></select></div>
+          <select value={filters.type_cours} onChange={e=>{const f={...filters,type_cours:e.target.value};setFilters(f);load(f);}} className="border border-gray-300 rounded px-2 py-1 text-sm"><option value="">—</option><option value="CT">CT</option><option value="PP">PP</option></select></div>
         <div className="flex-1"><label className="block text-xs text-gray-600 mb-0.5">Recherche libre</label>
           <input value={filters.q} onChange={e=>setFilters({...filters,q:e.target.value})} onKeyDown={e=>e.key==='Enter'&&applyFilters()} placeholder="UE, cours, professeur..." className="border border-gray-300 rounded px-2 py-1 text-sm w-full"/></div>
         <button onClick={applyFilters} className="bg-iip-gold hover:bg-iip-amber text-white text-sm px-4 py-1.5 rounded">Filtrer</button>
