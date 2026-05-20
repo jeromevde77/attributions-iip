@@ -43,6 +43,9 @@ const DEFAULT_COLS = [
     render: (_, row) => row.professeur || <span className="italic text-orange-500">—</span> },
   { key: 'contrat',               label: 'Stat.',      width: 90, edit: 'statut',
     options: [['','—'],['CC','CC'],['EXP','EXP']] },
+  { key: 'type_cours_helb',       label: 'HELB',       width: 90, edit: 'select',
+    options: [['','—'],['MFP','MFP'],['MA','MA']],
+    render: v => v ? <span className="bg-pink-100 text-pink-700 text-xs px-1.5 py-0.5 rounded font-semibold">{v}</span> : <span className="text-gray-300">—</span> },
   { key: 'periodes_attribuees',   label: 'Per.',       width: 70, num: true, edit: 'number' },
   { key: 'cours_per_prevu',       label: '',           width: 50, num: true, readonly: true,
     tooltip: 'Périodes prévues (BD_UE_COURS)', rowClickable: true },
@@ -250,8 +253,10 @@ export default function Attributions() {
   /* === Rendu d'une ligne de grille (cols paramétrable) === */
   function renderRow(row, cols) {
     const colSet = cols || COLS;
+    const isHelb = row.contrat_mdp === 'HELB';
+    const rowBg = selected.has(row.id) ? 'bg-yellow-50' : isHelb ? 'bg-pink-50 hover:bg-pink-100/60' : '';
     return (
-      <tr key={row.id} className={selected.has(row.id)?'bg-yellow-50':''}>
+      <tr key={row.id} className={rowBg}>
         {colSet.map(c => {
           const sty = { width:c.width, minWidth:c.width, maxWidth:c.width, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' };
           const click = c.rowClickable ? ()=>setEditRow(row) : undefined;
