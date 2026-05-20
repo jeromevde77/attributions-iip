@@ -6,9 +6,11 @@ const r = Router();
 
 // Liste avec filtres : ?section=...&prof_id=...&contrat=...&ue=...&q=...
 r.get('/', authRequired, (req, res) => {
-  const { section, prof_id, contrat, ue, ue_num, q, type_cours } = req.query;
+  const { section, prof_id, contrat, ue, ue_num, q, type_cours, annee } = req.query;
   const where = [];
   const params = {};
+  const anneeVal = annee || '2025-2026';
+  where.push('a.annee_scolaire = @annee'); params.annee = anneeVal;
   if (section)   { where.push('section = @section');         params.section = section; }
   if (prof_id)   { where.push('professeur_id = @prof_id');   params.prof_id = prof_id; }
   if (contrat)   { where.push('contrat_mdp = @contrat');     params.contrat = contrat; }

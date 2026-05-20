@@ -13,26 +13,23 @@ const r = Router();
 
 // DOC2/3 : agrégation par UE (TOTAL DOC2 = somme des périodes ; cours / autonomie séparés)
 r.get('/doc2-3', authRequired, (req, res) => {
+  const annee = req.query.annee || '2025-2026';
   const sql = `
     SELECT
-      u.ue_num,
-      u.ue_nom,
-      u.ue_code_fwb,
-      u.section,
-      u.ue_niveau,
+      u.ue_num, u.ue_nom, u.ue_code_fwb, u.section, u.ue_niveau,
       u.ue_niv AS bloc,
-      u.ue_per_cours       AS per_cours_doc2,
-      u.ue_aut             AS per_auto_doc2,
-      u.ue_tot_prf         AS total_doc2,
-      COALESCE(SUM(a.periodes_attribuees), 0) AS per_cours_dp,
-      COALESCE(SUM(a.autonomie_attribuee), 0) AS per_auto_dp,
-      COALESCE(SUM(a.total_attribue_professeur), 0) AS total_dp
+      u.ue_per_cours  AS per_cours_doc2,
+      u.ue_aut        AS per_auto_doc2,
+      u.ue_tot_prf    AS total_doc2,
+      COALESCE(SUM(a.periodes_attribuees), 0)        AS per_cours_dp,
+      COALESCE(SUM(a.autonomie_attribuee), 0)        AS per_auto_dp,
+      COALESCE(SUM(a.total_attribue_professeur), 0)  AS total_dp
     FROM ue u
-    LEFT JOIN attribution a ON a.ue_num = u.ue_num
+    LEFT JOIN attribution a ON a.ue_num = u.ue_num AND a.annee_scolaire = ?
     GROUP BY u.ue_num
     ORDER BY u.section, u.ue_num
   `;
-  res.json(db.prepare(sql).all());
+  res.json(db.prepare(sql).all(annee));
 });
 
 // Vue Attributions_profs : par prof (mêmes colonnes que la feuille Excel R11+)

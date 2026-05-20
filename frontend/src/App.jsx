@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Routes, Route, Navigate, NavLink, useNavigate } from 'react-router-dom';
-import { isAuthenticated, getUser, api } from './lib/api.js';
+import { isAuthenticated, getUser, api, getAnnee, setAnnee } from './lib/api.js';
 
 import Login from './pages/Login.jsx';
 import Dashboard from './pages/Dashboard.jsx';
@@ -9,6 +9,7 @@ import Professeurs from './pages/Professeurs.jsx';
 import Pilotage from './pages/Pilotage.jsx';
 import Planning from './pages/Planning.jsx';
 import Users from './pages/Users.jsx';
+import Annees from './pages/Annees.jsx';
 
 /* eslint-disable no-undef */
 const BUILD_DATE_STR = typeof __BUILD_DATE__ !== 'undefined' ? __BUILD_DATE__ : new Date().toISOString();
@@ -43,6 +44,18 @@ function BuildBadge() {
 function ProtectedLayout({ children }) {
   const navigate = useNavigate();
   const [menuOpen, setMenuOpen] = useState(false);
+  const [annees, setAnnees] = useState([]);
+  const [anneeActive, setAnneeActive] = useState(getAnnee());
+
+  useEffect(() => {
+    api.annees().then(setAnnees).catch(() => {});
+  }, []);
+
+  function changeAnnee(code) {
+    setAnnee(code);
+    setAnneeActive(code);
+    window.location.reload(); // recharge toutes les données
+  }
 
   if (!isAuthenticated()) return <Navigate to="/login" replace />;
   const u = getUser();
@@ -55,6 +68,7 @@ function ProtectedLayout({ children }) {
     ['/pilotage',     'Pilotage']
   ];
   if (u?.role === 'admin') nav.push(['/utilisateurs', 'Utilisateurs']);
+  if (u?.role === 'admin') nav.push(['/annees', 'Années']);
 
   return (
     <div className="min-h-screen flex flex-col">
@@ -72,10 +86,17 @@ function ProtectedLayout({ children }) {
             </svg>
           </button>
 
-          <div className="font-title text-base md:text-2xl text-iip-gold font-bold flex-1 md:flex-none truncate">
-            <span className="md:hidden">Attributions IIP</span>
-            <span className="hidden md:inline">Attributions IIP — 2025-2026</span>
+          <div className="font-title text-base md:text-xl text-iip-gold font-bold flex-none truncate">
+            <span className="md:hidden">IIP</span>
+            <span className="hidden md:inline">Attributions IIP</span>
           </div>
+
+          {/* Sélecteur d'année */}
+          <select value={anneeActive} onChange={e => changeAnnee(e.target.value)}
+            className="border border-iip-gold/40 rounded px-2 py-1 text-sm font-semibold text-iip-gold bg-white focus:outline-none focus:ring-1 focus:ring-iip-gold cursor-pointer">
+            {annees.map(a => <option key={a.code} value={a.code}>{a.code}</option>)}
+            {annees.length === 0 && <option value={anneeActive}>{anneeActive}</option>}
+          </select>
 
           {/* Nav desktop */}
           <nav className="hidden md:flex gap-1 flex-1 ml-4">
@@ -136,6 +157,7 @@ export default function App() {
       <Route path="/professeurs"  element={<ProtectedLayout><Professeurs /></ProtectedLayout>} />
       <Route path="/pilotage"     element={<ProtectedLayout><Pilotage /></ProtectedLayout>} />
       <Route path="/utilisateurs" element={<ProtectedLayout><Users /></ProtectedLayout>} />
+      <Route path="/annees"       element={<ProtectedLayout><Annees /></ProtectedLayout>} />
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
   );

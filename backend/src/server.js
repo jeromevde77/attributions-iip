@@ -16,6 +16,7 @@ import exportRoutes from './routes/exports.js';
 import planningRoutes from './routes/planning.js';
 import usersRoutes from './routes/users.js';
 import adminRoutes from './routes/admin.js';
+import anneesRoutes from './routes/annees.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
@@ -52,6 +53,21 @@ try {
   if (!cols.find(c => c.name === 'activite_id')) {
     db.exec(`ALTER TABLE attribution ADD COLUMN activite_id INTEGER REFERENCES activite_type(id);`);
     console.log('[migration] Colonne attribution.activite_id ajoutée');
+  }
+
+  // 3. Table annee_scolaire (gestion multi-années)
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS annee_scolaire (
+      code       TEXT PRIMARY KEY,          -- ex: '2025-2026'
+      libelle    TEXT NOT NULL,             -- ex: 'Année 2025-2026'
+      active     INTEGER DEFAULT 0,         -- 1 = année courante par défaut
+      created_at TEXT DEFAULT (datetime('now'))
+    );
+  `);
+  const nbAnnees = db.prepare('SELECT COUNT(*) AS n FROM annee_scolaire').get().n;
+  if (nbAnnees === 0) {
+    db.exec(`INSERT INTO annee_scolaire (code, libelle, active) VALUES ('2025-2026', 'Année 2025-2026', 1);`);
+    console.log('[migration] Année 2025-2026 créée comme année active');
   }
 } catch (e) {
   console.warn('[migration] Erreur :', e.message);
@@ -94,6 +110,7 @@ app.use('/api/exports',      exportRoutes);
 app.use('/api/planning',     planningRoutes);
 app.use('/api/users',        usersRoutes);
 app.use('/api/admin',        adminRoutes);
+app.use('/api/annees',       anneesRoutes);
 
 // Erreurs
 app.use((err, req, res, next) => {

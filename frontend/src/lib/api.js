@@ -4,35 +4,33 @@ function getToken() { return localStorage.getItem('token'); }
 function setToken(t) { localStorage.setItem('token', t); }
 function clearToken() { localStorage.removeItem('token'); localStorage.removeItem('user'); }
 
+// Année scolaire active — persistée dans localStorage
+export function getAnnee() { return localStorage.getItem('annee_active') || '2025-2026'; }
+export function setAnnee(a) { localStorage.setItem('annee_active', a); }
+
 async function request(path, { method = 'GET', body, headers = {} } = {}) {
   const t = getToken();
   const opts = {
     method,
-    headers: {
-      'Content-Type': 'application/json',
-      ...(t ? { Authorization: `Bearer ${t}` } : {}),
-      ...headers
-    }
+    headers: { 'Content-Type': 'application/json', ...(t ? { Authorization: `Bearer ${t}` } : {}), ...headers }
   };
   if (body !== undefined) opts.body = JSON.stringify(body);
-
   const res = await fetch(BASE + path, opts);
-
-  // 401 sur une route AUTRE que /auth/login = token expiré → on déconnecte.
-  // Sur /auth/login lui-même = identifiants invalides → on laisse remonter l'erreur.
   if (res.status === 401 && !path.startsWith('/auth/login')) {
-    clearToken();
-    window.location.href = '/login';
-    return;
+    clearToken(); window.location.href = '/login'; return;
   }
-
   const isJson = res.headers.get('content-type')?.includes('application/json');
   const data = isJson ? await res.json() : await res.blob();
-  if (!res.ok) {
-    const msg = (isJson && data?.error) || res.statusText || 'Erreur réseau';
-    throw new Error(msg);
-  }
+  if (!res.ok) throw new Error((isJson && data?.error) || res.statusText || 'Erreur réseau');
   return data;
+}
+
+// Ajoute ?annee=... à une URL (ou l'injecte parmi les autres params)
+function withAnnee(path, extra = {}) {
+  const annee = getAnnee();
+  const all = { annee, ...extra };
+  const qs = new URLSearchParams(Object.entries(all).filter(([, v]) => v !== '' && v != null)).toString();
+  return path + (qs ? `?${qs}` : '');
 }
 
 export const api = {
@@ -44,17 +42,25 @@ export const api = {
   logout() { clearToken(); window.location.href = '/login'; },
   me() { return request('/auth/me'); },
 
-  // attributions
+  // années scolaires
+  annees() { return request('/annees'); },
+  createAnnee(data) { return request('/annees', { method: 'POST', body: data }); },
+  deleteAnnee(code) { return request(`/annees/${encodeURIComponent(code)}`, { method: 'DELETE' }); },
+
+  // attributions (toujours filtrées par année active)
   attributions(filters = {}) {
+    const { annee: _a, ...rest } = filters; // ignorer annee si passé dans filters
     const qs = new URLSearchParams(
-      Object.entries(filters).filter(([_, v]) => v !== '' && v != null)
+      Object.entries({ annee: getAnnee(), ...rest }).filter(([, v]) => v !== '' && v != null)
     ).toString();
     return request('/attributions' + (qs ? `?${qs}` : ''));
   },
   attribution(id) { return request(`/attributions/${id}`); },
-  createAttribution(data) { return request('/attributions', { method: 'POST', body: data }); },
+  createAttribution(data) {
+    return request('/attributions', { method: 'POST', body: { annee_scolaire: getAnnee(), ...data } });
+  },
   attributionsByCours(section, code_cours) {
-    return request(`/attributions/by-cours?section=${encodeURIComponent(section)}&code_cours=${encodeURIComponent(code_cours)}`);
+    return request(withAnnee(`/attributions/by-cours`, { section, code_cours }));
   },
   activites() { return request('/ref/activites'); },
   updateAttribution(id, data) { return request(`/attributions/${id}`, { method: 'PATCH', body: data }); },
@@ -66,12 +72,11 @@ export const api = {
     return request('/attributions/bulk-delete', { method: 'POST', body: { ids } });
   },
   bulkDeletePreview(filters = {}) {
-    return request('/attributions/bulk-delete-preview', { method: 'POST', body: filters });
+    return request('/attributions/bulk-delete-preview', { method: 'POST', body: { annee_scolaire: getAnnee(), ...filters } });
   },
   bulkDeleteFiltered(filters = {}) {
     return request('/attributions/bulk-delete-filtered', {
-      method: 'POST',
-      body: { ...filters, confirm: 'OUI-SUPPRIMER' }
+      method: 'POST', body: { annee_scolaire: getAnnee(), ...filters, confirm: 'OUI-SUPPRIMER' }
     });
   },
 
@@ -83,8 +88,7 @@ export const api = {
   sectionUeCours(section) { return request(`/ref/sections/${encodeURIComponent(section)}/ue-cours`); },
   bulkCreateFromSection(section, ue_nums) {
     return request('/attributions/bulk-create-from-section', {
-      method: 'POST',
-      body: { section, ue_nums }
+      method: 'POST', body: { section, ue_nums, annee_scolaire: getAnnee() }
     });
   },
 
@@ -92,36 +96,31 @@ export const api = {
   sections() { return request('/ref/sections'); },
   ue(section) { return request('/ref/ue' + (section ? `?section=${encodeURIComponent(section)}` : '')); },
   ueDetail(num) { return request(`/ref/ue/${num}`); },
-  cours(params = {}) {
-    const qs = new URLSearchParams(params).toString();
-    return request('/ref/cours' + (qs ? `?${qs}` : ''));
-  },
+  cours(params = {}) { return request('/ref/cours' + (new URLSearchParams(params).toString() ? `?${new URLSearchParams(params)}` : '')); },
   professeurs() { return request('/ref/professeurs'); },
   professeur(id) { return request(`/ref/professeurs/${id}`); },
   locaux() { return request('/ref/locaux'); },
   parametres() { return request('/ref/parametres'); },
   typesEncadrement() { return request('/ref/types-encadrement'); },
 
-  // pilotage
-  pilotageSectionNiveau() { return request('/pilotage/section-niveau'); },
-  pilotageSectionStatut() { return request('/pilotage/section-statut'); },
-  pilotageSectionDetail() { return request('/pilotage/section-detail'); },
-  totaux() { return request('/pilotage/totaux'); },
+  // pilotage (filtrés par année active)
+  pilotageSectionNiveau() { return request(withAnnee('/pilotage/section-niveau')); },
+  pilotageSectionStatut() { return request(withAnnee('/pilotage/section-statut')); },
+  pilotageSectionDetail() { return request(withAnnee('/pilotage/section-detail')); },
+  totaux()               { return request(withAnnee('/pilotage/totaux')); },
 
   // exports
-  doc23() { return request('/exports/doc2-3'); },
+  doc23() { return request(withAnnee('/exports/doc2-3')); },
   exportExcel() {
-    return fetch(BASE + '/exports/excel', {
+    return fetch(`${BASE}/exports/excel?annee=${encodeURIComponent(getAnnee())}`, {
       headers: { Authorization: `Bearer ${getToken()}` }
     }).then(async r => {
       if (!r.ok) throw new Error('Export Excel échoué');
       const blob = await r.blob();
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
-      a.href = url;
-      a.download = `attributions-${new Date().toISOString().slice(0,10)}.xlsx`;
-      a.click();
-      URL.revokeObjectURL(url);
+      a.href = url; a.download = `attributions-${getAnnee()}-${new Date().toISOString().slice(0,10)}.xlsx`;
+      a.click(); URL.revokeObjectURL(url);
     });
   }
 };
