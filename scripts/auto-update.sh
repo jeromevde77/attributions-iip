@@ -39,17 +39,12 @@ send_email() {
     local subject="$1"
     local body="$2"
 
-    # synomailsend utilise le serveur SMTP configuré dans DSM
-    if command -v synomailsend &>/dev/null; then
-        synomailsend \
-            -s "$subject" \
-            -t "$NOTIFY_EMAIL" \
-            -c "$body" \
-            2>/dev/null && log "Email envoyé à $NOTIFY_EMAIL" \
-                        || log "AVERTISSEMENT : envoi email échoué (synomailsend)"
+    if [ -x /usr/syno/bin/synodsmnotify ]; then
+        /usr/syno/bin/synodsmnotify admin "$subject" "$body" 2>/dev/null \
+            && log "Notification envoyée via synodsmnotify" \
+            || log "AVERTISSEMENT : synodsmnotify a échoué"
     else
-        log "AVERTISSEMENT : synomailsend introuvable — email non envoyé"
-        log "  → Vérifiez que les notifications email sont configurées dans DSM"
+        log "AVERTISSEMENT : synodsmnotify introuvable — notification non envoyée"
     fi
 }
 
