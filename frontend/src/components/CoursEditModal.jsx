@@ -142,6 +142,7 @@ export default function CoursEditModal({ section, codeCours, onClose, onChanged 
           cours_ept_ad: r.cours_ept_ad,
           coordination_encadrement: r.coordination_encadrement,
           activite_id: r.activite_id ? Number(r.activite_id) : null,
+          type_cours_helb: r.type_cours_helb ?? null,
           periodes_attribuees: Number(r.periodes_attribuees) || 0,
           autonomie_attribuee: Number(r.autonomie_attribuee) || 0
         };
@@ -151,6 +152,8 @@ export default function CoursEditModal({ section, codeCours, onClose, onChanged 
       for (const r of rows.filter(r => !r._new && r._dirty && !r._deleted)) {
         await api.updateAttribution(r.id, {
           code: r.code,
+          contrat_mdp: r.contrat_mdp,
+          type_cours_helb: r.type_cours_helb ?? null,
           activite_id: r.activite_id ? Number(r.activite_id) : null,
           professeur_id: r.professeur_id ? Number(r.professeur_id) : null,
           periodes_attribuees: Number(r.periodes_attribuees) || 0,
@@ -173,6 +176,7 @@ export default function CoursEditModal({ section, codeCours, onClose, onChanged 
   const visibleRows = rows.filter(r => !r._deleted);
   const me = JSON.parse(localStorage.getItem('user') || 'null');
   const canEdit = me?.role === 'admin' || me?.role === 'editeur';
+  const hasHelb = visibleRows.some(r => r.contrat_mdp === 'HELB');
 
   return (
     <div className="fixed inset-0 bg-black/40 flex items-center justify-center p-2 md:p-4 z-30"
@@ -205,7 +209,9 @@ export default function CoursEditModal({ section, codeCours, onClose, onChanged 
                       <th className="text-left p-2 border-b">Cours</th>
                       <th className="text-left p-2 border-b">Activité</th>
                       <th className="text-left p-2 border-b">Groupe</th>
+                      <th className="text-left p-2 border-b">Contrat</th>
                       <th className="text-left p-2 border-b">Professeur</th>
+                      {hasHelb && <th className="text-left p-2 border-b bg-pink-50 text-pink-700">Statut HELB</th>}
                       <th className="text-right p-2 border-b">Périodes</th>
                       <th className="text-right p-2 border-b bg-gray-100 text-gray-500"
                           title="Périodes prévues pour ce cours (BD_UE_COURS)">Per. prévu</th>
@@ -219,8 +225,13 @@ export default function CoursEditModal({ section, codeCours, onClose, onChanged 
                   <tbody>
                     {visibleRows.map(r => {
                       const lineTotal = (Number(r.periodes_attribuees) || 0) + (Number(r.autonomie_attribuee) || 0);
+                      const isHelb = r.contrat_mdp === 'HELB';
                       return (
-                        <tr key={r.id} className={`hover:bg-iip-gold/5 ${r._new ? 'bg-green-50/50' : ''}`}>
+                        <tr key={r.id} className={`
+                          ${isHelb ? 'bg-pink-50 hover:bg-pink-100/70' : 'hover:bg-iip-gold/5'}
+                          ${r._new && !isHelb ? 'bg-green-50/50' : ''}
+                          ${r._new && isHelb ? 'bg-pink-50' : ''}
+                        `}>
                           <td className="p-2 border-b text-gray-700">{r.nom_cours}</td>
                           <td className="p-2 border-b">
                             <select value={r.activite_id ?? ''}
@@ -238,6 +249,16 @@ export default function CoursEditModal({ section, codeCours, onClose, onChanged 
                                    className="w-16 border border-gray-200 rounded px-2 py-1 text-center text-sm focus:border-iip-gold outline-none" />
                           </td>
                           <td className="p-2 border-b">
+                            <select value={r.contrat_mdp ?? 'IIP'}
+                                    disabled={!canEdit}
+                                    onChange={e => updateRow(r.id, 'contrat_mdp', e.target.value)}
+                                    className={`w-full bg-transparent border border-gray-200 rounded px-2 py-1 text-sm focus:border-iip-gold outline-none font-semibold
+                                      ${isHelb ? 'text-pink-700' : 'text-iip-gold'}`}>
+                              <option value="IIP">IIP</option>
+                              <option value="HELB">HELB</option>
+                            </select>
+                          </td>
+                          <td className="p-2 border-b">
                             <select value={r.professeur_id ?? ''}
                                     disabled={!canEdit}
                                     onChange={e => updateRow(r.id, 'professeur_id', e.target.value ? Number(e.target.value) : null)}
@@ -246,6 +267,22 @@ export default function CoursEditModal({ section, codeCours, onClose, onChanged 
                               {profs.map(p => <option key={p.id} value={p.id}>{p.nom_prenom}</option>)}
                             </select>
                           </td>
+                          {hasHelb && (
+                            <td className="p-2 border-b bg-pink-50/50">
+                              {isHelb ? (
+                                <select value={r.type_cours_helb ?? ''}
+                                        disabled={!canEdit}
+                                        onChange={e => updateRow(r.id, 'type_cours_helb', e.target.value)}
+                                        className="w-full bg-white border border-pink-200 rounded px-2 py-1 text-sm focus:border-pink-400 outline-none text-pink-800">
+                                  <option value="">— Choisir —</option>
+                                  <option value="Cours">Cours</option>
+                                  <option value="TP">TP</option>
+                                </select>
+                              ) : (
+                                <span className="text-gray-300 text-xs">—</span>
+                              )}
+                            </td>
+                          )}
                           <td className="p-2 border-b text-right">
                             <input type="text" inputMode="decimal" value={r.periodes_attribuees ?? 0}
                                    disabled={!canEdit}
@@ -284,7 +321,7 @@ export default function CoursEditModal({ section, codeCours, onClose, onChanged 
                   </tbody>
                   <tfoot>
                     <tr className="bg-iip-gold/10 font-semibold">
-                      <td colSpan="4" className="p-2 text-right text-gray-700">TOTAUX</td>
+                      <td colSpan={hasHelb ? 6 : 5} className="p-2 text-right text-gray-700">TOTAUX</td>
                       <td className="p-2 text-right tabular-nums">{totals.periodes.toLocaleString('fr-BE')}</td>
                       <td className="p-2 bg-gray-100"></td>
                       <td className="p-2 text-right tabular-nums">{totals.autonomie.toLocaleString('fr-BE')}</td>
