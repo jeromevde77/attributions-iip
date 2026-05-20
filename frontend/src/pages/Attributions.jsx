@@ -62,6 +62,7 @@ export default function Attributions() {
   const [data, setData] = useState([]);
   const [sections, setSections] = useState([]);
   const [professeurs, setProfesseurs] = useState([]);
+  const [activitesList, setActivitesList] = useState([]);
   const [filters, setFilters] = useState({ section:'', prof_id:'', contrat:'', type_cours:'', ue_num:'', q:'' });
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
@@ -226,6 +227,7 @@ export default function Attributions() {
     try {
       const [a,s,p] = await Promise.all([api.attributions(f), api.sections(), api.professeurs()]);
       setData(a); setSections(s); setProfesseurs(p);
+      if (activitesList.length === 0) api.activites().then(setActivitesList).catch(()=>{});
     } catch(e){ console.error(e); }
     finally { setLoading(false); }
   }
@@ -475,7 +477,19 @@ export default function Attributions() {
       <div className="md:hidden">
         {loading ? <div className="p-8 text-center text-gray-400">Chargement…</div>
          : sortedData.length===0 ? <div className="p-8 text-center text-gray-400 bg-white rounded-lg border">Aucune attribution</div>
-         : <div className="space-y-2 pb-24">{sortedData.map(row=><AttributionCard key={row.id} row={row} selected={selected.has(row.id)} onToggleSelect={toggleSelect} onChange={load} onDelete={deleteRow} isAdmin={isAdmin}/>)}</div>}
+         : <div className="pb-24 space-y-4">
+             {sectionGroups.map(sg => (
+               <div key={sg.section}>
+                 <div className="sticky top-0 z-10 bg-iip-gold text-white px-3 py-1.5 rounded-t-lg text-sm font-semibold flex items-center justify-between">
+                   <span>{sg.section}</span>
+                   <span className="text-xs font-normal opacity-90">{sg.rows.length} attr. · {sg.rows.reduce((s,r)=>s+(Number(r.periodes_attribuees)||0),0)}p</span>
+                 </div>
+                 <div className="space-y-2 mt-2">
+                   {sg.rows.map(row=><AttributionCard key={row.id} row={row} selected={selected.has(row.id)} onToggleSelect={toggleSelect} onChange={load} onDelete={deleteRow} isAdmin={isAdmin} professeurs={professeurs} activites={activitesList}/>)}
+                 </div>
+               </div>
+             ))}
+           </div>}
       </div>
 
       {/* FAB mobile */}
