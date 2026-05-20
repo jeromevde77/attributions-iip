@@ -42,6 +42,13 @@ export const api = {
   logout() { clearToken(); window.location.href = '/login'; },
   me() { return request('/auth/me'); },
 
+  // historique & config
+  historiqueConfig() { return request('/historique/config'); },
+  setHistoriqueConfig(actif) { return request('/historique/config', { method: 'POST', body: { actif } }); },
+  historique(annee, limit = 100) { return request(withAnnee('/historique', { limit })); },
+  historiqueAttribution(id) { return request(`/historique/attribution/${id}`); },
+  rollback(snapshotId) { return request(`/historique/rollback/${snapshotId}`, { method: 'POST' }); },
+
   // années scolaires
   annees() { return request('/annees'); },
   createAnnee(data) { return request('/annees', { method: 'POST', body: data }); },

@@ -10,6 +10,7 @@ import Pilotage from './pages/Pilotage.jsx';
 import Planning from './pages/Planning.jsx';
 import Users from './pages/Users.jsx';
 import Annees from './pages/Annees.jsx';
+import Configuration from './pages/Configuration.jsx';
 
 /* eslint-disable no-undef */
 const BUILD_DATE_STR = typeof __BUILD_DATE__ !== 'undefined' ? __BUILD_DATE__ : new Date().toISOString();
@@ -69,6 +70,7 @@ function ProtectedLayout({ children }) {
   ];
   if (u?.role === 'admin') nav.push(['/utilisateurs', 'Utilisateurs']);
   if (u?.role === 'admin') nav.push(['/annees', 'Années']);
+  if (u?.role === 'admin') nav.push(['/configuration', '⚙ Config']);
 
   return (
     <div className="min-h-screen flex flex-col">
@@ -157,7 +159,8 @@ export default function App() {
       <Route path="/professeurs"  element={<ProtectedLayout><Professeurs /></ProtectedLayout>} />
       <Route path="/pilotage"     element={<ProtectedLayout><Pilotage /></ProtectedLayout>} />
       <Route path="/utilisateurs" element={<ProtectedLayout><Users /></ProtectedLayout>} />
-      <Route path="/annees"       element={<ProtectedLayout><Annees /></ProtectedLayout>} />
+      <Route path="/annees"         element={<ProtectedLayout><Annees /></ProtectedLayout>} />
+      <Route path="/configuration"  element={<ProtectedLayout><Configuration /></ProtectedLayout>} />
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
   );

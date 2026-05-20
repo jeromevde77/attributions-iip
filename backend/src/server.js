@@ -17,6 +17,7 @@ import planningRoutes from './routes/planning.js';
 import usersRoutes from './routes/users.js';
 import adminRoutes from './routes/admin.js';
 import anneesRoutes from './routes/annees.js';
+import historiqueRoutes from './routes/historique.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
@@ -69,6 +70,27 @@ try {
     db.exec(`INSERT INTO annee_scolaire (code, libelle, active) VALUES ('2025-2026', 'Année 2025-2026', 1);`);
     console.log('[migration] Année 2025-2026 créée comme année active');
   }
+
+  // 4. Table attribution_snapshot (historique complet par snapshot JSON)
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS attribution_snapshot (
+      id              INTEGER PRIMARY KEY AUTOINCREMENT,
+      attribution_id  INTEGER NOT NULL,
+      action          TEXT NOT NULL,
+      snapshot        TEXT NOT NULL,
+      utilisateur_id  INTEGER,
+      utilisateur_nom TEXT,
+      created_at      TEXT DEFAULT (datetime('now','localtime'))
+    );
+    CREATE INDEX IF NOT EXISTS idx_snapshot_attr ON attribution_snapshot(attribution_id);
+    CREATE INDEX IF NOT EXISTS idx_snapshot_date ON attribution_snapshot(created_at DESC);
+  `);
+
+  // 5. Paramètre HISTORIQUE_ACTIF (désactivé par défaut)
+  db.exec(`
+    INSERT OR IGNORE INTO parametre_financier (cle, valeur_num, valeur_txt, description)
+    VALUES ('HISTORIQUE_ACTIF', 0, 'false', 'Activer la journalisation de l''historique des modifications');
+  `);
 } catch (e) {
   console.warn('[migration] Erreur :', e.message);
 }
@@ -111,6 +133,7 @@ app.use('/api/planning',     planningRoutes);
 app.use('/api/users',        usersRoutes);
 app.use('/api/admin',        adminRoutes);
 app.use('/api/annees',       anneesRoutes);
+app.use('/api/historique',   historiqueRoutes);
 
 // Erreurs
 app.use((err, req, res, next) => {

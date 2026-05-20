@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import db from '../db/index.js';
 import { authRequired, roleRequired } from '../middleware/auth.js';
+import { saveSnapshot } from '../helpers/snapshot.js';
 
 const r = Router();
 
@@ -135,6 +136,7 @@ r.post('/', authRequired, roleRequired('admin', 'editeur'), (req, res) => {
   db.prepare(`INSERT INTO modification_log (attribution_id, utilisateur_id, action) VALUES (?,?,?)`).run(
     result.lastInsertRowid, req.user.id, 'create'
   );
+  saveSnapshot(result.lastInsertRowid, 'create', req.user);
   res.status(201).json({ id: result.lastInsertRowid });
 });
 
@@ -160,6 +162,9 @@ r.patch('/:id', authRequired, roleRequired('admin', 'editeur'), (req, res) => {
   if (!updates.length) return res.status(400).json({ error: 'Aucun champ à modifier' });
   updates.push('updated_by = @uid');
 
+  // Snapshot AVANT modification
+  saveSnapshot(Number(req.params.id), 'update', req.user);
+
   const result = db.prepare(`UPDATE attribution SET ${updates.join(', ')} WHERE id = @id`).run(params);
   if (result.changes === 0) return res.status(404).json({ error: 'Attribution introuvable' });
 
@@ -182,6 +187,8 @@ r.patch('/professeur/:id/statut', authRequired, roleRequired('admin', 'editeur')
 
 // Suppression
 r.delete('/:id', authRequired, roleRequired('admin'), (req, res) => {
+  // Snapshot AVANT suppression
+  saveSnapshot(Number(req.params.id), 'delete', req.user);
   db.prepare('DELETE FROM planning_hebdo WHERE attribution_id = ?').run(req.params.id);
   const result = db.prepare('DELETE FROM attribution WHERE id = ?').run(req.params.id);
   if (result.changes === 0) return res.status(404).json({ error: 'Attribution introuvable' });
