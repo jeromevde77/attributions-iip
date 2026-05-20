@@ -30,6 +30,7 @@ r.get('/', authRequired, (req, res) => {
     FROM v_attribution_complete a
     LEFT JOIN v_cours_conformite co
       ON co.section = a.section AND co.code_cours = a.code_cours
+     AND co.annee_scolaire = a.annee_scolaire
     ${where.length ? 'WHERE ' + where.join(' AND ') : ''}
     ORDER BY a.section, a.bloc, a.ue_num, a.code_cours
     LIMIT 1000
@@ -39,14 +40,14 @@ r.get('/', authRequired, (req, res) => {
 
 // Conformité par cours (utile pour récap rapide)
 r.get('/conformite', authRequired, (req, res) => {
-  const { section, only_non_conforme } = req.query;
-  const where = [];
-  const params = {};
+  const { section, only_non_conforme, annee } = req.query;
+  const where = ['annee_scolaire = @annee'];
+  const params = { annee: annee || '2025-2026' };
   if (section) { where.push('section = @section'); params.section = section; }
   if (only_non_conforme === '1') where.push('conforme = 0');
   res.json(db.prepare(`
     SELECT * FROM v_cours_conformite
-    ${where.length ? 'WHERE ' + where.join(' AND ') : ''}
+    WHERE ${where.join(' AND ')}
     ORDER BY conforme ASC, section, code_cours
   `).all(params));
 });
@@ -54,20 +55,21 @@ r.get('/conformite', authRequired, (req, res) => {
 // Toutes les attributions d'un cours (un cours = section + code_cours)
 // Utilisé par la modale d'édition multi-lignes
 r.get('/by-cours', authRequired, (req, res) => {
-  const { section, code_cours } = req.query;
+  const { section, code_cours, annee } = req.query;
   if (!section || !code_cours) {
     return res.status(400).json({ error: 'section et code_cours requis' });
   }
+  const anneeVal = annee || '2025-2026';
   const rows = db.prepare(`
     SELECT * FROM v_attribution_complete
-    WHERE section = ? AND code_cours = ?
+    WHERE section = ? AND code_cours = ? AND annee_scolaire = ?
     ORDER BY code, activite_id
-  `).all(section, code_cours);
+  `).all(section, code_cours, anneeVal);
 
-  // Récupérer le cours_per et calculer la conformité
+  // Récupérer le cours_per et calculer la conformité (pour cette année)
   const conf = db.prepare(`
-    SELECT * FROM v_cours_conformite WHERE section = ? AND code_cours = ?
-  `).get(section, code_cours);
+    SELECT * FROM v_cours_conformite WHERE section = ? AND code_cours = ? AND annee_scolaire = ?
+  `).get(section, code_cours, anneeVal);
 
   res.json({
     attributions: rows,

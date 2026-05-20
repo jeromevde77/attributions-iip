@@ -499,6 +499,7 @@ DROP VIEW IF EXISTS v_cours_conformite;
 CREATE VIEW v_cours_conformite AS
 SELECT
     a.section,
+    a.annee_scolaire,
     a.code_cours,
     c.cours_nom,
     c.cours_per,
@@ -516,4 +517,4 @@ SELECT
 FROM attribution a
 LEFT JOIN cours c ON c.cours_code = a.code_cours
 WHERE a.code_cours IS NOT NULL
-GROUP BY a.section, a.code_cours, c.cours_nom, c.cours_per;
+GROUP BY a.section, a.annee_scolaire, a.code_cours, c.cours_nom, c.cours_per;
