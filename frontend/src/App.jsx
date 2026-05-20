@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Routes, Route, Navigate, NavLink, useNavigate } from 'react-router-dom';
 import { isAuthenticated, getUser, api } from './lib/api.js';
 
@@ -9,6 +9,36 @@ import Professeurs from './pages/Professeurs.jsx';
 import Pilotage from './pages/Pilotage.jsx';
 import Planning from './pages/Planning.jsx';
 import Users from './pages/Users.jsx';
+
+/* eslint-disable no-undef */
+const BUILD_DATE_STR = typeof __BUILD_DATE__ !== 'undefined' ? __BUILD_DATE__ : new Date().toISOString();
+const BUILD_VER = typeof __BUILD_VERSION__ !== 'undefined' ? __BUILD_VERSION__ : 'dev';
+/* eslint-enable no-undef */
+
+const buildDate = new Date(BUILD_DATE_STR);
+const buildLabel = buildDate.toLocaleString('fr-BE', {
+  day: '2-digit', month: '2-digit', year: 'numeric',
+  hour: '2-digit', minute: '2-digit'
+});
+const shortSha = BUILD_VER === 'dev' ? 'dev' : BUILD_VER.slice(0, 7);
+
+function BuildBadge() {
+  const [now, setNow] = useState(new Date());
+  useEffect(() => {
+    const t = setInterval(() => setNow(new Date()), 1000);
+    return () => clearInterval(t);
+  }, []);
+  const timeStr = now.toLocaleTimeString('fr-BE', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+  const dateStr = now.toLocaleDateString('fr-BE', { day: '2-digit', month: '2-digit', year: 'numeric' });
+  return (
+    <div className="fixed bottom-2 right-2 z-50 text-right pointer-events-none select-none">
+      <div className="bg-white/80 backdrop-blur-sm border border-gray-200 rounded px-2 py-1 shadow-sm text-xs text-gray-400 leading-tight">
+        <div className="font-semibold text-gray-600 tabular-nums">{dateStr} {timeStr}</div>
+        <div className="tabular-nums">build {buildLabel} · <span className="font-mono">{shortSha}</span></div>
+      </div>
+    </div>
+  );
+}
 
 function ProtectedLayout({ children }) {
   const navigate = useNavigate();
@@ -91,6 +121,7 @@ function ProtectedLayout({ children }) {
         )}
       </header>
       <main className="flex-1">{children}</main>
+      <BuildBadge />
     </div>
   );
 }
