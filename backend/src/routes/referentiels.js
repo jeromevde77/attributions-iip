@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import db from '../db/index.js';
-import { authRequired } from '../middleware/auth.js';
+import { authRequired, roleRequired } from '../middleware/auth.js';
 
 const r = Router();
 
@@ -87,6 +87,50 @@ r.get('/professeurs/:id', authRequired, (req, res) => {
     WHERE professeur_id = ? ORDER BY section, ue_num
   `).all(req.params.id);
   res.json({ ...p, attributions: attrs });
+});
+
+// Créer un nouveau professeur
+r.post('/professeurs', authRequired, roleRequired('admin', 'editeur'), (req, res) => {
+  const { nom, prenom, adresse_mail, mail_prive, statut, adresse_rue, code_postal,
+          commune, capaes, anciennete_25_26_po } = req.body;
+  if (!nom || !prenom) return res.status(400).json({ error: 'Nom et prénom requis' });
+  try {
+    const result = db.prepare(`
+      INSERT INTO professeur (nom, prenom, adresse_mail, mail_prive, statut,
+        adresse_rue, code_postal, commune, capaes, anciennete_25_26_po)
+      VALUES (?,?,?,?,?,?,?,?,?,?)
+    `).run(nom.trim(), prenom.trim(), adresse_mail||null, mail_prive||null,
+           statut||null, adresse_rue||null, code_postal||null, commune||null,
+           capaes||null, anciennete_25_26_po||0);
+    res.status(201).json({ id: result.lastInsertRowid });
+  } catch (e) {
+    if (e.message.includes('UNIQUE')) return res.status(409).json({ error: 'Ce professeur existe déjà' });
+    throw e;
+  }
+});
+
+// Modifier un professeur
+r.patch('/professeurs/:id', authRequired, roleRequired('admin', 'editeur'), (req, res) => {
+  const allowed = ['nom','prenom','adresse_mail','mail_prive','statut',
+                   'adresse_rue','code_postal','commune','capaes','anciennete_25_26_po'];
+  const updates = [];
+  const params = { id: req.params.id };
+  for (const k of allowed) {
+    if (k in req.body) { updates.push(`${k} = @${k}`); params[k] = req.body[k]; }
+  }
+  if (!updates.length) return res.status(400).json({ error: 'Aucun champ à modifier' });
+  const result = db.prepare(`UPDATE professeur SET ${updates.join(', ')} WHERE id = @id`).run(params);
+  if (result.changes === 0) return res.status(404).json({ error: 'Professeur introuvable' });
+  res.json({ ok: true });
+});
+
+// Supprimer un professeur (seulement si aucune attribution active)
+r.delete('/professeurs/:id', authRequired, roleRequired('admin'), (req, res) => {
+  const nb = db.prepare('SELECT COUNT(*) AS n FROM attribution WHERE professeur_id = ?').get(req.params.id).n;
+  if (nb > 0) return res.status(409).json({ error: `Impossible : ${nb} attribution(s) référencent ce professeur` });
+  const result = db.prepare('DELETE FROM professeur WHERE id = ?').run(req.params.id);
+  if (result.changes === 0) return res.status(404).json({ error: 'Professeur introuvable' });
+  res.json({ ok: true });
 });
 
 r.get('/locaux', authRequired, (req, res) => {
