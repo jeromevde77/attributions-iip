@@ -100,6 +100,16 @@ try {
     VALUES ('HISTORIQUE_ACTIF', 0, 'false', 'Activer la journalisation de l''historique des modifications');
   `);
 
+  // 5b. Table utilisateur_section (périmètre des coordinations)
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS utilisateur_section (
+      utilisateur_id  INTEGER NOT NULL,
+      section_code    TEXT NOT NULL,
+      PRIMARY KEY (utilisateur_id, section_code)
+    );
+    CREATE INDEX IF NOT EXISTS idx_us_user ON utilisateur_section(utilisateur_id);
+  `);
+
   // 6. Ajouter annee_scolaire aux tables ue et cours (clés composites)
   // SQLite ne permet pas de changer une PRIMARY KEY → on recrée les tables.
   // Les FK doivent être désactivées car d'autres tables (aa, cours) référencent ue.

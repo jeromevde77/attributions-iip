@@ -1,12 +1,12 @@
 import { Router } from 'express';
 import db from '../db/index.js';
-import { authRequired, roleRequired } from '../middleware/auth.js';
+import { authRequired, roleRequired, withSectionScope, canAccessSection } from '../middleware/auth.js';
 import { saveSnapshot } from '../helpers/snapshot.js';
 
 const r = Router();
 
 // Liste avec filtres : ?section=...&prof_id=...&contrat=...&ue=...&q=...
-r.get('/', authRequired, (req, res) => {
+r.get('/', authRequired, withSectionScope, (req, res) => {
   const { section, prof_id, contrat, ue, ue_num, q, type_cours, annee } = req.query;
   const where = [];
   const params = {};
@@ -20,6 +20,13 @@ r.get('/', authRequired, (req, res) => {
   if (q) {
     where.push('(a.ue_nom LIKE @q OR a.nom_cours LIKE @q OR a.professeur LIKE @q)');
     params.q = `%${q}%`;
+  }
+  // Périmètre : une coordination ne voit que ses sections
+  if (req.allowedSections !== null) {
+    if (req.allowedSections.length === 0) return res.json([]); // aucune section autorisée
+    const placeholders = req.allowedSections.map((_, i) => `@sec${i}`).join(', ');
+    where.push(`a.section IN (${placeholders})`);
+    req.allowedSections.forEach((s, i) => { params[`sec${i}`] = s; });
   }
   const sql = `
     SELECT a.*,
@@ -101,8 +108,12 @@ r.get('/:id', authRequired, (req, res) => {
 });
 
 // Création
-r.post('/', authRequired, roleRequired('admin', 'editeur'), (req, res) => {
+r.post('/', authRequired, roleRequired('admin', 'editeur', 'coordination'), (req, res) => {
   const a = req.body || {};
+  // Périmètre : une coordination ne peut créer que dans ses sections
+  if (!canAccessSection(req.user, a.section)) {
+    return res.status(403).json({ error: 'Vous n\'avez pas accès à cette section.' });
+  }
   // Une ligne avec 0 période mais de l'autonomie doit avoir une activité
   const per = Number(a.periodes_attribuees) || 0;
   const aut = Number(a.autonomie_attribuee) || 0;
@@ -165,7 +176,17 @@ r.post('/', authRequired, roleRequired('admin', 'editeur'), (req, res) => {
 });
 
 // Update (PATCH partiel)
-r.patch('/:id', authRequired, roleRequired('admin', 'editeur'), (req, res) => {
+r.patch('/:id', authRequired, roleRequired('admin', 'editeur', 'coordination'), (req, res) => {
+  // Périmètre : vérifier que l'attribution existante est dans une section autorisée
+  const existing = db.prepare('SELECT section FROM attribution WHERE id = ?').get(req.params.id);
+  if (!existing) return res.status(404).json({ error: 'Attribution introuvable' });
+  if (!canAccessSection(req.user, existing.section)) {
+    return res.status(403).json({ error: 'Vous n\'avez pas accès à cette section.' });
+  }
+  // Si on tente de changer la section, la nouvelle doit aussi être autorisée
+  if ('section' in req.body && !canAccessSection(req.user, req.body.section)) {
+    return res.status(403).json({ error: 'Vous ne pouvez pas déplacer cette attribution vers cette section.' });
+  }
   const allowed = [
     'section','etablissement_referent','contrat_mdp','organisation','ue_num',
     'num_organisation','quadrimestre_attribue','code_cours','type_cours',
@@ -210,7 +231,13 @@ r.patch('/professeur/:id/statut', authRequired, roleRequired('admin', 'editeur')
 });
 
 // Suppression
-r.delete('/:id', authRequired, roleRequired('admin'), (req, res) => {
+r.delete('/:id', authRequired, roleRequired('admin', 'coordination'), (req, res) => {
+  // Périmètre : vérifier que l'attribution est dans une section autorisée
+  const existing = db.prepare('SELECT section FROM attribution WHERE id = ?').get(req.params.id);
+  if (!existing) return res.status(404).json({ error: 'Attribution introuvable' });
+  if (!canAccessSection(req.user, existing.section)) {
+    return res.status(403).json({ error: 'Vous n\'avez pas accès à cette section.' });
+  }
   // Snapshot AVANT suppression
   saveSnapshot(Number(req.params.id), 'delete', req.user);
   db.prepare('DELETE FROM planning_hebdo WHERE attribution_id = ?').run(req.params.id);

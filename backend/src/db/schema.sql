@@ -323,11 +323,20 @@ CREATE TABLE IF NOT EXISTS utilisateur (
     email           TEXT UNIQUE NOT NULL,
     password_hash   TEXT NOT NULL,
     nom_complet     TEXT,
-    role            TEXT NOT NULL DEFAULT 'consultation',    -- admin / editeur / consultation
+    role            TEXT NOT NULL DEFAULT 'consultation',    -- admin / editeur / coordination / consultation
     actif           INTEGER DEFAULT 1,
     created_at      DATETIME DEFAULT CURRENT_TIMESTAMP,
     last_login_at   DATETIME
 );
+
+-- Sections autorisées pour les utilisateurs de rôle "coordination"
+-- (périmètre d'accès : un coordinateur ne voit/édite que ces sections)
+CREATE TABLE IF NOT EXISTS utilisateur_section (
+    utilisateur_id  INTEGER NOT NULL REFERENCES utilisateur(id) ON DELETE CASCADE,
+    section_code    TEXT NOT NULL,
+    PRIMARY KEY (utilisateur_id, section_code)
+);
+CREATE INDEX IF NOT EXISTS idx_us_user ON utilisateur_section(utilisateur_id);
 
 -- ----------------------------------------------------------------------------
 -- 10. Vues utiles (= équivalents des Tableaux de pilotage Excel)
