@@ -122,6 +122,17 @@ export default function CoursEditModal({ section, codeCours, onClose, onChanged 
   }
 
   async function save() {
+    // Validation : une ligne avec 0 période de cours mais de l'autonomie
+    // (ligne d'autonomie pure) doit être rattachée à une activité.
+    const lignesActives = rows.filter(r => !r._deleted);
+    for (const r of lignesActives) {
+      const per = Number(r.periodes_attribuees) || 0;
+      const aut = Number(r.autonomie_attribuee) || 0;
+      if (per === 0 && aut > 0 && !r.activite_id) {
+        setError(`Une ligne sans période de cours (autonomie seule) doit être rattachée à une activité (ex. théorie, TP). Sélectionnez une activité pour la ligne concernée.`);
+        return;
+      }
+    }
     setSaving(true);
     setError('');
     try {
@@ -236,13 +247,21 @@ export default function CoursEditModal({ section, codeCours, onClose, onChanged 
                         `}>
                           <td className="p-2 border-b text-gray-700">{r.nom_cours}</td>
                           <td className="p-2 border-b">
+                            {(() => {
+                              const per = Number(r.periodes_attribuees) || 0;
+                              const aut = Number(r.autonomie_attribuee) || 0;
+                              const manque = per === 0 && aut > 0 && !r.activite_id;
+                              return (
                             <select value={r.activite_id ?? ''}
                                     disabled={!canEdit}
                                     onChange={e => updateRow(r.id, 'activite_id', e.target.value ? Number(e.target.value) : null)}
-                                    className="w-full bg-transparent border border-gray-200 rounded px-2 py-1 text-sm focus:border-iip-gold outline-none">
+                                    title={manque ? 'Activité requise pour une ligne d\'autonomie seule' : ''}
+                                    className={`w-full bg-transparent border rounded px-2 py-1 text-sm focus:border-iip-gold outline-none ${manque ? 'border-orange-400 bg-orange-50' : 'border-gray-200'}`}>
                               <option value="">— Aucune —</option>
                               {activites.map(a => <option key={a.id} value={a.id}>{a.libelle}</option>)}
                             </select>
+                              );
+                            })()}
                           </td>
                           <td className="p-2 border-b">
                             <input type="text" value={r.code ?? ''}
