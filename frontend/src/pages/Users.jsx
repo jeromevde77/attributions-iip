@@ -4,6 +4,7 @@ import { getUser } from '../lib/api.js';
 const ROLE_LABEL = {
   admin: 'Administrateur',
   editeur: 'Éditeur',
+  coordination: 'Coordination',
   consultation: 'Consultation'
 };
 
@@ -25,14 +26,22 @@ function authFetch(path, opts = {}) {
 export default function Users({ embedded = false }) {
   const me = getUser();
   const [users, setUsers] = useState([]);
+  const [allSections, setAllSections] = useState([]);
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
-  const [form, setForm] = useState({ email: '', nom_complet: '', role: 'editeur', password: '' });
+  const [form, setForm] = useState({ email: '', nom_complet: '', role: 'editeur', password: '', sections: [] });
+  const [editingSections, setEditingSections] = useState(null); // {userId, sections} quand on édite le périmètre
   const [error, setError] = useState('');
 
   async function load() {
     setLoading(true);
-    try { setUsers(await authFetch('/api/users')); }
+    try {
+      const [u, s] = await Promise.all([
+        authFetch('/api/users'),
+        authFetch('/api/ref/sections')
+      ]);
+      setUsers(u); setAllSections(s);
+    }
     catch (e) { setError(e.message); }
     finally { setLoading(false); }
   }
@@ -41,10 +50,13 @@ export default function Users({ embedded = false }) {
   async function createUser() {
     setError('');
     if (!form.email || !form.password) { setError('Email et mot de passe requis'); return; }
+    if (form.role === 'coordination' && form.sections.length === 0) {
+      setError('Une coordination doit avoir au moins une section assignée.'); return;
+    }
     try {
       await authFetch('/api/users', { method: 'POST', body: JSON.stringify(form) });
       setShowForm(false);
-      setForm({ email: '', nom_complet: '', role: 'editeur', password: '' });
+      setForm({ email: '', nom_complet: '', role: 'editeur', password: '', sections: [] });
       load();
     } catch (e) { setError(e.message); }
   }
@@ -64,6 +76,36 @@ export default function Users({ embedded = false }) {
   async function changeRole(u, role) {
     await authFetch(`/api/users/${u.id}`, { method: 'PATCH', body: JSON.stringify({ role }) });
     load();
+  }
+
+  async function saveSections() {
+    if (!editingSections) return;
+    try {
+      await authFetch(`/api/users/${editingSections.userId}`, {
+        method: 'PATCH',
+        body: JSON.stringify({ sections: editingSections.sections })
+      });
+      setEditingSections(null);
+      load();
+    } catch (e) { alert(e.message); }
+  }
+
+  function toggleSectionInForm(code) {
+    setForm(f => ({
+      ...f,
+      sections: f.sections.includes(code)
+        ? f.sections.filter(s => s !== code)
+        : [...f.sections, code]
+    }));
+  }
+
+  function toggleSectionInEdit(code) {
+    setEditingSections(es => ({
+      ...es,
+      sections: es.sections.includes(code)
+        ? es.sections.filter(s => s !== code)
+        : [...es.sections, code]
+    }));
   }
 
   async function deleteUser(u) {
@@ -94,7 +136,7 @@ export default function Users({ embedded = false }) {
           <table className="grid-excel">
             <thead>
               <tr>
-                <th>Nom</th><th>Email</th><th>Rôle</th><th>Actif</th><th>Créé le</th><th>Dernière connexion</th><th>Actions</th>
+                <th>Nom</th><th>Email</th><th>Rôle</th><th>Périmètre</th><th>Actif</th><th>Créé le</th><th>Dernière connexion</th><th>Actions</th>
               </tr>
             </thead>
             <tbody>
@@ -108,6 +150,14 @@ export default function Users({ embedded = false }) {
                             className="border border-gray-200 rounded px-2 py-1 text-xs">
                       {Object.entries(ROLE_LABEL).map(([k,l]) => <option key={k} value={k}>{l}</option>)}
                     </select>
+                  </td>
+                  <td className="text-xs">
+                    {u.role === 'coordination' ? (
+                      <button onClick={() => setEditingSections({ userId: u.id, nom: u.nom_complet, sections: [...(u.sections || [])] })}
+                              className="text-iip-gold hover:underline">
+                        {u.sections?.length ? u.sections.join(', ') : <span className="text-orange-500">⚠ aucune</span>}
+                      </button>
+                    ) : <span className="text-gray-300">— toutes —</span>}
                   </td>
                   <td>
                     <button onClick={() => toggleActif(u)} disabled={u.id === me.id}
@@ -157,11 +207,47 @@ export default function Users({ embedded = false }) {
                   {Object.entries(ROLE_LABEL).map(([k,l]) => <option key={k} value={k}>{l}</option>)}
                 </select>
               </div>
+              {form.role === 'coordination' && (
+                <div>
+                  <label className="block text-xs text-gray-600 mb-1">Sections autorisées *</label>
+                  <div className="grid grid-cols-2 gap-1 max-h-48 overflow-auto border border-gray-200 rounded p-2">
+                    {allSections.map(s => (
+                      <label key={s.code} className="flex items-center gap-2 text-sm cursor-pointer hover:bg-gray-50 px-1 rounded">
+                        <input type="checkbox" checked={form.sections.includes(s.code)}
+                               onChange={() => toggleSectionInForm(s.code)} />
+                        {s.code}
+                      </label>
+                    ))}
+                  </div>
+                  <p className="text-xs text-gray-400 mt-1">La coordination ne verra et ne gérera que ces sections.</p>
+                </div>
+              )}
             </div>
             {error && <div className="text-red-600 text-sm mt-2">{error}</div>}
             <div className="flex justify-end gap-2 mt-4">
               <button onClick={() => setShowForm(false)} className="px-4 py-2 text-sm text-gray-600">Annuler</button>
               <button onClick={createUser} className="bg-iip-gold hover:bg-iip-amber text-white text-sm px-5 py-2 rounded">Créer</button>
+            </div>
+          </div>
+        </div>
+      )}
+      {editingSections && (
+        <div className="fixed inset-0 bg-black/40 flex items-center justify-center p-4 z-30" onClick={() => setEditingSections(null)}>
+          <div className="bg-white rounded-xl shadow-2xl max-w-md w-full p-6" onClick={e => e.stopPropagation()}>
+            <h2 className="text-xl font-title text-iip-gold mb-1">Périmètre — {editingSections.nom}</h2>
+            <p className="text-xs text-gray-500 mb-4">Sections que cette coordination peut voir et gérer.</p>
+            <div className="grid grid-cols-2 gap-1 max-h-64 overflow-auto border border-gray-200 rounded p-2">
+              {allSections.map(s => (
+                <label key={s.code} className="flex items-center gap-2 text-sm cursor-pointer hover:bg-gray-50 px-1 rounded">
+                  <input type="checkbox" checked={editingSections.sections.includes(s.code)}
+                         onChange={() => toggleSectionInEdit(s.code)} />
+                  {s.code}
+                </label>
+              ))}
+            </div>
+            <div className="flex justify-end gap-2 mt-4">
+              <button onClick={() => setEditingSections(null)} className="px-4 py-2 text-sm text-gray-600">Annuler</button>
+              <button onClick={saveSections} className="bg-iip-gold hover:bg-iip-amber text-white text-sm px-5 py-2 rounded">Enregistrer</button>
             </div>
           </div>
         </div>

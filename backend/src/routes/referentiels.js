@@ -1,11 +1,14 @@
 import { Router } from 'express';
 import db from '../db/index.js';
-import { authRequired, roleRequired } from '../middleware/auth.js';
+import { authRequired, roleRequired, getUserSections } from '../middleware/auth.js';
 
 const r = Router();
 
 r.get('/sections', authRequired, (req, res) => {
-  res.json(db.prepare('SELECT * FROM section ORDER BY code').all());
+  const allowed = getUserSections(req.user);
+  let rows = db.prepare('SELECT * FROM section ORDER BY code').all();
+  if (allowed !== null) rows = rows.filter(s => allowed.includes(s.code));
+  res.json(rows);
 });
 
 r.get('/ue', authRequired, (req, res) => {

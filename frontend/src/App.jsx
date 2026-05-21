@@ -62,13 +62,20 @@ function ProtectedLayout({ children }) {
   if (!isAuthenticated()) return <Navigate to="/login" replace />;
   const u = getUser();
 
-  const nav = [
-    ['/',             'Tableau de bord'],
-    ['/attributions', 'Attributions'],
-    ['/planning',     'Planning'],
-    ['/professeurs',  'Professeurs'],
-    ['/pilotage',     'Pilotage']
-  ];
+  const isCoordination = u?.role === 'coordination';
+
+  const nav = isCoordination
+    ? [
+        ['/',             'Tableau de bord'],
+        ['/attributions', 'Attributions']
+      ]
+    : [
+        ['/',             'Tableau de bord'],
+        ['/attributions', 'Attributions'],
+        ['/planning',     'Planning'],
+        ['/professeurs',  'Professeurs'],
+        ['/pilotage',     'Pilotage']
+      ];
   if (u?.role === 'admin') nav.push(['/annees', 'Années']);
   if (u?.role === 'admin') nav.push(['/referentiels', '📚 Référentiels']);
   if (u?.role === 'admin') nav.push(['/configuration', '⚙ Config']);
