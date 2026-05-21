@@ -26,6 +26,14 @@ const __dirname = dirname(fileURLToPath(import.meta.url));
 // Ces opérations sont idempotentes — peuvent être exécutées à chaque démarrage.
 // ---------------------------------------------------------------------------
 try {
+  // 0. Supprimer les vues d'abord — elles dépendent de ue/cours et empêcheraient
+  //    un DROP TABLE lors des migrations de clés composites. Elles sont recréées plus bas.
+  db.exec(`
+    DROP VIEW IF EXISTS v_attribution_complete;
+    DROP VIEW IF EXISTS v_professeur_total;
+    DROP VIEW IF EXISTS v_cours_conformite;
+  `);
+
   // 1. Créer la table activite_type si elle n'existe pas
   db.exec(`
     CREATE TABLE IF NOT EXISTS activite_type (
@@ -96,6 +104,7 @@ try {
   // SQLite ne permet pas de changer une PRIMARY KEY → on recrée les tables.
   const ueCols = db.prepare("PRAGMA table_info(ue)").all();
   if (!ueCols.find(c => c.name === 'annee_scolaire')) {
+    db.exec(`DROP TABLE IF EXISTS ue_new;`);  // nettoyage si migration précédente interrompue
     db.exec(`
       BEGIN TRANSACTION;
       CREATE TABLE ue_new (
@@ -135,6 +144,7 @@ try {
 
   const coursCols = db.prepare("PRAGMA table_info(cours)").all();
   if (!coursCols.find(c => c.name === 'annee_scolaire')) {
+    db.exec(`DROP TABLE IF EXISTS cours_new;`);  // nettoyage si migration précédente interrompue
     db.exec(`
       BEGIN TRANSACTION;
       CREATE TABLE cours_new (
@@ -169,7 +179,8 @@ try {
     console.log('[migration] Table cours : clé composite (cours_code, annee_scolaire)');
   }
 } catch (e) {
-  console.warn('[migration] Erreur :', e.message);
+  console.error('[migration] ERREUR :', e.message);
+  console.error(e.stack);
 }
 
 // Recréer les VIEW à chaque démarrage pour qu'elles soient à jour
