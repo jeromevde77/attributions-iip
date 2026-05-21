@@ -219,16 +219,16 @@ export default function Referentiels() {
                     <div key={ue.ue_num}>
                       <div className="flex items-center gap-2 px-5 py-2.5 hover:bg-gray-50">
                         <button onClick={() => toggle(ueKey)} className="flex items-center gap-2 flex-1 text-left min-w-0">
-                          <span className={`text-iip-gold text-sm transition-transform ${ueOpen ? 'rotate-90' : ''}`}>▶</span>
-                          <span className="font-semibold text-iip-gold text-sm">UE {ue.ue_num}</span>
-                          {ue.ue_niv && <span className="text-xs bg-iip-gold/10 text-iip-gold px-1.5 rounded">{ue.ue_niv}</span>}
-                          {ue.ue_niveau && <span className="text-xs bg-gray-100 text-gray-600 px-1.5 rounded">{ue.ue_niveau}</span>}
-                          {ue.ue_quad && <span className="text-xs bg-gray-100 text-gray-600 px-1.5 rounded">{ue.ue_quad}</span>}
-                          <span className="text-sm text-gray-700 truncate">{ue.ue_nom}</span>
+                          <span className={`text-iip-gold text-sm transition-transform flex-shrink-0 ${ueOpen ? 'rotate-90' : ''}`}>▶</span>
+                          <span className="font-semibold text-iip-gold text-sm whitespace-nowrap flex-shrink-0">UE {ue.ue_num}</span>
+                          {ue.ue_niv && <span className="text-xs bg-iip-gold/10 text-iip-gold px-1.5 rounded flex-shrink-0">{ue.ue_niv}</span>}
+                          {ue.ue_niveau && <span className="text-xs bg-gray-100 text-gray-600 px-1.5 rounded flex-shrink-0">{ue.ue_niveau}</span>}
+                          {ue.ue_quad && <span className="text-xs bg-gray-100 text-gray-600 px-1.5 rounded flex-shrink-0">{ue.ue_quad}</span>}
+                          <span className="text-sm text-gray-700 truncate min-w-0" title={ue.ue_nom}>{ue.ue_nom}</span>
                         </button>
-                        <span className="text-xs text-gray-400 flex-shrink-0">{ue.cours.length} cours · {ue.nb_attributions} attr.</span>
-                        <button onClick={() => setUeModal({ ...ue, _edit: true })} className="text-iip-gold hover:text-iip-amber text-sm" title="Modifier">✏</button>
-                        <button onClick={() => delUE(ue)} className="text-red-400 hover:text-red-600 text-sm" title="Supprimer">🗑</button>
+                        <span className="text-xs text-gray-400 flex-shrink-0 whitespace-nowrap">{ue.cours.length} cours · {ue.nb_attributions} attr.</span>
+                        <button onClick={() => setUeModal({ ...ue, _edit: true })} className="text-iip-gold hover:text-iip-amber text-sm flex-shrink-0" title="Modifier">✏</button>
+                        <button onClick={() => delUE(ue)} className="text-red-400 hover:text-red-600 text-sm flex-shrink-0" title="Supprimer">🗑</button>
                       </div>
                       {ueOpen && (
                         <div className="bg-gray-50/50 pl-10 pr-4 pb-2">
