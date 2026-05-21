@@ -103,6 +103,12 @@ r.get('/:id', authRequired, (req, res) => {
 // Création
 r.post('/', authRequired, roleRequired('admin', 'editeur'), (req, res) => {
   const a = req.body || {};
+  // Une ligne avec 0 période mais de l'autonomie doit avoir une activité
+  const per = Number(a.periodes_attribuees) || 0;
+  const aut = Number(a.autonomie_attribuee) || 0;
+  if (per === 0 && aut > 0 && !a.activite_id) {
+    return res.status(400).json({ error: 'Une ligne sans période de cours (autonomie seule) doit être rattachée à une activité.' });
+  }
   const stmt = db.prepare(`
     INSERT INTO attribution
       (section, etablissement_referent, contrat_mdp, organisation,

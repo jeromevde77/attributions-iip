@@ -28,6 +28,12 @@ export default function AttributionCard({ row, selected, onToggleSelect, onChang
   function set(k, v) { setForm(f => ({ ...f, [k]: v })); }
 
   async function save() {
+    const per = Number(form.periodes_attribuees) || 0;
+    const aut = Number(form.autonomie_attribuee) || 0;
+    if (per === 0 && aut > 0 && !form.activite_id) {
+      alert('Une ligne sans période de cours (autonomie seule) doit être rattachée à une activité (ex. théorie, TP).');
+      return;
+    }
     setSaving(true);
     try {
       const payload = {

@@ -102,6 +102,13 @@ export default function AttributionForm({ onClose, onCreated, editRow = null }) 
       setError('Section, UE et cours sont obligatoires.');
       return;
     }
+    // Une ligne avec 0 période mais de l'autonomie doit avoir une activité
+    const per = Number(form.periodes_attribuees) || 0;
+    const aut = Number(form.autonomie_attribuee) || 0;
+    if (per === 0 && aut > 0 && !form.activite_id) {
+      setError('Une ligne sans période de cours (autonomie seule) doit être rattachée à une activité (ex. théorie, TP).');
+      return;
+    }
     setSaving(true); setError('');
     try {
       const payload = {
