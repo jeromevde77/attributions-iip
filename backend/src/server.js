@@ -185,6 +185,91 @@ try {
 
     db.exec('PRAGMA foreign_keys = ON;');
   }
+
+  // 7. Retirer les FK obsolètes vers ue/cours (incompatibles avec clés composites)
+  // Une FK simple REFERENCES cours(cours_code) provoque "foreign key mismatch"
+  // depuis que cours a une PK composite. On recrée attribution/aa/ue_inscription sans FK.
+  const attrFKs = db.prepare("PRAGMA foreign_key_list(attribution)").all();
+  const hasObsoleteFK = attrFKs.some(fk => fk.table === 'cours' || fk.table === 'ue');
+  if (hasObsoleteFK) {
+    db.exec('PRAGMA foreign_keys = OFF;');
+
+    // Recréer attribution sans les FK ue/cours, en préservant toutes les colonnes et données
+    const cols = db.prepare("PRAGMA table_info(attribution)").all();
+    const colNames = cols.map(c => c.name).filter(n => n !== 'total_attribue_professeur' && n !== 'charge_en_heures');
+    // On reconstruit via le schéma : le plus sûr est de copier les colonnes connues.
+    // Génère la liste des colonnes pour le SELECT/INSERT (hors colonnes générées VIRTUAL).
+    const generated = cols.filter(c => c.name === 'total_attribue_professeur' || c.name === 'charge_en_heures').map(c => c.name);
+    const insertable = cols.map(c => c.name).filter(n => !generated.includes(n));
+
+    db.exec('DROP TABLE IF EXISTS attribution_new;');
+    db.exec(`
+      CREATE TABLE attribution_new (
+        id              INTEGER PRIMARY KEY AUTOINCREMENT,
+        section         TEXT REFERENCES section(code),
+        etablissement_referent TEXT,
+        contrat_mdp     TEXT,
+        organisation    TEXT,
+        annee_scolaire  TEXT DEFAULT '2025-2026',
+        ue_num          INTEGER NOT NULL,
+        num_organisation INTEGER DEFAULT 1,
+        quadrimestre_attribue TEXT,
+        code_cours      TEXT,
+        type_cours      TEXT,
+        type_cours_helb TEXT,
+        code            TEXT,
+        nb_groupes      INTEGER DEFAULT 1,
+        split_groupe    TEXT DEFAULT 'N',
+        num_split       INTEGER,
+        num_groupe      INTEGER,
+        activite_id     INTEGER REFERENCES activite_type(id),
+        professeur_id   INTEGER REFERENCES professeur(id),
+        cours_ept_ad    TEXT,
+        coordination_encadrement TEXT,
+        modification_attribution TEXT,
+        commentaire     TEXT,
+        commentaire_2   TEXT,
+        charge_perdue_84plus REAL,
+        periodes_transferees REAL,
+        per_etudiant_total_dp INTEGER,
+        periodes_attribuees REAL NOT NULL DEFAULT 0,
+        autonomie_attribuee REAL NOT NULL DEFAULT 0,
+        total_attribue_professeur REAL GENERATED ALWAYS AS
+                        (COALESCE(periodes_attribuees,0) + COALESCE(autonomie_attribuee,0)) VIRTUAL,
+        charge_en_heures REAL GENERATED ALWAYS AS
+                        (ROUND((COALESCE(periodes_attribuees,0) + COALESCE(autonomie_attribuee,0)) * 50.0 / 60.0)) VIRTUAL,
+        created_at      DATETIME DEFAULT CURRENT_TIMESTAMP,
+        updated_at      DATETIME DEFAULT CURRENT_TIMESTAMP,
+        created_by      INTEGER,
+        updated_by      INTEGER
+      );
+    `);
+    // Colonnes communes entre l'ancienne table et la nouvelle (hors générées)
+    const newCols = db.prepare("PRAGMA table_info(attribution_new)").all().map(c => c.name);
+    const common = insertable.filter(n => newCols.includes(n));
+    const colList = common.join(', ');
+    db.exec(`INSERT INTO attribution_new (${colList}) SELECT ${colList} FROM attribution;`);
+    db.exec('DROP TABLE attribution;');
+    db.exec('ALTER TABLE attribution_new RENAME TO attribution;');
+    db.exec(`
+      CREATE INDEX IF NOT EXISTS idx_attr_prof ON attribution(professeur_id);
+      CREATE INDEX IF NOT EXISTS idx_attr_section ON attribution(section);
+      CREATE INDEX IF NOT EXISTS idx_attr_ue ON attribution(ue_num);
+      CREATE INDEX IF NOT EXISTS idx_attr_annee ON attribution(annee_scolaire);
+    `);
+    console.log('[migration] Table attribution : FK obsolètes retirées');
+
+    // Recréer le trigger updated_at (supprimé avec l'ancienne table)
+    db.exec(`
+      DROP TRIGGER IF EXISTS trg_attr_updated;
+      CREATE TRIGGER trg_attr_updated AFTER UPDATE ON attribution
+      BEGIN
+        UPDATE attribution SET updated_at = CURRENT_TIMESTAMP WHERE id = NEW.id;
+      END;
+    `);
+
+    db.exec('PRAGMA foreign_keys = ON;');
+  }
 } catch (e) {
   console.error('[migration] ERREUR :', e.message);
   console.error(e.stack);

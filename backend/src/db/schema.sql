@@ -63,8 +63,8 @@ CREATE INDEX IF NOT EXISTS idx_cours_annee ON cours(annee_scolaire);
 CREATE TABLE IF NOT EXISTS aa (
     aa_code         TEXT PRIMARY KEY,                        -- "AA282.1"
     aa_num          INTEGER,                                 -- 1, 2, 3...
-    ue_num          INTEGER REFERENCES ue(ue_num),
-    cours_code      TEXT REFERENCES cours(cours_code),
+    ue_num          INTEGER,
+    cours_code      TEXT,
     description     TEXT
 );
 
@@ -194,13 +194,13 @@ CREATE TABLE IF NOT EXISTS attribution (
     organisation    TEXT,                                    -- "x" si organisé
     annee_scolaire  TEXT DEFAULT '2025-2026',
 
-    -- UE (les VLOOKUP[5,7,8,...] → JOIN ue)
-    ue_num          INTEGER NOT NULL REFERENCES ue(ue_num),
+    -- UE (les VLOOKUP[5,7,8,...] → JOIN ue ; pas de FK car ue est multi-années)
+    ue_num          INTEGER NOT NULL,
     num_organisation INTEGER DEFAULT 1,                       -- numéro d'organisation (1, 2, 3...)
     quadrimestre_attribue TEXT,                              -- Q1/Q2 attribué (peut différer de UE.ue_quad)
 
-    -- Cours
-    code_cours      TEXT REFERENCES cours(cours_code),
+    -- Cours (pas de FK car cours est multi-années)
+    code_cours      TEXT,
     type_cours      TEXT,                                    -- CT / PP
     type_cours_helb TEXT,                                    -- MFP / MA / NULL
     code            TEXT,                                    -- A, A1, A2, B...  (lettre groupe)
@@ -272,7 +272,7 @@ CREATE INDEX IF NOT EXISTS idx_planning_attr ON planning_hebdo(attribution_id);
 
 CREATE TABLE IF NOT EXISTS ue_inscription (
     id              INTEGER PRIMARY KEY AUTOINCREMENT,
-    ue_num          INTEGER NOT NULL REFERENCES ue(ue_num),
+    ue_num          INTEGER NOT NULL,
     num_organisation INTEGER DEFAULT 1,
     payroll         TEXT,                                    -- iip / helb
     organisation    TEXT,
