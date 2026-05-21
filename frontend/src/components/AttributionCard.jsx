@@ -35,7 +35,7 @@ export default function AttributionCard({ row, selected, onToggleSelect, onChang
         autonomie_attribuee: Number(form.autonomie_attribuee),
         contrat_mdp: form.contrat_mdp || null,
         quadrimestre_attribue: form.quadrimestre_attribue || null,
-        type_cours_helb: form.type_cours_helb || null,
+        type_cours_helb: form.contrat_mdp === 'HELB' ? (form.type_cours_helb || null) : null,
         num_organisation: Number(form.num_organisation) || 1,
         code: form.code || null,
         professeur_id: form.professeur_id ? Number(form.professeur_id) : null,

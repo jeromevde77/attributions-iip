@@ -191,6 +191,10 @@ export default function Attributions() {
     try {
       const numF = ['periodes_attribuees','autonomie_attribuee','num_organisation'];
       const payload = { [field]: numF.includes(field) ? Number(value) : value };
+      // Si on change le contrat vers autre chose que HELB, vider le statut HELB
+      if (field === 'contrat_mdp' && value !== 'HELB') {
+        payload.type_cours_helb = null;
+      }
       await api.updateAttribution(id, payload);
       setData(prev=>prev.map(r=>r.id===id?{...r,...payload,...recompute(r,payload)}:r));
     } catch(e){ alert('Erreur : '+e.message); }
@@ -277,6 +281,13 @@ export default function Attributions() {
           if (c.readonly) return <td key={c.key} style={sty} onClick={click} className={`${c.num?'num':''} bg-gray-100 text-gray-500 ${cClass}`} title={c.tooltip}>{v!=null?Number(v).toLocaleString('fr-BE',{maximumFractionDigits:2}):<span className="text-gray-300">—</span>}</td>;
           if (c.edit==='number') return <td key={c.key} className={c.num?'num':''} style={sty}><input type="text" inputMode="decimal" defaultValue={v??0} className="input-cell text-right w-full no-spinner" onClick={e=>e.stopPropagation()} onBlur={e=>{const val=e.target.value.replace(',','.');if(Number(val)!==Number(v))saveCell(row.id,c.key,val);}}/></td>;
           if (c.edit==='text') return <td key={c.key} style={sty}><input type="text" defaultValue={v??''} className="input-cell w-full text-center" onClick={e=>e.stopPropagation()} onBlur={e=>{if(e.target.value!==(v??''))saveCell(row.id,c.key,e.target.value);}}/></td>;
+          if (c.key==='type_cours_helb') {
+            if (row.contrat_mdp !== 'HELB') {
+              // Non applicable hors HELB : cellule grisée, non éditable
+              return <td key={c.key} style={sty} className="bg-gray-100 text-gray-300 text-center" title="Réservé au contrat HELB">—</td>;
+            }
+            return <td key={c.key} style={sty}><select defaultValue={v??''} onClick={e=>e.stopPropagation()} className="bg-transparent border-0 outline-none w-full text-sm cursor-pointer focus:bg-yellow-50" onChange={e=>{if(e.target.value!==(v??''))saveCell(row.id,c.key,e.target.value);}}>{c.options.map(([val,lbl])=><option key={val} value={val}>{lbl}</option>)}</select></td>;
+          }
           if (c.edit==='select') return <td key={c.key} style={sty}><select defaultValue={v??''} onClick={e=>e.stopPropagation()} className="bg-transparent border-0 outline-none w-full text-sm cursor-pointer focus:bg-yellow-50" onChange={e=>{if(e.target.value!==(v??''))saveCell(row.id,c.key,e.target.value);}}>{c.options.map(([val,lbl])=><option key={val} value={val}>{lbl}</option>)}</select></td>;
           if (c.edit==='prof') return <td key={c.key} style={sty}><select defaultValue={row.professeur_id??''} onClick={e=>e.stopPropagation()} className="bg-transparent border-0 outline-none w-full text-sm cursor-pointer focus:bg-yellow-50" onChange={e=>{const nid=e.target.value?Number(e.target.value):null;if(nid!==row.professeur_id)saveCell(row.id,'professeur_id',nid);}}><option value="">— Aucun —</option>{professeurs.map(p=><option key={p.id} value={p.id}>{p.nom_prenom}</option>)}</select></td>;
           if (c.edit==='statut') {
