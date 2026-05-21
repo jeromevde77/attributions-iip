@@ -102,85 +102,93 @@ try {
 
   // 6. Ajouter annee_scolaire aux tables ue et cours (clés composites)
   // SQLite ne permet pas de changer une PRIMARY KEY → on recrée les tables.
+  // Les FK doivent être désactivées car d'autres tables (aa, cours) référencent ue.
+  // PRAGMA foreign_keys ne fonctionne pas dans une transaction → on le pose hors transaction.
   const ueCols = db.prepare("PRAGMA table_info(ue)").all();
-  if (!ueCols.find(c => c.name === 'annee_scolaire')) {
-    db.exec(`DROP TABLE IF EXISTS ue_new;`);  // nettoyage si migration précédente interrompue
-    db.exec(`
-      BEGIN TRANSACTION;
-      CREATE TABLE ue_new (
-        ue_num          INTEGER,
-        annee_scolaire  TEXT NOT NULL DEFAULT '2025-2026',
-        ue_nom          TEXT NOT NULL,
-        ue_code_fwb     TEXT,
-        section         TEXT,
-        ue_tc           TEXT,
-        ue_det          TEXT,
-        ue_niv          TEXT,
-        ue_per_etudiants INTEGER,
-        ue_per_cours    INTEGER,
-        ue_aut          INTEGER,
-        ue_tot_prf      INTEGER,
-        ue_niveau       TEXT,
-        ue_quad         TEXT,
-        et_ref          TEXT,
-        ects            INTEGER,
-        ue_prerequise   TEXT,
-        PRIMARY KEY (ue_num, annee_scolaire)
-      );
-      INSERT INTO ue_new (ue_num, annee_scolaire, ue_nom, ue_code_fwb, section, ue_tc, ue_det,
-        ue_niv, ue_per_etudiants, ue_per_cours, ue_aut, ue_tot_prf, ue_niveau, ue_quad, et_ref, ects, ue_prerequise)
-        SELECT ue_num, '2025-2026', ue_nom, ue_code_fwb, section, ue_tc, ue_det,
-        ue_niv, ue_per_etudiants, ue_per_cours, ue_aut, ue_tot_prf, ue_niveau, ue_quad, et_ref, ects, ue_prerequise
-        FROM ue;
-      DROP TABLE ue;
-      ALTER TABLE ue_new RENAME TO ue;
-      CREATE INDEX IF NOT EXISTS idx_ue_section ON ue(section);
-      CREATE INDEX IF NOT EXISTS idx_ue_niveau ON ue(ue_niveau);
-      CREATE INDEX IF NOT EXISTS idx_ue_annee ON ue(annee_scolaire);
-      COMMIT;
-    `);
-    console.log('[migration] Table ue : clé composite (ue_num, annee_scolaire)');
-  }
-
   const coursCols = db.prepare("PRAGMA table_info(cours)").all();
-  if (!coursCols.find(c => c.name === 'annee_scolaire')) {
-    db.exec(`DROP TABLE IF EXISTS cours_new;`);  // nettoyage si migration précédente interrompue
-    db.exec(`
-      BEGIN TRANSACTION;
-      CREATE TABLE cours_new (
-        cours_code      TEXT,
-        annee_scolaire  TEXT NOT NULL DEFAULT '2025-2026',
-        cours_num       INTEGER,
-        cours_nom       TEXT NOT NULL,
-        ct_pp           TEXT,
-        section         TEXT,
-        ue_num          INTEGER,
-        quadrimestre_cours TEXT,
-        cours_per       INTEGER,
-        cours_total     INTEGER,
-        ue_autonomie    INTEGER,
-        ue_per_total    INTEGER,
-        ue_niveau       TEXT,
-        enc_cours       TEXT,
-        heures          INTEGER,
-        PRIMARY KEY (cours_code, annee_scolaire)
-      );
-      INSERT INTO cours_new (cours_code, annee_scolaire, cours_num, cours_nom, ct_pp, section,
-        ue_num, quadrimestre_cours, cours_per, cours_total, ue_autonomie, ue_per_total, ue_niveau, enc_cours, heures)
-        SELECT cours_code, '2025-2026', cours_num, cours_nom, ct_pp, section,
-        ue_num, quadrimestre_cours, cours_per, cours_total, ue_autonomie, ue_per_total, ue_niveau, enc_cours, heures
-        FROM cours;
-      DROP TABLE cours;
-      ALTER TABLE cours_new RENAME TO cours;
-      CREATE INDEX IF NOT EXISTS idx_cours_ue ON cours(ue_num);
-      CREATE INDEX IF NOT EXISTS idx_cours_annee ON cours(annee_scolaire);
-      COMMIT;
-    `);
-    console.log('[migration] Table cours : clé composite (cours_code, annee_scolaire)');
+  const needUeMigration = !ueCols.find(c => c.name === 'annee_scolaire');
+  const needCoursMigration = !coursCols.find(c => c.name === 'annee_scolaire');
+
+  if (needUeMigration || needCoursMigration) {
+    db.exec('PRAGMA foreign_keys = OFF;');
+
+    if (needUeMigration) {
+      db.exec(`DROP TABLE IF EXISTS ue_new;`);
+      db.exec(`
+        CREATE TABLE ue_new (
+          ue_num          INTEGER,
+          annee_scolaire  TEXT NOT NULL DEFAULT '2025-2026',
+          ue_nom          TEXT NOT NULL,
+          ue_code_fwb     TEXT,
+          section         TEXT,
+          ue_tc           TEXT,
+          ue_det          TEXT,
+          ue_niv          TEXT,
+          ue_per_etudiants INTEGER,
+          ue_per_cours    INTEGER,
+          ue_aut          INTEGER,
+          ue_tot_prf      INTEGER,
+          ue_niveau       TEXT,
+          ue_quad         TEXT,
+          et_ref          TEXT,
+          ects            INTEGER,
+          ue_prerequise   TEXT,
+          PRIMARY KEY (ue_num, annee_scolaire)
+        );
+        INSERT INTO ue_new (ue_num, annee_scolaire, ue_nom, ue_code_fwb, section, ue_tc, ue_det,
+          ue_niv, ue_per_etudiants, ue_per_cours, ue_aut, ue_tot_prf, ue_niveau, ue_quad, et_ref, ects, ue_prerequise)
+          SELECT ue_num, '2025-2026', ue_nom, ue_code_fwb, section, ue_tc, ue_det,
+          ue_niv, ue_per_etudiants, ue_per_cours, ue_aut, ue_tot_prf, ue_niveau, ue_quad, et_ref, ects, ue_prerequise
+          FROM ue;
+        DROP TABLE ue;
+        ALTER TABLE ue_new RENAME TO ue;
+        CREATE INDEX IF NOT EXISTS idx_ue_section ON ue(section);
+        CREATE INDEX IF NOT EXISTS idx_ue_niveau ON ue(ue_niveau);
+        CREATE INDEX IF NOT EXISTS idx_ue_annee ON ue(annee_scolaire);
+      `);
+      console.log('[migration] Table ue : clé composite (ue_num, annee_scolaire)');
+    }
+
+    if (needCoursMigration) {
+      db.exec(`DROP TABLE IF EXISTS cours_new;`);
+      db.exec(`
+        CREATE TABLE cours_new (
+          cours_code      TEXT,
+          annee_scolaire  TEXT NOT NULL DEFAULT '2025-2026',
+          cours_num       INTEGER,
+          cours_nom       TEXT NOT NULL,
+          ct_pp           TEXT,
+          section         TEXT,
+          ue_num          INTEGER,
+          quadrimestre_cours TEXT,
+          cours_per       INTEGER,
+          cours_total     INTEGER,
+          ue_autonomie    INTEGER,
+          ue_per_total    INTEGER,
+          ue_niveau       TEXT,
+          enc_cours       TEXT,
+          heures          INTEGER,
+          PRIMARY KEY (cours_code, annee_scolaire)
+        );
+        INSERT INTO cours_new (cours_code, annee_scolaire, cours_num, cours_nom, ct_pp, section,
+          ue_num, quadrimestre_cours, cours_per, cours_total, ue_autonomie, ue_per_total, ue_niveau, enc_cours, heures)
+          SELECT cours_code, '2025-2026', cours_num, cours_nom, ct_pp, section,
+          ue_num, quadrimestre_cours, cours_per, cours_total, ue_autonomie, ue_per_total, ue_niveau, enc_cours, heures
+          FROM cours;
+        DROP TABLE cours;
+        ALTER TABLE cours_new RENAME TO cours;
+        CREATE INDEX IF NOT EXISTS idx_cours_ue ON cours(ue_num);
+        CREATE INDEX IF NOT EXISTS idx_cours_annee ON cours(annee_scolaire);
+      `);
+      console.log('[migration] Table cours : clé composite (cours_code, annee_scolaire)');
+    }
+
+    db.exec('PRAGMA foreign_keys = ON;');
   }
 } catch (e) {
   console.error('[migration] ERREUR :', e.message);
   console.error(e.stack);
+  try { db.exec('PRAGMA foreign_keys = ON;'); } catch {}
 }
 
 // Recréer les VIEW à chaque démarrage pour qu'elles soient à jour
