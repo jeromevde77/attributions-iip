@@ -279,7 +279,12 @@ export default function Attributions() {
           if (c.edit==='text') return <td key={c.key} style={sty}><input type="text" defaultValue={v??''} className="input-cell w-full text-center" onClick={e=>e.stopPropagation()} onBlur={e=>{if(e.target.value!==(v??''))saveCell(row.id,c.key,e.target.value);}}/></td>;
           if (c.edit==='select') return <td key={c.key} style={sty}><select defaultValue={v??''} onClick={e=>e.stopPropagation()} className="bg-transparent border-0 outline-none w-full text-sm cursor-pointer focus:bg-yellow-50" onChange={e=>{if(e.target.value!==(v??''))saveCell(row.id,c.key,e.target.value);}}>{c.options.map(([val,lbl])=><option key={val} value={val}>{lbl}</option>)}</select></td>;
           if (c.edit==='prof') return <td key={c.key} style={sty}><select defaultValue={row.professeur_id??''} onClick={e=>e.stopPropagation()} className="bg-transparent border-0 outline-none w-full text-sm cursor-pointer focus:bg-yellow-50" onChange={e=>{const nid=e.target.value?Number(e.target.value):null;if(nid!==row.professeur_id)saveCell(row.id,'professeur_id',nid);}}><option value="">— Aucun —</option>{professeurs.map(p=><option key={p.id} value={p.id}>{p.nom_prenom}</option>)}</select></td>;
-          if (c.edit==='statut') return <td key={c.key} style={sty}>{row.professeur_id?<select defaultValue={v??''} onClick={e=>e.stopPropagation()} className="bg-transparent border-0 outline-none w-full text-sm cursor-pointer focus:bg-yellow-50" onChange={async e=>{try{await api.updateProfStatut(row.professeur_id,e.target.value);load();}catch(err){alert(err.message);}}}>{c.options.map(([val,lbl])=><option key={val} value={val}>{lbl}</option>)}</select>:<span className="text-gray-300">—</span>}</td>;
+          if (c.edit==='statut') {
+            const isHelb = row.contrat_mdp === 'HELB';
+            // En HELB, on affiche "PI" (professeur invité) au lieu de "EXP" — la valeur stockée reste EXP
+            const statutOptions = c.options.map(([val, lbl]) => [val, (isHelb && val === 'EXP') ? 'PI' : lbl]);
+            return <td key={c.key} style={sty}>{row.professeur_id?<select defaultValue={v??''} onClick={e=>e.stopPropagation()} className="bg-transparent border-0 outline-none w-full text-sm cursor-pointer focus:bg-yellow-50" onChange={async e=>{try{await api.updateProfStatut(row.professeur_id,e.target.value);load();}catch(err){alert(err.message);}}}>{statutOptions.map(([val,lbl])=><option key={val} value={val}>{lbl}</option>)}</select>:<span className="text-gray-300">—</span>}</td>;
+          }
           return <td key={c.key} className={`${c.num?'num':''} ${cClass}`} style={sty} onClick={click}>{c.num&&v!=null?Number(v).toLocaleString('fr-BE',{maximumFractionDigits:2}):display}</td>;
         })}
       </tr>

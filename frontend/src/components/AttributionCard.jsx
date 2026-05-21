@@ -88,7 +88,7 @@ export default function AttributionCard({ row, selected, onToggleSelect, onChang
                 {row.type_cours_helb && <span className="bg-pink-100 text-pink-700 text-[10px] px-1.5 py-0.5 rounded font-semibold">{row.type_cours_helb}</span>}
                 {row.code && <span className="badge badge-exp">Gr. {row.code}</span>}
                 {row.quadrimestre_attribue && <span className="badge badge-exp">{row.quadrimestre_attribue}</span>}
-                {row.contrat && <span className="badge badge-exp">{row.contrat}</span>}
+                {row.contrat && <span className="badge badge-exp">{row.contrat === 'EXP' && cardHelb ? 'PI' : row.contrat}</span>}
                 {conforme === 0 && <span className="badge bg-red-100 text-red-700">✗</span>}
               </div>
               <div className="text-right">
