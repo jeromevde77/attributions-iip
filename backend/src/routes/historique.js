@@ -122,4 +122,20 @@ r.post('/backup-drive', authRequired, roleRequired('admin'), (req, res) => {
   res.status(501).json({ error: 'Upload Drive : implémentation avec service account à venir.' });
 });
 
+// ─── Changelog ───
+r.get('/changelog', authRequired, (req, res) => {
+  // Cherche le fichier à plusieurs emplacements possibles
+  const candidates = [
+    resolve(__dirname, '../../CHANGELOG.md'),   // backend/CHANGELOG.md (copié au build)
+    resolve(__dirname, '../../../CHANGELOG.md') // racine du repo (dev local)
+  ];
+  for (const p of candidates) {
+    try {
+      const content = readFileSync(p, 'utf8');
+      return res.json({ content });
+    } catch { /* essayer le suivant */ }
+  }
+  res.json({ content: '# Changelog\n\nAucun journal des modifications disponible.' });
+});
+
 export default r;

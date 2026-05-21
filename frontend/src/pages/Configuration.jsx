@@ -17,9 +17,37 @@ function Toggle({ label, description, checked, onChange, disabled }) {
   );
 }
 
+function Markdown({ text }) {
+  const lines = (text || '').split('\n');
+  const out = [];
+  let list = [];
+  const flushList = (key) => {
+    if (list.length) { out.push(<ul key={'ul' + key} className="list-disc pl-5 space-y-1 my-2">{list}</ul>); list = []; }
+  };
+  const inline = (s) => {
+    const parts = s.split(/(\*\*[^*]+\*\*|`[^`]+`)/g);
+    return parts.map((p, i) => {
+      if (p.startsWith('**') && p.endsWith('**')) return <strong key={i}>{p.slice(2, -2)}</strong>;
+      if (p.startsWith('`') && p.endsWith('`')) return <code key={i} className="bg-gray-100 px-1 rounded text-xs">{p.slice(1, -1)}</code>;
+      return p;
+    });
+  };
+  lines.forEach((line, i) => {
+    if (line.startsWith('### ')) { flushList(i); out.push(<h3 key={i} className="font-semibold text-gray-800 mt-4 mb-1 text-sm">{inline(line.slice(4))}</h3>); }
+    else if (line.startsWith('## ')) { flushList(i); out.push(<h2 key={i} className="font-title text-iip-gold text-lg mt-6 mb-2 pb-1 border-b border-gray-100">{inline(line.slice(3))}</h2>); }
+    else if (line.startsWith('# ')) { flushList(i); }
+    else if (line.startsWith('- ')) { list.push(<li key={i} className="text-sm text-gray-600">{inline(line.slice(2))}</li>); }
+    else if (line.trim() === '') { flushList(i); }
+    else { flushList(i); out.push(<p key={i} className="text-sm text-gray-600 my-1">{inline(line)}</p>); }
+  });
+  flushList('end');
+  return <div>{out}</div>;
+}
+
 export default function Configuration() {
   const [tab, setTab] = useState('users');
   const [historiqueActif, setHistoriqueActif] = useState(false);
+  const [changelog, setChangelog] = useState('');
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [backupStatus, setBackupStatus] = useState('');
@@ -29,6 +57,7 @@ export default function Configuration() {
     api.historiqueConfig().then(r => {
       setHistoriqueActif(r.actif);
     }).catch(() => {}).finally(() => setLoading(false));
+    api.changelog().then(r => setChangelog(r.content)).catch(() => {});
   }, []);
 
   async function toggleHistorique(val) {
@@ -108,10 +137,21 @@ export default function Configuration() {
           className={`px-4 py-2 text-sm font-medium border-b-2 -mb-px transition ${tab === 'systeme' ? 'border-iip-gold text-iip-gold' : 'border-transparent text-gray-500 hover:text-gray-700'}`}>
           Historique &amp; Sauvegarde
         </button>
+        <button onClick={() => setTab('changelog')}
+          className={`px-4 py-2 text-sm font-medium border-b-2 -mb-px transition ${tab === 'changelog' ? 'border-iip-gold text-iip-gold' : 'border-transparent text-gray-500 hover:text-gray-700'}`}>
+          Nouveautés
+        </button>
       </div>
 
       {/* ── Onglet Utilisateurs ── */}
       {tab === 'users' && <Users embedded />}
+
+      {/* ── Onglet Nouveautés ── */}
+      {tab === 'changelog' && (
+        <div className="bg-white rounded-lg border border-gray-200 p-5">
+          <Markdown text={changelog} />
+        </div>
+      )}
 
       {/* ── Onglet Système ── */}
       {tab === 'systeme' && (loading ? <div className="p-8 text-center text-gray-400">Chargement…</div> : <>

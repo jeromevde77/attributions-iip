@@ -56,6 +56,7 @@ export const api = {
 
   // historique & config
   historiqueConfig() { return request('/historique/config'); },
+  changelog() { return request('/historique/changelog'); },
   setHistoriqueConfig(actif) { return request('/historique/config', { method: 'POST', body: { actif } }); },
   historique(annee, limit = 100) { return request(withAnnee('/historique', { limit })); },
   historiqueAttribution(id) { return request(`/historique/attribution/${id}`); },

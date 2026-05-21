@@ -1,5 +1,47 @@
 # Changelog
 
+## v3.0 — 20 mai 2026
+
+### Gestion de la structure académique (nouveau module « Référentiels »)
+- Ajout, modification et suppression des UE, cours et sections directement depuis l'application, sans passer par Excel
+- Définition des périodes prévues par cours (Cours_per), du niveau (SUP/DS), du quadrimestre et de l'autonomie
+- Suppression bloquée s'il existe encore des attributions liées (protection contre les effacements accidentels)
+
+### Gestion multi-années
+- Sélecteur d'année scolaire dans l'en-tête (2025-2026, 2026-2027, …)
+- Création d'une nouvelle année soit vide, soit par copie complète d'une année existante (structure + attributions)
+- Chaque année est totalement indépendante : les UE, cours et calculs ne se mélangent jamais entre années
+
+### Affichage des attributions
+- Vue par section en accordéons : Section → UE → Cours, repliables à tous les niveaux
+- Vue mobile repliable avec en-têtes de section, cartes détaillées et édition complète au toucher
+- Colonnes redondantes masquées dans la vue accordéon pour plus de lisibilité
+- Numéro d'organisation : une même UE peut être organisée plusieurs fois (sept./janv., sections différentes, jurys multiples)
+- Filtres (section, UE, professeur, contrat, type) appliqués immédiatement
+
+### Contrats HELB
+- Coloration rose des lignes HELB pour les repérer d'un coup d'œil
+- Statut « PI » (professeur invité) affiché à la place de « EXP » pour les contrats HELB
+- Champ statut HELB (MFP/MA) actif uniquement pour les attributions HELB
+
+### Professeurs
+- Édition complète des coordonnées : nom, prénom, emails, statut, adresse, CAPAES, ancienneté
+- Création et suppression de professeurs depuis l'application
+
+### Pilotage
+- Tableau de bord revu : indicateurs clés, récapitulatif par section, détail par niveau
+- Calcul de la dotation en année civile : répartition Sept-Déc / Jan-Juin selon le quadrimestre
+- Concordance DOC 2-3 (prévu vs attribué) avec mise en évidence des écarts
+
+### Sécurité et confort
+- Accès en HTTPS sécurisé (certificat Let's Encrypt)
+- Session prolongée à 30 jours (moins de reconnexions)
+- Historique des modifications activable, avec retour arrière possible
+- Sauvegarde de la base de données par téléchargement direct
+- Gestion des utilisateurs intégrée dans le menu Configuration
+- Badge de version en bas d'écran pour vérifier la version déployée
+- Police unifiée (Aptos / Arial) sur toute l'application
+
 ## v2.0 — 14 mai 2026
 
 ### Nouvelles fonctionnalités

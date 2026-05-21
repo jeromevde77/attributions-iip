@@ -31,6 +31,9 @@ jobs:
           password: ${{ secrets.GITHUB_TOKEN }}
 
       # --- Backend ---
+      - name: Copier le CHANGELOG dans le contexte backend
+        run: cp CHANGELOG.md backend/CHANGELOG.md
+
       - name: Build & push backend
         uses: docker/build-push-action@v5
         with:
