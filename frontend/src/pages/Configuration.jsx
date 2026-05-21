@@ -17,37 +17,54 @@ function Toggle({ label, description, checked, onChange, disabled }) {
   );
 }
 
-function Markdown({ text }) {
-  const lines = (text || '').split('\n');
-  const out = [];
-  let list = [];
-  const flushList = (key) => {
-    if (list.length) { out.push(<ul key={'ul' + key} className="list-disc pl-5 space-y-1 my-2">{list}</ul>); list = []; }
-  };
-  const inline = (s) => {
-    const parts = s.split(/(\*\*[^*]+\*\*|`[^`]+`)/g);
-    return parts.map((p, i) => {
-      if (p.startsWith('**') && p.endsWith('**')) return <strong key={i}>{p.slice(2, -2)}</strong>;
-      if (p.startsWith('`') && p.endsWith('`')) return <code key={i} className="bg-gray-100 px-1 rounded text-xs">{p.slice(1, -1)}</code>;
-      return p;
-    });
-  };
-  lines.forEach((line, i) => {
-    if (line.startsWith('### ')) { flushList(i); out.push(<h3 key={i} className="font-semibold text-gray-800 mt-4 mb-1 text-sm">{inline(line.slice(4))}</h3>); }
-    else if (line.startsWith('## ')) { flushList(i); out.push(<h2 key={i} className="font-title text-iip-gold text-lg mt-6 mb-2 pb-1 border-b border-gray-100">{inline(line.slice(3))}</h2>); }
-    else if (line.startsWith('# ')) { flushList(i); }
-    else if (line.startsWith('- ')) { list.push(<li key={i} className="text-sm text-gray-600">{inline(line.slice(2))}</li>); }
-    else if (line.trim() === '') { flushList(i); }
-    else { flushList(i); out.push(<p key={i} className="text-sm text-gray-600 my-1">{inline(line)}</p>); }
-  });
-  flushList('end');
-  return <div>{out}</div>;
+// Nettoie un message de commit pour l'affichage utilisateur
+function cleanSubject(s) {
+  // Retire les préfixes techniques (Fix:, feat:, chore:, etc.)
+  let txt = s.replace(/^(fix|feat|chore|refactor|docs|style|test|perf|build|ci)(\([^)]*\))?\s*:\s*/i, '');
+  // Majuscule en début
+  return txt.charAt(0).toUpperCase() + txt.slice(1);
+}
+
+// Catégorise un commit par mot-clé pour une petite pastille
+function commitTag(s) {
+  const l = s.toLowerCase();
+  if (/^fix|corrig|bug/.test(l)) return { label: 'Correctif', cls: 'bg-red-100 text-red-700' };
+  if (/^feat|ajout|nouveau|nouvelle|module/.test(l)) return { label: 'Nouveauté', cls: 'bg-green-100 text-green-700' };
+  return { label: 'Amélioration', cls: 'bg-blue-100 text-blue-700' };
+}
+
+function ChangelogView({ data }) {
+  const days = Object.keys(data.byDay || {}).sort().reverse();
+  if (days.length === 0) return <p className="text-sm text-gray-400">Aucune nouveauté disponible.</p>;
+  return (
+    <div className="space-y-5">
+      {days.map(day => (
+        <div key={day}>
+          <h3 className="font-semibold text-iip-gold text-sm mb-2 pb-1 border-b border-gray-100">
+            {new Date(day).toLocaleDateString('fr-BE', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}
+          </h3>
+          <ul className="space-y-1.5">
+            {data.byDay[day].map(c => {
+              const tag = commitTag(c.subject);
+              return (
+                <li key={c.hash} className="flex items-start gap-2 text-sm">
+                  <span className={`text-[10px] px-1.5 py-0.5 rounded font-semibold flex-shrink-0 mt-0.5 ${tag.cls}`}>{tag.label}</span>
+                  <span className="text-gray-700 flex-1">{cleanSubject(c.subject)}</span>
+                  <code className="text-[10px] text-gray-300 font-mono flex-shrink-0 mt-0.5">{c.hash}</code>
+                </li>
+              );
+            })}
+          </ul>
+        </div>
+      ))}
+    </div>
+  );
 }
 
 export default function Configuration() {
   const [tab, setTab] = useState('users');
   const [historiqueActif, setHistoriqueActif] = useState(false);
-  const [changelog, setChangelog] = useState('');
+  const [changelog, setChangelog] = useState({ byDay: {}, commits: [] });
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [backupStatus, setBackupStatus] = useState('');
@@ -57,7 +74,7 @@ export default function Configuration() {
     api.historiqueConfig().then(r => {
       setHistoriqueActif(r.actif);
     }).catch(() => {}).finally(() => setLoading(false));
-    api.changelog().then(r => setChangelog(r.content)).catch(() => {});
+    api.changelog().then(r => setChangelog(r)).catch(() => {});
   }, []);
 
   async function toggleHistorique(val) {
@@ -149,7 +166,7 @@ export default function Configuration() {
       {/* ── Onglet Nouveautés ── */}
       {tab === 'changelog' && (
         <div className="bg-white rounded-lg border border-gray-200 p-5">
-          <Markdown text={changelog} />
+          <ChangelogView data={changelog} />
         </div>
       )}
 

@@ -122,20 +122,28 @@ r.post('/backup-drive', authRequired, roleRequired('admin'), (req, res) => {
   res.status(501).json({ error: 'Upload Drive : implémentation avec service account à venir.' });
 });
 
-// ─── Changelog ───
+// ─── Changelog (généré depuis Git au build) ───
 r.get('/changelog', authRequired, (req, res) => {
-  // Cherche le fichier à plusieurs emplacements possibles
-  const candidates = [
-    resolve(__dirname, '../../CHANGELOG.md'),   // backend/CHANGELOG.md (copié au build)
-    resolve(__dirname, '../../../CHANGELOG.md') // racine du repo (dev local)
-  ];
-  for (const p of candidates) {
-    try {
-      const content = readFileSync(p, 'utf8');
-      return res.json({ content });
-    } catch { /* essayer le suivant */ }
+  const tsvPath = resolve(__dirname, '../../git-changelog.tsv');
+  try {
+    const raw = readFileSync(tsvPath, 'utf8');
+    const commits = raw.split('\n').filter(Boolean).map(line => {
+      const [hash, date, ...rest] = line.split('\t');
+      const subject = rest.join('\t');
+      return { hash: hash.slice(0, 7), date, subject };
+    });
+
+    // Regrouper par jour
+    const byDay = {};
+    for (const c of commits) {
+      const day = (c.date || '').slice(0, 10);
+      (byDay[day] ||= []).push(c);
+    }
+
+    res.json({ commits, byDay });
+  } catch {
+    res.json({ commits: [], byDay: {}, error: 'Changelog Git non disponible (build sans historique)' });
   }
-  res.json({ content: '# Changelog\n\nAucun journal des modifications disponible.' });
 });
 
 export default r;

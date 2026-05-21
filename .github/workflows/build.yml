@@ -19,6 +19,8 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
@@ -31,8 +33,8 @@ jobs:
           password: ${{ secrets.GITHUB_TOKEN }}
 
       # --- Backend ---
-      - name: Copier le CHANGELOG dans le contexte backend
-        run: cp CHANGELOG.md backend/CHANGELOG.md
+      - name: Générer le changelog depuis Git
+        run: git log -100 --pretty=format:'%H%x09%aI%x09%s' > backend/git-changelog.tsv
 
       - name: Build & push backend
         uses: docker/build-push-action@v5
