@@ -71,9 +71,25 @@ r.get('/by-cours', authRequired, (req, res) => {
     SELECT * FROM v_cours_conformite WHERE section = ? AND code_cours = ? AND annee_scolaire = ?
   `).get(section, code_cours, anneeVal);
 
+  // Infos du cours depuis la table cours (pour les nouvelles lignes même sans attribution existante)
+  const coursInfo = db.prepare(`
+    SELECT cours_code, cours_nom, ue_num, ct_pp AS type_cours, cours_per, quadrimestre_cours
+    FROM cours WHERE cours_code = ? AND section = ? AND annee_scolaire = ?
+  `).get(code_cours, section, anneeVal)
+    || db.prepare(`SELECT cours_code, cours_nom, ue_num, ct_pp AS type_cours, cours_per, quadrimestre_cours
+                   FROM cours WHERE cours_code = ? AND annee_scolaire = ?`).get(code_cours, anneeVal);
+
+  // Nom de l'UE
+  let ueNom = null;
+  if (coursInfo?.ue_num) {
+    const ue = db.prepare('SELECT ue_nom FROM ue WHERE ue_num = ? AND annee_scolaire = ?').get(coursInfo.ue_num, anneeVal);
+    ueNom = ue?.ue_nom || null;
+  }
+
   res.json({
     attributions: rows,
-    conformite: conf || null
+    conformite: conf || null,
+    cours_info: coursInfo ? { ...coursInfo, ue_nom: ueNom } : null
   });
 });
 

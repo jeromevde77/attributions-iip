@@ -42,10 +42,12 @@ export default function CoursEditModal({ section, codeCours, onClose, onChanged 
     return () => { alive = false; };
   }, [section, codeCours]);
 
-  const coursPer = data?.conformite?.cours_per;
-  const coursNom = data?.attributions?.[0]?.nom_cours || codeCours;
-  const ueNum    = data?.attributions?.[0]?.ue_num;
-  const ueNom    = data?.attributions?.[0]?.ue_nom;
+  const coursPer = data?.conformite?.cours_per ?? data?.cours_info?.cours_per;
+  const coursNom = data?.attributions?.[0]?.nom_cours || data?.cours_info?.cours_nom || codeCours;
+  const ueNum    = data?.attributions?.[0]?.ue_num ?? data?.cours_info?.ue_num;
+  const ueNom    = data?.attributions?.[0]?.ue_nom || data?.cours_info?.ue_nom;
+  const coursType = data?.attributions?.[0]?.type_cours || data?.cours_info?.type_cours;
+  const coursQuad = data?.attributions?.[0]?.quadrimestre_attribue || data?.cours_info?.quadrimestre_cours;
 
   // Totaux et conformité recalculés à la volée (lignes non supprimées)
   const totals = useMemo(() => {
@@ -83,9 +85,9 @@ export default function CoursEditModal({ section, codeCours, onClose, onChanged 
       _dirty: true,
       section,
       code_cours: codeCours,
-      ue_num: ref.ue_num,
-      type_cours: ref.type_cours,
-      quadrimestre_attribue: ref.quadrimestre_attribue,
+      ue_num: ref.ue_num ?? ueNum,
+      type_cours: ref.type_cours ?? coursType,
+      quadrimestre_attribue: ref.quadrimestre_attribue ?? coursQuad,
       contrat_mdp: ref.contrat_mdp || 'IIP',
       etablissement_referent: ref.etablissement_referent || 'IIP',
       organisation: ref.organisation || 'x',
@@ -130,13 +132,13 @@ export default function CoursEditModal({ section, codeCours, onClose, onChanged 
           contrat_mdp: r.contrat_mdp,
           etablissement_referent: r.etablissement_referent,
           organisation: r.organisation,
-          ue_num: Number(r.ue_num),
-          num_organisation: Number(r.num_organisation),
+          ue_num: r.ue_num != null ? Number(r.ue_num) : null,
+          num_organisation: Number(r.num_organisation) || 1,
           quadrimestre_attribue: r.quadrimestre_attribue,
           code_cours: r.code_cours,
           type_cours: r.type_cours,
           code: r.code,
-          nb_groupes: Number(r.nb_groupes),
+          nb_groupes: Number(r.nb_groupes) || 1,
           split_groupe: r.split_groupe,
           professeur_id: r.professeur_id ? Number(r.professeur_id) : null,
           cours_ept_ad: r.cours_ept_ad,
