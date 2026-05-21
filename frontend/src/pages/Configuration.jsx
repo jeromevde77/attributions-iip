@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { api } from '../lib/api.js';
+import Users from './Users.jsx';
 
 function Toggle({ label, description, checked, onChange, disabled }) {
   return (
@@ -17,6 +18,7 @@ function Toggle({ label, description, checked, onChange, disabled }) {
 }
 
 export default function Configuration() {
+  const [tab, setTab] = useState('users');
   const [historiqueActif, setHistoriqueActif] = useState(false);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -92,11 +94,27 @@ export default function Configuration() {
     }
   }
 
-  if (loading) return <div className="p-8 text-center text-gray-400">Chargement…</div>;
-
   return (
-    <div className="p-4 md:p-6 max-w-2xl mx-auto space-y-6">
+    <div className="p-4 md:p-6 max-w-3xl mx-auto space-y-6">
       <h1 className="text-2xl font-title text-iip-gold">Configuration</h1>
+
+      {/* Onglets */}
+      <div className="flex gap-1 border-b border-gray-200">
+        <button onClick={() => setTab('users')}
+          className={`px-4 py-2 text-sm font-medium border-b-2 -mb-px transition ${tab === 'users' ? 'border-iip-gold text-iip-gold' : 'border-transparent text-gray-500 hover:text-gray-700'}`}>
+          Utilisateurs
+        </button>
+        <button onClick={() => setTab('systeme')}
+          className={`px-4 py-2 text-sm font-medium border-b-2 -mb-px transition ${tab === 'systeme' ? 'border-iip-gold text-iip-gold' : 'border-transparent text-gray-500 hover:text-gray-700'}`}>
+          Historique &amp; Sauvegarde
+        </button>
+      </div>
+
+      {/* ── Onglet Utilisateurs ── */}
+      {tab === 'users' && <Users embedded />}
+
+      {/* ── Onglet Système ── */}
+      {tab === 'systeme' && (loading ? <div className="p-8 text-center text-gray-400">Chargement…</div> : <>
 
       {/* ── Historique des modifications ── */}
       <section className="bg-white rounded-lg border border-gray-200 overflow-hidden">
@@ -178,6 +196,7 @@ export default function Configuration() {
           et en redémarrant le container.
         </div>
       </section>
+      </>)}
     </div>
   );
 }

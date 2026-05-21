@@ -22,7 +22,7 @@ function authFetch(path, opts = {}) {
   });
 }
 
-export default function Users() {
+export default function Users({ embedded = false }) {
   const me = getUser();
   const [users, setUsers] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -79,10 +79,10 @@ export default function Users() {
   }
 
   return (
-    <div className="p-6 max-w-5xl mx-auto">
+    <div className={embedded ? '' : 'p-6 max-w-5xl mx-auto'}>
       <div className="flex items-center justify-between mb-4">
-        <h1 className="text-2xl font-title text-iip-gold">Utilisateurs</h1>
-        <button onClick={() => setShowForm(true)} className="bg-iip-gold hover:bg-iip-amber text-white text-sm px-4 py-1.5 rounded font-medium">
+        {!embedded && <h1 className="text-2xl font-title text-iip-gold">Utilisateurs</h1>}
+        <button onClick={() => setShowForm(true)} className={`bg-iip-gold hover:bg-iip-amber text-white text-sm px-4 py-1.5 rounded font-medium ${embedded ? 'ml-auto' : ''}`}>
           ➕ Nouvel utilisateur
         </button>
       </div>

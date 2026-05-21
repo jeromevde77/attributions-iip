@@ -69,7 +69,6 @@ function ProtectedLayout({ children }) {
     ['/professeurs',  'Professeurs'],
     ['/pilotage',     'Pilotage']
   ];
-  if (u?.role === 'admin') nav.push(['/utilisateurs', 'Utilisateurs']);
   if (u?.role === 'admin') nav.push(['/annees', 'Années']);
   if (u?.role === 'admin') nav.push(['/referentiels', '📚 Référentiels']);
   if (u?.role === 'admin') nav.push(['/configuration', '⚙ Config']);
