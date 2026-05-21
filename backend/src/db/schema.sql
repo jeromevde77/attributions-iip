@@ -14,7 +14,8 @@ PRAGMA journal_mode = WAL;
 -- ----------------------------------------------------------------------------
 
 CREATE TABLE IF NOT EXISTS ue (
-    ue_num          INTEGER PRIMARY KEY,                     -- Ue_num (clé FWB interne)
+    ue_num          INTEGER,                                 -- Ue_num (clé FWB interne)
+    annee_scolaire  TEXT NOT NULL DEFAULT '2025-2026',
     ue_nom          TEXT NOT NULL,
     ue_code_fwb     TEXT,                                    -- code FWB officiel
     section         TEXT,                                    -- ex. Psychomotricité, Optique…
@@ -29,19 +30,22 @@ CREATE TABLE IF NOT EXISTS ue (
     ue_quad         TEXT,                                    -- Q1, Q2, Q1/Q2
     et_ref          TEXT,                                    -- établissement référent (IIP/HELB)
     ects            INTEGER,
-    ue_prerequise   TEXT
+    ue_prerequise   TEXT,
+    PRIMARY KEY (ue_num, annee_scolaire)
 );
 
 CREATE INDEX IF NOT EXISTS idx_ue_section ON ue(section);
 CREATE INDEX IF NOT EXISTS idx_ue_niveau ON ue(ue_niveau);
+CREATE INDEX IF NOT EXISTS idx_ue_annee ON ue(annee_scolaire);
 
 CREATE TABLE IF NOT EXISTS cours (
-    cours_code      TEXT PRIMARY KEY,                        -- ex. "219.1"
+    cours_code      TEXT,                                    -- ex. "219.1"
+    annee_scolaire  TEXT NOT NULL DEFAULT '2025-2026',
     cours_num       INTEGER,
     cours_nom       TEXT NOT NULL,
     ct_pp           TEXT,                                    -- CT (cours technique) ou PP (pratique pro)
     section         TEXT,
-    ue_num          INTEGER REFERENCES ue(ue_num),
+    ue_num          INTEGER,
     quadrimestre_cours TEXT,
     cours_per       INTEGER,                                 -- périodes du cours
     cours_total     INTEGER,
@@ -49,10 +53,12 @@ CREATE TABLE IF NOT EXISTS cours (
     ue_per_total    INTEGER,
     ue_niveau       TEXT,
     enc_cours       TEXT,                                    -- "Encadrement" / "Cours"
-    heures          INTEGER
+    heures          INTEGER,
+    PRIMARY KEY (cours_code, annee_scolaire)
 );
 
 CREATE INDEX IF NOT EXISTS idx_cours_ue ON cours(ue_num);
+CREATE INDEX IF NOT EXISTS idx_cours_annee ON cours(annee_scolaire);
 
 CREATE TABLE IF NOT EXISTS aa (
     aa_code         TEXT PRIMARY KEY,                        -- "AA282.1"
@@ -455,8 +461,8 @@ SELECT
     a.created_at,
     a.updated_at
 FROM attribution a
-LEFT JOIN ue            u  ON u.ue_num     = a.ue_num
-LEFT JOIN cours         c  ON c.cours_code = a.code_cours
+LEFT JOIN ue            u  ON u.ue_num     = a.ue_num     AND u.annee_scolaire = a.annee_scolaire
+LEFT JOIN cours         c  ON c.cours_code = a.code_cours AND c.annee_scolaire = a.annee_scolaire
 LEFT JOIN professeur    p  ON p.id         = a.professeur_id
 LEFT JOIN activite_type at ON at.id        = a.activite_id;
 
@@ -515,6 +521,6 @@ SELECT
         ELSE 0
     END AS conforme
 FROM attribution a
-LEFT JOIN cours c ON c.cours_code = a.code_cours
+LEFT JOIN cours c ON c.cours_code = a.code_cours AND c.annee_scolaire = a.annee_scolaire
 WHERE a.code_cours IS NOT NULL
 GROUP BY a.section, a.annee_scolaire, a.code_cours, c.cours_nom, c.cours_per;

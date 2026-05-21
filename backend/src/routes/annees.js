@@ -24,18 +24,33 @@ r.post('/', authRequired, roleRequired('admin'), (req, res) => {
       .run(code, libelle || `Année ${code}`);
 
     if (source) {
+      // Copier la structure académique (UE + cours) de l'année source
+      db.prepare(`
+        INSERT INTO ue (ue_num, annee_scolaire, ue_nom, ue_code_fwb, section, ue_tc, ue_det,
+          ue_niv, ue_per_etudiants, ue_per_cours, ue_aut, ue_tot_prf, ue_niveau, ue_quad, et_ref, ects, ue_prerequise)
+        SELECT ue_num, ?, ue_nom, ue_code_fwb, section, ue_tc, ue_det,
+          ue_niv, ue_per_etudiants, ue_per_cours, ue_aut, ue_tot_prf, ue_niveau, ue_quad, et_ref, ects, ue_prerequise
+        FROM ue WHERE annee_scolaire = ?
+      `).run(code, source);
+
+      db.prepare(`
+        INSERT INTO cours (cours_code, annee_scolaire, cours_num, cours_nom, ct_pp, section,
+          ue_num, quadrimestre_cours, cours_per, cours_total, ue_autonomie, ue_per_total, ue_niveau, enc_cours, heures)
+        SELECT cours_code, ?, cours_num, cours_nom, ct_pp, section,
+          ue_num, quadrimestre_cours, cours_per, cours_total, ue_autonomie, ue_per_total, ue_niveau, enc_cours, heures
+        FROM cours WHERE annee_scolaire = ?
+      `).run(code, source);
+
       // Copier les attributions de l'année source vers la nouvelle année
-      // On remet à zéro certains champs opérationnels (professeur, periodes, statut)
-      // mais on garde la structure (section, UE, cours, contrat_mdp, quadrimestre, activite, org)
       const copied = db.prepare(`
         INSERT INTO attribution (
           section, ue_num, code_cours, contrat_mdp, quadrimestre_attribue,
-          code, activite_id, num_organisation, type_cours, annee_scolaire,
+          code, activite_id, num_organisation, type_cours, type_cours_helb, annee_scolaire,
           periodes_attribuees, autonomie_attribuee
         )
         SELECT
           section, ue_num, code_cours, contrat_mdp, quadrimestre_attribue,
-          code, activite_id, num_organisation, type_cours, ?,
+          code, activite_id, num_organisation, type_cours, type_cours_helb, ?,
           periodes_attribuees, autonomie_attribuee
         FROM attribution
         WHERE annee_scolaire = ?

@@ -42,6 +42,18 @@ export const api = {
   logout() { clearToken(); window.location.href = '/login'; },
   me() { return request('/auth/me'); },
 
+  // référentiels — structure et CRUD
+  refStructure() { return request(withAnnee('/ref/structure')); },
+  createUE(data) { return request('/ref/ue', { method: 'POST', body: { annee_scolaire: getAnnee(), ...data } }); },
+  updateUE(num, data) { return request(`/ref/ue/${num}`, { method: 'PATCH', body: { annee_scolaire: getAnnee(), ...data } }); },
+  deleteUE(num) { return request(withAnnee(`/ref/ue/${num}`), { method: 'DELETE' }); },
+  createCours(data) { return request('/ref/cours', { method: 'POST', body: { annee_scolaire: getAnnee(), ...data } }); },
+  updateCours(code, data) { return request(`/ref/cours/${encodeURIComponent(code)}`, { method: 'PATCH', body: { annee_scolaire: getAnnee(), ...data } }); },
+  deleteCours(code) { return request(withAnnee(`/ref/cours/${encodeURIComponent(code)}`), { method: 'DELETE' }); },
+  createSection(data) { return request('/ref/sections', { method: 'POST', body: data }); },
+  updateSection(code, data) { return request(`/ref/sections/${encodeURIComponent(code)}`, { method: 'PATCH', body: data }); },
+  deleteSection(code) { return request(`/ref/sections/${encodeURIComponent(code)}`, { method: 'DELETE' }); },
+
   // historique & config
   historiqueConfig() { return request('/historique/config'); },
   setHistoriqueConfig(actif) { return request('/historique/config', { method: 'POST', body: { actif } }); },

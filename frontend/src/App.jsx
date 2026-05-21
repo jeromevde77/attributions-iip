@@ -11,6 +11,7 @@ import Planning from './pages/Planning.jsx';
 import Users from './pages/Users.jsx';
 import Annees from './pages/Annees.jsx';
 import Configuration from './pages/Configuration.jsx';
+import Referentiels from './pages/Referentiels.jsx';
 
 /* eslint-disable no-undef */
 const BUILD_DATE_STR = typeof __BUILD_DATE__ !== 'undefined' ? __BUILD_DATE__ : new Date().toISOString();
@@ -70,6 +71,7 @@ function ProtectedLayout({ children }) {
   ];
   if (u?.role === 'admin') nav.push(['/utilisateurs', 'Utilisateurs']);
   if (u?.role === 'admin') nav.push(['/annees', 'Années']);
+  if (u?.role === 'admin') nav.push(['/referentiels', '📚 Référentiels']);
   if (u?.role === 'admin') nav.push(['/configuration', '⚙ Config']);
 
   return (
@@ -161,6 +163,7 @@ export default function App() {
       <Route path="/utilisateurs" element={<ProtectedLayout><Users /></ProtectedLayout>} />
       <Route path="/annees"         element={<ProtectedLayout><Annees /></ProtectedLayout>} />
       <Route path="/configuration"  element={<ProtectedLayout><Configuration /></ProtectedLayout>} />
+      <Route path="/referentiels"   element={<ProtectedLayout><Referentiels /></ProtectedLayout>} />
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
   );
