@@ -5,6 +5,7 @@ import BulkCreateForm from '../components/BulkCreateForm.jsx';
 import AttributionCard from '../components/AttributionCard.jsx';
 import ResizableHeader from '../components/ResizableHeader.jsx';
 import CoursEditModal from '../components/CoursEditModal.jsx';
+import CoursFormModal from '../components/CoursFormModal.jsx';
 
 // ---------------------------------------------------------------------------
 // Colonnes de la grille
@@ -559,7 +560,9 @@ export default function Attributions() {
 
       {/* Modales */}
       {showForm && <AttributionForm onClose={()=>setShowForm(false)} onCreated={load}/>}
-      {newCoursForm && <AttributionForm editRow={newCoursForm} onClose={()=>setNewCoursForm(null)} onCreated={load}/>}
+      {newCoursForm && <CoursFormModal cours={{}} ueNum={newCoursForm.ue_num} section={newCoursForm.section}
+        onClose={()=>setNewCoursForm(null)}
+        onSaved={(code)=>{ const sec=newCoursForm.section; setNewCoursForm(null); load(); setEditRow({section: sec, code_cours: code}); }}/>}
       {showBulkCreate && <BulkCreateForm onClose={()=>setShowBulkCreate(false)} onCreated={load}/>}
       {editRow && <CoursEditModal section={editRow.section} codeCours={editRow.code_cours} onClose={()=>setEditRow(null)} onChanged={load}/>}
 
