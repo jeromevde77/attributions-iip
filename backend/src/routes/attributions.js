@@ -313,24 +313,29 @@ r.post('/bulk-delete-filtered', authRequired, roleRequired('admin'), (req, res) 
  *
  * Body : { section: "TIM", ue_nums: [250, 251, ...] }
  */
-r.post('/bulk-create-from-section', authRequired, roleRequired('admin', 'editeur'), (req, res) => {
-  const { section, ue_nums } = req.body || {};
+r.post('/bulk-create-from-section', authRequired, roleRequired('admin', 'editeur', 'coordination'), (req, res) => {
+  const { section, ue_nums, annee_scolaire } = req.body || {};
   if (!section || !Array.isArray(ue_nums) || ue_nums.length === 0) {
     return res.status(400).json({ error: 'section et ue_nums (tableau non vide) requis' });
   }
+  // Périmètre : une coordination ne peut créer que dans ses sections
+  if (!canAccessSection(req.user, section)) {
+    return res.status(403).json({ error: 'Vous n\'avez pas accès à cette section.' });
+  }
+  const annee = annee_scolaire || '2025-2026';
 
   const placeholders = ue_nums.map(() => '?').join(',');
-  // Récupérer tous les cours des UE sélectionnées pour cette section
+  // Récupérer tous les cours des UE sélectionnées pour cette section ET cette année
   const coursList = db.prepare(`
     SELECT cours_code, ue_num, ct_pp, quadrimestre_cours
     FROM cours
-    WHERE section = ? AND ue_num IN (${placeholders})
+    WHERE section = ? AND annee_scolaire = ? AND ue_num IN (${placeholders})
     ORDER BY cours_code
-  `).all(section, ...ue_nums);
+  `).all(section, annee, ...ue_nums);
 
-  // Pour chaque cours, vérifier s'il a déjà une attribution dans cette section
+  // Vérifie l'existence d'une attribution pour ce cours dans cette section ET cette année
   const checkStmt = db.prepare(
-    'SELECT COUNT(*) AS n FROM attribution WHERE section = ? AND code_cours = ?'
+    'SELECT COUNT(*) AS n FROM attribution WHERE section = ? AND code_cours = ? AND annee_scolaire = ?'
   );
   const insertStmt = db.prepare(`
     INSERT INTO attribution
@@ -338,18 +343,18 @@ r.post('/bulk-create-from-section', authRequired, roleRequired('admin', 'editeur
        contrat_mdp, etablissement_referent, organisation,
        num_organisation, code, nb_groupes, split_groupe,
        periodes_attribuees, autonomie_attribuee, annee_scolaire)
-    VALUES (?, ?, ?, ?, ?, NULL, 'IIP', 'x', 1, 'A', 1, 'N', 0, 0, '2025-2026')
+    VALUES (?, ?, ?, ?, ?, NULL, 'IIP', 'x', 1, 'A', 1, 'N', 0, 0, ?)
   `);
 
   let created = 0;
   let skipped = 0;
   const tx = db.transaction(() => {
     for (const c of coursList) {
-      const exists = checkStmt.get(section, c.cours_code).n;
+      const exists = checkStmt.get(section, c.cours_code, annee).n;
       if (exists > 0) { skipped++; continue; }
       insertStmt.run(
         section, c.ue_num, c.cours_code,
-        c.ct_pp, c.quadrimestre_cours
+        c.ct_pp, c.quadrimestre_cours, annee
       );
       created++;
     }

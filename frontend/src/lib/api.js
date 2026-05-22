@@ -105,7 +105,7 @@ export const api = {
   adminReimportExcel() { return request('/admin/reimport-excel', { method: 'POST' }); },
 
   // création en masse depuis section
-  sectionUeCours(section) { return request(`/ref/sections/${encodeURIComponent(section)}/ue-cours`); },
+  sectionUeCours(section) { return request(withAnnee(`/ref/sections/${encodeURIComponent(section)}/ue-cours`)); },
   bulkCreateFromSection(section, ue_nums) {
     return request('/attributions/bulk-create-from-section', {
       method: 'POST', body: { section, ue_nums, annee_scolaire: getAnnee() }
