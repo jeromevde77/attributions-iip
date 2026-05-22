@@ -2,6 +2,54 @@ import { useEffect, useState } from 'react';
 import { api, getAnnee } from '../lib/api.js';
 import CoursFormModal from '../components/CoursFormModal.jsx';
 
+// ─── Modale Section ───
+function SectionModal({ section, onClose, onSaved }) {
+  const isNew = !section?._edit;
+  const [code, setCode] = useState(section?.code || '');
+  const [libelle, setLibelle] = useState(section?.libelle || '');
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState('');
+
+  async function submit(e) {
+    e.preventDefault();
+    setError('');
+    if (!code.trim()) { setError('Le code de section est requis'); return; }
+    setSaving(true);
+    try {
+      if (isNew) await api.createSection({ code: code.trim(), libelle: libelle.trim() || code.trim() });
+      else await api.updateSection(section.code, { libelle: libelle.trim() || section.code });
+      onSaved();
+    } catch (e) { setError(e.message); }
+    finally { setSaving(false); }
+  }
+
+  return (
+    <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50" onClick={e => e.target === e.currentTarget && onClose()}>
+      <div className="bg-white rounded-xl shadow-2xl max-w-sm w-full border-t-4 border-iip-gold">
+        <div className="flex items-center justify-between px-5 py-3 border-b">
+          <h2 className="font-title text-lg text-iip-gold">{isNew ? 'Nouvelle section' : `Renommer ${section.code}`}</h2>
+          <button onClick={onClose} className="text-gray-400 hover:text-red-500 text-2xl">×</button>
+        </div>
+        <form onSubmit={submit} className="p-5 space-y-3">
+          <label className="block"><div className="text-xs text-gray-600 mb-0.5">Code *</div>
+            <input value={code} onChange={e => setCode(e.target.value)} disabled={!isNew} placeholder="ex: TIM"
+              className="w-full border border-gray-300 rounded px-3 py-1.5 text-sm disabled:bg-gray-100" /></label>
+          <label className="block"><div className="text-xs text-gray-600 mb-0.5">Libellé</div>
+            <input value={libelle} onChange={e => setLibelle(e.target.value)} placeholder="Nom complet (optionnel)"
+              className="w-full border border-gray-300 rounded px-3 py-1.5 text-sm" /></label>
+          {error && <div className="bg-red-50 text-red-700 text-sm rounded p-2">{error}</div>}
+          <div className="flex justify-end gap-2 pt-2 border-t">
+            <button type="button" onClick={onClose} className="px-4 py-2 text-sm text-gray-600">Annuler</button>
+            <button type="submit" disabled={saving} className="bg-iip-gold hover:bg-iip-amber disabled:opacity-40 text-white text-sm px-5 py-2 rounded font-medium">
+              {saving ? '…' : isNew ? 'Créer' : 'Enregistrer'}
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+}
+
 // ─── Modale UE ───
 function UEModal({ ue, sections, onClose, onSaved }) {
   const isNew = !ue?._edit;
@@ -94,6 +142,7 @@ export default function Referentiels() {
   const [open, setOpen] = useState({});  // sections/UE dépliées
   const [ueModal, setUeModal] = useState(null);
   const [coursModal, setCoursModal] = useState(null);
+  const [sectionModal, setSectionModal] = useState(null); // {code, libelle, _edit} ou {} pour nouvelle
   const annee = getAnnee();
 
   async function load() {
@@ -115,6 +164,10 @@ export default function Referentiels() {
     if (!confirm(`Supprimer le cours ${c.cours_code} ?`)) return;
     try { await api.deleteCours(c.cours_code); load(); } catch (e) { alert(e.message); }
   }
+  async function delSection(code) {
+    if (!confirm(`Supprimer la section "${code}" ? (bloqué si des attributions existent)`)) return;
+    try { await api.deleteSection(code); load(); } catch (e) { alert(e.message); }
+  }
 
   if (loading) return <div className="p-8 text-center text-gray-400">Chargement…</div>;
 
@@ -122,13 +175,34 @@ export default function Referentiels() {
     <div className="p-4 md:p-6 max-w-5xl mx-auto space-y-4">
       <div className="flex items-center justify-between flex-wrap gap-2">
         <h1 className="text-2xl font-title text-iip-gold">Référentiels <span className="text-base font-normal text-gray-400">· {annee}</span></h1>
-        <button onClick={() => setUeModal({})} className="bg-iip-gold hover:bg-iip-amber text-white text-sm px-4 py-2 rounded font-medium">➕ Nouvelle UE</button>
+        <div className="flex gap-2">
+          <button onClick={() => setSectionModal({})} className="bg-white border border-iip-gold text-iip-gold hover:bg-iip-gold/5 text-sm px-4 py-2 rounded font-medium">➕ Nouvelle section</button>
+          <button onClick={() => setUeModal({})} className="bg-iip-gold hover:bg-iip-amber text-white text-sm px-4 py-2 rounded font-medium">➕ Nouvelle UE</button>
+        </div>
       </div>
 
       <p className="text-xs text-gray-500 bg-gray-50 rounded px-3 py-2 border border-gray-200">
         Gérez la structure académique de l'année <b>{annee}</b> : sections, UE et cours.
-        Les modifications n'affectent que cette année. La suppression est bloquée s'il existe des attributions.
+        Les UE et cours sont propres à chaque année. Les sections sont communes à toutes les années.
+        La suppression est bloquée s'il existe des attributions.
       </p>
+
+      {/* Liste des sections (gestion) */}
+      {sections.length > 0 && (
+        <div className="bg-white rounded-lg border border-gray-200 p-3">
+          <div className="text-xs font-semibold text-gray-500 mb-2">Sections ({sections.length})</div>
+          <div className="flex flex-wrap gap-2">
+            {sections.map(s => (
+              <span key={s.code} className="inline-flex items-center gap-1.5 bg-gray-50 border border-gray-200 rounded-full pl-3 pr-1.5 py-1 text-sm">
+                <span className="font-medium">{s.code}</span>
+                {s.libelle && s.libelle !== s.code && <span className="text-gray-400 text-xs">— {s.libelle}</span>}
+                <button onClick={() => setSectionModal({ ...s, _edit: true })} className="text-iip-gold hover:text-iip-amber ml-1" title="Renommer">✏</button>
+                <button onClick={() => delSection(s.code)} className="text-red-400 hover:text-red-600" title="Supprimer">×</button>
+              </span>
+            ))}
+          </div>
+        </div>
+      )}
 
       {structure.length === 0 && (
         <div className="bg-white rounded-lg border border-gray-200 p-8 text-center text-gray-400">
@@ -206,6 +280,7 @@ export default function Referentiels() {
         );
       })}
 
+      {sectionModal && <SectionModal section={sectionModal} onClose={() => setSectionModal(null)} onSaved={() => { setSectionModal(null); load(); }} />}
       {ueModal && <UEModal ue={ueModal} sections={sections} onClose={() => setUeModal(null)} onSaved={() => { setUeModal(null); load(); }} />}
       {coursModal && <CoursFormModal {...coursModal} onClose={() => setCoursModal(null)} onSaved={() => { setCoursModal(null); load(); }} />}
     </div>
