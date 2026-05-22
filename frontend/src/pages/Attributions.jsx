@@ -74,6 +74,8 @@ export default function Attributions() {
   const [bulkPreview, setBulkPreview] = useState(null);
   const [bulkConfirmText, setBulkConfirmText] = useState('');
   const [editRow, setEditRow] = useState(null);
+  const [addMenuUE, setAddMenuUE] = useState(null);   // {ue, sec} : menu + ouvert pour cette UE
+  const [newCoursForm, setNewCoursForm] = useState(null); // préremplissage AttributionForm pour nouveau cours
   const [viewMode, setViewMode] = useState('ue');
   const [openUEs, setOpenUEs] = useState(new Set());
 
@@ -360,26 +362,48 @@ export default function Attributions() {
     const st = groupStats(ue.rows);
     return (
       <div key={key} className="border-t border-gray-200">
-        <button onClick={()=>toggle(key)} className="w-full flex items-center gap-3 px-5 py-2.5 hover:bg-iip-gold/5 transition text-left">
-          <span className={`text-iip-gold text-sm transition-transform ${open?'rotate-90':''}`}>▶</span>
-          <div className="flex-1 min-w-0">
-            <div className="flex items-center gap-2 flex-wrap">
-              <span className="font-semibold text-iip-gold text-sm">UE {ue.ue_num}</span>
-              {org > 1 && <span className="text-xs bg-amber-100 text-amber-800 px-1.5 py-0.5 rounded font-semibold">Org. {org}</span>}
-              {ue.bloc && <span className="text-xs bg-iip-gold/10 text-iip-gold px-1.5 py-0.5 rounded">{ue.bloc}</span>}
+        <div className="w-full flex items-center gap-3 px-5 py-2.5 hover:bg-iip-gold/5 transition relative">
+          <button onClick={()=>toggle(key)} className="flex items-center gap-3 flex-1 min-w-0 text-left">
+            <span className={`text-iip-gold text-sm transition-transform ${open?'rotate-90':''}`}>▶</span>
+            <div className="flex-1 min-w-0">
+              <div className="flex items-center gap-2 flex-wrap">
+                <span className="font-semibold text-iip-gold text-sm">UE {ue.ue_num}</span>
+                {org > 1 && <span className="text-xs bg-amber-100 text-amber-800 px-1.5 py-0.5 rounded font-semibold">Org. {org}</span>}
+                {ue.bloc && <span className="text-xs bg-iip-gold/10 text-iip-gold px-1.5 py-0.5 rounded">{ue.bloc}</span>}
+              </div>
+              <div className="text-xs text-gray-600 truncate">{ue.ue_nom || 'UE sans nom'}</div>
             </div>
-            <div className="text-xs text-gray-600 truncate">{ue.ue_nom || 'UE sans nom'}</div>
-          </div>
-          <div className="flex items-center gap-3 text-xs text-gray-500 flex-shrink-0">
-            <span>{ue.rows.length} attr.</span>
-            <span>{st.nCours} cours</span>
-            <span>{st.nProf} prof.</span>
-            <span className="font-semibold text-iip-gold">{st.tPer}p</span>
-            {st.tAut>0 && <span className="text-gray-400">+{st.tAut}a</span>}
-            {st.nBad>0 && <span className="text-red-600 font-bold">✗ {st.nBad}</span>}
-            {st.nBad===0 && st.nConf>0 && <span className="text-green-600 font-bold">✓</span>}
-          </div>
-        </button>
+            <div className="flex items-center gap-3 text-xs text-gray-500 flex-shrink-0">
+              <span>{ue.rows.length} attr.</span>
+              <span>{st.nCours} cours</span>
+              <span>{st.nProf} prof.</span>
+              <span className="font-semibold text-iip-gold">{st.tPer}p</span>
+              {st.tAut>0 && <span className="text-gray-400">+{st.tAut}a</span>}
+              {st.nBad>0 && <span className="text-red-600 font-bold">✗ {st.nBad}</span>}
+              {st.nBad===0 && st.nConf>0 && <span className="text-green-600 font-bold">✓</span>}
+            </div>
+          </button>
+          {/* Bouton + : ajouter une ligne / un cours */}
+          <button onClick={(e)=>{e.stopPropagation(); setAddMenuUE(addMenuUE?.key===key ? null : {key, ue, sec, org});}}
+                  title="Ajouter une attribution"
+                  className="flex-shrink-0 w-7 h-7 flex items-center justify-center rounded-full bg-iip-gold/10 hover:bg-iip-gold hover:text-white text-iip-gold font-bold transition">+</button>
+          {addMenuUE?.key===key && (
+            <div className="absolute right-3 top-full mt-1 z-30 bg-white border border-gray-200 rounded-lg shadow-xl py-1 w-64" onClick={e=>e.stopPropagation()}>
+              <div className="px-3 py-1.5 text-xs font-semibold text-gray-400 border-b border-gray-100">Ajouter dans l'UE {ue.ue_num}</div>
+              {ue.cours.map(cg => (
+                <button key={cg.code_cours} onClick={()=>{ setEditRow({section: sec, code_cours: cg.code_cours}); setAddMenuUE(null); }}
+                        className="w-full text-left px-3 py-1.5 text-sm hover:bg-iip-gold/10 flex items-center gap-2">
+                  <span className="text-iip-gold">＋</span>
+                  <span className="truncate">Ligne sur <b>{cg.code_cours}</b> — {cg.nom_cours}</span>
+                </button>
+              ))}
+              <button onClick={()=>{ setNewCoursForm({section: sec, ue_num: ue.ue_num, ue_nom: ue.ue_nom, num_organisation: org}); setAddMenuUE(null); }}
+                      className="w-full text-left px-3 py-1.5 text-sm hover:bg-iip-mauve/10 text-iip-mauve border-t border-gray-100 flex items-center gap-2">
+                <span>＋</span><span>Nouveau cours dans cette UE</span>
+              </button>
+            </div>
+          )}
+        </div>
         {open && (
           <div className="bg-gray-50/50">
             {ue.cours.map(cg => renderCours(ueKey, cg))}
@@ -530,8 +554,12 @@ export default function Attributions() {
       {/* FAB mobile */}
       <button onClick={()=>setShowForm(true)} className="md:hidden fixed bottom-6 right-6 bg-iip-gold hover:bg-iip-amber text-white rounded-full w-14 h-14 shadow-2xl flex items-center justify-center text-3xl z-30">+</button>
 
+      {/* Overlay pour fermer le menu + */}
+      {addMenuUE && <div className="fixed inset-0 z-20" onClick={()=>setAddMenuUE(null)} />}
+
       {/* Modales */}
       {showForm && <AttributionForm onClose={()=>setShowForm(false)} onCreated={load}/>}
+      {newCoursForm && <AttributionForm editRow={newCoursForm} onClose={()=>setNewCoursForm(null)} onCreated={load}/>}
       {showBulkCreate && <BulkCreateForm onClose={()=>setShowBulkCreate(false)} onCreated={load}/>}
       {editRow && <CoursEditModal section={editRow.section} codeCours={editRow.code_cours} onClose={()=>setEditRow(null)} onChanged={load}/>}
 
