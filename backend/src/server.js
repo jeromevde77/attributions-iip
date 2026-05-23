@@ -318,7 +318,9 @@ try {
         organisation    TEXT,
         nb_etudiants_iip INTEGER DEFAULT 0,
         nb_etudiants_helb INTEGER DEFAULT 0,
-        annee_scolaire  TEXT DEFAULT '2025-2026'
+        encadrement     TEXT,
+        annee_scolaire  TEXT DEFAULT '2025-2026',
+        UNIQUE(ue_num, num_organisation, annee_scolaire)
       );
     `);
     const newUiCols = db.prepare("PRAGMA table_info(ue_inscription_new)").all().map(c => c.name);
@@ -329,6 +331,14 @@ try {
     db.exec('ALTER TABLE ue_inscription_new RENAME TO ue_inscription;');
     console.log('[migration] Table ue_inscription : FK obsolètes retirées');
     db.exec('PRAGMA foreign_keys = ON;');
+  }
+
+  // 7c. Réparer ue_inscription si la colonne encadrement manque
+  // (une migration précédente l'avait recréée sans cette colonne)
+  const uiColsNow = db.prepare("PRAGMA table_info(ue_inscription)").all().map(c => c.name);
+  if (!uiColsNow.includes('encadrement')) {
+    db.exec("ALTER TABLE ue_inscription ADD COLUMN encadrement TEXT;");
+    console.log('[migration] Table ue_inscription : colonne encadrement ajoutée');
   }
 } catch (e) {
   console.error('[migration] ERREUR :', e.message);
