@@ -280,6 +280,56 @@ try {
 
     db.exec('PRAGMA foreign_keys = ON;');
   }
+
+  // 7b. Retirer les FK obsolètes de aa et ue_inscription (même problème)
+  const aaFKs = db.prepare("PRAGMA foreign_key_list(aa)").all();
+  if (aaFKs.some(fk => fk.table === 'cours' || fk.table === 'ue')) {
+    db.exec('PRAGMA foreign_keys = OFF;');
+    db.exec('DROP TABLE IF EXISTS aa_new;');
+    db.exec(`
+      CREATE TABLE aa_new (
+        aa_code     TEXT PRIMARY KEY,
+        aa_num      INTEGER,
+        ue_num      INTEGER,
+        cours_code  TEXT,
+        description TEXT
+      );
+      INSERT INTO aa_new (aa_code, aa_num, ue_num, cours_code, description)
+        SELECT aa_code, aa_num, ue_num, cours_code, description FROM aa;
+      DROP TABLE aa;
+      ALTER TABLE aa_new RENAME TO aa;
+    `);
+    console.log('[migration] Table aa : FK obsolètes retirées');
+    db.exec('PRAGMA foreign_keys = ON;');
+  }
+
+  const uiFKs = db.prepare("PRAGMA foreign_key_list(ue_inscription)").all();
+  if (uiFKs.some(fk => fk.table === 'ue')) {
+    db.exec('PRAGMA foreign_keys = OFF;');
+    // Recréer ue_inscription sans la FK, en préservant les colonnes communes
+    const uiCols = db.prepare("PRAGMA table_info(ue_inscription)").all().map(c => c.name);
+    db.exec('DROP TABLE IF EXISTS ue_inscription_new;');
+    db.exec(`
+      CREATE TABLE ue_inscription_new (
+        id              INTEGER PRIMARY KEY AUTOINCREMENT,
+        ue_num          INTEGER NOT NULL,
+        num_organisation INTEGER DEFAULT 1,
+        payroll         TEXT,
+        organisation    TEXT,
+        nb_etudiants_iip INTEGER DEFAULT 0,
+        nb_etudiants_helb INTEGER DEFAULT 0,
+        annee_scolaire  TEXT DEFAULT '2025-2026'
+      );
+    `);
+    const newUiCols = db.prepare("PRAGMA table_info(ue_inscription_new)").all().map(c => c.name);
+    const commonUi = uiCols.filter(n => newUiCols.includes(n));
+    const uiList = commonUi.join(', ');
+    db.exec(`INSERT INTO ue_inscription_new (${uiList}) SELECT ${uiList} FROM ue_inscription;`);
+    db.exec('DROP TABLE ue_inscription;');
+    db.exec('ALTER TABLE ue_inscription_new RENAME TO ue_inscription;');
+    console.log('[migration] Table ue_inscription : FK obsolètes retirées');
+    db.exec('PRAGMA foreign_keys = ON;');
+  }
 } catch (e) {
   console.error('[migration] ERREUR :', e.message);
   console.error(e.stack);
