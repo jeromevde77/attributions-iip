@@ -133,6 +133,15 @@ try {
     }
   }
 
+  // 5e. Repère de dernière visite du fil d'activité (par utilisateur)
+  {
+    const cols = db.prepare("PRAGMA table_info(utilisateur)").all().map(c => c.name);
+    if (!cols.includes('derniere_visite_activite')) {
+      db.exec(`ALTER TABLE utilisateur ADD COLUMN derniere_visite_activite DATETIME;`);
+      console.log('[migration] utilisateur : colonne derniere_visite_activite ajoutée');
+    }
+  }
+
   // 6. Ajouter annee_scolaire aux tables ue et cours (clés composites)
   // SQLite ne permet pas de changer une PRIMARY KEY → on recrée les tables.
   // Les FK doivent être désactivées car d'autres tables (aa, cours) référencent ue.

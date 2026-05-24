@@ -8,6 +8,40 @@ import { authRequired, roleRequired } from '../middleware/auth.js';
 const r = Router();
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
+// ─── Fil d'activité : nouveautés depuis la dernière visite de l'utilisateur ───
+// Renvoie les modifications (create/update/delete) postérieures au repère
+// derniere_visite_activite de l'utilisateur courant, + leur nombre.
+r.get('/activite', authRequired, (req, res) => {
+  const { annee, limit = 100 } = req.query;
+  const u = db.prepare('SELECT derniere_visite_activite FROM utilisateur WHERE id = ?').get(req.user.id);
+  const depuis = u?.derniere_visite_activite || null;
+
+  const where = [];
+  const params = [];
+  if (annee) { where.push("json_extract(s.snapshot, '$.annee_scolaire') = ?"); params.push(annee); }
+  if (depuis) { where.push("s.created_at > ?"); params.push(depuis); }
+
+  const rows = db.prepare(`
+    SELECT s.id, s.attribution_id, s.action, s.utilisateur_nom, s.created_at,
+           json_extract(s.snapshot, '$.section')        AS section,
+           json_extract(s.snapshot, '$.ue_num')         AS ue_num,
+           json_extract(s.snapshot, '$.nom_cours')      AS nom_cours,
+           json_extract(s.snapshot, '$.annee_scolaire') AS annee_scolaire
+    FROM attribution_snapshot s
+    ${where.length ? 'WHERE ' + where.join(' AND ') : ''}
+    ORDER BY s.created_at DESC
+    LIMIT ?
+  `).all(...params, Number(limit));
+
+  res.json({ depuis, count: rows.length, items: rows });
+});
+
+// Acquitter le fil : avance le repère de dernière visite à maintenant.
+r.post('/activite/vu', authRequired, (req, res) => {
+  db.prepare("UPDATE utilisateur SET derniere_visite_activite = datetime('now') WHERE id = ?").run(req.user.id);
+  res.json({ ok: true });
+});
+
 // ─── Paramètre activation ────────────────────────────────────────────────────
 
 // Lire l'état actuel de l'historique

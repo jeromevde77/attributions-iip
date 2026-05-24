@@ -342,7 +342,8 @@ CREATE TABLE IF NOT EXISTS utilisateur (
     role            TEXT NOT NULL DEFAULT 'consultation',    -- admin / editeur / coordination / consultation
     actif           INTEGER DEFAULT 1,
     created_at      DATETIME DEFAULT CURRENT_TIMESTAMP,
-    last_login_at   DATETIME
+    last_login_at   DATETIME,
+    derniere_visite_activite DATETIME            -- dernière fois que l'utilisateur a vu le fil d'activité
 );
 
 -- Sections autorisées pour les utilisateurs de rôle "coordination"

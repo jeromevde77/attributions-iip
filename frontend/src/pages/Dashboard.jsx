@@ -1,6 +1,7 @@
 import { useEffect, useState, useMemo } from 'react';
 import { api, getAnnee } from '../lib/api.js';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Legend, CartesianGrid } from 'recharts';
+import ActivityFeed from '../components/ActivityFeed.jsx';
 
 function n(v, d = 0) { return v == null ? '—' : Number(v).toLocaleString('fr-BE', { maximumFractionDigits: d }); }
 
@@ -88,6 +89,9 @@ export default function Dashboard() {
   return (
     <div className="p-4 md:p-6 max-w-7xl mx-auto space-y-6">
       <h1 className="text-2xl font-title text-iip-gold">Tableau de bord <span className="text-base font-normal text-gray-400">· {annee}</span></h1>
+
+      {/* Fil d'activité : nouveautés depuis la dernière visite */}
+      <ActivityFeed />
 
       {/* ═══════════ Synthèse (toujours visible) ═══════════ */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
