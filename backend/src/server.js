@@ -188,6 +188,35 @@ try {
         gest_email      TEXT
       );
     `);
+    // Pré-remplissage initial (IIP) si aucune donnée n'existe encore.
+    // Valeurs certaines issues d'un EA12 réel ; les champs incertains
+    // (email_ec tronqué, email gestionnaire absent) restent vides à compléter.
+    const exists = db.prepare('SELECT 1 FROM etablissement WHERE id = 1').get();
+    if (!exists) {
+      db.prepare(`
+        INSERT INTO etablissement
+          (id, po_nom, etab_nom, adresse, type_po, sous_type, num_ecot, num_fase,
+           email_ec, email_po, gest_nom, gest_prenom, gest_qualite, gest_tel, gest_email)
+        VALUES (1, @po_nom, @etab_nom, @adresse, @type_po, @sous_type, @num_ecot, @num_fase,
+           @email_ec, @email_po, @gest_nom, @gest_prenom, @gest_qualite, @gest_tel, @gest_email)
+      `).run({
+        po_nom: 'ASBL Ilya Prigogine',
+        etab_nom: 'Institut Ilya Prigogine',
+        adresse: 'Campus Erasme, Bât. P, route de Lennik 808, 1070 Anderlecht',
+        type_po: 'FWB',
+        sous_type: 'libre',
+        num_ecot: '5222132070',
+        num_fase: '292',
+        email_ec: null,
+        email_po: 'po001347@adm.cfwb.be',
+        gest_nom: 'DAELEMAN',
+        gest_prenom: 'Florian',
+        gest_qualite: 'Éducateur-secrétaire',
+        gest_tel: '+3225602959',
+        gest_email: null,
+      });
+      console.log('[migration] etablissement : pré-remplissage IIP initial');
+    }
   }
 
   // 6. Ajouter annee_scolaire aux tables ue et cours (clés composites)
