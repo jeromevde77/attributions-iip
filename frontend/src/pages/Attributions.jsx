@@ -47,12 +47,8 @@ const DEFAULT_COLS = [
   { key: 'type_cours_helb',       label: 'HELB',       width: 90, edit: 'select',
     options: [['','—'],['MFP','MFP'],['MA','MA']],
     render: v => v ? <span className="bg-pink-100 text-pink-700 text-xs px-1.5 py-0.5 rounded font-semibold">{v}</span> : <span className="text-gray-300">—</span> },
-  { key: 'periodes_attribuees',   label: 'Per.',       width: 70, num: true, edit: 'number' },
-  { key: 'cours_per_prevu',       label: '',           width: 50, num: true, readonly: true,
-    tooltip: 'Périodes prévues (BD_UE_COURS)', rowClickable: true },
-  { key: 'autonomie_attribuee',   label: 'Aut.',       width: 70, num: true, edit: 'number' },
-  { key: 'ue_autonomie_prevu',    label: '',           width: 50, num: true, readonly: true,
-    tooltip: "Autonomie prévue (BD_UE_COURS)", rowClickable: true },
+  { key: 'periodes_attribuees',   label: 'Per.',       width: 90, num: true, edit: 'number' },
+  { key: 'autonomie_attribuee',   label: 'Aut.',       width: 90, num: true, edit: 'number' },
   { key: 'total_attribue_professeur', label: 'Total',  width: 70, num: true, calc: true, rowClickable: true },
   { key: 'charge_en_heures',      label: 'Hrs',        width: 70, num: true, calc: true, rowClickable: true },
   { key: '__actions',             label: '',           width: 50 },
@@ -282,7 +278,18 @@ export default function Attributions() {
           if (c.key==='__conformite') return <td key={c.key} className="text-center" style={sty}>{c.render(null,row)}</td>;
           const v = row[c.key]; const display = c.render ? c.render(v,row) : v;
           if (c.readonly) return <td key={c.key} style={sty} onClick={click} className={`${c.num?'num':''} bg-gray-100 text-gray-500 ${cClass}`} title={c.tooltip}>{v!=null?Number(v).toLocaleString('fr-BE',{maximumFractionDigits:2}):<span className="text-gray-300">—</span>}</td>;
-          if (c.edit==='number') return <td key={c.key} className={c.num?'num':''} style={sty}><input type="text" inputMode="decimal" defaultValue={v??0} className="input-cell text-right w-full no-spinner" onClick={e=>e.stopPropagation()} onBlur={e=>{const val=e.target.value.replace(',','.');if(Number(val)!==Number(v))saveCell(row.id,c.key,val);}}/></td>;
+          if (c.edit==='number') {
+            // Pour Per. et Aut. : afficher la valeur prévue en gris (attribué/prévu)
+            const prevuKey = c.key==='periodes_attribuees' ? 'cours_per_prevu'
+                           : c.key==='autonomie_attribuee' ? 'ue_autonomie_prevu' : null;
+            const prevu = prevuKey ? row[prevuKey] : null;
+            return <td key={c.key} className={c.num?'num':''} style={sty}>
+              <div className="flex items-center justify-end">
+                <input type="text" inputMode="decimal" defaultValue={v??0} className="input-cell text-right no-spinner" style={{width: prevu!=null ? '2.5rem' : '100%'}} onClick={e=>e.stopPropagation()} onBlur={e=>{const val=e.target.value.replace(',','.');if(Number(val)!==Number(v))saveCell(row.id,c.key,val);}}/>
+                {prevu!=null && <span className="text-gray-400 whitespace-nowrap" title={c.key==='periodes_attribuees'?'Périodes prévues':'Autonomie prévue'}>/{Number(prevu).toLocaleString('fr-BE',{maximumFractionDigits:2})}</span>}
+              </div>
+            </td>;
+          }
           if (c.edit==='text') return <td key={c.key} style={sty}><input type="text" defaultValue={v??''} className="input-cell w-full text-center" onClick={e=>e.stopPropagation()} onBlur={e=>{if(e.target.value!==(v??''))saveCell(row.id,c.key,e.target.value);}}/></td>;
           if (c.key==='type_cours_helb') {
             if (row.contrat_mdp !== 'HELB') {
