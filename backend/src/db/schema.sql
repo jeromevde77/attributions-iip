@@ -86,7 +86,11 @@ CREATE TABLE IF NOT EXISTS aa (
 
 CREATE TABLE IF NOT EXISTS section (
     code            TEXT PRIMARY KEY,                        -- ATNUP, Optique, ME, TIM...
-    libelle         TEXT
+    libelle         TEXT,
+    niveau          TEXT,                                    -- Bachelier / BES / Master / Spécialisation
+    type_horaire    TEXT,                                    -- Jour / Soir / Promotion sociale
+    responsable     TEXT,                                    -- coordinateur de section
+    code_fwb        TEXT                                     -- code FWB de la section
 );
 
 CREATE TABLE IF NOT EXISTS professeur (

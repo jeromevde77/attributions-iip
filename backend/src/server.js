@@ -122,6 +122,17 @@ try {
     CREATE INDEX IF NOT EXISTS idx_uesec_sec ON ue_section(section_code, annee_scolaire);
   `);
 
+  // 5d. Colonnes enrichies de la table section
+  {
+    const cols = db.prepare("PRAGMA table_info(section)").all().map(c => c.name);
+    for (const [name, type] of [['niveau','TEXT'],['type_horaire','TEXT'],['responsable','TEXT'],['code_fwb','TEXT']]) {
+      if (!cols.includes(name)) {
+        db.exec(`ALTER TABLE section ADD COLUMN ${name} ${type};`);
+        console.log(`[migration] section : colonne ${name} ajoutée`);
+      }
+    }
+  }
+
   // 6. Ajouter annee_scolaire aux tables ue et cours (clés composites)
   // SQLite ne permet pas de changer une PRIMARY KEY → on recrée les tables.
   // Les FK doivent être désactivées car d'autres tables (aa, cours) référencent ue.

@@ -6,19 +6,33 @@ import ImportUEAssistant from '../components/ImportUEAssistant.jsx';
 // ─── Modale Section ───
 function SectionModal({ section, onClose, onSaved }) {
   const isNew = !section?._edit;
-  const [code, setCode] = useState(section?.code || '');
-  const [libelle, setLibelle] = useState(section?.libelle || '');
+  const [form, setForm] = useState({
+    code: section?.code || '',
+    libelle: section?.libelle || '',
+    niveau: section?.niveau || '',
+    type_horaire: section?.type_horaire || '',
+    responsable: section?.responsable || '',
+    code_fwb: section?.code_fwb || ''
+  });
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
+  const set = (k, v) => setForm(f => ({ ...f, [k]: v }));
 
   async function submit(e) {
     e.preventDefault();
     setError('');
-    if (!code.trim()) { setError('Le code de section est requis'); return; }
+    if (!form.code.trim()) { setError('Le code de section est requis'); return; }
     setSaving(true);
     try {
-      if (isNew) await api.createSection({ code: code.trim(), libelle: libelle.trim() || code.trim() });
-      else await api.updateSection(section.code, { libelle: libelle.trim() || section.code });
+      const payload = {
+        libelle: form.libelle.trim() || form.code.trim(),
+        niveau: form.niveau || null,
+        type_horaire: form.type_horaire || null,
+        responsable: form.responsable.trim() || null,
+        code_fwb: form.code_fwb.trim() || null
+      };
+      if (isNew) await api.createSection({ code: form.code.trim(), ...payload });
+      else await api.updateSection(section.code, payload);
       onSaved();
     } catch (e) { setError(e.message); }
     finally { setSaving(false); }
@@ -26,17 +40,44 @@ function SectionModal({ section, onClose, onSaved }) {
 
   return (
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50" onClick={e => e.target === e.currentTarget && onClose()}>
-      <div className="bg-white rounded-xl shadow-2xl max-w-sm w-full border-t-4 border-iip-gold">
+      <div className="bg-white rounded-xl shadow-2xl max-w-md w-full border-t-4 border-iip-gold">
         <div className="flex items-center justify-between px-5 py-3 border-b">
-          <h2 className="font-title text-lg text-iip-gold">{isNew ? 'Nouvelle section' : `Renommer ${section.code}`}</h2>
+          <h2 className="font-title text-lg text-iip-gold">{isNew ? 'Nouvelle section' : `Modifier ${section.code}`}</h2>
           <button onClick={onClose} className="text-gray-400 hover:text-red-500 text-2xl">×</button>
         </div>
         <form onSubmit={submit} className="p-5 space-y-3">
-          <label className="block"><div className="text-xs text-gray-600 mb-0.5">Code *</div>
-            <input value={code} onChange={e => setCode(e.target.value)} disabled={!isNew} placeholder="ex: TIM"
-              className="w-full border border-gray-300 rounded px-3 py-1.5 text-sm disabled:bg-gray-100" /></label>
+          <div className="grid grid-cols-2 gap-3">
+            <label className="block"><div className="text-xs text-gray-600 mb-0.5">Code *</div>
+              <input value={form.code} onChange={e => set('code', e.target.value)} disabled={!isNew} placeholder="ex: TIM"
+                className="w-full border border-gray-300 rounded px-3 py-1.5 text-sm disabled:bg-gray-100" /></label>
+            <label className="block"><div className="text-xs text-gray-600 mb-0.5">Code FWB</div>
+              <input value={form.code_fwb} onChange={e => set('code_fwb', e.target.value)}
+                className="w-full border border-gray-300 rounded px-3 py-1.5 text-sm" /></label>
+          </div>
           <label className="block"><div className="text-xs text-gray-600 mb-0.5">Libellé</div>
-            <input value={libelle} onChange={e => setLibelle(e.target.value)} placeholder="Nom complet (optionnel)"
+            <input value={form.libelle} onChange={e => set('libelle', e.target.value)} placeholder="Nom complet de la section"
+              className="w-full border border-gray-300 rounded px-3 py-1.5 text-sm" /></label>
+          <div className="grid grid-cols-2 gap-3">
+            <label className="block"><div className="text-xs text-gray-600 mb-0.5">Niveau</div>
+              <select value={form.niveau} onChange={e => set('niveau', e.target.value)}
+                className="w-full border border-gray-300 rounded px-3 py-1.5 text-sm bg-white">
+                <option value="">—</option>
+                <option value="Bachelier">Bachelier</option>
+                <option value="BES">BES</option>
+                <option value="Master">Master</option>
+                <option value="Spécialisation">Spécialisation</option>
+              </select></label>
+            <label className="block"><div className="text-xs text-gray-600 mb-0.5">Horaire</div>
+              <select value={form.type_horaire} onChange={e => set('type_horaire', e.target.value)}
+                className="w-full border border-gray-300 rounded px-3 py-1.5 text-sm bg-white">
+                <option value="">—</option>
+                <option value="Jour">Jour</option>
+                <option value="Soir">Soir</option>
+                <option value="Promotion sociale">Promotion sociale</option>
+              </select></label>
+          </div>
+          <label className="block"><div className="text-xs text-gray-600 mb-0.5">Responsable</div>
+            <input value={form.responsable} onChange={e => set('responsable', e.target.value)} placeholder="Coordinateur de section (optionnel)"
               className="w-full border border-gray-300 rounded px-3 py-1.5 text-sm" /></label>
           {error && <div className="bg-red-50 text-red-700 text-sm rounded p-2">{error}</div>}
           <div className="flex justify-end gap-2 pt-2 border-t">
@@ -305,9 +346,10 @@ export default function Referentiels({ embedded = false }) {
             {sections.map(s => (
               <span key={s.code} className="inline-flex items-center gap-1.5 bg-gray-50 border border-gray-200 rounded-full pl-3 pr-1.5 py-1 text-sm">
                 <span className="font-medium">{s.code}</span>
+                {s.niveau && <span className="text-xs bg-iip-gold/10 text-iip-gold px-1.5 rounded">{s.niveau}</span>}
                 {s.libelle && s.libelle !== s.code && <span className="text-gray-400 text-xs">— {s.libelle}</span>}
                 <button onClick={() => setUeModal({ section: s.code })} className="text-iip-mauve hover:opacity-70 ml-1 font-bold" title={`Ajouter une UE à ${s.code}`}>+</button>
-                <button onClick={() => setSectionModal({ ...s, _edit: true })} className="text-iip-gold hover:text-iip-amber" title="Renommer">✏</button>
+                <button onClick={() => setSectionModal({ ...s, _edit: true })} className="text-iip-gold hover:text-iip-amber" title="Modifier">✏</button>
                 <button onClick={() => delSection(s.code)} className="text-red-400 hover:text-red-600" title="Supprimer">×</button>
               </span>
             ))}
