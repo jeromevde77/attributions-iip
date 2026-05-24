@@ -395,7 +395,7 @@ export default function Referentiels({ embedded = false }) {
                 return (
                   <Fragment key={sg.section}>
                     {/* Bandeau de section (ligne de regroupement) */}
-                    <tr className="bg-iip-gold/5 border-t border-gray-200">
+                    <tr className={`bg-iip-gold/5 ${secOpen ? 'border-t-2 border-iip-gold/60' : 'border-t border-gray-200'}`}>
                       <td className="px-2 py-2 text-center">
                         <button onClick={() => toggle(secKey)} className="text-iip-gold font-bold">
                           <span className={`inline-block transition-transform ${secOpen ? 'rotate-90' : ''}`}>▶</span>
@@ -431,7 +431,7 @@ export default function Referentiels({ embedded = false }) {
                       const isHelb = ue.et_ref === 'HELB';
                       return (
                         <Fragment key={ue.ue_num}>
-                          <tr className={`border-b border-gray-100 ${isHelb ? 'bg-pink-50 hover:bg-pink-100/60 border-l-2 border-l-pink-400' : 'hover:bg-gray-50'}`}>
+                          <tr className={`border-b border-gray-100 ${isHelb ? 'bg-pink-50 hover:bg-pink-100/60 border-l-2 border-l-pink-400' : ueOpen ? 'bg-iip-gold/5 border-l-2 border-l-iip-gold/60' : 'hover:bg-gray-50'}`}>
                             <td className="px-2 py-1.5 text-center">
                               <button onClick={() => toggle(ueKey)} className="text-iip-gold">
                                 <span className={`inline-block text-sm transition-transform ${ueOpen ? 'rotate-90' : ''}`}>▶</span>
