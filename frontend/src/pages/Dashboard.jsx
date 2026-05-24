@@ -1,70 +1,383 @@
-import { useEffect, useState } from 'react';
-import { api } from '../lib/api.js';
+import { useEffect, useState, useMemo } from 'react';
+import { api, getAnnee } from '../lib/api.js';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Legend, CartesianGrid } from 'recharts';
 
-function Kpi({ label, value, sub, color = 'iip-gold' }) {
+function n(v, d = 0) { return v == null ? '—' : Number(v).toLocaleString('fr-BE', { maximumFractionDigits: d }); }
+
+function Kpi({ label, value, sub, color = 'text-iip-gold' }) {
   return (
-    <div className="bg-white rounded-xl border border-gray-200 p-5 shadow-sm">
+    <div className="bg-white rounded-xl border border-gray-200 p-4 shadow-sm">
       <div className="text-xs uppercase tracking-wider text-gray-500">{label}</div>
-      <div className={`text-3xl font-bold mt-1 text-${color}`}>{value ?? '—'}</div>
+      <div className={`text-2xl md:text-3xl font-bold mt-1 ${color}`}>{value ?? '—'}</div>
       {sub && <div className="text-xs text-gray-500 mt-1">{sub}</div>}
     </div>
   );
 }
 
 export default function Dashboard() {
-  const [k, setK] = useState(null);
-  const [section, setSection] = useState([]);
+  const annee = getAnnee();
+  const [tab, setTab] = useState('apercu'); // apercu | sections | doc23 | etp
+  const [totaux, setTotaux] = useState(null);
+  const [secNiv, setSecNiv] = useState([]);
+  const [secStat, setSecStat] = useState([]);
+  const [secDetail, setSecDetail] = useState([]);
+  const [doc23, setDoc23] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [openSections, setOpenSections] = useState({});
 
   useEffect(() => {
-    api.totaux().then(setK).catch(console.error);
-    api.pilotageSectionNiveau().then(rows => {
-      // Agréger par section uniquement (pour le graphe)
-      const map = {};
-      for (const r of rows) {
-        if (!map[r.section]) map[r.section] = { section: r.section, IIP: 0, HELB: 0 };
-        map[r.section].IIP += Number(r.iip || 0);
-        map[r.section].HELB += Number(r.helb || 0);
-      }
-      setSection(Object.values(map).sort((a,b) => (b.IIP+b.HELB) - (a.IIP+a.HELB)));
-    }).catch(console.error);
+    Promise.all([
+      api.totaux(),
+      api.pilotageSectionNiveau(),
+      api.pilotageSectionStatut(),
+      api.pilotageSectionDetail(),
+      api.doc23()
+    ]).then(([t, a, b, c, d]) => {
+      setTotaux(t); setSecNiv(a); setSecStat(b); setSecDetail(c); setDoc23(d);
+    }).catch(console.error).finally(() => setLoading(false));
   }, []);
 
+  // Agréger par section
+  const sectionSummary = useMemo(() => {
+    const map = {};
+    for (const r of secNiv) {
+      if (!map[r.section]) map[r.section] = { section: r.section, per: 0, iip: 0, helb: 0, cout: 0, sd: 0, jj: 0, blocs: [] };
+      map[r.section].per  += Number(r.periodes_att || 0);
+      map[r.section].iip  += Number(r.iip || 0);
+      map[r.section].helb += Number(r.helb || 0);
+      map[r.section].cout += Number(r.per_b || 0);
+      map[r.section].sd   += Number(r.sd || 0);
+      map[r.section].jj   += Number(r.jj || 0);
+      map[r.section].blocs.push(r);
+    }
+    return Object.values(map).sort((a, b) => b.per - a.per);
+  }, [secNiv]);
+
+  // Données du graphe (IIP/HELB par section)
+  const chartData = useMemo(() =>
+    sectionSummary.map(s => ({ section: s.section, IIP: s.iip, HELB: s.helb })),
+    [sectionSummary]);
+
+  const doc23BySection = useMemo(() => {
+    const map = {};
+    for (const r of doc23) { const sec = r.section || '?'; (map[sec] ||= []).push(r); }
+    return map;
+  }, [doc23]);
+  const statutBySection = useMemo(() => {
+    const map = {}; for (const r of secStat) map[r.section] = r; return map;
+  }, [secStat]);
+  const detailBySection = useMemo(() => {
+    const map = {}; for (const r of secDetail) (map[r.section] ||= []).push(r); return map;
+  }, [secDetail]);
+
+  function toggleSection(sec) { setOpenSections(p => ({ ...p, [sec]: !p[sec] })); }
+
+  if (loading) return <div className="p-8 text-center text-gray-400">Chargement…</div>;
+
+  const totPerDoc2 = doc23.reduce((s, r) => s + (r.total_doc2 || 0), 0);
+  const totPerDP   = doc23.reduce((s, r) => s + (r.total_dp || 0), 0);
+  const nbEcartsNonZero = doc23.filter(r => Math.abs((r.total_doc2 || 0) - (r.total_dp || 0)) > 0.5).length;
+
+  const TABS = [
+    ['apercu', 'Aperçu'],
+    ['sections', 'Par section'],
+    ['doc23', 'Concordance DOC 2-3'],
+    ['etp', 'ETP']
+  ];
+
   return (
-    <div className="p-6 max-w-7xl mx-auto">
-      <h1 className="text-2xl font-title text-iip-gold mb-6">Tableau de bord 2025-2026</h1>
+    <div className="p-4 md:p-6 max-w-7xl mx-auto space-y-6">
+      <h1 className="text-2xl font-title text-iip-gold">Tableau de bord <span className="text-base font-normal text-gray-400">· {annee}</span></h1>
 
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-8">
-        <Kpi label="Attributions" value={k?.nb_attributions} sub={`${k?.nb_ue || 0} UE, ${k?.nb_professeurs || 0} profs`} />
-        <Kpi label="Périodes IIP"  value={k?.total_iip?.toLocaleString('fr-BE')} color="iip-gold" />
-        <Kpi label="Périodes HELB" value={k?.total_helb?.toLocaleString('fr-BE')} color="iip-mauve" />
-        <Kpi label="Solde dispo" value={k?.solde?.toLocaleString('fr-BE')}
-             sub={`sur ${k?.periodes_disponibles?.toLocaleString('fr-BE')} disponibles`}
-             color={k?.solde >= 0 ? 'green-600' : 'red-600'} />
+      {/* ═══════════ Synthèse (toujours visible) ═══════════ */}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+        <Kpi label="Attributions" value={totaux?.nb_attributions}
+          sub={`${totaux?.nb_sections || 0} sections · ${totaux?.nb_ue || 0} UE · ${totaux?.nb_professeurs || 0} profs`} />
+        <Kpi label="Périodes totales" value={n(totaux?.total_periodes)}
+          sub={`IIP ${n(totaux?.total_iip)} · HELB ${n(totaux?.total_helb)}`} />
+        <Kpi label="Coût dotation IIP" value={n(totaux?.cout_dotation_total)}
+          sub={`S-D ${n(totaux?.cout_sd, 1)} · J-J ${n(totaux?.cout_jj, 1)}`} color="text-iip-orange" />
+        <Kpi label="Solde dispo"
+          value={totaux?.solde != null ? n(totaux.solde) : '—'}
+          sub={totaux?.periodes_disponibles ? `sur ${n(totaux.periodes_disponibles)} disponibles` : ''}
+          color={totaux?.solde >= 0 ? 'text-green-600' : 'text-red-600'} />
       </div>
 
-      <div className="bg-white rounded-xl border border-gray-200 p-5 shadow-sm">
-        <h2 className="font-title text-lg text-iip-gold mb-4">Répartition des périodes par section</h2>
-        <ResponsiveContainer width="100%" height={380}>
-          <BarChart data={section}>
-            <CartesianGrid strokeDasharray="3 3" stroke="#f3f4f6" />
-            <XAxis dataKey="section" tick={{ fontSize: 12 }} />
-            <YAxis />
-            <Tooltip />
-            <Legend />
-            <Bar dataKey="IIP"  stackId="a" fill="#1B2B4B" />
-            <Bar dataKey="HELB" stackId="a" fill="#00AACC" />
-          </BarChart>
-        </ResponsiveContainer>
+      {/* Onglets de détail */}
+      <div className="flex gap-1 border-b border-gray-200 flex-wrap">
+        {TABS.map(([k, l]) => (
+          <button key={k} onClick={() => setTab(k)}
+            className={`px-4 py-2 text-sm font-medium border-b-2 -mb-px transition ${tab === k ? 'border-iip-gold text-iip-gold' : 'border-transparent text-gray-500 hover:text-gray-700'}`}>
+            {l}
+          </button>
+        ))}
       </div>
 
-      <div className="mt-6 bg-white rounded-xl border border-gray-200 p-5 shadow-sm">
-        <h2 className="font-title text-lg text-iip-gold mb-4">Coût dotation total</h2>
-        <div className="text-3xl font-bold text-iip-orange">
-          {k?.cout_dotation_total?.toLocaleString('fr-BE', { maximumFractionDigits: 0 })}
+      {/* ═══════════ Onglet Aperçu : graphe ═══════════ */}
+      {tab === 'apercu' && (
+        <div className="bg-white rounded-xl border border-gray-200 p-5 shadow-sm">
+          <h2 className="font-title text-lg text-iip-gold mb-4">Répartition des périodes par section</h2>
+          <ResponsiveContainer width="100%" height={400}>
+            <BarChart data={chartData}>
+              <CartesianGrid strokeDasharray="3 3" stroke="#f3f4f6" />
+              <XAxis dataKey="section" tick={{ fontSize: 11 }} angle={-30} textAnchor="end" height={70} />
+              <YAxis />
+              <Tooltip />
+              <Legend />
+              <Bar dataKey="IIP"  stackId="a" fill="#1B2B4B" />
+              <Bar dataKey="HELB" stackId="a" fill="#00AACC" />
+            </BarChart>
+          </ResponsiveContainer>
         </div>
-        <div className="text-sm text-gray-500 mt-1">Périodes pondérées (SUP × 1.5, DS × 1.25)</div>
-      </div>
+      )}
+
+      {/* ═══════════ Onglet Par section ═══════════ */}
+      {tab === 'sections' && (
+        <>
+          <div className="text-xs text-gray-500 bg-gray-50 rounded px-3 py-2 border border-gray-200">
+            💡 <b>S-D</b> = Sept–Déc — UE Q1 : 100%, Q1/Q2 : 40% · <b>J-J</b> = Jan–Juin — UE Q2 : 100%, Q1/Q2 : 60% ·
+            <b>Coût dotation</b> = périodes × coef. (SUP ×1.5, DS ×1.25), IIP uniquement
+          </div>
+
+          <section className="bg-white rounded-lg border border-gray-200 overflow-hidden">
+            <h2 className="font-title text-lg text-iip-gold p-3 border-b bg-iip-gold/5">Récapitulatif par section</h2>
+            <div className="overflow-auto">
+              <table className="grid-excel w-full">
+                <thead><tr>
+                  <th className="text-left">Section</th><th className="text-right">Périodes</th>
+                  <th className="text-right">IIP</th><th className="text-right">HELB</th>
+                  <th className="text-right">Coût dot.</th><th className="text-right">S-D</th>
+                  <th className="text-right">J-J</th><th className="text-right">CC</th>
+                  <th className="text-right">EXP</th><th className="text-right">% IIP</th>
+                </tr></thead>
+                <tbody>
+                  {sectionSummary.map(s => {
+                    const st = statutBySection[s.section];
+                    const pctIIP = s.per > 0 ? Math.round(s.iip / s.per * 100) : 0;
+                    return (
+                      <tr key={s.section}>
+                        <td className="font-semibold text-iip-gold">{s.section}</td>
+                        <td className="num font-semibold">{n(s.per)}</td>
+                        <td className="num text-iip-gold">{n(s.iip)}</td>
+                        <td className="num text-iip-mauve">{n(s.helb)}</td>
+                        <td className="num">{n(s.cout)}</td>
+                        <td className="num">{n(s.sd, 1)}</td>
+                        <td className="num">{n(s.jj, 1)}</td>
+                        <td className="num">{n(st?.cc)}</td>
+                        <td className="num">{n(st?.exp)}</td>
+                        <td className="num">
+                          <div className="flex items-center gap-1 justify-end">
+                            <div className="w-12 h-2 bg-gray-200 rounded overflow-hidden">
+                              <div className="h-full bg-iip-gold rounded" style={{ width: pctIIP + '%' }} />
+                            </div>
+                            <span className="text-xs">{pctIIP}%</span>
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                  <tr className="font-bold bg-gray-50">
+                    <td>TOTAL</td>
+                    <td className="num">{n(sectionSummary.reduce((s, r) => s + r.per, 0))}</td>
+                    <td className="num text-iip-gold">{n(sectionSummary.reduce((s, r) => s + r.iip, 0))}</td>
+                    <td className="num text-iip-mauve">{n(sectionSummary.reduce((s, r) => s + r.helb, 0))}</td>
+                    <td className="num">{n(sectionSummary.reduce((s, r) => s + r.cout, 0))}</td>
+                    <td className="num">{n(sectionSummary.reduce((s, r) => s + r.sd, 0), 1)}</td>
+                    <td className="num">{n(sectionSummary.reduce((s, r) => s + r.jj, 0), 1)}</td>
+                    <td className="num">{n(secStat.reduce((s, r) => s + (r.cc || 0), 0))}</td>
+                    <td className="num">{n(secStat.reduce((s, r) => s + (r.exp || 0), 0))}</td>
+                    <td></td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </section>
+
+          <section>
+            <h2 className="font-title text-lg text-iip-gold mb-2">Détail par section</h2>
+            <div className="space-y-2">
+              {sectionSummary.map(sec => {
+                const open = openSections[sec.section];
+                const detail = detailBySection[sec.section] || [];
+                const docs = doc23BySection[sec.section] || [];
+                return (
+                  <div key={sec.section} className="bg-white rounded-lg border border-gray-200 overflow-hidden">
+                    <button onClick={() => toggleSection(sec.section)}
+                      className="w-full flex items-center gap-3 px-4 py-3 hover:bg-iip-gold/5 transition text-left bg-iip-gold/5">
+                      <span className={`text-iip-gold font-bold transition-transform ${open ? 'rotate-90' : ''}`}>▶</span>
+                      <span className="font-bold text-iip-gold text-lg">{sec.section}</span>
+                      <div className="flex items-center gap-4 text-xs text-gray-500 ml-auto">
+                        <span><b className="text-iip-gold">{n(sec.per)}</b> per.</span>
+                        <span>IIP {n(sec.iip)}</span><span>HELB {n(sec.helb)}</span><span>Coût {n(sec.cout)}</span>
+                      </div>
+                    </button>
+                    {open && (
+                      <div className="border-t border-gray-200 p-3 space-y-4">
+                        <div>
+                          <h3 className="text-sm font-semibold text-gray-700 mb-1">Par niveau (bloc)</h3>
+                          <div className="overflow-auto">
+                            <table className="grid-excel w-full text-sm">
+                              <thead><tr>
+                                <th className="text-left">Bloc</th><th className="text-right">Périodes</th>
+                                <th className="text-right">IIP</th><th className="text-right">HELB</th>
+                                <th className="text-right">Coût dot.</th><th className="text-right">S-D</th><th className="text-right">J-J</th>
+                              </tr></thead>
+                              <tbody>
+                                {sec.blocs.map((r, i) => (
+                                  <tr key={i}>
+                                    <td className="font-medium">{r.bloc || '—'}</td>
+                                    <td className="num">{n(r.periodes_att)}</td>
+                                    <td className="num text-iip-gold">{n(r.iip)}</td>
+                                    <td className="num text-iip-mauve">{n(r.helb)}</td>
+                                    <td className="num">{n(r.per_b)}</td>
+                                    <td className="num">{n(r.sd, 1)}</td>
+                                    <td className="num">{n(r.jj, 1)}</td>
+                                  </tr>
+                                ))}
+                              </tbody>
+                            </table>
+                          </div>
+                        </div>
+                        {detail.length > 0 && (
+                          <div>
+                            <h3 className="text-sm font-semibold text-gray-700 mb-1">ETP par niveau</h3>
+                            <div className="overflow-auto">
+                              <table className="grid-excel w-full text-sm">
+                                <thead><tr>
+                                  <th className="text-left">Bloc</th><th className="text-right">CT</th>
+                                  <th className="text-right">PP</th><th className="text-right">ETP IIP</th><th className="text-right">ETP HELB</th>
+                                </tr></thead>
+                                <tbody>
+                                  {detail.map((r, i) => (
+                                    <tr key={i}>
+                                      <td className="font-medium">{r.bloc || '—'}</td>
+                                      <td className="num">{n(r.ct)}</td><td className="num">{n(r.pp)}</td>
+                                      <td className="num text-iip-gold font-semibold">{n(r.etp_iip, 2)}</td>
+                                      <td className="num text-iip-mauve font-semibold">{n(r.etp_helb, 2)}</td>
+                                    </tr>
+                                  ))}
+                                </tbody>
+                              </table>
+                            </div>
+                          </div>
+                        )}
+                        {docs.length > 0 && (
+                          <div>
+                            <h3 className="text-sm font-semibold text-gray-700 mb-1">Concordance UE (DOC 2-3)</h3>
+                            <div className="overflow-auto max-h-[40vh]">
+                              <table className="grid-excel w-full text-sm">
+                                <thead><tr>
+                                  <th className="text-left">UE</th><th className="text-left">Nom</th><th className="text-left">Bloc</th>
+                                  <th className="text-right">Prévu</th><th className="text-right">Attribué</th><th className="text-right">Écart</th>
+                                </tr></thead>
+                                <tbody>
+                                  {docs.map((r, i) => {
+                                    const ecart = (r.total_doc2 || 0) - (r.total_dp || 0);
+                                    return (
+                                      <tr key={i}>
+                                        <td className="font-mono text-xs">{r.ue_num}</td>
+                                        <td className="text-xs truncate max-w-[200px]">{r.ue_nom}</td>
+                                        <td className="text-xs">{r.bloc || '—'}</td>
+                                        <td className="num">{n(r.total_doc2)}</td>
+                                        <td className="num">{n(r.total_dp)}</td>
+                                        <td className={`num font-semibold ${Math.abs(ecart) > 0.5 ? 'text-red-600' : 'text-green-600'}`}>
+                                          {ecart > 0 ? '+' : ''}{n(ecart)}
+                                        </td>
+                                      </tr>
+                                    );
+                                  })}
+                                </tbody>
+                              </table>
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          </section>
+        </>
+      )}
+
+      {/* ═══════════ Onglet DOC 2-3 global ═══════════ */}
+      {tab === 'doc23' && (
+        <section className="bg-white rounded-lg border border-gray-200 overflow-hidden">
+          <h2 className="font-title text-lg text-iip-gold p-3 border-b bg-iip-gold/5">
+            Concordance DOC 2-3 — Vue globale
+            <span className="ml-3 text-sm font-normal text-gray-500">
+              Prévu : {n(totPerDoc2)} · Attribué : {n(totPerDP)}
+              {nbEcartsNonZero > 0 && <span className="text-red-600 ml-2">· {nbEcartsNonZero} UE avec écart</span>}
+            </span>
+          </h2>
+          <div className="overflow-auto max-h-[65vh]">
+            <table className="grid-excel w-full">
+              <thead><tr>
+                <th className="text-left">UE</th><th className="text-left">Nom</th><th className="text-left">Section</th><th className="text-left">Bloc</th>
+                <th className="text-right">Prévu cours</th><th className="text-right">Prévu aut.</th><th className="text-right">Prévu total</th>
+                <th className="text-right">Attr. cours</th><th className="text-right">Attr. aut.</th><th className="text-right">Attr. total</th><th className="text-right">Écart</th>
+              </tr></thead>
+              <tbody>
+                {doc23.map((r, i) => {
+                  const ecart = (r.total_doc2 || 0) - (r.total_dp || 0);
+                  return (
+                    <tr key={i} className={Math.abs(ecart) > 0.5 ? 'bg-red-50' : ''}>
+                      <td className="font-mono text-xs">{r.ue_num}</td>
+                      <td className="text-xs truncate max-w-[200px]">{r.ue_nom}</td>
+                      <td className="text-xs">{r.section}</td>
+                      <td className="text-xs">{r.bloc || '—'}</td>
+                      <td className="num">{n(r.per_cours_doc2)}</td>
+                      <td className="num">{n(r.per_auto_doc2)}</td>
+                      <td className="num font-semibold">{n(r.total_doc2)}</td>
+                      <td className="num">{n(r.per_cours_dp)}</td>
+                      <td className="num">{n(r.per_auto_dp)}</td>
+                      <td className="num font-semibold">{n(r.total_dp)}</td>
+                      <td className={`num font-bold ${Math.abs(ecart) > 0.5 ? 'text-red-600' : 'text-green-600'}`}>
+                        {ecart > 0 ? '+' : ''}{n(ecart)}
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        </section>
+      )}
+
+      {/* ═══════════ Onglet ETP ═══════════ */}
+      {tab === 'etp' && (
+        <section className="bg-white rounded-lg border border-gray-200 overflow-hidden">
+          <h2 className="font-title text-lg text-iip-gold p-3 border-b bg-iip-gold/5">ETP par section et niveau</h2>
+          <div className="overflow-auto max-h-[65vh]">
+            <table className="grid-excel w-full">
+              <thead><tr>
+                <th className="text-left">Section</th><th className="text-left">Bloc</th>
+                <th className="text-right">CT</th><th className="text-right">PP</th>
+                <th className="text-right">ETP IIP</th><th className="text-right">ETP HELB</th>
+              </tr></thead>
+              <tbody>
+                {secDetail.map((r, i) => (
+                  <tr key={i}>
+                    <td className="font-semibold text-iip-gold">{r.section}</td>
+                    <td className="font-medium">{r.bloc || '—'}</td>
+                    <td className="num">{n(r.ct)}</td><td className="num">{n(r.pp)}</td>
+                    <td className="num text-iip-gold font-semibold">{n(r.etp_iip, 2)}</td>
+                    <td className="num text-iip-mauve font-semibold">{n(r.etp_helb, 2)}</td>
+                  </tr>
+                ))}
+                <tr className="font-bold bg-gray-50">
+                  <td colSpan="2">TOTAL</td>
+                  <td className="num">{n(secDetail.reduce((s, r) => s + (r.ct || 0), 0))}</td>
+                  <td className="num">{n(secDetail.reduce((s, r) => s + (r.pp || 0), 0))}</td>
+                  <td className="num text-iip-gold">{n(secDetail.reduce((s, r) => s + (r.etp_iip || 0), 0), 2)}</td>
+                  <td className="num text-iip-mauve">{n(secDetail.reduce((s, r) => s + (r.etp_helb || 0), 0), 2)}</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </section>
+      )}
     </div>
   );
 }

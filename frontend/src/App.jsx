@@ -6,7 +6,6 @@ import Login from './pages/Login.jsx';
 import Dashboard from './pages/Dashboard.jsx';
 import Attributions from './pages/Attributions.jsx';
 import Professeurs from './pages/Professeurs.jsx';
-import Pilotage from './pages/Pilotage.jsx';
 import Users from './pages/Users.jsx';
 import Annees from './pages/Annees.jsx';
 import Configuration from './pages/Configuration.jsx';
@@ -159,7 +158,7 @@ export default function App() {
       <Route path="/"             element={<ProtectedLayout><Dashboard /></ProtectedLayout>} />
       <Route path="/attributions" element={<ProtectedLayout><Attributions /></ProtectedLayout>} />
       <Route path="/professeurs"  element={<ProtectedLayout><Professeurs /></ProtectedLayout>} />
-      <Route path="/pilotage"     element={<ProtectedLayout><Pilotage /></ProtectedLayout>} />
+      <Route path="/pilotage"     element={<Navigate to="/" replace />} />
       <Route path="/utilisateurs" element={<ProtectedLayout><Users /></ProtectedLayout>} />
       <Route path="/annees"         element={<ProtectedLayout><Annees /></ProtectedLayout>} />
       <Route path="/configuration"  element={<ProtectedLayout><Configuration /></ProtectedLayout>} />
