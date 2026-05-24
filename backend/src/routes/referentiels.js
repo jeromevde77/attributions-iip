@@ -41,31 +41,64 @@ r.get('/cours', authRequired, (req, res) => {
 });
 
 // ─── Structure complète (Section → UE → Cours) pour le module Référentiels ───
+// Une UE est rattachée à une section via les sections de ses attributions
+// (l'UE elle-même n'a plus de section "propriétaire" significative).
+// Une même UE peut donc apparaître sous plusieurs sections (ex. UE de remédiation).
 r.get('/structure', authRequired, (req, res) => {
   const annee = req.query.annee || '2025-2026';
-  const ues = db.prepare('SELECT * FROM ue WHERE annee_scolaire = ? ORDER BY section, ue_num').all(annee);
+  const ues = db.prepare('SELECT * FROM ue WHERE annee_scolaire = ? ORDER BY ue_num').all(annee);
   const cours = db.prepare('SELECT * FROM cours WHERE annee_scolaire = ? ORDER BY cours_code').all(annee);
-  // Compter les attributions par UE et par cours (pour bloquer les suppressions)
   const attrParUe = db.prepare('SELECT ue_num, COUNT(*) AS n FROM attribution WHERE annee_scolaire = ? GROUP BY ue_num').all(annee);
   const attrParCours = db.prepare('SELECT code_cours, COUNT(*) AS n FROM attribution WHERE annee_scolaire = ? GROUP BY code_cours').all(annee);
   const ueAttrMap = Object.fromEntries(attrParUe.map(r => [r.ue_num, r.n]));
   const coursAttrMap = Object.fromEntries(attrParCours.map(r => [r.code_cours, r.n]));
 
+  // Sections de référence (casse canonique)
+  const refSections = db.prepare('SELECT code FROM section ORDER BY code').all().map(r => r.code);
+  const canon = (s) => {
+    if (!s) return null;
+    const up = String(s).trim().toUpperCase();
+    const match = refSections.find(c => c.toUpperCase() === up);
+    return match || String(s).trim(); // garde la casse de référence si trouvée
+  };
+
+  // Pour chaque UE, déterminer ses sections via ses attributions (sinon sa section propre)
+  const secParUe = {};   // ue_num -> Set de sections (casse canonique)
+  const attrSecRows = db.prepare(
+    'SELECT DISTINCT ue_num, section FROM attribution WHERE annee_scolaire = ? AND section IS NOT NULL'
+  ).all(annee);
+  for (const r of attrSecRows) {
+    const c = canon(r.section);
+    if (!c) continue;
+    (secParUe[r.ue_num] ||= new Set()).add(c);
+  }
+
   const coursParUe = {};
   for (const c of cours) {
     (coursParUe[c.ue_num] ||= []).push({ ...c, nb_attributions: coursAttrMap[c.cours_code] || 0 });
   }
-  // Grouper par section
+
+  // Grouper par section : une UE apparaît sous chacune de ses sections d'attributions.
+  // Si l'UE n'a aucune attribution, on la range sous sa section propre (repli).
   const sections = {};
   for (const ue of ues) {
-    const sec = ue.section || '(sans section)';
-    (sections[sec] ||= []).push({
+    let secs = secParUe[ue.ue_num] ? [...secParUe[ue.ue_num]] : [];
+    if (secs.length === 0) secs = [canon(ue.section) || '(sans section)'];
+    const ueData = {
       ...ue,
       nb_attributions: ueAttrMap[ue.ue_num] || 0,
-      cours: coursParUe[ue.ue_num] || []
-    });
+      cours: coursParUe[ue.ue_num] || [],
+      sections_partagees: secs.length > 1 ? secs : null  // info de partage
+    };
+    for (const sec of secs) {
+      (sections[sec] ||= []).push(ueData);
+    }
   }
-  res.json(Object.entries(sections).map(([section, ues]) => ({ section, ues })));
+  // Trier les sections par nom et les UE par numéro
+  const result = Object.entries(sections)
+    .sort((a, b) => a[0].localeCompare(b[0]))
+    .map(([section, ues]) => ({ section, ues: ues.sort((x, y) => (x.ue_num || 0) - (y.ue_num || 0)) }));
+  res.json(result);
 });
 
 // ─── CRUD UE ───

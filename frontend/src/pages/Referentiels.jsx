@@ -316,7 +316,14 @@ export default function Referentiels({ embedded = false }) {
                             <td className="px-2 py-1.5 text-center text-xs">
                               {isHelb ? <span className="text-pink-600 font-bold">HELB</span> : (ue.et_ref || '—')}
                             </td>
-                            <td className="px-2 py-1.5 cursor-pointer truncate max-w-[280px]" title={ue.ue_nom} onClick={() => toggle(ueKey)}>{ue.ue_nom}</td>
+                            <td className="px-2 py-1.5 cursor-pointer truncate max-w-[280px]" title={ue.ue_nom} onClick={() => toggle(ueKey)}>
+                              {ue.ue_nom}
+                              {ue.sections_partagees && (
+                                <span className="ml-2 text-xs text-iip-mauve" title={`Aussi organisée dans : ${ue.sections_partagees.filter(s => s !== sg.section).join(', ')}`}>
+                                  ⇄ partagée
+                                </span>
+                              )}
+                            </td>
                             <td className="px-2 py-1.5 text-right">{ue.ue_per_cours ?? '—'}</td>
                             <td className="px-2 py-1.5 text-right text-gray-400">{ue.ue_aut ?? '—'}</td>
                             <td className="px-2 py-1.5 text-right text-gray-400">{ue.cours.length}</td>
