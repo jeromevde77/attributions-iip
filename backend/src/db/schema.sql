@@ -60,6 +60,18 @@ CREATE TABLE IF NOT EXISTS cours (
 CREATE INDEX IF NOT EXISTS idx_cours_ue ON cours(ue_num);
 CREATE INDEX IF NOT EXISTS idx_cours_annee ON cours(annee_scolaire);
 
+-- Rattachement many-to-many : une UE peut être rattachée à plusieurs sections
+-- (ex. UE de remédiation organisée pour plusieurs sections), indépendamment
+-- des attributions. Le rattachement existe même sans attribution.
+CREATE TABLE IF NOT EXISTS ue_section (
+    ue_num          INTEGER NOT NULL,
+    section_code    TEXT NOT NULL,
+    annee_scolaire  TEXT NOT NULL DEFAULT '2025-2026',
+    PRIMARY KEY (ue_num, section_code, annee_scolaire)
+);
+CREATE INDEX IF NOT EXISTS idx_uesec_ue ON ue_section(ue_num, annee_scolaire);
+CREATE INDEX IF NOT EXISTS idx_uesec_sec ON ue_section(section_code, annee_scolaire);
+
 CREATE TABLE IF NOT EXISTS aa (
     aa_code         TEXT PRIMARY KEY,                        -- "AA282.1"
     aa_num          INTEGER,                                 -- 1, 2, 3...

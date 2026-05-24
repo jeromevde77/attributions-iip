@@ -110,6 +110,18 @@ try {
     CREATE INDEX IF NOT EXISTS idx_us_user ON utilisateur_section(utilisateur_id);
   `);
 
+  // 5c. Table ue_section (rattachement many-to-many UE <-> sections)
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS ue_section (
+      ue_num          INTEGER NOT NULL,
+      section_code    TEXT NOT NULL,
+      annee_scolaire  TEXT NOT NULL DEFAULT '2025-2026',
+      PRIMARY KEY (ue_num, section_code, annee_scolaire)
+    );
+    CREATE INDEX IF NOT EXISTS idx_uesec_ue ON ue_section(ue_num, annee_scolaire);
+    CREATE INDEX IF NOT EXISTS idx_uesec_sec ON ue_section(section_code, annee_scolaire);
+  `);
+
   // 6. Ajouter annee_scolaire aux tables ue et cours (clés composites)
   // SQLite ne permet pas de changer une PRIMARY KEY → on recrée les tables.
   // Les FK doivent être désactivées car d'autres tables (aa, cours) référencent ue.

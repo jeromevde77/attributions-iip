@@ -165,6 +165,72 @@ function UEModal({ ue, sections, onClose, onSaved }) {
   );
 }
 
+// ─── Catalogue : rattacher une UE existante à une section ───
+function CatalogueUEModal({ section, onClose, onDone }) {
+  const [ues, setUes] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [q, setQ] = useState('');
+  const [busy, setBusy] = useState(null);
+
+  useEffect(() => {
+    api.catalogueUE().then(setUes).catch(() => {}).finally(() => setLoading(false));
+  }, []);
+
+  const dejaLa = (ue) => ue.sections.some(s => s.toUpperCase() === section.toUpperCase());
+  const filtered = ues.filter(ue =>
+    !q || `${ue.ue_num} ${ue.ue_nom}`.toLowerCase().includes(q.toLowerCase()));
+
+  async function rattacher(ue) {
+    setBusy(ue.ue_num);
+    try { await api.rattacherUE(ue.ue_num, section); onDone(); }
+    catch (e) { alert(e.message); setBusy(null); }
+  }
+
+  return (
+    <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50" onClick={e => e.target === e.currentTarget && onClose()}>
+      <div className="bg-white rounded-xl shadow-2xl max-w-2xl w-full max-h-[85vh] flex flex-col border-t-4 border-iip-gold">
+        <div className="flex items-center justify-between px-5 py-3 border-b flex-shrink-0">
+          <div>
+            <h2 className="font-title text-lg text-iip-gold">Rattacher une UE à {section}</h2>
+            <p className="text-xs text-gray-500">Choisissez une UE existante du catalogue de l'année.</p>
+          </div>
+          <button onClick={onClose} className="text-gray-400 hover:text-red-500 text-2xl">×</button>
+        </div>
+        <div className="px-5 py-2 border-b flex-shrink-0">
+          <input value={q} onChange={e => setQ(e.target.value)} placeholder="🔍 Rechercher une UE (numéro ou nom)…"
+            className="w-full border border-gray-300 rounded px-3 py-1.5 text-sm" autoFocus />
+        </div>
+        {loading ? (
+          <div className="p-8 text-center text-gray-400">Chargement…</div>
+        ) : (
+          <div className="flex-1 overflow-auto divide-y divide-gray-100">
+            {filtered.map(ue => {
+              const present = dejaLa(ue);
+              return (
+                <div key={ue.ue_num} className={`flex items-center gap-3 px-5 py-2 ${present ? 'opacity-50' : 'hover:bg-iip-gold/5'}`}>
+                  <span className="font-semibold text-iip-gold text-sm w-16 flex-shrink-0">UE {ue.ue_num}</span>
+                  {ue.ue_niv && <span className="text-xs bg-gray-100 px-1.5 rounded flex-shrink-0">{ue.ue_niv}</span>}
+                  <span className="text-sm text-gray-700 truncate flex-1" title={ue.ue_nom}>{ue.ue_nom}</span>
+                  {ue.sections.length > 0 && <span className="text-xs text-gray-400 flex-shrink-0">{ue.sections.join(', ')}</span>}
+                  {present ? (
+                    <span className="text-xs text-green-600 font-medium flex-shrink-0">✓ déjà rattachée</span>
+                  ) : (
+                    <button onClick={() => rattacher(ue)} disabled={busy === ue.ue_num}
+                      className="text-xs bg-iip-gold hover:bg-iip-amber text-white px-3 py-1 rounded flex-shrink-0 disabled:opacity-40">
+                      {busy === ue.ue_num ? '…' : 'Rattacher'}
+                    </button>
+                  )}
+                </div>
+              );
+            })}
+            {filtered.length === 0 && <div className="p-6 text-center text-gray-400 text-sm">Aucune UE trouvée.</div>}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
 export default function Referentiels({ embedded = false }) {
   const [structure, setStructure] = useState([]);
   const [sections, setSections] = useState([]);
@@ -174,6 +240,8 @@ export default function Referentiels({ embedded = false }) {
   const [coursModal, setCoursModal] = useState(null);
   const [sectionModal, setSectionModal] = useState(null); // {code, libelle, _edit} ou {} pour nouvelle
   const [importOpen, setImportOpen] = useState(false);
+  const [catalogueSection, setCatalogueSection] = useState(null); // menu + ouvert pour cette section
+  const [catalogueOpen, setCatalogueOpen] = useState(null); // section pour laquelle le catalogue UE est ouvert
   const [annees, setAnnees] = useState([]);
   const [viewMode, setViewMode] = useState('section'); // 'section' | 'table'
   const annee = getAnnee();
@@ -273,9 +341,23 @@ export default function Referentiels({ embedded = false }) {
                 <span className="font-bold text-iip-gold text-lg">{sg.section}</span>
                 <span className="text-xs text-gray-500 ml-auto">{sg.ues.length} UE · {totalCours} cours</span>
               </button>
-              <button onClick={() => setUeModal({ section: sg.section })}
-                title={`Ajouter une UE à ${sg.section}`}
-                className="flex-shrink-0 w-7 h-7 flex items-center justify-center rounded-full bg-iip-gold/10 hover:bg-iip-gold hover:text-white text-iip-gold font-bold transition">+</button>
+              <div className="relative flex-shrink-0">
+                <button onClick={() => setCatalogueSection(catalogueSection === sg.section ? null : sg.section)}
+                  title={`Ajouter une UE à ${sg.section}`}
+                  className="w-7 h-7 flex items-center justify-center rounded-full bg-iip-gold/10 hover:bg-iip-gold hover:text-white text-iip-gold font-bold transition">+</button>
+                {catalogueSection === sg.section && (
+                  <div className="absolute right-0 top-full mt-1 z-30 bg-white border border-gray-200 rounded-lg shadow-xl py-1 w-64">
+                    <button onClick={() => { setCatalogueOpen(sg.section); setCatalogueSection(null); }}
+                      className="w-full text-left px-3 py-2 text-sm hover:bg-iip-gold/10 flex items-center gap-2">
+                      <span className="text-iip-gold">⇄</span><span>Rattacher une UE existante</span>
+                    </button>
+                    <button onClick={() => { setUeModal({ section: sg.section }); setCatalogueSection(null); }}
+                      className="w-full text-left px-3 py-2 text-sm hover:bg-iip-mauve/10 text-iip-mauve border-t border-gray-100 flex items-center gap-2">
+                      <span>＋</span><span>Créer une nouvelle UE</span>
+                    </button>
+                  </div>
+                )}
+              </div>
             </div>
             {secOpen && (
               <div className="overflow-auto">
@@ -477,6 +559,12 @@ export default function Referentiels({ embedded = false }) {
         );
       })()}
 
+      {catalogueSection && <div className="fixed inset-0 z-20" onClick={() => setCatalogueSection(null)} />}
+      {catalogueOpen && (
+        <CatalogueUEModal section={catalogueOpen}
+          onClose={() => setCatalogueOpen(null)}
+          onDone={() => { setCatalogueOpen(null); load(); }} />
+      )}
       {sectionModal && <SectionModal section={sectionModal} onClose={() => setSectionModal(null)} onSaved={() => { setSectionModal(null); load(); }} />}
       {importOpen && (
         <ImportUEAssistant

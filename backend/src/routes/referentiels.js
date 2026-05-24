@@ -73,6 +73,14 @@ r.get('/structure', authRequired, (req, res) => {
     (secParUe[r.ue_num] ||= new Set()).add(c);
   }
 
+  // Rattachements explicites via ue_section (même sans attribution)
+  const liens = db.prepare('SELECT ue_num, section_code FROM ue_section WHERE annee_scolaire = ?').all(annee);
+  for (const l of liens) {
+    const c = canon(l.section_code);
+    if (!c) continue;
+    (secParUe[l.ue_num] ||= new Set()).add(c);
+  }
+
   const coursParUe = {};
   for (const c of cours) {
     (coursParUe[c.ue_num] ||= []).push({ ...c, nb_attributions: coursAttrMap[c.cours_code] || 0 });
@@ -315,6 +323,63 @@ r.get('/types-encadrement', authRequired, (req, res) => {
 
 r.get('/activites', authRequired, (req, res) => {
   res.json(db.prepare('SELECT * FROM activite_type ORDER BY ordre, libelle').all());
+});
+
+// ─── Catalogue des UE de l'année (pour rattachement à une section) ───
+// Liste les UE de l'année active, dédupliquées par numéro, avec les sections
+// auxquelles elles sont déjà rattachées (via ue_section OU attributions).
+r.get('/catalogue-ue', authRequired, (req, res) => {
+  const annee = req.query.annee || '2025-2026';
+  const ues = db.prepare('SELECT ue_num, ue_nom, ue_niv, et_ref FROM ue WHERE annee_scolaire = ? ORDER BY ue_num').all(annee);
+
+  // Sections de référence pour normaliser la casse
+  const refSections = db.prepare('SELECT code FROM section').all().map(r => r.code);
+  const canon = (s) => {
+    if (!s) return null;
+    const up = String(s).trim().toUpperCase();
+    return refSections.find(c => c.toUpperCase() === up) || String(s).trim();
+  };
+
+  // Sections par UE (attributions + liens explicites)
+  const secParUe = {};
+  for (const r of db.prepare('SELECT DISTINCT ue_num, section FROM attribution WHERE annee_scolaire = ? AND section IS NOT NULL').all(annee)) {
+    const c = canon(r.section); if (c) (secParUe[r.ue_num] ||= new Set()).add(c);
+  }
+  for (const l of db.prepare('SELECT ue_num, section_code FROM ue_section WHERE annee_scolaire = ?').all(annee)) {
+    const c = canon(l.section_code); if (c) (secParUe[l.ue_num] ||= new Set()).add(c);
+  }
+
+  res.json(ues.map(ue => ({
+    ...ue,
+    sections: secParUe[ue.ue_num] ? [...secParUe[ue.ue_num]] : []
+  })));
+});
+
+// Rattacher une UE existante à une section
+r.post('/ue-section', authRequired, roleRequired('admin', 'editeur'), (req, res) => {
+  const annee = req.body.annee_scolaire || '2025-2026';
+  const { ue_num, section_code } = req.body;
+  if (!ue_num || !section_code) return res.status(400).json({ error: 'ue_num et section_code requis' });
+  // Vérifier que l'UE existe dans l'année
+  const ue = db.prepare('SELECT 1 FROM ue WHERE ue_num = ? AND annee_scolaire = ?').get(ue_num, annee);
+  if (!ue) return res.status(404).json({ error: `L'UE ${ue_num} n'existe pas en ${annee}` });
+  db.prepare(`INSERT OR IGNORE INTO ue_section (ue_num, section_code, annee_scolaire) VALUES (?, ?, ?)`)
+    .run(ue_num, section_code, annee);
+  res.status(201).json({ ok: true });
+});
+
+// Détacher une UE d'une section (supprime le lien, pas l'UE)
+r.delete('/ue-section/:ue_num/:section_code', authRequired, roleRequired('admin', 'editeur'), (req, res) => {
+  const annee = req.query.annee || '2025-2026';
+  const { ue_num, section_code } = req.params;
+  // Refuser le détachement s'il existe des attributions de cette UE dans cette section
+  const nb = db.prepare(
+    'SELECT COUNT(*) AS n FROM attribution WHERE ue_num = ? AND UPPER(section) = UPPER(?) AND annee_scolaire = ?'
+  ).get(ue_num, section_code, annee).n;
+  if (nb > 0) return res.status(409).json({ error: `Impossible : ${nb} attribution(s) de cette UE dans cette section. Le rattachement vient des attributions.` });
+  db.prepare('DELETE FROM ue_section WHERE ue_num = ? AND section_code = ? AND annee_scolaire = ?')
+    .run(ue_num, section_code, annee);
+  res.json({ ok: true });
 });
 
 export default r;
