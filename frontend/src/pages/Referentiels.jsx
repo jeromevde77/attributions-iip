@@ -431,7 +431,11 @@ export default function Referentiels({ embedded = false }) {
                       const isHelb = ue.et_ref === 'HELB';
                       return (
                         <Fragment key={ue.ue_num}>
-                          <tr className={`border-b border-gray-100 ${isHelb ? 'bg-pink-50 hover:bg-pink-100/60 border-l-2 border-l-pink-400' : ueOpen ? 'bg-iip-gold/5 border-l-2 border-l-iip-gold/60' : 'hover:bg-gray-50'}`}>
+                          <tr className={`${
+                            ueOpen
+                              ? (isHelb ? 'bg-pink-50 border-y-2 border-l-2 border-pink-400' : 'bg-iip-gold/5 border-y-2 border-l-2 border-iip-gold/60')
+                              : (isHelb ? 'bg-pink-50 hover:bg-pink-100/60 border-b border-gray-100 border-l-2 border-l-pink-400' : 'hover:bg-gray-50 border-b border-gray-100')
+                          }`}>
                             <td className="px-2 py-1.5 text-center">
                               <button onClick={() => toggle(ueKey)} className="text-iip-gold">
                                 <span className={`inline-block text-sm transition-transform ${ueOpen ? 'rotate-90' : ''}`}>▶</span>
@@ -456,7 +460,7 @@ export default function Referentiels({ embedded = false }) {
                             <td className="px-2 py-1.5 text-right text-gray-400">{ue.ue_aut ?? '—'}</td>
                             <td className="px-2 py-1.5 text-right text-gray-400">{ue.cours.length}</td>
                             <td className="px-2 py-1.5 text-right text-gray-400">{ue.nb_attributions}</td>
-                            <td className="px-2 py-1.5 text-right whitespace-nowrap">
+                            <td className={`px-2 py-1.5 text-right whitespace-nowrap ${ueOpen ? (isHelb ? 'border-r-2 border-pink-400' : 'border-r-2 border-iip-gold/60') : ''}`}>
                               <button onClick={() => setUeModal({ ...ue, _edit: true })} className="text-iip-gold hover:text-iip-amber" title="Modifier l'UE">✏</button>
                               <button onClick={() => delUE(ue)} className="text-red-400 hover:text-red-600 ml-2" title="Supprimer">🗑</button>
                             </td>

@@ -393,7 +393,11 @@ export default function Attributions() {
     const st = groupStats(ue.rows);
     const isHelb = ue.ue_et_ref === 'HELB';
     return (
-      <div key={key} className={`border-b border-gray-100 ${isHelb ? 'bg-pink-50 border-l-2 border-l-pink-400' : open ? 'bg-iip-gold/5 border-l-2 border-l-iip-gold/60' : ''}`}>
+      <div key={key} className={`border-b border-gray-100 ${
+        open
+          ? (isHelb ? 'bg-pink-50 ring-2 ring-pink-400 ring-inset' : 'bg-iip-gold/5 ring-2 ring-iip-gold/60 ring-inset')
+          : (isHelb ? 'bg-pink-50 border-l-2 border-l-pink-400' : '')
+      }`}>
         <div className={`w-full flex items-center pl-6 pr-3 py-1.5 transition relative ${isHelb ? 'hover:bg-pink-100/60' : 'hover:bg-gray-50'}`}>
           <div onClick={()=>toggle(key)} role="button" className="grid items-center gap-2 flex-1 min-w-0 text-left cursor-pointer"
                   style={{ gridTemplateColumns: '16px 70px 110px 1fr auto' }}>
