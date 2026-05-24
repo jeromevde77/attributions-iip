@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { api, getAnnee, setAnnee } from '../lib/api.js';
 import ImportUEAssistant from '../components/ImportUEAssistant.jsx';
 
-export default function Annees() {
+export default function Annees({ embedded = false }) {
   const [annees, setAnnees] = useState([]);
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
@@ -72,9 +72,10 @@ export default function Annees() {
   }
 
   return (
-    <div className="p-4 md:p-6 max-w-2xl mx-auto space-y-4">
+    <div className={embedded ? 'space-y-4' : 'p-4 md:p-6 max-w-2xl mx-auto space-y-4'}>
       <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-title text-iip-gold">Années scolaires</h1>
+        {!embedded && <h1 className="text-2xl font-title text-iip-gold">Années scolaires</h1>}
+        {embedded && <div className="text-sm text-gray-500">Gestion des années scolaires</div>}
         <button onClick={() => { setShowForm(true); setForm({ code: nextYear(), libelle: `Année ${nextYear()}`, source: annees[annees.length-1]?.code || '2025-2026', mode: 'copie' }); }}
           className="bg-iip-gold hover:bg-iip-amber text-white text-sm px-4 py-2 rounded font-medium">
           ➕ Nouvelle année

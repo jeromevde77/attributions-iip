@@ -165,7 +165,7 @@ function UEModal({ ue, sections, onClose, onSaved }) {
   );
 }
 
-export default function Referentiels() {
+export default function Referentiels({ embedded = false }) {
   const [structure, setStructure] = useState([]);
   const [sections, setSections] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -206,9 +206,10 @@ export default function Referentiels() {
   if (loading) return <div className="p-8 text-center text-gray-400">Chargement…</div>;
 
   return (
-    <div className="p-4 md:p-6 max-w-5xl mx-auto space-y-4">
+    <div className={embedded ? 'space-y-4' : 'p-4 md:p-6 max-w-5xl mx-auto space-y-4'}>
       <div className="flex items-center justify-between flex-wrap gap-2">
-        <h1 className="text-2xl font-title text-iip-gold">Référentiels <span className="text-base font-normal text-gray-400">· {annee}</span></h1>
+        {!embedded && <h1 className="text-2xl font-title text-iip-gold">Référentiels <span className="text-base font-normal text-gray-400">· {annee}</span></h1>}
+        {embedded && <div className="text-sm text-gray-500">Structure académique · {annee}</div>}
         <div className="flex gap-2">
           {annees.filter(a => a.code !== annee).length > 0 && (
             <button onClick={() => setImportOpen(true)} className="bg-white border border-iip-mauve text-iip-mauve hover:bg-iip-mauve/5 text-sm px-4 py-2 rounded font-medium">⇄ Importer des UE</button>

@@ -7,7 +7,6 @@ import Dashboard from './pages/Dashboard.jsx';
 import Attributions from './pages/Attributions.jsx';
 import Professeurs from './pages/Professeurs.jsx';
 import Pilotage from './pages/Pilotage.jsx';
-import Planning from './pages/Planning.jsx';
 import Users from './pages/Users.jsx';
 import Annees from './pages/Annees.jsx';
 import Configuration from './pages/Configuration.jsx';
@@ -72,13 +71,9 @@ function ProtectedLayout({ children }) {
     : [
         ['/',             'Tableau de bord'],
         ['/attributions', 'Attributions'],
-        ['/planning',     'Planning'],
-        ['/professeurs',  'Professeurs'],
-        ['/pilotage',     'Pilotage']
+        ['/professeurs',  'Professeurs']
       ];
-  if (u?.role === 'admin') nav.push(['/annees', 'Années']);
-  if (u?.role === 'admin') nav.push(['/referentiels', '📚 Référentiels']);
-  if (u?.role === 'admin') nav.push(['/configuration', '⚙ Config']);
+  if (u?.role === 'admin') nav.push(['/configuration', '⚙ Configuration']);
 
   return (
     <div className="min-h-screen flex flex-col">
@@ -163,7 +158,6 @@ export default function App() {
       <Route path="/login" element={<Login />} />
       <Route path="/"             element={<ProtectedLayout><Dashboard /></ProtectedLayout>} />
       <Route path="/attributions" element={<ProtectedLayout><Attributions /></ProtectedLayout>} />
-      <Route path="/planning"     element={<ProtectedLayout><Planning /></ProtectedLayout>} />
       <Route path="/professeurs"  element={<ProtectedLayout><Professeurs /></ProtectedLayout>} />
       <Route path="/pilotage"     element={<ProtectedLayout><Pilotage /></ProtectedLayout>} />
       <Route path="/utilisateurs" element={<ProtectedLayout><Users /></ProtectedLayout>} />

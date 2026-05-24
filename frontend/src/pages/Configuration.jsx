@@ -1,6 +1,8 @@
 import { useEffect, useState } from 'react';
 import { api } from '../lib/api.js';
 import Users from './Users.jsx';
+import Annees from './Annees.jsx';
+import Referentiels from './Referentiels.jsx';
 
 function Toggle({ label, description, checked, onChange, disabled }) {
   return (
@@ -141,11 +143,19 @@ export default function Configuration() {
   }
 
   return (
-    <div className="p-4 md:p-6 max-w-3xl mx-auto space-y-6">
+    <div className={`p-4 md:p-6 mx-auto space-y-6 ${tab === 'referentiels' || tab === 'annees' ? 'max-w-7xl' : 'max-w-3xl'}`}>
       <h1 className="text-2xl font-title text-iip-gold">Configuration</h1>
 
       {/* Onglets */}
-      <div className="flex gap-1 border-b border-gray-200">
+      <div className="flex gap-1 border-b border-gray-200 flex-wrap">
+        <button onClick={() => setTab('referentiels')}
+          className={`px-4 py-2 text-sm font-medium border-b-2 -mb-px transition ${tab === 'referentiels' ? 'border-iip-gold text-iip-gold' : 'border-transparent text-gray-500 hover:text-gray-700'}`}>
+          Référentiels
+        </button>
+        <button onClick={() => setTab('annees')}
+          className={`px-4 py-2 text-sm font-medium border-b-2 -mb-px transition ${tab === 'annees' ? 'border-iip-gold text-iip-gold' : 'border-transparent text-gray-500 hover:text-gray-700'}`}>
+          Années
+        </button>
         <button onClick={() => setTab('users')}
           className={`px-4 py-2 text-sm font-medium border-b-2 -mb-px transition ${tab === 'users' ? 'border-iip-gold text-iip-gold' : 'border-transparent text-gray-500 hover:text-gray-700'}`}>
           Utilisateurs
@@ -159,6 +169,12 @@ export default function Configuration() {
           Nouveautés
         </button>
       </div>
+
+      {/* ── Onglet Référentiels ── */}
+      {tab === 'referentiels' && <Referentiels embedded />}
+
+      {/* ── Onglet Années ── */}
+      {tab === 'annees' && <Annees embedded />}
 
       {/* ── Onglet Utilisateurs ── */}
       {tab === 'users' && <Users embedded />}
