@@ -273,60 +273,91 @@ export default function Referentiels({ embedded = false }) {
               <span className="text-xs text-gray-500 ml-auto">{sg.ues.length} UE · {totalCours} cours</span>
             </button>
             {secOpen && (
-              <div className="divide-y divide-gray-100">
-                {sg.ues.map(ue => {
-                  const ueKey = 'ue:' + sg.section + '/' + ue.ue_num;
-                  const ueOpen = open[ueKey];
-                  const isHelb = ue.et_ref === 'HELB';
-                  return (
-                    <div key={ue.ue_num} className={isHelb ? 'bg-pink-50' : ''}>
-                      <div className={`flex items-center gap-2 px-5 py-2.5 ${isHelb ? 'hover:bg-pink-100/60' : 'hover:bg-gray-50'}`}>
-                        <button onClick={() => toggle(ueKey)} className="flex items-center gap-2 flex-1 text-left min-w-0">
-                          <span className={`text-iip-gold text-sm transition-transform flex-shrink-0 ${ueOpen ? 'rotate-90' : ''}`}>▶</span>
-                          <span className="font-semibold text-iip-gold text-sm whitespace-nowrap flex-shrink-0">UE {ue.ue_num}</span>
-                          {ue.ue_niv && <span className="text-xs bg-iip-gold/10 text-iip-gold px-1.5 rounded flex-shrink-0">{ue.ue_niv}</span>}
-                          {ue.ue_niveau && <span className="text-xs bg-gray-100 text-gray-600 px-1.5 rounded flex-shrink-0">{ue.ue_niveau}</span>}
-                          {ue.ue_quad && <span className="text-xs bg-gray-100 text-gray-600 px-1.5 rounded flex-shrink-0">{ue.ue_quad}</span>}
-                          {isHelb && <span className="text-xs text-pink-600 font-bold px-1.5 py-0.5 rounded bg-pink-100 flex-shrink-0">HELB</span>}
-                          <span className="text-sm text-gray-700 truncate min-w-0" title={ue.ue_nom}>{ue.ue_nom}</span>
-                        </button>
-                        <span className="text-xs text-gray-400 flex-shrink-0 whitespace-nowrap">{ue.cours.length} cours · {ue.nb_attributions} attr.</span>
-                        <button onClick={() => setUeModal({ ...ue, _edit: true })} className="text-iip-gold hover:text-iip-amber text-sm flex-shrink-0" title="Modifier">✏</button>
-                        <button onClick={() => delUE(ue)} className="text-red-400 hover:text-red-600 text-sm flex-shrink-0" title="Supprimer">🗑</button>
-                      </div>
-                      {ueOpen && (
-                        <div className={`pl-10 pr-4 pb-2 ${isHelb ? 'bg-pink-50/40' : 'bg-gray-50/50'}`}>
-                          <table className="w-full text-sm">
-                            <thead><tr className="text-xs text-gray-500">
-                              <th className="text-left py-1">Code</th><th className="text-left">Nom</th>
-                              <th className="text-center">Type</th><th className="text-right">Cours_per</th>
-                              <th className="text-center">Quadri</th><th className="text-right">Attr.</th><th></th>
-                            </tr></thead>
-                            <tbody>
-                              {ue.cours.map(c => (
-                                <tr key={c.cours_code} className="border-t border-gray-100">
-                                  <td className="py-1.5 font-mono text-xs">{c.cours_code}</td>
-                                  <td className="text-xs">{c.cours_nom}</td>
-                                  <td className="text-center">{c.ct_pp && <span className={`badge ${c.ct_pp==='CT'?'badge-ct':'badge-pp'}`}>{c.ct_pp}</span>}</td>
-                                  <td className="text-right font-semibold">{c.cours_per ?? '—'}</td>
-                                  <td className="text-center text-xs">{c.quadrimestre_cours || '—'}</td>
-                                  <td className="text-right text-xs text-gray-400">{c.nb_attributions}</td>
-                                  <td className="text-right whitespace-nowrap">
-                                    <button onClick={() => setCoursModal({ cours: { ...c, _edit: true }, ueNum: ue.ue_num, section: sg.section })} className="text-iip-mauve hover:opacity-70 text-sm" title="Modifier">✏</button>
-                                    <button onClick={() => delCours(c)} className="text-red-400 hover:text-red-600 text-sm ml-2" title="Supprimer">🗑</button>
-                                  </td>
-                                </tr>
-                              ))}
-                              {ue.cours.length === 0 && <tr><td colSpan="7" className="text-center text-gray-400 py-2 text-xs">Aucun cours</td></tr>}
-                            </tbody>
-                          </table>
-                          <button onClick={() => setCoursModal({ cours: {}, ueNum: ue.ue_num, section: sg.section })}
-                            className="mt-2 text-xs text-iip-mauve hover:underline">➕ Ajouter un cours</button>
-                        </div>
-                      )}
-                    </div>
-                  );
-                })}
+              <div className="overflow-auto">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="bg-gray-50 text-xs text-gray-500 border-b border-gray-200">
+                      <th className="w-8"></th>
+                      <th className="text-left px-2 py-2">N° UE</th>
+                      <th className="text-center px-2 py-2">Bloc</th>
+                      <th className="text-center px-2 py-2">Niveau</th>
+                      <th className="text-center px-2 py-2">Quadri</th>
+                      <th className="text-center px-2 py-2">Réf.</th>
+                      <th className="text-left px-2 py-2">Nom de l'UE</th>
+                      <th className="text-right px-2 py-2">Pér.</th>
+                      <th className="text-right px-2 py-2">Aut.</th>
+                      <th className="text-right px-2 py-2">Cours</th>
+                      <th className="text-right px-2 py-2">Attr.</th>
+                      <th className="px-2 py-2"></th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {sg.ues.map(ue => {
+                      const ueKey = 'ue:' + sg.section + '/' + ue.ue_num;
+                      const ueOpen = open[ueKey];
+                      const isHelb = ue.et_ref === 'HELB';
+                      return (
+                        <Fragment key={ue.ue_num}>
+                          <tr className={`border-b border-gray-100 ${isHelb ? 'bg-pink-50 hover:bg-pink-100/60' : 'hover:bg-gray-50'}`}>
+                            <td className="px-2 py-1.5 text-center">
+                              <button onClick={() => toggle(ueKey)} className="text-iip-gold">
+                                <span className={`inline-block text-xs transition-transform ${ueOpen ? 'rotate-90' : ''}`}>▶</span>
+                              </button>
+                            </td>
+                            <td className="px-2 py-1.5 font-semibold text-iip-gold whitespace-nowrap cursor-pointer" onClick={() => toggle(ueKey)}>UE {ue.ue_num}</td>
+                            <td className="px-2 py-1.5 text-center text-xs">{ue.ue_niv || '—'}</td>
+                            <td className="px-2 py-1.5 text-center text-xs">{ue.ue_niveau || '—'}</td>
+                            <td className="px-2 py-1.5 text-center text-xs">{ue.ue_quad || '—'}</td>
+                            <td className="px-2 py-1.5 text-center text-xs">
+                              {isHelb ? <span className="text-pink-600 font-bold">HELB</span> : (ue.et_ref || '—')}
+                            </td>
+                            <td className="px-2 py-1.5 cursor-pointer truncate max-w-[280px]" title={ue.ue_nom} onClick={() => toggle(ueKey)}>{ue.ue_nom}</td>
+                            <td className="px-2 py-1.5 text-right">{ue.ue_per_cours ?? '—'}</td>
+                            <td className="px-2 py-1.5 text-right text-gray-400">{ue.ue_aut ?? '—'}</td>
+                            <td className="px-2 py-1.5 text-right text-gray-400">{ue.cours.length}</td>
+                            <td className="px-2 py-1.5 text-right text-gray-400">{ue.nb_attributions}</td>
+                            <td className="px-2 py-1.5 text-right whitespace-nowrap">
+                              <button onClick={() => setUeModal({ ...ue, _edit: true })} className="text-iip-gold hover:text-iip-amber" title="Modifier l'UE">✏</button>
+                              <button onClick={() => delUE(ue)} className="text-red-400 hover:text-red-600 ml-2" title="Supprimer">🗑</button>
+                            </td>
+                          </tr>
+                          {ueOpen && (
+                            <tr className={isHelb ? 'bg-pink-50/40' : 'bg-gray-50/50'}>
+                              <td colSpan="12" className="px-6 py-2">
+                                <table className="w-full text-xs">
+                                  <thead><tr className="text-gray-500">
+                                    <th className="text-left py-1">Code</th><th className="text-left">Nom du cours</th>
+                                    <th className="text-center">Type</th><th className="text-right">Cours_per</th>
+                                    <th className="text-center">Quadri</th><th className="text-right">Attr.</th><th></th>
+                                  </tr></thead>
+                                  <tbody>
+                                    {ue.cours.map(c => (
+                                      <tr key={c.cours_code} className="border-t border-gray-100">
+                                        <td className="py-1 font-mono">{c.cours_code}</td>
+                                        <td>{c.cours_nom}</td>
+                                        <td className="text-center">{c.ct_pp && <span className={`badge ${c.ct_pp==='CT'?'badge-ct':'badge-pp'}`}>{c.ct_pp}</span>}</td>
+                                        <td className="text-right font-semibold">{c.cours_per ?? '—'}</td>
+                                        <td className="text-center">{c.quadrimestre_cours || '—'}</td>
+                                        <td className="text-right text-gray-400">{c.nb_attributions}</td>
+                                        <td className="text-right whitespace-nowrap">
+                                          <button onClick={() => setCoursModal({ cours: { ...c, _edit: true }, ueNum: ue.ue_num, section: sg.section })} className="text-iip-mauve hover:opacity-70" title="Modifier">✏</button>
+                                          <button onClick={() => delCours(c)} className="text-red-400 hover:text-red-600 ml-2" title="Supprimer">🗑</button>
+                                        </td>
+                                      </tr>
+                                    ))}
+                                    {ue.cours.length === 0 && <tr><td colSpan="7" className="text-center text-gray-400 py-2">Aucun cours</td></tr>}
+                                  </tbody>
+                                </table>
+                                <button onClick={() => setCoursModal({ cours: {}, ueNum: ue.ue_num, section: sg.section })}
+                                  className="mt-2 text-iip-mauve hover:underline">➕ Ajouter un cours</button>
+                              </td>
+                            </tr>
+                          )}
+                        </Fragment>
+                      );
+                    })}
+                  </tbody>
+                </table>
               </div>
             )}
           </div>
