@@ -71,22 +71,25 @@ r.get('/structure', authRequired, (req, res) => {
 // ─── CRUD UE ───
 r.post('/ue', authRequired, roleRequired('admin', 'editeur'), (req, res) => {
   const annee = req.body.annee_scolaire || '2025-2026';
-  const { ue_num, ue_nom, section, ue_niv, ue_niveau, ue_quad, ue_per_cours, ue_aut, ue_code_fwb, et_ref } = req.body;
+  const { ue_num, ue_nom, section, ue_niv, ue_niveau, ue_quad, ue_per_cours, ue_aut,
+          ue_code_fwb, et_ref, ue_tc, ue_det, ue_per_etudiants, ue_tot_prf, ects, ue_prerequise } = req.body;
   if (!ue_num || !ue_nom) return res.status(400).json({ error: 'Numéro et nom d\'UE requis' });
   const exists = db.prepare('SELECT 1 FROM ue WHERE ue_num = ? AND annee_scolaire = ?').get(ue_num, annee);
   if (exists) return res.status(409).json({ error: `L'UE ${ue_num} existe déjà pour ${annee}` });
   db.prepare(`
     INSERT INTO ue (ue_num, annee_scolaire, ue_nom, section, ue_niv, ue_niveau, ue_quad,
-      ue_per_cours, ue_aut, ue_code_fwb, et_ref)
-    VALUES (?,?,?,?,?,?,?,?,?,?,?)
+      ue_per_cours, ue_aut, ue_code_fwb, et_ref, ue_tc, ue_det, ue_per_etudiants, ue_tot_prf, ects, ue_prerequise)
+    VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
   `).run(ue_num, annee, ue_nom, section || null, ue_niv || null, ue_niveau || null,
-         ue_quad || null, ue_per_cours || null, ue_aut || null, ue_code_fwb || null, et_ref || null);
+         ue_quad || null, ue_per_cours || null, ue_aut || null, ue_code_fwb || null, et_ref || null,
+         ue_tc || null, ue_det || null, ue_per_etudiants || null, ue_tot_prf || null, ects || null, ue_prerequise || null);
   res.status(201).json({ ok: true });
 });
 
 r.patch('/ue/:num', authRequired, roleRequired('admin', 'editeur'), (req, res) => {
   const annee = req.body.annee_scolaire || req.query.annee || '2025-2026';
-  const allowed = ['ue_nom','section','ue_niv','ue_niveau','ue_quad','ue_per_cours','ue_aut','ue_code_fwb','et_ref','ects'];
+  const allowed = ['ue_nom','section','ue_niv','ue_niveau','ue_quad','ue_per_cours','ue_aut',
+                   'ue_code_fwb','et_ref','ects','ue_tc','ue_det','ue_per_etudiants','ue_tot_prf','ue_prerequise'];
   const updates = []; const params = { num: req.params.num, annee };
   for (const k of allowed) if (k in req.body) { updates.push(`${k} = @${k}`); params[k] = req.body[k]; }
   if (!updates.length) return res.status(400).json({ error: 'Aucun champ à modifier' });
@@ -107,21 +110,26 @@ r.delete('/ue/:num', authRequired, roleRequired('admin'), (req, res) => {
 // ─── CRUD Cours ───
 r.post('/cours', authRequired, roleRequired('admin', 'editeur'), (req, res) => {
   const annee = req.body.annee_scolaire || '2025-2026';
-  const { cours_code, cours_nom, ue_num, section, ct_pp, cours_per, quadrimestre_cours, ue_niveau } = req.body;
+  const { cours_code, cours_nom, ue_num, section, ct_pp, cours_per, quadrimestre_cours, ue_niveau,
+          cours_num, cours_total, ue_autonomie, ue_per_total, enc_cours, heures } = req.body;
   if (!cours_code || !cours_nom) return res.status(400).json({ error: 'Code et nom de cours requis' });
   const exists = db.prepare('SELECT 1 FROM cours WHERE cours_code = ? AND annee_scolaire = ?').get(cours_code, annee);
   if (exists) return res.status(409).json({ error: `Le cours ${cours_code} existe déjà pour ${annee}` });
   db.prepare(`
-    INSERT INTO cours (cours_code, annee_scolaire, cours_nom, ue_num, section, ct_pp, cours_per, quadrimestre_cours, ue_niveau)
-    VALUES (?,?,?,?,?,?,?,?,?)
+    INSERT INTO cours (cours_code, annee_scolaire, cours_nom, ue_num, section, ct_pp, cours_per,
+      quadrimestre_cours, ue_niveau, cours_num, cours_total, ue_autonomie, ue_per_total, enc_cours, heures)
+    VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
   `).run(cours_code, annee, cours_nom, ue_num || null, section || null, ct_pp || null,
-         cours_per || null, quadrimestre_cours || null, ue_niveau || null);
+         cours_per || null, quadrimestre_cours || null, ue_niveau || null,
+         cours_num || null, cours_total || null, ue_autonomie || null, ue_per_total || null,
+         enc_cours || null, heures || null);
   res.status(201).json({ ok: true });
 });
 
 r.patch('/cours/:code', authRequired, roleRequired('admin', 'editeur'), (req, res) => {
   const annee = req.body.annee_scolaire || req.query.annee || '2025-2026';
-  const allowed = ['cours_nom','ue_num','section','ct_pp','cours_per','quadrimestre_cours','ue_niveau','heures'];
+  const allowed = ['cours_nom','ue_num','section','ct_pp','cours_per','quadrimestre_cours','ue_niveau',
+                   'cours_num','cours_total','ue_autonomie','ue_per_total','enc_cours','heures'];
   const updates = []; const params = { code: req.params.code, annee };
   for (const k of allowed) if (k in req.body) { updates.push(`${k} = @${k}`); params[k] = req.body[k]; }
   if (!updates.length) return res.status(400).json({ error: 'Aucun champ à modifier' });

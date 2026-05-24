@@ -17,7 +17,10 @@ export default function CoursFormModal({ cours, ueNum, section, onClose, onSaved
   const [form, setForm] = useState({
     cours_code: cours?.cours_code || '', cours_nom: cours?.cours_nom || '',
     ct_pp: cours?.ct_pp || '', cours_per: cours?.cours_per || '',
-    quadrimestre_cours: cours?.quadrimestre_cours || '', ue_niveau: cours?.ue_niveau || ''
+    quadrimestre_cours: cours?.quadrimestre_cours || '', ue_niveau: cours?.ue_niveau || '',
+    cours_num: cours?.cours_num || '', cours_total: cours?.cours_total || '',
+    ue_autonomie: cours?.ue_autonomie || '', ue_per_total: cours?.ue_per_total || '',
+    enc_cours: cours?.enc_cours || '', heures: cours?.heures || ''
   });
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
@@ -64,6 +67,28 @@ export default function CoursFormModal({ cours, ueNum, section, onClose, onSaved
                 className="w-full border border-gray-300 rounded px-3 py-1.5 text-sm bg-white">
                 <option value="">—</option><option value="Q1">Q1</option><option value="Q2">Q2</option><option value="Q1/Q2">Q1/Q2</option>
               </select></label>
+          </div>
+          <div className="grid grid-cols-3 gap-3">
+            <label className="block"><div className="text-xs text-gray-600 mb-0.5">N° cours</div>
+              <input type="number" value={form.cours_num} onChange={e => set('cours_num', e.target.value)}
+                className="w-full border border-gray-300 rounded px-3 py-1.5 text-sm" /></label>
+            <label className="block"><div className="text-xs text-gray-600 mb-0.5">Cours total</div>
+              <input type="number" value={form.cours_total} onChange={e => set('cours_total', e.target.value)}
+                className="w-full border border-gray-300 rounded px-3 py-1.5 text-sm" /></label>
+            <label className="block"><div className="text-xs text-gray-600 mb-0.5">Heures</div>
+              <input type="number" value={form.heures} onChange={e => set('heures', e.target.value)}
+                className="w-full border border-gray-300 rounded px-3 py-1.5 text-sm" /></label>
+          </div>
+          <div className="grid grid-cols-3 gap-3">
+            <label className="block"><div className="text-xs text-gray-600 mb-0.5">Autonomie UE</div>
+              <input type="number" value={form.ue_autonomie} onChange={e => set('ue_autonomie', e.target.value)}
+                className="w-full border border-gray-300 rounded px-3 py-1.5 text-sm" /></label>
+            <label className="block"><div className="text-xs text-gray-600 mb-0.5">Pér. total UE</div>
+              <input type="number" value={form.ue_per_total} onChange={e => set('ue_per_total', e.target.value)}
+                className="w-full border border-gray-300 rounded px-3 py-1.5 text-sm" /></label>
+            <label className="block"><div className="text-xs text-gray-600 mb-0.5">Encadrement</div>
+              <input value={form.enc_cours} onChange={e => set('enc_cours', e.target.value)} placeholder="Cours / Encadrement"
+                className="w-full border border-gray-300 rounded px-3 py-1.5 text-sm" /></label>
           </div>
           {error && <div className="bg-red-50 text-red-700 text-sm rounded p-2">{error}</div>}
           <div className="flex justify-end gap-2 pt-2 border-t">

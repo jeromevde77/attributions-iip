@@ -57,7 +57,9 @@ function UEModal({ ue, sections, onClose, onSaved }) {
     ue_num: ue?.ue_num || '', ue_nom: ue?.ue_nom || '', section: ue?.section || (sections[0]?.code || ''),
     ue_niv: ue?.ue_niv || '', ue_niveau: ue?.ue_niveau || '', ue_quad: ue?.ue_quad || '',
     ue_per_cours: ue?.ue_per_cours || '', ue_aut: ue?.ue_aut || '', ue_code_fwb: ue?.ue_code_fwb || '',
-    et_ref: ue?.et_ref || ''
+    et_ref: ue?.et_ref || '', ue_tc: ue?.ue_tc || '', ue_det: ue?.ue_det || '',
+    ue_per_etudiants: ue?.ue_per_etudiants || '', ue_tot_prf: ue?.ue_tot_prf || '',
+    ects: ue?.ects || '', ue_prerequise: ue?.ue_prerequise || ''
   });
   const [saving, setSaving] = useState(false);
   function set(k, v) { setForm(f => ({ ...f, [k]: v })); }
@@ -76,12 +78,12 @@ function UEModal({ ue, sections, onClose, onSaved }) {
 
   return (
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50" onClick={e => e.target === e.currentTarget && onClose()}>
-      <div className="bg-white rounded-xl shadow-2xl max-w-lg w-full border-t-4 border-iip-gold">
-        <div className="flex items-center justify-between px-5 py-3 border-b">
+      <div className="bg-white rounded-xl shadow-2xl max-w-lg w-full border-t-4 border-iip-gold max-h-[90vh] overflow-hidden flex flex-col">
+        <div className="flex items-center justify-between px-5 py-3 border-b flex-shrink-0">
           <h2 className="font-title text-lg text-iip-gold">{isNew ? 'Nouvelle UE' : `Modifier UE ${ue.ue_num}`}</h2>
           <button onClick={onClose} className="text-gray-400 hover:text-red-500 text-2xl">×</button>
         </div>
-        <form onSubmit={submit} className="p-5 space-y-3">
+        <form onSubmit={submit} className="p-5 space-y-3 overflow-auto">
           <div className="grid grid-cols-2 gap-3">
             <label className="block"><div className="text-xs text-gray-600 mb-0.5">N° UE *</div>
               <input type="number" value={form.ue_num} onChange={e => set('ue_num', e.target.value)} disabled={!isNew}
@@ -123,6 +125,33 @@ function UEModal({ ue, sections, onClose, onSaved }) {
                 <option value="">—</option><option value="IIP">IIP</option><option value="HELB">HELB</option>
               </select></label>
           </div>
+          <div className="grid grid-cols-3 gap-3">
+            <label className="block"><div className="text-xs text-gray-600 mb-0.5">Code FWB</div>
+              <input value={form.ue_code_fwb} onChange={e => set('ue_code_fwb', e.target.value)}
+                className="w-full border border-gray-300 rounded px-3 py-1.5 text-sm" /></label>
+            <label className="block"><div className="text-xs text-gray-600 mb-0.5">ECTS</div>
+              <input type="number" value={form.ects} onChange={e => set('ects', e.target.value)}
+                className="w-full border border-gray-300 rounded px-3 py-1.5 text-sm" /></label>
+            <label className="block"><div className="text-xs text-gray-600 mb-0.5">Pér. étudiants</div>
+              <input type="number" value={form.ue_per_etudiants} onChange={e => set('ue_per_etudiants', e.target.value)}
+                className="w-full border border-gray-300 rounded px-3 py-1.5 text-sm" /></label>
+          </div>
+          <div className="grid grid-cols-3 gap-3">
+            <label className="block"><div className="text-xs text-gray-600 mb-0.5">Total prof</div>
+              <input type="number" value={form.ue_tot_prf} onChange={e => set('ue_tot_prf', e.target.value)}
+                className="w-full border border-gray-300 rounded px-3 py-1.5 text-sm" /></label>
+            <label className="block"><div className="text-xs text-gray-600 mb-0.5">Tronc commun</div>
+              <select value={form.ue_tc} onChange={e => set('ue_tc', e.target.value)}
+                className="w-full border border-gray-300 rounded px-3 py-1.5 text-sm bg-white">
+                <option value="">Non</option><option value="x">Oui</option>
+              </select></label>
+            <label className="block"><div className="text-xs text-gray-600 mb-0.5">Prérequis</div>
+              <input value={form.ue_prerequise} onChange={e => set('ue_prerequise', e.target.value)}
+                className="w-full border border-gray-300 rounded px-3 py-1.5 text-sm" /></label>
+          </div>
+          <label className="block"><div className="text-xs text-gray-600 mb-0.5">Détails</div>
+            <textarea value={form.ue_det} onChange={e => set('ue_det', e.target.value)} rows="2"
+              className="w-full border border-gray-300 rounded px-3 py-1.5 text-sm" /></label>
           <div className="flex justify-end gap-2 pt-2 border-t">
             <button type="button" onClick={onClose} className="px-4 py-2 text-sm text-gray-600">Annuler</button>
             <button type="submit" disabled={saving} className="bg-iip-gold hover:bg-iip-amber disabled:opacity-40 text-white text-sm px-5 py-2 rounded font-medium">
