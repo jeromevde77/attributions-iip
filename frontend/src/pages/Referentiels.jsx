@@ -77,6 +77,7 @@ function SectionModal({ section, onClose, onSaved }) {
                 <option value="BES">BES</option>
                 <option value="Master">Master</option>
                 <option value="Spécialisation">Spécialisation</option>
+                <option value="DS">DS — Enseignement secondaire supérieur</option>
               </select></label>
             <label className="block"><div className="text-xs text-gray-600 mb-0.5">Responsable</div>
               <input value={form.responsable} onChange={e => set('responsable', e.target.value)} placeholder="Coordinateur (optionnel)"
