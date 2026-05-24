@@ -374,7 +374,7 @@ export default function Attributions() {
               {ue.bloc && <span className="text-xs bg-iip-gold/10 text-iip-gold px-1.5 py-0.5 rounded">{ue.bloc}</span>}
               {isHelb && <span className="text-xs text-pink-600 font-bold px-1.5 py-0.5 rounded bg-pink-100">HELB</span>}
             </span>
-            <span className="text-xs text-gray-600 truncate" title={ue.ue_nom}>{ue.ue_nom || 'UE sans nom'}</span>
+            <span className="text-sm text-gray-600 truncate" title={ue.ue_nom}>{ue.ue_nom || 'UE sans nom'}</span>
             <span className="flex items-center gap-3 text-xs text-gray-500 flex-shrink-0 justify-end whitespace-nowrap">
               <span>{ue.rows.length} attr.</span>
               <span>{st.nCours} cours</span>
@@ -422,8 +422,8 @@ export default function Attributions() {
     const open = openUEs.has(key);
     const st = groupStats(sg.rows);
     return (
-      <div key={key} className="border-b border-gray-200 last:border-b-0">
-        <button onClick={()=>toggle(key)} className="w-full flex items-center gap-3 px-4 py-3 hover:bg-iip-gold/10 transition text-left bg-iip-gold/5 border-y border-iip-gold/20">
+      <div key={key}>
+        <button onClick={()=>toggle(key)} className="w-full flex items-center gap-3 px-4 py-2.5 hover:bg-iip-gold/10 transition text-left bg-iip-gold/5 border-t border-gray-200 first:border-t-0">
           <span className={`text-iip-gold font-bold transition-transform ${open?'rotate-90':''}`}>▶</span>
           <span className="font-bold text-iip-gold text-base">{sg.section}</span>
           <div className="flex items-center gap-3 text-xs text-gray-500 flex-shrink-0 ml-auto">
@@ -431,7 +431,7 @@ export default function Attributions() {
             <span>{sg.rows.length} attr.</span>
             <span>{st.nCours} cours</span>
             <span>{st.nProf} prof.</span>
-            <span className="font-bold text-iip-gold text-sm">{st.tPer}p</span>
+            <span className="font-bold text-iip-gold">{st.tPer}p</span>
             {st.tAut>0 && <span className="text-gray-400">+{st.tAut}a</span>}
             {st.nBad>0 && <span className="text-red-600 font-bold">✗ {st.nBad}</span>}
             {st.nBad===0 && st.nConf>0 && <span className="text-green-600 font-bold">✓</span>}
