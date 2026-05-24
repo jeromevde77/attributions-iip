@@ -15,12 +15,12 @@ function construireData(ea12Row, donnees) {
 
   // Attributions du prof pour l'année, agrégées par (codification, cours, type)
   const lignes = db.prepare(`
-    SELECT codification_unite, cours_nom, type_cours, niveau,
+    SELECT codification_unite, nom_cours, type_cours, niveau,
            SUM(COALESCE(total_attribue_professeur, periodes_attribuees, 0)) AS periodes
     FROM v_attribution_complete
     WHERE professeur_id = ? AND annee_scolaire = ?
-    GROUP BY codification_unite, cours_nom, type_cours
-    ORDER BY codification_unite, cours_nom
+    GROUP BY codification_unite, nom_cours, type_cours
+    ORDER BY codification_unite, nom_cours
   `).all(ea12Row.professeur_id, ea12Row.annee_scolaire);
 
   // Déterminer TC/TL : tout TC sauf si la section du prof est de niveau Master -> TL.
@@ -30,7 +30,7 @@ function construireData(ea12Row, donnees) {
     .map(l => ({
       ue: l.codification_unite || '',
       f: 'D',                            // dotation (défaut IIP)
-      denomination: l.cours_nom || '',
+      denomination: l.nom_cours || '',
       cla: l.type_cours || '',
       periode_occ: '',
       tctl: 'TC',                        // TODO Master->TL quand niveau dispo

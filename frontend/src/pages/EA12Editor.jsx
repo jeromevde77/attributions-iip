@@ -92,6 +92,8 @@ export default function EA12Editor() {
     finally { setSaving(false); }
   }
 
+  if (msg.startsWith('Erreur') && (!ea12 || !apercu))
+    return <div className="p-8 text-center text-red-600">{msg}<div className="mt-2"><button onClick={() => navigate(-1)} className="text-sm text-gray-500 underline">← Retour</button></div></div>;
   if (!ea12 || !apercu) return <div className="p-8 text-center text-gray-400">Chargement…</div>;
 
   return (
