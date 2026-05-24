@@ -47,8 +47,8 @@ const DEFAULT_COLS = [
   { key: 'type_cours_helb',       label: 'HELB',       width: 90, edit: 'select',
     options: [['','—'],['MFP','MFP'],['MA','MA']],
     render: v => v ? <span className="bg-pink-100 text-pink-700 text-xs px-1.5 py-0.5 rounded font-semibold">{v}</span> : <span className="text-gray-300">—</span> },
-  { key: 'periodes_attribuees',   label: 'Per.',       width: 90, num: true, edit: 'number' },
-  { key: 'autonomie_attribuee',   label: 'Aut.',       width: 90, num: true, edit: 'number' },
+  { key: 'periodes_attribuees',   label: 'Per.',       width: 100, num: true, edit: 'number' },
+  { key: 'autonomie_attribuee',   label: 'Aut.',       width: 100, num: true, edit: 'number' },
   { key: 'total_attribue_professeur', label: 'Total',  width: 70, num: true, calc: true, rowClickable: true },
   { key: 'charge_en_heures',      label: 'Hrs',        width: 70, num: true, calc: true, rowClickable: true },
   { key: '__actions',             label: '',           width: 50 },
@@ -285,7 +285,7 @@ export default function Attributions() {
             const prevu = prevuKey ? row[prevuKey] : null;
             return <td key={c.key} className={c.num?'num':''} style={sty}>
               <div className="flex items-center justify-end">
-                <input type="text" inputMode="decimal" defaultValue={v??0} className="input-cell text-right no-spinner" style={{width: prevu!=null ? '2.5rem' : '100%'}} onClick={e=>e.stopPropagation()} onBlur={e=>{const val=e.target.value.replace(',','.');if(Number(val)!==Number(v))saveCell(row.id,c.key,val);}}/>
+                <input type="text" inputMode="decimal" defaultValue={v??0} className="input-cell text-right no-spinner" style={{width: prevu!=null ? '2.75rem' : '100%'}} onClick={e=>e.stopPropagation()} onBlur={e=>{const val=e.target.value.replace(',','.');if(Number(val)!==Number(v))saveCell(row.id,c.key,val);}}/>
                 {prevu!=null && <span className="text-gray-400 whitespace-nowrap" title={c.key==='periodes_attribuees'?'Périodes prévues':'Autonomie prévue'}>/{Number(prevu).toLocaleString('fr-BE',{maximumFractionDigits:2})}</span>}
               </div>
             </td>;
