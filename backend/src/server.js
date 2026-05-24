@@ -19,6 +19,7 @@ import adminRoutes from './routes/admin.js';
 import anneesRoutes from './routes/annees.js';
 import historiqueRoutes from './routes/historique.js';
 import etablissementRoutes from './routes/etablissement.js';
+import ea12Routes from './routes/ea12.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
@@ -217,6 +218,36 @@ try {
       });
       console.log('[migration] etablissement : pré-remplissage IIP initial');
     }
+  }
+
+  // 5i. Colonnes EA12 sur la fiche professeur (données stables et réutilisables)
+  {
+    const cols = db.prepare("PRAGMA table_info(professeur)").all().map(c => c.name);
+    if (!cols.includes('matricule')) db.exec("ALTER TABLE professeur ADD COLUMN matricule TEXT");
+    if (!cols.includes('titre1')) db.exec("ALTER TABLE professeur ADD COLUMN titre1 TEXT");
+    if (!cols.includes('titre2')) db.exec("ALTER TABLE professeur ADD COLUMN titre2 TEXT");
+    if (!cols.includes('titre3')) db.exec("ALTER TABLE professeur ADD COLUMN titre3 TEXT");
+    if (!cols.includes('statut_ea12')) db.exec("ALTER TABLE professeur ADD COLUMN statut_ea12 TEXT"); // T/TPr/St/D
+  }
+
+  // 5j. Table des documents EA12 (un par événement administratif d'un MDP)
+  {
+    db.exec(`
+      CREATE TABLE IF NOT EXISTS ea12 (
+        id              INTEGER PRIMARY KEY AUTOINCREMENT,
+        professeur_id   INTEGER NOT NULL,
+        annee_scolaire  TEXT NOT NULL,
+        variante        TEXT NOT NULL DEFAULT 'bis',     -- 'secondaire' | 'bis' | 'ter'
+        statut_doc      TEXT NOT NULL DEFAULT 'brouillon', -- 'brouillon' | 'genere'
+        donnees_json    TEXT NOT NULL DEFAULT '{}',       -- tous les champs saisis (cases, dates, etc.)
+        cree_le         DATETIME DEFAULT CURRENT_TIMESTAMP,
+        modifie_le      DATETIME DEFAULT CURRENT_TIMESTAMP,
+        cree_par        INTEGER,
+        FOREIGN KEY (professeur_id) REFERENCES professeur(id)
+      );
+    `);
+    db.exec("CREATE INDEX IF NOT EXISTS idx_ea12_prof ON ea12(professeur_id)");
+    db.exec("CREATE INDEX IF NOT EXISTS idx_ea12_annee ON ea12(annee_scolaire)");
   }
 
   // 6. Ajouter annee_scolaire aux tables ue et cours (clés composites)
@@ -495,6 +526,7 @@ app.use('/api/admin',        adminRoutes);
 app.use('/api/annees',       anneesRoutes);
 app.use('/api/historique',   historiqueRoutes);
 app.use('/api/etablissement', etablissementRoutes);
+app.use('/api/ea12',          ea12Routes);
 
 // Erreurs
 app.use((err, req, res, next) => {
