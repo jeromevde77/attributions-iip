@@ -279,6 +279,7 @@ export default function Referentiels({ embedded = false }) {
   const [catalogueOpen, setCatalogueOpen] = useState(null); // section pour laquelle le catalogue UE est ouvert
   const [annees, setAnnees] = useState([]);
   const [viewMode, setViewMode] = useState('section'); // 'section' | 'table'
+  const [activeUE, setActiveUE] = useState(null); // clé de la dernière UE cliquée (encadrée)
   const annee = getAnnee();
 
   async function load() {
@@ -432,23 +433,23 @@ export default function Referentiels({ embedded = false }) {
                       return (
                         <Fragment key={ue.ue_num}>
                           <tr className={`${
-                            ueOpen
+                            activeUE === ueKey
                               ? (isHelb ? 'bg-pink-50 border-y-2 border-l-2 border-pink-400' : 'bg-iip-gold/5 border-y-2 border-l-2 border-iip-gold/60')
                               : (isHelb ? 'bg-pink-50 hover:bg-pink-100/60 border-b border-gray-100 border-l-2 border-l-pink-400' : 'hover:bg-gray-50 border-b border-gray-100')
                           }`}>
                             <td className="px-2 py-1.5 text-center">
-                              <button onClick={() => toggle(ueKey)} className="text-iip-gold">
+                              <button onClick={() => { toggle(ueKey); setActiveUE(ueKey); }} className="text-iip-gold">
                                 <span className={`inline-block text-sm transition-transform ${ueOpen ? 'rotate-90' : ''}`}>▶</span>
                               </button>
                             </td>
-                            <td className="px-2 py-1.5 font-semibold text-iip-gold whitespace-nowrap cursor-pointer" onClick={() => toggle(ueKey)}>UE {ue.ue_num}</td>
+                            <td className="px-2 py-1.5 font-semibold text-iip-gold whitespace-nowrap cursor-pointer" onClick={() => { toggle(ueKey); setActiveUE(ueKey); }}>UE {ue.ue_num}</td>
                             <td className="px-2 py-1.5 text-center">{ue.ue_niv || '—'}</td>
                             <td className="px-2 py-1.5 text-center">{ue.ue_niveau || '—'}</td>
                             <td className="px-2 py-1.5 text-center">{ue.ue_quad || '—'}</td>
                             <td className="px-2 py-1.5 text-center">
                               {isHelb ? <span className="text-pink-600 font-bold">HELB</span> : (ue.et_ref || '—')}
                             </td>
-                            <td className="px-2 py-1.5 cursor-pointer truncate max-w-[280px]" title={ue.ue_nom} onClick={() => toggle(ueKey)}>
+                            <td className="px-2 py-1.5 cursor-pointer truncate max-w-[280px]" title={ue.ue_nom} onClick={() => { toggle(ueKey); setActiveUE(ueKey); }}>
                               {ue.ue_nom}
                               {ue.sections_partagees && (
                                 <span className="ml-2 text-sm text-iip-mauve" title={`Aussi organisée dans : ${ue.sections_partagees.filter(s => s !== sg.section).join(', ')}`}>
@@ -460,7 +461,7 @@ export default function Referentiels({ embedded = false }) {
                             <td className="px-2 py-1.5 text-right text-gray-400">{ue.ue_aut ?? '—'}</td>
                             <td className="px-2 py-1.5 text-right text-gray-400">{ue.cours.length}</td>
                             <td className="px-2 py-1.5 text-right text-gray-400">{ue.nb_attributions}</td>
-                            <td className={`px-2 py-1.5 text-right whitespace-nowrap ${ueOpen ? (isHelb ? 'border-r-2 border-pink-400' : 'border-r-2 border-iip-gold/60') : ''}`}>
+                            <td className={`px-2 py-1.5 text-right whitespace-nowrap ${activeUE === ueKey ? (isHelb ? 'border-r-2 border-pink-400' : 'border-r-2 border-iip-gold/60') : ''}`}>
                               <button onClick={() => setUeModal({ ...ue, _edit: true })} className="text-iip-gold hover:text-iip-amber" title="Modifier l'UE">✏</button>
                               <button onClick={() => delUE(ue)} className="text-red-400 hover:text-red-600 ml-2" title="Supprimer">🗑</button>
                             </td>
@@ -545,13 +546,13 @@ export default function Referentiels({ embedded = false }) {
                     <Fragment key={ueKey}>
                       <tr className={`border-b border-gray-100 hover:bg-gray-50 ${isHelb ? 'bg-pink-50' : ''}`}>
                         <td className="px-3 py-1.5">
-                          <button onClick={() => toggle(ueKey)} className="text-iip-gold">
+                          <button onClick={() => { toggle(ueKey); setActiveUE(ueKey); }} className="text-iip-gold">
                             <span className={`inline-block text-sm transition-transform ${ueOpen ? 'rotate-90' : ''}`}>▶</span>
                           </button>
                         </td>
-                        <td className="px-2 py-1.5 font-semibold text-iip-gold cursor-pointer" onClick={() => toggle(ueKey)}>{ue.ue_num}</td>
+                        <td className="px-2 py-1.5 font-semibold text-iip-gold cursor-pointer" onClick={() => { toggle(ueKey); setActiveUE(ueKey); }}>{ue.ue_num}</td>
                         <td className="px-2 py-1.5 text-xs text-gray-600">{ue._section}</td>
-                        <td className="px-2 py-1.5 cursor-pointer" onClick={() => toggle(ueKey)}>
+                        <td className="px-2 py-1.5 cursor-pointer" onClick={() => { toggle(ueKey); setActiveUE(ueKey); }}>
                           {ue.ue_nom}
                           {isHelb && <span className="text-xs text-pink-600 font-bold ml-1.5">HELB</span>}
                         </td>

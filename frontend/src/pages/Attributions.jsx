@@ -73,6 +73,7 @@ export default function Attributions() {
   const [editRow, setEditRow] = useState(null);
   const [addMenuUE, setAddMenuUE] = useState(null);   // {ue, sec} : menu + ouvert pour cette UE
   const [quadriMenu, setQuadriMenu] = useState(null); // key de l'UE dont le menu quadri est ouvert
+  const [activeUE, setActiveUE] = useState(null);     // key de la dernière UE cliquée (encadrée)
   const [newCoursForm, setNewCoursForm] = useState(null); // préremplissage AttributionForm pour nouveau cours
   const [viewMode, setViewMode] = useState('ue');
   const [openUEs, setOpenUEs] = useState(new Set());
@@ -394,12 +395,12 @@ export default function Attributions() {
     const isHelb = ue.ue_et_ref === 'HELB';
     return (
       <div key={key} className={`border-b border-gray-100 ${
-        open
+        activeUE === key
           ? (isHelb ? 'bg-pink-50 ring-2 ring-pink-400 ring-inset' : 'bg-iip-gold/5 ring-2 ring-iip-gold/60 ring-inset')
           : (isHelb ? 'bg-pink-50 border-l-2 border-l-pink-400' : '')
       }`}>
         <div className={`w-full flex items-center pl-6 pr-3 py-1.5 transition relative ${isHelb ? 'hover:bg-pink-100/60' : 'hover:bg-gray-50'}`}>
-          <div onClick={()=>toggle(key)} role="button" className="grid items-center gap-2 flex-1 min-w-0 text-left cursor-pointer"
+          <div onClick={()=>{toggle(key); setActiveUE(key);}} role="button" className="grid items-center gap-2 flex-1 min-w-0 text-left cursor-pointer"
                   style={{ gridTemplateColumns: '16px 70px 110px 1fr auto' }}>
             <span className={`text-iip-gold text-sm transition-transform ${open?'rotate-90':''}`}>▶</span>
             <span className="font-semibold text-iip-gold text-sm whitespace-nowrap">UE {ue.ue_num}</span>
