@@ -363,7 +363,7 @@ export default function Attributions() {
     const st = groupStats(ue.rows);
     const isHelb = ue.ue_et_ref === 'HELB';
     return (
-      <div key={key} className={`border-b border-gray-100 ${isHelb ? 'bg-pink-50' : ''}`}>
+      <div key={key} className={`border-b border-gray-100 ${isHelb ? 'bg-pink-50 border-l-2 border-l-pink-400' : ''}`}>
         <div className={`w-full flex items-center pl-6 pr-3 py-1.5 transition relative ${isHelb ? 'hover:bg-pink-100/60' : 'hover:bg-gray-50'}`}>
           <button onClick={()=>toggle(key)} className="grid items-center gap-2 flex-1 min-w-0 text-left"
                   style={{ gridTemplateColumns: '16px 70px 110px 1fr auto' }}>
@@ -423,7 +423,7 @@ export default function Attributions() {
     const st = groupStats(sg.rows);
     return (
       <div key={key}>
-        <button onClick={()=>toggle(key)} className="w-full flex items-center gap-3 px-4 py-2.5 hover:bg-iip-gold/10 transition text-left bg-iip-gold/5 border-t border-gray-200 first:border-t-0">
+        <button onClick={()=>toggle(key)} className="w-full flex items-center gap-3 px-4 py-2.5 hover:bg-iip-gold/10 transition text-left bg-iip-gold/5 border-t-2 border-iip-gold/60 first:border-t-0">
           <span className={`text-iip-gold font-bold transition-transform ${open?'rotate-90':''}`}>▶</span>
           <span className="font-bold text-iip-gold text-sm">{sg.section}</span>
           <div className="flex items-center gap-3 text-sm text-gray-500 flex-shrink-0 ml-auto">
