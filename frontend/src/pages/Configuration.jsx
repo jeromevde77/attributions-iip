@@ -143,7 +143,7 @@ export default function Configuration() {
   }
 
   return (
-    <div className={`p-4 md:p-6 mx-auto space-y-6 ${tab === 'referentiels' || tab === 'annees' ? 'max-w-7xl' : 'max-w-3xl'}`}>
+    <div className="p-4 md:p-6 max-w-7xl mx-auto space-y-6">
       <h1 className="text-2xl font-title text-iip-gold">Configuration</h1>
 
       {/* Onglets */}
@@ -177,17 +177,17 @@ export default function Configuration() {
       {tab === 'annees' && <Annees embedded />}
 
       {/* ── Onglet Utilisateurs ── */}
-      {tab === 'users' && <Users embedded />}
+      {tab === 'users' && <div className="max-w-5xl"><Users embedded /></div>}
 
       {/* ── Onglet Nouveautés ── */}
       {tab === 'changelog' && (
-        <div className="bg-white rounded-lg border border-gray-200 p-5">
+        <div className="max-w-3xl bg-white rounded-lg border border-gray-200 p-5">
           <ChangelogView data={changelog} />
         </div>
       )}
 
       {/* ── Onglet Système ── */}
-      {tab === 'systeme' && (loading ? <div className="p-8 text-center text-gray-400">Chargement…</div> : <>
+      {tab === 'systeme' && (loading ? <div className="p-8 text-center text-gray-400">Chargement…</div> : <div className="max-w-3xl space-y-6">
 
       {/* ── Historique des modifications ── */}
       <section className="bg-white rounded-lg border border-gray-200 overflow-hidden">
@@ -269,7 +269,7 @@ export default function Configuration() {
           et en redémarrant le container.
         </div>
       </section>
-      </>)}
+      </div>)}
     </div>
   );
 }

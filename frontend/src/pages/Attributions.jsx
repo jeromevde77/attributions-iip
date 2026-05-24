@@ -448,7 +448,7 @@ export default function Attributions() {
 
   // ===================== RENDU =====================
   return (
-    <div className="p-2 md:p-4">
+    <div className="p-2 md:p-4 max-w-7xl mx-auto">
       {/* Barre mobile */}
       <div className="md:hidden mb-2 flex gap-2">
         <input value={filters.q} onChange={e=>setFilters({...filters,q:e.target.value})} onKeyDown={e=>e.key==='Enter'&&applyFilters()} placeholder="🔍 Rechercher…" className="flex-1 border border-gray-300 rounded-lg px-3 py-2 text-sm"/>
