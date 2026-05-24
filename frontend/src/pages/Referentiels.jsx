@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, Fragment } from 'react';
 import { api, getAnnee } from '../lib/api.js';
 import CoursFormModal from '../components/CoursFormModal.jsx';
 import ImportUEAssistant from '../components/ImportUEAssistant.jsx';
@@ -175,6 +175,7 @@ export default function Referentiels() {
   const [sectionModal, setSectionModal] = useState(null); // {code, libelle, _edit} ou {} pour nouvelle
   const [importOpen, setImportOpen] = useState(false);
   const [annees, setAnnees] = useState([]);
+  const [viewMode, setViewMode] = useState('section'); // 'section' | 'table'
   const annee = getAnnee();
 
   async function load() {
@@ -232,7 +233,8 @@ export default function Referentiels() {
               <span key={s.code} className="inline-flex items-center gap-1.5 bg-gray-50 border border-gray-200 rounded-full pl-3 pr-1.5 py-1 text-sm">
                 <span className="font-medium">{s.code}</span>
                 {s.libelle && s.libelle !== s.code && <span className="text-gray-400 text-xs">— {s.libelle}</span>}
-                <button onClick={() => setSectionModal({ ...s, _edit: true })} className="text-iip-gold hover:text-iip-amber ml-1" title="Renommer">✏</button>
+                <button onClick={() => setUeModal({ section: s.code })} className="text-iip-mauve hover:opacity-70 ml-1 font-bold" title={`Ajouter une UE à ${s.code}`}>+</button>
+                <button onClick={() => setSectionModal({ ...s, _edit: true })} className="text-iip-gold hover:text-iip-amber" title="Renommer">✏</button>
                 <button onClick={() => delSection(s.code)} className="text-red-400 hover:text-red-600" title="Supprimer">×</button>
               </span>
             ))}
@@ -240,13 +242,25 @@ export default function Referentiels() {
         </div>
       )}
 
-      {structure.length === 0 && (
+      {/* Sélecteur de mode d'affichage */}
+      <div className="flex items-center gap-1 bg-gray-100 rounded-lg p-1 w-fit">
+        <button onClick={() => setViewMode('section')}
+          className={`px-3 py-1.5 text-sm rounded-md transition ${viewMode === 'section' ? 'bg-white shadow-sm text-iip-gold font-medium' : 'text-gray-500 hover:text-gray-700'}`}>
+          Par section
+        </button>
+        <button onClick={() => setViewMode('table')}
+          className={`px-3 py-1.5 text-sm rounded-md transition ${viewMode === 'table' ? 'bg-white shadow-sm text-iip-gold font-medium' : 'text-gray-500 hover:text-gray-700'}`}>
+          Tableau global
+        </button>
+      </div>
+
+      {viewMode === 'section' && structure.length === 0 && (
         <div className="bg-white rounded-lg border border-gray-200 p-8 text-center text-gray-400">
           Aucune UE pour {annee}. Créez-en une avec « Nouvelle UE ».
         </div>
       )}
 
-      {structure.map(sg => {
+      {viewMode === 'section' && structure.map(sg => {
         const secKey = 'sec:' + sg.section;
         const secOpen = open[secKey];
         const totalCours = sg.ues.reduce((s, u) => s + u.cours.length, 0);
@@ -315,6 +329,107 @@ export default function Referentiels() {
           </div>
         );
       })}
+
+      {/* Vue tableau global : toutes les UE triées par numéro */}
+      {viewMode === 'table' && (() => {
+        // Aplatir toutes les UE de toutes les sections, triées par numéro
+        const allUes = structure.flatMap(sg => sg.ues.map(ue => ({ ...ue, _section: sg.section })))
+          .sort((a, b) => (a.ue_num || 0) - (b.ue_num || 0));
+        if (allUes.length === 0) {
+          return <div className="bg-white rounded-lg border border-gray-200 p-8 text-center text-gray-400">Aucune UE pour {annee}.</div>;
+        }
+        return (
+          <div className="bg-white rounded-lg border border-gray-200 overflow-hidden">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="bg-iip-gold/5 text-xs text-gray-600 border-b border-gray-200">
+                  <th className="text-left px-3 py-2 w-8"></th>
+                  <th className="text-left px-2 py-2">N° UE</th>
+                  <th className="text-left px-2 py-2">Section</th>
+                  <th className="text-left px-2 py-2">Nom</th>
+                  <th className="text-center px-2 py-2">Bloc</th>
+                  <th className="text-center px-2 py-2">Niveau</th>
+                  <th className="text-center px-2 py-2">Quadri</th>
+                  <th className="text-center px-2 py-2">Réf.</th>
+                  <th className="text-right px-2 py-2">Pér.</th>
+                  <th className="text-right px-2 py-2">Aut.</th>
+                  <th className="text-right px-2 py-2">ECTS</th>
+                  <th className="text-right px-2 py-2">Cours</th>
+                  <th className="px-2 py-2"></th>
+                </tr>
+              </thead>
+              <tbody>
+                {allUes.map(ue => {
+                  const ueKey = 'tbl:' + ue._section + '/' + ue.ue_num;
+                  const ueOpen = open[ueKey];
+                  const isHelb = ue.et_ref === 'HELB';
+                  return (
+                    <Fragment key={ueKey}>
+                      <tr className={`border-b border-gray-100 hover:bg-gray-50 ${isHelb ? 'bg-pink-50' : ''}`}>
+                        <td className="px-3 py-1.5">
+                          <button onClick={() => toggle(ueKey)} className="text-iip-gold">
+                            <span className={`inline-block text-xs transition-transform ${ueOpen ? 'rotate-90' : ''}`}>▶</span>
+                          </button>
+                        </td>
+                        <td className="px-2 py-1.5 font-semibold text-iip-gold cursor-pointer" onClick={() => toggle(ueKey)}>{ue.ue_num}</td>
+                        <td className="px-2 py-1.5 text-xs text-gray-600">{ue._section}</td>
+                        <td className="px-2 py-1.5 cursor-pointer" onClick={() => toggle(ueKey)}>
+                          {ue.ue_nom}
+                          {isHelb && <span className="text-xs text-pink-600 font-bold ml-1.5">HELB</span>}
+                        </td>
+                        <td className="px-2 py-1.5 text-center text-xs">{ue.ue_niv || '—'}</td>
+                        <td className="px-2 py-1.5 text-center text-xs">{ue.ue_niveau || '—'}</td>
+                        <td className="px-2 py-1.5 text-center text-xs">{ue.ue_quad || '—'}</td>
+                        <td className="px-2 py-1.5 text-center text-xs">{ue.et_ref || '—'}</td>
+                        <td className="px-2 py-1.5 text-right">{ue.ue_per_cours ?? '—'}</td>
+                        <td className="px-2 py-1.5 text-right text-gray-400">{ue.ue_aut ?? '—'}</td>
+                        <td className="px-2 py-1.5 text-right">{ue.ects ?? '—'}</td>
+                        <td className="px-2 py-1.5 text-right text-gray-400">{ue.cours.length}</td>
+                        <td className="px-2 py-1.5 text-right whitespace-nowrap">
+                          <button onClick={() => setUeModal({ ...ue, _edit: true })} className="text-iip-gold hover:text-iip-amber" title="Modifier l'UE">✏</button>
+                          <button onClick={() => delUE(ue)} className="text-red-400 hover:text-red-600 ml-2" title="Supprimer">🗑</button>
+                        </td>
+                      </tr>
+                      {ueOpen && (
+                        <tr className={isHelb ? 'bg-pink-50/40' : 'bg-gray-50/50'}>
+                          <td colSpan="13" className="px-6 py-2">
+                            <table className="w-full text-xs">
+                              <thead><tr className="text-gray-500">
+                                <th className="text-left py-1">Code</th><th className="text-left">Nom du cours</th>
+                                <th className="text-center">Type</th><th className="text-right">Cours_per</th>
+                                <th className="text-center">Quadri</th><th className="text-right">Attr.</th><th></th>
+                              </tr></thead>
+                              <tbody>
+                                {ue.cours.map(c => (
+                                  <tr key={c.cours_code} className="border-t border-gray-100">
+                                    <td className="py-1 font-mono">{c.cours_code}</td>
+                                    <td>{c.cours_nom}</td>
+                                    <td className="text-center">{c.ct_pp && <span className={`badge ${c.ct_pp==='CT'?'badge-ct':'badge-pp'}`}>{c.ct_pp}</span>}</td>
+                                    <td className="text-right font-semibold">{c.cours_per ?? '—'}</td>
+                                    <td className="text-center">{c.quadrimestre_cours || '—'}</td>
+                                    <td className="text-right text-gray-400">{c.nb_attributions}</td>
+                                    <td className="text-right whitespace-nowrap">
+                                      <button onClick={() => setCoursModal({ cours: { ...c, _edit: true }, ueNum: ue.ue_num, section: ue._section })} className="text-iip-mauve hover:opacity-70" title="Modifier">✏</button>
+                                      <button onClick={() => delCours(c)} className="text-red-400 hover:text-red-600 ml-2" title="Supprimer">🗑</button>
+                                    </td>
+                                  </tr>
+                                ))}
+                                {ue.cours.length === 0 && <tr><td colSpan="7" className="text-center text-gray-400 py-2">Aucun cours</td></tr>}
+                              </tbody>
+                            </table>
+                            <button onClick={() => setCoursModal({ cours: {}, ueNum: ue.ue_num, section: ue._section })}
+                              className="mt-2 text-iip-mauve hover:underline">➕ Ajouter un cours</button>
+                          </td>
+                        </tr>
+                      )}
+                    </Fragment>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        );
+      })()}
 
       {sectionModal && <SectionModal section={sectionModal} onClose={() => setSectionModal(null)} onSaved={() => { setSectionModal(null); load(); }} />}
       {importOpen && (
