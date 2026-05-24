@@ -323,7 +323,7 @@ export default function Attributions() {
     const st = groupStats(cg.rows);
     return (
       <div key={key} className="border-t border-gray-100">
-        <button onClick={()=>toggle(key)} className="w-full flex items-center gap-2 px-6 py-2 hover:bg-gray-50 transition text-left text-sm">
+        <button onClick={()=>toggle(key)} className="w-full flex items-center gap-2 pl-10 pr-4 py-2 hover:bg-gray-100/60 transition text-left text-sm">
           <span className={`text-gray-400 text-xs transition-transform ${open?'rotate-90':''}`}>▶</span>
           <span className="font-mono text-xs text-gray-500">{cg.code_cours}</span>
           <span className="text-gray-700 truncate flex-1">{cg.nom_cours}</span>
@@ -334,7 +334,7 @@ export default function Attributions() {
           {st.nBad>0 ? <span className="text-xs text-red-600 font-bold">✗</span> : st.nConf>0 ? <span className="text-xs text-green-600 font-bold">✓</span> : null}
         </button>
         {open && (
-          <div className="overflow-auto max-h-[40vh] ml-6 mr-2 mb-2 border border-gray-200 rounded">
+          <div className="overflow-auto max-h-[40vh] border-t border-gray-100 bg-white">
             <table className="grid-excel" style={{tableLayout:'fixed'}}>
               <thead><tr>
                 {COLS_COURS.map(c => c.key==='__select'
