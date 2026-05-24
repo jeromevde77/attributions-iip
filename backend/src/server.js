@@ -142,6 +142,30 @@ try {
     }
   }
 
+  // 5f. Activer l'historique automatiquement (pour le fil d'activité)
+  {
+    const p = db.prepare("SELECT valeur_num FROM parametre_financier WHERE cle = 'HISTORIQUE_ACTIF'").get();
+    if (!p) {
+      db.prepare("INSERT INTO parametre_financier (cle, valeur_num, description) VALUES ('HISTORIQUE_ACTIF', 1, 'Journalisation des modifications (fil d activité)')").run();
+      console.log('[migration] HISTORIQUE_ACTIF créé et activé');
+    } else if (Number(p.valeur_num) !== 1) {
+      db.prepare("UPDATE parametre_financier SET valeur_num = 1 WHERE cle = 'HISTORIQUE_ACTIF'").run();
+      console.log('[migration] HISTORIQUE_ACTIF activé');
+    }
+  }
+
+  // 5g. Accusés de traitement du fil d'activité : qui a coché quelle modif
+  {
+    db.exec(`
+      CREATE TABLE IF NOT EXISTS activite_traitee (
+        snapshot_id    INTEGER NOT NULL,
+        utilisateur_id INTEGER NOT NULL,
+        traite_at      DATETIME DEFAULT CURRENT_TIMESTAMP,
+        PRIMARY KEY (snapshot_id, utilisateur_id)
+      );
+    `);
+  }
+
   // 6. Ajouter annee_scolaire aux tables ue et cours (clés composites)
   // SQLite ne permet pas de changer une PRIMARY KEY → on recrée les tables.
   // Les FK doivent être désactivées car d'autres tables (aa, cours) référencent ue.

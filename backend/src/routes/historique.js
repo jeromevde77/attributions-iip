@@ -8,38 +8,47 @@ import { authRequired, roleRequired } from '../middleware/auth.js';
 const r = Router();
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
-// ─── Fil d'activité : nouveautés depuis la dernière visite de l'utilisateur ───
-// Renvoie les modifications (create/update/delete) postérieures au repère
-// derniere_visite_activite de l'utilisateur courant, + leur nombre.
+// ─── Fil d'activité : modifications des 7 derniers jours ───
+// Renvoie les modifications (create/update/delete) des 7 derniers jours,
+// avec pour chacune l'état 'traitée' (cochée) par l'utilisateur courant.
 r.get('/activite', authRequired, (req, res) => {
-  const { annee, limit = 100 } = req.query;
-  const u = db.prepare('SELECT derniere_visite_activite FROM utilisateur WHERE id = ?').get(req.user.id);
-  const depuis = u?.derniere_visite_activite || null;
+  const { annee, jours = 7, limit = 200 } = req.query;
 
-  const where = [];
-  const params = [];
+  const where = ["s.created_at >= datetime('now', ?)"];
+  const params = [`-${Number(jours)} days`];
   if (annee) { where.push("json_extract(s.snapshot, '$.annee_scolaire') = ?"); params.push(annee); }
-  if (depuis) { where.push("s.created_at > ?"); params.push(depuis); }
 
   const rows = db.prepare(`
     SELECT s.id, s.attribution_id, s.action, s.utilisateur_nom, s.created_at,
            json_extract(s.snapshot, '$.section')        AS section,
            json_extract(s.snapshot, '$.ue_num')         AS ue_num,
            json_extract(s.snapshot, '$.nom_cours')      AS nom_cours,
-           json_extract(s.snapshot, '$.annee_scolaire') AS annee_scolaire
+           json_extract(s.snapshot, '$.annee_scolaire') AS annee_scolaire,
+           CASE WHEN t.snapshot_id IS NOT NULL THEN 1 ELSE 0 END AS traitee
     FROM attribution_snapshot s
-    ${where.length ? 'WHERE ' + where.join(' AND ') : ''}
+    LEFT JOIN activite_traitee t
+      ON t.snapshot_id = s.id AND t.utilisateur_id = ?
+    WHERE ${where.join(' AND ')}
     ORDER BY s.created_at DESC
     LIMIT ?
-  `).all(...params, Number(limit));
+  `).all(req.user.id, ...params, Number(limit));
 
-  res.json({ depuis, count: rows.length, items: rows });
+  const nonTraitees = rows.filter(r => !r.traitee).length;
+  res.json({ jours: Number(jours), count: rows.length, non_traitees: nonTraitees, items: rows });
 });
 
-// Acquitter le fil : avance le repère de dernière visite à maintenant.
-r.post('/activite/vu', authRequired, (req, res) => {
-  db.prepare("UPDATE utilisateur SET derniere_visite_activite = datetime('now') WHERE id = ?").run(req.user.id);
-  res.json({ ok: true });
+// Cocher / décocher une modification comme traitée (par l'utilisateur courant)
+r.post('/activite/:snapshotId/traitee', authRequired, (req, res) => {
+  const sid = Number(req.params.snapshotId);
+  const traitee = req.body?.traitee !== false; // par défaut true
+  if (traitee) {
+    db.prepare(`INSERT OR IGNORE INTO activite_traitee (snapshot_id, utilisateur_id) VALUES (?, ?)`)
+      .run(sid, req.user.id);
+  } else {
+    db.prepare(`DELETE FROM activite_traitee WHERE snapshot_id = ? AND utilisateur_id = ?`)
+      .run(sid, req.user.id);
+  }
+  res.json({ ok: true, snapshot_id: sid, traitee });
 });
 
 // ─── Paramètre activation ────────────────────────────────────────────────────

@@ -59,8 +59,8 @@ export const api = {
   changelog() { return request('/historique/changelog'); },
   setHistoriqueConfig(actif) { return request('/historique/config', { method: 'POST', body: { actif } }); },
   historique(annee, limit = 100) { return request(withAnnee('/historique', { limit })); },
-  activiteFeed(limit = 100) { return request(withAnnee('/historique/activite', { limit })); },
-  activiteVu() { return request('/historique/activite/vu', { method: 'POST' }); },
+  activiteFeed(jours = 7, limit = 200) { return request(withAnnee('/historique/activite', { jours, limit })); },
+  activiteTraitee(snapshotId, traitee = true) { return request(`/historique/activite/${snapshotId}/traitee`, { method: 'POST', body: { traitee } }); },
   historiqueAttribution(id) { return request(`/historique/attribution/${id}`); },
   rollback(snapshotId) { return request(`/historique/rollback/${snapshotId}`, { method: 'POST' }); },
 
