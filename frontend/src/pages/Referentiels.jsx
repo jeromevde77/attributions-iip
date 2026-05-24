@@ -267,11 +267,16 @@ export default function Referentiels({ embedded = false }) {
         const totalCours = sg.ues.reduce((s, u) => s + u.cours.length, 0);
         return (
           <div key={sg.section} className="bg-white rounded-lg border border-gray-200 overflow-hidden">
-            <button onClick={() => toggle(secKey)} className="w-full flex items-center gap-3 px-4 py-3 hover:bg-iip-gold/10 bg-iip-gold/5 text-left">
-              <span className={`text-iip-gold font-bold transition-transform ${secOpen ? 'rotate-90' : ''}`}>▶</span>
-              <span className="font-bold text-iip-gold text-lg">{sg.section}</span>
-              <span className="text-xs text-gray-500 ml-auto">{sg.ues.length} UE · {totalCours} cours</span>
-            </button>
+            <div className="w-full flex items-center gap-3 px-4 py-3 bg-iip-gold/5">
+              <button onClick={() => toggle(secKey)} className="flex items-center gap-3 flex-1 hover:opacity-70 text-left">
+                <span className={`text-iip-gold font-bold transition-transform ${secOpen ? 'rotate-90' : ''}`}>▶</span>
+                <span className="font-bold text-iip-gold text-lg">{sg.section}</span>
+                <span className="text-xs text-gray-500 ml-auto">{sg.ues.length} UE · {totalCours} cours</span>
+              </button>
+              <button onClick={() => setUeModal({ section: sg.section })}
+                title={`Ajouter une UE à ${sg.section}`}
+                className="flex-shrink-0 w-7 h-7 flex items-center justify-center rounded-full bg-iip-gold/10 hover:bg-iip-gold hover:text-white text-iip-gold font-bold transition">+</button>
+            </div>
             {secOpen && (
               <div className="overflow-auto">
                 <table className="w-full text-sm">
