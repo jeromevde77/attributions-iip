@@ -369,7 +369,7 @@ export default function Referentiels({ embedded = false }) {
         <div className="bg-white rounded-lg border border-gray-200 overflow-auto">
           <table className="w-full text-sm">
             <thead>
-              <tr className="bg-gray-50 text-xs text-gray-500 border-b border-gray-200">
+              <tr className="bg-gray-50 text-sm text-gray-500 border-b border-gray-200">
                 <th className="w-8"></th>
                 <th className="text-left px-2 py-2">N° UE</th>
                 <th className="text-center px-2 py-2">Bloc</th>
@@ -402,10 +402,10 @@ export default function Referentiels({ embedded = false }) {
                         </button>
                       </td>
                       <td colSpan="6" className="px-2 py-2 cursor-pointer" onClick={() => toggle(secKey)}>
-                        <span className="font-bold text-iip-gold text-base">{sg.section}</span>
-                        {sg.section_niveau && <span className="ml-2 text-xs bg-iip-gold/10 text-iip-gold px-1.5 py-0.5 rounded">{sg.section_niveau}</span>}
+                        <span className="font-bold text-iip-gold text-sm">{sg.section}</span>
+                        {sg.section_niveau && <span className="ml-2 text-sm bg-iip-gold/10 text-iip-gold px-1.5 py-0.5 rounded">{sg.section_niveau}</span>}
                       </td>
-                      <td colSpan="4" className="px-2 py-2 text-right text-xs text-gray-500">{sg.ues.length} UE · {totalCours} cours</td>
+                      <td colSpan="4" className="px-2 py-2 text-right text-sm text-gray-500">{sg.ues.length} UE · {totalCours} cours</td>
                       <td className="px-2 py-2 text-right relative">
                         <button onClick={() => setCatalogueSection(catalogueSection === sg.section ? null : sg.section)}
                           title={`Ajouter une UE à ${sg.section}`}
@@ -434,20 +434,20 @@ export default function Referentiels({ embedded = false }) {
                           <tr className={`border-b border-gray-100 ${isHelb ? 'bg-pink-50 hover:bg-pink-100/60' : 'hover:bg-gray-50'}`}>
                             <td className="px-2 py-1.5 text-center">
                               <button onClick={() => toggle(ueKey)} className="text-iip-gold">
-                                <span className={`inline-block text-xs transition-transform ${ueOpen ? 'rotate-90' : ''}`}>▶</span>
+                                <span className={`inline-block text-sm transition-transform ${ueOpen ? 'rotate-90' : ''}`}>▶</span>
                               </button>
                             </td>
                             <td className="px-2 py-1.5 font-semibold text-iip-gold whitespace-nowrap cursor-pointer" onClick={() => toggle(ueKey)}>UE {ue.ue_num}</td>
-                            <td className="px-2 py-1.5 text-center text-xs">{ue.ue_niv || '—'}</td>
-                            <td className="px-2 py-1.5 text-center text-xs">{ue.ue_niveau || '—'}</td>
-                            <td className="px-2 py-1.5 text-center text-xs">{ue.ue_quad || '—'}</td>
-                            <td className="px-2 py-1.5 text-center text-xs">
+                            <td className="px-2 py-1.5 text-center">{ue.ue_niv || '—'}</td>
+                            <td className="px-2 py-1.5 text-center">{ue.ue_niveau || '—'}</td>
+                            <td className="px-2 py-1.5 text-center">{ue.ue_quad || '—'}</td>
+                            <td className="px-2 py-1.5 text-center">
                               {isHelb ? <span className="text-pink-600 font-bold">HELB</span> : (ue.et_ref || '—')}
                             </td>
                             <td className="px-2 py-1.5 cursor-pointer truncate max-w-[280px]" title={ue.ue_nom} onClick={() => toggle(ueKey)}>
                               {ue.ue_nom}
                               {ue.sections_partagees && (
-                                <span className="ml-2 text-xs text-iip-mauve" title={`Aussi organisée dans : ${ue.sections_partagees.filter(s => s !== sg.section).join(', ')}`}>
+                                <span className="ml-2 text-sm text-iip-mauve" title={`Aussi organisée dans : ${ue.sections_partagees.filter(s => s !== sg.section).join(', ')}`}>
                                   ⇄ partagée
                                 </span>
                               )}
@@ -464,7 +464,7 @@ export default function Referentiels({ embedded = false }) {
                           {ueOpen && (
                             <tr className={isHelb ? 'bg-pink-50/40' : 'bg-gray-50/50'}>
                               <td colSpan="12" className="px-8 py-2">
-                                <table className="w-full text-xs">
+                                <table className="w-full text-sm">
                                   <thead><tr className="text-gray-500">
                                     <th className="text-left py-1">Code</th><th className="text-left">Nom du cours</th>
                                     <th className="text-center">Type</th><th className="text-right">Cours_per</th>
@@ -542,7 +542,7 @@ export default function Referentiels({ embedded = false }) {
                       <tr className={`border-b border-gray-100 hover:bg-gray-50 ${isHelb ? 'bg-pink-50' : ''}`}>
                         <td className="px-3 py-1.5">
                           <button onClick={() => toggle(ueKey)} className="text-iip-gold">
-                            <span className={`inline-block text-xs transition-transform ${ueOpen ? 'rotate-90' : ''}`}>▶</span>
+                            <span className={`inline-block text-sm transition-transform ${ueOpen ? 'rotate-90' : ''}`}>▶</span>
                           </button>
                         </td>
                         <td className="px-2 py-1.5 font-semibold text-iip-gold cursor-pointer" onClick={() => toggle(ueKey)}>{ue.ue_num}</td>
@@ -551,10 +551,10 @@ export default function Referentiels({ embedded = false }) {
                           {ue.ue_nom}
                           {isHelb && <span className="text-xs text-pink-600 font-bold ml-1.5">HELB</span>}
                         </td>
-                        <td className="px-2 py-1.5 text-center text-xs">{ue.ue_niv || '—'}</td>
-                        <td className="px-2 py-1.5 text-center text-xs">{ue.ue_niveau || '—'}</td>
-                        <td className="px-2 py-1.5 text-center text-xs">{ue.ue_quad || '—'}</td>
-                        <td className="px-2 py-1.5 text-center text-xs">{ue.et_ref || '—'}</td>
+                        <td className="px-2 py-1.5 text-center">{ue.ue_niv || '—'}</td>
+                        <td className="px-2 py-1.5 text-center">{ue.ue_niveau || '—'}</td>
+                        <td className="px-2 py-1.5 text-center">{ue.ue_quad || '—'}</td>
+                        <td className="px-2 py-1.5 text-center">{ue.et_ref || '—'}</td>
                         <td className="px-2 py-1.5 text-right">{ue.ue_per_cours ?? '—'}</td>
                         <td className="px-2 py-1.5 text-right text-gray-400">{ue.ue_aut ?? '—'}</td>
                         <td className="px-2 py-1.5 text-right">{ue.ects ?? '—'}</td>
@@ -567,7 +567,7 @@ export default function Referentiels({ embedded = false }) {
                       {ueOpen && (
                         <tr className={isHelb ? 'bg-pink-50/40' : 'bg-gray-50/50'}>
                           <td colSpan="13" className="px-6 py-2">
-                            <table className="w-full text-xs">
+                            <table className="w-full text-sm">
                               <thead><tr className="text-gray-500">
                                 <th className="text-left py-1">Code</th><th className="text-left">Nom du cours</th>
                                 <th className="text-center">Type</th><th className="text-right">Cours_per</th>

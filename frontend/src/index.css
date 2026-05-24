@@ -71,7 +71,7 @@ table.grid-excel-soft td.num { text-align: right; font-variant-numeric: tabular-
   -moz-appearance: textfield;
 }
 
-.badge { display: inline-block; padding: 0.15rem 0.5rem; border-radius: 0.375rem; font-size: 0.75rem; font-weight: 600; }
+.badge { display: inline-block; padding: 0.15rem 0.5rem; border-radius: 0.375rem; font-size: 0.875rem; font-weight: 600; }
 .badge-iip   { background: #dbeafe; color: #1B2B4B; }
 .badge-helb  { background: #cffafe; color: #0e7490; }
 .badge-ct    { background: #dbeafe; color: #1e40af; }
