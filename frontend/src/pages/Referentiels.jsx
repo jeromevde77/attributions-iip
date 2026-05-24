@@ -278,7 +278,7 @@ export default function Referentiels({ embedded = false }) {
   const [catalogueSection, setCatalogueSection] = useState(null); // menu + ouvert pour cette section
   const [catalogueOpen, setCatalogueOpen] = useState(null); // section pour laquelle le catalogue UE est ouvert
   const [annees, setAnnees] = useState([]);
-  const [viewMode, setViewMode] = useState('section'); // 'section' | 'table'
+  const [viewMode, setViewMode] = useState('section'); // 'sections' (gestion) | 'section' (UE) | 'table' (global)
   const [activeUE, setActiveUE] = useState(null); // clé de la dernière UE cliquée (encadrée)
   const annee = getAnnee();
 
@@ -329,30 +329,15 @@ export default function Referentiels({ embedded = false }) {
         La suppression est bloquée s'il existe des attributions.
       </p>
 
-      {/* Liste des sections (gestion) */}
-      {sections.length > 0 && (
-        <div className="bg-white rounded-lg border border-gray-200 p-3">
-          <div className="text-xs font-semibold text-gray-500 mb-2">Sections ({sections.length})</div>
-          <div className="flex flex-wrap gap-2">
-            {sections.map(s => (
-              <span key={s.code} className="inline-flex items-center gap-1.5 bg-gray-50 border border-gray-200 rounded-full pl-3 pr-1.5 py-1 text-sm">
-                <span className="font-medium">{s.code}</span>
-                {s.niveau && <span className="text-xs bg-iip-gold/10 text-iip-gold px-1.5 rounded">{s.niveau}</span>}
-                {s.libelle && s.libelle !== s.code && <span className="text-gray-400 text-xs">— {s.libelle}</span>}
-                <button onClick={() => setUeModal({ section: s.code })} className="text-iip-mauve hover:opacity-70 ml-1 font-bold" title={`Ajouter une UE à ${s.code}`}>+</button>
-                <button onClick={() => setSectionModal({ ...s, _edit: true })} className="text-iip-gold hover:text-iip-amber" title="Modifier">✏</button>
-                <button onClick={() => delSection(s.code)} className="text-red-400 hover:text-red-600" title="Supprimer">×</button>
-              </span>
-            ))}
-          </div>
-        </div>
-      )}
-
-      {/* Sélecteur de mode d'affichage */}
+      {/* Sélecteur de vue */}
       <div className="flex items-center gap-1 bg-gray-100 rounded-lg p-1 w-fit">
+        <button onClick={() => setViewMode('sections')}
+          className={`px-3 py-1.5 text-sm rounded-md transition ${viewMode === 'sections' ? 'bg-white shadow-sm text-iip-gold font-medium' : 'text-gray-500 hover:text-gray-700'}`}>
+          Sections
+        </button>
         <button onClick={() => setViewMode('section')}
           className={`px-3 py-1.5 text-sm rounded-md transition ${viewMode === 'section' ? 'bg-white shadow-sm text-iip-gold font-medium' : 'text-gray-500 hover:text-gray-700'}`}>
-          Par section
+          UE
         </button>
         <button onClick={() => setViewMode('table')}
           className={`px-3 py-1.5 text-sm rounded-md transition ${viewMode === 'table' ? 'bg-white shadow-sm text-iip-gold font-medium' : 'text-gray-500 hover:text-gray-700'}`}>
@@ -360,11 +345,58 @@ export default function Referentiels({ embedded = false }) {
         </button>
       </div>
 
+      {/* ── Vue Sections : tableau de gestion des sections ── */}
+      {viewMode === 'sections' && (
+        <div className="bg-white rounded-lg border border-gray-200 overflow-auto">
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="bg-gray-50 text-gray-500 border-b border-gray-200">
+                <th className="text-left px-3 py-2">Code</th>
+                <th className="text-left px-3 py-2">Libellé</th>
+                <th className="text-center px-3 py-2">Niveau</th>
+                <th className="text-left px-3 py-2">Responsable</th>
+                <th className="text-center px-3 py-2">Code FWB</th>
+                <th className="text-right px-3 py-2">UE</th>
+                <th className="text-right px-3 py-2">Cours</th>
+                <th className="px-3 py-2"></th>
+              </tr>
+            </thead>
+            <tbody>
+              {sections.length === 0 && (
+                <tr><td colSpan="8" className="text-center text-gray-400 py-8">Aucune section. Créez-en une avec « Nouvelle section ».</td></tr>
+              )}
+              {sections.map(s => {
+                const grp = structure.find(sg => sg.section === s.code);
+                const nbUe = grp ? grp.ues.length : 0;
+                const nbCours = grp ? grp.ues.reduce((n, u) => n + u.cours.length, 0) : 0;
+                return (
+                  <tr key={s.code} className="border-b border-gray-100 hover:bg-gray-50">
+                    <td className="px-3 py-2 font-semibold text-iip-gold">{s.code}</td>
+                    <td className="px-3 py-2 text-gray-700">{s.libelle && s.libelle !== s.code ? s.libelle : <span className="text-gray-300">—</span>}</td>
+                    <td className="px-3 py-2 text-center">{s.niveau ? <span className="text-xs bg-iip-gold/10 text-iip-gold px-1.5 py-0.5 rounded">{s.niveau}</span> : <span className="text-gray-300">—</span>}</td>
+                    <td className="px-3 py-2 text-gray-700">{s.responsable || <span className="text-gray-300">—</span>}</td>
+                    <td className="px-3 py-2 text-center text-gray-600">{s.code_fwb || <span className="text-gray-300">—</span>}</td>
+                    <td className="px-3 py-2 text-right text-gray-500">{nbUe}</td>
+                    <td className="px-3 py-2 text-right text-gray-500">{nbCours}</td>
+                    <td className="px-3 py-2 text-right whitespace-nowrap">
+                      <button onClick={() => setUeModal({ section: s.code })} className="text-iip-mauve hover:opacity-70 font-bold" title={`Ajouter une UE à ${s.code}`}>+</button>
+                      <button onClick={() => setSectionModal({ ...s, _edit: true })} className="text-iip-gold hover:text-iip-amber ml-3" title="Modifier">✏</button>
+                      <button onClick={() => delSection(s.code)} className="text-red-400 hover:text-red-600 ml-2" title="Supprimer">🗑</button>
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+      )}
+
       {viewMode === 'section' && structure.length === 0 && (
         <div className="bg-white rounded-lg border border-gray-200 p-8 text-center text-gray-400">
           Aucune UE pour {annee}. Créez-en une avec « Nouvelle UE ».
         </div>
       )}
+
 
       {viewMode === 'section' && (
         <div className="bg-white rounded-lg border border-gray-200 overflow-auto">
