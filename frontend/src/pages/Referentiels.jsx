@@ -366,7 +366,7 @@ export default function Referentiels({ embedded = false }) {
                 <tr><td colSpan="8" className="text-center text-gray-400 py-8">Aucune section. Créez-en une avec « Nouvelle section ».</td></tr>
               )}
               {sections.map(s => {
-                const grp = structure.find(sg => sg.section === s.code);
+                const grp = structure.find(sg => sg.section && sg.section.toUpperCase() === s.code.toUpperCase());
                 const nbUe = grp ? grp.ues.length : 0;
                 const nbCours = grp ? grp.ues.reduce((n, u) => n + u.cours.length, 0) : 0;
                 return (
