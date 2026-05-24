@@ -422,10 +422,10 @@ export default function Attributions() {
     const open = openUEs.has(key);
     const st = groupStats(sg.rows);
     return (
-      <div key={key} className="bg-white rounded-lg border border-gray-200 overflow-hidden">
-        <button onClick={()=>toggle(key)} className="w-full flex items-center gap-3 px-4 py-3 hover:bg-iip-gold/10 transition text-left bg-iip-gold/5">
+      <div key={key} className="border-b border-gray-200 last:border-b-0">
+        <button onClick={()=>toggle(key)} className="w-full flex items-center gap-3 px-4 py-3 hover:bg-iip-gold/10 transition text-left bg-iip-gold/5 border-y border-iip-gold/20">
           <span className={`text-iip-gold font-bold transition-transform ${open?'rotate-90':''}`}>▶</span>
-          <span className="font-bold text-iip-gold text-lg">{sg.section}</span>
+          <span className="font-bold text-iip-gold text-base">{sg.section}</span>
           <div className="flex items-center gap-3 text-xs text-gray-500 flex-shrink-0 ml-auto">
             <span>{sg.ues.length} UE</span>
             <span>{sg.rows.length} attr.</span>
@@ -503,11 +503,13 @@ export default function Attributions() {
         </div>
       </div>
 
-      {/* VUE PAR SECTION/UE/COURS */}
-      {viewMode==='ue' && <div className="hidden md:flex flex-col gap-2">
+      {/* VUE PAR SECTION/UE/COURS — tableau unique continu */}
+      {viewMode==='ue' && <div className="hidden md:block">
         {loading ? <div className="p-8 text-center text-gray-400">Chargement…</div>
          : sectionGroups.length===0 ? <div className="p-8 text-center text-gray-400 bg-white rounded-lg border">Aucune attribution</div>
-         : sectionGroups.map(renderSection)}
+         : <div className="bg-white rounded-lg border border-gray-200 overflow-hidden">
+             {sectionGroups.map(renderSection)}
+           </div>}
       </div>}
 
       {/* VUE COMPLÈTE */}
