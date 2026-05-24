@@ -103,9 +103,16 @@ r.get('/structure', authRequired, (req, res) => {
     }
   }
   // Trier les sections par nom et les UE par numéro
+  const refSecInfo = Object.fromEntries(
+    db.prepare('SELECT code, niveau FROM section').all().map(s => [s.code, s.niveau])
+  );
   const result = Object.entries(sections)
     .sort((a, b) => a[0].localeCompare(b[0]))
-    .map(([section, ues]) => ({ section, ues: ues.sort((x, y) => (x.ue_num || 0) - (y.ue_num || 0)) }));
+    .map(([section, ues]) => ({
+      section,
+      section_niveau: refSecInfo[section] || null,
+      ues: ues.sort((x, y) => (x.ue_num || 0) - (y.ue_num || 0))
+    }));
   res.json(result);
 });
 

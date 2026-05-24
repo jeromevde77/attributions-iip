@@ -365,57 +365,67 @@ export default function Referentiels({ embedded = false }) {
         </div>
       )}
 
-      {viewMode === 'section' && structure.map(sg => {
-        const secKey = 'sec:' + sg.section;
-        const secOpen = open[secKey];
-        const totalCours = sg.ues.reduce((s, u) => s + u.cours.length, 0);
-        return (
-          <div key={sg.section} className="bg-white rounded-lg border border-gray-200 overflow-hidden">
-            <div className="w-full flex items-center gap-3 px-4 py-3 bg-iip-gold/5">
-              <button onClick={() => toggle(secKey)} className="flex items-center gap-3 flex-1 hover:opacity-70 text-left">
-                <span className={`text-iip-gold font-bold transition-transform ${secOpen ? 'rotate-90' : ''}`}>▶</span>
-                <span className="font-bold text-iip-gold text-lg">{sg.section}</span>
-                <span className="text-xs text-gray-500 ml-auto">{sg.ues.length} UE · {totalCours} cours</span>
-              </button>
-              <div className="relative flex-shrink-0">
-                <button onClick={() => setCatalogueSection(catalogueSection === sg.section ? null : sg.section)}
-                  title={`Ajouter une UE à ${sg.section}`}
-                  className="w-7 h-7 flex items-center justify-center rounded-full bg-iip-gold/10 hover:bg-iip-gold hover:text-white text-iip-gold font-bold transition">+</button>
-                {catalogueSection === sg.section && (
-                  <div className="absolute right-0 top-full mt-1 z-30 bg-white border border-gray-200 rounded-lg shadow-xl py-1 w-64">
-                    <button onClick={() => { setCatalogueOpen(sg.section); setCatalogueSection(null); }}
-                      className="w-full text-left px-3 py-2 text-sm hover:bg-iip-gold/10 flex items-center gap-2">
-                      <span className="text-iip-gold">⇄</span><span>Rattacher une UE existante</span>
-                    </button>
-                    <button onClick={() => { setUeModal({ section: sg.section }); setCatalogueSection(null); }}
-                      className="w-full text-left px-3 py-2 text-sm hover:bg-iip-mauve/10 text-iip-mauve border-t border-gray-100 flex items-center gap-2">
-                      <span>＋</span><span>Créer une nouvelle UE</span>
-                    </button>
-                  </div>
-                )}
-              </div>
-            </div>
-            {secOpen && (
-              <div className="overflow-auto">
-                <table className="w-full text-sm">
-                  <thead>
-                    <tr className="bg-gray-50 text-xs text-gray-500 border-b border-gray-200">
-                      <th className="w-8"></th>
-                      <th className="text-left px-2 py-2">N° UE</th>
-                      <th className="text-center px-2 py-2">Bloc</th>
-                      <th className="text-center px-2 py-2">Niveau</th>
-                      <th className="text-center px-2 py-2">Quadri</th>
-                      <th className="text-center px-2 py-2">Réf.</th>
-                      <th className="text-left px-2 py-2">Nom de l'UE</th>
-                      <th className="text-right px-2 py-2">Pér.</th>
-                      <th className="text-right px-2 py-2">Aut.</th>
-                      <th className="text-right px-2 py-2">Cours</th>
-                      <th className="text-right px-2 py-2">Attr.</th>
-                      <th className="px-2 py-2"></th>
+      {viewMode === 'section' && (
+        <div className="bg-white rounded-lg border border-gray-200 overflow-auto">
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="bg-gray-50 text-xs text-gray-500 border-b border-gray-200">
+                <th className="w-8"></th>
+                <th className="text-left px-2 py-2">N° UE</th>
+                <th className="text-center px-2 py-2">Bloc</th>
+                <th className="text-center px-2 py-2">Niveau</th>
+                <th className="text-center px-2 py-2">Quadri</th>
+                <th className="text-center px-2 py-2">Réf.</th>
+                <th className="text-left px-2 py-2">Nom de l'UE</th>
+                <th className="text-right px-2 py-2">Pér.</th>
+                <th className="text-right px-2 py-2">Aut.</th>
+                <th className="text-right px-2 py-2">Cours</th>
+                <th className="text-right px-2 py-2">Attr.</th>
+                <th className="px-2 py-2"></th>
+              </tr>
+            </thead>
+            <tbody>
+              {structure.length === 0 && (
+                <tr><td colSpan="12" className="text-center text-gray-400 py-8">Aucune UE pour {annee}.</td></tr>
+              )}
+              {structure.map(sg => {
+                const secKey = 'sec:' + sg.section;
+                const secOpen = open[secKey];
+                const totalCours = sg.ues.reduce((s, u) => s + u.cours.length, 0);
+                return (
+                  <Fragment key={sg.section}>
+                    {/* Bandeau de section (ligne de regroupement) */}
+                    <tr className="bg-iip-gold/5 border-y border-iip-gold/20">
+                      <td className="px-2 py-2 text-center">
+                        <button onClick={() => toggle(secKey)} className="text-iip-gold font-bold">
+                          <span className={`inline-block transition-transform ${secOpen ? 'rotate-90' : ''}`}>▶</span>
+                        </button>
+                      </td>
+                      <td colSpan="6" className="px-2 py-2 cursor-pointer" onClick={() => toggle(secKey)}>
+                        <span className="font-bold text-iip-gold text-base">{sg.section}</span>
+                        {sg.section_niveau && <span className="ml-2 text-xs bg-iip-gold/10 text-iip-gold px-1.5 py-0.5 rounded">{sg.section_niveau}</span>}
+                      </td>
+                      <td colSpan="4" className="px-2 py-2 text-right text-xs text-gray-500">{sg.ues.length} UE · {totalCours} cours</td>
+                      <td className="px-2 py-2 text-right relative">
+                        <button onClick={() => setCatalogueSection(catalogueSection === sg.section ? null : sg.section)}
+                          title={`Ajouter une UE à ${sg.section}`}
+                          className="w-6 h-6 inline-flex items-center justify-center rounded-full bg-iip-gold/10 hover:bg-iip-gold hover:text-white text-iip-gold font-bold transition">+</button>
+                        {catalogueSection === sg.section && (
+                          <div className="absolute right-2 top-full mt-1 z-30 bg-white border border-gray-200 rounded-lg shadow-xl py-1 w-64 text-left">
+                            <button onClick={() => { setCatalogueOpen(sg.section); setCatalogueSection(null); }}
+                              className="w-full text-left px-3 py-2 text-sm hover:bg-iip-gold/10 flex items-center gap-2">
+                              <span className="text-iip-gold">⇄</span><span>Rattacher une UE existante</span>
+                            </button>
+                            <button onClick={() => { setUeModal({ section: sg.section }); setCatalogueSection(null); }}
+                              className="w-full text-left px-3 py-2 text-sm hover:bg-iip-mauve/10 text-iip-mauve border-t border-gray-100 flex items-center gap-2">
+                              <span>＋</span><span>Créer une nouvelle UE</span>
+                            </button>
+                          </div>
+                        )}
+                      </td>
                     </tr>
-                  </thead>
-                  <tbody>
-                    {sg.ues.map(ue => {
+                    {/* UE de la section */}
+                    {secOpen && sg.ues.map(ue => {
                       const ueKey = 'ue:' + sg.section + '/' + ue.ue_num;
                       const ueOpen = open[ueKey];
                       const isHelb = ue.et_ref === 'HELB';
@@ -453,7 +463,7 @@ export default function Referentiels({ embedded = false }) {
                           </tr>
                           {ueOpen && (
                             <tr className={isHelb ? 'bg-pink-50/40' : 'bg-gray-50/50'}>
-                              <td colSpan="12" className="px-6 py-2">
+                              <td colSpan="12" className="px-8 py-2">
                                 <table className="w-full text-xs">
                                   <thead><tr className="text-gray-500">
                                     <th className="text-left py-1">Code</th><th className="text-left">Nom du cours</th>
@@ -486,13 +496,13 @@ export default function Referentiels({ embedded = false }) {
                         </Fragment>
                       );
                     })}
-                  </tbody>
-                </table>
-              </div>
-            )}
-          </div>
-        );
-      })}
+                  </Fragment>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+      )}
 
       {/* Vue tableau global : toutes les UE triées par numéro */}
       {viewMode === 'table' && (() => {
