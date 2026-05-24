@@ -10,7 +10,6 @@ function SectionModal({ section, onClose, onSaved }) {
     code: section?.code || '',
     libelle: section?.libelle || '',
     niveau: section?.niveau || '',
-    type_horaire: section?.type_horaire || '',
     responsable: section?.responsable || '',
     code_fwb: section?.code_fwb || ''
   });
@@ -27,7 +26,6 @@ function SectionModal({ section, onClose, onSaved }) {
       const payload = {
         libelle: form.libelle.trim() || form.code.trim(),
         niveau: form.niveau || null,
-        type_horaire: form.type_horaire || null,
         responsable: form.responsable.trim() || null,
         code_fwb: form.code_fwb.trim() || null
       };
@@ -67,18 +65,10 @@ function SectionModal({ section, onClose, onSaved }) {
                 <option value="Master">Master</option>
                 <option value="Spécialisation">Spécialisation</option>
               </select></label>
-            <label className="block"><div className="text-xs text-gray-600 mb-0.5">Horaire</div>
-              <select value={form.type_horaire} onChange={e => set('type_horaire', e.target.value)}
-                className="w-full border border-gray-300 rounded px-3 py-1.5 text-sm bg-white">
-                <option value="">—</option>
-                <option value="Jour">Jour</option>
-                <option value="Soir">Soir</option>
-                <option value="Promotion sociale">Promotion sociale</option>
-              </select></label>
+            <label className="block"><div className="text-xs text-gray-600 mb-0.5">Responsable</div>
+              <input value={form.responsable} onChange={e => set('responsable', e.target.value)} placeholder="Coordinateur (optionnel)"
+                className="w-full border border-gray-300 rounded px-3 py-1.5 text-sm" /></label>
           </div>
-          <label className="block"><div className="text-xs text-gray-600 mb-0.5">Responsable</div>
-            <input value={form.responsable} onChange={e => set('responsable', e.target.value)} placeholder="Coordinateur de section (optionnel)"
-              className="w-full border border-gray-300 rounded px-3 py-1.5 text-sm" /></label>
           {error && <div className="bg-red-50 text-red-700 text-sm rounded p-2">{error}</div>}
           <div className="flex justify-end gap-2 pt-2 border-t">
             <button type="button" onClick={onClose} className="px-4 py-2 text-sm text-gray-600">Annuler</button>
