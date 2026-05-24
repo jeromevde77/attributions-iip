@@ -167,6 +167,29 @@ try {
     `);
   }
 
+  // 5h. Table des paramètres de l'établissement (documents officiels EA12)
+  {
+    db.exec(`
+      CREATE TABLE IF NOT EXISTS etablissement (
+        id              INTEGER PRIMARY KEY CHECK (id = 1),
+        po_nom          TEXT,
+        etab_nom        TEXT,
+        adresse         TEXT,
+        type_po         TEXT,
+        sous_type       TEXT,
+        num_ecot        TEXT,
+        num_fase        TEXT,
+        email_ec        TEXT,
+        email_po        TEXT,
+        gest_nom        TEXT,
+        gest_prenom     TEXT,
+        gest_qualite    TEXT,
+        gest_tel        TEXT,
+        gest_email      TEXT
+      );
+    `);
+  }
+
   // 6. Ajouter annee_scolaire aux tables ue et cours (clés composites)
   // SQLite ne permet pas de changer une PRIMARY KEY → on recrée les tables.
   // Les FK doivent être désactivées car d'autres tables (aa, cours) référencent ue.
