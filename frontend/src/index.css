@@ -29,6 +29,28 @@ table.grid-excel tbody tr:nth-child(even) { background: #f8fafc; }
 table.grid-excel tbody tr:hover { background: #e8f4f8; }
 table.grid-excel td.num { text-align: right; font-variant-numeric: tabular-nums; }
 
+/* Variante épurée : pas de colonnes visibles, seule une fine ligne
+   horizontale entre les lignes, teinte uniforme. Pour s'intégrer dans
+   un volet sans casser l'unité visuelle. */
+table.grid-excel-soft { border-collapse: collapse; width: 100%; font-size: 0.875rem; }
+table.grid-excel-soft th, table.grid-excel-soft td {
+  border: none;                       /* pas de grille verticale */
+  border-bottom: 1px solid #f1f3f5;   /* fine ligne horizontale seulement */
+  padding: 0.4rem 0.6rem;
+  text-align: left;
+  white-space: nowrap;
+}
+table.grid-excel-soft thead th {
+  background: #f8fafc;                 /* en-tête clair, teinte uniforme */
+  color: #6b7280;
+  font-weight: 600;
+  border-bottom: 1px solid #e5e7eb;
+  position: sticky;
+  top: 0;
+}
+table.grid-excel-soft tbody tr:hover { background: #f8fafc; }   /* survol discret, même teinte */
+table.grid-excel-soft td.num { text-align: right; font-variant-numeric: tabular-nums; }
+
 .input-cell {
   width: 100%;
   background: transparent;

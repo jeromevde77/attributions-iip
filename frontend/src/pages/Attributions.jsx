@@ -335,7 +335,7 @@ export default function Attributions() {
         </button>
         {open && (
           <div className="overflow-auto max-h-[40vh] border-t border-gray-100 bg-white">
-            <table className="grid-excel" style={{tableLayout:'fixed'}}>
+            <table className="grid-excel-soft" style={{tableLayout:'fixed'}}>
               <thead><tr>
                 {COLS_COURS.map(c => c.key==='__select'
                   ? <th key={c.key} style={{width:c.width,minWidth:c.width,maxWidth:c.width}}>
