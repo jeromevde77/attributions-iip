@@ -182,7 +182,10 @@ function CatalogueUEModal({ section, onClose, onDone }) {
 
   async function rattacher(ue) {
     setBusy(ue.ue_num);
-    try { await api.rattacherUE(ue.ue_num, section); onDone(); }
+    try {
+      const r = await api.rattacherUE(ue.ue_num, section);
+      onDone(r);
+    }
     catch (e) { alert(e.message); setBusy(null); }
   }
 
@@ -192,7 +195,7 @@ function CatalogueUEModal({ section, onClose, onDone }) {
         <div className="flex items-center justify-between px-5 py-3 border-b flex-shrink-0">
           <div>
             <h2 className="font-title text-lg text-iip-gold">Rattacher une UE à {section}</h2>
-            <p className="text-xs text-gray-500">Choisissez une UE existante du catalogue de l'année.</p>
+            <p className="text-xs text-gray-500">Catalogue de toutes les UE. Une UE absente de l'année courante y sera copiée automatiquement.</p>
           </div>
           <button onClick={onClose} className="text-gray-400 hover:text-red-500 text-2xl">×</button>
         </div>
@@ -211,6 +214,7 @@ function CatalogueUEModal({ section, onClose, onDone }) {
                   <span className="font-semibold text-iip-gold text-sm w-16 flex-shrink-0">UE {ue.ue_num}</span>
                   {ue.ue_niv && <span className="text-xs bg-gray-100 px-1.5 rounded flex-shrink-0">{ue.ue_niv}</span>}
                   <span className="text-sm text-gray-700 truncate flex-1" title={ue.ue_nom}>{ue.ue_nom}</span>
+                  {!ue.presente_annee_active && <span className="text-xs text-iip-mauve flex-shrink-0" title="Sera copiée dans l'année courante">à copier</span>}
                   {ue.sections.length > 0 && <span className="text-xs text-gray-400 flex-shrink-0">{ue.sections.join(', ')}</span>}
                   {present ? (
                     <span className="text-xs text-green-600 font-medium flex-shrink-0">✓ déjà rattachée</span>
@@ -563,7 +567,7 @@ export default function Referentiels({ embedded = false }) {
       {catalogueOpen && (
         <CatalogueUEModal section={catalogueOpen}
           onClose={() => setCatalogueOpen(null)}
-          onDone={() => { setCatalogueOpen(null); load(); }} />
+          onDone={(r) => { setCatalogueOpen(null); load(); if (r?.copiee) alert('UE copiée dans l\'année courante et rattachée à la section.'); }} />
       )}
       {sectionModal && <SectionModal section={sectionModal} onClose={() => setSectionModal(null)} onSaved={() => { setSectionModal(null); load(); }} />}
       {importOpen && (

@@ -325,12 +325,21 @@ r.get('/activites', authRequired, (req, res) => {
   res.json(db.prepare('SELECT * FROM activite_type ORDER BY ordre, libelle').all());
 });
 
-// ─── Catalogue des UE de l'année (pour rattachement à une section) ───
-// Liste les UE de l'année active, dédupliquées par numéro, avec les sections
-// auxquelles elles sont déjà rattachées (via ue_section OU attributions).
+// ─── Catalogue des UE (toutes années, dédupliquées par numéro) ───
+// Pour rattachement à une section. Une UE absente de l'année active sera
+// copiée automatiquement au moment du rattachement.
 r.get('/catalogue-ue', authRequired, (req, res) => {
   const annee = req.query.annee || '2025-2026';
-  const ues = db.prepare('SELECT ue_num, ue_nom, ue_niv, et_ref FROM ue WHERE annee_scolaire = ? ORDER BY ue_num').all(annee);
+
+  // Toutes les UE, toutes années — on déduplique par ue_num en préférant
+  // la version de l'année active, sinon la plus récente.
+  const toutes = db.prepare('SELECT ue_num, ue_nom, ue_niv, et_ref, annee_scolaire FROM ue ORDER BY ue_num, annee_scolaire DESC').all();
+  const parNum = {};
+  for (const ue of toutes) {
+    if (!parNum[ue.ue_num]) parNum[ue.ue_num] = ue;            // 1re vue = plus récente (DESC)
+    if (ue.annee_scolaire === annee) parNum[ue.ue_num] = ue;   // préfère l'année active
+  }
+  const ues = Object.values(parNum).sort((a, b) => (a.ue_num || 0) - (b.ue_num || 0));
 
   // Sections de référence pour normaliser la casse
   const refSections = db.prepare('SELECT code FROM section').all().map(r => r.code);
@@ -340,7 +349,7 @@ r.get('/catalogue-ue', authRequired, (req, res) => {
     return refSections.find(c => c.toUpperCase() === up) || String(s).trim();
   };
 
-  // Sections par UE (attributions + liens explicites)
+  // Sections par UE dans l'année ACTIVE (attributions + liens explicites)
   const secParUe = {};
   for (const r of db.prepare('SELECT DISTINCT ue_num, section FROM attribution WHERE annee_scolaire = ? AND section IS NOT NULL').all(annee)) {
     const c = canon(r.section); if (c) (secParUe[r.ue_num] ||= new Set()).add(c);
@@ -349,23 +358,59 @@ r.get('/catalogue-ue', authRequired, (req, res) => {
     const c = canon(l.section_code); if (c) (secParUe[l.ue_num] ||= new Set()).add(c);
   }
 
+  // UE présentes dans l'année active (pour info "à copier")
+  const presentes = new Set(db.prepare('SELECT ue_num FROM ue WHERE annee_scolaire = ?').all(annee).map(r => r.ue_num));
+
   res.json(ues.map(ue => ({
     ...ue,
-    sections: secParUe[ue.ue_num] ? [...secParUe[ue.ue_num]] : []
+    sections: secParUe[ue.ue_num] ? [...secParUe[ue.ue_num]] : [],
+    presente_annee_active: presentes.has(ue.ue_num)
   })));
 });
 
-// Rattacher une UE existante à une section
+// Rattacher une UE existante à une section.
+// Si l'UE n'existe pas dans l'année active, elle est copiée (avec ses cours)
+// depuis l'année la plus récente où elle existe.
 r.post('/ue-section', authRequired, roleRequired('admin', 'editeur'), (req, res) => {
   const annee = req.body.annee_scolaire || '2025-2026';
   const { ue_num, section_code } = req.body;
   if (!ue_num || !section_code) return res.status(400).json({ error: 'ue_num et section_code requis' });
-  // Vérifier que l'UE existe dans l'année
-  const ue = db.prepare('SELECT 1 FROM ue WHERE ue_num = ? AND annee_scolaire = ?').get(ue_num, annee);
-  if (!ue) return res.status(404).json({ error: `L'UE ${ue_num} n'existe pas en ${annee}` });
+
+  let ue = db.prepare('SELECT 1 FROM ue WHERE ue_num = ? AND annee_scolaire = ?').get(ue_num, annee);
+  let copiee = false;
+
+  if (!ue) {
+    // Trouver l'UE dans une autre année (la plus récente)
+    const source = db.prepare(
+      'SELECT annee_scolaire FROM ue WHERE ue_num = ? ORDER BY annee_scolaire DESC LIMIT 1'
+    ).get(ue_num);
+    if (!source) return res.status(404).json({ error: `L'UE ${ue_num} n'existe dans aucune année.` });
+
+    const tx = db.transaction(() => {
+      // Copier l'UE
+      db.prepare(`
+        INSERT OR IGNORE INTO ue (ue_num, annee_scolaire, ue_nom, ue_code_fwb, section, ue_tc, ue_det,
+          ue_niv, ue_per_etudiants, ue_per_cours, ue_aut, ue_tot_prf, ue_niveau, ue_quad, et_ref, ects, ue_prerequise)
+        SELECT ue_num, @cible, ue_nom, ue_code_fwb, section, ue_tc, ue_det,
+          ue_niv, ue_per_etudiants, ue_per_cours, ue_aut, ue_tot_prf, ue_niveau, ue_quad, et_ref, ects, ue_prerequise
+        FROM ue WHERE ue_num = @ue AND annee_scolaire = @source
+      `).run({ ue: ue_num, cible: annee, source: source.annee_scolaire });
+      // Copier ses cours
+      db.prepare(`
+        INSERT OR IGNORE INTO cours (cours_code, annee_scolaire, cours_num, cours_nom, ct_pp, section,
+          ue_num, quadrimestre_cours, cours_per, cours_total, ue_autonomie, ue_per_total, ue_niveau, enc_cours, heures)
+        SELECT cours_code, @cible, cours_num, cours_nom, ct_pp, section,
+          ue_num, quadrimestre_cours, cours_per, cours_total, ue_autonomie, ue_per_total, ue_niveau, enc_cours, heures
+        FROM cours WHERE ue_num = @ue AND annee_scolaire = @source
+      `).run({ ue: ue_num, cible: annee, source: source.annee_scolaire });
+    });
+    tx();
+    copiee = true;
+  }
+
   db.prepare(`INSERT OR IGNORE INTO ue_section (ue_num, section_code, annee_scolaire) VALUES (?, ?, ?)`)
     .run(ue_num, section_code, annee);
-  res.status(201).json({ ok: true });
+  res.status(201).json({ ok: true, copiee });
 });
 
 // Détacher une UE d'une section (supprime le lien, pas l'UE)
