@@ -216,6 +216,43 @@ r.patch('/sections/:code', authRequired, roleRequired('admin', 'editeur'), (req,
   res.json({ ok: true });
 });
 
+// ─── Renommer le CODE d'une section (propagation dans toutes les tables) ───
+// Le code est la clé de référence (stockée en texte dans attribution, cours,
+// ue, ue_section). Renommer doit propager partout, en une transaction.
+// Comparaison insensible à la casse pour uniformiser (RESTART -> Restart).
+r.patch('/sections/:code/code', authRequired, roleRequired('admin'), (req, res) => {
+  const ancien = req.params.code;
+  const nouveau = (req.body.nouveau_code || '').trim();
+  if (!nouveau) return res.status(400).json({ error: 'Nouveau code requis' });
+
+  const section = db.prepare('SELECT code FROM section WHERE code = ?').get(ancien);
+  if (!section) return res.status(404).json({ error: 'Section introuvable' });
+
+  // Si le nouveau code existe déjà (et que ce n'est pas un simple changement de
+  // casse du même code), on refuse pour éviter une collision/fusion accidentelle.
+  if (nouveau.toUpperCase() !== ancien.toUpperCase()) {
+    const collision = db.prepare('SELECT 1 FROM section WHERE code = ?').get(nouveau);
+    if (collision) return res.status(409).json({ error: `La section "${nouveau}" existe déjà.` });
+  }
+
+  const tx = db.transaction(() => {
+    // 1) La table section (clé primaire). Si seul la casse change, SQLite
+    //    considère 'RESTART' = 'Restart' pour une PK TEXT ? Non, la PK est
+    //    sensible à la casse par défaut (BINARY), donc UPDATE direct OK.
+    db.prepare('UPDATE section SET code = ? WHERE code = ?').run(nouveau, ancien);
+    // 2) Propager dans toutes les tables qui référencent le code en texte,
+    //    en attrapant toutes les variantes de casse de l'ancien code.
+    db.prepare('UPDATE attribution SET section = ? WHERE UPPER(section) = UPPER(?)').run(nouveau, ancien);
+    db.prepare('UPDATE cours SET section = ? WHERE UPPER(section) = UPPER(?)').run(nouveau, ancien);
+    db.prepare('UPDATE ue SET section = ? WHERE UPPER(section) = UPPER(?)').run(nouveau, ancien);
+    db.prepare('UPDATE ue_section SET section_code = ? WHERE UPPER(section_code) = UPPER(?)').run(nouveau, ancien);
+    db.prepare('UPDATE utilisateur_section SET section_code = ? WHERE UPPER(section_code) = UPPER(?)').run(nouveau, ancien);
+  });
+  tx();
+  res.json({ ok: true, ancien, nouveau });
+});
+
+
 r.delete('/sections/:code', authRequired, roleRequired('admin'), (req, res) => {
   const nb = db.prepare('SELECT COUNT(*) AS n FROM attribution WHERE section = ?').get(req.params.code).n;
   if (nb > 0) return res.status(409).json({ error: `Impossible : ${nb} attribution(s) dans cette section.` });

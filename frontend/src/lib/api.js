@@ -129,6 +129,7 @@ export const api = {
   catalogueUE() { return request(withAnnee('/ref/catalogue-ue')); },
   rattacherUE(ue_num, section_code) { return request('/ref/ue-section', { method: 'POST', body: { ue_num, section_code, annee_scolaire: getAnnee() } }); },
   detacherUE(ue_num, section_code) { return request(withAnnee(`/ref/ue-section/${ue_num}/${encodeURIComponent(section_code)}`), { method: 'DELETE' }); },
+  renameSectionCode(ancien, nouveau_code) { return request(`/ref/sections/${encodeURIComponent(ancien)}/code`, { method: 'PATCH', body: { nouveau_code } }); },
   ue(section) { return request('/ref/ue' + (section ? `?section=${encodeURIComponent(section)}` : '')); },
   ueDetail(num) { return request(`/ref/ue/${num}`); },
   cours(params = {}) { return request('/ref/cours' + (new URLSearchParams(params).toString() ? `?${new URLSearchParams(params)}` : '')); },

@@ -29,8 +29,16 @@ function SectionModal({ section, onClose, onSaved }) {
         responsable: form.responsable.trim() || null,
         code_fwb: form.code_fwb.trim() || null
       };
-      if (isNew) await api.createSection({ code: form.code.trim(), ...payload });
-      else await api.updateSection(section.code, payload);
+      if (isNew) {
+        await api.createSection({ code: form.code.trim(), ...payload });
+      } else {
+        // Si le code a changé, renommer d'abord (propagation), puis mettre à jour les autres champs
+        const nouveauCode = form.code.trim();
+        if (nouveauCode && nouveauCode !== section.code) {
+          await api.renameSectionCode(section.code, nouveauCode);
+        }
+        await api.updateSection(nouveauCode || section.code, payload);
+      }
       onSaved();
     } catch (e) { setError(e.message); }
     finally { setSaving(false); }
@@ -46,12 +54,17 @@ function SectionModal({ section, onClose, onSaved }) {
         <form onSubmit={submit} className="p-5 space-y-3">
           <div className="grid grid-cols-2 gap-3">
             <label className="block"><div className="text-xs text-gray-600 mb-0.5">Code *</div>
-              <input value={form.code} onChange={e => set('code', e.target.value)} disabled={!isNew} placeholder="ex: TIM"
-                className="w-full border border-gray-300 rounded px-3 py-1.5 text-sm disabled:bg-gray-100" /></label>
+              <input value={form.code} onChange={e => set('code', e.target.value)} placeholder="ex: TIM"
+                className="w-full border border-gray-300 rounded px-3 py-1.5 text-sm" /></label>
             <label className="block"><div className="text-xs text-gray-600 mb-0.5">Code FWB</div>
               <input value={form.code_fwb} onChange={e => set('code_fwb', e.target.value)}
                 className="w-full border border-gray-300 rounded px-3 py-1.5 text-sm" /></label>
           </div>
+          {!isNew && form.code.trim() && form.code.trim() !== section.code && (
+            <div className="text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded px-2 py-1.5">
+              ⚠️ Renommer « {section.code} » → « {form.code.trim()} » mettra à jour toutes les attributions, cours, UE et rattachements liés.
+            </div>
+          )}
           <label className="block"><div className="text-xs text-gray-600 mb-0.5">Libellé</div>
             <input value={form.libelle} onChange={e => set('libelle', e.target.value)} placeholder="Nom complet de la section"
               className="w-full border border-gray-300 rounded px-3 py-1.5 text-sm" /></label>
