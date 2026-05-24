@@ -75,6 +75,7 @@ function SectionModal({ section, onClose, onSaved }) {
                 <option value="">—</option>
                 <option value="FC Secondaire Supérieur">FC Secondaire Supérieur</option>
                 <option value="FC Enseignement Supérieur">FC Enseignement Supérieur</option>
+                <option value="BES">BES — Brevet d'enseignement supérieur</option>
                 <option value="Bachelier">Bachelier</option>
                 <option value="Master">Master</option>
               </select></label>
