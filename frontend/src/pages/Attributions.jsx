@@ -361,7 +361,7 @@ export default function Attributions() {
     const key = 'ue:'+ueKey;
     const open = openUEs.has(key);
     const st = groupStats(ue.rows);
-    const isHelb = ue.rows.some(r => r.contrat_mdp === 'HELB');
+    const isHelb = ue.rows.some(r => r.etablissement_referent === 'HELB');
     return (
       <div key={key} className={`border-t border-gray-200 ${isHelb ? 'bg-pink-50' : ''}`}>
         <div className={`w-full flex items-center gap-3 px-5 py-2.5 transition relative ${isHelb ? 'hover:bg-pink-100/60' : 'hover:bg-iip-gold/5'}`}>
