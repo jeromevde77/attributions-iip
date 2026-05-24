@@ -364,4 +364,76 @@ r.post('/bulk-create-from-section', authRequired, roleRequired('admin', 'editeur
   res.json({ created, skipped, total: coursList.length });
 });
 
+// ─── Réouvrir une UE : crée une nouvelle organisation (numéro suivant) ───
+// Démultiplication : duplique les lignes d'une organisation existante de l'UE
+// dans une section donnée, avec le prochain num_organisation libre (max+1
+// toutes sections confondues pour cette UE).
+r.post('/reouvrir', authRequired, roleRequired('admin', 'editeur', 'coordination'), (req, res) => {
+  const { ue_num, section, annee_scolaire, source_organisation } = req.body || {};
+  if (!ue_num || !section) return res.status(400).json({ error: 'ue_num et section requis' });
+  if (!canAccessSection(req.user, section)) {
+    return res.status(403).json({ error: "Vous n'avez pas accès à cette section." });
+  }
+  const annee = annee_scolaire || '2025-2026';
+
+  // Prochain numéro d'organisation : max+1 pour cette UE, toutes sections confondues
+  const maxOrg = db.prepare(
+    'SELECT COALESCE(MAX(num_organisation), 0) AS m FROM attribution WHERE ue_num = ? AND annee_scolaire = ?'
+  ).get(ue_num, annee).m;
+  const nouvelleOrg = maxOrg + 1;
+
+  // Source : les attributions d'une organisation existante à dupliquer (structure des cours)
+  const srcOrg = source_organisation || 1;
+  const sources = db.prepare(`
+    SELECT code_cours, type_cours, ue_num
+    FROM attribution
+    WHERE ue_num = ? AND annee_scolaire = ?
+    GROUP BY code_cours
+  `).all(ue_num, annee);
+
+  if (sources.length === 0) {
+    return res.status(404).json({ error: 'Aucun cours à réouvrir pour cette UE.' });
+  }
+
+  const insertStmt = db.prepare(`
+    INSERT INTO attribution
+      (section, ue_num, code_cours, type_cours, quadrimestre_attribue,
+       contrat_mdp, etablissement_referent, organisation,
+       num_organisation, code, nb_groupes, split_groupe,
+       periodes_attribuees, autonomie_attribuee, annee_scolaire)
+    VALUES (?, ?, ?, ?, NULL, NULL, 'IIP', 'x', ?, 'A', 1, 'N', 0, 0, ?)
+  `);
+
+  let created = 0;
+  const tx = db.transaction(() => {
+    for (const c of sources) {
+      insertStmt.run(section, c.ue_num, c.code_cours, c.type_cours, nouvelleOrg, annee);
+      created++;
+    }
+  });
+  tx();
+
+  res.status(201).json({ ok: true, num_organisation: nouvelleOrg, created });
+});
+
+// ─── Mettre à jour le quadrimestre de toute une organisation d'UE ───
+// Le quadrimestre est une propriété de l'organisation (UE ouverte), pas du
+// cours : on l'applique à toutes les attributions de (UE, organisation, section).
+r.patch('/organisation/quadrimestre', authRequired, roleRequired('admin', 'editeur', 'coordination'), (req, res) => {
+  const { ue_num, num_organisation, section, quadrimestre, annee_scolaire } = req.body || {};
+  if (!ue_num || num_organisation == null || !section) {
+    return res.status(400).json({ error: 'ue_num, num_organisation et section requis' });
+  }
+  if (!canAccessSection(req.user, section)) {
+    return res.status(403).json({ error: "Vous n'avez pas accès à cette section." });
+  }
+  const annee = annee_scolaire || '2025-2026';
+  const q = (quadrimestre === 'Q1' || quadrimestre === 'Q2' || quadrimestre === 'Q1/Q2') ? quadrimestre : null;
+  const result = db.prepare(`
+    UPDATE attribution SET quadrimestre_attribue = ?
+    WHERE ue_num = ? AND num_organisation = ? AND section = ? AND annee_scolaire = ?
+  `).run(q, ue_num, num_organisation, section, annee);
+  res.json({ ok: true, updated: result.changes, quadrimestre: q });
+});
+
 export default r;

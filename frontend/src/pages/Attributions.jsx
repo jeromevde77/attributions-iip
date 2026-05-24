@@ -31,7 +31,7 @@ const DEFAULT_COLS = [
   { key: 'num_organisation',      label: 'Org.',       width: 60,  num: true, edit: 'select', flatOnly: true,
     options: [['1','1'],['2','2'],['3','3'],['4','4']],
     render: v => v && v > 1 ? <span className="bg-amber-100 text-amber-800 text-xs px-1.5 py-0.5 rounded font-semibold">{v}</span> : <span className="text-gray-400">{v || 1}</span> },
-  { key: 'quadrimestre_attribue', label: 'Quadri',     width: 110, edit: 'select',
+  { key: 'quadrimestre_attribue', label: 'Quadri',     width: 110, edit: 'select', flatOnly: true,
     options: [['','—'],['Q1','Q1'],['Q2','Q2'],['Q1/Q2','Q1/Q2']] },
   { key: 'code_cours',            label: 'Code',       width: 80,  rowClickable: true, coursOnly: true },
   { key: 'nom_cours',             label: 'Cours',      width: 240, rowClickable: true, coursOnly: true },
@@ -72,6 +72,7 @@ export default function Attributions() {
   const [bulkConfirmText, setBulkConfirmText] = useState('');
   const [editRow, setEditRow] = useState(null);
   const [addMenuUE, setAddMenuUE] = useState(null);   // {ue, sec} : menu + ouvert pour cette UE
+  const [quadriMenu, setQuadriMenu] = useState(null); // key de l'UE dont le menu quadri est ouvert
   const [newCoursForm, setNewCoursForm] = useState(null); // préremplissage AttributionForm pour nouveau cours
   const [viewMode, setViewMode] = useState('ue');
   const [openUEs, setOpenUEs] = useState(new Set());
@@ -157,6 +158,28 @@ export default function Attributions() {
 
   // Clés ouvertes : "sec:TIM", "ue:TIM/250/1", "cours:TIM/250/1/CHEM101"
   function toggle(key) { setOpenUEs(s=>{const x=new Set(s); x.has(key)?x.delete(key):x.add(key); return x;}); }
+
+  // Couleurs du badge quadrimestre (3 états + neutre)
+  function quadriStyle(q) {
+    if (q === 'Q1')    return 'bg-blue-100 text-blue-700';
+    if (q === 'Q2')    return 'bg-amber-100 text-amber-800';
+    if (q === 'Q1/Q2') return 'bg-iip-mauve/15 text-iip-mauve';
+    return 'bg-gray-100 text-gray-400'; // non défini
+  }
+  async function changeQuadri(ue, sec, org, q) {
+    setQuadriMenu(null);
+    try { await api.setQuadriOrganisation(ue.ue_num, org, sec, q); load(); }
+    catch (e) { alert(e.message); }
+  }
+  async function reouvrirUE(ue, sec) {
+    if (!confirm(`Réouvrir l'UE ${ue.ue_num} dans ${sec} ? Une nouvelle organisation sera créée avec le numéro suivant.`)) return;
+    try {
+      const r = await api.reouvrirUE(ue.ue_num, sec, ue.num_organisation || 1);
+      load();
+      alert(`Nouvelle organisation ${r.num_organisation} créée (${r.created} cours).`);
+    } catch (e) { alert(e.message); }
+  }
+
   function expandAll() {
     const keys = new Set();
     for (const sg of sectionGroups) {
@@ -372,7 +395,7 @@ export default function Attributions() {
     return (
       <div key={key} className={`border-b border-gray-100 ${isHelb ? 'bg-pink-50 border-l-2 border-l-pink-400' : ''}`}>
         <div className={`w-full flex items-center pl-6 pr-3 py-1.5 transition relative ${isHelb ? 'hover:bg-pink-100/60' : 'hover:bg-gray-50'}`}>
-          <button onClick={()=>toggle(key)} className="grid items-center gap-2 flex-1 min-w-0 text-left"
+          <div onClick={()=>toggle(key)} role="button" className="grid items-center gap-2 flex-1 min-w-0 text-left cursor-pointer"
                   style={{ gridTemplateColumns: '16px 70px 110px 1fr auto' }}>
             <span className={`text-iip-gold text-sm transition-transform ${open?'rotate-90':''}`}>▶</span>
             <span className="font-semibold text-iip-gold text-sm whitespace-nowrap">UE {ue.ue_num}</span>
@@ -380,6 +403,21 @@ export default function Attributions() {
               {org > 1 && <span className="text-xs bg-amber-100 text-amber-800 px-1.5 py-0.5 rounded font-semibold">Org. {org}</span>}
               {ue.bloc && <span className="text-xs bg-iip-gold/10 text-iip-gold px-1.5 py-0.5 rounded">{ue.bloc}</span>}
               {isHelb && <span className="text-xs text-pink-600 font-bold px-1.5 py-0.5 rounded bg-pink-100">HELB</span>}
+              <span className="relative inline-block" onClick={e=>e.stopPropagation()}>
+                <button onClick={()=>setQuadriMenu(quadriMenu===key?null:key)}
+                  title="Quadrimestre de l'organisation (cliquer pour modifier)"
+                  className={`text-xs px-1.5 py-0.5 rounded font-semibold cursor-pointer hover:ring-1 hover:ring-gray-300 ${quadriStyle(ue.rows[0]?.quadrimestre_attribue)}`}>
+                  {ue.rows[0]?.quadrimestre_attribue || '— Q'}
+                </button>
+                {quadriMenu===key && (
+                  <div className="absolute left-0 top-full mt-1 z-40 bg-white border border-gray-200 rounded-lg shadow-xl py-1 w-28">
+                    {[['','—'],['Q1','Q1'],['Q2','Q2'],['Q1/Q2','Q1/Q2']].map(([val,lbl])=>(
+                      <button key={val} onClick={()=>changeQuadri(ue, sec, org, val)}
+                        className="w-full text-left px-3 py-1 text-sm hover:bg-iip-gold/10">{lbl}</button>
+                    ))}
+                  </div>
+                )}
+              </span>
             </span>
             <span className="text-sm text-gray-600 truncate" title={ue.ue_nom}>{ue.ue_nom || 'UE sans nom'}</span>
             <span className="flex items-center gap-3 text-sm text-gray-500 flex-shrink-0 justify-end whitespace-nowrap">
@@ -392,7 +430,11 @@ export default function Attributions() {
                 : st.nConf>0 ? <span className="text-green-600 font-bold w-8 text-right">✓</span>
                 : <span className="w-8"></span>}
             </span>
-          </button>
+          </div>
+          {/* Bouton Réouvrir : crée une nouvelle organisation */}
+          <button onClick={(e)=>{e.stopPropagation(); reouvrirUE(ue, sec);}}
+                  title="Réouvrir cette UE (nouvelle organisation)"
+                  className="flex-shrink-0 ml-2 w-7 h-7 flex items-center justify-center rounded-full bg-iip-mauve/10 hover:bg-iip-mauve hover:text-white text-iip-mauve transition" style={{fontSize:'0.9rem'}}>⧉</button>
           {/* Bouton + : ajouter une ligne / un cours */}
           <button onClick={(e)=>{e.stopPropagation(); setAddMenuUE(addMenuUE?.key===key ? null : {key, ue, sec, org});}}
                   title="Ajouter une attribution"
@@ -568,6 +610,7 @@ export default function Attributions() {
 
       {/* Overlay pour fermer le menu + */}
       {addMenuUE && <div className="fixed inset-0 z-20" onClick={()=>setAddMenuUE(null)} />}
+      {quadriMenu && <div className="fixed inset-0 z-30" onClick={()=>setQuadriMenu(null)} />}
 
       {/* Modales */}
       {showForm && <AttributionForm onClose={()=>setShowForm(false)} onCreated={load}/>}

@@ -113,6 +113,16 @@ export const api = {
       method: 'POST', body: { section, ue_nums, annee_scolaire: getAnnee() }
     });
   },
+  reouvrirUE(ue_num, section, source_organisation) {
+    return request('/attributions/reouvrir', {
+      method: 'POST', body: { ue_num, section, source_organisation, annee_scolaire: getAnnee() }
+    });
+  },
+  setQuadriOrganisation(ue_num, num_organisation, section, quadrimestre) {
+    return request('/attributions/organisation/quadrimestre', {
+      method: 'PATCH', body: { ue_num, num_organisation, section, quadrimestre, annee_scolaire: getAnnee() }
+    });
+  },
 
   // référentiels
   sections() { return request('/ref/sections'); },
