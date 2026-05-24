@@ -136,6 +136,26 @@ CREATE TABLE IF NOT EXISTS parametre_financier (
     description     TEXT
 );
 
+-- Paramètres fixes de l'établissement (pour les documents officiels EA12, etc.)
+-- Table à ligne unique (id = 1).
+CREATE TABLE IF NOT EXISTS etablissement (
+    id              INTEGER PRIMARY KEY CHECK (id = 1),
+    po_nom          TEXT,    -- Nom du Pouvoir Organisateur
+    etab_nom        TEXT,    -- Nom de l'établissement
+    adresse         TEXT,    -- Adresse complète
+    type_po         TEXT,    -- 'WBE' (organisé, 33) ou 'FWB' (subventionné, 22)
+    sous_type       TEXT,    -- pour subventionné : 'officiel' ou 'libre'
+    num_ecot        TEXT,    -- N° ECOT (10 derniers chiffres)
+    num_fase        TEXT,    -- N° FASE
+    email_ec        TEXT,    -- email officiel ...ec@adm.cfwb.be
+    email_po        TEXT,    -- email officiel ...po@adm.cfwb.be
+    gest_nom        TEXT,    -- gestionnaire du dossier : nom
+    gest_prenom     TEXT,
+    gest_qualite    TEXT,
+    gest_tel        TEXT,
+    gest_email      TEXT
+);
+
 -- Valeurs par défaut (issues de la feuille 'Données' R3-R4)
 INSERT OR IGNORE INTO parametre_financier (cle, valeur_num, description) VALUES
     ('DI_FWB_DS',       0.29,  'DI FWB pour Degré Supérieur DS'),

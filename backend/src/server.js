@@ -18,6 +18,7 @@ import usersRoutes from './routes/users.js';
 import adminRoutes from './routes/admin.js';
 import anneesRoutes from './routes/annees.js';
 import historiqueRoutes from './routes/historique.js';
+import etablissementRoutes from './routes/etablissement.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
@@ -441,6 +442,7 @@ app.use('/api/users',        usersRoutes);
 app.use('/api/admin',        adminRoutes);
 app.use('/api/annees',       anneesRoutes);
 app.use('/api/historique',   historiqueRoutes);
+app.use('/api/etablissement', etablissementRoutes);
 
 // Erreurs
 app.use((err, req, res, next) => {

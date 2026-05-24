@@ -3,6 +3,7 @@ import { api } from '../lib/api.js';
 import Users from './Users.jsx';
 import Annees from './Annees.jsx';
 import Referentiels from './Referentiels.jsx';
+import ParametresEtablissement from './ParametresEtablissement.jsx';
 
 function Toggle({ label, description, checked, onChange, disabled }) {
   return (
@@ -156,6 +157,10 @@ export default function Configuration() {
           className={`px-4 py-2 text-sm font-medium border-b-2 -mb-px transition ${tab === 'annees' ? 'border-iip-gold text-iip-gold' : 'border-transparent text-gray-500 hover:text-gray-700'}`}>
           Années
         </button>
+        <button onClick={() => setTab('etablissement')}
+          className={`px-4 py-2 text-sm font-medium border-b-2 -mb-px transition ${tab === 'etablissement' ? 'border-iip-gold text-iip-gold' : 'border-transparent text-gray-500 hover:text-gray-700'}`}>
+          Établissement
+        </button>
         <button onClick={() => setTab('users')}
           className={`px-4 py-2 text-sm font-medium border-b-2 -mb-px transition ${tab === 'users' ? 'border-iip-gold text-iip-gold' : 'border-transparent text-gray-500 hover:text-gray-700'}`}>
           Utilisateurs
@@ -175,6 +180,9 @@ export default function Configuration() {
 
       {/* ── Onglet Années ── */}
       {tab === 'annees' && <Annees embedded />}
+
+      {/* ── Onglet Établissement ── */}
+      {tab === 'etablissement' && <ParametresEtablissement />}
 
       {/* ── Onglet Utilisateurs ── */}
       {tab === 'users' && <div className="max-w-5xl"><Users embedded /></div>}
