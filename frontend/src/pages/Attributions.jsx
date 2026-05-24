@@ -327,7 +327,7 @@ export default function Attributions() {
           <span className={`text-gray-400 text-sm transition-transform ${open?'rotate-90':''}`}>▶</span>
           <span className="font-mono text-sm text-gray-500">{cg.code_cours}</span>
           <span className="text-gray-700 truncate flex-1">{cg.nom_cours}</span>
-          {cg.type_cours && <span className={`text-sm px-1.5 py-0.5 rounded ${cg.type_cours==='CT'?'bg-blue-100 text-blue-700':'bg-purple-100 text-purple-700'}`}>{cg.type_cours}</span>}
+          {cg.type_cours && <span className={`text-xs px-1.5 py-0.5 rounded ${cg.type_cours==='CT'?'bg-blue-100 text-blue-700':'bg-purple-100 text-purple-700'}`}>{cg.type_cours}</span>}
           <span className="text-sm text-gray-500">{cg.rows.length} attr.</span>
           <span className="text-sm font-semibold text-iip-gold">{st.tPer}p</span>
           {st.tAut>0 && <span className="text-sm text-gray-400">+{st.tAut}a</span>}
@@ -370,9 +370,9 @@ export default function Attributions() {
             <span className={`text-iip-gold text-sm transition-transform ${open?'rotate-90':''}`}>▶</span>
             <span className="font-semibold text-iip-gold text-sm whitespace-nowrap">UE {ue.ue_num}</span>
             <span className="flex items-center gap-1 flex-wrap">
-              {org > 1 && <span className="text-sm bg-amber-100 text-amber-800 px-1.5 py-0.5 rounded font-semibold">Org. {org}</span>}
-              {ue.bloc && <span className="text-sm bg-iip-gold/10 text-iip-gold px-1.5 py-0.5 rounded">{ue.bloc}</span>}
-              {isHelb && <span className="text-sm text-pink-600 font-bold px-1.5 py-0.5 rounded bg-pink-100">HELB</span>}
+              {org > 1 && <span className="text-xs bg-amber-100 text-amber-800 px-1.5 py-0.5 rounded font-semibold">Org. {org}</span>}
+              {ue.bloc && <span className="text-xs bg-iip-gold/10 text-iip-gold px-1.5 py-0.5 rounded">{ue.bloc}</span>}
+              {isHelb && <span className="text-xs text-pink-600 font-bold px-1.5 py-0.5 rounded bg-pink-100">HELB</span>}
             </span>
             <span className="text-sm text-gray-600 truncate" title={ue.ue_nom}>{ue.ue_nom || 'UE sans nom'}</span>
             <span className="flex items-center gap-3 text-sm text-gray-500 flex-shrink-0 justify-end whitespace-nowrap">

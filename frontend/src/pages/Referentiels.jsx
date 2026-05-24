@@ -403,7 +403,7 @@ export default function Referentiels({ embedded = false }) {
                       </td>
                       <td colSpan="6" className="px-2 py-2 cursor-pointer" onClick={() => toggle(secKey)}>
                         <span className="font-bold text-iip-gold text-sm">{sg.section}</span>
-                        {sg.section_niveau && <span className="ml-2 text-sm bg-iip-gold/10 text-iip-gold px-1.5 py-0.5 rounded">{sg.section_niveau}</span>}
+                        {sg.section_niveau && <span className="ml-2 text-xs bg-iip-gold/10 text-iip-gold px-1.5 py-0.5 rounded">{sg.section_niveau}</span>}
                       </td>
                       <td colSpan="4" className="px-2 py-2 text-right text-sm text-gray-500">{sg.ues.length} UE · {totalCours} cours</td>
                       <td className="px-2 py-2 text-right relative">
