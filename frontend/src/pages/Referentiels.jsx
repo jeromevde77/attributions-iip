@@ -73,11 +73,10 @@ function SectionModal({ section, onClose, onSaved }) {
               <select value={form.niveau} onChange={e => set('niveau', e.target.value)}
                 className="w-full border border-gray-300 rounded px-3 py-1.5 text-sm bg-white">
                 <option value="">—</option>
+                <option value="FC Secondaire Supérieur">FC Secondaire Supérieur</option>
+                <option value="FC Enseignement Supérieur">FC Enseignement Supérieur</option>
                 <option value="Bachelier">Bachelier</option>
-                <option value="BES">BES</option>
                 <option value="Master">Master</option>
-                <option value="Spécialisation">Spécialisation</option>
-                <option value="DS">DS — Enseignement secondaire supérieur</option>
               </select></label>
             <label className="block"><div className="text-xs text-gray-600 mb-0.5">Responsable</div>
               <input value={form.responsable} onChange={e => set('responsable', e.target.value)} placeholder="Coordinateur (optionnel)"
