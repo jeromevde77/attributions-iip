@@ -277,15 +277,17 @@ export default function Referentiels({ embedded = false }) {
                 {sg.ues.map(ue => {
                   const ueKey = 'ue:' + sg.section + '/' + ue.ue_num;
                   const ueOpen = open[ueKey];
+                  const isHelb = ue.et_ref === 'HELB';
                   return (
-                    <div key={ue.ue_num}>
-                      <div className="flex items-center gap-2 px-5 py-2.5 hover:bg-gray-50">
+                    <div key={ue.ue_num} className={isHelb ? 'bg-pink-50' : ''}>
+                      <div className={`flex items-center gap-2 px-5 py-2.5 ${isHelb ? 'hover:bg-pink-100/60' : 'hover:bg-gray-50'}`}>
                         <button onClick={() => toggle(ueKey)} className="flex items-center gap-2 flex-1 text-left min-w-0">
                           <span className={`text-iip-gold text-sm transition-transform flex-shrink-0 ${ueOpen ? 'rotate-90' : ''}`}>▶</span>
                           <span className="font-semibold text-iip-gold text-sm whitespace-nowrap flex-shrink-0">UE {ue.ue_num}</span>
                           {ue.ue_niv && <span className="text-xs bg-iip-gold/10 text-iip-gold px-1.5 rounded flex-shrink-0">{ue.ue_niv}</span>}
                           {ue.ue_niveau && <span className="text-xs bg-gray-100 text-gray-600 px-1.5 rounded flex-shrink-0">{ue.ue_niveau}</span>}
                           {ue.ue_quad && <span className="text-xs bg-gray-100 text-gray-600 px-1.5 rounded flex-shrink-0">{ue.ue_quad}</span>}
+                          {isHelb && <span className="text-xs text-pink-600 font-bold px-1.5 py-0.5 rounded bg-pink-100 flex-shrink-0">HELB</span>}
                           <span className="text-sm text-gray-700 truncate min-w-0" title={ue.ue_nom}>{ue.ue_nom}</span>
                         </button>
                         <span className="text-xs text-gray-400 flex-shrink-0 whitespace-nowrap">{ue.cours.length} cours · {ue.nb_attributions} attr.</span>
@@ -293,7 +295,7 @@ export default function Referentiels({ embedded = false }) {
                         <button onClick={() => delUE(ue)} className="text-red-400 hover:text-red-600 text-sm flex-shrink-0" title="Supprimer">🗑</button>
                       </div>
                       {ueOpen && (
-                        <div className="bg-gray-50/50 pl-10 pr-4 pb-2">
+                        <div className={`pl-10 pr-4 pb-2 ${isHelb ? 'bg-pink-50/40' : 'bg-gray-50/50'}`}>
                           <table className="w-full text-sm">
                             <thead><tr className="text-xs text-gray-500">
                               <th className="text-left py-1">Code</th><th className="text-left">Nom</th>
