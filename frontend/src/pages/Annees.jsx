@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { api, getAnnee, setAnnee } from '../lib/api.js';
+import ImportUEAssistant from '../components/ImportUEAssistant.jsx';
 
 export default function Annees() {
   const [annees, setAnnees] = useState([]);
@@ -8,6 +9,7 @@ export default function Annees() {
   const [form, setForm] = useState({ code: '', libelle: '', source: '', mode: 'vide' });
   const [saving, setSaving] = useState(false);
   const [deleting, setDeleting] = useState(null);
+  const [importCtx, setImportCtx] = useState(null); // {source, cible} pour l'assistant après création
   const anneeActive = getAnnee();
 
   async function load() {
@@ -26,6 +28,7 @@ export default function Annees() {
   async function handleCreate(e) {
     e.preventDefault();
     if (!form.code) return alert('Saisissez un code d\'année (ex: 2026-2027)');
+    if (form.mode === 'selection' && !form.source) return alert('Choisissez l\'année source pour la sélection');
     setSaving(true);
     try {
       const res = await api.createAnnee({
@@ -33,12 +36,20 @@ export default function Annees() {
         libelle: form.libelle || `Année ${form.code}`,
         source: form.mode === 'copie' ? form.source : null
       });
-      alert(res.copied > 0
-        ? `Année ${form.code} créée avec ${res.copied} attribution(s) copiées depuis ${form.source}.`
-        : `Année ${form.code} créée (vide).`);
+      const codeCree = form.code;
+      const modeCree = form.mode;
+      const sourceCree = form.source;
       setShowForm(false);
       setForm({ code: '', libelle: '', source: '', mode: 'vide' });
-      load();
+      await load();
+      if (modeCree === 'selection') {
+        // Ouvrir l'assistant d'import sélectif vers la nouvelle année
+        setImportCtx({ source: sourceCree, cible: codeCree });
+      } else {
+        alert(res.copied > 0
+          ? `Année ${codeCree} créée avec ${res.copied} attribution(s) copiées depuis ${sourceCree}.`
+          : `Année ${codeCree} créée (vide).`);
+      }
     } catch(e) { alert('Erreur : ' + e.message); }
     finally { setSaving(false); }
   }
@@ -140,7 +151,11 @@ export default function Annees() {
                   </label>
                   <label className="flex items-center gap-2 cursor-pointer">
                     <input type="radio" value="copie" checked={form.mode==='copie'} onChange={() => setForm({...form, mode:'copie'})} />
-                    <span className="text-sm">Copier depuis une année existante</span>
+                    <span className="text-sm">Copier <b>tout</b> depuis une année existante</span>
+                  </label>
+                  <label className="flex items-center gap-2 cursor-pointer">
+                    <input type="radio" value="selection" checked={form.mode==='selection'} onChange={() => setForm({...form, mode:'selection'})} />
+                    <span className="text-sm">Choisir les UE à reprendre <span className="text-gray-400">(sélection par section/UE)</span></span>
                   </label>
                 </div>
                 {form.mode === 'copie' && (
@@ -150,6 +165,16 @@ export default function Annees() {
                       {annees.map(a => <option key={a.code} value={a.code}>{a.code} — {a.libelle}</option>)}
                     </select>
                     <p className="text-xs text-gray-500 mt-1">Structure copiée (section, UE, cours, contrat, périodes). Les professeurs sont réinitialisés.</p>
+                  </div>
+                )}
+                {form.mode === 'selection' && (
+                  <div className="mt-2 ml-6">
+                    <select value={form.source} onChange={e => setForm({...form, source: e.target.value})}
+                      className="border border-gray-300 rounded px-3 py-1.5 text-sm w-full focus:outline-none focus:ring-1 focus:ring-iip-gold">
+                      <option value="">— Choisir l'année source —</option>
+                      {annees.map(a => <option key={a.code} value={a.code}>{a.code} — {a.libelle}</option>)}
+                    </select>
+                    <p className="text-xs text-gray-500 mt-1">L'année sera créée vide, puis un assistant vous laissera choisir les UE à importer.</p>
                   </div>
                 )}
               </div>
@@ -164,6 +189,19 @@ export default function Annees() {
             </form>
           </div>
         </div>
+      )}
+
+      {importCtx && (
+        <ImportUEAssistant
+          source={importCtx.source}
+          cible={importCtx.cible}
+          onClose={() => { setImportCtx(null); load(); }}
+          onDone={(r) => {
+            setImportCtx(null);
+            load();
+            alert(`Année ${importCtx.cible} : ${r.ues} UE et ${r.cours} cours importés${r.attributions ? `, ${r.attributions} attributions` : ''}.`);
+          }}
+        />
       )}
     </div>
   );

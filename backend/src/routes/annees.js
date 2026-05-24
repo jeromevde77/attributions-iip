@@ -76,4 +76,72 @@ r.delete('/:code', authRequired, roleRequired('admin'), (req, res) => {
   res.json({ ok: true, deleted: nb });
 });
 
+// Comparer les UE entre une année source et la cible :
+// liste les UE de la source (groupées par section) avec un drapeau "déjà dans la cible"
+r.get('/import-preview', authRequired, roleRequired('admin', 'editeur'), (req, res) => {
+  const { source, cible } = req.query;
+  if (!source || !cible) return res.status(400).json({ error: 'source et cible requis' });
+
+  const ues = db.prepare('SELECT ue_num, ue_nom, section, ue_niv FROM ue WHERE annee_scolaire = ? ORDER BY section, ue_num').all(source);
+  const cibleUes = new Set(db.prepare('SELECT ue_num FROM ue WHERE annee_scolaire = ?').all(cible).map(r => r.ue_num));
+  const coursCount = db.prepare('SELECT ue_num, COUNT(*) AS n FROM cours WHERE annee_scolaire = ? GROUP BY ue_num').all(source);
+  const coursMap = Object.fromEntries(coursCount.map(r => [r.ue_num, r.n]));
+
+  // Grouper par section
+  const sections = {};
+  for (const ue of ues) {
+    const sec = ue.section || '(sans section)';
+    (sections[sec] ||= []).push({
+      ...ue,
+      nb_cours: coursMap[ue.ue_num] || 0,
+      deja_presente: cibleUes.has(ue.ue_num)
+    });
+  }
+  res.json(Object.entries(sections).map(([section, ues]) => ({ section, ues })));
+});
+
+// Importer une sélection d'UE (+ leurs cours) depuis une année source vers une cible
+r.post('/import-ues', authRequired, roleRequired('admin', 'editeur'), (req, res) => {
+  const { source, cible, ue_nums, avec_attributions } = req.body;
+  if (!source || !cible || !Array.isArray(ue_nums) || ue_nums.length === 0) {
+    return res.status(400).json({ error: 'source, cible et ue_nums (tableau non vide) requis' });
+  }
+
+  const copyUE = db.prepare(`
+    INSERT OR IGNORE INTO ue (ue_num, annee_scolaire, ue_nom, ue_code_fwb, section, ue_tc, ue_det,
+      ue_niv, ue_per_etudiants, ue_per_cours, ue_aut, ue_tot_prf, ue_niveau, ue_quad, et_ref, ects, ue_prerequise)
+    SELECT ue_num, @cible, ue_nom, ue_code_fwb, section, ue_tc, ue_det,
+      ue_niv, ue_per_etudiants, ue_per_cours, ue_aut, ue_tot_prf, ue_niveau, ue_quad, et_ref, ects, ue_prerequise
+    FROM ue WHERE ue_num = @ue AND annee_scolaire = @source
+  `);
+  const copyCours = db.prepare(`
+    INSERT OR IGNORE INTO cours (cours_code, annee_scolaire, cours_num, cours_nom, ct_pp, section,
+      ue_num, quadrimestre_cours, cours_per, cours_total, ue_autonomie, ue_per_total, ue_niveau, enc_cours, heures)
+    SELECT cours_code, @cible, cours_num, cours_nom, ct_pp, section,
+      ue_num, quadrimestre_cours, cours_per, cours_total, ue_autonomie, ue_per_total, ue_niveau, enc_cours, heures
+    FROM cours WHERE ue_num = @ue AND annee_scolaire = @source
+  `);
+  const copyAttr = db.prepare(`
+    INSERT INTO attribution
+      (section, ue_num, code_cours, contrat_mdp, quadrimestre_attribue, code, activite_id,
+       num_organisation, type_cours, type_cours_helb, annee_scolaire, periodes_attribuees, autonomie_attribuee)
+    SELECT section, ue_num, code_cours, contrat_mdp, quadrimestre_attribue, code, activite_id,
+       num_organisation, type_cours, type_cours_helb, @cible, periodes_attribuees, autonomie_attribuee
+    FROM attribution WHERE ue_num = @ue AND annee_scolaire = @source
+  `);
+
+  let nUe = 0, nCours = 0, nAttr = 0;
+  const tx = db.transaction(() => {
+    for (const ue of ue_nums) {
+      const params = { ue, source, cible };
+      nUe += copyUE.run(params).changes;
+      nCours += copyCours.run(params).changes;
+      if (avec_attributions) nAttr += copyAttr.run(params).changes;
+    }
+  });
+  tx();
+
+  res.json({ ues: nUe, cours: nCours, attributions: nAttr });
+});
+
 export default r;

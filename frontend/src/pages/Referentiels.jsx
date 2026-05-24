@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { api, getAnnee } from '../lib/api.js';
 import CoursFormModal from '../components/CoursFormModal.jsx';
+import ImportUEAssistant from '../components/ImportUEAssistant.jsx';
 
 // ─── Modale Section ───
 function SectionModal({ section, onClose, onSaved }) {
@@ -172,6 +173,8 @@ export default function Referentiels() {
   const [ueModal, setUeModal] = useState(null);
   const [coursModal, setCoursModal] = useState(null);
   const [sectionModal, setSectionModal] = useState(null); // {code, libelle, _edit} ou {} pour nouvelle
+  const [importOpen, setImportOpen] = useState(false);
+  const [annees, setAnnees] = useState([]);
   const annee = getAnnee();
 
   async function load() {
@@ -179,6 +182,7 @@ export default function Referentiels() {
     try {
       const [s, secs] = await Promise.all([api.refStructure(), api.sections()]);
       setStructure(s); setSections(secs);
+      api.annees().then(setAnnees).catch(() => {});
     } finally { setLoading(false); }
   }
   useEffect(() => { load(); }, []);
@@ -205,6 +209,9 @@ export default function Referentiels() {
       <div className="flex items-center justify-between flex-wrap gap-2">
         <h1 className="text-2xl font-title text-iip-gold">Référentiels <span className="text-base font-normal text-gray-400">· {annee}</span></h1>
         <div className="flex gap-2">
+          {annees.filter(a => a.code !== annee).length > 0 && (
+            <button onClick={() => setImportOpen(true)} className="bg-white border border-iip-mauve text-iip-mauve hover:bg-iip-mauve/5 text-sm px-4 py-2 rounded font-medium">⇄ Importer des UE</button>
+          )}
           <button onClick={() => setSectionModal({})} className="bg-white border border-iip-gold text-iip-gold hover:bg-iip-gold/5 text-sm px-4 py-2 rounded font-medium">➕ Nouvelle section</button>
           <button onClick={() => setUeModal({})} className="bg-iip-gold hover:bg-iip-amber text-white text-sm px-4 py-2 rounded font-medium">➕ Nouvelle UE</button>
         </div>
@@ -310,6 +317,14 @@ export default function Referentiels() {
       })}
 
       {sectionModal && <SectionModal section={sectionModal} onClose={() => setSectionModal(null)} onSaved={() => { setSectionModal(null); load(); }} />}
+      {importOpen && (
+        <ImportUEAssistant
+          source={(annees.find(a => a.code !== annee && a.code === '2025-2026') || annees.find(a => a.code !== annee))?.code}
+          cible={annee}
+          onClose={() => setImportOpen(false)}
+          onDone={(r) => { setImportOpen(false); load(); alert(`Import réussi : ${r.ues} UE, ${r.cours} cours${r.attributions ? `, ${r.attributions} attributions` : ''}.`); }}
+        />
+      )}
       {ueModal && <UEModal ue={ueModal} sections={sections} onClose={() => setUeModal(null)} onSaved={() => { setUeModal(null); load(); }} />}
       {coursModal && <CoursFormModal {...coursModal} onClose={() => setCoursModal(null)} onSaved={() => { setCoursModal(null); load(); }} />}
     </div>
