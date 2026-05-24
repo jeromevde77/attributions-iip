@@ -395,7 +395,7 @@ export default function Referentiels({ embedded = false }) {
                 return (
                   <Fragment key={sg.section}>
                     {/* Bandeau de section (ligne de regroupement) */}
-                    <tr className="bg-iip-gold/5 border-t-2 border-iip-gold/60">
+                    <tr className="bg-iip-gold/5 border-t border-gray-200">
                       <td className="px-2 py-2 text-center">
                         <button onClick={() => toggle(secKey)} className="text-iip-gold font-bold">
                           <span className={`inline-block transition-transform ${secOpen ? 'rotate-90' : ''}`}>▶</span>
