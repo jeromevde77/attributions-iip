@@ -9,6 +9,8 @@ import Professeurs from './pages/Professeurs.jsx';
 import Users from './pages/Users.jsx';
 import Annees from './pages/Annees.jsx';
 import Configuration from './pages/Configuration.jsx';
+import EA12List from './pages/EA12List.jsx';
+import EA12Editor from './pages/EA12Editor.jsx';
 import Referentiels from './pages/Referentiels.jsx';
 
 /* eslint-disable no-undef */
@@ -70,7 +72,8 @@ function ProtectedLayout({ children }) {
     : [
         ['/',             'Tableau de bord'],
         ['/attributions', 'Attributions'],
-        ['/professeurs',  'Professeurs']
+        ['/professeurs',  'Professeurs'],
+        ['/ea12',         'EA12']
       ];
   if (u?.role === 'admin') nav.push(['/configuration', '⚙ Configuration']);
 
@@ -158,6 +161,8 @@ export default function App() {
       <Route path="/"             element={<ProtectedLayout><Dashboard /></ProtectedLayout>} />
       <Route path="/attributions" element={<ProtectedLayout><Attributions /></ProtectedLayout>} />
       <Route path="/professeurs"  element={<ProtectedLayout><Professeurs /></ProtectedLayout>} />
+      <Route path="/ea12"          element={<ProtectedLayout><EA12List /></ProtectedLayout>} />
+      <Route path="/ea12/:id"      element={<ProtectedLayout><EA12Editor /></ProtectedLayout>} />
       <Route path="/pilotage"     element={<Navigate to="/" replace />} />
       <Route path="/utilisateurs" element={<ProtectedLayout><Users /></ProtectedLayout>} />
       <Route path="/annees"         element={<ProtectedLayout><Annees /></ProtectedLayout>} />

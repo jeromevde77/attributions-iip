@@ -1,10 +1,12 @@
 import { useEffect, useMemo, useState } from 'react';
-import { api } from '../lib/api.js';
+import { useNavigate } from 'react-router-dom';
+import { api, getAnnee } from '../lib/api.js';
 
 const EMPTY = {
   nom: '', prenom: '', adresse_mail: '', mail_prive: '',
   statut: '', adresse_rue: '', code_postal: '', commune: '',
-  capaes: '', anciennete_25_26_po: 0
+  capaes: '', anciennete_25_26_po: 0,
+  matricule: '', titre1: '', titre2: '', statut_ea12: ''
 };
 
 function EditModal({ prof, onClose, onSaved }) {
@@ -14,7 +16,9 @@ function EditModal({ prof, onClose, onSaved }) {
     adresse_mail: prof.adresse_mail || '', mail_prive: prof.mail_prive || '',
     statut: prof.statut || '', adresse_rue: prof.adresse_rue || '',
     code_postal: prof.code_postal || '', commune: prof.commune || '',
-    capaes: prof.capaes || '', anciennete_25_26_po: prof.anciennete_25_26_po || 0
+    capaes: prof.capaes || '', anciennete_25_26_po: prof.anciennete_25_26_po || 0,
+    matricule: prof.matricule || '', titre1: prof.titre1 || '', titre2: prof.titre2 || '',
+    statut_ea12: prof.statut_ea12 || ''
   } : { ...EMPTY });
   const [saving, setSaving] = useState(false);
 
@@ -91,6 +95,20 @@ function EditModal({ prof, onClose, onSaved }) {
               onChange={e => set('anciennete_25_26_po', Number(e.target.value))}
               className="w-full border border-gray-300 rounded px-3 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-iip-gold" />
           </div>
+          <div className="pt-2 mt-1 border-t border-gray-100">
+            <div className="text-xs font-semibold text-iip-gold mb-2">Données EA12 (documents officiels)</div>
+            <Field label="Matricule enseignant (11 chiffres)" k="matricule" />
+            <div className="mt-2"><Field label="Titre de capacité 1" k="titre1" /></div>
+            <div className="mt-2"><Field label="Titre de capacité 2" k="titre2" /></div>
+            <div className="mt-2">
+              <label className="block text-xs text-gray-600 mb-0.5">Statut EA12</label>
+              <select value={form.statut_ea12} onChange={e => set('statut_ea12', e.target.value)}
+                className="w-full border border-gray-300 rounded px-3 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-iip-gold">
+                <option value="">—</option>
+                {['T', 'TPr', 'St', 'D', 'ACS', 'APE', 'PTP'].map(s => <option key={s} value={s}>{s}</option>)}
+              </select>
+            </div>
+          </div>
           <div className="flex justify-end gap-2 pt-2 border-t border-gray-100">
             <button type="button" onClick={onClose} className="px-4 py-2 text-sm text-gray-600 hover:text-gray-800">Annuler</button>
             <button type="submit" disabled={saving}
@@ -106,9 +124,17 @@ function EditModal({ prof, onClose, onSaved }) {
 
 function DetailModal({ profId, onClose, onEdit }) {
   const [detail, setDetail] = useState(null);
+  const navigate = useNavigate();
   useEffect(() => {
     api.professeur(profId).then(setDetail).catch(e => alert(e.message));
   }, [profId]);
+
+  async function nouvelEA12() {
+    try {
+      const { id } = await api.ea12Create({ professeur_id: profId, annee_scolaire: getAnnee(), variante: 'bis', donnees: {} });
+      navigate(`/ea12/${id}`);
+    } catch (e) { alert('Erreur : ' + e.message); }
+  }
 
   if (!detail) return (
     <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-30">
@@ -132,6 +158,10 @@ function DetailModal({ profId, onClose, onEdit }) {
             </div>
           </div>
           <div className="flex gap-2 flex-shrink-0">
+            <button onClick={nouvelEA12}
+              className="bg-iip-mauve hover:opacity-90 text-white text-sm px-3 py-1.5 rounded">
+              + Nouvel EA12
+            </button>
             <button onClick={() => onEdit(detail)}
               className="bg-iip-gold hover:bg-iip-amber text-white text-sm px-3 py-1.5 rounded">
               ✏ Modifier

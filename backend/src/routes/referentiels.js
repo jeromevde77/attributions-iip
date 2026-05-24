@@ -338,7 +338,8 @@ r.post('/professeurs', authRequired, roleRequired('admin', 'editeur'), (req, res
 // Modifier un professeur
 r.patch('/professeurs/:id', authRequired, roleRequired('admin', 'editeur'), (req, res) => {
   const allowed = ['nom','prenom','adresse_mail','mail_prive','statut',
-                   'adresse_rue','code_postal','commune','capaes','anciennete_25_26_po'];
+                   'adresse_rue','code_postal','commune','capaes','anciennete_25_26_po',
+                   'matricule','titre1','titre2','statut_ea12'];
   const updates = [];
   const params = { id: req.params.id };
   for (const k of allowed) {

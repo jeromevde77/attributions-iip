@@ -165,6 +165,29 @@ export const api = {
       a.href = url; a.download = `attributions-${getAnnee()}-${new Date().toISOString().slice(0,10)}.xlsx`;
       a.click(); URL.revokeObjectURL(url);
     });
+  },
+
+  // ---- EA12 ----
+  ea12List(params = {}) {
+    const qs = new URLSearchParams(params).toString();
+    return request('/ea12' + (qs ? '?' + qs : ''));
+  },
+  ea12Get(id) { return request(`/ea12/${id}`); },
+  ea12Create(body) { return request('/ea12', { method: 'POST', body }); },
+  ea12Update(id, body) { return request(`/ea12/${id}`, { method: 'PUT', body }); },
+  ea12Delete(id) { return request(`/ea12/${id}`, { method: 'DELETE' }); },
+  ea12Apercu(id) { return request(`/ea12/${id}/apercu`); },
+  ea12Document(id, filename) {
+    return fetch(`${BASE}/ea12/${id}/document`, {
+      headers: { Authorization: `Bearer ${getToken()}` }
+    }).then(async r => {
+      if (!r.ok) throw new Error('Génération du document échouée');
+      const blob = await r.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url; a.download = filename || 'EA12.docx';
+      a.click(); URL.revokeObjectURL(url);
+    });
   }
 };
 
