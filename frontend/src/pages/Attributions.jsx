@@ -132,7 +132,7 @@ export default function Attributions() {
       const ueMap = secMap.get(sec);
       const org = r.num_organisation || 1;
       const ueKey = (r.ue_num ?? 0) + '/org' + org;
-      if (!ueMap.has(ueKey)) ueMap.set(ueKey, { ue_num: r.ue_num, ue_nom: r.ue_nom, bloc: r.bloc, ue_et_ref: r.ue_et_ref, num_organisation: org, coursMap: new Map(), rows: [] });
+      if (!ueMap.has(ueKey)) ueMap.set(ueKey, { ue_num: r.ue_num, ue_nom: r.ue_nom, bloc: r.bloc, ue_et_ref: r.ue_et_ref, ue_quad: r.quadri_pour_tous_prevu, num_organisation: org, coursMap: new Map(), rows: [] });
       const ueGroup = ueMap.get(ueKey);
       ueGroup.rows.push(r);
       const coursKey = r.code_cours || '?';
@@ -169,7 +169,7 @@ export default function Attributions() {
   }
   async function changeQuadri(ue, sec, org, q) {
     setQuadriMenu(null);
-    try { await api.setQuadriOrganisation(ue.ue_num, org, sec, q); load(); }
+    try { await api.updateUE(ue.ue_num, { ue_quad: q || null }); load(); }
     catch (e) { alert(e.message); }
   }
   async function reouvrirUE(ue, sec) {
@@ -410,9 +410,9 @@ export default function Attributions() {
               {isHelb && <span className="text-xs text-pink-600 font-bold px-1.5 py-0.5 rounded bg-pink-100">HELB</span>}
               <span className="relative inline-block" onClick={e=>e.stopPropagation()}>
                 <button onClick={()=>setQuadriMenu(quadriMenu===key?null:key)}
-                  title="Quadrimestre de l'organisation (cliquer pour modifier)"
-                  className={`text-xs px-1.5 py-0.5 rounded font-semibold cursor-pointer hover:ring-1 hover:ring-gray-300 ${quadriStyle(ue.rows[0]?.quadrimestre_attribue)}`}>
-                  {ue.rows[0]?.quadrimestre_attribue || '— Q'}
+                  title="Quadrimestre de l'UE (cliquer pour modifier)"
+                  className={`text-xs px-1.5 py-0.5 rounded font-semibold cursor-pointer hover:ring-1 hover:ring-gray-300 ${quadriStyle(ue.ue_quad)}`}>
+                  {ue.ue_quad || '— Q'}
                 </button>
                 {quadriMenu===key && (
                   <div className="absolute left-0 top-full mt-1 z-40 bg-white border border-gray-200 rounded-lg shadow-xl py-1 w-28">
