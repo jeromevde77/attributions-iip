@@ -361,9 +361,10 @@ export default function Attributions() {
     const key = 'ue:'+ueKey;
     const open = openUEs.has(key);
     const st = groupStats(ue.rows);
+    const isHelb = ue.rows.some(r => r.contrat_mdp === 'HELB');
     return (
-      <div key={key} className="border-t border-gray-200">
-        <div className="w-full flex items-center gap-3 px-5 py-2.5 hover:bg-iip-gold/5 transition relative">
+      <div key={key} className={`border-t border-gray-200 ${isHelb ? 'bg-pink-50' : ''}`}>
+        <div className={`w-full flex items-center gap-3 px-5 py-2.5 transition relative ${isHelb ? 'hover:bg-pink-100/60' : 'hover:bg-iip-gold/5'}`}>
           <button onClick={()=>toggle(key)} className="flex items-center gap-3 flex-1 min-w-0 text-left">
             <span className={`text-iip-gold text-sm transition-transform ${open?'rotate-90':''}`}>▶</span>
             <div className="flex-1 min-w-0">
@@ -371,6 +372,7 @@ export default function Attributions() {
                 <span className="font-semibold text-iip-gold text-sm">UE {ue.ue_num}</span>
                 {org > 1 && <span className="text-xs bg-amber-100 text-amber-800 px-1.5 py-0.5 rounded font-semibold">Org. {org}</span>}
                 {ue.bloc && <span className="text-xs bg-iip-gold/10 text-iip-gold px-1.5 py-0.5 rounded">{ue.bloc}</span>}
+                {isHelb && <span className="text-xs text-pink-600 font-bold px-1.5 py-0.5 rounded bg-pink-100">HELB</span>}
               </div>
               <div className="text-xs text-gray-600 truncate">{ue.ue_nom || 'UE sans nom'}</div>
             </div>
@@ -406,7 +408,7 @@ export default function Attributions() {
           )}
         </div>
         {open && (
-          <div className="bg-gray-50/50">
+          <div className={isHelb ? 'bg-pink-50/40' : 'bg-gray-50/50'}>
             {ue.cours.map(cg => renderCours(ueKey, cg))}
           </div>
         )}
