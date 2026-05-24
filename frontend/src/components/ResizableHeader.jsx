@@ -45,7 +45,7 @@ export default function ResizableHeader({
     <th
       ref={thRef}
       style={{ width: col.width, minWidth: col.width, maxWidth: col.width, position: 'relative' }}
-      className={`${isSortable ? 'cursor-pointer select-none hover:bg-iip-amber' : ''}`}
+      className={`${isSortable ? 'cursor-pointer select-none hover:bg-gray-100' : ''}`}
       onClick={() => isSortable && onSort(col.key)}
       title={isSortable ? 'Cliquer pour trier · Glisser le bord pour redimensionner' : col.tooltip}
     >

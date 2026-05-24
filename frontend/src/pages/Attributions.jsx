@@ -569,7 +569,7 @@ export default function Attributions() {
       {/* VUE COMPLÈTE */}
       {viewMode==='flat' && <div className="hidden md:block bg-white rounded-lg border border-gray-200 overflow-auto max-h-[calc(100vh-260px)]">
         {loading ? <div className="p-8 text-center text-gray-400">Chargement…</div> : (
-          <table className="grid-excel" style={{tableLayout:'fixed'}}>
+          <table className="grid-excel-soft" style={{tableLayout:'fixed'}}>
             <thead><tr>
               {COLS.map(c => c.key==='__select'
                 ? <th key={c.key} style={{width:c.width,minWidth:c.width,maxWidth:c.width}}><input type="checkbox" checked={selected.size>0&&selected.size===sortedData.length} onChange={toggleSelectAll} className="cursor-pointer"/></th>

@@ -29,26 +29,26 @@ table.grid-excel tbody tr:nth-child(even) { background: #f8fafc; }
 table.grid-excel tbody tr:hover { background: #e8f4f8; }
 table.grid-excel td.num { text-align: right; font-variant-numeric: tabular-nums; }
 
-/* Variante épurée : pas de colonnes visibles, seule une fine ligne
-   horizontale entre les lignes, teinte uniforme. Pour s'intégrer dans
-   un volet sans casser l'unité visuelle. */
+/* Variante épurée (flat) : pas de colonnes visibles, fines lignes
+   horizontales gris clair, en-tête sobre gris. Cohérent avec le design
+   flat de Référentiels (en-tête gray-50/gray-500, séparateurs gray-100). */
 table.grid-excel-soft { border-collapse: collapse; width: 100%; font-size: 0.875rem; }
 table.grid-excel-soft th, table.grid-excel-soft td {
   border: none;                       /* pas de grille verticale */
-  border-bottom: 1px solid #f1f3f5;   /* fine ligne horizontale seulement */
+  border-bottom: 1px solid #f1f3f5;   /* fine ligne horizontale gris clair */
   padding: 0.4rem 0.6rem;
   text-align: left;
   white-space: nowrap;
 }
 table.grid-excel-soft thead th {
-  background: #f8fafc;                 /* en-tête clair, teinte uniforme */
-  color: #6b7280;
+  background: #f9fafb;                 /* en-tête gris clair (= bg-gray-50) */
+  color: #6b7280;                      /* texte gris (= text-gray-500) */
   font-weight: 600;
-  border-bottom: 1px solid #e5e7eb;
+  border-bottom: 1px solid #e5e7eb;    /* séparateur d'en-tête gris */
   position: sticky;
   top: 0;
 }
-table.grid-excel-soft tbody tr:hover { background: #f8fafc; }   /* survol discret, même teinte */
+table.grid-excel-soft tbody tr:hover { background: #f9fafb; }   /* survol discret gris clair */
 table.grid-excel-soft td.num { text-align: right; font-variant-numeric: tabular-nums; }
 
 .input-cell {
