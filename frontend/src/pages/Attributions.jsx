@@ -134,7 +134,7 @@ export default function Attributions() {
       const ueMap = secMap.get(sec);
       const org = r.num_organisation || 1;
       const ueKey = (r.ue_num ?? 0) + '/org' + org;
-      if (!ueMap.has(ueKey)) ueMap.set(ueKey, { ue_num: r.ue_num, ue_nom: r.ue_nom, bloc: r.bloc, num_organisation: org, coursMap: new Map(), rows: [] });
+      if (!ueMap.has(ueKey)) ueMap.set(ueKey, { ue_num: r.ue_num, ue_nom: r.ue_nom, bloc: r.bloc, ue_et_ref: r.ue_et_ref, num_organisation: org, coursMap: new Map(), rows: [] });
       const ueGroup = ueMap.get(ueKey);
       ueGroup.rows.push(r);
       const coursKey = r.code_cours || '?';
@@ -361,7 +361,7 @@ export default function Attributions() {
     const key = 'ue:'+ueKey;
     const open = openUEs.has(key);
     const st = groupStats(ue.rows);
-    const isHelb = ue.rows.some(r => r.etablissement_referent === 'HELB');
+    const isHelb = ue.ue_et_ref === 'HELB';
     return (
       <div key={key} className={`border-t border-gray-200 ${isHelb ? 'bg-pink-50' : ''}`}>
         <div className={`w-full flex items-center gap-3 px-5 py-2.5 transition relative ${isHelb ? 'hover:bg-pink-100/60' : 'hover:bg-iip-gold/5'}`}>

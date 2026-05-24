@@ -355,6 +355,7 @@ SELECT
     a.ue_num,
     u.ue_nom,
     u.ue_code_fwb,
+    u.et_ref         AS ue_et_ref,                            -- référent de l'UE (IIP/HELB)
     u.ue_niv         AS bloc,                                -- BA1/BA2/BA3
     u.ue_niveau      AS niveau,                              -- SUP / DS
     u.ue_tc          AS tc,
