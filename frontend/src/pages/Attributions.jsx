@@ -364,32 +364,32 @@ export default function Attributions() {
     const isHelb = ue.ue_et_ref === 'HELB';
     return (
       <div key={key} className={`border-t border-gray-200 ${isHelb ? 'bg-pink-50' : ''}`}>
-        <div className={`w-full flex items-center gap-3 px-5 py-2.5 transition relative ${isHelb ? 'hover:bg-pink-100/60' : 'hover:bg-iip-gold/5'}`}>
-          <button onClick={()=>toggle(key)} className="flex items-center gap-3 flex-1 min-w-0 text-left">
+        <div className={`w-full flex items-center px-3 py-2 transition relative ${isHelb ? 'hover:bg-pink-100/60' : 'hover:bg-iip-gold/5'}`}>
+          <button onClick={()=>toggle(key)} className="grid items-center gap-2 flex-1 min-w-0 text-left"
+                  style={{ gridTemplateColumns: '16px 70px 110px 1fr auto' }}>
             <span className={`text-iip-gold text-sm transition-transform ${open?'rotate-90':''}`}>▶</span>
-            <div className="flex-1 min-w-0">
-              <div className="flex items-center gap-2 flex-wrap">
-                <span className="font-semibold text-iip-gold text-sm">UE {ue.ue_num}</span>
-                {org > 1 && <span className="text-xs bg-amber-100 text-amber-800 px-1.5 py-0.5 rounded font-semibold">Org. {org}</span>}
-                {ue.bloc && <span className="text-xs bg-iip-gold/10 text-iip-gold px-1.5 py-0.5 rounded">{ue.bloc}</span>}
-                {isHelb && <span className="text-xs text-pink-600 font-bold px-1.5 py-0.5 rounded bg-pink-100">HELB</span>}
-              </div>
-              <div className="text-xs text-gray-600 truncate">{ue.ue_nom || 'UE sans nom'}</div>
-            </div>
-            <div className="flex items-center gap-3 text-xs text-gray-500 flex-shrink-0">
+            <span className="font-semibold text-iip-gold text-sm whitespace-nowrap">UE {ue.ue_num}</span>
+            <span className="flex items-center gap-1 flex-wrap">
+              {org > 1 && <span className="text-xs bg-amber-100 text-amber-800 px-1.5 py-0.5 rounded font-semibold">Org. {org}</span>}
+              {ue.bloc && <span className="text-xs bg-iip-gold/10 text-iip-gold px-1.5 py-0.5 rounded">{ue.bloc}</span>}
+              {isHelb && <span className="text-xs text-pink-600 font-bold px-1.5 py-0.5 rounded bg-pink-100">HELB</span>}
+            </span>
+            <span className="text-xs text-gray-600 truncate" title={ue.ue_nom}>{ue.ue_nom || 'UE sans nom'}</span>
+            <span className="flex items-center gap-3 text-xs text-gray-500 flex-shrink-0 justify-end whitespace-nowrap">
               <span>{ue.rows.length} attr.</span>
               <span>{st.nCours} cours</span>
               <span>{st.nProf} prof.</span>
-              <span className="font-semibold text-iip-gold">{st.tPer}p</span>
-              {st.tAut>0 && <span className="text-gray-400">+{st.tAut}a</span>}
-              {st.nBad>0 && <span className="text-red-600 font-bold">✗ {st.nBad}</span>}
-              {st.nBad===0 && st.nConf>0 && <span className="text-green-600 font-bold">✓</span>}
-            </div>
+              <span className="font-semibold text-iip-gold w-12 text-right">{st.tPer}p</span>
+              {st.tAut>0 ? <span className="text-gray-400 w-10 text-right">+{st.tAut}a</span> : <span className="w-10"></span>}
+              {st.nBad>0 ? <span className="text-red-600 font-bold w-8 text-right">✗ {st.nBad}</span>
+                : st.nConf>0 ? <span className="text-green-600 font-bold w-8 text-right">✓</span>
+                : <span className="w-8"></span>}
+            </span>
           </button>
           {/* Bouton + : ajouter une ligne / un cours */}
           <button onClick={(e)=>{e.stopPropagation(); setAddMenuUE(addMenuUE?.key===key ? null : {key, ue, sec, org});}}
                   title="Ajouter une attribution"
-                  className="flex-shrink-0 w-7 h-7 flex items-center justify-center rounded-full bg-iip-gold/10 hover:bg-iip-gold hover:text-white text-iip-gold font-bold transition">+</button>
+                  className="flex-shrink-0 ml-2 w-7 h-7 flex items-center justify-center rounded-full bg-iip-gold/10 hover:bg-iip-gold hover:text-white text-iip-gold font-bold transition">+</button>
           {addMenuUE?.key===key && (
             <div className="absolute right-3 top-full mt-1 z-30 bg-white border border-gray-200 rounded-lg shadow-xl py-1 w-64" onClick={e=>e.stopPropagation()}>
               <div className="px-3 py-1.5 text-xs font-semibold text-gray-400 border-b border-gray-100">Ajouter dans l'UE {ue.ue_num}</div>
