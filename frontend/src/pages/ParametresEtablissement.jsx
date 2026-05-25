@@ -91,6 +91,17 @@ export default function ParametresEtablissement() {
           <Champ label="E-mail officiel (po)" value={f.email_po} onChange={v => set('email_po', v)}
             placeholder="…po@adm.cfwb.be" />
         </div>
+        <label className="block">
+          <div className="text-xs text-gray-600 mb-0.5">Nombre de jours de fonctionnement / semaine</div>
+          <select value={f.jours_fonctionnement ?? ''} onChange={e => set('jours_fonctionnement', e.target.value ? Number(e.target.value) : null)}
+            className="w-full md:w-48 border border-gray-300 rounded px-3 py-1.5 text-sm bg-white">
+            <option value="">—</option>
+            <option value="4">4 jours</option>
+            <option value="5">5 jours</option>
+            <option value="6">6 jours</option>
+          </select>
+          <div className="text-[11px] text-gray-400 mt-0.5">Se reporte automatiquement sur les EA12.</div>
+        </label>
       </section>
 
       {/* Gestionnaire du dossier */}

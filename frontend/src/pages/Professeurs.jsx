@@ -6,7 +6,7 @@ const EMPTY = {
   nom: '', prenom: '', adresse_mail: '', mail_prive: '',
   statut: '', adresse_rue: '', code_postal: '', commune: '',
   capaes: '', anciennete_25_26_po: 0,
-  matricule: '', titre1: '', titre2: '', statut_ea12: ''
+  matricule: '', titre1: '', titre2: '', titre3: '', statut_ea12: ''
 };
 
 function EditModal({ prof, onClose, onSaved }) {
@@ -18,7 +18,7 @@ function EditModal({ prof, onClose, onSaved }) {
     code_postal: prof.code_postal || '', commune: prof.commune || '',
     capaes: prof.capaes || '', anciennete_25_26_po: prof.anciennete_25_26_po || 0,
     matricule: prof.matricule || '', titre1: prof.titre1 || '', titre2: prof.titre2 || '',
-    statut_ea12: prof.statut_ea12 || ''
+    titre3: prof.titre3 || '', statut_ea12: prof.statut_ea12 || ''
   } : { ...EMPTY });
   const [saving, setSaving] = useState(false);
 
@@ -100,6 +100,7 @@ function EditModal({ prof, onClose, onSaved }) {
             <Field label="Matricule enseignant (11 chiffres)" k="matricule" />
             <div className="mt-2"><Field label="Titre de capacité 1" k="titre1" /></div>
             <div className="mt-2"><Field label="Titre de capacité 2" k="titre2" /></div>
+            <div className="mt-2"><Field label="Titre de capacité 3" k="titre3" /></div>
             <div className="mt-2">
               <label className="block text-xs text-gray-600 mb-0.5">Statut EA12</label>
               <select value={form.statut_ea12} onChange={e => set('statut_ea12', e.target.value)}

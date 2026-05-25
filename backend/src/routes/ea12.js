@@ -8,6 +8,13 @@ const r = Router();
 
 /* ---------- Helpers ---------- */
 
+// Convertit une date ISO (AAAA-MM-JJ) en JJ/MM/AAAA (format officiel EA12).
+function dateFr(iso) {
+  if (!iso) return '';
+  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(String(iso));
+  return m ? `${m[3]}/${m[2]}/${m[1]}` : String(iso);
+}
+
 // Construit l'objet `data` attendu par le générateur à partir de la base.
 function construireData(ea12Row, donnees) {
   const prof = db.prepare('SELECT * FROM professeur WHERE id = ?').get(ea12Row.professeur_id) || {};
@@ -40,23 +47,23 @@ function construireData(ea12Row, donnees) {
 
   return {
     annee: ea12Row.annee_scolaire,
-    doc_num: donnees.doc_num || '',
-    dernier_doc12: donnees.dernier_doc12 || '',
+    doc_num: ea12Row.num_doc ? String(ea12Row.num_doc) : '',
+    dernier_doc12: dateFr(donnees.dernier_doc12) || '',
     etab,
     matricule: prof.matricule || donnees.matricule || '',
     prof_nom: prof.nom || '',
     prof_prenom: prof.prenom || '',
-    titre1: prof.titre1 || donnees.titre1 || '',
-    titre2: prof.titre2 || donnees.titre2 || '',
-    titre3: donnees.titre3 || '',
+    titre1: prof.titre1 || '',
+    titre2: prof.titre2 || '',
+    titre3: prof.titre3 || '',
     statut: prof.statut_ea12 || donnees.statut || '',
     // Champs de situation (saisis dans l'éditeur)
     pas_cumul: donnees.pas_cumul || false,
     prest_sec: donnees.prest_sec || false,
     prest_sup: donnees.prest_sup ?? true,
     prest_exp: donnees.prest_exp || false,
-    jours: donnees.jours || null,
-    date_evenement: donnees.date_evenement || '',
+    jours: etab.jours_fonctionnement || donnees.jours || null,
+    date_evenement: dateFr(donnees.date_evenement) || '',
     semaines: donnees.semaines || '',
     justif: donnees.justif || '',
     observations: donnees.observations || '',
@@ -87,14 +94,19 @@ r.get('/:id', authRequired, (req, res) => {
   res.json(row);
 });
 
-// Créer un EA12 (brouillon)
+// Créer un EA12 (brouillon) — le n° de document est attribué automatiquement
+// (compteur par professeur et par année, figé à la création).
 r.post('/', authRequired, roleRequired('admin', 'editeur'), (req, res) => {
   const { professeur_id, annee_scolaire, variante = 'bis', donnees = {} } = req.body || {};
   if (!professeur_id || !annee_scolaire) return res.status(400).json({ error: 'professeur_id et annee_scolaire requis' });
-  const info = db.prepare(`INSERT INTO ea12 (professeur_id, annee_scolaire, variante, donnees_json, cree_par)
-                           VALUES (?, ?, ?, ?, ?)`)
-    .run(professeur_id, annee_scolaire, variante, JSON.stringify(donnees), req.user?.id || null);
-  res.json({ id: info.lastInsertRowid });
+  // Prochain numéro pour ce prof/année = (max existant) + 1
+  const row = db.prepare(`SELECT COALESCE(MAX(num_doc), 0) AS m FROM ea12
+                          WHERE professeur_id = ? AND annee_scolaire = ?`).get(professeur_id, annee_scolaire);
+  const numDoc = (row?.m || 0) + 1;
+  const info = db.prepare(`INSERT INTO ea12 (professeur_id, annee_scolaire, variante, num_doc, donnees_json, cree_par)
+                           VALUES (?, ?, ?, ?, ?, ?)`)
+    .run(professeur_id, annee_scolaire, variante, numDoc, JSON.stringify(donnees), req.user?.id || null);
+  res.json({ id: info.lastInsertRowid, num_doc: numDoc });
 });
 
 // Mettre à jour un EA12

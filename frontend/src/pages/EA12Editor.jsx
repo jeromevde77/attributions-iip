@@ -67,7 +67,10 @@ export default function EA12Editor() {
     (async () => {
       const row = await api.ea12Get(id);
       setEa12(row);
-      setD(row.donnees || {});
+      const dd = row.donnees || {};
+      // Date de l'événement par défaut = aujourd'hui (si pas encore définie)
+      if (!dd.date_evenement) dd.date_evenement = new Date().toISOString().slice(0, 10);
+      setD(dd);
       const ap = await api.ea12Apercu(id);
       setApercu(ap);
     })().catch(e => setMsg('Erreur : ' + e.message));
@@ -116,25 +119,26 @@ export default function EA12Editor() {
       {/* En-tête */}
       <Section titre="En-tête du document">
         <div className="grid grid-cols-2 gap-3">
-          <Txt label="Document n°" value={d.doc_num} onChange={v => set('doc_num', v)} placeholder="ex. 2" />
-          <Txt label="Dernier Doc12 transmis le" value={d.dernier_doc12} onChange={v => set('dernier_doc12', v)} placeholder="JJ/MM/AAAA" />
+          <div>
+            <div className="text-xs text-gray-600 mb-0.5">Document n° (automatique)</div>
+            <div className="px-3 py-1.5 text-sm bg-gray-50 border border-gray-200 rounded text-gray-700">
+              {ea12.num_doc || '—'} <span className="text-xs text-gray-400">· attribué à la création, par professeur et par année</span>
+            </div>
+          </div>
+          <Txt label="Dernier Doc12 transmis le" value={d.dernier_doc12} onChange={v => set('dernier_doc12', v)} type="date" />
         </div>
       </Section>
 
       {/* Identité (rappel, lecture seule) */}
       <Section titre="Identification du membre du personnel">
-        <p className="text-xs text-gray-500">Repris de la fiche du professeur (modifiable sur sa fiche).</p>
+        <p className="text-xs text-gray-500">Repris de la fiche du professeur (matricule, titres de capacité et statut se modifient sur sa fiche).</p>
         <div className="grid grid-cols-2 gap-3 text-sm">
           <div><span className="text-gray-500">Matricule : </span><span className="font-medium">{apercu.matricule || '— à compléter sur la fiche prof —'}</span></div>
           <div><span className="text-gray-500">Nom : </span><span className="font-medium">{apercu.prof_nom} {apercu.prof_prenom}</span></div>
+          <div><span className="text-gray-500">Statut : </span><span className="font-medium">{apercu.statut || '—'}</span></div>
         </div>
-        <Txt label="Titre de capacité 3 (spécifique à ce document)" value={d.titre3} onChange={v => set('titre3', v)} />
-        <div>
-          <div className="text-xs text-gray-600 mb-1">Statut</div>
-          <div className="flex gap-4 flex-wrap">
-            {['T', 'TPr', 'St', 'D', 'ACS', 'APE', 'PTP'].map(s =>
-              <Radio key={s} name="statut" label={s} value={s} current={d.statut} onChange={v => set('statut', v)} />)}
-          </div>
+        <div className="text-xs text-gray-500">
+          Titres : {[apercu.titre1, apercu.titre2, apercu.titre3].filter(Boolean).join(' · ') || '— à compléter sur la fiche prof —'}
         </div>
       </Section>
 
@@ -147,18 +151,13 @@ export default function EA12Editor() {
           <Check label="Supérieur" checked={d.prest_sup ?? true} onChange={v => set('prest_sup', v)} />
           <Check label="Expert" checked={d.prest_exp} onChange={v => set('prest_exp', v)} />
         </div>
-        <div>
-          <div className="text-xs text-gray-600 mb-1">Nombre de jours de fonctionnement / semaine</div>
-          <div className="flex gap-4">
-            {[4, 5, 6].map(j => <Radio key={j} name="jours" label={String(j)} value={j} current={d.jours} onChange={v => set('jours', v)} />)}
-          </div>
-        </div>
+        <p className="text-[11px] text-gray-400">Le nombre de jours de fonctionnement/semaine est défini dans Configuration → Établissement.</p>
       </Section>
 
       {/* Événement */}
       <Section titre="Événement">
         <div className="grid grid-cols-2 gap-3">
-          <Txt label="Date de l’événement" value={d.date_evenement} onChange={v => set('date_evenement', v)} placeholder="JJ/MM/AAAA" />
+          <Txt label="Date de l’événement" value={d.date_evenement} onChange={v => set('date_evenement', v)} type="date" />
           <Txt label="Semaines de fonctionnement" value={d.semaines} onChange={v => set('semaines', v)} />
         </div>
         <div className="grid grid-cols-2 gap-4">

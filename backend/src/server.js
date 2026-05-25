@@ -189,6 +189,9 @@ try {
         gest_email      TEXT
       );
     `);
+    // Nombre de jours de fonctionnement/semaine (propriété de l'établissement)
+    const colsEtab = db.prepare("PRAGMA table_info(etablissement)").all().map(c => c.name);
+    if (!colsEtab.includes('jours_fonctionnement')) db.exec("ALTER TABLE etablissement ADD COLUMN jours_fonctionnement INTEGER");
     // Pré-remplissage initial (IIP) si aucune donnée n'existe encore.
     // Valeurs certaines issues d'un EA12 réel ; les champs incertains
     // (email_ec tronqué, email gestionnaire absent) restent vides à compléter.
@@ -248,6 +251,9 @@ try {
     `);
     db.exec("CREATE INDEX IF NOT EXISTS idx_ea12_prof ON ea12(professeur_id)");
     db.exec("CREATE INDEX IF NOT EXISTS idx_ea12_annee ON ea12(annee_scolaire)");
+    // num_doc : numéro de Doc12 (par prof/année, figé à la création)
+    const colsEa12 = db.prepare("PRAGMA table_info(ea12)").all().map(c => c.name);
+    if (!colsEa12.includes('num_doc')) db.exec("ALTER TABLE ea12 ADD COLUMN num_doc INTEGER");
   }
 
   // 6. Ajouter annee_scolaire aux tables ue et cours (clés composites)
