@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate, Navigate } from 'react-router-dom';
 import { api, isAuthenticated } from '../lib/api.js';
 
@@ -41,10 +41,6 @@ function LucieLogo({ size = 220 }) {
             fontSize="48" fontWeight="700" letterSpacing="-1.5"
             fill="white">Lucie</text>
       <line x1="116" y1="77" x2="308" y2="77" stroke="#00AACC" strokeWidth="1.4" strokeOpacity=".5"/>
-      <text x="117" y="93"
-            fontFamily="'Segoe UI','Helvetica Neue',Arial,sans-serif"
-            fontSize="8.5" fontWeight="500" letterSpacing="3.2"
-            fill="white" fillOpacity=".38">INTELLIGENCE · CONNEXIONS · CHEMINS</text>
     </svg>
   );
 }
@@ -93,7 +89,13 @@ export default function Login() {
   const [password, setPassword] = useState('');
   const [error, setError]       = useState('');
   const [loading, setLoading]   = useState(false);
+  const [info, setInfo]         = useState({ etab_nom: '', version: '' });
   const nav = useNavigate();
+
+  // Charger le nom de l'établissement et la version (route publique)
+  useEffect(() => {
+    fetch('/api/info').then(r => r.json()).then(setInfo).catch(() => {});
+  }, []);
 
   async function submit(e) {
     e.preventDefault();
@@ -142,8 +144,27 @@ export default function Login() {
       }}>
 
         {/* Logo */}
-        <div style={{animation:'fadeDown .6s ease both'}}>
+        <div style={{animation:'fadeDown .6s ease both', display:'flex', flexDirection:'column', alignItems:'center', gap:'14px'}}>
           <LucieLogo size={240}/>
+          {/* Sous-titre */}
+          <div style={{textAlign:'center', display:'flex', flexDirection:'column', gap:'5px'}}>
+            <p style={{
+              color:'rgba(255,255,255,.75)', fontSize:'13px', fontWeight:500,
+              letterSpacing:'.5px', fontFamily:"'Segoe UI',sans-serif", margin:0,
+            }}>Gestion des membres de personnel</p>
+            {info.etab_nom && (
+              <p style={{
+                color:'#00AACC', fontSize:'12px', fontWeight:600,
+                letterSpacing:'1px', fontFamily:"'Segoe UI',sans-serif", margin:0,
+              }}>{info.etab_nom}</p>
+            )}
+            {info.version && (
+              <p style={{
+                color:'rgba(255,255,255,.25)', fontSize:'10px',
+                letterSpacing:'2px', fontFamily:"'Segoe UI',sans-serif", margin:0,
+              }}>v{info.version}</p>
+            )}
+          </div>
         </div>
 
         {/* Formulaire */}
