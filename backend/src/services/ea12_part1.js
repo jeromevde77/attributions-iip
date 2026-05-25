@@ -26,8 +26,13 @@ const TB = { style: BorderStyle.SINGLE, size: 4, color: '000000' };
 const noBorders = { top: NB, bottom: NB, left: NB, right: NB, insideHorizontal: NB, insideVertical: NB };
 const allBorders = { top: TB, bottom: TB, left: TB, right: TB, insideHorizontal: TB, insideVertical: TB };
 
+// Retire les caractères de contrôle interdits en XML 1.0 (cause fréquente de
+// "Word a rencontré une erreur lors de l'ouverture du fichier").
+function cleanXml(s) {
+  return String(s ?? '').replace(/[\x00-\x08\x0B\x0C\x0E-\x1F]/g, '');
+}
 function run(text, o = {}) {
-  return new TextRun({ text: String(text ?? ''), font: FONT, size: o.size ?? 15, bold: o.bold, italics: o.italics, color: o.color, superScript: o.sup });
+  return new TextRun({ text: cleanXml(text), font: FONT, size: o.size ?? 15, bold: o.bold, italics: o.italics, color: o.color, superScript: o.sup });
 }
 function par(children, o = {}) {
   return new Paragraph({
