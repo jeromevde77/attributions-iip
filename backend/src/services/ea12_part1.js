@@ -46,9 +46,20 @@ function chk(label, checked = false, o = {}) {
   return [run((checked ? CHKD : CHK) + ' ', { size: o.size ?? 15 }), run(label, { size: o.size ?? 14, bold: o.bold })];
 }
 function cell(content, o = {}) {
-  const children = Array.isArray(content) ? content : [content];
+  const raw = Array.isArray(content) ? content : [content];
+  // Normaliser : Paragraph et Table gardés tels quels, le reste -> paragraphe
+  const children = raw.map(c =>
+    (c instanceof Paragraph || c instanceof Table) ? c : par(c, o)
+  );
+  // Règle OOXML stricte : une cellule de tableau doit TOUJOURS se terminer
+  // par un paragraphe. Si le dernier élément est un tableau imbriqué (ou si
+  // la cellule est vide), on ajoute un paragraphe vide final, sinon Word
+  // refuse d'ouvrir le document ("tbl not expected").
+  if (children.length === 0 || children[children.length - 1] instanceof Table) {
+    children.push(new Paragraph({ children: [] }));
+  }
   return new TableCell({
-    children: children.map(c => c instanceof Paragraph ? c : par(c, o)),
+    children,
     width: o.w ? { size: o.w * PT, type: WidthType.DXA } : undefined,
     columnSpan: o.span, rowSpan: o.rowSpan,
     borders: o.borders,
