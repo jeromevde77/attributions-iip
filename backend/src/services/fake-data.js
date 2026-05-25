@@ -165,6 +165,36 @@ function genTel() {
   return `${prefixe} ${randInt(10,99)} ${randInt(10,99)} ${randInt(10,99)}`;
 }
 
+// Codes BIC de banques belges (plausibles)
+const BICS = ['GEBABEBB', 'BBRUBEBB', 'GKCCBEBB', 'KREDBEBB', 'BPOTBEB1',
+  'CREGBEBB', 'NICABEBB', 'AXABBE22', 'CTBKBEBX', 'BMPBBEBB'];
+
+// Caisses de sécurité sociale (pour le règlement CE 883/2004)
+const CAISSES_SS = [
+  'CPAM du Nord — 2 rue d\'Iéna, 59000 Lille (France)',
+  'URSSAF Hauts-de-France — 293 avenue du Président Hoover, 59000 Lille (France)',
+  'INPS — Via Ciro il Grande 21, 00144 Roma (Italie)',
+  'Tesorería General de la Seguridad Social — Calle de Astros 5, 28007 Madrid (Espagne)',
+  'CNS — 125 route d\'Esch, 1471 Luxembourg (Luxembourg)',
+  'Sociale Verzekeringsbank — Van Heuven Goedhartlaan 1, 1181 KH Amstelveen (Pays-Bas)',
+];
+
+// Villes par pays (pour que la ville de naissance soit toujours remplie)
+const VILLES_PAR_PAYS = {
+  'Belgique': ['Bruxelles', 'Liège', 'Charleroi', 'Namur', 'Mons', 'Nivelles', 'Wavre', 'Tournai'],
+  'France': ['Lille', 'Paris', 'Roubaix', 'Tourcoing', 'Valenciennes', 'Maubeuge'],
+  'Italie': ['Rome', 'Milan', 'Naples', 'Turin', 'Palerme'],
+  'Espagne': ['Madrid', 'Barcelone', 'Séville', 'Valence'],
+  'Maroc': ['Casablanca', 'Rabat', 'Marrakech', 'Tanger', 'Fès'],
+  'Portugal': ['Lisbonne', 'Porto', 'Braga', 'Coimbra'],
+  'Roumanie': ['Bucarest', 'Cluj-Napoca', 'Timișoara'],
+  'République démocratique du Congo': ['Kinshasa', 'Lubumbashi', 'Goma'],
+};
+function villeDuPays(pays) {
+  const villes = VILLES_PAR_PAYS[pays] || VILLES_PAR_PAYS['Belgique'];
+  return pick(villes);
+}
+
 // ── Helpers ──────────────────────────────────────────────────────────────────
 const pick = (arr) => arr[Math.floor(Math.random() * arr.length)];
 const randInt = (min, max) => Math.floor(Math.random() * (max - min + 1)) + min;
@@ -257,7 +287,7 @@ export function regenerateFakeProfs(db) {
       nom = ?, prenom = ?, adresse_mail = ?, mail_prive = ?,
       date_naissance = ?, matricule = ?, adresse_rue = ?, code_postal = ?,
       commune = ?, titre1 = ?, titre2 = ?, titre3 = ?, capaes = ?,
-      statut_ea12 = ?, anciennete_25_26_po = ?,
+      statut_ea12 = ?, anciennete_25_26_po = ?, report_anc_po = ?,
       sexe = ?, niss = ?, nationalite = ?, lieu_naissance_ville = ?,
       lieu_naissance_pays = ?, iban = ?, bic = ?, compte_titulaire = ?, tel_gsm = ?,
       etat_civil = ?, handicap = ?,
@@ -277,6 +307,24 @@ export function regenerateFakeProfs(db) {
     'INSERT INTO personne_charge (professeur_id, categorie, date_naissance, handicap, ordre) VALUES (?,?,?,?,?)'
   );
 
+  // Reports d'ancienneté par cours (CC) — pour ne pas laisser cette zone vide
+  let delReportCours, insReportCours, coursParProf = {};
+  try {
+    delReportCours = db.prepare('DELETE FROM report_anc_cours WHERE professeur_id = ?');
+    insReportCours = db.prepare('INSERT INTO report_anc_cours (professeur_id, cours_nom, jours) VALUES (?,?,?)');
+    // Récupérer les cours distincts de chaque prof (via attribution + cours)
+    const rows = db.prepare(`
+      SELECT DISTINCT a.professeur_id AS pid, c.cours_nom AS nom
+      FROM attribution a
+      LEFT JOIN cours c ON c.cours_code = a.code_cours AND c.annee_scolaire = a.annee_scolaire
+      WHERE a.professeur_id IS NOT NULL AND a.contrat_mdp = 'IIP' AND c.cours_nom IS NOT NULL
+    `).all();
+    for (const r of rows) {
+      if (!coursParProf[r.pid]) coursParProf[r.pid] = [];
+      coursParProf[r.pid].push(r.nom);
+    }
+  } catch (e) { /* tables absentes : on ignore les reports cours */ }
+
   const stats = { total: 0, capaes: 0, cap: 0, aess: 0, sans: 0, titres: 0, charges: 0 };
 
   const tx = db.transaction(() => {
@@ -291,7 +339,7 @@ export function regenerateFakeProfs(db) {
       const [cp, commune] = pick(COMMUNES);
       const sections = sectionsByProf[prof.id] || [];
       const [t1, t2] = genTitres(sections);
-      const titrePeda = genTitrePedagogique();
+      const titrePeda = genTitrePedagogique() || 'CAP'; // toujours un titre pédagogique
       const capaes = titrePeda === 'CAPAES' ? 'x' : '';
       const statutEa12 = prof.statut === 'EXP'
         ? pick(['T','TPr','TPr','D'])
@@ -302,28 +350,32 @@ export function regenerateFakeProfs(db) {
       const niss = genNiss(naissance, sexe);
       const nationalite = pick(NATIONALITES);
       const paysNaissance = pickPondere(PAYS_NAISSANCE);
-      const villeNaissance = paysNaissance === 'Belgique' ? pick(VILLES_BE) : '';
+      const villeNaissance = villeDuPays(paysNaissance);
       const iban = genIban();
+      const bic = pick(BICS);
+      const titulaireCompte = `${prenom} ${nom}`;
       const tel = genTel();
       const etatCivil = pickPondere(ETATS_CIVILS_POIDS);
       const handicap = Math.random() < 0.04 ? 'oui' : 'non';
 
-      // Conjoint (si marié ou cohabitant légal)
-      let conjNom = '', conjPrenom = '', conjHandicap = 'non', conjAlloc = 'non', conjRevenus = 'pro';
-      if (['marie', 'cohab_legal'].includes(etatCivil)) {
-        conjNom = pick(NOMS);
-        conjPrenom = pick(sexe === 'M' ? PRENOMS_F : PRENOMS_M); // conjoint de sexe opposé (simplification)
-        conjHandicap = Math.random() < 0.03 ? 'oui' : 'non';
-        conjAlloc = Math.random() < 0.15 ? 'oui' : 'non';
-        conjRevenus = pickPondere([['pro', 0.7], ['pension', 0.12], ['faibles', 0.1], ['aucun', 0.08]]);
-      }
+      // Conjoint — Option A : toujours rempli pour tester l'affichage de chaque case
+      const conjNom = pick(NOMS);
+      const conjPrenom = pick(sexe === 'M' ? PRENOMS_F : PRENOMS_M);
+      const conjHandicap = Math.random() < 0.05 ? 'oui' : 'non';
+      const conjAlloc = Math.random() < 0.2 ? 'oui' : 'non';
+      const conjRevenus = pickPondere([['pro', 0.6], ['pension', 0.15], ['faibles', 0.13], ['aucun', 0.12]]);
+
+      // CE 883/2004 — Option A : toujours actif et rempli pour tester l'affichage
+      const ce883Debut = `${randInt(2010, 2024)}-${String(randInt(1,12)).padStart(2,'0')}-${String(randInt(1,28)).padStart(2,'0')}`;
+      const ce883Caisse = pick(CAISSES_SS);
+      const ce883Num = `${randInt(100000, 999999)}-${randInt(10, 99)}`;
 
       update.run(nom, prenom, mailPro, mailPrive, naissance, matricule,
-        rue, cp, commune, t1, t2, titrePeda, capaes, statutEa12, anciennete,
-        sexe, niss, nationalite, villeNaissance, paysNaissance, iban, '', '', tel,
+        rue, cp, commune, t1, t2, titrePeda, capaes, statutEa12, anciennete, anciennete,
+        sexe, niss, nationalite, villeNaissance, paysNaissance, iban, bic, titulaireCompte, tel,
         etatCivil, handicap,
         conjNom, conjPrenom, conjHandicap, conjAlloc, conjRevenus,
-        'non', '', '', '',
+        'oui', ce883Debut, ce883Caisse, ce883Num,
         prof.id);
 
       // ── Titres datés (à partir de t1/t2 + organisme + date plausible) ──
@@ -345,25 +397,43 @@ export function regenerateFakeProfs(db) {
         stats.titres++;
       }
 
-      // ── Personnes à charge ──
+      // ── Personnes à charge — Option A : au moins une par prof, dans chaque catégorie ──
       delCharges.run(prof.id);
       let ordreCharge = 0;
-      if (['marie', 'cohab_legal', 'divorce', 'cohabitant'].includes(etatCivil) && age > 28) {
-        const nbEnfants = pickPondere([[0, 0.3], [1, 0.25], [2, 0.3], [3, 0.12], [4, 0.03]]);
-        for (let k = 0; k < Number(nbEnfants); k++) {
-          const ageEnfant = randInt(1, Math.min(age - 22, 26));
-          const anneeEnf = new Date().getFullYear() - ageEnfant;
-          const dn = `${anneeEnf}-${String(randInt(1,12)).padStart(2,'0')}-${String(randInt(1,28)).padStart(2,'0')}`;
-          insCharge.run(prof.id, 'enfant', dn, Math.random() < 0.02 ? 'oui' : 'non', ordreCharge++);
-          stats.charges++;
-        }
+      // Enfants : au moins 1, jusqu'à 4
+      const nbEnfants = pickPondere([[1, 0.35], [2, 0.35], [3, 0.2], [4, 0.1]]);
+      for (let k = 0; k < Number(nbEnfants); k++) {
+        const ageEnfant = randInt(1, Math.max(2, Math.min(age - 22, 26)));
+        const anneeEnf = new Date().getFullYear() - ageEnfant;
+        const dn = `${anneeEnf}-${String(randInt(1,12)).padStart(2,'0')}-${String(randInt(1,28)).padStart(2,'0')}`;
+        insCharge.run(prof.id, 'enfant', dn, Math.random() < 0.05 ? 'oui' : 'non', ordreCharge++);
+        stats.charges++;
       }
-      // Parfois un ascendant de +65 ans à charge
-      if (Math.random() < 0.05) {
+      // Un ascendant de +65 ans à charge
+      {
         const anneeAsc = new Date().getFullYear() - randInt(66, 88);
         const dn = `${anneeAsc}-${String(randInt(1,12)).padStart(2,'0')}-${String(randInt(1,28)).padStart(2,'0')}`;
-        insCharge.run(prof.id, 'autre_65', dn, Math.random() < 0.1 ? 'oui' : 'non', ordreCharge++);
+        insCharge.run(prof.id, 'autre_65', dn, Math.random() < 0.15 ? 'oui' : 'non', ordreCharge++);
         stats.charges++;
+      }
+      // Une autre personne à charge
+      {
+        const anneeAutre = new Date().getFullYear() - randInt(30, 60);
+        const dn = `${anneeAutre}-${String(randInt(1,12)).padStart(2,'0')}-${String(randInt(1,28)).padStart(2,'0')}`;
+        insCharge.run(prof.id, 'autre', dn, Math.random() < 0.1 ? 'oui' : 'non', ordreCharge++);
+        stats.charges++;
+      }
+
+      // ── Reports d'ancienneté par cours (CC uniquement) ──
+      if (prof.statut === 'CC' && delReportCours && insReportCours) {
+        delReportCours.run(prof.id);
+        const coursDuProf = coursParProf[prof.id] || [];
+        for (const nomCours of coursDuProf) {
+          // report historique plausible : 0 à 6 années × 180 ou 360
+          const annees = randInt(0, 6);
+          const jours = annees * pick([180, 360]);
+          insReportCours.run(prof.id, nomCours, jours);
+        }
       }
 
       stats.total++;
