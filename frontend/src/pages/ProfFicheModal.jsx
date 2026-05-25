@@ -59,6 +59,8 @@ function TextField({ label, value, onChange, type = 'text', placeholder }) {
   return (
     <Labelled label={label}>
       <input type={type} value={value ?? ''} placeholder={placeholder}
+        autoComplete="off" autoCorrect="off" autoCapitalize="off" spellCheck={false}
+        name={`field_${label?.replace(/[^a-zA-Z]/g, '') || 'x'}_${Math.random().toString(36).slice(2, 8)}`}
         onChange={e => onChange(e.target.value)} className={FIELD_CLS} />
     </Labelled>
   );
@@ -192,7 +194,7 @@ export default function ProfFicheModal({ prof, onClose, onSaved }) {
           <button onClick={onClose} className="text-gray-400 hover:text-red-500 text-2xl leading-none">×</button>
         </div>
 
-        <form onSubmit={handleSubmit} className="p-5 space-y-3 overflow-auto">
+        <form onSubmit={handleSubmit} autoComplete="off" className="p-5 space-y-3 overflow-auto">
 
           {/* 1. Identité civile */}
           <Section titre="1 · Identité civile" ouvert={open.identite} onToggle={() => toggle('identite')}>

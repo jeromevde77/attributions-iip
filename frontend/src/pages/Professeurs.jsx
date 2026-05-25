@@ -193,6 +193,7 @@ export default function Professeurs() {
         </h1>
         <div className="flex gap-2 items-center">
           <input value={q} onChange={e => setQ(e.target.value)} placeholder="🔍 Rechercher…"
+            type="search" autoComplete="off" autoCorrect="off" spellCheck={false}
             className="border border-gray-300 rounded px-3 py-1.5 text-sm w-56" />
           {canEdit && (
             <button onClick={() => setEditProf({ ...EMPTY })}
