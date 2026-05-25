@@ -306,8 +306,13 @@ r.get('/professeurs', authRequired, (req, res) => {
 });
 
 r.get('/professeurs/:id', authRequired, (req, res) => {
-  const p = db.prepare('SELECT * FROM v_professeur_total WHERE id = ?').get(req.params.id);
-  if (!p) return res.status(404).json({ error: 'Professeur introuvable' });
+  // Table complète (TOUS les champs de la fiche signalétique)
+  const base = db.prepare('SELECT * FROM professeur WHERE id = ?').get(req.params.id);
+  if (!base) return res.status(404).json({ error: 'Professeur introuvable' });
+  // Vue pour les totaux/calculs (nom_prenom, total_per_iip, etc.)
+  const vue = db.prepare('SELECT * FROM v_professeur_total WHERE id = ?').get(req.params.id) || {};
+  // Fusion : la table complète d'abord, la vue complète les totaux
+  const p = { ...vue, ...base, nom_prenom: vue.nom_prenom || `${base.nom} ${base.prenom}` };
   const attrs = db.prepare(`
     SELECT * FROM v_attribution_complete
     WHERE professeur_id = ? ORDER BY section, ue_num
