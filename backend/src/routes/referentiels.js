@@ -318,7 +318,47 @@ r.get('/professeurs/:id', authRequired, (req, res) => {
   const charges = db.prepare(
     'SELECT * FROM personne_charge WHERE professeur_id = ? ORDER BY categorie, ordre, id'
   ).all(req.params.id);
-  res.json({ ...p, attributions: attrs, titres, charges });
+
+  // Ancienneté (CC sous IIP) : report historique + acquis de l'année courante
+  const annee = req.query.annee || db.prepare("SELECT code FROM annee_scolaire WHERE active = 1 LIMIT 1").get()?.code;
+  let anciennete = null;
+  if (p.statut === 'CC') {
+    const reportPo = p.report_anc_po || 0;
+    const acquisPo = db.prepare(
+      'SELECT jours_acquis FROM v_anc_po_annee WHERE professeur_id = ? AND annee_scolaire = ?'
+    ).get(req.params.id, annee)?.jours_acquis || 0;
+
+    const reportsCours = db.prepare(
+      'SELECT cours_nom, jours FROM report_anc_cours WHERE professeur_id = ?'
+    ).all(req.params.id);
+    const reportCoursMap = {};
+    reportsCours.forEach(r => { reportCoursMap[r.cours_nom] = r.jours; });
+
+    const acquisCours = db.prepare(
+      'SELECT cours_nom, jours_acquis, total_periodes FROM v_anc_cours_annee WHERE professeur_id = ? AND annee_scolaire = ?'
+    ).all(req.params.id, annee);
+
+    // Fusionner reports + acquis par cours
+    const coursNoms = new Set([...Object.keys(reportCoursMap), ...acquisCours.map(c => c.cours_nom)]);
+    const parCours = [...coursNoms].filter(Boolean).map(nom => {
+      const acq = acquisCours.find(c => c.cours_nom === nom);
+      return {
+        cours_nom: nom,
+        report: reportCoursMap[nom] || 0,
+        acquis_annee: acq?.jours_acquis || 0,
+        periodes_annee: acq?.total_periodes || 0,
+        total: (reportCoursMap[nom] || 0) + (acq?.jours_acquis || 0),
+      };
+    });
+
+    anciennete = {
+      po: { report: reportPo, acquis_annee: acquisPo, total: reportPo + acquisPo },
+      cours: parCours,
+      annee,
+    };
+  }
+
+  res.json({ ...p, attributions: attrs, titres, charges, anciennete });
 });
 
 // ── Titres de capacité (liste liée au prof) ──
@@ -359,6 +399,25 @@ r.put('/professeurs/:id/charges', authRequired, roleRequired('admin', 'editeur')
   res.json({ ok: true });
 });
 
+// ── Reports d'ancienneté par cours (saisis par le personnel administratif) ──
+r.put('/professeurs/:id/anciennete-cours', authRequired, roleRequired('admin', 'editeur'), (req, res) => {
+  const profId = Number(req.params.id);
+  const reports = Array.isArray(req.body?.reports) ? req.body.reports : [];
+  const tx = db.transaction(() => {
+    db.prepare('DELETE FROM report_anc_cours WHERE professeur_id = ?').run(profId);
+    const ins = db.prepare(
+      'INSERT INTO report_anc_cours (professeur_id, cours_nom, jours) VALUES (?,?,?)'
+    );
+    reports.forEach(r => {
+      if (r.cours_nom && r.cours_nom.trim()) {
+        ins.run(profId, r.cours_nom.trim(), Number(r.jours) || 0);
+      }
+    });
+  });
+  tx();
+  res.json({ ok: true });
+});
+
 // Créer un nouveau professeur
 r.post('/professeurs', authRequired, roleRequired('admin', 'editeur'), (req, res) => {
   const { nom, prenom, adresse_mail, mail_prive, statut, adresse_rue, code_postal,
@@ -383,7 +442,7 @@ r.post('/professeurs', authRequired, roleRequired('admin', 'editeur'), (req, res
 r.patch('/professeurs/:id', authRequired, roleRequired('admin', 'editeur'), (req, res) => {
   const allowed = ['nom','prenom','adresse_mail','mail_prive','statut',
                    'adresse_rue','code_postal','commune','capaes','anciennete_25_26_po',
-                   'matricule','titre1','titre2','titre3','statut_ea12',
+                   'matricule','titre1','titre2','titre3','statut_ea12','report_anc_po',
                    // Fiche signalétique — identité civile
                    'sexe','niss','nationalite','lieu_naissance_ville','lieu_naissance_pays',
                    'iban','bic','compte_titulaire','tel_gsm','date_naissance',

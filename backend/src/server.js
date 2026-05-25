@@ -321,6 +321,34 @@ try {
     db.exec("CREATE INDEX IF NOT EXISTS idx_charge_prof ON personne_charge(professeur_id)");
   }
 
+  // 5o. ANCIENNETÉ — reports historiques saisis par le personnel administratif.
+  // L'ancienneté affichée = report historique (avant l'année de démarrage)
+  //                       + acquis de l'année courante (calculé automatiquement).
+  // Deux anciennetés (CC sous IIP uniquement) : PO (global) et par cours.
+  {
+    const cols = db.prepare("PRAGMA table_info(professeur)").all().map(c => c.name);
+    // Report PO (en jours) — réutilise/complète anciennete_25_26_po historique
+    if (!cols.includes('report_anc_po')) db.exec("ALTER TABLE professeur ADD COLUMN report_anc_po INTEGER DEFAULT 0");
+
+    // Report par cours (prof + nom de cours → jours d'ancienneté historiques)
+    db.exec(`
+      CREATE TABLE IF NOT EXISTS report_anc_cours (
+        id            INTEGER PRIMARY KEY AUTOINCREMENT,
+        professeur_id INTEGER NOT NULL,
+        cours_nom     TEXT NOT NULL,
+        jours         INTEGER DEFAULT 0,
+        FOREIGN KEY (professeur_id) REFERENCES professeur(id) ON DELETE CASCADE
+      )
+    `);
+    db.exec("CREATE INDEX IF NOT EXISTS idx_report_cours_prof ON report_anc_cours(professeur_id)");
+
+    // Migration douce : si report_anc_po est à 0 mais anciennete_25_26_po renseigné,
+    // on reprend l'ancienne valeur comme report PO de départ.
+    try {
+      db.exec("UPDATE professeur SET report_anc_po = anciennete_25_26_po WHERE report_anc_po = 0 AND anciennete_25_26_po > 0");
+    } catch (e) { /* colonne absente : ignore */ }
+  }
+
   // 5k. Créer les sections référencées par des UE mais absentes de la table section.
   // Cas réel : AeSI (Assistant en Soins Infirmiers) a des UE mais pas d'entrée section,
   // donc elle n'apparaissait nulle part dans les listes de sections.
