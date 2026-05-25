@@ -70,10 +70,35 @@ r.post('/', authRequired, roleRequired('admin'), (req, res) => {
 // Supprimer une année (admin, avec confirmation)
 r.delete('/:code', authRequired, roleRequired('admin'), (req, res) => {
   const { code } = req.params;
-  if (code === '2025-2026') return res.status(403).json({ error: 'Impossible de supprimer l\'année de base' });
-  const nb = db.prepare('DELETE FROM attribution WHERE annee_scolaire = ?').run(code).changes;
-  db.prepare('DELETE FROM annee_scolaire WHERE code = ?').run(code);
-  res.json({ ok: true, deleted: nb });
+
+  // Protection : on ne peut pas supprimer la derniere annee restante
+  const total = db.prepare('SELECT COUNT(*) AS n FROM annee_scolaire').get().n;
+  if (total <= 1) {
+    return res.status(403).json({ error: 'Impossible de supprimer la derniere annee restante.' });
+  }
+
+  // L'annee etait-elle active ? (a verifier AVANT suppression)
+  const ligne = db.prepare('SELECT active FROM annee_scolaire WHERE code = ?').get(code);
+  const etaitActive = ligne && ligne.active;
+
+  // Suppression complete des donnees de l'annee
+  const supprime = db.transaction(() => {
+    const counts = {};
+    for (const t of ['attribution', 'organisation', 'ue_section', 'cours', 'ue', 'ea12']) {
+      try { counts[t] = db.prepare(`DELETE FROM ${t} WHERE annee_scolaire = ?`).run(code).changes; }
+      catch (e) { /* table ou colonne absente */ }
+    }
+    db.prepare('DELETE FROM annee_scolaire WHERE code = ?').run(code);
+    return counts;
+  });
+  const counts = supprime();
+
+  if (etaitActive) {
+    const derniere = db.prepare('SELECT code FROM annee_scolaire ORDER BY code DESC LIMIT 1').get();
+    if (derniere) db.prepare('UPDATE annee_scolaire SET active = 1 WHERE code = ?').run(derniere.code);
+  }
+
+  res.json({ ok: true, deleted: counts.attribution || 0, details: counts });
 });
 
 // Comparer les UE entre une année source et la cible :
