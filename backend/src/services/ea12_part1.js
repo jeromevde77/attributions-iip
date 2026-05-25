@@ -6,7 +6,7 @@
 import fs from 'fs';
 import {
   Document, Packer, Paragraph, TextRun, Table, TableRow, TableCell, ImageRun,
-  AlignmentType, BorderStyle, WidthType, ShadingType, VerticalAlign, HeightRule,
+  AlignmentType, BorderStyle, WidthType, ShadingType, VerticalAlign, HeightRule, TextDirection,
 } from 'docx';
 
 // ---------- Constantes de style ----------
@@ -69,6 +69,7 @@ function cell(content, o = {}) {
     width: o.w ? { size: o.w * PT, type: WidthType.DXA } : undefined,
     columnSpan: o.span, rowSpan: o.rowSpan,
     borders: o.borders,
+    textDirection: o.textDir,
     shading: o.fill ? { fill: o.fill, type: ShadingType.CLEAR, color: 'auto' } : undefined,
     verticalAlign: o.valign ?? VerticalAlign.CENTER,
     margins: { top: o.mt ?? 10, bottom: o.mb ?? 10, left: o.ml ?? 40, right: o.mr ?? 40 },
@@ -144,5 +145,5 @@ function enTete(d, logoBuf) {
 }
 
 export { enTete, run, par, chk, cell, table, Document, Packer, Paragraph, TextRun, Table, TableRow, TableCell,
-  AlignmentType, BorderStyle, WidthType, ShadingType, VerticalAlign, allBorders, noBorders, fineBorders, NB, TB, TBF,
+  AlignmentType, BorderStyle, WidthType, ShadingType, VerticalAlign, TextDirection, allBorders, noBorders, fineBorders, NB, TB, TBF,
   FONT, NAVY, BANDBLUE, CHK, CHKD, PT, CONTENT_PT, ImageRun };

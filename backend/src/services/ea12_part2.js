@@ -2,7 +2,7 @@
 import * as P from './ea12_part1.js';
 const {
   run, par, chk, cell, table, Paragraph, Table, TableRow, TableCell,
-  AlignmentType, VerticalAlign, WidthType, allBorders, noBorders, NB, TB, BANDBLUE, CHK, PT, CONTENT_PT,
+  AlignmentType, VerticalAlign, WidthType, TextDirection, allBorders, noBorders, fineBorders, NB, TB, BANDBLUE, CHK, PT, CONTENT_PT,
 } = P;
 
 const halfBorders = allBorders;
@@ -53,7 +53,7 @@ function evenement(d) {
     new TableRow({ children: [
       cell([new Table({ width: { size: 262 * PT, type: WidthType.DXA }, columnWidths: [18 * PT, 122 * PT, 122 * PT], borders: noBorders, rows: [
         new TableRow({ children: [
-          cell([par([run('M\no\nu\nv\ne\nm\ne\nn\nt', { bold: true, size: 11 })], { align: AlignmentType.CENTER })], { w: 18, borders: noBorders, valign: VerticalAlign.CENTER }),
+          cell([par([run('Mouvement', { bold: true, size: 13 })], { align: AlignmentType.CENTER })], { w: 18, borders: noBorders, valign: VerticalAlign.CENTER, textDir: TextDirection.BOTTOM_TO_TOP_LEFT_TO_RIGHT }),
           cell([
             par(chk('Entrée en fonction', false, { size: 11 }), { spacing: { before: 6, after: 6 } }),
             par(chk('Rentrée en fonction', false, { size: 11 }), { spacing: { after: 6 } }),
@@ -88,7 +88,7 @@ function evenement(d) {
     new TableRow({ children: [
       cell([new Table({ width: { size: 549 * PT, type: WidthType.DXA }, columnWidths: [18 * PT, 175 * PT, 200 * PT, 156 * PT], borders: noBorders, rows: [
         new TableRow({ children: [
-          cell([par([run('A\nb\ns\ne\nn\nc\ne', { bold: true, size: 11 })], { align: AlignmentType.CENTER })], { w: 18, borders: noBorders, valign: VerticalAlign.CENTER, fill: BANDBLUE }),
+          cell([par([run('Absence', { bold: true, size: 13 })], { align: AlignmentType.CENTER })], { w: 18, borders: noBorders, valign: VerticalAlign.CENTER, textDir: TextDirection.BOTTOM_TO_TOP_LEFT_TO_RIGHT }),
           cell([
             par(chk('Absence d’un jour', false, { size: 11 }), { spacing: { before: 6, after: 6 } }),
             par(chk('Début absence de plus d’1 jour', false, { size: 11 }), { spacing: { after: 6 } }),
