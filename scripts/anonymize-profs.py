@@ -173,6 +173,10 @@ def gen_naissance():
 def gen_matricule():
     return ''.join([str(random.randint(0, 9)) for _ in range(11)])
 
+def sql_escape(s):
+    """Double les apostrophes pour SQL."""
+    return str(s).replace("'", "''")
+
 def gen_titres(sections):
     """Choisir des titres cohérents avec la section principale."""
     for s in sections:
@@ -228,23 +232,17 @@ for prof in profs_reels:
 
     print(f"-- {prof['nom_reel']} {prof['prenom_reel']} → {nom_fictif} {prenom_fictif}")
     print(f"UPDATE professeur SET")
-    print(f"  nom              = '{nom_fictif}',")
-    print(f"  prenom           = '{prenom_fictif}',")
-    print(f"  nom_complet      = '{nom_fictif} {prenom_fictif}',")
+    print(f"  nom              = '{sql_escape(nom_fictif)}',")
+    print(f"  prenom           = '{sql_escape(prenom_fictif)}',")
     print(f"  adresse_mail     = '{email_fictif}',")
     print(f"  mail_prive       = '',")
     print(f"  date_naissance   = '{naissance.isoformat()}',")
     print(f"  matricule        = '{matricule}',")
-    print(f"  titre1           = '{t1}',")
-    print(f"  titre2           = '{t2}',")
+    print(f"  titre1           = '{sql_escape(t1)}',")
+    print(f"  titre2           = '{sql_escape(t2)}',")
     print(f"  statut_ea12      = '{statut_ea12}'")
-    print(f"WHERE nom = '{prof['nom_reel']}' AND prenom = '{prof['prenom_reel']}';")
+    print(f"WHERE nom = '{sql_escape(prof['nom_reel'])}' AND prenom = '{sql_escape(prof['prenom_reel'])}';")
     print()
 
 print("COMMIT;")
-print()
-print("-- Mapping de référence (pour déboguer si besoin)")
-print("/*")
-for m in mappings:
-    print(f"  {m['nom_reel']} {m['prenom_reel']}  →  {m['nom_fictif']} {m['prenom_fictif']}")
-print("*/")
+# Mapping non exporté dans le SQL (RGPD : pas de vrais noms dans le fichier).
