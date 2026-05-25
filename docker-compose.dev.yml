@@ -18,9 +18,11 @@ services:
       JWT_SECRET: ${JWT_SECRET_DEV:-lucie-dev-secret-change-me}
       PORT: 3000
     volumes:
-      - data-dev:/app/data   # base SQLite DEV séparée de la prod
+      - data-dev:/app/data
     networks:
-      - lucie-dev
+      lucie-dev:
+        aliases:
+          - backend
 
   frontend-dev:
     image: ghcr.io/jeromevde77/attributions-frontend:dev
