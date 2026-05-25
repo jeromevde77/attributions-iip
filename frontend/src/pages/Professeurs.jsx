@@ -39,20 +39,24 @@ function EditModal({ prof, onClose, onSaved }) {
     finally { setSaving(false); }
   }
 
-  const Field = ({ label, k, type = 'text', options }) => (
-    <div>
-      <label className="block text-xs text-gray-600 mb-0.5">{label}</label>
-      {options ? (
-        <select value={form[k]} onChange={e => set(k, e.target.value)}
-          className="w-full border border-gray-300 rounded px-3 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-iip-gold">
-          {options.map(([v, l]) => <option key={v} value={v}>{l}</option>)}
-        </select>
-      ) : (
-        <input type={type} value={form[k]} onChange={e => set(k, e.target.value)}
-          className="w-full border border-gray-300 rounded px-3 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-iip-gold" />
-      )}
-    </div>
-  );
+  // Fonction de rendu (PAS un composant) : évite le démontage/remontage
+  // à chaque frappe qui faisait perdre le focus des champs.
+  function field({ label, k, type = 'text', options }) {
+    return (
+      <div>
+        <label className="block text-xs text-gray-600 mb-0.5">{label}</label>
+        {options ? (
+          <select value={form[k]} onChange={e => set(k, e.target.value)}
+            className="w-full border border-gray-300 rounded px-3 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-iip-gold">
+            {options.map(([v, l]) => <option key={v} value={v}>{l}</option>)}
+          </select>
+        ) : (
+          <input type={type} value={form[k]} onChange={e => set(k, e.target.value)}
+            className="w-full border border-gray-300 rounded px-3 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-iip-gold" />
+        )}
+      </div>
+    );
+  }
 
   return (
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-40"
@@ -66,15 +70,15 @@ function EditModal({ prof, onClose, onSaved }) {
         </div>
         <form onSubmit={handleSubmit} className="p-5 space-y-3 overflow-auto max-h-[calc(100vh-180px)]">
           <div className="grid grid-cols-2 gap-3">
-            <Field label="Nom *" k="nom" />
-            <Field label="Prénom *" k="prenom" />
+            {field({ label: "Nom *", k: "nom" })}
+            {field({ label: "Prénom *", k: "prenom" })}
           </div>
-          <Field label="Email professionnel" k="adresse_mail" type="email" />
-          <Field label="Email privé" k="mail_prive" type="email" />
+          {field({ label: "Email professionnel", k: "adresse_mail", type: "email" })}
+          {field({ label: "Email privé", k: "mail_prive", type: "email" })}
           <div className="grid grid-cols-2 gap-3">
-            <Field label="Statut" k="statut" options={[
+            {field({ label: "Statut", k: "statut", options: [
               ['', '— Non défini —'], ['CC', 'CC — Chargé de cours'], ['EXP', 'EXP — Expert']
-            ]} />
+            ] })}
             <div>
               <label className="block text-xs text-gray-600 mb-0.5">CAPAES</label>
               <select value={form.capaes} onChange={e => set('capaes', e.target.value)}
@@ -84,10 +88,10 @@ function EditModal({ prof, onClose, onSaved }) {
               </select>
             </div>
           </div>
-          <Field label="Adresse" k="adresse_rue" />
+          {field({ label: "Adresse", k: "adresse_rue" })}
           <div className="grid grid-cols-2 gap-3">
-            <Field label="Code postal" k="code_postal" />
-            <Field label="Commune" k="commune" />
+            {field({ label: "Code postal", k: "code_postal" })}
+            {field({ label: "Commune", k: "commune" })}
           </div>
           <div>
             <label className="block text-xs text-gray-600 mb-0.5">Ancienneté PO 25-26</label>
@@ -97,10 +101,10 @@ function EditModal({ prof, onClose, onSaved }) {
           </div>
           <div className="pt-2 mt-1 border-t border-gray-100">
             <div className="text-xs font-semibold text-iip-gold mb-2">Données EA12 (documents officiels)</div>
-            <Field label="Matricule enseignant (11 chiffres)" k="matricule" />
-            <div className="mt-2"><Field label="Titre de capacité 1" k="titre1" /></div>
-            <div className="mt-2"><Field label="Titre de capacité 2" k="titre2" /></div>
-            <div className="mt-2"><Field label="Titre de capacité 3" k="titre3" /></div>
+            {field({ label: "Matricule enseignant (11 chiffres)", k: "matricule" })}
+            <div className="mt-2">{field({ label: "Titre de capacité 1", k: "titre1" })}</div>
+            <div className="mt-2">{field({ label: "Titre de capacité 2", k: "titre2" })}</div>
+            <div className="mt-2">{field({ label: "Titre de capacité 3", k: "titre3" })}</div>
             <div className="mt-2">
               <label className="block text-xs text-gray-600 mb-0.5">Statut EA12</label>
               <select value={form.statut_ea12} onChange={e => set('statut_ea12', e.target.value)}
