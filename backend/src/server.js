@@ -369,20 +369,44 @@ try {
       'Psychomotricité': 'Psychomotricité',
     };
     try {
-      // Sections distinctes référencées par des UE
-      const ueSections = db.prepare(
-        "SELECT DISTINCT section FROM ue WHERE section IS NOT NULL AND TRIM(section) <> ''"
-      ).all().map(r => r.section);
+      // Sections officielles de l'IIP : créées inconditionnellement (qu'elles
+      // soient référencées ou non par une UE), pour qu'elles existent toujours.
+      const sectionsOfficielles = {
+        'AeSI': 'Assistant en soins infirmiers',
+        'ATNUP': 'Aide soignant / Auxiliaire',
+        'TIM': 'Technologue en imagerie médicale',
+        'Optique': 'Optique',
+        'Optométrie': 'Optométrie',
+        'Psychomotricité': 'Psychomotricité',
+        'SAR': 'Soins, accompagnement et rééducation',
+        'Soins_plaies': 'Soins de plaies',
+        'ME': 'Mécanique / Électronique',
+        'RESTART': 'Restart',
+        'FID-Guidance': 'FID — Guidance',
+        'FID-Péda': 'FID — Pédagogie',
+        'FID-Admin': 'FID — Administration',
+      };
       const existing = new Set(db.prepare('SELECT code FROM section').all().map(r => r.code));
       const insert = db.prepare('INSERT OR IGNORE INTO section (code, libelle) VALUES (?, ?)');
       let created = 0;
+
+      // 1) Sections officielles garanties
+      for (const [code, lib] of Object.entries(sectionsOfficielles)) {
+        if (!existing.has(code)) { insert.run(code, lib); existing.add(code); created++; }
+      }
+
+      // 2) Sections supplémentaires référencées par des UE (au cas où il y en aurait d'autres)
+      const ueSections = db.prepare(
+        "SELECT DISTINCT section FROM ue WHERE section IS NOT NULL AND TRIM(section) <> ''"
+      ).all().map(r => r.section);
       for (const sec of ueSections) {
         if (!existing.has(sec)) {
           insert.run(sec, libelles[sec] || sec);
+          existing.add(sec);
           created++;
         }
       }
-      if (created > 0) console.log(`[migration] ${created} section(s) orpheline(s) créée(s) depuis les UE`);
+      if (created > 0) console.log(`[migration] ${created} section(s) créée(s) (officielles + orphelines)`);
     } catch (e) {
       console.error('[migration] sections orphelines :', e.message);
     }
