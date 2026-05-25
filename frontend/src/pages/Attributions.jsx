@@ -394,12 +394,16 @@ export default function Attributions() {
     const st = groupStats(ue.rows);
     const isHelb = ue.ue_et_ref === 'HELB';
     return (
-      <div key={key} className={`border-b border-gray-100 ${
+      <div key={key} className={`overflow-hidden transition-all ${
         activeUE === key
-          ? (isHelb ? 'bg-pink-50 ring-2 ring-pink-400 ring-inset' : 'bg-iip-gold/5 ring-2 ring-iip-gold/60 ring-inset')
-          : (isHelb ? 'bg-pink-50 border-l-2 border-l-pink-400' : '')
+          ? (isHelb
+              ? 'border-2 border-pink-400 rounded-sm shadow-sm mb-0.5'
+              : 'border-2 border-iip-gold/60 rounded-sm shadow-sm mb-0.5')
+          : (isHelb
+              ? 'border-b border-gray-100 border-l-2 border-l-pink-400'
+              : 'border-b border-gray-100')
       }`}>
-        <div className={`w-full flex items-center pl-6 pr-3 py-1.5 transition relative ${isHelb ? 'hover:bg-pink-100/60' : 'hover:bg-gray-50'}`}>
+        <div className={`w-full flex items-center pl-6 pr-3 py-1.5 transition relative ${activeUE === key ? (isHelb ? 'bg-pink-50 hover:bg-pink-100/70' : 'bg-iip-gold/5 hover:bg-iip-gold/10') : (isHelb ? 'hover:bg-pink-100/60' : 'hover:bg-gray-50')}`}>
           <div onClick={()=>{toggle(key); setActiveUE(key);}} role="button" className="grid items-center gap-2 flex-1 min-w-0 text-left cursor-pointer"
                   style={{ gridTemplateColumns: '16px 70px 110px 1fr auto' }}>
             <span className={`text-iip-gold text-sm transition-transform ${open?'rotate-90':''}`}>▶</span>
@@ -462,7 +466,7 @@ export default function Attributions() {
           )}
         </div>
         {open && (
-          <div className={isHelb ? 'bg-pink-50/40' : 'bg-gray-50/50'}>
+          <div className={activeUE === key ? (isHelb ? 'bg-pink-50/60' : 'bg-iip-gold/5') : (isHelb ? 'bg-pink-50/40' : 'bg-gray-50/50')}>
             {ue.cours.map(cg => renderCours(ueKey, cg))}
           </div>
         )}
