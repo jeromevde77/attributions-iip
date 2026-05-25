@@ -11,8 +11,9 @@ import {
 
 // ---------- Constantes de style ----------
 const FONT = 'Arial';
-const NAVY = '1F3864';      // bandeau titre
-const BANDBLUE = 'D9E1F2';  // bandeaux de section bleu clair
+const NAVY = '2E74B5';      // bandeau titre EA12 (bleu moyen, = gabarit officiel)
+const BANDBLUE = '9CC2E5';  // bandeaux de section (bleu clair, = gabarit officiel)
+const BANDBLUE2 = 'BDD6EE'; // sous-bandeaux (bleu plus pâle)
 const CHK = '☐';            // case à cocher vide
 const CHKD = '☒';           // case cochée
 
