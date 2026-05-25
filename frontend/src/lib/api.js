@@ -149,6 +149,8 @@ export const api = {
   createProfesseur(data) { return request('/ref/professeurs', { method: 'POST', body: data }); },
   updateProfesseur(id, data) { return request(`/ref/professeurs/${id}`, { method: 'PATCH', body: data }); },
   deleteProfesseur(id) { return request(`/ref/professeurs/${id}`, { method: 'DELETE' }); },
+  saveProfTitres(id, titres) { return request(`/ref/professeurs/${id}/titres`, { method: 'PUT', body: { titres } }); },
+  saveProfCharges(id, charges) { return request(`/ref/professeurs/${id}/charges`, { method: 'PUT', body: { charges } }); },
   locaux() { return request('/ref/locaux'); },
   parametres() { return request('/ref/parametres'); },
   typesEncadrement() { return request('/ref/types-encadrement'); },

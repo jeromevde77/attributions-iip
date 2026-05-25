@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { api, getAnnee, getUser } from '../lib/api.js';
+import ProfFicheModal from './ProfFicheModal.jsx';
 
 const EMPTY = {
   nom: '', prenom: '', adresse_mail: '', mail_prive: '',
@@ -9,123 +10,6 @@ const EMPTY = {
   matricule: '', titre1: '', titre2: '', titre3: '', statut_ea12: ''
 };
 
-function EditModal({ prof, onClose, onSaved }) {
-  const isNew = !prof?.id;
-  const [form, setForm] = useState(prof ? {
-    nom: prof.nom || '', prenom: prof.prenom || '',
-    adresse_mail: prof.adresse_mail || '', mail_prive: prof.mail_prive || '',
-    statut: prof.statut || '', adresse_rue: prof.adresse_rue || '',
-    code_postal: prof.code_postal || '', commune: prof.commune || '',
-    capaes: prof.capaes || '', anciennete_25_26_po: prof.anciennete_25_26_po || 0,
-    matricule: prof.matricule || '', titre1: prof.titre1 || '', titre2: prof.titre2 || '',
-    titre3: prof.titre3 || '', statut_ea12: prof.statut_ea12 || ''
-  } : { ...EMPTY });
-  const [saving, setSaving] = useState(false);
-
-  function set(k, v) { setForm(f => ({ ...f, [k]: v })); }
-
-  async function handleSubmit(e) {
-    e.preventDefault();
-    if (!form.nom.trim() || !form.prenom.trim()) return alert('Nom et prénom requis');
-    setSaving(true);
-    try {
-      if (isNew) {
-        await api.createProfesseur(form);
-      } else {
-        await api.updateProfesseur(prof.id, form);
-      }
-      onSaved();
-    } catch (e) { alert('Erreur : ' + e.message); }
-    finally { setSaving(false); }
-  }
-
-  // Fonction de rendu (PAS un composant) : évite le démontage/remontage
-  // à chaque frappe qui faisait perdre le focus des champs.
-  function field({ label, k, type = 'text', options }) {
-    return (
-      <div>
-        <label className="block text-xs text-gray-600 mb-0.5">{label}</label>
-        {options ? (
-          <select value={form[k]} onChange={e => set(k, e.target.value)}
-            className="w-full border border-gray-300 rounded px-3 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-iip-gold">
-            {options.map(([v, l]) => <option key={v} value={v}>{l}</option>)}
-          </select>
-        ) : (
-          <input type={type} value={form[k]} onChange={e => set(k, e.target.value)}
-            className="w-full border border-gray-300 rounded px-3 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-iip-gold" />
-        )}
-      </div>
-    );
-  }
-
-  return (
-    <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-40"
-      onClick={e => e.target === e.currentTarget && onClose()}>
-      <div className="bg-white rounded-xl shadow-2xl max-w-lg w-full border-t-4 border-iip-gold overflow-hidden">
-        <div className="flex items-center justify-between px-5 py-3 border-b border-gray-100">
-          <h2 className="font-title text-lg text-iip-gold">
-            {isNew ? 'Nouveau professeur' : `Modifier — ${prof.nom_prenom || prof.nom + ' ' + prof.prenom}`}
-          </h2>
-          <button onClick={onClose} className="text-gray-400 hover:text-red-500 text-2xl leading-none">×</button>
-        </div>
-        <form onSubmit={handleSubmit} className="p-5 space-y-3 overflow-auto max-h-[calc(100vh-180px)]">
-          <div className="grid grid-cols-2 gap-3">
-            {field({ label: "Nom *", k: "nom" })}
-            {field({ label: "Prénom *", k: "prenom" })}
-          </div>
-          {field({ label: "Email professionnel", k: "adresse_mail", type: "email" })}
-          {field({ label: "Email privé", k: "mail_prive", type: "email" })}
-          <div className="grid grid-cols-2 gap-3">
-            {field({ label: "Statut", k: "statut", options: [
-              ['', '— Non défini —'], ['CC', 'CC — Chargé de cours'], ['EXP', 'EXP — Expert']
-            ] })}
-            <div>
-              <label className="block text-xs text-gray-600 mb-0.5">CAPAES</label>
-              <select value={form.capaes} onChange={e => set('capaes', e.target.value)}
-                className="w-full border border-gray-300 rounded px-3 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-iip-gold">
-                <option value="">—</option>
-                <option value="x">Oui</option>
-              </select>
-            </div>
-          </div>
-          {field({ label: "Adresse", k: "adresse_rue" })}
-          <div className="grid grid-cols-2 gap-3">
-            {field({ label: "Code postal", k: "code_postal" })}
-            {field({ label: "Commune", k: "commune" })}
-          </div>
-          <div>
-            <label className="block text-xs text-gray-600 mb-0.5">Ancienneté PO 25-26</label>
-            <input type="number" min="0" value={form.anciennete_25_26_po}
-              onChange={e => set('anciennete_25_26_po', Number(e.target.value))}
-              className="w-full border border-gray-300 rounded px-3 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-iip-gold" />
-          </div>
-          <div className="pt-2 mt-1 border-t border-gray-100">
-            <div className="text-xs font-semibold text-iip-gold mb-2">Données EA12 (documents officiels)</div>
-            {field({ label: "Matricule enseignant (11 chiffres)", k: "matricule" })}
-            <div className="mt-2">{field({ label: "Titre de capacité 1", k: "titre1" })}</div>
-            <div className="mt-2">{field({ label: "Titre de capacité 2", k: "titre2" })}</div>
-            <div className="mt-2">{field({ label: "Titre de capacité 3", k: "titre3" })}</div>
-            <div className="mt-2">
-              <label className="block text-xs text-gray-600 mb-0.5">Statut EA12</label>
-              <select value={form.statut_ea12} onChange={e => set('statut_ea12', e.target.value)}
-                className="w-full border border-gray-300 rounded px-3 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-iip-gold">
-                <option value="">—</option>
-                {['T', 'TPr', 'St', 'D', 'ACS', 'APE', 'PTP'].map(s => <option key={s} value={s}>{s}</option>)}
-              </select>
-            </div>
-          </div>
-          <div className="flex justify-end gap-2 pt-2 border-t border-gray-100">
-            <button type="button" onClick={onClose} className="px-4 py-2 text-sm text-gray-600 hover:text-gray-800">Annuler</button>
-            <button type="submit" disabled={saving}
-              className="bg-iip-gold hover:bg-iip-amber disabled:opacity-40 text-white text-sm px-5 py-2 rounded font-medium">
-              {saving ? 'Sauvegarde…' : isNew ? 'Créer' : 'Enregistrer'}
-            </button>
-          </div>
-        </form>
-      </div>
-    </div>
-  );
-}
 
 function DetailModal({ profId, onClose, onEdit }) {
   const [detail, setDetail] = useState(null);
@@ -383,7 +267,7 @@ export default function Professeurs() {
       )}
 
       {editProf !== null && (
-        <EditModal prof={editProf} onClose={() => setEditProf(null)}
+        <ProfFicheModal prof={editProf} onClose={() => setEditProf(null)}
           onSaved={() => { setEditProf(null); load(); }} />
       )}
     </div>
