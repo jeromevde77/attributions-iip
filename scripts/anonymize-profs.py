@@ -7,7 +7,7 @@ Génère un fichier SQL d'anonymisation des professeurs pour l'environnement dev
 - Titres de capacité réalistes selon la section
 - Matricule fictif (11 chiffres)
 """
-import random, datetime, json, sys, unicodedata, unicodedata
+import random, datetime, json, sys, unicodedata
 from faker import Faker
 import openpyxl
 
@@ -178,12 +178,26 @@ def sql_escape(s):
     return str(s).replace("'", "''")
 
 def gen_titres(sections):
-    """Choisir des titres cohérents avec la section principale."""
+    """Choisir des titres cohérents avec la section principale, avec variété
+    (Master, Bachelier, parfois un seul titre)."""
+    pair = None
     for s in sections:
         if s in TITRES:
             pair = random.choice(TITRES[s])
-            return pair[0], pair[1]
-    return random.choice(DEFAULT_TITRES)
+            break
+    if pair is None:
+        pair = random.choice(DEFAULT_TITRES)
+    t1, t2 = pair
+    r = random.random()
+    if r < 0.20:
+        # Seulement le diplôme principal (pas de second titre)
+        return t1, ""
+    elif r < 0.35:
+        # Profil "bachelier seul" : on garde le titre secondaire (souvent un bachelier) comme principal
+        return t2, ""
+    else:
+        # Les deux titres
+        return t1, t2
 
 def genre_prenom(prenom):
     """Approximer le genre à partir du prénom pour cohérence."""
@@ -205,6 +219,49 @@ def gen_nom_unique():
             return n, p
     return fake.last_name().upper(), fake.first_name()
 
+# ── Communes belges réalistes (Bruxelles + Brabant wallon, zone IIP) ─────────
+COMMUNES_BE = [
+    ("1070", "Anderlecht"), ("1000", "Bruxelles"), ("1190", "Forest"),
+    ("1180", "Uccle"), ("1060", "Saint-Gilles"), ("1050", "Ixelles"),
+    ("1200", "Woluwe-Saint-Lambert"), ("1030", "Schaerbeek"), ("1080", "Molenbeek-Saint-Jean"),
+    ("1410", "Waterloo"), ("1300", "Wavre"), ("1340", "Ottignies-Louvain-la-Neuve"),
+    ("1480", "Tubize"), ("1420", "Braine-l'Alleud"), ("1083", "Ganshoren"),
+    ("1700", "Dilbeek"), ("1640", "Rhode-Saint-Genèse"), ("1502", "Lembeek"),
+]
+RUES_BE = [
+    "Rue de la Station", "Avenue des Tilleuls", "Chaussée de Bruxelles", "Rue du Moulin",
+    "Avenue de la Liberté", "Rue des Écoles", "Clos des Pommiers", "Rue de l'Église",
+    "Avenue des Cerisiers", "Rue Haute", "Drève des Bouleaux", "Rue du Bois",
+    "Avenue Albert", "Rue Neuve", "Chemin des Champs", "Rue de la Forge",
+]
+
+def gen_adresse():
+    rue = random.choice(RUES_BE)
+    num = random.randint(1, 250)
+    cp, commune = random.choice(COMMUNES_BE)
+    return f"{rue} {num}", cp, commune
+
+def gen_mail_prive(prenom, nom):
+    fournisseur = random.choice(["gmail.com", "outlook.be", "hotmail.com", "skynet.be", "proximus.be"])
+    style = random.randint(0, 2)
+    p, n = normalize(prenom), normalize(nom)
+    if style == 0:
+        return f"{p}.{n}@{fournisseur}"
+    elif style == 1:
+        return f"{p}{n}@{fournisseur}"
+    else:
+        return f"{n}.{p}@{fournisseur}"
+
+# Titre pédagogique belge : CAPAES (sup), CAP, AESS, ou aucun.
+# Pondération réaliste : beaucoup ont le CAPAES (sup de promotion sociale),
+# certains un CAP ou AESS, d'autres rien (titre en pénurie / récents).
+def gen_titre_pedagogique():
+    r = random.random()
+    if r < 0.45:   return "CAPAES"
+    elif r < 0.60: return "CAP"
+    elif r < 0.72: return "AESS"
+    else:          return ""   # pas de titre pédagogique
+
 # ── Produire le SQL ──────────────────────────────────────────────────────────
 print("-- Anonymisation des professeurs pour l'environnement dev")
 print("-- Généré automatiquement — NE PAS appliquer en production")
@@ -217,30 +274,48 @@ mappings = []
 for prof in profs_reels:
     nom_fictif, prenom_fictif = gen_nom_unique()
     naissance = gen_naissance()
+    age = today.year - naissance.year
     matricule = gen_matricule()
     email_fictif = f"{normalize(prenom_fictif)}.{normalize(nom_fictif)}@lucie-dev.be"
+    mail_prive = gen_mail_prive(prenom_fictif, nom_fictif)
+    rue, cp, commune = gen_adresse()
     t1, t2 = gen_titres(prof['sections'])
-    # Statut EA12 : CC -> 'T' (temporaire), EXP -> 'T' ou 'TPr'
-    statut_ea12 = random.choice(['T', 'TPr']) if prof['statut'] == 'EXP' else 'T'
+    titre_peda = gen_titre_pedagogique()
+    # CAPAES : colonne dédiée ("x" si possède le CAPAES, sinon vide)
+    capaes = "x" if titre_peda == "CAPAES" else ""
+    # Statut EA12 : EXP plus souvent nommé (T/TPr/D), CC temporaire (T)
+    if prof['statut'] == 'EXP':
+        statut_ea12 = random.choice(['T', 'TPr', 'TPr', 'D'])
+    else:
+        statut_ea12 = random.choice(['T', 'T', 'St'])
+    # Ancienneté PO cohérente avec l'âge (entre 0 et age-23 ans, plafonnée)
+    anciennete = random.randint(0, max(1, min(age - 23, 35)))
+
+    # titre3 = titre pédagogique (champ libre sur l'EA12)
+    titre3 = titre_peda
 
     mappings.append({
-        'nom_reel': prof['nom_reel'],
-        'prenom_reel': prof['prenom_reel'],
-        'nom_fictif': nom_fictif,
-        'prenom_fictif': prenom_fictif,
+        'nom_reel': prof['nom_reel'], 'prenom_reel': prof['prenom_reel'],
+        'nom_fictif': nom_fictif, 'prenom_fictif': prenom_fictif,
     })
 
-    print(f"-- {prof['nom_reel']} {prof['prenom_reel']} → {nom_fictif} {prenom_fictif}")
+    print(f"-- {prof['nom_reel']} {prof['prenom_reel']} → {nom_fictif} {prenom_fictif} ({age} ans, {prof['statut']}, {titre_peda or 'sans titre péda'})")
     print(f"UPDATE professeur SET")
-    print(f"  nom              = '{sql_escape(nom_fictif)}',")
-    print(f"  prenom           = '{sql_escape(prenom_fictif)}',")
-    print(f"  adresse_mail     = '{email_fictif}',")
-    print(f"  mail_prive       = '',")
-    print(f"  date_naissance   = '{naissance.isoformat()}',")
-    print(f"  matricule        = '{matricule}',")
-    print(f"  titre1           = '{sql_escape(t1)}',")
-    print(f"  titre2           = '{sql_escape(t2)}',")
-    print(f"  statut_ea12      = '{statut_ea12}'")
+    print(f"  nom                 = '{sql_escape(nom_fictif)}',")
+    print(f"  prenom              = '{sql_escape(prenom_fictif)}',")
+    print(f"  adresse_mail        = '{email_fictif}',")
+    print(f"  mail_prive          = '{sql_escape(mail_prive)}',")
+    print(f"  date_naissance      = '{naissance.isoformat()}',")
+    print(f"  matricule           = '{matricule}',")
+    print(f"  adresse_rue         = '{sql_escape(rue)}',")
+    print(f"  code_postal         = '{cp}',")
+    print(f"  commune             = '{sql_escape(commune)}',")
+    print(f"  titre1              = '{sql_escape(t1)}',")
+    print(f"  titre2              = '{sql_escape(t2)}',")
+    print(f"  titre3              = '{sql_escape(titre3)}',")
+    print(f"  capaes              = '{capaes}',")
+    print(f"  statut_ea12         = '{statut_ea12}',")
+    print(f"  anciennete_25_26_po = {anciennete}")
     print(f"WHERE nom = '{sql_escape(prof['nom_reel'])}' AND prenom = '{sql_escape(prof['prenom_reel'])}';")
     print()
 
