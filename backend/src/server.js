@@ -236,6 +236,45 @@ try {
     if (!colsProf.includes('date_naissance')) db.exec("ALTER TABLE professeur ADD COLUMN date_naissance TEXT");
   }
 
+  // 5k. Créer les sections référencées par des UE mais absentes de la table section.
+  // Cas réel : AeSI (Assistant en Soins Infirmiers) a des UE mais pas d'entrée section,
+  // donc elle n'apparaissait nulle part dans les listes de sections.
+  {
+    const libelles = {
+      'AeSI': 'Assistant en soins infirmiers',
+      'FID-Admin': 'FID — Administration',
+      'FID-Guidance': 'FID — Guidance',
+      'FID-Péda': 'FID — Pédagogie',
+      'ATNUP': 'Aide soignant / Auxiliaire',
+      'TIM': 'Technologue en imagerie médicale',
+      'SAR': 'Soins, accompagnement et rééducation',
+      'ME': 'Mécanique / Électronique',
+      'RESTART': 'Restart',
+      'Soins_plaies': 'Soins de plaies',
+      'Optique': 'Optique',
+      'Optométrie': 'Optométrie',
+      'Psychomotricité': 'Psychomotricité',
+    };
+    try {
+      // Sections distinctes référencées par des UE
+      const ueSections = db.prepare(
+        "SELECT DISTINCT section FROM ue WHERE section IS NOT NULL AND TRIM(section) <> ''"
+      ).all().map(r => r.section);
+      const existing = new Set(db.prepare('SELECT code FROM section').all().map(r => r.code));
+      const insert = db.prepare('INSERT OR IGNORE INTO section (code, libelle) VALUES (?, ?)');
+      let created = 0;
+      for (const sec of ueSections) {
+        if (!existing.has(sec)) {
+          insert.run(sec, libelles[sec] || sec);
+          created++;
+        }
+      }
+      if (created > 0) console.log(`[migration] ${created} section(s) orpheline(s) créée(s) depuis les UE`);
+    } catch (e) {
+      console.error('[migration] sections orphelines :', e.message);
+    }
+  }
+
   // 5j. Table des documents EA12 (un par événement administratif d'un MDP)
   {
     db.exec(`
