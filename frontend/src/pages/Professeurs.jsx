@@ -83,7 +83,7 @@ function DetailModal({ profId, onClose, onEdit }) {
           <h3 className="font-semibold text-sm mb-2 text-gray-700">
             Attributions ({detail.attributions?.length || 0})
           </h3>
-          <table className="grid-excel w-full text-sm">
+          <table className="grid-excel-soft w-full text-sm">
             <thead><tr>
               <th className="text-left">Section</th>
               <th className="text-left">UE</th>
@@ -198,7 +198,7 @@ export default function Professeurs() {
 
       {loading ? <p className="text-gray-400 p-4">Chargement…</p> : (
         <div className="bg-white rounded-lg border border-gray-200 overflow-auto max-h-[calc(100vh-180px)]">
-          <table className="grid-excel w-full">
+          <table className="grid-excel-soft w-full">
             <thead>
               <tr>
                 <Th k="nom_prenom">Nom et prénom</Th>

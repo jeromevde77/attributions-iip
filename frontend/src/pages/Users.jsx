@@ -133,7 +133,7 @@ export default function Users({ embedded = false }) {
 
       {loading ? <p>Chargement…</p> : (
         <div className="bg-white rounded-lg border border-gray-200 overflow-auto">
-          <table className="grid-excel">
+          <table className="grid-excel-soft">
             <thead>
               <tr>
                 <th>Nom</th><th>Email</th><th>Rôle</th><th>Périmètre</th><th>Actif</th><th>Créé le</th><th>Dernière connexion</th><th>Actions</th>
