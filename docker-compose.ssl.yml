@@ -1,0 +1,54 @@
+# =================================================================
+# docker-compose PROD avec SSL DIRECT dans nginx (sans reverse proxy DSM)
+#
+# Le frontend nginx écoute en HTTPS sur le port 10800.
+# Port-forward routeur : 443 (ou 10800) → IP_NAS:10800
+#
+# Bascule : remplacer docker-compose.yml par celui-ci, ou lancer avec -f.
+# Retour arrière : relancer avec l'ancien docker-compose.yml (port 8080 + reverse proxy).
+# =================================================================
+
+services:
+  backend:
+    image: ghcr.io/jeromevde77/attributions-backend:latest
+    pull_policy: always
+    container_name: attributions-backend
+    restart: unless-stopped
+    security_opt:
+      - seccomp:unconfined
+    environment:
+      NODE_ENV: production
+      PORT: 3001
+      JWT_SECRET: ${JWT_SECRET:-change-me-jwt-secret-please}
+      DB_PATH: /app/data/attributions.db
+      CORS_ORIGIN: ${CORS_ORIGIN:-https://server.domobel.be:10800}
+    volumes:
+      - ./backend/data:/app/data
+    expose:
+      - "3001"
+    networks:
+      - attributions-net
+
+  frontend:
+    image: ghcr.io/jeromevde77/attributions-frontend:latest
+    pull_policy: always
+    container_name: attributions-frontend
+    restart: unless-stopped
+    security_opt:
+      - seccomp:unconfined
+    depends_on:
+      - backend
+    ports:
+      - "10800:443"          # HTTPS direct dans nginx
+    volumes:
+      # Certificat SSL DSM monté en lecture seule
+      - /usr/syno/etc/certificate/system/default/fullchain.pem:/etc/nginx/ssl/fullchain.pem:ro
+      - /usr/syno/etc/certificate/system/default/privkey.pem:/etc/nginx/ssl/privkey.pem:ro
+      # Config nginx SSL (remplace la config HTTP par défaut)
+      - ./nginx-prod-ssl.conf:/etc/nginx/conf.d/default.conf:ro
+    networks:
+      - attributions-net
+
+networks:
+  attributions-net:
+    driver: bridge
