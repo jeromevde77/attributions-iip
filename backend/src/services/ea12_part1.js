@@ -100,7 +100,7 @@ function enTete(d, logoBuf) {
     borders: noBorders,
     rows: [new TableRow({ children: [
       cell([
-        logoBuf ? new Paragraph({ children: [new ImageRun({ data: logoBuf, transformation: { width: 230, height: 31 }, type: 'png' })] }) : par(''),
+        logoBuf ? new Paragraph({ children: [new ImageRun({ data: logoBuf, transformation: { width: 289, height: 39 }, type: 'png' })] }) : par(''),
         par([run('Administration générale de l’Enseignement', { bold: true, size: 15 })], { spacing: { before: 60 } }),
         par([run('Direction générale des Personnels de l’Enseignement', { bold: true, size: 15 })]),
       ], { borders: noBorders, valign: VerticalAlign.TOP }),
