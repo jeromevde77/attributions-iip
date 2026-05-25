@@ -121,8 +121,7 @@ export default function EA12Editor() {
         </div>
         <div className="flex gap-2">
           <button onClick={save} disabled={saving} className="px-4 py-2 text-sm border border-iip-gold text-iip-gold rounded-lg hover:bg-iip-gold/5 disabled:opacity-50">Enregistrer</button>
-          <button onClick={generer} disabled={saving} className="px-4 py-2 text-sm bg-iip-gold text-white rounded-lg hover:bg-iip-amber disabled:opacity-50">Word</button>
-          <button onClick={genererPdf} disabled={saving} className="px-4 py-2 text-sm bg-iip-mauve text-white rounded-lg hover:opacity-90 disabled:opacity-50">PDF</button>
+          <button onClick={genererPdf} disabled={saving} className="px-4 py-2 text-sm bg-iip-mauve text-white rounded-lg hover:opacity-90 disabled:opacity-50">{saving ? 'Génération…' : 'Générer le PDF'}</button>
         </div>
       </div>
       {msg && <div className={`text-sm ${msg.startsWith('Erreur') ? 'text-red-600' : 'text-green-600'}`}>{msg}</div>}
@@ -215,7 +214,7 @@ export default function EA12Editor() {
 
       <div className="flex justify-end gap-2 pb-8">
         <button onClick={save} disabled={saving} className="px-4 py-2 text-sm border border-iip-gold text-iip-gold rounded-lg hover:bg-iip-gold/5 disabled:opacity-50">Enregistrer</button>
-        <button onClick={generer} disabled={saving} className="px-4 py-2 text-sm bg-iip-gold text-white rounded-lg hover:bg-iip-amber disabled:opacity-50">Générer le document (Word)</button>
+        <button onClick={genererPdf} disabled={saving} className="px-4 py-2 text-sm bg-iip-mauve text-white rounded-lg hover:opacity-90 disabled:opacity-50">{saving ? 'Génération…' : 'Générer le PDF'}</button>
       </div>
     </div>
   );

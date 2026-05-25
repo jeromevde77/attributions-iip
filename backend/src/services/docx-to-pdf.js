@@ -37,23 +37,29 @@ async function findSoffice() {
  * @param {Buffer} docxBuffer - le document Word généré
  * @returns {Promise<Buffer>} le PDF
  */
+// Profil LibreOffice PERSISTANT réutilisé entre les conversions.
+// Le coût élevé de LibreOffice est l'initialisation du profil ; en le
+// réutilisant, seule la 1re conversion est lente, les suivantes sont rapides.
+const PERSIST_PROFILE = join(tmpdir(), 'lo-profile-ea12-persistent');
+
 export async function docxToPdf(docxBuffer) {
   const bin = await findSoffice();
-  // Dossier temporaire isolé (profil utilisateur LibreOffice + fichiers)
+  // Dossier temporaire pour les fichiers (docx d'entrée / pdf de sortie)
   const dir = await mkdtemp(join(tmpdir(), 'ea12pdf-'));
   const docxPath = join(dir, 'document.docx');
   const pdfPath = join(dir, 'document.pdf');
-  const profileDir = join(dir, 'lo-profile');
 
   try {
     await writeFile(docxPath, docxBuffer);
-    // Conversion headless. -env:UserInstallation isole le profil (nécessaire
-    // pour exécutions concurrentes et conteneur sans HOME inscriptible).
+    // Conversion headless. Profil PERSISTANT (réutilisé) = conversions suivantes
+    // bien plus rapides. -env:UserInstallation pointe vers le profil partagé.
     await execFileAsync(bin, [
       '--headless',
       '--norestore',
       '--nolockcheck',
-      `-env:UserInstallation=file://${profileDir}`,
+      '--nodefault',
+      '--nologo',
+      `-env:UserInstallation=file://${PERSIST_PROFILE}`,
       '--convert-to', 'pdf:writer_pdf_Export',
       '--outdir', dir,
       docxPath,
@@ -62,7 +68,7 @@ export async function docxToPdf(docxBuffer) {
     const pdf = await readFile(pdfPath);
     return pdf;
   } finally {
-    // Nettoyage du dossier temporaire (toujours, même en cas d'erreur)
+    // Nettoyage du dossier de travail (PAS le profil persistant)
     rm(dir, { recursive: true, force: true }).catch(() => {});
   }
 }
