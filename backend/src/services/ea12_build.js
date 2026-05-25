@@ -130,7 +130,7 @@ function tableauAttributions(d) {
 // ===== Assemblage =====
 function buildEA12bis(d) {
   let logoBuf = null;
-  try { logoBuf = fs.readFileSync(__dirname + '/ea12-assets/logo_fwb.png'); } catch {}
+  try { logoBuf = fs.readFileSync(import.meta.dirname + '/ea12-assets/logo_fwb.png'); } catch {}
   const children = [
     ...enTete(d, logoBuf),
     bande('Identification de l’établissement'),

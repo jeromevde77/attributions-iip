@@ -84,6 +84,30 @@ function evenement(d) {
         ]}),
       ]})], { w: 287, valign: VerticalAlign.TOP }),
     ]}),
+    // Ligne Absence (sur toute la largeur, structurée en sous-tableau)
+    new TableRow({ children: [
+      cell([new Table({ width: { size: 549 * PT, type: WidthType.DXA }, columnWidths: [18 * PT, 175 * PT, 200 * PT, 156 * PT], borders: noBorders, rows: [
+        new TableRow({ children: [
+          cell([par([run('A\nb\ns\ne\nn\nc\ne', { bold: true, size: 11 })], { align: AlignmentType.CENTER })], { w: 18, borders: noBorders, valign: VerticalAlign.CENTER, fill: BANDBLUE }),
+          cell([
+            par(chk('Absence d’un jour', false, { size: 11 }), { spacing: { before: 6, after: 6 } }),
+            par(chk('Début absence de plus d’1 jour', false, { size: 11 }), { spacing: { after: 6 } }),
+            par(chk('Reprise après absence de plus d’1 jour', false, { size: 11 }), { spacing: { after: 6 } }),
+          ], { w: 175, borders: noBorders, valign: VerticalAlign.TOP }),
+          cell([
+            par([run('Motif de l’absence ', { bold: true, size: 11 }), run('(Précisez : intitulé CAD + Code DI)', { size: 10 })], { spacing: { before: 6 } }),
+            par([run('………………………………………………', { size: 10 })], { spacing: { before: 6 } }),
+            par([run('………………………………………………', { size: 10 })], { spacing: { after: 6 } }),
+          ], { w: 200, borders: noBorders, valign: VerticalAlign.TOP }),
+          cell([
+            par([run('Date de début ', { bold: true, size: 10 }), run('(JJ/MM/AAAA) :', { italics: true, size: 9 })], { spacing: { before: 6 } }),
+            par([run('_ _ / _ _ / 20_ _', { size: 10 })], { spacing: { after: 6 } }),
+            par([run('Date de fin ', { bold: true, size: 10 }), run('(JJ/MM/AAAA) :', { italics: true, size: 9 })], { spacing: { before: 4 } }),
+            par([run('_ _ / _ _ / 20_ _', { size: 10 })], { spacing: { after: 6 } }),
+          ], { w: 156, borders: noBorders, valign: VerticalAlign.TOP }),
+        ]}),
+      ]})], { span: 2, mt: 0, mb: 0, ml: 0, mr: 0 }),
+    ]}),
   ], [264, 287]);
 }
 
