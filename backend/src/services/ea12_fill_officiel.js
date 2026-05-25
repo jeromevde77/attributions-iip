@@ -74,16 +74,29 @@ function injecterCasesChiffres(xml, libelleAvant, chiffres) {
     const hasText = /<w:t[^>]*>[^<\s]/.test(c.text);
     if (hasText) continue;
     const ch = chiffres[placed++];
-    let nc;
-    if (/<w:pPr>[\s\S]*?<\/w:pPr>/.test(c.text)) {
-      nc = c.text.replace(/(<\/w:pPr>)/, `$1${runVal(ch, { size: 16, bold: true })}`);
+    let nc = centrerParagraphe(c.text);
+    if (/<w:pPr>[\s\S]*?<\/w:pPr>/.test(nc)) {
+      nc = nc.replace(/(<\/w:pPr>)/, `$1${runVal(ch, { size: 16, bold: true })}`);
     } else {
-      nc = c.text.replace(/(<w:p\b[^>]*>)/, `$1${runVal(ch, { size: 16, bold: true })}`);
+      nc = nc.replace(/(<w:p\b[^>]*>)/, `$1${runVal(ch, { size: 16, bold: true })}`);
     }
     out = out.slice(0, c.start + offset) + nc + out.slice(c.end + offset);
     offset += nc.length - c.text.length;
   }
   return out;
+}
+
+/** Force l'alignement centré du premier paragraphe d'une cellule. */
+function centrerParagraphe(cellText) {
+  if (/<w:pPr>/.test(cellText)) {
+    // pPr existe : ajouter <w:jc w:val="center"/> au début du pPr s'il n'y est pas
+    if (/<w:jc\b/.test(cellText)) {
+      return cellText.replace(/<w:jc[^>]*\/>/, '<w:jc w:val="center"/>');
+    }
+    return cellText.replace(/(<w:pPr>)/, '$1<w:jc w:val="center"/>');
+  }
+  // pas de pPr : en créer un avec centrage juste après <w:p...>
+  return cellText.replace(/(<w:p\b[^>]*>)/, '$1<w:pPr><w:jc w:val="center"/></w:pPr>');
 }
 
 export async function remplirModeleOfficiel(data) {
