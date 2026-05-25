@@ -75,4 +75,27 @@ r.delete('/purge-annee/:annee', authRequired, roleRequired('admin'), (req, res) 
   res.json({ ok: true, annee, supprime: result });
 });
 
+/**
+ * Régénérer les données fictives des professeurs (DEV UNIQUEMENT).
+ * Sécurité : refuse de s'exécuter si NODE_ENV !== 'development'.
+ * Anonymise tous les profs en base (noms, adresses, diplômes, etc.)
+ * tout en conservant les attributions.
+ */
+r.post('/regenerate-fake-data', authRequired, roleRequired('admin'), async (req, res) => {
+  if (process.env.NODE_ENV !== 'development') {
+    return res.status(403).json({
+      error: "Cette opération est réservée à l'environnement de développement."
+    });
+  }
+  try {
+    const { regenerateFakeProfs } = await import('../services/fake-data.js');
+    const stats = regenerateFakeProfs(db);
+    console.log('[admin] Données fictives régénérées :', stats);
+    res.json({ ok: true, stats });
+  } catch (e) {
+    console.error('[admin] Erreur régénération données fictives :', e);
+    res.status(500).json({ error: e.message });
+  }
+});
+
 export default r;

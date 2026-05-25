@@ -109,6 +109,13 @@ export const api = {
   // admin
   adminStats() { return request('/admin/stats'); },
   adminReimportExcel() { return request('/admin/reimport-excel', { method: 'POST' }); },
+  regenerateFakeData() { return request('/admin/regenerate-fake-data', { method: 'POST' }); },
+  purgeAnnee(annee) {
+    return request(`/admin/purge-annee/${annee}`, {
+      method: 'DELETE',
+      body: { confirmation: `PURGER-${annee}` }
+    });
+  },
 
   // création en masse depuis section
   sectionUeCours(section) { return request(withAnnee(`/ref/sections/${encodeURIComponent(section)}/ue-cours`)); },
