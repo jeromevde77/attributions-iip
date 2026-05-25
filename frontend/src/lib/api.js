@@ -151,6 +151,7 @@ export const api = {
   deleteProfesseur(id) { return request(`/ref/professeurs/${id}`, { method: 'DELETE' }); },
   saveProfTitres(id, titres) { return request(`/ref/professeurs/${id}/titres`, { method: 'PUT', body: { titres } }); },
   saveProfCharges(id, charges) { return request(`/ref/professeurs/${id}/charges`, { method: 'PUT', body: { charges } }); },
+  saveProfAncienneteCours(id, reports) { return request(`/ref/professeurs/${id}/anciennete-cours`, { method: 'PUT', body: { reports } }); },
   locaux() { return request('/ref/locaux'); },
   parametres() { return request('/ref/parametres'); },
   typesEncadrement() { return request('/ref/types-encadrement'); },

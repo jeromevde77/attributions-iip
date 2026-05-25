@@ -96,7 +96,7 @@ export default function ProfFicheModal({ prof, onClose, onSaved }) {
     adresse_mail: '', mail_prive: '', tel_gsm: '',
     iban: '', bic: '', compte_titulaire: '',
     // Administratif IIP
-    statut: '', capaes: '', anciennete_25_26_po: 0,
+    statut: '', capaes: '', anciennete_25_26_po: 0, report_anc_po: 0,
     matricule: '', statut_ea12: '',
     // Situation fiscale
     etat_civil: '', handicap: 'non',
@@ -109,6 +109,8 @@ export default function ProfFicheModal({ prof, onClose, onSaved }) {
   // Listes dynamiques
   const [titres, setTitres] = useState([]);     // {date_obtention, intitule, delivre_par}
   const [charges, setCharges] = useState([]);   // {categorie, date_naissance, handicap}
+  const [anciennete, setAnciennete] = useState(null); // {po, cours[], annee} calculé par le backend
+  const [reportsCours, setReportsCours] = useState({}); // {cours_nom: jours} reports saisis
 
   const [saving, setSaving] = useState(false);
   const [loading, setLoading] = useState(!isNew);
@@ -137,6 +139,12 @@ export default function ProfFicheModal({ prof, onClose, onSaved }) {
       setCharges((p.charges || []).map(c => ({
         categorie: c.categorie || 'enfant', date_naissance: c.date_naissance || '', handicap: c.handicap || 'non'
       })));
+      if (p.anciennete) {
+        setAnciennete(p.anciennete);
+        const rc = {};
+        (p.anciennete.cours || []).forEach(c => { rc[c.cours_nom] = c.report; });
+        setReportsCours(rc);
+      }
     }).catch(e => alert('Erreur de chargement : ' + e.message))
       .finally(() => setLoading(false));
   }, [prof, isNew]);
@@ -168,6 +176,11 @@ export default function ProfFicheModal({ prof, onClose, onSaved }) {
       // Sauver titres + charges
       await api.saveProfTitres(id, titres);
       await api.saveProfCharges(id, charges);
+      // Sauver les reports d'ancienneté par cours (CC uniquement)
+      if (form.statut === 'CC') {
+        const reports = Object.entries(reportsCours).map(([cours_nom, jours]) => ({ cours_nom, jours }));
+        await api.saveProfAncienneteCours(id, reports);
+      }
       onSaved();
     } catch (e) { alert('Erreur : ' + e.message); }
     finally { setSaving(false); }
@@ -324,11 +337,73 @@ export default function ProfFicheModal({ prof, onClose, onSaved }) {
               <SelectField label="Statut EA12" value={form.statut_ea12} onChange={v => set('statut_ea12', v)}
                 options={[['', '—'], ['T', 'T'], ['TPr', 'TPr'], ['St', 'St'], ['D', 'D'], ['ACS', 'ACS'], ['APE', 'APE'], ['PTP', 'PTP']]} />
             </div>
-            <Labelled label="Ancienneté PO 25-26">
-              <input type="number" min="0" value={form.anciennete_25_26_po}
-                onChange={e => set('anciennete_25_26_po', Number(e.target.value))} className={FIELD_CLS} />
-            </Labelled>
           </Section>
+
+          {/* 6bis. Ancienneté (CC uniquement) */}
+          {form.statut === 'CC' && (
+            <Section titre="6 bis · Ancienneté" sous={anciennete ? `PO : ${anciennete.po.total} j` : ''}
+              ouvert={open.anciennete} onToggle={() => toggle('anciennete')}>
+              <p className="text-xs text-gray-500">
+                L'ancienneté = report historique (saisi ici) + acquis de l'année courante (calculé
+                automatiquement selon le décret du 01/02/1993 : 360 j si ≥ 50 % d'une charge, 180 j si ≥ 40 périodes).
+              </p>
+
+              {/* Ancienneté PO */}
+              <div className="bg-iip-gold/5 rounded-lg p-3 space-y-2 border border-iip-gold/20">
+                <div className="text-xs font-semibold text-iip-gold">Ancienneté Pouvoir Organisateur (toutes périodes)</div>
+                <div className="grid grid-cols-3 gap-3 items-end">
+                  <Labelled label="Report historique (jours)">
+                    <input type="number" min="0" value={form.report_anc_po}
+                      onChange={e => set('report_anc_po', Number(e.target.value))} className={FIELD_CLS} />
+                  </Labelled>
+                  <div className="text-sm">
+                    <div className="text-xs text-gray-500">Acquis {anciennete?.annee || 'cette année'}</div>
+                    <div className="font-semibold text-gray-700">+ {anciennete?.po.acquis_annee ?? 0} j</div>
+                  </div>
+                  <div className="text-sm">
+                    <div className="text-xs text-gray-500">Total à jour</div>
+                    <div className="font-bold text-iip-gold text-lg">
+                      {(Number(form.report_anc_po) || 0) + (anciennete?.po.acquis_annee ?? 0)} j
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Ancienneté par cours */}
+              <div className="space-y-2">
+                <div className="text-xs font-semibold text-gray-600">Ancienneté par cours (limitée au nom du cours)</div>
+                {(anciennete?.cours || []).length === 0 && (
+                  <p className="text-xs text-gray-400">Aucun cours attribué cette année.</p>
+                )}
+                {(anciennete?.cours || []).map((c, i) => {
+                  const report = reportsCours[c.cours_nom] ?? 0;
+                  return (
+                    <div key={i} className="grid grid-cols-12 gap-2 items-end border-b border-gray-100 pb-2">
+                      <div className="col-span-5">
+                        <div className="text-xs text-gray-500 mb-0.5">Cours</div>
+                        <div className="text-sm text-gray-800 truncate" title={c.cours_nom}>{c.cours_nom}</div>
+                      </div>
+                      <div className="col-span-3">
+                        <Labelled label="Report (jours)">
+                          <input type="number" min="0" value={report}
+                            onChange={e => setReportsCours(rc => ({ ...rc, [c.cours_nom]: Number(e.target.value) }))}
+                            className={FIELD_CLS} />
+                        </Labelled>
+                      </div>
+                      <div className="col-span-2 text-sm">
+                        <div className="text-xs text-gray-500">Acquis</div>
+                        <div className="font-semibold text-gray-700">+ {c.acquis_annee} j</div>
+                      </div>
+                      <div className="col-span-2 text-sm">
+                        <div className="text-xs text-gray-500">Total</div>
+                        <div className="font-bold text-iip-gold">{(Number(report) || 0) + c.acquis_annee} j</div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </Section>
+          )}
 
           {/* 7. Règlement CE 883/2004 */}
           <Section titre="7 · Règlement CE 883/2004" sous="résident d'un autre État UE"
