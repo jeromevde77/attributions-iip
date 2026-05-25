@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { api, getAnnee } from '../lib/api.js';
+import { api, getAnnee, getUser } from '../lib/api.js';
 
 const EMPTY = {
   nom: '', prenom: '', adresse_mail: '', mail_prive: '',
@@ -126,6 +126,7 @@ function EditModal({ prof, onClose, onSaved }) {
 function DetailModal({ profId, onClose, onEdit }) {
   const [detail, setDetail] = useState(null);
   const navigate = useNavigate();
+  const u = getUser();
   useEffect(() => {
     api.professeur(profId).then(setDetail).catch(e => alert(e.message));
   }, [profId]);
@@ -159,10 +160,12 @@ function DetailModal({ profId, onClose, onEdit }) {
             </div>
           </div>
           <div className="flex gap-2 flex-shrink-0">
-            <button onClick={nouvelEA12}
-              className="bg-iip-mauve hover:opacity-90 text-white text-sm px-3 py-1.5 rounded">
-              + Nouvel EA12
-            </button>
+            {u?.role === 'admin' && (
+              <button onClick={nouvelEA12}
+                className="bg-iip-mauve hover:opacity-90 text-white text-sm px-3 py-1.5 rounded">
+                + Nouvel EA12
+              </button>
+            )}
             <button onClick={() => onEdit(detail)}
               className="bg-iip-gold hover:bg-iip-amber text-white text-sm px-3 py-1.5 rounded">
               ✏ Modifier

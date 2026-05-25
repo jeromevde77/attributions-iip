@@ -48,4 +48,31 @@ r.get('/stats', authRequired, roleRequired('admin'), (req, res) => {
   res.json(stats);
 });
 
+/**
+ * Purger toutes les données d'une année scolaire.
+ * Supprime : attributions, organisations, UE, cours, ue_section, EA12.
+ * Nécessite confirmation explicite.
+ */
+r.delete('/purge-annee/:annee', authRequired, roleRequired('admin'), (req, res) => {
+  const annee = req.params.annee;
+  const { confirmation } = req.body || {};
+  if (confirmation !== `PURGER-${annee}`) {
+    return res.status(400).json({ error: `Confirmation invalide. Envoyez { "confirmation": "PURGER-${annee}" }` });
+  }
+  const purge = db.transaction(() => {
+    const tables = ['attribution', 'organisation', 'ue_section', 'cours', 'ue', 'ea12'];
+    const counts = {};
+    for (const t of tables) {
+      try {
+        const r = db.prepare(`DELETE FROM ${t} WHERE annee_scolaire = ?`).run(annee);
+        counts[t] = r.changes;
+      } catch(e) { counts[t] = `erreur: ${e.message}`; }
+    }
+    return counts;
+  });
+  const result = purge();
+  console.log(`[admin] Purge année ${annee} :`, result);
+  res.json({ ok: true, annee, supprime: result });
+});
+
 export default r;

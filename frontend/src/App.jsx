@@ -73,7 +73,7 @@ function ProtectedLayout({ children }) {
         ['/',             'Tableau de bord'],
         ['/attributions', 'Attributions'],
         ['/professeurs',  'Professeurs'],
-        ['/ea12',         'EA12']
+        ...(u?.role === 'admin' ? [['/ea12', 'EA12']] : []),
       ];
   if (u?.role === 'admin') nav.push(['/configuration', '⚙ Configuration']);
 

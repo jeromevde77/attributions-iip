@@ -1,0 +1,40 @@
+# Environnement de DÉVELOPPEMENT — port 10801
+# Base de données séparée de la production (volume data-dev).
+# Images taguées :dev, mises à jour par la branche develop.
+#
+# Sur le NAS (DSM) : Container Manager → Projet → Créer depuis ce fichier.
+# Ou via SSH : docker compose -f docker-compose.dev.yml up -d
+
+services:
+
+  backend-dev:
+    image: ghcr.io/jeromevde77/attributions-backend:dev
+    container_name: attributions-backend-dev
+    restart: unless-stopped
+    environment:
+      NODE_ENV: development
+      JWT_SECRET: ${JWT_SECRET_DEV:-lucie-dev-secret-change-me}
+      PORT: 3000
+    volumes:
+      - data-dev:/app/data   # base SQLite DEV séparée de la prod
+    networks:
+      - lucie-dev
+
+  frontend-dev:
+    image: ghcr.io/jeromevde77/attributions-frontend:dev
+    container_name: attributions-frontend-dev
+    restart: unless-stopped
+    ports:
+      - "10801:80"           # port DEV (prod = 10800)
+    depends_on:
+      - backend-dev
+    networks:
+      - lucie-dev
+
+volumes:
+  data-dev:
+    name: attributions-data-dev   # volume nommé, isolé de la prod
+
+networks:
+  lucie-dev:
+    name: lucie-dev
