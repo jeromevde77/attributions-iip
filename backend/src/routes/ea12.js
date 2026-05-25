@@ -150,6 +150,29 @@ r.get('/:id/document', authRequired, async (req, res) => {
   }
 });
 
+// Générer le PDF d'un EA12 (Word officiel converti via LibreOffice — fidélité FWB)
+r.get('/:id/document-pdf', authRequired, async (req, res) => {
+  const row = db.prepare('SELECT * FROM ea12 WHERE id = ?').get(req.params.id);
+  if (!row) return res.status(404).json({ error: 'EA12 introuvable' });
+  const donnees = JSON.parse(row.donnees_json || '{}');
+  const data = construireData(row, donnees);
+  try {
+    const { docxToPdf } = await import('../services/docx-to-pdf.js');
+    const docxBuf = await Packer.toBuffer(buildEA12bis(data));
+    const pdfBuf = await docxToPdf(Buffer.isBuffer(docxBuf) ? docxBuf : Buffer.from(docxBuf));
+    db.prepare("UPDATE ea12 SET statut_doc = 'genere', modifie_le = CURRENT_TIMESTAMP WHERE id = ?").run(req.params.id);
+    const fname = `EA12_${data.prof_nom}_${data.prof_prenom}_${row.annee_scolaire}.pdf`.replace(/\s+/g, '_');
+    res.status(200);
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader('Content-Disposition', `attachment; filename="${fname}"`);
+    res.setHeader('Content-Length', pdfBuf.length);
+    res.end(pdfBuf);
+  } catch (e) {
+    console.error('[ea12] génération PDF échouée :', e);
+    res.status(500).json({ error: 'Génération du PDF échouée : ' + e.message });
+  }
+});
+
 // Aperçu des données qui seront utilisées (pour pré-remplir l'éditeur)
 r.get('/:id/apercu', authRequired, roleRequired('admin'), (req, res) => {
   const row = db.prepare('SELECT * FROM ea12 WHERE id = ?').get(req.params.id);

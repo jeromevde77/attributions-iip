@@ -94,6 +94,16 @@ export default function EA12Editor() {
     } catch (e) { setMsg('Erreur : ' + e.message); }
     finally { setSaving(false); }
   }
+  async function genererPdf() {
+    setSaving(true); setMsg('');
+    try {
+      await api.ea12Update(id, { donnees: d });
+      const fn = `EA12_${apercu?.prof_nom || ''}_${apercu?.prof_prenom || ''}_${ea12?.annee_scolaire || ''}.pdf`.replace(/\s+/g, '_');
+      await api.ea12DocumentPdf(id, fn);
+      setMsg('PDF généré ✓');
+    } catch (e) { setMsg('Erreur : ' + e.message); }
+    finally { setSaving(false); }
+  }
 
   if (msg.startsWith('Erreur') && (!ea12 || !apercu))
     return <div className="p-8 text-center text-red-600">{msg}<div className="mt-2"><button onClick={() => navigate(-1)} className="text-sm text-gray-500 underline">← Retour</button></div></div>;
@@ -111,7 +121,8 @@ export default function EA12Editor() {
         </div>
         <div className="flex gap-2">
           <button onClick={save} disabled={saving} className="px-4 py-2 text-sm border border-iip-gold text-iip-gold rounded-lg hover:bg-iip-gold/5 disabled:opacity-50">Enregistrer</button>
-          <button onClick={generer} disabled={saving} className="px-4 py-2 text-sm bg-iip-gold text-white rounded-lg hover:bg-iip-amber disabled:opacity-50">Générer le document (Word)</button>
+          <button onClick={generer} disabled={saving} className="px-4 py-2 text-sm bg-iip-gold text-white rounded-lg hover:bg-iip-amber disabled:opacity-50">Word</button>
+          <button onClick={genererPdf} disabled={saving} className="px-4 py-2 text-sm bg-iip-mauve text-white rounded-lg hover:opacity-90 disabled:opacity-50">PDF</button>
         </div>
       </div>
       {msg && <div className={`text-sm ${msg.startsWith('Erreur') ? 'text-red-600' : 'text-green-600'}`}>{msg}</div>}

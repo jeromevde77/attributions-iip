@@ -199,6 +199,22 @@ export const api = {
       a.href = url; a.download = filename || 'EA12.docx';
       a.click(); URL.revokeObjectURL(url);
     });
+  },
+  ea12DocumentPdf(id, filename) {
+    return fetch(`${BASE}/ea12/${id}/document-pdf`, {
+      headers: { Authorization: `Bearer ${getToken()}` }
+    }).then(async r => {
+      if (!r.ok) {
+        let msg = 'Génération du PDF échouée';
+        try { const j = await r.json(); if (j.error) msg = j.error; } catch {}
+        throw new Error(msg);
+      }
+      const blob = await r.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url; a.download = filename || 'EA12.pdf';
+      a.click(); URL.revokeObjectURL(url);
+    });
   }
 };
 
