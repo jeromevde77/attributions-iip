@@ -101,6 +101,47 @@ r.delete('/:code', authRequired, roleRequired('admin'), (req, res) => {
   res.json({ ok: true, deleted: counts.attribution || 0, details: counts });
 });
 
+// Renommer une année scolaire (ex. 2025-2026 → 2026-2027).
+// Met à jour TOUTES les tables liées + la table annee_scolaire.
+r.patch('/:code/rename', authRequired, roleRequired('admin'), (req, res) => {
+  const ancien = req.params.code;
+  const nouveau = req.body?.nouveau_code;
+
+  if (!nouveau || !/^\d{4}-\d{4}$/.test(nouveau)) {
+    return res.status(400).json({ error: 'Code invalide (format attendu : AAAA-AAAA)' });
+  }
+  const source = db.prepare('SELECT 1 FROM annee_scolaire WHERE code = ?').get(ancien);
+  if (!source) return res.status(404).json({ error: `L'année ${ancien} n'existe pas` });
+  const cible = db.prepare('SELECT 1 FROM annee_scolaire WHERE code = ?').get(nouveau);
+  if (cible) return res.status(409).json({ error: `L'année ${nouveau} existe déjà — renommage impossible` });
+
+  // Détecter dynamiquement toutes les tables ayant une colonne annee_scolaire
+  const tables = db.prepare(`
+    SELECT name FROM sqlite_master WHERE type = 'table' AND name NOT LIKE 'sqlite_%'
+  `).all().map(t => t.name);
+
+  const aRenommer = [];
+  for (const t of tables) {
+    if (t === 'annee_scolaire') continue;
+    const cols = db.prepare(`PRAGMA table_info(${t})`).all().map(c => c.name);
+    if (cols.includes('annee_scolaire')) aRenommer.push(t);
+  }
+
+  const counts = {};
+  const tx = db.transaction(() => {
+    for (const t of aRenommer) {
+      const r = db.prepare(`UPDATE ${t} SET annee_scolaire = ? WHERE annee_scolaire = ?`).run(nouveau, ancien);
+      counts[t] = r.changes;
+    }
+    // La table annee_scolaire elle-même (clé primaire = code)
+    db.prepare('UPDATE annee_scolaire SET code = ?, libelle = ? WHERE code = ?')
+      .run(nouveau, `Année ${nouveau}`, ancien);
+  });
+  tx();
+
+  res.json({ ok: true, ancien, nouveau, tables: counts });
+});
+
 // Comparer les UE entre une année source et la cible :
 // liste les UE de la source (groupées par section) avec un drapeau "déjà dans la cible"
 r.get('/import-preview', authRequired, roleRequired('admin', 'editeur'), (req, res) => {

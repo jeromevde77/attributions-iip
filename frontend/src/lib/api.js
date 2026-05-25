@@ -70,6 +70,7 @@ export const api = {
   annees() { return request('/annees'); },
   createAnnee(data) { return request('/annees', { method: 'POST', body: data }); },
   deleteAnnee(code) { return request(`/annees/${encodeURIComponent(code)}`, { method: 'DELETE' }); },
+  renameAnnee(code, nouveau_code) { return request(`/annees/${encodeURIComponent(code)}/rename`, { method: 'PATCH', body: { nouveau_code } }); },
   importPreview(source, cible) { return request(`/annees/import-preview?source=${encodeURIComponent(source)}&cible=${encodeURIComponent(cible)}`); },
   importUEs(data) { return request('/annees/import-ues', { method: 'POST', body: data }); },
 
