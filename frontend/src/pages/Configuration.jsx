@@ -1,5 +1,90 @@
 import { useEffect, useState } from 'react';
 import { api } from '../lib/api.js';
+
+/* ── Purge d'une année scolaire (admin seulement) ── */
+function PurgeAnnee() {
+  const [annee, setAnnee] = useState('');
+  const [etape, setEtape] = useState(1); // 1=saisie, 2=confirmation, 3=résultat
+  const [result, setResult] = useState(null);
+  const [loading, setLoading] = useState(false);
+  const [err, setErr] = useState('');
+
+  async function purger() {
+    setLoading(true); setErr('');
+    try {
+      const res = await api.purgeAnnee(annee);
+      setResult(res); setEtape(3);
+    } catch(e) { setErr(e.message); }
+    finally { setLoading(false); }
+  }
+
+  return (
+    <section className="bg-white rounded-lg border border-red-200 overflow-hidden">
+      <div className="px-4 py-3 bg-red-50 border-b border-red-200">
+        <h2 className="font-semibold text-red-700">Purge d'une année scolaire</h2>
+        <p className="text-xs text-red-500 mt-0.5">
+          Supprime toutes les attributions, UE, cours et organisations d'une année. Irréversible.
+        </p>
+      </div>
+      <div className="px-4 py-4 space-y-3">
+        {etape === 1 && (
+          <>
+            <p className="text-sm text-gray-600">
+              Utilisez cette fonction pour nettoyer une année de test avant de commencer
+              à encoder les vraies données. <strong>Faites une sauvegarde d'abord.</strong>
+            </p>
+            <div className="flex gap-3 items-end">
+              <div>
+                <label className="block text-xs text-gray-600 mb-1">Année à purger</label>
+                <input value={annee} onChange={e => setAnnee(e.target.value)}
+                  placeholder="ex. 2026-2027" className="border border-gray-300 rounded px-3 py-1.5 text-sm w-36"/>
+              </div>
+              <button onClick={() => { if(annee) setEtape(2); }}
+                disabled={!annee}
+                className="px-4 py-1.5 bg-red-600 text-white text-sm rounded disabled:opacity-40 hover:bg-red-700">
+                Purger…
+              </button>
+            </div>
+          </>
+        )}
+        {etape === 2 && (
+          <div className="bg-red-50 border border-red-300 rounded-lg p-4 space-y-3">
+            <p className="text-sm font-semibold text-red-700">
+              ⚠️ Confirmer la suppression de l'année <strong>{annee}</strong> ?
+            </p>
+            <p className="text-xs text-red-600">
+              Toutes les attributions, UE, cours, organisations et EA12 de cette année
+              seront définitivement supprimés. Cette action est irréversible.
+            </p>
+            {err && <p className="text-xs text-red-600 bg-red-100 rounded p-2">{err}</p>}
+            <div className="flex gap-3">
+              <button onClick={purger} disabled={loading}
+                className="px-4 py-1.5 bg-red-600 text-white text-sm rounded hover:bg-red-700 disabled:opacity-50">
+                {loading ? 'Suppression…' : `Oui, supprimer ${annee}`}
+              </button>
+              <button onClick={() => { setEtape(1); setErr(''); }}
+                className="px-4 py-1.5 border border-gray-300 text-gray-600 text-sm rounded hover:bg-gray-50">
+                Annuler
+              </button>
+            </div>
+          </div>
+        )}
+        {etape === 3 && result && (
+          <div className="bg-green-50 border border-green-300 rounded-lg p-4 space-y-2">
+            <p className="text-sm font-semibold text-green-700">✓ Année {annee} purgée</p>
+            <div className="text-xs text-green-600 space-y-0.5">
+              {Object.entries(result.supprime || {}).map(([t, n]) => (
+                <div key={t}>{t} : {n} ligne(s) supprimée(s)</div>
+              ))}
+            </div>
+            <button onClick={() => { setEtape(1); setAnnee(''); setResult(null); }}
+              className="text-xs text-green-700 underline mt-2">Recommencer</button>
+          </div>
+        )}
+      </div>
+    </section>
+  );
+}
 import Users from './Users.jsx';
 import Annees from './Annees.jsx';
 import Referentiels from './Referentiels.jsx';
@@ -277,6 +362,10 @@ export default function Configuration() {
           et en redémarrant le container.
         </div>
       </section>
+
+      {/* ── Purge d'une année scolaire ── */}
+      <PurgeAnnee />
+
       </div>)}
     </div>
   );
