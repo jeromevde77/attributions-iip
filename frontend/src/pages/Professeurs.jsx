@@ -124,7 +124,6 @@ function DetailModal({ profId, onClose, onEdit }) {
 
 export default function Professeurs() {
   const [profs, setProfs] = useState([]);
-  const [q, setQ] = useState('');
   const [loading, setLoading] = useState(true);
   const [detailId, setDetailId] = useState(null);
   const [editProf, setEditProf] = useState(null);   // null = fermé, {} = nouveau, {...} = existant
@@ -145,11 +144,7 @@ export default function Professeurs() {
   }
 
   const filtered = useMemo(() => {
-    let arr = profs.filter(p => !q ||
-      p.nom_prenom?.toLowerCase().includes(q.toLowerCase()) ||
-      p.adresse_mail?.toLowerCase().includes(q.toLowerCase()) ||
-      p.commune?.toLowerCase().includes(q.toLowerCase())
-    );
+    let arr = [...profs];
     if (sortBy.key) {
       arr = [...arr].sort((a, b) => {
         const va = a[sortBy.key], vb = b[sortBy.key];
@@ -163,7 +158,7 @@ export default function Professeurs() {
       });
     }
     return arr;
-  }, [profs, q, sortBy]);
+  }, [profs, sortBy]);
 
   async function handleDelete(p) {
     if (!confirm(`Supprimer ${p.nom_prenom} ? Cette action est irréversible.`)) return;
@@ -192,9 +187,6 @@ export default function Professeurs() {
           Corps professoral <span className="text-base font-normal text-gray-400">({filtered.length})</span>
         </h1>
         <div className="flex gap-2 items-center">
-          <input value={q} onChange={e => setQ(e.target.value)} placeholder="🔍 Rechercher…"
-            type="search" autoComplete="off" autoCorrect="off" spellCheck={false}
-            className="border border-gray-300 rounded px-3 py-1.5 text-sm w-56" />
           {canEdit && (
             <button onClick={() => setEditProf({ ...EMPTY })}
               className="bg-iip-gold hover:bg-iip-amber text-white text-sm px-3 py-1.5 rounded font-medium">
