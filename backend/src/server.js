@@ -236,6 +236,91 @@ try {
     if (!colsProf.includes('date_naissance')) db.exec("ALTER TABLE professeur ADD COLUMN date_naissance TEXT");
   }
 
+  // 5l. Champs de la FICHE SIGNALÉTIQUE FWB (annexe 3) — identité civile + situation fiscale.
+  // On n'ajoute QUE ce qui n'existe pas déjà ailleurs (nom, prénom, matricule, naissance,
+  // adresse, email sont réutilisés depuis la fiche prof : pas de double encodage).
+  {
+    const cols = db.prepare("PRAGMA table_info(professeur)").all().map(c => c.name);
+    const add = (name, type = 'TEXT') => {
+      if (!cols.includes(name)) db.exec(`ALTER TABLE professeur ADD COLUMN ${name} ${type}`);
+    };
+    // ── Identité civile ──
+    add('sexe');                 // 'F' | 'M'
+    add('niss');                 // numéro national (NISS / NISS bis)
+    add('nationalite');
+    add('lieu_naissance_ville');
+    add('lieu_naissance_pays');
+    add('iban');
+    add('bic');                  // si compte étranger
+    add('compte_titulaire');     // au nom de…
+    add('tel_gsm');
+    // ── Situation fiscale du MDP ──
+    add('etat_civil');           // celibataire|marie|veuf|divorce|cohab_legal|cohabitant|separe_corps|separe_fait
+    add('handicap');             // 'oui' | 'non'
+    // ── Situation du conjoint / cohabitant légal ──
+    add('conjoint_nom');
+    add('conjoint_prenom');
+    add('conjoint_handicap');            // 'oui' | 'non'
+    add('conjoint_alloc_foyer');         // 'oui' | 'non'
+    add('conjoint_revenus');             // pro|pension|faibles|aucun (catégorie de revenus)
+    // ── Règlement CE 883/2004 (réside dans un autre état européen) ──
+    add('ce883_actif');                  // 'oui' | 'non'
+    add('ce883_date_debut');
+    add('ce883_caisse');                 // dénomination + adresse caisse SS
+    add('ce883_num_inscription');
+  }
+
+  // 5m. Table des TITRES DE CAPACITÉ (un prof → plusieurs titres datés).
+  // Remplace à terme titre1/2/3 (conservés pour compat + migration des données existantes).
+  {
+    db.exec(`
+      CREATE TABLE IF NOT EXISTS titre_capacite (
+        id            INTEGER PRIMARY KEY AUTOINCREMENT,
+        professeur_id INTEGER NOT NULL,
+        date_obtention TEXT,
+        intitule      TEXT,
+        delivre_par   TEXT,
+        ordre         INTEGER DEFAULT 0,
+        FOREIGN KEY (professeur_id) REFERENCES professeur(id) ON DELETE CASCADE
+      )
+    `);
+    db.exec("CREATE INDEX IF NOT EXISTS idx_titre_prof ON titre_capacite(professeur_id)");
+
+    // Migration douce : si la table est vide, importer titre1/2/3 existants
+    const nbTitres = db.prepare("SELECT COUNT(*) AS n FROM titre_capacite").get().n;
+    if (nbTitres === 0) {
+      const profs = db.prepare("SELECT id, titre1, titre2, titre3 FROM professeur").all();
+      const ins = db.prepare(
+        "INSERT INTO titre_capacite (professeur_id, intitule, ordre) VALUES (?, ?, ?)"
+      );
+      const tx = db.transaction(() => {
+        for (const p of profs) {
+          [p.titre1, p.titre2, p.titre3].forEach((t, i) => {
+            if (t && t.trim()) ins.run(p.id, t.trim(), i);
+          });
+        }
+      });
+      tx();
+      console.log('[migration] titres de capacité importés depuis titre1/2/3');
+    }
+  }
+
+  // 5n. Table des PERSONNES À CHARGE (enfants, +65 ans, autres).
+  {
+    db.exec(`
+      CREATE TABLE IF NOT EXISTS personne_charge (
+        id            INTEGER PRIMARY KEY AUTOINCREMENT,
+        professeur_id INTEGER NOT NULL,
+        categorie     TEXT,            -- 'enfant' | 'autre_65' | 'autre'
+        date_naissance TEXT,
+        handicap      TEXT,            -- 'oui' | 'non'
+        ordre         INTEGER DEFAULT 0,
+        FOREIGN KEY (professeur_id) REFERENCES professeur(id) ON DELETE CASCADE
+      )
+    `);
+    db.exec("CREATE INDEX IF NOT EXISTS idx_charge_prof ON personne_charge(professeur_id)");
+  }
+
   // 5k. Créer les sections référencées par des UE mais absentes de la table section.
   // Cas réel : AeSI (Assistant en Soins Infirmiers) a des UE mais pas d'entrée section,
   // donc elle n'apparaissait nulle part dans les listes de sections.

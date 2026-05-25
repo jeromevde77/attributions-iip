@@ -312,7 +312,51 @@ r.get('/professeurs/:id', authRequired, (req, res) => {
     SELECT * FROM v_attribution_complete
     WHERE professeur_id = ? ORDER BY section, ue_num
   `).all(req.params.id);
-  res.json({ ...p, attributions: attrs });
+  const titres = db.prepare(
+    'SELECT * FROM titre_capacite WHERE professeur_id = ? ORDER BY ordre, id'
+  ).all(req.params.id);
+  const charges = db.prepare(
+    'SELECT * FROM personne_charge WHERE professeur_id = ? ORDER BY categorie, ordre, id'
+  ).all(req.params.id);
+  res.json({ ...p, attributions: attrs, titres, charges });
+});
+
+// ── Titres de capacité (liste liée au prof) ──
+r.put('/professeurs/:id/titres', authRequired, roleRequired('admin', 'editeur'), (req, res) => {
+  const profId = Number(req.params.id);
+  const titres = Array.isArray(req.body?.titres) ? req.body.titres : [];
+  const tx = db.transaction(() => {
+    db.prepare('DELETE FROM titre_capacite WHERE professeur_id = ?').run(profId);
+    const ins = db.prepare(
+      'INSERT INTO titre_capacite (professeur_id, date_obtention, intitule, delivre_par, ordre) VALUES (?,?,?,?,?)'
+    );
+    titres.forEach((t, i) => {
+      if ((t.intitule && t.intitule.trim()) || (t.delivre_par && t.delivre_par.trim()) || t.date_obtention) {
+        ins.run(profId, t.date_obtention || null, (t.intitule||'').trim() || null, (t.delivre_par||'').trim() || null, i);
+      }
+    });
+  });
+  tx();
+  res.json({ ok: true });
+});
+
+// ── Personnes à charge (liste liée au prof) ──
+r.put('/professeurs/:id/charges', authRequired, roleRequired('admin', 'editeur'), (req, res) => {
+  const profId = Number(req.params.id);
+  const charges = Array.isArray(req.body?.charges) ? req.body.charges : [];
+  const tx = db.transaction(() => {
+    db.prepare('DELETE FROM personne_charge WHERE professeur_id = ?').run(profId);
+    const ins = db.prepare(
+      'INSERT INTO personne_charge (professeur_id, categorie, date_naissance, handicap, ordre) VALUES (?,?,?,?,?)'
+    );
+    charges.forEach((c, i) => {
+      if (c.date_naissance || c.categorie) {
+        ins.run(profId, c.categorie || 'enfant', c.date_naissance || null, c.handicap || 'non', i);
+      }
+    });
+  });
+  tx();
+  res.json({ ok: true });
 });
 
 // Créer un nouveau professeur
@@ -339,7 +383,16 @@ r.post('/professeurs', authRequired, roleRequired('admin', 'editeur'), (req, res
 r.patch('/professeurs/:id', authRequired, roleRequired('admin', 'editeur'), (req, res) => {
   const allowed = ['nom','prenom','adresse_mail','mail_prive','statut',
                    'adresse_rue','code_postal','commune','capaes','anciennete_25_26_po',
-                   'matricule','titre1','titre2','titre3','statut_ea12'];
+                   'matricule','titre1','titre2','titre3','statut_ea12',
+                   // Fiche signalétique — identité civile
+                   'sexe','niss','nationalite','lieu_naissance_ville','lieu_naissance_pays',
+                   'iban','bic','compte_titulaire','tel_gsm','date_naissance',
+                   // Fiche signalétique — situation fiscale
+                   'etat_civil','handicap',
+                   'conjoint_nom','conjoint_prenom','conjoint_handicap',
+                   'conjoint_alloc_foyer','conjoint_revenus',
+                   // Règlement CE 883/2004
+                   'ce883_actif','ce883_date_debut','ce883_caisse','ce883_num_inscription'];
   const updates = [];
   const params = { id: req.params.id };
   for (const k of allowed) {
