@@ -126,9 +126,12 @@ r.get('/:id/document', authRequired, async (req, res) => {
     // Marquer comme généré
     db.prepare("UPDATE ea12 SET statut_doc = 'genere', modifie_le = CURRENT_TIMESTAMP WHERE id = ?").run(req.params.id);
     const fname = `EA12_${data.prof_nom}_${data.prof_prenom}_${row.annee_scolaire}.docx`.replace(/\s+/g, '_');
+    const out = Buffer.isBuffer(buf) ? buf : Buffer.from(buf);
+    res.status(200);
     res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document');
     res.setHeader('Content-Disposition', `attachment; filename="${fname}"`);
-    res.send(buf);
+    res.setHeader('Content-Length', out.length);
+    res.end(out);  // octets bruts, sans transformation Express
   } catch (e) {
     console.error('[ea12] génération échouée :', e);
     res.status(500).json({ error: 'Génération du document échouée : ' + e.message });
