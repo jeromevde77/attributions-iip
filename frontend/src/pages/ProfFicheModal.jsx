@@ -43,6 +43,44 @@ function Section({ titre, sous, ouvert, onToggle, children, complet }) {
   );
 }
 
+/* Champs stables (définis au niveau module → jamais démontés, focus préservé) */
+const FIELD_CLS = "w-full border border-gray-300 rounded px-3 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-iip-gold";
+
+function Labelled({ label, children }) {
+  return (
+    <div>
+      <label className="block text-xs text-gray-600 mb-0.5">{label}</label>
+      {children}
+    </div>
+  );
+}
+
+function TextField({ label, value, onChange, type = 'text', placeholder }) {
+  return (
+    <Labelled label={label}>
+      <input type={type} value={value ?? ''} placeholder={placeholder}
+        onChange={e => onChange(e.target.value)} className={FIELD_CLS} />
+    </Labelled>
+  );
+}
+
+function SelectField({ label, value, onChange, options }) {
+  return (
+    <Labelled label={label}>
+      <select value={value ?? ''} onChange={e => onChange(e.target.value)} className={FIELD_CLS}>
+        {options.map(([v, l]) => <option key={v} value={v}>{l}</option>)}
+      </select>
+    </Labelled>
+  );
+}
+
+function OuiNon({ label, value, onChange }) {
+  return (
+    <SelectField label={label} value={value} onChange={onChange}
+      options={[['non', 'Non'], ['oui', 'Oui']]} />
+  );
+}
+
 export default function ProfFicheModal({ prof, onClose, onSaved }) {
   const isNew = !prof?.id;
 
@@ -133,31 +171,6 @@ export default function ProfFicheModal({ prof, onClose, onSaved }) {
     finally { setSaving(false); }
   }
 
-  // Helpers de rendu (fonctions, pas composants — pour ne pas perdre le focus)
-  function input(k, props = {}) {
-    return (
-      <input value={form[k] ?? ''} onChange={e => set(k, e.target.value)} {...props}
-        className="w-full border border-gray-300 rounded px-3 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-iip-gold" />
-    );
-  }
-  function labelled(label, node) {
-    return (
-      <div>
-        <label className="block text-xs text-gray-600 mb-0.5">{label}</label>
-        {node}
-      </div>
-    );
-  }
-  function ouinon(k, label) {
-    return labelled(label, (
-      <select value={form[k]} onChange={e => set(k, e.target.value)}
-        className="w-full border border-gray-300 rounded px-3 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-iip-gold">
-        <option value="non">Non</option>
-        <option value="oui">Oui</option>
-      </select>
-    ));
-  }
-
   if (loading) {
     return (
       <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-40">
@@ -181,109 +194,88 @@ export default function ProfFicheModal({ prof, onClose, onSaved }) {
 
         <form onSubmit={handleSubmit} className="p-5 space-y-3 overflow-auto">
 
-          {/* ───── 1. Identité civile ───── */}
+          {/* 1. Identité civile */}
           <Section titre="1 · Identité civile" ouvert={open.identite} onToggle={() => toggle('identite')}>
             <div className="grid grid-cols-2 gap-3">
-              {labelled('Nom *', input('nom'))}
-              {labelled('Prénom *', input('prenom'))}
+              <TextField label="Nom *" value={form.nom} onChange={v => set('nom', v)} />
+              <TextField label="Prénom *" value={form.prenom} onChange={v => set('prenom', v)} />
             </div>
             <div className="grid grid-cols-3 gap-3">
-              {labelled('Sexe', (
-                <select value={form.sexe} onChange={e => set('sexe', e.target.value)}
-                  className="w-full border border-gray-300 rounded px-3 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-iip-gold">
-                  <option value="">—</option><option value="F">F</option><option value="M">M</option>
-                </select>
-              ))}
-              {labelled('Date de naissance', input('date_naissance', { type: 'date' }))}
-              {labelled('Nationalité', input('nationalite'))}
+              <SelectField label="Sexe" value={form.sexe} onChange={v => set('sexe', v)}
+                options={[['', '—'], ['F', 'F'], ['M', 'M']]} />
+              <TextField label="Date de naissance" type="date" value={form.date_naissance} onChange={v => set('date_naissance', v)} />
+              <TextField label="Nationalité" value={form.nationalite} onChange={v => set('nationalite', v)} />
             </div>
             <div className="grid grid-cols-2 gap-3">
-              {labelled('NISS / NISS bis', input('niss', { placeholder: '00.00.00-000.00' }))}
-              {labelled('Matricule enseignant', input('matricule', { placeholder: '11 chiffres' }))}
+              <TextField label="NISS / NISS bis" placeholder="00.00.00-000.00" value={form.niss} onChange={v => set('niss', v)} />
+              <TextField label="Matricule enseignant" placeholder="11 chiffres" value={form.matricule} onChange={v => set('matricule', v)} />
             </div>
             <div className="grid grid-cols-2 gap-3">
-              {labelled('Lieu de naissance — ville', input('lieu_naissance_ville'))}
-              {labelled('Lieu de naissance — pays', input('lieu_naissance_pays'))}
+              <TextField label="Lieu de naissance — ville" value={form.lieu_naissance_ville} onChange={v => set('lieu_naissance_ville', v)} />
+              <TextField label="Lieu de naissance — pays" value={form.lieu_naissance_pays} onChange={v => set('lieu_naissance_pays', v)} />
             </div>
           </Section>
 
-          {/* ───── 2. Coordonnées ───── */}
+          {/* 2. Coordonnées */}
           <Section titre="2 · Coordonnées & compte bancaire" ouvert={open.coord} onToggle={() => toggle('coord')}>
-            {labelled('Adresse (rue + n°)', input('adresse_rue'))}
+            <TextField label="Adresse (rue + n°)" value={form.adresse_rue} onChange={v => set('adresse_rue', v)} />
             <div className="grid grid-cols-2 gap-3">
-              {labelled('Code postal', input('code_postal'))}
-              {labelled('Localité', input('commune'))}
+              <TextField label="Code postal" value={form.code_postal} onChange={v => set('code_postal', v)} />
+              <TextField label="Localité" value={form.commune} onChange={v => set('commune', v)} />
             </div>
             <div className="grid grid-cols-2 gap-3">
-              {labelled('E-mail', input('adresse_mail', { type: 'email' }))}
-              {labelled('Tél. / GSM', input('tel_gsm'))}
+              <TextField label="E-mail" type="email" value={form.adresse_mail} onChange={v => set('adresse_mail', v)} />
+              <TextField label="Tél. / GSM" value={form.tel_gsm} onChange={v => set('tel_gsm', v)} />
             </div>
-            {labelled('E-mail privé', input('mail_prive', { type: 'email' }))}
+            <TextField label="E-mail privé" type="email" value={form.mail_prive} onChange={v => set('mail_prive', v)} />
             <div className="grid grid-cols-2 gap-3">
-              {labelled('N° compte IBAN', input('iban', { placeholder: 'BE00 0000 0000 0000' }))}
-              {labelled('BIC (si compte étranger)', input('bic'))}
+              <TextField label="N° compte IBAN" placeholder="BE00 0000 0000 0000" value={form.iban} onChange={v => set('iban', v)} />
+              <TextField label="BIC (si compte étranger)" value={form.bic} onChange={v => set('bic', v)} />
             </div>
-            {labelled('Compte au nom de', input('compte_titulaire', { placeholder: 'si différent du MDP' }))}
+            <TextField label="Compte au nom de" placeholder="si différent du MDP" value={form.compte_titulaire} onChange={v => set('compte_titulaire', v)} />
           </Section>
 
-          {/* ───── 3. Titres de capacité ───── */}
+          {/* 3. Titres de capacité */}
           <Section titre="3 · Titres de capacité" sous={`${titres.length} titre(s)`}
             ouvert={open.titres} onToggle={() => toggle('titres')}>
             <p className="text-xs text-gray-500">Diplômes, brevets, certificats, attestations, reconnaissance d'expérience utile…</p>
             {titres.map((t, i) => (
               <div key={i} className="grid grid-cols-12 gap-2 items-end border-b border-gray-100 pb-2">
-                <div className="col-span-3">{labelled('Date', (
-                  <input type="date" value={t.date_obtention} onChange={e => setTitre(i, 'date_obtention', e.target.value)}
-                    className="w-full border border-gray-300 rounded px-2 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-iip-gold" />
-                ))}</div>
-                <div className="col-span-5">{labelled('Intitulé — spécificité — niveau', (
-                  <input value={t.intitule} onChange={e => setTitre(i, 'intitule', e.target.value)}
-                    className="w-full border border-gray-300 rounded px-2 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-iip-gold" />
-                ))}</div>
-                <div className="col-span-3">{labelled('Délivré par', (
-                  <input value={t.delivre_par} onChange={e => setTitre(i, 'delivre_par', e.target.value)}
-                    className="w-full border border-gray-300 rounded px-2 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-iip-gold" />
-                ))}</div>
+                <div className="col-span-3">
+                  <TextField label="Date" type="date" value={t.date_obtention} onChange={v => setTitre(i, 'date_obtention', v)} />
+                </div>
+                <div className="col-span-5">
+                  <TextField label="Intitulé — spécificité — niveau" value={t.intitule} onChange={v => setTitre(i, 'intitule', v)} />
+                </div>
+                <div className="col-span-3">
+                  <TextField label="Délivré par" value={t.delivre_par} onChange={v => setTitre(i, 'delivre_par', v)} />
+                </div>
                 <div className="col-span-1 text-right">
-                  <button type="button" onClick={() => delTitre(i)}
-                    className="text-red-400 hover:text-red-600 text-sm" title="Retirer">🗑</button>
+                  <button type="button" onClick={() => delTitre(i)} className="text-red-400 hover:text-red-600 text-sm" title="Retirer">🗑</button>
                 </div>
               </div>
             ))}
-            <button type="button" onClick={addTitre}
-              className="text-iip-gold hover:text-iip-amber text-sm font-medium">＋ Ajouter un titre</button>
+            <button type="button" onClick={addTitre} className="text-iip-gold hover:text-iip-amber text-sm font-medium">＋ Ajouter un titre</button>
           </Section>
 
-          {/* ───── 4. Situation fiscale ───── */}
+          {/* 4. Situation fiscale */}
           <Section titre="4 · Situation fiscale" ouvert={open.fiscal} onToggle={() => toggle('fiscal')}>
             <div className="grid grid-cols-2 gap-3">
-              {labelled('État civil', (
-                <select value={form.etat_civil} onChange={e => set('etat_civil', e.target.value)}
-                  className="w-full border border-gray-300 rounded px-3 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-iip-gold">
-                  {ETAT_CIVIL.map(([v, l]) => <option key={v} value={v}>{l}</option>)}
-                </select>
-              ))}
-              {ouinon('handicap', 'Personne porteuse d\'un handicap')}
+              <SelectField label="État civil" value={form.etat_civil} onChange={v => set('etat_civil', v)} options={ETAT_CIVIL} />
+              <OuiNon label="Personne porteuse d'un handicap" value={form.handicap} onChange={v => set('handicap', v)} />
             </div>
-
-            {/* Conjoint — affiché si marié/cohabitant légal */}
             {['marie', 'cohab_legal'].includes(form.etat_civil) && (
               <div className="bg-gray-50 rounded-lg p-3 space-y-3 border border-gray-100">
                 <div className="text-xs font-semibold text-gray-600">Situation du conjoint / cohabitant légal</div>
                 <div className="grid grid-cols-2 gap-3">
-                  {labelled('Nom', input('conjoint_nom'))}
-                  {labelled('Prénom', input('conjoint_prenom'))}
+                  <TextField label="Nom" value={form.conjoint_nom} onChange={v => set('conjoint_nom', v)} />
+                  <TextField label="Prénom" value={form.conjoint_prenom} onChange={v => set('conjoint_prenom', v)} />
                 </div>
                 <div className="grid grid-cols-2 gap-3">
-                  {ouinon('conjoint_handicap', 'Conjoint handicapé')}
-                  {ouinon('conjoint_alloc_foyer', 'Bénéficiaire allocation de foyer')}
+                  <OuiNon label="Conjoint handicapé" value={form.conjoint_handicap} onChange={v => set('conjoint_handicap', v)} />
+                  <OuiNon label="Bénéficiaire allocation de foyer" value={form.conjoint_alloc_foyer} onChange={v => set('conjoint_alloc_foyer', v)} />
                 </div>
-                {labelled('Revenus du conjoint', (
-                  <select value={form.conjoint_revenus} onChange={e => set('conjoint_revenus', e.target.value)}
-                    className="w-full border border-gray-300 rounded px-3 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-iip-gold">
-                    {REVENUS_CONJOINT.map(([v, l]) => <option key={v} value={v}>{l}</option>)}
-                  </select>
-                ))}
+                <SelectField label="Revenus du conjoint" value={form.conjoint_revenus} onChange={v => set('conjoint_revenus', v)} options={REVENUS_CONJOINT} />
               </div>
             )}
             <p className="text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded px-3 py-2">
@@ -292,7 +284,7 @@ export default function ProfFicheModal({ prof, onClose, onSaved }) {
             </p>
           </Section>
 
-          {/* ───── 5. Personnes à charge ───── */}
+          {/* 5. Personnes à charge */}
           <Section titre="5 · Personnes fiscalement à charge" sous={`${charges.length} personne(s)`}
             ouvert={open.charges} onToggle={() => toggle('charges')}>
             {[
@@ -304,67 +296,47 @@ export default function ProfFicheModal({ prof, onClose, onSaved }) {
                 <div className="text-xs font-semibold text-gray-600">{titre}</div>
                 {charByCat(cat).map(({ c, i }) => (
                   <div key={i} className="grid grid-cols-12 gap-2 items-end">
-                    <div className="col-span-5">{labelled('Date de naissance', (
-                      <input type="date" value={c.date_naissance} onChange={e => setCharge(i, 'date_naissance', e.target.value)}
-                        className="w-full border border-gray-300 rounded px-2 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-iip-gold" />
-                    ))}</div>
-                    <div className="col-span-5">{labelled('Handicap', (
-                      <select value={c.handicap} onChange={e => setCharge(i, 'handicap', e.target.value)}
-                        className="w-full border border-gray-300 rounded px-2 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-iip-gold">
-                        <option value="non">Non</option><option value="oui">Oui</option>
-                      </select>
-                    ))}</div>
+                    <div className="col-span-5">
+                      <TextField label="Date de naissance" type="date" value={c.date_naissance} onChange={v => setCharge(i, 'date_naissance', v)} />
+                    </div>
+                    <div className="col-span-5">
+                      <OuiNon label="Handicap" value={c.handicap} onChange={v => setCharge(i, 'handicap', v)} />
+                    </div>
                     <div className="col-span-2 text-right">
-                      <button type="button" onClick={() => delCharge(i)}
-                        className="text-red-400 hover:text-red-600 text-sm" title="Retirer">🗑</button>
+                      <button type="button" onClick={() => delCharge(i)} className="text-red-400 hover:text-red-600 text-sm" title="Retirer">🗑</button>
                     </div>
                   </div>
                 ))}
-                <button type="button" onClick={() => addCharge(cat)}
-                  className="text-iip-gold hover:text-iip-amber text-xs font-medium">＋ Ajouter</button>
+                <button type="button" onClick={() => addCharge(cat)} className="text-iip-gold hover:text-iip-amber text-xs font-medium">＋ Ajouter</button>
               </div>
             ))}
           </Section>
 
-          {/* ───── 6. Données IIP (interne) ───── */}
+          {/* 6. Données internes IIP */}
           <Section titre="6 · Données internes IIP" ouvert={open.iip} onToggle={() => toggle('iip')}>
             <div className="grid grid-cols-3 gap-3">
-              {labelled('Statut', (
-                <select value={form.statut} onChange={e => set('statut', e.target.value)}
-                  className="w-full border border-gray-300 rounded px-3 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-iip-gold">
-                  <option value="">—</option><option value="CC">CC — Chargé de cours</option><option value="EXP">EXP — Expert</option>
-                </select>
-              ))}
-              {labelled('CAPAES', (
-                <select value={form.capaes} onChange={e => set('capaes', e.target.value)}
-                  className="w-full border border-gray-300 rounded px-3 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-iip-gold">
-                  <option value="">—</option><option value="x">Oui</option>
-                </select>
-              ))}
-              {labelled('Statut EA12', (
-                <select value={form.statut_ea12} onChange={e => set('statut_ea12', e.target.value)}
-                  className="w-full border border-gray-300 rounded px-3 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-iip-gold">
-                  <option value="">—</option>
-                  {['T', 'TPr', 'St', 'D', 'ACS', 'APE', 'PTP'].map(s => <option key={s} value={s}>{s}</option>)}
-                </select>
-              ))}
+              <SelectField label="Statut" value={form.statut} onChange={v => set('statut', v)}
+                options={[['', '—'], ['CC', 'CC — Chargé de cours'], ['EXP', 'EXP — Expert']]} />
+              <SelectField label="CAPAES" value={form.capaes} onChange={v => set('capaes', v)}
+                options={[['', '—'], ['x', 'Oui']]} />
+              <SelectField label="Statut EA12" value={form.statut_ea12} onChange={v => set('statut_ea12', v)}
+                options={[['', '—'], ['T', 'T'], ['TPr', 'TPr'], ['St', 'St'], ['D', 'D'], ['ACS', 'ACS'], ['APE', 'APE'], ['PTP', 'PTP']]} />
             </div>
-            {labelled('Ancienneté PO 25-26', (
+            <Labelled label="Ancienneté PO 25-26">
               <input type="number" min="0" value={form.anciennete_25_26_po}
-                onChange={e => set('anciennete_25_26_po', Number(e.target.value))}
-                className="w-full border border-gray-300 rounded px-3 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-iip-gold" />
-            ))}
+                onChange={e => set('anciennete_25_26_po', Number(e.target.value))} className={FIELD_CLS} />
+            </Labelled>
           </Section>
 
-          {/* ───── 7. Règlement CE 883/2004 (optionnel) ───── */}
+          {/* 7. Règlement CE 883/2004 */}
           <Section titre="7 · Règlement CE 883/2004" sous="résident d'un autre État UE"
             ouvert={open.ce883} onToggle={() => toggle('ce883')}>
-            {ouinon('ce883_actif', 'Concerné (réside dans un autre État UE + activité rémunérée)')}
+            <OuiNon label="Concerné (réside dans un autre État UE + activité rémunérée)" value={form.ce883_actif} onChange={v => set('ce883_actif', v)} />
             {form.ce883_actif === 'oui' && (
               <>
-                {labelled('Date de début de l\'activité dans le pays de résidence', input('ce883_date_debut', { type: 'date' }))}
-                {labelled('Dénomination + adresse de la caisse de sécurité sociale', input('ce883_caisse'))}
-                {labelled('Numéro d\'inscription', input('ce883_num_inscription'))}
+                <TextField label="Date de début de l'activité dans le pays de résidence" type="date" value={form.ce883_date_debut} onChange={v => set('ce883_date_debut', v)} />
+                <TextField label="Dénomination + adresse de la caisse de sécurité sociale" value={form.ce883_caisse} onChange={v => set('ce883_caisse', v)} />
+                <TextField label="Numéro d'inscription" value={form.ce883_num_inscription} onChange={v => set('ce883_num_inscription', v)} />
               </>
             )}
           </Section>
