@@ -65,6 +65,13 @@ try {
     db.exec(`ALTER TABLE attribution ADD COLUMN activite_id INTEGER REFERENCES activite_type(id);`);
     console.log('[migration] Colonne attribution.activite_id ajoutée');
   }
+  // Code titre RTF (Régime des Titres et Fonctions) par attribution, pour l'EA12.
+  // Valeurs officielles (circ. 9589) : TR/TS/TPL/TPNL/ATS/ATP (nouveau régime)
+  // et R/A/3B/Art.20 (ancien régime, dont R utilisé dans le supérieur).
+  if (!cols.find(c => c.name === 'titre_rtf')) {
+    db.exec(`ALTER TABLE attribution ADD COLUMN titre_rtf TEXT;`);
+    console.log('[migration] Colonne attribution.titre_rtf ajoutée');
+  }
 
   // 3. Table annee_scolaire (gestion multi-années)
   db.exec(`
