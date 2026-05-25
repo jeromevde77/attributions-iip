@@ -22,9 +22,14 @@ const PT = 20; // 1 pt = 20 DXA
 const CONTENT_PT = 551;
 
 const NB = { style: BorderStyle.NONE, size: 0, color: 'FFFFFF' };
-const TB = { style: BorderStyle.SINGLE, size: 4, color: '000000' };
+// Épaisseurs conformes au gabarit officiel FWB :
+//  - bordure épaisse (cadres principaux) : sz=18 = 2,25 pt (dominante du gabarit)
+//  - bordure fine (séparations internes)  : sz=6  = 0,75 pt
+const TB = { style: BorderStyle.SINGLE, size: 18, color: '000000' };   // 2,25 pt (épaisse)
+const TBF = { style: BorderStyle.SINGLE, size: 6, color: '000000' };   // 0,75 pt (fine)
 const noBorders = { top: NB, bottom: NB, left: NB, right: NB, insideHorizontal: NB, insideVertical: NB };
 const allBorders = { top: TB, bottom: TB, left: TB, right: TB, insideHorizontal: TB, insideVertical: TB };
+const fineBorders = { top: TBF, bottom: TBF, left: TBF, right: TBF, insideHorizontal: TBF, insideVertical: TBF };
 
 // Retire les caractères de contrôle interdits en XML 1.0 (cause fréquente de
 // "Word a rencontré une erreur lors de l'ouverture du fichier").
@@ -138,5 +143,5 @@ function enTete(d, logoBuf) {
 }
 
 export { enTete, run, par, chk, cell, table, Document, Packer, Paragraph, TextRun, Table, TableRow, TableCell,
-  AlignmentType, BorderStyle, WidthType, ShadingType, VerticalAlign, allBorders, noBorders, NB, TB,
+  AlignmentType, BorderStyle, WidthType, ShadingType, VerticalAlign, allBorders, noBorders, fineBorders, NB, TB, TBF,
   FONT, NAVY, BANDBLUE, CHK, CHKD, PT, CONTENT_PT, ImageRun };

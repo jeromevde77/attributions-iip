@@ -157,7 +157,7 @@ function buildEA12bis(d) {
   return new Document({
     styles: { default: { document: { run: { font: P.FONT, size: 15 } } } },
     sections: [{
-      properties: { page: { size: { width: 11906, height: 16838 }, margin: { top: 400, right: 360, bottom: 360, left: 360 } } },
+      properties: { page: { size: { width: 11906, height: 16838 }, margin: { top: 284, right: 707, bottom: 284, left: 567, header: 283, footer: 285 } } },
       children,
     }],
   });
