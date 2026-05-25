@@ -97,6 +97,8 @@ export default function Login() {
     fetch('/api/info').then(r => r.json()).then(setInfo).catch(() => {});
   }, []);
 
+  const isDev = info.environnement === 'dev';
+
   async function submit(e) {
     e.preventDefault();
     setError(''); setLoading(true);
@@ -163,6 +165,18 @@ export default function Login() {
                 color:'rgba(255,255,255,.25)', fontSize:'10px',
                 letterSpacing:'2px', fontFamily:"'Segoe UI',sans-serif", margin:0,
               }}>v{info.version}</p>
+            )}
+            {isDev && (
+              <div style={{
+                marginTop:'8px',
+                display:'inline-block',
+                background: 'repeating-linear-gradient(45deg, #f59e0b, #f59e0b 8px, #d97706 8px, #d97706 16px)',
+                color:'white', fontSize:'11px', fontWeight:700, letterSpacing:'1.5px',
+                padding:'4px 14px', borderRadius:'6px',
+                textShadow:'0 1px 2px rgba(0,0,0,.3)',
+              }}>
+                ⚠ DÉVELOPPEMENT — DONNÉES FICTIVES
+              </div>
             )}
           </div>
         </div>

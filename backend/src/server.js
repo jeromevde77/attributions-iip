@@ -527,7 +527,11 @@ app.get('/api/health', (req, res) => res.json({ ok: true, ts: new Date().toISOSt
 // Route publique : infos de base pour la page de connexion
 app.get('/api/info', (req, res) => {
   const etab = db.prepare('SELECT etab_nom FROM etablissement WHERE id = 1').get();
-  res.json({ etab_nom: etab?.etab_nom || '', version: '1.0.0' });
+  res.json({
+    etab_nom: etab?.etab_nom || '',
+    version: '1.0.0',
+    environnement: process.env.NODE_ENV === 'development' ? 'dev' : 'prod',
+  });
 });
 
 app.use('/api/auth',         authRoutes);

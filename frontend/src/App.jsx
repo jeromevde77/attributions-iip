@@ -48,9 +48,11 @@ function ProtectedLayout({ children }) {
   const [menuOpen, setMenuOpen] = useState(false);
   const [annees, setAnnees] = useState([]);
   const [anneeActive, setAnneeActive] = useState(getAnnee());
+  const [env, setEnv] = useState(null);
 
   useEffect(() => {
     api.annees().then(setAnnees).catch(() => {});
+    fetch('/api/info').then(r => r.json()).then(d => setEnv(d.environnement)).catch(() => {});
   }, []);
 
   function changeAnnee(code) {
@@ -79,6 +81,16 @@ function ProtectedLayout({ children }) {
 
   return (
     <div className="min-h-screen flex flex-col">
+      {env === 'dev' && (
+        <div style={{
+          background: 'repeating-linear-gradient(45deg, #f59e0b, #f59e0b 12px, #d97706 12px, #d97706 24px)',
+          color: 'white', textAlign: 'center', padding: '4px 12px',
+          fontSize: '12px', fontWeight: 700, letterSpacing: '2px',
+          textShadow: '0 1px 2px rgba(0,0,0,.3)',
+        }}>
+          ⚠ ENVIRONNEMENT DE DÉVELOPPEMENT — DONNÉES FICTIVES ⚠
+        </div>
+      )}
       <header className="bg-white border-b border-iip-gold/30 px-3 md:px-6 py-3 sticky top-0 z-20 shadow-sm">
         <div className="flex items-center justify-between gap-3">
           {/* Burger mobile */}
