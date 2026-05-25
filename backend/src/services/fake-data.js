@@ -94,6 +94,77 @@ const TITRES = {
 const TITRES_DEFAUT = [['Master en sciences','Bachelier en éducation'],
   ['Master en didactique',"Agrégé de l'enseignement secondaire supérieur"]];
 
+// ── Banques pour la fiche signalétique ──────────────────────────────────────
+const NATIONALITES = ['Belge', 'Belge', 'Belge', 'Belge', 'Française', 'Italienne',
+  'Espagnole', 'Néerlandaise', 'Portugaise', 'Marocaine', 'Roumaine'];
+
+const PAYS_NAISSANCE = [['Belgique', 0.8], ['France', 0.06], ['Italie', 0.03],
+  ['Espagne', 0.02], ['Maroc', 0.03], ['Portugal', 0.02], ['Roumanie', 0.02],
+  ['République démocratique du Congo', 0.02]];
+
+const VILLES_BE = ['Bruxelles', 'Liège', 'Charleroi', 'Namur', 'Mons', 'Nivelles',
+  'Wavre', 'Tournai', 'Verviers', 'Anderlecht', 'Uccle', 'Ixelles', 'Etterbeek',
+  'La Louvière', 'Ottignies', 'Braine-l\'Alleud', 'Waterloo'];
+
+const ORGANISMES_TITRE = [
+  'Université libre de Bruxelles (ULB)',
+  'Université catholique de Louvain (UCLouvain)',
+  'Université de Liège (ULiège)',
+  'Université de Mons (UMONS)',
+  'Haute École Libre de Bruxelles - Ilya Prigogine (HELB)',
+  'Haute École Léonard de Vinci',
+  'Haute École Bruxelles-Brabant (HE2B)',
+  'Institut Ilya Prigogine - Promotion sociale',
+  'Communauté française de Belgique',
+  'Jury de la Fédération Wallonie-Bruxelles',
+];
+
+const ETATS_CIVILS_POIDS = [
+  ['celibataire', 0.28], ['marie', 0.38], ['cohab_legal', 0.14],
+  ['divorce', 0.12], ['veuf', 0.04], ['cohabitant', 0.03],
+  ['separe_fait', 0.01],
+];
+
+function pickPondere(paires) {
+  const r = Math.random();
+  let cumul = 0;
+  for (const [val, poids] of paires) {
+    cumul += poids;
+    if (r <= cumul) return val;
+  }
+  return paires[0][0];
+}
+
+// NISS belge fictif : AA.MM.JJ-SSS.CC (basé sur date de naissance + ordre + sexe)
+function genNiss(naissanceIso, sexe) {
+  const [a, m, j] = naissanceIso.split('-');
+  const aa = a.slice(2);
+  // numéro d'ordre : impair pour homme, pair pour femme
+  let ordre = randInt(1, 498) * 2;
+  if (sexe === 'M') ordre += 1;
+  const ordreStr = String(ordre).padStart(3, '0');
+  // clé de contrôle : 97 - (nombre formé mod 97)
+  const base = Number(`${aa}${m}${j}${ordreStr}`);
+  const cle = 97 - (base % 97);
+  return `${aa}.${m}.${j}-${ordreStr}.${String(cle).padStart(2, '0')}`;
+}
+
+// IBAN belge fictif (structure plausible BEkk BBBC CCCC CCXX)
+function genIban() {
+  const banque = String(randInt(1, 999)).padStart(3, '0');
+  const compte = String(randInt(0, 9999999)).padStart(7, '0');
+  const nat = Number(`${banque}${compte}`) % 97 || 97;
+  const corps = `${banque}${compte}${String(nat).padStart(2, '0')}`;
+  // clé IBAN simplifiée (plausible, non garantie valide)
+  const cleIban = String(randInt(10, 98)).padStart(2, '0');
+  return `BE${cleIban} ${corps.slice(0,4)} ${corps.slice(4,8)} ${corps.slice(8,12)}`;
+}
+
+function genTel() {
+  const prefixe = pick(['0470', '0471', '0472', '0473', '0474', '0475', '0476', '0477', '0478', '0479', '0490', '0491', '0492']);
+  return `${prefixe} ${randInt(10,99)} ${randInt(10,99)} ${randInt(10,99)}`;
+}
+
 // ── Helpers ──────────────────────────────────────────────────────────────────
 const pick = (arr) => arr[Math.floor(Math.random() * arr.length)];
 const randInt = (min, max) => Math.floor(Math.random() * (max - min + 1)) + min;
@@ -186,15 +257,32 @@ export function regenerateFakeProfs(db) {
       nom = ?, prenom = ?, adresse_mail = ?, mail_prive = ?,
       date_naissance = ?, matricule = ?, adresse_rue = ?, code_postal = ?,
       commune = ?, titre1 = ?, titre2 = ?, titre3 = ?, capaes = ?,
-      statut_ea12 = ?, anciennete_25_26_po = ?
+      statut_ea12 = ?, anciennete_25_26_po = ?,
+      sexe = ?, niss = ?, nationalite = ?, lieu_naissance_ville = ?,
+      lieu_naissance_pays = ?, iban = ?, bic = ?, compte_titulaire = ?, tel_gsm = ?,
+      etat_civil = ?, handicap = ?,
+      conjoint_nom = ?, conjoint_prenom = ?, conjoint_handicap = ?,
+      conjoint_alloc_foyer = ?, conjoint_revenus = ?,
+      ce883_actif = ?, ce883_date_debut = ?, ce883_caisse = ?, ce883_num_inscription = ?
     WHERE id = ?
   `);
 
-  const stats = { total: 0, capaes: 0, cap: 0, aess: 0, sans: 0 };
+  // Préparer les insertions titres + charges (on vide d'abord)
+  const delTitres = db.prepare('DELETE FROM titre_capacite WHERE professeur_id = ?');
+  const insTitre = db.prepare(
+    'INSERT INTO titre_capacite (professeur_id, date_obtention, intitule, delivre_par, ordre) VALUES (?,?,?,?,?)'
+  );
+  const delCharges = db.prepare('DELETE FROM personne_charge WHERE professeur_id = ?');
+  const insCharge = db.prepare(
+    'INSERT INTO personne_charge (professeur_id, categorie, date_naissance, handicap, ordre) VALUES (?,?,?,?,?)'
+  );
+
+  const stats = { total: 0, capaes: 0, cap: 0, aess: 0, sans: 0, titres: 0, charges: 0 };
 
   const tx = db.transaction(() => {
     for (const prof of profs) {
       const { nom, prenom } = genNomUnique();
+      const sexe = pick(['F', 'F', 'M', 'M']); // ~50/50
       const { iso: naissance, age } = genNaissance();
       const matricule = genMatricule();
       const mailPro = `${normalize(prenom)}.${normalize(nom)}@lucie-dev.be`;
@@ -208,10 +296,75 @@ export function regenerateFakeProfs(db) {
       const statutEa12 = prof.statut === 'EXP'
         ? pick(['T','TPr','TPr','D'])
         : pick(['T','T','St']);
-      const anciennete = randInt(0, Math.max(1, Math.min(age - 23, 35)));
+      const anciennete = randInt(0, Math.max(1, Math.min(age - 23, 35))) * 360; // report PO en jours
+
+      // ── Fiche signalétique ──
+      const niss = genNiss(naissance, sexe);
+      const nationalite = pick(NATIONALITES);
+      const paysNaissance = pickPondere(PAYS_NAISSANCE);
+      const villeNaissance = paysNaissance === 'Belgique' ? pick(VILLES_BE) : '';
+      const iban = genIban();
+      const tel = genTel();
+      const etatCivil = pickPondere(ETATS_CIVILS_POIDS);
+      const handicap = Math.random() < 0.04 ? 'oui' : 'non';
+
+      // Conjoint (si marié ou cohabitant légal)
+      let conjNom = '', conjPrenom = '', conjHandicap = 'non', conjAlloc = 'non', conjRevenus = 'pro';
+      if (['marie', 'cohab_legal'].includes(etatCivil)) {
+        conjNom = pick(NOMS);
+        conjPrenom = pick(sexe === 'M' ? PRENOMS_F : PRENOMS_M); // conjoint de sexe opposé (simplification)
+        conjHandicap = Math.random() < 0.03 ? 'oui' : 'non';
+        conjAlloc = Math.random() < 0.15 ? 'oui' : 'non';
+        conjRevenus = pickPondere([['pro', 0.7], ['pension', 0.12], ['faibles', 0.1], ['aucun', 0.08]]);
+      }
 
       update.run(nom, prenom, mailPro, mailPrive, naissance, matricule,
-        rue, cp, commune, t1, t2, titrePeda, capaes, statutEa12, anciennete, prof.id);
+        rue, cp, commune, t1, t2, titrePeda, capaes, statutEa12, anciennete,
+        sexe, niss, nationalite, villeNaissance, paysNaissance, iban, '', '', tel,
+        etatCivil, handicap,
+        conjNom, conjPrenom, conjHandicap, conjAlloc, conjRevenus,
+        'non', '', '', '',
+        prof.id);
+
+      // ── Titres datés (à partir de t1/t2 + organisme + date plausible) ──
+      delTitres.run(prof.id);
+      const titresListe = [t1, t2].filter(Boolean);
+      titresListe.forEach((intitule, i) => {
+        // date d'obtention : entre 22 et ~30 ans après la naissance
+        const anneeNaiss = Number(naissance.slice(0, 4));
+        const anneeObtention = anneeNaiss + randInt(22, 28) + i * 2;
+        const dateObt = `${anneeObtention}-${String(randInt(6,9)).padStart(2,'0')}-${String(randInt(1,28)).padStart(2,'0')}`;
+        insTitre.run(prof.id, dateObt, intitule, pick(ORGANISMES_TITRE), i);
+        stats.titres++;
+      });
+      // Titre pédagogique comme titre supplémentaire si présent
+      if (titrePeda) {
+        const anneeNaiss = Number(naissance.slice(0, 4));
+        const dateObt = `${anneeNaiss + randInt(26, 35)}-${String(randInt(6,9)).padStart(2,'0')}-${String(randInt(1,28)).padStart(2,'0')}`;
+        insTitre.run(prof.id, dateObt, titrePeda, 'Fédération Wallonie-Bruxelles', titresListe.length);
+        stats.titres++;
+      }
+
+      // ── Personnes à charge ──
+      delCharges.run(prof.id);
+      let ordreCharge = 0;
+      if (['marie', 'cohab_legal', 'divorce', 'cohabitant'].includes(etatCivil) && age > 28) {
+        const nbEnfants = pickPondere([[0, 0.3], [1, 0.25], [2, 0.3], [3, 0.12], [4, 0.03]]);
+        for (let k = 0; k < Number(nbEnfants); k++) {
+          const ageEnfant = randInt(1, Math.min(age - 22, 26));
+          const anneeEnf = new Date().getFullYear() - ageEnfant;
+          const dn = `${anneeEnf}-${String(randInt(1,12)).padStart(2,'0')}-${String(randInt(1,28)).padStart(2,'0')}`;
+          insCharge.run(prof.id, 'enfant', dn, Math.random() < 0.02 ? 'oui' : 'non', ordreCharge++);
+          stats.charges++;
+        }
+      }
+      // Parfois un ascendant de +65 ans à charge
+      if (Math.random() < 0.05) {
+        const anneeAsc = new Date().getFullYear() - randInt(66, 88);
+        const dn = `${anneeAsc}-${String(randInt(1,12)).padStart(2,'0')}-${String(randInt(1,28)).padStart(2,'0')}`;
+        insCharge.run(prof.id, 'autre_65', dn, Math.random() < 0.1 ? 'oui' : 'non', ordreCharge++);
+        stats.charges++;
+      }
 
       stats.total++;
       if (titrePeda === 'CAPAES') stats.capaes++;
