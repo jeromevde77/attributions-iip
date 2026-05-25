@@ -40,20 +40,20 @@ function identEtab(d) {
   ]});
   // Bloc identité (gauche) + gestionnaire (droite) en 2 colonnes
   const champ = (lib, val, wl = 95, wv = 160) => new TableRow({ children: [
-    cell([par([run(lib, { bold: true, size: 13 })])], { w: wl, borders: noBorders }),
-    cell([par([run(val || '', { size: 13 })])], { w: wv, borders: noBorders }),
+    cell([par([run(lib, { bold: true, size: 13 })])], { w: wl, borders: allBorders, fill: 'F2F2F2' }),
+    cell([par([run(val || '', { size: 13 })])], { w: wv, borders: allBorders }),
   ]});
-  const blocGauche = new Table({ width: { size: 300 * PT, type: WidthType.DXA }, columnWidths: [95 * PT, 205 * PT], borders: noBorders, rows: [
+  const blocGauche = new Table({ width: { size: 300 * PT, type: WidthType.DXA }, columnWidths: [95 * PT, 205 * PT], borders: allBorders, rows: [
     champ('Nom du PO', e.po_nom, 95, 205),
     champ('Nom de l’établissement', e.etab_nom, 95, 205),
     champ('Adresse complète', e.adresse, 95, 205),
     new TableRow({ children: [
-      cell([par([run('E-mails officiels', { bold: true, size: 13 })])], { w: 95, borders: noBorders }),
-      cell([par([run('ec  ', { size: 12 }), run(e.email_ec || '', { size: 12 })]), par([run('po  ', { size: 12 }), run(e.email_po || '', { size: 12 })])], { w: 205, borders: noBorders }),
+      cell([par([run('E-mails officiels', { bold: true, size: 13 })])], { w: 95, borders: allBorders, fill: 'F2F2F2' }),
+      cell([par([run('ec  ', { size: 12 }), run(e.email_ec || '', { size: 12 })]), par([run('po  ', { size: 12 }), run(e.email_po || '', { size: 12 })])], { w: 205, borders: allBorders }),
     ]}),
   ]});
-  const blocDroite = new Table({ width: { size: 251 * PT, type: WidthType.DXA }, columnWidths: [70 * PT, 181 * PT], borders: noBorders, rows: [
-    new TableRow({ children: [cell([par([run('Gestionnaire du dossier', { bold: true, size: 13 })]), par([run('(joignable facilement par l’Administration)', { italics: true, size: 11 })])], { w: 251, borders: noBorders, span: 2 })] }),
+  const blocDroite = new Table({ width: { size: 251 * PT, type: WidthType.DXA }, columnWidths: [70 * PT, 181 * PT], borders: allBorders, rows: [
+    new TableRow({ children: [cell([par([run('Gestionnaire du dossier', { bold: true, size: 13 })]), par([run('(joignable facilement par l’Administration)', { italics: true, size: 11 })])], { w: 251, borders: allBorders, span: 2, fill: 'F2F2F2' })] }),
     champ('Nom :', e.gest_nom, 70, 181),
     champ('Prénom :', e.gest_prenom, 70, 181),
     champ('Qualité :', e.gest_qualite, 70, 181),
