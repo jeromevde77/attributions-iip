@@ -231,6 +231,9 @@ try {
     if (!cols.includes('titre2')) db.exec("ALTER TABLE professeur ADD COLUMN titre2 TEXT");
     if (!cols.includes('titre3')) db.exec("ALTER TABLE professeur ADD COLUMN titre3 TEXT");
     if (!cols.includes('statut_ea12')) db.exec("ALTER TABLE professeur ADD COLUMN statut_ea12 TEXT"); // T/TPr/St/D
+    // date de naissance (pour l'environnement dev et les futurs documents RH)
+    const colsProf = db.prepare("PRAGMA table_info(professeur)").all().map(c => c.name);
+    if (!colsProf.includes('date_naissance')) db.exec("ALTER TABLE professeur ADD COLUMN date_naissance TEXT");
   }
 
   // 5j. Table des documents EA12 (un par événement administratif d'un MDP)
