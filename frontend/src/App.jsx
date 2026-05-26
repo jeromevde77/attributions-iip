@@ -90,7 +90,9 @@ function ProtectedLayout({ children }) {
         ['/',             'Tableau de bord'],
         ['/attributions', 'Attributions'],
         ['/professeurs',  'Professeurs'],
-        ...(u?.role === 'admin' ? [['/ea12', 'EA12']] : []),
+        // EA12 masqué en attendant que la génération PDF soit finalisée (réseau FELSI).
+        // Réactiver en décommentant la ligne ci-dessous une fois l'EA12 prêt :
+        // ...(u?.role === 'admin' ? [['/ea12', 'EA12']] : []),
       ];
   if (u?.role === 'admin') nav.push(['/configuration', '⚙ Configuration']);
 
