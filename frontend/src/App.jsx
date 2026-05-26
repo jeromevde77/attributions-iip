@@ -51,7 +51,22 @@ function ProtectedLayout({ children }) {
   const [env, setEnv] = useState(null);
 
   useEffect(() => {
-    api.annees().then(setAnnees).catch(() => {});
+    api.annees().then(liste => {
+      setAnnees(liste);
+      // Auto-correction : si l'année mémorisée n'existe plus (ex. après un
+      // renommage/suppression), basculer sur l'année active réelle (ou la
+      // plus récente). Évite l'état "année fantôme" où plus aucun bouton
+      // de création n'apparaît.
+      if (liste && liste.length > 0) {
+        const courante = getAnnee();
+        const existe = liste.some(a => a.code === courante);
+        if (!existe) {
+          const cible = (liste.find(a => a.active) || liste[0]).code;
+          setAnnee(cible);
+          setAnneeActive(cible);
+        }
+      }
+    }).catch(() => {});
     fetch('/api/info').then(r => r.json()).then(d => setEnv(d.environnement)).catch(() => {});
   }, []);
 
