@@ -618,11 +618,17 @@ r.get('/professeurs/:id/fiche-pdf', authRequired, async (req, res) => {
     const { docxToPdf } = await import('../services/docx-to-pdf.js');
     const { archiverDocument } = await import('../services/document-archive.js');
 
-    const docx = await remplirFicheOfficielle(data);
-    const pdf = await docxToPdf(Buffer.isBuffer(docx) ? docx : Buffer.from(docx));
+    let docx, pdf;
+    try {
+      docx = await remplirFicheOfficielle(data);
+    } catch (e1) { throw new Error('remplissage du modèle : ' + e1.message); }
+    try {
+      pdf = await docxToPdf(Buffer.isBuffer(docx) ? docx : Buffer.from(docx));
+    } catch (e2) { throw new Error('conversion PDF (LibreOffice) : ' + e2.message); }
+
     const fname = `Fiche_signaletique_${p.nom}_${p.prenom}.pdf`.replace(/\s+/g, '_');
 
-    // Archivage (traçabilité)
+    // Archivage (traçabilité) — non bloquant
     try {
       archiverDocument({
         type_doc: 'fiche', professeur_id: p.id, prof_nom: p.nom, prof_prenom: p.prenom,
@@ -638,7 +644,7 @@ r.get('/professeurs/:id/fiche-pdf', authRequired, async (req, res) => {
     res.end(pdf);
   } catch (err) {
     console.error('[fiche] génération PDF échouée :', err);
-    res.status(500).json({ error: 'Génération de la fiche échouée : ' + err.message });
+    res.status(500).json({ error: 'Génération de la fiche échouée — ' + err.message });
   }
 });
 
