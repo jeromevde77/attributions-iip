@@ -201,7 +201,7 @@ export const api = {
     });
   },
   ficheDocumentPdf(id, filename) {
-    return fetch(`${BASE}/professeurs/${id}/fiche-pdf`, {
+    return fetch(`${BASE}/ref/professeurs/${id}/fiche-pdf`, {
       headers: { Authorization: `Bearer ${getToken()}` }
     }).then(async r => {
       if (!r.ok) {
