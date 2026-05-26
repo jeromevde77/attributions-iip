@@ -598,44 +598,40 @@ r.delete('/ue-section/:ue_num/:section_code', authRequired, roleRequired('admin'
 // Génère la fiche signalétique (PDF) d'un prof à partir du modèle officiel,
 // l'archive (traçabilité Option B) et la renvoie.
 r.get('/professeurs/:id/fiche-pdf', authRequired, async (req, res) => {
-  const p = db.prepare('SELECT * FROM professeur WHERE id = ?').get(req.params.id);
-  if (!p) return res.status(404).json({ error: 'Professeur introuvable' });
-  const e = db.prepare('SELECT * FROM etablissement WHERE id = 1').get() || {};
-
-  // Mapping des données prof -> format attendu par le moteur de la fiche
-  const lieuNaissance = [p.lieu_naissance_ville, p.lieu_naissance_pays].filter(Boolean).join(', ');
-  const domicile = [p.adresse_rue, [p.code_postal, p.commune].filter(Boolean).join(' ')].filter(Boolean).join(', ');
-  const data = {
-    prof_nom: p.nom, prof_prenom: p.prenom,
-    nationalite: p.nationalite, lieu_naissance: lieuNaissance,
-    domicile, tel_gsm: p.tel_gsm,
-    etab: { po_nom: e.po_nom, etab_nom: e.etab_nom, adresse: e.adresse,
-            num_ecot: e.num_ecot, num_fase: e.num_fase },
-  };
-
   try {
+    const p = db.prepare('SELECT * FROM professeur WHERE id = ?').get(req.params.id);
+    if (!p) return res.status(404).json({ error: 'Professeur introuvable' });
+    let e = {};
+    try { e = db.prepare('SELECT * FROM etablissement WHERE id = 1').get() || {}; }
+    catch { e = {}; } // table etablissement absente : on continue sans (champs vides)
+
+    // Mapping des données prof -> format attendu par le moteur de la fiche
+    const lieuNaissance = [p.lieu_naissance_ville, p.lieu_naissance_pays].filter(Boolean).join(', ');
+    const domicile = [p.adresse_rue, [p.code_postal, p.commune].filter(Boolean).join(' ')].filter(Boolean).join(', ');
+    const data = {
+      prof_nom: p.nom, prof_prenom: p.prenom,
+      nationalite: p.nationalite, lieu_naissance: lieuNaissance,
+      domicile, tel_gsm: p.tel_gsm,
+      etab: { po_nom: e.po_nom, etab_nom: e.etab_nom, adresse: e.adresse,
+              num_ecot: e.num_ecot, num_fase: e.num_fase },
+    };
+
     const { remplirFicheOfficielle } = await import('../services/fiche_fill_officiel.js');
     const { docxToPdf } = await import('../services/docx-to-pdf.js');
     const { archiverDocument } = await import('../services/document-archive.js');
 
     let docx, pdf;
-    try {
-      docx = await remplirFicheOfficielle(data);
-    } catch (e1) { throw new Error('remplissage du modèle : ' + e1.message); }
-    try {
-      pdf = await docxToPdf(Buffer.isBuffer(docx) ? docx : Buffer.from(docx));
-    } catch (e2) { throw new Error('conversion PDF (LibreOffice) : ' + e2.message); }
+    try { docx = await remplirFicheOfficielle(data); }
+    catch (e1) { throw new Error('remplissage du modèle : ' + e1.message); }
+    try { pdf = await docxToPdf(Buffer.isBuffer(docx) ? docx : Buffer.from(docx)); }
+    catch (e2) { throw new Error('conversion PDF (LibreOffice) : ' + e2.message); }
 
     const fname = `Fiche_signaletique_${p.nom}_${p.prenom}.pdf`.replace(/\s+/g, '_');
-
-    // Archivage (traçabilité) — non bloquant
-    try {
-      archiverDocument({
-        type_doc: 'fiche', professeur_id: p.id, prof_nom: p.nom, prof_prenom: p.prenom,
-        annee_scolaire: null, nom_fichier: fname, pdf,
-        genere_par: req.user?.email || req.user?.identifiant || null,
-      });
-    } catch (archErr) { console.error('[fiche] archivage échoué (non bloquant) :', archErr.message); }
+    archiverDocument({
+      type_doc: 'fiche', professeur_id: p.id, prof_nom: p.nom, prof_prenom: p.prenom,
+      annee_scolaire: null, nom_fichier: fname, pdf,
+      genere_par: req.user?.email || req.user?.identifiant || null,
+    });
 
     res.status(200);
     res.setHeader('Content-Type', 'application/pdf');
