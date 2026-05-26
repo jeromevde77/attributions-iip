@@ -10,6 +10,78 @@ const EMPTY = {
   matricule: '', titre1: '', titre2: '', titre3: '', statut_ea12: ''
 };
 
+// Génère une feuille d'attributions imprimable (1 page par prof) et lance l'impression.
+function ouvrirFeuilleImpression(data) {
+  const esc = (s) => String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+  const fmt = (n) => Number(n || 0).toLocaleString('fr-BE', { maximumFractionDigits: 1 });
+  const annee = esc(data.annee || '');
+
+  const pages = (data.profs || []).map(p => {
+    const lignes = (p.attributions || []).map(a => {
+      const totLigne = (a.periodes_attribuees || 0) + (a.autonomie_attribuee || 0);
+      const totHeures = Math.round(totLigne * 50 / 60 * 10) / 10;
+      return `<tr>
+        <td>${esc(a.section)}</td>
+        <td>${esc(a.ue_num)} — ${esc(a.ue_nom)}</td>
+        <td>${esc(a.nom_cours)}</td>
+        <td class="c">${esc(a.quadrimestre_attribue || '')}</td>
+        <td>${esc(a.activite_nom || '')}</td>
+        <td class="c">${a.num_groupe ? esc(a.num_groupe) : ''}</td>
+        <td class="c">${esc(a.type_cours || '')}</td>
+        <td class="r">${fmt(a.periodes_attribuees)}</td>
+        <td class="r">${fmt(a.autonomie_attribuee)}</td>
+        <td class="r"><b>${fmt(totLigne)}</b> <span class="h">(${fmt(totHeures)} h)</span></td>
+      </tr>`;
+    }).join('');
+
+    return `<section class="page">
+      <div class="entete">
+        <div class="titre">Feuille d'attributions ${annee ? '— ' + annee : ''}</div>
+        <div class="prof"><b>${esc(p.nom)} ${esc(p.prenom)}</b> ${p.statut ? '<span class="badge">' + esc(p.statut) + '</span>' : ''}</div>
+      </div>
+      <table>
+        <thead><tr>
+          <th>Section</th><th>UE</th><th>Cours</th><th>Quad.</th><th>Activité</th>
+          <th>Gr.</th><th>Type</th><th>Pér.</th><th>Auto.</th><th>Total (pér. / h)</th>
+        </tr></thead>
+        <tbody>${lignes || '<tr><td colspan="10" class="vide">Aucune attribution</td></tr>'}</tbody>
+        <tfoot><tr>
+          <td colspan="9" class="r"><b>TOTAL</b></td>
+          <td class="r"><b>${fmt(p.total_global_periodes)} pér.</b> <span class="h">(${fmt(p.total_global_heures)} h)</span></td>
+        </tr></tfoot>
+      </table>
+    </section>`;
+  }).join('');
+
+  const html = `<!DOCTYPE html><html lang="fr"><head><meta charset="utf-8">
+    <title>Feuilles d'attributions</title>
+    <style>
+      * { box-sizing: border-box; }
+      body { font-family: Arial, sans-serif; margin: 0; color: #1a1a1a; }
+      .page { padding: 18mm 14mm; page-break-after: always; }
+      .page:last-child { page-break-after: auto; }
+      .entete { border-bottom: 2px solid #1F3864; padding-bottom: 8px; margin-bottom: 14px; }
+      .titre { font-size: 12px; color: #555; text-transform: uppercase; letter-spacing: 1px; }
+      .prof { font-size: 20px; margin-top: 4px; }
+      .badge { font-size: 11px; background: #1F3864; color: #fff; padding: 2px 8px; border-radius: 10px; vertical-align: middle; margin-left: 6px; }
+      table { width: 100%; border-collapse: collapse; font-size: 12px; }
+      th, td { border: 1px solid #ccc; padding: 5px 7px; text-align: left; vertical-align: top; }
+      thead th { background: #9CC2E5; font-weight: bold; }
+      tfoot td { background: #f0f4f8; font-size: 13px; }
+      .c { text-align: center; } .r { text-align: right; }
+      .h { color: #777; font-weight: normal; font-size: 11px; }
+      .vide { text-align: center; color: #999; font-style: italic; }
+      @media print { .page { padding: 12mm; } }
+    </style></head><body>${pages}
+    <script>window.onload = () => { window.print(); };<\/script>
+    </body></html>`;
+
+  const w = window.open('', '_blank');
+  if (!w) { alert('Veuillez autoriser les pop-ups pour imprimer.'); return; }
+  w.document.write(html);
+  w.document.close();
+}
+
 
 function DetailModal({ profId, onClose, onEdit }) {
   const [detail, setDetail] = useState(null);
@@ -129,6 +201,8 @@ export default function Professeurs() {
   const [editProf, setEditProf] = useState(null);   // null = fermé, {} = nouveau, {...} = existant
   const [sortBy, setSortBy] = useState({ key: 'nom_prenom', dir: 'asc' });
   const [deleting, setDeleting] = useState(null);
+  const [selection, setSelection] = useState(new Set());  // ids des profs cochés
+  const [printing, setPrinting] = useState(false);
 
   const me = JSON.parse(localStorage.getItem('user') || 'null');
   const canEdit = me?.role === 'admin' || me?.role === 'editeur';
@@ -141,6 +215,29 @@ export default function Professeurs() {
 
   function toggleSort(key) {
     setSortBy(s => s.key !== key ? { key, dir: 'asc' } : s.dir === 'asc' ? { key, dir: 'desc' } : { key: null, dir: 'asc' });
+  }
+
+  function toggleSelect(id) {
+    setSelection(s => {
+      const n = new Set(s);
+      if (n.has(id)) n.delete(id); else n.add(id);
+      return n;
+    });
+  }
+  function toggleSelectAll(ids) {
+    setSelection(s => s.size === ids.length ? new Set() : new Set(ids));
+  }
+
+  async function imprimerAttributions() {
+    if (selection.size === 0) return;
+    setPrinting(true);
+    try {
+      const ids = [...selection].join(',');
+      const annee = getAnnee() || '';
+      const data = await api.professeursAttributions(ids, annee);
+      ouvrirFeuilleImpression(data);
+    } catch (e) { alert('Erreur : ' + e.message); }
+    finally { setPrinting(false); }
   }
 
   const filtered = useMemo(() => {
@@ -187,6 +284,12 @@ export default function Professeurs() {
           Corps professoral <span className="text-base font-normal text-gray-400">({filtered.length})</span>
         </h1>
         <div className="flex gap-2 items-center">
+          {selection.size > 0 && (
+            <button onClick={imprimerAttributions} disabled={printing}
+              className="bg-iip-mauve hover:opacity-90 disabled:opacity-50 text-white text-sm px-3 py-1.5 rounded font-medium">
+              {printing ? 'Préparation…' : `🖨 Imprimer les attributions (${selection.size})`}
+            </button>
+          )}
           {canEdit && (
             <button onClick={() => setEditProf({ ...EMPTY })}
               className="bg-iip-gold hover:bg-iip-amber text-white text-sm px-3 py-1.5 rounded font-medium">
@@ -201,6 +304,11 @@ export default function Professeurs() {
           <table className="grid-excel-soft w-full">
             <thead>
               <tr>
+                <th className="text-center" style={{ width: '32px' }}>
+                  <input type="checkbox"
+                    checked={filtered.length > 0 && selection.size === filtered.length}
+                    onChange={() => toggleSelectAll(filtered.map(p => p.id))} />
+                </th>
                 <Th k="nom_prenom">Nom et prénom</Th>
                 <Th k="statut">Statut</Th>
                 <Th k="adresse_mail">Email</Th>
@@ -215,6 +323,10 @@ export default function Professeurs() {
             <tbody>
               {filtered.map(p => (
                 <tr key={p.id} className="hover:bg-gray-50">
+                  <td className="text-center">
+                    <input type="checkbox" checked={selection.has(p.id)}
+                      onChange={() => toggleSelect(p.id)} />
+                  </td>
                   <td className="font-medium">
                     <button onClick={() => setDetailId(p.id)} className="hover:text-iip-gold hover:underline text-left">
                       {p.nom_prenom}

@@ -147,6 +147,7 @@ export const api = {
   cours(params = {}) { return request('/ref/cours' + (new URLSearchParams(params).toString() ? `?${new URLSearchParams(params)}` : '')); },
   professeurs() { return request('/ref/professeurs'); },
   professeur(id) { return request(`/ref/professeurs/${id}`); },
+  professeursAttributions(ids, annee) { return request(`/ref/professeurs-attributions?ids=${encodeURIComponent(ids)}${annee ? '&annee=' + encodeURIComponent(annee) : ''}`); },
   createProfesseur(data) { return request('/ref/professeurs', { method: 'POST', body: data }); },
   updateProfesseur(id, data) { return request(`/ref/professeurs/${id}`, { method: 'PATCH', body: data }); },
   deleteProfesseur(id) { return request(`/ref/professeurs/${id}`, { method: 'DELETE' }); },

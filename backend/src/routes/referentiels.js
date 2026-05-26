@@ -644,4 +644,50 @@ r.get('/professeurs/:id/fiche-pdf', authRequired, async (req, res) => {
   }
 });
 
+// Données pour la feuille d'attributions imprimable (plusieurs profs).
+// Renvoie, pour chaque prof sélectionné, ses infos + ses attributions de
+// l'année active, avec calcul périodes/autonomie/total (périodes + heures).
+r.get('/professeurs-attributions', authRequired, (req, res) => {
+  try {
+    const ids = String(req.query.ids || '').split(',').map(s => parseInt(s, 10)).filter(Boolean);
+    if (ids.length === 0) return res.status(400).json({ error: 'Aucun professeur sélectionné' });
+    const annee = req.query.annee || null;
+
+    const placeholders = ids.map(() => '?').join(',');
+    const profs = db.prepare(
+      `SELECT id, nom, prenom, statut FROM professeur WHERE id IN (${placeholders}) ORDER BY nom, prenom`
+    ).all(...ids);
+
+    const result = profs.map(p => {
+      let sql = `SELECT section, ue_num, ue_nom, nom_cours, quadrimestre_attribue,
+                        activite_nom, num_groupe, type_cours,
+                        periodes_attribuees, autonomie_attribuee, total_attribue_professeur
+                 FROM v_attribution_complete WHERE professeur_id = ?`;
+      const params = [p.id];
+      if (annee) { sql += ' AND annee_scolaire = ?'; params.push(annee); }
+      sql += ' ORDER BY section, ue_num, nom_cours';
+      const attrs = db.prepare(sql).all(...params);
+      // Totaux
+      let totPer = 0, totAuto = 0;
+      for (const a of attrs) {
+        totPer += a.periodes_attribuees || 0;
+        totAuto += a.autonomie_attribuee || 0;
+      }
+      const totGlobal = totPer + totAuto;
+      return {
+        id: p.id, nom: p.nom, prenom: p.prenom, statut: p.statut,
+        attributions: attrs,
+        total_periodes: totPer, total_autonomie: totAuto,
+        total_global_periodes: totGlobal,
+        total_global_heures: Math.round(totGlobal * 50 / 60 * 10) / 10,
+      };
+    });
+
+    res.json({ annee, profs: result });
+  } catch (err) {
+    console.error('[attributions-feuille] échec :', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
 export default r;
