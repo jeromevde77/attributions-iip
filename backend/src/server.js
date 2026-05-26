@@ -119,6 +119,26 @@ try {
     CREATE INDEX IF NOT EXISTS idx_us_user ON utilisateur_section(utilisateur_id);
   `);
 
+  // Archive des documents officiels générés (EA12, fiche signalétique).
+  // Option B : chaque génération est CONSERVÉE et horodatée (traçabilité FWB).
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS document_archive (
+      id              INTEGER PRIMARY KEY AUTOINCREMENT,
+      type_doc        TEXT NOT NULL,          -- 'ea12' | 'fiche'
+      professeur_id   INTEGER,
+      prof_nom        TEXT,
+      prof_prenom     TEXT,
+      annee_scolaire  TEXT,
+      nom_fichier     TEXT NOT NULL,
+      pdf             BLOB NOT NULL,          -- le PDF archivé tel qu'émis
+      taille          INTEGER,
+      genere_par      TEXT,                   -- email/identifiant de l'utilisateur
+      genere_le       TEXT DEFAULT (datetime('now'))
+    );
+    CREATE INDEX IF NOT EXISTS idx_docarch_prof ON document_archive(professeur_id);
+    CREATE INDEX IF NOT EXISTS idx_docarch_type ON document_archive(type_doc);
+  `);
+
   // 5c. Table ue_section (rattachement many-to-many UE <-> sections)
   db.exec(`
     CREATE TABLE IF NOT EXISTS ue_section (
