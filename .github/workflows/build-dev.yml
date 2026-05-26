@@ -1,0 +1,73 @@
+name: Build & Push Docker images (develop)
+
+on:
+  push:
+    branches: [develop]
+  workflow_dispatch:
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_NAMESPACE: ${{ github.repository_owner }}
+
+jobs:
+  build-and-push-dev:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Login to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      # --- Backend ---
+      - name: Générer le changelog depuis Git
+        run: git log -100 --pretty=format:'%H%x09%aI%x09%s' > backend/git-changelog.tsv
+
+      - name: Build & push backend (dev)
+        uses: docker/build-push-action@v5
+        with:
+          context: ./backend
+          platforms: linux/amd64
+          push: true
+          tags: |
+            ${{ env.REGISTRY }}/${{ env.IMAGE_NAMESPACE }}/attributions-backend:dev
+            ${{ env.REGISTRY }}/${{ env.IMAGE_NAMESPACE }}/attributions-backend:dev-${{ github.sha }}
+          cache-from: type=gha,scope=backend-dev
+          cache-to: type=gha,scope=backend-dev,mode=max
+
+      # --- Frontend ---
+      - name: Build & push frontend (dev)
+        uses: docker/build-push-action@v5
+        with:
+          context: ./frontend
+          platforms: linux/amd64
+          push: true
+          tags: |
+            ${{ env.REGISTRY }}/${{ env.IMAGE_NAMESPACE }}/attributions-frontend:dev
+            ${{ env.REGISTRY }}/${{ env.IMAGE_NAMESPACE }}/attributions-frontend:dev-${{ github.sha }}
+          build-args: |
+            BUILD_VERSION=${{ github.sha }}-dev
+          cache-from: type=gha,scope=frontend-dev
+          cache-to: type=gha,scope=frontend-dev,mode=max
+
+      - name: Summary
+        run: |
+          echo "### Images DEV publiées" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "- \`ghcr.io/${{ env.IMAGE_NAMESPACE }}/attributions-backend:dev\`" >> $GITHUB_STEP_SUMMARY
+          echo "- \`ghcr.io/${{ env.IMAGE_NAMESPACE }}/attributions-frontend:dev\`" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "> Ces images alimentent l'environnement de développement (port 10801 sur le NAS)." >> $GITHUB_STEP_SUMMARY

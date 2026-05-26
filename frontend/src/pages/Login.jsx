@@ -2,45 +2,55 @@ import { useState, useEffect } from 'react';
 import { useNavigate, Navigate } from 'react-router-dom';
 import { api, isAuthenticated } from '../lib/api.js';
 
-function LucieLogo({ size = 220 }) {
+function LucieLogo({ size = 200 }) {
+  // Version verticale : symbole L au-dessus, "Lucie" dessous, calé sur la largeur du L.
+  // Le L occupe x ∈ [26, 114] (largeur 88). Le texte est calé sur cette largeur.
   return (
-    <svg width={size} height={Math.round(size * 0.88)} viewBox="0 0 340 116"
+    <svg width={size} height={Math.round(size * 1.15)} viewBox="0 0 140 150"
          xmlns="http://www.w3.org/2000/svg">
+      {/* ─── Symbole L (réseau de nœuds) ─── */}
+      {/* connexions secondaires */}
       <g stroke="white" strokeOpacity=".09" fill="none" strokeWidth="1.4" strokeLinecap="round">
-        <line x1="18" y1="38" x2="34" y2="16"/>
-        <line x1="18" y1="38" x2="50" y2="60"/>
-        <line x1="34" y1="16" x2="66" y2="23"/>
-        <line x1="50" y1="60" x2="66" y2="23"/>
-        <line x1="50" y1="60" x2="66" y2="82"/>
-        <line x1="66" y1="23" x2="96" y2="38"/>
-        <line x1="96" y1="38" x2="96" y2="82"/>
+        <line x1="10" y1="38" x2="26" y2="16"/>
+        <line x1="10" y1="38" x2="44" y2="62"/>
+        <line x1="26" y1="16" x2="62" y2="23"/>
+        <line x1="44" y1="62" x2="62" y2="23"/>
+        <line x1="44" y1="62" x2="62" y2="86"/>
+        <line x1="62" y1="23" x2="98" y2="38"/>
+        <line x1="98" y1="38" x2="114" y2="86"/>
       </g>
+      {/* chemins turquoise */}
       <g stroke="#00AACC" strokeOpacity=".45" fill="none" strokeWidth="1.5" strokeLinecap="round">
-        <line x1="18" y1="38" x2="50" y2="60"/>
-        <line x1="34" y1="16" x2="66" y2="23"/>
-        <line x1="50" y1="60" x2="66" y2="82"/>
-        <line x1="66" y1="23" x2="96" y2="38"/>
-        <line x1="66" y1="82" x2="96" y2="82"/>
+        <line x1="10" y1="38" x2="44" y2="62"/>
+        <line x1="26" y1="16" x2="62" y2="23"/>
+        <line x1="44" y1="62" x2="62" y2="86"/>
+        <line x1="62" y1="23" x2="98" y2="38"/>
+        <line x1="62" y1="86" x2="114" y2="86"/>
       </g>
-      <g stroke="#00AACC" strokeOpacity=".85" fill="none" strokeWidth="2.6" strokeLinecap="round">
-        <line x1="34" y1="16" x2="34" y2="82"/>
-        <line x1="34" y1="82" x2="96" y2="82"/>
+      {/* le L (chemins forts) */}
+      <g stroke="#00AACC" strokeOpacity=".85" fill="none" strokeWidth="2.8" strokeLinecap="round">
+        <line x1="26" y1="16" x2="26" y2="86"/>
+        <line x1="26" y1="86" x2="114" y2="86"/>
       </g>
-      <circle cx="18" cy="38" r="4.5" fill="white"   fillOpacity=".15"/>
-      <circle cx="66" cy="23" r="4.5" fill="white"   fillOpacity=".18"/>
-      <circle cx="96" cy="38" r="4"   fill="white"   fillOpacity=".12"/>
-      <circle cx="50" cy="60" r="4.5" fill="#00AACC" fillOpacity=".6"/>
-      <circle cx="34" cy="16" r="8"   fill="#00AACC"/>
-      <circle cx="34" cy="82" r="9"   fill="#00AACC"/>
-      <circle cx="96" cy="82" r="8"   fill="#00AACC"/>
-      <circle cx="34" cy="16" r="3.5" fill="white" fillOpacity=".65"/>
-      <circle cx="34" cy="82" r="4"   fill="white" fillOpacity=".6"/>
-      <circle cx="96" cy="82" r="3.5" fill="white" fillOpacity=".6"/>
-      <text x="116" y="64"
+      {/* nœuds secondaires */}
+      <circle cx="10" cy="38" r="4.5" fill="white"   fillOpacity=".15"/>
+      <circle cx="62" cy="23" r="4.5" fill="white"   fillOpacity=".18"/>
+      <circle cx="98" cy="38" r="4"   fill="white"   fillOpacity=".12"/>
+      <circle cx="44" cy="62" r="4.5" fill="#00AACC" fillOpacity=".6"/>
+      {/* nœuds du L */}
+      <circle cx="26"  cy="16" r="8.5" fill="#00AACC"/>
+      <circle cx="26"  cy="86" r="9.5" fill="#00AACC"/>
+      <circle cx="114" cy="86" r="8.5" fill="#00AACC"/>
+      <circle cx="26"  cy="16" r="3.8" fill="white" fillOpacity=".65"/>
+      <circle cx="26"  cy="86" r="4.2" fill="white" fillOpacity=".6"/>
+      <circle cx="114" cy="86" r="3.8" fill="white" fillOpacity=".6"/>
+
+      {/* ─── "Lucie" centré sous le L, calé sur sa largeur (x: 26 → 114) ─── */}
+      <text x="70" y="135"
+            textAnchor="middle" textLength="92" lengthAdjust="spacingAndGlyphs"
             fontFamily="'Segoe UI','Helvetica Neue',Arial,sans-serif"
-            fontSize="48" fontWeight="700" letterSpacing="-1.5"
+            fontSize="38" fontWeight="700" letterSpacing="-0.5"
             fill="white">Lucie</text>
-      <line x1="116" y1="77" x2="308" y2="77" stroke="#00AACC" strokeWidth="1.4" strokeOpacity=".5"/>
     </svg>
   );
 }
@@ -96,6 +106,8 @@ export default function Login() {
   useEffect(() => {
     fetch('/api/info').then(r => r.json()).then(setInfo).catch(() => {});
   }, []);
+
+  const isDev = info.environnement === 'dev';
 
   async function submit(e) {
     e.preventDefault();
@@ -163,6 +175,18 @@ export default function Login() {
                 color:'rgba(255,255,255,.25)', fontSize:'10px',
                 letterSpacing:'2px', fontFamily:"'Segoe UI',sans-serif", margin:0,
               }}>v{info.version}</p>
+            )}
+            {isDev && (
+              <div style={{
+                marginTop:'8px',
+                display:'inline-block',
+                background: 'repeating-linear-gradient(45deg, #f59e0b, #f59e0b 8px, #d97706 8px, #d97706 16px)',
+                color:'white', fontSize:'11px', fontWeight:700, letterSpacing:'1.5px',
+                padding:'4px 14px', borderRadius:'6px',
+                textShadow:'0 1px 2px rgba(0,0,0,.3)',
+              }}>
+                ⚠ DÉVELOPPEMENT — DONNÉES FICTIVES
+              </div>
             )}
           </div>
         </div>

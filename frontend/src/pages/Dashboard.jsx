@@ -129,7 +129,7 @@ export default function Dashboard() {
               <Tooltip />
               <Legend />
               <Bar dataKey="IIP"  stackId="a" fill="#1B2B4B" />
-              <Bar dataKey="HELB" stackId="a" fill="#00AACC" />
+              <Bar dataKey="HELB" stackId="a" fill="#EC4899" />
             </BarChart>
           </ResponsiveContainer>
         </div>
@@ -146,7 +146,7 @@ export default function Dashboard() {
           <section className="bg-white rounded-lg border border-gray-200 overflow-hidden">
             <h2 className="font-title text-lg text-iip-gold p-3 border-b bg-iip-gold/5">Récapitulatif par section</h2>
             <div className="overflow-auto">
-              <table className="grid-excel w-full">
+              <table className="grid-excel-soft w-full">
                 <thead><tr>
                   <th className="text-left">Section</th><th className="text-right">Périodes</th>
                   <th className="text-right">IIP</th><th className="text-right">HELB</th>
@@ -220,7 +220,7 @@ export default function Dashboard() {
                         <div>
                           <h3 className="text-sm font-semibold text-gray-700 mb-1">Par niveau (bloc)</h3>
                           <div className="overflow-auto">
-                            <table className="grid-excel w-full text-sm">
+                            <table className="grid-excel-soft w-full text-sm">
                               <thead><tr>
                                 <th className="text-left">Bloc</th><th className="text-right">Périodes</th>
                                 <th className="text-right">IIP</th><th className="text-right">HELB</th>
@@ -246,7 +246,7 @@ export default function Dashboard() {
                           <div>
                             <h3 className="text-sm font-semibold text-gray-700 mb-1">ETP par niveau</h3>
                             <div className="overflow-auto">
-                              <table className="grid-excel w-full text-sm">
+                              <table className="grid-excel-soft w-full text-sm">
                                 <thead><tr>
                                   <th className="text-left">Bloc</th><th className="text-right">CT</th>
                                   <th className="text-right">PP</th><th className="text-right">ETP IIP</th><th className="text-right">ETP HELB</th>
@@ -269,7 +269,7 @@ export default function Dashboard() {
                           <div>
                             <h3 className="text-sm font-semibold text-gray-700 mb-1">Concordance UE (DOC 2-3)</h3>
                             <div className="overflow-auto max-h-[40vh]">
-                              <table className="grid-excel w-full text-sm">
+                              <table className="grid-excel-soft w-full text-sm">
                                 <thead><tr>
                                   <th className="text-left">UE</th><th className="text-left">Nom</th><th className="text-left">Bloc</th>
                                   <th className="text-right">Prévu</th><th className="text-right">Attribué</th><th className="text-right">Écart</th>
@@ -316,7 +316,7 @@ export default function Dashboard() {
             </span>
           </h2>
           <div className="overflow-auto max-h-[65vh]">
-            <table className="grid-excel w-full">
+            <table className="grid-excel-soft w-full">
               <thead><tr>
                 <th className="text-left">UE</th><th className="text-left">Nom</th><th className="text-left">Section</th><th className="text-left">Bloc</th>
                 <th className="text-right">Prévu cours</th><th className="text-right">Prévu aut.</th><th className="text-right">Prévu total</th>
@@ -354,7 +354,7 @@ export default function Dashboard() {
         <section className="bg-white rounded-lg border border-gray-200 overflow-hidden">
           <h2 className="font-title text-lg text-iip-gold p-3 border-b bg-iip-gold/5">ETP par section et niveau</h2>
           <div className="overflow-auto max-h-[65vh]">
-            <table className="grid-excel w-full">
+            <table className="grid-excel-soft w-full">
               <thead><tr>
                 <th className="text-left">Section</th><th className="text-left">Bloc</th>
                 <th className="text-right">CT</th><th className="text-right">PP</th>

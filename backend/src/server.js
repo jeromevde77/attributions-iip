@@ -65,6 +65,13 @@ try {
     db.exec(`ALTER TABLE attribution ADD COLUMN activite_id INTEGER REFERENCES activite_type(id);`);
     console.log('[migration] Colonne attribution.activite_id ajoutée');
   }
+  // Code titre RTF (Régime des Titres et Fonctions) par attribution, pour l'EA12.
+  // Valeurs officielles (circ. 9589) : TR/TS/TPL/TPNL/ATS/ATP (nouveau régime)
+  // et R/A/3B/Art.20 (ancien régime, dont R utilisé dans le supérieur).
+  if (!cols.find(c => c.name === 'titre_rtf')) {
+    db.exec(`ALTER TABLE attribution ADD COLUMN titre_rtf TEXT;`);
+    console.log('[migration] Colonne attribution.titre_rtf ajoutée');
+  }
 
   // 3. Table annee_scolaire (gestion multi-années)
   db.exec(`
@@ -231,6 +238,185 @@ try {
     if (!cols.includes('titre2')) db.exec("ALTER TABLE professeur ADD COLUMN titre2 TEXT");
     if (!cols.includes('titre3')) db.exec("ALTER TABLE professeur ADD COLUMN titre3 TEXT");
     if (!cols.includes('statut_ea12')) db.exec("ALTER TABLE professeur ADD COLUMN statut_ea12 TEXT"); // T/TPr/St/D
+    // date de naissance (pour l'environnement dev et les futurs documents RH)
+    const colsProf = db.prepare("PRAGMA table_info(professeur)").all().map(c => c.name);
+    if (!colsProf.includes('date_naissance')) db.exec("ALTER TABLE professeur ADD COLUMN date_naissance TEXT");
+  }
+
+  // 5l. Champs de la FICHE SIGNALÉTIQUE FWB (annexe 3) — identité civile + situation fiscale.
+  // On n'ajoute QUE ce qui n'existe pas déjà ailleurs (nom, prénom, matricule, naissance,
+  // adresse, email sont réutilisés depuis la fiche prof : pas de double encodage).
+  {
+    const cols = db.prepare("PRAGMA table_info(professeur)").all().map(c => c.name);
+    const add = (name, type = 'TEXT') => {
+      if (!cols.includes(name)) db.exec(`ALTER TABLE professeur ADD COLUMN ${name} ${type}`);
+    };
+    // ── Identité civile ──
+    add('sexe');                 // 'F' | 'M'
+    add('niss');                 // numéro national (NISS / NISS bis)
+    add('nationalite');
+    add('lieu_naissance_ville');
+    add('lieu_naissance_pays');
+    add('iban');
+    add('bic');                  // si compte étranger
+    add('compte_titulaire');     // au nom de…
+    add('tel_gsm');
+    // ── Situation fiscale du MDP ──
+    add('etat_civil');           // celibataire|marie|veuf|divorce|cohab_legal|cohabitant|separe_corps|separe_fait
+    add('handicap');             // 'oui' | 'non'
+    // ── Situation du conjoint / cohabitant légal ──
+    add('conjoint_nom');
+    add('conjoint_prenom');
+    add('conjoint_handicap');            // 'oui' | 'non'
+    add('conjoint_alloc_foyer');         // 'oui' | 'non'
+    add('conjoint_revenus');             // pro|pension|faibles|aucun (catégorie de revenus)
+    // ── Règlement CE 883/2004 (réside dans un autre état européen) ──
+    add('ce883_actif');                  // 'oui' | 'non'
+    add('ce883_date_debut');
+    add('ce883_caisse');                 // dénomination + adresse caisse SS
+    add('ce883_num_inscription');
+  }
+
+  // 5m. Table des TITRES DE CAPACITÉ (un prof → plusieurs titres datés).
+  // Remplace à terme titre1/2/3 (conservés pour compat + migration des données existantes).
+  {
+    db.exec(`
+      CREATE TABLE IF NOT EXISTS titre_capacite (
+        id            INTEGER PRIMARY KEY AUTOINCREMENT,
+        professeur_id INTEGER NOT NULL,
+        date_obtention TEXT,
+        intitule      TEXT,
+        delivre_par   TEXT,
+        ordre         INTEGER DEFAULT 0,
+        FOREIGN KEY (professeur_id) REFERENCES professeur(id) ON DELETE CASCADE
+      )
+    `);
+    db.exec("CREATE INDEX IF NOT EXISTS idx_titre_prof ON titre_capacite(professeur_id)");
+
+    // Migration douce : si la table est vide, importer titre1/2/3 existants
+    const nbTitres = db.prepare("SELECT COUNT(*) AS n FROM titre_capacite").get().n;
+    if (nbTitres === 0) {
+      const profs = db.prepare("SELECT id, titre1, titre2, titre3 FROM professeur").all();
+      const ins = db.prepare(
+        "INSERT INTO titre_capacite (professeur_id, intitule, ordre) VALUES (?, ?, ?)"
+      );
+      const tx = db.transaction(() => {
+        for (const p of profs) {
+          [p.titre1, p.titre2, p.titre3].forEach((t, i) => {
+            if (t && t.trim()) ins.run(p.id, t.trim(), i);
+          });
+        }
+      });
+      tx();
+      console.log('[migration] titres de capacité importés depuis titre1/2/3');
+    }
+  }
+
+  // 5n. Table des PERSONNES À CHARGE (enfants, +65 ans, autres).
+  {
+    db.exec(`
+      CREATE TABLE IF NOT EXISTS personne_charge (
+        id            INTEGER PRIMARY KEY AUTOINCREMENT,
+        professeur_id INTEGER NOT NULL,
+        categorie     TEXT,            -- 'enfant' | 'autre_65' | 'autre'
+        date_naissance TEXT,
+        handicap      TEXT,            -- 'oui' | 'non'
+        ordre         INTEGER DEFAULT 0,
+        FOREIGN KEY (professeur_id) REFERENCES professeur(id) ON DELETE CASCADE
+      )
+    `);
+    db.exec("CREATE INDEX IF NOT EXISTS idx_charge_prof ON personne_charge(professeur_id)");
+  }
+
+  // 5o. ANCIENNETÉ — reports historiques saisis par le personnel administratif.
+  // L'ancienneté affichée = report historique (avant l'année de démarrage)
+  //                       + acquis de l'année courante (calculé automatiquement).
+  // Deux anciennetés (CC sous IIP uniquement) : PO (global) et par cours.
+  {
+    const cols = db.prepare("PRAGMA table_info(professeur)").all().map(c => c.name);
+    // Report PO (en jours) — réutilise/complète anciennete_25_26_po historique
+    if (!cols.includes('report_anc_po')) db.exec("ALTER TABLE professeur ADD COLUMN report_anc_po INTEGER DEFAULT 0");
+
+    // Report par cours (prof + nom de cours → jours d'ancienneté historiques)
+    db.exec(`
+      CREATE TABLE IF NOT EXISTS report_anc_cours (
+        id            INTEGER PRIMARY KEY AUTOINCREMENT,
+        professeur_id INTEGER NOT NULL,
+        cours_nom     TEXT NOT NULL,
+        jours         INTEGER DEFAULT 0,
+        FOREIGN KEY (professeur_id) REFERENCES professeur(id) ON DELETE CASCADE
+      )
+    `);
+    db.exec("CREATE INDEX IF NOT EXISTS idx_report_cours_prof ON report_anc_cours(professeur_id)");
+
+    // Migration douce : si report_anc_po est à 0 mais anciennete_25_26_po renseigné,
+    // on reprend l'ancienne valeur comme report PO de départ.
+    try {
+      db.exec("UPDATE professeur SET report_anc_po = anciennete_25_26_po WHERE report_anc_po = 0 AND anciennete_25_26_po > 0");
+    } catch (e) { /* colonne absente : ignore */ }
+  }
+
+  // 5k. Créer les sections référencées par des UE mais absentes de la table section.
+  // Cas réel : AeSI (Assistant en Soins Infirmiers) a des UE mais pas d'entrée section,
+  // donc elle n'apparaissait nulle part dans les listes de sections.
+  {
+    const libelles = {
+      'AeSI': 'Assistant en soins infirmiers',
+      'FID-Admin': 'FID — Administration',
+      'FID-Guidance': 'FID — Guidance',
+      'FID-Péda': 'FID — Pédagogie',
+      'ATNUP': 'Aide soignant / Auxiliaire',
+      'TIM': 'Technologue en imagerie médicale',
+      'SAR': 'Soins, accompagnement et rééducation',
+      'ME': 'Mécanique / Électronique',
+      'RESTART': 'Restart',
+      'Soins_plaies': 'Soins de plaies',
+      'Optique': 'Optique',
+      'Optométrie': 'Optométrie',
+      'Psychomotricité': 'Psychomotricité',
+    };
+    try {
+      // Sections officielles de l'IIP : créées inconditionnellement (qu'elles
+      // soient référencées ou non par une UE), pour qu'elles existent toujours.
+      const sectionsOfficielles = {
+        'AeSI': 'Assistant en soins infirmiers',
+        'ATNUP': 'Aide soignant / Auxiliaire',
+        'TIM': 'Technologue en imagerie médicale',
+        'Optique': 'Optique',
+        'Optométrie': 'Optométrie',
+        'Psychomotricité': 'Psychomotricité',
+        'SAR': 'Soins, accompagnement et rééducation',
+        'Soins_plaies': 'Soins de plaies',
+        'ME': 'Mécanique / Électronique',
+        'RESTART': 'Restart',
+        'FID-Guidance': 'FID — Guidance',
+        'FID-Péda': 'FID — Pédagogie',
+        'FID-Admin': 'FID — Administration',
+      };
+      const existing = new Set(db.prepare('SELECT code FROM section').all().map(r => r.code));
+      const insert = db.prepare('INSERT OR IGNORE INTO section (code, libelle) VALUES (?, ?)');
+      let created = 0;
+
+      // 1) Sections officielles garanties
+      for (const [code, lib] of Object.entries(sectionsOfficielles)) {
+        if (!existing.has(code)) { insert.run(code, lib); existing.add(code); created++; }
+      }
+
+      // 2) Sections supplémentaires référencées par des UE (au cas où il y en aurait d'autres)
+      const ueSections = db.prepare(
+        "SELECT DISTINCT section FROM ue WHERE section IS NOT NULL AND TRIM(section) <> ''"
+      ).all().map(r => r.section);
+      for (const sec of ueSections) {
+        if (!existing.has(sec)) {
+          insert.run(sec, libelles[sec] || sec);
+          existing.add(sec);
+          created++;
+        }
+      }
+      if (created > 0) console.log(`[migration] ${created} section(s) créée(s) (officielles + orphelines)`);
+    } catch (e) {
+      console.error('[migration] sections orphelines :', e.message);
+    }
   }
 
   // 5j. Table des documents EA12 (un par événement administratif d'un MDP)
@@ -524,7 +710,11 @@ app.get('/api/health', (req, res) => res.json({ ok: true, ts: new Date().toISOSt
 // Route publique : infos de base pour la page de connexion
 app.get('/api/info', (req, res) => {
   const etab = db.prepare('SELECT etab_nom FROM etablissement WHERE id = 1').get();
-  res.json({ etab_nom: etab?.etab_nom || '', version: '1.0.0' });
+  res.json({
+    etab_nom: etab?.etab_nom || '',
+    version: '1.0.0',
+    environnement: process.env.NODE_ENV === 'development' ? 'dev' : 'prod',
+  });
 });
 
 app.use('/api/auth',         authRoutes);

@@ -442,7 +442,7 @@ export default function Referentiels({ embedded = false }) {
                 return (
                   <Fragment key={sg.section}>
                     {/* Bandeau de section (ligne de regroupement) */}
-                    <tr className={`bg-iip-gold/5 ${secOpen ? 'border-t-2 border-iip-gold/60' : 'border-t border-gray-200'}`}>
+                    <tr className="bg-iip-gold/5 border-t border-gray-200">
                       <td className="px-2 py-2 text-center">
                         <button onClick={() => toggle(secKey)} className="text-iip-gold font-bold">
                           <span className={`inline-block transition-transform ${secOpen ? 'rotate-90' : ''}`}>▶</span>
@@ -480,10 +480,12 @@ export default function Referentiels({ embedded = false }) {
                         <Fragment key={ue.ue_num}>
                           <tr className={`${
                             activeUE === ueKey
-                              ? (isHelb ? 'bg-pink-50 border-y-2 border-l-2 border-pink-400' : 'bg-iip-gold/5 border-y-2 border-l-2 border-iip-gold/60')
+                              ? (isHelb
+                                  ? `bg-pink-50 border-t-2 border-pink-400 ${ueOpen ? '' : 'border-b-2'}`
+                                  : `bg-iip-gold/5 border-t-2 border-iip-gold/60 ${ueOpen ? '' : 'border-b-2'}`)
                               : (isHelb ? 'bg-pink-50 hover:bg-pink-100/60 border-b border-gray-100 border-l-2 border-l-pink-400' : 'hover:bg-gray-50 border-b border-gray-100')
                           }`}>
-                            <td className="px-2 py-1.5 text-center">
+                            <td className={`px-2 py-1.5 text-center ${activeUE === ueKey ? (isHelb ? 'border-l-2 border-pink-400' : 'border-l-2 border-iip-gold/60') : ''}`}>
                               <button onClick={() => { toggle(ueKey); setActiveUE(ueKey); }} className="text-iip-gold">
                                 <span className={`inline-block text-sm transition-transform ${ueOpen ? 'rotate-90' : ''}`}>▶</span>
                               </button>
@@ -513,8 +515,12 @@ export default function Referentiels({ embedded = false }) {
                             </td>
                           </tr>
                           {ueOpen && (
-                            <tr className={isHelb ? 'bg-pink-50/40' : 'bg-gray-50/50'}>
-                              <td colSpan="12" className="px-8 py-2">
+                            <tr className={
+                              activeUE === ueKey
+                                ? (isHelb ? 'bg-pink-50/60' : 'bg-iip-gold/5')
+                                : (isHelb ? 'bg-pink-50/40' : 'bg-gray-50/50')
+                            }>
+                              <td colSpan="12" className={`px-8 py-2 ${activeUE === ueKey ? (isHelb ? 'border-b-2 border-l-2 border-r-2 border-pink-400' : 'border-b-2 border-l-2 border-r-2 border-iip-gold/60') : ''}`}>
                                 <table className="w-full text-sm">
                                   <thead><tr className="text-gray-500">
                                     <th className="text-left py-1">Code</th><th className="text-left">Nom du cours</th>

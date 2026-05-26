@@ -191,7 +191,7 @@ r.patch('/:id', authRequired, roleRequired('admin', 'editeur', 'coordination'), 
     'section','etablissement_referent','contrat_mdp','organisation','ue_num',
     'num_organisation','quadrimestre_attribue','code_cours','type_cours',
     'type_cours_helb','code','nb_groupes','split_groupe','num_split','num_groupe',
-    'activite_id',
+    'activite_id', 'titre_rtf',
     'professeur_id','cours_ept_ad','coordination_encadrement',
     'modification_attribution','commentaire','commentaire_2',
     'per_etudiant_total_dp','periodes_attribuees','autonomie_attribuee'

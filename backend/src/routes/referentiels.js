@@ -306,13 +306,121 @@ r.get('/professeurs', authRequired, (req, res) => {
 });
 
 r.get('/professeurs/:id', authRequired, (req, res) => {
-  const p = db.prepare('SELECT * FROM v_professeur_total WHERE id = ?').get(req.params.id);
-  if (!p) return res.status(404).json({ error: 'Professeur introuvable' });
+  // Table complète (TOUS les champs de la fiche signalétique)
+  const base = db.prepare('SELECT * FROM professeur WHERE id = ?').get(req.params.id);
+  if (!base) return res.status(404).json({ error: 'Professeur introuvable' });
+  // Vue pour les totaux/calculs (nom_prenom, total_per_iip, etc.)
+  const vue = db.prepare('SELECT * FROM v_professeur_total WHERE id = ?').get(req.params.id) || {};
+  // Fusion : la table complète d'abord, la vue complète les totaux
+  const p = { ...vue, ...base, nom_prenom: vue.nom_prenom || `${base.nom} ${base.prenom}` };
   const attrs = db.prepare(`
     SELECT * FROM v_attribution_complete
     WHERE professeur_id = ? ORDER BY section, ue_num
   `).all(req.params.id);
-  res.json({ ...p, attributions: attrs });
+  const titres = db.prepare(
+    'SELECT * FROM titre_capacite WHERE professeur_id = ? ORDER BY ordre, id'
+  ).all(req.params.id);
+  const charges = db.prepare(
+    'SELECT * FROM personne_charge WHERE professeur_id = ? ORDER BY categorie, ordre, id'
+  ).all(req.params.id);
+
+  // Ancienneté (CC sous IIP) : report historique + acquis de l'année courante
+  const annee = req.query.annee || db.prepare("SELECT code FROM annee_scolaire WHERE active = 1 LIMIT 1").get()?.code;
+  let anciennete = null;
+  if (p.statut === 'CC') {
+    const reportPo = p.report_anc_po || 0;
+    const acquisPo = db.prepare(
+      'SELECT jours_acquis FROM v_anc_po_annee WHERE professeur_id = ? AND annee_scolaire = ?'
+    ).get(req.params.id, annee)?.jours_acquis || 0;
+
+    const reportsCours = db.prepare(
+      'SELECT cours_nom, jours FROM report_anc_cours WHERE professeur_id = ?'
+    ).all(req.params.id);
+    const reportCoursMap = {};
+    reportsCours.forEach(r => { reportCoursMap[r.cours_nom] = r.jours; });
+
+    const acquisCours = db.prepare(
+      'SELECT cours_nom, jours_acquis, total_periodes FROM v_anc_cours_annee WHERE professeur_id = ? AND annee_scolaire = ?'
+    ).all(req.params.id, annee);
+
+    // Fusionner reports + acquis par cours
+    const coursNoms = new Set([...Object.keys(reportCoursMap), ...acquisCours.map(c => c.cours_nom)]);
+    const parCours = [...coursNoms].filter(Boolean).map(nom => {
+      const acq = acquisCours.find(c => c.cours_nom === nom);
+      return {
+        cours_nom: nom,
+        report: reportCoursMap[nom] || 0,
+        acquis_annee: acq?.jours_acquis || 0,
+        periodes_annee: acq?.total_periodes || 0,
+        total: (reportCoursMap[nom] || 0) + (acq?.jours_acquis || 0),
+      };
+    });
+
+    anciennete = {
+      po: { report: reportPo, acquis_annee: acquisPo, total: reportPo + acquisPo },
+      cours: parCours,
+      annee,
+    };
+  }
+
+  res.json({ ...p, attributions: attrs, titres, charges, anciennete });
+});
+
+// ── Titres de capacité (liste liée au prof) ──
+r.put('/professeurs/:id/titres', authRequired, roleRequired('admin', 'editeur'), (req, res) => {
+  const profId = Number(req.params.id);
+  const titres = Array.isArray(req.body?.titres) ? req.body.titres : [];
+  const tx = db.transaction(() => {
+    db.prepare('DELETE FROM titre_capacite WHERE professeur_id = ?').run(profId);
+    const ins = db.prepare(
+      'INSERT INTO titre_capacite (professeur_id, date_obtention, intitule, delivre_par, ordre) VALUES (?,?,?,?,?)'
+    );
+    titres.forEach((t, i) => {
+      if ((t.intitule && t.intitule.trim()) || (t.delivre_par && t.delivre_par.trim()) || t.date_obtention) {
+        ins.run(profId, t.date_obtention || null, (t.intitule||'').trim() || null, (t.delivre_par||'').trim() || null, i);
+      }
+    });
+  });
+  tx();
+  res.json({ ok: true });
+});
+
+// ── Personnes à charge (liste liée au prof) ──
+r.put('/professeurs/:id/charges', authRequired, roleRequired('admin', 'editeur'), (req, res) => {
+  const profId = Number(req.params.id);
+  const charges = Array.isArray(req.body?.charges) ? req.body.charges : [];
+  const tx = db.transaction(() => {
+    db.prepare('DELETE FROM personne_charge WHERE professeur_id = ?').run(profId);
+    const ins = db.prepare(
+      'INSERT INTO personne_charge (professeur_id, categorie, date_naissance, handicap, ordre) VALUES (?,?,?,?,?)'
+    );
+    charges.forEach((c, i) => {
+      if (c.date_naissance || c.categorie) {
+        ins.run(profId, c.categorie || 'enfant', c.date_naissance || null, c.handicap || 'non', i);
+      }
+    });
+  });
+  tx();
+  res.json({ ok: true });
+});
+
+// ── Reports d'ancienneté par cours (saisis par le personnel administratif) ──
+r.put('/professeurs/:id/anciennete-cours', authRequired, roleRequired('admin', 'editeur'), (req, res) => {
+  const profId = Number(req.params.id);
+  const reports = Array.isArray(req.body?.reports) ? req.body.reports : [];
+  const tx = db.transaction(() => {
+    db.prepare('DELETE FROM report_anc_cours WHERE professeur_id = ?').run(profId);
+    const ins = db.prepare(
+      'INSERT INTO report_anc_cours (professeur_id, cours_nom, jours) VALUES (?,?,?)'
+    );
+    reports.forEach(r => {
+      if (r.cours_nom && r.cours_nom.trim()) {
+        ins.run(profId, r.cours_nom.trim(), Number(r.jours) || 0);
+      }
+    });
+  });
+  tx();
+  res.json({ ok: true });
 });
 
 // Créer un nouveau professeur
@@ -339,7 +447,16 @@ r.post('/professeurs', authRequired, roleRequired('admin', 'editeur'), (req, res
 r.patch('/professeurs/:id', authRequired, roleRequired('admin', 'editeur'), (req, res) => {
   const allowed = ['nom','prenom','adresse_mail','mail_prive','statut',
                    'adresse_rue','code_postal','commune','capaes','anciennete_25_26_po',
-                   'matricule','titre1','titre2','titre3','statut_ea12'];
+                   'matricule','titre1','titre2','titre3','statut_ea12','report_anc_po',
+                   // Fiche signalétique — identité civile
+                   'sexe','niss','nationalite','lieu_naissance_ville','lieu_naissance_pays',
+                   'iban','bic','compte_titulaire','tel_gsm','date_naissance',
+                   // Fiche signalétique — situation fiscale
+                   'etat_civil','handicap',
+                   'conjoint_nom','conjoint_prenom','conjoint_handicap',
+                   'conjoint_alloc_foyer','conjoint_revenus',
+                   // Règlement CE 883/2004
+                   'ce883_actif','ce883_date_debut','ce883_caisse','ce883_num_inscription'];
   const updates = [];
   const params = { id: req.params.id };
   for (const k of allowed) {

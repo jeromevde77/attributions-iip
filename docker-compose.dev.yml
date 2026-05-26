@@ -1,0 +1,50 @@
+# Environnement de DÉVELOPPEMENT — port 10801 HTTPS
+# Base de données séparée de la production (volume data-dev).
+# Images taguées :dev, mises à jour par la branche develop.
+# SSL direct dans nginx (certificat DSM monté en volume).
+
+services:
+
+  backend-dev:
+    image: ghcr.io/jeromevde77/attributions-backend:dev
+    container_name: attributions-backend-dev
+    restart: unless-stopped
+    security_opt:
+      - seccomp:unconfined
+    environment:
+      NODE_ENV: development
+      JWT_SECRET: ${JWT_SECRET_DEV:-lucie-dev-secret-change-me}
+      PORT: 3000
+    volumes:
+      - data-dev:/app/data
+    networks:
+      lucie-dev:
+        aliases:
+          - backend
+
+  frontend-dev:
+    image: ghcr.io/jeromevde77/attributions-frontend:dev
+    container_name: attributions-frontend-dev
+    restart: unless-stopped
+    security_opt:
+      - seccomp:unconfined
+    ports:
+      - "10801:443"          # HTTPS direct dans nginx
+    volumes:
+      # Certificat SSL DSM monté en lecture seule
+      - /usr/syno/etc/certificate/system/default/fullchain.pem:/etc/nginx/ssl/fullchain.pem:ro
+      - /usr/syno/etc/certificate/system/default/privkey.pem:/etc/nginx/ssl/privkey.pem:ro
+      # Config nginx SSL (remplace la config HTTP par défaut)
+      - /volume1/docker/attributions-dev/nginx-dev-ssl.conf:/etc/nginx/conf.d/default.conf:ro
+    depends_on:
+      - backend-dev
+    networks:
+      - lucie-dev
+
+volumes:
+  data-dev:
+    name: attributions-data-dev
+
+networks:
+  lucie-dev:
+    name: lucie-dev

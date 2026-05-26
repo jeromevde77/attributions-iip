@@ -6,13 +6,14 @@
 import fs from 'fs';
 import {
   Document, Packer, Paragraph, TextRun, Table, TableRow, TableCell, ImageRun,
-  AlignmentType, BorderStyle, WidthType, ShadingType, VerticalAlign, HeightRule,
+  AlignmentType, BorderStyle, WidthType, ShadingType, VerticalAlign, HeightRule, TextDirection,
 } from 'docx';
 
 // ---------- Constantes de style ----------
 const FONT = 'Arial';
-const NAVY = '1F3864';      // bandeau titre
-const BANDBLUE = 'D9E1F2';  // bandeaux de section bleu clair
+const NAVY = '2E74B5';      // bandeau titre EA12 (bleu moyen, = gabarit officiel)
+const BANDBLUE = '9CC2E5';  // bandeaux de section (bleu clair, = gabarit officiel)
+const BANDBLUE2 = 'BDD6EE'; // sous-bandeaux (bleu plus pâle)
 const CHK = '☐';            // case à cocher vide
 const CHKD = '☒';           // case cochée
 
@@ -22,9 +23,14 @@ const PT = 20; // 1 pt = 20 DXA
 const CONTENT_PT = 551;
 
 const NB = { style: BorderStyle.NONE, size: 0, color: 'FFFFFF' };
-const TB = { style: BorderStyle.SINGLE, size: 4, color: '000000' };
+// Épaisseurs conformes au gabarit officiel FWB :
+//  - bordure épaisse (cadres principaux) : sz=18 = 2,25 pt (dominante du gabarit)
+//  - bordure fine (séparations internes)  : sz=6  = 0,75 pt
+const TB = { style: BorderStyle.SINGLE, size: 18, color: '000000' };   // 2,25 pt (épaisse)
+const TBF = { style: BorderStyle.SINGLE, size: 6, color: '000000' };   // 0,75 pt (fine)
 const noBorders = { top: NB, bottom: NB, left: NB, right: NB, insideHorizontal: NB, insideVertical: NB };
 const allBorders = { top: TB, bottom: TB, left: TB, right: TB, insideHorizontal: TB, insideVertical: TB };
+const fineBorders = { top: TBF, bottom: TBF, left: TBF, right: TBF, insideHorizontal: TBF, insideVertical: TBF };
 
 // Retire les caractères de contrôle interdits en XML 1.0 (cause fréquente de
 // "Word a rencontré une erreur lors de l'ouverture du fichier").
@@ -46,12 +52,24 @@ function chk(label, checked = false, o = {}) {
   return [run((checked ? CHKD : CHK) + ' ', { size: o.size ?? 15 }), run(label, { size: o.size ?? 14, bold: o.bold })];
 }
 function cell(content, o = {}) {
-  const children = Array.isArray(content) ? content : [content];
+  const raw = Array.isArray(content) ? content : [content];
+  // Normaliser : Paragraph et Table gardés tels quels, le reste -> paragraphe
+  const children = raw.map(c =>
+    (c instanceof Paragraph || c instanceof Table) ? c : par(c, o)
+  );
+  // Règle OOXML stricte : une cellule de tableau doit TOUJOURS se terminer
+  // par un paragraphe. Si le dernier élément est un tableau imbriqué (ou si
+  // la cellule est vide), on ajoute un paragraphe vide final, sinon Word
+  // refuse d'ouvrir le document ("tbl not expected").
+  if (children.length === 0 || children[children.length - 1] instanceof Table) {
+    children.push(new Paragraph({ children: [] }));
+  }
   return new TableCell({
-    children: children.map(c => c instanceof Paragraph ? c : par(c, o)),
+    children,
     width: o.w ? { size: o.w * PT, type: WidthType.DXA } : undefined,
     columnSpan: o.span, rowSpan: o.rowSpan,
     borders: o.borders,
+    textDirection: o.textDir,
     shading: o.fill ? { fill: o.fill, type: ShadingType.CLEAR, color: 'auto' } : undefined,
     verticalAlign: o.valign ?? VerticalAlign.CENTER,
     margins: { top: o.mt ?? 10, bottom: o.mb ?? 10, left: o.ml ?? 40, right: o.mr ?? 40 },
@@ -89,7 +107,7 @@ function enTete(d, logoBuf) {
     borders: noBorders,
     rows: [new TableRow({ children: [
       cell([
-        logoBuf ? new Paragraph({ children: [new ImageRun({ data: logoBuf, transformation: { width: 230, height: 31 }, type: 'png' })] }) : par(''),
+        logoBuf ? new Paragraph({ children: [new ImageRun({ data: logoBuf, transformation: { width: 289, height: 39 }, type: 'png' })] }) : par(''),
         par([run('Administration générale de l’Enseignement', { bold: true, size: 15 })], { spacing: { before: 60 } }),
         par([run('Direction générale des Personnels de l’Enseignement', { bold: true, size: 15 })]),
       ], { borders: noBorders, valign: VerticalAlign.TOP }),
@@ -127,5 +145,5 @@ function enTete(d, logoBuf) {
 }
 
 export { enTete, run, par, chk, cell, table, Document, Packer, Paragraph, TextRun, Table, TableRow, TableCell,
-  AlignmentType, BorderStyle, WidthType, ShadingType, VerticalAlign, allBorders, noBorders, NB, TB,
+  AlignmentType, BorderStyle, WidthType, ShadingType, VerticalAlign, TextDirection, allBorders, noBorders, fineBorders, NB, TB, TBF,
   FONT, NAVY, BANDBLUE, CHK, CHKD, PT, CONTENT_PT, ImageRun };

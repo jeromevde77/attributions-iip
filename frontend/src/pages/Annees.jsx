@@ -66,6 +66,17 @@ export default function Annees({ embedded = false }) {
     finally { setDeleting(null); }
   }
 
+  async function handleRename(code) {
+    const nouveau = prompt(`Renommer l'année « ${code} » en (format AAAA-AAAA) :`, code);
+    if (!nouveau || nouveau === code) return;
+    if (!/^\d{4}-\d{4}$/.test(nouveau)) { alert('Format invalide (attendu : AAAA-AAAA)'); return; }
+    try {
+      await api.renameAnnee(code, nouveau);
+      if (anneeActive === code) { setAnnee(nouveau); window.location.reload(); }
+      else load();
+    } catch(e) { alert('Erreur : ' + e.message); }
+  }
+
   function activerAnnee(code) {
     setAnnee(code);
     window.location.reload();
@@ -110,7 +121,11 @@ export default function Annees({ embedded = false }) {
                         Activer
                       </button>
                     )}
-                    {a.code !== '2025-2026' && (
+                    <button onClick={() => handleRename(a.code)}
+                      className="text-blue-500 hover:text-blue-700 text-xs">
+                      ✎ Renommer
+                    </button>
+                    {annees.length > 1 && (
                       <button onClick={() => handleDelete(a.code)} disabled={deleting === a.code}
                         className="text-red-500 hover:text-red-700 text-xs disabled:opacity-40">
                         {deleting === a.code ? '…' : '🗑 Supprimer'}

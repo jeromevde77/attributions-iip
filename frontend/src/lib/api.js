@@ -70,6 +70,7 @@ export const api = {
   annees() { return request('/annees'); },
   createAnnee(data) { return request('/annees', { method: 'POST', body: data }); },
   deleteAnnee(code) { return request(`/annees/${encodeURIComponent(code)}`, { method: 'DELETE' }); },
+  renameAnnee(code, nouveau_code) { return request(`/annees/${encodeURIComponent(code)}/rename`, { method: 'PATCH', body: { nouveau_code } }); },
   importPreview(source, cible) { return request(`/annees/import-preview?source=${encodeURIComponent(source)}&cible=${encodeURIComponent(cible)}`); },
   importUEs(data) { return request('/annees/import-ues', { method: 'POST', body: data }); },
 
@@ -109,6 +110,13 @@ export const api = {
   // admin
   adminStats() { return request('/admin/stats'); },
   adminReimportExcel() { return request('/admin/reimport-excel', { method: 'POST' }); },
+  regenerateFakeData() { return request('/admin/regenerate-fake-data', { method: 'POST' }); },
+  purgeAnnee(annee) {
+    return request(`/admin/purge-annee/${annee}`, {
+      method: 'DELETE',
+      body: { confirmation: `PURGER-${annee}` }
+    });
+  },
 
   // création en masse depuis section
   sectionUeCours(section) { return request(withAnnee(`/ref/sections/${encodeURIComponent(section)}/ue-cours`)); },
@@ -142,6 +150,9 @@ export const api = {
   createProfesseur(data) { return request('/ref/professeurs', { method: 'POST', body: data }); },
   updateProfesseur(id, data) { return request(`/ref/professeurs/${id}`, { method: 'PATCH', body: data }); },
   deleteProfesseur(id) { return request(`/ref/professeurs/${id}`, { method: 'DELETE' }); },
+  saveProfTitres(id, titres) { return request(`/ref/professeurs/${id}/titres`, { method: 'PUT', body: { titres } }); },
+  saveProfCharges(id, charges) { return request(`/ref/professeurs/${id}/charges`, { method: 'PUT', body: { charges } }); },
+  saveProfAncienneteCours(id, reports) { return request(`/ref/professeurs/${id}/anciennete-cours`, { method: 'PUT', body: { reports } }); },
   locaux() { return request('/ref/locaux'); },
   parametres() { return request('/ref/parametres'); },
   typesEncadrement() { return request('/ref/types-encadrement'); },
@@ -191,6 +202,22 @@ export const api = {
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url; a.download = filename || 'EA12.docx';
+      a.click(); URL.revokeObjectURL(url);
+    });
+  },
+  ea12DocumentPdf(id, filename) {
+    return fetch(`${BASE}/ea12/${id}/document-pdf`, {
+      headers: { Authorization: `Bearer ${getToken()}` }
+    }).then(async r => {
+      if (!r.ok) {
+        let msg = 'Génération du PDF échouée';
+        try { const j = await r.json(); if (j.error) msg = j.error; } catch {}
+        throw new Error(msg);
+      }
+      const blob = await r.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url; a.download = filename || 'EA12.pdf';
       a.click(); URL.revokeObjectURL(url);
     });
   }

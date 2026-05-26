@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { api, getAnnee } from '../lib/api.js';
+import { api, getAnnee, getUser } from '../lib/api.js';
+import ProfFicheModal from './ProfFicheModal.jsx';
 
 const EMPTY = {
   nom: '', prenom: '', adresse_mail: '', mail_prive: '',
@@ -9,123 +10,11 @@ const EMPTY = {
   matricule: '', titre1: '', titre2: '', titre3: '', statut_ea12: ''
 };
 
-function EditModal({ prof, onClose, onSaved }) {
-  const isNew = !prof?.id;
-  const [form, setForm] = useState(prof ? {
-    nom: prof.nom || '', prenom: prof.prenom || '',
-    adresse_mail: prof.adresse_mail || '', mail_prive: prof.mail_prive || '',
-    statut: prof.statut || '', adresse_rue: prof.adresse_rue || '',
-    code_postal: prof.code_postal || '', commune: prof.commune || '',
-    capaes: prof.capaes || '', anciennete_25_26_po: prof.anciennete_25_26_po || 0,
-    matricule: prof.matricule || '', titre1: prof.titre1 || '', titre2: prof.titre2 || '',
-    titre3: prof.titre3 || '', statut_ea12: prof.statut_ea12 || ''
-  } : { ...EMPTY });
-  const [saving, setSaving] = useState(false);
-
-  function set(k, v) { setForm(f => ({ ...f, [k]: v })); }
-
-  async function handleSubmit(e) {
-    e.preventDefault();
-    if (!form.nom.trim() || !form.prenom.trim()) return alert('Nom et prénom requis');
-    setSaving(true);
-    try {
-      if (isNew) {
-        await api.createProfesseur(form);
-      } else {
-        await api.updateProfesseur(prof.id, form);
-      }
-      onSaved();
-    } catch (e) { alert('Erreur : ' + e.message); }
-    finally { setSaving(false); }
-  }
-
-  const Field = ({ label, k, type = 'text', options }) => (
-    <div>
-      <label className="block text-xs text-gray-600 mb-0.5">{label}</label>
-      {options ? (
-        <select value={form[k]} onChange={e => set(k, e.target.value)}
-          className="w-full border border-gray-300 rounded px-3 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-iip-gold">
-          {options.map(([v, l]) => <option key={v} value={v}>{l}</option>)}
-        </select>
-      ) : (
-        <input type={type} value={form[k]} onChange={e => set(k, e.target.value)}
-          className="w-full border border-gray-300 rounded px-3 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-iip-gold" />
-      )}
-    </div>
-  );
-
-  return (
-    <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-40"
-      onClick={e => e.target === e.currentTarget && onClose()}>
-      <div className="bg-white rounded-xl shadow-2xl max-w-lg w-full border-t-4 border-iip-gold overflow-hidden">
-        <div className="flex items-center justify-between px-5 py-3 border-b border-gray-100">
-          <h2 className="font-title text-lg text-iip-gold">
-            {isNew ? 'Nouveau professeur' : `Modifier — ${prof.nom_prenom || prof.nom + ' ' + prof.prenom}`}
-          </h2>
-          <button onClick={onClose} className="text-gray-400 hover:text-red-500 text-2xl leading-none">×</button>
-        </div>
-        <form onSubmit={handleSubmit} className="p-5 space-y-3 overflow-auto max-h-[calc(100vh-180px)]">
-          <div className="grid grid-cols-2 gap-3">
-            <Field label="Nom *" k="nom" />
-            <Field label="Prénom *" k="prenom" />
-          </div>
-          <Field label="Email professionnel" k="adresse_mail" type="email" />
-          <Field label="Email privé" k="mail_prive" type="email" />
-          <div className="grid grid-cols-2 gap-3">
-            <Field label="Statut" k="statut" options={[
-              ['', '— Non défini —'], ['CC', 'CC — Chargé de cours'], ['EXP', 'EXP — Expert']
-            ]} />
-            <div>
-              <label className="block text-xs text-gray-600 mb-0.5">CAPAES</label>
-              <select value={form.capaes} onChange={e => set('capaes', e.target.value)}
-                className="w-full border border-gray-300 rounded px-3 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-iip-gold">
-                <option value="">—</option>
-                <option value="x">Oui</option>
-              </select>
-            </div>
-          </div>
-          <Field label="Adresse" k="adresse_rue" />
-          <div className="grid grid-cols-2 gap-3">
-            <Field label="Code postal" k="code_postal" />
-            <Field label="Commune" k="commune" />
-          </div>
-          <div>
-            <label className="block text-xs text-gray-600 mb-0.5">Ancienneté PO 25-26</label>
-            <input type="number" min="0" value={form.anciennete_25_26_po}
-              onChange={e => set('anciennete_25_26_po', Number(e.target.value))}
-              className="w-full border border-gray-300 rounded px-3 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-iip-gold" />
-          </div>
-          <div className="pt-2 mt-1 border-t border-gray-100">
-            <div className="text-xs font-semibold text-iip-gold mb-2">Données EA12 (documents officiels)</div>
-            <Field label="Matricule enseignant (11 chiffres)" k="matricule" />
-            <div className="mt-2"><Field label="Titre de capacité 1" k="titre1" /></div>
-            <div className="mt-2"><Field label="Titre de capacité 2" k="titre2" /></div>
-            <div className="mt-2"><Field label="Titre de capacité 3" k="titre3" /></div>
-            <div className="mt-2">
-              <label className="block text-xs text-gray-600 mb-0.5">Statut EA12</label>
-              <select value={form.statut_ea12} onChange={e => set('statut_ea12', e.target.value)}
-                className="w-full border border-gray-300 rounded px-3 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-iip-gold">
-                <option value="">—</option>
-                {['T', 'TPr', 'St', 'D', 'ACS', 'APE', 'PTP'].map(s => <option key={s} value={s}>{s}</option>)}
-              </select>
-            </div>
-          </div>
-          <div className="flex justify-end gap-2 pt-2 border-t border-gray-100">
-            <button type="button" onClick={onClose} className="px-4 py-2 text-sm text-gray-600 hover:text-gray-800">Annuler</button>
-            <button type="submit" disabled={saving}
-              className="bg-iip-gold hover:bg-iip-amber disabled:opacity-40 text-white text-sm px-5 py-2 rounded font-medium">
-              {saving ? 'Sauvegarde…' : isNew ? 'Créer' : 'Enregistrer'}
-            </button>
-          </div>
-        </form>
-      </div>
-    </div>
-  );
-}
 
 function DetailModal({ profId, onClose, onEdit }) {
   const [detail, setDetail] = useState(null);
   const navigate = useNavigate();
+  const u = getUser();
   useEffect(() => {
     api.professeur(profId).then(setDetail).catch(e => alert(e.message));
   }, [profId]);
@@ -159,10 +48,12 @@ function DetailModal({ profId, onClose, onEdit }) {
             </div>
           </div>
           <div className="flex gap-2 flex-shrink-0">
-            <button onClick={nouvelEA12}
-              className="bg-iip-mauve hover:opacity-90 text-white text-sm px-3 py-1.5 rounded">
-              + Nouvel EA12
-            </button>
+            {u?.role === 'admin' && (
+              <button onClick={nouvelEA12}
+                className="bg-iip-mauve hover:opacity-90 text-white text-sm px-3 py-1.5 rounded">
+                + Nouvel EA12
+              </button>
+            )}
             <button onClick={() => onEdit(detail)}
               className="bg-iip-gold hover:bg-iip-amber text-white text-sm px-3 py-1.5 rounded">
               ✏ Modifier
@@ -192,7 +83,7 @@ function DetailModal({ profId, onClose, onEdit }) {
           <h3 className="font-semibold text-sm mb-2 text-gray-700">
             Attributions ({detail.attributions?.length || 0})
           </h3>
-          <table className="grid-excel w-full text-sm">
+          <table className="grid-excel-soft w-full text-sm">
             <thead><tr>
               <th className="text-left">Section</th>
               <th className="text-left">UE</th>
@@ -233,7 +124,6 @@ function DetailModal({ profId, onClose, onEdit }) {
 
 export default function Professeurs() {
   const [profs, setProfs] = useState([]);
-  const [q, setQ] = useState('');
   const [loading, setLoading] = useState(true);
   const [detailId, setDetailId] = useState(null);
   const [editProf, setEditProf] = useState(null);   // null = fermé, {} = nouveau, {...} = existant
@@ -254,11 +144,7 @@ export default function Professeurs() {
   }
 
   const filtered = useMemo(() => {
-    let arr = profs.filter(p => !q ||
-      p.nom_prenom?.toLowerCase().includes(q.toLowerCase()) ||
-      p.adresse_mail?.toLowerCase().includes(q.toLowerCase()) ||
-      p.commune?.toLowerCase().includes(q.toLowerCase())
-    );
+    let arr = [...profs];
     if (sortBy.key) {
       arr = [...arr].sort((a, b) => {
         const va = a[sortBy.key], vb = b[sortBy.key];
@@ -272,7 +158,7 @@ export default function Professeurs() {
       });
     }
     return arr;
-  }, [profs, q, sortBy]);
+  }, [profs, sortBy]);
 
   async function handleDelete(p) {
     if (!confirm(`Supprimer ${p.nom_prenom} ? Cette action est irréversible.`)) return;
@@ -301,8 +187,6 @@ export default function Professeurs() {
           Corps professoral <span className="text-base font-normal text-gray-400">({filtered.length})</span>
         </h1>
         <div className="flex gap-2 items-center">
-          <input value={q} onChange={e => setQ(e.target.value)} placeholder="🔍 Rechercher…"
-            className="border border-gray-300 rounded px-3 py-1.5 text-sm w-56" />
           {canEdit && (
             <button onClick={() => setEditProf({ ...EMPTY })}
               className="bg-iip-gold hover:bg-iip-amber text-white text-sm px-3 py-1.5 rounded font-medium">
@@ -314,7 +198,7 @@ export default function Professeurs() {
 
       {loading ? <p className="text-gray-400 p-4">Chargement…</p> : (
         <div className="bg-white rounded-lg border border-gray-200 overflow-auto max-h-[calc(100vh-180px)]">
-          <table className="grid-excel w-full">
+          <table className="grid-excel-soft w-full">
             <thead>
               <tr>
                 <Th k="nom_prenom">Nom et prénom</Th>
@@ -376,7 +260,7 @@ export default function Professeurs() {
       )}
 
       {editProf !== null && (
-        <EditModal prof={editProf} onClose={() => setEditProf(null)}
+        <ProfFicheModal prof={editProf} onClose={() => setEditProf(null)}
           onSaved={() => { setEditProf(null); load(); }} />
       )}
     </div>

@@ -48,9 +48,26 @@ function ProtectedLayout({ children }) {
   const [menuOpen, setMenuOpen] = useState(false);
   const [annees, setAnnees] = useState([]);
   const [anneeActive, setAnneeActive] = useState(getAnnee());
+  const [env, setEnv] = useState(null);
 
   useEffect(() => {
-    api.annees().then(setAnnees).catch(() => {});
+    api.annees().then(liste => {
+      setAnnees(liste);
+      // Auto-correction : si l'année mémorisée n'existe plus (ex. après un
+      // renommage/suppression), basculer sur l'année active réelle (ou la
+      // plus récente). Évite l'état "année fantôme" où plus aucun bouton
+      // de création n'apparaît.
+      if (liste && liste.length > 0) {
+        const courante = getAnnee();
+        const existe = liste.some(a => a.code === courante);
+        if (!existe) {
+          const cible = (liste.find(a => a.active) || liste[0]).code;
+          setAnnee(cible);
+          setAnneeActive(cible);
+        }
+      }
+    }).catch(() => {});
+    fetch('/api/info').then(r => r.json()).then(d => setEnv(d.environnement)).catch(() => {});
   }, []);
 
   function changeAnnee(code) {
@@ -73,12 +90,24 @@ function ProtectedLayout({ children }) {
         ['/',             'Tableau de bord'],
         ['/attributions', 'Attributions'],
         ['/professeurs',  'Professeurs'],
-        ['/ea12',         'EA12']
+        // EA12 masqué en attendant que la génération PDF soit finalisée (réseau FELSI).
+        // Réactiver en décommentant la ligne ci-dessous une fois l'EA12 prêt :
+        // ...(u?.role === 'admin' ? [['/ea12', 'EA12']] : []),
       ];
   if (u?.role === 'admin') nav.push(['/configuration', '⚙ Configuration']);
 
   return (
     <div className="min-h-screen flex flex-col">
+      {env === 'dev' && (
+        <div style={{
+          background: 'repeating-linear-gradient(45deg, #f59e0b, #f59e0b 12px, #d97706 12px, #d97706 24px)',
+          color: 'white', textAlign: 'center', padding: '4px 12px',
+          fontSize: '12px', fontWeight: 700, letterSpacing: '2px',
+          textShadow: '0 1px 2px rgba(0,0,0,.3)',
+        }}>
+          ⚠ ENVIRONNEMENT DE DÉVELOPPEMENT — DONNÉES FICTIVES ⚠
+        </div>
+      )}
       <header className="bg-white border-b border-iip-gold/30 px-3 md:px-6 py-3 sticky top-0 z-20 shadow-sm">
         <div className="flex items-center justify-between gap-3">
           {/* Burger mobile */}

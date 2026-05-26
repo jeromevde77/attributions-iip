@@ -533,8 +533,63 @@ FROM professeur p
 LEFT JOIN attribution a ON a.professeur_id = p.id
 GROUP BY p.id;
 
--- Trigger pour mettre à jour updated_at sur attribution
-DROP TRIGGER IF EXISTS trg_attr_updated;
+-- ----------------------------------------------------------------------------
+-- Vues : ANCIENNETÉ acquise pour l'année courante (CC sous IIP uniquement)
+-- ----------------------------------------------------------------------------
+-- Règle (promotion sociale libre, décret 01/02/1993 + dérogations prom. soc.) :
+--   - charge complète = 800 périodes (CT) ou 1000 périodes (PP)
+--   - fraction de charge d'une attribution = périodes / seuil
+--   - acquis annuel : 360 jours si charge >= 50%, 180 jours si < 50% mais
+--     total >= 40 périodes, 0 sinon
+--   - EXP et HELB : aucune ancienneté
+
+-- Ancienneté PO acquise cette année : somme de TOUTES les périodes du CC à l'IIP
+DROP VIEW IF EXISTS v_anc_po_annee;
+CREATE VIEW v_anc_po_annee AS
+SELECT
+    a.professeur_id,
+    a.annee_scolaire,
+    SUM(a.total_attribue_professeur) AS total_periodes,
+    SUM(CASE WHEN a.type_cours='CT' THEN a.total_attribue_professeur / 800.0
+             WHEN a.type_cours='PP' THEN a.total_attribue_professeur / 1000.0
+             ELSE 0 END) AS charge_fraction,
+    CASE
+      WHEN SUM(CASE WHEN a.type_cours='CT' THEN a.total_attribue_professeur / 800.0
+                    WHEN a.type_cours='PP' THEN a.total_attribue_professeur / 1000.0
+                    ELSE 0 END) >= 0.5 THEN 360
+      WHEN SUM(a.total_attribue_professeur) >= 40 THEN 180
+      ELSE 0
+    END AS jours_acquis
+FROM attribution a
+JOIN professeur p ON p.id = a.professeur_id
+WHERE p.statut = 'CC' AND a.contrat_mdp = 'IIP'
+GROUP BY a.professeur_id, a.annee_scolaire;
+
+-- Ancienneté par COURS acquise cette année : calcul séparé par nom de cours
+DROP VIEW IF EXISTS v_anc_cours_annee;
+CREATE VIEW v_anc_cours_annee AS
+SELECT
+    a.professeur_id,
+    a.annee_scolaire,
+    c.cours_nom,
+    SUM(a.total_attribue_professeur) AS total_periodes,
+    SUM(CASE WHEN a.type_cours='CT' THEN a.total_attribue_professeur / 800.0
+             WHEN a.type_cours='PP' THEN a.total_attribue_professeur / 1000.0
+             ELSE 0 END) AS charge_fraction,
+    CASE
+      WHEN SUM(CASE WHEN a.type_cours='CT' THEN a.total_attribue_professeur / 800.0
+                    WHEN a.type_cours='PP' THEN a.total_attribue_professeur / 1000.0
+                    ELSE 0 END) >= 0.5 THEN 360
+      WHEN SUM(a.total_attribue_professeur) >= 40 THEN 180
+      ELSE 0
+    END AS jours_acquis
+FROM attribution a
+JOIN professeur p ON p.id = a.professeur_id
+LEFT JOIN cours c ON c.cours_code = a.code_cours AND c.annee_scolaire = a.annee_scolaire
+WHERE p.statut = 'CC' AND a.contrat_mdp = 'IIP'
+GROUP BY a.professeur_id, a.annee_scolaire, c.cours_nom;
+
+
 CREATE TRIGGER trg_attr_updated AFTER UPDATE ON attribution
 BEGIN
     UPDATE attribution SET updated_at = CURRENT_TIMESTAMP WHERE id = NEW.id;
