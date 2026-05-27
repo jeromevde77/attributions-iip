@@ -563,8 +563,21 @@ export default function Referentiels({ embedded = false }) {
 
       {/* Vue tableau global : toutes les UE triées par numéro */}
       {viewMode === 'table' && (() => {
-        // Aplatir toutes les UE de toutes les sections, triées par numéro
-        const allUes = structure.flatMap(sg => sg.ues.map(ue => ({ ...ue, _section: sg.section })))
+        // Liste UNIQUE des UE (source primaire), avec la/les section(s) en colonne.
+        // Une UE n'apparaît qu'une fois, même si partagée ; "-" si aucune section.
+        const parNum = new Map();
+        for (const sg of structure) {
+          for (const ue of sg.ues) {
+            if (!parNum.has(ue.ue_num)) {
+              parNum.set(ue.ue_num, { ...ue, _sections: new Set() });
+            }
+            if (sg.section && sg.section !== '(sans section)') {
+              parNum.get(ue.ue_num)._sections.add(sg.section);
+            }
+          }
+        }
+        const allUes = [...parNum.values()]
+          .map(ue => ({ ...ue, _sectionsLabel: ue._sections.size ? [...ue._sections].sort().join(', ') : '-' }))
           .sort((a, b) => (a.ue_num || 0) - (b.ue_num || 0));
         if (allUes.length === 0) {
           return <div className="bg-white rounded-lg border border-gray-200 p-8 text-center text-gray-400">Aucune UE pour {annee}.</div>;
@@ -576,7 +589,7 @@ export default function Referentiels({ embedded = false }) {
                 <tr className="bg-iip-gold/5 text-xs text-gray-600 border-b border-gray-200">
                   <th className="text-left px-3 py-2 w-8"></th>
                   <th className="text-left px-2 py-2">N° UE</th>
-                  <th className="text-left px-2 py-2">Section</th>
+                  <th className="text-left px-2 py-2">Section(s)</th>
                   <th className="text-left px-2 py-2">Nom</th>
                   <th className="text-center px-2 py-2">Bloc</th>
                   <th className="text-center px-2 py-2">Niveau</th>
@@ -591,7 +604,7 @@ export default function Referentiels({ embedded = false }) {
               </thead>
               <tbody>
                 {allUes.map(ue => {
-                  const ueKey = 'tbl:' + ue._section + '/' + ue.ue_num;
+                  const ueKey = 'tbl:' + ue.ue_num;
                   const ueOpen = open[ueKey];
                   const isHelb = ue.et_ref === 'HELB';
                   return (
@@ -603,7 +616,7 @@ export default function Referentiels({ embedded = false }) {
                           </button>
                         </td>
                         <td className="px-2 py-1.5 font-semibold text-iip-gold cursor-pointer" onClick={() => { toggle(ueKey); setActiveUE(ueKey); }}>{ue.ue_num}</td>
-                        <td className="px-2 py-1.5 text-xs text-gray-600">{ue._section}</td>
+                        <td className="px-2 py-1.5 text-xs text-gray-600">{ue._sectionsLabel}</td>
                         <td className="px-2 py-1.5 cursor-pointer" onClick={() => { toggle(ueKey); setActiveUE(ueKey); }}>
                           {ue.ue_nom}
                           {isHelb && <span className="text-xs text-pink-600 font-bold ml-1.5">HELB</span>}
@@ -640,7 +653,7 @@ export default function Referentiels({ embedded = false }) {
                                     <td className="text-center">{c.quadrimestre_cours || '—'}</td>
                                     <td className="text-right text-gray-400">{c.nb_attributions}</td>
                                     <td className="text-right whitespace-nowrap">
-                                      <button onClick={() => setCoursModal({ cours: { ...c, _edit: true }, ueNum: ue.ue_num, section: ue._section })} className="text-iip-mauve hover:opacity-70" title="Modifier">✏</button>
+                                      <button onClick={() => setCoursModal({ cours: { ...c, _edit: true }, ueNum: ue.ue_num, section: ([...ue._sections][0] || null) })} className="text-iip-mauve hover:opacity-70" title="Modifier">✏</button>
                                       <button onClick={() => delCours(c)} className="text-red-400 hover:text-red-600 ml-2" title="Supprimer">🗑</button>
                                     </td>
                                   </tr>
@@ -648,7 +661,7 @@ export default function Referentiels({ embedded = false }) {
                                 {ue.cours.length === 0 && <tr><td colSpan="7" className="text-center text-gray-400 py-2">Aucun cours</td></tr>}
                               </tbody>
                             </table>
-                            <button onClick={() => setCoursModal({ cours: {}, ueNum: ue.ue_num, section: ue._section })}
+                            <button onClick={() => setCoursModal({ cours: {}, ueNum: ue.ue_num, section: ([...ue._sections][0] || null) })}
                               className="mt-2 text-iip-mauve hover:underline">➕ Ajouter un cours</button>
                           </td>
                         </tr>
