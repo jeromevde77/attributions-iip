@@ -4,6 +4,44 @@ import { authRequired, roleRequired, getUserSections } from '../middleware/auth.
 
 const r = Router();
 
+/**
+ * Plafond d'autonomie d'une UE, avec dédoublement (modèle simple, par cours).
+ * Le plafond = ue.ue_aut × facteur de dédoublement moyen pondéré ? Non :
+ * règle métier de Jérôme — l'autonomie suit le cours. Le plafond effectif est
+ * donc ue_aut multiplié selon le dédoublement. En pratique : sans dédoublement
+ * le plafond = ue_aut ; si des cours sont dédoublés, chaque cours dédoublé
+ * "ouvre" le double de sa propre part. Le plus simple et fidèle : plafond de
+ * base = ue_aut, et on autorise en plus une part doublée au prorata des cours
+ * dédoublés. Pour rester sûr et lisible, on calcule :
+ *   plafond = ue_aut + (somme des cours_autonomie des cours dédoublés)
+ * c.-à-d. un cours dédoublé peut compter son autonomie une 2e fois.
+ * @returns {{ plafond:number, consomme:number, ue_aut:number }}
+ */
+function autonomieUE(ueNum, annee, { exclureCours = null, ajoutCours = null } = {}) {
+  const ue = db.prepare('SELECT ue_aut FROM ue WHERE ue_num = ? AND annee_scolaire = ?').get(ueNum, annee) || {};
+  const ueAut = Number(ue.ue_aut) || 0;
+  const cours = db.prepare(
+    'SELECT cours_code, cours_autonomie, dedouble FROM cours WHERE ue_num = ? AND annee_scolaire = ?'
+  ).all(ueNum, annee);
+
+  let consomme = 0, bonusDedouble = 0;
+  for (const c of cours) {
+    if (exclureCours && c.cours_code === exclureCours) continue;
+    const aut = Number(c.cours_autonomie) || 0;
+    consomme += aut;
+    if (c.dedouble === 'O') bonusDedouble += aut; // le dédoublement double la part d'autonomie de ce cours
+  }
+  // Prise en compte du cours en cours d'ajout/modif (non encore en base)
+  if (ajoutCours) {
+    const aut = Number(ajoutCours.cours_autonomie) || 0;
+    consomme += aut;
+    if (ajoutCours.dedouble === 'O') bonusDedouble += aut;
+  }
+  const plafond = ueAut + bonusDedouble;
+  return { plafond, consomme, ue_aut: ueAut };
+}
+
+
 r.get('/sections', authRequired, (req, res) => {
   const allowed = getUserSections(req.user);
   let rows = db.prepare('SELECT * FROM section ORDER BY code').all();
@@ -146,11 +184,34 @@ r.patch('/ue/:num', authRequired, roleRequired('admin', 'editeur'), (req, res) =
   res.json({ ok: true });
 });
 
+// Forçage du N° UE (admin) : renomme ue_num en vérifiant l'unicité et en
+// propageant dans toutes les tables (ue, cours, attribution, ue_section).
+r.patch('/ue/:num/rename', authRequired, roleRequired('admin'), (req, res) => {
+  const annee = req.body.annee_scolaire || req.query.annee || '2025-2026';
+  const ancien = req.params.num;
+  const nouveau = String(req.body.nouveau_num || '').trim();
+  if (!nouveau) return res.status(400).json({ error: 'Nouveau numéro requis' });
+  if (nouveau === ancien) return res.json({ ok: true });
+  const exists = db.prepare('SELECT 1 FROM ue WHERE ue_num = ? AND annee_scolaire = ?').get(nouveau, annee);
+  if (exists) return res.status(409).json({ error: `L'UE ${nouveau} existe déjà pour ${annee}.` });
+  const src = db.prepare('SELECT 1 FROM ue WHERE ue_num = ? AND annee_scolaire = ?').get(ancien, annee);
+  if (!src) return res.status(404).json({ error: 'UE introuvable' });
+  const tx = db.transaction(() => {
+    db.prepare('UPDATE ue SET ue_num = ? WHERE ue_num = ? AND annee_scolaire = ?').run(nouveau, ancien, annee);
+    db.prepare('UPDATE cours SET ue_num = ? WHERE ue_num = ? AND annee_scolaire = ?').run(nouveau, ancien, annee);
+    db.prepare('UPDATE attribution SET ue_num = ? WHERE ue_num = ? AND annee_scolaire = ?').run(nouveau, ancien, annee);
+    db.prepare('UPDATE ue_section SET ue_num = ? WHERE ue_num = ? AND annee_scolaire = ?').run(nouveau, ancien, annee);
+  });
+  tx();
+  res.json({ ok: true, ancien, nouveau });
+});
+
 r.delete('/ue/:num', authRequired, roleRequired('admin'), (req, res) => {
   const annee = req.query.annee || '2025-2026';
   const nb = db.prepare('SELECT COUNT(*) AS n FROM attribution WHERE ue_num = ? AND annee_scolaire = ?').get(req.params.num, annee).n;
   if (nb > 0) return res.status(409).json({ error: `Impossible : ${nb} attribution(s) sur cette UE. Supprimez-les d'abord.` });
   db.prepare('DELETE FROM cours WHERE ue_num = ? AND annee_scolaire = ?').run(req.params.num, annee);
+  db.prepare('DELETE FROM ue_section WHERE ue_num = ? AND annee_scolaire = ?').run(req.params.num, annee);
   db.prepare('DELETE FROM ue WHERE ue_num = ? AND annee_scolaire = ?').run(req.params.num, annee);
   res.json({ ok: true });
 });
@@ -163,27 +224,78 @@ r.post('/cours', authRequired, roleRequired('admin', 'editeur'), (req, res) => {
   if (!cours_code || !cours_nom) return res.status(400).json({ error: 'Code et nom de cours requis' });
   const exists = db.prepare('SELECT 1 FROM cours WHERE cours_code = ? AND annee_scolaire = ?').get(cours_code, annee);
   if (exists) return res.status(409).json({ error: `Le cours ${cours_code} existe déjà pour ${annee}` });
+  // Validation autonomie : la somme proposée ne doit pas dépasser le plafond UE (avec dédoublement)
+  if (ue_num && (req.body.cours_autonomie != null && req.body.cours_autonomie !== '')) {
+    const { plafond, consomme } = autonomieUE(ue_num, annee, {
+      ajoutCours: { cours_autonomie: req.body.cours_autonomie, dedouble: req.body.dedouble }
+    });
+    if (consomme > plafond) {
+      return res.status(409).json({ error: `Autonomie proposée (${consomme}) dépasse le plafond de l'UE (${plafond}). Vérifiez l'autonomie de l'UE ou le dédoublement.` });
+    }
+  }
   db.prepare(`
     INSERT INTO cours (cours_code, annee_scolaire, cours_nom, ue_num, section, ct_pp, cours_per,
-      quadrimestre_cours, ue_niveau, cours_num, cours_total, ue_autonomie, ue_per_total, enc_cours, heures)
-    VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+      quadrimestre_cours, ue_niveau, cours_num, cours_total, ue_autonomie, ue_per_total, enc_cours, heures,
+      cours_autonomie, dedouble)
+    VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
   `).run(cours_code, annee, cours_nom, ue_num || null, section || null, ct_pp || null,
          cours_per || null, quadrimestre_cours || null, ue_niveau || null,
          cours_num || null, cours_total || null, ue_autonomie || null, ue_per_total || null,
-         enc_cours || null, heures || null);
+         enc_cours || null, heures || null,
+         req.body.cours_autonomie || null, req.body.dedouble || 'N');
   res.status(201).json({ ok: true });
 });
 
 r.patch('/cours/:code', authRequired, roleRequired('admin', 'editeur'), (req, res) => {
   const annee = req.body.annee_scolaire || req.query.annee || '2025-2026';
   const allowed = ['cours_nom','ue_num','section','ct_pp','cours_per','quadrimestre_cours','ue_niveau',
-                   'cours_num','cours_total','ue_autonomie','ue_per_total','enc_cours','heures'];
+                   'cours_num','cours_total','ue_autonomie','ue_per_total','enc_cours','heures',
+                   'cours_autonomie','dedouble'];
+  // Validation autonomie si on modifie l'autonomie / le dédoublement
+  if (('cours_autonomie' in req.body) || ('dedouble' in req.body)) {
+    const cur = db.prepare('SELECT ue_num, cours_autonomie, dedouble FROM cours WHERE cours_code = ? AND annee_scolaire = ?').get(req.params.code, annee);
+    const ueNum = req.body.ue_num ?? cur?.ue_num;
+    if (ueNum) {
+      const { plafond, consomme } = autonomieUE(ueNum, annee, {
+        exclureCours: req.params.code,
+        ajoutCours: {
+          cours_autonomie: ('cours_autonomie' in req.body) ? req.body.cours_autonomie : cur?.cours_autonomie,
+          dedouble: ('dedouble' in req.body) ? req.body.dedouble : cur?.dedouble,
+        }
+      });
+      if (consomme > plafond) {
+        return res.status(409).json({ error: `Autonomie proposée (${consomme}) dépasse le plafond de l'UE (${plafond}).` });
+      }
+    }
+  }
   const updates = []; const params = { code: req.params.code, annee };
   for (const k of allowed) if (k in req.body) { updates.push(`${k} = @${k}`); params[k] = req.body[k]; }
   if (!updates.length) return res.status(400).json({ error: 'Aucun champ à modifier' });
   const result = db.prepare(`UPDATE cours SET ${updates.join(', ')} WHERE cours_code = @code AND annee_scolaire = @annee`).run(params);
   if (result.changes === 0) return res.status(404).json({ error: 'Cours introuvable' });
   res.json({ ok: true });
+});
+
+// Forçage du code cours (admin) : renomme cours_code en vérifiant l'unicité
+// et en propageant dans toutes les tables (cours, aa, attribution).
+r.patch('/cours/:code/rename', authRequired, roleRequired('admin'), (req, res) => {
+  const annee = req.body.annee_scolaire || req.query.annee || '2025-2026';
+  const ancien = req.params.code;
+  const nouveau = (req.body.nouveau_code || '').trim();
+  if (!nouveau) return res.status(400).json({ error: 'Nouveau code requis' });
+  if (nouveau === ancien) return res.json({ ok: true });
+  // Lucie vérifie que le nouveau code n'existe pas déjà (même année)
+  const exists = db.prepare('SELECT 1 FROM cours WHERE cours_code = ? AND annee_scolaire = ?').get(nouveau, annee);
+  if (exists) return res.status(409).json({ error: `Le code ${nouveau} existe déjà pour ${annee}.` });
+  const src = db.prepare('SELECT 1 FROM cours WHERE cours_code = ? AND annee_scolaire = ?').get(ancien, annee);
+  if (!src) return res.status(404).json({ error: 'Cours introuvable' });
+  const tx = db.transaction(() => {
+    db.prepare('UPDATE cours SET cours_code = ? WHERE cours_code = ? AND annee_scolaire = ?').run(nouveau, ancien, annee);
+    db.prepare('UPDATE aa SET cours_code = ? WHERE cours_code = ?').run(nouveau, ancien);
+    db.prepare('UPDATE attribution SET code_cours = ? WHERE code_cours = ? AND annee_scolaire = ?').run(nouveau, ancien, annee);
+  });
+  tx();
+  res.json({ ok: true, ancien, nouveau });
 });
 
 r.delete('/cours/:code', authRequired, roleRequired('admin'), (req, res) => {
