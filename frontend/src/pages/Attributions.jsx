@@ -466,18 +466,13 @@ export default function Attributions() {
           {/* Bouton dédoubler/annuler tous les cours de l'UE en un clic (demande Nicolas) */}
           <button onClick={async (e)=>{
                     e.stopPropagation();
-                    const tousDejaDouble = ue.cours.length > 0 && ue.cours.every(c => c.dedouble === 'O');
                     try {
-                      if (tousDejaDouble) await api.annulerDedoublementUE(ue.ue_num);
-                      else await api.dedoublerUE(ue.ue_num);
+                      const r = await api.dedoublerUE(ue.ue_num);
                       load();
                     } catch(err) { alert('Erreur : ' + err.message); }
                   }}
-                  title={ue.cours.every(c=>c.dedouble==='O') ? 'Annuler le dédoublement (×1)' : 'Dédoubler tous les cours de cette UE (×2)'}
-                  className={`flex-shrink-0 ml-2 px-2 h-7 flex items-center justify-center rounded-full text-xs font-bold transition
-                    ${ue.cours.length > 0 && ue.cours.every(c=>c.dedouble==='O')
-                      ? 'bg-amber-200 text-amber-800 hover:bg-amber-300'
-                      : 'bg-gray-100 text-gray-500 hover:bg-amber-100 hover:text-amber-700'}`}>
+                  title="Dédoubler tous les cours de cette UE (×2)"
+                  className="flex-shrink-0 ml-2 px-2 h-7 flex items-center justify-center rounded-full text-xs font-bold transition bg-gray-100 text-gray-500 hover:bg-amber-100 hover:text-amber-700">
                   ×2
           </button>
           {/* Bouton Réouvrir : crée une nouvelle organisation */}
