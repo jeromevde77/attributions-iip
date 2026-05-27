@@ -293,7 +293,27 @@ export default function Attributions() {
   function renderRow(row, cols) {
     const colSet = cols || COLS;
     const isHelb = row.contrat_mdp === 'HELB';
-    const rowBg = selected.has(row.id) ? 'bg-yellow-50' : isHelb ? 'bg-pink-50 hover:bg-pink-100/60' : '';
+    const isZ = row.is_z === true;
+    const rowBg = isZ ? 'bg-iip-mauve/5 text-gray-500 italic' : selected.has(row.id) ? 'bg-yellow-50' : isHelb ? 'bg-pink-50 hover:bg-pink-100/60' : '';
+    // Ligne Z : synthétique (activités 7.3), non éditable, sans prof ni charge.
+    if (isZ) {
+      return (
+        <tr key={row.id} className={rowBg} title="Activités Z : périodes étudiant, sans enseignant ni coût">
+          {colSet.map(c => {
+            const sty = { width:c.width, minWidth:c.width, maxWidth:c.width, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' };
+            let v = '';
+            if (c.key === 'section') v = row.section;
+            else if (c.key === 'ue_num') v = row.ue_num;
+            else if (c.key === 'ue_nom') v = row.ue_nom;
+            else if (c.key === 'nom_cours') v = row.nom_cours;
+            else if (c.key === 'type_cours') v = 'Z';
+            else if (c.key === 'per_etudiant_total_dp') v = row.per_etudiant_total_dp;
+            else if (c.key === 'periodes_attribuees' || c.key === 'autonomie_attribuee' || c.key === 'total_attribue_professeur') v = '0';
+            return <td key={c.key} style={sty}>{v}</td>;
+          })}
+        </tr>
+      );
+    }
     return (
       <tr key={row.id} className={rowBg}>
         {colSet.map(c => {
