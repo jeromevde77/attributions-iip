@@ -1,5 +1,5 @@
 import { useEffect, useState, Fragment } from 'react';
-import { api, getAnnee } from '../lib/api.js';
+import { api, getAnnee, getUser } from '../lib/api.js';
 import CoursFormModal from '../components/CoursFormModal.jsx';
 import ImportUEAssistant from '../components/ImportUEAssistant.jsx';
 
@@ -99,24 +99,49 @@ function SectionModal({ section, onClose, onSaved }) {
 // ─── Modale UE ───
 function UEModal({ ue, sections, onClose, onSaved }) {
   const isNew = !ue?._edit;
+  const me = getUser?.();
+  const isAdmin = me?.role === 'admin';
   const [form, setForm] = useState({
     ue_num: ue?.ue_num || '', ue_nom: ue?.ue_nom || '', section: ue?.section || (sections[0]?.code || ''),
     ue_niv: ue?.ue_niv || '', ue_niveau: ue?.ue_niveau || '', ue_quad: ue?.ue_quad || '',
     ue_per_cours: ue?.ue_per_cours || '', ue_aut: ue?.ue_aut || '', ue_code_fwb: ue?.ue_code_fwb || '',
     et_ref: ue?.et_ref || '', ue_tc: ue?.ue_tc || '', ue_det: ue?.ue_det || '',
     ue_per_etudiants: ue?.ue_per_etudiants || '', ue_tot_prf: ue?.ue_tot_prf || '',
-    ects: ue?.ects || '', ue_prerequise: ue?.ue_prerequise || ''
+    ects: ue?.ects || '', ue_prerequise: ue?.ue_prerequise || '', ue_per_z: ue?.ue_per_z || ''
   });
   const [saving, setSaving] = useState(false);
+  const [renaming, setRenaming] = useState(false);
+  const [newNum, setNewNum] = useState('');
+  // Multi-sections : ensemble des codes de sections cochées
+  const [selSections, setSelSections] = useState(new Set(ue?._sections ? [...ue._sections] : (ue?.section ? [ue.section] : [])));
   function set(k, v) { setForm(f => ({ ...f, [k]: v })); }
+  function toggleSection(code) {
+    setSelSections(s => { const n = new Set(s); n.has(code) ? n.delete(code) : n.add(code); return n; });
+  }
+
+  async function forcerNum() {
+    const n = String(newNum).trim();
+    if (!n || n === String(ue.ue_num)) { setRenaming(false); return; }
+    setSaving(true);
+    try { await api.renameUENum(ue.ue_num, n); onSaved(); }
+    catch (e) { alert('Erreur : ' + e.message); setSaving(false); }
+  }
 
   async function submit(e) {
     e.preventDefault();
     if (!form.ue_num || !form.ue_nom) return alert('Numéro et nom requis');
+    if (selSections.size === 0) return alert('Sélectionnez au moins une section.');
     setSaving(true);
     try {
-      if (isNew) await api.createUE(form);
-      else await api.updateUE(ue.ue_num, form);
+      // La 1re section cochée reste la section "principale" (champ ue.section)
+      const principale = [...selSections][0];
+      if (isNew) await api.createUE({ ...form, section: principale });
+      else await api.updateUE(ue.ue_num, { ...form, section: principale });
+      // Synchroniser les rattachements multi-sections (ue_section)
+      const avant = new Set(ue?._sections ? [...ue._sections] : (ue?.section ? [ue.section] : []));
+      const apres = selSections;
+      for (const code of apres) if (!avant.has(code)) await api.rattacherUE(form.ue_num, code);
+      for (const code of avant) if (!apres.has(code)) await api.detacherUE(form.ue_num, code).catch(() => {});
       onSaved();
     } catch (e) { alert('Erreur : ' + e.message); }
     finally { setSaving(false); }
@@ -132,17 +157,39 @@ function UEModal({ ue, sections, onClose, onSaved }) {
         <form onSubmit={submit} className="p-5 space-y-3 overflow-auto">
           <div className="grid grid-cols-2 gap-3">
             <label className="block"><div className="text-xs text-gray-600 mb-0.5">N° UE *</div>
-              <input type="number" value={form.ue_num} onChange={e => set('ue_num', e.target.value)} disabled={!isNew}
-                className="w-full border border-gray-300 rounded px-3 py-1.5 text-sm disabled:bg-gray-100" /></label>
-            <label className="block"><div className="text-xs text-gray-600 mb-0.5">Section *</div>
-              <select value={form.section} onChange={e => set('section', e.target.value)}
-                className="w-full border border-gray-300 rounded px-3 py-1.5 text-sm bg-white">
-                {sections.map(s => <option key={s.code} value={s.code}>{s.code}</option>)}
-              </select></label>
+              <div className="flex gap-1 items-center">
+                <input type="number" value={form.ue_num} onChange={e => set('ue_num', e.target.value)} disabled={!isNew}
+                  className="w-full border border-gray-300 rounded px-3 py-1.5 text-sm disabled:bg-gray-100" />
+                {!isNew && isAdmin && !renaming && (
+                  <button type="button" onClick={() => { setRenaming(true); setNewNum(ue.ue_num); }}
+                    className="text-xs text-iip-gold border border-iip-gold/40 rounded px-2 py-1 hover:bg-iip-gold/5 whitespace-nowrap" title="Forcer le N° (admin)">✎</button>
+                )}
+              </div></label>
+            <label className="block"><div className="text-xs text-gray-600 mb-0.5">Section(s) *</div>
+              <div className="border border-gray-300 rounded px-2 py-1.5 max-h-24 overflow-auto bg-white">
+                {sections.map(s => (
+                  <label key={s.code} className="flex items-center gap-2 py-0.5 text-sm cursor-pointer hover:bg-gray-50">
+                    <input type="checkbox" checked={selSections.has(s.code)} onChange={() => toggleSection(s.code)} />
+                    <span>{s.code}</span>
+                  </label>
+                ))}
+              </div></label>
           </div>
           <label className="block"><div className="text-xs text-gray-600 mb-0.5">Nom de l'UE *</div>
             <input value={form.ue_nom} onChange={e => set('ue_nom', e.target.value)}
               className="w-full border border-gray-300 rounded px-3 py-1.5 text-sm" /></label>
+          {renaming && (
+            <div className="bg-iip-gold/5 border border-iip-gold/30 rounded p-3 space-y-2">
+              <div className="text-xs text-gray-700">⚠️ Forcer le N° d'UE met à jour l'UE, ses cours, attributions et rattachements de sections. Lucie vérifie l'unicité.</div>
+              <div className="flex gap-2">
+                <input type="number" value={newNum} onChange={e => setNewNum(e.target.value)} placeholder="Nouveau N°"
+                  className="flex-1 border border-gray-300 rounded px-3 py-1.5 text-sm" />
+                <button type="button" onClick={forcerNum} disabled={saving}
+                  className="bg-iip-gold text-white text-sm px-3 py-1.5 rounded disabled:opacity-40">Forcer</button>
+                <button type="button" onClick={() => setRenaming(false)} className="text-sm text-gray-500 px-2">Annuler</button>
+              </div>
+            </div>
+          )}
           <div className="grid grid-cols-3 gap-3">
             <label className="block"><div className="text-xs text-gray-600 mb-0.5">Bloc</div>
               <input value={form.ue_niv} onChange={e => set('ue_niv', e.target.value)} placeholder="BA1"
@@ -159,32 +206,29 @@ function UEModal({ ue, sections, onClose, onSaved }) {
               </select></label>
           </div>
           <div className="grid grid-cols-3 gap-3">
-            <label className="block"><div className="text-xs text-gray-600 mb-0.5">Pér. cours</div>
-              <input type="number" value={form.ue_per_cours} onChange={e => set('ue_per_cours', e.target.value)}
-                className="w-full border border-gray-300 rounded px-3 py-1.5 text-sm" /></label>
-            <label className="block"><div className="text-xs text-gray-600 mb-0.5">Autonomie</div>
+            <label className="block"><div className="text-xs text-gray-600 mb-0.5">Autonomie (UE)</div>
               <input type="number" value={form.ue_aut} onChange={e => set('ue_aut', e.target.value)}
                 className="w-full border border-gray-300 rounded px-3 py-1.5 text-sm" /></label>
+            <label className="block"><div className="text-xs text-gray-600 mb-0.5">Périodes Z (7.3)</div>
+              <input type="number" value={form.ue_per_z} onChange={e => set('ue_per_z', e.target.value)} placeholder="Activités autonomes"
+                className="w-full border border-iip-mauve/40 rounded px-3 py-1.5 text-sm bg-iip-mauve/5" /></label>
             <label className="block"><div className="text-xs text-gray-600 mb-0.5">Réf.</div>
               <select value={form.et_ref} onChange={e => set('et_ref', e.target.value)}
                 className="w-full border border-gray-300 rounded px-3 py-1.5 text-sm bg-white">
                 <option value="">—</option><option value="IIP">IIP</option><option value="HELB">HELB</option>
               </select></label>
           </div>
-          <div className="grid grid-cols-3 gap-3">
+          <div className="grid grid-cols-2 gap-3">
             <label className="block"><div className="text-xs text-gray-600 mb-0.5">Code FWB</div>
               <input value={form.ue_code_fwb} onChange={e => set('ue_code_fwb', e.target.value)}
                 className="w-full border border-gray-300 rounded px-3 py-1.5 text-sm" /></label>
             <label className="block"><div className="text-xs text-gray-600 mb-0.5">ECTS</div>
               <input type="number" value={form.ects} onChange={e => set('ects', e.target.value)}
                 className="w-full border border-gray-300 rounded px-3 py-1.5 text-sm" /></label>
-            <label className="block"><div className="text-xs text-gray-600 mb-0.5">Pér. étudiants</div>
-              <input type="number" value={form.ue_per_etudiants} onChange={e => set('ue_per_etudiants', e.target.value)}
-                className="w-full border border-gray-300 rounded px-3 py-1.5 text-sm" /></label>
           </div>
           <div className="grid grid-cols-3 gap-3">
-            <label className="block"><div className="text-xs text-gray-600 mb-0.5">Total prof</div>
-              <input type="number" value={form.ue_tot_prf} onChange={e => set('ue_tot_prf', e.target.value)}
+            <label className="block"><div className="text-xs text-gray-600 mb-0.5">Pér. étudiants</div>
+              <input type="number" value={form.ue_per_etudiants} onChange={e => set('ue_per_etudiants', e.target.value)}
                 className="w-full border border-gray-300 rounded px-3 py-1.5 text-sm" /></label>
             <label className="block"><div className="text-xs text-gray-600 mb-0.5">Tronc commun</div>
               <select value={form.ue_tc} onChange={e => set('ue_tc', e.target.value)}
@@ -505,8 +549,8 @@ export default function Referentiels({ embedded = false }) {
                                 </span>
                               )}
                             </td>
-                            <td className="px-2 py-1.5 text-right">{ue.ue_per_cours ?? '—'}</td>
-                            <td className="px-2 py-1.5 text-right text-gray-400">{ue.ue_aut ?? '—'}</td>
+                            <td className="px-2 py-1.5 text-right">{ue.calc_per_cours ?? ue.ue_per_cours ?? '—'}</td>
+                            <td className="px-2 py-1.5 text-right text-gray-400">{ue.calc_autonomie ?? ue.ue_aut ?? '—'}</td>
                             <td className="px-2 py-1.5 text-right text-gray-400">{ue.cours.length}</td>
                             <td className="px-2 py-1.5 text-right text-gray-400">{ue.nb_attributions}</td>
                             <td className={`px-2 py-1.5 text-right whitespace-nowrap ${activeUE === ueKey ? (isHelb ? 'border-r-2 border-pink-400' : 'border-r-2 border-iip-gold/60') : ''}`}>
@@ -563,8 +607,21 @@ export default function Referentiels({ embedded = false }) {
 
       {/* Vue tableau global : toutes les UE triées par numéro */}
       {viewMode === 'table' && (() => {
-        // Aplatir toutes les UE de toutes les sections, triées par numéro
-        const allUes = structure.flatMap(sg => sg.ues.map(ue => ({ ...ue, _section: sg.section })))
+        // Liste UNIQUE des UE (source primaire), avec la/les section(s) en colonne.
+        // Une UE n'apparaît qu'une fois, même si partagée ; "-" si aucune section.
+        const parNum = new Map();
+        for (const sg of structure) {
+          for (const ue of sg.ues) {
+            if (!parNum.has(ue.ue_num)) {
+              parNum.set(ue.ue_num, { ...ue, _sections: new Set() });
+            }
+            if (sg.section && sg.section !== '(sans section)') {
+              parNum.get(ue.ue_num)._sections.add(sg.section);
+            }
+          }
+        }
+        const allUes = [...parNum.values()]
+          .map(ue => ({ ...ue, _sectionsLabel: ue._sections.size ? [...ue._sections].sort().join(', ') : '-' }))
           .sort((a, b) => (a.ue_num || 0) - (b.ue_num || 0));
         if (allUes.length === 0) {
           return <div className="bg-white rounded-lg border border-gray-200 p-8 text-center text-gray-400">Aucune UE pour {annee}.</div>;
@@ -576,7 +633,7 @@ export default function Referentiels({ embedded = false }) {
                 <tr className="bg-iip-gold/5 text-xs text-gray-600 border-b border-gray-200">
                   <th className="text-left px-3 py-2 w-8"></th>
                   <th className="text-left px-2 py-2">N° UE</th>
-                  <th className="text-left px-2 py-2">Section</th>
+                  <th className="text-left px-2 py-2">Section(s)</th>
                   <th className="text-left px-2 py-2">Nom</th>
                   <th className="text-center px-2 py-2">Bloc</th>
                   <th className="text-center px-2 py-2">Niveau</th>
@@ -591,7 +648,7 @@ export default function Referentiels({ embedded = false }) {
               </thead>
               <tbody>
                 {allUes.map(ue => {
-                  const ueKey = 'tbl:' + ue._section + '/' + ue.ue_num;
+                  const ueKey = 'tbl:' + ue.ue_num;
                   const ueOpen = open[ueKey];
                   const isHelb = ue.et_ref === 'HELB';
                   return (
@@ -603,7 +660,7 @@ export default function Referentiels({ embedded = false }) {
                           </button>
                         </td>
                         <td className="px-2 py-1.5 font-semibold text-iip-gold cursor-pointer" onClick={() => { toggle(ueKey); setActiveUE(ueKey); }}>{ue.ue_num}</td>
-                        <td className="px-2 py-1.5 text-xs text-gray-600">{ue._section}</td>
+                        <td className="px-2 py-1.5 text-xs text-gray-600">{ue._sectionsLabel}</td>
                         <td className="px-2 py-1.5 cursor-pointer" onClick={() => { toggle(ueKey); setActiveUE(ueKey); }}>
                           {ue.ue_nom}
                           {isHelb && <span className="text-xs text-pink-600 font-bold ml-1.5">HELB</span>}
@@ -612,8 +669,8 @@ export default function Referentiels({ embedded = false }) {
                         <td className="px-2 py-1.5 text-center">{ue.ue_niveau || '—'}</td>
                         <td className="px-2 py-1.5 text-center">{ue.ue_quad || '—'}</td>
                         <td className="px-2 py-1.5 text-center">{ue.et_ref || '—'}</td>
-                        <td className="px-2 py-1.5 text-right">{ue.ue_per_cours ?? '—'}</td>
-                        <td className="px-2 py-1.5 text-right text-gray-400">{ue.ue_aut ?? '—'}</td>
+                        <td className="px-2 py-1.5 text-right">{ue.calc_per_cours ?? ue.ue_per_cours ?? '—'}</td>
+                        <td className="px-2 py-1.5 text-right text-gray-400">{ue.calc_autonomie ?? ue.ue_aut ?? '—'}</td>
                         <td className="px-2 py-1.5 text-right">{ue.ects ?? '—'}</td>
                         <td className="px-2 py-1.5 text-right text-gray-400">{ue.cours.length}</td>
                         <td className="px-2 py-1.5 text-right whitespace-nowrap">
@@ -640,7 +697,7 @@ export default function Referentiels({ embedded = false }) {
                                     <td className="text-center">{c.quadrimestre_cours || '—'}</td>
                                     <td className="text-right text-gray-400">{c.nb_attributions}</td>
                                     <td className="text-right whitespace-nowrap">
-                                      <button onClick={() => setCoursModal({ cours: { ...c, _edit: true }, ueNum: ue.ue_num, section: ue._section })} className="text-iip-mauve hover:opacity-70" title="Modifier">✏</button>
+                                      <button onClick={() => setCoursModal({ cours: { ...c, _edit: true }, ueNum: ue.ue_num, section: ([...ue._sections][0] || null) })} className="text-iip-mauve hover:opacity-70" title="Modifier">✏</button>
                                       <button onClick={() => delCours(c)} className="text-red-400 hover:text-red-600 ml-2" title="Supprimer">🗑</button>
                                     </td>
                                   </tr>
@@ -648,7 +705,7 @@ export default function Referentiels({ embedded = false }) {
                                 {ue.cours.length === 0 && <tr><td colSpan="7" className="text-center text-gray-400 py-2">Aucun cours</td></tr>}
                               </tbody>
                             </table>
-                            <button onClick={() => setCoursModal({ cours: {}, ueNum: ue.ue_num, section: ue._section })}
+                            <button onClick={() => setCoursModal({ cours: {}, ueNum: ue.ue_num, section: ([...ue._sections][0] || null) })}
                               className="mt-2 text-iip-mauve hover:underline">➕ Ajouter un cours</button>
                           </td>
                         </tr>

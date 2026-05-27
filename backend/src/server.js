@@ -73,6 +73,27 @@ try {
     console.log('[migration] Colonne attribution.titre_rtf ajoutée');
   }
 
+  // Refonte dossier pédagogique (DP) :
+  // - cours.cours_autonomie : autonomie PROPOSÉE pour ce cours (part de 7.2 rattachée).
+  //   La somme des cours_autonomie d'une UE ne peut dépasser ue.ue_aut (× dédoublement).
+  // - cours.dedouble : 'O'/'N' — cours dédoublé (2 groupes) -> périodes ET autonomie ×2.
+  // - ue.ue_per_z : périodes des activités Z (7.3, développement professionnel).
+  //   Périodes ÉTUDIANT, sans enseignant, sans charge, sans coût.
+  const colsCours = db.prepare("PRAGMA table_info(cours)").all();
+  if (!colsCours.find(c => c.name === 'cours_autonomie')) {
+    db.exec(`ALTER TABLE cours ADD COLUMN cours_autonomie INTEGER;`);
+    console.log('[migration] Colonne cours.cours_autonomie ajoutée');
+  }
+  if (!colsCours.find(c => c.name === 'dedouble')) {
+    db.exec(`ALTER TABLE cours ADD COLUMN dedouble TEXT DEFAULT 'N';`);
+    console.log('[migration] Colonne cours.dedouble ajoutée');
+  }
+  const colsUe = db.prepare("PRAGMA table_info(ue)").all();
+  if (!colsUe.find(c => c.name === 'ue_per_z')) {
+    db.exec(`ALTER TABLE ue ADD COLUMN ue_per_z INTEGER;`);
+    console.log('[migration] Colonne ue.ue_per_z ajoutée');
+  }
+
   // 3. Table annee_scolaire (gestion multi-années)
   db.exec(`
     CREATE TABLE IF NOT EXISTS annee_scolaire (
@@ -117,6 +138,26 @@ try {
       PRIMARY KEY (utilisateur_id, section_code)
     );
     CREATE INDEX IF NOT EXISTS idx_us_user ON utilisateur_section(utilisateur_id);
+  `);
+
+  // Archive des documents officiels générés (EA12, fiche signalétique).
+  // Option B : chaque génération est CONSERVÉE et horodatée (traçabilité FWB).
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS document_archive (
+      id              INTEGER PRIMARY KEY AUTOINCREMENT,
+      type_doc        TEXT NOT NULL,          -- 'ea12' | 'fiche'
+      professeur_id   INTEGER,
+      prof_nom        TEXT,
+      prof_prenom     TEXT,
+      annee_scolaire  TEXT,
+      nom_fichier     TEXT NOT NULL,
+      pdf             BLOB NOT NULL,          -- le PDF archivé tel qu'émis
+      taille          INTEGER,
+      genere_par      TEXT,                   -- email/identifiant de l'utilisateur
+      genere_le       TEXT DEFAULT (datetime('now'))
+    );
+    CREATE INDEX IF NOT EXISTS idx_docarch_prof ON document_archive(professeur_id);
+    CREATE INDEX IF NOT EXISTS idx_docarch_type ON document_archive(type_doc);
   `);
 
   // 5c. Table ue_section (rattachement many-to-many UE <-> sections)

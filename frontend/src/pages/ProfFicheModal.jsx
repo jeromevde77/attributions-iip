@@ -113,6 +113,7 @@ export default function ProfFicheModal({ prof, onClose, onSaved }) {
   const [reportsCours, setReportsCours] = useState({}); // {cours_nom: jours} reports saisis
 
   const [saving, setSaving] = useState(false);
+  const [genPdf, setGenPdf] = useState(false);
   const [loading, setLoading] = useState(!isNew);
   const [open, setOpen] = useState({ identite: true }); // sections ouvertes
 
@@ -184,6 +185,15 @@ export default function ProfFicheModal({ prof, onClose, onSaved }) {
       onSaved();
     } catch (e) { alert('Erreur : ' + e.message); }
     finally { setSaving(false); }
+  }
+
+  async function genererFichePdf() {
+    setGenPdf(true);
+    try {
+      const fn = `Fiche_signaletique_${form.nom || ''}_${form.prenom || ''}.pdf`.replace(/\s+/g, '_');
+      await api.ficheDocumentPdf(prof.id, fn);
+    } catch (e) { alert('Erreur : ' + e.message); }
+    finally { setGenPdf(false); }
   }
 
   if (loading) {
@@ -421,6 +431,13 @@ export default function ProfFicheModal({ prof, onClose, onSaved }) {
           {/* Actions */}
           <div className="flex justify-end gap-2 pt-2 border-t border-gray-100 sticky bottom-0 bg-white">
             <button type="button" onClick={onClose} className="px-4 py-2 text-sm text-gray-600 hover:text-gray-800">Annuler</button>
+            {/* Bouton fiche PDF masqué en prod (nécessite LibreOffice — à activer quand finalisé) */}
+            {false && !isNew && (
+              <button type="button" onClick={genererFichePdf} disabled={saving || genPdf}
+                className="bg-iip-mauve hover:opacity-90 disabled:opacity-40 text-white text-sm px-4 py-2 rounded font-medium">
+                {genPdf ? 'Génération…' : '📄 Générer la fiche (PDF)'}
+              </button>
+            )}
             <button type="submit" disabled={saving}
               className="bg-iip-gold hover:bg-iip-amber disabled:opacity-40 text-white text-sm px-5 py-2 rounded font-medium">
               {saving ? 'Sauvegarde…' : isNew ? 'Créer la fiche' : 'Enregistrer'}

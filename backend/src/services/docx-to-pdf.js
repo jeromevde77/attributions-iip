@@ -33,42 +33,45 @@ async function findSoffice() {
 }
 
 /**
- * Convertit un buffer .docx en buffer PDF.
- * @param {Buffer} docxBuffer - le document Word généré
- * @returns {Promise<Buffer>} le PDF
+ * Convertit un buffer .docx en buffer PDF via LibreOffice headless.
+ * @param {Buffer} docxBuffer
+ * @returns {Promise<Buffer>}
  */
-// Profil LibreOffice PERSISTANT réutilisé entre les conversions.
-// Le coût élevé de LibreOffice est l'initialisation du profil ; en le
-// réutilisant, seule la 1re conversion est lente, les suivantes sont rapides.
-const PERSIST_PROFILE = join(tmpdir(), 'lo-profile-ea12-persistent');
-
 export async function docxToPdf(docxBuffer) {
   const bin = await findSoffice();
   // Dossier temporaire pour les fichiers (docx d'entrée / pdf de sortie)
   const dir = await mkdtemp(join(tmpdir(), 'ea12pdf-'));
   const docxPath = join(dir, 'document.docx');
   const pdfPath = join(dir, 'document.pdf');
+  // Profil isolé par conversion (évite les verrous en cas d'appels concurrents).
+  const profileDir = join(dir, 'lo-profile');
 
   try {
     await writeFile(docxPath, docxBuffer);
-    // Conversion headless. Profil PERSISTANT (réutilisé) = conversions suivantes
-    // bien plus rapides. -env:UserInstallation pointe vers le profil partagé.
-    await execFileAsync(bin, [
-      '--headless',
-      '--norestore',
-      '--nolockcheck',
-      '--nodefault',
-      '--nologo',
-      `-env:UserInstallation=file://${PERSIST_PROFILE}`,
-      '--convert-to', 'pdf:writer_pdf_Export',
-      '--outdir', dir,
-      docxPath,
-    ], { timeout: 120000 });
+    let stderr = '';
+    try {
+      const r = await execFileAsync(bin, [
+        '--headless', '--norestore', '--nolockcheck', '--nodefault', '--nologo',
+        `-env:UserInstallation=file://${profileDir}`,
+        '--convert-to', 'pdf:writer_pdf_Export',
+        '--outdir', dir,
+        docxPath,
+      ], { timeout: 120000, maxBuffer: 10 * 1024 * 1024 });
+      stderr = r.stderr || '';
+    } catch (e) {
+      throw new Error(`LibreOffice a échoué : ${e.message}${e.stderr ? ' | ' + e.stderr : ''}`);
+    }
 
-    const pdf = await readFile(pdfPath);
+    // Vérifier que le PDF a bien été produit
+    let pdf;
+    try {
+      pdf = await readFile(pdfPath);
+    } catch {
+      throw new Error(`LibreOffice n'a pas produit de PDF (sortie : ${stderr || 'aucune'})`);
+    }
+    if (!pdf || pdf.length === 0) throw new Error('PDF vide produit par LibreOffice');
     return pdf;
   } finally {
-    // Nettoyage du dossier de travail (PAS le profil persistant)
     rm(dir, { recursive: true, force: true }).catch(() => {});
   }
 }

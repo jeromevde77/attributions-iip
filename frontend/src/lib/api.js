@@ -49,6 +49,10 @@ export const api = {
   deleteUE(num) { return request(withAnnee(`/ref/ue/${num}`), { method: 'DELETE' }); },
   createCours(data) { return request('/ref/cours', { method: 'POST', body: { annee_scolaire: getAnnee(), ...data } }); },
   updateCours(code, data) { return request(`/ref/cours/${encodeURIComponent(code)}`, { method: 'PATCH', body: { annee_scolaire: getAnnee(), ...data } }); },
+  renameCoursCode(code, nouveau_code) { return request(`/ref/cours/${encodeURIComponent(code)}/rename`, { method: 'PATCH', body: { annee_scolaire: getAnnee(), nouveau_code } }); },
+  renameUENum(num, nouveau_num) { return request(`/ref/ue/${encodeURIComponent(num)}/rename`, { method: 'PATCH', body: { annee_scolaire: getAnnee(), nouveau_num } }); },
+  dedoublerUE(ue_num) { return request(`/ref/ue/${encodeURIComponent(ue_num)}/dedoubler`, { method: 'PATCH', body: { annee_scolaire: getAnnee() } }); },
+  annulerDedoublementUE(ue_num) { return request(`/ref/ue/${encodeURIComponent(ue_num)}/annuler-dedoublement`, { method: 'PATCH', body: { annee_scolaire: getAnnee() } }); },
   deleteCours(code) { return request(withAnnee(`/ref/cours/${encodeURIComponent(code)}`), { method: 'DELETE' }); },
   createSection(data) { return request('/ref/sections', { method: 'POST', body: data }); },
   updateSection(code, data) { return request(`/ref/sections/${encodeURIComponent(code)}`, { method: 'PATCH', body: data }); },
@@ -147,6 +151,7 @@ export const api = {
   cours(params = {}) { return request('/ref/cours' + (new URLSearchParams(params).toString() ? `?${new URLSearchParams(params)}` : '')); },
   professeurs() { return request('/ref/professeurs'); },
   professeur(id) { return request(`/ref/professeurs/${id}`); },
+  professeursAttributions(ids, annee) { return request(`/ref/professeurs-attributions?ids=${encodeURIComponent(ids)}${annee ? '&annee=' + encodeURIComponent(annee) : ''}`); },
   createProfesseur(data) { return request('/ref/professeurs', { method: 'POST', body: data }); },
   updateProfesseur(id, data) { return request(`/ref/professeurs/${id}`, { method: 'PATCH', body: data }); },
   deleteProfesseur(id) { return request(`/ref/professeurs/${id}`, { method: 'DELETE' }); },
@@ -202,6 +207,22 @@ export const api = {
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url; a.download = filename || 'EA12.docx';
+      a.click(); URL.revokeObjectURL(url);
+    });
+  },
+  ficheDocumentPdf(id, filename) {
+    return fetch(`${BASE}/ref/professeurs/${id}/fiche-pdf`, {
+      headers: { Authorization: `Bearer ${getToken()}` }
+    }).then(async r => {
+      if (!r.ok) {
+        let msg = 'Génération de la fiche échouée';
+        try { const j = await r.json(); if (j.error) msg = j.error; } catch {}
+        throw new Error(msg);
+      }
+      const blob = await r.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url; a.download = filename || 'Fiche_signaletique.pdf';
       a.click(); URL.revokeObjectURL(url);
     });
   },

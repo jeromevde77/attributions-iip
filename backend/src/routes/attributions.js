@@ -42,7 +42,41 @@ r.get('/', authRequired, withSectionScope, (req, res) => {
     ORDER BY a.section, a.bloc, a.ue_num, a.code_cours
     LIMIT 1000
   `;
-  res.json(db.prepare(sql).all(params));
+  const lignes = db.prepare(sql).all(params);
+
+  // Lignes synthétiques Z (activités 7.3 de l'UE) : périodes ÉTUDIANT, sans
+  // enseignant, sans charge, sans coût. Une ligne par UE ayant ue_per_z > 0,
+  // dans le périmètre filtré. Marquées is_z=true pour l'affichage.
+  try {
+    const whereZ = ['ue_per_z IS NOT NULL', 'ue_per_z > 0', 'annee_scolaire = @annee'];
+    if (section) whereZ.push('section = @section');
+    if (ue || ue_num) whereZ.push('ue_num = @ue');
+    if (req.allowedSections !== null && req.allowedSections.length > 0) {
+      const ph = req.allowedSections.map((_, i) => `@zsec${i}`).join(', ');
+      whereZ.push(`section IN (${ph})`);
+      req.allowedSections.forEach((s, i) => { params[`zsec${i}`] = s; });
+    }
+    const uesZ = db.prepare(`SELECT ue_num, ue_nom, section, ue_per_z FROM ue WHERE ${whereZ.join(' AND ')}`).all(params);
+    for (const u of uesZ) {
+      lignes.push({
+        id: `z-${u.ue_num}`,                 // id synthétique (non persistant)
+        is_z: true,
+        section: u.section,
+        ue_num: u.ue_num,
+        ue_nom: u.ue_nom,
+        nom_cours: 'Activités de développement professionnel (Z)',
+        type_cours: 'Z',
+        professeur_id: null,
+        professeur: null,
+        per_etudiant_total_dp: u.ue_per_z,   // périodes étudiant
+        periodes_attribuees: 0,              // aucune charge enseignant
+        autonomie_attribuee: 0,
+        total_attribue_professeur: 0,        // aucun coût / dotation
+      });
+    }
+  } catch (e) { console.error('[grille] lignes Z :', e.message); }
+
+  res.json(lignes);
 });
 
 // Conformité par cours (utile pour récap rapide)
