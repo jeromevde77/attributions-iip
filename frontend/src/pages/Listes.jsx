@@ -48,7 +48,7 @@ const ENTITES = {
       { key: 'calc_autonomie', label: 'Autonomie (calc.)',        defaut: false },
       { key: 'calc_per_z',     label: 'Pér. Z (calc.)',          defaut: false },
       { key: 'calc_tot_prof',  label: 'Total prof (calc.)',      defaut: false },
-      { key: 'calc_total_ue',  label: 'Total pér. étudiants',    defaut: true  },
+      { key: 'calc_total_ue',  label: 'Périodes étudiant DP',    defaut: true  },
       { key: 'et_ref',        label: 'Réf.',            defaut: false },
       { key: 'ue_code_fwb',   label: 'Code FWB',        defaut: false },
       { key: 'ue_tc',         label: 'TC',              defaut: false },
