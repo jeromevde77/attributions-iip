@@ -112,7 +112,12 @@ function UEModal({ ue, sections, onClose, onSaved }) {
   const [saving, setSaving] = useState(false);
   const [renaming, setRenaming] = useState(false);
   const [newNum, setNewNum] = useState('');
+  // Multi-sections : ensemble des codes de sections cochées
+  const [selSections, setSelSections] = useState(new Set(ue?._sections ? [...ue._sections] : (ue?.section ? [ue.section] : [])));
   function set(k, v) { setForm(f => ({ ...f, [k]: v })); }
+  function toggleSection(code) {
+    setSelSections(s => { const n = new Set(s); n.has(code) ? n.delete(code) : n.add(code); return n; });
+  }
 
   async function forcerNum() {
     const n = String(newNum).trim();
@@ -125,10 +130,18 @@ function UEModal({ ue, sections, onClose, onSaved }) {
   async function submit(e) {
     e.preventDefault();
     if (!form.ue_num || !form.ue_nom) return alert('Numéro et nom requis');
+    if (selSections.size === 0) return alert('Sélectionnez au moins une section.');
     setSaving(true);
     try {
-      if (isNew) await api.createUE(form);
-      else await api.updateUE(ue.ue_num, form);
+      // La 1re section cochée reste la section "principale" (champ ue.section)
+      const principale = [...selSections][0];
+      if (isNew) await api.createUE({ ...form, section: principale });
+      else await api.updateUE(ue.ue_num, { ...form, section: principale });
+      // Synchroniser les rattachements multi-sections (ue_section)
+      const avant = new Set(ue?._sections ? [...ue._sections] : (ue?.section ? [ue.section] : []));
+      const apres = selSections;
+      for (const code of apres) if (!avant.has(code)) await api.rattacherUE(form.ue_num, code);
+      for (const code of avant) if (!apres.has(code)) await api.detacherUE(form.ue_num, code).catch(() => {});
       onSaved();
     } catch (e) { alert('Erreur : ' + e.message); }
     finally { setSaving(false); }
@@ -152,11 +165,15 @@ function UEModal({ ue, sections, onClose, onSaved }) {
                     className="text-xs text-iip-gold border border-iip-gold/40 rounded px-2 py-1 hover:bg-iip-gold/5 whitespace-nowrap" title="Forcer le N° (admin)">✎</button>
                 )}
               </div></label>
-            <label className="block"><div className="text-xs text-gray-600 mb-0.5">Section *</div>
-              <select value={form.section} onChange={e => set('section', e.target.value)}
-                className="w-full border border-gray-300 rounded px-3 py-1.5 text-sm bg-white">
-                {sections.map(s => <option key={s.code} value={s.code}>{s.code}</option>)}
-              </select></label>
+            <label className="block"><div className="text-xs text-gray-600 mb-0.5">Section(s) *</div>
+              <div className="border border-gray-300 rounded px-2 py-1.5 max-h-24 overflow-auto bg-white">
+                {sections.map(s => (
+                  <label key={s.code} className="flex items-center gap-2 py-0.5 text-sm cursor-pointer hover:bg-gray-50">
+                    <input type="checkbox" checked={selSections.has(s.code)} onChange={() => toggleSection(s.code)} />
+                    <span>{s.code}</span>
+                  </label>
+                ))}
+              </div></label>
           </div>
           <label className="block"><div className="text-xs text-gray-600 mb-0.5">Nom de l'UE *</div>
             <input value={form.ue_nom} onChange={e => set('ue_nom', e.target.value)}
