@@ -552,7 +552,7 @@ export default function Referentiels({ embedded = false }) {
                             </td>
                             <td className="px-2 py-1.5 text-right">{ue.calc_per_cours ?? ue.ue_per_cours ?? '—'}</td>
                             <td className="px-2 py-1.5 text-right text-gray-400">{ue.calc_autonomie ?? ue.ue_aut ?? '—'}</td>
-                            <td className="px-2 py-1.5 text-right font-semibold text-iip-mauve">{ue.calc_total_ue ?? '—'}</td>
+                            <td className="px-2 py-1.5 text-right font-semibold text-iip-mauve">{ue.ue_per_etudiants ?? '—'}</td>
                             <td className="px-2 py-1.5 text-right text-gray-400">{ue.cours.length}</td>
                             <td className="px-2 py-1.5 text-right text-gray-400">{ue.nb_attributions}</td>
                             <td className={`px-2 py-1.5 text-right whitespace-nowrap ${activeUE === ueKey ? (isHelb ? 'border-r-2 border-pink-400' : 'border-r-2 border-iip-gold/60') : ''}`}>
