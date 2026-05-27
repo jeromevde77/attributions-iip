@@ -755,13 +755,27 @@ r.get('/professeurs/:id/fiche-pdf', authRequired, async (req, res) => {
     try { e = db.prepare('SELECT * FROM etablissement WHERE id = 1').get() || {}; }
     catch { e = {}; } // table etablissement absente : on continue sans (champs vides)
 
-    // Mapping des données prof -> format attendu par le moteur de la fiche
+    // Mapping complet des données prof -> moteur de la fiche
     const lieuNaissance = [p.lieu_naissance_ville, p.lieu_naissance_pays].filter(Boolean).join(', ');
     const domicile = [p.adresse_rue, [p.code_postal, p.commune].filter(Boolean).join(' ')].filter(Boolean).join(', ');
     const data = {
       prof_nom: p.nom, prof_prenom: p.prenom,
-      nationalite: p.nationalite, lieu_naissance: lieuNaissance,
-      domicile, tel_gsm: p.tel_gsm,
+      matricule: p.matricule,
+      nationalite: p.nationalite,
+      date_naissance: p.date_naissance,
+      lieu_naissance: lieuNaissance,
+      domicile,
+      email: p.mail_prive || p.adresse_mail,
+      tel_gsm: p.tel_gsm,
+      niss: p.niss,
+      iban: p.iban,
+      bic: p.bic,
+      compte_titulaire: p.compte_titulaire,
+      sexe: p.sexe,
+      etat_civil: p.etat_civil,
+      handicap: p.handicap,
+      conjoint_handicap: p.conjoint_handicap,
+      ce883_actif: p.ce883_actif,
       etab: { po_nom: e.po_nom, etab_nom: e.etab_nom, adresse: e.adresse,
               num_ecot: e.num_ecot, num_fase: e.num_fase },
     };
