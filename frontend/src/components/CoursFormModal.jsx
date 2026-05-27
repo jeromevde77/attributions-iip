@@ -57,7 +57,7 @@ export default function CoursFormModal({ cours, ueNum, section, onClose, onSaved
             <label className="block"><div className="text-xs text-gray-600 mb-0.5">Type</div>
               <select value={form.ct_pp} onChange={e => set('ct_pp', e.target.value)}
                 className="w-full border border-gray-300 rounded px-3 py-1.5 text-sm bg-white">
-                <option value="">—</option><option value="CT">CT</option><option value="PP">PP</option>
+                <option value="">—</option><option value="CG">CG</option><option value="CT">CT</option><option value="PP">PP</option><option value="Z">Z</option>
               </select></label>
             <label className="block"><div className="text-xs text-gray-600 mb-0.5">Cours_per</div>
               <input type="number" value={form.cours_per} onChange={e => set('cours_per', e.target.value)}
