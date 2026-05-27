@@ -157,19 +157,37 @@ r.get('/:id/document-pdf', authRequired, async (req, res) => {
   const donnees = JSON.parse(row.donnees_json || '{}');
   const data = construireData(row, donnees);
   try {
+    const { remplirModeleOfficiel } = await import('../services/ea12_fill_officiel.js');
     const { docxToPdf } = await import('../services/docx-to-pdf.js');
-    const docxBuf = await Packer.toBuffer(buildEA12bis(data));
-    const pdfBuf = await docxToPdf(Buffer.isBuffer(docxBuf) ? docxBuf : Buffer.from(docxBuf));
+    const { archiverDocument } = await import('../services/document-archive.js');
+
+    let docx, pdf;
+    try { docx = await remplirModeleOfficiel(data); }
+    catch (e1) { throw new Error('remplissage du modèle : ' + e1.message); }
+    try { pdf = await docxToPdf(Buffer.isBuffer(docx) ? docx : Buffer.from(docx)); }
+    catch (e2) { throw new Error('conversion PDF (LibreOffice) : ' + e2.message); }
+
     db.prepare("UPDATE ea12 SET statut_doc = 'genere', modifie_le = CURRENT_TIMESTAMP WHERE id = ?").run(req.params.id);
     const fname = `EA12_${data.prof_nom}_${data.prof_prenom}_${row.annee_scolaire}.pdf`.replace(/\s+/g, '_');
+
+    // Archivage (traçabilité Option B)
+    try {
+      archiverDocument({
+        type_doc: 'ea12', professeur_id: row.professeur_id,
+        prof_nom: data.prof_nom, prof_prenom: data.prof_prenom,
+        annee_scolaire: row.annee_scolaire, nom_fichier: fname, pdf,
+        genere_par: req.user?.email || req.user?.identifiant || null,
+      });
+    } catch (archErr) { console.error('[ea12] archivage (non bloquant) :', archErr.message); }
+
     res.status(200);
     res.setHeader('Content-Type', 'application/pdf');
     res.setHeader('Content-Disposition', `attachment; filename="${fname}"`);
-    res.setHeader('Content-Length', pdfBuf.length);
-    res.end(pdfBuf);
+    res.setHeader('Content-Length', pdf.length);
+    res.end(pdf);
   } catch (e) {
     console.error('[ea12] génération PDF échouée :', e);
-    res.status(500).json({ error: 'Génération du PDF échouée : ' + e.message });
+    res.status(500).json({ error: 'Génération du PDF échouée — ' + e.message });
   }
 });
 
