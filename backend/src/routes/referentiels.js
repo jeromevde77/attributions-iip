@@ -130,10 +130,26 @@ r.get('/structure', authRequired, (req, res) => {
   for (const ue of ues) {
     let secs = secParUe[ue.ue_num] ? [...secParUe[ue.ue_num]] : [];
     if (secs.length === 0) secs = [canon(ue.section) || '(sans section)'];
+    const coursUe = coursParUe[ue.ue_num] || [];
+    // Totaux CALCULÉS à partir des cours (× dédoublement pour cours et autonomie).
+    let calcPerCours = 0, calcAutonomie = 0;
+    for (const c of coursUe) {
+      const fac = c.dedouble === 'O' ? 2 : 1;
+      calcPerCours += (Number(c.cours_per) || 0) * fac;
+      calcAutonomie += (Number(c.cours_autonomie) || 0) * fac;
+    }
+    const calcTotProf = calcPerCours + calcAutonomie;        // périodes attribuables (charge prof)
+    const perZ = Number(ue.ue_per_z) || 0;                   // activités Z (périodes étudiant, hors charge)
     const ueData = {
       ...ue,
       nb_attributions: ueAttrMap[ue.ue_num] || 0,
-      cours: coursParUe[ue.ue_num] || [],
+      cours: coursUe,
+      // Totaux calculés (le frontend peut les afficher en priorité sur les champs saisis)
+      calc_per_cours: calcPerCours,
+      calc_autonomie: calcAutonomie,
+      calc_tot_prof: calcTotProf,
+      calc_per_z: perZ,
+      calc_total_ue: calcTotProf + perZ,                     // total UE = cours + autonomie + Z
       sections_partagees: secs.length > 1 ? secs : null  // info de partage
     };
     for (const sec of secs) {

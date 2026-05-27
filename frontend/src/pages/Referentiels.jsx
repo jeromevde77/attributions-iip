@@ -552,8 +552,8 @@ export default function Referentiels({ embedded = false }) {
                                 </span>
                               )}
                             </td>
-                            <td className="px-2 py-1.5 text-right">{ue.ue_per_cours ?? '—'}</td>
-                            <td className="px-2 py-1.5 text-right text-gray-400">{ue.ue_aut ?? '—'}</td>
+                            <td className="px-2 py-1.5 text-right">{ue.calc_per_cours ?? ue.ue_per_cours ?? '—'}</td>
+                            <td className="px-2 py-1.5 text-right text-gray-400">{ue.calc_autonomie ?? ue.ue_aut ?? '—'}</td>
                             <td className="px-2 py-1.5 text-right text-gray-400">{ue.cours.length}</td>
                             <td className="px-2 py-1.5 text-right text-gray-400">{ue.nb_attributions}</td>
                             <td className={`px-2 py-1.5 text-right whitespace-nowrap ${activeUE === ueKey ? (isHelb ? 'border-r-2 border-pink-400' : 'border-r-2 border-iip-gold/60') : ''}`}>
@@ -672,8 +672,8 @@ export default function Referentiels({ embedded = false }) {
                         <td className="px-2 py-1.5 text-center">{ue.ue_niveau || '—'}</td>
                         <td className="px-2 py-1.5 text-center">{ue.ue_quad || '—'}</td>
                         <td className="px-2 py-1.5 text-center">{ue.et_ref || '—'}</td>
-                        <td className="px-2 py-1.5 text-right">{ue.ue_per_cours ?? '—'}</td>
-                        <td className="px-2 py-1.5 text-right text-gray-400">{ue.ue_aut ?? '—'}</td>
+                        <td className="px-2 py-1.5 text-right">{ue.calc_per_cours ?? ue.ue_per_cours ?? '—'}</td>
+                        <td className="px-2 py-1.5 text-right text-gray-400">{ue.calc_autonomie ?? ue.ue_aut ?? '—'}</td>
                         <td className="px-2 py-1.5 text-right">{ue.ects ?? '—'}</td>
                         <td className="px-2 py-1.5 text-right text-gray-400">{ue.cours.length}</td>
                         <td className="px-2 py-1.5 text-right whitespace-nowrap">
