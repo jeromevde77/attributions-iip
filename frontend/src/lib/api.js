@@ -51,6 +51,8 @@ export const api = {
   updateCours(code, data) { return request(`/ref/cours/${encodeURIComponent(code)}`, { method: 'PATCH', body: { annee_scolaire: getAnnee(), ...data } }); },
   renameCoursCode(code, nouveau_code) { return request(`/ref/cours/${encodeURIComponent(code)}/rename`, { method: 'PATCH', body: { annee_scolaire: getAnnee(), nouveau_code } }); },
   renameUENum(num, nouveau_num) { return request(`/ref/ue/${encodeURIComponent(num)}/rename`, { method: 'PATCH', body: { annee_scolaire: getAnnee(), nouveau_num } }); },
+  dedoublerUE(ue_num) { return request(`/ref/ue/${encodeURIComponent(ue_num)}/dedoubler`, { method: 'PATCH', body: { annee_scolaire: getAnnee() } }); },
+  annulerDedoublementUE(ue_num) { return request(`/ref/ue/${encodeURIComponent(ue_num)}/annuler-dedoublement`, { method: 'PATCH', body: { annee_scolaire: getAnnee() } }); },
   deleteCours(code) { return request(withAnnee(`/ref/cours/${encodeURIComponent(code)}`), { method: 'DELETE' }); },
   createSection(data) { return request('/ref/sections', { method: 'POST', body: data }); },
   updateSection(code, data) { return request(`/ref/sections/${encodeURIComponent(code)}`, { method: 'PATCH', body: data }); },

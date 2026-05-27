@@ -223,6 +223,27 @@ r.patch('/ue/:num/rename', authRequired, roleRequired('admin'), (req, res) => {
   res.json({ ok: true, ancien, nouveau });
 });
 
+// Dédouble tous les cours d'une UE en un clic (demande Nicolas).
+// Met dedouble='O' sur tous les cours de l'UE pour l'année donnée.
+// L'autonomie de chaque cours compte alors ×2 (règle DP validée).
+r.patch('/ue/:num/dedoubler', authRequired, roleRequired('admin', 'editeur'), (req, res) => {
+  const annee = req.body.annee_scolaire || req.query.annee || '2025-2026';
+  const ueNum = req.params.num;
+  const result = db.prepare(
+    `UPDATE cours SET dedouble = 'O' WHERE ue_num = ? AND annee_scolaire = ?`
+  ).run(ueNum, annee);
+  res.json({ ok: true, mises_a_jour: result.changes });
+});
+
+// Annule le dédoublement (remettre tous les cours à dedouble='N').
+r.patch('/ue/:num/annuler-dedoublement', authRequired, roleRequired('admin', 'editeur'), (req, res) => {
+  const annee = req.body.annee_scolaire || req.query.annee || '2025-2026';
+  const result = db.prepare(
+    `UPDATE cours SET dedouble = 'N' WHERE ue_num = ? AND annee_scolaire = ?`
+  ).run(req.params.num, annee);
+  res.json({ ok: true, mises_a_jour: result.changes });
+});
+
 r.delete('/ue/:num', authRequired, roleRequired('admin'), (req, res) => {
   const annee = req.query.annee || '2025-2026';
   const nb = db.prepare('SELECT COUNT(*) AS n FROM attribution WHERE ue_num = ? AND annee_scolaire = ?').get(req.params.num, annee).n;
