@@ -218,15 +218,12 @@ function UEModal({ ue, sections, onClose, onSaved }) {
                 <option value="">—</option><option value="IIP">IIP</option><option value="HELB">HELB</option>
               </select></label>
           </div>
-          <div className="grid grid-cols-3 gap-3">
+          <div className="grid grid-cols-2 gap-3">
             <label className="block"><div className="text-xs text-gray-600 mb-0.5">Code FWB</div>
               <input value={form.ue_code_fwb} onChange={e => set('ue_code_fwb', e.target.value)}
                 className="w-full border border-gray-300 rounded px-3 py-1.5 text-sm" /></label>
             <label className="block"><div className="text-xs text-gray-600 mb-0.5">ECTS</div>
               <input type="number" value={form.ects} onChange={e => set('ects', e.target.value)}
-                className="w-full border border-gray-300 rounded px-3 py-1.5 text-sm" /></label>
-            <label className="block"><div className="text-xs text-gray-600 mb-0.5">Pér. étudiants</div>
-              <input type="number" value={form.ue_per_etudiants} onChange={e => set('ue_per_etudiants', e.target.value)}
                 className="w-full border border-gray-300 rounded px-3 py-1.5 text-sm" /></label>
           </div>
           <div className="grid grid-cols-3 gap-3">
