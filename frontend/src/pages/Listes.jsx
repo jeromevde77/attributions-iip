@@ -52,15 +52,22 @@ const ENTITES = {
       { key: 'ue_prerequise', label: 'Prérequis',       defaut: false },
     ],
     fetch: (annee, filtres) => authFetch(`/api/ref/structure?annee=${encodeURIComponent(annee)}`).then(d => {
+      // d est un TABLEAU d'objets { section, ues: [...] }
       const map = new Map();
-      for (const sg of Object.values(d)) for (const ue of sg) {
-        if (!map.has(ue.ue_num)) {
-          map.set(ue.ue_num, { ...ue, _sections: new Set() });
+      for (const sg of (Array.isArray(d) ? d : [])) {
+        for (const ue of (sg.ues || [])) {
+          if (!map.has(ue.ue_num)) {
+            map.set(ue.ue_num, { ...ue, _sections: new Set() });
+          }
+          if (sg.section && sg.section !== '(sans section)') {
+            map.get(ue.ue_num)._sections.add(sg.section);
+          }
         }
-        const sec = sg.section || ue.section;
-        if (sec && sec !== '(sans section)') map.get(ue.ue_num)._sections.add(sec);
       }
-      let rows = [...map.values()].map(ue => ({ ...ue, _sectionsLabel: ue._sections.size ? [...ue._sections].sort().join(', ') : '—' }));
+      let rows = [...map.values()].map(ue => ({
+        ...ue,
+        _sectionsLabel: ue._sections.size ? [...ue._sections].sort().join(', ') : '—'
+      }));
       if (filtres.section) rows = rows.filter(u => u._sections.has(filtres.section));
       if (filtres.niveau) rows = rows.filter(u => u.ue_niveau === filtres.niveau);
       return rows.sort((a, b) => (a.ue_num || 0) - (b.ue_num || 0));
@@ -169,8 +176,10 @@ const ENTITES = {
     ],
     fetch: (annee, filtres) => authFetch(`/api/ref/structure?annee=${encodeURIComponent(annee)}`).then(d => {
       const map = new Map();
-      for (const sg of Object.values(d)) for (const ue of sg) {
-        if (!map.has(ue.ue_num)) map.set(ue.ue_num, { ...ue, nb_attributions: ue.nb_attributions || 0 });
+      for (const sg of (Array.isArray(d) ? d : [])) {
+        for (const ue of (sg.ues || [])) {
+          if (!map.has(ue.ue_num)) map.set(ue.ue_num, { ...ue, nb_attributions: ue.nb_attributions || 0 });
+        }
       }
       return [...map.values()].filter(u => !u.nb_attributions).sort((a, b) => (a.ue_num || 0) - (b.ue_num || 0));
     }),
