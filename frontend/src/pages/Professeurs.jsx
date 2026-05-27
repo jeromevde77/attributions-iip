@@ -322,7 +322,7 @@ export default function Professeurs() {
             </thead>
             <tbody>
               {filtered.map(p => (
-                <tr key={p.id} className="hover:bg-gray-50">
+                <tr key={p.id} className={p.statut === 'EXP' ? 'bg-slate-100/60 hover:bg-slate-200/60' : 'hover:bg-gray-50'}>
                   <td className="text-center">
                     <input type="checkbox" checked={selection.has(p.id)}
                       onChange={() => toggleSelect(p.id)} />
@@ -334,7 +334,7 @@ export default function Professeurs() {
                   </td>
                   <td>
                     {p.statut
-                      ? <span className={`badge ${p.statut === 'CC' ? 'badge-iip' : 'badge-helb'}`}>{p.statut}</span>
+                      ? <span className={`badge ${p.statut === 'CC' ? 'badge-iip' : p.statut === 'EXP' ? 'badge-exp' : 'badge-helb'}`}>{p.statut}</span>
                       : <span className="text-gray-300 text-xs">—</span>}
                   </td>
                   <td className="text-xs text-gray-600">{p.adresse_mail || '—'}</td>
