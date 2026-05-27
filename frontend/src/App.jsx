@@ -92,7 +92,8 @@ function ProtectedLayout({ children }) {
         ['/attributions', 'Attributions'],
         ['/professeurs',  'Professeurs'],
         ['/listes',       'Listes'],
-        ...(u?.role === 'admin' ? [['/ea12', 'EA12']] : []),
+        // EA12 masqué en prod (génération PDF pas encore finalisée)
+        // ...(u?.role === 'admin' ? [['/ea12', 'EA12']] : []),
       ];
   if (u?.role === 'admin') nav.push(['/configuration', '⚙ Configuration']);
 

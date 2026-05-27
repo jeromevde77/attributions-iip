@@ -431,7 +431,8 @@ export default function ProfFicheModal({ prof, onClose, onSaved }) {
           {/* Actions */}
           <div className="flex justify-end gap-2 pt-2 border-t border-gray-100 sticky bottom-0 bg-white">
             <button type="button" onClick={onClose} className="px-4 py-2 text-sm text-gray-600 hover:text-gray-800">Annuler</button>
-            {!isNew && (
+            {/* Bouton fiche PDF masqué en prod (nécessite LibreOffice — à activer quand finalisé) */}
+            {false && !isNew && (
               <button type="button" onClick={genererFichePdf} disabled={saving || genPdf}
                 className="bg-iip-mauve hover:opacity-90 disabled:opacity-40 text-white text-sm px-4 py-2 rounded font-medium">
                 {genPdf ? 'Génération…' : '📄 Générer la fiche (PDF)'}
