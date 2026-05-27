@@ -49,6 +49,7 @@ export const api = {
   deleteUE(num) { return request(withAnnee(`/ref/ue/${num}`), { method: 'DELETE' }); },
   createCours(data) { return request('/ref/cours', { method: 'POST', body: { annee_scolaire: getAnnee(), ...data } }); },
   updateCours(code, data) { return request(`/ref/cours/${encodeURIComponent(code)}`, { method: 'PATCH', body: { annee_scolaire: getAnnee(), ...data } }); },
+  renameCoursCode(code, nouveau_code) { return request(`/ref/cours/${encodeURIComponent(code)}/rename`, { method: 'PATCH', body: { annee_scolaire: getAnnee(), nouveau_code } }); },
   deleteCours(code) { return request(withAnnee(`/ref/cours/${encodeURIComponent(code)}`), { method: 'DELETE' }); },
   createSection(data) { return request('/ref/sections', { method: 'POST', body: data }); },
   updateSection(code, data) { return request(`/ref/sections/${encodeURIComponent(code)}`, { method: 'PATCH', body: data }); },
