@@ -544,6 +544,11 @@ export default function Referentiels({ embedded = false }) {
                             </td>
                             <td className="px-2 py-1.5 cursor-pointer truncate max-w-[280px]" title={ue.ue_nom} onClick={() => { toggle(ueKey); setActiveUE(ueKey); }}>
                               {ue.ue_nom}
+                              {ue._orpheline && (
+                                <span className="ml-2 text-xs bg-orange-100 text-orange-700 border border-orange-200 rounded px-1.5 py-0.5" title="Des attributions existent pour cette UE mais elle n'a pas de fiche dans le référentiel">
+                                  ⚠ fiche manquante
+                                </span>
+                              )}
                               {ue.sections_partagees && (
                                 <span className="ml-2 text-sm text-iip-mauve" title={`Aussi organisée dans : ${ue.sections_partagees.filter(s => s !== sg.section).join(', ')}`}>
                                   ⇄ partagée
