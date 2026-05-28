@@ -6,7 +6,8 @@ import Login from './pages/Login.jsx';
 import Dashboard from './pages/Dashboard.jsx';
 import Attributions from './pages/Attributions.jsx';
 import Professeurs from './pages/Professeurs.jsx';
-import Editeur from './pages/Editeur.jsx';
+import { lazy, Suspense } from 'react';
+const Editeur = lazy(() => import('./pages/Editeur.jsx'));
 import Users from './pages/Users.jsx';
 import Annees from './pages/Annees.jsx';
 import Configuration from './pages/Configuration.jsx';
@@ -192,7 +193,13 @@ export default function App() {
       <Route path="/attributions" element={<ProtectedLayout><Attributions /></ProtectedLayout>} />
       <Route path="/professeurs"  element={<ProtectedLayout><Professeurs /></ProtectedLayout>} />
       <Route path="/listes"       element={<ProtectedLayout><Listes /></ProtectedLayout>} />
-      <Route path="/editeur"      element={<ProtectedLayout><Editeur /></ProtectedLayout>} />
+      <Route path="/editeur" element={
+        <ProtectedLayout>
+          <Suspense fallback={<div className="p-8 text-gray-400">Chargement de l'éditeur…</div>}>
+            <Editeur />
+          </Suspense>
+        </ProtectedLayout>
+      } />
       <Route path="/ea12"          element={<ProtectedLayout><EA12List /></ProtectedLayout>} />
       <Route path="/ea12/:id"      element={<ProtectedLayout><EA12Editor /></ProtectedLayout>} />
       <Route path="/pilotage"     element={<Navigate to="/" replace />} />
