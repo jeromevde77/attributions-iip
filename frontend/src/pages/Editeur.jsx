@@ -56,14 +56,22 @@ const CHAMPS = {
     { key: 'sys.date',            label: 'Date du jour (JJ/MM/AAAA)' },
     { key: 'sys.annee',           label: 'Année scolaire' },
     { key: 'sys.date_iso',        label: 'Date ISO' },
+    { key: 'sys.section',         label: 'Section (choisie à la génération)' },
   ],
 };
 
 // ─── Types de boucles disponibles ─────────────────────────────────────────
 const BOUCLES = {
+  resume_section: {
+    label: 'Tableau synthèse UE + Cours (par section)',
+    color: '#eaf2ff', border: '#1a5276',
+    description: 'Génère automatiquement un tableau hiérarchique complet : UE avec leurs cours, périodes prof et étudiant. Sélectionnez une section à la génération.',
+    champs: [], // Pas de champs manuels — le backend génère tout
+  },
   profs_ue: {
     label: "Pour chaque prof de l'UE",
     color: '#e8f5e9', border: '#43a047',
+    description: 'Répète le contenu du bloc pour chaque professeur attribué à l\'UE. Indiquez le N° UE à la génération.',
     champs: [
       { key: 'item.professeur',               label: 'Professeur (nom complet)' },
       { key: 'item.nom',                      label: 'Prof — Nom' },
@@ -80,6 +88,7 @@ const BOUCLES = {
   cours_ue: {
     label: "Pour chaque cours de l'UE",
     color: '#e3f2fd', border: '#1e88e5',
+    description: 'Répète le contenu pour chaque cours de l\'UE. Indiquez le N° UE à la génération.',
     champs: [
       { key: 'item.cours_code',        label: 'Code cours' },
       { key: 'item.cours_nom',         label: 'Nom du cours' },
@@ -93,6 +102,7 @@ const BOUCLES = {
   attributions_prof: {
     label: 'Pour chaque cours attribué au prof',
     color: '#fce4ec', border: '#e53935',
+    description: 'Répète le contenu pour chaque cours attribué au professeur sélectionné.',
     champs: [
       { key: 'item.ue_num',                   label: 'N° UE' },
       { key: 'item.ue_nom',                   label: "Nom de l'UE" },
@@ -240,7 +250,9 @@ export default function Editeur() {
   const [generating, setGenerating]   = useState(false);
   const [profId, setProfId]           = useState('');
   const [ueNum, setUeNum]             = useState('');
+  const [section, setSection]         = useState('');
   const [profs, setProfs]             = useState([]);
+  const [sections, setSections]       = useState([]);
   const [search, setSearch]           = useState('');
   const [panelMode, setPanelMode]     = useState('champs'); // 'champs' | 'boucles'
   const [boucleActive, setBoucleActive] = useState('profs_ue');
@@ -248,6 +260,7 @@ export default function Editeur() {
   useEffect(() => {
     chargerTemplates();
     api.professeurs().then(setProfs).catch(() => {});
+    api.sections().then(setSections).catch(() => {});
   }, []);
 
   function chargerTemplates() {
@@ -317,7 +330,7 @@ export default function Editeur() {
       const r = await fetch(`/api/templates/${templateId}/generer`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-        body: JSON.stringify({ prof_id: profId || undefined, ue_num: ueNum || undefined, annee }),
+        body: JSON.stringify({ prof_id: profId || undefined, ue_num: ueNum || undefined, section: section || undefined, annee }),
       });
       const { html, nom: tnom } = await r.json();
       const w = window.open('', '_blank');
@@ -382,6 +395,11 @@ export default function Editeur() {
             className="bg-iip-gold hover:bg-iip-amber disabled:opacity-40 text-white text-sm px-4 py-1.5 rounded font-medium whitespace-nowrap">
             {saving ? '…' : '💾 Sauvegarder'}
           </button>
+          <select value={section} onChange={e => setSection(e.target.value)}
+            className="border border-gray-300 rounded px-2 py-1.5 text-sm bg-white">
+            <option value="">— Section —</option>
+            {sections.map(s => <option key={s.code} value={s.code}>{s.code}</option>)}
+          </select>
           <select value={profId} onChange={e => setProfId(e.target.value)}
             className="border border-gray-300 rounded px-2 py-1.5 text-sm bg-white">
             <option value="">— Prof —</option>
@@ -454,20 +472,29 @@ export default function Editeur() {
             </div>
 
             {/* Bouton insérer + champs de la boucle active */}
-            <div className="px-3 border-t border-gray-200 pt-3">
+              <div className="px-3 border-t border-gray-200 pt-3">
               <button onClick={() => insererBoucle(boucleActive)}
                 className="w-full text-white text-sm font-semibold py-2 rounded mb-3 transition"
                 style={{ background: boucleInfo.border }}>
                 ⊕ Insérer ce bloc dans le document
               </button>
-              <div className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">Champs disponibles dans ce bloc</div>
-              {boucleInfo.champs.map(c => (
-                <button key={c.key} onClick={() => insererChamp(c)}
-                  className="w-full text-left px-2 py-1.5 text-xs hover:bg-gray-100 flex items-center gap-1 group rounded">
-                  <span className="text-gray-400 group-hover:text-iip-gold">⊕</span>
-                  <span className="truncate">{c.label}</span>
-                </button>
-              ))}
+              {boucleInfo.description && (
+                <p className="text-xs text-gray-500 mb-3 leading-relaxed">{boucleInfo.description}</p>
+              )}
+              {boucleInfo.champs.length > 0 ? (
+                <>
+                  <div className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">Champs disponibles dans ce bloc</div>
+                  {boucleInfo.champs.map(c => (
+                    <button key={c.key} onClick={() => insererChamp(c)}
+                      className="w-full text-left px-2 py-1.5 text-xs hover:bg-gray-100 flex items-center gap-1 group rounded">
+                      <span className="text-gray-400 group-hover:text-iip-gold">⊕</span>
+                      <span className="truncate">{c.label}</span>
+                    </button>
+                  ))}
+                </>
+              ) : (
+                <p className="text-xs text-gray-400 italic">Ce bloc génère automatiquement son contenu — pas besoin de champs supplémentaires.</p>
+              )}
             </div>
           </div>
         )}

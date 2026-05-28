@@ -154,6 +154,19 @@ try {
       modifie_le  TEXT DEFAULT (datetime('now'))
     );
   `);
+
+  // Seed : template exemple "Synthèse de section" si aucun template n'existe
+  const nbTpl = db.prepare('SELECT COUNT(*) AS n FROM document_template').get().n;
+  if (nbTpl === 0) {
+    const contenuExemple = `<h2 style="text-align: center">Synthèse de section — {{sys.annee}}</h2><h3 style="text-align: center">{{etab.etab_nom}}</h3><p style="text-align: center"><em>Section : {{sys.section}}</em></p><p></p><div data-boucle="resume_section"><p></p></div><p></p><p style="color: #888; font-size: 9pt">Document généré par Lucie le {{sys.date}}</p>`;
+    db.prepare(`INSERT INTO document_template (nom, description, contenu, cree_par)
+      VALUES (?, ?, ?, 'Lucie (exemple)')`).run(
+      'Synthèse de section',
+      'Tableau hiérarchique UE → Cours avec périodes prof et étudiant. Choisissez une section pour générer.',
+      contenuExemple
+    );
+    console.log('[migration] Template exemple "Synthèse de section" créé');
+  }
   // Option B : chaque génération est CONSERVÉE et horodatée (traçabilité FWB).
   db.exec(`
     CREATE TABLE IF NOT EXISTS document_archive (
