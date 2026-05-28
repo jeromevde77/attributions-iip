@@ -20,6 +20,7 @@ import anneesRoutes from './routes/annees.js';
 import historiqueRoutes from './routes/historique.js';
 import etablissementRoutes from './routes/etablissement.js';
 import ea12Routes from './routes/ea12.js';
+import templateRoutes   from './routes/templates.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
@@ -140,7 +141,19 @@ try {
     CREATE INDEX IF NOT EXISTS idx_us_user ON utilisateur_section(utilisateur_id);
   `);
 
-  // Archive des documents officiels générés (EA12, fiche signalétique).
+  // Table des templates de documents (éditeur visuel)
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS document_template (
+      id          INTEGER PRIMARY KEY AUTOINCREMENT,
+      nom         TEXT NOT NULL,
+      description TEXT,
+      contenu     TEXT NOT NULL DEFAULT '',  -- HTML du template avec {{champs}}
+      entites     TEXT DEFAULT '[]',          -- JSON: entités nécessaires ["prof","etab"]
+      cree_par    TEXT,
+      cree_le     TEXT DEFAULT (datetime('now')),
+      modifie_le  TEXT DEFAULT (datetime('now'))
+    );
+  `);
   // Option B : chaque génération est CONSERVÉE et horodatée (traçabilité FWB).
   db.exec(`
     CREATE TABLE IF NOT EXISTS document_archive (
@@ -770,6 +783,7 @@ app.use('/api/annees',       anneesRoutes);
 app.use('/api/historique',   historiqueRoutes);
 app.use('/api/etablissement', etablissementRoutes);
 app.use('/api/ea12',          ea12Routes);
+app.use('/api/templates',   templateRoutes);
 
 // Erreurs
 app.use((err, req, res, next) => {
