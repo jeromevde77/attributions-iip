@@ -237,7 +237,7 @@ export async function remplirModeleOfficiel(data) {
   // ── Cases à cocher ────────────────────────────────────────────────────────
   const indices = [1, 3, 15]; // Fixes IIP : FWB + Libre + Supérieur
 
-  const statutMap = { T: 5, TPr: 6, St: 7, ACS: 8, APE: 10, PTP: 11 };
+  const statutMap = { T: 5, TPr: 6, St: 7, D: 8, ACS: 9, APE: 10, PTP: 11 };
   if (data.statut && statutMap[data.statut] !== undefined) indices.push(statutMap[data.statut]);
 
   if (data.pas_cumul) indices.push(12);
@@ -248,15 +248,32 @@ export async function remplirModeleOfficiel(data) {
   if (data.jours && joursMap[Number(data.jours)]) indices.push(joursMap[Number(data.jours)]);
 
   const justifMap = {
-    entree_en_fonction: 22, rentree_en_fonction: 23, maintien_attributions: 24,
-    augmentation_attributions: 25, prolongation_attributions: 26, reduction_attributions: 27,
-    fin_fonctions: 28, nomination: 29, extension: 30, passerelle: 31,
-    creation_emploi: 33, remplacement: 34, modification_interne: 36,
-    conge_absence: 37, perte_charge: 38, dppr: 39,
-    suppression_emploi: 40, fin_remplacement: 41, demission: 42,
-    mise_retraite: 43, deces: 44,
+    entree_en_fonction:       22,
+    rentree_en_fonction:      23,
+    maintien_attributions:    24,
+    augmentation_attributions:25,
+    prolongation_attributions:26,
+    reduction_attributions:   27,
+    fin_fonctions:            28,
+    nomination:               29,
+    extension:                30,
+    passerelle:               31,
+    autres_mouvement:         32,
+    creation_emploi:          33,
+    remplacement:             34,
+    changement_affectation:   35,  // ← corrigé (était manquant)
+    modification_interne:     36,
+    conge_absence:            37,
+    perte_charge:             38,
+    dppr:                     39,
+    suppression_emploi:       40,
+    fin_remplacement:         41,
+    demission:                42,
+    mise_retraite:            43,
+    deces:                    44,
+    autres_justif:            45,
   };
-  if (data.justif && justifMap[data.justif]) indices.push(justifMap[data.justif]);
+  if (data.justif && justifMap[data.justif] !== undefined) indices.push(justifMap[data.justif]);
 
   xml = cocherCases(xml, [...new Set(indices)]);
 
