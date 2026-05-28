@@ -229,10 +229,23 @@ r.patch('/ue/:num/rename', authRequired, roleRequired('admin'), (req, res) => {
 r.patch('/ue/:num/dedoubler', authRequired, roleRequired('admin', 'editeur'), (req, res) => {
   const annee = req.body.annee_scolaire || req.query.annee || '2025-2026';
   const ueNum = req.params.num;
-  const result = db.prepare(
-    `UPDATE cours SET dedouble = 'O' WHERE ue_num = ? AND annee_scolaire = ?`
-  ).run(ueNum, annee);
-  res.json({ ok: true, mises_a_jour: result.changes });
+  const tx = db.transaction(() => {
+    // 1. Marquer les cours comme dédoublés dans la table cours
+    db.prepare(`UPDATE cours SET dedouble = 'O' WHERE ue_num = ? AND annee_scolaire = ?`).run(ueNum, annee);
+    // 2. Doubler periodes_attribuees ET autonomie_attribuee dans les attributions
+    //    de tous les cours de cette UE — c'est ce qui est visible dans la grille
+    const r = db.prepare(`
+      UPDATE attribution
+      SET periodes_attribuees  = periodes_attribuees  * 2,
+          autonomie_attribuee  = autonomie_attribuee  * 2
+      WHERE annee_scolaire = ?
+        AND ue_num = ?
+        AND periodes_attribuees > 0
+    `).run(annee, ueNum);
+    return r.changes;
+  });
+  const changes = tx();
+  res.json({ ok: true, attributions_mises_a_jour: changes });
 });
 
 // Annule le dédoublement (remettre tous les cours à dedouble='N').
