@@ -237,7 +237,24 @@ r.post('/:id/generer', authRequired, async (req, res) => {
   let html = t.contenu;
   for (const [key, val] of Object.entries(vars)) html = html.replaceAll(`{{${key}}}`, String(val));
 
-  // ── 2. Expansion des boucles ─────────────────────────────────────────────
+  // ── 2a. Marqueurs texte {{#type}}...{{/type}} (approche simple, sans problème de focus) ──
+  // TipTap génère par ex. : <p><strong>{{#profs_ue}}</strong>  ← Pour chaque prof...</p>
+  // Le regex les trouve dans le HTML et les expande.
+  try {
+    const marqueurRe = /\{\{#(\w+)\}\}([\s\S]*?)\{\{\/\1\}\}/g;
+    html = html.replace(marqueurRe, (_, type, templateBrut) => {
+      if (type === 'resume_section') return genererResumeSection(section, ctx.annee);
+      const rows = fetchBoucleData(type, ctx);
+      if (!rows.length) return '<p style="color:#999;font-style:italic">(aucune donnée pour cette boucle)</p>';
+      return rows.map(row => {
+        let rh = templateBrut;
+        for (const [k, v] of Object.entries(row)) rh = rh.replaceAll(`{{item.${k}}}`, String(v ?? ''));
+        return rh.replace(/\{\{item\.[^}]+\}\}/g, '');
+      }).join('');
+    });
+  } catch (e) { console.error('[generer] marqueurs texte :', e.message); }
+
+  // ── 2b. Blocs data-boucle (ancienne approche TipTap node) ────────────────
   try {
     const root = parseHtml(html, { lowerCaseTagName: false });
     const blocks = root.querySelectorAll('[data-boucle]');

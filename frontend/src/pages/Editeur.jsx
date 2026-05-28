@@ -284,11 +284,22 @@ export default function Editeur() {
   }
 
   function insererBoucle(type) {
-    editor?.chain().focus().insertContent({
-      type: 'boucleBlock',
-      attrs: { boucleType: type },
-      content: [{ type: 'paragraph', content: [{ type: 'text', text: '(mettez ici la mise en page d\'une ligne)' }] }],
-    }).run();
+    const info = BOUCLES[type];
+    // Marqueurs texte simples : pas de TipTap node complexe, pas de problème de focus.
+    // Le curseur se place dans la ligne vide centrale pour insérer les champs.
+    editor?.chain().focus().insertContent([
+      { type: 'paragraph', content: [
+          { type: 'text', marks:[{type:'bold'}], text: '{{#' + type + '}}' },
+          { type: 'text', text: '  ← ' + info.label },
+        ]
+      },
+      { type: 'paragraph', content: [] },
+      { type: 'paragraph', content: [
+          { type: 'text', marks:[{type:'bold'}], text: '{{/' + type + '}}' },
+          { type: 'text', text: '  ← fin de boucle' },
+        ]
+      },
+    ]).run();
   }
 
   async function sauvegarder() {
