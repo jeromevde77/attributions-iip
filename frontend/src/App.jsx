@@ -7,6 +7,7 @@ import Dashboard from './pages/Dashboard.jsx';
 import Attributions from './pages/Attributions.jsx';
 import Professeurs from './pages/Professeurs.jsx';
 import { lazy, Suspense } from 'react';
+const Listes  = lazy(() => import('./pages/Listes.jsx'));
 const Editeur = lazy(() => import('./pages/Editeur.jsx'));
 import Users from './pages/Users.jsx';
 import Annees from './pages/Annees.jsx';
@@ -192,7 +193,13 @@ export default function App() {
       <Route path="/"             element={<ProtectedLayout><Dashboard /></ProtectedLayout>} />
       <Route path="/attributions" element={<ProtectedLayout><Attributions /></ProtectedLayout>} />
       <Route path="/professeurs"  element={<ProtectedLayout><Professeurs /></ProtectedLayout>} />
-      <Route path="/listes"       element={<ProtectedLayout><Listes /></ProtectedLayout>} />
+      <Route path="/listes" element={
+        <ProtectedLayout>
+          <Suspense fallback={<div className="p-8 text-gray-400">Chargement…</div>}>
+            <Listes />
+          </Suspense>
+        </ProtectedLayout>
+      } />
       <Route path="/editeur" element={
         <ProtectedLayout>
           <Suspense fallback={<div className="p-8 text-gray-400">Chargement de l'éditeur…</div>}>
