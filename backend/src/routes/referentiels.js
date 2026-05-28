@@ -229,23 +229,31 @@ r.patch('/ue/:num/rename', authRequired, roleRequired('admin'), (req, res) => {
 r.patch('/ue/:num/dedoubler', authRequired, roleRequired('admin', 'editeur'), (req, res) => {
   const annee = req.body.annee_scolaire || req.query.annee || '2025-2026';
   const ueNum = req.params.num;
+  // Colonnes à copier (toutes sauf id et colonnes VIRTUAL)
+  const COLS = [
+    'section','etablissement_referent','contrat_mdp','organisation','annee_scolaire',
+    'ue_num','num_organisation','quadrimestre_attribue','code_cours','type_cours',
+    'type_cours_helb','code','nb_groupes','split_groupe','num_split','num_groupe',
+    'activite_id','professeur_id','cours_ept_ad','coordination_encadrement',
+    'modification_attribution','commentaire','commentaire_2','charge_perdue_84plus',
+    'periodes_transferees','per_etudiant_total_dp','periodes_attribuees',
+    'autonomie_attribuee','titre_rtf',
+  ].join(', ');
   const tx = db.transaction(() => {
-    // 1. Marquer les cours comme dédoublés dans la table cours
+    // Marquer les cours comme dédoublés dans le DP
     db.prepare(`UPDATE cours SET dedouble = 'O' WHERE ue_num = ? AND annee_scolaire = ?`).run(ueNum, annee);
-    // 2. Doubler periodes_attribuees ET autonomie_attribuee dans les attributions
-    //    de tous les cours de cette UE — c'est ce qui est visible dans la grille
+    // Dupliquer chaque ligne d'attribution de cette UE
+    // (INSERT INTO ... SELECT FROM attribution WHERE ue_num = ? AND annee_scolaire = ?)
     const r = db.prepare(`
-      UPDATE attribution
-      SET periodes_attribuees  = periodes_attribuees  * 2,
-          autonomie_attribuee  = autonomie_attribuee  * 2
-      WHERE annee_scolaire = ?
-        AND ue_num = ?
-        AND periodes_attribuees > 0
-    `).run(annee, ueNum);
+      INSERT INTO attribution (${COLS})
+      SELECT ${COLS}
+      FROM attribution
+      WHERE ue_num = ? AND annee_scolaire = ?
+    `).run(ueNum, annee);
     return r.changes;
   });
-  const changes = tx();
-  res.json({ ok: true, attributions_mises_a_jour: changes });
+  const nb = tx();
+  res.json({ ok: true, lignes_dupliquees: nb });
 });
 
 // Annule le dédoublement (remettre tous les cours à dedouble='N').
