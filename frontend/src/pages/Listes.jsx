@@ -1,6 +1,19 @@
 import { useState, useEffect } from 'react';
-import * as XLSX from 'xlsx';
 import { api, getAnnee } from '../lib/api.js';
+
+// Export Excel via import dynamique (évite de bloquer le bundle si xlsx pose problème)
+async function exportExcel(rows, cols, nom) {
+  try {
+    const XLSX = await import('xlsx');
+    const data = [cols.map(c => c.label), ...rows.map(r => cols.map(c => r[c.key] ?? ''))];
+    const ws = XLSX.utils.aoa_to_sheet(data);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, 'Export');
+    XLSX.writeFile(wb, `${nom}.xlsx`);
+  } catch (e) {
+    alert('Export Excel indisponible : ' + e.message);
+  }
+}
 
 function getToken() { return localStorage.getItem('token'); }
 
@@ -48,7 +61,7 @@ const ENTITES = {
       { key: 'calc_autonomie', label: 'Autonomie (calc.)',        defaut: false },
       { key: 'calc_per_z',     label: 'Pér. Z (calc.)',          defaut: false },
       { key: 'calc_tot_prof',  label: 'Total prof (calc.)',      defaut: false },
-      { key: 'calc_total_ue',  label: 'Périodes étudiant DP',    defaut: true  },
+      { key: 'ue_per_etudiants', label: 'Périodes étudiant DP', defaut: true  },
       { key: 'et_ref',        label: 'Réf.',            defaut: false },
       { key: 'ue_code_fwb',   label: 'Code FWB',        defaut: false },
       { key: 'ue_tc',         label: 'TC',              defaut: false },
@@ -200,13 +213,6 @@ function exportCSV(rows, cols, nom) {
   URL.revokeObjectURL(url);
 }
 
-function exportExcel(rows, cols, nom) {
-  const data = [cols.map(c => c.label), ...rows.map(r => cols.map(c => r[c.key] ?? ''))];
-  const ws = XLSX.utils.aoa_to_sheet(data);
-  const wb = XLSX.utils.book_new();
-  XLSX.utils.book_append_sheet(wb, ws, 'Export');
-  XLSX.writeFile(wb, `${nom}.xlsx`);
-}
 
 // ─── Composant principal ─────────────────────────────────────────────────────
 export default function Listes() {

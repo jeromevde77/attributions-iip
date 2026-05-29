@@ -470,6 +470,7 @@ export default function Referentiels({ embedded = false }) {
                 <th className="text-left px-2 py-2">Nom de l'UE</th>
                 <th className="text-right px-2 py-2">Pér.</th>
                 <th className="text-right px-2 py-2">Aut.</th>
+                <th className="text-right px-2 py-2 text-iip-mauve" title="Périodes étudiant DP = cours + autonomie + Z">Pér. ét. DP</th>
                 <th className="text-right px-2 py-2">Cours</th>
                 <th className="text-right px-2 py-2">Attr.</th>
                 <th className="px-2 py-2"></th>
@@ -477,7 +478,7 @@ export default function Referentiels({ embedded = false }) {
             </thead>
             <tbody>
               {structure.length === 0 && (
-                <tr><td colSpan="12" className="text-center text-gray-400 py-8">Aucune UE pour {annee}.</td></tr>
+                <tr><td colSpan="13" className="text-center text-gray-400 py-8">Aucune UE pour {annee}.</td></tr>
               )}
               {structure.map(sg => {
                 const secKey = 'sec:' + sg.section;
@@ -496,7 +497,7 @@ export default function Referentiels({ embedded = false }) {
                         <span className="font-bold text-iip-gold text-sm">{sg.section}</span>
                         {sg.section_niveau && <span className="ml-2 text-xs bg-iip-gold/10 text-iip-gold px-1.5 py-0.5 rounded">{sg.section_niveau}</span>}
                       </td>
-                      <td colSpan="4" className="px-2 py-2 text-right text-sm text-gray-500">{sg.ues.length} UE · {totalCours} cours</td>
+                      <td colSpan="5" className="px-2 py-2 text-right text-sm text-gray-500">{sg.ues.length} UE · {totalCours} cours</td>
                       <td className="px-2 py-2 text-right relative">
                         <button onClick={() => setCatalogueSection(catalogueSection === sg.section ? null : sg.section)}
                           title={`Ajouter une UE à ${sg.section}`}
@@ -543,6 +544,11 @@ export default function Referentiels({ embedded = false }) {
                             </td>
                             <td className="px-2 py-1.5 cursor-pointer truncate max-w-[280px]" title={ue.ue_nom} onClick={() => { toggle(ueKey); setActiveUE(ueKey); }}>
                               {ue.ue_nom}
+                              {ue._orpheline && (
+                                <span className="ml-2 text-xs bg-orange-100 text-orange-700 border border-orange-200 rounded px-1.5 py-0.5" title="Des attributions existent pour cette UE mais elle n'a pas de fiche dans le référentiel">
+                                  ⚠ fiche manquante
+                                </span>
+                              )}
                               {ue.sections_partagees && (
                                 <span className="ml-2 text-sm text-iip-mauve" title={`Aussi organisée dans : ${ue.sections_partagees.filter(s => s !== sg.section).join(', ')}`}>
                                   ⇄ partagée
@@ -551,6 +557,7 @@ export default function Referentiels({ embedded = false }) {
                             </td>
                             <td className="px-2 py-1.5 text-right">{ue.calc_per_cours ?? ue.ue_per_cours ?? '—'}</td>
                             <td className="px-2 py-1.5 text-right text-gray-400">{ue.calc_autonomie ?? ue.ue_aut ?? '—'}</td>
+                            <td className="px-2 py-1.5 text-right font-semibold text-iip-mauve">{ue.ue_per_etudiants ?? '—'}</td>
                             <td className="px-2 py-1.5 text-right text-gray-400">{ue.cours.length}</td>
                             <td className="px-2 py-1.5 text-right text-gray-400">{ue.nb_attributions}</td>
                             <td className={`px-2 py-1.5 text-right whitespace-nowrap ${activeUE === ueKey ? (isHelb ? 'border-r-2 border-pink-400' : 'border-r-2 border-iip-gold/60') : ''}`}>
@@ -564,7 +571,7 @@ export default function Referentiels({ embedded = false }) {
                                 ? (isHelb ? 'bg-pink-50/60' : 'bg-iip-gold/5')
                                 : (isHelb ? 'bg-pink-50/40' : 'bg-gray-50/50')
                             }>
-                              <td colSpan="12" className={`px-8 py-2 ${activeUE === ueKey ? (isHelb ? 'border-b-2 border-l-2 border-r-2 border-pink-400' : 'border-b-2 border-l-2 border-r-2 border-iip-gold/60') : ''}`}>
+                              <td colSpan="13" className={`px-8 py-2 ${activeUE === ueKey ? (isHelb ? 'border-b-2 border-l-2 border-r-2 border-pink-400' : 'border-b-2 border-l-2 border-r-2 border-iip-gold/60') : ''}`}>
                                 <table className="w-full text-sm">
                                   <thead><tr className="text-gray-500">
                                     <th className="text-left py-1">Code</th><th className="text-left">Nom du cours</th>

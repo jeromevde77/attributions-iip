@@ -1,4 +1,21 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, Component } from 'react';
+
+// Error boundary : affiche l'erreur au lieu d'une page blanche
+class ErrorBoundary extends Component {
+  constructor(props) { super(props); this.state = { error: null }; }
+  static getDerivedStateFromError(e) { return { error: e }; }
+  render() {
+    if (this.state.error) return (
+      <div style={{ padding: '40px', fontFamily: 'monospace', background: '#fff0f0', minHeight: '100vh' }}>
+        <h2 style={{ color: '#c00' }}>❌ Erreur JavaScript — merci de copier ce message</h2>
+        <pre style={{ background: '#fff', border: '1px solid #f00', padding: '16px', borderRadius: '4px', overflow: 'auto' }}>
+          {this.state.error?.toString()}{'\n\n'}{this.state.error?.stack}
+        </pre>
+      </div>
+    );
+    return this.props.children;
+  }
+}
 import { Routes, Route, Navigate, NavLink, useNavigate } from 'react-router-dom';
 import { isAuthenticated, getUser, api, getAnnee, setAnnee } from './lib/api.js';
 
@@ -6,7 +23,10 @@ import Login from './pages/Login.jsx';
 import Dashboard from './pages/Dashboard.jsx';
 import Attributions from './pages/Attributions.jsx';
 import Professeurs from './pages/Professeurs.jsx';
-import Listes from './pages/Listes.jsx';
+import { lazy, Suspense } from 'react';
+const Listes     = lazy(() => import('./pages/Listes.jsx'));
+const Editeur    = lazy(() => import('./pages/Editeur.jsx'));
+const Procedures = lazy(() => import('./pages/Procedures.jsx'));
 import Users from './pages/Users.jsx';
 import Annees from './pages/Annees.jsx';
 import Configuration from './pages/Configuration.jsx';
@@ -92,9 +112,11 @@ function ProtectedLayout({ children }) {
         ['/attributions', 'Attributions'],
         ['/professeurs',  'Professeurs'],
         ['/listes',       'Listes'],
-        // EA12 masqué en prod (génération PDF pas encore finalisée)
+        ['/procedures',   '⚖ Procédures'],
+        // EA12 masqué en prod (LibreOffice absent du Dockerfile prod)
         // ...(u?.role === 'admin' ? [['/ea12', 'EA12']] : []),
       ];
+  if (u?.role === 'admin') nav.push(['/editeur', '📝 Éditeur']);
   if (u?.role === 'admin') nav.push(['/configuration', '⚙ Configuration']);
 
   return (
@@ -186,12 +208,33 @@ function ProtectedLayout({ children }) {
 
 export default function App() {
   return (
-    <Routes>
+    <ErrorBoundary>
+      <Routes>
       <Route path="/login" element={<Login />} />
       <Route path="/"             element={<ProtectedLayout><Dashboard /></ProtectedLayout>} />
       <Route path="/attributions" element={<ProtectedLayout><Attributions /></ProtectedLayout>} />
       <Route path="/professeurs"  element={<ProtectedLayout><Professeurs /></ProtectedLayout>} />
-      <Route path="/listes"       element={<ProtectedLayout><Listes /></ProtectedLayout>} />
+      <Route path="/listes" element={
+        <ProtectedLayout>
+          <Suspense fallback={<div className="p-8 text-gray-400">Chargement…</div>}>
+            <Listes />
+          </Suspense>
+        </ProtectedLayout>
+      } />
+      <Route path="/procedures" element={
+        <ProtectedLayout>
+          <Suspense fallback={<div className="p-8 text-gray-400">Chargement…</div>}>
+            <Procedures />
+          </Suspense>
+        </ProtectedLayout>
+      } />
+      <Route path="/editeur" element={
+        <ProtectedLayout>
+          <Suspense fallback={<div className="p-8 text-gray-400">Chargement de l'éditeur…</div>}>
+            <Editeur />
+          </Suspense>
+        </ProtectedLayout>
+      } />
       <Route path="/ea12"          element={<ProtectedLayout><EA12List /></ProtectedLayout>} />
       <Route path="/ea12/:id"      element={<ProtectedLayout><EA12Editor /></ProtectedLayout>} />
       <Route path="/pilotage"     element={<Navigate to="/" replace />} />
@@ -201,5 +244,6 @@ export default function App() {
       <Route path="/referentiels"   element={<ProtectedLayout><Referentiels /></ProtectedLayout>} />
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
+    </ErrorBoundary>
   );
 }

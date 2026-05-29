@@ -20,6 +20,7 @@ import anneesRoutes from './routes/annees.js';
 import historiqueRoutes from './routes/historique.js';
 import etablissementRoutes from './routes/etablissement.js';
 import ea12Routes from './routes/ea12.js';
+import templateRoutes   from './routes/templates.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
@@ -140,7 +141,59 @@ try {
     CREATE INDEX IF NOT EXISTS idx_us_user ON utilisateur_section(utilisateur_id);
   `);
 
-  // Archive des documents officiels générés (EA12, fiche signalétique).
+  // Table des templates de documents (éditeur visuel)
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS document_template (
+      id          INTEGER PRIMARY KEY AUTOINCREMENT,
+      nom         TEXT NOT NULL,
+      description TEXT,
+      contenu     TEXT NOT NULL DEFAULT '',  -- HTML du template avec {{champs}}
+      entites     TEXT DEFAULT '[]',          -- JSON: entités nécessaires ["prof","etab"]
+      cree_par    TEXT,
+      cree_le     TEXT DEFAULT (datetime('now')),
+      modifie_le  TEXT DEFAULT (datetime('now'))
+    );
+  `);
+
+  // Seed : template exemple "Synthèse de section" si aucun template n'existe
+  const nbTpl = db.prepare('SELECT COUNT(*) AS n FROM document_template').get().n;
+  if (nbTpl === 0) {
+    const contenuExemple = `<h2 style="text-align: center">Synthèse de section — {{sys.annee}}</h2><h3 style="text-align: center">{{etab.etab_nom}}</h3><p style="text-align: center"><em>Section : {{sys.section}}</em></p><p></p><div data-boucle="resume_section"><p></p></div><p></p><p style="color: #888; font-size: 9pt">Document généré par Lucie le {{sys.date}}</p>`;
+    db.prepare(`INSERT INTO document_template (nom, description, contenu, cree_par)
+      VALUES (?, ?, ?, 'Lucie (exemple)')`).run(
+      'Synthèse de section',
+      'Tableau hiérarchique UE → Cours avec périodes prof et étudiant. Choisissez une section pour générer.',
+      contenuExemple
+    );
+    console.log('[migration] Template exemple "Synthèse de section" créé');
+  }
+
+  // ── Colonne type_personnel dans professeur (admin = non chargé de cours) ──
+  try { db.exec(`ALTER TABLE professeur ADD COLUMN type_personnel TEXT DEFAULT 'enseignant'`); }
+  catch { /* colonne déjà présente */ }
+
+  // Seed : insérer le personnel admin si absent
+  const seedAdmin = [
+    ['SOHET',       'Charles',  'Directeur'],
+    ['VANDECAUTER', 'Nicolas',  'Directeur adjoint'],
+    ['AEVALIOTIS',  'Mati',     'Secrétaire'],
+    ['DAELEMEN',    'Florian',  'Secrétaire'],
+    ['LAMBERT',     'Marie',    'Coordinatrice'],
+    ['BOULENGIER',  'Natacha',  'Coordinatrice'],
+    ['ROUGUI',      'Loubna',   'Coordinatrice'],
+  ];
+  for (const [nom, prenom, statut] of seedAdmin) {
+    const exists = db.prepare('SELECT id FROM professeur WHERE nom = ? AND prenom = ?').get(nom, prenom);
+    if (exists) {
+      db.prepare(`UPDATE professeur SET type_personnel = 'admin', statut = ? WHERE id = ?`).run(statut, exists.id);
+    } else {
+      db.prepare(`INSERT INTO professeur (nom, prenom, statut, type_personnel) VALUES (?, ?, ?, 'admin')`).run(nom, prenom, statut);
+      console.log(`[migration] Personnel admin ajouté : ${prenom} ${nom} (${statut})`);
+    }
+  }
+
+  // Nettoyage : supprimer l'ancienne table membres_cde si elle existe
+  try { db.exec(`DROP TABLE IF EXISTS membres_cde`); } catch { /* ignoré */ }
   // Option B : chaque génération est CONSERVÉE et horodatée (traçabilité FWB).
   db.exec(`
     CREATE TABLE IF NOT EXISTS document_archive (
@@ -770,6 +823,7 @@ app.use('/api/annees',       anneesRoutes);
 app.use('/api/historique',   historiqueRoutes);
 app.use('/api/etablissement', etablissementRoutes);
 app.use('/api/ea12',          ea12Routes);
+app.use('/api/templates',   templateRoutes);
 
 // Erreurs
 app.use((err, req, res, next) => {

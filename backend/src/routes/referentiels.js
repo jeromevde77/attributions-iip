@@ -91,6 +91,34 @@ r.get('/structure', authRequired, (req, res) => {
   const ueAttrMap = Object.fromEntries(attrParUe.map(r => [r.ue_num, r.n]));
   const coursAttrMap = Object.fromEntries(attrParCours.map(r => [r.code_cours, r.n]));
 
+  // Ajouter les UE orphelines : ue_num présents dans les attributions
+  // mais absents de la table ue (ex. UE 95 — attributions sans fiche)
+  const ueNums = new Set(ues.map(u => u.ue_num));
+  const orphelines = db.prepare(`
+    SELECT DISTINCT a.ue_num, a.section,
+           v.ue_nom, v.nom_cours
+    FROM attribution a
+    LEFT JOIN v_attribution_complete v ON v.id = a.id
+    WHERE a.annee_scolaire = ? AND a.ue_num IS NOT NULL
+  `).all(annee);
+  for (const o of orphelines) {
+    if (ueNums.has(o.ue_num)) continue;
+    // Créer une fiche minimale pour l'UE orpheline
+    ues.push({
+      ue_num: o.ue_num,
+      ue_nom: o.ue_nom || `UE ${o.ue_num} (fiche manquante)`,
+      annee_scolaire: annee,
+      section: o.section,
+      ue_niv: null, ue_niveau: null, ue_quad: null,
+      ue_per_cours: null, ue_aut: null, ue_per_z: null,
+      ue_per_etudiants: null, ue_tot_prf: null, ects: null,
+      _orpheline: true,  // flag pour l'affichage
+    });
+    ueNums.add(o.ue_num);
+  }
+  // Trier l'ensemble (UE fichas + orphelines) par numéro
+  ues.sort((a, b) => (a.ue_num || 0) - (b.ue_num || 0));
+
   // Sections de référence (casse canonique)
   const refSections = db.prepare('SELECT code FROM section ORDER BY code').all().map(r => r.code);
   const canon = (s) => {
@@ -229,10 +257,31 @@ r.patch('/ue/:num/rename', authRequired, roleRequired('admin'), (req, res) => {
 r.patch('/ue/:num/dedoubler', authRequired, roleRequired('admin', 'editeur'), (req, res) => {
   const annee = req.body.annee_scolaire || req.query.annee || '2025-2026';
   const ueNum = req.params.num;
-  const result = db.prepare(
-    `UPDATE cours SET dedouble = 'O' WHERE ue_num = ? AND annee_scolaire = ?`
-  ).run(ueNum, annee);
-  res.json({ ok: true, mises_a_jour: result.changes });
+  // Colonnes à copier (toutes sauf id et colonnes VIRTUAL)
+  const COLS = [
+    'section','etablissement_referent','contrat_mdp','organisation','annee_scolaire',
+    'ue_num','num_organisation','quadrimestre_attribue','code_cours','type_cours',
+    'type_cours_helb','code','nb_groupes','split_groupe','num_split','num_groupe',
+    'activite_id','professeur_id','cours_ept_ad','coordination_encadrement',
+    'modification_attribution','commentaire','commentaire_2','charge_perdue_84plus',
+    'periodes_transferees','per_etudiant_total_dp','periodes_attribuees',
+    'autonomie_attribuee','titre_rtf',
+  ].join(', ');
+  const tx = db.transaction(() => {
+    // Marquer les cours comme dédoublés dans le DP
+    db.prepare(`UPDATE cours SET dedouble = 'O' WHERE ue_num = ? AND annee_scolaire = ?`).run(ueNum, annee);
+    // Dupliquer chaque ligne d'attribution de cette UE
+    // (INSERT INTO ... SELECT FROM attribution WHERE ue_num = ? AND annee_scolaire = ?)
+    const r = db.prepare(`
+      INSERT INTO attribution (${COLS})
+      SELECT ${COLS}
+      FROM attribution
+      WHERE ue_num = ? AND annee_scolaire = ?
+    `).run(ueNum, annee);
+    return r.changes;
+  });
+  const nb = tx();
+  res.json({ ok: true, lignes_dupliquees: nb });
 });
 
 // Annule le dédoublement (remettre tous les cours à dedouble='N').
@@ -452,7 +501,9 @@ r.get('/sections/:section/ue-cours', authRequired, (req, res) => {
 });
 
 r.get('/professeurs', authRequired, (req, res) => {
-  res.json(db.prepare('SELECT * FROM v_professeur_total ORDER BY nom, prenom').all());
+  res.json(db.prepare(`SELECT * FROM v_professeur_total
+    WHERE id NOT IN (SELECT id FROM professeur WHERE type_personnel = 'admin')
+    ORDER BY nom, prenom`).all());
 });
 
 r.get('/professeurs/:id', authRequired, (req, res) => {
@@ -852,6 +903,23 @@ r.get('/professeurs-attributions', authRequired, (req, res) => {
     console.error('[attributions-feuille] échec :', err);
     res.status(500).json({ error: err.message });
   }
+});
+
+// ── Personnel admin CDE (direction, secrétariat, coordination) ───────────────
+r.get('/membres-cde', authRequired, (req, res) => {
+  const membres = db.prepare(`
+    SELECT id, nom, prenom, (prenom || ' ' || nom) AS nomComplet, statut AS qualite
+    FROM professeur
+    WHERE type_personnel = 'admin'
+    ORDER BY CASE statut
+      WHEN 'Directeur'          THEN 1
+      WHEN 'Directeur adjoint'  THEN 2
+      WHEN 'Secrétaire'         THEN 3
+      WHEN 'Coordinatrice'      THEN 4
+      WHEN 'Coordinateur'       THEN 4
+      ELSE 5 END, nom
+  `).all();
+  res.json(membres);
 });
 
 export default r;
