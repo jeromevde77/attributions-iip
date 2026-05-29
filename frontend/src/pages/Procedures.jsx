@@ -55,7 +55,7 @@ function Q({ num, text, value, onChange, ref_ }) {
 
 // ─── Génération de la décision motivée (HTML → print) ─────────────────────────
 function genererDecision({ etudiant, ueNum, ueNom, profs, profsPresentsListe,
-  datePubli, dateRecours, dateDecisionInterne, dateSeance, q, verdict, irregularites, annee }) {
+  datePubli, dateRecours, dateDecisionInterne, dateSeance, commentaireCDE, q, verdict, irregularites, annee }) {
   const today = new Date().toLocaleDateString('fr-BE', { day:'2-digit', month:'long', year:'numeric' });
   // Utiliser les présents cochés, sinon tous les profs
   const presents = (profsPresentsListe && profsPresentsListe.length > 0) ? profsPresentsListe : profs;
@@ -193,6 +193,11 @@ ${vu}
 
 ${corps}
 
+${commentaireCDE ? `
+<h3>OBSERVATIONS DU CONSEIL DES ÉTUDES</h3>
+<p style="border:1px solid #ccc;padding:10px;background:#fafafa;">${commentaireCDE.replace(/\n/g,'<br>')}</p>
+` : ''}
+
 <div class="signatures">
   <div class="sig-block">
     <div class="sig-line">Le Président du CDE<br><em>(ou son délégué)</em></div>
@@ -222,6 +227,7 @@ function OutilRecours() {
   const [dateRecours, setDateRecours] = useState('');
   const [dateDecisionInterne, setDateDecisionInterne] = useState('');
   const [dateSeance, setDateSeance] = useState('');
+  const [commentaireCDE, setCommentaireCDE] = useState('');
 
   // Profs de l'UE (depuis la DB)
   const [profs, setProfs] = useState([]);
@@ -307,7 +313,7 @@ function OutilRecours() {
       profs: profsPresentsListe.length > 0 ? profsPresentsListe : profs,
       profsPresentsListe,
       datePubli, dateRecours,
-      dateDecisionInterne, dateSeance, q, verdict, annee,
+      dateDecisionInterne, dateSeance, commentaireCDE, q, verdict, annee,
     });
     const w = window.open('', '_blank');
     if (!w) { alert('Autorisez les pop-ups'); return; }
@@ -371,13 +377,7 @@ function OutilRecours() {
                 <div className="text-xs font-semibold text-gray-600 mb-1">Date de réunion du CDE restreint</div>
                 <input type="date" value={dateSeance} onChange={e => setDateSeance(e.target.value)}
                   className="w-full border border-gray-300 rounded px-3 py-1.5 text-sm" />
-                {limiteDecisionInterne && <p className="text-xs text-gray-500 mt-0.5">Date limite : <strong>{fmt(limiteDecisionInterne)}</strong></p>}
-              </label>
-              <label className="block">
-                <div className="text-xs font-semibold text-gray-600 mb-1">Date d'envoi de la décision interne</div>
-                <input type="date" value={dateDecisionInterne} onChange={e => setDateDecisionInterne(e.target.value)}
-                  className="w-full border border-gray-300 rounded px-3 py-1.5 text-sm" />
-                {limiteRecourseExterne && <p className="text-xs text-orange-600 mt-0.5">Limite recours externe : <strong>{fmt(limiteRecourseExterne)}</strong></p>}
+                {limiteDecisionInterne && <p className="text-xs text-gray-500 mt-0.5">Date limite décision : <strong>{fmt(limiteDecisionInterne)}</strong></p>}
               </label>
             </div>
 
@@ -564,6 +564,36 @@ function OutilRecours() {
               </div>
             )}
 
+            {/* Date d'envoi + commentaire — saisis après la délibération */}
+            <div className="border border-gray-200 rounded-lg p-4 mb-5 bg-gray-50 space-y-4">
+              <p className="text-sm font-semibold text-gray-700">À compléter après la réunion du CDE restreint :</p>
+
+              <label className="block">
+                <div className="text-xs font-semibold text-gray-600 mb-1">
+                  Date d'envoi de la décision par recommandé
+                  <span className="text-gray-400 font-normal ml-1">(déclenche le délai de recours externe)</span>
+                </div>
+                <input type="date" value={dateDecisionInterne} onChange={e => setDateDecisionInterne(e.target.value)}
+                  className="w-full border border-gray-300 rounded px-3 py-1.5 text-sm bg-white" />
+                {limiteRecourseExterne && (
+                  <p className="text-xs text-orange-700 mt-1 font-medium">
+                    ⏱ Limite recours externe : <strong>{fmt(limiteRecourseExterne)}</strong>
+                    <span className="text-gray-500 font-normal ml-1">(J+3 ouvrables + 7 jours calendrier — Art. 90 §2)</span>
+                  </p>
+                )}
+              </label>
+
+              <label className="block">
+                <div className="text-xs font-semibold text-gray-600 mb-1">
+                  Observations / commentaire du CDE
+                  <span className="text-gray-400 font-normal ml-1">(facultatif — apparaîtra dans la décision)</span>
+                </div>
+                <textarea value={commentaireCDE} onChange={e => setCommentaireCDE(e.target.value)}
+                  rows={4} placeholder="Ex : Le CDE a examiné les épreuves en présence du responsable d'UE. Il ressort que les AA notifiés sur E-campus ont bien été communiqués à l'étudiant le [date]. La note de [X/20] reflète fidèlement le niveau d'acquisition constaté lors de l'épreuve."
+                  className="w-full border border-gray-300 rounded px-3 py-2 text-sm bg-white resize-y" />
+              </label>
+            </div>
+
             {/* Bouton génération */}
             <button onClick={ouvrirDecision}
               className="w-full bg-iip-mauve hover:opacity-90 text-white py-3 rounded-xl text-sm font-bold flex items-center justify-center gap-2">
@@ -574,7 +604,7 @@ function OutilRecours() {
 
           <div className="flex justify-between mt-2">
             <button onClick={() => setStep(4)} className="border border-gray-300 text-gray-600 px-6 py-2 rounded-lg text-sm">← Retour</button>
-            <button onClick={() => { setStep(1); setQ({}); setEtudiant(''); setUeNum(''); setDatePubli(''); setDateRecours(''); setDateDecisionInterne(''); setDateSeance(''); }}
+            <button onClick={() => { setStep(1); setQ({}); setEtudiant(''); setUeNum(''); setDatePubli(''); setDateRecours(''); setDateDecisionInterne(''); setDateSeance(''); setCommentaireCDE(''); setProfsPresents(new Set()); }}
               className="border border-iip-mauve text-iip-mauve px-6 py-2 rounded-lg text-sm font-medium hover:bg-iip-mauve/5">
               ↺ Nouveau recours
             </button>
