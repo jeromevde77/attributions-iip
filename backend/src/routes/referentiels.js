@@ -501,7 +501,9 @@ r.get('/sections/:section/ue-cours', authRequired, (req, res) => {
 });
 
 r.get('/professeurs', authRequired, (req, res) => {
-  res.json(db.prepare('SELECT * FROM v_professeur_total ORDER BY nom, prenom').all());
+  res.json(db.prepare(`SELECT * FROM v_professeur_total
+    WHERE id NOT IN (SELECT id FROM professeur WHERE type_personnel = 'admin')
+    ORDER BY nom, prenom`).all());
 });
 
 r.get('/professeurs/:id', authRequired, (req, res) => {
@@ -903,19 +905,20 @@ r.get('/professeurs-attributions', authRequired, (req, res) => {
   }
 });
 
-// ── Membres CDE (direction, secrétariat, coordination) ───────────────────────
+// ── Personnel admin CDE (direction, secrétariat, coordination) ───────────────
 r.get('/membres-cde', authRequired, (req, res) => {
-  const membres = db.prepare(
-    `SELECT id, nom, prenom, (prenom || ' ' || nom) AS nomComplet, qualite
-     FROM membres_cde WHERE actif = 1
-     ORDER BY CASE qualite
-       WHEN 'Directeur'          THEN 1
-       WHEN 'Directeur adjoint'  THEN 2
-       WHEN 'Secrétaire'         THEN 3
-       WHEN 'Coordinatrice'      THEN 4
-       WHEN 'Coordinateur'       THEN 4
-       ELSE 5 END, nom`
-  ).all();
+  const membres = db.prepare(`
+    SELECT id, nom, prenom, (prenom || ' ' || nom) AS nomComplet, statut AS qualite
+    FROM professeur
+    WHERE type_personnel = 'admin'
+    ORDER BY CASE statut
+      WHEN 'Directeur'          THEN 1
+      WHEN 'Directeur adjoint'  THEN 2
+      WHEN 'Secrétaire'         THEN 3
+      WHEN 'Coordinatrice'      THEN 4
+      WHEN 'Coordinateur'       THEN 4
+      ELSE 5 END, nom
+  `).all();
   res.json(membres);
 });
 

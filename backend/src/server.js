@@ -168,17 +168,12 @@ try {
     console.log('[migration] Template exemple "Synthèse de section" créé');
   }
 
-  // ── Table membres_cde (direction, secrétariat, coordination) ─────────────
-  db.exec(`
-    CREATE TABLE IF NOT EXISTS membres_cde (
-      id       INTEGER PRIMARY KEY AUTOINCREMENT,
-      nom      TEXT NOT NULL,
-      prenom   TEXT NOT NULL,
-      qualite  TEXT NOT NULL,
-      actif    INTEGER NOT NULL DEFAULT 1
-    );
-  `);
-  const seedMembresCde = [
+  // ── Colonne type_personnel dans professeur (admin = non chargé de cours) ──
+  try { db.exec(`ALTER TABLE professeur ADD COLUMN type_personnel TEXT DEFAULT 'enseignant'`); }
+  catch { /* colonne déjà présente */ }
+
+  // Seed : insérer le personnel admin si absent
+  const seedAdmin = [
     ['SOHET',       'Charles',  'Directeur'],
     ['VANDECAUTER', 'Nicolas',  'Directeur adjoint'],
     ['AEVALIOTIS',  'Mati',     'Secrétaire'],
@@ -187,16 +182,18 @@ try {
     ['BOULENGIER',  'Natacha',  'Coordinatrice'],
     ['ROUGUI',      'Loubna',   'Coordinatrice'],
   ];
-  const insertMembre = db.prepare(
-    `INSERT INTO membres_cde (nom, prenom, qualite) VALUES (?, ?, ?)`
-  );
-  for (const [nom, prenom, qualite] of seedMembresCde) {
-    const exists = db.prepare('SELECT 1 FROM membres_cde WHERE nom = ? AND prenom = ?').get(nom, prenom);
-    if (!exists) {
-      insertMembre.run(nom, prenom, qualite);
-      console.log(`[migration] Membre CDE ajouté : ${prenom} ${nom} (${qualite})`);
+  for (const [nom, prenom, statut] of seedAdmin) {
+    const exists = db.prepare('SELECT id FROM professeur WHERE nom = ? AND prenom = ?').get(nom, prenom);
+    if (exists) {
+      db.prepare(`UPDATE professeur SET type_personnel = 'admin', statut = ? WHERE id = ?`).run(statut, exists.id);
+    } else {
+      db.prepare(`INSERT INTO professeur (nom, prenom, statut, type_personnel) VALUES (?, ?, ?, 'admin')`).run(nom, prenom, statut);
+      console.log(`[migration] Personnel admin ajouté : ${prenom} ${nom} (${statut})`);
     }
   }
+
+  // Nettoyage : supprimer l'ancienne table membres_cde si elle existe
+  try { db.exec(`DROP TABLE IF EXISTS membres_cde`); } catch { /* ignoré */ }
   // Option B : chaque génération est CONSERVÉE et horodatée (traçabilité FWB).
   db.exec(`
     CREATE TABLE IF NOT EXISTS document_archive (
