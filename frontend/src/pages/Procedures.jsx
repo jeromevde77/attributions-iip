@@ -1,232 +1,453 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import { getAnnee } from '../lib/api.js';
 
-// ─── Outil d'aide à la décision — Recours (Art. 87-91 RDE/ROI IIP 2026-2027) ──
+// ─── Utilitaires ──────────────────────────────────────────────────────────────
+const TOKEN = () => localStorage.getItem('token');
+const authFetch = (url) => fetch(url, { headers: { Authorization: `Bearer ${TOKEN()}` } }).then(r => r.json());
 
 function addJoursOuvrables(date, n) {
-  const d = new Date(date);
-  let count = 0;
-  while (count < n) {
-    d.setDate(d.getDate() + 1);
-    const dow = d.getDay();
-    if (dow !== 0) count++; // dimanche exclus (fériés non gérés ici)
-  }
+  const d = new Date(date); let count = 0;
+  while (count < n) { d.setDate(d.getDate() + 1); if (d.getDay() !== 0) count++; }
   return d;
 }
-
-function addJoursCalendrier(date, n) {
-  const d = new Date(date);
-  d.setDate(d.getDate() + n);
-  return d;
-}
-
+function addJoursCalendrier(date, n) { const d = new Date(date); d.setDate(d.getDate() + n); return d; }
 function fmt(d) {
   if (!d) return '—';
-  if (typeof d === 'string') d = new Date(d);
-  return d.toLocaleDateString('fr-BE', { weekday:'long', day:'2-digit', month:'long', year:'numeric' });
+  return new Date(d).toLocaleDateString('fr-BE', { weekday:'long', day:'2-digit', month:'long', year:'numeric' });
+}
+function fmtCourt(d) {
+  if (!d) return '—';
+  return new Date(d).toLocaleDateString('fr-BE', { day:'2-digit', month:'2-digit', year:'numeric' });
 }
 
+// ─── Composants UI ────────────────────────────────────────────────────────────
 function Badge({ ok, label }) {
   return ok
     ? <span className="inline-flex items-center gap-1 bg-green-100 text-green-800 border border-green-300 rounded-full px-3 py-0.5 text-sm font-semibold">✓ {label}</span>
     : <span className="inline-flex items-center gap-1 bg-red-100 text-red-800 border border-red-300 rounded-full px-3 py-0.5 text-sm font-semibold">✗ {label}</span>;
 }
-
 function Ref({ text }) {
-  return <span className="text-xs text-blue-700 bg-blue-50 border border-blue-200 rounded px-2 py-0.5 ml-2">⚖ {text}</span>;
+  return <span className="text-xs text-blue-700 bg-blue-50 border border-blue-200 rounded px-1.5 py-0.5 ml-1">⚖ {text}</span>;
 }
-
-function Section({ title, color = 'iip-mauve', children }) {
-  return (
-    <div className={`border-l-4 pl-5 py-4 mb-6 ${color === 'red' ? 'border-red-500 bg-red-50' : color === 'green' ? 'border-green-500 bg-green-50' : color === 'orange' ? 'border-orange-500 bg-orange-50' : 'border-iip-mauve bg-iip-mauve/5'}`}>
-      <h3 className="font-bold text-base mb-3">{title}</h3>
-      {children}
-    </div>
-  );
+function Section({ title, color = 'mauve', children }) {
+  const cls = { red:'border-red-500 bg-red-50', green:'border-green-500 bg-green-50',
+    orange:'border-orange-500 bg-orange-50', mauve:'border-iip-mauve bg-iip-mauve/5' };
+  return <div className={`border-l-4 pl-5 py-4 mb-5 ${cls[color]||cls.mauve}`}><h3 className="font-bold text-base mb-3">{title}</h3>{children}</div>;
 }
-
 function Q({ num, text, value, onChange, ref_ }) {
   return (
-    <div className="mb-4">
-      <div className="flex items-start gap-3">
-        <span className="flex-shrink-0 w-7 h-7 rounded-full bg-iip-mauve text-white text-sm font-bold flex items-center justify-center">{num}</span>
-        <div className="flex-1">
-          <p className="text-sm font-medium text-gray-800 mb-2">{text} {ref_ && <Ref text={ref_} />}</p>
-          <div className="flex gap-3">
-            {[['oui', '✓ Oui'], ['non', '✗ Non'], ['', '— ?']].map(([v, l]) => (
-              <button key={v} onClick={() => onChange(v)}
-                className={`px-4 py-1.5 rounded-full text-sm border transition ${value === v ? (v === 'oui' ? 'bg-green-600 text-white border-green-600' : v === 'non' ? 'bg-red-600 text-white border-red-600' : 'bg-gray-400 text-white border-gray-400') : 'bg-white text-gray-600 border-gray-300 hover:bg-gray-50'}`}>
-                {l}
-              </button>
-            ))}
-          </div>
+    <div className="mb-4 flex items-start gap-3">
+      <span className="flex-shrink-0 w-7 h-7 rounded-full bg-iip-mauve text-white text-sm font-bold flex items-center justify-center">{num}</span>
+      <div className="flex-1">
+        <p className="text-sm font-medium text-gray-800 mb-2">{text}{ref_ && <Ref text={ref_} />}</p>
+        <div className="flex gap-2">
+          {[['oui','✓ Oui'],['non','✗ Non'],['','—']].map(([v,l]) => (
+            <button key={v} onClick={() => onChange(v)}
+              className={`px-4 py-1.5 rounded-full text-sm border transition ${value===v?(v==='oui'?'bg-green-600 text-white border-green-600':v==='non'?'bg-red-600 text-white border-red-600':'bg-gray-400 text-white border-gray-400'):'bg-white text-gray-600 border-gray-300 hover:bg-gray-50'}`}>
+              {l}
+            </button>
+          ))}
         </div>
       </div>
     </div>
   );
 }
 
-// ─── MODULE 1 : Outil recours ─────────────────────────────────────────────────
+// ─── Génération de la décision motivée (HTML → print) ─────────────────────────
+function genererDecision({ etudiant, ueNum, ueNom, profs, datePubli, dateRecours,
+  dateDecisionInterne, dateSeance, q, verdict, irregularites, annee }) {
+  const today = new Date().toLocaleDateString('fr-BE', { day:'2-digit', month:'long', year:'numeric' });
+  const membres = profs.length
+    ? profs.map(p => p.nom + ' ' + p.prenom).join(', ')
+    : '[À COMPLÉTER : membres du CDE restreint]';
+
+  const vu = `
+    <p>Vu le Décret du 16 avril 1991 relatif à l'enseignement de promotion sociale, notamment les art. 123ter et 123quater ;</p>
+    <p>Vu le Décret du 27 octobre 2006 organisant les recours dans l'enseignement pour adultes ;</p>
+    <p>Vu le RDE/ROI de l'Institut Ilya Prigogine, année académique ${annee}, notamment les articles 87 à 91 ;</p>
+    <p>Vu la plainte introduite par ${etudiant || '[NOM ÉTUDIANT]'} en date du ${fmtCourt(dateRecours)} concernant la délibération relative à l'UE ${ueNum} — ${ueNom || ''} ;</p>
+    <p>Vu les pièces du dossier ;</p>
+  `;
+
+  let corps = '';
+
+  if (verdict === 'irrecevable') {
+    const motifs = [];
+    if (q.ecrit === 'non') motifs.push('La plainte n\'est pas rédigée par écrit (condition impérative — Art. 88 §3 RDE/ROI).');
+    if (q.delaiRespect === 'non') motifs.push('La plainte n\'a pas été introduite dans le délai de 4 jours calendrier suivant la publication des résultats (Art. 88 §1 RDE/ROI). La date limite était le ' + fmtCourt(addJoursCalendrier(datePubli, 4)) + '.');
+    if (q.porteRefus === 'non') motifs.push('La plainte ne porte pas sur une décision de refus. Seules les décisions de refus sont susceptibles de recours (Art. 87 §1 RDE/ROI).');
+    if (q.irregulPrecises === 'non') motifs.push('La plainte ne mentionne pas d\'irrégularités précises. Une contestation de la valeur de la note n\'est pas recevable — seules les irrégularités de procédure ou de droit peuvent fonder un recours (Art. 88 §3 RDE/ROI).');
+    if (q.decisionRefus === 'non') motifs.push('La décision contestée n\'est pas une décision de refus au sens de l\'Art. 87 §1 RDE/ROI. Les ajournements, décisions de VA/VAE et décisions de délivrance de titre ne sont pas susceptibles de recours.');
+
+    corps = `
+      <h3>QUANT À LA RECEVABILITÉ</h3>
+      <p>Le Conseil des Études déclare la plainte <strong>IRRECEVABLE</strong> pour le${motifs.length > 1 ? 's' : ''} motif${motifs.length > 1 ? 's' : ''} suivant${motifs.length > 1 ? 's' : ''} :</p>
+      <ol>${motifs.map(m => `<li>${m}</li>`).join('')}</ol>
+      <p>Conformément à l'Art. 88 §4 du RDE/ROI, la présente décision d'irrecevabilité expose les motifs précis de l'irrecevabilité et est notifiée à l'étudiant.</p>
+      <h3>DÉCIDE</h3>
+      <p>De déclarer la plainte introduite par <strong>${etudiant || '[NOM ÉTUDIANT]'}</strong> <strong>IRRECEVABLE</strong> pour les motifs exposés ci-dessus.</p>
+      <p>L'étudiant est informé que cette décision d'irrecevabilité ne peut faire l'objet d'un recours externe, dès lors que les conditions de recevabilité du recours interne ne sont pas réunies.</p>
+    `;
+  } else {
+    const irregList = [];
+    if (q.quorum === 'non') irregList.push('Le quorum du CDE n\'était pas atteint lors de la délibération (Art. 89 §1 RDE/ROI). Cette irrégularité constitue un vice de procédure grave.');
+    if (q.conflitInteret === 'oui') irregList.push('Un conflit d\'intérêt non déclaré a été relevé parmi les membres du jury. Cette irrégularité est susceptible d\'affecter l\'impartialité de la délibération.');
+    if (q.motivJustif === 'non') irregList.push('La justification de l\'échec (AA non atteints) n\'a pas été formellement encodée et communiquée à l\'étudiant, en violation de l\'Art. 71 RDE/ROI.');
+    if (q.visiteCopies === 'non') irregList.push('La visite des copies n\'a pas été proposée à l\'étudiant dans les délais (Art. 71 §1 RDE/ROI — droit à la consultation en présence du chargé de cours).');
+    if (q.publiResultats === 'non') irregList.push('Les résultats n\'ont pas été publiés dans le délai de 2 jours ouvrables suivant la délibération (Art. 82 RDE/ROI).');
+
+    const decision = irregList.length > 0 ? 'ACCUEILLE partiellement' : 'REJETTE';
+    const conclusionFond = irregList.length > 0
+      ? `Le Conseil des Études constate les irrégularités suivantes :\n<ol>${irregList.map(i => `<li>${i}</li>`).join('')}</ol>\nEn conséquence, le recours est fondé sur ces points. Le Conseil des Études procède à un réexamen de la situation de l'étudiant en tenant compte de ces irrégularités.`
+      : `Après examen des griefs soulevés par l'étudiant, le Conseil des Études constate qu'aucune irrégularité de procédure ou de droit n'est établie. Le Conseil des Études apprécie souverainement la valeur des notes et sa décision ne peut être remise en cause sur la seule contestation de l'appréciation pédagogique (Art. 91 RDE/ROI — la Commission de recours dispose d'un pouvoir d'annulation mais ne peut substituer sa propre note à celle du CDE).`;
+
+    corps = `
+      <h3>QUANT À LA RECEVABILITÉ</h3>
+      <p>La plainte est déclarée <strong>RECEVABLE</strong> : elle est écrite, introduite dans le délai de 4 jours calendrier (Art. 88 §1), porte sur une décision de refus et mentionne des irrégularités précises (Art. 88 §3 RDE/ROI).</p>
+
+      <h3>QUANT AU FOND</h3>
+      <p>${conclusionFond}</p>
+
+      ${!irregList.length ? `
+      <p><em>Sur le quorum :</em> Le quorum requis était atteint lors de la délibération. Aucune irrégularité n'est établie.</p>
+      <p><em>Sur la motivation de la décision :</em> Les AA non atteints ont été dûment identifiés et communiqués. La décision de refus est fondée sur l'absence d'acquisition des acquis d'apprentissage définis dans le DUE de l'UE ${ueNum}.</p>
+      <p><em>Sur les droits de l'étudiant :</em> La visite des copies et la consultation des épreuves ont été proposées conformément à l'Art. 71 du RDE/ROI.</p>
+      ` : ''}
+
+      <h3>DÉCIDE</h3>
+      <p>Le Conseil des Études <strong>${decision}</strong> le recours introduit par <strong>${etudiant || '[NOM ÉTUDIANT]'}</strong>.</p>
+      ${irregList.length === 0 ? '<p>La décision de refus initiale est <strong>confirmée</strong>.</p>' : '<p>Le dossier fait l\'objet d\'un réexamen par le Conseil des Études dans sa composition complète.</p>'}
+
+      <h3>VOIES DE RECOURS</h3>
+      <p>Conformément à l'Art. 90 du RDE/ROI et au Décret du 27/10/2006, la présente décision peut faire l'objet d'un <strong>recours externe</strong> auprès de la Direction générale du Service général de l'Enseignement tout au long de la vie (rue Adolphe Lavallée 1, 1080 Bruxelles), par pli recommandé, dans un délai de <strong>7 jours calendrier</strong> à compter du troisième jour ouvrable suivant la date d'envoi de la présente décision.</p>
+      ${dateDecisionInterne ? `<p>La date limite pour le recours externe est le : <strong>${fmtCourt(addJoursCalendrier(addJoursOuvrables(dateDecisionInterne, 3), 7))}</strong>.</p>` : ''}
+    `;
+  }
+
+  return `<!DOCTYPE html><html lang="fr"><head><meta charset="utf-8"><title>Décision motivée — ${etudiant}</title>
+<style>
+  body { font-family: Arial, sans-serif; font-size: 11pt; color: #000; margin: 0; padding: 20mm 20mm 15mm 20mm; }
+  .header { display:flex; justify-content:space-between; align-items:flex-start; border-bottom: 2px solid #1F3864; padding-bottom: 8px; margin-bottom: 16px; }
+  .logo-txt { font-size: 14pt; font-weight: bold; color: #1F3864; }
+  .logo-sub { font-size: 9pt; color: #555; }
+  .ref { font-size: 9pt; text-align:right; color: #555; }
+  h2 { font-size: 13pt; text-align: center; color: #1F3864; border: 2px solid #1F3864; padding: 10px; margin: 20px 0; }
+  h3 { font-size: 11pt; font-weight: bold; margin-top: 16px; margin-bottom: 6px; border-bottom: 1px solid #ccc; padding-bottom: 3px; }
+  p { margin: 5px 0; line-height: 1.5; }
+  ol { margin: 6px 0 6px 20px; }
+  li { margin: 4px 0; }
+  .composition { background: #f0f4ff; border: 1px solid #c0d0f0; padding: 8px 12px; margin: 10px 0; font-size: 10pt; }
+  .signatures { display:flex; justify-content:space-between; margin-top: 30px; }
+  .sig-block { text-align: center; min-width: 180px; }
+  .sig-line { border-top: 1px solid #000; margin-top: 40px; padding-top: 4px; font-size: 10pt; }
+  .footer { border-top: 1px solid #ccc; margin-top: 20px; padding-top: 8px; font-size: 8pt; color: #888; text-align: center; }
+  @media print { body { padding: 10mm 15mm; } button { display:none; } }
+</style></head><body>
+<div style="text-align:right;margin-bottom:10px;print:none">
+  <button onclick="window.print()" style="padding:6px 16px;background:#1F3864;color:#fff;border:none;border-radius:4px;cursor:pointer">🖨 Imprimer / PDF</button>
+</div>
+<div class="header">
+  <div>
+    <div class="logo-txt">Institut Ilya Prigogine</div>
+    <div class="logo-sub">Campus Erasme · Route de Lennik 808 · 1070 Bruxelles<br>direction@institut-prigogine.be · 02/560.29.59</div>
+  </div>
+  <div class="ref">
+    RDE/ROI Art. 87-91 · D. 27/10/2006<br>
+    Année académique ${annee}<br>
+    Date : ${today}
+  </div>
+</div>
+
+<h2>DÉCISION ${verdict === 'irrecevable' ? "D'IRRECEVABILITÉ" : 'MOTIVÉE'}<br>DU CONSEIL DES ÉTUDES</h2>
+
+<p><strong>Objet :</strong> Recours contre la décision de refus concernant l'UE ${ueNum}${ueNom ? ' — ' + ueNom : ''}</p>
+<p><strong>Étudiant·e :</strong> ${etudiant || '[NOM ÉTUDIANT]'}</p>
+<p><strong>Date de délibération :</strong> ${fmtCourt(datePubli) || '—'}</p>
+<p><strong>Date d'introduction du recours :</strong> ${fmtCourt(dateRecours) || '—'}</p>
+${dateSeance ? `<p><strong>Date de réunion du CDE restreint :</strong> ${fmtCourt(dateSeance)}</p>` : ''}
+
+${profs.length > 0 ? `
+<div class="composition">
+  <strong>Composition du Conseil des Études restreint :</strong><br>
+  ${membres}
+</div>` : ''}
+
+<h3>VU ET CONSIDÉRANT</h3>
+${vu}
+
+${corps}
+
+<div class="signatures">
+  <div class="sig-block">
+    <div class="sig-line">Le Président du CDE<br><em>(ou son délégué)</em></div>
+  </div>
+  <div class="sig-block">
+    <div class="sig-line">Le Directeur<br>Charles SOHET</div>
+  </div>
+</div>
+
+<div class="footer">
+  Institut Ilya Prigogine · direction@institut-prigogine.be · 02/560.29.59 · www.institut-prigogine.be<br>
+  Document généré par Lucie le ${today} · Fondé sur les Art. 87-91 RDE/ROI et le Décret du 27/10/2006
+</div>
+</body></html>`;
+}
+
+// ─── OUTIL RECOURS ─────────────────────────────────────────────────────────────
 function OutilRecours() {
+  const annee = getAnnee();
   const [step, setStep] = useState(1);
+
+  // Données dossier
+  const [etudiant, setEtudiant] = useState('');
+  const [ueNum, setUeNum] = useState('');
+  const [ueNom, setUeNom] = useState('');
   const [datePubli, setDatePubli] = useState('');
   const [dateRecours, setDateRecours] = useState('');
   const [dateDecisionInterne, setDateDecisionInterne] = useState('');
+  const [dateSeance, setDateSeance] = useState('');
+
+  // Profs de l'UE (depuis la DB)
+  const [profs, setProfs] = useState([]);
+  const [loadingProfs, setLoadingProfs] = useState(false);
+  const [ues, setUes] = useState([]);
+
+  // Questions
   const [q, setQ] = useState({
-    decisionRefus: '', ecrit: '', delaiRespect: '', porteRefus: '',
-    irregulPrecises: '', quorum: '', conflitInteret: '', motivJustif: '',
-    dueDelai: '', visiteCopies: '', publiResultats: '',
+    decisionRefus:'', ecrit:'', delaiRespect:'', porteRefus:'', irregulPrecises:'',
+    quorum:'', conflitInteret:'', motivJustif:'', dueDelai:'', visiteCopies:'', publiResultats:'',
   });
+  function set(k, v) { setQ(p => ({ ...p, [k]: v })); }
 
-  function set(k, v) { setQ(prev => ({ ...prev, [k]: v })); }
+  // Charger les UE au démarrage
+  useEffect(() => {
+    authFetch(`/api/ref/structure?annee=${encodeURIComponent(annee)}`)
+      .then(d => {
+        const map = new Map();
+        for (const sg of (Array.isArray(d) ? d : [])) {
+          for (const ue of (sg.ues || [])) {
+            if (!map.has(ue.ue_num)) map.set(ue.ue_num, ue);
+          }
+        }
+        setUes([...map.values()].sort((a,b) => (a.ue_num||0)-(b.ue_num||0)));
+      }).catch(() => {});
+  }, [annee]);
 
-  // Calculs de délais
+  // Charger les profs quand UE change
+  useEffect(() => {
+    if (!ueNum) { setProfs([]); return; }
+    const ue = ues.find(u => String(u.ue_num) === String(ueNum));
+    if (ue) setUeNom(ue.ue_nom || '');
+    setLoadingProfs(true);
+    authFetch(`/api/attributions?annee=${encodeURIComponent(annee)}&ue_num=${encodeURIComponent(ueNum)}`)
+      .then(rows => {
+        const seen = new Set();
+        const ps = [];
+        for (const r of (Array.isArray(rows) ? rows : [])) {
+          if (r.professeur_id && !seen.has(r.professeur_id) && !r.is_z) {
+            seen.add(r.professeur_id);
+            const parts = (r.professeur || '').split(' ');
+            ps.push({ id: r.professeur_id, nom: parts[0] || '', prenom: parts.slice(1).join(' ') || '', nomComplet: r.professeur || '' });
+          }
+        }
+        setProfs(ps);
+      }).catch(() => setProfs([]))
+      .finally(() => setLoadingProfs(false));
+  }, [ueNum, annee]);
+
+  // Calculs délais
   const limiteRecours = datePubli ? addJoursCalendrier(datePubli, 4) : null;
   const limiteDecisionInterne = datePubli ? addJoursCalendrier(datePubli, 7) : null;
+  const limiteRecourseExterne = dateDecisionInterne
+    ? addJoursCalendrier(addJoursOuvrables(dateDecisionInterne, 3), 7) : null;
+  const nbJours = datePubli && dateRecours
+    ? Math.round((new Date(dateRecours) - new Date(datePubli)) / 86400000) : null;
+  const delaiRespect = nbJours !== null ? nbJours <= 4 : (q.delaiRespect === 'oui' ? true : q.delaiRespect === 'non' ? false : null);
 
-  let limiteRecourseExterne = null;
-  if (dateDecisionInterne) {
-    const j3ouv = addJoursOuvrables(dateDecisionInterne, 3);
-    limiteRecourseExterne = addJoursCalendrier(j3ouv, 7);
+  // Verdict recevabilité
+  const conditionsRecevabilite = [
+    { ok: q.ecrit === 'oui',           label: 'Plainte écrite',                   ref: 'Art. 88 §3' },
+    { ok: delaiRespect === true,        label: `Dans le délai (J+${nbJours||'?'})`, ref: 'Art. 88 §1' },
+    { ok: q.porteRefus === 'oui',       label: 'Porte sur un refus',               ref: 'Art. 88 §3' },
+    { ok: q.irregulPrecises === 'oui',  label: 'Irrégularités précises',           ref: 'Art. 88 §3' },
+  ];
+  const recevable = conditionsRecevabilite.every(c => c.ok === true);
+  const irrecevable = q.decisionRefus === 'non' || conditionsRecevabilite.some(c => c.ok === false);
+
+  // Verdict final
+  const verdict = q.decisionRefus === 'non' ? 'irrecevable'
+    : irrecevable ? 'irrecevable'
+    : recevable ? 'recevable' : null;
+
+  function ouvrirDecision() {
+    const html = genererDecision({
+      etudiant, ueNum, ueNom, profs, datePubli, dateRecours,
+      dateDecisionInterne, dateSeance, q, verdict, annee,
+    });
+    const w = window.open('', '_blank');
+    if (!w) { alert('Autorisez les pop-ups'); return; }
+    w.document.write(html); w.document.close();
   }
 
-  const nbJoursDepuisPubli = datePubli && dateRecours
-    ? Math.round((new Date(dateRecours) - new Date(datePubli)) / 86400000)
-    : null;
-
-  const delaiRespect = nbJoursDepuisPubli !== null ? nbJoursDepuisPubli <= 4 : null;
-
-  // Irrecevabilité immédiate
-  const irrecevableType = q.decisionRefus === 'non';
-
-  // Recevabilité formelle
-  const conditionsRecevabilite = [
-    { ok: q.ecrit === 'oui', label: 'Plainte écrite', ref: 'Art. 88 §3' },
-    { ok: delaiRespect === true || q.delaiRespect === 'oui', label: 'Dans le délai de 4 jours', ref: 'Art. 88 §1' },
-    { ok: q.porteRefus === 'oui', label: 'Porte sur un refus', ref: 'Art. 88 §3' },
-    { ok: q.irregulPrecises === 'oui', label: 'Irrégularités précises mentionnées', ref: 'Art. 88 §3' },
-  ];
-  const recevable = conditionsRecevabilite.every(c => c.ok);
-  const irrecevable = conditionsRecevabilite.some(c => c.ok === false);
+  // Barre de progression
+  const steps = ['Dossier & UE', 'Qualification', 'Recevabilité', 'Analyse au fond', 'Décision'];
 
   return (
     <div className="max-w-3xl">
-      <div className="flex items-center gap-2 mb-6">
-        {[1,2,3,4].map(s => (
-          <div key={s} className="flex items-center gap-1">
-            <button onClick={() => setStep(s)}
-              className={`w-8 h-8 rounded-full text-sm font-bold border-2 transition ${step === s ? 'bg-iip-mauve text-white border-iip-mauve' : step > s ? 'bg-green-500 text-white border-green-500' : 'bg-white text-gray-400 border-gray-300'}`}>
-              {step > s ? '✓' : s}
+      {/* Stepper */}
+      <div className="flex items-center gap-1 mb-7 overflow-x-auto pb-1">
+        {steps.map((s, i) => (
+          <div key={i} className="flex items-center gap-1 flex-shrink-0">
+            <button onClick={() => setStep(i+1)}
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium transition
+                ${step === i+1 ? 'bg-iip-mauve text-white' : step > i+1 ? 'bg-green-500 text-white' : 'bg-gray-100 text-gray-500'}`}>
+              {step > i+1 ? '✓' : i+1}. {s}
             </button>
-            {s < 4 && <div className={`h-0.5 w-8 ${step > s ? 'bg-green-500' : 'bg-gray-200'}`} />}
+            {i < steps.length-1 && <div className={`h-0.5 w-4 flex-shrink-0 ${step > i+1 ? 'bg-green-400' : 'bg-gray-200'}`} />}
           </div>
         ))}
-        <span className="text-sm text-gray-500 ml-2">{['', 'Qualification', 'Recevabilité formelle', 'Analyse au fond', 'Décision & procédure'][step]}</span>
       </div>
 
-      {/* ÉTAPE 1 — Qualification */}
+      {/* ÉTAPE 1 — Dossier & UE */}
       {step === 1 && (
         <div>
-          <Section title="Étape 1 — Qualification de la décision">
-            <Q num="1" text="La décision contestée est-elle une DÉCISION DE REFUS ?" value={q.decisionRefus} onChange={v => set('decisionRefus', v)}
-              ref_="Art. 87 §1 RDE/ROI" />
+          <Section title="Étape 1 — Constitution du dossier">
+            <div className="grid grid-cols-2 gap-4 mb-4">
+              <label className="block">
+                <div className="text-xs font-semibold text-gray-600 mb-1">Nom de l'étudiant·e *</div>
+                <input value={etudiant} onChange={e => setEtudiant(e.target.value)} placeholder="Prénom NOM"
+                  className="w-full border border-gray-300 rounded px-3 py-1.5 text-sm" />
+              </label>
+              <label className="block">
+                <div className="text-xs font-semibold text-gray-600 mb-1">UE concernée *</div>
+                <select value={ueNum} onChange={e => setUeNum(e.target.value)}
+                  className="w-full border border-gray-300 rounded px-3 py-1.5 text-sm bg-white">
+                  <option value="">— Choisir une UE —</option>
+                  {ues.map(u => <option key={u.ue_num} value={u.ue_num}>UE {u.ue_num} — {u.ue_nom}</option>)}
+                </select>
+              </label>
+              <label className="block">
+                <div className="text-xs font-semibold text-gray-600 mb-1">Date de publication des résultats</div>
+                <input type="date" value={datePubli} onChange={e => setDatePubli(e.target.value)}
+                  className="w-full border border-gray-300 rounded px-3 py-1.5 text-sm" />
+                {datePubli && <p className="text-xs text-gray-500 mt-0.5">Limite recours : <strong>{fmt(limiteRecours)}</strong></p>}
+              </label>
+              <label className="block">
+                <div className="text-xs font-semibold text-gray-600 mb-1">Date de réception de la plainte</div>
+                <input type="date" value={dateRecours} onChange={e => setDateRecours(e.target.value)}
+                  className="w-full border border-gray-300 rounded px-3 py-1.5 text-sm" />
+                {nbJours !== null && (
+                  <p className={`text-xs mt-0.5 font-semibold ${delaiRespect ? 'text-green-700' : 'text-red-700'}`}>
+                    J+{nbJours} → {delaiRespect ? '✓ Dans le délai' : '✗ HORS DÉLAI'}
+                  </p>
+                )}
+              </label>
+              <label className="block">
+                <div className="text-xs font-semibold text-gray-600 mb-1">Date de réunion du CDE restreint</div>
+                <input type="date" value={dateSeance} onChange={e => setDateSeance(e.target.value)}
+                  className="w-full border border-gray-300 rounded px-3 py-1.5 text-sm" />
+                {limiteDecisionInterne && <p className="text-xs text-gray-500 mt-0.5">Date limite : <strong>{fmt(limiteDecisionInterne)}</strong></p>}
+              </label>
+              <label className="block">
+                <div className="text-xs font-semibold text-gray-600 mb-1">Date d'envoi de la décision interne</div>
+                <input type="date" value={dateDecisionInterne} onChange={e => setDateDecisionInterne(e.target.value)}
+                  className="w-full border border-gray-300 rounded px-3 py-1.5 text-sm" />
+                {limiteRecourseExterne && <p className="text-xs text-orange-600 mt-0.5">Limite recours externe : <strong>{fmt(limiteRecourseExterne)}</strong></p>}
+              </label>
+            </div>
 
-            {q.decisionRefus === 'non' && (
-              <div className="mt-4 p-4 bg-red-100 border-2 border-red-500 rounded-lg">
-                <p className="font-bold text-red-800 text-lg">🚫 IRRECEVABLE DE PLEIN DROIT</p>
-                <p className="text-red-700 mt-1 text-sm">Seules les décisions de REFUS sont susceptibles de recours. Les ajournements (1re session), les décisions de VA/VAE et les décisions de délivrance d'un titre ne peuvent pas faire l'objet d'un recours.</p>
-                <p className="text-xs text-red-600 mt-2">⚖ Art. 87 §1-2 RDE/ROI · D. 27/10/2006</p>
-                <p className="mt-3 font-semibold text-red-800">→ Répondre à l'étudiant en notifiant l'irrecevabilité et son motif précis (Art. 88 §4).</p>
+            {/* Professeurs de l'UE */}
+            {ueNum && (
+              <div className="mt-3 p-4 bg-blue-50 border border-blue-200 rounded-lg">
+                <p className="text-sm font-bold text-blue-900 mb-2">
+                  Enseignants de l'UE {ueNum}{ueNom ? ` — ${ueNom}` : ''} ({annee})
+                  {loadingProfs && <span className="text-xs font-normal ml-2">Chargement…</span>}
+                </p>
+                {profs.length === 0 && !loadingProfs && (
+                  <p className="text-sm text-gray-500 italic">Aucun enseignant attribué pour cette UE.</p>
+                )}
+                {profs.length > 0 && (
+                  <>
+                    <div className="grid grid-cols-2 gap-2">
+                      {profs.map(p => (
+                        <div key={p.id} className="flex items-center gap-2 bg-white border border-blue-200 rounded px-3 py-1.5 text-sm">
+                          <span className="w-7 h-7 rounded-full bg-iip-mauve text-white text-xs font-bold flex items-center justify-center flex-shrink-0">
+                            {(p.nom[0]||'?').toUpperCase()}
+                          </span>
+                          <span className="font-medium">{p.nomComplet}</span>
+                        </div>
+                      ))}
+                    </div>
+                    <p className="text-xs text-blue-600 mt-2">↑ Ces enseignants peuvent faire partie du CDE restreint (Art. 89 §1 : Président + min. 2 membres).</p>
+                  </>
+                )}
               </div>
             )}
+          </Section>
+          <div className="flex justify-end">
+            <button onClick={() => setStep(2)} className="bg-iip-mauve text-white px-6 py-2 rounded-lg text-sm font-medium">Étape suivante →</button>
+          </div>
+        </div>
+      )}
 
+      {/* ÉTAPE 2 — Qualification */}
+      {step === 2 && (
+        <div>
+          <Section title="Étape 2 — Qualification de la décision">
+            <Q num="1" text="La décision contestée est-elle une DÉCISION DE REFUS ?" value={q.decisionRefus} onChange={v => set('decisionRefus', v)} ref_="Art. 87 §1 RDE/ROI" />
+            {q.decisionRefus === 'non' && (
+              <div className="mt-3 p-4 bg-red-100 border-2 border-red-500 rounded-lg">
+                <p className="font-bold text-red-800">🚫 IRRECEVABLE DE PLEIN DROIT</p>
+                <p className="text-red-700 text-sm mt-1">Seules les décisions de REFUS sont recourables. Les ajournements (1re session), VA/VAE et délivrances de titre ne peuvent pas faire l'objet d'un recours.</p>
+                <p className="text-xs text-red-600 mt-1">⚖ Art. 87 §1-2 RDE/ROI · D. 27/10/2006</p>
+              </div>
+            )}
             {q.decisionRefus === 'oui' && (
-              <>
-                <div className="mt-4 p-3 bg-blue-50 border border-blue-200 rounded">
-                  <p className="text-sm text-blue-800 font-medium">Le recours est a priori possible. Saisir les dates pour calculer les délais :</p>
-                </div>
-                <div className="mt-4 grid grid-cols-2 gap-4">
-                  <label className="block">
-                    <div className="text-xs font-semibold text-gray-600 mb-1">Date de publication des résultats</div>
-                    <input type="date" value={datePubli} onChange={e => setDatePubli(e.target.value)}
-                      className="w-full border border-gray-300 rounded px-3 py-1.5 text-sm" />
-                    {datePubli && <p className="text-xs text-gray-500 mt-1">Limite recours interne : <strong>{fmt(limiteRecours)}</strong></p>}
-                  </label>
-                  <label className="block">
-                    <div className="text-xs font-semibold text-gray-600 mb-1">Date de réception/envoi de la plainte</div>
-                    <input type="date" value={dateRecours} onChange={e => setDateRecours(e.target.value)}
-                      className="w-full border border-gray-300 rounded px-3 py-1.5 text-sm" />
-                    {nbJoursDepuisPubli !== null && (
-                      <p className={`text-xs mt-1 font-semibold ${delaiRespect ? 'text-green-700' : 'text-red-700'}`}>
-                        {nbJoursDepuisPubli} jour{nbJoursDepuisPubli > 1 ? 's' : ''} après publication → {delaiRespect ? '✓ Dans le délai' : '✗ HORS DÉLAI'}
-                      </p>
-                    )}
-                  </label>
-                </div>
-                {!delaiRespect && delaiRespect !== null && (
-                  <div className="mt-3 p-3 bg-red-100 border-2 border-red-500 rounded-lg">
-                    <p className="font-bold text-red-800">🚫 IRRECEVABLE — Délai dépassé</p>
-                    <p className="text-red-700 text-sm mt-1">La plainte est arrivée {nbJoursDepuisPubli - 4} jour{nbJoursDepuisPubli - 4 > 1 ? 's' : ''} trop tard. Le délai de 4 jours calendrier est une condition de recevabilité impérative.</p>
-                    <p className="text-xs text-red-600 mt-1">⚖ Art. 88 §1 et §3 RDE/ROI · D. 27/10/2006</p>
-                  </div>
-                )}
-              </>
+              <div className="mt-3 p-3 bg-green-50 border border-green-200 rounded text-sm text-green-800">
+                ✓ La décision est recourable. Procéder à l'analyse de recevabilité.
+              </div>
             )}
           </Section>
-
-          <div className="flex justify-end mt-4">
-            <button onClick={() => setStep(2)} disabled={q.decisionRefus !== 'oui'}
+          <div className="flex justify-between">
+            <button onClick={() => setStep(1)} className="border border-gray-300 text-gray-600 px-6 py-2 rounded-lg text-sm">← Retour</button>
+            <button onClick={() => setStep(3)} disabled={!q.decisionRefus}
               className="bg-iip-mauve disabled:opacity-40 text-white px-6 py-2 rounded-lg text-sm font-medium">
-              Étape suivante →
+              Recevabilité →
             </button>
           </div>
         </div>
       )}
 
-      {/* ÉTAPE 2 — Recevabilité formelle */}
-      {step === 2 && (
+      {/* ÉTAPE 3 — Recevabilité */}
+      {step === 3 && (
         <div>
-          <Section title="Étape 2 — Recevabilité formelle (Art. 88 §3 RDE/ROI)">
-            <p className="text-sm text-gray-600 mb-4">Les 4 conditions sont <strong>cumulatives</strong> — une seule manquante = irrecevable.</p>
+          <Section title="Étape 3 — Recevabilité formelle (Art. 88 §3)">
+            <p className="text-sm text-gray-600 mb-4">4 conditions <strong>cumulatives</strong> — une seule manquante = irrecevable.</p>
             <Q num="1" text="La plainte est-elle ÉCRITE (e-mail, main propre ou recommandé) ?" value={q.ecrit} onChange={v => set('ecrit', v)} ref_="Art. 88 §3" />
-            {delaiRespect !== null ? (
-              <div className="mb-4 flex items-center gap-3 pl-10">
-                <Badge ok={delaiRespect} label={delaiRespect ? `Dans le délai (J+${nbJoursDepuisPubli})` : `Hors délai (J+${nbJoursDepuisPubli})`} />
-                <Ref text="Art. 88 §1" />
-              </div>
-            ) : (
-              <Q num="2" text="La plainte est-elle parvenue dans les 4 jours calendrier suivant la publication ?" value={q.delaiRespect} onChange={v => set('delaiRespect', v)} ref_="Art. 88 §1" />
-            )}
-            <Q num="3" text="La plainte porte-t-elle sur une DÉCISION DE REFUS (pas un ajournement, pas un VA/VAE) ?" value={q.porteRefus} onChange={v => set('porteRefus', v)} ref_="Art. 88 §3" />
-            <Q num="4" text="La plainte MENTIONNE-T-ELLE des irrégularités précises (pas seulement 'je ne suis pas d'accord') ?" value={q.irregulPrecises} onChange={v => set('irregulPrecises', v)} ref_="Art. 88 §3" />
+            {delaiRespect !== null
+              ? <div className="mb-4 pl-10"><Badge ok={delaiRespect} label={delaiRespect ? `J+${nbJours} — Dans le délai` : `J+${nbJours} — HORS DÉLAI`} /><Ref text="Art. 88 §1" /></div>
+              : <Q num="2" text="Plainte reçue dans les 4 jours calendrier après publication ?" value={q.delaiRespect} onChange={v => set('delaiRespect', v)} ref_="Art. 88 §1" />}
+            <Q num="3" text="Porte sur une DÉCISION DE REFUS (pas ajournement, pas VA/VAE) ?" value={q.porteRefus} onChange={v => set('porteRefus', v)} ref_="Art. 88 §3" />
+            <Q num="4" text="Mentionne des IRRÉGULARITÉS PRÉCISES (pas juste 'je ne suis pas d'accord') ?" value={q.irregulPrecises} onChange={v => set('irregulPrecises', v)} ref_="Art. 88 §3" />
           </Section>
-
-          {/* Verdict recevabilité */}
-          {q.ecrit && q.porteRefus && q.irregulPrecises && (delaiRespect !== null || q.delaiRespect) && (
-            <div className={`p-5 rounded-xl border-2 mb-6 ${recevable ? 'bg-green-50 border-green-500' : 'bg-red-50 border-red-500'}`}>
-              {recevable ? (
-                <>
-                  <p className="font-bold text-green-800 text-lg">✅ RECEVABLE — Procéder à l'instruction</p>
-                  <p className="text-green-700 text-sm mt-1">Toutes les conditions de recevabilité sont réunies. Le CDE restreint doit se réunir dans un délai de <strong>7 jours calendrier hors congés scolaires</strong> à compter de la publication des résultats.</p>
-                  {limiteDecisionInterne && <p className="text-green-800 font-medium mt-2 text-sm">⏱ Date limite de décision interne : <strong>{fmt(limiteDecisionInterne)}</strong></p>}
-                  <p className="text-xs text-green-600 mt-1">⚖ Art. 89 §1 RDE/ROI</p>
-                </>
-              ) : (
-                <>
-                  <p className="font-bold text-red-800 text-lg">🚫 IRRECEVABLE</p>
-                  <div className="mt-2 space-y-1">
-                    {conditionsRecevabilite.filter(c => !c.ok).map(c => (
-                      <p key={c.label} className="text-sm text-red-700">✗ <strong>{c.label}</strong> <Ref text={c.ref} /></p>
-                    ))}
-                  </div>
-                  <p className="text-sm text-red-700 mt-2">→ Notifier à l'étudiant le motif précis d'irrecevabilité par écrit (Art. 88 §4).</p>
-                </>
-              )}
+          {conditionsRecevabilite.some(c => c.ok !== undefined) && (
+            <div className={`p-4 rounded-xl border-2 mb-4 ${recevable ? 'bg-green-50 border-green-500' : irrecevable ? 'bg-red-50 border-red-500' : 'bg-gray-50 border-gray-300'}`}>
+              {recevable && <>
+                <p className="font-bold text-green-800 text-base">✅ RECEVABLE — Procéder à l'instruction</p>
+                {limiteDecisionInterne && <p className="text-sm text-green-700 mt-1">⏱ Date limite décision interne : <strong>{fmt(limiteDecisionInterne)}</strong></p>}
+              </>}
+              {irrecevable && !recevable && <>
+                <p className="font-bold text-red-800 text-base">🚫 IRRECEVABLE</p>
+                {conditionsRecevabilite.filter(c => c.ok === false).map(c => (
+                  <p key={c.label} className="text-sm text-red-700 mt-1">✗ {c.label} <Ref text={c.ref} /></p>
+                ))}
+                <p className="text-sm text-red-700 mt-2">→ Notifier à l'étudiant par écrit (Art. 88 §4).</p>
+              </>}
             </div>
           )}
-
-          <div className="flex justify-between mt-4">
-            <button onClick={() => setStep(1)} className="border border-gray-300 text-gray-600 px-6 py-2 rounded-lg text-sm">← Retour</button>
-            <button onClick={() => setStep(3)} disabled={!recevable}
+          <div className="flex justify-between">
+            <button onClick={() => setStep(2)} className="border border-gray-300 text-gray-600 px-6 py-2 rounded-lg text-sm">← Retour</button>
+            <button onClick={() => setStep(4)} disabled={!recevable}
               className="bg-iip-mauve disabled:opacity-40 text-white px-6 py-2 rounded-lg text-sm font-medium">
               Analyser au fond →
             </button>
@@ -234,121 +455,84 @@ function OutilRecours() {
         </div>
       )}
 
-      {/* ÉTAPE 3 — Analyse au fond */}
-      {step === 3 && (
+      {/* ÉTAPE 4 — Analyse au fond */}
+      {step === 4 && (
         <div>
-          <Section title="Étape 3 — Analyse au fond (irrégularités invoquées)">
-            <p className="text-sm text-gray-600 mb-4">Le CDE apprécie souverainement la valeur des notes. Seules les irrégularités de <strong>procédure ou de droit</strong> peuvent fonder un recours.</p>
-
-            <div className="mb-4 p-3 bg-gray-50 rounded border text-sm text-gray-600">
-              <strong>Rappel :</strong> La Commission de recours peut ANNULER une décision mais ne peut pas substituer sa propre note à celle du CDE.
-              <Ref text="Art. 91 RDE/ROI" />
-            </div>
-
-            <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-3">A. Délibération</p>
-            <Q num="1" text="Le quorum était-il atteint lors de la délibération ? (CDE restreint : président + min. 2 membres)" value={q.quorum} onChange={v => set('quorum', v)} ref_="Art. 89 §1 RDE/ROI" />
-            <Q num="2" text="Y avait-il un conflit d'intérêt non déclaré parmi les membres du jury ?" value={q.conflitInteret} onChange={v => set('conflitInteret', v)} />
-            <Q num="3" text="La justification de l'échec (AA non atteints) a-t-elle bien été encodée et communiquée ?" value={q.motivJustif} onChange={v => set('motivJustif', v)} ref_="Art. 71 RDE/ROI" />
-
-            <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-3 mt-4">B. Évaluation</p>
-            <Q num="4" text="Les Dossiers d'Unité d'Enseignement (DUE) ont-ils été fournis dans les délais ?" value={q.dueDelai} onChange={v => set('dueDelai', v)} />
-            <Q num="5" text="La visite des copies a-t-elle été proposée à l'étudiant dans les délais (J+1 après délibération) ?" value={q.visiteCopies} onChange={v => set('visiteCopies', v)} ref_="Art. 71 §1 RDE/ROI" />
-
-            <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-3 mt-4">C. Post-délibération</p>
-            <Q num="6" text="Les résultats ont-ils été publiés dans les 2 jours ouvrables suivant la délibération ?" value={q.publiResultats} onChange={v => set('publiResultats', v)} ref_="Art. 82 RDE/ROI" />
+          <Section title="Étape 4 — Analyse au fond (irrégularités invoquées)">
+            <p className="text-sm text-gray-600 mb-4">Seules les irrégularités de <strong>procédure ou de droit</strong> peuvent fonder un recours. La Commission de recours peut annuler mais ne substitue pas sa note.</p>
+            <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">A — Délibération</p>
+            <Q num="1" text="Le quorum était-il atteint ? (Président + min. 2 membres)" value={q.quorum} onChange={v => set('quorum', v)} ref_="Art. 89 §1" />
+            <Q num="2" text="Conflit d'intérêt non déclaré parmi les membres du jury ?" value={q.conflitInteret} onChange={v => set('conflitInteret', v)} />
+            <Q num="3" text="Justification de l'échec (AA non atteints) encodée et communiquée ?" value={q.motivJustif} onChange={v => set('motivJustif', v)} ref_="Art. 71" />
+            <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2 mt-3">B — Évaluation</p>
+            <Q num="4" text="DUE fournis dans les délais ?" value={q.dueDelai} onChange={v => set('dueDelai', v)} />
+            <Q num="5" text="Visite des copies proposée dans les délais (J+1 après délibération) ?" value={q.visiteCopies} onChange={v => set('visiteCopies', v)} ref_="Art. 71 §1" />
+            <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2 mt-3">C — Post-délibération</p>
+            <Q num="6" text="Résultats publiés dans les 2 jours ouvrables suivant la délibération ?" value={q.publiResultats} onChange={v => set('publiResultats', v)} ref_="Art. 82" />
           </Section>
-
-          {/* Synthèse irrégularités */}
-          {Object.values({ quorum: q.quorum, conflitInteret: q.conflitInteret, motivJustif: q.motivJustif,
-            dueDelai: q.dueDelai, visiteCopies: q.visiteCopies, publiResultats: q.publiResultats })
-            .some(v => v !== '') && (
-            <div className="p-4 bg-gray-50 border rounded-lg mb-4">
-              <p className="font-semibold text-sm mb-2">Synthèse des irrégularités relevées :</p>
-              {[
-                { k: 'quorum', n: 'Quorum', oui: '✓ Quorum OK', non: '⚠ QUORUM NON ATTEINT — vice de procédure grave' },
-                { k: 'conflitInteret', n: 'Conflit intérêt', oui: '⚠ CONFLIT D\'INTÉRÊT — vice potentiel grave', non: '✓ Pas de conflit d\'intérêt' },
-                { k: 'motivJustif', n: 'Justification', oui: '✓ Justification encodée', non: '⚠ JUSTIFICATION MANQUANTE — obligation légale' },
-                { k: 'dueDelai', n: 'DUE dans les délais', oui: '✓ DUE fournis dans les délais', non: '⚠ DUE HORS DÉLAI — irrégularité possible' },
-                { k: 'visiteCopies', n: 'Visite des copies', oui: '✓ Visite des copies proposée', non: '⚠ VISITE DES COPIES NON PROPOSÉE — droit lésé (Art. 71)' },
-                { k: 'publiResultats', n: 'Publication résultats', oui: '✓ Résultats publiés dans les délais', non: '⚠ PUBLICATION TARDIVE — irrégularité (Art. 82)' },
-              ].filter(i => q[i.k]).map(i => (
-                <p key={i.k} className={`text-sm py-0.5 ${q[i.k] === 'non' && i.k !== 'conflitInteret' ? 'text-red-700 font-medium' : q[i.k] === 'oui' && i.k === 'conflitInteret' ? 'text-red-700 font-medium' : 'text-green-700'}`}>
-                  {q[i.k] === 'oui' ? i.oui : i.non}
-                </p>
-              ))}
-            </div>
-          )}
-
-          <div className="flex justify-between mt-4">
-            <button onClick={() => setStep(2)} className="border border-gray-300 text-gray-600 px-6 py-2 rounded-lg text-sm">← Retour</button>
-            <button onClick={() => setStep(4)} className="bg-iip-mauve text-white px-6 py-2 rounded-lg text-sm font-medium">Décision & procédure →</button>
+          <div className="flex justify-between">
+            <button onClick={() => setStep(3)} className="border border-gray-300 text-gray-600 px-6 py-2 rounded-lg text-sm">← Retour</button>
+            <button onClick={() => setStep(5)} className="bg-iip-mauve text-white px-6 py-2 rounded-lg text-sm font-medium">Décision →</button>
           </div>
         </div>
       )}
 
-      {/* ÉTAPE 4 — Décision et procédure */}
-      {step === 4 && (
+      {/* ÉTAPE 5 — Décision */}
+      {step === 5 && (
         <div>
-          <Section title="Étape 4 — Procédure à suivre">
-            <div className="space-y-3">
+          <Section title="Étape 5 — Décision motivée">
+            {/* Synthèse */}
+            <div className={`p-4 rounded-lg border-2 mb-5 ${recevable ? 'border-green-500 bg-green-50' : 'border-red-500 bg-red-50'}`}>
+              <p className="font-bold text-base">{recevable ? '✅ Recevable' : '🚫 Irrecevable'}</p>
+              {recevable && (() => {
+                const irregs = [
+                  q.quorum === 'non' && 'Quorum non atteint (Art. 89 §1)',
+                  q.conflitInteret === 'oui' && 'Conflit d\'intérêt',
+                  q.motivJustif === 'non' && 'Justification AA manquante (Art. 71)',
+                  q.visiteCopies === 'non' && 'Visite des copies non proposée (Art. 71 §1)',
+                  q.publiResultats === 'non' && 'Publication tardive (Art. 82)',
+                ].filter(Boolean);
+                return irregs.length
+                  ? <><p className="text-sm text-red-700 mt-2 font-medium">Irrégularités relevées :</p>{irregs.map(i=><p key={i} className="text-sm text-red-700">✗ {i}</p>)}</>
+                  : <p className="text-sm text-green-700 mt-1">Aucune irrégularité de fond relevée — recours rejeté.</p>;
+              })()}
+            </div>
+
+            {/* Procédure */}
+            <div className="space-y-2 mb-5">
               {[
-                { n: 1, label: 'Accusé de réception', detail: 'Envoyer immédiatement un accusé de réception à l\'étudiant (e-mail ou courrier).' },
-                { n: 2, label: 'Convoquer le CDE restreint', detail: 'Président + minimum 2 membres du CDE initial. Délibération à huis clos.' },
-                { n: 3, label: 'Instruction', detail: 'Examiner les griefs de l\'étudiant, argument par argument. Consulter les pièces (épreuves, feuilles de délibération, DUE).' },
-                { n: 4, label: 'Décision motivée', detail: 'Rédiger une décision formellement motivée : exposer pourquoi chaque grief est accepté ou rejeté.' },
-                { n: 5, label: 'Notification par recommandé', detail: `Envoyer la décision par pli recommandé à l'étudiant.${limiteDecisionInterne ? ` Date limite : ${fmt(limiteDecisionInterne)}.` : ''}` },
-                { n: 6, label: 'Archivage', detail: 'Classer le dossier complet (plainte + pièces + décision motivée + accusé de réception du recommandé).' },
+                {n:1, label:'Accusé de réception', detail:'Envoyer immédiatement un accusé de réception à l\'étudiant.'},
+                {n:2, label:'Convoquer le CDE restreint', detail:`Président + min. 2 membres. ${profs.length ? 'Enseignants de l\'UE disponibles : ' + profs.map(p=>p.nomComplet).join(', ') + '.' : ''}`},
+                {n:3, label:'Instruction', detail:'Examiner les griefs argument par argument. Consulter épreuves, DUE, feuilles de délibération.'},
+                {n:4, label:'Décision motivée', detail:'Rédiger la décision en exposant pourquoi chaque grief est accepté ou rejeté.'},
+                {n:5, label:'Notification par recommandé', detail:`${limiteDecisionInterne ? 'Date limite : ' + fmt(limiteDecisionInterne) + '.' : 'Envoyer dans le délai légal (7 jours calendrier hors congés).'}`},
+                {n:6, label:'Archivage', detail:'Classer le dossier complet (plainte + pièces + décision + récépissé recommandé).'},
               ].map(item => (
-                <div key={item.n} className="flex gap-3 items-start p-3 bg-white border border-gray-200 rounded-lg">
-                  <div className="w-7 h-7 rounded-full bg-iip-mauve text-white text-sm font-bold flex items-center justify-center flex-shrink-0">{item.n}</div>
-                  <div>
-                    <p className="font-semibold text-sm">{item.label}</p>
-                    <p className="text-sm text-gray-600">{item.detail}</p>
-                  </div>
+                <div key={item.n} className="flex gap-3 p-3 bg-white border border-gray-200 rounded-lg text-sm">
+                  <div className="w-6 h-6 rounded-full bg-iip-mauve text-white text-xs font-bold flex items-center justify-center flex-shrink-0">{item.n}</div>
+                  <div><p className="font-semibold">{item.label}</p><p className="text-gray-600">{item.detail}</p></div>
                 </div>
               ))}
             </div>
+
+            {limiteRecourseExterne && (
+              <div className="p-3 bg-orange-50 border border-orange-300 rounded text-sm mb-5">
+                ⏱ <strong>Limite recours externe :</strong> {fmt(limiteRecourseExterne)}
+                <span className="text-xs text-orange-700 ml-2">⚖ Art. 90 §2 RDE/ROI</span>
+              </div>
+            )}
+
+            {/* Bouton génération */}
+            <button onClick={ouvrirDecision}
+              className="w-full bg-iip-mauve hover:opacity-90 text-white py-3 rounded-xl text-sm font-bold flex items-center justify-center gap-2">
+              📄 Générer la décision motivée (Word / PDF)
+            </button>
+            <p className="text-xs text-gray-500 text-center mt-1">Document officiel à imprimer, signer et envoyer par recommandé à l'étudiant.</p>
           </Section>
 
-          {/* Délais de recours externe */}
-          <Section title="Délais — Recours externe possible dès :" color="orange">
-            <div className="space-y-2">
-              <label className="block">
-                <div className="text-xs font-semibold text-gray-600 mb-1">Date d'envoi de la décision interne (recommandé)</div>
-                <input type="date" value={dateDecisionInterne} onChange={e => setDateDecisionInterne(e.target.value)}
-                  className="border border-gray-300 rounded px-3 py-1.5 text-sm" />
-              </label>
-              {limiteRecourseExterne && (
-                <div className="p-3 bg-orange-100 border border-orange-300 rounded mt-2">
-                  <p className="text-sm text-orange-800 font-medium">⏱ Date limite pour le recours externe :</p>
-                  <p className="text-orange-900 font-bold">{fmt(limiteRecourseExterne)}</p>
-                  <p className="text-xs text-orange-700 mt-1">J+3 ouvrables après envoi + 7 jours calendrier · ⚖ Art. 90 §2 RDE/ROI</p>
-                  <p className="text-xs text-orange-700 mt-1">Adresse : DG ETLV, rue Adolphe Lavallée 1, 1080 Bruxelles (+ copie direction@institut-prigogine.be)</p>
-                </div>
-              )}
-            </div>
-          </Section>
-
-          {/* Ce qu'il est illégal de faire */}
-          <Section title="⛔ Ce qu'il est ILLÉGAL de faire lors de l'instruction" color="red">
-            <ul className="space-y-1 text-sm text-red-800">
-              {[
-                'Substituer la note du CDE par la décision du CDE restreint',
-                'Refuser à l\'étudiant l\'accès à ses épreuves écrites (Art. 71)',
-                'Délibérer sans quorum (Président + min. 2 membres)',
-                'Omettre de motiver formellement la décision (argument par argument)',
-                'Dépasser le délai de 7 jours calendrier sans informer l\'étudiant',
-                'Examiner les copies d\'autres étudiants lors de l\'instruction',
-                'Facturer l\'étudiant pour une nouvelle évaluation imposée par la Commission (Art. 91)',
-              ].map((item, i) => (
-                <li key={i} className="flex gap-2 items-start"><span className="text-red-500 flex-shrink-0">✗</span>{item}</li>
-              ))}
-            </ul>
-          </Section>
-
-          <div className="flex justify-between mt-4">
-            <button onClick={() => setStep(3)} className="border border-gray-300 text-gray-600 px-6 py-2 rounded-lg text-sm">← Retour</button>
-            <button onClick={() => { setStep(1); setQ({}); setDatePubli(''); setDateRecours(''); setDateDecisionInterne(''); }}
+          <div className="flex justify-between mt-2">
+            <button onClick={() => setStep(4)} className="border border-gray-300 text-gray-600 px-6 py-2 rounded-lg text-sm">← Retour</button>
+            <button onClick={() => { setStep(1); setQ({}); setEtudiant(''); setUeNum(''); setDatePubli(''); setDateRecours(''); setDateDecisionInterne(''); setDateSeance(''); }}
               className="border border-iip-mauve text-iip-mauve px-6 py-2 rounded-lg text-sm font-medium hover:bg-iip-mauve/5">
               ↺ Nouveau recours
             </button>
@@ -362,15 +546,12 @@ function OutilRecours() {
 // ─── PAGE PRINCIPALE ──────────────────────────────────────────────────────────
 export default function Procedures() {
   const [outil, setOutil] = useState('recours');
-
   const outils = [
     { id: 'recours', label: '⚖ Recours', desc: 'Aide à la décision — Art. 87-91 RDE/ROI' },
-    { id: 'examens', label: '📋 Examens', desc: 'Procédure d\'organisation et surveillance' },
+    { id: 'examens', label: '📋 Examens', desc: 'Procédure organisation & surveillance' },
   ];
-
   return (
     <div className="flex h-full min-h-0 overflow-hidden">
-      {/* Sidebar */}
       <div className="w-56 flex-shrink-0 bg-gray-50 border-r border-gray-200 overflow-auto">
         <div className="px-4 py-4 border-b border-gray-200">
           <h2 className="font-title text-iip-mauve font-bold text-sm uppercase tracking-wide">Procédures IIP</h2>
@@ -379,30 +560,27 @@ export default function Procedures() {
         <div className="py-2">
           {outils.map(o => (
             <button key={o.id} onClick={() => setOutil(o.id)}
-              className={`w-full text-left px-4 py-3 border-b border-gray-100 transition ${outil === o.id ? 'bg-iip-mauve/10 border-l-4 border-l-iip-mauve' : 'hover:bg-gray-100'}`}>
-              <p className={`text-sm font-semibold ${outil === o.id ? 'text-iip-mauve' : 'text-gray-700'}`}>{o.label}</p>
+              className={`w-full text-left px-4 py-3 border-b border-gray-100 transition ${outil===o.id?'bg-iip-mauve/10 border-l-4 border-l-iip-mauve':'hover:bg-gray-100'}`}>
+              <p className={`text-sm font-semibold ${outil===o.id?'text-iip-mauve':'text-gray-700'}`}>{o.label}</p>
               <p className="text-xs text-gray-500 mt-0.5">{o.desc}</p>
             </button>
           ))}
         </div>
       </div>
-
-      {/* Contenu */}
       <div className="flex-1 overflow-auto p-6">
         {outil === 'recours' && (
           <>
             <div className="mb-6">
-              <h1 className="text-2xl font-title text-iip-mauve mb-1">Outil d'aide à la décision — Recours</h1>
-              <p className="text-sm text-gray-600">Fondé sur les Art. 87-91 du RDE/ROI IIP 2026-2027 et le Décret du 27.10.2006 · À destination de Nicolas (adjoint)</p>
+              <h1 className="text-2xl font-title text-iip-mauve mb-1">Outil de traitement des recours</h1>
+              <p className="text-sm text-gray-600">Art. 87-91 RDE/ROI IIP 2026-2027 · D. 27/10/2006 · À destination de Nicolas</p>
             </div>
             <OutilRecours />
           </>
         )}
         {outil === 'examens' && (
-          <div className="text-gray-500 text-sm p-8 text-center">
-            <p className="text-3xl mb-3">📋</p>
+          <div className="text-center text-gray-500 p-12">
+            <p className="text-4xl mb-3">📋</p>
             <p className="font-medium">Procédure Examens — en cours de développement</p>
-            <p className="text-xs mt-1">Uploadez le document de procédure examens pour activer cet outil.</p>
           </div>
         )}
       </div>
