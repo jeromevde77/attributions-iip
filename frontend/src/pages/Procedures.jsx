@@ -54,12 +54,15 @@ function Q({ num, text, value, onChange, ref_ }) {
 }
 
 // ─── Génération de la décision motivée (HTML → print) ─────────────────────────
-function genererDecision({ etudiant, ueNum, ueNom, profs, datePubli, dateRecours,
-  dateDecisionInterne, dateSeance, q, verdict, irregularites, annee }) {
+function genererDecision({ etudiant, ueNum, ueNom, profs, profsPresentsListe,
+  datePubli, dateRecours, dateDecisionInterne, dateSeance, q, verdict, irregularites, annee }) {
   const today = new Date().toLocaleDateString('fr-BE', { day:'2-digit', month:'long', year:'numeric' });
-  const membres = profs.length
-    ? profs.map(p => p.nom + ' ' + p.prenom).join(', ')
+  // Utiliser les présents cochés, sinon tous les profs
+  const presents = (profsPresentsListe && profsPresentsListe.length > 0) ? profsPresentsListe : profs;
+  const membres = presents.length
+    ? presents.map(p => p.nomComplet || (p.nom + ' ' + p.prenom)).join(', ')
     : '[À COMPLÉTER : membres du CDE restreint]';
+  const nbPresents = presents.length;
 
   const vu = `
     <p>Vu le Décret du 16 avril 1991 relatif à l'enseignement de promotion sociale, notamment les art. 123ter et 123quater ;</p>
@@ -166,10 +169,23 @@ function genererDecision({ etudiant, ueNum, ueNom, profs, datePubli, dateRecours
 <p><strong>Date d'introduction du recours :</strong> ${fmtCourt(dateRecours) || '—'}</p>
 ${dateSeance ? `<p><strong>Date de réunion du CDE restreint :</strong> ${fmtCourt(dateSeance)}</p>` : ''}
 
-${profs.length > 0 ? `
+${presents.length > 0 ? `
 <div class="composition">
-  <strong>Composition du Conseil des Études restreint :</strong><br>
-  ${membres}
+  <strong>Composition du Conseil des Études restreint (Art. 89 §1 RDE/ROI) :</strong><br>
+  <table style="width:100%;margin-top:6px;font-size:10pt">
+    <tr style="background:#e8eef8">
+      <th style="text-align:left;padding:4px 8px">Membre</th>
+      <th style="text-align:left;padding:4px 8px">Qualité</th>
+      <th style="text-align:center;padding:4px 8px">Présent à la délibération</th>
+    </tr>
+    ${presents.map((p, i) => `
+    <tr style="background:${i%2===0?'#f8f9fa':'white'}">
+      <td style="padding:4px 8px;font-weight:bold">${p.nomComplet || (p.nom + ' ' + p.prenom)}</td>
+      <td style="padding:4px 8px">${i === 0 ? 'Président(e) du CDE' : 'Membre du CDE'}</td>
+      <td style="padding:4px 8px;text-align:center">✓</td>
+    </tr>`).join('')}
+  </table>
+  ${nbPresents < 3 ? '<p style="color:#cc7700;margin-top:6px;font-size:9pt">⚠ Attention : le quorum requiert Président + min. 2 membres (Art. 89 §1).</p>' : ''}
 </div>` : ''}
 
 <h3>VU ET CONSIDÉRANT</h3>
@@ -209,8 +225,13 @@ function OutilRecours() {
 
   // Profs de l'UE (depuis la DB)
   const [profs, setProfs] = useState([]);
+  const [profsPresents, setProfsPresents] = useState(new Set()); // IDs cochés comme présents
   const [loadingProfs, setLoadingProfs] = useState(false);
   const [ues, setUes] = useState([]);
+
+  function toggleProfPresent(id) {
+    setProfsPresents(s => { const n = new Set(s); n.has(id) ? n.delete(id) : n.add(id); return n; });
+  }
 
   // Questions
   const [q, setQ] = useState({
@@ -235,7 +256,7 @@ function OutilRecours() {
 
   // Charger les profs quand UE change
   useEffect(() => {
-    if (!ueNum) { setProfs([]); return; }
+    if (!ueNum) { setProfs([]); setProfsPresents(new Set()); return; }
     const ue = ues.find(u => String(u.ue_num) === String(ueNum));
     if (ue) setUeNom(ue.ue_nom || '');
     setLoadingProfs(true);
@@ -280,8 +301,12 @@ function OutilRecours() {
     : recevable ? 'recevable' : null;
 
   function ouvrirDecision() {
+    const profsPresentsListe = profs.filter(p => profsPresents.has(p.id));
     const html = genererDecision({
-      etudiant, ueNum, ueNom, profs, datePubli, dateRecours,
+      etudiant, ueNum, ueNom,
+      profs: profsPresentsListe.length > 0 ? profsPresentsListe : profs,
+      profsPresentsListe,
+      datePubli, dateRecours,
       dateDecisionInterne, dateSeance, q, verdict, annee,
     });
     const w = window.open('', '_blank');
@@ -356,29 +381,46 @@ function OutilRecours() {
               </label>
             </div>
 
-            {/* Professeurs de l'UE */}
+            {/* Professeurs de l'UE — checkboxes présents à la délibération */}
             {ueNum && (
               <div className="mt-3 p-4 bg-blue-50 border border-blue-200 rounded-lg">
-                <p className="text-sm font-bold text-blue-900 mb-2">
-                  Enseignants de l'UE {ueNum}{ueNom ? ` — ${ueNom}` : ''} ({annee})
-                  {loadingProfs && <span className="text-xs font-normal ml-2">Chargement…</span>}
-                </p>
+                <div className="flex items-center justify-between mb-2">
+                  <p className="text-sm font-bold text-blue-900">
+                    Enseignants de l'UE {ueNum}{ueNom ? ` — ${ueNom}` : ''} ({annee})
+                    {loadingProfs && <span className="text-xs font-normal ml-2">Chargement…</span>}
+                  </p>
+                  {profs.length > 0 && (
+                    <button onClick={() => setProfsPresents(new Set(profs.map(p => p.id)))}
+                      className="text-xs text-blue-600 hover:underline">Tout cocher</button>
+                  )}
+                </div>
                 {profs.length === 0 && !loadingProfs && (
                   <p className="text-sm text-gray-500 italic">Aucun enseignant attribué pour cette UE.</p>
                 )}
                 {profs.length > 0 && (
                   <>
-                    <div className="grid grid-cols-2 gap-2">
+                    <p className="text-xs text-blue-700 mb-2">Cochez les membres <strong>présents</strong> à la délibération (CDE restreint = Président + min. 2 membres — Art. 89 §1) :</p>
+                    <div className="space-y-1">
                       {profs.map(p => (
-                        <div key={p.id} className="flex items-center gap-2 bg-white border border-blue-200 rounded px-3 py-1.5 text-sm">
-                          <span className="w-7 h-7 rounded-full bg-iip-mauve text-white text-xs font-bold flex items-center justify-center flex-shrink-0">
+                        <label key={p.id} className={`flex items-center gap-3 px-3 py-2 rounded-lg border cursor-pointer transition ${profsPresents.has(p.id) ? 'bg-green-50 border-green-400' : 'bg-white border-blue-200 hover:bg-blue-50'}`}>
+                          <input type="checkbox" checked={profsPresents.has(p.id)} onChange={() => toggleProfPresent(p.id)} className="w-4 h-4 accent-green-600" />
+                          <span className={`w-7 h-7 rounded-full text-white text-xs font-bold flex items-center justify-center flex-shrink-0 ${profsPresents.has(p.id) ? 'bg-green-600' : 'bg-iip-mauve'}`}>
                             {(p.nom[0]||'?').toUpperCase()}
                           </span>
-                          <span className="font-medium">{p.nomComplet}</span>
-                        </div>
+                          <span className={`text-sm font-medium flex-1 ${profsPresents.has(p.id) ? 'text-green-800' : 'text-gray-700'}`}>{p.nomComplet}</span>
+                          {profsPresents.has(p.id) && <span className="text-xs text-green-700 font-semibold">✓ Présent</span>}
+                        </label>
                       ))}
                     </div>
-                    <p className="text-xs text-blue-600 mt-2">↑ Ces enseignants peuvent faire partie du CDE restreint (Art. 89 §1 : Président + min. 2 membres).</p>
+                    {profsPresents.size > 0 && (
+                      <p className={`text-xs mt-2 font-medium ${profsPresents.size >= 3 ? 'text-green-700' : 'text-orange-600'}`}>
+                        {profsPresents.size} membre{profsPresents.size > 1 ? 's' : ''} présent{profsPresents.size > 1 ? 's' : ''}
+                        {profsPresents.size >= 3 ? ' — ✓ Quorum atteint' : ` — ⚠ Min. 3 membres requis (${3 - profsPresents.size} manquant${3 - profsPresents.size > 1 ? 's' : ''})`}
+                      </p>
+                    )}
+                    {profsPresents.size === 0 && (
+                      <p className="text-xs text-orange-600 mt-2">⚠ Cochez les membres présents pour les inclure dans le PV.</p>
+                    )}
                   </>
                 )}
               </div>
@@ -502,7 +544,7 @@ function OutilRecours() {
             <div className="space-y-2 mb-5">
               {[
                 {n:1, label:'Accusé de réception', detail:'Envoyer immédiatement un accusé de réception à l\'étudiant.'},
-                {n:2, label:'Convoquer le CDE restreint', detail:`Président + min. 2 membres. ${profs.length ? 'Enseignants de l\'UE disponibles : ' + profs.map(p=>p.nomComplet).join(', ') + '.' : ''}`},
+                {n:2, label:'Convoquer le CDE restreint', detail:`Président + min. 2 membres.${profsPresents.size > 0 ? ' Présents cochés : ' + profs.filter(p=>profsPresents.has(p.id)).map(p=>p.nomComplet).join(', ') + '.' : profs.length ? ' Enseignants de l\'UE : ' + profs.map(p=>p.nomComplet).join(', ') + ' (cochez les présents à l\'étape 1).' : ''}`},
                 {n:3, label:'Instruction', detail:'Examiner les griefs argument par argument. Consulter épreuves, DUE, feuilles de délibération.'},
                 {n:4, label:'Décision motivée', detail:'Rédiger la décision en exposant pourquoi chaque grief est accepté ou rejeté.'},
                 {n:5, label:'Notification par recommandé', detail:`${limiteDecisionInterne ? 'Date limite : ' + fmt(limiteDecisionInterne) + '.' : 'Envoyer dans le délai légal (7 jours calendrier hors congés).'}`},
