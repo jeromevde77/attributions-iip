@@ -7,8 +7,9 @@ import Dashboard from './pages/Dashboard.jsx';
 import Attributions from './pages/Attributions.jsx';
 import Professeurs from './pages/Professeurs.jsx';
 import { lazy, Suspense } from 'react';
-const Listes  = lazy(() => import('./pages/Listes.jsx'));
-const Editeur = lazy(() => import('./pages/Editeur.jsx'));
+const Listes     = lazy(() => import('./pages/Listes.jsx'));
+const Editeur    = lazy(() => import('./pages/Editeur.jsx'));
+const Procedures = lazy(() => import('./pages/Procedures.jsx'));
 import Users from './pages/Users.jsx';
 import Annees from './pages/Annees.jsx';
 import Configuration from './pages/Configuration.jsx';
@@ -94,6 +95,7 @@ function ProtectedLayout({ children }) {
         ['/attributions', 'Attributions'],
         ['/professeurs',  'Professeurs'],
         ['/listes',       'Listes'],
+        ['/procedures',   '⚖ Procédures'],
         ...(u?.role === 'admin' ? [['/ea12', 'EA12']] : []),
       ];
   if (u?.role === 'admin') nav.push(['/editeur', '📝 Éditeur']);
@@ -200,7 +202,13 @@ export default function App() {
           </Suspense>
         </ProtectedLayout>
       } />
-      <Route path="/editeur" element={
+      <Route path="/procedures" element={
+        <ProtectedLayout>
+          <Suspense fallback={<div className="p-8 text-gray-400">Chargement…</div>}>
+            <Procedures />
+          </Suspense>
+        </ProtectedLayout>
+      } />
         <ProtectedLayout>
           <Suspense fallback={<div className="p-8 text-gray-400">Chargement de l'éditeur…</div>}>
             <Editeur />
