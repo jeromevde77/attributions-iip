@@ -1,4 +1,21 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, Component } from 'react';
+
+// Error boundary : affiche l'erreur au lieu d'une page blanche
+class ErrorBoundary extends Component {
+  constructor(props) { super(props); this.state = { error: null }; }
+  static getDerivedStateFromError(e) { return { error: e }; }
+  render() {
+    if (this.state.error) return (
+      <div style={{ padding: '40px', fontFamily: 'monospace', background: '#fff0f0', minHeight: '100vh' }}>
+        <h2 style={{ color: '#c00' }}>❌ Erreur JavaScript — merci de copier ce message</h2>
+        <pre style={{ background: '#fff', border: '1px solid #f00', padding: '16px', borderRadius: '4px', overflow: 'auto' }}>
+          {this.state.error?.toString()}{'\n\n'}{this.state.error?.stack}
+        </pre>
+      </div>
+    );
+    return this.props.children;
+  }
+}
 import { Routes, Route, Navigate, NavLink, useNavigate } from 'react-router-dom';
 import { isAuthenticated, getUser, api, getAnnee, setAnnee } from './lib/api.js';
 
@@ -190,7 +207,8 @@ function ProtectedLayout({ children }) {
 
 export default function App() {
   return (
-    <Routes>
+    <ErrorBoundary>
+      <Routes>
       <Route path="/login" element={<Login />} />
       <Route path="/"             element={<ProtectedLayout><Dashboard /></ProtectedLayout>} />
       <Route path="/attributions" element={<ProtectedLayout><Attributions /></ProtectedLayout>} />
@@ -225,5 +243,6 @@ export default function App() {
       <Route path="/referentiels"   element={<ProtectedLayout><Referentiels /></ProtectedLayout>} />
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
+    </ErrorBoundary>
   );
 }
