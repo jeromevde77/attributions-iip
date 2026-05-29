@@ -209,6 +209,7 @@ export default function App() {
           </Suspense>
         </ProtectedLayout>
       } />
+      <Route path="/editeur" element={
         <ProtectedLayout>
           <Suspense fallback={<div className="p-8 text-gray-400">Chargement de l'éditeur…</div>}>
             <Editeur />
