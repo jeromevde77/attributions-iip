@@ -903,4 +903,20 @@ r.get('/professeurs-attributions', authRequired, (req, res) => {
   }
 });
 
+// ── Membres CDE (direction, secrétariat, coordination) ───────────────────────
+r.get('/membres-cde', authRequired, (req, res) => {
+  const membres = db.prepare(
+    `SELECT id, nom, prenom, (prenom || ' ' || nom) AS nomComplet, qualite
+     FROM membres_cde WHERE actif = 1
+     ORDER BY CASE qualite
+       WHEN 'Directeur'          THEN 1
+       WHEN 'Directeur adjoint'  THEN 2
+       WHEN 'Secrétaire'         THEN 3
+       WHEN 'Coordinatrice'      THEN 4
+       WHEN 'Coordinateur'       THEN 4
+       ELSE 5 END, nom`
+  ).all();
+  res.json(membres);
+});
+
 export default r;

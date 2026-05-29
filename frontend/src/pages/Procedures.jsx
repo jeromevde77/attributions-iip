@@ -260,11 +260,13 @@ function OutilRecours() {
       }).catch(() => {});
   }, [annee]);
 
-  // Membres fixes du CDE (direction)
-  const MEMBRES_FIXES = [
-    { id: 'sohet',      nom: 'SOHET',      prenom: 'Charles',  nomComplet: 'Charles SOHET',      qualite: 'Directeur' },
-    { id: 'vandecauter',nom: 'VANDECAUTER',prenom: 'Nicolas',  nomComplet: 'Nicolas VANDECAUTER', qualite: 'Directeur adjoint' },
-  ];
+  // Membres fixes du CDE (chargés depuis la DB au démarrage)
+  const [membresCde, setMembresCde] = useState([]);
+  useEffect(() => {
+    authFetch('/api/ref/membres-cde')
+      .then(d => setMembresCde(Array.isArray(d) ? d.map(m => ({ ...m, id: 'cde_' + m.id })) : []))
+      .catch(() => {});
+  }, []);
 
   // Charger les profs quand UE change
   useEffect(() => {
@@ -283,11 +285,11 @@ function OutilRecours() {
             ps.push({ id: r.professeur_id, nom: parts[0] || '', prenom: parts.slice(1).join(' ') || '', nomComplet: r.professeur || '', qualite: 'Enseignant(e)' });
           }
         }
-        // Membres fixes en tête, puis les enseignants de l'UE
-        setProfs([...MEMBRES_FIXES, ...ps]);
-      }).catch(() => setProfs([...MEMBRES_FIXES]))
+        // Membres CDE en tête, puis les enseignants de l'UE
+        setProfs([...membresCde, ...ps]);
+      }).catch(() => setProfs([...membresCde]))
       .finally(() => setLoadingProfs(false));
-  }, [ueNum, annee]);
+  }, [ueNum, annee, membresCde]);
 
   // Calculs délais
   const limiteRecours = datePubli ? addJoursCalendrier(datePubli, 4) : null;

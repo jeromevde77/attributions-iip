@@ -167,6 +167,36 @@ try {
     );
     console.log('[migration] Template exemple "Synthèse de section" créé');
   }
+
+  // ── Table membres_cde (direction, secrétariat, coordination) ─────────────
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS membres_cde (
+      id       INTEGER PRIMARY KEY AUTOINCREMENT,
+      nom      TEXT NOT NULL,
+      prenom   TEXT NOT NULL,
+      qualite  TEXT NOT NULL,
+      actif    INTEGER NOT NULL DEFAULT 1
+    );
+  `);
+  const seedMembresCde = [
+    ['SOHET',       'Charles',  'Directeur'],
+    ['VANDECAUTER', 'Nicolas',  'Directeur adjoint'],
+    ['AEVALIOTIS',  'Mati',     'Secrétaire'],
+    ['DAELEMEN',    'Florian',  'Secrétaire'],
+    ['LAMBERT',     'Marie',    'Coordinatrice'],
+    ['BOULENGIER',  'Natacha',  'Coordinatrice'],
+    ['ROUGUI',      'Loubna',   'Coordinatrice'],
+  ];
+  const insertMembre = db.prepare(
+    `INSERT INTO membres_cde (nom, prenom, qualite) VALUES (?, ?, ?)`
+  );
+  for (const [nom, prenom, qualite] of seedMembresCde) {
+    const exists = db.prepare('SELECT 1 FROM membres_cde WHERE nom = ? AND prenom = ?').get(nom, prenom);
+    if (!exists) {
+      insertMembre.run(nom, prenom, qualite);
+      console.log(`[migration] Membre CDE ajouté : ${prenom} ${nom} (${qualite})`);
+    }
+  }
   // Option B : chaque génération est CONSERVÉE et horodatée (traçabilité FWB).
   db.exec(`
     CREATE TABLE IF NOT EXISTS document_archive (
