@@ -181,7 +181,7 @@ ${presents.length > 0 ? `
     ${presents.map((p, i) => `
     <tr style="background:${i%2===0?'#f8f9fa':'white'}">
       <td style="padding:4px 8px;font-weight:bold">${p.nomComplet || (p.nom + ' ' + p.prenom)}</td>
-      <td style="padding:4px 8px">${i === 0 ? 'Président(e) du CDE' : 'Membre du CDE'}</td>
+      <td style="padding:4px 8px">${p.qualite || (i === 0 ? 'Président(e) du CDE' : 'Membre du CDE')}</td>
       <td style="padding:4px 8px;text-align:center">✓</td>
     </tr>`).join('')}
   </table>
@@ -260,6 +260,12 @@ function OutilRecours() {
       }).catch(() => {});
   }, [annee]);
 
+  // Membres fixes du CDE (direction)
+  const MEMBRES_FIXES = [
+    { id: 'sohet',      nom: 'SOHET',      prenom: 'Charles',  nomComplet: 'Charles SOHET',      qualite: 'Directeur' },
+    { id: 'vandecauter',nom: 'VANDECAUTER',prenom: 'Nicolas',  nomComplet: 'Nicolas VANDECAUTER', qualite: 'Directeur adjoint' },
+  ];
+
   // Charger les profs quand UE change
   useEffect(() => {
     if (!ueNum) { setProfs([]); setProfsPresents(new Set()); return; }
@@ -274,11 +280,12 @@ function OutilRecours() {
           if (r.professeur_id && !seen.has(r.professeur_id) && !r.is_z) {
             seen.add(r.professeur_id);
             const parts = (r.professeur || '').split(' ');
-            ps.push({ id: r.professeur_id, nom: parts[0] || '', prenom: parts.slice(1).join(' ') || '', nomComplet: r.professeur || '' });
+            ps.push({ id: r.professeur_id, nom: parts[0] || '', prenom: parts.slice(1).join(' ') || '', nomComplet: r.professeur || '', qualite: 'Enseignant(e)' });
           }
         }
-        setProfs(ps);
-      }).catch(() => setProfs([]))
+        // Membres fixes en tête, puis les enseignants de l'UE
+        setProfs([...MEMBRES_FIXES, ...ps]);
+      }).catch(() => setProfs([...MEMBRES_FIXES]))
       .finally(() => setLoadingProfs(false));
   }, [ueNum, annee]);
 
@@ -408,7 +415,8 @@ function OutilRecours() {
                             {(p.nom[0]||'?').toUpperCase()}
                           </span>
                           <span className={`text-sm font-medium flex-1 ${profsPresents.has(p.id) ? 'text-green-800' : 'text-gray-700'}`}>{p.nomComplet}</span>
-                          {profsPresents.has(p.id) && <span className="text-xs text-green-700 font-semibold">✓ Présent</span>}
+                          {p.qualite && <span className="text-xs text-gray-400 italic">{p.qualite}</span>}
+                          {profsPresents.has(p.id) && <span className="text-xs text-green-700 font-semibold ml-1">✓</span>}
                         </label>
                       ))}
                     </div>
