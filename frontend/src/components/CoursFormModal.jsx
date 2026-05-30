@@ -182,9 +182,18 @@ export default function CoursFormModal({ cours, ueNum, section, onClose, onSaved
                 <select value={form.ct_pp} onChange={e => set('ct_pp', e.target.value)}
                   disabled={isZ} className={isZ ? inpZ : inp + ' bg-white'}>
                   <option value="">—</option>
-                  <option value="CG">CG</option>
-                  <option value="CT">CT</option>
-                  <option value="PP">PP</option>
+                  <optgroup label="Codes enseignement">
+                    <option value="CG">CG — Cours Généraux</option>
+                    <option value="CT">CT — Cours Techniques</option>
+                    <option value="PP">PP — Pratique Professionnelle</option>
+                  </optgroup>
+                  <optgroup label="Codes U">
+                    <option value="B">B</option>
+                    <option value="F">F</option>
+                    <option value="T">T</option>
+                    <option value="P">P</option>
+                    <option value="O">O</option>
+                  </optgroup>
                 </select>
               </label>
               <label className="block">
