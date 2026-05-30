@@ -21,6 +21,7 @@ import historiqueRoutes from './routes/historique.js';
 import etablissementRoutes from './routes/etablissement.js';
 import ea12Routes from './routes/ea12.js';
 import templateRoutes   from './routes/templates.js';
+import contratsRoutes   from './routes/contrats.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
@@ -824,6 +825,7 @@ app.use('/api/historique',   historiqueRoutes);
 app.use('/api/etablissement', etablissementRoutes);
 app.use('/api/ea12',          ea12Routes);
 app.use('/api/templates',   templateRoutes);
+app.use('/api/contrats',    contratsRoutes);
 
 // Erreurs
 app.use((err, req, res, next) => {
