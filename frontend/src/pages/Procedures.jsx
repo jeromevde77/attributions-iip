@@ -317,6 +317,8 @@ function OutilRecours() {
 
   async function ouvrirDecision() {
     const profsPresentsListe = profs.filter(p => profsPresents.has(p.id));
+    const w = window.open('about:blank', '_blank');
+    if (!w) { alert('Autorisez les pop-ups pour ce site'); return; }
     try {
       const res = await authFetch('/api/procedures/pv-recours', {
         method: 'POST',
@@ -329,13 +331,12 @@ function OutilRecours() {
           commentaire_cde: commentaireCDE, q, verdict, annee,
         }),
       }).then(r => r.json());
-      if (res.error) { alert('Erreur : ' + res.error); return; }
+      if (res.error) { w.close(); alert('Erreur : ' + res.error); return; }
       const blob = new Blob([res.html], { type: 'text/html;charset=utf-8' });
       const blobUrl = URL.createObjectURL(blob);
-      const w = window.open(blobUrl, '_blank');
-      if (!w) { alert('Autorisez les pop-ups pour ce site'); }
+      w.location.href = blobUrl;
       setTimeout(() => URL.revokeObjectURL(blobUrl), 5000);
-    } catch(e) { alert('Erreur : ' + e.message); }
+    } catch(e) { w.close(); alert('Erreur : ' + e.message); }
   }
 
   // Barre de progression
@@ -823,6 +824,9 @@ function OutilFraude() {
 
   async function ouvrirPV() {
     const presents = profs.filter(p => profsPresents.has(p.id));
+    // Ouvrir la fenêtre AVANT l'await — requis par Safari (contexte événement utilisateur)
+    const w = window.open('about:blank', '_blank');
+    if (!w) { alert('Autorisez les pop-ups pour ce site'); return; }
     try {
       const res = await authFetch('/api/procedures/pv-fraude', {
         method: 'POST',
@@ -839,13 +843,12 @@ function OutilFraude() {
           session, recidive, decision, annee,
         }),
       }).then(r => r.json());
-      if (res.error) { alert('Erreur : ' + res.error); return; }
+      if (res.error) { w.close(); alert('Erreur : ' + res.error); return; }
       const blob = new Blob([res.html], { type: 'text/html;charset=utf-8' });
       const blobUrl = URL.createObjectURL(blob);
-      const w = window.open(blobUrl, '_blank');
-      if (!w) { alert('Autorisez les pop-ups pour ce site'); }
+      w.location.href = blobUrl;
       setTimeout(() => URL.revokeObjectURL(blobUrl), 5000);
-    } catch(e) { alert('Erreur : ' + e.message); }
+    } catch(e) { w.close(); alert('Erreur : ' + e.message); }
   }
 
   const steps = ['Dossier & UE', 'Faits', 'Procédure contradictoire', 'Délibération', 'PV & décision'];
