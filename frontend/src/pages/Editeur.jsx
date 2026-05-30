@@ -280,8 +280,8 @@ function Toolbar({ editor }) {
   if (!editor) return null;
   return (
     <div className="flex flex-wrap items-center gap-0.5 px-2 py-1.5 border-b border-gray-200 bg-gray-50 sticky top-0 z-10">
-      <Btn onClick={() => editor.chain().focus().undo().run()} disabled={!editor.can().undo()} title="Annuler">↩</Btn>
-      <Btn onClick={() => editor.chain().focus().redo().run()} disabled={!editor.can().redo()} title="Rétablir">↪</Btn>
+      <Btn onClick={() => editor.chain().focus().undo().run()} disabled={!editor?.can()?.undo?.()} title="Annuler">↩</Btn>
+      <Btn onClick={() => editor.chain().focus().redo().run()} disabled={!editor?.can()?.redo?.()} title="Rétablir">↪</Btn>
       <Sep/>
       <select value={editor.isActive('heading',{level:1})?'h1':editor.isActive('heading',{level:2})?'h2':editor.isActive('heading',{level:3})?'h3':'p'}
         onChange={e=>{const v=e.target.value; v==='p'?editor.chain().focus().setParagraph().run():editor.chain().focus().toggleHeading({level:parseInt(v[1])}).run()}}
@@ -304,15 +304,15 @@ function Toolbar({ editor }) {
       <Btn onClick={() => editor.chain().focus().toggleOrderedList().run()} active={editor.isActive('orderedList')} title="Liste numérotée">1.</Btn>
       <Sep/>
       <Btn onClick={() => editor.chain().focus().insertTable({ rows:3, cols:3, withHeaderRow:true }).run()} title="Insérer tableau">⊞</Btn>
-      <Btn onClick={() => editor.chain().focus().addColumnBefore().run()} disabled={!editor.can().addColumnBefore()} title="Col. avant">◁|</Btn>
-      <Btn onClick={() => editor.chain().focus().addColumnAfter().run()} disabled={!editor.can().addColumnAfter()} title="Col. après">|▷</Btn>
-      <Btn onClick={() => editor.chain().focus().addRowBefore().run()} disabled={!editor.can().addRowBefore()} title="Ligne avant">△—</Btn>
-      <Btn onClick={() => editor.chain().focus().addRowAfter().run()} disabled={!editor.can().addRowAfter()} title="Ligne après">—▽</Btn>
-      <Btn onClick={() => editor.chain().focus().mergeCells().run()} disabled={!editor.can().mergeCells()} title="Fusionner cellules">⊟</Btn>
-      <Btn onClick={() => editor.chain().focus().splitCell().run()} disabled={!editor.can().splitCell()} title="Scinder cellule">⊞</Btn>
-      <Btn onClick={() => editor.chain().focus().deleteColumn().run()} disabled={!editor.can().deleteColumn()} title="Suppr. colonne" danger>✕col</Btn>
-      <Btn onClick={() => editor.chain().focus().deleteRow().run()} disabled={!editor.can().deleteRow()} title="Suppr. ligne" danger>✕lig</Btn>
-      <Btn onClick={() => editor.chain().focus().deleteTable().run()} disabled={!editor.can().deleteTable()} title="Suppr. tableau" danger>✕tab</Btn>
+      <Btn onClick={() => editor.chain().focus().addColumnBefore().run()} disabled={!editor?.can()?.addColumnBefore?.()} title="Col. avant">◁|</Btn>
+      <Btn onClick={() => editor.chain().focus().addColumnAfter().run()} disabled={!editor?.can()?.addColumnAfter?.()} title="Col. après">|▷</Btn>
+      <Btn onClick={() => editor.chain().focus().addRowBefore().run()} disabled={!editor?.can()?.addRowBefore?.()} title="Ligne avant">△—</Btn>
+      <Btn onClick={() => editor.chain().focus().addRowAfter().run()} disabled={!editor?.can()?.addRowAfter?.()} title="Ligne après">—▽</Btn>
+      <Btn onClick={() => editor.chain().focus().mergeCells().run()} disabled={!editor?.can()?.mergeCells?.()} title="Fusionner cellules">⊟</Btn>
+      <Btn onClick={() => editor.chain().focus().splitCell().run()} disabled={!editor?.can()?.splitCell?.()} title="Scinder cellule">⊞</Btn>
+      <Btn onClick={() => editor.chain().focus().deleteColumn().run()} disabled={!editor?.can()?.deleteColumn?.()} title="Suppr. colonne" danger>✕col</Btn>
+      <Btn onClick={() => editor.chain().focus().deleteRow().run()} disabled={!editor?.can()?.deleteRow?.()} title="Suppr. ligne" danger>✕lig</Btn>
+      <Btn onClick={() => editor.chain().focus().deleteTable().run()} disabled={!editor?.can()?.deleteTable?.()} title="Suppr. tableau" danger>✕tab</Btn>
       <Sep/>
       <Btn onClick={() => insertLogo('/api/logo-iip', 'Institut Ilya Prigogine')} title="Insérer le logo IIP couleurs">🖼 Logo</Btn>
       <Btn onClick={() => editor.chain().focus().insertContent({ type: 'enTeteBlock', content: [{ type: 'paragraph' }] }).run()} title="Insérer un en-tête (répété sur chaque page)">⬆ En-tête</Btn>

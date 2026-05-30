@@ -162,9 +162,12 @@ try {
     );
   `);
 
-  // Migration : ajouter colonne slug si absente
-  try { db.exec(`ALTER TABLE document_template ADD COLUMN slug TEXT`); }
-  catch { /* colonne déjà présente */ }
+  // Migration : ajouter colonne slug si absente (PRAGMA table_info — fiable, pas de try/catch)
+  const _colsTpl = db.prepare("PRAGMA table_info(document_template)").all();
+  if (!_colsTpl.find(c => c.name === 'slug')) {
+    db.exec(`ALTER TABLE document_template ADD COLUMN slug TEXT`);
+    console.log('[migration] Colonne document_template.slug ajoutée');
+  }
 
   // Mettre à jour les slugs des templates existants sans slug
   const contratRow = db.prepare(`SELECT id FROM document_template WHERE nom = 'Contrat de travail CDD' AND slug IS NULL`).get();
