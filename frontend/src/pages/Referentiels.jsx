@@ -556,7 +556,7 @@ export default function Referentiels({ embedded = false }) {
                               )}
                             </td>
                             <td className="px-2 py-1.5 text-right" title="Périodes prof. = somme des cours_per des cours">{ue.calc_per_cours ?? ue.ue_per_cours ?? '—'}</td>
-                            <td className="px-2 py-1.5 text-right text-gray-400">{ue.calc_autonomie ?? ue.ue_aut ?? '—'}</td>
+                            <td className="px-2 py-1.5 text-right text-gray-400" title="Autonomie (7.2) saisie dans la fiche UE">{ue.ue_aut ?? '—'}</td>
                             <td className="px-2 py-1.5 text-right font-semibold text-iip-mauve">{ue.ue_per_etudiants ?? '—'}</td>
                             <td className="px-2 py-1.5 text-right text-gray-400">{ue.cours.length}</td>
                             <td className="px-2 py-1.5 text-right text-gray-400">{ue.nb_attributions}</td>
@@ -685,7 +685,7 @@ export default function Referentiels({ embedded = false }) {
                         <td className="px-2 py-1.5 text-center">{ue.ue_quad || '—'}</td>
                         <td className="px-2 py-1.5 text-center">{ue.et_ref || '—'}</td>
                         <td className="px-2 py-1.5 text-right" title="Périodes prof. = somme des cours_per des cours">{ue.calc_per_cours ?? ue.ue_per_cours ?? '—'}</td>
-                        <td className="px-2 py-1.5 text-right text-gray-400">{ue.calc_autonomie ?? ue.ue_aut ?? '—'}</td>
+                        <td className="px-2 py-1.5 text-right text-gray-400" title="Autonomie (7.2) saisie dans la fiche UE">{ue.ue_aut ?? '—'}</td>
                         <td className="px-2 py-1.5 text-right">{ue.ects ?? '—'}</td>
                         <td className="px-2 py-1.5 text-right text-gray-400">{ue.cours.length}</td>
                         <td className="px-2 py-1.5 text-right whitespace-nowrap">
