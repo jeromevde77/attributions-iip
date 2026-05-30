@@ -268,6 +268,15 @@ function Sep() { return <div className="w-px h-5 bg-gray-200 mx-0.5 self-center"
 
 // ─── Toolbar ───────────────────────────────────────────────────────────────
 function Toolbar({ editor }) {
+  // Insère le logo en base64 (auto-contenu, pas d'URL relative rejetée par TipTap)
+  async function insertLogo(url, alt) {
+    try {
+      const resp = await fetch(url);
+      const blob = await resp.blob();
+      const b64 = await new Promise(res => { const r = new FileReader(); r.onload = () => res(r.result); r.readAsDataURL(blob); });
+      editor.chain().focus().setImage({ src: b64, alt }).run();
+    } catch { alert('Impossible de charger le logo.'); }
+  }
   if (!editor) return null;
   return (
     <div className="flex flex-wrap items-center gap-0.5 px-2 py-1.5 border-b border-gray-200 bg-gray-50 sticky top-0 z-10">
@@ -305,7 +314,7 @@ function Toolbar({ editor }) {
       <Btn onClick={() => editor.chain().focus().deleteRow().run()} disabled={!editor.can().deleteRow()} title="Suppr. ligne" danger>✕lig</Btn>
       <Btn onClick={() => editor.chain().focus().deleteTable().run()} disabled={!editor.can().deleteTable()} title="Suppr. tableau" danger>✕tab</Btn>
       <Sep/>
-      <Btn onClick={() => editor.chain().focus().setImage({ src: '/api/logo-iip', alt: 'Institut Ilya Prigogine' }).run()} title="Insérer le logo IIP">🖼 Logo</Btn>
+      <Btn onClick={() => insertLogo('/api/logo-iip', 'Institut Ilya Prigogine')} title="Insérer le logo IIP couleurs">🖼 Logo</Btn>
       <Btn onClick={() => editor.chain().focus().insertContent({ type: 'enTeteBlock', content: [{ type: 'paragraph' }] }).run()} title="Insérer un en-tête (répété sur chaque page)">⬆ En-tête</Btn>
       <Btn onClick={() => editor.chain().focus().insertContent({ type: 'piedDePageBlock', content: [{ type: 'paragraph' }] }).run()} title="Insérer un bas de page (répété sur chaque page)">⬇ Pied</Btn>
       <Sep/>
@@ -402,7 +411,17 @@ export default function Editeur() {
     const token = localStorage.getItem('token');
     const r = await fetch(`/api/templates/${t.id}`, { headers: { Authorization: `Bearer ${token}` } });
     const d = await r.json();
-    editor?.commands.setContent(d.contenu || '');
+    let contenu = d.contenu || '';
+    // Nettoyer les <img src="..."> avec URL relatives ou invalides qui font planter TipTap
+    // TipTap exige des URLs absolues ou data: — on retire les images problématiques
+    contenu = contenu.replace(/<img[^>]+src="(?!data:|https?:\/\/)[^"]*"[^>]*>/gi,
+      '<span style="background:#fef3c7;padding:2px 6px;border-radius:4px;font-size:11px">🖼 [image — à réinsérer via bouton Logo]</span>');
+    try {
+      editor?.commands.setContent(contenu);
+    } catch (e) {
+      console.error('[chargerTemplate]', e);
+      alert(`Erreur lors du chargement du template : ${e.message}\n\nEssayez de le rééditer et de le sauvegarder.`);
+    }
   }
 
   function nouveauTemplate() {
