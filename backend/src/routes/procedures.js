@@ -52,10 +52,26 @@ function genererDepuisTemplate(slug, vars) {
   const etab = db.prepare('SELECT * FROM etablissement WHERE id = 1').get() || {};
   const now  = new Date();
 
+  // Directeur : tiré du personnel d'établissement (fonction = 'Directeur') → fiche professeur.
+  // Alimente les champs {{directeur.*}} proposés par l'éditeur, sinon ils seraient effacés.
+  let directeurVars = { 'directeur.nom_prenom': '', 'directeur.qualite': 'Directeur', 'directeur.email': '' };
+  const dirPe = db.prepare(
+    "SELECT professeur_id, fonction FROM personnel_etablissement WHERE fonction = 'Directeur' ORDER BY ordre LIMIT 1"
+  ).get();
+  if (dirPe) {
+    const p = db.prepare('SELECT * FROM professeur WHERE id = ?').get(dirPe.professeur_id) || {};
+    directeurVars = {
+      'directeur.nom_prenom': p.nom ? `${p.nom} ${p.prenom || ''}`.trim() : '',
+      'directeur.qualite':    dirPe.fonction || 'Directeur',
+      'directeur.email':      p.email || '',
+    };
+  }
+
   const allVars = {
     'sys.date':     now.toLocaleDateString('fr-BE', { weekday:'long', day:'2-digit', month:'long', year:'numeric' }),
     'sys.annee':    db.prepare(`SELECT code FROM annee_scolaire WHERE active = 1`).get()?.code || '2026-2027',
     'etab.etab_nom': etab.etab_nom || 'Institut Ilya Prigogine',
+    ...directeurVars,
     ...vars,
   };
 
