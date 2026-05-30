@@ -340,8 +340,26 @@ export default function Editeur() {
   const [profs, setProfs]             = useState([]);
   const [sections, setSections]       = useState([]);
   const [search, setSearch]           = useState('');
-  const [panelMode, setPanelMode]     = useState('champs'); // 'champs' | 'boucles'
+  const [panelMode, setPanelMode]     = useState('champs');
   const [boucleActive, setBoucleActive] = useState('profs_ue');
+
+  // Traqueur global : attrape toute erreur non gérée sur cette page
+  useEffect(() => {
+    function onError(e) {
+      console.error('[Éditeur] Erreur globale :', e.error || e.message, e);
+      alert(`[Éditeur] Erreur capturée :\n${e.message}\n\nFichier : ${e.filename}\nLigne : ${e.lineno}:${e.colno}\n\nConsultez la console (F12) pour la stack trace.`);
+    }
+    function onUnhandled(e) {
+      console.error('[Éditeur] Promise non gérée :', e.reason);
+      alert(`[Éditeur] Erreur async :\n${e.reason?.message || e.reason}\n\nConsultez la console (F12).`);
+    }
+    window.addEventListener('error', onError);
+    window.addEventListener('unhandledrejection', onUnhandled);
+    return () => {
+      window.removeEventListener('error', onError);
+      window.removeEventListener('unhandledrejection', onUnhandled);
+    };
+  }, []);
 
   useEffect(() => {
     chargerTemplates();

@@ -162,7 +162,7 @@ try {
     );
   `);
 
-  // Migration : ajouter colonne slug si absente (PRAGMA table_info fiable)
+  // Migration : ajouter colonne slug si absente (PRAGMA table_info — fiable, pas de try/catch)
   const _colsTpl = db.prepare("PRAGMA table_info(document_template)").all();
   if (!_colsTpl.find(c => c.name === 'slug')) {
     db.exec(`ALTER TABLE document_template ADD COLUMN slug TEXT`);
