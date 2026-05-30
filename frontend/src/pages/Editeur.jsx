@@ -126,6 +126,7 @@ const Indent = Extension.create({
 });
 import { useState, useEffect } from 'react';
 import { api, getAnnee } from '../lib/api.js';
+import mammoth from 'mammoth/mammoth.browser.js';
 
 // ─── Champs simples ────────────────────────────────────────────────────────
 const CHAMPS = {
@@ -584,6 +585,32 @@ export default function Editeur() {
     ]).run();
   }
 
+  // Importer un .docx (Word) → HTML (Mammoth) → chargé dans l'éditeur comme NOUVEAU template.
+  // Conversion sémantique (titres, paragraphes, gras/italique, listes, tableaux, images) ;
+  // la mise en page exacte de Word (polices/espacements précis) n'est pas reproduite.
+  async function importerWord(file) {
+    if (!editor || !file) return;
+    setSaving(true);
+    try {
+      const arrayBuffer = await file.arrayBuffer();
+      const result = await mammoth.convertToHtml({ arrayBuffer }, {
+        convertImage: mammoth.images.imgElement(async image => {
+          const b64 = await image.readAsBase64String();
+          return { src: `data:${image.contentType};base64,${b64}` };
+        }),
+      });
+      editor.commands.setContent(result.value || '<p></p>');
+      setTemplateId(null); // import = nouveau template (ne pas écraser l'existant)
+      setNom(file.name.replace(/\.docx$/i, '') || 'Document importé');
+      const warns = (result.messages || []).filter(m => m.type === 'warning').length;
+      alert('Word importé ✓' + (warns ? ` (${warns} avertissement(s) de conversion)` : '') + '\n\nVérifie la mise en forme, puis clique « Sauvegarder » pour le conserver.');
+    } catch (e) {
+      alert('Import impossible : ' + e.message);
+    } finally {
+      setSaving(false);
+    }
+  }
+
   async function sauvegarder() {
     if (!editor) return;
     setSaving(true);
@@ -741,6 +768,11 @@ export default function Editeur() {
             className="bg-iip-gold hover:bg-iip-amber disabled:opacity-40 text-white text-sm px-4 py-1.5 rounded font-medium whitespace-nowrap">
             {saving ? '…' : '💾 Sauvegarder'}
           </button>
+          <label title="Importer un document Word (.docx) et l'éditer" className="bg-white border border-gray-300 hover:bg-gray-50 text-gray-700 text-sm px-3 py-1.5 rounded font-medium whitespace-nowrap cursor-pointer">
+            📄 Importer Word
+            <input type="file" accept=".docx" className="hidden"
+              onChange={e => { const f = e.target.files?.[0]; if (f) importerWord(f); e.target.value = ''; }} />
+          </label>
           <select value={section} onChange={e => setSection(e.target.value)}
             className="border border-gray-300 rounded px-2 py-1.5 text-sm bg-white">
             <option value="">— Section —</option>
