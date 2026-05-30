@@ -3,7 +3,7 @@ import { getAnnee } from '../lib/api.js';
 
 // ─── Utilitaires ──────────────────────────────────────────────────────────────
 const TOKEN = () => localStorage.getItem('token');
-const authFetch = (url) => fetch(url, { headers: { Authorization: `Bearer ${TOKEN()}` } }).then(r => r.json());
+const authFetch = (url, opts = {}) => fetch(url, { ...opts, headers: { Authorization: `Bearer ${TOKEN()}`, ...(opts.headers || {}) } }).then(r => r.json());
 
 function addJoursOuvrables(date, n) {
   const d = new Date(date); let count = 0;
