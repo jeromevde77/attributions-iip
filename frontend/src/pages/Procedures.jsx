@@ -330,9 +330,11 @@ function OutilRecours() {
         }),
       }).then(r => r.json());
       if (res.error) { alert('Erreur : ' + res.error); return; }
-      const w = window.open('', '_blank');
-      if (!w) { alert('Autorisez les pop-ups'); return; }
-      w.document.write(res.html); w.document.close();
+      const blob = new Blob([res.html], { type: 'text/html;charset=utf-8' });
+      const blobUrl = URL.createObjectURL(blob);
+      const w = window.open(blobUrl, '_blank');
+      if (!w) { alert('Autorisez les pop-ups pour ce site'); }
+      setTimeout(() => URL.revokeObjectURL(blobUrl), 5000);
     } catch(e) { alert('Erreur : ' + e.message); }
   }
 
@@ -838,9 +840,11 @@ function OutilFraude() {
         }),
       }).then(r => r.json());
       if (res.error) { alert('Erreur : ' + res.error); return; }
-      const w = window.open('', '_blank');
-      if (!w) { alert('Autorisez les pop-ups'); return; }
-      w.document.write(res.html); w.document.close();
+      const blob = new Blob([res.html], { type: 'text/html;charset=utf-8' });
+      const blobUrl = URL.createObjectURL(blob);
+      const w = window.open(blobUrl, '_blank');
+      if (!w) { alert('Autorisez les pop-ups pour ce site'); }
+      setTimeout(() => URL.revokeObjectURL(blobUrl), 5000);
     } catch(e) { alert('Erreur : ' + e.message); }
   }
 
