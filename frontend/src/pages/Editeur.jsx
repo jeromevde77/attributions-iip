@@ -8,7 +8,53 @@ import { TextAlign } from '@tiptap/extension-text-align';
 import { Underline } from '@tiptap/extension-underline';
 import { Color, TextStyle } from '@tiptap/extension-text-style';
 import { Image } from '@tiptap/extension-image';
-import { Node, mergeAttributes } from '@tiptap/core';
+import { Node, Extension, mergeAttributes } from '@tiptap/core';
+import Highlight from '@tiptap/extension-highlight';
+
+// ── Tableau type Word : fond de cellule + couleur de bordure (par cellule) ────
+const cellAttrs = {
+  backgroundColor: {
+    default: null,
+    parseHTML: el => el.style.backgroundColor || null,
+    renderHTML: a => a.backgroundColor ? { style: `background-color:${a.backgroundColor}` } : {},
+  },
+  borderColor: {
+    default: null,
+    parseHTML: el => el.style.borderColor || null,
+    renderHTML: a => a.borderColor ? { style: `border-color:${a.borderColor}` } : {},
+  },
+};
+const CustomTableCell   = TableCell.extend({   addAttributes() { return { ...this.parent?.(), ...cellAttrs }; } });
+const CustomTableHeader = TableHeader.extend({ addAttributes() { return { ...this.parent?.(), ...cellAttrs }; } });
+
+// ── Police & taille de police (attributs sur textStyle, façon Word) ───────────
+const TextFormat = Extension.create({
+  name: 'textFormat',
+  addOptions() { return { types: ['textStyle'] }; },
+  addGlobalAttributes() {
+    return [{
+      types: this.options.types,
+      attributes: {
+        fontSize: {
+          default: null,
+          parseHTML: el => el.style.fontSize || null,
+          renderHTML: a => a.fontSize ? { style: `font-size:${a.fontSize}` } : {},
+        },
+        fontFamily: {
+          default: null,
+          parseHTML: el => el.style.fontFamily?.replace(/["']/g, '') || null,
+          renderHTML: a => a.fontFamily ? { style: `font-family:${a.fontFamily}` } : {},
+        },
+      },
+    }];
+  },
+  addCommands() {
+    return {
+      setFontSize:   size   => ({ chain }) => chain().setMark('textStyle', { fontSize: size }).run(),
+      setFontFamily: family => ({ chain }) => chain().setMark('textStyle', { fontFamily: family }).run(),
+    };
+  },
+});
 import { useState, useEffect } from 'react';
 import { api, getAnnee } from '../lib/api.js';
 
@@ -337,6 +383,38 @@ function Toolbar({ editor }) {
         A <input type="color" className="w-5 h-5 cursor-pointer border-0 p-0 bg-transparent" defaultValue="#000000"
           onChange={e=>editor.chain().focus().setColor(e.target.value).run()} />
       </label>
+      <label title="Surligner" className="flex items-center gap-0.5 h-7 px-1.5 rounded hover:bg-gray-100 cursor-pointer text-sm">
+        🖍 <input type="color" className="w-5 h-5 cursor-pointer border-0 p-0 bg-transparent" defaultValue="#ffff00"
+          onChange={e=>editor.chain().focus().toggleHighlight({ color: e.target.value }).run()} />
+      </label>
+      <Sep/>
+      <select title="Police" value="" onChange={e=>{ if(e.target.value) editor.chain().focus().setFontFamily(e.target.value).run(); }}
+        className="h-7 border border-gray-300 rounded text-sm px-1 bg-white max-w-[6.5rem]">
+        <option value="">Police</option>
+        <option value="Arial, sans-serif">Arial</option>
+        <option value="'Times New Roman', serif">Times New Roman</option>
+        <option value="Calibri, sans-serif">Calibri</option>
+        <option value="Georgia, serif">Georgia</option>
+        <option value="Verdana, sans-serif">Verdana</option>
+        <option value="'Courier New', monospace">Courier New</option>
+      </select>
+      <select title="Taille (pt)" value="" onChange={e=>{ if(e.target.value) editor.chain().focus().setFontSize(e.target.value).run(); }}
+        className="h-7 border border-gray-300 rounded text-sm px-1 bg-white">
+        <option value="">Taille</option>
+        {['8pt','9pt','10pt','11pt','12pt','14pt','16pt','18pt','20pt','24pt','28pt','36pt'].map(s=>(
+          <option key={s} value={s}>{s.replace('pt','')}</option>
+        ))}
+      </select>
+      <Sep/>
+      <label title="Fond de cellule" className="flex items-center gap-0.5 h-7 px-1.5 rounded hover:bg-gray-100 cursor-pointer text-sm">
+        ▦ <input type="color" className="w-5 h-5 cursor-pointer border-0 p-0 bg-transparent" defaultValue="#fff3cd"
+          onChange={e=>editor.chain().focus().setCellAttribute('backgroundColor', e.target.value).run()} />
+      </label>
+      <label title="Couleur de bordure de cellule" className="flex items-center gap-0.5 h-7 px-1.5 rounded hover:bg-gray-100 cursor-pointer text-sm">
+        ▢ <input type="color" className="w-5 h-5 cursor-pointer border-0 p-0 bg-transparent" defaultValue="#333333"
+          onChange={e=>editor.chain().focus().setCellAttribute('borderColor', e.target.value).run()} />
+      </label>
+      <Btn onClick={() => editor.chain().focus().toggleHeaderRow().run()} disabled={!editor?.can()?.toggleHeaderRow?.()} title="Basculer ligne d'en-tête">⊤</Btn>
     </div>
   );
 }
@@ -371,9 +449,10 @@ export default function Editeur() {
 
   const editor = useEditor({
     extensions: [
-      StarterKit, Underline, TextStyle, Color,
+      StarterKit, Underline, TextStyle, Color, TextFormat,
+      Highlight.configure({ multicolor: true }),
       TextAlign.configure({ types: ['heading', 'paragraph', 'tableCell', 'tableHeader'] }),
-      Table.configure({ resizable: true }), TableRow, TableHeader, TableCell, Image,
+      Table.configure({ resizable: true }), TableRow, CustomTableHeader, CustomTableCell, Image,
       ChampNode, BoucleBlock, EnTeteBlock, PiedDePageBlock,
     ],
     content: '<p>Commencez votre document…</p>',
