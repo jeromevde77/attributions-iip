@@ -1054,6 +1054,17 @@ app.use('/api/templates',   templateRoutes);
 app.use('/api/contrats',    contratsRoutes);
 app.use('/api/procedures',  proceduresRoutes);
 
+// Route logo IIP
+import { createRequire as _cr } from 'module';
+import { fileURLToPath as _fup } from 'url';
+import { dirname as _dn, join as _jn } from 'path';
+const _logoPath = _jn(_dn(_fup(import.meta.url)), 'src/services/assets/logo_iip.png');
+app.get('/api/logo-iip', (_req, res) => {
+  res.setHeader('Content-Type', 'image/png');
+  res.setHeader('Cache-Control', 'public, max-age=86400');
+  res.sendFile(_logoPath);
+});
+
 // Erreurs
 app.use((err, req, res, next) => {
   console.error('[ERR]', err);
