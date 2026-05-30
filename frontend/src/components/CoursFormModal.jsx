@@ -20,6 +20,7 @@ export default function CoursFormModal({ cours, ueNum, section, onClose, onSaved
     cours_nom:          cours?.cours_nom           || '',
     ct_pp:              cours?.ct_pp               || '',
     cours_per:          cours?.cours_per           || '',
+    per_etudiant:       cours?.per_etudiant        || '',
     quadrimestre_cours: cours?.quadrimestre_cours  || '',
     heures:             cours?.heures              || '',
     cours_autonomie:    cours?.cours_autonomie     || '',
@@ -130,11 +131,27 @@ export default function CoursFormModal({ cours, ueNum, section, onClose, onSaved
                 <div className="text-xs text-[#1F3864]">
                   <strong>Activité autonome — Art. 7.3</strong><br/>
                   Périodes étudiant uniquement. Pas de charge prof, pas de coût dotation.
-                  Les périodes Z sont encodées au niveau de l'UE (champ « Pér. Z »).
                 </div>
               </div>
             )}
           </div>
+
+          {/* ── PÉRIODES ÉTUDIANT (Z uniquement) ──────────────────────────── */}
+          {isZ && (
+            <label className="block">
+              <div className="text-xs font-semibold text-[#1F3864] mb-1 flex items-center gap-2">
+                <span className="badge badge-z text-xs">Z</span>
+                Périodes étudiant (7.3) *
+              </div>
+              <input type="number" min="0" value={form.per_etudiant}
+                onChange={e => set('per_etudiant', e.target.value)}
+                placeholder="Nombre de périodes autonomes de l'étudiant"
+                className="w-full border-2 border-[#1F3864] rounded-lg px-3 py-2 text-sm font-semibold focus:ring-2 focus:ring-[#1F3864]/30" />
+              <p className="text-xs text-gray-500 mt-1">
+                Ces périodes s'ajoutent aux périodes étudiant totaux de l'UE.
+              </p>
+            </label>
+          )}
 
           {/* Forçage code (admin) */}
           {renaming && (

@@ -584,7 +584,7 @@ export default function Referentiels({ embedded = false }) {
                                         <td className="py-1 font-mono">{c.cours_code}</td>
                                         <td>{c.cours_nom}</td>
                                         <td className="text-center">{c.ct_pp && <span className={`badge ${c.ct_pp==='CT'?'badge-ct':c.ct_pp==='Z'?'badge-z':c.ct_pp==='CG'?'badge-cc':'badge-pp'}`}>{c.ct_pp}</span>}</td>
-                                        <td className="text-right font-semibold">{c.cours_per ?? '—'}</td>
+                                        <td className="text-right font-semibold">{c.ct_pp === 'Z' ? (c.per_etudiant ?? '—') : (c.cours_per ?? '—')}</td>
                                         <td className="text-center">{c.quadrimestre_cours || '—'}</td>
                                         <td className="text-right text-gray-400">{c.nb_attributions}</td>
                                         <td className="text-right whitespace-nowrap">
@@ -700,7 +700,7 @@ export default function Referentiels({ embedded = false }) {
                                     <td className="py-1 font-mono">{c.cours_code}</td>
                                     <td>{c.cours_nom}</td>
                                     <td className="text-center">{c.ct_pp && <span className={`badge ${c.ct_pp==='CT'?'badge-ct':c.ct_pp==='Z'?'badge-z':c.ct_pp==='CG'?'badge-cc':'badge-pp'}`}>{c.ct_pp}</span>}</td>
-                                    <td className="text-right font-semibold">{c.cours_per ?? '—'}</td>
+                                    <td className="text-right font-semibold">{c.ct_pp === 'Z' ? (c.per_etudiant ?? '—') : (c.cours_per ?? '—')}</td>
                                     <td className="text-center">{c.quadrimestre_cours || '—'}</td>
                                     <td className="text-right text-gray-400">{c.nb_attributions}</td>
                                     <td className="text-right whitespace-nowrap">

@@ -91,6 +91,10 @@ try {
     db.exec(`ALTER TABLE cours ADD COLUMN dedouble TEXT DEFAULT 'N';`);
     console.log('[migration] Colonne cours.dedouble ajoutée');
   }
+  if (!colsCours.find(c => c.name === 'per_etudiant')) {
+    db.exec(`ALTER TABLE cours ADD COLUMN per_etudiant INTEGER;`);
+    console.log('[migration] Colonne cours.per_etudiant ajoutée (périodes étudiant pour cours Z)');
+  }
   const colsUe = db.prepare("PRAGMA table_info(ue)").all();
   if (!colsUe.find(c => c.name === 'ue_per_z')) {
     db.exec(`ALTER TABLE ue ADD COLUMN ue_per_z INTEGER;`);
