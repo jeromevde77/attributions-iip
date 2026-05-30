@@ -315,18 +315,25 @@ function OutilRecours() {
     : irrecevable ? 'irrecevable'
     : recevable ? 'recevable' : null;
 
-  function ouvrirDecision() {
+  async function ouvrirDecision() {
     const profsPresentsListe = profs.filter(p => profsPresents.has(p.id));
-    const html = genererDecision({
-      etudiant, ueNum, ueNom,
-      profs: profsPresentsListe.length > 0 ? profsPresentsListe : profs,
-      profsPresentsListe,
-      datePubli, dateRecours,
-      dateDecisionInterne, dateSeance, commentaireCDE, q, verdict, annee,
-    });
-    const w = window.open('', '_blank');
-    if (!w) { alert('Autorisez les pop-ups'); return; }
-    w.document.write(html); w.document.close();
+    try {
+      const res = await authFetch('/api/procedures/pv-recours', {
+        method: 'POST',
+        body: JSON.stringify({
+          etudiant, ue_num: ueNum, ue_nom: ueNom,
+          membres_presents: (profsPresentsListe.length ? profsPresentsListe : profs)
+            .map(p => ({ nomComplet: p.nomComplet, qualite: p.qualite })),
+          date_publi: datePubli, date_recours: dateRecours,
+          date_seance: dateSeance, date_envoi: dateDecisionInterne,
+          commentaire_cde: commentaireCDE, q, verdict, annee,
+        }),
+      }).then(r => r.json());
+      if (res.error) { alert('Erreur : ' + res.error); return; }
+      const w = window.open('', '_blank');
+      if (!w) { alert('Autorisez les pop-ups'); return; }
+      w.document.write(res.html); w.document.close();
+    } catch(e) { alert('Erreur : ' + e.message); }
   }
 
   // Barre de progression
@@ -812,19 +819,29 @@ function OutilFraude() {
     setProfsPresents(s => { const n = new Set(s); n.has(id) ? n.delete(id) : n.add(id); return n; });
   }
 
-  function ouvrirPV() {
+  async function ouvrirPV() {
     const presents = profs.filter(p => profsPresents.has(p.id));
-    const html = genererPVFraude({
-      etudiant, ueNum, ueNom,
-      profs, profsPresents: presents,
-      dateExamen, dateFaits, dateNotification, dateAudition,
-      dateCDE, dateEnvoi, typeFraude, descriptionFraits,
-      declarationsEtudiant, commentaireCDE,
-      session, recidive, decision, annee,
-    });
-    const w = window.open('', '_blank');
-    if (!w) { alert('Autorisez les pop-ups'); return; }
-    w.document.write(html); w.document.close();
+    try {
+      const res = await authFetch('/api/procedures/pv-fraude', {
+        method: 'POST',
+        body: JSON.stringify({
+          etudiant, ue_num: ueNum, ue_nom: ueNom,
+          membres_presents: (presents.length ? presents : profs)
+            .map(p => ({ nomComplet: p.nomComplet, qualite: p.qualite })),
+          date_examen: dateExamen, date_faits: dateFaits,
+          date_notification: dateNotification, date_audition: dateAudition,
+          date_cde: dateCDE, type_fraude: typeFraude,
+          description_faits: descriptionFraits,
+          declarations_etudiant: declarationsEtudiant,
+          commentaire_cde: commentaireCDE,
+          session, recidive, decision, annee,
+        }),
+      }).then(r => r.json());
+      if (res.error) { alert('Erreur : ' + res.error); return; }
+      const w = window.open('', '_blank');
+      if (!w) { alert('Autorisez les pop-ups'); return; }
+      w.document.write(res.html); w.document.close();
+    } catch(e) { alert('Erreur : ' + e.message); }
   }
 
   const steps = ['Dossier & UE', 'Faits', 'Procédure contradictoire', 'Délibération', 'PV & décision'];

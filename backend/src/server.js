@@ -22,6 +22,7 @@ import etablissementRoutes from './routes/etablissement.js';
 import ea12Routes from './routes/ea12.js';
 import templateRoutes   from './routes/templates.js';
 import contratsRoutes   from './routes/contrats.js';
+import proceduresRoutes from './routes/procedures.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
@@ -147,6 +148,7 @@ try {
     CREATE TABLE IF NOT EXISTS document_template (
       id          INTEGER PRIMARY KEY AUTOINCREMENT,
       nom         TEXT NOT NULL,
+      slug        TEXT UNIQUE,                    -- identifiant système (ex: 'pv-recours')
       description TEXT,
       contenu     TEXT NOT NULL DEFAULT '',  -- HTML du template avec {{champs}}
       entites     TEXT DEFAULT '[]',          -- JSON: entités nécessaires ["prof","etab"]
@@ -155,6 +157,16 @@ try {
       modifie_le  TEXT DEFAULT (datetime('now'))
     );
   `);
+
+  // Migration : ajouter colonne slug si absente
+  try { db.exec(`ALTER TABLE document_template ADD COLUMN slug TEXT UNIQUE`); }
+  catch { /* déjà présente */ }
+
+  // Mettre à jour les slugs des templates existants sans slug
+  const contratRow = db.prepare(`SELECT id FROM document_template WHERE nom = 'Contrat de travail CDD' AND slug IS NULL`).get();
+  if (contratRow) db.prepare(`UPDATE document_template SET slug = 'contrat-cdd' WHERE id = ?`).run(contratRow.id);
+  const sectionRow = db.prepare(`SELECT id FROM document_template WHERE nom = 'Synthèse de section' AND slug IS NULL`).get();
+  if (sectionRow) db.prepare(`UPDATE document_template SET slug = 'synthese-section' WHERE id = ?`).run(sectionRow.id);
 
   // Seed : template exemple "Synthèse de section" si aucun template n'existe
   const nbTpl = db.prepare('SELECT COUNT(*) AS n FROM document_template').get().n;
@@ -266,6 +278,104 @@ try {
       contenuContrat
     );
     console.log('[migration] Template "Contrat de travail CDD" créé');
+  }
+
+  // ── Seed PV Recours ────────────────────────────────────────────────────────
+  if (!db.prepare(`SELECT 1 FROM document_template WHERE slug = 'pv-recours'`).get()) {
+    db.prepare(`INSERT INTO document_template (nom, slug, description, contenu, cree_par) VALUES (?, ?, ?, ?, 'Lucie')`).run(
+      'PV Recours — Décision motivée',
+      'pv-recours',
+      'Procès-verbal de décision du CDE sur recours étudiant (Art. 87-91 RDE/ROI). Modifiable dans l\'éditeur.',
+      [
+        `<h2 style="text-align:center;color:#1F3864">DÉCISION {{pv.type_decision}}<br>DU CONSEIL DES ÉTUDES</h2>`,
+        `<p style="text-align:right;font-size:9pt;color:#888">Année académique {{sys.annee}} · {{sys.date}} · <strong>CONFIDENTIEL</strong></p>`,
+        `<p></p>`,
+        `<p><strong>Objet\u00a0:</strong> Recours contre la décision de refus — UE {{pv.ue_ref}}</p>`,
+        `<p><strong>Étudiant·e\u00a0:</strong> {{pv.etudiant}}</p>`,
+        `<p><strong>Date de publication des résultats\u00a0:</strong> {{pv.date_publi}}</p>`,
+        `<p><strong>Date d'introduction du recours\u00a0:</strong> {{pv.date_recours}}</p>`,
+        `{{pv.date_seance}}`,
+        `<p></p>`,
+        `{{pv.composition}}`,
+        `<p></p>`,
+        `<h3>VU ET CONSIDÉRANT</h3>`,
+        `<p>Vu le Décret du 16 avril 1991 relatif à l'enseignement de promotion sociale, notamment les articles 123ter et 123quater\u00a0;</p>`,
+        `<p>Vu le Décret du 27 octobre 2006 organisant les recours dans l'enseignement pour adultes\u00a0;</p>`,
+        `<p>Vu le RDE/ROI de l'Institut Ilya Prigogine, année académique {{sys.annee}}, notamment les articles 87 à 91\u00a0;</p>`,
+        `<p>Vu la plainte introduite par {{pv.etudiant}} en date du {{pv.date_recours}} concernant la délibération relative à l'UE {{pv.ue_ref}}\u00a0;</p>`,
+        `<p>Vu les pièces du dossier\u00a0;</p>`,
+        `<p></p>`,
+        `{{pv.corps}}`,
+        `<p></p>`,
+        `{{pv.commentaire}}`,
+        `<p></p>`,
+        `{{pv.voies_recours}}`,
+        `<p></p>`,
+        `<p>Fait à Bruxelles, le {{sys.date}}</p>`,
+        `<p>Chaque partie reconnaissant avoir reçu le sien.</p>`,
+        `<p></p>`,
+        `<table><tbody><tr>`,
+        `<td style="width:50%;vertical-align:top;padding-right:20px"><p><strong>Le Président du CDE</strong></p><p style="margin-top:60px">___________________________</p></td>`,
+        `<td style="width:50%;vertical-align:top;padding-left:20px"><p><strong>Le Directeur</strong></p><p style="margin-top:60px">Charles SOHET</p></td>`,
+        `</tr></tbody></table>`,
+        `<p style="text-align:center;font-size:9pt;color:#888;border-top:1px solid #ccc;padding-top:8px;margin-top:20px">Institut Ilya Prigogine\u2003\u2022\u2003direction@institut-prigogine.be\u2003\u2022\u2003+32(0)2 560 29 59</p>`,
+      ].join('')
+    );
+    console.log('[migration] Template "PV Recours" créé (slug: pv-recours)');
+  }
+
+  // ── Seed PV Fraude ─────────────────────────────────────────────────────────
+  if (!db.prepare(`SELECT 1 FROM document_template WHERE slug = 'pv-fraude'`).get()) {
+    db.prepare(`INSERT INTO document_template (nom, slug, description, contenu, cree_par) VALUES (?, ?, ?, ?, 'Lucie')`).run(
+      'PV Fraude — Procédure contradictoire',
+      'pv-fraude',
+      'Procès-verbal de fraude avec procédure contradictoire (Art. 72-75 RDE/ROI). Modifiable dans l\'éditeur.',
+      [
+        `<h2 style="text-align:center;color:#7B1C1C">PROCÈS-VERBAL DE FRAUDE<br>PROCÉDURE CONTRADICTOIRE — DÉCISION DU CDE</h2>`,
+        `<p style="text-align:right;font-size:9pt;color:#888">Année académique {{sys.annee}} · {{sys.date}} · <strong>CONFIDENTIEL</strong></p>`,
+        `<p></p>`,
+        `<p><strong>Étudiant·e\u00a0:</strong> {{pv.etudiant}}</p>`,
+        `<p><strong>UE concernée\u00a0:</strong> UE {{pv.ue_ref}}</p>`,
+        `<p><strong>Date de l'épreuve\u00a0:</strong> {{pv.date_examen}}</p>`,
+        `<p><strong>Session\u00a0:</strong> {{pv.session}}{{pv.recidive}}</p>`,
+        `{{pv.date_seance}}`,
+        `<p></p>`,
+        `{{pv.composition}}`,
+        `<p></p>`,
+        `<h3>VU ET CONSIDÉRANT</h3>`,
+        `<p>Vu le RDE/ROI de l'Institut Ilya Prigogine, année académique {{sys.annee}}, notamment les articles 72 à 75\u00a0;</p>`,
+        `<p>Vu le Décret du 16 avril 1991 relatif à l'enseignement de promotion sociale\u00a0;</p>`,
+        `<p>Vu le rapport de fraude établi le {{pv.date_faits}} lors de l'épreuve de l'UE {{pv.ue_ref}}\u00a0;</p>`,
+        `<p>Vu la notification adressée à l'étudiant·e le {{pv.date_notification}} l'informant de la fraude constatée et de son droit à une audition (Art. 74 §1 RDE/ROI)\u00a0;</p>`,
+        `{{pv.vu_audition}}`,
+        `<p>Vu les pièces du dossier\u00a0;</p>`,
+        `<p></p>`,
+        `<h3>I. FAITS CONSTATÉS</h3>`,
+        `{{pv.faits}}`,
+        `<p></p>`,
+        `<h3>II. PROCÉDURE CONTRADICTOIRE (Art. 74 RDE/ROI)</h3>`,
+        `{{pv.procedure_contradictoire}}`,
+        `<p></p>`,
+        `<h3>III. ANALYSE JURIDIQUE</h3>`,
+        `{{pv.analyse_juridique}}`,
+        `<p></p>`,
+        `<h3>IV. DÉCISION DU CONSEIL DES ÉTUDES</h3>`,
+        `{{pv.decision}}`,
+        `{{pv.commentaire}}`,
+        `<p></p>`,
+        `<h3>VOIES DE RECOURS</h3>`,
+        `{{pv.voies_recours}}`,
+        `<p></p>`,
+        `<p>Fait à Bruxelles, le {{sys.date}}</p>`,
+        `<p></p>`,
+        `<table><tbody><tr>`,
+        `<td style="width:50%;vertical-align:top;padding-right:20px"><p><strong>Le Président du CDE</strong></p><p style="margin-top:60px">___________________________</p></td>`,
+        `<td style="width:50%;vertical-align:top;padding-left:20px"><p><strong>Le Directeur</strong></p><p style="margin-top:60px">Charles SOHET</p></td>`,
+        `</tr></tbody></table>`,
+        `<p style="text-align:center;font-size:9pt;color:#888;border-top:1px solid #ccc;padding-top:8px;margin-top:20px">Institut Ilya Prigogine\u2003\u2022\u2003direction@institut-prigogine.be\u2003\u2022\u2003+32(0)2 560 29 59\u2003\u2022\u2003<strong>CONFIDENTIEL</strong></p>`,
+      ].join('')
+    );
+    console.log('[migration] Template "PV Fraude" créé (slug: pv-fraude)');
   }
 
   // ── Colonne type_personnel dans professeur (admin = non chargé de cours) ──
@@ -942,6 +1052,24 @@ app.use('/api/etablissement', etablissementRoutes);
 app.use('/api/ea12',          ea12Routes);
 app.use('/api/templates',   templateRoutes);
 app.use('/api/contrats',    contratsRoutes);
+app.use('/api/procedures',  proceduresRoutes);
+
+// Route logo IIP
+import { createRequire as _cr } from 'module';
+import { fileURLToPath as _fup } from 'url';
+import { dirname as _dn, join as _jn } from 'path';
+const _logoPath = _jn(_dn(_fup(import.meta.url)), 'src/services/assets/logo_iip.png');
+app.get('/api/logo-iip', (_req, res) => {
+  res.setHeader('Content-Type', 'image/png');
+  res.setHeader('Cache-Control', 'public, max-age=86400');
+  res.sendFile(_logoPath);
+});
+const _logoBlanc = _jn(_dn(_fup(import.meta.url)), 'src/services/assets/logo_iip_blanc.png');
+app.get('/api/logo-iip-blanc', (_req, res) => {
+  res.setHeader('Content-Type', 'image/png');
+  res.setHeader('Cache-Control', 'public, max-age=86400');
+  res.sendFile(_logoBlanc);
+});
 
 // Erreurs
 app.use((err, req, res, next) => {

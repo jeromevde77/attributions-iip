@@ -2,6 +2,8 @@ import { Router } from 'express';
 import db from '../db/index.js';
 import { authRequired, roleRequired } from '../middleware/auth.js';
 import { parse as parseHtml } from 'node-html-parser';
+import { LOGO_IIP_HTML } from '../services/assets/logo_iip.js';
+import { LOGO_IIP_BLANC_HTML } from '../services/assets/logo_iip_blanc.js';
 
 const r = Router();
 
@@ -237,8 +239,11 @@ r.post('/:id/generer', authRequired, async (req, res) => {
     const u = db.prepare('SELECT * FROM ue WHERE ue_num = ? AND annee_scolaire = ?').get(ue_num, ctx.annee) || {};
     Object.entries(u).forEach(([k,v]) => { vars[`ue.${k}`] = v ?? ''; });
   }
-  const now = new Date();
-  vars['sys.date']     = now.toLocaleDateString('fr-BE');
+  // Logo IIP
+  vars['etab.logo']        = LOGO_IIP_HTML;
+  vars['etab.logo_sm']     = LOGO_IIP_HTML.replace('height:60px', 'height:40px');
+  vars['etab.logo_blanc']  = LOGO_IIP_BLANC_HTML;
+  vars['etab.logo_blanc_sm'] = LOGO_IIP_BLANC_HTML.replace('height:60px', 'height:40px');
   vars['sys.annee']    = ctx.annee;
   vars['sys.date_iso'] = now.toISOString().split('T')[0];
   vars['sys.section']  = section || '';
@@ -337,7 +342,21 @@ r.post('/:id/generer', authRequired, async (req, res) => {
   } catch (e) { console.error('[generer] boucles :', e.message); }
 
   html = html.replace(/\{\{[^}]+\}\}/g, '<span style="background:#fff3cd;padding:0 2px">___</span>');
-  res.json({ html, nom: t.nom });
+
+  // ── Extraire les blocs en-tête et bas de page ──────────────────────────────
+  let headerHtml = '', footerHtml = '', bodyHtml = html;
+  const headerMatch = html.match(/<div[^>]*data-entete[^>]*>([\s\S]*?)<\/div>/);
+  const footerMatch = html.match(/<div[^>]*data-pied[^>]*>([\s\S]*?)<\/div>/);
+  if (headerMatch) {
+    headerHtml = headerMatch[1];
+    bodyHtml   = bodyHtml.replace(headerMatch[0], '');
+  }
+  if (footerMatch) {
+    footerHtml = footerMatch[1];
+    bodyHtml   = bodyHtml.replace(footerMatch[0], '');
+  }
+
+  res.json({ html: bodyHtml, headerHtml, footerHtml, nom: t.nom });
 });
 
 export default r;

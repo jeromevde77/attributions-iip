@@ -15,6 +15,10 @@ import { api, getAnnee } from '../lib/api.js';
 // ─── Champs simples ────────────────────────────────────────────────────────
 const CHAMPS = {
   'Établissement': [
+    { key: 'etab.logo',           label: '🖼 Logo IIP couleurs (grand)' },
+    { key: 'etab.logo_sm',        label: '🖼 Logo IIP couleurs (petit)' },
+    { key: 'etab.logo_blanc',     label: '🖼 Logo IIP blanc transp. (grand)' },
+    { key: 'etab.logo_blanc_sm',  label: '🖼 Logo IIP blanc transp. (petit)' },
     { key: 'etab.po_nom',        label: 'Nom du PO' },
     { key: 'etab.etab_nom',      label: "Nom de l'établissement" },
     { key: 'etab.adresse',       label: 'Adresse complète' },
@@ -189,6 +193,58 @@ const BoucleBlock = Node.create({
   },
 });
 
+// ─── TipTap : nœud EnTeteBlock ────────────────────────────────────────────────
+const EnTeteBlock = Node.create({
+  name: 'enTeteBlock', group: 'block', content: 'block+',
+  defining: true, isolating: true,
+  parseHTML() { return [{ tag: 'div[data-entete]' }]; },
+  renderHTML({ HTMLAttributes }) {
+    return ['div', mergeAttributes(HTMLAttributes, { 'data-entete': '1', class: 'entete-block' }), 0];
+  },
+  addNodeView() {
+    return () => {
+      const dom = document.createElement('div');
+      dom.className = 'entete-block';
+      dom.setAttribute('data-entete', '1');
+      dom.style.cssText = 'border:2px solid #1F3864;border-radius:6px;margin:8px 0;overflow:hidden;';
+      const hd = document.createElement('div');
+      hd.contentEditable = 'false';
+      hd.style.cssText = 'background:#1F3864;color:#fff;padding:3px 10px;font-size:11px;font-weight:bold;user-select:none;';
+      hd.textContent = '⬆ En-tête (répété sur chaque page à l\'impression)';
+      const contentDOM = document.createElement('div');
+      contentDOM.style.cssText = 'padding:8px 10px;background:#eef2ff;min-height:36px;';
+      dom.appendChild(hd); dom.appendChild(contentDOM);
+      return { dom, contentDOM };
+    };
+  },
+});
+
+// ─── TipTap : nœud PiedDePageBlock ───────────────────────────────────────────
+const PiedDePageBlock = Node.create({
+  name: 'piedDePageBlock', group: 'block', content: 'block+',
+  defining: true, isolating: true,
+  parseHTML() { return [{ tag: 'div[data-pied]' }]; },
+  renderHTML({ HTMLAttributes }) {
+    return ['div', mergeAttributes(HTMLAttributes, { 'data-pied': '1', class: 'pied-block' }), 0];
+  },
+  addNodeView() {
+    return () => {
+      const dom = document.createElement('div');
+      dom.className = 'pied-block';
+      dom.setAttribute('data-pied', '1');
+      dom.style.cssText = 'border:2px solid #555;border-radius:6px;margin:8px 0;overflow:hidden;';
+      const hd = document.createElement('div');
+      hd.contentEditable = 'false';
+      hd.style.cssText = 'background:#555;color:#fff;padding:3px 10px;font-size:11px;font-weight:bold;user-select:none;';
+      hd.textContent = '⬇ Bas de page (répété sur chaque page à l\'impression)';
+      const contentDOM = document.createElement('div');
+      contentDOM.style.cssText = 'padding:8px 10px;background:#f5f5f5;min-height:36px;';
+      dom.appendChild(hd); dom.appendChild(contentDOM);
+      return { dom, contentDOM };
+    };
+  },
+});
+
 // ─── Bouton toolbar ────────────────────────────────────────────────────────
 function Btn({ onClick, active, disabled, title, children, danger }) {
   return (
@@ -241,6 +297,10 @@ function Toolbar({ editor }) {
       <Btn onClick={() => editor.chain().focus().deleteRow().run()} disabled={!editor.can().deleteRow()} title="Suppr. ligne" danger>✕lig</Btn>
       <Btn onClick={() => editor.chain().focus().deleteTable().run()} disabled={!editor.can().deleteTable()} title="Suppr. tableau" danger>✕tab</Btn>
       <Sep/>
+      <Btn onClick={() => editor.chain().focus().setImage({ src: '/api/logo-iip', alt: 'Institut Ilya Prigogine' }).run()} title="Insérer le logo IIP">🖼 Logo</Btn>
+      <Btn onClick={() => editor.chain().focus().insertContent({ type: 'enTeteBlock', content: [{ type: 'paragraph' }] }).run()} title="Insérer un en-tête (répété sur chaque page)">⬆ En-tête</Btn>
+      <Btn onClick={() => editor.chain().focus().insertContent({ type: 'piedDePageBlock', content: [{ type: 'paragraph' }] }).run()} title="Insérer un bas de page (répété sur chaque page)">⬇ Pied</Btn>
+      <Sep/>
       <label title="Couleur du texte" className="flex items-center gap-0.5 h-7 px-1.5 rounded hover:bg-gray-100 cursor-pointer text-sm">
         A <input type="color" className="w-5 h-5 cursor-pointer border-0 p-0 bg-transparent" defaultValue="#000000"
           onChange={e=>editor.chain().focus().setColor(e.target.value).run()} />
@@ -282,7 +342,7 @@ export default function Editeur() {
       StarterKit, Underline, TextStyle, Color,
       TextAlign.configure({ types: ['heading', 'paragraph', 'tableCell', 'tableHeader'] }),
       Table.configure({ resizable: true }), TableRow, TableHeader, TableCell, Image,
-      ChampNode, BoucleBlock,
+      ChampNode, BoucleBlock, EnTeteBlock, PiedDePageBlock,
     ],
     content: '<p>Commencez votre document…</p>',
     editorProps: { attributes: { class: 'editeur-content focus:outline-none' } },
@@ -352,25 +412,38 @@ export default function Editeur() {
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
         body: JSON.stringify({ prof_id: profId || undefined, ue_num: ueNum || undefined, section: section || undefined, annee }),
       });
-      const { html, nom: tnom } = await r.json();
+      const { html, headerHtml, footerHtml, nom: tnom } = await r.json();
       const w = window.open('', '_blank');
       if (!w) { alert('Autorisez les pop-ups pour ce site'); return; }
+      const hasHeader = headerHtml && headerHtml.trim();
+      const hasFooter = footerHtml && footerHtml.trim();
       w.document.write(`<!DOCTYPE html><html lang="fr"><head><meta charset="utf-8"><title>${tnom}</title>
         <style>
           body{font-family:Arial,sans-serif;margin:0;padding:20mm 15mm;font-size:11pt;color:#000}
+          ${hasHeader ? 'body{padding-top:30mm}' : ''}
+          ${hasFooter ? 'body{padding-bottom:25mm}' : ''}
           table{width:100%;border-collapse:collapse;margin:6px 0}
           td,th{border:1px solid #333;padding:4px 6px;vertical-align:top}
           th{background:#eee;font-weight:bold}
           h1{font-size:16pt}h2{font-size:13pt}h3{font-size:11pt}
           p{margin:4px 0}
-          .champ-tag{background:transparent}
-          .boucle-block{display:block}
-          @media print{body{padding:10mm 10mm}button{display:none}}
+          .champ-tag,.entete-block,.pied-block,.boucle-block{display:block}
+          .doc-header{border-bottom:1px solid #ccc;padding-bottom:6px;margin-bottom:16px}
+          .doc-footer{border-top:1px solid #ccc;padding-top:6px;margin-top:20px;font-size:9pt;color:#666}
+          @media print{
+            button{display:none}
+            body{padding:10mm 15mm ${hasFooter?'22mm':'10mm'} 15mm}
+            ${hasHeader ? `.doc-header{position:fixed;top:0;left:0;right:0;background:white;padding:4mm 15mm;border-bottom:1px solid #ccc;z-index:100}` : ''}
+            ${hasFooter ? `.doc-footer{position:fixed;bottom:0;left:0;right:0;background:white;padding:3mm 15mm;border-top:1px solid #ccc;font-size:9pt;color:#666}` : ''}
+          }
         </style></head><body>
-        <div style="text-align:right;margin-bottom:10px;print:none">
-          <button onclick="window.print()" style="padding:6px 16px;background:#1a5276;color:#fff;border:none;border-radius:4px;cursor:pointer;font-size:13px">🖨 Imprimer / Enregistrer en PDF</button>
+        <div style="text-align:right;margin-bottom:10px" class="no-print">
+          <button onclick="window.print()" style="padding:6px 16px;background:#1a5276;color:#fff;border:none;border-radius:4px;cursor:pointer;font-size:13px">🖨 Imprimer / PDF</button>
         </div>
-        ${html}</body></html>`);
+        ${hasHeader ? `<div class="doc-header">${headerHtml}</div>` : ''}
+        <div class="doc-body">${html}</div>
+        ${hasFooter ? `<div class="doc-footer">${footerHtml}</div>` : ''}
+        </body></html>`);
       w.document.close();
     } catch (e) { alert('Erreur : ' + e.message); }
     finally { setGenerating(false); }
