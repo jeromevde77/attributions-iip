@@ -1,0 +1,228 @@
+/**
+ * procedures.js — Routes de génération des PV (Recours + Fraude)
+ * Les templates sont stockés dans document_template avec slug='pv-recours' / 'pv-fraude'.
+ * Le backend calcule les sections variables ({{pv.xxx}}) et délègue au moteur de templates.
+ */
+import { Router } from 'express';
+import db from '../db/index.js';
+import { authRequired } from '../middleware/auth.js';
+
+const r = Router();
+
+// ─── Helpers ─────────────────────────────────────────────────────────────────
+const JOURS_FR = ['dimanche','lundi','mardi','mercredi','jeudi','vendredi','samedi'];
+const MOIS_FR  = ['janvier','février','mars','avril','mai','juin',
+                  'juillet','août','septembre','octobre','novembre','décembre'];
+
+function dateLongue(s) {
+  if (!s) return '';
+  const d = new Date(s + 'T12:00:00');
+  return `${JOURS_FR[d.getDay()]} ${d.getDate()} ${MOIS_FR[d.getMonth()]} ${d.getFullYear()}`;
+}
+function addJoursOuv(date, n) {
+  const d = new Date(date + 'T12:00:00'); let c = 0;
+  while (c < n) { d.setDate(d.getDate() + 1); if (d.getDay() !== 0) c++; }
+  return d;
+}
+function addJoursCal(date, n) {
+  const d = new Date(date + 'T12:00:00'); d.setDate(d.getDate() + n); return d;
+}
+
+function tableComposition(membres, annee) {
+  if (!membres || !membres.length) return '';
+  return `<table style="width:100%;border-collapse:collapse;font-size:10pt;margin:8px 0">
+    <thead><tr style="background:#1F3864;color:white">
+      <th style="text-align:left;padding:5px 8px;border:1px solid #ccc">Membre</th>
+      <th style="padding:5px 8px;border:1px solid #ccc;text-align:left">Qualité</th>
+      <th style="padding:5px 8px;border:1px solid #ccc;text-align:center">Présent</th>
+    </tr></thead>
+    <tbody>${membres.map((m,i) => `<tr style="background:${i%2===0?'#f9f9f9':'white'}">
+      <td style="padding:4px 8px;border:1px solid #ccc;font-weight:bold">${m.nomComplet || m.prenom+' '+m.nom}</td>
+      <td style="padding:4px 8px;border:1px solid #ccc">${m.qualite || 'Membre du CDE'}</td>
+      <td style="padding:4px 8px;border:1px solid #ccc;text-align:center">✓</td>
+    </tr>`).join('')}</tbody>
+  </table>`;
+}
+
+// ─── Générer un PV depuis un template (slug) + données variables ──────────────
+function genererDepuisTemplate(slug, vars) {
+  const tpl = db.prepare(`SELECT contenu FROM document_template WHERE slug = ?`).get(slug);
+  if (!tpl) return null;
+
+  const etab = db.prepare('SELECT * FROM etablissement WHERE id = 1').get() || {};
+  const now  = new Date();
+
+  const allVars = {
+    'sys.date':     now.toLocaleDateString('fr-BE', { weekday:'long', day:'2-digit', month:'long', year:'numeric' }),
+    'sys.annee':    db.prepare(`SELECT annee_scolaire FROM annee_scolaire WHERE active = 1`).get()?.annee_scolaire || '2026-2027',
+    'etab.etab_nom': etab.etab_nom || 'Institut Ilya Prigogine',
+    ...vars,
+  };
+
+  let html = tpl.contenu;
+  for (const [k, v] of Object.entries(allVars))
+    html = html.replaceAll(`{{${k}}}`, String(v ?? ''));
+  // Champs non résolus → vide
+  html = html.replace(/\{\{[^}]+\}\}/g, '');
+
+  return html;
+}
+
+function wrapHtml(html, titre) {
+  return `<!DOCTYPE html><html lang="fr"><head><meta charset="utf-8"><title>${titre}</title>
+<style>
+  body{font-family:Arial,sans-serif;font-size:11pt;color:#000;margin:0;padding:20mm 20mm 15mm}
+  h2{font-size:14pt;margin-bottom:4px}h3{font-size:11pt;border-bottom:1px solid #ccc;padding-bottom:3px;margin-top:16px}
+  p{margin:5px 0;line-height:1.5}table{width:100%;border-collapse:collapse;margin:8px 0}
+  td,th{border:1px solid #ccc;padding:5px 8px;vertical-align:top}
+  @media print{body{padding:10mm 15mm}button{display:none}}
+</style></head><body>
+<div style="text-align:right;margin-bottom:10px">
+  <button onclick="window.print()" style="padding:6px 16px;background:#1F3864;color:#fff;border:none;border-radius:4px;cursor:pointer">🖨 Imprimer / PDF</button>
+</div>
+${html}</body></html>`;
+}
+
+// ─── POST /procedures/pv-recours ──────────────────────────────────────────────
+r.post('/pv-recours', authRequired, (req, res) => {
+  const {
+    etudiant, ue_num, ue_nom, membres_presents,
+    date_publi, date_recours, date_seance, date_envoi,
+    q, verdict, commentaire_cde, annee,
+  } = req.body;
+
+  const ueRef = [ue_num, ue_nom].filter(Boolean).join(' — ');
+
+  // ── Sections calculées ────────────────────────────────────────────────────
+  const composition = membres_presents?.length
+    ? tableComposition(membres_presents)
+    : '<p><em>(Composition du CDE non renseignée)</em></p>';
+
+  let typeDecision, corps, voiesRecours;
+
+  if (verdict === 'irrecevable') {
+    typeDecision = "D'IRRECEVABILITÉ";
+    const motifs = [];
+    if (q?.ecrit === 'non')         motifs.push('La plainte n\'est pas rédigée par écrit (Art. 88 §3 RDE/ROI).');
+    if (q?.delaiRespect === 'non')  motifs.push(`La plainte n'a pas été introduite dans le délai de 4 jours calendrier (Art. 88 §1 RDE/ROI). La date limite était le ${date_publi ? dateLongue(new Date(date_publi+'T12:00').setDate(new Date(date_publi+'T12:00').getDate()+4)) : '—'}.`);
+    if (q?.porteRefus === 'non')    motifs.push('La plainte ne porte pas sur une décision de refus au sens de l\'Art. 87 §1 RDE/ROI.');
+    if (q?.irregulPrecises === 'non') motifs.push('La plainte ne mentionne pas d\'irrégularités précises de procédure ou de droit (Art. 88 §3 RDE/ROI).');
+    if (q?.decisionRefus === 'non') motifs.push('La décision contestée n\'est pas une décision de refus au sens de l\'Art. 87 §1 RDE/ROI.');
+    corps = `<h3>QUANT À LA RECEVABILITÉ</h3>
+      <p>Le Conseil des Études déclare la plainte <strong>IRRECEVABLE</strong> pour le${motifs.length > 1 ? 's' : ''} motif${motifs.length > 1 ? 's' : ''} suivant${motifs.length > 1 ? 's' : ''}\u00a0:</p>
+      <ol>${motifs.map(m => `<li>${m}</li>`).join('')}</ol>
+      <p>Conformément à l'Art. 88 §4 du RDE/ROI, la présente décision d'irrecevabilité expose les motifs précis et est notifiée à l'étudiant·e.</p>
+      <h3>DÉCIDE</h3>
+      <p>De déclarer la plainte introduite par <strong>${etudiant}</strong> <strong>IRRECEVABLE</strong> pour les motifs exposés ci-dessus.</p>`;
+    voiesRecours = `<p>La présente décision d'irrecevabilité ne peut faire l'objet d'un recours externe, les conditions de recevabilité du recours interne n'étant pas réunies.</p>`;
+  } else {
+    typeDecision = 'MOTIVÉE';
+    const irregs = [
+      q?.quorum === 'non'         && 'Le quorum du CDE n\'était pas atteint lors de la délibération (Art. 89 §1 RDE/ROI) — vice de procédure grave.',
+      q?.conflitInteret === 'oui' && 'Un conflit d\'intérêt non déclaré a été relevé parmi les membres du jury.',
+      q?.motivJustif === 'non'    && 'La justification de l\'échec (AA non atteints) n\'a pas été encodée et communiquée (Art. 71 RDE/ROI).',
+      q?.visiteCopies === 'non'   && 'La visite des copies n\'a pas été proposée dans les délais (Art. 71 §1 RDE/ROI).',
+      q?.publiResultats === 'non' && 'Les résultats n\'ont pas été publiés dans les 2 jours ouvrables (Art. 82 RDE/ROI).',
+    ].filter(Boolean);
+
+    if (irregs.length) {
+      corps = `<h3>QUANT À LA RECEVABILITÉ</h3>
+        <p>La plainte est déclarée <strong>RECEVABLE</strong> : écrite, dans le délai de 4 jours (Art. 88 §1), porte sur un refus, mentionne des irrégularités précises (Art. 88 §3 RDE/ROI).</p>
+        <h3>QUANT AU FOND</h3>
+        <p>Le Conseil des Études constate les irrégularités suivantes\u00a0:</p>
+        <ol>${irregs.map(i => `<li>${i}</li>`).join('')}</ol>
+        <p>En conséquence, le recours est fondé sur ces points. Le Conseil des Études procède à un réexamen.</p>
+        <h3>DÉCIDE</h3>
+        <p>D'<strong>ACCUEILLIR</strong> partiellement le recours de <strong>${etudiant}</strong>. Le dossier fait l'objet d'un réexamen par le Conseil des Études dans sa composition complète.</p>`;
+    } else {
+      corps = `<h3>QUANT À LA RECEVABILITÉ</h3>
+        <p>La plainte est déclarée <strong>RECEVABLE</strong> : écrite, dans le délai de 4 jours (Art. 88 §1), porte sur un refus, mentionne des irrégularités précises (Art. 88 §3 RDE/ROI).</p>
+        <h3>QUANT AU FOND</h3>
+        <p>Après examen des griefs soulevés, le Conseil des Études constate qu'aucune irrégularité de procédure ou de droit n'est établie. Le CDE apprécie souverainement la valeur des notes et sa décision ne peut être remise en cause sur la seule contestation de l'appréciation pédagogique (Art. 91 RDE/ROI).</p>
+        <p><em>Sur le quorum\u00a0:</em> Le quorum requis était atteint lors de la délibération.</p>
+        <p><em>Sur la motivation\u00a0:</em> Les AA non atteints ont été dûment identifiés et communiqués.</p>
+        <p><em>Sur les droits\u00a0:</em> La visite des copies et la consultation des épreuves ont été proposées conformément à l'Art. 71 RDE/ROI.</p>
+        <h3>DÉCIDE</h3>
+        <p>De <strong>REJETER</strong> le recours introduit par <strong>${etudiant}</strong>. La décision de refus initiale est <strong>confirmée</strong>.</p>`;
+    }
+
+    const limiteExt = date_envoi
+      ? addJoursCal(addJoursOuv(date_envoi, 3).toISOString().split('T')[0], 7)
+      : null;
+    voiesRecours = `<p>Conformément à l'Art. 90 du RDE/ROI et au Décret du 27/10/2006, la présente décision peut faire l'objet d'un <strong>recours externe</strong> auprès de la Direction générale ETLV (rue Adolphe Lavallée 1, 1080 Bruxelles), par pli recommandé, dans un délai de <strong>7 jours calendrier</strong> à compter du troisième jour ouvrable suivant l'envoi de la présente décision${limiteExt ? ` (date limite\u00a0: <strong>${dateLongue(limiteExt.toISOString().split('T')[0])}</strong>)` : ''}.`;
+  }
+
+  const html = genererDepuisTemplate('pv-recours', {
+    'pv.type_decision':  typeDecision,
+    'pv.etudiant':       etudiant || '',
+    'pv.ue_ref':         ueRef,
+    'pv.date_publi':     date_publi   ? dateLongue(date_publi)   : '',
+    'pv.date_recours':   date_recours ? dateLongue(date_recours) : '',
+    'pv.date_seance':    date_seance  ? `<p><strong>Date de réunion du CDE\u00a0:</strong> ${dateLongue(date_seance)}</p>` : '',
+    'pv.composition':    composition,
+    'pv.corps':          corps,
+    'pv.commentaire':    commentaire_cde
+      ? `<h3>OBSERVATIONS DU CONSEIL DES ÉTUDES</h3><p style="border:1px solid #ccc;padding:10px;background:#fafafa">${commentaire_cde.replace(/\n/g,'<br>')}</p>`
+      : '',
+    'pv.voies_recours':  voiesRecours,
+  });
+
+  if (!html) return res.status(404).json({ error: 'Template pv-recours introuvable' });
+  res.json({ html: wrapHtml(html, `Décision CDE — ${etudiant}`) });
+});
+
+// ─── POST /procedures/pv-fraude ───────────────────────────────────────────────
+r.post('/pv-fraude', authRequired, (req, res) => {
+  const {
+    etudiant, ue_num, ue_nom, membres_presents,
+    date_examen, date_faits, date_notification, date_audition,
+    date_cde, session, recidive, type_fraude, description_faits,
+    declarations_etudiant, decision, commentaire_cde, annee,
+  } = req.body;
+
+  const ueRef = [ue_num, ue_nom].filter(Boolean).join(' — ');
+
+  const composition = membres_presents?.length
+    ? tableComposition(membres_presents)
+    : '<p><em>(Composition du CDE non renseignée)</em></p>';
+
+  const sanction = decision === 'ajournement'
+    ? `L'étudiant·e est <strong>AJOURNÉ·E</strong> pour les acquis d'apprentissage visés par l'épreuve de l'UE ${ue_num} (Art. 73 §1 RDE/ROI).`
+    : `L'étudiant·e est <strong>REFUSÉ·E</strong> pour l'UE ${ue_num} (Art. 73 §2 RDE/ROI — 2e session ou récidive).`;
+
+  const fondjuridique = (session === '2' || recidive)
+    ? `L'étudiant·e se trouve en deuxième session${recidive ? ' et/ou en situation de récidive' : ''}. Conformément à l'Art. 73 §2 du RDE/ROI, le CDE peut prononcer un refus.`
+    : `L'étudiant·e se trouve en première session. Conformément à l'Art. 73 §1 du RDE/ROI, la fraude entraîne un ajournement pour les AA visés.`;
+
+  const html = genererDepuisTemplate('pv-fraude', {
+    'pv.etudiant':       etudiant || '',
+    'pv.ue_ref':         ueRef,
+    'pv.date_examen':    date_examen    ? dateLongue(date_examen)    : '—',
+    'pv.session':        session === '1' ? '1re session' : '2e session',
+    'pv.recidive':       recidive ? ' — <strong>RÉCIDIVE</strong>' : '',
+    'pv.date_seance':    date_cde ? `<p><strong>Date de réunion du CDE\u00a0:</strong> ${dateLongue(date_cde)}</p>` : '',
+    'pv.date_faits':     date_faits     ? dateLongue(date_faits)     : '—',
+    'pv.date_notification': date_notification ? dateLongue(date_notification) : '—',
+    'pv.vu_audition':    date_audition
+      ? `<p>Vu l'audition de l'étudiant·e qui s'est tenue le ${dateLongue(date_audition)}\u00a0;</p>`
+      : `<p>Vu que l'étudiant·e n'a pas souhaité être entendu·e dans le délai imparti\u00a0;</p>`,
+    'pv.composition':    composition,
+    'pv.faits':          `<p style="border:1px solid #ccc;padding:10px;background:#fff8f0"><strong>Type\u00a0:</strong> ${type_fraude || '—'}<br><strong>Description\u00a0:</strong><br>${(description_faits || '').replace(/\n/g,'<br>')}</p>`,
+    'pv.procedure_contradictoire': date_audition
+      ? `<p>L'étudiant·e a été notifié·e par écrit le ${dateLongue(date_notification)} et a été entendu·e le ${dateLongue(date_audition)}.</p>
+         <p><strong>Déclarations\u00a0:</strong></p>
+         <p style="border-left:3px solid #ccc;padding-left:10px;font-style:italic">${(declarations_etudiant || 'Aucune déclaration consignée.').replace(/\n/g,'<br>')}</p>`
+      : `<p>L'étudiant·e a été dûment convoqué·e (notification du ${dateLongue(date_notification)}) mais ne s'est pas présenté·e à l'audition dans le délai imparti. Le CDE a procédé sur base des pièces disponibles.</p>`,
+    'pv.analyse_juridique': `<p>${fondjuridique}</p><p>La décision doit être formellement motivée et notifiée (Art. 75 RDE/ROI). L'étudiant·e dispose du droit au recours (Art. 87-91 RDE/ROI).</p>`,
+    'pv.decision':       `<p style="font-size:12pt;font-weight:bold;border:2px solid #2e7d32;padding:10px;background:#f0fff0">${sanction}</p>`,
+    'pv.commentaire':    commentaire_cde
+      ? `<h3>V. OBSERVATIONS</h3><p style="border:1px solid #ccc;padding:10px;background:#fafafa">${commentaire_cde.replace(/\n/g,'<br>')}</p>`
+      : '',
+    'pv.voies_recours':  `<p>La présente décision peut faire l'objet d'un <strong>recours interne</strong> dans un délai de <strong>4 jours calendrier</strong> suivant la publication des résultats (Art. 88 §1 RDE/ROI), par e-mail à direction@institut-prigogine.be ou remise en main propre.</p>`,
+  });
+
+  if (!html) return res.status(404).json({ error: 'Template pv-fraude introuvable' });
+  res.json({ html: wrapHtml(html, `PV Fraude — ${etudiant}`) });
+});
+
+export default r;
