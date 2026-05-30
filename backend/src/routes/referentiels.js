@@ -501,9 +501,13 @@ r.get('/sections/:section/ue-cours', authRequired, (req, res) => {
 });
 
 r.get('/professeurs', authRequired, (req, res) => {
-  res.json(db.prepare(`SELECT * FROM v_professeur_total
-    WHERE id NOT IN (SELECT id FROM professeur WHERE type_personnel = 'admin')
-    ORDER BY nom, prenom`).all());
+  const tous = req.query.tous === '1';
+  const sql = tous
+    ? `SELECT * FROM v_professeur_total ORDER BY nom, prenom`
+    : `SELECT * FROM v_professeur_total
+       WHERE id NOT IN (SELECT id FROM professeur WHERE type_personnel = 'admin')
+       ORDER BY nom, prenom`;
+  res.json(db.prepare(sql).all());
 });
 
 r.get('/professeurs/:id', authRequired, (req, res) => {
@@ -905,21 +909,60 @@ r.get('/professeurs-attributions', authRequired, (req, res) => {
   }
 });
 
-// ── Personnel admin CDE (direction, secrétariat, coordination) ───────────────
+// ── Personnel de l'établissement (direction, secrétariat, coordination) ───────
 r.get('/membres-cde', authRequired, (req, res) => {
-  const membres = db.prepare(`
-    SELECT id, nom, prenom, (prenom || ' ' || nom) AS nomComplet, statut AS qualite
-    FROM professeur
-    WHERE type_personnel = 'admin'
-    ORDER BY CASE statut
-      WHEN 'Directeur'          THEN 1
-      WHEN 'Directeur adjoint'  THEN 2
-      WHEN 'Secrétaire'         THEN 3
-      WHEN 'Coordinatrice'      THEN 4
-      WHEN 'Coordinateur'       THEN 4
-      ELSE 5 END, nom
-  `).all();
-  res.json(membres);
+  res.json(db.prepare(`
+    SELECT pe.id, pe.professeur_id, pe.fonction, pe.ordre,
+           p.nom, p.prenom, (p.prenom || ' ' || p.nom) AS nomComplet,
+           p.adresse_mail, p.tel_gsm
+    FROM personnel_etablissement pe
+    JOIN professeur p ON p.id = pe.professeur_id
+    ORDER BY pe.ordre, p.nom
+  `).all());
+});
+
+// Liste complète pour l'onglet établissement (avec toutes les données prof)
+r.get('/personnel-etablissement', authRequired, (req, res) => {
+  res.json(db.prepare(`
+    SELECT pe.id, pe.professeur_id, pe.fonction, pe.ordre,
+           p.nom, p.prenom, p.adresse_mail, p.tel_gsm, p.niss, p.matricule,
+           p.adresse_rue, p.code_postal, p.commune, p.date_naissance,
+           p.lieu_naissance_ville, p.nationalite, p.type_personnel
+    FROM personnel_etablissement pe
+    JOIN professeur p ON p.id = pe.professeur_id
+    ORDER BY pe.ordre, p.nom
+  `).all());
+});
+
+// Ajouter une personne dans le personnel établissement
+r.post('/personnel-etablissement', authRequired, roleRequired('admin'), (req, res) => {
+  const { professeur_id, fonction, ordre } = req.body;
+  if (!professeur_id || !fonction) return res.status(400).json({ error: 'professeur_id et fonction requis' });
+  // Marquer la personne comme admin dans la table prof
+  db.prepare(`UPDATE professeur SET type_personnel = 'admin' WHERE id = ?`).run(professeur_id);
+  const info = db.prepare(`INSERT INTO personnel_etablissement (professeur_id, fonction, ordre) VALUES (?, ?, ?)`).run(professeur_id, fonction, ordre || 99);
+  res.status(201).json({ id: info.lastInsertRowid });
+});
+
+// Modifier la fonction ou l'ordre
+r.patch('/personnel-etablissement/:id', authRequired, roleRequired('admin'), (req, res) => {
+  const { fonction, ordre } = req.body;
+  const pe = db.prepare('SELECT * FROM personnel_etablissement WHERE id = ?').get(req.params.id);
+  if (!pe) return res.status(404).json({ error: 'Entrée introuvable' });
+  if (fonction !== undefined) db.prepare(`UPDATE personnel_etablissement SET fonction = ? WHERE id = ?`).run(fonction, req.params.id);
+  if (ordre   !== undefined) db.prepare(`UPDATE personnel_etablissement SET ordre = ? WHERE id = ?`).run(ordre, req.params.id);
+  res.json({ ok: true });
+});
+
+// Retirer une personne du personnel établissement
+r.delete('/personnel-etablissement/:id', authRequired, roleRequired('admin'), (req, res) => {
+  const pe = db.prepare('SELECT * FROM personnel_etablissement WHERE id = ?').get(req.params.id);
+  if (!pe) return res.status(404).json({ error: 'Entrée introuvable' });
+  db.prepare('DELETE FROM personnel_etablissement WHERE id = ?').run(req.params.id);
+  // Si la personne n'a plus aucune fonction → repasser en enseignant
+  const reste = db.prepare('SELECT COUNT(*) AS n FROM personnel_etablissement WHERE professeur_id = ?').get(pe.professeur_id).n;
+  if (!reste) db.prepare(`UPDATE professeur SET type_personnel = 'enseignant' WHERE id = ?`).run(pe.professeur_id);
+  res.json({ ok: true });
 });
 
 export default r;

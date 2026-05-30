@@ -1,6 +1,184 @@
 import { useEffect, useState } from 'react';
 import { api } from '../lib/api.js';
 
+const TOKEN = () => localStorage.getItem('token');
+const authFetch = (url, opts = {}) => fetch(url, { ...opts, headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${TOKEN()}`, ...opts.headers } });
+
+const FONCTIONS = ['Directeur', 'Directeur adjoint', 'Secrétaire', 'Coordinateur', 'Coordinatrice', 'Éducateur', 'Éducatrice', 'Gestionnaire', 'Autre'];
+
+/* ── Gestion du personnel de l'établissement ── */
+function GestionPersonnel() {
+  const [personnel, setPersonnel]   = useState([]);
+  const [allProfs, setAllProfs]     = useState([]);
+  const [loading, setLoading]       = useState(true);
+  const [showAdd, setShowAdd]       = useState(false);
+  const [editId, setEditId]         = useState(null);
+  const [editFonction, setEditFonction] = useState('');
+  const [editOrdre, setEditOrdre]   = useState('');
+  const [newProfId, setNewProfId]   = useState('');
+  const [newFonction, setNewFonction] = useState('Directeur');
+  const [newOrdre, setNewOrdre]     = useState('');
+  const [search, setSearch]         = useState('');
+
+  useEffect(() => { charger(); }, []);
+
+  async function charger() {
+    setLoading(true);
+    try {
+      const [pe, profs] = await Promise.all([
+        authFetch('/api/ref/personnel-etablissement').then(r => r.json()),
+        authFetch('/api/ref/professeurs?tous=1').then(r => r.json()),
+      ]);
+      setPersonnel(Array.isArray(pe) ? pe : []);
+      setAllProfs(Array.isArray(profs) ? profs : []);
+    } finally { setLoading(false); }
+  }
+
+  async function ajouter() {
+    if (!newProfId || !newFonction) return;
+    await authFetch('/api/ref/personnel-etablissement', {
+      method: 'POST',
+      body: JSON.stringify({ professeur_id: Number(newProfId), fonction: newFonction, ordre: Number(newOrdre) || 99 }),
+    });
+    setShowAdd(false); setNewProfId(''); setNewFonction('Directeur'); setNewOrdre('');
+    charger();
+  }
+
+  async function modifier(id) {
+    await authFetch(`/api/ref/personnel-etablissement/${id}`, {
+      method: 'PATCH',
+      body: JSON.stringify({ fonction: editFonction, ordre: Number(editOrdre) || 99 }),
+    });
+    setEditId(null);
+    charger();
+  }
+
+  async function supprimer(id, nom) {
+    if (!confirm(`Retirer ${nom} du personnel de l'établissement ?`)) return;
+    await authFetch(`/api/ref/personnel-etablissement/${id}`, { method: 'DELETE' });
+    charger();
+  }
+
+  // Profs pas encore dans le personnel établissement
+  const existingIds = new Set(personnel.map(p => p.professeur_id));
+  const profsDisponibles = allProfs.filter(p =>
+    !existingIds.has(p.id) &&
+    (!search || `${p.nom} ${p.prenom}`.toLowerCase().includes(search.toLowerCase()))
+  );
+
+  if (loading) return <div className="p-8 text-center text-gray-400">Chargement…</div>;
+
+  return (
+    <div className="max-w-3xl space-y-4">
+      <div className="bg-white rounded-lg border border-gray-200 overflow-hidden">
+        <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100">
+          <div>
+            <h3 className="font-semibold text-gray-800">Personnel de l'établissement</h3>
+            <p className="text-xs text-gray-500 mt-0.5">Direction, secrétariat, coordination — utilisé dans les outils Procédures et documents</p>
+          </div>
+          <button onClick={() => setShowAdd(v => !v)}
+            className="bg-iip-gold hover:bg-iip-amber text-white text-sm px-4 py-1.5 rounded font-medium">
+            + Ajouter
+          </button>
+        </div>
+
+        {/* Formulaire ajout */}
+        {showAdd && (
+          <div className="px-5 py-4 bg-iip-gold/5 border-b border-gray-100 space-y-3">
+            <p className="text-sm font-medium text-gray-700">Ajouter une personne au personnel de l'établissement</p>
+            <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Rechercher un prof par nom…"
+              className="w-full border border-gray-300 rounded px-3 py-1.5 text-sm" />
+            <div className="flex gap-2">
+              <select value={newProfId} onChange={e => setNewProfId(e.target.value)}
+                className="flex-1 border border-gray-300 rounded px-3 py-1.5 text-sm bg-white">
+                <option value="">— Choisir une personne —</option>
+                {profsDisponibles.slice(0, 50).map(p => (
+                  <option key={p.id} value={p.id}>{p.nom} {p.prenom}</option>
+                ))}
+              </select>
+              <select value={newFonction} onChange={e => setNewFonction(e.target.value)}
+                className="border border-gray-300 rounded px-3 py-1.5 text-sm bg-white">
+                {FONCTIONS.map(f => <option key={f} value={f}>{f}</option>)}
+              </select>
+              <input type="number" value={newOrdre} onChange={e => setNewOrdre(e.target.value)}
+                placeholder="Ordre" className="w-20 border border-gray-300 rounded px-3 py-1.5 text-sm" />
+            </div>
+            <div className="flex gap-2">
+              <button onClick={ajouter} disabled={!newProfId}
+                className="bg-iip-gold disabled:opacity-40 text-white text-sm px-4 py-1.5 rounded">
+                Confirmer
+              </button>
+              <button onClick={() => { setShowAdd(false); setSearch(''); }}
+                className="border border-gray-300 text-gray-600 text-sm px-4 py-1.5 rounded">
+                Annuler
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* Liste */}
+        <table className="w-full text-sm">
+          <thead className="bg-gray-50 text-xs text-gray-500 uppercase tracking-wide">
+            <tr>
+              <th className="px-5 py-3 text-left">Personne</th>
+              <th className="px-4 py-3 text-left">Fonction</th>
+              <th className="px-4 py-3 text-center">Ordre</th>
+              <th className="px-4 py-3"></th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-gray-100">
+            {personnel.map(pe => (
+              <tr key={pe.id} className="hover:bg-gray-50">
+                <td className="px-5 py-3 font-medium text-gray-800">{pe.prenom} {pe.nom}</td>
+                <td className="px-4 py-3">
+                  {editId === pe.id ? (
+                    <select value={editFonction} onChange={e => setEditFonction(e.target.value)}
+                      className="border border-gray-300 rounded px-2 py-1 text-sm bg-white">
+                      {FONCTIONS.map(f => <option key={f} value={f}>{f}</option>)}
+                    </select>
+                  ) : (
+                    <span className="inline-flex items-center bg-iip-gold/10 text-iip-gold text-xs font-semibold px-2.5 py-1 rounded-full">
+                      {pe.fonction}
+                    </span>
+                  )}
+                </td>
+                <td className="px-4 py-3 text-center text-gray-500">
+                  {editId === pe.id
+                    ? <input type="number" value={editOrdre} onChange={e => setEditOrdre(e.target.value)} className="w-16 border rounded px-2 py-1 text-sm text-center" />
+                    : pe.ordre}
+                </td>
+                <td className="px-4 py-3 text-right">
+                  {editId === pe.id ? (
+                    <div className="flex gap-1 justify-end">
+                      <button onClick={() => modifier(pe.id)} className="text-green-700 hover:text-green-900 text-xs px-2 py-1 border border-green-300 rounded">✓ OK</button>
+                      <button onClick={() => setEditId(null)} className="text-gray-500 text-xs px-2 py-1 border border-gray-200 rounded">✕</button>
+                    </div>
+                  ) : (
+                    <div className="flex gap-1 justify-end">
+                      <button onClick={() => { setEditId(pe.id); setEditFonction(pe.fonction); setEditOrdre(String(pe.ordre)); }}
+                        className="text-gray-400 hover:text-iip-gold text-xs px-2 py-1 border border-gray-200 rounded">✏</button>
+                      <button onClick={() => supprimer(pe.id, `${pe.prenom} ${pe.nom}`)}
+                        className="text-gray-400 hover:text-red-500 text-xs px-2 py-1 border border-gray-200 rounded">✕</button>
+                    </div>
+                  )}
+                </td>
+              </tr>
+            ))}
+            {!personnel.length && (
+              <tr><td colSpan={4} className="px-5 py-8 text-center text-gray-400 text-sm">Aucun membre du personnel enregistré</td></tr>
+            )}
+          </tbody>
+        </table>
+      </div>
+
+      <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 text-sm text-blue-800">
+        <p className="font-medium mb-1">💡 Comment ça fonctionne</p>
+        <p>Toute personne de la table Professeurs peut se voir attribuer une fonction dans l'établissement. Leurs données complètes (NISS, adresse, etc.) restent dans leur fiche professeur et sont utilisées pour les documents (contrats, courriers). Le champ « Ordre » détermine l'affichage dans les outils Procédures.</p>
+      </div>
+    </div>
+  );
+}
+
 /* ── Purge d'une année scolaire ── */
 function PurgeAnnee() {
   const [annees, setAnnees] = useState([]);
@@ -338,6 +516,10 @@ export default function Configuration() {
           className={`px-4 py-2 text-sm font-medium border-b-2 -mb-px transition ${tab === 'etablissement' ? 'border-iip-gold text-iip-gold' : 'border-transparent text-gray-500 hover:text-gray-700'}`}>
           Établissement
         </button>
+        <button onClick={() => setTab('personnel')}
+          className={`px-4 py-2 text-sm font-medium border-b-2 -mb-px transition ${tab === 'personnel' ? 'border-iip-gold text-iip-gold' : 'border-transparent text-gray-500 hover:text-gray-700'}`}>
+          👥 Personnel
+        </button>
         <button onClick={() => setTab('users')}
           className={`px-4 py-2 text-sm font-medium border-b-2 -mb-px transition ${tab === 'users' ? 'border-iip-gold text-iip-gold' : 'border-transparent text-gray-500 hover:text-gray-700'}`}>
           Utilisateurs
@@ -360,6 +542,9 @@ export default function Configuration() {
 
       {/* ── Onglet Établissement ── */}
       {tab === 'etablissement' && <ParametresEtablissement />}
+
+      {/* ── Onglet Personnel ── */}
+      {tab === 'personnel' && <GestionPersonnel />}
 
       {/* ── Onglet Utilisateurs ── */}
       {tab === 'users' && <div className="max-w-5xl"><Users embedded /></div>}

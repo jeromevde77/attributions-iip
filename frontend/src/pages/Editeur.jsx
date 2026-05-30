@@ -58,6 +58,15 @@ const CHAMPS = {
     { key: 'sys.date_iso',        label: 'Date ISO' },
     { key: 'sys.section',         label: 'Section (choisie à la génération)' },
   ],
+  'Contrat': [
+    { key: 'contrat.table_attributions', label: '📋 Tableau des attributions (Article 1)' },
+    { key: 'prof.date_naissance_fr',     label: 'Date de naissance (JJ/MM/AAAA)' },
+    { key: 'prof.nationalite',           label: 'Nationalité' },
+    { key: 'prof.niss',                  label: 'Numéro de registre national (NISS)' },
+    { key: 'prof.matricule',             label: 'Matricule enseignant' },
+    { key: 'etab.gest_nom_prenom',       label: 'Gestionnaire — Nom Prénom' },
+    { key: 'etab.num_ecot',              label: 'N° ETNIC (ex-ECOT)' },
+  ],
 };
 
 // ─── Types de boucles disponibles ─────────────────────────────────────────
@@ -386,11 +395,24 @@ export default function Editeur() {
         </div>
         <div className="flex-1 overflow-auto py-1">
           {templates.map(t => (
-            <button key={t.id} onClick={() => chargerTemplate(t)}
-              className={`w-full text-left px-3 py-2 text-sm border-b border-gray-100 hover:bg-white transition ${templateId === t.id ? 'bg-white font-semibold text-iip-gold' : 'text-gray-700'}`}>
-              <div className="truncate">{t.nom}</div>
-              <div className="text-xs text-gray-400">{t.modifie_le?.slice(0,10)}</div>
-            </button>
+            <div key={t.id} className={`group flex items-start border-b border-gray-100 hover:bg-white transition ${templateId === t.id ? 'bg-white' : ''}`}>
+              <button onClick={() => chargerTemplate(t)} className="flex-1 text-left px-3 py-2 text-sm min-w-0">
+                <div className={`truncate ${templateId === t.id ? 'font-semibold text-iip-gold' : 'text-gray-700'}`}>{t.nom}</div>
+                <div className="text-xs text-gray-400">{t.modifie_le?.slice(0,10)}</div>
+              </button>
+              <button
+                onClick={async e => {
+                  e.stopPropagation();
+                  if (!confirm(`Supprimer le template « ${t.nom} » ?`)) return;
+                  await fetch(`/api/templates/${t.id}`, { method: 'DELETE', headers: { Authorization: `Bearer ${localStorage.getItem('token')}` } });
+                  if (templateId === t.id) { setTemplateId(null); setNom('Nouveau template'); editor?.commands.setContent('<p></p>'); }
+                  chargerTemplates();
+                }}
+                title="Supprimer ce template"
+                className="opacity-0 group-hover:opacity-100 flex-shrink-0 px-2 py-2 text-gray-300 hover:text-red-500 transition text-base">
+                ✕
+              </button>
+            </div>
           ))}
           {templates.length === 0 && <div className="text-xs text-gray-400 px-3 py-4">Aucun template</div>}
         </div>
