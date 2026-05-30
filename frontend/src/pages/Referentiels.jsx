@@ -589,8 +589,8 @@ export default function Referentiels({ embedded = false }) {
                                       <tr key={c.cours_code} className="border-t border-gray-100">
                                         <td className="py-1 font-mono">{c.cours_code}</td>
                                         <td>{c.cours_nom}</td>
-                                        <td className="text-center px-1">{["CT","PP","CG"].includes(c.ct_pp) ? <span className={`badge {CT:'badge-ct',CG:'badge-cc',PP:'badge-pp',Z:'badge-z',B:'badge-b',F:'badge-f',T:'badge-t',P:'badge-p',O:'badge-o'}[c.ct_pp]`}>{c.ct_pp}</span> : null}</td>
-                                        <td className="text-center px-1">{["Z","B","F","T","P","O"].includes(c.ct_pp) ? <span className={`badge {CT:'badge-ct',CG:'badge-cc',PP:'badge-pp',Z:'badge-z',B:'badge-b',F:'badge-f',T:'badge-t',P:'badge-p',O:'badge-o'}[c.ct_pp]`}>{c.ct_pp}</span> : null}</td>
+                                        <td className="text-center px-1">{["CT","PP","CG"].includes(c.ct_pp) ? <span className={`badge ${{CT:'badge-ct',CG:'badge-cc',PP:'badge-pp',Z:'badge-z',B:'badge-b',F:'badge-f',T:'badge-t',P:'badge-p',O:'badge-o'}[c.ct_pp]}`}>{c.ct_pp}</span> : null}</td>
+                                        <td className="text-center px-1">{["Z","B","F","T","P","O"].includes(c.ct_pp) ? <span className={`badge ${{CT:'badge-ct',CG:'badge-cc',PP:'badge-pp',Z:'badge-z',B:'badge-b',F:'badge-f',T:'badge-t',P:'badge-p',O:'badge-o'}[c.ct_pp]}`}>{c.ct_pp}</span> : null}</td>
                                         <td className="text-right px-2 font-semibold tabular-nums">{["Z","B","F","T","P","O"].includes(c.ct_pp) ? <span className="text-gray-300">—</span> : (c.cours_per ?? '—')}</td>
                                         <td className="text-right px-2 tabular-nums">{c.ct_pp === 'Z' ? <span className="font-semibold text-iip-mauve">{c.per_etudiant ?? '—'}</span> : (c.cours_per ?? '—')}</td>
                                         <td className="text-center">{c.quadrimestre_cours || '—'}</td>
@@ -710,8 +710,8 @@ export default function Referentiels({ embedded = false }) {
                                   <tr key={c.cours_code} className="border-t border-gray-100">
                                     <td className="py-1 font-mono">{c.cours_code}</td>
                                     <td>{c.cours_nom}</td>
-                                    <td className="text-center px-1">{["CT","PP","CG"].includes(c.ct_pp) ? <span className={`badge {CT:'badge-ct',CG:'badge-cc',PP:'badge-pp',Z:'badge-z',B:'badge-b',F:'badge-f',T:'badge-t',P:'badge-p',O:'badge-o'}[c.ct_pp]`}>{c.ct_pp}</span> : null}</td>
-                                    <td className="text-center px-1">{["Z","B","F","T","P","O"].includes(c.ct_pp) ? <span className={`badge {CT:'badge-ct',CG:'badge-cc',PP:'badge-pp',Z:'badge-z',B:'badge-b',F:'badge-f',T:'badge-t',P:'badge-p',O:'badge-o'}[c.ct_pp]`}>{c.ct_pp}</span> : null}</td>
+                                    <td className="text-center px-1">{["CT","PP","CG"].includes(c.ct_pp) ? <span className={`badge ${{CT:'badge-ct',CG:'badge-cc',PP:'badge-pp',Z:'badge-z',B:'badge-b',F:'badge-f',T:'badge-t',P:'badge-p',O:'badge-o'}[c.ct_pp]}`}>{c.ct_pp}</span> : null}</td>
+                                    <td className="text-center px-1">{["Z","B","F","T","P","O"].includes(c.ct_pp) ? <span className={`badge ${{CT:'badge-ct',CG:'badge-cc',PP:'badge-pp',Z:'badge-z',B:'badge-b',F:'badge-f',T:'badge-t',P:'badge-p',O:'badge-o'}[c.ct_pp]}`}>{c.ct_pp}</span> : null}</td>
                                     <td className="text-right px-2 font-semibold tabular-nums">{["Z","B","F","T","P","O"].includes(c.ct_pp) ? <span className="text-gray-300">—</span> : (c.cours_per ?? '—')}</td>
                                     <td className="text-right px-2 tabular-nums">{c.ct_pp === 'Z' ? <span className="font-semibold text-iip-mauve">{c.per_etudiant ?? '—'}</span> : (c.cours_per ?? '—')}</td>
                                     <td className="text-center">{c.quadrimestre_cours || '—'}</td>
