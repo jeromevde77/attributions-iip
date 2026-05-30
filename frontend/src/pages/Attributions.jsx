@@ -38,7 +38,7 @@ const DEFAULT_COLS = [
   { key: 'activite_nom',          label: 'Activité',   width: 130, rowClickable: true,
     render: v => v || <span className="text-gray-300 text-xs italic">—</span> },
   { key: 'type_cours',            label: 'Type',       width: 70, rowClickable: true,
-    render: v => v === 'CT' ? <span className="badge badge-ct">CT</span> : v === 'PP' ? <span className="badge badge-pp">PP</span> : v },
+    render: v => { const cls = {CT:'badge-ct',CG:'badge-cc',PP:'badge-pp',Z:'badge-z',B:'badge-b',F:'badge-f',T:'badge-t',P:'badge-p',O:'badge-o'}[v]; return cls ? <span className={`badge ${cls}`}>{v}</span> : (v || '—'); } },
   { key: 'code',                  label: 'Gr.',        width: 70, edit: 'text' },
   { key: 'professeur_id',         label: 'Professeur', width: 220, edit: 'prof',
     render: (_, row) => row.professeur || <span className="italic text-orange-500">—</span> },

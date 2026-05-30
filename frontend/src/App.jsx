@@ -168,21 +168,16 @@ function ProtectedLayout({ children }) {
             ))}
           </nav>
 
-          {/* User info */}
-          <div className="flex items-center gap-2 text-sm">
-            <div className="hidden md:flex items-center gap-2">
-              <span className="text-gray-600">{u?.nom || u?.email}</span>
-              <span className="text-xs bg-iip-mauve/15 text-iip-mauve px-2 py-0.5 rounded">{u?.role}</span>
+          {/* User info — empilé verticalement à droite */}
+          <div className="flex items-end gap-3 text-sm flex-shrink-0">
+            <div className="flex flex-col items-end leading-tight">
+              <span className="text-gray-700 font-medium text-sm">{u?.nom || u?.email}</span>
+              <span className="text-xs text-iip-mauve font-semibold">{u?.role}</span>
+              <button onClick={() => { api.logout(); navigate('/login'); }}
+                className="text-xs text-gray-400 hover:text-iip-orange transition mt-0.5">
+                Déconnexion
+              </button>
             </div>
-            <button onClick={() => { api.logout(); navigate('/login'); }}
-                    className="text-gray-500 hover:text-iip-orange text-sm md:hidden p-1"
-                    title="Déconnexion">
-              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                <path strokeLinecap="round" strokeLinejoin="round" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"/>
-              </svg>
-            </button>
-            <button onClick={() => { api.logout(); navigate('/login'); }}
-                    className="hidden md:inline text-gray-500 hover:text-iip-orange text-sm">Déconnexion</button>
           </div>
         </div>
 

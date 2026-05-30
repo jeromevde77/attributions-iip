@@ -323,13 +323,14 @@ r.post('/cours', authRequired, roleRequired('admin', 'editeur'), (req, res) => {
   db.prepare(`
     INSERT INTO cours (cours_code, annee_scolaire, cours_nom, ue_num, section, ct_pp, cours_per,
       quadrimestre_cours, ue_niveau, cours_num, cours_total, ue_autonomie, ue_per_total, enc_cours, heures,
-      cours_autonomie, dedouble)
-    VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+      cours_autonomie, dedouble, per_etudiant)
+    VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
   `).run(cours_code, annee, cours_nom, ue_num || null, section || null, ct_pp || null,
          cours_per || null, quadrimestre_cours || null, ue_niveau || null,
          cours_num || null, cours_total || null, ue_autonomie || null, ue_per_total || null,
          enc_cours || null, heures || null,
-         req.body.cours_autonomie || null, req.body.dedouble || 'N');
+         req.body.cours_autonomie || null, req.body.dedouble || 'N',
+         req.body.per_etudiant || null);
   res.status(201).json({ ok: true });
 });
 
@@ -337,7 +338,7 @@ r.patch('/cours/:code', authRequired, roleRequired('admin', 'editeur'), (req, re
   const annee = req.body.annee_scolaire || req.query.annee || '2025-2026';
   const allowed = ['cours_nom','ue_num','section','ct_pp','cours_per','quadrimestre_cours','ue_niveau',
                    'cours_num','cours_total','ue_autonomie','ue_per_total','enc_cours','heures',
-                   'cours_autonomie','dedouble'];
+                   'cours_autonomie','dedouble','per_etudiant'];
   // Validation autonomie si on modifie l'autonomie / le dédoublement
   if (('cours_autonomie' in req.body) || ('dedouble' in req.body)) {
     const cur = db.prepare('SELECT ue_num, cours_autonomie, dedouble FROM cours WHERE cours_code = ? AND annee_scolaire = ?').get(req.params.code, annee);

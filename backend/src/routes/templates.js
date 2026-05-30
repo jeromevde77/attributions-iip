@@ -234,6 +234,37 @@ r.post('/:id/generer', authRequired, async (req, res) => {
     }
     // Champs additionnels etab utiles pour le contrat
     vars['etab.gest_nom_prenom'] = `${etab.gest_prenom||''} ${etab.gest_nom||''}`.trim();
+
+  // ── Personnel de l'établissement — champs dynamiques par fonction ─────────
+  // Utilise la table personnel_etablissement → toujours à jour si on change de directeur
+  const fonctionFields = db.prepare(`
+    SELECT pe.fonction, pe.ordre,
+           p.nom, p.prenom, (p.prenom || ' ' || p.nom) AS nom_prenom,
+           p.adresse_mail, p.tel_gsm, p.matricule
+    FROM personnel_etablissement pe
+    JOIN professeur p ON p.id = pe.professeur_id
+    ORDER BY pe.ordre
+  `).all();
+
+  // Map : 'Directeur' → directeur, 'Directeur adjoint' → dir_adjoint, etc.
+  const fonctionSlug = f => f.toLowerCase()
+    .replace(/é/g,'e').replace(/è/g,'e').replace(/ê/g,'e').replace(/à/g,'a')
+    .replace(/[^a-z0-9]+/g, '_').replace(/^_|_$/g, '');
+
+  // Pour chaque fonction, exposer le premier porteur de cette fonction
+  const seen = new Set();
+  for (const row of fonctionFields) {
+    const slug = fonctionSlug(row.fonction);
+    if (!seen.has(slug)) {
+      seen.add(slug);
+      vars[`${slug}.nom`]        = row.nom;
+      vars[`${slug}.prenom`]     = row.prenom;
+      vars[`${slug}.nom_prenom`] = row.nom_prenom;
+      vars[`${slug}.qualite`]    = row.fonction;
+      vars[`${slug}.email`]      = row.adresse_mail || '';
+      vars[`${slug}.tel`]        = row.tel_gsm || '';
+    }
+  }
   }
   if (ue_num && ctx.annee) {
     const u = db.prepare('SELECT * FROM ue WHERE ue_num = ? AND annee_scolaire = ?').get(ue_num, ctx.annee) || {};

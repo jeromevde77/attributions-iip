@@ -91,6 +91,10 @@ try {
     db.exec(`ALTER TABLE cours ADD COLUMN dedouble TEXT DEFAULT 'N';`);
     console.log('[migration] Colonne cours.dedouble ajoutée');
   }
+  if (!colsCours.find(c => c.name === 'per_etudiant')) {
+    db.exec(`ALTER TABLE cours ADD COLUMN per_etudiant INTEGER;`);
+    console.log('[migration] Colonne cours.per_etudiant ajoutée (périodes étudiant pour cours Z)');
+  }
   const colsUe = db.prepare("PRAGMA table_info(ue)").all();
   if (!colsUe.find(c => c.name === 'ue_per_z')) {
     db.exec(`ALTER TABLE ue ADD COLUMN ue_per_z INTEGER;`);
@@ -168,17 +172,15 @@ try {
   const sectionRow = db.prepare(`SELECT id FROM document_template WHERE nom = 'Synthèse de section' AND slug IS NULL`).get();
   if (sectionRow) db.prepare(`UPDATE document_template SET slug = 'synthese-section' WHERE id = ?`).run(sectionRow.id);
 
-  // Seed : template exemple "Synthèse de section" si aucun template n'existe
-  const nbTpl = db.prepare('SELECT COUNT(*) AS n FROM document_template').get().n;
-  if (nbTpl === 0) {
+  // Seed : template "Synthèse de section" (si absent — vérifie par slug)
+  if (!db.prepare(`SELECT 1 FROM document_template WHERE slug = 'synthese-section'`).get()) {
     const contenuExemple = `<h2 style="text-align: center">Synthèse de section — {{sys.annee}}</h2><h3 style="text-align: center">{{etab.etab_nom}}</h3><p style="text-align: center"><em>Section : {{sys.section}}</em></p><p></p><div data-boucle="resume_section"><p></p></div><p></p><p style="color: #888; font-size: 9pt">Document généré par Lucie le {{sys.date}}</p>`;
-    db.prepare(`INSERT INTO document_template (nom, description, contenu, cree_par)
-      VALUES (?, ?, ?, 'Lucie (exemple)')`).run(
-      'Synthèse de section',
+    db.prepare(`INSERT INTO document_template (nom, slug, description, contenu, cree_par) VALUES (?, ?, ?, ?, 'Lucie')`).run(
+      'Synthèse de section', 'synthese-section',
       'Tableau hiérarchique UE → Cours avec périodes prof et étudiant. Choisissez une section pour générer.',
       contenuExemple
     );
-    console.log('[migration] Template exemple "Synthèse de section" créé');
+    console.log('[migration] Template "Synthèse de section" créé');
   }
 
   // Seed : template "Contrat de travail CDD" (si absent)
@@ -316,7 +318,7 @@ try {
         `<p></p>`,
         `<table><tbody><tr>`,
         `<td style="width:50%;vertical-align:top;padding-right:20px"><p><strong>Le Président du CDE</strong></p><p style="margin-top:60px">___________________________</p></td>`,
-        `<td style="width:50%;vertical-align:top;padding-left:20px"><p><strong>Le Directeur</strong></p><p style="margin-top:60px">Charles SOHET</p></td>`,
+        `<td style="width:50%;vertical-align:top;padding-left:20px"><p><strong>Le Directeur</strong></p><p style="margin-top:60px">{{directeur.nom_prenom}}</p></td>`,
         `</tr></tbody></table>`,
         `<p style="text-align:center;font-size:9pt;color:#888;border-top:1px solid #ccc;padding-top:8px;margin-top:20px">Institut Ilya Prigogine\u2003\u2022\u2003direction@institut-prigogine.be\u2003\u2022\u2003+32(0)2 560 29 59</p>`,
       ].join('')
@@ -370,12 +372,19 @@ try {
         `<p></p>`,
         `<table><tbody><tr>`,
         `<td style="width:50%;vertical-align:top;padding-right:20px"><p><strong>Le Président du CDE</strong></p><p style="margin-top:60px">___________________________</p></td>`,
-        `<td style="width:50%;vertical-align:top;padding-left:20px"><p><strong>Le Directeur</strong></p><p style="margin-top:60px">Charles SOHET</p></td>`,
+        `<td style="width:50%;vertical-align:top;padding-left:20px"><p><strong>Le Directeur</strong></p><p style="margin-top:60px">{{directeur.nom_prenom}}</p></td>`,
         `</tr></tbody></table>`,
         `<p style="text-align:center;font-size:9pt;color:#888;border-top:1px solid #ccc;padding-top:8px;margin-top:20px">Institut Ilya Prigogine\u2003\u2022\u2003direction@institut-prigogine.be\u2003\u2022\u2003+32(0)2 560 29 59\u2003\u2022\u2003<strong>CONFIDENTIEL</strong></p>`,
       ].join('')
     );
     console.log('[migration] Template "PV Fraude" créé (slug: pv-fraude)');
+  }
+
+  // ── Prof "À DÉSIGNER" — placeholder pour les postes non pourvus ─────────────
+  const aDesigner = db.prepare(`SELECT id FROM professeur WHERE nom = 'À DÉSIGNER' AND prenom = ''`).get();
+  if (!aDesigner) {
+    db.prepare(`INSERT INTO professeur (nom, prenom, type_personnel) VALUES ('À DÉSIGNER', '', 'enseignant')`).run();
+    console.log('[migration] Prof "À DÉSIGNER" créé');
   }
 
   // ── Colonne type_personnel dans professeur (admin = non chargé de cours) ──

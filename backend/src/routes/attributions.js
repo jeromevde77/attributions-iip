@@ -173,10 +173,26 @@ r.post('/', authRequired, roleRequired('admin', 'editeur', 'coordination'), (req
             @per_etudiant_total_dp, @periodes_attribuees, @autonomie_attribuee,
             @annee_scolaire, @uid, @uid)
   `);
+
+  // ── Defaults intelligents ────────────────────────────────────────────────
+  // contrat_mdp par défaut = et_ref de l'UE (IIP ou HELB)
+  let defaultContrat = a.contrat_mdp ?? null;
+  if (!defaultContrat && a.ue_num) {
+    const ue = db.prepare('SELECT et_ref FROM ue WHERE ue_num = ? AND annee_scolaire = ?').get(a.ue_num, a.annee_scolaire || '2025-2026')
+           || db.prepare('SELECT et_ref FROM ue WHERE ue_num = ? ORDER BY annee_scolaire DESC LIMIT 1').get(a.ue_num);
+    if (ue?.et_ref) defaultContrat = ue.et_ref;
+  }
+  // professeur_id par défaut = "À DÉSIGNER" si non renseigné
+  let defaultProfId = a.professeur_id ?? null;
+  if (!defaultProfId) {
+    const aDesigner = db.prepare(`SELECT id FROM professeur WHERE nom = 'À DÉSIGNER' LIMIT 1`).get();
+    if (aDesigner) defaultProfId = aDesigner.id;
+  }
+
   const result = stmt.run({
     section: a.section ?? null,
-    etablissement_referent: a.etablissement_referent ?? null,
-    contrat_mdp: a.contrat_mdp ?? null,
+    etablissement_referent: a.etablissement_referent ?? defaultContrat ?? null,
+    contrat_mdp: defaultContrat,
     organisation: a.organisation ?? null,
     ue_num: a.ue_num,
     num_organisation: a.num_organisation ?? 1,
@@ -190,7 +206,7 @@ r.post('/', authRequired, roleRequired('admin', 'editeur', 'coordination'), (req
     num_split: a.num_split ?? null,
     num_groupe: a.num_groupe ?? null,
     activite_id: a.activite_id ?? null,
-    professeur_id: a.professeur_id ?? null,
+    professeur_id: defaultProfId,
     cours_ept_ad: a.cours_ept_ad ?? null,
     coordination_encadrement: a.coordination_encadrement ?? null,
     modification_attribution: a.modification_attribution ?? null,
@@ -429,19 +445,26 @@ r.post('/reouvrir', authRequired, roleRequired('admin', 'editeur', 'coordination
     return res.status(404).json({ error: 'Aucun cours à réouvrir pour cette UE.' });
   }
 
+  // Defaults : contrat_mdp depuis et_ref de l'UE, prof "À DÉSIGNER"
+  const ueRef = db.prepare('SELECT et_ref FROM ue WHERE ue_num = ? AND annee_scolaire = ?').get(ue_num, annee)
+             || db.prepare('SELECT et_ref FROM ue WHERE ue_num = ? ORDER BY annee_scolaire DESC LIMIT 1').get(ue_num);
+  const defaultContrat = ueRef?.et_ref || 'IIP';
+  const aDesigner = db.prepare(`SELECT id FROM professeur WHERE nom = 'À DÉSIGNER' LIMIT 1`).get();
+  const defaultProfId = aDesigner?.id ?? null;
+
   const insertStmt = db.prepare(`
     INSERT INTO attribution
       (section, ue_num, code_cours, type_cours, quadrimestre_attribue,
        contrat_mdp, etablissement_referent, organisation,
        num_organisation, code, nb_groupes, split_groupe,
-       periodes_attribuees, autonomie_attribuee, annee_scolaire)
-    VALUES (?, ?, ?, ?, NULL, NULL, 'IIP', 'x', ?, 'A', 1, 'N', 0, 0, ?)
+       professeur_id, periodes_attribuees, autonomie_attribuee, annee_scolaire)
+    VALUES (?, ?, ?, ?, NULL, ?, ?, 'x', ?, 'A', 1, 'N', ?, 0, 0, ?)
   `);
 
   let created = 0;
   const tx = db.transaction(() => {
     for (const c of sources) {
-      insertStmt.run(section, c.ue_num, c.code_cours, c.type_cours, nouvelleOrg, annee);
+      insertStmt.run(section, c.ue_num, c.code_cours, c.type_cours, defaultContrat, defaultContrat, nouvelleOrg, defaultProfId, annee);
       created++;
     }
   });
