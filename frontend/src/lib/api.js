@@ -191,7 +191,12 @@ export const api = {
   ea12Get(id) { return request(`/ea12/${id}`); },
   ea12Create(body) { return request('/ea12', { method: 'POST', body }); },
   ea12Update(id, body) { return request(`/ea12/${id}`, { method: 'PUT', body }); },
-  ea12Delete(id) { return request(`/ea12/${id}`, { method: 'DELETE' }); },
+  purgeAnnee(annee) {
+    return request(`/admin/purge-annee/${annee}`, {
+      method: 'DELETE',
+      body: { confirmation: `PURGER-${annee}` }
+    });
+  },
   ea12Apercu(id) { return request(`/ea12/${id}/apercu`); },
   ea12Document(id, filename) {
     return fetch(`${BASE}/ea12/${id}/document`, {

@@ -98,6 +98,32 @@ function DetailModal({ profId, onClose, onEdit }) {
     } catch (e) { alert('Erreur : ' + e.message); }
   }
 
+  const [showContratModal, setShowContratModal] = useState(false);
+  const [dateContrat, setDateContrat]           = useState(new Date().toISOString().split('T')[0]);
+  const [representant, setRepresentant]         = useState('Charles Sohet, Directeur a.i.');
+  const [generatingContrat, setGeneratingContrat] = useState(false);
+
+  async function genererContrat() {
+    setGeneratingContrat(true);
+    try {
+      const res = await fetch('/api/contrats/generer', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${localStorage.getItem('token')}` },
+        body: JSON.stringify({ prof_id: profId, date_contrat: dateContrat, representant }),
+      });
+      if (!res.ok) throw new Error((await res.json()).error || 'Erreur serveur');
+      const blob = await res.blob();
+      const url  = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `Contrat_${detail.nom}_${detail.prenom}_${dateContrat}.docx`;
+      a.click();
+      URL.revokeObjectURL(url);
+      setShowContratModal(false);
+    } catch (e) { alert('Erreur : ' + e.message); }
+    finally { setGeneratingContrat(false); }
+  }
+
   if (!detail) return (
     <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-30">
       <div className="bg-white rounded-xl p-8 text-gray-400">Chargement…</div>
@@ -121,6 +147,12 @@ function DetailModal({ profId, onClose, onEdit }) {
           </div>
           <div className="flex gap-2 flex-shrink-0">
             {u?.role === 'admin' && (
+              <button onClick={() => setShowContratModal(true)}
+                className="bg-green-700 hover:opacity-90 text-white text-sm px-3 py-1.5 rounded">
+                📄 Contrat
+              </button>
+            )}
+            {u?.role === 'admin' && (
               <button onClick={nouvelEA12}
                 className="bg-iip-mauve hover:opacity-90 text-white text-sm px-3 py-1.5 rounded">
                 + Nouvel EA12
@@ -133,6 +165,46 @@ function DetailModal({ profId, onClose, onEdit }) {
             <button onClick={onClose} className="text-gray-400 hover:text-red-500 text-2xl leading-none ml-2">×</button>
           </div>
         </div>
+
+        {/* Modale génération contrat */}
+        {showContratModal && (
+          <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+            <div className="bg-white rounded-xl shadow-2xl w-full max-w-md p-6">
+              <h3 className="text-lg font-title text-iip-gold mb-4">📄 Générer le contrat de travail</h3>
+              <p className="text-sm text-gray-600 mb-4">
+                Contrat CDD — Enseignement pour adultes<br />
+                <strong>{detail.nom_prenom}</strong>
+              </p>
+              <div className="space-y-4">
+                <label className="block">
+                  <div className="text-xs font-semibold text-gray-600 mb-1">Date de signature du contrat</div>
+                  <input type="date" value={dateContrat} onChange={e => setDateContrat(e.target.value)}
+                    className="w-full border border-gray-300 rounded px-3 py-2 text-sm" />
+                  {dateContrat && (
+                    <p className="text-xs text-gray-500 mt-1">
+                      Apparaîtra dans le contrat : <em>{['dimanche','lundi','mardi','mercredi','jeudi','vendredi','samedi'][new Date(dateContrat+'T12:00').getDay()]} {new Date(dateContrat+'T12:00').toLocaleDateString('fr-BE',{day:'2-digit',month:'long',year:'numeric'})}</em>
+                    </p>
+                  )}
+                </label>
+                <label className="block">
+                  <div className="text-xs font-semibold text-gray-600 mb-1">Représentant(e) du PO</div>
+                  <input value={representant} onChange={e => setRepresentant(e.target.value)}
+                    className="w-full border border-gray-300 rounded px-3 py-2 text-sm" />
+                </label>
+              </div>
+              <div className="flex gap-3 mt-6">
+                <button onClick={() => setShowContratModal(false)}
+                  className="flex-1 border border-gray-300 text-gray-600 py-2 rounded text-sm">
+                  Annuler
+                </button>
+                <button onClick={genererContrat} disabled={generatingContrat || !dateContrat}
+                  className="flex-1 bg-green-700 hover:opacity-90 disabled:opacity-40 text-white py-2 rounded text-sm font-semibold">
+                  {generatingContrat ? 'Génération…' : '⬇ Télécharger le .docx'}
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* KPIs */}
         <div className="grid grid-cols-3 gap-3 px-6 py-3 border-b border-gray-100">

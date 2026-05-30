@@ -1,14 +1,11 @@
 # =================================================================
-# docker-compose PROD — SSL DIRECT dans nginx (sans reverse proxy DSM)
+# docker-compose PROD avec SSL DIRECT dans nginx (sans reverse proxy DSM)
 #
 # Le frontend nginx écoute en HTTPS sur le port 10800.
 # Port-forward routeur : 443 (ou 10800) → IP_NAS:10800
-# Certificat DSM monté en volume ; rechargé chaque semaine
-# par scripts/reload-ssl-cert.sh (tâche DSM).
 #
-# C'est le fichier utilisé par défaut (auto-update.sh, docker compose up).
-# Une sauvegarde de l'ancienne version HTTP/8080 existe sur le NAS
-# sous docker-compose.yml.backup.
+# Bascule : remplacer docker-compose.yml par celui-ci, ou lancer avec -f.
+# Retour arrière : relancer avec l'ancien docker-compose.yml (port 8080 + reverse proxy).
 # =================================================================
 
 services:

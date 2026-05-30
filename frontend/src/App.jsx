@@ -113,7 +113,8 @@ function ProtectedLayout({ children }) {
         ['/professeurs',  'Professeurs'],
         ['/listes',       'Listes'],
         ['/procedures',   '⚖ Procédures'],
-        ...(u?.role === 'admin' ? [['/ea12', 'EA12']] : []),
+        // EA12 masqué en prod (LibreOffice absent du Dockerfile prod)
+        // ...(u?.role === 'admin' ? [['/ea12', 'EA12']] : []),
       ];
   if (u?.role === 'admin') nav.push(['/editeur', '📝 Éditeur']);
   if (u?.role === 'admin') nav.push(['/configuration', '⚙ Configuration']);
