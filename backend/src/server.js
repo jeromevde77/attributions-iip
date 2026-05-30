@@ -163,8 +163,8 @@ try {
   `);
 
   // Migration : ajouter colonne slug si absente
-  try { db.exec(`ALTER TABLE document_template ADD COLUMN slug TEXT UNIQUE`); }
-  catch { /* déjà présente */ }
+  try { db.exec(`ALTER TABLE document_template ADD COLUMN slug TEXT`); }
+  catch { /* colonne déjà présente */ }
 
   // Mettre à jour les slugs des templates existants sans slug
   const contratRow = db.prepare(`SELECT id FROM document_template WHERE nom = 'Contrat de travail CDD' AND slug IS NULL`).get();
