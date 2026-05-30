@@ -330,7 +330,7 @@ function OutilRecours() {
           date_seance: dateSeance, date_envoi: dateDecisionInterne,
           commentaire_cde: commentaireCDE, q, verdict, annee,
         }),
-      }).then(r => r.json());
+      });
       if (res.error) { w.close(); alert('Erreur : ' + res.error); return; }
       const blob = new Blob([res.html], { type: 'text/html;charset=utf-8' });
       const blobUrl = URL.createObjectURL(blob);
@@ -842,7 +842,7 @@ function OutilFraude() {
           commentaire_cde: commentaireCDE,
           session, recidive, decision, annee,
         }),
-      }).then(r => r.json());
+      });
       if (res.error) { w.close(); alert('Erreur : ' + res.error); return; }
       const blob = new Blob([res.html], { type: 'text/html;charset=utf-8' });
       const blobUrl = URL.createObjectURL(blob);
