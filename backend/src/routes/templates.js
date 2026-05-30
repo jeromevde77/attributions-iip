@@ -223,6 +223,15 @@ r.post('/:id/generer', authRequired, async (req, res) => {
     vars['prof.lieu_naissance'] = [p.lieu_naissance_ville, p.lieu_naissance_pays].filter(Boolean).join(', ');
     vars['prof.domicile'] = [p.adresse_rue, [p.code_postal, p.commune].filter(Boolean).join(' ')].filter(Boolean).join(', ');
     vars['prof.nom_prenom'] = `${p.nom||''} ${p.prenom||''}`.trim();
+    // Date formatée JJ/MM/AAAA pour le contrat
+    if (p.date_naissance) {
+      const [y,m,d] = String(p.date_naissance).split('-');
+      vars['prof.date_naissance_fr'] = y ? `${d}/${m}/${y}` : p.date_naissance;
+    } else {
+      vars['prof.date_naissance_fr'] = '';
+    }
+    // Champs additionnels etab utiles pour le contrat
+    vars['etab.gest_nom_prenom'] = `${etab.gest_prenom||''} ${etab.gest_nom||''}`.trim();
   }
   if (ue_num && ctx.annee) {
     const u = db.prepare('SELECT * FROM ue WHERE ue_num = ? AND annee_scolaire = ?').get(ue_num, ctx.annee) || {};
@@ -237,7 +246,49 @@ r.post('/:id/generer', authRequired, async (req, res) => {
   let html = t.contenu;
   for (const [key, val] of Object.entries(vars)) html = html.replaceAll(`{{${key}}}`, String(val));
 
-  // ── 2a. Marqueurs texte {{#type}}...{{/type}} (approche simple, sans problème de focus) ──
+  // ── 2a. Champ spécial : tableau des attributions du prof (pour le contrat) ─
+  if (prof_id && html.includes('{{contrat.table_attributions}}')) {
+    const rows = db.prepare(`
+      SELECT a.ue_num, a.code_cours, a.section, a.periodes_attribuees, a.autonomie_attribuee,
+             u.ue_nom, c.cours_nom, c.ct_pp
+      FROM attribution a
+      LEFT JOIN ue   u ON u.ue_num     = a.ue_num     AND u.annee_scolaire = a.annee_scolaire
+      LEFT JOIN cours c ON c.cours_code = a.code_cours AND c.annee_scolaire = a.annee_scolaire
+      WHERE a.professeur_id = ? AND a.annee_scolaire = ?
+        AND (a.type_cours IS NULL OR a.type_cours != 'Z')
+      ORDER BY a.section, a.ue_num, a.code_cours
+    `).all(prof_id, ctx.annee);
+    const total = rows.reduce((s,r) => s+(r.periodes_attribuees||0)+(r.autonomie_attribuee||0), 0);
+    const lignes = rows.map((r,i) => `
+      <tr style="background:${i%2===0?'#f9f9f9':'white'}">
+        <td style="padding:4px 8px;border:1px solid #ccc">${r.section||''}</td>
+        <td style="padding:4px 8px;border:1px solid #ccc;text-align:center">${r.ue_num||''}</td>
+        <td style="padding:4px 8px;border:1px solid #ccc">${r.ue_nom||''}</td>
+        <td style="padding:4px 8px;border:1px solid #ccc;text-align:center">${r.ct_pp||''}</td>
+        <td style="padding:4px 8px;border:1px solid #ccc">${r.cours_nom||''}</td>
+        <td style="padding:4px 8px;border:1px solid #ccc;text-align:right">${r.periodes_attribuees||0}</td>
+        <td style="padding:4px 8px;border:1px solid #ccc;text-align:right">${r.autonomie_attribuee||0}</td>
+        <td style="padding:4px 8px;border:1px solid #ccc;text-align:right;font-weight:bold">${(r.periodes_attribuees||0)+(r.autonomie_attribuee||0)}</td>
+      </tr>`).join('');
+    const tableau = `<table style="width:100%;border-collapse:collapse;font-size:10pt;margin:8px 0">
+      <thead><tr style="background:#1F3864;color:white">
+        <th style="padding:5px 8px;border:1px solid #ccc;text-align:left">Section</th>
+        <th style="padding:5px 8px;border:1px solid #ccc">N° UE</th>
+        <th style="padding:5px 8px;border:1px solid #ccc;text-align:left">Nom de l'UE</th>
+        <th style="padding:5px 8px;border:1px solid #ccc">Type</th>
+        <th style="padding:5px 8px;border:1px solid #ccc;text-align:left">Cours</th>
+        <th style="padding:5px 8px;border:1px solid #ccc">Pér.</th>
+        <th style="padding:5px 8px;border:1px solid #ccc">Aut.</th>
+        <th style="padding:5px 8px;border:1px solid #ccc">Total</th>
+      </tr></thead>
+      <tbody>${lignes || '<tr><td colspan="8" style="padding:6px;font-style:italic;text-align:center">Aucune attribution pour cette année</td></tr>'}</tbody>
+      <tfoot><tr style="background:#e8e8e8">
+        <td colspan="7" style="padding:5px 8px;border:1px solid #ccc;text-align:right;font-weight:bold">TOTAL PÉRIODES</td>
+        <td style="padding:5px 8px;border:1px solid #ccc;text-align:right;font-weight:bold">${total}</td>
+      </tr></tfoot>
+    </table>`;
+    html = html.replaceAll('{{contrat.table_attributions}}', tableau);
+  }
   // TipTap génère par ex. : <p><strong>{{#profs_ue}}</strong>  ← Pour chaque prof...</p>
   // Le regex les trouve dans le HTML et les expande.
   try {

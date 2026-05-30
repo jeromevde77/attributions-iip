@@ -58,6 +58,15 @@ const CHAMPS = {
     { key: 'sys.date_iso',        label: 'Date ISO' },
     { key: 'sys.section',         label: 'Section (choisie à la génération)' },
   ],
+  'Contrat': [
+    { key: 'contrat.table_attributions', label: '📋 Tableau des attributions (Article 1)' },
+    { key: 'prof.date_naissance_fr',     label: 'Date de naissance (JJ/MM/AAAA)' },
+    { key: 'prof.nationalite',           label: 'Nationalité' },
+    { key: 'prof.niss',                  label: 'Numéro de registre national (NISS)' },
+    { key: 'prof.matricule',             label: 'Matricule enseignant' },
+    { key: 'etab.gest_nom_prenom',       label: 'Gestionnaire — Nom Prénom' },
+    { key: 'etab.num_ecot',              label: 'N° ETNIC (ex-ECOT)' },
+  ],
 };
 
 // ─── Types de boucles disponibles ─────────────────────────────────────────
