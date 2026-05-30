@@ -178,13 +178,14 @@ r.post('/', authRequired, roleRequired('admin', 'editeur', 'coordination'), (req
   // contrat_mdp par défaut = et_ref de l'UE (IIP ou HELB)
   let defaultContrat = a.contrat_mdp ?? null;
   if (!defaultContrat && a.ue_num) {
-    const ue = db.prepare('SELECT et_ref FROM ue WHERE ue_num = ? AND annee_scolaire = ?').get(a.ue_num, a.annee_scolaire || '2025-2026');
+    const ue = db.prepare('SELECT et_ref FROM ue WHERE ue_num = ? AND annee_scolaire = ?').get(a.ue_num, a.annee_scolaire || '2025-2026')
+           || db.prepare('SELECT et_ref FROM ue WHERE ue_num = ? ORDER BY annee_scolaire DESC LIMIT 1').get(a.ue_num);
     if (ue?.et_ref) defaultContrat = ue.et_ref;
   }
   // professeur_id par défaut = "À DÉSIGNER" si non renseigné
   let defaultProfId = a.professeur_id ?? null;
   if (!defaultProfId) {
-    const aDesigner = db.prepare(`SELECT id FROM professeur WHERE nom = 'À DÉSIGNER' AND prenom = ''`).get();
+    const aDesigner = db.prepare(`SELECT id FROM professeur WHERE nom = 'À DÉSIGNER' LIMIT 1`).get();
     if (aDesigner) defaultProfId = aDesigner.id;
   }
 
@@ -445,9 +446,10 @@ r.post('/reouvrir', authRequired, roleRequired('admin', 'editeur', 'coordination
   }
 
   // Defaults : contrat_mdp depuis et_ref de l'UE, prof "À DÉSIGNER"
-  const ueRef = db.prepare('SELECT et_ref FROM ue WHERE ue_num = ? AND annee_scolaire = ?').get(ue_num, annee);
+  const ueRef = db.prepare('SELECT et_ref FROM ue WHERE ue_num = ? AND annee_scolaire = ?').get(ue_num, annee)
+             || db.prepare('SELECT et_ref FROM ue WHERE ue_num = ? ORDER BY annee_scolaire DESC LIMIT 1').get(ue_num);
   const defaultContrat = ueRef?.et_ref || 'IIP';
-  const aDesigner = db.prepare(`SELECT id FROM professeur WHERE nom = 'À DÉSIGNER' AND prenom = ''`).get();
+  const aDesigner = db.prepare(`SELECT id FROM professeur WHERE nom = 'À DÉSIGNER' LIMIT 1`).get();
   const defaultProfId = aDesigner?.id ?? null;
 
   const insertStmt = db.prepare(`
