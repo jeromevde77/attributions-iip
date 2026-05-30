@@ -209,6 +209,7 @@ function fetchBoucleData(boucleType, ctx) {
 
 // ─── Génération ────────────────────────────────────────────────────────────
 r.post('/:id/generer', authRequired, async (req, res) => {
+ try {
   const t = db.prepare('SELECT * FROM document_template WHERE id = ?').get(req.params.id);
   if (!t) return res.status(404).json({ error: 'Template introuvable' });
 
@@ -275,8 +276,10 @@ r.post('/:id/generer', authRequired, async (req, res) => {
   vars['etab.logo_sm']     = LOGO_IIP_HTML.replace('height:60px', 'height:40px');
   vars['etab.logo_blanc']  = LOGO_IIP_BLANC_HTML;
   vars['etab.logo_blanc_sm'] = LOGO_IIP_BLANC_HTML.replace('height:60px', 'height:40px');
+  const now = new Date();
   vars['sys.annee']    = ctx.annee;
   vars['sys.date_iso'] = now.toISOString().split('T')[0];
+  vars['sys.date']     = now.toLocaleDateString('fr-BE', { day: '2-digit', month: 'long', year: 'numeric' });
   vars['sys.section']  = section || '';
 
   let html = t.contenu;
@@ -388,6 +391,10 @@ r.post('/:id/generer', authRequired, async (req, res) => {
   }
 
   res.json({ html: bodyHtml, headerHtml, footerHtml, nom: t.nom });
+ } catch (e) {
+  console.error('[generer] ERREUR :', e);
+  res.status(500).json({ error: 'Erreur de génération : ' + e.message });
+ }
 });
 
 export default r;
