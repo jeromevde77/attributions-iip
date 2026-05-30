@@ -316,7 +316,7 @@ try {
         `<p></p>`,
         `<table><tbody><tr>`,
         `<td style="width:50%;vertical-align:top;padding-right:20px"><p><strong>Le Président du CDE</strong></p><p style="margin-top:60px">___________________________</p></td>`,
-        `<td style="width:50%;vertical-align:top;padding-left:20px"><p><strong>Le Directeur</strong></p><p style="margin-top:60px">Charles SOHET</p></td>`,
+        `<td style="width:50%;vertical-align:top;padding-left:20px"><p><strong>Le Directeur</strong></p><p style="margin-top:60px">{{directeur.nom_prenom}}</p></td>`,
         `</tr></tbody></table>`,
         `<p style="text-align:center;font-size:9pt;color:#888;border-top:1px solid #ccc;padding-top:8px;margin-top:20px">Institut Ilya Prigogine\u2003\u2022\u2003direction@institut-prigogine.be\u2003\u2022\u2003+32(0)2 560 29 59</p>`,
       ].join('')
@@ -370,7 +370,7 @@ try {
         `<p></p>`,
         `<table><tbody><tr>`,
         `<td style="width:50%;vertical-align:top;padding-right:20px"><p><strong>Le Président du CDE</strong></p><p style="margin-top:60px">___________________________</p></td>`,
-        `<td style="width:50%;vertical-align:top;padding-left:20px"><p><strong>Le Directeur</strong></p><p style="margin-top:60px">Charles SOHET</p></td>`,
+        `<td style="width:50%;vertical-align:top;padding-left:20px"><p><strong>Le Directeur</strong></p><p style="margin-top:60px">{{directeur.nom_prenom}}</p></td>`,
         `</tr></tbody></table>`,
         `<p style="text-align:center;font-size:9pt;color:#888;border-top:1px solid #ccc;padding-top:8px;margin-top:20px">Institut Ilya Prigogine\u2003\u2022\u2003direction@institut-prigogine.be\u2003\u2022\u2003+32(0)2 560 29 59\u2003\u2022\u2003<strong>CONFIDENTIEL</strong></p>`,
       ].join('')
