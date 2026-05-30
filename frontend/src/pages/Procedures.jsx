@@ -264,7 +264,7 @@ function OutilRecours() {
   const [membresCde, setMembresCde] = useState([]);
   useEffect(() => {
     authFetch('/api/ref/membres-cde')
-      .then(d => setMembresCde(Array.isArray(d) ? d.map(m => ({ ...m, id: 'cde_' + m.id })) : []))
+      .then(d => setMembresCde(Array.isArray(d) ? d.map(m => ({ ...m, id: 'cde_' + m.id, qualite: m.fonction })) : []))
       .catch(() => {});
   }, []);
 

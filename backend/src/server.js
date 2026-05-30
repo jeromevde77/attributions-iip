@@ -272,23 +272,40 @@ try {
   try { db.exec(`ALTER TABLE professeur ADD COLUMN type_personnel TEXT DEFAULT 'enseignant'`); }
   catch { /* colonne déjà présente */ }
 
-  // Seed : insérer le personnel admin si absent
-  const seedAdmin = [
-    ['SOHET',       'Charles',  'Directeur'],
-    ['VANDECAUTER', 'Nicolas',  'Directeur adjoint'],
-    ['AEVALIOTIS',  'Mati',     'Secrétaire'],
-    ['DAELEMEN',    'Florian',  'Secrétaire'],
-    ['LAMBERT',     'Marie',    'Coordinatrice'],
-    ['BOULENGIER',  'Natacha',  'Coordinatrice'],
-    ['ROUGUI',      'Loubna',   'Coordinatrice'],
-  ];
-  for (const [nom, prenom, statut] of seedAdmin) {
-    const exists = db.prepare('SELECT id FROM professeur WHERE nom = ? AND prenom = ?').get(nom, prenom);
-    if (exists) {
-      db.prepare(`UPDATE professeur SET type_personnel = 'admin', statut = ? WHERE id = ?`).run(statut, exists.id);
-    } else {
-      db.prepare(`INSERT INTO professeur (nom, prenom, statut, type_personnel) VALUES (?, ?, ?, 'admin')`).run(nom, prenom, statut);
-      console.log(`[migration] Personnel admin ajouté : ${prenom} ${nom} (${statut})`);
+  // ── Table personnel_etablissement : lien prof → fonction dans l'IIP ────────
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS personnel_etablissement (
+      id             INTEGER PRIMARY KEY AUTOINCREMENT,
+      professeur_id  INTEGER NOT NULL REFERENCES professeur(id) ON DELETE CASCADE,
+      fonction       TEXT NOT NULL,
+      ordre          INTEGER NOT NULL DEFAULT 99
+    );
+  `);
+
+  // Seed : personnel de direction/secrétariat/coordination (si table vide)
+  const nbPE = db.prepare('SELECT COUNT(*) AS n FROM personnel_etablissement').get().n;
+  if (nbPE === 0) {
+    const seedPersonnel = [
+      ['SOHET',       'Charles',  'Directeur',           1],
+      ['VANDECAUTER', 'Nicolas',  'Directeur adjoint',   2],
+      ['AEVALIOTIS',  'Mati',     'Secrétaire',          3],
+      ['DAELEMEN',    'Florian',  'Secrétaire',          4],
+      ['LAMBERT',     'Marie',    'Coordinatrice',       5],
+      ['BOULENGIER',  'Natacha',  'Coordinatrice',       6],
+      ['ROUGUI',      'Loubna',   'Coordinatrice',       7],
+    ];
+    for (const [nom, prenom, fonction, ordre] of seedPersonnel) {
+      // Trouver ou créer la fiche prof
+      let row = db.prepare('SELECT id FROM professeur WHERE nom = ? AND prenom = ?').get(nom, prenom);
+      if (!row) {
+        const info = db.prepare(`INSERT INTO professeur (nom, prenom, type_personnel) VALUES (?, ?, 'admin')`).run(nom, prenom);
+        row = { id: info.lastInsertRowid };
+        console.log(`[migration] Prof admin créé : ${prenom} ${nom}`);
+      } else {
+        db.prepare(`UPDATE professeur SET type_personnel = 'admin' WHERE id = ?`).run(row.id);
+      }
+      db.prepare(`INSERT INTO personnel_etablissement (professeur_id, fonction, ordre) VALUES (?, ?, ?)`).run(row.id, fonction, ordre);
+      console.log(`[migration] Fonction assignée : ${prenom} ${nom} → ${fonction}`);
     }
   }
 
