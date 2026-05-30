@@ -75,13 +75,21 @@ function genererDepuisTemplate(slug, vars) {
     ...vars,
   };
 
+  // Champs présents dans le template mais NON fournis par la procédure : ils seraient
+  // effacés silencieusement → on les remonte pour avertir l'utilisateur à la génération.
+  const champsUtilises = [...new Set(
+    [...tpl.contenu.matchAll(/\{\{\s*([^}]+?)\s*\}\}/g)].map(m => m[1].trim())
+  )];
+  const connus = new Set(Object.keys(allVars));
+  const champsManquants = champsUtilises.filter(c => !connus.has(c));
+
   let html = tpl.contenu;
   for (const [k, v] of Object.entries(allVars))
     html = html.replaceAll(`{{${k}}}`, String(v ?? ''));
   // Champs non résolus → vide
   html = html.replace(/\{\{[^}]+\}\}/g, '');
 
-  return html;
+  return { html, champsManquants };
 }
 
 function wrapHtml(html, titre) {
@@ -168,7 +176,7 @@ r.post('/pv-recours', authRequired, (req, res) => {
     voiesRecours = `<p>Conformément à l'Art. 90 du RDE/ROI et au Décret du 27/10/2006, la présente décision peut faire l'objet d'un <strong>recours externe</strong> auprès de la Direction générale ETLV (rue Adolphe Lavallée 1, 1080 Bruxelles), par pli recommandé, dans un délai de <strong>7 jours calendrier</strong> à compter du troisième jour ouvrable suivant l'envoi de la présente décision${limiteExt ? ` (date limite\u00a0: <strong>${dateLongue(limiteExt.toISOString().split('T')[0])}</strong>)` : ''}.`;
   }
 
-  const html = genererDepuisTemplate('pv-recours', {
+  const resultat = genererDepuisTemplate('pv-recours', {
     'pv.type_decision':  typeDecision,
     'pv.etudiant':       etudiant || '',
     'pv.ue_ref':         ueRef,
@@ -183,8 +191,8 @@ r.post('/pv-recours', authRequired, (req, res) => {
     'pv.voies_recours':  voiesRecours,
   });
 
-  if (!html) return res.status(404).json({ error: 'Template pv-recours introuvable' });
-  res.json({ html: wrapHtml(html, `Décision CDE — ${etudiant}`) });
+  if (!resultat) return res.status(404).json({ error: 'Template pv-recours introuvable' });
+  res.json({ html: wrapHtml(resultat.html, `Décision CDE — ${etudiant}`), champs_manquants: resultat.champsManquants });
 });
 
 // ─── POST /procedures/pv-fraude ───────────────────────────────────────────────
@@ -210,7 +218,7 @@ r.post('/pv-fraude', authRequired, (req, res) => {
     ? `L'étudiant·e se trouve en deuxième session${recidive ? ' et/ou en situation de récidive' : ''}. Conformément à l'Art. 73 §2 du RDE/ROI, le CDE peut prononcer un refus.`
     : `L'étudiant·e se trouve en première session. Conformément à l'Art. 73 §1 du RDE/ROI, la fraude entraîne un ajournement pour les AA visés.`;
 
-  const html = genererDepuisTemplate('pv-fraude', {
+  const resultat = genererDepuisTemplate('pv-fraude', {
     'pv.etudiant':       etudiant || '',
     'pv.ue_ref':         ueRef,
     'pv.date_examen':    date_examen    ? dateLongue(date_examen)    : '—',
@@ -237,8 +245,8 @@ r.post('/pv-fraude', authRequired, (req, res) => {
     'pv.voies_recours':  `<p>La présente décision peut faire l'objet d'un <strong>recours interne</strong> dans un délai de <strong>4 jours calendrier</strong> suivant la publication des résultats (Art. 88 §1 RDE/ROI), par e-mail à direction@institut-prigogine.be ou remise en main propre.</p>`,
   });
 
-  if (!html) return res.status(404).json({ error: 'Template pv-fraude introuvable' });
-  res.json({ html: wrapHtml(html, `PV Fraude — ${etudiant}`) });
+  if (!resultat) return res.status(404).json({ error: 'Template pv-fraude introuvable' });
+  res.json({ html: wrapHtml(resultat.html, `PV Fraude — ${etudiant}`), champs_manquants: resultat.champsManquants });
 });
 
 export default r;

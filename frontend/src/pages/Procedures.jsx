@@ -336,6 +336,9 @@ function OutilRecours() {
       const blobUrl = URL.createObjectURL(blob);
       w.location.href = blobUrl;
       setTimeout(() => URL.revokeObjectURL(blobUrl), 5000);
+      if (res.champs_manquants?.length)
+        alert('⚠ Champs du modèle non disponibles pour cette procédure (laissés vides dans le document) :\n\n• '
+          + res.champs_manquants.join('\n• '));
     } catch(e) { w.close(); alert('Erreur : ' + e.message); }
   }
 
@@ -848,6 +851,9 @@ function OutilFraude() {
       const blobUrl = URL.createObjectURL(blob);
       w.location.href = blobUrl;
       setTimeout(() => URL.revokeObjectURL(blobUrl), 5000);
+      if (res.champs_manquants?.length)
+        alert('⚠ Champs du modèle non disponibles pour cette procédure (laissés vides dans le document) :\n\n• '
+          + res.champs_manquants.join('\n• '));
     } catch(e) { w.close(); alert('Erreur : ' + e.message); }
   }
 
