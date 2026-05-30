@@ -54,7 +54,7 @@ function genererDepuisTemplate(slug, vars) {
 
   const allVars = {
     'sys.date':     now.toLocaleDateString('fr-BE', { weekday:'long', day:'2-digit', month:'long', year:'numeric' }),
-    'sys.annee':    db.prepare(`SELECT annee_scolaire FROM annee_scolaire WHERE active = 1`).get()?.annee_scolaire || '2026-2027',
+    'sys.annee':    db.prepare(`SELECT code FROM annee_scolaire WHERE active = 1`).get()?.code || '2026-2027',
     'etab.etab_nom': etab.etab_nom || 'Institut Ilya Prigogine',
     ...vars,
   };

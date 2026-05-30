@@ -3,7 +3,7 @@ import { getAnnee } from '../lib/api.js';
 
 // ─── Utilitaires ──────────────────────────────────────────────────────────────
 const TOKEN = () => localStorage.getItem('token');
-const authFetch = (url) => fetch(url, { headers: { Authorization: `Bearer ${TOKEN()}` } }).then(r => r.json());
+const authFetch = (url, opts = {}) => fetch(url, { ...opts, headers: { Authorization: `Bearer ${TOKEN()}`, ...(opts.headers || {}) } }).then(r => r.json());
 
 function addJoursOuvrables(date, n) {
   const d = new Date(date); let count = 0;
@@ -330,7 +330,7 @@ function OutilRecours() {
           date_seance: dateSeance, date_envoi: dateDecisionInterne,
           commentaire_cde: commentaireCDE, q, verdict, annee,
         }),
-      }).then(r => r.json());
+      });
       if (res.error) { w.close(); alert('Erreur : ' + res.error); return; }
       const blob = new Blob([res.html], { type: 'text/html;charset=utf-8' });
       const blobUrl = URL.createObjectURL(blob);
@@ -842,7 +842,7 @@ function OutilFraude() {
           commentaire_cde: commentaireCDE,
           session, recidive, decision, annee,
         }),
-      }).then(r => r.json());
+      });
       if (res.error) { w.close(); alert('Erreur : ' + res.error); return; }
       const blob = new Blob([res.html], { type: 'text/html;charset=utf-8' });
       const blobUrl = URL.createObjectURL(blob);
