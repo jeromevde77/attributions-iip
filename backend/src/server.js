@@ -1064,6 +1064,12 @@ app.get('/api/logo-iip', (_req, res) => {
   res.setHeader('Cache-Control', 'public, max-age=86400');
   res.sendFile(_logoPath);
 });
+const _logoBlanc = _jn(_dn(_fup(import.meta.url)), 'src/services/assets/logo_iip_blanc.png');
+app.get('/api/logo-iip-blanc', (_req, res) => {
+  res.setHeader('Content-Type', 'image/png');
+  res.setHeader('Cache-Control', 'public, max-age=86400');
+  res.sendFile(_logoBlanc);
+});
 
 // Erreurs
 app.use((err, req, res, next) => {

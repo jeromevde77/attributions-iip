@@ -3,6 +3,7 @@ import db from '../db/index.js';
 import { authRequired, roleRequired } from '../middleware/auth.js';
 import { parse as parseHtml } from 'node-html-parser';
 import { LOGO_IIP_HTML } from '../services/assets/logo_iip.js';
+import { LOGO_IIP_BLANC_HTML } from '../services/assets/logo_iip_blanc.js';
 
 const r = Router();
 
@@ -239,8 +240,10 @@ r.post('/:id/generer', authRequired, async (req, res) => {
     Object.entries(u).forEach(([k,v]) => { vars[`ue.${k}`] = v ?? ''; });
   }
   // Logo IIP
-  vars['etab.logo']    = LOGO_IIP_HTML;
-  vars['etab.logo_sm'] = LOGO_IIP_HTML.replace('height:60px', 'height:40px');
+  vars['etab.logo']        = LOGO_IIP_HTML;
+  vars['etab.logo_sm']     = LOGO_IIP_HTML.replace('height:60px', 'height:40px');
+  vars['etab.logo_blanc']  = LOGO_IIP_BLANC_HTML;
+  vars['etab.logo_blanc_sm'] = LOGO_IIP_BLANC_HTML.replace('height:60px', 'height:40px');
   vars['sys.annee']    = ctx.annee;
   vars['sys.date_iso'] = now.toISOString().split('T')[0];
   vars['sys.section']  = section || '';

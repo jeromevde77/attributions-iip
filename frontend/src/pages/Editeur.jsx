@@ -15,8 +15,10 @@ import { api, getAnnee } from '../lib/api.js';
 // ─── Champs simples ────────────────────────────────────────────────────────
 const CHAMPS = {
   'Établissement': [
-    { key: 'etab.logo',           label: '🖼 Logo IIP (grand)' },
-    { key: 'etab.logo_sm',        label: '🖼 Logo IIP (petit)' },
+    { key: 'etab.logo',           label: '🖼 Logo IIP couleurs (grand)' },
+    { key: 'etab.logo_sm',        label: '🖼 Logo IIP couleurs (petit)' },
+    { key: 'etab.logo_blanc',     label: '🖼 Logo IIP blanc transp. (grand)' },
+    { key: 'etab.logo_blanc_sm',  label: '🖼 Logo IIP blanc transp. (petit)' },
     { key: 'etab.po_nom',        label: 'Nom du PO' },
     { key: 'etab.etab_nom',      label: "Nom de l'établissement" },
     { key: 'etab.adresse',       label: 'Adresse complète' },
