@@ -409,18 +409,22 @@ export default function Editeur() {
   async function chargerTemplate(t) {
     setTemplateId(t.id); setNom(t.nom);
     const token = localStorage.getItem('token');
-    const r = await fetch(`/api/templates/${t.id}`, { headers: { Authorization: `Bearer ${token}` } });
-    const d = await r.json();
-    let contenu = d.contenu || '';
-    // Nettoyer les <img src="..."> avec URL relatives ou invalides qui font planter TipTap
-    // TipTap exige des URLs absolues ou data: — on retire les images problématiques
-    contenu = contenu.replace(/<img[^>]+src="(?!data:|https?:\/\/)[^"]*"[^>]*>/gi,
-      '<span style="background:#fef3c7;padding:2px 6px;border-radius:4px;font-size:11px">🖼 [image — à réinsérer via bouton Logo]</span>');
     try {
+      const r = await fetch(`/api/templates/${t.id}`, { headers: { Authorization: `Bearer ${token}` } });
+      if (!r.ok) throw new Error(`HTTP ${r.status}: ${r.statusText}`);
+      const d = await r.json();
+      let contenu = d.contenu || '';
+
+      // Nettoyer les src d'image relatifs ou invalides pour TipTap 3.x
+      contenu = contenu.replace(/<img([^>]*)src="(?!data:|https?:\/\/)[^"]*"([^>]*)>/gi,
+        '<span style="background:#fef3c7;padding:2px 6px;border-radius:4px;font-size:11px">🖼 [logo — réinsérer via bouton]</span>');
+
+      console.log('[Éditeur] setContent, longueur:', contenu.length);
       editor?.commands.setContent(contenu);
+      console.log('[Éditeur] setContent OK');
     } catch (e) {
-      console.error('[chargerTemplate]', e);
-      alert(`Erreur lors du chargement du template : ${e.message}\n\nEssayez de le rééditer et de le sauvegarder.`);
+      console.error('[chargerTemplate] ERREUR :', e);
+      alert(`Erreur au chargement du template "${t.nom}" :\n\n${e.message}\n\n(voir console F12 pour le détail)`);
     }
   }
 
@@ -432,6 +436,9 @@ export default function Editeur() {
   async function generer() {
     if (!editor || !templateId) { alert('Sauvegardez d\'abord le template'); return; }
     setGenerating(true);
+    // Ouvrir la fenêtre AVANT l'await — nécessaire pour Safari (popup synchrone)
+    const w = window.open('about:blank', '_blank');
+    if (!w) { alert('Autorisez les pop-ups pour ce site'); setGenerating(false); return; }
     const token = localStorage.getItem('token');
     try {
       const r = await fetch(`/api/templates/${templateId}/generer`, {
@@ -440,11 +447,9 @@ export default function Editeur() {
         body: JSON.stringify({ prof_id: profId || undefined, ue_num: ueNum || undefined, section: section || undefined, annee }),
       });
       const { html, headerHtml, footerHtml, nom: tnom } = await r.json();
-      const w = window.open('', '_blank');
-      if (!w) { alert('Autorisez les pop-ups pour ce site'); return; }
       const hasHeader = headerHtml && headerHtml.trim();
       const hasFooter = footerHtml && footerHtml.trim();
-      w.document.write(`<!DOCTYPE html><html lang="fr"><head><meta charset="utf-8"><title>${tnom}</title>
+      const fullHtml = `<!DOCTYPE html><html lang="fr"><head><meta charset="utf-8"><title>${tnom}</title>
         <style>
           body{font-family:Arial,sans-serif;margin:0;padding:20mm 15mm;font-size:11pt;color:#000}
           ${hasHeader ? 'body{padding-top:30mm}' : ''}
@@ -453,26 +458,32 @@ export default function Editeur() {
           td,th{border:1px solid #333;padding:4px 6px;vertical-align:top}
           th{background:#eee;font-weight:bold}
           h1{font-size:16pt}h2{font-size:13pt}h3{font-size:11pt}
-          p{margin:4px 0}
-          .champ-tag,.entete-block,.pied-block,.boucle-block{display:block}
+          p{margin:4px 0}.champ-tag,.entete-block,.pied-block,.boucle-block{display:block}
           .doc-header{border-bottom:1px solid #ccc;padding-bottom:6px;margin-bottom:16px}
           .doc-footer{border-top:1px solid #ccc;padding-top:6px;margin-top:20px;font-size:9pt;color:#666}
           @media print{
             button{display:none}
             body{padding:10mm 15mm ${hasFooter?'22mm':'10mm'} 15mm}
             ${hasHeader ? `.doc-header{position:fixed;top:0;left:0;right:0;background:white;padding:4mm 15mm;border-bottom:1px solid #ccc;z-index:100}` : ''}
-            ${hasFooter ? `.doc-footer{position:fixed;bottom:0;left:0;right:0;background:white;padding:3mm 15mm;border-top:1px solid #ccc;font-size:9pt;color:#666}` : ''}
+            ${hasFooter ? `.doc-footer{position:fixed;bottom:0;left:0;right:0;background:white;padding:3mm 15mm;border-top:1px solid #ccc}` : ''}
           }
         </style></head><body>
-        <div style="text-align:right;margin-bottom:10px" class="no-print">
+        <div style="text-align:right;margin-bottom:10px">
           <button onclick="window.print()" style="padding:6px 16px;background:#1a5276;color:#fff;border:none;border-radius:4px;cursor:pointer;font-size:13px">🖨 Imprimer / PDF</button>
         </div>
         ${hasHeader ? `<div class="doc-header">${headerHtml}</div>` : ''}
         <div class="doc-body">${html}</div>
         ${hasFooter ? `<div class="doc-footer">${footerHtml}</div>` : ''}
-        </body></html>`);
-      w.document.close();
-    } catch (e) { alert('Erreur : ' + e.message); }
+        </body></html>`;
+      // Blob URL : compatible Safari (pas de document.write)
+      const blob = new Blob([fullHtml], { type: 'text/html;charset=utf-8' });
+      const url  = URL.createObjectURL(blob);
+      w.location.href = url;
+      setTimeout(() => URL.revokeObjectURL(url), 5000);
+    } catch (e) {
+      w.close();
+      alert('Erreur : ' + e.message);
+    }
     finally { setGenerating(false); }
   }
 
