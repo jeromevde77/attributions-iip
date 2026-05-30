@@ -380,6 +380,13 @@ try {
     console.log('[migration] Template "PV Fraude" créé (slug: pv-fraude)');
   }
 
+  // ── Prof "À DÉSIGNER" — placeholder pour les postes non pourvus ─────────────
+  const aDesigner = db.prepare(`SELECT id FROM professeur WHERE nom = 'À DÉSIGNER' AND prenom = ''`).get();
+  if (!aDesigner) {
+    db.prepare(`INSERT INTO professeur (nom, prenom, type_personnel) VALUES ('À DÉSIGNER', '', 'enseignant')`).run();
+    console.log('[migration] Prof "À DÉSIGNER" créé');
+  }
+
   // ── Colonne type_personnel dans professeur (admin = non chargé de cours) ──
   try { db.exec(`ALTER TABLE professeur ADD COLUMN type_personnel TEXT DEFAULT 'enseignant'`); }
   catch { /* colonne déjà présente */ }
