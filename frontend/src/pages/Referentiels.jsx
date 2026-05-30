@@ -573,18 +573,26 @@ export default function Referentiels({ embedded = false }) {
                             }>
                               <td colSpan="13" className={`px-8 py-2 ${activeUE === ueKey ? (isHelb ? 'border-b-2 border-l-2 border-r-2 border-pink-400' : 'border-b-2 border-l-2 border-r-2 border-iip-gold/60') : ''}`}>
                                 <table className="w-full text-sm">
-                                  <thead><tr className="text-gray-500">
-                                    <th className="text-left py-1">Code</th><th className="text-left">Nom du cours</th>
-                                    <th className="text-center">Type</th><th className="text-right">Cours_per</th>
-                                    <th className="text-center">Quadri</th><th className="text-right">Attr.</th><th></th>
+                                  <thead><tr className="text-gray-500 text-xs">
+                                    <th className="text-left py-1 pr-2">Code</th>
+                                    <th className="text-left">Nom du cours</th>
+                                    <th className="text-center px-2" title="Type d'enseignement (CT/PP/CG)">Type</th>
+                                    <th className="text-center px-2" title="Code U (Z/B/F/T/P/O)">Code U</th>
+                                    <th className="text-right px-2" title="Périodes professeur">Pér. Prof.</th>
+                                    <th className="text-right px-2" title="Périodes étudiant">Pér. Étud.</th>
+                                    <th className="text-center px-2">Quadri</th>
+                                    <th className="text-right px-1">Attr.</th>
+                                    <th></th>
                                   </tr></thead>
                                   <tbody>
                                     {ue.cours.map(c => (
                                       <tr key={c.cours_code} className="border-t border-gray-100">
                                         <td className="py-1 font-mono">{c.cours_code}</td>
                                         <td>{c.cours_nom}</td>
-                                        <td className="text-center">{c.ct_pp && <span className={`badge ${{CT:'badge-ct',CG:'badge-cc',PP:'badge-pp',Z:'badge-z',B:'badge-b',F:'badge-f',T:'badge-t',P:'badge-p',O:'badge-o'}[c.ct_pp] || 'badge-iip'}`}>{c.ct_pp}</span>}</td>
-                                        <td className="text-right font-semibold">{c.ct_pp === 'Z' ? (c.per_etudiant ?? '—') : (c.cours_per ?? '—')}</td>
+                                        <td className="text-center px-1">{["CT","PP","CG"].includes(c.ct_pp) ? <span className={`badge {CT:'badge-ct',CG:'badge-cc',PP:'badge-pp',Z:'badge-z',B:'badge-b',F:'badge-f',T:'badge-t',P:'badge-p',O:'badge-o'}[c.ct_pp]`}>{c.ct_pp}</span> : null}</td>
+                                        <td className="text-center px-1">{["Z","B","F","T","P","O"].includes(c.ct_pp) ? <span className={`badge {CT:'badge-ct',CG:'badge-cc',PP:'badge-pp',Z:'badge-z',B:'badge-b',F:'badge-f',T:'badge-t',P:'badge-p',O:'badge-o'}[c.ct_pp]`}>{c.ct_pp}</span> : null}</td>
+                                        <td className="text-right px-2 font-semibold tabular-nums">{["Z","B","F","T","P","O"].includes(c.ct_pp) ? <span className="text-gray-300">—</span> : (c.cours_per ?? '—')}</td>
+                                        <td className="text-right px-2 tabular-nums">{c.ct_pp === 'Z' ? <span className="font-semibold text-iip-mauve">{c.per_etudiant ?? '—'}</span> : (c.cours_per ?? '—')}</td>
                                         <td className="text-center">{c.quadrimestre_cours || '—'}</td>
                                         <td className="text-right text-gray-400">{c.nb_attributions}</td>
                                         <td className="text-right whitespace-nowrap">
@@ -689,18 +697,23 @@ export default function Referentiels({ embedded = false }) {
                         <tr className={isHelb ? 'bg-pink-50/40' : 'bg-gray-50/50'}>
                           <td colSpan="13" className="px-6 py-2">
                             <table className="w-full text-sm">
-                              <thead><tr className="text-gray-500">
-                                <th className="text-left py-1">Code</th><th className="text-left">Nom du cours</th>
-                                <th className="text-center">Type</th><th className="text-right">Cours_per</th>
-                                <th className="text-center">Quadri</th><th className="text-right">Attr.</th><th></th>
+                              <thead><tr className="text-gray-500 text-xs">
+                                <th className="text-left py-1 pr-2">Code</th><th className="text-left">Nom du cours</th>
+                                <th className="text-center px-1" title="Type (CT/PP/CG)">Type</th>
+                                <th className="text-center px-1" title="Code U (Z/B/F/T/P/O)">Code U</th>
+                                <th className="text-right px-2" title="Périodes professeur">Pér. Prof.</th>
+                                <th className="text-right px-2" title="Périodes étudiant">Pér. Étud.</th>
+                                <th className="text-center px-1">Quadri</th><th className="text-right">Attr.</th><th></th>
                               </tr></thead>
                               <tbody>
                                 {ue.cours.map(c => (
                                   <tr key={c.cours_code} className="border-t border-gray-100">
                                     <td className="py-1 font-mono">{c.cours_code}</td>
                                     <td>{c.cours_nom}</td>
-                                    <td className="text-center">{c.ct_pp && <span className={`badge ${{CT:'badge-ct',CG:'badge-cc',PP:'badge-pp',Z:'badge-z',B:'badge-b',F:'badge-f',T:'badge-t',P:'badge-p',O:'badge-o'}[c.ct_pp] || 'badge-iip'}`}>{c.ct_pp}</span>}</td>
-                                    <td className="text-right font-semibold">{c.ct_pp === 'Z' ? (c.per_etudiant ?? '—') : (c.cours_per ?? '—')}</td>
+                                    <td className="text-center px-1">{["CT","PP","CG"].includes(c.ct_pp) ? <span className={`badge {CT:'badge-ct',CG:'badge-cc',PP:'badge-pp',Z:'badge-z',B:'badge-b',F:'badge-f',T:'badge-t',P:'badge-p',O:'badge-o'}[c.ct_pp]`}>{c.ct_pp}</span> : null}</td>
+                                    <td className="text-center px-1">{["Z","B","F","T","P","O"].includes(c.ct_pp) ? <span className={`badge {CT:'badge-ct',CG:'badge-cc',PP:'badge-pp',Z:'badge-z',B:'badge-b',F:'badge-f',T:'badge-t',P:'badge-p',O:'badge-o'}[c.ct_pp]`}>{c.ct_pp}</span> : null}</td>
+                                    <td className="text-right px-2 font-semibold tabular-nums">{["Z","B","F","T","P","O"].includes(c.ct_pp) ? <span className="text-gray-300">—</span> : (c.cours_per ?? '—')}</td>
+                                    <td className="text-right px-2 tabular-nums">{c.ct_pp === 'Z' ? <span className="font-semibold text-iip-mauve">{c.per_etudiant ?? '—'}</span> : (c.cours_per ?? '—')}</td>
                                     <td className="text-center">{c.quadrimestre_cours || '—'}</td>
                                     <td className="text-right text-gray-400">{c.nb_attributions}</td>
                                     <td className="text-right whitespace-nowrap">
