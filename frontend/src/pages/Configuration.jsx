@@ -27,7 +27,7 @@ function GestionPersonnel() {
     try {
       const [pe, profs] = await Promise.all([
         authFetch('/api/ref/personnel-etablissement').then(r => r.json()),
-        authFetch('/api/ref/professeurs').then(r => r.json()),
+        authFetch('/api/ref/professeurs?tous=1').then(r => r.json()),
       ]);
       setPersonnel(Array.isArray(pe) ? pe : []);
       setAllProfs(Array.isArray(profs) ? profs : []);

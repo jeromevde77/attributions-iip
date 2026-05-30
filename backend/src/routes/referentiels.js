@@ -501,9 +501,13 @@ r.get('/sections/:section/ue-cours', authRequired, (req, res) => {
 });
 
 r.get('/professeurs', authRequired, (req, res) => {
-  res.json(db.prepare(`SELECT * FROM v_professeur_total
-    WHERE id NOT IN (SELECT id FROM professeur WHERE type_personnel = 'admin')
-    ORDER BY nom, prenom`).all());
+  const tous = req.query.tous === '1';
+  const sql = tous
+    ? `SELECT * FROM v_professeur_total ORDER BY nom, prenom`
+    : `SELECT * FROM v_professeur_total
+       WHERE id NOT IN (SELECT id FROM professeur WHERE type_personnel = 'admin')
+       ORDER BY nom, prenom`;
+  res.json(db.prepare(sql).all());
 });
 
 r.get('/professeurs/:id', authRequired, (req, res) => {
