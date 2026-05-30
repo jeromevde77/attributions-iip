@@ -10,6 +10,13 @@ import { Color, TextStyle } from '@tiptap/extension-text-style';
 import { Image } from '@tiptap/extension-image';
 import { Node, Extension, mergeAttributes } from '@tiptap/core';
 import Highlight from '@tiptap/extension-highlight';
+import { Link } from '@tiptap/extension-link';
+import { Subscript } from '@tiptap/extension-subscript';
+import { Superscript } from '@tiptap/extension-superscript';
+import { TaskList } from '@tiptap/extension-task-list';
+import { TaskItem } from '@tiptap/extension-task-item';
+import { CharacterCount } from '@tiptap/extension-character-count';
+import { Typography } from '@tiptap/extension-typography';
 
 // ── Tableau type Word : fond de cellule + couleur de bordure (par cellule) ────
 const cellAttrs = {
@@ -53,6 +60,68 @@ const TextFormat = Extension.create({
       setFontSize:   size   => ({ chain }) => chain().setMark('textStyle', { fontSize: size }).run(),
       setFontFamily: family => ({ chain }) => chain().setMark('textStyle', { fontFamily: family }).run(),
     };
+  },
+});
+
+// ── Saut de page manuel (marqueur visible dans l'éditeur, coupure réelle au PDF) ──
+const PageBreak = Node.create({
+  name: 'pageBreak',
+  group: 'block',
+  atom: true,
+  selectable: true,
+  parseHTML() { return [{ tag: 'div[data-page-break]' }]; },
+  renderHTML() { return ['div', { 'data-page-break': 'true', class: 'page-break' }]; },
+  addCommands() { return { setPageBreak: () => ({ chain }) => chain().insertContent({ type: this.name }).run() }; },
+});
+
+// ── Interligne (sur paragraphes et titres) ────────────────────────────────────
+const LineHeight = Extension.create({
+  name: 'lineHeight',
+  addOptions() { return { types: ['paragraph', 'heading'] }; },
+  addGlobalAttributes() {
+    return [{ types: this.options.types, attributes: {
+      lineHeight: {
+        default: null,
+        parseHTML: el => el.style.lineHeight || null,
+        renderHTML: a => a.lineHeight ? { style: `line-height:${a.lineHeight}` } : {},
+      },
+    }}];
+  },
+  addCommands() {
+    return {
+      setLineHeight: lh => ({ chain }) => {
+        let c = chain();
+        this.options.types.forEach(t => { c = c.updateAttributes(t, { lineHeight: lh }); });
+        return c.run();
+      },
+    };
+  },
+});
+
+// ── Retrait de paragraphe (marge gauche par paliers) ──────────────────────────
+const Indent = Extension.create({
+  name: 'indent',
+  addOptions() { return { types: ['paragraph', 'heading'], step: 24, max: 240 }; },
+  addGlobalAttributes() {
+    return [{ types: this.options.types, attributes: {
+      indent: {
+        default: 0,
+        parseHTML: el => parseInt(el.style.marginLeft, 10) || 0,
+        renderHTML: a => a.indent ? { style: `margin-left:${a.indent}px` } : {},
+      },
+    }}];
+  },
+  addCommands() {
+    const apply = delta => ({ chain, editor }) => {
+      let c = chain();
+      this.options.types.forEach(t => {
+        const cur = editor.getAttributes(t).indent || 0;
+        const next = Math.max(0, Math.min(this.options.max, cur + delta));
+        c = c.updateAttributes(t, { indent: next });
+      });
+      return c.run();
+    };
+    return { indent: () => apply(this.options.step), outdent: () => apply(-this.options.step) };
   },
 });
 import { useState, useEffect } from 'react';
@@ -344,11 +413,11 @@ function Toolbar({ editor }) {
       <Btn onClick={() => editor.chain().focus().undo().run()} disabled={!editor?.can()?.undo?.()} title="Annuler">↩</Btn>
       <Btn onClick={() => editor.chain().focus().redo().run()} disabled={!editor?.can()?.redo?.()} title="Rétablir">↪</Btn>
       <Sep/>
-      <select value={editor.isActive('heading',{level:1})?'h1':editor.isActive('heading',{level:2})?'h2':editor.isActive('heading',{level:3})?'h3':'p'}
+      <select value={(()=>{const l=[1,2,3,4,5,6].find(n=>editor.isActive('heading',{level:n}));return l?'h'+l:'p';})()}
         onChange={e=>{const v=e.target.value; v==='p'?editor.chain().focus().setParagraph().run():editor.chain().focus().toggleHeading({level:parseInt(v[1])}).run()}}
         className="h-7 border border-gray-300 rounded text-sm px-1 bg-white">
         <option value="p">Normal</option>
-        <option value="h1">Titre 1</option><option value="h2">Titre 2</option><option value="h3">Titre 3</option>
+        {[1,2,3,4,5,6].map(n=><option key={n} value={'h'+n}>Titre {n}</option>)}
       </select>
       <Sep/>
       <Btn onClick={() => editor.chain().focus().toggleBold().run()} active={editor.isActive('bold')} title="Gras"><b>G</b></Btn>
@@ -363,6 +432,23 @@ function Toolbar({ editor }) {
       <Sep/>
       <Btn onClick={() => editor.chain().focus().toggleBulletList().run()} active={editor.isActive('bulletList')} title="Liste à puces">•</Btn>
       <Btn onClick={() => editor.chain().focus().toggleOrderedList().run()} active={editor.isActive('orderedList')} title="Liste numérotée">1.</Btn>
+      <Btn onClick={() => editor.chain().focus().toggleTaskList().run()} active={editor.isActive('taskList')} title="Liste de tâches (cases à cocher)">☑</Btn>
+      <Sep/>
+      <Btn onClick={() => editor.chain().focus().toggleSubscript().run()} active={editor.isActive('subscript')} title="Indice (X₂)">X₂</Btn>
+      <Btn onClick={() => editor.chain().focus().toggleSuperscript().run()} active={editor.isActive('superscript')} title="Exposant (X²)">X²</Btn>
+      <Btn onClick={() => { const url = window.prompt('URL du lien (vide pour retirer) :', editor.getAttributes('link').href || ''); if (url === null) return; const c = editor.chain().focus().extendMarkRange('link'); (url ? c.setLink({ href: url }) : c.unsetLink()).run(); }} active={editor.isActive('link')} title="Lien hypertexte">🔗</Btn>
+      <Btn onClick={() => editor.chain().focus().toggleBlockquote().run()} active={editor.isActive('blockquote')} title="Citation">❝</Btn>
+      <Btn onClick={() => editor.chain().focus().toggleCodeBlock().run()} active={editor.isActive('codeBlock')} title="Bloc de code">&lt;/&gt;</Btn>
+      <Btn onClick={() => editor.chain().focus().setHorizontalRule().run()} title="Ligne horizontale">―</Btn>
+      <Sep/>
+      <Btn onClick={() => editor.chain().focus().outdent().run()} title="Diminuer le retrait">⇤</Btn>
+      <Btn onClick={() => editor.chain().focus().indent().run()} title="Augmenter le retrait">⇥</Btn>
+      <select title="Interligne" value="" onChange={e=>{ if(e.target.value) editor.chain().focus().setLineHeight(e.target.value).run(); }}
+        className="h-7 border border-gray-300 rounded text-sm px-1 bg-white">
+        <option value="">Interligne</option>
+        <option value="1">1.0</option><option value="1.15">1.15</option><option value="1.5">1.5</option><option value="2">2.0</option>
+      </select>
+      <Btn onClick={() => editor.chain().focus().setPageBreak().run()} title="Insérer un saut de page">⤓ Saut</Btn>
       <Sep/>
       <Btn onClick={() => editor.chain().focus().insertTable({ rows:3, cols:3, withHeaderRow:true }).run()} title="Insérer un tableau 3×3">⊞ Tableau</Btn>
       {editor.isActive('table') && <>
@@ -450,8 +536,14 @@ export default function Editeur() {
 
   const editor = useEditor({
     extensions: [
-      StarterKit, Underline, TextStyle, Color, TextFormat,
+      StarterKit.configure({ heading: { levels: [1, 2, 3, 4, 5, 6] } }),
+      Underline, TextStyle, Color, TextFormat,
       Highlight.configure({ multicolor: true }),
+      Link.configure({ openOnClick: false, autolink: true }),
+      Subscript, Superscript,
+      TaskList, TaskItem.configure({ nested: true }),
+      CharacterCount, Typography,
+      PageBreak, LineHeight, Indent,
       TextAlign.configure({ types: ['heading', 'paragraph', 'tableCell', 'tableHeader'] }),
       Table.configure({ resizable: true }), TableRow, CustomTableHeader, CustomTableCell, Image,
       ChampNode, BoucleBlock, EnTeteBlock, PiedDePageBlock,
@@ -554,6 +646,11 @@ export default function Editeur() {
           td,th{border:1px solid #333;padding:4px 6px;vertical-align:top}
           th{background:#eee;font-weight:bold}
           h1{font-size:16pt}h2{font-size:13pt}h3{font-size:11pt}
+          .page-break{break-after:page;page-break-after:always;height:0;border:0;margin:0}
+          ul[data-type="taskList"]{list-style:none;padding-left:0}
+          ul[data-type="taskList"] li{display:flex;align-items:flex-start;gap:6px}
+          a{color:#1565c0}blockquote{border-left:3px solid #ccc;padding-left:12px;color:#555;font-style:italic}
+          pre{background:#f5f5f5;padding:8px 10px;border-radius:4px;font-family:monospace}
           p{margin:4px 0}.champ-tag,.entete-block,.pied-block,.boucle-block{display:block}
           .doc-header{border-bottom:1px solid #ccc;padding-bottom:6px;margin-bottom:16px}
           .doc-footer{border-top:1px solid #ccc;padding-top:6px;margin-top:20px;font-size:9pt;color:#666}
@@ -661,6 +758,11 @@ export default function Editeur() {
             </div>
           </div>
         </div>
+        {editor && (
+          <div className="flex-shrink-0 border-t border-gray-200 bg-white px-4 py-1 text-xs text-gray-400 text-right">
+            {editor.storage.characterCount.words()} mots · {editor.storage.characterCount.characters()} caractères
+          </div>
+        )}
       </div>
 
       {/* ── Panneau droit : champs + boucles ── */}
@@ -790,6 +892,15 @@ export default function Editeur() {
         }
         .tableWrapper { overflow-x: auto; }
         .boucle-block p { margin: 2px 0; }
+        .page-break { border-top: 2px dashed #c0392b; margin: 14px 0; height: 0; position: relative; }
+        .page-break::after { content: '⤓ Saut de page'; position: absolute; right: 0; top: -8px; font-size: 9px; color: #c0392b; background: #fff; padding: 0 4px; }
+        .editeur-content ul[data-type="taskList"] { list-style: none; padding-left: 0; }
+        .editeur-content ul[data-type="taskList"] li { display: flex; align-items: flex-start; gap: 6px; }
+        .editeur-content ul[data-type="taskList"] li > label { margin-top: 2px; }
+        .editeur-content a { color: #1565c0; text-decoration: underline; }
+        .editeur-content blockquote { border-left: 3px solid #ccc; padding-left: 12px; color: #555; margin: 8px 0; font-style: italic; }
+        .editeur-content pre { background: #f5f5f5; border-radius: 4px; padding: 8px 10px; font-family: monospace; font-size: 0.9em; overflow-x: auto; }
+        .editeur-content hr { border: none; border-top: 1px solid #bbb; margin: 12px 0; }
       `}</style>
     </div>
   );

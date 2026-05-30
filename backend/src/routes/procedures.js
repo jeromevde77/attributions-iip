@@ -100,6 +100,7 @@ function wrapHtml(html, titre) {
   h2{font-size:14pt;margin-bottom:4px}h3{font-size:11pt;border-bottom:1px solid #ccc;padding-bottom:3px;margin-top:16px}
   p{margin:5px 0;line-height:1.5}table{width:100%;border-collapse:collapse;margin:8px 0}
   td,th{border:1px solid #ccc;padding:5px 8px;vertical-align:top}
+  .page-break{break-after:page;page-break-after:always;height:0;border:0;margin:0}
   @media print{body{padding:10mm 15mm}button{display:none}}
 </style></head><body>
 <div style="text-align:right;margin-bottom:10px">
