@@ -906,10 +906,15 @@ export default function Editeur() {
         .editeur-content ul[data-type="taskList"] { list-style: none; padding-left: 0; }
         .editeur-content ul[data-type="taskList"] li { display: flex; align-items: flex-start; gap: 6px; }
         .editeur-content ul[data-type="taskList"] li > label { margin-top: 2px; }
+        .editeur-content ul:not([data-type="taskList"]) { list-style: disc; padding-left: 1.6em; margin: 4px 0; }
+        .editeur-content ol { list-style: decimal; padding-left: 1.6em; margin: 4px 0; }
+        .editeur-content li { margin: 2px 0; }
+        .editeur-content li > p { margin: 0; }
         .editeur-content a { color: #1565c0; text-decoration: underline; }
         .editeur-content blockquote { border-left: 3px solid #ccc; padding-left: 12px; color: #555; margin: 8px 0; font-style: italic; }
         .editeur-content pre { background: #f5f5f5; border-radius: 4px; padding: 8px 10px; font-family: monospace; font-size: 0.9em; overflow-x: auto; }
-        .editeur-content hr { border: none; border-top: 1px solid #bbb; margin: 12px 0; }
+        .editeur-content hr { border: none; border-top: 2px solid #999; margin: 14px 0; }
+        .editeur-content hr.ProseMirror-selectednode { border-top-color: #1a5276; }
       `}</style>
     </div>
   );
