@@ -398,6 +398,15 @@ function Regle() {
 
 // ─── Toolbar ───────────────────────────────────────────────────────────────
 function Toolbar({ editor }) {
+  // Force le re-rendu de la barre à chaque transaction (déplacement du curseur,
+  // entrée/sortie de tableau…) pour que isActive() et les groupes conditionnels suivent.
+  const [, forceUpdate] = useState(0);
+  useEffect(() => {
+    if (!editor) return;
+    const rerender = () => forceUpdate(n => n + 1);
+    editor.on('transaction', rerender);
+    return () => { editor.off('transaction', rerender); };
+  }, [editor]);
   // Insère le logo en base64 (auto-contenu, pas d'URL relative rejetée par TipTap)
   async function insertLogo(url, alt) {
     try {
