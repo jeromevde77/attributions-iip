@@ -364,16 +364,27 @@ function Toolbar({ editor }) {
       <Btn onClick={() => editor.chain().focus().toggleBulletList().run()} active={editor.isActive('bulletList')} title="Liste à puces">•</Btn>
       <Btn onClick={() => editor.chain().focus().toggleOrderedList().run()} active={editor.isActive('orderedList')} title="Liste numérotée">1.</Btn>
       <Sep/>
-      <Btn onClick={() => editor.chain().focus().insertTable({ rows:3, cols:3, withHeaderRow:true }).run()} title="Insérer tableau">⊞</Btn>
-      <Btn onClick={() => editor.chain().focus().addColumnBefore().run()} disabled={!editor?.can()?.addColumnBefore?.()} title="Col. avant">◁|</Btn>
-      <Btn onClick={() => editor.chain().focus().addColumnAfter().run()} disabled={!editor?.can()?.addColumnAfter?.()} title="Col. après">|▷</Btn>
-      <Btn onClick={() => editor.chain().focus().addRowBefore().run()} disabled={!editor?.can()?.addRowBefore?.()} title="Ligne avant">△—</Btn>
-      <Btn onClick={() => editor.chain().focus().addRowAfter().run()} disabled={!editor?.can()?.addRowAfter?.()} title="Ligne après">—▽</Btn>
-      <Btn onClick={() => editor.chain().focus().mergeCells().run()} disabled={!editor?.can()?.mergeCells?.()} title="Fusionner cellules">⊟</Btn>
-      <Btn onClick={() => editor.chain().focus().splitCell().run()} disabled={!editor?.can()?.splitCell?.()} title="Scinder cellule">⊞</Btn>
-      <Btn onClick={() => editor.chain().focus().deleteColumn().run()} disabled={!editor?.can()?.deleteColumn?.()} title="Suppr. colonne" danger>✕col</Btn>
-      <Btn onClick={() => editor.chain().focus().deleteRow().run()} disabled={!editor?.can()?.deleteRow?.()} title="Suppr. ligne" danger>✕lig</Btn>
-      <Btn onClick={() => editor.chain().focus().deleteTable().run()} disabled={!editor?.can()?.deleteTable?.()} title="Suppr. tableau" danger>✕tab</Btn>
+      <Btn onClick={() => editor.chain().focus().insertTable({ rows:3, cols:3, withHeaderRow:true }).run()} title="Insérer un tableau 3×3">⊞ Tableau</Btn>
+      {editor.isActive('table') && <>
+        <Btn onClick={() => editor.chain().focus().addColumnBefore().run()} title="Insérer une colonne à gauche">+Col ←</Btn>
+        <Btn onClick={() => editor.chain().focus().addColumnAfter().run()} title="Insérer une colonne à droite">+Col →</Btn>
+        <Btn onClick={() => editor.chain().focus().addRowBefore().run()} title="Insérer une ligne au-dessus">+Lig ↑</Btn>
+        <Btn onClick={() => editor.chain().focus().addRowAfter().run()} title="Insérer une ligne en dessous">+Lig ↓</Btn>
+        <Btn onClick={() => editor.chain().focus().mergeCells().run()} disabled={!editor?.can()?.mergeCells?.()} title="Fusionner les cellules sélectionnées">Fusionner</Btn>
+        <Btn onClick={() => editor.chain().focus().splitCell().run()} disabled={!editor?.can()?.splitCell?.()} title="Scinder la cellule">Scinder</Btn>
+        <Btn onClick={() => editor.chain().focus().toggleHeaderRow().run()} title="Basculer la ligne d'en-tête">En-tête</Btn>
+        <label title="Couleur de fond de la cellule" className="flex items-center gap-0.5 h-7 px-1.5 rounded hover:bg-gray-100 cursor-pointer text-sm">
+          Fond <input type="color" className="w-5 h-5 cursor-pointer border-0 p-0 bg-transparent" defaultValue="#fff3cd"
+            onChange={e=>editor.chain().focus().setCellAttribute('backgroundColor', e.target.value).run()} />
+        </label>
+        <label title="Couleur de bordure de la cellule" className="flex items-center gap-0.5 h-7 px-1.5 rounded hover:bg-gray-100 cursor-pointer text-sm">
+          Bordure <input type="color" className="w-5 h-5 cursor-pointer border-0 p-0 bg-transparent" defaultValue="#333333"
+            onChange={e=>editor.chain().focus().setCellAttribute('borderColor', e.target.value).run()} />
+        </label>
+        <Btn onClick={() => editor.chain().focus().deleteColumn().run()} title="Supprimer la colonne" danger>− Col</Btn>
+        <Btn onClick={() => editor.chain().focus().deleteRow().run()} title="Supprimer la ligne" danger>− Lig</Btn>
+        <Btn onClick={() => editor.chain().focus().deleteTable().run()} title="Supprimer le tableau" danger>− Tableau</Btn>
+      </>}
       <Sep/>
       <Btn onClick={() => insertLogo('/api/logo-iip', 'Institut Ilya Prigogine')} title="Insérer le logo IIP couleurs">🖼 Logo</Btn>
       <Btn onClick={() => editor.chain().focus().insertContent({ type: 'enTeteBlock', content: [{ type: 'paragraph' }] }).run()} title="Insérer un en-tête (répété sur chaque page)">⬆ En-tête</Btn>
@@ -405,16 +416,6 @@ function Toolbar({ editor }) {
           <option key={s} value={s}>{s.replace('pt','')}</option>
         ))}
       </select>
-      <Sep/>
-      <label title="Fond de cellule" className="flex items-center gap-0.5 h-7 px-1.5 rounded hover:bg-gray-100 cursor-pointer text-sm">
-        ▦ <input type="color" className="w-5 h-5 cursor-pointer border-0 p-0 bg-transparent" defaultValue="#fff3cd"
-          onChange={e=>editor.chain().focus().setCellAttribute('backgroundColor', e.target.value).run()} />
-      </label>
-      <label title="Couleur de bordure de cellule" className="flex items-center gap-0.5 h-7 px-1.5 rounded hover:bg-gray-100 cursor-pointer text-sm">
-        ▢ <input type="color" className="w-5 h-5 cursor-pointer border-0 p-0 bg-transparent" defaultValue="#333333"
-          onChange={e=>editor.chain().focus().setCellAttribute('borderColor', e.target.value).run()} />
-      </label>
-      <Btn onClick={() => editor.chain().focus().toggleHeaderRow().run()} disabled={!editor?.can()?.toggleHeaderRow?.()} title="Basculer ligne d'en-tête">⊤</Btn>
     </div>
   );
 }
