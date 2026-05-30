@@ -266,6 +266,21 @@ function Btn({ onClick, active, disabled, title, children, danger }) {
 }
 function Sep() { return <div className="w-px h-5 bg-gray-200 mx-0.5 self-center" />; }
 
+// Règle horizontale graduée en cm, alignée sur la largeur A4 (210 mm = 21 cm).
+// Les 2 cm de chaque bord (marges 20 mm) sont grisés.
+function Regle() {
+  const cm = Array.from({ length: 21 }, (_, i) => i);
+  return (
+    <div className="editeur-regle" aria-hidden="true">
+      {cm.map(i => (
+        <div key={i} className={`regle-cm${i < 2 || i >= 19 ? ' regle-marge' : ''}`}>
+          <span className="regle-num">{i}</span>
+        </div>
+      ))}
+    </div>
+  );
+}
+
 // ─── Toolbar ───────────────────────────────────────────────────────────────
 function Toolbar({ editor }) {
   // Insère le logo en base64 (auto-contenu, pas d'URL relative rejetée par TipTap)
@@ -451,7 +466,8 @@ export default function Editeur() {
       const hasFooter = footerHtml && footerHtml.trim();
       const fullHtml = `<!DOCTYPE html><html lang="fr"><head><meta charset="utf-8"><title>${tnom}</title>
         <style>
-          body{font-family:Arial,sans-serif;margin:0;padding:20mm 15mm;font-size:11pt;color:#000}
+          @page{size:A4;margin:0}
+          body{font-family:Arial,sans-serif;margin:0;padding:20mm 15mm;font-size:11pt;color:#000;box-sizing:border-box}
           ${hasHeader ? 'body{padding-top:30mm}' : ''}
           ${hasFooter ? 'body{padding-bottom:25mm}' : ''}
           table{width:100%;border-collapse:collapse;margin:6px 0}
@@ -557,9 +573,12 @@ export default function Editeur() {
           </button>
         </div>
         <Toolbar editor={editor} />
-        <div className="flex-1 overflow-auto bg-white">
-          <div className="max-w-4xl mx-auto p-8">
-            <EditorContent editor={editor} />
+        <div className="flex-1 overflow-auto bg-gray-200 py-6">
+          <div className="editeur-doc mx-auto">
+            <Regle />
+            <div className="editeur-page">
+              <EditorContent editor={editor} />
+            </div>
           </div>
         </div>
       </div>
@@ -645,7 +664,28 @@ export default function Editeur() {
       </div>
 
       <style>{`
-        .editeur-content { min-height: 500px; }
+        .editeur-doc { width: 210mm; }
+        .editeur-regle {
+          width: 210mm; height: 20px; display: flex;
+          background: #fbfbfb; border: 1px solid #ddd; border-bottom: none;
+          box-sizing: border-box; user-select: none;
+        }
+        .regle-cm {
+          width: 10mm; border-left: 1px solid #c8c8c8;
+          position: relative; box-sizing: border-box;
+        }
+        .regle-cm:last-child { border-right: 1px solid #c8c8c8; }
+        .regle-marge { background: #ececec; }
+        .regle-num {
+          position: absolute; left: 2px; top: 3px;
+          font-size: 8px; color: #999; line-height: 1;
+        }
+        .editeur-page {
+          width: 210mm; min-height: 297mm; padding: 20mm;
+          background: #fff; box-sizing: border-box;
+          box-shadow: 0 2px 12px rgba(0,0,0,0.15);
+        }
+        .editeur-content { min-height: 257mm; outline: none; }
         .champ-tag {
           display: inline-block;
           background: #e3f2fd; color: #1565c0;
