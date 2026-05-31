@@ -44,34 +44,42 @@ r.get('/', authRequired, withSectionScope, (req, res) => {
   `;
   const lignes = db.prepare(sql).all(params);
 
-  // Lignes synthétiques Z (activités 7.3 de l'UE) : périodes ÉTUDIANT, sans
-  // enseignant, sans charge, sans coût. Une ligne par UE ayant ue_per_z > 0,
-  // dans le périmètre filtré. Marquées is_z=true pour l'affichage.
+  // Lignes Z synthétiques : une par cours de type Z pour la section/année filtrée.
+  // Affichées à titre informatif (périodes étudiants uniquement, sans prof, sans charge).
+  // Exclues du calcul de conformité et de dotation.
   try {
-    const whereZ = ['ue_per_z IS NOT NULL', 'ue_per_z > 0', 'annee_scolaire = @annee'];
-    if (section) whereZ.push('section = @section');
-    if (ue || ue_num) whereZ.push('ue_num = @ue');
+    const whereZ = [`co.ct_pp = 'Z'`, `co.annee_scolaire = @annee`];
+    if (section) whereZ.push(`co.section = @section`);
+    if (ue || ue_num) whereZ.push(`co.ue_num = @ue`);
     if (req.allowedSections !== null && req.allowedSections.length > 0) {
       const ph = req.allowedSections.map((_, i) => `@zsec${i}`).join(', ');
-      whereZ.push(`section IN (${ph})`);
+      whereZ.push(`co.section IN (${ph})`);
       req.allowedSections.forEach((s, i) => { params[`zsec${i}`] = s; });
     }
-    const uesZ = db.prepare(`SELECT ue_num, ue_nom, section, ue_per_z FROM ue WHERE ${whereZ.join(' AND ')}`).all(params);
-    for (const u of uesZ) {
+    const coursZ = db.prepare(`
+      SELECT co.cours_code, co.cours_nom, co.ue_num, co.section, co.per_etudiant,
+             ue.ue_nom
+      FROM cours co
+      LEFT JOIN ue ON ue.ue_num = co.ue_num AND ue.annee_scolaire = co.annee_scolaire
+      WHERE ${whereZ.join(' AND ')}
+      ORDER BY co.section, co.ue_num, co.cours_code
+    `).all(params);
+    for (const c of coursZ) {
       lignes.push({
-        id: `z-${u.ue_num}`,                 // id synthétique (non persistant)
+        id: `z-${c.cours_code}`,
         is_z: true,
-        section: u.section,
-        ue_num: u.ue_num,
-        ue_nom: u.ue_nom,
-        nom_cours: 'Activités de développement professionnel (Z)',
+        section: c.section,
+        ue_num: c.ue_num,
+        ue_nom: c.ue_nom,
+        code_cours: c.cours_code,
+        nom_cours: c.cours_nom || 'Activités de développement professionnel (Z)',
         type_cours: 'Z',
         professeur_id: null,
         professeur: null,
-        per_etudiant_total_dp: u.ue_per_z,   // périodes étudiant
-        periodes_attribuees: 0,              // aucune charge enseignant
+        per_etudiant_total_dp: c.per_etudiant,
+        periodes_attribuees: 0,
         autonomie_attribuee: 0,
-        total_attribue_professeur: 0,        // aucun coût / dotation
+        total_attribue_professeur: 0,
       });
     }
   } catch (e) { console.error('[grille] lignes Z :', e.message); }
