@@ -217,7 +217,7 @@ ${btnPrint}
       <span style="font-size:6.5pt">(une copie de chacun d\u2019eux doit \u00eatre en possession de la Direction de gestion)</span><br><br>
       1) ${data.titre1 || '&nbsp;'.repeat(40)}<br>
       2) ${data.titre2 || '&nbsp;'.repeat(40)}<br>
-      <label class="chk" style="margin-top:4px"><input type="checkbox">
+      <label class="chk" style="margin-top:4px"><input type="checkbox"${data.derogation_titre ? ' checked' : ''}
         <span style="font-size:6.5pt">D\u00e9rogation de titre requis par l\u2019AR du 22/4/1969 telle que pr\u00e9vue par l\u2019alin\u00e9a 2 de art 17\u00a74 de la Loi du 7/7/1970.</span>
       </label>
     </td>
@@ -286,22 +286,22 @@ ${btnPrint}
     </td>
     <td style="width:45%;vertical-align:top">
       <div class="chk-col">
-        ${JUSTIFS.slice(0,-1).map(j => chk(justif===j, j)).join('')}
-        ${chk(justif===JUSTIFS[JUSTIFS.length-1], JUSTIFS[JUSTIFS.length-1])}
+        ${JUSTIFS.slice(0,-1).map(j => chk((data.justifs||[]).includes(j), j)).join('')}
+        ${chk((data.justifs||[]).includes(JUSTIFS[JUSTIFS.length-1]), JUSTIFS[JUSTIFS.length-1])}
+        ${(data.justifs||[]).includes('Autres') && data.justif_autres ? `<div style="margin-left:14px;font-style:italic;font-size:7pt">${data.justif_autres}</div>` : ''}
         <input type="text" style="margin-left:14px;width:75%">
       </div>
       <div style="border-top:1px solid #ccc;margin:4px 0 2px">
         <b>Absence</b>
         <div class="chk-col" style="margin-top:2px">
-          ${chk(false,"Absence d\u2019un jour")}
-          ${chk(false,"D\u00e9but absence de plus d\u20191 jour")}
-          ${chk(false,"Reprise apr\u00e8s absence de plus d\u20191 jour")}
+          ${chk(data.type_absence==="Absence d\u2019un jour","Absence d\u2019un jour")}
+          ${chk(data.type_absence==="D\u00e9but absence de plus d\u20191 jour","D\u00e9but absence de plus d\u20191 jour")}
+          ${chk(data.type_absence==="Reprise apr\u00e8s absence de plus d\u20191 jour","Reprise apr\u00e8s absence de plus d\u20191 jour")}
         </div>
         <div style="font-size:7pt;margin-top:2px">
           Motif de l\u2019absence (Pr\u00e9cisez : intitul\u00e9 CAD + Code DI)<br>
-          <input type="text" style="width:100%"><br>
-          <input type="text" style="width:100%"><br>
-          Date de d\u00e9but : __ / __ / 20__ &nbsp; Date de fin : __ / __ / 20__
+          <span style="display:inline-block;width:100%;border-bottom:1px solid #555;min-height:10px">${data.motif_absence||''}</span><br>
+          Date de d\u00e9but : ${data.date_debut_absence||'__ / __ / 20__'} &nbsp; Date de fin : ${data.date_fin_absence||'__ / __ / 20__'}
         </div>
       </div>
     </td>
@@ -340,18 +340,25 @@ ${btnPrint}
     </tr>`;
   }).join('');
 
-  const oeRows = [1,2,3,4].map(i => `
+  const oeSlots = (data.oe_slots && data.oe_slots.length ? data.oe_slots : [{},{},{},{}]).slice(0,4);
+  const oeRows = oeSlots.map((slot, idx) => {
+    const num = idx + 1;
+    const hasData = slot.num_mat || slot.nom_prenom || slot.motif;
+    const dateDebut = slot.date_debut ? dateFr(slot.date_debut) : '__ /__ /20__';
+    const dateFin   = slot.date_fin   ? dateFr(slot.date_fin)   : '__ /__ /20__';
+    return `
     <tr>
-      <td class="center">${i}</td>
-      <td>N\u00b0 Mat : ${boxes('',11)}</td>
-      <td colspan="2">Nom, pr\u00e9nom : &nbsp;</td>
-      <td>${chk(false,'D')} ${chk(false,'T')}</td>
+      <td class="center">${num}</td>
+      <td>N\u00b0 Mat : ${hasData && slot.num_mat ? `<b>${slot.num_mat}</b>` : boxes('',11)}</td>
+      <td colspan="2">Nom, pr\u00e9nom : ${slot.nom_prenom ? `<b>${slot.nom_prenom}</b>` : '&nbsp;'.repeat(30)}</td>
+      <td>${chk(slot.type==='D','D')} ${chk(slot.type==='T','T')}</td>
     </tr>
     <tr>
       <td></td>
-      <td colspan="2" style="font-size:6.5pt">Motif : &nbsp;</td>
-      <td colspan="2" style="font-size:6.5pt">P\u00e9riode : du __ /__ /20__ au __ /__ /20__</td>
-    </tr>`).join('');
+      <td colspan="2" style="font-size:6.5pt">Motif : ${slot.motif || '&nbsp;'.repeat(40)}</td>
+      <td colspan="2" style="font-size:6.5pt">P\u00e9riode : du ${dateDebut} au ${dateFin}</td>
+    </tr>`;
+  }).join('');
 
   const page2 = `
 <div class="page">
