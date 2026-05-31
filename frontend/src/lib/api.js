@@ -21,7 +21,12 @@ async function request(path, { method = 'GET', body, headers = {} } = {}) {
   }
   const isJson = res.headers.get('content-type')?.includes('application/json');
   const data = isJson ? await res.json() : await res.blob();
-  if (!res.ok) throw new Error((isJson && data?.error) || res.statusText || 'Erreur réseau');
+  if (!res.ok) {
+    const err = new Error((isJson && data?.error) || res.statusText || 'Erreur réseau');
+    err.status = res.status;
+    err.body = isJson ? data : {};
+    throw err;
+  }
   return data;
 }
 
@@ -127,6 +132,11 @@ export const api = {
   bulkCreateFromSection(section, ue_nums) {
     return request('/attributions/bulk-create-from-section', {
       method: 'POST', body: { section, ue_nums, annee_scolaire: getAnnee() }
+    });
+  },
+  copierSection(section, annee_source, annee_dest, force = false) {
+    return request('/attributions/copier-section', {
+      method: 'POST', body: { section, annee_source, annee_dest, force }
     });
   },
   reouvrirUE(ue_num, section, source_organisation) {

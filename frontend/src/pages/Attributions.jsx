@@ -1,5 +1,121 @@
 import { useEffect, useState, useMemo } from 'react';
-import { api } from '../lib/api.js';
+import { api, getAnnee } from '../lib/api.js';
+
+// ─── Modale : copier les attributions d'une section d'une année vers une autre ─
+function CopierSectionModal({ sections, anneeActive, isAdmin, onClose, onCopied }) {
+  const [sectionSrc, setSectionSrc]   = useState(sections[0]?.code || '');
+  const [anneeSrc,   setAnneeSrc]     = useState('');
+  const [anneeDest,  setAnneeDest]    = useState(anneeActive);
+  const [annees,     setAnnees]       = useState([]);
+  const [loading,    setLoading]      = useState(false);
+  const [conflict,   setConflict]     = useState(null); // { count, canForce }
+  const [error,      setError]        = useState('');
+  const [success,    setSuccess]      = useState('');
+
+  useEffect(() => {
+    api.annees().then(a => {
+      setAnnees(a);
+      // Proposer l'année précédant l'année active comme source par défaut
+      const autres = a.filter(x => x.code !== anneeActive);
+      if (autres.length) setAnneeSrc(autres[0].code);
+    });
+  }, [anneeActive]);
+
+  async function copier(force = false) {
+    if (!sectionSrc || !anneeSrc || !anneeDest) { setError('Tous les champs sont requis'); return; }
+    setLoading(true); setError(''); setConflict(null);
+    try {
+      const r = await api.copierSection(sectionSrc, anneeSrc, anneeDest, force);
+      setSuccess(`✅ ${r.copied} attribution(s) copiées de ${sectionSrc} (${anneeSrc}) vers ${anneeDest}.`);
+      onCopied();
+    } catch (e) {
+      const body = e.body || {};
+      if (e.status === 409) {
+        setConflict({ count: body.count, canForce: body.canForce });
+        setError(body.error || e.message);
+      } else {
+        setError(e.message);
+      }
+    }
+    setLoading(false);
+  }
+
+  return (
+    <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50"
+         onClick={e => e.target === e.currentTarget && onClose()}>
+      <div className="bg-white rounded-xl shadow-2xl w-full max-w-md border-t-4 border-indigo-600">
+        <div className="flex items-center justify-between px-5 py-3 border-b">
+          <h2 className="font-title text-lg text-indigo-700">📋 Copier les attributions</h2>
+          <button onClick={onClose} className="text-gray-400 hover:text-red-500 text-2xl">×</button>
+        </div>
+        <div className="p-5 space-y-4">
+          <p className="text-sm text-gray-600">Copie toutes les attributions d'une section et d'une année vers une autre année. Le professeur assigné est conservé.</p>
+
+          <label className="block">
+            <div className="text-xs font-medium text-gray-600 mb-1">Section</div>
+            <select value={sectionSrc} onChange={e => setSectionSrc(e.target.value)}
+              className="w-full border border-gray-300 rounded px-3 py-1.5 text-sm">
+              {sections.map(s => <option key={s.code} value={s.code}>{s.code} — {s.libelle}</option>)}
+            </select>
+          </label>
+
+          <div className="grid grid-cols-2 gap-3">
+            <label className="block">
+              <div className="text-xs font-medium text-gray-600 mb-1">Année source</div>
+              <select value={anneeSrc} onChange={e => setAnneeSrc(e.target.value)}
+                className="w-full border border-gray-300 rounded px-3 py-1.5 text-sm">
+                <option value="">— Choisir —</option>
+                {annees.map(a => <option key={a.code} value={a.code}>{a.code}</option>)}
+              </select>
+            </label>
+            <label className="block">
+              <div className="text-xs font-medium text-gray-600 mb-1">Année destination</div>
+              <select value={anneeDest} onChange={e => setAnneeDest(e.target.value)}
+                className="w-full border border-gray-300 rounded px-3 py-1.5 text-sm">
+                <option value="">— Choisir —</option>
+                {annees.map(a => <option key={a.code} value={a.code}>{a.code}{a.active ? ' ✓' : ''}</option>)}
+              </select>
+            </label>
+          </div>
+
+          {error && (
+            <div className="bg-red-50 border border-red-200 rounded-lg p-3 text-sm text-red-700">
+              {error}
+              {conflict && isAdmin && (
+                <div className="mt-2">
+                  <button onClick={() => copier(true)} disabled={loading}
+                    className="bg-red-600 hover:bg-red-700 text-white text-xs px-3 py-1.5 rounded font-medium disabled:opacity-40">
+                    ⚠️ Forcer (supprime les {conflict.count} existantes et recopie)
+                  </button>
+                </div>
+              )}
+              {conflict && !isAdmin && (
+                <p className="mt-1 text-xs text-gray-500">Contactez un administrateur pour forcer la copie.</p>
+              )}
+            </div>
+          )}
+
+          {success && (
+            <div className="bg-green-50 border border-green-200 rounded-lg p-3 text-sm text-green-700">{success}</div>
+          )}
+
+          <div className="flex justify-end gap-2 pt-2 border-t border-gray-100">
+            <button onClick={onClose} className="px-4 py-2 text-sm text-gray-500 hover:text-gray-700">
+              {success ? 'Fermer' : 'Annuler'}
+            </button>
+            {!success && (
+              <button onClick={() => copier(false)} disabled={loading || !sectionSrc || !anneeSrc || !anneeDest}
+                className="bg-indigo-600 hover:bg-indigo-700 disabled:opacity-40 text-white text-sm px-5 py-2 rounded-lg font-medium">
+                {loading ? '…' : '📋 Copier'}
+              </button>
+            )}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 import AttributionForm from '../components/AttributionForm.jsx';
 import BulkCreateForm from '../components/BulkCreateForm.jsx';
 import AttributionCard from '../components/AttributionCard.jsx';
@@ -67,6 +183,7 @@ export default function Attributions() {
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
   const [showBulkCreate, setShowBulkCreate] = useState(false);
+  const [showCopierSection, setShowCopierSection] = useState(false);
   const [sortBy, setSortBy] = useState({ key: null, dir: 'asc' });
   const [selected, setSelected] = useState(new Set());
   const [filtersOpenMobile, setFiltersOpenMobile] = useState(false);
@@ -586,6 +703,7 @@ export default function Attributions() {
         <div className="ml-auto flex gap-2 flex-wrap">
           <button onClick={()=>setShowForm(true)} className="bg-iip-gold hover:bg-iip-amber text-white text-sm px-3 py-1.5 rounded font-medium">➕ Nouvelle</button>
           <button onClick={()=>setShowBulkCreate(true)} className="bg-iip-gold hover:bg-iip-amber text-white text-sm px-3 py-1.5 rounded font-medium" title="Créer les attributions d'une section">➕➕ Créer une section</button>
+          <button onClick={()=>setShowCopierSection(true)} className="bg-indigo-600 hover:bg-indigo-700 text-white text-sm px-3 py-1.5 rounded font-medium" title="Copier les attributions d'une section vers une autre année">📋 Copier section</button>
           <button onClick={()=>api.exportExcel()} className="bg-iip-mauve hover:opacity-90 text-white text-sm px-3 py-1.5 rounded font-medium">📥 Export</button>
           {isAdmin && <>
             {selected.size>0 && <button onClick={()=>openBulkModal('selection')} className="bg-iip-orange hover:opacity-90 text-white text-sm px-3 py-1.5 rounded font-medium">🗑 Sélection ({selected.size})</button>}
@@ -662,6 +780,7 @@ export default function Attributions() {
         onClose={()=>setNewCoursForm(null)}
         onSaved={(code)=>{ const sec=newCoursForm.section; setNewCoursForm(null); load(); setEditRow({section: sec, code_cours: code}); }}/>}
       {showBulkCreate && <BulkCreateForm onClose={()=>setShowBulkCreate(false)} onCreated={load}/>}
+      {showCopierSection && <CopierSectionModal sections={sections} anneeActive={getAnnee()} isAdmin={isAdmin} onClose={()=>setShowCopierSection(false)} onCopied={load}/>}
       {editRow && <CoursEditModal section={editRow.section} codeCours={editRow.code_cours} onClose={()=>setEditRow(null)} onChanged={load}/>}
 
       {bulkDeleteModal && (
