@@ -128,6 +128,32 @@ import { useState, useEffect } from 'react';
 import { api, getAnnee } from '../lib/api.js';
 import mammoth from 'mammoth/mammoth.browser.js';
 
+// Aplatit une image (data URL) sur fond blanc -> supprime toute transparence.
+// Evite le fond noir des PNG transparents a l'impression PDF (notamment Safari,
+// dont le moteur aplatit l'alpha sur noir avant meme d'appliquer le fond CSS).
+// NB: on utilise window.Image car le symbole Image est deja pris par l'extension TipTap.
+function aplatirSurBlanc(src) {
+  return new Promise(resolve => {
+    try {
+      const img = new window.Image();
+      img.onload = () => {
+        try {
+          const c = document.createElement('canvas');
+          c.width = img.naturalWidth || img.width;
+          c.height = img.naturalHeight || img.height;
+          const ctx = c.getContext('2d');
+          ctx.fillStyle = '#fff';
+          ctx.fillRect(0, 0, c.width, c.height);
+          ctx.drawImage(img, 0, 0);
+          resolve(c.toDataURL('image/png'));
+        } catch { resolve(src); }
+      };
+      img.onerror = () => resolve(src);
+      img.src = src;
+    } catch { resolve(src); }
+  });
+}
+
 // ─── Champs simples ────────────────────────────────────────────────────────
 const CHAMPS = {
   'Établissement': [
@@ -414,7 +440,8 @@ function Toolbar({ editor }) {
       const resp = await fetch(url);
       const blob = await resp.blob();
       const b64 = await new Promise(res => { const r = new FileReader(); r.onload = () => res(r.result); r.readAsDataURL(blob); });
-      editor.chain().focus().setImage({ src: b64, alt }).run();
+      const plat = await aplatirSurBlanc(b64);
+      editor.chain().focus().setImage({ src: plat, alt }).run();
     } catch { alert('Impossible de charger le logo.'); }
   }
   if (!editor) return null;
@@ -599,7 +626,17 @@ export default function Editeur() {
           return { src: `data:${image.contentType};base64,${b64}` };
         }),
       });
-      editor.commands.setContent(result.value || '<p></p>');
+      // Aplatir les images transparentes sur blanc (sinon fond noir a l'impression Safari)
+      let htmlImporte = result.value || '<p></p>';
+      try {
+        const doc = new DOMParser().parseFromString(htmlImporte, 'text/html');
+        await Promise.all([...doc.querySelectorAll('img')].map(async el => {
+          const s = el.getAttribute('src') || '';
+          if (s.startsWith('data:image')) el.setAttribute('src', await aplatirSurBlanc(s));
+        }));
+        htmlImporte = doc.body.innerHTML || htmlImporte;
+      } catch { /* en cas d'echec on garde le HTML d'origine */ }
+      editor.commands.setContent(htmlImporte);
       setTemplateId(null); // import = nouveau template (ne pas écraser l'existant)
       setNom(file.name.replace(/\.docx$/i, '') || 'Document importé');
       const warns = (result.messages || []).filter(m => m.type === 'warning').length;
