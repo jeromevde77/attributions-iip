@@ -758,7 +758,10 @@ export default function Editeur() {
     if (!editor || !templateId) { alert('Sauvegardez d\'abord le template'); return; }
     setGenerating(true);
     // Ouvrir la fenêtre AVANT l'await — nécessaire pour Safari (popup synchrone)
-    const w = window.open('about:blank', '_blank');
+    const w = window.open('', '_blank');
+    if (!w) { alert('Veuillez autoriser les pop-ups pour ce site.'); setGenerating(false); return; }
+    // Placeholder synchrone immédiat — maintient la fenêtre "vivante" pour Safari
+    w.document.write('<html><head><meta charset="utf-8"></head><body style="font-family:Arial,sans-serif;padding:30px;color:#666;font-size:14px">G\u00e9n\u00e9ration en cours\u2026</body></html>');
     if (!w) { alert('Autorisez les pop-ups pour ce site'); setGenerating(false); return; }
     const token = localStorage.getItem('token');
     try {
@@ -803,11 +806,10 @@ export default function Editeur() {
         <div class="doc-body">${html}</div>
         ${hasFooter ? `<div class="doc-footer">${footerHtml}</div>` : ''}
         </body></html>`;
-      // Blob URL : compatible Safari (pas de document.write)
-      const blob = new Blob([fullHtml], { type: 'text/html;charset=utf-8' });
-      const url  = URL.createObjectURL(blob);
-      w.location.href = url;
-      setTimeout(() => URL.revokeObjectURL(url), 5000);
+      // document.write() : seule méthode compatible impression Safari (Blob URL = page blanche à l'impression)
+      w.document.open();
+      w.document.write(fullHtml);
+      w.document.close();
     } catch (e) {
       w.close();
       alert('Erreur : ' + e.message);
