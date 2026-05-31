@@ -374,6 +374,18 @@ r.post('/bulk-create-from-section', authRequired, roleRequired('admin', 'editeur
   }
   const annee = annee_scolaire || '2025-2026';
 
+  // Professeur "À DÉSIGNER" pour les lignes squelettes
+  const aDesigner = db.prepare(`SELECT id FROM professeur WHERE nom = 'À DÉSIGNER' LIMIT 1`).get();
+  const defaultProfId = aDesigner?.id ?? null;
+
+  // Contrat par défaut = et_ref de chaque UE (IIP ou HELB), pré-chargé en map
+  const phUe = ue_nums.map(() => '?').join(',');
+  const ueEtRefMap = {};
+  const ueRows = db.prepare(
+    `SELECT ue_num, et_ref FROM ue WHERE annee_scolaire = ? AND ue_num IN (${phUe})`
+  ).all(annee, ...ue_nums);
+  for (const row of ueRows) ueEtRefMap[row.ue_num] = row.et_ref || 'IIP';
+
   const placeholders = ue_nums.map(() => '?').join(',');
   // Récupérer tous les cours des UE sélectionnées pour cette section ET cette année
   const coursList = db.prepare(`
@@ -392,8 +404,8 @@ r.post('/bulk-create-from-section', authRequired, roleRequired('admin', 'editeur
       (section, ue_num, code_cours, type_cours, quadrimestre_attribue,
        contrat_mdp, etablissement_referent, organisation,
        num_organisation, code, nb_groupes, split_groupe,
-       periodes_attribuees, autonomie_attribuee, annee_scolaire)
-    VALUES (?, ?, ?, ?, ?, NULL, 'IIP', 'x', 1, 'A', 1, 'N', 0, 0, ?)
+       professeur_id, periodes_attribuees, autonomie_attribuee, annee_scolaire)
+    VALUES (?, ?, ?, ?, ?, ?, ?, 'x', 1, 'A', 1, 'N', ?, 0, 0, ?)
   `);
 
   let created = 0;
@@ -402,9 +414,13 @@ r.post('/bulk-create-from-section', authRequired, roleRequired('admin', 'editeur
     for (const c of coursList) {
       const exists = checkStmt.get(section, c.cours_code, annee).n;
       if (exists > 0) { skipped++; continue; }
+      const contrat = ueEtRefMap[c.ue_num] || 'IIP';
       insertStmt.run(
         section, c.ue_num, c.cours_code,
-        c.ct_pp, c.quadrimestre_cours, annee
+        c.ct_pp, c.quadrimestre_cours,
+        contrat, contrat,   // contrat_mdp, etablissement_referent
+        defaultProfId,
+        annee
       );
       created++;
     }
