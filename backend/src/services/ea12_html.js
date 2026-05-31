@@ -324,9 +324,9 @@ ${btnPrint}
 
   // ── PAGE 2 ─────────────────────────────────────────────────────────────────
   const attrHtml = attrRows.map(a => {
-    if (!a) return `<tr>${Array(15).fill('<td>&nbsp;</td>').join('')}</tr>`;
+    if (!a) return `<tr>${Array(11).fill('<td>&nbsp;</td>').join('')}</tr>`;
     return `<tr>
-      <td class="center">${a.ue||''}</td>
+      <td class="center" style="font-size:6.5pt">${a.ue||''}</td>
       <td class="center">${a.f||''}</td>
       <td>${a.denomination||''}</td>
       <td class="center">${a.cla||''}</td>
@@ -337,9 +337,6 @@ ${btnPrint}
       <td class="center">${a.sit_adm||''}</td>
       <td class="center">${a.di||''}</td>
       <td class="center">${a.oe||''}</td>
-      <td class="center">${a.tctl||''}</td>
-      <td class="center">${a.nb_periodes||''}</td>
-      <td></td><td></td>
     </tr>`;
   }).join('');
 
@@ -367,26 +364,20 @@ ${btnPrint}
 </table>
 
 <table style="margin-bottom:4px;font-size:7pt">
-  <tr><td colspan="15" class="hdr-mid" style="font-size:8pt">Attributions</td></tr>
+  <tr><td colspan="11" class="hdr-mid" style="font-size:8pt">Attributions</td></tr>
   <thead>
     <tr>
-      <th rowspan="2" class="hdr-attr" style="width:5%">U.E.</th>
-      <th rowspan="2" class="hdr-attr" style="width:3%">F</th>
-      <th rowspan="2" class="hdr-attr" style="width:22%">D\u00e9nomination du Cours</th>
-      <th rowspan="2" class="hdr-attr" style="width:4%">CLA</th>
-      <th rowspan="2" class="hdr-attr" style="width:8%">P\u00e9riodes d\u2019occupation</th>
-      <th rowspan="2" class="hdr-attr" style="width:5%">TC / TL</th>
-      <th rowspan="2" class="hdr-attr" style="width:6%">Nb p\u00e9riodes</th>
-      <th rowspan="2" class="hdr-attr" style="width:8%">Titre</th>
-      <th rowspan="2" class="hdr-attr" style="width:5%">Sit. adm.</th>
-      <th rowspan="2" class="hdr-attr" style="width:4%">DI</th>
-      <th rowspan="2" class="hdr-attr" style="width:4%">N\u00b0 OE*</th>
-      <th colspan="2" class="hdr-attr" style="width:16%">Attributions actuelles</th>
-      <th colspan="2" class="hdr-attr" style="width:10%">Attrib. PS12 pr\u00e9c\u00e9dent : __ /__ /20__</th>
-    </tr>
-    <tr>
-      <th class="hdr-attr">Class. TC/TL</th><th class="hdr-attr">P\u00e9riodes</th>
-      <th class="hdr-attr">Class. TC/TL</th><th class="hdr-attr">P\u00e9riodes</th>
+      <th class="hdr-attr" style="width:7%">U.E.</th>
+      <th class="hdr-attr" style="width:3%">F</th>
+      <th class="hdr-attr" style="width:26%">D\u00e9nomination du Cours</th>
+      <th class="hdr-attr" style="width:5%">CLA</th>
+      <th class="hdr-attr" style="width:9%">P\u00e9riodes d\u2019occupation</th>
+      <th class="hdr-attr" style="width:6%">TC / TL</th>
+      <th class="hdr-attr" style="width:7%">Nb p\u00e9riodes</th>
+      <th class="hdr-attr" style="width:10%">Titre</th>
+      <th class="hdr-attr" style="width:7%">Sit. adm.</th>
+      <th class="hdr-attr" style="width:5%">DI</th>
+      <th class="hdr-attr" style="width:5%">N\u00b0 OE*</th>
     </tr>
   </thead>
   <tbody>${attrHtml}</tbody>
