@@ -3,6 +3,7 @@ import db from '../db/index.js';
 import { authRequired, roleRequired } from '../middleware/auth.js';
 import { Packer } from 'docx';
 import { buildEA12bis } from '../services/ea12_build.js';
+import { buildEA12Html } from '../services/ea12_html.js';
 
 const r = Router();
 
@@ -66,6 +67,7 @@ function construireData(ea12Row, donnees) {
     date_evenement: dateFr(donnees.date_evenement) || '',
     semaines: donnees.semaines || '',
     justif: donnees.justif || '',
+    type_evenement: donnees.type_evenement || '',
     observations: donnees.observations || '',
     resume: donnees.resume || {},
     attributions: donnees.attributions_override || attributions,
@@ -197,6 +199,22 @@ r.get('/:id/apercu', authRequired, roleRequired('admin'), (req, res) => {
   if (!row) return res.status(404).json({ error: 'EA12 introuvable' });
   const donnees = JSON.parse(row.donnees_json || '{}');
   res.json(construireData(row, donnees));
+});
+
+// Génère le formulaire EA12 en HTML prêt pour window.print()
+r.get('/:id/imprimer', authRequired, async (req, res) => {
+  const row = db.prepare('SELECT * FROM ea12 WHERE id = ?').get(req.params.id);
+  if (!row) return res.status(404).json({ error: 'EA12 introuvable' });
+  const donnees = JSON.parse(row.donnees_json || '{}');
+  const data = construireData(row, donnees);
+  try {
+    const html = buildEA12Html(data);
+    res.setHeader('Content-Type', 'text/html; charset=utf-8');
+    res.send(html);
+  } catch (e) {
+    console.error('[ea12] génération HTML échouée :', e);
+    res.status(500).json({ error: 'Génération HTML échouée : ' + e.message });
+  }
 });
 
 export default r;

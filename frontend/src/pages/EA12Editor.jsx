@@ -94,13 +94,20 @@ export default function EA12Editor() {
     } catch (e) { setMsg('Erreur : ' + e.message); }
     finally { setSaving(false); }
   }
-  async function genererPdf() {
+  async function imprimer() {
     setSaving(true); setMsg('');
     try {
+      // Sauvegarder d'abord les données, puis ouvrir le HTML d'impression
       await api.ea12Update(id, { donnees: d });
-      const fn = `EA12_${apercu?.prof_nom || ''}_${apercu?.prof_prenom || ''}_${ea12?.annee_scolaire || ''}.pdf`.replace(/\s+/g, '_');
-      await api.ea12DocumentPdf(id, fn);
-      setMsg('PDF généré ✓');
+      const token = localStorage.getItem('token');
+      const w = window.open('', '_blank');
+      const r = await fetch(`/api/ea12/${id}/imprimer`, { headers: { Authorization: `Bearer ${token}` } });
+      if (!r.ok) throw new Error(`Erreur ${r.status}`);
+      const html = await r.text();
+      const blob = new Blob([html], { type: 'text/html;charset=utf-8' });
+      const url = URL.createObjectURL(blob);
+      w.location.href = url;
+      setTimeout(() => URL.revokeObjectURL(url), 10000);
     } catch (e) { setMsg('Erreur : ' + e.message); }
     finally { setSaving(false); }
   }
@@ -121,7 +128,7 @@ export default function EA12Editor() {
         </div>
         <div className="flex gap-2">
           <button onClick={save} disabled={saving} className="px-4 py-2 text-sm border border-iip-gold text-iip-gold rounded-lg hover:bg-iip-gold/5 disabled:opacity-50">Enregistrer</button>
-          <button onClick={genererPdf} disabled={saving} className="px-4 py-2 text-sm bg-iip-mauve text-white rounded-lg hover:opacity-90 disabled:opacity-50">{saving ? 'Génération…' : 'Générer le PDF'}</button>
+          <button onClick={imprimer} disabled={saving} className="px-4 py-2 text-sm bg-iip-mauve text-white rounded-lg hover:opacity-90 disabled:opacity-50">{saving ? 'Génération…' : '🖨 Imprimer / PDF'}</button>
         </div>
       </div>
       {msg && <div className={`text-sm ${msg.startsWith('Erreur') ? 'text-red-600' : 'text-green-600'}`}>{msg}</div>}
@@ -214,7 +221,7 @@ export default function EA12Editor() {
 
       <div className="flex justify-end gap-2 pb-8">
         <button onClick={save} disabled={saving} className="px-4 py-2 text-sm border border-iip-gold text-iip-gold rounded-lg hover:bg-iip-gold/5 disabled:opacity-50">Enregistrer</button>
-        <button onClick={genererPdf} disabled={saving} className="px-4 py-2 text-sm bg-iip-mauve text-white rounded-lg hover:opacity-90 disabled:opacity-50">{saving ? 'Génération…' : 'Générer le PDF'}</button>
+        <button onClick={imprimer} disabled={saving} className="px-4 py-2 text-sm bg-iip-mauve text-white rounded-lg hover:opacity-90 disabled:opacity-50">{saving ? 'Génération…' : '🖨 Imprimer / PDF'}</button>
       </div>
     </div>
   );
