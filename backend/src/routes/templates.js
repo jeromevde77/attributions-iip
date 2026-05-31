@@ -18,16 +18,17 @@ r.get('/:id', authRequired, (req, res) => {
   res.json(t);
 });
 r.post('/', authRequired, roleRequired('admin', 'editeur'), (req, res) => {
-  const { nom, description, contenu, entites, format } = req.body;
+  const { nom, description, contenu, entites, format, margins } = req.body;
   if (!nom) return res.status(400).json({ error: 'Nom requis' });
-  const info = db.prepare(`INSERT INTO document_template (nom, description, contenu, entites, format, cree_par)
-    VALUES (?,?,?,?,?,?)`).run(nom, description || null, contenu || '', JSON.stringify(entites || []),
+  const info = db.prepare(`INSERT INTO document_template (nom, description, contenu, entites, format, margins, cree_par)
+    VALUES (?,?,?,?,?,?,?)`).run(nom, description || null, contenu || '', JSON.stringify(entites || []),
     format || 'A4P',
+    margins ? JSON.stringify(margins) : null,
     req.user?.email || req.user?.identifiant || null);
   res.status(201).json({ id: info.lastInsertRowid });
 });
 r.patch('/:id', authRequired, roleRequired('admin', 'editeur'), (req, res) => {
-  const { nom, description, contenu, entites, format } = req.body;
+  const { nom, description, contenu, entites, format, margins } = req.body;
   if (!db.prepare('SELECT 1 FROM document_template WHERE id = ?').get(req.params.id))
     return res.status(404).json({ error: 'Template introuvable' });
   const updates = []; const params = {};
@@ -36,6 +37,7 @@ r.patch('/:id', authRequired, roleRequired('admin', 'editeur'), (req, res) => {
   if (contenu    !== undefined) { updates.push('contenu=@contenu');   params.contenu = contenu; }
   if (entites    !== undefined) { updates.push('entites=@entites');   params.entites = JSON.stringify(entites); }
   if (format     !== undefined) { updates.push('format=@format');     params.format  = format; }
+  if (margins    !== undefined) { updates.push('margins=@margins');   params.margins = margins ? JSON.stringify(margins) : null; }
   if (!updates.length) return res.status(400).json({ error: 'Rien à modifier' });
   updates.push("modifie_le=datetime('now')");
   db.prepare(`UPDATE document_template SET ${updates.join(',')} WHERE id=@id`).run({...params,id:req.params.id});

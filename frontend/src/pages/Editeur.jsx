@@ -124,7 +124,7 @@ const Indent = Extension.create({
     return { indent: () => apply(this.options.step), outdent: () => apply(-this.options.step) };
   },
 });
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { api, getAnnee } from '../lib/api.js';
 import mammoth from 'mammoth/mammoth.browser.js';
 
@@ -413,17 +413,68 @@ const PAGE_FORMATS = {
   A4P: { label: '⬜ Portrait', w: '210mm', h: '297mm', minH: '257mm', rulerCount: 21, marginCm: 2, printSize: 'A4 portrait' },
   A4L: { label: '🔲 Paysage',  w: '297mm', h: '210mm', minH: '170mm', rulerCount: 30, marginCm: 2, printSize: 'A4 landscape' },
 };
-// Les 2 cm de chaque bord (marges 20 mm) sont grisés.
-function Regle({ fmt = 'A4P' }) {
-  const { rulerCount, marginCm } = PAGE_FORMATS[fmt] || PAGE_FORMATS.A4P;
+
+const DEFAULT_MARGINS = { top: 20, right: 20, bottom: 20, left: 20 };
+
+// Icônes d'alignement (SVG minimaliste, 4 lignes horizontales)
+const IcoAlignLeft    = () => <svg width="14" height="12" viewBox="0 0 14 12" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"><line x1="0" y1="2" x2="14" y2="2"/><line x1="0" y1="5.5" x2="9" y2="5.5"/><line x1="0" y1="9" x2="14" y2="9"/><line x1="0" y1="12" x2="7" y2="12"/></svg>;
+const IcoAlignCenter  = () => <svg width="14" height="12" viewBox="0 0 14 12" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"><line x1="0" y1="2" x2="14" y2="2"/><line x1="2.5" y1="5.5" x2="11.5" y2="5.5"/><line x1="0" y1="9" x2="14" y2="9"/><line x1="3.5" y1="12" x2="10.5" y2="12"/></svg>;
+const IcoAlignRight   = () => <svg width="14" height="12" viewBox="0 0 14 12" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"><line x1="0" y1="2" x2="14" y2="2"/><line x1="5" y1="5.5" x2="14" y2="5.5"/><line x1="0" y1="9" x2="14" y2="9"/><line x1="7" y1="12" x2="14" y2="12"/></svg>;
+const IcoAlignJustify = () => <svg width="14" height="12" viewBox="0 0 14 12" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"><line x1="0" y1="2" x2="14" y2="2"/><line x1="0" y1="5.5" x2="14" y2="5.5"/><line x1="0" y1="9" x2="14" y2="9"/><line x1="0" y1="12" x2="14" y2="12"/></svg>;
+// Les zones de marge sont grisées. Les poignées gauche/droite sont glissables.
+function Regle({ fmt = 'A4P', margins, onMarginChange }) {
+  const { rulerCount } = PAGE_FORMATS[fmt] || PAGE_FORMATS.A4P;
+  const pageWidthMm = fmt === 'A4L' ? 297 : 210;
+  const rulerRef = useRef(null);
   const cm = Array.from({ length: rulerCount }, (_, i) => i);
+
+  function isGrey(i) {
+    const mm = i * 10;
+    return mm < margins.left || mm >= pageWidthMm - margins.right;
+  }
+
+  function startDrag(side, e) {
+    e.preventDefault();
+    const rect = rulerRef.current?.getBoundingClientRect();
+    if (!rect) return;
+    function onMove(mv) {
+      const x = Math.max(0, Math.min(1, (mv.clientX - rect.left) / rect.width));
+      const mm = Math.round(x * pageWidthMm);
+      if (side === 'left')  onMarginChange(m => ({ ...m, left:  Math.max(5, Math.min(50, mm)) }));
+      if (side === 'right') onMarginChange(m => ({ ...m, right: Math.max(5, Math.min(50, pageWidthMm - mm)) }));
+    }
+    function onUp() { window.removeEventListener('pointermove', onMove); window.removeEventListener('pointerup', onUp); }
+    window.addEventListener('pointermove', onMove);
+    window.addEventListener('pointerup', onUp);
+  }
+
+  const leftPct  = (margins.left / pageWidthMm) * 100;
+  const rightPct = ((pageWidthMm - margins.right) / pageWidthMm) * 100;
+  const handleStyle = (pct) => ({
+    position: 'absolute', left: `${pct}%`, top: 0, height: '100%',
+    width: '10px', marginLeft: '-5px', cursor: 'ew-resize', zIndex: 10,
+    display: 'flex', alignItems: 'center', justifyContent: 'center',
+  });
+  const lineStyle = { width: '2px', height: '100%', background: '#7B2D8B', pointerEvents: 'none', opacity: 0.8 };
+  const arrowStyle = {
+    position: 'absolute', bottom: '-5px', width: 0, height: 0,
+    borderLeft: '4px solid transparent', borderRight: '4px solid transparent',
+    borderTop: '5px solid #7B2D8B', pointerEvents: 'none',
+  };
+
   return (
-    <div className="editeur-regle" aria-hidden="true">
+    <div ref={rulerRef} className="editeur-regle" style={{ position: 'relative', overflow: 'visible' }} aria-hidden="true">
       {cm.map(i => (
-        <div key={i} className={`regle-cm${i < marginCm || i >= rulerCount - marginCm ? ' regle-marge' : ''}`}>
+        <div key={i} className={`regle-cm${isGrey(i) ? ' regle-marge' : ''}`}>
           <span className="regle-num">{i}</span>
         </div>
       ))}
+      <div style={handleStyle(leftPct)} onPointerDown={e => startDrag('left', e)} title={`Marge gauche : ${margins.left} mm`}>
+        <div style={lineStyle} /><div style={arrowStyle} />
+      </div>
+      <div style={handleStyle(rightPct)} onPointerDown={e => startDrag('right', e)} title={`Marge droite : ${margins.right} mm`}>
+        <div style={lineStyle} /><div style={arrowStyle} />
+      </div>
     </div>
   );
 }
@@ -467,10 +518,10 @@ function Toolbar({ editor }) {
       <Btn onClick={() => editor.chain().focus().toggleUnderline().run()} active={editor.isActive('underline')} title="Souligné"><u>S</u></Btn>
       <Btn onClick={() => editor.chain().focus().toggleStrike().run()} active={editor.isActive('strike')} title="Barré"><s>B</s></Btn>
       <Sep/>
-      <Btn onClick={() => editor.chain().focus().setTextAlign('left').run()} active={editor.isActive({textAlign:'left'})} title="Gauche">⬅</Btn>
-      <Btn onClick={() => editor.chain().focus().setTextAlign('center').run()} active={editor.isActive({textAlign:'center'})} title="Centre">⬛</Btn>
-      <Btn onClick={() => editor.chain().focus().setTextAlign('right').run()} active={editor.isActive({textAlign:'right'})} title="Droite">➡</Btn>
-      <Btn onClick={() => editor.chain().focus().setTextAlign('justify').run()} active={editor.isActive({textAlign:'justify'})} title="Justifié">≡</Btn>
+      <Btn onClick={() => editor.chain().focus().setTextAlign('left').run()} active={editor.isActive({textAlign:'left'})} title="Aligner à gauche"><IcoAlignLeft/></Btn>
+      <Btn onClick={() => editor.chain().focus().setTextAlign('center').run()} active={editor.isActive({textAlign:'center'})} title="Centrer"><IcoAlignCenter/></Btn>
+      <Btn onClick={() => editor.chain().focus().setTextAlign('right').run()} active={editor.isActive({textAlign:'right'})} title="Aligner à droite"><IcoAlignRight/></Btn>
+      <Btn onClick={() => editor.chain().focus().setTextAlign('justify').run()} active={editor.isActive({textAlign:'justify'})} title="Justifier"><IcoAlignJustify/></Btn>
       <Sep/>
       <Btn onClick={() => editor.chain().focus().toggleBulletList().run()} active={editor.isActive('bulletList')} title="Liste à puces">•</Btn>
       <Btn onClick={() => editor.chain().focus().toggleOrderedList().run()} active={editor.isActive('orderedList')} title="Liste numérotée">1.</Btn>
@@ -555,6 +606,8 @@ export default function Editeur() {
   const [templateId, setTemplateId]   = useState(null);
   const [nom, setNom]                 = useState('Nouveau template');
   const [format, setFormat]           = useState('A4P');
+  const [margins, setMargins]         = useState({ ...DEFAULT_MARGINS });
+  const [showMargins, setShowMargins] = useState(false);
   const [saving, setSaving]           = useState(false);
   const [generating, setGenerating]   = useState(false);
   const [profId, setProfId]           = useState('');
@@ -661,9 +714,9 @@ export default function Editeur() {
     const token = localStorage.getItem('token');
     try {
       if (templateId) {
-        await fetch(`/api/templates/${templateId}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` }, body: JSON.stringify({ nom, contenu, format }) });
+        await fetch(`/api/templates/${templateId}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` }, body: JSON.stringify({ nom, contenu, format, margins }) });
       } else {
-        const r = await fetch('/api/templates', { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` }, body: JSON.stringify({ nom, contenu, format }) });
+        const r = await fetch('/api/templates', { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` }, body: JSON.stringify({ nom, contenu, format, margins }) });
         const d = await r.json();
         setTemplateId(d.id);
       }
@@ -680,6 +733,7 @@ export default function Editeur() {
       if (!r.ok) throw new Error(`HTTP ${r.status}: ${r.statusText}`);
       const d = await r.json();
       setFormat(d.format || 'A4P');
+      setMargins(d.margins ? (typeof d.margins === 'string' ? JSON.parse(d.margins) : d.margins) : { ...DEFAULT_MARGINS });
       let contenu = d.contenu || '';
 
       // Nettoyer les src d'image relatifs ou invalides pour TipTap 3.x
@@ -696,7 +750,7 @@ export default function Editeur() {
   }
 
   function nouveauTemplate() {
-    setTemplateId(null); setNom('Nouveau template'); setFormat('A4P');
+    setTemplateId(null); setNom('Nouveau template'); setFormat('A4P'); setMargins({ ...DEFAULT_MARGINS });
     editor?.commands.setContent('<p>Commencez votre document…</p>');
   }
 
@@ -719,10 +773,10 @@ export default function Editeur() {
       const fullHtml = `<!DOCTYPE html><html lang="fr"><head><meta charset="utf-8"><title>${tnom}</title>
         <style>
           @page{size:${PAGE_FORMATS[format]?.printSize || 'A4 portrait'};margin:0}
-          body{font-family:Arial,sans-serif;margin:0;padding:20mm 15mm;font-size:11pt;color:#000;box-sizing:border-box}
+          body{font-family:Arial,sans-serif;margin:0;padding:${margins.top}mm ${margins.right}mm ${margins.bottom}mm ${margins.left}mm;font-size:11pt;color:#000;box-sizing:border-box}
           img{background:#fff;-webkit-print-color-adjust:exact;print-color-adjust:exact;max-width:100%}
-          ${hasHeader ? 'body{padding-top:30mm}' : ''}
-          ${hasFooter ? 'body{padding-bottom:25mm}' : ''}
+          ${hasHeader ? `body{padding-top:${Math.max(margins.top, 30)}mm}` : ''}
+          ${hasFooter ? `body{padding-bottom:${Math.max(margins.bottom, 25)}mm}` : ''}
           table{width:100%;border-collapse:collapse;margin:6px 0}
           td,th{border:1px solid #333;padding:4px 6px;vertical-align:top}
           th{background:#eee;font-weight:bold}
@@ -737,9 +791,9 @@ export default function Editeur() {
           .doc-footer{border-top:1px solid #ccc;padding-top:6px;margin-top:20px;font-size:9pt;color:#666}
           @media print{
             button{display:none}
-            body{padding:10mm 15mm ${hasFooter?'22mm':'10mm'} 15mm}
-            ${hasHeader ? `.doc-header{position:fixed;top:0;left:0;right:0;background:white;padding:4mm 15mm;border-bottom:1px solid #ccc;z-index:100}` : ''}
-            ${hasFooter ? `.doc-footer{position:fixed;bottom:0;left:0;right:0;background:white;padding:3mm 15mm;border-top:1px solid #ccc}` : ''}
+            body{padding:${margins.top}mm ${margins.right}mm ${margins.bottom}mm ${margins.left}mm}
+            ${hasHeader ? `.doc-header{position:fixed;top:0;left:0;right:0;background:white;padding:4mm ${margins.right}mm;border-bottom:1px solid #ccc;z-index:100}` : ''}
+            ${hasFooter ? `.doc-footer{position:fixed;bottom:0;left:0;right:0;background:white;padding:3mm ${margins.right}mm;border-top:1px solid #ccc}` : ''}
           }
         </style></head><body>
         <div style="text-align:right;margin-bottom:10px">
@@ -826,6 +880,32 @@ export default function Editeur() {
               </button>
             ))}
           </div>
+          <div className="relative">
+            <button onClick={() => setShowMargins(v => !v)}
+              className="border border-gray-300 bg-white hover:bg-gray-50 text-gray-700 text-sm px-3 py-1.5 rounded font-medium whitespace-nowrap"
+              title="Régler les marges">
+              📐 Marges
+            </button>
+            {showMargins && (
+              <div className="absolute top-full left-0 mt-1 bg-white border border-gray-200 rounded shadow-lg p-3 z-50 w-56">
+                <div className="text-xs font-semibold text-gray-500 mb-2">Marges (mm)</div>
+                <div className="grid grid-cols-2 gap-2">
+                  {[['top','Haut'],['bottom','Bas'],['left','Gauche'],['right','Droite']].map(([side, label]) => (
+                    <label key={side} className="flex flex-col gap-0.5">
+                      <span className="text-xs text-gray-500">{label}</span>
+                      <input type="number" min="5" max="60" value={margins[side]}
+                        onChange={e => setMargins(m => ({ ...m, [side]: Math.max(5, Math.min(60, Number(e.target.value) || 5)) }))}
+                        className="border border-gray-300 rounded px-2 py-1 text-sm w-full" />
+                    </label>
+                  ))}
+                </div>
+                <button onClick={() => setMargins({ ...DEFAULT_MARGINS })}
+                  className="mt-2 text-xs text-gray-400 hover:text-gray-600 w-full text-left">
+                  ↺ Rétablir les marges par défaut (20 mm)
+                </button>
+              </div>
+            )}
+          </div>
           <select value={section} onChange={e => setSection(e.target.value)}
             className="border border-gray-300 rounded px-2 py-1.5 text-sm bg-white">
             <option value="">— Section —</option>
@@ -846,7 +926,7 @@ export default function Editeur() {
         <Toolbar editor={editor} />
         <div className="flex-1 overflow-auto bg-gray-200 py-6">
           <div className="editeur-doc mx-auto">
-            <Regle fmt={format} />
+            <Regle fmt={format} margins={margins} onMarginChange={setMargins} />
             <div className="editeur-page">
               <EditorContent editor={editor} />
             </div>
@@ -957,11 +1037,12 @@ export default function Editeur() {
           font-size: 8px; color: #999; line-height: 1;
         }
         .editeur-page {
-          width: ${PAGE_FORMATS[format]?.w || '210mm'}; min-height: ${PAGE_FORMATS[format]?.h || '297mm'}; padding: 20mm;
+          width: ${PAGE_FORMATS[format]?.w || '210mm'}; min-height: ${PAGE_FORMATS[format]?.h || '297mm'};
+          padding: ${margins.top}mm ${margins.right}mm ${margins.bottom}mm ${margins.left}mm;
           background: #fff; box-sizing: border-box;
           box-shadow: 0 2px 12px rgba(0,0,0,0.15);
         }
-        .editeur-content { min-height: ${PAGE_FORMATS[format]?.minH || '257mm'}; outline: none; }
+        .editeur-content { min-height: calc(${PAGE_FORMATS[format]?.h || '297mm'} - ${margins.top}mm - ${margins.bottom}mm); outline: none; }
         .champ-tag {
           display: inline-block;
           background: #e3f2fd; color: #1565c0;
