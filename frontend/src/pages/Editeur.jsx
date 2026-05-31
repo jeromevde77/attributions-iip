@@ -408,14 +408,19 @@ function Btn({ onClick, active, disabled, title, children, danger }) {
 }
 function Sep() { return <div className="w-px h-5 bg-gray-200 mx-0.5 self-center" />; }
 
-// Règle horizontale graduée en cm, alignée sur la largeur A4 (210 mm = 21 cm).
+// Formats de page supportés : A4 Portrait et A4 Paysage.
+const PAGE_FORMATS = {
+  A4P: { label: '⬜ Portrait', w: '210mm', h: '297mm', minH: '257mm', rulerCount: 21, marginCm: 2, printSize: 'A4 portrait' },
+  A4L: { label: '🔲 Paysage',  w: '297mm', h: '210mm', minH: '170mm', rulerCount: 30, marginCm: 2, printSize: 'A4 landscape' },
+};
 // Les 2 cm de chaque bord (marges 20 mm) sont grisés.
-function Regle() {
-  const cm = Array.from({ length: 21 }, (_, i) => i);
+function Regle({ fmt = 'A4P' }) {
+  const { rulerCount, marginCm } = PAGE_FORMATS[fmt] || PAGE_FORMATS.A4P;
+  const cm = Array.from({ length: rulerCount }, (_, i) => i);
   return (
     <div className="editeur-regle" aria-hidden="true">
       {cm.map(i => (
-        <div key={i} className={`regle-cm${i < 2 || i >= 19 ? ' regle-marge' : ''}`}>
+        <div key={i} className={`regle-cm${i < marginCm || i >= rulerCount - marginCm ? ' regle-marge' : ''}`}>
           <span className="regle-num">{i}</span>
         </div>
       ))}
@@ -549,6 +554,7 @@ export default function Editeur() {
   const [templates, setTemplates] = useState([]);
   const [templateId, setTemplateId]   = useState(null);
   const [nom, setNom]                 = useState('Nouveau template');
+  const [format, setFormat]           = useState('A4P');
   const [saving, setSaving]           = useState(false);
   const [generating, setGenerating]   = useState(false);
   const [profId, setProfId]           = useState('');
@@ -655,9 +661,9 @@ export default function Editeur() {
     const token = localStorage.getItem('token');
     try {
       if (templateId) {
-        await fetch(`/api/templates/${templateId}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` }, body: JSON.stringify({ nom, contenu }) });
+        await fetch(`/api/templates/${templateId}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` }, body: JSON.stringify({ nom, contenu, format }) });
       } else {
-        const r = await fetch('/api/templates', { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` }, body: JSON.stringify({ nom, contenu }) });
+        const r = await fetch('/api/templates', { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` }, body: JSON.stringify({ nom, contenu, format }) });
         const d = await r.json();
         setTemplateId(d.id);
       }
@@ -673,6 +679,7 @@ export default function Editeur() {
       const r = await fetch(`/api/templates/${t.id}`, { headers: { Authorization: `Bearer ${token}` } });
       if (!r.ok) throw new Error(`HTTP ${r.status}: ${r.statusText}`);
       const d = await r.json();
+      setFormat(d.format || 'A4P');
       let contenu = d.contenu || '';
 
       // Nettoyer les src d'image relatifs ou invalides pour TipTap 3.x
@@ -689,7 +696,7 @@ export default function Editeur() {
   }
 
   function nouveauTemplate() {
-    setTemplateId(null); setNom('Nouveau template');
+    setTemplateId(null); setNom('Nouveau template'); setFormat('A4P');
     editor?.commands.setContent('<p>Commencez votre document…</p>');
   }
 
@@ -711,7 +718,7 @@ export default function Editeur() {
       const hasFooter = footerHtml && footerHtml.trim();
       const fullHtml = `<!DOCTYPE html><html lang="fr"><head><meta charset="utf-8"><title>${tnom}</title>
         <style>
-          @page{size:A4;margin:0}
+          @page{size:${PAGE_FORMATS[format]?.printSize || 'A4 portrait'};margin:0}
           body{font-family:Arial,sans-serif;margin:0;padding:20mm 15mm;font-size:11pt;color:#000;box-sizing:border-box}
           img{background:#fff;-webkit-print-color-adjust:exact;print-color-adjust:exact;max-width:100%}
           ${hasHeader ? 'body{padding-top:30mm}' : ''}
@@ -811,6 +818,14 @@ export default function Editeur() {
             <input type="file" accept=".docx" className="hidden"
               onChange={e => { const f = e.target.files?.[0]; if (f) importerWord(f); e.target.value = ''; }} />
           </label>
+          <div className="flex items-center gap-1 border border-gray-300 rounded overflow-hidden text-sm" title="Format de page">
+            {Object.entries(PAGE_FORMATS).map(([key, pf]) => (
+              <button key={key} onClick={() => setFormat(key)}
+                className={`px-2 py-1.5 font-medium whitespace-nowrap transition ${format === key ? 'bg-iip-mauve text-white' : 'bg-white text-gray-600 hover:bg-gray-50'}`}>
+                {pf.label}
+              </button>
+            ))}
+          </div>
           <select value={section} onChange={e => setSection(e.target.value)}
             className="border border-gray-300 rounded px-2 py-1.5 text-sm bg-white">
             <option value="">— Section —</option>
@@ -831,7 +846,7 @@ export default function Editeur() {
         <Toolbar editor={editor} />
         <div className="flex-1 overflow-auto bg-gray-200 py-6">
           <div className="editeur-doc mx-auto">
-            <Regle />
+            <Regle fmt={format} />
             <div className="editeur-page">
               <EditorContent editor={editor} />
             </div>
@@ -925,9 +940,9 @@ export default function Editeur() {
       </div>
 
       <style>{`
-        .editeur-doc { width: 210mm; }
+        .editeur-doc { width: ${PAGE_FORMATS[format]?.w || '210mm'}; }
         .editeur-regle {
-          width: 210mm; height: 20px; display: flex;
+          width: ${PAGE_FORMATS[format]?.w || '210mm'}; height: 20px; display: flex;
           background: #fbfbfb; border: 1px solid #ddd; border-bottom: none;
           box-sizing: border-box; user-select: none;
         }
@@ -942,11 +957,11 @@ export default function Editeur() {
           font-size: 8px; color: #999; line-height: 1;
         }
         .editeur-page {
-          width: 210mm; min-height: 297mm; padding: 20mm;
+          width: ${PAGE_FORMATS[format]?.w || '210mm'}; min-height: ${PAGE_FORMATS[format]?.h || '297mm'}; padding: 20mm;
           background: #fff; box-sizing: border-box;
           box-shadow: 0 2px 12px rgba(0,0,0,0.15);
         }
-        .editeur-content { min-height: 257mm; outline: none; }
+        .editeur-content { min-height: ${PAGE_FORMATS[format]?.minH || '257mm'}; outline: none; }
         .champ-tag {
           display: inline-block;
           background: #e3f2fd; color: #1565c0;

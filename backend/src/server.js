@@ -168,6 +168,10 @@ try {
     db.exec(`ALTER TABLE document_template ADD COLUMN slug TEXT`);
     console.log('[migration] Colonne document_template.slug ajoutée');
   }
+  if (!_colsTpl.find(c => c.name === 'format')) {
+    db.exec(`ALTER TABLE document_template ADD COLUMN format TEXT DEFAULT 'A4P'`);
+    console.log('[migration] Colonne document_template.format ajoutée (A4P par défaut)');
+  }
 
   // Mettre à jour les slugs des templates existants sans slug
   const contratRow = db.prepare(`SELECT id FROM document_template WHERE nom = 'Contrat de travail CDD' AND slug IS NULL`).get();
