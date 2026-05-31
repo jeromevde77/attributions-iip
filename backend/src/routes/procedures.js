@@ -52,12 +52,36 @@ function genererDepuisTemplate(slug, vars) {
   const etab = db.prepare('SELECT * FROM etablissement WHERE id = 1').get() || {};
   const now  = new Date();
 
+  // Directeur : tiré du personnel d'établissement (fonction = 'Directeur') → fiche professeur.
+  // Alimente les champs {{directeur.*}} proposés par l'éditeur, sinon ils seraient effacés.
+  let directeurVars = { 'directeur.nom_prenom': '', 'directeur.qualite': 'Directeur', 'directeur.email': '' };
+  const dirPe = db.prepare(
+    "SELECT professeur_id, fonction FROM personnel_etablissement WHERE fonction = 'Directeur' ORDER BY ordre LIMIT 1"
+  ).get();
+  if (dirPe) {
+    const p = db.prepare('SELECT * FROM professeur WHERE id = ?').get(dirPe.professeur_id) || {};
+    directeurVars = {
+      'directeur.nom_prenom': p.nom ? `${p.nom} ${p.prenom || ''}`.trim() : '',
+      'directeur.qualite':    dirPe.fonction || 'Directeur',
+      'directeur.email':      p.email || '',
+    };
+  }
+
   const allVars = {
     'sys.date':     now.toLocaleDateString('fr-BE', { weekday:'long', day:'2-digit', month:'long', year:'numeric' }),
-    'sys.annee':    db.prepare(`SELECT annee_scolaire FROM annee_scolaire WHERE active = 1`).get()?.annee_scolaire || '2026-2027',
+    'sys.annee':    db.prepare(`SELECT code FROM annee_scolaire WHERE active = 1`).get()?.code || '2026-2027',
     'etab.etab_nom': etab.etab_nom || 'Institut Ilya Prigogine',
+    ...directeurVars,
     ...vars,
   };
+
+  // Champs présents dans le template mais NON fournis par la procédure : ils seraient
+  // effacés silencieusement → on les remonte pour avertir l'utilisateur à la génération.
+  const champsUtilises = [...new Set(
+    [...tpl.contenu.matchAll(/\{\{\s*([^}]+?)\s*\}\}/g)].map(m => m[1].trim())
+  )];
+  const connus = new Set(Object.keys(allVars));
+  const champsManquants = champsUtilises.filter(c => !connus.has(c));
 
   let html = tpl.contenu;
   for (const [k, v] of Object.entries(allVars))
@@ -65,16 +89,19 @@ function genererDepuisTemplate(slug, vars) {
   // Champs non résolus → vide
   html = html.replace(/\{\{[^}]+\}\}/g, '');
 
-  return html;
+  return { html, champsManquants };
 }
 
 function wrapHtml(html, titre) {
   return `<!DOCTYPE html><html lang="fr"><head><meta charset="utf-8"><title>${titre}</title>
 <style>
-  body{font-family:Arial,sans-serif;font-size:11pt;color:#000;margin:0;padding:20mm 20mm 15mm}
+  @page{size:A4;margin:0}
+  body{font-family:Arial,sans-serif;font-size:11pt;color:#000;margin:0;padding:20mm 20mm 15mm;box-sizing:border-box}
+  img{background:#fff;-webkit-print-color-adjust:exact;print-color-adjust:exact;max-width:100%}
   h2{font-size:14pt;margin-bottom:4px}h3{font-size:11pt;border-bottom:1px solid #ccc;padding-bottom:3px;margin-top:16px}
   p{margin:5px 0;line-height:1.5}table{width:100%;border-collapse:collapse;margin:8px 0}
   td,th{border:1px solid #ccc;padding:5px 8px;vertical-align:top}
+  .page-break{break-after:page;page-break-after:always;height:0;border:0;margin:0}
   @media print{body{padding:10mm 15mm}button{display:none}}
 </style></head><body>
 <div style="text-align:right;margin-bottom:10px">
@@ -152,7 +179,7 @@ r.post('/pv-recours', authRequired, (req, res) => {
     voiesRecours = `<p>Conformément à l'Art. 90 du RDE/ROI et au Décret du 27/10/2006, la présente décision peut faire l'objet d'un <strong>recours externe</strong> auprès de la Direction générale ETLV (rue Adolphe Lavallée 1, 1080 Bruxelles), par pli recommandé, dans un délai de <strong>7 jours calendrier</strong> à compter du troisième jour ouvrable suivant l'envoi de la présente décision${limiteExt ? ` (date limite\u00a0: <strong>${dateLongue(limiteExt.toISOString().split('T')[0])}</strong>)` : ''}.`;
   }
 
-  const html = genererDepuisTemplate('pv-recours', {
+  const resultat = genererDepuisTemplate('pv-recours', {
     'pv.type_decision':  typeDecision,
     'pv.etudiant':       etudiant || '',
     'pv.ue_ref':         ueRef,
@@ -167,8 +194,8 @@ r.post('/pv-recours', authRequired, (req, res) => {
     'pv.voies_recours':  voiesRecours,
   });
 
-  if (!html) return res.status(404).json({ error: 'Template pv-recours introuvable' });
-  res.json({ html: wrapHtml(html, `Décision CDE — ${etudiant}`) });
+  if (!resultat) return res.status(404).json({ error: 'Template pv-recours introuvable' });
+  res.json({ html: wrapHtml(resultat.html, `Décision CDE — ${etudiant}`), champs_manquants: resultat.champsManquants });
 });
 
 // ─── POST /procedures/pv-fraude ───────────────────────────────────────────────
@@ -194,7 +221,7 @@ r.post('/pv-fraude', authRequired, (req, res) => {
     ? `L'étudiant·e se trouve en deuxième session${recidive ? ' et/ou en situation de récidive' : ''}. Conformément à l'Art. 73 §2 du RDE/ROI, le CDE peut prononcer un refus.`
     : `L'étudiant·e se trouve en première session. Conformément à l'Art. 73 §1 du RDE/ROI, la fraude entraîne un ajournement pour les AA visés.`;
 
-  const html = genererDepuisTemplate('pv-fraude', {
+  const resultat = genererDepuisTemplate('pv-fraude', {
     'pv.etudiant':       etudiant || '',
     'pv.ue_ref':         ueRef,
     'pv.date_examen':    date_examen    ? dateLongue(date_examen)    : '—',
@@ -221,8 +248,8 @@ r.post('/pv-fraude', authRequired, (req, res) => {
     'pv.voies_recours':  `<p>La présente décision peut faire l'objet d'un <strong>recours interne</strong> dans un délai de <strong>4 jours calendrier</strong> suivant la publication des résultats (Art. 88 §1 RDE/ROI), par e-mail à direction@institut-prigogine.be ou remise en main propre.</p>`,
   });
 
-  if (!html) return res.status(404).json({ error: 'Template pv-fraude introuvable' });
-  res.json({ html: wrapHtml(html, `PV Fraude — ${etudiant}`) });
+  if (!resultat) return res.status(404).json({ error: 'Template pv-fraude introuvable' });
+  res.json({ html: wrapHtml(resultat.html, `PV Fraude — ${etudiant}`), champs_manquants: resultat.champsManquants });
 });
 
 export default r;

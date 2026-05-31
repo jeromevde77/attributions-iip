@@ -8,9 +8,151 @@ import { TextAlign } from '@tiptap/extension-text-align';
 import { Underline } from '@tiptap/extension-underline';
 import { Color, TextStyle } from '@tiptap/extension-text-style';
 import { Image } from '@tiptap/extension-image';
-import { Node, mergeAttributes } from '@tiptap/core';
-import { useState, useEffect } from 'react';
+import { Node, Extension, mergeAttributes } from '@tiptap/core';
+import Highlight from '@tiptap/extension-highlight';
+import { Link } from '@tiptap/extension-link';
+import { Subscript } from '@tiptap/extension-subscript';
+import { Superscript } from '@tiptap/extension-superscript';
+import { TaskList } from '@tiptap/extension-task-list';
+import { TaskItem } from '@tiptap/extension-task-item';
+import { CharacterCount } from '@tiptap/extension-character-count';
+import { Typography } from '@tiptap/extension-typography';
+
+// ── Tableau type Word : fond de cellule + couleur de bordure (par cellule) ────
+const cellAttrs = {
+  backgroundColor: {
+    default: null,
+    parseHTML: el => el.style.backgroundColor || null,
+    renderHTML: a => a.backgroundColor ? { style: `background-color:${a.backgroundColor}` } : {},
+  },
+  borderColor: {
+    default: null,
+    parseHTML: el => el.style.borderColor || null,
+    renderHTML: a => a.borderColor ? { style: `border-color:${a.borderColor}` } : {},
+  },
+};
+const CustomTableCell   = TableCell.extend({   addAttributes() { return { ...this.parent?.(), ...cellAttrs }; } });
+const CustomTableHeader = TableHeader.extend({ addAttributes() { return { ...this.parent?.(), ...cellAttrs }; } });
+
+// ── Police & taille de police (attributs sur textStyle, façon Word) ───────────
+const TextFormat = Extension.create({
+  name: 'textFormat',
+  addOptions() { return { types: ['textStyle'] }; },
+  addGlobalAttributes() {
+    return [{
+      types: this.options.types,
+      attributes: {
+        fontSize: {
+          default: null,
+          parseHTML: el => el.style.fontSize || null,
+          renderHTML: a => a.fontSize ? { style: `font-size:${a.fontSize}` } : {},
+        },
+        fontFamily: {
+          default: null,
+          parseHTML: el => el.style.fontFamily?.replace(/["']/g, '') || null,
+          renderHTML: a => a.fontFamily ? { style: `font-family:${a.fontFamily}` } : {},
+        },
+      },
+    }];
+  },
+  addCommands() {
+    return {
+      setFontSize:   size   => ({ chain }) => chain().setMark('textStyle', { fontSize: size }).run(),
+      setFontFamily: family => ({ chain }) => chain().setMark('textStyle', { fontFamily: family }).run(),
+    };
+  },
+});
+
+// ── Saut de page manuel (marqueur visible dans l'éditeur, coupure réelle au PDF) ──
+const PageBreak = Node.create({
+  name: 'pageBreak',
+  group: 'block',
+  atom: true,
+  selectable: true,
+  parseHTML() { return [{ tag: 'div[data-page-break]' }]; },
+  renderHTML() { return ['div', { 'data-page-break': 'true', class: 'page-break' }]; },
+  addCommands() { return { setPageBreak: () => ({ chain }) => chain().insertContent({ type: this.name }).run() }; },
+});
+
+// ── Interligne (sur paragraphes et titres) ────────────────────────────────────
+const LineHeight = Extension.create({
+  name: 'lineHeight',
+  addOptions() { return { types: ['paragraph', 'heading'] }; },
+  addGlobalAttributes() {
+    return [{ types: this.options.types, attributes: {
+      lineHeight: {
+        default: null,
+        parseHTML: el => el.style.lineHeight || null,
+        renderHTML: a => a.lineHeight ? { style: `line-height:${a.lineHeight}` } : {},
+      },
+    }}];
+  },
+  addCommands() {
+    return {
+      setLineHeight: lh => ({ chain }) => {
+        let c = chain();
+        this.options.types.forEach(t => { c = c.updateAttributes(t, { lineHeight: lh }); });
+        return c.run();
+      },
+    };
+  },
+});
+
+// ── Retrait de paragraphe (marge gauche par paliers) ──────────────────────────
+const Indent = Extension.create({
+  name: 'indent',
+  addOptions() { return { types: ['paragraph', 'heading'], step: 24, max: 240 }; },
+  addGlobalAttributes() {
+    return [{ types: this.options.types, attributes: {
+      indent: {
+        default: 0,
+        parseHTML: el => parseInt(el.style.marginLeft, 10) || 0,
+        renderHTML: a => a.indent ? { style: `margin-left:${a.indent}px` } : {},
+      },
+    }}];
+  },
+  addCommands() {
+    const apply = delta => ({ chain, editor }) => {
+      let c = chain();
+      this.options.types.forEach(t => {
+        const cur = editor.getAttributes(t).indent || 0;
+        const next = Math.max(0, Math.min(this.options.max, cur + delta));
+        c = c.updateAttributes(t, { indent: next });
+      });
+      return c.run();
+    };
+    return { indent: () => apply(this.options.step), outdent: () => apply(-this.options.step) };
+  },
+});
+import { useState, useEffect, useRef } from 'react';
 import { api, getAnnee } from '../lib/api.js';
+import mammoth from 'mammoth/mammoth.browser.js';
+
+// Aplatit une image (data URL) sur fond blanc -> supprime toute transparence.
+// Evite le fond noir des PNG transparents a l'impression PDF (notamment Safari,
+// dont le moteur aplatit l'alpha sur noir avant meme d'appliquer le fond CSS).
+// NB: on utilise window.Image car le symbole Image est deja pris par l'extension TipTap.
+function aplatirSurBlanc(src) {
+  return new Promise(resolve => {
+    try {
+      const img = new window.Image();
+      img.onload = () => {
+        try {
+          const c = document.createElement('canvas');
+          c.width = img.naturalWidth || img.width;
+          c.height = img.naturalHeight || img.height;
+          const ctx = c.getContext('2d');
+          ctx.fillStyle = '#fff';
+          ctx.fillRect(0, 0, c.width, c.height);
+          ctx.drawImage(img, 0, 0);
+          resolve(c.toDataURL('image/png'));
+        } catch { resolve(src); }
+      };
+      img.onerror = () => resolve(src);
+      img.src = src;
+    } catch { resolve(src); }
+  });
+}
 
 // ─── Champs simples ────────────────────────────────────────────────────────
 const CHAMPS = {
@@ -266,15 +408,96 @@ function Btn({ onClick, active, disabled, title, children, danger }) {
 }
 function Sep() { return <div className="w-px h-5 bg-gray-200 mx-0.5 self-center" />; }
 
+// Formats de page supportés : A4 Portrait et A4 Paysage.
+const PAGE_FORMATS = {
+  A4P: { label: '⬜ Portrait', w: '210mm', h: '297mm', minH: '257mm', rulerCount: 21, marginCm: 2, printSize: 'A4 portrait' },
+  A4L: { label: '🔲 Paysage',  w: '297mm', h: '210mm', minH: '170mm', rulerCount: 30, marginCm: 2, printSize: 'A4 landscape' },
+};
+
+const DEFAULT_MARGINS = { top: 20, right: 20, bottom: 20, left: 20 };
+
+// Icônes d'alignement (SVG minimaliste, 4 lignes horizontales)
+const IcoAlignLeft    = () => <svg width="14" height="12" viewBox="0 0 14 12" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"><line x1="0" y1="2" x2="14" y2="2"/><line x1="0" y1="5.5" x2="9" y2="5.5"/><line x1="0" y1="9" x2="14" y2="9"/><line x1="0" y1="12" x2="7" y2="12"/></svg>;
+const IcoAlignCenter  = () => <svg width="14" height="12" viewBox="0 0 14 12" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"><line x1="0" y1="2" x2="14" y2="2"/><line x1="2.5" y1="5.5" x2="11.5" y2="5.5"/><line x1="0" y1="9" x2="14" y2="9"/><line x1="3.5" y1="12" x2="10.5" y2="12"/></svg>;
+const IcoAlignRight   = () => <svg width="14" height="12" viewBox="0 0 14 12" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"><line x1="0" y1="2" x2="14" y2="2"/><line x1="5" y1="5.5" x2="14" y2="5.5"/><line x1="0" y1="9" x2="14" y2="9"/><line x1="7" y1="12" x2="14" y2="12"/></svg>;
+const IcoAlignJustify = () => <svg width="14" height="12" viewBox="0 0 14 12" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"><line x1="0" y1="2" x2="14" y2="2"/><line x1="0" y1="5.5" x2="14" y2="5.5"/><line x1="0" y1="9" x2="14" y2="9"/><line x1="0" y1="12" x2="14" y2="12"/></svg>;
+// Les zones de marge sont grisées. Les poignées gauche/droite sont glissables.
+function Regle({ fmt = 'A4P', margins, onMarginChange }) {
+  const { rulerCount } = PAGE_FORMATS[fmt] || PAGE_FORMATS.A4P;
+  const pageWidthMm = fmt === 'A4L' ? 297 : 210;
+  const rulerRef = useRef(null);
+  const cm = Array.from({ length: rulerCount }, (_, i) => i);
+
+  function isGrey(i) {
+    const mm = i * 10;
+    return mm < margins.left || mm >= pageWidthMm - margins.right;
+  }
+
+  function startDrag(side, e) {
+    e.preventDefault();
+    const rect = rulerRef.current?.getBoundingClientRect();
+    if (!rect) return;
+    function onMove(mv) {
+      const x = Math.max(0, Math.min(1, (mv.clientX - rect.left) / rect.width));
+      const mm = Math.round(x * pageWidthMm);
+      if (side === 'left')  onMarginChange(m => ({ ...m, left:  Math.max(5, Math.min(50, mm)) }));
+      if (side === 'right') onMarginChange(m => ({ ...m, right: Math.max(5, Math.min(50, pageWidthMm - mm)) }));
+    }
+    function onUp() { window.removeEventListener('pointermove', onMove); window.removeEventListener('pointerup', onUp); }
+    window.addEventListener('pointermove', onMove);
+    window.addEventListener('pointerup', onUp);
+  }
+
+  const leftPct  = (margins.left / pageWidthMm) * 100;
+  const rightPct = ((pageWidthMm - margins.right) / pageWidthMm) * 100;
+  const handleStyle = (pct) => ({
+    position: 'absolute', left: `${pct}%`, top: 0, height: '100%',
+    width: '10px', marginLeft: '-5px', cursor: 'ew-resize', zIndex: 10,
+    display: 'flex', alignItems: 'center', justifyContent: 'center',
+  });
+  const lineStyle = { width: '2px', height: '100%', background: '#7B2D8B', pointerEvents: 'none', opacity: 0.8 };
+  const arrowStyle = {
+    position: 'absolute', bottom: '-5px', width: 0, height: 0,
+    borderLeft: '4px solid transparent', borderRight: '4px solid transparent',
+    borderTop: '5px solid #7B2D8B', pointerEvents: 'none',
+  };
+
+  return (
+    <div ref={rulerRef} className="editeur-regle" style={{ position: 'relative', overflow: 'visible' }} aria-hidden="true">
+      {cm.map(i => (
+        <div key={i} className={`regle-cm${isGrey(i) ? ' regle-marge' : ''}`}>
+          <span className="regle-num">{i}</span>
+        </div>
+      ))}
+      <div style={handleStyle(leftPct)} onPointerDown={e => startDrag('left', e)} title={`Marge gauche : ${margins.left} mm`}>
+        <div style={lineStyle} /><div style={arrowStyle} />
+      </div>
+      <div style={handleStyle(rightPct)} onPointerDown={e => startDrag('right', e)} title={`Marge droite : ${margins.right} mm`}>
+        <div style={lineStyle} /><div style={arrowStyle} />
+      </div>
+    </div>
+  );
+}
+
 // ─── Toolbar ───────────────────────────────────────────────────────────────
 function Toolbar({ editor }) {
+  // Force le re-rendu de la barre à chaque transaction (déplacement du curseur,
+  // entrée/sortie de tableau…) pour que isActive() et les groupes conditionnels suivent.
+  const [, forceUpdate] = useState(0);
+  useEffect(() => {
+    if (!editor) return;
+    const rerender = () => forceUpdate(n => n + 1);
+    editor.on('transaction', rerender);
+    return () => { editor.off('transaction', rerender); };
+  }, [editor]);
   // Insère le logo en base64 (auto-contenu, pas d'URL relative rejetée par TipTap)
   async function insertLogo(url, alt) {
     try {
       const resp = await fetch(url);
       const blob = await resp.blob();
       const b64 = await new Promise(res => { const r = new FileReader(); r.onload = () => res(r.result); r.readAsDataURL(blob); });
-      editor.chain().focus().setImage({ src: b64, alt }).run();
+      const plat = await aplatirSurBlanc(b64);
+      editor.chain().focus().setImage({ src: plat, alt }).run();
     } catch { alert('Impossible de charger le logo.'); }
   }
   if (!editor) return null;
@@ -283,11 +506,11 @@ function Toolbar({ editor }) {
       <Btn onClick={() => editor.chain().focus().undo().run()} disabled={!editor?.can()?.undo?.()} title="Annuler">↩</Btn>
       <Btn onClick={() => editor.chain().focus().redo().run()} disabled={!editor?.can()?.redo?.()} title="Rétablir">↪</Btn>
       <Sep/>
-      <select value={editor.isActive('heading',{level:1})?'h1':editor.isActive('heading',{level:2})?'h2':editor.isActive('heading',{level:3})?'h3':'p'}
+      <select value={(()=>{const l=[1,2,3,4,5,6].find(n=>editor.isActive('heading',{level:n}));return l?'h'+l:'p';})()}
         onChange={e=>{const v=e.target.value; v==='p'?editor.chain().focus().setParagraph().run():editor.chain().focus().toggleHeading({level:parseInt(v[1])}).run()}}
         className="h-7 border border-gray-300 rounded text-sm px-1 bg-white">
         <option value="p">Normal</option>
-        <option value="h1">Titre 1</option><option value="h2">Titre 2</option><option value="h3">Titre 3</option>
+        {[1,2,3,4,5,6].map(n=><option key={n} value={'h'+n}>Titre {n}</option>)}
       </select>
       <Sep/>
       <Btn onClick={() => editor.chain().focus().toggleBold().run()} active={editor.isActive('bold')} title="Gras"><b>G</b></Btn>
@@ -295,24 +518,52 @@ function Toolbar({ editor }) {
       <Btn onClick={() => editor.chain().focus().toggleUnderline().run()} active={editor.isActive('underline')} title="Souligné"><u>S</u></Btn>
       <Btn onClick={() => editor.chain().focus().toggleStrike().run()} active={editor.isActive('strike')} title="Barré"><s>B</s></Btn>
       <Sep/>
-      <Btn onClick={() => editor.chain().focus().setTextAlign('left').run()} active={editor.isActive({textAlign:'left'})} title="Gauche">⬅</Btn>
-      <Btn onClick={() => editor.chain().focus().setTextAlign('center').run()} active={editor.isActive({textAlign:'center'})} title="Centre">⬛</Btn>
-      <Btn onClick={() => editor.chain().focus().setTextAlign('right').run()} active={editor.isActive({textAlign:'right'})} title="Droite">➡</Btn>
-      <Btn onClick={() => editor.chain().focus().setTextAlign('justify').run()} active={editor.isActive({textAlign:'justify'})} title="Justifié">≡</Btn>
+      <Btn onClick={() => editor.chain().focus().setTextAlign('left').run()} active={editor.isActive({textAlign:'left'})} title="Aligner à gauche"><IcoAlignLeft/></Btn>
+      <Btn onClick={() => editor.chain().focus().setTextAlign('center').run()} active={editor.isActive({textAlign:'center'})} title="Centrer"><IcoAlignCenter/></Btn>
+      <Btn onClick={() => editor.chain().focus().setTextAlign('right').run()} active={editor.isActive({textAlign:'right'})} title="Aligner à droite"><IcoAlignRight/></Btn>
+      <Btn onClick={() => editor.chain().focus().setTextAlign('justify').run()} active={editor.isActive({textAlign:'justify'})} title="Justifier"><IcoAlignJustify/></Btn>
       <Sep/>
       <Btn onClick={() => editor.chain().focus().toggleBulletList().run()} active={editor.isActive('bulletList')} title="Liste à puces">•</Btn>
       <Btn onClick={() => editor.chain().focus().toggleOrderedList().run()} active={editor.isActive('orderedList')} title="Liste numérotée">1.</Btn>
+      <Btn onClick={() => editor.chain().focus().toggleTaskList().run()} active={editor.isActive('taskList')} title="Liste de tâches (cases à cocher)">☑</Btn>
       <Sep/>
-      <Btn onClick={() => editor.chain().focus().insertTable({ rows:3, cols:3, withHeaderRow:true }).run()} title="Insérer tableau">⊞</Btn>
-      <Btn onClick={() => editor.chain().focus().addColumnBefore().run()} disabled={!editor?.can()?.addColumnBefore?.()} title="Col. avant">◁|</Btn>
-      <Btn onClick={() => editor.chain().focus().addColumnAfter().run()} disabled={!editor?.can()?.addColumnAfter?.()} title="Col. après">|▷</Btn>
-      <Btn onClick={() => editor.chain().focus().addRowBefore().run()} disabled={!editor?.can()?.addRowBefore?.()} title="Ligne avant">△—</Btn>
-      <Btn onClick={() => editor.chain().focus().addRowAfter().run()} disabled={!editor?.can()?.addRowAfter?.()} title="Ligne après">—▽</Btn>
-      <Btn onClick={() => editor.chain().focus().mergeCells().run()} disabled={!editor?.can()?.mergeCells?.()} title="Fusionner cellules">⊟</Btn>
-      <Btn onClick={() => editor.chain().focus().splitCell().run()} disabled={!editor?.can()?.splitCell?.()} title="Scinder cellule">⊞</Btn>
-      <Btn onClick={() => editor.chain().focus().deleteColumn().run()} disabled={!editor?.can()?.deleteColumn?.()} title="Suppr. colonne" danger>✕col</Btn>
-      <Btn onClick={() => editor.chain().focus().deleteRow().run()} disabled={!editor?.can()?.deleteRow?.()} title="Suppr. ligne" danger>✕lig</Btn>
-      <Btn onClick={() => editor.chain().focus().deleteTable().run()} disabled={!editor?.can()?.deleteTable?.()} title="Suppr. tableau" danger>✕tab</Btn>
+      <Btn onClick={() => editor.chain().focus().toggleSubscript().run()} active={editor.isActive('subscript')} title="Indice (X₂)">X₂</Btn>
+      <Btn onClick={() => editor.chain().focus().toggleSuperscript().run()} active={editor.isActive('superscript')} title="Exposant (X²)">X²</Btn>
+      <Btn onClick={() => { const url = window.prompt('URL du lien (vide pour retirer) :', editor.getAttributes('link').href || ''); if (url === null) return; const c = editor.chain().focus().extendMarkRange('link'); (url ? c.setLink({ href: url }) : c.unsetLink()).run(); }} active={editor.isActive('link')} title="Lien hypertexte">🔗</Btn>
+      <Btn onClick={() => editor.chain().focus().toggleBlockquote().run()} active={editor.isActive('blockquote')} title="Citation">❝</Btn>
+      <Btn onClick={() => editor.chain().focus().toggleCodeBlock().run()} active={editor.isActive('codeBlock')} title="Bloc de code">&lt;/&gt;</Btn>
+      <Btn onClick={() => editor.chain().focus().setHorizontalRule().run()} title="Ligne horizontale">―</Btn>
+      <Sep/>
+      <Btn onClick={() => editor.chain().focus().outdent().run()} title="Diminuer le retrait">⇤</Btn>
+      <Btn onClick={() => editor.chain().focus().indent().run()} title="Augmenter le retrait">⇥</Btn>
+      <select title="Interligne" value="" onChange={e=>{ if(e.target.value) editor.chain().focus().setLineHeight(e.target.value).run(); }}
+        className="h-7 border border-gray-300 rounded text-sm px-1 bg-white">
+        <option value="">Interligne</option>
+        <option value="1">1.0</option><option value="1.15">1.15</option><option value="1.5">1.5</option><option value="2">2.0</option>
+      </select>
+      <Btn onClick={() => editor.chain().focus().setPageBreak().run()} title="Insérer un saut de page">⤓ Saut</Btn>
+      <Sep/>
+      <Btn onClick={() => editor.chain().focus().insertTable({ rows:3, cols:3, withHeaderRow:true }).run()} title="Insérer un tableau 3×3">⊞ Tableau</Btn>
+      {editor.isActive('table') && <>
+        <Btn onClick={() => editor.chain().focus().addColumnBefore().run()} title="Insérer une colonne à gauche">+Col ←</Btn>
+        <Btn onClick={() => editor.chain().focus().addColumnAfter().run()} title="Insérer une colonne à droite">+Col →</Btn>
+        <Btn onClick={() => editor.chain().focus().addRowBefore().run()} title="Insérer une ligne au-dessus">+Lig ↑</Btn>
+        <Btn onClick={() => editor.chain().focus().addRowAfter().run()} title="Insérer une ligne en dessous">+Lig ↓</Btn>
+        <Btn onClick={() => editor.chain().focus().mergeCells().run()} disabled={!editor?.can()?.mergeCells?.()} title="Fusionner les cellules sélectionnées">Fusionner</Btn>
+        <Btn onClick={() => editor.chain().focus().splitCell().run()} disabled={!editor?.can()?.splitCell?.()} title="Scinder la cellule">Scinder</Btn>
+        <Btn onClick={() => editor.chain().focus().toggleHeaderRow().run()} title="Basculer la ligne d'en-tête">En-tête</Btn>
+        <label title="Couleur de fond de la cellule" className="flex items-center gap-0.5 h-7 px-1.5 rounded hover:bg-gray-100 cursor-pointer text-sm">
+          Fond <input type="color" className="w-5 h-5 cursor-pointer border-0 p-0 bg-transparent" defaultValue="#fff3cd"
+            onChange={e=>editor.chain().focus().setCellAttribute('backgroundColor', e.target.value).run()} />
+        </label>
+        <label title="Couleur de bordure de la cellule" className="flex items-center gap-0.5 h-7 px-1.5 rounded hover:bg-gray-100 cursor-pointer text-sm">
+          Bordure <input type="color" className="w-5 h-5 cursor-pointer border-0 p-0 bg-transparent" defaultValue="#333333"
+            onChange={e=>editor.chain().focus().setCellAttribute('borderColor', e.target.value).run()} />
+        </label>
+        <Btn onClick={() => editor.chain().focus().deleteColumn().run()} title="Supprimer la colonne" danger>− Col</Btn>
+        <Btn onClick={() => editor.chain().focus().deleteRow().run()} title="Supprimer la ligne" danger>− Lig</Btn>
+        <Btn onClick={() => editor.chain().focus().deleteTable().run()} title="Supprimer le tableau" danger>− Tableau</Btn>
+      </>}
       <Sep/>
       <Btn onClick={() => insertLogo('/api/logo-iip', 'Institut Ilya Prigogine')} title="Insérer le logo IIP couleurs">🖼 Logo</Btn>
       <Btn onClick={() => editor.chain().focus().insertContent({ type: 'enTeteBlock', content: [{ type: 'paragraph' }] }).run()} title="Insérer un en-tête (répété sur chaque page)">⬆ En-tête</Btn>
@@ -322,6 +573,28 @@ function Toolbar({ editor }) {
         A <input type="color" className="w-5 h-5 cursor-pointer border-0 p-0 bg-transparent" defaultValue="#000000"
           onChange={e=>editor.chain().focus().setColor(e.target.value).run()} />
       </label>
+      <label title="Surligner" className="flex items-center gap-0.5 h-7 px-1.5 rounded hover:bg-gray-100 cursor-pointer text-sm">
+        🖍 <input type="color" className="w-5 h-5 cursor-pointer border-0 p-0 bg-transparent" defaultValue="#ffff00"
+          onChange={e=>editor.chain().focus().toggleHighlight({ color: e.target.value }).run()} />
+      </label>
+      <Sep/>
+      <select title="Police" value="" onChange={e=>{ if(e.target.value) editor.chain().focus().setFontFamily(e.target.value).run(); }}
+        className="h-7 border border-gray-300 rounded text-sm px-1 bg-white max-w-[6.5rem]">
+        <option value="">Police</option>
+        <option value="Arial, sans-serif">Arial</option>
+        <option value="'Times New Roman', serif">Times New Roman</option>
+        <option value="Calibri, sans-serif">Calibri</option>
+        <option value="Georgia, serif">Georgia</option>
+        <option value="Verdana, sans-serif">Verdana</option>
+        <option value="'Courier New', monospace">Courier New</option>
+      </select>
+      <select title="Taille (pt)" value="" onChange={e=>{ if(e.target.value) editor.chain().focus().setFontSize(e.target.value).run(); }}
+        className="h-7 border border-gray-300 rounded text-sm px-1 bg-white">
+        <option value="">Taille</option>
+        {['8pt','9pt','10pt','11pt','12pt','14pt','16pt','18pt','20pt','24pt','28pt','36pt'].map(s=>(
+          <option key={s} value={s}>{s.replace('pt','')}</option>
+        ))}
+      </select>
     </div>
   );
 }
@@ -332,6 +605,9 @@ export default function Editeur() {
   const [templates, setTemplates] = useState([]);
   const [templateId, setTemplateId]   = useState(null);
   const [nom, setNom]                 = useState('Nouveau template');
+  const [format, setFormat]           = useState('A4P');
+  const [margins, setMargins]         = useState({ ...DEFAULT_MARGINS });
+  const [showMargins, setShowMargins] = useState(false);
   const [saving, setSaving]           = useState(false);
   const [generating, setGenerating]   = useState(false);
   const [profId, setProfId]           = useState('');
@@ -356,9 +632,16 @@ export default function Editeur() {
 
   const editor = useEditor({
     extensions: [
-      StarterKit, Underline, TextStyle, Color,
+      StarterKit.configure({ heading: { levels: [1, 2, 3, 4, 5, 6] }, link: false, underline: false }),
+      Underline, TextStyle, Color, TextFormat,
+      Highlight.configure({ multicolor: true }),
+      Link.configure({ openOnClick: false, autolink: true }),
+      Subscript, Superscript,
+      TaskList, TaskItem.configure({ nested: true }),
+      CharacterCount, Typography,
+      PageBreak, LineHeight, Indent,
       TextAlign.configure({ types: ['heading', 'paragraph', 'tableCell', 'tableHeader'] }),
-      Table.configure({ resizable: true }), TableRow, TableHeader, TableCell, Image,
+      Table.configure({ resizable: true }), TableRow, CustomTableHeader, CustomTableCell, Image,
       ChampNode, BoucleBlock, EnTeteBlock, PiedDePageBlock,
     ],
     content: '<p>Commencez votre document…</p>',
@@ -388,6 +671,42 @@ export default function Editeur() {
     ]).run();
   }
 
+  // Importer un .docx (Word) → HTML (Mammoth) → chargé dans l'éditeur comme NOUVEAU template.
+  // Conversion sémantique (titres, paragraphes, gras/italique, listes, tableaux, images) ;
+  // la mise en page exacte de Word (polices/espacements précis) n'est pas reproduite.
+  async function importerWord(file) {
+    if (!editor || !file) return;
+    setSaving(true);
+    try {
+      const arrayBuffer = await file.arrayBuffer();
+      const result = await mammoth.convertToHtml({ arrayBuffer }, {
+        convertImage: mammoth.images.imgElement(async image => {
+          const b64 = await image.readAsBase64String();
+          return { src: `data:${image.contentType};base64,${b64}` };
+        }),
+      });
+      // Aplatir les images transparentes sur blanc (sinon fond noir a l'impression Safari)
+      let htmlImporte = result.value || '<p></p>';
+      try {
+        const doc = new DOMParser().parseFromString(htmlImporte, 'text/html');
+        await Promise.all([...doc.querySelectorAll('img')].map(async el => {
+          const s = el.getAttribute('src') || '';
+          if (s.startsWith('data:image')) el.setAttribute('src', await aplatirSurBlanc(s));
+        }));
+        htmlImporte = doc.body.innerHTML || htmlImporte;
+      } catch { /* en cas d'echec on garde le HTML d'origine */ }
+      editor.commands.setContent(htmlImporte);
+      setTemplateId(null); // import = nouveau template (ne pas écraser l'existant)
+      setNom(file.name.replace(/\.docx$/i, '') || 'Document importé');
+      const warns = (result.messages || []).filter(m => m.type === 'warning').length;
+      alert('Word importé ✓' + (warns ? ` (${warns} avertissement(s) de conversion)` : '') + '\n\nVérifie la mise en forme, puis clique « Sauvegarder » pour le conserver.');
+    } catch (e) {
+      alert('Import impossible : ' + e.message);
+    } finally {
+      setSaving(false);
+    }
+  }
+
   async function sauvegarder() {
     if (!editor) return;
     setSaving(true);
@@ -395,9 +714,9 @@ export default function Editeur() {
     const token = localStorage.getItem('token');
     try {
       if (templateId) {
-        await fetch(`/api/templates/${templateId}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` }, body: JSON.stringify({ nom, contenu }) });
+        await fetch(`/api/templates/${templateId}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` }, body: JSON.stringify({ nom, contenu, format, margins }) });
       } else {
-        const r = await fetch('/api/templates', { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` }, body: JSON.stringify({ nom, contenu }) });
+        const r = await fetch('/api/templates', { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` }, body: JSON.stringify({ nom, contenu, format, margins }) });
         const d = await r.json();
         setTemplateId(d.id);
       }
@@ -413,6 +732,8 @@ export default function Editeur() {
       const r = await fetch(`/api/templates/${t.id}`, { headers: { Authorization: `Bearer ${token}` } });
       if (!r.ok) throw new Error(`HTTP ${r.status}: ${r.statusText}`);
       const d = await r.json();
+      setFormat(d.format || 'A4P');
+      setMargins(d.margins ? (typeof d.margins === 'string' ? JSON.parse(d.margins) : d.margins) : { ...DEFAULT_MARGINS });
       let contenu = d.contenu || '';
 
       // Nettoyer les src d'image relatifs ou invalides pour TipTap 3.x
@@ -429,7 +750,7 @@ export default function Editeur() {
   }
 
   function nouveauTemplate() {
-    setTemplateId(null); setNom('Nouveau template');
+    setTemplateId(null); setNom('Nouveau template'); setFormat('A4P'); setMargins({ ...DEFAULT_MARGINS });
     editor?.commands.setContent('<p>Commencez votre document…</p>');
   }
 
@@ -437,7 +758,10 @@ export default function Editeur() {
     if (!editor || !templateId) { alert('Sauvegardez d\'abord le template'); return; }
     setGenerating(true);
     // Ouvrir la fenêtre AVANT l'await — nécessaire pour Safari (popup synchrone)
-    const w = window.open('about:blank', '_blank');
+    const w = window.open('', '_blank');
+    if (!w) { alert('Veuillez autoriser les pop-ups pour ce site.'); setGenerating(false); return; }
+    // Placeholder synchrone immédiat — maintient la fenêtre "vivante" pour Safari
+    w.document.write('<html><head><meta charset="utf-8"></head><body style="font-family:Arial,sans-serif;padding:30px;color:#666;font-size:14px">G\u00e9n\u00e9ration en cours\u2026</body></html>');
     if (!w) { alert('Autorisez les pop-ups pour ce site'); setGenerating(false); return; }
     const token = localStorage.getItem('token');
     try {
@@ -451,21 +775,28 @@ export default function Editeur() {
       const hasFooter = footerHtml && footerHtml.trim();
       const fullHtml = `<!DOCTYPE html><html lang="fr"><head><meta charset="utf-8"><title>${tnom}</title>
         <style>
-          body{font-family:Arial,sans-serif;margin:0;padding:20mm 15mm;font-size:11pt;color:#000}
-          ${hasHeader ? 'body{padding-top:30mm}' : ''}
-          ${hasFooter ? 'body{padding-bottom:25mm}' : ''}
+          @page{size:${PAGE_FORMATS[format]?.printSize || 'A4 portrait'};margin:0}
+          body{font-family:Arial,sans-serif;margin:0;padding:${margins.top}mm ${margins.right}mm ${margins.bottom}mm ${margins.left}mm;font-size:11pt;color:#000;box-sizing:border-box}
+          img{background:#fff;-webkit-print-color-adjust:exact;print-color-adjust:exact;max-width:100%}
+          ${hasHeader ? `body{padding-top:${Math.max(margins.top, 30)}mm}` : ''}
+          ${hasFooter ? `body{padding-bottom:${Math.max(margins.bottom, 25)}mm}` : ''}
           table{width:100%;border-collapse:collapse;margin:6px 0}
           td,th{border:1px solid #333;padding:4px 6px;vertical-align:top}
           th{background:#eee;font-weight:bold}
           h1{font-size:16pt}h2{font-size:13pt}h3{font-size:11pt}
+          .page-break{break-after:page;page-break-after:always;height:0;border:0;margin:0}
+          ul[data-type="taskList"]{list-style:none;padding-left:0}
+          ul[data-type="taskList"] li{display:flex;align-items:flex-start;gap:6px}
+          a{color:#1565c0}blockquote{border-left:3px solid #ccc;padding-left:12px;color:#555;font-style:italic}
+          pre{background:#f5f5f5;padding:8px 10px;border-radius:4px;font-family:monospace}
           p{margin:4px 0}.champ-tag,.entete-block,.pied-block,.boucle-block{display:block}
           .doc-header{border-bottom:1px solid #ccc;padding-bottom:6px;margin-bottom:16px}
           .doc-footer{border-top:1px solid #ccc;padding-top:6px;margin-top:20px;font-size:9pt;color:#666}
           @media print{
             button{display:none}
-            body{padding:10mm 15mm ${hasFooter?'22mm':'10mm'} 15mm}
-            ${hasHeader ? `.doc-header{position:fixed;top:0;left:0;right:0;background:white;padding:4mm 15mm;border-bottom:1px solid #ccc;z-index:100}` : ''}
-            ${hasFooter ? `.doc-footer{position:fixed;bottom:0;left:0;right:0;background:white;padding:3mm 15mm;border-top:1px solid #ccc}` : ''}
+            body{padding:${margins.top}mm ${margins.right}mm ${margins.bottom}mm ${margins.left}mm}
+            ${hasHeader ? `.doc-header{position:fixed;top:0;left:0;right:0;background:white;padding:4mm ${margins.right}mm;border-bottom:1px solid #ccc;z-index:100}` : ''}
+            ${hasFooter ? `.doc-footer{position:fixed;bottom:0;left:0;right:0;background:white;padding:3mm ${margins.right}mm;border-top:1px solid #ccc}` : ''}
           }
         </style></head><body>
         <div style="text-align:right;margin-bottom:10px">
@@ -475,11 +806,10 @@ export default function Editeur() {
         <div class="doc-body">${html}</div>
         ${hasFooter ? `<div class="doc-footer">${footerHtml}</div>` : ''}
         </body></html>`;
-      // Blob URL : compatible Safari (pas de document.write)
-      const blob = new Blob([fullHtml], { type: 'text/html;charset=utf-8' });
-      const url  = URL.createObjectURL(blob);
-      w.location.href = url;
-      setTimeout(() => URL.revokeObjectURL(url), 5000);
+      // document.write() : seule méthode compatible impression Safari (Blob URL = page blanche à l'impression)
+      w.document.open();
+      w.document.write(fullHtml);
+      w.document.close();
     } catch (e) {
       w.close();
       alert('Erreur : ' + e.message);
@@ -539,6 +869,45 @@ export default function Editeur() {
             className="bg-iip-gold hover:bg-iip-amber disabled:opacity-40 text-white text-sm px-4 py-1.5 rounded font-medium whitespace-nowrap">
             {saving ? '…' : '💾 Sauvegarder'}
           </button>
+          <label title="Importer un document Word (.docx) et l'éditer" className="bg-white border border-gray-300 hover:bg-gray-50 text-gray-700 text-sm px-3 py-1.5 rounded font-medium whitespace-nowrap cursor-pointer">
+            📄 Importer Word
+            <input type="file" accept=".docx" className="hidden"
+              onChange={e => { const f = e.target.files?.[0]; if (f) importerWord(f); e.target.value = ''; }} />
+          </label>
+          <div className="flex items-center gap-1 border border-gray-300 rounded overflow-hidden text-sm" title="Format de page">
+            {Object.entries(PAGE_FORMATS).map(([key, pf]) => (
+              <button key={key} onClick={() => setFormat(key)}
+                className={`px-2 py-1.5 font-medium whitespace-nowrap transition ${format === key ? 'bg-iip-mauve text-white' : 'bg-white text-gray-600 hover:bg-gray-50'}`}>
+                {pf.label}
+              </button>
+            ))}
+          </div>
+          <div className="relative">
+            <button onClick={() => setShowMargins(v => !v)}
+              className="border border-gray-300 bg-white hover:bg-gray-50 text-gray-700 text-sm px-3 py-1.5 rounded font-medium whitespace-nowrap"
+              title="Régler les marges">
+              📐 Marges
+            </button>
+            {showMargins && (
+              <div className="absolute top-full left-0 mt-1 bg-white border border-gray-200 rounded shadow-lg p-3 z-50 w-56">
+                <div className="text-xs font-semibold text-gray-500 mb-2">Marges (mm)</div>
+                <div className="grid grid-cols-2 gap-2">
+                  {[['top','Haut'],['bottom','Bas'],['left','Gauche'],['right','Droite']].map(([side, label]) => (
+                    <label key={side} className="flex flex-col gap-0.5">
+                      <span className="text-xs text-gray-500">{label}</span>
+                      <input type="number" min="5" max="60" value={margins[side]}
+                        onChange={e => setMargins(m => ({ ...m, [side]: Math.max(5, Math.min(60, Number(e.target.value) || 5)) }))}
+                        className="border border-gray-300 rounded px-2 py-1 text-sm w-full" />
+                    </label>
+                  ))}
+                </div>
+                <button onClick={() => setMargins({ ...DEFAULT_MARGINS })}
+                  className="mt-2 text-xs text-gray-400 hover:text-gray-600 w-full text-left">
+                  ↺ Rétablir les marges par défaut (20 mm)
+                </button>
+              </div>
+            )}
+          </div>
           <select value={section} onChange={e => setSection(e.target.value)}
             className="border border-gray-300 rounded px-2 py-1.5 text-sm bg-white">
             <option value="">— Section —</option>
@@ -557,11 +926,19 @@ export default function Editeur() {
           </button>
         </div>
         <Toolbar editor={editor} />
-        <div className="flex-1 overflow-auto bg-white">
-          <div className="max-w-4xl mx-auto p-8">
-            <EditorContent editor={editor} />
+        <div className="flex-1 overflow-auto bg-gray-200 py-6">
+          <div className="editeur-doc mx-auto">
+            <Regle fmt={format} margins={margins} onMarginChange={setMargins} />
+            <div className="editeur-page">
+              <EditorContent editor={editor} />
+            </div>
           </div>
         </div>
+        {editor && (
+          <div className="flex-shrink-0 border-t border-gray-200 bg-white px-4 py-1 text-xs text-gray-400 text-right">
+            {editor.storage.characterCount.words()} mots · {editor.storage.characterCount.characters()} caractères
+          </div>
+        )}
       </div>
 
       {/* ── Panneau droit : champs + boucles ── */}
@@ -645,7 +1022,29 @@ export default function Editeur() {
       </div>
 
       <style>{`
-        .editeur-content { min-height: 500px; }
+        .editeur-doc { width: ${PAGE_FORMATS[format]?.w || '210mm'}; }
+        .editeur-regle {
+          width: ${PAGE_FORMATS[format]?.w || '210mm'}; height: 20px; display: flex;
+          background: #fbfbfb; border: 1px solid #ddd; border-bottom: none;
+          box-sizing: border-box; user-select: none;
+        }
+        .regle-cm {
+          width: 10mm; border-left: 1px solid #c8c8c8;
+          position: relative; box-sizing: border-box;
+        }
+        .regle-cm:last-child { border-right: 1px solid #c8c8c8; }
+        .regle-marge { background: #ececec; }
+        .regle-num {
+          position: absolute; left: 2px; top: 3px;
+          font-size: 8px; color: #999; line-height: 1;
+        }
+        .editeur-page {
+          width: ${PAGE_FORMATS[format]?.w || '210mm'}; min-height: ${PAGE_FORMATS[format]?.h || '297mm'};
+          padding: ${margins.top}mm ${margins.right}mm ${margins.bottom}mm ${margins.left}mm;
+          background: #fff; box-sizing: border-box;
+          box-shadow: 0 2px 12px rgba(0,0,0,0.15);
+        }
+        .editeur-content { min-height: calc(${PAGE_FORMATS[format]?.h || '297mm'} - ${margins.top}mm - ${margins.bottom}mm); outline: none; }
         .champ-tag {
           display: inline-block;
           background: #e3f2fd; color: #1565c0;
@@ -670,6 +1069,20 @@ export default function Editeur() {
         }
         .tableWrapper { overflow-x: auto; }
         .boucle-block p { margin: 2px 0; }
+        .page-break { border-top: 2px dashed #c0392b; margin: 14px 0; height: 0; position: relative; }
+        .page-break::after { content: '⤓ Saut de page'; position: absolute; right: 0; top: -8px; font-size: 9px; color: #c0392b; background: #fff; padding: 0 4px; }
+        .editeur-content ul[data-type="taskList"] { list-style: none; padding-left: 0; }
+        .editeur-content ul[data-type="taskList"] li { display: flex; align-items: flex-start; gap: 6px; }
+        .editeur-content ul[data-type="taskList"] li > label { margin-top: 2px; }
+        .editeur-content ul:not([data-type="taskList"]) { list-style: disc; padding-left: 1.6em; margin: 4px 0; }
+        .editeur-content ol { list-style: decimal; padding-left: 1.6em; margin: 4px 0; }
+        .editeur-content li { margin: 2px 0; }
+        .editeur-content li > p { margin: 0; }
+        .editeur-content a { color: #1565c0; text-decoration: underline; }
+        .editeur-content blockquote { border-left: 3px solid #ccc; padding-left: 12px; color: #555; margin: 8px 0; font-style: italic; }
+        .editeur-content pre { background: #f5f5f5; border-radius: 4px; padding: 8px 10px; font-family: monospace; font-size: 0.9em; overflow-x: auto; }
+        .editeur-content hr { border: none; border-top: 2px solid #999; margin: 14px 0; }
+        .editeur-content hr.ProseMirror-selectednode { border-top-color: #1a5276; }
       `}</style>
     </div>
   );
