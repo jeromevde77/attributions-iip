@@ -509,4 +509,38 @@ r.patch('/organisation/quadrimestre', authRequired, roleRequired('admin', 'edite
   res.json({ ok: true, updated: result.changes, quadrimestre: q });
 });
 
+// ─── Remplissage automatique des périodes prof (baguette magique) ───────────
+// Pour toutes les lignes d'une section où periodes_attribuees = 0,
+// applique la valeur cours_per du cours correspondant.
+// Ne touche pas l'autonomie.
+r.post('/auto-fill-periodes', authRequired, roleRequired('admin', 'editeur', 'coordination'), (req, res) => {
+  const { section, annee_scolaire } = req.body || {};
+  if (!section) return res.status(400).json({ error: 'section requis' });
+  if (!canAccessSection(req.user, section)) {
+    return res.status(403).json({ error: "Vous n'avez pas accès à cette section." });
+  }
+  const annee = annee_scolaire || '2025-2026';
+
+  const result = db.prepare(`
+    UPDATE attribution
+    SET periodes_attribuees = (
+      SELECT c.cours_per
+      FROM cours c
+      WHERE c.cours_code = attribution.code_cours
+        AND c.annee_scolaire = attribution.annee_scolaire
+    )
+    WHERE section = ?
+      AND annee_scolaire = ?
+      AND periodes_attribuees = 0
+      AND (
+        SELECT c.cours_per
+        FROM cours c
+        WHERE c.cours_code = attribution.code_cours
+          AND c.annee_scolaire = attribution.annee_scolaire
+      ) > 0
+  `).run(section, annee);
+
+  res.json({ ok: true, updated: result.changes });
+});
+
 export default r;

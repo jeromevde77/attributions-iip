@@ -134,6 +134,11 @@ export const api = {
       method: 'POST', body: { ue_num, section, source_organisation, annee_scolaire: getAnnee() }
     });
   },
+  autoFillPeriodes(section) {
+    return request('/attributions/auto-fill-periodes', {
+      method: 'POST', body: { section, annee_scolaire: getAnnee() }
+    });
+  },
   setQuadriOrganisation(ue_num, num_organisation, section, quadrimestre) {
     return request('/attributions/organisation/quadrimestre', {
       method: 'PATCH', body: { ue_num, num_organisation, section, quadrimestre, annee_scolaire: getAnnee() }
