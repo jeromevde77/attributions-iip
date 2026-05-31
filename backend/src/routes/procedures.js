@@ -97,6 +97,7 @@ function wrapHtml(html, titre) {
 <style>
   @page{size:A4;margin:0}
   body{font-family:Arial,sans-serif;font-size:11pt;color:#000;margin:0;padding:20mm 20mm 15mm;box-sizing:border-box}
+  img{background:#fff;-webkit-print-color-adjust:exact;print-color-adjust:exact;max-width:100%}
   h2{font-size:14pt;margin-bottom:4px}h3{font-size:11pt;border-bottom:1px solid #ccc;padding-bottom:3px;margin-top:16px}
   p{margin:5px 0;line-height:1.5}table{width:100%;border-collapse:collapse;margin:8px 0}
   td,th{border:1px solid #ccc;padding:5px 8px;vertical-align:top}

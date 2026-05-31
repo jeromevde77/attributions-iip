@@ -676,6 +676,7 @@ export default function Editeur() {
         <style>
           @page{size:A4;margin:0}
           body{font-family:Arial,sans-serif;margin:0;padding:20mm 15mm;font-size:11pt;color:#000;box-sizing:border-box}
+          img{background:#fff;-webkit-print-color-adjust:exact;print-color-adjust:exact;max-width:100%}
           ${hasHeader ? 'body{padding-top:30mm}' : ''}
           ${hasFooter ? 'body{padding-bottom:25mm}' : ''}
           table{width:100%;border-collapse:collapse;margin:6px 0}
