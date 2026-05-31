@@ -543,6 +543,24 @@ r.post('/auto-fill-periodes', authRequired, roleRequired('admin', 'editeur', 'co
   res.json({ ok: true, updated: result.changes });
 });
 
+// ─── GET /attributions/annees-par-section ────────────────────────────────────
+// Retourne les années scolaires qui ont des attributions, par section
+r.get('/annees-par-section', authRequired, (req, res) => {
+  const rows = db.prepare(`
+    SELECT section, annee_scolaire, COUNT(*) as n
+    FROM attribution
+    GROUP BY section, annee_scolaire
+    ORDER BY section, annee_scolaire DESC
+  `).all();
+  // Regrouper par section
+  const map = {};
+  for (const row of rows) {
+    if (!map[row.section]) map[row.section] = [];
+    map[row.section].push({ annee: row.annee_scolaire, n: row.n });
+  }
+  res.json(map);
+});
+
 // ─── POST /attributions/copier-section ───────────────────────────────────────
 // Copie toutes les attributions d'une section/année source vers une autre année.
 // - Si des attributions existent déjà en destination : bloque (sauf force=true admin)

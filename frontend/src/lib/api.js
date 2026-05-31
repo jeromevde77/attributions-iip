@@ -139,6 +139,7 @@ export const api = {
       method: 'POST', body: { section, annee_source, annee_dest, force }
     });
   },
+  anneesParSection() { return request('/attributions/annees-par-section'); },
   reouvrirUE(ue_num, section, source_organisation) {
     return request('/attributions/reouvrir', {
       method: 'POST', body: { ue_num, section, source_organisation, annee_scolaire: getAnnee() }

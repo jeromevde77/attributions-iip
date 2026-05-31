@@ -6,27 +6,40 @@ function CopierSectionModal({ sections, anneeActive, isAdmin, onClose, onCopied 
   const [sectionSrc, setSectionSrc]   = useState(sections[0]?.code || '');
   const [anneeSrc,   setAnneeSrc]     = useState('');
   const [anneeDest,  setAnneeDest]    = useState(anneeActive);
-  const [annees,     setAnnees]       = useState([]);
+  const [anneesMap,  setAnneesMap]    = useState({}); // { section -> [{annee, n}] }
   const [loading,    setLoading]      = useState(false);
-  const [conflict,   setConflict]     = useState(null); // { count, canForce }
+  const [conflict,   setConflict]     = useState(null);
   const [error,      setError]        = useState('');
   const [success,    setSuccess]      = useState('');
 
   useEffect(() => {
-    api.annees().then(a => {
-      setAnnees(a);
-      // Proposer l'année précédant l'année active comme source par défaut
-      const autres = a.filter(x => x.code !== anneeActive);
-      if (autres.length) setAnneeSrc(autres[0].code);
+    api.anneesParSection().then(map => {
+      setAnneesMap(map);
+      // Initialiser avec la première section
+      const anneesDispo = map[sections[0]?.code] || [];
+      const src = anneesDispo.find(a => a.annee !== anneeActive) || anneesDispo[0];
+      if (src) setAnneeSrc(src.annee);
     });
-  }, [anneeActive]);
+  }, []);
+
+  // Quand la section change, mettre à jour l'année source
+  function handleSectionChange(code) {
+    setSectionSrc(code);
+    setError(''); setConflict(null);
+    const anneesDispo = anneesMap[code] || [];
+    const src = anneesDispo.find(a => a.annee !== anneeDest) || anneesDispo[0];
+    setAnneeSrc(src ? src.annee : '');
+  }
+
+  const anneesDispo = anneesMap[sectionSrc] || [];
+  const nbSource = anneesDispo.find(a => a.annee === anneeSrc)?.n || 0;
 
   async function copier(force = false) {
     if (!sectionSrc || !anneeSrc || !anneeDest) { setError('Tous les champs sont requis'); return; }
     setLoading(true); setError(''); setConflict(null);
     try {
       const r = await api.copierSection(sectionSrc, anneeSrc, anneeDest, force);
-      setSuccess(`✅ ${r.copied} attribution(s) copiées de ${sectionSrc} (${anneeSrc}) vers ${anneeDest}.`);
+      setSuccess(`✅ ${r.copied} attribution(s) copiées de ${sectionSrc} (${anneeSrc}) → ${anneeDest}.`);
       onCopied();
     } catch (e) {
       const body = e.body || {};
@@ -49,13 +62,13 @@ function CopierSectionModal({ sections, anneeActive, isAdmin, onClose, onCopied 
           <button onClick={onClose} className="text-gray-400 hover:text-red-500 text-2xl">×</button>
         </div>
         <div className="p-5 space-y-4">
-          <p className="text-sm text-gray-600">Copie toutes les attributions d'une section et d'une année vers une autre année. Le professeur assigné est conservé.</p>
+          <p className="text-sm text-gray-500">Copie toutes les attributions (prof inclus) d'une section vers une autre année.</p>
 
           <label className="block">
             <div className="text-xs font-medium text-gray-600 mb-1">Section</div>
-            <select value={sectionSrc} onChange={e => setSectionSrc(e.target.value)}
+            <select value={sectionSrc} onChange={e => handleSectionChange(e.target.value)}
               className="w-full border border-gray-300 rounded px-3 py-1.5 text-sm">
-              {sections.map(s => <option key={s.code} value={s.code}>{s.code} — {s.libelle}</option>)}
+              {sections.map(s => <option key={s.code} value={s.code}>{s.code}{s.libelle && s.libelle !== s.code ? ` — ${s.libelle}` : ''}</option>)}
             </select>
           </label>
 
@@ -65,18 +78,33 @@ function CopierSectionModal({ sections, anneeActive, isAdmin, onClose, onCopied 
               <select value={anneeSrc} onChange={e => setAnneeSrc(e.target.value)}
                 className="w-full border border-gray-300 rounded px-3 py-1.5 text-sm">
                 <option value="">— Choisir —</option>
-                {annees.map(a => <option key={a.code} value={a.code}>{a.code}</option>)}
+                {anneesDispo.map(a => (
+                  <option key={a.annee} value={a.annee}>{a.annee} ({a.n} lignes)</option>
+                ))}
               </select>
+              {anneesDispo.length === 0 && (
+                <p className="text-xs text-red-500 mt-1">Aucune attribution trouvée pour cette section.</p>
+              )}
             </label>
             <label className="block">
               <div className="text-xs font-medium text-gray-600 mb-1">Année destination</div>
               <select value={anneeDest} onChange={e => setAnneeDest(e.target.value)}
                 className="w-full border border-gray-300 rounded px-3 py-1.5 text-sm">
-                <option value="">— Choisir —</option>
-                {annees.map(a => <option key={a.code} value={a.code}>{a.code}{a.active ? ' ✓' : ''}</option>)}
+                {Object.keys(anneesMap).length > 0
+                  ? [...new Set([anneeActive, ...Object.values(anneesMap).flat().map(a => a.annee)])].sort().reverse().map(a => (
+                      <option key={a} value={a}>{a}{a === anneeActive ? ' ✓' : ''}</option>
+                    ))
+                  : <option value={anneeActive}>{anneeActive} ✓</option>
+                }
               </select>
             </label>
           </div>
+
+          {anneeSrc && nbSource > 0 && (
+            <div className="bg-indigo-50 border border-indigo-200 rounded-lg px-3 py-2 text-xs text-indigo-700">
+              {nbSource} attribution(s) seront copiées de <strong>{sectionSrc}</strong> ({anneeSrc}) vers <strong>{anneeDest}</strong>.
+            </div>
+          )}
 
           {error && (
             <div className="bg-red-50 border border-red-200 rounded-lg p-3 text-sm text-red-700">
@@ -85,7 +113,7 @@ function CopierSectionModal({ sections, anneeActive, isAdmin, onClose, onCopied 
                 <div className="mt-2">
                   <button onClick={() => copier(true)} disabled={loading}
                     className="bg-red-600 hover:bg-red-700 text-white text-xs px-3 py-1.5 rounded font-medium disabled:opacity-40">
-                    ⚠️ Forcer (supprime les {conflict.count} existantes et recopie)
+                    ⚠️ Forcer — supprimer les {conflict.count} existantes et recopier
                   </button>
                 </div>
               )}
@@ -104,9 +132,10 @@ function CopierSectionModal({ sections, anneeActive, isAdmin, onClose, onCopied 
               {success ? 'Fermer' : 'Annuler'}
             </button>
             {!success && (
-              <button onClick={() => copier(false)} disabled={loading || !sectionSrc || !anneeSrc || !anneeDest}
+              <button onClick={() => copier(false)}
+                disabled={loading || !sectionSrc || !anneeSrc || !anneeDest || nbSource === 0}
                 className="bg-indigo-600 hover:bg-indigo-700 disabled:opacity-40 text-white text-sm px-5 py-2 rounded-lg font-medium">
-                {loading ? '…' : '📋 Copier'}
+                {loading ? '…' : `📋 Copier ${nbSource ? `(${nbSource})` : ''}`}
               </button>
             )}
           </div>
