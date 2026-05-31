@@ -135,7 +135,7 @@ export function buildEA12Html(data) {
 
   // ── PAGE 1 ─────────────────────────────────────────────────────────────────
   const logoHtml = LOGO_FWB
-    ? `<img src="${LOGO_FWB}" style="height:18mm;max-width:100%" alt="Logo FWB">`
+    ? `<img src="${LOGO_FWB}" style="height:13mm;width:auto;display:block;max-width:100%;object-fit:contain" alt="Logo FWB">`
     : `<b style="font-size:9pt">F\u00e9d\u00e9ration Wallonie-Bruxelles</b>`;
 
   const statuts = ['T','TPr','St','D','ACS','APE','PTP'];
@@ -145,16 +145,17 @@ export function buildEA12Html(data) {
 ${btnPrint}
 <table class="nb" style="margin-bottom:3px">
   <tr>
-    <td style="width:38%;vertical-align:middle">${logoHtml}</td>
-    <td style="width:36%;vertical-align:top;font-size:7.5pt;line-height:1.5">
+    <td style="width:30%;vertical-align:middle;padding-right:4px">${logoHtml}</td>
+    <td style="width:42%;vertical-align:top;font-size:7.5pt;line-height:1.5">
       <b>Administration g\u00e9n\u00e9rale de l\u2019Enseignement</b><br>
       Direction g\u00e9n\u00e9rale des Personnels de l\u2019Enseignement
     </td>
-    <td style="width:26%;border:1px solid #555;padding:3px;vertical-align:top;font-size:7.5pt">
-      <b>Ann\u00e9e acad\u00e9mique</b> : ${anneeBoxes(data.annee)}<br>
-      <b>Document n\u00b0</b> : ${boxes(data.doc_num, 2)}<br>
-      <span style="font-size:6.5pt">Dernier Doc12 transmis le :</span><br>
-      <span style="font-size:7pt">${dateFr(data.dernier_doc12)}</span>
+    <td style="width:28%;border:1px solid #555;padding:3px;vertical-align:top;font-size:7pt">
+      <div style="white-space:nowrap"><b>Ann\u00e9e acad\u00e9mique</b></div>
+      <div style="white-space:nowrap;margin-bottom:2px">${anneeBoxes(data.annee)}</div>
+      <div style="white-space:nowrap"><b>Document n\u00b0</b> ${boxes(data.doc_num, 2)}</div>
+      <div style="font-size:6pt;margin-top:2px">Dernier Doc12 transmis le :</div>
+      <div style="font-size:7pt;white-space:nowrap">${dateFr(data.dernier_doc12)}</div>
     </td>
   </tr>
 </table>
@@ -180,11 +181,12 @@ ${btnPrint}
   <tr>
     <td style="vertical-align:top">
       <table class="nb">
-        <tr><td style="white-space:nowrap"><b>Nom du PO</b></td><td>${etab.po_nom || ''}</td></tr>
-        <tr><td style="white-space:nowrap"><b>Nom de l\u2019\u00e9tablissement</b></td><td>${etab.etab_nom || ''}</td></tr>
-        <tr><td style="white-space:nowrap"><b>Adresse compl\u00e8te</b></td><td>${etab.adresse || ''}</td></tr>
-        <tr><td style="white-space:nowrap"><b>E-mails officiels</b></td>
-          <td>ec ${etab.email_ec || '@ adm.cfwb.be'}<br>po ${etab.email_po || '@ adm.cfwb.be'}</td></tr>
+        <tr><td style="white-space:nowrap;font-size:7pt"><b>Nom du PO</b></td><td style="font-size:7pt">${etab.po_nom || ''}</td></tr>
+        <tr><td style="white-space:nowrap;font-size:7pt"><b>Nom de l\u2019\u00e9tablissement</b></td><td style="font-size:7pt">${etab.etab_nom || ''}</td></tr>
+        <tr><td style="white-space:nowrap;font-size:7pt;vertical-align:top"><b>Adresse compl\u00e8te</b></td>
+            <td style="font-size:7pt;max-width:55mm;word-break:break-word">${(etab.adresse||'').replace(/,/g,',<br>')}</td></tr>
+        <tr><td style="white-space:nowrap;font-size:7pt;vertical-align:top"><b>E-mails officiels</b></td>
+          <td style="font-size:7pt">ec ${etab.email_ec||'@ adm.cfwb.be'}<br>po ${etab.email_po||'@ adm.cfwb.be'}</td></tr>
       </table>
     </td>
     <td colspan="2" style="vertical-align:top">
@@ -256,41 +258,50 @@ ${btnPrint}
 </table>
 
 <table style="margin-bottom:3px">
-  <tr><td colspan="2" class="hdr-mid">\u00c9v\u00e9nement</td></tr>
+  <tr><td colspan="3" class="hdr-mid">\u00c9v\u00e9nement</td></tr>
   <tr>
-    <td style="width:50%"><b>Date de l\u2019\u00e9v\u00e9nement (JJ/MM/AAAA) :</b> ${dateFr(data.date_evenement)}</td>
-    <td style="width:50%"><b>Semaines de fonctionnement :</b> ${data.semaines || ''}</td>
+    <td colspan="2" style="width:55%"><b>Date de l\u2019\u00e9v\u00e9nement <i>(JJ/MM/AAAA)</i> :</b> ${dateFr(data.date_evenement)}</td>
+    <td style="width:45%"><b>Semaines de fonctionnement :</b> ${data.semaines || ''}</td>
   </tr>
   <tr>
-    <td style="vertical-align:top">
-      <b>Type d\u2019\u00e9v\u00e9nement \u2014 Mouvement</b>
-      <div class="chk-col" style="margin-top:3px">
+    <td colspan="2" style="width:55%;font-size:7.5pt;padding:1px 3px"><b>Type d\u2019\u00e9v\u00e9nement</b></td>
+    <td style="width:45%;font-size:7.5pt;padding:1px 3px"><b>Justification(s)</b></td>
+  </tr>
+  <tr>
+    <!-- Barre verticale "Mouvement" -->
+    <td style="width:12px;background:#D6DCE4;text-align:center;vertical-align:middle;padding:2px;border-right:none">
+      <div style="writing-mode:vertical-lr;transform:rotate(180deg);font-weight:bold;font-size:7pt;white-space:nowrap">Mouvement</div>
+    </td>
+    <td style="width:calc(55% - 12px);vertical-align:top;border-left:none">
+      <div class="chk-col">
         ${MOUVEMENTS.map(t => chk(typeEv===t, t)).join('')}
       </div>
-      <div style="border-top:1px solid #aaa;margin:3px 0;padding-top:3px">
+      <div style="border-top:1px solid #ccc;margin:2px 0;padding-top:2px">
         <div class="chk-col">
-          ${MOUVEMENTS2.map(t => chk(typeEv===t, t)).join('')}
+          ${MOUVEMENTS2.slice(0,-1).map(t => chk(typeEv===t, t)).join('')}
+          ${chk(typeEv===MOUVEMENTS2[MOUVEMENTS2.length-1], MOUVEMENTS2[MOUVEMENTS2.length-1])}
+          <input type="text" style="margin-left:14px;width:75%">
         </div>
-        <input type="text" style="margin-left:16px;width:80%">
       </div>
     </td>
-    <td style="vertical-align:top">
-      <b>Justification(s)</b>
-      <div class="chk-col" style="margin-top:3px">
-        ${JUSTIFS.map(j => chk(justif===j, j)).join('')}
-        <input type="text" style="margin-left:16px;width:80%">
+    <td style="width:45%;vertical-align:top">
+      <div class="chk-col">
+        ${JUSTIFS.slice(0,-1).map(j => chk(justif===j, j)).join('')}
+        ${chk(justif===JUSTIFS[JUSTIFS.length-1], JUSTIFS[JUSTIFS.length-1])}
+        <input type="text" style="margin-left:14px;width:75%">
       </div>
-      <div style="margin-top:6px">
+      <div style="border-top:1px solid #ccc;margin:4px 0 2px">
         <b>Absence</b>
         <div class="chk-col" style="margin-top:2px">
           ${chk(false,"Absence d\u2019un jour")}
           ${chk(false,"D\u00e9but absence de plus d\u20191 jour")}
           ${chk(false,"Reprise apr\u00e8s absence de plus d\u20191 jour")}
         </div>
-        <div style="font-size:7pt;margin-top:3px">
-          Motif de l\u2019absence :<br>
+        <div style="font-size:7pt;margin-top:2px">
+          Motif de l\u2019absence (Pr\u00e9cisez : intitul\u00e9 CAD + Code DI)<br>
           <input type="text" style="width:100%"><br>
-          D\u00e9but : __ / __ / 20__ &nbsp; Fin : __ / __ / 20__
+          <input type="text" style="width:100%"><br>
+          Date de d\u00e9but : __ / __ / 20__ &nbsp; Date de fin : __ / __ / 20__
         </div>
       </div>
     </td>
@@ -356,6 +367,7 @@ ${btnPrint}
 </table>
 
 <table style="margin-bottom:4px;font-size:7pt">
+  <tr><td colspan="15" class="hdr-mid" style="font-size:8pt">Attributions</td></tr>
   <thead>
     <tr>
       <th rowspan="2" class="hdr-attr" style="width:5%">U.E.</th>
@@ -370,11 +382,11 @@ ${btnPrint}
       <th rowspan="2" class="hdr-attr" style="width:4%">DI</th>
       <th rowspan="2" class="hdr-attr" style="width:4%">N\u00b0 OE*</th>
       <th colspan="2" class="hdr-attr" style="width:16%">Attributions actuelles</th>
-      <th colspan="2" class="hdr-attr" style="width:10%">PS12 pr\u00e9c\u00e9dent</th>
+      <th colspan="2" class="hdr-attr" style="width:10%">Attrib. PS12 pr\u00e9c\u00e9dent : __ /__ /20__</th>
     </tr>
     <tr>
-      <th class="hdr-attr">TC/TL</th><th class="hdr-attr">P\u00e9r.</th>
-      <th class="hdr-attr">TC/TL</th><th class="hdr-attr">P\u00e9r.</th>
+      <th class="hdr-attr">Class. TC/TL</th><th class="hdr-attr">P\u00e9riodes</th>
+      <th class="hdr-attr">Class. TC/TL</th><th class="hdr-attr">P\u00e9riodes</th>
     </tr>
   </thead>
   <tbody>${attrHtml}</tbody>
