@@ -3,6 +3,7 @@ import db from '../db/index.js';
 import { authRequired, roleRequired } from '../middleware/auth.js';
 import { Packer } from 'docx';
 import { buildEA12bis } from '../services/ea12_build.js';
+import { buildEA12Html } from '../services/ea12_html.js';
 
 const r = Router();
 
@@ -53,22 +54,31 @@ function construireData(ea12Row, donnees) {
     matricule: prof.matricule || donnees.matricule || '',
     prof_nom: prof.nom || '',
     prof_prenom: prof.prenom || '',
-    titre1: prof.titre1 || '',
-    titre2: prof.titre2 || '',
-    titre3: prof.titre3 || '',
-    statut: prof.statut_ea12 || donnees.statut || '',
-    // Champs de situation (saisis dans l'éditeur)
+    titre1: donnees.titre1_override ?? prof.titre1 ?? '',
+    titre2: donnees.titre2_override ?? prof.titre2 ?? '',
+    derogation_titre: !!donnees.derogation_titre,
+    statut: donnees.statut_override || prof.statut_ea12 || donnees.statut || '',
     pas_cumul: donnees.pas_cumul || false,
     prest_sec: donnees.prest_sec || false,
     prest_sup: donnees.prest_sup ?? true,
     prest_exp: donnees.prest_exp || false,
-    jours: etab.jours_fonctionnement || donnees.jours || null,
+    prest_acs: donnees.prest_acs || false,
+    cumul_a2: donnees.cumul_a2 || false,
+    transmission_tardive: donnees.transmission_tardive || false,
+    jours: donnees.jours || etab.jours_fonctionnement || null,
     date_evenement: dateFr(donnees.date_evenement) || '',
     semaines: donnees.semaines || '',
-    justif: donnees.justif || '',
+    type_evenement: donnees.type_evenement || '',
+    type_evenement_autres: donnees.type_evenement_autres || '',
+    justifs: donnees.justifs || (donnees.justif ? [donnees.justif] : []),
+    justif_autres: donnees.justif_autres || '',
+    type_absence: donnees.type_absence || '',
+    motif_absence: donnees.motif_absence || '',
+    date_debut_absence: dateFr(donnees.date_debut_absence) || '',
+    date_fin_absence: dateFr(donnees.date_fin_absence) || '',
     observations: donnees.observations || '',
-    resume: donnees.resume || {},
     attributions: donnees.attributions_override || attributions,
+    oe_slots: donnees.oe_slots || [],
   };
 }
 
@@ -197,6 +207,22 @@ r.get('/:id/apercu', authRequired, roleRequired('admin'), (req, res) => {
   if (!row) return res.status(404).json({ error: 'EA12 introuvable' });
   const donnees = JSON.parse(row.donnees_json || '{}');
   res.json(construireData(row, donnees));
+});
+
+// Génère le formulaire EA12 en HTML prêt pour window.print()
+r.get('/:id/imprimer', authRequired, async (req, res) => {
+  const row = db.prepare('SELECT * FROM ea12 WHERE id = ?').get(req.params.id);
+  if (!row) return res.status(404).json({ error: 'EA12 introuvable' });
+  const donnees = JSON.parse(row.donnees_json || '{}');
+  const data = construireData(row, donnees);
+  try {
+    const html = buildEA12Html(data);
+    res.setHeader('Content-Type', 'text/html; charset=utf-8');
+    res.send(html);
+  } catch (e) {
+    console.error('[ea12] génération HTML échouée :', e);
+    res.status(500).json({ error: 'Génération HTML échouée : ' + e.message });
+  }
 });
 
 export default r;
