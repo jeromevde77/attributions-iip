@@ -213,6 +213,11 @@ export default function Attributions() {
     try { await api.deleteAttribution(id); setData(d=>d.filter(r=>r.id!==id)); setSelected(s=>{const n=new Set(s);n.delete(id);return n;}); }
     catch(e){ alert('Erreur : '+e.message); }
   }
+  async function delSection(code) {
+    if (!confirm(`Supprimer la section "${code}" ?\n\nAttention : la suppression est bloquée si des attributions existent encore dans cette section.`)) return;
+    try { await api.deleteSection(code); load(); }
+    catch(e){ alert('Erreur : ' + e.message); }
+  }
   async function saveCell(id, field, value) {
     try {
       const numF = ['periodes_attribuees','autonomie_attribuee','num_organisation'];
@@ -528,6 +533,10 @@ export default function Attributions() {
             {st.tAut>0 && <span className="text-gray-400">+{st.tAut}a</span>}
             {st.nBad>0 && <span className="text-red-600 font-bold">✗ {st.nBad}</span>}
             {st.nBad===0 && st.nConf>0 && <span className="text-green-600 font-bold">✓</span>}
+            {isAdmin && (
+              <button onClick={e=>{e.stopPropagation(); delSection(sg.section);}}
+                className="text-red-400 hover:text-red-600 ml-1" title="Supprimer cette section">🗑</button>
+            )}
           </div>
         </button>
         {open && (
