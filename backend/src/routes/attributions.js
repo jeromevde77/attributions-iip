@@ -543,4 +543,77 @@ r.post('/auto-fill-periodes', authRequired, roleRequired('admin', 'editeur', 'co
   res.json({ ok: true, updated: result.changes });
 });
 
+// ─── POST /attributions/copier-section ───────────────────────────────────────
+// Copie toutes les attributions d'une section/année source vers une autre année.
+// - Si des attributions existent déjà en destination : bloque (sauf force=true admin)
+r.post('/copier-section', authRequired, roleRequired('admin', 'editeur'), (req, res) => {
+  const { section, annee_source, annee_dest, force } = req.body;
+  if (!section || !annee_source || !annee_dest)
+    return res.status(400).json({ error: 'section, annee_source et annee_dest sont requis' });
+  if (annee_source === annee_dest)
+    return res.status(400).json({ error: 'Source et destination identiques' });
+  if (force && req.user.role !== 'admin')
+    return res.status(403).json({ error: 'Seul un admin peut forcer la copie' });
+
+  const existantes = db.prepare(
+    'SELECT COUNT(*) AS n FROM attribution WHERE section = ? AND annee_scolaire = ?'
+  ).get(section, annee_dest);
+
+  if (existantes.n > 0 && !force)
+    return res.status(409).json({
+      error: `${existantes.n} attribution(s) existent déjà pour ${section} en ${annee_dest}.`,
+      count: existantes.n,
+      canForce: req.user.role === 'admin'
+    });
+
+  const sources = db.prepare(`
+    SELECT section, etablissement_referent, contrat_mdp, organisation,
+           ue_num, num_organisation, quadrimestre_attribue,
+           code_cours, type_cours, type_cours_helb, code, nb_groupes,
+           split_groupe, num_split, num_groupe, activite_id,
+           professeur_id, cours_ept_ad, coordination_encadrement,
+           modification_attribution, commentaire, commentaire_2,
+           charge_perdue_84plus, periodes_transferees, per_etudiant_total_dp,
+           periodes_attribuees, autonomie_attribuee, titre_rtf
+    FROM attribution WHERE section = ? AND annee_scolaire = ?
+    ORDER BY ue_num, num_organisation, code_cours
+  `).all(section, annee_source);
+
+  if (sources.length === 0)
+    return res.status(404).json({ error: `Aucune attribution trouvée pour ${section} en ${annee_source}` });
+
+  if (force && existantes.n > 0)
+    db.prepare('DELETE FROM attribution WHERE section = ? AND annee_scolaire = ?').run(section, annee_dest);
+
+  const insert = db.prepare(`
+    INSERT INTO attribution (
+      section, etablissement_referent, contrat_mdp, organisation,
+      ue_num, num_organisation, quadrimestre_attribue,
+      code_cours, type_cours, type_cours_helb, code, nb_groupes,
+      split_groupe, num_split, num_groupe, activite_id,
+      professeur_id, cours_ept_ad, coordination_encadrement,
+      modification_attribution, commentaire, commentaire_2,
+      charge_perdue_84plus, periodes_transferees, per_etudiant_total_dp,
+      periodes_attribuees, autonomie_attribuee, titre_rtf,
+      annee_scolaire, created_by, updated_by
+    ) VALUES (
+      @section, @etablissement_referent, @contrat_mdp, @organisation,
+      @ue_num, @num_organisation, @quadrimestre_attribue,
+      @code_cours, @type_cours, @type_cours_helb, @code, @nb_groupes,
+      @split_groupe, @num_split, @num_groupe, @activite_id,
+      @professeur_id, @cours_ept_ad, @coordination_encadrement,
+      @modification_attribution, @commentaire, @commentaire_2,
+      @charge_perdue_84plus, @periodes_transferees, @per_etudiant_total_dp,
+      @periodes_attribuees, @autonomie_attribuee, @titre_rtf,
+      @annee_dest, @uid, @uid
+    )
+  `);
+
+  db.transaction(() => {
+    for (const row of sources) insert.run({ ...row, annee_dest, uid: req.user.id });
+  })();
+
+  res.json({ ok: true, copied: sources.length });
+});
+
 export default r;
