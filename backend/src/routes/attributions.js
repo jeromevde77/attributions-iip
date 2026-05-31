@@ -387,11 +387,12 @@ r.post('/bulk-create-from-section', authRequired, roleRequired('admin', 'editeur
   for (const row of ueRows) ueEtRefMap[row.ue_num] = row.et_ref || 'IIP';
 
   const placeholders = ue_nums.map(() => '?').join(',');
-  // Récupérer tous les cours des UE sélectionnées pour cette section ET cette année
+  // Récupérer tous les cours des UE sélectionnées — les cours Z (activités étudiants, sans prof) sont exclus
   const coursList = db.prepare(`
     SELECT cours_code, ue_num, ct_pp, quadrimestre_cours
     FROM cours
     WHERE section = ? AND annee_scolaire = ? AND ue_num IN (${placeholders})
+      AND ct_pp != 'Z'
     ORDER BY cours_code
   `).all(section, annee, ...ue_nums);
 
@@ -454,6 +455,7 @@ r.post('/reouvrir', authRequired, roleRequired('admin', 'editeur', 'coordination
     SELECT code_cours, type_cours, ue_num
     FROM attribution
     WHERE ue_num = ? AND annee_scolaire = ?
+      AND type_cours != 'Z'
     GROUP BY code_cours
   `).all(ue_num, annee);
 
