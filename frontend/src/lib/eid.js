@@ -1,20 +1,23 @@
 // ─────────────────────────────────────────────────────────────────────────────
 // Lecture OPTIONNELLE de la carte d'identité belge (eID) via l'app locale
-// « eID Reader » qui expose une API HTTP sur http://localhost:9140.
+// « eID Reader » qui expose une API HTTPS sur https://localhost:9140.
 //
 // ⚠️ L'app eID Reader doit être lancée séparément par l'utilisateur (icône dans
-//    la barre système). Si elle n'est pas joignable, ces helpers renvoient un
-//    statut « non joignable » et l'UI invite simplement à la lancer — la saisie
-//    manuelle reste toujours possible.
+//    la barre système). Elle sert en HTTPS avec un certificat AUTO-SIGNÉ ; au
+//    premier usage le certificat doit être approuvé (ajout au Keychain macOS,
+//    ou menu tray « Approuver le certificat » côté Safari). Tant qu'il n'est pas
+//    approuvé, le navigateur rejette l'appel TLS → ces helpers renvoient « non
+//    joignable » et l'UI invite à approuver / lancer l'app. La saisie manuelle
+//    reste toujours possible.
 //
-// ⚠️ CORS / origine : l'app eID Reader n'autorise par défaut que les origines
-//    http://localhost:*, http://127.0.0.1:* et file://. L'app attributions
-//    tournant en HTTPS sur un domaine/port distinct (ex. https://…:10801 en
-//    dev), l'allowlist CORS de l'eID Reader doit inclure cette origine, sinon
-//    le navigateur bloque l'appel même quand le service tourne.
+// ⚠️ CORS / origine : l'eID Reader autorise localhost, 127.0.0.1, file:// et
+//    https://server.domobel.be. Une origine = scheme + host + PORT : le dev est
+//    servi sur https://server.domobel.be:10801 (port 10801), donc cette origine
+//    avec son port doit figurer dans l'allowlist de l'eID Reader, sinon le
+//    navigateur bloque l'appel même quand le service tourne.
 // ─────────────────────────────────────────────────────────────────────────────
 
-const EID_BASE = 'http://localhost:9140';
+const EID_BASE = 'https://localhost:9140';
 
 /** Interroge l'état du service. Renvoie l'objet JSON, ou null si injoignable. */
 export async function eidStatus() {

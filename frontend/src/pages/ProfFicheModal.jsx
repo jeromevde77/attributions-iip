@@ -139,7 +139,7 @@ export default function ProfFicheModal({ prof, onClose, onSaved }) {
     const st = await eidStatus();
     if (st === null) {
       setEidState('error');
-      setEidMsg("Service eID non joignable. Lancez l'app « eID Reader » (icône barre système), puis réessayez.");
+      setEidMsg("Service eID non joignable. Lancez l'app « eID Reader » ; au 1er usage, approuvez son certificat (menu tray « Approuver le certificat »), puis réessayez.");
       return;
     }
     const code = st.state || st.code || (st.ok ? 'READY' : 'UNKNOWN');
@@ -166,7 +166,7 @@ export default function ProfFicheModal({ prof, onClose, onSaved }) {
       }
       if (res.code === 'UNREACHABLE') {
         setEidState('error');
-        setEidMsg("Service eID injoignable (app fermée ou origine bloquée par CORS). Vérifiez que « eID Reader » tourne.");
+        setEidMsg("Service eID injoignable : app fermée, certificat non approuvé, ou origine non autorisée (CORS). Vérifiez que « eID Reader » tourne et que son certificat est approuvé.");
         return true;
       }
       if (res.code === 'NO_CARD') { setEidState('waiting'); setEidMsg('Insérez votre carte eID dans le lecteur…'); }
