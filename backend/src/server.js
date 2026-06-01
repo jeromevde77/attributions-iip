@@ -807,6 +807,62 @@ try {
     db.exec("ALTER TABLE ue_inscription ADD COLUMN encadrement TEXT;");
     console.log('[migration] Table ue_inscription : colonne encadrement ajoutée');
   }
+
+  // 7d. PILOTAGE CIVIL — dotation par année civile + enveloppes extérieures
+  {
+    // pot_code sur ue : permet de taguer Qualité / CF / Inclusif (fallback : auto-détecté depuis ue_code_fwb)
+    const ueColsNow = db.prepare("PRAGMA table_info(ue)").all().map(c => c.name);
+    if (!ueColsNow.includes('pot_code')) {
+      db.exec("ALTER TABLE ue ADD COLUMN pot_code TEXT");
+      console.log('[migration] Table ue : colonne pot_code ajoutée');
+    }
+
+    // Table dotation_civile : dotation organique par année civile
+    db.exec(`
+      CREATE TABLE IF NOT EXISTS dotation_civile (
+        annee_civile              INTEGER PRIMARY KEY,
+        dotation_organique        REAL    NOT NULL DEFAULT 0,
+        usage_historique_organique REAL,     -- NULL = calculé depuis la DB ; valeur = saisie manuelle (années sans données)
+        notes                     TEXT
+      );
+    `);
+
+    // Table enveloppe_externe : enveloppes fermées par code × année civile
+    db.exec(`
+      CREATE TABLE IF NOT EXISTS enveloppe_externe (
+        id              INTEGER PRIMARY KEY AUTOINCREMENT,
+        code            TEXT    NOT NULL,          -- 'QUAL' | 'CF' | 'INCL'
+        label           TEXT    NOT NULL,
+        annee_civile    INTEGER NOT NULL,
+        periodes_b      REAL    NOT NULL DEFAULT 0,
+        usage_historique REAL,                     -- NULL = calculé ; valeur = saisie manuelle
+        notes           TEXT,
+        UNIQUE(code, annee_civile)
+      );
+    `);
+
+    // Seeder dotation_civile depuis les paramètres PERIODES_DISPO existants
+    const p25 = db.prepare("SELECT valeur_num FROM parametre_financier WHERE cle='PERIODES_DISPO_25'").get();
+    const p26 = db.prepare("SELECT valeur_num FROM parametre_financier WHERE cle='PERIODES_DISPO_26'").get();
+    if (p25) db.prepare("INSERT OR IGNORE INTO dotation_civile (annee_civile, dotation_organique) VALUES (2025, ?)").run(p25.valeur_num);
+    if (p26) db.prepare("INSERT OR IGNORE INTO dotation_civile (annee_civile, dotation_organique) VALUES (2026, ?)").run(p26.valeur_num);
+
+    // Seeder enveloppes initiales (QUAL=150, CF=200→300, INCL=50)
+    const seedEnv = [
+      ['QUAL', 'Coordinateur Qualité',              2025, 150],
+      ['QUAL', 'Coordinateur Qualité',              2026, 150],
+      ['CF',   'Conseiller à la Formation',         2025, 200],
+      ['CF',   'Conseiller à la Formation',         2026, 300],
+      ['INCL', 'Personne de référence EPS inclusif', 2025,  50],
+      ['INCL', 'Personne de référence EPS inclusif', 2026,  50],
+    ];
+    const insEnv = db.prepare("INSERT OR IGNORE INTO enveloppe_externe (code, label, annee_civile, periodes_b) VALUES (?,?,?,?)");
+    for (const [code, label, annee_civile, periodes_b] of seedEnv) {
+      insEnv.run(code, label, annee_civile, periodes_b);
+    }
+    console.log('[migration] Pilotage civil : dotation_civile + enveloppe_externe initialisés');
+  }
+
 } catch (e) {
   console.error('[migration] ERREUR :', e.message);
   console.error(e.stack);

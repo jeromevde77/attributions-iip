@@ -184,6 +184,18 @@ export const api = {
   pilotageSectionDetail() { return request(withAnnee('/pilotage/section-detail')); },
   totaux()               { return request(withAnnee('/pilotage/totaux')); },
 
+  // pilotage par année civile
+  pilotageCivil()                   { return request('/pilotage/civil'); },
+  pilotageCivilDetail(annee)        { return request(`/pilotage/civil/${annee}`); },
+  dotationCivilePut(annee, body)    { return request(`/pilotage/dotation-civile/${annee}`, { method: 'PUT', body }); },
+  dotationCivileDelete(annee)       { return request(`/pilotage/dotation-civile/${annee}`, { method: 'DELETE' }); },
+  enveloppesGet()                   { return request('/pilotage/enveloppes'); },
+  enveloppePost(body)               { return request('/pilotage/enveloppes', { method: 'POST', body }); },
+  enveloppePut(id, body)            { return request(`/pilotage/enveloppes/${id}`, { method: 'PUT', body }); },
+  enveloppeDelete(id)               { return request(`/pilotage/enveloppes/${id}`, { method: 'DELETE' }); },
+  ueWithPot(annee)                  { return request(`/pilotage/ue-pot?annee=${encodeURIComponent(annee || getAnnee())}`); },
+  ueSetPot(ue_num, annee_scolaire, pot_code) { return request('/pilotage/ue-pot', { method: 'PATCH', body: { ue_num, annee_scolaire, pot_code } }); },
+
   // exports
   doc23() { return request(withAnnee('/exports/doc2-3')); },
   exportExcel() {
