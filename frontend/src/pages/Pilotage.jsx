@@ -146,46 +146,47 @@ export default function Pilotage() {
   // Données PEP pour le graphique combiné (toutes années avec PEP, triées)
   const pepChartData = useMemo(() =>
     civil
-      .filter(y => y.periodes_eleves > 0)
+      .filter(y => y.periodes_eleves > 0 || y.pep_calculee > 0)
       .sort((a, b) => a.annee_civile - b.annee_civile)
       .map(y => ({
         annee: y.annee_civile,
-        'PEP':       y.periodes_eleves,
+        'PEP brute (Menu 7)': y.periodes_eleves || null,
+        'PEP pondérée (mécan.)': y.pep_calculee || null,
         'PEP réf.':  y.pep_reference || null,
         'Dotation':  y.dotation_organique > 0 ? y.dotation_organique : null,
       })),
     [civil]
   );
 
-  // Table analyse PEP → dotation (mécanisme ±8 %)
+  // Table analyse PEP → dotation (mécanisme ±8 %, utilise pep_calculee = valeur pondérée Menu 5.5)
   const pepTableData = useMemo(() => {
-    const byYear = Object.fromEntries(civil.map(y => [y.annee_civile, y]));
     return civil
-      .filter(y => y.periodes_eleves > 0 || y.dotation_organique > 0)
+      .filter(y => y.pep_calculee > 0 || y.dotation_organique > 0)
       .sort((a, b) => a.annee_civile - b.annee_civile)
       .map(y => {
-        const pep_an = y.pep_annee_utilisee;
-        const pep    = pep_an ? byYear[pep_an]?.periodes_eleves : null;
-        const pep_ref = y.pep_reference;
-        const ecart  = (pep != null && pep_ref) ? (pep / pep_ref - 1) * 100 : null;
-        const zone   = ecart == null ? null :
+        const pep_calc = y.pep_calculee;   // PEP pondérée utilisée pour CE calcul de dotation
+        const pep_ref  = y.pep_reference;
+        const ecart    = (pep_calc != null && pep_ref) ? (pep_calc / pep_ref - 1) * 100 : null;
+        const zone     = ecart == null ? null :
           Math.abs(ecart) <= 8 ? 'NEUTRE' :
           ecart > 8 ? 'HAUSSE' : 'BAISSE';
-        // Estimation perte si baisse (Art. 6 A.Gt 22-11-2002)
-        const perte  = (zone === 'BAISSE' && y.dotation_organique > 0)
+        // Estimation perte si baisse (Art. 6 A.Gt 22-11-2002) : (dotation/4) × min(|%|, 50)
+        const perte = (zone === 'BAISSE' && y.dotation_organique > 0)
           ? Math.round((y.dotation_organique / 4) * Math.min(Math.abs(ecart), 50) / 100)
           : null;
         return {
-          annee_civile: y.annee_civile,
-          pep_annee_utilisee: pep_an,
-          pep,
+          annee_civile:      y.annee_civile,
+          pep_annee_utilisee: y.pep_annee_utilisee,
+          pep_brute:         y.periodes_eleves,   // Menu 7 (info context)
+          pep_calc,                               // Menu 5.5 (pivot du mécanisme)
           pep_ref,
           ecart,
           zone,
           perte,
-          dotation: y.dotation_organique > 0 ? y.dotation_organique : null,
-          derogation: y.notes?.includes('Dérogation') || false,
-          partiel:    y.notes?.includes('artiel') || false,
+          dotation:      y.dotation_organique > 0 ? y.dotation_organique : null,
+          dot_utilisable: y.dotation_utilisable || null,
+          derogation:    y.notes?.includes('Dérogation') || false,
+          partiel:       y.notes?.includes('artiel') || false,
         };
       });
   }, [civil]);
@@ -291,12 +292,12 @@ export default function Pilotage() {
                   <thead className="bg-gray-50 text-[11px] text-gray-500 uppercase tracking-wider">
                     <tr>
                       <th className="px-3 py-2 text-left">Dotation</th>
-                      <th className="px-3 py-2 text-right">PEP utilisée (N-2)</th>
-                      <th className="px-3 py-2 text-right">PEP valeur</th>
+                      <th className="px-3 py-2 text-right">PEP N-2 utilisée</th>
+                      <th className="px-3 py-2 text-right">PEP pondérée (mécan.)</th>
                       <th className="px-3 py-2 text-right">PEP référence</th>
-                      <th className="px-3 py-2 text-right">Écart</th>
+                      <th className="px-3 py-2 text-right">Écart ±8 %</th>
                       <th className="px-3 py-2 text-center">Zone</th>
-                      <th className="px-3 py-2 text-right">Dotation résultante</th>
+                      <th className="px-3 py-2 text-right">Dotation</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -308,24 +309,28 @@ export default function Pilotage() {
                           {row.partiel && <span className="ml-1 text-[10px] bg-blue-100 text-blue-600 px-1 rounded">partiel</span>}
                         </td>
                         <td className="px-3 py-2 text-right text-gray-500 font-mono text-xs">{row.pep_annee_utilisee || '—'}</td>
-                        <td className="px-3 py-2 text-right font-mono">{row.pep ? fmt(row.pep) : '—'}</td>
+                        <td className="px-3 py-2 text-right font-mono">
+                          {row.pep_calc ? fmt(row.pep_calc) : '—'}
+                          {row.pep_brute ? <span className="block text-[10px] text-gray-400">brute: {fmt(row.pep_brute)}</span> : null}
+                        </td>
                         <td className="px-3 py-2 text-right font-mono text-gray-500">{row.pep_ref ? fmt(row.pep_ref) : <span className="text-gray-300">à saisir</span>}</td>
                         <td className="px-3 py-2 text-right">
                           {row.ecart != null
-                            ? <span className={Math.abs(row.ecart) > 8 ? (row.ecart > 0 ? 'text-green-600 font-semibold' : 'text-red-600 font-semibold') : 'text-gray-600'}>
+                            ? <span className={Math.abs(row.ecart) > 8 ? (row.ecart > 0 ? 'text-green-600 font-bold' : 'text-red-600 font-bold') : 'text-gray-600'}>
                                 {sign(row.ecart)}{fmt(row.ecart, 1)} %
                               </span>
                             : '—'}
                         </td>
                         <td className="px-3 py-2 text-center">
                           {row.zone === 'NEUTRE' && <span className="text-xs bg-green-100 text-green-700 px-2 py-0.5 rounded-full">Neutre ±8 %</span>}
-                          {row.zone === 'HAUSSE' && <span className="text-xs bg-blue-100 text-blue-700 px-2 py-0.5 rounded-full">↑ Hausse &gt;8 %</span>}
-                          {row.zone === 'BAISSE' && <span className="text-xs bg-red-100 text-red-700 px-2 py-0.5 rounded-full">↓ Baisse &lt;-8 %</span>}
+                          {row.zone === 'HAUSSE' && <span className="text-xs bg-blue-100 text-blue-700 px-2 py-0.5 rounded-full">↑ Hausse &gt;+8 %</span>}
+                          {row.zone === 'BAISSE' && <span className="text-xs bg-red-100 text-red-700 px-2 py-0.5 rounded-full">↓ Baisse &lt;−8 %</span>}
                           {row.zone == null && <span className="text-gray-300 text-xs">—</span>}
                         </td>
                         <td className="px-3 py-2 text-right">
                           {row.dotation ? <span className="font-mono">{fmt(row.dotation)}</span> : <span className="text-gray-300 text-xs">—</span>}
-                          {row.zone === 'BAISSE' && row.perte ? <span className="block text-[10px] text-red-500">−{fmt(row.perte)} pér.</span> : null}
+                          {row.dot_utilisable && row.dot_utilisable !== row.dotation ? <span className="block text-[10px] text-gray-400">util: {fmt(row.dot_utilisable)}</span> : null}
+                          {row.zone === 'BAISSE' && row.perte ? <span className="block text-[10px] text-red-500">−{fmt(row.perte)} pér. estimées</span> : null}
                         </td>
                       </tr>
                     ))}

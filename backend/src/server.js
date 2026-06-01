@@ -841,36 +841,46 @@ try {
       );
     `);
 
-    // periodes_eleves + pep_reference + pep_annee_utilisee sur dotation_civile
-    try { db.exec("ALTER TABLE dotation_civile ADD COLUMN periodes_eleves REAL"); } catch {}
-    try { db.exec("ALTER TABLE dotation_civile ADD COLUMN pep_reference    REAL"); } catch {}
-    try { db.exec("ALTER TABLE dotation_civile ADD COLUMN pep_annee_utilisee INTEGER"); } catch {}
+    // periodes_eleves (PEP brute Menu 7) + pep_calculee (PEP pondérée Menu 5.5) + dotation_utilisable + pep_reference
+    try { db.exec("ALTER TABLE dotation_civile ADD COLUMN periodes_eleves      REAL"); } catch {}
+    try { db.exec("ALTER TABLE dotation_civile ADD COLUMN pep_reference        REAL"); } catch {}
+    try { db.exec("ALTER TABLE dotation_civile ADD COLUMN pep_annee_utilisee   INTEGER"); } catch {}
+    try { db.exec("ALTER TABLE dotation_civile ADD COLUMN pep_calculee         REAL"); } catch {}  // PEP pondérée Menu 5.5 (comparée à pep_reference pour ±8%)
+    try { db.exec("ALTER TABLE dotation_civile ADD COLUMN dotation_utilisable  REAL"); } catch {}  // Dotation utilisable (après retraits intra-année)
 
-    // Seeder historique PEP depuis HOD IIP (1/06/2026)
-    // Années 2018-2026 : PEP connues ; dotation_organique = 0 pour les années sans données Lucie
-    // Dérogations COVID : dotation 2022/2023/2024 ont utilisé PEP 2019 (A.Gt 27-10-2022)
-    const pepHist = [
-      // [annee_civile, periodes_eleves, pep_annee_utilisee, notes]
-      [2018, 196092, 2016, null],
-      [2019, 167132, 2017, null],
-      [2020, 152372, 2018, null],
-      [2021, 142797, 2019, null],
-      [2022, 123255, 2019, 'Dérogation COVID — PEP 2019 utilisées (A.Gt 27-10-2022)'],
-      [2023, 198605, 2019, 'Dérogation COVID — PEP 2019 utilisées (A.Gt 27-10-2022)'],
-      [2024, 296279, 2019, 'Dérogation COVID — PEP 2019 utilisées (A.Gt 27-10-2022)'],
-      [2025, 313739, 2023, 'Normale — PEP N-2 = 2023'],
-      [2026, 193674, 2024, 'Partielle (1/06/2026) — PEP N-2 = 2024'],
+    // Seed complet depuis HOD IIP (1/06/2026) — Menu 7 (PEP brute) + Menu 5.5 (dotations et PEP pondérées)
+    // Dérogations COVID : dotations 2022/2023/2024 ont utilisé PEP 2019 (A.Gt 27-10-2022)
+    // usage_historique = dotation_utilisable - solde  (pour années sans données Lucie)
+    const hodData = [
+      // [civile, dot_init, dot_util, pep_brute_menu7, pep_ref, pep_calc, pep_an_used, usage_hist, notes]
+      [2018, 12931, 12767, 196092, 323078, 364980, null,  12742, null],
+      [2019, 13255, 12939, 167132, 325598, 303531, null,  13046, null],
+      [2020, 13359, 12901, 152372, 325598, 311443, null,  12706, null],
+      [2021, 13359, 12621, 142797, 325598, 281195, 2019,  12387, null],
+      [2022, 13359, 12412, 123255, 280292, 238850, 2019,  11232, 'Dérogation COVID — PEP 2019 utilisées (A.Gt 27-10-2022)'],
+      [2023, 13359, 12879, 198605, 236397, 343730, 2019,  12878, 'Dérogation COVID — PEP 2019 utilisées (A.Gt 27-10-2022)'],
+      [2024, 13359, 13126, 296279, 238548, 483394, 2019,  13197, 'Dérogation COVID — PEP 2019 utilisées (A.Gt 27-10-2022)'],
+      [2025, 13480, 12882, 313739, 239812, 554127, 2023,  null,  'Normale — PEP N-2 = 2023'],
+      [2026, 13552, 13552, 193674, null,   346072, 2024,  null,  'Partielle (1/06/2026) — PEP N-2 = 2024'],
     ];
-    const upsertPep = db.prepare(`
-      INSERT INTO dotation_civile (annee_civile, dotation_organique, periodes_eleves, pep_annee_utilisee, notes)
-      VALUES (?, 0, ?, ?, ?)
+    const upsertHod = db.prepare(`
+      INSERT INTO dotation_civile
+        (annee_civile, dotation_organique, dotation_utilisable, periodes_eleves, pep_reference,
+         pep_calculee, pep_annee_utilisee, usage_historique_organique, notes)
+      VALUES (?,?,?,?,?,?,?,?,?)
       ON CONFLICT(annee_civile) DO UPDATE SET
-        periodes_eleves    = excluded.periodes_eleves,
-        pep_annee_utilisee = excluded.pep_annee_utilisee,
-        notes = COALESCE(dotation_civile.notes, excluded.notes)
+        dotation_organique            = excluded.dotation_organique,
+        dotation_utilisable           = excluded.dotation_utilisable,
+        periodes_eleves               = excluded.periodes_eleves,
+        pep_reference                 = excluded.pep_reference,
+        pep_calculee                  = excluded.pep_calculee,
+        pep_annee_utilisee            = excluded.pep_annee_utilisee,
+        usage_historique_organique    = COALESCE(excluded.usage_historique_organique, dotation_civile.usage_historique_organique),
+        notes                         = COALESCE(excluded.notes, dotation_civile.notes)
     `);
-    for (const [annee, pep, pep_an, notes] of pepHist) upsertPep.run(annee, pep, pep_an, notes);
-    console.log('[migration] PEP historiques IIP 2018-2026 chargés dans dotation_civile');
+    for (const [ac, di, du, pb, pr, pc, pau, uh, notes] of hodData)
+      upsertHod.run(ac, di, du, pb, pr, pc, pau, uh, notes);
+    console.log('[migration] HOD IIP 2018-2026 : dotations + PEP chargées (Menu 7 + Menu 5.5)');
 
     // Seeder dotation_civile depuis les paramètres PERIODES_DISPO existants
     const p25 = db.prepare("SELECT valeur_num FROM parametre_financier WHERE cle='PERIODES_DISPO_25'").get();

@@ -242,20 +242,25 @@ r.get('/civil/:annee', authRequired, (req, res) => {
 r.put('/dotation-civile/:annee', authRequired, roleRequired('admin', 'editeur'), (req, res) => {
   const y = parseInt(req.params.annee);
   if (!y || y < 2000 || y > 2100) return res.status(400).json({ error: 'Année civile invalide' });
-  const { dotation_organique, usage_historique_organique, notes, periodes_eleves, pep_reference, pep_annee_utilisee } = req.body;
+  const { dotation_organique, usage_historique_organique, notes, periodes_eleves,
+          pep_reference, pep_annee_utilisee, pep_calculee, dotation_utilisable } = req.body;
   if (dotation_organique == null) return res.status(400).json({ error: 'dotation_organique requis' });
   db.prepare(`
-    INSERT INTO dotation_civile (annee_civile, dotation_organique, usage_historique_organique, notes, periodes_eleves, pep_reference, pep_annee_utilisee)
-    VALUES (?, ?, ?, ?, ?, ?, ?)
+    INSERT INTO dotation_civile (annee_civile, dotation_organique, usage_historique_organique, notes,
+      periodes_eleves, pep_reference, pep_annee_utilisee, pep_calculee, dotation_utilisable)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
     ON CONFLICT(annee_civile) DO UPDATE SET
       dotation_organique            = excluded.dotation_organique,
       usage_historique_organique    = excluded.usage_historique_organique,
       notes                         = excluded.notes,
       periodes_eleves               = excluded.periodes_eleves,
       pep_reference                 = excluded.pep_reference,
-      pep_annee_utilisee            = excluded.pep_annee_utilisee
+      pep_annee_utilisee            = excluded.pep_annee_utilisee,
+      pep_calculee                  = excluded.pep_calculee,
+      dotation_utilisable           = excluded.dotation_utilisable
   `).run(y, dotation_organique, usage_historique_organique ?? null, notes ?? null,
-         periodes_eleves ?? null, pep_reference ?? null, pep_annee_utilisee ?? null);
+         periodes_eleves ?? null, pep_reference ?? null, pep_annee_utilisee ?? null,
+         pep_calculee ?? null, dotation_utilisable ?? null);
   res.json({ ok: true });
 });
 
