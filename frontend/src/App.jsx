@@ -105,11 +105,9 @@ function ProtectedLayout({ children }) {
 
   const nav = isCoordination
     ? [
-        ['/',             'Tableau de bord'],
         ['/attributions', 'Attributions']
       ]
     : [
-        ['/',             'Tableau de bord'],
         ['/attributions', 'Attributions'],
         ['/professeurs',  'Professeurs'],
         ['/listes',       'Listes'],
@@ -208,7 +206,7 @@ export default function App() {
     <ErrorBoundary>
       <Routes>
       <Route path="/login" element={<Login />} />
-      <Route path="/"             element={<ProtectedLayout><Dashboard /></ProtectedLayout>} />
+      <Route path="/"             element={<Navigate to="/attributions" replace />} />
       <Route path="/attributions" element={<ProtectedLayout><Attributions /></ProtectedLayout>} />
       <Route path="/professeurs"  element={<ProtectedLayout><Professeurs /></ProtectedLayout>} />
       <Route path="/listes" element={
