@@ -143,6 +143,24 @@ r.get('/by-cours', authRequired, (req, res) => {
 });
 
 // Détail
+// ─── GET /attributions/annees-par-section ────────────────────────────────────
+// Retourne les années scolaires qui ont des attributions, par section.
+// IMPORTANT : doit être déclarée AVANT /:id sinon Express capture "annees-par-section" comme un id.
+r.get('/annees-par-section', authRequired, (req, res) => {
+  const rows = db.prepare(`
+    SELECT section, annee_scolaire, COUNT(*) as n
+    FROM attribution
+    GROUP BY section, annee_scolaire
+    ORDER BY section, annee_scolaire DESC
+  `).all();
+  const map = {};
+  for (const row of rows) {
+    if (!map[row.section]) map[row.section] = [];
+    map[row.section].push({ annee: row.annee_scolaire, n: row.n });
+  }
+  res.json(map);
+});
+
 r.get('/:id', authRequired, (req, res) => {
   const row = db.prepare('SELECT * FROM v_attribution_complete WHERE id = ?').get(req.params.id);
   if (!row) return res.status(404).json({ error: 'Attribution introuvable' });
@@ -602,24 +620,6 @@ r.post('/auto-fill-periodes', authRequired, roleRequired('admin', 'editeur', 'co
   `).run(section, annee);
 
   res.json({ ok: true, updated: result.changes });
-});
-
-// ─── GET /attributions/annees-par-section ────────────────────────────────────
-// Retourne les années scolaires qui ont des attributions, par section
-r.get('/annees-par-section', authRequired, (req, res) => {
-  const rows = db.prepare(`
-    SELECT section, annee_scolaire, COUNT(*) as n
-    FROM attribution
-    GROUP BY section, annee_scolaire
-    ORDER BY section, annee_scolaire DESC
-  `).all();
-  // Regrouper par section
-  const map = {};
-  for (const row of rows) {
-    if (!map[row.section]) map[row.section] = [];
-    map[row.section].push({ annee: row.annee_scolaire, n: row.n });
-  }
-  res.json(map);
 });
 
 // ─── POST /attributions/copier-section ───────────────────────────────────────
