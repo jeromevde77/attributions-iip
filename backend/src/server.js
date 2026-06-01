@@ -26,6 +26,7 @@ import proceduresRoutes from './routes/procedures.js';
 import planificationRoutes from './routes/planification.js';
 import parametresRoutes    from './routes/parametres.js';
 import prerequisRoutes     from './routes/prerequis.js';
+import planifIARoutes      from './routes/planification-ia.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
@@ -1613,7 +1614,8 @@ app.use('/api/contrats',    contratsRoutes);
 app.use('/api/procedures',    proceduresRoutes);
 app.use('/api/planification', planificationRoutes);
 app.use('/api/parametres',   parametresRoutes);
-app.use('/api/prerequis',    prerequisRoutes);
+app.use('/api/prerequis',      prerequisRoutes);
+app.use('/api/planification-ia', planifIARoutes);
 
 // Route logo IIP
 import { createRequire as _cr } from 'module';

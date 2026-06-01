@@ -551,6 +551,187 @@ function ModalImport({ annee, onImported, onClose }) {
   );
 }
 
+// ─── Modal génération IA ──────────────────────────────────────────────────────
+function ModalIA({ annee, section, onApplied, onClose }) {
+  const [step, setStep]             = useState('config'); // config | preview | applying | done
+  const [preserverManuel, setPreserver] = useState(true);
+  const [preview, setPreview]       = useState(null);
+  const [loading, setLoading]       = useState(false);
+  const [error, setError]           = useState(null);
+
+  async function genererPreview() {
+    setLoading(true); setError(null);
+    try {
+      const d = await authFetch('/api/planification-ia/generer', {
+        method: 'POST',
+        body: JSON.stringify({ section, annee_scolaire: annee, mode: 'preview', preserverManuel }),
+      });
+      if (d.error) { setError(d.error); return; }
+      setPreview(d);
+      setStep('preview');
+    } catch(e) { setError(e.message); }
+    finally { setLoading(false); }
+  }
+
+  async function appliquer() {
+    setStep('applying'); setError(null);
+    try {
+      const d = await authFetch('/api/planification-ia/generer', {
+        method: 'POST',
+        body: JSON.stringify({ section, annee_scolaire: annee, mode: 'apply', preserverManuel }),
+      });
+      if (d.error) { setError(d.error); setStep('preview'); return; }
+      setStep('done');
+      setTimeout(() => { onApplied(); onClose(); }, 1500);
+    } catch(e) { setError(e.message); setStep('preview'); }
+  }
+
+  const nbCellules = preview ? Object.values(preview.proposition).reduce((s, c) => s + Object.keys(c).length, 0) : 0;
+
+  return (
+    <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center">
+      <div className="bg-white rounded-xl shadow-2xl w-full max-w-xl flex flex-col max-h-[90vh]">
+        {/* Header */}
+        <div className="flex items-center justify-between px-6 py-4 border-b">
+          <div>
+            <h3 className="font-semibold text-gray-800">✨ Planification IA — {section}</h3>
+            <p className="text-xs text-gray-400 mt-0.5">{annee}</p>
+          </div>
+          <button onClick={onClose} className="text-gray-400 hover:text-gray-600">✕</button>
+        </div>
+
+        <div className="flex-1 overflow-auto px-6 py-5 space-y-4">
+
+          {/* Step : config */}
+          {step === 'config' && (
+            <>
+              <div className="bg-iip-mauve/5 border border-iip-mauve/20 rounded-lg p-4 text-sm text-gray-700 space-y-2">
+                <p className="font-medium text-iip-mauve">Ce que Lucie IA va faire :</p>
+                <ul className="space-y-1 text-xs text-gray-600 list-disc list-inside">
+                  <li>Respecter l'ordre des prérequis UE (organigramme)</li>
+                  <li>Distribuer les heures uniformément selon le quadrimestre de chaque UE</li>
+                  <li>Placer EV1, VC et EV2 automatiquement aux bonnes semaines</li>
+                  <li>Appliquer le pattern d'alternance de chaque groupe</li>
+                </ul>
+              </div>
+
+              <label className="flex items-center gap-3 cursor-pointer p-3 border border-gray-200 rounded-lg hover:bg-gray-50">
+                <input type="checkbox" checked={preserverManuel} onChange={e => setPreserver(e.target.checked)}
+                  className="w-4 h-4 accent-iip-mauve" />
+                <div>
+                  <p className="text-sm font-medium text-gray-700">Préserver mes saisies manuelles</p>
+                  <p className="text-xs text-gray-400">Les cellules que tu as saisies toi-même ne seront pas écrasées</p>
+                </div>
+              </label>
+
+              {error && <p className="text-sm text-red-600 bg-red-50 border border-red-200 rounded p-3">{error}</p>}
+            </>
+          )}
+
+          {/* Step : preview */}
+          {step === 'preview' && preview && (
+            <>
+              <div className="grid grid-cols-3 gap-3 text-center">
+                <div className="bg-iip-mauve/5 rounded-lg p-3">
+                  <p className="text-2xl font-bold text-iip-mauve">{preview.meta.groupes_traites}</p>
+                  <p className="text-xs text-gray-500">groupes planifiés</p>
+                </div>
+                <div className="bg-iip-gold/10 rounded-lg p-3">
+                  <p className="text-2xl font-bold text-iip-gold">{nbCellules}</p>
+                  <p className="text-xs text-gray-500">cellules à créer</p>
+                </div>
+                <div className={`rounded-lg p-3 ${preview.alertes.length ? 'bg-red-50' : 'bg-green-50'}`}>
+                  <p className={`text-2xl font-bold ${preview.alertes.length ? 'text-red-600' : 'text-green-600'}`}>
+                    {preview.alertes.length}
+                  </p>
+                  <p className="text-xs text-gray-500">alertes</p>
+                </div>
+              </div>
+
+              {/* Ordre des UE */}
+              <div>
+                <p className="text-xs font-medium text-gray-500 mb-2">Ordre de planification (prérequis respectés)</p>
+                <div className="flex flex-wrap gap-1">
+                  {preview.meta.ue_ordre.map((n, i) => (
+                    <span key={n} className="text-[10px] bg-gray-100 text-gray-600 px-2 py-0.5 rounded">
+                      {i+1}. UE{n}
+                    </span>
+                  ))}
+                </div>
+              </div>
+
+              {/* Semaines clés */}
+              <div className="grid grid-cols-3 gap-2 text-xs">
+                {[
+                  { label: 'EV1', semId: preview.meta.sem_ev1, color: 'bg-orange-100 text-orange-700' },
+                  { label: 'VC',  semId: preview.meta.sem_vc,  color: 'bg-purple-100 text-purple-700' },
+                  { label: 'EV2', semId: preview.meta.sem_ev2, color: 'bg-red-100 text-red-700' },
+                ].map(({ label, semId, color }) => (
+                  <div key={label} className={`rounded px-2 py-1.5 ${color} text-center`}>
+                    <span className="font-bold">{label}</span>
+                    {semId ? <span className="ml-1">sem. #{semId}</span> : <span className="ml-1 opacity-50">non posé</span>}
+                  </div>
+                ))}
+              </div>
+
+              {/* Alertes */}
+              {preview.alertes.length > 0 && (
+                <div className="space-y-1.5">
+                  <p className="text-xs font-medium text-red-600">⚠ Alertes ({preview.alertes.length})</p>
+                  {preview.alertes.map((a, i) => (
+                    <div key={i} className="text-xs bg-red-50 border border-red-200 rounded p-2 text-red-700">{a.msg}</div>
+                  ))}
+                </div>
+              )}
+
+              {error && <p className="text-sm text-red-600 bg-red-50 border border-red-200 rounded p-3">{error}</p>}
+            </>
+          )}
+
+          {/* Step : applying */}
+          {step === 'applying' && (
+            <div className="text-center py-8 space-y-3">
+              <p className="text-3xl animate-pulse">✨</p>
+              <p className="font-medium text-gray-700">Application en cours…</p>
+            </div>
+          )}
+
+          {/* Step : done */}
+          {step === 'done' && (
+            <div className="text-center py-8 space-y-3">
+              <p className="text-3xl">✅</p>
+              <p className="font-medium text-gray-700">Planification appliquée !</p>
+              <p className="text-xs text-gray-400">La grille s'actualise…</p>
+            </div>
+          )}
+        </div>
+
+        {/* Footer */}
+        <div className="flex justify-end gap-2 px-6 py-4 border-t">
+          {step === 'config' && (
+            <>
+              <button onClick={onClose} className="border border-gray-300 text-gray-600 text-sm px-4 py-2 rounded">Annuler</button>
+              <button onClick={genererPreview} disabled={loading}
+                className="bg-iip-mauve text-white text-sm px-5 py-2 rounded hover:opacity-90 disabled:opacity-50">
+                {loading ? 'Analyse en cours…' : 'Générer un aperçu →'}
+              </button>
+            </>
+          )}
+          {step === 'preview' && (
+            <>
+              <button onClick={() => setStep('config')} className="border border-gray-300 text-gray-600 text-sm px-4 py-2 rounded">← Retour</button>
+              <button onClick={appliquer}
+                className="bg-iip-mauve text-white text-sm px-5 py-2 rounded hover:opacity-90">
+                Appliquer en brouillon
+              </button>
+            </>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ─── Page principale ──────────────────────────────────────────────────────────
 export default function Planification() {
   const annee = getAnnee();
@@ -563,6 +744,7 @@ export default function Planification() {
   const [modalGroupe, setModalGroupe] = useState(null);
   const [showCalendrier, setShowCalendrier] = useState(false);
   const [showImport, setShowImport]   = useState(false);
+  const [showIA, setShowIA]           = useState(false);
   const [pendingCells, setPendingCells] = useState({});
   const pendingRef                    = useRef({});
   const [saving, setSaving]           = useState(false);
@@ -663,6 +845,12 @@ export default function Planification() {
           className="bg-iip-gold text-white text-xs px-3 py-1.5 rounded hover:bg-iip-amber">
           ⬇ Importer
         </button>
+        {filtreSection && (
+          <button onClick={() => setShowIA(true)}
+            className="bg-iip-mauve text-white text-xs px-3 py-1.5 rounded hover:opacity-90 flex items-center gap-1">
+            ✨ Générer avec Lucie IA
+          </button>
+        )}
         <button onClick={() => setShowCalendrier(true)}
           className="border border-gray-300 text-gray-600 text-xs px-3 py-1.5 rounded hover:bg-gray-50">
           📅 Calendrier
@@ -755,6 +943,7 @@ export default function Planification() {
           onClose={() => setModalGroupe(null)} />
       )}
       {showImport && <ModalImport annee={annee} onImported={charger} onClose={() => setShowImport(false)} />}
+      {showIA && <ModalIA annee={annee} section={filtreSection} onApplied={charger} onClose={() => setShowIA(false)} />}
       {showCalendrier && <PanelCalendrier semaines={semaines} onUpdate={charger} onClose={() => setShowCalendrier(false)} />}
     </div>
   );
