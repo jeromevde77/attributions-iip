@@ -232,6 +232,17 @@ try {
     }
   }
 
+  // ── Table personnel_section : rattachement des membres CDE à une ou plusieurs sections ──
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS personnel_section (
+      personnel_etablissement_id  INTEGER NOT NULL REFERENCES personnel_etablissement(id) ON DELETE CASCADE,
+      section_code                TEXT NOT NULL,
+      PRIMARY KEY (personnel_etablissement_id, section_code)
+    );
+    CREATE INDEX IF NOT EXISTS idx_ps_pe ON personnel_section(personnel_etablissement_id);
+    CREATE INDEX IF NOT EXISTS idx_ps_section ON personnel_section(section_code);
+  `);
+
   // Nettoyage : supprimer l'ancienne table membres_cde si elle existe
   try { db.exec(`DROP TABLE IF EXISTS membres_cde`); } catch { /* ignoré */ }
   // Option B : chaque génération est CONSERVÉE et horodatée (traçabilité FWB).

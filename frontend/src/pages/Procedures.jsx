@@ -255,14 +255,14 @@ function OutilRecours() {
         const map = new Map();
         for (const sg of (Array.isArray(d) ? d : [])) {
           for (const ue of (sg.ues || [])) {
-            if (!map.has(ue.ue_num)) map.set(ue.ue_num, ue);
+            if (!map.has(ue.ue_num)) map.set(ue.ue_num, { ...ue, _section: sg.section });
           }
         }
         setUes([...map.values()].sort((a,b) => (a.ue_num||0)-(b.ue_num||0)));
       }).catch(() => {});
   }, [annee]);
 
-  // Membres fixes du CDE (chargés depuis la DB au démarrage)
+  // Membres fixes du CDE (chargés depuis la DB au démarrage, avec leurs sections)
   const [membresCde, setMembresCde] = useState([]);
   useEffect(() => {
     authFetch('/api/ref/membres-cde')
@@ -275,6 +275,7 @@ function OutilRecours() {
     if (!ueNum) { setProfs([]); setProfsPresents(new Set()); return; }
     const ue = ues.find(u => String(u.ue_num) === String(ueNum));
     if (ue) setUeNom(ue.ue_nom || '');
+    const ueSection = ue?._section || null;
     setLoadingProfs(true);
     authFetch(`/api/attributions?annee=${encodeURIComponent(annee)}&ue_num=${encodeURIComponent(ueNum)}`)
       .then(rows => {
@@ -287,8 +288,14 @@ function OutilRecours() {
             ps.push({ id: r.professeur_id, nom: parts[0] || '', prenom: parts.slice(1).join(' ') || '', nomComplet: r.professeur || '', qualite: 'Enseignant(e)' });
           }
         }
+        // Filtrer les membres CDE : garder ceux sans section assignée (direction/secrétariat)
+        // ou dont une section correspond à la section de l'UE
+        const cdeFiltrés = membresCde.filter(m =>
+          !m.sections || m.sections.length === 0 ||
+          (ueSection && m.sections.includes(ueSection))
+        );
         // Membres CDE en tête, puis les enseignants de l'UE
-        setProfs([...membresCde, ...ps]);
+        setProfs([...cdeFiltrés, ...ps]);
       }).catch(() => setProfs([...membresCde]))
       .finally(() => setLoadingProfs(false));
   }, [ueNum, annee, membresCde]);
@@ -795,7 +802,7 @@ function OutilFraude() {
         const map = new Map();
         for (const sg of (Array.isArray(d) ? d : []))
           for (const ue of (sg.ues || []))
-            if (!map.has(ue.ue_num)) map.set(ue.ue_num, ue);
+            if (!map.has(ue.ue_num)) map.set(ue.ue_num, { ...ue, _section: sg.section });
         setUes([...map.values()].sort((a,b) => (a.ue_num||0)-(b.ue_num||0)));
       }).catch(() => {});
     authFetch('/api/ref/membres-cde')
@@ -807,6 +814,7 @@ function OutilFraude() {
     if (!ueNum) { setProfs([]); setProfsPresents(new Set()); return; }
     const ue = ues.find(u => String(u.ue_num) === String(ueNum));
     if (ue) setUeNom(ue.ue_nom || '');
+    const ueSection = ue?._section || null;
     setLoadingProfs(true);
     authFetch(`/api/attributions?annee=${encodeURIComponent(annee)}&ue_num=${encodeURIComponent(ueNum)}`)
       .then(rows => {
@@ -817,7 +825,11 @@ function OutilFraude() {
             const parts = (r.professeur||'').split(' ');
             ps.push({ id: r.professeur_id, nom: parts[0]||'', prenom: parts.slice(1).join(' ')||'', nomComplet: r.professeur||'', qualite:'Enseignant(e)' });
           }
-        setProfs([...membresCde, ...ps]);
+        const cdeFiltrés = membresCde.filter(m =>
+          !m.sections || m.sections.length === 0 ||
+          (ueSection && m.sections.includes(ueSection))
+        );
+        setProfs([...cdeFiltrés, ...ps]);
       }).catch(() => setProfs([...membresCde]))
       .finally(() => setLoadingProfs(false));
   }, [ueNum, annee, membresCde]);
