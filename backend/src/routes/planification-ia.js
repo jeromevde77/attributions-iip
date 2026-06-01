@@ -152,29 +152,9 @@ r.post('/generer', authRequired, roleRequired('admin', 'editeur'), (req, res) =>
     prerequisMap[ue_num].push(prerequis_num);
   }
 
-  // Ajouter les prérequis implicites par niveau BA
+  // BA1/BA2/BA3 = années académiques différentes, pas des blocs intra-annuels
+  // → pas de prérequis implicites entre niveaux
   const ueNums = [...new Set(groupes.map(g => g.ue_num))];
-  const niveaux = { BA1: [], BA2: [], BA3: [] };
-  for (const g of groupes) {
-    const niv = g.ue_niv;
-    if (niv && niveaux[niv] && !niveaux[niv].includes(g.ue_num)) {
-      niveaux[niv].push(g.ue_num);
-    }
-  }
-  // BA2 dépend de toutes BA1
-  for (const ue2 of niveaux.BA2) {
-    if (!prerequisMap[ue2]) prerequisMap[ue2] = [];
-    for (const ue1 of niveaux.BA1) {
-      if (!prerequisMap[ue2].includes(ue1)) prerequisMap[ue2].push(ue1);
-    }
-  }
-  // BA3 dépend de toutes BA2
-  for (const ue3 of niveaux.BA3) {
-    if (!prerequisMap[ue3]) prerequisMap[ue3] = [];
-    for (const ue2 of niveaux.BA2) {
-      if (!prerequisMap[ue3].includes(ue2)) prerequisMap[ue3].push(ue2);
-    }
-  }
   const ueOrdre = trierParPrerequis(ueNums, prerequisMap);
 
   // ── 5. Charger les cellules manuelles existantes ──────────────────────────
