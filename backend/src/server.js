@@ -841,6 +841,37 @@ try {
       );
     `);
 
+    // periodes_eleves + pep_reference + pep_annee_utilisee sur dotation_civile
+    try { db.exec("ALTER TABLE dotation_civile ADD COLUMN periodes_eleves REAL"); } catch {}
+    try { db.exec("ALTER TABLE dotation_civile ADD COLUMN pep_reference    REAL"); } catch {}
+    try { db.exec("ALTER TABLE dotation_civile ADD COLUMN pep_annee_utilisee INTEGER"); } catch {}
+
+    // Seeder historique PEP depuis HOD IIP (1/06/2026)
+    // Années 2018-2026 : PEP connues ; dotation_organique = 0 pour les années sans données Lucie
+    // Dérogations COVID : dotation 2022/2023/2024 ont utilisé PEP 2019 (A.Gt 27-10-2022)
+    const pepHist = [
+      // [annee_civile, periodes_eleves, pep_annee_utilisee, notes]
+      [2018, 196092, 2016, null],
+      [2019, 167132, 2017, null],
+      [2020, 152372, 2018, null],
+      [2021, 142797, 2019, null],
+      [2022, 123255, 2019, 'Dérogation COVID — PEP 2019 utilisées (A.Gt 27-10-2022)'],
+      [2023, 198605, 2019, 'Dérogation COVID — PEP 2019 utilisées (A.Gt 27-10-2022)'],
+      [2024, 296279, 2019, 'Dérogation COVID — PEP 2019 utilisées (A.Gt 27-10-2022)'],
+      [2025, 313739, 2023, 'Normale — PEP N-2 = 2023'],
+      [2026, 193674, 2024, 'Partielle (1/06/2026) — PEP N-2 = 2024'],
+    ];
+    const upsertPep = db.prepare(`
+      INSERT INTO dotation_civile (annee_civile, dotation_organique, periodes_eleves, pep_annee_utilisee, notes)
+      VALUES (?, 0, ?, ?, ?)
+      ON CONFLICT(annee_civile) DO UPDATE SET
+        periodes_eleves    = excluded.periodes_eleves,
+        pep_annee_utilisee = excluded.pep_annee_utilisee,
+        notes = COALESCE(dotation_civile.notes, excluded.notes)
+    `);
+    for (const [annee, pep, pep_an, notes] of pepHist) upsertPep.run(annee, pep, pep_an, notes);
+    console.log('[migration] PEP historiques IIP 2018-2026 chargés dans dotation_civile');
+
     // Seeder dotation_civile depuis les paramètres PERIODES_DISPO existants
     const p25 = db.prepare("SELECT valeur_num FROM parametre_financier WHERE cle='PERIODES_DISPO_25'").get();
     const p26 = db.prepare("SELECT valeur_num FROM parametre_financier WHERE cle='PERIODES_DISPO_26'").get();

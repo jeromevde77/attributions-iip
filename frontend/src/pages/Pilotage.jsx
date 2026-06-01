@@ -3,6 +3,7 @@ import { api, getAnnee } from '../lib/api.js';
 import {
   BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer,
   Legend, CartesianGrid, ReferenceLine,
+  ComposedChart, Line,
 } from 'recharts';
 
 // ── Utilitaires ──────────────────────────────────────────────────────────────
@@ -142,6 +143,53 @@ export default function Pilotage() {
     'Usage enveloppes':   y.enveloppes.reduce((s, e) => s + (e.usage || 0), 0),
   })), [civil]);
 
+  // Données PEP pour le graphique combiné (toutes années avec PEP, triées)
+  const pepChartData = useMemo(() =>
+    civil
+      .filter(y => y.periodes_eleves > 0)
+      .sort((a, b) => a.annee_civile - b.annee_civile)
+      .map(y => ({
+        annee: y.annee_civile,
+        'PEP':       y.periodes_eleves,
+        'PEP réf.':  y.pep_reference || null,
+        'Dotation':  y.dotation_organique > 0 ? y.dotation_organique : null,
+      })),
+    [civil]
+  );
+
+  // Table analyse PEP → dotation (mécanisme ±8 %)
+  const pepTableData = useMemo(() => {
+    const byYear = Object.fromEntries(civil.map(y => [y.annee_civile, y]));
+    return civil
+      .filter(y => y.periodes_eleves > 0 || y.dotation_organique > 0)
+      .sort((a, b) => a.annee_civile - b.annee_civile)
+      .map(y => {
+        const pep_an = y.pep_annee_utilisee;
+        const pep    = pep_an ? byYear[pep_an]?.periodes_eleves : null;
+        const pep_ref = y.pep_reference;
+        const ecart  = (pep != null && pep_ref) ? (pep / pep_ref - 1) * 100 : null;
+        const zone   = ecart == null ? null :
+          Math.abs(ecart) <= 8 ? 'NEUTRE' :
+          ecart > 8 ? 'HAUSSE' : 'BAISSE';
+        // Estimation perte si baisse (Art. 6 A.Gt 22-11-2002)
+        const perte  = (zone === 'BAISSE' && y.dotation_organique > 0)
+          ? Math.round((y.dotation_organique / 4) * Math.min(Math.abs(ecart), 50) / 100)
+          : null;
+        return {
+          annee_civile: y.annee_civile,
+          pep_annee_utilisee: pep_an,
+          pep,
+          pep_ref,
+          ecart,
+          zone,
+          perte,
+          dotation: y.dotation_organique > 0 ? y.dotation_organique : null,
+          derogation: y.notes?.includes('Dérogation') || false,
+          partiel:    y.notes?.includes('artiel') || false,
+        };
+      });
+  }, [civil]);
+
   // ── Onglet synthèse ─────────────────────────────────────────────────────────
   const renderSynthese = () => {
     if (!selectedData) return <div className="text-gray-400 py-12 text-center">Aucune donnée</div>;
@@ -182,7 +230,7 @@ export default function Pilotage() {
         {/* Graphique multi-années */}
         {chartData.length > 1 && (
           <div className="bg-white rounded-xl border border-gray-200 p-4 shadow-sm">
-            <div className="text-xs font-semibold text-gray-600 uppercase tracking-wider mb-4">Comparaison pluriannuelle</div>
+            <div className="text-xs font-semibold text-gray-600 uppercase tracking-wider mb-4">Comparaison pluriannuelle — dotation</div>
             <ResponsiveContainer width="100%" height={280}>
               <BarChart data={chartData} barCategoryGap="30%">
                 <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
@@ -196,6 +244,95 @@ export default function Pilotage() {
                 <Bar dataKey="Usage enveloppes"   fill="#7bc4a8" radius={[3, 3, 0, 0]} />
               </BarChart>
             </ResponsiveContainer>
+          </div>
+        )}
+
+        {/* Section PEP */}
+        {pepChartData.length > 0 && (
+          <div className="space-y-3">
+            <div className="bg-white rounded-xl border border-gray-200 p-4 shadow-sm">
+              <div className="flex items-center justify-between mb-1">
+                <div className="text-xs font-semibold text-gray-600 uppercase tracking-wider">
+                  Périodes-élèves pondérées (PEP) · Art. 3 A.Gt 22-11-2002
+                </div>
+                <span className="text-[10px] text-gray-400 bg-gray-100 px-2 py-0.5 rounded">
+                  Dotation civile N = basée sur PEP N-2 · Bande neutre ±8 %
+                </span>
+              </div>
+              <p className="text-xs text-gray-400 mb-3">
+                Dérogations COVID: dotations 2022/2023/2024 ont utilisé PEP 2019 (A.Gt 27-10-2022).
+                PEP de référence à saisir dans Configuration (valeur pivot HOD).
+              </p>
+              <ResponsiveContainer width="100%" height={240}>
+                <ComposedChart data={pepChartData}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
+                  <XAxis dataKey="annee" tick={{ fontSize: 11 }} />
+                  <YAxis yAxisId="pep" tick={{ fontSize: 10 }} tickFormatter={v => (v/1000).toFixed(0)+'k'}
+                    label={{ value: 'PEP', angle: -90, position: 'insideLeft', fontSize: 10 }} />
+                  <YAxis yAxisId="dot" orientation="right" tick={{ fontSize: 10 }}
+                    tickFormatter={v => (v/1000).toFixed(1)+'k'}
+                    label={{ value: 'Dot. B', angle: 90, position: 'insideRight', fontSize: 10 }} />
+                  <Tooltip formatter={(v, n) => [v?.toLocaleString('fr-BE'), n]} />
+                  <Legend iconSize={8} wrapperStyle={{ fontSize: 11 }} />
+                  <Bar yAxisId="pep" dataKey="PEP"      fill="#6b7fff" radius={[3,3,0,0]} name="PEP (pér.-élèves)" />
+                  <Line yAxisId="pep" dataKey="PEP réf." stroke="#ef4444" strokeWidth={2} dot={{ r: 3 }} strokeDasharray="4 2" name="PEP réf." />
+                  <Line yAxisId="dot" dataKey="Dotation" stroke="#d1a846" strokeWidth={2} dot={{ r: 3 }} name="Dotation org. (pér. B)" />
+                </ComposedChart>
+              </ResponsiveContainer>
+            </div>
+
+            {/* Table PEP & calcul dotation */}
+            <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
+              <div className="px-4 py-2.5 border-b border-gray-100 text-xs font-semibold text-gray-600 uppercase tracking-wider">
+                Mécanisme d'ajustement de dotation
+              </div>
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead className="bg-gray-50 text-[11px] text-gray-500 uppercase tracking-wider">
+                    <tr>
+                      <th className="px-3 py-2 text-left">Dotation</th>
+                      <th className="px-3 py-2 text-right">PEP utilisée (N-2)</th>
+                      <th className="px-3 py-2 text-right">PEP valeur</th>
+                      <th className="px-3 py-2 text-right">PEP référence</th>
+                      <th className="px-3 py-2 text-right">Écart</th>
+                      <th className="px-3 py-2 text-center">Zone</th>
+                      <th className="px-3 py-2 text-right">Dotation résultante</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {pepTableData.map(row => (
+                      <tr key={row.annee_civile} className={`border-t border-gray-100 ${row.annee_civile === selYear ? 'bg-iip-gold/5' : 'hover:bg-gray-50'}`}>
+                        <td className={`px-3 py-2 font-semibold ${row.annee_civile === selYear ? 'text-iip-gold' : 'text-gray-700'}`}>
+                          {row.annee_civile} {row.annee_civile === selYear ? '◄' : ''}
+                          {row.derogation && <span className="ml-1 text-[10px] bg-amber-100 text-amber-600 px-1 rounded">dérог.</span>}
+                          {row.partiel && <span className="ml-1 text-[10px] bg-blue-100 text-blue-600 px-1 rounded">partiel</span>}
+                        </td>
+                        <td className="px-3 py-2 text-right text-gray-500 font-mono text-xs">{row.pep_annee_utilisee || '—'}</td>
+                        <td className="px-3 py-2 text-right font-mono">{row.pep ? fmt(row.pep) : '—'}</td>
+                        <td className="px-3 py-2 text-right font-mono text-gray-500">{row.pep_ref ? fmt(row.pep_ref) : <span className="text-gray-300">à saisir</span>}</td>
+                        <td className="px-3 py-2 text-right">
+                          {row.ecart != null
+                            ? <span className={Math.abs(row.ecart) > 8 ? (row.ecart > 0 ? 'text-green-600 font-semibold' : 'text-red-600 font-semibold') : 'text-gray-600'}>
+                                {sign(row.ecart)}{fmt(row.ecart, 1)} %
+                              </span>
+                            : '—'}
+                        </td>
+                        <td className="px-3 py-2 text-center">
+                          {row.zone === 'NEUTRE' && <span className="text-xs bg-green-100 text-green-700 px-2 py-0.5 rounded-full">Neutre ±8 %</span>}
+                          {row.zone === 'HAUSSE' && <span className="text-xs bg-blue-100 text-blue-700 px-2 py-0.5 rounded-full">↑ Hausse &gt;8 %</span>}
+                          {row.zone === 'BAISSE' && <span className="text-xs bg-red-100 text-red-700 px-2 py-0.5 rounded-full">↓ Baisse &lt;-8 %</span>}
+                          {row.zone == null && <span className="text-gray-300 text-xs">—</span>}
+                        </td>
+                        <td className="px-3 py-2 text-right">
+                          {row.dotation ? <span className="font-mono">{fmt(row.dotation)}</span> : <span className="text-gray-300 text-xs">—</span>}
+                          {row.zone === 'BAISSE' && row.perte ? <span className="block text-[10px] text-red-500">−{fmt(row.perte)} pér.</span> : null}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
           </div>
         )}
       </div>
@@ -264,8 +401,11 @@ export default function Pilotage() {
     setSaving(true);
     try {
       await api.dotationCivilePut(editDot.annee_civile, {
-        dotation_organique: parseFloat(editDot.dotation_organique) || 0,
-        usage_historique_organique: editDot.usage_historique_organique !== '' ? parseFloat(editDot.usage_historique_organique) : null,
+        dotation_organique:            parseFloat(editDot.dotation_organique) || 0,
+        usage_historique_organique:    editDot.usage_historique_organique !== '' ? parseFloat(editDot.usage_historique_organique) : null,
+        periodes_eleves:               editDot.periodes_eleves !== '' ? parseFloat(editDot.periodes_eleves) : null,
+        pep_reference:                 editDot.pep_reference !== '' ? parseFloat(editDot.pep_reference) : null,
+        pep_annee_utilisee:            editDot.pep_annee_utilisee !== '' ? parseInt(editDot.pep_annee_utilisee) : null,
         notes: editDot.notes || null,
       });
       setEditDot(null);
@@ -321,13 +461,16 @@ export default function Pilotage() {
         </div>
         <table className="w-full text-sm">
           <thead className="bg-gray-50 text-xs text-gray-500 uppercase tracking-wider">
-            <tr><th className="px-4 py-2 text-left">Année civile</th><th className="px-4 py-2 text-right">Dotation (pér. B)</th><th className="px-4 py-2 text-right">Usage historique</th><th className="px-4 py-2 text-left">Notes</th><th className="px-4 py-2" /></tr>
+            <tr><th className="px-4 py-2 text-left">Année civile</th><th className="px-4 py-2 text-right">Dotation (pér. B)</th><th className="px-4 py-2 text-right">PEP</th><th className="px-4 py-2 text-right">PEP réf.</th><th className="px-4 py-2 text-right">PEP an. utilisée</th><th className="px-4 py-2 text-right">Usage historique</th><th className="px-4 py-2 text-left">Notes</th><th className="px-4 py-2" /></tr>
           </thead>
           <tbody>
             {civil.map(y => editDot?.annee_civile === y.annee_civile ? (
               <tr key={y.annee_civile} className="border-t border-gray-100 bg-iip-gold/5">
                 <td className="px-4 py-2 font-semibold text-iip-gold">{y.annee_civile}</td>
-                <td className="px-4 py-2"><input type="number" value={editDot.dotation_organique} onChange={e => setEditDot({ ...editDot, dotation_organique: e.target.value })} className="border border-gray-300 rounded px-2 py-1 text-sm w-28 text-right" /></td>
+                <td className="px-4 py-2"><input type="number" value={editDot.dotation_organique} onChange={e => setEditDot({ ...editDot, dotation_organique: e.target.value })} className="border border-gray-300 rounded px-2 py-1 text-sm w-24 text-right" /></td>
+                <td className="px-4 py-2"><input type="number" value={editDot.periodes_eleves ?? ''} onChange={e => setEditDot({ ...editDot, periodes_eleves: e.target.value })} placeholder="HOD" className="border border-gray-300 rounded px-2 py-1 text-sm w-28 text-right" /></td>
+                <td className="px-4 py-2"><input type="number" value={editDot.pep_reference ?? ''} onChange={e => setEditDot({ ...editDot, pep_reference: e.target.value })} placeholder="HOD" className="border border-gray-300 rounded px-2 py-1 text-sm w-28 text-right" /></td>
+                <td className="px-4 py-2"><input type="number" value={editDot.pep_annee_utilisee ?? ''} onChange={e => setEditDot({ ...editDot, pep_annee_utilisee: e.target.value })} placeholder="ex: 2023" className="border border-gray-300 rounded px-2 py-1 text-sm w-20 text-right" /></td>
                 <td className="px-4 py-2"><input type="number" value={editDot.usage_historique_organique ?? ''} onChange={e => setEditDot({ ...editDot, usage_historique_organique: e.target.value })} placeholder="calculé si vide" className="border border-gray-300 rounded px-2 py-1 text-sm w-28 text-right" /></td>
                 <td className="px-4 py-2"><input value={editDot.notes || ''} onChange={e => setEditDot({ ...editDot, notes: e.target.value })} className="border border-gray-300 rounded px-2 py-1 text-sm w-full" /></td>
                 <td className="px-4 py-2 flex gap-1 justify-end">
@@ -338,12 +481,15 @@ export default function Pilotage() {
             ) : (
               <tr key={y.annee_civile} className="border-t border-gray-100 hover:bg-gray-50">
                 <td className="px-4 py-2.5 font-semibold text-gray-700">{y.annee_civile}</td>
-                <td className="px-4 py-2.5 text-right font-mono">{fmt(y.dotation_organique)}</td>
-                <td className="px-4 py-2.5 text-right text-gray-400 text-xs">{y.source === 'historique' ? fmt(civil.find(c => c.annee_civile === y.annee_civile)?.usage_organique) : '(calculé)'}</td>
-                <td className="px-4 py-2.5 text-xs text-gray-400">{y.notes || ''}</td>
+                <td className="px-4 py-2.5 text-right font-mono">{y.dotation_organique > 0 ? fmt(y.dotation_organique) : <span className="text-gray-300">—</span>}</td>
+                <td className="px-4 py-2.5 text-right font-mono text-blue-700">{y.periodes_eleves ? fmt(y.periodes_eleves) : <span className="text-gray-300">—</span>}</td>
+                <td className="px-4 py-2.5 text-right font-mono text-red-400">{y.pep_reference ? fmt(y.pep_reference) : <span className="text-gray-300">à saisir</span>}</td>
+                <td className="px-4 py-2.5 text-right text-gray-500 text-xs">{y.pep_annee_utilisee || '—'}</td>
+                <td className="px-4 py-2.5 text-right text-gray-400 text-xs">{y.source === 'historique' ? fmt(y.usage_organique) : '(calculé)'}</td>
+                <td className="px-4 py-2.5 text-xs text-gray-400 max-w-xs truncate">{y.notes || ''}</td>
                 <td className="px-4 py-2.5">
                   <div className="flex gap-1 justify-end">
-                    <button onClick={() => setEditDot({ annee_civile: y.annee_civile, dotation_organique: y.dotation_organique, usage_historique_organique: y.source === 'historique' ? y.usage_organique : '', notes: y.notes || '' })} className="text-iip-gold hover:text-iip-amber text-xs border border-iip-gold/30 px-2 py-1 rounded">Modifier</button>
+                    <button onClick={() => setEditDot({ annee_civile: y.annee_civile, dotation_organique: y.dotation_organique, periodes_eleves: y.periodes_eleves ?? '', pep_reference: y.pep_reference ?? '', pep_annee_utilisee: y.pep_annee_utilisee ?? '', usage_historique_organique: y.source === 'historique' ? y.usage_organique : '', notes: y.notes || '' })} className="text-iip-gold hover:text-iip-amber text-xs border border-iip-gold/30 px-2 py-1 rounded">Modifier</button>
                     <button onClick={() => deleteYear(y.annee_civile)} className="text-red-400 hover:text-red-600 text-xs px-2 py-1">🗑</button>
                   </div>
                 </td>
