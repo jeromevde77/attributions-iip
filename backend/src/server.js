@@ -25,6 +25,7 @@ import contratsRoutes   from './routes/contrats.js';
 import proceduresRoutes from './routes/procedures.js';
 import planificationRoutes from './routes/planification.js';
 import parametresRoutes    from './routes/parametres.js';
+import prerequisRoutes     from './routes/prerequis.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
@@ -502,6 +503,177 @@ try {
     db.exec(`ALTER TABLE document_archive ADD COLUMN procedure_id INTEGER REFERENCES procedure_archive(id) ON DELETE SET NULL`);
     console.log('[migration] Colonne document_archive.procedure_id ajoutée');
   }
+
+  // ── Prérequis entre UE ─────────────────────────────────────────────────────
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS ue_prerequis (
+      id              INTEGER PRIMARY KEY AUTOINCREMENT,
+      ue_num          INTEGER NOT NULL,       -- UE qui a le prérequis
+      prerequis_num   INTEGER NOT NULL,       -- UE qui doit être terminée avant
+      section         TEXT,                   -- NULL = toutes sections
+      annee_scolaire  TEXT,                   -- NULL = toutes années
+      UNIQUE(ue_num, prerequis_num, section, annee_scolaire)
+    );
+    CREATE INDEX IF NOT EXISTS idx_ueprereq_ue  ON ue_prerequis(ue_num);
+    CREATE INDEX IF NOT EXISTS idx_ueprereq_pre ON ue_prerequis(prerequis_num);
+  `);
+
+  // Flag épreuve intégrée sur la table UE
+  const _colsUE = db.prepare('PRAGMA table_info(ue)').all();
+  if (!_colsUE.find(c => c.name === 'is_epreuve_integree')) {
+    db.exec(`ALTER TABLE ue ADD COLUMN is_epreuve_integree INTEGER DEFAULT 0`);
+    console.log('[migration] Colonne ue.is_epreuve_integree ajoutée');
+    // Marquer les épreuves intégrées connues
+    const _epNums = [80, 190, 264, 307];
+    for (const n of _epNums) {
+      db.prepare('UPDATE ue SET is_epreuve_integree = 1 WHERE ue_num = ?').run(n);
+    }
+  }
+
+  // ── Créneaux horaires fixes de l'établissement ────────────────────────────
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS creneau (
+      id          INTEGER PRIMARY KEY AUTOINCREMENT,
+      heure_debut TEXT NOT NULL,   -- '08:00'
+      heure_fin   TEXT NOT NULL,   -- '10:00'
+      ordre       INTEGER NOT NULL,
+      label       TEXT
+    );
+  `);
+  const _creneaux = db.prepare('SELECT COUNT(*) AS n FROM creneau').get();
+  if (_creneaux.n === 0) {
+    const _insC = db.prepare('INSERT INTO creneau (heure_debut, heure_fin, ordre, label) VALUES (?,?,?,?)');
+    const _seedC = db.transaction(() => {
+      _insC.run('08:00', '10:00', 1, 'Matin 1');
+      _insC.run('10:15', '12:15', 2, 'Matin 2');
+      _insC.run('13:15', '15:15', 3, 'Après-midi 1');
+      _insC.run('15:30', '17:30', 4, 'Après-midi 2');
+      _insC.run('17:30', '19:30', 5, 'Soirée');
+    });
+    _seedC();
+    console.log('[seed] 5 créneaux horaires créés');
+  }
+
+  // ── Disponibilités des professeurs ────────────────────────────────────────
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS prof_disponibilite (
+      id              INTEGER PRIMARY KEY AUTOINCREMENT,
+      professeur_id   INTEGER NOT NULL REFERENCES professeur(id) ON DELETE CASCADE,
+      quadrimestre    TEXT NOT NULL,   -- 'Q1' | 'Q2'
+      jour            INTEGER NOT NULL, -- 1=lun .. 5=ven
+      creneau_id      INTEGER NOT NULL REFERENCES creneau(id),
+      disponible      INTEGER NOT NULL DEFAULT 1,
+      UNIQUE(professeur_id, quadrimestre, jour, creneau_id)
+    );
+    CREATE INDEX IF NOT EXISTS idx_profdispo_prof ON prof_disponibilite(professeur_id);
+  `);
+
+  // ── Pattern d'alternance par groupe ──────────────────────────────────────
+  const _colsGroupe = db.prepare('PRAGMA table_info(groupe)').all();
+  if (!_colsGroupe.find(c => c.name === 'pattern')) {
+    db.exec(`ALTER TABLE groupe ADD COLUMN pattern TEXT DEFAULT 'toutes'`);
+    // 'toutes' | 'paires' | 'impaires'
+    console.log('[migration] Colonne groupe.pattern ajoutée');
+  }
+  if (!_colsGroupe.find(c => c.name === 'pattern_offset')) {
+    db.exec(`ALTER TABLE groupe ADD COLUMN pattern_offset INTEGER DEFAULT 0`);
+    console.log('[migration] Colonne groupe.pattern_offset ajoutée');
+  }
+
+  // ── Flag manuel dans planification ────────────────────────────────────────
+  const _colsPlanif = db.prepare('PRAGMA table_info(planification)').all();
+  if (!_colsPlanif.find(c => c.name === 'manuel')) {
+    db.exec(`ALTER TABLE planification ADD COLUMN manuel INTEGER DEFAULT 0`);
+    console.log('[migration] Colonne planification.manuel ajoutée');
+  }
+
+  // ── Seed des prérequis depuis les organigrammes ───────────────────────────
+  const _prereqExist = db.prepare('SELECT COUNT(*) AS n FROM ue_prerequis').get();
+  if (_prereqExist.n === 0) {
+    const _insP = db.prepare(`INSERT OR IGNORE INTO ue_prerequis (ue_num, prerequis_num, section) VALUES (?,?,?)`);
+    const _seedP = db.transaction(() => {
+      // ── Psychomotricité ──────────────────────────────────────
+      const P = 'Psychomotricité';
+      _insP.run(73, 65, P);
+      _insP.run(75, 73, P);
+      _insP.run(70, 75, P);
+      _insP.run(71, 70, P);
+      _insP.run(74, 71, P);
+      _insP.run(74, 72, P);
+      _insP.run(72, 75, P);
+      _insP.run(72, 68, P);
+      _insP.run(77, 76, P);
+      _insP.run(77, 65, P);
+      _insP.run(78, 77, P);
+      _insP.run(79, 78, P);
+      _insP.run(79, 71, P);
+      _insP.run(68, 67, P);
+      // UE80 épreuve intégrée : dépend de toutes (géré via is_epreuve_integree)
+
+      // ── TIM (Imagerie médicale) ──────────────────────────────
+      const T = 'TIM';
+      _insP.run(247, 246, T);
+      _insP.run(252, 260, T);
+      _insP.run(253, 252, T);
+      _insP.run(250, 248, T);
+      _insP.run(250, 249, T);
+      _insP.run(251, 250, T);
+      _insP.run(251, 253, T);
+      _insP.run(261, 250, T);
+      _insP.run(261, 254, T);
+      _insP.run(255, 254, T);
+      _insP.run(255, 258, T);
+      _insP.run(259, 255, T);
+      _insP.run(262, 261, T);
+      _insP.run(262, 255, T);
+      _insP.run(256, 255, T);
+      _insP.run(263, 262, T);
+      _insP.run(263, 256, T);
+      _insP.run(263, 259, T);
+      // UE264 épreuve intégrée
+
+      // ── Optométrie ───────────────────────────────────────────
+      const O = 'Optométrie';
+      _insP.run(296, 287, O);
+      _insP.run(289, 303, O);
+      _insP.run(298, 291, O);
+      _insP.run(298, 290, O);
+      _insP.run(299, 298, O);
+      _insP.run(301, 291, O);
+      _insP.run(305, 299, O);
+      _insP.run(305, 301, O);
+      _insP.run(300, 299, O);
+      _insP.run(302, 301, O);
+      _insP.run(297, 286, O);
+      _insP.run(304, 288, O);
+      _insP.run(304, 295, O);
+      _insP.run(294, 292, O);
+      _insP.run(306, 305, O);
+      _insP.run(306, 300, O);
+      _insP.run(306, 302, O);
+      // UE307 épreuve intégrée
+
+      // ── Opticien ─────────────────────────────────────────────
+      const Op = 'Optique';
+      _insP.run(177, 176, Op);
+      _insP.run(182, 177, Op);
+      _insP.run(185, 182, Op);
+      _insP.run(186, 182, Op);
+      // UE190 épreuve intégrée
+    });
+    _seedP();
+    console.log('[seed] Prérequis UE chargés (Psychomotricité, TIM, Optométrie, Opticien)');
+  }
+
+  // Paramètres Q1/Q2 (ajout si absents)
+  const _qParams = [
+    ['planning.q1_debut', '2026-09-01', 'Date début Q1', null, 'planification'],
+    ['planning.q1_fin',   '2027-01-31', 'Date fin Q1',   null, 'planification'],
+    ['planning.q2_debut', '2027-02-01', 'Date début Q2', null, 'planification'],
+    ['planning.q2_fin',   '2027-06-30', 'Date fin Q2',   null, 'planification'],
+  ];
+  const _insQP = db.prepare(`INSERT OR IGNORE INTO parametre (cle, valeur, label, section, groupe) VALUES (?,?,?,?,?)`);
+  for (const p of _qParams) _insQP.run(...p);
 
   // 5c. Table ue_section (rattachement many-to-many UE <-> sections)
   db.exec(`
@@ -1441,6 +1613,7 @@ app.use('/api/contrats',    contratsRoutes);
 app.use('/api/procedures',    proceduresRoutes);
 app.use('/api/planification', planificationRoutes);
 app.use('/api/parametres',   parametresRoutes);
+app.use('/api/prerequis',    prerequisRoutes);
 
 // Route logo IIP
 import { createRequire as _cr } from 'module';

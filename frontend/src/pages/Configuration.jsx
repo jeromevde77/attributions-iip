@@ -514,6 +514,10 @@ const GROUPE_LABELS = {
 };
 
 const PARAM_TYPES = {
+  'planning.q1_debut':             { type: 'date' },
+  'planning.q1_fin':               { type: 'date' },
+  'planning.q2_debut':             { type: 'date' },
+  'planning.q2_fin':               { type: 'date' },
   'planning.ev1_heures':           { type: 'number', step: '0.5', min: '0', max: '10' },
   'planning.ev2_heures':           { type: 'number', step: '0.5', min: '0', max: '10' },
   'planning.vc_heures':            { type: 'number', step: '0.5', min: '0', max: '10' },
@@ -638,6 +642,153 @@ function GestionParametres() {
   );
 }
 
+// ─── Gestion des prérequis UE ─────────────────────────────────────────────────
+function GestionPrerequis() {
+  const [sections, setSections]   = useState([]);
+  const [section, setSection]     = useState('');
+  const [ues, setUes]             = useState([]);
+  const [prereqs, setPrereqs]     = useState([]);
+  const [loading, setLoading]     = useState(false);
+  const [newUe, setNewUe]         = useState('');
+  const [newPre, setNewPre]       = useState('');
+  const [saving, setSaving]       = useState(false);
+
+  useEffect(() => {
+    authFetch('/api/ref/sections').then(d => setSections(Array.isArray(d) ? d : []));
+  }, []);
+
+  useEffect(() => {
+    if (!section) return;
+    setLoading(true);
+    Promise.all([
+      authFetch(`/api/ref/ue?section=${encodeURIComponent(section)}`),
+      authFetch(`/api/prerequis/ue?section=${encodeURIComponent(section)}`),
+    ]).then(([u, p]) => {
+      setUes(Array.isArray(u) ? u : []);
+      setPrereqs(Array.isArray(p) ? p : []);
+    }).finally(() => setLoading(false));
+  }, [section]);
+
+  async function ajouter() {
+    if (!newUe || !newPre) return;
+    setSaving(true);
+    try {
+      await authFetch('/api/prerequis/ue', {
+        method: 'POST',
+        body: JSON.stringify({ ue_num: Number(newUe), prerequis_num: Number(newPre), section }),
+      });
+      const p = await authFetch(`/api/prerequis/ue?section=${encodeURIComponent(section)}`);
+      setPrereqs(Array.isArray(p) ? p : []);
+      setNewUe(''); setNewPre('');
+    } catch(e) { alert(e.message); }
+    finally { setSaving(false); }
+  }
+
+  async function supprimer(id) {
+    if (!confirm('Supprimer ce prérequis ?')) return;
+    await authFetch(`/api/prerequis/ue/${id}`, { method: 'DELETE' });
+    setPrereqs(prev => prev.filter(p => p.id !== id));
+  }
+
+  const ueLabel = (num) => {
+    const u = ues.find(u => u.ue_num === num);
+    return u ? `UE${num} — ${u.ue_nom}` : `UE${num}`;
+  };
+
+  // Grouper les prérequis par UE
+  const parUE = {};
+  for (const p of prereqs) {
+    if (!parUE[p.ue_num]) parUE[p.ue_num] = [];
+    parUE[p.ue_num].push(p);
+  }
+
+  return (
+    <div className="max-w-3xl space-y-4">
+      <div className="flex items-center gap-3">
+        <select value={section} onChange={e => setSection(e.target.value)}
+          className="border border-gray-300 rounded px-3 py-1.5 text-sm bg-white">
+          <option value="">— Choisir une section —</option>
+          {sections.map(s => <option key={s.code} value={s.code}>{s.code}</option>)}
+        </select>
+        {section && <span className="text-xs text-gray-400">{prereqs.length} prérequis définis</span>}
+      </div>
+
+      {section && (
+        <>
+          {/* Ajouter un prérequis */}
+          <div className="bg-white rounded-lg border border-gray-200 px-5 py-4 space-y-3">
+            <p className="text-sm font-medium text-gray-700">Ajouter un prérequis</p>
+            <div className="flex gap-2 items-end flex-wrap">
+              <div>
+                <label className="block text-xs text-gray-500 mb-1">UE qui dépend de…</label>
+                <select value={newUe} onChange={e => setNewUe(e.target.value)}
+                  className="border border-gray-300 rounded px-2 py-1.5 text-sm bg-white w-72">
+                  <option value="">— Choisir l'UE —</option>
+                  {ues.map(u => <option key={u.ue_num} value={u.ue_num}>UE{u.ue_num} — {u.ue_nom?.slice(0,40)}</option>)}
+                </select>
+              </div>
+              <div>
+                <label className="block text-xs text-gray-500 mb-1">…doit être terminée après</label>
+                <select value={newPre} onChange={e => setNewPre(e.target.value)}
+                  className="border border-gray-300 rounded px-2 py-1.5 text-sm bg-white w-72">
+                  <option value="">— Choisir le prérequis —</option>
+                  {ues.filter(u => String(u.ue_num) !== newUe).map(u => <option key={u.ue_num} value={u.ue_num}>UE{u.ue_num} — {u.ue_nom?.slice(0,40)}</option>)}
+                </select>
+              </div>
+              <button onClick={ajouter} disabled={!newUe || !newPre || saving}
+                className="bg-iip-gold text-white text-sm px-4 py-1.5 rounded hover:bg-iip-amber disabled:opacity-50">
+                + Ajouter
+              </button>
+            </div>
+          </div>
+
+          {/* Liste des prérequis groupés par UE */}
+          {loading ? (
+            <div className="text-center text-gray-400 py-8">Chargement…</div>
+          ) : Object.keys(parUE).length === 0 ? (
+            <div className="text-center text-gray-400 py-8 bg-white rounded-lg border border-gray-200">
+              Aucun prérequis défini pour {section}
+            </div>
+          ) : (
+            <div className="bg-white rounded-lg border border-gray-200 overflow-hidden">
+              <table className="w-full text-sm">
+                <thead className="bg-gray-50 text-xs text-gray-500 uppercase tracking-wide">
+                  <tr>
+                    <th className="px-4 py-3 text-left">UE</th>
+                    <th className="px-4 py-3 text-left">Dépend de (prérequis)</th>
+                    <th className="px-4 py-3 w-10"></th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-gray-100">
+                  {Object.entries(parUE).sort(([a],[b]) => Number(a)-Number(b)).map(([ue, pres]) => (
+                    pres.map((p, i) => (
+                      <tr key={p.id} className="hover:bg-gray-50">
+                        <td className="px-4 py-2 font-medium text-iip-mauve">
+                          {i === 0 ? ueLabel(Number(ue)) : ''}
+                        </td>
+                        <td className="px-4 py-2 text-gray-600">{ueLabel(p.prerequis_num)}</td>
+                        <td className="px-4 py-2">
+                          <button onClick={() => supprimer(p.id)}
+                            className="text-gray-300 hover:text-red-500 transition text-xs">✕</button>
+                        </td>
+                      </tr>
+                    ))
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+
+          <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 text-xs text-blue-700">
+            <p className="font-medium mb-0.5">💡 Comment ça fonctionne</p>
+            <p>Si UE-B dépend de UE-A, le planificateur IA s'assurera que toutes les heures de UE-A sont terminées avant que UE-B puisse commencer. Les épreuves intégrées dépendent automatiquement de toutes les UE de la section.</p>
+          </div>
+        </>
+      )}
+    </div>
+  );
+}
+
 export default function Configuration() {
   const [tab, setTab] = useState('users');
   const [historiqueActif, setHistoriqueActif] = useState(false);
@@ -753,6 +904,10 @@ export default function Configuration() {
           className={`px-4 py-2 text-sm font-medium border-b-2 -mb-px transition ${tab === 'parametres' ? 'border-iip-gold text-iip-gold' : 'border-transparent text-gray-500 hover:text-gray-700'}`}>
           ⚙ Paramètres
         </button>
+        <button onClick={() => setTab('prerequis')}
+          className={`px-4 py-2 text-sm font-medium border-b-2 -mb-px transition ${tab === 'prerequis' ? 'border-iip-gold text-iip-gold' : 'border-transparent text-gray-500 hover:text-gray-700'}`}>
+          🔗 Prérequis UE
+        </button>
         <button onClick={() => setTab('changelog')}
           className={`px-4 py-2 text-sm font-medium border-b-2 -mb-px transition ${tab === 'changelog' ? 'border-iip-gold text-iip-gold' : 'border-transparent text-gray-500 hover:text-gray-700'}`}>
           Nouveautés
@@ -773,6 +928,9 @@ export default function Configuration() {
 
       {/* ── Onglet Paramètres ── */}
       {tab === 'parametres' && <GestionParametres />}
+
+      {/* ── Onglet Prérequis ── */}
+      {tab === 'prerequis' && <GestionPrerequis />}
 
       {/* ── Onglet Utilisateurs ── */}
       {tab === 'users' && <div className="max-w-5xl"><Users embedded /></div>}
