@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { api } from '../lib/api.js';
+import { printHtml } from '../lib/print.js';
 
 /* ─── Micro-composants Lucie ──────────────────────────────────────────────── */
 function Section({ titre, children, color = 'gold' }) {
@@ -152,17 +153,14 @@ export default function EA12Editor() {
 
   async function imprimer() {
     setSaving(true); setMsg('');
-    const w = window.open('', '_blank');
-    if (!w) { alert('Veuillez autoriser les pop-ups pour ce site.'); setSaving(false); return; }
-    w.document.write('<html><head><meta charset="utf-8"></head><body style="font-family:Arial,sans-serif;padding:30px;color:#666;font-size:14px">G\u00e9n\u00e9ration en cours\u2026</body></html>');
     try {
       await api.ea12Update(id, { donnees: d });
       const token = localStorage.getItem('token');
       const r = await fetch(`/api/ea12/${id}/imprimer`, { headers: { Authorization: `Bearer ${token}` } });
       if (!r.ok) throw new Error(`Erreur ${r.status}`);
       const html = await r.text();
-      w.document.open(); w.document.write(html); w.document.close();
-    } catch (e) { w.close(); setMsg('Erreur : ' + e.message); }
+      printHtml(html);
+    } catch (e) { setMsg('Erreur : ' + e.message); }
     finally { setSaving(false); }
   }
 

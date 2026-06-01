@@ -126,6 +126,7 @@ const Indent = Extension.create({
 });
 import { useState, useEffect, useRef } from 'react';
 import { api, getAnnee } from '../lib/api.js';
+import { printHtml } from '../lib/print.js';
 import mammoth from 'mammoth/mammoth.browser.js';
 
 // Aplatit une image (data URL) sur fond blanc -> supprime toute transparence.
@@ -757,12 +758,6 @@ export default function Editeur() {
   async function generer() {
     if (!editor || !templateId) { alert('Sauvegardez d\'abord le template'); return; }
     setGenerating(true);
-    // Ouvrir la fenêtre AVANT l'await — nécessaire pour Safari (popup synchrone)
-    const w = window.open('', '_blank');
-    if (!w) { alert('Veuillez autoriser les pop-ups pour ce site.'); setGenerating(false); return; }
-    // Placeholder synchrone immédiat — maintient la fenêtre "vivante" pour Safari
-    w.document.write('<html><head><meta charset="utf-8"></head><body style="font-family:Arial,sans-serif;padding:30px;color:#666;font-size:14px">G\u00e9n\u00e9ration en cours\u2026</body></html>');
-    if (!w) { alert('Autorisez les pop-ups pour ce site'); setGenerating(false); return; }
     const token = localStorage.getItem('token');
     try {
       const r = await fetch(`/api/templates/${templateId}/generer`, {
@@ -799,19 +794,12 @@ export default function Editeur() {
             ${hasFooter ? `.doc-footer{position:fixed;bottom:0;left:0;right:0;background:white;padding:3mm ${margins.right}mm;border-top:1px solid #ccc}` : ''}
           }
         </style></head><body>
-        <div style="text-align:right;margin-bottom:10px">
-          <button onclick="window.print()" style="padding:6px 16px;background:#1a5276;color:#fff;border:none;border-radius:4px;cursor:pointer;font-size:13px">🖨 Imprimer / PDF</button>
-        </div>
         ${hasHeader ? `<div class="doc-header">${headerHtml}</div>` : ''}
         <div class="doc-body">${html}</div>
         ${hasFooter ? `<div class="doc-footer">${footerHtml}</div>` : ''}
         </body></html>`;
-      // document.write() : seule méthode compatible impression Safari (Blob URL = page blanche à l'impression)
-      w.document.open();
-      w.document.write(fullHtml);
-      w.document.close();
+      printHtml(fullHtml);
     } catch (e) {
-      w.close();
       alert('Erreur : ' + e.message);
     }
     finally { setGenerating(false); }

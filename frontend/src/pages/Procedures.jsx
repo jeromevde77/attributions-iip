@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { getAnnee } from '../lib/api.js';
+import { printHtml } from '../lib/print.js';
 
 // ─── Utilitaires ──────────────────────────────────────────────────────────────
 const TOKEN = () => localStorage.getItem('token');
@@ -317,10 +318,6 @@ function OutilRecours() {
 
   async function ouvrirDecision() {
     const profsPresentsListe = profs.filter(p => profsPresents.has(p.id));
-    const w = window.open('', '_blank');
-    if (!w) { alert('Veuillez autoriser les pop-ups pour ce site.'); return; }
-    w.document.write('<html><head><meta charset="utf-8"></head><body style="font-family:Arial,sans-serif;padding:30px;color:#666;font-size:14px">G\u00e9n\u00e9ration en cours\u2026</body></html>');
-    if (!w) { alert('Autorisez les pop-ups pour ce site'); return; }
     try {
       const res = await authFetch('/api/procedures/pv-recours', {
         method: 'POST',
@@ -333,14 +330,12 @@ function OutilRecours() {
           commentaire_cde: commentaireCDE, q, verdict, annee,
         }),
       });
-      if (res.error) { w.close(); alert('Erreur : ' + res.error); return; }
-      w.document.open();
-      w.document.write(res.html);
-      w.document.close();
+      if (res.error) { alert('Erreur : ' + res.error); return; }
       if (res.champs_manquants?.length)
         alert('⚠ Champs du modèle non disponibles pour cette procédure (laissés vides dans le document) :\n\n• '
           + res.champs_manquants.join('\n• '));
-    } catch(e) { w.close(); alert('Erreur : ' + e.message); }
+      printHtml(res.html);
+    } catch(e) { alert('Erreur : ' + e.message); }
   }
 
   // Barre de progression
@@ -828,11 +823,6 @@ function OutilFraude() {
 
   async function ouvrirPV() {
     const presents = profs.filter(p => profsPresents.has(p.id));
-    // Ouvrir la fenêtre AVANT l'await — requis par Safari (contexte événement utilisateur)
-    const w = window.open('', '_blank');
-    if (!w) { alert('Veuillez autoriser les pop-ups pour ce site.'); return; }
-    w.document.write('<html><head><meta charset="utf-8"></head><body style="font-family:Arial,sans-serif;padding:30px;color:#666;font-size:14px">G\u00e9n\u00e9ration en cours\u2026</body></html>');
-    if (!w) { alert('Autorisez les pop-ups pour ce site'); return; }
     try {
       const res = await authFetch('/api/procedures/pv-fraude', {
         method: 'POST',
@@ -849,14 +839,12 @@ function OutilFraude() {
           session, recidive, decision, annee,
         }),
       });
-      if (res.error) { w.close(); alert('Erreur : ' + res.error); return; }
-      w.document.open();
-      w.document.write(res.html);
-      w.document.close();
+      if (res.error) { alert('Erreur : ' + res.error); return; }
       if (res.champs_manquants?.length)
         alert('⚠ Champs du modèle non disponibles pour cette procédure (laissés vides dans le document) :\n\n• '
           + res.champs_manquants.join('\n• '));
-    } catch(e) { w.close(); alert('Erreur : ' + e.message); }
+      printHtml(res.html);
+    } catch(e) { alert('Erreur : ' + e.message); }
   }
 
   const steps = ['Dossier & UE', 'Faits', 'Procédure contradictoire', 'Délibération', 'PV & décision'];

@@ -95,18 +95,14 @@ function genererDepuisTemplate(slug, vars) {
 function wrapHtml(html, titre) {
   return `<!DOCTYPE html><html lang="fr"><head><meta charset="utf-8"><title>${titre}</title>
 <style>
-  @page{size:A4;margin:0}
-  body{font-family:Arial,sans-serif;font-size:11pt;color:#000;margin:0;padding:20mm 20mm 15mm;box-sizing:border-box}
+  @page{size:A4;margin:14mm}
+  body{font-family:Arial,sans-serif;font-size:11pt;color:#000;margin:0}
   img{background:#fff;-webkit-print-color-adjust:exact;print-color-adjust:exact;max-width:100%}
   h2{font-size:14pt;margin-bottom:4px}h3{font-size:11pt;border-bottom:1px solid #ccc;padding-bottom:3px;margin-top:16px}
   p{margin:5px 0;line-height:1.5}table{width:100%;border-collapse:collapse;margin:8px 0}
   td,th{border:1px solid #ccc;padding:5px 8px;vertical-align:top}
   .page-break{break-after:page;page-break-after:always;height:0;border:0;margin:0}
-  @media print{body{padding:10mm 15mm}button{display:none}}
 </style></head><body>
-<div style="text-align:right;margin-bottom:10px">
-  <button onclick="window.print()" style="padding:6px 16px;background:#1F3864;color:#fff;border:none;border-radius:4px;cursor:pointer">🖨 Imprimer / PDF</button>
-</div>
 ${html}</body></html>`;
 }
 
