@@ -595,6 +595,17 @@ export default function Planification() {
     setSaving(true);
     try {
       await authFetch('/api/planification/cellules-bulk', { method: 'PUT', body: JSON.stringify({ cellules }) });
+      // Mettre à jour grille.cellules localement pour que cellulesEffectives reflète la DB
+      setGrille(prev => {
+        if (!prev) return prev;
+        const newCellules = { ...prev.cellules };
+        for (const { groupe_id, semaine_id, heures } of cellules) {
+          const key = `${groupe_id}_${semaine_id}`;
+          if (heures === 0) delete newCellules[key];
+          else newCellules[key] = heures;
+        }
+        return { ...prev, cellules: newCellules };
+      });
       pendingRef.current = {};
       setPendingCells({});
     } finally { setSaving(false); }
