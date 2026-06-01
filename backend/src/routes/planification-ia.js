@@ -208,23 +208,9 @@ r.post('/generer', authRequired, roleRequired('admin', 'editeur'), (req, res) =>
     else if (quad === 'Q2') semainesDispos = [...semainesQ2];
     else                    semainesDispos = [...semainesCours]; // annuel ou non défini
 
-    // Vérifier les prérequis : ne pas commencer avant que les UE prérequises soient terminées
-    const pres = prerequisMap[groupe.ue_num] || [];
-    let debutMin = 0; // semaine_num minimum
-    for (const preNum of pres) {
-      const finPre = finUE[preNum];
-      if (finPre && finPre > debutMin) debutMin = finPre;
-    }
-    if (debutMin > 0) {
-      semainesDispos = semainesDispos.filter(s => s.semaine_num > debutMin);
-      if (!semainesDispos.length) {
-        alertes.push({
-          groupe_id: groupe.id,
-          ue_num: groupe.ue_num,
-          msg: `UE${groupe.ue_num} ${groupe.ue_nom || ''} : aucune semaine disponible après les prérequis (fin sem. ${debutMin}). Vérifiez les prérequis ou les quadrimestres.`
-        });
-      }
-    }
+    // Les prérequis sont inter-annuels en promotion sociale :
+    // un étudiant valide UE-A une année avant de s'inscrire à UE-B l'année suivante.
+    // → pas de contrainte de placement intra-annuel basée sur les prérequis.
 
     // Appliquer le pattern d'alternance
     semainesDispos = appliquerPattern(semainesDispos, groupe.pattern || 'toutes', groupe.pattern_offset || 0);
