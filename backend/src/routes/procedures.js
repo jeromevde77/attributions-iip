@@ -197,7 +197,104 @@ r.post('/pv-recours', authRequired, (req, res) => {
   });
 
   if (!resultat) return res.status(404).json({ error: 'Template pv-recours introuvable' });
-  res.json({ html: wrapHtml(resultat.html, `Décision CDE — ${etudiant}`), champs_manquants: resultat.champsManquants });
+
+  // ── Sauvegarder la procédure en archive ────────────────────────────────────
+  const verdictCode = verdict === 'irrecevable' ? 'irrecevable'
+    : q && (q.quorum === 'non' || q.conflitInteret === 'oui' || q.motivJustif === 'non' || q.visiteCopies === 'non' || q.publiResultats === 'non')
+      ? 'accueilli' : 'rejete';
+
+  const ue = db.prepare('SELECT ue_nom, section FROM ue WHERE ue_num = ? AND annee_scolaire = ?').get(ue_num, annee) || {};
+  const proc = db.prepare(`
+    INSERT INTO procedure_archive
+      (type, statut, etudiant, ue_num, ue_nom, section, annee_scolaire, verdict,
+       date_faits, date_seance_cde, payload_json, cree_par)
+    VALUES ('recours','en_cours',?,?,?,?,?,?,?,?,?,?)
+  `).run(
+    etudiant, ue_num, ue_nom || ue.ue_nom || null,
+    ue.section || null, annee, verdictCode,
+    date_publi || null, date_seance || null,
+    JSON.stringify(req.body), req.user?.email || null
+  );
+
+  res.json({
+    html: wrapHtml(resultat.html, `Décision CDE — ${etudiant}`),
+    champs_manquants: resultat.champsManquants,
+    procedure_id: proc.lastInsertRowid,
+  });
+});
+
+    etudiant, ue_num, ue_nom, membres_presents,
+    date_examen, date_faits, date_notification, date_audition,
+    date_cde, session, recidive, type_fraude, description_faits,
+    declarations_etudiant, decision, commentaire_cde, annee,
+  } = req.body;
+
+  const ueRef = [ue_num, ue_nom].filter(Boolean).join(' — ');
+
+  const composition = membres_presents?.length
+    ? tableComposition(membres_presents)
+    : '<p><em>(Composition du CDE non renseignée)</em></p>';
+
+  const sanction = decision === 'ajournement'
+    ? `L'étudiant·e est <strong>AJOURNÉ·E</strong> pour les acquis d'apprentissage visés par l'épreuve de l'UE ${ue_num} (Art. 73 §1 RDE/ROI).`
+    : `L'étudiant·e est <strong>REFUSÉ·E</strong> pour l'UE ${ue_num} (Art. 73 §2 RDE/ROI — 2e session ou récidive).`;
+
+  const fondjuridique = (session === '2' || recidive)
+    ? `L'étudiant·e se trouve en deuxième session${recidive ? ' et/ou en situation de récidive' : ''}. Conformément à l'Art. 73 §2 du RDE/ROI, le CDE peut prononcer un refus.`
+    : `L'étudiant·e se trouve en première session. Conformément à l'Art. 73 §1 du RDE/ROI, la fraude entraîne un ajournement pour les AA visés.`;
+
+  const resultat = genererDepuisTemplate('pv-fraude', {
+    'pv.etudiant':       etudiant || '',
+    'pv.ue_ref':         ueRef,
+    'pv.date_examen':    date_examen    ? dateLongue(date_examen)    : '—',
+    'pv.session':        session === '1' ? '1re session' : '2e session',
+    'pv.recidive':       recidive ? ' — <strong>RÉCIDIVE</strong>' : '',
+    'pv.date_seance':    date_cde ? `<p><strong>Date de réunion du CDE\u00a0:</strong> ${dateLongue(date_cde)}</p>` : '',
+    'pv.date_faits':     date_faits     ? dateLongue(date_faits)     : '—',
+    'pv.date_notification': date_notification ? dateLongue(date_notification) : '—',
+    'pv.vu_audition':    date_audition
+      ? `<p>Vu l'audition de l'étudiant·e qui s'est tenue le ${dateLongue(date_audition)}\u00a0;</p>`
+      : `<p>Vu que l'étudiant·e n'a pas souhaité être entendu·e dans le délai imparti\u00a0;</p>`,
+    'pv.composition':    composition,
+    'pv.faits':          `<p style="border:1px solid #ccc;padding:10px;background:#fff8f0"><strong>Type\u00a0:</strong> ${type_fraude || '—'}<br><strong>Description\u00a0:</strong><br>${(description_faits || '').replace(/\n/g,'<br>')}</p>`,
+    'pv.procedure_contradictoire': date_audition
+      ? `<p>L'étudiant·e a été notifié·e par écrit le ${dateLongue(date_notification)} et a été entendu·e le ${dateLongue(date_audition)}.</p>
+         <p><strong>Déclarations\u00a0:</strong></p>
+         <p style="border-left:3px solid #ccc;padding-left:10px;font-style:italic">${(declarations_etudiant || 'Aucune déclaration consignée.').replace(/\n/g,'<br>')}</p>`
+      : `<p>L'étudiant·e a été dûment convoqué·e (notification du ${dateLongue(date_notification)}) mais ne s'est pas présenté·e à l'audition dans le délai imparti. Le CDE a procédé sur base des pièces disponibles.</p>`,
+    'pv.analyse_juridique': `<p>${fondjuridique}</p><p>La décision doit être formellement motivée et notifiée (Art. 75 RDE/ROI). L'étudiant·e dispose du droit au recours (Art. 87-91 RDE/ROI).</p>`,
+    'pv.decision':       `<p style="font-size:12pt;font-weight:bold;border:2px solid #2e7d32;padding:10px;background:#f0fff0">${sanction}</p>`,
+    'pv.commentaire':    commentaire_cde
+      ? `<h3>V. OBSERVATIONS</h3><p style="border:1px solid #ccc;padding:10px;background:#fafafa">${commentaire_cde.replace(/\n/g,'<br>')}</p>`
+      : '',
+    'pv.voies_recours':  `<p>La présente décision peut faire l'objet d'un <strong>recours interne</strong> dans un délai de <strong>4 jours calendrier</strong> suivant la publication des résultats (Art. 88 §1 RDE/ROI), par e-mail à direction@institut-prigogine.be ou remise en main propre.</p>`,
+  });
+
+  if (!resultat) return res.status(404).json({ error: 'Template pv-recours introuvable' });
+
+  // ── Sauvegarder la procédure en archive ────────────────────────────────────
+  const verdictCode = verdict === 'irrecevable' ? 'irrecevable'
+    : q && (q.quorum === 'non' || q.conflitInteret === 'oui' || q.motivJustif === 'non' || q.visiteCopies === 'non' || q.publiResultats === 'non')
+      ? 'accueilli' : 'rejete';
+
+  const ue = db.prepare('SELECT ue_nom, section FROM ue WHERE ue_num = ? AND annee_scolaire = ?').get(ue_num, annee) || {};
+  const proc = db.prepare(`
+    INSERT INTO procedure_archive
+      (type, statut, etudiant, ue_num, ue_nom, section, annee_scolaire, verdict,
+       date_faits, date_seance_cde, payload_json, cree_par)
+    VALUES ('recours','en_cours',?,?,?,?,?,?,?,?,?,?)
+  `).run(
+    etudiant, ue_num, ue_nom || ue.ue_nom || null,
+    ue.section || null, annee, verdictCode,
+    date_publi || null, date_seance || null,
+    JSON.stringify(req.body), req.user?.email || null
+  );
+
+  res.json({
+    html: wrapHtml(resultat.html, `Décision CDE — ${etudiant}`),
+    champs_manquants: resultat.champsManquants,
+    procedure_id: proc.lastInsertRowid,
+  });
 });
 
 // ─── POST /procedures/pv-fraude ───────────────────────────────────────────────
@@ -251,7 +348,97 @@ r.post('/pv-fraude', authRequired, (req, res) => {
   });
 
   if (!resultat) return res.status(404).json({ error: 'Template pv-fraude introuvable' });
-  res.json({ html: wrapHtml(resultat.html, `PV Fraude — ${etudiant}`), champs_manquants: resultat.champsManquants });
+
+  // ── Sauvegarder la procédure en archive ────────────────────────────────────
+  const verdictFraude = decision === 'ajournement' ? 'ajourne' : 'refus';
+  const ueF = db.prepare('SELECT ue_nom, section FROM ue WHERE ue_num = ? AND annee_scolaire = ?').get(ue_num, annee) || {};
+  const procF = db.prepare(`
+    INSERT INTO procedure_archive
+      (type, statut, etudiant, ue_num, ue_nom, section, annee_scolaire, verdict,
+       date_faits, date_seance_cde, payload_json, cree_par)
+    VALUES ('fraude','en_cours',?,?,?,?,?,?,?,?,?,?)
+  `).run(
+    etudiant, ue_num, ue_nom || ueF.ue_nom || null,
+    ueF.section || null, annee, verdictFraude,
+    date_examen || date_faits || null, date_cde || null,
+    JSON.stringify(req.body), req.user?.email || null
+  );
+
+  res.json({
+    html: wrapHtml(resultat.html, `PV Fraude — ${etudiant}`),
+    champs_manquants: resultat.champsManquants,
+    procedure_id: procF.lastInsertRowid,
+  });
+});
+
+// ─── GET /procedures/archives ─────────────────────────────────────────────────
+// Paramètres : annee, type, statut, section, q (recherche étudiant)
+r.get('/archives', authRequired, (req, res) => {
+  const { annee, type, statut, section, q } = req.query;
+  let sql = 'SELECT * FROM procedure_archive WHERE 1=1';
+  const params = [];
+  if (annee)   { sql += ' AND annee_scolaire = ?'; params.push(annee); }
+  if (type)    { sql += ' AND type = ?';           params.push(type); }
+  if (statut)  { sql += ' AND statut = ?';         params.push(statut); }
+  if (section) { sql += ' AND section = ?';        params.push(section); }
+  if (q)       { sql += ' AND etudiant LIKE ?';    params.push(`%${q}%`); }
+  sql += ' ORDER BY cree_le DESC';
+  res.json(db.prepare(sql).all(...params));
+});
+
+// ─── GET /procedures/archives/:id ─────────────────────────────────────────────
+r.get('/archives/:id', authRequired, (req, res) => {
+  const proc = db.prepare('SELECT * FROM procedure_archive WHERE id = ?').get(req.params.id);
+  if (!proc) return res.status(404).json({ error: 'Procédure introuvable' });
+  // Joindre les documents archivés liés
+  proc.documents = db.prepare(
+    'SELECT id, nom_fichier, taille, genere_le FROM document_archive WHERE procedure_id = ? ORDER BY genere_le DESC'
+  ).all(proc.id);
+  res.json(proc);
+});
+
+// ─── PATCH /procedures/archives/:id ──────────────────────────────────────────
+// Modifier statut ou notes ; la suppression physique nécessite statut='a_supprimer' + confirm
+r.patch('/archives/:id', authRequired, (req, res) => {
+  const { statut } = req.body;
+  const proc = db.prepare('SELECT id FROM procedure_archive WHERE id = ?').get(req.params.id);
+  if (!proc) return res.status(404).json({ error: 'Procédure introuvable' });
+  const allowed = ['en_cours', 'clos', 'annule'];
+  if (statut && !allowed.includes(statut))
+    return res.status(400).json({ error: `Statut invalide. Valeurs acceptées : ${allowed.join(', ')}` });
+  if (statut) db.prepare('UPDATE procedure_archive SET statut = ?, modifie_le = datetime(\'now\') WHERE id = ?').run(statut, proc.id);
+  res.json({ ok: true });
+});
+
+// ─── DELETE /procedures/archives/:id ─────────────────────────────────────────
+// Suppression physique définitive — nécessite confirmation explicite (body: { confirme: true })
+r.delete('/archives/:id', authRequired, (req, res) => {
+  if (!req.body?.confirme) return res.status(400).json({ error: 'Suppression physique : envoyer { confirme: true }' });
+  const proc = db.prepare('SELECT id, etudiant, type FROM procedure_archive WHERE id = ?').get(req.params.id);
+  if (!proc) return res.status(404).json({ error: 'Procédure introuvable' });
+  db.prepare('DELETE FROM procedure_archive WHERE id = ?').run(proc.id);
+  res.json({ ok: true, supprime: `${proc.type} — ${proc.etudiant}` });
+});
+
+// ─── POST /procedures/archives/:id/regenerer ─────────────────────────────────
+// Re-génère le HTML depuis le payload sauvegardé (sans créer une nouvelle ligne en DB)
+r.post('/archives/:id/regenerer', authRequired, (req, res) => {
+  const proc = db.prepare('SELECT * FROM procedure_archive WHERE id = ?').get(req.params.id);
+  if (!proc) return res.status(404).json({ error: 'Procédure introuvable' });
+  let payload;
+  try { payload = JSON.parse(proc.payload_json); } catch { return res.status(500).json({ error: 'Payload corrompu' }); }
+  // Retourner le payload pour que le frontend re-remplisse le formulaire,
+  // ou déclencher la re-génération HTML directe selon le paramètre ?mode
+  if (req.query.mode === 'html') {
+    // Re-génération directe du HTML
+    const slug = proc.type === 'recours' ? 'pv-recours' : 'pv-fraude';
+    const resultat = genererDepuisTemplate(slug, {});
+    // On re-poste vers la même logique — on réutilise le endpoint existant via appel interne
+    return res.json({ payload, procedure_id: proc.id });
+  }
+  // Mode par défaut : retourner le payload pour pré-remplissage du formulaire
+  res.json({ payload, procedure_id: proc.id, type: proc.type });
 });
 
 export default r;
+

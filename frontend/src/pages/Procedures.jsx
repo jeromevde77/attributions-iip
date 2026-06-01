@@ -216,7 +216,7 @@ ${commentaireCDE ? `
 }
 
 // ─── OUTIL RECOURS ─────────────────────────────────────────────────────────────
-function OutilRecours() {
+function OutilRecours({ initialPayload, onPayloadConsumed }) {
   const annee = getAnnee();
   const [step, setStep] = useState(1);
   const [previewHtml, setPreviewHtml] = useState(null);
@@ -230,6 +230,22 @@ function OutilRecours() {
   const [dateDecisionInterne, setDateDecisionInterne] = useState('');
   const [dateSeance, setDateSeance] = useState('');
   const [commentaireCDE, setCommentaireCDE] = useState('');
+
+  // Pré-remplissage depuis une archive
+  useEffect(() => {
+    if (!initialPayload) return;
+    const p = initialPayload;
+    if (p.etudiant)      setEtudiant(p.etudiant);
+    if (p.ue_num)        setUeNum(String(p.ue_num));
+    if (p.ue_nom)        setUeNom(p.ue_nom);
+    if (p.date_publi)    setDatePubli(p.date_publi);
+    if (p.date_recours)  setDateRecours(p.date_recours);
+    if (p.date_seance)   setDateSeance(p.date_seance);
+    if (p.commentaire_cde) setCommentaireCDE(p.commentaire_cde);
+    if (p.q)             setQ(prev => ({ ...prev, ...p.q }));
+    setStep(1);
+    onPayloadConsumed?.();
+  }, [initialPayload]);
 
   // Profs de l'UE (depuis la DB)
   const [profs, setProfs] = useState([]);
@@ -766,7 +782,7 @@ ${commentaireCDE ? `
 </body></html>`;
 }
 
-function OutilFraude() {
+function OutilFraude({ initialPayload, onPayloadConsumed }) {
   const annee = getAnnee();
   const [step, setStep] = useState(1);
   const [previewHtml, setPreviewHtml] = useState(null);
@@ -788,6 +804,30 @@ function OutilFraude() {
   const [dateEnvoi, setDateEnvoi]         = useState('');
   const [decision, setDecision]           = useState('');
   const [commentaireCDE, setCommentaireCDE] = useState('');
+
+  // Pré-remplissage depuis une archive
+  useEffect(() => {
+    if (!initialPayload) return;
+    const p = initialPayload;
+    if (p.etudiant)              setEtudiant(p.etudiant);
+    if (p.ue_num)                setUeNum(String(p.ue_num));
+    if (p.ue_nom)                setUeNom(p.ue_nom);
+    if (p.session)               setSession(p.session);
+    if (p.recidive !== undefined) setRecidive(!!p.recidive);
+    if (p.date_examen)           setDateExamen(p.date_examen);
+    if (p.date_faits)            setDateFaits(p.date_faits);
+    if (p.type_fraude)           setTypeFraude(p.type_fraude);
+    if (p.description_faits)     setDescriptionFraits(p.description_faits);
+    if (p.date_notification)     setDateNotification(p.date_notification);
+    if (p.date_audition)         setDateAudition(p.date_audition);
+    if (p.declarations_etudiant) setDeclarationsEtudiant(p.declarations_etudiant);
+    if (p.date_cde)              setDateCDE(p.date_cde);
+    if (p.date_envoi)            setDateEnvoi(p.date_envoi);
+    if (p.decision)              setDecision(p.decision);
+    if (p.commentaire_cde)       setCommentaireCDE(p.commentaire_cde);
+    setStep(1);
+    onPayloadConsumed?.();
+  }, [initialPayload]);
 
   // Profs & membres CDE
   const [profs, setProfs]                 = useState([]);
@@ -1176,13 +1216,327 @@ function OutilFraude() {
 }
 
 // ─── PAGE PRINCIPALE ──────────────────────────────────────────────────────────
+// ─── ArchivesProcedures ───────────────────────────────────────────────────────
+const STATUT_LABEL = { en_cours: 'En cours', clos: 'Clôturé', annule: 'Annulé' };
+const STATUT_COLOR = { en_cours: 'bg-blue-100 text-blue-700', clos: 'bg-green-100 text-green-700', annule: 'bg-gray-100 text-gray-500' };
+const VERDICT_LABEL = { irrecevable: 'Irrecevable', rejete: 'Rejeté', accueilli: 'Accueilli', ajourne: 'Ajourné', refus: 'Refus' };
+const VERDICT_COLOR = { irrecevable: 'bg-red-100 text-red-700', rejete: 'bg-orange-100 text-orange-700', accueilli: 'bg-green-100 text-green-700', ajourne: 'bg-yellow-100 text-yellow-700', refus: 'bg-red-100 text-red-700' };
+const TYPE_COLOR = { recours: 'bg-iip-mauve/10 text-iip-mauve', fraude: 'bg-red-50 text-red-700' };
+
+function fmtDate(s) {
+  if (!s) return '—';
+  const d = new Date(s);
+  if (isNaN(d)) return s.slice(0, 10);
+  return d.toLocaleDateString('fr-BE', { day: '2-digit', month: '2-digit', year: 'numeric' });
+}
+
+function ArchivesProcedures({ onReprendreRecours, onReprendre }) {
+  const [archives, setArchives]   = useState([]);
+  const [loading, setLoading]     = useState(true);
+  const [filtreType, setFiltreType]     = useState('');
+  const [filtreStatut, setFiltreStatut] = useState('');
+  const [filtreAnnee, setFiltreAnnee]   = useState('');
+  const [filtreQ, setFiltreQ]           = useState('');
+  const [annees, setAnnees]             = useState([]);
+  const [detail, setDetail]             = useState(null); // procédure ouverte
+  const [previewHtml, setPreviewHtml]   = useState(null);
+  const [confirmSupp, setConfirmSupp]   = useState(null); // id à supprimer
+  const [saving, setSaving]             = useState(false);
+
+  useEffect(() => {
+    charger();
+    // Charger les années disponibles
+    authFetch('/api/ref/annees').then(d => setAnnees(Array.isArray(d) ? d : [])).catch(() => {});
+  }, []);
+
+  async function charger() {
+    setLoading(true);
+    try {
+      const params = new URLSearchParams();
+      if (filtreType)   params.set('type',   filtreType);
+      if (filtreStatut) params.set('statut', filtreStatut);
+      if (filtreAnnee)  params.set('annee',  filtreAnnee);
+      if (filtreQ)      params.set('q',      filtreQ);
+      const d = await authFetch(`/api/procedures/archives?${params}`);
+      setArchives(Array.isArray(d) ? d : []);
+    } finally { setLoading(false); }
+  }
+
+  useEffect(() => { charger(); }, [filtreType, filtreStatut, filtreAnnee, filtreQ]);
+
+  async function changerStatut(id, statut) {
+    setSaving(true);
+    try {
+      await fetch(`/api/procedures/archives/${id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${TOKEN()}` },
+        body: JSON.stringify({ statut }),
+      });
+      await charger();
+      if (detail?.id === id) setDetail(d => ({ ...d, statut }));
+    } finally { setSaving(false); }
+  }
+
+  async function supprimerPhysique(id) {
+    setSaving(true);
+    try {
+      await fetch(`/api/procedures/archives/${id}`, {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${TOKEN()}` },
+        body: JSON.stringify({ confirme: true }),
+      });
+      setConfirmSupp(null);
+      setDetail(null);
+      await charger();
+    } finally { setSaving(false); }
+  }
+
+  async function regenererHTML(proc) {
+    // Re-génère le document HTML depuis le payload sauvegardé
+    const slug = proc.type === 'recours' ? 'pv-recours' : 'pv-fraude';
+    const payload = JSON.parse(proc.payload_json || '{}');
+    try {
+      const res = await fetch(`/api/procedures/${slug}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${TOKEN()}` },
+        body: proc.payload_json,
+      });
+      const d = await res.json();
+      if (d.html) setPreviewHtml(d.html);
+    } catch (e) { alert('Erreur lors de la re-génération : ' + e.message); }
+  }
+
+  async function voirDetail(proc) {
+    const d = await authFetch(`/api/procedures/archives/${proc.id}`);
+    setDetail(d);
+  }
+
+  return (
+    <div className="space-y-4">
+      <div className="mb-6">
+        <h1 className="text-2xl font-title text-iip-mauve mb-1">Archives des procédures</h1>
+        <p className="text-sm text-gray-600">Toutes les procédures générées — recours et fraudes</p>
+      </div>
+
+      {/* Filtres */}
+      <div className="bg-white rounded-lg border border-gray-200 px-4 py-3 flex flex-wrap gap-3 items-end">
+        <div>
+          <label className="block text-xs text-gray-500 mb-1">Type</label>
+          <select value={filtreType} onChange={e => setFiltreType(e.target.value)}
+            className="border border-gray-300 rounded px-2 py-1.5 text-sm bg-white">
+            <option value="">Tous</option>
+            <option value="recours">Recours</option>
+            <option value="fraude">Fraude</option>
+          </select>
+        </div>
+        <div>
+          <label className="block text-xs text-gray-500 mb-1">Statut</label>
+          <select value={filtreStatut} onChange={e => setFiltreStatut(e.target.value)}
+            className="border border-gray-300 rounded px-2 py-1.5 text-sm bg-white">
+            <option value="">Tous</option>
+            <option value="en_cours">En cours</option>
+            <option value="clos">Clôturé</option>
+            <option value="annule">Annulé</option>
+          </select>
+        </div>
+        <div>
+          <label className="block text-xs text-gray-500 mb-1">Année</label>
+          <select value={filtreAnnee} onChange={e => setFiltreAnnee(e.target.value)}
+            className="border border-gray-300 rounded px-2 py-1.5 text-sm bg-white">
+            <option value="">Toutes</option>
+            {annees.map(a => <option key={a} value={a}>{a}</option>)}
+          </select>
+        </div>
+        <div className="flex-1 min-w-40">
+          <label className="block text-xs text-gray-500 mb-1">Étudiant</label>
+          <input value={filtreQ} onChange={e => setFiltreQ(e.target.value)}
+            placeholder="Rechercher…" className="w-full border border-gray-300 rounded px-2 py-1.5 text-sm" />
+        </div>
+        <button onClick={charger} className="border border-gray-300 text-gray-600 text-sm px-3 py-1.5 rounded hover:bg-gray-50">
+          ↺ Actualiser
+        </button>
+      </div>
+
+      {/* Tableau */}
+      {loading ? (
+        <div className="text-center text-gray-400 py-12">Chargement…</div>
+      ) : archives.length === 0 ? (
+        <div className="text-center text-gray-400 py-16">
+          <p className="text-3xl mb-2">📂</p>
+          <p>Aucune procédure archivée</p>
+          <p className="text-xs mt-1">Les procédures seront enregistrées automatiquement à chaque génération de PV</p>
+        </div>
+      ) : (
+        <div className="bg-white rounded-lg border border-gray-200 overflow-hidden">
+          <table className="w-full text-sm">
+            <thead className="bg-gray-50 text-xs text-gray-500 uppercase tracking-wide border-b border-gray-200">
+              <tr>
+                <th className="px-4 py-3 text-left">Type</th>
+                <th className="px-4 py-3 text-left">Étudiant</th>
+                <th className="px-4 py-3 text-left">UE</th>
+                <th className="px-4 py-3 text-left">Section</th>
+                <th className="px-4 py-3 text-left">Verdict</th>
+                <th className="px-4 py-3 text-left">Statut</th>
+                <th className="px-4 py-3 text-left">Date</th>
+                <th className="px-4 py-3 text-left">Séance CDE</th>
+                <th className="px-4 py-3"></th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-gray-100">
+              {archives.map(proc => (
+                <tr key={proc.id} className="hover:bg-gray-50">
+                  <td className="px-4 py-3">
+                    <span className={`inline-flex text-xs font-semibold px-2 py-0.5 rounded-full ${TYPE_COLOR[proc.type] || 'bg-gray-100 text-gray-600'}`}>
+                      {proc.type === 'recours' ? '⚖ Recours' : '🚨 Fraude'}
+                    </span>
+                  </td>
+                  <td className="px-4 py-3 font-medium text-gray-800">{proc.etudiant || '—'}</td>
+                  <td className="px-4 py-3 text-gray-600">{proc.ue_num ? `UE ${proc.ue_num}` : '—'}{proc.ue_nom ? ` — ${proc.ue_nom.slice(0, 28)}${proc.ue_nom.length > 28 ? '…' : ''}` : ''}</td>
+                  <td className="px-4 py-3 text-gray-600">{proc.section || '—'}</td>
+                  <td className="px-4 py-3">
+                    {proc.verdict ? (
+                      <span className={`inline-flex text-xs font-semibold px-2 py-0.5 rounded-full ${VERDICT_COLOR[proc.verdict] || 'bg-gray-100 text-gray-600'}`}>
+                        {VERDICT_LABEL[proc.verdict] || proc.verdict}
+                      </span>
+                    ) : '—'}
+                  </td>
+                  <td className="px-4 py-3">
+                    <span className={`inline-flex text-xs font-semibold px-2 py-0.5 rounded-full ${STATUT_COLOR[proc.statut] || 'bg-gray-100'}`}>
+                      {STATUT_LABEL[proc.statut] || proc.statut}
+                    </span>
+                  </td>
+                  <td className="px-4 py-3 text-gray-500 text-xs">{fmtDate(proc.date_faits)}</td>
+                  <td className="px-4 py-3 text-gray-500 text-xs">{fmtDate(proc.date_seance_cde)}</td>
+                  <td className="px-4 py-3">
+                    <button onClick={() => voirDetail(proc)}
+                      className="text-iip-mauve hover:underline text-xs font-medium">
+                      Détail →
+                    </button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+
+      {/* Panneau de détail */}
+      {detail && (
+        <div className="fixed inset-0 bg-black/40 z-50 flex items-start justify-end">
+          <div className="bg-white w-full max-w-xl h-full overflow-auto shadow-2xl flex flex-col">
+            {/* Header */}
+            <div className="flex items-center justify-between px-6 py-4 border-b border-gray-200 bg-gray-50">
+              <div>
+                <p className="font-semibold text-gray-800">{detail.etudiant}</p>
+                <p className="text-xs text-gray-500 mt-0.5">
+                  {detail.type === 'recours' ? '⚖ Recours' : '🚨 Fraude'} · UE {detail.ue_num} · {detail.section} · {detail.annee_scolaire}
+                </p>
+              </div>
+              <button onClick={() => setDetail(null)} className="text-gray-400 hover:text-gray-600 text-xl font-light">✕</button>
+            </div>
+
+            <div className="flex-1 px-6 py-5 space-y-5 overflow-auto">
+              {/* Badges */}
+              <div className="flex flex-wrap gap-2">
+                <span className={`text-xs font-semibold px-2.5 py-1 rounded-full ${STATUT_COLOR[detail.statut]}`}>
+                  {STATUT_LABEL[detail.statut]}
+                </span>
+                {detail.verdict && (
+                  <span className={`text-xs font-semibold px-2.5 py-1 rounded-full ${VERDICT_COLOR[detail.verdict]}`}>
+                    {VERDICT_LABEL[detail.verdict] || detail.verdict}
+                  </span>
+                )}
+              </div>
+
+              {/* Infos */}
+              <div className="grid grid-cols-2 gap-3 text-sm">
+                <div><p className="text-xs text-gray-400">Généré le</p><p className="font-medium">{fmtDate(detail.cree_le)}</p></div>
+                <div><p className="text-xs text-gray-400">Par</p><p className="font-medium">{detail.cree_par || '—'}</p></div>
+                <div><p className="text-xs text-gray-400">Date faits / publi</p><p className="font-medium">{fmtDate(detail.date_faits)}</p></div>
+                <div><p className="text-xs text-gray-400">Séance CDE</p><p className="font-medium">{fmtDate(detail.date_seance_cde)}</p></div>
+              </div>
+
+              {/* Changement de statut */}
+              <div>
+                <p className="text-xs text-gray-500 font-medium mb-2">Changer le statut</p>
+                <div className="flex gap-2">
+                  {['en_cours', 'clos', 'annule'].map(s => (
+                    <button key={s} onClick={() => changerStatut(detail.id, s)} disabled={saving || detail.statut === s}
+                      className={`text-xs px-3 py-1.5 rounded border transition ${detail.statut === s ? 'bg-iip-mauve text-white border-iip-mauve font-semibold' : 'border-gray-300 text-gray-600 hover:border-iip-mauve hover:text-iip-mauve'}`}>
+                      {STATUT_LABEL[s]}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Actions */}
+              <div className="space-y-2">
+                <p className="text-xs text-gray-500 font-medium">Actions</p>
+                <div className="flex flex-wrap gap-2">
+                  <button onClick={() => regenererHTML(detail)}
+                    className="flex items-center gap-1.5 text-sm px-3 py-2 rounded border border-iip-mauve text-iip-mauve hover:bg-iip-mauve hover:text-white transition">
+                    🖨 Voir / Imprimer le document
+                  </button>
+                  <button onClick={() => { setDetail(null); onReprendreRecours && onReprendreRecours(detail); }}
+                    className="flex items-center gap-1.5 text-sm px-3 py-2 rounded border border-gray-300 text-gray-700 hover:bg-gray-50 transition">
+                    ✏ Reprendre dans le formulaire
+                  </button>
+                </div>
+              </div>
+
+              {/* Suppression */}
+              <div className="border-t border-red-100 pt-4 mt-4">
+                {confirmSupp === detail.id ? (
+                  <div className="bg-red-50 border border-red-200 rounded-lg p-4 space-y-3">
+                    <p className="text-sm font-medium text-red-800">Suppression physique définitive</p>
+                    <p className="text-xs text-red-700">Cette action est irréversible. La procédure et toutes ses traces seront effacées de la base de données.</p>
+                    <div className="flex gap-2">
+                      <button onClick={() => supprimerPhysique(detail.id)} disabled={saving}
+                        className="bg-red-600 text-white text-xs px-4 py-1.5 rounded hover:bg-red-700 disabled:opacity-50">
+                        Confirmer la suppression
+                      </button>
+                      <button onClick={() => setConfirmSupp(null)} className="border border-gray-300 text-gray-600 text-xs px-4 py-1.5 rounded">
+                        Annuler
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  <button onClick={() => setConfirmSupp(detail.id)}
+                    className="text-xs text-red-500 hover:text-red-700 hover:underline">
+                    Supprimer définitivement cette procédure
+                  </button>
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Preview document */}
+      {previewHtml && <PreviewModal html={previewHtml} onClose={() => setPreviewHtml(null)} />}
+    </div>
+  );
+}
+
+
+
 export default function Procedures() {
   const [outil, setOutil] = useState('recours');
+  const [preRemplir, setPreRemplir] = useState(null);
   const outils = [
-    { id: 'recours', label: '⚖ Recours',  desc: 'Aide à la décision — Art. 87-91 RDE/ROI' },
-    { id: 'fraude',  label: '🚨 Fraude',   desc: 'Procédure contradictoire — Art. 72-75 RDE/ROI' },
-    { id: 'examens', label: '📋 Examens',  desc: 'Organisation & surveillance' },
+    { id: 'recours',  label: '⚖ Recours',   desc: 'Aide à la décision — Art. 87-91 RDE/ROI' },
+    { id: 'fraude',   label: '🚨 Fraude',    desc: 'Procédure contradictoire — Art. 72-75 RDE/ROI' },
+    { id: 'examens',  label: '📋 Examens',   desc: 'Organisation & surveillance' },
+    { id: 'archives', label: '📂 Archives',  desc: 'Toutes les procédures générées' },
   ];
+
+  function reprendreDepuisArchive(proc) {
+    let payload;
+    try { payload = JSON.parse(proc.payload_json || '{}'); } catch { payload = {}; }
+    setPreRemplir({ type: proc.type, payload });
+    setOutil(proc.type === 'recours' ? 'recours' : 'fraude');
+  }
+
   return (
     <div className="flex h-full min-h-0 overflow-hidden">
       <div className="w-56 flex-shrink-0 bg-gray-50 border-r border-gray-200 overflow-auto">
@@ -1192,7 +1546,7 @@ export default function Procedures() {
         </div>
         <div className="py-2">
           {outils.map(o => (
-            <button key={o.id} onClick={() => setOutil(o.id)}
+            <button key={o.id} onClick={() => { setOutil(o.id); if (o.id !== 'recours' && o.id !== 'fraude') setPreRemplir(null); }}
               className={`w-full text-left px-4 py-3 border-b border-gray-100 transition ${outil===o.id?'bg-iip-mauve/10 border-l-4 border-l-iip-mauve':'hover:bg-gray-100'}`}>
               <p className={`text-sm font-semibold ${outil===o.id?'text-iip-mauve':'text-gray-700'}`}>{o.label}</p>
               <p className="text-xs text-gray-500 mt-0.5">{o.desc}</p>
@@ -1206,8 +1560,13 @@ export default function Procedures() {
             <div className="mb-6">
               <h1 className="text-2xl font-title text-iip-mauve mb-1">Outil de traitement des recours</h1>
               <p className="text-sm text-gray-600">Art. 87-91 RDE/ROI IIP 2026-2027 · D. 27/10/2006 · À destination de Nicolas</p>
+              {preRemplir?.type === 'recours' && (
+                <p className="text-xs text-blue-600 mt-1 bg-blue-50 border border-blue-200 rounded px-3 py-1.5 inline-block">
+                  ↩ Formulaire pré-rempli depuis une archive — modifiez si nécessaire avant de générer
+                </p>
+              )}
             </div>
-            <OutilRecours />
+            <OutilRecours initialPayload={preRemplir?.type === 'recours' ? preRemplir.payload : null} onPayloadConsumed={() => setPreRemplir(null)} />
           </>
         )}
         {outil === 'fraude' && (
@@ -1215,8 +1574,13 @@ export default function Procedures() {
             <div className="mb-6">
               <h1 className="text-2xl font-title text-iip-mauve mb-1">Procédure de traitement des fraudes</h1>
               <p className="text-sm text-gray-600">Art. 72-75 RDE/ROI IIP 2026-2027 · Procédure contradictoire obligatoire · À destination de Nicolas</p>
+              {preRemplir?.type === 'fraude' && (
+                <p className="text-xs text-blue-600 mt-1 bg-blue-50 border border-blue-200 rounded px-3 py-1.5 inline-block">
+                  ↩ Formulaire pré-rempli depuis une archive — modifiez si nécessaire avant de générer
+                </p>
+              )}
             </div>
-            <OutilFraude />
+            <OutilFraude initialPayload={preRemplir?.type === 'fraude' ? preRemplir.payload : null} onPayloadConsumed={() => setPreRemplir(null)} />
           </>
         )}
         {outil === 'examens' && (
@@ -1225,41 +1589,8 @@ export default function Procedures() {
             <p className="font-medium">Procédure Examens — en cours de développement</p>
           </div>
         )}
-      </div>
-    </div>
-  );
-  return (
-    <div className="flex h-full min-h-0 overflow-hidden">
-      <div className="w-56 flex-shrink-0 bg-gray-50 border-r border-gray-200 overflow-auto">
-        <div className="px-4 py-4 border-b border-gray-200">
-          <h2 className="font-title text-iip-mauve font-bold text-sm uppercase tracking-wide">Procédures IIP</h2>
-          <p className="text-xs text-gray-500 mt-0.5">Année 2026-2027</p>
-        </div>
-        <div className="py-2">
-          {outils.map(o => (
-            <button key={o.id} onClick={() => setOutil(o.id)}
-              className={`w-full text-left px-4 py-3 border-b border-gray-100 transition ${outil===o.id?'bg-iip-mauve/10 border-l-4 border-l-iip-mauve':'hover:bg-gray-100'}`}>
-              <p className={`text-sm font-semibold ${outil===o.id?'text-iip-mauve':'text-gray-700'}`}>{o.label}</p>
-              <p className="text-xs text-gray-500 mt-0.5">{o.desc}</p>
-            </button>
-          ))}
-        </div>
-      </div>
-      <div className="flex-1 overflow-auto p-6">
-        {outil === 'recours' && (
-          <>
-            <div className="mb-6">
-              <h1 className="text-2xl font-title text-iip-mauve mb-1">Outil de traitement des recours</h1>
-              <p className="text-sm text-gray-600">Art. 87-91 RDE/ROI IIP 2026-2027 · D. 27/10/2006 · À destination de Nicolas</p>
-            </div>
-            <OutilRecours />
-          </>
-        )}
-        {outil === 'examens' && (
-          <div className="text-center text-gray-500 p-12">
-            <p className="text-4xl mb-3">📋</p>
-            <p className="font-medium">Procédure Examens — en cours de développement</p>
-          </div>
+        {outil === 'archives' && (
+          <ArchivesProcedures onReprendreRecours={reprendreDepuisArchive} />
         )}
       </div>
     </div>

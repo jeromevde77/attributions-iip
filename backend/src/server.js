@@ -264,6 +264,39 @@ try {
     CREATE INDEX IF NOT EXISTS idx_docarch_type ON document_archive(type_doc);
   `);
 
+  // ── Table procedure_archive : trace de chaque PV généré ────────────────────
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS procedure_archive (
+      id              INTEGER PRIMARY KEY AUTOINCREMENT,
+      type            TEXT NOT NULL,          -- 'recours' | 'fraude'
+      statut          TEXT NOT NULL DEFAULT 'en_cours',
+                                              -- 'en_cours' | 'clos' | 'annule'
+      etudiant        TEXT,
+      ue_num          INTEGER,
+      ue_nom          TEXT,
+      section         TEXT,
+      annee_scolaire  TEXT,
+      verdict         TEXT,                   -- 'irrecevable'|'rejete'|'accueilli'|'ajourne'|'refus'
+      date_faits      TEXT,                   -- date publi résultats (recours) ou date examen (fraude)
+      date_seance_cde TEXT,
+      payload_json    TEXT,                   -- données complètes pour re-génération
+      cree_par        TEXT,
+      cree_le         TEXT DEFAULT (datetime('now')),
+      modifie_le      TEXT DEFAULT (datetime('now'))
+    );
+    CREATE INDEX IF NOT EXISTS idx_proc_type    ON procedure_archive(type);
+    CREATE INDEX IF NOT EXISTS idx_proc_annee   ON procedure_archive(annee_scolaire);
+    CREATE INDEX IF NOT EXISTS idx_proc_etudiant ON procedure_archive(etudiant);
+    CREATE INDEX IF NOT EXISTS idx_proc_statut  ON procedure_archive(statut);
+  `);
+
+  // Ajouter procedure_id à document_archive si absent (lien vers la procédure)
+  const _colsDocArch = db.prepare('PRAGMA table_info(document_archive)').all();
+  if (!_colsDocArch.find(c => c.name === 'procedure_id')) {
+    db.exec(`ALTER TABLE document_archive ADD COLUMN procedure_id INTEGER REFERENCES procedure_archive(id) ON DELETE SET NULL`);
+    console.log('[migration] Colonne document_archive.procedure_id ajoutée');
+  }
+
   // 5c. Table ue_section (rattachement many-to-many UE <-> sections)
   db.exec(`
     CREATE TABLE IF NOT EXISTS ue_section (
