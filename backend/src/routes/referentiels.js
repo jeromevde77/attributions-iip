@@ -1004,3 +1004,5 @@ r.get('/membres-cde', authRequired, (req, res) => {
   }
   res.json(membres);
 });
+
+export default r;
