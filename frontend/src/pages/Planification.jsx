@@ -588,7 +588,7 @@ export default function Planification() {
   }
 
   const parSection = {};
-  if (grille) {
+  if (grille?.groupes) {
     for (const g of grille.groupes) {
       const s = g.section || '(Sans section)';
       if (!parSection[s]) parSection[s] = [];
