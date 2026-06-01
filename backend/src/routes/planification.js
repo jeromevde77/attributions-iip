@@ -125,57 +125,74 @@ r.get('/grille', authRequired, (req, res) => {
   let cellules = {};
   if (groupeIds.length > 0) {
     const rows = db.prepare(`
-      SELECT p.groupe_id, p.semaine_id, p.heures
+      SELECT p.groupe_id, p.semaine_id, COALESCE(p.valeur, CAST(p.heures AS TEXT)) AS valeur
       FROM planification p
       WHERE p.groupe_id IN (${groupeIds.map(() => '?').join(',')})
     `).all(...groupeIds);
     for (const row of rows) {
-      cellules[`${row.groupe_id}_${row.semaine_id}`] = row.heures;
+      cellules[`${row.groupe_id}_${row.semaine_id}`] = row.valeur;
     }
   }
 
   // Calculs synthèse par groupe
+  const CELL_H = { EV1: 2, EV2: 0, VC: 1 };
+  function pv(v) { const up = String(v||'').toUpperCase().trim(); return CELL_H[up] !== undefined ? CELL_H[up] : (parseFloat(v)||0); }
   for (const g of groupes) {
     const hPlanif = Object.entries(cellules)
       .filter(([k]) => k.startsWith(`${g.id}_`))
-      .reduce((s, [, h]) => s + h, 0);
+      .reduce((s, [, v]) => s + pv(v), 0);
     g.heures_planifiees = Math.round(hPlanif * 100) / 100;
     g.heures_restantes  = Math.round((g.heures_attribuees - hPlanif) * 100) / 100;
-    // PEP = heures × nb_etudiants × (60/50) → conversion en périodes élèves
     g.pep_total = Math.round(hPlanif * g.nb_etudiants * 1.2 * 100) / 100;
   }
 
   res.json({ semaines, groupes, cellules });
 });
 
-// PUT /planification/cellule — sauvegarder une cellule (groupe × semaine → heures)
+// Valeurs spéciales et heures réelles
+const CELL_HEURES = { EV1: 2, EV2: 0, VC: 1 };
+function parseValeur(v) {
+  if (!v || v === '' || v === '0') return 0;
+  const up = String(v).toUpperCase().trim();
+  if (CELL_HEURES[up] !== undefined) return CELL_HEURES[up];
+  const n = parseFloat(v);
+  return isNaN(n) ? 0 : n;
+}
+function normaliseValeur(v) {
+  if (v === null || v === undefined || v === '' || v === 0 || v === '0') return null;
+  const up = String(v).toUpperCase().trim();
+  if (CELL_HEURES[up] !== undefined) return up;
+  const n = parseFloat(v);
+  if (isNaN(n) || n === 0) return null;
+  return String(n);
+}
+
+// PUT /planification/cellule
 r.put('/cellule', authRequired, roleRequired('admin', 'editeur'), (req, res) => {
   const { groupe_id, semaine_id, heures } = req.body;
   if (groupe_id == null || semaine_id == null) return res.status(400).json({ error: 'groupe_id et semaine_id requis' });
-  const h = parseFloat(heures) || 0;
-  if (h === 0) {
+  const val = normaliseValeur(heures);
+  if (!val) {
     db.prepare('DELETE FROM planification WHERE groupe_id = ? AND semaine_id = ?').run(groupe_id, semaine_id);
   } else {
-    db.prepare(`
-      INSERT INTO planification (groupe_id, semaine_id, heures) VALUES (?,?,?)
-      ON CONFLICT(groupe_id, semaine_id) DO UPDATE SET heures = excluded.heures
-    `).run(groupe_id, semaine_id, h);
+    db.prepare(`INSERT INTO planification (groupe_id, semaine_id, valeur) VALUES (?,?,?)
+      ON CONFLICT(groupe_id, semaine_id) DO UPDATE SET valeur = excluded.valeur`).run(groupe_id, semaine_id, val);
   }
   res.json({ ok: true });
 });
 
-// PUT /planification/cellules-bulk — sauvegarder plusieurs cellules d'un coup
+// PUT /planification/cellules-bulk
 r.put('/cellules-bulk', authRequired, roleRequired('admin', 'editeur'), (req, res) => {
-  const { cellules } = req.body; // [{ groupe_id, semaine_id, heures }]
+  const { cellules } = req.body;
   if (!Array.isArray(cellules)) return res.status(400).json({ error: 'cellules doit être un tableau' });
   const upsert = db.transaction(() => {
     for (const { groupe_id, semaine_id, heures } of cellules) {
-      const h = parseFloat(heures) || 0;
-      if (h === 0) {
+      const val = normaliseValeur(heures);
+      if (!val) {
         db.prepare('DELETE FROM planification WHERE groupe_id = ? AND semaine_id = ?').run(groupe_id, semaine_id);
       } else {
-        db.prepare(`INSERT INTO planification (groupe_id, semaine_id, heures) VALUES (?,?,?)
-          ON CONFLICT(groupe_id, semaine_id) DO UPDATE SET heures = excluded.heures`).run(groupe_id, semaine_id, h);
+        db.prepare(`INSERT INTO planification (groupe_id, semaine_id, valeur) VALUES (?,?,?)
+          ON CONFLICT(groupe_id, semaine_id) DO UPDATE SET valeur = excluded.valeur`).run(groupe_id, semaine_id, val);
       }
     }
   });

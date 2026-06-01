@@ -298,7 +298,31 @@ try {
     CREATE INDEX IF NOT EXISTS idx_plan_semaine  ON planification(semaine_id);
   `);
 
-  // Seed calendrier 2025-2026 (FWB) si absent
+  // Migration : colonne planification.heures TEXT (pour stocker EV1, EV2, VC)
+  const _colsPlan = db.prepare('PRAGMA table_info(planification)').all();
+  const _heuresCol = _colsPlan.find(c => c.name === 'heures');
+  if (_heuresCol && _heuresCol.type !== 'TEXT') {
+    db.exec(`
+      CREATE TABLE IF NOT EXISTS planification_new (
+        id         INTEGER PRIMARY KEY AUTOINCREMENT,
+        groupe_id  INTEGER NOT NULL REFERENCES groupe(id) ON DELETE CASCADE,
+        semaine_id INTEGER NOT NULL REFERENCES annee_calendrier(id) ON DELETE CASCADE,
+        valeur     TEXT NOT NULL DEFAULT '0',
+        UNIQUE(groupe_id, semaine_id)
+      );
+      INSERT INTO planification_new (groupe_id, semaine_id, valeur)
+        SELECT groupe_id, semaine_id, CAST(heures AS TEXT) FROM planification WHERE heures > 0;
+      DROP TABLE planification;
+      ALTER TABLE planification_new RENAME TO planification;
+      CREATE INDEX IF NOT EXISTS idx_plan_groupe  ON planification(groupe_id);
+      CREATE INDEX IF NOT EXISTS idx_plan_semaine ON planification(semaine_id);
+    `);
+    console.log('[migration] planification.heures → valeur TEXT');
+  }
+  // Ajouter colonne valeur si absente (cas table existante sans migration)
+  if (!_colsPlan.find(c => c.name === 'valeur') && _colsPlan.find(c => c.name === 'heures')) {
+    // déjà géré ci-dessus
+  }
   const _calExist = db.prepare("SELECT COUNT(*) AS n FROM annee_calendrier WHERE annee_scolaire = '2025-2026'").get();
   if (_calExist.n === 0) {
     // Génération automatique des semaines du 01/09/2025 au 26/06/2026
