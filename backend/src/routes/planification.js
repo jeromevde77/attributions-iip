@@ -135,8 +135,8 @@ r.get('/grille', authRequired, (req, res) => {
   }
 
   // Calculs synthèse par groupe
-  const CELL_H = { EV1: 2, EV2: 0, VC: 1 };
-  function pv(v) { const up = String(v||'').toUpperCase().trim(); return CELL_H[up] !== undefined ? CELL_H[up] : (parseFloat(v)||0); }
+  const ch = getCellHeures();
+  function pv(v) { const up = String(v||'').toUpperCase().trim(); return ch[up] !== undefined ? ch[up] : (parseFloat(v)||0); }
   for (const g of groupes) {
     const hPlanif = Object.entries(cellules)
       .filter(([k]) => k.startsWith(`${g.id}_`))
@@ -149,19 +149,29 @@ r.get('/grille', authRequired, (req, res) => {
   res.json({ semaines, groupes, cellules });
 });
 
-// Valeurs spéciales et heures réelles
-const CELL_HEURES = { EV1: 2, EV2: 0, VC: 1 };
+// Valeurs spéciales — lues depuis la table parametre avec fallback
+import { getParamNum } from './parametres.js';
+
+function getCellHeures() {
+  return {
+    EV1: getParamNum('planning.ev1_heures', 2),
+    EV2: getParamNum('planning.ev2_heures', 0),
+    VC:  getParamNum('planning.vc_heures',  1),
+  };
+}
 function parseValeur(v) {
   if (!v || v === '' || v === '0') return 0;
   const up = String(v).toUpperCase().trim();
-  if (CELL_HEURES[up] !== undefined) return CELL_HEURES[up];
+  const ch = getCellHeures();
+  if (ch[up] !== undefined) return ch[up];
   const n = parseFloat(v);
   return isNaN(n) ? 0 : n;
 }
 function normaliseValeur(v) {
   if (v === null || v === undefined || v === '' || v === 0 || v === '0') return null;
   const up = String(v).toUpperCase().trim();
-  if (CELL_HEURES[up] !== undefined) return up;
+  const ch = getCellHeures();
+  if (ch[up] !== undefined) return up;
   const n = parseFloat(v);
   if (isNaN(n) || n === 0) return null;
   return String(n);

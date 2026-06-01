@@ -6,6 +6,7 @@
 import { Router } from 'express';
 import db from '../db/index.js';
 import { authRequired } from '../middleware/auth.js';
+import { getParam, getParamNum } from './parametres.js';
 
 const r = Router();
 
@@ -120,6 +121,13 @@ r.post('/pv-recours', authRequired, (req, res) => {
     q, verdict, commentaire_cde, annee,
   } = req.body;
 
+  // Paramètres configurables
+  const delaiRecours    = getParamNum('procedures.delai_recours_jours', 4);
+  const delaiDecision   = getParamNum('procedures.delai_decision_jours', 7);
+  const delaiExtCal     = getParamNum('procedures.delai_ext_cal_jours', 7);
+  const delaiExtOuv     = getParamNum('procedures.delai_ext_ouv_jours', 3);
+  const emailDirection  = getParam('procedures.email_direction', 'direction@institut-prigogine.be');
+
   const ueRef = [ue_num, ue_nom].filter(Boolean).join(' — ');
 
   // ── Sections calculées ────────────────────────────────────────────────────
@@ -133,7 +141,7 @@ r.post('/pv-recours', authRequired, (req, res) => {
     typeDecision = "D'IRRECEVABILITÉ";
     const motifs = [];
     if (q?.ecrit === 'non')         motifs.push('La plainte n\'est pas rédigée par écrit (Art. 88 §3 RDE/ROI).');
-    if (q?.delaiRespect === 'non')  motifs.push(`La plainte n'a pas été introduite dans le délai de 4 jours calendrier (Art. 88 §1 RDE/ROI). La date limite était le ${date_publi ? dateLongue(new Date(date_publi+'T12:00').setDate(new Date(date_publi+'T12:00').getDate()+4)) : '—'}.`);
+    if (q?.delaiRespect === 'non')  motifs.push(`La plainte n'a pas été introduite dans le délai de ${delaiRecours} jours calendrier (Art. 88 §1 RDE/ROI). La date limite était le ${date_publi ? dateLongue(new Date(date_publi+'T12:00').setDate(new Date(date_publi+'T12:00').getDate()+delaiRecours)) : '—'}.`);
     if (q?.porteRefus === 'non')    motifs.push('La plainte ne porte pas sur une décision de refus au sens de l\'Art. 87 §1 RDE/ROI.');
     if (q?.irregulPrecises === 'non') motifs.push('La plainte ne mentionne pas d\'irrégularités précises de procédure ou de droit (Art. 88 §3 RDE/ROI).');
     if (q?.decisionRefus === 'non') motifs.push('La décision contestée n\'est pas une décision de refus au sens de l\'Art. 87 §1 RDE/ROI.');
@@ -176,9 +184,9 @@ r.post('/pv-recours', authRequired, (req, res) => {
     }
 
     const limiteExt = date_envoi
-      ? addJoursCal(addJoursOuv(date_envoi, 3).toISOString().split('T')[0], 7)
+      ? addJoursCal(addJoursOuv(date_envoi, delaiExtOuv).toISOString().split('T')[0], delaiExtCal)
       : null;
-    voiesRecours = `<p>Conformément à l'Art. 90 du RDE/ROI et au Décret du 27/10/2006, la présente décision peut faire l'objet d'un <strong>recours externe</strong> auprès de la Direction générale ETLV (rue Adolphe Lavallée 1, 1080 Bruxelles), par pli recommandé, dans un délai de <strong>7 jours calendrier</strong> à compter du troisième jour ouvrable suivant l'envoi de la présente décision${limiteExt ? ` (date limite\u00a0: <strong>${dateLongue(limiteExt.toISOString().split('T')[0])}</strong>)` : ''}.`;
+    voiesRecours = `<p>Conformément à l'Art. 90 du RDE/ROI et au Décret du 27/10/2006, la présente décision peut faire l'objet d'un <strong>recours externe</strong> auprès de la Direction générale ETLV (rue Adolphe Lavallée 1, 1080 Bruxelles), par pli recommandé, dans un délai de <strong>${delaiExtCal} jours calendrier</strong> à compter du ${delaiExtOuv}e jour ouvrable suivant l'envoi de la présente décision${limiteExt ? ` (date limite\u00a0: <strong>${dateLongue(limiteExt.toISOString().split('T')[0])}</strong>)` : ''}.`;
   }
 
   const resultat = genererDepuisTemplate('pv-recours', {
@@ -270,7 +278,7 @@ r.post('/pv-fraude', authRequired, (req, res) => {
     'pv.commentaire':    commentaire_cde
       ? `<h3>V. OBSERVATIONS</h3><p style="border:1px solid #ccc;padding:10px;background:#fafafa">${commentaire_cde.replace(/\n/g,'<br>')}</p>`
       : '',
-    'pv.voies_recours':  `<p>La présente décision peut faire l'objet d'un <strong>recours interne</strong> dans un délai de <strong>4 jours calendrier</strong> suivant la publication des résultats (Art. 88 §1 RDE/ROI), par e-mail à direction@institut-prigogine.be ou remise en main propre.</p>`,
+    'pv.voies_recours':  `<p>La présente décision peut faire l'objet d'un <strong>recours interne</strong> dans un délai de <strong>${delaiRecours} jours calendrier</strong> suivant la publication des résultats (Art. 88 §1 RDE/ROI), par e-mail à ${emailDirection} ou remise en main propre.</p>`,
   });
 
   if (!resultat) return res.status(404).json({ error: 'Template pv-fraude introuvable' });

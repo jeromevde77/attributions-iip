@@ -24,6 +24,7 @@ import templateRoutes   from './routes/templates.js';
 import contratsRoutes   from './routes/contrats.js';
 import proceduresRoutes from './routes/procedures.js';
 import planificationRoutes from './routes/planification.js';
+import parametresRoutes    from './routes/parametres.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
@@ -462,6 +463,38 @@ try {
     CREATE INDEX IF NOT EXISTS idx_proc_etudiant ON procedure_archive(etudiant);
     CREATE INDEX IF NOT EXISTS idx_proc_statut  ON procedure_archive(statut);
   `);
+
+  // ── Table parametre : configuration centralisée ─────────────────────────────
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS parametre (
+      cle     TEXT PRIMARY KEY,
+      valeur  TEXT NOT NULL,
+      label   TEXT,
+      section TEXT,   -- NULL = global, sinon spécifique à une section
+      groupe  TEXT    -- regroupement UI : 'planification'|'procedures'|'etablissement'
+    );
+  `);
+
+  // Seed des paramètres par défaut (INSERT OR IGNORE = ne pas écraser les valeurs existantes)
+  const _params = [
+    // Planification
+    ['planning.ev1_heures',              '2',                               'Heures comptées pour EV1',                             null, 'planification'],
+    ['planning.ev2_heures',              '0',                               'Heures comptées pour EV2',                             null, 'planification'],
+    ['planning.vc_heures',               '1',                               'Heures comptées pour VC (visite des copies)',           null, 'planification'],
+    ['planning.periode_minutes',         '50',                              'Durée d\'une période (minutes)',                        null, 'planification'],
+    ['planning.min_semaines_ev1_ev2',    '1',                               'Semaines minimum libres entre EV1 et EV2',             null, 'planification'],
+    // Procédures
+    ['procedures.email_direction',       'direction@institut-prigogine.be', 'Email de la direction (procédures)',                   null, 'procedures'],
+    ['procedures.delai_recours_jours',   '4',                               'Délai recours interne (jours calendrier)',              null, 'procedures'],
+    ['procedures.delai_decision_jours',  '7',                               'Délai décision interne (jours calendrier)',             null, 'procedures'],
+    ['procedures.delai_ext_cal_jours',   '7',                               'Délai recours externe (jours calendrier)',              null, 'procedures'],
+    ['procedures.delai_ext_ouv_jours',   '3',                               'Jours ouvrables avant délai recours externe',          null, 'procedures'],
+    // Établissement
+    ['etab.nom',                         'Institut Ilya Prigogine',         'Nom de l\'établissement',                              null, 'etablissement'],
+  ];
+  const _insertParam = db.prepare(`INSERT OR IGNORE INTO parametre (cle, valeur, label, section, groupe) VALUES (?,?,?,?,?)`);
+  const _seedParams = db.transaction(() => { for (const p of _params) _insertParam.run(...p); });
+  _seedParams();
 
   // Ajouter procedure_id à document_archive si absent (lien vers la procédure)
   const _colsDocArch = db.prepare('PRAGMA table_info(document_archive)').all();
@@ -1407,6 +1440,7 @@ app.use('/api/templates',   templateRoutes);
 app.use('/api/contrats',    contratsRoutes);
 app.use('/api/procedures',    proceduresRoutes);
 app.use('/api/planification', planificationRoutes);
+app.use('/api/parametres',   parametresRoutes);
 
 // Route logo IIP
 import { createRequire as _cr } from 'module';
