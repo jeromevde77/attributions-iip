@@ -102,6 +102,12 @@ function wrapHtml(html, titre) {
   p{margin:5px 0;line-height:1.5}table{width:100%;border-collapse:collapse;margin:8px 0}
   td,th{border:1px solid #ccc;padding:5px 8px;vertical-align:top}
   .page-break{break-after:page;page-break-after:always;height:0;border:0;margin:0}
+  /* Aperçu écran : simuler une feuille A4 */
+  @media screen {
+    html{background:#e5e5e5}
+    body{max-width:210mm;min-height:297mm;margin:16px auto;padding:18mm 16mm;
+         background:#fff;box-shadow:0 2px 14px rgba(0,0,0,.18);box-sizing:border-box}
+  }
 </style></head><body>
 ${html}</body></html>`;
 }

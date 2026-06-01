@@ -788,6 +788,11 @@ export default function Editeur() {
           p{margin:4px 0}.champ-tag,.entete-block,.pied-block,.boucle-block{display:block}
           .doc-header{border-bottom:1px solid #ccc;padding-bottom:6px;margin-bottom:16px}
           .doc-footer{border-top:1px solid #ccc;padding-top:6px;margin-top:20px;font-size:9pt;color:#666}
+          @media screen{
+            html{background:#e5e5e5}
+            body{max-width:${PAGE_FORMATS[format]?.w || '210mm'};min-height:${PAGE_FORMATS[format]?.h || '297mm'};
+                 margin:16px auto;background:#fff;box-shadow:0 2px 14px rgba(0,0,0,.18)}
+          }
           @media print{
             button{display:none}
             body{padding:${margins.top}mm ${margins.right}mm ${margins.bottom}mm ${margins.left}mm}
