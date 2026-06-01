@@ -395,6 +395,7 @@ try {
     add('bic');                  // si compte étranger
     add('compte_titulaire');     // au nom de…
     add('tel_gsm');
+    add('photo');                // data-URI JPEG base64 issue de la carte eID (~3-4 Ko)
     // ── Situation fiscale du MDP ──
     add('etat_civil');           // celibataire|marie|veuf|divorce|cohab_legal|cohabitant|separe_corps|separe_fait
     add('handicap');             // 'oui' | 'non'

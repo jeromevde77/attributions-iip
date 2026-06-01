@@ -91,7 +91,7 @@ export default function ProfFicheModal({ prof, onClose, onSaved }) {
   const [form, setForm] = useState({
     // Identité
     nom: '', prenom: '', sexe: '', niss: '', nationalite: '',
-    date_naissance: '', lieu_naissance_ville: '', lieu_naissance_pays: '',
+    date_naissance: '', lieu_naissance_ville: '', lieu_naissance_pays: '', photo: '',
     // Coordonnées
     adresse_rue: '', code_postal: '', commune: '',
     adresse_mail: '', mail_prive: '', tel_gsm: '',
@@ -312,6 +312,17 @@ export default function ProfFicheModal({ prof, onClose, onSaved }) {
 
           {/* 1. Identité civile */}
           <Section titre="1 · Identité civile" ouvert={open.identite} onToggle={() => toggle('identite')}>
+            {form.photo && (
+              <div className="flex items-center gap-3">
+                <img src={form.photo} alt="Photo d'identité"
+                  className="w-20 h-24 object-cover rounded border border-gray-200 flex-shrink-0" />
+                <div className="text-xs text-gray-500">
+                  Photo issue de la carte eID.
+                  <button type="button" onClick={() => set('photo', '')}
+                    className="block mt-1 text-red-500 hover:text-red-700 underline">Retirer la photo</button>
+                </div>
+              </div>
+            )}
             <div className="grid grid-cols-2 gap-3">
               <TextField label="Nom *" value={form.nom} onChange={v => set('nom', v)} />
               <TextField label="Prénom *" value={form.prenom} onChange={v => set('prenom', v)} />

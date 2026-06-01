@@ -113,6 +113,7 @@ export function eidToProf(data) {
   if (ad.streetAndNumber) out.adresse_rue = ad.streetAndNumber.trim();
   if (ad.zip) out.code_postal = String(ad.zip).trim();
   if (ad.municipality) out.commune = ad.municipality.trim();
+  if (data?.photo) out.photo = data.photo; // data-URI JPEG base64
   return out;
 }
 
@@ -122,7 +123,7 @@ export function eidChamps(mapped) {
     nom: 'Nom', prenom: 'Prénom', sexe: 'Sexe', niss: 'NISS',
     nationalite: 'Nationalité', date_naissance: 'Date de naissance',
     lieu_naissance_ville: 'Lieu de naissance', adresse_rue: 'Adresse',
-    code_postal: 'Code postal', commune: 'Localité',
+    code_postal: 'Code postal', commune: 'Localité', photo: 'Photo',
   };
   return Object.keys(mapped).map((k) => labels[k] || k);
 }

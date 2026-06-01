@@ -656,7 +656,7 @@ r.patch('/professeurs/:id', authRequired, roleRequired('admin', 'editeur'), (req
                    'matricule','titre1','titre2','titre3','statut_ea12','report_anc_po',
                    // Fiche signalétique — identité civile
                    'sexe','niss','nationalite','lieu_naissance_ville','lieu_naissance_pays',
-                   'iban','bic','compte_titulaire','tel_gsm','date_naissance',
+                   'iban','bic','compte_titulaire','tel_gsm','date_naissance','photo',
                    // Fiche signalétique — situation fiscale
                    'etat_civil','handicap',
                    'conjoint_nom','conjoint_prenom','conjoint_handicap',
