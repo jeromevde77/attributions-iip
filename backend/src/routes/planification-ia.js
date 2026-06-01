@@ -119,23 +119,23 @@ r.post('/generer', authRequired, roleRequired('admin', 'editeur'), (req, res) =>
   const semainesQ2    = semainesDansIntervalle(semainesCours, q2Debut, q2Fin);
 
   // Semaine EV1 = dernière semaine Q1, VC = juste après, EV2 = dernière semaine Q2
-  const dernSemQ1 = [...toutesLesSeamines].filter(s => {
+  // EV1 = 1ère semaine typée 'ev1' dans Q1
+  const semEV1 = toutesLesSeamines.find(s => {
     const d = parseDate(s.date_debut);
-    return d >= q1Debut && d <= q1Fin;
-  }).slice(-1)[0];
-  const dernSemQ2 = [...toutesLesSeamines].filter(s => {
-    const d = parseDate(s.date_debut);
-    return d >= q2Debut && d <= q2Fin;
-  }).slice(-1)[0];
+    return s.type === 'ev1' && d >= q1Debut && d <= q1Fin;
+  });
 
-  // Semaine VC = 1ère semaine non-vacances après EV1
-  const idxEV1 = dernSemQ1 ? toutesLesSeamines.findIndex(s => s.id === dernSemQ1.id) : -1;
+  // VC = 1ère semaine non-vacances/ferie après EV1
+  const idxEV1 = semEV1 ? toutesLesSeamines.findIndex(s => s.id === semEV1.id) : -1;
   const semVC = idxEV1 >= 0
     ? toutesLesSeamines.slice(idxEV1 + 1).find(s => s.type !== 'vacances' && s.type !== 'ferie')
     : null;
 
-  // Semaine EV2 = dernière semaine cours Q2 (pas la toute dernière si on veut garder de l'espace)
-  const semEV2 = dernSemQ2;
+  // EV2 = 1ère semaine typée 'ev2' dans Q2
+  const semEV2 = toutesLesSeamines.find(s => {
+    const d = parseDate(s.date_debut);
+    return s.type === 'ev2' && d >= q2Debut && d <= q2Fin;
+  });
 
   // ── 3. Charger les groupes de la section ─────────────────────────────────
   const groupes = db.prepare(`
@@ -245,18 +245,18 @@ r.post('/generer', authRequired, roleRequired('admin', 'editeur'), (req, res) =>
       proposition[groupe.id][Number(semaineId)] = h;
     }
 
-    // Poser EV1 si l'UE est en Q1 ou annuelle et que dernSemQ1 existe
-    if (dernSemQ1 && (quad === 'Q1' || quad === 'Q1Q2' || !quad) && !cellulesFixees.has(dernSemQ1.id)) {
-      proposition[groupe.id][dernSemQ1.id] = 'EV1';
+    // EV1 + VC : pour Q1 et annuel (Q1Q2)
+    const aEV1 = quad === 'Q1' || quad === 'Q1Q2' || !quad;
+    if (aEV1 && semEV1 && !cellulesFixees.has(semEV1.id)) {
+      proposition[groupe.id][semEV1.id] = 'EV1';
     }
-
-    // Poser VC
-    if (semVC && (quad === 'Q1' || quad === 'Q1Q2' || !quad) && !cellulesFixees.has(semVC.id)) {
+    if (aEV1 && semVC && !cellulesFixees.has(semVC.id)) {
       proposition[groupe.id][semVC.id] = 'VC';
     }
 
-    // Poser EV2
-    if (semEV2 && (quad !== 'Q1') && !cellulesFixees.has(semEV2.id)) {
+    // EV2 : pour Q2 et annuel (Q1Q2)
+    const aEV2 = quad === 'Q2' || quad === 'Q1Q2' || !quad;
+    if (aEV2 && semEV2 && !cellulesFixees.has(semEV2.id)) {
       proposition[groupe.id][semEV2.id] = 'EV2';
     }
 
@@ -308,7 +308,7 @@ r.post('/generer', authRequired, roleRequired('admin', 'editeur'), (req, res) =>
       meta: {
         groupes_traites: groupesOrdonnes.length,
         ue_ordre: ueOrdre,
-        sem_ev1: dernSemQ1?.id,
+        sem_ev1: semEV1?.id,
         sem_vc:  semVC?.id,
         sem_ev2: semEV2?.id,
       }
