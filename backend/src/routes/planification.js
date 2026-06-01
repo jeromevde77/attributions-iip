@@ -125,7 +125,7 @@ r.get('/grille', authRequired, (req, res) => {
   let cellules = {};
   if (groupeIds.length > 0) {
     const rows = db.prepare(`
-      SELECT p.groupe_id, p.semaine_id, COALESCE(p.valeur, CAST(p.heures AS TEXT)) AS valeur
+      SELECT p.groupe_id, p.semaine_id, p.valeur
       FROM planification p
       WHERE p.groupe_id IN (${groupeIds.map(() => '?').join(',')})
     `).all(...groupeIds);
