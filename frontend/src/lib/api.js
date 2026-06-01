@@ -5,7 +5,7 @@ function setToken(t) { localStorage.setItem('token', t); }
 function clearToken() { localStorage.removeItem('token'); localStorage.removeItem('user'); }
 
 // Année scolaire active — persistée dans localStorage
-export function getAnnee() { return localStorage.getItem('annee_active') || '2025-2026'; }
+export function getAnnee() { return localStorage.getItem('annee_active') || '2026-2027'; }
 export function setAnnee(a) { localStorage.setItem('annee_active', a); }
 
 async function request(path, { method = 'GET', body, headers = {} } = {}) {

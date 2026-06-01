@@ -269,7 +269,7 @@ function _buildImportGroupes(annee) {
   // Regrouper par (ue_num, section, num_groupe)
   const map = new Map();
   for (const a of attrs) {
-    const nomGroupe = _numToLettre(a.num_groupe || 1);
+    const nomGroupe = _numToLettre(a.num_groupe ?? 1);
     const key = `${a.ue_num}__${a.section || ''}__${nomGroupe}`;
 
     if (!map.has(key)) {
