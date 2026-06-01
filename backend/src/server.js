@@ -23,6 +23,7 @@ import ea12Routes from './routes/ea12.js';
 import templateRoutes   from './routes/templates.js';
 import contratsRoutes   from './routes/contrats.js';
 import proceduresRoutes from './routes/procedures.js';
+import planificationRoutes from './routes/planification.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
@@ -245,6 +246,154 @@ try {
 
   // Nettoyage : supprimer l'ancienne table membres_cde si elle existe
   try { db.exec(`DROP TABLE IF EXISTS membres_cde`); } catch { /* ignoré */ }
+
+  // ── Tables de planification horaire ────────────────────────────────────────
+
+  // Calendrier annuel : semaines typées (cours / ev1 / ev2 / vacances / stage / ferie)
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS annee_calendrier (
+      id              INTEGER PRIMARY KEY AUTOINCREMENT,
+      annee_scolaire  TEXT NOT NULL,
+      semaine_num     INTEGER NOT NULL,         -- 1..n dans l'année scolaire
+      date_debut      TEXT NOT NULL,            -- lundi ISO YYYY-MM-DD
+      date_fin        TEXT NOT NULL,            -- vendredi ISO YYYY-MM-DD
+      type            TEXT NOT NULL DEFAULT 'cours',
+                                                -- 'cours'|'ev1'|'ev2'|'vacances'|'stage'|'ferie'
+      label           TEXT,                     -- ex. "Vacances Noël", "EV1 S1"
+      UNIQUE(annee_scolaire, semaine_num)
+    );
+    CREATE INDEX IF NOT EXISTS idx_cal_annee ON annee_calendrier(annee_scolaire);
+  `);
+
+  // Groupes : subdivision d'une attribution par groupe d'étudiants
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS groupe (
+      id              INTEGER PRIMARY KEY AUTOINCREMENT,
+      annee_scolaire  TEXT NOT NULL,
+      ue_num          INTEGER NOT NULL,
+      section         TEXT,
+      nom             TEXT NOT NULL,            -- "A", "B", "Groupe 1"…
+      nb_etudiants    INTEGER DEFAULT 0,
+      professeur_id   INTEGER REFERENCES professeur(id) ON DELETE SET NULL,
+      heures_attribuees REAL DEFAULT 0,         -- total heures 60min attribuées pour ce groupe
+      notes           TEXT,
+      cree_le         TEXT DEFAULT (datetime('now')),
+      modifie_le      TEXT DEFAULT (datetime('now'))
+    );
+    CREATE INDEX IF NOT EXISTS idx_groupe_annee   ON groupe(annee_scolaire);
+    CREATE INDEX IF NOT EXISTS idx_groupe_ue      ON groupe(ue_num);
+    CREATE INDEX IF NOT EXISTS idx_groupe_section ON groupe(section);
+  `);
+
+  // Planification : heures placées par groupe × semaine
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS planification (
+      id              INTEGER PRIMARY KEY AUTOINCREMENT,
+      groupe_id       INTEGER NOT NULL REFERENCES groupe(id) ON DELETE CASCADE,
+      semaine_id      INTEGER NOT NULL REFERENCES annee_calendrier(id) ON DELETE CASCADE,
+      heures          REAL NOT NULL DEFAULT 0,  -- heures de 60 min planifiées cette semaine
+      UNIQUE(groupe_id, semaine_id)
+    );
+    CREATE INDEX IF NOT EXISTS idx_plan_groupe   ON planification(groupe_id);
+    CREATE INDEX IF NOT EXISTS idx_plan_semaine  ON planification(semaine_id);
+  `);
+
+  // Seed calendrier 2025-2026 (FWB) si absent
+  const _calExist = db.prepare("SELECT COUNT(*) AS n FROM annee_calendrier WHERE annee_scolaire = '2025-2026'").get();
+  if (_calExist.n === 0) {
+    // Génération automatique des semaines du 01/09/2025 au 26/06/2026
+    // Types pré-configurés selon le calendrier FWB 2025-2026
+    const VACANCES_2526 = [
+      // [date_debut_lundi, nb_semaines, type, label]
+      ['2025-11-03', 1, 'vacances', 'Congé automne'],
+      ['2025-12-22', 2, 'vacances', 'Vacances Noël'],
+      ['2026-02-16', 1, 'vacances', 'Congé carnaval'],
+      ['2026-04-06', 2, 'vacances', 'Vacances Pâques'],
+      ['2026-05-25', 1, 'vacances', 'Congé Pentecôte'],
+    ];
+    const EV_2526 = [
+      ['2026-01-05', 3, 'ev1', 'Évaluations 1re session'],
+      ['2026-06-08', 3, 'ev2', 'Évaluations 2e session'],
+    ];
+    const FERIES_2526 = [
+      ['2025-11-10', 'Armistice'],
+      ['2026-01-01', 'Nouvel An'],  // tombe hors semaines scolaires
+      ['2026-05-14', 'Ascension'],
+    ];
+
+    // Construire la map date_lundi → {type, label}
+    const typeMap = new Map();
+    for (const [dl, nb, type, label] of [...VACANCES_2526, ...EV_2526]) {
+      for (let i = 0; i < nb; i++) {
+        const d = new Date(dl + 'T12:00:00');
+        d.setDate(d.getDate() + i * 7);
+        typeMap.set(d.toISOString().slice(0, 10), { type, label });
+      }
+    }
+
+    // Générer toutes les semaines
+    const insertSem = db.prepare(`INSERT OR IGNORE INTO annee_calendrier (annee_scolaire, semaine_num, date_debut, date_fin, type, label) VALUES (?,?,?,?,?,?)`);
+    const start = new Date('2025-09-01T12:00:00');
+    // Avancer au lundi
+    while (start.getDay() !== 1) start.setDate(start.getDate() + 1);
+    const end = new Date('2026-06-30T12:00:00');
+    let semNum = 1;
+    const insertAll = db.transaction(() => {
+      let cur = new Date(start);
+      while (cur <= end) {
+        const dl = cur.toISOString().slice(0, 10);
+        const fin = new Date(cur); fin.setDate(fin.getDate() + 4);
+        const df = fin.toISOString().slice(0, 10);
+        const info = typeMap.get(dl) || { type: 'cours', label: null };
+        insertSem.run('2025-2026', semNum++, dl, df, info.type, info.label);
+        cur.setDate(cur.getDate() + 7);
+      }
+    });
+    insertAll();
+    console.log(`[seed] Calendrier 2025-2026 : ${semNum - 1} semaines générées`);
+  }
+
+  // Seed calendrier 2026-2027 si absent
+  const _cal2627 = db.prepare("SELECT COUNT(*) AS n FROM annee_calendrier WHERE annee_scolaire = '2026-2027'").get();
+  if (_cal2627.n === 0) {
+    const VACANCES_2627 = [
+      ['2026-11-02', 1, 'vacances', 'Congé automne'],
+      ['2026-12-21', 2, 'vacances', 'Vacances Noël'],
+      ['2027-02-15', 1, 'vacances', 'Congé carnaval'],
+      ['2027-03-29', 2, 'vacances', 'Vacances Pâques'],
+      ['2027-05-17', 1, 'vacances', 'Congé Pentecôte'],
+    ];
+    const EV_2627 = [
+      ['2027-01-04', 3, 'ev1', 'Évaluations 1re session'],
+      ['2027-06-07', 3, 'ev2', 'Évaluations 2e session'],
+    ];
+    const typeMap2 = new Map();
+    for (const [dl, nb, type, label] of [...VACANCES_2627, ...EV_2627]) {
+      for (let i = 0; i < nb; i++) {
+        const d = new Date(dl + 'T12:00:00');
+        d.setDate(d.getDate() + i * 7);
+        typeMap2.set(d.toISOString().slice(0, 10), { type, label });
+      }
+    }
+    const insertSem2 = db.prepare(`INSERT OR IGNORE INTO annee_calendrier (annee_scolaire, semaine_num, date_debut, date_fin, type, label) VALUES (?,?,?,?,?,?)`);
+    const start2 = new Date('2026-09-01T12:00:00');
+    while (start2.getDay() !== 1) start2.setDate(start2.getDate() + 1);
+    const end2 = new Date('2027-06-30T12:00:00');
+    let semNum2 = 1;
+    const insertAll2 = db.transaction(() => {
+      let cur = new Date(start2);
+      while (cur <= end2) {
+        const dl = cur.toISOString().slice(0, 10);
+        const fin = new Date(cur); fin.setDate(fin.getDate() + 4);
+        const df = fin.toISOString().slice(0, 10);
+        const info = typeMap2.get(dl) || { type: 'cours', label: null };
+        insertSem2.run('2026-2027', semNum2++, dl, df, info.type, info.label);
+        cur.setDate(cur.getDate() + 7);
+      }
+    });
+    insertAll2();
+    console.log(`[seed] Calendrier 2026-2027 : ${semNum2 - 1} semaines générées`);
+  }
   // Option B : chaque génération est CONSERVÉE et horodatée (traçabilité FWB).
   db.exec(`
     CREATE TABLE IF NOT EXISTS document_archive (
@@ -1232,7 +1381,8 @@ app.use('/api/etablissement', etablissementRoutes);
 app.use('/api/ea12',          ea12Routes);
 app.use('/api/templates',   templateRoutes);
 app.use('/api/contrats',    contratsRoutes);
-app.use('/api/procedures',  proceduresRoutes);
+app.use('/api/procedures',    proceduresRoutes);
+app.use('/api/planification', planificationRoutes);
 
 // Route logo IIP
 import { createRequire as _cr } from 'module';
