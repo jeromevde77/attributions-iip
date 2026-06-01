@@ -656,7 +656,7 @@ r.patch('/professeurs/:id', authRequired, roleRequired('admin', 'editeur'), (req
                    'matricule','titre1','titre2','titre3','statut_ea12','report_anc_po',
                    // Fiche signalétique — identité civile
                    'sexe','niss','nationalite','lieu_naissance_ville','lieu_naissance_pays',
-                   'iban','bic','compte_titulaire','tel_gsm','date_naissance',
+                   'iban','bic','compte_titulaire','tel_gsm','date_naissance','photo',
                    // Fiche signalétique — situation fiscale
                    'etat_civil','handicap',
                    'conjoint_nom','conjoint_prenom','conjoint_handicap',
@@ -964,6 +964,45 @@ r.delete('/personnel-etablissement/:id', authRequired, roleRequired('admin'), (r
   const reste = db.prepare('SELECT COUNT(*) AS n FROM personnel_etablissement WHERE professeur_id = ?').get(pe.professeur_id).n;
   if (!reste) db.prepare(`UPDATE professeur SET type_personnel = 'enseignant' WHERE id = ?`).run(pe.professeur_id);
   res.json({ ok: true });
+});
+
+// Lire les sections d'un membre CDE
+r.get('/personnel-etablissement/:id/sections', authRequired, (req, res) => {
+  const rows = db.prepare('SELECT section_code FROM personnel_section WHERE personnel_etablissement_id = ? ORDER BY section_code').all(req.params.id);
+  res.json(rows.map(r => r.section_code));
+});
+
+// Remplacer les sections d'un membre CDE (PUT = remplacement complet)
+r.put('/personnel-etablissement/:id/sections', authRequired, roleRequired('admin'), (req, res) => {
+  const { sections } = req.body; // tableau de section_code
+  if (!Array.isArray(sections)) return res.status(400).json({ error: 'sections doit être un tableau' });
+  const pe = db.prepare('SELECT id FROM personnel_etablissement WHERE id = ?').get(req.params.id);
+  if (!pe) return res.status(404).json({ error: 'Membre introuvable' });
+  const upsert = db.transaction(() => {
+    db.prepare('DELETE FROM personnel_section WHERE personnel_etablissement_id = ?').run(req.params.id);
+    for (const sc of sections) {
+      if (sc && sc.trim()) db.prepare('INSERT OR IGNORE INTO personnel_section (personnel_etablissement_id, section_code) VALUES (?, ?)').run(req.params.id, sc.trim());
+    }
+  });
+  upsert();
+  res.json({ ok: true });
+});
+
+// membres-cde enrichis avec leurs sections
+r.get('/membres-cde', authRequired, (req, res) => {
+  const membres = db.prepare(`
+    SELECT pe.id, pe.professeur_id, pe.fonction, pe.ordre,
+           p.nom, p.prenom, (p.prenom || ' ' || p.nom) AS nomComplet,
+           p.adresse_mail, p.tel_gsm
+    FROM personnel_etablissement pe
+    JOIN professeur p ON p.id = pe.professeur_id
+    ORDER BY pe.ordre, p.nom
+  `).all();
+  // Attacher les sections à chaque membre
+  for (const m of membres) {
+    m.sections = db.prepare('SELECT section_code FROM personnel_section WHERE personnel_etablissement_id = ? ORDER BY section_code').all(m.id).map(r => r.section_code);
+  }
+  res.json(membres);
 });
 
 export default r;

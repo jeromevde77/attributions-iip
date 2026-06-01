@@ -232,6 +232,17 @@ try {
     }
   }
 
+  // ── Table personnel_section : rattachement des membres CDE à une ou plusieurs sections ──
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS personnel_section (
+      personnel_etablissement_id  INTEGER NOT NULL REFERENCES personnel_etablissement(id) ON DELETE CASCADE,
+      section_code                TEXT NOT NULL,
+      PRIMARY KEY (personnel_etablissement_id, section_code)
+    );
+    CREATE INDEX IF NOT EXISTS idx_ps_pe ON personnel_section(personnel_etablissement_id);
+    CREATE INDEX IF NOT EXISTS idx_ps_section ON personnel_section(section_code);
+  `);
+
   // Nettoyage : supprimer l'ancienne table membres_cde si elle existe
   try { db.exec(`DROP TABLE IF EXISTS membres_cde`); } catch { /* ignoré */ }
   // Option B : chaque génération est CONSERVÉE et horodatée (traçabilité FWB).
@@ -252,6 +263,39 @@ try {
     CREATE INDEX IF NOT EXISTS idx_docarch_prof ON document_archive(professeur_id);
     CREATE INDEX IF NOT EXISTS idx_docarch_type ON document_archive(type_doc);
   `);
+
+  // ── Table procedure_archive : trace de chaque PV généré ────────────────────
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS procedure_archive (
+      id              INTEGER PRIMARY KEY AUTOINCREMENT,
+      type            TEXT NOT NULL,          -- 'recours' | 'fraude'
+      statut          TEXT NOT NULL DEFAULT 'en_cours',
+                                              -- 'en_cours' | 'clos' | 'annule'
+      etudiant        TEXT,
+      ue_num          INTEGER,
+      ue_nom          TEXT,
+      section         TEXT,
+      annee_scolaire  TEXT,
+      verdict         TEXT,                   -- 'irrecevable'|'rejete'|'accueilli'|'ajourne'|'refus'
+      date_faits      TEXT,                   -- date publi résultats (recours) ou date examen (fraude)
+      date_seance_cde TEXT,
+      payload_json    TEXT,                   -- données complètes pour re-génération
+      cree_par        TEXT,
+      cree_le         TEXT DEFAULT (datetime('now')),
+      modifie_le      TEXT DEFAULT (datetime('now'))
+    );
+    CREATE INDEX IF NOT EXISTS idx_proc_type    ON procedure_archive(type);
+    CREATE INDEX IF NOT EXISTS idx_proc_annee   ON procedure_archive(annee_scolaire);
+    CREATE INDEX IF NOT EXISTS idx_proc_etudiant ON procedure_archive(etudiant);
+    CREATE INDEX IF NOT EXISTS idx_proc_statut  ON procedure_archive(statut);
+  `);
+
+  // Ajouter procedure_id à document_archive si absent (lien vers la procédure)
+  const _colsDocArch = db.prepare('PRAGMA table_info(document_archive)').all();
+  if (!_colsDocArch.find(c => c.name === 'procedure_id')) {
+    db.exec(`ALTER TABLE document_archive ADD COLUMN procedure_id INTEGER REFERENCES procedure_archive(id) ON DELETE SET NULL`);
+    console.log('[migration] Colonne document_archive.procedure_id ajoutée');
+  }
 
   // 5c. Table ue_section (rattachement many-to-many UE <-> sections)
   db.exec(`
@@ -395,6 +439,7 @@ try {
     add('bic');                  // si compte étranger
     add('compte_titulaire');     // au nom de…
     add('tel_gsm');
+    add('photo');                // data-URI JPEG base64 issue de la carte eID (~3-4 Ko)
     // ── Situation fiscale du MDP ──
     add('etat_civil');           // celibataire|marie|veuf|divorce|cohab_legal|cohabitant|separe_corps|separe_fait
     add('handicap');             // 'oui' | 'non'
@@ -806,6 +851,103 @@ try {
     db.exec("ALTER TABLE ue_inscription ADD COLUMN encadrement TEXT;");
     console.log('[migration] Table ue_inscription : colonne encadrement ajoutée');
   }
+
+  // 7d. PILOTAGE CIVIL — dotation par année civile + enveloppes extérieures
+  {
+    // pot_code sur ue : permet de taguer Qualité / CF / Inclusif (fallback : auto-détecté depuis ue_code_fwb)
+    const ueColsNow = db.prepare("PRAGMA table_info(ue)").all().map(c => c.name);
+    if (!ueColsNow.includes('pot_code')) {
+      db.exec("ALTER TABLE ue ADD COLUMN pot_code TEXT");
+      console.log('[migration] Table ue : colonne pot_code ajoutée');
+    }
+
+    // Table dotation_civile : dotation organique par année civile
+    db.exec(`
+      CREATE TABLE IF NOT EXISTS dotation_civile (
+        annee_civile              INTEGER PRIMARY KEY,
+        dotation_organique        REAL    NOT NULL DEFAULT 0,
+        usage_historique_organique REAL,     -- NULL = calculé depuis la DB ; valeur = saisie manuelle (années sans données)
+        notes                     TEXT
+      );
+    `);
+
+    // Table enveloppe_externe : enveloppes fermées par code × année civile
+    db.exec(`
+      CREATE TABLE IF NOT EXISTS enveloppe_externe (
+        id              INTEGER PRIMARY KEY AUTOINCREMENT,
+        code            TEXT    NOT NULL,          -- 'QUAL' | 'CF' | 'INCL'
+        label           TEXT    NOT NULL,
+        annee_civile    INTEGER NOT NULL,
+        periodes_b      REAL    NOT NULL DEFAULT 0,
+        usage_historique REAL,                     -- NULL = calculé ; valeur = saisie manuelle
+        notes           TEXT,
+        UNIQUE(code, annee_civile)
+      );
+    `);
+
+    // periodes_eleves (PEP brute Menu 7) + pep_calculee (PEP pondérée Menu 5.5) + dotation_utilisable + pep_reference
+    try { db.exec("ALTER TABLE dotation_civile ADD COLUMN periodes_eleves      REAL"); } catch {}
+    try { db.exec("ALTER TABLE dotation_civile ADD COLUMN pep_reference        REAL"); } catch {}
+    try { db.exec("ALTER TABLE dotation_civile ADD COLUMN pep_annee_utilisee   INTEGER"); } catch {}
+    try { db.exec("ALTER TABLE dotation_civile ADD COLUMN pep_calculee         REAL"); } catch {}  // PEP pondérée Menu 5.5 (comparée à pep_reference pour ±8%)
+    try { db.exec("ALTER TABLE dotation_civile ADD COLUMN dotation_utilisable  REAL"); } catch {}  // Dotation utilisable (après retraits intra-année)
+
+    // Seed complet depuis HOD IIP (1/06/2026) — Menu 7 (PEP brute) + Menu 5.5 (dotations et PEP pondérées)
+    // Dérogations COVID : dotations 2022/2023/2024 ont utilisé PEP 2019 (A.Gt 27-10-2022)
+    // usage_historique = dotation_utilisable - solde  (pour années sans données Lucie)
+    const hodData = [
+      // [civile, dot_init, dot_util, pep_brute_menu7, pep_ref, pep_calc, pep_an_used, usage_hist, notes]
+      [2018, 12931, 12767, 196092, 323078, 364980, null,  12742, null],
+      [2019, 13255, 12939, 167132, 325598, 303531, null,  13046, null],
+      [2020, 13359, 12901, 152372, 325598, 311443, null,  12706, null],
+      [2021, 13359, 12621, 142797, 325598, 281195, 2019,  12387, null],
+      [2022, 13359, 12412, 123255, 280292, 238850, 2019,  11232, 'Dérogation COVID — PEP 2019 utilisées (A.Gt 27-10-2022)'],
+      [2023, 13359, 12879, 198605, 236397, 343730, 2019,  12878, 'Dérogation COVID — PEP 2019 utilisées (A.Gt 27-10-2022)'],
+      [2024, 13359, 13126, 296279, 238548, 483394, 2019,  13197, 'Dérogation COVID — PEP 2019 utilisées (A.Gt 27-10-2022)'],
+      [2025, 13480, 12882, 313739, 239812, 554127, 2023,  null,  'Normale — PEP N-2 = 2023'],
+      [2026, 13552, 13552, 193674, null,   346072, 2024,  null,  'Partielle (1/06/2026) — PEP N-2 = 2024'],
+    ];
+    const upsertHod = db.prepare(`
+      INSERT INTO dotation_civile
+        (annee_civile, dotation_organique, dotation_utilisable, periodes_eleves, pep_reference,
+         pep_calculee, pep_annee_utilisee, usage_historique_organique, notes)
+      VALUES (?,?,?,?,?,?,?,?,?)
+      ON CONFLICT(annee_civile) DO UPDATE SET
+        dotation_organique            = excluded.dotation_organique,
+        dotation_utilisable           = excluded.dotation_utilisable,
+        periodes_eleves               = excluded.periodes_eleves,
+        pep_reference                 = excluded.pep_reference,
+        pep_calculee                  = excluded.pep_calculee,
+        pep_annee_utilisee            = excluded.pep_annee_utilisee,
+        usage_historique_organique    = COALESCE(excluded.usage_historique_organique, dotation_civile.usage_historique_organique),
+        notes                         = COALESCE(excluded.notes, dotation_civile.notes)
+    `);
+    for (const [ac, di, du, pb, pr, pc, pau, uh, notes] of hodData)
+      upsertHod.run(ac, di, du, pb, pr, pc, pau, uh, notes);
+    console.log('[migration] HOD IIP 2018-2026 : dotations + PEP chargées (Menu 7 + Menu 5.5)');
+
+    // Seeder dotation_civile depuis les paramètres PERIODES_DISPO existants
+    const p25 = db.prepare("SELECT valeur_num FROM parametre_financier WHERE cle='PERIODES_DISPO_25'").get();
+    const p26 = db.prepare("SELECT valeur_num FROM parametre_financier WHERE cle='PERIODES_DISPO_26'").get();
+    if (p25) db.prepare("INSERT OR IGNORE INTO dotation_civile (annee_civile, dotation_organique) VALUES (2025, ?)").run(p25.valeur_num);
+    if (p26) db.prepare("INSERT OR IGNORE INTO dotation_civile (annee_civile, dotation_organique) VALUES (2026, ?)").run(p26.valeur_num);
+
+    // Seeder enveloppes initiales (QUAL=150, CF=200→300, INCL=50)
+    const seedEnv = [
+      ['QUAL', 'Coordinateur Qualité',              2025, 150],
+      ['QUAL', 'Coordinateur Qualité',              2026, 150],
+      ['CF',   'Conseiller à la Formation',         2025, 200],
+      ['CF',   'Conseiller à la Formation',         2026, 300],
+      ['INCL', 'Personne de référence EPS inclusif', 2025,  50],
+      ['INCL', 'Personne de référence EPS inclusif', 2026,  50],
+    ];
+    const insEnv = db.prepare("INSERT OR IGNORE INTO enveloppe_externe (code, label, annee_civile, periodes_b) VALUES (?,?,?,?)");
+    for (const [code, label, annee_civile, periodes_b] of seedEnv) {
+      insEnv.run(code, label, annee_civile, periodes_b);
+    }
+    console.log('[migration] Pilotage civil : dotation_civile + enveloppe_externe initialisés');
+  }
+
 } catch (e) {
   console.error('[migration] ERREUR :', e.message);
   console.error(e.stack);

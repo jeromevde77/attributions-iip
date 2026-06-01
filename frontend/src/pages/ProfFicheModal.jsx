@@ -1,5 +1,6 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { api } from '../lib/api.js';
+import { eidStatus, eidReadAll, eidToProf, eidChamps } from '../lib/eid.js';
 
 /* ════════════════════════════════════════════════════════════════════════
    Fiche signalétique du membre du personnel (MDP) — annexe 3 FWB
@@ -90,7 +91,7 @@ export default function ProfFicheModal({ prof, onClose, onSaved }) {
   const [form, setForm] = useState({
     // Identité
     nom: '', prenom: '', sexe: '', niss: '', nationalite: '',
-    date_naissance: '', lieu_naissance_ville: '', lieu_naissance_pays: '',
+    date_naissance: '', lieu_naissance_ville: '', lieu_naissance_pays: '', photo: '',
     // Coordonnées
     adresse_rue: '', code_postal: '', commune: '',
     adresse_mail: '', mail_prive: '', tel_gsm: '',
@@ -119,6 +120,70 @@ export default function ProfFicheModal({ prof, onClose, onSaved }) {
 
   function toggle(k) { setOpen(o => ({ ...o, [k]: !o[k] })); }
   function set(k, v) { setForm(f => ({ ...f, [k]: v })); }
+
+  // ── Import optionnel depuis la carte eID belge ──
+  const eidTimer = useRef(null);
+  const [eidState, setEidState] = useState('idle'); // idle|checking|waiting|reading|done|error
+  const [eidMsg, setEidMsg] = useState('');
+  const eidBusy = eidState === 'checking' || eidState === 'waiting' || eidState === 'reading';
+
+  function stopEid() { if (eidTimer.current) { clearInterval(eidTimer.current); eidTimer.current = null; } }
+  useEffect(() => () => stopEid(), []); // nettoyage au démontage
+
+  function cancelEid() { stopEid(); setEidState('idle'); setEidMsg(''); }
+
+  async function importerEid() {
+    stopEid();
+    setEidState('checking'); setEidMsg('Connexion au lecteur eID…');
+
+    const st = await eidStatus();
+    if (st === null) {
+      setEidState('error');
+      setEidMsg("Service eID non joignable. Lancez l'app « eID Reader » ; au 1er usage, approuvez son certificat (menu tray « Approuver le certificat »), puis réessayez.");
+      return;
+    }
+    const code = st.state || st.code || (st.ok ? 'READY' : 'UNKNOWN');
+    if (code === 'NO_READER') {
+      setEidState('error');
+      setEidMsg('Aucun lecteur de carte détecté. Branchez le lecteur eID, puis réessayez.');
+      return;
+    }
+
+    setEidState('waiting'); setEidMsg('Insérez votre carte eID dans le lecteur…');
+
+    let attempts = 0;
+    const tryRead = async () => {
+      attempts++;
+      const res = await eidReadAll();
+      if (res.ok) {
+        const mapped = eidToProf(res.data);
+        setForm(f => ({ ...f, ...mapped }));
+        setOpen(o => ({ ...o, identite: true, coord: true }));
+        const id = res.data.identity || {};
+        setEidState('done');
+        setEidMsg(`Carte lue : ${[id.firstName, id.lastName].filter(Boolean).join(' ')} — ${eidChamps(mapped).length} champ(s) pré-rempli(s). Vérifiez avant d'enregistrer.`);
+        return true;
+      }
+      if (res.code === 'UNREACHABLE') {
+        setEidState('error');
+        setEidMsg("Service eID injoignable : app fermée, certificat non approuvé, ou origine non autorisée (CORS). Vérifiez que « eID Reader » tourne et que son certificat est approuvé.");
+        return true;
+      }
+      if (res.code === 'NO_CARD') { setEidState('waiting'); setEidMsg('Insérez votre carte eID dans le lecteur…'); }
+      else { setEidState('reading'); setEidMsg('Lecture de la carte en cours…'); } // READING / READ_ERROR → on réessaie
+      if (attempts >= 20) { // ~30 s
+        setEidState('error');
+        setEidMsg("Aucune carte lisible après 30 s. Vérifiez l'insertion de la carte, puis réessayez.");
+        return true;
+      }
+      return false;
+    };
+
+    const done = await tryRead();
+    if (!done) {
+      eidTimer.current = setInterval(async () => { if (await tryRead()) stopEid(); }, 1500);
+    }
+  }
 
   // Charger les données complètes du prof (avec titres + charges)
   useEffect(() => {
@@ -219,8 +284,45 @@ export default function ProfFicheModal({ prof, onClose, onSaved }) {
 
         <form onSubmit={handleSubmit} autoComplete="off" className="p-5 space-y-3 overflow-auto">
 
+          {/* Import optionnel depuis la carte eID belge */}
+          <div className="border border-iip-gold/30 bg-iip-gold/5 rounded-lg p-3 flex items-start gap-3">
+            <div className="flex-1 min-w-0">
+              <div className="text-sm font-semibold text-iip-gold flex items-center gap-1.5">
+                <span>🪪</span> Pré-remplir depuis la carte eID
+                <span className="text-[10px] font-normal text-gray-400 uppercase tracking-wide">optionnel</span>
+              </div>
+              <p className="text-xs text-gray-500 mt-0.5">
+                Lit l'identité et l'adresse via l'app « eID Reader ». Les champs restent modifiables et rien n'est enregistré tant que vous ne validez pas.
+              </p>
+              {eidState !== 'idle' && (
+                <p className={`text-xs mt-1.5 ${eidState === 'error' ? 'text-red-600' : eidState === 'done' ? 'text-green-700' : 'text-gray-600'}`}>
+                  {eidBusy && <span className="inline-block animate-spin mr-1">⏳</span>}
+                  {eidMsg}
+                  {eidBusy && (
+                    <button type="button" onClick={cancelEid} className="ml-2 underline hover:text-gray-800">Annuler</button>
+                  )}
+                </p>
+              )}
+            </div>
+            <button type="button" onClick={importerEid} disabled={eidBusy}
+              className="flex-shrink-0 bg-iip-gold hover:bg-iip-amber disabled:opacity-40 text-white text-sm px-4 py-2 rounded font-medium">
+              {eidBusy ? 'Lecture…' : 'Lire la carte'}
+            </button>
+          </div>
+
           {/* 1. Identité civile */}
           <Section titre="1 · Identité civile" ouvert={open.identite} onToggle={() => toggle('identite')}>
+            {form.photo && (
+              <div className="flex items-center gap-3">
+                <img src={form.photo} alt="Photo d'identité"
+                  className="w-20 h-24 object-cover rounded border border-gray-200 flex-shrink-0" />
+                <div className="text-xs text-gray-500">
+                  Photo issue de la carte eID.
+                  <button type="button" onClick={() => set('photo', '')}
+                    className="block mt-1 text-red-500 hover:text-red-700 underline">Retirer la photo</button>
+                </div>
+              </div>
+            )}
             <div className="grid grid-cols-2 gap-3">
               <TextField label="Nom *" value={form.nom} onChange={v => set('nom', v)} />
               <TextField label="Prénom *" value={form.prenom} onChange={v => set('prenom', v)} />

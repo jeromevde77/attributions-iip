@@ -10,11 +10,14 @@ const FONCTIONS = ['Directeur', 'Directeur adjoint', 'Secrétaire', 'Coordinateu
 function GestionPersonnel() {
   const [personnel, setPersonnel]   = useState([]);
   const [allProfs, setAllProfs]     = useState([]);
+  const [allSections, setAllSections] = useState([]);
   const [loading, setLoading]       = useState(true);
   const [showAdd, setShowAdd]       = useState(false);
   const [editId, setEditId]         = useState(null);
   const [editFonction, setEditFonction] = useState('');
   const [editOrdre, setEditOrdre]   = useState('');
+  const [editSections, setEditSections] = useState(null); // null = fermé, peId = ouvert
+  const [pendingSections, setPendingSections] = useState([]); // sections en cours d'édition
   const [newProfId, setNewProfId]   = useState('');
   const [newFonction, setNewFonction] = useState('Directeur');
   const [newOrdre, setNewOrdre]     = useState('');
@@ -25,12 +28,22 @@ function GestionPersonnel() {
   async function charger() {
     setLoading(true);
     try {
-      const [pe, profs] = await Promise.all([
+      const [pe, profs, secs] = await Promise.all([
         authFetch('/api/ref/personnel-etablissement').then(r => r.json()),
         authFetch('/api/ref/professeurs?tous=1').then(r => r.json()),
+        authFetch('/api/ref/sections').then(r => r.json()),
       ]);
-      setPersonnel(Array.isArray(pe) ? pe : []);
+      // Charger les sections de chaque membre
+      const peList = Array.isArray(pe) ? pe : [];
+      await Promise.all(peList.map(async m => {
+        try {
+          const s = await authFetch(`/api/ref/personnel-etablissement/${m.id}/sections`).then(r => r.json());
+          m.sections = Array.isArray(s) ? s : [];
+        } catch { m.sections = []; }
+      }));
+      setPersonnel(peList);
       setAllProfs(Array.isArray(profs) ? profs : []);
+      setAllSections(Array.isArray(secs) ? secs.map(s => s.code || s.section_code || s).filter(Boolean) : []);
     } finally { setLoading(false); }
   }
 
@@ -56,6 +69,26 @@ function GestionPersonnel() {
   async function supprimer(id, nom) {
     if (!confirm(`Retirer ${nom} du personnel de l'établissement ?`)) return;
     await authFetch(`/api/ref/personnel-etablissement/${id}`, { method: 'DELETE' });
+    charger();
+  }
+
+  function ouvrirSections(pe) {
+    setEditSections(pe.id);
+    setPendingSections([...(pe.sections || [])]);
+  }
+
+  function toggleSection(code) {
+    setPendingSections(prev =>
+      prev.includes(code) ? prev.filter(c => c !== code) : [...prev, code]
+    );
+  }
+
+  async function sauvegarderSections(peId) {
+    await authFetch(`/api/ref/personnel-etablissement/${peId}/sections`, {
+      method: 'PUT',
+      body: JSON.stringify({ sections: pendingSections }),
+    });
+    setEditSections(null);
     charger();
   }
 
@@ -122,50 +155,105 @@ function GestionPersonnel() {
             <tr>
               <th className="px-5 py-3 text-left">Personne</th>
               <th className="px-4 py-3 text-left">Fonction</th>
+              <th className="px-4 py-3 text-left">Sections</th>
               <th className="px-4 py-3 text-center">Ordre</th>
               <th className="px-4 py-3"></th>
             </tr>
           </thead>
           <tbody className="divide-y divide-gray-100">
             {personnel.map(pe => (
-              <tr key={pe.id} className="hover:bg-gray-50">
-                <td className="px-5 py-3 font-medium text-gray-800">{pe.prenom} {pe.nom}</td>
-                <td className="px-4 py-3">
-                  {editId === pe.id ? (
-                    <select value={editFonction} onChange={e => setEditFonction(e.target.value)}
-                      className="border border-gray-300 rounded px-2 py-1 text-sm bg-white">
-                      {FONCTIONS.map(f => <option key={f} value={f}>{f}</option>)}
-                    </select>
-                  ) : (
-                    <span className="inline-flex items-center bg-iip-gold/10 text-iip-gold text-xs font-semibold px-2.5 py-1 rounded-full">
-                      {pe.fonction}
-                    </span>
-                  )}
-                </td>
-                <td className="px-4 py-3 text-center text-gray-500">
-                  {editId === pe.id
-                    ? <input type="number" value={editOrdre} onChange={e => setEditOrdre(e.target.value)} className="w-16 border rounded px-2 py-1 text-sm text-center" />
-                    : pe.ordre}
-                </td>
-                <td className="px-4 py-3 text-right">
-                  {editId === pe.id ? (
-                    <div className="flex gap-1 justify-end">
-                      <button onClick={() => modifier(pe.id)} className="text-green-700 hover:text-green-900 text-xs px-2 py-1 border border-green-300 rounded">✓ OK</button>
-                      <button onClick={() => setEditId(null)} className="text-gray-500 text-xs px-2 py-1 border border-gray-200 rounded">✕</button>
-                    </div>
-                  ) : (
-                    <div className="flex gap-1 justify-end">
-                      <button onClick={() => { setEditId(pe.id); setEditFonction(pe.fonction); setEditOrdre(String(pe.ordre)); }}
-                        className="text-gray-400 hover:text-iip-gold text-xs px-2 py-1 border border-gray-200 rounded">✏</button>
-                      <button onClick={() => supprimer(pe.id, `${pe.prenom} ${pe.nom}`)}
-                        className="text-gray-400 hover:text-red-500 text-xs px-2 py-1 border border-gray-200 rounded">✕</button>
-                    </div>
-                  )}
-                </td>
-              </tr>
+              <>
+                <tr key={pe.id} className="hover:bg-gray-50">
+                  <td className="px-5 py-3 font-medium text-gray-800">{pe.prenom} {pe.nom}</td>
+                  <td className="px-4 py-3">
+                    {editId === pe.id ? (
+                      <select value={editFonction} onChange={e => setEditFonction(e.target.value)}
+                        className="border border-gray-300 rounded px-2 py-1 text-sm bg-white">
+                        {FONCTIONS.map(f => <option key={f} value={f}>{f}</option>)}
+                      </select>
+                    ) : (
+                      <span className="inline-flex items-center bg-iip-gold/10 text-iip-gold text-xs font-semibold px-2.5 py-1 rounded-full">
+                        {pe.fonction}
+                      </span>
+                    )}
+                  </td>
+                  <td className="px-4 py-3">
+                    {pe.sections && pe.sections.length > 0 ? (
+                      <div className="flex flex-wrap gap-1">
+                        {pe.sections.map(s => (
+                          <span key={s} className="inline-flex items-center bg-blue-50 text-blue-700 text-xs font-medium px-2 py-0.5 rounded-full border border-blue-200">{s}</span>
+                        ))}
+                      </div>
+                    ) : (
+                      <span className="text-xs text-gray-400 italic">Toutes sections</span>
+                    )}
+                  </td>
+                  <td className="px-4 py-3 text-center text-gray-500">
+                    {editId === pe.id
+                      ? <input type="number" value={editOrdre} onChange={e => setEditOrdre(e.target.value)} className="w-16 border rounded px-2 py-1 text-sm text-center" />
+                      : pe.ordre}
+                  </td>
+                  <td className="px-4 py-3 text-right">
+                    {editId === pe.id ? (
+                      <div className="flex gap-1 justify-end">
+                        <button onClick={() => modifier(pe.id)} className="text-green-700 hover:text-green-900 text-xs px-2 py-1 border border-green-300 rounded">✓ OK</button>
+                        <button onClick={() => setEditId(null)} className="text-gray-500 text-xs px-2 py-1 border border-gray-200 rounded">✕</button>
+                      </div>
+                    ) : (
+                      <div className="flex gap-1 justify-end">
+                        <button onClick={() => ouvrirSections(pe)}
+                          title="Gérer les sections"
+                          className={`text-xs px-2 py-1 border rounded ${editSections === pe.id ? 'border-blue-400 text-blue-600 bg-blue-50' : 'border-gray-200 text-gray-400 hover:text-blue-500'}`}>
+                          §
+                        </button>
+                        <button onClick={() => { setEditId(pe.id); setEditFonction(pe.fonction); setEditOrdre(String(pe.ordre)); }}
+                          className="text-gray-400 hover:text-iip-gold text-xs px-2 py-1 border border-gray-200 rounded">✏</button>
+                        <button onClick={() => supprimer(pe.id, `${pe.prenom} ${pe.nom}`)}
+                          className="text-gray-400 hover:text-red-500 text-xs px-2 py-1 border border-gray-200 rounded">✕</button>
+                      </div>
+                    )}
+                  </td>
+                </tr>
+                {/* Panneau sections inline */}
+                {editSections === pe.id && (
+                  <tr key={`sec-${pe.id}`}>
+                    <td colSpan={5} className="px-5 py-4 bg-blue-50 border-t border-blue-100">
+                      <div className="space-y-3">
+                        <p className="text-sm font-medium text-blue-800">
+                          Sections pour {pe.prenom} {pe.nom}
+                          <span className="ml-2 text-xs font-normal text-blue-600">(vide = visible dans toutes les sections)</span>
+                        </p>
+                        <div className="flex flex-wrap gap-2">
+                          {allSections.map(s => (
+                            <label key={s} className={`flex items-center gap-1.5 cursor-pointer text-xs px-3 py-1.5 rounded-full border transition-colors ${
+                              pendingSections.includes(s)
+                                ? 'bg-blue-600 text-white border-blue-600'
+                                : 'bg-white text-gray-700 border-gray-300 hover:border-blue-400'
+                            }`}>
+                              <input type="checkbox" className="hidden" checked={pendingSections.includes(s)} onChange={() => toggleSection(s)} />
+                              {s}
+                            </label>
+                          ))}
+                          {allSections.length === 0 && <span className="text-xs text-gray-400">Aucune section disponible</span>}
+                        </div>
+                        <div className="flex gap-2">
+                          <button onClick={() => sauvegarderSections(pe.id)}
+                            className="bg-blue-600 text-white text-xs px-4 py-1.5 rounded hover:bg-blue-700">
+                            Enregistrer
+                          </button>
+                          <button onClick={() => setEditSections(null)}
+                            className="border border-gray-300 text-gray-600 text-xs px-4 py-1.5 rounded hover:bg-gray-50">
+                            Annuler
+                          </button>
+                        </div>
+                      </div>
+                    </td>
+                  </tr>
+                )}
+              </>
             ))}
             {!personnel.length && (
-              <tr><td colSpan={4} className="px-5 py-8 text-center text-gray-400 text-sm">Aucun membre du personnel enregistré</td></tr>
+              <tr><td colSpan={5} className="px-5 py-8 text-center text-gray-400 text-sm">Aucun membre du personnel enregistré</td></tr>
             )}
           </tbody>
         </table>
@@ -173,7 +261,7 @@ function GestionPersonnel() {
 
       <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 text-sm text-blue-800">
         <p className="font-medium mb-1">💡 Comment ça fonctionne</p>
-        <p>Toute personne de la table Professeurs peut se voir attribuer une fonction dans l'établissement. Leurs données complètes (NISS, adresse, etc.) restent dans leur fiche professeur et sont utilisées pour les documents (contrats, courriers). Le champ « Ordre » détermine l'affichage dans les outils Procédures.</p>
+        <p>Toute personne de la table Professeurs peut se voir attribuer une fonction dans l'établissement. Le bouton <strong>§</strong> permet de rattacher un membre à une ou plusieurs sections — utile pour les coordinatrices qui suivent des sections spécifiques. Sans section cochée, la personne apparaît dans tous les PV et documents. Leurs données complètes (NISS, adresse, etc.) restent dans leur fiche professeur et sont utilisées pour les documents (contrats, courriers).</p>
       </div>
     </div>
   );

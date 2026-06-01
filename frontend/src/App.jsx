@@ -33,6 +33,7 @@ import Configuration from './pages/Configuration.jsx';
 import EA12List from './pages/EA12List.jsx';
 import EA12Editor from './pages/EA12Editor.jsx';
 import Referentiels from './pages/Referentiels.jsx';
+import Pilotage from './pages/Pilotage.jsx';
 
 /* eslint-disable no-undef */
 const BUILD_DATE_STR = typeof __BUILD_DATE__ !== 'undefined' ? __BUILD_DATE__ : new Date().toISOString();
@@ -104,15 +105,14 @@ function ProtectedLayout({ children }) {
 
   const nav = isCoordination
     ? [
-        ['/',             'Tableau de bord'],
         ['/attributions', 'Attributions']
       ]
     : [
-        ['/',             'Tableau de bord'],
         ['/attributions', 'Attributions'],
         ['/professeurs',  'Professeurs'],
         ['/listes',       'Listes'],
         ['/procedures',   '⚖ Procédures'],
+        ['/pilotage',     '📊 Pilotage'],
         // EA12 masqué en prod (LibreOffice absent du Dockerfile prod)
         // ...(u?.role === 'admin' ? [['/ea12', 'EA12']] : []),
       ];
@@ -206,7 +206,7 @@ export default function App() {
     <ErrorBoundary>
       <Routes>
       <Route path="/login" element={<Login />} />
-      <Route path="/"             element={<ProtectedLayout><Dashboard /></ProtectedLayout>} />
+      <Route path="/"             element={<Navigate to="/attributions" replace />} />
       <Route path="/attributions" element={<ProtectedLayout><Attributions /></ProtectedLayout>} />
       <Route path="/professeurs"  element={<ProtectedLayout><Professeurs /></ProtectedLayout>} />
       <Route path="/listes" element={
@@ -232,7 +232,7 @@ export default function App() {
       } />
       <Route path="/ea12"          element={<ProtectedLayout><EA12List /></ProtectedLayout>} />
       <Route path="/ea12/:id"      element={<ProtectedLayout><EA12Editor /></ProtectedLayout>} />
-      <Route path="/pilotage"     element={<Navigate to="/" replace />} />
+      <Route path="/pilotage"     element={<ProtectedLayout><Pilotage /></ProtectedLayout>} />
       <Route path="/utilisateurs" element={<ProtectedLayout><Users /></ProtectedLayout>} />
       <Route path="/annees"         element={<ProtectedLayout><Annees /></ProtectedLayout>} />
       <Route path="/configuration"  element={<ProtectedLayout><Configuration /></ProtectedLayout>} />
