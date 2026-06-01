@@ -344,12 +344,13 @@ r.post('/bulk-delete', authRequired, roleRequired('admin'), (req, res) => {
 
 // Compter ce qui serait supprimé selon les filtres (pour l'aperçu)
 r.post('/bulk-delete-preview', authRequired, roleRequired('admin'), (req, res) => {
-  const { section, professeur_id, contrat } = req.body || {};
+  const { section, professeur_id, contrat, annee_scolaire } = req.body || {};
   const where = [];
   const params = [];
-  if (section)       { where.push('section = ?');        params.push(section); }
-  if (professeur_id) { where.push('professeur_id = ?');  params.push(Number(professeur_id)); }
-  if (contrat)       { where.push('contrat_mdp = ?');    params.push(contrat); }
+  if (annee_scolaire) { where.push('annee_scolaire = ?'); params.push(annee_scolaire); }
+  if (section)        { where.push('section = ?');        params.push(section); }
+  if (professeur_id)  { where.push('professeur_id = ?');  params.push(Number(professeur_id)); }
+  if (contrat)        { where.push('contrat_mdp = ?');    params.push(contrat); }
   const whereClause = where.length ? 'WHERE ' + where.join(' AND ') : '';
   const row = db.prepare(`SELECT COUNT(*) AS n FROM attribution ${whereClause}`).get(...params);
   res.json({ count: row.n });
@@ -357,15 +358,16 @@ r.post('/bulk-delete-preview', authRequired, roleRequired('admin'), (req, res) =
 
 // Suppression par filtres (= filtres actifs de la grille, ou aucun = TOUT)
 r.post('/bulk-delete-filtered', authRequired, roleRequired('admin'), (req, res) => {
-  const { confirm, section, professeur_id, contrat } = req.body || {};
+  const { confirm, section, professeur_id, contrat, annee_scolaire } = req.body || {};
   if (confirm !== 'OUI-SUPPRIMER') {
     return res.status(400).json({ error: 'Confirmation requise (confirm = "OUI-SUPPRIMER")' });
   }
   const where = [];
   const params = [];
-  if (section)       { where.push('section = ?');        params.push(section); }
-  if (professeur_id) { where.push('professeur_id = ?');  params.push(Number(professeur_id)); }
-  if (contrat)       { where.push('contrat_mdp = ?');    params.push(contrat); }
+  if (annee_scolaire) { where.push('annee_scolaire = ?'); params.push(annee_scolaire); }
+  if (section)        { where.push('section = ?');        params.push(section); }
+  if (professeur_id)  { where.push('professeur_id = ?');  params.push(Number(professeur_id)); }
+  if (contrat)        { where.push('contrat_mdp = ?');    params.push(contrat); }
   const whereClause = where.length ? 'WHERE ' + where.join(' AND ') : '';
 
   const tx = db.transaction(() => {
