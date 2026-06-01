@@ -390,7 +390,142 @@ function PanelCalendrier({ semaines, onUpdate, onClose }) {
   );
 }
 
-// ─── Page principale ──────────────────────────────────────────────────────────
+// ─── Modal import depuis attributions ────────────────────────────────────────
+function ModalImport({ annee, onImported, onClose }) {
+  const [preview, setPreview]   = useState(null);
+  const [loading, setLoading]   = useState(true);
+  const [mode, setMode]         = useState('skip');
+  const [importing, setImporting] = useState(false);
+  const [result, setResult]     = useState(null);
+
+  useEffect(() => {
+    authFetch(`/api/planification/import-preview?annee=${encodeURIComponent(annee)}`)
+      .then(d => setPreview(d))
+      .finally(() => setLoading(false));
+  }, [annee]);
+
+  async function lancer() {
+    setImporting(true);
+    try {
+      const d = await authFetch('/api/planification/import-from-attributions', {
+        method: 'POST',
+        body: JSON.stringify({ annee, mode }),
+      });
+      setResult(d);
+    } finally { setImporting(false); }
+  }
+
+  return (
+    <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center">
+      <div className="bg-white rounded-xl shadow-2xl w-full max-w-2xl max-h-[90vh] flex flex-col">
+        <div className="flex items-center justify-between px-6 py-4 border-b">
+          <h3 className="font-semibold text-gray-800">Import depuis les attributions — {annee}</h3>
+          <button onClick={onClose} className="text-gray-400 hover:text-gray-600">✕</button>
+        </div>
+
+        <div className="flex-1 overflow-auto px-6 py-4 space-y-4">
+          {loading ? (
+            <div className="text-center text-gray-400 py-8">Analyse des attributions…</div>
+          ) : result ? (
+            <div className="text-center space-y-3 py-8">
+              <p className="text-4xl">✅</p>
+              <p className="font-semibold text-gray-800">Import terminé</p>
+              <div className="flex justify-center gap-6 text-sm">
+                <div><span className="text-2xl font-bold text-green-600">{result.created}</span><p className="text-gray-500">groupes créés</p></div>
+                <div><span className="text-2xl font-bold text-gray-400">{result.skipped}</span><p className="text-gray-500">déjà existants</p></div>
+              </div>
+              <p className="text-xs text-gray-400">Le nombre d'étudiants reste à 0 — à compléter par le secrétariat.</p>
+            </div>
+          ) : (
+            <>
+              {/* Stats */}
+              <div className="flex gap-4 text-sm">
+                <div className="bg-iip-gold/10 rounded-lg px-4 py-3 text-center">
+                  <p className="text-2xl font-bold text-iip-gold">{preview?.groupes?.length || 0}</p>
+                  <p className="text-xs text-gray-500">groupes à importer</p>
+                </div>
+                {preview?.existants > 0 && (
+                  <div className="bg-orange-50 rounded-lg px-4 py-3 text-center">
+                    <p className="text-2xl font-bold text-orange-500">{preview.existants}</p>
+                    <p className="text-xs text-gray-500">groupes déjà en base</p>
+                  </div>
+                )}
+              </div>
+
+              {/* Mode si groupes existants */}
+              {preview?.existants > 0 && (
+                <div className="bg-orange-50 border border-orange-200 rounded-lg p-3 space-y-2">
+                  <p className="text-xs font-medium text-orange-800">Des groupes existent déjà pour {annee}. Comment procéder ?</p>
+                  <div className="flex gap-3">
+                    <label className="flex items-center gap-2 cursor-pointer text-sm">
+                      <input type="radio" value="skip" checked={mode==='skip'} onChange={() => setMode('skip')} />
+                      <span>Ajouter seulement les nouveaux (ne pas toucher aux existants)</span>
+                    </label>
+                    <label className="flex items-center gap-2 cursor-pointer text-sm">
+                      <input type="radio" value="replace" checked={mode==='replace'} onChange={() => setMode('replace')} />
+                      <span className="text-red-700">Tout remplacer <span className="text-xs">(perd la planification saisie !)</span></span>
+                    </label>
+                  </div>
+                </div>
+              )}
+
+              {/* Aperçu tableau */}
+              <div className="border border-gray-200 rounded-lg overflow-hidden">
+                <table className="w-full text-xs">
+                  <thead className="bg-gray-50 text-gray-500 uppercase tracking-wide">
+                    <tr>
+                      <th className="px-3 py-2 text-left">Section</th>
+                      <th className="px-3 py-2 text-left">UE</th>
+                      <th className="px-3 py-2 text-center">Gr.</th>
+                      <th className="px-3 py-2 text-left">Prof principal</th>
+                      <th className="px-3 py-2 text-right">Heures</th>
+                      <th className="px-3 py-2 text-left">Notes</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-gray-100">
+                    {(preview?.groupes || []).slice(0, 50).map((g, i) => (
+                      <tr key={i} className="hover:bg-gray-50">
+                        <td className="px-3 py-1.5 font-medium text-iip-mauve">{g.section || '—'}</td>
+                        <td className="px-3 py-1.5 text-gray-600">UE {g.ue_num} <span className="text-gray-400">{g.ue_nom?.slice(0,30)}</span></td>
+                        <td className="px-3 py-1.5 text-center font-bold">{g.nom}</td>
+                        <td className="px-3 py-1.5 text-gray-600">{g.professeur_id ? `#${g.professeur_id}` : <span className="text-gray-300 italic">multi-profs</span>}</td>
+                        <td className="px-3 py-1.5 text-right font-mono text-gray-800">{g.heures_attribuees}h</td>
+                        <td className="px-3 py-1.5 text-gray-400 italic">{g.notes || ''}</td>
+                      </tr>
+                    ))}
+                    {(preview?.groupes?.length || 0) > 50 && (
+                      <tr><td colSpan={6} className="px-3 py-2 text-center text-gray-400 italic">… et {preview.groupes.length - 50} autres</td></tr>
+                    )}
+                  </tbody>
+                </table>
+              </div>
+              <p className="text-xs text-gray-400">⚠ Le nombre d'étudiants n'est pas dans les attributions — il restera à 0 et devra être saisi par le secrétariat.</p>
+            </>
+          )}
+        </div>
+
+        <div className="flex justify-end gap-2 px-6 py-4 border-t">
+          {result ? (
+            <button onClick={() => { onImported(); onClose(); }}
+              className="bg-iip-gold text-white text-sm px-5 py-2 rounded hover:bg-iip-amber">
+              Voir la grille
+            </button>
+          ) : (
+            <>
+              <button onClick={onClose} className="border border-gray-300 text-gray-600 text-sm px-4 py-2 rounded">Annuler</button>
+              <button onClick={lancer} disabled={importing || loading || !preview?.groupes?.length}
+                className="bg-iip-gold text-white text-sm px-5 py-2 rounded hover:bg-iip-amber disabled:opacity-40">
+                {importing ? 'Import en cours…' : `Importer ${preview?.groupes?.length || 0} groupes`}
+              </button>
+            </>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+
 export default function Planification() {
   const annee = getAnnee();
   const [grille, setGrille]         = useState(null);
@@ -400,6 +535,7 @@ export default function Planification() {
   const [profs, setProfs]           = useState([]);
   const [modalGroupe, setModalGroupe] = useState(null); // { ue_num, ue_nom, initial? }
   const [showCalendrier, setShowCalendrier] = useState(false);
+  const [showImport, setShowImport]         = useState(false);
   const [pendingCells, setPendingCells] = useState({}); // { groupeId_semaineId: heures }
   const [saving, setSaving]         = useState(false);
   const saveTimerRef                = useRef(null);
@@ -490,6 +626,10 @@ export default function Planification() {
           ))}
         </div>
 
+        <button onClick={() => setShowImport(true)}
+          className="bg-iip-gold text-white text-xs px-3 py-1.5 rounded hover:bg-iip-amber">
+          ⬇ Importer les attributions
+        </button>
         <button onClick={() => setShowCalendrier(true)}
           className="border border-gray-300 text-gray-600 text-xs px-3 py-1.5 rounded hover:bg-gray-50">
           📅 Calendrier
@@ -588,8 +728,11 @@ export default function Planification() {
                 <tr>
                   <td colSpan={semaines.length + 3} className="text-center py-16 text-gray-400">
                     <p className="text-2xl mb-2">➕</p>
-                    <p>Aucun groupe configuré.</p>
-                    <p className="text-xs mt-1">Allez dans Référentiels → UE pour créer des groupes, ou utilisez le bouton + dans la grille.</p>
+                    <p>Aucun groupe configuré pour {annee}.</p>
+                    <button onClick={() => setShowImport(true)}
+                      className="mt-3 bg-iip-gold text-white text-sm px-5 py-2 rounded hover:bg-iip-amber">
+                      ⬇ Importer depuis les attributions
+                    </button>
                   </td>
                 </tr>
               ) : (
@@ -615,6 +758,9 @@ export default function Planification() {
           onSave={() => { setModalGroupe(null); charger(); }}
           onClose={() => setModalGroupe(null)}
         />
+      )}
+      {showImport && (
+        <ModalImport annee={annee} onImported={charger} onClose={() => setShowImport(false)} />
       )}
       {showCalendrier && (
         <PanelCalendrier semaines={semaines} onUpdate={charger} onClose={() => setShowCalendrier(false)} />

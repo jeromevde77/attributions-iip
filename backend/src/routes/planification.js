@@ -205,4 +205,119 @@ r.get('/synthese', authRequired, (req, res) => {
   res.json({ annee, sections });
 });
 
+// ─── IMPORT DEPUIS LES ATTRIBUTIONS ──────────────────────────────────────────
+
+// GET /planification/import-preview?annee=  — aperçu sans écriture
+r.get('/import-preview', authRequired, (req, res) => {
+  const annee = req.query.annee || db.prepare("SELECT code FROM annee_scolaire WHERE active=1").get()?.code || '2025-2026';
+  const rows = _buildImportGroupes(annee);
+  const existants = db.prepare('SELECT COUNT(*) AS n FROM groupe WHERE annee_scolaire = ?').get(annee).n;
+  res.json({ annee, existants, groupes: rows });
+});
+
+// POST /planification/import-from-attributions — crée les groupes depuis les attributions
+r.post('/import-from-attributions', authRequired, roleRequired('admin', 'editeur'), (req, res) => {
+  const { annee, mode = 'skip' } = req.body; // mode: 'skip' = ne pas écraser | 'replace' = tout remplacer
+  const anneeVal = annee || db.prepare("SELECT code FROM annee_scolaire WHERE active=1").get()?.code || '2025-2026';
+
+  if (mode === 'replace') {
+    db.prepare('DELETE FROM groupe WHERE annee_scolaire = ?').run(anneeVal);
+  }
+
+  const groupes = _buildImportGroupes(anneeVal);
+  let created = 0, skipped = 0;
+
+  const insert = db.transaction(() => {
+    for (const g of groupes) {
+      // En mode skip : ne pas écraser un groupe existant (même ue_num + section + nom)
+      if (mode === 'skip') {
+        const exists = db.prepare('SELECT id FROM groupe WHERE annee_scolaire=? AND ue_num=? AND section=? AND nom=?')
+          .get(anneeVal, g.ue_num, g.section, g.nom);
+        if (exists) { skipped++; continue; }
+      }
+      db.prepare(`
+        INSERT INTO groupe (annee_scolaire, ue_num, section, nom, nb_etudiants, professeur_id, heures_attribuees, notes)
+        VALUES (?,?,?,?,0,?,?,?)
+      `).run(anneeVal, g.ue_num, g.section, g.nom, g.professeur_id, g.heures_attribuees, g.notes);
+      created++;
+    }
+  });
+  insert();
+
+  res.json({ ok: true, created, skipped, total: groupes.length });
+});
+
+// Helper : construit la liste des groupes à importer depuis les attributions
+function _buildImportGroupes(annee) {
+  // Récupérer toutes les attributions actives de l'année (hors cours Z)
+  const attrs = db.prepare(`
+    SELECT a.ue_num, a.section, a.num_groupe, a.professeur_id,
+           a.charge_en_heures,
+           a.periodes_attribuees, a.autonomie_attribuee,
+           p.nom AS prof_nom, p.prenom AS prof_prenom,
+           u.ue_nom,
+           at.code AS activite_code
+    FROM attribution a
+    LEFT JOIN professeur p ON p.id = a.professeur_id
+    LEFT JOIN ue u ON u.ue_num = a.ue_num AND u.annee_scolaire = a.annee_scolaire
+    LEFT JOIN activite_type at ON at.id = a.activite_id
+    WHERE a.annee_scolaire = ?
+      AND COALESCE(a.periodes_attribuees, 0) + COALESCE(a.autonomie_attribuee, 0) > 0
+    ORDER BY a.section, a.ue_num, a.num_groupe, a.professeur_id
+  `).all(annee);
+
+  // Regrouper par (ue_num, section, num_groupe)
+  const map = new Map();
+  for (const a of attrs) {
+    const nomGroupe = _numToLettre(a.num_groupe || 1);
+    const key = `${a.ue_num}__${a.section || ''}__${nomGroupe}`;
+
+    if (!map.has(key)) {
+      map.set(key, {
+        ue_num: a.ue_num,
+        ue_nom: a.ue_nom || `UE ${a.ue_num}`,
+        section: a.section,
+        nom: nomGroupe,
+        heures_attribuees: 0,
+        professeur_id: null,   // premier prof trouvé
+        profs: [],             // tous les profs du groupe
+        notes: null,
+      });
+    }
+    const g = map.get(key);
+    // Somme des heures (charge_en_heures = périodes × 50/60, arrondi)
+    // On recalcule précisément : total_periodes × 50 / 60
+    const periodes = (a.periodes_attribuees || 0) + (a.autonomie_attribuee || 0);
+    g.heures_attribuees += periodes * 50 / 60;
+    if (a.professeur_id && !g.profs.includes(a.professeur_id)) {
+      g.profs.push(a.professeur_id);
+      if (!g.professeur_id) g.professeur_id = a.professeur_id; // 1er prof
+    }
+  }
+
+  // Finaliser : arrondir heures, noter si multi-profs
+  const result = [];
+  for (const g of map.values()) {
+    g.heures_attribuees = Math.round(g.heures_attribuees * 100) / 100;
+    if (g.profs.length > 1) {
+      g.notes = `${g.profs.length} profs (th. + ex.)`;
+      g.professeur_id = null; // ambiguïté → pas de prof principal
+    }
+    delete g.profs;
+    result.push(g);
+  }
+
+  return result.sort((a, b) =>
+    (a.section || '').localeCompare(b.section || '') ||
+    a.ue_num - b.ue_num ||
+    a.nom.localeCompare(b.nom)
+  );
+}
+
+function _numToLettre(n) {
+  // 1→A, 2→B, 3→C…  au-delà de 26 : AA, AB…
+  if (n <= 26) return String.fromCharCode(64 + n);
+  return String.fromCharCode(64 + Math.floor((n - 1) / 26)) + String.fromCharCode(65 + ((n - 1) % 26));
+}
+
 export default r;
