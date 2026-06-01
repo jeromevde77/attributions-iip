@@ -153,7 +153,7 @@ r.post('/generer', authRequired, roleRequired('admin', 'editeur'), (req, res) =>
   }
 
   // Ajouter les prérequis implicites par niveau BA
-  // Toutes UE BA2 dépendent de toutes UE BA1, BA3 de toutes BA2
+  const ueNums = [...new Set(groupes.map(g => g.ue_num))];
   const niveaux = { BA1: [], BA2: [], BA3: [] };
   for (const g of groupes) {
     const niv = g.ue_niv;
