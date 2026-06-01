@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { api } from '../lib/api.js';
 
 const TOKEN = () => localStorage.getItem('token');
-const authFetch = (url, opts = {}) => fetch(url, { ...opts, headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${TOKEN()}`, ...opts.headers } });
+const authFetch = (url, opts = {}) => fetch(url, { ...opts, headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${TOKEN()}`, ...opts.headers } }).then(r => r.json());
 
 const FONCTIONS = ['Directeur', 'Directeur adjoint', 'Secrétaire', 'Coordinateur', 'Coordinatrice', 'Éducateur', 'Éducatrice', 'Gestionnaire', 'Autre'];
 
