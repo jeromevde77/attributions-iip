@@ -537,6 +537,7 @@ export default function Planification() {
   const [showCalendrier, setShowCalendrier] = useState(false);
   const [showImport, setShowImport]         = useState(false);
   const [pendingCells, setPendingCells] = useState({}); // { groupeId_semaineId: heures }
+  const pendingRef                      = useRef({});    // ref synchrone pour éviter closures périmées
   const [saving, setSaving]         = useState(false);
   const saveTimerRef                = useRef(null);
 
@@ -553,6 +554,7 @@ export default function Planification() {
       if (filtreSection) params.set('section', filtreSection);
       const d = await authFetch(`/api/planification/grille?${params}`);
       setGrille(d);
+      pendingRef.current = {};
       setPendingCells({});
     } finally { setLoading(false); }
   }
@@ -574,13 +576,17 @@ export default function Planification() {
 
   function handleCellChange(groupeId, semaineId, heures) {
     const key = `${groupeId}_${semaineId}`;
-    setPendingCells(prev => ({ ...prev, [key]: heures }));
-    // Auto-save après 800ms d'inactivité
+    // Mettre à jour le ref synchrone ET le state (pour le rendu)
+    pendingRef.current = { ...pendingRef.current, [key]: heures };
+    setPendingCells({ ...pendingRef.current });
+    // Auto-save après 800ms d'inactivité — lit le ref, pas la closure
     clearTimeout(saveTimerRef.current);
-    saveTimerRef.current = setTimeout(() => sauvegarderPending({ ...pendingCells, [key]: heures }), 800);
+    saveTimerRef.current = setTimeout(() => sauvegarderPending(), 800);
   }
 
-  async function sauvegarderPending(cells) {
+  async function sauvegarderPending() {
+    const cells = pendingRef.current;
+    if (!Object.keys(cells).length) return;
     const cellules = Object.entries(cells).map(([k, heures]) => {
       const [groupe_id, semaine_id] = k.split('_').map(Number);
       return { groupe_id, semaine_id, heures };
@@ -589,6 +595,7 @@ export default function Planification() {
     setSaving(true);
     try {
       await authFetch('/api/planification/cellules-bulk', { method: 'PUT', body: JSON.stringify({ cellules }) });
+      pendingRef.current = {};
       setPendingCells({});
     } finally { setSaving(false); }
   }
