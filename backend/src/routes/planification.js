@@ -209,8 +209,10 @@ r.get('/synthese', authRequired, (req, res) => {
 
 // GET /planification/import-preview?annee=  — aperçu sans écriture
 r.get('/import-preview', authRequired, (req, res) => {
-  const annee = req.query.annee || db.prepare("SELECT code FROM annee_scolaire WHERE active=1").get()?.code || '2025-2026';
+  const annee = req.query.annee || db.prepare("SELECT code FROM annee_scolaire WHERE active=1").get()?.code || '2026-2027';
+  console.log('[import-preview] annee=', annee, 'query=', req.query);
   const rows = _buildImportGroupes(annee);
+  console.log('[import-preview] groupes construits=', rows.length);
   const existants = db.prepare('SELECT COUNT(*) AS n FROM groupe WHERE annee_scolaire = ?').get(annee).n;
   res.json({ annee, existants, groupes: rows });
 });
@@ -249,10 +251,8 @@ r.post('/import-from-attributions', authRequired, roleRequired('admin', 'editeur
 
 // Helper : construit la liste des groupes à importer depuis les attributions
 function _buildImportGroupes(annee) {
-  // Récupérer toutes les attributions actives de l'année (hors cours Z)
   const attrs = db.prepare(`
     SELECT a.ue_num, a.section, a.num_groupe, a.professeur_id,
-           a.charge_en_heures,
            a.periodes_attribuees, a.autonomie_attribuee,
            p.nom AS prof_nom, p.prenom AS prof_prenom,
            u.ue_nom,
@@ -265,6 +265,7 @@ function _buildImportGroupes(annee) {
       AND COALESCE(a.periodes_attribuees, 0) + COALESCE(a.autonomie_attribuee, 0) > 0
     ORDER BY a.section, a.ue_num, a.num_groupe, a.professeur_id
   `).all(annee);
+  console.log('[_buildImportGroupes] annee=', annee, 'attrs=', attrs.length);
 
   // Regrouper par (ue_num, section, num_groupe)
   const map = new Map();
