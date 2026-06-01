@@ -68,18 +68,25 @@ function appliquerPattern(semaines, pattern, offset) {
 }
 
 // Distribuer des heures uniformément sur des semaines
+function arrondir(v) {
+  // < 0.5 → inférieur, >= 0.5 → supérieur
+  return v % 1 < 0.5 ? Math.floor(v) : Math.ceil(v);
+}
+
 function distribuerHeures(semaines, hTotal, hParSemaine) {
-  // hParSemaine = heures par créneau (ex. 2h = 1 bloc)
-  // On répartit le plus uniformément possible
+  // Répartit hTotal heures uniformément sur les semaines disponibles
   const result = {};
   if (!semaines.length || hTotal <= 0) return result;
-  let restant = hTotal;
-  const h = Math.min(hParSemaine, hTotal);
-  for (const sem of semaines) {
-    if (restant <= 0) break;
-    const pose = Math.min(h, restant);
-    result[sem.id] = pose;
-    restant -= pose;
+  // Calculer combien de semaines sont nécessaires
+  const nSem = Math.ceil(hTotal / hParSemaine);
+  const semsActives = semaines.slice(0, nSem);
+  // Distribuer uniformément avec arrondi correct
+  const hMoyenne = hTotal / semsActives.length;
+  let cumul = 0;
+  for (let i = 0; i < semsActives.length; i++) {
+    cumul += hMoyenne;
+    const hCette = arrondir(cumul) - arrondir(cumul - hMoyenne);
+    if (hCette > 0) result[semsActives[i].id] = hCette;
   }
   return result;
 }
@@ -106,7 +113,8 @@ r.post('/generer', authRequired, roleRequired('admin', 'editeur'), (req, res) =>
     'SELECT * FROM annee_calendrier WHERE annee_scolaire = ? ORDER BY semaine_num'
   ).all(annee_scolaire);
 
-  const semainesCours = toutesLesSeamines.filter(s => s.type === 'cours');
+  // Semaines disponibles = tout sauf vacances et fériés (inclut ev1/ev2 pour y poser les évaluations)
+  const semainesCours = toutesLesSeamines.filter(s => s.type !== 'vacances' && s.type !== 'ferie');
   const semainesQ1    = semainesDansIntervalle(semainesCours, q1Debut, q1Fin);
   const semainesQ2    = semainesDansIntervalle(semainesCours, q2Debut, q2Fin);
 

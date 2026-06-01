@@ -20,10 +20,20 @@ function cellHeures(val) {
   return isNaN(n) ? 0 : n;
 }
 
+function arrondir(v) {
+  // < 0.5 → inférieur, >= 0.5 → supérieur
+  const n = parseFloat(v);
+  if (isNaN(n)) return v;
+  return n % 1 < 0.5 ? Math.floor(n) : Math.ceil(n);
+}
+
 function cellDisplay(val) {
   if (!val || val === '' || val === '0' || val === 0) return null;
   const up = String(val).toUpperCase().trim();
-  return CELL_SPECIAL[up] ? up : String(val);
+  if (CELL_SPECIAL[up]) return up;
+  const n = parseFloat(val);
+  if (isNaN(n)) return String(val);
+  return String(arrondir(n));
 }
 
 // ─── Vérification contraintes EV1→VC→EV2 ────────────────────────────────────
