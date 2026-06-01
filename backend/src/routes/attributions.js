@@ -44,34 +44,42 @@ r.get('/', authRequired, withSectionScope, (req, res) => {
   `;
   const lignes = db.prepare(sql).all(params);
 
-  // Lignes synthétiques Z (activités 7.3 de l'UE) : périodes ÉTUDIANT, sans
-  // enseignant, sans charge, sans coût. Une ligne par UE ayant ue_per_z > 0,
-  // dans le périmètre filtré. Marquées is_z=true pour l'affichage.
+  // Lignes Z synthétiques : une par cours de type Z pour la section/année filtrée.
+  // Affichées à titre informatif (périodes étudiants uniquement, sans prof, sans charge).
+  // Exclues du calcul de conformité et de dotation.
   try {
-    const whereZ = ['ue_per_z IS NOT NULL', 'ue_per_z > 0', 'annee_scolaire = @annee'];
-    if (section) whereZ.push('section = @section');
-    if (ue || ue_num) whereZ.push('ue_num = @ue');
+    const whereZ = [`co.ct_pp = 'Z'`, `co.annee_scolaire = @annee`];
+    if (section) whereZ.push(`co.section = @section`);
+    if (ue || ue_num) whereZ.push(`co.ue_num = @ue`);
     if (req.allowedSections !== null && req.allowedSections.length > 0) {
       const ph = req.allowedSections.map((_, i) => `@zsec${i}`).join(', ');
-      whereZ.push(`section IN (${ph})`);
+      whereZ.push(`co.section IN (${ph})`);
       req.allowedSections.forEach((s, i) => { params[`zsec${i}`] = s; });
     }
-    const uesZ = db.prepare(`SELECT ue_num, ue_nom, section, ue_per_z FROM ue WHERE ${whereZ.join(' AND ')}`).all(params);
-    for (const u of uesZ) {
+    const coursZ = db.prepare(`
+      SELECT co.cours_code, co.cours_nom, co.ue_num, co.section, co.per_etudiant,
+             ue.ue_nom
+      FROM cours co
+      LEFT JOIN ue ON ue.ue_num = co.ue_num AND ue.annee_scolaire = co.annee_scolaire
+      WHERE ${whereZ.join(' AND ')}
+      ORDER BY co.section, co.ue_num, co.cours_code
+    `).all(params);
+    for (const c of coursZ) {
       lignes.push({
-        id: `z-${u.ue_num}`,                 // id synthétique (non persistant)
+        id: `z-${c.cours_code}`,
         is_z: true,
-        section: u.section,
-        ue_num: u.ue_num,
-        ue_nom: u.ue_nom,
-        nom_cours: 'Activités de développement professionnel (Z)',
+        section: c.section,
+        ue_num: c.ue_num,
+        ue_nom: c.ue_nom,
+        code_cours: c.cours_code,
+        nom_cours: c.cours_nom || 'Activités de développement professionnel (Z)',
         type_cours: 'Z',
         professeur_id: null,
         professeur: null,
-        per_etudiant_total_dp: u.ue_per_z,   // périodes étudiant
-        periodes_attribuees: 0,              // aucune charge enseignant
+        per_etudiant_total_dp: c.per_etudiant,
+        periodes_attribuees: 0,
         autonomie_attribuee: 0,
-        total_attribue_professeur: 0,        // aucun coût / dotation
+        total_attribue_professeur: 0,
       });
     }
   } catch (e) { console.error('[grille] lignes Z :', e.message); }
@@ -387,11 +395,12 @@ r.post('/bulk-create-from-section', authRequired, roleRequired('admin', 'editeur
   for (const row of ueRows) ueEtRefMap[row.ue_num] = row.et_ref || 'IIP';
 
   const placeholders = ue_nums.map(() => '?').join(',');
-  // Récupérer tous les cours des UE sélectionnées pour cette section ET cette année
+  // Récupérer tous les cours des UE sélectionnées — les cours Z (activités étudiants, sans prof) sont exclus
   const coursList = db.prepare(`
     SELECT cours_code, ue_num, ct_pp, quadrimestre_cours
     FROM cours
     WHERE section = ? AND annee_scolaire = ? AND ue_num IN (${placeholders})
+      AND ct_pp != 'Z'
     ORDER BY cours_code
   `).all(section, annee, ...ue_nums);
 
@@ -454,6 +463,7 @@ r.post('/reouvrir', authRequired, roleRequired('admin', 'editeur', 'coordination
     SELECT code_cours, type_cours, ue_num
     FROM attribution
     WHERE ue_num = ? AND annee_scolaire = ?
+      AND type_cours != 'Z'
     GROUP BY code_cours
   `).all(ue_num, annee);
 
@@ -507,6 +517,57 @@ r.patch('/organisation/quadrimestre', authRequired, roleRequired('admin', 'edite
     WHERE ue_num = ? AND num_organisation = ? AND section = ? AND annee_scolaire = ?
   `).run(q, ue_num, num_organisation, section, annee);
   res.json({ ok: true, updated: result.changes, quadrimestre: q });
+});
+
+// ─── Copier les attributions d'une section d'une année vers une autre ────────
+// Les professeurs et toutes les données métier sont conservés.
+// Si force=true, les attributions existantes en destination sont supprimées avant copie.
+r.post('/copier-section', authRequired, roleRequired('admin'), (req, res) => {
+  const { section, annee_source, annee_dest, force } = req.body || {};
+  if (!section || !annee_source || !annee_dest)
+    return res.status(400).json({ error: 'section, annee_source et annee_dest sont requis' });
+  if (annee_source === annee_dest)
+    return res.status(400).json({ error: 'L\'année source et la destination doivent être différentes' });
+  if (!canAccessSection(req.user, section))
+    return res.status(403).json({ error: "Vous n'avez pas accès à cette section." });
+
+  // Attributions source
+  const sources = db.prepare(
+    `SELECT * FROM attribution WHERE section = ? AND annee_scolaire = ?`
+  ).all(section, annee_source);
+
+  if (!sources.length)
+    return res.status(404).json({ error: `Aucune attribution trouvée pour ${section} en ${annee_source}` });
+
+  // Conflits en destination
+  const existantes = db.prepare(
+    `SELECT COUNT(*) AS n FROM attribution WHERE section = ? AND annee_scolaire = ?`
+  ).get(section, annee_dest).n;
+
+  if (existantes > 0 && !force)
+    return res.status(409).json({
+      error: `${existantes} attribution(s) existent déjà en ${annee_dest} pour ${section}. Forcez pour écraser.`,
+      count: existantes, canForce: true
+    });
+
+  // Colonnes disponibles (sauf id qui est auto-increment)
+  const cols = db.prepare('PRAGMA table_info(attribution)').all()
+    .map(c => c.name).filter(c => c !== 'id');
+
+  const tx = db.transaction(() => {
+    if (force) {
+      db.prepare(`DELETE FROM attribution WHERE section = ? AND annee_scolaire = ?`).run(section, annee_dest);
+    }
+    const placeholders = cols.map(() => '?').join(',');
+    const stmt = db.prepare(`INSERT INTO attribution (${cols.join(',')}) VALUES (${placeholders})`);
+    for (const row of sources) {
+      const vals = cols.map(c => c === 'annee_scolaire' ? annee_dest : row[c]);
+      stmt.run(...vals);
+    }
+  });
+  tx();
+
+  res.json({ ok: true, copied: sources.length, section, annee_source, annee_dest });
 });
 
 // ─── Remplissage automatique des périodes prof (baguette magique) ───────────

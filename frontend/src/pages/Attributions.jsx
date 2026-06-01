@@ -534,17 +534,23 @@ export default function Attributions() {
     const key = 'cours:'+ueKey+'/'+cg.code_cours;
     const open = openUEs.has(key);
     const st = groupStats(cg.rows);
+    const isZCours = cg.type_cours === 'Z';
     return (
       <div key={key} className="border-t border-gray-100">
-        <button onClick={()=>toggle(key)} className="w-full flex items-center gap-2 pl-10 pr-4 py-2 hover:bg-gray-100/60 transition text-left text-sm">
+        <button onClick={()=>toggle(key)} className={`w-full flex items-center gap-2 pl-10 pr-4 py-2 hover:bg-gray-100/60 transition text-left text-sm ${isZCours ? 'opacity-70' : ''}`}>
           <span className={`text-gray-400 text-sm transition-transform ${open?'rotate-90':''}`}>▶</span>
-          <span className="font-mono text-sm text-gray-500">{cg.code_cours}</span>
-          <span className="text-gray-700 truncate flex-1">{cg.nom_cours}</span>
-          {cg.type_cours && <span className={`text-xs px-1.5 py-0.5 rounded ${cg.type_cours==='CT'?'bg-blue-100 text-blue-700':'bg-purple-100 text-purple-700'}`}>{cg.type_cours}</span>}
-          <span className="text-sm text-gray-500">{cg.rows.length} attr.</span>
-          <span className="text-sm font-semibold text-iip-gold">{st.tPer}p</span>
-          {st.tAut>0 && <span className="text-sm text-gray-400">+{st.tAut}a</span>}
-          {st.nBad>0 ? <span className="text-sm text-red-600 font-bold">✗</span> : st.nConf>0 ? <span className="text-sm text-green-600 font-bold">✓</span> : null}
+          <span className={`font-mono text-sm ${isZCours ? 'text-gray-400' : 'text-gray-500'}`}>{cg.code_cours}</span>
+          <span className={`truncate flex-1 ${isZCours ? 'text-gray-400 italic' : 'text-gray-700'}`}>{cg.nom_cours}</span>
+          {cg.type_cours && <span className={`text-xs px-1.5 py-0.5 rounded ${isZCours ? 'bg-gray-100 text-gray-400' : cg.type_cours==='CT'?'bg-blue-100 text-blue-700':'bg-purple-100 text-purple-700'}`}>{cg.type_cours}</span>}
+          {isZCours
+            ? <span className="text-xs text-gray-400 italic">périodes étudiants — sans prof</span>
+            : <>
+                <span className="text-sm text-gray-500">{cg.rows.length} attr.</span>
+                <span className="text-sm font-semibold text-iip-gold">{st.tPer}p</span>
+                {st.tAut>0 && <span className="text-sm text-gray-400">+{st.tAut}a</span>}
+                {st.nBad>0 ? <span className="text-sm text-red-600 font-bold">✗</span> : st.nConf>0 ? <span className="text-sm text-green-600 font-bold">✓</span> : null}
+              </>
+          }
         </button>
         {open && (
           <div className="overflow-auto max-h-[40vh] border-t border-gray-100 bg-white">
@@ -645,7 +651,7 @@ export default function Attributions() {
           {addMenuUE?.key===key && (
             <div className="absolute right-3 top-full mt-1 z-30 bg-white border border-gray-200 rounded-lg shadow-xl py-1 w-64" onClick={e=>e.stopPropagation()}>
               <div className="px-3 py-1.5 text-xs font-semibold text-gray-400 border-b border-gray-100">Ajouter dans l'UE {ue.ue_num}</div>
-              {ue.cours.map(cg => (
+              {ue.cours.filter(cg => cg.type_cours !== 'Z').map(cg => (
                 <button key={cg.code_cours} onClick={()=>{ setEditRow({section: sec, code_cours: cg.code_cours}); setAddMenuUE(null); }}
                         className="w-full text-left px-3 py-1.5 text-sm hover:bg-iip-gold/10 flex items-center gap-2">
                   <span className="text-iip-gold">＋</span>
