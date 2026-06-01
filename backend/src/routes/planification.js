@@ -255,12 +255,10 @@ function _buildImportGroupes(annee) {
     SELECT a.ue_num, a.section, a.num_groupe, a.professeur_id,
            a.periodes_attribuees, a.autonomie_attribuee,
            p.nom AS prof_nom, p.prenom AS prof_prenom,
-           u.ue_nom,
-           at.code AS activite_code
+           u.ue_nom
     FROM attribution a
     LEFT JOIN professeur p ON p.id = a.professeur_id
     LEFT JOIN ue u ON u.ue_num = a.ue_num AND u.annee_scolaire = a.annee_scolaire
-    LEFT JOIN activite_type at ON at.id = a.activite_id
     WHERE a.annee_scolaire = ?
       AND COALESCE(a.periodes_attribuees, 0) + COALESCE(a.autonomie_attribuee, 0) > 0
     ORDER BY a.section, a.ue_num, a.num_groupe, a.professeur_id
