@@ -15,8 +15,11 @@ function CopierSectionModal({ sections, anneeActive, isAdmin, onClose, onCopied 
   useEffect(() => {
     api.anneesParSection().then(map => {
       setAnneesMap(map);
-      // Initialiser avec la première section
-      const anneesDispo = map[sections[0]?.code] || [];
+      // Sélectionner la première section qui a des attributions (pas forcément sections[0])
+      const firstWithData = sections.find(s => map[s.code]?.length > 0);
+      const code = firstWithData?.code || sections[0]?.code || '';
+      if (code) setSectionSrc(code);
+      const anneesDispo = map[code] || [];
       const src = anneesDispo.find(a => a.annee !== anneeActive) || anneesDispo[0];
       if (src) setAnneeSrc(src.annee);
     });
