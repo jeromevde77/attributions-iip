@@ -131,7 +131,7 @@ r.post('/generer', authRequired, roleRequired('admin', 'editeur'), (req, res) =>
 
   // ── 3. Charger les groupes de la section ─────────────────────────────────
   const groupes = db.prepare(`
-    SELECT g.*, u.ue_quad, u.is_epreuve_integree, u.ue_nom
+    SELECT g.*, u.ue_quad, u.is_epreuve_integree, u.ue_nom, u.ue_niv
     FROM groupe g
     LEFT JOIN ue u ON u.ue_num = g.ue_num AND u.annee_scolaire = g.annee_scolaire
     WHERE g.annee_scolaire = ? AND g.section = ?
@@ -152,7 +152,29 @@ r.post('/generer', authRequired, roleRequired('admin', 'editeur'), (req, res) =>
     prerequisMap[ue_num].push(prerequis_num);
   }
 
-  const ueNums = [...new Set(groupes.map(g => g.ue_num))];
+  // Ajouter les prérequis implicites par niveau BA
+  // Toutes UE BA2 dépendent de toutes UE BA1, BA3 de toutes BA2
+  const niveaux = { BA1: [], BA2: [], BA3: [] };
+  for (const g of groupes) {
+    const niv = g.ue_niv;
+    if (niv && niveaux[niv] && !niveaux[niv].includes(g.ue_num)) {
+      niveaux[niv].push(g.ue_num);
+    }
+  }
+  // BA2 dépend de toutes BA1
+  for (const ue2 of niveaux.BA2) {
+    if (!prerequisMap[ue2]) prerequisMap[ue2] = [];
+    for (const ue1 of niveaux.BA1) {
+      if (!prerequisMap[ue2].includes(ue1)) prerequisMap[ue2].push(ue1);
+    }
+  }
+  // BA3 dépend de toutes BA2
+  for (const ue3 of niveaux.BA3) {
+    if (!prerequisMap[ue3]) prerequisMap[ue3] = [];
+    for (const ue2 of niveaux.BA2) {
+      if (!prerequisMap[ue3].includes(ue2)) prerequisMap[ue3].push(ue2);
+    }
+  }
   const ueOrdre = trierParPrerequis(ueNums, prerequisMap);
 
   // ── 5. Charger les cellules manuelles existantes ──────────────────────────
