@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { getAnnee } from '../lib/api.js';
-import { printHtml } from '../lib/print.js';
+import PreviewModal from '../components/PreviewModal.jsx';
 
 // ─── Utilitaires ──────────────────────────────────────────────────────────────
 const TOKEN = () => localStorage.getItem('token');
@@ -219,6 +219,7 @@ ${commentaireCDE ? `
 function OutilRecours() {
   const annee = getAnnee();
   const [step, setStep] = useState(1);
+  const [previewHtml, setPreviewHtml] = useState(null);
 
   // Données dossier
   const [etudiant, setEtudiant] = useState('');
@@ -334,7 +335,7 @@ function OutilRecours() {
       if (res.champs_manquants?.length)
         alert('⚠ Champs du modèle non disponibles pour cette procédure (laissés vides dans le document) :\n\n• '
           + res.champs_manquants.join('\n• '));
-      printHtml(res.html);
+      setPreviewHtml(res.html);
     } catch(e) { alert('Erreur : ' + e.message); }
   }
 
@@ -630,6 +631,9 @@ function OutilRecours() {
           </div>
         </div>
       )}
+      {previewHtml && (
+        <PreviewModal html={previewHtml} titre="PV de recours — Décision motivée" onClose={() => setPreviewHtml(null)} />
+      )}
     </div>
   );
 }
@@ -758,6 +762,7 @@ ${commentaireCDE ? `
 function OutilFraude() {
   const annee = getAnnee();
   const [step, setStep] = useState(1);
+  const [previewHtml, setPreviewHtml] = useState(null);
 
   // Données dossier
   const [etudiant, setEtudiant]           = useState('');
@@ -843,7 +848,7 @@ function OutilFraude() {
       if (res.champs_manquants?.length)
         alert('⚠ Champs du modèle non disponibles pour cette procédure (laissés vides dans le document) :\n\n• '
           + res.champs_manquants.join('\n• '));
-      printHtml(res.html);
+      setPreviewHtml(res.html);
     } catch(e) { alert('Erreur : ' + e.message); }
   }
 
@@ -1150,6 +1155,9 @@ function OutilFraude() {
             </button>
           </div>
         </div>
+      )}
+      {previewHtml && (
+        <PreviewModal html={previewHtml} titre="PV de fraude" onClose={() => setPreviewHtml(null)} />
       )}
     </div>
   );

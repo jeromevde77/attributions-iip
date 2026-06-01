@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { api } from '../lib/api.js';
-import { printHtml } from '../lib/print.js';
+import PreviewModal from '../components/PreviewModal.jsx';
 
 /* ─── Micro-composants Lucie ──────────────────────────────────────────────── */
 function Section({ titre, children, color = 'gold' }) {
@@ -100,6 +100,7 @@ export default function EA12Editor() {
   const [d, setD] = useState({});
   const [saving, setSaving] = useState(false);
   const [msg, setMsg] = useState('');
+  const [previewHtml, setPreviewHtml] = useState(null);
 
   useEffect(() => {
     (async () => {
@@ -159,7 +160,7 @@ export default function EA12Editor() {
       const r = await fetch(`/api/ea12/${id}/imprimer`, { headers: { Authorization: `Bearer ${token}` } });
       if (!r.ok) throw new Error(`Erreur ${r.status}`);
       const html = await r.text();
-      printHtml(html);
+      setPreviewHtml(html);
     } catch (e) { setMsg('Erreur : ' + e.message); }
     finally { setSaving(false); }
   }
@@ -187,7 +188,7 @@ export default function EA12Editor() {
             💾 Enregistrer
           </button>
           <button onClick={imprimer} disabled={saving} className="px-4 py-2 text-sm bg-iip-mauve text-white rounded-lg hover:opacity-90 disabled:opacity-50">
-            {saving ? 'Génération…' : '🖨 Imprimer / PDF'}
+            {saving ? 'Génération…' : '🖨 Aperçu / PDF'}
           </button>
         </div>
       </div>
@@ -424,8 +425,12 @@ export default function EA12Editor() {
       {/* ─── Boutons bas ────────────────────────────────────────────────── */}
       <div className="flex justify-end gap-2">
         <button onClick={save} disabled={saving} className="px-5 py-2 text-sm border border-iip-gold text-iip-gold rounded-lg hover:bg-iip-gold/5 disabled:opacity-50">💾 Enregistrer</button>
-        <button onClick={imprimer} disabled={saving} className="px-5 py-2 text-sm bg-iip-mauve text-white rounded-lg hover:opacity-90 disabled:opacity-50">{saving ? 'Génération…' : '🖨 Imprimer / PDF'}</button>
+        <button onClick={imprimer} disabled={saving} className="px-5 py-2 text-sm bg-iip-mauve text-white rounded-lg hover:opacity-90 disabled:opacity-50">{saving ? 'Génération…' : '🖨 Aperçu / PDF'}</button>
       </div>
+
+      {previewHtml && (
+        <PreviewModal html={previewHtml} titre={`EA12 — ${apercu.prof_nom} ${apercu.prof_prenom}`} onClose={() => setPreviewHtml(null)} />
+      )}
     </div>
   );
 }

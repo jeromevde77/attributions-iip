@@ -126,7 +126,7 @@ const Indent = Extension.create({
 });
 import { useState, useEffect, useRef } from 'react';
 import { api, getAnnee } from '../lib/api.js';
-import { printHtml } from '../lib/print.js';
+import PreviewModal from '../components/PreviewModal.jsx';
 import mammoth from 'mammoth/mammoth.browser.js';
 
 // Aplatit une image (data URL) sur fond blanc -> supprime toute transparence.
@@ -611,6 +611,7 @@ export default function Editeur() {
   const [showMargins, setShowMargins] = useState(false);
   const [saving, setSaving]           = useState(false);
   const [generating, setGenerating]   = useState(false);
+  const [previewHtml, setPreviewHtml] = useState(null);
   const [profId, setProfId]           = useState('');
   const [ueNum, setUeNum]             = useState('');
   const [section, setSection]         = useState('');
@@ -798,7 +799,7 @@ export default function Editeur() {
         <div class="doc-body">${html}</div>
         ${hasFooter ? `<div class="doc-footer">${footerHtml}</div>` : ''}
         </body></html>`;
-      printHtml(fullHtml);
+      setPreviewHtml(fullHtml);
     } catch (e) {
       alert('Erreur : ' + e.message);
     }
@@ -1072,6 +1073,9 @@ export default function Editeur() {
         .editeur-content hr { border: none; border-top: 2px solid #999; margin: 14px 0; }
         .editeur-content hr.ProseMirror-selectednode { border-top-color: #1a5276; }
       `}</style>
+      {previewHtml && (
+        <PreviewModal html={previewHtml} titre={nom || 'Document'} onClose={() => setPreviewHtml(null)} />
+      )}
     </div>
   );
 }
