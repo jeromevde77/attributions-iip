@@ -1476,7 +1476,7 @@ export default function Planification() {
               ) : (
                 Object.entries(parSection).sort(([a],[b]) => a.localeCompare(b)).map(([sec, grps]) => (
                   <BlocSection key={sec} section={sec}
-                    groupes={grps.sort((a,b) => a.ue_num - b.ue_num || a.nom.localeCompare(b.nom))}
+                    groupes={grps}
                     semaines={semaines} cellules={cellulesEffectives}
                     onCellChange={handleCellChange}
                     onEditGroupe={g => setModalGroupe({ initial: g })}
