@@ -153,7 +153,7 @@ function Cellule({ groupeId, semaineId, semaineType, value, onChange, warning })
 }
 
 // ─── Ligne groupe (aplatie, sans niveau UE) ───────────────────────────────────
-function LigneGroupe({ groupe, semaines, cellules, onCellChange, onEditGroupe, warnings }) {
+function LigneGroupe({ groupe, semaines, cellules, onCellChange, onEditGroupe, warnings, nivBorderColor }) {
   const hPlanif = semaines.reduce((s, sem) => {
     return s + cellHeures(cellules[`${groupe.id}_${sem.id}`]);
   }, 0);
@@ -199,9 +199,10 @@ function LigneGroupe({ groupe, semaines, cellules, onCellChange, onEditGroupe, w
             className="opacity-0 group-hover:opacity-100 text-gray-300 hover:text-iip-gold text-xs transition ml-1">✏</button>
         </div>
       </td>
-      {/* Total */}
+      {/* Total — bordure colorée à gauche = repère visuel du niveau */}
       <td className={`sticky left-[260px] z-10 border border-gray-200 text-center text-xs w-24 font-mono
-        ${over ? 'bg-red-50 text-red-700' : done ? 'bg-green-50 text-green-700' : 'bg-gray-50 text-gray-500'}`}>
+        ${over ? 'bg-red-50 text-red-700' : done ? 'bg-green-50 text-green-700' : 'bg-gray-50 text-gray-500'}`}
+        style={nivBorderColor ? { borderLeft: `3px solid ${nivBorderColor}` } : {}}>
         <div className="font-semibold text-[11px]">{Math.round(hPlanif * 10) / 10}h</div>
         <div className="text-[9px] opacity-70">/{groupe.heures_attribuees}h · {pct}%</div>
       </td>
@@ -278,11 +279,55 @@ function BlocSection({ section, groupes, semaines, cellules, onCellChange, onEdi
           {Math.round(pepTotal)}
         </td>
       </tr>
-      {open && groupes.map(g => (
-        <LigneGroupe key={g.id} groupe={g} semaines={semaines} cellules={cellules}
-          onCellChange={onCellChange} onEditGroupe={onEditGroupe}
-          warnings={warningsParGroupe[g.id]} />
-      ))}
+      {open && (() => {
+        // Grouper par niveau, dans l'ordre reçu du backend
+        const niveaux = [];
+        const parNiv = {};
+        for (const g of groupes) {
+          const niv = g.ue_niv || 'Autre';
+          if (!parNiv[niv]) { parNiv[niv] = []; niveaux.push(niv); }
+          parNiv[niv].push(g);
+        }
+        const niveauxTries = triNiveaux(niveaux);
+
+        return niveauxTries.flatMap((niv, nivIdx) => {
+          const grpsNiv = parNiv[niv];
+          const col = getNivColor(niv, niveauxTries);
+          const borderColor = col.border;
+
+          const lignes = grpsNiv.map(g => (
+            <LigneGroupe key={g.id} groupe={g} semaines={semaines} cellules={cellules}
+              onCellChange={onCellChange} onEditGroupe={onEditGroupe}
+              warnings={warningsParGroupe[g.id]}
+              nivBorderColor={borderColor} />
+          ));
+
+          // Ligne de total du niveau
+          const ligneTotal = (
+            <tr key={`total-${niv}`} className="select-none">
+              <td colSpan={2} className="sticky left-0 z-10 border border-gray-200 px-3 py-1 text-[10px] font-semibold"
+                style={{ backgroundColor: col.hex || '#f9fafb', borderLeft: `3px solid ${borderColor}` }}>
+                <span style={{ color: borderColor }}>Σ {niv}</span>
+                <span className="ml-2 font-normal text-gray-400">
+                  {Math.round(grpsNiv.reduce((s,g) => s + semaines.reduce((ss,sem) => ss + cellHeures(cellules[`${g.id}_${sem.id}`]), 0), 0) * 10) / 10}h planifiées
+                </span>
+              </td>
+              {semaines.map(sem => {
+                const hSem = grpsNiv.reduce((s, g) => s + cellHeures(cellules[`${g.id}_${sem.id}`]), 0);
+                return (
+                  <td key={sem.id} className="border border-gray-200 text-center text-[10px] w-10"
+                    style={{ backgroundColor: col.hex || '#f9fafb', color: hSem > 0 ? borderColor : 'transparent', fontWeight: hSem > 0 ? 600 : 400 }}>
+                    {hSem > 0 ? arrondir(hSem) : '·'}
+                  </td>
+                );
+              })}
+              <td className="border border-gray-200 w-14" style={{ backgroundColor: col.hex || '#f9fafb' }} />
+            </tr>
+          );
+
+          return [...lignes, ligneTotal];
+        });
+      })()}
       {open && (
         <tr>
           <td colSpan={semaines.length + 3} className="border border-gray-100 bg-gray-50/50 px-3 py-1">
@@ -806,11 +851,12 @@ function triNiveaux(niveaux) {
 
 // Couleur selon la position dans la liste des niveaux (0=premier, 1=second, ...)
 const NIV_COLORS = [
-  { bg: 'bg-blue-100',   text: 'text-blue-700',   border: 'border-blue-400',   head: 'bg-blue-50' },
-  { bg: 'bg-green-100',  text: 'text-green-700',  border: 'border-green-400',  head: 'bg-green-50' },
-  { bg: 'bg-orange-100', text: 'text-orange-700', border: 'border-orange-400', head: 'bg-orange-50' },
-  { bg: 'bg-purple-100', text: 'text-purple-700', border: 'border-purple-400', head: 'bg-purple-50' },
-  { bg: 'bg-pink-100',   text: 'text-pink-700',   border: 'border-pink-400',   head: 'bg-pink-50' },
+  // rang 1 = orange, rang 2 = bleu clair, rang 3 = bleu marine
+  { bg: 'bg-orange-100', text: 'text-orange-700', border: '#f97316', hex: '#fff7ed' },
+  { bg: 'bg-blue-100',   text: 'text-blue-600',   border: '#60a5fa', hex: '#eff6ff' },
+  { bg: 'bg-blue-900',   text: 'text-blue-900',   border: '#1e3a8a', hex: '#1e3a8a' },
+  { bg: 'bg-purple-100', text: 'text-purple-700', border: '#a855f7', hex: '#faf5ff' },
+  { bg: 'bg-pink-100',   text: 'text-pink-700',   border: '#ec4899', hex: '#fdf2f8' },
 ];
 function getNivColor(niv, niveauxListe) {
   const idx = niveauxListe.indexOf(niv);
