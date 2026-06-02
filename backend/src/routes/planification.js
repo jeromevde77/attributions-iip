@@ -123,7 +123,8 @@ r.get('/grille', authRequired, (req, res) => {
   const paramsG = [anneeVal];
   if (section) { sqlG += ' AND g.section = ?'; paramsG.push(section); }
   sqlG += ` ORDER BY g.section,
-    CASE COALESCE(u.ue_niv,'ZZZ') WHEN 'BA1' THEN 1 WHEN 'BA2' THEN 2 WHEN 'BA3' THEN 3 ELSE 4 END,
+    CAST(TRIM(COALESCE(u.ue_niv,''), 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz') AS INTEGER),
+    COALESCE(u.ue_niv, 'ZZZ'),
     CASE REPLACE(UPPER(COALESCE(u.ue_quad, g.ue_quad, 'Q1/Q2')),' ','') WHEN 'Q1' THEN 1 WHEN 'Q2' THEN 3 ELSE 2 END,
     g.ue_num, g.nom`;
   const groupes = db.prepare(sqlG).all(...paramsG);

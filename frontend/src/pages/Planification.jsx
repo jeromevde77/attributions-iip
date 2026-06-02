@@ -171,10 +171,7 @@ function LigneGroupe({ groupe, semaines, cellules, onCellChange, onEditGroupe, w
             UE {groupe.ue_num}
           </span>
           {groupe.ue_niv && (
-            <span className={`text-[9px] font-bold px-1 py-0.5 rounded
-              ${groupe.ue_niv === 'BA1' ? 'bg-blue-100 text-blue-600' :
-                groupe.ue_niv === 'BA2' ? 'bg-green-100 text-green-600' :
-                groupe.ue_niv === 'BA3' ? 'bg-orange-100 text-orange-600' : 'bg-gray-100 text-gray-500'}`}>
+            <span className="text-[9px] font-bold px-1 py-0.5 rounded bg-gray-100 text-gray-600">
               {groupe.ue_niv}
             </span>
           )}
@@ -797,7 +794,29 @@ function ModalSequence({ annee, section, groupes, onClose }) {
 }
 
 // ─── Onglet Structure UE (grille niveau × quadrimestre) ──────────────────────
-const NIVEAUX_ORDRE = ['BA1', 'BA2', 'BA3', 'Autre'];
+// Trie les niveaux par leur chiffre final (BA1<BA2, S4<S5<S6, BE1<BE2...)
+function triNiveaux(niveaux) {
+  return [...niveaux].sort((a, b) => {
+    const na = parseInt(a.match(/\d+$/)?.[0] ?? '99');
+    const nb = parseInt(b.match(/\d+$/)?.[0] ?? '99');
+    if (na !== nb) return na - nb;
+    return a.localeCompare(b);
+  });
+}
+
+// Couleur selon la position dans la liste des niveaux (0=premier, 1=second, ...)
+const NIV_COLORS = [
+  { bg: 'bg-blue-100',   text: 'text-blue-700',   border: 'border-blue-400',   head: 'bg-blue-50' },
+  { bg: 'bg-green-100',  text: 'text-green-700',  border: 'border-green-400',  head: 'bg-green-50' },
+  { bg: 'bg-orange-100', text: 'text-orange-700', border: 'border-orange-400', head: 'bg-orange-50' },
+  { bg: 'bg-purple-100', text: 'text-purple-700', border: 'border-purple-400', head: 'bg-purple-50' },
+  { bg: 'bg-pink-100',   text: 'text-pink-700',   border: 'border-pink-400',   head: 'bg-pink-50' },
+];
+function getNivColor(niv, niveauxListe) {
+  const idx = niveauxListe.indexOf(niv);
+  return NIV_COLORS[Math.max(0, idx) % NIV_COLORS.length];
+}
+
 const QUADS = [
   { key: 'Q1',    label: 'Q1' },
   { key: 'Q1/Q2', label: 'Q1 / Q2 (annuel)' },
@@ -882,8 +901,8 @@ function StructureUE({ annee, section, groupes }) {
     if (ue_num != null) deplacerUE(ue_num, niv, quad);
   }
 
-  // Quels niveaux afficher : toujours BA1/BA2/BA3, + Autre si non vide
-  const niveauxAffiches = NIVEAUX_ORDRE.filter(n => n !== 'Autre' || ues.some(u => u.ue_niv === 'Autre'));
+  // Niveaux présents dans la section, triés par chiffre final
+  const niveauxAffiches = triNiveaux([...new Set(ues.map(u => u.ue_niv))]);
   const selUE = ues.find(u => u.ue_num === selected);
 
   function uesDans(niv, quad) {
@@ -896,13 +915,14 @@ function StructureUE({ annee, section, groupes }) {
     const isDepOfSel = selected && prereqs.find(p => p.prerequis_num === selected && p.ue_num === u.ue_num);
     const nbPre = getPrereqsOf(u.ue_num).length;
     const nbDep = getDependantsOf(u.ue_num).length;
+    const col = getNivColor(u.ue_niv, niveauxAffiches);
     return (
       <div draggable
         onDragStart={() => onDragStart(u.ue_num)}
         onClick={() => setSelected(isSel ? null : u.ue_num)}
         className={`rounded-lg p-2 cursor-pointer border-2 transition select-none mb-1.5
           ${isSel ? 'border-iip-mauve bg-iip-mauve/10 shadow-md' :
-            isPrereqOfSel ? 'border-blue-400 bg-blue-50' :
+            isPrereqOfSel ? `${col.border} ${col.bg}` :
             isDepOfSel ? 'border-orange-400 bg-orange-50' :
             'border-gray-200 hover:border-gray-400 bg-white'}`}>
         <div className="flex items-center gap-1.5">
@@ -937,8 +957,7 @@ function StructureUE({ annee, section, groupes }) {
           <tbody>
             {niveauxAffiches.map(niv => (
               <tr key={niv}>
-                <td className={`text-xs font-bold text-center align-top pt-2 w-12
-                  ${niv === 'BA1' ? 'text-blue-600' : niv === 'BA2' ? 'text-green-600' : niv === 'BA3' ? 'text-orange-600' : 'text-gray-500'}`}>
+                <td className={`text-xs font-bold text-center align-top pt-2 w-12 ${getNivColor(niv, niveauxAffiches).text}`}>
                   {niv}
                 </td>
                 {QUADS.map(q => {
