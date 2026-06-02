@@ -62,7 +62,7 @@ export const api = {
   createSection(data) { return request('/ref/sections', { method: 'POST', body: data }); },
   updateSection(code, data) { return request(`/ref/sections/${encodeURIComponent(code)}`, { method: 'PATCH', body: data }); },
   deleteSection(code) { return request(`/ref/sections/${encodeURIComponent(code)}`, { method: 'DELETE' }); },
-  maskSection(code, annee) { return request(`/ref/sections/${encodeURIComponent(code)}/masquer`, { method: 'POST', body: JSON.stringify({ annee_scolaire: annee }) }); },
+  maskSection(code, annee) { return request(`/ref/sections/${encodeURIComponent(code)}/masquer`, { method: 'POST', body: { annee_scolaire: annee } }); },
 
   // historique & config
   historiqueConfig() { return request('/historique/config'); },
