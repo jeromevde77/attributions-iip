@@ -74,19 +74,27 @@ function arrondir(v) {
 }
 
 function distribuerHeures(semaines, hTotal, hParSemaine) {
-  // Répartit hTotal heures uniformément sur les semaines disponibles
+  // Répartit hTotal heures uniformément sur TOUTES les semaines disponibles
+  // (pas seulement les premières N) pour éviter la surcharge en début d'année
   const result = {};
   if (!semaines.length || hTotal <= 0) return result;
-  // Calculer combien de semaines sont nécessaires
-  const nSem = Math.ceil(hTotal / hParSemaine);
-  const semsActives = semaines.slice(0, nSem);
-  // Distribuer uniformément avec arrondi correct
-  const hMoyenne = hTotal / semsActives.length;
+
+  const n = semaines.length;
+  const hMoyenne = hTotal / n; // heures par semaine en moyenne
+
+  // Si la moyenne est > hParSemaine, on ne peut pas étaler plus — on utilise toutes les semaines
+  // Si la moyenne est < hParSemaine, on étale uniformément (valeurs < 1h possibles, arrondies)
   let cumul = 0;
-  for (let i = 0; i < semsActives.length; i++) {
+  let total = 0;
+  for (let i = 0; i < n; i++) {
     cumul += hMoyenne;
     const hCette = arrondir(cumul) - arrondir(cumul - hMoyenne);
-    if (hCette > 0) result[semsActives[i].id] = hCette;
+    if (hCette > 0) {
+      result[semaines[i].id] = hCette;
+      total += hCette;
+    }
+    // Sécurité : ne pas dépasser hTotal
+    if (total >= arrondir(hTotal)) break;
   }
   return result;
 }
@@ -276,8 +284,8 @@ r.post('/generer', authRequired, roleRequired('admin', 'editeur'), (req, res) =>
     const hRestante = Math.max(0, (groupe.heures_attribuees || 0) - hDejaFixees);
 
     // Distribuer les heures restantes (2h par semaine par défaut)
-    const hParSemaine = 2;
-    const distribution = distribuerHeures(semainesDispos, hRestante, hParSemaine);
+    // Distribuer uniformément sur toutes les semaines disponibles
+    const distribution = distribuerHeures(semainesDispos, hRestante, Infinity);
     for (const [semaineId, h] of Object.entries(distribution)) {
       proposition[groupe.id][Number(semaineId)] = h;
     }
