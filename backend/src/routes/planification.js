@@ -110,13 +110,15 @@ r.get('/grille', authRequired, (req, res) => {
   const semaines = db.prepare('SELECT * FROM annee_calendrier WHERE annee_scolaire = ? ORDER BY semaine_num').all(anneeVal);
 
   let sqlG = `
-    SELECT g.*, p.nom AS prof_nom, p.prenom AS prof_prenom, 
+    SELECT g.*, p.nom AS prof_nom, p.prenom AS prof_prenom,
            u.ue_nom, u.ue_niv, COALESCE(u.ue_quad, g.ue_quad) AS ue_quad,
-           at.libelle AS activite_nom
+           at.libelle AS activite_nom,
+           c.cours_nom
     FROM groupe g
     LEFT JOIN professeur p ON p.id = g.professeur_id
     LEFT JOIN ue u ON u.ue_num = g.ue_num AND u.annee_scolaire = g.annee_scolaire
     LEFT JOIN activite_type at ON at.id = g.activite_id
+    LEFT JOIN cours c ON c.cours_code = g.code_cours AND c.annee_scolaire = g.annee_scolaire
     WHERE g.annee_scolaire = ?`;
   const paramsG = [anneeVal];
   if (section) { sqlG += ' AND g.section = ?'; paramsG.push(section); }
@@ -282,7 +284,7 @@ r.post('/import-from-attributions', authRequired, roleRequired('admin', 'editeur
 // Helper : construit la liste des groupes à importer depuis les attributions
 function _buildImportGroupes(annee) {
   const attrs = db.prepare(`
-    SELECT a.ue_num, a.section, a.num_groupe, a.code, a.professeur_id,
+    SELECT a.ue_num, a.section, a.num_groupe, a.code, a.code_cours, a.professeur_id,
            a.periodes_attribuees, a.autonomie_attribuee,
            a.activite_id, a.quadrimestre_attribue,
            at.libelle AS activite_nom,
@@ -307,9 +309,10 @@ function _buildImportGroupes(annee) {
     // Clé : UE + section + groupe + activité (si renseignée) + code cours
     // Si activite_id renseigné → ligne distincte par activité
     // Sinon → ligne distincte par attribution (id), pour préserver la granularité
-    const activiteKey = a.activite_id ? `act${a.activite_id}` : `attr${a.id}`;
-    const codeKey = a.code || '';
-    const key = `${a.ue_num}__${a.section || ''}__${nomGroupe}__${activiteKey}__${codeKey}`;
+    // Clé : UE + section + groupe étudiant + cours + activité
+    const activiteKey = a.activite_id ? `act${a.activite_id}` : 'noact';
+    const codeCoursKey = a.code_cours || a.code || '';
+    const key = `${a.ue_num}__${a.section || ''}__${nomGroupe}__${codeCoursKey}__${activiteKey}`;
 
     if (!map.has(key)) {
       map.set(key, {
@@ -321,7 +324,7 @@ function _buildImportGroupes(annee) {
         professeur_id:   null,
         activite_id:     a.activite_id || null,
         activite_nom:    a.activite_nom || null,
-        code_cours:      a.code || null,
+        code_cours:      a.code_cours || a.code || null,
         ue_quad:         a.ue_quad || a.quadrimestre_attribue || null,
         profs:           [],
         notes:           null,

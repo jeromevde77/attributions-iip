@@ -170,8 +170,9 @@ function LigneGroupe({ groupe, semaines, cellules, onCellChange, onEditGroupe, w
           <span className="inline-flex items-center bg-iip-mauve/10 text-iip-mauve text-[10px] font-bold px-1.5 py-0.5 rounded">
             UE {groupe.ue_num}
           </span>
-          <span className="text-xs text-gray-600 truncate max-w-[100px]" title={groupe.ue_nom}>
-            {groupe.ue_nom || `UE ${groupe.ue_num}`}
+          <span className="text-xs text-gray-600 truncate max-w-[140px]"
+            title={groupe.cours_nom || groupe.ue_nom}>
+            {groupe.cours_nom || groupe.ue_nom || `UE ${groupe.ue_num}`}
           </span>
           {groupe.activite_nom && (
             <span className="text-[10px] bg-iip-gold/10 text-iip-gold px-1.5 py-0.5 rounded font-medium">
