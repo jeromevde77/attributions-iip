@@ -137,6 +137,19 @@ r.post('/generer', authRequired, roleRequired('admin', 'editeur'), (req, res) =>
 
   if (!groupes.length) return res.status(404).json({ error: `Aucun groupe trouvé pour ${section} ${annee_scolaire}` });
 
+  // ── 3b. Charger le séquencement des cours ────────────────────────────────
+  const seqRows = db.prepare(`
+    SELECT groupe_id, ue_num, rang, delai_avant
+    FROM cours_sequence
+    WHERE section = ? AND annee_scolaire = ?
+    ORDER BY ue_num, rang
+  `).all(section, annee_scolaire);
+  // Map groupe_id → { rang, delai_avant }
+  const seqMap = {};
+  // Map ue_num → { rang → semaine de début (calculée après placement) }
+  const seqDebutParRang = {};
+  for (const s of seqRows) seqMap[s.groupe_id] = { rang: s.rang, delai_avant: s.delai_avant, ue_num: s.ue_num };
+
   // ── 4. Charger les prérequis et trier les UE ──────────────────────────────
   const prereqRows = db.prepare(`
     SELECT ue_num, prerequis_num FROM ue_prerequis
@@ -225,8 +238,23 @@ r.post('/generer', authRequired, roleRequired('admin', 'editeur'), (req, res) =>
     else                    semainesDispos = [...semainesCours]; // annuel ou non défini
 
     // Les prérequis sont inter-annuels en promotion sociale :
-    // un étudiant valide UE-A une année avant de s'inscrire à UE-B l'année suivante.
-    // → pas de contrainte de placement intra-annuel basée sur les prérequis.
+    // → pas de contrainte intra-annuelle basée sur les prérequis.
+
+    // Contraintes de séquencement intra-UE (depuis cours_sequence)
+    const seqInfo = seqMap[groupe.id];
+    if (seqInfo && seqInfo.rang > 0) {
+      // Trouver la fin des rangs précédents de cette UE
+      const ueRangs = seqDebutParRang[seqInfo.ue_num] || {};
+      let debutMin = 0;
+      for (let r = 0; r < seqInfo.rang; r++) {
+        const fin = ueRangs[r];
+        if (fin && fin > debutMin) debutMin = fin;
+      }
+      debutMin += seqInfo.delai_avant;
+      if (debutMin > 0) {
+        semainesDispos = semainesDispos.filter(s => s.semaine_num > debutMin);
+      }
+    }
 
     // Appliquer le pattern d'alternance
     semainesDispos = appliquerPattern(semainesDispos, groupe.pattern || 'toutes', groupe.pattern_offset || 0);
@@ -301,6 +329,12 @@ r.post('/generer', authRequired, roleRequired('admin', 'editeur'), (req, res) =>
       const sem = toutesLesSeamines.find(s => s.id === maxSemId);
       if (sem) {
         finUE[groupe.ue_num] = Math.max(finUE[groupe.ue_num] || 0, sem.semaine_num);
+        // Enregistrer la fin de ce rang pour le séquencement intra-UE
+        if (seqInfo) {
+          if (!seqDebutParRang[seqInfo.ue_num]) seqDebutParRang[seqInfo.ue_num] = {};
+          const finActuelle = seqDebutParRang[seqInfo.ue_num][seqInfo.rang] || 0;
+          seqDebutParRang[seqInfo.ue_num][seqInfo.rang] = Math.max(finActuelle, sem.semaine_num);
+        }
       }
     }
   }

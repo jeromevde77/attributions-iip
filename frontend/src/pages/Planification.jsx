@@ -738,6 +738,246 @@ function ModalIA({ annee, section, onApplied, onClose }) {
   );
 }
 
+// ─── Modal séquenceur ─────────────────────────────────────────────────────────
+function ModalSequence({ annee, section, groupes, onClose }) {
+  // Grouper les groupes par UE
+  const parUE = {};
+  for (const g of groupes) {
+    if (!parUE[g.ue_num]) parUE[g.ue_num] = { ue_num: g.ue_num, ue_nom: g.ue_nom, groupes: [] };
+    parUE[g.ue_num].groupes.push(g);
+  }
+  const ues = Object.values(parUE).sort((a, b) => a.ue_num - b.ue_num);
+
+  const [ueSelectionnee, setUeSelectionnee] = useState(ues[0]?.ue_num || null);
+  const [rangs, setRangs] = useState([]); // [{ rang, delai_avant, groupe_ids: [] }]
+  const [nonSequences, setNonSequences] = useState([]);
+  const [loading, setLoading] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [saved, setSaved] = useState(false);
+  const [dragOver, setDragOver] = useState(null); // 'pool' | rang index
+  const dragRef = useRef(null); // { groupe_id, from: 'pool'|rangIdx }
+
+  const ueActuelle = ues.find(u => u.ue_num === ueSelectionnee);
+
+  // Charger le séquencement existant pour l'UE sélectionnée
+  useEffect(() => {
+    if (!ueSelectionnee || !ueActuelle) return;
+    setLoading(true);
+    authFetch(`/api/sequence?section=${encodeURIComponent(section)}&annee=${encodeURIComponent(annee)}`)
+      .then(data => {
+        const ueData = data.find(u => u.ue_num === ueSelectionnee);
+        if (ueData) {
+          const rangsArr = Object.values(ueData.rangs).sort((a, b) => a.rang - b.rang);
+          setRangs(rangsArr.map(r => ({ ...r, groupe_ids: r.groupes.map(g => g.groupe_id) })));
+          const sequencedIds = new Set(rangsArr.flatMap(r => r.groupes.map(g => g.groupe_id)));
+          setNonSequences(ueActuelle.groupes.filter(g => !sequencedIds.has(g.id)));
+        } else {
+          setRangs([]);
+          setNonSequences([...ueActuelle.groupes]);
+        }
+      })
+      .finally(() => setLoading(false));
+  }, [ueSelectionnee]);
+
+  function getGroupe(id) { return ueActuelle?.groupes.find(g => g.id === id); }
+
+  function ajouterRang() {
+    const dernierRang = rangs.length > 0 ? rangs[rangs.length - 1].rang : -1;
+    setRangs(prev => [...prev, { rang: dernierRang + 1, delai_avant: 0, groupe_ids: [] }]);
+  }
+
+  function supprimerRang(idx) {
+    const ids = rangs[idx].groupe_ids;
+    setNonSequences(prev => [...prev, ...ids.map(id => getGroupe(id)).filter(Boolean)]);
+    setRangs(prev => prev.filter((_, i) => i !== idx).map((r, i) => ({ ...r, rang: i })));
+  }
+
+  function setDelai(idx, val) {
+    setRangs(prev => prev.map((r, i) => i === idx ? { ...r, delai_avant: Number(val) || 0 } : r));
+  }
+
+  // Drag & drop
+  function onDragStart(groupe_id, from) {
+    dragRef.current = { groupe_id, from };
+  }
+
+  function onDrop(to) {
+    if (!dragRef.current) return;
+    const { groupe_id, from } = dragRef.current;
+    dragRef.current = null;
+    setDragOver(null);
+
+    // Retirer de la source
+    if (from === 'pool') {
+      setNonSequences(prev => prev.filter(g => g.id !== groupe_id));
+    } else {
+      setRangs(prev => prev.map((r, i) => i === from
+        ? { ...r, groupe_ids: r.groupe_ids.filter(id => id !== groupe_id) }
+        : r
+      ));
+    }
+
+    // Ajouter à la destination
+    if (to === 'pool') {
+      const g = getGroupe(groupe_id);
+      if (g) setNonSequences(prev => [...prev, g]);
+    } else {
+      setRangs(prev => prev.map((r, i) => i === to
+        ? { ...r, groupe_ids: [...r.groupe_ids, groupe_id] }
+        : r
+      ));
+    }
+  }
+
+  async function sauvegarder() {
+    setSaving(true);
+    try {
+      await authFetch('/api/sequence', {
+        method: 'PUT',
+        body: JSON.stringify({
+          section, annee_scolaire: annee, ue_num: ueSelectionnee,
+          rangs: rangs.map(r => ({ rang: r.rang, delai_avant: r.delai_avant, groupe_ids: r.groupe_ids })),
+        }),
+      });
+      setSaved(true);
+      setTimeout(() => setSaved(false), 2000);
+    } catch(e) { alert(e.message); }
+    finally { setSaving(false); }
+  }
+
+  function BadgeGroupe({ groupe_id, from }) {
+    const g = getGroupe(groupe_id);
+    if (!g) return null;
+    return (
+      <div draggable
+        onDragStart={() => onDragStart(groupe_id, from)}
+        className="flex items-center gap-2 bg-white border border-gray-200 rounded-lg px-3 py-2 cursor-grab active:cursor-grabbing shadow-sm hover:border-iip-mauve hover:shadow-md transition select-none">
+        <span className="text-xs font-bold text-iip-mauve">UE{g.ue_num}</span>
+        {g.activite_nom && (
+          <span className="text-[10px] bg-iip-gold/10 text-iip-gold px-1.5 py-0.5 rounded">{g.activite_nom}</span>
+        )}
+        <span className="text-xs text-gray-600">Gr.{g.nom}</span>
+        <span className="text-[10px] text-gray-400">{g.heures_attribuees}h</span>
+      </div>
+    );
+  }
+
+  return (
+    <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4">
+      <div className="bg-white rounded-xl shadow-2xl w-full max-w-4xl max-h-[90vh] flex flex-col">
+        {/* Header */}
+        <div className="flex items-center justify-between px-6 py-4 border-b">
+          <div>
+            <h3 className="font-semibold text-gray-800">🔢 Séquencer les cours — {section}</h3>
+            <p className="text-xs text-gray-400 mt-0.5">Glisse les badges pour définir l'ordre et les délais entre cours</p>
+          </div>
+          <button onClick={onClose} className="text-gray-400 hover:text-gray-600 text-lg">✕</button>
+        </div>
+
+        <div className="flex flex-1 overflow-hidden">
+          {/* Sidebar UE */}
+          <div className="w-48 border-r bg-gray-50 overflow-auto flex-shrink-0">
+            {ues.map(u => (
+              <button key={u.ue_num} onClick={() => setUeSelectionnee(u.ue_num)}
+                className={`w-full text-left px-4 py-3 text-sm border-b transition
+                  ${ueSelectionnee === u.ue_num ? 'bg-iip-mauve text-white' : 'hover:bg-gray-100 text-gray-700'}`}>
+                <p className="font-medium">UE {u.ue_num}</p>
+                <p className={`text-[10px] truncate ${ueSelectionnee === u.ue_num ? 'text-white/70' : 'text-gray-400'}`}>
+                  {u.ue_nom}
+                </p>
+                <p className={`text-[10px] ${ueSelectionnee === u.ue_num ? 'text-white/70' : 'text-gray-400'}`}>
+                  {u.groupes.length} cours
+                </p>
+              </button>
+            ))}
+          </div>
+
+          {/* Zone principale */}
+          <div className="flex-1 overflow-auto p-5 space-y-4">
+            {loading ? <div className="text-center text-gray-400 py-10">Chargement…</div> : (
+              <>
+                {/* Pool — cours non séquencés */}
+                <div
+                  onDragOver={e => { e.preventDefault(); setDragOver('pool'); }}
+                  onDragLeave={() => setDragOver(null)}
+                  onDrop={() => onDrop('pool')}
+                  className={`rounded-lg border-2 border-dashed p-3 min-h-[60px] transition
+                    ${dragOver === 'pool' ? 'border-iip-mauve bg-iip-mauve/5' : 'border-gray-200'}`}>
+                  <p className="text-xs text-gray-400 mb-2">📦 Cours non séquencés (glisse-les dans un rang)</p>
+                  <div className="flex flex-wrap gap-2">
+                    {nonSequences.map(g => <BadgeGroupe key={g.id} groupe_id={g.id} from="pool" />)}
+                    {nonSequences.length === 0 && <p className="text-xs text-gray-300 italic">Tous les cours sont séquencés</p>}
+                  </div>
+                </div>
+
+                {/* Rangs */}
+                {rangs.map((rang, idx) => (
+                  <div key={idx}>
+                    {/* Délai avant ce rang */}
+                    {idx > 0 && (
+                      <div className="flex items-center gap-2 my-2 ml-4">
+                        <div className="w-px h-6 bg-gray-300"></div>
+                        <label className="flex items-center gap-1.5 text-xs text-gray-500">
+                          Délai :
+                          <input type="number" min="0" max="20" value={rang.delai_avant}
+                            onChange={e => setDelai(idx, e.target.value)}
+                            className="w-14 border border-gray-300 rounded px-2 py-0.5 text-center text-xs focus:border-iip-mauve outline-none" />
+                          semaine{rang.delai_avant !== 1 ? 's' : ''}
+                        </label>
+                      </div>
+                    )}
+
+                    <div
+                      onDragOver={e => { e.preventDefault(); setDragOver(idx); }}
+                      onDragLeave={() => setDragOver(null)}
+                      onDrop={() => onDrop(idx)}
+                      className={`rounded-lg border-2 p-3 min-h-[70px] transition
+                        ${dragOver === idx ? 'border-iip-mauve bg-iip-mauve/5' : 'border-gray-200'}`}>
+                      <div className="flex items-center justify-between mb-2">
+                        <span className="text-xs font-semibold text-gray-500">
+                          {idx === 0 ? '▶ Démarre en premier' : `▶ Rang ${idx + 1}`}
+                          <span className="ml-2 font-normal text-gray-400">— cours en parallèle</span>
+                        </span>
+                        <button onClick={() => supprimerRang(idx)}
+                          className="text-gray-300 hover:text-red-500 text-xs transition">✕ Supprimer</button>
+                      </div>
+                      <div className="flex flex-wrap gap-2">
+                        {rang.groupe_ids.map(id => <BadgeGroupe key={id} groupe_id={id} from={idx} />)}
+                        {rang.groupe_ids.length === 0 && (
+                          <p className="text-xs text-gray-300 italic">Dépose des cours ici</p>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                ))}
+
+                <button onClick={ajouterRang}
+                  className="w-full border-2 border-dashed border-gray-200 rounded-lg py-3 text-sm text-gray-400 hover:border-iip-mauve hover:text-iip-mauve transition">
+                  + Ajouter un rang
+                </button>
+              </>
+            )}
+          </div>
+        </div>
+
+        {/* Footer */}
+        <div className="flex items-center justify-between px-6 py-4 border-t">
+          <p className="text-xs text-gray-400">
+            Les rangs définissent l'ordre de démarrage. Même rang = en parallèle. Le délai s'applique entre deux rangs successifs.
+          </p>
+          <div className="flex gap-2">
+            <button onClick={onClose} className="border border-gray-300 text-gray-600 text-sm px-4 py-2 rounded">Fermer</button>
+            <button onClick={sauvegarder} disabled={saving}
+              className="bg-iip-mauve text-white text-sm px-5 py-2 rounded hover:opacity-90 disabled:opacity-50">
+              {saving ? 'Sauvegarde…' : saved ? '✓ Sauvegardé' : 'Enregistrer'}
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ─── Modal réinitialisation planification ─────────────────────────────────────
 function ModalReset({ annee, section, onReset, onClose }) {
   const [etape, setEtape]   = useState('choix'); // choix | confirm | doing | done
@@ -850,6 +1090,7 @@ export default function Planification() {
   const [showImport, setShowImport]   = useState(false);
   const [showIA, setShowIA]           = useState(false);
   const [showReset, setShowReset]     = useState(false);
+  const [showSequence, setShowSequence] = useState(false);
   const [pendingCells, setPendingCells] = useState({});
   const pendingRef                    = useRef({});
   const [saving, setSaving]           = useState(false);
@@ -950,6 +1191,12 @@ export default function Planification() {
           className="bg-iip-gold text-white text-xs px-3 py-1.5 rounded hover:bg-iip-amber">
           ⬇ Importer
         </button>
+        {filtreSection && (
+          <button onClick={() => setShowSequence(true)}
+            className="bg-iip-mauve/10 text-iip-mauve text-xs px-3 py-1.5 rounded hover:bg-iip-mauve/20 flex items-center gap-1">
+            🔢 Séquencer
+          </button>
+        )}
         {filtreSection && (
           <button onClick={() => setShowIA(true)}
             className="bg-iip-mauve text-white text-xs px-3 py-1.5 rounded hover:opacity-90 flex items-center gap-1">
@@ -1056,6 +1303,7 @@ export default function Planification() {
       {showImport && <ModalImport annee={annee} onImported={charger} onClose={() => setShowImport(false)} />}
       {showIA && <ModalIA annee={annee} section={filtreSection} onApplied={charger} onClose={() => setShowIA(false)} />}
       {showReset && <ModalReset annee={annee} section={filtreSection} onReset={charger} onClose={() => setShowReset(false)} />}
+      {showSequence && <ModalSequence annee={annee} section={filtreSection} groupes={grille.groupes || []} onClose={() => setShowSequence(false)} />}
       {showCalendrier && <PanelCalendrier semaines={semaines} onUpdate={charger} onClose={() => setShowCalendrier(false)} />}
     </div>
   );

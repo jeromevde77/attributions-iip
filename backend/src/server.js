@@ -27,6 +27,7 @@ import planificationRoutes from './routes/planification.js';
 import parametresRoutes    from './routes/parametres.js';
 import prerequisRoutes     from './routes/prerequis.js';
 import planifIARoutes      from './routes/planification-ia.js';
+import sequenceRoutes      from './routes/sequence.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
@@ -642,7 +643,20 @@ try {
     console.log(`[migration] groupe.ue_quad mis à jour pour ${_updatedQuad.changes} groupe(s)`);
   }
 
-  // ── Flag manuel dans planification ────────────────────────────────────────
+  // ── Séquencement des cours dans les UE ───────────────────────────────────
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS cours_sequence (
+      id             INTEGER PRIMARY KEY AUTOINCREMENT,
+      section        TEXT NOT NULL,
+      annee_scolaire TEXT NOT NULL,
+      ue_num         INTEGER NOT NULL,
+      groupe_id      INTEGER NOT NULL REFERENCES groupe(id) ON DELETE CASCADE,
+      rang           INTEGER NOT NULL DEFAULT 0,
+      delai_avant    INTEGER NOT NULL DEFAULT 0,  -- semaines d'attente avant ce rang
+      UNIQUE(groupe_id)
+    );
+    CREATE INDEX IF NOT EXISTS idx_coursseq_section ON cours_sequence(section, annee_scolaire, ue_num);
+  `);
   const _colsPlanif = db.prepare('PRAGMA table_info(planification)').all();
   if (!_colsPlanif.find(c => c.name === 'manuel')) {
     db.exec(`ALTER TABLE planification ADD COLUMN manuel INTEGER DEFAULT 0`);
@@ -1677,6 +1691,7 @@ app.use('/api/planification', planificationRoutes);
 app.use('/api/parametres',   parametresRoutes);
 app.use('/api/prerequis',      prerequisRoutes);
 app.use('/api/planification-ia', planifIARoutes);
+app.use('/api/sequence',        sequenceRoutes);
 
 // Route logo IIP
 import { createRequire as _cr } from 'module';
