@@ -241,7 +241,7 @@ function BlocSection({ section, groupes, semaines, cellules, onCellChange, onEdi
     <>
       {/* Header section */}
       <tr className="bg-iip-gold/10 cursor-pointer select-none" onClick={() => setOpen(v => !v)}>
-        <td colSpan={2} className="sticky left-0 z-10 bg-iip-gold/10 border border-gray-300 px-3 py-2">
+        <td colSpan={2} className="sticky left-0 z-10 border border-gray-300 px-3 py-2" style={{ backgroundColor: '#E8EAEF' }}>
           <div className="flex items-center gap-3">
             <span className="font-bold text-sm text-iip-gold">{open ? '▼' : '▶'} {section}</span>
             <span className="text-xs text-gray-500">{groupes.length} groupe{groupes.length > 1 ? 's' : ''}</span>
@@ -258,7 +258,8 @@ function BlocSection({ section, groupes, semaines, cellules, onCellChange, onEdi
           return (
             <td key={sem.id} className={`border border-gray-200 text-center text-[10px] w-10
               ${TYPE_STYLE[sem.type]?.header || 'bg-gray-50'}
-              ${hSem > 0 ? 'text-iip-gold font-semibold' : 'text-transparent'}`}>
+              ${hSem > 0 ? 'text-iip-gold font-semibold' : 'text-transparent'}`}
+              style={{ backgroundColor: hSem > 0 ? '#E8EAEF' : undefined }}>
               {hSem > 0 ? hSem : '·'}
             </td>
           );
