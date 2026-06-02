@@ -263,10 +263,14 @@ r.post('/import-from-attributions', authRequired, roleRequired('admin', 'editeur
 
   const insert = db.transaction(() => {
     for (const g of groupes) {
-      // En mode skip : ne pas écraser un groupe existant (même ue_num + section + nom + activite_id)
+      // En mode skip : ne pas écraser un groupe existant (même ue_num + section + nom + code_cours + activite_id)
       if (mode === 'skip') {
-        const exists = db.prepare('SELECT id FROM groupe WHERE annee_scolaire=? AND ue_num=? AND section=? AND nom=? AND (activite_id IS ? OR activite_id = ?)')
-          .get(anneeVal, g.ue_num, g.section, g.nom, g.activite_id, g.activite_id);
+        const exists = db.prepare(`
+          SELECT id FROM groupe 
+          WHERE annee_scolaire=? AND ue_num=? AND section=? AND nom=?
+          AND (code_cours IS ? OR code_cours = ?)
+          AND (activite_id IS ? OR activite_id = ?)
+        `).get(anneeVal, g.ue_num, g.section, g.nom, g.code_cours, g.code_cours, g.activite_id, g.activite_id);
         if (exists) { skipped++; continue; }
       }
       db.prepare(`

@@ -453,7 +453,7 @@ function PanelCalendrier({ semaines, onUpdate, onClose }) {
 function ModalImport({ annee, onImported, onClose }) {
   const [preview, setPreview]     = useState(null);
   const [loading, setLoading]     = useState(true);
-  const [mode, setMode]           = useState('skip');
+  const [mode, setMode]           = useState('replace');
   const [importing, setImporting] = useState(false);
   const [result, setResult]       = useState(null);
 
@@ -527,6 +527,7 @@ function ModalImport({ annee, onImported, onClose }) {
                     <tr>
                       <th className="px-3 py-2 text-left">Section</th>
                       <th className="px-3 py-2 text-left">UE</th>
+                      <th className="px-3 py-2 text-left">Cours</th>
                       <th className="px-3 py-2 text-center">Gr.</th>
                       <th className="px-3 py-2 text-right">Heures</th>
                       <th className="px-3 py-2 text-left">Notes</th>
@@ -536,7 +537,8 @@ function ModalImport({ annee, onImported, onClose }) {
                     {(preview?.groupes || []).map((g, i) => (
                       <tr key={i} className="hover:bg-gray-50">
                         <td className="px-3 py-1.5 font-medium text-iip-mauve">{g.section || '—'}</td>
-                        <td className="px-3 py-1.5 text-gray-600">UE {g.ue_num} <span className="text-gray-400">{g.ue_nom?.slice(0,25)}</span></td>
+                        <td className="px-3 py-1.5 text-gray-600">UE {g.ue_num} <span className="text-gray-400">{g.ue_nom?.slice(0,20)}</span></td>
+                        <td className="px-3 py-1.5 text-gray-500 text-[10px]">{g.code_cours || '—'}</td>
                         <td className="px-3 py-1.5 text-center font-bold">{g.nom}</td>
                         <td className="px-3 py-1.5 text-right font-mono">{g.heures_attribuees}h</td>
                         <td className="px-3 py-1.5 text-gray-400 italic">{g.notes || ''}</td>
