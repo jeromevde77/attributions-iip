@@ -1415,6 +1415,14 @@ try {
     console.log('[migration] Pilotage civil : dotation_civile + enveloppe_externe initialisés');
   }
 
+  // Enveloppe spéciale AeSI (hors dotation organique) — périodes encore inconnues (0)
+  try {
+    const insAesi = db.prepare("INSERT OR IGNORE INTO enveloppe_externe (code, label, annee_civile, periodes_b, notes) VALUES (?,?,?,?,?)");
+    for (const ac of [2025, 2026]) {
+      insAesi.run('AESI', 'AeSI', ac, 0, 'Enveloppe spéciale hors dotation organique — périodes à confirmer');
+    }
+  } catch (e) { console.error('[migration] enveloppe AeSI :', e.message); }
+
 } catch (e) {
   console.error('[migration] ERREUR :', e.message);
   console.error(e.stack);
