@@ -351,55 +351,6 @@ function _buildImportGroupes(annee) {
     (a.activite_nom || '').localeCompare(b.activite_nom || '')
   );
 }
-  console.log('[_buildImportGroupes] annee=', annee, 'attrs=', attrs.length);
-
-  // Regrouper par (ue_num, section, num_groupe)
-  const map = new Map();
-  for (const a of attrs) {
-    const nomGroupe = _numToLettre(a.num_groupe ?? 1);
-    const key = `${a.ue_num}__${a.section || ''}__${nomGroupe}`;
-
-    if (!map.has(key)) {
-      map.set(key, {
-        ue_num: a.ue_num,
-        ue_nom: a.ue_nom || `UE ${a.ue_num}`,
-        section: a.section,
-        nom: nomGroupe,
-        heures_attribuees: 0,
-        professeur_id: null,   // premier prof trouvé
-        profs: [],             // tous les profs du groupe
-        notes: null,
-      });
-    }
-    const g = map.get(key);
-    // Somme des heures (charge_en_heures = périodes × 50/60, arrondi)
-    // On recalcule précisément : total_periodes × 50 / 60
-    const periodes = (a.periodes_attribuees || 0) + (a.autonomie_attribuee || 0);
-    g.heures_attribuees += periodes * 50 / 60;
-    if (a.professeur_id && !g.profs.includes(a.professeur_id)) {
-      g.profs.push(a.professeur_id);
-      if (!g.professeur_id) g.professeur_id = a.professeur_id; // 1er prof
-    }
-  }
-
-  // Finaliser : arrondir heures, noter si multi-profs
-  const result = [];
-  for (const g of map.values()) {
-    g.heures_attribuees = Math.round(g.heures_attribuees * 100) / 100;
-    if (g.profs.length > 1) {
-      g.notes = `${g.profs.length} profs (th. + ex.)`;
-      g.professeur_id = null; // ambiguïté → pas de prof principal
-    }
-    delete g.profs;
-    result.push(g);
-  }
-
-  return result.sort((a, b) =>
-    (a.section || '').localeCompare(b.section || '') ||
-    a.ue_num - b.ue_num ||
-    a.nom.localeCompare(b.nom)
-  );
-}
 
 function _numToLettre(n) {
   // 1→A, 2→B, 3→C…  au-delà de 26 : AA, AB…
