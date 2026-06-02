@@ -454,9 +454,16 @@ r.patch('/sections/:code/code', authRequired, roleRequired('admin'), (req, res) 
 
 
 r.delete('/sections/:code', authRequired, roleRequired('admin'), (req, res) => {
-  const nb = db.prepare('SELECT COUNT(*) AS n FROM attribution WHERE section = ?').get(req.params.code).n;
-  if (nb > 0) return res.status(409).json({ error: `Impossible : ${nb} attribution(s) dans cette section.` });
-  db.prepare('DELETE FROM section WHERE code = ?').run(req.params.code);
+  const code = req.params.code;
+  // Compter les vraies attributions (exclure les cours de type Z qui sont synthétiques)
+  const nb = db.prepare(`
+    SELECT COUNT(*) AS n FROM attribution a
+    JOIN cours c ON c.cours_code = a.code_cours AND c.annee_scolaire = a.annee_scolaire
+    WHERE a.section = ? AND (c.ct_pp IS NULL OR c.ct_pp != 'Z')
+  `).get(code).n;
+  if (nb > 0) return res.status(409).json({ error: `Impossible : ${nb} attribution(s) non-Z dans cette section. Supprimez-les d'abord.` });
+  // Supprimer les cours et UE liés à cette section, puis la section elle-même
+  db.prepare('DELETE FROM section WHERE code = ?').run(code);
   res.json({ ok: true });
 });
 
