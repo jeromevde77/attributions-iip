@@ -319,13 +319,21 @@ r.post('/generer', authRequired, roleRequired('admin', 'editeur'), (req, res) =>
         if (semVCGroupe && !cellulesFixees.has(semVCGroupe.id)) {
           proposition[groupe.id][semVCGroupe.id] = 'VC';
 
-          // EV2 = première semaine typée 'ev2' après VC
-          // (correspond à la 2e session d'examens dans le calendrier)
-          const idxVC = toutesLesSeamines.findIndex(s => s.id === semVCGroupe.id);
-          const semEV2Groupe = toutesLesSeamines.slice(idxVC + 1)
-            .find(s => s.type === 'ev2');
+          // EV2 : décret → max 4 mois (≈16 semaines) après EV1
+          // 1ère semaine typée 'ev2' dans ce délai, sinon 1ère semaine non-vacances
+          const idxEV1 = toutesLesSeamines.findIndex(s => s.id === semEV1Groupe.id);
+          const MAX_SEM_EV2 = 16;
+          const fenetreEV2 = toutesLesSeamines.slice(idxEV1 + 2, idxEV1 + 2 + MAX_SEM_EV2);
+          const semEV2Groupe = fenetreEV2.find(s => s.type === 'ev2')
+            || fenetreEV2.find(s => s.type !== 'vacances' && s.type !== 'ferie');
           if (semEV2Groupe && !cellulesFixees.has(semEV2Groupe.id)) {
             proposition[groupe.id][semEV2Groupe.id] = 'EV2';
+          } else if (!semEV2Groupe) {
+            alertes.push({
+              groupe_id: groupe.id,
+              ue_num: groupe.ue_num,
+              msg: `UE${groupe.ue_num} ${groupe.ue_nom || ''} : impossible de placer EV2 dans les 4 mois après EV1 (décret). Vérifiez le calendrier.`
+            });
           }
         }
       }
