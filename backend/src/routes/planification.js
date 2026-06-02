@@ -359,3 +359,26 @@ function _numToLettre(n) {
 }
 
 export default r;
+
+// POST /planification/reset — réinitialiser la planification d'une section
+r.post('/reset', authRequired, roleRequired('admin', 'editeur'), (req, res) => {
+  const { annee_scolaire, section, mode } = req.body;
+  if (!annee_scolaire || !section) return res.status(400).json({ error: 'annee_scolaire et section requis' });
+
+  const ids = db.prepare('SELECT id FROM groupe WHERE annee_scolaire = ? AND section = ?')
+    .all(annee_scolaire, section).map(r => r.id);
+
+  if (!ids.length) return res.json({ ok: true, message: 'Aucun groupe à réinitialiser', cellules: 0, groupes: 0 });
+
+  const ph = ids.map(() => '?').join(',');
+  const tx = db.transaction(() => {
+    const c = db.prepare(`DELETE FROM planification WHERE groupe_id IN (${ph})`).run(...ids);
+    let g = { changes: 0 };
+    if (mode === 'tout') {
+      g = db.prepare(`DELETE FROM groupe WHERE id IN (${ph})`).run(...ids);
+    }
+    return { cellules: c.changes, groupes: g.changes };
+  });
+  const result = tx();
+  res.json({ ok: true, ...result });
+});

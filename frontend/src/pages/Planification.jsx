@@ -738,6 +738,104 @@ function ModalIA({ annee, section, onApplied, onClose }) {
   );
 }
 
+// ─── Modal réinitialisation planification ─────────────────────────────────────
+function ModalReset({ annee, section, onReset, onClose }) {
+  const [etape, setEtape]   = useState('choix'); // choix | confirm | doing | done
+  const [mode, setMode]     = useState('cellules'); // 'cellules' | 'tout'
+  const [error, setError]   = useState(null);
+
+  async function executer() {
+    setEtape('doing');
+    try {
+      const r = await authFetch('/api/planification/reset', {
+        method: 'POST',
+        body: JSON.stringify({ annee_scolaire: annee, section, mode }),
+      });
+      if (r.error) { setError(r.error); setEtape('confirm'); return; }
+      setEtape('done');
+      setTimeout(() => { onReset(); onClose(); }, 1200);
+    } catch(e) { setError(e.message); setEtape('confirm'); }
+  }
+
+  return (
+    <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center">
+      <div className="bg-white rounded-xl shadow-2xl w-full max-w-md flex flex-col">
+        <div className="flex items-center justify-between px-6 py-4 border-b">
+          <h3 className="font-semibold text-gray-800">🗑 Réinitialiser la planification</h3>
+          <button onClick={onClose} className="text-gray-400 hover:text-gray-600">✕</button>
+        </div>
+
+        <div className="px-6 py-5 space-y-4">
+          {etape === 'choix' && (
+            <>
+              <p className="text-sm text-gray-600">
+                Section <strong>{section}</strong> — Année <strong>{annee}</strong>
+              </p>
+              <div className="space-y-2">
+                <label className="flex items-start gap-3 p-3 border rounded-lg cursor-pointer hover:bg-gray-50">
+                  <input type="radio" name="mode" value="cellules" checked={mode==='cellules'} onChange={()=>setMode('cellules')} className="mt-0.5 accent-iip-gold" />
+                  <div>
+                    <p className="text-sm font-medium text-gray-700">Effacer uniquement les cellules</p>
+                    <p className="text-xs text-gray-400">Les groupes sont conservés, seule la planification est effacée. Utile pour régénérer avec l'IA.</p>
+                  </div>
+                </label>
+                <label className="flex items-start gap-3 p-3 border rounded-lg cursor-pointer hover:bg-gray-50">
+                  <input type="radio" name="mode" value="tout" checked={mode==='tout'} onChange={()=>setMode('tout')} className="mt-0.5 accent-red-500" />
+                  <div>
+                    <p className="text-sm font-medium text-gray-700">Effacer groupes + cellules</p>
+                    <p className="text-xs text-gray-400">Repart de zéro. Nécessite un nouvel import depuis les attributions.</p>
+                  </div>
+                </label>
+              </div>
+            </>
+          )}
+
+          {etape === 'confirm' && (
+            <div className="bg-red-50 border border-red-200 rounded-lg p-4 text-sm text-red-700">
+              <p className="font-medium mb-1">⚠ Confirmation requise</p>
+              <p>{mode === 'tout'
+                ? `Tous les groupes et cellules de ${section} seront supprimés définitivement.`
+                : `Toutes les cellules de planification de ${section} seront effacées.`}
+              </p>
+              {error && <p className="mt-2 text-red-600">{error}</p>}
+            </div>
+          )}
+
+          {etape === 'doing' && (
+            <div className="text-center py-6">
+              <p className="text-gray-500 animate-pulse">Réinitialisation en cours…</p>
+            </div>
+          )}
+
+          {etape === 'done' && (
+            <div className="text-center py-6">
+              <p className="text-green-600 font-medium">✓ Planification réinitialisée</p>
+            </div>
+          )}
+        </div>
+
+        {(etape === 'choix' || etape === 'confirm') && (
+          <div className="flex justify-end gap-2 px-6 py-4 border-t">
+            <button onClick={onClose} className="border border-gray-300 text-gray-600 text-sm px-4 py-2 rounded">Annuler</button>
+            {etape === 'choix' && (
+              <button onClick={() => setEtape('confirm')}
+                className="bg-red-600 text-white text-sm px-5 py-2 rounded hover:bg-red-700">
+                Continuer →
+              </button>
+            )}
+            {etape === 'confirm' && (
+              <button onClick={executer}
+                className="bg-red-600 text-white text-sm px-5 py-2 rounded hover:bg-red-700">
+                Confirmer la suppression
+              </button>
+            )}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
 // ─── Page principale ──────────────────────────────────────────────────────────
 export default function Planification() {
   const annee = getAnnee();
@@ -751,6 +849,7 @@ export default function Planification() {
   const [showCalendrier, setShowCalendrier] = useState(false);
   const [showImport, setShowImport]   = useState(false);
   const [showIA, setShowIA]           = useState(false);
+  const [showReset, setShowReset]     = useState(false);
   const [pendingCells, setPendingCells] = useState({});
   const pendingRef                    = useRef({});
   const [saving, setSaving]           = useState(false);
@@ -857,6 +956,12 @@ export default function Planification() {
             ✨ Générer avec Lucie IA
           </button>
         )}
+        {filtreSection && (
+          <button onClick={() => setShowReset(true)}
+            className="bg-red-100 text-red-600 text-xs px-3 py-1.5 rounded hover:bg-red-200 flex items-center gap-1">
+            🗑 Réinitialiser
+          </button>
+        )}
         <button onClick={() => setShowCalendrier(true)}
           className="border border-gray-300 text-gray-600 text-xs px-3 py-1.5 rounded hover:bg-gray-50">
           📅 Calendrier
@@ -950,6 +1055,7 @@ export default function Planification() {
       )}
       {showImport && <ModalImport annee={annee} onImported={charger} onClose={() => setShowImport(false)} />}
       {showIA && <ModalIA annee={annee} section={filtreSection} onApplied={charger} onClose={() => setShowIA(false)} />}
+      {showReset && <ModalReset annee={annee} section={filtreSection} onReset={charger} onClose={() => setShowReset(false)} />}
       {showCalendrier && <PanelCalendrier semaines={semaines} onUpdate={charger} onClose={() => setShowCalendrier(false)} />}
     </div>
   );
