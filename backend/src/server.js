@@ -630,6 +630,18 @@ try {
     console.log('[migration] Colonne groupe.ue_quad ajoutée');
   }
 
+  // Mettre à jour ue_quad des groupes existants depuis la table ue
+  const _updatedQuad = db.prepare(`
+    UPDATE groupe SET ue_quad = (
+      SELECT ue_quad FROM ue 
+      WHERE ue.ue_num = groupe.ue_num AND ue.annee_scolaire = groupe.annee_scolaire
+    )
+    WHERE ue_quad IS NULL
+  `).run();
+  if (_updatedQuad.changes > 0) {
+    console.log(`[migration] groupe.ue_quad mis à jour pour ${_updatedQuad.changes} groupe(s)`);
+  }
+
   // ── Flag manuel dans planification ────────────────────────────────────────
   const _colsPlanif = db.prepare('PRAGMA table_info(planification)').all();
   if (!_colsPlanif.find(c => c.name === 'manuel')) {

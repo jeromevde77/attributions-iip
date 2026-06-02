@@ -124,7 +124,9 @@ r.post('/generer', authRequired, roleRequired('admin', 'editeur'), (req, res) =>
 
   // ── 3. Charger les groupes de la section ─────────────────────────────────
   const groupes = db.prepare(`
-    SELECT g.*, u.ue_quad, u.is_epreuve_integree, u.ue_nom, u.ue_niv,
+    SELECT g.*, 
+           COALESCE(u.ue_quad, g.ue_quad) AS ue_quad,
+           u.is_epreuve_integree, u.ue_nom, u.ue_niv,
            at.libelle AS activite_nom
     FROM groupe g
     LEFT JOIN ue u ON u.ue_num = g.ue_num AND u.annee_scolaire = g.annee_scolaire
@@ -264,9 +266,12 @@ r.post('/generer', authRequired, roleRequired('admin', 'editeur'), (req, res) =>
       const maxSemId = Math.max(...semainesAvecCours);
       const maxSemIdx = toutesLesSeamines.findIndex(s => s.id === maxSemId);
 
-      // EV1 = 1ère semaine type 'ev1' ou 'cours' après le dernier cours
+      // EV1 = 1ère semaine typée 'ev1' après le dernier cours
+      // (si aucune ev1 disponible, prendre la 1ère semaine non-vacances)
       const semEV1Groupe = toutesLesSeamines.slice(maxSemIdx + 1)
-        .find(s => s.type !== 'vacances' && s.type !== 'ferie');
+        .find(s => s.type === 'ev1')
+        || toutesLesSeamines.slice(maxSemIdx + 1)
+           .find(s => s.type !== 'vacances' && s.type !== 'ferie');
       if (semEV1Groupe && !cellulesFixees.has(semEV1Groupe.id)) {
         proposition[groupe.id][semEV1Groupe.id] = 'EV1';
 
@@ -277,10 +282,11 @@ r.post('/generer', authRequired, roleRequired('admin', 'editeur'), (req, res) =>
         if (semVCGroupe && !cellulesFixees.has(semVCGroupe.id)) {
           proposition[groupe.id][semVCGroupe.id] = 'VC';
 
-          // EV2 = quelques semaines après VC (minimum minSemEV semaines)
+          // EV2 = première semaine typée 'ev2' après VC
+          // (correspond à la 2e session d'examens dans le calendrier)
           const idxVC = toutesLesSeamines.findIndex(s => s.id === semVCGroupe.id);
-          const semEV2Groupe = toutesLesSeamines.slice(idxVC + minSemEV)
-            .find(s => s.type !== 'vacances' && s.type !== 'ferie');
+          const semEV2Groupe = toutesLesSeamines.slice(idxVC + 1)
+            .find(s => s.type === 'ev2');
           if (semEV2Groupe && !cellulesFixees.has(semEV2Groupe.id)) {
             proposition[groupe.id][semEV2Groupe.id] = 'EV2';
           }

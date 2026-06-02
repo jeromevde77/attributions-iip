@@ -110,7 +110,8 @@ r.get('/grille', authRequired, (req, res) => {
   const semaines = db.prepare('SELECT * FROM annee_calendrier WHERE annee_scolaire = ? ORDER BY semaine_num').all(anneeVal);
 
   let sqlG = `
-    SELECT g.*, p.nom AS prof_nom, p.prenom AS prof_prenom, u.ue_nom, u.ue_niv,
+    SELECT g.*, p.nom AS prof_nom, p.prenom AS prof_prenom, 
+           u.ue_nom, u.ue_niv, COALESCE(u.ue_quad, g.ue_quad) AS ue_quad,
            at.libelle AS activite_nom
     FROM groupe g
     LEFT JOIN professeur p ON p.id = g.professeur_id
