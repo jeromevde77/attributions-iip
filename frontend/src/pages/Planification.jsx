@@ -170,7 +170,20 @@ function LigneGroupe({ groupe, semaines, cellules, onCellChange, onEditGroupe, w
           <span className="inline-flex items-center bg-iip-mauve/10 text-iip-mauve text-[10px] font-bold px-1.5 py-0.5 rounded">
             UE {groupe.ue_num}
           </span>
-          <span className="text-xs text-gray-600 truncate max-w-[140px]"
+          {groupe.ue_niv && (
+            <span className={`text-[9px] font-bold px-1 py-0.5 rounded
+              ${groupe.ue_niv === 'BA1' ? 'bg-blue-100 text-blue-600' :
+                groupe.ue_niv === 'BA2' ? 'bg-green-100 text-green-600' :
+                groupe.ue_niv === 'BA3' ? 'bg-orange-100 text-orange-600' : 'bg-gray-100 text-gray-500'}`}>
+              {groupe.ue_niv}
+            </span>
+          )}
+          {groupe.ue_quad && (
+            <span className="text-[9px] font-medium px-1 py-0.5 rounded bg-gray-100 text-gray-500">
+              {groupe.ue_quad === 'Q1Q2' ? 'Q1/Q2' : groupe.ue_quad}
+            </span>
+          )}
+          <span className="text-xs text-gray-600 truncate max-w-[120px]"
             title={groupe.cours_nom || groupe.ue_nom}>
             {groupe.cours_nom || groupe.ue_nom || `UE ${groupe.ue_num}`}
           </span>
