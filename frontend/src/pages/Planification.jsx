@@ -180,7 +180,7 @@ function LigneGroupe({ groupe, semaines, cellules, onCellChange, onEditGroupe, w
           )}
           {groupe.ue_quad && (
             <span className="text-[9px] font-medium px-1 py-0.5 rounded bg-gray-100 text-gray-500">
-              {groupe.ue_quad === 'Q1Q2' ? 'Q1/Q2' : groupe.ue_quad}
+              {String(groupe.ue_quad).replace(/\s/g,'').toUpperCase() === 'Q1Q2' ? 'Q1/Q2' : groupe.ue_quad}
             </span>
           )}
           <span className="text-xs text-gray-600 truncate max-w-[120px]"
@@ -799,10 +799,20 @@ function ModalSequence({ annee, section, groupes, onClose }) {
 // ─── Onglet Structure UE (grille niveau × quadrimestre) ──────────────────────
 const NIVEAUX_ORDRE = ['BA1', 'BA2', 'BA3', 'Autre'];
 const QUADS = [
-  { key: 'Q1',   label: 'Q1' },
-  { key: 'Q1Q2', label: 'Q1 / Q2 (annuel)' },
-  { key: 'Q2',   label: 'Q2' },
+  { key: 'Q1',    label: 'Q1' },
+  { key: 'Q1/Q2', label: 'Q1 / Q2 (annuel)' },
+  { key: 'Q2',    label: 'Q2' },
 ];
+
+// Normalise toutes les variantes de quadrimestre vers le format DB : Q1 | Q1/Q2 | Q2
+function normQuad(q) {
+  if (!q) return 'Q1/Q2';
+  const s = String(q).toUpperCase().replace(/\s/g, '');
+  if (s === 'Q1') return 'Q1';
+  if (s === 'Q2') return 'Q2';
+  // Q1Q2, Q1/Q2, Q1-Q2, ANNUEL... → annuel
+  return 'Q1/Q2';
+}
 
 function StructureUE({ annee, section, groupes }) {
   const [ues, setUes]           = useState([]);
@@ -820,7 +830,7 @@ function StructureUE({ annee, section, groupes }) {
         setUes(arr.map(u => ({
           ue_num: u.ue_num, ue_nom: u.ue_nom,
           ue_niv: u.ue_niv || 'Autre',
-          ue_quad: u.ue_quad || 'Q1Q2',
+          ue_quad: normQuad(u.ue_quad),
         })));
       });
   }

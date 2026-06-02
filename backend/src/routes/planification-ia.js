@@ -231,11 +231,12 @@ r.post('/generer', authRequired, roleRequired('admin', 'editeur'), (req, res) =>
     }
 
     // Déterminer les semaines disponibles selon le quadrimestre de l'UE
-    const quad = groupe.ue_quad || 'Q1Q2';
+    const quadRaw = String(groupe.ue_quad || '').toUpperCase().replace(/\s/g, '');
+    const quad = quadRaw === 'Q1' ? 'Q1' : quadRaw === 'Q2' ? 'Q2' : 'Q1Q2';
     let semainesDispos;
     if (quad === 'Q1')      semainesDispos = [...semainesQ1];
     else if (quad === 'Q2') semainesDispos = [...semainesQ2];
-    else                    semainesDispos = [...semainesCours]; // annuel ou non défini
+    else                    semainesDispos = [...semainesCours]; // annuel
 
     // Les prérequis sont inter-annuels en promotion sociale :
     // → pas de contrainte intra-annuelle basée sur les prérequis.
