@@ -401,6 +401,10 @@ export default function Referentiels({ embedded = false }) {
           className={`px-3 py-1.5 text-sm rounded-md transition ${viewMode === 'table' ? 'bg-white shadow-sm text-iip-gold font-medium' : 'text-gray-500 hover:text-gray-700'}`}>
           Tableau global
         </button>
+        <button onClick={() => setViewMode('activites')}
+          className={`px-3 py-1.5 text-sm rounded-md transition ${viewMode === 'activites' ? 'bg-white shadow-sm text-iip-gold font-medium' : 'text-gray-500 hover:text-gray-700'}`}>
+          🎯 Activités
+        </button>
       </div>
 
       {/* ── Vue Sections : tableau de gestion des sections ── */}
@@ -756,6 +760,181 @@ export default function Referentiels({ embedded = false }) {
       )}
       {ueModal && <UEModal ue={ueModal} sections={sections} onClose={() => setUeModal(null)} onSaved={() => { setUeModal(null); load(); }} />}
       {coursModal && <CoursFormModal {...coursModal} onClose={() => setCoursModal(null)} onSaved={() => { setCoursModal(null); load(); }} />}
+
+      {/* ── Vue Activités ── */}
+      {viewMode === 'activites' && <GestionActivites sections={sections} />}
+    </div>
+  );
+}
+
+// ─── Gestion des activités ────────────────────────────────────────────────────
+const _tok = () => localStorage.getItem('token');
+const _fetch = (url, opts = {}) =>
+  fetch(url, { ...opts, headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${_tok()}`, ...opts.headers } }).then(r => r.json());
+
+function GestionActivites({ sections = [] }) {
+  const [activites, setActivites]   = useState([]);
+  const [loading, setLoading]       = useState(true);
+  const [newLibelle, setNewLibelle] = useState('');
+  const [newSection, setNewSection] = useState('');
+  const [saving, setSaving]         = useState(false);
+  const [editId, setEditId]         = useState(null);
+  const [editVal, setEditVal]       = useState('');
+
+  function charger() {
+    setLoading(true);
+    _fetch('/api/ref/activites')
+      .then(d => setActivites(Array.isArray(d) ? d : []))
+      .finally(() => setLoading(false));
+  }
+
+  useEffect(() => { charger(); }, []);
+
+  async function creer() {
+    if (!newLibelle.trim()) return;
+    setSaving(true);
+    try {
+      await _fetch('/api/ref/activites', {
+        method: 'POST',
+        body: JSON.stringify({ libelle: newLibelle.trim(), section: newSection || null }),
+      });
+      setNewLibelle(''); setNewSection('');
+      charger();
+    } catch(e) { alert(e.message); }
+    finally { setSaving(false); }
+  }
+
+  async function sauvegarderEdit(id) {
+    await _fetch(`/api/ref/activites/${id}`, { method: 'PATCH', body: JSON.stringify({ libelle: editVal }) });
+    setEditId(null);
+    charger();
+  }
+
+  async function supprimer(id, libelle) {
+    if (!confirm(`Supprimer l'activité "${libelle}" ?`)) return;
+    const r = await _fetch(`/api/ref/activites/${id}`, { method: 'DELETE' });
+    if (r.error) { alert(r.error); return; }
+    charger();
+  }
+
+  // Grouper : globales, par section, par cours
+  const globales  = activites.filter(a => !a.section && !a.ue_num);
+  const parSection = {};
+  for (const a of activites.filter(a => a.section && !a.ue_num)) {
+    if (!parSection[a.section]) parSection[a.section] = [];
+    parSection[a.section].push(a);
+  }
+  const parCours = activites.filter(a => a.ue_num);
+
+  function RowAct({ a }) {
+    const isEdit = editId === a.id;
+    return (
+      <tr className="hover:bg-gray-50 group">
+        <td className="px-4 py-2">
+          {isEdit
+            ? <input autoFocus value={editVal} onChange={e => setEditVal(e.target.value)}
+                onKeyDown={e => { if (e.key === 'Enter') sauvegarderEdit(a.id); if (e.key === 'Escape') setEditId(null); }}
+                className="border border-iip-gold rounded px-2 py-0.5 text-sm w-full" />
+            : <span className="text-sm text-gray-700">{a.libelle}</span>
+          }
+        </td>
+        <td className="px-4 py-2 text-xs text-gray-400">
+          {a.ue_num ? `UE${a.ue_num}` : a.section || '—'}
+        </td>
+        <td className="px-4 py-2 text-right">
+          <div className="flex gap-2 justify-end opacity-0 group-hover:opacity-100 transition">
+            {isEdit
+              ? <>
+                  <button onClick={() => sauvegarderEdit(a.id)} className="text-xs text-iip-gold hover:underline">✓ OK</button>
+                  <button onClick={() => setEditId(null)} className="text-xs text-gray-400 hover:underline">Annuler</button>
+                </>
+              : <>
+                  <button onClick={() => { setEditId(a.id); setEditVal(a.libelle); }}
+                    className="text-xs text-gray-400 hover:text-iip-gold">Renommer</button>
+                  <button onClick={() => supprimer(a.id, a.libelle)}
+                    className="text-xs text-gray-400 hover:text-red-500">✕</button>
+                </>
+            }
+          </div>
+        </td>
+      </tr>
+    );
+  }
+
+  return (
+    <div className="space-y-5 max-w-2xl">
+      {/* Formulaire ajout */}
+      <div className="bg-white rounded-lg border border-gray-200 px-5 py-4">
+        <p className="text-sm font-medium text-gray-700 mb-3">Ajouter une activité</p>
+        <div className="flex gap-2 flex-wrap items-end">
+          <div className="flex-1 min-w-48">
+            <label className="block text-xs text-gray-500 mb-1">Nom</label>
+            <input value={newLibelle} onChange={e => setNewLibelle(e.target.value)}
+              onKeyDown={e => e.key === 'Enter' && creer()}
+              placeholder="ex. Remédiation, Atelier…"
+              className="w-full border border-gray-300 rounded px-3 py-1.5 text-sm focus:border-iip-gold outline-none" />
+          </div>
+          <div>
+            <label className="block text-xs text-gray-500 mb-1">Section (optionnel)</label>
+            <select value={newSection} onChange={e => setNewSection(e.target.value)}
+              className="border border-gray-300 rounded px-3 py-1.5 text-sm bg-white">
+              <option value="">Globale (toutes sections)</option>
+              {sections.map(s => <option key={s.code} value={s.code}>{s.code}</option>)}
+            </select>
+          </div>
+          <button onClick={creer} disabled={!newLibelle.trim() || saving}
+            className="bg-iip-gold text-white text-sm px-4 py-1.5 rounded hover:bg-iip-amber disabled:opacity-50">
+            + Ajouter
+          </button>
+        </div>
+      </div>
+
+      {loading ? <div className="text-center text-gray-400 py-8">Chargement…</div> : (
+        <>
+          {/* Activités globales */}
+          <div className="bg-white rounded-lg border border-gray-200 overflow-hidden">
+            <div className="px-5 py-3 border-b bg-gray-50">
+              <p className="text-sm font-semibold text-gray-700">🌐 Globales ({globales.length})</p>
+              <p className="text-xs text-gray-400">Disponibles dans toutes les sections</p>
+            </div>
+            <table className="w-full">
+              <tbody className="divide-y divide-gray-100">
+                {globales.map(a => <RowAct key={a.id} a={a} />)}
+                {!globales.length && <tr><td colSpan={3} className="px-4 py-3 text-xs text-gray-400 italic">Aucune</td></tr>}
+              </tbody>
+            </table>
+          </div>
+
+          {/* Par section */}
+          {Object.entries(parSection).map(([sec, acts]) => (
+            <div key={sec} className="bg-white rounded-lg border border-gray-200 overflow-hidden">
+              <div className="px-5 py-3 border-b bg-gray-50">
+                <p className="text-sm font-semibold text-gray-700">📂 {sec} ({acts.length})</p>
+              </div>
+              <table className="w-full">
+                <tbody className="divide-y divide-gray-100">
+                  {acts.map(a => <RowAct key={a.id} a={a} />)}
+                </tbody>
+              </table>
+            </div>
+          ))}
+
+          {/* Par cours */}
+          {parCours.length > 0 && (
+            <div className="bg-white rounded-lg border border-gray-200 overflow-hidden">
+              <div className="px-5 py-3 border-b bg-gray-50">
+                <p className="text-sm font-semibold text-gray-700">📖 Spécifiques à un cours ({parCours.length})</p>
+                <p className="text-xs text-gray-400">Créées depuis le modal d'un cours</p>
+              </div>
+              <table className="w-full">
+                <tbody className="divide-y divide-gray-100">
+                  {parCours.map(a => <RowAct key={a.id} a={a} />)}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </>
+      )}
     </div>
   );
 }

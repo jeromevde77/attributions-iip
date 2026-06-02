@@ -46,25 +46,63 @@ try {
   // 1. Créer la table activite_type si elle n'existe pas
   db.exec(`
     CREATE TABLE IF NOT EXISTS activite_type (
-      id      INTEGER PRIMARY KEY AUTOINCREMENT,
-      libelle TEXT NOT NULL UNIQUE,
-      ordre   INTEGER DEFAULT 0
+      id             INTEGER PRIMARY KEY AUTOINCREMENT,
+      libelle        TEXT NOT NULL,
+      ordre          INTEGER DEFAULT 0,
+      section        TEXT,              -- NULL = global, sinon spécifique à une section
+      ue_num         INTEGER,           -- NULL = toute section, sinon spécifique à un cours
+      annee_scolaire TEXT               -- NULL = toutes années
     );
   `);
   const count = db.prepare('SELECT COUNT(*) AS n FROM activite_type').get().n;
   if (count === 0) {
     db.exec(`
       INSERT INTO activite_type (id, libelle, ordre) VALUES
-        (1, 'Théorie',                1),
-        (2, 'Exercices',              2),
-        (3, 'Travaux pratiques (TP)', 3),
-        (4, 'Laboratoire',            4),
-        (5, 'Stage',                  5),
-        (6, 'Séminaire',              6),
-        (7, 'TFE',                    7);
+        (1, 'Théorie',                    1),
+        (2, 'Exercices',                  2),
+        (3, 'Travaux pratiques (TP)',      3),
+        (4, 'Laboratoire',                4),
+        (5, 'Stage',                      5),
+        (6, 'Séminaire',                  6),
+        (7, 'TFE',                        7),
+        (8, 'Remédiation',                8),
+        (9, 'Visite des copies',          9),
+        (10,'Cours hybride asynchrone',   10),
+        (11,'Cours hybride synchrone',    11),
+        (12,'Clinique',                   12),
+        (13,'Atelier',                    13),
+        (14,'Simulation',                 14);
     `);
     console.log('[migration] Table activite_type initialisée');
   }
+
+  // Migration : ajouter section/ue_num/annee_scolaire à activite_type si absents
+  const _colsAT = db.prepare('PRAGMA table_info(activite_type)').all().map(c => c.name);
+  if (!_colsAT.includes('section')) {
+    db.exec(`ALTER TABLE activite_type ADD COLUMN section TEXT`);
+    console.log('[migration] activite_type.section ajouté');
+  }
+  if (!_colsAT.includes('ue_num')) {
+    db.exec(`ALTER TABLE activite_type ADD COLUMN ue_num INTEGER`);
+    console.log('[migration] activite_type.ue_num ajouté');
+  }
+  if (!_colsAT.includes('annee_scolaire')) {
+    db.exec(`ALTER TABLE activite_type ADD COLUMN annee_scolaire TEXT`);
+    console.log('[migration] activite_type.annee_scolaire ajouté');
+  }
+
+  // Ajouter les nouvelles activités globales si absentes (pour installations existantes)
+  const _activitesGlobales = [
+    [8,  'Remédiation',              8],
+    [9,  'Visite des copies',        9],
+    [10, 'Cours hybride asynchrone', 10],
+    [11, 'Cours hybride synchrone',  11],
+    [12, 'Clinique',                 12],
+    [13, 'Atelier',                  13],
+    [14, 'Simulation',               14],
+  ];
+  const _insAct = db.prepare('INSERT OR IGNORE INTO activite_type (id, libelle, ordre) VALUES (?,?,?)');
+  for (const a of _activitesGlobales) _insAct.run(...a);
 
   // 2. Ajouter la colonne attribution.activite_id si elle n'existe pas
   const cols = db.prepare("PRAGMA table_info(attribution)").all();

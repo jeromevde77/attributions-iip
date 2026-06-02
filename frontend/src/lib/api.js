@@ -98,7 +98,13 @@ export const api = {
   attributionsByCours(section, code_cours) {
     return request(withAnnee(`/attributions/by-cours`, { section, code_cours }));
   },
-  activites() { return request('/ref/activites'); },
+  activites(params = {}) {
+    const q = new URLSearchParams();
+    if (params.section) q.set('section', params.section);
+    if (params.ue_num)  q.set('ue_num',  params.ue_num);
+    const qs = q.toString();
+    return request(`/ref/activites${qs ? '?' + qs : ''}`);
+  },
   updateAttribution(id, data) { return request(`/attributions/${id}`, { method: 'PATCH', body: data }); },
   updateProfStatut(profId, statut) {
     return request(`/attributions/professeur/${profId}/statut`, { method: 'PATCH', body: { statut } });

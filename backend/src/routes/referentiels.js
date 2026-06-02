@@ -695,8 +695,50 @@ r.get('/types-encadrement', authRequired, (req, res) => {
   res.json(db.prepare('SELECT * FROM type_encadrement').all());
 });
 
+// ─── Activités ───────────────────────────────────────────────────────────────
+// GET /activites?section=&ue_num= — liste filtrée (globales + section + cours)
 r.get('/activites', authRequired, (req, res) => {
-  res.json(db.prepare('SELECT * FROM activite_type ORDER BY ordre, libelle').all());
+  const { section, ue_num } = req.query;
+  // Toujours inclure les globales (section IS NULL et ue_num IS NULL)
+  // + les activités de la section si fournie
+  // + les activités du cours si fourni
+  let sql = `SELECT * FROM activite_type WHERE (section IS NULL AND ue_num IS NULL)`;
+  const params = [];
+  if (section) { sql += ` OR (section = ? AND ue_num IS NULL)`; params.push(section); }
+  if (ue_num)  { sql += ` OR (ue_num = ?)`; params.push(Number(ue_num)); }
+  sql += ` ORDER BY CASE WHEN ue_num IS NOT NULL THEN 0 WHEN section IS NOT NULL THEN 1 ELSE 2 END, ordre, libelle`;
+  res.json(db.prepare(sql).all(...params));
+});
+
+// POST /activites — créer une activité
+r.post('/activites', authRequired, roleRequired('admin', 'editeur', 'coordination'), (req, res) => {
+  const { libelle, ordre, section, ue_num, annee_scolaire } = req.body;
+  if (!libelle?.trim()) return res.status(400).json({ error: 'libelle requis' });
+  try {
+    const info = db.prepare(`
+      INSERT INTO activite_type (libelle, ordre, section, ue_num, annee_scolaire)
+      VALUES (?,?,?,?,?)
+    `).run(libelle.trim(), ordre || 99, section || null, ue_num || null, annee_scolaire || null);
+    res.json({ ok: true, id: info.lastInsertRowid });
+  } catch(e) { res.status(500).json({ error: e.message }); }
+});
+
+// PATCH /activites/:id — modifier une activité
+r.patch('/activites/:id', authRequired, roleRequired('admin', 'editeur', 'coordination'), (req, res) => {
+  const { libelle, ordre } = req.body;
+  const row = db.prepare('SELECT id FROM activite_type WHERE id = ?').get(req.params.id);
+  if (!row) return res.status(404).json({ error: 'Activité introuvable' });
+  if (libelle !== undefined) db.prepare('UPDATE activite_type SET libelle = ? WHERE id = ?').run(libelle.trim(), row.id);
+  if (ordre   !== undefined) db.prepare('UPDATE activite_type SET ordre = ? WHERE id = ?').run(ordre, row.id);
+  res.json({ ok: true });
+});
+
+// DELETE /activites/:id
+r.delete('/activites/:id', authRequired, roleRequired('admin'), (req, res) => {
+  const used = db.prepare('SELECT COUNT(*) AS n FROM attribution WHERE activite_id = ?').get(req.params.id);
+  if (used.n > 0) return res.status(409).json({ error: `Cette activité est utilisée dans ${used.n} attribution(s). Supprimez-les d'abord.` });
+  db.prepare('DELETE FROM activite_type WHERE id = ?').run(req.params.id);
+  res.json({ ok: true });
 });
 
 // ─── Catalogue des UE (toutes années, dédupliquées par numéro) ───
