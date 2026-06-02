@@ -462,8 +462,18 @@ r.delete('/sections/:code', authRequired, roleRequired('admin'), (req, res) => {
     WHERE a.section = ? AND (c.ct_pp IS NULL OR c.ct_pp != 'Z')
   `).get(code).n;
   if (nb > 0) return res.status(409).json({ error: `Impossible : ${nb} attribution(s) non-Z dans cette section. Supprimez-les d'abord.` });
-  // Supprimer les cours et UE liés à cette section, puis la section elle-même
-  db.prepare('DELETE FROM section WHERE code = ?').run(code);
+
+  // Supprimer tout ce qui est lié à cette section
+  const cleanup = db.transaction(() => {
+    db.prepare('DELETE FROM attribution WHERE section = ?').run(code);
+    db.prepare('DELETE FROM cours WHERE section = ?').run(code);
+    db.prepare('DELETE FROM ue WHERE section = ?').run(code);
+    db.prepare('DELETE FROM ue_section WHERE section_code = ?').run(code);
+    db.prepare('DELETE FROM ue_prerequis WHERE section = ?').run(code);
+    db.prepare('DELETE FROM personnel_section WHERE section_code = ?').run(code).changes;
+    db.prepare('DELETE FROM section WHERE code = ?').run(code);
+  });
+  cleanup();
   res.json({ ok: true });
 });
 
