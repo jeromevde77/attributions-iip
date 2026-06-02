@@ -373,7 +373,7 @@ export default function Attributions() {
     setConfirmDeleteSection(code);
   }
   async function delSectionConfirmed(code) {
-    try { await api.deleteSection(code); setConfirmDeleteSection(null); load(); }
+    try { await api.maskSection(code, getAnnee()); setConfirmDeleteSection(null); load(); }
     catch(e){ alert('Erreur : ' + e.message); setConfirmDeleteSection(null); }
   }
   async function autoFillSection(section) {
@@ -717,7 +717,7 @@ export default function Attributions() {
             )}
             {isAdmin && (
               <button onClick={e=>{e.stopPropagation(); delSection(sg.section);}}
-                className="text-red-400 hover:text-red-600 ml-1" title="Supprimer cette section">🗑</button>
+                className="text-red-400 hover:text-red-600 ml-1" title="Retirer cette section de la vue (référentiel intact)">🗑</button>
             )}
           </div>
         </button>
@@ -849,11 +849,11 @@ export default function Attributions() {
       {confirmDeleteSection && (
         <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center">
           <div className="bg-white rounded-xl shadow-2xl p-6 max-w-sm w-full space-y-4">
-            <h3 className="font-semibold text-gray-800">Supprimer la section</h3>
+            <h3 className="font-semibold text-gray-800">Retirer la section</h3>
             <p className="text-sm text-gray-600">
-              Supprimer la section <strong>{confirmDeleteSection}</strong> de la vue des attributions ?
-              Les attributions réelles seront supprimées. Les cours Z (périodes étudiants) restent dans le référentiel.
-              La section réapparaîtra si tu y crées de nouvelles attributions.
+              Retirer la section <strong>{confirmDeleteSection}</strong> de la vue des attributions pour cette année ?
+              Le référentiel (UE et cours) n'est pas touché. La section réapparaîtra automatiquement
+              dès que tu y crées des attributions.
             </p>
             <div className="flex gap-2 justify-end">
               <button onClick={() => setConfirmDeleteSection(null)}

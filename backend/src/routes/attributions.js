@@ -56,6 +56,8 @@ r.get('/', authRequired, withSectionScope, (req, res) => {
       whereZ.push(`co.section IN (${ph})`);
       req.allowedSections.forEach((s, i) => { params[`zsec${i}`] = s; });
     }
+    // Exclure les sections masquées de la vue Attributions pour cette année
+    whereZ.push(`co.section NOT IN (SELECT section FROM section_masquee WHERE annee_scolaire = @annee)`);
     const coursZ = db.prepare(`
       SELECT co.cours_code, co.cours_nom, co.ue_num, co.section, co.per_etudiant,
              ue.ue_nom
@@ -401,6 +403,9 @@ r.post('/bulk-create-from-section', authRequired, roleRequired('admin', 'editeur
     return res.status(403).json({ error: 'Vous n\'avez pas accès à cette section.' });
   }
   const annee = annee_scolaire || '2025-2026';
+
+  // Une attribution réelle va être créée → retirer le masque éventuel pour cette année
+  db.prepare('DELETE FROM section_masquee WHERE section = ? AND annee_scolaire = ?').run(section, annee);
 
   // Professeur "À DÉSIGNER" pour les lignes squelettes
   const aDesigner = db.prepare(`SELECT id FROM professeur WHERE nom = 'À DÉSIGNER' LIMIT 1`).get();

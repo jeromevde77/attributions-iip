@@ -461,6 +461,27 @@ r.delete('/sections/:code', authRequired, roleRequired('admin'), (req, res) => {
   res.json({ ok: true });
 });
 
+// Masquer une section de la vue Attributions pour une année (référentiel intact)
+r.post('/sections/:code/masquer', authRequired, roleRequired('admin', 'editeur', 'coordination'), (req, res) => {
+  const code = req.params.code;
+  const annee = req.body.annee_scolaire || req.body.annee;
+  if (!annee) return res.status(400).json({ error: 'annee_scolaire requis' });
+  // Refuser si la section a de vraies attributions cette année-là
+  const nb = db.prepare('SELECT COUNT(*) AS n FROM attribution WHERE section = ? AND annee_scolaire = ?').get(code, annee).n;
+  if (nb > 0) return res.status(409).json({ error: `${nb} attribution(s) réelle(s) dans cette section. Supprimez-les d'abord.` });
+  db.prepare('INSERT OR IGNORE INTO section_masquee (section, annee_scolaire) VALUES (?, ?)').run(code, annee);
+  res.json({ ok: true });
+});
+
+// Démasquer une section (la fait réapparaître avec ses cours Z du référentiel)
+r.post('/sections/:code/demasquer', authRequired, roleRequired('admin', 'editeur', 'coordination'), (req, res) => {
+  const code = req.params.code;
+  const annee = req.body.annee_scolaire || req.body.annee;
+  if (!annee) return res.status(400).json({ error: 'annee_scolaire requis' });
+  db.prepare('DELETE FROM section_masquee WHERE section = ? AND annee_scolaire = ?').run(code, annee);
+  res.json({ ok: true });
+});
+
 /**
  * Pour la création en masse d'attributions :
  * retourne pour une section, toutes les UE avec leurs cours et le statut

@@ -643,6 +643,19 @@ try {
     console.log(`[migration] groupe.ue_quad mis à jour pour ${_updatedQuad.changes} groupe(s)`);
   }
 
+  // ── Sections masquées de la page Attributions ───────────────────────────
+  // Une section listée ici n'apparaît plus dans la vue Attributions (y compris
+  // ses lignes Z synthétiques), mais le référentiel (cours, UE) reste intact.
+  // Le masque est par année scolaire.
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS section_masquee (
+      section        TEXT NOT NULL,
+      annee_scolaire TEXT NOT NULL,
+      masque_le      TEXT DEFAULT (datetime('now')),
+      PRIMARY KEY (section, annee_scolaire)
+    );
+  `);
+
   // ── Séquencement des cours dans les UE ───────────────────────────────────
   db.exec(`
     CREATE TABLE IF NOT EXISTS cours_sequence (
