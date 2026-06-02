@@ -455,25 +455,16 @@ r.patch('/sections/:code/code', authRequired, roleRequired('admin'), (req, res) 
 
 r.delete('/sections/:code', authRequired, roleRequired('admin'), (req, res) => {
   const code = req.params.code;
-  // Compter les vraies attributions (exclure les cours de type Z qui sont synthétiques)
+  // Compter les vraies attributions (exclure les cours de type Z synthétiques)
   const nb = db.prepare(`
     SELECT COUNT(*) AS n FROM attribution a
-    JOIN cours c ON c.cours_code = a.code_cours AND c.annee_scolaire = a.annee_scolaire
+    LEFT JOIN cours c ON c.cours_code = a.code_cours AND c.annee_scolaire = a.annee_scolaire
     WHERE a.section = ? AND (c.ct_pp IS NULL OR c.ct_pp != 'Z')
   `).get(code).n;
-  if (nb > 0) return res.status(409).json({ error: `Impossible : ${nb} attribution(s) non-Z dans cette section. Supprimez-les d'abord.` });
-
-  // Supprimer tout ce qui est lié à cette section
-  const cleanup = db.transaction(() => {
-    db.prepare('DELETE FROM attribution WHERE section = ?').run(code);
-    db.prepare('DELETE FROM cours WHERE section = ?').run(code);
-    db.prepare('DELETE FROM ue WHERE section = ?').run(code);
-    db.prepare('DELETE FROM ue_section WHERE section_code = ?').run(code);
-    db.prepare('DELETE FROM ue_prerequis WHERE section = ?').run(code);
-    db.prepare('DELETE FROM personnel_section WHERE section_code = ?').run(code).changes;
-    db.prepare('DELETE FROM section WHERE code = ?').run(code);
-  });
-  cleanup();
+  if (nb > 0) return res.status(409).json({ error: `Impossible : ${nb} attribution(s) dans cette section. Supprimez-les d'abord.` });
+  // Supprimer uniquement les attributions Z et la section — pas le référentiel
+  db.prepare('DELETE FROM attribution WHERE section = ?').run(code);
+  db.prepare('DELETE FROM section WHERE code = ?').run(code);
   res.json({ ok: true });
 });
 
