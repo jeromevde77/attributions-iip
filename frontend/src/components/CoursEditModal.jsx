@@ -31,13 +31,18 @@ export default function CoursEditModal({ section, codeCours, onClose, onChanged 
     Promise.all([
       api.attributionsByCours(section, codeCours),
       api.professeurs(),
-      api.activites({ section, ue_num: null }) // globales + section
+      api.activites({ section }) // globales + section (ue_num ajouté après)
     ]).then(([d, p, a]) => {
       if (!alive) return;
       setData(d);
       setRows(d.attributions.map(r => ({ ...r, _dirty: false, _new: false })));
       setProfs(p);
       setActivites(a);
+      // Recharger les activités avec le ue_num du cours pour inclure les spécifiques
+      const ueNum = d.attributions?.[0]?.ue_num || d.cours_info?.ue_num;
+      if (ueNum) {
+        api.activites({ section, ue_num: ueNum }).then(a2 => { if (alive) setActivites(a2); });
+      }
     }).catch(e => alive && setError(e.message))
       .finally(() => alive && setLoading(false));
     return () => { alive = false; };
