@@ -110,10 +110,12 @@ r.get('/grille', authRequired, (req, res) => {
   const semaines = db.prepare('SELECT * FROM annee_calendrier WHERE annee_scolaire = ? ORDER BY semaine_num').all(anneeVal);
 
   let sqlG = `
-    SELECT g.*, p.nom AS prof_nom, p.prenom AS prof_prenom, u.ue_nom
+    SELECT g.*, p.nom AS prof_nom, p.prenom AS prof_prenom, u.ue_nom, u.ue_niv,
+           at.libelle AS activite_nom
     FROM groupe g
     LEFT JOIN professeur p ON p.id = g.professeur_id
     LEFT JOIN ue u ON u.ue_num = g.ue_num AND u.annee_scolaire = g.annee_scolaire
+    LEFT JOIN activite_type at ON at.id = g.activite_id
     WHERE g.annee_scolaire = ?`;
   const paramsG = [anneeVal];
   if (section) { sqlG += ' AND g.section = ?'; paramsG.push(section); }
@@ -258,16 +260,16 @@ r.post('/import-from-attributions', authRequired, roleRequired('admin', 'editeur
 
   const insert = db.transaction(() => {
     for (const g of groupes) {
-      // En mode skip : ne pas écraser un groupe existant (même ue_num + section + nom)
+      // En mode skip : ne pas écraser un groupe existant (même ue_num + section + nom + activite_id)
       if (mode === 'skip') {
-        const exists = db.prepare('SELECT id FROM groupe WHERE annee_scolaire=? AND ue_num=? AND section=? AND nom=?')
-          .get(anneeVal, g.ue_num, g.section, g.nom);
+        const exists = db.prepare('SELECT id FROM groupe WHERE annee_scolaire=? AND ue_num=? AND section=? AND nom=? AND (activite_id IS ? OR activite_id = ?)')
+          .get(anneeVal, g.ue_num, g.section, g.nom, g.activite_id, g.activite_id);
         if (exists) { skipped++; continue; }
       }
       db.prepare(`
-        INSERT INTO groupe (annee_scolaire, ue_num, section, nom, nb_etudiants, professeur_id, heures_attribuees, notes)
-        VALUES (?,?,?,?,0,?,?,?)
-      `).run(anneeVal, g.ue_num, g.section, g.nom, g.professeur_id, g.heures_attribuees, g.notes);
+        INSERT INTO groupe (annee_scolaire, ue_num, section, nom, nb_etudiants, professeur_id, heures_attribuees, notes, activite_id, code_cours, ue_quad)
+        VALUES (?,?,?,?,0,?,?,?,?,?,?)
+      `).run(anneeVal, g.ue_num, g.section, g.nom, g.professeur_id, g.heures_attribuees, g.notes, g.activite_id, g.code_cours, g.ue_quad);
       created++;
     }
   });
@@ -279,17 +281,76 @@ r.post('/import-from-attributions', authRequired, roleRequired('admin', 'editeur
 // Helper : construit la liste des groupes à importer depuis les attributions
 function _buildImportGroupes(annee) {
   const attrs = db.prepare(`
-    SELECT a.ue_num, a.section, a.num_groupe, a.professeur_id,
+    SELECT a.ue_num, a.section, a.num_groupe, a.code, a.professeur_id,
            a.periodes_attribuees, a.autonomie_attribuee,
+           a.activite_id, a.quadrimestre_attribue,
+           at.libelle AS activite_nom,
            p.nom AS prof_nom, p.prenom AS prof_prenom,
-           u.ue_nom
+           u.ue_nom, u.ue_quad
     FROM attribution a
     LEFT JOIN professeur p ON p.id = a.professeur_id
     LEFT JOIN ue u ON u.ue_num = a.ue_num AND u.annee_scolaire = a.annee_scolaire
+    LEFT JOIN activite_type at ON at.id = a.activite_id
     WHERE a.annee_scolaire = ?
       AND COALESCE(a.periodes_attribuees, 0) + COALESCE(a.autonomie_attribuee, 0) > 0
-    ORDER BY a.section, a.ue_num, a.num_groupe, a.professeur_id
+    ORDER BY a.section, a.ue_num, a.num_groupe, a.activite_id, a.professeur_id
   `).all(annee);
+  console.log('[_buildImportGroupes] annee=', annee, 'attrs=', attrs.length);
+
+  // Regrouper par (ue_num, section, num_groupe, activite_id, code)
+  // Si activite_id renseigné → ligne distincte par activité
+  // Sinon → regroupement classique par UE/groupe
+  const map = new Map();
+  for (const a of attrs) {
+    const nomGroupe = _numToLettre(a.num_groupe ?? 1);
+    // Clé : UE + section + groupe + activité (si renseignée) + code cours
+    const activiteKey = a.activite_id ? `act${a.activite_id}` : 'noact';
+    const codeKey = a.code || '';
+    const key = `${a.ue_num}__${a.section || ''}__${nomGroupe}__${activiteKey}__${codeKey}`;
+
+    if (!map.has(key)) {
+      map.set(key, {
+        ue_num:          a.ue_num,
+        ue_nom:          a.ue_nom || `UE ${a.ue_num}`,
+        section:         a.section,
+        nom:             nomGroupe,
+        heures_attribuees: 0,
+        professeur_id:   null,
+        activite_id:     a.activite_id || null,
+        activite_nom:    a.activite_nom || null,
+        code_cours:      a.code || null,
+        ue_quad:         a.ue_quad || a.quadrimestre_attribue || null,
+        profs:           [],
+        notes:           null,
+      });
+    }
+    const g = map.get(key);
+    const periodes = (a.periodes_attribuees || 0) + (a.autonomie_attribuee || 0);
+    g.heures_attribuees += periodes * 50 / 60;
+    if (a.professeur_id && !g.profs.includes(a.professeur_id)) {
+      g.profs.push(a.professeur_id);
+      if (!g.professeur_id) g.professeur_id = a.professeur_id;
+    }
+  }
+
+  const result = [];
+  for (const g of map.values()) {
+    g.heures_attribuees = Math.round(g.heures_attribuees * 100) / 100;
+    if (g.profs.length > 1) {
+      g.notes = `${g.profs.length} profs`;
+      g.professeur_id = null;
+    }
+    delete g.profs;
+    result.push(g);
+  }
+
+  return result.sort((a, b) =>
+    (a.section || '').localeCompare(b.section || '') ||
+    a.ue_num - b.ue_num ||
+    a.nom.localeCompare(b.nom) ||
+    (a.activite_nom || '').localeCompare(b.activite_nom || '')
+  );
+}
   console.log('[_buildImportGroupes] annee=', annee, 'attrs=', attrs.length);
 
   // Regrouper par (ue_num, section, num_groupe)

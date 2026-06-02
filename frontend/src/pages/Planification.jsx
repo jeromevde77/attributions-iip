@@ -173,6 +173,11 @@ function LigneGroupe({ groupe, semaines, cellules, onCellChange, onEditGroupe, w
           <span className="text-xs text-gray-600 truncate max-w-[100px]" title={groupe.ue_nom}>
             {groupe.ue_nom || `UE ${groupe.ue_num}`}
           </span>
+          {groupe.activite_nom && (
+            <span className="text-[10px] bg-iip-gold/10 text-iip-gold px-1.5 py-0.5 rounded font-medium">
+              {groupe.activite_nom}
+            </span>
+          )}
           <span className="text-[10px] text-gray-400">· Gr.{groupe.nom}</span>
           {groupe.prof_nom && (
             <span className="text-[10px] text-gray-500 ml-auto">
@@ -670,18 +675,9 @@ function ModalIA({ annee, section, onApplied, onClose }) {
                 </div>
               </div>
 
-              {/* Semaines clés */}
-              <div className="grid grid-cols-3 gap-2 text-xs">
-                {[
-                  { label: 'EV1', semId: preview.meta.sem_ev1, color: 'bg-orange-100 text-orange-700' },
-                  { label: 'VC',  semId: preview.meta.sem_vc,  color: 'bg-purple-100 text-purple-700' },
-                  { label: 'EV2', semId: preview.meta.sem_ev2, color: 'bg-red-100 text-red-700' },
-                ].map(({ label, semId, color }) => (
-                  <div key={label} className={`rounded px-2 py-1.5 ${color} text-center`}>
-                    <span className="font-bold">{label}</span>
-                    {semId ? <span className="ml-1">sem. #{semId}</span> : <span className="ml-1 opacity-50">non posé</span>}
-                  </div>
-                ))}
+              {/* Note évaluations */}
+              <div className="bg-blue-50 border border-blue-200 rounded p-3 text-xs text-blue-700">
+                📅 EV1, VC et EV2 sont placés automatiquement après les derniers cours de chaque groupe
               </div>
 
               {/* Alertes */}

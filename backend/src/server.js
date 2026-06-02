@@ -611,12 +611,23 @@ try {
   const _colsGroupe = db.prepare('PRAGMA table_info(groupe)').all();
   if (!_colsGroupe.find(c => c.name === 'pattern')) {
     db.exec(`ALTER TABLE groupe ADD COLUMN pattern TEXT DEFAULT 'toutes'`);
-    // 'toutes' | 'paires' | 'impaires'
     console.log('[migration] Colonne groupe.pattern ajoutée');
   }
   if (!_colsGroupe.find(c => c.name === 'pattern_offset')) {
     db.exec(`ALTER TABLE groupe ADD COLUMN pattern_offset INTEGER DEFAULT 0`);
     console.log('[migration] Colonne groupe.pattern_offset ajoutée');
+  }
+  if (!_colsGroupe.find(c => c.name === 'activite_id')) {
+    db.exec(`ALTER TABLE groupe ADD COLUMN activite_id INTEGER REFERENCES activite_type(id)`);
+    console.log('[migration] Colonne groupe.activite_id ajoutée');
+  }
+  if (!_colsGroupe.find(c => c.name === 'code_cours')) {
+    db.exec(`ALTER TABLE groupe ADD COLUMN code_cours TEXT`);
+    console.log('[migration] Colonne groupe.code_cours ajoutée');
+  }
+  if (!_colsGroupe.find(c => c.name === 'ue_quad')) {
+    db.exec(`ALTER TABLE groupe ADD COLUMN ue_quad TEXT`);
+    console.log('[migration] Colonne groupe.ue_quad ajoutée');
   }
 
   // ── Flag manuel dans planification ────────────────────────────────────────

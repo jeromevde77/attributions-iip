@@ -119,31 +119,18 @@ r.post('/generer', authRequired, roleRequired('admin', 'editeur'), (req, res) =>
   const semainesQ2    = semainesDansIntervalle(semainesCours, q2Debut, q2Fin);
 
   // Semaine EV1 = dernière semaine Q1, VC = juste après, EV2 = dernière semaine Q2
-  // EV1 = 1ère semaine typée 'ev1' dans Q1
-  const semEV1 = toutesLesSeamines.find(s => {
-    const d = parseDate(s.date_debut);
-    return s.type === 'ev1' && d >= q1Debut && d <= q1Fin;
-  });
-
-  // VC = 1ère semaine non-vacances/ferie après EV1
-  const idxEV1 = semEV1 ? toutesLesSeamines.findIndex(s => s.id === semEV1.id) : -1;
-  const semVC = idxEV1 >= 0
-    ? toutesLesSeamines.slice(idxEV1 + 1).find(s => s.type !== 'vacances' && s.type !== 'ferie')
-    : null;
-
-  // EV2 = 1ère semaine typée 'ev2' dans Q2
-  const semEV2 = toutesLesSeamines.find(s => {
-    const d = parseDate(s.date_debut);
-    return s.type === 'ev2' && d >= q2Debut && d <= q2Fin;
-  });
+  // EV1/VC/EV2 sont placés par UE, après les derniers cours de chaque groupe
+  // (pas de dates fixes globales — chaque cours a ses propres évaluations)
 
   // ── 3. Charger les groupes de la section ─────────────────────────────────
   const groupes = db.prepare(`
-    SELECT g.*, u.ue_quad, u.is_epreuve_integree, u.ue_nom, u.ue_niv
+    SELECT g.*, u.ue_quad, u.is_epreuve_integree, u.ue_nom, u.ue_niv,
+           at.libelle AS activite_nom
     FROM groupe g
     LEFT JOIN ue u ON u.ue_num = g.ue_num AND u.annee_scolaire = g.annee_scolaire
+    LEFT JOIN activite_type at ON at.id = g.activite_id
     WHERE g.annee_scolaire = ? AND g.section = ?
-    ORDER BY g.ue_num, g.nom
+    ORDER BY g.ue_num, g.nom, g.activite_id
   `).all(annee_scolaire, section);
 
   if (!groupes.length) return res.status(404).json({ error: `Aucun groupe trouvé pour ${section} ${annee_scolaire}` });
@@ -160,10 +147,29 @@ r.post('/generer', authRequired, roleRequired('admin', 'editeur'), (req, res) =>
     prerequisMap[ue_num].push(prerequis_num);
   }
 
-  // BA1/BA2/BA3 = années académiques différentes, pas des blocs intra-annuels
-  // → pas de prérequis implicites entre niveaux
+  // BA1/BA2/BA3 = années académiques différentes → pas de prérequis inter-niveaux
+  // MAIS les prérequis intra-niveau (même ue_niv) sont intra-annuels → à respecter
   const ueNums = [...new Set(groupes.map(g => g.ue_num))];
-  const ueOrdre = trierParPrerequis(ueNums, prerequisMap);
+
+  // Construire map ue_num → ue_niv pour filtrer les prérequis intra-annuels
+  const ueNivMap = {};
+  for (const g of groupes) if (g.ue_niv) ueNivMap[g.ue_num] = g.ue_niv;
+
+  // Filtrer : ne garder que les prérequis où UE et prérequis sont du même niveau BA
+  const prerequisIntraAnnuel = {};
+  for (const [ue, pres] of Object.entries(prerequisMap)) {
+    const nivUE = ueNivMap[Number(ue)];
+    for (const p of pres) {
+      const nivPre = ueNivMap[p];
+      // Même niveau BA → prérequis intra-annuel valide
+      if (nivUE && nivPre && nivUE === nivPre) {
+        if (!prerequisIntraAnnuel[ue]) prerequisIntraAnnuel[ue] = [];
+        prerequisIntraAnnuel[ue].push(p);
+      }
+    }
+  }
+
+  const ueOrdre = trierParPrerequis(ueNums, prerequisIntraAnnuel);
 
   // ── 5. Charger les cellules manuelles existantes ──────────────────────────
   const groupeIds = groupes.map(g => g.id);
@@ -245,19 +251,41 @@ r.post('/generer', authRequired, roleRequired('admin', 'editeur'), (req, res) =>
       proposition[groupe.id][Number(semaineId)] = h;
     }
 
-    // EV1 + VC : pour Q1 et annuel (Q1Q2)
-    const aEV1 = quad === 'Q1' || quad === 'Q1Q2' || !quad;
-    if (aEV1 && semEV1 && !cellulesFixees.has(semEV1.id)) {
-      proposition[groupe.id][semEV1.id] = 'EV1';
-    }
-    if (aEV1 && semVC && !cellulesFixees.has(semVC.id)) {
-      proposition[groupe.id][semVC.id] = 'VC';
-    }
+    // EV1/VC/EV2 : placés après le dernier cours de l'UE
+    // Trouver la dernière semaine de cours pour ce groupe
+    const semainesAvecCours = Object.keys(proposition[groupe.id])
+      .map(Number)
+      .filter(sid => {
+        const v = proposition[groupe.id][sid];
+        return v && !['EV1','VC','EV2'].includes(String(v).toUpperCase());
+      });
 
-    // EV2 : pour Q2 et annuel (Q1Q2)
-    const aEV2 = quad === 'Q2' || quad === 'Q1Q2' || !quad;
-    if (aEV2 && semEV2 && !cellulesFixees.has(semEV2.id)) {
-      proposition[groupe.id][semEV2.id] = 'EV2';
+    if (semainesAvecCours.length > 0) {
+      const maxSemId = Math.max(...semainesAvecCours);
+      const maxSemIdx = toutesLesSeamines.findIndex(s => s.id === maxSemId);
+
+      // EV1 = 1ère semaine type 'ev1' ou 'cours' après le dernier cours
+      const semEV1Groupe = toutesLesSeamines.slice(maxSemIdx + 1)
+        .find(s => s.type !== 'vacances' && s.type !== 'ferie');
+      if (semEV1Groupe && !cellulesFixees.has(semEV1Groupe.id)) {
+        proposition[groupe.id][semEV1Groupe.id] = 'EV1';
+
+        // VC = semaine suivante non-vacances
+        const idxEV1G = toutesLesSeamines.findIndex(s => s.id === semEV1Groupe.id);
+        const semVCGroupe = toutesLesSeamines.slice(idxEV1G + 1)
+          .find(s => s.type !== 'vacances' && s.type !== 'ferie');
+        if (semVCGroupe && !cellulesFixees.has(semVCGroupe.id)) {
+          proposition[groupe.id][semVCGroupe.id] = 'VC';
+
+          // EV2 = quelques semaines après VC (minimum minSemEV semaines)
+          const idxVC = toutesLesSeamines.findIndex(s => s.id === semVCGroupe.id);
+          const semEV2Groupe = toutesLesSeamines.slice(idxVC + minSemEV)
+            .find(s => s.type !== 'vacances' && s.type !== 'ferie');
+          if (semEV2Groupe && !cellulesFixees.has(semEV2Groupe.id)) {
+            proposition[groupe.id][semEV2Groupe.id] = 'EV2';
+          }
+        }
+      }
     }
 
     // Mettre à jour la fin de cette UE pour les prérequis suivants
@@ -308,9 +336,7 @@ r.post('/generer', authRequired, roleRequired('admin', 'editeur'), (req, res) =>
       meta: {
         groupes_traites: groupesOrdonnes.length,
         ue_ordre: ueOrdre,
-        sem_ev1: semEV1?.id,
-        sem_vc:  semVC?.id,
-        sem_ev2: semEV2?.id,
+        note_evaluations: 'EV1/VC/EV2 placés après les derniers cours de chaque groupe',
       }
     });
   }
