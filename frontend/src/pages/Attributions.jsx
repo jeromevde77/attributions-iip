@@ -218,6 +218,7 @@ export default function Attributions() {
   const [showCopierSection, setShowCopierSection] = useState(false);
   const [sortBy, setSortBy] = useState({ key: null, dir: 'asc' });
   const [selected, setSelected] = useState(new Set());
+  const [confirmDeleteSection, setConfirmDeleteSection] = useState(null);
   const [filtersOpenMobile, setFiltersOpenMobile] = useState(false);
   const [bulkDeleteModal, setBulkDeleteModal] = useState(null);
   const [bulkPreview, setBulkPreview] = useState(null);
@@ -369,9 +370,11 @@ export default function Attributions() {
     catch(e){ alert('Erreur : '+e.message); }
   }
   async function delSection(code) {
-    if (!confirm(`Supprimer la section "${code}" ?\n\nAttention : la suppression est bloquée si des attributions existent encore dans cette section.`)) return;
-    try { await api.deleteSection(code); load(); }
-    catch(e){ alert('Erreur : ' + e.message); }
+    setConfirmDeleteSection(code);
+  }
+  async function delSectionConfirmed(code) {
+    try { await api.deleteSection(code); setConfirmDeleteSection(null); load(); }
+    catch(e){ alert('Erreur : ' + e.message); setConfirmDeleteSection(null); }
   }
   async function autoFillSection(section) {
     if (!confirm(`Remplir automatiquement les périodes prof de la section "${section}" ?\n\nToutes les lignes à 0 période recevront la valeur cours_per du cours correspondant. L'autonomie n'est pas touchée.`)) return;
@@ -843,6 +846,27 @@ export default function Attributions() {
 
       {/* Overlay pour fermer le menu + */}
       {addMenuUE && <div className="fixed inset-0 z-20" onClick={()=>setAddMenuUE(null)} />}
+      {confirmDeleteSection && (
+        <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center">
+          <div className="bg-white rounded-xl shadow-2xl p-6 max-w-sm w-full space-y-4">
+            <h3 className="font-semibold text-gray-800">Supprimer la section</h3>
+            <p className="text-sm text-gray-600">
+              Supprimer la section <strong>{confirmDeleteSection}</strong> de la liste des attributions ?
+              Le référentiel (UE et cours) ne sera pas touché.
+            </p>
+            <div className="flex gap-2 justify-end">
+              <button onClick={() => setConfirmDeleteSection(null)}
+                className="px-4 py-2 text-sm border border-gray-300 rounded text-gray-600 hover:bg-gray-50">
+                Annuler
+              </button>
+              <button onClick={() => delSectionConfirmed(confirmDeleteSection)}
+                className="px-4 py-2 text-sm bg-red-600 text-white rounded hover:bg-red-700">
+                Supprimer
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
       {quadriMenu && <div className="fixed inset-0 z-30" onClick={()=>setQuadriMenu(null)} />}
 
       {/* Modales */}
