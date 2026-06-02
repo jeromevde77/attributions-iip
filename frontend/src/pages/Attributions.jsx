@@ -851,8 +851,9 @@ export default function Attributions() {
           <div className="bg-white rounded-xl shadow-2xl p-6 max-w-sm w-full space-y-4">
             <h3 className="font-semibold text-gray-800">Supprimer la section</h3>
             <p className="text-sm text-gray-600">
-              Supprimer la section <strong>{confirmDeleteSection}</strong> de la liste des attributions ?
-              Le référentiel (UE et cours) ne sera pas touché.
+              Supprimer la section <strong>{confirmDeleteSection}</strong> de la vue des attributions ?
+              Les attributions réelles seront supprimées. Les cours Z (périodes étudiants) restent dans le référentiel.
+              La section réapparaîtra si tu y crées de nouvelles attributions.
             </p>
             <div className="flex gap-2 justify-end">
               <button onClick={() => setConfirmDeleteSection(null)}
