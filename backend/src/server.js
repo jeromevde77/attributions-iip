@@ -138,6 +138,10 @@ try {
     db.exec(`ALTER TABLE cours ADD COLUMN per_etudiant INTEGER;`);
     console.log('[migration] Colonne cours.per_etudiant ajoutée (périodes étudiant pour cours Z)');
   }
+  if (!colsCours.find(c => c.name === 'is_stage')) {
+    db.exec(`ALTER TABLE cours ADD COLUMN is_stage INTEGER DEFAULT 0;`);
+    console.log('[migration] Colonne cours.is_stage ajoutée');
+  }
   const colsUe = db.prepare("PRAGMA table_info(ue)").all();
   if (!colsUe.find(c => c.name === 'ue_per_z')) {
     db.exec(`ALTER TABLE ue ADD COLUMN ue_per_z INTEGER;`);
