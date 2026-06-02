@@ -749,7 +749,7 @@ function ModalSequence({ annee, section, groupes, onClose }) {
 
   return (
     <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4">
-      <div className="bg-white rounded-xl shadow-2xl w-full max-w-5xl max-h-[90vh] flex flex-col">
+      <div className="bg-white rounded-xl shadow-2xl w-full max-w-7xl h-[92vh] flex flex-col">
         {/* Header */}
         <div className="flex items-center justify-between px-6 py-4 border-b">
           <div>
@@ -783,42 +783,43 @@ function ModalSequence({ annee, section, groupes, onClose }) {
   );
 }
 
-// ─── Onglet Structure UE ──────────────────────────────────────────────────────
+// ─── Onglet Structure UE (grille niveau × quadrimestre) ──────────────────────
+const NIVEAUX_ORDRE = ['BA1', 'BA2', 'BA3', 'Autre'];
+const QUADS = [
+  { key: 'Q1',   label: 'Q1' },
+  { key: 'Q1Q2', label: 'Q1 / Q2 (annuel)' },
+  { key: 'Q2',   label: 'Q2' },
+];
+
 function StructureUE({ annee, section, groupes }) {
   const [ues, setUes]           = useState([]);
-  const [prereqs, setPrereqs]   = useState([]); // [{ id, ue_num, prerequis_num }]
-  const [selected, setSelected] = useState(null); // ue_num sélectionnée
-  const [saving, setSaving]     = useState(false);
-  const [saved, setSaved]       = useState(false);
-  const [dragOver, setDragOver] = useState(null);
+  const [prereqs, setPrereqs]   = useState([]);
+  const [selected, setSelected] = useState(null);
+  const [saving, setSaving]     = useState(null); // ue_num en cours de sauvegarde
   const dragRef = useRef(null);
+  const [dragOverCell, setDragOverCell] = useState(null); // 'niv|quad'
 
-  // Grouper les UE par ue_niv (BA1/BA2/BA3/autre)
+  function chargerUes() {
+    return authFetch(`/api/ref/ue?section=${encodeURIComponent(section)}&annee=${encodeURIComponent(annee)}`)
+      .then(d => {
+        const arr = Array.isArray(d) ? d : [];
+        // garder uniquement les UE présentes dans les groupes (celles de la planif)
+        setUes(arr.map(u => ({
+          ue_num: u.ue_num, ue_nom: u.ue_nom,
+          ue_niv: u.ue_niv || 'Autre',
+          ue_quad: u.ue_quad || 'Q1Q2',
+        })));
+      });
+  }
+
   useEffect(() => {
-    // Construire la liste UE depuis les groupes
-    const map = {};
-    for (const g of groupes) {
-      if (!map[g.ue_num]) map[g.ue_num] = {
-        ue_num: g.ue_num, ue_nom: g.ue_nom, ue_niv: g.ue_niv || 'Autre'
-      };
-    }
-    setUes(Object.values(map).sort((a, b) => a.ue_num - b.ue_num));
-    // Charger les prérequis existants
+    chargerUes();
     authFetch(`/api/prerequis/ue?section=${encodeURIComponent(section)}`)
       .then(d => setPrereqs(Array.isArray(d) ? d : []));
-  }, [section]);
+  }, [section, annee]);
 
-  const niveaux = ['BA1', 'BA2', 'BA3', 'Autre'];
-  const parNiveau = {};
-  for (const niv of niveaux) parNiveau[niv] = ues.filter(u => (u.ue_niv || 'Autre') === niv);
-
-  function getPrereqsOf(ue_num) {
-    return prereqs.filter(p => p.ue_num === ue_num).map(p => p.prerequis_num);
-  }
-
-  function getDependantsOf(ue_num) {
-    return prereqs.filter(p => p.prerequis_num === ue_num).map(p => p.ue_num);
-  }
+  function getPrereqsOf(ue_num) { return prereqs.filter(p => p.ue_num === ue_num).map(p => p.prerequis_num); }
+  function getDependantsOf(ue_num) { return prereqs.filter(p => p.prerequis_num === ue_num).map(p => p.ue_num); }
 
   async function togglePrereq(ue_num, pre_num) {
     const existing = prereqs.find(p => p.ue_num === ue_num && p.prerequis_num === pre_num);
@@ -826,10 +827,7 @@ function StructureUE({ annee, section, groupes }) {
       await authFetch(`/api/prerequis/ue/${existing.id}`, { method: 'DELETE' });
       setPrereqs(prev => prev.filter(p => p.id !== existing.id));
     } else {
-      const r = await authFetch('/api/prerequis/ue', {
-        method: 'POST',
-        body: JSON.stringify({ ue_num, prerequis_num: pre_num, section }),
-      });
+      const r = await authFetch('/api/prerequis/ue', { method: 'POST', body: JSON.stringify({ ue_num, prerequis_num: pre_num, section }) });
       if (r.ok) {
         const d = await authFetch(`/api/prerequis/ue?section=${encodeURIComponent(section)}`);
         setPrereqs(Array.isArray(d) ? d : []);
@@ -837,107 +835,125 @@ function StructureUE({ annee, section, groupes }) {
     }
   }
 
-  // Drag & drop pour réordonner les UE dans un niveau
-  function onDragStart(ue_num, niv) { dragRef.current = { ue_num, niv }; }
-  function onDrop(targetUe, niv) {
-    if (!dragRef.current || dragRef.current.niv !== niv) return;
-    const { ue_num } = dragRef.current;
-    dragRef.current = null; setDragOver(null);
-    if (ue_num === targetUe) return;
-    setUes(prev => {
-      const arr = [...prev];
-      const fromIdx = arr.findIndex(u => u.ue_num === ue_num);
-      const toIdx   = arr.findIndex(u => u.ue_num === targetUe);
-      const [item]  = arr.splice(fromIdx, 1);
-      arr.splice(toIdx, 0, item);
-      return arr;
-    });
+  // Déplacer une UE vers une cellule (niveau, quad) → écrit en base
+  async function deplacerUE(ue_num, niv, quad) {
+    const ue = ues.find(u => u.ue_num === ue_num);
+    if (!ue) return;
+    if (ue.ue_niv === niv && ue.ue_quad === quad) return;
+    // MAJ optimiste
+    setUes(prev => prev.map(u => u.ue_num === ue_num ? { ...u, ue_niv: niv, ue_quad: quad } : u));
+    setSaving(ue_num);
+    try {
+      await authFetch(`/api/ref/ue/${ue_num}`, {
+        method: 'PATCH',
+        body: JSON.stringify({ annee_scolaire: annee, ue_niv: niv === 'Autre' ? null : niv, ue_quad: quad }),
+      });
+    } catch(e) { alert('Erreur : ' + e.message); chargerUes(); }
+    finally { setSaving(null); }
   }
 
+  function onDragStart(ue_num) { dragRef.current = ue_num; }
+  function onDropCell(niv, quad) {
+    const ue_num = dragRef.current;
+    dragRef.current = null; setDragOverCell(null);
+    if (ue_num != null) deplacerUE(ue_num, niv, quad);
+  }
+
+  // Quels niveaux afficher : toujours BA1/BA2/BA3, + Autre si non vide
+  const niveauxAffiches = NIVEAUX_ORDRE.filter(n => n !== 'Autre' || ues.some(u => u.ue_niv === 'Autre'));
   const selUE = ues.find(u => u.ue_num === selected);
+
+  function uesDans(niv, quad) {
+    return ues.filter(u => u.ue_niv === niv && u.ue_quad === quad).sort((a,b)=>a.ue_num-b.ue_num);
+  }
+
+  function BadgeUE({ u }) {
+    const isSel = selected === u.ue_num;
+    const isPrereqOfSel = selected && prereqs.find(p => p.ue_num === selected && p.prerequis_num === u.ue_num);
+    const isDepOfSel = selected && prereqs.find(p => p.prerequis_num === selected && p.ue_num === u.ue_num);
+    const nbPre = getPrereqsOf(u.ue_num).length;
+    const nbDep = getDependantsOf(u.ue_num).length;
+    return (
+      <div draggable
+        onDragStart={() => onDragStart(u.ue_num)}
+        onClick={() => setSelected(isSel ? null : u.ue_num)}
+        className={`rounded-lg p-2 cursor-pointer border-2 transition select-none mb-1.5
+          ${isSel ? 'border-iip-mauve bg-iip-mauve/10 shadow-md' :
+            isPrereqOfSel ? 'border-blue-400 bg-blue-50' :
+            isDepOfSel ? 'border-orange-400 bg-orange-50' :
+            'border-gray-200 hover:border-gray-400 bg-white'}`}>
+        <div className="flex items-center gap-1.5">
+          <span className="text-[10px] font-bold text-iip-mauve">UE{u.ue_num}</span>
+          {saving === u.ue_num && <span className="text-[9px] text-gray-400">💾</span>}
+          {nbPre > 0 && <span className="text-[9px] bg-blue-100 text-blue-600 px-1 rounded">{nbPre}↑</span>}
+          {nbDep > 0 && <span className="text-[9px] bg-orange-100 text-orange-600 px-1 rounded">{nbDep}↓</span>}
+        </div>
+        <p className="text-[10px] text-gray-600 leading-tight mt-0.5">{u.ue_nom?.slice(0, 40)}</p>
+      </div>
+    );
+  }
 
   return (
     <div className="flex h-full overflow-hidden">
-      {/* Colonnes par niveau */}
-      <div className="flex-1 overflow-auto p-5">
-        <p className="text-xs text-gray-400 mb-4">
-          Glisse les UE pour les réordonner. Clique sur une UE pour définir ses prérequis.
+      <div className="flex-1 overflow-auto p-4">
+        <p className="text-xs text-gray-400 mb-3">
+          Glisse une UE vers une cellule pour changer son <strong>niveau</strong> (ligne) ou son <strong>quadrimestre</strong> (colonne). Clique pour gérer les prérequis. Les changements sont écrits en base immédiatement.
         </p>
-        <div className="flex gap-4">
-          {niveaux.filter(n => parNiveau[n].length > 0).map(niv => (
-            <div key={niv} className="flex-1 min-w-[160px]">
-              <div className={`text-xs font-bold px-3 py-1.5 rounded-t text-center
-                ${niv === 'BA1' ? 'bg-blue-100 text-blue-700' :
-                  niv === 'BA2' ? 'bg-green-100 text-green-700' :
-                  niv === 'BA3' ? 'bg-orange-100 text-orange-700' :
-                  'bg-gray-100 text-gray-600'}`}>
-                {niv}
-              </div>
-              <div className="border border-t-0 rounded-b p-2 space-y-1.5 min-h-[200px]">
-                {parNiveau[niv].map(u => {
-                  const prereqsOf = getPrereqsOf(u.ue_num);
-                  const dependants = getDependantsOf(u.ue_num);
-                  const isSelected = selected === u.ue_num;
-                  const isPrereqOfSelected = selected && prereqs.find(p => p.ue_num === selected && p.prerequis_num === u.ue_num);
-                  const isDepOfSelected = selected && prereqs.find(p => p.prerequis_num === selected && p.ue_num === u.ue_num);
 
+        <table className="w-full border-collapse">
+          <thead>
+            <tr>
+              <th className="w-12"></th>
+              {QUADS.map(q => (
+                <th key={q.key} className="text-xs font-semibold text-gray-500 px-2 py-1.5 text-center border-b-2 border-gray-200">
+                  {q.label}
+                </th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {niveauxAffiches.map(niv => (
+              <tr key={niv}>
+                <td className={`text-xs font-bold text-center align-top pt-2 w-12
+                  ${niv === 'BA1' ? 'text-blue-600' : niv === 'BA2' ? 'text-green-600' : niv === 'BA3' ? 'text-orange-600' : 'text-gray-500'}`}>
+                  {niv}
+                </td>
+                {QUADS.map(q => {
+                  const cellKey = `${niv}|${q.key}`;
+                  const list = uesDans(niv, q.key);
                   return (
-                    <div key={u.ue_num}
-                      draggable
-                      onDragStart={() => onDragStart(u.ue_num, niv)}
-                      onDragOver={e => { e.preventDefault(); setDragOver(u.ue_num); }}
-                      onDragLeave={() => setDragOver(null)}
-                      onDrop={() => onDrop(u.ue_num, niv)}
-                      onClick={() => setSelected(isSelected ? null : u.ue_num)}
-                      className={`rounded-lg p-2.5 cursor-pointer border-2 transition select-none
-                        ${isSelected ? 'border-iip-mauve bg-iip-mauve/10 shadow-md' :
-                          isPrereqOfSelected ? 'border-blue-400 bg-blue-50' :
-                          isDepOfSelected ? 'border-orange-400 bg-orange-50' :
-                          dragOver === u.ue_num ? 'border-dashed border-gray-400 bg-gray-50' :
-                          'border-gray-200 hover:border-gray-400 bg-white'}`}>
-                      <div className="flex items-center gap-1.5 mb-1">
-                        <span className="text-[10px] font-bold text-iip-mauve">UE{u.ue_num}</span>
-                        {prereqsOf.length > 0 && (
-                          <span className="text-[9px] bg-blue-100 text-blue-600 px-1 rounded">
-                            {prereqsOf.length} prérequis
-                          </span>
-                        )}
-                        {dependants.length > 0 && (
-                          <span className="text-[9px] bg-orange-100 text-orange-600 px-1 rounded">
-                            {dependants.length} dep.
-                          </span>
-                        )}
-                      </div>
-                      <p className="text-[10px] text-gray-600 leading-tight">{u.ue_nom?.slice(0, 35)}</p>
-                    </div>
+                    <td key={q.key}
+                      onDragOver={e => { e.preventDefault(); setDragOverCell(cellKey); }}
+                      onDragLeave={() => setDragOverCell(null)}
+                      onDrop={() => onDropCell(niv, q.key)}
+                      className={`align-top p-2 border border-dashed transition min-w-[180px]
+                        ${dragOverCell === cellKey ? 'border-iip-mauve bg-iip-mauve/5' : 'border-gray-200'}`}>
+                      {list.map(u => <BadgeUE key={u.ue_num} u={u} />)}
+                      {list.length === 0 && <p className="text-[10px] text-gray-300 italic text-center py-2">—</p>}
+                    </td>
                   );
                 })}
-              </div>
-            </div>
-          ))}
-        </div>
+              </tr>
+            ))}
+          </tbody>
+        </table>
       </div>
 
-      {/* Panneau droit — prérequis de l'UE sélectionnée */}
+      {/* Panneau prérequis */}
       {selected && selUE && (
-        <div className="w-72 border-l overflow-auto p-4 bg-gray-50">
+        <div className="w-72 border-l overflow-auto p-4 bg-gray-50 flex-shrink-0">
           <div className="mb-4">
             <p className="font-semibold text-sm text-gray-800">UE {selected}</p>
             <p className="text-xs text-gray-500">{selUE.ue_nom}</p>
+            <p className="text-[10px] text-gray-400 mt-1">{selUE.ue_niv} · {selUE.ue_quad}</p>
           </div>
-
-          <p className="text-xs font-medium text-gray-600 mb-2">
-            Doit être précédée par :
-          </p>
+          <p className="text-xs font-medium text-gray-600 mb-2">Doit être précédée par :</p>
           <div className="space-y-1.5">
             {ues.filter(u => u.ue_num !== selected).map(u => {
               const isChecked = prereqs.some(p => p.ue_num === selected && p.prerequis_num === u.ue_num);
               return (
-                <label key={u.ue_num}
-                  className="flex items-start gap-2 p-2 rounded-lg hover:bg-white cursor-pointer border border-transparent hover:border-gray-200 transition">
-                  <input type="checkbox" checked={isChecked}
-                    onChange={() => togglePrereq(selected, u.ue_num)}
-                    className="mt-0.5 accent-iip-mauve flex-shrink-0" />
+                <label key={u.ue_num} className="flex items-start gap-2 p-2 rounded-lg hover:bg-white cursor-pointer border border-transparent hover:border-gray-200 transition">
+                  <input type="checkbox" checked={isChecked} onChange={() => togglePrereq(selected, u.ue_num)} className="mt-0.5 accent-iip-mauve flex-shrink-0" />
                   <div>
                     <p className="text-xs font-medium text-gray-700">UE {u.ue_num}</p>
                     <p className="text-[10px] text-gray-400">{u.ue_nom?.slice(0, 35)}</p>
@@ -946,11 +962,7 @@ function StructureUE({ annee, section, groupes }) {
               );
             })}
           </div>
-
-          <button onClick={() => setSelected(null)}
-            className="mt-4 w-full text-xs text-gray-400 hover:text-gray-600 border border-gray-200 rounded py-1.5">
-            Fermer
-          </button>
+          <button onClick={() => setSelected(null)} className="mt-4 w-full text-xs text-gray-400 hover:text-gray-600 border border-gray-200 rounded py-1.5">Fermer</button>
         </div>
       )}
     </div>
