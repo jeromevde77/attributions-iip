@@ -305,7 +305,9 @@ function _buildImportGroupes(annee) {
   for (const a of attrs) {
     const nomGroupe = _numToLettre(a.num_groupe ?? 1);
     // Clé : UE + section + groupe + activité (si renseignée) + code cours
-    const activiteKey = a.activite_id ? `act${a.activite_id}` : 'noact';
+    // Si activite_id renseigné → ligne distincte par activité
+    // Sinon → ligne distincte par attribution (id), pour préserver la granularité
+    const activiteKey = a.activite_id ? `act${a.activite_id}` : `attr${a.id}`;
     const codeKey = a.code || '';
     const key = `${a.ue_num}__${a.section || ''}__${nomGroupe}__${activiteKey}__${codeKey}`;
 
