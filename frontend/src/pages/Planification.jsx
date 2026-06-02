@@ -742,7 +742,222 @@ function ModalIA({ annee, section, onApplied, onClose }) {
 }
 
 // ─── Modal séquenceur ─────────────────────────────────────────────────────────
+// ─── Modal séquenceur (2 onglets) ────────────────────────────────────────────
 function ModalSequence({ annee, section, groupes, onClose }) {
+  const [onglet, setOnglet] = useState('prereqs'); // 'prereqs' | 'cours'
+
+  return (
+    <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4">
+      <div className="bg-white rounded-xl shadow-2xl w-full max-w-5xl max-h-[90vh] flex flex-col">
+        {/* Header */}
+        <div className="flex items-center justify-between px-6 py-4 border-b">
+          <div>
+            <h3 className="font-semibold text-gray-800">🔢 Séquencer — {section}</h3>
+            <p className="text-xs text-gray-400 mt-0.5">{annee}</p>
+          </div>
+          <button onClick={onClose} className="text-gray-400 hover:text-gray-600 text-lg">✕</button>
+        </div>
+
+        {/* Onglets */}
+        <div className="flex border-b px-6">
+          <button onClick={() => setOnglet('prereqs')}
+            className={`px-4 py-3 text-sm font-medium border-b-2 -mb-px transition
+              ${onglet === 'prereqs' ? 'border-iip-mauve text-iip-mauve' : 'border-transparent text-gray-500 hover:text-gray-700'}`}>
+            🏗 Structure des UE
+          </button>
+          <button onClick={() => setOnglet('cours')}
+            className={`px-4 py-3 text-sm font-medium border-b-2 -mb-px transition
+              ${onglet === 'cours' ? 'border-iip-mauve text-iip-mauve' : 'border-transparent text-gray-500 hover:text-gray-700'}`}>
+            📚 Séquencer les cours
+          </button>
+        </div>
+
+        {/* Contenu */}
+        <div className="flex-1 overflow-hidden">
+          {onglet === 'prereqs' && <StructureUE annee={annee} section={section} groupes={groupes} />}
+          {onglet === 'cours'   && <SeqCours    annee={annee} section={section} groupes={groupes} />}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ─── Onglet Structure UE ──────────────────────────────────────────────────────
+function StructureUE({ annee, section, groupes }) {
+  const [ues, setUes]           = useState([]);
+  const [prereqs, setPrereqs]   = useState([]); // [{ id, ue_num, prerequis_num }]
+  const [selected, setSelected] = useState(null); // ue_num sélectionnée
+  const [saving, setSaving]     = useState(false);
+  const [saved, setSaved]       = useState(false);
+  const [dragOver, setDragOver] = useState(null);
+  const dragRef = useRef(null);
+
+  // Grouper les UE par ue_niv (BA1/BA2/BA3/autre)
+  useEffect(() => {
+    // Construire la liste UE depuis les groupes
+    const map = {};
+    for (const g of groupes) {
+      if (!map[g.ue_num]) map[g.ue_num] = {
+        ue_num: g.ue_num, ue_nom: g.ue_nom, ue_niv: g.ue_niv || 'Autre'
+      };
+    }
+    setUes(Object.values(map).sort((a, b) => a.ue_num - b.ue_num));
+    // Charger les prérequis existants
+    authFetch(`/api/prerequis/ue?section=${encodeURIComponent(section)}`)
+      .then(d => setPrereqs(Array.isArray(d) ? d : []));
+  }, [section]);
+
+  const niveaux = ['BA1', 'BA2', 'BA3', 'Autre'];
+  const parNiveau = {};
+  for (const niv of niveaux) parNiveau[niv] = ues.filter(u => (u.ue_niv || 'Autre') === niv);
+
+  function getPrereqsOf(ue_num) {
+    return prereqs.filter(p => p.ue_num === ue_num).map(p => p.prerequis_num);
+  }
+
+  function getDependantsOf(ue_num) {
+    return prereqs.filter(p => p.prerequis_num === ue_num).map(p => p.ue_num);
+  }
+
+  async function togglePrereq(ue_num, pre_num) {
+    const existing = prereqs.find(p => p.ue_num === ue_num && p.prerequis_num === pre_num);
+    if (existing) {
+      await authFetch(`/api/prerequis/ue/${existing.id}`, { method: 'DELETE' });
+      setPrereqs(prev => prev.filter(p => p.id !== existing.id));
+    } else {
+      const r = await authFetch('/api/prerequis/ue', {
+        method: 'POST',
+        body: JSON.stringify({ ue_num, prerequis_num: pre_num, section }),
+      });
+      if (r.ok) {
+        const d = await authFetch(`/api/prerequis/ue?section=${encodeURIComponent(section)}`);
+        setPrereqs(Array.isArray(d) ? d : []);
+      }
+    }
+  }
+
+  // Drag & drop pour réordonner les UE dans un niveau
+  function onDragStart(ue_num, niv) { dragRef.current = { ue_num, niv }; }
+  function onDrop(targetUe, niv) {
+    if (!dragRef.current || dragRef.current.niv !== niv) return;
+    const { ue_num } = dragRef.current;
+    dragRef.current = null; setDragOver(null);
+    if (ue_num === targetUe) return;
+    setUes(prev => {
+      const arr = [...prev];
+      const fromIdx = arr.findIndex(u => u.ue_num === ue_num);
+      const toIdx   = arr.findIndex(u => u.ue_num === targetUe);
+      const [item]  = arr.splice(fromIdx, 1);
+      arr.splice(toIdx, 0, item);
+      return arr;
+    });
+  }
+
+  const selUE = ues.find(u => u.ue_num === selected);
+
+  return (
+    <div className="flex h-full overflow-hidden">
+      {/* Colonnes par niveau */}
+      <div className="flex-1 overflow-auto p-5">
+        <p className="text-xs text-gray-400 mb-4">
+          Glisse les UE pour les réordonner. Clique sur une UE pour définir ses prérequis.
+        </p>
+        <div className="flex gap-4">
+          {niveaux.filter(n => parNiveau[n].length > 0).map(niv => (
+            <div key={niv} className="flex-1 min-w-[160px]">
+              <div className={`text-xs font-bold px-3 py-1.5 rounded-t text-center
+                ${niv === 'BA1' ? 'bg-blue-100 text-blue-700' :
+                  niv === 'BA2' ? 'bg-green-100 text-green-700' :
+                  niv === 'BA3' ? 'bg-orange-100 text-orange-700' :
+                  'bg-gray-100 text-gray-600'}`}>
+                {niv}
+              </div>
+              <div className="border border-t-0 rounded-b p-2 space-y-1.5 min-h-[200px]">
+                {parNiveau[niv].map(u => {
+                  const prereqsOf = getPrereqsOf(u.ue_num);
+                  const dependants = getDependantsOf(u.ue_num);
+                  const isSelected = selected === u.ue_num;
+                  const isPrereqOfSelected = selected && prereqs.find(p => p.ue_num === selected && p.prerequis_num === u.ue_num);
+                  const isDepOfSelected = selected && prereqs.find(p => p.prerequis_num === selected && p.ue_num === u.ue_num);
+
+                  return (
+                    <div key={u.ue_num}
+                      draggable
+                      onDragStart={() => onDragStart(u.ue_num, niv)}
+                      onDragOver={e => { e.preventDefault(); setDragOver(u.ue_num); }}
+                      onDragLeave={() => setDragOver(null)}
+                      onDrop={() => onDrop(u.ue_num, niv)}
+                      onClick={() => setSelected(isSelected ? null : u.ue_num)}
+                      className={`rounded-lg p-2.5 cursor-pointer border-2 transition select-none
+                        ${isSelected ? 'border-iip-mauve bg-iip-mauve/10 shadow-md' :
+                          isPrereqOfSelected ? 'border-blue-400 bg-blue-50' :
+                          isDepOfSelected ? 'border-orange-400 bg-orange-50' :
+                          dragOver === u.ue_num ? 'border-dashed border-gray-400 bg-gray-50' :
+                          'border-gray-200 hover:border-gray-400 bg-white'}`}>
+                      <div className="flex items-center gap-1.5 mb-1">
+                        <span className="text-[10px] font-bold text-iip-mauve">UE{u.ue_num}</span>
+                        {prereqsOf.length > 0 && (
+                          <span className="text-[9px] bg-blue-100 text-blue-600 px-1 rounded">
+                            {prereqsOf.length} prérequis
+                          </span>
+                        )}
+                        {dependants.length > 0 && (
+                          <span className="text-[9px] bg-orange-100 text-orange-600 px-1 rounded">
+                            {dependants.length} dep.
+                          </span>
+                        )}
+                      </div>
+                      <p className="text-[10px] text-gray-600 leading-tight">{u.ue_nom?.slice(0, 35)}</p>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* Panneau droit — prérequis de l'UE sélectionnée */}
+      {selected && selUE && (
+        <div className="w-72 border-l overflow-auto p-4 bg-gray-50">
+          <div className="mb-4">
+            <p className="font-semibold text-sm text-gray-800">UE {selected}</p>
+            <p className="text-xs text-gray-500">{selUE.ue_nom}</p>
+          </div>
+
+          <p className="text-xs font-medium text-gray-600 mb-2">
+            Doit être précédée par :
+          </p>
+          <div className="space-y-1.5">
+            {ues.filter(u => u.ue_num !== selected).map(u => {
+              const isChecked = prereqs.some(p => p.ue_num === selected && p.prerequis_num === u.ue_num);
+              return (
+                <label key={u.ue_num}
+                  className="flex items-start gap-2 p-2 rounded-lg hover:bg-white cursor-pointer border border-transparent hover:border-gray-200 transition">
+                  <input type="checkbox" checked={isChecked}
+                    onChange={() => togglePrereq(selected, u.ue_num)}
+                    className="mt-0.5 accent-iip-mauve flex-shrink-0" />
+                  <div>
+                    <p className="text-xs font-medium text-gray-700">UE {u.ue_num}</p>
+                    <p className="text-[10px] text-gray-400">{u.ue_nom?.slice(0, 35)}</p>
+                  </div>
+                </label>
+              );
+            })}
+          </div>
+
+          <button onClick={() => setSelected(null)}
+            className="mt-4 w-full text-xs text-gray-400 hover:text-gray-600 border border-gray-200 rounded py-1.5">
+            Fermer
+          </button>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ─── Onglet Séquencer les cours ───────────────────────────────────────────────
+function SeqCours({ annee, section, groupes }) {
   // Grouper les groupes par UE
   const parUE = {};
   for (const g of groupes) {
@@ -752,17 +967,16 @@ function ModalSequence({ annee, section, groupes, onClose }) {
   const ues = Object.values(parUE).sort((a, b) => a.ue_num - b.ue_num);
 
   const [ueSelectionnee, setUeSelectionnee] = useState(ues[0]?.ue_num || null);
-  const [rangs, setRangs] = useState([]); // [{ rang, delai_avant, groupe_ids: [] }]
+  const [rangs, setRangs] = useState([]);
   const [nonSequences, setNonSequences] = useState([]);
   const [loading, setLoading] = useState(false);
-  const [saving, setSaving] = useState(false);
-  const [saved, setSaved] = useState(false);
-  const [dragOver, setDragOver] = useState(null); // 'pool' | rang index
-  const dragRef = useRef(null); // { groupe_id, from: 'pool'|rangIdx }
+  const [saving, setSaving]   = useState(false);
+  const [saved, setSaved]     = useState(false);
+  const [dragOver, setDragOver] = useState(null);
+  const dragRef = useRef(null);
 
   const ueActuelle = ues.find(u => u.ue_num === ueSelectionnee);
 
-  // Charger le séquencement existant pour l'UE sélectionnée
   useEffect(() => {
     if (!ueSelectionnee || !ueActuelle) return;
     setLoading(true);
@@ -778,8 +992,7 @@ function ModalSequence({ annee, section, groupes, onClose }) {
           setRangs([]);
           setNonSequences([...ueActuelle.groupes]);
         }
-      })
-      .finally(() => setLoading(false));
+      }).finally(() => setLoading(false));
   }, [ueSelectionnee]);
 
   function getGroupe(id) { return ueActuelle?.groupes.find(g => g.id === id); }
@@ -799,37 +1012,16 @@ function ModalSequence({ annee, section, groupes, onClose }) {
     setRangs(prev => prev.map((r, i) => i === idx ? { ...r, delai_avant: Number(val) || 0 } : r));
   }
 
-  // Drag & drop
-  function onDragStart(groupe_id, from) {
-    dragRef.current = { groupe_id, from };
-  }
+  function onDragStart(groupe_id, from) { dragRef.current = { groupe_id, from }; }
 
   function onDrop(to) {
     if (!dragRef.current) return;
     const { groupe_id, from } = dragRef.current;
-    dragRef.current = null;
-    setDragOver(null);
-
-    // Retirer de la source
-    if (from === 'pool') {
-      setNonSequences(prev => prev.filter(g => g.id !== groupe_id));
-    } else {
-      setRangs(prev => prev.map((r, i) => i === from
-        ? { ...r, groupe_ids: r.groupe_ids.filter(id => id !== groupe_id) }
-        : r
-      ));
-    }
-
-    // Ajouter à la destination
-    if (to === 'pool') {
-      const g = getGroupe(groupe_id);
-      if (g) setNonSequences(prev => [...prev, g]);
-    } else {
-      setRangs(prev => prev.map((r, i) => i === to
-        ? { ...r, groupe_ids: [...r.groupe_ids, groupe_id] }
-        : r
-      ));
-    }
+    dragRef.current = null; setDragOver(null);
+    if (from === 'pool') setNonSequences(prev => prev.filter(g => g.id !== groupe_id));
+    else setRangs(prev => prev.map((r, i) => i === from ? { ...r, groupe_ids: r.groupe_ids.filter(id => id !== groupe_id) } : r));
+    if (to === 'pool') { const g = getGroupe(groupe_id); if (g) setNonSequences(prev => [...prev, g]); }
+    else setRangs(prev => prev.map((r, i) => i === to ? { ...r, groupe_ids: [...r.groupe_ids, groupe_id] } : r));
   }
 
   async function sauvegarder() {
@@ -837,13 +1029,10 @@ function ModalSequence({ annee, section, groupes, onClose }) {
     try {
       await authFetch('/api/sequence', {
         method: 'PUT',
-        body: JSON.stringify({
-          section, annee_scolaire: annee, ue_num: ueSelectionnee,
-          rangs: rangs.map(r => ({ rang: r.rang, delai_avant: r.delai_avant, groupe_ids: r.groupe_ids })),
-        }),
+        body: JSON.stringify({ section, annee_scolaire: annee, ue_num: ueSelectionnee,
+          rangs: rangs.map(r => ({ rang: r.rang, delai_avant: r.delai_avant, groupe_ids: r.groupe_ids })) }),
       });
-      setSaved(true);
-      setTimeout(() => setSaved(false), 2000);
+      setSaved(true); setTimeout(() => setSaved(false), 2000);
     } catch(e) { alert(e.message); }
     finally { setSaving(false); }
   }
@@ -852,134 +1041,100 @@ function ModalSequence({ annee, section, groupes, onClose }) {
     const g = getGroupe(groupe_id);
     if (!g) return null;
     return (
-      <div draggable
-        onDragStart={() => onDragStart(groupe_id, from)}
-        className="flex items-center gap-2 bg-white border border-gray-200 rounded-lg px-3 py-2 cursor-grab active:cursor-grabbing shadow-sm hover:border-iip-mauve hover:shadow-md transition select-none">
+      <div draggable onDragStart={() => onDragStart(groupe_id, from)}
+        className="flex items-center gap-2 bg-white border border-gray-200 rounded-lg px-3 py-2 cursor-grab shadow-sm hover:border-iip-mauve transition select-none">
         <span className="text-xs font-bold text-iip-mauve">UE{g.ue_num}</span>
-        {g.activite_nom && (
-          <span className="text-[10px] bg-iip-gold/10 text-iip-gold px-1.5 py-0.5 rounded">{g.activite_nom}</span>
-        )}
-        <span className="text-xs text-gray-600">Gr.{g.nom}</span>
-        <span className="text-[10px] text-gray-400">{g.heures_attribuees}h</span>
+        <span className="text-xs text-gray-600 truncate max-w-[150px]" title={g.cours_nom || g.ue_nom}>
+          {g.cours_nom || g.ue_nom}
+        </span>
+        {g.activite_nom && <span className="text-[10px] bg-iip-gold/10 text-iip-gold px-1 rounded">{g.activite_nom}</span>}
+        <span className="text-[10px] text-gray-400">Gr.{g.nom}</span>
       </div>
     );
   }
 
   return (
-    <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4">
-      <div className="bg-white rounded-xl shadow-2xl w-full max-w-4xl max-h-[90vh] flex flex-col">
-        {/* Header */}
-        <div className="flex items-center justify-between px-6 py-4 border-b">
-          <div>
-            <h3 className="font-semibold text-gray-800">🔢 Séquencer les cours — {section}</h3>
-            <p className="text-xs text-gray-400 mt-0.5">Glisse les badges pour définir l'ordre et les délais entre cours</p>
-          </div>
-          <button onClick={onClose} className="text-gray-400 hover:text-gray-600 text-lg">✕</button>
-        </div>
+    <div className="flex h-full overflow-hidden">
+      {/* Sidebar UE */}
+      <div className="w-48 border-r bg-gray-50 overflow-auto flex-shrink-0">
+        {ues.map(u => (
+          <button key={u.ue_num} onClick={() => setUeSelectionnee(u.ue_num)}
+            className={`w-full text-left px-4 py-3 text-sm border-b transition
+              ${ueSelectionnee === u.ue_num ? 'bg-iip-mauve text-white' : 'hover:bg-gray-100 text-gray-700'}`}>
+            <p className="font-medium">UE {u.ue_num}</p>
+            <p className={`text-[10px] truncate ${ueSelectionnee === u.ue_num ? 'text-white/70' : 'text-gray-400'}`}>{u.ue_nom}</p>
+            <p className={`text-[10px] ${ueSelectionnee === u.ue_num ? 'text-white/70' : 'text-gray-400'}`}>{u.groupes.length} cours</p>
+          </button>
+        ))}
+      </div>
 
-        <div className="flex flex-1 overflow-hidden">
-          {/* Sidebar UE */}
-          <div className="w-48 border-r bg-gray-50 overflow-auto flex-shrink-0">
-            {ues.map(u => (
-              <button key={u.ue_num} onClick={() => setUeSelectionnee(u.ue_num)}
-                className={`w-full text-left px-4 py-3 text-sm border-b transition
-                  ${ueSelectionnee === u.ue_num ? 'bg-iip-mauve text-white' : 'hover:bg-gray-100 text-gray-700'}`}>
-                <p className="font-medium">UE {u.ue_num}</p>
-                <p className={`text-[10px] truncate ${ueSelectionnee === u.ue_num ? 'text-white/70' : 'text-gray-400'}`}>
-                  {u.ue_nom}
-                </p>
-                <p className={`text-[10px] ${ueSelectionnee === u.ue_num ? 'text-white/70' : 'text-gray-400'}`}>
-                  {u.groupes.length} cours
-                </p>
-              </button>
-            ))}
-          </div>
+      {/* Zone principale */}
+      <div className="flex-1 overflow-auto p-5 space-y-4">
+        {loading ? <div className="text-center text-gray-400 py-10">Chargement…</div> : (
+          <>
+            <div onDragOver={e => { e.preventDefault(); setDragOver('pool'); }}
+              onDragLeave={() => setDragOver(null)} onDrop={() => onDrop('pool')}
+              className={`rounded-lg border-2 border-dashed p-3 min-h-[60px] transition
+                ${dragOver === 'pool' ? 'border-iip-mauve bg-iip-mauve/5' : 'border-gray-200'}`}>
+              <p className="text-xs text-gray-400 mb-2">📦 Cours non séquencés</p>
+              <div className="flex flex-wrap gap-2">
+                {nonSequences.map(g => <BadgeGroupe key={g.id} groupe_id={g.id} from="pool" />)}
+                {nonSequences.length === 0 && <p className="text-xs text-gray-300 italic">Tous les cours sont séquencés</p>}
+              </div>
+            </div>
 
-          {/* Zone principale */}
-          <div className="flex-1 overflow-auto p-5 space-y-4">
-            {loading ? <div className="text-center text-gray-400 py-10">Chargement…</div> : (
-              <>
-                {/* Pool — cours non séquencés */}
-                <div
-                  onDragOver={e => { e.preventDefault(); setDragOver('pool'); }}
-                  onDragLeave={() => setDragOver(null)}
-                  onDrop={() => onDrop('pool')}
-                  className={`rounded-lg border-2 border-dashed p-3 min-h-[60px] transition
-                    ${dragOver === 'pool' ? 'border-iip-mauve bg-iip-mauve/5' : 'border-gray-200'}`}>
-                  <p className="text-xs text-gray-400 mb-2">📦 Cours non séquencés (glisse-les dans un rang)</p>
+            {rangs.map((rang, idx) => (
+              <div key={idx}>
+                {idx > 0 && (
+                  <div className="flex items-center gap-2 my-2 ml-4">
+                    <div className="w-px h-6 bg-gray-300"></div>
+                    <label className="flex items-center gap-1.5 text-xs text-gray-500">
+                      Délai :
+                      <input type="number" min="0" max="20" value={rang.delai_avant}
+                        onChange={e => setDelai(idx, e.target.value)}
+                        className="w-14 border border-gray-300 rounded px-2 py-0.5 text-center text-xs focus:border-iip-mauve outline-none" />
+                      semaine{rang.delai_avant !== 1 ? 's' : ''}
+                    </label>
+                  </div>
+                )}
+                <div onDragOver={e => { e.preventDefault(); setDragOver(idx); }}
+                  onDragLeave={() => setDragOver(null)} onDrop={() => onDrop(idx)}
+                  className={`rounded-lg border-2 p-3 min-h-[70px] transition
+                    ${dragOver === idx ? 'border-iip-mauve bg-iip-mauve/5' : 'border-gray-200'}`}>
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="text-xs font-semibold text-gray-500">
+                      {idx === 0 ? '▶ Démarre en premier' : `▶ Rang ${idx + 1}`}
+                      <span className="ml-2 font-normal text-gray-400">— en parallèle</span>
+                    </span>
+                    <button onClick={() => supprimerRang(idx)} className="text-gray-300 hover:text-red-500 text-xs">✕</button>
+                  </div>
                   <div className="flex flex-wrap gap-2">
-                    {nonSequences.map(g => <BadgeGroupe key={g.id} groupe_id={g.id} from="pool" />)}
-                    {nonSequences.length === 0 && <p className="text-xs text-gray-300 italic">Tous les cours sont séquencés</p>}
+                    {rang.groupe_ids.map(id => <BadgeGroupe key={id} groupe_id={id} from={idx} />)}
+                    {rang.groupe_ids.length === 0 && <p className="text-xs text-gray-300 italic">Dépose des cours ici</p>}
                   </div>
                 </div>
+              </div>
+            ))}
 
-                {/* Rangs */}
-                {rangs.map((rang, idx) => (
-                  <div key={idx}>
-                    {/* Délai avant ce rang */}
-                    {idx > 0 && (
-                      <div className="flex items-center gap-2 my-2 ml-4">
-                        <div className="w-px h-6 bg-gray-300"></div>
-                        <label className="flex items-center gap-1.5 text-xs text-gray-500">
-                          Délai :
-                          <input type="number" min="0" max="20" value={rang.delai_avant}
-                            onChange={e => setDelai(idx, e.target.value)}
-                            className="w-14 border border-gray-300 rounded px-2 py-0.5 text-center text-xs focus:border-iip-mauve outline-none" />
-                          semaine{rang.delai_avant !== 1 ? 's' : ''}
-                        </label>
-                      </div>
-                    )}
-
-                    <div
-                      onDragOver={e => { e.preventDefault(); setDragOver(idx); }}
-                      onDragLeave={() => setDragOver(null)}
-                      onDrop={() => onDrop(idx)}
-                      className={`rounded-lg border-2 p-3 min-h-[70px] transition
-                        ${dragOver === idx ? 'border-iip-mauve bg-iip-mauve/5' : 'border-gray-200'}`}>
-                      <div className="flex items-center justify-between mb-2">
-                        <span className="text-xs font-semibold text-gray-500">
-                          {idx === 0 ? '▶ Démarre en premier' : `▶ Rang ${idx + 1}`}
-                          <span className="ml-2 font-normal text-gray-400">— cours en parallèle</span>
-                        </span>
-                        <button onClick={() => supprimerRang(idx)}
-                          className="text-gray-300 hover:text-red-500 text-xs transition">✕ Supprimer</button>
-                      </div>
-                      <div className="flex flex-wrap gap-2">
-                        {rang.groupe_ids.map(id => <BadgeGroupe key={id} groupe_id={id} from={idx} />)}
-                        {rang.groupe_ids.length === 0 && (
-                          <p className="text-xs text-gray-300 italic">Dépose des cours ici</p>
-                        )}
-                      </div>
-                    </div>
-                  </div>
-                ))}
-
-                <button onClick={ajouterRang}
-                  className="w-full border-2 border-dashed border-gray-200 rounded-lg py-3 text-sm text-gray-400 hover:border-iip-mauve hover:text-iip-mauve transition">
-                  + Ajouter un rang
-                </button>
-              </>
-            )}
-          </div>
-        </div>
-
-        {/* Footer */}
-        <div className="flex items-center justify-between px-6 py-4 border-t">
-          <p className="text-xs text-gray-400">
-            Les rangs définissent l'ordre de démarrage. Même rang = en parallèle. Le délai s'applique entre deux rangs successifs.
-          </p>
-          <div className="flex gap-2">
-            <button onClick={onClose} className="border border-gray-300 text-gray-600 text-sm px-4 py-2 rounded">Fermer</button>
-            <button onClick={sauvegarder} disabled={saving}
-              className="bg-iip-mauve text-white text-sm px-5 py-2 rounded hover:opacity-90 disabled:opacity-50">
-              {saving ? 'Sauvegarde…' : saved ? '✓ Sauvegardé' : 'Enregistrer'}
+            <button onClick={ajouterRang}
+              className="w-full border-2 border-dashed border-gray-200 rounded-lg py-3 text-sm text-gray-400 hover:border-iip-mauve hover:text-iip-mauve transition">
+              + Ajouter un rang
             </button>
-          </div>
-        </div>
+          </>
+        )}
+      </div>
+
+      {/* Footer sauvegarde */}
+      <div className="absolute bottom-0 right-0 p-4">
+        <button onClick={sauvegarder} disabled={saving}
+          className="bg-iip-mauve text-white text-sm px-5 py-2 rounded hover:opacity-90 disabled:opacity-50 shadow-lg">
+          {saving ? 'Sauvegarde…' : saved ? '✓ Sauvegardé' : 'Enregistrer'}
+        </button>
       </div>
     </div>
   );
 }
+
 
 // ─── Modal réinitialisation planification ─────────────────────────────────────
 function ModalReset({ annee, section, onReset, onClose }) {
