@@ -528,7 +528,7 @@ r.get('/professeurs', authRequired, (req, res) => {
   const annee = req.query.annee || null;
   const anneeActive = annee || db.prepare("SELECT code FROM annee_scolaire WHERE active=1 ORDER BY code DESC LIMIT 1").get()?.code || '2026-2027';
 
-  const subTotalAnnee = `(SELECT COALESCE(SUM(a.periodes_attribuees + COALESCE(a.autonomie_attribuee,0)),0)
+  const subTotalAnnee = `(SELECT COALESCE(SUM(a.periodes_attribuees),0)
     FROM attribution a WHERE a.professeur_id = v.id AND a.annee_scolaire = '${anneeActive}'
     AND a.contrat_mdp = 'IIP')`;
 
@@ -606,7 +606,6 @@ r.get('/professeurs/:id', authRequired, (req, res) => {
     };
   }
 
-  // Totaux calculés sur l'année active uniquement (v_professeur_total = toutes années)
   let tot_per_annee = 0, tot_aut_annee = 0;
   for (const a of attrs) {
     tot_per_annee += a.periodes_attribuees || 0;
@@ -614,7 +613,8 @@ r.get('/professeurs/:id', authRequired, (req, res) => {
   }
 
   res.json({ ...p, attributions: attrs, titres, charges, anciennete, annee,
-    tot_per_annee, tot_aut_annee,
+    tot_per_annee,   // périodes uniquement (sans autonomie)
+    tot_aut_annee,
     tot_global_annee: tot_per_annee + tot_aut_annee,
     etp_annee: Math.round((tot_per_annee + tot_aut_annee) / 1000 * 100) / 100,
   });
