@@ -173,7 +173,7 @@ export const api = {
   ueDetail(num) { return request(`/ref/ue/${num}`); },
   cours(params = {}) { return request('/ref/cours' + (new URLSearchParams(params).toString() ? `?${new URLSearchParams(params)}` : '')); },
   professeurs(tous = false) { return request(`/ref/professeurs${tous ? '?tous=1' : ''}`); },
-  professeur(id) { return request(`/ref/professeurs/${id}`); },
+  professeur(id, annee) { return request(`/ref/professeurs/${id}${annee ? '?annee=' + encodeURIComponent(annee) : ''}`); },
   professeursAttributions(ids, annee) { return request(`/ref/professeurs-attributions?ids=${encodeURIComponent(ids)}${annee ? '&annee=' + encodeURIComponent(annee) : ''}`); },
   createProfesseur(data) { return request('/ref/professeurs', { method: 'POST', body: data }); },
   updateProfesseur(id, data) { return request(`/ref/professeurs/${id}`, { method: 'PATCH', body: data }); },

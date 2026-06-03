@@ -560,7 +560,9 @@ r.get('/professeurs/:id', authRequired, (req, res) => {
   const vue = db.prepare('SELECT * FROM v_professeur_total WHERE id = ?').get(req.params.id) || {};
   // Fusion : la table complète d'abord, la vue complète les totaux
   const p = { ...vue, ...base, nom_prenom: vue.nom_prenom || `${base.nom} ${base.prenom}` };
-  const annee = req.query.annee || db.prepare("SELECT code FROM annee_scolaire WHERE active = 1 LIMIT 1").get()?.code;
+  const annee = req.query.annee
+    || db.prepare("SELECT code FROM annee_scolaire WHERE active = 1 LIMIT 1").get()?.code
+    || db.prepare("SELECT annee_scolaire FROM attribution WHERE professeur_id = ? ORDER BY annee_scolaire DESC LIMIT 1").get(req.params.id)?.annee_scolaire;
   const attrs = db.prepare(`
     SELECT * FROM v_attribution_complete
     WHERE professeur_id = ? AND annee_scolaire = ? ORDER BY section, ue_num
