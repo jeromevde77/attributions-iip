@@ -439,6 +439,7 @@ export default function Attributions() {
     XLSX.writeFile(wb, `Attributions_${section}_${annee}.xlsx`);
   }
   const [selected, setSelected] = useState(new Set());
+  const [sortBy, setSortBy] = useState({ key: null, dir: 'asc' });
   const [confirmDeleteSection, setConfirmDeleteSection] = useState(null);
   const [filtersOpenMobile, setFiltersOpenMobile] = useState(false);
   const [bulkDeleteModal, setBulkDeleteModal] = useState(null);
