@@ -316,23 +316,26 @@ r.delete('/enveloppes/:id', authRequired, roleRequired('admin'), (req, res) => {
 
 // GET /ue-pot — liste des UEs avec leur pot_code (pour configuration)
 r.get('/ue-pot', authRequired, (req, res) => {
-  const annee = req.query.annee || '2025-2026';
-  res.json(db.prepare(`
-    SELECT ue_num, ue_nom, ue_code_fwb, pot_code,
+  const annee   = req.query.annee    || '2025-2026';
+  const section = req.query.section  || null;
+  const tous    = req.query.tous === '1';
+
+  let sql = `
+    SELECT ue_num, ue_nom, section, ue_code_fwb, pot_code,
       COALESCE(pot_code,
         CASE WHEN ue_code_fwb LIKE '980302%' THEN 'QUAL'
              WHEN ue_code_fwb LIKE '980301%' THEN 'CF'
              WHEN ue_code_fwb LIKE '980303%' THEN 'INCL'
-        END) AS pot_effectif
-    FROM ue
-    WHERE annee_scolaire = ?
-      AND (pot_code IS NOT NULL
-        OR ue_code_fwb LIKE '9803%'
-        OR ue_nom LIKE '%Qualit%' OR ue_nom LIKE '%Conseiller%' OR ue_nom LIKE '%inclusif%' OR ue_nom LIKE '%Inclusif%')
-    ORDER BY ue_nom
-  `).all(annee));
+             ELSE 'organique' END) AS pot_effectif
+    FROM ue WHERE annee_scolaire = ?`;
+  const params = [annee];
+  if (section) { sql += ' AND section = ?'; params.push(section); }
+  if (!tous) sql += ` AND (pot_code IS NOT NULL OR ue_code_fwb LIKE '9803%'
+      OR ue_nom LIKE '%Qualit%' OR ue_nom LIKE '%Conseiller%'
+      OR ue_nom LIKE '%inclusif%' OR ue_nom LIKE '%Inclusif%')`;
+  sql += ' ORDER BY section, ue_nom';
+  res.json(db.prepare(sql).all(...params));
 });
-
 // PATCH /ue-pot — assigner un pot_code à une UE
 r.patch('/ue-pot', authRequired, roleRequired('admin', 'editeur'), (req, res) => {
   const { ue_num, annee_scolaire, pot_code } = req.body;
