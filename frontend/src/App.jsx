@@ -110,7 +110,7 @@ function ProtectedLayout({ children }) {
       ]
     : [
         ['/attributions', 'Attributions'],
-        ['/professeurs',  'Professeurs'],
+        ['/professeurs',  'Personnel'],
         ['/listes',       'Listes'],
         ['/procedures',   '⚖ Procédures'],
         ['/pilotage',       '📊 Pilotage'],
