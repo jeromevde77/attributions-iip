@@ -147,9 +147,40 @@ function ProtectedLayout({ children }) {
             </svg>
           </button>
 
-          <div className="font-title text-base md:text-xl text-iip-gold font-bold flex-none truncate">
-            <span className="md:hidden">IIP</span>
-            <span className="hidden md:inline">Attributions IIP</span>
+          <div className="flex-none">
+            <svg width="90" height="28" viewBox="0 0 140 44" xmlns="http://www.w3.org/2000/svg">
+              {/* Symbole L compact */}
+              <g stroke="#1B2B4B" strokeOpacity=".06" fill="none" strokeWidth="1.2" strokeLinecap="round">
+                <line x1="5" y1="14" x2="12" y2="6"/><line x1="5" y1="14" x2="16" y2="23"/>
+                <line x1="12" y1="6" x2="23" y2="8"/><line x1="16" y1="23" x2="23" y2="8"/>
+                <line x1="16" y1="23" x2="23" y2="32"/><line x1="23" y1="8" x2="36" y2="14"/>
+                <line x1="36" y1="14" x2="42" y2="32"/>
+              </g>
+              <g stroke="#00AACC" strokeOpacity=".35" fill="none" strokeWidth="1.2" strokeLinecap="round">
+                <line x1="5" y1="14" x2="16" y2="23"/><line x1="12" y1="6" x2="23" y2="8"/>
+                <line x1="16" y1="23" x2="23" y2="32"/><line x1="23" y1="8" x2="36" y2="14"/>
+                <line x1="23" y1="32" x2="42" y2="32"/>
+              </g>
+              <g stroke="#00AACC" strokeOpacity=".85" fill="none" strokeWidth="2.2" strokeLinecap="round">
+                <line x1="12" y1="6" x2="12" y2="32"/>
+                <line x1="12" y1="32" x2="42" y2="32"/>
+              </g>
+              <circle cx="5"  cy="14" r="1.8" fill="#1B2B4B" fillOpacity=".1"/>
+              <circle cx="23" cy="8"  r="1.8" fill="#1B2B4B" fillOpacity=".12"/>
+              <circle cx="36" cy="14" r="1.6" fill="#1B2B4B" fillOpacity=".08"/>
+              <circle cx="16" cy="23" r="1.8" fill="#00AACC" fillOpacity=".5"/>
+              <circle cx="12" cy="6"  r="3.2" fill="#00AACC"/>
+              <circle cx="12" cy="32" r="3.6" fill="#00AACC"/>
+              <circle cx="42" cy="32" r="3.2" fill="#00AACC"/>
+              <circle cx="12" cy="6"  r="1.4" fill="white" fillOpacity=".7"/>
+              <circle cx="12" cy="32" r="1.6" fill="white" fillOpacity=".65"/>
+              <circle cx="42" cy="32" r="1.4" fill="white" fillOpacity=".7"/>
+              {/* Texte "Lucie" */}
+              <text x="52" y="30"
+                fontFamily="'Segoe UI','Helvetica Neue',Arial,sans-serif"
+                fontSize="22" fontWeight="700" letterSpacing="-0.5"
+                fill="#1B2B4B">Lucie</text>
+            </svg>
           </div>
 
           {/* Sélecteur d'année */}
