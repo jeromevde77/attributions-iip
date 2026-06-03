@@ -89,7 +89,7 @@ function DetailModal({ profId, onClose, onEdit }) {
   const navigate = useNavigate();
   const u = getUser();
   useEffect(() => {
-    api.professeur(profId).then(setDetail).catch(e => alert(e.message));
+    api.professeur(profId, getAnnee()).then(setDetail).catch(e => alert(e.message));
   }, [profId]);
 
   async function nouvelEA12() {
