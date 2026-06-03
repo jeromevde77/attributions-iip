@@ -527,7 +527,7 @@ r.get('/professeurs', authRequired, (req, res) => {
   const tous  = req.query.tous === '1';
   const annee = req.query.annee || null;
   // Année active pour les badges de contrat
-  const anneeActive = annee || db.prepare("SELECT code FROM annee WHERE active=1 ORDER BY code DESC LIMIT 1").get()?.code;
+  const anneeActive = annee || db.prepare("SELECT code FROM annee_scolaire WHERE active=1 ORDER BY code DESC LIMIT 1").get()?.code || '2026-2027';
 
   const sql = tous
     ? `SELECT v.*, p.type_personnel,
