@@ -353,7 +353,7 @@ export default function Professeurs() {
     <div className="p-4 md:p-6 max-w-7xl mx-auto">
       <div className="flex items-center justify-between mb-4 gap-3 flex-wrap">
         <h1 className="text-2xl font-title text-iip-gold">
-          Corps professoral <span className="text-base font-normal text-gray-400">({filtered.length})</span>
+          Membres du personnel <span className="text-base font-normal text-gray-400">({filtered.length})</span>
         </h1>
         <div className="flex gap-2 items-center">
           {selection.size > 0 && (
