@@ -281,7 +281,7 @@ export default function Professeurs() {
 
   async function load() {
     setLoading(true);
-    try { setProfs(await api.professeurs()); } finally { setLoading(false); }
+    try { setProfs(await api.professeurs(true)); } finally { setLoading(false); }
   }
   useEffect(() => { load(); }, []);
 
