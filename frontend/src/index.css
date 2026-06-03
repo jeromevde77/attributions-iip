@@ -88,3 +88,133 @@ table.grid-excel-soft td.num { text-align: right; font-variant-numeric: tabular-
 .badge-cc    { background: #e0e7ff; color: #3730a3; }
 .badge-exp   { background: #f1f5f9; color: #475569; border: 1px solid #94a3b8; }
 .badge-incomplete { background: #fef9c3; color: #854d0e; }
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   RESPONSIVE MOBILE (iPhone / écrans ≤ 768px)
+   Principe : empiler verticalement ce qui était horizontal
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+@media (max-width: 768px) {
+
+  /* ── Typographie ── */
+  body { font-size: 14px; }
+
+  /* ── Tableaux → scroll horizontal contrôlé ── */
+  .overflow-x-auto, table {
+    -webkit-overflow-scrolling: touch;
+  }
+
+  /* ── Modales → plein écran sur mobile ── */
+  .modal-mobile {
+    position: fixed !important;
+    inset: 0 !important;
+    max-width: 100vw !important;
+    max-height: 100vh !important;
+    width: 100vw !important;
+    height: 100vh !important;
+    border-radius: 0 !important;
+    margin: 0 !important;
+  }
+
+  /* Modales dans les overlays → plein écran */
+  .fixed.inset-0 > div[class*="max-w-"],
+  .fixed.inset-0 > div[class*="rounded"] {
+    max-width: 100vw !important;
+    width: 100vw !important;
+    margin: 0 !important;
+    border-radius: 0 !important;
+    max-height: 100svh !important;
+  }
+
+  /* ── Grilles et flex horizontaux → vertical ── */
+  .mobile-stack {
+    flex-direction: column !important;
+  }
+
+  /* ── Boutons plus grands pour les doigts ── */
+  button, .btn, [role="button"] {
+    min-height: 36px;
+  }
+
+  /* ── Padding réduit sur les pages ── */
+  .px-6 { padding-left: 0.75rem !important; padding-right: 0.75rem !important; }
+  .px-8 { padding-left: 1rem !important; padding-right: 1rem !important; }
+
+  /* ── Page Procédures ── */
+  /* Les sections en colonnes passent en colonne unique */
+  .procedures-cols {
+    grid-template-columns: 1fr !important;
+  }
+
+  /* ── Cards de liste ── */
+  .card-list-item {
+    flex-direction: column !important;
+    align-items: flex-start !important;
+    gap: 0.5rem !important;
+  }
+
+  /* ── Filtres en haut de page ── */
+  .filters-row {
+    flex-wrap: wrap !important;
+    gap: 0.5rem !important;
+  }
+  .filters-row > * {
+    flex: 1 1 140px !important;
+    min-width: 0 !important;
+  }
+
+  /* ── Tableaux : cells plus compactes ── */
+  td, th {
+    padding: 0.35rem 0.5rem !important;
+    font-size: 12px !important;
+  }
+
+  /* ── Inputs et selects ── */
+  input, select, textarea {
+    font-size: 16px !important; /* évite le zoom auto sur iOS */
+  }
+
+  /* ── Cacher les colonnes secondaires dans les tableaux lourds ── */
+  .col-desktop-only {
+    display: none !important;
+  }
+
+  /* ── Navbar ── */
+  header {
+    padding: 0.5rem 0.75rem !important;
+  }
+
+  /* ── Sections sticky en haut ── */
+  .sticky { position: sticky !important; }
+
+  /* ── PreviewModal / iframes ── */
+  iframe {
+    width: 100% !important;
+    min-height: 60vh !important;
+  }
+
+  /* ── Pilotage : cartes en colonne ── */
+  .pilotage-grid {
+    grid-template-columns: 1fr !important;
+  }
+
+  /* ── Accordéons : header plus lisible ── */
+  .accordion-header {
+    flex-wrap: wrap !important;
+    gap: 0.25rem !important;
+  }
+
+  /* ── Personnel : tableau adapté ── */
+  .table-personnel td:nth-child(3),
+  .table-personnel td:nth-child(5),
+  .table-personnel td:nth-child(6) {
+    display: none !important;
+  }
+
+}
+
+/* ── Très petit (iPhone SE, 375px) ── */
+@media (max-width: 390px) {
+  body { font-size: 13px; }
+  td, th { font-size: 11px !important; padding: 0.25rem 0.35rem !important; }
+}
