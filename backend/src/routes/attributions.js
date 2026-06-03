@@ -170,8 +170,8 @@ r.get('/rapport-attributions', authRequired, (req, res) => {
   if (!section || !annee) return res.status(400).json({ error: 'section et annee requis' });
 
   const rows = db.prepare(`
-    SELECT
-      a.ue_num, u.ue_nom, u.ue_niv, u.ue_quad,
+    SELECT DISTINCT
+      a.id, a.ue_num, u.ue_nom, u.ue_niv, u.ue_quad,
       a.code_cours, c.cours_nom,
       a.num_groupe, a.code AS groupe_code,
       a.professeur_id, p.nom AS prof_nom, p.prenom AS prof_prenom,
@@ -180,6 +180,7 @@ r.get('/rapport-attributions', authRequired, (req, res) => {
       a.type_cours
     FROM attribution a
     LEFT JOIN ue u ON u.ue_num = a.ue_num AND u.annee_scolaire = a.annee_scolaire
+                   AND u.section = a.section
     LEFT JOIN cours c ON c.cours_code = a.code_cours AND c.annee_scolaire = a.annee_scolaire
     LEFT JOIN professeur p ON p.id = a.professeur_id
     LEFT JOIN activite_type at ON at.id = a.activite_id
@@ -211,7 +212,9 @@ r.get('/rapport-attributions', authRequired, (req, res) => {
       code_cours:   row.code_cours,
       cours_nom:    row.cours_nom,
       groupe_code:  row.groupe_code || _numToLettre(row.num_groupe || 1),
-      prof_nom:     row.prof_nom ? `${row.prof_nom} ${(row.prof_prenom||'')[0] || ''}.`.trim() : '—',
+      prof_nom:     row.prof_nom
+        ? `${row.prof_nom}${row.prof_prenom ? '\u00a0' + row.prof_prenom[0] + '.' : ''}`.trim()
+        : '\u2014',
       activite_nom: row.activite_nom,
       periodes:     per,
       autonomie:    aut,

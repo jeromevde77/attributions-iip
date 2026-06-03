@@ -233,13 +233,13 @@ export default function Attributions() {
       const col = NIV_COLOR[ue.ue_niv] || '#6b7280';
       const lignesCours = ue.cours.map(c => `
         <tr>
-          <td style="padding:4px 8px 4px 32px;color:#374151;font-size:12px">${c.code_cours || '—'}</td>
-          <td style="padding:4px 8px;color:#374151;font-size:12px">${c.cours_nom || '—'}${c.activite_nom ? ` <em style="color:#9ca3af">(${c.activite_nom})</em>` : ''}</td>
-          <td style="padding:4px 8px;color:#374151;font-size:12px">Gr.${c.groupe_code}</td>
-          <td style="padding:4px 8px;color:#374151;font-size:12px">${c.prof_nom}</td>
-          <td style="padding:4px 8px;text-align:right;font-size:12px">${fmt(c.periodes)}</td>
-          <td style="padding:4px 8px;text-align:right;font-size:12px">${fmt(c.autonomie)}</td>
-          <td style="padding:4px 8px;text-align:right;font-size:12px;font-weight:600">${fmt(c.total)}</td>
+          <td style="padding:2px 6px 2px 24px;color:#374151;font-size:11px;white-space:nowrap">${c.code_cours || '—'}</td>
+          <td style="padding:2px 6px;color:#374151;font-size:11px;max-width:220px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${(c.cours_nom||'').replace(/"/g,"'")}${c.activite_nom?' ('+c.activite_nom+')':''}">${c.cours_nom || '—'}${c.activite_nom ? ` <em style="color:#9ca3af">(${c.activite_nom})</em>` : ''}</td>
+          <td style="padding:2px 6px;color:#374151;font-size:11px;white-space:nowrap">Gr.${c.groupe_code}</td>
+          <td style="padding:2px 6px;color:#374151;font-size:11px;white-space:nowrap">${c.prof_nom}</td>
+          <td style="padding:2px 6px;text-align:right;font-size:11px;white-space:nowrap">${fmt(c.periodes)}</td>
+          <td style="padding:2px 6px;text-align:right;font-size:11px;white-space:nowrap">${fmt(c.autonomie)}</td>
+          <td style="padding:2px 6px;text-align:right;font-size:11px;font-weight:600;white-space:nowrap">${fmt(c.total)}</td>
         </tr>`).join('');
 
       return `
@@ -262,7 +262,11 @@ export default function Attributions() {
     }).join('');
 
     const html = `
-      <div style="font-family:Arial,sans-serif;max-width:900px;margin:0 auto;padding:20px">
+      <style>
+        @media print { body { margin: 0; } table { page-break-inside: auto; } tr { page-break-inside: avoid; } }
+        td, th { white-space: nowrap; }
+      </style>
+      <div style="font-family:Arial,sans-serif;max-width:100%;margin:0 auto;padding:12px;font-size:11px">
         <div style="margin-bottom:24px;border-bottom:2px solid #1B2B4B;padding-bottom:12px">
           <h1 style="font-size:18px;color:#1B2B4B;margin:0">Attributions — ${section}</h1>
           <p style="font-size:13px;color:#6b7280;margin:4px 0 0">Année scolaire ${annee}</p>
