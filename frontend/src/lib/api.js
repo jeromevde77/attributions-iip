@@ -172,7 +172,13 @@ export const api = {
   ue(section) { return request('/ref/ue' + (section ? `?section=${encodeURIComponent(section)}` : '')); },
   ueDetail(num) { return request(`/ref/ue/${num}`); },
   cours(params = {}) { return request('/ref/cours' + (new URLSearchParams(params).toString() ? `?${new URLSearchParams(params)}` : '')); },
-  professeurs(tous = false) { return request(`/ref/professeurs${tous ? '?tous=1' : ''}`); },
+  professeurs(tous = false, annee = null) {
+    const p = new URLSearchParams();
+    if (tous) p.set('tous', '1');
+    if (annee) p.set('annee', annee);
+    const q = p.toString();
+    return request(`/ref/professeurs${q ? '?' + q : ''}`);
+  },
   professeur(id, annee) { return request(`/ref/professeurs/${id}${annee ? '?annee=' + encodeURIComponent(annee) : ''}`); },
   professeursAttributions(ids, annee) { return request(`/ref/professeurs-attributions?ids=${encodeURIComponent(ids)}${annee ? '&annee=' + encodeURIComponent(annee) : ''}`); },
   createProfesseur(data) { return request('/ref/professeurs', { method: 'POST', body: data }); },
