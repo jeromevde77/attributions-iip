@@ -177,36 +177,55 @@ r.get('/rapport-attributions', authRequired, (req, res) => {
 
   const rows = db.prepare(`
     SELECT DISTINCT
-      a.id, a.ue_num, u.ue_nom, u.ue_niv, u.ue_quad,
-      a.code_cours, c.cours_nom,
+      a.id, a.ue_num, a.code_cours,
       a.num_groupe, a.code AS groupe_code,
       a.professeur_id, p.nom AS prof_nom, p.prenom AS prof_prenom,
       a.periodes_attribuees, a.autonomie_attribuee,
       a.activite_id, at.libelle AS activite_nom,
       a.type_cours
     FROM attribution a
-    LEFT JOIN ue u ON u.ue_num = a.ue_num AND u.annee_scolaire = a.annee_scolaire
-                   AND u.section = a.section
-    LEFT JOIN cours c ON c.cours_code = a.code_cours AND c.annee_scolaire = a.annee_scolaire
-                      AND c.section = a.section
     LEFT JOIN professeur p ON p.id = a.professeur_id
     LEFT JOIN activite_type at ON at.id = a.activite_id
     WHERE a.section = ? AND a.annee_scolaire = ?
       AND (a.type_cours IS NULL OR a.type_cours != 'Z')
       AND COALESCE(a.periodes_attribuees, 0) + COALESCE(a.autonomie_attribuee, 0) > 0
-    ORDER BY
-      CAST(TRIM(COALESCE(u.ue_niv,''), 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz') AS INTEGER),
-      a.ue_num, a.code_cours, a.num_groupe
+    ORDER BY a.ue_num, a.code_cours, a.num_groupe
   `).all(section, annee);
+
+  // Charger les infos UE séparément (sans jointure pour éviter les doublons)
+  const ueInfos = {};
+  db.prepare(`SELECT ue_num, ue_nom, ue_niv, ue_quad FROM ue WHERE annee_scolaire = ? ORDER BY ue_num`).all(annee).forEach(u => {
+    if (!ueInfos[u.ue_num]) ueInfos[u.ue_num] = u;
+  });
+
+  // Charger les noms de cours séparément
+  const coursInfos = {};
+  db.prepare(`SELECT cours_code, cours_nom FROM cours WHERE annee_scolaire = ? AND section = ?`).all(annee, section).forEach(c => {
+    coursInfos[c.cours_code] = c.cours_nom;
+  });
+
+  // Trier les lignes par niveau puis ue_num
+  rows.sort((a, b) => {
+    const ua = ueInfos[a.ue_num], ub = ueInfos[b.ue_num];
+    const na = parseInt((ua?.ue_niv || '').match(/\d+$/)?.[0] ?? 99);
+    const nb = parseInt((ub?.ue_niv || '').match(/\d+$/)?.[0] ?? 99);
+    if (na !== nb) return na - nb;
+    if (a.ue_num !== b.ue_num) return a.ue_num - b.ue_num;
+    if (a.code_cours !== b.code_cours) return (a.code_cours||'').localeCompare(b.code_cours||'');
+    return (a.num_groupe||0) - (b.num_groupe||0);
+  });
 
   // Structurer par UE → cours → lignes
   const ues = [];
   const ueMap = {};
   for (const row of rows) {
+    const uInfo = ueInfos[row.ue_num] || {};
     if (!ueMap[row.ue_num]) {
       const ue = {
-        ue_num: row.ue_num, ue_nom: row.ue_nom,
-        ue_niv: row.ue_niv, ue_quad: row.ue_quad,
+        ue_num: row.ue_num,
+        ue_nom: uInfo.ue_nom,
+        ue_niv: uInfo.ue_niv,
+        ue_quad: uInfo.ue_quad,
         cours: [], total_per: 0, total_aut: 0
       };
       ueMap[row.ue_num] = ue;
@@ -217,7 +236,7 @@ r.get('/rapport-attributions', authRequired, (req, res) => {
     const aut = row.autonomie_attribuee || 0;
     ue.cours.push({
       code_cours:   row.code_cours,
-      cours_nom:    row.cours_nom,
+      cours_nom:    coursInfos[row.code_cours] || row.code_cours,
       groupe_code:  row.groupe_code || _numToLettreRapport(row.num_groupe || 1),
       prof_nom:     row.prof_nom
         ? `${row.prof_nom}${row.prof_prenom ? '\u00a0' + row.prof_prenom[0] + '.' : ''}`.trim()
