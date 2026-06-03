@@ -530,16 +530,18 @@ r.get('/professeurs', authRequired, (req, res) => {
 
   const subTotalAnnee = `(SELECT COALESCE(SUM(a.periodes_attribuees),0)
     FROM attribution a WHERE a.professeur_id = v.id AND a.annee_scolaire = '${anneeActive}'
-    AND a.contrat_mdp = 'IIP')`;
+    AND a.contrat_mdp = 'IIP') AS total_per_annee`;
 
-  const base = `SELECT v.*, p.type_personnel,
-      ${subTotalAnnee} AS total_per_annee,
-      (SELECT pe.fonction FROM personnel_etablissement pe WHERE pe.professeur_id = v.id LIMIT 1) AS fonction_admin,
+  const base = `SELECT p.id, p.nom, p.prenom, p.statut, p.adresse_mail, p.commune,
+      p.code_postal, p.capaes, p.anciennete_25_26_po, p.type_personnel,
+      v.nom_prenom, v.total_per_iip, v.total_hrs_helb, v.prestations,
+      ${subTotalAnnee},
+      (SELECT pe.fonction FROM personnel_etablissement pe WHERE pe.professeur_id = p.id LIMIT 1) AS fonction_admin,
       (SELECT GROUP_CONCAT(DISTINCT a.contrat_mdp ORDER BY a.contrat_mdp)
-       FROM attribution a WHERE a.professeur_id = v.id AND a.annee_scolaire = '${anneeActive}'
+       FROM attribution a WHERE a.professeur_id = p.id AND a.annee_scolaire = '${anneeActive}'
        AND a.contrat_mdp IS NOT NULL AND a.contrat_mdp != '') AS contrats_annee
-    FROM v_professeur_total v
-    LEFT JOIN professeur p ON p.id = v.id`;
+    FROM professeur p
+    LEFT JOIN v_professeur_total v ON v.id = p.id`;
 
   const sql = tous
     ? `${base} ORDER BY v.nom, v.prenom`
