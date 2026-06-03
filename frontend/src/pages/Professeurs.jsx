@@ -407,7 +407,9 @@ export default function Professeurs() {
                   <td>
                     <div className="flex items-center gap-1 flex-wrap">
                       {p.type_personnel === 'admin' && (
-                        <span className="badge" style={{background:'#00AACC',color:'white',fontSize:'10px',padding:'1px 6px',borderRadius:'8px',whiteSpace:'nowrap'}}>Admin</span>
+                        <span style={{background:'#00AACC',color:'white',fontSize:'9px',padding:'1px 5px',borderRadius:'8px',whiteSpace:'nowrap',maxWidth:'80px',overflow:'hidden',textOverflow:'ellipsis',display:'inline-block',verticalAlign:'middle'}}>
+                          {p.fonction_admin || 'Admin'}
+                        </span>
                       )}
                       {(p.contrats_annee || p.statut || '').split(',').filter(c => ['CC','EXP','MDP'].includes(c)).map(c => (
                         <span key={c} className={`badge ${c === 'CC' ? 'badge-iip' : c === 'EXP' ? 'badge-exp' : 'badge-helb'}`}>{c}</span>
