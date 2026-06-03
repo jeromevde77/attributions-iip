@@ -1427,7 +1427,14 @@ try {
     }
   } catch (e) { console.error('[migration] enveloppe AeSI :', e.message); }
 
-  // Assigner pot_code='AESI' à toutes les UE de la section AeSI
+  // Corriger les valeurs '[object Object]' dans quadrimestre_attribue et quadrimestre_cours
+  // (bug d'import : objet JS sérialisé en string)
+  try {
+    const a = db.prepare("UPDATE attribution SET quadrimestre_attribue = NULL WHERE quadrimestre_attribue = '[object Object]'").run();
+    const c = db.prepare("UPDATE cours SET quadrimestre_cours = NULL WHERE quadrimestre_cours = '[object Object]'").run();
+    if (a.changes > 0 || c.changes > 0)
+      console.log(`[migration] Corrigé '[object Object]' : ${a.changes} attributions, ${c.changes} cours`);
+  } catch(e) { console.error('[migration] fix object Object:', e.message); }
   // (pour que leurs attributions aillent dans l'enveloppe AESI et pas en organique)
   try {
     const updated = db.prepare("UPDATE ue SET pot_code = 'AESI' WHERE section = 'AeSI' AND (pot_code IS NULL OR pot_code != 'AESI')").run();
