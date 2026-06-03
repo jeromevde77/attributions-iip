@@ -950,6 +950,56 @@ r.get('/professeurs/:id/fiche-pdf', authRequired, async (req, res) => {
 // Données pour la feuille d'attributions imprimable (plusieurs profs).
 // Renvoie, pour chaque prof sélectionné, ses infos + ses attributions de
 // l'année active, avec calcul périodes/autonomie/total (périodes + heures).
+// GET /professeurs/:id/fiche-attributions?annee=
+// Données structurées pour la fiche d'attributions d'un membre du personnel
+r.get('/professeurs/:id/fiche-attributions', authRequired, (req, res) => {
+  const id = parseInt(req.params.id);
+  const annee = req.query.annee;
+  if (!annee) return res.status(400).json({ error: 'annee requis' });
+
+  const prof = db.prepare(`
+    SELECT p.id, p.nom, p.prenom, p.statut, p.type_personnel,
+      (SELECT pe.fonction FROM personnel_etablissement pe WHERE pe.professeur_id = p.id LIMIT 1) AS fonction
+    FROM professeur p WHERE p.id = ?
+  `).get(id);
+  if (!prof) return res.status(404).json({ error: 'Professeur introuvable' });
+
+  const attrs = db.prepare(`
+    SELECT a.section, a.ue_num, u.ue_nom, u.ue_niv,
+      a.code_cours, c.cours_nom, a.type_cours,
+      a.quadrimestre_attribue,
+      a.num_groupe, a.code AS groupe_code,
+      a.periodes_attribuees AS per, a.autonomie_attribuee AS aut,
+      at.libelle AS activite_nom
+    FROM attribution a
+    LEFT JOIN ue u ON u.ue_num = a.ue_num AND u.annee_scolaire = a.annee_scolaire AND u.section = a.section
+    LEFT JOIN cours c ON c.cours_code = a.code_cours AND c.annee_scolaire = a.annee_scolaire
+    LEFT JOIN activite_type at ON at.id = a.activite_id
+    WHERE a.professeur_id = ? AND a.annee_scolaire = ?
+      AND (a.type_cours IS NULL OR a.type_cours != 'Z')
+      AND COALESCE(a.periodes_attribuees, 0) + COALESCE(a.autonomie_attribuee, 0) > 0
+    ORDER BY a.section, a.ue_num, a.code_cours, a.num_groupe
+  `).all(id, annee);
+
+  // Totaux CT / PP
+  let tot_ct = 0, tot_pp = 0, tot_aut = 0;
+  for (const a of attrs) {
+    const per = a.per || 0;
+    const aut = a.aut || 0;
+    if (a.type_cours === 'CT') tot_ct += per;
+    else tot_pp += per;
+    tot_aut += aut;
+  }
+  const tot_per = tot_ct + tot_pp;
+  const tot_global = tot_per + tot_aut;
+  const etp = Math.round((tot_global / 1000) * 100) / 100;
+
+  res.json({
+    prof, annee, attributions: attrs,
+    tot_ct, tot_pp, tot_aut, tot_per, tot_global, etp,
+  });
+});
+
 r.get('/professeurs-attributions', authRequired, (req, res) => {
   try {
     const ids = String(req.query.ids || '').split(',').map(s => parseInt(s, 10)).filter(Boolean);
