@@ -1,5 +1,6 @@
 import { useEffect, useState, useMemo } from 'react';
 import { api, getAnnee } from '../lib/api.js';
+import PreviewModal from '../components/PreviewModal.jsx';
 
 // ─── Modale : copier les attributions d'une section d'une année vers une autre ─
 function CopierSectionModal({ sections, anneeActive, isAdmin, onClose, onCopied }) {
@@ -216,6 +217,85 @@ export default function Attributions() {
   const [showForm, setShowForm] = useState(false);
   const [showBulkCreate, setShowBulkCreate] = useState(false);
   const [showCopierSection, setShowCopierSection] = useState(false);
+  const [rapportHtml, setRapportHtml] = useState(null);
+
+  async function genererRapport(section) {
+    const annee = getAnnee();
+    const tok = localStorage.getItem('token');
+    const d = await fetch(`/api/attributions/rapport-attributions?section=${encodeURIComponent(section)}&annee=${encodeURIComponent(annee)}`,
+      { headers: { Authorization: `Bearer ${tok}` } }).then(r => r.json());
+    if (d.error) { alert(d.error); return; }
+
+    const NIV_COLOR = { BA1:'#f97316', BA2:'#60a5fa', BA3:'#1e3a8a' };
+    const fmt = n => n != null ? String(n) : '—';
+
+    const lignesUE = d.ues.map(ue => {
+      const col = NIV_COLOR[ue.ue_niv] || '#6b7280';
+      const lignesCours = ue.cours.map(c => `
+        <tr>
+          <td style="padding:4px 8px 4px 32px;color:#374151;font-size:12px">${c.code_cours || '—'}</td>
+          <td style="padding:4px 8px;color:#374151;font-size:12px">${c.cours_nom || '—'}${c.activite_nom ? ` <em style="color:#9ca3af">(${c.activite_nom})</em>` : ''}</td>
+          <td style="padding:4px 8px;color:#374151;font-size:12px">Gr.${c.groupe_code}</td>
+          <td style="padding:4px 8px;color:#374151;font-size:12px">${c.prof_nom}</td>
+          <td style="padding:4px 8px;text-align:right;font-size:12px">${fmt(c.periodes)}</td>
+          <td style="padding:4px 8px;text-align:right;font-size:12px">${fmt(c.autonomie)}</td>
+          <td style="padding:4px 8px;text-align:right;font-size:12px;font-weight:600">${fmt(c.total)}</td>
+        </tr>`).join('');
+
+      return `
+        <tr style="background:#f9fafb;border-left:4px solid ${col}">
+          <td colspan="4" style="padding:8px 8px 8px 10px;font-weight:700;font-size:13px;color:#111827">
+            UE ${ue.ue_num} ${ue.ue_niv ? `<span style="background:${col};color:white;font-size:10px;padding:1px 5px;border-radius:3px;margin-left:4px">${ue.ue_niv}</span>` : ''}
+            — ${ue.ue_nom || ''}
+          </td>
+          <td style="padding:8px;text-align:right;font-size:11px;color:#6b7280"></td>
+          <td style="padding:8px;text-align:right;font-size:11px;color:#6b7280"></td>
+          <td style="padding:8px;text-align:right;font-size:11px;color:#6b7280"></td>
+        </tr>
+        ${lignesCours}
+        <tr style="background:#f3f4f6">
+          <td colspan="4" style="padding:5px 8px 5px 32px;font-size:11px;color:#6b7280;font-style:italic">Total UE ${ue.ue_num}</td>
+          <td style="padding:5px 8px;text-align:right;font-size:12px;font-weight:600;color:#374151">${fmt(ue.total_per)}</td>
+          <td style="padding:5px 8px;text-align:right;font-size:12px;font-weight:600;color:#374151">${fmt(ue.total_aut)}</td>
+          <td style="padding:5px 8px;text-align:right;font-size:12px;font-weight:700;color:#111827">${fmt(ue.total_per + ue.total_aut)}</td>
+        </tr>`;
+    }).join('');
+
+    const html = `
+      <div style="font-family:Arial,sans-serif;max-width:900px;margin:0 auto;padding:20px">
+        <div style="margin-bottom:24px;border-bottom:2px solid #1B2B4B;padding-bottom:12px">
+          <h1 style="font-size:18px;color:#1B2B4B;margin:0">Attributions — ${section}</h1>
+          <p style="font-size:13px;color:#6b7280;margin:4px 0 0">Année scolaire ${annee}</p>
+        </div>
+        <table style="width:100%;border-collapse:collapse">
+          <thead>
+            <tr style="background:#1B2B4B;color:white">
+              <th style="padding:8px;text-align:left;font-size:12px">Code</th>
+              <th style="padding:8px;text-align:left;font-size:12px">Cours</th>
+              <th style="padding:8px;text-align:left;font-size:12px">Gr.</th>
+              <th style="padding:8px;text-align:left;font-size:12px">Professeur</th>
+              <th style="padding:8px;text-align:right;font-size:12px">Pér.</th>
+              <th style="padding:8px;text-align:right;font-size:12px">Aut.</th>
+              <th style="padding:8px;text-align:right;font-size:12px">Total</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${lignesUE}
+            <tr style="background:#1B2B4B;color:white">
+              <td colspan="4" style="padding:10px 8px;font-weight:700;font-size:13px">TOTAL — ${section}</td>
+              <td style="padding:10px 8px;text-align:right;font-weight:700">${fmt(d.total_per)}</td>
+              <td style="padding:10px 8px;text-align:right;font-weight:700">${fmt(d.total_aut)}</td>
+              <td style="padding:10px 8px;text-align:right;font-weight:700">${fmt(d.total)}</td>
+            </tr>
+          </tbody>
+        </table>
+        <p style="font-size:10px;color:#9ca3af;margin-top:16px;text-align:right">
+          Généré le ${new Date().toLocaleDateString('fr-BE')} — Lucie · Institut Ilya Prigogine
+        </p>
+      </div>`;
+
+    setRapportHtml(html);
+  }
   const [sortBy, setSortBy] = useState({ key: null, dir: 'asc' });
   const [selected, setSelected] = useState(new Set());
   const [filtersOpenMobile, setFiltersOpenMobile] = useState(false);
@@ -697,8 +777,12 @@ export default function Attributions() {
             {st.nBad>0 && <span className="text-red-600 font-bold">✗ {st.nBad}</span>}
             {st.nBad===0 && st.nConf>0 && <span className="text-green-600 font-bold">✓</span>}
             {isAdmin && (
-              <button onClick={e=>{e.stopPropagation(); autoFillSection(sg.section);}}
-                className="text-iip-gold hover:text-iip-amber ml-1" title="Remplir automatiquement les périodes prof (0 → cours_per)">🪄</button>
+              <>
+                <button onClick={e=>{e.stopPropagation(); autoFillSection(sg.section);}}
+                  className="text-iip-gold hover:text-iip-amber ml-1" title="Remplir automatiquement les périodes prof (0 → cours_per)">🪄</button>
+                <button onClick={e=>{e.stopPropagation(); genererRapport(sg.section);}}
+                  className="text-gray-400 hover:text-iip-mauve ml-1" title="Rapport d'attributions">📄</button>
+              </>
             )}
             {isAdmin && (
               <button onClick={e=>{e.stopPropagation(); delSection(sg.section);}}
@@ -840,6 +924,7 @@ export default function Attributions() {
         onSaved={(code)=>{ const sec=newCoursForm.section; setNewCoursForm(null); load(); setEditRow({section: sec, code_cours: code}); }}/>}
       {showBulkCreate && <BulkCreateForm onClose={()=>setShowBulkCreate(false)} onCreated={load}/>}
       {showCopierSection && <CopierSectionModal sections={sections} anneeActive={getAnnee()} isAdmin={isAdmin} onClose={()=>setShowCopierSection(false)} onCopied={load}/>}
+      {rapportHtml && <PreviewModal html={rapportHtml} titre="Rapport d'attributions" onClose={() => setRapportHtml(null)} />}
       {editRow && <CoursEditModal section={editRow.section} codeCours={editRow.code_cours} onClose={()=>setEditRow(null)} onChanged={load}/>}
 
       {bulkDeleteModal && (
