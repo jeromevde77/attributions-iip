@@ -2,6 +2,10 @@ import { useState, useEffect, useRef } from 'react';
 import { api } from '../lib/api.js';
 import { eidStatus, eidReadAll, eidToProf, eidChamps } from '../lib/eid.js';
 
+const _tok = () => localStorage.getItem('token');
+const _fetch = (url, opts = {}) =>
+  fetch(url, { ...opts, headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${_tok()}`, ...opts.headers } }).then(r => r.json());
+
 /* ════════════════════════════════════════════════════════════════════════
    Fiche signalétique du membre du personnel (MDP) — annexe 3 FWB
    Encodage complet à l'engagement, dans l'ordre du document officiel.
@@ -84,6 +88,114 @@ function OuiNon({ label, value, onChange }) {
   );
 }
 
+// ─── Grille de disponibilités ─────────────────────────────────────────────────
+const JOURS = ['Lundi', 'Mardi', 'Mercredi', 'Jeudi', 'Vendredi'];
+
+function DispoGrid({ creneaux, dispoQ1, setDispoQ1, dispoQ2, setDispoQ2, profId }) {
+  const [quadrimestre, setQ] = useState('Q1');
+  const [saving, setSaving] = useState(false);
+  const [saved, setSaved]   = useState(false);
+
+  const dispo = quadrimestre === 'Q1' ? dispoQ1 : dispoQ2;
+  const setDispo = quadrimestre === 'Q1' ? setDispoQ1 : setDispoQ2;
+
+  function toggle(jour, creneauId) {
+    const key = `${jour}_${creneauId}`;
+    setDispo(prev => ({ ...prev, [key]: !prev[key] }));
+    setSaved(false);
+  }
+
+  function toutCocher() {
+    const all = {};
+    for (let j = 1; j <= 5; j++)
+      for (const c of creneaux) all[`${j}_${c.id}`] = true;
+    setDispo(all); setSaved(false);
+  }
+
+  function toutDecocher() { setDispo({}); setSaved(false); }
+
+  async function sauvegarder() {
+    setSaving(true);
+    const dispos = [];
+    for (let jour = 1; jour <= 5; jour++) {
+      for (const c of creneaux) {
+        if (dispo[`${jour}_${c.id}`]) dispos.push({ jour, creneau_id: c.id, disponible: 1 });
+      }
+    }
+    await _fetch(`/api/prerequis/disponibilites/${profId}`, {
+      method: 'PUT', body: JSON.stringify({ quadrimestre, dispos }),
+    });
+    setSaving(false); setSaved(true);
+    setTimeout(() => setSaved(false), 2000);
+  }
+
+  return (
+    <div className="space-y-3">
+      {/* Sélecteur Q1/Q2 */}
+      <div className="flex items-center gap-3">
+        {['Q1', 'Q2'].map(q => (
+          <button key={q} onClick={() => setQ(q)}
+            className={`px-4 py-1.5 text-sm rounded-full font-medium transition
+              ${quadrimestre === q ? 'bg-iip-mauve text-white' : 'border border-gray-300 text-gray-600 hover:border-iip-mauve'}`}>
+            {q}
+          </button>
+        ))}
+        <div className="flex gap-2 ml-auto">
+          <button onClick={toutCocher} className="text-xs text-gray-400 hover:text-iip-gold">Tout cocher</button>
+          <button onClick={toutDecocher} className="text-xs text-gray-400 hover:text-red-500">Tout décocher</button>
+        </div>
+      </div>
+
+      {/* Grille jour × créneau */}
+      <div className="overflow-x-auto">
+        <table className="text-xs border-collapse w-full">
+          <thead>
+            <tr>
+              <th className="text-left px-2 py-1.5 text-gray-400 font-normal w-32">Créneau</th>
+              {JOURS.map(j => (
+                <th key={j} className="px-3 py-1.5 text-center text-gray-600 font-medium">{j}</th>
+              ))}
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-gray-100">
+            {creneaux.map(c => (
+              <tr key={c.id} className="hover:bg-gray-50">
+                <td className="px-2 py-2 text-gray-500 font-mono text-[10px]">
+                  {c.heure_debut}–{c.heure_fin}
+                  <span className="ml-1 text-gray-400">{c.label}</span>
+                </td>
+                {[1,2,3,4,5].map(jour => {
+                  const key = `${jour}_${c.id}`;
+                  const actif = !!dispo[key];
+                  return (
+                    <td key={jour} className="px-3 py-2 text-center">
+                      <button onClick={() => toggle(jour, c.id)}
+                        className={`w-8 h-8 rounded-lg border-2 transition font-semibold
+                          ${actif
+                            ? 'bg-iip-gold/20 border-iip-gold text-iip-gold'
+                            : 'bg-white border-gray-200 text-gray-200 hover:border-gray-400'}`}>
+                        {actif ? '✓' : '·'}
+                      </button>
+                    </td>
+                  );
+                })}
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+
+      <div className="flex items-center gap-3">
+        <button onClick={sauvegarder} disabled={saving}
+          className="bg-iip-mauve text-white text-xs px-4 py-1.5 rounded hover:opacity-90 disabled:opacity-50">
+          {saving ? 'Sauvegarde…' : `Enregistrer les dispos ${quadrimestre}`}
+        </button>
+        {saved && <span className="text-xs text-green-500">✓ Sauvegardé</span>}
+      </div>
+    </div>
+  );
+}
+
 export default function ProfFicheModal({ prof, onClose, onSaved }) {
   const isNew = !prof?.id;
 
@@ -117,6 +229,10 @@ export default function ProfFicheModal({ prof, onClose, onSaved }) {
   const [genPdf, setGenPdf] = useState(false);
   const [loading, setLoading] = useState(!isNew);
   const [open, setOpen] = useState({ identite: true }); // sections ouvertes
+  const [creneaux, setCreneaux]         = useState([]);
+  const [dispoQ1, setDispoQ1]           = useState({}); // { 'jour_creneauId': bool }
+  const [dispoQ2, setDispoQ2]           = useState({});
+  const [dispoLoaded, setDispoLoaded]   = useState(false);
 
   function toggle(k) { setOpen(o => ({ ...o, [k]: !o[k] })); }
   function set(k, v) { setForm(f => ({ ...f, [k]: v })); }
@@ -214,6 +330,23 @@ export default function ProfFicheModal({ prof, onClose, onSaved }) {
     }).catch(e => alert('Erreur de chargement : ' + e.message))
       .finally(() => setLoading(false));
   }, [prof, isNew]);
+
+  // ── Disponibilités ──
+  useEffect(() => {
+    _fetch('/api/prerequis/creneaux').then(d => setCreneaux(Array.isArray(d) ? d : []));
+    if (prof?.id && !isNew) {
+      _fetch(`/api/prerequis/disponibilites/${prof.id}`).then(rows => {
+        if (!Array.isArray(rows)) return;
+        const q1 = {}, q2 = {};
+        for (const r of rows) {
+          const key = `${r.jour}_${r.creneau_id}`;
+          if (r.quadrimestre === 'Q1') q1[key] = !!r.disponible;
+          if (r.quadrimestre === 'Q2') q2[key] = !!r.disponible;
+        }
+        setDispoQ1(q1); setDispoQ2(q2); setDispoLoaded(true);
+      });
+    }
+  }, [prof?.id, isNew]);
 
   // ── Titres ──
   function addTitre() { setTitres(t => [...t, { date_obtention: '', intitule: '', delivre_par: '' }]); }
@@ -529,6 +662,19 @@ export default function ProfFicheModal({ prof, onClose, onSaved }) {
               </>
             )}
           </Section>
+
+          {/* ── Section Disponibilités ── */}
+          {!isNew && (
+            <Section titre="8 · Disponibilités horaires" sous="Créneaux disponibles par quadrimestre"
+              ouvert={open.dispos} onToggle={() => toggle('dispos')}>
+              <DispoGrid
+                creneaux={creneaux}
+                dispoQ1={dispoQ1} setDispoQ1={setDispoQ1}
+                dispoQ2={dispoQ2} setDispoQ2={setDispoQ2}
+                profId={prof?.id}
+              />
+            </Section>
+          )}
 
           {/* Actions */}
           <div className="flex justify-end gap-2 pt-2 border-t border-gray-100 sticky bottom-0 bg-white">

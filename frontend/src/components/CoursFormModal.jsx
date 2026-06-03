@@ -25,6 +25,7 @@ export default function CoursFormModal({ cours, ueNum, section, onClose, onSaved
     heures:             cours?.heures              || '',
     cours_autonomie:    cours?.cours_autonomie     || '',
     dedouble:           cours?.dedouble            || 'N',
+    is_stage:           cours?.is_stage            ? 1 : 0,
   });
   const [saving,   setSaving]   = useState(false);
   const [error,    setError]    = useState('');
@@ -233,6 +234,19 @@ export default function CoursFormModal({ cours, ueNum, section, onClose, onSaved
                 </select>
               </label>
             </div>
+
+            {/* Case Stage */}
+            {!isZ && (
+              <label className="flex items-center gap-3 p-3 border border-gray-200 rounded-lg hover:bg-gray-50 cursor-pointer mt-2">
+                <input type="checkbox" checked={!!form.is_stage}
+                  onChange={e => set('is_stage', e.target.checked ? 1 : 0)}
+                  className="w-4 h-4 accent-iip-gold" />
+                <div>
+                  <p className="text-sm font-medium text-gray-700">Stage</p>
+                  <p className="text-xs text-gray-400">Ce cours est un stage — permet de définir le régime dans le planificateur</p>
+                </div>
+              </label>
+            )}
           </div>
 
           {isZ && (

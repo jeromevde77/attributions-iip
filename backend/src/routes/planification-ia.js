@@ -1,0 +1,402 @@
+/**
+ * planification-ia.js — Moteur de génération IA pour la grille horaire
+ * Génère un brouillon de planification basé sur :
+ * - Les prérequis UE (ordre topologique)
+ * - Les quadrimestres des UE (Q1/Q2/Q1Q2)
+ * - Les paramètres (dates Q1/Q2, valeurs EV1/EV2/VC)
+ * - Le pattern d'alternance de chaque groupe
+ * - Les disponibilités des profs (avertissements uniquement)
+ */
+import { Router } from 'express';
+import db from '../db/index.js';
+import { authRequired, roleRequired } from '../middleware/auth.js';
+import { getParam, getParamNum } from './parametres.js';
+
+const r = Router();
+
+// ─── Helpers ─────────────────────────────────────────────────────────────────
+
+function parseDate(s) { return s ? new Date(s + 'T12:00:00') : null; }
+
+function semainesDansIntervalle(semaines, debut, fin) {
+  if (!debut || !fin) return semaines;
+  return semaines.filter(s => {
+    const d = parseDate(s.date_debut);
+    return d >= debut && d <= fin;
+  });
+}
+
+// Tri topologique des UE (Kahn's algorithm)
+function trierParPrerequis(ueNums, prerequisMap) {
+  // prerequisMap = { ue_num: [prerequis_num, ...] }
+  const inDegree = {};
+  const graph = {}; // ue → liste des UE qui en dépendent
+  for (const u of ueNums) { inDegree[u] = 0; graph[u] = []; }
+  for (const [ue, pres] of Object.entries(prerequisMap)) {
+    if (!ueNums.includes(Number(ue))) continue;
+    for (const p of pres) {
+      if (!ueNums.includes(p)) continue;
+      inDegree[ue] = (inDegree[ue] || 0) + 1;
+      if (!graph[p]) graph[p] = [];
+      graph[p].push(Number(ue));
+    }
+  }
+  const queue = ueNums.filter(u => !inDegree[u]);
+  const result = [];
+  while (queue.length) {
+    const u = queue.shift();
+    result.push(u);
+    for (const dep of (graph[u] || [])) {
+      inDegree[dep]--;
+      if (inDegree[dep] === 0) queue.push(dep);
+    }
+  }
+  // Ajouter les UE non résolues (cycles éventuels) à la fin
+  for (const u of ueNums) if (!result.includes(u)) result.push(u);
+  return result;
+}
+
+// Filtrer les semaines selon le pattern
+function appliquerPattern(semaines, pattern, offset) {
+  if (pattern === 'toutes') return semaines;
+  return semaines.filter((_, i) => {
+    const idx = i + (offset || 0);
+    if (pattern === 'paires')   return idx % 2 === 0;
+    if (pattern === 'impaires') return idx % 2 === 1;
+    return true;
+  });
+}
+
+// Distribuer des heures uniformément sur des semaines
+function arrondir(v) {
+  // < 0.5 → inférieur, >= 0.5 → supérieur
+  return v % 1 < 0.5 ? Math.floor(v) : Math.ceil(v);
+}
+
+function distribuerHeures(semaines, hTotal, hParSemaine) {
+  // Répartit hTotal heures uniformément sur TOUTES les semaines disponibles
+  // (pas seulement les premières N) pour éviter la surcharge en début d'année
+  const result = {};
+  if (!semaines.length || hTotal <= 0) return result;
+
+  const n = semaines.length;
+  const hMoyenne = hTotal / n; // heures par semaine en moyenne
+
+  // Si la moyenne est > hParSemaine, on ne peut pas étaler plus — on utilise toutes les semaines
+  // Si la moyenne est < hParSemaine, on étale uniformément (valeurs < 1h possibles, arrondies)
+  let cumul = 0;
+  let total = 0;
+  for (let i = 0; i < n; i++) {
+    cumul += hMoyenne;
+    const hCette = arrondir(cumul) - arrondir(cumul - hMoyenne);
+    if (hCette > 0) {
+      result[semaines[i].id] = hCette;
+      total += hCette;
+    }
+    // Sécurité : ne pas dépasser hTotal
+    if (total >= arrondir(hTotal)) break;
+  }
+  return result;
+}
+
+// ─── Route principale : générer un brouillon ─────────────────────────────────
+// POST /planification-ia/generer
+// body: { section, annee_scolaire, mode: 'preview'|'apply', preserverManuel: bool }
+r.post('/generer', authRequired, roleRequired('admin', 'editeur'), (req, res) => {
+  const { section, annee_scolaire, mode = 'preview', preserverManuel = true } = req.body;
+  if (!section || !annee_scolaire) return res.status(400).json({ error: 'section et annee_scolaire requis' });
+
+  // ── 1. Lire les paramètres ────────────────────────────────────────────────
+  const q1Debut = parseDate(getParam('planning.q1_debut', `${annee_scolaire.slice(0,4)}-09-01`));
+  const q1Fin   = parseDate(getParam('planning.q1_fin',   `${Number(annee_scolaire.slice(0,4))+1}-01-31`));
+  const q2Debut = parseDate(getParam('planning.q2_debut', `${Number(annee_scolaire.slice(0,4))+1}-02-01`));
+  const q2Fin   = parseDate(getParam('planning.q2_fin',   `${Number(annee_scolaire.slice(0,4))+1}-06-30`));
+  const ev1H    = getParamNum('planning.ev1_heures', 2);
+  const ev2H    = getParamNum('planning.ev2_heures', 0);
+  const vcH     = getParamNum('planning.vc_heures',  1);
+  const minSemEV = getParamNum('planning.min_semaines_ev1_ev2', 1);
+
+  // ── 2. Charger les semaines du calendrier ─────────────────────────────────
+  const toutesLesSeamines = db.prepare(
+    'SELECT * FROM annee_calendrier WHERE annee_scolaire = ? ORDER BY semaine_num'
+  ).all(annee_scolaire);
+
+  // Semaines disponibles = tout sauf vacances et fériés (inclut ev1/ev2 pour y poser les évaluations)
+  const semainesCours = toutesLesSeamines.filter(s => s.type !== 'vacances' && s.type !== 'ferie');
+  const semainesQ1    = semainesDansIntervalle(semainesCours, q1Debut, q1Fin);
+  const semainesQ2    = semainesDansIntervalle(semainesCours, q2Debut, q2Fin);
+
+  // Semaine EV1 = dernière semaine Q1, VC = juste après, EV2 = dernière semaine Q2
+  // EV1/VC/EV2 sont placés par UE, après les derniers cours de chaque groupe
+  // (pas de dates fixes globales — chaque cours a ses propres évaluations)
+
+  // ── 3. Charger les groupes de la section ─────────────────────────────────
+  const groupes = db.prepare(`
+    SELECT g.*, 
+           COALESCE(u.ue_quad, g.ue_quad) AS ue_quad,
+           u.is_epreuve_integree, u.ue_nom, u.ue_niv,
+           at.libelle AS activite_nom
+    FROM groupe g
+    LEFT JOIN ue u ON u.ue_num = g.ue_num AND u.annee_scolaire = g.annee_scolaire
+    LEFT JOIN activite_type at ON at.id = g.activite_id
+    WHERE g.annee_scolaire = ? AND g.section = ?
+    ORDER BY g.ue_num, g.nom, g.activite_id
+  `).all(annee_scolaire, section);
+
+  if (!groupes.length) return res.status(404).json({ error: `Aucun groupe trouvé pour ${section} ${annee_scolaire}` });
+
+  // ── 3b. Charger le séquencement des cours ────────────────────────────────
+  const seqRows = db.prepare(`
+    SELECT groupe_id, ue_num, rang, delai_avant
+    FROM cours_sequence
+    WHERE section = ? AND annee_scolaire = ?
+    ORDER BY ue_num, rang
+  `).all(section, annee_scolaire);
+  // Map groupe_id → { rang, delai_avant }
+  const seqMap = {};
+  // Map ue_num → { rang → semaine de début (calculée après placement) }
+  const seqDebutParRang = {};
+  for (const s of seqRows) seqMap[s.groupe_id] = { rang: s.rang, delai_avant: s.delai_avant, ue_num: s.ue_num };
+
+  // ── 4. Charger les prérequis et trier les UE ──────────────────────────────
+  const prereqRows = db.prepare(`
+    SELECT ue_num, prerequis_num FROM ue_prerequis
+    WHERE (section = ? OR section IS NULL) AND (annee_scolaire = ? OR annee_scolaire IS NULL)
+  `).all(section, annee_scolaire);
+
+  const prerequisMap = {}; // ue_num → [prerequis_nums]
+  for (const { ue_num, prerequis_num } of prereqRows) {
+    if (!prerequisMap[ue_num]) prerequisMap[ue_num] = [];
+    prerequisMap[ue_num].push(prerequis_num);
+  }
+
+  // BA1/BA2/BA3 = années académiques différentes → pas de prérequis inter-niveaux
+  // MAIS les prérequis intra-niveau (même ue_niv) sont intra-annuels → à respecter
+  const ueNums = [...new Set(groupes.map(g => g.ue_num))];
+
+  // Construire map ue_num → ue_niv pour filtrer les prérequis intra-annuels
+  const ueNivMap = {};
+  for (const g of groupes) if (g.ue_niv) ueNivMap[g.ue_num] = g.ue_niv;
+
+  // Filtrer : ne garder que les prérequis où UE et prérequis sont du même niveau BA
+  const prerequisIntraAnnuel = {};
+  for (const [ue, pres] of Object.entries(prerequisMap)) {
+    const nivUE = ueNivMap[Number(ue)];
+    for (const p of pres) {
+      const nivPre = ueNivMap[p];
+      // Même niveau BA → prérequis intra-annuel valide
+      if (nivUE && nivPre && nivUE === nivPre) {
+        if (!prerequisIntraAnnuel[ue]) prerequisIntraAnnuel[ue] = [];
+        prerequisIntraAnnuel[ue].push(p);
+      }
+    }
+  }
+
+  const ueOrdre = trierParPrerequis(ueNums, prerequisIntraAnnuel);
+
+  // ── 5. Charger les cellules manuelles existantes ──────────────────────────
+  const groupeIds = groupes.map(g => g.id);
+  const cellulesExistantes = {};
+  if (groupeIds.length) {
+    const rows = db.prepare(`
+      SELECT groupe_id, semaine_id, valeur, manuel
+      FROM planification
+      WHERE groupe_id IN (${groupeIds.map(() => '?').join(',')})
+    `).all(...groupeIds);
+    for (const r of rows) {
+      cellulesExistantes[`${r.groupe_id}_${r.semaine_id}`] = { valeur: r.valeur, manuel: r.manuel };
+    }
+  }
+
+  // ── 6. Calculer la dernière semaine utilisée par UE (pour prérequis) ──────
+  // Après avoir posé toutes les UE, on connaît leur "fin"
+  const finUE = {}; // ue_num → semaine_num max utilisée
+  const proposition = {}; // groupe_id → { semaine_id: valeur }
+  const alertes = [];
+
+  // Trier les groupes par ordre topologique des UE
+  const groupesOrdonnes = [];
+  for (const ueNum of ueOrdre) {
+    for (const g of groupes.filter(g => g.ue_num === ueNum)) {
+      groupesOrdonnes.push(g);
+    }
+  }
+
+  // ── 7. Générer la planification pour chaque groupe ────────────────────────
+  for (const groupe of groupesOrdonnes) {
+    proposition[groupe.id] = {};
+
+    // Ne pas écraser les cellules manuelles si preserverManuel
+    const cellulesFixees = new Set();
+    if (preserverManuel) {
+      for (const [key, cell] of Object.entries(cellulesExistantes)) {
+        if (key.startsWith(`${groupe.id}_`) && cell.manuel) {
+          const semaineId = Number(key.split('_')[1]);
+          proposition[groupe.id][semaineId] = cell.valeur;
+          cellulesFixees.add(semaineId);
+        }
+      }
+    }
+
+    // Déterminer les semaines disponibles selon le quadrimestre de l'UE
+    const quadRaw = String(groupe.ue_quad || '').toUpperCase().replace(/\s/g, '');
+    const quad = quadRaw === 'Q1' ? 'Q1' : quadRaw === 'Q2' ? 'Q2' : 'Q1Q2';
+    let semainesDispos;
+    if (quad === 'Q1')      semainesDispos = [...semainesQ1];
+    else if (quad === 'Q2') semainesDispos = [...semainesQ2];
+    else                    semainesDispos = [...semainesCours]; // annuel
+
+    // Les prérequis sont inter-annuels en promotion sociale :
+    // → pas de contrainte intra-annuelle basée sur les prérequis.
+
+    // Contraintes de séquencement intra-UE (depuis cours_sequence)
+    const seqInfo = seqMap[groupe.id];
+    if (seqInfo && seqInfo.rang > 0) {
+      // Trouver la fin des rangs précédents de cette UE
+      const ueRangs = seqDebutParRang[seqInfo.ue_num] || {};
+      let debutMin = 0;
+      for (let r = 0; r < seqInfo.rang; r++) {
+        const fin = ueRangs[r];
+        if (fin && fin > debutMin) debutMin = fin;
+      }
+      debutMin += seqInfo.delai_avant;
+      if (debutMin > 0) {
+        semainesDispos = semainesDispos.filter(s => s.semaine_num > debutMin);
+      }
+    }
+
+    // Appliquer le pattern d'alternance
+    semainesDispos = appliquerPattern(semainesDispos, groupe.pattern || 'toutes', groupe.pattern_offset || 0);
+
+    // Exclure les semaines déjà fixées manuellement
+    semainesDispos = semainesDispos.filter(s => !cellulesFixees.has(s.id));
+
+    // Calculer les heures déjà fixées manuellement
+    let hDejaFixees = 0;
+    for (const semaineId of cellulesFixees) {
+      const val = proposition[groupe.id][semaineId];
+      const up = String(val || '').toUpperCase();
+      if (up === 'EV1') hDejaFixees += ev1H;
+      else if (up === 'VC') hDejaFixees += vcH;
+      else if (up !== 'EV2') hDejaFixees += parseFloat(val) || 0;
+    }
+
+    const hRestante = Math.max(0, (groupe.heures_attribuees || 0) - hDejaFixees);
+
+    // Distribuer les heures restantes (2h par semaine par défaut)
+    // Distribuer uniformément sur toutes les semaines disponibles
+    const distribution = distribuerHeures(semainesDispos, hRestante, Infinity);
+    for (const [semaineId, h] of Object.entries(distribution)) {
+      proposition[groupe.id][Number(semaineId)] = h;
+    }
+
+    // EV1/VC/EV2 : placés après le dernier cours de l'UE
+    // Trouver la dernière semaine de cours pour ce groupe
+    const semainesAvecCours = Object.keys(proposition[groupe.id])
+      .map(Number)
+      .filter(sid => {
+        const v = proposition[groupe.id][sid];
+        return v && !['EV1','VC','EV2'].includes(String(v).toUpperCase());
+      });
+
+    if (semainesAvecCours.length > 0) {
+      const maxSemId = Math.max(...semainesAvecCours);
+      const maxSemIdx = toutesLesSeamines.findIndex(s => s.id === maxSemId);
+
+      // EV1 = 1ère semaine typée 'ev1' après le dernier cours
+      // (si aucune ev1 disponible, prendre la 1ère semaine non-vacances)
+      const semEV1Groupe = toutesLesSeamines.slice(maxSemIdx + 1)
+        .find(s => s.type === 'ev1')
+        || toutesLesSeamines.slice(maxSemIdx + 1)
+           .find(s => s.type !== 'vacances' && s.type !== 'ferie');
+      if (semEV1Groupe && !cellulesFixees.has(semEV1Groupe.id)) {
+        proposition[groupe.id][semEV1Groupe.id] = 'EV1';
+
+        // VC = semaine suivante non-vacances
+        const idxEV1G = toutesLesSeamines.findIndex(s => s.id === semEV1Groupe.id);
+        const semVCGroupe = toutesLesSeamines.slice(idxEV1G + 1)
+          .find(s => s.type !== 'vacances' && s.type !== 'ferie');
+        if (semVCGroupe && !cellulesFixees.has(semVCGroupe.id)) {
+          proposition[groupe.id][semVCGroupe.id] = 'VC';
+
+          // EV2 : décret → max 4 mois (≈16 semaines) après EV1
+          // 1ère semaine typée 'ev2' dans ce délai, sinon 1ère semaine non-vacances
+          const idxEV1 = toutesLesSeamines.findIndex(s => s.id === semEV1Groupe.id);
+          const MAX_SEM_EV2 = 16;
+          const fenetreEV2 = toutesLesSeamines.slice(idxEV1 + 2, idxEV1 + 2 + MAX_SEM_EV2);
+          const semEV2Groupe = fenetreEV2.find(s => s.type === 'ev2')
+            || fenetreEV2.find(s => s.type !== 'vacances' && s.type !== 'ferie');
+          if (semEV2Groupe && !cellulesFixees.has(semEV2Groupe.id)) {
+            proposition[groupe.id][semEV2Groupe.id] = 'EV2';
+          } else if (!semEV2Groupe) {
+            alertes.push({
+              groupe_id: groupe.id,
+              ue_num: groupe.ue_num,
+              msg: `UE${groupe.ue_num} ${groupe.ue_nom || ''} : impossible de placer EV2 dans les 4 mois après EV1 (décret). Vérifiez le calendrier.`
+            });
+          }
+        }
+      }
+    }
+
+    // Mettre à jour la fin de cette UE pour les prérequis suivants
+    const semainesUtilisees = Object.keys(proposition[groupe.id]).map(Number);
+    if (semainesUtilisees.length) {
+      const maxSemId = Math.max(...semainesUtilisees);
+      const sem = toutesLesSeamines.find(s => s.id === maxSemId);
+      if (sem) {
+        finUE[groupe.ue_num] = Math.max(finUE[groupe.ue_num] || 0, sem.semaine_num);
+        // Enregistrer la fin de ce rang pour le séquencement intra-UE
+        if (seqInfo) {
+          if (!seqDebutParRang[seqInfo.ue_num]) seqDebutParRang[seqInfo.ue_num] = {};
+          const finActuelle = seqDebutParRang[seqInfo.ue_num][seqInfo.rang] || 0;
+          seqDebutParRang[seqInfo.ue_num][seqInfo.rang] = Math.max(finActuelle, sem.semaine_num);
+        }
+      }
+    }
+  }
+
+  // ── 8. Appliquer ou retourner en preview ──────────────────────────────────
+  if (mode === 'apply') {
+    const upsert = db.transaction(() => {
+      for (const [groupeIdStr, cellules] of Object.entries(proposition)) {
+        const groupeId = Number(groupeIdStr);
+        // Supprimer les cellules non-manuelles existantes pour ce groupe
+        if (!preserverManuel) {
+          db.prepare('DELETE FROM planification WHERE groupe_id = ?').run(groupeId);
+        } else {
+          db.prepare('DELETE FROM planification WHERE groupe_id = ? AND (manuel = 0 OR manuel IS NULL)').run(groupeId);
+        }
+        // Insérer les nouvelles cellules
+        for (const [semaineIdStr, valeur] of Object.entries(cellules)) {
+          const semaineId = Number(semaineIdStr);
+          if (!valeur && valeur !== 0) continue;
+          db.prepare(`INSERT OR REPLACE INTO planification (groupe_id, semaine_id, valeur, manuel)
+            VALUES (?,?,?,0)`).run(groupeId, semaineId, String(valeur));
+        }
+      }
+    });
+    upsert();
+
+    res.json({
+      ok: true,
+      groupes_traites: groupesOrdonnes.length,
+      alertes,
+      message: `${groupesOrdonnes.length} groupe(s) planifiés pour ${section} ${annee_scolaire}`
+    });
+  } else {
+    // Preview : retourner la proposition sans écrire
+    res.json({
+      ok: true,
+      proposition, // { groupe_id: { semaine_id: valeur } }
+      alertes,
+      meta: {
+        groupes_traites: groupesOrdonnes.length,
+        ue_ordre: ueOrdre,
+        note_evaluations: 'EV1/VC/EV2 placés après les derniers cours de chaque groupe',
+      }
+    });
+  }
+});
+
+export default r;

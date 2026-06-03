@@ -24,6 +24,10 @@ import templateRoutes   from './routes/templates.js';
 import contratsRoutes   from './routes/contrats.js';
 import proceduresRoutes from './routes/procedures.js';
 import planificationRoutes from './routes/planification.js';
+import parametresRoutes    from './routes/parametres.js';
+import prerequisRoutes     from './routes/prerequis.js';
+import planifIARoutes      from './routes/planification-ia.js';
+import sequenceRoutes      from './routes/sequence.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
@@ -43,25 +47,63 @@ try {
   // 1. Créer la table activite_type si elle n'existe pas
   db.exec(`
     CREATE TABLE IF NOT EXISTS activite_type (
-      id      INTEGER PRIMARY KEY AUTOINCREMENT,
-      libelle TEXT NOT NULL UNIQUE,
-      ordre   INTEGER DEFAULT 0
+      id             INTEGER PRIMARY KEY AUTOINCREMENT,
+      libelle        TEXT NOT NULL,
+      ordre          INTEGER DEFAULT 0,
+      section        TEXT,              -- NULL = global, sinon spécifique à une section
+      ue_num         INTEGER,           -- NULL = toute section, sinon spécifique à un cours
+      annee_scolaire TEXT               -- NULL = toutes années
     );
   `);
   const count = db.prepare('SELECT COUNT(*) AS n FROM activite_type').get().n;
   if (count === 0) {
     db.exec(`
       INSERT INTO activite_type (id, libelle, ordre) VALUES
-        (1, 'Théorie',                1),
-        (2, 'Exercices',              2),
-        (3, 'Travaux pratiques (TP)', 3),
-        (4, 'Laboratoire',            4),
-        (5, 'Stage',                  5),
-        (6, 'Séminaire',              6),
-        (7, 'TFE',                    7);
+        (1, 'Théorie',                    1),
+        (2, 'Exercices',                  2),
+        (3, 'Travaux pratiques (TP)',      3),
+        (4, 'Laboratoire',                4),
+        (5, 'Stage',                      5),
+        (6, 'Séminaire',                  6),
+        (7, 'TFE',                        7),
+        (8, 'Remédiation',                8),
+        (9, 'Visite des copies',          9),
+        (10,'Cours hybride asynchrone',   10),
+        (11,'Cours hybride synchrone',    11),
+        (12,'Clinique',                   12),
+        (13,'Atelier',                    13),
+        (14,'Simulation',                 14);
     `);
     console.log('[migration] Table activite_type initialisée');
   }
+
+  // Migration : ajouter section/ue_num/annee_scolaire à activite_type si absents
+  const _colsAT = db.prepare('PRAGMA table_info(activite_type)').all().map(c => c.name);
+  if (!_colsAT.includes('section')) {
+    db.exec(`ALTER TABLE activite_type ADD COLUMN section TEXT`);
+    console.log('[migration] activite_type.section ajouté');
+  }
+  if (!_colsAT.includes('ue_num')) {
+    db.exec(`ALTER TABLE activite_type ADD COLUMN ue_num INTEGER`);
+    console.log('[migration] activite_type.ue_num ajouté');
+  }
+  if (!_colsAT.includes('annee_scolaire')) {
+    db.exec(`ALTER TABLE activite_type ADD COLUMN annee_scolaire TEXT`);
+    console.log('[migration] activite_type.annee_scolaire ajouté');
+  }
+
+  // Ajouter les nouvelles activités globales si absentes (pour installations existantes)
+  const _activitesGlobales = [
+    [8,  'Remédiation',              8],
+    [9,  'Visite des copies',        9],
+    [10, 'Cours hybride asynchrone', 10],
+    [11, 'Cours hybride synchrone',  11],
+    [12, 'Clinique',                 12],
+    [13, 'Atelier',                  13],
+    [14, 'Simulation',               14],
+  ];
+  const _insAct = db.prepare('INSERT OR IGNORE INTO activite_type (id, libelle, ordre) VALUES (?,?,?)');
+  for (const a of _activitesGlobales) _insAct.run(...a);
 
   // 2. Ajouter la colonne attribution.activite_id si elle n'existe pas
   const cols = db.prepare("PRAGMA table_info(attribution)").all();
@@ -95,6 +137,10 @@ try {
   if (!colsCours.find(c => c.name === 'per_etudiant')) {
     db.exec(`ALTER TABLE cours ADD COLUMN per_etudiant INTEGER;`);
     console.log('[migration] Colonne cours.per_etudiant ajoutée (périodes étudiant pour cours Z)');
+  }
+  if (!colsCours.find(c => c.name === 'is_stage')) {
+    db.exec(`ALTER TABLE cours ADD COLUMN is_stage INTEGER DEFAULT 0;`);
+    console.log('[migration] Colonne cours.is_stage ajoutée');
   }
   const colsUe = db.prepare("PRAGMA table_info(ue)").all();
   if (!colsUe.find(c => c.name === 'ue_per_z')) {
@@ -298,7 +344,31 @@ try {
     CREATE INDEX IF NOT EXISTS idx_plan_semaine  ON planification(semaine_id);
   `);
 
-  // Seed calendrier 2025-2026 (FWB) si absent
+  // Migration : colonne planification.heures TEXT (pour stocker EV1, EV2, VC)
+  const _colsPlan = db.prepare('PRAGMA table_info(planification)').all();
+  const _heuresCol = _colsPlan.find(c => c.name === 'heures');
+  if (_heuresCol && _heuresCol.type !== 'TEXT') {
+    db.exec(`
+      CREATE TABLE IF NOT EXISTS planification_new (
+        id         INTEGER PRIMARY KEY AUTOINCREMENT,
+        groupe_id  INTEGER NOT NULL REFERENCES groupe(id) ON DELETE CASCADE,
+        semaine_id INTEGER NOT NULL REFERENCES annee_calendrier(id) ON DELETE CASCADE,
+        valeur     TEXT NOT NULL DEFAULT '0',
+        UNIQUE(groupe_id, semaine_id)
+      );
+      INSERT INTO planification_new (groupe_id, semaine_id, valeur)
+        SELECT groupe_id, semaine_id, CAST(heures AS TEXT) FROM planification WHERE heures > 0;
+      DROP TABLE planification;
+      ALTER TABLE planification_new RENAME TO planification;
+      CREATE INDEX IF NOT EXISTS idx_plan_groupe  ON planification(groupe_id);
+      CREATE INDEX IF NOT EXISTS idx_plan_semaine ON planification(semaine_id);
+    `);
+    console.log('[migration] planification.heures → valeur TEXT');
+  }
+  // Ajouter colonne valeur si absente (cas table existante sans migration)
+  if (!_colsPlan.find(c => c.name === 'valeur') && _colsPlan.find(c => c.name === 'heures')) {
+    // déjà géré ci-dessus
+  }
   const _calExist = db.prepare("SELECT COUNT(*) AS n FROM annee_calendrier WHERE annee_scolaire = '2025-2026'").get();
   if (_calExist.n === 0) {
     // Génération automatique des semaines du 01/09/2025 au 26/06/2026
@@ -439,12 +509,264 @@ try {
     CREATE INDEX IF NOT EXISTS idx_proc_statut  ON procedure_archive(statut);
   `);
 
+  // ── Table parametre : configuration centralisée ─────────────────────────────
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS parametre (
+      cle     TEXT PRIMARY KEY,
+      valeur  TEXT NOT NULL,
+      label   TEXT,
+      section TEXT,   -- NULL = global, sinon spécifique à une section
+      groupe  TEXT    -- regroupement UI : 'planification'|'procedures'|'etablissement'
+    );
+  `);
+
+  // Seed des paramètres par défaut (INSERT OR IGNORE = ne pas écraser les valeurs existantes)
+  const _params = [
+    // Planification
+    ['planning.ev1_heures',              '2',                               'Heures comptées pour EV1',                             null, 'planification'],
+    ['planning.ev2_heures',              '0',                               'Heures comptées pour EV2',                             null, 'planification'],
+    ['planning.vc_heures',               '1',                               'Heures comptées pour VC (visite des copies)',           null, 'planification'],
+    ['planning.periode_minutes',         '50',                              'Durée d\'une période (minutes)',                        null, 'planification'],
+    ['planning.min_semaines_ev1_ev2',    '1',                               'Semaines minimum libres entre EV1 et EV2',             null, 'planification'],
+    // Procédures
+    ['procedures.email_direction',       'direction@institut-prigogine.be', 'Email de la direction (procédures)',                   null, 'procedures'],
+    ['procedures.delai_recours_jours',   '4',                               'Délai recours interne (jours calendrier)',              null, 'procedures'],
+    ['procedures.delai_decision_jours',  '7',                               'Délai décision interne (jours calendrier)',             null, 'procedures'],
+    ['procedures.delai_ext_cal_jours',   '7',                               'Délai recours externe (jours calendrier)',              null, 'procedures'],
+    ['procedures.delai_ext_ouv_jours',   '3',                               'Jours ouvrables avant délai recours externe',          null, 'procedures'],
+    // Établissement
+    ['etab.nom',                         'Institut Ilya Prigogine',         'Nom de l\'établissement',                              null, 'etablissement'],
+  ];
+  const _insertParam = db.prepare(`INSERT OR IGNORE INTO parametre (cle, valeur, label, section, groupe) VALUES (?,?,?,?,?)`);
+  const _seedParams = db.transaction(() => { for (const p of _params) _insertParam.run(...p); });
+  _seedParams();
+
   // Ajouter procedure_id à document_archive si absent (lien vers la procédure)
   const _colsDocArch = db.prepare('PRAGMA table_info(document_archive)').all();
   if (!_colsDocArch.find(c => c.name === 'procedure_id')) {
     db.exec(`ALTER TABLE document_archive ADD COLUMN procedure_id INTEGER REFERENCES procedure_archive(id) ON DELETE SET NULL`);
     console.log('[migration] Colonne document_archive.procedure_id ajoutée');
   }
+
+  // ── Prérequis entre UE ─────────────────────────────────────────────────────
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS ue_prerequis (
+      id              INTEGER PRIMARY KEY AUTOINCREMENT,
+      ue_num          INTEGER NOT NULL,       -- UE qui a le prérequis
+      prerequis_num   INTEGER NOT NULL,       -- UE qui doit être terminée avant
+      section         TEXT,                   -- NULL = toutes sections
+      annee_scolaire  TEXT,                   -- NULL = toutes années
+      UNIQUE(ue_num, prerequis_num, section, annee_scolaire)
+    );
+    CREATE INDEX IF NOT EXISTS idx_ueprereq_ue  ON ue_prerequis(ue_num);
+    CREATE INDEX IF NOT EXISTS idx_ueprereq_pre ON ue_prerequis(prerequis_num);
+  `);
+
+  // Flag épreuve intégrée sur la table UE
+  const _colsUE = db.prepare('PRAGMA table_info(ue)').all();
+  if (!_colsUE.find(c => c.name === 'is_epreuve_integree')) {
+    db.exec(`ALTER TABLE ue ADD COLUMN is_epreuve_integree INTEGER DEFAULT 0`);
+    console.log('[migration] Colonne ue.is_epreuve_integree ajoutée');
+    // Marquer les épreuves intégrées connues
+    const _epNums = [80, 190, 264, 307];
+    for (const n of _epNums) {
+      db.prepare('UPDATE ue SET is_epreuve_integree = 1 WHERE ue_num = ?').run(n);
+    }
+  }
+
+  // ── Créneaux horaires fixes de l'établissement ────────────────────────────
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS creneau (
+      id          INTEGER PRIMARY KEY AUTOINCREMENT,
+      heure_debut TEXT NOT NULL,   -- '08:00'
+      heure_fin   TEXT NOT NULL,   -- '10:00'
+      ordre       INTEGER NOT NULL,
+      label       TEXT
+    );
+  `);
+  const _creneaux = db.prepare('SELECT COUNT(*) AS n FROM creneau').get();
+  if (_creneaux.n === 0) {
+    const _insC = db.prepare('INSERT INTO creneau (heure_debut, heure_fin, ordre, label) VALUES (?,?,?,?)');
+    const _seedC = db.transaction(() => {
+      _insC.run('08:00', '10:00', 1, 'Matin 1');
+      _insC.run('10:15', '12:15', 2, 'Matin 2');
+      _insC.run('13:15', '15:15', 3, 'Après-midi 1');
+      _insC.run('15:30', '17:30', 4, 'Après-midi 2');
+      _insC.run('17:30', '19:30', 5, 'Soirée');
+    });
+    _seedC();
+    console.log('[seed] 5 créneaux horaires créés');
+  }
+
+  // ── Disponibilités des professeurs ────────────────────────────────────────
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS prof_disponibilite (
+      id              INTEGER PRIMARY KEY AUTOINCREMENT,
+      professeur_id   INTEGER NOT NULL REFERENCES professeur(id) ON DELETE CASCADE,
+      quadrimestre    TEXT NOT NULL,   -- 'Q1' | 'Q2'
+      jour            INTEGER NOT NULL, -- 1=lun .. 5=ven
+      creneau_id      INTEGER NOT NULL REFERENCES creneau(id),
+      disponible      INTEGER NOT NULL DEFAULT 1,
+      UNIQUE(professeur_id, quadrimestre, jour, creneau_id)
+    );
+    CREATE INDEX IF NOT EXISTS idx_profdispo_prof ON prof_disponibilite(professeur_id);
+  `);
+
+  // ── Pattern d'alternance par groupe ──────────────────────────────────────
+  const _colsGroupe = db.prepare('PRAGMA table_info(groupe)').all();
+  if (!_colsGroupe.find(c => c.name === 'pattern')) {
+    db.exec(`ALTER TABLE groupe ADD COLUMN pattern TEXT DEFAULT 'toutes'`);
+    console.log('[migration] Colonne groupe.pattern ajoutée');
+  }
+  if (!_colsGroupe.find(c => c.name === 'pattern_offset')) {
+    db.exec(`ALTER TABLE groupe ADD COLUMN pattern_offset INTEGER DEFAULT 0`);
+    console.log('[migration] Colonne groupe.pattern_offset ajoutée');
+  }
+  if (!_colsGroupe.find(c => c.name === 'activite_id')) {
+    db.exec(`ALTER TABLE groupe ADD COLUMN activite_id INTEGER REFERENCES activite_type(id)`);
+    console.log('[migration] Colonne groupe.activite_id ajoutée');
+  }
+  if (!_colsGroupe.find(c => c.name === 'code_cours')) {
+    db.exec(`ALTER TABLE groupe ADD COLUMN code_cours TEXT`);
+    console.log('[migration] Colonne groupe.code_cours ajoutée');
+  }
+  if (!_colsGroupe.find(c => c.name === 'ue_quad')) {
+    db.exec(`ALTER TABLE groupe ADD COLUMN ue_quad TEXT`);
+    console.log('[migration] Colonne groupe.ue_quad ajoutée');
+  }
+
+  // Mettre à jour ue_quad des groupes existants depuis la table ue
+  const _updatedQuad = db.prepare(`
+    UPDATE groupe SET ue_quad = (
+      SELECT ue_quad FROM ue 
+      WHERE ue.ue_num = groupe.ue_num AND ue.annee_scolaire = groupe.annee_scolaire
+    )
+    WHERE ue_quad IS NULL
+  `).run();
+  if (_updatedQuad.changes > 0) {
+    console.log(`[migration] groupe.ue_quad mis à jour pour ${_updatedQuad.changes} groupe(s)`);
+  }
+
+  // ── Sections masquées de la page Attributions ───────────────────────────
+  // Une section listée ici n'apparaît plus dans la vue Attributions (y compris
+  // ses lignes Z synthétiques), mais le référentiel (cours, UE) reste intact.
+  // Le masque est par année scolaire.
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS section_masquee (
+      section        TEXT NOT NULL,
+      annee_scolaire TEXT NOT NULL,
+      masque_le      TEXT DEFAULT (datetime('now')),
+      PRIMARY KEY (section, annee_scolaire)
+    );
+  `);
+
+  // ── Séquencement des cours dans les UE ───────────────────────────────────
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS cours_sequence (
+      id             INTEGER PRIMARY KEY AUTOINCREMENT,
+      section        TEXT NOT NULL,
+      annee_scolaire TEXT NOT NULL,
+      ue_num         INTEGER NOT NULL,
+      groupe_id      INTEGER NOT NULL REFERENCES groupe(id) ON DELETE CASCADE,
+      rang           INTEGER NOT NULL DEFAULT 0,
+      delai_avant    INTEGER NOT NULL DEFAULT 0,  -- semaines d'attente avant ce rang
+      UNIQUE(groupe_id)
+    );
+    CREATE INDEX IF NOT EXISTS idx_coursseq_section ON cours_sequence(section, annee_scolaire, ue_num);
+  `);
+  const _colsPlanif = db.prepare('PRAGMA table_info(planification)').all();
+  if (!_colsPlanif.find(c => c.name === 'manuel')) {
+    db.exec(`ALTER TABLE planification ADD COLUMN manuel INTEGER DEFAULT 0`);
+    console.log('[migration] Colonne planification.manuel ajoutée');
+  }
+
+  // ── Seed des prérequis depuis les organigrammes ───────────────────────────
+  const _prereqExist = db.prepare('SELECT COUNT(*) AS n FROM ue_prerequis').get();
+  if (_prereqExist.n === 0) {
+    const _insP = db.prepare(`INSERT OR IGNORE INTO ue_prerequis (ue_num, prerequis_num, section) VALUES (?,?,?)`);
+    const _seedP = db.transaction(() => {
+      // ── Psychomotricité ──────────────────────────────────────
+      const P = 'Psychomotricité';
+      _insP.run(73, 65, P);
+      _insP.run(75, 73, P);
+      _insP.run(70, 75, P);
+      _insP.run(71, 70, P);
+      _insP.run(74, 71, P);
+      _insP.run(74, 72, P);
+      _insP.run(72, 75, P);
+      _insP.run(72, 68, P);
+      _insP.run(77, 76, P);
+      _insP.run(77, 65, P);
+      _insP.run(78, 77, P);
+      _insP.run(79, 78, P);
+      _insP.run(79, 71, P);
+      _insP.run(68, 67, P);
+      // UE80 épreuve intégrée : dépend de toutes (géré via is_epreuve_integree)
+
+      // ── TIM (Imagerie médicale) ──────────────────────────────
+      const T = 'TIM';
+      _insP.run(247, 246, T);
+      _insP.run(252, 260, T);
+      _insP.run(253, 252, T);
+      _insP.run(250, 248, T);
+      _insP.run(250, 249, T);
+      _insP.run(251, 250, T);
+      _insP.run(251, 253, T);
+      _insP.run(261, 250, T);
+      _insP.run(261, 254, T);
+      _insP.run(255, 254, T);
+      _insP.run(255, 258, T);
+      _insP.run(259, 255, T);
+      _insP.run(262, 261, T);
+      _insP.run(262, 255, T);
+      _insP.run(256, 255, T);
+      _insP.run(263, 262, T);
+      _insP.run(263, 256, T);
+      _insP.run(263, 259, T);
+      // UE264 épreuve intégrée
+
+      // ── Optométrie ───────────────────────────────────────────
+      const O = 'Optométrie';
+      _insP.run(296, 287, O);
+      _insP.run(289, 303, O);
+      _insP.run(298, 291, O);
+      _insP.run(298, 290, O);
+      _insP.run(299, 298, O);
+      _insP.run(301, 291, O);
+      _insP.run(305, 299, O);
+      _insP.run(305, 301, O);
+      _insP.run(300, 299, O);
+      _insP.run(302, 301, O);
+      _insP.run(297, 286, O);
+      _insP.run(304, 288, O);
+      _insP.run(304, 295, O);
+      _insP.run(294, 292, O);
+      _insP.run(306, 305, O);
+      _insP.run(306, 300, O);
+      _insP.run(306, 302, O);
+      // UE307 épreuve intégrée
+
+      // ── Opticien ─────────────────────────────────────────────
+      const Op = 'Optique';
+      _insP.run(177, 176, Op);
+      _insP.run(182, 177, Op);
+      _insP.run(185, 182, Op);
+      _insP.run(186, 182, Op);
+      // UE190 épreuve intégrée
+    });
+    _seedP();
+    console.log('[seed] Prérequis UE chargés (Psychomotricité, TIM, Optométrie, Opticien)');
+  }
+
+  // Paramètres Q1/Q2 (ajout si absents)
+  const _qParams = [
+    ['planning.q1_debut', '2026-09-01', 'Date début Q1', null, 'planification'],
+    ['planning.q1_fin',   '2027-01-31', 'Date fin Q1',   null, 'planification'],
+    ['planning.q2_debut', '2027-02-01', 'Date début Q2', null, 'planification'],
+    ['planning.q2_fin',   '2027-06-30', 'Date fin Q2',   null, 'planification'],
+  ];
+  const _insQP = db.prepare(`INSERT OR IGNORE INTO parametre (cle, valeur, label, section, groupe) VALUES (?,?,?,?,?)`);
+  for (const p of _qParams) _insQP.run(...p);
 
   // 5c. Table ue_section (rattachement many-to-many UE <-> sections)
   db.exec(`
@@ -1097,6 +1419,14 @@ try {
     console.log('[migration] Pilotage civil : dotation_civile + enveloppe_externe initialisés');
   }
 
+  // Enveloppe spéciale AeSI (hors dotation organique) — périodes encore inconnues (0)
+  try {
+    const insAesi = db.prepare("INSERT OR IGNORE INTO enveloppe_externe (code, label, annee_civile, periodes_b, notes) VALUES (?,?,?,?,?)");
+    for (const ac of [2025, 2026]) {
+      insAesi.run('AESI', 'AeSI', ac, 0, 'Enveloppe spéciale hors dotation organique — périodes à confirmer');
+    }
+  } catch (e) { console.error('[migration] enveloppe AeSI :', e.message); }
+
 } catch (e) {
   console.error('[migration] ERREUR :', e.message);
   console.error(e.stack);
@@ -1383,6 +1713,10 @@ app.use('/api/templates',   templateRoutes);
 app.use('/api/contrats',    contratsRoutes);
 app.use('/api/procedures',    proceduresRoutes);
 app.use('/api/planification', planificationRoutes);
+app.use('/api/parametres',   parametresRoutes);
+app.use('/api/prerequis',      prerequisRoutes);
+app.use('/api/planification-ia', planifIARoutes);
+app.use('/api/sequence',        sequenceRoutes);
 
 // Route logo IIP
 import { createRequire as _cr } from 'module';

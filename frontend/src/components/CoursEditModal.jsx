@@ -20,6 +20,7 @@ export default function CoursEditModal({ section, codeCours, onClose, onChanged 
   const [profs, setProfs] = useState([]);
   const [activites, setActivites] = useState([]);
   const [error, setError] = useState('');
+  const [showNewActivite, setShowNewActivite] = useState(null); // { rowId }
 
   // Lignes nouvellement créées (pas encore en DB) : id < 0
   const [nextTempId, setNextTempId] = useState(-1);
@@ -30,13 +31,18 @@ export default function CoursEditModal({ section, codeCours, onClose, onChanged 
     Promise.all([
       api.attributionsByCours(section, codeCours),
       api.professeurs(),
-      api.activites()
+      api.activites({ section }) // globales + section (ue_num ajouté après)
     ]).then(([d, p, a]) => {
       if (!alive) return;
       setData(d);
       setRows(d.attributions.map(r => ({ ...r, _dirty: false, _new: false })));
       setProfs(p);
       setActivites(a);
+      // Recharger les activités avec le ue_num du cours pour inclure les spécifiques
+      const ueNum = d.attributions?.[0]?.ue_num || d.cours_info?.ue_num;
+      if (ueNum) {
+        api.activites({ section, ue_num: ueNum }).then(a2 => { if (alive) setActivites(a2); });
+      }
     }).catch(e => alive && setError(e.message))
       .finally(() => alive && setLoading(false));
     return () => { alive = false; };
@@ -190,6 +196,26 @@ export default function CoursEditModal({ section, codeCours, onClose, onChanged 
   const me = JSON.parse(localStorage.getItem('user') || 'null');
   const canEdit = me?.role === 'admin' || me?.role === 'editeur';
   const hasHelb = visibleRows.some(r => r.contrat_mdp === 'HELB');
+  async function creerActivite(libelle, portee) {
+    // portee: 'cours' | 'section' | 'global'
+    const tok = localStorage.getItem('token');
+    const payload = {
+      libelle,
+      section: portee === 'global' ? null : section,
+      ue_num:  portee === 'cours'  ? ueNum : null,
+    };
+    const r2 = await fetch('/api/ref/activites', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${tok}` },
+      body: JSON.stringify(payload),
+    }).then(r => r.json());
+    if (r2.error) throw new Error(r2.error);
+    // Recharger les activités filtrées
+    const a = await fetch(`/api/ref/activites?section=${encodeURIComponent(section)}&ue_num=${ueNum || ''}`,
+      { headers: { Authorization: `Bearer ${tok}` } }).then(r => r.json());
+    setActivites(Array.isArray(a) ? a : []);
+    return r2.id;
+  }
 
   return (
     <div className="fixed inset-0 bg-black/40 flex items-center justify-center p-2 md:p-4 z-30"
@@ -252,14 +278,35 @@ export default function CoursEditModal({ section, codeCours, onClose, onChanged 
                               const aut = Number(r.autonomie_attribuee) || 0;
                               const manque = per === 0 && aut > 0 && !r.activite_id;
                               return (
-                            <select value={r.activite_id ?? ''}
+                            <div className="flex gap-1 items-center">
+                              <select value={r.activite_id ?? ''}
                                     disabled={!canEdit}
                                     onChange={e => updateRow(r.id, 'activite_id', e.target.value ? Number(e.target.value) : null)}
                                     title={manque ? 'Activité requise pour une ligne d\'autonomie seule' : ''}
-                                    className={`w-full bg-transparent border rounded px-2 py-1 text-sm focus:border-iip-gold outline-none ${manque ? 'border-orange-400 bg-orange-50' : 'border-gray-200'}`}>
-                              <option value="">— Aucune —</option>
-                              {activites.map(a => <option key={a.id} value={a.id}>{a.libelle}</option>)}
-                            </select>
+                                    className={`flex-1 bg-transparent border rounded px-2 py-1 text-sm focus:border-iip-gold outline-none ${manque ? 'border-orange-400 bg-orange-50' : 'border-gray-200'}`}>
+                                <option value="">— Aucune —</option>
+                                {activites.filter(a => !a.ue_num).length > 0 && (
+                                  <optgroup label="Globales">
+                                    {activites.filter(a => !a.ue_num && !a.section).map(a => <option key={a.id} value={a.id}>{a.libelle}</option>)}
+                                  </optgroup>
+                                )}
+                                {activites.filter(a => a.section && !a.ue_num).length > 0 && (
+                                  <optgroup label={`Section ${section}`}>
+                                    {activites.filter(a => a.section && !a.ue_num).map(a => <option key={a.id} value={a.id}>{a.libelle}</option>)}
+                                  </optgroup>
+                                )}
+                                {activites.filter(a => a.ue_num).length > 0 && (
+                                  <optgroup label="Ce cours">
+                                    {activites.filter(a => a.ue_num).map(a => <option key={a.id} value={a.id}>{a.libelle}</option>)}
+                                  </optgroup>
+                                )}
+                              </select>
+                              {canEdit && (
+                                <button onClick={() => setShowNewActivite({ rowId: r.id })}
+                                  title="Créer une nouvelle activité pour ce cours"
+                                  className="text-gray-300 hover:text-iip-gold transition text-lg leading-none flex-shrink-0">+</button>
+                              )}
+                            </div>
                               );
                             })()}
                           </td>
@@ -416,6 +463,78 @@ export default function CoursEditModal({ section, codeCours, onClose, onChanged 
               </button>
             )}
           </div>
+        </div>
+      </div>
+
+      {/* Mini-modal : créer une nouvelle activité */}
+      {showNewActivite && (
+        <ModalNouvelleActivite
+          section={section}
+          onCreer={async (libelle, portee) => {
+            try {
+              const id = await creerActivite(libelle, portee);
+              updateRow(showNewActivite.rowId, 'activite_id', id);
+              setShowNewActivite(null);
+            } catch(e) { alert(e.message); }
+          }}
+          onClose={() => setShowNewActivite(null)}
+        />
+      )}
+    </div>
+  );
+}
+
+function ModalNouvelleActivite({ section, onCreer, onClose }) {
+  const [libelle, setLibelle] = useState('');
+  const [portee, setPortee]   = useState('cours'); // 'cours' | 'section' | 'global'
+  const [saving, setSaving]   = useState(false);
+
+  async function valider() {
+    if (!libelle.trim()) return;
+    setSaving(true);
+    try { await onCreer(libelle.trim(), portee); }
+    finally { setSaving(false); }
+  }
+
+  return (
+    <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center">
+      <div className="bg-white rounded-xl shadow-2xl w-full max-w-sm p-6 space-y-4">
+        <h3 className="font-semibold text-gray-800">+ Nouvelle activité</h3>
+
+        <div>
+          <label className="block text-xs text-gray-500 mb-1">Nom de l'activité</label>
+          <input autoFocus type="text" value={libelle} onChange={e => setLibelle(e.target.value)}
+            onKeyDown={e => e.key === 'Enter' && valider()}
+            placeholder="ex. TP Palpation, Remédiation…"
+            className="w-full border border-gray-300 rounded px-3 py-2 text-sm focus:border-iip-gold outline-none" />
+        </div>
+
+        <div>
+          <label className="block text-xs text-gray-500 mb-2">Portée</label>
+          <div className="space-y-2">
+            {[
+              { value: 'cours',   label: 'Ce cours uniquement',    desc: 'Disponible seulement pour cette UE' },
+              { value: 'section', label: `Section ${section}`,     desc: 'Disponible pour tous les cours de la section' },
+              { value: 'global',  label: 'Globale',                desc: 'Disponible pour toutes les sections' },
+            ].map(opt => (
+              <label key={opt.value} className="flex items-start gap-2 cursor-pointer">
+                <input type="radio" name="portee" value={opt.value} checked={portee === opt.value}
+                  onChange={() => setPortee(opt.value)} className="mt-0.5 accent-iip-gold" />
+                <div>
+                  <p className="text-sm font-medium text-gray-700">{opt.label}</p>
+                  <p className="text-xs text-gray-400">{opt.desc}</p>
+                </div>
+              </label>
+            ))}
+          </div>
+        </div>
+
+        <div className="flex gap-2 pt-2">
+          <button onClick={onClose} className="flex-1 border border-gray-300 text-gray-600 text-sm py-2 rounded">Annuler</button>
+          <button onClick={valider} disabled={!libelle.trim() || saving}
+            className="flex-1 bg-iip-gold text-white text-sm py-2 rounded hover:bg-iip-amber disabled:opacity-50">
+            {saving ? 'Création…' : 'Créer'}
+          </button>
         </div>
       </div>
     </div>

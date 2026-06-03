@@ -319,6 +319,7 @@ export default function Attributions() {
   }
   const [sortBy, setSortBy] = useState({ key: null, dir: 'asc' });
   const [selected, setSelected] = useState(new Set());
+  const [confirmDeleteSection, setConfirmDeleteSection] = useState(null);
   const [filtersOpenMobile, setFiltersOpenMobile] = useState(false);
   const [bulkDeleteModal, setBulkDeleteModal] = useState(null);
   const [bulkPreview, setBulkPreview] = useState(null);
@@ -356,8 +357,14 @@ export default function Attributions() {
   const isAdmin = me?.role === 'admin';
 
   /* --- Sélection --- */
-  function toggleSelect(id) { setSelected(s => { const n = new Set(s); n.has(id)?n.delete(id):n.add(id); return n; }); }
-  function toggleSelectAll() { setSelected(s => s.size === sortedData.length ? new Set() : new Set(sortedData.map(r=>r.id))); }
+  function toggleSelect(id) {
+    if (String(id).startsWith('z-')) return; // lignes Z non sélectionnables
+    setSelected(s => { const n = new Set(s); n.has(id)?n.delete(id):n.add(id); return n; });
+  }
+  function toggleSelectAll() {
+    const realIds = sortedData.filter(r => !r.is_z).map(r => r.id);
+    setSelected(s => s.size === realIds.length ? new Set() : new Set(realIds));
+  }
 
   /* --- Tri --- */
   function toggleSort(key) {
@@ -464,9 +471,11 @@ export default function Attributions() {
     catch(e){ alert('Erreur : '+e.message); }
   }
   async function delSection(code) {
-    if (!confirm(`Supprimer la section "${code}" ?\n\nAttention : la suppression est bloquée si des attributions existent encore dans cette section.`)) return;
-    try { await api.deleteSection(code); load(); }
-    catch(e){ alert('Erreur : ' + e.message); }
+    setConfirmDeleteSection(code);
+  }
+  async function delSectionConfirmed(code) {
+    try { await api.maskSection(code, getAnnee()); setConfirmDeleteSection(null); load(); }
+    catch(e){ alert('Erreur : ' + e.message); setConfirmDeleteSection(null); }
   }
   async function autoFillSection(section) {
     if (!confirm(`Remplir automatiquement les périodes prof de la section "${section}" ?\n\nToutes les lignes à 0 période recevront la valeur cours_per du cours correspondant. L'autonomie n'est pas touchée.`)) return;
@@ -509,7 +518,12 @@ export default function Attributions() {
     if (bulkConfirmText!=='SUPPRIMER') { alert('Tapez SUPPRIMER.'); return; }
     try {
       let r;
-      if (bulkDeleteModal==='selection') r = await api.bulkDeleteAttributions(Array.from(selected));
+      if (bulkDeleteModal==='selection') {
+        // Exclure les IDs synthétiques Z (format 'z-xxx')
+        const realIds = Array.from(selected).filter(id => !String(id).startsWith('z-'));
+        if (realIds.length === 0) { alert('Aucune attribution réelle sélectionnée (les lignes Z ne peuvent pas être supprimées).'); return; }
+        r = await api.bulkDeleteAttributions(realIds);
+      }
       else if (bulkDeleteModal==='filtered') { const f={}; if(filters.section) f.section=filters.section; if(filters.prof_id) f.professeur_id=filters.prof_id; if(filters.contrat) f.contrat=filters.contrat; r = await api.bulkDeleteFiltered(f); }
       else r = await api.bulkDeleteFiltered({});
       alert(`${r.deleted} supprimée(s).`); setBulkDeleteModal(null); setSelected(new Set()); load();
@@ -662,8 +676,9 @@ export default function Attributions() {
               <thead><tr>
                 {COLS_COURS.map(c => c.key==='__select'
                   ? <th key={c.key} style={{width:c.width,minWidth:c.width,maxWidth:c.width}}>
-                      <input type="checkbox" checked={cg.rows.length>0&&cg.rows.every(r=>selected.has(r.id))}
-                        onChange={()=>{const all=cg.rows.every(r=>selected.has(r.id));setSelected(s=>{const n=new Set(s);cg.rows.forEach(r=>all?n.delete(r.id):n.add(r.id));return n;});}}
+                      <input type="checkbox"
+                        checked={cg.rows.filter(r=>!r.is_z).length>0&&cg.rows.filter(r=>!r.is_z).every(r=>selected.has(r.id))}
+                        onChange={()=>{const real=cg.rows.filter(r=>!r.is_z);const all=real.every(r=>selected.has(r.id));setSelected(s=>{const n=new Set(s);real.forEach(r=>all?n.delete(r.id):n.add(r.id));return n;});}}
                         className="cursor-pointer"/>
                     </th>
                   : <ResizableHeader key={c.key} col={c} sortKey={sortBy.key} sortDir={sortBy.dir} onSort={toggleSort} onResize={setColWidth}>{c.label}</ResizableHeader>
@@ -807,7 +822,7 @@ export default function Attributions() {
             )}
             {isAdmin && (
               <button onClick={e=>{e.stopPropagation(); delSection(sg.section);}}
-                className="text-red-400 hover:text-red-600 ml-1" title="Supprimer cette section">🗑</button>
+                className="text-red-400 hover:text-red-600 ml-1" title="Retirer cette section de la vue (référentiel intact)">🗑</button>
             )}
           </div>
         </button>
@@ -936,6 +951,28 @@ export default function Attributions() {
 
       {/* Overlay pour fermer le menu + */}
       {addMenuUE && <div className="fixed inset-0 z-20" onClick={()=>setAddMenuUE(null)} />}
+      {confirmDeleteSection && (
+        <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center">
+          <div className="bg-white rounded-xl shadow-2xl p-6 max-w-sm w-full space-y-4">
+            <h3 className="font-semibold text-gray-800">Retirer la section</h3>
+            <p className="text-sm text-gray-600">
+              Retirer la section <strong>{confirmDeleteSection}</strong> de la vue des attributions pour cette année ?
+              Le référentiel (UE et cours) n'est pas touché. La section réapparaîtra automatiquement
+              dès que tu y crées des attributions.
+            </p>
+            <div className="flex gap-2 justify-end">
+              <button onClick={() => setConfirmDeleteSection(null)}
+                className="px-4 py-2 text-sm border border-gray-300 rounded text-gray-600 hover:bg-gray-50">
+                Annuler
+              </button>
+              <button onClick={() => delSectionConfirmed(confirmDeleteSection)}
+                className="px-4 py-2 text-sm bg-red-600 text-white rounded hover:bg-red-700">
+                Supprimer
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
       {quadriMenu && <div className="fixed inset-0 z-30" onClick={()=>setQuadriMenu(null)} />}
 
       {/* Modales */}
