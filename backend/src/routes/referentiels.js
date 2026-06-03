@@ -526,29 +526,25 @@ r.get('/sections/:section/ue-cours', authRequired, (req, res) => {
 r.get('/professeurs', authRequired, (req, res) => {
   const tous  = req.query.tous === '1';
   const annee = req.query.annee || null;
-  // Année active pour les badges de contrat
   const anneeActive = annee || db.prepare("SELECT code FROM annee_scolaire WHERE active=1 ORDER BY code DESC LIMIT 1").get()?.code || '2026-2027';
 
+  const subTotalAnnee = `(SELECT COALESCE(SUM(a.periodes_attribuees + COALESCE(a.autonomie_attribuee,0)),0)
+    FROM attribution a WHERE a.professeur_id = v.id AND a.annee_scolaire = '${anneeActive}'
+    AND a.contrat_mdp = 'IIP')`;
+
+  const base = `SELECT v.*, p.type_personnel,
+      ${subTotalAnnee} AS total_per_annee,
+      (SELECT pe.fonction FROM personnel_etablissement pe WHERE pe.professeur_id = v.id LIMIT 1) AS fonction_admin,
+      (SELECT GROUP_CONCAT(DISTINCT a.contrat_mdp ORDER BY a.contrat_mdp)
+       FROM attribution a WHERE a.professeur_id = v.id AND a.annee_scolaire = '${anneeActive}'
+       AND a.contrat_mdp IS NOT NULL AND a.contrat_mdp != '') AS contrats_annee
+    FROM v_professeur_total v
+    LEFT JOIN professeur p ON p.id = v.id`;
+
   const sql = tous
-    ? `SELECT v.*, p.type_personnel,
-         (SELECT pe.fonction FROM personnel_etablissement pe WHERE pe.professeur_id = v.id LIMIT 1) AS fonction_admin,
-         (SELECT GROUP_CONCAT(DISTINCT a.contrat_mdp ORDER BY a.contrat_mdp)
-          FROM attribution a
-          WHERE a.professeur_id = v.id AND a.annee_scolaire = '${anneeActive}'
-            AND a.contrat_mdp IS NOT NULL AND a.contrat_mdp != '') AS contrats_annee
-       FROM v_professeur_total v
-       LEFT JOIN professeur p ON p.id = v.id
-       ORDER BY v.nom, v.prenom`
-    : `SELECT v.*, p.type_personnel,
-         (SELECT pe.fonction FROM personnel_etablissement pe WHERE pe.professeur_id = v.id LIMIT 1) AS fonction_admin,
-         (SELECT GROUP_CONCAT(DISTINCT a.contrat_mdp ORDER BY a.contrat_mdp)
-          FROM attribution a
-          WHERE a.professeur_id = v.id AND a.annee_scolaire = '${anneeActive}'
-            AND a.contrat_mdp IS NOT NULL AND a.contrat_mdp != '') AS contrats_annee
-       FROM v_professeur_total v
-       LEFT JOIN professeur p ON p.id = v.id
-       WHERE p.type_personnel != 'admin' OR p.type_personnel IS NULL
-       ORDER BY v.nom, v.prenom`;
+    ? `${base} ORDER BY v.nom, v.prenom`
+    : `${base} WHERE p.type_personnel != 'admin' OR p.type_personnel IS NULL ORDER BY v.nom, v.prenom`;
+
   res.json(db.prepare(sql).all());
 });
 
