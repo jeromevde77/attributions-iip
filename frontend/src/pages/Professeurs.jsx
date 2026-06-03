@@ -409,10 +409,10 @@ export default function Professeurs() {
                       {p.type_personnel === 'admin' && (
                         <span className="badge" style={{background:'#00AACC',color:'white',fontSize:'10px',padding:'1px 6px',borderRadius:'8px',whiteSpace:'nowrap'}}>Admin</span>
                       )}
-                      {p.statut && (
-                        <span className={`badge ${p.statut === 'CC' ? 'badge-iip' : p.statut === 'EXP' ? 'badge-exp' : 'badge-helb'}`}>{p.statut}</span>
-                      )}
-                      {!p.type_personnel && !p.statut && (
+                      {(p.contrats_annee || p.statut || '').split(',').filter(c => ['CC','EXP','MDP'].includes(c)).map(c => (
+                        <span key={c} className={`badge ${c === 'CC' ? 'badge-iip' : c === 'EXP' ? 'badge-exp' : 'badge-helb'}`}>{c}</span>
+                      ))}
+                      {!p.type_personnel && !p.contrats_annee && !p.statut && (
                         <span className="text-gray-300 text-xs">—</span>
                       )}
                     </div>
