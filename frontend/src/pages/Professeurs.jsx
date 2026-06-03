@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { api, getAnnee, getUser } from '../lib/api.js';
 import ProfFicheModal from './ProfFicheModal.jsx';
+import PreviewModal from '../components/PreviewModal.jsx';
 
 const EMPTY = {
   nom: '', prenom: '', adresse_mail: '', mail_prive: '',
@@ -270,13 +271,110 @@ export default function Professeurs() {
   const [profs, setProfs] = useState([]);
   const [loading, setLoading] = useState(true);
   const [detailId, setDetailId] = useState(null);
-  const [editProf, setEditProf] = useState(null);   // null = fermé, {} = nouveau, {...} = existant
+  const [editProf, setEditProf] = useState(null);
   const [sortBy, setSortBy] = useState({ key: 'nom_prenom', dir: 'asc' });
   const [deleting, setDeleting] = useState(null);
-  const [selection, setSelection] = useState(new Set());  // ids des profs cochés
+  const [selection, setSelection] = useState(new Set());
   const [printing, setPrinting] = useState(false);
+  const [ficheHtml, setFicheHtml] = useState(null);
 
   const me = JSON.parse(localStorage.getItem('user') || 'null');
+
+  async function genererFicheAttributions(profId) {
+    const annee = getAnnee();
+    const tok = localStorage.getItem('token');
+    const d = await fetch(`/api/ref/professeurs/${profId}/fiche-attributions?annee=${encodeURIComponent(annee)}`,
+      { headers: { Authorization: `Bearer ${tok}` } }).then(r => r.json());
+    if (d.error) { alert(d.error); return; }
+
+    const { prof, attributions, tot_ct, tot_pp, tot_aut, tot_per, tot_global, etp } = d;
+    const fmt = n => n != null ? String(n) : '0';
+    const S  = 'padding:2px 6px;font-size:11px;';
+    const SR = S + 'text-align:right;';
+
+    // Grouper par section
+    const sections = {};
+    for (const a of attributions) {
+      if (!sections[a.section]) sections[a.section] = [];
+      sections[a.section].push(a);
+    }
+
+    const lignesSections = Object.entries(sections).map(([sec, rows]) => {
+      const lignes = rows.map((a, i) => `
+        <tr style="background:${i%2===0?'#fff':'#f9fafb'}">
+          <td style="${S}color:#6b7280">${a.section}</td>
+          <td style="${S}color:#374151">UE ${a.ue_num}${a.ue_niv ? ` <span style="background:#1B2B4B;color:white;font-size:9px;padding:1px 4px;border-radius:3px">${a.ue_niv}</span>` : ''}</td>
+          <td style="${S}color:#374151">${a.cours_nom || a.code_cours || '—'}${a.activite_nom ? ` <em style="color:#9ca3af">(${a.activite_nom})</em>` : ''}</td>
+          <td style="${SR}font-weight:600;color:${a.type_cours==='CT'?'#1B2B4B':'#00AACC'}">${a.type_cours || '—'}</td>
+          <td style="${SR}color:#374151">${fmt(a.per)}</td>
+          <td style="${SR}color:#6b7280">${fmt(a.aut)}</td>
+          <td style="${SR}font-weight:700;border-left:1px solid #e5e7eb">${fmt((a.per||0)+(a.aut||0))}</td>
+        </tr>`).join('');
+      return lignes;
+    }).join('');
+
+    const html = `<!DOCTYPE html><html><head><meta charset="utf-8">
+      <style>
+        *{box-sizing:border-box;margin:0;padding:0}
+        body{font-family:'Segoe UI',Arial,sans-serif;font-size:11px;color:#111827}
+        table{width:100%;border-collapse:collapse}
+        td,th{border-bottom:1px solid #e5e7eb}
+        @media print{@page{margin:10mm;size:A4 landscape}tr{page-break-inside:avoid}thead{display:table-header-group}}
+      </style></head><body>
+      <div style="padding:10mm">
+        <!-- En-tête -->
+        <div style="display:flex;justify-content:space-between;align-items:flex-end;border-bottom:3px solid #1B2B4B;padding-bottom:8px;margin-bottom:16px">
+          <div>
+            <div style="font-size:9px;color:#00AACC;letter-spacing:2px;text-transform:uppercase;margin-bottom:4px">Institut Ilya Prigogine · Fiche d'attributions</div>
+            <div style="font-size:20px;font-weight:700;color:#1B2B4B">${prof.prenom} ${prof.nom}</div>
+            <div style="font-size:11px;color:#6b7280;margin-top:2px">${prof.fonction || prof.statut || ''}</div>
+          </div>
+          <div style="text-align:right">
+            <div style="font-size:13px;font-weight:600;color:#1B2B4B">${annee}</div>
+            <div style="font-size:9px;color:#9ca3af;margin-top:2px">Généré le ${new Date().toLocaleDateString('fr-BE')} · Lucie</div>
+          </div>
+        </div>
+
+        <!-- Tableau -->
+        <table>
+          <thead>
+            <tr style="background:#1B2B4B;color:white">
+              <th style="padding:4px 6px;text-align:left;font-size:10px">Section</th>
+              <th style="padding:4px 6px;text-align:left;font-size:10px">UE</th>
+              <th style="padding:4px 6px;text-align:left;font-size:10px">Cours</th>
+              <th style="padding:4px 6px;text-align:center;font-size:10px">CT/PP</th>
+              <th style="padding:4px 6px;text-align:right;font-size:10px">Pér.</th>
+              <th style="padding:4px 6px;text-align:right;font-size:10px">Aut.</th>
+              <th style="padding:4px 6px;text-align:right;font-size:10px;border-left:1px solid rgba(255,255,255,.3)">Total</th>
+            </tr>
+          </thead>
+          <tbody>${lignesSections}</tbody>
+        </table>
+
+        <!-- Totaux -->
+        <div style="margin-top:16px;display:flex;gap:24px;justify-content:flex-end">
+          <div style="background:#f1f5f9;border-radius:8px;padding:12px 20px;min-width:200px">
+            <div style="font-size:10px;color:#6b7280;margin-bottom:8px;text-transform:uppercase;letter-spacing:1px">Récapitulatif</div>
+            <table style="width:100%">
+              <tr><td style="padding:2px 0;color:#374151;border:none">Charge de cours (CT)</td><td style="padding:2px 0;text-align:right;font-weight:600;color:#1B2B4B;border:none">${fmt(tot_ct)} p.</td></tr>
+              <tr><td style="padding:2px 0;color:#374151;border:none">Pratique professionnelle (PP)</td><td style="padding:2px 0;text-align:right;font-weight:600;color:#00AACC;border:none">${fmt(tot_pp)} p.</td></tr>
+              <tr><td style="padding:2px 0;color:#374151;border:none">Autonomie</td><td style="padding:2px 0;text-align:right;font-weight:600;color:#6b7280;border:none">${fmt(tot_aut)} p.</td></tr>
+              <tr style="border-top:2px solid #1B2B4B">
+                <td style="padding:4px 0;font-weight:700;color:#1B2B4B;border:none">Total général</td>
+                <td style="padding:4px 0;text-align:right;font-weight:700;color:#1B2B4B;border:none">${fmt(tot_global)} p.</td>
+              </tr>
+              <tr>
+                <td style="padding:2px 0;font-weight:700;color:#1B2B4B;border:none">ETP</td>
+                <td style="padding:2px 0;text-align:right;font-size:16px;font-weight:700;color:#00AACC;border:none">${etp}</td>
+              </tr>
+            </table>
+          </div>
+        </div>
+      </div>
+      </body></html>`;
+
+    setFicheHtml(html);
+  }
   const canEdit = me?.role === 'admin' || me?.role === 'editeur';
 
   async function load() {
@@ -431,6 +529,8 @@ export default function Professeurs() {
                   <td className="num">{p.anciennete_25_26_po || 0}</td>
                   <td className="text-center">
                     <div className="flex items-center justify-center gap-2">
+                      <button onClick={() => genererFicheAttributions(p.id)}
+                        className="text-gray-400 hover:text-iip-mauve text-sm" title="Fiche d'attributions">📋</button>
                       {canEdit && (
                         <button onClick={() => setEditProf(p)}
                           className="text-iip-gold hover:text-iip-amber text-sm" title="Modifier">✏</button>
@@ -457,6 +557,7 @@ export default function Professeurs() {
         <ProfFicheModal prof={editProf} onClose={() => setEditProf(null)}
           onSaved={() => { setEditProf(null); load(); }} />
       )}
+      {ficheHtml && <PreviewModal html={ficheHtml} titre="Fiche d'attributions" onClose={() => setFicheHtml(null)} />}
     </div>
   );
 }
