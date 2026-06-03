@@ -165,6 +165,12 @@ r.get('/annees-par-section', authRequired, (req, res) => {
 
 // GET /rapport-attributions?section=&annee=
 // Retourne les données structurées pour le rapport d'attributions par UE/cours
+const _numToLettreRapport = n => {
+  if (!n || n <= 1) return 'A';
+  if (n <= 26) return String.fromCharCode(64 + n);
+  return String.fromCharCode(64 + Math.floor((n - 1) / 26)) + String.fromCharCode(65 + ((n - 1) % 26));
+};
+
 r.get('/rapport-attributions', authRequired, (req, res) => {
   const { section, annee } = req.query;
   if (!section || !annee) return res.status(400).json({ error: 'section et annee requis' });
@@ -211,7 +217,7 @@ r.get('/rapport-attributions', authRequired, (req, res) => {
     ue.cours.push({
       code_cours:   row.code_cours,
       cours_nom:    row.cours_nom,
-      groupe_code:  row.groupe_code || _numToLettre(row.num_groupe || 1),
+      groupe_code:  row.groupe_code || _numToLettreRapport(row.num_groupe || 1),
       prof_nom:     row.prof_nom
         ? `${row.prof_nom}${row.prof_prenom ? '\u00a0' + row.prof_prenom[0] + '.' : ''}`.trim()
         : '\u2014',
