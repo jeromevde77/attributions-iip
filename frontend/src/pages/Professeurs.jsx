@@ -84,7 +84,7 @@ function ouvrirFeuilleImpression(data) {
 }
 
 
-function DetailModal({ profId, onClose, onEdit }) {
+function DetailModal({ profId, onClose, onEdit, onFiche }) {
   const [detail, setDetail] = useState(null);
   const navigate = useNavigate();
   const u = getUser();
@@ -146,7 +146,11 @@ function DetailModal({ profId, onClose, onEdit }) {
               {detail.commune && <span>📍 {detail.code_postal} {detail.commune}</span>}
             </div>
           </div>
-          <div className="flex gap-2 flex-shrink-0">
+          <div className="flex gap-2 flex-shrink-0 flex-wrap justify-end">
+            <button onClick={() => onFiche && onFiche(profId)}
+              className="bg-gray-100 hover:bg-gray-200 text-gray-700 text-sm px-3 py-1.5 rounded">
+              📋 Fiche attr.
+            </button>
             {u?.role === 'admin' && (
               <button onClick={() => setShowContratModal(true)}
                 className="bg-green-700 hover:opacity-90 text-white text-sm px-3 py-1.5 rounded">
@@ -550,6 +554,7 @@ export default function Professeurs() {
 
       {detailId && (
         <DetailModal profId={detailId} onClose={() => setDetailId(null)}
+          onFiche={genererFicheAttributions}
           onEdit={p => { setDetailId(null); setEditProf(p); }} />
       )}
 
