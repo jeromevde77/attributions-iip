@@ -526,10 +526,13 @@ r.get('/sections/:section/ue-cours', authRequired, (req, res) => {
 r.get('/professeurs', authRequired, (req, res) => {
   const tous = req.query.tous === '1';
   const sql = tous
-    ? `SELECT * FROM v_professeur_total ORDER BY nom, prenom`
-    : `SELECT * FROM v_professeur_total
-       WHERE id NOT IN (SELECT id FROM professeur WHERE type_personnel = 'admin')
-       ORDER BY nom, prenom`;
+    ? `SELECT v.*, p.type_personnel FROM v_professeur_total v
+       LEFT JOIN professeur p ON p.id = v.id
+       ORDER BY v.nom, v.prenom`
+    : `SELECT v.*, p.type_personnel FROM v_professeur_total v
+       LEFT JOIN professeur p ON p.id = v.id
+       WHERE p.type_personnel != 'admin' OR p.type_personnel IS NULL
+       ORDER BY v.nom, v.prenom`;
   res.json(db.prepare(sql).all());
 });
 
