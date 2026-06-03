@@ -30,7 +30,7 @@ export default function CoursEditModal({ section, codeCours, onClose, onChanged 
     setLoading(true);
     Promise.all([
       api.attributionsByCours(section, codeCours),
-      api.professeurs(),
+      api.professeurs(true),
       api.activites({ section }) // globales + section (ue_num ajouté après)
     ]).then(([d, p, a]) => {
       if (!alive) return;

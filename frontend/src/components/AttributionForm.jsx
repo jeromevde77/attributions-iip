@@ -65,7 +65,7 @@ export default function AttributionForm({ onClose, onCreated, editRow = null }) 
   });
 
   useEffect(() => {
-    Promise.all([api.sections(), api.professeurs(), api.typesEncadrement()])
+    Promise.all([api.sections(), api.professeurs(true), api.typesEncadrement()])
       .then(([s, p, t]) => { setSections(s); setProfs(p); setTypes(t); })
       .catch(e => setError(e.message));
   }, []);
