@@ -531,6 +531,7 @@ r.get('/professeurs', authRequired, (req, res) => {
 
   const sql = tous
     ? `SELECT v.*, p.type_personnel,
+         (SELECT pe.fonction FROM personnel_etablissement pe WHERE pe.professeur_id = v.id LIMIT 1) AS fonction_admin,
          (SELECT GROUP_CONCAT(DISTINCT a.contrat_mdp ORDER BY a.contrat_mdp)
           FROM attribution a
           WHERE a.professeur_id = v.id AND a.annee_scolaire = '${anneeActive}'
@@ -539,6 +540,7 @@ r.get('/professeurs', authRequired, (req, res) => {
        LEFT JOIN professeur p ON p.id = v.id
        ORDER BY v.nom, v.prenom`
     : `SELECT v.*, p.type_personnel,
+         (SELECT pe.fonction FROM personnel_etablissement pe WHERE pe.professeur_id = v.id LIMIT 1) AS fonction_admin,
          (SELECT GROUP_CONCAT(DISTINCT a.contrat_mdp ORDER BY a.contrat_mdp)
           FROM attribution a
           WHERE a.professeur_id = v.id AND a.annee_scolaire = '${anneeActive}'
