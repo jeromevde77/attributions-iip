@@ -560,19 +560,17 @@ r.get('/professeurs/:id', authRequired, (req, res) => {
   const vue = db.prepare('SELECT * FROM v_professeur_total WHERE id = ?').get(req.params.id) || {};
   // Fusion : la table complète d'abord, la vue complète les totaux
   const p = { ...vue, ...base, nom_prenom: vue.nom_prenom || `${base.nom} ${base.prenom}` };
+  const annee = req.query.annee || db.prepare("SELECT code FROM annee_scolaire WHERE active = 1 LIMIT 1").get()?.code;
   const attrs = db.prepare(`
     SELECT * FROM v_attribution_complete
-    WHERE professeur_id = ? ORDER BY section, ue_num
-  `).all(req.params.id);
+    WHERE professeur_id = ? AND annee_scolaire = ? ORDER BY section, ue_num
+  `).all(req.params.id, annee);
   const titres = db.prepare(
     'SELECT * FROM titre_capacite WHERE professeur_id = ? ORDER BY ordre, id'
   ).all(req.params.id);
   const charges = db.prepare(
     'SELECT * FROM personne_charge WHERE professeur_id = ? ORDER BY categorie, ordre, id'
   ).all(req.params.id);
-
-  // Ancienneté (CC sous IIP) : report historique + acquis de l'année courante
-  const annee = req.query.annee || db.prepare("SELECT code FROM annee_scolaire WHERE active = 1 LIMIT 1").get()?.code;
   let anciennete = null;
   if (p.statut === 'CC') {
     const reportPo = p.report_anc_po || 0;
@@ -610,7 +608,18 @@ r.get('/professeurs/:id', authRequired, (req, res) => {
     };
   }
 
-  res.json({ ...p, attributions: attrs, titres, charges, anciennete });
+  // Totaux calculés sur l'année active uniquement (v_professeur_total = toutes années)
+  let tot_per_annee = 0, tot_aut_annee = 0;
+  for (const a of attrs) {
+    tot_per_annee += a.periodes_attribuees || 0;
+    tot_aut_annee += a.autonomie_attribuee || 0;
+  }
+
+  res.json({ ...p, attributions: attrs, titres, charges, anciennete, annee,
+    tot_per_annee, tot_aut_annee,
+    tot_global_annee: tot_per_annee + tot_aut_annee,
+    etp_annee: Math.round((tot_per_annee + tot_aut_annee) / 1000 * 100) / 100,
+  });
 });
 
 // ── Titres de capacité (liste liée au prof) ──

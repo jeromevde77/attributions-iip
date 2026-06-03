@@ -211,7 +211,7 @@ function DetailModal({ profId, onClose, onEdit }) {
         <div className="grid grid-cols-3 gap-3 px-6 py-3 border-b border-gray-100">
           <div className="bg-iip-gold/10 rounded p-2.5 text-center">
             <div className="text-xs text-gray-600">Total IIP</div>
-            <div className="font-bold text-lg text-iip-gold">{detail.total_per_iip ?? 0} per.</div>
+            <div className="font-bold text-lg text-iip-gold">{detail.tot_per_annee ?? detail.total_per_iip ?? 0} per.</div>
           </div>
           <div className="bg-iip-mauve/10 rounded p-2.5 text-center">
             <div className="text-xs text-gray-600">Total HELB</div>
