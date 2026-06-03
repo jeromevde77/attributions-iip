@@ -1427,6 +1427,13 @@ try {
     }
   } catch (e) { console.error('[migration] enveloppe AeSI :', e.message); }
 
+  // Assigner pot_code='AESI' à toutes les UE de la section AeSI
+  // (pour que leurs attributions aillent dans l'enveloppe AESI et pas en organique)
+  try {
+    const updated = db.prepare("UPDATE ue SET pot_code = 'AESI' WHERE section = 'AeSI' AND (pot_code IS NULL OR pot_code != 'AESI')").run();
+    if (updated.changes > 0) console.log(`[migration] pot_code=AESI assigné à ${updated.changes} UE AeSI`);
+  } catch (e) { console.error('[migration] pot_code AeSI :', e.message); }
+
 } catch (e) {
   console.error('[migration] ERREUR :', e.message);
   console.error(e.stack);
