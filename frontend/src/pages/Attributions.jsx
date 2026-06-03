@@ -226,77 +226,94 @@ export default function Attributions() {
       { headers: { Authorization: `Bearer ${tok}` } }).then(r => r.json());
     if (d.error) { alert(d.error); return; }
 
-    const NIV_COLOR = { BA1:'#f97316', BA2:'#60a5fa', BA3:'#1e3a8a' };
-    const fmt = n => n != null ? String(n) : '—';
+    // Couleurs par niveau (rang 1=orange, 2=bleu clair, 3=bleu marine)
+    const niveaux = [...new Set(d.ues.map(u => u.ue_niv).filter(Boolean))].sort((a,b) => {
+      const na = parseInt(a.match(/\d+$/)?.[0]??'99'); const nb = parseInt(b.match(/\d+$/)?.[0]??'99');
+      return na - nb;
+    });
+    const NIV_PALETTE = ['#f97316','#60a5fa','#1e3a8a','#a855f7','#ec4899'];
+    const getNivCol = niv => NIV_PALETTE[niveaux.indexOf(niv) % NIV_PALETTE.length] || '#6b7280';
+    const fmt = n => (n != null && n !== '') ? String(n) : '0';
+    const S = 'padding:1px 5px;font-size:10px;line-height:1.2;';
+    const SR = S + 'text-align:right;';
+    const SN = S + 'white-space:nowrap;';
 
     const lignesUE = d.ues.map(ue => {
-      const col = NIV_COLOR[ue.ue_niv] || '#6b7280';
-      const lignesCours = ue.cours.map(c => `
-        <tr>
-          <td style="padding:2px 6px 2px 24px;color:#374151;font-size:11px;white-space:nowrap">${c.code_cours || '—'}</td>
-          <td style="padding:2px 6px;color:#374151;font-size:11px;max-width:220px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${(c.cours_nom||'').replace(/"/g,"'")}${c.activite_nom?' ('+c.activite_nom+')':''}">${c.cours_nom || '—'}${c.activite_nom ? ` <em style="color:#9ca3af">(${c.activite_nom})</em>` : ''}</td>
-          <td style="padding:2px 6px;color:#374151;font-size:11px;white-space:nowrap">Gr.${c.groupe_code}</td>
-          <td style="padding:2px 6px;color:#374151;font-size:11px;white-space:nowrap">${c.prof_nom}</td>
-          <td style="padding:2px 6px;text-align:right;font-size:11px;white-space:nowrap">${fmt(c.periodes)}</td>
-          <td style="padding:2px 6px;text-align:right;font-size:11px;white-space:nowrap">${fmt(c.autonomie)}</td>
-          <td style="padding:2px 6px;text-align:right;font-size:11px;font-weight:600;white-space:nowrap">${fmt(c.total)}</td>
+      const col = getNivCol(ue.ue_niv);
+      const lignesCours = ue.cours.map((c,i) => `
+        <tr style="background:${i%2===0?'#fff':'#f9fafb'}">
+          <td style="${SN}padding-left:20px">${c.code_cours||'—'}</td>
+          <td style="${S}max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap"
+              title="${(c.cours_nom||'').replace(/"/g,"'")}">${c.cours_nom||'—'}${c.activite_nom?` <em style="color:#9ca3af;font-size:10px">(${c.activite_nom})</em>`:''}</td>
+          <td style="${SN}color:#6b7280">Gr.${c.groupe_code}</td>
+          <td style="${SN}">${c.prof_nom}</td>
+          <td style="${SR}color:#374151">${fmt(c.periodes)}</td>
+          <td style="${SR}color:#6b7280">${fmt(c.autonomie)}</td>
+          <td style="${SR}font-weight:600;border-left:1px solid #e5e7eb">${fmt(c.total)}</td>
         </tr>`).join('');
 
       return `
-        <tr style="background:#f9fafb;border-left:4px solid ${col}">
-          <td colspan="4" style="padding:8px 8px 8px 10px;font-weight:700;font-size:13px;color:#111827">
-            UE ${ue.ue_num} ${ue.ue_niv ? `<span style="background:${col};color:white;font-size:10px;padding:1px 5px;border-radius:3px;margin-left:4px">${ue.ue_niv}</span>` : ''}
-            — ${ue.ue_nom || ''}
+        <tr style="background:#f1f5f9;border-left:3px solid ${col}">
+          <td colspan="4" style="padding:4px 6px 4px 8px;font-weight:700;font-size:12px;color:#111827;white-space:nowrap">
+            <span style="background:${col};color:white;font-size:9px;padding:1px 4px;border-radius:2px;margin-right:5px">${ue.ue_niv||''}</span>UE ${ue.ue_num} — ${ue.ue_nom||''}
           </td>
-          <td style="padding:8px;text-align:right;font-size:11px;color:#6b7280"></td>
-          <td style="padding:8px;text-align:right;font-size:11px;color:#6b7280"></td>
-          <td style="padding:8px;text-align:right;font-size:11px;color:#6b7280"></td>
+          <td style="${SR}color:#6b7280;font-size:10px"></td>
+          <td style="${SR}color:#6b7280;font-size:10px"></td>
+          <td style="${SR}border-left:1px solid #e5e7eb"></td>
         </tr>
         ${lignesCours}
-        <tr style="background:#f3f4f6">
-          <td colspan="4" style="padding:5px 8px 5px 32px;font-size:11px;color:#6b7280;font-style:italic">Total UE ${ue.ue_num}</td>
-          <td style="padding:5px 8px;text-align:right;font-size:12px;font-weight:600;color:#374151">${fmt(ue.total_per)}</td>
-          <td style="padding:5px 8px;text-align:right;font-size:12px;font-weight:600;color:#374151">${fmt(ue.total_aut)}</td>
-          <td style="padding:5px 8px;text-align:right;font-size:12px;font-weight:700;color:#111827">${fmt(ue.total_per + ue.total_aut)}</td>
+        <tr style="background:#e8edf3;border-left:3px solid ${col}">
+          <td colspan="4" style="padding:2px 6px 2px 20px;font-size:10px;color:#6b7280;font-style:italic">Sous-total UE ${ue.ue_num}</td>
+          <td style="${SR}font-weight:700;color:#374151">${fmt(ue.total_per)}</td>
+          <td style="${SR}font-weight:600;color:#6b7280">${fmt(ue.total_aut)}</td>
+          <td style="${SR}font-weight:700;border-left:1px solid #e5e7eb">${fmt(ue.total_per+ue.total_aut)}</td>
         </tr>`;
     }).join('');
 
-    const html = `
+    const html = `<!DOCTYPE html><html><head><meta charset="utf-8">
       <style>
-        @media print { body { margin: 0; } table { page-break-inside: auto; } tr { page-break-inside: avoid; } }
-        td, th { white-space: nowrap; }
-      </style>
-      <div style="font-family:Arial,sans-serif;max-width:100%;margin:0 auto;padding:12px;font-size:11px">
-        <div style="margin-bottom:24px;border-bottom:2px solid #1B2B4B;padding-bottom:12px">
-          <h1 style="font-size:18px;color:#1B2B4B;margin:0">Attributions — ${section}</h1>
-          <p style="font-size:13px;color:#6b7280;margin:4px 0 0">Année scolaire ${annee}</p>
+        * { box-sizing:border-box; margin:0; padding:0; }
+        body { font-family:Arial,sans-serif; font-size:11px; color:#111827; }
+        table { width:100%; border-collapse:collapse; }
+        td,th { border-bottom:1px solid #e5e7eb; }
+        @media print {
+          @page { margin:10mm; size:A4 landscape; }
+          tr { page-break-inside:avoid; }
+          thead { display:table-header-group; }
+        }
+      </style></head><body>
+      <div style="padding:10mm">
+        <div style="display:flex;justify-content:space-between;align-items:flex-end;border-bottom:2px solid #1B2B4B;padding-bottom:6px;margin-bottom:10px">
+          <div>
+            <div style="font-size:16px;font-weight:700;color:#1B2B4B">Attributions — ${section}</div>
+            <div style="font-size:11px;color:#6b7280">Année scolaire ${annee}</div>
+          </div>
+          <div style="font-size:9px;color:#9ca3af">Généré le ${new Date().toLocaleDateString('fr-BE')} · Lucie · IIP</div>
         </div>
-        <table style="width:100%;border-collapse:collapse">
+        <table>
           <thead>
             <tr style="background:#1B2B4B;color:white">
-              <th style="padding:8px;text-align:left;font-size:12px">Code</th>
-              <th style="padding:8px;text-align:left;font-size:12px">Cours</th>
-              <th style="padding:8px;text-align:left;font-size:12px">Gr.</th>
-              <th style="padding:8px;text-align:left;font-size:12px">Professeur</th>
-              <th style="padding:8px;text-align:right;font-size:12px">Pér.</th>
-              <th style="padding:8px;text-align:right;font-size:12px">Aut.</th>
-              <th style="padding:8px;text-align:right;font-size:12px">Total</th>
+              <th style="padding:3px 5px;text-align:left;font-size:10px;white-space:nowrap">Code</th>
+              <th style="padding:3px 5px;text-align:left;font-size:10px">Cours</th>
+              <th style="padding:3px 5px;text-align:left;font-size:10px;white-space:nowrap">Gr.</th>
+              <th style="padding:3px 5px;text-align:left;font-size:10px;white-space:nowrap">Professeur</th>
+              <th style="padding:3px 5px;text-align:right;font-size:10px;white-space:nowrap">Pér.</th>
+              <th style="padding:3px 5px;text-align:right;font-size:10px;white-space:nowrap">Aut.</th>
+              <th style="padding:3px 5px;text-align:right;font-size:10px;white-space:nowrap;border-left:1px solid rgba(255,255,255,.3)">Total</th>
             </tr>
           </thead>
           <tbody>
             ${lignesUE}
             <tr style="background:#1B2B4B;color:white">
-              <td colspan="4" style="padding:10px 8px;font-weight:700;font-size:13px">TOTAL — ${section}</td>
-              <td style="padding:10px 8px;text-align:right;font-weight:700">${fmt(d.total_per)}</td>
-              <td style="padding:10px 8px;text-align:right;font-weight:700">${fmt(d.total_aut)}</td>
-              <td style="padding:10px 8px;text-align:right;font-weight:700">${fmt(d.total)}</td>
+              <td colspan="4" style="padding:4px 6px;font-weight:700;font-size:12px;white-space:nowrap">TOTAL — ${section}</td>
+              <td style="${SR}font-weight:700;color:white">${fmt(d.total_per)}</td>
+              <td style="${SR}font-weight:700;color:white">${fmt(d.total_aut)}</td>
+              <td style="${SR}font-weight:700;color:white;border-left:1px solid rgba(255,255,255,.3)">${fmt(d.total)}</td>
             </tr>
           </tbody>
         </table>
-        <p style="font-size:10px;color:#9ca3af;margin-top:16px;text-align:right">
-          Généré le ${new Date().toLocaleDateString('fr-BE')} — Lucie · Institut Ilya Prigogine
-        </p>
-      </div>`;
+      </div>
+      </body></html>`;
 
     setRapportHtml(html);
   }
