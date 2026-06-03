@@ -188,6 +188,7 @@ r.get('/rapport-attributions', authRequired, (req, res) => {
     LEFT JOIN ue u ON u.ue_num = a.ue_num AND u.annee_scolaire = a.annee_scolaire
                    AND u.section = a.section
     LEFT JOIN cours c ON c.cours_code = a.code_cours AND c.annee_scolaire = a.annee_scolaire
+                      AND c.section = a.section
     LEFT JOIN professeur p ON p.id = a.professeur_id
     LEFT JOIN activite_type at ON at.id = a.activite_id
     WHERE a.section = ? AND a.annee_scolaire = ?
