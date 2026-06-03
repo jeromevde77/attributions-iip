@@ -813,16 +813,14 @@ export default function Attributions() {
             {st.nBad>0 && <span className="text-red-600 font-bold">✗ {st.nBad}</span>}
             {st.nBad===0 && st.nConf>0 && <span className="text-green-600 font-bold">✓</span>}
             {isAdmin && (
-              <>
-                <button onClick={e=>{e.stopPropagation(); autoFillSection(sg.section);}}
-                  className="text-iip-gold hover:text-iip-amber ml-1" title="Remplir automatiquement les périodes prof (0 → cours_per)">🪄</button>
-                <button onClick={e=>{e.stopPropagation(); genererRapport(sg.section);}}
-                  className="text-gray-400 hover:text-iip-mauve ml-1" title="Rapport d'attributions">📄</button>
-              </>
-            )}
-            {isAdmin && (
-              <button onClick={e=>{e.stopPropagation(); delSection(sg.section);}}
-                className="text-red-400 hover:text-red-600 ml-1" title="Retirer cette section de la vue (référentiel intact)">🗑</button>
+              <span className="flex items-center gap-1 flex-shrink-0" onClick={e=>e.stopPropagation()}>
+                <button onClick={()=>autoFillSection(sg.section)}
+                  className="text-iip-gold hover:text-iip-amber" title="Remplir automatiquement les périodes prof">🪄</button>
+                <button onClick={()=>genererRapport(sg.section)}
+                  className="text-gray-400 hover:text-iip-mauve" title="Rapport d'attributions">📄</button>
+                <button onClick={()=>delSection(sg.section)}
+                  className="text-red-400 hover:text-red-600" title="Retirer cette section de la vue">🗑</button>
+              </span>
             )}
           </div>
         </button>
