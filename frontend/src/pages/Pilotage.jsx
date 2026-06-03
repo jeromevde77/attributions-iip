@@ -128,7 +128,7 @@ export default function Pilotage() {
   // Charger les UEs avec pot pour la config
   useEffect(() => {
     if (tab === 'config') {
-      api.ueWithPot(anneeActive).then(setUeList).catch(console.error);
+      api.ueWithPot(anneeActive, null, true).then(setUeList).catch(console.error);
     }
   }, [tab]);
 
@@ -568,17 +568,38 @@ export default function Pilotage() {
       {/* UEs avec pot */}
       {ueList.length > 0 && (
         <div className="bg-white rounded-xl border border-gray-200">
-          <div className="px-5 py-3 border-b border-gray-100">
-            <h3 className="font-semibold text-gray-700 text-sm">UEs liées à une enveloppe</h3>
-            <p className="text-xs text-gray-400 mt-0.5">UEs auto-détectées (code FWB 9803xx) ou taggées manuellement. L'enveloppe réelle prime sur l'auto-détection.</p>
+          <div className="px-5 py-3 border-b border-gray-100 flex items-center justify-between gap-4">
+            <div>
+              <h3 className="font-semibold text-gray-700 text-sm">Attribution des enveloppes par UE</h3>
+              <p className="text-xs text-gray-400 mt-0.5">Assigne chaque UE à une enveloppe (QUAL, CF, INCL, AESI, organique...)</p>
+            </div>
+            <div className="flex items-center gap-2 flex-shrink-0">
+              <select onChange={e => {
+                  const s = e.target.value;
+                  api.ueWithPot(anneeActive, s || null, true).then(setUeList);
+                }}
+                className="border border-gray-200 rounded px-2 py-1 text-xs bg-white">
+                <option value="">— Toutes sections —</option>
+                {[...new Set(ueList.map(u => u.section).filter(Boolean))].sort().map(s =>
+                  <option key={s} value={s}>{s}</option>
+                )}
+              </select>
+            </div>
           </div>
           <table className="w-full text-sm">
             <thead className="bg-gray-50 text-xs text-gray-500 uppercase tracking-wider">
-              <tr><th className="px-4 py-2 text-left">UE</th><th className="px-4 py-2 text-left">Code FWB</th><th className="px-4 py-2 text-center">Pot effectif</th><th className="px-4 py-2 text-center">Override</th></tr>
+              <tr>
+                <th className="px-4 py-2 text-left">Section</th>
+                <th className="px-4 py-2 text-left">UE</th>
+                <th className="px-4 py-2 text-left">Code FWB</th>
+                <th className="px-4 py-2 text-center">Pot effectif</th>
+                <th className="px-4 py-2 text-center">Override</th>
+              </tr>
             </thead>
             <tbody>
               {ueList.map(u => (
-                <tr key={u.ue_num} className="border-t border-gray-100 hover:bg-gray-50">
+                <tr key={`${u.ue_num}-${u.section}`} className="border-t border-gray-100 hover:bg-gray-50">
+                  <td className="px-4 py-2 text-xs text-gray-400">{u.section}</td>
                   <td className="px-4 py-2.5 text-gray-700 text-xs">{u.ue_nom}</td>
                   <td className="px-4 py-2.5 font-mono text-xs text-gray-500">{u.ue_code_fwb || '—'}</td>
                   <td className="px-4 py-2.5 text-center">
@@ -589,10 +610,10 @@ export default function Pilotage() {
                   <td className="px-4 py-2.5 text-center">
                     <select value={u.pot_code || ''} onChange={async e => {
                       await api.ueSetPot(u.ue_num, anneeActive, e.target.value || null);
-                      api.ueWithPot(anneeActive).then(setUeList);
+                      api.ueWithPot(anneeActive, null, true).then(setUeList);
                     }} className="border border-gray-200 rounded px-1.5 py-0.5 text-xs">
                       <option value="">Auto</option>
-                      {['QUAL', 'CF', 'INCL', 'organique'].map(c => <option key={c} value={c}>{c}</option>)}
+                      {['QUAL', 'CF', 'INCL', 'AESI', 'organique'].map(c => <option key={c} value={c}>{c}</option>)}
                     </select>
                   </td>
                 </tr>

@@ -200,7 +200,12 @@ export const api = {
   enveloppePost(body)               { return request('/pilotage/enveloppes', { method: 'POST', body }); },
   enveloppePut(id, body)            { return request(`/pilotage/enveloppes/${id}`, { method: 'PUT', body }); },
   enveloppeDelete(id)               { return request(`/pilotage/enveloppes/${id}`, { method: 'DELETE' }); },
-  ueWithPot(annee)                  { return request(`/pilotage/ue-pot?annee=${encodeURIComponent(annee || getAnnee())}`); },
+  ueWithPot(annee, section, tous) {
+    const p = new URLSearchParams({ annee: annee || getAnnee() });
+    if (section) p.set('section', section);
+    if (tous) p.set('tous', '1');
+    return request(`/pilotage/ue-pot?${p}`);
+  },
   ueSetPot(ue_num, annee_scolaire, pot_code) { return request('/pilotage/ue-pot', { method: 'PATCH', body: { ue_num, annee_scolaire, pot_code } }); },
 
   // exports
