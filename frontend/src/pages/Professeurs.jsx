@@ -405,9 +405,17 @@ export default function Professeurs() {
                     </button>
                   </td>
                   <td>
-                    {p.statut
-                      ? <span className={`badge ${p.statut === 'CC' ? 'badge-iip' : p.statut === 'EXP' ? 'badge-exp' : 'badge-helb'}`}>{p.statut}</span>
-                      : <span className="text-gray-300 text-xs">—</span>}
+                    <div className="flex items-center gap-1 flex-wrap">
+                      {p.type_personnel === 'admin' && (
+                        <span className="badge" style={{background:'#00AACC',color:'white',fontSize:'10px',padding:'1px 6px',borderRadius:'8px',whiteSpace:'nowrap'}}>Admin</span>
+                      )}
+                      {p.statut && (
+                        <span className={`badge ${p.statut === 'CC' ? 'badge-iip' : p.statut === 'EXP' ? 'badge-exp' : 'badge-helb'}`}>{p.statut}</span>
+                      )}
+                      {!p.type_personnel && !p.statut && (
+                        <span className="text-gray-300 text-xs">—</span>
+                      )}
+                    </div>
                   </td>
                   <td className="text-xs text-gray-600">{p.adresse_mail || '—'}</td>
                   <td className="text-xs text-gray-600">{p.commune || '—'}</td>
