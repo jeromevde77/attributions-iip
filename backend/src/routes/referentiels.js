@@ -529,8 +529,7 @@ r.get('/professeurs', authRequired, (req, res) => {
   const anneeActive = annee || db.prepare("SELECT code FROM annee_scolaire WHERE active=1 ORDER BY code DESC LIMIT 1").get()?.code || '2026-2027';
 
   const subTotalAnnee = `(SELECT COALESCE(SUM(a.periodes_attribuees),0)
-    FROM attribution a WHERE a.professeur_id = v.id AND a.annee_scolaire = '${anneeActive}'
-    AND a.contrat_mdp = 'IIP') AS total_per_annee`;
+    FROM attribution a WHERE a.professeur_id = p.id AND a.annee_scolaire = '${anneeActive}') AS total_per_annee`;
 
   const base = `SELECT p.id, p.nom, p.prenom, p.statut, p.adresse_mail, p.commune,
       p.code_postal, p.capaes, p.anciennete_25_26_po, p.type_personnel,
@@ -561,6 +560,7 @@ r.get('/professeurs/:id', authRequired, (req, res) => {
   const annee = req.query.annee
     || db.prepare("SELECT code FROM annee_scolaire WHERE active = 1 LIMIT 1").get()?.code
     || db.prepare("SELECT annee_scolaire FROM attribution WHERE professeur_id = ? ORDER BY annee_scolaire DESC LIMIT 1").get(req.params.id)?.annee_scolaire;
+
   const attrs = db.prepare(`
     SELECT * FROM v_attribution_complete
     WHERE professeur_id = ? AND annee_scolaire = ? ORDER BY section, ue_num
