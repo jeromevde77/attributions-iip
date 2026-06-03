@@ -220,6 +220,45 @@ export default function Attributions() {
   const [showCopierSection, setShowCopierSection] = useState(false);
   const [rapportHtml, setRapportHtml] = useState(null);
 
+  const [selected, setSelected] = useState(new Set());
+  const [sortBy, setSortBy] = useState({ key: null, dir: 'asc' });
+  const [confirmDeleteSection, setConfirmDeleteSection] = useState(null);
+  const [filtersOpenMobile, setFiltersOpenMobile] = useState(false);
+  const [bulkDeleteModal, setBulkDeleteModal] = useState(null);
+  const [bulkPreview, setBulkPreview] = useState(null);
+  const [bulkConfirmText, setBulkConfirmText] = useState('');
+  const [editRow, setEditRow] = useState(null);
+  const [addMenuUE, setAddMenuUE] = useState(null);   // {ue, sec} : menu + ouvert pour cette UE
+  const [quadriMenu, setQuadriMenu] = useState(null); // key de l'UE dont le menu quadri est ouvert
+  const [activeUE, setActiveUE] = useState(null);     // key de la dernière UE cliquée (encadrée)
+  const [newCoursForm, setNewCoursForm] = useState(null); // préremplissage AttributionForm pour nouveau cours
+  const [viewMode, setViewMode] = useState('ue');
+  const [openUEs, setOpenUEs] = useState(new Set());
+
+  const [colWidths, setColWidths] = useState(() => {
+    try {
+      const saved = JSON.parse(localStorage.getItem('attr_col_widths') || '{}');
+      const base = {};
+      for (const c of DEFAULT_COLS) base[c.key] = saved[c.key] || c.width;
+      return base;
+    } catch { return Object.fromEntries(DEFAULT_COLS.map(c => [c.key, c.width])); }
+  });
+  function setColWidth(key, w) {
+    setColWidths(prev => {
+      const next = { ...prev, [key]: Math.max(30, Math.round(w)) };
+      try { localStorage.setItem('attr_col_widths', JSON.stringify(next)); } catch {}
+      return next;
+    });
+  }
+  const COLS = useMemo(() => DEFAULT_COLS.map(c => ({ ...c, width: colWidths[c.key] || c.width })), [colWidths]);
+  // Colonnes pour la vue accordéon niveau UE (masque section/ue/bloc/org, garde code_cours/nom_cours)
+  const COLS_UE = useMemo(() => COLS.filter(c => !c.flatOnly), [COLS]);
+  // Colonnes pour la vue accordéon niveau Cours (masque aussi code_cours/nom_cours)
+  const COLS_COURS = useMemo(() => COLS.filter(c => !c.flatOnly && !c.coursOnly), [COLS]);
+
+  const me = JSON.parse(localStorage.getItem('user') || 'null');
+  const isAdmin = me?.role === 'admin';
+
   async function genererRapport(section) {
     const annee = getAnnee();
     const tok = localStorage.getItem('token');
@@ -438,44 +477,6 @@ export default function Attributions() {
     // Télécharger
     XLSX.writeFile(wb, `Attributions_${section}_${annee}.xlsx`);
   }
-  const [selected, setSelected] = useState(new Set());
-  const [sortBy, setSortBy] = useState({ key: null, dir: 'asc' });
-  const [confirmDeleteSection, setConfirmDeleteSection] = useState(null);
-  const [filtersOpenMobile, setFiltersOpenMobile] = useState(false);
-  const [bulkDeleteModal, setBulkDeleteModal] = useState(null);
-  const [bulkPreview, setBulkPreview] = useState(null);
-  const [bulkConfirmText, setBulkConfirmText] = useState('');
-  const [editRow, setEditRow] = useState(null);
-  const [addMenuUE, setAddMenuUE] = useState(null);   // {ue, sec} : menu + ouvert pour cette UE
-  const [quadriMenu, setQuadriMenu] = useState(null); // key de l'UE dont le menu quadri est ouvert
-  const [activeUE, setActiveUE] = useState(null);     // key de la dernière UE cliquée (encadrée)
-  const [newCoursForm, setNewCoursForm] = useState(null); // préremplissage AttributionForm pour nouveau cours
-  const [viewMode, setViewMode] = useState('ue');
-  const [openUEs, setOpenUEs] = useState(new Set());
-
-  const [colWidths, setColWidths] = useState(() => {
-    try {
-      const saved = JSON.parse(localStorage.getItem('attr_col_widths') || '{}');
-      const base = {};
-      for (const c of DEFAULT_COLS) base[c.key] = saved[c.key] || c.width;
-      return base;
-    } catch { return Object.fromEntries(DEFAULT_COLS.map(c => [c.key, c.width])); }
-  });
-  function setColWidth(key, w) {
-    setColWidths(prev => {
-      const next = { ...prev, [key]: Math.max(30, Math.round(w)) };
-      try { localStorage.setItem('attr_col_widths', JSON.stringify(next)); } catch {}
-      return next;
-    });
-  }
-  const COLS = useMemo(() => DEFAULT_COLS.map(c => ({ ...c, width: colWidths[c.key] || c.width })), [colWidths]);
-  // Colonnes pour la vue accordéon niveau UE (masque section/ue/bloc/org, garde code_cours/nom_cours)
-  const COLS_UE = useMemo(() => COLS.filter(c => !c.flatOnly), [COLS]);
-  // Colonnes pour la vue accordéon niveau Cours (masque aussi code_cours/nom_cours)
-  const COLS_COURS = useMemo(() => COLS.filter(c => !c.flatOnly && !c.coursOnly), [COLS]);
-
-  const me = JSON.parse(localStorage.getItem('user') || 'null');
-  const isAdmin = me?.role === 'admin';
 
   /* --- Sélection --- */
   function toggleSelect(id) {
