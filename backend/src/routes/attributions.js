@@ -161,6 +161,71 @@ r.get('/annees-par-section', authRequired, (req, res) => {
   res.json(map);
 });
 
+// GET /rapport-attributions?section=&annee=
+// Retourne les données structurées pour le rapport d'attributions par UE/cours
+r.get('/rapport-attributions', authRequired, (req, res) => {
+  const { section, annee } = req.query;
+  if (!section || !annee) return res.status(400).json({ error: 'section et annee requis' });
+
+  const rows = db.prepare(`
+    SELECT
+      a.ue_num, u.ue_nom, u.ue_niv, u.ue_quad,
+      a.code_cours, c.cours_nom,
+      a.num_groupe, a.code AS groupe_code,
+      a.professeur_id, p.nom AS prof_nom, p.prenom AS prof_prenom,
+      a.periodes_attribuees, a.autonomie_attribuee,
+      a.activite_id, at.libelle AS activite_nom,
+      a.type_cours
+    FROM attribution a
+    LEFT JOIN ue u ON u.ue_num = a.ue_num AND u.annee_scolaire = a.annee_scolaire
+    LEFT JOIN cours c ON c.cours_code = a.code_cours AND c.annee_scolaire = a.annee_scolaire
+    LEFT JOIN professeur p ON p.id = a.professeur_id
+    LEFT JOIN activite_type at ON at.id = a.activite_id
+    WHERE a.section = ? AND a.annee_scolaire = ?
+      AND (a.type_cours IS NULL OR a.type_cours != 'Z')
+      AND COALESCE(a.periodes_attribuees, 0) + COALESCE(a.autonomie_attribuee, 0) > 0
+    ORDER BY
+      CAST(TRIM(COALESCE(u.ue_niv,''), 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz') AS INTEGER),
+      a.ue_num, a.code_cours, a.num_groupe
+  `).all(section, annee);
+
+  // Structurer par UE → cours → lignes
+  const ues = [];
+  const ueMap = {};
+  for (const row of rows) {
+    if (!ueMap[row.ue_num]) {
+      const ue = {
+        ue_num: row.ue_num, ue_nom: row.ue_nom,
+        ue_niv: row.ue_niv, ue_quad: row.ue_quad,
+        cours: [], total_per: 0, total_aut: 0
+      };
+      ueMap[row.ue_num] = ue;
+      ues.push(ue);
+    }
+    const ue = ueMap[row.ue_num];
+    const per = row.periodes_attribuees || 0;
+    const aut = row.autonomie_attribuee || 0;
+    ue.cours.push({
+      code_cours:   row.code_cours,
+      cours_nom:    row.cours_nom,
+      groupe_code:  row.groupe_code || _numToLettre(row.num_groupe || 1),
+      prof_nom:     row.prof_nom ? `${row.prof_nom} ${(row.prof_prenom||'')[0] || ''}.`.trim() : '—',
+      activite_nom: row.activite_nom,
+      periodes:     per,
+      autonomie:    aut,
+      total:        per + aut,
+    });
+    ue.total_per += per;
+    ue.total_aut += aut;
+  }
+
+  const total_per = ues.reduce((s, u) => s + u.total_per, 0);
+  const total_aut = ues.reduce((s, u) => s + u.total_aut, 0);
+
+  res.json({ section, annee, ues, total_per, total_aut, total: total_per + total_aut });
+});
+
+
 r.get('/:id', authRequired, (req, res) => {
   const row = db.prepare('SELECT * FROM v_attribution_complete WHERE id = ?').get(req.params.id);
   if (!row) return res.status(404).json({ error: 'Attribution introuvable' });
@@ -693,70 +758,6 @@ r.post('/copier-section', authRequired, roleRequired('admin', 'editeur'), (req, 
   })();
 
   res.json({ ok: true, copied: sources.length });
-});
-
-// GET /rapport-attributions?section=&annee=
-// Retourne les données structurées pour le rapport d'attributions par UE/cours
-r.get('/rapport-attributions', authRequired, (req, res) => {
-  const { section, annee } = req.query;
-  if (!section || !annee) return res.status(400).json({ error: 'section et annee requis' });
-
-  const rows = db.prepare(`
-    SELECT
-      a.ue_num, u.ue_nom, u.ue_niv, u.ue_quad,
-      a.code_cours, c.cours_nom,
-      a.num_groupe, a.code AS groupe_code,
-      a.professeur_id, p.nom AS prof_nom, p.prenom AS prof_prenom,
-      a.periodes_attribuees, a.autonomie_attribuee,
-      a.activite_id, at.libelle AS activite_nom,
-      a.type_cours
-    FROM attribution a
-    LEFT JOIN ue u ON u.ue_num = a.ue_num AND u.annee_scolaire = a.annee_scolaire
-    LEFT JOIN cours c ON c.cours_code = a.code_cours AND c.annee_scolaire = a.annee_scolaire
-    LEFT JOIN professeur p ON p.id = a.professeur_id
-    LEFT JOIN activite_type at ON at.id = a.activite_id
-    WHERE a.section = ? AND a.annee_scolaire = ?
-      AND (a.type_cours IS NULL OR a.type_cours != 'Z')
-      AND COALESCE(a.periodes_attribuees, 0) + COALESCE(a.autonomie_attribuee, 0) > 0
-    ORDER BY
-      CAST(TRIM(COALESCE(u.ue_niv,''), 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz') AS INTEGER),
-      a.ue_num, a.code_cours, a.num_groupe
-  `).all(section, annee);
-
-  // Structurer par UE → cours → lignes
-  const ues = [];
-  const ueMap = {};
-  for (const row of rows) {
-    if (!ueMap[row.ue_num]) {
-      const ue = {
-        ue_num: row.ue_num, ue_nom: row.ue_nom,
-        ue_niv: row.ue_niv, ue_quad: row.ue_quad,
-        cours: [], total_per: 0, total_aut: 0
-      };
-      ueMap[row.ue_num] = ue;
-      ues.push(ue);
-    }
-    const ue = ueMap[row.ue_num];
-    const per = row.periodes_attribuees || 0;
-    const aut = row.autonomie_attribuee || 0;
-    ue.cours.push({
-      code_cours:   row.code_cours,
-      cours_nom:    row.cours_nom,
-      groupe_code:  row.groupe_code || _numToLettre(row.num_groupe || 1),
-      prof_nom:     row.prof_nom ? `${row.prof_nom} ${(row.prof_prenom||'')[0] || ''}.`.trim() : '—',
-      activite_nom: row.activite_nom,
-      periodes:     per,
-      autonomie:    aut,
-      total:        per + aut,
-    });
-    ue.total_per += per;
-    ue.total_aut += aut;
-  }
-
-  const total_per = ues.reduce((s, u) => s + u.total_per, 0);
-  const total_aut = ues.reduce((s, u) => s + u.total_aut, 0);
-
-  res.json({ section, annee, ues, total_per, total_aut, total: total_per + total_aut });
 });
 
 export default r;
