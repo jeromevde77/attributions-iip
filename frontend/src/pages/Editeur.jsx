@@ -623,7 +623,7 @@ export default function Editeur() {
 
   useEffect(() => {
     chargerTemplates();
-    api.professeurs().then(setProfs).catch(() => {});
+    api.professeurs(true).then(setProfs).catch(() => {});
     api.sections().then(setSections).catch(() => {});
   }, []);
 

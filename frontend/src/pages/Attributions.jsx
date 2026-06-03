@@ -661,7 +661,7 @@ export default function Attributions() {
     setLoading(true);
     const f = overrideFilters ?? filters;
     try {
-      const [a,s,p] = await Promise.all([api.attributions(f), api.sections(), api.professeurs()]);
+      const [a,s,p] = await Promise.all([api.attributions(f), api.sections(), api.professeurs(true)]);
       setData(a); setSections(s); setProfesseurs(p);
       if (activitesList.length === 0) api.activites().then(setActivitesList).catch(()=>{});
     } catch(e){ console.error(e); }

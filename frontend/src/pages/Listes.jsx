@@ -42,7 +42,7 @@ const ENTITES = {
       { key: 'anciennete_25_26_po', label: 'Anc. PO', defaut: false },
       { key: 'capaes',         label: 'CAPAES',       defaut: false },
     ],
-    fetch: (annee, filtres) => api.professeurs(),
+    fetch: (annee, filtres) => api.professeurs(true),
     filtres: [],
   },
   ues: {
