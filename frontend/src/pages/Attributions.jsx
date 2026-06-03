@@ -1,6 +1,7 @@
 import { useEffect, useState, useMemo } from 'react';
 import { api, getAnnee } from '../lib/api.js';
 import PreviewModal from '../components/PreviewModal.jsx';
+import * as XLSX from 'xlsx';
 
 // ─── Modale : copier les attributions d'une section d'une année vers une autre ─
 function CopierSectionModal({ sections, anneeActive, isAdmin, onClose, onCopied }) {
@@ -317,7 +318,126 @@ export default function Attributions() {
 
     setRapportHtml(html);
   }
-  const [sortBy, setSortBy] = useState({ key: null, dir: 'asc' });
+  async function genererExcel(section) {
+    const annee = getAnnee();
+    const tok = localStorage.getItem('token');
+    const d = await fetch(`/api/attributions/rapport-attributions?section=${encodeURIComponent(section)}&annee=${encodeURIComponent(annee)}`,
+      { headers: { Authorization: `Bearer ${tok}` } }).then(r => r.json());
+    if (d.error) { alert(d.error); return; }
+
+    // Couleurs
+    const BLEU_MARINE  = '1B2B4B';
+    const TURQUOISE    = '00AACC';
+    const GRIS_CLAIR   = 'F1F5F9';
+    const GRIS_ZEBRE   = 'F9FAFB';
+    const GRIS_SOUS    = 'E8EDF3';
+    const GRIS_TEXTE   = '6B7280';
+    const NIV_PAL      = ['F97316','60A5FA','1E3A8A','A855F7','EC4899'];
+    const niveaux      = [...new Set(d.ues.map(u => u.ue_niv).filter(Boolean))].sort((a,b)=>{
+      return parseInt(a.match(/\d+$/)?.[0]??99) - parseInt(b.match(/\d+$/)?.[0]??99);
+    });
+    const nivCol = niv => NIV_PAL[niveaux.indexOf(niv) % NIV_PAL.length] || '6B7280';
+
+    const hdr = (v, bgHex, fgHex='FFFFFF', bold=false, sz=9, al='left') => ({
+      v, s: {
+        font:{ name:'Calibri', sz, bold, color:{ rgb: fgHex } },
+        fill:{ fgColor:{ rgb: bgHex }, patternType:'solid' },
+        alignment:{ horizontal: al, vertical:'center', wrapText:false },
+        border:{ bottom:{ style:'thin', color:{ rgb:'E5E7EB' } } }
+      }
+    });
+
+    const rows = [];
+
+    // Titre
+    rows.push([{ v:`Attributions — ${section}`, s:{font:{name:'Calibri',sz:14,bold:true,color:{rgb:BLEU_MARINE}}}}]);
+    rows.push([{ v:`Année scolaire ${annee}`, s:{font:{name:'Calibri',sz:10,color:{rgb:GRIS_TEXTE}}}}]);
+    rows.push([]);
+
+    // En-têtes colonnes
+    rows.push([
+      hdr('Code',        BLEU_MARINE,'FFFFFF',true,9,'left'),
+      hdr('Cours',       BLEU_MARINE,'FFFFFF',true,9,'left'),
+      hdr('Gr.',         BLEU_MARINE,'FFFFFF',true,9,'center'),
+      hdr('Professeur',  BLEU_MARINE,'FFFFFF',true,9,'left'),
+      hdr('Pér.',        BLEU_MARINE,'FFFFFF',true,9,'center'),
+      hdr('Aut.',        BLEU_MARINE,'FFFFFF',true,9,'center'),
+      hdr('Total',       BLEU_MARINE,'FFFFFF',true,9,'center'),
+    ]);
+
+    for (const ue of d.ues) {
+      const col = nivCol(ue.ue_niv);
+      const ueLabel = `UE ${ue.ue_num}${ue.ue_niv ? ' ['+ue.ue_niv+']' : ''}${ue.ue_quad ? ' · '+ue.ue_quad : ''} — ${ue.ue_nom}`;
+      // Ligne UE
+      rows.push([
+        { v:ueLabel, s:{font:{name:'Calibri',sz:10,bold:true,color:{rgb:BLEU_MARINE}},fill:{fgColor:{rgb:GRIS_CLAIR},patternType:'solid'},alignment:{horizontal:'left',vertical:'center'}}},
+        { v:'', s:{fill:{fgColor:{rgb:GRIS_CLAIR},patternType:'solid'}}},
+        { v:'', s:{fill:{fgColor:{rgb:GRIS_CLAIR},patternType:'solid'}}},
+        { v:'', s:{fill:{fgColor:{rgb:GRIS_CLAIR},patternType:'solid'}}},
+        { v:'', s:{fill:{fgColor:{rgb:GRIS_CLAIR},patternType:'solid'}}},
+        { v:'', s:{fill:{fgColor:{rgb:GRIS_CLAIR},patternType:'solid'}}},
+        { v:'', s:{fill:{fgColor:{rgb:GRIS_CLAIR},patternType:'solid'}}},
+      ]);
+
+      ue.cours.forEach((c, i) => {
+        const bg = i%2===0 ? 'FFFFFF' : GRIS_ZEBRE;
+        const cn = c.activite_nom ? `${c.cours_nom}  (${c.activite_nom})` : c.cours_nom;
+        rows.push([
+          { v:c.code_cours||'', s:{font:{name:'Calibri',sz:9,color:{rgb:'374151'}},fill:{fgColor:{rgb:bg},patternType:'solid'},alignment:{horizontal:'left',vertical:'center'}}},
+          { v:cn||'', s:{font:{name:'Calibri',sz:9,color:{rgb:'374151'}},fill:{fgColor:{rgb:bg},patternType:'solid'},alignment:{horizontal:'left',vertical:'center',wrapText:false}}},
+          { v:`Gr.${c.groupe_code}`, s:{font:{name:'Calibri',sz:9,color:{rgb:GRIS_TEXTE}},fill:{fgColor:{rgb:bg},patternType:'solid'},alignment:{horizontal:'center',vertical:'center'}}},
+          { v:c.prof_nom||'—', s:{font:{name:'Calibri',sz:9,color:{rgb:'374151'}},fill:{fgColor:{rgb:bg},patternType:'solid'},alignment:{horizontal:'left',vertical:'center'}}},
+          { v:c.periodes||0, s:{font:{name:'Calibri',sz:9,color:{rgb:'374151'}},fill:{fgColor:{rgb:bg},patternType:'solid'},alignment:{horizontal:'center',vertical:'center'}}},
+          { v:c.autonomie||0, s:{font:{name:'Calibri',sz:9,color:{rgb:GRIS_TEXTE}},fill:{fgColor:{rgb:bg},patternType:'solid'},alignment:{horizontal:'center',vertical:'center'}}},
+          { v:c.total||0, s:{font:{name:'Calibri',sz:9,bold:true,color:{rgb:BLEU_MARINE}},fill:{fgColor:{rgb:bg},patternType:'solid'},alignment:{horizontal:'center',vertical:'center'}}},
+        ]);
+      });
+
+      // Sous-total UE
+      rows.push([
+        { v:`Sous-total UE ${ue.ue_num}`, s:{font:{name:'Calibri',sz:9,italic:true,color:{rgb:GRIS_TEXTE}},fill:{fgColor:{rgb:GRIS_SOUS},patternType:'solid'},alignment:{horizontal:'right',vertical:'center'}}},
+        { v:'', s:{fill:{fgColor:{rgb:GRIS_SOUS},patternType:'solid'}}},
+        { v:'', s:{fill:{fgColor:{rgb:GRIS_SOUS},patternType:'solid'}}},
+        { v:'', s:{fill:{fgColor:{rgb:GRIS_SOUS},patternType:'solid'}}},
+        { v:ue.total_per, s:{font:{name:'Calibri',sz:9,bold:true,color:{rgb:'374151'}},fill:{fgColor:{rgb:GRIS_SOUS},patternType:'solid'},alignment:{horizontal:'center',vertical:'center'}}},
+        { v:ue.total_aut, s:{font:{name:'Calibri',sz:9,bold:true,color:{rgb:GRIS_TEXTE}},fill:{fgColor:{rgb:GRIS_SOUS},patternType:'solid'},alignment:{horizontal:'center',vertical:'center'}}},
+        { v:ue.total_per+ue.total_aut, s:{font:{name:'Calibri',sz:9,bold:true,color:{rgb:BLEU_MARINE}},fill:{fgColor:{rgb:GRIS_SOUS},patternType:'solid'},alignment:{horizontal:'center',vertical:'center'}}},
+      ]);
+      rows.push([]); // espace entre UE
+    }
+
+    // Total section
+    rows.push([
+      { v:`TOTAL — ${section}`, s:{font:{name:'Calibri',sz:11,bold:true,color:{rgb:'FFFFFF'}},fill:{fgColor:{rgb:BLEU_MARINE},patternType:'solid'},alignment:{horizontal:'left',vertical:'center'}}},
+      { v:'', s:{fill:{fgColor:{rgb:BLEU_MARINE},patternType:'solid'}}},
+      { v:'', s:{fill:{fgColor:{rgb:BLEU_MARINE},patternType:'solid'}}},
+      { v:'', s:{fill:{fgColor:{rgb:BLEU_MARINE},patternType:'solid'}}},
+      { v:d.total_per, s:{font:{name:'Calibri',sz:11,bold:true,color:{rgb:'FFFFFF'}},fill:{fgColor:{rgb:BLEU_MARINE},patternType:'solid'},alignment:{horizontal:'center',vertical:'center'}}},
+      { v:d.total_aut, s:{font:{name:'Calibri',sz:11,bold:true,color:{rgb:'FFFFFF'}},fill:{fgColor:{rgb:BLEU_MARINE},patternType:'solid'},alignment:{horizontal:'center',vertical:'center'}}},
+      { v:d.total, s:{font:{name:'Calibri',sz:11,bold:true,color:{rgb:'FFFFFF'}},fill:{fgColor:{rgb:BLEU_MARINE},patternType:'solid'},alignment:{horizontal:'center',vertical:'center'}}},
+    ]);
+
+    rows.push([]);
+    const today = new Date().toLocaleDateString('fr-BE');
+    rows.push([{ v:`Généré le ${today} · Lucie · Institut Ilya Prigogine`, s:{font:{name:'Calibri',sz:8,italic:true,color:{rgb:'9CA3AF'}},alignment:{horizontal:'right'}}}]);
+
+    // Créer le workbook
+    const wb = XLSX.utils.book_new();
+    const ws = XLSX.utils.aoa_to_sheet(rows);
+
+    // Largeurs colonnes
+    ws['!cols'] = [
+      {wch:10}, {wch:44}, {wch:7}, {wch:20},
+      {wch:8},  {wch:8},  {wch:8}
+    ];
+    // Figer les 4 premières lignes (titre + sous-titre + espace + en-têtes)
+    ws['!freeze'] = { xSplit:0, ySplit:4 };
+
+    XLSX.utils.book_append_sheet(wb, ws, section.slice(0,31));
+
+    // Télécharger
+    XLSX.writeFile(wb, `Attributions_${section}_${annee}.xlsx`);
+  }
   const [selected, setSelected] = useState(new Set());
   const [confirmDeleteSection, setConfirmDeleteSection] = useState(null);
   const [filtersOpenMobile, setFiltersOpenMobile] = useState(false);
@@ -817,7 +937,9 @@ export default function Attributions() {
                 <button onClick={()=>autoFillSection(sg.section)}
                   className="text-iip-gold hover:text-iip-amber" title="Remplir automatiquement les périodes prof">🪄</button>
                 <button onClick={()=>genererRapport(sg.section)}
-                  className="text-gray-400 hover:text-iip-mauve" title="Rapport d'attributions">📄</button>
+                  className="text-gray-400 hover:text-iip-mauve" title="Rapport d'attributions (HTML/impression)">📄</button>
+                <button onClick={()=>genererExcel(sg.section)}
+                  className="text-gray-400 hover:text-green-600" title="Exporter en Excel (.xlsx)">📊</button>
                 <button onClick={()=>delSection(sg.section)}
                   className="text-red-400 hover:text-red-600" title="Retirer cette section de la vue">🗑</button>
               </span>
