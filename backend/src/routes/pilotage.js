@@ -434,18 +434,24 @@ r.get('/dotation-comparaison', authRequired, (req, res) => {
   const couts1 = getCouts(annee1);
   const couts2 = getCouts(annee2);
 
-  // Toutes les UE des deux années
+  // Toutes les UE des deux années — une seule ligne par (section, ue_num)
+  // Priorité à annee2 pour les métadonnées (ue_nom, ue_niv, ue_quad)
   const ues = db.prepare(`
-    SELECT DISTINCT u.section, u.ue_num, u.ue_nom, u.ue_niv, u.ue_niveau, u.ue_quad,
-      COALESCE(u.pot_code,
+    SELECT u.section, u.ue_num,
+      MAX(CASE WHEN u.annee_scolaire = ? THEN u.ue_nom END) AS ue_nom,
+      MAX(CASE WHEN u.annee_scolaire = ? THEN u.ue_niv ELSE u.ue_niv END) AS ue_niv,
+      MAX(CASE WHEN u.annee_scolaire = ? THEN u.ue_niveau ELSE u.ue_niveau END) AS ue_niveau,
+      MAX(CASE WHEN u.annee_scolaire = ? THEN u.ue_quad ELSE u.ue_quad END) AS ue_quad,
+      MAX(COALESCE(u.pot_code,
         CASE WHEN u.ue_code_fwb LIKE '980302%' THEN 'QUAL'
              WHEN u.ue_code_fwb LIKE '980301%' THEN 'CF'
              WHEN u.ue_code_fwb LIKE '980303%' THEN 'INCL'
-             ELSE 'organique' END) AS pot
+             ELSE 'organique' END)) AS pot
     FROM ue u
     WHERE u.annee_scolaire IN (?, ?)
+    GROUP BY u.section, u.ue_num
     ORDER BY u.section, u.ue_num
-  `).all(annee1, annee2);
+  `).all(annee2, annee2, annee2, annee2, annee1, annee2);
 
   // Grouper par section
   const sections = {};
