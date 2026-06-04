@@ -408,3 +408,65 @@ r.get('/dotation-ue', authRequired, (req, res) => {
 
   res.json({ section, annee, mode, lignes, total_q1, total_q2, total });
 });
+
+// GET /dotation-comparaison?annee1=2025-2026&annee2=2026-2027
+// Tableau comparatif toutes sections × UE pour deux années scolaires
+r.get('/dotation-comparaison', authRequired, (req, res) => {
+  const { annee1, annee2 } = req.query;
+  if (!annee1 || !annee2) return res.status(400).json({ error: 'annee1 et annee2 requis' });
+
+  function getCouts(annee) {
+    return db.prepare(`
+      SELECT a.section, a.ue_num,
+        ROUND(SUM(${CQ1}), 2) AS q1,
+        ROUND(SUM(${CQ2}), 2) AS q2
+      FROM attribution a
+      LEFT JOIN ue u ON u.ue_num = a.ue_num AND u.annee_scolaire = a.annee_scolaire AND u.section = a.section
+      WHERE a.annee_scolaire = ? AND a.contrat_mdp = 'IIP'
+      GROUP BY a.section, a.ue_num
+    `).all(annee).reduce((m, r) => {
+      if (!m[r.section]) m[r.section] = {};
+      m[r.section][r.ue_num] = { q1: r.q1 || 0, q2: r.q2 || 0 };
+      return m;
+    }, {});
+  }
+
+  const couts1 = getCouts(annee1);
+  const couts2 = getCouts(annee2);
+
+  // Toutes les UE des deux années
+  const ues = db.prepare(`
+    SELECT DISTINCT u.section, u.ue_num, u.ue_nom, u.ue_niv, u.ue_niveau, u.ue_quad,
+      COALESCE(u.pot_code,
+        CASE WHEN u.ue_code_fwb LIKE '980302%' THEN 'QUAL'
+             WHEN u.ue_code_fwb LIKE '980301%' THEN 'CF'
+             WHEN u.ue_code_fwb LIKE '980303%' THEN 'INCL'
+             ELSE 'organique' END) AS pot
+    FROM ue u
+    WHERE u.annee_scolaire IN (?, ?)
+    ORDER BY u.section, u.ue_num
+  `).all(annee1, annee2);
+
+  // Grouper par section
+  const sections = {};
+  for (const u of ues) {
+    if (!sections[u.section]) sections[u.section] = { section: u.section, ues: [], tot1: {q1:0,q2:0}, tot2: {q1:0,q2:0} };
+    const c1 = couts1[u.section]?.[u.ue_num] || { q1: 0, q2: 0 };
+    const c2 = couts2[u.section]?.[u.ue_num] || { q1: 0, q2: 0 };
+    const t1 = Math.round((c1.q1 + c1.q2) * 100) / 100;
+    const t2 = Math.round((c2.q1 + c2.q2) * 100) / 100;
+    sections[u.section].ues.push({ ...u, c1, c2, t1, t2, delta: Math.round((t2 - t1) * 100) / 100 });
+    sections[u.section].tot1.q1 = Math.round((sections[u.section].tot1.q1 + c1.q1) * 100) / 100;
+    sections[u.section].tot1.q2 = Math.round((sections[u.section].tot1.q2 + c1.q2) * 100) / 100;
+    sections[u.section].tot2.q1 = Math.round((sections[u.section].tot2.q1 + c2.q1) * 100) / 100;
+    sections[u.section].tot2.q2 = Math.round((sections[u.section].tot2.q2 + c2.q2) * 100) / 100;
+  }
+
+  const result = Object.values(sections).map(s => {
+    const tot1 = Math.round((s.tot1.q1 + s.tot1.q2) * 100) / 100;
+    const tot2 = Math.round((s.tot2.q1 + s.tot2.q2) * 100) / 100;
+    return { ...s, tot1_total: tot1, tot2_total: tot2, delta: Math.round((tot2 - tot1) * 100) / 100 };
+  }).sort((a, b) => a.section.localeCompare(b.section));
+
+  res.json({ annee1, annee2, sections: result });
+});

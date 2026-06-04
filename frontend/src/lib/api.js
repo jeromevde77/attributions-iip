@@ -217,6 +217,9 @@ export const api = {
   dotationUE(section, annee, mode) {
     return request(`/pilotage/dotation-ue?section=${encodeURIComponent(section)}&annee=${encodeURIComponent(annee)}&mode=${mode}`);
   },
+  dotationComparaison(annee1, annee2) {
+    return request(`/pilotage/dotation-comparaison?annee1=${encodeURIComponent(annee1)}&annee2=${encodeURIComponent(annee2)}`);
+  },
   doc23() { return request(withAnnee('/exports/doc2-3')); },
   exportExcel() {
     return fetch(`${BASE}/exports/excel?annee=${encodeURIComponent(getAnnee())}`, {

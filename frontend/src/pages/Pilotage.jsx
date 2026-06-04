@@ -103,6 +103,192 @@ function DotSectionSelect({ value, onChange }) {
   );
 }
 
+// ── Composant comparaison dotation ───────────────────────────────────────────
+function DotationComparaison({ civil }) {
+  const [annee1, setAnnee1] = useState('');
+  const [annee2, setAnnee2] = useState('');
+  const [data, setData]     = useState(null);
+  const [loading, setLoading] = useState(false);
+  const [openSecs, setOpenSecs] = useState(new Set());
+
+  // Années scolaires disponibles
+  const anneesSco = [...new Set(
+    civil.flatMap(y => [`${y.annee_civile-1}-${y.annee_civile}`, `${y.annee_civile}-${y.annee_civile+1}`])
+  )].sort();
+
+  async function charger() {
+    if (!annee1 || !annee2) return;
+    setLoading(true);
+    try {
+      const d = await api.dotationComparaison(annee1, annee2);
+      setData(d);
+      // Ouvrir toutes les sections par défaut
+      setOpenSecs(new Set(d.sections.map(s => s.section)));
+    } catch(e) { alert(e.message); }
+    finally { setLoading(false); }
+  }
+
+  function toggleSec(sec) {
+    setOpenSecs(prev => {
+      const n = new Set(prev);
+      n.has(sec) ? n.delete(sec) : n.add(sec);
+      return n;
+    });
+  }
+
+  const NIV_PAL = ['#f97316','#60a5fa','#1e3a8a','#a855f7','#ec4899'];
+  const niveaux = data ? [...new Set(data.sections.flatMap(s => s.ues.map(u => u.ue_niv).filter(Boolean)))]
+    .sort((a,b) => parseInt(a.match(/\d+$/)?.[0]??99) - parseInt(b.match(/\d+$/)?.[0]??99)) : [];
+  const nivColor = niv => NIV_PAL[niveaux.indexOf(niv) % NIV_PAL.length] || '#6b7280';
+
+  const fmt = n => n > 0 ? n : <span className="text-gray-300 text-xs">—</span>;
+  const delta = (d) => {
+    if (d === 0) return <span className="text-gray-400 text-xs">=</span>;
+    const col = d > 0 ? 'text-red-600' : 'text-green-600';
+    return <span className={`font-semibold text-xs ${col}`}>{d > 0 ? '+' : ''}{d}</span>;
+  };
+
+  // Totaux globaux
+  const totGlob1 = data ? Math.round(data.sections.reduce((s,sec) => s + sec.tot1_total, 0) * 100) / 100 : 0;
+  const totGlob2 = data ? Math.round(data.sections.reduce((s,sec) => s + sec.tot2_total, 0) * 100) / 100 : 0;
+  const deltaGlob = Math.round((totGlob2 - totGlob1) * 100) / 100;
+
+  return (
+    <div className="p-6 space-y-4">
+      {/* Sélecteurs années */}
+      <div className="flex flex-wrap gap-3 items-end">
+        {[['annee1', annee1, setAnnee1, 'Année de référence'], ['annee2', annee2, setAnnee2, 'Année comparée']].map(([k, val, set, lbl]) => (
+          <div key={k}>
+            <label className="block text-xs text-gray-500 mb-1">{lbl}</label>
+            <select value={val} onChange={e => set(e.target.value)}
+              className="border border-gray-300 rounded px-3 py-1.5 text-sm bg-white w-36">
+              <option value="">— Choisir —</option>
+              {anneesSco.map(a => <option key={a} value={a}>{a}</option>)}
+            </select>
+          </div>
+        ))}
+        <button onClick={charger} disabled={loading || !annee1 || !annee2 || annee1 === annee2}
+          className="bg-iip-gold text-white px-4 py-1.5 rounded text-sm hover:bg-iip-amber disabled:opacity-50">
+          {loading ? 'Chargement...' : 'Comparer'}
+        </button>
+        {data && (
+          <div className="ml-auto flex gap-2">
+            <button onClick={() => setOpenSecs(new Set(data.sections.map(s => s.section)))}
+              className="text-xs text-gray-500 hover:text-gray-700 border border-gray-200 rounded px-2 py-1">Tout ouvrir</button>
+            <button onClick={() => setOpenSecs(new Set())}
+              className="text-xs text-gray-500 hover:text-gray-700 border border-gray-200 rounded px-2 py-1">Tout fermer</button>
+          </div>
+        )}
+      </div>
+
+      {data && (
+        <div className="bg-white rounded-xl border border-gray-200 overflow-x-auto">
+          {/* En-tête */}
+          <table className="w-full text-sm border-collapse">
+            <thead>
+              <tr className="bg-iip-gold text-white text-xs">
+                <th className="px-3 py-2 text-left sticky left-0 bg-iip-gold z-10 min-w-[280px]">Section / UE</th>
+                <th className="px-3 py-2 text-center min-w-[60px]">Niv.</th>
+                <th className="px-3 py-2 text-center min-w-[60px]">Quad.</th>
+                {/* Année 1 */}
+                <th className="px-2 py-1 text-center border-l border-white/30" colSpan={3}
+                  style={{background:'rgba(255,255,255,.12)'}}>{annee1}</th>
+                {/* Année 2 */}
+                <th className="px-2 py-1 text-center border-l border-white/30" colSpan={3}
+                  style={{background:'rgba(255,255,255,.06)'}}>{annee2}</th>
+                <th className="px-3 py-2 text-center border-l border-white/30 min-w-[60px]">Δ</th>
+              </tr>
+              <tr className="bg-iip-gold/80 text-white text-[10px]">
+                <th className="sticky left-0 bg-iip-gold/80 z-10"></th>
+                <th></th><th></th>
+                <th className="px-2 py-1 text-right border-l border-white/20">Q1</th>
+                <th className="px-2 py-1 text-right">Q2</th>
+                <th className="px-2 py-1 text-right font-bold">Total B</th>
+                <th className="px-2 py-1 text-right border-l border-white/20">Q1</th>
+                <th className="px-2 py-1 text-right">Q2</th>
+                <th className="px-2 py-1 text-right font-bold">Total B</th>
+                <th className="px-2 py-1 text-center border-l border-white/20"></th>
+              </tr>
+            </thead>
+            <tbody>
+              {data.sections.map((sec, si) => {
+                const open = openSecs.has(sec.section);
+                const secDelta = sec.delta;
+                return (
+                  <>
+                    {/* Ligne section */}
+                    <tr key={sec.section}
+                      className={`cursor-pointer border-t-2 ${si % 2 === 0 ? 'bg-gray-50' : 'bg-white'} hover:bg-iip-gold/5`}
+                      style={{borderTopColor: '#1B2B4B'}}
+                      onClick={() => toggleSec(sec.section)}>
+                      <td className="px-3 py-2 font-bold text-iip-gold sticky left-0 z-10"
+                        style={{background: si % 2 === 0 ? '#f9fafb' : 'white'}}>
+                        <span className="mr-2 text-xs">{open ? '▼' : '▶'}</span>
+                        {sec.section}
+                      </td>
+                      <td></td><td></td>
+                      <td className="px-2 py-2 text-right text-xs border-l border-gray-100">{fmt(sec.tot1.q1)}</td>
+                      <td className="px-2 py-2 text-right text-xs">{fmt(sec.tot1.q2)}</td>
+                      <td className="px-2 py-2 text-right font-bold text-iip-gold">{sec.tot1_total || '—'}</td>
+                      <td className="px-2 py-2 text-right text-xs border-l border-gray-100">{fmt(sec.tot2.q1)}</td>
+                      <td className="px-2 py-2 text-right text-xs">{fmt(sec.tot2.q2)}</td>
+                      <td className={`px-2 py-2 text-right font-bold ${secDelta > 0 ? 'text-red-600' : secDelta < 0 ? 'text-green-600' : 'text-iip-gold'}`}>{sec.tot2_total || '—'}</td>
+                      <td className="px-3 py-2 text-center border-l border-gray-200">{delta(secDelta)}</td>
+                    </tr>
+                    {/* Lignes UE */}
+                    {open && sec.ues.map((u, i) => (
+                      <tr key={`${u.section}-${u.ue_num}`}
+                        className={`border-t border-gray-100 ${i%2===0?'bg-white':'bg-gray-50/50'} text-xs`}>
+                        <td className="px-3 py-1.5 sticky left-0 z-10 pl-8"
+                          style={{background: i%2===0?'white':'#fafafa'}}>
+                          <span className="font-mono text-gray-400 mr-2">UE {u.ue_num}</span>
+                          <span className="text-gray-600 truncate">{u.ue_nom}</span>
+                        </td>
+                        <td className="px-2 py-1.5 text-center">
+                          {u.ue_niv && <span className="text-[9px] font-bold px-1 py-0.5 rounded text-white"
+                            style={{background: nivColor(u.ue_niv)}}>{u.ue_niv}</span>}
+                        </td>
+                        <td className="px-2 py-1.5 text-center text-gray-400">{u.ue_quad||'—'}</td>
+                        <td className="px-2 py-1.5 text-right border-l border-gray-100 text-gray-600">{fmt(u.c1.q1)}</td>
+                        <td className="px-2 py-1.5 text-right text-gray-600">{fmt(u.c1.q2)}</td>
+                        <td className="px-2 py-1.5 text-right font-semibold text-gray-700">{u.t1||'—'}</td>
+                        <td className="px-2 py-1.5 text-right border-l border-gray-100 text-gray-600">{fmt(u.c2.q1)}</td>
+                        <td className="px-2 py-1.5 text-right text-gray-600">{fmt(u.c2.q2)}</td>
+                        <td className={`px-2 py-1.5 text-right font-semibold ${u.delta > 0 ? 'text-red-500' : u.delta < 0 ? 'text-green-500' : 'text-gray-700'}`}>{u.t2||'—'}</td>
+                        <td className="px-3 py-1.5 text-center border-l border-gray-200">{delta(u.delta)}</td>
+                      </tr>
+                    ))}
+                  </>
+                );
+              })}
+              {/* Ligne totaux globaux */}
+              <tr className="border-t-2 border-iip-gold bg-iip-gold/5 font-bold">
+                <td className="px-3 py-2.5 text-iip-gold sticky left-0 bg-iip-gold/5 z-10">TOTAL GÉNÉRAL</td>
+                <td></td><td></td>
+                <td className="px-2 py-2.5 text-right border-l border-gray-200">
+                  {fmt(Math.round(data.sections.reduce((s,sec)=>s+sec.tot1.q1,0)*100)/100)}
+                </td>
+                <td className="px-2 py-2.5 text-right">
+                  {fmt(Math.round(data.sections.reduce((s,sec)=>s+sec.tot1.q2,0)*100)/100)}
+                </td>
+                <td className="px-2 py-2.5 text-right text-iip-gold text-base">{totGlob1}</td>
+                <td className="px-2 py-2.5 text-right border-l border-gray-200">
+                  {fmt(Math.round(data.sections.reduce((s,sec)=>s+sec.tot2.q1,0)*100)/100)}
+                </td>
+                <td className="px-2 py-2.5 text-right">
+                  {fmt(Math.round(data.sections.reduce((s,sec)=>s+sec.tot2.q2,0)*100)/100)}
+                </td>
+                <td className={`px-2 py-2.5 text-right text-base ${deltaGlob > 0 ? 'text-red-600' : deltaGlob < 0 ? 'text-green-600' : 'text-iip-gold'}`}>{totGlob2}</td>
+                <td className="px-3 py-2.5 text-center border-l border-gray-200">{delta(deltaGlob)}</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      )}
+    </div>
+  );
+}
+
 export default function Pilotage() {
   const anneeActive = getAnnee();
   const [tab, setTab]               = useState('synthese'); // synthese | detail | config
@@ -694,122 +880,8 @@ export default function Pilotage() {
         <>
           {tab === 'synthese' && renderSynthese()}
           {tab === 'detail'   && renderDetail()}
-          {tab === 'dotation' && (() => {
-            const charger = async () => {
-              if (!dotSection || !dotAnnee) return;
-              setDotLoading(true);
-              try {
-                const d = await api.dotationUE(dotSection, dotAnnee, dotMode);
-                setDotUE(d);
-              } catch(e) { alert(e.message); }
-              finally { setDotLoading(false); }
-            };
-
-            // Extraire les sections depuis les données civil ou charger séparément
-            const NIV_COLOR = { BA1:'#f97316', BA2:'#60a5fa', BA3:'#1e3a8a' };
-            const fmtB = n => n > 0 ? <span className="font-semibold text-iip-gold">{n}</span> : <span className="text-gray-300">—</span>;
-
-            // Années scolaires disponibles depuis les années civiles
-            const anneesScolaires = [...new Set(
-              civil.flatMap(y => {
-                const yy = y.annee_civile;
-                return [`${yy-1}-${yy}`, `${yy}-${yy+1}`];
-              })
-            )].sort().reverse();
-
-            return (
-              <div className="p-6 space-y-4">
-                {/* Filtres */}
-                <div className="flex flex-wrap gap-3 items-end">
-                  <DotSectionSelect value={dotSection} onChange={setDotSection} />
-                  <div>
-                    <label className="block text-xs text-gray-500 mb-1">Année</label>
-                    <select value={dotAnnee} onChange={e => setDotAnnee(e.target.value)}
-                      className="border border-gray-300 rounded px-3 py-1.5 text-sm bg-white w-36">
-                      <option value="">— Année —</option>
-                      {dotMode === 'civile'
-                        ? civil.map(y => <option key={y.annee_civile} value={y.annee_civile}>{y.annee_civile}</option>)
-                        : anneesScolaires.map(a => <option key={a} value={a}>{a}</option>)
-                      }
-                    </select>
-                  </div>
-                  <div>
-                    <label className="block text-xs text-gray-500 mb-1">Mode</label>
-                    <select value={dotMode} onChange={e => { setDotMode(e.target.value); setDotAnnee(''); }}
-                      className="border border-gray-300 rounded px-3 py-1.5 text-sm bg-white">
-                      <option value="scolaire">Année scolaire</option>
-                      <option value="civile">Année civile</option>
-                    </select>
-                  </div>
-                  <button onClick={charger} disabled={dotLoading || !dotSection || !dotAnnee}
-                    className="bg-iip-gold text-white px-4 py-1.5 rounded text-sm hover:bg-iip-amber disabled:opacity-50">
-                    {dotLoading ? 'Chargement...' : 'Afficher'}
-                  </button>
-                </div>
-
-                {/* Tableau */}
-                {dotUE && (
-                  <div className="bg-white rounded-xl border border-gray-200 overflow-x-auto">
-                    <div className="px-4 py-3 border-b flex items-center justify-between">
-                      <div>
-                        <span className="font-semibold text-gray-700">{dotUE.section}</span>
-                        <span className="text-gray-400 text-sm ml-2">
-                          {dotUE.mode === 'civile' ? `Année civile ${dotUE.annee}` : `Année scolaire ${dotUE.annee}`}
-                        </span>
-                      </div>
-                      <div className="text-xs text-gray-400">Périodes B pondérées (IIP uniquement) · ×1.5 SUP · ×1.25 DS</div>
-                    </div>
-                    <table className="w-full text-sm">
-                      <thead className="bg-gray-50 text-xs text-gray-500 uppercase tracking-wider">
-                        <tr>
-                          <th className="px-3 py-2 text-left w-12">UE</th>
-                          <th className="px-3 py-2 text-left">Nom</th>
-                          <th className="px-3 py-2 text-center w-14">Niv.</th>
-                          <th className="px-3 py-2 text-center w-16">Quad.</th>
-                          <th className="px-3 py-2 text-center w-14">Pot</th>
-                          <th className="px-3 py-2 text-right w-20">Q1 (pér. B)</th>
-                          <th className="px-3 py-2 text-right w-20">Q2 (pér. B)</th>
-                          <th className="px-3 py-2 text-right w-24 font-bold">Total B</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {dotUE.lignes.map((l, i) => (
-                          <tr key={l.ue_num} className={`border-t border-gray-100 ${i%2===0?'':'bg-gray-50/50'}`}>
-                            <td className="px-3 py-1.5 font-mono text-xs text-gray-500">{l.ue_num}</td>
-                            <td className="px-3 py-1.5 text-gray-700 text-xs">{l.ue_nom}</td>
-                            <td className="px-3 py-1.5 text-center">
-                              {l.ue_niv && <span className="text-[10px] font-bold px-1.5 py-0.5 rounded"
-                                style={{background: NIV_COLOR[l.ue_niv]||'#e5e7eb', color: NIV_COLOR[l.ue_niv]?'white':'#374151'}}>
-                                {l.ue_niv}
-                              </span>}
-                            </td>
-                            <td className="px-3 py-1.5 text-center text-xs text-gray-500">{l.ue_quad||'—'}</td>
-                            <td className="px-3 py-1.5 text-center">
-                              <span className="text-[10px] bg-iip-gold/10 text-iip-gold font-semibold px-1.5 py-0.5 rounded">{l.pot}</span>
-                            </td>
-                            <td className="px-3 py-1.5 text-right text-xs">{fmtB(l.cout_q1)}</td>
-                            <td className="px-3 py-1.5 text-right text-xs">{fmtB(l.cout_q2)}</td>
-                            <td className="px-3 py-1.5 text-right text-xs font-bold"
-                              style={{color: l.cout_total > 0 ? '#1B2B4B' : '#d1d5db'}}>
-                              {l.cout_total > 0 ? l.cout_total : '—'}
-                            </td>
-                          </tr>
-                        ))}
-                        {/* Ligne total */}
-                        <tr className="border-t-2 border-iip-gold bg-iip-gold/5">
-                          <td colSpan={5} className="px-3 py-2 font-bold text-iip-gold text-sm">TOTAL</td>
-                          <td className="px-3 py-2 text-right font-bold text-iip-gold">{dotUE.total_q1}</td>
-                          <td className="px-3 py-2 text-right font-bold text-iip-gold">{dotUE.total_q2}</td>
-                          <td className="px-3 py-2 text-right font-bold text-iip-gold text-base">{dotUE.total}</td>
-                        </tr>
-                      </tbody>
-                    </table>
-                  </div>
-                )}
-              </div>
-            );
-          })()}
-          {tab === 'config'   && renderConfig()}
+          {tab === 'dotation' && <DotationComparaison civil={civil} />}
+                    {tab === 'config'   && renderConfig()}
         </>
       )}
     </div>
