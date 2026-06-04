@@ -173,7 +173,18 @@ const _numToLettreRapport = n => {
 
 r.get('/rapport-attributions', authRequired, (req, res) => {
   const { section, annee } = req.query;
-  if (!section || !annee) return res.status(400).json({ error: 'section et annee requis' });
+  if (!annee) return res.status(400).json({ error: 'annee requis' });
+
+  // Si pas de section → toutes les sections
+  const sections = section
+    ? [section]
+    : db.prepare(`SELECT DISTINCT section FROM attribution WHERE annee_scolaire = ? ORDER BY section`).all(annee).map(r => r.section);
+
+  // Construire le résultat multi-sections
+  const allUes = [];
+  let grand_total_per = 0, grand_total_aut = 0;
+
+  for (const sec of sections) {
 
   const rows = db.prepare(`
     SELECT DISTINCT
@@ -190,7 +201,7 @@ r.get('/rapport-attributions', authRequired, (req, res) => {
       AND (a.type_cours IS NULL OR a.type_cours != 'Z')
       AND COALESCE(a.periodes_attribuees, 0) + COALESCE(a.autonomie_attribuee, 0) > 0
     ORDER BY a.ue_num, a.code_cours, a.num_groupe
-  `).all(section, annee);
+  `).all(sec, annee);
 
   // Charger les infos UE séparément (sans jointure pour éviter les doublons)
   const ueInfos = {};
@@ -200,7 +211,7 @@ r.get('/rapport-attributions', authRequired, (req, res) => {
 
   // Charger les noms de cours séparément
   const coursInfos = {};
-  db.prepare(`SELECT cours_code, cours_nom FROM cours WHERE annee_scolaire = ? AND section = ?`).all(annee, section).forEach(c => {
+  db.prepare(`SELECT cours_code, cours_nom FROM cours WHERE annee_scolaire = ? AND section = ?`).all(annee, sec).forEach(c => {
     coursInfos[c.cours_code] = c.cours_nom;
   });
 
@@ -250,10 +261,23 @@ r.get('/rapport-attributions', authRequired, (req, res) => {
     ue.total_aut += aut;
   }
 
-  const total_per = ues.reduce((s, u) => s + u.total_per, 0);
-  const total_aut = ues.reduce((s, u) => s + u.total_aut, 0);
+  const secTotalPer = ues.reduce((s, u) => s + u.total_per, 0);
+  const secTotalAut = ues.reduce((s, u) => s + u.total_aut, 0);
 
-  res.json({ section, annee, ues, total_per, total_aut, total: total_per + total_aut });
+  // Ajouter les UEs de cette section avec label section
+  ues.forEach(u => allUes.push({ ...u, section: sec }));
+  grand_total_per += secTotalPer;
+  grand_total_aut += secTotalAut;
+  } // fin boucle sections
+
+  res.json({
+    section: sections.length === 1 ? sections[0] : 'Toutes sections',
+    annee,
+    ues: allUes,
+    total_per: grand_total_per,
+    total_aut: grand_total_aut,
+    total: grand_total_per + grand_total_aut,
+  });
 });
 
 
