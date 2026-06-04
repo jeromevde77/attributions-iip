@@ -85,6 +85,24 @@ function ChartTip({ active, payload, label }) {
 // ─────────────────────────────────────────────────────────────────────────────
 // Page principale
 // ─────────────────────────────────────────────────────────────────────────────
+// Sélecteur de section pour l'onglet dotation
+function DotSectionSelect({ value, onChange }) {
+  const [sections, setSections] = useState([]);
+  useEffect(() => {
+    import('../lib/api.js').then(({ api }) => api.sections().then(setSections).catch(() => {}));
+  }, []);
+  return (
+    <div>
+      <label className="block text-xs text-gray-500 mb-1">Section</label>
+      <select value={value} onChange={e => onChange(e.target.value)}
+        className="border border-gray-300 rounded px-3 py-1.5 text-sm bg-white w-52">
+        <option value="">— Choisir une section —</option>
+        {sections.map(s => <option key={s.code} value={s.code}>{s.libelle || s.code}</option>)}
+      </select>
+    </div>
+  );
+}
+
 export default function Pilotage() {
   const anneeActive = getAnnee();
   const [tab, setTab]               = useState('synthese'); // synthese | detail | config
@@ -677,9 +695,7 @@ export default function Pilotage() {
           {tab === 'synthese' && renderSynthese()}
           {tab === 'detail'   && renderDetail()}
           {tab === 'dotation' && (() => {
-            const sections = [...new Set((civil.flatMap(y => y.enveloppes || []).length ? [] : []))];
-            // Récupérer les sections depuis le civil data ou directement
-            async function charger() {
+            const charger = async () => {
               if (!dotSection || !dotAnnee) return;
               setDotLoading(true);
               try {
@@ -687,28 +703,39 @@ export default function Pilotage() {
                 setDotUE(d);
               } catch(e) { alert(e.message); }
               finally { setDotLoading(false); }
-            }
+            };
+
+            // Extraire les sections depuis les données civil ou charger séparément
             const NIV_COLOR = { BA1:'#f97316', BA2:'#60a5fa', BA3:'#1e3a8a' };
             const fmtB = n => n > 0 ? <span className="font-semibold text-iip-gold">{n}</span> : <span className="text-gray-300">—</span>;
+
+            // Années scolaires disponibles depuis les années civiles
+            const anneesScolaires = [...new Set(
+              civil.flatMap(y => {
+                const yy = y.annee_civile;
+                return [`${yy-1}-${yy}`, `${yy}-${yy+1}`];
+              })
+            )].sort().reverse();
+
             return (
               <div className="p-6 space-y-4">
                 {/* Filtres */}
                 <div className="flex flex-wrap gap-3 items-end">
-                  <div>
-                    <label className="block text-xs text-gray-500 mb-1">Section</label>
-                    <input value={dotSection} onChange={e => setDotSection(e.target.value)}
-                      placeholder="ex. Psychomotricité"
-                      className="border border-gray-300 rounded px-3 py-1.5 text-sm w-52" />
-                  </div>
+                  <DotSectionSelect value={dotSection} onChange={setDotSection} />
                   <div>
                     <label className="block text-xs text-gray-500 mb-1">Année</label>
-                    <input value={dotAnnee} onChange={e => setDotAnnee(e.target.value)}
-                      placeholder={dotMode === 'scolaire' ? 'ex. 2026-2027' : 'ex. 2026'}
-                      className="border border-gray-300 rounded px-3 py-1.5 text-sm w-32" />
+                    <select value={dotAnnee} onChange={e => setDotAnnee(e.target.value)}
+                      className="border border-gray-300 rounded px-3 py-1.5 text-sm bg-white w-36">
+                      <option value="">— Année —</option>
+                      {dotMode === 'civile'
+                        ? civil.map(y => <option key={y.annee_civile} value={y.annee_civile}>{y.annee_civile}</option>)
+                        : anneesScolaires.map(a => <option key={a} value={a}>{a}</option>)
+                      }
+                    </select>
                   </div>
                   <div>
                     <label className="block text-xs text-gray-500 mb-1">Mode</label>
-                    <select value={dotMode} onChange={e => setDotMode(e.target.value)}
+                    <select value={dotMode} onChange={e => { setDotMode(e.target.value); setDotAnnee(''); }}
                       className="border border-gray-300 rounded px-3 py-1.5 text-sm bg-white">
                       <option value="scolaire">Année scolaire</option>
                       <option value="civile">Année civile</option>
