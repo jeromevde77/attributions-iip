@@ -842,13 +842,14 @@ r.post('/ue-section', authRequired, roleRequired('admin', 'editeur'), (req, res)
   const { ue_num, section_code } = req.body;
   if (!ue_num || !section_code) return res.status(400).json({ error: 'ue_num et section_code requis' });
 
-  let ue = db.prepare('SELECT 1 FROM ue WHERE ue_num = ? AND annee_scolaire = ?').get(ue_num, annee);
+  // Vérifier si l'UE existe déjà dans cette section ET cette année
+  let ue = db.prepare('SELECT 1 FROM ue WHERE ue_num = ? AND annee_scolaire = ? AND section = ?').get(ue_num, annee, section_code);
   let copiee = false;
 
   if (!ue) {
-    // Trouver l'UE dans une autre année (la plus récente)
+    // Trouver l'UE dans n'importe quelle section/année (la plus récente)
     const source = db.prepare(
-      'SELECT annee_scolaire FROM ue WHERE ue_num = ? ORDER BY annee_scolaire DESC LIMIT 1'
+      'SELECT annee_scolaire, section FROM ue WHERE ue_num = ? ORDER BY annee_scolaire DESC LIMIT 1'
     ).get(ue_num);
     if (!source) return res.status(404).json({ error: `L'UE ${ue_num} n'existe dans aucune année.` });
 
@@ -857,18 +858,18 @@ r.post('/ue-section', authRequired, roleRequired('admin', 'editeur'), (req, res)
       db.prepare(`
         INSERT OR IGNORE INTO ue (ue_num, annee_scolaire, ue_nom, ue_code_fwb, section, ue_tc, ue_det,
           ue_niv, ue_per_etudiants, ue_per_cours, ue_aut, ue_tot_prf, ue_niveau, ue_quad, et_ref, ects, ue_prerequise)
-        SELECT ue_num, @cible, ue_nom, ue_code_fwb, section, ue_tc, ue_det,
+        SELECT ue_num, @cible, ue_nom, ue_code_fwb, @section, ue_tc, ue_det,
           ue_niv, ue_per_etudiants, ue_per_cours, ue_aut, ue_tot_prf, ue_niveau, ue_quad, et_ref, ects, ue_prerequise
-        FROM ue WHERE ue_num = @ue AND annee_scolaire = @source
-      `).run({ ue: ue_num, cible: annee, source: source.annee_scolaire });
-      // Copier ses cours
+        FROM ue WHERE ue_num = @ue AND annee_scolaire = @source AND section = @srcsec
+      `).run({ ue: ue_num, cible: annee, source: source.annee_scolaire, section: section_code, srcsec: source.section });
+      // Copier ses cours avec la nouvelle section
       db.prepare(`
         INSERT OR IGNORE INTO cours (cours_code, annee_scolaire, cours_num, cours_nom, ct_pp, section,
           ue_num, quadrimestre_cours, cours_per, cours_total, ue_autonomie, ue_per_total, ue_niveau, enc_cours, heures)
-        SELECT cours_code, @cible, cours_num, cours_nom, ct_pp, section,
+        SELECT cours_code, @cible, cours_num, cours_nom, ct_pp, @section,
           ue_num, quadrimestre_cours, cours_per, cours_total, ue_autonomie, ue_per_total, ue_niveau, enc_cours, heures
-        FROM cours WHERE ue_num = @ue AND annee_scolaire = @source
-      `).run({ ue: ue_num, cible: annee, source: source.annee_scolaire });
+        FROM cours WHERE ue_num = @ue AND annee_scolaire = @source AND section = @srcsec
+      `).run({ ue: ue_num, cible: annee, source: source.annee_scolaire, section: section_code, srcsec: source.section });
     });
     tx();
     copiee = true;
