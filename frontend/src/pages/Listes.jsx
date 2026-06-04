@@ -1,5 +1,7 @@
 import { useState, useEffect } from 'react';
 import { api, getAnnee } from '../lib/api.js';
+import PreviewModal from '../components/PreviewModal.jsx';
+import * as XLSX from 'xlsx';
 
 // Export Excel via import dynamique (évite de bloquer le bundle si xlsx pose problème)
 async function exportExcel(rows, cols, nom) {
@@ -201,6 +203,24 @@ const ENTITES = {
     }),
     filtres: ['section'],
   },
+  'rapport-section': {
+    label: 'Rapport par section', icon: '📄',
+    rapport: true,
+    cols: [],
+    fetch: (annee, filtres) => authFetch(
+      `/api/attributions/rapport-attributions?section=${encodeURIComponent(filtres.section||'')}&annee=${encodeURIComponent(annee)}`
+    ),
+    filtres: ['section'],
+  },
+  'rapport-ue': {
+    label: 'Rapport par UE', icon: '📋',
+    rapport: true,
+    cols: [],
+    fetch: (annee, filtres) => authFetch(
+      `/api/attributions/rapport-attributions?section=${encodeURIComponent(filtres.section||'')}&annee=${encodeURIComponent(annee)}`
+    ),
+    filtres: ['section', 'ue_num'],
+  },
 };
 
 // ─── Exports ─────────────────────────────────────────────────────────────────
@@ -224,10 +244,20 @@ export default function Listes() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [sections, setSections] = useState([]);
+  const [rapportHtml, setRapportHtml] = useState(null);
+  const [ueList, setUeList] = useState([]);
 
   useEffect(() => {
     api.sections().then(s => setSections(Array.isArray(s) ? s : [])).catch(() => {});
   }, []);
+
+  // Charger les UE quand section change (pour rapport-ue)
+  useEffect(() => {
+    if (entite === 'rapport-ue' && filtres.section) {
+      authFetch(`/api/ref/ue?section=${encodeURIComponent(filtres.section)}&annee=${encodeURIComponent(annee)}`)
+        .then(d => setUeList(Array.isArray(d) ? d : [])).catch(() => {});
+    }
+  }, [filtres.section, entite]);
 
   const def = ENTITES[entite];
 
@@ -245,9 +275,159 @@ export default function Listes() {
     setLoading(true); setError('');
     try {
       const data = await def.fetch(annee, filtres);
-      setRows(Array.isArray(data) ? data : []);
+      if (def.rapport) {
+        // Mode rapport hiérarchique
+        genererRapportHtml(data, filtres);
+        setRows([]);
+      } else {
+        setRows(Array.isArray(data) ? data : []);
+      }
     } catch (e) { setError(e.message); setRows([]); }
     finally { setLoading(false); }
+  }
+
+  function genererRapportHtml(d, filtres) {
+    if (d.error) { alert(d.error); return; }
+    const NIV_PAL = ['#f97316','#60a5fa','#1e3a8a','#a855f7','#ec4899'];
+    const niveaux = [...new Set(d.ues?.map(u => u.ue_niv).filter(Boolean))].sort((a,b)=>parseInt(a.match(/\d+$/)?.[0]??99)-parseInt(b.match(/\d+$/)?.[0]??99));
+    const getNivCol = niv => NIV_PAL[niveaux.indexOf(niv) % NIV_PAL.length] || '#6b7280';
+    const fmt = n => (n != null && n !== '') ? String(n) : '0';
+    const S = 'padding:1px 5px;font-size:10px;line-height:1.2;';
+    const SR = S + 'text-align:right;';
+
+    // Filtrer par UE si mode rapport-ue
+    let ues = d.ues || [];
+    if (entite === 'rapport-ue' && filtres.ue_num) {
+      ues = ues.filter(u => String(u.ue_num) === String(filtres.ue_num));
+    }
+
+    const lignesUE = ues.map(ue => {
+      const col = getNivCol(ue.ue_niv);
+      const lignesCours = ue.cours.map((c,i) => `
+        <tr style="background:${i%2===0?'#fff':'#f9fafb'}">
+          <td style="${S}padding-left:20px">${c.code_cours||'—'}</td>
+          <td style="${S}max-width:220px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${c.cours_nom||'—'}${c.activite_nom?` <em style="color:#9ca3af">(${c.activite_nom})</em>`:''}</td>
+          <td style="${S}white-space:nowrap;color:#6b7280">Gr.${c.groupe_code}</td>
+          <td style="${S}white-space:nowrap">${c.prof_nom}</td>
+          <td style="${SR}color:#374151">${fmt(c.periodes)}</td>
+          <td style="${SR}color:#6b7280">${fmt(c.autonomie)}</td>
+          <td style="${SR}font-weight:600;border-left:1px solid #e5e7eb">${fmt(c.total)}</td>
+        </tr>`).join('');
+      return `
+        <tr style="background:#f1f5f9;border-left:3px solid ${col}">
+          <td colspan="4" style="padding:4px 6px 4px 8px;font-weight:700;font-size:12px;color:#111827;white-space:nowrap">
+            <span style="background:${col};color:white;font-size:9px;padding:1px 4px;border-radius:2px;margin-right:5px">${ue.ue_niv||''}</span>UE\u00a0${ue.ue_num} — ${ue.ue_nom||''}
+          </td>
+          <td style="${SR}"></td><td style="${SR}"></td>
+          <td style="${SR}border-left:1px solid #e5e7eb"></td>
+        </tr>
+        ${lignesCours}
+        <tr style="background:#e8edf3;border-left:3px solid ${col}">
+          <td colspan="4" style="padding:2px 6px 2px 20px;font-size:10px;color:#6b7280;font-style:italic">Sous-total UE\u00a0${ue.ue_num}</td>
+          <td style="${SR}font-weight:700;color:#374151">${fmt(ue.total_per)}</td>
+          <td style="${SR}font-weight:600;color:#6b7280">${fmt(ue.total_aut)}</td>
+          <td style="${SR}font-weight:700;border-left:1px solid #e5e7eb">${fmt(ue.total_per+ue.total_aut)}</td>
+        </tr>`;
+    }).join('');
+
+    const totalPer = ues.reduce((s,u)=>s+u.total_per,0);
+    const totalAut = ues.reduce((s,u)=>s+u.total_aut,0);
+    const titre = entite === 'rapport-ue' && filtres.ue_num
+      ? `UE ${filtres.ue_num} — ${d.section}`
+      : `${d.section}`;
+
+    const html = `<!DOCTYPE html><html><head><meta charset="utf-8">
+      <style>*{box-sizing:border-box;margin:0;padding:0}body{font-family:'Segoe UI',Arial,sans-serif;font-size:11px}table{width:100%;border-collapse:collapse}td,th{border-bottom:1px solid #e5e7eb}@media print{@page{margin:10mm;size:A4 landscape}tr{page-break-inside:avoid}thead{display:table-header-group}}</style>
+      </head><body><div style="padding:10mm">
+        <div style="display:flex;justify-content:space-between;align-items:flex-end;border-bottom:2px solid #1B2B4B;padding-bottom:6px;margin-bottom:10px">
+          <div>
+            <div style="font-size:16px;font-weight:700;color:#1B2B4B">Attributions — ${titre}</div>
+            <div style="font-size:11px;color:#6b7280">Année scolaire ${annee}</div>
+          </div>
+          <div style="font-size:9px;color:#9ca3af">Généré le ${new Date().toLocaleDateString('fr-BE')} · Lucie · IIP</div>
+        </div>
+        <table><thead>
+          <tr style="background:#1B2B4B;color:white">
+            <th style="padding:3px 5px;text-align:left;font-size:10px">Code</th>
+            <th style="padding:3px 5px;text-align:left;font-size:10px">Cours</th>
+            <th style="padding:3px 5px;text-align:left;font-size:10px">Gr.</th>
+            <th style="padding:3px 5px;text-align:left;font-size:10px">Professeur</th>
+            <th style="padding:3px 5px;text-align:right;font-size:10px">Pér.</th>
+            <th style="padding:3px 5px;text-align:right;font-size:10px">Aut.</th>
+            <th style="padding:3px 5px;text-align:right;font-size:10px;border-left:1px solid rgba(255,255,255,.3)">Total</th>
+          </tr>
+        </thead><tbody>
+          ${lignesUE}
+          <tr style="background:#1B2B4B;color:white">
+            <td colspan="4" style="padding:4px 6px;font-weight:700;font-size:12px">TOTAL — ${titre}</td>
+            <td style="${SR}font-weight:700;color:white">${fmt(totalPer)}</td>
+            <td style="${SR}font-weight:700;color:white">${fmt(totalAut)}</td>
+            <td style="${SR}font-weight:700;color:white;border-left:1px solid rgba(255,255,255,.3)">${fmt(totalPer+totalAut)}</td>
+          </tr>
+        </tbody></table>
+      </div></body></html>`;
+    setRapportHtml(html);
+  }
+
+  function genererRapportExcel(d, filtres) {
+    if (d.error) { alert(d.error); return; }
+    const BLEU = '1B2B4B', TURQ = '00AACC', GRIS = 'F1F5F9', SOUS = 'E8EDF3', ZEBRE = 'F9FAFB';
+    const NIV_PAL = ['F97316','60A5FA','1E3A8A','A855F7','EC4899'];
+    const niveaux = [...new Set(d.ues?.map(u => u.ue_niv).filter(Boolean))].sort((a,b)=>parseInt(a.match(/\d+$/)?.[0]??99)-parseInt(b.match(/\d+$/)?.[0]??99));
+    const getNivCol = niv => NIV_PAL[niveaux.indexOf(niv) % NIV_PAL.length] || '6b7280';
+    const fmt = n => n||0;
+    const hdr = (v, bg, fg='FFFFFF', bold=false) => ({ v, s:{font:{name:'Calibri',sz:9,bold,color:{rgb:fg}},fill:{fgColor:{rgb:bg},patternType:'solid'},alignment:{horizontal:'left',vertical:'center'}}});
+
+    let ues = d.ues || [];
+    if (entite === 'rapport-ue' && filtres.ue_num) ues = ues.filter(u => String(u.ue_num) === String(filtres.ue_num));
+
+    const rows = [
+      [{ v:`Attributions — ${d.section}`, s:{font:{name:'Calibri',sz:14,bold:true,color:{rgb:BLEU}}}}],
+      [{ v:`Année scolaire ${annee}`, s:{font:{name:'Calibri',sz:10,color:{rgb:'6B7280'}}}}],
+      [],
+      [hdr('Code',BLEU,'FFFFFF',true), hdr('Cours',BLEU,'FFFFFF',true), hdr('Gr.',BLEU,'FFFFFF',true), hdr('Professeur',BLEU,'FFFFFF',true),
+       {...hdr('Pér.',BLEU,'FFFFFF',true), s:{...hdr('Pér.',BLEU,'FFFFFF',true).s, alignment:{horizontal:'right',vertical:'center'}}},
+       {...hdr('Aut.',BLEU,'FFFFFF',true), s:{...hdr('Aut.',BLEU,'FFFFFF',true).s, alignment:{horizontal:'right',vertical:'center'}}},
+       {...hdr('Total',BLEU,'FFFFFF',true), s:{...hdr('Total',BLEU,'FFFFFF',true).s, alignment:{horizontal:'right',vertical:'center'}}}],
+    ];
+
+    for (const ue of ues) {
+      const col = getNivCol(ue.ue_niv);
+      rows.push([{ v:`UE ${ue.ue_num}${ue.ue_niv?' ['+ue.ue_niv+']':''} — ${ue.ue_nom}`, s:{font:{name:'Calibri',sz:10,bold:true,color:{rgb:BLEU}},fill:{fgColor:{rgb:GRIS},patternType:'solid'}}},'','','','','','']);
+      ue.cours.forEach((c,i) => {
+        const bg = i%2===0?'FFFFFF':ZEBRE;
+        rows.push([
+          {v:c.code_cours||'',s:{font:{name:'Calibri',sz:9,color:{rgb:'374151'}},fill:{fgColor:{rgb:bg},patternType:'solid'}}},
+          {v:c.cours_nom||'',s:{font:{name:'Calibri',sz:9,color:{rgb:'374151'}},fill:{fgColor:{rgb:bg},patternType:'solid'}}},
+          {v:`Gr.${c.groupe_code}`,s:{font:{name:'Calibri',sz:9,color:{rgb:'6B7280'}},fill:{fgColor:{rgb:bg},patternType:'solid'},alignment:{horizontal:'center'}}},
+          {v:c.prof_nom||'—',s:{font:{name:'Calibri',sz:9,color:{rgb:'374151'}},fill:{fgColor:{rgb:bg},patternType:'solid'}}},
+          {v:fmt(c.periodes),s:{font:{name:'Calibri',sz:9,color:{rgb:'374151'}},fill:{fgColor:{rgb:bg},patternType:'solid'},alignment:{horizontal:'right'}}},
+          {v:fmt(c.autonomie),s:{font:{name:'Calibri',sz:9,color:{rgb:'6B7280'}},fill:{fgColor:{rgb:bg},patternType:'solid'},alignment:{horizontal:'right'}}},
+          {v:fmt(c.total),s:{font:{name:'Calibri',sz:9,bold:true,color:{rgb:BLEU}},fill:{fgColor:{rgb:bg},patternType:'solid'},alignment:{horizontal:'right'}}},
+        ]);
+      });
+      rows.push([
+        {v:`Sous-total UE ${ue.ue_num}`,s:{font:{name:'Calibri',sz:9,italic:true,color:{rgb:'6B7280'}},fill:{fgColor:{rgb:SOUS},patternType:'solid'},alignment:{horizontal:'right'}}},'','','',
+        {v:fmt(ue.total_per),s:{font:{name:'Calibri',sz:9,bold:true,color:{rgb:'374151'}},fill:{fgColor:{rgb:SOUS},patternType:'solid'},alignment:{horizontal:'right'}}},
+        {v:fmt(ue.total_aut),s:{font:{name:'Calibri',sz:9,bold:true,color:{rgb:'6B7280'}},fill:{fgColor:{rgb:SOUS},patternType:'solid'},alignment:{horizontal:'right'}}},
+        {v:fmt(ue.total_per+ue.total_aut),s:{font:{name:'Calibri',sz:9,bold:true,color:{rgb:BLEU}},fill:{fgColor:{rgb:SOUS},patternType:'solid'},alignment:{horizontal:'right'}}},
+      ]);
+      rows.push([]);
+    }
+    const totalPer = ues.reduce((s,u)=>s+u.total_per,0);
+    const totalAut = ues.reduce((s,u)=>s+u.total_aut,0);
+    rows.push([
+      {v:`TOTAL — ${d.section}`,s:{font:{name:'Calibri',sz:11,bold:true,color:{rgb:'FFFFFF'}},fill:{fgColor:{rgb:BLEU},patternType:'solid'}}},'','','',
+      {v:totalPer,s:{font:{name:'Calibri',sz:11,bold:true,color:{rgb:'FFFFFF'}},fill:{fgColor:{rgb:BLEU},patternType:'solid'},alignment:{horizontal:'right'}}},
+      {v:totalAut,s:{font:{name:'Calibri',sz:11,bold:true,color:{rgb:'FFFFFF'}},fill:{fgColor:{rgb:BLEU},patternType:'solid'},alignment:{horizontal:'right'}}},
+      {v:totalPer+totalAut,s:{font:{name:'Calibri',sz:11,bold:true,color:{rgb:'FFFFFF'}},fill:{fgColor:{rgb:BLEU},patternType:'solid'},alignment:{horizontal:'right'}}},
+    ]);
+
+    const wb = XLSX.utils.book_new();
+    const ws = XLSX.utils.aoa_to_sheet(rows);
+    ws['!cols'] = [{wch:10},{wch:44},{wch:7},{wch:20},{wch:8},{wch:8},{wch:8}];
+    XLSX.utils.book_append_sheet(wb, ws, d.section.slice(0,31));
+    XLSX.writeFile(wb, `Attributions_${d.section}_${annee}.xlsx`);
   }
 
   const colsVisibles = def.cols.filter(c => colsActives.has(c.key));
@@ -293,9 +473,16 @@ export default function Listes() {
               )}
               {def.filtres.includes('ue_num') && (
                 <label className="block mb-2">
-                  <div className="text-xs text-gray-600 mb-0.5">N° UE</div>
-                  <input type="number" value={filtres.ue_num || ''} onChange={e => setFiltres(f => ({ ...f, ue_num: e.target.value }))}
-                    placeholder="ex: 95" className="w-full border border-gray-300 rounded px-2 py-1.5 text-sm" />
+                  <div className="text-xs text-gray-600 mb-0.5">UE</div>
+                  {entite === 'rapport-ue' && ueList.length > 0
+                    ? <select value={filtres.ue_num || ''} onChange={e => setFiltres(f => ({ ...f, ue_num: e.target.value }))}
+                        className="w-full border border-gray-300 rounded px-2 py-1.5 text-sm bg-white">
+                        <option value="">— Toutes les UE —</option>
+                        {ueList.map(u => <option key={u.ue_num} value={u.ue_num}>UE {u.ue_num} — {u.ue_nom?.slice(0,35)}</option>)}
+                      </select>
+                    : <input type="number" value={filtres.ue_num || ''} onChange={e => setFiltres(f => ({ ...f, ue_num: e.target.value }))}
+                        placeholder="ex: 95" className="w-full border border-gray-300 rounded px-2 py-1.5 text-sm" />
+                  }
                 </label>
               )}
               {def.filtres.includes('niveau') && (
@@ -345,20 +532,33 @@ export default function Listes() {
               {/* Barre d'actions */}
               <div className="flex items-center justify-between px-4 py-2 border-b border-gray-100 bg-white flex-shrink-0">
                 <span className="text-sm text-gray-600">
-                  <b>{rows.length}</b> résultat{rows.length > 1 ? 's' : ''} · {def.label} · {annee}
-                  {filtres.section && <span className="ml-2 font-medium text-iip-gold">· {filtres.section}</span>}
+                  {def.rapport ? <span className="font-medium text-iip-gold">{def.label} · {annee}{filtres.section ? ` · ${filtres.section}` : ''}{filtres.ue_num ? ` · UE ${filtres.ue_num}` : ''}</span>
+                  : <><b>{rows.length}</b> résultat{rows.length > 1 ? 's' : ''} · {def.label} · {annee}
+                    {filtres.section && <span className="ml-2 font-medium text-iip-gold">· {filtres.section}</span>}</>}
                 </span>
                 <div className="flex gap-2">
-                  <button onClick={() => exportCSV(rows, colsVisibles, nomFichier)}
-                    disabled={rows.length === 0}
-                    className="text-xs border border-gray-300 hover:bg-gray-50 disabled:opacity-40 px-3 py-1.5 rounded text-gray-600">
-                    ⬇ CSV
-                  </button>
-                  <button onClick={() => exportExcel(rows, colsVisibles, nomFichier)}
-                    disabled={rows.length === 0}
-                    className="text-xs border border-green-500 text-green-700 hover:bg-green-50 disabled:opacity-40 px-3 py-1.5 rounded font-medium">
-                    ⬇ Excel
-                  </button>
+                  {def.rapport ? (<>
+                    <button onClick={() => rapportHtml && setRapportHtml(rapportHtml)}
+                      disabled={!rapportHtml}
+                      className="text-xs border border-iip-mauve text-iip-mauve hover:bg-iip-mauve/5 disabled:opacity-40 px-3 py-1.5 rounded font-medium">
+                      📄 Voir HTML
+                    </button>
+                    <button onClick={async () => { const d = await def.fetch(annee, filtres); genererRapportExcel(d, filtres); }}
+                      className="text-xs border border-green-500 text-green-700 hover:bg-green-50 px-3 py-1.5 rounded font-medium">
+                      📊 Excel
+                    </button>
+                  </>) : (<>
+                    <button onClick={() => exportCSV(rows, colsVisibles, nomFichier)}
+                      disabled={rows.length === 0}
+                      className="text-xs border border-gray-300 hover:bg-gray-50 disabled:opacity-40 px-3 py-1.5 rounded text-gray-600">
+                      ⬇ CSV
+                    </button>
+                    <button onClick={() => exportExcel(rows, colsVisibles, nomFichier)}
+                      disabled={rows.length === 0}
+                      className="text-xs border border-green-500 text-green-700 hover:bg-green-50 disabled:opacity-40 px-3 py-1.5 rounded font-medium">
+                      ⬇ Excel
+                    </button>
+                  </>)}
                 </div>
               </div>
               {error && <div className="bg-red-50 text-red-700 text-sm p-3 mx-4 mt-2 rounded">{error}</div>}
@@ -394,6 +594,7 @@ export default function Listes() {
           )}
         </div>
       </div>
+      {rapportHtml && <PreviewModal html={rapportHtml} titre="Rapport d'attributions" onClose={() => setRapportHtml(null)} />}
     </div>
   );
 }
