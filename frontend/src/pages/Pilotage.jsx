@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useRef } from 'react';
 import { api, getAnnee } from '../lib/api.js';
 import {
   BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer,
@@ -110,6 +110,38 @@ function DotationComparaison({ civil }) {
   const [data, setData]     = useState(null);
   const [loading, setLoading] = useState(false);
   const [openSecs, setOpenSecs] = useState(new Set());
+  // Largeurs de colonnes redimensionnables
+  const [colW, setColW] = useState({ nom: 320, niv: 56, quad: 60, q1a: 64, q2a: 64, ta: 80, q1b: 64, q2b: 64, tb: 80, delta: 64 });
+  const resizing = useRef(null);
+
+  function startResize(col, e) {
+    e.preventDefault();
+    const startX = e.clientX;
+    const startW = colW[col];
+    resizing.current = { col, startX, startW };
+    const onMove = ev => {
+      const diff = ev.clientX - resizing.current.startX;
+      setColW(prev => ({ ...prev, [resizing.current.col]: Math.max(40, resizing.current.startW + diff) }));
+    };
+    const onUp = () => { resizing.current = null; window.removeEventListener('mousemove', onMove); window.removeEventListener('mouseup', onUp); };
+    window.addEventListener('mousemove', onMove);
+    window.addEventListener('mouseup', onUp);
+  }
+
+  function Th({ col, children, align = 'left', rowSpan, colSpan, style = {} }) {
+    return (
+      <th rowSpan={rowSpan} colSpan={colSpan}
+        style={{ width: colW[col] || undefined, minWidth: colW[col] || undefined, position:'relative', userSelect:'none', ...style }}
+        className={`px-2 py-2 text-${align} whitespace-nowrap overflow-hidden text-ellipsis`}>
+        {children}
+        {col && (
+          <span onMouseDown={e => startResize(col, e)}
+            style={{position:'absolute',right:0,top:0,bottom:0,width:4,cursor:'col-resize',background:'rgba(255,255,255,.2)',zIndex:1}}
+            onClick={e => e.stopPropagation()} />
+        )}
+      </th>
+    );
+  }
 
   // Années scolaires disponibles
   const anneesSco = [...new Set(
@@ -187,27 +219,26 @@ function DotationComparaison({ civil }) {
           <table className="w-full text-sm border-collapse">
             <thead>
               <tr className="bg-iip-gold text-white text-xs">
-                <th className="px-3 py-2 text-left sticky left-0 bg-iip-gold z-10 min-w-[280px]">Section / UE</th>
-                <th className="px-3 py-2 text-center min-w-[60px]">Niv.</th>
-                <th className="px-3 py-2 text-center min-w-[60px]">Quad.</th>
-                {/* Année 1 */}
+                <Th col="nom" align="left" style={{position:'sticky',left:0,background:'#1B2B4B',zIndex:10}}>Section / UE</Th>
+                <Th col="niv" align="center">Niv.</Th>
+                <Th col="quad" align="center">Quad.</Th>
                 <th className="px-2 py-1 text-center border-l border-white/30" colSpan={3}
                   style={{background:'rgba(255,255,255,.12)'}}>{annee1}</th>
-                {/* Année 2 */}
                 <th className="px-2 py-1 text-center border-l border-white/30" colSpan={3}
                   style={{background:'rgba(255,255,255,.06)'}}>{annee2}</th>
-                <th className="px-3 py-2 text-center border-l border-white/30 min-w-[60px]">Δ</th>
+                <Th col="delta" align="center" style={{borderLeft:'1px solid rgba(255,255,255,.3)'}}>Δ</Th>
               </tr>
               <tr className="bg-iip-gold/80 text-white text-[10px]">
-                <th className="sticky left-0 bg-iip-gold/80 z-10"></th>
-                <th></th><th></th>
-                <th className="px-2 py-1 text-right border-l border-white/20">Q1</th>
-                <th className="px-2 py-1 text-right">Q2</th>
-                <th className="px-2 py-1 text-right font-bold">Total B</th>
-                <th className="px-2 py-1 text-right border-l border-white/20">Q1</th>
-                <th className="px-2 py-1 text-right">Q2</th>
-                <th className="px-2 py-1 text-right font-bold">Total B</th>
-                <th className="px-2 py-1 text-center border-l border-white/20"></th>
+                <th style={{position:'sticky',left:0,background:'rgba(27,43,75,.8)',zIndex:10,width:colW.nom}}></th>
+                <th style={{width:colW.niv}}></th>
+                <th style={{width:colW.quad}}></th>
+                <Th col="q1a" align="right" style={{borderLeft:'1px solid rgba(255,255,255,.2)'}}>Q1</Th>
+                <Th col="q2a" align="right">Q2</Th>
+                <Th col="ta" align="right" style={{fontWeight:'bold'}}>Total B</Th>
+                <Th col="q1b" align="right" style={{borderLeft:'1px solid rgba(255,255,255,.2)'}}>Q1</Th>
+                <Th col="q2b" align="right">Q2</Th>
+                <Th col="tb" align="right" style={{fontWeight:'bold'}}>Total B</Th>
+                <th style={{width:colW.delta}}></th>
               </tr>
             </thead>
             <tbody>
@@ -221,30 +252,30 @@ function DotationComparaison({ civil }) {
                       className={`cursor-pointer border-t-2 ${si % 2 === 0 ? 'bg-gray-50' : 'bg-white'} hover:bg-iip-gold/5`}
                       style={{borderTopColor: '#1B2B4B'}}
                       onClick={() => toggleSec(sec.section)}>
-                      <td className="px-3 py-2 font-bold text-iip-gold sticky left-0 z-10"
-                        style={{background: si % 2 === 0 ? '#f9fafb' : 'white'}}>
+                      <td className="px-3 py-2 font-bold text-iip-gold sticky left-0 z-10 overflow-hidden text-ellipsis whitespace-nowrap"
+                        style={{background: si % 2 === 0 ? '#f9fafb' : 'white', width:colW.nom, maxWidth:colW.nom}}>
                         <span className="mr-2 text-xs">{open ? '▼' : '▶'}</span>
                         {sec.section}
                       </td>
-                      <td></td><td></td>
-                      <td className="px-2 py-2 text-right text-xs border-l border-gray-100">{fmt(sec.tot1.q1)}</td>
-                      <td className="px-2 py-2 text-right text-xs">{fmt(sec.tot1.q2)}</td>
-                      <td className="px-2 py-2 text-right font-bold text-iip-gold">{sec.tot1_total || '—'}</td>
-                      <td className="px-2 py-2 text-right text-xs border-l border-gray-100">{fmt(sec.tot2.q1)}</td>
-                      <td className="px-2 py-2 text-right text-xs">{fmt(sec.tot2.q2)}</td>
-                      <td className={`px-2 py-2 text-right font-bold ${secDelta > 0 ? 'text-red-600' : secDelta < 0 ? 'text-green-600' : 'text-iip-gold'}`}>{sec.tot2_total || '—'}</td>
-                      <td className="px-3 py-2 text-center border-l border-gray-200">{delta(secDelta)}</td>
+                      <td style={{width:colW.niv}}></td><td style={{width:colW.quad}}></td>
+                      <td className="px-2 py-2 text-right text-xs border-l border-gray-100" style={{width:colW.q1a}}>{fmt(sec.tot1.q1)}</td>
+                      <td className="px-2 py-2 text-right text-xs" style={{width:colW.q2a}}>{fmt(sec.tot1.q2)}</td>
+                      <td className="px-2 py-2 text-right font-bold text-iip-gold" style={{width:colW.ta}}>{sec.tot1_total || '—'}</td>
+                      <td className="px-2 py-2 text-right text-xs border-l border-gray-100" style={{width:colW.q1b}}>{fmt(sec.tot2.q1)}</td>
+                      <td className="px-2 py-2 text-right text-xs" style={{width:colW.q2b}}>{fmt(sec.tot2.q2)}</td>
+                      <td className={`px-2 py-2 text-right font-bold ${secDelta > 0 ? 'text-red-600' : secDelta < 0 ? 'text-green-600' : 'text-iip-gold'}`} style={{width:colW.tb}}>{sec.tot2_total || '—'}</td>
+                      <td className="px-3 py-2 text-center border-l border-gray-200" style={{width:colW.delta}}>{delta(secDelta)}</td>
                     </tr>
                     {/* Lignes UE */}
                     {open && sec.ues.map((u, i) => (
                       <tr key={`${u.section}-${u.ue_num}`}
                         className={`border-t border-gray-100 ${i%2===0?'bg-white':'bg-gray-50/50'} text-xs`}>
-                        <td className="px-3 py-1.5 sticky left-0 z-10 pl-8"
-                          style={{background: i%2===0?'white':'#fafafa'}}>
+                        <td className="px-3 py-1.5 sticky left-0 z-10 pl-8 overflow-hidden text-ellipsis whitespace-nowrap"
+                          style={{background: i%2===0?'white':'#fafafa', width:colW.nom, maxWidth:colW.nom}}>
                           <span className="font-mono text-gray-400 mr-2">UE {u.ue_num}</span>
-                          <span className="text-gray-600 truncate">{u.ue_nom}</span>
+                          <span className="text-gray-600">{u.ue_nom}</span>
                         </td>
-                        <td className="px-2 py-1.5 text-center">
+                        <td className="px-2 py-1.5 text-center" style={{width:colW.niv}}>
                           {u.ue_niv && <span className="text-[9px] font-bold px-1 py-0.5 rounded text-white"
                             style={{background: nivColor(u.ue_niv)}}>{u.ue_niv}</span>}
                         </td>
