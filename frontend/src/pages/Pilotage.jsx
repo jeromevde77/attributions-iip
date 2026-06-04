@@ -110,6 +110,7 @@ function DotationComparaison({ civil }) {
   const [data, setData]     = useState(null);
   const [loading, setLoading] = useState(false);
   const [openSecs, setOpenSecs] = useState(new Set());
+  const [potFilter, setPotFilter] = useState('organique'); // organique par défaut
   // Largeurs de colonnes redimensionnables
   const [colW, setColW] = useState({ nom: 320, niv: 56, quad: 60, q1a: 64, q2a: 64, ta: 80, q1b: 64, q2b: 64, tb: 80, delta: 64 });
   const resizing = useRef(null);
@@ -152,9 +153,8 @@ function DotationComparaison({ civil }) {
     if (!annee1 || !annee2) return;
     setLoading(true);
     try {
-      const d = await api.dotationComparaison(annee1, annee2);
+      const d = await api.dotationComparaison(annee1, annee2, potFilter || null);
       setData(d);
-      // Ouvrir toutes les sections par défaut
       setOpenSecs(new Set(d.sections.map(s => s.section)));
     } catch(e) { alert(e.message); }
     finally { setLoading(false); }
@@ -203,6 +203,18 @@ function DotationComparaison({ civil }) {
           className="bg-iip-gold text-white px-4 py-1.5 rounded text-sm hover:bg-iip-amber disabled:opacity-50">
           {loading ? 'Chargement...' : 'Comparer'}
         </button>
+        <div>
+          <label className="block text-xs text-gray-500 mb-1">Enveloppe</label>
+          <select value={potFilter} onChange={e => setPotFilter(e.target.value)}
+            className="border border-gray-300 rounded px-3 py-1.5 text-sm bg-white">
+            <option value="">Toutes</option>
+            <option value="organique">Organique</option>
+            <option value="AESI">AESI</option>
+            <option value="QUAL">Qualité (QUAL)</option>
+            <option value="CF">Cons. Formation (CF)</option>
+            <option value="INCL">Inclusif (INCL)</option>
+          </select>
+        </div>
         {data && (
           <div className="ml-auto flex gap-2">
             <button onClick={() => setOpenSecs(new Set(data.sections.map(s => s.section)))}
@@ -215,7 +227,10 @@ function DotationComparaison({ civil }) {
 
       {data && (
         <div className="bg-white rounded-xl border border-gray-200 overflow-x-auto">
-          {/* En-tête */}
+          <div className="px-4 py-2 border-b flex items-center gap-2 text-xs text-gray-400">
+            Pér. B · IIP · ×1.5 SUP · ×1.25 DS ·
+            {potFilter ? <span className="ml-1 bg-iip-gold/10 text-iip-gold font-semibold px-2 py-0.5 rounded">{potFilter}</span> : <span className="ml-1 bg-gray-100 text-gray-500 px-2 py-0.5 rounded">Toutes enveloppes</span>}
+          </div>
           <table className="w-full text-sm border-collapse">
             <thead>
               <tr className="bg-iip-gold text-white text-xs">
