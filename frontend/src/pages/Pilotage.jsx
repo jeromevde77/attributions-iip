@@ -100,6 +100,11 @@ export default function Pilotage() {
   const [newYear, setNewYear]       = useState('');
   const [saving, setSaving]         = useState(false);
   const [ueList, setUeList]         = useState([]);
+  const [dotUE, setDotUE]           = useState(null);    // résultat dotation par UE
+  const [dotSection, setDotSection] = useState('');
+  const [dotAnnee, setDotAnnee]     = useState('');
+  const [dotMode, setDotMode]       = useState('scolaire');
+  const [dotLoading, setDotLoading] = useState(false);
 
   // Charger la synthèse
   const load = () => {
@@ -652,7 +657,7 @@ export default function Pilotage() {
 
       {/* Onglets */}
       <div className="flex gap-0.5 border-b border-gray-200">
-        {[['synthese', '🏠 Synthèse'], ['detail', '📋 Détail par section'], ['config', '⚙ Configuration']].map(([k, lbl]) => (
+        {[['synthese', '🏠 Synthèse'], ['detail', '📋 Détail par section'], ['dotation', '📊 Dotation par UE'], ['config', '⚙ Configuration']].map(([k, lbl]) => (
           <button key={k} onClick={() => setTab(k)}
             className={`text-sm px-4 py-2 -mb-px border-b-2 transition font-medium ${tab === k ? 'border-iip-gold text-iip-gold' : 'border-transparent text-gray-500 hover:text-gray-700'}`}>
             {lbl}
@@ -671,6 +676,112 @@ export default function Pilotage() {
         <>
           {tab === 'synthese' && renderSynthese()}
           {tab === 'detail'   && renderDetail()}
+          {tab === 'dotation' && (() => {
+            const sections = [...new Set((civil.flatMap(y => y.enveloppes || []).length ? [] : []))];
+            // Récupérer les sections depuis le civil data ou directement
+            async function charger() {
+              if (!dotSection || !dotAnnee) return;
+              setDotLoading(true);
+              try {
+                const d = await api.dotationUE(dotSection, dotAnnee, dotMode);
+                setDotUE(d);
+              } catch(e) { alert(e.message); }
+              finally { setDotLoading(false); }
+            }
+            const NIV_COLOR = { BA1:'#f97316', BA2:'#60a5fa', BA3:'#1e3a8a' };
+            const fmtB = n => n > 0 ? <span className="font-semibold text-iip-gold">{n}</span> : <span className="text-gray-300">—</span>;
+            return (
+              <div className="p-6 space-y-4">
+                {/* Filtres */}
+                <div className="flex flex-wrap gap-3 items-end">
+                  <div>
+                    <label className="block text-xs text-gray-500 mb-1">Section</label>
+                    <input value={dotSection} onChange={e => setDotSection(e.target.value)}
+                      placeholder="ex. Psychomotricité"
+                      className="border border-gray-300 rounded px-3 py-1.5 text-sm w-52" />
+                  </div>
+                  <div>
+                    <label className="block text-xs text-gray-500 mb-1">Année</label>
+                    <input value={dotAnnee} onChange={e => setDotAnnee(e.target.value)}
+                      placeholder={dotMode === 'scolaire' ? 'ex. 2026-2027' : 'ex. 2026'}
+                      className="border border-gray-300 rounded px-3 py-1.5 text-sm w-32" />
+                  </div>
+                  <div>
+                    <label className="block text-xs text-gray-500 mb-1">Mode</label>
+                    <select value={dotMode} onChange={e => setDotMode(e.target.value)}
+                      className="border border-gray-300 rounded px-3 py-1.5 text-sm bg-white">
+                      <option value="scolaire">Année scolaire</option>
+                      <option value="civile">Année civile</option>
+                    </select>
+                  </div>
+                  <button onClick={charger} disabled={dotLoading || !dotSection || !dotAnnee}
+                    className="bg-iip-gold text-white px-4 py-1.5 rounded text-sm hover:bg-iip-amber disabled:opacity-50">
+                    {dotLoading ? 'Chargement...' : 'Afficher'}
+                  </button>
+                </div>
+
+                {/* Tableau */}
+                {dotUE && (
+                  <div className="bg-white rounded-xl border border-gray-200 overflow-x-auto">
+                    <div className="px-4 py-3 border-b flex items-center justify-between">
+                      <div>
+                        <span className="font-semibold text-gray-700">{dotUE.section}</span>
+                        <span className="text-gray-400 text-sm ml-2">
+                          {dotUE.mode === 'civile' ? `Année civile ${dotUE.annee}` : `Année scolaire ${dotUE.annee}`}
+                        </span>
+                      </div>
+                      <div className="text-xs text-gray-400">Périodes B pondérées (IIP uniquement) · ×1.5 SUP · ×1.25 DS</div>
+                    </div>
+                    <table className="w-full text-sm">
+                      <thead className="bg-gray-50 text-xs text-gray-500 uppercase tracking-wider">
+                        <tr>
+                          <th className="px-3 py-2 text-left w-12">UE</th>
+                          <th className="px-3 py-2 text-left">Nom</th>
+                          <th className="px-3 py-2 text-center w-14">Niv.</th>
+                          <th className="px-3 py-2 text-center w-16">Quad.</th>
+                          <th className="px-3 py-2 text-center w-14">Pot</th>
+                          <th className="px-3 py-2 text-right w-20">Q1 (pér. B)</th>
+                          <th className="px-3 py-2 text-right w-20">Q2 (pér. B)</th>
+                          <th className="px-3 py-2 text-right w-24 font-bold">Total B</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {dotUE.lignes.map((l, i) => (
+                          <tr key={l.ue_num} className={`border-t border-gray-100 ${i%2===0?'':'bg-gray-50/50'}`}>
+                            <td className="px-3 py-1.5 font-mono text-xs text-gray-500">{l.ue_num}</td>
+                            <td className="px-3 py-1.5 text-gray-700 text-xs">{l.ue_nom}</td>
+                            <td className="px-3 py-1.5 text-center">
+                              {l.ue_niv && <span className="text-[10px] font-bold px-1.5 py-0.5 rounded"
+                                style={{background: NIV_COLOR[l.ue_niv]||'#e5e7eb', color: NIV_COLOR[l.ue_niv]?'white':'#374151'}}>
+                                {l.ue_niv}
+                              </span>}
+                            </td>
+                            <td className="px-3 py-1.5 text-center text-xs text-gray-500">{l.ue_quad||'—'}</td>
+                            <td className="px-3 py-1.5 text-center">
+                              <span className="text-[10px] bg-iip-gold/10 text-iip-gold font-semibold px-1.5 py-0.5 rounded">{l.pot}</span>
+                            </td>
+                            <td className="px-3 py-1.5 text-right text-xs">{fmtB(l.cout_q1)}</td>
+                            <td className="px-3 py-1.5 text-right text-xs">{fmtB(l.cout_q2)}</td>
+                            <td className="px-3 py-1.5 text-right text-xs font-bold"
+                              style={{color: l.cout_total > 0 ? '#1B2B4B' : '#d1d5db'}}>
+                              {l.cout_total > 0 ? l.cout_total : '—'}
+                            </td>
+                          </tr>
+                        ))}
+                        {/* Ligne total */}
+                        <tr className="border-t-2 border-iip-gold bg-iip-gold/5">
+                          <td colSpan={5} className="px-3 py-2 font-bold text-iip-gold text-sm">TOTAL</td>
+                          <td className="px-3 py-2 text-right font-bold text-iip-gold">{dotUE.total_q1}</td>
+                          <td className="px-3 py-2 text-right font-bold text-iip-gold">{dotUE.total_q2}</td>
+                          <td className="px-3 py-2 text-right font-bold text-iip-gold text-base">{dotUE.total}</td>
+                        </tr>
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+              </div>
+            );
+          })()}
           {tab === 'config'   && renderConfig()}
         </>
       )}

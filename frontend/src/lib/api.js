@@ -214,7 +214,9 @@ export const api = {
   },
   ueSetPot(ue_num, annee_scolaire, pot_code) { return request('/pilotage/ue-pot', { method: 'PATCH', body: { ue_num, annee_scolaire, pot_code } }); },
 
-  // exports
+  dotationUE(section, annee, mode) {
+    return request(`/pilotage/dotation-ue?section=${encodeURIComponent(section)}&annee=${encodeURIComponent(annee)}&mode=${mode}`);
+  },
   doc23() { return request(withAnnee('/exports/doc2-3')); },
   exportExcel() {
     return fetch(`${BASE}/exports/excel?annee=${encodeURIComponent(getAnnee())}`, {

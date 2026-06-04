@@ -346,3 +346,65 @@ r.patch('/ue-pot', authRequired, roleRequired('admin', 'editeur'), (req, res) =>
 });
 
 export default r;
+
+// GET /dotation-ue?section=&annee=&mode=scolaire|civile
+// Tableau de détail du coût en dotation par UE
+r.get('/dotation-ue', authRequired, (req, res) => {
+  const { section, annee, mode = 'scolaire' } = req.query;
+  if (!section || !annee) return res.status(400).json({ error: 'section et annee requis' });
+
+  let anneeQ1, anneeQ2;
+  if (mode === 'civile') {
+    const y = parseInt(annee);
+    anneeQ2 = `${y - 1}-${y}`;   // Jan-Jun : Q2 année scolaire précédente
+    anneeQ1 = `${y}-${y + 1}`;   // Sep-Déc : Q1 année scolaire suivante
+  } else {
+    anneeQ1 = annee;
+    anneeQ2 = annee;
+  }
+
+  // Toutes les UE de la section (référentiel)
+  const ues = db.prepare(`
+    SELECT u.ue_num, u.ue_nom, u.ue_niv, u.ue_niveau, u.ue_quad, u.pot_code,
+      COALESCE(u.pot_code,
+        CASE WHEN u.ue_code_fwb LIKE '980302%' THEN 'QUAL'
+             WHEN u.ue_code_fwb LIKE '980301%' THEN 'CF'
+             WHEN u.ue_code_fwb LIKE '980303%' THEN 'INCL'
+             ELSE 'organique' END) AS pot
+    FROM ue u
+    WHERE u.section = ? AND u.annee_scolaire = ?
+    ORDER BY u.ue_num
+  `).all(section, mode === 'civile' ? anneeQ1 : annee);
+
+  // Coûts Q1 par UE
+  const costsQ1 = db.prepare(`
+    SELECT a.ue_num,
+      ROUND(SUM(${CQ1}), 2) AS cout_q1
+    FROM attribution a
+    LEFT JOIN ue u ON u.ue_num = a.ue_num AND u.annee_scolaire = a.annee_scolaire AND u.section = a.section
+    WHERE a.section = ? AND a.annee_scolaire = ? AND a.contrat_mdp = 'IIP'
+    GROUP BY a.ue_num
+  `).all(section, anneeQ1).reduce((m, r) => { m[r.ue_num] = r.cout_q1; return m; }, {});
+
+  // Coûts Q2 par UE
+  const costsQ2 = db.prepare(`
+    SELECT a.ue_num,
+      ROUND(SUM(${CQ2}), 2) AS cout_q2
+    FROM attribution a
+    LEFT JOIN ue u ON u.ue_num = a.ue_num AND u.annee_scolaire = a.annee_scolaire AND u.section = a.section
+    WHERE a.section = ? AND a.annee_scolaire = ? AND a.contrat_mdp = 'IIP'
+    GROUP BY a.ue_num
+  `).all(section, anneeQ2).reduce((m, r) => { m[r.ue_num] = r.cout_q2; return m; }, {});
+
+  const lignes = ues.map(u => {
+    const q1 = costsQ1[u.ue_num] || 0;
+    const q2 = costsQ2[u.ue_num] || 0;
+    return { ...u, cout_q1: q1, cout_q2: q2, cout_total: Math.round((q1 + q2) * 100) / 100 };
+  });
+
+  const total_q1 = Math.round(lignes.reduce((s, l) => s + l.cout_q1, 0) * 100) / 100;
+  const total_q2 = Math.round(lignes.reduce((s, l) => s + l.cout_q2, 0) * 100) / 100;
+  const total    = Math.round((total_q1 + total_q2) * 100) / 100;
+
+  res.json({ section, annee, mode, lignes, total_q1, total_q2, total });
+});
