@@ -415,16 +415,23 @@ r.get('/dotation-comparaison', authRequired, (req, res) => {
   const { annee1, annee2 } = req.query;
   if (!annee1 || !annee2) return res.status(400).json({ error: 'annee1 et annee2 requis' });
 
+  const potFilter = req.query.pot || null; // null = tous
+
   function getCouts(annee) {
-    return db.prepare(`
+    let sql = `
       SELECT a.section, a.ue_num,
         ROUND(SUM(${CQ1}), 2) AS q1,
         ROUND(SUM(${CQ2}), 2) AS q2
       FROM attribution a
       LEFT JOIN ue u ON u.ue_num = a.ue_num AND u.annee_scolaire = a.annee_scolaire AND u.section = a.section
-      WHERE a.annee_scolaire = ? AND a.contrat_mdp = 'IIP'
-      GROUP BY a.section, a.ue_num
-    `).all(annee).reduce((m, r) => {
+      WHERE a.annee_scolaire = ? AND a.contrat_mdp = 'IIP'`;
+    const params = [annee];
+    if (potFilter) {
+      sql += ` AND ${POT} = ?`;
+      params.push(potFilter);
+    }
+    sql += ` GROUP BY a.section, a.ue_num`;
+    return db.prepare(sql).all(...params).reduce((m, r) => {
       if (!m[r.section]) m[r.section] = {};
       m[r.section][r.ue_num] = { q1: r.q1 || 0, q2: r.q2 || 0 };
       return m;
