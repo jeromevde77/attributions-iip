@@ -595,6 +595,16 @@ export default function Attributions() {
   async function delSection(code) {
     setConfirmDeleteSection(code);
   }
+  const [confirmViderSection, setConfirmViderSection] = useState(null);
+
+  async function viderSectionConfirmed(section) {
+    try {
+      const r = await api.bulkDeleteFiltered({ section, annee_scolaire: getAnnee() });
+      setConfirmViderSection(null);
+      load();
+      alert(`${r.deleted} attribution(s) supprimée(s) pour ${section}.`);
+    } catch(e) { alert('Erreur : ' + e.message); }
+  }
   async function delSectionConfirmed(code) {
     try { await api.maskSection(code, getAnnee()); setConfirmDeleteSection(null); load(); }
     catch(e){ alert('Erreur : ' + e.message); setConfirmDeleteSection(null); }
@@ -942,6 +952,8 @@ export default function Attributions() {
                   className="text-gray-400 hover:text-iip-mauve" title="Rapport d'attributions (HTML/impression)">📄</button>
                 <button onClick={()=>genererExcel(sg.section)}
                   className="text-gray-400 hover:text-green-600" title="Exporter en Excel (.xlsx)">📊</button>
+                <button onClick={()=>setConfirmViderSection(sg.section)}
+                  className="text-orange-400 hover:text-orange-600" title="Supprimer toutes les attributions de cette section">🧹</button>
                 <button onClick={()=>delSection(sg.section)}
                   className="text-red-400 hover:text-red-600" title="Retirer cette section de la vue">🗑</button>
               </span>
@@ -1104,6 +1116,25 @@ export default function Attributions() {
         onSaved={(code)=>{ const sec=newCoursForm.section; setNewCoursForm(null); load(); setEditRow({section: sec, code_cours: code}); }}/>}
       {showBulkCreate && <BulkCreateForm onClose={()=>setShowBulkCreate(false)} onCreated={load}/>}
       {showCopierSection && <CopierSectionModal sections={sections} anneeActive={getAnnee()} isAdmin={isAdmin} onClose={()=>setShowCopierSection(false)} onCopied={load}/>}
+      {confirmViderSection && (
+        <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-xl shadow-2xl max-w-md w-full p-6 space-y-4">
+            <h3 className="font-semibold text-gray-800">⚠️ Supprimer toutes les attributions</h3>
+            <p className="text-sm text-gray-600">
+              Supprimer <strong>toutes les attributions</strong> de la section <strong>{confirmViderSection}</strong> pour l'année <strong>{getAnnee()}</strong> ?
+            </p>
+            <p className="text-xs text-red-600 font-medium">Cette action est irréversible. Le référentiel (UE, cours) n'est pas touché.</p>
+            <div className="flex gap-3 justify-end pt-2">
+              <button onClick={() => setConfirmViderSection(null)}
+                className="px-4 py-2 text-sm border border-gray-300 rounded hover:bg-gray-50">Annuler</button>
+              <button onClick={() => viderSectionConfirmed(confirmViderSection)}
+                className="px-4 py-2 text-sm bg-orange-500 hover:bg-orange-600 text-white rounded font-semibold">
+                Supprimer toutes les attributions
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
       {rapportHtml && <PreviewModal html={rapportHtml} titre="Rapport d'attributions" onClose={() => setRapportHtml(null)} />}
       {editRow && <CoursEditModal section={editRow.section} codeCours={editRow.code_cours} onClose={()=>setEditRow(null)} onChanged={load}/>}
 
