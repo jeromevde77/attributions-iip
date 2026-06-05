@@ -155,15 +155,15 @@ function DotationComparaison({ civil }) {
     civil.flatMap(y => [`${y.annee_civile-1}-${y.annee_civile}`, `${y.annee_civile}-${y.annee_civile+1}`])
   )].sort();
 
-  // Chargement automatique dès que les données civiles sont disponibles
+  // Rechargement automatique à chaque changement de paramètre
   useEffect(() => {
-    if (anneesSco.length > 0 && annee1 && annee2 && !data) {
+    if (anneesSco.length > 0 && annee1 && annee2 && annee1 !== annee2) {
       charger();
     }
-  }, [anneesSco.length]);
+  }, [annee1, annee2, potFilter, pondere, anneesSco.length]);
 
   async function charger() {
-    if (!annee1 || !annee2) return;
+    if (!annee1 || !annee2 || annee1 === annee2) return;
     setLoading(true);
     try {
       const d = await api.dotationComparaison(annee1, annee2, potFilter || null, pondere);
@@ -225,10 +225,7 @@ function DotationComparaison({ civil }) {
             </button>
           </div>
         </div>
-        <button onClick={charger} disabled={loading || !annee1 || !annee2 || annee1 === annee2}
-          className="bg-iip-gold text-white px-4 py-1.5 rounded text-sm hover:bg-iip-amber disabled:opacity-50 self-end">
-          {loading ? 'Chargement...' : 'Comparer'}
-        </button>
+        {loading && <span className="text-xs text-gray-400 self-end pb-2 animate-pulse">Chargement...</span>}
         <div>
           <label className="block text-xs text-gray-500 mb-1">Enveloppe</label>
           <select value={potFilter} onChange={e => setPotFilter(e.target.value)}
