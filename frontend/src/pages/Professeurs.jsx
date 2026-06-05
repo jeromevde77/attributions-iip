@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { api, getAnnee, getUser } from '../lib/api.js';
+import { api, getAnnee, getUser, nomDoc } from '../lib/api.js';
 import ProfFicheModal from './ProfFicheModal.jsx';
 import PreviewModal from '../components/PreviewModal.jsx';
 import CoursEditModal from '../components/CoursEditModal.jsx';
@@ -405,7 +405,7 @@ export default function Professeurs() {
       </div>
       </body></html>`;
 
-    setFicheHtml(html);
+    setFicheHtml({ html, nom: nomDoc('Fiche_attr', prof.nom, prof.prenom, annee) });
   }
   const canEdit = me?.role === 'admin' || me?.role === 'editeur';
 
@@ -590,7 +590,7 @@ export default function Professeurs() {
         <ProfFicheModal prof={editProf} onClose={() => setEditProf(null)}
           onSaved={() => { setEditProf(null); load(); }} />
       )}
-      {ficheHtml && <PreviewModal html={ficheHtml} titre="Fiche d'attributions" onClose={() => setFicheHtml(null)} />}
+      {ficheHtml && <PreviewModal html={ficheHtml.html||ficheHtml} titre="Fiche d'attributions" nomFichier={ficheHtml.nom} onClose={() => setFicheHtml(null)} />}
     </div>
   );
 }

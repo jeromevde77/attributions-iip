@@ -302,3 +302,14 @@ export function getUser() {
   try { return JSON.parse(localStorage.getItem('user')); } catch { return null; }
 }
 export function isAuthenticated() { return !!getToken(); }
+
+// ── Nommage des documents générés ────────────────────────────────────────────
+export function nomDoc(...parts) {
+  const today = new Date().toISOString().slice(0,10); // YYYY-MM-DD
+  const clean = s => String(s || '')
+    .normalize('NFD').replace(/[\u0300-\u036f]/g, '') // supprime accents
+    .replace(/[^a-zA-Z0-9\-]/g, '_')                  // espaces et ponctuation → _
+    .replace(/_+/g, '_')                               // doubles underscores
+    .replace(/^_|_$/g, '');                            // trim underscores
+  return [...parts, today].map(clean).filter(Boolean).join('_');
+}

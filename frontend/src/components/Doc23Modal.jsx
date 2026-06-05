@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { nomDoc } from '../lib/api.js';
 
 // Catégorie EPROM selon ct_pp
 const CAT_EPROM = {
@@ -260,12 +261,13 @@ export default function Doc23Modal({ ue_num, section, ue_nom, annee, onClose }) 
 
   useEffect(() => { charger(numOrg); }, [numOrg]);
 
-  function ouvrir(html, titre) {
-    const w = window.open('', '_blank');
-    w.document.write(html);
+  function ouvrir(html, nom) {
+    const htmlAvecTitre = html.replace('<head>', `<head><title>${nom}</title>`);
+    const w = window.open('', '_blank', 'width=1200,height=900');
+    w.document.write(htmlAvecTitre);
     w.document.close();
     w.focus();
-    setTimeout(() => w.print(), 500);
+    setTimeout(() => w.print(), 600);
   }
 
   return (
@@ -311,11 +313,11 @@ export default function Doc23Modal({ ue_num, section, ue_nom, annee, onClose }) 
 
               {/* Boutons */}
               <div className="grid grid-cols-2 gap-3">
-                <button onClick={() => ouvrir(genDoc2Html(data, annee), 'DOC2')}
+                <button onClick={() => ouvrir(genDoc2Html(data, annee), nomDoc('DOC2', 'UE'+ue_num, ue_nom, 'Org'+numOrg, annee))}
                   className="bg-iip-gold hover:bg-iip-amber text-white text-sm px-4 py-2 rounded font-medium">
                   📄 DOC2 (populations)
                 </button>
-                <button onClick={() => ouvrir(genDoc3Html(data, annee, null), 'DOC3')}
+                <button onClick={() => ouvrir(genDoc3Html(data, annee, null), nomDoc('DOC3', 'UE'+ue_num, ue_nom, 'Org'+numOrg, annee))}
                   className="bg-iip-mauve hover:opacity-90 text-white text-sm px-4 py-2 rounded font-medium">
                   📋 DOC3 (attributions)
                 </button>
@@ -328,7 +330,7 @@ export default function Doc23Modal({ ue_num, section, ue_nom, annee, onClose }) 
                   <div className="space-y-1">
                     {data.cours.map(c => (
                       <button key={c.cours_code}
-                        onClick={() => ouvrir(genDoc3Html(data, annee, c.cours_code), `DOC3 - ${c.cours_nom}`)}
+                        onClick={() => ouvrir(genDoc3Html(data, annee, c.cours_code), nomDoc('DOC3', 'UE'+ue_num, c.cours_nom, 'Org'+numOrg, annee))}
                         className="w-full text-left text-xs border border-gray-200 rounded px-3 py-1.5 hover:bg-gray-50 flex justify-between items-center">
                         <span><b>{c.num_activite}</b> — {c.cours_nom}</span>
                         <span className="text-gray-400">📋</span>

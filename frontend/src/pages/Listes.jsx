@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { api, getAnnee } from '../lib/api.js';
+import { api, getAnnee, nomDoc } from '../lib/api.js';
 import PreviewModal from '../components/PreviewModal.jsx';
 import * as XLSX from 'xlsx';
 
@@ -384,7 +384,7 @@ export default function Listes() {
         </tbody></table>
         <div style="margin-top:8px;font-size:9px;color:#6b7280">CT : ${d.grand_ct} pér. · PP : ${d.grand_pp} pér. · Autonomie : ${d.grand_aut} pér.</div>
       </div></body></html>`;
-    setRapportHtml(html);
+    setRapportHtml({ html, nom: nomDoc('Grille', d.section, d.annee) });
   }
 
   function genererGrilleExcel(d) {
@@ -767,7 +767,7 @@ export default function Listes() {
           )}
         </div>
       </div>
-      {rapportHtml && <PreviewModal html={rapportHtml} titre="Rapport d'attributions" onClose={() => setRapportHtml(null)} />}
+      {rapportHtml && <PreviewModal html={rapportHtml.html||rapportHtml} titre={rapportHtml.nom||"Rapport"} nomFichier={rapportHtml.nom} onClose={() => setRapportHtml(null)} />}
     </div>
   );
 }
