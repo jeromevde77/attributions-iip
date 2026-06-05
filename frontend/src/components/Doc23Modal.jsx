@@ -169,7 +169,7 @@ function genDoc3Html(d, annee, coursCible) {
 
   // Lignes récap activités (tous les cours)
   const lignesRecap = cours.map(c => {
-    const r = attrs.filter(a => a.code_cours === c.cours_code).reduce((s,a) => s + (a.periodes||0) + (a.autonomie||0), 0);
+    const r = attrs.filter(a => a.code_cours === c.cours_code).reduce((s,a) => s + (a.periodes||0), 0);
     return `<tr>
       <td style="${TD}">${c.num_activite}</td>
       <td style="${TD}">${catCours(c)}</td>
@@ -182,8 +182,10 @@ function genDoc3Html(d, annee, coursCible) {
   }).join('');
 
   // Périodes totales
-  const per_reelles_org = attrs.reduce((s,a) => a.contrat_mdp==='IIP'?(s+(a.periodes||0)+(a.autonomie||0)):s, 0);
-  const per_ext = attrs.reduce((s,a) => a.contrat_mdp!=='IIP'?(s+(a.periodes||0)):s, 0);
+  // Périodes totales — cours séparés de l'autonomie
+  const per_reelles_org = attrs.reduce((s,a) => a.contrat_mdp==='IIP' ? (s + (a.periodes||0)) : s, 0);
+  const aut_reelles_org = attrs.reduce((s,a) => a.contrat_mdp==='IIP' ? (s + (a.autonomie||0)) : s, 0);
+  const per_ext = attrs.reduce((s,a) => a.contrat_mdp!=='IIP' ? (s + (a.periodes||0)) : s, 0);
 
   // Pages par cours
   const pageCours = (coursList) => coursList.map(c => {
@@ -263,7 +265,7 @@ function genDoc3Html(d, annee, coursCible) {
     <div style="display:flex;gap:10px;margin-bottom:10px">
       <div style="border:1px solid #ccc;padding:6px 12px;flex:1;font-size:10px">
         <div style="font-weight:bold;font-size:10px">PÉRIODES RÉELLES ORGANIQUES</div>
-        <div>Périodes réelles organiques &nbsp;&nbsp;<b>${per_reelles_org}</b></div>
+        <div>Périodes réelles organiques &nbsp;&nbsp;<b>${per_reelles_org + aut_reelles_org}</b></div>
       </div>
       <div style="border:1px solid #ccc;padding:6px 12px;flex:1;font-size:10px">
         <div style="font-weight:bold;font-size:10px">PÉRIODES PRISES EN INTERVENTIONS EXTÉRIEURES</div>
@@ -271,7 +273,7 @@ function genDoc3Html(d, annee, coursCible) {
       </div>
       <div style="border:1px solid #ccc;padding:6px 12px;flex:1;font-size:10px">
         <div style="font-weight:bold;font-size:10px">PÉRIODES DÉJÀ ATTRIBUÉES</div>
-        <div>Périodes déjà attribuées &nbsp;&nbsp;<b>${per_reelles_org + per_ext}</b></div>
+        <div>Périodes déjà attribuées &nbsp;&nbsp;<b>${per_reelles_org + aut_reelles_org + per_ext}</b></div>
       </div>
     </div>
 
