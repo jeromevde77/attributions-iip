@@ -203,6 +203,15 @@ const ENTITES = {
     }),
     filtres: ['section'],
   },
+  'grille-section': {
+    label: 'Grille de section', icon: '📐',
+    grille: true,
+    cols: [],
+    fetch: (annee, filtres) => authFetch(
+      `/api/ref/sections/${encodeURIComponent(filtres.section||'')}/grille?annee=${encodeURIComponent(annee)}`
+    ),
+    filtres: ['section'],
+  },
   'rapport-section': {
     label: 'Rapport par section', icon: '📄',
     rapport: true,
@@ -276,14 +285,175 @@ export default function Listes() {
     try {
       const data = await def.fetch(annee, filtres);
       if (def.rapport) {
-        // Mode rapport hiérarchique
         genererRapportHtml(data, filtres);
+        setRows([]);
+      } else if (def.grille) {
+        genererGrilleHtml(data);
         setRows([]);
       } else {
         setRows(Array.isArray(data) ? data : []);
       }
     } catch (e) { setError(e.message); setRows([]); }
     finally { setLoading(false); }
+  }
+
+  function genererGrilleHtml(d) {
+    if (d.error) { alert(d.error); return; }
+    const NIV_PAL = ['#f97316','#60a5fa','#1e3a8a','#a855f7','#ec4899'];
+    const niveaux = [...new Set(d.ues.map(u => u.ue_niv).filter(Boolean))];
+    const nivColor = niv => NIV_PAL[niveaux.indexOf(niv) % NIV_PAL.length] || '#6b7280';
+    const S = 'padding:1px 5px;font-size:10px;';
+    const SR = S + 'text-align:right;';
+
+    const lignesNiv = {};
+    for (const u of d.ues) {
+      const niv = u.ue_niv || '—';
+      if (!lignesNiv[niv]) lignesNiv[niv] = [];
+      lignesNiv[niv].push(u);
+    }
+
+    const sections = Object.entries(lignesNiv).map(([niv, ues]) => {
+      const col = nivColor(niv);
+      const lignesUE = ues.map(u => {
+        const lignesCours = u.cours.map((c, i) => `
+          <tr style="background:${i%2===0?'#fff':'#f9fafb'}">
+            <td style="${S}padding-left:20px;color:#6b7280;font-family:monospace">${c.cours_code}</td>
+            <td style="${S}">${c.cours_nom || '—'}</td>
+            <td style="${S}text-align:center;font-weight:600;color:${c.ct_pp==='CT'?'#1B2B4B':'#00AACC'}">${c.ct_pp||'—'}</td>
+            <td style="${SR}color:#374151">${c.cours_per||0}</td>
+            <td style="${SR}color:#6b7280">${c.ue_autonomie||0}</td>
+            <td style="${SR}font-weight:600">${(c.cours_per||0)+(c.ue_autonomie||0)}</td>
+          </tr>`).join('');
+        return `
+          <tr style="background:#f1f5f9;border-left:3px solid ${col}">
+            <td colspan="2" style="padding:4px 6px 4px 8px;font-weight:700;font-size:11px;color:#111827">
+              <span style="background:${col};color:white;font-size:9px;padding:1px 4px;border-radius:2px;margin-right:4px">${u.ue_niv||''}</span>
+              UE\u00a0${u.ue_num} — ${u.ue_nom||''}
+              ${u.ue_quad?`<span style="color:#6b7280;font-weight:400;font-size:9px;margin-left:6px">${u.ue_quad}</span>`:''}
+            </td>
+            <td style="${S}text-align:center;color:#6b7280;font-size:9px">${u.ue_niveau||''}</td>
+            <td style="${SR}"></td><td style="${SR}"></td><td style="${SR}"></td>
+          </tr>
+          ${lignesCours}
+          <tr style="background:#e8edf3;border-left:3px solid ${col}">
+            <td colspan="2" style="padding:2px 6px 2px 20px;font-size:9px;color:#6b7280;font-style:italic">Sous-total UE\u00a0${u.ue_num}</td>
+            <td style="${S}text-align:center"></td>
+            <td style="${SR}font-weight:700;color:#374151">${u.tot_per}</td>
+            <td style="${SR}color:#6b7280">${u.tot_aut}</td>
+            <td style="${SR}font-weight:700">${u.tot_per+u.tot_aut}</td>
+          </tr>`;
+      }).join('');
+
+      return `
+        <tr style="background:${col}20">
+          <td colspan="6" style="padding:5px 8px;font-weight:800;font-size:12px;color:${col};border-bottom:2px solid ${col}">
+            ▌ ${niv}
+          </td>
+        </tr>
+        ${lignesUE}`;
+    }).join('');
+
+    const html = `<!DOCTYPE html><html><head><meta charset="utf-8">
+      <style>*{box-sizing:border-box;margin:0;padding:0}body{font-family:'Segoe UI',Arial,sans-serif;font-size:11px}table{width:100%;border-collapse:collapse}td,th{border-bottom:1px solid #e5e7eb}@media print{@page{margin:10mm;size:A4 landscape}tr{page-break-inside:avoid}thead{display:table-header-group}}</style>
+      </head><body><div style="padding:10mm">
+        <div style="display:flex;justify-content:space-between;align-items:flex-end;border-bottom:2px solid #1B2B4B;padding-bottom:6px;margin-bottom:10px">
+          <div>
+            <div style="font-size:16px;font-weight:700;color:#1B2B4B">Grille de section — ${d.section}</div>
+            <div style="font-size:11px;color:#6b7280">Année scolaire ${d.annee} · Structure référentiel</div>
+          </div>
+          <div style="font-size:9px;color:#9ca3af">Généré le ${new Date().toLocaleDateString('fr-BE')} · Lucie · IIP</div>
+        </div>
+        <table><thead>
+          <tr style="background:#1B2B4B;color:white">
+            <th style="padding:3px 5px;text-align:left;font-size:10px">Code</th>
+            <th style="padding:3px 5px;text-align:left;font-size:10px">Cours / UE</th>
+            <th style="padding:3px 5px;text-align:center;font-size:10px">CT/PP</th>
+            <th style="padding:3px 5px;text-align:right;font-size:10px">Pér.</th>
+            <th style="padding:3px 5px;text-align:right;font-size:10px">Aut.</th>
+            <th style="padding:3px 5px;text-align:right;font-size:10px">Total</th>
+          </tr>
+        </thead><tbody>
+          ${sections}
+          <tr style="background:#1B2B4B;color:white">
+            <td colspan="2" style="padding:4px 6px;font-weight:700;font-size:12px">TOTAL — ${d.section}</td>
+            <td style="${S}text-align:center"></td>
+            <td style="${SR}font-weight:700;color:white">${d.grand_ct+d.grand_pp}</td>
+            <td style="${SR}color:rgba(255,255,255,.7)">${d.grand_aut}</td>
+            <td style="${SR}font-weight:700;color:white">${d.grand_ct+d.grand_pp+d.grand_aut}</td>
+          </tr>
+        </tbody></table>
+        <div style="margin-top:8px;font-size:9px;color:#6b7280">CT : ${d.grand_ct} pér. · PP : ${d.grand_pp} pér. · Autonomie : ${d.grand_aut} pér.</div>
+      </div></body></html>`;
+    setRapportHtml(html);
+  }
+
+  function genererGrilleExcel(d) {
+    if (d.error) { alert(d.error); return; }
+    const BLEU = '1B2B4B', GRIS = 'F1F5F9', SOUS = 'E8EDF3', ZEBRE = 'F9FAFB';
+    const NIV_PAL = ['F97316','60A5FA','1E3A8A','A855F7','EC4899'];
+    const niveaux = [...new Set(d.ues.map(u => u.ue_niv).filter(Boolean))];
+    const nivColor = niv => NIV_PAL[niveaux.indexOf(niv) % NIV_PAL.length] || '6B7280';
+    const h = (v, bg, fg='FFFFFF', bold=false, align='left') => ({
+      v, s:{font:{name:'Calibri',sz:9,bold,color:{rgb:fg}},fill:{fgColor:{rgb:bg},patternType:'solid'},alignment:{horizontal:align,vertical:'center'}}
+    });
+
+    const rows = [
+      [{v:`Grille de section — ${d.section}`, s:{font:{name:'Calibri',sz:14,bold:true,color:{rgb:BLEU}}}}],
+      [{v:`Année scolaire ${d.annee} · Structure référentiel`, s:{font:{name:'Calibri',sz:10,color:{rgb:'6B7280'}}}}],
+      [],
+      [h('Code',BLEU,'FFFFFF',true), h('Cours / UE',BLEU,'FFFFFF',true), h('CT/PP',BLEU,'FFFFFF',true,'center'),
+       {...h('Pér.',BLEU,'FFFFFF',true), s:{...h('Pér.',BLEU,'FFFFFF',true).s,alignment:{horizontal:'right'}}},
+       {...h('Aut.',BLEU,'FFFFFF',true), s:{...h('Aut.',BLEU,'FFFFFF',true).s,alignment:{horizontal:'right'}}},
+       {...h('Total',BLEU,'FFFFFF',true), s:{...h('Total',BLEU,'FFFFFF',true).s,alignment:{horizontal:'right'}}}],
+    ];
+
+    const niveauxGroupes = {};
+    for (const u of d.ues) { const niv = u.ue_niv||'—'; if (!niveauxGroupes[niv]) niveauxGroupes[niv] = []; niveauxGroupes[niv].push(u); }
+
+    for (const [niv, ues] of Object.entries(niveauxGroupes)) {
+      const col = nivColor(niv);
+      rows.push([{v:`▌ ${niv}`, s:{font:{name:'Calibri',sz:11,bold:true,color:{rgb:col}},fill:{fgColor:{rgb:col+'20'},patternType:'solid'}}},'','','','','']);
+      for (const u of ues) {
+        rows.push([
+          {v:`UE ${u.ue_num}`, s:{font:{name:'Calibri',sz:10,bold:true,color:{rgb:BLEU}},fill:{fgColor:{rgb:GRIS},patternType:'solid'}}},
+          {v:`${u.ue_nom||''}${u.ue_quad?' · '+u.ue_quad:''}`, s:{font:{name:'Calibri',sz:10,bold:true,color:{rgb:BLEU}},fill:{fgColor:{rgb:GRIS},patternType:'solid'}}},
+          {v:u.ue_niveau||'', s:{font:{name:'Calibri',sz:9,color:{rgb:'6B7280'}},fill:{fgColor:{rgb:GRIS},patternType:'solid'},alignment:{horizontal:'center'}}},
+          '','','',
+        ]);
+        u.cours.forEach((c,i) => {
+          const bg = i%2===0?'FFFFFF':ZEBRE;
+          rows.push([
+            {v:c.cours_code||'', s:{font:{name:'Calibri',sz:9,color:{rgb:'6B7280'},italic:true},fill:{fgColor:{rgb:bg},patternType:'solid'}}},
+            {v:c.cours_nom||'', s:{font:{name:'Calibri',sz:9,color:{rgb:'374151'}},fill:{fgColor:{rgb:bg},patternType:'solid'}}},
+            {v:c.ct_pp||'', s:{font:{name:'Calibri',sz:9,bold:true,color:{rgb:c.ct_pp==='CT'?BLEU:'00AACC'}},fill:{fgColor:{rgb:bg},patternType:'solid'},alignment:{horizontal:'center'}}},
+            {v:c.cours_per||0, s:{font:{name:'Calibri',sz:9},fill:{fgColor:{rgb:bg},patternType:'solid'},alignment:{horizontal:'right'}}},
+            {v:c.ue_autonomie||0, s:{font:{name:'Calibri',sz:9,color:{rgb:'6B7280'}},fill:{fgColor:{rgb:bg},patternType:'solid'},alignment:{horizontal:'right'}}},
+            {v:(c.cours_per||0)+(c.ue_autonomie||0), s:{font:{name:'Calibri',sz:9,bold:true},fill:{fgColor:{rgb:bg},patternType:'solid'},alignment:{horizontal:'right'}}},
+          ]);
+        });
+        rows.push([
+          {v:`Sous-total UE ${u.ue_num}`, s:{font:{name:'Calibri',sz:9,italic:true,color:{rgb:'6B7280'}},fill:{fgColor:{rgb:SOUS},patternType:'solid'},alignment:{horizontal:'right'}}},
+          '','',
+          {v:u.tot_per, s:{font:{name:'Calibri',sz:9,bold:true},fill:{fgColor:{rgb:SOUS},patternType:'solid'},alignment:{horizontal:'right'}}},
+          {v:u.tot_aut, s:{font:{name:'Calibri',sz:9,color:{rgb:'6B7280'}},fill:{fgColor:{rgb:SOUS},patternType:'solid'},alignment:{horizontal:'right'}}},
+          {v:u.tot_per+u.tot_aut, s:{font:{name:'Calibri',sz:9,bold:true,color:{rgb:BLEU}},fill:{fgColor:{rgb:SOUS},patternType:'solid'},alignment:{horizontal:'right'}}},
+        ]);
+        rows.push([]);
+      }
+    }
+    rows.push([
+      {v:`TOTAL — ${d.section}`, s:{font:{name:'Calibri',sz:11,bold:true,color:{rgb:'FFFFFF'}},fill:{fgColor:{rgb:BLEU},patternType:'solid'}}},
+      '','',
+      {v:d.grand_ct+d.grand_pp, s:{font:{name:'Calibri',sz:11,bold:true,color:{rgb:'FFFFFF'}},fill:{fgColor:{rgb:BLEU},patternType:'solid'},alignment:{horizontal:'right'}}},
+      {v:d.grand_aut, s:{font:{name:'Calibri',sz:11,bold:true,color:{rgb:'FFFFFF'}},fill:{fgColor:{rgb:BLEU},patternType:'solid'},alignment:{horizontal:'right'}}},
+      {v:d.grand_ct+d.grand_pp+d.grand_aut, s:{font:{name:'Calibri',sz:11,bold:true,color:{rgb:'FFFFFF'}},fill:{fgColor:{rgb:BLEU},patternType:'solid'},alignment:{horizontal:'right'}}},
+    ]);
+
+    const wb = XLSX.utils.book_new();
+    const ws = XLSX.utils.aoa_to_sheet(rows);
+    ws['!cols'] = [{wch:14},{wch:48},{wch:7},{wch:8},{wch:8},{wch:8}];
+    XLSX.utils.book_append_sheet(wb, ws, d.section.slice(0,31));
+    XLSX.writeFile(wb, `Grille_${d.section}_${d.annee}.xlsx`);
   }
 
   function genererRapportHtml(d, filtres) {
@@ -537,13 +707,16 @@ export default function Listes() {
                     {filtres.section && <span className="ml-2 font-medium text-iip-gold">· {filtres.section}</span>}</>}
                 </span>
                 <div className="flex gap-2">
-                  {def.rapport ? (<>
+                  {def.rapport || def.grille ? (<>
                     <button onClick={() => rapportHtml && setRapportHtml(rapportHtml)}
                       disabled={!rapportHtml}
                       className="text-xs border border-iip-mauve text-iip-mauve hover:bg-iip-mauve/5 disabled:opacity-40 px-3 py-1.5 rounded font-medium">
                       📄 Voir HTML
                     </button>
-                    <button onClick={async () => { const d = await def.fetch(annee, filtres); genererRapportExcel(d, filtres); }}
+                    <button onClick={async () => {
+                        const d = await def.fetch(annee, filtres);
+                        def.grille ? genererGrilleExcel(d) : genererRapportExcel(d, filtres);
+                      }}
                       className="text-xs border border-green-500 text-green-700 hover:bg-green-50 px-3 py-1.5 rounded font-medium">
                       📊 Excel
                     </button>
