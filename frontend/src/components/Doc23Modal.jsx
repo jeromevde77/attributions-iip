@@ -44,20 +44,44 @@ function genDoc2Html(d, annee) {
   const TDR = TD + ';text-align:right';
 
   // Tableau activités
+  // Récupérer l'autonomie depuis le premier cours (ue_autonomie est partagée par UE)
+  const autPrevu = cours.find(c => c.ue_autonomie > 0)?.ue_autonomie || 0;
+  const autReel  = cours.reduce((s,c) => s + (c.aut_reelles||0), 0);
+  let numAct = cours.length + 1; // numéro activité pour ligne Auto
+
   let lignesAct = '';
   cours.forEach(c => {
+    // Vérification : réel doit être multiple de prévu
+    const reel = c.per_reelles || 0;
+    const prevu = c.cours_per || 0;
+    const ok = prevu === 0 || reel % prevu === 0;
+    const style_reel = ok ? TDR : TDR + ';color:red;font-weight:bold';
     lignesAct += `<tr>
       <td style="${TD}">${c.num_activite}</td>
       <td style="${TD}">${catCours(c)}</td>
       <td style="${TD}">${(c.cours_nom||'').toUpperCase()}</td>
       <td style="${TDR}">1</td>
       <td style="${TDR}"></td>
-      <td style="${TDR}">${c.cours_per||0}</td>
-      <td style="${TDR}">${c.cours_per||0}</td>
-      <td style="${TDR}">${c.per_reelles||0}</td>
+      <td style="${TDR}">${prevu}</td>
+      <td style="${TDR}">${prevu}</td>
+      <td style="${style_reel}">${reel}${!ok?' ⚠':''}</td>
       <td style="${TDR}"></td>
     </tr>`;
   });
+  // Ligne Autonomie séparée
+  if (autPrevu > 0 || autReel > 0) {
+    lignesAct += `<tr>
+      <td style="${TD}">${numAct}</td>
+      <td style="${TD}">Auto</td>
+      <td style="${TD}">AUTONOMIE</td>
+      <td style="${TDR}">1</td>
+      <td style="${TDR}"></td>
+      <td style="${TDR}">${autPrevu}</td>
+      <td style="${TDR}">${autPrevu}</td>
+      <td style="${TDR}">${autReel}</td>
+      <td style="${TDR}"></td>
+    </tr>`;
+  }
   // Lignes 91-99
   lignes_ept.forEach(l => {
     lignesAct += `<tr>
@@ -123,9 +147,9 @@ function genDoc2Html(d, annee) {
         ${lignesAct}
         <tr style="background:#f5f5e8;font-weight:bold">
           <td colspan="5" style="${TD}">TOTAL</td>
-          <td style="${TDR}">${tot_prevu}</td>
-          <td style="${TDR}">${tot_prevu}</td>
-          <td style="${TDR}">${tot_reel}</td>
+          <td style="${TDR}">${tot_prevu + (autPrevu||0)}</td>
+          <td style="${TDR}">${tot_prevu + (autPrevu||0)}</td>
+          <td style="${TDR}">${tot_reel + (autReel||0)}</td>
           <td style="${TDR}">0</td>
         </tr>
       </tbody>
