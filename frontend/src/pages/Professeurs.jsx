@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { api, getAnnee, getUser } from '../lib/api.js';
 import ProfFicheModal from './ProfFicheModal.jsx';
 import PreviewModal from '../components/PreviewModal.jsx';
+import CoursEditModal from '../components/CoursEditModal.jsx';
 
 const EMPTY = {
   nom: '', prenom: '', adresse_mail: '', mail_prive: '',
@@ -88,6 +89,7 @@ function DetailModal({ profId, onClose, onEdit, onFiche }) {
   const [detail, setDetail] = useState(null);
   const navigate = useNavigate();
   const u = getUser();
+  const [editCours, setEditCours] = useState(null); // { section, code_cours }
   useEffect(() => {
     api.professeur(profId, getAnnee()).then(setDetail).catch(e => alert(e.message));
   }, [profId]);
@@ -250,10 +252,10 @@ function DetailModal({ profId, onClose, onEdit, onFiche }) {
                 <tr><td colSpan="10" className="text-center text-gray-400 py-4">Aucune attribution</td></tr>
               )}
               {detail.attributions?.map(a => (
-                <tr key={a.id}>
+                <tr key={a.id} className="hover:bg-iip-gold/5">
                   <td>{a.section}</td>
                   <td className="font-mono text-xs">{a.ue_num}</td>
-                  <td className="text-xs truncate max-w-[200px]">{a.nom_cours}</td>
+                  <td className="text-xs truncate max-w-[180px]">{a.nom_cours}</td>
                   <td className="text-xs text-gray-500">{a.activite_nom || '—'}</td>
                   <td className="text-center">
                     {a.type_cours && <span className={`badge ${a.type_cours==='CT'?'badge-ct':'badge-pp'}`}>{a.type_cours}</span>}
@@ -262,22 +264,35 @@ function DetailModal({ profId, onClose, onEdit, onFiche }) {
                   <td className="num">{a.periodes_attribuees}</td>
                   <td className="num">{a.autonomie_attribuee}</td>
                   <td className="num font-semibold">{a.total_attribue_professeur}</td>
-                  <td className="text-center">
-                      <button title="Désattribuer → À DÉSIGNER"
-                        onClick={async () => {
-                          if (!confirm('Retirer cette attribution et la passer à "À DÉSIGNER" ?')) return;
-                          const tok = localStorage.getItem('token');
-                          const res = await fetch(`/api/attributions/${a.id}/desattribuer`, {
-                            method: 'PATCH', headers: { Authorization: `Bearer ${tok}` }
-                          });
-                          if (res.ok) setDetail(d => ({ ...d, attributions: d.attributions.filter(x => x.id !== a.id) }));
-                        }}
-                        className="text-orange-400 hover:text-orange-600 text-xs px-1">🔄</button>
+                  <td className="text-center whitespace-nowrap">
+                    {a.code_cours && (
+                      <button title="Éditer ce cours"
+                        onClick={() => setEditCours({ section: a.section, code_cours: a.code_cours })}
+                        className="text-iip-gold hover:text-iip-amber text-xs px-1">✏</button>
+                    )}
+                    <button title="Désattribuer → À DÉSIGNER"
+                      onClick={async () => {
+                        if (!confirm('Retirer cette attribution et la passer à "À DÉSIGNER" ?')) return;
+                        const tok = localStorage.getItem('token');
+                        const res = await fetch(`/api/attributions/${a.id}/desattribuer`, {
+                          method: 'PATCH', headers: { Authorization: `Bearer ${tok}` }
+                        });
+                        if (res.ok) setDetail(d => ({ ...d, attributions: d.attributions.filter(x => x.id !== a.id) }));
+                      }}
+                      className="text-orange-400 hover:text-orange-600 text-xs px-1">🔄</button>
                   </td>
                 </tr>
               ))}
             </tbody>
           </table>
+          {editCours && (
+            <CoursEditModal
+              section={editCours.section}
+              codeCours={editCours.code_cours}
+              onClose={() => setEditCours(null)}
+              onChanged={() => { setEditCours(null); api.professeur(profId, getAnnee()).then(setDetail).catch(() => {}); }}
+            />
+          )}
         </div>
       </div>
     </div>
