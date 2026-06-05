@@ -230,6 +230,7 @@ export default function Attributions() {
   const [bulkConfirmText, setBulkConfirmText] = useState('');
   const [editRow, setEditRow] = useState(null);
   const [addMenuUE, setAddMenuUE] = useState(null);   // {ue, sec} : menu + ouvert pour cette UE
+  const [menuPos, setMenuPos] = useState({ top: 0, right: 0 }); // position fixe du menu
   const [eptModal, setEptModal] = useState(null);     // { section, ue_num, ue_nom }
   const [quadriMenu, setQuadriMenu] = useState(null); // key de l'UE dont le menu quadri est ouvert
   const [activeUE, setActiveUE] = useState(null);     // key de la dernière UE cliquée (encadrée)
@@ -898,11 +899,13 @@ export default function Attributions() {
                   title="Réouvrir cette UE (nouvelle organisation)"
                   className="flex-shrink-0 ml-2 w-7 h-7 flex items-center justify-center rounded-full bg-iip-mauve/10 hover:bg-iip-mauve hover:text-white text-iip-mauve transition" style={{fontSize:'0.9rem'}}>⧉</button>
           {/* Bouton + : ajouter une ligne / un cours */}
-          <button onClick={(e)=>{e.stopPropagation(); setAddMenuUE(addMenuUE?.key===key ? null : {key, ue, sec, org});}}
+          <button onClick={(e)=>{e.stopPropagation(); if(addMenuUE?.key===key){setAddMenuUE(null);}else{const r=e.currentTarget.getBoundingClientRect();setMenuPos({top:r.bottom+4,right:window.innerWidth-r.right});setAddMenuUE({key,ue,sec,org});}}}
                   title="Ajouter une attribution"
                   className="flex-shrink-0 ml-2 w-7 h-7 flex items-center justify-center rounded-full bg-iip-gold/10 hover:bg-iip-gold hover:text-white text-iip-gold font-bold transition">+</button>
           {addMenuUE?.key===key && (
-            <div className="absolute right-3 top-full mt-1 z-30 bg-white border border-gray-200 rounded-lg shadow-xl py-1 w-64" onClick={e=>e.stopPropagation()}>
+            <div className="fixed z-50 bg-white border border-gray-200 rounded-lg shadow-xl py-1 w-64"
+              style={{top: menuPos.top, right: menuPos.right}}
+              onClick={e=>e.stopPropagation()}>
               <div className="px-3 py-1.5 text-xs font-semibold text-gray-400 border-b border-gray-100">Ajouter dans l'UE {ue.ue_num}</div>
               {ue.cours.filter(cg => cg.type_cours !== 'Z').map(cg => (
                 <button key={cg.code_cours} onClick={()=>{ setEditRow({section: sec, code_cours: cg.code_cours}); setAddMenuUE(null); }}
