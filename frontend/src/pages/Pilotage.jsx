@@ -489,9 +489,20 @@ export default function Pilotage() {
             <Kpi label="Dotation" value={fmt(d.dotation_organique)} sub="périodes B" />
             <Kpi label="Utilisées" value={fmt(d.usage_organique)} sub="périodes B"
               color={trafficColor(d.pct_organique)} />
-            <Kpi label="Solde"
-              value={<span className={d.solde_organique < 0 ? 'text-red-600' : 'text-green-700'}>{sign(d.solde_organique)}{fmt(d.solde_organique)}</span>}
-              sub={d.solde_organique < -200 ? '⚠ Pénalité ×1,5 possible' : 'périodes B'} />
+            {(() => {
+              const felsi = Math.round(d.dotation_organique * 0.01);
+              const gips = 40;
+              const charges = felsi + gips;
+              const soldeReel = d.solde_organique - charges;
+              return (<>
+                <Kpi label="Charges fixes"
+                  value={<span className="text-orange-600">−{fmt(charges)}</span>}
+                  sub={`FELSI ${fmt(felsi)} + GIPS 40`} />
+                <Kpi label="Solde réel"
+                  value={<span className={soldeReel < 0 ? 'text-red-600' : 'text-green-700'}>{sign(soldeReel)}{fmt(soldeReel)}</span>}
+                  sub={soldeReel < -200 ? '⚠ Pénalité ×1,5 possible' : 'après FELSI + GIPS'} />
+              </>);
+            })()}
             <div className={`rounded-xl border p-4 shadow-sm ${trafficBg(d.pct_organique)}`}>
               <div className="text-xs uppercase tracking-wider text-gray-500 mb-1">Taux d'utilisation</div>
               <div className={`text-2xl font-bold ${trafficColor(d.pct_organique)}`}>{pct(d.pct_organique)}</div>
