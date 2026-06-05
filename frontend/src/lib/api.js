@@ -217,9 +217,10 @@ export const api = {
   dotationUE(section, annee, mode) {
     return request(`/pilotage/dotation-ue?section=${encodeURIComponent(section)}&annee=${encodeURIComponent(annee)}&mode=${mode}`);
   },
-  dotationComparaison(annee1, annee2, pot) {
+  dotationComparaison(annee1, annee2, pot, pondere = true) {
     const p = new URLSearchParams({ annee1, annee2 });
     if (pot) p.set('pot', pot);
+    if (!pondere) p.set('pondere', '0');
     return request(`/pilotage/dotation-comparaison?${p}`);
   },
   doc23() { return request(withAnnee('/exports/doc2-3')); },
