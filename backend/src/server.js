@@ -1427,13 +1427,14 @@ try {
     }
   } catch (e) { console.error('[migration] enveloppe AeSI :', e.message); }
 
-  // Corriger les valeurs '[object Object]' dans quadrimestre_attribue et quadrimestre_cours
-  // (bug d'import : objet JS sérialisé en string)
+  // Corriger les valeurs '[object Object]' ET les chaînes vides dans quadrimestre_attribue et quadrimestre_cours
   try {
-    const a = db.prepare("UPDATE attribution SET quadrimestre_attribue = NULL WHERE quadrimestre_attribue = '[object Object]'").run();
-    const c = db.prepare("UPDATE cours SET quadrimestre_cours = NULL WHERE quadrimestre_cours = '[object Object]'").run();
-    if (a.changes > 0 || c.changes > 0)
-      console.log(`[migration] Corrigé '[object Object]' : ${a.changes} attributions, ${c.changes} cours`);
+    const a1 = db.prepare("UPDATE attribution SET quadrimestre_attribue = NULL WHERE quadrimestre_attribue = '[object Object]'").run();
+    const a2 = db.prepare("UPDATE attribution SET quadrimestre_attribue = NULL WHERE quadrimestre_attribue = ''").run();
+    const c1 = db.prepare("UPDATE cours SET quadrimestre_cours = NULL WHERE quadrimestre_cours = '[object Object]'").run();
+    const c2 = db.prepare("UPDATE cours SET quadrimestre_cours = NULL WHERE quadrimestre_cours = ''").run();
+    if (a1.changes + a2.changes + c1.changes + c2.changes > 0)
+      console.log(`[migration] Corrigé quadrimestre : ${a1.changes+a2.changes} attributions, ${c1.changes+c2.changes} cours`);
   } catch(e) { console.error('[migration] fix object Object:', e.message); }
   // (pour que leurs attributions aillent dans l'enveloppe AESI et pas en organique)
   try {
