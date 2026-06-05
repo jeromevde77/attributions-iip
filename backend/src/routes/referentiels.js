@@ -487,6 +487,52 @@ r.post('/sections/:code/demasquer', authRequired, roleRequired('admin', 'editeur
  * retourne pour une section, toutes les UE avec leurs cours et le statut
  * "déjà couvert" (= au moins une attribution existe pour ce cours dans cette section).
  */
+// GET /sections/:section/grille?annee= — Structure référentiel pour grille de section
+r.get('/sections/:section/grille', authRequired, (req, res) => {
+  const { section } = req.params;
+  const annee = req.query.annee || '2026-2027';
+
+  const ues = db.prepare(`
+    SELECT u.ue_num, u.ue_nom, u.ue_niv, u.ue_niveau, u.ue_quad,
+           u.ue_per_cours, u.ue_aut, u.ue_tot_prf, u.ects,
+           COALESCE(u.pot_code, 'organique') AS pot
+    FROM ue u
+    WHERE u.section = ? AND u.annee_scolaire = ?
+    ORDER BY
+      CAST(SUBSTR(COALESCE(u.ue_niv,'ZZZ'), -1) AS INTEGER),
+      u.ue_num
+  `).all(section, annee);
+
+  const cours = db.prepare(`
+    SELECT c.cours_code, c.cours_nom, c.ue_num, c.ct_pp,
+           c.cours_per, c.ue_autonomie, c.quadrimestre_cours
+    FROM cours c
+    WHERE c.section = ? AND c.annee_scolaire = ?
+      AND (c.ct_pp IS NULL OR c.ct_pp != 'Z')
+    ORDER BY c.cours_code
+  `).all(section, annee);
+
+  const byUE = {};
+  for (const c of cours) {
+    if (!byUE[c.ue_num]) byUE[c.ue_num] = [];
+    byUE[c.ue_num].push(c);
+  }
+
+  const result = ues.map(u => {
+    const uesCours = byUE[u.ue_num] || [];
+    const tot_ct  = uesCours.filter(c => c.ct_pp === 'CT').reduce((s,c) => s + (c.cours_per||0), 0);
+    const tot_pp  = uesCours.filter(c => c.ct_pp === 'PP').reduce((s,c) => s + (c.cours_per||0), 0);
+    const tot_aut = uesCours.reduce((s,c) => s + (c.ue_autonomie||0), 0);
+    return { ...u, cours: uesCours, tot_ct, tot_pp, tot_aut, tot_per: tot_ct + tot_pp };
+  });
+
+  const grand_ct  = result.reduce((s,u) => s + u.tot_ct, 0);
+  const grand_pp  = result.reduce((s,u) => s + u.tot_pp, 0);
+  const grand_aut = result.reduce((s,u) => s + u.tot_aut, 0);
+
+  res.json({ section, annee, ues: result, grand_ct, grand_pp, grand_aut });
+});
+
 r.get('/sections/:section/ue-cours', authRequired, (req, res) => {
   const { section } = req.params;
   const annee = req.query.annee || '2025-2026';
