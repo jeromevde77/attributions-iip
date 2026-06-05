@@ -243,28 +243,18 @@ function DetailModal({ profId, onClose, onEdit, onFiche }) {
               <th>Type</th>
               <th>Gr.</th>
               <th className="text-right">Per.</th>
-              <th className="text-right">Aut.</th>
-              <th className="text-right">Total</th>
               <th></th>
             </tr></thead>
             <tbody>
               {detail.attributions?.length === 0 && (
-                <tr><td colSpan="10" className="text-center text-gray-400 py-4">Aucune attribution</td></tr>
+                <tr><td colSpan="8" className="text-center text-gray-400 py-4">Aucune attribution</td></tr>
               )}
-              {detail.attributions?.map(a => (
-                <tr key={a.id} className="hover:bg-iip-gold/5">
-                  <td>{a.section}</td>
-                  <td className="font-mono text-xs">{a.ue_num}</td>
-                  <td className="text-xs truncate max-w-[180px]">{a.nom_cours}</td>
-                  <td className="text-xs text-gray-500">{a.activite_nom || '—'}</td>
-                  <td className="text-center">
-                    {a.type_cours && <span className={`badge ${a.type_cours==='CT'?'badge-ct':'badge-pp'}`}>{a.type_cours}</span>}
-                  </td>
-                  <td className="text-center">{a.code || '—'}</td>
-                  <td className="num">{a.periodes_attribuees}</td>
-                  <td className="num">{a.autonomie_attribuee}</td>
-                  <td className="num font-semibold">{a.total_attribue_professeur}</td>
-                  <td className="text-center whitespace-nowrap">
+              {detail.attributions?.flatMap(a => {
+                const badge = tc => tc === 'CT'
+                  ? <span className="badge badge-ct">CT</span>
+                  : tc === 'PP' ? <span className="badge badge-pp">PP</span> : null;
+                const actions = (
+                  <td className="text-center whitespace-nowrap" rowSpan={a.autonomie_attribuee > 0 ? 2 : 1}>
                     {a.code_cours && (
                       <button title="Éditer ce cours"
                         onClick={() => setEditCours({ section: a.section, code_cours: a.code_cours })}
@@ -281,7 +271,39 @@ function DetailModal({ profId, onClose, onEdit, onFiche }) {
                       }}
                       className="text-orange-400 hover:text-orange-600 text-xs px-1">🔄</button>
                   </td>
-                </tr>
+                );
+                const rows = [];
+                // Ligne cours (si périodes > 0 ou pas d'autonomie)
+                if (a.periodes_attribuees > 0 || a.autonomie_attribuee === 0) {
+                  rows.push(
+                    <tr key={`${a.id}-per`} className="hover:bg-iip-gold/5">
+                      <td>{a.section}</td>
+                      <td className="font-mono text-xs">{a.ue_num}</td>
+                      <td className="text-xs truncate max-w-[180px]">{a.nom_cours}</td>
+                      <td className="text-xs text-gray-500">{a.activite_nom || '—'}</td>
+                      <td className="text-center">{badge(a.type_cours)}</td>
+                      <td className="text-center text-xs">{a.code || '—'}</td>
+                      <td className="num">{a.periodes_attribuees}</td>
+                      {a.autonomie_attribuee === 0 ? actions : null}
+                    </tr>
+                  );
+                }
+                // Ligne autonomie séparée (si > 0)
+                if (a.autonomie_attribuee > 0) {
+                  rows.push(
+                    <tr key={`${a.id}-aut`} className="hover:bg-yellow-50 bg-yellow-50/30">
+                      {a.periodes_attribuees === 0 && <><td>{a.section}</td><td className="font-mono text-xs">{a.ue_num}</td><td className="text-xs truncate max-w-[180px]">{a.nom_cours}</td></>}
+                      {a.periodes_attribuees > 0 && <><td className="text-gray-300">↳</td><td></td><td></td></>}
+                      <td className="text-xs text-amber-600 italic">{a.activite_nom ? `Autonomie — ${a.activite_nom}` : 'Autonomie'}</td>
+                      <td className="text-center">{badge(a.type_cours)}</td>
+                      <td className="text-center text-xs">{a.code || '—'}</td>
+                      <td className="num text-amber-700 font-semibold">{a.autonomie_attribuee}</td>
+                      {actions}
+                    </tr>
+                  );
+                }
+                return rows;
+              })}
               ))}
             </tbody>
           </table>
