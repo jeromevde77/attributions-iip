@@ -221,7 +221,7 @@ export default function Attributions() {
   const [showForm, setShowForm] = useState(false);
   const [showBulkCreate, setShowBulkCreate] = useState(false);
   const [showCopierSection, setShowCopierSection] = useState(false);
-  const [rapportHtml, setRapportHtml] = useState(null);
+  const [rapportHtml, setRapportHtml] = useState(null); // { html, nom }
 
   const [selected, setSelected] = useState(new Set());
   const [sortBy, setSortBy] = useState({ key: null, dir: 'asc' });
@@ -362,7 +362,7 @@ export default function Attributions() {
       </div>
       </body></html>`;
 
-    setRapportHtml(html);
+    setRapportHtml({ html, nom: nomDoc('Rapport_attr', filtres?.section || 'Toutes_sections', getAnnee()) });
   }
   async function genererExcel(section) {
     const annee = getAnnee();
@@ -1159,7 +1159,7 @@ export default function Attributions() {
       {eptModal && <EptModal {...eptModal} annee={getAnnee()} onClose={() => { setEptModal(null); load(); }} />}
       {orgModal && <OrganisationUEModal {...orgModal} annee={getAnnee()} onClose={() => setOrgModal(null)} />}
       {doc23Modal && <Doc23Modal {...doc23Modal} annee={getAnnee()} onClose={() => setDoc23Modal(null)} />}
-      {rapportHtml && <PreviewModal html={rapportHtml} titre="Rapport d'attributions" onClose={() => setRapportHtml(null)} />}
+      {rapportHtml && <PreviewModal html={rapportHtml.html || rapportHtml} titre="Rapport d'attributions" nomFichier={rapportHtml.nom} onClose={() => setRapportHtml(null)} />}
       {editRow && <CoursEditModal section={editRow.section} codeCours={editRow.code_cours} onClose={()=>setEditRow(null)} onChanged={load}/>}
 
       {bulkDeleteModal && (
