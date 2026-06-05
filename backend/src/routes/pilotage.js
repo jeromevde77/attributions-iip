@@ -573,10 +573,13 @@ r.get('/ext-dot', authRequired, (req, res) => {
            p.nom || ' ' || p.prenom AS prof_nom,
            a.periodes_attribuees, a.autonomie_attribuee,
            a.type_cours, a.num_groupe, a.code AS groupe_code,
-           u.pot_code,
-           CASE WHEN a.type_cours='CT' THEN a.periodes_attribuees / 800.0 * 10
-                WHEN a.type_cours='PP' THEN a.periodes_attribuees / 1000.0 * 10
-                ELSE 0 END AS cout_b
+           u.pot_code, u.ue_niveau,
+           ROUND(
+             (a.periodes_attribuees + a.autonomie_attribuee) *
+             CASE WHEN u.ue_niveau='SUP' THEN 1.5
+                  WHEN u.ue_niveau='DS'  THEN 1.25
+                  ELSE 1.0 END
+           , 2) AS cout_b
     FROM attribution a
     JOIN ue u ON u.ue_num = a.ue_num AND u.section = a.section AND u.annee_scolaire = a.annee_scolaire
     LEFT JOIN professeur p ON p.id = a.professeur_id
