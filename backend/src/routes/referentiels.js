@@ -1302,23 +1302,32 @@ r.get('/doc23', authRequired, (req, res) => {
 
   // Totaux réels par cours
   const totauxReels = {};
+  const totauxAut = {};
   for (const a of attrs) {
     if (!totauxReels[a.code_cours]) totauxReels[a.code_cours] = 0;
-    totauxReels[a.code_cours] += (a.periodes || 0) + (a.autonomie || 0);
+    if (!totauxAut[a.code_cours]) totauxAut[a.code_cours] = 0;
+    totauxReels[a.code_cours] += (a.periodes || 0); // périodes uniquement, sans autonomie
+    totauxAut[a.code_cours] += (a.autonomie || 0);  // autonomie séparée
   }
 
-  // Totaux globaux
-  const tot_prevu = cours.reduce((s, c) => s + (c.cours_per||0) + (c.ue_autonomie||0), 0);
+  // tot_reel = somme des périodes (sans autonomie)
+  // tot_aut  = somme de l'autonomie (déclarée sur la ligne Auto)
   const tot_reel  = Object.values(totauxReels).reduce((s, v) => s + v, 0);
+  const tot_aut   = Object.values(totauxAut).reduce((s, v) => s + v, 0);
+
+  // Totaux globaux (cours uniquement, autonomie séparée)
+  const tot_prevu = cours.reduce((s, c) => s + (c.cours_per||0), 0);
+  const tot_prevu_aut = cours.reduce((s, c) => s + (c.ue_autonomie||0), 0);
 
   res.json({
     etab, ue, org: org || null, num_organisation: parseInt(num_organisation),
     cours: cours.map(c => ({
       ...c,
       per_reelles: totauxReels[c.cours_code] || 0,
+      aut_reelles: totauxAut[c.cours_code] || 0,
     })),
     lignes_ept: lignesEpt,
     attrs,
-    tot_prevu, tot_reel,
+    tot_prevu, tot_prevu_aut, tot_reel, tot_aut,
   });
 });
