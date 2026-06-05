@@ -1476,6 +1476,17 @@ try {
     }
   } catch (e) { console.error('[migration] codes EPT :', e.message); }
 
+  // Colonnes EPROM dans etablissement
+  try {
+    db.exec("ALTER TABLE etablissement ADD COLUMN num_etab TEXT");
+  } catch(e) {}
+  try {
+    db.exec("ALTER TABLE etablissement ADD COLUMN num_impl TEXT");
+  } catch(e) {}
+  try {
+    db.exec("ALTER TABLE etablissement ADD COLUMN adresse_impl TEXT");
+  } catch(e) {}
+
   // Table organisation_ue (Doc A — description des organisations par UE)
   try {
     db.exec(`

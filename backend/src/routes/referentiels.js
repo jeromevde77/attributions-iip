@@ -1245,3 +1245,80 @@ r.delete('/organisations-ue/:id', authRequired, roleRequired('admin', 'editeur')
   db.prepare('DELETE FROM organisation_ue WHERE id=?').run(parseInt(req.params.id));
   res.json({ ok: true });
 });
+
+// ── DOC2 / DOC3 ──────────────────────────────────────────────────────────────
+
+// GET /doc23?section=&ue_num=&annee=&num_organisation=
+// Données pour génération DOC2 et DOC3
+r.get('/doc23', authRequired, (req, res) => {
+  const { section, ue_num, annee, num_organisation = 1 } = req.query;
+  if (!section || !ue_num || !annee) return res.status(400).json({ error: 'section, ue_num, annee requis' });
+
+  // Établissement
+  const etab = db.prepare('SELECT * FROM etablissement WHERE id=1').get() || {};
+
+  // UE
+  const ue = db.prepare('SELECT * FROM ue WHERE ue_num=? AND section=? AND annee_scolaire=?').get(ue_num, section, annee);
+  if (!ue) return res.status(404).json({ error: 'UE introuvable' });
+
+  // Organisation
+  const org = db.prepare('SELECT * FROM organisation_ue WHERE ue_num=? AND section=? AND annee_scolaire=? AND num_organisation=?')
+    .get(ue_num, section, annee, num_organisation);
+
+  // Cours de l'UE (hors Z) — activités 1,2,3...
+  const cours = db.prepare(`
+    SELECT c.cours_code, c.cours_nom, c.ct_pp, c.cours_per, c.ue_autonomie,
+           c.quadrimestre_cours, ROW_NUMBER() OVER (ORDER BY c.cours_code) AS num_activite
+    FROM cours c
+    WHERE c.ue_num=? AND c.section=? AND c.annee_scolaire=?
+      AND (c.ct_pp IS NULL OR c.ct_pp != 'Z')
+    ORDER BY c.cours_code
+  `).all(ue_num, section, annee);
+
+  // Lignes EPT (95-99) pour cette UE
+  const lignesEpt = db.prepare(`
+    SELECT a.id, a.coordination_encadrement AS code_ept, te.libelle AS libelle_ept,
+           a.periodes_attribuees AS periodes, a.num_organisation
+    FROM attribution a
+    LEFT JOIN type_encadrement te ON te.code = a.coordination_encadrement
+    WHERE a.ue_num=? AND a.section=? AND a.annee_scolaire=?
+      AND a.coordination_encadrement IN ('91','92','93','94','95','96','97','98','99')
+    ORDER BY a.coordination_encadrement
+  `).all(ue_num, section, annee);
+
+  // Attributions réelles par cours (pour DOC3 et périodes réelles DOC2)
+  const attrs = db.prepare(`
+    SELECT a.code_cours, a.professeur_id, a.contrat_mdp,
+           p.nom AS prof_nom, p.prenom AS prof_prenom, p.matricule,
+           a.periodes_attribuees AS periodes, a.autonomie_attribuee AS autonomie,
+           a.type_cours, a.code AS groupe_code, a.num_groupe
+    FROM attribution a
+    LEFT JOIN professeur p ON p.id = a.professeur_id
+    WHERE a.ue_num=? AND a.section=? AND a.annee_scolaire=?
+      AND (a.coordination_encadrement IS NULL OR a.coordination_encadrement NOT IN ('91','92','93','94','95','96','97','98','99'))
+      AND (a.type_cours IS NULL OR a.type_cours != 'Z')
+    ORDER BY a.code_cours, a.num_groupe
+  `).all(ue_num, section, annee);
+
+  // Totaux réels par cours
+  const totauxReels = {};
+  for (const a of attrs) {
+    if (!totauxReels[a.code_cours]) totauxReels[a.code_cours] = 0;
+    totauxReels[a.code_cours] += (a.periodes || 0) + (a.autonomie || 0);
+  }
+
+  // Totaux globaux
+  const tot_prevu = cours.reduce((s, c) => s + (c.cours_per||0) + (c.ue_autonomie||0), 0);
+  const tot_reel  = Object.values(totauxReels).reduce((s, v) => s + v, 0);
+
+  res.json({
+    etab, ue, org: org || null, num_organisation: parseInt(num_organisation),
+    cours: cours.map(c => ({
+      ...c,
+      per_reelles: totauxReels[c.cours_code] || 0,
+    })),
+    lignes_ept: lignesEpt,
+    attrs,
+    tot_prevu, tot_reel,
+  });
+});
