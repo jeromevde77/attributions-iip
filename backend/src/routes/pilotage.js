@@ -442,13 +442,17 @@ r.get('/dotation-comparaison', authRequired, (req, res) => {
   const couts2 = getCouts(annee2);
 
   // Toutes les UE des deux années — une seule ligne par (section, ue_num)
-  // Priorité à annee2 pour les métadonnées (ue_nom, ue_niv, ue_quad)
+  // Priorité à annee2 pour les métadonnées, fallback sur annee1
   const ues = db.prepare(`
     SELECT u.section, u.ue_num,
-      MAX(CASE WHEN u.annee_scolaire = ? THEN u.ue_nom END) AS ue_nom,
-      MAX(CASE WHEN u.annee_scolaire = ? THEN u.ue_niv ELSE u.ue_niv END) AS ue_niv,
-      MAX(CASE WHEN u.annee_scolaire = ? THEN u.ue_niveau ELSE u.ue_niveau END) AS ue_niveau,
-      MAX(CASE WHEN u.annee_scolaire = ? THEN u.ue_quad ELSE u.ue_quad END) AS ue_quad,
+      COALESCE(MAX(CASE WHEN u.annee_scolaire = ? THEN u.ue_nom END),
+               MAX(CASE WHEN u.annee_scolaire = ? THEN u.ue_nom END)) AS ue_nom,
+      COALESCE(MAX(CASE WHEN u.annee_scolaire = ? THEN u.ue_niv END),
+               MAX(CASE WHEN u.annee_scolaire = ? THEN u.ue_niv END)) AS ue_niv,
+      COALESCE(MAX(CASE WHEN u.annee_scolaire = ? THEN u.ue_niveau END),
+               MAX(CASE WHEN u.annee_scolaire = ? THEN u.ue_niveau END)) AS ue_niveau,
+      COALESCE(MAX(CASE WHEN u.annee_scolaire = ? THEN u.ue_quad END),
+               MAX(CASE WHEN u.annee_scolaire = ? THEN u.ue_quad END)) AS ue_quad,
       MAX(COALESCE(u.pot_code,
         CASE WHEN u.ue_code_fwb LIKE '980302%' THEN 'QUAL'
              WHEN u.ue_code_fwb LIKE '980301%' THEN 'CF'
@@ -458,7 +462,7 @@ r.get('/dotation-comparaison', authRequired, (req, res) => {
     WHERE u.annee_scolaire IN (?, ?)
     GROUP BY u.section, u.ue_num
     ORDER BY u.section, u.ue_num
-  `).all(annee2, annee2, annee2, annee2, annee1, annee2);
+  `).all(annee2, annee1, annee2, annee1, annee2, annee1, annee2, annee1, annee1, annee2);
 
   // Grouper par section
   const sections = {};
