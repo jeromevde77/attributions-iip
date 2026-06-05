@@ -255,7 +255,7 @@ function DotationComparaison({ civil }) {
       {data && (
         <div className="bg-white rounded-xl border border-gray-200 overflow-x-auto">
           <div className="px-4 py-2 border-b flex items-center gap-2 text-xs text-gray-400">
-            {isHelb || !pondere ? 'Périodes brutes (sans pondération)' : 'Pér. B · ×1.5 SUP · ×1.25 DS'} ·
+            {potFilter === 'HELB' || !pondere ? 'Périodes brutes (sans pondération)' : 'Pér. B · ×1.5 SUP · ×1.25 DS'} ·
             {potFilter ? <span className="ml-1 bg-iip-gold/10 text-iip-gold font-semibold px-2 py-0.5 rounded">{potFilter}</span> : <span className="ml-1 bg-gray-100 text-gray-500 px-2 py-0.5 rounded">Toutes (IIP)</span>}
           </div>
           <table className="w-full text-sm border-collapse">
