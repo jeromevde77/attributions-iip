@@ -196,26 +196,34 @@ r.get('/civil', authRequired, (req, res) => {
 
   const result = years.map(yr => {
     const y = yr.annee_civile;
-    const orgUsage = yr.usage_historique_organique != null
-      ? yr.usage_historique_organique
-      : usagePot(usageDB, y, 'organique');
 
     const envYear = enveloppes.filter(e => e.annee_civile === y).map(e => {
       const usage = e.usage_historique != null
         ? e.usage_historique
         : (usageEnvByAnnee[y]?.[e.code] ?? 0);
+      const dot = Math.max(0, Math.round((usage - e.periodes_b) * 100) / 100);
       return {
         ...e,
         usage,
+        dot,  // dépassement à imputer sur l'organique
         solde: Math.round((e.periodes_b - usage) * 100) / 100,
         pct: e.periodes_b ? Math.round((usage / e.periodes_b) * 1000) / 10 : null,
       };
     });
 
+    // Organique = usage direct sur UEs organiques + dépassements DOT des enveloppes
+    const orgUsageDirect = yr.usage_historique_organique != null
+      ? yr.usage_historique_organique
+      : usagePot(usageDB, y, 'organique');
+    const dotTotal = envYear.reduce((s, e) => s + (e.dot || 0), 0);
+    const orgUsage = Math.round((orgUsageDirect + dotTotal) * 100) / 100;
+
     return {
       annee_civile: y,
       dotation_organique: yr.dotation_organique,
       usage_organique: orgUsage,
+      usage_organique_direct: orgUsageDirect,
+      dot_total: Math.round(dotTotal * 100) / 100,
       solde_organique: Math.round((yr.dotation_organique - orgUsage) * 100) / 100,
       pct_organique: yr.dotation_organique ? Math.round((orgUsage / yr.dotation_organique) * 1000) / 10 : null,
       source: yr.usage_historique_organique != null ? 'historique' : 'calcule',
