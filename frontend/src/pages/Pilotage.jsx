@@ -568,8 +568,8 @@ export default function Pilotage() {
           </div>
         )}
 
-        {/* Panneau EXT/DOT */}
-        <ExtDotPanel annee={anneeActive} />
+        {/* Panneau EXT/DOT — même année scolaire que les EnvCards */}
+        <ExtDotPanel annee={`${d.annee_civile - 1}-${d.annee_civile}`} />
 
         {/* Graphique multi-années */}
         {chartData.length > 1 && (
