@@ -105,8 +105,13 @@ function DotSectionSelect({ value, onChange }) {
 
 // ── Composant comparaison dotation ───────────────────────────────────────────
 function DotationComparaison({ civil }) {
-  const [annee1, setAnnee1] = useState('');
-  const [annee2, setAnnee2] = useState('');
+  // Pré-remplir : annee2 = année active, annee1 = année précédente
+  const anneeActive = getAnnee(); // ex. '2026-2027'
+  const [annee1, setAnnee1] = useState(() => {
+    const parts = anneeActive.split('-');
+    return parts.length === 2 ? `${parseInt(parts[0])-1}-${parts[0]}` : '';
+  });
+  const [annee2, setAnnee2] = useState(anneeActive);
   const [data, setData]     = useState(null);
   const [loading, setLoading] = useState(false);
   const [openSecs, setOpenSecs] = useState(new Set());
@@ -149,6 +154,13 @@ function DotationComparaison({ civil }) {
   const anneesSco = [...new Set(
     civil.flatMap(y => [`${y.annee_civile-1}-${y.annee_civile}`, `${y.annee_civile}-${y.annee_civile+1}`])
   )].sort();
+
+  // Chargement automatique dès que les données civiles sont disponibles
+  useEffect(() => {
+    if (anneesSco.length > 0 && annee1 && annee2 && !data) {
+      charger();
+    }
+  }, [anneesSco.length]);
 
   async function charger() {
     if (!annee1 || !annee2) return;
