@@ -416,19 +416,34 @@ r.get('/dotation-comparaison', authRequired, (req, res) => {
   if (!annee1 || !annee2) return res.status(400).json({ error: 'annee1 et annee2 requis' });
 
   const potFilter = req.query.pot || null; // null = tous
+  const isHelb = potFilter === 'HELB';
 
   function getCouts(annee) {
-    let sql = `
-      SELECT a.section, a.ue_num,
-        ROUND(SUM(${CQ1}), 2) AS q1,
-        ROUND(SUM(${CQ2}), 2) AS q2
-      FROM attribution a
-      LEFT JOIN ue u ON u.ue_num = a.ue_num AND u.annee_scolaire = a.annee_scolaire AND u.section = a.section
-      WHERE a.annee_scolaire = ? AND a.contrat_mdp = 'IIP'`;
-    const params = [annee];
-    if (potFilter) {
-      sql += ` AND ${POT} = ?`;
-      params.push(potFilter);
+    let sql, params;
+    if (isHelb) {
+      // HELB : périodes brutes sans pondération, réparties par quadrimestre
+      sql = `
+        SELECT a.section, a.ue_num,
+          ROUND(SUM(CASE WHEN COALESCE(a.quadrimestre_attribue, u.ue_quad) IN ('Q1','Q1/Q2') THEN a.periodes_attribuees ELSE 0 END * CASE WHEN COALESCE(a.quadrimestre_attribue, u.ue_quad)='Q1/Q2' THEN 0.4 ELSE 1 END), 2) AS q1,
+          ROUND(SUM(CASE WHEN COALESCE(a.quadrimestre_attribue, u.ue_quad) IN ('Q2','Q1/Q2') THEN a.periodes_attribuees ELSE 0 END * CASE WHEN COALESCE(a.quadrimestre_attribue, u.ue_quad)='Q1/Q2' THEN 0.6 ELSE 1 END), 2) AS q2
+        FROM attribution a
+        LEFT JOIN ue u ON u.ue_num = a.ue_num AND u.annee_scolaire = a.annee_scolaire AND u.section = a.section
+        WHERE a.annee_scolaire = ? AND a.contrat_mdp = 'HELB'
+        GROUP BY a.section, a.ue_num`;
+      params = [annee];
+    } else {
+      sql = `
+        SELECT a.section, a.ue_num,
+          ROUND(SUM(${CQ1}), 2) AS q1,
+          ROUND(SUM(${CQ2}), 2) AS q2
+        FROM attribution a
+        LEFT JOIN ue u ON u.ue_num = a.ue_num AND u.annee_scolaire = a.annee_scolaire AND u.section = a.section
+        WHERE a.annee_scolaire = ? AND a.contrat_mdp = 'IIP'`;
+      params = [annee];
+      if (potFilter) {
+        sql += ` AND ${POT} = ?`;
+        params.push(potFilter);
+      }
     }
     sql += ` GROUP BY a.section, a.ue_num`;
     return db.prepare(sql).all(...params).reduce((m, r) => {
