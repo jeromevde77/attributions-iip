@@ -321,9 +321,20 @@ export default function Listes() {
             <td style="${S}">${c.cours_nom || '—'}</td>
             <td style="${S}text-align:center;font-weight:600;color:${c.ct_pp==='CT'?'#1B2B4B':'#00AACC'}">${c.ct_pp||'—'}</td>
             <td style="${SR}color:#374151">${c.cours_per||0}</td>
-            <td style="${SR}color:#6b7280">${c.ue_autonomie||0}</td>
-            <td style="${SR}font-weight:600">${(c.cours_per||0)+(c.ue_autonomie||0)}</td>
+            <td style="${SR}color:#6b7280">—</td>
+            <td style="${SR}font-weight:600">${c.cours_per||0}</td>
           </tr>`).join('');
+        // Ligne autonomie séparée (une seule par UE, après tous les cours)
+        const autUE = u.cours.find(c => (c.ue_autonomie||0) > 0)?.ue_autonomie || 0;
+        const ligneAut = autUE > 0 ? `
+          <tr style="background:#fff8e1">
+            <td style="${S}padding-left:20px;color:#6b7280;font-family:monospace"></td>
+            <td style="${S}font-style:italic;color:#6b7280">Autonomie</td>
+            <td style="${S}text-align:center;color:#6b7280">Auto</td>
+            <td style="${SR}color:#6b7280">—</td>
+            <td style="${SR}color:#f59e0b;font-weight:600">${autUE}</td>
+            <td style="${SR}font-weight:600">${autUE}</td>
+          </tr>` : '';
         return `
           <tr style="background:#f1f5f9;border-left:3px solid ${col}">
             <td colspan="2" style="padding:4px 6px 4px 8px;font-weight:700;font-size:11px;color:#111827">
@@ -335,11 +346,12 @@ export default function Listes() {
             <td style="${SR}"></td><td style="${SR}"></td><td style="${SR}"></td>
           </tr>
           ${lignesCours}
+          ${ligneAut}
           <tr style="background:#e8edf3;border-left:3px solid ${col}">
             <td colspan="2" style="padding:2px 6px 2px 20px;font-size:9px;color:#6b7280;font-style:italic">Sous-total UE\u00a0${u.ue_num}</td>
             <td style="${S}text-align:center"></td>
             <td style="${SR}font-weight:700;color:#374151">${u.tot_per}</td>
-            <td style="${SR}color:#6b7280">${u.tot_aut}</td>
+            <td style="${SR}font-weight:600;color:#f59e0b">${u.tot_aut}</td>
             <td style="${SR}font-weight:700">${u.tot_per+u.tot_aut}</td>
           </tr>`;
       }).join('');
@@ -427,10 +439,22 @@ export default function Listes() {
             {v:c.cours_nom||'', s:{font:{name:'Calibri',sz:9,color:{rgb:'374151'}},fill:{fgColor:{rgb:bg},patternType:'solid'}}},
             {v:c.ct_pp||'', s:{font:{name:'Calibri',sz:9,bold:true,color:{rgb:c.ct_pp==='CT'?BLEU:'00AACC'}},fill:{fgColor:{rgb:bg},patternType:'solid'},alignment:{horizontal:'center'}}},
             {v:c.cours_per||0, s:{font:{name:'Calibri',sz:9},fill:{fgColor:{rgb:bg},patternType:'solid'},alignment:{horizontal:'right'}}},
-            {v:c.ue_autonomie||0, s:{font:{name:'Calibri',sz:9,color:{rgb:'6B7280'}},fill:{fgColor:{rgb:bg},patternType:'solid'},alignment:{horizontal:'right'}}},
-            {v:(c.cours_per||0)+(c.ue_autonomie||0), s:{font:{name:'Calibri',sz:9,bold:true},fill:{fgColor:{rgb:bg},patternType:'solid'},alignment:{horizontal:'right'}}},
+            {v:'—', s:{font:{name:'Calibri',sz:9,color:{rgb:'9CA3AF'}},fill:{fgColor:{rgb:bg},patternType:'solid'},alignment:{horizontal:'right'}}},
+            {v:c.cours_per||0, s:{font:{name:'Calibri',sz:9,bold:true},fill:{fgColor:{rgb:bg},patternType:'solid'},alignment:{horizontal:'right'}}},
           ]);
         });
+        // Ligne autonomie séparée (une par UE)
+        const autUE = u.cours.find(c => (c.ue_autonomie||0) > 0)?.ue_autonomie || 0;
+        if (autUE > 0) {
+          rows.push([
+            {v:'', s:{font:{name:'Calibri',sz:9},fill:{fgColor:{rgb:'FFFDE7'},patternType:'solid'}}},
+            {v:'Autonomie', s:{font:{name:'Calibri',sz:9,italic:true,color:{rgb:'6B7280'}},fill:{fgColor:{rgb:'FFFDE7'},patternType:'solid'}}},
+            {v:'Auto', s:{font:{name:'Calibri',sz:9,color:{rgb:'6B7280'}},fill:{fgColor:{rgb:'FFFDE7'},patternType:'solid'},alignment:{horizontal:'center'}}},
+            {v:'—', s:{font:{name:'Calibri',sz:9,color:{rgb:'9CA3AF'}},fill:{fgColor:{rgb:'FFFDE7'},patternType:'solid'},alignment:{horizontal:'right'}}},
+            {v:autUE, s:{font:{name:'Calibri',sz:9,bold:true,color:{rgb:'D97706'}},fill:{fgColor:{rgb:'FFFDE7'},patternType:'solid'},alignment:{horizontal:'right'}}},
+            {v:autUE, s:{font:{name:'Calibri',sz:9,bold:true},fill:{fgColor:{rgb:'FFFDE7'},patternType:'solid'},alignment:{horizontal:'right'}}},
+          ]);
+        }
         rows.push([
           {v:`Sous-total UE ${u.ue_num}`, s:{font:{name:'Calibri',sz:9,italic:true,color:{rgb:'6B7280'}},fill:{fgColor:{rgb:SOUS},patternType:'solid'},alignment:{horizontal:'right'}}},
           '','',
