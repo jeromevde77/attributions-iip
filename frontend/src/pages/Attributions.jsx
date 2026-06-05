@@ -1,6 +1,7 @@
 import { useEffect, useState, useMemo } from 'react';
 import { api, getAnnee } from '../lib/api.js';
 import PreviewModal from '../components/PreviewModal.jsx';
+import EptModal from '../components/EptModal.jsx';
 import * as XLSX from 'xlsx';
 
 // ─── Modale : copier les attributions d'une section d'une année vers une autre ─
@@ -229,6 +230,7 @@ export default function Attributions() {
   const [bulkConfirmText, setBulkConfirmText] = useState('');
   const [editRow, setEditRow] = useState(null);
   const [addMenuUE, setAddMenuUE] = useState(null);   // {ue, sec} : menu + ouvert pour cette UE
+  const [eptModal, setEptModal] = useState(null);     // { section, ue_num, ue_nom }
   const [quadriMenu, setQuadriMenu] = useState(null); // key de l'UE dont le menu quadri est ouvert
   const [activeUE, setActiveUE] = useState(null);     // key de la dernière UE cliquée (encadrée)
   const [newCoursForm, setNewCoursForm] = useState(null); // préremplissage AttributionForm pour nouveau cours
@@ -913,6 +915,10 @@ export default function Attributions() {
                       className="w-full text-left px-3 py-1.5 text-sm hover:bg-iip-mauve/10 text-iip-mauve border-t border-gray-100 flex items-center gap-2">
                 <span>＋</span><span>Nouveau cours dans cette UE</span>
               </button>
+              <button onClick={()=>{ setEptModal({section: sec, ue_num: ue.ue_num, ue_nom: ue.ue_nom}); setAddMenuUE(null); }}
+                      className="w-full text-left px-3 py-1.5 text-sm hover:bg-blue-50 text-blue-700 border-t border-gray-100 flex items-center gap-2">
+                <span>📋</span><span>Lignes EPT (95-99)</span>
+              </button>
             </div>
           )}
         </div>
@@ -1135,6 +1141,7 @@ export default function Attributions() {
           </div>
         </div>
       )}
+      {eptModal && <EptModal {...eptModal} annee={getAnnee()} profs={profs} onClose={() => { setEptModal(null); load(); }} />}
       {rapportHtml && <PreviewModal html={rapportHtml} titre="Rapport d'attributions" onClose={() => setRapportHtml(null)} />}
       {editRow && <CoursEditModal section={editRow.section} codeCours={editRow.code_cours} onClose={()=>setEditRow(null)} onChanged={load}/>}
 
