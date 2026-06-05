@@ -9,8 +9,9 @@ const CODES_EPT = [
   { code: '99', label: 'CEtu — Conseil des études' },
 ];
 
-export default function EptModal({ section, ue_num, ue_nom, annee, profs, onClose }) {
+export default function EptModal({ section, ue_num, ue_nom, annee, onClose }) {
   const [lignes, setLignes]       = useState([]);
+  const [profs, setProfs]         = useState([]);
   const [loading, setLoading]     = useState(true);
   const [saving, setSaving]       = useState(false);
   const [form, setForm]           = useState({ code_ept: '95', professeur_id: '', periodes: '' });
@@ -31,7 +32,13 @@ export default function EptModal({ section, ue_num, ue_nom, annee, profs, onClos
     finally { setLoading(false); }
   }
 
-  useEffect(() => { charger(); }, []);
+  useEffect(() => {
+    charger();
+    // Charger la liste des profs
+    const tok = localStorage.getItem('token');
+    fetch('/api/ref/professeurs?tous=1', { headers: { Authorization: `Bearer ${tok}` } })
+      .then(r => r.json()).then(setProfs).catch(() => {});
+  }, []);
 
   async function ajouterLigne() {
     if (!form.professeur_id || !form.periodes) return;

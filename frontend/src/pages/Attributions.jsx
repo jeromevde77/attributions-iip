@@ -1144,7 +1144,7 @@ export default function Attributions() {
           </div>
         </div>
       )}
-      {eptModal && <EptModal {...eptModal} annee={getAnnee()} profs={profs} onClose={() => { setEptModal(null); load(); }} />}
+      {eptModal && <EptModal {...eptModal} annee={getAnnee()} onClose={() => { setEptModal(null); load(); }} />}
       {rapportHtml && <PreviewModal html={rapportHtml} titre="Rapport d'attributions" onClose={() => setRapportHtml(null)} />}
       {editRow && <CoursEditModal section={editRow.section} codeCours={editRow.code_cours} onClose={()=>setEditRow(null)} onChanged={load}/>}
 
