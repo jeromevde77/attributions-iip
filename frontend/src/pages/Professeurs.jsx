@@ -243,7 +243,7 @@ function DetailModal({ profId, onClose, onEdit, onFiche }) {
               <th className="text-right">Per.</th>
               <th className="text-right">Aut.</th>
               <th className="text-right">Total</th>
-              {u?.role === 'admin' && <th></th>}
+              <th></th>
             </tr></thead>
             <tbody>
               {detail.attributions?.length === 0 && (
@@ -262,8 +262,7 @@ function DetailModal({ profId, onClose, onEdit, onFiche }) {
                   <td className="num">{a.periodes_attribuees}</td>
                   <td className="num">{a.autonomie_attribuee}</td>
                   <td className="num font-semibold">{a.total_attribue_professeur}</td>
-                  {u?.role === 'admin' && (
-                    <td className="text-center">
+                  <td className="text-center">
                       <button title="Désattribuer → À DÉSIGNER"
                         onClick={async () => {
                           if (!confirm('Retirer cette attribution et la passer à "À DÉSIGNER" ?')) return;
@@ -273,9 +272,8 @@ function DetailModal({ profId, onClose, onEdit, onFiche }) {
                           });
                           if (res.ok) setDetail(d => ({ ...d, attributions: d.attributions.filter(x => x.id !== a.id) }));
                         }}
-                        className="text-orange-400 hover:text-orange-600 text-xs px-1" title="Désattribuer">🔄</button>
-                    </td>
-                  )}
+                        className="text-orange-400 hover:text-orange-600 text-xs px-1">🔄</button>
+                  </td>
                 </tr>
               ))}
             </tbody>
