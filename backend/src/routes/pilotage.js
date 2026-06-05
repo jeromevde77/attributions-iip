@@ -417,6 +417,7 @@ r.get('/dotation-comparaison', authRequired, (req, res) => {
 
   const potFilter = req.query.pot || null;
   const isHelb = potFilter === 'HELB';
+  const isTout = potFilter === 'TOUT';
   const pondere = req.query.pondere !== '0'; // true par défaut, false = brut
 
   // Coûts bruts Q1/Q2 (sans pondération)
@@ -428,6 +429,25 @@ r.get('/dotation-comparaison', authRequired, (req, res) => {
     ELSE 0 END`;
 
   function getCouts(annee) {
+    if (isTout) {
+      // TOUT = IIP (pondéré ou brut selon pondere) + HELB (toujours brut)
+      const q1iip = pondere ? CQ1 : RQ1;
+      const q2iip = pondere ? CQ2 : RQ2;
+      const sql = `
+        SELECT a.section, a.ue_num,
+          ROUND(SUM(CASE WHEN a.contrat_mdp='IIP' THEN (${q1iip}) ELSE (${RQ1}) END), 2) AS q1,
+          ROUND(SUM(CASE WHEN a.contrat_mdp='IIP' THEN (${q2iip}) ELSE (${RQ2}) END), 2) AS q2
+        FROM attribution a
+        LEFT JOIN ue u ON u.ue_num = a.ue_num AND u.annee_scolaire = a.annee_scolaire AND u.section = a.section
+        WHERE a.annee_scolaire = ?
+        GROUP BY a.section, a.ue_num`;
+      return db.prepare(sql).all(annee).reduce((m, r) => {
+        if (!m[r.section]) m[r.section] = {};
+        m[r.section][r.ue_num] = { q1: r.q1 || 0, q2: r.q2 || 0 };
+        return m;
+      }, {});
+    }
+
     const q1expr = pondere && !isHelb ? CQ1 : RQ1;
     const q2expr = pondere && !isHelb ? CQ2 : RQ2;
     let sql = `
