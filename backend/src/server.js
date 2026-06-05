@@ -1442,6 +1442,20 @@ try {
     if (updated.changes > 0) console.log(`[migration] pot_code=AESI assigné à ${updated.changes} UE AeSI`);
   } catch (e) { console.error('[migration] pot_code AeSI :', e.message); }
 
+  // Codes EPT (95-99) dans type_encadrement
+  try {
+    const epts = [
+      ['95', 'ExPT — Expertise Pédagogique et Technique'],
+      ['96', 'SEtu — Admission, suivi pédagogique et sanction des études'],
+      ['97', 'PeSu — Périodes supplémentaires'],
+      ['98', 'PSup — Part supplémentaire'],
+      ['99', 'CEtu — Conseil des études'],
+    ];
+    for (const [code, libelle] of epts) {
+      db.prepare("INSERT OR IGNORE INTO type_encadrement (code, libelle) VALUES (?, ?)").run(code, libelle);
+    }
+  } catch (e) { console.error('[migration] codes EPT :', e.message); }
+
 } catch (e) {
   console.error('[migration] ERREUR :', e.message);
   console.error(e.stack);

@@ -826,3 +826,70 @@ r.post('/copier-section', authRequired, roleRequired('admin', 'editeur'), (req, 
 });
 
 export default r;
+
+// ── Lignes EPT (95-99) par UE ────────────────────────────────────────────────
+
+// GET /ept?section=&ue_num=&annee=
+// Récupère les lignes EPT d'une UE (org >= 2, coordination_encadrement IN 95..99)
+r.get('/ept', authRequired, (req, res) => {
+  const { section, ue_num, annee } = req.query;
+  if (!section || !ue_num || !annee) return res.status(400).json({ error: 'section, ue_num et annee requis' });
+
+  const lignes = db.prepare(`
+    SELECT a.id, a.num_organisation, a.coordination_encadrement AS code_ept,
+      te.libelle AS libelle_ept,
+      a.professeur_id, p.nom || ' ' || p.prenom AS prof_nom,
+      a.periodes_attribuees AS periodes, a.annee_scolaire
+    FROM attribution a
+    LEFT JOIN type_encadrement te ON te.code = a.coordination_encadrement
+    LEFT JOIN professeur p ON p.id = a.professeur_id
+    WHERE a.section = ? AND a.ue_num = ? AND a.annee_scolaire = ?
+      AND a.coordination_encadrement IN ('95','96','97','98','99')
+    ORDER BY a.num_organisation, a.coordination_encadrement
+  `).all(section, ue_num, annee);
+
+  res.json(lignes);
+});
+
+// POST /ept — Ajouter une ligne EPT à une UE
+r.post('/ept', authRequired, roleRequired('admin', 'editeur', 'coordination'), (req, res) => {
+  const { section, ue_num, annee, code_ept, professeur_id, periodes, num_organisation } = req.body;
+  if (!section || !ue_num || !annee || !code_ept || !professeur_id)
+    return res.status(400).json({ error: 'section, ue_num, annee, code_ept, professeur_id requis' });
+
+  const CODES_EPT = ['95','96','97','98','99'];
+  if (!CODES_EPT.includes(String(code_ept)))
+    return res.status(400).json({ error: 'code_ept invalide (95-99 uniquement)' });
+
+  // Numéro d'organisation : max existant + 1, ou fourni
+  let numOrg = num_organisation;
+  if (!numOrg) {
+    const maxOrg = db.prepare(
+      `SELECT MAX(num_organisation) AS m FROM attribution WHERE section = ? AND ue_num = ? AND annee_scolaire = ?`
+    ).get(section, ue_num, annee);
+    numOrg = (maxOrg?.m || 1) + 1;
+  }
+
+  const info = db.prepare(`
+    INSERT INTO attribution
+      (section, ue_num, annee_scolaire, coordination_encadrement,
+       professeur_id, periodes_attribuees, autonomie_attribuee,
+       num_organisation, organisation, contrat_mdp, etablissement_referent,
+       type_cours, code_cours, nb_groupes, split_groupe, code, num_groupe)
+    VALUES (?, ?, ?, ?, ?, ?, 0, ?, 'x', 'IIP', 'IIP', NULL, NULL, 1, 'N', 'A', 1)
+  `).run(section, ue_num, annee, String(code_ept), professeur_id, periodes || 0, numOrg);
+
+  res.json({ ok: true, id: info.lastInsertRowid, num_organisation: numOrg });
+});
+
+// DELETE /ept/:id — Supprimer une ligne EPT
+r.delete('/ept/:id', authRequired, roleRequired('admin', 'editeur', 'coordination'), (req, res) => {
+  const id = parseInt(req.params.id);
+  // Vérifier que c'est bien une ligne EPT
+  const ligne = db.prepare(
+    "SELECT id FROM attribution WHERE id = ? AND coordination_encadrement IN ('95','96','97','98','99')"
+  ).get(id);
+  if (!ligne) return res.status(404).json({ error: 'Ligne EPT introuvable' });
+  db.prepare('DELETE FROM attribution WHERE id = ?').run(id);
+  res.json({ ok: true });
+});
