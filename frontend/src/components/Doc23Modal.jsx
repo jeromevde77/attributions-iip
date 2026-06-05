@@ -189,14 +189,36 @@ function genDoc3Html(d, annee, coursCible) {
   const pageCours = (coursList) => coursList.map(c => {
     const attrsC = attrs.filter(a => a.code_cours === c.cours_code);
     if (attrsC.length === 0) return '';
+    // Une ligne par attribution (pas de regroupement — dédoublements inclus)
     const lignesAttr = attrsC.map((a, i) => `<tr>
       <td style="${TD}">${i+1}</td>
-      <td style="${TD}">${(a.prof_nom||'').toUpperCase()} ${(a.prof_prenom||'').toUpperCase()} ${a.matricule||''}</td>
+      <td style="${TD}">${(a.prof_nom||'À DÉSIGNER').toUpperCase()} ${(a.prof_prenom||'').toUpperCase()} ${a.matricule||''}</td>
       <td style="${TD}"></td>
       <td style="${TD}">Temporaire</td>
       <td style="${TDR}">${a.periodes||0}</td>
       <td style="${TD}"></td>
     </tr>`).join('');
+
+    // Lignes autonomie pour ce cours
+    const attrsAut = attrs.filter(a => a.code_cours === c.cours_code && (a.autonomie||0) > 0);
+    const lignesAut = attrsAut.map((a, i) => `<tr>
+      <td style="${TD}">${i+1}</td>
+      <td style="${TD}">${(a.prof_nom||'À DÉSIGNER').toUpperCase()} ${(a.prof_prenom||'').toUpperCase()} ${a.matricule||''}</td>
+      <td style="${TD}"></td>
+      <td style="${TD}">Temporaire</td>
+      <td style="${TDR}">${a.autonomie||0}</td>
+      <td style="${TD}"></td>
+    </tr>`).join('');
+
+    const blockAut = attrsAut.length > 0 ? `
+      <div style="font-weight:bold;font-size:10px;background:#c8dde6;padding:4px 8px;border:1px solid #6db3c8;margin:8px 0 4px 0">
+        ATTRIBUTION DES ENSEIGNANTS POUR L'ACTIVITÉ D'ENSEIGNEMENT AUTONOMIE
+      </div>
+      <table><thead><tr>
+        <th style="${TH}">N° Attribution</th><th style="${TH}">Enseignant</th>
+        <th style="${TH}">Code dispo</th><th style="${TH}">Statut</th>
+        <th style="${TH}">Périodes attribuées</th><th style="${TH}">Suppr.</th>
+      </tr></thead><tbody>${lignesAut}</tbody></table>` : '';
 
     return `
       <div style="page-break-before:always">
@@ -211,6 +233,7 @@ function genDoc3Html(d, annee, coursCible) {
           </tr></thead>
           <tbody>${lignesAttr}</tbody>
         </table>
+        ${blockAut}
       </div>`;
   }).join('');
 
