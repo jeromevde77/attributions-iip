@@ -97,9 +97,14 @@ function ExtDotPanel({ annee }) {
 
 // ── Carte enveloppe externe ───────────────────────────────────────────────────
 function EnvCard({ env }) {
+  const depasse = env.solde < 0;
+  const dot = Math.abs(Math.min(0, env.solde));
   return (
-    <div className={`border rounded-xl p-4 ${trafficBg(env.pct)}`}>
-      <div className="text-sm font-semibold text-gray-700 mb-0.5">{env.label}</div>
+    <div className={`border rounded-xl p-4 ${depasse ? 'border-orange-300 bg-orange-50' : trafficBg(env.pct)}`}>
+      <div className="flex items-center justify-between mb-0.5">
+        <div className="text-sm font-semibold text-gray-700">{env.label}</div>
+        {depasse && <span className="text-[10px] bg-orange-200 text-orange-800 px-1.5 py-0.5 rounded font-bold">⚠ DOT {fmt(dot)} pér. B</span>}
+      </div>
       <div className="text-xs text-gray-500 mb-2">Enveloppe {env.code} · Civile {env.annee_civile}</div>
       <div className="grid grid-cols-3 gap-2 text-center mb-2">
         <div><div className="text-[10px] text-gray-500">Allocation</div><div className="font-bold text-gray-700">{fmt(env.periodes_b)}</div></div>
@@ -108,6 +113,11 @@ function EnvCard({ env }) {
       </div>
       <ProgressBar pct={env.pct} />
       <div className={`text-xs mt-1 text-right font-medium ${trafficColor(env.pct)}`}>{pct(env.pct)}</div>
+      {depasse && (
+        <div className="text-xs text-orange-700 mt-2 font-medium">
+          ⚠ {fmt(dot)} pér. B au-delà du plafond → à charge de la dotation organique
+        </div>
+      )}
     </div>
   );
 }
@@ -567,9 +577,6 @@ export default function Pilotage() {
             </div>
           </div>
         )}
-
-        {/* Panneau EXT/DOT — même année scolaire que les EnvCards */}
-        <ExtDotPanel annee={`${d.annee_civile - 1}-${d.annee_civile}`} />
 
         {/* Graphique multi-années */}
         {chartData.length > 1 && (
