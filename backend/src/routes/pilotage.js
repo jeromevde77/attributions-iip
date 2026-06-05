@@ -72,6 +72,26 @@ function computeUsageDB(anneesCiviles) {
   return byAnnee;
 }
 
+// Usage d'une enveloppe externe pour une année civile :
+// L'enveloppe correspond à l'année scolaire YYYY-1 → YYYY (ex: civile 2026 = scolaire 2025-2026)
+// On prend la totalité des périodes B pondérées de cette année scolaire pour ce pot
+function usageEnveloppe(anneeCivile) {
+  const annee_scolaire = `${anneeCivile - 1}-${anneeCivile}`;
+  return db.prepare(`
+    SELECT ${POT} AS pot,
+      ROUND(SUM(
+        CASE WHEN u.ue_niveau='SUP' THEN a.total_attribue_professeur * 1.5
+             WHEN u.ue_niveau='DS'  THEN a.total_attribue_professeur * 1.25
+             ELSE a.total_attribue_professeur END
+      ), 2) AS periodes_b
+    FROM attribution a
+    LEFT JOIN ue u ON u.ue_num = a.ue_num AND u.annee_scolaire = a.annee_scolaire
+    WHERE a.annee_scolaire = ? AND a.contrat_mdp = 'IIP'
+      AND ${POT} NOT IN ('organique')
+    GROUP BY pot
+  `).all(annee_scolaire).reduce((acc, r) => { acc[r.pot] = r.periodes_b || 0; return acc; }, {});
+}
+
 // Calcul usage d'un pot pour une année civile depuis usageDB
 function usagePot(usageDB, y, potKey) {
   const { q2, q1 } = anneesCivile(y);
@@ -168,6 +188,12 @@ r.get('/civil', authRequired, (req, res) => {
   const usageDB = toCompute.length ? computeUsageDB(toCompute) : {};
   const enveloppes = db.prepare('SELECT * FROM enveloppe_externe ORDER BY code, annee_civile').all();
 
+  // Pré-calculer l'usage pondéré des enveloppes par année civile
+  const usageEnvByAnnee = {};
+  for (const y of toCompute) {
+    usageEnvByAnnee[y] = usageEnveloppe(y);
+  }
+
   const result = years.map(yr => {
     const y = yr.annee_civile;
     const orgUsage = yr.usage_historique_organique != null
@@ -177,7 +203,7 @@ r.get('/civil', authRequired, (req, res) => {
     const envYear = enveloppes.filter(e => e.annee_civile === y).map(e => {
       const usage = e.usage_historique != null
         ? e.usage_historique
-        : usagePot(usageDB, y, e.code);
+        : (usageEnvByAnnee[y]?.[e.code] ?? 0);
       return {
         ...e,
         usage,
