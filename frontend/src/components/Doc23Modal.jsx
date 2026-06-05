@@ -199,27 +199,6 @@ function genDoc3Html(d, annee, coursCible) {
       <td style="${TD}"></td>
     </tr>`).join('');
 
-    // Lignes autonomie pour ce cours
-    const attrsAut = attrs.filter(a => a.code_cours === c.cours_code && (a.autonomie||0) > 0);
-    const lignesAut = attrsAut.map((a, i) => `<tr>
-      <td style="${TD}">${i+1}</td>
-      <td style="${TD}">${(a.prof_nom||'À DÉSIGNER').toUpperCase()} ${(a.prof_prenom||'').toUpperCase()} ${a.matricule||''}</td>
-      <td style="${TD}"></td>
-      <td style="${TD}">Temporaire</td>
-      <td style="${TDR}">${a.autonomie||0}</td>
-      <td style="${TD}"></td>
-    </tr>`).join('');
-
-    const blockAut = attrsAut.length > 0 ? `
-      <div style="font-weight:bold;font-size:10px;background:#c8dde6;padding:4px 8px;border:1px solid #6db3c8;margin:8px 0 4px 0">
-        ATTRIBUTION DES ENSEIGNANTS POUR L'ACTIVITÉ D'ENSEIGNEMENT AUTONOMIE
-      </div>
-      <table><thead><tr>
-        <th style="${TH}">N° Attribution</th><th style="${TH}">Enseignant</th>
-        <th style="${TH}">Code dispo</th><th style="${TH}">Statut</th>
-        <th style="${TH}">Périodes attribuées</th><th style="${TH}">Suppr.</th>
-      </tr></thead><tbody>${lignesAut}</tbody></table>` : '';
-
     return `
       <div style="page-break-before:always">
         <div style="font-weight:bold;font-size:10px;background:#c8dde6;padding:4px 8px;border:1px solid #6db3c8;margin-bottom:4px">
@@ -233,11 +212,44 @@ function genDoc3Html(d, annee, coursCible) {
           </tr></thead>
           <tbody>${lignesAttr}</tbody>
         </table>
-        ${blockAut}
       </div>`;
   }).join('');
 
   const coursCibles = coursCible ? cours.filter(c => c.cours_code === coursCible) : cours;
+
+  // Bloc autonomie UE : regroupement par prof (somme toutes ses lignes d'autonomie dans l'UE)
+  const autByProf = {};
+  for (const a of attrs) {
+    if ((a.autonomie||0) <= 0) continue;
+    const key = a.professeur_id;
+    if (!autByProf[key]) autByProf[key] = {
+      nom: (a.prof_nom||'À DÉSIGNER').toUpperCase(),
+      prenom: (a.prof_prenom||'').toUpperCase(),
+      matricule: a.matricule||'',
+      total: 0
+    };
+    autByProf[key].total += (a.autonomie||0);
+  }
+  const autProfs = Object.values(autByProf).sort((a,b) => a.nom.localeCompare(b.nom));
+  const blockAutUE = autProfs.length > 0 ? `
+    <div style="page-break-before:always">
+      ${entete(etab, ue, org, num_organisation, annee)}
+      <div style="font-weight:bold;font-size:10px;background:#c8dde6;padding:4px 8px;border:1px solid #6db3c8;margin-bottom:4px">
+        ATTRIBUTION DES ENSEIGNANTS POUR L'ACTIVITÉ D'ENSEIGNEMENT AUTONOMIE
+      </div>
+      <table><thead><tr>
+        <th style="${TH}">N° Attribution</th><th style="${TH}">Enseignant</th>
+        <th style="${TH}">Code dispo</th><th style="${TH}">Statut</th>
+        <th style="${TH}">Périodes attribuées</th><th style="${TH}">Suppr.</th>
+      </tr></thead><tbody>
+        ${autProfs.map((p,i) => `<tr>
+          <td style="${TD}">${i+1}</td>
+          <td style="${TD}">${p.nom} ${p.prenom} ${p.matricule}</td>
+          <td style="${TD}"></td><td style="${TD}">Temporaire</td>
+          <td style="${TDR}">${p.total}</td><td style="${TD}"></td>
+        </tr>`).join('')}
+      </tbody></table>
+    </div>` : '';
 
   return `<!DOCTYPE html><html><head><meta charset="utf-8">
     <style>*{box-sizing:border-box;margin:0;padding:0}body{font-family:Arial,sans-serif;font-size:11px;padding:10mm}
@@ -279,6 +291,7 @@ function genDoc3Html(d, annee, coursCible) {
 
     <!-- Détail par cours -->
     ${pageCours(coursCibles)}
+    ${blockAutUE}
 
     <div style="font-size:9px;color:#666;margin-top:8px">Généré le ${new Date().toLocaleDateString('fr-BE')} · Lucie · IIP</div>
     </body></html>`;
