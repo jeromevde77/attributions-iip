@@ -216,6 +216,7 @@ export default function Attributions() {
   const [sections, setSections] = useState([]);
   const [professeurs, setProfesseurs] = useState([]);
   const [activitesList, setActivitesList] = useState([]);
+  const [extDot, setExtDot] = useState({}); // { [attribution_id]: 'EXT'|'DOT'|'EXT+DOT' }
   const [filters, setFilters] = useState({ section:'', prof_id:'', contrat:'', type_cours:'', ue_num:'', q:'' });
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
@@ -681,6 +682,14 @@ export default function Attributions() {
       const [a,s,p] = await Promise.all([api.attributions(f), api.sections(), api.professeurs(true)]);
       setData(a); setSections(s); setProfesseurs(p);
       if (activitesList.length === 0) api.activites().then(setActivitesList).catch(()=>{});
+      // Charger badges EXT/DOT
+      const tok = localStorage.getItem('token');
+      fetch(`/api/pilotage/ext-dot?annee=${encodeURIComponent(getAnnee())}`, { headers: { Authorization: `Bearer ${tok}` } })
+        .then(r => r.json()).then(d => {
+          const map = {};
+          for (const a of (d.attrs || [])) map[a.id] = a.badge;
+          setExtDot(map);
+        }).catch(() => {});
     } catch(e){ console.error(e); }
     finally { setLoading(false); }
   }
@@ -740,6 +749,18 @@ export default function Attributions() {
           if (c.key==='__actions') return <td key={c.key} className="text-center" style={sty}><button onClick={()=>deleteRow(row.id)} className="text-red-500 hover:text-red-700 text-sm" title="Supprimer">🗑</button></td>;
           if (c.key==='__conformite') return <td key={c.key} className="text-center" style={sty}>{c.render(null,row)}</td>;
           const v = row[c.key]; const display = c.render ? c.render(v,row) : v;
+          // Badge EXT/DOT sur la colonne prof
+          if (c.key === 'prof_nom') {
+            const badge = extDot[row.id];
+            return <td key={c.key} style={sty} onClick={click} className={cClass}>
+              <div className="flex items-center gap-1">
+                {badge === 'EXT' && <span className="text-[9px] px-1 py-0 rounded font-bold bg-teal-100 text-teal-700 border border-teal-300 shrink-0">EXT</span>}
+                {badge === 'DOT' && <span className="text-[9px] px-1 py-0 rounded font-bold bg-orange-100 text-orange-700 border border-orange-300 shrink-0">DOT</span>}
+                {badge === 'EXT+DOT' && <span className="text-[9px] px-1 py-0 rounded font-bold bg-purple-100 text-purple-700 border border-purple-300 shrink-0">EXT+DOT</span>}
+                <span className="truncate">{display}</span>
+              </div>
+            </td>;
+          }
           if (c.readonly) return <td key={c.key} style={sty} onClick={click} className={`${c.num?'num':''} bg-gray-100 text-gray-500 ${cClass}`} title={c.tooltip}>{v!=null?Number(v).toLocaleString('fr-BE',{maximumFractionDigits:2}):<span className="text-gray-300">—</span>}</td>;
           if (c.edit==='number') {
             // Pour Per. et Aut. : afficher la valeur prévue en gris (attribué/prévu)

@@ -519,3 +519,80 @@ r.get('/dotation-comparaison', authRequired, (req, res) => {
 
   res.json({ annee1, annee2, sections: result });
 });
+
+// ── Badges EXT / DOT par pot_code ────────────────────────────────────────────
+// GET /ext-dot?annee=2026-2027
+// Retourne pour chaque pot_code cofinancé :
+//   - plafond EXT (pér. B depuis enveloppe_externe)
+//   - total pér. B attribué
+//   - part EXT (dans le plafond) et part DOT (au-delà)
+//   - liste des attributions avec leur badge EXT ou DOT
+r.get('/ext-dot', authRequired, (req, res) => {
+  const annee = req.query.annee || db.prepare("SELECT code FROM annee_scolaire WHERE active=1 LIMIT 1").get()?.code || '2026-2027';
+  const anneeCivile = 2000 + parseInt(annee.split('-')[1]?.slice(-2) || '27');
+
+  const POTS_EXT = ['QUAL', 'CF', 'INCL', 'AESI'];
+
+  // Plafonds EXT par pot_code
+  const plafonds = {};
+  for (const pot of POTS_EXT) {
+    const env = db.prepare("SELECT periodes_b FROM enveloppe_externe WHERE code=? AND annee_civile=?").get(pot, anneeCivile);
+    plafonds[pot] = env?.periodes_b ?? 0;
+  }
+
+  // Toutes les attributions sur des UEs à enveloppe externe
+  const attrs = db.prepare(`
+    SELECT a.id, a.ue_num, a.section, a.code_cours, a.professeur_id,
+           p.nom || ' ' || p.prenom AS prof_nom,
+           a.periodes_attribuees, a.autonomie_attribuee,
+           a.type_cours, a.num_groupe, a.code AS groupe_code,
+           u.pot_code,
+           CASE WHEN a.type_cours='CT' THEN a.periodes_attribuees / 800.0 * 10
+                WHEN a.type_cours='PP' THEN a.periodes_attribuees / 1000.0 * 10
+                ELSE 0 END AS cout_b
+    FROM attribution a
+    JOIN ue u ON u.ue_num = a.ue_num AND u.section = a.section AND u.annee_scolaire = a.annee_scolaire
+    LEFT JOIN professeur p ON p.id = a.professeur_id
+    WHERE a.annee_scolaire = ?
+      AND u.pot_code IN (${POTS_EXT.map(()=>'?').join(',')})
+      AND (a.type_cours IS NULL OR a.type_cours != 'Z')
+      AND (a.coordination_encadrement IS NULL OR a.coordination_encadrement NOT IN ('95','96','97','98','99'))
+    ORDER BY u.pot_code, a.ue_num, a.id
+  `).all(annee, ...POTS_EXT);
+
+  // Répartir EXT/DOT par pot_code en consommant le plafond séquentiellement
+  const consomme = {};
+  const result = [];
+  for (const a of attrs) {
+    const pot = a.pot_code;
+    if (!consomme[pot]) consomme[pot] = 0;
+    const plafond = plafonds[pot] || 0;
+    const cout = a.cout_b || 0;
+    const restePlafond = Math.max(0, plafond - consomme[pot]);
+
+    let badge, ext_b, dot_b;
+    if (cout <= restePlafond) {
+      badge = 'EXT'; ext_b = cout; dot_b = 0;
+    } else if (consomme[pot] >= plafond) {
+      badge = 'DOT'; ext_b = 0; dot_b = cout;
+    } else {
+      // Ligne mixte : partiellement EXT, partiellement DOT
+      ext_b = restePlafond; dot_b = cout - restePlafond;
+      badge = 'EXT+DOT';
+    }
+    consomme[pot] += cout;
+    result.push({ ...a, badge, ext_b: Math.round(ext_b*100)/100, dot_b: Math.round(dot_b*100)/100 });
+  }
+
+  // Résumé par pot_code
+  const resume = {};
+  for (const pot of POTS_EXT) {
+    resume[pot] = {
+      plafond: plafonds[pot],
+      consomme: Math.round((consomme[pot]||0)*100)/100,
+      dot: Math.round(Math.max(0, (consomme[pot]||0) - plafonds[pot])*100)/100,
+    };
+  }
+
+  res.json({ annee, anneeCivile, plafonds, resume, attrs: result });
+});

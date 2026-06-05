@@ -48,6 +48,53 @@ function ProgressBar({ pct: p }) {
   );
 }
 
+// ── Panneau EXT / DOT ─────────────────────────────────────────────────────────
+function ExtDotPanel({ annee }) {
+  const [data, setData] = useState(null);
+  useEffect(() => {
+    if (!annee) return;
+    const tok = localStorage.getItem('token');
+    fetch(`/api/pilotage/ext-dot?annee=${encodeURIComponent(annee)}`, { headers: { Authorization: `Bearer ${tok}` } })
+      .then(r => r.json()).then(setData).catch(() => {});
+  }, [annee]);
+
+  if (!data || !data.resume) return null;
+  const pots = Object.entries(data.resume).filter(([,v]) => v.plafond > 0 || v.consomme > 0);
+  if (pots.length === 0) return null;
+
+  return (
+    <div>
+      <div className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">Répartition EXT / DOT</div>
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+        {pots.map(([pot, v]) => {
+          const pct = v.plafond > 0 ? Math.min(100, Math.round(v.consomme / v.plafond * 100)) : 0;
+          const depasse = v.dot > 0;
+          return (
+            <div key={pot} className={`rounded-lg border p-3 ${depasse ? 'border-orange-300 bg-orange-50' : 'border-teal-200 bg-teal-50'}`}>
+              <div className="flex justify-between items-center mb-1">
+                <span className="font-bold text-sm">{pot}</span>
+                {depasse && <span className="text-[10px] bg-orange-200 text-orange-800 px-1.5 py-0.5 rounded font-bold">⚠ DOT {v.dot} pér. B</span>}
+              </div>
+              <div className="text-xs text-gray-600 mb-2">
+                Plafond EXT : <b>{v.plafond}</b> pér. B · Consommé : <b>{v.consomme}</b> pér. B
+              </div>
+              <div className="w-full bg-gray-200 rounded-full h-2">
+                <div className={`h-2 rounded-full ${depasse ? 'bg-orange-500' : 'bg-teal-500'}`} style={{ width: `${Math.min(100,pct)}%` }} />
+              </div>
+              <div className="text-[10px] text-gray-500 mt-1 text-right">{pct}% du plafond</div>
+              {depasse && (
+                <div className="text-xs text-orange-700 mt-2 font-medium">
+                  ⚠ {v.dot} pér. B au-delà du plafond → à charge de la dotation organique
+                </div>
+              )}
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
 // ── Carte enveloppe externe ───────────────────────────────────────────────────
 function EnvCard({ env }) {
   return (
@@ -520,6 +567,9 @@ export default function Pilotage() {
             </div>
           </div>
         )}
+
+        {/* Panneau EXT/DOT */}
+        <ExtDotPanel annee={anneeActive} />
 
         {/* Graphique multi-années */}
         {chartData.length > 1 && (
