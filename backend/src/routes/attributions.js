@@ -348,6 +348,18 @@ r.delete('/ept/:id', authRequired, roleRequired('admin', 'editeur', 'coordinatio
   res.json({ ok: true });
 });
 
+// PATCH /attributions/:id/desattribuer — remplace le prof par "À DÉSIGNER"
+r.patch('/:id/desattribuer', authRequired, roleRequired('admin', 'editeur', 'coordination'), (req, res) => {
+  const id = parseInt(req.params.id);
+  const aDesigner = db.prepare(`SELECT id FROM professeur WHERE nom = 'À DÉSIGNER' LIMIT 1`).get();
+  if (!aDesigner) return res.status(500).json({ error: 'Professeur "À DÉSIGNER" introuvable' });
+  const r2 = db.prepare(
+    'UPDATE attribution SET professeur_id = ?, periodes_attribuees = 0, autonomie_attribuee = 0 WHERE id = ?'
+  ).run(aDesigner.id, id);
+  if (r2.changes === 0) return res.status(404).json({ error: 'Attribution introuvable' });
+  res.json({ ok: true });
+});
+
 r.get('/:id', authRequired, (req, res) => {
   const row = db.prepare('SELECT * FROM v_attribution_complete WHERE id = ?').get(req.params.id);
   if (!row) return res.status(404).json({ error: 'Attribution introuvable' });
