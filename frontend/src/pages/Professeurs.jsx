@@ -243,10 +243,11 @@ function DetailModal({ profId, onClose, onEdit, onFiche }) {
               <th className="text-right">Per.</th>
               <th className="text-right">Aut.</th>
               <th className="text-right">Total</th>
+              {u?.role === 'admin' && <th></th>}
             </tr></thead>
             <tbody>
               {detail.attributions?.length === 0 && (
-                <tr><td colSpan="9" className="text-center text-gray-400 py-4">Aucune attribution</td></tr>
+                <tr><td colSpan="10" className="text-center text-gray-400 py-4">Aucune attribution</td></tr>
               )}
               {detail.attributions?.map(a => (
                 <tr key={a.id}>
@@ -261,6 +262,20 @@ function DetailModal({ profId, onClose, onEdit, onFiche }) {
                   <td className="num">{a.periodes_attribuees}</td>
                   <td className="num">{a.autonomie_attribuee}</td>
                   <td className="num font-semibold">{a.total_attribue_professeur}</td>
+                  {u?.role === 'admin' && (
+                    <td className="text-center">
+                      <button title="Désattribuer → À DÉSIGNER"
+                        onClick={async () => {
+                          if (!confirm('Retirer cette attribution et la passer à "À DÉSIGNER" ?')) return;
+                          const tok = localStorage.getItem('token');
+                          const res = await fetch(`/api/attributions/${a.id}/desattribuer`, {
+                            method: 'PATCH', headers: { Authorization: `Bearer ${tok}` }
+                          });
+                          if (res.ok) setDetail(d => ({ ...d, attributions: d.attributions.filter(x => x.id !== a.id) }));
+                        }}
+                        className="text-orange-400 hover:text-orange-600 text-xs px-1" title="Désattribuer">🔄</button>
+                    </td>
+                  )}
                 </tr>
               ))}
             </tbody>
