@@ -655,16 +655,24 @@ r.get('/professeurs/:id', authRequired, (req, res) => {
   }
 
   let tot_per_annee = 0, tot_aut_annee = 0;
+  let etp_ct = 0, etp_pp = 0;
   for (const a of attrs) {
     tot_per_annee += a.periodes_attribuees || 0;
     tot_aut_annee += a.autonomie_attribuee || 0;
+    const total = (a.periodes_attribuees || 0) + (a.autonomie_attribuee || 0);
+    if (a.type_cours === 'CT') etp_ct += total;
+    else if (a.type_cours === 'PP') etp_pp += total;
+    else etp_ct += total; // fallback CT si type inconnu
   }
+  const etp_annee = Math.round((etp_ct / 800 + etp_pp / 1000) * 100) / 100;
 
   res.json({ ...p, attributions: attrs, titres, charges, anciennete, annee,
-    tot_per_annee,   // périodes uniquement (sans autonomie)
+    tot_per_annee,
     tot_aut_annee,
     tot_global_annee: tot_per_annee + tot_aut_annee,
-    etp_annee: Math.round((tot_per_annee + tot_aut_annee) / 1000 * 100) / 100,
+    etp_annee,
+    etp_ct: Math.round(etp_ct / 800 * 100) / 100,
+    etp_pp: Math.round(etp_pp / 1000 * 100) / 100,
   });
 });
 
@@ -1038,17 +1046,17 @@ r.get('/professeurs/:id/fiche-attributions', authRequired, (req, res) => {
   `).all(id, annee);
 
   // Totaux CT / PP
-  let tot_ct = 0, tot_pp = 0, tot_aut = 0;
+  let tot_ct = 0, tot_pp = 0, tot_aut_ct = 0, tot_aut_pp = 0;
   for (const a of attrs) {
     const per = a.per || 0;
     const aut = a.aut || 0;
-    if (a.type_cours === 'CT') tot_ct += per;
-    else tot_pp += per;
-    tot_aut += aut;
+    if (a.type_cours === 'CT') { tot_ct += per; tot_aut_ct += aut; }
+    else { tot_pp += per; tot_aut_pp += aut; }
   }
+  const tot_aut = tot_aut_ct + tot_aut_pp;
   const tot_per = tot_ct + tot_pp;
   const tot_global = tot_per + tot_aut;
-  const etp = Math.round((tot_global / 1000) * 100) / 100;
+  const etp = Math.round(((tot_ct + tot_aut_ct) / 800 + (tot_pp + tot_aut_pp) / 1000) * 100) / 100;
 
   res.json({
     prof, annee, attributions: attrs,
