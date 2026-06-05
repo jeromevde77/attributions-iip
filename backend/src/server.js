@@ -1476,6 +1476,17 @@ try {
     }
   } catch (e) { console.error('[migration] codes EPT :', e.message); }
 
+  // Corriger pot_code des UEs ME (CF/INCL/QUAL) manquants dans les années précédentes
+  try {
+    const fixes = [
+      [88, 'ME', 'CF'], [90, 'ME', 'INCL'], [92, 'ME', 'QUAL'],
+    ];
+    for (const [num, sec, pot] of fixes) {
+      db.prepare("UPDATE ue SET pot_code=? WHERE ue_num=? AND section=? AND (pot_code IS NULL OR pot_code='organique')")
+        .run(pot, num, sec);
+    }
+  } catch (e) { console.error('[migration] pot_code UEs ME :', e.message); }
+
 } catch (e) {
   console.error('[migration] ERREUR :', e.message);
   console.error(e.stack);
