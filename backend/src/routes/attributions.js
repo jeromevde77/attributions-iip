@@ -567,8 +567,10 @@ r.post('/bulk-create-from-section', authRequired, roleRequired('admin', 'editeur
       const exists = checkStmt.get(section, c.cours_code, annee).n;
       if (exists > 0) { skipped++; continue; }
       const contrat = ueEtRefMap[c.ue_num] || 'IIP';
-      // Sanitiser quadrimestre_cours — évite [object Object] si valeur corrompue
-      const quad = (typeof c.quadrimestre_cours === 'string' && c.quadrimestre_cours !== '[object Object]')
+      // Sanitiser quadrimestre_cours — évite [object Object] et chaînes vides
+      const quad = (typeof c.quadrimestre_cours === 'string'
+        && c.quadrimestre_cours !== '[object Object]'
+        && c.quadrimestre_cours !== '')
         ? c.quadrimestre_cours : null;
       insertStmt.run(
         section, c.ue_num, c.cours_code,
