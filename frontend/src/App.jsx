@@ -60,9 +60,14 @@ function BuildBadge() {
   const dateStr = now.toLocaleDateString('fr-BE', { day: '2-digit', month: '2-digit', year: 'numeric' });
   return (
     <div className="fixed bottom-2 right-2 z-50 text-right pointer-events-none select-none">
-      <div className="bg-white/80 backdrop-blur-sm border border-gray-200 rounded px-2 py-1 shadow-sm text-xs text-gray-400 leading-tight">
+      <div className="bg-white border border-gray-200 rounded-lg px-3 py-1.5 shadow text-xs text-gray-400 leading-tight">
         <div className="font-semibold text-gray-600 tabular-nums">{dateStr} {timeStr}</div>
-        <div className="tabular-nums">v<span className="font-semibold text-gray-600">{versionNum}</span> · <span className="font-mono text-[10px]">{shaOnly}</span></div>
+        <div className="flex items-center justify-end gap-1.5 mt-0.5">
+          <span className="bg-iip-gold text-white font-bold px-1.5 py-0.5 rounded text-[11px] tracking-wide">
+            v{versionNum}
+          </span>
+          <span className="font-mono text-[10px] text-gray-400">{shaOnly}</span>
+        </div>
       </div>
     </div>
   );
