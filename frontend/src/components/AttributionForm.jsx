@@ -114,7 +114,7 @@ export default function AttributionForm({ onClose, onCreated, editRow = null }) 
       const payload = {
         ...form,
         ue_num: Number(form.ue_num),
-        professeur_id: form.professeur_id ? Number(form.professeur_id) : null,
+        professeur_id: form.professeur_id ? Number(form.professeur_id) : (profs.find(p => p.nom === 'À DÉSIGNER')?.id ?? null),
         num_organisation: Number(form.num_organisation),
         nb_groupes: Number(form.nb_groupes),
         periodes_attribuees: Number(form.periodes_attribuees),
@@ -279,8 +279,8 @@ export default function AttributionForm({ onClose, onCreated, editRow = null }) 
               <label className="block text-xs text-gray-600 mb-0.5">Professeur *</label>
               <select value={form.professeur_id} onChange={e => set('professeur_id', e.target.value)}
                       className="w-full border border-gray-300 rounded px-2 py-1.5 text-sm">
-                <option value="">—</option>
-                {profs.map(p => <option key={p.id} value={p.id}>{p.nom_prenom} ({p.statut || '?'})</option>)}
+                <option value="">— À DÉSIGNER —</option>
+                {profs.filter(p => p.nom !== 'À DÉSIGNER').map(p => <option key={p.id} value={p.id}>{p.nom_prenom} ({p.statut || '?'})</option>)}
               </select>
             </div>
             <div>

@@ -329,10 +329,13 @@ export default function CoursEditModal({ section, codeCours, onClose, onChanged 
                           <td className="p-2 border-b">
                             <select value={r.professeur_id ?? ''}
                                     disabled={!canEdit}
-                                    onChange={e => updateRow(r.id, 'professeur_id', e.target.value ? Number(e.target.value) : null)}
+                                    onChange={e => {
+                                      const aD = profs.find(p => p.nom === 'À DÉSIGNER');
+                                      updateRow(r.id, 'professeur_id', e.target.value ? Number(e.target.value) : (aD?.id ?? null));
+                                    }}
                                     className="w-full bg-transparent border border-gray-200 rounded px-2 py-1 text-sm focus:border-iip-gold outline-none">
-                              <option value="">— Non assigné —</option>
-                              {profs.map(p => <option key={p.id} value={p.id}>{p.nom_prenom}</option>)}
+                              <option value="">— À DÉSIGNER —</option>
+                              {profs.filter(p => p.nom !== 'À DÉSIGNER').map(p => <option key={p.id} value={p.id}>{p.nom_prenom}</option>)}
                             </select>
                           </td>
                           {hasHelb && (

@@ -1442,7 +1442,27 @@ try {
     if (updated.changes > 0) console.log(`[migration] pot_code=AESI assigné à ${updated.changes} UE AeSI`);
   } catch (e) { console.error('[migration] pot_code AeSI :', e.message); }
 
-  // Codes EPT (95-99) dans type_encadrement
+  // Trigger : professeur_id NULL → À DÉSIGNER automatiquement
+  try {
+    const aDesigner = db.prepare("SELECT id FROM professeur WHERE nom = 'À DÉSIGNER' LIMIT 1").get();
+    if (aDesigner) {
+      db.exec(`
+        CREATE TRIGGER IF NOT EXISTS trg_attribution_prof_null_insert
+        AFTER INSERT ON attribution
+        WHEN NEW.professeur_id IS NULL
+        BEGIN
+          UPDATE attribution SET professeur_id = ${aDesigner.id} WHERE id = NEW.id;
+        END;
+
+        CREATE TRIGGER IF NOT EXISTS trg_attribution_prof_null_update
+        AFTER UPDATE ON attribution
+        WHEN NEW.professeur_id IS NULL
+        BEGIN
+          UPDATE attribution SET professeur_id = ${aDesigner.id} WHERE id = NEW.id;
+        END;
+      `);
+    }
+  } catch (e) { console.error('[migration] trigger prof NULL :', e.message); }
   try {
     const epts = [
       ['95', 'ExPT — Expertise Pédagogique et Technique'],
