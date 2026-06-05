@@ -25,9 +25,8 @@ export default function EptModal({ section, ue_num, ue_nom, annee, onClose }) {
         `/api/attributions/ept?section=${encodeURIComponent(section)}&ue_num=${ue_num}&annee=${encodeURIComponent(annee)}`,
         { headers: { Authorization: `Bearer ${tok}` } }
       ).then(r => r.json());
-      setLignes(d);
-      // Déterminer num_organisation commun (toutes les lignes EPT partagent le même org)
-      if (d.length > 0) setNumOrg(d[0].num_organisation);
+      setLignes(Array.isArray(d) ? d : []);
+      if (Array.isArray(d) && d.length > 0) setNumOrg(d[0].num_organisation);
     } catch(e) { console.error(e); }
     finally { setLoading(false); }
   }
