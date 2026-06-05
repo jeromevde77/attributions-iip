@@ -533,10 +533,11 @@ r.get('/ext-dot', authRequired, (req, res) => {
 
   const POTS_EXT = ['QUAL', 'CF', 'INCL', 'AESI'];
 
-  // Plafonds EXT par pot_code
+  // Plafonds EXT par pot_code — fallback sur l'année civile précédente si absente
   const plafonds = {};
   for (const pot of POTS_EXT) {
-    const env = db.prepare("SELECT periodes_b FROM enveloppe_externe WHERE code=? AND annee_civile=?").get(pot, anneeCivile);
+    const env = db.prepare("SELECT periodes_b FROM enveloppe_externe WHERE code=? AND annee_civile=?").get(pot, anneeCivile)
+              || db.prepare("SELECT periodes_b FROM enveloppe_externe WHERE code=? AND annee_civile=?").get(pot, anneeCivile - 1);
     plafonds[pot] = env?.periodes_b ?? 0;
   }
 

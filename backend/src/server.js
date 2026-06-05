@@ -1525,6 +1525,27 @@ try {
     }
   } catch (e) { console.error('[migration] pot_code UEs ME :', e.message); }
 
+  // Créer les enveloppes externes pour l'année civile active si elles n'existent pas encore
+  try {
+    const anneeActive = db.prepare("SELECT code FROM annee_scolaire WHERE active=1 ORDER BY code DESC LIMIT 1").get()?.code;
+    if (anneeActive) {
+      const anneeCivile = 2000 + parseInt(anneeActive.split('-')[1]?.slice(-2) || '27');
+      const codes = ['QUAL', 'CF', 'INCL', 'AESI'];
+      for (const code of codes) {
+        const existe = db.prepare("SELECT id FROM enveloppe_externe WHERE code=? AND annee_civile=?").get(code, anneeCivile);
+        if (!existe) {
+          // Copier depuis l'année précédente si disponible
+          const prev = db.prepare("SELECT * FROM enveloppe_externe WHERE code=? AND annee_civile=?").get(code, anneeCivile - 1);
+          if (prev) {
+            db.prepare("INSERT OR IGNORE INTO enveloppe_externe (code, label, annee_civile, periodes_b) VALUES (?,?,?,?)")
+              .run(code, prev.label, anneeCivile, prev.periodes_b);
+            console.log(`[migration] enveloppe ${code} ${anneeCivile} créée (copie de ${anneeCivile-1}: ${prev.periodes_b} pér. B)`);
+          }
+        }
+      }
+    }
+  } catch (e) { console.error('[migration] enveloppes année active :', e.message); }
+
 } catch (e) {
   console.error('[migration] ERREUR :', e.message);
   console.error(e.stack);
