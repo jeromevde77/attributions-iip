@@ -1195,3 +1195,53 @@ r.get('/membres-cde', authRequired, (req, res) => {
 });
 
 export default r;
+
+// ── Organisations UE (Doc A) ─────────────────────────────────────────────────
+
+// GET /organisations-ue?ue_num=&section=&annee=
+r.get('/organisations-ue', authRequired, (req, res) => {
+  const { ue_num, section, annee } = req.query;
+  if (!ue_num || !section || !annee) return res.status(400).json({ error: 'ue_num, section, annee requis' });
+  const orgs = db.prepare(
+    'SELECT * FROM organisation_ue WHERE ue_num=? AND section=? AND annee_scolaire=? ORDER BY num_organisation'
+  ).all(ue_num, section, annee);
+  res.json(orgs);
+});
+
+// POST /organisations-ue — créer ou mettre à jour une organisation
+r.post('/organisations-ue', authRequired, roleRequired('admin', 'editeur'), (req, res) => {
+  const { ue_num, section, annee_scolaire, num_organisation = 1,
+    date_debut, date_fin, nb_semaines,
+    ept_uniquement = 0, va_uniquement = 0, sept_tq_7p = 0,
+    hybride = 0, prison = 0, activite_formation = 0, conseiller_prevention = 0,
+    ue_2_annees_org_prec, intervention_ext_type, intervention_ext_50 = 0 } = req.body;
+
+  if (!ue_num || !section || !annee_scolaire)
+    return res.status(400).json({ error: 'ue_num, section, annee_scolaire requis' });
+
+  const info = db.prepare(`
+    INSERT INTO organisation_ue
+      (ue_num, section, annee_scolaire, num_organisation, date_debut, date_fin, nb_semaines,
+       ept_uniquement, va_uniquement, sept_tq_7p, hybride, prison, activite_formation,
+       conseiller_prevention, ue_2_annees_org_prec, intervention_ext_type, intervention_ext_50)
+    VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+    ON CONFLICT(ue_num, section, annee_scolaire, num_organisation) DO UPDATE SET
+      date_debut=excluded.date_debut, date_fin=excluded.date_fin, nb_semaines=excluded.nb_semaines,
+      ept_uniquement=excluded.ept_uniquement, va_uniquement=excluded.va_uniquement,
+      sept_tq_7p=excluded.sept_tq_7p, hybride=excluded.hybride, prison=excluded.prison,
+      activite_formation=excluded.activite_formation, conseiller_prevention=excluded.conseiller_prevention,
+      ue_2_annees_org_prec=excluded.ue_2_annees_org_prec,
+      intervention_ext_type=excluded.intervention_ext_type, intervention_ext_50=excluded.intervention_ext_50
+  `).run(ue_num, section, annee_scolaire, num_organisation, date_debut||null, date_fin||null,
+         nb_semaines||null, ept_uniquement?1:0, va_uniquement?1:0, sept_tq_7p?1:0,
+         hybride?1:0, prison?1:0, activite_formation?1:0, conseiller_prevention?1:0,
+         ue_2_annees_org_prec||null, intervention_ext_type||null, intervention_ext_50?1:0);
+
+  res.json({ ok: true, id: info.lastInsertRowid });
+});
+
+// DELETE /organisations-ue/:id
+r.delete('/organisations-ue/:id', authRequired, roleRequired('admin', 'editeur'), (req, res) => {
+  db.prepare('DELETE FROM organisation_ue WHERE id=?').run(parseInt(req.params.id));
+  res.json({ ok: true });
+});

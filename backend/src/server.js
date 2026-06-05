@@ -1476,6 +1476,33 @@ try {
     }
   } catch (e) { console.error('[migration] codes EPT :', e.message); }
 
+  // Table organisation_ue (Doc A — description des organisations par UE)
+  try {
+    db.exec(`
+      CREATE TABLE IF NOT EXISTS organisation_ue (
+        id                    INTEGER PRIMARY KEY AUTOINCREMENT,
+        ue_num                INTEGER NOT NULL,
+        section               TEXT NOT NULL,
+        annee_scolaire        TEXT NOT NULL,
+        num_organisation      INTEGER NOT NULL DEFAULT 1,
+        date_debut            TEXT,
+        date_fin              TEXT,
+        nb_semaines           INTEGER,
+        ept_uniquement        INTEGER DEFAULT 0,
+        va_uniquement         INTEGER DEFAULT 0,
+        sept_tq_7p            INTEGER DEFAULT 0,
+        hybride               INTEGER DEFAULT 0,
+        prison                INTEGER DEFAULT 0,
+        activite_formation    INTEGER DEFAULT 0,
+        conseiller_prevention INTEGER DEFAULT 0,
+        ue_2_annees_org_prec  INTEGER,
+        intervention_ext_type TEXT,
+        intervention_ext_50   INTEGER DEFAULT 0,
+        UNIQUE(ue_num, section, annee_scolaire, num_organisation)
+      );
+    `);
+  } catch(e) { console.error('[migration] organisation_ue :', e.message); }
+
   // Corriger pot_code des UEs ME (CF/INCL/QUAL) manquants dans les années précédentes
   try {
     const fixes = [
