@@ -47,6 +47,8 @@ const buildLabel = buildDate.toLocaleString('fr-BE', {
   hour: '2-digit', minute: '2-digit'
 });
 const shortSha = BUILD_VER === 'dev' ? 'dev' : BUILD_VER.slice(0, 7);
+const versionNum = BUILD_VER === 'dev' ? 'dev' : BUILD_VER.split('+')[0]; // ex: "1.0.0"
+const shaOnly = BUILD_VER.includes('+') ? BUILD_VER.split('+')[1]?.slice(0,7) : shortSha;
 
 function BuildBadge() {
   const [now, setNow] = useState(new Date());
@@ -60,7 +62,7 @@ function BuildBadge() {
     <div className="fixed bottom-2 right-2 z-50 text-right pointer-events-none select-none">
       <div className="bg-white/80 backdrop-blur-sm border border-gray-200 rounded px-2 py-1 shadow-sm text-xs text-gray-400 leading-tight">
         <div className="font-semibold text-gray-600 tabular-nums">{dateStr} {timeStr}</div>
-        <div className="tabular-nums">build {buildLabel} · <span className="font-mono">{shortSha}</span></div>
+        <div className="tabular-nums">v<span className="font-semibold text-gray-600">{versionNum}</span> · <span className="font-mono text-[10px]">{shaOnly}</span></div>
       </div>
     </div>
   );
