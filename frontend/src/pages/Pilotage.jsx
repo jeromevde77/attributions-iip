@@ -544,7 +544,11 @@ export default function Pilotage() {
           </div>
           <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
             <Kpi label="Dotation" value={fmt(d.dotation_organique)} sub="périodes B" />
-            <Kpi label="Utilisées" value={fmt(d.usage_organique)} sub="périodes B"
+            <Kpi label="Utilisées" value={fmt(d.usage_organique)} sub={
+              d.dot_total > 0
+                ? <span className="text-orange-600">dont {fmt(d.dot_total)} pér. B de dépassement enveloppes</span>
+                : "périodes B"
+            }
               color={trafficColor(d.pct_organique)} />
             {(() => {
               const felsi = Math.round(d.dotation_organique * 0.01);
