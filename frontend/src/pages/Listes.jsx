@@ -321,8 +321,10 @@ export default function Listes() {
             <td style="${S}">${c.cours_nom || '—'}</td>
             <td style="${S}text-align:center;font-weight:600;color:${c.ct_pp==='CT'?'#1B2B4B':'#00AACC'}">${c.ct_pp||'—'}</td>
             <td style="${SR}color:#374151">${c.cours_per||0}</td>
+            <td style="${SR}color:#7c3aed">${c.heures||'—'}</td>
+            <td style="${SR}color:#7c3aed">${c.periodes_contact||'—'}</td>
             <td style="${SR}color:#6b7280">—</td>
-            <td style="${SR}font-weight:600">${c.cours_per||0}</td>
+            <td style="${SR}font-weight:600">${(c.cours_per||0)}</td>
           </tr>`).join('');
         // Ligne autonomie séparée (une seule par UE, après tous les cours)
         const autUE = u.cours.find(c => (c.ue_autonomie||0) > 0)?.ue_autonomie || 0;
@@ -350,10 +352,13 @@ export default function Listes() {
           <tr style="background:#e8edf3;border-left:3px solid ${col}">
             <td colspan="2" style="padding:2px 6px 2px 20px;font-size:9px;color:#6b7280;font-style:italic">Sous-total UE\u00a0${u.ue_num}</td>
             <td style="${S}text-align:center"></td>
-            <td style="${SR}font-weight:700;color:#374151">${u.tot_per}</td>
-            <td style="${SR}font-weight:600;color:#f59e0b">${u.tot_aut}</td>
-            <td style="${SR}font-weight:700">${u.tot_per+u.tot_aut}</td>
-          </tr>`;
+             <td style="${S}text-align:center"></td>
+             <td style="${SR}font-weight:700;color:#374151">${u.tot_per}</td>
+             <td style="${SR}color:#9ca3af">—</td>
+             <td style="${SR}color:#9ca3af">—</td>
+             <td style="${SR}font-weight:600;color:#f59e0b">${u.tot_aut}</td>
+             <td style="${SR}font-weight:700">${u.tot_per+u.tot_aut}</td>
+           </tr>`;
       }).join('');
 
       return `
@@ -380,7 +385,9 @@ export default function Listes() {
             <th style="padding:3px 5px;text-align:left;font-size:10px">Code</th>
             <th style="padding:3px 5px;text-align:left;font-size:10px">Cours / UE</th>
             <th style="padding:3px 5px;text-align:center;font-size:10px">CT/PP</th>
-            <th style="padding:3px 5px;text-align:right;font-size:10px">Pér.</th>
+            <th style="padding:3px 5px;text-align:right;font-size:10px">Pér. prof.</th>
+            <th style="padding:3px 5px;text-align:right;font-size:10px">H. étud.</th>
+            <th style="padding:3px 5px;text-align:right;font-size:10px">Pér. étud.</th>
             <th style="padding:3px 5px;text-align:right;font-size:10px">Aut.</th>
             <th style="padding:3px 5px;text-align:right;font-size:10px">Total</th>
           </tr>
@@ -390,6 +397,8 @@ export default function Listes() {
             <td colspan="2" style="padding:4px 6px;font-weight:700;font-size:12px">TOTAL — ${d.section}</td>
             <td style="${S}text-align:center"></td>
             <td style="${SR}font-weight:700;color:white">${d.grand_ct+d.grand_pp}</td>
+            <td style="${SR}color:rgba(255,255,255,.7)">—</td>
+            <td style="${SR}color:rgba(255,255,255,.7)">—</td>
             <td style="${SR}color:rgba(255,255,255,.7)">${d.grand_aut}</td>
             <td style="${SR}font-weight:700;color:white">${d.grand_ct+d.grand_pp+d.grand_aut}</td>
           </tr>

@@ -53,7 +53,7 @@ CREATE TABLE IF NOT EXISTS cours (
     ue_per_total    INTEGER,
     ue_niveau       TEXT,
     enc_cours       TEXT,                                    -- "Encadrement" / "Cours"
-    heures          INTEGER,
+    heures          INTEGER,                                 -- heures réelles étudiant (×60 min) → converti en périodes ×1.2
     PRIMARY KEY (cours_code, annee_scolaire)
 );
 
@@ -418,6 +418,8 @@ SELECT
     -- Guides (depuis BD_UE_COURS pour aider le coordinateur)
     c.cours_per      AS cours_per_prevu,
     c.ue_autonomie   AS ue_autonomie_prevu,
+    c.heures         AS heures_reelles_etudiants,           -- heures ×60 min étudiant
+    ROUND(c.heures * 1.2, 0) AS periodes_contact_etudiant,  -- converti en périodes 50 min
     a.activite_id,
     at.libelle       AS activite_nom,
 

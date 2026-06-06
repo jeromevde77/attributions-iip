@@ -1276,6 +1276,7 @@ r.get('/doc23', authRequired, (req, res) => {
   // Cours de l'UE (hors Z) — activités 1,2,3...
   const cours = db.prepare(`
     SELECT c.cours_code, c.cours_nom, c.ct_pp, c.cours_per, c.ue_autonomie,
+           c.heures, ROUND(c.heures * 1.2, 0) AS periodes_contact,
            c.quadrimestre_cours, ROW_NUMBER() OVER (ORDER BY c.cours_code) AS num_activite
     FROM cours c
     WHERE c.ue_num=? AND c.section=? AND c.annee_scolaire=?
