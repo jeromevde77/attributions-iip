@@ -798,6 +798,9 @@ export default function Configuration() {
   const [saving, setSaving] = useState(false);
   const [backupStatus, setBackupStatus] = useState('');
   const [driveStatus, setDriveStatus] = useState('');
+  const [restoreStatus, setRestoreStatus] = useState('');
+  const [restoreFile, setRestoreFile] = useState(null);
+  const [restoring, setRestoring] = useState(false);
   const [env, setEnv] = useState(null);
 
   useEffect(() => {
@@ -870,6 +873,28 @@ export default function Configuration() {
       setDriveStatus('❌ ' + e.message);
     }
   }
+
+  async function restaurerBase() {
+    if (!restoreFile) { setRestoreStatus('❌ Choisissez d\u2019abord un fichier .db'); return; }
+    if (!confirm(`⚠ ATTENTION — Restauration de la base\n\nCela va ÉCRASER toutes les données actuelles du serveur de DÉVELOPPEMENT par le contenu de "${restoreFile.name}".\n\nUne sauvegarde automatique de l'état actuel sera créée avant.\nLe serveur va redémarrer.\n\nConfirmer la restauration ?`)) return;
+    setRestoring(true);
+    setRestoreStatus('Envoi et validation du fichier…');
+    try {
+      const token = localStorage.getItem('token');
+      const buf = await restoreFile.arrayBuffer();
+      const res = await fetch('/api/historique/restore', {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/octet-stream' },
+        body: buf,
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.error || 'Échec de la restauration');
+      setRestoreStatus(`✅ ${data.message} (${data.attributions ?? '?'} attributions) — sauvegarde auto : ${data.backup_auto}. Rechargez la page dans ~15 s.`);
+    } catch(e) {
+      setRestoreStatus('❌ ' + e.message);
+    } finally { setRestoring(false); }
+  }
+
 
   return (
     <div className="p-4 md:p-6 max-w-7xl mx-auto space-y-6">
@@ -998,24 +1023,37 @@ export default function Configuration() {
             </button>
           </div>
 
-          <div className="border-t border-gray-100" />
-
-          {/* Google Drive */}
-          <div className="flex items-center justify-between gap-4">
-            <div>
-              <div className="text-sm font-medium text-gray-800">Sauvegarder sur Google Drive</div>
-              <div className="text-xs text-gray-500">
-                Dépose le fichier dans <code className="bg-gray-100 px-1 rounded">Attributions IIP / Backups</code> sur votre Drive
-              </div>
-              {driveStatus && <div className="text-xs mt-1 text-gray-600">{driveStatus}</div>}
-            </div>
-            <button onClick={backupToDrive}
-              className="bg-iip-mauve hover:opacity-90 text-white text-sm px-4 py-2 rounded font-medium whitespace-nowrap">
-              ☁️ Drive
-            </button>
-          </div>
         </div>
       </section>
+
+      {/* ── Restauration de la base (DEV uniquement) ── */}
+      {env === 'dev' && (
+        <section className="bg-white rounded-lg border border-red-200 overflow-hidden">
+          <div className="px-4 py-3 bg-red-50 border-b border-red-200">
+            <h2 className="font-semibold text-red-700">⚠ Restauration de la base (DEV)</h2>
+            <p className="text-xs text-gray-500 mt-0.5">
+              Remplace entièrement la base de développement par un fichier de sauvegarde .db.
+              Une sauvegarde automatique de l'état actuel est créée avant. Le serveur redémarre ensuite.
+            </p>
+          </div>
+          <div className="px-4 py-4 space-y-3">
+            <div className="flex items-center gap-3 flex-wrap">
+              <input type="file" accept=".db,application/octet-stream"
+                onChange={e => { setRestoreFile(e.target.files?.[0] || null); setRestoreStatus(''); }}
+                className="text-sm text-gray-600 file:mr-3 file:py-1.5 file:px-3 file:rounded file:border-0 file:text-sm file:bg-gray-100 file:text-gray-700 hover:file:bg-gray-200" />
+              <button onClick={restaurerBase} disabled={!restoreFile || restoring}
+                className="bg-red-600 hover:bg-red-700 disabled:opacity-40 text-white text-sm px-4 py-2 rounded font-medium whitespace-nowrap">
+                {restoring ? 'Restauration…' : '♻ Restaurer cette base'}
+              </button>
+            </div>
+            {restoreFile && <div className="text-xs text-gray-500">Fichier : {restoreFile.name} ({(restoreFile.size/1024/1024).toFixed(2)} Mo)</div>}
+            {restoreStatus && <div className="text-xs text-gray-700 bg-gray-50 border border-gray-200 rounded px-3 py-2">{restoreStatus}</div>}
+            <p className="text-[11px] text-red-600">
+              ⚠ Action irréversible sur les données actuelles. Réservé à l'environnement de développement.
+            </p>
+          </div>
+        </section>
+      )}
 
       {/* ── Infos ── */}
       <section className="bg-white rounded-lg border border-gray-200 px-4 py-4 text-xs text-gray-500 space-y-1">
