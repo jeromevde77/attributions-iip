@@ -231,3 +231,45 @@ table.grid-excel-soft td.num { text-align: right; font-variant-numeric: tabular-
   body { font-size: 13px; }
   td, th { font-size: 11px !important; padding: 0.25rem 0.35rem !important; }
 }
+
+/* ── Micro-animations (style flat soigné, inspiré EPFC) ──────────────── */
+
+/* Lien de menu : soulignement qui se déploie de gauche à droite au survol */
+.nav-underline {
+  position: relative;
+}
+.nav-underline::after {
+  content: '';
+  position: absolute;
+  left: 0.75rem;
+  right: 0.75rem;
+  bottom: 0.25rem;
+  height: 2px;
+  background: currentColor;
+  transform: scaleX(0);
+  transform-origin: left;
+  transition: transform 0.28s cubic-bezier(0.4, 0, 0.2, 1);
+  opacity: 0.7;
+}
+.nav-underline:hover::after {
+  transform: scaleX(1);
+}
+/* Pas de soulignement animé sur l'onglet actif (déjà mis en évidence) */
+.nav-underline.nav-active::after { display: none; }
+
+/* Cartes plates et badges : assombrissement doux au survol */
+.hover-darken {
+  transition: filter 0.25s ease, background-color 0.25s ease, box-shadow 0.25s ease;
+}
+.hover-darken:hover {
+  filter: brightness(0.96);
+}
+
+/* Badges cliquables : léger assombrissement + scale subtil */
+.badge-interactive {
+  transition: filter 0.2s ease, transform 0.2s ease;
+  cursor: pointer;
+}
+.badge-interactive:hover {
+  filter: brightness(0.93);
+}

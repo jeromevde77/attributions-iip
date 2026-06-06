@@ -100,7 +100,7 @@ function EnvCard({ env }) {
   const depasse = env.solde < 0;
   const dot = Math.abs(Math.min(0, env.solde));
   return (
-    <div className={`border rounded-xl p-4 ${depasse ? 'border-orange-300 bg-orange-50' : trafficBg(env.pct)}`}>
+    <div className={`hover-darken border rounded-xl p-4 ${depasse ? 'border-orange-300 bg-orange-50' : trafficBg(env.pct)}`}>
       <div className="flex items-center justify-between mb-0.5">
         <div className="text-sm font-semibold text-gray-700">{env.label}</div>
         {depasse && <span className="text-[10px] bg-orange-200 text-orange-800 px-1.5 py-0.5 rounded font-bold">⚠ DOT {fmt(dot)} pér. B</span>}
