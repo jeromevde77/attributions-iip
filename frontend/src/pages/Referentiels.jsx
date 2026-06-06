@@ -336,7 +336,11 @@ export default function Referentiels({ embedded = false }) {
   const [catalogueSection, setCatalogueSection] = useState(null); // menu + ouvert pour cette section
   const [catalogueOpen, setCatalogueOpen] = useState(null); // section pour laquelle le catalogue UE est ouvert
   const [annees, setAnnees] = useState([]);
-  const [viewMode, setViewMode] = useState('section'); // 'sections' (gestion) | 'section' (UE) | 'table' (global)
+  const [viewMode, setViewMode] = useState(() => {
+    const wanted = localStorage.getItem('referentiels_goto');
+    if (wanted) { localStorage.removeItem('referentiels_goto'); return wanted; }
+    return 'section';
+  }); // 'sections' (gestion) | 'section' (UE) | 'table' (global) | 'activites'
   const [activeUE, setActiveUE] = useState(null); // clé de la dernière UE cliquée (encadrée)
   const annee = getAnnee();
 
