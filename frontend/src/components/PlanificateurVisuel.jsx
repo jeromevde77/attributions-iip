@@ -45,6 +45,7 @@ export default function PlanificateurVisuel({ onClose }) {
   const [blocs, setBlocs]       = useState([]); // [{id, groupe_id, activite, debutSem, dureeSem, heures, color}]
   const [saving, setSaving]     = useState(false);
   const [confirmOpen, setConfirmOpen] = useState(false);
+  const [calSessions, setCalSessions] = useState(null); // dates jalons rétroactives
 
   // Largeur d'une semaine en pixels
   const PX_SEM = 38;
@@ -52,6 +53,7 @@ export default function PlanificateurVisuel({ onClose }) {
 
   useEffect(() => {
     authFetch('/api/ref/sections').then(d => setSections(Array.isArray(d) ? d : [])).catch(() => {});
+    authFetch('/api/planification/calendrier-sessions').then(d => setCalSessions(d?.defini ? d : null)).catch(() => {});
   }, []);
 
   useEffect(() => {
@@ -111,6 +113,37 @@ export default function PlanificateurVisuel({ onClose }) {
 
   const semaines = grille?.semaines || [];
   const nbSem = semaines.length;
+
+  // Index de la dernière semaine de cours utilisable (selon le calcul rétroactif des sessions)
+  const dernierCoursIdx = useMemo(() => {
+    if (!calSessions?.dernier_cours || !semaines.length) return nbSem - 1;
+    const limite = calSessions.dernier_cours;
+    // Dernière semaine dont la date_debut <= dernier_cours
+    let idx = -1;
+    for (let i = 0; i < semaines.length; i++) {
+      if (semaines[i].date_debut <= limite) idx = i;
+    }
+    return idx >= 0 ? idx : nbSem - 1;
+  }, [calSessions, semaines, nbSem]);
+
+  // Semaines de cours réellement disponibles (type cours, jusqu'à dernierCoursIdx)
+  const semCoursDispo = useMemo(() =>
+    semaines.filter((s, i) => i <= dernierCoursIdx && s.type === 'cours').length,
+    [semaines, dernierCoursIdx]);
+
+  // Total heures de l'UE (somme des groupes)
+  const totalHeuresUE = useMemo(() =>
+    (grille?.groupes || []).reduce((s, g) => s + (g.heures_attribuees || 0), 0),
+    [grille]);
+
+  // Capacité : heures max plaçables = semaines dispo × rythme max raisonnable
+  // On considère qu'une UE "rentre" si chaque groupe tient dans les semaines dispo
+  const capaciteOK = useMemo(() => {
+    if (!grille?.groupes?.length || !semCoursDispo) return true;
+    // Le groupe le plus chargé doit tenir : ses heures / semCoursDispo = rythme exigé
+    const maxHeures = Math.max(...grille.groupes.map(g => g.heures_attribuees || 0));
+    return maxHeures <= semCoursDispo * hParSem * 2.5; // tolérance : jusqu'à 2.5× le rythme de base
+  }, [grille, semCoursDispo, hParSem]);
 
   // ── Drag horizontal d'un bloc ──
   const dragRef = useRef(null);
@@ -239,16 +272,34 @@ export default function PlanificateurVisuel({ onClose }) {
             </div>
           ) : (
             <div className="inline-block min-w-full">
+              {/* Bandeau capacité / sessions */}
+              <div className="mb-3 flex items-center gap-4 flex-wrap text-xs" style={{ paddingLeft: LABEL_W }}>
+                {calSessions ? (
+                  <span className="text-gray-500">
+                    Dernière semaine de cours : <strong className="text-gray-700">S{semaines[dernierCoursIdx]?.semaine_num}</strong> ({semaines[dernierCoursIdx]?.date_debut})
+                    · {semCoursDispo} semaines de cours disponibles
+                  </span>
+                ) : (
+                  <span className="text-orange-500">⚠ Dernier jour admin non défini (Paramètres) — limite de session non calculée</span>
+                )}
+                {!capaciteOK && (
+                  <span className="bg-red-100 text-red-700 px-2 py-0.5 rounded font-medium">
+                    ⚠ Le volume horaire risque de ne pas tenir dans les semaines disponibles
+                  </span>
+                )}
+              </div>
+
               {/* En-tête des semaines */}
               <div className="flex sticky top-0 z-10 bg-white" style={{ paddingLeft: LABEL_W }}>
-                {semaines.map(s => {
+                {semaines.map((s, i) => {
                   const st = SEM_STYLE[s.type] || SEM_STYLE.cours;
+                  const apresCours = i > dernierCoursIdx;
                   return (
-                    <div key={s.id} style={{ width: PX_SEM, background: st.bg }}
+                    <div key={s.id} style={{ width: PX_SEM, background: apresCours ? '#fef2f2' : st.bg }}
                       className="border-r border-gray-100 text-center py-1 text-[9px] text-gray-500 flex-shrink-0"
-                      title={`Semaine ${s.semaine_num} — ${s.date_debut} (${s.type})${s.label ? ' · '+s.label : ''}`}>
+                      title={`Semaine ${s.semaine_num} — ${s.date_debut} (${s.type})${s.label ? ' · '+s.label : ''}${apresCours ? ' · zone sessions/délibé (hors cours)' : ''}`}>
                       <div className="font-semibold">{s.semaine_num}</div>
-                      {st.label && <div className="text-[8px] text-gray-400">{st.label}</div>}
+                      {apresCours ? <div className="text-[8px] text-red-400">sess.</div> : st.label && <div className="text-[8px] text-gray-400">{st.label}</div>}
                     </div>
                   );
                 })}
@@ -272,14 +323,25 @@ export default function PlanificateurVisuel({ onClose }) {
                   <div className="relative flex-1" style={{ height: 52 }}>
                     {/* Fond : colonnes de semaines */}
                     <div className="absolute inset-0 flex">
-                      {semaines.map(s => {
+                      {semaines.map((s, i) => {
                         const st = SEM_STYLE[s.type] || SEM_STYLE.cours;
-                        return <div key={s.id} style={{ width: PX_SEM, background: s.type !== 'cours' ? st.bg : 'transparent' }}
+                        const apresCours = i > dernierCoursIdx;
+                        const bg = apresCours ? 'rgba(254,242,242,.6)' : (s.type !== 'cours' ? st.bg : 'transparent');
+                        return <div key={s.id} style={{ width: PX_SEM, background: bg }}
                           className="border-r border-gray-50 flex-shrink-0" />;
                       })}
                     </div>
                     {/* Blocs */}
-                    {voie.blocs.map(b => (
+                    {voie.blocs.map(b => {
+                      // Semaines de congé traversées par ce bloc (pour affichage pointillé)
+                      const congesTraverses = [];
+                      for (let i = b.debutSem; i < b.debutSem + b.dureeSem && i < nbSem; i++) {
+                        if (semaines[i] && semaines[i].type !== 'cours') {
+                          congesTraverses.push(i - b.debutSem); // offset relatif
+                        }
+                      }
+                      const depasseLimite = (b.debutSem + b.dureeSem - 1) > dernierCoursIdx;
+                      return (
                       <div key={b.id}
                         onMouseDown={e => onBlocMouseDown(e, b)}
                         style={{
@@ -288,26 +350,34 @@ export default function PlanificateurVisuel({ onClose }) {
                           width: b.dureeSem * PX_SEM - 2,
                           top: 6, bottom: 6,
                           background: b.color.bg,
-                          border: `1.5px solid ${b.color.border}`,
+                          border: `1.5px solid ${depasseLimite ? '#ef4444' : b.color.border}`,
                           color: b.color.text,
                           borderRadius: 6,
                           cursor: 'grab',
                         }}
                         className="flex items-center px-2 text-[11px] font-medium overflow-hidden select-none hover:brightness-95 transition"
-                        title={`${b.activite} · ${b.heures}h sur ${b.dureeSem} sem. (${Math.round(b.heures/b.dureeSem*10)/10}h/sem)`}>
-                        <span className="truncate flex-1">{b.activite}</span>
-                        <span className="text-[9px] opacity-70 ml-1 whitespace-nowrap">{b.heures}h</span>
-                        {/* Bouton couper */}
+                        title={`${b.activite} · ${b.heures}h sur ${b.dureeSem} sem. (${Math.round(b.heures/b.dureeSem*10)/10}h/sem)${depasseLimite ? ' ⚠ dépasse la dernière semaine de cours' : ''}${congesTraverses.length ? ` · ${congesTraverses.length} sem. de congé traversée(s)` : ''}`}>
+                        {/* Hachures pointillées sur les semaines de congé */}
+                        {congesTraverses.map(off => (
+                          <div key={off} style={{
+                            position: 'absolute', top: 0, bottom: 0,
+                            left: off * PX_SEM, width: PX_SEM,
+                            background: 'repeating-linear-gradient(45deg, transparent, transparent 3px, rgba(0,0,0,.08) 3px, rgba(0,0,0,.08) 6px)',
+                            borderLeft: '1px dashed rgba(0,0,0,.25)', borderRight: '1px dashed rgba(0,0,0,.25)',
+                          }} title="Congé — pas de cours cette semaine" />
+                        ))}
+                        <span className="truncate flex-1 relative z-10">{b.activite}</span>
+                        <span className="text-[9px] opacity-70 ml-1 whitespace-nowrap relative z-10">{b.heures}h</span>
                         <button onMouseDown={e => { e.stopPropagation(); }} onClick={e => { e.stopPropagation(); couperBloc(b); }}
-                          className="ml-1 opacity-0 group-hover/voie:opacity-60 hover:!opacity-100 text-[10px]" title="Couper en deux (créer une activité)">✂</button>
+                          className="ml-1 opacity-0 group-hover/voie:opacity-60 hover:!opacity-100 text-[10px] relative z-10" title="Couper en deux (créer une activité)">✂</button>
                         <button onMouseDown={e => { e.stopPropagation(); }} onClick={e => { e.stopPropagation(); supprimerBloc(b.id); }}
-                          className="ml-0.5 opacity-0 group-hover/voie:opacity-60 hover:!opacity-100 text-[10px]" title="Supprimer ce bloc">🗑</button>
-                        {/* Poignée de redimensionnement (bord droit) */}
+                          className="ml-0.5 opacity-0 group-hover/voie:opacity-60 hover:!opacity-100 text-[10px] relative z-10" title="Supprimer ce bloc">🗑</button>
                         <span onMouseDown={e => onResizeMouseDown(e, b)}
                           style={{ position: 'absolute', right: 0, top: 0, bottom: 0, width: 6, cursor: 'col-resize' }}
-                          className="hover:bg-black/10" />
+                          className="hover:bg-black/10 z-10" />
                       </div>
-                    ))}
+                      );
+                    })}
                   </div>
                 </div>
               ))}
