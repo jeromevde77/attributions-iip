@@ -801,6 +801,22 @@ export default function Attributions() {
             }
             return <td key={c.key} style={sty}><select defaultValue={v??''} onClick={e=>e.stopPropagation()} className="bg-transparent border-0 outline-none w-full text-sm cursor-pointer focus:bg-yellow-50" onChange={e=>{if(e.target.value!==(v??''))saveCell(row.id,c.key,e.target.value);}}>{c.options.map(([val,lbl])=><option key={val} value={val}>{lbl}</option>)}</select></td>;
           }
+          if (c.key === 'contrat_mdp') {
+            const isHelbContrat = v === 'HELB';
+            const next = isHelbContrat ? 'IIP' : 'HELB';
+            return <td key={c.key} style={sty}>
+              <button
+                onClick={e => { e.stopPropagation(); saveCell(row.id, 'contrat_mdp', next); }}
+                title={`Payroll : ${v || '—'} (cliquer pour passer à ${next})`}
+                className={`text-[11px] font-bold px-2 py-0.5 rounded border bg-transparent cursor-pointer transition hover:opacity-70 ${
+                  isHelbContrat
+                    ? 'border-pink-500 text-pink-600'
+                    : 'border-[#1B2B4B] text-[#1B2B4B]'
+                }`}>
+                {v || '—'}
+              </button>
+            </td>;
+          }
           if (c.edit==='select') return <td key={c.key} style={sty}><select defaultValue={v??''} onClick={e=>e.stopPropagation()} className="bg-transparent border-0 outline-none w-full text-sm cursor-pointer focus:bg-yellow-50" onChange={e=>{if(e.target.value!==(v??''))saveCell(row.id,c.key,e.target.value);}}>{c.options.map(([val,lbl])=><option key={val} value={val}>{lbl}</option>)}</select></td>;
           if (c.edit==='prof') return <td key={c.key} style={sty}><select defaultValue={row.professeur_id??''} onClick={e=>e.stopPropagation()} className="bg-transparent border-0 outline-none w-full text-sm cursor-pointer focus:bg-yellow-50" onChange={e=>{const nid=e.target.value?Number(e.target.value):null;if(nid!==row.professeur_id)saveCell(row.id,'professeur_id',nid);}}><option value="">— Aucun —</option>{professeurs.map(p=><option key={p.id} value={p.id}>{p.nom_prenom}</option>)}</select></td>;
           if (c.edit==='statut') {
