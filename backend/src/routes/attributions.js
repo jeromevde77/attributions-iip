@@ -293,10 +293,12 @@ r.get('/ept', authRequired, (req, res) => {
     SELECT a.id, a.num_organisation, a.coordination_encadrement AS code_ept,
       te.libelle AS libelle_ept,
       a.professeur_id, p.nom || ' ' || p.prenom AS prof_nom,
-      a.periodes_attribuees AS periodes, a.annee_scolaire
+      a.periodes_attribuees AS periodes, a.annee_scolaire,
+      a.activite_id, at.libelle AS activite_nom
     FROM attribution a
     LEFT JOIN type_encadrement te ON te.code = a.coordination_encadrement
     LEFT JOIN professeur p ON p.id = a.professeur_id
+    LEFT JOIN activite_type at ON at.id = a.activite_id
     WHERE a.section = ? AND a.ue_num = ? AND a.annee_scolaire = ?
       AND a.coordination_encadrement IN ('95','96','97','98','99')
     ORDER BY a.num_organisation, a.coordination_encadrement
@@ -307,7 +309,7 @@ r.get('/ept', authRequired, (req, res) => {
 
 // POST /ept — Ajouter une ligne EPT à une UE
 r.post('/ept', authRequired, roleRequired('admin', 'editeur', 'coordination'), (req, res) => {
-  const { section, ue_num, annee, code_ept, professeur_id, periodes, num_organisation } = req.body;
+  const { section, ue_num, annee, code_ept, professeur_id, periodes, num_organisation, activite_id } = req.body;
   if (!section || !ue_num || !annee || !code_ept || !professeur_id)
     return res.status(400).json({ error: 'section, ue_num, annee, code_ept, professeur_id requis' });
 
@@ -329,9 +331,9 @@ r.post('/ept', authRequired, roleRequired('admin', 'editeur', 'coordination'), (
       (section, ue_num, annee_scolaire, coordination_encadrement,
        professeur_id, periodes_attribuees, autonomie_attribuee,
        num_organisation, organisation, contrat_mdp, etablissement_referent,
-       type_cours, code_cours, nb_groupes, split_groupe, code, num_groupe)
-    VALUES (?, ?, ?, ?, ?, ?, 0, ?, 'x', 'IIP', 'IIP', NULL, NULL, 1, 'N', 'A', 1)
-  `).run(section, ue_num, annee, String(code_ept), professeur_id, periodes || 0, numOrg);
+       type_cours, code_cours, nb_groupes, split_groupe, code, num_groupe, activite_id)
+    VALUES (?, ?, ?, ?, ?, ?, 0, ?, 'x', 'IIP', 'IIP', NULL, NULL, 1, 'N', 'A', 1, ?)
+  `).run(section, ue_num, annee, String(code_ept), professeur_id, periodes || 0, numOrg, activite_id || null);
 
   res.json({ ok: true, id: info.lastInsertRowid, num_organisation: numOrg });
 });
