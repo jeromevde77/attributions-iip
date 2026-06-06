@@ -217,6 +217,7 @@ export default function Attributions() {
   const [professeurs, setProfesseurs] = useState([]);
   const [activitesList, setActivitesList] = useState([]);
   const [extDot, setExtDot] = useState({}); // { [attribution_id]: 'EXT'|'DOT'|'EXT+DOT' }
+  const [autAnalyse, setAutAnalyse] = useState({}); // { [ue_num]: { ok, reste } }
   const [filters, setFilters] = useState({ section:'', prof_id:'', contrat:'', type_cours:'', ue_num:'', q:'' });
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
@@ -690,6 +691,12 @@ export default function Attributions() {
           for (const a of (d.attrs || [])) map[a.id] = a.badge;
           setExtDot(map);
         }).catch(() => {});
+      // Charger analyse autonomie par UE (si une section est filtrée)
+      if (f.section) {
+        fetch(`/api/attributions/autonomie-ue?section=${encodeURIComponent(f.section)}&annee=${encodeURIComponent(getAnnee())}`,
+          { headers: { Authorization: `Bearer ${tok}` } })
+          .then(r => r.json()).then(setAutAnalyse).catch(() => {});
+      }
     } catch(e){ console.error(e); }
     finally { setLoading(false); }
   }
@@ -897,6 +904,11 @@ export default function Attributions() {
               </span>
             </span>
             <span className="text-sm text-gray-600 truncate" title={ue.ue_nom}>{ue.ue_nom || 'UE sans nom'}</span>
+            {autAnalyse[ue.ue_num] && (
+              autAnalyse[ue.ue_num].ok
+                ? <span className="text-[10px] px-1.5 py-0.5 rounded bg-green-100 text-green-700 font-medium flex-shrink-0">✓ aut.</span>
+                : <span className="text-[10px] px-1.5 py-0.5 rounded bg-orange-100 text-orange-700 font-medium flex-shrink-0" title={`Reste ${autAnalyse[ue.ue_num].reste} pér. d'autonomie à distribuer`}>⚠ {autAnalyse[ue.ue_num].reste}p aut.</span>
+            )}
             <span className="flex items-center gap-3 text-sm text-gray-500 flex-shrink-0 justify-end whitespace-nowrap">
               <span>{ue.rows.length} attr.</span>
               <span>{st.nCours} cours</span>

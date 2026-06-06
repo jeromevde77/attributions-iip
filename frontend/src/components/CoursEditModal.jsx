@@ -54,6 +54,7 @@ export default function CoursEditModal({ section, codeCours, onClose, onChanged 
   const ueNom    = data?.attributions?.[0]?.ue_nom || data?.cours_info?.ue_nom;
   const coursType = data?.attributions?.[0]?.type_cours || data?.cours_info?.type_cours;
   const [heures, setHeures] = useState('');
+  const ueAnalyse = data?.ue_analyse;
 
   // Initialiser heures depuis data
   useEffect(() => {
@@ -287,6 +288,30 @@ export default function CoursEditModal({ section, codeCours, onClose, onChanged 
                   <div className="text-xs text-violet-600 text-center pt-1 border-t border-violet-100">
                     Temps hors-contact estimé : <strong>{Math.max(0, Math.round(coursPer - Number(heures) * 1.2))} pér.</strong>
                     <span className="text-gray-400"> (corrections, évaluations, préparation...)</span>
+                  </div>
+                )}
+
+                {/* Analyse autonomie UE */}
+                {ueAnalyse && ueAnalyse.total_heures_ue > 0 && (
+                  <div className={`rounded p-2 mt-1 text-xs ${ueAnalyse.ok ? 'bg-green-50 text-green-700' : 'bg-orange-50 text-orange-700'}`}>
+                    <div className="font-semibold mb-1">
+                      {ueAnalyse.ok ? '✅' : '⚠'} Répartition autonomie — UE {ueNum} ({ueAnalyse.nb_cours} cours)
+                    </div>
+                    <div className="grid grid-cols-2 gap-x-4 gap-y-0.5">
+                      <span className="text-gray-500">Contact total UE :</span>
+                      <span className="font-medium">{ueAnalyse.total_heures_ue}h → {ueAnalyse.per_contact_ue} pér.</span>
+                      <span className="text-gray-500">Total DP (cours + aut.) :</span>
+                      <span className="font-medium">{ueAnalyse.per_dp_total} pér.</span>
+                      <span className="text-gray-500">Autonomie nécessaire :</span>
+                      <span className="font-medium">{ueAnalyse.aut_necessaire} pér.</span>
+                      <span className="text-gray-500">Déjà en autonomie :</span>
+                      <span className="font-medium">{ueAnalyse.aut_attribuee} pér.</span>
+                    </div>
+                    <div className={`mt-1 pt-1 border-t font-semibold ${ueAnalyse.ok ? 'border-green-200' : 'border-orange-200'}`}>
+                      {ueAnalyse.ok
+                        ? `✅ Autonomie couverte (excédent : ${Math.abs(ueAnalyse.reste_couvrir)} pér.)`
+                        : `⚠ Reste à couvrir : ${ueAnalyse.reste_couvrir} pér. d'autonomie`}
+                    </div>
                   </div>
                 )}
               </div>
