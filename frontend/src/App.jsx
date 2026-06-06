@@ -60,14 +60,9 @@ function BuildBadge() {
   const dateStr = now.toLocaleDateString('fr-BE', { day: '2-digit', month: '2-digit', year: 'numeric' });
   return (
     <div className="fixed bottom-2 right-2 z-50 text-right pointer-events-none select-none">
-      <div className="bg-white border border-gray-200 rounded-lg px-3 py-1.5 shadow text-xs text-gray-400 leading-tight">
-        <div className="font-semibold text-gray-600 tabular-nums">{dateStr} {timeStr}</div>
-        <div className="flex items-center justify-end gap-1.5 mt-0.5">
-          <span className="bg-iip-gold text-white font-bold px-1.5 py-0.5 rounded text-[11px] tracking-wide">
-            v{versionNum}
-          </span>
-          <span className="font-mono text-[10px] text-gray-400">{shaOnly}</span>
-        </div>
+      <div className="bg-white/90 border border-gray-200 rounded px-2 py-1 shadow-sm text-xs text-gray-400 leading-tight">
+        <div className="tabular-nums">{dateStr} {timeStr}</div>
+        <div className="font-mono text-[10px] text-gray-300">{shaOnly}</div>
       </div>
     </div>
   );
@@ -208,8 +203,11 @@ function ProtectedLayout({ children }) {
             ))}
           </nav>
 
-          {/* User info — empilé verticalement à droite */}
-          <div className="flex items-end gap-3 text-sm flex-shrink-0">
+          {/* User info + version */}
+          <div className="flex items-center gap-3 text-sm flex-shrink-0">
+            <span className="bg-iip-gold text-white font-bold px-2 py-0.5 rounded text-[11px] tracking-wide hidden md:inline">
+              v{versionNum}
+            </span>
             <div className="flex flex-col items-end leading-tight">
               <span className="text-gray-700 font-medium text-sm">{u?.nom || u?.email}</span>
               <span className="text-xs text-iip-mauve font-semibold">{u?.role}</span>
