@@ -216,9 +216,17 @@ export default function CoursFormModal({ cours, ueNum, section, onClose, onSaved
             </div>
             <div className="grid grid-cols-3 gap-3">
               <label className="block">
-                <div className={isZ ? lblZ : lbl}>Heures</div>
+                <div className={isZ ? lblZ : lbl}>
+                  Heures étudiant
+                  <span className="text-[10px] text-gray-400 block font-normal">Contact étudiant (×60 min)</span>
+                </div>
                 <input type="number" min="0" value={form.heures} onChange={e => set('heures', e.target.value)}
                   disabled={isZ} placeholder="0" className={isZ ? inpZ : inp} />
+                {form.heures > 0 && (
+                  <div className="text-[10px] text-iip-gold mt-0.5">
+                    = {Math.round(form.heures * 1.2)} pér. contact étudiant
+                  </div>
+                )}
               </label>
               <label className="block">
                 <div className={isZ ? lblZ : lbl}>Autonomie du cours</div>
