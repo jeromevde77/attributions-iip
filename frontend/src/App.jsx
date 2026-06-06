@@ -46,15 +46,12 @@ const buildLabel = buildDate.toLocaleString('fr-BE', {
   day: '2-digit', month: '2-digit', year: 'numeric',
   hour: '2-digit', minute: '2-digit'
 });
-const shortSha = BUILD_VER === 'dev' ? 'dev' : BUILD_VER.slice(0, 7);
-// versionNum : si BUILD_VER contient un '+', c'est "X.Y.Z+sha" → on prend avant le '+'
-// si pas de '.', c'est un SHA brut → on affiche 'dev'
-const versionNum = BUILD_VER.includes('+')
-  ? BUILD_VER.split('+')[0]
-  : BUILD_VER.includes('.')
-    ? BUILD_VER
-    : 'dev';
-const shaOnly = BUILD_VER.includes('+') ? BUILD_VER.split('+')[1]?.slice(0,7) : shortSha;
+// Version : BUILD_VER peut être "1.2.8+sha" (Vite local), un SHA brut (CI sans fix), ou "dev"
+const _isVersion = BUILD_VER.includes('.');
+const versionNum = _isVersion ? BUILD_VER.split('+')[0] : '1.2.8'; // fallback hardcodé
+const shaOnly = BUILD_VER.includes('+')
+  ? BUILD_VER.split('+')[1]?.slice(0,7)
+  : BUILD_VER === 'dev' ? '' : BUILD_VER.slice(0,7);
 
 function BuildBadge() {
   const [now, setNow] = useState(new Date());
