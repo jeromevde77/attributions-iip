@@ -532,21 +532,10 @@ export default function CoursEditModal({ section, codeCours, onClose, onChanged 
               })()}
 
               {canEdit && (
-                <div className="mt-3 flex items-center gap-2">
-                  <button onClick={addRow}
-                          className="bg-iip-mauve/15 hover:bg-iip-mauve/25 text-iip-mauve text-sm font-medium px-4 py-2 rounded">
-                    ➕ Ajouter une ligne
-                  </button>
-                  <button
-                    onClick={() => {
-                      localStorage.setItem('referentiels_goto', 'activites');
-                      window.location.href = '/referentiels';
-                    }}
-                    title="Ouvrir la gestion des activités dans les Référentiels"
-                    className="text-sm text-gray-500 hover:text-iip-gold border border-gray-200 hover:border-iip-gold/40 px-3 py-2 rounded transition">
-                    🎯 Gérer les activités…
-                  </button>
-                </div>
+                <button onClick={addRow}
+                        className="mt-3 bg-iip-mauve/15 hover:bg-iip-mauve/25 text-iip-mauve text-sm font-medium px-4 py-2 rounded">
+                  ➕ Ajouter une ligne
+                </button>
               )}
             </>
           )}
@@ -559,7 +548,16 @@ export default function CoursEditModal({ section, codeCours, onClose, onChanged 
             {' '}{rows.filter(r => !r._new && r._deleted).length} à supprimer ·
             {' '}{rows.filter(r => !r._new && r._dirty && !r._deleted).length} modifiée(s)
           </div>
-          <div className="flex gap-2">
+          <div className="flex gap-2 items-center">
+            <button
+              onClick={() => {
+                localStorage.setItem('referentiels_goto', 'activites');
+                window.location.href = '/referentiels';
+              }}
+              title="Ouvrir la gestion des activités dans les Référentiels"
+              className="text-sm text-gray-500 hover:text-iip-gold border border-gray-200 hover:border-iip-gold/40 px-3 py-2 rounded transition mr-auto">
+              🎯 Gérer les activités…
+            </button>
             <button onClick={onClose} className="px-4 py-2 text-sm text-gray-600 hover:text-gray-800">Fermer</button>
             {canEdit && (
               <button onClick={save} disabled={saving}
