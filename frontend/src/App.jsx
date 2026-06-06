@@ -48,7 +48,7 @@ const buildLabel = buildDate.toLocaleString('fr-BE', {
 });
 // Version : BUILD_VER peut être "1.2.8+sha" (Vite local), un SHA brut (CI sans fix), ou "dev"
 const _isVersion = BUILD_VER.includes('.');
-const versionNum = _isVersion ? BUILD_VER.split('+')[0] : '1.4.1'; // fallback hardcodé
+const versionNum = _isVersion ? BUILD_VER.split('+')[0] : '1.4.2'; // fallback hardcodé
 const shaOnly = BUILD_VER.includes('+')
   ? BUILD_VER.split('+')[1]?.slice(0,7)
   : BUILD_VER === 'dev' ? '' : BUILD_VER.slice(0,7);
@@ -199,8 +199,8 @@ function ProtectedLayout({ children }) {
           <nav className="hidden md:flex gap-1 flex-1 ml-4">
             {nav.map(([to, lbl]) => (
               <NavLink key={to} to={to} end={to === '/'} className={({ isActive }) =>
-                `px-3 py-1.5 rounded-md text-sm font-medium transition ${
-                  isActive ? 'bg-iip-gold text-white' : 'text-gray-700 hover:bg-iip-gold/10'
+                `nav-underline px-3 py-1.5 rounded-md text-sm font-medium transition-colors duration-200 ${
+                  isActive ? 'bg-iip-gold text-white nav-active' : 'text-gray-700 hover:bg-iip-gold/10'
                 }`
               }>{lbl}</NavLink>
             ))}

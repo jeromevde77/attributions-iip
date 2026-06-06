@@ -808,7 +808,7 @@ export default function Attributions() {
               <button
                 onClick={e => { e.stopPropagation(); saveCell(row.id, 'contrat_mdp', next); }}
                 title={`Payroll : ${v || '—'} (cliquer pour passer à ${next})`}
-                className={`text-[11px] font-bold px-2 py-0.5 rounded border bg-transparent cursor-pointer transition hover:opacity-70 ${
+                className={`badge-interactive text-[11px] font-bold px-2 py-0.5 rounded border bg-transparent ${
                   isHelbContrat
                     ? 'border-pink-500 text-pink-600'
                     : 'border-[#1B2B4B] text-[#1B2B4B]'
