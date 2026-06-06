@@ -395,6 +395,42 @@ r.patch('/:id/desattribuer', authRequired, roleRequired('admin', 'editeur', 'coo
   res.json({ ok: true });
 });
 
+// GET /autonomie-ue?section=&annee= — analyse autonomie pour toutes les UEs d'une section
+r.get('/autonomie-ue', authRequired, (req, res) => {
+  const { section, annee } = req.query;
+  if (!section || !annee) return res.status(400).json({ error: 'section et annee requis' });
+
+  const ues = db.prepare(`
+    SELECT u.ue_num, u.ue_per_cours, u.ue_aut
+    FROM ue u WHERE u.section = ? AND u.annee_scolaire = ?
+  `).all(section, annee);
+
+  const result = ues.map(ue => {
+    const tousLesCours = db.prepare(
+      "SELECT heures FROM cours WHERE ue_num = ? AND annee_scolaire = ? AND (ct_pp IS NULL OR ct_pp != 'Z')"
+    ).all(ue.ue_num, annee);
+
+    const totalHeures = tousLesCours.reduce((s, c) => s + (c.heures || 0), 0);
+    if (totalHeures === 0) return null; // pas d'heures encodées → pas d'analyse
+
+    const perContact = Math.round(totalHeures * 1.2);
+    const perDP = (ue.ue_per_cours || 0) + (ue.ue_aut || 0);
+    const autNecessaire = Math.max(0, Math.round((perDP - perContact) * 10) / 10);
+
+    const autAttribuee = db.prepare(
+      "SELECT COALESCE(SUM(autonomie_attribuee), 0) AS total FROM attribution WHERE ue_num = ? AND annee_scolaire = ? AND contrat_mdp = 'IIP'"
+    ).get(ue.ue_num, annee)?.total || 0;
+
+    const resteCouvrir = Math.round((autNecessaire - autAttribuee) * 10) / 10;
+    return { ue_num: ue.ue_num, ok: resteCouvrir <= 0, reste: resteCouvrir, aut_necessaire: autNecessaire, aut_attribuee: autAttribuee };
+  }).filter(Boolean);
+
+  // Retourner un objet { ue_num → analyse }
+  const map = {};
+  for (const r of result) map[r.ue_num] = r;
+  res.json(map);
+});
+
 r.get('/:id', authRequired, (req, res) => {
   const row = db.prepare('SELECT * FROM v_attribution_complete WHERE id = ?').get(req.params.id);
   if (!row) return res.status(404).json({ error: 'Attribution introuvable' });
@@ -940,39 +976,3 @@ r.post('/copier-section', authRequired, roleRequired('admin', 'editeur'), (req, 
 });
 
 export default r;
-
-// GET /autonomie-ue?section=&annee= — analyse autonomie pour toutes les UEs d'une section
-r.get('/autonomie-ue', authRequired, (req, res) => {
-  const { section, annee } = req.query;
-  if (!section || !annee) return res.status(400).json({ error: 'section et annee requis' });
-
-  const ues = db.prepare(`
-    SELECT u.ue_num, u.ue_per_cours, u.ue_aut
-    FROM ue u WHERE u.section = ? AND u.annee_scolaire = ?
-  `).all(section, annee);
-
-  const result = ues.map(ue => {
-    const tousLesCours = db.prepare(
-      "SELECT heures FROM cours WHERE ue_num = ? AND annee_scolaire = ? AND (ct_pp IS NULL OR ct_pp != 'Z')"
-    ).all(ue.ue_num, annee);
-
-    const totalHeures = tousLesCours.reduce((s, c) => s + (c.heures || 0), 0);
-    if (totalHeures === 0) return null; // pas d'heures encodées → pas d'analyse
-
-    const perContact = Math.round(totalHeures * 1.2);
-    const perDP = (ue.ue_per_cours || 0) + (ue.ue_aut || 0);
-    const autNecessaire = Math.max(0, Math.round((perDP - perContact) * 10) / 10);
-
-    const autAttribuee = db.prepare(
-      "SELECT COALESCE(SUM(autonomie_attribuee), 0) AS total FROM attribution WHERE ue_num = ? AND annee_scolaire = ? AND contrat_mdp = 'IIP'"
-    ).get(ue.ue_num, annee)?.total || 0;
-
-    const resteCouvrir = Math.round((autNecessaire - autAttribuee) * 10) / 10;
-    return { ue_num: ue.ue_num, ok: resteCouvrir <= 0, reste: resteCouvrir, aut_necessaire: autNecessaire, aut_attribuee: autAttribuee };
-  }).filter(Boolean);
-
-  // Retourner un objet { ue_num → analyse }
-  const map = {};
-  for (const r of result) map[r.ue_num] = r;
-  res.json(map);
-});
