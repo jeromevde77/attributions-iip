@@ -523,11 +523,19 @@ export default function Professeurs() {
         <div className="flex gap-2 items-center flex-wrap">
           <div className="relative">
             <input
-              type="search"
+              type="text"
+              role="searchbox"
+              name="recherche-personnel-no-autofill"
               placeholder="🔍 Rechercher..."
               value={search}
               onChange={e => setSearch(e.target.value)}
               autoComplete="off"
+              autoCorrect="off"
+              autoCapitalize="off"
+              spellCheck="false"
+              data-1p-ignore="true"
+              data-lpignore="true"
+              data-form-type="other"
               className="border border-gray-300 rounded-lg pl-3 pr-8 py-1.5 text-sm focus:outline-none focus:border-iip-gold w-48"
             />
             {search && (
