@@ -47,7 +47,13 @@ const buildLabel = buildDate.toLocaleString('fr-BE', {
   hour: '2-digit', minute: '2-digit'
 });
 const shortSha = BUILD_VER === 'dev' ? 'dev' : BUILD_VER.slice(0, 7);
-const versionNum = BUILD_VER === 'dev' ? 'dev' : BUILD_VER.split('+')[0]; // ex: "1.0.0"
+// versionNum : si BUILD_VER contient un '+', c'est "X.Y.Z+sha" → on prend avant le '+'
+// si pas de '.', c'est un SHA brut → on affiche 'dev'
+const versionNum = BUILD_VER.includes('+')
+  ? BUILD_VER.split('+')[0]
+  : BUILD_VER.includes('.')
+    ? BUILD_VER
+    : 'dev';
 const shaOnly = BUILD_VER.includes('+') ? BUILD_VER.split('+')[1]?.slice(0,7) : shortSha;
 
 function BuildBadge() {
