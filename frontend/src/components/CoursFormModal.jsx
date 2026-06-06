@@ -243,6 +243,40 @@ export default function CoursFormModal({ cours, ueNum, section, onClose, onSaved
               </label>
             </div>
 
+            {/* ── ENCART VUE ÉTUDIANT ───────────────────────────────────── */}
+            {!isZ && (form.heures > 0 || form.cours_per > 0) && (
+              <div className="bg-violet-50 border border-violet-200 rounded-lg p-3 space-y-1.5">
+                <div className="text-xs font-semibold text-violet-700 uppercase tracking-wider flex items-center gap-1.5">
+                  🎓 Vue étudiant
+                </div>
+                <div className="grid grid-cols-3 gap-3 text-center">
+                  <div className="bg-white rounded border border-violet-100 p-2">
+                    <div className="text-[10px] text-gray-500 mb-0.5">Heures de contact</div>
+                    <div className="font-bold text-violet-700 text-lg">{form.heures || '—'} h</div>
+                    <div className="text-[10px] text-gray-400">×60 min</div>
+                  </div>
+                  <div className="bg-white rounded border border-violet-100 p-2">
+                    <div className="text-[10px] text-gray-500 mb-0.5">Pér. contact (×1.2)</div>
+                    <div className="font-bold text-violet-600 text-lg">
+                      {form.heures ? Math.round(form.heures * 1.2) : '—'}
+                    </div>
+                    <div className="text-[10px] text-gray-400">périodes 50 min</div>
+                  </div>
+                  <div className="bg-white rounded border border-violet-100 p-2">
+                    <div className="text-[10px] text-gray-500 mb-0.5">Pér. dossier pédag.</div>
+                    <div className="font-bold text-iip-gold text-lg">{form.cours_per || '—'}</div>
+                    <div className="text-[10px] text-gray-400">périodes prof.</div>
+                  </div>
+                </div>
+                {form.heures > 0 && form.cours_per > 0 && (
+                  <div className="text-xs text-violet-600 text-center pt-1 border-t border-violet-100">
+                    Temps hors-contact estimé : <strong>{Math.max(0, Math.round(form.cours_per - form.heures * 1.2))} pér.</strong>
+                    <span className="text-gray-400"> (corrections, évaluations, préparation...)</span>
+                  </div>
+                )}
+              </div>
+            )}
+
             {/* Case Stage */}
             {!isZ && (
               <label className="flex items-center gap-3 p-3 border border-gray-200 rounded-lg hover:bg-gray-50 cursor-pointer mt-2">
