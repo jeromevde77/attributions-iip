@@ -291,26 +291,43 @@ export default function CoursEditModal({ section, codeCours, onClose, onChanged 
                   </div>
                 )}
 
-                {/* Analyse autonomie UE */}
-                {ueAnalyse && ueAnalyse.total_heures_ue > 0 && (
+                {/* Analyse autonomie UE — intervalle [min ; max] */}
+                {ueAnalyse && ueAnalyse.per_ouvertes > 0 && (
                   <div className={`rounded p-2 mt-1 text-xs ${ueAnalyse.ok ? 'bg-green-50 text-green-700' : 'bg-orange-50 text-orange-700'}`}>
                     <div className="font-semibold mb-1">
-                      {ueAnalyse.ok ? '✅' : '⚠'} Répartition autonomie — UE {ueNum} ({ueAnalyse.nb_cours} cours)
+                      {ueAnalyse.ok ? '✅' : '⚠'} Autonomie UE {ueNum} ({ueAnalyse.nb_cours} cours)
                     </div>
                     <div className="grid grid-cols-2 gap-x-4 gap-y-0.5">
-                      <span className="text-gray-500">Contact total UE :</span>
-                      <span className="font-medium">{ueAnalyse.total_heures_ue}h → {ueAnalyse.per_contact_ue} pér.</span>
-                      <span className="text-gray-500">Total DP (cours + aut.) :</span>
-                      <span className="font-medium">{ueAnalyse.per_dp_total} pér.</span>
-                      <span className="text-gray-500">Autonomie nécessaire :</span>
-                      <span className="font-medium">{ueAnalyse.aut_necessaire} pér.</span>
-                      <span className="text-gray-500">Déjà en autonomie :</span>
+                      <span className="text-gray-500">Pér. cours DP :</span>
+                      <span className="font-medium">{ueAnalyse.per_cours_dp} pér.</span>
+                      <span className="text-gray-500">Pér. cours ouvertes :</span>
+                      <span className="font-medium">{ueAnalyse.per_ouvertes} pér.{ueAnalyse.per_ajoutees > 0 && ` (+${ueAnalyse.per_ajoutees} dédoubl.)`}</span>
+                      <span className="text-gray-500">Autonomie DP (min) :</span>
+                      <span className="font-medium">{ueAnalyse.ue_aut} pér.</span>
+                      {ueAnalyse.multiple_obligatoire ? (
+                        <>
+                          <span className="text-gray-500">Tous dédoublés ×{ueAnalyse.multiple_obligatoire} :</span>
+                          <span className="font-medium">autonomie = {ueAnalyse.attendu} pér. (obligatoire)</span>
+                        </>
+                      ) : (
+                        <>
+                          <span className="text-gray-500">Autonomie max (20% ajout) :</span>
+                          <span className="font-medium">{ueAnalyse.max} pér.</span>
+                        </>
+                      )}
+                      <span className="text-gray-500">Déjà attribuée :</span>
                       <span className="font-medium">{ueAnalyse.aut_attribuee} pér.</span>
                     </div>
                     <div className={`mt-1 pt-1 border-t font-semibold ${ueAnalyse.ok ? 'border-green-200' : 'border-orange-200'}`}>
                       {ueAnalyse.ok
-                        ? `✅ Autonomie couverte (excédent : ${Math.abs(ueAnalyse.reste_couvrir)} pér.)`
-                        : `⚠ Reste à couvrir : ${ueAnalyse.reste_couvrir} pér. d'autonomie`}
+                        ? (ueAnalyse.multiple_obligatoire
+                            ? `✅ Autonomie conforme (${ueAnalyse.attendu} pér.)`
+                            : `✅ Autonomie dans l'intervalle [${ueAnalyse.min} ; ${ueAnalyse.max}]`)
+                        : (ueAnalyse.multiple_obligatoire
+                            ? `⚠ Tous les cours dédoublés ×${ueAnalyse.multiple_obligatoire} → l'autonomie doit être ${ueAnalyse.attendu} pér.`
+                            : ueAnalyse.depasse_max
+                              ? `⚠ Autonomie ${ueAnalyse.aut_attribuee} > max ${ueAnalyse.max} → utiliser EPT ligne 96 pour le surplus`
+                              : `⚠ Autonomie ${ueAnalyse.aut_attribuee} hors intervalle [${ueAnalyse.min} ; ${ueAnalyse.max}]`)}
                     </div>
                   </div>
                 )}

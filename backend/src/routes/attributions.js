@@ -5,6 +5,75 @@ import { saveSnapshot } from '../helpers/snapshot.js';
 
 const r = Router();
 
+// ── Analyse de l'autonomie d'une UE (intervalle min/max) ─────────────────────
+// Borne MIN = ue_aut (DP)
+// Borne MAX = ue_aut + 20% des périodes de cours AJOUTÉES par les dédoublements
+// Cas spécial : si TOUS les cours sont dédoublés ×N → autonomie attendue = ue_aut × N (obligatoire)
+function analyseAutonomieUE(ue_num, section, annee, ueRow) {
+  const ue = ueRow || db.prepare('SELECT ue_per_cours, ue_aut FROM ue WHERE ue_num = ? AND annee_scolaire = ?').get(ue_num, annee);
+  if (!ue) return null;
+
+  const ueAut = ue.ue_aut || 0;
+  const perCoursDP = ue.ue_per_cours || 0; // périodes de cours prévues au DP (hors autonomie)
+
+  // Cours de l'UE (hors Z) avec leurs périodes DP
+  const cours = db.prepare(
+    "SELECT cours_code, cours_per FROM cours WHERE ue_num = ? AND section = ? AND annee_scolaire = ? AND (ct_pp IS NULL OR ct_pp != 'Z')"
+  ).all(ue_num, section, annee);
+
+  // Périodes de cours réellement attribuées (somme des lignes, hors autonomie, hors EPT/Z)
+  const perOuvertes = db.prepare(`
+    SELECT COALESCE(SUM(periodes_attribuees), 0) AS total
+    FROM attribution
+    WHERE ue_num = ? AND section = ? AND annee_scolaire = ? AND contrat_mdp = 'IIP'
+      AND (coordination_encadrement IS NULL OR coordination_encadrement NOT IN ('91','92','93','94','95','96','97','98','99'))
+      AND (type_cours IS NULL OR type_cours != 'Z')
+  `).get(ue_num, section, annee)?.total || 0;
+
+  // Autonomie déjà attribuée
+  const autAttribuee = db.prepare(
+    "SELECT COALESCE(SUM(autonomie_attribuee), 0) AS total FROM attribution WHERE ue_num = ? AND section = ? AND annee_scolaire = ? AND contrat_mdp = 'IIP'"
+  ).get(ue_num, section, annee)?.total || 0;
+
+  // Périodes de cours ajoutées par dédoublement = ouvertes − DP
+  const perAjoutees = Math.max(0, perOuvertes - perCoursDP);
+
+  // Détection "tous dédoublés ×N" : chaque cours attribué exactement N fois ses périodes DP
+  let multipleObligatoire = null;
+  if (perCoursDP > 0 && perOuvertes > 0 && perOuvertes % perCoursDP === 0) {
+    const ratio = perOuvertes / perCoursDP;
+    if (ratio >= 2 && Number.isInteger(ratio)) multipleObligatoire = ratio;
+  }
+
+  const min = ueAut;
+  const max = Math.round((ueAut + 0.20 * perAjoutees) * 10) / 10;
+
+  let attendu = null, ok;
+  if (multipleObligatoire) {
+    // Tous dédoublés → autonomie DOIT être ue_aut × N
+    attendu = ueAut * multipleObligatoire;
+    ok = Math.abs(autAttribuee - attendu) < 0.5;
+  } else {
+    // Doit rester dans l'intervalle [min ; max]
+    ok = autAttribuee >= min - 0.5 && autAttribuee <= max + 0.5;
+  }
+
+  return {
+    ue_aut: ueAut,
+    per_cours_dp: perCoursDP,
+    per_ouvertes: perOuvertes,
+    per_ajoutees: perAjoutees,
+    aut_attribuee: autAttribuee,
+    min, max,
+    multiple_obligatoire: multipleObligatoire,
+    attendu,
+    ok,
+    nb_cours: cours.length,
+    depasse_max: !multipleObligatoire && autAttribuee > max + 0.5,
+  };
+}
+
+
 // Liste avec filtres : ?section=...&prof_id=...&contrat=...&ue=...&q=...
 r.get('/', authRequired, withSectionScope, (req, res) => {
   const { section, prof_id, contrat, ue, ue_num, q, type_cours, annee } = req.query;
@@ -138,34 +207,7 @@ r.get('/by-cours', authRequired, (req, res) => {
     ueNom = ue?.ue_nom || null;
 
     if (ue) {
-      // Tous les cours de l'UE avec leurs heures
-      const tousLesCours = db.prepare(
-        'SELECT cours_code, cours_per, heures FROM cours WHERE ue_num = ? AND annee_scolaire = ? AND (ct_pp IS NULL OR ct_pp != \'Z\')'
-      ).all(coursInfo.ue_num, anneeVal);
-
-      // Autonomie déjà attribuée sur l'UE entière
-      const autAttribuee = db.prepare(
-        'SELECT COALESCE(SUM(autonomie_attribuee), 0) AS total FROM attribution WHERE ue_num = ? AND annee_scolaire = ? AND contrat_mdp = \'IIP\''
-      ).get(coursInfo.ue_num, anneeVal)?.total || 0;
-
-      const totalHeures = tousLesCours.reduce((s, c) => s + (c.heures || 0), 0);
-      const perContact  = Math.round(totalHeures * 1.2);
-      const perDP       = (ue.ue_per_cours || 0) + (ue.ue_aut || 0);
-      const autNecessaire = Math.max(0, Math.round((perDP - perContact) * 10) / 10);
-      const resteCouvrir  = Math.round((autNecessaire - autAttribuee) * 10) / 10;
-
-      ueAnalyse = {
-        ue_per_cours:    ue.ue_per_cours || 0,
-        ue_aut:          ue.ue_aut || 0,
-        per_dp_total:    perDP,
-        total_heures_ue: totalHeures,
-        per_contact_ue:  perContact,
-        aut_necessaire:  autNecessaire,
-        aut_attribuee:   autAttribuee,
-        reste_couvrir:   resteCouvrir,
-        ok:              resteCouvrir <= 0,
-        nb_cours:        tousLesCours.length,
-      };
+      ueAnalyse = analyseAutonomieUE(coursInfo.ue_num, section, anneeVal, ue);
     }
   }
 
@@ -405,29 +447,12 @@ r.get('/autonomie-ue', authRequired, (req, res) => {
     FROM ue u WHERE u.section = ? AND u.annee_scolaire = ?
   `).all(section, annee);
 
-  const result = ues.map(ue => {
-    const tousLesCours = db.prepare(
-      "SELECT heures FROM cours WHERE ue_num = ? AND section = ? AND annee_scolaire = ? AND (ct_pp IS NULL OR ct_pp != 'Z')"
-    ).all(ue.ue_num, section, annee);
-
-    const totalHeures = tousLesCours.reduce((s, c) => s + (c.heures || 0), 0);
-    if (totalHeures === 0) return null; // pas d'heures encodées → pas d'analyse
-
-    const perContact = Math.round(totalHeures * 1.2);
-    const perDP = (ue.ue_per_cours || 0) + (ue.ue_aut || 0);
-    const autNecessaire = Math.max(0, Math.round((perDP - perContact) * 10) / 10);
-
-    const autAttribuee = db.prepare(
-      "SELECT COALESCE(SUM(autonomie_attribuee), 0) AS total FROM attribution WHERE ue_num = ? AND section = ? AND annee_scolaire = ? AND contrat_mdp = 'IIP'"
-    ).get(ue.ue_num, section, annee)?.total || 0;
-
-    const resteCouvrir = Math.round((autNecessaire - autAttribuee) * 10) / 10;
-    return { ue_num: ue.ue_num, ok: resteCouvrir <= 0, reste: resteCouvrir, aut_necessaire: autNecessaire, aut_attribuee: autAttribuee };
-  }).filter(Boolean);
-
-  // Retourner un objet { ue_num → analyse }
   const map = {};
-  for (const r of result) map[r.ue_num] = r;
+  for (const ue of ues) {
+    const a = analyseAutonomieUE(ue.ue_num, section, annee, ue);
+    // N'afficher le badge que si l'UE a des cours ouverts (attribution en cours)
+    if (a && a.per_ouvertes > 0) map[ue.ue_num] = a;
+  }
   res.json(map);
 });
 
