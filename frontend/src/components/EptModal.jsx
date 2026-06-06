@@ -1,5 +1,4 @@
 import { useState, useEffect } from 'react';
-import { api } from '../lib/api.js';
 
 const CODES_EPT = [
   { code: '95', label: 'ExPT — Expertise Pédagogique et Technique' },
@@ -12,9 +11,10 @@ const CODES_EPT = [
 export default function EptModal({ section, ue_num, ue_nom, annee, onClose }) {
   const [lignes, setLignes]       = useState([]);
   const [profs, setProfs]         = useState([]);
+  const [activites, setActivites] = useState([]);
   const [loading, setLoading]     = useState(true);
   const [saving, setSaving]       = useState(false);
-  const [form, setForm]           = useState({ code_ept: '95', professeur_id: '', periodes: '' });
+  const [form, setForm]           = useState({ code_ept: '95', professeur_id: '', periodes: '', activite_id: '' });
   const [numOrg, setNumOrg]       = useState(null);
 
   async function charger() {
@@ -33,10 +33,11 @@ export default function EptModal({ section, ue_num, ue_nom, annee, onClose }) {
 
   useEffect(() => {
     charger();
-    // Charger la liste des profs
     const tok = localStorage.getItem('token');
     fetch('/api/ref/professeurs?tous=1', { headers: { Authorization: `Bearer ${tok}` } })
       .then(r => r.json()).then(setProfs).catch(() => {});
+    fetch('/api/ref/activites', { headers: { Authorization: `Bearer ${tok}` } })
+      .then(r => r.json()).then(d => setActivites(Array.isArray(d) ? d : [])).catch(() => {});
   }, []);
 
   async function ajouterLigne() {
@@ -52,11 +53,12 @@ export default function EptModal({ section, ue_num, ue_nom, annee, onClose }) {
           code_ept: form.code_ept,
           professeur_id: parseInt(form.professeur_id),
           periodes: parseInt(form.periodes),
+          activite_id: form.activite_id ? parseInt(form.activite_id) : null,
           num_organisation: numOrg || undefined,
         }),
       }).then(r => r.json());
       await charger();
-      setForm(f => ({ ...f, periodes: '' }));
+      setForm(f => ({ ...f, periodes: '', activite_id: '' }));
     } catch(e) { alert('Erreur : ' + e.message); }
     finally { setSaving(false); }
   }
@@ -74,7 +76,6 @@ export default function EptModal({ section, ue_num, ue_nom, annee, onClose }) {
   return (
     <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4">
       <div className="bg-white rounded-xl shadow-2xl w-full max-w-2xl flex flex-col max-h-[90vh]">
-        {/* Header */}
         <div className="flex items-center justify-between px-6 py-4 border-b">
           <div>
             <div className="font-bold text-iip-gold text-lg">Lignes EPT — UE {ue_num}</div>
@@ -83,7 +84,6 @@ export default function EptModal({ section, ue_num, ue_nom, annee, onClose }) {
           <button onClick={onClose} className="text-gray-400 hover:text-red-500 text-2xl">×</button>
         </div>
 
-        {/* Lignes existantes */}
         <div className="overflow-y-auto flex-1 px-6 py-4">
           {loading ? (
             <div className="text-gray-400 text-sm text-center py-4">Chargement...</div>
@@ -94,8 +94,8 @@ export default function EptModal({ section, ue_num, ue_nom, annee, onClose }) {
               <thead className="bg-gray-50 text-xs text-gray-500">
                 <tr>
                   <th className="px-3 py-2 text-left">Code</th>
-                  <th className="px-3 py-2 text-left">Type</th>
                   <th className="px-3 py-2 text-left">Professeur</th>
+                  <th className="px-3 py-2 text-left">Activité</th>
                   <th className="px-3 py-2 text-right">Périodes</th>
                   <th className="px-3 py-2 text-center">Org.</th>
                   <th className="px-3 py-2"></th>
@@ -105,8 +105,8 @@ export default function EptModal({ section, ue_num, ue_nom, annee, onClose }) {
                 {lignes.map((l, i) => (
                   <tr key={l.id} className={`border-t ${i % 2 === 0 ? '' : 'bg-gray-50'}`}>
                     <td className="px-3 py-2 font-mono font-bold text-blue-700">{l.code_ept}</td>
-                    <td className="px-3 py-2 text-xs text-gray-600">{l.libelle_ept}</td>
                     <td className="px-3 py-2">{l.prof_nom}</td>
+                    <td className="px-3 py-2 text-xs text-gray-500">{l.activite_nom || '—'}</td>
                     <td className="px-3 py-2 text-right font-semibold">{l.periodes}</td>
                     <td className="px-3 py-2 text-center text-gray-400 text-xs">Org {l.num_organisation}</td>
                     <td className="px-3 py-2 text-center">
@@ -145,8 +145,18 @@ export default function EptModal({ section, ue_num, ue_nom, annee, onClose }) {
               <select value={form.professeur_id} onChange={e => setForm(f => ({ ...f, professeur_id: e.target.value }))}
                 className="w-full border border-gray-300 rounded px-2 py-1.5 text-sm bg-white">
                 <option value="">— Choisir un professeur —</option>
-                {[...profs].sort((a,b) => a.nom.localeCompare(b.nom)).map(p => (
+                {[...profs].filter(p => p.nom !== 'À DÉSIGNER').sort((a,b) => a.nom.localeCompare(b.nom)).map(p => (
                   <option key={p.id} value={p.id}>{p.nom} {p.prenom}</option>
+                ))}
+              </select>
+            </div>
+            <div className="mb-3">
+              <label className="block text-xs text-gray-500 mb-1">Activité <span className="text-gray-400">(décrit la tâche à l'enseignant)</span></label>
+              <select value={form.activite_id} onChange={e => setForm(f => ({ ...f, activite_id: e.target.value }))}
+                className="w-full border border-gray-300 rounded px-2 py-1.5 text-sm bg-white">
+                <option value="">— Aucune activité —</option>
+                {activites.map(a => (
+                  <option key={a.id} value={a.id}>{a.libelle}</option>
                 ))}
               </select>
             </div>

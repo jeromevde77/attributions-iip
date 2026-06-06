@@ -402,7 +402,7 @@ SELECT
     u.ue_code_fwb    AS codification_unite,
     a.num_organisation,
     a.code_cours,
-    c.cours_nom      AS nom_cours,
+    COALESCE(c.cours_nom, te.libelle, a.coordination_encadrement) AS nom_cours,
     a.commentaire,
     a.commentaire_2,
     a.type_cours,
@@ -511,7 +511,8 @@ FROM attribution a
 LEFT JOIN ue            u  ON u.ue_num     = a.ue_num     AND u.annee_scolaire = a.annee_scolaire
 LEFT JOIN cours         c  ON c.cours_code = a.code_cours AND c.annee_scolaire = a.annee_scolaire
 LEFT JOIN professeur    p  ON p.id         = a.professeur_id
-LEFT JOIN activite_type at ON at.id        = a.activite_id;
+LEFT JOIN activite_type at ON at.id        = a.activite_id
+LEFT JOIN type_encadrement te ON te.code   = a.coordination_encadrement;
 
 -- Vue Total_per par professeur (= colonne Total_per du Tableau4 Coordonnées_professeurs)
 DROP VIEW IF EXISTS v_professeur_total;
