@@ -336,35 +336,25 @@ function DotationComparaison({ civil }) {
 
       {data && (
         <div className="bg-white rounded-xl border border-gray-200 overflow-x-auto">
-          <div className="px-4 py-2 border-b flex items-center gap-2 text-xs text-gray-400">
-            {potFilter === 'TOUT'
-              ? (pondere ? 'IIP pér. B pondérées + HELB brut' : 'IIP pér. brutes + HELB brut')
-              : potFilter === 'HELB' || !pondere ? 'Périodes brutes (sans pondération)' : 'Pér. B · ×1.5 SUP · ×1.25 DS'} ·
-            {potFilter ? <span className="ml-1 bg-iip-gold/10 text-iip-gold font-semibold px-2 py-0.5 rounded">{potFilter}</span> : <span className="ml-1 bg-gray-100 text-gray-500 px-2 py-0.5 rounded">Toutes (IIP)</span>}
-          </div>
           <table className="w-full text-sm border-collapse">
             <thead>
-              <tr className="bg-iip-gold text-white text-xs">
-                <Th col="nom" align="left" style={{position:'sticky',left:0,background:'#1B2B4B',zIndex:10}}>Section / UE</Th>
-                <Th col="niv" align="center">Niv.</Th>
-                <Th col="quad" align="center">Quad.</Th>
-                <th className="px-2 py-1 text-center border-l border-white/30" colSpan={3}
-                  style={{background:'rgba(255,255,255,.12)'}}>{annee1}</th>
-                <th className="px-2 py-1 text-center border-l border-white/30" colSpan={3}
-                  style={{background:'rgba(255,255,255,.06)'}}>{annee2}</th>
-                <Th col="delta" align="center" style={{borderLeft:'1px solid rgba(255,255,255,.3)'}}>Δ</Th>
+              <tr className="text-white text-xs" style={{ background: '#1B2B4B' }}>
+                <Th col="nom" align="left" rowSpan={2} style={{position:'sticky',left:0,background:'#1B2B4B',zIndex:10,verticalAlign:'bottom',paddingBottom:'0.5rem'}}>Section / UE</Th>
+                <Th col="niv" align="center" rowSpan={2} style={{verticalAlign:'bottom',paddingBottom:'0.5rem'}}>Niv.</Th>
+                <Th col="quad" align="center" rowSpan={2} style={{verticalAlign:'bottom',paddingBottom:'0.5rem'}}>Quad.</Th>
+                <th className="px-2 py-1.5 text-center font-semibold" colSpan={3}
+                  style={{borderLeft:'1px solid rgba(255,255,255,.18)'}}>{annee1}</th>
+                <th className="px-2 py-1.5 text-center font-semibold" colSpan={3}
+                  style={{borderLeft:'1px solid rgba(255,255,255,.18)'}}>{annee2}</th>
+                <Th col="delta" align="center" rowSpan={2} style={{borderLeft:'1px solid rgba(255,255,255,.18)',verticalAlign:'bottom',paddingBottom:'0.5rem'}}>Δ</Th>
               </tr>
-              <tr className="bg-iip-gold/80 text-white text-[10px]">
-                <th style={{position:'sticky',left:0,background:'rgba(27,43,75,.8)',zIndex:10,width:colW.nom}}></th>
-                <th style={{width:colW.niv}}></th>
-                <th style={{width:colW.quad}}></th>
-                <Th col="q1a" align="right" style={{borderLeft:'1px solid rgba(255,255,255,.2)'}}>Q1</Th>
-                <Th col="q2a" align="right">Q2</Th>
-                <Th col="ta" align="right" style={{fontWeight:'bold'}}>Total B</Th>
-                <Th col="q1b" align="right" style={{borderLeft:'1px solid rgba(255,255,255,.2)'}}>Q1</Th>
-                <Th col="q2b" align="right">Q2</Th>
-                <Th col="tb" align="right" style={{fontWeight:'bold'}}>Total B</Th>
-                <th style={{width:colW.delta}}></th>
+              <tr className="text-white/80 text-[10px]" style={{ background: '#1B2B4B' }}>
+                <Th col="q1a" align="right" style={{borderLeft:'1px solid rgba(255,255,255,.12)',fontWeight:'normal'}}>Q1</Th>
+                <Th col="q2a" align="right" style={{fontWeight:'normal'}}>Q2</Th>
+                <Th col="ta" align="right" style={{fontWeight:'600'}}>Total</Th>
+                <Th col="q1b" align="right" style={{borderLeft:'1px solid rgba(255,255,255,.12)',fontWeight:'normal'}}>Q1</Th>
+                <Th col="q2b" align="right" style={{fontWeight:'normal'}}>Q2</Th>
+                <Th col="tb" align="right" style={{fontWeight:'600'}}>Total</Th>
               </tr>
             </thead>
             <tbody>
@@ -440,6 +430,12 @@ function DotationComparaison({ civil }) {
               </tr>
             </tbody>
           </table>
+          <div className="px-4 py-2 border-t border-gray-100 text-[11px] text-gray-400">
+            {potFilter === 'TOUT'
+              ? (pondere ? 'IIP en pér. B pondérées + HELB en brut' : 'IIP + HELB en périodes brutes')
+              : potFilter === 'HELB' || !pondere ? 'Périodes brutes (sans pondération)' : 'Périodes B pondérées · ×1.5 SUP · ×1.25 DS'}
+            {mode === 'civil' && ' · année civile = Q2 (sept→déc) + Q1 (janv→juin)'}
+          </div>
         </div>
       )}
     </div>
