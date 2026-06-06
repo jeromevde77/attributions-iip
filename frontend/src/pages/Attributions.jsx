@@ -692,11 +692,13 @@ export default function Attributions() {
           setExtDot(map);
         }).catch(() => {});
       // Charger analyse autonomie par UE
-      const sectionCourante = f.section || (a[0]?.section);
+      const sectionCourante = f.section || (Array.isArray(a) && a[0]?.section) || '';
       if (sectionCourante) {
         fetch(`/api/attributions/autonomie-ue?section=${encodeURIComponent(sectionCourante)}&annee=${encodeURIComponent(getAnnee())}`,
           { headers: { Authorization: `Bearer ${tok}` } })
-          .then(r => r.json()).then(setAutAnalyse).catch(() => {});
+          .then(r => r.json()).then(d => setAutAnalyse(d || {})).catch(() => {});
+      } else {
+        setAutAnalyse({});
       }
     } catch(e){ console.error(e); }
     finally { setLoading(false); }
@@ -905,10 +907,10 @@ export default function Attributions() {
               </span>
             </span>
             <span className="text-sm text-gray-600 truncate" title={ue.ue_nom}>{ue.ue_nom || 'UE sans nom'}</span>
-            {autAnalyse[ue.ue_num] && (
-              autAnalyse[ue.ue_num].ok
+            {autAnalyse[String(ue.ue_num)] && (
+              autAnalyse[String(ue.ue_num)].ok
                 ? <span className="text-[10px] px-1.5 py-0.5 rounded bg-green-100 text-green-700 font-medium flex-shrink-0">✓ aut.</span>
-                : <span className="text-[10px] px-1.5 py-0.5 rounded bg-orange-100 text-orange-700 font-medium flex-shrink-0" title={`Reste ${autAnalyse[ue.ue_num].reste} pér. d'autonomie à distribuer`}>⚠ {autAnalyse[ue.ue_num].reste}p aut.</span>
+                : <span className="text-[10px] px-1.5 py-0.5 rounded bg-orange-100 text-orange-700 font-medium flex-shrink-0" title={`Reste ${autAnalyse[String(ue.ue_num)].reste} pér. d'autonomie à distribuer`}>⚠ {autAnalyse[String(ue.ue_num)].reste}p aut.</span>
             )}
             <span className="flex items-center gap-3 text-sm text-gray-500 flex-shrink-0 justify-end whitespace-nowrap">
               <span>{ue.rows.length} attr.</span>
