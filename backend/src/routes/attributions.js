@@ -122,7 +122,7 @@ r.get('/by-cours', authRequired, (req, res) => {
     SELECT * FROM v_cours_conformite WHERE section = ? AND code_cours = ? AND annee_scolaire = ?
   `).get(section, code_cours, anneeVal);
 
-  // Infos du cours depuis la table cours (pour les nouvelles lignes même sans attribution existante)
+  // Infos du cours depuis la table cours
   const coursInfo = db.prepare(`
     SELECT cours_code, cours_nom, ue_num, ct_pp AS type_cours, cours_per, quadrimestre_cours, heures
     FROM cours WHERE cours_code = ? AND section = ? AND annee_scolaire = ?
@@ -130,17 +130,50 @@ r.get('/by-cours', authRequired, (req, res) => {
     || db.prepare(`SELECT cours_code, cours_nom, ue_num, ct_pp AS type_cours, cours_per, quadrimestre_cours, heures
                    FROM cours WHERE cours_code = ? AND annee_scolaire = ?`).get(code_cours, anneeVal);
 
-  // Nom de l'UE
+  // Nom et données de l'UE
   let ueNom = null;
+  let ueAnalyse = null;
   if (coursInfo?.ue_num) {
-    const ue = db.prepare('SELECT ue_nom FROM ue WHERE ue_num = ? AND annee_scolaire = ?').get(coursInfo.ue_num, anneeVal);
+    const ue = db.prepare('SELECT ue_nom, ue_per_cours, ue_aut FROM ue WHERE ue_num = ? AND annee_scolaire = ?').get(coursInfo.ue_num, anneeVal);
     ueNom = ue?.ue_nom || null;
+
+    if (ue) {
+      // Tous les cours de l'UE avec leurs heures
+      const tousLesCours = db.prepare(
+        'SELECT cours_code, cours_per, heures FROM cours WHERE ue_num = ? AND annee_scolaire = ? AND (ct_pp IS NULL OR ct_pp != \'Z\')'
+      ).all(coursInfo.ue_num, anneeVal);
+
+      // Autonomie déjà attribuée sur l'UE entière
+      const autAttribuee = db.prepare(
+        'SELECT COALESCE(SUM(autonomie_attribuee), 0) AS total FROM attribution WHERE ue_num = ? AND annee_scolaire = ? AND contrat_mdp = \'IIP\''
+      ).get(coursInfo.ue_num, anneeVal)?.total || 0;
+
+      const totalHeures = tousLesCours.reduce((s, c) => s + (c.heures || 0), 0);
+      const perContact  = Math.round(totalHeures * 1.2);
+      const perDP       = (ue.ue_per_cours || 0) + (ue.ue_aut || 0);
+      const autNecessaire = Math.max(0, Math.round((perDP - perContact) * 10) / 10);
+      const resteCouvrir  = Math.round((autNecessaire - autAttribuee) * 10) / 10;
+
+      ueAnalyse = {
+        ue_per_cours:    ue.ue_per_cours || 0,
+        ue_aut:          ue.ue_aut || 0,
+        per_dp_total:    perDP,
+        total_heures_ue: totalHeures,
+        per_contact_ue:  perContact,
+        aut_necessaire:  autNecessaire,
+        aut_attribuee:   autAttribuee,
+        reste_couvrir:   resteCouvrir,
+        ok:              resteCouvrir <= 0,
+        nb_cours:        tousLesCours.length,
+      };
+    }
   }
 
   res.json({
     attributions: rows,
     conformite: conf || null,
-    cours_info: coursInfo ? { ...coursInfo, ue_nom: ueNom } : null
+    cours_info: coursInfo ? { ...coursInfo, ue_nom: ueNom } : null,
+    ue_analyse: ueAnalyse,
   });
 });
 
@@ -907,3 +940,39 @@ r.post('/copier-section', authRequired, roleRequired('admin', 'editeur'), (req, 
 });
 
 export default r;
+
+// GET /autonomie-ue?section=&annee= — analyse autonomie pour toutes les UEs d'une section
+r.get('/autonomie-ue', authRequired, (req, res) => {
+  const { section, annee } = req.query;
+  if (!section || !annee) return res.status(400).json({ error: 'section et annee requis' });
+
+  const ues = db.prepare(`
+    SELECT u.ue_num, u.ue_per_cours, u.ue_aut
+    FROM ue u WHERE u.section = ? AND u.annee_scolaire = ?
+  `).all(section, annee);
+
+  const result = ues.map(ue => {
+    const tousLesCours = db.prepare(
+      "SELECT heures FROM cours WHERE ue_num = ? AND annee_scolaire = ? AND (ct_pp IS NULL OR ct_pp != 'Z')"
+    ).all(ue.ue_num, annee);
+
+    const totalHeures = tousLesCours.reduce((s, c) => s + (c.heures || 0), 0);
+    if (totalHeures === 0) return null; // pas d'heures encodées → pas d'analyse
+
+    const perContact = Math.round(totalHeures * 1.2);
+    const perDP = (ue.ue_per_cours || 0) + (ue.ue_aut || 0);
+    const autNecessaire = Math.max(0, Math.round((perDP - perContact) * 10) / 10);
+
+    const autAttribuee = db.prepare(
+      "SELECT COALESCE(SUM(autonomie_attribuee), 0) AS total FROM attribution WHERE ue_num = ? AND annee_scolaire = ? AND contrat_mdp = 'IIP'"
+    ).get(ue.ue_num, annee)?.total || 0;
+
+    const resteCouvrir = Math.round((autNecessaire - autAttribuee) * 10) / 10;
+    return { ue_num: ue.ue_num, ok: resteCouvrir <= 0, reste: resteCouvrir, aut_necessaire: autNecessaire, aut_attribuee: autAttribuee };
+  }).filter(Boolean);
+
+  // Retourner un objet { ue_num → analyse }
+  const map = {};
+  for (const r of result) map[r.ue_num] = r;
+  res.json(map);
+});
