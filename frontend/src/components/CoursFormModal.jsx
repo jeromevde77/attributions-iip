@@ -222,9 +222,9 @@ export default function CoursFormModal({ cours, ueNum, section, onClose, onSaved
                 </div>
                 <input type="number" min="0" value={form.heures} onChange={e => set('heures', e.target.value)}
                   disabled={isZ} placeholder="0" className={isZ ? inpZ : inp} />
-                {form.heures > 0 && (
+                {Number(form.heures) > 0 && (
                   <div className="text-[10px] text-iip-gold mt-0.5">
-                    = {Math.round(form.heures * 1.2)} pér. contact étudiant
+                    = {Math.round(Number(form.heures) * 1.2)} pér. contact étudiant
                   </div>
                 )}
               </label>
@@ -244,7 +244,7 @@ export default function CoursFormModal({ cours, ueNum, section, onClose, onSaved
             </div>
 
             {/* ── ENCART VUE ÉTUDIANT ───────────────────────────────────── */}
-            {!isZ && (form.heures > 0 || form.cours_per > 0) && (
+            {!isZ && (
               <div className="bg-violet-50 border border-violet-200 rounded-lg p-3 space-y-1.5">
                 <div className="text-xs font-semibold text-violet-700 uppercase tracking-wider flex items-center gap-1.5">
                   🎓 Vue étudiant
@@ -258,7 +258,7 @@ export default function CoursFormModal({ cours, ueNum, section, onClose, onSaved
                   <div className="bg-white rounded border border-violet-100 p-2">
                     <div className="text-[10px] text-gray-500 mb-0.5">Pér. contact (×1.2)</div>
                     <div className="font-bold text-violet-600 text-lg">
-                      {form.heures ? Math.round(form.heures * 1.2) : '—'}
+                      {Number(form.heures) > 0 ? Math.round(Number(form.heures) * 1.2) : '—'}
                     </div>
                     <div className="text-[10px] text-gray-400">périodes 50 min</div>
                   </div>
@@ -268,9 +268,9 @@ export default function CoursFormModal({ cours, ueNum, section, onClose, onSaved
                     <div className="text-[10px] text-gray-400">périodes prof.</div>
                   </div>
                 </div>
-                {form.heures > 0 && form.cours_per > 0 && (
+                {Number(form.heures) > 0 && Number(form.cours_per) > 0 && (
                   <div className="text-xs text-violet-600 text-center pt-1 border-t border-violet-100">
-                    Temps hors-contact estimé : <strong>{Math.max(0, Math.round(form.cours_per - form.heures * 1.2))} pér.</strong>
+                    Temps hors-contact estimé : <strong>{Math.max(0, Math.round(Number(form.cours_per) - Number(form.heures) * 1.2))} pér.</strong>
                     <span className="text-gray-400"> (corrections, évaluations, préparation...)</span>
                   </div>
                 )}
