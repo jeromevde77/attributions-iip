@@ -453,6 +453,7 @@ r.get('/dotation-comparaison', authRequired, (req, res) => {
   const isHelb = potFilter === 'HELB';
   const isTout = potFilter === 'TOUT';
   const pondere = req.query.pondere !== '0'; // true par défaut, false = brut
+  const mode = req.query.mode === 'civil' ? 'civil' : 'scolaire';
 
   // Coûts bruts Q1/Q2 (sans pondération)
   const RQ1 = `CASE WHEN COALESCE(a.quadrimestre_attribue, u.ue_quad) IN ('Q1','Q1/Q2')
@@ -462,9 +463,8 @@ r.get('/dotation-comparaison', authRequired, (req, res) => {
     THEN a.periodes_attribuees * CASE WHEN COALESCE(a.quadrimestre_attribue, u.ue_quad)='Q1/Q2' THEN 0.6 ELSE 1 END
     ELSE 0 END`;
 
-  function getCouts(annee) {
+  function getCoutsAnnee(annee) {
     if (isTout) {
-      // TOUT = IIP (pondéré ou brut selon pondere) + HELB (toujours brut)
       const q1iip = pondere ? CQ1 : RQ1;
       const q2iip = pondere ? CQ2 : RQ2;
       const sql = `
@@ -504,8 +504,42 @@ r.get('/dotation-comparaison', authRequired, (req, res) => {
     }, {});
   }
 
+  // En mode civil : année civile Y = Q2 de (Y-1)-(Y) + Q1 de (Y)-(Y+1)
+  function getCouts(annee) {
+    if (mode === 'scolaire') return getCoutsAnnee(annee);
+    // annee est ici une année civile (ex: "2026")
+    const y = parseInt(annee);
+    const scoPrec = `${y-1}-${y}`;     // fournit le Q2
+    const scoSuiv = `${y}-${y+1}`;     // fournit le Q1
+    const cPrec = getCoutsAnnee(scoPrec);
+    const cSuiv = getCoutsAnnee(scoSuiv);
+    const merged = {};
+    // Q2 vient de l'année scolaire précédente
+    for (const [sec, ues] of Object.entries(cPrec)) {
+      for (const [ue, v] of Object.entries(ues)) {
+        merged[sec] ??= {};
+        merged[sec][ue] = { q1: 0, q2: v.q2 || 0 };
+      }
+    }
+    // Q1 vient de l'année scolaire suivante
+    for (const [sec, ues] of Object.entries(cSuiv)) {
+      for (const [ue, v] of Object.entries(ues)) {
+        merged[sec] ??= {};
+        merged[sec][ue] ??= { q1: 0, q2: 0 };
+        merged[sec][ue].q1 = v.q1 || 0;
+      }
+    }
+    return merged;
+  }
+
   const couts1 = getCouts(annee1);
   const couts2 = getCouts(annee2);
+
+  // Années scolaires effectives pour récupérer les métadonnées des UE
+  // En civil : pour annéeY on regarde (Y-1)-(Y) et (Y)-(Y+1) → on prend la plus récente
+  const scoFor = (a) => mode === 'civil' ? `${parseInt(a)}-${parseInt(a)+1}` : a;
+  const sco1 = scoFor(annee1);
+  const sco2 = scoFor(annee2);
 
   // Toutes les UE des deux années — une seule ligne par (section, ue_num)
   // Priorité à annee2 pour les métadonnées, fallback sur annee1
@@ -528,7 +562,7 @@ r.get('/dotation-comparaison', authRequired, (req, res) => {
     WHERE u.annee_scolaire IN (?, ?)
     GROUP BY u.section, u.ue_num
     ORDER BY u.section, u.ue_num
-  `).all(annee2, annee1, annee2, annee1, annee2, annee1, annee2, annee1, annee1, annee2);
+  `).all(sco2, sco1, sco2, sco1, sco2, sco1, sco2, sco1, sco1, sco2);
 
   // Grouper par section
   const sections = {};

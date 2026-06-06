@@ -169,6 +169,7 @@ function DotationComparaison({ civil }) {
     return parts.length === 2 ? `${parseInt(parts[0])-1}-${parts[0]}` : '';
   });
   const [annee2, setAnnee2] = useState(anneeActive);
+  const [mode, setMode]     = useState('scolaire'); // 'scolaire' | 'civil'
   const [data, setData]     = useState(null);
   const [loading, setLoading] = useState(false);
   const [openSecs, setOpenSecs] = useState(new Set());
@@ -211,19 +212,32 @@ function DotationComparaison({ civil }) {
   const anneesSco = [...new Set(
     civil.flatMap(y => [`${y.annee_civile-1}-${y.annee_civile}`, `${y.annee_civile}-${y.annee_civile+1}`])
   )].sort();
+  // Années civiles disponibles
+  const anneesCiviles = [...new Set(civil.map(y => String(y.annee_civile)))].sort();
+  const optionsAnnees = mode === 'civil' ? anneesCiviles : anneesSco;
+
+  // Pré-remplir des valeurs par défaut quand le mode change et que les champs sont vides
+  useEffect(() => {
+    if (annee1 === '' && annee2 === '' && optionsAnnees.length >= 2) {
+      setAnnee1(optionsAnnees[optionsAnnees.length - 2]);
+      setAnnee2(optionsAnnees[optionsAnnees.length - 1]);
+    } else if (annee1 === '' && annee2 === '' && optionsAnnees.length === 1) {
+      setAnnee2(optionsAnnees[0]);
+    }
+  }, [mode, optionsAnnees.length]);
 
   // Rechargement automatique à chaque changement de paramètre
   useEffect(() => {
-    if (anneesSco.length > 0 && annee1 && annee2 && annee1 !== annee2) {
+    if (annee1 && annee2 && annee1 !== annee2) {
       charger();
     }
-  }, [annee1, annee2, potFilter, pondere, anneesSco.length]);
+  }, [annee1, annee2, potFilter, pondere, mode, anneesSco.length]);
 
   async function charger() {
     if (!annee1 || !annee2 || annee1 === annee2) return;
     setLoading(true);
     try {
-      const d = await api.dotationComparaison(annee1, annee2, potFilter || null, pondere);
+      const d = await api.dotationComparaison(annee1, annee2, potFilter || null, pondere, mode);
       setData(d);
       setOpenSecs(new Set(d.sections.map(s => s.section)));
     } catch(e) { alert(e.message); }
@@ -259,16 +273,29 @@ function DotationComparaison({ civil }) {
     <div className="p-6 space-y-4">
       {/* Sélecteurs années */}
       <div className="flex flex-wrap gap-3 items-end">
-        {[['annee1', annee1, setAnnee1, 'Année de référence'], ['annee2', annee2, setAnnee2, 'Année comparée']].map(([k, val, set, lbl]) => (
+        {[['annee1', annee1, setAnnee1, mode === 'civil' ? 'Année civile réf.' : 'Année de référence'], ['annee2', annee2, setAnnee2, mode === 'civil' ? 'Année civile comp.' : 'Année comparée']].map(([k, val, set, lbl]) => (
           <div key={k}>
             <label className="block text-xs text-gray-500 mb-1">{lbl}</label>
             <select value={val} onChange={e => set(e.target.value)}
               className="border border-gray-300 rounded px-3 py-1.5 text-sm bg-white w-36">
               <option value="">— Choisir —</option>
-              {anneesSco.map(a => <option key={a} value={a}>{a}</option>)}
+              {optionsAnnees.map(a => <option key={a} value={a}>{a}</option>)}
             </select>
           </div>
         ))}
+        <div>
+          <label className="block text-xs text-gray-500 mb-1">Période</label>
+          <div className="flex rounded border border-gray-300 overflow-hidden text-sm">
+            <button onClick={() => { setMode('scolaire'); setAnnee1(''); setAnnee2(''); }}
+              className={`px-3 py-1.5 ${mode === 'scolaire' ? 'bg-iip-mauve text-white' : 'bg-white text-gray-600 hover:bg-gray-50'}`}>
+              Scolaire
+            </button>
+            <button onClick={() => { setMode('civil'); setAnnee1(''); setAnnee2(''); }}
+              className={`px-3 py-1.5 border-l border-gray-300 ${mode === 'civil' ? 'bg-iip-mauve text-white' : 'bg-white text-gray-600 hover:bg-gray-50'}`}>
+              Civile
+            </button>
+          </div>
+        </div>
         <div>
           <label className="block text-xs text-gray-500 mb-1">Mode</label>
           <div className="flex rounded border border-gray-300 overflow-hidden text-sm">
