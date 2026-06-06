@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { getAnnee } from '../lib/api.js';
+import PlanificateurVisuel from '../components/PlanificateurVisuel.jsx';
 
 const TOKEN = () => localStorage.getItem('token');
 const authFetch = (url, opts = {}) =>
@@ -1350,6 +1351,7 @@ export default function Planification() {
   const [showIA, setShowIA]           = useState(false);
   const [showReset, setShowReset]     = useState(false);
   const [showSequence, setShowSequence] = useState(false);
+  const [showVisuel, setShowVisuel]     = useState(false);
   const [pendingCells, setPendingCells] = useState({});
   const pendingRef                    = useRef({});
   const [saving, setSaving]           = useState(false);
@@ -1456,6 +1458,10 @@ export default function Planification() {
             🔢 Séquencer
           </button>
         )}
+        <button onClick={() => setShowVisuel(true)}
+          className="bg-blue-100 text-blue-700 text-xs px-3 py-1.5 rounded hover:bg-blue-200 flex items-center gap-1">
+          📅 Planificateur visuel
+        </button>
         {filtreSection && (
           <button onClick={() => setShowIA(true)}
             className="bg-iip-mauve text-white text-xs px-3 py-1.5 rounded hover:opacity-90 flex items-center gap-1">
@@ -1563,6 +1569,7 @@ export default function Planification() {
       {showIA && <ModalIA annee={annee} section={filtreSection} onApplied={charger} onClose={() => setShowIA(false)} />}
       {showReset && <ModalReset annee={annee} section={filtreSection} onReset={charger} onClose={() => setShowReset(false)} />}
       {showSequence && <ModalSequence annee={annee} section={filtreSection} groupes={grille.groupes || []} onClose={() => setShowSequence(false)} />}
+      {showVisuel && <PlanificateurVisuel onClose={(changed) => { setShowVisuel(false); if (changed) charger(); }} />}
       {showCalendrier && <PanelCalendrier semaines={semaines} onUpdate={charger} onClose={() => setShowCalendrier(false)} />}
     </div>
   );
