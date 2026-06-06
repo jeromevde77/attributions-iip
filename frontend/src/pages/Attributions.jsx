@@ -691,9 +691,10 @@ export default function Attributions() {
           for (const a of (d.attrs || [])) map[a.id] = a.badge;
           setExtDot(map);
         }).catch(() => {});
-      // Charger analyse autonomie par UE (si une section est filtrée)
-      if (f.section) {
-        fetch(`/api/attributions/autonomie-ue?section=${encodeURIComponent(f.section)}&annee=${encodeURIComponent(getAnnee())}`,
+      // Charger analyse autonomie par UE
+      const sectionCourante = f.section || (a[0]?.section);
+      if (sectionCourante) {
+        fetch(`/api/attributions/autonomie-ue?section=${encodeURIComponent(sectionCourante)}&annee=${encodeURIComponent(getAnnee())}`,
           { headers: { Authorization: `Bearer ${tok}` } })
           .then(r => r.json()).then(setAutAnalyse).catch(() => {});
       }
