@@ -19,6 +19,10 @@ export default function ResizableHeader({
   const isSortable = !['__actions', '__conformite', '__select'].includes(col.key);
   const arrow = sortKey === col.key ? (sortDir === 'asc' ? ' ▲' : ' ▼') : '';
 
+  // Alignement : numérique → droite, colonnes courtes/badges → centré, texte → gauche
+  const textCols = ['nom_cours', 'ue_nom', 'activite_nom', 'professeur_id', 'section', 'code_cours'];
+  const align = col.num ? 'right' : textCols.includes(col.key) ? 'left' : 'center';
+
   function startResize(e) {
     e.preventDefault();
     e.stopPropagation();
@@ -44,8 +48,8 @@ export default function ResizableHeader({
   return (
     <th
       ref={thRef}
-      style={{ width: col.width, minWidth: col.width, maxWidth: col.width, position: 'relative' }}
-      className={`${isSortable ? 'cursor-pointer select-none hover:bg-gray-100' : ''}`}
+      style={{ width: col.width, minWidth: col.width, maxWidth: col.width, position: 'relative', textAlign: align }}
+      className={`text-[11px] font-semibold text-gray-600 uppercase tracking-wide px-1 ${isSortable ? 'cursor-pointer select-none hover:bg-gray-100' : ''}`}
       onClick={() => isSortable && onSort(col.key)}
       title={isSortable ? 'Cliquer pour trier · Glisser le bord pour redimensionner' : col.tooltip}
     >

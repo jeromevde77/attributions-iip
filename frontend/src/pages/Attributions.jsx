@@ -743,7 +743,7 @@ export default function Attributions() {
       return (
         <tr key={row.id} className={rowBg} title="Activités Z : périodes étudiant, sans enseignant ni coût">
           {colSet.map(c => {
-            const sty = { width:c.width, minWidth:c.width, maxWidth:c.width, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' };
+            const _textCols = ['nom_cours','ue_nom','activite_nom','professeur_id','section','code_cours']; const sty = { width:c.width, minWidth:c.width, maxWidth:c.width, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap', textAlign: c.num ? 'right' : _textCols.includes(c.key) ? 'left' : 'center' };
             let v = '';
             if (c.key === 'section') v = row.section;
             else if (c.key === 'ue_num') v = row.ue_num;
@@ -760,7 +760,7 @@ export default function Attributions() {
     return (
       <tr key={row.id} className={rowBg}>
         {colSet.map(c => {
-          const sty = { width:c.width, minWidth:c.width, maxWidth:c.width, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' };
+          const _textCols = ['nom_cours','ue_nom','activite_nom','professeur_id','section','code_cours']; const sty = { width:c.width, minWidth:c.width, maxWidth:c.width, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap', textAlign: c.num ? 'right' : _textCols.includes(c.key) ? 'left' : 'center' };
           const click = c.rowClickable ? ()=>setEditRow(row) : undefined;
           const cClass = c.rowClickable ? 'cursor-pointer hover:bg-iip-gold/5' : '';
           if (c.key==='__select') return <td key={c.key} className="text-center" style={sty}><input type="checkbox" checked={selected.has(row.id)} onChange={()=>toggleSelect(row.id)} className="cursor-pointer"/></td>;
