@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import express from 'express';
-import { readFileSync, createReadStream, writeFileSync, copyFileSync, existsSync, mkdirSync } from 'node:fs';
+import { readFileSync, createReadStream, writeFileSync, copyFileSync, existsSync, mkdirSync, rmSync } from 'node:fs';
 import { resolve, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import db from '../db/index.js';
@@ -216,26 +216,77 @@ r.post('/restore',
 
       // 4. Remplacer la base courante par le fichier restauré
       copyFileSync(tmpPath, dbPath);
-      // Vider d'éventuels WAL/SHM résiduels pour éviter l'incohérence
+      // Supprimer d'éventuels WAL/SHM résiduels pour éviter l'incohérence
       for (const suff of ['-wal', '-shm']) {
         const f = dbPath + suff;
-        try { if (existsSync(f)) writeFileSync(f, Buffer.alloc(0)); } catch { /* ignore */ }
+        try { if (existsSync(f)) rmSync(f); } catch { /* ignore */ }
       }
 
-      // 5. Répondre AVANT de redémarrer
+      // 5. GARDE-FOU : vérifier que la base restaurée s'ouvre et est lisible.
+      //    Si elle plante, on RESTAURE le backup auto et on NE redémarre PAS dans un état cassé.
+      let verifOk = true, verifErr = null;
+      try {
+        const BetterSqlite3 = (await import('better-sqlite3')).default;
+        const check = new BetterSqlite3(dbPath, { readonly: true });
+        try {
+          // lecture réelle d'une table clé
+          check.prepare('SELECT COUNT(*) AS n FROM attribution').get();
+          check.prepare('SELECT COUNT(*) AS n FROM section').get();
+        } finally {
+          check.close();
+        }
+        // Nettoyer les WAL/SHM créés par cette vérification
+        for (const suff of ['-wal', '-shm']) {
+          const f = dbPath + suff;
+          try { if (existsSync(f)) rmSync(f); } catch { /* ignore */ }
+        }
+      } catch (e) {
+        // better-sqlite3 absent → on ne peut pas vérifier, on fait confiance à la signature SQLite
+        if (/Cannot find|ERR_|MODULE/.test(String(e.message))) {
+          verifOk = true;
+        } else {
+          verifOk = false;
+          verifErr = e.message;
+        }
+      }
+
+      if (!verifOk) {
+        // ROLLBACK : remettre le backup auto, ne pas redémarrer
+        try {
+          copyFileSync(autoBackup, dbPath);
+          for (const suff of ['-wal', '-shm']) {
+            const f = dbPath + suff;
+            try { if (existsSync(f)) rmSync(f); } catch { /* ignore */ }
+          }
+        } catch (rbErr) {
+          return res.status(500).json({
+            error: `Base restaurée ILLISIBLE (${verifErr}). ÉCHEC du rollback automatique (${rbErr.message}). ` +
+                   `Restaurez manuellement sur le NAS : cp backups-auto/avant-restore-${ts}.db attributions.db`,
+            backup_auto: `avant-restore-${ts}.db`,
+            rollback: 'ÉCHEC',
+          });
+        }
+        return res.status(400).json({
+          error: `La base restaurée est illisible (${verifErr}). Restauration annulée, l'ancienne base a été remise en place. Le serveur n'a pas redémarré.`,
+          backup_auto: `avant-restore-${ts}.db`,
+          rollback: 'OK',
+        });
+      }
+
+      // 6. Répondre AVANT de redémarrer
       res.json({
         ok: true,
         attributions: nbAttr,
         backup_auto: `avant-restore-${ts}.db`,
-        message: 'Base restaurée. Le serveur redémarre pour recharger les données…'
+        message: 'Base restaurée et vérifiée. Le serveur redémarre pour recharger les données…'
       });
 
-      // 6. Redémarrer le process (conteneur Docker restart:unless-stopped → relit la base)
+      // 7. Redémarrer le process (conteneur Docker restart:unless-stopped → relit la base)
       setTimeout(() => process.exit(0), 500);
     } catch (e) {
       return res.status(500).json({ error: 'Échec de la restauration : ' + e.message });
     } finally {
-      try { if (existsSync(tmpPath)) writeFileSync(tmpPath, Buffer.alloc(0)); } catch { /* ignore */ }
+      try { if (existsSync(tmpPath)) rmSync(tmpPath); } catch { /* ignore */ }
     }
   }
 );

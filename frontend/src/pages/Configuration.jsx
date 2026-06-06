@@ -888,7 +888,14 @@ export default function Configuration() {
         body: buf,
       });
       const data = await res.json().catch(() => ({}));
-      if (!res.ok) throw new Error(data.error || 'Échec de la restauration');
+      if (!res.ok) {
+        // Cas rollback réussi : message explicite mais pas une erreur fatale
+        if (data.rollback === 'OK') {
+          setRestoreStatus(`⚠ ${data.error}`);
+          return;
+        }
+        throw new Error(data.error || 'Échec de la restauration');
+      }
       setRestoreStatus(`✅ ${data.message} (${data.attributions ?? '?'} attributions) — sauvegarde auto : ${data.backup_auto}. Rechargez la page dans ~15 s.`);
     } catch(e) {
       setRestoreStatus('❌ ' + e.message);
@@ -1047,10 +1054,27 @@ export default function Configuration() {
               </button>
             </div>
             {restoreFile && <div className="text-xs text-gray-500">Fichier : {restoreFile.name} ({(restoreFile.size/1024/1024).toFixed(2)} Mo)</div>}
-            {restoreStatus && <div className="text-xs text-gray-700 bg-gray-50 border border-gray-200 rounded px-3 py-2">{restoreStatus}</div>}
+            {restoreStatus && <div className="text-xs text-gray-700 bg-gray-50 border border-gray-200 rounded px-3 py-2 whitespace-pre-wrap">{restoreStatus}</div>}
             <p className="text-[11px] text-red-600">
-              ⚠ Action irréversible sur les données actuelles. Réservé à l'environnement de développement.
+              ⚠ Action irréversible sur les données actuelles. Un garde-fou vérifie la base restaurée et remet
+              automatiquement l'ancienne en place si elle est illisible (le serveur ne redémarre alors pas).
             </p>
+            <details className="text-[11px] text-gray-500">
+              <summary className="cursor-pointer hover:text-gray-700">🆘 Procédure d'urgence manuelle (si le serveur ne redémarre pas)</summary>
+              <div className="mt-2 bg-gray-900 text-gray-100 rounded p-3 font-mono text-[10px] leading-relaxed overflow-x-auto whitespace-pre">{`sudo -i
+# 1. Lister les backups auto (le plus récent = avant la dernière restauration)
+ls -lht /volume1/@docker/volumes/attributions-data-dev/_data/backups-auto/
+# 2. Arrêter le conteneur qui boucle
+docker stop attributions-backend-dev
+# 3. Remettre le backup (remplacer <FICHIER>)
+cp /volume1/@docker/volumes/attributions-data-dev/_data/backups-auto/<FICHIER> \\
+   /volume1/@docker/volumes/attributions-data-dev/_data/attributions.db
+# 4. Nettoyer les WAL/SHM résiduels
+rm -f /volume1/@docker/volumes/attributions-data-dev/_data/attributions.db-wal \\
+      /volume1/@docker/volumes/attributions-data-dev/_data/attributions.db-shm
+# 5. Redémarrer
+docker start attributions-backend-dev`}</div>
+            </details>
           </div>
         </section>
       )}
