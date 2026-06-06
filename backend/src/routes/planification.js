@@ -8,7 +8,72 @@ import { authRequired, roleRequired } from '../middleware/auth.js';
 
 const r = Router();
 
-// ─── CALENDRIER ───────────────────────────────────────────────────────────────
+// ─── CALENDRIER DES SESSIONS (calcul rétroactif) ──────────────────────────────
+// Calcule, en partant du dernier jour de travail admin, les dates jalons des
+// sessions et surtout la DERNIÈRE date de cours possible.
+function param(cle, def) {
+  const row = db.prepare('SELECT valeur FROM parametre WHERE cle = ?').get(cle);
+  return row ? row.valeur : def;
+}
+function addJoursCalendrier(date, n) {
+  const d = new Date(date);
+  d.setDate(d.getDate() + n);
+  return d;
+}
+function addJoursOuvrables(date, n) {
+  // n peut être négatif (rétroactif). Compte les jours lun-ven.
+  const d = new Date(date);
+  const step = n < 0 ? -1 : 1;
+  let reste = Math.abs(n);
+  while (reste > 0) {
+    d.setDate(d.getDate() + step);
+    const jour = d.getDay(); // 0=dim, 6=sam
+    if (jour !== 0 && jour !== 6) reste--;
+  }
+  return d;
+}
+function isoDate(d) { return d.toISOString().slice(0, 10); }
+
+// GET /planification/calendrier-sessions
+// Retourne la chaîne de dates rétroactives + dernière date de cours possible
+r.get('/calendrier-sessions', authRequired, (req, res) => {
+  const dernierAdmin = req.query.dernier_jour || param('session.dernier_jour_admin', '');
+  if (!dernierAdmin) {
+    return res.json({ defini: false, message: 'Dernier jour admin non défini dans les paramètres.' });
+  }
+  const N = (cle, def) => parseInt(param(cle, def), 10);
+
+  // Remontée depuis le dernier jour admin
+  let cur = new Date(dernierAdmin);
+  // 1. − jours ouvrables recours
+  const debutRecours = addJoursOuvrables(cur, -N('session.recours_jours_ouvr', 5));
+  // 2. − jours cal entre délib S2 et recours
+  let d = addJoursCalendrier(debutRecours, -N('session.delib2_recours_cal', 3));
+  // 3. − durée délib S2
+  const delibEV2 = addJoursCalendrier(d, -N('session.delib2_duree_cal', 1));
+  // 4. − corrections → EV2
+  const ev2 = addJoursCalendrier(delibEV2, -N('session.corrections_ev2_cal', 3));
+  // 5. − jours cal entre VC1 et EV2 → VC EV1
+  const vcEV1 = addJoursCalendrier(ev2, -N('session.vc1_ev2_cal', 10));
+  // 6. − jours cal entre délib EV1 et VC EV1 → délib EV1
+  const delibEV1 = addJoursCalendrier(vcEV1, -N('session.delib1_vc1_cal', 3));
+  // 7. − jours cal entre EV1 et délib EV1 → EV1
+  const ev1 = addJoursCalendrier(delibEV1, -N('session.ev1_delib1_cal', 5));
+  // 8. − 1 semaine entre dernier cours et EV1 → dernier cours
+  const dernierCours = addJoursCalendrier(ev1, -N('session.cours_ev1_cal', 7));
+
+  res.json({
+    defini: true,
+    dernier_jour_admin: dernierAdmin,
+    debut_recours:    isoDate(debutRecours),
+    delib_ev2:        isoDate(delibEV2),
+    ev2:              isoDate(ev2),
+    vc_ev1:           isoDate(vcEV1),
+    delib_ev1:        isoDate(delibEV1),
+    ev1:              isoDate(ev1),
+    dernier_cours:    isoDate(dernierCours),
+  });
+});
 
 // GET /planification/calendrier?annee=2025-2026
 r.get('/calendrier', authRequired, (req, res) => {

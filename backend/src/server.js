@@ -536,6 +536,16 @@ try {
     ['procedures.delai_ext_ouv_jours',   '3',                               'Jours ouvrables avant délai recours externe',          null, 'procedures'],
     // Établissement
     ['etab.nom',                         'Institut Ilya Prigogine',         'Nom de l\'établissement',                              null, 'etablissement'],
+    // Calendrier des sessions (calcul rétroactif depuis le dernier jour admin)
+    ['session.dernier_jour_admin',       '',                                'Dernier jour de travail du personnel admin (AAAA-MM-JJ)', null, 'session'],
+    ['session.recours_jours_ouvr',       '5',                               'Jours ouvrables réservés pour les recours',             null, 'session'],
+    ['session.delib2_recours_cal',       '3',                               'Jours calendrier entre délib. session 2 et recours',    null, 'session'],
+    ['session.delib2_duree_cal',         '1',                               'Jour calendrier pour la délibération session 2',        null, 'session'],
+    ['session.corrections_ev2_cal',      '3',                               'Jours calendrier corrections avant délib. EV2',         null, 'session'],
+    ['session.vc1_ev2_cal',              '10',                              'Jours calendrier entre VC session 1 et EV2',            null, 'session'],
+    ['session.delib1_vc1_cal',           '3',                               'Jours calendrier entre délib. EV1 et VC EV1',           null, 'session'],
+    ['session.ev1_delib1_cal',           '5',                               'Jours calendrier entre EV1 et délib. EV1',              null, 'session'],
+    ['session.cours_ev1_cal',            '7',                               'Jours calendrier entre dernier cours et EV1',           null, 'session'],
   ];
   const _insertParam = db.prepare(`INSERT OR IGNORE INTO parametre (cle, valeur, label, section, groupe) VALUES (?,?,?,?,?)`);
   const _seedParams = db.transaction(() => { for (const p of _params) _insertParam.run(...p); });

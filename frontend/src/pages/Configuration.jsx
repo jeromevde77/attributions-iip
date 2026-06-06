@@ -509,6 +509,7 @@ function ChangelogView({ data }) {
 
 const GROUPE_LABELS = {
   planification: { label: '📐 Planification', desc: 'Valeurs des cellules EV1/EV2/VC, durée des périodes, contraintes calendaires' },
+  session:       { label: '📅 Calendrier des sessions', desc: 'Dernier jour admin + délais rétroactifs (EV1, VC, EV2, délibé, recours) pour calculer la dernière semaine de cours' },
   procedures:    { label: '⚖ Procédures',    desc: 'Délais légaux, email de direction utilisé dans les PV' },
   etablissement: { label: '🏫 Établissement', desc: 'Nom et informations de l\'établissement' },
 };
