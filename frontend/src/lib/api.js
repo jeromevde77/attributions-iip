@@ -217,10 +217,11 @@ export const api = {
   dotationUE(section, annee, mode) {
     return request(`/pilotage/dotation-ue?section=${encodeURIComponent(section)}&annee=${encodeURIComponent(annee)}&mode=${mode}`);
   },
-  dotationComparaison(annee1, annee2, pot, pondere = true) {
+  dotationComparaison(annee1, annee2, pot, pondere = true, mode = 'scolaire') {
     const p = new URLSearchParams({ annee1, annee2 });
     if (pot) p.set('pot', pot);
     if (!pondere) p.set('pondere', '0');
+    if (mode === 'civil') p.set('mode', 'civil');
     return request(`/pilotage/dotation-comparaison?${p}`);
   },
   doc23() { return request(withAnnee('/exports/doc2-3')); },
