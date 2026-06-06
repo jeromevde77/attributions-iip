@@ -53,6 +53,19 @@ export default function CoursEditModal({ section, codeCours, onClose, onChanged 
   const ueNum    = data?.attributions?.[0]?.ue_num ?? data?.cours_info?.ue_num;
   const ueNom    = data?.attributions?.[0]?.ue_nom || data?.cours_info?.ue_nom;
   const coursType = data?.attributions?.[0]?.type_cours || data?.cours_info?.type_cours;
+  const [heures, setHeures] = useState('');
+
+  // Initialiser heures depuis data
+  useEffect(() => {
+    if (data?.cours_info?.heures != null) setHeures(String(data.cours_info.heures));
+  }, [data]);
+
+  async function saveHeures() {
+    if (heures === '' || heures === String(data?.cours_info?.heures)) return;
+    try {
+      await api.updateCours(codeCours, { heures: heures ? Number(heures) : null });
+    } catch(e) { console.error('Erreur sauvegarde heures:', e); }
+  }
   const coursQuad = data?.attributions?.[0]?.quadrimestre_attribue || data?.cours_info?.quadrimestre_cours;
 
   // Totaux et conformité recalculés à la volée (lignes non supprimées)
@@ -241,6 +254,42 @@ export default function CoursEditModal({ section, codeCours, onClose, onChanged 
             <div className="bg-red-50 text-red-700 text-sm rounded p-3">{error}</div>
           ) : (
             <>
+              {/* ── Encart Vue étudiant ── */}
+              <div className="bg-violet-50 border border-violet-200 rounded-lg p-3 mb-4 space-y-2">
+                <div className="text-xs font-semibold text-violet-700 uppercase tracking-wider">🎓 Vue étudiant</div>
+                <div className="grid grid-cols-3 gap-3 text-center">
+                  <div className="bg-white rounded border border-violet-100 p-2">
+                    <div className="text-[10px] text-gray-500 mb-0.5">Heures de contact</div>
+                    <input type="number" min="0"
+                      value={heures}
+                      onChange={e => setHeures(e.target.value)}
+                      onBlur={saveHeures}
+                      autoComplete="off"
+                      placeholder="0"
+                      className="font-bold text-violet-700 text-lg text-center w-full bg-transparent border-b border-violet-200 focus:outline-none focus:border-violet-500"
+                    />
+                    <div className="text-[10px] text-gray-400">heures ×60 min</div>
+                  </div>
+                  <div className="bg-white rounded border border-violet-100 p-2">
+                    <div className="text-[10px] text-gray-500 mb-0.5">Pér. contact (×1.2)</div>
+                    <div className="font-bold text-violet-600 text-lg">
+                      {Number(heures) > 0 ? Math.round(Number(heures) * 1.2) : '—'}
+                    </div>
+                    <div className="text-[10px] text-gray-400">périodes 50 min</div>
+                  </div>
+                  <div className="bg-white rounded border border-violet-100 p-2">
+                    <div className="text-[10px] text-gray-500 mb-0.5">Pér. dossier pédag.</div>
+                    <div className="font-bold text-iip-gold text-lg">{coursPer ?? '—'}</div>
+                    <div className="text-[10px] text-gray-400">périodes prof.</div>
+                  </div>
+                </div>
+                {Number(heures) > 0 && coursPer > 0 && (
+                  <div className="text-xs text-violet-600 text-center pt-1 border-t border-violet-100">
+                    Temps hors-contact estimé : <strong>{Math.max(0, Math.round(coursPer - Number(heures) * 1.2))} pér.</strong>
+                    <span className="text-gray-400"> (corrections, évaluations, préparation...)</span>
+                  </div>
+                )}
+              </div>
               <div className="overflow-x-auto">
                 <table className="w-full text-sm border border-gray-200 rounded">
                   <thead>

@@ -124,10 +124,10 @@ r.get('/by-cours', authRequired, (req, res) => {
 
   // Infos du cours depuis la table cours (pour les nouvelles lignes même sans attribution existante)
   const coursInfo = db.prepare(`
-    SELECT cours_code, cours_nom, ue_num, ct_pp AS type_cours, cours_per, quadrimestre_cours
+    SELECT cours_code, cours_nom, ue_num, ct_pp AS type_cours, cours_per, quadrimestre_cours, heures
     FROM cours WHERE cours_code = ? AND section = ? AND annee_scolaire = ?
   `).get(code_cours, section, anneeVal)
-    || db.prepare(`SELECT cours_code, cours_nom, ue_num, ct_pp AS type_cours, cours_per, quadrimestre_cours
+    || db.prepare(`SELECT cours_code, cours_nom, ue_num, ct_pp AS type_cours, cours_per, quadrimestre_cours, heures
                    FROM cours WHERE cours_code = ? AND annee_scolaire = ?`).get(code_cours, anneeVal);
 
   // Nom de l'UE
