@@ -83,12 +83,29 @@ export default function PlanificateurVisuel({ onClose }) {
   }
 
   // Construit les blocs initiaux à partir des groupes (1 bloc = total heures du groupe)
+  // Calcule la durée calendaire d'un bloc pour couvrir `nbSemCoursVoulu` semaines
+  // de cours réelles à partir de `debut`, en sautant les congés et en s'arrêtant
+  // à la dernière semaine de cours autorisée (limite sessions).
+  function dureeCalendairePourCours(semainesArr, debut, nbSemCoursVoulu, limiteIdx) {
+    let coursComptes = 0;
+    let i = debut;
+    const max = limiteIdx >= 0 ? limiteIdx : semainesArr.length - 1;
+    while (i <= max && coursComptes < nbSemCoursVoulu) {
+      if (semainesArr[i] && semainesArr[i].type === 'cours') coursComptes++;
+      i++;
+    }
+    return Math.max(1, i - debut); // durée calendaire (inclut congés traversés)
+  }
+
   function construireBlocs(groupes, semaines) {
     const premiereSemCours = semaines.findIndex(s => s.type === 'cours');
     const startIdx = premiereSemCours >= 0 ? premiereSemCours : 0;
+    // dernière semaine de cours autorisée (recalcul local car dernierCoursIdx pas encore dispo au 1er rendu)
+    const limiteIdx = limiteCoursIdx(semaines);
     const nouveaux = groupes.map((g, i) => {
       const heures = g.heures_attribuees || 0;
-      const duree = Math.max(1, Math.round(heures / hParSem));
+      const nbSemCours = Math.max(1, Math.round(heures / hParSem));
+      const duree = dureeCalendairePourCours(semaines, startIdx, nbSemCours, limiteIdx);
       return {
         id: `bloc-${g.id}-${i}`,
         groupe_id: g.id,
@@ -104,10 +121,25 @@ export default function PlanificateurVisuel({ onClose }) {
     setBlocs(nouveaux);
   }
 
-  // Recalcule la durée des blocs si on change les heures/semaine
+  // Calcule l'index de la dernière semaine de cours autorisée pour un tableau de semaines
+  function limiteCoursIdx(semainesArr) {
+    if (!calSessions?.dernier_cours || !semainesArr.length) return semainesArr.length - 1;
+    let idx = -1;
+    for (let i = 0; i < semainesArr.length; i++) {
+      if (semainesArr[i].date_debut <= calSessions.dernier_cours) idx = i;
+    }
+    return idx >= 0 ? idx : semainesArr.length - 1;
+  }
+
+  // Recalcule la durée des blocs si on change les heures/semaine (en respectant la limite)
   useEffect(() => {
-    if (blocs.length > 0) {
-      setBlocs(prev => prev.map(b => ({ ...b, dureeSem: Math.max(1, Math.round(b.heures / hParSem)) })));
+    if (blocs.length > 0 && semaines.length) {
+      const limiteIdx = dernierCoursIdx;
+      setBlocs(prev => prev.map(b => {
+        const nbSemCours = Math.max(1, Math.round(b.heures / hParSem));
+        const duree = dureeCalendairePourCours(semaines, b.debutSem, nbSemCours, limiteIdx);
+        return { ...b, dureeSem: duree };
+      }));
     }
   }, [hParSem]);
 
@@ -157,7 +189,7 @@ export default function PlanificateurVisuel({ onClose }) {
       const diffSem = Math.round(diffPx / PX_SEM);
       setBlocs(prev => prev.map(b => {
         if (b.id !== dragRef.current.id) return b;
-        const newDebut = Math.max(0, Math.min(nbSem - b.dureeSem, dragRef.current.startDebut + diffSem));
+        const newDebut = Math.max(0, Math.min(dernierCoursIdx - b.dureeSem + 1, dragRef.current.startDebut + diffSem));
         return { ...b, debutSem: newDebut };
       }));
     };
@@ -178,7 +210,7 @@ export default function PlanificateurVisuel({ onClose }) {
       const diffSem = Math.round(diffPx / PX_SEM);
       setBlocs(prev => prev.map(b => {
         if (b.id !== resizeRef.current.id) return b;
-        const newDuree = Math.max(1, Math.min(nbSem - b.debutSem, resizeRef.current.startDuree + diffSem));
+        const newDuree = Math.max(1, Math.min(dernierCoursIdx - b.debutSem + 1, resizeRef.current.startDuree + diffSem));
         return { ...b, dureeSem: newDuree };
       }));
     };
