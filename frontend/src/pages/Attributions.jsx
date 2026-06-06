@@ -175,7 +175,7 @@ const DEFAULT_COLS = [
         : <span className="text-red-600 font-bold" title={`NON conforme. ${tip}`}>✗</span>;
     }},
   { key: 'section',               label: 'Section',    width: 110, rowClickable: true, flatOnly: true },
-  { key: 'contrat_mdp',           label: 'Contrat',    width: 110, edit: 'select',
+  { key: 'contrat_mdp',           label: 'Contr.',     width: 60, edit: 'select',
     options: [['','—'],['IIP','IIP'],['HELB','HELB']],
     render: v => v === 'IIP' ? <span className="badge badge-iip">IIP</span> : v === 'HELB' ? <span className="badge badge-helb">HELB</span> : v },
   { key: 'ue_num',                label: 'UE',         width: 70,  num: true, rowClickable: true, flatOnly: true },
@@ -186,28 +186,28 @@ const DEFAULT_COLS = [
     render: v => v && v > 1 ? <span className="bg-amber-100 text-amber-800 text-xs px-1.5 py-0.5 rounded font-semibold">{v}</span> : <span className="text-gray-400">{v || 1}</span> },
   { key: 'quadrimestre_attribue', label: 'Quadri',     width: 110, edit: 'select', flatOnly: true,
     options: [['','—'],['Q1','Q1'],['Q2','Q2'],['Q1/Q2','Q1/Q2']] },
-  { key: 'code_cours',            label: 'Code',       width: 80,  rowClickable: true, coursOnly: true },
-  { key: 'nom_cours',             label: 'Cours',      width: 240, rowClickable: true, coursOnly: true },
-  { key: 'activite_nom',          label: 'Activité',   width: 130, rowClickable: true,
+  { key: 'code_cours',            label: 'Code',       width: 70,  rowClickable: true, coursOnly: true },
+  { key: 'nom_cours',             label: 'Cours',      width: 200, rowClickable: true, coursOnly: true },
+  { key: 'activite_nom',          label: 'Activité',   width: 120, rowClickable: true,
     render: v => v || <span className="text-gray-300 text-xs italic">—</span> },
-  { key: 'type_cours',            label: 'Type',       width: 70, rowClickable: true,
+  { key: 'type_cours',            label: 'Type',       width: 56, rowClickable: true,
     render: v => { const cls = {CT:'badge-ct',CG:'badge-cc',PP:'badge-pp',Z:'badge-z',B:'badge-b',F:'badge-f',T:'badge-t',P:'badge-p',O:'badge-o'}[v]; return cls ? <span className={`badge ${cls}`}>{v}</span> : (v || '—'); } },
-  { key: 'code',                  label: 'Gr.',        width: 70, edit: 'text' },
-  { key: 'professeur_id',         label: 'Professeur', width: 220, edit: 'prof',
+  { key: 'code',                  label: 'Gr.',        width: 52, edit: 'text' },
+  { key: 'professeur_id',         label: 'Professeur', width: 200, edit: 'prof',
     render: (_, row) => row.professeur || <span className="italic text-orange-500">—</span> },
-  { key: 'contrat',               label: 'Stat.',      width: 90, edit: 'statut',
+  { key: 'contrat',               label: 'Stat.',      width: 64, edit: 'statut',
     options: [['','—'],['CC','CC'],['EXP','EXP']] },
-  { key: 'titre_rtf',             label: 'Titre',      width: 90, edit: 'select',
+  { key: 'titre_rtf',             label: 'Titre',      width: 64, edit: 'select',
     options: [['','—'],['R','R — Titre requis'],['TR','TR — Titre requis (RTF)'],['TS','TS — Titre suffisant'],['TPL','TPL — Pénurie listé'],['TPNL','TPNL — Pénurie non listé'],['ATS','ATS — Assim. suffisant'],['ATP','ATP — Assim. pénurie listé'],['A','A — Suffisant gr. A'],['3B','3B — Suffisant gr. B (3 déc.)'],['Art. 20','Art. 20 (WBE)']],
     render: v => v ? <span className="bg-indigo-100 text-indigo-700 text-xs px-1.5 py-0.5 rounded font-semibold">{v}</span> : <span className="text-gray-300">—</span> },
-  { key: 'type_cours_helb',       label: 'HELB',       width: 90, edit: 'select',
+  { key: 'type_cours_helb',       label: 'HELB',       width: 60, edit: 'select', helbOnly: true,
     options: [['','—'],['MFP','MFP'],['MA','MA']],
     render: v => v ? <span className="bg-pink-100 text-pink-700 text-xs px-1.5 py-0.5 rounded font-semibold">{v}</span> : <span className="text-gray-300">—</span> },
-  { key: 'periodes_attribuees',   label: 'Per.',       width: 100, num: true, edit: 'number' },
-  { key: 'autonomie_attribuee',   label: 'Aut.',       width: 100, num: true, edit: 'number' },
-  { key: 'total_attribue_professeur', label: 'Total',  width: 70, num: true, calc: true, rowClickable: true },
-  { key: 'charge_en_heures',      label: 'Hrs',        width: 70, num: true, calc: true, rowClickable: true },
-  { key: '__actions',             label: '',           width: 50 },
+  { key: 'periodes_attribuees',   label: 'Per.',       width: 84, num: true, edit: 'number' },
+  { key: 'autonomie_attribuee',   label: 'Aut.',       width: 84, num: true, edit: 'number' },
+  { key: 'total_attribue_professeur', label: 'Total',  width: 64, num: true, calc: true, rowClickable: true },
+  { key: 'charge_en_heures',      label: 'Hrs',        width: 60, num: true, calc: true, rowClickable: true },
+  { key: '__actions',             label: '',           width: 44 },
 ];
 
 // ===========================================================================
@@ -260,10 +260,12 @@ export default function Attributions() {
     });
   }
   const COLS = useMemo(() => DEFAULT_COLS.map(c => ({ ...c, width: colWidths[c.key] || c.width })), [colWidths]);
+  // Détecter s'il y a des lignes HELB dans les données affichées
+  const hasHelb = useMemo(() => Array.isArray(data) && data.some(r => r.contrat_mdp === 'HELB'), [data]);
   // Colonnes pour la vue accordéon niveau UE (masque section/ue/bloc/org, garde code_cours/nom_cours)
-  const COLS_UE = useMemo(() => COLS.filter(c => !c.flatOnly), [COLS]);
+  const COLS_UE = useMemo(() => COLS.filter(c => !c.flatOnly && (!c.helbOnly || hasHelb)), [COLS, hasHelb]);
   // Colonnes pour la vue accordéon niveau Cours (masque aussi code_cours/nom_cours)
-  const COLS_COURS = useMemo(() => COLS.filter(c => !c.flatOnly && !c.coursOnly), [COLS]);
+  const COLS_COURS = useMemo(() => COLS.filter(c => !c.flatOnly && !c.coursOnly && (!c.helbOnly || hasHelb)), [COLS, hasHelb]);
 
   const me = JSON.parse(localStorage.getItem('user') || 'null');
   const isAdmin = me?.role === 'admin';
