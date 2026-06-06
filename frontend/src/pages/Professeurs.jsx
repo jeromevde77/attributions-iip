@@ -326,6 +326,7 @@ function DetailModal({ profId, onClose, onEdit, onFiche }) {
 
 export default function Professeurs() {
   const [profs, setProfs] = useState([]);
+  const [search, setSearch] = useState('');
   const [loading, setLoading] = useState(true);
   const [detailId, setDetailId] = useState(null);
   const [editProf, setEditProf] = useState(null);
@@ -469,6 +470,15 @@ export default function Professeurs() {
 
   const filtered = useMemo(() => {
     let arr = [...profs];
+    // Filtrage par recherche
+    if (search.trim()) {
+      const q = search.trim().toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+      arr = arr.filter(p => {
+        const hay = [p.nom_prenom, p.adresse_mail, p.commune, p.fonction_admin, p.statut]
+          .filter(Boolean).join(' ').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+        return hay.includes(q);
+      });
+    }
     if (sortBy.key) {
       arr = [...arr].sort((a, b) => {
         const va = a[sortBy.key], vb = b[sortBy.key];
@@ -510,7 +520,20 @@ export default function Professeurs() {
         <h1 className="text-2xl font-title text-iip-gold">
           Membres du personnel <span className="text-base font-normal text-gray-400">({filtered.length})</span>
         </h1>
-        <div className="flex gap-2 items-center">
+        <div className="flex gap-2 items-center flex-wrap">
+          <div className="relative">
+            <input
+              type="text"
+              placeholder="🔍 Rechercher..."
+              value={search}
+              onChange={e => setSearch(e.target.value)}
+              className="border border-gray-300 rounded-lg pl-3 pr-8 py-1.5 text-sm focus:outline-none focus:border-iip-gold w-48"
+            />
+            {search && (
+              <button onClick={() => setSearch('')}
+                className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 text-xs">✕</button>
+            )}
+          </div>
           {selection.size > 0 && (
             <button onClick={imprimerAttributions} disabled={printing}
               className="bg-iip-mauve hover:opacity-90 disabled:opacity-50 text-white text-sm px-3 py-1.5 rounded font-medium">
@@ -561,13 +584,12 @@ export default function Professeurs() {
                   </td>
                   <td>
                     <div className="flex items-center gap-1 flex-wrap">
-                      {p.type_personnel === 'admin' && (
-                        <span style={{background:'#00AACC',color:'white',fontSize:'9px',padding:'1px 5px',borderRadius:'8px',whiteSpace:'nowrap',maxWidth:'80px',overflow:'hidden',textOverflow:'ellipsis',display:'inline-block',verticalAlign:'middle'}}>
-                          {p.fonction_admin || 'Admin'}
-                        </span>
-                      )}
+                      {p.type_personnel === 'admin' && (() => {
+                        const label = (p.fonction_admin || 'ADM').slice(0, 3).toUpperCase();
+                        return <span className="inline-flex items-center justify-center w-7 h-7 rounded text-[10px] font-bold" style={{background:'#00AACC',color:'white'}}>{label}</span>;
+                      })()}
                       {(p.contrats_annee || p.statut || '').split(',').filter(c => ['CC','EXP','MDP'].includes(c)).map(c => (
-                        <span key={c} className={`badge ${c === 'CC' ? 'badge-iip' : c === 'EXP' ? 'badge-exp' : 'badge-helb'}`}>{c}</span>
+                        <span key={c} className={`inline-flex items-center justify-center w-7 h-7 rounded text-[10px] font-bold ${c === 'CC' ? 'badge-iip' : c === 'EXP' ? 'badge-exp' : 'badge-helb'}`}>{c}</span>
                       ))}
                       {!p.type_personnel && !p.contrats_annee && !p.statut && (
                         <span className="text-gray-300 text-xs">—</span>
