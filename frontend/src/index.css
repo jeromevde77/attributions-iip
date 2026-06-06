@@ -29,37 +29,50 @@ table.grid-excel tbody tr:nth-child(even) { background: #f8fafc; }
 table.grid-excel tbody tr:hover { background: #e8f4f8; }
 table.grid-excel td.num { text-align: right; font-variant-numeric: tabular-nums; }
 
-/* Variante épurée (flat) : pas de colonnes visibles, fines lignes
-   horizontales gris clair, en-tête sobre gris. Cohérent avec le design
-   flat de Référentiels (en-tête gray-50/gray-500, séparateurs gray-100). */
+/* Variante épurée (flat) : pas de fond alterné, lignes horizontales courtes
+   (marge aux bords), survol très discret. Design aéré. */
 table.grid-excel-soft { border-collapse: collapse; width: 100%; font-size: 0.875rem; }
 table.grid-excel-soft th, table.grid-excel-soft td {
-  border: none;                       /* pas de grille verticale */
-  border-bottom: 1px solid #f1f3f5;   /* fine ligne horizontale gris clair */
+  border: none;
   padding: 0.4rem 0.6rem;
   text-align: left;
   white-space: nowrap;
+  background-clip: padding-box;
 }
+/* Lignes horizontales courtes : bordure via box-shadow inset qui ne touche pas les bords */
+table.grid-excel-soft tbody tr {
+  box-shadow: inset 0 -1px 0 #f1f3f5;
+}
+table.grid-excel-soft tbody tr:last-child { box-shadow: none; }
+/* Marge aux extrémités : première et dernière cellule un peu plus de padding */
+table.grid-excel-soft tbody td:first-child,
+table.grid-excel-soft thead th:first-child { padding-left: 1rem; }
+table.grid-excel-soft tbody td:last-child,
+table.grid-excel-soft thead th:last-child { padding-right: 1rem; }
 table.grid-excel-soft thead th {
-  background: #f9fafb;                 /* en-tête gris clair (= bg-gray-50) */
-  color: #6b7280;                      /* texte gris (= text-gray-500) */
+  background: #fcfcfd;
+  color: #6b7280;
   font-weight: 600;
-  border-bottom: 1px solid #e5e7eb;    /* séparateur d'en-tête gris */
+  border-bottom: 1px solid #eceef0;
   position: sticky;
   top: 0;
 }
-table.grid-excel-soft tbody tr:hover { background: #f9fafb; }   /* survol discret gris clair */
+table.grid-excel-soft tbody tr:hover { background: #fafbfc; }
 table.grid-excel-soft td.num { text-align: right; font-variant-numeric: tabular-nums; }
 
 .input-cell {
   width: 100%;
-  background: transparent;
-  border: none;
+  background: #fafafa;
+  border: 1px solid #e2e2e2;
+  border-radius: 5px;
   outline: none;
   font-size: inherit;
   font-family: inherit;
+  padding: 1px 4px;
+  transition: background .12s, border-color .12s;
 }
-.input-cell:focus { background: #e0f4f9; outline: 2px solid #00AACC; }
+.input-cell:hover { border-color: #cfcfcf; }
+.input-cell:focus { background: #e0f4f9; border-color: #00AACC; outline: none; }
 
 /* Supprimer les flèches/spinners des input number et type="text" inputMode="decimal" */
 .no-spinner::-webkit-outer-spin-button,

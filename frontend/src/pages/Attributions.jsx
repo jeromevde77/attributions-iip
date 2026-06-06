@@ -737,7 +737,7 @@ export default function Attributions() {
     const colSet = cols || COLS;
     const isHelb = row.contrat_mdp === 'HELB';
     const isZ = row.is_z === true;
-    const rowBg = isZ ? 'bg-iip-mauve/5 text-gray-500 italic' : selected.has(row.id) ? 'bg-yellow-50' : isHelb ? 'bg-pink-50 hover:bg-pink-100/60' : '';
+    const rowBg = isZ ? 'text-gray-500 italic' : selected.has(row.id) ? 'bg-yellow-50/60' : '';
     // Ligne Z : synthétique (activités 7.3), non éditable, sans prof ni charge.
     if (isZ) {
       return (
@@ -821,9 +821,22 @@ export default function Attributions() {
           if (c.edit==='prof') return <td key={c.key} style={sty}><select defaultValue={row.professeur_id??''} onClick={e=>e.stopPropagation()} className="bg-transparent border-0 outline-none w-full text-sm cursor-pointer focus:bg-yellow-50" onChange={e=>{const nid=e.target.value?Number(e.target.value):null;if(nid!==row.professeur_id)saveCell(row.id,'professeur_id',nid);}}><option value="">— Aucun —</option>{professeurs.map(p=><option key={p.id} value={p.id}>{p.nom_prenom}</option>)}</select></td>;
           if (c.edit==='statut') {
             const isHelb = row.contrat_mdp === 'HELB';
-            // En HELB, on affiche "PI" (professeur invité) au lieu de "EXP" — la valeur stockée reste EXP
             const statutOptions = c.options.map(([val, lbl]) => [val, (isHelb && val === 'EXP') ? 'PI' : lbl]);
-            return <td key={c.key} style={sty}>{row.professeur_id?<select defaultValue={v??''} onClick={e=>e.stopPropagation()} className="bg-transparent border-0 outline-none w-full text-sm cursor-pointer focus:bg-yellow-50" onChange={async e=>{try{await api.updateProfStatut(row.professeur_id,e.target.value);load();}catch(err){alert(err.message);}}}>{statutOptions.map(([val,lbl])=><option key={val} value={val}>{lbl}</option>)}</select>:<span className="text-gray-300">—</span>}</td>;
+            if (!row.professeur_id) return <td key={c.key} style={sty}><span className="text-gray-300">—</span></td>;
+            const displayVal = (isHelb && v === 'EXP') ? 'PI' : v;
+            const badgeCls = v === 'CC' ? 'badge-iip' : v === 'EXP' ? 'badge-exp' : '';
+            return <td key={c.key} style={sty}>
+              <div className="relative inline-flex justify-center w-full">
+                {displayVal
+                  ? <span className={`inline-flex items-center justify-center min-w-[2.2rem] h-6 px-1.5 rounded text-[10px] font-bold ${badgeCls}`}>{displayVal}</span>
+                  : <span className="text-gray-300 text-xs">—</span>}
+                <select defaultValue={v??''} onClick={e=>e.stopPropagation()}
+                  className="absolute inset-0 opacity-0 cursor-pointer w-full"
+                  onChange={async e=>{try{await api.updateProfStatut(row.professeur_id,e.target.value);load();}catch(err){alert(err.message);}}}>
+                  {statutOptions.map(([val,lbl])=><option key={val} value={val}>{lbl}</option>)}
+                </select>
+              </div>
+            </td>;
           }
           return <td key={c.key} className={`${c.num?'num':''} ${cClass}`} style={sty} onClick={click}>{c.num&&v!=null?Number(v).toLocaleString('fr-BE',{maximumFractionDigits:2}):display}</td>;
         })}
