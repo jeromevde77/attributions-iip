@@ -912,19 +912,21 @@ export default function Attributions() {
                 )}
               </span>
             </span>
-            <span className="text-sm text-gray-600 truncate" title={ue.ue_nom}>{ue.ue_nom || 'UE sans nom'}</span>
-            {autAnalyse[String(ue.ue_num)] && (() => {
-              const a = autAnalyse[String(ue.ue_num)];
-              if (a.ok) {
-                return <span className="text-[10px] px-1.5 py-0.5 rounded bg-green-100 text-green-700 font-medium flex-shrink-0" title={`Autonomie ${a.aut_attribuee} dans l'intervalle [${a.min} ; ${a.max}]`}>✓ aut.</span>;
-              }
-              const msg = a.multiple_obligatoire
-                ? `Tous dédoublés ×${a.multiple_obligatoire} → autonomie doit être ${a.attendu} (actuel ${a.aut_attribuee})`
-                : a.depasse_max
-                  ? `Autonomie ${a.aut_attribuee} > max ${a.max} → utiliser EPT ligne 96`
-                  : `Autonomie ${a.aut_attribuee} hors intervalle [${a.min} ; ${a.max}]`;
-              return <span className="text-[10px] px-1.5 py-0.5 rounded bg-orange-100 text-orange-700 font-medium flex-shrink-0" title={msg}>⚠ aut. {a.aut_attribuee}/[{a.min}–{a.max}]</span>;
-            })()}
+            <span className="flex items-center gap-2 min-w-0">
+              <span className="text-sm text-gray-600 truncate" title={ue.ue_nom}>{ue.ue_nom || 'UE sans nom'}</span>
+              {autAnalyse[String(ue.ue_num)] && (() => {
+                const a = autAnalyse[String(ue.ue_num)];
+                if (a.ok) {
+                  return <span className="text-[10px] px-1.5 py-0.5 rounded bg-green-100 text-green-700 font-medium flex-shrink-0" title={`Autonomie ${a.aut_attribuee} dans l'intervalle [${a.min} ; ${a.max}]`}>✓ aut.</span>;
+                }
+                const msg = a.multiple_obligatoire
+                  ? `Tous dédoublés ×${a.multiple_obligatoire} → autonomie doit être ${a.attendu} (actuel ${a.aut_attribuee})`
+                  : a.depasse_max
+                    ? `Autonomie ${a.aut_attribuee} > max ${a.max} → utiliser EPT ligne 96`
+                    : `Autonomie ${a.aut_attribuee} hors intervalle [${a.min} ; ${a.max}]`;
+                return <span className="text-[10px] px-1.5 py-0.5 rounded bg-orange-100 text-orange-700 font-medium flex-shrink-0" title={msg}>⚠ aut. {a.aut_attribuee}/[{a.min}–{a.max}]</span>;
+              })()}
+            </span>
             <span className="flex items-center gap-3 text-sm text-gray-500 flex-shrink-0 justify-end whitespace-nowrap">
               <span>{ue.rows.length} attr.</span>
               <span>{st.nCours} cours</span>
