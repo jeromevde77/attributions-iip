@@ -696,7 +696,7 @@ export default function Attributions() {
       if (sectionCourante) {
         fetch(`/api/attributions/autonomie-ue?section=${encodeURIComponent(sectionCourante)}&annee=${encodeURIComponent(getAnnee())}`,
           { headers: { Authorization: `Bearer ${tok}` } })
-          .then(r => r.json()).then(d => setAutAnalyse(d || {})).catch(() => {});
+          .then(r => r.json()).then(d => { console.log('[autAnalyse]', d); setAutAnalyse(d || {}); }).catch(e => console.error('[autAnalyse err]', e));
       } else {
         setAutAnalyse({});
       }
