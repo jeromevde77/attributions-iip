@@ -220,7 +220,7 @@ r.post('/ue', authRequired, roleRequired('admin', 'editeur'), (req, res) => {
 r.patch('/ue/:num', authRequired, roleRequired('admin', 'editeur'), (req, res) => {
   const annee = req.body.annee_scolaire || req.query.annee || '2025-2026';
   const allowed = ['ue_nom','section','ue_niv','ue_niveau','ue_quad','ue_per_cours','ue_aut',
-                   'ue_code_fwb','et_ref','ects','ue_tc','ue_det','ue_per_etudiants','ue_tot_prf','ue_prerequise','ue_per_z'];
+                   'ue_code_fwb','et_ref','ects','ue_tc','ue_det','ue_per_etudiants','ue_tot_prf','ue_prerequise','ue_per_z','pot_code'];
   const updates = []; const params = { num: req.params.num, annee };
   for (const k of allowed) if (k in req.body) { updates.push(`${k} = @${k}`); params[k] = req.body[k]; }
   if (!updates.length) return res.status(400).json({ error: 'Aucun champ à modifier' });
@@ -911,9 +911,9 @@ r.post('/ue-section', authRequired, roleRequired('admin', 'editeur'), (req, res)
       // Copier l'UE
       db.prepare(`
         INSERT OR IGNORE INTO ue (ue_num, annee_scolaire, ue_nom, ue_code_fwb, section, ue_tc, ue_det,
-          ue_niv, ue_per_etudiants, ue_per_cours, ue_aut, ue_tot_prf, ue_niveau, ue_quad, et_ref, ects, ue_prerequise)
+          ue_niv, ue_per_etudiants, ue_per_cours, ue_aut, ue_tot_prf, ue_niveau, ue_quad, et_ref, ects, ue_prerequise, pot_code)
         SELECT ue_num, @cible, ue_nom, ue_code_fwb, @section, ue_tc, ue_det,
-          ue_niv, ue_per_etudiants, ue_per_cours, ue_aut, ue_tot_prf, ue_niveau, ue_quad, et_ref, ects, ue_prerequise
+          ue_niv, ue_per_etudiants, ue_per_cours, ue_aut, ue_tot_prf, ue_niveau, ue_quad, et_ref, ects, ue_prerequise, pot_code
         FROM ue WHERE ue_num = @ue AND annee_scolaire = @source AND section = @srcsec
       `).run({ ue: ue_num, cible: annee, source: source.annee_scolaire, section: section_code, srcsec: source.section });
       // Copier ses cours avec la nouvelle section
