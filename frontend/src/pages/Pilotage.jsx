@@ -197,12 +197,13 @@ function DotationComparaison({ civil }) {
     return (
       <th rowSpan={rowSpan} colSpan={colSpan}
         style={{ width: colW[col] || undefined, minWidth: colW[col] || undefined, position:'relative', userSelect:'none', ...style }}
-        className={`px-2 py-2 text-${align} whitespace-nowrap overflow-hidden text-ellipsis`}>
+        className={`px-2 py-2 text-${align} whitespace-nowrap overflow-hidden text-ellipsis group/th`}>
         {children}
         {col && (
           <span onMouseDown={e => startResize(col, e)}
-            style={{position:'absolute',right:0,top:0,bottom:0,width:4,cursor:'col-resize',background:'rgba(255,255,255,.2)',zIndex:1}}
-            onClick={e => e.stopPropagation()} />
+            onClick={e => e.stopPropagation()}
+            className="absolute right-0 top-0 bottom-0 w-1 cursor-col-resize opacity-0 hover:opacity-100 transition-opacity"
+            style={{ background: 'rgba(255,255,255,.35)', zIndex: 1 }} />
         )}
       </th>
     );
@@ -374,20 +375,20 @@ function DotationComparaison({ civil }) {
                         {sec.section}
                       </td>
                       <td style={{width:colW.niv}}></td><td style={{width:colW.quad}}></td>
-                      <td className="px-2 py-2 text-right text-xs border-l border-gray-100" style={{width:colW.q1a}}>{fmt(sec.tot1.q1)}</td>
+                      <td className="px-2 py-2 text-right text-xs" style={{width:colW.q1a}}>{fmt(sec.tot1.q1)}</td>
                       <td className="px-2 py-2 text-right text-xs" style={{width:colW.q2a}}>{fmt(sec.tot1.q2)}</td>
                       <td className="px-2 py-2 text-right font-bold text-iip-gold" style={{width:colW.ta}}>{sec.tot1_total || '—'}</td>
-                      <td className="px-2 py-2 text-right text-xs border-l border-gray-100" style={{width:colW.q1b}}>{fmt(sec.tot2.q1)}</td>
+                      <td className="px-2 py-2 text-right text-xs" style={{width:colW.q1b}}>{fmt(sec.tot2.q1)}</td>
                       <td className="px-2 py-2 text-right text-xs" style={{width:colW.q2b}}>{fmt(sec.tot2.q2)}</td>
                       <td className={`px-2 py-2 text-right font-bold ${secDelta > 0 ? 'text-red-600' : secDelta < 0 ? 'text-green-600' : 'text-iip-gold'}`} style={{width:colW.tb}}>{sec.tot2_total || '—'}</td>
-                      <td className="px-3 py-2 text-center border-l border-gray-200" style={{width:colW.delta}}>{delta(secDelta)}</td>
+                      <td className="px-3 py-2 text-center border-l border-gray-100" style={{width:colW.delta}}>{delta(secDelta)}</td>
                     </tr>
                     {/* Lignes UE */}
                     {open && sec.ues.map((u, i) => (
                       <tr key={`${u.section}-${u.ue_num}`}
-                        className={`border-t border-gray-100 ${i%2===0?'bg-white':'bg-gray-50/50'} text-xs`}>
+                        className={`border-t border-gray-100 text-xs hover:bg-gray-50/60`}>
                         <td className="px-3 py-1.5 sticky left-0 z-10 pl-8 overflow-hidden text-ellipsis whitespace-nowrap"
-                          style={{background: i%2===0?'white':'#fafafa', width:colW.nom, maxWidth:colW.nom}}>
+                          style={{background:'white', width:colW.nom, maxWidth:colW.nom}}>
                           <span className="font-mono text-gray-400 mr-2">UE {u.ue_num}</span>
                           <span className="text-gray-600">{u.ue_nom}</span>
                         </td>
@@ -396,13 +397,13 @@ function DotationComparaison({ civil }) {
                             style={{background: nivColor(u.ue_niv)}}>{u.ue_niv}</span>}
                         </td>
                         <td className="px-2 py-1.5 text-center text-gray-400">{u.ue_quad||'—'}</td>
-                        <td className="px-2 py-1.5 text-right border-l border-gray-100 text-gray-600">{fmt(u.c1.q1)}</td>
+                        <td className="px-2 py-1.5 text-right text-gray-600">{fmt(u.c1.q1)}</td>
                         <td className="px-2 py-1.5 text-right text-gray-600">{fmt(u.c1.q2)}</td>
                         <td className="px-2 py-1.5 text-right font-semibold text-gray-700">{u.t1||'—'}</td>
-                        <td className="px-2 py-1.5 text-right border-l border-gray-100 text-gray-600">{fmt(u.c2.q1)}</td>
+                        <td className="px-2 py-1.5 text-right text-gray-600">{fmt(u.c2.q1)}</td>
                         <td className="px-2 py-1.5 text-right text-gray-600">{fmt(u.c2.q2)}</td>
                         <td className={`px-2 py-1.5 text-right font-semibold ${u.delta > 0 ? 'text-red-500' : u.delta < 0 ? 'text-green-500' : 'text-gray-700'}`}>{u.t2||'—'}</td>
-                        <td className="px-3 py-1.5 text-center border-l border-gray-200">{delta(u.delta)}</td>
+                        <td className="px-3 py-1.5 text-center border-l border-gray-100">{delta(u.delta)}</td>
                       </tr>
                     ))}
                   </>
@@ -412,21 +413,21 @@ function DotationComparaison({ civil }) {
               <tr className="border-t-2 border-iip-gold bg-iip-gold/5 font-bold">
                 <td className="px-3 py-2.5 text-iip-gold sticky left-0 bg-iip-gold/5 z-10">TOTAL GÉNÉRAL</td>
                 <td></td><td></td>
-                <td className="px-2 py-2.5 text-right border-l border-gray-200">
+                <td className="px-2 py-2.5 text-right border-l border-gray-100">
                   {fmt(Math.round(data.sections.reduce((s,sec)=>s+sec.tot1.q1,0)*100)/100)}
                 </td>
                 <td className="px-2 py-2.5 text-right">
                   {fmt(Math.round(data.sections.reduce((s,sec)=>s+sec.tot1.q2,0)*100)/100)}
                 </td>
                 <td className="px-2 py-2.5 text-right text-iip-gold text-base">{totGlob1}</td>
-                <td className="px-2 py-2.5 text-right border-l border-gray-200">
+                <td className="px-2 py-2.5 text-right border-l border-gray-100">
                   {fmt(Math.round(data.sections.reduce((s,sec)=>s+sec.tot2.q1,0)*100)/100)}
                 </td>
                 <td className="px-2 py-2.5 text-right">
                   {fmt(Math.round(data.sections.reduce((s,sec)=>s+sec.tot2.q2,0)*100)/100)}
                 </td>
                 <td className={`px-2 py-2.5 text-right text-base ${deltaGlob > 0 ? 'text-red-600' : deltaGlob < 0 ? 'text-green-600' : 'text-iip-gold'}`}>{totGlob2}</td>
-                <td className="px-3 py-2.5 text-center border-l border-gray-200">{delta(deltaGlob)}</td>
+                <td className="px-3 py-2.5 text-center border-l border-gray-100">{delta(deltaGlob)}</td>
               </tr>
             </tbody>
           </table>
