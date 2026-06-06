@@ -401,14 +401,14 @@ r.get('/autonomie-ue', authRequired, (req, res) => {
   if (!section || !annee) return res.status(400).json({ error: 'section et annee requis' });
 
   const ues = db.prepare(`
-    SELECT u.ue_num, u.ue_per_cours, u.ue_aut
+    SELECT DISTINCT u.ue_num, u.ue_per_cours, u.ue_aut
     FROM ue u WHERE u.section = ? AND u.annee_scolaire = ?
   `).all(section, annee);
 
   const result = ues.map(ue => {
     const tousLesCours = db.prepare(
-      "SELECT heures FROM cours WHERE ue_num = ? AND annee_scolaire = ? AND (ct_pp IS NULL OR ct_pp != 'Z')"
-    ).all(ue.ue_num, annee);
+      "SELECT heures FROM cours WHERE ue_num = ? AND section = ? AND annee_scolaire = ? AND (ct_pp IS NULL OR ct_pp != 'Z')"
+    ).all(ue.ue_num, section, annee);
 
     const totalHeures = tousLesCours.reduce((s, c) => s + (c.heures || 0), 0);
     if (totalHeures === 0) return null; // pas d'heures encodées → pas d'analyse
@@ -418,8 +418,8 @@ r.get('/autonomie-ue', authRequired, (req, res) => {
     const autNecessaire = Math.max(0, Math.round((perDP - perContact) * 10) / 10);
 
     const autAttribuee = db.prepare(
-      "SELECT COALESCE(SUM(autonomie_attribuee), 0) AS total FROM attribution WHERE ue_num = ? AND annee_scolaire = ? AND contrat_mdp = 'IIP'"
-    ).get(ue.ue_num, annee)?.total || 0;
+      "SELECT COALESCE(SUM(autonomie_attribuee), 0) AS total FROM attribution WHERE ue_num = ? AND section = ? AND annee_scolaire = ? AND contrat_mdp = 'IIP'"
+    ).get(ue.ue_num, section, annee)?.total || 0;
 
     const resteCouvrir = Math.round((autNecessaire - autAttribuee) * 10) / 10;
     return { ue_num: ue.ue_num, ok: resteCouvrir <= 0, reste: resteCouvrir, aut_necessaire: autNecessaire, aut_attribuee: autAttribuee };

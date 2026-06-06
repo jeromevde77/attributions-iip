@@ -691,12 +691,18 @@ export default function Attributions() {
           for (const a of (d.attrs || [])) map[a.id] = a.badge;
           setExtDot(map);
         }).catch(() => {});
-      // Charger analyse autonomie par UE
-      const sectionCourante = f.section || (Array.isArray(a) && a[0]?.section) || '';
-      if (sectionCourante) {
-        fetch(`/api/attributions/autonomie-ue?section=${encodeURIComponent(sectionCourante)}&annee=${encodeURIComponent(getAnnee())}`,
-          { headers: { Authorization: `Bearer ${tok}` } })
-          .then(r => r.json()).then(d => { console.log('[autAnalyse]', d); setAutAnalyse(d || {}); }).catch(e => console.error('[autAnalyse err]', e));
+      // Charger analyse autonomie par UE — pour toutes les sections présentes
+      const sectionsVisibles = [...new Set((Array.isArray(a) ? a : []).map(r => r.section).filter(Boolean))];
+      if (f.section && !sectionsVisibles.includes(f.section)) sectionsVisibles.push(f.section);
+      if (sectionsVisibles.length > 0) {
+        Promise.all(sectionsVisibles.map(sec =>
+          fetch(`/api/attributions/autonomie-ue?section=${encodeURIComponent(sec)}&annee=${encodeURIComponent(getAnnee())}`,
+            { headers: { Authorization: `Bearer ${tok}` } }).then(r => r.json()).catch(() => ({}))
+        )).then(results => {
+          const merged = {};
+          for (const m of results) Object.assign(merged, m || {});
+          setAutAnalyse(merged);
+        });
       } else {
         setAutAnalyse({});
       }
