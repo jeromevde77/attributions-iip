@@ -214,7 +214,7 @@ export default function CoursFormModal({ cours, ueNum, section, onClose, onSaved
                 </select>
               </label>
             </div>
-            <div className="grid grid-cols-3 gap-3">
+            <div className="grid grid-cols-2 gap-3">
               <label className="block">
                 <div className={isZ ? lblZ : lbl}>
                   Heures étudiant
@@ -227,11 +227,6 @@ export default function CoursFormModal({ cours, ueNum, section, onClose, onSaved
                     = {Math.round(Number(form.heures) * 1.2)} pér. contact étudiant
                   </div>
                 )}
-              </label>
-              <label className="block">
-                <div className={isZ ? lblZ : lbl}>Autonomie du cours</div>
-                <input type="number" min="0" value={form.cours_autonomie} onChange={e => set('cours_autonomie', e.target.value)}
-                  disabled={isZ} placeholder="0" className={isZ ? inpZ : inp} />
               </label>
               <label className="block">
                 <div className={isZ ? lblZ : lbl}>Dédoublé</div>
@@ -249,7 +244,7 @@ export default function CoursFormModal({ cours, ueNum, section, onClose, onSaved
                 <div className="text-xs font-semibold text-violet-700 uppercase tracking-wider flex items-center gap-1.5">
                   🎓 Vue étudiant
                 </div>
-                <div className="grid grid-cols-3 gap-3 text-center">
+                <div className="grid grid-cols-4 gap-3 text-center">
                   <div className="bg-white rounded border border-violet-100 p-2">
                     <div className="text-[10px] text-gray-500 mb-0.5">Heures de contact</div>
                     <div className="font-bold text-violet-700 text-lg">{form.heures || '—'} h</div>
@@ -266,6 +261,14 @@ export default function CoursFormModal({ cours, ueNum, section, onClose, onSaved
                     <div className="text-[10px] text-gray-500 mb-0.5">Pér. dossier pédag.</div>
                     <div className="font-bold text-iip-gold text-lg">{form.cours_per || '—'}</div>
                     <div className="text-[10px] text-gray-400">périodes prof.</div>
+                  </div>
+                  <div className="bg-white rounded border border-amber-200 p-2">
+                    <div className="text-[10px] text-gray-500 mb-0.5">Autonomie du cours</div>
+                    <input type="number" min="0" value={form.cours_autonomie}
+                      onChange={e => set('cours_autonomie', e.target.value)}
+                      placeholder="0"
+                      className="font-bold text-amber-600 text-lg text-center w-full bg-transparent border-b border-amber-200 focus:outline-none focus:border-amber-500" />
+                    <div className="text-[10px] text-gray-400">pér. autonomie</div>
                   </div>
                 </div>
                 {Number(form.heures) > 0 && Number(form.cours_per) > 0 && (
