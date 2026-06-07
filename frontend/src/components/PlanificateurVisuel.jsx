@@ -386,48 +386,69 @@ export default function PlanificateurVisuel({ onClose }) {
 
   // Réductions d'attribution dues aux évaluations supprimées (compris dans l'attribution prof)
   // EV1 = 2h = 2,4 pér. · VC = 1h = 1,2 pér.
+  // Réductions à la suppression d'évaluations : déduites de l'AUTONOMIE uniquement
+  // (jamais des périodes de cours/DP). EV1 = 2h = 2,4 pér., VC = 1h = 1,2 pér.
   const PER_EV1 = 2 * 1.2, PER_VC = 1 * 1.2;
   const reductions = useMemo(() => {
-    const map = {}; // { attribution_id : { periodes, details, label } }
+    const map = {}; // { groupe_id(=attribution_id) : { autoRetiree, details, label, autoDispo } }
     for (const b of blocs) {
       if (b.kind !== 'cours') continue;
-      const attrId = b.groupe_id;
-      if (evalSupprimees.has(`${b.id}-ev1`)) {
-        map[attrId] = map[attrId] || { periodes: 0, details: [], label: `${b.code_cours || ''} ${b.activite}`.trim() };
-        map[attrId].periodes += PER_EV1;
-        map[attrId].details.push('EV1 (−2,4 pér.)');
-      }
-      if (evalSupprimees.has(`${b.id}-vc`)) {
-        map[attrId] = map[attrId] || { periodes: 0, details: [], label: `${b.code_cours || ''} ${b.activite}`.trim() };
-        map[attrId].periodes += PER_VC;
-        map[attrId].details.push('VC (−1,2 pér.)');
-      }
+      let aRetirer = 0; const details = [];
+      if (evalSupprimees.has(`${b.id}-ev1`)) { aRetirer += PER_EV1; details.push('EV1 (−2,4 pér.)'); }
+      if (evalSupprimees.has(`${b.id}-vc`)) { aRetirer += PER_VC; details.push('VC (−1,2 pér.)'); }
+      if (!aRetirer) continue;
+      // autonomie disponible sur cette voie (en périodes)
+      const autoVoie = blocs.filter(x => x.groupe_id === b.groupe_id && x.kind === 'autonomie');
+      const autoDispo = autoVoie.reduce((s, a) => s + (a.autonomie || 0), 0);
+      const autoRetiree = Math.min(aRetirer, autoDispo); // jamais plus que l'autonomie dispo
+      map[b.groupe_id] = {
+        autoRetiree: Math.round(autoRetiree * 10) / 10,
+        demande: Math.round(aRetirer * 10) / 10,
+        autoDispo: Math.round(autoDispo * 10) / 10,
+        details, label: `${b.code_cours || ''} ${b.activite}`.trim(),
+      };
     }
     return map;
   }, [blocs, evalSupprimees]);
 
   // ── Évaluations PAR COURS (EV1 + VC), 1 semaine chacune, après chaque bloc de cours ──
   // Stockées dans l'état pour pouvoir les supprimer. On les (re)génère depuis les blocs de cours.
+  // Détecte les cours dédoublés : plusieurs voies avec le même code_cours
+  const coursDedoubles = useMemo(() => {
+    const parCours = {};
+    for (const b of blocs) {
+      if (b.kind !== 'cours' || !b.code_cours) continue;
+      (parCours[b.code_cours] ||= new Set()).add(b.groupe_id);
+    }
+    // un code_cours est dédoublé s'il a 2+ voies (groupes) distinctes
+    const set = new Set();
+    for (const [code, voies] of Object.entries(parCours)) if (voies.size >= 2) set.add(code);
+    return set;
+  }, [blocs]);
+
   const evaluationsParBloc = useMemo(() => {
     if (!blocs.length || !semaines.length) return {};
-    const joursCoursEV1 = calSessions?.delais?.cours_ev1_cal ?? 7;
     const joursEV1VC = (calSessions?.delais?.ev1_delib1_cal ?? 5) + (calSessions?.delais?.delib1_vc1_cal ?? 3);
-    const semApresCoursEV1 = Math.max(0, Math.round(joursCoursEV1 / 7));
     const semEV1VC = Math.max(1, Math.round(joursEV1VC / 7));
     const map = {};
     for (const b of blocs) {
-      if (b.kind !== 'cours') continue; // évals seulement pour les blocs de cours
+      if (b.kind !== 'cours') continue;
       if (evalSupprimees.has(`${b.id}-ev1`) && evalSupprimees.has(`${b.id}-vc`)) continue;
-      const finBloc = b.debutSem + b.dureeSem;
-      const ev1Debut = Math.min(finBloc + semApresCoursEV1, semaines.length - 1);
-      const vcDebut = Math.min(ev1Debut + semEV1VC, semaines.length - 1);
+      // EV1/VC se placent APRÈS l'autonomie de la même voie (pas de chevauchement)
+      const autoVoie = blocs.filter(x => x.groupe_id === b.groupe_id && x.kind === 'autonomie');
+      const finAuto = autoVoie.length ? Math.max(...autoVoie.map(a => a.debutSem + a.dureeSem)) : 0;
+      const finBloc = Math.max(b.debutSem + b.dureeSem, finAuto);
+      const ev1Debut = Math.min(finBloc, semaines.length - 2);
+      const vcDebut = Math.min(ev1Debut + 1, semaines.length - 1);
+      // Suppression autorisée seulement si le cours est dédoublé ET ce n'est pas le groupe A
+      const supprimable = coursDedoubles.has(b.code_cours) && b.groupe_nom !== 'A';
       const evals = [];
-      if (!evalSupprimees.has(`${b.id}-ev1`)) evals.push({ id: `${b.id}-ev1`, label: 'EV1', debutSem: ev1Debut, dureeSem: 1, blocId: b.id });
-      if (!evalSupprimees.has(`${b.id}-vc`)) evals.push({ id: `${b.id}-vc`, label: 'VC', debutSem: vcDebut, dureeSem: 1, blocId: b.id });
+      if (!evalSupprimees.has(`${b.id}-ev1`)) evals.push({ id: `${b.id}-ev1`, label: 'EV1', debutSem: ev1Debut, dureeSem: 1, blocId: b.id, groupe_id: b.groupe_id, supprimable });
+      if (!evalSupprimees.has(`${b.id}-vc`)) evals.push({ id: `${b.id}-vc`, label: 'VC', debutSem: vcDebut, dureeSem: 1, blocId: b.id, groupe_id: b.groupe_id, supprimable });
       map[b.groupe_id] = (map[b.groupe_id] || []).concat(evals);
     }
     return map;
-  }, [blocs, semaines, calSessions, evalSupprimees]);
+  }, [blocs, semaines, calSessions, evalSupprimees, coursDedoubles]);
 
   return (
     <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4" onClick={e => e.target === e.currentTarget && onClose()}>
@@ -522,6 +543,18 @@ export default function PlanificateurVisuel({ onClose }) {
                       {voie.groupe?.prof && ` · ${voie.groupe.prof}`}
                       {` · ${voie.groupe?.heures || 0}h`}
                     </div>
+                    {/* Alerte : cours trop court une fois l'évaluation (3h) déduite */}
+                    {(() => {
+                      const hCours = voie.blocs.filter(b => b.kind === 'cours').reduce((s, b) => s + (b.heures || 0), 0);
+                      const hAuto = voie.blocs.filter(b => b.kind === 'autonomie').reduce((s, b) => s + (b.heures || 0), 0);
+                      // 3h d'évaluation (EV1 2h + VC 1h) prises sur le cours étudiant
+                      if (hCours > 0 && (hCours - 3) < 4 && hAuto < 4) {
+                        return <div className="text-[10px] text-amber-600 mt-0.5 leading-tight">
+                          ⚠ très peu d'heures de cours après l'évaluation — ajoutez de l'autonomie ou faites de l'évaluation continue
+                        </div>;
+                      }
+                      return null;
+                    })()}
                   </div>
                   {/* Zone des blocs */}
                   <div className="relative flex-1" style={{ height: 52 }}>
@@ -613,11 +646,13 @@ export default function PlanificateurVisuel({ onClose }) {
                         border: '1.5px solid #9ca3af',
                         color: '#374151',
                         borderRadius: 6,
-                        cursor: 'pointer',
+                        cursor: ev.supprimable ? 'pointer' : 'default',
                       }}
-                        onClick={() => setEvalASupprimer(ev)}
-                        className="flex items-center justify-center text-[11px] font-bold select-none hover:bg-gray-300 transition z-10"
-                        title={`${ev.label} — semaine ${semaines[ev.debutSem]?.semaine_num} · cliquer pour supprimer`}>
+                        onClick={() => ev.supprimable && setEvalASupprimer(ev)}
+                        className={`flex items-center justify-center text-[11px] font-bold select-none transition z-10 ${ev.supprimable ? 'hover:bg-gray-300' : ''}`}
+                        title={ev.supprimable
+                          ? `${ev.label} — semaine ${semaines[ev.debutSem]?.semaine_num} · groupe dédoublé : cliquer pour supprimer (réunion des groupes)`
+                          : `${ev.label} — semaine ${semaines[ev.debutSem]?.semaine_num} · non supprimable (cours non dédoublé / groupe A)`}>
                         {ev.label}
                       </div>
                     ))}
@@ -670,18 +705,21 @@ export default function PlanificateurVisuel({ onClose }) {
 
             {Object.keys(reductions).length > 0 && (
               <>
-                <div className="text-xs font-semibold text-red-600 uppercase mb-1">⚠ Réductions d'attribution (évaluations supprimées)</div>
-                <div className="bg-red-50 rounded p-3 text-xs text-red-700 max-h-32 overflow-auto mb-3">
-                  {Object.entries(reductions).map(([attrId, r]) => (
-                    <div key={attrId} className="flex justify-between py-0.5">
-                      <span>{r.label} — {r.details.join(', ')}</span>
-                      <span className="font-semibold">−{Math.round(r.periodes * 10) / 10} pér.</span>
+                <div className="text-xs font-semibold text-amber-600 uppercase mb-1">Évaluations supprimées (déduites de l'autonomie)</div>
+                <div className="bg-amber-50 rounded p-3 text-xs text-amber-800 max-h-32 overflow-auto mb-3">
+                  {Object.entries(reductions).map(([gid, r]) => (
+                    <div key={gid} className="py-0.5">
+                      <div className="flex justify-between">
+                        <span>{r.label} — {r.details.join(', ')}</span>
+                        <span className="font-semibold">−{r.autoRetiree} pér. d'autonomie</span>
+                      </div>
+                      {r.autoRetiree < r.demande && (
+                        <div className="text-[10px] text-amber-600">
+                          ⚠ autonomie insuffisante ({r.autoDispo} pér. dispo) — le DP reste intact, on ne retire que l'autonomie
+                        </div>
+                      )}
                     </div>
                   ))}
-                  <div className="flex justify-between border-t border-red-200 mt-1 pt-1 font-bold">
-                    <span>Total réduit</span>
-                    <span>−{Math.round(Object.values(reductions).reduce((s, r) => s + r.periodes, 0) * 10) / 10} pér.</span>
-                  </div>
                 </div>
               </>
             )}
@@ -702,8 +740,9 @@ export default function PlanificateurVisuel({ onClose }) {
           <div className="bg-white rounded-xl shadow-2xl w-full max-w-sm p-5">
             <h3 className="font-title text-lg text-iip-gold mb-1">Supprimer {evalASupprimer.label} ?</h3>
             <p className="text-sm text-gray-600 mb-4">
-              Cette évaluation sera retirée de la planification de ce cours.
-              Cela réduira les attributions correspondantes en conséquence.
+              Le cours étant dédoublé, le prof réunit les groupes pour cette évaluation.
+              Elle sera retirée de la planification de ce groupe et l'autonomie correspondante
+              sera déduite à la confirmation finale (le DP du cours reste intact).
             </p>
             <div className="flex justify-end gap-2">
               <button onClick={() => setEvalASupprimer(null)} className="px-4 py-2 text-sm text-gray-600">Annuler</button>
@@ -845,10 +884,11 @@ export default function PlanificateurVisuel({ onClose }) {
       if (cellules.length) {
         await authFetch('/api/planification/cellules-bulk', { method: 'PUT', body: JSON.stringify({ cellules }) });
       }
-      // Réduire les attributions pour les évaluations supprimées (EV1=2,4 pér., VC=1,2 pér.)
+      // Réduire l'AUTONOMIE des attributions pour les évaluations supprimées (jamais le DP)
       const redArr = Object.entries(reductions)
-        .filter(([attrId]) => !String(attrId).startsWith('w-')) // ignorer les blocs issus du wizard (pas d'attribution réelle)
-        .map(([attrId, r]) => ({ attribution_id: Number(attrId), periodes: r.periodes }));
+        .filter(([gid]) => !String(gid).startsWith('w-'))
+        .map(([gid, r]) => ({ attribution_id: Number(gid), autonomie: r.autoRetiree }))
+        .filter(x => x.autonomie > 0);
       if (redArr.length) {
         await authFetch('/api/planification/reduire-evaluations', { method: 'POST', body: JSON.stringify({ reductions: redArr }) });
       }

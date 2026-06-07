@@ -495,23 +495,24 @@ function _numToLettre(n) {
 }
 
 // POST /planification/reduire-evaluations
-// Réduit les périodes d'attributions suite à des évaluations supprimées dans le planificateur.
-// Body : { reductions: [{ attribution_id, periodes }] }
-// L'évaluation étant comprise dans l'attribution prof, on retire les périodes correspondantes.
+// Réduit l'AUTONOMIE d'attributions suite à des évaluations supprimées (groupes dédoublés).
+// L'évaluation est comprise dans l'attribution prof ; supprimer une éval sur un groupe
+// dédoublé (réunion des groupes) retire l'autonomie correspondante — JAMAIS le DP.
+// Body : { reductions: [{ attribution_id, autonomie }] }
 r.post('/reduire-evaluations', authRequired, roleRequired('admin', 'editeur'), (req, res) => {
   const { reductions } = req.body;
   if (!Array.isArray(reductions) || !reductions.length) {
     return res.json({ ok: true, modifies: 0 });
   }
-  const sel = db.prepare('SELECT id, periodes_attribuees FROM attribution WHERE id = ?');
-  const upd = db.prepare('UPDATE attribution SET periodes_attribuees = ? WHERE id = ?');
+  const sel = db.prepare('SELECT id, autonomie_attribuee FROM attribution WHERE id = ?');
+  const upd = db.prepare('UPDATE attribution SET autonomie_attribuee = ? WHERE id = ?');
   let modifies = 0;
   const tx = db.transaction(() => {
     for (const r of reductions) {
       const row = sel.get(r.attribution_id);
       if (!row) continue;
-      const actuel = row.periodes_attribuees || 0;
-      const nouveau = Math.max(0, Math.round((actuel - (r.periodes || 0)) * 100) / 100);
+      const actuel = row.autonomie_attribuee || 0;
+      const nouveau = Math.max(0, Math.round((actuel - (r.autonomie || 0)) * 100) / 100);
       upd.run(nouveau, r.attribution_id);
       modifies++;
     }
