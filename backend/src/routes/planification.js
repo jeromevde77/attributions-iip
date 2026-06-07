@@ -72,6 +72,16 @@ r.get('/calendrier-sessions', authRequired, (req, res) => {
     delib_ev1:        isoDate(delibEV1),
     ev1:              isoDate(ev1),
     dernier_cours:    isoDate(dernierCours),
+    delais: {
+      recours_jours_ouvr:  N('session.recours_jours_ouvr', 5),
+      delib2_recours_cal:  N('session.delib2_recours_cal', 3),
+      delib2_duree_cal:    N('session.delib2_duree_cal', 1),
+      corrections_ev2_cal: N('session.corrections_ev2_cal', 3),
+      vc1_ev2_cal:         N('session.vc1_ev2_cal', 10),
+      delib1_vc1_cal:      N('session.delib1_vc1_cal', 3),
+      ev1_delib1_cal:      N('session.ev1_delib1_cal', 5),
+      cours_ev1_cal:       N('session.cours_ev1_cal', 7),
+    },
   });
 });
 

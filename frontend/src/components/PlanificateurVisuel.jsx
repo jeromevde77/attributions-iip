@@ -253,9 +253,27 @@ export default function PlanificateurVisuel({ onClose }) {
     window.addEventListener('mouseup', onUp);
   }
 
-  // ── Couper un bloc en deux (crée une activité) ──
-  // Scinde un bloc à une position donnée.
-  // mode 'heures' : coupeVal = nb d'heures pour le 1er segment
+  // ── Redimensionner par le bord GAUCHE = changer le début (et la durée) ──
+  function onResizeLeftMouseDown(e, bloc) {
+    e.preventDefault(); e.stopPropagation();
+    const startX = e.clientX;
+    const startDebut = bloc.debutSem;
+    const startDuree = bloc.dureeSem;
+    const onMove = ev => {
+      const diffPx = ev.clientX - startX;
+      const diffSem = Math.round(diffPx / PX_SEM);
+      setBlocs(prev => prev.map(b => {
+        if (b.id !== bloc.id) return b;
+        // Décaler le début sans dépasser la fin (garder au moins 1 semaine)
+        const newDebut = Math.max(0, Math.min(startDebut + startDuree - 1, startDebut + diffSem));
+        const newDuree = Math.max(1, startDuree - (newDebut - startDebut));
+        return { ...b, debutSem: newDebut, dureeSem: newDuree };
+      }));
+    };
+    const onUp = () => { window.removeEventListener('mousemove', onMove); window.removeEventListener('mouseup', onUp); };
+    window.addEventListener('mousemove', onMove);
+    window.addEventListener('mouseup', onUp);
+  }
   // mode 'semaine' : coupeVal = nb de semaines (de cours) pour le 1er segment
   function couperBlocPosition(bloc, mode, val) {
     const v = Number(val);
@@ -264,14 +282,18 @@ export default function PlanificateurVisuel({ onClose }) {
     let dureeSeg1;
     let heuresSeg1;
     if (mode === 'heures') {
-      heuresSeg1 = Math.min(v, bloc.heures);
+      // Arrondir au multiple de 2h le plus proche
+      heuresSeg1 = Math.max(2, Math.round(v / 2) * 2);
+      heuresSeg1 = Math.min(heuresSeg1, bloc.heures);
       dureeSeg1 = Math.max(1, Math.round(heuresSeg1 / hParSemBloc));
     } else { // semaine
       dureeSeg1 = Math.max(1, Math.min(v, bloc.dureeSem - 1));
       heuresSeg1 = Math.round(hParSemBloc * dureeSeg1 * 100) / 100;
+      // Arrondir les heures du 1er segment au multiple de 2h
+      heuresSeg1 = Math.max(2, Math.round(heuresSeg1 / 2) * 2);
     }
-    const dureeSeg2 = Math.max(1, bloc.dureeSem - dureeSeg1);
     const heuresSeg2 = Math.round((bloc.heures - heuresSeg1) * 100) / 100;
+    const dureeSeg2 = Math.max(1, bloc.dureeSem - dureeSeg1);
     setBlocs(prev => {
       const idx = prev.findIndex(b => b.id === bloc.id);
       const b1 = { ...bloc, dureeSem: dureeSeg1, heures: heuresSeg1 };
@@ -360,6 +382,27 @@ export default function PlanificateurVisuel({ onClose }) {
 
   const ueChoisie = ues.find(u => String(u.ue_num) === String(ueNum));
 
+  // ── Évaluations de l'UE (EV1 + VC), 1 semaine chacune, placées après les cours ──
+  // Délais issus de Configuration (chaîne rétroactive). EV1 et VC s'adaptent à la fin réelle des cours.
+  const evaluations = useMemo(() => {
+    if (!blocs.length || !semaines.length) return [];
+    // Dernière semaine occupée par un bloc de cours/activité (hors évaluation)
+    const finCours = Math.max(...blocs.map(b => b.debutSem + b.dureeSem));
+    // Nb de jours de la chaîne (depuis Configuration) → on convertit en semaines
+    // EV1 : ~1 semaine après le dernier cours (cours_ev1_cal jours, défaut 7 = 1 sem)
+    const joursCoursEV1 = calSessions?.delais?.cours_ev1_cal ?? 7;
+    const joursEV1VC = (calSessions?.delais?.ev1_delib1_cal ?? 5) + (calSessions?.delais?.delib1_vc1_cal ?? 3);
+    const semApresCoursEV1 = Math.max(0, Math.round(joursCoursEV1 / 7));
+    const semEV1VC = Math.max(1, Math.round(joursEV1VC / 7));
+
+    const ev1Debut = Math.min(finCours + semApresCoursEV1, semaines.length - 1);
+    const vcDebut = Math.min(ev1Debut + semEV1VC, semaines.length - 1);
+    return [
+      { id: 'eval-ev1', label: 'EV1', debutSem: ev1Debut, dureeSem: 1, kind: 'eval' },
+      { id: 'eval-vc', label: 'VC', debutSem: vcDebut, dureeSem: 1, kind: 'eval' },
+    ];
+  }, [blocs, semaines, calSessions]);
+
   return (
     <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4" onClick={e => e.target === e.currentTarget && onClose()}>
       <div className="bg-white rounded-xl shadow-2xl w-full max-w-[95vw] h-[90vh] flex flex-col">
@@ -429,13 +472,12 @@ export default function PlanificateurVisuel({ onClose }) {
               <div className="flex sticky top-0 z-10 bg-white" style={{ paddingLeft: LABEL_W }}>
                 {semaines.map((s, i) => {
                   const st = SEM_STYLE[s.type] || SEM_STYLE.cours;
-                  const apresCours = i > dernierCoursIdx;
                   return (
-                    <div key={s.id} style={{ width: PX_SEM, background: apresCours ? '#fef2f2' : st.bg }}
+                    <div key={s.id} style={{ width: PX_SEM, background: st.bg }}
                       className="border-r border-gray-100 text-center py-1 text-[9px] text-gray-500 flex-shrink-0"
-                      title={`Semaine ${s.semaine_num} — ${s.date_debut} (${s.type})${s.label ? ' · '+s.label : ''}${apresCours ? ' · zone sessions/délibé (hors cours)' : ''}`}>
+                      title={`Semaine ${s.semaine_num} — ${s.date_debut} (${s.type})${s.label ? ' · '+s.label : ''}`}>
                       <div className="font-semibold">{s.semaine_num}</div>
-                      {apresCours ? <div className="text-[8px] text-red-400">sess.</div> : st.label && <div className="text-[8px] text-gray-400">{st.label}</div>}
+                      {st.label && <div className="text-[8px] text-gray-400">{st.label}</div>}
                     </div>
                   );
                 })}
@@ -461,8 +503,7 @@ export default function PlanificateurVisuel({ onClose }) {
                     <div className="absolute inset-0 flex">
                       {semaines.map((s, i) => {
                         const st = SEM_STYLE[s.type] || SEM_STYLE.cours;
-                        const apresCours = i > dernierCoursIdx;
-                        const bg = apresCours ? 'rgba(254,242,242,.6)' : (s.type !== 'cours' ? st.bg : 'transparent');
+                        const bg = s.type !== 'cours' ? st.bg : 'transparent';
                         return <div key={s.id} style={{ width: PX_SEM, background: bg }}
                           className="border-r border-gray-50 flex-shrink-0" />;
                       })}
@@ -525,6 +566,10 @@ export default function PlanificateurVisuel({ onClose }) {
                           className="ml-1 w-4 h-4 flex items-center justify-center rounded-full bg-white/70 hover:bg-white text-gray-700 text-[11px] leading-none relative z-10 flex-shrink-0"
                           title="Actions sur ce bloc">+</button>
                         {/* Poignée de redimensionnement */}
+                        {/* Poignée gauche = début */}
+                        <span onMouseDown={e => onResizeLeftMouseDown(e, b)}
+                          style={{ position: 'absolute', left: 0, top: 0, bottom: 0, width: 6, cursor: 'col-resize' }}
+                          className="hover:bg-black/10 z-10" />
                         <span onMouseDown={e => onResizeMouseDown(e, b)}
                           style={{ position: 'absolute', right: 0, top: 0, bottom: 0, width: 6, cursor: 'col-resize' }}
                           className="hover:bg-black/10 z-10" />
@@ -535,7 +580,40 @@ export default function PlanificateurVisuel({ onClose }) {
                 </div>
               ))}
 
-              {/* Légende */}
+              {/* Voie Évaluations (EV1 + VC, gris, par UE) */}
+              {evaluations.length > 0 && (
+                <div className="flex items-stretch border-b border-gray-100 bg-gray-50/40" style={{ minHeight: 52 }}>
+                  <div style={{ width: LABEL_W }} className="flex-shrink-0 pr-3 py-2 flex flex-col justify-center">
+                    <div className="text-sm font-medium text-gray-600">Évaluations</div>
+                    <div className="text-[11px] text-gray-400">EV1 + VC · en plus du cours</div>
+                  </div>
+                  <div className="relative flex-1" style={{ height: 52 }}>
+                    <div className="absolute inset-0 flex">
+                      {semaines.map(s => {
+                        const st = SEM_STYLE[s.type] || SEM_STYLE.cours;
+                        return <div key={s.id} style={{ width: PX_SEM, background: s.type !== 'cours' ? st.bg : 'transparent' }}
+                          className="border-r border-gray-50 flex-shrink-0" />;
+                      })}
+                    </div>
+                    {evaluations.map(ev => (
+                      <div key={ev.id} style={{
+                        position: 'absolute',
+                        left: ev.debutSem * PX_SEM,
+                        width: ev.dureeSem * PX_SEM - 2,
+                        top: 6, bottom: 6,
+                        background: '#e5e7eb',
+                        border: '1.5px solid #9ca3af',
+                        color: '#374151',
+                        borderRadius: 6,
+                      }}
+                        className="flex items-center justify-center text-[11px] font-bold select-none"
+                        title={`${ev.label} — semaine ${semaines[ev.debutSem]?.semaine_num} (${semaines[ev.debutSem]?.date_debut})`}>
+                        {ev.label}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
               <div className="mt-4 flex items-center gap-4 text-[11px] text-gray-500 flex-wrap" style={{ paddingLeft: LABEL_W }}>
                 <span className="flex items-center gap-1"><span className="inline-block w-3 h-3 rounded" style={{background:'#dbeafe',border:'1.5px solid #3b82f6'}}/>Cours</span>
                 <span className="flex items-center gap-1"><span className="inline-block w-3 h-3 rounded" style={{background:'#fef3c7',border:'1.5px solid #f59e0b'}}/>Remédiation</span>
