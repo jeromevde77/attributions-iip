@@ -49,6 +49,9 @@ export default function PlanificateurVisuel({ onClose }) {
   const [calSessions, setCalSessions] = useState(null); // dates jalons rétroactives
   const [wizardCours, setWizardCours] = useState(null); // cours en cours de configuration
   const [menuBloc, setMenuBloc] = useState(null); // bloc dont le menu est ouvert
+  const [coupeBloc, setCoupeBloc] = useState(null); // bloc qu'on est en train de scinder
+  const [coupeMode, setCoupeMode] = useState('heures'); // 'heures' | 'semaine'
+  const [coupeVal, setCoupeVal] = useState('');
 
   // Largeur d'une semaine en pixels
   const PX_SEM = 38;
@@ -102,27 +105,55 @@ export default function PlanificateurVisuel({ onClose }) {
     const premiereSemCours = semaines.findIndex(s => s.type === 'cours');
     const startIdx = premiereSemCours >= 0 ? premiereSemCours : 0;
     const limiteIdx = limiteCoursIdx(semaines);
-    const nouveaux = lignes.map((l, i) => {
+    const nouveaux = [];
+    lignes.forEach((l, i) => {
       const heuresCours = l.heures || 0;
       const heuresAuto = Math.round(((l.autonomie || 0) / 1.2) * 10) / 10; // périodes auto → heures
-      const heuresTotal = heuresCours + heuresAuto;
-      const nbSemCours = Math.max(1, Math.round(heuresTotal / hParSem));
-      const duree = dureeCalendairePourCours(semaines, startIdx, nbSemCours, limiteIdx);
-      return {
-        id: `bloc-${l.attribution_id}-${i}`,
-        groupe_id: l.attribution_id,
-        groupe_nom: l.groupe,
-        code_cours: l.code_cours,
-        activite: l.activite,
-        prof: l.prof,
-        debutSem: startIdx,
-        dureeSem: duree,
-        heures: heuresCours,
-        heuresAuto,           // part d'autonomie (heures)
-        autonomie: l.autonomie || 0, // périodes d'autonomie
-        periodes: l.periodes,
-        color: blocColor(l.type_cours === 'PP' ? 'tp' : l.activite),
-      };
+      const voie = l.attribution_id; // les blocs cours + auto partagent la même voie
+
+      // Bloc COURS
+      if (heuresCours > 0) {
+        const nbSemCours = Math.max(1, Math.round(heuresCours / hParSem));
+        const duree = dureeCalendairePourCours(semaines, startIdx, nbSemCours, limiteIdx);
+        nouveaux.push({
+          id: `bloc-${l.attribution_id}-c-${i}`,
+          groupe_id: voie,
+          groupe_nom: l.groupe,
+          code_cours: l.code_cours,
+          activite: l.activite,
+          prof: l.prof,
+          debutSem: startIdx,
+          dureeSem: duree,
+          heures: heuresCours,
+          periodes: l.periodes,
+          kind: 'cours',
+          color: blocColor(l.type_cours === 'PP' ? 'tp' : l.activite),
+        });
+      }
+      // Bloc AUTONOMIE (séparé, couleur violette) — placé après le cours
+      if (heuresAuto > 0) {
+        const nbSemAuto = Math.max(1, Math.round(heuresAuto / hParSem));
+        // Démarre après la fin du bloc cours (s'il existe)
+        const finCours = heuresCours > 0
+          ? startIdx + dureeCalendairePourCours(semaines, startIdx, Math.max(1, Math.round(heuresCours / hParSem)), limiteIdx)
+          : startIdx;
+        const debutAuto = Math.min(finCours, limiteIdx);
+        const dureeAuto = dureeCalendairePourCours(semaines, debutAuto, nbSemAuto, limiteIdx);
+        nouveaux.push({
+          id: `bloc-${l.attribution_id}-a-${i}`,
+          groupe_id: voie,
+          groupe_nom: l.groupe,
+          code_cours: l.code_cours,
+          activite: 'Autonomie',
+          prof: l.prof,
+          debutSem: debutAuto,
+          dureeSem: dureeAuto,
+          heures: heuresAuto,
+          autonomie: l.autonomie || 0,
+          kind: 'autonomie',
+          color: blocColor('autonomie'),
+        });
+      }
     });
     setBlocs(nouveaux);
   }
@@ -223,30 +254,48 @@ export default function PlanificateurVisuel({ onClose }) {
   }
 
   // ── Couper un bloc en deux (crée une activité) ──
-  function couperBloc(bloc) {
-    const moitie = Math.floor(bloc.dureeSem / 2);
-    if (moitie < 1) return;
-    const reste = bloc.dureeSem - moitie;
-    const hParSemBloc = bloc.heures / bloc.dureeSem;
+  // Scinde un bloc à une position donnée.
+  // mode 'heures' : coupeVal = nb d'heures pour le 1er segment
+  // mode 'semaine' : coupeVal = nb de semaines (de cours) pour le 1er segment
+  function couperBlocPosition(bloc, mode, val) {
+    const v = Number(val);
+    if (!v || v <= 0) return;
+    const hParSemBloc = bloc.heures / Math.max(1, bloc.dureeSem);
+    let dureeSeg1;
+    let heuresSeg1;
+    if (mode === 'heures') {
+      heuresSeg1 = Math.min(v, bloc.heures);
+      dureeSeg1 = Math.max(1, Math.round(heuresSeg1 / hParSemBloc));
+    } else { // semaine
+      dureeSeg1 = Math.max(1, Math.min(v, bloc.dureeSem - 1));
+      heuresSeg1 = Math.round(hParSemBloc * dureeSeg1 * 100) / 100;
+    }
+    const dureeSeg2 = Math.max(1, bloc.dureeSem - dureeSeg1);
+    const heuresSeg2 = Math.round((bloc.heures - heuresSeg1) * 100) / 100;
     setBlocs(prev => {
       const idx = prev.findIndex(b => b.id === bloc.id);
-      // 1er segment : garde l'autonomie ; 2e segment : pas d'autonomie, devient une activité
-      const b1 = { ...bloc, dureeSem: moitie, heures: Math.round(hParSemBloc * moitie * 100) / 100 };
+      const b1 = { ...bloc, dureeSem: dureeSeg1, heures: heuresSeg1 };
       const b2 = {
         ...bloc,
         id: `${bloc.id}-split-${Date.now()}`,
-        debutSem: bloc.debutSem + moitie,
-        dureeSem: reste,
-        heures: Math.round(hParSemBloc * reste * 100) / 100,
-        heuresAuto: 0,
+        debutSem: bloc.debutSem + dureeSeg1,
+        dureeSem: dureeSeg2,
+        heures: heuresSeg2,
         autonomie: 0,
         activite: 'Remédiation',
+        kind: 'activite',
         color: blocColor('remédiation'),
       };
       const copy = [...prev];
       copy.splice(idx, 1, b1, b2);
       return copy;
     });
+    setCoupeBloc(null); setCoupeVal('');
+  }
+
+  // Coupe rapide en deux (depuis le menu)
+  function couperBloc(bloc) {
+    couperBlocPosition(bloc, 'semaine', Math.floor(bloc.dureeSem / 2));
   }
 
   function supprimerBloc(id) {
@@ -465,18 +514,6 @@ export default function PlanificateurVisuel({ onClose }) {
                             background: 'rgba(27,43,75,.18)',
                           }} title="Semaine sans ce cours (alternance)" /> : null
                         ))}
-                        {/* Segment d'autonomie à la fin du bloc (violet) */}
-                        {b.heuresAuto > 0 && (b.heures + b.heuresAuto) > 0 && (
-                          <div style={{
-                            position: 'absolute', top: 0, bottom: 0, right: 0,
-                            width: `${(b.heuresAuto / (b.heures + b.heuresAuto)) * 100}%`,
-                            background: 'repeating-linear-gradient(45deg, rgba(192,38,211,.22), rgba(192,38,211,.22) 4px, rgba(192,38,211,.32) 4px, rgba(192,38,211,.32) 8px)',
-                            borderLeft: '2px solid #c026d3',
-                            borderTopRightRadius: 5, borderBottomRightRadius: 5,
-                          }} title={`Autonomie : ${b.autonomie} pér. (${b.heuresAuto}h)`} className="z-[5] flex items-center justify-center">
-                            <span className="text-[8px] font-bold text-fuchsia-800 rotate-0">aut.</span>
-                          </div>
-                        )}
                         <span className="truncate flex-1 relative z-10">{b.activite}</span>
                         {/* Calcul h/semaine bien visible */}
                         <span className="text-[10px] font-bold ml-1 whitespace-nowrap relative z-10 bg-white/50 rounded px-1">
@@ -551,6 +588,44 @@ export default function PlanificateurVisuel({ onClose }) {
           </div>
         </div>
       )}
+      {/* Dialogue de scission d'un bloc */}
+      {coupeBloc && (
+        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-[58]" onClick={e => e.target === e.currentTarget && setCoupeBloc(null)}>
+          <div className="bg-white rounded-xl shadow-2xl w-full max-w-sm p-5">
+            <h3 className="font-title text-lg text-iip-gold mb-1">✂ Scinder le bloc</h3>
+            <p className="text-sm text-gray-600 mb-4">{coupeBloc.activite} · {coupeBloc.heures}h sur {coupeBloc.dureeSem} sem.</p>
+            <div className="flex rounded border border-gray-300 overflow-hidden text-sm mb-3">
+              <button onClick={() => setCoupeMode('heures')}
+                className={`flex-1 px-3 py-1.5 ${coupeMode === 'heures' ? 'bg-iip-mauve text-white' : 'bg-white text-gray-600'}`}>
+                Par heures
+              </button>
+              <button onClick={() => setCoupeMode('semaine')}
+                className={`flex-1 px-3 py-1.5 border-l border-gray-300 ${coupeMode === 'semaine' ? 'bg-iip-mauve text-white' : 'bg-white text-gray-600'}`}>
+                Par semaines
+              </button>
+            </div>
+            <label className="block mb-4">
+              <span className="text-xs text-gray-500">
+                {coupeMode === 'heures' ? "Heures pour le 1er segment (cours)" : "Semaines de cours pour le 1er segment"}
+              </span>
+              <input type="number" min="1" autoFocus value={coupeVal} onChange={e => setCoupeVal(e.target.value)}
+                placeholder={coupeMode === 'heures' ? `max ${coupeBloc.heures}h` : `max ${coupeBloc.dureeSem - 1} sem.`}
+                className="w-full border border-gray-300 rounded px-3 py-2 text-sm mt-1" />
+              <span className="text-[11px] text-gray-400">
+                Le reste deviendra une activité (remédiation/évaluation), modifiable ensuite.
+              </span>
+            </label>
+            <div className="flex justify-end gap-2">
+              <button onClick={() => setCoupeBloc(null)} className="px-4 py-2 text-sm text-gray-600">Annuler</button>
+              <button onClick={() => couperBlocPosition(coupeBloc, coupeMode, coupeVal)} disabled={!coupeVal}
+                className="bg-iip-gold hover:bg-iip-amber disabled:opacity-40 text-white text-sm px-5 py-2 rounded font-medium">
+                Scinder
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Menu contextuel d'un bloc */}
       {menuBloc && (
         <div className="fixed inset-0 z-[55]" onClick={() => setMenuBloc(null)}>
@@ -572,8 +647,8 @@ export default function PlanificateurVisuel({ onClose }) {
             <button onClick={() => toggleAlternance(menuBloc)} className="w-full text-left px-3 py-2 hover:bg-gray-50 flex items-center gap-2">
               {menuBloc.alternance ? '✓ ' : ''}🔁 Une semaine sur deux
             </button>
-            <button onClick={() => { couperBloc(menuBloc); setMenuBloc(null); }} className="w-full text-left px-3 py-2 hover:bg-gray-50 flex items-center gap-2">
-              ✂ Couper en deux
+            <button onClick={() => { setCoupeBloc(menuBloc); setMenuBloc(null); setCoupeMode('heures'); setCoupeVal(''); }} className="w-full text-left px-3 py-2 hover:bg-gray-50 flex items-center gap-2">
+              ✂ Scinder le bloc…
             </button>
             <div className="border-t border-gray-100 my-1" />
             <button onClick={() => supprimerBloc(menuBloc.id)} className="w-full text-left px-3 py-2 hover:bg-red-50 text-red-600 flex items-center gap-2">
