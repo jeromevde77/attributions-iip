@@ -103,8 +103,10 @@ export default function PlanificateurVisuel({ onClose }) {
     const startIdx = premiereSemCours >= 0 ? premiereSemCours : 0;
     const limiteIdx = limiteCoursIdx(semaines);
     const nouveaux = lignes.map((l, i) => {
-      const heures = l.heures || 0;
-      const nbSemCours = Math.max(1, Math.round(heures / hParSem));
+      const heuresCours = l.heures || 0;
+      const heuresAuto = Math.round(((l.autonomie || 0) / 1.2) * 10) / 10; // périodes auto → heures
+      const heuresTotal = heuresCours + heuresAuto;
+      const nbSemCours = Math.max(1, Math.round(heuresTotal / hParSem));
       const duree = dureeCalendairePourCours(semaines, startIdx, nbSemCours, limiteIdx);
       return {
         id: `bloc-${l.attribution_id}-${i}`,
@@ -115,7 +117,9 @@ export default function PlanificateurVisuel({ onClose }) {
         prof: l.prof,
         debutSem: startIdx,
         dureeSem: duree,
-        heures,
+        heures: heuresCours,
+        heuresAuto,           // part d'autonomie (heures)
+        autonomie: l.autonomie || 0, // périodes d'autonomie
         periodes: l.periodes,
         color: blocColor(l.type_cours === 'PP' ? 'tp' : l.activite),
       };
@@ -226,6 +230,7 @@ export default function PlanificateurVisuel({ onClose }) {
     const hParSemBloc = bloc.heures / bloc.dureeSem;
     setBlocs(prev => {
       const idx = prev.findIndex(b => b.id === bloc.id);
+      // 1er segment : garde l'autonomie ; 2e segment : pas d'autonomie, devient une activité
       const b1 = { ...bloc, dureeSem: moitie, heures: Math.round(hParSemBloc * moitie * 100) / 100 };
       const b2 = {
         ...bloc,
@@ -233,6 +238,8 @@ export default function PlanificateurVisuel({ onClose }) {
         debutSem: bloc.debutSem + moitie,
         dureeSem: reste,
         heures: Math.round(hParSemBloc * reste * 100) / 100,
+        heuresAuto: 0,
+        autonomie: 0,
         activite: 'Remédiation',
         color: blocColor('remédiation'),
       };
@@ -458,6 +465,18 @@ export default function PlanificateurVisuel({ onClose }) {
                             background: 'rgba(27,43,75,.18)',
                           }} title="Semaine sans ce cours (alternance)" /> : null
                         ))}
+                        {/* Segment d'autonomie à la fin du bloc (violet) */}
+                        {b.heuresAuto > 0 && (b.heures + b.heuresAuto) > 0 && (
+                          <div style={{
+                            position: 'absolute', top: 0, bottom: 0, right: 0,
+                            width: `${(b.heuresAuto / (b.heures + b.heuresAuto)) * 100}%`,
+                            background: 'repeating-linear-gradient(45deg, rgba(192,38,211,.22), rgba(192,38,211,.22) 4px, rgba(192,38,211,.32) 4px, rgba(192,38,211,.32) 8px)',
+                            borderLeft: '2px solid #c026d3',
+                            borderTopRightRadius: 5, borderBottomRightRadius: 5,
+                          }} title={`Autonomie : ${b.autonomie} pér. (${b.heuresAuto}h)`} className="z-[5] flex items-center justify-center">
+                            <span className="text-[8px] font-bold text-fuchsia-800 rotate-0">aut.</span>
+                          </div>
+                        )}
                         <span className="truncate flex-1 relative z-10">{b.activite}</span>
                         {/* Calcul h/semaine bien visible */}
                         <span className="text-[10px] font-bold ml-1 whitespace-nowrap relative z-10 bg-white/50 rounded px-1">
