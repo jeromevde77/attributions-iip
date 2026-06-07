@@ -19,10 +19,21 @@ const authFetch = (url, opts = {}) =>
  * Format d'une ligne générée :
  *   { type:'theorie'|'tp'|'cours', label, heures, groupe, local_id, sequence }
  */
-export default function WizardConfigCours({ cours, annee = getAnnee(), onGenerate, onClose }) {
-  const [step, setStep] = useState(1);
+export default function WizardConfigCours({ cours: coursInit, ueNum, section, annee = getAnnee(), onGenerate, onClose }) {
+  const [step, setStep] = useState(coursInit ? 1 : 0);
   const [locaux, setLocaux] = useState([]);
   const [effectif, setEffectif] = useState(null);
+  const [coursListe, setCoursListe] = useState([]);
+  const [cours, setCours] = useState(coursInit || null);
+
+  // Charger la liste des cours réels de l'UE (on ne peut configurer qu'un cours existant)
+  useEffect(() => {
+    if (ueNum) {
+      authFetch(`/api/ref/ue/${ueNum}?annee=${encodeURIComponent(annee)}`)
+        .then(d => setCoursListe(Array.isArray(d?.cours) ? d.cours.filter(c => c.ct_pp !== 'Z') : []))
+        .catch(() => setCoursListe([]));
+    }
+  }, [ueNum, annee]);
 
   // Réponses du wizard
   const [format, setFormat]         = useState('');        // 'classique' | 'mixte' | 'pratique'
@@ -39,11 +50,11 @@ export default function WizardConfigCours({ cours, annee = getAnnee(), onGenerat
 
   useEffect(() => {
     authFetch('/api/locaux').then(d => setLocaux(Array.isArray(d) ? d : [])).catch(() => {});
-    if (cours?.ue_num) {
-      authFetch(`/api/locaux/effectif-ue/${cours.ue_num}?annee=${encodeURIComponent(annee)}`)
+    if (ueNum) {
+      authFetch(`/api/locaux/effectif-ue/${ueNum}?annee=${encodeURIComponent(annee)}`)
         .then(setEffectif).catch(() => {});
     }
-  }, [cours, annee]);
+  }, [ueNum, annee]);
 
   // Quand on choisit un local TP, pré-remplir sa capacité
   useEffect(() => {
@@ -99,9 +110,11 @@ export default function WizardConfigCours({ cours, annee = getAnnee(), onGenerat
     });
   }
 
-  // Étapes selon le format
+  // Étapes : 0 = choix cours (si non fourni), 1 = format, 2 = heures, 3 = TP, 4 = séquence
+  const minStep = coursInit ? 1 : 0;
   const totalSteps = format === 'classique' ? 2 : 4;
   const canNext = () => {
+    if (step === 0) return !!cours;
     if (step === 1) return !!format;
     if (step === 2 && format === 'classique') return true;
     if (step === 2) return heuresOK;
@@ -133,6 +146,24 @@ export default function WizardConfigCours({ cours, annee = getAnnee(), onGenerat
 
         {/* Corps */}
         <div className="flex-1 overflow-auto p-5">
+          {/* ── Étape 0 : choix du cours ── */}
+          {step === 0 && (
+            <div className="space-y-3">
+              <p className="text-sm font-medium text-gray-700">Quel cours souhaitez-vous configurer ?</p>
+              {coursListe.length === 0 ? (
+                <div className="text-sm text-gray-400 py-8 text-center">Aucun cours dans cette UE.</div>
+              ) : coursListe.map(c => (
+                <button key={c.cours_code} onClick={() => setCours(c)}
+                  className={`w-full text-left border rounded-lg p-3 transition ${cours?.cours_code === c.cours_code ? 'border-iip-gold bg-iip-gold/5' : 'border-gray-200 hover:border-gray-300'}`}>
+                  <div className="font-medium text-gray-800">{c.cours_code} — {c.cours_nom}</div>
+                  <div className="text-xs text-gray-500 mt-0.5">
+                    {c.cours_per} pér. · {c.ct_pp || '—'}{c.dedouble === 'O' ? ' · dédoublé' : ''}
+                  </div>
+                </button>
+              ))}
+            </div>
+          )}
+
           {/* ── Étape 1 : format ── */}
           {step === 1 && (
             <div className="space-y-3">
@@ -276,11 +307,11 @@ export default function WizardConfigCours({ cours, annee = getAnnee(), onGenerat
 
         {/* Pied : navigation */}
         <div className="border-t border-gray-200 p-4 flex items-center justify-between">
-          <button onClick={() => step > 1 ? setStep(step - 1) : onClose()}
+          <button onClick={() => step > minStep ? setStep(step - 1) : onClose()}
             className="px-4 py-2 text-sm text-gray-600 hover:text-gray-800">
-            {step > 1 ? '← Précédent' : 'Annuler'}
+            {step > minStep ? '← Précédent' : 'Annuler'}
           </button>
-          {step < totalSteps ? (
+          {(step === 0 || step < totalSteps) ? (
             <button onClick={() => canNext() && setStep(step + 1)} disabled={!canNext()}
               className="bg-iip-gold hover:bg-iip-amber disabled:opacity-40 text-white text-sm px-5 py-2 rounded font-medium">
               Suivant →

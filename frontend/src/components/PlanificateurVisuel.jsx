@@ -48,6 +48,7 @@ export default function PlanificateurVisuel({ onClose }) {
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [calSessions, setCalSessions] = useState(null); // dates jalons rétroactives
   const [wizardCours, setWizardCours] = useState(null); // cours en cours de configuration
+  const [menuBloc, setMenuBloc] = useState(null); // bloc dont le menu est ouvert
 
   // Largeur d'une semaine en pixels
   const PX_SEM = 38;
@@ -247,6 +248,43 @@ export default function PlanificateurVisuel({ onClose }) {
 
   function supprimerBloc(id) {
     setBlocs(prev => prev.filter(b => b.id !== id));
+    setMenuBloc(null);
+  }
+
+  // Dédoubler un bloc → crée un groupe supplémentaire (B, C…) identique
+  function dedoublerBloc(bloc) {
+    setBlocs(prev => {
+      // Compter les groupes existants pour ce même cours/activité
+      const memeCours = prev.filter(b => b.activite === bloc.activite || b.groupe_id === bloc.groupe_id);
+      const lettres = memeCours.map(b => b.groupe_nom).filter(g => /^[A-Z]$/.test(g));
+      const prochaine = String.fromCharCode(65 + lettres.length); // A→B→C
+      const nouveau = {
+        ...bloc,
+        id: `${bloc.id}-dbl-${Date.now()}`,
+        groupe_id: `${bloc.groupe_id}-${prochaine}`,
+        groupe_nom: prochaine,
+        activite: bloc.activite.replace(/ groupe [A-Z]$/, '') + ` groupe ${prochaine}`,
+      };
+      return [...prev, nouveau];
+    });
+    setMenuBloc(null);
+  }
+
+  // Changer l'activité d'un bloc
+  function setActiviteBloc(bloc, activite) {
+    setBlocs(prev => prev.map(b => b.id === bloc.id ? { ...b, activite, color: blocColor(activite) } : b));
+    setMenuBloc(null);
+  }
+
+  // Basculer le mode "une semaine sur deux" (alternance)
+  function toggleAlternance(bloc) {
+    setBlocs(prev => prev.map(b => {
+      if (b.id !== bloc.id) return b;
+      const alt = !b.alternance;
+      // En alternance, le bloc occupe 2× plus de semaines calendaires (1 sem sur 2)
+      return { ...b, alternance: alt };
+    }));
+    setMenuBloc(null);
   }
 
   // Grouper les blocs par groupe (chaque groupe = une "voie", mais un bloc coupé occupe la même voie)
@@ -281,11 +319,8 @@ export default function PlanificateurVisuel({ onClose }) {
               <option value="">— UE —</option>
               {ues.map(u => <option key={u.ue_num} value={u.ue_num}>UE {u.ue_num} — {u.ue_nom}</option>)}
             </select>
-            {ueNum && grille?.groupes?.length > 0 && (
-              <button onClick={() => {
-                  const g = grille.groupes[0];
-                  setWizardCours({ cours_code: g.cours_code || `UE${ueNum}`, cours_nom: g.cours_nom || ueChoisie?.ue_nom, cours_per: ueChoisie?.ue_per_cours || 0, ue_num: ueNum, section });
-                }}
+            {ueNum && (
+              <button onClick={() => setWizardCours(true)}
                 className="bg-iip-mauve/10 text-iip-mauve text-xs px-3 py-1.5 rounded hover:bg-iip-mauve/20 whitespace-nowrap">
                 ⚙ Configurer un cours
               </button>
@@ -376,13 +411,17 @@ export default function PlanificateurVisuel({ onClose }) {
                     </div>
                     {/* Blocs */}
                     {voie.blocs.map(b => {
-                      // Semaines de congé traversées par ce bloc (pour affichage pointillé)
+                      // Semaines de cours réelles vs congés traversés
                       const congesTraverses = [];
+                      let semCoursReelles = 0;
                       for (let i = b.debutSem; i < b.debutSem + b.dureeSem && i < nbSem; i++) {
-                        if (semaines[i] && semaines[i].type !== 'cours') {
-                          congesTraverses.push(i - b.debutSem); // offset relatif
-                        }
+                        if (semaines[i] && semaines[i].type !== 'cours') congesTraverses.push(i - b.debutSem);
+                        else if (semaines[i]) semCoursReelles++;
                       }
+                      semCoursReelles = Math.max(1, semCoursReelles);
+                      // En alternance (1 sem sur 2), seules la moitié des semaines portent le cours
+                      const semEffectives = b.alternance ? Math.max(1, Math.ceil(semCoursReelles / 2)) : semCoursReelles;
+                      const hParSemaine = Math.round((b.heures / semEffectives) * 10) / 10;
                       const depasseLimite = (b.debutSem + b.dureeSem - 1) > dernierCoursIdx;
                       return (
                       <div key={b.id}
@@ -398,23 +437,36 @@ export default function PlanificateurVisuel({ onClose }) {
                           borderRadius: 6,
                           cursor: 'grab',
                         }}
-                        className="flex items-center px-2 text-[11px] font-medium overflow-hidden select-none hover:brightness-95 transition"
-                        title={`${b.activite} · ${b.heures}h sur ${b.dureeSem} sem. (${Math.round(b.heures/b.dureeSem*10)/10}h/sem)${depasseLimite ? ' ⚠ dépasse la dernière semaine de cours' : ''}${congesTraverses.length ? ` · ${congesTraverses.length} sem. de congé traversée(s)` : ''}`}>
-                        {/* Hachures pointillées sur les semaines de congé */}
+                        className="flex items-center px-2 text-[11px] font-medium overflow-hidden select-none hover:brightness-95 transition group/bloc"
+                        title={`${b.activite} · ${b.heures}h sur ${semCoursReelles} sem. de cours = ${hParSemaine}h/sem${depasseLimite ? ' ⚠ dépasse la dernière semaine de cours' : ''}${congesTraverses.length ? ` · ${congesTraverses.length} congé(s) traversé(s)` : ''}`}>
+                        {/* Hachures sur les semaines de congé */}
                         {congesTraverses.map(off => (
                           <div key={off} style={{
                             position: 'absolute', top: 0, bottom: 0,
                             left: off * PX_SEM, width: PX_SEM,
-                            background: 'repeating-linear-gradient(45deg, transparent, transparent 3px, rgba(0,0,0,.08) 3px, rgba(0,0,0,.08) 6px)',
-                            borderLeft: '1px dashed rgba(0,0,0,.25)', borderRight: '1px dashed rgba(0,0,0,.25)',
-                          }} title="Congé — pas de cours cette semaine" />
+                            background: 'repeating-linear-gradient(45deg, transparent, transparent 3px, rgba(0,0,0,.10) 3px, rgba(0,0,0,.10) 6px)',
+                            borderLeft: '1px dashed rgba(0,0,0,.3)', borderRight: '1px dashed rgba(0,0,0,.3)',
+                          }} title="Congé — pas de cours, le bloc est prolongé d'autant" />
+                        ))}
+                        {/* Alternance 1 semaine sur 2 : bandes colorées */}
+                        {b.alternance && Array.from({ length: b.dureeSem }).map((_, k) => (
+                          k % 2 === 1 ? <div key={`alt-${k}`} style={{
+                            position: 'absolute', top: 0, bottom: 0,
+                            left: k * PX_SEM, width: PX_SEM,
+                            background: 'rgba(27,43,75,.18)',
+                          }} title="Semaine sans ce cours (alternance)" /> : null
                         ))}
                         <span className="truncate flex-1 relative z-10">{b.activite}</span>
-                        <span className="text-[9px] opacity-70 ml-1 whitespace-nowrap relative z-10">{b.heures}h</span>
-                        <button onMouseDown={e => { e.stopPropagation(); }} onClick={e => { e.stopPropagation(); couperBloc(b); }}
-                          className="ml-1 opacity-0 group-hover/voie:opacity-60 hover:!opacity-100 text-[10px] relative z-10" title="Couper en deux (créer une activité)">✂</button>
-                        <button onMouseDown={e => { e.stopPropagation(); }} onClick={e => { e.stopPropagation(); supprimerBloc(b.id); }}
-                          className="ml-0.5 opacity-0 group-hover/voie:opacity-60 hover:!opacity-100 text-[10px] relative z-10" title="Supprimer ce bloc">🗑</button>
+                        {/* Calcul h/semaine bien visible */}
+                        <span className="text-[10px] font-bold ml-1 whitespace-nowrap relative z-10 bg-white/50 rounded px-1">
+                          {hParSemaine}h/sem
+                        </span>
+                        {/* Bouton + : ouvre le menu d'actions */}
+                        <button onMouseDown={e => { e.stopPropagation(); }}
+                          onClick={e => { e.stopPropagation(); setMenuBloc(menuBloc?.id === b.id ? null : b); }}
+                          className="ml-1 w-4 h-4 flex items-center justify-center rounded-full bg-white/70 hover:bg-white text-gray-700 text-[11px] leading-none relative z-10 flex-shrink-0"
+                          title="Actions sur ce bloc">+</button>
+                        {/* Poignée de redimensionnement */}
                         <span onMouseDown={e => onResizeMouseDown(e, b)}
                           style={{ position: 'absolute', right: 0, top: 0, bottom: 0, width: 6, cursor: 'col-resize' }}
                           className="hover:bg-black/10 z-10" />
@@ -478,10 +530,43 @@ export default function PlanificateurVisuel({ onClose }) {
           </div>
         </div>
       )}
+      {/* Menu contextuel d'un bloc */}
+      {menuBloc && (
+        <div className="fixed inset-0 z-[55]" onClick={() => setMenuBloc(null)}>
+          <div className="absolute bg-white rounded-lg shadow-2xl border border-gray-200 py-1 w-56 text-sm"
+            style={{ left: '50%', top: '50%', transform: 'translate(-50%,-50%)' }}
+            onClick={e => e.stopPropagation()}>
+            <div className="px-3 py-2 border-b border-gray-100 text-xs text-gray-500 font-medium truncate">
+              {menuBloc.activite}
+            </div>
+            <button onClick={() => dedoublerBloc(menuBloc)} className="w-full text-left px-3 py-2 hover:bg-gray-50 flex items-center gap-2">
+              ➕ Dédoubler le groupe (B, C…)
+            </button>
+            <div className="px-3 py-1.5 text-xs text-gray-400">Activité :</div>
+            {['Cours', 'TP / Labo', 'Remédiation', 'Autonomie', 'Évaluation'].map(act => (
+              <button key={act} onClick={() => setActiviteBloc(menuBloc, act)}
+                className="w-full text-left px-5 py-1.5 hover:bg-gray-50 text-xs">{act}</button>
+            ))}
+            <div className="border-t border-gray-100 my-1" />
+            <button onClick={() => toggleAlternance(menuBloc)} className="w-full text-left px-3 py-2 hover:bg-gray-50 flex items-center gap-2">
+              {menuBloc.alternance ? '✓ ' : ''}🔁 Une semaine sur deux
+            </button>
+            <button onClick={() => { couperBloc(menuBloc); setMenuBloc(null); }} className="w-full text-left px-3 py-2 hover:bg-gray-50 flex items-center gap-2">
+              ✂ Couper en deux
+            </button>
+            <div className="border-t border-gray-100 my-1" />
+            <button onClick={() => supprimerBloc(menuBloc.id)} className="w-full text-left px-3 py-2 hover:bg-red-50 text-red-600 flex items-center gap-2">
+              🗑 Supprimer ce bloc
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* Wizard de configuration de cours */}
       {wizardCours && (
         <WizardConfigCours
-          cours={wizardCours}
+          ueNum={ueNum}
+          section={section}
           annee={annee}
           onClose={() => setWizardCours(null)}
           onGenerate={(lignes) => {
