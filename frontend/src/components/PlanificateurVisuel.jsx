@@ -76,19 +76,17 @@ export default function PlanificateurVisuel({ onClose }) {
   async function chargerUE() {
     setLoading(true);
     try {
+      // Le calendrier (semaines) vient de /grille ; les LIGNES viennent des attributions réelles
       const params = new URLSearchParams({ annee, section });
-      const d = await authFetch(`/api/planification/grille?${params}`);
-      // Filtrer pour ne garder que les groupes de l'UE choisie
-      const groupesUE = (d.groupes || []).filter(g => String(g.ue_num) === String(ueNum));
-      setGrille({ ...d, groupes: groupesUE });
-      construireBlocs(groupesUE, d.semaines);
+      const grilleData = await authFetch(`/api/planification/grille?${params}`);
+      const ligneData = await authFetch(`/api/planification/lignes-ue?annee=${encodeURIComponent(annee)}&section=${encodeURIComponent(section)}&ue=${encodeURIComponent(ueNum)}`);
+      const lignes = ligneData.lignes || [];
+      setGrille({ semaines: grilleData.semaines || [], groupes: lignes });
+      construireBlocs(lignes, grilleData.semaines || []);
     } finally { setLoading(false); }
   }
 
-  // Construit les blocs initiaux à partir des groupes (1 bloc = total heures du groupe)
-  // Calcule la durée calendaire d'un bloc pour couvrir `nbSemCoursVoulu` semaines
-  // de cours réelles à partir de `debut`, en sautant les congés et en s'arrêtant
-  // à la dernière semaine de cours autorisée (limite sessions).
+  // Construit les blocs depuis les lignes d'attribution (source = attributions réelles)
   function dureeCalendairePourCours(semainesArr, debut, nbSemCoursVoulu, limiteIdx) {
     let coursComptes = 0;
     let i = debut;
@@ -100,25 +98,26 @@ export default function PlanificateurVisuel({ onClose }) {
     return Math.max(1, i - debut); // durée calendaire (inclut congés traversés)
   }
 
-  function construireBlocs(groupes, semaines) {
+  function construireBlocs(lignes, semaines) {
     const premiereSemCours = semaines.findIndex(s => s.type === 'cours');
     const startIdx = premiereSemCours >= 0 ? premiereSemCours : 0;
-    // dernière semaine de cours autorisée (recalcul local car dernierCoursIdx pas encore dispo au 1er rendu)
     const limiteIdx = limiteCoursIdx(semaines);
-    const nouveaux = groupes.map((g, i) => {
-      const heures = g.heures_attribuees || 0;
+    const nouveaux = lignes.map((l, i) => {
+      const heures = l.heures || 0;
       const nbSemCours = Math.max(1, Math.round(heures / hParSem));
       const duree = dureeCalendairePourCours(semaines, startIdx, nbSemCours, limiteIdx);
       return {
-        id: `bloc-${g.id}-${i}`,
-        groupe_id: g.id,
-        groupe_nom: g.nom,
-        activite: g.activite_nom || g.cours_nom || 'Cours',
-        prof: g.prof_nom ? `${g.prof_prenom || ''} ${g.prof_nom}`.trim() : null,
+        id: `bloc-${l.attribution_id}-${i}`,
+        groupe_id: l.attribution_id,
+        groupe_nom: l.groupe,
+        code_cours: l.code_cours,
+        activite: l.activite,
+        prof: l.prof,
         debutSem: startIdx,
         dureeSem: duree,
         heures,
-        color: blocColor(g.activite_nom),
+        periodes: l.periodes,
+        color: blocColor(l.type_cours === 'PP' ? 'tp' : l.activite),
       };
     });
     setBlocs(nouveaux);
@@ -168,16 +167,13 @@ export default function PlanificateurVisuel({ onClose }) {
 
   // Total heures de l'UE (somme des groupes)
   const totalHeuresUE = useMemo(() =>
-    (grille?.groupes || []).reduce((s, g) => s + (g.heures_attribuees || 0), 0),
+    (grille?.groupes || []).reduce((s, l) => s + (l.heures || 0), 0),
     [grille]);
 
-  // Capacité : heures max plaçables = semaines dispo × rythme max raisonnable
-  // On considère qu'une UE "rentre" si chaque groupe tient dans les semaines dispo
   const capaciteOK = useMemo(() => {
     if (!grille?.groupes?.length || !semCoursDispo) return true;
-    // Le groupe le plus chargé doit tenir : ses heures / semCoursDispo = rythme exigé
-    const maxHeures = Math.max(...grille.groupes.map(g => g.heures_attribuees || 0));
-    return maxHeures <= semCoursDispo * hParSem * 2.5; // tolérance : jusqu'à 2.5× le rythme de base
+    const maxHeures = Math.max(...grille.groupes.map(l => l.heures || 0));
+    return maxHeures <= semCoursDispo * hParSem * 2.5;
   }, [grille, semCoursDispo, hParSem]);
 
   // ── Drag horizontal d'un bloc ──
@@ -294,11 +290,17 @@ export default function PlanificateurVisuel({ onClose }) {
       (map[b.groupe_id] ||= []).push(b);
     }
     return Object.entries(map).map(([gid, bs]) => ({
-      groupe_id: Number(gid),
-      groupe: grille?.groupes.find(g => g.id === Number(gid)),
+      groupe_id: gid,
+      // Infos directement depuis le premier bloc de la voie
+      groupe: {
+        cours_nom: bs[0]?.code_cours ? `${bs[0].code_cours} — ${bs[0].activite}` : bs[0]?.activite,
+        nom: bs[0]?.groupe_nom,
+        prof: bs[0]?.prof,
+        heures: bs.reduce((s, b) => s + (b.heures || 0), 0),
+      },
       blocs: bs.sort((a, b) => a.debutSem - b.debutSem),
     }));
-  }, [blocs, grille]);
+  }, [blocs]);
 
   const ueChoisie = ues.find(u => String(u.ue_num) === String(ueNum));
 
@@ -389,12 +391,12 @@ export default function PlanificateurVisuel({ onClose }) {
                   {/* Label du groupe */}
                   <div style={{ width: LABEL_W }} className="flex-shrink-0 pr-3 py-2 flex flex-col justify-center">
                     <div className="text-sm font-medium text-gray-700 truncate">
-                      {voie.groupe?.cours_nom || voie.groupe?.activite_nom || 'Cours'}
+                      {voie.groupe?.cours_nom || 'Cours'}
                     </div>
                     <div className="text-[11px] text-gray-400 truncate">
                       Groupe {voie.groupe?.nom}
-                      {voie.groupe?.prof_nom && ` · ${voie.groupe.prof_prenom || ''} ${voie.groupe.prof_nom}`}
-                      {` · ${voie.groupe?.heures_attribuees || 0}h`}
+                      {voie.groupe?.prof && ` · ${voie.groupe.prof}`}
+                      {` · ${voie.groupe?.heures || 0}h`}
                     </div>
                   </div>
                   {/* Zone des blocs */}
