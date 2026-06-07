@@ -27,6 +27,7 @@ import planificationRoutes from './routes/planification.js';
 import parametresRoutes    from './routes/parametres.js';
 import prerequisRoutes     from './routes/prerequis.js';
 import planifIARoutes      from './routes/planification-ia.js';
+import locauxRoutes        from './routes/locaux.js';
 import sequenceRoutes      from './routes/sequence.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
@@ -311,6 +312,26 @@ try {
     CREATE INDEX IF NOT EXISTS idx_cal_annee ON annee_calendrier(annee_scolaire);
   `);
 
+  // Locaux : salles avec capacité et type (classe, auditoire, labo spécialisé...)
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS local (
+      id           INTEGER PRIMARY KEY AUTOINCREMENT,
+      nom          TEXT NOT NULL UNIQUE,         -- ex. "P4 214"
+      type         TEXT,                         -- "Classe", "Auditoire", "Clinique de la vision"...
+      places       INTEGER,                      -- capacité (NULL si non définie, ex. labos)
+      equipements  TEXT,                         -- texte libre
+      actif        INTEGER NOT NULL DEFAULT 1
+    );
+    -- Local de prédilection d'un cours (ex. cours 282.1 → P4 214 "Clinique de la vision")
+    CREATE TABLE IF NOT EXISTS cours_local (
+      cours_code      TEXT NOT NULL,
+      annee_scolaire  TEXT NOT NULL,
+      section         TEXT,
+      local_id        INTEGER NOT NULL REFERENCES local(id) ON DELETE CASCADE,
+      PRIMARY KEY (cours_code, annee_scolaire, section, local_id)
+    );
+  `);
+
   // Groupes : subdivision d'une attribution par groupe d'étudiants
   db.exec(`
     CREATE TABLE IF NOT EXISTS groupe (
@@ -550,6 +571,72 @@ try {
   const _insertParam = db.prepare(`INSERT OR IGNORE INTO parametre (cle, valeur, label, section, groupe) VALUES (?,?,?,?,?)`);
   const _seedParams = db.transaction(() => { for (const p of _params) _insertParam.run(...p); });
   _seedParams();
+
+  // Seed des locaux (si table vide) — liste IIP/HELB campus
+  const _nbLocaux = db.prepare('SELECT COUNT(*) AS n FROM local').get().n;
+  if (_nbLocaux === 0) {
+    const _locaux = [
+    ['P4 204', 'Classe', 32, 'Internet Projecteur'],
+    ['P4 215', 'Classe', 30, 'Internet Projecteur'],
+    ['P4 306', 'Classe', 76, 'Internet Ordinateur Projecteur'],
+    ['P4 309', 'Classe', 84, 'Internet Ordinateur Projecteur'],
+    ['P5 102', 'Classe', 28, 'Internet Projecteur'],
+    ['P5 102a', 'Classe', 30, 'Internet Projecteur'],
+    ['P5 106', 'Classe', 30, 'Internet Projecteur'],
+    ['P5 108', 'Classe', 30, 'Internet Ordinateur Projecteur'],
+    ['P5 112', 'Classe', 30, 'Internet Projecteur'],
+    ['P5 114', 'Classe', 30, 'Internet Projecteur'],
+    ['P5 118', 'Classe', 30, 'Internet Projecteur'],
+    ['P5 118a', 'Classe', 30, 'Internet Projecteur'],
+    ['P5 203a', 'Classe', 50, 'Internet Projecteur'],
+    ['P5 217a', 'Classe', 48, 'Internet Projecteur'],
+    ['P6 111', 'Classe / TP HBD', 44, 'Internet Projecteur'],
+    ['P2 204', 'Auditoire', 50, 'Internet Ordinateur Projecteur'],
+    ['P2 303', 'Auditoire', 117, 'Internet Baffle Ordinateur Projecteur'],
+    ['P2 306', 'Auditoire', 117, 'Internet Baffle Ordinateur Projecteur'],
+    ['P2 523', 'Auditoire', 198, 'Micros Internet Baffle Ordinateur Projecteur'],
+    ['P2 524', 'Auditoire', 220, 'Micros Internet Baffle Ordinateur Projecteur'],
+    ['P3 204', 'Auditoire', 50, 'Internet Ordinateur Projecteur'],
+    ['P3 216', 'Auditoire', 50, 'Internet Ordinateur Projecteur'],
+    ['P3 303', 'Auditoire', 117, 'Internet Baffle Ordinateur Projecteur'],
+    ['P3 317', 'Auditoire', 117, 'Internet Baffle Ordinateur Projecteur'],
+    ['Nile', 'Auditoire', 320, 'Micros int\u00e9gr\u00e9s Internet Ordinateur Projecteur'],
+    ['P4 101', 'TP Kin\u00e9', null, ''],
+    ['P4 106', 'TP Kin\u00e9', null, ''],
+    ['P4 111', 'TP Kin\u00e9', null, ''],
+    ['P4 112', 'TP Kin\u00e9', null, ''],
+    ['P4 117', 'TP Kin\u00e9', null, 'Ordinateur Projecteur'],
+    ['P4 203a', 'TP Kin\u00e9', null, ''],
+    ['P6 106', 'TP Kin\u00e9', null, ''],
+    ['P6 112', 'TP Kin\u00e9', null, 'Pratique \u00e9tudiants'],
+    ['P4 217a', 'TP HBD', null, ''],
+    ['P3 103', 'Salle de psychomot', null, ''],
+    ['P6 103', 'Salle de psychomot', null, ''],
+    ['P1 111', 'Salle de fitness', null, ''],
+    ['P1 520', 'Salle de sport', null, ''],
+    ['P1 126', 'Labo de lunetterie', null, ''],
+    ['P4 214', 'Clinique de la vision', null, ''],
+    ['P4 218', 'Labo orthoptie', null, ''],
+    ['P5 111', 'Labo Siamu-P\u00e9dia', null, 'Lits'],
+    ['P5 206a', 'Labo Sage-Femme', null, ''],
+    ['P5 210', 'Labo Soins Infirmiers', null, 'Lits Mannequin'],
+    ['P5 214a', 'Labo de manutention', null, 'Lits Mannequin'],
+    ['P1 125', 'Labo Ergo', null, ''],
+    ['P1 425', 'Orth\u00e8ses', null, ''],
+    ['P1 426', 'Labo Ergo', null, ''],
+    ['P1 423', 'Labo de recherche kin\u00e9', null, 'A ne plus donner'],
+    ['P2 212a', 'Cyber', null, '30 Ordis'],
+    ['P7 103', 'Cyber', null, '20 Ordis'],
+    ['Tc. 103 (Wybran)', 'Classe', 24, 'Wifi non optimal Ordinateur Projecteur'],
+    ['Tc. 104 (Wybran)', 'Classe', 38, 'Wifi non optimal Ordinateur Projecteur'],
+    ['Tc. 107 (Wybran)', 'Classe', 32, 'Wifi non optimal Ordinateur Projecteur'],
+    ['Tc. 108 (Wybran)', 'Classe', 24, 'Wifi non optimal Ordinateur Projecteur'],
+    ];
+    const _insLocal = db.prepare('INSERT OR IGNORE INTO local (nom, type, places, equipements) VALUES (?,?,?,?)');
+    const _seedLocaux = db.transaction(() => { for (const l of _locaux) _insLocal.run(...l); });
+    _seedLocaux();
+    console.log(`[seed] ${_locaux.length} locaux ins\u00e9r\u00e9s`);
+  }
 
   // Ajouter procedure_id à document_archive si absent (lien vers la procédure)
   const _colsDocArch = db.prepare('PRAGMA table_info(document_archive)').all();
@@ -1845,6 +1932,7 @@ app.use('/api/planification', planificationRoutes);
 app.use('/api/parametres',   parametresRoutes);
 app.use('/api/prerequis',      prerequisRoutes);
 app.use('/api/planification-ia', planifIARoutes);
+app.use('/api/locaux', locauxRoutes);
 app.use('/api/sequence',        sequenceRoutes);
 
 // Route logo IIP
