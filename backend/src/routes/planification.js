@@ -494,6 +494,32 @@ function _numToLettre(n) {
   return String.fromCharCode(64 + Math.floor((n - 1) / 26)) + String.fromCharCode(65 + ((n - 1) % 26));
 }
 
+// POST /planification/reduire-evaluations
+// Réduit les périodes d'attributions suite à des évaluations supprimées dans le planificateur.
+// Body : { reductions: [{ attribution_id, periodes }] }
+// L'évaluation étant comprise dans l'attribution prof, on retire les périodes correspondantes.
+r.post('/reduire-evaluations', authRequired, roleRequired('admin', 'editeur'), (req, res) => {
+  const { reductions } = req.body;
+  if (!Array.isArray(reductions) || !reductions.length) {
+    return res.json({ ok: true, modifies: 0 });
+  }
+  const sel = db.prepare('SELECT id, periodes_attribuees FROM attribution WHERE id = ?');
+  const upd = db.prepare('UPDATE attribution SET periodes_attribuees = ? WHERE id = ?');
+  let modifies = 0;
+  const tx = db.transaction(() => {
+    for (const r of reductions) {
+      const row = sel.get(r.attribution_id);
+      if (!row) continue;
+      const actuel = row.periodes_attribuees || 0;
+      const nouveau = Math.max(0, Math.round((actuel - (r.periodes || 0)) * 100) / 100);
+      upd.run(nouveau, r.attribution_id);
+      modifies++;
+    }
+  });
+  tx();
+  res.json({ ok: true, modifies });
+});
+
 export default r;
 
 // POST /planification/reset — réinitialiser la planification d'une section

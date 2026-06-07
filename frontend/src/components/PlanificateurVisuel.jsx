@@ -384,6 +384,28 @@ export default function PlanificateurVisuel({ onClose }) {
 
   const ueChoisie = ues.find(u => String(u.ue_num) === String(ueNum));
 
+  // Réductions d'attribution dues aux évaluations supprimées (compris dans l'attribution prof)
+  // EV1 = 2h = 2,4 pér. · VC = 1h = 1,2 pér.
+  const PER_EV1 = 2 * 1.2, PER_VC = 1 * 1.2;
+  const reductions = useMemo(() => {
+    const map = {}; // { attribution_id : { periodes, details, label } }
+    for (const b of blocs) {
+      if (b.kind !== 'cours') continue;
+      const attrId = b.groupe_id;
+      if (evalSupprimees.has(`${b.id}-ev1`)) {
+        map[attrId] = map[attrId] || { periodes: 0, details: [], label: `${b.code_cours || ''} ${b.activite}`.trim() };
+        map[attrId].periodes += PER_EV1;
+        map[attrId].details.push('EV1 (−2,4 pér.)');
+      }
+      if (evalSupprimees.has(`${b.id}-vc`)) {
+        map[attrId] = map[attrId] || { periodes: 0, details: [], label: `${b.code_cours || ''} ${b.activite}`.trim() };
+        map[attrId].periodes += PER_VC;
+        map[attrId].details.push('VC (−1,2 pér.)');
+      }
+    }
+    return map;
+  }, [blocs, evalSupprimees]);
+
   // ── Évaluations PAR COURS (EV1 + VC), 1 semaine chacune, après chaque bloc de cours ──
   // Stockées dans l'état pour pouvoir les supprimer. On les (re)génère depuis les blocs de cours.
   const evaluationsParBloc = useMemo(() => {
@@ -630,13 +652,14 @@ export default function PlanificateurVisuel({ onClose }) {
       {/* Confirmation */}
       {confirmOpen && (
         <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-[60]" onClick={e => e.target === e.currentTarget && setConfirmOpen(false)}>
-          <div className="bg-white rounded-xl shadow-2xl max-w-md w-full p-6">
-            <h3 className="font-title text-lg text-iip-gold mb-2">Créer les attributions ?</h3>
-            <p className="text-sm text-gray-600 mb-4">
-              {blocs.length} bloc(s) seront convertis en planification (heures par semaine)
-              pour l'UE {ueChoisie?.ue_num}. Les blocs coupés deviennent des activités distinctes.
+          <div className="bg-white rounded-xl shadow-2xl max-w-lg w-full p-6">
+            <h3 className="font-title text-lg text-iip-gold mb-2">Récapitulatif des opérations</h3>
+            <p className="text-sm text-gray-600 mb-3">
+              Pour l'UE {ueChoisie?.ue_num}, les opérations suivantes seront appliquées :
             </p>
-            <div className="bg-gray-50 rounded p-3 text-xs text-gray-600 max-h-40 overflow-auto mb-4">
+
+            <div className="text-xs font-semibold text-gray-500 uppercase mb-1">Planification ({blocs.length} bloc(s))</div>
+            <div className="bg-gray-50 rounded p-3 text-xs text-gray-600 max-h-32 overflow-auto mb-3">
               {blocs.map(b => (
                 <div key={b.id} className="flex justify-between py-0.5">
                   <span>{b.activite} (gr. {b.groupe_nom})</span>
@@ -644,6 +667,25 @@ export default function PlanificateurVisuel({ onClose }) {
                 </div>
               ))}
             </div>
+
+            {Object.keys(reductions).length > 0 && (
+              <>
+                <div className="text-xs font-semibold text-red-600 uppercase mb-1">⚠ Réductions d'attribution (évaluations supprimées)</div>
+                <div className="bg-red-50 rounded p-3 text-xs text-red-700 max-h-32 overflow-auto mb-3">
+                  {Object.entries(reductions).map(([attrId, r]) => (
+                    <div key={attrId} className="flex justify-between py-0.5">
+                      <span>{r.label} — {r.details.join(', ')}</span>
+                      <span className="font-semibold">−{Math.round(r.periodes * 10) / 10} pér.</span>
+                    </div>
+                  ))}
+                  <div className="flex justify-between border-t border-red-200 mt-1 pt-1 font-bold">
+                    <span>Total réduit</span>
+                    <span>−{Math.round(Object.values(reductions).reduce((s, r) => s + r.periodes, 0) * 10) / 10} pér.</span>
+                  </div>
+                </div>
+              </>
+            )}
+
             <div className="flex justify-end gap-2">
               <button onClick={() => setConfirmOpen(false)} className="px-4 py-2 text-sm text-gray-600">Annuler</button>
               <button onClick={enregistrer} disabled={saving}
@@ -802,6 +844,13 @@ export default function PlanificateurVisuel({ onClose }) {
       }
       if (cellules.length) {
         await authFetch('/api/planification/cellules-bulk', { method: 'PUT', body: JSON.stringify({ cellules }) });
+      }
+      // Réduire les attributions pour les évaluations supprimées (EV1=2,4 pér., VC=1,2 pér.)
+      const redArr = Object.entries(reductions)
+        .filter(([attrId]) => !String(attrId).startsWith('w-')) // ignorer les blocs issus du wizard (pas d'attribution réelle)
+        .map(([attrId, r]) => ({ attribution_id: Number(attrId), periodes: r.periodes }));
+      if (redArr.length) {
+        await authFetch('/api/planification/reduire-evaluations', { method: 'POST', body: JSON.stringify({ reductions: redArr }) });
       }
       setConfirmOpen(false);
       onClose(true);
