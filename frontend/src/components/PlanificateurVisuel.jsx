@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef, useMemo } from 'react';
 import { getAnnee } from '../lib/api.js';
+import WizardConfigCours from './WizardConfigCours.jsx';
 
 const TOKEN = () => localStorage.getItem('token');
 const authFetch = (url, opts = {}) =>
@@ -46,6 +47,7 @@ export default function PlanificateurVisuel({ onClose }) {
   const [saving, setSaving]     = useState(false);
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [calSessions, setCalSessions] = useState(null); // dates jalons rétroactives
+  const [wizardCours, setWizardCours] = useState(null); // cours en cours de configuration
 
   // Largeur d'une semaine en pixels
   const PX_SEM = 38;
@@ -279,6 +281,15 @@ export default function PlanificateurVisuel({ onClose }) {
               <option value="">— UE —</option>
               {ues.map(u => <option key={u.ue_num} value={u.ue_num}>UE {u.ue_num} — {u.ue_nom}</option>)}
             </select>
+            {ueNum && grille?.groupes?.length > 0 && (
+              <button onClick={() => {
+                  const g = grille.groupes[0];
+                  setWizardCours({ cours_code: g.cours_code || `UE${ueNum}`, cours_nom: g.cours_nom || ueChoisie?.ue_nom, cours_per: ueChoisie?.ue_per_cours || 0, ue_num: ueNum, section });
+                }}
+                className="bg-iip-mauve/10 text-iip-mauve text-xs px-3 py-1.5 rounded hover:bg-iip-mauve/20 whitespace-nowrap">
+                ⚙ Configurer un cours
+              </button>
+            )}
           </div>
           <div className="flex items-center gap-3">
             <label className="text-xs text-gray-500 flex items-center gap-1.5">
@@ -466,6 +477,38 @@ export default function PlanificateurVisuel({ onClose }) {
             </div>
           </div>
         </div>
+      )}
+      {/* Wizard de configuration de cours */}
+      {wizardCours && (
+        <WizardConfigCours
+          cours={wizardCours}
+          annee={annee}
+          onClose={() => setWizardCours(null)}
+          onGenerate={(lignes) => {
+            // Transformer les lignes générées en blocs sur le planificateur
+            const premiereSemCours = semaines.findIndex(s => s.type === 'cours');
+            const startIdx = premiereSemCours >= 0 ? premiereSemCours : 0;
+            const limiteIdx = dernierCoursIdx;
+            const nouveaux = lignes.map((ligne, i) => {
+              const nbSemCours = Math.max(1, Math.round(ligne.heures / hParSem));
+              const duree = dureeCalendairePourCours(semaines, startIdx, nbSemCours, limiteIdx);
+              return {
+                id: `wizard-${Date.now()}-${i}`,
+                groupe_id: `w-${i}`,
+                groupe_nom: ligne.groupe,
+                activite: ligne.label,
+                prof: null,
+                debutSem: startIdx,
+                dureeSem: duree,
+                heures: ligne.heures,
+                color: blocColor(ligne.type === 'tp' ? 'tp' : ligne.label),
+                local_id: ligne.local_id,
+              };
+            });
+            setBlocs(prev => [...prev, ...nouveaux]);
+            setWizardCours(null);
+          }}
+        />
       )}
     </div>
   );

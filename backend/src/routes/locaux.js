@@ -71,4 +71,17 @@ r.put('/cours/:code', authRequired, roleRequired('admin', 'editeur'), (req, res)
   res.json({ ok: true });
 });
 
+// GET /locaux/effectif-ue/:ueNum?annee= — effectif inscrits d'une UE (max sur les organisations)
+r.get('/effectif-ue/:ueNum', authRequired, (req, res) => {
+  const { annee } = req.query;
+  const row = db.prepare(`
+    SELECT COALESCE(SUM(nb_etudiants_iip), 0) AS iip,
+           COALESCE(SUM(nb_etudiants_helb), 0) AS helb
+    FROM ue_inscription WHERE ue_num = ? AND annee_scolaire = ?
+  `).get(req.params.ueNum, annee);
+  const total = (row?.iip || 0) + (row?.helb || 0);
+  res.json({ ue_num: Number(req.params.ueNum), iip: row?.iip || 0, helb: row?.helb || 0, total });
+});
+
 export default r;
+
