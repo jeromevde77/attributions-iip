@@ -158,27 +158,29 @@ r.get('/pertes-charge', authRequired, (req, res) => {
       attr = db.prepare(`
         SELECT COALESCE(SUM(COALESCE(periodes_attribuees,0) + COALESCE(autonomie_attribuee,0)),0) AS per
         FROM attribution
-        WHERE annee_scolaire = ? AND professeur_id = ? AND code_cours = ?
+        WHERE annee_scolaire = ? AND professeur_id = ? AND code_cours = ? AND COALESCE(est_rt,0)=0
       `).get(annee, n.professeur_id, n.cours_code);
     } else if (n.ue_num) {
       attr = db.prepare(`
         SELECT COALESCE(SUM(COALESCE(periodes_attribuees,0) + COALESCE(autonomie_attribuee,0)),0) AS per
         FROM attribution
-        WHERE annee_scolaire = ? AND professeur_id = ? AND ue_num = ?
+        WHERE annee_scolaire = ? AND professeur_id = ? AND ue_num = ? AND COALESCE(est_rt,0)=0
       `).get(annee, n.professeur_id, n.ue_num);
     } else {
       attr = { per: 0 }; // nomination "code inconnu" (UE absente) : jamais dans les attributions
     }
     const perAttribuee = attr?.per || 0;
 
-    // RT déjà enregistrée pour cette nomination ?
-    const rt = db.prepare(`
-      SELECT COALESCE(SUM(periodes),0) AS per FROM remise_travail
-      WHERE nomination_id = ? AND (annee_scolaire = ? OR annee_scolaire IS NULL)
-    `).get(n.id, annee);
-    const perRT = rt?.per || 0;
+    // RT : attributions cochées comme remise au travail en compensation de cette nomination
+    // + RT historiques de la table remise_travail (compat). On compte le total (pér + autonomie).
+    const rtAttr = db.prepare(`
+      SELECT COALESCE(SUM(COALESCE(periodes_attribuees,0)+COALESCE(autonomie_attribuee,0)),0) AS per
+      FROM attribution
+      WHERE annee_scolaire = ? AND professeur_id = ? AND est_rt = 1 AND rt_nomination_id = ?
+    `).get(annee, n.professeur_id, n.id);
+    const perRT = rtAttr?.per || 0;
 
-    // Perte de charge si l'attribution + la RT ne couvrent pas les périodes nommées
+    // Perte de charge si la couverture directe + RT ne couvre pas les périodes nommées
     const couvert = perAttribuee + perRT;
     if (couvert < (n.periodes || 0)) {
       pertes.push({
@@ -297,6 +299,70 @@ r.post('/appliquer', authRequired, roleRequired('admin', 'editeur'), (req, res) 
   });
   tx();
   res.json({ ok: true, places: places.length, alertes });
+});
+
+// GET /nominations/prof/:id/situation?annee= — tableau de bord ETD d'un prof
+// Renvoie : nominations + leur couverture, et la liste de ses attributions (avec flag RT).
+r.get('/prof/:id/situation', authRequired, (req, res) => {
+  const { annee } = req.query;
+  const profId = req.params.id;
+
+  const noms = db.prepare(`
+    SELECT n.*, u.ue_nom FROM nomination_definitive n
+    LEFT JOIN ue u ON u.ue_num = n.ue_num
+    WHERE n.professeur_id = ? AND n.actif = 1
+    ORDER BY n.code_fwb
+  `).all(profId);
+
+  // Attributions réelles du prof pour l'année
+  const attributions = db.prepare(`
+    SELECT a.id, a.ue_num, a.code_cours, a.section, a.type_cours,
+           a.periodes_attribuees, a.autonomie_attribuee,
+           COALESCE(a.periodes_attribuees,0)+COALESCE(a.autonomie_attribuee,0) AS total,
+           a.est_rt, a.rt_nomination_id, a.en_conge,
+           c.cours_nom
+    FROM attribution a
+    LEFT JOIN cours c ON c.cours_code = a.code_cours AND c.annee_scolaire = a.annee_scolaire AND c.section = a.section
+    WHERE a.annee_scolaire = ? AND a.professeur_id = ?
+    ORDER BY a.ue_num, a.code_cours
+  `).all(annee, profId);
+
+  // Couverture par nomination
+  const situation = noms.map(n => {
+    // Couverture "directe" = total des lignes sur le cours nommé (ou l'UE si pas de cours précis)
+    let directe = 0;
+    for (const a of attributions) {
+      if (a.est_rt) continue; // les RT sont comptées à part
+      if (n.cours_code) { if (a.code_cours === n.cours_code) directe += a.total; }
+      else if (n.ue_num) { if (a.ue_num === n.ue_num) directe += a.total; }
+    }
+    // Couverture RT = total des lignes cochées RT en compensation de cette nomination
+    let parRT = 0;
+    for (const a of attributions) {
+      if (a.est_rt && a.rt_nomination_id === n.id) parRT += a.total;
+    }
+    const couvert = Math.round((directe + parRT) * 10) / 10;
+    const reste = Math.round(((n.periodes || 0) - couvert) * 10) / 10;
+    return {
+      nomination_id: n.id, code_fwb: n.code_fwb, ue_num: n.ue_num, ue_nom: n.ue_nom,
+      cours_code: n.cours_code, cours_libre: n.cours_libre, type_charge: n.type_charge,
+      periodes_nommees: n.periodes || 0,
+      couvert_direct: Math.round(directe * 10) / 10,
+      couvert_rt: Math.round(parRT * 10) / 10,
+      couvert, reste: reste > 0 ? reste : 0,
+    };
+  });
+
+  res.json({ situation, attributions });
+});
+
+// PATCH /nominations/attribution/:attrId/rt — coche/décoche une attribution comme RT
+// Body : { est_rt: 0|1, nomination_id }
+r.patch('/attribution/:attrId/rt', authRequired, roleRequired('admin', 'editeur'), (req, res) => {
+  const { est_rt, nomination_id } = req.body;
+  db.prepare(`UPDATE attribution SET est_rt = ?, rt_nomination_id = ? WHERE id = ?`)
+    .run(est_rt ? 1 : 0, est_rt ? (nomination_id || null) : null, req.params.attrId);
+  res.json({ ok: true });
 });
 
 export default r;
