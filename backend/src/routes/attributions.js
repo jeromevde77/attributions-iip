@@ -1000,4 +1000,59 @@ r.post('/copier-section', authRequired, roleRequired('admin', 'editeur'), (req, 
   res.json({ ok: true, copied: sources.length });
 });
 
+// GET /attributions/cours-manquants?annee=&ue_num=&section= — cours du DP sans ligne d'attribution
+// Permet de re-proposer les cours du référentiel qui n'ont aucune attribution (ex. ligne supprimée).
+r.get('/cours-manquants', authRequired, (req, res) => {
+  const { annee, ue_num, section } = req.query;
+  if (!annee) return res.status(400).json({ error: 'annee requise' });
+  let sql = `
+    SELECT c.cours_code, c.cours_nom, c.ue_num, c.section, c.ct_pp, c.cours_per, c.quadrimestre_cours
+    FROM cours c
+    WHERE c.annee_scolaire = ?
+      AND NOT EXISTS (
+        SELECT 1 FROM attribution a
+        WHERE a.code_cours = c.cours_code AND a.annee_scolaire = c.annee_scolaire
+          AND a.section = c.section AND a.ue_num = c.ue_num
+      )`;
+  const params = [annee];
+  if (ue_num) { sql += ' AND c.ue_num = ?'; params.push(ue_num); }
+  if (section) { sql += ' AND c.section = ?'; params.push(section); }
+  sql += ' ORDER BY c.ue_num, c.cours_code';
+  res.json(db.prepare(sql).all(...params));
+});
+
+// POST /attributions/creer-depuis-cours — recrée une ligne d'attribution depuis le DP
+// Body : { annee, cours_code, ue_num, section }. Le prof = À DÉSIGNER.
+r.post('/creer-depuis-cours', authRequired, roleRequired('admin', 'editeur', 'coordination'), (req, res) => {
+  const { annee, cours_code, ue_num, section } = req.body;
+  if (!annee || !cours_code || !ue_num || !section) {
+    return res.status(400).json({ error: 'annee, cours_code, ue_num et section requis' });
+  }
+  // Le cours doit exister dans le DP
+  const cours = db.prepare(`SELECT * FROM cours WHERE cours_code = ? AND annee_scolaire = ? AND section = ? AND ue_num = ?`)
+    .get(cours_code, annee, section, ue_num);
+  if (!cours) return res.status(404).json({ error: 'Cours introuvable dans le référentiel.' });
+  // Ne pas créer de doublon
+  const exist = db.prepare(`SELECT COUNT(*) n FROM attribution WHERE code_cours = ? AND annee_scolaire = ? AND section = ? AND ue_num = ?`)
+    .get(cours_code, annee, section, ue_num).n;
+  if (exist > 0) return res.status(409).json({ error: 'Une attribution existe déjà pour ce cours.' });
+
+  // contrat par défaut = et_ref de l'UE
+  const ue = db.prepare('SELECT et_ref FROM ue WHERE ue_num = ? AND annee_scolaire = ? AND section = ?').get(ue_num, annee, section);
+  const contrat = ue?.et_ref || 'IIP';
+  const aDesigner = db.prepare(`SELECT id FROM professeur WHERE nom = 'À DÉSIGNER' LIMIT 1`).get();
+
+  const info = db.prepare(`
+    INSERT INTO attribution
+      (section, etablissement_referent, contrat_mdp, organisation, annee_scolaire,
+       ue_num, num_organisation, code_cours, type_cours, nb_groupes, split_groupe,
+       cours_ept_ad, coordination_encadrement, per_etudiant_total_dp,
+       periodes_attribuees, autonomie_attribuee, professeur_id, created_by, updated_by)
+    VALUES (?, ?, ?, 'x', ?, ?, 1, ?, ?, 1, 'N', 'C', 'Cours', ?, ?, 0, ?, ?, ?)
+  `).run(section, contrat, contrat, annee, ue_num, cours_code, cours.ct_pp || 'CT',
+         cours.cours_per || 0, cours.cours_per || 0, aDesigner?.id || null,
+         req.user?.id || null, req.user?.id || null);
+  res.json({ ok: true, id: info.lastInsertRowid });
+});
+
 export default r;

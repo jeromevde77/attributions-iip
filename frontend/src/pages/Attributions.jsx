@@ -237,6 +237,7 @@ export default function Attributions() {
   const [bulkConfirmText, setBulkConfirmText] = useState('');
   const [editRow, setEditRow] = useState(null);
   const [addMenuUE, setAddMenuUE] = useState(null);   // {ue, sec} : menu + ouvert pour cette UE
+  const [coursManquants, setCoursManquants] = useState([]); // cours du DP sans ligne (pour l'UE du menu ouvert)
   const [menuPos, setMenuPos] = useState({ top: 0, right: 0 }); // position fixe du menu
   const [eptModal, setEptModal] = useState(null);
   const [orgModal, setOrgModal] = useState(null);
@@ -1018,7 +1019,7 @@ export default function Attributions() {
                   title="Réouvrir cette UE (nouvelle organisation)"
                   className="flex-shrink-0 ml-2 w-7 h-7 flex items-center justify-center rounded-full bg-iip-mauve/10 hover:bg-iip-mauve hover:text-white text-iip-mauve transition" style={{fontSize:'0.9rem'}}>⧉</button>
           {/* Bouton + : ajouter une ligne / un cours */}
-          <button onClick={(e)=>{e.stopPropagation(); if(addMenuUE?.key===key){setAddMenuUE(null);}else{const r=e.currentTarget.getBoundingClientRect();setMenuPos({top:r.bottom+4,right:window.innerWidth-r.right});setAddMenuUE({key,ue,sec,org});}}}
+          <button onClick={(e)=>{e.stopPropagation(); if(addMenuUE?.key===key){setAddMenuUE(null);}else{const r=e.currentTarget.getBoundingClientRect();setMenuPos({top:r.bottom+4,right:window.innerWidth-r.right});setAddMenuUE({key,ue,sec,org});setCoursManquants([]);fetch(`/api/attributions/cours-manquants?annee=${encodeURIComponent(getAnnee())}&ue_num=${ue.ue_num}&section=${encodeURIComponent(sec)}`,{headers:{Authorization:`Bearer ${localStorage.getItem('token')}`}}).then(r=>r.json()).then(d=>setCoursManquants(Array.isArray(d)?d:[])).catch(()=>{});}}}
                   title="Ajouter une attribution"
                   className="flex-shrink-0 ml-2 w-7 h-7 flex items-center justify-center rounded-full bg-iip-gold/10 hover:bg-iip-gold hover:text-white text-iip-gold font-bold transition">+</button>
           {addMenuUE?.key===key && (
@@ -1033,6 +1034,25 @@ export default function Attributions() {
                   <span className="truncate">Ligne sur <b>{cg.code_cours}</b> — {cg.nom_cours}</span>
                 </button>
               ))}
+              {/* Cours du référentiel (DP) sans aucune ligne d'attribution — re-créables */}
+              {coursManquants.length > 0 && (
+                <>
+                  <div className="px-3 py-1.5 text-xs font-semibold text-amber-600 border-t border-gray-100 bg-amber-50">Cours du DP sans ligne (à rétablir)</div>
+                  {coursManquants.map(cm => (
+                    <button key={cm.cours_code} onClick={async ()=>{
+                        try {
+                          await api.creerLigneDepuisCours(cm.cours_code, cm.ue_num, cm.section);
+                          setAddMenuUE(null);
+                          load();
+                        } catch(err){ alert('Erreur : ' + err.message); }
+                      }}
+                      className="w-full text-left px-3 py-1.5 text-sm hover:bg-amber-100 flex items-center gap-2">
+                      <span className="text-amber-600">↻</span>
+                      <span className="truncate">Rétablir <b>{cm.cours_code}</b> — {cm.cours_nom} <span className="text-gray-400">({cm.cours_per}p {cm.ct_pp})</span></span>
+                    </button>
+                  ))}
+                </>
+              )}
               <button onClick={()=>{ setNewCoursForm({section: sec, ue_num: ue.ue_num, ue_nom: ue.ue_nom, num_organisation: org}); setAddMenuUE(null); }}
                       className="w-full text-left px-3 py-1.5 text-sm hover:bg-iip-mauve/10 text-iip-mauve border-t border-gray-100 flex items-center gap-2">
                 <span>＋</span><span>Nouveau cours dans cette UE</span>
