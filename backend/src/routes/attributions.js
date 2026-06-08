@@ -2,6 +2,9 @@ import { Router } from 'express';
 import db from '../db/index.js';
 import { authRequired, roleRequired, withSectionScope, canAccessSection } from '../middleware/auth.js';
 import { saveSnapshot } from '../helpers/snapshot.js';
+import { copyFileSync, existsSync, mkdirSync } from 'node:fs';
+import { resolve, dirname } from 'node:path';
+import { fileURLToPath } from 'node:url';
 
 const r = Router();
 
@@ -1093,6 +1096,59 @@ r.post('/:id/conge', authRequired, roleRequired('admin', 'editeur', 'coordinatio
   });
   const newId = tx();
   res.json({ ok: true, en_conge: true, remplacement_id: newId });
+});
+
+// GET /attributions/section/:section/apercu-suppression?annee= — liste ce qui serait supprimé
+// (preview avant suppression massive, admin uniquement)
+r.get('/section/:section/apercu-suppression', authRequired, roleRequired('admin'), (req, res) => {
+  const { section } = req.params;
+  const { annee } = req.query;
+  if (!annee) return res.status(400).json({ error: 'annee requise' });
+  const lignes = db.prepare(`
+    SELECT a.id, a.ue_num, a.code_cours, c.cours_nom, a.type_cours,
+           COALESCE(a.periodes_attribuees,0) AS per, COALESCE(a.autonomie_attribuee,0) AS aut,
+           p.nom AS prof_nom, p.prenom AS prof_prenom
+    FROM attribution a
+    LEFT JOIN cours c ON c.cours_code = a.code_cours AND c.annee_scolaire = a.annee_scolaire AND c.section = a.section
+    LEFT JOIN professeur p ON p.id = a.professeur_id
+    WHERE a.section = ? AND a.annee_scolaire = ?
+    ORDER BY a.ue_num, a.code_cours
+  `).all(section, annee);
+  res.json({ section, annee, count: lignes.length, lignes });
+});
+
+// DELETE /attributions/section/:section/tout?annee= — supprime TOUTES les attributions de la section
+// (année active). Réservé admin. Fait une copie de sauvegarde auto avant suppression.
+r.delete('/section/:section/tout', authRequired, roleRequired('admin'), (req, res) => {
+  const { section } = req.params;
+  const { annee } = req.query;
+  if (!annee) return res.status(400).json({ error: 'annee requise' });
+
+  const nb = db.prepare('SELECT COUNT(*) AS c FROM attribution WHERE section = ? AND annee_scolaire = ?').get(section, annee).c;
+  if (nb === 0) return res.json({ ok: true, supprimees: 0, backup: null });
+
+  // 1. Backup auto de la base avant suppression
+  let backupName = null;
+  try {
+    const __dirname = dirname(fileURLToPath(import.meta.url));
+    const dbPath = resolve(__dirname, '../../data/attributions.db');
+    const backupsDir = resolve(__dirname, '../../data/backups-auto');
+    if (!existsSync(backupsDir)) mkdirSync(backupsDir, { recursive: true });
+    const ts = new Date().toISOString().slice(0, 19).replace(/[T:]/g, '-');
+    const safeSection = String(section).replace(/[^a-zA-Z0-9-_]/g, '_');
+    backupName = `avant-suppression-section-${safeSection}-${ts}.db`;
+    try { db.pragma('wal_checkpoint(TRUNCATE)'); } catch { /* ignore */ }
+    copyFileSync(dbPath, resolve(backupsDir, backupName));
+  } catch (e) {
+    return res.status(500).json({ error: 'Sauvegarde préalable échouée, suppression annulée : ' + e.message });
+  }
+
+  // 2. Suppression (transaction)
+  const tx = db.transaction(() => {
+    return db.prepare('DELETE FROM attribution WHERE section = ? AND annee_scolaire = ?').run(section, annee).changes;
+  });
+  const supprimees = tx();
+  res.json({ ok: true, supprimees, backup: backupName });
 });
 
 export default r;
