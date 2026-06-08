@@ -101,4 +101,103 @@ r.delete('/rt/:id', authRequired, roleRequired('admin'), (req, res) => {
   res.json({ ok: true });
 });
 
+// GET /nominations/pertes-charge?annee= — profs définitifs en perte de charge
+// Une nomination est "en perte" si aucune attribution active ne lui correspond
+// (cours/UE plus organisé ou prof pas dedans) ET qu'aucune RT ne couvre la charge.
+r.get('/pertes-charge', authRequired, (req, res) => {
+  const { annee } = req.query;
+  const noms = db.prepare(`
+    SELECT n.*, p.nom AS prof_nom, p.prenom AS prof_prenom, u.ue_nom
+    FROM nomination_definitive n
+    JOIN professeur p ON p.id = n.professeur_id
+    LEFT JOIN ue u ON u.ue_num = n.ue_num
+    WHERE n.actif = 1
+  `).all();
+
+  const pertes = [];
+  for (const n of noms) {
+    // Existe-t-il une attribution active correspondante (même prof + même cours, ou UE entière) ?
+    let attr;
+    if (n.cours_code) {
+      attr = db.prepare(`
+        SELECT COALESCE(SUM(periodes_attribuees),0) AS per FROM attribution
+        WHERE annee_scolaire = ? AND professeur_id = ? AND code_cours = ?
+      `).get(annee, n.professeur_id, n.cours_code);
+    } else if (n.ue_num) {
+      attr = db.prepare(`
+        SELECT COALESCE(SUM(periodes_attribuees),0) AS per FROM attribution
+        WHERE annee_scolaire = ? AND professeur_id = ? AND ue_num = ?
+      `).get(annee, n.professeur_id, n.ue_num);
+    } else {
+      attr = { per: 0 }; // nomination "code inconnu" (UE absente) : jamais dans les attributions
+    }
+    const perAttribuee = attr?.per || 0;
+
+    // RT déjà enregistrée pour cette nomination ?
+    const rt = db.prepare(`
+      SELECT COALESCE(SUM(periodes),0) AS per FROM remise_travail
+      WHERE nomination_id = ? AND (annee_scolaire = ? OR annee_scolaire IS NULL)
+    `).get(n.id, annee);
+    const perRT = rt?.per || 0;
+
+    // Perte de charge si l'attribution + la RT ne couvrent pas les périodes nommées
+    const couvert = perAttribuee + perRT;
+    if (couvert < (n.periodes || 0)) {
+      pertes.push({
+        nomination_id: n.id,
+        professeur_id: n.professeur_id,
+        prof: `${n.prof_prenom || ''} ${n.prof_nom}`.trim(),
+        code_fwb: n.code_fwb,
+        ue_num: n.ue_num,
+        ue_nom: n.ue_nom,
+        cours_code: n.cours_code,
+        cours_libre: n.cours_libre,
+        type_charge: n.type_charge,
+        periodes_nommees: n.periodes || 0,
+        periodes_couvertes: Math.round(couvert * 10) / 10,
+        perte: Math.round(((n.periodes || 0) - couvert) * 10) / 10,
+      });
+    }
+  }
+  res.json(pertes);
+});
+
+// GET /nominations/alertes-cours?annee= — alerte "un définitif est engagé sur ce cours"
+// Matche par COURS (code FWB de l'UE ou code_cours), indépendamment du prof attribué.
+// Permet d'avertir quand on (re)crée une UE/section où un cours a un titulaire définitif,
+// même si l'attribution est vide ou confiée à quelqu'un d'autre.
+r.get('/alertes-cours', authRequired, (req, res) => {
+  const { annee } = req.query;
+  const rows = db.prepare(`
+    SELECT a.id AS attribution_id, a.professeur_id AS prof_attribue_id, a.code_cours, a.ue_num,
+           n.id AS nomination_id, n.code_fwb, n.periodes AS periodes_nommees, n.type_charge,
+           n.professeur_id AS definitif_id,
+           p.nom AS definitif_nom, p.prenom AS definitif_prenom
+    FROM attribution a
+    JOIN ue u ON u.ue_num = a.ue_num AND u.annee_scolaire = a.annee_scolaire AND u.section = a.section
+    JOIN nomination_definitive n
+      ON n.actif = 1
+     AND (
+          (n.cours_code IS NOT NULL AND n.cours_code = a.code_cours)
+          OR (n.cours_code IS NULL AND n.ue_num = a.ue_num)
+          OR (n.code_fwb IS NOT NULL AND n.code_fwb != 'INCONNU' AND n.code_fwb = u.ue_code_fwb)
+         )
+    JOIN professeur p ON p.id = n.professeur_id
+    WHERE a.annee_scolaire = ?
+  `).all(annee);
+  // Indexé par attribution + si le définitif est déjà celui attribué (pas d'alerte dans ce cas)
+  const alertes = rows
+    .filter(r => r.definitif_id !== r.prof_attribue_id) // alerte seulement si le définitif n'est PAS le prof attribué
+    .map(r => ({
+      attribution_id: r.attribution_id,
+      code_cours: r.code_cours,
+      ue_num: r.ue_num,
+      code_fwb: r.code_fwb,
+      definitif: `${r.definitif_prenom || ''} ${r.definitif_nom}`.trim(),
+      periodes_nommees: r.periodes_nommees,
+      type_charge: r.type_charge,
+    }));
+  res.json(alertes);
+});
+
 export default r;

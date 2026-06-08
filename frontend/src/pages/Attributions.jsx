@@ -218,6 +218,8 @@ export default function Attributions() {
   const [activitesList, setActivitesList] = useState([]);
   const [extDot, setExtDot] = useState({}); // { [attribution_id]: 'EXT'|'DOT'|'EXT+DOT' }
   const [verrous, setVerrous] = useState({}); // { [attribution_id]: {nomination...} }
+  const [pertesCharge, setPertesCharge] = useState([]); // profs définitifs en perte de charge
+  const [alertesCours, setAlertesCours] = useState({}); // { [attribution_id]: {definitif...} } cours avec un définitif
   const [autAnalyse, setAutAnalyse] = useState({}); // { [ue_num]: { ok, reste } }
   const [filters, setFilters] = useState({ section:'', prof_id:'', contrat:'', type_cours:'', ue_num:'', q:'' });
   const [loading, setLoading] = useState(true);
@@ -701,6 +703,16 @@ export default function Attributions() {
           for (const v of (Array.isArray(d) ? d : [])) map[v.attribution_id] = v;
           setVerrous(map);
         }).catch(() => {});
+      // Charger les pertes de charge (profs définitifs dont le cours n'existe plus / pas dedans)
+      fetch(`/api/nominations/pertes-charge?annee=${encodeURIComponent(getAnnee())}`, { headers: { Authorization: `Bearer ${tok}` } })
+        .then(r => r.json()).then(d => setPertesCharge(Array.isArray(d) ? d : [])).catch(() => {});
+      // Charger les alertes "un définitif est engagé sur ce cours" (matche par cours, pas par prof attribué)
+      fetch(`/api/nominations/alertes-cours?annee=${encodeURIComponent(getAnnee())}`, { headers: { Authorization: `Bearer ${tok}` } })
+        .then(r => r.json()).then(d => {
+          const map = {};
+          for (const a of (Array.isArray(d) ? d : [])) map[a.attribution_id] = a;
+          setAlertesCours(map);
+        }).catch(() => {});
       // Charger analyse autonomie par UE — pour toutes les sections présentes
       const sectionsVisibles = [...new Set((Array.isArray(a) ? a : []).map(r => r.section).filter(Boolean))];
       if (f.section && !sectionsVisibles.includes(f.section)) sectionsVisibles.push(f.section);
@@ -826,7 +838,7 @@ export default function Attributions() {
             </td>;
           }
           if (c.edit==='select') return <td key={c.key} style={sty}><select defaultValue={v??''} onClick={e=>e.stopPropagation()} className="bg-transparent border-0 outline-none w-full text-sm cursor-pointer focus:bg-yellow-50" onChange={e=>{if(e.target.value!==(v??''))saveCell(row.id,c.key,e.target.value);}}>{c.options.map(([val,lbl])=><option key={val} value={val}>{lbl}</option>)}</select></td>;
-          if (c.edit==='prof') return <td key={c.key} style={sty}><div className="flex items-center gap-1">{verrous[row.id] && <span title={`Nomination définitive — ${verrous[row.id].periodes_nommees||''} pér. ${verrous[row.id].type_charge||''} · code FWB ${verrous[row.id].code_fwb||''} (attribution verrouillée)`} className="flex-shrink-0">🔒</span>}<select defaultValue={row.professeur_id??''} onClick={e=>e.stopPropagation()} className="bg-transparent border-0 outline-none w-full text-sm cursor-pointer focus:bg-yellow-50" onChange={e=>{const nid=e.target.value?Number(e.target.value):null;if(nid!==row.professeur_id)saveCell(row.id,'professeur_id',nid);}}><option value="">— Aucun —</option>{professeurs.map(p=><option key={p.id} value={p.id}>{p.nom_prenom}</option>)}</select></div></td>;
+          if (c.edit==='prof') return <td key={c.key} style={sty}><div className="flex items-center gap-1">{verrous[row.id] && <span title={`Nomination définitive — ${verrous[row.id].periodes_nommees||''} pér. ${verrous[row.id].type_charge||''} · code FWB ${verrous[row.id].code_fwb||''} (attribution verrouillée)`} className="flex-shrink-0">🔒</span>}{!verrous[row.id] && alertesCours[row.id] && <span title={`⚠ ${alertesCours[row.id].definitif} est engagé(e) à titre définitif sur ce cours (${alertesCours[row.id].periodes_nommees||''} pér. ${alertesCours[row.id].type_charge||''}, FWB ${alertesCours[row.id].code_fwb||''})`} className="flex-shrink-0 cursor-help">🔓</span>}<select defaultValue={row.professeur_id??''} onClick={e=>e.stopPropagation()} className="bg-transparent border-0 outline-none w-full text-sm cursor-pointer focus:bg-yellow-50" onChange={e=>{const nid=e.target.value?Number(e.target.value):null;if(nid!==row.professeur_id)saveCell(row.id,'professeur_id',nid);}}><option value="">— Aucun —</option>{professeurs.map(p=><option key={p.id} value={p.id}>{p.nom_prenom}</option>)}</select></div>{!verrous[row.id] && alertesCours[row.id] && <div className="text-[10px] text-amber-600 leading-tight mt-0.5">⚠ définitif : {alertesCours[row.id].definitif}</div>}</td>;
           if (c.edit==='statut') {
             const isHelb = row.contrat_mdp === 'HELB';
             const statutOptions = c.options.map(([val, lbl]) => [val, (isHelb && val === 'EXP') ? 'PI' : lbl]);
@@ -1084,6 +1096,33 @@ export default function Attributions() {
   // ===================== RENDU =====================
   return (
     <div className="p-2 md:p-4 max-w-7xl mx-auto">
+      {/* Bandeau : profs définitifs en perte de charge */}
+      {pertesCharge.length > 0 && (
+        <div className="mb-3 bg-red-50 border border-red-200 rounded-lg p-3">
+          <div className="flex items-center gap-2 text-red-700 font-medium text-sm mb-1.5">
+            ⚠ {pertesCharge.length} engagement(s) à titre définitif en perte de charge
+          </div>
+          <p className="text-[12px] text-red-600 mb-2">
+            Ces personnes nommées n'ont pas (ou plus) d'attribution couvrant leur charge — le cours n'est plus organisé ou elles n'y figurent pas. Une remise au travail (RT) est nécessaire.
+          </p>
+          <div className="space-y-1">
+            {pertesCharge.map(p => (
+              <div key={p.nomination_id} className="flex items-center justify-between bg-white rounded px-2.5 py-1.5 text-[12px]">
+                <span className="text-gray-700">
+                  <strong>{p.prof}</strong> — {p.ue_num ? `UE ${p.ue_num}${p.ue_nom ? ' '+p.ue_nom : ''}` : (p.cours_libre || 'cours')}
+                  {p.cours_code ? ` · ${p.cours_code}` : ''}
+                  <span className="text-gray-400"> · FWB {p.code_fwb === 'INCONNU' ? 'inconnu' : p.code_fwb}</span>
+                </span>
+                <span className="text-red-600 font-semibold whitespace-nowrap ml-2">
+                  perte {p.perte} pér. {p.type_charge || ''}
+                  {p.periodes_couvertes > 0 && <span className="text-gray-400 font-normal"> ({p.periodes_couvertes}/{p.periodes_nommees} couvert)</span>}
+                </span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
       {/* Barre mobile */}
       <div className="md:hidden mb-2 flex gap-2">
         <input value={filters.q} onChange={e=>setFilters({...filters,q:e.target.value})} onKeyDown={e=>e.key==='Enter'&&applyFilters()} placeholder="🔍 Rechercher…" className="flex-1 border border-gray-300 rounded-lg px-3 py-2 text-sm"/>
