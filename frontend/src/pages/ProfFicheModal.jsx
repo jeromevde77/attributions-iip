@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { api } from '../lib/api.js';
 import { eidStatus, eidReadAll, eidToProf, eidChamps } from '../lib/eid.js';
+import NominationsPanel from '../components/NominationsPanel.jsx';
 
 const _tok = () => localStorage.getItem('token');
 const _fetch = (url, opts = {}) =>
@@ -210,7 +211,7 @@ export default function ProfFicheModal({ prof, onClose, onSaved }) {
     iban: '', bic: '', compte_titulaire: '',
     // Administratif IIP
     statut: '', capaes: '', anciennete_25_26_po: 0, report_anc_po: 0,
-    matricule: '', statut_ea12: '',
+    matricule: '', statut_ea12: '', statut_nomination: 'temporaire',
     // Situation fiscale
     etat_civil: '', handicap: 'non',
     conjoint_nom: '', conjoint_prenom: '', conjoint_handicap: 'non',
@@ -673,6 +674,25 @@ export default function ProfFicheModal({ prof, onClose, onSaved }) {
                 dispoQ2={dispoQ2} setDispoQ2={setDispoQ2}
                 profId={prof?.id}
               />
+            </Section>
+          )}
+
+          {/* ── Section Engagement à titre définitif ── */}
+          {!isNew && (
+            <Section titre="9 · Engagement à titre définitif" sous="Nominations (code FWB) & remise au travail"
+              ouvert={open.nomination} onToggle={() => toggle('nomination')}>
+              <div className="mb-3">
+                <label className="block">
+                  <span className="text-[11px] text-gray-500">Statut de nomination</span>
+                  <select value={form.statut_nomination || 'temporaire'} onChange={v => set('statut_nomination', v.target.value)}
+                    className="w-full border border-gray-300 rounded px-2 py-1.5 text-sm max-w-xs">
+                    <option value="temporaire">Temporaire</option>
+                    <option value="temporaire_prioritaire">Temporaire prioritaire</option>
+                    <option value="definitif">Engagé à titre définitif</option>
+                  </select>
+                </label>
+              </div>
+              <NominationsPanel profId={prof?.id} />
             </Section>
           )}
 

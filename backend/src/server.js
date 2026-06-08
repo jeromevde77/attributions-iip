@@ -28,6 +28,7 @@ import parametresRoutes    from './routes/parametres.js';
 import prerequisRoutes     from './routes/prerequis.js';
 import planifIARoutes      from './routes/planification-ia.js';
 import locauxRoutes        from './routes/locaux.js';
+import nominationsRoutes   from './routes/nominations.js';
 import sequenceRoutes      from './routes/sequence.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
@@ -331,6 +332,46 @@ try {
       PRIMARY KEY (cours_code, annee_scolaire, section, local_id)
     );
   `);
+
+  // Engagement à titre définitif : nominations d'un prof sur un DP (code FWB = clé unique)
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS nomination_definitive (
+      id              INTEGER PRIMARY KEY AUTOINCREMENT,
+      professeur_id   INTEGER NOT NULL REFERENCES professeur(id) ON DELETE CASCADE,
+      code_fwb        TEXT NOT NULL,            -- code FWB du dossier pédagogique (clé métier)
+      ue_num          INTEGER,                  -- UE de la nomination
+      cours_code      TEXT,                     -- cours nommé (peut être NULL si toute l'UE)
+      periodes        REAL NOT NULL DEFAULT 0,  -- nombre de périodes définitives
+      type_charge     TEXT,                     -- 'CT' | 'PP' | 'CG'
+      actif           INTEGER NOT NULL DEFAULT 1,
+      notes           TEXT
+    );
+    CREATE INDEX IF NOT EXISTS idx_nom_prof ON nomination_definitive(professeur_id);
+    CREATE INDEX IF NOT EXISTS idx_nom_fwb  ON nomination_definitive(code_fwb);
+
+    -- Remise au travail : quand l'UE/DP nommé n'est plus organisé, le prof est réaffecté
+    CREATE TABLE IF NOT EXISTS remise_travail (
+      id                INTEGER PRIMARY KEY AUTOINCREMENT,
+      nomination_id     INTEGER REFERENCES nomination_definitive(id) ON DELETE SET NULL,
+      professeur_id     INTEGER NOT NULL REFERENCES professeur(id) ON DELETE CASCADE,
+      charge_perdue     REAL NOT NULL DEFAULT 0,  -- périodes perdues (charge à recaser)
+      ue_num            INTEGER,                  -- UE de remise au travail
+      cours_code        TEXT,                     -- cours de remise au travail
+      periodes          REAL NOT NULL DEFAULT 0,  -- périodes attribuées en RT (doit être ≥ charge_perdue au total)
+      annee_scolaire    TEXT,
+      notes             TEXT
+    );
+    CREATE INDEX IF NOT EXISTS idx_rt_prof ON remise_travail(professeur_id);
+  `);
+
+  // Statut de nomination du prof : temporaire / temporaire_prioritaire / definitif
+  {
+    const cols = db.prepare('PRAGMA table_info(professeur)').all();
+    if (!cols.find(c => c.name === 'statut_nomination')) {
+      db.exec(`ALTER TABLE professeur ADD COLUMN statut_nomination TEXT DEFAULT 'temporaire'`);
+      console.log('[migration] professeur.statut_nomination ajouté');
+    }
+  }
 
   // Groupes : subdivision d'une attribution par groupe d'étudiants
   db.exec(`
@@ -1933,6 +1974,7 @@ app.use('/api/parametres',   parametresRoutes);
 app.use('/api/prerequis',      prerequisRoutes);
 app.use('/api/planification-ia', planifIARoutes);
 app.use('/api/locaux', locauxRoutes);
+app.use('/api/nominations', nominationsRoutes);
 app.use('/api/sequence',        sequenceRoutes);
 
 // Route logo IIP

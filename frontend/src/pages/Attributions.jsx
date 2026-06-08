@@ -217,6 +217,7 @@ export default function Attributions() {
   const [professeurs, setProfesseurs] = useState([]);
   const [activitesList, setActivitesList] = useState([]);
   const [extDot, setExtDot] = useState({}); // { [attribution_id]: 'EXT'|'DOT'|'EXT+DOT' }
+  const [verrous, setVerrous] = useState({}); // { [attribution_id]: {nomination...} }
   const [autAnalyse, setAutAnalyse] = useState({}); // { [ue_num]: { ok, reste } }
   const [filters, setFilters] = useState({ section:'', prof_id:'', contrat:'', type_cours:'', ue_num:'', q:'' });
   const [loading, setLoading] = useState(true);
@@ -693,6 +694,13 @@ export default function Attributions() {
           for (const a of (d.attrs || [])) map[a.id] = a.badge;
           setExtDot(map);
         }).catch(() => {});
+      // Charger les verrous de nomination (attributions verrouillées : prof définitif sur son cours)
+      fetch(`/api/nominations/verrous?annee=${encodeURIComponent(getAnnee())}`, { headers: { Authorization: `Bearer ${tok}` } })
+        .then(r => r.json()).then(d => {
+          const map = {};
+          for (const v of (Array.isArray(d) ? d : [])) map[v.attribution_id] = v;
+          setVerrous(map);
+        }).catch(() => {});
       // Charger analyse autonomie par UE — pour toutes les sections présentes
       const sectionsVisibles = [...new Set((Array.isArray(a) ? a : []).map(r => r.section).filter(Boolean))];
       if (f.section && !sectionsVisibles.includes(f.section)) sectionsVisibles.push(f.section);
@@ -818,7 +826,7 @@ export default function Attributions() {
             </td>;
           }
           if (c.edit==='select') return <td key={c.key} style={sty}><select defaultValue={v??''} onClick={e=>e.stopPropagation()} className="bg-transparent border-0 outline-none w-full text-sm cursor-pointer focus:bg-yellow-50" onChange={e=>{if(e.target.value!==(v??''))saveCell(row.id,c.key,e.target.value);}}>{c.options.map(([val,lbl])=><option key={val} value={val}>{lbl}</option>)}</select></td>;
-          if (c.edit==='prof') return <td key={c.key} style={sty}><select defaultValue={row.professeur_id??''} onClick={e=>e.stopPropagation()} className="bg-transparent border-0 outline-none w-full text-sm cursor-pointer focus:bg-yellow-50" onChange={e=>{const nid=e.target.value?Number(e.target.value):null;if(nid!==row.professeur_id)saveCell(row.id,'professeur_id',nid);}}><option value="">— Aucun —</option>{professeurs.map(p=><option key={p.id} value={p.id}>{p.nom_prenom}</option>)}</select></td>;
+          if (c.edit==='prof') return <td key={c.key} style={sty}><div className="flex items-center gap-1">{verrous[row.id] && <span title={`Nomination définitive — ${verrous[row.id].periodes_nommees||''} pér. ${verrous[row.id].type_charge||''} · code FWB ${verrous[row.id].code_fwb||''} (attribution verrouillée)`} className="flex-shrink-0">🔒</span>}<select defaultValue={row.professeur_id??''} onClick={e=>e.stopPropagation()} className="bg-transparent border-0 outline-none w-full text-sm cursor-pointer focus:bg-yellow-50" onChange={e=>{const nid=e.target.value?Number(e.target.value):null;if(nid!==row.professeur_id)saveCell(row.id,'professeur_id',nid);}}><option value="">— Aucun —</option>{professeurs.map(p=><option key={p.id} value={p.id}>{p.nom_prenom}</option>)}</select></div></td>;
           if (c.edit==='statut') {
             const isHelb = row.contrat_mdp === 'HELB';
             const statutOptions = c.options.map(([val, lbl]) => [val, (isHelb && val === 'EXP') ? 'PI' : lbl]);
