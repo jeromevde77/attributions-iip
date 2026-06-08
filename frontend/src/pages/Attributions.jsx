@@ -830,11 +830,16 @@ export default function Attributions() {
             const select = <select defaultValue={row.professeur_id??''} onClick={e=>e.stopPropagation()} className="bg-transparent border-0 outline-none w-full text-sm cursor-pointer focus:bg-yellow-50" onChange={e=>{const nid=e.target.value?Number(e.target.value):null;if(nid!==row.professeur_id)saveCell(row.id,'professeur_id',nid);}}><option value="">— Aucun —</option>{professeurs.map(p=><option key={p.id} value={p.id}>{p.nom_prenom}</option>)}</select>;
             return <td key={c.key} style={sty}>
               <div className="flex items-center gap-1">
+                {verrous[row.id] && <span title={`Nomination définitive — ${verrous[row.id].periodes_nommees||''} pér. ${verrous[row.id].type_charge||''} · code FWB ${verrous[row.id].code_fwb||''} (attribution verrouillée)`} className="shrink-0">🔒</span>}
+                {!verrous[row.id] && alertesCours[row.id] && <span title={`⚠ ${alertesCours[row.id].definitif} est engagé(e) à titre définitif sur ce cours (${alertesCours[row.id].periodes_nommees||''} pér. ${alertesCours[row.id].type_charge||''}, FWB ${alertesCours[row.id].code_fwb||''})`} className="shrink-0 cursor-help">🔓</span>}
+                {row.remplace_attribution_id && <span title="Ligne de remplacement (titulaire en congé)" className="shrink-0 text-[9px] text-blue-600 font-bold">R</span>}
                 {badge === 'EXT' && <span className="text-[9px] px-1 py-0 rounded font-bold bg-teal-100 text-teal-700 border border-teal-300 shrink-0" title="Couvert par l'enveloppe externe">EXT</span>}
                 {badge === 'DOT' && <span className="text-[9px] px-1 py-0 rounded font-bold bg-orange-100 text-orange-700 border border-orange-300 shrink-0" title="Dépasse le plafond → dotation organique">DOT</span>}
                 {badge === 'EXT+DOT' && <span className="text-[9px] px-1 py-0 rounded font-bold bg-purple-100 text-purple-700 border border-purple-300 shrink-0" title="Partiellement EXT, partiellement DOT">EXT+DOT</span>}
                 <div className="flex-1 min-w-0">{select}</div>
+                <button onClick={e=>{e.stopPropagation(); toggleConge(row);}} title={row.en_conge ? 'En congé — cliquer pour réactiver' : 'Mettre en congé (crée une ligne de remplacement)'} className={`shrink-0 text-[10px] font-bold px-1 py-0.5 rounded border ${row.en_conge ? 'bg-transparent text-red-600 border-red-500' : 'bg-gray-50 text-gray-400 border-gray-200 hover:border-red-400 hover:text-red-500'}`}>C</button>
               </div>
+              {!verrous[row.id] && alertesCours[row.id] && <div className="text-[10px] text-amber-600 leading-tight mt-0.5">⚠ définitif : {alertesCours[row.id].definitif}</div>}
             </td>;
           }
           const v = row[c.key]; const display = c.render ? c.render(v,row) : v;
