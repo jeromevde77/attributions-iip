@@ -374,7 +374,7 @@ export default function Professeurs() {
       const nature = natLigne === 'TP' ? 'TP'
                    : natLigne === 'CT' ? 'COURS'
                    : (a.helb_nature || (a.type_cours === 'PP' ? 'TP' : 'COURS'));
-      const natureLbl = nature === 'TP' ? 'TP' : 'Cours';
+      const natureLbl = nature === 'TP' ? 'Trav. P. (TP)' : 'Cours (TC)';
       const div = diviseur(statut, nature);
       const charge = div ? Math.round((h / div) * 1000) / 1000 : 0;
       totHeures += h; totCharge += charge;
