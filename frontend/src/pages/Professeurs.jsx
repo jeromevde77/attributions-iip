@@ -348,6 +348,21 @@ export default function Professeurs() {
   const me = JSON.parse(localStorage.getItem('user') || 'null');
 
   // Fiche HELB : heures par activité, Cours/TP, charge selon diviseurs (statut × nature)
+  // Helper partagé : diviseur HELB selon statut + nature, et nature lisible d'une ligne
+  function helbCalc(statut, a) {
+    const natLigne = a.helb_nature_ligne;
+    const nature = natLigne === 'TP' ? 'TP'
+                 : natLigne === 'CT' ? 'COURS'
+                 : (a.helb_nature || (a.type_cours === 'PP' ? 'TP' : 'COURS'));
+    let div;
+    if (statut === 'COORD') div = 1400;
+    else if (statut === 'MFP') div = 750;
+    else div = nature === 'TP' ? 750 : 480; // MA, PI, ou défaut
+    const h = a.heures || 0;
+    const charge = div ? h / div : 0;
+    return { nature, natureLbl: nature === 'TP' ? 'Trav. P. (TP)' : 'Cours (TC)', div, h, charge };
+  }
+
   function genererFicheHELB(prof, attributions, annee) {
     const fmtH = n => n != null ? (Math.round(n * 10) / 10) : 0;
     const S  = 'padding:2px 6px;font-size:11px;';
@@ -442,6 +457,124 @@ export default function Professeurs() {
     setFicheHtml({ html, nom: nomDoc('Fiche_HELB', prof.nom, prof.prenom, annee) });
   }
 
+  // Fiche globale : bloc IIP (périodes) + bloc HELB (heures) + rectangle récap combiné
+  function genererFicheGlobale(prof, attributions, nominations, bilan_nomination, annee) {
+    const fmt = n => n != null ? String(n) : '0';
+    const fmtH = n => n != null ? (Math.round(n * 10) / 10) : 0;
+    const S  = 'padding:2px 6px;font-size:11px;';
+    const SR = S + 'text-align:right;';
+    const statut = prof.statut_helb || null;
+    const statutLbl = { MA: 'Maître-Assistant', MFP: 'Maître de Formation Pratique', PI: 'Praticien', COORD: 'Coordination' }[statut] || null;
+
+    const iip = attributions.filter(a => (a.contrat_mdp || 'IIP') !== 'HELB');
+    const helb = attributions.filter(a => (a.contrat_mdp || 'IIP') === 'HELB');
+
+    // ── Bloc IIP ──
+    let tot_ct = 0, tot_pp = 0, tot_aut = 0;
+    for (const a of iip) { if (a.type_cours === 'CT') tot_ct += a.per || 0; else tot_pp += a.per || 0; tot_aut += a.aut || 0; }
+    const tot_aut_ct = iip.filter(a => a.type_cours === 'CT').reduce((s,a)=>s+(a.aut||0),0);
+    const tot_aut_pp = tot_aut - tot_aut_ct;
+    const etpIIP = Math.round(((tot_ct + tot_aut_ct) / 800 + (tot_pp + tot_aut_pp) / 1000) * 10000) / 10000;
+    const lignesIIP = iip.map((a,i) => `
+      <tr style="background:${i%2===0?'#fff':'#f9fafb'}">
+        <td style="${S}color:#6b7280">${a.section}</td>
+        <td style="${S}color:#374151">UE ${a.ue_num}${a.ue_niv ? ` <span style="background:#1B2B4B;color:white;font-size:9px;padding:1px 4px;border-radius:3px">${a.ue_niv}</span>` : ''}</td>
+        <td style="${S}color:#374151">${a.cours_nom || a.code_cours || '—'}${a.activite_nom ? ` <em style="color:#9ca3af">(${a.activite_nom})</em>` : ''}${a.est_rt ? ` <span style="color:#ea580c;border:1px solid #ef4444;border-radius:3px;font-size:8px;padding:0 3px;font-weight:700">RT</span>` : ''}</td>
+        <td style="${SR}font-weight:600;color:${a.type_cours==='CT'?'#1B2B4B':'#00AACC'}">${a.type_cours || '—'}</td>
+        <td style="${SR}color:#374151">${fmt(a.per)}</td>
+        <td style="${SR}color:#6b7280">${fmt(a.aut)}</td>
+        <td style="${SR}font-weight:700;border-left:1px solid #e5e7eb">${fmt((a.per||0)+(a.aut||0))}</td>
+      </tr>`).join('');
+
+    // ── Bloc HELB ──
+    let totHeures = 0, totCharge = 0;
+    const lignesHELB = helb.map((a,i) => {
+      const c = helbCalc(statut, a);
+      totHeures += c.h; totCharge += c.charge;
+      return `
+        <tr style="background:${i%2===0?'#fff':'#faf5ff'}">
+          <td style="${S}color:#6b7280">${a.section}</td>
+          <td style="${S}color:#374151">UE ${a.ue_num}${a.ue_niveau ? ` <span style="background:#7c3aed;color:white;font-size:8px;padding:1px 4px;border-radius:3px">${a.ue_niveau === 'SUP' ? 'TL' : 'TC'}</span>` : ''}</td>
+          <td style="${S}color:#374151">${a.cours_nom || a.code_cours || '—'}${a.activite_nom ? ` <em style="color:#9ca3af">(${a.activite_nom})</em>` : ''}${a.est_rt ? ` <span style="color:#ea580c;border:1px solid #ef4444;border-radius:3px;font-size:8px;padding:0 3px;font-weight:700">RT</span>` : ''}</td>
+          <td style="${SR}font-weight:600;color:${c.nature==='TP'?'#00AACC':'#1B2B4B'}">${c.natureLbl}</td>
+          <td style="${SR}color:#374151">${fmtH(c.h)} h</td>
+          <td style="${SR}color:#6b7280">/${c.div}</td>
+          <td style="${SR}font-weight:700;border-left:1px solid #e5e7eb">${(Math.round(c.charge*1000)/1000).toFixed(3)}</td>
+        </tr>`;
+    }).join('');
+    const chargeHELB = Math.round(totCharge * 10000) / 10000;
+    const totalGeneral = Math.round((etpIIP + chargeHELB) * 10000) / 10000;
+
+    const html = `<!DOCTYPE html><html><head><meta charset="utf-8">
+      <style>
+        *{box-sizing:border-box;margin:0;padding:0}
+        body{font-family:'Segoe UI',Arial,sans-serif;font-size:11px;color:#111827}
+        table{width:100%;border-collapse:collapse}
+        td,th{border-bottom:1px solid #e5e7eb}
+        @media print{@page{margin:10mm;size:A4 landscape}tr{page-break-inside:avoid}thead{display:table-header-group}}
+      </style></head><body>
+      <div style="padding:10mm">
+        <div style="display:flex;justify-content:space-between;align-items:flex-end;border-bottom:3px solid #1B2B4B;padding-bottom:8px;margin-bottom:16px">
+          <div>
+            <div style="font-size:9px;color:#00AACC;letter-spacing:2px;text-transform:uppercase;margin-bottom:4px">Institut Ilya Prigogine · Fiche d'attributions (globale)</div>
+            <div style="font-size:20px;font-weight:700;color:#1B2B4B">${prof.prenom} ${prof.nom}</div>
+            <div style="font-size:11px;color:#6b7280;margin-top:2px">${prof.fonction || prof.statut || ''}${statutLbl ? ` · Statut HELB : ${statutLbl}` : ''}</div>
+          </div>
+          <div style="text-align:right">
+            <div style="font-size:13px;font-weight:600;color:#1B2B4B">${annee}</div>
+            <div style="font-size:9px;color:#9ca3af;margin-top:2px">Généré le ${new Date().toLocaleDateString('fr-BE')} · Lucie</div>
+          </div>
+        </div>
+
+        ${iip.length ? `
+        <div style="font-size:11px;font-weight:700;color:#1B2B4B;text-transform:uppercase;letter-spacing:1px;margin-bottom:4px">Attributions IIP</div>
+        <table style="margin-bottom:18px">
+          <thead><tr style="background:#1B2B4B;color:white">
+            <th style="padding:4px 6px;text-align:left;font-size:10px">Section</th>
+            <th style="padding:4px 6px;text-align:left;font-size:10px">UE</th>
+            <th style="padding:4px 6px;text-align:left;font-size:10px">Cours</th>
+            <th style="padding:4px 6px;text-align:center;font-size:10px">CT/PP</th>
+            <th style="padding:4px 6px;text-align:right;font-size:10px">Pér.</th>
+            <th style="padding:4px 6px;text-align:right;font-size:10px">Aut.</th>
+            <th style="padding:4px 6px;text-align:right;font-size:10px;border-left:1px solid rgba(255,255,255,.3)">Total</th>
+          </tr></thead>
+          <tbody>${lignesIIP}</tbody>
+        </table>` : '<p style="color:#9ca3af;font-size:11px;margin-bottom:18px">Aucune attribution IIP.</p>'}
+
+        ${helb.length ? `
+        <div style="font-size:11px;font-weight:700;color:#7c3aed;text-transform:uppercase;letter-spacing:1px;margin-bottom:4px">Attributions HELB</div>
+        <table style="margin-bottom:18px">
+          <thead><tr style="background:#7c3aed;color:white">
+            <th style="padding:4px 6px;text-align:left;font-size:10px">Département</th>
+            <th style="padding:4px 6px;text-align:left;font-size:10px">UE</th>
+            <th style="padding:4px 6px;text-align:left;font-size:10px">Cours / Activité</th>
+            <th style="padding:4px 6px;text-align:right;font-size:10px">Nature</th>
+            <th style="padding:4px 6px;text-align:right;font-size:10px">Heures</th>
+            <th style="padding:4px 6px;text-align:right;font-size:10px">Div.</th>
+            <th style="padding:4px 6px;text-align:right;font-size:10px;border-left:1px solid rgba(255,255,255,.3)">Charge</th>
+          </tr></thead>
+          <tbody>${lignesHELB}</tbody>
+        </table>` : ''}
+
+        <!-- Rectangle récapitulatif combiné -->
+        <div style="margin-top:8px;display:flex;justify-content:flex-end">
+          <div style="background:#f1f5f9;border-radius:8px;padding:14px 22px;min-width:300px;border:1px solid #cbd5e1">
+            <div style="font-size:10px;color:#6b7280;margin-bottom:8px;text-transform:uppercase;letter-spacing:1px">Récapitulatif général</div>
+            <table style="width:100%">
+              <tr><td style="padding:2px 0;color:#374151;border:none">Total périodes IIP</td><td style="padding:2px 0;text-align:right;font-weight:600;color:#1B2B4B;border:none">${fmt(tot_ct + tot_pp + tot_aut)} pér.</td><td style="padding:2px 0;text-align:right;color:#9ca3af;border:none;font-size:10px">ETP ${etpIIP.toFixed(4)}</td></tr>
+              <tr><td style="padding:2px 0;color:#374151;border:none">Total heures HELB</td><td style="padding:2px 0;text-align:right;font-weight:600;color:#7c3aed;border:none">${fmtH(totHeures)} h</td><td style="padding:2px 0;text-align:right;color:#9ca3af;border:none;font-size:10px">charge ${chargeHELB.toFixed(4)}</td></tr>
+              <tr style="border-top:2px solid #1B2B4B">
+                <td style="padding:5px 0;font-weight:700;color:#1B2B4B;border:none">Total général (ETP)</td>
+                <td colspan="2" style="padding:5px 0;text-align:right;font-size:18px;font-weight:700;color:#00AACC;border:none">${totalGeneral.toFixed(4)}</td>
+              </tr>
+            </table>
+          </div>
+        </div>
+      </div>
+      </body></html>`;
+    setFicheHtml({ html, nom: nomDoc('Fiche_globale', prof.nom, prof.prenom, annee) });
+  }
+
   async function genererFicheAttributions(profId, contratFiltre = null) {
     const annee = getAnnee();
     const tok = localStorage.getItem('token');
@@ -453,6 +586,7 @@ export default function Professeurs() {
     let attributions = d.attributions;
     if (contratFiltre) attributions = attributions.filter(a => (a.contrat_mdp || 'IIP') === contratFiltre);
     if (contratFiltre === 'HELB') { genererFicheHELB(prof, attributions, annee); return; }
+    if (contratFiltre === null) { genererFicheGlobale(prof, attributions, nominations, bilan_nomination, annee); return; }
 
     // Recalcul des totaux IIP sur les lignes filtrées (ou toutes si global)
     let tot_ct = 0, tot_pp = 0, tot_aut = 0;
