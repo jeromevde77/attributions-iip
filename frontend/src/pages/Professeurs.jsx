@@ -335,17 +335,122 @@ export default function Professeurs() {
   const [selection, setSelection] = useState(new Set());
   const [printing, setPrinting] = useState(false);
   const [ficheHtml, setFicheHtml] = useState(null);
+  const [ficheMenu, setFicheMenu] = useState(null);
 
   const me = JSON.parse(localStorage.getItem('user') || 'null');
 
-  async function genererFicheAttributions(profId) {
+  // Fiche HELB : heures par activité, Cours/TP, charge selon diviseurs (statut × nature)
+  function genererFicheHELB(prof, attributions, annee) {
+    const fmtH = n => n != null ? (Math.round(n * 10) / 10) : 0;
+    const S  = 'padding:2px 6px;font-size:11px;';
+    const SR = S + 'text-align:right;';
+    const statut = prof.statut_helb || null;
+    const statutLbl = { MA: 'Maître-Assistant', MFP: 'Maître de Formation Pratique', PI: 'Praticien', COORD: 'Coordination' }[statut] || '—';
+    // Diviseur selon statut + nature (Cours/TP)
+    const diviseur = (st, nature) => {
+      if (st === 'COORD') return 1400;
+      if (st === 'MFP') return 750;
+      // MA, PI : Cours 480 / TP 750
+      return nature === 'TP' ? 750 : 480;
+    };
+
+    // Regrouper par section
+    const sections = {};
+    for (const a of attributions) { (sections[a.section] ||= []).push(a); }
+
+    let totHeures = 0, totCharge = 0;
+    const lignes = Object.entries(sections).map(([sec, rows]) => rows.map((a, i) => {
+      const h = a.heures || 0; // charge_en_heures (périodes converties)
+      const nature = a.helb_nature || (a.type_cours === 'PP' ? 'TP' : 'COURS');
+      const natureLbl = nature === 'TP' ? 'TP' : 'Cours';
+      const div = diviseur(statut, nature);
+      const charge = div ? Math.round((h / div) * 1000) / 1000 : 0;
+      totHeures += h; totCharge += charge;
+      return `
+        <tr style="background:${i%2===0?'#fff':'#f9fafb'}">
+          <td style="${S}color:#6b7280">${a.section}</td>
+          <td style="${S}color:#374151">UE ${a.ue_num}${a.ue_niveau ? ` <span style="background:#7c3aed;color:white;font-size:8px;padding:1px 4px;border-radius:3px">${a.ue_niveau === 'SUP' ? 'TL' : 'TC'}</span>` : ''}</td>
+          <td style="${S}color:#374151">${a.cours_nom || a.code_cours || '—'}${a.activite_nom ? ` <em style="color:#9ca3af">(${a.activite_nom})</em>` : ''}${a.est_rt ? ` <span style="color:#ea580c;border:1px solid #ef4444;border-radius:3px;font-size:8px;padding:0 3px;font-weight:700">RT</span>` : ''}</td>
+          <td style="${SR}font-weight:600;color:${nature==='TP'?'#00AACC':'#1B2B4B'}">${natureLbl}</td>
+          <td style="${SR}color:#374151">${fmtH(h)} h</td>
+          <td style="${SR}color:#6b7280">/${div}</td>
+          <td style="${SR}font-weight:700;border-left:1px solid #e5e7eb">${charge.toFixed(3)}</td>
+        </tr>`;
+    }).join('')).join('');
+
+    const html = `<!DOCTYPE html><html><head><meta charset="utf-8">
+      <style>
+        *{box-sizing:border-box;margin:0;padding:0}
+        body{font-family:'Segoe UI',Arial,sans-serif;font-size:11px;color:#111827}
+        table{width:100%;border-collapse:collapse}
+        td,th{border-bottom:1px solid #e5e7eb}
+        @media print{@page{margin:10mm;size:A4 landscape}tr{page-break-inside:avoid}thead{display:table-header-group}}
+      </style></head><body>
+      <div style="padding:10mm">
+        <div style="display:flex;justify-content:space-between;align-items:flex-end;border-bottom:3px solid #7c3aed;padding-bottom:8px;margin-bottom:16px">
+          <div>
+            <div style="font-size:9px;color:#7c3aed;letter-spacing:2px;text-transform:uppercase;margin-bottom:4px">HELB Ilya Prigogine · Fiche d'attributions (contrat HELB)</div>
+            <div style="font-size:20px;font-weight:700;color:#1B2B4B">${prof.prenom} ${prof.nom}</div>
+            <div style="font-size:11px;color:#6b7280;margin-top:2px">Statut HELB : <strong>${statutLbl}</strong></div>
+          </div>
+          <div style="text-align:right">
+            <div style="font-size:13px;font-weight:600;color:#7c3aed">${annee}</div>
+            <div style="font-size:9px;color:#9ca3af;margin-top:2px">Généré le ${new Date().toLocaleDateString('fr-BE')} · Lucie</div>
+          </div>
+        </div>
+        ${!statut ? `<div style="background:#fef2f2;border:1px solid #fecaca;color:#dc2626;border-radius:6px;padding:8px 12px;margin-bottom:12px;font-size:11px">⚠ Aucun statut HELB défini pour cette personne (MA / MFP / PI / Coordination). Les diviseurs par défaut (Cours 480 / TP 750) sont appliqués.</div>` : ''}
+        <table>
+          <thead>
+            <tr style="background:#7c3aed;color:white">
+              <th style="padding:4px 6px;text-align:left;font-size:10px">Département</th>
+              <th style="padding:4px 6px;text-align:left;font-size:10px">UE</th>
+              <th style="padding:4px 6px;text-align:left;font-size:10px">Cours / Activité</th>
+              <th style="padding:4px 6px;text-align:right;font-size:10px">Nature</th>
+              <th style="padding:4px 6px;text-align:right;font-size:10px">Heures</th>
+              <th style="padding:4px 6px;text-align:right;font-size:10px">Div.</th>
+              <th style="padding:4px 6px;text-align:right;font-size:10px;border-left:1px solid rgba(255,255,255,.3)">Charge</th>
+            </tr>
+          </thead>
+          <tbody>${lignes}</tbody>
+        </table>
+        <div style="margin-top:16px;display:flex;justify-content:flex-end">
+          <div style="background:#f5f3ff;border-radius:8px;padding:12px 20px;min-width:240px">
+            <div style="font-size:10px;color:#6b7280;margin-bottom:8px;text-transform:uppercase;letter-spacing:1px">Récapitulatif HELB</div>
+            <table style="width:100%">
+              <tr><td style="padding:2px 0;color:#374151;border:none">Total heures</td><td style="padding:2px 0;text-align:right;font-weight:600;color:#1B2B4B;border:none">${fmtH(totHeures)} h</td></tr>
+              <tr style="border-top:2px solid #7c3aed">
+                <td style="padding:4px 0;font-weight:700;color:#7c3aed;border:none">Charge totale</td>
+                <td style="padding:4px 0;text-align:right;font-size:16px;font-weight:700;color:#7c3aed;border:none">${(Math.round(totCharge*1000)/1000).toFixed(3)}</td>
+              </tr>
+            </table>
+          </div>
+        </div>
+      </div>
+      </body></html>`;
+    setFicheHtml({ html, nom: nomDoc('Fiche_HELB', prof.nom, prof.prenom, annee) });
+  }
+
+  async function genererFicheAttributions(profId, contratFiltre = null) {
     const annee = getAnnee();
     const tok = localStorage.getItem('token');
     const d = await fetch(`/api/ref/professeurs/${profId}/fiche-attributions?annee=${encodeURIComponent(annee)}`,
       { headers: { Authorization: `Bearer ${tok}` } }).then(r => r.json());
     if (d.error) { alert(d.error); return; }
 
-    const { prof, attributions, nominations, bilan_nomination, tot_ct, tot_pp, tot_aut, tot_per, tot_global, etp } = d;
+    const { prof, nominations, bilan_nomination, etp } = d;
+    let attributions = d.attributions;
+    if (contratFiltre) attributions = attributions.filter(a => (a.contrat_mdp || 'IIP') === contratFiltre);
+    if (contratFiltre === 'HELB') { genererFicheHELB(prof, attributions, annee); return; }
+
+    // Recalcul des totaux IIP sur les lignes filtrées (ou toutes si global)
+    let tot_ct = 0, tot_pp = 0, tot_aut = 0;
+    for (const a of attributions) {
+      if (a.type_cours === 'CT') { tot_ct += a.per || 0; } else { tot_pp += a.per || 0; }
+      tot_aut += a.aut || 0;
+    }
+    const tot_per = tot_ct + tot_pp;
+    const tot_global = tot_per + tot_aut;
+
     const fmt = n => n != null ? String(n) : '0';
     const S  = 'padding:2px 6px;font-size:11px;';
     const SR = S + 'text-align:right;';
@@ -654,9 +759,19 @@ export default function Professeurs() {
                   <td className="num">{Number(p.total_hrs_helb || 0).toLocaleString('fr-BE')}</td>
                   <td className="num">{p.anciennete_25_26_po || 0}</td>
                   <td className="text-center">
-                    <div className="flex items-center justify-center gap-2">
-                      <button onClick={() => genererFicheAttributions(p.id)}
+                    <div className="flex items-center justify-center gap-2 relative">
+                      <button onClick={() => setFicheMenu(ficheMenu === p.id ? null : p.id)}
                         className="text-gray-400 hover:text-iip-mauve text-sm" title="Fiche d'attributions">📋</button>
+                      {ficheMenu === p.id && (
+                        <div className="absolute z-50 top-full right-0 mt-1 bg-white border border-gray-200 rounded-lg shadow-xl py-1 w-44" onClick={e => e.stopPropagation()}>
+                          <button onClick={() => { genererFicheAttributions(p.id, null); setFicheMenu(null); }}
+                            className="w-full text-left px-3 py-1.5 text-sm hover:bg-iip-gold/10">📋 Fiche globale</button>
+                          <button onClick={() => { genererFicheAttributions(p.id, 'IIP'); setFicheMenu(null); }}
+                            className="w-full text-left px-3 py-1.5 text-sm hover:bg-iip-gold/10">🟦 Fiche IIP</button>
+                          <button onClick={() => { genererFicheAttributions(p.id, 'HELB'); setFicheMenu(null); }}
+                            className="w-full text-left px-3 py-1.5 text-sm hover:bg-purple-50 text-purple-700">🟪 Fiche HELB</button>
+                        </div>
+                      )}
                       {canEdit && (
                         <button onClick={() => setEditProf(p)}
                           className="text-iip-gold hover:text-iip-amber text-sm" title="Modifier">✏</button>
