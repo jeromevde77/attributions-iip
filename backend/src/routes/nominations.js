@@ -178,9 +178,12 @@ r.get('/alertes-cours', authRequired, (req, res) => {
     JOIN nomination_definitive n
       ON n.actif = 1
      AND (
+          -- Nomination sur un cours précis : matche UNIQUEMENT ce cours
           (n.cours_code IS NOT NULL AND n.cours_code = a.code_cours)
+          -- Nomination sur toute l'UE (pas de cours précis) : matche les cours de l'UE
           OR (n.cours_code IS NULL AND n.ue_num = a.ue_num)
-          OR (n.code_fwb IS NOT NULL AND n.code_fwb != 'INCONNU' AND n.code_fwb = u.ue_code_fwb)
+          -- Nomination sur toute l'UE via code FWB (pas de cours ni d'UE précis)
+          OR (n.cours_code IS NULL AND n.ue_num IS NULL AND n.code_fwb IS NOT NULL AND n.code_fwb != 'INCONNU' AND n.code_fwb = u.ue_code_fwb)
          )
     JOIN professeur p ON p.id = n.professeur_id
     WHERE a.annee_scolaire = ?

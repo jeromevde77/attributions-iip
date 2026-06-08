@@ -48,7 +48,7 @@ const buildLabel = buildDate.toLocaleString('fr-BE', {
 });
 // Version : BUILD_VER peut être "1.2.8+sha" (Vite local), un SHA brut (CI sans fix), ou "dev"
 const _isVersion = BUILD_VER.includes('.');
-const versionNum = _isVersion ? BUILD_VER.split('+')[0] : '1.7.4'; // fallback hardcodé
+const versionNum = _isVersion ? BUILD_VER.split('+')[0] : '1.7.5'; // fallback hardcodé
 const shaOnly = BUILD_VER.includes('+')
   ? BUILD_VER.split('+')[1]?.slice(0,7)
   : BUILD_VER === 'dev' ? '' : BUILD_VER.slice(0,7);
