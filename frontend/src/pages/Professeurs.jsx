@@ -345,7 +345,7 @@ export default function Professeurs() {
       { headers: { Authorization: `Bearer ${tok}` } }).then(r => r.json());
     if (d.error) { alert(d.error); return; }
 
-    const { prof, attributions, nominations, tot_ct, tot_pp, tot_aut, tot_per, tot_global, etp } = d;
+    const { prof, attributions, nominations, bilan_nomination, tot_ct, tot_pp, tot_aut, tot_per, tot_global, etp } = d;
     const fmt = n => n != null ? String(n) : '0';
     const S  = 'padding:2px 6px;font-size:11px;';
     const SR = S + 'text-align:right;';
@@ -437,9 +437,8 @@ export default function Professeurs() {
               <tr style="background:#eef2f7;color:#1B2B4B">
                 <th style="padding:3px 6px;text-align:left;font-size:9px">Dossier pédagogique (code FWB)</th>
                 <th style="padding:3px 6px;text-align:center;font-size:9px">Type</th>
-                <th style="padding:3px 6px;text-align:right;font-size:9px">Nommé</th>
-                <th style="padding:3px 6px;text-align:right;font-size:9px">Couvert</th>
-                <th style="padding:3px 6px;text-align:right;font-size:9px">Situation</th>
+                <th style="padding:3px 6px;text-align:right;font-size:9px">Nommé (pér.)</th>
+                <th style="padding:3px 6px;text-align:right;font-size:9px">ETP</th>
               </tr>
             </thead>
             <tbody>
@@ -448,11 +447,24 @@ export default function Professeurs() {
                   <td style="${S}color:#374151">${n.libelle} <span style="color:#9ca3af;font-family:monospace;font-size:9px">${n.code_fwb === 'INCONNU' ? '(code inconnu)' : n.code_fwb}</span></td>
                   <td style="${S}text-align:center;color:#6b7280">${n.type_charge || ''}</td>
                   <td style="${SR}font-weight:600">${fmt(n.periodes)}</td>
-                  <td style="${SR}color:#6b7280">${fmt(n.couvert)}${n.couvert_rt ? ` <span style="color:#ea580c;font-size:9px">(dont RT ${fmt(n.couvert_rt)})</span>` : ''}</td>
-                  <td style="${SR}font-weight:700;color:${n.perte_de_charge ? '#dc2626' : '#16a34a'}">${n.perte_de_charge ? `Perte de charge : ${fmt(n.perte)} pér.` : '✓ couvert'}</td>
+                  <td style="${SR}color:#6b7280">${n.etp}</td>
                 </tr>`).join('')}
             </tbody>
           </table>
+          ${bilan_nomination ? `
+          <div style="margin-top:8px;padding:8px 12px;border-radius:8px;background:${bilan_nomination.couvert ? '#f0fdf4' : '#fef2f2'};border:1px solid ${bilan_nomination.couvert ? '#bbf7d0' : '#fecaca'}">
+            <table style="width:100%;font-size:11px">
+              <tr>
+                <td style="border:none;color:#374151">Équivalent ETP nommé</td>
+                <td style="border:none;text-align:right;font-weight:600">${bilan_nomination.etp_nomme}</td>
+                <td style="border:none;color:#374151;padding-left:20px">Couvert (dont RT ${bilan_nomination.etp_rt})</td>
+                <td style="border:none;text-align:right;font-weight:600">${bilan_nomination.etp_couvert}</td>
+                <td style="border:none;text-align:right;padding-left:20px;font-weight:700;color:${bilan_nomination.couvert ? '#16a34a' : '#dc2626'}">
+                  ${bilan_nomination.couvert ? '✓ couvert' : `manque ${bilan_nomination.etp_manque} ETP (~${Math.round(bilan_nomination.etp_manque*800)} pér. CT)`}
+                </td>
+              </tr>
+            </table>
+          </div>` : ''}
         </div>` : ''}
       </div>
       </body></html>`;

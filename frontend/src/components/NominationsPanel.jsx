@@ -18,12 +18,12 @@ export default function NominationsPanel({ profId }) {
   const [form, setForm] = useState({ code_fwb: '', ue_num: '', cours_code: '', cours_libre: '', periodes: '', type_charge: 'CT', ueAbsente: false });
   const [coursListe, setCoursListe] = useState([]);
   const [rtPour, setRtPour] = useState(null); // nomination en cours de remise au travail
-  const [situation, setSituation] = useState([]); // couverture par nomination
+  const [situation, setSituation] = useState([]); // nominations (détail)
   const [attributions, setAttributions] = useState([]); // attributions réelles du prof
-  const [choixRT, setChoixRT] = useState(null); // { attr } : attribution en attente de choix de nomination
+  const [bilan, setBilan] = useState(null); // bilan ETP global
 
   const chargerSituation = () => authFetch(`/api/nominations/prof/${profId}/situation?annee=${encodeURIComponent(annee)}`)
-    .then(d => { setSituation(d?.situation || []); setAttributions(d?.attributions || []); }).catch(() => {});
+    .then(d => { setSituation(d?.situation || []); setAttributions(d?.attributions || []); setBilan(d?.bilan || null); }).catch(() => {});
 
   const charger = () => { authFetch(`/api/nominations/prof/${profId}`).then(d => setNoms(Array.isArray(d) ? d : [])).catch(() => {}); chargerSituation(); };
 
@@ -71,10 +71,10 @@ export default function NominationsPanel({ profId }) {
     charger();
   }
 
-  async function toggleRT(attr, nominationId) {
+  async function toggleRT(attr) {
     await authFetch(`/api/nominations/attribution/${attr.id}/rt`, {
       method: 'PATCH',
-      body: JSON.stringify({ est_rt: attr.est_rt ? 0 : 1, nomination_id: nominationId }),
+      body: JSON.stringify({ est_rt: attr.est_rt ? 0 : 1 }),
     });
     chargerSituation();
   }
@@ -122,25 +122,20 @@ export default function NominationsPanel({ profId }) {
         </div>
       )}
 
-      {/* État de couverture par nomination */}
-      {situation.length > 0 && (
-        <div className="border border-gray-200 rounded-lg p-3 space-y-2">
-          <div className="text-xs font-semibold text-gray-500 uppercase">Couverture de la charge</div>
-          {situation.map(s => (
-            <div key={s.nomination_id} className="text-[12px]">
-              <div className="flex items-center justify-between">
-                <span className="text-gray-700">
-                  {s.ue_num ? `UE ${s.ue_num}` : (s.cours_libre || 'cours')}{s.cours_code ? ` · ${s.cours_code}` : ''} <span className="text-gray-400">({s.type_charge})</span>
-                </span>
-                {s.reste > 0
-                  ? <span className="text-red-600 font-semibold">manque {s.reste} pér.</span>
-                  : <span className="text-green-600 font-semibold">✓ couvert</span>}
-              </div>
-              <div className="text-[10px] text-gray-400">
-                nommé {s.periodes_nommees} · attribué {s.couvert_direct}{s.couvert_rt > 0 ? ` · RT ${s.couvert_rt}` : ''} = {s.couvert} pér.
-              </div>
-            </div>
-          ))}
+      {/* Bilan ETP global de couverture */}
+      {bilan && situation.length > 0 && (
+        <div className={`border rounded-lg p-3 ${bilan.couvert ? 'border-green-200 bg-green-50/50' : 'border-red-200 bg-red-50/50'}`}>
+          <div className="flex items-center justify-between">
+            <span className="text-xs font-semibold text-gray-500 uppercase">Couverture (équivalent ETP)</span>
+            {bilan.couvert
+              ? <span className="text-green-600 font-semibold text-sm">✓ couvert</span>
+              : <span className="text-red-600 font-semibold text-sm">manque {bilan.etp_manque} ETP (~{Math.round(bilan.etp_manque*800)} pér. CT)</span>}
+          </div>
+          <div className="text-[11px] text-gray-500 mt-1">
+            ETP nommé <strong>{bilan.etp_nomme}</strong> · couvert <strong>{bilan.etp_couvert}</strong>
+            {bilan.etp_rt > 0 && <span> (dont RT {bilan.etp_rt})</span>}
+            <span className="text-gray-400"> · CT/PP comptés en équivalent (CT/800, PP/1000)</span>
+          </div>
         </div>
       )}
 
@@ -157,17 +152,12 @@ export default function NominationsPanel({ profId }) {
               </div>
               {a.est_rt && <span className="text-[9px] px-1 rounded font-bold text-orange-600 border border-red-500 shrink-0">RT</span>}
               <label className="flex items-center gap-1 shrink-0 cursor-pointer">
-                <input type="checkbox" checked={!!a.est_rt}
-                  onChange={() => {
-                    if (a.est_rt) { toggleRT(a, null); return; } // décocher
-                    if (noms.length > 1) { setChoixRT(a); }      // plusieurs nominations : choisir
-                    else { toggleRT(a, noms[0]?.id); }           // une seule : direct
-                  }} />
+                <input type="checkbox" checked={!!a.est_rt} onChange={() => toggleRT(a)} />
                 <span className="text-gray-500">RT</span>
               </label>
             </div>
           ))}
-          {situation.some(s => s.reste > 0) && (
+          {bilan && !bilan.couvert && (
             <p className="text-[11px] text-amber-600 pt-1">
               Cochez une attribution comme RT pour compenser la charge manquante, ou créez-en une nouvelle ci-dessous.
             </p>
@@ -261,33 +251,6 @@ export default function NominationsPanel({ profId }) {
       )}
 
       {/* Dialogue remise au travail */}
-      {/* Choix de la nomination à compenser (RT) — quand plusieurs nominations */}
-      {choixRT && (
-        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-[72]" onClick={e => e.target === e.currentTarget && setChoixRT(null)}>
-          <div className="bg-white rounded-xl shadow-2xl w-full max-w-sm p-5">
-            <h3 className="font-title text-base text-iip-gold mb-1">Remise au travail en compensation de…</h3>
-            <p className="text-[12px] text-gray-500 mb-3">
-              Cette attribution ({choixRT.code_cours} · {choixRT.total} pér.) compense quelle nomination ?
-            </p>
-            <div className="space-y-1.5">
-              {situation.map(s => (
-                <button key={s.nomination_id} type="button"
-                  onClick={() => { toggleRT(choixRT, s.nomination_id); setChoixRT(null); }}
-                  className="w-full text-left border border-gray-200 rounded-lg px-3 py-2 text-sm hover:bg-iip-gold/10 flex items-center justify-between">
-                  <span className="text-gray-700">
-                    {s.ue_num ? `UE ${s.ue_num}` : (s.cours_libre || 'cours')}{s.cours_code ? ` · ${s.cours_code}` : ''}
-                    <span className="text-gray-400"> ({s.type_charge})</span>
-                  </span>
-                  {s.reste > 0 ? <span className="text-red-600 text-xs font-semibold">manque {s.reste}</span> : <span className="text-green-600 text-xs">✓</span>}
-                </button>
-              ))}
-            </div>
-            <div className="flex justify-end mt-3">
-              <button type="button" onClick={() => setChoixRT(null)} className="px-4 py-1.5 text-sm text-gray-500">Annuler</button>
-            </div>
-          </div>
-        </div>
-      )}
 
       {rtPour && <RTDialog nomination={rtPour} profId={profId} ues={ues} annee={annee}
         onClose={() => setRtPour(null)} onSaved={() => { setRtPour(null); charger(); }} />}
