@@ -345,7 +345,7 @@ export default function Professeurs() {
       { headers: { Authorization: `Bearer ${tok}` } }).then(r => r.json());
     if (d.error) { alert(d.error); return; }
 
-    const { prof, attributions, tot_ct, tot_pp, tot_aut, tot_per, tot_global, etp } = d;
+    const { prof, attributions, nominations, tot_ct, tot_pp, tot_aut, tot_per, tot_global, etp } = d;
     const fmt = n => n != null ? String(n) : '0';
     const S  = 'padding:2px 6px;font-size:11px;';
     const SR = S + 'text-align:right;';
@@ -362,7 +362,7 @@ export default function Professeurs() {
         <tr style="background:${i%2===0?'#fff':'#f9fafb'}">
           <td style="${S}color:#6b7280">${a.section}</td>
           <td style="${S}color:#374151">UE ${a.ue_num}${a.ue_niv ? ` <span style="background:#1B2B4B;color:white;font-size:9px;padding:1px 4px;border-radius:3px">${a.ue_niv}</span>` : ''}</td>
-          <td style="${S}color:#374151">${a.cours_nom || a.code_cours || '—'}${a.activite_nom ? ` <em style="color:#9ca3af">(${a.activite_nom})</em>` : ''}</td>
+          <td style="${S}color:#374151">${a.cours_nom || a.code_cours || '—'}${a.activite_nom ? ` <em style="color:#9ca3af">(${a.activite_nom})</em>` : ''}${a.est_rt ? ` <span style="color:#ea580c;border:1px solid #ef4444;border-radius:3px;font-size:8px;padding:0 3px;font-weight:700">RT</span>` : ''}</td>
           <td style="${SR}font-weight:600;color:${a.type_cours==='CT'?'#1B2B4B':'#00AACC'}">${a.type_cours || '—'}</td>
           <td style="${SR}color:#374151">${fmt(a.per)}</td>
           <td style="${SR}color:#6b7280">${fmt(a.aut)}</td>
@@ -428,6 +428,32 @@ export default function Professeurs() {
             </table>
           </div>
         </div>
+        ${(nominations && nominations.length) ? `
+        <!-- Engagement à titre définitif -->
+        <div style="margin-top:20px">
+          <div style="font-size:11px;font-weight:700;color:#1B2B4B;text-transform:uppercase;letter-spacing:1px;border-bottom:2px solid #1B2B4B;padding-bottom:3px;margin-bottom:6px">Engagement à titre définitif</div>
+          <table style="width:100%">
+            <thead>
+              <tr style="background:#eef2f7;color:#1B2B4B">
+                <th style="padding:3px 6px;text-align:left;font-size:9px">Dossier pédagogique (code FWB)</th>
+                <th style="padding:3px 6px;text-align:center;font-size:9px">Type</th>
+                <th style="padding:3px 6px;text-align:right;font-size:9px">Nommé</th>
+                <th style="padding:3px 6px;text-align:right;font-size:9px">Couvert</th>
+                <th style="padding:3px 6px;text-align:right;font-size:9px">Situation</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${nominations.map((n,i) => `
+                <tr style="background:${i%2===0?'#fff':'#f9fafb'}">
+                  <td style="${S}color:#374151">${n.libelle} <span style="color:#9ca3af;font-family:monospace;font-size:9px">${n.code_fwb === 'INCONNU' ? '(code inconnu)' : n.code_fwb}</span></td>
+                  <td style="${S}text-align:center;color:#6b7280">${n.type_charge || ''}</td>
+                  <td style="${SR}font-weight:600">${fmt(n.periodes)}</td>
+                  <td style="${SR}color:#6b7280">${fmt(n.couvert)}${n.couvert_rt ? ` <span style="color:#ea580c;font-size:9px">(dont RT ${fmt(n.couvert_rt)})</span>` : ''}</td>
+                  <td style="${SR}font-weight:700;color:${n.perte_de_charge ? '#dc2626' : '#16a34a'}">${n.perte_de_charge ? `Perte de charge : ${fmt(n.perte)} pér.` : '✓ couvert'}</td>
+                </tr>`).join('')}
+            </tbody>
+          </table>
+        </div>` : ''}
       </div>
       </body></html>`;
 

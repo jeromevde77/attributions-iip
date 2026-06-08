@@ -1034,6 +1034,7 @@ r.get('/professeurs/:id/fiche-attributions', authRequired, (req, res) => {
       a.quadrimestre_attribue,
       a.num_groupe, a.code AS groupe_code,
       a.periodes_attribuees AS per, a.autonomie_attribuee AS aut,
+      a.est_rt, a.en_conge, a.rt_nomination_id,
       at.libelle AS activite_nom
     FROM attribution a
     LEFT JOIN ue u ON u.ue_num = a.ue_num AND u.annee_scolaire = a.annee_scolaire AND u.section = a.section
@@ -1058,8 +1059,41 @@ r.get('/professeurs/:id/fiche-attributions', authRequired, (req, res) => {
   const tot_global = tot_per + tot_aut;
   const etp = Math.round(((tot_ct + tot_aut_ct) / 800 + (tot_pp + tot_aut_pp) / 1000) * 100) / 100;
 
+  // Nominations (engagement à titre définitif) + couverture / perte de charge
+  const noms = db.prepare(`
+    SELECT n.id, n.code_fwb, n.ue_num, n.cours_code, n.cours_libre, n.periodes, n.type_charge,
+           u.ue_nom
+    FROM nomination_definitive n
+    LEFT JOIN ue u ON u.ue_num = n.ue_num
+    WHERE n.professeur_id = ? AND n.actif = 1
+    ORDER BY n.code_fwb
+  `).all(id);
+  const nominations = noms.map(n => {
+    let directe = 0;
+    for (const a of attrs) {
+      if (a.est_rt) continue;
+      if (n.cours_code) { if (a.code_cours === n.cours_code) directe += (a.per || 0) + (a.aut || 0); }
+      else if (n.ue_num) { if (a.ue_num === n.ue_num) directe += (a.per || 0) + (a.aut || 0); }
+    }
+    let parRT = 0;
+    for (const a of attrs) {
+      if (a.est_rt && a.rt_nomination_id === n.id) parRT += (a.per || 0) + (a.aut || 0);
+    }
+    const couvert = directe + parRT;
+    const perte = Math.max(0, Math.round(((n.periodes || 0) - couvert) * 10) / 10);
+    return {
+      ...n,
+      libelle: n.ue_num ? `UE ${n.ue_num}${n.ue_nom ? ' — ' + n.ue_nom : ''}${n.cours_code ? ' · ' + n.cours_code : ''}` : (n.cours_libre || 'Cours (UE absente)'),
+      couvert: Math.round(couvert * 10) / 10,
+      couvert_rt: Math.round(parRT * 10) / 10,
+      perte,
+      perte_de_charge: perte > 0,
+    };
+  });
+
   res.json({
     prof, annee, attributions: attrs,
+    nominations,
     tot_ct, tot_pp, tot_aut, tot_per, tot_global, etp,
   });
 });
