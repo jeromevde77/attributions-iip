@@ -315,7 +315,6 @@ function DetailModal({ profId, onClose, onEdit, onFiche }) {
                 }
                 return rows;
               })}
-              ))}
             </tbody>
           </table>
           {editCours && (
