@@ -384,6 +384,14 @@ try {
       db.exec(`ALTER TABLE attribution ADD COLUMN remplace_attribution_id INTEGER`);
       console.log('[migration] attribution.remplace_attribution_id ajouté');
     }
+    if (!cols.find(c => c.name === 'est_rt')) {
+      db.exec(`ALTER TABLE attribution ADD COLUMN est_rt INTEGER DEFAULT 0`);
+      console.log('[migration] attribution.est_rt ajouté');
+    }
+    if (!cols.find(c => c.name === 'rt_nomination_id')) {
+      db.exec(`ALTER TABLE attribution ADD COLUMN rt_nomination_id INTEGER`);
+      console.log('[migration] attribution.rt_nomination_id ajouté');
+    }
   }
   // Migration : cours_libre sur nomination_definitive (UE absente de la base)
   {
