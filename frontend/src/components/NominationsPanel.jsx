@@ -20,6 +20,7 @@ export default function NominationsPanel({ profId }) {
   const [rtPour, setRtPour] = useState(null); // nomination en cours de remise au travail
   const [situation, setSituation] = useState([]); // couverture par nomination
   const [attributions, setAttributions] = useState([]); // attributions réelles du prof
+  const [choixRT, setChoixRT] = useState(null); // { attr } : attribution en attente de choix de nomination
 
   const chargerSituation = () => authFetch(`/api/nominations/prof/${profId}/situation?annee=${encodeURIComponent(annee)}`)
     .then(d => { setSituation(d?.situation || []); setAttributions(d?.attributions || []); }).catch(() => {});
@@ -158,14 +159,9 @@ export default function NominationsPanel({ profId }) {
               <label className="flex items-center gap-1 shrink-0 cursor-pointer">
                 <input type="checkbox" checked={!!a.est_rt}
                   onChange={() => {
-                    if (!a.est_rt && noms.length > 1) {
-                      // plusieurs nominations : demander laquelle compenser
-                      const choix = prompt('RT en compensation de quelle nomination ? Indiquez le n° d\'UE :\n' + noms.map(n => `${n.ue_num} (${n.cours_code || 'UE'})`).join('\n'));
-                      const nom = noms.find(n => String(n.ue_num) === String(choix));
-                      toggleRT(a, nom?.id || noms[0].id);
-                    } else {
-                      toggleRT(a, noms[0]?.id);
-                    }
+                    if (a.est_rt) { toggleRT(a, null); return; } // décocher
+                    if (noms.length > 1) { setChoixRT(a); }      // plusieurs nominations : choisir
+                    else { toggleRT(a, noms[0]?.id); }           // une seule : direct
                   }} />
                 <span className="text-gray-500">RT</span>
               </label>
@@ -265,6 +261,34 @@ export default function NominationsPanel({ profId }) {
       )}
 
       {/* Dialogue remise au travail */}
+      {/* Choix de la nomination à compenser (RT) — quand plusieurs nominations */}
+      {choixRT && (
+        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-[72]" onClick={e => e.target === e.currentTarget && setChoixRT(null)}>
+          <div className="bg-white rounded-xl shadow-2xl w-full max-w-sm p-5">
+            <h3 className="font-title text-base text-iip-gold mb-1">Remise au travail en compensation de…</h3>
+            <p className="text-[12px] text-gray-500 mb-3">
+              Cette attribution ({choixRT.code_cours} · {choixRT.total} pér.) compense quelle nomination ?
+            </p>
+            <div className="space-y-1.5">
+              {situation.map(s => (
+                <button key={s.nomination_id} type="button"
+                  onClick={() => { toggleRT(choixRT, s.nomination_id); setChoixRT(null); }}
+                  className="w-full text-left border border-gray-200 rounded-lg px-3 py-2 text-sm hover:bg-iip-gold/10 flex items-center justify-between">
+                  <span className="text-gray-700">
+                    {s.ue_num ? `UE ${s.ue_num}` : (s.cours_libre || 'cours')}{s.cours_code ? ` · ${s.cours_code}` : ''}
+                    <span className="text-gray-400"> ({s.type_charge})</span>
+                  </span>
+                  {s.reste > 0 ? <span className="text-red-600 text-xs font-semibold">manque {s.reste}</span> : <span className="text-green-600 text-xs">✓</span>}
+                </button>
+              ))}
+            </div>
+            <div className="flex justify-end mt-3">
+              <button type="button" onClick={() => setChoixRT(null)} className="px-4 py-1.5 text-sm text-gray-500">Annuler</button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {rtPour && <RTDialog nomination={rtPour} profId={profId} ues={ues} annee={annee}
         onClose={() => setRtPour(null)} onSaved={() => { setRtPour(null); charger(); }} />}
     </div>
