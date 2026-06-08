@@ -1,5 +1,6 @@
 import { Router } from 'express';
-import { readFileSync, createReadStream } from 'node:fs';
+import express from 'express';
+import { readFileSync, createReadStream, writeFileSync, copyFileSync, existsSync, mkdirSync, rmSync } from 'node:fs';
 import { resolve, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import db from '../db/index.js';
@@ -148,6 +149,147 @@ r.get('/backup', authRequired, roleRequired('admin'), (req, res) => {
     res.status(500).json({ error: 'Impossible de lire la base : ' + e.message });
   }
 });
+
+// ─── Restauration SQLite depuis un fichier de backup ──────────────────────────
+// ⚠ Action destructive : écrase la base courante. Réservé aux admins.
+// Reçoit le fichier .db en binaire brut (express.raw). Valide le fichier,
+// sauvegarde l'état courant, puis remplace la base et redémarre le process
+// (le conteneur Docker, en restart:unless-stopped, relit la nouvelle base).
+r.post('/restore',
+  authRequired,
+  roleRequired('admin'),
+  express.raw({ type: 'application/octet-stream', limit: '50mb' }),
+  async (req, res) => {
+    const buf = req.body;
+    if (!buf || !buf.length) {
+      return res.status(400).json({ error: 'Aucun fichier reçu.' });
+    }
+    // Vérif signature SQLite : les 16 premiers octets = "SQLite format 3\0"
+    const header = buf.slice(0, 16).toString('utf8');
+    if (!header.startsWith('SQLite format 3')) {
+      return res.status(400).json({ error: 'Le fichier n\u2019est pas une base SQLite valide.' });
+    }
+
+    const dataDir = resolve(__dirname, '../../data');
+    const dbPath = resolve(dataDir, 'attributions.db');
+    const tmpPath = resolve(dataDir, `restore-tmp-${Date.now()}.db`);
+
+    try {
+      // 1. Écrire le fichier reçu dans un temporaire
+      writeFileSync(tmpPath, buf);
+
+      // 2. Valider avec better-sqlite3 si disponible : integrity_check + tables clés
+      let nbAttr = null;
+      try {
+        const BetterSqlite3 = (await import('better-sqlite3')).default;
+        const test = new BetterSqlite3(tmpPath, { readonly: true });
+        try {
+          const integ = test.pragma('integrity_check', { simple: true });
+          if (integ !== 'ok') {
+            return res.status(400).json({ error: 'Base corrompue (integrity_check: ' + integ + ').' });
+          }
+          const tables = test.prepare("SELECT name FROM sqlite_master WHERE type='table'").all().map(t => t.name);
+          const requises = ['attribution', 'ue', 'cours', 'section', 'professeur'];
+          const manquantes = requises.filter(t => !tables.includes(t));
+          if (manquantes.length) {
+            return res.status(400).json({ error: 'Tables manquantes : ' + manquantes.join(', ') + '. Ce n\u2019est pas une base Lucie valide.' });
+          }
+          nbAttr = test.prepare('SELECT COUNT(*) AS n FROM attribution').get().n;
+        } finally {
+          test.close();
+        }
+      } catch (valErr) {
+        // better-sqlite3 indisponible → on se contente de la signature SQLite déjà vérifiée
+        if (!/Cannot find|ERR_|MODULE/.test(String(valErr.message))) {
+          // Erreur de validation réelle (corruption, etc.)
+          return res.status(400).json({ error: 'Validation échouée : ' + valErr.message });
+        }
+      }
+
+      // 3. Backup auto de l'état courant (avant écrasement)
+      const backupsDir = resolve(dataDir, 'backups-auto');
+      if (!existsSync(backupsDir)) mkdirSync(backupsDir, { recursive: true });
+      const ts = new Date().toISOString().slice(0, 19).replace(/[T:]/g, '-');
+      const autoBackup = resolve(backupsDir, `avant-restore-${ts}.db`);
+      try { db.pragma('wal_checkpoint(TRUNCATE)'); } catch { /* ignore */ }
+      copyFileSync(dbPath, autoBackup);
+
+      // 4. Remplacer la base courante par le fichier restauré
+      copyFileSync(tmpPath, dbPath);
+      // Supprimer d'éventuels WAL/SHM résiduels pour éviter l'incohérence
+      for (const suff of ['-wal', '-shm']) {
+        const f = dbPath + suff;
+        try { if (existsSync(f)) rmSync(f); } catch { /* ignore */ }
+      }
+
+      // 5. GARDE-FOU : vérifier que la base restaurée s'ouvre et est lisible.
+      //    Si elle plante, on RESTAURE le backup auto et on NE redémarre PAS dans un état cassé.
+      let verifOk = true, verifErr = null;
+      try {
+        const BetterSqlite3 = (await import('better-sqlite3')).default;
+        const check = new BetterSqlite3(dbPath, { readonly: true });
+        try {
+          // lecture réelle d'une table clé
+          check.prepare('SELECT COUNT(*) AS n FROM attribution').get();
+          check.prepare('SELECT COUNT(*) AS n FROM section').get();
+        } finally {
+          check.close();
+        }
+        // Nettoyer les WAL/SHM créés par cette vérification
+        for (const suff of ['-wal', '-shm']) {
+          const f = dbPath + suff;
+          try { if (existsSync(f)) rmSync(f); } catch { /* ignore */ }
+        }
+      } catch (e) {
+        // better-sqlite3 absent → on ne peut pas vérifier, on fait confiance à la signature SQLite
+        if (/Cannot find|ERR_|MODULE/.test(String(e.message))) {
+          verifOk = true;
+        } else {
+          verifOk = false;
+          verifErr = e.message;
+        }
+      }
+
+      if (!verifOk) {
+        // ROLLBACK : remettre le backup auto, ne pas redémarrer
+        try {
+          copyFileSync(autoBackup, dbPath);
+          for (const suff of ['-wal', '-shm']) {
+            const f = dbPath + suff;
+            try { if (existsSync(f)) rmSync(f); } catch { /* ignore */ }
+          }
+        } catch (rbErr) {
+          return res.status(500).json({
+            error: `Base restaurée ILLISIBLE (${verifErr}). ÉCHEC du rollback automatique (${rbErr.message}). ` +
+                   `Restaurez manuellement sur le NAS : cp backups-auto/avant-restore-${ts}.db attributions.db`,
+            backup_auto: `avant-restore-${ts}.db`,
+            rollback: 'ÉCHEC',
+          });
+        }
+        return res.status(400).json({
+          error: `La base restaurée est illisible (${verifErr}). Restauration annulée, l'ancienne base a été remise en place. Le serveur n'a pas redémarré.`,
+          backup_auto: `avant-restore-${ts}.db`,
+          rollback: 'OK',
+        });
+      }
+
+      // 6. Répondre AVANT de redémarrer
+      res.json({
+        ok: true,
+        attributions: nbAttr,
+        backup_auto: `avant-restore-${ts}.db`,
+        message: 'Base restaurée et vérifiée. Le serveur redémarre pour recharger les données…'
+      });
+
+      // 7. Redémarrer le process (conteneur Docker restart:unless-stopped → relit la base)
+      setTimeout(() => process.exit(0), 500);
+    } catch (e) {
+      return res.status(500).json({ error: 'Échec de la restauration : ' + e.message });
+    } finally {
+      try { if (existsSync(tmpPath)) rmSync(tmpPath); } catch { /* ignore */ }
+    }
+  }
+);
 
 r.post('/backup-drive', authRequired, roleRequired('admin'), (req, res) => {
   // Pour l'upload Drive automatique depuis le serveur Synology, il faut configurer

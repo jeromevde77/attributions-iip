@@ -72,6 +72,16 @@ r.get('/calendrier-sessions', authRequired, (req, res) => {
     delib_ev1:        isoDate(delibEV1),
     ev1:              isoDate(ev1),
     dernier_cours:    isoDate(dernierCours),
+    delais: {
+      recours_jours_ouvr:  N('session.recours_jours_ouvr', 5),
+      delib2_recours_cal:  N('session.delib2_recours_cal', 3),
+      delib2_duree_cal:    N('session.delib2_duree_cal', 1),
+      corrections_ev2_cal: N('session.corrections_ev2_cal', 3),
+      vc1_ev2_cal:         N('session.vc1_ev2_cal', 10),
+      delib1_vc1_cal:      N('session.delib1_vc1_cal', 3),
+      ev1_delib1_cal:      N('session.ev1_delib1_cal', 5),
+      cours_ev1_cal:       N('session.cours_ev1_cal', 7),
+    },
   });
 });
 
@@ -308,6 +318,53 @@ r.get('/synthese', authRequired, (req, res) => {
 
 // ─── IMPORT DEPUIS LES ATTRIBUTIONS ──────────────────────────────────────────
 
+// GET /planification/lignes-ue?annee=&section=&ue= — lignes du planificateur
+// construites DIRECTEMENT depuis les attributions (source de vérité, toujours synchrone).
+// Une ligne = une attribution IIP avec des périodes (hors EPT/Z).
+r.get('/lignes-ue', authRequired, (req, res) => {
+  const { annee, section, ue } = req.query;
+  if (!annee || !ue) return res.status(400).json({ error: 'annee et ue requis' });
+
+  let sql = `
+    SELECT a.id, a.code_cours, a.code AS groupe_code, a.num_groupe,
+           a.type_cours, a.periodes_attribuees, a.autonomie_attribuee,
+           a.activite_id, at.libelle AS activite_nom,
+           COALESCE(c.cours_nom, a.coordination_encadrement) AS cours_nom,
+           p.nom AS prof_nom, p.prenom AS prof_prenom,
+           a.coordination_encadrement
+    FROM attribution a
+    LEFT JOIN cours c ON c.cours_code = a.code_cours AND c.annee_scolaire = a.annee_scolaire AND c.section = a.section
+    LEFT JOIN professeur p ON p.id = a.professeur_id
+    LEFT JOIN activite_type at ON at.id = a.activite_id
+    WHERE a.annee_scolaire = ? AND a.ue_num = ? AND a.contrat_mdp = 'IIP'
+      AND (a.coordination_encadrement IS NULL OR a.coordination_encadrement NOT IN ('91','92','93','94','95','96','97','98','99'))
+      AND (a.type_cours IS NULL OR a.type_cours != 'Z')`;
+  const params = [annee, ue];
+  if (section) { sql += ' AND a.section = ?'; params.push(section); }
+  sql += ' ORDER BY a.code_cours, a.num_groupe, a.id';
+
+  const rows = db.prepare(sql).all(...params);
+
+  // Heures réelles étudiant du cours (pour info) : periodes / 1.2 ≈ heures contact
+  const lignes = rows.map(r => {
+    const per = r.periodes_attribuees || 0;
+    return {
+      attribution_id: r.id,
+      code_cours: r.code_cours,
+      cours_nom: r.cours_nom || r.code_cours,
+      groupe: r.groupe_code || (r.num_groupe ? `G${r.num_groupe}` : 'A'),
+      activite: r.activite_nom || r.cours_nom || 'Cours',
+      type_cours: r.type_cours,
+      periodes: per,
+      heures: Math.round((per / 1.2) * 10) / 10,  // périodes prof → heures (×50min)
+      autonomie: r.autonomie_attribuee || 0,
+      prof: r.prof_nom ? `${r.prof_prenom || ''} ${r.prof_nom}`.trim() : null,
+    };
+  });
+
+  res.json({ ue_num: Number(ue), lignes });
+});
+
 // GET /planification/import-preview?annee=  — aperçu sans écriture
 r.get('/import-preview', authRequired, (req, res) => {
   const annee = req.query.annee || db.prepare("SELECT code FROM annee_scolaire WHERE active=1").get()?.code || '2026-2027';
@@ -436,6 +493,33 @@ function _numToLettre(n) {
   if (n <= 26) return String.fromCharCode(64 + n);
   return String.fromCharCode(64 + Math.floor((n - 1) / 26)) + String.fromCharCode(65 + ((n - 1) % 26));
 }
+
+// POST /planification/reduire-evaluations
+// Réduit l'AUTONOMIE d'attributions suite à des évaluations supprimées (groupes dédoublés).
+// L'évaluation est comprise dans l'attribution prof ; supprimer une éval sur un groupe
+// dédoublé (réunion des groupes) retire l'autonomie correspondante — JAMAIS le DP.
+// Body : { reductions: [{ attribution_id, autonomie }] }
+r.post('/reduire-evaluations', authRequired, roleRequired('admin', 'editeur'), (req, res) => {
+  const { reductions } = req.body;
+  if (!Array.isArray(reductions) || !reductions.length) {
+    return res.json({ ok: true, modifies: 0 });
+  }
+  const sel = db.prepare('SELECT id, autonomie_attribuee FROM attribution WHERE id = ?');
+  const upd = db.prepare('UPDATE attribution SET autonomie_attribuee = ? WHERE id = ?');
+  let modifies = 0;
+  const tx = db.transaction(() => {
+    for (const r of reductions) {
+      const row = sel.get(r.attribution_id);
+      if (!row) continue;
+      const actuel = row.autonomie_attribuee || 0;
+      const nouveau = Math.max(0, Math.round((actuel - (r.autonomie || 0)) * 100) / 100);
+      upd.run(nouveau, r.attribution_id);
+      modifies++;
+    }
+  });
+  tx();
+  res.json({ ok: true, modifies });
+});
 
 export default r;
 

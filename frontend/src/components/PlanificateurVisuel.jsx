@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef, useMemo } from 'react';
 import { getAnnee } from '../lib/api.js';
+import WizardConfigCours from './WizardConfigCours.jsx';
 
 const TOKEN = () => localStorage.getItem('token');
 const authFetch = (url, opts = {}) =>
@@ -46,6 +47,13 @@ export default function PlanificateurVisuel({ onClose }) {
   const [saving, setSaving]     = useState(false);
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [calSessions, setCalSessions] = useState(null); // dates jalons rétroactives
+  const [wizardCours, setWizardCours] = useState(null); // cours en cours de configuration
+  const [menuBloc, setMenuBloc] = useState(null); // bloc dont le menu est ouvert
+  const [coupeBloc, setCoupeBloc] = useState(null); // bloc qu'on est en train de scinder
+  const [coupeMode, setCoupeMode] = useState('heures'); // 'heures' | 'semaine'
+  const [coupeVal, setCoupeVal] = useState('');
+  const [evalSupprimees, setEvalSupprimees] = useState(new Set()); // ids d'évaluations supprimées
+  const [evalASupprimer, setEvalASupprimer] = useState(null); // éval en attente de confirmation
 
   // Largeur d'une semaine en pixels
   const PX_SEM = 38;
@@ -73,41 +81,104 @@ export default function PlanificateurVisuel({ onClose }) {
   async function chargerUE() {
     setLoading(true);
     try {
+      // Le calendrier (semaines) vient de /grille ; les LIGNES viennent des attributions réelles
       const params = new URLSearchParams({ annee, section });
-      const d = await authFetch(`/api/planification/grille?${params}`);
-      // Filtrer pour ne garder que les groupes de l'UE choisie
-      const groupesUE = (d.groupes || []).filter(g => String(g.ue_num) === String(ueNum));
-      setGrille({ ...d, groupes: groupesUE });
-      construireBlocs(groupesUE, d.semaines);
+      const grilleData = await authFetch(`/api/planification/grille?${params}`);
+      const ligneData = await authFetch(`/api/planification/lignes-ue?annee=${encodeURIComponent(annee)}&section=${encodeURIComponent(section)}&ue=${encodeURIComponent(ueNum)}`);
+      const lignes = ligneData.lignes || [];
+      setGrille({ semaines: grilleData.semaines || [], groupes: lignes });
+      construireBlocs(lignes, grilleData.semaines || []);
     } finally { setLoading(false); }
   }
 
-  // Construit les blocs initiaux à partir des groupes (1 bloc = total heures du groupe)
-  function construireBlocs(groupes, semaines) {
+  // Construit les blocs depuis les lignes d'attribution (source = attributions réelles)
+  function dureeCalendairePourCours(semainesArr, debut, nbSemCoursVoulu, limiteIdx) {
+    let coursComptes = 0;
+    let i = debut;
+    const max = limiteIdx >= 0 ? limiteIdx : semainesArr.length - 1;
+    while (i <= max && coursComptes < nbSemCoursVoulu) {
+      if (semainesArr[i] && semainesArr[i].type === 'cours') coursComptes++;
+      i++;
+    }
+    return Math.max(1, i - debut); // durée calendaire (inclut congés traversés)
+  }
+
+  function construireBlocs(lignes, semaines) {
     const premiereSemCours = semaines.findIndex(s => s.type === 'cours');
     const startIdx = premiereSemCours >= 0 ? premiereSemCours : 0;
-    const nouveaux = groupes.map((g, i) => {
-      const heures = g.heures_attribuees || 0;
-      const duree = Math.max(1, Math.round(heures / hParSem));
-      return {
-        id: `bloc-${g.id}-${i}`,
-        groupe_id: g.id,
-        groupe_nom: g.nom,
-        activite: g.activite_nom || g.cours_nom || 'Cours',
-        prof: g.prof_nom ? `${g.prof_prenom || ''} ${g.prof_nom}`.trim() : null,
-        debutSem: startIdx,
-        dureeSem: duree,
-        heures,
-        color: blocColor(g.activite_nom),
-      };
+    const limiteIdx = limiteCoursIdx(semaines);
+    const nouveaux = [];
+    lignes.forEach((l, i) => {
+      const heuresCours = l.heures || 0;
+      const heuresAuto = Math.round(((l.autonomie || 0) / 1.2) * 10) / 10; // périodes auto → heures
+      const voie = l.attribution_id; // les blocs cours + auto partagent la même voie
+
+      // Bloc COURS
+      if (heuresCours > 0) {
+        const nbSemCours = Math.max(1, Math.round(heuresCours / hParSem));
+        const duree = dureeCalendairePourCours(semaines, startIdx, nbSemCours, limiteIdx);
+        nouveaux.push({
+          id: `bloc-${l.attribution_id}-c-${i}`,
+          groupe_id: voie,
+          groupe_nom: l.groupe,
+          code_cours: l.code_cours,
+          activite: l.activite,
+          prof: l.prof,
+          debutSem: startIdx,
+          dureeSem: duree,
+          heures: heuresCours,
+          periodes: l.periodes,
+          kind: 'cours',
+          color: blocColor(l.type_cours === 'PP' ? 'tp' : l.activite),
+        });
+      }
+      // Bloc AUTONOMIE (séparé, couleur violette) — placé après le cours
+      if (heuresAuto > 0) {
+        const nbSemAuto = Math.max(1, Math.round(heuresAuto / hParSem));
+        // Démarre après la fin du bloc cours (s'il existe)
+        const finCours = heuresCours > 0
+          ? startIdx + dureeCalendairePourCours(semaines, startIdx, Math.max(1, Math.round(heuresCours / hParSem)), limiteIdx)
+          : startIdx;
+        const debutAuto = Math.min(finCours, limiteIdx);
+        const dureeAuto = dureeCalendairePourCours(semaines, debutAuto, nbSemAuto, limiteIdx);
+        nouveaux.push({
+          id: `bloc-${l.attribution_id}-a-${i}`,
+          groupe_id: voie,
+          groupe_nom: l.groupe,
+          code_cours: l.code_cours,
+          activite: 'Autonomie',
+          prof: l.prof,
+          debutSem: debutAuto,
+          dureeSem: dureeAuto,
+          heures: heuresAuto,
+          autonomie: l.autonomie || 0,
+          kind: 'autonomie',
+          color: blocColor('autonomie'),
+        });
+      }
     });
     setBlocs(nouveaux);
   }
 
-  // Recalcule la durée des blocs si on change les heures/semaine
+  // Calcule l'index de la dernière semaine de cours autorisée pour un tableau de semaines
+  function limiteCoursIdx(semainesArr) {
+    if (!calSessions?.dernier_cours || !semainesArr.length) return semainesArr.length - 1;
+    let idx = -1;
+    for (let i = 0; i < semainesArr.length; i++) {
+      if (semainesArr[i].date_debut <= calSessions.dernier_cours) idx = i;
+    }
+    return idx >= 0 ? idx : semainesArr.length - 1;
+  }
+
+  // Recalcule la durée des blocs si on change les heures/semaine (en respectant la limite)
   useEffect(() => {
-    if (blocs.length > 0) {
-      setBlocs(prev => prev.map(b => ({ ...b, dureeSem: Math.max(1, Math.round(b.heures / hParSem)) })));
+    if (blocs.length > 0 && semaines.length) {
+      const limiteIdx = dernierCoursIdx;
+      setBlocs(prev => prev.map(b => {
+        const nbSemCours = Math.max(1, Math.round(b.heures / hParSem));
+        const duree = dureeCalendairePourCours(semaines, b.debutSem, nbSemCours, limiteIdx);
+        return { ...b, dureeSem: duree };
+      }));
     }
   }, [hParSem]);
 
@@ -133,16 +204,13 @@ export default function PlanificateurVisuel({ onClose }) {
 
   // Total heures de l'UE (somme des groupes)
   const totalHeuresUE = useMemo(() =>
-    (grille?.groupes || []).reduce((s, g) => s + (g.heures_attribuees || 0), 0),
+    (grille?.groupes || []).reduce((s, l) => s + (l.heures || 0), 0),
     [grille]);
 
-  // Capacité : heures max plaçables = semaines dispo × rythme max raisonnable
-  // On considère qu'une UE "rentre" si chaque groupe tient dans les semaines dispo
   const capaciteOK = useMemo(() => {
     if (!grille?.groupes?.length || !semCoursDispo) return true;
-    // Le groupe le plus chargé doit tenir : ses heures / semCoursDispo = rythme exigé
-    const maxHeures = Math.max(...grille.groupes.map(g => g.heures_attribuees || 0));
-    return maxHeures <= semCoursDispo * hParSem * 2.5; // tolérance : jusqu'à 2.5× le rythme de base
+    const maxHeures = Math.max(...grille.groupes.map(l => l.heures || 0));
+    return maxHeures <= semCoursDispo * hParSem * 2.5;
   }, [grille, semCoursDispo, hParSem]);
 
   // ── Drag horizontal d'un bloc ──
@@ -157,7 +225,7 @@ export default function PlanificateurVisuel({ onClose }) {
       const diffSem = Math.round(diffPx / PX_SEM);
       setBlocs(prev => prev.map(b => {
         if (b.id !== dragRef.current.id) return b;
-        const newDebut = Math.max(0, Math.min(nbSem - b.dureeSem, dragRef.current.startDebut + diffSem));
+        const newDebut = Math.max(0, Math.min(dernierCoursIdx - b.dureeSem + 1, dragRef.current.startDebut + diffSem));
         return { ...b, debutSem: newDebut };
       }));
     };
@@ -178,7 +246,7 @@ export default function PlanificateurVisuel({ onClose }) {
       const diffSem = Math.round(diffPx / PX_SEM);
       setBlocs(prev => prev.map(b => {
         if (b.id !== resizeRef.current.id) return b;
-        const newDuree = Math.max(1, Math.min(nbSem - b.debutSem, resizeRef.current.startDuree + diffSem));
+        const newDuree = Math.max(1, Math.min(dernierCoursIdx - b.debutSem + 1, resizeRef.current.startDuree + diffSem));
         return { ...b, dureeSem: newDuree };
       }));
     };
@@ -187,32 +255,112 @@ export default function PlanificateurVisuel({ onClose }) {
     window.addEventListener('mouseup', onUp);
   }
 
-  // ── Couper un bloc en deux (crée une activité) ──
-  function couperBloc(bloc) {
-    const moitie = Math.floor(bloc.dureeSem / 2);
-    if (moitie < 1) return;
-    const reste = bloc.dureeSem - moitie;
-    const hParSemBloc = bloc.heures / bloc.dureeSem;
+  // ── Redimensionner par le bord GAUCHE = changer le début (et la durée) ──
+  function onResizeLeftMouseDown(e, bloc) {
+    e.preventDefault(); e.stopPropagation();
+    const startX = e.clientX;
+    const startDebut = bloc.debutSem;
+    const startDuree = bloc.dureeSem;
+    const onMove = ev => {
+      const diffPx = ev.clientX - startX;
+      const diffSem = Math.round(diffPx / PX_SEM);
+      setBlocs(prev => prev.map(b => {
+        if (b.id !== bloc.id) return b;
+        // Décaler le début sans dépasser la fin (garder au moins 1 semaine)
+        const newDebut = Math.max(0, Math.min(startDebut + startDuree - 1, startDebut + diffSem));
+        const newDuree = Math.max(1, startDuree - (newDebut - startDebut));
+        return { ...b, debutSem: newDebut, dureeSem: newDuree };
+      }));
+    };
+    const onUp = () => { window.removeEventListener('mousemove', onMove); window.removeEventListener('mouseup', onUp); };
+    window.addEventListener('mousemove', onMove);
+    window.addEventListener('mouseup', onUp);
+  }
+  // mode 'semaine' : coupeVal = nb de semaines (de cours) pour le 1er segment
+  function couperBlocPosition(bloc, mode, val) {
+    const v = Number(val);
+    if (!v || v <= 0) return;
+    const hParSemBloc = bloc.heures / Math.max(1, bloc.dureeSem);
+    let dureeSeg1;
+    let heuresSeg1;
+    if (mode === 'heures') {
+      // Arrondir au multiple de 2h le plus proche
+      heuresSeg1 = Math.max(2, Math.round(v / 2) * 2);
+      heuresSeg1 = Math.min(heuresSeg1, bloc.heures);
+      dureeSeg1 = Math.max(1, Math.round(heuresSeg1 / hParSemBloc));
+    } else { // semaine
+      dureeSeg1 = Math.max(1, Math.min(v, bloc.dureeSem - 1));
+      heuresSeg1 = Math.round(hParSemBloc * dureeSeg1 * 100) / 100;
+      // Arrondir les heures du 1er segment au multiple de 2h
+      heuresSeg1 = Math.max(2, Math.round(heuresSeg1 / 2) * 2);
+    }
+    const heuresSeg2 = Math.round((bloc.heures - heuresSeg1) * 100) / 100;
+    const dureeSeg2 = Math.max(1, bloc.dureeSem - dureeSeg1);
     setBlocs(prev => {
       const idx = prev.findIndex(b => b.id === bloc.id);
-      const b1 = { ...bloc, dureeSem: moitie, heures: Math.round(hParSemBloc * moitie * 100) / 100 };
+      const b1 = { ...bloc, dureeSem: dureeSeg1, heures: heuresSeg1 };
       const b2 = {
         ...bloc,
         id: `${bloc.id}-split-${Date.now()}`,
-        debutSem: bloc.debutSem + moitie,
-        dureeSem: reste,
-        heures: Math.round(hParSemBloc * reste * 100) / 100,
+        debutSem: bloc.debutSem + dureeSeg1,
+        dureeSem: dureeSeg2,
+        heures: heuresSeg2,
+        autonomie: 0,
         activite: 'Remédiation',
+        kind: 'activite',
         color: blocColor('remédiation'),
       };
       const copy = [...prev];
       copy.splice(idx, 1, b1, b2);
       return copy;
     });
+    setCoupeBloc(null); setCoupeVal('');
+  }
+
+  // Coupe rapide en deux (depuis le menu)
+  function couperBloc(bloc) {
+    couperBlocPosition(bloc, 'semaine', Math.floor(bloc.dureeSem / 2));
   }
 
   function supprimerBloc(id) {
     setBlocs(prev => prev.filter(b => b.id !== id));
+    setMenuBloc(null);
+  }
+
+  // Dédoubler un bloc → crée un groupe supplémentaire (B, C…) identique
+  function dedoublerBloc(bloc) {
+    setBlocs(prev => {
+      // Compter les groupes existants pour ce même cours/activité
+      const memeCours = prev.filter(b => b.activite === bloc.activite || b.groupe_id === bloc.groupe_id);
+      const lettres = memeCours.map(b => b.groupe_nom).filter(g => /^[A-Z]$/.test(g));
+      const prochaine = String.fromCharCode(65 + lettres.length); // A→B→C
+      const nouveau = {
+        ...bloc,
+        id: `${bloc.id}-dbl-${Date.now()}`,
+        groupe_id: `${bloc.groupe_id}-${prochaine}`,
+        groupe_nom: prochaine,
+        activite: bloc.activite.replace(/ groupe [A-Z]$/, '') + ` groupe ${prochaine}`,
+      };
+      return [...prev, nouveau];
+    });
+    setMenuBloc(null);
+  }
+
+  // Changer l'activité d'un bloc
+  function setActiviteBloc(bloc, activite) {
+    setBlocs(prev => prev.map(b => b.id === bloc.id ? { ...b, activite, color: blocColor(activite) } : b));
+    setMenuBloc(null);
+  }
+
+  // Basculer le mode "une semaine sur deux" (alternance)
+  function toggleAlternance(bloc) {
+    setBlocs(prev => prev.map(b => {
+      if (b.id !== bloc.id) return b;
+      const alt = !b.alternance;
+      // En alternance, le bloc occupe 2× plus de semaines calendaires (1 sem sur 2)
+      return { ...b, alternance: alt };
+    }));
+    setMenuBloc(null);
   }
 
   // Grouper les blocs par groupe (chaque groupe = une "voie", mais un bloc coupé occupe la même voie)
@@ -222,13 +370,85 @@ export default function PlanificateurVisuel({ onClose }) {
       (map[b.groupe_id] ||= []).push(b);
     }
     return Object.entries(map).map(([gid, bs]) => ({
-      groupe_id: Number(gid),
-      groupe: grille?.groupes.find(g => g.id === Number(gid)),
+      groupe_id: gid,
+      // Infos directement depuis le premier bloc de la voie
+      groupe: {
+        cours_nom: bs[0]?.code_cours ? `${bs[0].code_cours} — ${bs[0].activite}` : bs[0]?.activite,
+        nom: bs[0]?.groupe_nom,
+        prof: bs[0]?.prof,
+        heures: bs.reduce((s, b) => s + (b.heures || 0), 0),
+      },
       blocs: bs.sort((a, b) => a.debutSem - b.debutSem),
     }));
-  }, [blocs, grille]);
+  }, [blocs]);
 
   const ueChoisie = ues.find(u => String(u.ue_num) === String(ueNum));
+
+  // Réductions d'attribution dues aux évaluations supprimées (compris dans l'attribution prof)
+  // EV1 = 2h = 2,4 pér. · VC = 1h = 1,2 pér.
+  // Réductions à la suppression d'évaluations : déduites de l'AUTONOMIE uniquement
+  // (jamais des périodes de cours/DP). EV1 = 2h = 2,4 pér., VC = 1h = 1,2 pér.
+  const PER_EV1 = 2 * 1.2, PER_VC = 1 * 1.2;
+  const reductions = useMemo(() => {
+    const map = {}; // { groupe_id(=attribution_id) : { autoRetiree, details, label, autoDispo } }
+    for (const b of blocs) {
+      if (b.kind !== 'cours') continue;
+      let aRetirer = 0; const details = [];
+      if (evalSupprimees.has(`${b.id}-ev1`)) { aRetirer += PER_EV1; details.push('EV1 (−2,4 pér.)'); }
+      if (evalSupprimees.has(`${b.id}-vc`)) { aRetirer += PER_VC; details.push('VC (−1,2 pér.)'); }
+      if (!aRetirer) continue;
+      // autonomie disponible sur cette voie (en périodes)
+      const autoVoie = blocs.filter(x => x.groupe_id === b.groupe_id && x.kind === 'autonomie');
+      const autoDispo = autoVoie.reduce((s, a) => s + (a.autonomie || 0), 0);
+      const autoRetiree = Math.min(aRetirer, autoDispo); // jamais plus que l'autonomie dispo
+      map[b.groupe_id] = {
+        autoRetiree: Math.round(autoRetiree * 10) / 10,
+        demande: Math.round(aRetirer * 10) / 10,
+        autoDispo: Math.round(autoDispo * 10) / 10,
+        details, label: `${b.code_cours || ''} ${b.activite}`.trim(),
+      };
+    }
+    return map;
+  }, [blocs, evalSupprimees]);
+
+  // ── Évaluations PAR COURS (EV1 + VC), 1 semaine chacune, après chaque bloc de cours ──
+  // Stockées dans l'état pour pouvoir les supprimer. On les (re)génère depuis les blocs de cours.
+  // Détecte les cours dédoublés : plusieurs voies avec le même code_cours
+  const coursDedoubles = useMemo(() => {
+    const parCours = {};
+    for (const b of blocs) {
+      if (b.kind !== 'cours' || !b.code_cours) continue;
+      (parCours[b.code_cours] ||= new Set()).add(b.groupe_id);
+    }
+    // un code_cours est dédoublé s'il a 2+ voies (groupes) distinctes
+    const set = new Set();
+    for (const [code, voies] of Object.entries(parCours)) if (voies.size >= 2) set.add(code);
+    return set;
+  }, [blocs]);
+
+  const evaluationsParBloc = useMemo(() => {
+    if (!blocs.length || !semaines.length) return {};
+    const joursEV1VC = (calSessions?.delais?.ev1_delib1_cal ?? 5) + (calSessions?.delais?.delib1_vc1_cal ?? 3);
+    const semEV1VC = Math.max(1, Math.round(joursEV1VC / 7));
+    const map = {};
+    for (const b of blocs) {
+      if (b.kind !== 'cours') continue;
+      if (evalSupprimees.has(`${b.id}-ev1`) && evalSupprimees.has(`${b.id}-vc`)) continue;
+      // EV1/VC se placent APRÈS l'autonomie de la même voie (pas de chevauchement)
+      const autoVoie = blocs.filter(x => x.groupe_id === b.groupe_id && x.kind === 'autonomie');
+      const finAuto = autoVoie.length ? Math.max(...autoVoie.map(a => a.debutSem + a.dureeSem)) : 0;
+      const finBloc = Math.max(b.debutSem + b.dureeSem, finAuto);
+      const ev1Debut = Math.min(finBloc, semaines.length - 2);
+      const vcDebut = Math.min(ev1Debut + 1, semaines.length - 1);
+      // Suppression autorisée seulement si le cours est dédoublé ET ce n'est pas le groupe A
+      const supprimable = coursDedoubles.has(b.code_cours) && b.groupe_nom !== 'A';
+      const evals = [];
+      if (!evalSupprimees.has(`${b.id}-ev1`)) evals.push({ id: `${b.id}-ev1`, label: 'EV1', debutSem: ev1Debut, dureeSem: 1, blocId: b.id, groupe_id: b.groupe_id, supprimable });
+      if (!evalSupprimees.has(`${b.id}-vc`)) evals.push({ id: `${b.id}-vc`, label: 'VC', debutSem: vcDebut, dureeSem: 1, blocId: b.id, groupe_id: b.groupe_id, supprimable });
+      map[b.groupe_id] = (map[b.groupe_id] || []).concat(evals);
+    }
+    return map;
+  }, [blocs, semaines, calSessions, evalSupprimees, coursDedoubles]);
 
   return (
     <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4" onClick={e => e.target === e.currentTarget && onClose()}>
@@ -247,6 +467,12 @@ export default function PlanificateurVisuel({ onClose }) {
               <option value="">— UE —</option>
               {ues.map(u => <option key={u.ue_num} value={u.ue_num}>UE {u.ue_num} — {u.ue_nom}</option>)}
             </select>
+            {ueNum && (
+              <button onClick={() => setWizardCours(true)}
+                className="bg-iip-mauve/10 text-iip-mauve text-xs px-3 py-1.5 rounded hover:bg-iip-mauve/20 whitespace-nowrap">
+                ⚙ Configurer un cours
+              </button>
+            )}
           </div>
           <div className="flex items-center gap-3">
             <label className="text-xs text-gray-500 flex items-center gap-1.5">
@@ -293,13 +519,12 @@ export default function PlanificateurVisuel({ onClose }) {
               <div className="flex sticky top-0 z-10 bg-white" style={{ paddingLeft: LABEL_W }}>
                 {semaines.map((s, i) => {
                   const st = SEM_STYLE[s.type] || SEM_STYLE.cours;
-                  const apresCours = i > dernierCoursIdx;
                   return (
-                    <div key={s.id} style={{ width: PX_SEM, background: apresCours ? '#fef2f2' : st.bg }}
+                    <div key={s.id} style={{ width: PX_SEM, background: st.bg }}
                       className="border-r border-gray-100 text-center py-1 text-[9px] text-gray-500 flex-shrink-0"
-                      title={`Semaine ${s.semaine_num} — ${s.date_debut} (${s.type})${s.label ? ' · '+s.label : ''}${apresCours ? ' · zone sessions/délibé (hors cours)' : ''}`}>
+                      title={`Semaine ${s.semaine_num} — ${s.date_debut} (${s.type})${s.label ? ' · '+s.label : ''}`}>
                       <div className="font-semibold">{s.semaine_num}</div>
-                      {apresCours ? <div className="text-[8px] text-red-400">sess.</div> : st.label && <div className="text-[8px] text-gray-400">{st.label}</div>}
+                      {st.label && <div className="text-[8px] text-gray-400">{st.label}</div>}
                     </div>
                   );
                 })}
@@ -311,13 +536,25 @@ export default function PlanificateurVisuel({ onClose }) {
                   {/* Label du groupe */}
                   <div style={{ width: LABEL_W }} className="flex-shrink-0 pr-3 py-2 flex flex-col justify-center">
                     <div className="text-sm font-medium text-gray-700 truncate">
-                      {voie.groupe?.cours_nom || voie.groupe?.activite_nom || 'Cours'}
+                      {voie.groupe?.cours_nom || 'Cours'}
                     </div>
                     <div className="text-[11px] text-gray-400 truncate">
                       Groupe {voie.groupe?.nom}
-                      {voie.groupe?.prof_nom && ` · ${voie.groupe.prof_prenom || ''} ${voie.groupe.prof_nom}`}
-                      {` · ${voie.groupe?.heures_attribuees || 0}h`}
+                      {voie.groupe?.prof && ` · ${voie.groupe.prof}`}
+                      {` · ${voie.groupe?.heures || 0}h`}
                     </div>
+                    {/* Alerte : cours trop court une fois l'évaluation (3h) déduite */}
+                    {(() => {
+                      const hCours = voie.blocs.filter(b => b.kind === 'cours').reduce((s, b) => s + (b.heures || 0), 0);
+                      const hAuto = voie.blocs.filter(b => b.kind === 'autonomie').reduce((s, b) => s + (b.heures || 0), 0);
+                      // 3h d'évaluation (EV1 2h + VC 1h) prises sur le cours étudiant
+                      if (hCours > 0 && (hCours - 3) < 4 && hAuto < 4) {
+                        return <div className="text-[10px] text-amber-600 mt-0.5 leading-tight">
+                          ⚠ très peu d'heures de cours après l'évaluation — ajoutez de l'autonomie ou faites de l'évaluation continue
+                        </div>;
+                      }
+                      return null;
+                    })()}
                   </div>
                   {/* Zone des blocs */}
                   <div className="relative flex-1" style={{ height: 52 }}>
@@ -325,21 +562,24 @@ export default function PlanificateurVisuel({ onClose }) {
                     <div className="absolute inset-0 flex">
                       {semaines.map((s, i) => {
                         const st = SEM_STYLE[s.type] || SEM_STYLE.cours;
-                        const apresCours = i > dernierCoursIdx;
-                        const bg = apresCours ? 'rgba(254,242,242,.6)' : (s.type !== 'cours' ? st.bg : 'transparent');
+                        const bg = s.type !== 'cours' ? st.bg : 'transparent';
                         return <div key={s.id} style={{ width: PX_SEM, background: bg }}
                           className="border-r border-gray-50 flex-shrink-0" />;
                       })}
                     </div>
                     {/* Blocs */}
                     {voie.blocs.map(b => {
-                      // Semaines de congé traversées par ce bloc (pour affichage pointillé)
+                      // Semaines de cours réelles vs congés traversés
                       const congesTraverses = [];
+                      let semCoursReelles = 0;
                       for (let i = b.debutSem; i < b.debutSem + b.dureeSem && i < nbSem; i++) {
-                        if (semaines[i] && semaines[i].type !== 'cours') {
-                          congesTraverses.push(i - b.debutSem); // offset relatif
-                        }
+                        if (semaines[i] && semaines[i].type !== 'cours') congesTraverses.push(i - b.debutSem);
+                        else if (semaines[i]) semCoursReelles++;
                       }
+                      semCoursReelles = Math.max(1, semCoursReelles);
+                      // En alternance (1 sem sur 2), seules la moitié des semaines portent le cours
+                      const semEffectives = b.alternance ? Math.max(1, Math.ceil(semCoursReelles / 2)) : semCoursReelles;
+                      const hParSemaine = Math.round((b.heures / semEffectives) * 10) / 10;
                       const depasseLimite = (b.debutSem + b.dureeSem - 1) > dernierCoursIdx;
                       return (
                       <div key={b.id}
@@ -355,34 +595,70 @@ export default function PlanificateurVisuel({ onClose }) {
                           borderRadius: 6,
                           cursor: 'grab',
                         }}
-                        className="flex items-center px-2 text-[11px] font-medium overflow-hidden select-none hover:brightness-95 transition"
-                        title={`${b.activite} · ${b.heures}h sur ${b.dureeSem} sem. (${Math.round(b.heures/b.dureeSem*10)/10}h/sem)${depasseLimite ? ' ⚠ dépasse la dernière semaine de cours' : ''}${congesTraverses.length ? ` · ${congesTraverses.length} sem. de congé traversée(s)` : ''}`}>
-                        {/* Hachures pointillées sur les semaines de congé */}
+                        className="flex items-center px-2 text-[11px] font-medium overflow-hidden select-none hover:brightness-95 transition group/bloc"
+                        title={`${b.activite} · ${b.heures}h sur ${semCoursReelles} sem. de cours = ${hParSemaine}h/sem${depasseLimite ? ' ⚠ dépasse la dernière semaine de cours' : ''}${congesTraverses.length ? ` · ${congesTraverses.length} congé(s) traversé(s)` : ''}`}>
+                        {/* Hachures sur les semaines de congé */}
                         {congesTraverses.map(off => (
                           <div key={off} style={{
                             position: 'absolute', top: 0, bottom: 0,
                             left: off * PX_SEM, width: PX_SEM,
-                            background: 'repeating-linear-gradient(45deg, transparent, transparent 3px, rgba(0,0,0,.08) 3px, rgba(0,0,0,.08) 6px)',
-                            borderLeft: '1px dashed rgba(0,0,0,.25)', borderRight: '1px dashed rgba(0,0,0,.25)',
-                          }} title="Congé — pas de cours cette semaine" />
+                            background: 'repeating-linear-gradient(45deg, transparent, transparent 3px, rgba(0,0,0,.10) 3px, rgba(0,0,0,.10) 6px)',
+                            borderLeft: '1px dashed rgba(0,0,0,.3)', borderRight: '1px dashed rgba(0,0,0,.3)',
+                          }} title="Congé — pas de cours, le bloc est prolongé d'autant" />
+                        ))}
+                        {/* Alternance 1 semaine sur 2 : bandes colorées */}
+                        {b.alternance && Array.from({ length: b.dureeSem }).map((_, k) => (
+                          k % 2 === 1 ? <div key={`alt-${k}`} style={{
+                            position: 'absolute', top: 0, bottom: 0,
+                            left: k * PX_SEM, width: PX_SEM,
+                            background: 'rgba(27,43,75,.18)',
+                          }} title="Semaine sans ce cours (alternance)" /> : null
                         ))}
                         <span className="truncate flex-1 relative z-10">{b.activite}</span>
-                        <span className="text-[9px] opacity-70 ml-1 whitespace-nowrap relative z-10">{b.heures}h</span>
-                        <button onMouseDown={e => { e.stopPropagation(); }} onClick={e => { e.stopPropagation(); couperBloc(b); }}
-                          className="ml-1 opacity-0 group-hover/voie:opacity-60 hover:!opacity-100 text-[10px] relative z-10" title="Couper en deux (créer une activité)">✂</button>
-                        <button onMouseDown={e => { e.stopPropagation(); }} onClick={e => { e.stopPropagation(); supprimerBloc(b.id); }}
-                          className="ml-0.5 opacity-0 group-hover/voie:opacity-60 hover:!opacity-100 text-[10px] relative z-10" title="Supprimer ce bloc">🗑</button>
+                        {/* Calcul h/semaine bien visible */}
+                        <span className="text-[10px] font-bold ml-1 whitespace-nowrap relative z-10 bg-white/50 rounded px-1">
+                          {hParSemaine}h/sem
+                        </span>
+                        {/* Bouton + : ouvre le menu d'actions */}
+                        <button onMouseDown={e => { e.stopPropagation(); }}
+                          onClick={e => { e.stopPropagation(); setMenuBloc(menuBloc?.id === b.id ? null : b); }}
+                          className="ml-1 w-4 h-4 flex items-center justify-center rounded-full bg-white/70 hover:bg-white text-gray-700 text-[11px] leading-none relative z-10 flex-shrink-0"
+                          title="Actions sur ce bloc">+</button>
+                        {/* Poignée de redimensionnement */}
+                        {/* Poignée gauche = début */}
+                        <span onMouseDown={e => onResizeLeftMouseDown(e, b)}
+                          style={{ position: 'absolute', left: 0, top: 0, bottom: 0, width: 6, cursor: 'col-resize' }}
+                          className="hover:bg-black/10 z-10" />
                         <span onMouseDown={e => onResizeMouseDown(e, b)}
                           style={{ position: 'absolute', right: 0, top: 0, bottom: 0, width: 6, cursor: 'col-resize' }}
                           className="hover:bg-black/10 z-10" />
                       </div>
                       );
                     })}
+                    {/* Évaluations de ce cours (EV1 + VC, gris, cliquables pour suppression) */}
+                    {(evaluationsParBloc[voie.groupe_id] || []).map(ev => (
+                      <div key={ev.id} style={{
+                        position: 'absolute',
+                        left: ev.debutSem * PX_SEM,
+                        width: ev.dureeSem * PX_SEM - 2,
+                        top: 6, bottom: 6,
+                        background: '#e5e7eb',
+                        border: '1.5px solid #9ca3af',
+                        color: '#374151',
+                        borderRadius: 6,
+                        cursor: ev.supprimable ? 'pointer' : 'default',
+                      }}
+                        onClick={() => ev.supprimable && setEvalASupprimer(ev)}
+                        className={`flex items-center justify-center text-[11px] font-bold select-none transition z-10 ${ev.supprimable ? 'hover:bg-gray-300' : ''}`}
+                        title={ev.supprimable
+                          ? `${ev.label} — semaine ${semaines[ev.debutSem]?.semaine_num} · groupe dédoublé : cliquer pour supprimer (réunion des groupes)`
+                          : `${ev.label} — semaine ${semaines[ev.debutSem]?.semaine_num} · non supprimable (cours non dédoublé / groupe A)`}>
+                        {ev.label}
+                      </div>
+                    ))}
                   </div>
                 </div>
               ))}
-
-              {/* Légende */}
               <div className="mt-4 flex items-center gap-4 text-[11px] text-gray-500 flex-wrap" style={{ paddingLeft: LABEL_W }}>
                 <span className="flex items-center gap-1"><span className="inline-block w-3 h-3 rounded" style={{background:'#dbeafe',border:'1.5px solid #3b82f6'}}/>Cours</span>
                 <span className="flex items-center gap-1"><span className="inline-block w-3 h-3 rounded" style={{background:'#fef3c7',border:'1.5px solid #f59e0b'}}/>Remédiation</span>
@@ -411,13 +687,14 @@ export default function PlanificateurVisuel({ onClose }) {
       {/* Confirmation */}
       {confirmOpen && (
         <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-[60]" onClick={e => e.target === e.currentTarget && setConfirmOpen(false)}>
-          <div className="bg-white rounded-xl shadow-2xl max-w-md w-full p-6">
-            <h3 className="font-title text-lg text-iip-gold mb-2">Créer les attributions ?</h3>
-            <p className="text-sm text-gray-600 mb-4">
-              {blocs.length} bloc(s) seront convertis en planification (heures par semaine)
-              pour l'UE {ueChoisie?.ue_num}. Les blocs coupés deviennent des activités distinctes.
+          <div className="bg-white rounded-xl shadow-2xl max-w-lg w-full p-6">
+            <h3 className="font-title text-lg text-iip-gold mb-2">Récapitulatif des opérations</h3>
+            <p className="text-sm text-gray-600 mb-3">
+              Pour l'UE {ueChoisie?.ue_num}, les opérations suivantes seront appliquées :
             </p>
-            <div className="bg-gray-50 rounded p-3 text-xs text-gray-600 max-h-40 overflow-auto mb-4">
+
+            <div className="text-xs font-semibold text-gray-500 uppercase mb-1">Planification ({blocs.length} bloc(s))</div>
+            <div className="bg-gray-50 rounded p-3 text-xs text-gray-600 max-h-32 overflow-auto mb-3">
               {blocs.map(b => (
                 <div key={b.id} className="flex justify-between py-0.5">
                   <span>{b.activite} (gr. {b.groupe_nom})</span>
@@ -425,6 +702,28 @@ export default function PlanificateurVisuel({ onClose }) {
                 </div>
               ))}
             </div>
+
+            {Object.keys(reductions).length > 0 && (
+              <>
+                <div className="text-xs font-semibold text-amber-600 uppercase mb-1">Évaluations supprimées (déduites de l'autonomie)</div>
+                <div className="bg-amber-50 rounded p-3 text-xs text-amber-800 max-h-32 overflow-auto mb-3">
+                  {Object.entries(reductions).map(([gid, r]) => (
+                    <div key={gid} className="py-0.5">
+                      <div className="flex justify-between">
+                        <span>{r.label} — {r.details.join(', ')}</span>
+                        <span className="font-semibold">−{r.autoRetiree} pér. d'autonomie</span>
+                      </div>
+                      {r.autoRetiree < r.demande && (
+                        <div className="text-[10px] text-amber-600">
+                          ⚠ autonomie insuffisante ({r.autoDispo} pér. dispo) — le DP reste intact, on ne retire que l'autonomie
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </>
+            )}
+
             <div className="flex justify-end gap-2">
               <button onClick={() => setConfirmOpen(false)} className="px-4 py-2 text-sm text-gray-600">Annuler</button>
               <button onClick={enregistrer} disabled={saving}
@@ -434,6 +733,133 @@ export default function PlanificateurVisuel({ onClose }) {
             </div>
           </div>
         </div>
+      )}
+      {/* Confirmation suppression d'une évaluation */}
+      {evalASupprimer && (
+        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-[58]" onClick={e => e.target === e.currentTarget && setEvalASupprimer(null)}>
+          <div className="bg-white rounded-xl shadow-2xl w-full max-w-sm p-5">
+            <h3 className="font-title text-lg text-iip-gold mb-1">Supprimer {evalASupprimer.label} ?</h3>
+            <p className="text-sm text-gray-600 mb-4">
+              Le cours étant dédoublé, le prof réunit les groupes pour cette évaluation.
+              Elle sera retirée de la planification de ce groupe et l'autonomie correspondante
+              sera déduite à la confirmation finale (le DP du cours reste intact).
+            </p>
+            <div className="flex justify-end gap-2">
+              <button onClick={() => setEvalASupprimer(null)} className="px-4 py-2 text-sm text-gray-600">Annuler</button>
+              <button onClick={() => {
+                  setEvalSupprimees(prev => new Set(prev).add(evalASupprimer.id));
+                  setEvalASupprimer(null);
+                }}
+                className="bg-red-600 hover:bg-red-700 text-white text-sm px-5 py-2 rounded font-medium">
+                Supprimer
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Dialogue de scission d'un bloc */}
+      {coupeBloc && (
+        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-[58]" onClick={e => e.target === e.currentTarget && setCoupeBloc(null)}>
+          <div className="bg-white rounded-xl shadow-2xl w-full max-w-sm p-5">
+            <h3 className="font-title text-lg text-iip-gold mb-1">✂ Scinder le bloc</h3>
+            <p className="text-sm text-gray-600 mb-4">{coupeBloc.activite} · {coupeBloc.heures}h sur {coupeBloc.dureeSem} sem.</p>
+            <div className="flex rounded border border-gray-300 overflow-hidden text-sm mb-3">
+              <button onClick={() => setCoupeMode('heures')}
+                className={`flex-1 px-3 py-1.5 ${coupeMode === 'heures' ? 'bg-iip-mauve text-white' : 'bg-white text-gray-600'}`}>
+                Par heures
+              </button>
+              <button onClick={() => setCoupeMode('semaine')}
+                className={`flex-1 px-3 py-1.5 border-l border-gray-300 ${coupeMode === 'semaine' ? 'bg-iip-mauve text-white' : 'bg-white text-gray-600'}`}>
+                Par semaines
+              </button>
+            </div>
+            <label className="block mb-4">
+              <span className="text-xs text-gray-500">
+                {coupeMode === 'heures' ? "Heures pour le 1er segment (cours)" : "Semaines de cours pour le 1er segment"}
+              </span>
+              <input type="number" min="1" autoFocus value={coupeVal} onChange={e => setCoupeVal(e.target.value)}
+                placeholder={coupeMode === 'heures' ? `max ${coupeBloc.heures}h` : `max ${coupeBloc.dureeSem - 1} sem.`}
+                className="w-full border border-gray-300 rounded px-3 py-2 text-sm mt-1" />
+              <span className="text-[11px] text-gray-400">
+                Le reste deviendra une activité (remédiation/évaluation), modifiable ensuite.
+              </span>
+            </label>
+            <div className="flex justify-end gap-2">
+              <button onClick={() => setCoupeBloc(null)} className="px-4 py-2 text-sm text-gray-600">Annuler</button>
+              <button onClick={() => couperBlocPosition(coupeBloc, coupeMode, coupeVal)} disabled={!coupeVal}
+                className="bg-iip-gold hover:bg-iip-amber disabled:opacity-40 text-white text-sm px-5 py-2 rounded font-medium">
+                Scinder
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Menu contextuel d'un bloc */}
+      {menuBloc && (
+        <div className="fixed inset-0 z-[55]" onClick={() => setMenuBloc(null)}>
+          <div className="absolute bg-white rounded-lg shadow-2xl border border-gray-200 py-1 w-56 text-sm"
+            style={{ left: '50%', top: '50%', transform: 'translate(-50%,-50%)' }}
+            onClick={e => e.stopPropagation()}>
+            <div className="px-3 py-2 border-b border-gray-100 text-xs text-gray-500 font-medium truncate">
+              {menuBloc.activite}
+            </div>
+            <button onClick={() => dedoublerBloc(menuBloc)} className="w-full text-left px-3 py-2 hover:bg-gray-50 flex items-center gap-2">
+              ➕ Dédoubler le groupe (B, C…)
+            </button>
+            <div className="px-3 py-1.5 text-xs text-gray-400">Activité :</div>
+            {['Cours', 'TP / Labo', 'Remédiation', 'Autonomie', 'Évaluation'].map(act => (
+              <button key={act} onClick={() => setActiviteBloc(menuBloc, act)}
+                className="w-full text-left px-5 py-1.5 hover:bg-gray-50 text-xs">{act}</button>
+            ))}
+            <div className="border-t border-gray-100 my-1" />
+            <button onClick={() => toggleAlternance(menuBloc)} className="w-full text-left px-3 py-2 hover:bg-gray-50 flex items-center gap-2">
+              {menuBloc.alternance ? '✓ ' : ''}🔁 Une semaine sur deux
+            </button>
+            <button onClick={() => { setCoupeBloc(menuBloc); setMenuBloc(null); setCoupeMode('heures'); setCoupeVal(''); }} className="w-full text-left px-3 py-2 hover:bg-gray-50 flex items-center gap-2">
+              ✂ Scinder le bloc…
+            </button>
+            <div className="border-t border-gray-100 my-1" />
+            <button onClick={() => supprimerBloc(menuBloc.id)} className="w-full text-left px-3 py-2 hover:bg-red-50 text-red-600 flex items-center gap-2">
+              🗑 Supprimer ce bloc
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Wizard de configuration de cours */}
+      {wizardCours && (
+        <WizardConfigCours
+          ueNum={ueNum}
+          section={section}
+          annee={annee}
+          onClose={() => setWizardCours(null)}
+          onGenerate={(lignes) => {
+            // Transformer les lignes générées en blocs sur le planificateur
+            const premiereSemCours = semaines.findIndex(s => s.type === 'cours');
+            const startIdx = premiereSemCours >= 0 ? premiereSemCours : 0;
+            const limiteIdx = dernierCoursIdx;
+            const nouveaux = lignes.map((ligne, i) => {
+              const nbSemCours = Math.max(1, Math.round(ligne.heures / hParSem));
+              const duree = dureeCalendairePourCours(semaines, startIdx, nbSemCours, limiteIdx);
+              return {
+                id: `wizard-${Date.now()}-${i}`,
+                groupe_id: `w-${i}`,
+                groupe_nom: ligne.groupe,
+                activite: ligne.label,
+                prof: null,
+                debutSem: startIdx,
+                dureeSem: duree,
+                heures: ligne.heures,
+                color: blocColor(ligne.type === 'tp' ? 'tp' : ligne.label),
+                local_id: ligne.local_id,
+              };
+            });
+            setBlocs(prev => [...prev, ...nouveaux]);
+            setWizardCours(null);
+          }}
+        />
       )}
     </div>
   );
@@ -457,6 +883,14 @@ export default function PlanificateurVisuel({ onClose }) {
       }
       if (cellules.length) {
         await authFetch('/api/planification/cellules-bulk', { method: 'PUT', body: JSON.stringify({ cellules }) });
+      }
+      // Réduire l'AUTONOMIE des attributions pour les évaluations supprimées (jamais le DP)
+      const redArr = Object.entries(reductions)
+        .filter(([gid]) => !String(gid).startsWith('w-'))
+        .map(([gid, r]) => ({ attribution_id: Number(gid), autonomie: r.autoRetiree }))
+        .filter(x => x.autonomie > 0);
+      if (redArr.length) {
+        await authFetch('/api/planification/reduire-evaluations', { method: 'POST', body: JSON.stringify({ reductions: redArr }) });
       }
       setConfirmOpen(false);
       onClose(true);
