@@ -654,6 +654,22 @@ export default function Attributions() {
       }
       await api.updateAttribution(id, payload);
       setData(prev=>prev.map(r=>r.id===id?{...r,...payload,...recompute(r,payload)}:r));
+      // Si on a changé le prof, recharger les verrous/alertes de nomination (cadenas)
+      if (field === 'professeur_id') {
+        const tok = localStorage.getItem('token');
+        fetch(`/api/nominations/verrous?annee=${encodeURIComponent(getAnnee())}`, { headers: { Authorization: `Bearer ${tok}` } })
+          .then(r => r.json()).then(d => {
+            const map = {};
+            for (const v of (Array.isArray(d) ? d : [])) map[v.attribution_id] = v;
+            setVerrous(map);
+          }).catch(() => {});
+        fetch(`/api/nominations/alertes-cours?annee=${encodeURIComponent(getAnnee())}`, { headers: { Authorization: `Bearer ${tok}` } })
+          .then(r => r.json()).then(d => {
+            const map = {};
+            for (const a of (Array.isArray(d) ? d : [])) map[a.attribution_id] = a;
+            setAlertesCours(map);
+          }).catch(() => {});
+      }
     } catch(e){ alert('Erreur : '+e.message); }
   }
   function recompute(row, patch) {
