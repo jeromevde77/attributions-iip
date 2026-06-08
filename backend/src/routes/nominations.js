@@ -101,4 +101,65 @@ r.delete('/rt/:id', authRequired, roleRequired('admin'), (req, res) => {
   res.json({ ok: true });
 });
 
+// GET /nominations/pertes-charge?annee= — profs définitifs en perte de charge
+// Une nomination est "en perte" si aucune attribution active ne lui correspond
+// (cours/UE plus organisé ou prof pas dedans) ET qu'aucune RT ne couvre la charge.
+r.get('/pertes-charge', authRequired, (req, res) => {
+  const { annee } = req.query;
+  const noms = db.prepare(`
+    SELECT n.*, p.nom AS prof_nom, p.prenom AS prof_prenom, u.ue_nom
+    FROM nomination_definitive n
+    JOIN professeur p ON p.id = n.professeur_id
+    LEFT JOIN ue u ON u.ue_num = n.ue_num
+    WHERE n.actif = 1
+  `).all();
+
+  const pertes = [];
+  for (const n of noms) {
+    // Existe-t-il une attribution active correspondante (même prof + même cours, ou UE entière) ?
+    let attr;
+    if (n.cours_code) {
+      attr = db.prepare(`
+        SELECT COALESCE(SUM(periodes_attribuees),0) AS per FROM attribution
+        WHERE annee_scolaire = ? AND professeur_id = ? AND code_cours = ?
+      `).get(annee, n.professeur_id, n.cours_code);
+    } else if (n.ue_num) {
+      attr = db.prepare(`
+        SELECT COALESCE(SUM(periodes_attribuees),0) AS per FROM attribution
+        WHERE annee_scolaire = ? AND professeur_id = ? AND ue_num = ?
+      `).get(annee, n.professeur_id, n.ue_num);
+    } else {
+      attr = { per: 0 }; // nomination "code inconnu" (UE absente) : jamais dans les attributions
+    }
+    const perAttribuee = attr?.per || 0;
+
+    // RT déjà enregistrée pour cette nomination ?
+    const rt = db.prepare(`
+      SELECT COALESCE(SUM(periodes),0) AS per FROM remise_travail
+      WHERE nomination_id = ? AND (annee_scolaire = ? OR annee_scolaire IS NULL)
+    `).get(n.id, annee);
+    const perRT = rt?.per || 0;
+
+    // Perte de charge si l'attribution + la RT ne couvrent pas les périodes nommées
+    const couvert = perAttribuee + perRT;
+    if (couvert < (n.periodes || 0)) {
+      pertes.push({
+        nomination_id: n.id,
+        professeur_id: n.professeur_id,
+        prof: `${n.prof_prenom || ''} ${n.prof_nom}`.trim(),
+        code_fwb: n.code_fwb,
+        ue_num: n.ue_num,
+        ue_nom: n.ue_nom,
+        cours_code: n.cours_code,
+        cours_libre: n.cours_libre,
+        type_charge: n.type_charge,
+        periodes_nommees: n.periodes || 0,
+        periodes_couvertes: Math.round(couvert * 10) / 10,
+        perte: Math.round(((n.periodes || 0) - couvert) * 10) / 10,
+      });
+    }
+  }
+  res.json(pertes);
+});
+
 export default r;

@@ -218,6 +218,7 @@ export default function Attributions() {
   const [activitesList, setActivitesList] = useState([]);
   const [extDot, setExtDot] = useState({}); // { [attribution_id]: 'EXT'|'DOT'|'EXT+DOT' }
   const [verrous, setVerrous] = useState({}); // { [attribution_id]: {nomination...} }
+  const [pertesCharge, setPertesCharge] = useState([]); // profs définitifs en perte de charge
   const [autAnalyse, setAutAnalyse] = useState({}); // { [ue_num]: { ok, reste } }
   const [filters, setFilters] = useState({ section:'', prof_id:'', contrat:'', type_cours:'', ue_num:'', q:'' });
   const [loading, setLoading] = useState(true);
@@ -701,6 +702,9 @@ export default function Attributions() {
           for (const v of (Array.isArray(d) ? d : [])) map[v.attribution_id] = v;
           setVerrous(map);
         }).catch(() => {});
+      // Charger les pertes de charge (profs définitifs dont le cours n'existe plus / pas dedans)
+      fetch(`/api/nominations/pertes-charge?annee=${encodeURIComponent(getAnnee())}`, { headers: { Authorization: `Bearer ${tok}` } })
+        .then(r => r.json()).then(d => setPertesCharge(Array.isArray(d) ? d : [])).catch(() => {});
       // Charger analyse autonomie par UE — pour toutes les sections présentes
       const sectionsVisibles = [...new Set((Array.isArray(a) ? a : []).map(r => r.section).filter(Boolean))];
       if (f.section && !sectionsVisibles.includes(f.section)) sectionsVisibles.push(f.section);
@@ -1084,6 +1088,33 @@ export default function Attributions() {
   // ===================== RENDU =====================
   return (
     <div className="p-2 md:p-4 max-w-7xl mx-auto">
+      {/* Bandeau : profs définitifs en perte de charge */}
+      {pertesCharge.length > 0 && (
+        <div className="mb-3 bg-red-50 border border-red-200 rounded-lg p-3">
+          <div className="flex items-center gap-2 text-red-700 font-medium text-sm mb-1.5">
+            ⚠ {pertesCharge.length} engagement(s) à titre définitif en perte de charge
+          </div>
+          <p className="text-[12px] text-red-600 mb-2">
+            Ces personnes nommées n'ont pas (ou plus) d'attribution couvrant leur charge — le cours n'est plus organisé ou elles n'y figurent pas. Une remise au travail (RT) est nécessaire.
+          </p>
+          <div className="space-y-1">
+            {pertesCharge.map(p => (
+              <div key={p.nomination_id} className="flex items-center justify-between bg-white rounded px-2.5 py-1.5 text-[12px]">
+                <span className="text-gray-700">
+                  <strong>{p.prof}</strong> — {p.ue_num ? `UE ${p.ue_num}${p.ue_nom ? ' '+p.ue_nom : ''}` : (p.cours_libre || 'cours')}
+                  {p.cours_code ? ` · ${p.cours_code}` : ''}
+                  <span className="text-gray-400"> · FWB {p.code_fwb === 'INCONNU' ? 'inconnu' : p.code_fwb}</span>
+                </span>
+                <span className="text-red-600 font-semibold whitespace-nowrap ml-2">
+                  perte {p.perte} pér. {p.type_charge || ''}
+                  {p.periodes_couvertes > 0 && <span className="text-gray-400 font-normal"> ({p.periodes_couvertes}/{p.periodes_nommees} couvert)</span>}
+                </span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
       {/* Barre mobile */}
       <div className="md:hidden mb-2 flex gap-2">
         <input value={filters.q} onChange={e=>setFilters({...filters,q:e.target.value})} onKeyDown={e=>e.key==='Enter'&&applyFilters()} placeholder="🔍 Rechercher…" className="flex-1 border border-gray-300 rounded-lg px-3 py-2 text-sm"/>
