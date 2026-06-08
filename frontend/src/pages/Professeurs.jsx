@@ -4,6 +4,7 @@ import { api, getAnnee, getUser, nomDoc } from '../lib/api.js';
 import ProfFicheModal from './ProfFicheModal.jsx';
 import PreviewModal from '../components/PreviewModal.jsx';
 import CoursEditModal from '../components/CoursEditModal.jsx';
+import { IconMail, IconMapPin, IconFileText, IconEdit, IconDownload, IconRefresh, IconSearch, IconX, IconPrinter, IconPlus, IconTrash } from '@tabler/icons-react';
 
 const EMPTY = {
   nom: '', prenom: '', adresse_mail: '', mail_prive: '',
@@ -143,10 +144,10 @@ function DetailModal({ profId, onClose, onEdit, onFiche }) {
           <div>
             <h2 className="text-xl font-title text-iip-gold">{detail.nom_prenom}</h2>
             <div className="flex items-center gap-3 mt-1 text-sm text-gray-500 flex-wrap">
-              {detail.adresse_mail && <span>✉ {detail.adresse_mail}</span>}
+              {detail.adresse_mail && <span className="inline-flex items-center gap-1"><IconMail size={13}/> {detail.adresse_mail}</span>}
               {detail.statut && <span className="badge badge-iip">{detail.statut}</span>}
               {detail.capaes === 'x' && <span className="text-xs bg-green-100 text-green-700 px-2 py-0.5 rounded">CAPAES</span>}
-              {detail.commune && <span>📍 {detail.code_postal} {detail.commune}</span>}
+              {detail.commune && <span className="inline-flex items-center gap-1"><IconMapPin size={13}/> {detail.code_postal} {detail.commune}</span>}
             </div>
           </div>
           <div className="flex gap-2 flex-shrink-0 flex-wrap justify-end">
@@ -183,7 +184,7 @@ function DetailModal({ profId, onClose, onEdit, onFiche }) {
             {u?.role === 'admin' && (
               <button onClick={() => setShowContratModal(true)}
                 className="bg-green-700 hover:opacity-90 text-white text-sm px-3 py-1.5 rounded">
-                📄 Contrat
+                <span className="inline-flex items-center gap-1.5"><IconFileText size={15}/>Contrat</span>
               </button>
             )}
             {u?.role === 'admin' && (
@@ -194,7 +195,7 @@ function DetailModal({ profId, onClose, onEdit, onFiche }) {
             )}
             <button onClick={() => onEdit(detail)}
               className="bg-iip-gold hover:bg-iip-amber text-white text-sm px-3 py-1.5 rounded">
-              ✏ Modifier
+              <span className="inline-flex items-center gap-1.5"><IconEdit size={15}/>Modifier</span>
             </button>
             <button onClick={onClose} className="text-gray-400 hover:text-red-500 text-2xl leading-none ml-2">×</button>
           </div>
@@ -204,7 +205,7 @@ function DetailModal({ profId, onClose, onEdit, onFiche }) {
         {showContratModal && (
           <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
             <div className="bg-white rounded-xl shadow-2xl w-full max-w-md p-6">
-              <h3 className="text-lg font-title text-iip-gold mb-4">📄 Générer le contrat de travail</h3>
+              <h3 className="text-lg font-title text-iip-gold mb-4 flex items-center gap-2"><IconFileText size={18}/>Générer le contrat de travail</h3>
               <p className="text-sm text-gray-600 mb-4">
                 Contrat CDD — Enseignement pour adultes<br />
                 <strong>{detail.nom_prenom}</strong>
@@ -233,7 +234,7 @@ function DetailModal({ profId, onClose, onEdit, onFiche }) {
                 </button>
                 <button onClick={genererContrat} disabled={generatingContrat || !dateContrat}
                   className="flex-1 bg-green-700 hover:opacity-90 disabled:opacity-40 text-white py-2 rounded text-sm font-semibold">
-                  {generatingContrat ? 'Génération…' : '⬇ Télécharger le .docx'}
+                  {generatingContrat ? 'Génération…' : <span className="inline-flex items-center gap-1.5"><IconDownload size={15}/>Télécharger le .docx</span>}
                 </button>
               </div>
             </div>
@@ -285,7 +286,7 @@ function DetailModal({ profId, onClose, onEdit, onFiche }) {
                     {a.code_cours && (
                       <button title="Éditer ce cours"
                         onClick={() => setEditCours({ section: a.section, code_cours: a.code_cours })}
-                        className="text-iip-gold hover:text-iip-amber text-xs px-1">✏</button>
+                        className="text-iip-gold hover:text-iip-amber text-xs px-1"><IconEdit size={14}/></button>
                     )}
                     <button title="Désattribuer → À DÉSIGNER"
                       onClick={async () => {
@@ -296,7 +297,7 @@ function DetailModal({ profId, onClose, onEdit, onFiche }) {
                         });
                         if (res.ok) setDetail(d => ({ ...d, attributions: d.attributions.filter(x => x.id !== a.id) }));
                       }}
-                      className="text-orange-400 hover:text-orange-600 text-xs px-1">🔄</button>
+                      className="text-orange-400 hover:text-orange-600 text-xs px-1"><IconRefresh size={14}/></button>
                   </>
                 );
                 const rows = [];
@@ -833,7 +834,7 @@ export default function Professeurs() {
               type="text"
               role="searchbox"
               name="recherche-personnel-no-autofill"
-              placeholder="🔍 Rechercher..."
+              placeholder="Rechercher..."
               value={search}
               onChange={e => setSearch(e.target.value)}
               autoComplete="off"
@@ -847,19 +848,19 @@ export default function Professeurs() {
             />
             {search && (
               <button onClick={() => setSearch('')}
-                className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 text-xs">✕</button>
+                className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600">​<IconX size={13}/></button>
             )}
           </div>
           {selection.size > 0 && (
             <button onClick={imprimerAttributions} disabled={printing}
               className="bg-iip-mauve hover:opacity-90 disabled:opacity-50 text-white text-sm px-3 py-1.5 rounded font-medium">
-              {printing ? 'Préparation…' : `🖨 Imprimer les attributions (${selection.size})`}
+              {printing ? 'Préparation…' : <span className="inline-flex items-center gap-1.5"><IconPrinter size={15}/>Imprimer les attributions ({selection.size})</span>}
             </button>
           )}
           {canEdit && (
             <button onClick={() => setEditProf({ ...EMPTY })}
               className="bg-iip-gold hover:bg-iip-amber text-white text-sm px-3 py-1.5 rounded font-medium">
-              ➕ Nouveau prof.
+              <span className="inline-flex items-center gap-1.5"><IconPlus size={15}/>Nouveau prof.</span>
             </button>
           )}
         </div>
@@ -952,11 +953,11 @@ export default function Professeurs() {
                       )}
                       {canEdit && (
                         <button onClick={() => setEditProf(p)}
-                          className="text-iip-gold hover:text-iip-amber text-sm" title="Modifier">✏</button>
+                          className="text-iip-gold hover:text-iip-amber text-sm" title="Modifier"><IconEdit size={15}/></button>
                       )}
                       {canEdit && (
                         <button onClick={() => handleDelete(p)} disabled={deleting === p.id}
-                          className="text-red-400 hover:text-red-600 text-sm disabled:opacity-30" title="Supprimer">🗑</button>
+                          className="text-red-400 hover:text-red-600 text-sm disabled:opacity-30" title="Supprimer"><IconTrash size={15}/></button>
                       )}
                     </div>
                   </td>
