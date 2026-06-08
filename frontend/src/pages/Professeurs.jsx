@@ -411,7 +411,7 @@ export default function Professeurs() {
         body{font-family:'Segoe UI',Arial,sans-serif;font-size:11px;color:#111827}
         table{width:100%;border-collapse:collapse}
         td,th{border-bottom:1px solid #e5e7eb}
-        @media print{@page{margin:10mm;size:A4 landscape}tr{page-break-inside:avoid}thead{display:table-header-group}}
+        @media print{@page{size:A4 landscape;margin:10mm}html,body{width:297mm}tr{page-break-inside:avoid}thead{display:table-header-group}}
       </style></head><body>
       <div style="padding:10mm">
         <div style="display:flex;justify-content:space-between;align-items:flex-end;border-bottom:3px solid #7c3aed;padding-bottom:8px;margin-bottom:16px">
@@ -511,7 +511,7 @@ export default function Professeurs() {
         body{font-family:'Segoe UI',Arial,sans-serif;font-size:11px;color:#111827}
         table{width:100%;border-collapse:collapse}
         td,th{border-bottom:1px solid #e5e7eb}
-        @media print{@page{margin:10mm;size:A4 landscape}tr{page-break-inside:avoid}thead{display:table-header-group}}
+        @media print{@page{size:A4 landscape;margin:10mm}html,body{width:297mm}tr{page-break-inside:avoid}thead{display:table-header-group}}
       </style></head><body>
       <div style="padding:10mm">
         <div style="display:flex;justify-content:space-between;align-items:flex-end;border-bottom:3px solid #1B2B4B;padding-bottom:8px;margin-bottom:16px">
@@ -628,7 +628,7 @@ export default function Professeurs() {
         body{font-family:'Segoe UI',Arial,sans-serif;font-size:11px;color:#111827}
         table{width:100%;border-collapse:collapse}
         td,th{border-bottom:1px solid #e5e7eb}
-        @media print{@page{margin:10mm;size:A4 landscape}tr{page-break-inside:avoid}thead{display:table-header-group}}
+        @media print{@page{size:A4 landscape;margin:10mm}html,body{width:297mm}tr{page-break-inside:avoid}thead{display:table-header-group}}
       </style></head><body>
       <div style="padding:10mm">
         <!-- En-tête -->

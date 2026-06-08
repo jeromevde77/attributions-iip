@@ -39,6 +39,9 @@ export default function PreviewModal({ html, titre = 'Aperçu du document', nomF
             {nomFichier && <div className="text-xs text-gray-400 font-mono">{nomFichier}</div>}
           </div>
           <div className="flex items-center gap-2">
+            <span className="text-[11px] text-amber-600 hidden sm:inline" title="Safari ne force pas toujours l'orientation : choisissez Paysage dans la fenêtre d'impression">
+              ⊞ Pensez à choisir « Paysage »
+            </span>
             <button onClick={imprimer} disabled={!pret}
               className="px-4 py-1.5 bg-iip-mauve text-white rounded-lg text-sm font-medium hover:opacity-90 disabled:opacity-40">
               🖨 Imprimer / Enregistrer en PDF
