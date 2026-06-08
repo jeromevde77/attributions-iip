@@ -169,6 +169,7 @@ export const api = {
   rattacherUE(ue_num, section_code) { return request('/ref/ue-section', { method: 'POST', body: { ue_num, section_code, annee_scolaire: getAnnee() } }); },
   appliquerNominations(ue_num, section) { return request('/nominations/appliquer', { method: 'POST', body: { annee: getAnnee(), ue_num, section } }); },
   creerLigneDepuisCours(cours_code, ue_num, section) { return request('/attributions/creer-depuis-cours', { method: 'POST', body: { annee: getAnnee(), cours_code, ue_num, section } }); },
+  toggleConge(id) { return request(`/attributions/${id}/conge`, { method: 'POST', body: {} }); },
   detacherUE(ue_num, section_code) { return request(withAnnee(`/ref/ue-section/${ue_num}/${encodeURIComponent(section_code)}`), { method: 'DELETE' }); },
   renameSectionCode(ancien, nouveau_code) { return request(`/ref/sections/${encodeURIComponent(ancien)}/code`, { method: 'PATCH', body: { nouveau_code } }); },
   ue(section) { return request('/ref/ue' + (section ? `?section=${encodeURIComponent(section)}` : '')); },

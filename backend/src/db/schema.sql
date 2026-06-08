@@ -436,6 +436,8 @@ SELECT
 
     -- Inputs
     a.periodes_attribuees,
+    a.en_conge,
+    a.remplace_attribution_id,
     a.autonomie_attribuee,
 
     -- Calculs de base
@@ -462,7 +464,9 @@ SELECT
     CASE WHEN a.organisation='x' THEN a.total_attribue_professeur ELSE 0 END AS total_periodes_organisees,
 
     -- Coût dotation (IIP uniquement)  AY = total ; coef SUP=1.5, DS=1.25
-    CASE WHEN a.contrat_mdp = 'IIP' THEN
+    -- Une ligne en congé compte 0 en dotation (le remplaçant compte à sa place)
+    CASE WHEN COALESCE(a.en_conge,0)=1 THEN 0
+         WHEN a.contrat_mdp = 'IIP' THEN
         CASE WHEN u.ue_niveau='SUP' THEN a.total_attribue_professeur * 1.5
              WHEN u.ue_niveau='DS'  THEN a.total_attribue_professeur * 1.25
              ELSE 0 END
@@ -477,7 +481,8 @@ SELECT
 
     -- Coût S-D / J-J (selon quadrimestre attribué, sinon quadri UE)
     -- quad_eff = quadrimestre effectif pour le calcul
-    CASE WHEN COALESCE(a.quadrimestre_attribue, u.ue_quad)='Q1' THEN
+    CASE WHEN COALESCE(a.en_conge,0)=1 THEN 0
+         WHEN COALESCE(a.quadrimestre_attribue, u.ue_quad)='Q1' THEN
             CASE WHEN a.contrat_mdp='IIP' AND u.ue_niveau='SUP' THEN a.total_attribue_professeur*1.5
                  WHEN a.contrat_mdp='IIP' AND u.ue_niveau='DS'  THEN a.total_attribue_professeur*1.25
                  ELSE 0 END
@@ -487,7 +492,8 @@ SELECT
                  ELSE 0 END
          ELSE 0 END                                          AS cout_dotation_q1,
 
-    CASE WHEN COALESCE(a.quadrimestre_attribue, u.ue_quad)='Q2' THEN
+    CASE WHEN COALESCE(a.en_conge,0)=1 THEN 0
+         WHEN COALESCE(a.quadrimestre_attribue, u.ue_quad)='Q2' THEN
             CASE WHEN a.contrat_mdp='IIP' AND u.ue_niveau='SUP' THEN a.total_attribue_professeur*1.5
                  WHEN a.contrat_mdp='IIP' AND u.ue_niveau='DS'  THEN a.total_attribue_professeur*1.25
                  ELSE 0 END
