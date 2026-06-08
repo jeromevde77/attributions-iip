@@ -672,6 +672,15 @@ export default function Attributions() {
       }
     } catch(e){ alert('Erreur : '+e.message); }
   }
+  async function toggleConge(row) {
+    try {
+      if (!row.en_conge) {
+        if (!confirm(`Mettre ${row.professeur_id ? 'ce titulaire' : 'cette ligne'} en congé ?\n\nLa ligne sera grisée (comptée 0 en dotation) et une ligne de remplacement sera créée avec les mêmes périodes.`)) return;
+      }
+      await api.toggleConge(row.id);
+      load();
+    } catch(e){ alert('Erreur : '+e.message); }
+  }
   function recompute(row, patch) {
     const per = Number(patch.periodes_attribuees ?? row.periodes_attribuees ?? 0);
     const aut = Number(patch.autonomie_attribuee ?? row.autonomie_attribuee ?? 0);
@@ -786,7 +795,7 @@ export default function Attributions() {
     const colSet = cols || COLS;
     const isHelb = row.contrat_mdp === 'HELB';
     const isZ = row.is_z === true;
-    const rowBg = isZ ? 'text-gray-500 italic' : selected.has(row.id) ? 'bg-yellow-50/60' : '';
+    const rowBg = isZ ? 'text-gray-500 italic' : selected.has(row.id) ? 'bg-yellow-50/60' : (row.en_conge ? 'opacity-50 bg-gray-50' : '');
     // Ligne Z : synthétique (activités 7.3), non éditable, sans prof ni charge.
     if (isZ) {
       return (
@@ -867,7 +876,7 @@ export default function Attributions() {
             </td>;
           }
           if (c.edit==='select') return <td key={c.key} style={sty}><select defaultValue={v??''} onClick={e=>e.stopPropagation()} className="bg-transparent border-0 outline-none w-full text-sm cursor-pointer focus:bg-yellow-50" onChange={e=>{if(e.target.value!==(v??''))saveCell(row.id,c.key,e.target.value);}}>{c.options.map(([val,lbl])=><option key={val} value={val}>{lbl}</option>)}</select></td>;
-          if (c.edit==='prof') return <td key={c.key} style={sty}><div className="flex items-center gap-1">{verrous[row.id] && <span title={`Nomination définitive — ${verrous[row.id].periodes_nommees||''} pér. ${verrous[row.id].type_charge||''} · code FWB ${verrous[row.id].code_fwb||''} (attribution verrouillée)`} className="flex-shrink-0">🔒</span>}{!verrous[row.id] && alertesCours[row.id] && <span title={`⚠ ${alertesCours[row.id].definitif} est engagé(e) à titre définitif sur ce cours (${alertesCours[row.id].periodes_nommees||''} pér. ${alertesCours[row.id].type_charge||''}, FWB ${alertesCours[row.id].code_fwb||''})`} className="flex-shrink-0 cursor-help">🔓</span>}<select defaultValue={row.professeur_id??''} onClick={e=>e.stopPropagation()} className="bg-transparent border-0 outline-none w-full text-sm cursor-pointer focus:bg-yellow-50" onChange={e=>{const nid=e.target.value?Number(e.target.value):null;if(nid!==row.professeur_id)saveCell(row.id,'professeur_id',nid);}}><option value="">— Aucun —</option>{professeurs.map(p=><option key={p.id} value={p.id}>{p.nom_prenom}</option>)}</select></div>{!verrous[row.id] && alertesCours[row.id] && <div className="text-[10px] text-amber-600 leading-tight mt-0.5">⚠ définitif : {alertesCours[row.id].definitif}</div>}</td>;
+          if (c.edit==='prof') return <td key={c.key} style={sty}><div className="flex items-center gap-1">{verrous[row.id] && <span title={`Nomination définitive — ${verrous[row.id].periodes_nommees||''} pér. ${verrous[row.id].type_charge||''} · code FWB ${verrous[row.id].code_fwb||''} (attribution verrouillée)`} className="flex-shrink-0">🔒</span>}{!verrous[row.id] && alertesCours[row.id] && <span title={`⚠ ${alertesCours[row.id].definitif} est engagé(e) à titre définitif sur ce cours (${alertesCours[row.id].periodes_nommees||''} pér. ${alertesCours[row.id].type_charge||''}, FWB ${alertesCours[row.id].code_fwb||''})`} className="flex-shrink-0 cursor-help">🔓</span>}{row.remplace_attribution_id && <span title="Ligne de remplacement (titulaire en congé)" className="flex-shrink-0 text-[9px] text-blue-600 font-bold">R</span>}<select defaultValue={row.professeur_id??''} onClick={e=>e.stopPropagation()} className="bg-transparent border-0 outline-none w-full text-sm cursor-pointer focus:bg-yellow-50" onChange={e=>{const nid=e.target.value?Number(e.target.value):null;if(nid!==row.professeur_id)saveCell(row.id,'professeur_id',nid);}}><option value="">— Aucun —</option>{professeurs.map(p=><option key={p.id} value={p.id}>{p.nom_prenom}</option>)}</select><button onClick={e=>{e.stopPropagation(); toggleConge(row);}} title={row.en_conge ? 'En congé — cliquer pour réactiver' : 'Mettre en congé (crée une ligne de remplacement)'} className={`flex-shrink-0 text-[10px] font-bold px-1 py-0.5 rounded border ${row.en_conge ? 'bg-transparent text-red-600 border-red-500' : 'bg-gray-50 text-gray-400 border-gray-200 hover:border-red-400 hover:text-red-500'}`}>C</button></div>{!verrous[row.id] && alertesCours[row.id] && <div className="text-[10px] text-amber-600 leading-tight mt-0.5">⚠ définitif : {alertesCours[row.id].definitif}</div>}</td>;
           if (c.edit==='statut') {
             const isHelb = row.contrat_mdp === 'HELB';
             const statutOptions = c.options.map(([val, lbl]) => [val, (isHelb && val === 'EXP') ? 'PI' : lbl]);

@@ -373,6 +373,18 @@ try {
       console.log('[migration] professeur.statut_nomination ajouté');
     }
   }
+  // Migration : gestion des congés/remplacements sur attribution
+  {
+    const cols = db.prepare('PRAGMA table_info(attribution)').all();
+    if (!cols.find(c => c.name === 'en_conge')) {
+      db.exec(`ALTER TABLE attribution ADD COLUMN en_conge INTEGER DEFAULT 0`);
+      console.log('[migration] attribution.en_conge ajouté');
+    }
+    if (!cols.find(c => c.name === 'remplace_attribution_id')) {
+      db.exec(`ALTER TABLE attribution ADD COLUMN remplace_attribution_id INTEGER`);
+      console.log('[migration] attribution.remplace_attribution_id ajouté');
+    }
+  }
   // Migration : cours_libre sur nomination_definitive (UE absente de la base)
   {
     const cols = db.prepare('PRAGMA table_info(nomination_definitive)').all();

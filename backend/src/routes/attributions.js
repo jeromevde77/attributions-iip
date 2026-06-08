@@ -1055,4 +1055,44 @@ r.post('/creer-depuis-cours', authRequired, roleRequired('admin', 'editeur', 'co
   res.json({ ok: true, id: info.lastInsertRowid });
 });
 
+// POST /attributions/:id/conge — bascule le congé d'un titulaire
+// Active : grise la ligne (en_conge=1) et crée une ligne de remplacement (mêmes périodes, prof À DÉSIGNER)
+// Désactive : réactive la ligne (en_conge=0). Ne supprime pas la ligne de remplacement.
+r.post('/:id/conge', authRequired, roleRequired('admin', 'editeur', 'coordination'), (req, res) => {
+  const orig = db.prepare('SELECT * FROM attribution WHERE id = ?').get(req.params.id);
+  if (!orig) return res.status(404).json({ error: 'Attribution introuvable' });
+
+  if (orig.en_conge) {
+    // Désactiver le congé
+    db.prepare('UPDATE attribution SET en_conge = 0 WHERE id = ?').run(orig.id);
+    return res.json({ ok: true, en_conge: false });
+  }
+
+  // Activer le congé : marquer + dupliquer pour le remplaçant
+  const aDesigner = db.prepare(`SELECT id FROM professeur WHERE nom = 'À DÉSIGNER' LIMIT 1`).get();
+  const tx = db.transaction(() => {
+    db.prepare('UPDATE attribution SET en_conge = 1 WHERE id = ?').run(orig.id);
+    // Dupliquer la ligne pour le remplacement (mêmes périodes, prof à désigner, lien vers l'originale)
+    const info = db.prepare(`
+      INSERT INTO attribution
+        (section, etablissement_referent, contrat_mdp, organisation, annee_scolaire,
+         ue_num, num_organisation, quadrimestre_attribue, code_cours, type_cours, type_cours_helb,
+         code, nb_groupes, split_groupe, num_split, num_groupe, activite_id,
+         professeur_id, cours_ept_ad, coordination_encadrement,
+         per_etudiant_total_dp, periodes_attribuees, autonomie_attribuee,
+         remplace_attribution_id, created_by, updated_by)
+      SELECT section, etablissement_referent, contrat_mdp, organisation, annee_scolaire,
+         ue_num, num_organisation, quadrimestre_attribue, code_cours, type_cours, type_cours_helb,
+         code, nb_groupes, split_groupe, num_split, num_groupe, activite_id,
+         ?, cours_ept_ad, coordination_encadrement,
+         per_etudiant_total_dp, periodes_attribuees, autonomie_attribuee,
+         ?, ?, ?
+      FROM attribution WHERE id = ?
+    `).run(aDesigner?.id || null, orig.id, req.user?.id || null, req.user?.id || null, orig.id);
+    return info.lastInsertRowid;
+  });
+  const newId = tx();
+  res.json({ ok: true, en_conge: true, remplacement_id: newId });
+});
+
 export default r;
