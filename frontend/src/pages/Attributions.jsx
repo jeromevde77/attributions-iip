@@ -843,6 +843,17 @@ export default function Attributions() {
               {!verrous[row.id] && alertesCours[row.id] && <div className="text-[10px] text-amber-600 leading-tight mt-0.5">⚠ définitif : {alertesCours[row.id].definitif}</div>}
             </td>;
           }
+          // Colonne Type : pour les lignes HELB, badge cliquable CT (cours théoriques) ↔ TP (travaux pratiques)
+          if (c.key==='type_cours' && row.contrat_mdp==='HELB') {
+            const nat = row.helb_nature || 'CT';
+            return <td key={c.key} style={sty} className="text-center">
+              <button onClick={e=>{e.stopPropagation(); saveCell(row.id,'helb_nature', nat==='CT'?'TP':'CT');}}
+                title={nat==='CT' ? 'Cours théoriques (cliquer pour TP)' : 'Travaux pratiques (cliquer pour cours théoriques)'}
+                className={`text-[10px] font-bold px-1.5 py-0.5 rounded border ${nat==='TP' ? 'bg-cyan-50 text-cyan-700 border-cyan-300' : 'bg-indigo-50 text-indigo-700 border-indigo-300'}`}>
+                {nat}
+              </button>
+            </td>;
+          }
           const v = row[c.key]; const display = c.render ? c.render(v,row) : v;
           if (c.readonly) return <td key={c.key} style={sty} onClick={click} className={`${c.num?'num':''} bg-gray-100 text-gray-500 ${cClass}`} title={c.tooltip}>{v!=null?Number(v).toLocaleString('fr-BE',{maximumFractionDigits:2}):<span className="text-gray-300">—</span>}</td>;
           if (c.edit==='number') {

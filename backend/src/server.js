@@ -393,6 +393,24 @@ try {
       console.log('[migration] attribution.rt_nomination_id ajouté');
     }
   }
+  // Migration HELB : statut HELB du prof + nature Cours/TP de l'activité
+  {
+    const pc = db.prepare('PRAGMA table_info(professeur)').all();
+    if (!pc.find(c => c.name === 'statut_helb')) {
+      db.exec(`ALTER TABLE professeur ADD COLUMN statut_helb TEXT`); // MA / MFP / PI / COORD
+      console.log('[migration] professeur.statut_helb ajouté');
+    }
+    const ac = db.prepare('PRAGMA table_info(activite_type)').all();
+    if (ac.length && !ac.find(c => c.name === 'helb_nature')) {
+      db.exec(`ALTER TABLE activite_type ADD COLUMN helb_nature TEXT`); // 'COURS' | 'TP'
+      console.log('[migration] activite_type.helb_nature ajouté');
+    }
+    const atc = db.prepare('PRAGMA table_info(attribution)').all();
+    if (!atc.find(c => c.name === 'helb_nature')) {
+      db.exec(`ALTER TABLE attribution ADD COLUMN helb_nature TEXT DEFAULT 'CT'`); // 'CT' | 'TP' (par ligne, contrat HELB)
+      console.log('[migration] attribution.helb_nature ajouté');
+    }
+  }
   // Migration : cours_libre sur nomination_definitive (UE absente de la base)
   {
     const cols = db.prepare('PRAGMA table_info(nomination_definitive)').all();

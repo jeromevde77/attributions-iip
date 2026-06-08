@@ -211,7 +211,7 @@ export default function ProfFicheModal({ prof, onClose, onSaved }) {
     iban: '', bic: '', compte_titulaire: '',
     // Administratif IIP
     statut: '', capaes: '', anciennete_25_26_po: 0, report_anc_po: 0,
-    matricule: '', statut_ea12: '', statut_nomination: 'temporaire',
+    matricule: '', statut_ea12: '', statut_nomination: 'temporaire', statut_helb: '',
     // Situation fiscale
     etat_civil: '', handicap: 'non',
     conjoint_nom: '', conjoint_prenom: '', conjoint_handicap: 'non',
@@ -681,7 +681,7 @@ export default function ProfFicheModal({ prof, onClose, onSaved }) {
           {!isNew && (
             <Section titre="9 · Engagement à titre définitif" sous="Nominations (code FWB) & remise au travail"
               ouvert={open.nomination} onToggle={() => toggle('nomination')}>
-              <div className="mb-3">
+              <div className="mb-3 flex gap-4 flex-wrap">
                 <label className="block">
                   <span className="text-[11px] text-gray-500">Statut de nomination</span>
                   <select value={form.statut_nomination || 'temporaire'} onChange={v => set('statut_nomination', v.target.value)}
@@ -689,6 +689,17 @@ export default function ProfFicheModal({ prof, onClose, onSaved }) {
                     <option value="temporaire">Temporaire</option>
                     <option value="temporaire_prioritaire">Temporaire prioritaire</option>
                     <option value="definitif">Engagé à titre définitif</option>
+                  </select>
+                </label>
+                <label className="block">
+                  <span className="text-[11px] text-gray-500">Statut HELB (contrat HE)</span>
+                  <select value={form.statut_helb || ''} onChange={v => set('statut_helb', v.target.value)}
+                    className="w-full border border-gray-300 rounded px-2 py-1.5 text-sm max-w-xs">
+                    <option value="">— aucun —</option>
+                    <option value="MA">Maître-Assistant (MA)</option>
+                    <option value="MFP">Maître de Formation Pratique (MFP)</option>
+                    <option value="PI">Praticien (PI)</option>
+                    <option value="COORD">Coordination</option>
                   </select>
                 </label>
               </div>

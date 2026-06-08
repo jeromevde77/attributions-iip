@@ -440,6 +440,7 @@ SELECT
     a.remplace_attribution_id,
     a.est_rt,
     a.rt_nomination_id,
+    a.helb_nature,
     a.autonomie_attribuee,
 
     -- Calculs de base
