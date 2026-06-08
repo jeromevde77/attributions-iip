@@ -92,11 +92,11 @@ export default function NominationsPanel({ profId }) {
                   Code FWB <span className="font-mono">{n.code_fwb === 'INCONNU' ? 'Code inconnu' : n.code_fwb}</span> · {n.periodes} pér. · {n.type_charge}
                 </div>
               </div>
-              <button onClick={() => setRtPour(n)} title="Remise au travail (UE non organisée)"
+              <button type="button" onClick={() => setRtPour(n)} title="Remise au travail (UE non organisée)"
                 className="text-[11px] bg-amber-100 text-amber-700 px-2 py-1 rounded hover:bg-amber-200 whitespace-nowrap">
                 RT
               </button>
-              <button onClick={() => supprimer(n.id)} className="text-gray-400 hover:text-red-500 text-sm">🗑</button>
+              <button type="button" onClick={() => supprimer(n.id)} className="text-gray-400 hover:text-red-500 text-sm">🗑</button>
             </div>
           ))}
           {/* Totaux par type */}
@@ -182,12 +182,12 @@ export default function NominationsPanel({ profId }) {
             </>
           )}
           <div className="flex justify-end gap-2">
-            <button onClick={() => setAdding(false)} className="text-sm text-gray-500 px-3 py-1.5">Annuler</button>
-            <button onClick={ajouter} className="bg-iip-gold hover:bg-iip-amber text-white text-sm px-4 py-1.5 rounded font-medium">Ajouter</button>
+            <button type="button" onClick={() => setAdding(false)} className="text-sm text-gray-500 px-3 py-1.5">Annuler</button>
+            <button type="button" onClick={ajouter} className="bg-iip-gold hover:bg-iip-amber text-white text-sm px-4 py-1.5 rounded font-medium">Ajouter</button>
           </div>
         </div>
       ) : (
-        <button onClick={() => setAdding(true)}
+        <button type="button" onClick={() => setAdding(true)}
           className="text-sm text-iip-gold hover:text-iip-amber font-medium">
           + Ajouter une nomination
         </button>
@@ -262,8 +262,8 @@ function RTDialog({ nomination, profId, ues, annee, onClose, onSaved }) {
           </label>
         </div>
         <div className="flex justify-end gap-2 mt-4">
-          <button onClick={onClose} className="px-4 py-2 text-sm text-gray-600">Annuler</button>
-          <button onClick={valider} disabled={!ueNum || insuffisant}
+          <button type="button" onClick={onClose} className="px-4 py-2 text-sm text-gray-600">Annuler</button>
+          <button type="button" onClick={valider} disabled={!ueNum || insuffisant}
             className="bg-iip-gold hover:bg-iip-amber disabled:opacity-40 text-white text-sm px-5 py-2 rounded font-medium">
             Remettre au travail
           </button>
