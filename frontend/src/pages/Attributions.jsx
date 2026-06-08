@@ -633,9 +633,21 @@ export default function Attributions() {
   }
   async function saveCell(id, field, value) {
     try {
+      // Garde-fou : réattribuer un cours engagé à titre définitif à quelqu'un d'autre
+      if (field === 'professeur_id') {
+        const alerte = alertesCours[id];
+        const verrou = verrous[id];
+        const definitifNom = alerte?.definitif || null;
+        const nouveauId = value ? Number(value) : null;
+        // Si un définitif est lié à ce cours et qu'on attribue à un AUTRE prof
+        if (definitifNom && nouveauId && verrou?.definitif_id !== nouveauId) {
+          if (!confirm(`Ce cours est attribué à titre définitif à ${definitifNom}.\n\nÊtes-vous certain de l'attribuer à quelqu'un d'autre ?`)) {
+            return; // annulé : on ne change rien
+          }
+        }
+      }
       const numF = ['periodes_attribuees','autonomie_attribuee','num_organisation'];
       const payload = { [field]: numF.includes(field) ? Number(value) : value };
-      // Si on change le contrat vers autre chose que HELB, vider le statut HELB
       if (field === 'contrat_mdp' && value !== 'HELB') {
         payload.type_cours_helb = null;
       }
@@ -1096,32 +1108,7 @@ export default function Attributions() {
   // ===================== RENDU =====================
   return (
     <div className="p-2 md:p-4 max-w-7xl mx-auto">
-      {/* Bandeau : profs définitifs en perte de charge */}
-      {pertesCharge.length > 0 && (
-        <div className="mb-3 bg-red-50 border border-red-200 rounded-lg p-3">
-          <div className="flex items-center gap-2 text-red-700 font-medium text-sm mb-1.5">
-            ⚠ {pertesCharge.length} engagement(s) à titre définitif en perte de charge
-          </div>
-          <p className="text-[12px] text-red-600 mb-2">
-            Ces personnes nommées n'ont pas (ou plus) d'attribution couvrant leur charge — le cours n'est plus organisé ou elles n'y figurent pas. Une remise au travail (RT) est nécessaire.
-          </p>
-          <div className="space-y-1">
-            {pertesCharge.map(p => (
-              <div key={p.nomination_id} className="flex items-center justify-between bg-white rounded px-2.5 py-1.5 text-[12px]">
-                <span className="text-gray-700">
-                  <strong>{p.prof}</strong> — {p.ue_num ? `UE ${p.ue_num}${p.ue_nom ? ' '+p.ue_nom : ''}` : (p.cours_libre || 'cours')}
-                  {p.cours_code ? ` · ${p.cours_code}` : ''}
-                  <span className="text-gray-400"> · FWB {p.code_fwb === 'INCONNU' ? 'inconnu' : p.code_fwb}</span>
-                </span>
-                <span className="text-red-600 font-semibold whitespace-nowrap ml-2">
-                  perte {p.perte} pér. {p.type_charge || ''}
-                  {p.periodes_couvertes > 0 && <span className="text-gray-400 font-normal"> ({p.periodes_couvertes}/{p.periodes_nommees} couvert)</span>}
-                </span>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
+      {/* (bandeau perte de charge déplacé en bas de page) */}
 
       {/* Barre mobile */}
       <div className="md:hidden mb-2 flex gap-2">
@@ -1308,6 +1295,33 @@ export default function Attributions() {
               <button onClick={()=>setBulkDeleteModal(null)} className="px-4 py-2 text-sm text-gray-600">Annuler</button>
               <button onClick={confirmBulkDelete} disabled={bulkConfirmText!=='SUPPRIMER'} className="bg-red-600 hover:bg-red-700 disabled:opacity-30 text-white text-sm px-5 py-2 rounded font-medium">Confirmer</button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Bandeau : profs définitifs en perte de charge (en bas) */}
+      {pertesCharge.length > 0 && (
+        <div className="mt-4 bg-red-50 border border-red-200 rounded-lg p-3">
+          <div className="flex items-center gap-2 text-red-700 font-medium text-sm mb-1.5">
+            ⚠ {pertesCharge.length} engagement(s) à titre définitif en perte de charge
+          </div>
+          <p className="text-[12px] text-red-600 mb-2">
+            Ces personnes nommées n'ont pas (ou plus) d'attribution couvrant leur charge — le cours n'est plus organisé ou elles n'y figurent pas. Une remise au travail (RT) est nécessaire.
+          </p>
+          <div className="space-y-1">
+            {pertesCharge.map(p => (
+              <div key={p.nomination_id} className="flex items-center justify-between bg-white rounded px-2.5 py-1.5 text-[12px]">
+                <span className="text-gray-700">
+                  <strong>{p.prof}</strong> — {p.ue_num ? `UE ${p.ue_num}${p.ue_nom ? ' '+p.ue_nom : ''}` : (p.cours_libre || 'cours')}
+                  {p.cours_code ? ` · ${p.cours_code}` : ''}
+                  <span className="text-gray-400"> · FWB {p.code_fwb === 'INCONNU' ? 'inconnu' : p.code_fwb}</span>
+                </span>
+                <span className="text-red-600 font-semibold whitespace-nowrap ml-2">
+                  perte {p.perte} pér. {p.type_charge || ''}
+                  {p.periodes_couvertes > 0 && <span className="text-gray-400 font-normal"> ({p.periodes_couvertes}/{p.periodes_nommees} couvert)</span>}
+                </span>
+              </div>
+            ))}
           </div>
         </div>
       )}
