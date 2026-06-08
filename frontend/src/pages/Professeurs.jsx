@@ -407,7 +407,7 @@ export default function Professeurs() {
 
     const html = `<!DOCTYPE html><html><head><meta charset="utf-8">
       <style>
-        *{box-sizing:border-box;margin:0;padding:0}
+        *{box-sizing:border-box;margin:0;padding:0;-webkit-print-color-adjust:exact;print-color-adjust:exact}
         body{font-family:'Segoe UI',Arial,sans-serif;font-size:11px;color:#111827}
         table{width:100%;border-collapse:collapse}
         td,th{border-bottom:1px solid #e5e7eb}
@@ -507,7 +507,7 @@ export default function Professeurs() {
 
     const html = `<!DOCTYPE html><html><head><meta charset="utf-8">
       <style>
-        *{box-sizing:border-box;margin:0;padding:0}
+        *{box-sizing:border-box;margin:0;padding:0;-webkit-print-color-adjust:exact;print-color-adjust:exact}
         body{font-family:'Segoe UI',Arial,sans-serif;font-size:11px;color:#111827}
         table{width:100%;border-collapse:collapse}
         td,th{border-bottom:1px solid #e5e7eb}
@@ -624,7 +624,7 @@ export default function Professeurs() {
 
     const html = `<!DOCTYPE html><html><head><meta charset="utf-8">
       <style>
-        *{box-sizing:border-box;margin:0;padding:0}
+        *{box-sizing:border-box;margin:0;padding:0;-webkit-print-color-adjust:exact;print-color-adjust:exact}
         body{font-family:'Segoe UI',Arial,sans-serif;font-size:11px;color:#111827}
         table{width:100%;border-collapse:collapse}
         td,th{border-bottom:1px solid #e5e7eb}
