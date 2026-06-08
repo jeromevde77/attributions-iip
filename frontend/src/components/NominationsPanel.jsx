@@ -205,15 +205,15 @@ function RTDialog({ nomination, profId, ues, annee, onClose, onSaved }) {
   const [coursCode, setCoursCode] = useState('');
   const [periodes, setPeriodes] = useState(nomination.periodes || 0);
   const [coursListe, setCoursListe] = useState([]);
+  const [mode, setMode] = useState('cours'); // 'cours' (périodes) | 'autonomie'
 
   useEffect(() => {
     if (ueNum) authFetch(`/api/ref/ue/${ueNum}?annee=${encodeURIComponent(annee)}`)
       .then(d => setCoursListe(Array.isArray(d?.cours) ? d.cours : [])).catch(() => {});
   }, [ueNum, annee]);
 
-  const insuffisant = Number(periodes) < (nomination.periodes || 0);
-
   async function valider() {
+    if (!ueNum || !coursCode) { alert('Choisissez une UE et un cours pour la remise au travail.'); return; }
     await authFetch('/api/nominations/rt', {
       method: 'POST',
       body: JSON.stringify({
@@ -224,6 +224,7 @@ function RTDialog({ nomination, profId, ues, annee, onClose, onSaved }) {
         cours_code: coursCode || null,
         periodes: Number(periodes) || 0,
         annee_scolaire: annee,
+        mode,
       }),
     });
     onSaved();
@@ -234,8 +235,8 @@ function RTDialog({ nomination, profId, ues, annee, onClose, onSaved }) {
       <div className="bg-white rounded-xl shadow-2xl w-full max-w-md p-5">
         <h3 className="font-title text-lg text-iip-gold mb-1">Remise au travail</h3>
         <p className="text-sm text-gray-600 mb-3">
-          Charge perdue : <strong>{nomination.periodes} pér.</strong> (UE {nomination.ue_num}, FWB {nomination.code_fwb}).
-          Réaffectez vers une UE/cours pour un volume ≥ à la charge perdue.
+          Charge nommée : <strong>{nomination.periodes} pér.</strong> (UE {nomination.ue_num}, FWB {nomination.code_fwb}).
+          Réaffectez les périodes manquantes vers un cours (ou en autonomie). Une ligne sera créée, marquée RT.
         </p>
         <div className="space-y-2">
           <label className="block">
@@ -255,15 +256,27 @@ function RTDialog({ nomination, profId, ues, annee, onClose, onSaved }) {
             </select>
           </label>
           <label className="block">
-            <span className="text-[11px] text-gray-500">Périodes attribuées en RT</span>
+            <span className="text-[11px] text-gray-500">Affecter en</span>
+            <div className="flex gap-2 mt-1">
+              <button type="button" onClick={() => setMode('cours')}
+                className={`flex-1 text-sm px-3 py-1.5 rounded border ${mode==='cours' ? 'bg-iip-gold text-white border-iip-gold' : 'bg-white text-gray-600 border-gray-300'}`}>
+                Périodes de cours
+              </button>
+              <button type="button" onClick={() => setMode('autonomie')}
+                className={`flex-1 text-sm px-3 py-1.5 rounded border ${mode==='autonomie' ? 'bg-iip-gold text-white border-iip-gold' : 'bg-white text-gray-600 border-gray-300'}`}>
+                Autonomie
+              </button>
+            </div>
+          </label>
+          <label className="block">
+            <span className="text-[11px] text-gray-500">Périodes {mode === 'autonomie' ? "d'autonomie" : 'de cours'} en RT</span>
             <input type="number" value={periodes} onChange={e => setPeriodes(e.target.value)}
               className="w-full border border-gray-300 rounded px-2 py-1.5 text-sm" />
-            {insuffisant && <span className="text-[11px] text-red-600">⚠ Inférieur à la charge perdue ({nomination.periodes} pér.)</span>}
           </label>
         </div>
         <div className="flex justify-end gap-2 mt-4">
           <button type="button" onClick={onClose} className="px-4 py-2 text-sm text-gray-600">Annuler</button>
-          <button type="button" onClick={valider} disabled={!ueNum || insuffisant}
+          <button type="button" onClick={valider} disabled={!ueNum || !coursCode || !(Number(periodes) > 0)}
             className="bg-iip-gold hover:bg-iip-amber disabled:opacity-40 text-white text-sm px-5 py-2 rounded font-medium">
             Remettre au travail
           </button>

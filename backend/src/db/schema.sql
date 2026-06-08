@@ -438,6 +438,8 @@ SELECT
     a.periodes_attribuees,
     a.en_conge,
     a.remplace_attribution_id,
+    a.est_rt,
+    a.rt_nomination_id,
     a.autonomie_attribuee,
 
     -- Calculs de base

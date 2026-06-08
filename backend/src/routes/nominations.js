@@ -84,15 +84,50 @@ r.get('/rt/prof/:id', authRequired, (req, res) => {
   res.json(rows);
 });
 
-// POST /nominations/rt — créer une remise au travail (RT ≥ charge perdue : vérif côté appelant)
+// POST /nominations/rt — créer une remise au travail
+// Crée la RT + une ligne d'attribution (le prof y est placé, marquée RT).
+// Body : { nomination_id, professeur_id, charge_perdue, ue_num, cours_code, periodes,
+//          annee_scolaire, notes, mode: 'cours'|'autonomie' }
 r.post('/rt', authRequired, roleRequired('admin', 'editeur'), (req, res) => {
-  const { nomination_id, professeur_id, charge_perdue, ue_num, cours_code, periodes, annee_scolaire, notes } = req.body;
+  const { nomination_id, professeur_id, charge_perdue, ue_num, cours_code, periodes, annee_scolaire, notes, mode } = req.body;
   if (!professeur_id) return res.status(400).json({ error: 'professeur_id requis' });
-  const info = db.prepare(`
-    INSERT INTO remise_travail (nomination_id, professeur_id, charge_perdue, ue_num, cours_code, periodes, annee_scolaire, notes)
-    VALUES (?,?,?,?,?,?,?,?)
-  `).run(nomination_id || null, professeur_id, charge_perdue || 0, ue_num || null, cours_code || null, periodes || 0, annee_scolaire || null, notes || null);
-  res.json({ id: info.lastInsertRowid });
+  if (!ue_num || !cours_code) return res.status(400).json({ error: 'ue_num et cours_code requis pour créer la ligne RT' });
+
+  const annee = annee_scolaire || '2025-2026';
+  // Récupérer la section/type depuis le cours du DP
+  const cours = db.prepare(`SELECT * FROM cours WHERE cours_code = ? AND annee_scolaire = ? AND ue_num = ? LIMIT 1`).get(cours_code, annee, ue_num);
+  const section = cours?.section || null;
+  const ue = db.prepare('SELECT et_ref FROM ue WHERE ue_num = ? AND annee_scolaire = ? AND section = ?').get(ue_num, annee, section);
+  const contrat = ue?.et_ref || 'IIP';
+  const perRT = Number(periodes) || 0;
+  // mode 'autonomie' : les périodes RT vont dans autonomie_attribuee ; sinon en periodes_attribuees
+  const enAuto = mode === 'autonomie';
+
+  const tx = db.transaction(() => {
+    const rt = db.prepare(`
+      INSERT INTO remise_travail (nomination_id, professeur_id, charge_perdue, ue_num, cours_code, periodes, annee_scolaire, notes)
+      VALUES (?,?,?,?,?,?,?,?)
+    `).run(nomination_id || null, professeur_id, charge_perdue || 0, ue_num, cours_code, perRT, annee, notes || null);
+
+    const attr = db.prepare(`
+      INSERT INTO attribution
+        (section, etablissement_referent, contrat_mdp, organisation, annee_scolaire,
+         ue_num, num_organisation, code_cours, type_cours, nb_groupes, split_groupe,
+         cours_ept_ad, coordination_encadrement, per_etudiant_total_dp,
+         periodes_attribuees, autonomie_attribuee, professeur_id,
+         est_rt, rt_nomination_id, created_by, updated_by)
+      VALUES (?, ?, ?, 'x', ?, ?, 1, ?, ?, 1, 'N', 'C', 'Cours', ?, ?, ?, ?, 1, ?, ?, ?)
+    `).run(section, contrat, contrat, annee, ue_num, cours_code, cours?.ct_pp || 'CT',
+           cours?.cours_per || 0,
+           enAuto ? 0 : perRT,           // periodes_attribuees
+           enAuto ? perRT : 0,           // autonomie_attribuee
+           professeur_id, nomination_id || null,
+           req.user?.id || null, req.user?.id || null);
+
+    return { rt_id: rt.lastInsertRowid, attribution_id: attr.lastInsertRowid };
+  });
+  const r2 = tx();
+  res.json({ id: r2.rt_id, attribution_id: r2.attribution_id });
 });
 
 // DELETE /nominations/rt/:id
@@ -117,15 +152,18 @@ r.get('/pertes-charge', authRequired, (req, res) => {
   const pertes = [];
   for (const n of noms) {
     // Existe-t-il une attribution active correspondante (même prof + même cours, ou UE entière) ?
+    // On compte le TOTAL de la ligne (périodes + autonomie), puisque la couverture = toute la ligne.
     let attr;
     if (n.cours_code) {
       attr = db.prepare(`
-        SELECT COALESCE(SUM(periodes_attribuees),0) AS per FROM attribution
+        SELECT COALESCE(SUM(COALESCE(periodes_attribuees,0) + COALESCE(autonomie_attribuee,0)),0) AS per
+        FROM attribution
         WHERE annee_scolaire = ? AND professeur_id = ? AND code_cours = ?
       `).get(annee, n.professeur_id, n.cours_code);
     } else if (n.ue_num) {
       attr = db.prepare(`
-        SELECT COALESCE(SUM(periodes_attribuees),0) AS per FROM attribution
+        SELECT COALESCE(SUM(COALESCE(periodes_attribuees,0) + COALESCE(autonomie_attribuee,0)),0) AS per
+        FROM attribution
         WHERE annee_scolaire = ? AND professeur_id = ? AND ue_num = ?
       `).get(annee, n.professeur_id, n.ue_num);
     } else {
