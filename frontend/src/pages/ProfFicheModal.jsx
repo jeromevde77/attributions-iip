@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from 'react';
 import { api } from '../lib/api.js';
 import { eidStatus, eidReadAll, eidToProf, eidChamps } from '../lib/eid.js';
 import NominationsPanel from '../components/NominationsPanel.jsx';
+import { IconId, IconTrash, IconFileText } from '@tabler/icons-react';
 
 const _tok = () => localStorage.getItem('token');
 const _fetch = (url, opts = {}) =>
@@ -422,7 +423,7 @@ export default function ProfFicheModal({ prof, onClose, onSaved }) {
           <div className="border border-iip-gold/30 bg-iip-gold/5 rounded-lg p-3 flex items-start gap-3">
             <div className="flex-1 min-w-0">
               <div className="text-sm font-semibold text-iip-gold flex items-center gap-1.5">
-                <span>🪪</span> Pré-remplir depuis la carte eID
+                <IconId size={15}/> Pré-remplir depuis la carte eID
                 <span className="text-[10px] font-normal text-gray-400 uppercase tracking-wide">optionnel</span>
               </div>
               <p className="text-xs text-gray-500 mt-0.5">
@@ -512,7 +513,7 @@ export default function ProfFicheModal({ prof, onClose, onSaved }) {
                   <TextField label="Délivré par" value={t.delivre_par} onChange={v => setTitre(i, 'delivre_par', v)} />
                 </div>
                 <div className="col-span-1 text-right">
-                  <button type="button" onClick={() => delTitre(i)} className="text-red-400 hover:text-red-600 text-sm" title="Retirer">🗑</button>
+                  <button type="button" onClick={() => delTitre(i)} className="text-red-400 hover:text-red-600 inline-flex" title="Retirer"><IconTrash size={14}/></button>
                 </div>
               </div>
             ))}
@@ -564,7 +565,7 @@ export default function ProfFicheModal({ prof, onClose, onSaved }) {
                       <OuiNon label="Handicap" value={c.handicap} onChange={v => setCharge(i, 'handicap', v)} />
                     </div>
                     <div className="col-span-2 text-right">
-                      <button type="button" onClick={() => delCharge(i)} className="text-red-400 hover:text-red-600 text-sm" title="Retirer">🗑</button>
+                      <button type="button" onClick={() => delCharge(i)} className="text-red-400 hover:text-red-600 inline-flex" title="Retirer"><IconTrash size={14}/></button>
                     </div>
                   </div>
                 ))}
@@ -714,7 +715,7 @@ export default function ProfFicheModal({ prof, onClose, onSaved }) {
             {false && !isNew && (
               <button type="button" onClick={genererFichePdf} disabled={saving || genPdf}
                 className="bg-iip-mauve hover:opacity-90 disabled:opacity-40 text-white text-sm px-4 py-2 rounded font-medium">
-                {genPdf ? 'Génération…' : '📄 Générer la fiche (PDF)'}
+                {genPdf ? 'Génération…' : <span className="inline-flex items-center gap-1.5"><IconFileText size={15}/>Générer la fiche (PDF)</span>}
               </button>
             )}
             <button type="submit" disabled={saving}
