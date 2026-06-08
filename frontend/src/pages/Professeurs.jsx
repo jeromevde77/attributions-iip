@@ -149,9 +149,17 @@ function DetailModal({ profId, onClose, onEdit, onFiche }) {
             </div>
           </div>
           <div className="flex gap-2 flex-shrink-0 flex-wrap justify-end">
-            <button onClick={() => onFiche && onFiche(profId)}
-              className="bg-gray-100 hover:bg-gray-200 text-gray-700 text-sm px-3 py-1.5 rounded">
-              📋 Fiche attr.
+            <button onClick={() => onFiche && onFiche(profId, null)}
+              className="bg-gray-100 hover:bg-gray-200 text-gray-700 text-sm px-3 py-1.5 rounded" title="Fiche globale (IIP + HELB)">
+              📋 Globale
+            </button>
+            <button onClick={() => onFiche && onFiche(profId, 'IIP')}
+              className="bg-blue-50 hover:bg-blue-100 text-blue-700 text-sm px-3 py-1.5 rounded" title="Fiche contrat IIP">
+              🟦 IIP
+            </button>
+            <button onClick={() => onFiche && onFiche(profId, 'HELB')}
+              className="bg-purple-50 hover:bg-purple-100 text-purple-700 text-sm px-3 py-1.5 rounded" title="Fiche contrat HELB">
+              🟪 HELB
             </button>
             {u?.role === 'admin' && (
               <button onClick={() => setShowContratModal(true)}
