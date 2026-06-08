@@ -139,20 +139,50 @@ export default function NominationsPanel({ profId }) {
         </div>
       )}
 
+      {/* Congé global : met/lève le congé sur toutes ses attributions */}
+      {attributions.length > 0 && (() => {
+        const nbConge = attributions.filter(a => a.en_conge).length;
+        const nbRemplacables = attributions.filter(a => !a.remplace_attribution_id).length;
+        const tousEnConge = nbRemplacables > 0 && attributions.filter(a => !a.remplace_attribution_id).every(a => a.en_conge);
+        return (
+          <div className="flex items-center justify-between border border-gray-200 rounded-lg p-3">
+            <div>
+              <div className="text-sm font-medium text-gray-700">Congé</div>
+              <div className="text-[11px] text-gray-400">
+                {nbConge > 0 ? `${nbConge} ligne(s) en congé (remplacée)` : 'Met toutes ses heures en congé et crée les remplacements'}
+              </div>
+            </div>
+            <button type="button" onClick={async () => {
+                const activer = !tousEnConge;
+                if (activer && !confirm('Mettre cette personne en congé sur TOUTES ses heures ? Un remplaçant (À désigner) sera créé pour chaque ligne.')) return;
+                await authFetch(`/api/nominations/prof/${profId}/conge-global`, {
+                  method: 'POST', body: JSON.stringify({ annee, en_conge: activer }),
+                });
+                chargerSituation();
+              }}
+              className={`text-xs font-bold px-3 py-1.5 rounded border ${tousEnConge ? 'bg-transparent text-red-600 border-red-500' : 'bg-gray-50 text-gray-500 border-gray-300 hover:border-red-400 hover:text-red-500'}`}>
+              {tousEnConge ? 'En congé — réactiver' : 'Mettre en congé (C)'}
+            </button>
+          </div>
+        );
+      })()}
+
       {/* Attributions réelles du prof — cocher celles qui sont de la remise au travail */}
       {attributions.length > 0 && (
         <div className="border border-gray-200 rounded-lg p-3 space-y-1.5">
           <div className="text-xs font-semibold text-gray-500 uppercase mb-1">Ses attributions · cocher la remise au travail</div>
           {attributions.map(a => (
-            <div key={a.id} className={`flex items-center gap-2 text-[12px] rounded px-2 py-1.5 ${a.est_rt ? 'bg-orange-50 border border-red-300' : 'bg-gray-50'}`}>
+            <div key={a.id} className={`flex items-center gap-2 text-[12px] rounded px-2 py-1.5 ${a.en_conge ? 'opacity-50 bg-gray-100' : a.est_rt ? 'bg-orange-50 border border-red-300' : 'bg-gray-50'}`}>
               <div className="flex-1 min-w-0">
                 <span className="font-medium text-gray-800">UE {a.ue_num} · {a.code_cours}</span>
                 <span className="text-gray-500"> — {a.cours_nom || ''}</span>
                 <span className="text-gray-400"> · {a.total} pér. ({a.type_cours})</span>
+                {a.remplace_attribution_id && <span className="text-[9px] text-blue-600 font-bold ml-1">remplacement</span>}
               </div>
+              {a.en_conge && <span className="text-[9px] px-1 rounded font-bold text-red-600 border border-red-500 shrink-0">C</span>}
               {a.est_rt && <span className="text-[9px] px-1 rounded font-bold text-orange-600 border border-red-500 shrink-0">RT</span>}
               <label className="flex items-center gap-1 shrink-0 cursor-pointer">
-                <input type="checkbox" checked={!!a.est_rt} onChange={() => toggleRT(a)} />
+                <input type="checkbox" checked={!!a.est_rt} onChange={() => toggleRT(a)} disabled={!!a.remplace_attribution_id} />
                 <span className="text-gray-500">RT</span>
               </label>
             </div>
