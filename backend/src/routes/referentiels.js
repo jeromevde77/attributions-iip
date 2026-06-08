@@ -757,7 +757,7 @@ r.post('/professeurs', authRequired, roleRequired('admin', 'editeur'), (req, res
 r.patch('/professeurs/:id', authRequired, roleRequired('admin', 'editeur'), (req, res) => {
   const allowed = ['nom','prenom','adresse_mail','mail_prive','statut',
                    'adresse_rue','code_postal','commune','capaes','anciennete_25_26_po',
-                   'matricule','titre1','titre2','titre3','statut_ea12','report_anc_po','statut_nomination',
+                   'matricule','titre1','titre2','titre3','statut_ea12','report_anc_po','statut_nomination','statut_helb',
                    // Fiche signalétique — identité civile
                    'sexe','niss','nationalite','lieu_naissance_ville','lieu_naissance_pays',
                    'iban','bic','compte_titulaire','tel_gsm','date_naissance','photo',
@@ -1022,20 +1022,22 @@ r.get('/professeurs/:id/fiche-attributions', authRequired, (req, res) => {
   if (!annee) return res.status(400).json({ error: 'annee requis' });
 
   const prof = db.prepare(`
-    SELECT p.id, p.nom, p.prenom, p.statut, p.type_personnel,
+    SELECT p.id, p.nom, p.prenom, p.statut, p.type_personnel, p.statut_helb,
       (SELECT pe.fonction FROM personnel_etablissement pe WHERE pe.professeur_id = p.id LIMIT 1) AS fonction
     FROM professeur p WHERE p.id = ?
   `).get(id);
   if (!prof) return res.status(404).json({ error: 'Professeur introuvable' });
 
   const attrs = db.prepare(`
-    SELECT a.section, a.ue_num, u.ue_nom, u.ue_niv,
-      a.code_cours, c.cours_nom, a.type_cours,
+    SELECT a.section, a.ue_num, u.ue_nom, u.ue_niv, u.ue_niveau,
+      a.code_cours, c.cours_nom, a.type_cours, a.contrat_mdp,
       a.quadrimestre_attribue,
       a.num_groupe, a.code AS groupe_code,
       a.periodes_attribuees AS per, a.autonomie_attribuee AS aut,
+      a.charge_en_heures AS heures,
       a.est_rt, a.en_conge, a.rt_nomination_id,
-      at.libelle AS activite_nom
+      at.libelle AS activite_nom, at.helb_nature,
+      c.cours_total
     FROM attribution a
     LEFT JOIN ue u ON u.ue_num = a.ue_num AND u.annee_scolaire = a.annee_scolaire AND u.section = a.section
     LEFT JOIN cours c ON c.cours_code = a.code_cours AND c.annee_scolaire = a.annee_scolaire
