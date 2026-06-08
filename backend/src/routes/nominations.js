@@ -200,4 +200,62 @@ r.get('/alertes-cours', authRequired, (req, res) => {
   res.json(alertes);
 });
 
+// POST /nominations/appliquer — place les profs définitifs sur leurs cours
+// Body : { annee, ue_num (optionnel), section (optionnel) }
+// Pour chaque nomination active avec un cours précis, place le définitif sur les
+// attributions correspondantes qui sont vides ou "À DÉSIGNER", à concurrence des
+// périodes nommées. Renvoie un rapport (placés + alertes de dépassement).
+r.post('/appliquer', authRequired, roleRequired('admin', 'editeur'), (req, res) => {
+  const { annee, ue_num, section } = req.body;
+  if (!annee) return res.status(400).json({ error: 'annee requise' });
+
+  const aDesigner = db.prepare(`SELECT id FROM professeur WHERE nom = 'À DÉSIGNER' LIMIT 1`).get();
+  const aDesignerId = aDesigner?.id || null;
+
+  let sql = `SELECT * FROM nomination_definitive WHERE actif = 1 AND cours_code IS NOT NULL`;
+  const params = [];
+  if (ue_num) { sql += ' AND ue_num = ?'; params.push(ue_num); }
+  const noms = db.prepare(sql).all(...params);
+
+  const places = [], alertes = [];
+  const tx = db.transaction(() => {
+    for (const n of noms) {
+      // Attributions de ce cours (vides ou À DÉSIGNER), dans l'année (et section si fournie)
+      let aSql = `
+        SELECT a.id, a.professeur_id, a.periodes_attribuees, a.code_cours, a.section,
+               c.cours_per
+        FROM attribution a
+        LEFT JOIN cours c ON c.cours_code = a.code_cours AND c.annee_scolaire = a.annee_scolaire AND c.section = a.section
+        WHERE a.annee_scolaire = ? AND a.code_cours = ?
+          AND (a.professeur_id IS NULL OR a.professeur_id = ?)`;
+      const aParams = [annee, n.cours_code, aDesignerId];
+      if (section) { aSql += ' AND a.section = ?'; aParams.push(section); }
+      const lignes = db.prepare(aSql).all(...aParams);
+      if (!lignes.length) continue;
+
+      // Placer le définitif sur la première ligne disponible
+      const ligne = lignes[0];
+      const coursPerLigne = ligne.cours_per || ligne.periodes_attribuees || 0;
+      const perNommees = n.periodes || 0;
+
+      db.prepare(`UPDATE attribution SET professeur_id = ? WHERE id = ?`).run(n.professeur_id, ligne.id);
+      places.push({ attribution_id: ligne.id, cours_code: n.cours_code, professeur_id: n.professeur_id, periodes_nommees: perNommees });
+
+      // Contrôle de volume : périodes attribuées (cours) >= périodes nommées ?
+      if (perNommees > coursPerLigne) {
+        alertes.push({
+          cours_code: n.cours_code,
+          professeur_id: n.professeur_id,
+          periodes_nommees: perNommees,
+          periodes_cours: coursPerLigne,
+          manque: Math.round((perNommees - coursPerLigne) * 10) / 10,
+          message: `Nommé pour ${perNommees} pér. mais le cours ${n.cours_code} n'en fait que ${coursPerLigne}. Ajouter ${Math.round((perNommees - coursPerLigne)*10)/10} pér. (autonomie ou autre cours).`,
+        });
+      }
+    }
+  });
+  tx();
+  res.json({ ok: true, places: places.length, alertes });
+});
+
 export default r;

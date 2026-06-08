@@ -273,6 +273,13 @@ function CatalogueUEModal({ section, onClose, onDone }) {
     setBusy(ue.ue_num);
     try {
       const r = await api.rattacherUE(ue.ue_num, section);
+      // Placer automatiquement les profs définitifs nommés sur les cours de cette UE
+      try {
+        const res = await api.appliquerNominations(ue.ue_num, section);
+        if (res?.alertes?.length) {
+          alert('Profs définitifs placés.\n\n⚠ ' + res.alertes.map(a => a.message).join('\n'));
+        }
+      } catch { /* non bloquant */ }
       onDone(r);
     }
     catch (e) { alert(e.message); setBusy(null); }
