@@ -162,4 +162,42 @@ r.get('/pertes-charge', authRequired, (req, res) => {
   res.json(pertes);
 });
 
+// GET /nominations/alertes-cours?annee= — alerte "un définitif est engagé sur ce cours"
+// Matche par COURS (code FWB de l'UE ou code_cours), indépendamment du prof attribué.
+// Permet d'avertir quand on (re)crée une UE/section où un cours a un titulaire définitif,
+// même si l'attribution est vide ou confiée à quelqu'un d'autre.
+r.get('/alertes-cours', authRequired, (req, res) => {
+  const { annee } = req.query;
+  const rows = db.prepare(`
+    SELECT a.id AS attribution_id, a.professeur_id AS prof_attribue_id, a.code_cours, a.ue_num,
+           n.id AS nomination_id, n.code_fwb, n.periodes AS periodes_nommees, n.type_charge,
+           n.professeur_id AS definitif_id,
+           p.nom AS definitif_nom, p.prenom AS definitif_prenom
+    FROM attribution a
+    JOIN ue u ON u.ue_num = a.ue_num AND u.annee_scolaire = a.annee_scolaire AND u.section = a.section
+    JOIN nomination_definitive n
+      ON n.actif = 1
+     AND (
+          (n.cours_code IS NOT NULL AND n.cours_code = a.code_cours)
+          OR (n.cours_code IS NULL AND n.ue_num = a.ue_num)
+          OR (n.code_fwb IS NOT NULL AND n.code_fwb != 'INCONNU' AND n.code_fwb = u.ue_code_fwb)
+         )
+    JOIN professeur p ON p.id = n.professeur_id
+    WHERE a.annee_scolaire = ?
+  `).all(annee);
+  // Indexé par attribution + si le définitif est déjà celui attribué (pas d'alerte dans ce cas)
+  const alertes = rows
+    .filter(r => r.definitif_id !== r.prof_attribue_id) // alerte seulement si le définitif n'est PAS le prof attribué
+    .map(r => ({
+      attribution_id: r.attribution_id,
+      code_cours: r.code_cours,
+      ue_num: r.ue_num,
+      code_fwb: r.code_fwb,
+      definitif: `${r.definitif_prenom || ''} ${r.definitif_nom}`.trim(),
+      periodes_nommees: r.periodes_nommees,
+      type_charge: r.type_charge,
+    }));
+  res.json(alertes);
+});
+
 export default r;
