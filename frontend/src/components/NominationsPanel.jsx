@@ -18,8 +18,13 @@ export default function NominationsPanel({ profId }) {
   const [form, setForm] = useState({ code_fwb: '', ue_num: '', cours_code: '', cours_libre: '', periodes: '', type_charge: 'CT', ueAbsente: false });
   const [coursListe, setCoursListe] = useState([]);
   const [rtPour, setRtPour] = useState(null); // nomination en cours de remise au travail
+  const [situation, setSituation] = useState([]); // couverture par nomination
+  const [attributions, setAttributions] = useState([]); // attributions réelles du prof
 
-  const charger = () => authFetch(`/api/nominations/prof/${profId}`).then(d => setNoms(Array.isArray(d) ? d : [])).catch(() => {});
+  const chargerSituation = () => authFetch(`/api/nominations/prof/${profId}/situation?annee=${encodeURIComponent(annee)}`)
+    .then(d => { setSituation(d?.situation || []); setAttributions(d?.attributions || []); }).catch(() => {});
+
+  const charger = () => { authFetch(`/api/nominations/prof/${profId}`).then(d => setNoms(Array.isArray(d) ? d : [])).catch(() => {}); chargerSituation(); };
 
   useEffect(() => { if (profId) charger(); }, [profId]);
   useEffect(() => {
@@ -65,6 +70,14 @@ export default function NominationsPanel({ profId }) {
     charger();
   }
 
+  async function toggleRT(attr, nominationId) {
+    await authFetch(`/api/nominations/attribution/${attr.id}/rt`, {
+      method: 'PATCH',
+      body: JSON.stringify({ est_rt: attr.est_rt ? 0 : 1, nomination_id: nominationId }),
+    });
+    chargerSituation();
+  }
+
   const totalParType = noms.reduce((acc, n) => {
     acc[n.type_charge || '?'] = (acc[n.type_charge || '?'] || 0) + (n.periodes || 0);
     return acc;
@@ -105,6 +118,64 @@ export default function NominationsPanel({ profId }) {
               <span key={t} className="bg-gray-100 rounded px-2 py-0.5">{t} : <strong>{Math.round(p*10)/10}</strong> pér.</span>
             ))}
           </div>
+        </div>
+      )}
+
+      {/* État de couverture par nomination */}
+      {situation.length > 0 && (
+        <div className="border border-gray-200 rounded-lg p-3 space-y-2">
+          <div className="text-xs font-semibold text-gray-500 uppercase">Couverture de la charge</div>
+          {situation.map(s => (
+            <div key={s.nomination_id} className="text-[12px]">
+              <div className="flex items-center justify-between">
+                <span className="text-gray-700">
+                  {s.ue_num ? `UE ${s.ue_num}` : (s.cours_libre || 'cours')}{s.cours_code ? ` · ${s.cours_code}` : ''} <span className="text-gray-400">({s.type_charge})</span>
+                </span>
+                {s.reste > 0
+                  ? <span className="text-red-600 font-semibold">manque {s.reste} pér.</span>
+                  : <span className="text-green-600 font-semibold">✓ couvert</span>}
+              </div>
+              <div className="text-[10px] text-gray-400">
+                nommé {s.periodes_nommees} · attribué {s.couvert_direct}{s.couvert_rt > 0 ? ` · RT ${s.couvert_rt}` : ''} = {s.couvert} pér.
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* Attributions réelles du prof — cocher celles qui sont de la remise au travail */}
+      {attributions.length > 0 && (
+        <div className="border border-gray-200 rounded-lg p-3 space-y-1.5">
+          <div className="text-xs font-semibold text-gray-500 uppercase mb-1">Ses attributions · cocher la remise au travail</div>
+          {attributions.map(a => (
+            <div key={a.id} className={`flex items-center gap-2 text-[12px] rounded px-2 py-1.5 ${a.est_rt ? 'bg-orange-50 border border-red-300' : 'bg-gray-50'}`}>
+              <div className="flex-1 min-w-0">
+                <span className="font-medium text-gray-800">UE {a.ue_num} · {a.code_cours}</span>
+                <span className="text-gray-500"> — {a.cours_nom || ''}</span>
+                <span className="text-gray-400"> · {a.total} pér. ({a.type_cours})</span>
+              </div>
+              {a.est_rt && <span className="text-[9px] px-1 rounded font-bold text-orange-600 border border-red-500 shrink-0">RT</span>}
+              <label className="flex items-center gap-1 shrink-0 cursor-pointer">
+                <input type="checkbox" checked={!!a.est_rt}
+                  onChange={() => {
+                    if (!a.est_rt && noms.length > 1) {
+                      // plusieurs nominations : demander laquelle compenser
+                      const choix = prompt('RT en compensation de quelle nomination ? Indiquez le n° d\'UE :\n' + noms.map(n => `${n.ue_num} (${n.cours_code || 'UE'})`).join('\n'));
+                      const nom = noms.find(n => String(n.ue_num) === String(choix));
+                      toggleRT(a, nom?.id || noms[0].id);
+                    } else {
+                      toggleRT(a, noms[0]?.id);
+                    }
+                  }} />
+                <span className="text-gray-500">RT</span>
+              </label>
+            </div>
+          ))}
+          {situation.some(s => s.reste > 0) && (
+            <p className="text-[11px] text-amber-600 pt-1">
+              Cochez une attribution comme RT pour compenser la charge manquante, ou créez-en une nouvelle ci-dessous.
+            </p>
+          )}
         </div>
       )}
 
