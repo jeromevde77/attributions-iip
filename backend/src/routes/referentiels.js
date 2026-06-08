@@ -1035,7 +1035,7 @@ r.get('/professeurs/:id/fiche-attributions', authRequired, (req, res) => {
       a.num_groupe, a.code AS groupe_code,
       a.periodes_attribuees AS per, a.autonomie_attribuee AS aut,
       a.charge_en_heures AS heures,
-      a.est_rt, a.en_conge, a.rt_nomination_id,
+      a.est_rt, a.en_conge, a.rt_nomination_id, a.helb_nature AS helb_nature_ligne,
       at.libelle AS activite_nom, at.helb_nature,
       c.cours_total
     FROM attribution a

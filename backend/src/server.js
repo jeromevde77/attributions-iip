@@ -405,6 +405,11 @@ try {
       db.exec(`ALTER TABLE activite_type ADD COLUMN helb_nature TEXT`); // 'COURS' | 'TP'
       console.log('[migration] activite_type.helb_nature ajouté');
     }
+    const atc = db.prepare('PRAGMA table_info(attribution)').all();
+    if (!atc.find(c => c.name === 'helb_nature')) {
+      db.exec(`ALTER TABLE attribution ADD COLUMN helb_nature TEXT DEFAULT 'CT'`); // 'CT' | 'TP' (par ligne, contrat HELB)
+      console.log('[migration] attribution.helb_nature ajouté');
+    }
   }
   // Migration : cours_libre sur nomination_definitive (UE absente de la base)
   {

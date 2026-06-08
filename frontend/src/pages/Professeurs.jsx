@@ -369,7 +369,11 @@ export default function Professeurs() {
     let totHeures = 0, totCharge = 0;
     const lignes = Object.entries(sections).map(([sec, rows]) => rows.map((a, i) => {
       const h = a.heures || 0; // charge_en_heures (périodes converties)
-      const nature = a.helb_nature || (a.type_cours === 'PP' ? 'TP' : 'COURS');
+      // Nature : priorité à la ligne (CT/TP encodé), puis activité (COURS/TP), puis type_cours
+      const natLigne = a.helb_nature_ligne; // 'CT' | 'TP'
+      const nature = natLigne === 'TP' ? 'TP'
+                   : natLigne === 'CT' ? 'COURS'
+                   : (a.helb_nature || (a.type_cours === 'PP' ? 'TP' : 'COURS'));
       const natureLbl = nature === 'TP' ? 'TP' : 'Cours';
       const div = diviseur(statut, nature);
       const charge = div ? Math.round((h / div) * 1000) / 1000 : 0;

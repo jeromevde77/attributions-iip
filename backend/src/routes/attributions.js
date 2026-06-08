@@ -565,7 +565,7 @@ r.patch('/:id', authRequired, roleRequired('admin', 'editeur', 'coordination'), 
     'activite_id', 'titre_rtf',
     'professeur_id','cours_ept_ad','coordination_encadrement',
     'modification_attribution','commentaire','commentaire_2',
-    'per_etudiant_total_dp','periodes_attribuees','autonomie_attribuee'
+    'per_etudiant_total_dp','periodes_attribuees','autonomie_attribuee','helb_nature'
   ];
   const updates = [];
   const params = { id: req.params.id, uid: req.user.id };
