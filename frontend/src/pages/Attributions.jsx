@@ -233,6 +233,9 @@ export default function Attributions() {
   const [confirmDeleteSection, setConfirmDeleteSection] = useState(null);
   const [filtersOpenMobile, setFiltersOpenMobile] = useState(false);
   const [bulkDeleteModal, setBulkDeleteModal] = useState(null);
+  const [secDel, setSecDel] = useState(null); // { section, lignes, count } | null
+  const [secDelText, setSecDelText] = useState('');
+  const [secDelBusy, setSecDelBusy] = useState(false);
   const [bulkPreview, setBulkPreview] = useState(null);
   const [bulkConfirmText, setBulkConfirmText] = useState('');
   const [editRow, setEditRow] = useState(null);
@@ -698,6 +701,25 @@ export default function Attributions() {
       setBulkPreview(await api.bulkDeletePreview(f));
     } catch(e){ alert(e.message); setBulkDeleteModal(null); }
   }
+  async function ouvrirSuppressionSection(section) {
+    setSecDelText('');
+    try {
+      const d = await api.apercuSuppressionSection(section);
+      setSecDel({ section, lignes: d.lignes || [], count: d.count || 0 });
+    } catch (e) { alert('Erreur : ' + e.message); }
+  }
+  async function confirmSuppressionSection() {
+    if (!secDel) return;
+    setSecDelBusy(true);
+    try {
+      const r = await api.supprimerToutSection(secDel.section);
+      setSecDel(null); setSecDelText('');
+      alert(`${r.supprimees} attribution(s) supprimée(s).` + (r.backup ? `\nSauvegarde créée : ${r.backup}` : ''));
+      load();
+    } catch (e) { alert('Erreur : ' + e.message); }
+    finally { setSecDelBusy(false); }
+  }
+
   async function confirmBulkDelete() {
     if (bulkConfirmText!=='SUPPRIMER') { alert('Tapez SUPPRIMER.'); return; }
     try {
@@ -1150,8 +1172,8 @@ export default function Attributions() {
                   className="text-gray-400 hover:text-iip-mauve" title="Rapport d'attributions (HTML/impression)">📄</button>
                 <button onClick={()=>genererExcel(sg.section)}
                   className="text-gray-400 hover:text-green-600" title="Exporter en Excel (.xlsx)">📊</button>
-                <button onClick={()=>setConfirmViderSection(sg.section)}
-                  className="text-orange-400 hover:text-orange-600" title="Supprimer toutes les attributions de cette section">🧹</button>
+                <button onClick={()=>ouvrirSuppressionSection(sg.section)}
+                  className="text-orange-400 hover:text-red-600" title="Supprimer toutes les attributions de cette section (avec sauvegarde)">🧹</button>
                 <button onClick={()=>delSection(sg.section)}
                   className="text-red-400 hover:text-red-600" title="Retirer cette section de la vue">🗑</button>
               </span>
@@ -1340,6 +1362,49 @@ export default function Attributions() {
       {doc23Modal && <Doc23Modal {...doc23Modal} annee={getAnnee()} onClose={() => setDoc23Modal(null)} />}
       {rapportHtml && <PreviewModal html={rapportHtml.html || rapportHtml} titre="Rapport d'attributions" nomFichier={rapportHtml.nom} onClose={() => setRapportHtml(null)} />}
       {editRow && <CoursEditModal section={editRow.section} codeCours={editRow.code_cours} onClose={()=>setEditRow(null)} onChanged={load}/>}
+
+      {secDel && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-40" onClick={e=>e.target===e.currentTarget&&setSecDel(null)}>
+          <div className="bg-white rounded-xl shadow-2xl max-w-lg w-full p-6 border-t-4 border-red-600 flex flex-col" style={{maxHeight:'85vh'}}>
+            <h2 className="text-xl font-title text-red-700 mb-2">⚠️ Tout supprimer — section {secDel.section}</h2>
+            <p className="text-sm text-gray-700 mb-2">
+              Vous allez supprimer <b className="text-red-600">{secDel.count} attribution(s)</b> de la section <b>{secDel.section}</b> pour {getAnnee()}.
+              La section et les cours restent dans le référentiel ; seules les attributions sont effacées.
+            </p>
+            <p className="text-xs text-gray-500 mb-2">Une <b>copie de sauvegarde</b> de la base est créée automatiquement juste avant. Action <b>irréversible</b> sans restauration de cette copie.</p>
+            <div className="border border-gray-200 rounded-lg overflow-auto mb-3 flex-1" style={{minHeight:'80px'}}>
+              <table className="w-full text-[11px]">
+                <thead className="bg-gray-50 sticky top-0"><tr>
+                  <th className="text-left px-2 py-1 text-gray-500">UE</th>
+                  <th className="text-left px-2 py-1 text-gray-500">Cours</th>
+                  <th className="text-left px-2 py-1 text-gray-500">Prof</th>
+                  <th className="text-right px-2 py-1 text-gray-500">Pér.</th>
+                </tr></thead>
+                <tbody>
+                  {secDel.lignes.map(l => (
+                    <tr key={l.id} className="border-t border-gray-100">
+                      <td className="px-2 py-1 text-gray-600">{l.ue_num} · {l.code_cours}</td>
+                      <td className="px-2 py-1 text-gray-700 truncate max-w-[160px]">{l.cours_nom || '—'}</td>
+                      <td className="px-2 py-1 text-gray-600">{l.prof_prenom || ''} {l.prof_nom || '—'}</td>
+                      <td className="px-2 py-1 text-right text-gray-600">{(l.per||0)+(l.aut||0)}</td>
+                    </tr>
+                  ))}
+                  {secDel.count===0 && <tr><td colSpan={4} className="px-2 py-3 text-center text-gray-400">Aucune attribution.</td></tr>}
+                </tbody>
+              </table>
+            </div>
+            <label className="block text-xs text-gray-600 mb-1">Tapez le nom de la section <code className="bg-gray-100 px-1 rounded font-mono">{secDel.section}</code> pour confirmer :</label>
+            <input value={secDelText} onChange={e=>setSecDelText(e.target.value)} autoFocus className="w-full border border-gray-300 rounded px-3 py-2 text-sm font-mono mb-4" placeholder={secDel.section}/>
+            <div className="flex justify-end gap-2">
+              <button onClick={()=>setSecDel(null)} className="px-4 py-2 text-sm text-gray-600">Annuler</button>
+              <button onClick={confirmSuppressionSection} disabled={secDelText!==secDel.section || secDel.count===0 || secDelBusy}
+                className="bg-red-600 hover:bg-red-700 disabled:opacity-30 text-white text-sm px-5 py-2 rounded font-medium">
+                {secDelBusy ? 'Suppression…' : `Supprimer ${secDel.count} attribution(s)`}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {bulkDeleteModal && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-40" onClick={e=>e.target===e.currentTarget&&setBulkDeleteModal(null)}>
