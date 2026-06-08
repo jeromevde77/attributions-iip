@@ -338,9 +338,10 @@ try {
     CREATE TABLE IF NOT EXISTS nomination_definitive (
       id              INTEGER PRIMARY KEY AUTOINCREMENT,
       professeur_id   INTEGER NOT NULL REFERENCES professeur(id) ON DELETE CASCADE,
-      code_fwb        TEXT NOT NULL,            -- code FWB du dossier pédagogique (clé métier)
-      ue_num          INTEGER,                  -- UE de la nomination
+      code_fwb        TEXT NOT NULL,            -- code FWB du dossier pédagogique (clé métier) ou 'INCONNU'
+      ue_num          INTEGER,                  -- UE de la nomination (NULL si UE absente de la base)
       cours_code      TEXT,                     -- cours nommé (peut être NULL si toute l'UE)
+      cours_libre     TEXT,                     -- nom de cours saisi librement (UE absente de la base)
       periodes        REAL NOT NULL DEFAULT 0,  -- nombre de périodes définitives
       type_charge     TEXT,                     -- 'CT' | 'PP' | 'CG'
       actif           INTEGER NOT NULL DEFAULT 1,
@@ -370,6 +371,14 @@ try {
     if (!cols.find(c => c.name === 'statut_nomination')) {
       db.exec(`ALTER TABLE professeur ADD COLUMN statut_nomination TEXT DEFAULT 'temporaire'`);
       console.log('[migration] professeur.statut_nomination ajouté');
+    }
+  }
+  // Migration : cours_libre sur nomination_definitive (UE absente de la base)
+  {
+    const cols = db.prepare('PRAGMA table_info(nomination_definitive)').all();
+    if (cols.length && !cols.find(c => c.name === 'cours_libre')) {
+      db.exec(`ALTER TABLE nomination_definitive ADD COLUMN cours_libre TEXT`);
+      console.log('[migration] nomination_definitive.cours_libre ajouté');
     }
   }
 

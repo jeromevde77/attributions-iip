@@ -25,20 +25,22 @@ r.get('/prof/:id', authRequired, (req, res) => {
 
 // POST /nominations — créer une nomination
 r.post('/', authRequired, roleRequired('admin', 'editeur'), (req, res) => {
-  const { professeur_id, code_fwb, ue_num, cours_code, periodes, type_charge, notes } = req.body;
-  if (!professeur_id || !code_fwb) return res.status(400).json({ error: 'professeur_id et code_fwb requis' });
+  const { professeur_id, code_fwb, ue_num, cours_code, cours_libre, periodes, type_charge, notes } = req.body;
+  if (!professeur_id) return res.status(400).json({ error: 'professeur_id requis' });
+  // Une nomination est valide soit avec un code FWB + UE, soit en mode "UE absente" (cours_libre)
+  const codeFinal = code_fwb || 'INCONNU';
+  if (!ue_num && !cours_libre) return res.status(400).json({ error: 'UE ou nom de cours requis' });
   const info = db.prepare(`
-    INSERT INTO nomination_definitive (professeur_id, code_fwb, ue_num, cours_code, periodes, type_charge, notes)
-    VALUES (?,?,?,?,?,?,?)
-  `).run(professeur_id, code_fwb, ue_num || null, cours_code || null, periodes || 0, type_charge || null, notes || null);
-  // Passer le prof en "définitif" s'il ne l'est pas déjà
+    INSERT INTO nomination_definitive (professeur_id, code_fwb, ue_num, cours_code, cours_libre, periodes, type_charge, notes)
+    VALUES (?,?,?,?,?,?,?,?)
+  `).run(professeur_id, codeFinal, ue_num || null, cours_code || null, cours_libre || null, periodes || 0, type_charge || null, notes || null);
   db.prepare(`UPDATE professeur SET statut_nomination = 'definitif' WHERE id = ? AND (statut_nomination IS NULL OR statut_nomination != 'definitif')`).run(professeur_id);
   res.json({ id: info.lastInsertRowid });
 });
 
 // PATCH /nominations/:id
 r.patch('/:id', authRequired, roleRequired('admin', 'editeur'), (req, res) => {
-  const allowed = ['code_fwb', 'ue_num', 'cours_code', 'periodes', 'type_charge', 'actif', 'notes'];
+  const allowed = ['code_fwb', 'ue_num', 'cours_code', 'cours_libre', 'periodes', 'type_charge', 'actif', 'notes'];
   const updates = [], params = { id: req.params.id };
   for (const k of allowed) if (k in req.body) { updates.push(`${k} = @${k}`); params[k] = req.body[k]; }
   if (!updates.length) return res.status(400).json({ error: 'Rien à modifier' });

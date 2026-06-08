@@ -15,7 +15,7 @@ export default function NominationsPanel({ profId }) {
   const [noms, setNoms] = useState([]);
   const [ues, setUes] = useState([]);
   const [adding, setAdding] = useState(false);
-  const [form, setForm] = useState({ code_fwb: '', ue_num: '', cours_code: '', periodes: '', type_charge: 'CT' });
+  const [form, setForm] = useState({ code_fwb: '', ue_num: '', cours_code: '', cours_libre: '', periodes: '', type_charge: 'CT', ueAbsente: false });
   const [coursListe, setCoursListe] = useState([]);
   const [rtPour, setRtPour] = useState(null); // nomination en cours de remise au travail
 
@@ -39,19 +39,22 @@ export default function NominationsPanel({ profId }) {
   }, [form.ue_num, annee]);
 
   async function ajouter() {
-    if (!form.code_fwb || !form.ue_num) { alert('Code FWB et UE requis'); return; }
+    if (form.ueAbsente) {
+      if (!form.cours_libre || !form.periodes) { alert('Nom de cours et périodes requis'); return; }
+    } else if (!form.code_fwb || !form.ue_num) { alert('Code FWB et UE requis'); return; }
     await authFetch('/api/nominations', {
       method: 'POST',
       body: JSON.stringify({
         professeur_id: profId,
-        code_fwb: form.code_fwb,
-        ue_num: Number(form.ue_num),
-        cours_code: form.cours_code || null,
+        code_fwb: form.ueAbsente ? 'INCONNU' : form.code_fwb,
+        ue_num: form.ueAbsente ? null : Number(form.ue_num),
+        cours_code: form.ueAbsente ? null : (form.cours_code || null),
+        cours_libre: form.ueAbsente ? form.cours_libre : null,
         periodes: Number(form.periodes) || 0,
         type_charge: form.type_charge,
       }),
     });
-    setForm({ code_fwb: '', ue_num: '', cours_code: '', periodes: '', type_charge: 'CT' });
+    setForm({ code_fwb: '', ue_num: '', cours_code: '', cours_libre: '', periodes: '', type_charge: 'CT', ueAbsente: false });
     setAdding(false);
     charger();
   }
@@ -81,10 +84,12 @@ export default function NominationsPanel({ profId }) {
               <span title="Nomination — attribution verrouillée">🔒</span>
               <div className="flex-1 min-w-0">
                 <div className="font-medium text-gray-800 truncate">
-                  UE {n.ue_num} {n.ue_nom ? `— ${n.ue_nom}` : ''}{n.cours_code ? ` · cours ${n.cours_code}` : ''}
+                  {n.ue_num
+                    ? <>UE {n.ue_num} {n.ue_nom ? `— ${n.ue_nom}` : ''}{n.cours_code ? ` · cours ${n.cours_code}` : ''}</>
+                    : <>{n.cours_libre || 'Cours (UE absente)'}</>}
                 </div>
                 <div className="text-[11px] text-gray-500">
-                  Code FWB <span className="font-mono">{n.code_fwb}</span> · {n.periodes} pér. · {n.type_charge}
+                  Code FWB <span className="font-mono">{n.code_fwb === 'INCONNU' ? 'Code inconnu' : n.code_fwb}</span> · {n.periodes} pér. · {n.type_charge}
                 </div>
               </div>
               <button onClick={() => setRtPour(n)} title="Remise au travail (UE non organisée)"
@@ -106,45 +111,76 @@ export default function NominationsPanel({ profId }) {
       {/* Formulaire d'ajout */}
       {adding ? (
         <div className="border border-iip-gold/40 bg-iip-gold/5 rounded-lg p-3 space-y-2">
-          <div className="grid grid-cols-2 gap-2">
-            <label className="block">
-              <span className="text-[11px] text-gray-500">UE</span>
-              <select value={form.ue_num} onChange={e => setForm(f => ({ ...f, ue_num: e.target.value, cours_code: '', code_fwb: '' }))}
-                className="w-full border border-gray-300 rounded px-2 py-1.5 text-sm">
-                <option value="">— UE —</option>
-                {ues.map(u => <option key={u.ue_num} value={u.ue_num}>UE {u.ue_num} — {u.ue_nom}</option>)}
-              </select>
-            </label>
-            <label className="block">
-              <span className="text-[11px] text-gray-500">Cours (optionnel)</span>
-              <select value={form.cours_code} onChange={e => setForm(f => ({ ...f, cours_code: e.target.value }))}
-                className="w-full border border-gray-300 rounded px-2 py-1.5 text-sm">
-                <option value="">— toute l'UE —</option>
-                {coursListe.map(c => <option key={c.cours_code} value={c.cours_code}>{c.cours_code} — {c.cours_nom}</option>)}
-              </select>
-            </label>
-          </div>
-          <div className="grid grid-cols-3 gap-2">
-            <label className="block">
-              <span className="text-[11px] text-gray-500">Code FWB</span>
-              <input value={form.code_fwb} onChange={e => setForm(f => ({ ...f, code_fwb: e.target.value }))}
-                className="w-full border border-gray-300 rounded px-2 py-1.5 text-sm font-mono" placeholder="ex. 946201U34D1" />
-            </label>
-            <label className="block">
-              <span className="text-[11px] text-gray-500">Périodes</span>
-              <input type="number" value={form.periodes} onChange={e => setForm(f => ({ ...f, periodes: e.target.value }))}
-                className="w-full border border-gray-300 rounded px-2 py-1.5 text-sm" />
-            </label>
-            <label className="block">
-              <span className="text-[11px] text-gray-500">Type</span>
-              <select value={form.type_charge} onChange={e => setForm(f => ({ ...f, type_charge: e.target.value }))}
-                className="w-full border border-gray-300 rounded px-2 py-1.5 text-sm">
-                <option value="CT">CT</option>
-                <option value="PP">PP</option>
-                <option value="CG">CG</option>
-              </select>
-            </label>
-          </div>
+          <label className="flex items-center gap-2 text-[12px] text-gray-600">
+            <input type="checkbox" checked={form.ueAbsente} onChange={e => setForm(f => ({ ...f, ueAbsente: e.target.checked }))} />
+            UE absente de la base de données (ancienne UE — code inconnu)
+          </label>
+          {form.ueAbsente ? (
+            <>
+              <div className="bg-amber-50 text-amber-700 text-[11px] rounded px-2 py-1.5">
+                Code FWB : <strong>Code inconnu</strong> — saisissez librement le cours et le nombre de périodes.
+              </div>
+              <div className="grid grid-cols-3 gap-2">
+                <label className="block col-span-1">
+                  <span className="text-[11px] text-gray-500">Nom du cours</span>
+                  <input value={form.cours_libre} onChange={e => setForm(f => ({ ...f, cours_libre: e.target.value }))}
+                    className="w-full border border-gray-300 rounded px-2 py-1.5 text-sm" placeholder="ex. Anatomie (ancienne UE)" />
+                </label>
+                <label className="block">
+                  <span className="text-[11px] text-gray-500">Périodes</span>
+                  <input type="number" value={form.periodes} onChange={e => setForm(f => ({ ...f, periodes: e.target.value }))}
+                    className="w-full border border-gray-300 rounded px-2 py-1.5 text-sm" />
+                </label>
+                <label className="block">
+                  <span className="text-[11px] text-gray-500">Type</span>
+                  <select value={form.type_charge} onChange={e => setForm(f => ({ ...f, type_charge: e.target.value }))}
+                    className="w-full border border-gray-300 rounded px-2 py-1.5 text-sm">
+                    <option value="CT">CT</option><option value="PP">PP</option><option value="CG">CG</option>
+                  </select>
+                </label>
+              </div>
+            </>
+          ) : (
+            <>
+              <div className="grid grid-cols-2 gap-2">
+                <label className="block">
+                  <span className="text-[11px] text-gray-500">UE</span>
+                  <select value={form.ue_num} onChange={e => setForm(f => ({ ...f, ue_num: e.target.value, cours_code: '', code_fwb: '' }))}
+                    className="w-full border border-gray-300 rounded px-2 py-1.5 text-sm">
+                    <option value="">— UE —</option>
+                    {ues.map(u => <option key={u.ue_num} value={u.ue_num}>UE {u.ue_num} — {u.ue_nom}</option>)}
+                  </select>
+                </label>
+                <label className="block">
+                  <span className="text-[11px] text-gray-500">Cours (optionnel)</span>
+                  <select value={form.cours_code} onChange={e => setForm(f => ({ ...f, cours_code: e.target.value }))}
+                    className="w-full border border-gray-300 rounded px-2 py-1.5 text-sm">
+                    <option value="">— toute l'UE —</option>
+                    {coursListe.map(c => <option key={c.cours_code} value={c.cours_code}>{c.cours_code} — {c.cours_nom}</option>)}
+                  </select>
+                </label>
+              </div>
+              <div className="grid grid-cols-3 gap-2">
+                <label className="block">
+                  <span className="text-[11px] text-gray-500">Code FWB</span>
+                  <input value={form.code_fwb} onChange={e => setForm(f => ({ ...f, code_fwb: e.target.value }))}
+                    className="w-full border border-gray-300 rounded px-2 py-1.5 text-sm font-mono" placeholder="ex. 946201U34D1" />
+                </label>
+                <label className="block">
+                  <span className="text-[11px] text-gray-500">Périodes</span>
+                  <input type="number" value={form.periodes} onChange={e => setForm(f => ({ ...f, periodes: e.target.value }))}
+                    className="w-full border border-gray-300 rounded px-2 py-1.5 text-sm" />
+                </label>
+                <label className="block">
+                  <span className="text-[11px] text-gray-500">Type</span>
+                  <select value={form.type_charge} onChange={e => setForm(f => ({ ...f, type_charge: e.target.value }))}
+                    className="w-full border border-gray-300 rounded px-2 py-1.5 text-sm">
+                    <option value="CT">CT</option><option value="PP">PP</option><option value="CG">CG</option>
+                  </select>
+                </label>
+              </div>
+            </>
+          )}
           <div className="flex justify-end gap-2">
             <button onClick={() => setAdding(false)} className="text-sm text-gray-500 px-3 py-1.5">Annuler</button>
             <button onClick={ajouter} className="bg-iip-gold hover:bg-iip-amber text-white text-sm px-4 py-1.5 rounded font-medium">Ajouter</button>
