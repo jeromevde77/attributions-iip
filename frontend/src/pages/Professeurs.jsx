@@ -518,7 +518,7 @@ export default function Professeurs() {
       });
     }
     return arr;
-  }, [profs, sortBy]);
+  }, [profs, sortBy, search]);
 
   async function handleDelete(p) {
     if (!confirm(`Supprimer ${p.nom_prenom} ? Cette action est irréversible.`)) return;
