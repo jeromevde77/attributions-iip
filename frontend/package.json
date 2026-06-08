@@ -9,6 +9,7 @@
     "preview": "vite preview --host 0.0.0.0"
   },
   "dependencies": {
+    "@tabler/icons-react": "^3.44.0",
     "@tiptap/extension-character-count": "^3.23.6",
     "@tiptap/extension-color": "^3.23.6",
     "@tiptap/extension-highlight": "^3.24.0",
