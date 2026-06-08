@@ -136,66 +136,58 @@ r.delete('/rt/:id', authRequired, roleRequired('admin'), (req, res) => {
   res.json({ ok: true });
 });
 
-// GET /nominations/pertes-charge?annee= — profs définitifs en perte de charge
-// Une nomination est "en perte" si aucune attribution active ne lui correspond
-// (cours/UE plus organisé ou prof pas dedans) ET qu'aucune RT ne couvre la charge.
+// GET /nominations/pertes-charge?annee= — profs définitifs dont l'ETP nommé n'est pas couvert
+// Calcul GLOBAL en ETP par prof : ETP nommé total vs ETP couvert (cours nommés + lignes RT).
+// CT/PP interchangeables (CT/800, PP/1000).
 r.get('/pertes-charge', authRequired, (req, res) => {
   const { annee } = req.query;
+  const etp = (per, type) => (type === 'PP' ? (per || 0) / 1000 : (per || 0) / 800);
+
   const noms = db.prepare(`
-    SELECT n.*, p.nom AS prof_nom, p.prenom AS prof_prenom, u.ue_nom
+    SELECT n.*, p.nom AS prof_nom, p.prenom AS prof_prenom
     FROM nomination_definitive n
     JOIN professeur p ON p.id = n.professeur_id
-    LEFT JOIN ue u ON u.ue_num = n.ue_num
     WHERE n.actif = 1
   `).all();
 
-  const pertes = [];
+  // Regrouper les nominations par prof
+  const parProf = {};
   for (const n of noms) {
-    // Existe-t-il une attribution active correspondante (même prof + même cours, ou UE entière) ?
-    // On compte le TOTAL de la ligne (périodes + autonomie), puisque la couverture = toute la ligne.
-    let attr;
-    if (n.cours_code) {
-      attr = db.prepare(`
-        SELECT COALESCE(SUM(COALESCE(periodes_attribuees,0) + COALESCE(autonomie_attribuee,0)),0) AS per
-        FROM attribution
-        WHERE annee_scolaire = ? AND professeur_id = ? AND code_cours = ? AND COALESCE(est_rt,0)=0
-      `).get(annee, n.professeur_id, n.cours_code);
-    } else if (n.ue_num) {
-      attr = db.prepare(`
-        SELECT COALESCE(SUM(COALESCE(periodes_attribuees,0) + COALESCE(autonomie_attribuee,0)),0) AS per
-        FROM attribution
-        WHERE annee_scolaire = ? AND professeur_id = ? AND ue_num = ? AND COALESCE(est_rt,0)=0
-      `).get(annee, n.professeur_id, n.ue_num);
-    } else {
-      attr = { per: 0 }; // nomination "code inconnu" (UE absente) : jamais dans les attributions
-    }
-    const perAttribuee = attr?.per || 0;
+    (parProf[n.professeur_id] ||= { prof: `${n.prof_prenom || ''} ${n.prof_nom}`.trim(), noms: [] }).noms.push(n);
+  }
 
-    // RT : attributions cochées comme remise au travail en compensation de cette nomination
-    // + RT historiques de la table remise_travail (compat). On compte le total (pér + autonomie).
-    const rtAttr = db.prepare(`
-      SELECT COALESCE(SUM(COALESCE(periodes_attribuees,0)+COALESCE(autonomie_attribuee,0)),0) AS per
+  const pertes = [];
+  for (const [profId, info] of Object.entries(parProf)) {
+    const attributions = db.prepare(`
+      SELECT code_cours, ue_num, type_cours, est_rt,
+             COALESCE(periodes_attribuees,0)+COALESCE(autonomie_attribuee,0) AS total
       FROM attribution
-      WHERE annee_scolaire = ? AND professeur_id = ? AND est_rt = 1 AND rt_nomination_id = ?
-    `).get(annee, n.professeur_id, n.id);
-    const perRT = rtAttr?.per || 0;
+      WHERE annee_scolaire = ? AND professeur_id = ?
+    `).all(annee, profId);
 
-    // Perte de charge si la couverture directe + RT ne couvre pas les périodes nommées
-    const couvert = perAttribuee + perRT;
-    if (couvert < (n.periodes || 0)) {
+    const coursNommes = new Set(info.noms.filter(n => n.cours_code).map(n => n.cours_code));
+    const ueNommees = new Set(info.noms.filter(n => !n.cours_code && n.ue_num).map(n => n.ue_num));
+
+    let etpNomme = 0;
+    for (const n of info.noms) etpNomme += etp(n.periodes, n.type_charge);
+
+    let etpCouvert = 0;
+    for (const a of attributions) {
+      const e = etp(a.total, a.type_cours);
+      if (a.est_rt) etpCouvert += e;
+      else if (coursNommes.has(a.code_cours) || ueNommees.has(a.ue_num)) etpCouvert += e;
+    }
+
+    const manque = etpNomme - etpCouvert;
+    if (manque > 1e-9) {
       pertes.push({
-        nomination_id: n.id,
-        professeur_id: n.professeur_id,
-        prof: `${n.prof_prenom || ''} ${n.prof_nom}`.trim(),
-        code_fwb: n.code_fwb,
-        ue_num: n.ue_num,
-        ue_nom: n.ue_nom,
-        cours_code: n.cours_code,
-        cours_libre: n.cours_libre,
-        type_charge: n.type_charge,
-        periodes_nommees: n.periodes || 0,
-        periodes_couvertes: Math.round(couvert * 10) / 10,
-        perte: Math.round(((n.periodes || 0) - couvert) * 10) / 10,
+        professeur_id: Number(profId),
+        prof: info.prof,
+        etp_nomme: Math.round(etpNomme * 10000) / 10000,
+        etp_couvert: Math.round(etpCouvert * 10000) / 10000,
+        etp_manque: Math.round(manque * 10000) / 10000,
+        // équivalent en périodes CT pour lisibilité (manque × 800)
+        equiv_periodes_ct: Math.round(manque * 800),
       });
     }
   }
@@ -301,11 +293,13 @@ r.post('/appliquer', authRequired, roleRequired('admin', 'editeur'), (req, res) 
   res.json({ ok: true, places: places.length, alertes });
 });
 
-// GET /nominations/prof/:id/situation?annee= — tableau de bord ETD d'un prof
-// Renvoie : nominations + leur couverture, et la liste de ses attributions (avec flag RT).
+// GET /nominations/prof/:id/situation?annee= — tableau de bord ETD d'un prof (calcul ETP global)
+// L'ETP nommé total doit être couvert par l'ETP des cours nommés + des lignes cochées RT.
+// CT et PP sont interchangeables (équivalence en ETP : CT/800, PP/1000).
 r.get('/prof/:id/situation', authRequired, (req, res) => {
   const { annee } = req.query;
   const profId = req.params.id;
+  const etp = (per, type) => (type === 'PP' ? (per || 0) / 1000 : (per || 0) / 800);
 
   const noms = db.prepare(`
     SELECT n.*, u.ue_nom FROM nomination_definitive n
@@ -314,7 +308,6 @@ r.get('/prof/:id/situation', authRequired, (req, res) => {
     ORDER BY n.code_fwb
   `).all(profId);
 
-  // Attributions réelles du prof pour l'année
   const attributions = db.prepare(`
     SELECT a.id, a.ue_num, a.code_cours, a.section, a.type_cours,
            a.periodes_attribuees, a.autonomie_attribuee,
@@ -327,41 +320,49 @@ r.get('/prof/:id/situation', authRequired, (req, res) => {
     ORDER BY a.ue_num, a.code_cours
   `).all(annee, profId);
 
-  // Couverture par nomination
-  const situation = noms.map(n => {
-    // Couverture "directe" = total des lignes sur le cours nommé (ou l'UE si pas de cours précis)
-    let directe = 0;
-    for (const a of attributions) {
-      if (a.est_rt) continue; // les RT sont comptées à part
-      if (n.cours_code) { if (a.code_cours === n.cours_code) directe += a.total; }
-      else if (n.ue_num) { if (a.ue_num === n.ue_num) directe += a.total; }
-    }
-    // Couverture RT = total des lignes cochées RT en compensation de cette nomination
-    let parRT = 0;
-    for (const a of attributions) {
-      if (a.est_rt && a.rt_nomination_id === n.id) parRT += a.total;
-    }
-    const couvert = Math.round((directe + parRT) * 10) / 10;
-    const reste = Math.round(((n.periodes || 0) - couvert) * 10) / 10;
-    return {
-      nomination_id: n.id, code_fwb: n.code_fwb, ue_num: n.ue_num, ue_nom: n.ue_nom,
-      cours_code: n.cours_code, cours_libre: n.cours_libre, type_charge: n.type_charge,
-      periodes_nommees: n.periodes || 0,
-      couvert_direct: Math.round(directe * 10) / 10,
-      couvert_rt: Math.round(parRT * 10) / 10,
-      couvert, reste: reste > 0 ? reste : 0,
-    };
-  });
+  // Liste des cours nommés (pour repérer la couverture directe)
+  const coursNommes = new Set(noms.filter(n => n.cours_code).map(n => n.cours_code));
+  const ueNommees = new Set(noms.filter(n => !n.cours_code && n.ue_num).map(n => n.ue_num));
 
-  res.json({ situation, attributions });
+  // ── Bilan ETP global ──
+  let etpNomme = 0;
+  for (const n of noms) etpNomme += etp(n.periodes, n.type_charge);
+
+  let etpDirect = 0, etpRT = 0;
+  for (const a of attributions) {
+    const e = etp(a.total, a.type_cours);
+    if (a.est_rt) { etpRT += e; continue; }
+    // couverture directe : la ligne est sur un cours (ou UE) nommé
+    if (coursNommes.has(a.code_cours) || ueNommees.has(a.ue_num)) etpDirect += e;
+  }
+  const etpCouvert = etpDirect + etpRT;
+  const r4 = x => Math.round(x * 10000) / 10000;
+  const bilan = {
+    etp_nomme: r4(etpNomme),
+    etp_direct: r4(etpDirect),
+    etp_rt: r4(etpRT),
+    etp_couvert: r4(etpCouvert),
+    etp_manque: r4(Math.max(0, etpNomme - etpCouvert)),
+    couvert: etpCouvert + 1e-9 >= etpNomme,
+  };
+
+  // Détail par nomination (informatif : nommé + ETP de cette nomination)
+  const situation = noms.map(n => ({
+    nomination_id: n.id, code_fwb: n.code_fwb, ue_num: n.ue_num, ue_nom: n.ue_nom,
+    cours_code: n.cours_code, cours_libre: n.cours_libre, type_charge: n.type_charge,
+    periodes_nommees: n.periodes || 0,
+    etp: r4(etp(n.periodes, n.type_charge)),
+  }));
+
+  res.json({ situation, attributions, bilan });
 });
 
 // PATCH /nominations/attribution/:attrId/rt — coche/décoche une attribution comme RT
-// Body : { est_rt: 0|1, nomination_id }
+// Calcul global ETP : pas de rattachement à une nomination précise (Option 1).
 r.patch('/attribution/:attrId/rt', authRequired, roleRequired('admin', 'editeur'), (req, res) => {
-  const { est_rt, nomination_id } = req.body;
-  db.prepare(`UPDATE attribution SET est_rt = ?, rt_nomination_id = ? WHERE id = ?`)
-    .run(est_rt ? 1 : 0, est_rt ? (nomination_id || null) : null, req.params.attrId);
+  const { est_rt } = req.body;
+  db.prepare(`UPDATE attribution SET est_rt = ?, rt_nomination_id = NULL WHERE id = ?`)
+    .run(est_rt ? 1 : 0, req.params.attrId);
   res.json({ ok: true });
 });
 

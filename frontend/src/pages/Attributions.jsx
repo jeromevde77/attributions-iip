@@ -1350,26 +1350,22 @@ export default function Attributions() {
         </div>
       )}
 
-      {/* Bandeau : profs définitifs en perte de charge (en bas) */}
+      {/* Bandeau : profs définitifs en perte de charge (ETP global, en bas) */}
       {pertesCharge.length > 0 && (
         <div className="mt-4 bg-red-50 border border-red-200 rounded-lg p-3">
           <div className="flex items-center gap-2 text-red-700 font-medium text-sm mb-1.5">
             ⚠ {pertesCharge.length} engagement(s) à titre définitif en perte de charge
           </div>
           <p className="text-[12px] text-red-600 mb-2">
-            Ces personnes nommées n'ont pas (ou plus) d'attribution couvrant leur charge — le cours n'est plus organisé ou elles n'y figurent pas. Une remise au travail (RT) est nécessaire.
+            L'équivalent ETP de l'engagement définitif n'est pas couvert. Cochez des attributions comme remise au travail (RT) dans la fiche du prof, ou attribuez-leur de nouveaux cours.
           </p>
           <div className="space-y-1">
             {pertesCharge.map(p => (
-              <div key={p.nomination_id} className="flex items-center justify-between bg-white rounded px-2.5 py-1.5 text-[12px]">
-                <span className="text-gray-700">
-                  <strong>{p.prof}</strong> — {p.ue_num ? `UE ${p.ue_num}${p.ue_nom ? ' '+p.ue_nom : ''}` : (p.cours_libre || 'cours')}
-                  {p.cours_code ? ` · ${p.cours_code}` : ''}
-                  <span className="text-gray-400"> · FWB {p.code_fwb === 'INCONNU' ? 'inconnu' : p.code_fwb}</span>
-                </span>
+              <div key={p.professeur_id} className="flex items-center justify-between bg-white rounded px-2.5 py-1.5 text-[12px]">
+                <span className="text-gray-700"><strong>{p.prof}</strong></span>
                 <span className="text-red-600 font-semibold whitespace-nowrap ml-2">
-                  perte {p.perte} pér. {p.type_charge || ''}
-                  {p.periodes_couvertes > 0 && <span className="text-gray-400 font-normal"> ({p.periodes_couvertes}/{p.periodes_nommees} couvert)</span>}
+                  manque {p.etp_manque} ETP (~{p.equiv_periodes_ct} pér. CT)
+                  <span className="text-gray-400 font-normal"> · nommé {p.etp_nomme} / couvert {p.etp_couvert}</span>
                 </span>
               </div>
             ))}
