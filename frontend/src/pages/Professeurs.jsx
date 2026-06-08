@@ -90,6 +90,7 @@ function DetailModal({ profId, onClose, onEdit, onFiche }) {
   const navigate = useNavigate();
   const u = getUser();
   const [editCours, setEditCours] = useState(null); // { section, code_cours }
+  const [printMenu, setPrintMenu] = useState(false);
   useEffect(() => {
     api.professeur(profId, getAnnee()).then(setDetail).catch(e => alert(e.message));
   }, [profId]);
@@ -149,18 +150,36 @@ function DetailModal({ profId, onClose, onEdit, onFiche }) {
             </div>
           </div>
           <div className="flex gap-2 flex-shrink-0 flex-wrap justify-end">
-            <button onClick={() => onFiche && onFiche(profId, null)}
-              className="bg-gray-100 hover:bg-gray-200 text-gray-700 text-sm px-3 py-1.5 rounded" title="Fiche globale (IIP + HELB)">
-              📋 Globale
-            </button>
-            <button onClick={() => onFiche && onFiche(profId, 'IIP')}
-              className="bg-blue-50 hover:bg-blue-100 text-blue-700 text-sm px-3 py-1.5 rounded" title="Fiche contrat IIP">
-              🟦 IIP
-            </button>
-            <button onClick={() => onFiche && onFiche(profId, 'HELB')}
-              className="bg-purple-50 hover:bg-purple-100 text-purple-700 text-sm px-3 py-1.5 rounded" title="Fiche contrat HELB">
-              🟪 HELB
-            </button>
+            <div className="relative">
+              <button onClick={() => setPrintMenu(v => !v)}
+                className="flex items-center gap-1.5 bg-gray-100 hover:bg-gray-200 text-gray-700 text-sm px-3 py-1.5 rounded" title="Fiche d'attributions">
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg>
+                Fiche
+                <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+              </button>
+              {printMenu && (
+                <>
+                  <div className="fixed inset-0 z-40" onClick={() => setPrintMenu(false)} />
+                  <div className="absolute z-50 top-full right-0 mt-1 bg-white border border-gray-200 rounded-lg shadow-xl py-1.5 px-1.5 w-40 flex flex-col gap-1">
+                    <button onClick={() => { onFiche && onFiche(profId, null); setPrintMenu(false); }}
+                      className="text-left px-2 py-1.5 rounded hover:bg-gray-50 text-sm flex items-center gap-2">
+                      <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-gray-700 text-white">Global</span>
+                      <span className="text-gray-600 text-xs">IIP + HELB</span>
+                    </button>
+                    <button onClick={() => { onFiche && onFiche(profId, 'IIP'); setPrintMenu(false); }}
+                      className="text-left px-2 py-1.5 rounded hover:bg-gray-50 text-sm flex items-center gap-2">
+                      <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-blue-100 text-blue-700">IIP</span>
+                      <span className="text-gray-600 text-xs">Contrat IIP</span>
+                    </button>
+                    <button onClick={() => { onFiche && onFiche(profId, 'HELB'); setPrintMenu(false); }}
+                      className="text-left px-2 py-1.5 rounded hover:bg-gray-50 text-sm flex items-center gap-2">
+                      <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-purple-100 text-purple-700">HELB</span>
+                      <span className="text-gray-600 text-xs">Contrat HELB</span>
+                    </button>
+                  </div>
+                </>
+              )}
+            </div>
             {u?.role === 'admin' && (
               <button onClick={() => setShowContratModal(true)}
                 className="bg-green-700 hover:opacity-90 text-white text-sm px-3 py-1.5 rounded">
@@ -906,16 +925,30 @@ export default function Professeurs() {
                   <td className="text-center">
                     <div className="flex items-center justify-center gap-2 relative">
                       <button onClick={() => setFicheMenu(ficheMenu === p.id ? null : p.id)}
-                        className="text-gray-400 hover:text-iip-mauve text-sm" title="Fiche d'attributions">📋</button>
+                        className="text-gray-400 hover:text-iip-mauve" title="Fiche d'attributions">
+                        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg>
+                      </button>
                       {ficheMenu === p.id && (
-                        <div className="absolute z-50 top-full right-0 mt-1 bg-white border border-gray-200 rounded-lg shadow-xl py-1 w-44" onClick={e => e.stopPropagation()}>
-                          <button onClick={() => { genererFicheAttributions(p.id, null); setFicheMenu(null); }}
-                            className="w-full text-left px-3 py-1.5 text-sm hover:bg-iip-gold/10">📋 Fiche globale</button>
-                          <button onClick={() => { genererFicheAttributions(p.id, 'IIP'); setFicheMenu(null); }}
-                            className="w-full text-left px-3 py-1.5 text-sm hover:bg-iip-gold/10">🟦 Fiche IIP</button>
-                          <button onClick={() => { genererFicheAttributions(p.id, 'HELB'); setFicheMenu(null); }}
-                            className="w-full text-left px-3 py-1.5 text-sm hover:bg-purple-50 text-purple-700">🟪 Fiche HELB</button>
-                        </div>
+                        <>
+                          <div className="fixed inset-0 z-40" onClick={() => setFicheMenu(null)} />
+                          <div className="absolute z-50 top-full right-0 mt-1 bg-white border border-gray-200 rounded-lg shadow-xl py-1.5 px-1.5 w-40 flex flex-col gap-1" onClick={e => e.stopPropagation()}>
+                            <button onClick={() => { genererFicheAttributions(p.id, null); setFicheMenu(null); }}
+                              className="text-left px-2 py-1.5 rounded hover:bg-gray-50 text-sm flex items-center gap-2">
+                              <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-gray-700 text-white">Global</span>
+                              <span className="text-gray-600 text-xs">IIP + HELB</span>
+                            </button>
+                            <button onClick={() => { genererFicheAttributions(p.id, 'IIP'); setFicheMenu(null); }}
+                              className="text-left px-2 py-1.5 rounded hover:bg-gray-50 text-sm flex items-center gap-2">
+                              <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-blue-100 text-blue-700">IIP</span>
+                              <span className="text-gray-600 text-xs">Contrat IIP</span>
+                            </button>
+                            <button onClick={() => { genererFicheAttributions(p.id, 'HELB'); setFicheMenu(null); }}
+                              className="text-left px-2 py-1.5 rounded hover:bg-gray-50 text-sm flex items-center gap-2">
+                              <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-purple-100 text-purple-700">HELB</span>
+                              <span className="text-gray-600 text-xs">Contrat HELB</span>
+                            </button>
+                          </div>
+                        </>
                       )}
                       {canEdit && (
                         <button onClick={() => setEditProf(p)}
