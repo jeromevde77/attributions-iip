@@ -361,6 +361,7 @@ export default function Professeurs() {
   const [deleting, setDeleting] = useState(null);
   const [selection, setSelection] = useState(new Set());
   const [printing, setPrinting] = useState(false);
+  const [printSelMenu, setPrintSelMenu] = useState(false);
   const [ficheHtml, setFicheHtml] = useState(null);
   const [ficheMenu, setFicheMenu] = useState(null);
 
@@ -382,7 +383,7 @@ export default function Professeurs() {
     return { nature, natureLbl: nature === 'TP' ? 'Trav. P. (TP)' : 'Cours (TC)', div, h, charge };
   }
 
-  function genererFicheHELB(prof, attributions, annee) {
+  function genererFicheHELB(prof, attributions, annee, returnOnly = false) {
     const fmtH = n => n != null ? (Math.round(n * 10) / 10) : 0;
     const S  = 'padding:2px 6px;font-size:11px;';
     const SR = S + 'text-align:right;';
@@ -473,11 +474,12 @@ export default function Professeurs() {
         </div>
       </div>
       </body></html>`;
+    if (returnOnly) return html;
     setFicheHtml({ html, nom: nomDoc('Fiche_HELB', prof.nom, prof.prenom, annee) });
   }
 
   // Fiche globale : bloc IIP (périodes) + bloc HELB (heures) + rectangle récap combiné
-  function genererFicheGlobale(prof, attributions, nominations, bilan_nomination, annee) {
+  function genererFicheGlobale(prof, attributions, nominations, bilan_nomination, annee, returnOnly = false) {
     const fmt = n => n != null ? String(n) : '0';
     const fmtH = n => n != null ? (Math.round(n * 10) / 10) : 0;
     const S  = 'padding:2px 6px;font-size:11px;';
@@ -591,10 +593,11 @@ export default function Professeurs() {
         </div>
       </div>
       </body></html>`;
+    if (returnOnly) return html;
     setFicheHtml({ html, nom: nomDoc('Fiche_globale', prof.nom, prof.prenom, annee) });
   }
 
-  async function genererFicheAttributions(profId, contratFiltre = null) {
+  async function genererFicheAttributions(profId, contratFiltre = null, returnOnly = false) {
     const annee = getAnnee();
     const tok = localStorage.getItem('token');
     const d = await fetch(`/api/ref/professeurs/${profId}/fiche-attributions?annee=${encodeURIComponent(annee)}`,
@@ -604,8 +607,8 @@ export default function Professeurs() {
     const { prof, nominations, bilan_nomination, etp } = d;
     let attributions = d.attributions;
     if (contratFiltre) attributions = attributions.filter(a => (a.contrat_mdp || 'IIP') === contratFiltre);
-    if (contratFiltre === 'HELB') { genererFicheHELB(prof, attributions, annee); return; }
-    if (contratFiltre === null) { genererFicheGlobale(prof, attributions, nominations, bilan_nomination, annee); return; }
+    if (contratFiltre === 'HELB') { return genererFicheHELB(prof, attributions, annee, returnOnly); }
+    if (contratFiltre === null) { return genererFicheGlobale(prof, attributions, nominations, bilan_nomination, annee, returnOnly); }
 
     // Recalcul des totaux IIP sur les lignes filtrées (ou toutes si global)
     let tot_ct = 0, tot_pp = 0, tot_aut = 0;
@@ -739,6 +742,7 @@ export default function Professeurs() {
       </div>
       </body></html>`;
 
+    if (returnOnly) return html;
     setFicheHtml({ html, nom: nomDoc('Fiche_attr', prof.nom, prof.prenom, annee) });
   }
   const canEdit = me?.role === 'admin' || me?.role === 'editeur';
@@ -762,6 +766,38 @@ export default function Professeurs() {
   }
   function toggleSelectAll(ids) {
     setSelection(s => s.size === ids.length ? new Set() : new Set(ids));
+  }
+
+  // Impression groupée : toutes les fiches sélectionnées dans un seul document, type au choix
+  async function imprimerSelectionFiches(type) {
+    if (selection.size === 0) return;
+    setPrinting(true);
+    try {
+      const annee = getAnnee() || '';
+      const corps = [];
+      for (const profId of selection) {
+        let html;
+        if (type === 'HELB') html = await genererFicheAttributions(profId, 'HELB', true);
+        else if (type === 'GLOBAL') html = await genererFicheAttributions(profId, null, true);
+        else html = await genererFicheAttributions(profId, 'IIP', true);
+        if (!html) continue;
+        // Extraire le corps : du <body> jusqu'à </body>
+        const i1 = html.indexOf('<body>');
+        const i2 = html.lastIndexOf('</body>');
+        const corpsHtml = (i1 >= 0 && i2 > i1) ? html.slice(i1 + 6, i2) : html;
+        corps.push(`<div style="page-break-after:always">${corpsHtml}</div>`);
+      }
+      if (corps.length === 0) { alert('Aucune fiche à imprimer pour ce type.'); setPrinting(false); return; }
+      const doc = `<!DOCTYPE html><html><head><meta charset="utf-8"><style>
+        *{box-sizing:border-box;margin:0;padding:0;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+        body{font-family:'Segoe UI',Arial,sans-serif;font-size:11px;color:#111827}
+        table{width:100%;border-collapse:collapse}td,th{border-bottom:1px solid #e5e7eb}
+        @media print{@page{size:A4 landscape;margin:10mm}tr{page-break-inside:avoid}thead{display:table-header-group}}
+        </style></head><body>${corps.join('')}</body></html>`;
+      const label = type === 'GLOBAL' ? 'Globales' : type;
+      setFicheHtml({ html: doc, nom: `Fiches_${label}_${annee}_${selection.size}profs` });
+    } catch (e) { alert('Erreur : ' + e.message); }
+    finally { setPrinting(false); setPrintSelMenu(false); }
   }
 
   async function imprimerAttributions() {
@@ -852,10 +888,30 @@ export default function Professeurs() {
             )}
           </div>
           {selection.size > 0 && (
-            <button onClick={imprimerAttributions} disabled={printing}
-              className="bg-iip-mauve hover:opacity-90 disabled:opacity-50 text-white text-sm px-3 py-1.5 rounded font-medium">
-              {printing ? 'Préparation…' : <span className="inline-flex items-center gap-1.5"><IconPrinter size={15}/>Imprimer les attributions ({selection.size})</span>}
-            </button>
+            <div className="relative">
+              <button onClick={() => setPrintSelMenu(v => !v)} disabled={printing}
+                className="bg-iip-mauve hover:opacity-90 disabled:opacity-50 text-white text-sm px-3 py-1.5 rounded font-medium inline-flex items-center gap-1.5">
+                <IconPrinter size={15}/>{printing ? 'Préparation…' : `Imprimer (${selection.size})`}
+                <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+              </button>
+              {printSelMenu && (
+                <>
+                  <div className="fixed inset-0 z-40" onClick={() => setPrintSelMenu(false)} />
+                  <div className="absolute z-50 top-full right-0 mt-1 bg-white border border-gray-200 rounded-lg shadow-xl py-1.5 px-1.5 w-44 flex flex-col gap-1">
+                    <div className="text-[10px] text-gray-400 uppercase px-2 pt-0.5 pb-1">Type de fiche</div>
+                    <button onClick={() => imprimerSelectionFiches('GLOBAL')} className="text-left px-2 py-1.5 rounded hover:bg-gray-50 text-sm flex items-center gap-2">
+                      <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-gray-700 text-white">Global</span><span className="text-gray-600 text-xs">IIP + HELB</span>
+                    </button>
+                    <button onClick={() => imprimerSelectionFiches('IIP')} className="text-left px-2 py-1.5 rounded hover:bg-gray-50 text-sm flex items-center gap-2">
+                      <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-blue-100 text-blue-700">IIP</span><span className="text-gray-600 text-xs">Contrat IIP</span>
+                    </button>
+                    <button onClick={() => imprimerSelectionFiches('HELB')} className="text-left px-2 py-1.5 rounded hover:bg-gray-50 text-sm flex items-center gap-2">
+                      <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-purple-100 text-purple-700">HELB</span><span className="text-gray-600 text-xs">Contrat HELB</span>
+                    </button>
+                  </div>
+                </>
+              )}
+            </div>
           )}
           {canEdit && (
             <button onClick={() => setEditProf({ ...EMPTY })}
