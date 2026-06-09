@@ -416,7 +416,7 @@ export default function Professeurs() {
       return `
         <tr style="background:${i%2===0?'#fff':'#f9fafb'}">
           <td style="${S}color:#6b7280">${a.section}</td>
-          <td style="${S}color:#374151"><span style="display:inline-block;min-width:46px">UE ${a.ue_num}</span>${a.ue_niveau ? `<span style="background:#7c3aed;color:white;font-size:8px;padding:1px 4px;border-radius:3px">${a.ue_niveau === 'SUP' ? 'TL' : 'TC'}</span>` : ''}</td>
+          <td style="${S}color:#374151">UE ${a.ue_num}</td>
           <td style="${S}color:#374151">${a.cours_nom || a.code_cours || '—'}${a.activite_nom ? ` <em style="color:#9ca3af">(${a.activite_nom})</em>` : ''}${a.est_rt ? ` <span style="color:#ea580c;border:1px solid #ef4444;border-radius:3px;font-size:8px;padding:0 3px;font-weight:700">RT</span>` : ''}</td>
           <td style="${SR}font-weight:600;color:${nature==='TP'?'#00AACC':'#1B2B4B'}">${natureLbl}</td>
           <td style="${SR}color:#374151">${fmtH(h)} h</td>
@@ -515,7 +515,7 @@ export default function Professeurs() {
       return `
         <tr style="background:${i%2===0?'#fff':'#faf5ff'}">
           <td style="${S}color:#6b7280">${a.section}</td>
-          <td style="${S}color:#374151"><span style="display:inline-block;min-width:46px">UE ${a.ue_num}</span>${a.ue_niveau ? `<span style="background:#7c3aed;color:white;font-size:8px;padding:1px 4px;border-radius:3px">${a.ue_niveau === 'SUP' ? 'TL' : 'TC'}</span>` : ''}</td>
+          <td style="${S}color:#374151">UE ${a.ue_num}</td>
           <td style="${S}color:#374151">${a.cours_nom || a.code_cours || '—'}${a.activite_nom ? ` <em style="color:#9ca3af">(${a.activite_nom})</em>` : ''}${a.est_rt ? ` <span style="color:#ea580c;border:1px solid #ef4444;border-radius:3px;font-size:8px;padding:0 3px;font-weight:700">RT</span>` : ''}</td>
           <td style="${SR}font-weight:600;color:${c.nature==='TP'?'#00AACC':'#1B2B4B'}">${c.natureLbl}</td>
           <td style="${SR}color:#374151">${fmtH(c.h)} h</td>
