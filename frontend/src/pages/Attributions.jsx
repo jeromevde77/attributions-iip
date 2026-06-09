@@ -871,9 +871,9 @@ export default function Attributions() {
             const nat = row.helb_nature || 'CT';
             return <td key={c.key} style={sty} className="text-center">
               <button onClick={e=>{e.stopPropagation(); saveCell(row.id,'helb_nature', nat==='CT'?'TP':'CT');}}
-                title={nat==='CT' ? 'Cours théoriques (cliquer pour TP)' : 'Travaux pratiques (cliquer pour cours théoriques)'}
+                title={nat==='CT' ? 'Théorie (cliquer pour travaux pratiques)' : 'Travaux pratiques (cliquer pour théorie)'}
                 className={`text-[10px] font-bold px-1.5 py-0.5 rounded border ${nat==='TP' ? 'bg-cyan-50 text-cyan-700 border-cyan-300' : 'bg-indigo-50 text-indigo-700 border-indigo-300'}`}>
-                {nat}
+                {nat==='TP' ? 'TP' : 'TH'}
               </button>
             </td>;
           }
