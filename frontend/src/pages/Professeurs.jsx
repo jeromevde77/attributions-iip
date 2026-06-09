@@ -380,7 +380,7 @@ export default function Professeurs() {
     else div = nature === 'TP' ? 750 : 480; // MA, PI, ou défaut
     const h = a.heures || 0;
     const charge = div ? h / div : 0;
-    return { nature, natureLbl: nature === 'TP' ? 'Trav. P. (TP)' : 'Cours (TC)', div, h, charge };
+    return { nature, natureLbl: nature === 'TP' ? 'Trav. P. (TP)' : 'Théorie (TH)', div, h, charge };
   }
 
   function genererFicheHELB(prof, attributions, annee, returnOnly = false) {
@@ -409,7 +409,7 @@ export default function Professeurs() {
       const nature = natLigne === 'TP' ? 'TP'
                    : natLigne === 'CT' ? 'COURS'
                    : (a.helb_nature || (a.type_cours === 'PP' ? 'TP' : 'COURS'));
-      const natureLbl = nature === 'TP' ? 'Trav. P. (TP)' : 'Cours (TC)';
+      const natureLbl = nature === 'TP' ? 'Trav. P. (TP)' : 'Théorie (TH)';
       const div = diviseur(statut, nature);
       const charge = div ? Math.round((h / div) * 1000) / 1000 : 0;
       totHeures += h; totCharge += charge;
