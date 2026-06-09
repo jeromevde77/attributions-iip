@@ -379,6 +379,75 @@ r.patch('/ue-pot', authRequired, roleRequired('admin', 'editeur'), (req, res) =>
   res.json({ ok: true });
 });
 
+// GET /pilotage/efficience?annee= — ratio étudiants/ETP par section et par UE
+// Effectif pondéré section = Σ(périodes_UE × nb_etudiants) / Σ(périodes_UE)
+// ETP section = CT/800 + PP/1000 (IIP). Ratio = effectif pondéré / ETP (élevé = performant).
+r.get('/efficience', authRequired, (req, res) => {
+  const { annee } = req.query;
+  if (!annee) return res.status(400).json({ error: 'annee requise' });
+
+  // Périodes organisées + ETP par UE (depuis les attributions), avec effectif de l'UE
+  const lignes = db.prepare(`
+    SELECT v.section, v.ue_num,
+      u.ue_nom, u.nb_etudiants,
+      SUM(v.total_attribue_professeur) AS periodes,
+      (SUM(CASE WHEN v.type_cours='CT' THEN v.total_attribue_professeur ELSE 0 END)/800.0
+       + SUM(CASE WHEN v.type_cours='PP' THEN v.total_attribue_professeur ELSE 0 END)/1000.0) AS etp
+    FROM v_attribution_complete v
+    LEFT JOIN ue u ON u.ue_num = v.ue_num AND u.annee_scolaire = v.annee_scolaire
+    WHERE v.annee_scolaire = ? AND COALESCE(v.contrat_mdp,'IIP')='IIP'
+    GROUP BY v.section, v.ue_num, u.ue_nom, u.nb_etudiants
+    HAVING periodes > 0
+    ORDER BY v.section, v.ue_num
+  `).all(annee);
+
+  // Agrégation par section
+  const sections = {};
+  for (const l of lignes) {
+    const s = (sections[l.section] ||= { section: l.section, etp: 0, sum_pe: 0, sum_per: 0, ues: [], ues_sans_effectif: 0 });
+    s.etp += l.etp || 0;
+    if (l.nb_etudiants != null) {
+      s.sum_pe += (l.periodes || 0) * l.nb_etudiants; // périodes-étudiant
+      s.sum_per += (l.periodes || 0);
+    } else {
+      s.ues_sans_effectif++;
+    }
+    s.ues.push({
+      ue_num: l.ue_num, ue_nom: l.ue_nom, nb_etudiants: l.nb_etudiants,
+      periodes: Math.round((l.periodes || 0) * 10) / 10,
+      etp: Math.round((l.etp || 0) * 10000) / 10000,
+      ratio: (l.nb_etudiants != null && l.etp > 0) ? Math.round((l.nb_etudiants / l.etp) * 10) / 10 : null,
+    });
+  }
+
+  const out = Object.values(sections).map(s => {
+    const effectif_pondere = s.sum_per > 0 ? s.sum_pe / s.sum_per : null;
+    return {
+      section: s.section,
+      etp: Math.round(s.etp * 10000) / 10000,
+      effectif_pondere: effectif_pondere != null ? Math.round(effectif_pondere * 10) / 10 : null,
+      ratio: (effectif_pondere != null && s.etp > 0) ? Math.round((effectif_pondere / s.etp) * 10) / 10 : null,
+      ues_sans_effectif: s.ues_sans_effectif,
+      ues: s.ues,
+    };
+  });
+
+  // Total global
+  const totalEtp = out.reduce((a, s) => a + s.etp, 0);
+  const totalPe = Object.values(sections).reduce((a, s) => a + s.sum_pe, 0);
+  const totalPer = Object.values(sections).reduce((a, s) => a + s.sum_per, 0);
+  const effGlobal = totalPer > 0 ? totalPe / totalPer : null;
+  res.json({
+    annee,
+    sections: out,
+    total: {
+      etp: Math.round(totalEtp * 10000) / 10000,
+      effectif_pondere: effGlobal != null ? Math.round(effGlobal * 10) / 10 : null,
+      ratio: (effGlobal != null && totalEtp > 0) ? Math.round((effGlobal / totalEtp) * 10) / 10 : null,
+    },
+  });
+});
+
 export default r;
 
 // GET /dotation-ue?section=&annee=&mode=scolaire|civile

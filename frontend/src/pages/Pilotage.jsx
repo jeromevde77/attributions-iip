@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, useRef } from 'react';
+import { useState, useEffect, useMemo, useRef, Fragment } from 'react';
 import { api, getAnnee } from '../lib/api.js';
 import {
   BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer,
@@ -445,7 +445,9 @@ function DotationComparaison({ civil }) {
 
 export default function Pilotage() {
   const anneeActive = getAnnee();
-  const [tab, setTab]               = useState('synthese'); // synthese | detail | config
+  const [tab, setTab]               = useState('synthese'); // synthese | detail | efficience | dotation | config
+  const [effic, setEffic]           = useState(null);
+  const [efficOpen, setEfficOpen]   = useState(new Set());
   const [civil, setCivil]           = useState([]);
   const [selYear, setSelYear]       = useState(null);
   const [detail, setDetail]         = useState(null);
@@ -487,6 +489,14 @@ export default function Pilotage() {
       .catch(console.error)
       .finally(() => setLoadingDetail(false));
   }, [selYear, tab]);
+
+  // Charger l'efficience (ratio étudiants/ETP) quand on ouvre l'onglet
+  useEffect(() => {
+    if (tab !== 'efficience') return;
+    const tok = localStorage.getItem('token');
+    fetch(`/api/pilotage/efficience?annee=${encodeURIComponent(anneeActive)}`, { headers: { Authorization: `Bearer ${tok}` } })
+      .then(r => r.json()).then(setEffic).catch(console.error);
+  }, [tab, anneeActive]);
 
   // Charger les UEs avec pot pour la config
   useEffect(() => {
@@ -723,6 +733,63 @@ export default function Pilotage() {
   };
 
   // ── Onglet détail par section ──────────────────────────────────────────────
+  const renderEfficience = () => {
+    if (!effic) return <div className="text-gray-400 py-8 text-center">Chargement…</div>;
+    const secs = effic.sections || [];
+    const toggle = (s) => setEfficOpen(prev => { const n = new Set(prev); n.has(s) ? n.delete(s) : n.add(s); return n; });
+    // Échelle de couleur du ratio (élevé = vert performant, bas = rouge coûteux)
+    const ratioColor = (r) => r == null ? 'text-gray-400' : r >= 15 ? 'text-green-600' : r >= 8 ? 'text-amber-600' : 'text-red-600';
+    return (
+      <div>
+        <div className="mb-4 bg-blue-50 border border-blue-200 rounded-lg p-3 text-[12px] text-blue-800">
+          <b>Efficience pédagogique</b> — ratio <b>étudiants / ETP</b> par section ({effic.annee}). Plus le ratio est élevé, plus la section est performante (beaucoup d'étudiants par ETP enseignant = faible coût par tête). L'effectif pondéré tient compte du poids horaire de chaque UE.
+        </div>
+        <table className="w-full text-sm border-collapse">
+          <thead>
+            <tr className="bg-gray-50 text-gray-500 text-xs uppercase">
+              <th className="text-left px-3 py-2">Section</th>
+              <th className="text-right px-3 py-2">Effectif pondéré</th>
+              <th className="text-right px-3 py-2">ETP</th>
+              <th className="text-right px-3 py-2">Ratio étud./ETP</th>
+              <th className="px-3 py-2"></th>
+            </tr>
+          </thead>
+          <tbody>
+            {secs.map(s => (
+              <Fragment key={s.section}>
+                <tr className="border-t border-gray-100 hover:bg-gray-50 cursor-pointer" onClick={() => toggle(s.section)}>
+                  <td className="px-3 py-2 font-medium text-gray-800">{s.section}{s.ues_sans_effectif > 0 && <span className="ml-2 text-[10px] text-amber-600" title="UE sans effectif saisi">⚠ {s.ues_sans_effectif} UE sans effectif</span>}</td>
+                  <td className="px-3 py-2 text-right text-gray-700">{s.effectif_pondere ?? '—'}</td>
+                  <td className="px-3 py-2 text-right text-gray-700">{s.etp?.toFixed(2)}</td>
+                  <td className={`px-3 py-2 text-right font-bold ${ratioColor(s.ratio)}`}>{s.ratio ?? '—'}</td>
+                  <td className="px-3 py-2 text-right text-gray-400">{efficOpen.has(s.section) ? '▾' : '▸'}</td>
+                </tr>
+                {efficOpen.has(s.section) && s.ues.map(u => (
+                  <tr key={u.ue_num} className="bg-gray-50/50 text-[12px]">
+                    <td className="px-3 py-1 pl-8 text-gray-600">UE {u.ue_num} — {u.ue_nom || ''}</td>
+                    <td className="px-3 py-1 text-right text-gray-500">{u.nb_etudiants ?? <span className="text-amber-500">non saisi</span>}</td>
+                    <td className="px-3 py-1 text-right text-gray-500">{u.etp?.toFixed(3)}</td>
+                    <td className={`px-3 py-1 text-right ${ratioColor(u.ratio)}`}>{u.ratio ?? '—'}</td>
+                    <td></td>
+                  </tr>
+                ))}
+              </Fragment>
+            ))}
+            {effic.total && (
+              <tr className="border-t-2 border-gray-300 font-bold bg-gray-50">
+                <td className="px-3 py-2">TOTAL</td>
+                <td className="px-3 py-2 text-right">{effic.total.effectif_pondere ?? '—'}</td>
+                <td className="px-3 py-2 text-right">{effic.total.etp?.toFixed(2)}</td>
+                <td className={`px-3 py-2 text-right ${ratioColor(effic.total.ratio)}`}>{effic.total.ratio ?? '—'}</td>
+                <td></td>
+              </tr>
+            )}
+          </tbody>
+        </table>
+      </div>
+    );
+  };
+
   const renderDetail = () => {
     if (loadingDetail) return <div className="text-gray-400 py-8 text-center">Chargement…</div>;
     if (!detail) return null;
@@ -1030,7 +1097,7 @@ export default function Pilotage() {
 
       {/* Onglets */}
       <div className="flex gap-0.5 border-b border-gray-200">
-        {[['synthese', '🏠 Synthèse'], ['detail', '📋 Détail par section'], ['dotation', '📊 Dotation par UE'], ['config', '⚙ Configuration']].map(([k, lbl]) => (
+        {[['synthese', '🏠 Synthèse'], ['detail', '📋 Détail par section'], ['efficience', '🎯 Efficience'], ['dotation', '📊 Dotation par UE'], ['config', '⚙ Configuration']].map(([k, lbl]) => (
           <button key={k} onClick={() => setTab(k)}
             className={`text-sm px-4 py-2 -mb-px border-b-2 transition font-medium ${tab === k ? 'border-iip-gold text-iip-gold' : 'border-transparent text-gray-500 hover:text-gray-700'}`}>
             {lbl}
@@ -1049,6 +1116,7 @@ export default function Pilotage() {
         <>
           {tab === 'synthese' && renderSynthese()}
           {tab === 'detail'   && renderDetail()}
+          {tab === 'efficience' && renderEfficience()}
           {tab === 'dotation' && <DotationComparaison civil={civil} />}
                     {tab === 'config'   && renderConfig()}
         </>
