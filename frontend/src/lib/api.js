@@ -50,6 +50,7 @@ export const api = {
   // référentiels — structure et CRUD
   refStructure() { return request(withAnnee('/ref/structure')); },
   createUE(data) { return request('/ref/ue', { method: 'POST', body: { annee_scolaire: getAnnee(), ...data } }); },
+  importEffectifs(effectifs) { return request('/ref/ue/effectifs-import', { method: 'POST', body: { annee: getAnnee(), effectifs } }); },
   updateUE(num, data) { return request(`/ref/ue/${num}`, { method: 'PATCH', body: { annee_scolaire: getAnnee(), ...data } }); },
   deleteUE(num) { return request(withAnnee(`/ref/ue/${num}`), { method: 'DELETE' }); },
   createCours(data) { return request('/ref/cours', { method: 'POST', body: { annee_scolaire: getAnnee(), ...data } }); },
