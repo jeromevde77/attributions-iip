@@ -4,6 +4,77 @@ import CoursFormModal from '../components/CoursFormModal.jsx';
 import ImportUEAssistant from '../components/ImportUEAssistant.jsx';
 
 // ─── Modale Section ───
+// Modal d'import des effectifs étudiants par UE — colle le tableau (n° UE + nb étudiants)
+function EffectifsImportModal({ annee, onClose, onSaved }) {
+  const [texte, setTexte] = useState('');
+  const [preview, setPreview] = useState(null);
+  const [busy, setBusy] = useState(false);
+
+  function parser() {
+    // Chaque ligne : on prend le 1er entier comme n° UE et le DERNIER entier comme effectif.
+    const lignes = texte.split(/\r?\n/).map(l => l.trim()).filter(Boolean);
+    const out = [];
+    for (const ligne of lignes) {
+      const nombres = (ligne.match(/\d+/g) || []).map(Number);
+      if (nombres.length < 2) continue; // besoin d'au moins un n° UE et un effectif
+      // Heuristique : n° UE = un nombre entre 1 et 999 ; effectif = dernier nombre de la ligne
+      const ue_num = nombres.find(n => n >= 1 && n <= 999);
+      const nb_etudiants = nombres[nombres.length - 1];
+      if (ue_num == null) continue;
+      out.push({ ue_num, nb_etudiants });
+    }
+    setPreview(out);
+  }
+
+  async function importer() {
+    if (!preview || preview.length === 0) return;
+    setBusy(true);
+    try {
+      const r = await api.importEffectifs(preview);
+      alert(`${r.maj} UE mises à jour.` + (r.inconnus?.length ? `\nUE non trouvées pour ${annee} : ${r.inconnus.join(', ')}` : ''));
+      onSaved();
+    } catch (e) { alert('Erreur : ' + e.message); }
+    finally { setBusy(false); }
+  }
+
+  return (
+    <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50" onClick={e => e.target === e.currentTarget && onClose()}>
+      <div className="bg-white rounded-xl shadow-2xl max-w-2xl w-full p-6 flex flex-col" style={{ maxHeight: '85vh' }}>
+        <h2 className="font-title text-lg text-blue-600 mb-1">Importer les effectifs étudiants — {annee}</h2>
+        <p className="text-xs text-gray-500 mb-3">
+          Collez votre tableau (depuis Word/Excel). Chaque ligne doit contenir le <b>n° d'UE</b> et le <b>nombre d'étudiants</b> (dernier nombre de la ligne). Les colonnes intermédiaires (section, nom, bloc, quadri) sont ignorées.
+        </p>
+        <textarea value={texte} onChange={e => setTexte(e.target.value)} rows={8}
+          placeholder={"Exemple :\nTIM\t248\tPhysique…\tBA1\tQ1/Q2\t144\nTIM\t260\tContrôle qualité…\tBA1\tQ2\t139"}
+          className="w-full border border-gray-300 rounded px-3 py-2 text-xs font-mono mb-3" />
+        <div className="flex gap-2 mb-3">
+          <button type="button" onClick={parser} className="bg-gray-100 hover:bg-gray-200 text-gray-700 text-sm px-4 py-1.5 rounded">Analyser</button>
+          {preview && <span className="text-sm text-gray-500 self-center">{preview.length} ligne(s) détectée(s)</span>}
+        </div>
+        {preview && preview.length > 0 && (
+          <div className="border border-gray-200 rounded-lg overflow-auto mb-3 flex-1" style={{ minHeight: '80px' }}>
+            <table className="w-full text-[12px]">
+              <thead className="bg-gray-50 sticky top-0"><tr><th className="text-left px-3 py-1.5 text-gray-500">N° UE</th><th className="text-right px-3 py-1.5 text-gray-500">Nb étudiants</th></tr></thead>
+              <tbody>
+                {preview.map((e, i) => (
+                  <tr key={i} className="border-t border-gray-100"><td className="px-3 py-1 text-gray-700">{e.ue_num}</td><td className="px-3 py-1 text-right text-gray-700">{e.nb_etudiants}</td></tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+        <div className="flex justify-end gap-2">
+          <button type="button" onClick={onClose} className="px-4 py-2 text-sm text-gray-600">Annuler</button>
+          <button type="button" onClick={importer} disabled={!preview || preview.length === 0 || busy}
+            className="bg-blue-600 hover:bg-blue-700 disabled:opacity-30 text-white text-sm px-5 py-2 rounded font-medium">
+            {busy ? 'Import…' : `Importer ${preview?.length || 0} effectif(s)`}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function SectionModal({ section, onClose, onSaved }) {
   const isNew = !section?._edit;
   const [form, setForm] = useState({
@@ -107,7 +178,8 @@ function UEModal({ ue, sections, onClose, onSaved }) {
     ue_per_cours: ue?.ue_per_cours || '', ue_aut: ue?.ue_aut || '', ue_code_fwb: ue?.ue_code_fwb || '',
     et_ref: ue?.et_ref || '', ue_tc: ue?.ue_tc || '', ue_det: ue?.ue_det || '',
     ue_per_etudiants: ue?.ue_per_etudiants || '', ue_tot_prf: ue?.ue_tot_prf || '',
-    ects: ue?.ects || '', ue_prerequise: ue?.ue_prerequise || '', ue_per_z: ue?.ue_per_z || ''
+    ects: ue?.ects || '', ue_prerequise: ue?.ue_prerequise || '', ue_per_z: ue?.ue_per_z || '',
+    nb_etudiants: ue?.nb_etudiants ?? ''
   });
   const [saving, setSaving] = useState(false);
   const [renaming, setRenaming] = useState(false);
@@ -209,6 +281,9 @@ function UEModal({ ue, sections, onClose, onSaved }) {
             <label className="block"><div className="text-xs text-gray-600 mb-0.5">Autonomie (UE)</div>
               <input type="number" value={form.ue_aut} onChange={e => set('ue_aut', e.target.value)}
                 className="w-full border border-gray-300 rounded px-3 py-1.5 text-sm" /></label>
+            <label className="block"><div className="text-xs text-gray-600 mb-0.5">Nb étudiants</div>
+              <input type="number" value={form.nb_etudiants} onChange={e => set('nb_etudiants', e.target.value)} placeholder="Effectif inscrit"
+                className="w-full border border-blue-300 rounded px-3 py-1.5 text-sm bg-blue-50/40" /></label>
             <label className="block"><div className="text-xs text-gray-600 mb-0.5">Périodes Z (7.3)</div>
               <input type="number" value={form.ue_per_z} onChange={e => set('ue_per_z', e.target.value)} placeholder="Activités autonomes"
                 className="w-full border border-iip-mauve/40 rounded px-3 py-1.5 text-sm bg-iip-mauve/5" /></label>
@@ -340,6 +415,7 @@ export default function Referentiels({ embedded = false }) {
   const [coursModal, setCoursModal] = useState(null);
   const [sectionModal, setSectionModal] = useState(null); // {code, libelle, _edit} ou {} pour nouvelle
   const [importOpen, setImportOpen] = useState(false);
+  const [effectifsOpen, setEffectifsOpen] = useState(false);
   const [catalogueSection, setCatalogueSection] = useState(null); // menu + ouvert pour cette section
   const [catalogueOpen, setCatalogueOpen] = useState(null); // section pour laquelle le catalogue UE est ouvert
   const [annees, setAnnees] = useState([]);
@@ -387,6 +463,7 @@ export default function Referentiels({ embedded = false }) {
           {annees.filter(a => a.code !== annee).length > 0 && (
             <button onClick={() => setImportOpen(true)} className="bg-white border border-iip-mauve text-iip-mauve hover:bg-iip-mauve/5 text-sm px-4 py-2 rounded font-medium">⇄ Importer des UE</button>
           )}
+          <button onClick={() => setEffectifsOpen(true)} className="bg-white border border-blue-400 text-blue-600 hover:bg-blue-50 text-sm px-4 py-2 rounded font-medium">Importer effectifs étudiants</button>
           <button onClick={() => setSectionModal({})} className="bg-white border border-iip-gold text-iip-gold hover:bg-iip-gold/5 text-sm px-4 py-2 rounded font-medium">➕ Nouvelle section</button>
           <button onClick={() => setUeModal({})} className="bg-iip-gold hover:bg-iip-amber text-white text-sm px-4 py-2 rounded font-medium">➕ Nouvelle UE</button>
         </div>
@@ -769,6 +846,7 @@ export default function Referentiels({ embedded = false }) {
           onDone={(r) => { setImportOpen(false); load(); alert(`Import réussi : ${r.ues} UE, ${r.cours} cours${r.attributions ? `, ${r.attributions} attributions` : ''}.`); }}
         />
       )}
+      {effectifsOpen && <EffectifsImportModal annee={annee} onClose={() => setEffectifsOpen(false)} onSaved={() => { setEffectifsOpen(false); load(); }} />}
       {ueModal && <UEModal ue={ueModal} sections={sections} onClose={() => setUeModal(null)} onSaved={() => { setUeModal(null); load(); }} />}
       {coursModal && <CoursFormModal {...coursModal} onClose={() => setCoursModal(null)} onSaved={() => { setCoursModal(null); load(); }} />}
 

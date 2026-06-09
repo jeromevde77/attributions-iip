@@ -220,7 +220,7 @@ r.post('/ue', authRequired, roleRequired('admin', 'editeur'), (req, res) => {
 r.patch('/ue/:num', authRequired, roleRequired('admin', 'editeur'), (req, res) => {
   const annee = req.body.annee_scolaire || req.query.annee || '2025-2026';
   const allowed = ['ue_nom','section','ue_niv','ue_niveau','ue_quad','ue_per_cours','ue_aut',
-                   'ue_code_fwb','et_ref','ects','ue_tc','ue_det','ue_per_etudiants','ue_tot_prf','ue_prerequise','ue_per_z','pot_code'];
+                   'ue_code_fwb','et_ref','ects','ue_tc','ue_det','ue_per_etudiants','ue_tot_prf','ue_prerequise','ue_per_z','pot_code','nb_etudiants'];
   const updates = []; const params = { num: req.params.num, annee };
   for (const k of allowed) if (k in req.body) { updates.push(`${k} = @${k}`); params[k] = req.body[k]; }
   if (!updates.length) return res.status(400).json({ error: 'Aucun champ à modifier' });
@@ -1240,6 +1240,26 @@ r.get('/membres-cde', authRequired, (req, res) => {
     m.sections = db.prepare('SELECT section_code FROM personnel_section WHERE personnel_etablissement_id = ? ORDER BY section_code').all(m.id).map(r => r.section_code);
   }
   res.json(membres);
+});
+
+// POST /ref/ue/effectifs-import — import en masse des effectifs étudiants par UE
+// Body : { annee, effectifs: [{ ue_num, nb_etudiants }] }
+r.post('/ue/effectifs-import', authRequired, roleRequired('admin', 'editeur'), (req, res) => {
+  const { annee, effectifs } = req.body;
+  if (!annee || !Array.isArray(effectifs)) return res.status(400).json({ error: 'annee et effectifs requis' });
+  const upd = db.prepare('UPDATE ue SET nb_etudiants = ? WHERE ue_num = ? AND annee_scolaire = ?');
+  let maj = 0, inconnus = [];
+  const tx = db.transaction(() => {
+    for (const e of effectifs) {
+      const num = parseInt(e.ue_num);
+      const nb = e.nb_etudiants == null || e.nb_etudiants === '' ? null : parseInt(e.nb_etudiants);
+      if (isNaN(num)) continue;
+      const r2 = upd.run(nb, num, annee);
+      if (r2.changes > 0) maj += r2.changes; else inconnus.push(num);
+    }
+  });
+  tx();
+  res.json({ ok: true, maj, inconnus });
 });
 
 export default r;

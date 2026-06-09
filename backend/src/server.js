@@ -410,6 +410,12 @@ try {
       db.exec(`ALTER TABLE attribution ADD COLUMN helb_nature TEXT DEFAULT 'CT'`); // 'CT' | 'TP' (par ligne, contrat HELB)
       console.log('[migration] attribution.helb_nature ajouté');
     }
+    // Effectifs étudiants par UE (par année académique)
+    const uc = db.prepare('PRAGMA table_info(ue)').all();
+    if (uc.length && !uc.find(c => c.name === 'nb_etudiants')) {
+      db.exec(`ALTER TABLE ue ADD COLUMN nb_etudiants INTEGER`);
+      console.log('[migration] ue.nb_etudiants ajouté');
+    }
   }
   // Migration : cours_libre sur nomination_definitive (UE absente de la base)
   {
