@@ -145,7 +145,11 @@ export default function EptModal({ section, ue_num, ue_nom, annee, onClose }) {
               <select value={form.professeur_id} onChange={e => setForm(f => ({ ...f, professeur_id: e.target.value }))}
                 className="w-full border border-gray-300 rounded px-2 py-1.5 text-sm bg-white">
                 <option value="">— Choisir un professeur —</option>
-                {[...profs].filter(p => p.nom !== 'À DÉSIGNER').sort((a,b) => a.nom.localeCompare(b.nom)).map(p => (
+                {[...profs].sort((a,b) => {
+                  if (a.nom === 'À DÉSIGNER') return -1;
+                  if (b.nom === 'À DÉSIGNER') return 1;
+                  return a.nom.localeCompare(b.nom);
+                }).map(p => (
                   <option key={p.id} value={p.id}>{p.nom} {p.prenom}</option>
                 ))}
               </select>
