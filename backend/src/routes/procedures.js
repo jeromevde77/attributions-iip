@@ -189,7 +189,10 @@ r.post('/pv-recours', authRequired, (req, res) => {
     voiesRecours = `<p>Conformément à l'Art. 90 du RDE/ROI et au Décret du 27/10/2006, la présente décision peut faire l'objet d'un <strong>recours externe</strong> auprès de la Direction générale ETLV (rue Adolphe Lavallée 1, 1080 Bruxelles), par pli recommandé, dans un délai de <strong>${delaiExtCal} jours calendrier</strong> à compter du ${delaiExtOuv}e jour ouvrable suivant l'envoi de la présente décision${limiteExt ? ` (date limite\u00a0: <strong>${dateLongue(limiteExt.toISOString().split('T')[0])}</strong>)` : ''}.`;
   }
 
-  const resultat = genererDepuisTemplate('pv-recours', {
+  // Choix du modèle selon l'année scolaire de la décision :
+  // 2025-2026 → PV_Recours_25_26 (RDE/ROI différent) ; sinon → modèle courant.
+  const slugRecours = (annee === '2025-2026') ? 'pv-recours-25-26' : 'pv-recours';
+  let resultat = genererDepuisTemplate(slugRecours, {
     'pv.type_decision':  typeDecision,
     'pv.etudiant':       etudiant || '',
     'pv.ue_ref':         ueRef,
@@ -203,6 +206,23 @@ r.post('/pv-recours', authRequired, (req, res) => {
       : '',
     'pv.voies_recours':  voiesRecours,
   });
+  // Repli sur le modèle standard si le modèle 25-26 n'existe pas (sécurité)
+  if (!resultat && slugRecours !== 'pv-recours') {
+    resultat = genererDepuisTemplate('pv-recours', {
+      'pv.type_decision':  typeDecision,
+      'pv.etudiant':       etudiant || '',
+      'pv.ue_ref':         ueRef,
+      'pv.date_publi':     date_publi   ? dateLongue(date_publi)   : '',
+      'pv.date_recours':   date_recours ? dateLongue(date_recours) : '',
+      'pv.date_seance':    date_seance  ? `<p><strong>Date de réunion du CDE\u00a0:</strong> ${dateLongue(date_seance)}</p>` : '',
+      'pv.composition':    composition,
+      'pv.corps':          corps,
+      'pv.commentaire':    commentaire_cde
+        ? `<h3>OBSERVATIONS DU CONSEIL DES ÉTUDES</h3><p style="border:1px solid #ccc;padding:10px;background:#fafafa">${commentaire_cde.replace(/\n/g,'<br>')}</p>`
+        : '',
+      'pv.voies_recours':  voiesRecours,
+    });
+  }
 
   if (!resultat) return res.status(404).json({ error: 'Template pv-recours introuvable' });
 
@@ -364,8 +384,11 @@ r.post('/archives/:id/regenerer', authRequired, (req, res) => {
   // Retourner le payload pour que le frontend re-remplisse le formulaire,
   // ou déclencher la re-génération HTML directe selon le paramètre ?mode
   if (req.query.mode === 'html') {
-    // Re-génération directe du HTML
-    const slug = proc.type === 'recours' ? 'pv-recours' : 'pv-fraude';
+    // Re-génération directe du HTML (la régénération réelle passe par /pv-recours avec l'année)
+    const anneeProc = payload?.annee;
+    const slug = proc.type === 'recours'
+      ? (anneeProc === '2025-2026' ? 'pv-recours-25-26' : 'pv-recours')
+      : 'pv-fraude';
     const resultat = genererDepuisTemplate(slug, {});
     // On re-poste vers la même logique — on réutilise le endpoint existant via appel interne
     return res.json({ payload, procedure_id: proc.id });
