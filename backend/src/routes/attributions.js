@@ -267,7 +267,7 @@ r.get('/rapport-attributions', authRequired, (req, res) => {
   const rows = db.prepare(`
     SELECT DISTINCT
       a.id, a.ue_num, a.code_cours,
-      a.num_groupe, a.code AS groupe_code,
+      a.num_groupe, a.code AS groupe_code, a.num_organisation,
       a.professeur_id, p.nom AS prof_nom, p.prenom AS prof_prenom,
       a.periodes_attribuees, a.autonomie_attribuee,
       a.activite_id, at.libelle AS activite_nom,
@@ -278,7 +278,7 @@ r.get('/rapport-attributions', authRequired, (req, res) => {
     WHERE a.section = ? AND a.annee_scolaire = ?
       AND (a.type_cours IS NULL OR a.type_cours != 'Z')
       AND COALESCE(a.periodes_attribuees, 0) + COALESCE(a.autonomie_attribuee, 0) > 0
-    ORDER BY a.ue_num, a.code_cours, a.num_groupe
+    ORDER BY a.ue_num, a.num_organisation, a.code_cours, a.num_groupe
   `).all(sec, annee);
 
   // Charger les infos UE séparément (sans jointure pour éviter les doublons)
@@ -309,18 +309,21 @@ r.get('/rapport-attributions', authRequired, (req, res) => {
   const ueMap = {};
   for (const row of rows) {
     const uInfo = ueInfos[row.ue_num] || {};
-    if (!ueMap[row.ue_num]) {
+    const org = row.num_organisation || 1;
+    const uKey = row.ue_num + '/' + org;
+    if (!ueMap[uKey]) {
       const ue = {
         ue_num: row.ue_num,
+        num_organisation: org,
         ue_nom: uInfo.ue_nom,
         ue_niv: uInfo.ue_niv,
         ue_quad: uInfo.ue_quad,
         cours: [], total_per: 0, total_aut: 0
       };
-      ueMap[row.ue_num] = ue;
+      ueMap[uKey] = ue;
       ues.push(ue);
     }
-    const ue = ueMap[row.ue_num];
+    const ue = ueMap[uKey];
     const per = row.periodes_attribuees || 0;
     const aut = row.autonomie_attribuee || 0;
     ue.cours.push({
