@@ -59,7 +59,7 @@ function ExtDotPanel({ annee }) {
   }, [annee]);
 
   if (!data || !data.resume) return null;
-  const pots = Object.entries(data.resume).filter(([,v]) => v.plafond > 0 || v.consomme > 0);
+  const pots = Object.entries(data.resume).filter(([,v]) => v.illimite || v.plafond > 0 || v.consomme > 0);
   if (pots.length === 0) return null;
 
   return (
@@ -69,6 +69,20 @@ function ExtDotPanel({ annee }) {
         {pots.map(([pot, v]) => {
           const pct = v.plafond > 0 ? Math.min(100, Math.round(v.consomme / v.plafond * 100)) : 0;
           const depasse = v.dot > 0;
+          if (v.illimite) {
+            return (
+              <div key={pot} className="rounded-lg border border-teal-200 bg-teal-50 p-3">
+                <div className="flex justify-between items-center mb-1">
+                  <span className="font-bold text-sm">{pot}</span>
+                  <span className="text-[10px] bg-teal-200 text-teal-800 px-1.5 py-0.5 rounded font-bold">∞ Illimité</span>
+                </div>
+                <div className="text-xs text-gray-600 mb-2">
+                  Enveloppe <b>illimitée</b> · Consommé : <b>{v.consomme}</b> pér. B
+                </div>
+                <div className="text-[11px] text-teal-700 mt-1">Aucune charge sur la dotation organique.</div>
+              </div>
+            );
+          }
           return (
             <div key={pot} className={`rounded-lg border p-3 ${depasse ? 'border-orange-300 bg-orange-50' : 'border-teal-200 bg-teal-50'}`}>
               <div className="flex justify-between items-center mb-1">

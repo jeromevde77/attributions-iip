@@ -701,8 +701,11 @@ r.get('/ext-dot', authRequired, (req, res) => {
   const POTS_EXT = ['QUAL', 'CF', 'INCL', 'AESI'];
 
   // Plafonds EXT par pot_code — fallback sur l'année civile précédente si absente
+  // AESI : enveloppe « illimitée » tant qu'aucun pot n'est défini → tout reste EXT (jamais DOT)
   const plafonds = {};
+  const illimite = {};
   for (const pot of POTS_EXT) {
+    if (pot === 'AESI') { illimite[pot] = true; plafonds[pot] = Infinity; continue; }
     const env = db.prepare("SELECT periodes_b FROM enveloppe_externe WHERE code=? AND annee_civile=?").get(pot, anneeCivile)
               || db.prepare("SELECT periodes_b FROM enveloppe_externe WHERE code=? AND annee_civile=?").get(pot, anneeCivile - 1);
     plafonds[pot] = env?.periodes_b ?? 0;
@@ -758,12 +761,17 @@ r.get('/ext-dot', authRequired, (req, res) => {
   // Résumé par pot_code
   const resume = {};
   for (const pot of POTS_EXT) {
+    const ill = illimite[pot];
     resume[pot] = {
-      plafond: plafonds[pot],
+      plafond: ill ? null : plafonds[pot],
+      illimite: !!ill,
       consomme: Math.round((consomme[pot]||0)*100)/100,
-      dot: Math.round(Math.max(0, (consomme[pot]||0) - plafonds[pot])*100)/100,
+      dot: ill ? 0 : Math.round(Math.max(0, (consomme[pot]||0) - plafonds[pot])*100)/100,
     };
   }
 
-  res.json({ annee, anneeCivile, plafonds, resume, attrs: result });
+  const plafondsOut = {};
+  for (const pot of POTS_EXT) plafondsOut[pot] = illimite[pot] ? null : plafonds[pot];
+
+  res.json({ annee, anneeCivile, plafonds: plafondsOut, resume, attrs: result });
 });
