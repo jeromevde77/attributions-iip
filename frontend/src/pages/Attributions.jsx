@@ -299,13 +299,13 @@ export default function Attributions() {
     const SR = S + 'text-align:right;';
     const SN = S + 'white-space:nowrap;';
 
-    const lignesUE = d.ues.map(ue => {
+    const renderUErap = (ue) => {
       const col = getNivCol(ue.ue_niv);
       const lignesCours = ue.cours.map((c,i) => `
         <tr style="background:${i%2===0?'#fff':'#f9fafb'}">
-          <td style="${SN}padding-left:20px">${c.code_cours||'—'}</td>
+          <td style="${SN}padding-left:20px">${c.code_cours||'\u2014'}</td>
           <td style="${S}max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap"
-              title="${(c.cours_nom||'').replace(/"/g,"'")}">${c.cours_nom||'—'}${c.activite_nom?` <em style="color:#9ca3af;font-size:10px">(${c.activite_nom})</em>`:''}</td>
+              title="${(c.cours_nom||'').replace(/"/g,"'")}">${c.cours_nom||'\u2014'}${c.activite_nom?` <em style="color:#9ca3af;font-size:10px">(${c.activite_nom})</em>`:''}</td>
           <td style="${SN}color:#6b7280">Gr.${c.groupe_code}</td>
           <td style="${SN}">${c.prof_nom}</td>
           <td style="${S}text-align:center"><span style="font-size:8px;font-weight:700;padding:1px 4px;border-radius:3px;background:${c.contrat==='HELB'?'#ede9fe':'#dbeafe'};color:${c.contrat==='HELB'?'#6d28d9':'#1d4ed8'}">${c.contrat}</span></td>
@@ -313,24 +313,36 @@ export default function Attributions() {
           <td style="${SR}color:#6b7280">${fmt(c.autonomie)}</td>
           <td style="${SR}font-weight:600;border-left:1px solid #e5e7eb">${fmt(c.total)}</td>
         </tr>`).join('');
-
       return `
         <tr style="background:#f1f5f9;border-left:3px solid ${col}">
           <td colspan="5" style="padding:4px 6px 4px 8px;font-weight:700;font-size:12px;color:#111827;white-space:nowrap">
-            <span style="background:${col};color:white;font-size:9px;padding:1px 4px;border-radius:2px;margin-right:5px">${ue.ue_niv||''}</span>UE ${ue.ue_num} — ${ue.ue_nom||''}${(ue.num_organisation||1) > 1 ? ` <span style="background:#7c3aed;color:white;font-size:9px;padding:1px 5px;border-radius:3px;margin-left:4px">Org. ${ue.num_organisation}</span>` : ` <span style="background:#e5e7eb;color:#6b7280;font-size:9px;padding:1px 5px;border-radius:3px;margin-left:4px">Org. 1</span>`}
+            <span style="background:${col};color:white;font-size:9px;padding:1px 4px;border-radius:2px;margin-right:5px">${ue.ue_niv||''}</span>UE ${ue.ue_num} \u2014 ${ue.ue_nom||''}
           </td>
-          <td style="${SR}color:#6b7280;font-size:10px"></td>
-          <td style="${SR}color:#6b7280;font-size:10px"></td>
-          <td style="${SR}border-left:1px solid #e5e7eb"></td>
+          <td style="${SR}"></td><td style="${SR}"></td><td style="${SR}border-left:1px solid #e5e7eb"></td>
         </tr>
         ${lignesCours}
         <tr style="background:#e8edf3;border-left:3px solid ${col}">
-          <td colspan="4" style="padding:2px 6px 2px 20px;font-size:10px;color:#6b7280;font-style:italic">Sous-total UE ${ue.ue_num}</td>
+          <td colspan="5" style="padding:2px 6px 2px 20px;font-size:10px;color:#6b7280;font-style:italic">Sous-total UE ${ue.ue_num}</td>
           <td style="${SR}font-weight:700;color:#374151">${fmt(ue.total_per)}</td>
           <td style="${SR}font-weight:600;color:#6b7280">${fmt(ue.total_aut)}</td>
           <td style="${SR}font-weight:700;border-left:1px solid #e5e7eb">${fmt(ue.total_per+ue.total_aut)}</td>
         </tr>`;
-    }).join('');
+    };
+    const orgas = [...new Set(d.ues.map(u => u.num_organisation || 1))].sort((a,b) => a - b);
+    const lignesUE = orgas.map(org => {
+      const uesOrg = d.ues.filter(u => (u.num_organisation || 1) === org);
+      const totPer = uesOrg.reduce((s,u) => s + (u.total_per||0), 0);
+      const totAut = uesOrg.reduce((s,u) => s + (u.total_aut||0), 0);
+      return `
+        <tr style="background:#1B2B4B"><td colspan="8" style="padding:5px 8px"><span style="background:${org>1?'#7c3aed':'#475569'};color:white;font-size:10px;padding:2px 8px;border-radius:3px">Organisation ${org}</span></td></tr>
+        ${uesOrg.map(renderUErap).join('')}
+        <tr style="background:#cbd5e1;border-top:2px solid #475569">
+          <td colspan="5" style="padding:3px 8px;font-weight:700;font-size:11px;color:#1B2B4B">Sous-total Organisation ${org}</td>
+          <td style="${SR}font-weight:700;color:#1B2B4B">${fmt(totPer)}</td>
+          <td style="${SR}font-weight:700;color:#1B2B4B">${fmt(totAut)}</td>
+          <td style="${SR}font-weight:700;color:#1B2B4B;border-left:1px solid #94a3b8">${fmt(totPer+totAut)}</td>
+        </tr>`;
+    }).join('')
 
     const html = `<!DOCTYPE html><html><head><meta charset="utf-8">
       <style>
