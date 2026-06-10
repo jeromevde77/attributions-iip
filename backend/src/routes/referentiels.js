@@ -294,6 +294,98 @@ r.patch('/ue/:num/dedoubler', authRequired, roleRequired('admin', 'editeur'), (r
   res.json({ ok: true, lignes_dupliquees: nb });
 });
 
+// PATCH /ref/ue/:num/organiser-groupes
+// Body : { annee_scolaire, section, num_organisation, creer_orga_2, cours: [{ code_cours, nb_groupes }] }
+// Définit le nombre de groupes de chaque cours d'une UE.
+//   1 groupe  => code 'Ts' (tous ensemble)
+//   N>1       => 'A','B','C'… (N lignes)
+// creer_orga_2 = true  -> crée une nouvelle organisation (max+1) à partir de l'orga source,
+//                         puis applique les groupes (profs « À DÉSIGNER »).
+// creer_orga_2 = false -> modifie l'organisation courante (profs existants préservés par position).
+r.patch('/ue/:num/organiser-groupes', authRequired, roleRequired('admin', 'editeur'), (req, res) => {
+  const annee = req.body.annee_scolaire || '2025-2026';
+  const ueNum = req.params.num;
+  const { section, num_organisation, creer_orga_2, cours } = req.body || {};
+  if (!section || !Array.isArray(cours)) return res.status(400).json({ error: 'section et cours requis' });
+  const lettre = (i) => String.fromCharCode(65 + i); // 0->A, 1->B…
+  const aDesigner = db.prepare(`SELECT id FROM professeur WHERE nom = 'À DÉSIGNER' LIMIT 1`).get();
+  const aDesId = aDesigner?.id ?? null;
+  const orgSource = num_organisation || 1;
+
+  const COPY = [
+    'section','etablissement_referent','contrat_mdp','organisation','annee_scolaire',
+    'ue_num','quadrimestre_attribue','code_cours','type_cours',
+    'type_cours_helb','activite_id','cours_ept_ad','coordination_encadrement',
+    'per_etudiant_total_dp','periodes_attribuees','autonomie_attribuee','titre_rtf',
+  ];
+  const copyList = COPY.join(', ');
+
+  let crees = 0, supprimes = 0, maj = 0, orgCible = orgSource;
+
+  const tx = db.transaction(() => {
+    // Si création d'orga 2 : déterminer le prochain numéro d'organisation
+    if (creer_orga_2) {
+      const maxOrg = db.prepare('SELECT COALESCE(MAX(num_organisation),0) m FROM attribution WHERE ue_num=? AND annee_scolaire=?').get(ueNum, annee).m;
+      orgCible = maxOrg + 1;
+    }
+
+    for (const c of cours) {
+      const codeCours = c.code_cours;
+      const m = Math.min(100, Math.max(1, parseInt(c.nb_groupes) || 1));
+      const cible = m === 1 ? ['Ts'] : Array.from({ length: m }, (_, i) => lettre(i));
+      const dedouble = m > 1 ? 'O' : 'N';
+
+      // Lignes modèles = celles de l'organisation SOURCE pour ce cours
+      const modeles = db.prepare(`
+        SELECT id, professeur_id FROM attribution
+        WHERE ue_num=? AND annee_scolaire=? AND section=? AND num_organisation=? AND code_cours=?
+        ORDER BY num_groupe, code, id
+      `).all(ueNum, annee, section, orgSource, codeCours);
+      if (modeles.length === 0) continue;
+
+      if (creer_orga_2) {
+        // Créer de nouvelles lignes dans l'orga cible (profs à désigner)
+        for (let i = 0; i < cible.length; i++) {
+          db.prepare(`
+            INSERT INTO attribution (${copyList}, num_organisation, code, num_groupe, nb_groupes, split_groupe, professeur_id)
+            SELECT ${copyList}, ?, ?, ?, ?, ?, ?
+            FROM attribution WHERE id=?
+          `).run(orgCible, cible[i], m === 1 ? 1 : i + 1, m, dedouble, aDesId, modeles[0].id);
+          crees++;
+        }
+      } else {
+        // Modifier l'orga courante : réutiliser les lignes, créer/supprimer le surplus
+        for (let i = 0; i < cible.length; i++) {
+          const numG = m === 1 ? 1 : i + 1;
+          if (i < modeles.length) {
+            db.prepare(`UPDATE attribution SET code=?, num_groupe=?, nb_groupes=?, split_groupe=? WHERE id=?`)
+              .run(cible[i], numG, m, dedouble, modeles[i].id);
+            maj++;
+          } else {
+            db.prepare(`
+              INSERT INTO attribution (${copyList}, num_organisation, code, num_groupe, nb_groupes, split_groupe, professeur_id)
+              SELECT ${copyList}, ?, ?, ?, ?, ?, ?
+              FROM attribution WHERE id=?
+            `).run(orgSource, cible[i], numG, m, dedouble, aDesId, modeles[0].id);
+            crees++;
+          }
+        }
+        if (modeles.length > cible.length) {
+          const surplus = modeles.slice(cible.length).map(l => l.id);
+          const ph = surplus.map(() => '?').join(',');
+          db.prepare(`DELETE FROM attribution WHERE id IN (${ph})`).run(...surplus);
+          supprimes += surplus.length;
+        }
+      }
+      // Refléter dédoublement dans le DP
+      db.prepare(`UPDATE cours SET dedouble=? WHERE cours_code=? AND ue_num=? AND annee_scolaire=?`)
+        .run(dedouble, codeCours, ueNum, annee);
+    }
+  });
+  tx();
+  res.json({ ok: true, crees, supprimes, maj, num_organisation: orgCible });
+});
+
 // Annule le dédoublement (remettre tous les cours à dedouble='N').
 r.patch('/ue/:num/annuler-dedoublement', authRequired, roleRequired('admin', 'editeur'), (req, res) => {
   const annee = req.body.annee_scolaire || req.query.annee || '2025-2026';

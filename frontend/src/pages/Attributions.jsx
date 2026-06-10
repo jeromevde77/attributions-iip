@@ -3,9 +3,10 @@ import { api, getAnnee } from '../lib/api.js';
 import PreviewModal from '../components/PreviewModal.jsx';
 import EptModal from '../components/EptModal.jsx';
 import OrganisationUEModal from '../components/OrganisationUEModal.jsx';
+import OrganiserGroupesModal from '../components/OrganiserGroupesModal.jsx';
 import Doc23Modal from '../components/Doc23Modal.jsx';
 import * as XLSX from 'xlsx';
-import { IconClipboardText, IconTrash, IconLock, IconLockOpen, IconArrowsHorizontal, IconRefresh, IconCalendar, IconFileText, IconChartBar, IconEraser, IconWand, IconSearch, IconX, IconSettings, IconFolder, IconPlus, IconFileImport, IconFileSpreadsheet } from '@tabler/icons-react';
+import { IconClipboardText, IconTrash, IconLock, IconLockOpen, IconArrowsHorizontal, IconRefresh, IconCalendar, IconFileText, IconChartBar, IconEraser, IconWand, IconSearch, IconX, IconSettings, IconFolder, IconPlus, IconFileImport, IconFileSpreadsheet, IconUsersGroup } from '@tabler/icons-react';
 
 // ─── Modale : copier les attributions d'une section d'une année vers une autre ─
 function CopierSectionModal({ sections, anneeActive, isAdmin, onClose, onCopied }) {
@@ -235,6 +236,7 @@ export default function Attributions() {
   const [filtersOpenMobile, setFiltersOpenMobile] = useState(false);
   const [bulkDeleteModal, setBulkDeleteModal] = useState(null);
   const [secDel, setSecDel] = useState(null); // { section, lignes, count } | null
+  const [groupesUE, setGroupesUE] = useState(null); // { portee, section, ues } | null
   const [secDelText, setSecDelText] = useState('');
   const [secDelBusy, setSecDelBusy] = useState(false);
   const [bulkPreview, setBulkPreview] = useState(null);
@@ -1069,17 +1071,11 @@ export default function Attributions() {
                 : <span className="w-8"></span>}
             </span>
           </div>
-          {/* Bouton dédoubler/annuler tous les cours de l'UE en un clic (demande Nicolas) */}
-          <button onClick={async (e)=>{
-                    e.stopPropagation();
-                    try {
-                      const r = await api.dedoublerUE(ue.ue_num);
-                      load();
-                    } catch(err) { alert('Erreur : ' + err.message); }
-                  }}
-                  title="Dédoubler tous les cours de cette UE (×2)"
-                  className="flex-shrink-0 ml-2 px-2 h-7 flex items-center justify-center rounded-full text-xs font-bold transition bg-gray-100 text-gray-500 hover:bg-amber-100 hover:text-amber-700">
-                  ×2
+          {/* Bouton Organiser les groupes (Ts / A,B,C… par cours) — cette UE seule */}
+          <button onClick={(e)=>{ e.stopPropagation(); setGroupesUE({ portee:'ue', section: sec, ues:[{ ...ue, section: sec }] }); }}
+                  title="Organiser les groupes des cours de cette UE"
+                  className="flex-shrink-0 ml-2 px-2 h-7 flex items-center gap-1 justify-center rounded-full text-xs font-medium transition bg-gray-100 text-gray-500 hover:bg-iip-mauve/15 hover:text-iip-mauve">
+                  <IconUsersGroup size={14}/>Groupes
           </button>
           {/* Bouton Réouvrir : crée une nouvelle organisation */}
           <button onClick={(e)=>{e.stopPropagation(); reouvrirUE(ue, sec);}}
@@ -1171,6 +1167,8 @@ export default function Attributions() {
               <span className="flex items-center gap-1 flex-shrink-0" onClick={e=>e.stopPropagation()}>
                 <button onClick={()=>autoFillSection(sg.section)}
                   className="text-iip-gold hover:text-iip-amber" title="Remplir automatiquement les périodes prof"><IconWand size={16}/></button>
+                <button onClick={()=>setGroupesUE({ portee:'section', section: sg.section, ues: sg.ues.map(u => ({ ...u, section: sg.section })) })}
+                  className="text-gray-400 hover:text-iip-mauve" title="Organiser les groupes de toutes les UE de la section"><IconUsersGroup size={16}/></button>
                 <button onClick={()=>genererRapport(sg.section)}
                   className="text-gray-400 hover:text-iip-mauve" title="Rapport d'attributions (HTML/impression)"><IconFileText size={16}/></button>
                 <button onClick={()=>genererExcel(sg.section)}
@@ -1364,6 +1362,15 @@ export default function Attributions() {
       {orgModal && <OrganisationUEModal {...orgModal} annee={getAnnee()} onClose={() => setOrgModal(null)} />}
       {doc23Modal && <Doc23Modal {...doc23Modal} annee={getAnnee()} onClose={() => setDoc23Modal(null)} />}
       {rapportHtml && <PreviewModal html={rapportHtml.html || rapportHtml} titre="Rapport d'attributions" nomFichier={rapportHtml.nom} onClose={() => setRapportHtml(null)} />}
+      {groupesUE && (
+        <OrganiserGroupesModal
+          portee={groupesUE.portee}
+          section={groupesUE.section}
+          ues={groupesUE.ues}
+          onClose={() => setGroupesUE(null)}
+          onApplied={(n) => { setGroupesUE(null); load(); }}
+        />
+      )}
       {editRow && <CoursEditModal section={editRow.section} codeCours={editRow.code_cours} onClose={()=>setEditRow(null)} onChanged={load}/>}
 
       {secDel && (
