@@ -379,14 +379,13 @@ r.patch('/ue-pot', authRequired, roleRequired('admin', 'editeur'), (req, res) =>
   res.json({ ok: true });
 });
 
-// GET /pilotage/efficience?annee= — ratio étudiants/ETP par section et par UE
-// Effectif pondéré section = Σ(périodes_UE × nb_etudiants) / Σ(périodes_UE)
-// ETP section = CT/800 + PP/1000 (IIP). Ratio = effectif pondéré / ETP (élevé = performant).
+// GET /pilotage/efficience?annee= — encadrement par section et UE
+// Deux ratios (élevé = performant) : étudiants/période payée, et étudiants/ETP.
+// Agrégation : Σ(étudiants) ÷ Σ(périodes) et Σ(étudiants) ÷ Σ(ETP) à chaque maille.
 r.get('/efficience', authRequired, (req, res) => {
   const { annee } = req.query;
   if (!annee) return res.status(400).json({ error: 'annee requise' });
 
-  // Périodes organisées + ETP par UE (depuis les attributions), avec effectif de l'UE
   const lignes = db.prepare(`
     SELECT v.section, v.ue_num,
       u.ue_nom, u.nb_etudiants,
@@ -401,49 +400,46 @@ r.get('/efficience', authRequired, (req, res) => {
     ORDER BY v.section, v.ue_num
   `).all(annee);
 
-  // Agrégation par section
+  const r1 = x => Math.round(x * 10) / 10;
+  const r2 = x => Math.round(x * 100) / 100;
+
   const sections = {};
   for (const l of lignes) {
-    const s = (sections[l.section] ||= { section: l.section, etp: 0, sum_pe: 0, sum_per: 0, ues: [], ues_sans_effectif: 0 });
+    const s = (sections[l.section] ||= { section: l.section, etp: 0, periodes: 0, etudiants: 0, ues_sans_effectif: 0, ues: [] });
     s.etp += l.etp || 0;
-    if (l.nb_etudiants != null) {
-      s.sum_pe += (l.periodes || 0) * l.nb_etudiants; // périodes-étudiant
-      s.sum_per += (l.periodes || 0);
-    } else {
-      s.ues_sans_effectif++;
-    }
+    s.periodes += l.periodes || 0;
+    if (l.nb_etudiants != null) s.etudiants += l.nb_etudiants; else s.ues_sans_effectif++;
     s.ues.push({
       ue_num: l.ue_num, ue_nom: l.ue_nom, nb_etudiants: l.nb_etudiants,
-      periodes: Math.round((l.periodes || 0) * 10) / 10,
+      periodes: r1(l.periodes || 0),
       etp: Math.round((l.etp || 0) * 10000) / 10000,
-      ratio: (l.nb_etudiants != null && l.etp > 0) ? Math.round((l.nb_etudiants / l.etp) * 10) / 10 : null,
+      etud_par_periode: (l.nb_etudiants != null && l.periodes > 0) ? r2(l.nb_etudiants / l.periodes) : null,
+      etud_par_etp: (l.nb_etudiants != null && l.etp > 0) ? r1(l.nb_etudiants / l.etp) : null,
     });
   }
 
-  const out = Object.values(sections).map(s => {
-    const effectif_pondere = s.sum_per > 0 ? s.sum_pe / s.sum_per : null;
-    return {
-      section: s.section,
-      etp: Math.round(s.etp * 10000) / 10000,
-      effectif_pondere: effectif_pondere != null ? Math.round(effectif_pondere * 10) / 10 : null,
-      ratio: (effectif_pondere != null && s.etp > 0) ? Math.round((effectif_pondere / s.etp) * 10) / 10 : null,
-      ues_sans_effectif: s.ues_sans_effectif,
-      ues: s.ues,
-    };
-  });
+  const out = Object.values(sections).map(s => ({
+    section: s.section,
+    etp: Math.round(s.etp * 10000) / 10000,
+    periodes: r1(s.periodes),
+    etudiants: s.etudiants,
+    etud_par_periode: s.periodes > 0 ? r2(s.etudiants / s.periodes) : null,
+    etud_par_etp: s.etp > 0 ? r1(s.etudiants / s.etp) : null,
+    ues_sans_effectif: s.ues_sans_effectif,
+    ues: s.ues,
+  }));
 
-  // Total global
-  const totalEtp = out.reduce((a, s) => a + s.etp, 0);
-  const totalPe = Object.values(sections).reduce((a, s) => a + s.sum_pe, 0);
-  const totalPer = Object.values(sections).reduce((a, s) => a + s.sum_per, 0);
-  const effGlobal = totalPer > 0 ? totalPe / totalPer : null;
+  const tEtp = out.reduce((a, s) => a + s.etp, 0);
+  const tPer = out.reduce((a, s) => a + s.periodes, 0);
+  const tEtu = out.reduce((a, s) => a + s.etudiants, 0);
   res.json({
-    annee,
-    sections: out,
+    annee, sections: out,
     total: {
-      etp: Math.round(totalEtp * 10000) / 10000,
-      effectif_pondere: effGlobal != null ? Math.round(effGlobal * 10) / 10 : null,
-      ratio: (effGlobal != null && totalEtp > 0) ? Math.round((effGlobal / totalEtp) * 10) / 10 : null,
+      etp: Math.round(tEtp * 10000) / 10000,
+      periodes: r1(tPer),
+      etudiants: tEtu,
+      etud_par_periode: tPer > 0 ? r2(tEtu / tPer) : null,
+      etud_par_etp: tEtp > 0 ? r1(tEtu / tEtp) : null,
     },
   });
 });
