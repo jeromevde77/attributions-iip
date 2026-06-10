@@ -1546,6 +1546,8 @@ try {
         UNIQUE(code, annee_civile)
       );
     `);
+    // Enveloppe illimitée (ex. AeSI sans pot défini) : ne déborde jamais sur la dotation
+    try { db.exec("ALTER TABLE enveloppe_externe ADD COLUMN illimite INTEGER DEFAULT 0"); } catch {}
 
     // periodes_eleves (PEP brute Menu 7) + pep_calculee (PEP pondérée Menu 5.5) + dotation_utilisable + pep_reference
     try { db.exec("ALTER TABLE dotation_civile ADD COLUMN periodes_eleves      REAL"); } catch {}
@@ -1610,12 +1612,14 @@ try {
     console.log('[migration] Pilotage civil : dotation_civile + enveloppe_externe initialisés');
   }
 
-  // Enveloppe spéciale AeSI (hors dotation organique) — périodes encore inconnues (0)
+  // Enveloppe spéciale AeSI (hors dotation organique) — illimitée tant qu'aucun pot n'est défini
   try {
-    const insAesi = db.prepare("INSERT OR IGNORE INTO enveloppe_externe (code, label, annee_civile, periodes_b, notes) VALUES (?,?,?,?,?)");
-    for (const ac of [2025, 2026]) {
-      insAesi.run('AESI', 'AeSI', ac, 0, 'Enveloppe spéciale hors dotation organique — périodes à confirmer');
+    const insAesi = db.prepare("INSERT OR IGNORE INTO enveloppe_externe (code, label, annee_civile, periodes_b, illimite, notes) VALUES (?,?,?,?,?,?)");
+    for (const ac of [2025, 2026, 2027]) {
+      insAesi.run('AESI', 'AeSI', ac, 0, 1, 'Enveloppe spéciale hors dotation organique — illimitée (pas de pot défini)');
     }
+    // S'assurer que les lignes AESI existantes sont bien marquées illimitées
+    db.prepare("UPDATE enveloppe_externe SET illimite = 1 WHERE code = 'AESI'").run();
   } catch (e) { console.error('[migration] enveloppe AeSI :', e.message); }
 
   // Corriger les valeurs '[object Object]' ET les chaînes vides dans quadrimestre_attribue et quadrimestre_cours
