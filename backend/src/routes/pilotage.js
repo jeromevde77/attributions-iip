@@ -201,13 +201,15 @@ r.get('/civil', authRequired, (req, res) => {
       const usage = e.usage_historique != null
         ? e.usage_historique
         : (usageEnvByAnnee[y]?.[e.code] ?? 0);
-      const dot = Math.max(0, Math.round((usage - e.periodes_b) * 100) / 100);
+      // Enveloppe illimitée : ne déborde jamais sur l'organique
+      const dot = e.illimite ? 0 : Math.max(0, Math.round((usage - e.periodes_b) * 100) / 100);
       return {
         ...e,
         usage,
-        dot,  // dépassement à imputer sur l'organique
-        solde: Math.round((e.periodes_b - usage) * 100) / 100,
-        pct: e.periodes_b ? Math.round((usage / e.periodes_b) * 1000) / 10 : null,
+        dot,  // dépassement à imputer sur l'organique (0 si illimitée)
+        illimite: !!e.illimite,
+        solde: e.illimite ? null : Math.round((e.periodes_b - usage) * 100) / 100,
+        pct: e.illimite ? null : (e.periodes_b ? Math.round((usage / e.periodes_b) * 1000) / 10 : null),
       };
     });
 
@@ -701,14 +703,14 @@ r.get('/ext-dot', authRequired, (req, res) => {
   const POTS_EXT = ['QUAL', 'CF', 'INCL', 'AESI'];
 
   // Plafonds EXT par pot_code — fallback sur l'année civile précédente si absente
-  // AESI : enveloppe « illimitée » tant qu'aucun pot n'est défini → tout reste EXT (jamais DOT)
+  // Enveloppe « illimitée » (ex. AeSI) → tout reste EXT (jamais DOT)
   const plafonds = {};
   const illimite = {};
   for (const pot of POTS_EXT) {
-    if (pot === 'AESI') { illimite[pot] = true; plafonds[pot] = Infinity; continue; }
-    const env = db.prepare("SELECT periodes_b FROM enveloppe_externe WHERE code=? AND annee_civile=?").get(pot, anneeCivile)
-              || db.prepare("SELECT periodes_b FROM enveloppe_externe WHERE code=? AND annee_civile=?").get(pot, anneeCivile - 1);
-    plafonds[pot] = env?.periodes_b ?? 0;
+    const env = db.prepare("SELECT periodes_b, illimite FROM enveloppe_externe WHERE code=? AND annee_civile=?").get(pot, anneeCivile)
+              || db.prepare("SELECT periodes_b, illimite FROM enveloppe_externe WHERE code=? AND annee_civile=?").get(pot, anneeCivile - 1);
+    if (env?.illimite) { illimite[pot] = true; plafonds[pot] = Infinity; }
+    else plafonds[pot] = env?.periodes_b ?? 0;
   }
 
   // Toutes les attributions sur des UEs à enveloppe externe
