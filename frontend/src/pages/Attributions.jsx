@@ -1,5 +1,5 @@
 import { useEffect, useState, useMemo } from 'react';
-import { api, getAnnee } from '../lib/api.js';
+import { api, getAnnee, nomDoc } from '../lib/api.js';
 import PreviewModal from '../components/PreviewModal.jsx';
 import EptModal from '../components/EptModal.jsx';
 import OrganisationUEModal from '../components/OrganisationUEModal.jsx';
@@ -390,7 +390,7 @@ export default function Attributions() {
       </div>
       </body></html>`;
 
-    setRapportHtml({ html, nom: nomDoc('Rapport_attr', filtres?.section || 'Toutes_sections', getAnnee()) });
+    setRapportHtml({ html, nom: nomDoc('Rapport_attr', section || 'Toutes_sections', getAnnee()) });
   }
   async function genererExcel(section) {
     const annee = getAnnee();
