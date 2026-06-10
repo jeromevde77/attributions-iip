@@ -257,27 +257,37 @@ r.patch('/ue/:num/rename', authRequired, roleRequired('admin'), (req, res) => {
 r.patch('/ue/:num/dedoubler', authRequired, roleRequired('admin', 'editeur'), (req, res) => {
   const annee = req.body.annee_scolaire || req.query.annee || '2025-2026';
   const ueNum = req.params.num;
-  // Colonnes à copier (toutes sauf id et colonnes VIRTUAL)
+  // Colonnes à copier pour la nouvelle ligne (groupe B), hors code/num_groupe/split qu'on fixe nous-mêmes
   const COLS = [
     'section','etablissement_referent','contrat_mdp','organisation','annee_scolaire',
     'ue_num','num_organisation','quadrimestre_attribue','code_cours','type_cours',
-    'type_cours_helb','code','nb_groupes','split_groupe','num_split','num_groupe',
-    'activite_id','professeur_id','cours_ept_ad','coordination_encadrement',
+    'type_cours_helb','nb_groupes','num_split',
+    'activite_id','cours_ept_ad','coordination_encadrement',
     'modification_attribution','commentaire','commentaire_2','charge_perdue_84plus',
     'periodes_transferees','per_etudiant_total_dp','periodes_attribuees',
     'autonomie_attribuee','titre_rtf',
-  ].join(', ');
+  ];
+  const colList = COLS.join(', ');
+  const aDesigner = db.prepare(`SELECT id FROM professeur WHERE nom = 'À DÉSIGNER' LIMIT 1`).get();
+  // Garde-fou : si l'UE a déjà plusieurs groupes (B, C…), ne pas re-dédoubler aveuglément
+  const groupes = db.prepare(`SELECT DISTINCT code FROM attribution WHERE ue_num = ? AND annee_scolaire = ?`).all(ueNum, annee).map(r => r.code);
+  const aDejaPlusieurs = groupes.some(c => c && c !== 'A' && c !== 'Ts' && c !== null);
+  if (aDejaPlusieurs) {
+    return res.status(409).json({ error: 'Cette UE a déjà plusieurs groupes. Utilisez la fenêtre « Organiser les groupes » pour ajuster.' });
+  }
   const tx = db.transaction(() => {
     // Marquer les cours comme dédoublés dans le DP
     db.prepare(`UPDATE cours SET dedouble = 'O' WHERE ue_num = ? AND annee_scolaire = ?`).run(ueNum, annee);
-    // Dupliquer chaque ligne d'attribution de cette UE
-    // (INSERT INTO ... SELECT FROM attribution WHERE ue_num = ? AND annee_scolaire = ?)
+    // Les lignes existantes (Ts ou A ou NULL) deviennent le groupe A / num_groupe 1
+    db.prepare(`UPDATE attribution SET code='A', num_groupe=1, split_groupe='O'
+                WHERE ue_num = ? AND annee_scolaire = ?`).run(ueNum, annee);
+    // Insérer une copie en groupe B / num_groupe 2, prof À DÉSIGNER
     const r = db.prepare(`
-      INSERT INTO attribution (${COLS})
-      SELECT ${COLS}
+      INSERT INTO attribution (${colList}, code, num_groupe, split_groupe, professeur_id)
+      SELECT ${colList}, 'B', 2, 'O', ?
       FROM attribution
-      WHERE ue_num = ? AND annee_scolaire = ?
-    `).run(ueNum, annee);
+      WHERE ue_num = ? AND annee_scolaire = ? AND code = 'A'
+    `).run(aDesigner?.id ?? null, ueNum, annee);
     return r.changes;
   });
   const nb = tx();
