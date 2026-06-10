@@ -386,7 +386,8 @@ r.get('/efficience', authRequired, (req, res) => {
   const { annee } = req.query;
   if (!annee) return res.status(400).json({ error: 'annee requise' });
 
-  const lignes = db.prepare(`
+  // IIP : périodes + ETP (CT/800 + PP/1000) par section/UE
+  const lignesIIP = db.prepare(`
     SELECT v.section, v.ue_num,
       u.ue_nom, u.nb_etudiants,
       SUM(v.total_attribue_professeur) AS periodes,
@@ -396,26 +397,59 @@ r.get('/efficience', authRequired, (req, res) => {
     LEFT JOIN ue u ON u.ue_num = v.ue_num AND u.annee_scolaire = v.annee_scolaire
     WHERE v.annee_scolaire = ? AND COALESCE(v.contrat_mdp,'IIP')='IIP'
     GROUP BY v.section, v.ue_num, u.ue_nom, u.nb_etudiants
-    HAVING periodes > 0
     ORDER BY v.section, v.ue_num
   `).all(annee);
+
+  // HELB : ETP par statut (MA/PI: TH 480, TP 750 ; MFP: 750 ; COORD: 1400)
+  // diviseur appliqué par ligne selon le statut HELB du prof et la nature TH/TP.
+  const lignesHELB = db.prepare(`
+    SELECT v.section, v.ue_num,
+      v.charge_en_heures AS heures,
+      COALESCE(p.statut_helb,'') AS statut,
+      COALESCE(v.helb_nature,'CT') AS nature
+    FROM v_attribution_complete v
+    LEFT JOIN professeur p ON p.id = v.professeur_id
+    WHERE v.annee_scolaire = ? AND v.contrat_mdp='HELB'
+  `).all(annee);
+
+  // Diviseur HELB
+  const divHelb = (statut, nature) => {
+    if (statut === 'COORD') return 1400;
+    if (statut === 'MFP') return 750;
+    return nature === 'TP' ? 750 : 480; // MA, PI, ou défaut
+  };
+  // ETP HELB agrégé par section + par UE
+  const helbSec = {}, helbUE = {};
+  for (const l of lignesHELB) {
+    const e = (l.heures || 0) / divHelb(l.statut, l.nature);
+    helbSec[l.section] = (helbSec[l.section] || 0) + e;
+    const k = `${l.section}|${l.ue_num}`;
+    helbUE[k] = (helbUE[k] || 0) + e;
+  }
 
   const r1 = x => Math.round(x * 10) / 10;
   const r2 = x => Math.round(x * 100) / 100;
 
   const sections = {};
-  for (const l of lignes) {
+  for (const l of lignesIIP) {
+    if ((l.periodes || 0) <= 0 && !(helbUE[`${l.section}|${l.ue_num}`])) continue;
     const s = (sections[l.section] ||= { section: l.section, etp: 0, periodes: 0, etudiants: 0, ues_sans_effectif: 0, ues: [] });
-    s.etp += l.etp || 0;
+    const etpHelbUE = helbUE[`${l.section}|${l.ue_num}`] || 0;
+    const etpUE = (l.etp || 0) + etpHelbUE;
+    s.etp += etpUE;
     s.periodes += l.periodes || 0;
-    if (l.nb_etudiants != null) s.etudiants += l.nb_etudiants; else s.ues_sans_effectif++;
+    if (l.nb_etudiants != null) s.etudiants += l.nb_etudiants; else if (l.periodes > 0) s.ues_sans_effectif++;
     s.ues.push({
       ue_num: l.ue_num, ue_nom: l.ue_nom, nb_etudiants: l.nb_etudiants,
       periodes: r1(l.periodes || 0),
-      etp: Math.round((l.etp || 0) * 10000) / 10000,
+      etp: Math.round(etpUE * 10000) / 10000,
       etud_par_periode: (l.nb_etudiants != null && l.periodes > 0) ? r2(l.nb_etudiants / l.periodes) : null,
-      etud_par_etp: (l.nb_etudiants != null && l.etp > 0) ? r1(l.nb_etudiants / l.etp) : null,
+      etud_par_etp: (l.nb_etudiants != null && etpUE > 0) ? r1(l.nb_etudiants / etpUE) : null,
     });
+  }
+  // Ajouter l'ETP HELB des sections qui n'ont pas de ligne IIP correspondante
+  for (const sec of Object.keys(helbSec)) {
+    if (!sections[sec]) sections[sec] = { section: sec, etp: helbSec[sec], periodes: 0, etudiants: 0, ues_sans_effectif: 0, ues: [] };
   }
 
   const out = Object.values(sections).map(s => ({
