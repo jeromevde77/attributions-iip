@@ -504,7 +504,7 @@ export default function Listes() {
       ues = ues.filter(u => String(u.ue_num) === String(filtres.ue_num));
     }
 
-    const lignesUE = ues.map(ue => {
+    const renderUErap = (ue) => {
       const col = getNivCol(ue.ue_niv);
       const lignesCours = ue.cours.map((c,i) => `
         <tr style="background:${i%2===0?'#fff':'#f9fafb'}">
@@ -531,6 +531,26 @@ export default function Listes() {
           <td style="${SR}font-weight:600;color:#6b7280">${fmt(ue.total_aut)}</td>
           <td style="${SR}font-weight:700;border-left:1px solid #e5e7eb">${fmt(ue.total_per+ue.total_aut)}</td>
         </tr>`;
+    };
+    // Regrouper par organisation : orga 1, puis orga 2, etc., chacune avec son sous-total
+    const orgas = [...new Set(ues.map(u => u.num_organisation || 1))].sort((a,b) => a - b);
+    const plusieursOrgas = orgas.length > 1;
+    const lignesUE = orgas.map(org => {
+      const uesOrg = ues.filter(u => (u.num_organisation || 1) === org);
+      const totP = uesOrg.reduce((s,u) => s + (u.total_per||0), 0);
+      const totA = uesOrg.reduce((s,u) => s + (u.total_aut||0), 0);
+      const enTete = plusieursOrgas
+        ? `<tr style="background:#1B2B4B"><td colspan="7" style="padding:5px 8px"><span style="background:${org>1?'#7c3aed':'#475569'};color:white;font-size:10px;padding:2px 8px;border-radius:3px">Organisation ${org}</span></td></tr>`
+        : '';
+      const sousTotalOrg = plusieursOrgas
+        ? `<tr style="background:#cbd5e1;border-top:2px solid #475569">
+            <td colspan="4" style="padding:3px 8px;font-weight:700;font-size:11px;color:#1B2B4B">Sous-total Organisation ${org}</td>
+            <td style="${SR}font-weight:700;color:#1B2B4B">${fmt(totP)}</td>
+            <td style="${SR}font-weight:700;color:#1B2B4B">${fmt(totA)}</td>
+            <td style="${SR}font-weight:700;color:#1B2B4B;border-left:1px solid #94a3b8">${fmt(totP+totA)}</td>
+          </tr>`
+        : '';
+      return enTete + uesOrg.map(renderUErap).join('') + sousTotalOrg;
     }).join('');
 
     const totalPer = ues.reduce((s,u)=>s+u.total_per,0);
