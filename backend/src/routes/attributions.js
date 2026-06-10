@@ -271,7 +271,7 @@ r.get('/rapport-attributions', authRequired, (req, res) => {
       a.professeur_id, p.nom AS prof_nom, p.prenom AS prof_prenom,
       a.periodes_attribuees, a.autonomie_attribuee,
       a.activite_id, at.libelle AS activite_nom,
-      a.type_cours
+      a.type_cours, a.contrat_mdp
     FROM attribution a
     LEFT JOIN professeur p ON p.id = a.professeur_id
     LEFT JOIN activite_type at ON at.id = a.activite_id
@@ -331,6 +331,7 @@ r.get('/rapport-attributions', authRequired, (req, res) => {
         ? `${row.prof_nom}${row.prof_prenom ? '\u00a0' + row.prof_prenom[0] + '.' : ''}`.trim()
         : '\u2014',
       activite_nom: row.activite_nom,
+      contrat:      row.contrat_mdp || 'IIP',
       periodes:     per,
       autonomie:    aut,
       total:        per + aut,

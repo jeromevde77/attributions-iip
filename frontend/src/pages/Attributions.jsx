@@ -306,6 +306,7 @@ export default function Attributions() {
               title="${(c.cours_nom||'').replace(/"/g,"'")}">${c.cours_nom||'—'}${c.activite_nom?` <em style="color:#9ca3af;font-size:10px">(${c.activite_nom})</em>`:''}</td>
           <td style="${SN}color:#6b7280">Gr.${c.groupe_code}</td>
           <td style="${SN}">${c.prof_nom}</td>
+          <td style="${S}text-align:center"><span style="font-size:8px;font-weight:700;padding:1px 4px;border-radius:3px;background:${c.contrat==='HELB'?'#ede9fe':'#dbeafe'};color:${c.contrat==='HELB'?'#6d28d9':'#1d4ed8'}">${c.contrat}</span></td>
           <td style="${SR}color:#374151">${fmt(c.periodes)}</td>
           <td style="${SR}color:#6b7280">${fmt(c.autonomie)}</td>
           <td style="${SR}font-weight:600;border-left:1px solid #e5e7eb">${fmt(c.total)}</td>
@@ -313,7 +314,7 @@ export default function Attributions() {
 
       return `
         <tr style="background:#f1f5f9;border-left:3px solid ${col}">
-          <td colspan="4" style="padding:4px 6px 4px 8px;font-weight:700;font-size:12px;color:#111827;white-space:nowrap">
+          <td colspan="5" style="padding:4px 6px 4px 8px;font-weight:700;font-size:12px;color:#111827;white-space:nowrap">
             <span style="background:${col};color:white;font-size:9px;padding:1px 4px;border-radius:2px;margin-right:5px">${ue.ue_niv||''}</span>UE ${ue.ue_num} — ${ue.ue_nom||''}
           </td>
           <td style="${SR}color:#6b7280;font-size:10px"></td>
@@ -356,6 +357,7 @@ export default function Attributions() {
               <th style="padding:3px 5px;text-align:left;font-size:10px">Cours</th>
               <th style="padding:3px 5px;text-align:left;font-size:10px;white-space:nowrap">Gr.</th>
               <th style="padding:3px 5px;text-align:left;font-size:10px;white-space:nowrap">Professeur</th>
+              <th style="padding:3px 5px;text-align:center;font-size:10px;white-space:nowrap">Statut</th>
               <th style="padding:3px 5px;text-align:right;font-size:10px;white-space:nowrap">Pér.</th>
               <th style="padding:3px 5px;text-align:right;font-size:10px;white-space:nowrap">Aut.</th>
               <th style="padding:3px 5px;text-align:right;font-size:10px;white-space:nowrap;border-left:1px solid rgba(255,255,255,.3)">Total</th>
