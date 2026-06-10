@@ -737,20 +737,20 @@ export default function Pilotage() {
     if (!effic) return <div className="text-gray-400 py-8 text-center">Chargement…</div>;
     const secs = effic.sections || [];
     const toggle = (s) => setEfficOpen(prev => { const n = new Set(prev); n.has(s) ? n.delete(s) : n.add(s); return n; });
-    // Échelle de couleur du ratio (élevé = vert performant, bas = rouge coûteux)
-    const ratioColor = (r) => r == null ? 'text-gray-400' : r >= 15 ? 'text-green-600' : r >= 8 ? 'text-amber-600' : 'text-red-600';
     return (
       <div>
         <div className="mb-4 bg-blue-50 border border-blue-200 rounded-lg p-3 text-[12px] text-blue-800">
-          <b>Efficience pédagogique</b> — ratio <b>étudiants / ETP</b> par section ({effic.annee}). Plus le ratio est élevé, plus la section est performante (beaucoup d'étudiants par ETP enseignant = faible coût par tête). L'effectif pondéré tient compte du poids horaire de chaque UE.
+          <b>Encadrement</b> — par section ({effic.annee}). <b>Étud./période</b> = nombre d'étudiants par période-prof payée ; <b>Étud./ETP</b> = étudiants par équivalent temps plein. Plus le chiffre est élevé, plus l'encadrement est « rentable » (beaucoup d'étudiants pour peu de moyens).
         </div>
         <table className="w-full text-sm border-collapse">
           <thead>
             <tr className="bg-gray-50 text-gray-500 text-xs uppercase">
               <th className="text-left px-3 py-2">Section</th>
-              <th className="text-right px-3 py-2">Effectif pondéré</th>
+              <th className="text-right px-3 py-2">Étudiants</th>
+              <th className="text-right px-3 py-2">Périodes payées</th>
               <th className="text-right px-3 py-2">ETP</th>
-              <th className="text-right px-3 py-2">Ratio étud./ETP</th>
+              <th className="text-right px-3 py-2">Étud./période</th>
+              <th className="text-right px-3 py-2">Étud./ETP</th>
               <th className="px-3 py-2"></th>
             </tr>
           </thead>
@@ -758,18 +758,22 @@ export default function Pilotage() {
             {secs.map(s => (
               <Fragment key={s.section}>
                 <tr className="border-t border-gray-100 hover:bg-gray-50 cursor-pointer" onClick={() => toggle(s.section)}>
-                  <td className="px-3 py-2 font-medium text-gray-800">{s.section}{s.ues_sans_effectif > 0 && <span className="ml-2 text-[10px] text-amber-600" title="UE sans effectif saisi">⚠ {s.ues_sans_effectif} UE sans effectif</span>}</td>
-                  <td className="px-3 py-2 text-right text-gray-700">{s.effectif_pondere ?? '—'}</td>
-                  <td className="px-3 py-2 text-right text-gray-700">{s.etp?.toFixed(2)}</td>
-                  <td className={`px-3 py-2 text-right font-bold ${ratioColor(s.ratio)}`}>{s.ratio ?? '—'}</td>
+                  <td className="px-3 py-2 font-medium text-gray-800">{s.section}{s.ues_sans_effectif > 0 && <span className="ml-2 text-[10px] text-amber-600" title="UE sans effectif saisi">⚠ {s.ues_sans_effectif} sans effectif</span>}</td>
+                  <td className="px-3 py-2 text-right text-gray-700">{s.etudiants || '—'}</td>
+                  <td className="px-3 py-2 text-right text-gray-500">{s.periodes}</td>
+                  <td className="px-3 py-2 text-right text-gray-500">{s.etp?.toFixed(2)}</td>
+                  <td className="px-3 py-2 text-right font-bold text-iip-mauve">{s.etud_par_periode ?? '—'}</td>
+                  <td className="px-3 py-2 text-right font-bold text-cyan-700">{s.etud_par_etp ?? '—'}</td>
                   <td className="px-3 py-2 text-right text-gray-400">{efficOpen.has(s.section) ? '▾' : '▸'}</td>
                 </tr>
                 {efficOpen.has(s.section) && s.ues.map(u => (
                   <tr key={u.ue_num} className="bg-gray-50/50 text-[12px]">
                     <td className="px-3 py-1 pl-8 text-gray-600">UE {u.ue_num} — {u.ue_nom || ''}</td>
                     <td className="px-3 py-1 text-right text-gray-500">{u.nb_etudiants ?? <span className="text-amber-500">non saisi</span>}</td>
-                    <td className="px-3 py-1 text-right text-gray-500">{u.etp?.toFixed(3)}</td>
-                    <td className={`px-3 py-1 text-right ${ratioColor(u.ratio)}`}>{u.ratio ?? '—'}</td>
+                    <td className="px-3 py-1 text-right text-gray-400">{u.periodes}</td>
+                    <td className="px-3 py-1 text-right text-gray-400">{u.etp?.toFixed(3)}</td>
+                    <td className="px-3 py-1 text-right text-iip-mauve">{u.etud_par_periode ?? '—'}</td>
+                    <td className="px-3 py-1 text-right text-cyan-700">{u.etud_par_etp ?? '—'}</td>
                     <td></td>
                   </tr>
                 ))}
@@ -778,9 +782,11 @@ export default function Pilotage() {
             {effic.total && (
               <tr className="border-t-2 border-gray-300 font-bold bg-gray-50">
                 <td className="px-3 py-2">TOTAL</td>
-                <td className="px-3 py-2 text-right">{effic.total.effectif_pondere ?? '—'}</td>
+                <td className="px-3 py-2 text-right">{effic.total.etudiants || '—'}</td>
+                <td className="px-3 py-2 text-right">{effic.total.periodes}</td>
                 <td className="px-3 py-2 text-right">{effic.total.etp?.toFixed(2)}</td>
-                <td className={`px-3 py-2 text-right ${ratioColor(effic.total.ratio)}`}>{effic.total.ratio ?? '—'}</td>
+                <td className="px-3 py-2 text-right text-iip-mauve">{effic.total.etud_par_periode ?? '—'}</td>
+                <td className="px-3 py-2 text-right text-cyan-700">{effic.total.etud_par_etp ?? '—'}</td>
                 <td></td>
               </tr>
             )}
