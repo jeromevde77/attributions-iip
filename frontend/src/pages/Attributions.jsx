@@ -317,7 +317,7 @@ export default function Attributions() {
       return `
         <tr style="background:#f1f5f9;border-left:3px solid ${col}">
           <td colspan="5" style="padding:4px 6px 4px 8px;font-weight:700;font-size:12px;color:#111827;white-space:nowrap">
-            <span style="background:${col};color:white;font-size:9px;padding:1px 4px;border-radius:2px;margin-right:5px">${ue.ue_niv||''}</span>UE ${ue.ue_num} — ${ue.ue_nom||''}
+            <span style="background:${col};color:white;font-size:9px;padding:1px 4px;border-radius:2px;margin-right:5px">${ue.ue_niv||''}</span>UE ${ue.ue_num} — ${ue.ue_nom||''}${(ue.num_organisation||1) > 1 ? ` <span style="background:#7c3aed;color:white;font-size:9px;padding:1px 5px;border-radius:3px;margin-left:4px">Org. ${ue.num_organisation}</span>` : ` <span style="background:#e5e7eb;color:#6b7280;font-size:9px;padding:1px 5px;border-radius:3px;margin-left:4px">Org. 1</span>`}
           </td>
           <td style="${SR}color:#6b7280;font-size:10px"></td>
           <td style="${SR}color:#6b7280;font-size:10px"></td>
