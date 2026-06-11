@@ -242,6 +242,7 @@ r.post('/pv-recours', authRequired, (req, res) => {
     'pv.type_decision':  typeDecision,
     'pv.etudiant':       etudiant || '',
     'pv.ue_ref':         ueRef,
+    'ue.ue_num':         ue_num || '',
     'pv.date_publi':     date_publi   ? dateLongue(date_publi)   : '',
     'pv.date_recours':   date_recours ? dateLongue(date_recours) : '',
     'pv.date_seance':    date_seance  ? `<p><strong>Date de réunion du CDE\u00a0:</strong> ${dateLongue(date_seance)}</p>` : '',
@@ -258,6 +259,7 @@ r.post('/pv-recours', authRequired, (req, res) => {
       'pv.type_decision':  typeDecision,
       'pv.etudiant':       etudiant || '',
       'pv.ue_ref':         ueRef,
+      'ue.ue_num':         ue_num || '',
       'pv.date_publi':     date_publi   ? dateLongue(date_publi)   : '',
       'pv.date_recours':   date_recours ? dateLongue(date_recours) : '',
       'pv.date_seance':    date_seance  ? `<p><strong>Date de réunion du CDE\u00a0:</strong> ${dateLongue(date_seance)}</p>` : '',
@@ -332,6 +334,7 @@ r.post('/pv-fraude', authRequired, (req, res) => {
   const resultat = genererDepuisTemplate('pv-fraude', {
     'pv.etudiant':       etudiant || '',
     'pv.ue_ref':         ueRef,
+    'ue.ue_num':         ue_num || '',
     'pv.date_examen':    date_examen    ? dateLongue(date_examen)    : '—',
     'pv.session':        session === '1' ? '1re session' : '2e session',
     'pv.recidive':       recidive ? ' — <strong>RÉCIDIVE</strong>' : '',
