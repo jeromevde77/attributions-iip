@@ -334,6 +334,8 @@ export default function Listes() {
             <td style="${S}font-style:italic;color:#6b7280">Autonomie</td>
             <td style="${S}text-align:center;color:#6b7280">Auto</td>
             <td style="${SR}color:#6b7280">—</td>
+            <td style="${SR}color:#6b7280">—</td>
+            <td style="${SR}color:#6b7280">—</td>
             <td style="${SR}color:#f59e0b;font-weight:600">${autUE}</td>
             <td style="${SR}font-weight:600">${autUE}</td>
           </tr>` : '';
