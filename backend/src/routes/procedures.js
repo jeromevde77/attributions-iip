@@ -238,6 +238,8 @@ r.post('/pv-recours', authRequired, (req, res) => {
   // Choix du modèle selon l'année scolaire de la décision :
   // 2025-2026 → pv-recours-25-26 (ROI/RGE 2024) ; sinon → modèle courant.
   const slugRecours = is2526 ? 'pv-recours-25-26' : 'pv-recours';
+  // Pour le modèle 25-26 : uniformiser la taille de police des contenus générés (10pt comme le texte du modèle)
+  const wrap10 = (html) => is2526 && html ? `<div style="font-size:10pt">${html}</div>` : html;
   let resultat = genererDepuisTemplate(slugRecours, {
     'pv.type_decision':  typeDecision,
     'pv.etudiant':       etudiant || '',
@@ -245,13 +247,13 @@ r.post('/pv-recours', authRequired, (req, res) => {
     'ue.ue_num':         ue_num || '',
     'pv.date_publi':     date_publi   ? dateLongue(date_publi)   : '',
     'pv.date_recours':   date_recours ? dateLongue(date_recours) : '',
-    'pv.date_seance':    date_seance  ? `<p><strong>Date de réunion du CDE\u00a0:</strong> ${dateLongue(date_seance)}</p>` : '',
-    'pv.composition':    composition,
-    'pv.corps':          corps,
+    'pv.date_seance':    date_seance  ? wrap10(`<p><strong>Date de réunion du CDE\u00a0:</strong> ${dateLongue(date_seance)}</p>`) : '',
+    'pv.composition':    wrap10(composition),
+    'pv.corps':          wrap10(corps),
     'pv.commentaire':    commentaire_cde
-      ? `<h3>OBSERVATIONS DU CONSEIL DES ÉTUDES</h3><p style="border:1px solid #ccc;padding:10px;background:#fafafa">${commentaire_cde.replace(/\n/g,'<br>')}</p>`
+      ? wrap10(`<h3>OBSERVATIONS DU CONSEIL DES ÉTUDES</h3><p style="border:1px solid #ccc;padding:10px;background:#fafafa">${commentaire_cde.replace(/\n/g,'<br>')}</p>`)
       : '',
-    'pv.voies_recours':  voiesRecours,
+    'pv.voies_recours':  wrap10(voiesRecours),
   });
   // Repli sur le modèle standard si le modèle 25-26 n'existe pas (sécurité)
   if (!resultat && slugRecours !== 'pv-recours') {
