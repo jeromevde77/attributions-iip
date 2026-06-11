@@ -535,7 +535,12 @@ function OutilRecours({ initialPayload, onPayloadConsumed }) {
             )}
             {q.decisionRefus === 'oui' && (
               <div className="mt-3 p-3 bg-green-50 border border-green-200 rounded text-sm text-green-800">
-                ✓ La décision est recourable. Procéder à l'analyse de recevabilité.
+                ✓ La décision est de nature recourable (décision de refus). Procéder à l'analyse de recevabilité.
+              </div>
+            )}
+            {q.decisionRefus === 'oui' && delaiRespect === false && (
+              <div className="mt-2 p-3 bg-orange-50 border-2 border-orange-400 rounded text-sm text-orange-800">
+                ⚠ <strong>Attention :</strong> le délai de 4 jours calendrier est dépassé (J+{nbJours}). La plainte sera vraisemblablement <strong>irrecevable</strong> pour ce motif — vérification formelle à l'étape 3.
               </div>
             )}
           </Section>
