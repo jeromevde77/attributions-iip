@@ -720,15 +720,33 @@ function genererPVFraude({ etudiant, ueNum, ueNom, profs, profsPresents,
 
   const today = new Date().toLocaleDateString('fr-BE', { day:'2-digit', month:'long', year:'numeric' });
   const presents = profsPresents.length > 0 ? profsPresents : profs;
+  const is2526F = annee === '2025-2026';
+  const AF = is2526F ? {
+    plage: 'Art. 54-55 ROI/RGE', plageLong: 'les articles 54 et 55',
+    composition: 'Art. 14 ROI/RGE', notifAudition: 'Art. 54 ROI/RGE',
+    contradictoire: 'Art. 54 ROI/RGE', motivation: 'Art. 55 ROI/RGE',
+    recours: 'Art. 65-68 ROI/RGE', recoursInterne: 'Art. 67 ROI/RGE', roi: 'ROI/RGE',
+  } : {
+    plage: 'Art. 72-75 RDE/ROI', plageLong: 'les articles 72 à 75',
+    composition: 'Art. 72 RDE/ROI', notifAudition: 'Art. 74 §1 RDE/ROI',
+    contradictoire: 'Art. 74 RDE/ROI', motivation: 'Art. 75 RDE/ROI',
+    recours: 'Art. 87-91 RDE/ROI', recoursInterne: 'Art. 88 §1 RDE/ROI', roi: 'RDE/ROI',
+  };
   const sanction = decision === 'ajournement'
     ? `L'étudiant·e est AJOURNÉ·E pour les acquis d'apprentissage visés par l'épreuve de l'UE ${ueNum}.`
     : decision === 'refus'
-    ? `L'étudiant·e est REFUSÉ·E pour l'UE ${ueNum}. La décision de refus est susceptible de recours interne (${is2526F ? 'Art. 65-68 ROI/RGE' : 'Art. 87-91 RDE/ROI'}).`
+    ? `L'étudiant·e est REFUSÉ·E pour l'UE ${ueNum}. La décision de refus est susceptible de recours interne (${AF.recours}).`
     : 'La décision sera notifiée séparément.';
 
-  const fondJuridique = session === '2' || recidive
-    ? `L'étudiant·e se trouve en deuxième session${recidive ? ' et/ou en situation de récidive' : ''}. Conformément à l'Art. 73 §2 du RDE/ROI, le CDE peut prononcer un refus systématique.`
-    : `L'étudiant·e se trouve en première session. Conformément à l'Art. 73 §1 du RDE/ROI, la fraude entraîne un ajournement pour les AA visés par l'épreuve concernée.`;
+  const fondJuridique = is2526F
+    ? (session === '2'
+        ? `L'étudiant·e se trouve en deuxième session. Conformément à l'Art. 55 du ROI/RGE, l'étudiant·e est systématiquement refusé·e en cas de fraude constatée en seconde session.`
+        : recidive
+        ? `L'étudiant·e se trouve en situation de récidive. Conformément à l'Art. 55 du ROI/RGE, le Conseil des Études ou le Jury d'Épreuve intégrée peut refuser l'étudiant·e dès la première session.`
+        : `L'étudiant·e se trouve en première session. Conformément à l'Art. 55 du ROI/RGE, l'étudiant·e est soit ajourné·e, soit refusé·e, sur décision du Conseil des Études ou du Jury d'Épreuve intégrée.`)
+    : (session === '2' || recidive
+        ? `L'étudiant·e se trouve en deuxième session${recidive ? ' et/ou en situation de récidive' : ''}. Conformément à l'Art. 73 §2 du RDE/ROI, le CDE peut prononcer un refus systématique.`
+        : `L'étudiant·e se trouve en première session. Conformément à l'Art. 73 §1 du RDE/ROI, la fraude entraîne un ajournement pour les AA visés par l'épreuve concernée.`);
 
   return `<!DOCTYPE html><html lang="fr"><head><meta charset="utf-8"><title>PV Fraude — ${etudiant}</title>
 <style>
@@ -759,7 +777,7 @@ function genererPVFraude({ etudiant, ueNum, ueNom, profs, profsPresents,
     <div class="logo-txt">Institut Ilya Prigogine</div>
     <div class="logo-sub">Campus Erasme · Route de Lennik 808 · 1070 Bruxelles<br>direction@institut-prigogine.be · 02/560.29.59</div>
   </div>
-  <div class="ref">RDE/ROI Art. 72-75 · Année ${annee}<br>Date : ${today}<br><strong>CONFIDENTIEL</strong></div>
+  <div class="ref">${AF.plage} · Année ${annee}<br>Date : ${today}<br><strong>CONFIDENTIEL</strong></div>
 </div>
 
 <h2>PROCÈS-VERBAL DE FRAUDE<br>PROCÉDURE CONTRADICTOIRE — DÉCISION DU CDE</h2>
@@ -772,7 +790,7 @@ ${dateCDE ? `<p><strong>Date de réunion du CDE :</strong> ${fmtCourt(dateCDE)}<
 
 ${presents.length > 0 ? `
 <div class="composition">
-  <strong>Composition du Conseil des Études (Art. 72 RDE/ROI) :</strong><br>
+  <strong>Composition du Conseil des Études (${AF.composition}) :</strong><br>
   <table style="width:100%;margin-top:6px;font-size:10pt">
     <tr style="background:#f5e8e8"><th style="text-align:left;padding:4px 8px">Membre</th><th style="text-align:left;padding:4px 8px">Qualité</th><th style="text-align:center;padding:4px 8px">Présent</th></tr>
     ${presents.map((p,i) => `<tr style="background:${i%2===0?'#fdf0f0':'white'}">
@@ -783,10 +801,10 @@ ${presents.length > 0 ? `
 </div>` : ''}
 
 <h3>VU ET CONSIDÉRANT</h3>
-<p>Vu le RDE/ROI de l'Institut Ilya Prigogine, année académique ${annee}, notamment les articles 72 à 75 ;</p>
+<p>Vu le ${AF.roi} de l'Institut Ilya Prigogine, année académique ${annee}, notamment ${AF.plageLong} ;</p>
 <p>Vu le Décret du 16 avril 1991 relatif à l'enseignement de promotion sociale ;</p>
 <p>Vu le rapport de fraude établi le ${fmtCourt(dateFaits) || '—'} lors de l'épreuve de l'UE ${ueNum} ;</p>
-<p>Vu la notification adressée à l'étudiant·e le ${fmtCourt(dateNotification) || '—'} l'informant de la fraude constatée et de son droit à une audition (Art. 74 §1 RDE/ROI) ;</p>
+<p>Vu la notification adressée à l'étudiant·e le ${fmtCourt(dateNotification) || '—'} l'informant de la fraude constatée et de son droit à une audition (${AF.notifAudition}) ;</p>
 ${dateAudition ? `<p>Vu l'audition de l'étudiant·e qui s'est tenue le ${fmtCourt(dateAudition)} ;</p>` : '<p>Vu que l\'étudiant·e n\'a pas souhaité être entendu·e dans le délai imparti ;</p>'}
 <p>Vu les pièces du dossier ;</p>
 
@@ -797,8 +815,8 @@ ${dateAudition ? `<p>Vu l'audition de l'étudiant·e qui s'est tenue le ${fmtCou
   <p>${(descriptionFraits || '[À COMPLÉTER]').replace(/\n/g,'<br>')}</p>
 </div>
 
-<h3>II. PROCÉDURE CONTRADICTOIRE (Art. 74 RDE/ROI)</h3>
-<p>Conformément à l'Art. 74 §1 du RDE/ROI, l'étudiant·e a été informé·e par écrit des faits qui lui sont reprochés et de son droit à être entendu·e.</p>
+<h3>II. PROCÉDURE CONTRADICTOIRE (${AF.contradictoire})</h3>
+<p>Conformément à l'${AF.contradictoire}, l'étudiant·e a été informé·e par écrit des faits qui lui sont reprochés et de son droit à être entendu·e.</p>
 ${dateAudition
   ? `<p>L'audition s'est tenue le ${fmtCourt(dateAudition)}. L'étudiant·e a eu la possibilité de présenter ses observations et de se faire assister.</p>
      <p><strong>Déclarations de l'étudiant·e lors de l'audition :</strong></p>
@@ -807,7 +825,7 @@ ${dateAudition
 
 <h3>III. ANALYSE JURIDIQUE</h3>
 <p>${fondJuridique}</p>
-<p>La décision doit être formellement motivée et notifiée à l'étudiant·e (${is2526F ? 'Art. 54 ROI/RGE' : 'Art. 75 RDE/ROI'}). L'étudiant·e dispose du droit au recours prévu aux ${is2526F ? 'Art. 65-68 ROI/RGE' : 'Art. 87-91 du RDE/ROI'} contre toute décision de sanction.</p>
+<p>La décision doit être formellement motivée et notifiée à l'étudiant·e (${AF.motivation}). L'étudiant·e dispose du droit au recours prévu aux ${AF.recours} contre toute décision de sanction.</p>
 
 <h3>IV. DÉCISION DU CONSEIL DES ÉTUDES</h3>
 <div class="decision-box">
@@ -819,7 +837,7 @@ ${commentaireCDE ? `
 
 <h3>VOIES DE RECOURS</h3>
 <div class="alert-box">
-<p>La présente décision peut faire l'objet d'un <strong>recours interne</strong> auprès de la Direction de l'IIP dans un délai de <strong>4 jours calendrier</strong> suivant la publication des résultats (Art. 88 §1 RDE/ROI), par e-mail à direction@institut-prigogine.be ou remise en main propre au Bureau P2-210.</p>
+<p>La présente décision peut faire l'objet d'un <strong>recours interne</strong> auprès de la Direction de l'IIP dans un délai de <strong>4 jours calendrier</strong> suivant la publication des résultats (${AF.recoursInterne}), par e-mail à direction@institut-prigogine.be ou remise en main propre au Bureau P2-210.</p>
 </div>
 
 <div class="signatures">
@@ -828,7 +846,7 @@ ${commentaireCDE ? `
 </div>
 <div class="footer">
   Institut Ilya Prigogine · direction@institut-prigogine.be · 02/560.29.59 · www.institut-prigogine.be<br>
-  Document généré par Lucie le ${today} · Fondé sur les Art. 72-75 RDE/ROI IIP 2026-2027 · CONFIDENTIEL
+  Document généré par Lucie le ${today} · Fondé sur les ${AF.plage} IIP ${annee} · CONFIDENTIEL
 </div>
 </body></html>`;
 }
@@ -1065,7 +1083,7 @@ function OutilFraude({ initialPayload, onPayloadConsumed }) {
           <Section title="Étape 2 — Description des faits" color="red">
             <div className="space-y-4">
               <div>
-                <div className="text-xs font-semibold text-gray-600 mb-1">Type de fraude constatée <Ref text="Art. 72 RDE/ROI" /></div>
+                <div className="text-xs font-semibold text-gray-600 mb-1">Type de fraude constatée <Ref text={is2526F ? 'Art. 54 ROI/RGE' : 'Art. 72 RDE/ROI'} /></div>
                 <select value={typeFraude} onChange={e => setTypeFraude(e.target.value)}
                   className="w-full border border-gray-300 rounded px-3 py-1.5 text-sm bg-white">
                   <option value="">— Sélectionner —</option>
@@ -1092,7 +1110,7 @@ function OutilFraude({ initialPayload, onPayloadConsumed }) {
               </div>
             </div>
             <div className="mt-4 p-3 bg-amber-50 border border-amber-300 rounded text-sm">
-              <p className="font-semibold text-amber-800">⚠ Important — Art. 72 §2 RDE/ROI</p>
+              <p className="font-semibold text-amber-800">⚠ Important — {is2526F ? 'Art. 54 ROI/RGE' : 'Art. 72 §2 RDE/ROI'}</p>
               <p className="text-amber-700 mt-1">L'élément suspect doit être saisi et joint au dossier. Le rapport du surveillant est obligatoire. L'étudiant peut terminer son épreuve même en cas de fraude constatée.</p>
             </div>
           </Section>
@@ -1106,7 +1124,7 @@ function OutilFraude({ initialPayload, onPayloadConsumed }) {
       {/* ÉTAPE 3 — Procédure contradictoire */}
       {step === 3 && (
         <div>
-          <Section title="Étape 3 — Procédure contradictoire (Art. 74 RDE/ROI)" color="orange">
+          <Section title={`Étape 3 — Procédure contradictoire (${is2526F ? 'Art. 54 ROI/RGE' : 'Art. 74 RDE/ROI'})`} color="orange">
             <p className="text-sm text-gray-600 mb-4">La procédure contradictoire est <strong>obligatoire</strong> avant toute sanction. L'étudiant doit être notifié et avoir la possibilité d'être entendu.</p>
             <div className="space-y-4">
               <div className="grid grid-cols-2 gap-4">
@@ -1132,7 +1150,7 @@ function OutilFraude({ initialPayload, onPayloadConsumed }) {
             </div>
             {!dateNotification && (
               <div className="mt-3 p-3 bg-red-50 border border-red-400 rounded text-sm text-red-800">
-                ⛔ La notification préalable est obligatoire (Art. 74 §1). Toute décision sans notification préalable serait nulle.
+                ⛔ La notification préalable est obligatoire ({is2526F ? 'Art. 54 ROI/RGE' : 'Art. 74 §1'}). Toute décision sans notification préalable serait nulle.
               </div>
             )}
           </Section>
@@ -1150,24 +1168,33 @@ function OutilFraude({ initialPayload, onPayloadConsumed }) {
       {step === 4 && (
         <div>
           <Section title="Étape 4 — Délibération du CDE" color="red">
-            <p className="text-sm text-gray-600 mb-4">Le CDE délibère après avoir entendu l'étudiant (ou après expiration du délai). La décision doit être formellement motivée (Art. 75 RDE/ROI).</p>
+            <p className="text-sm text-gray-600 mb-4">Le CDE délibère après avoir entendu l'étudiant (ou après expiration du délai). La décision doit être formellement motivée ({is2526F ? 'Art. 55 ROI/RGE' : 'Art. 75 RDE/ROI'}).</p>
 
             <div className="mb-4 p-3 bg-amber-50 border border-amber-300 rounded text-sm">
               <p className="font-semibold text-amber-800">Sanction applicable selon la situation :</p>
               <p className="text-amber-700 mt-1">
-                {session === '1' && !recidive
-                  ? '1re session + 1re fraude → Ajournement pour les AA visés (Art. 73 §1)'
-                  : '2e session ou récidive → Refus possible pour l\'UE (Art. 73 §2)'}
+                {is2526F
+                  ? (session === '2'
+                      ? '2e session → Refus systématique (Art. 55 ROI/RGE)'
+                      : recidive
+                      ? 'Récidive → Le CDE peut refuser dès la 1re session (Art. 55 ROI/RGE)'
+                      : '1re session → Ajournement OU refus, sur décision du CDE (Art. 55 ROI/RGE)')
+                  : (session === '1' && !recidive
+                      ? '1re session + 1re fraude → Ajournement pour les AA visés (Art. 73 §1)'
+                      : '2e session ou récidive → Refus possible pour l\'UE (Art. 73 §2)')}
               </p>
             </div>
 
             <div>
               <div className="text-xs font-semibold text-gray-600 mb-2">Décision du CDE *</div>
               <div className="space-y-2">
-                {[
+                {(is2526F ? [
+                  ['ajournement', `Ajournement pour les AA visés par l'épreuve (Art. 55 ROI/RGE)`, session==='1'&&!recidive],
+                  ['refus',       `Refus pour l'UE ${ueNum} (Art. 55 ROI/RGE${session==='2' ? ' — systématique en 2e session' : ''})`, session==='2'],
+                ] : [
                   ['ajournement', `Ajournement pour les AA visés par l'épreuve (Art. 73 §1)`, session==='1'&&!recidive],
                   ['refus',       `Refus pour l'UE ${ueNum} (Art. 73 §2 — 2e session ou récidive)`, session==='2'||recidive],
-                ].map(([val, label, recommande]) => (
+                ]).map(([val, label, recommande]) => (
                   <label key={val} className={`flex items-center gap-3 p-3 rounded-lg border cursor-pointer transition ${decision===val?'bg-green-50 border-green-500':'bg-white border-gray-300 hover:bg-gray-50'}`}>
                     <input type="radio" name="decision" value={val} checked={decision===val} onChange={() => setDecision(val)} className="accent-red-700" />
                     <span className="text-sm flex-1">{label}</span>
@@ -1201,7 +1228,7 @@ function OutilFraude({ initialPayload, onPayloadConsumed }) {
             {/* Synthèse */}
             <div className="p-4 bg-red-50 border-2 border-red-500 rounded-lg mb-5">
               <p className="font-bold text-red-900">
-                Décision : {decision === 'ajournement' ? `✓ Ajournement (Art. 73 §1)` : `⛔ Refus pour l'UE ${ueNum} (Art. 73 §2)`}
+                Décision : {decision === 'ajournement' ? `✓ Ajournement (${is2526F ? 'Art. 55 ROI/RGE' : 'Art. 73 §1'})` : `⛔ Refus pour l'UE ${ueNum} (${is2526F ? 'Art. 55 ROI/RGE' : 'Art. 73 §2'})`}
               </p>
               <p className="text-sm text-red-700 mt-1">{etudiant} · UE {ueNum}{ueNom ? ' — ' + ueNom : ''} · {session === '1' ? '1re session' : '2e session'}{recidive ? ' · Récidive' : ''}</p>
               {profsPresents.size > 0 && (
@@ -1627,7 +1654,7 @@ export default function Procedures() {
           <>
             <div className="mb-6">
               <h1 className="text-2xl font-title text-iip-mauve mb-1">Procédure de traitement des fraudes</h1>
-              <p className="text-sm text-gray-600">Art. 72-75 RDE/ROI IIP 2026-2027 · Procédure contradictoire obligatoire · À destination de Nicolas</p>
+              <p className="text-sm text-gray-600">{is2526 ? 'Art. 54-55 ROI/RGE IIP 2025-2026 · Procédure temporaire' : 'Art. 72-75 RDE/ROI IIP 2026-2027'} · Procédure contradictoire obligatoire · À destination de Nicolas</p>
               {preRemplir?.type === 'fraude' && (
                 <p className="text-xs text-blue-600 mt-1 bg-blue-50 border border-blue-200 rounded px-3 py-1.5 inline-block">
                   ↩ Formulaire pré-rempli depuis une archive — modifiez si nécessaire avant de générer
