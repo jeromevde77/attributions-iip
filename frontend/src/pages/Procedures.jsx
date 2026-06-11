@@ -65,10 +65,44 @@ function genererDecision({ etudiant, ueNum, ueNom, profs, profsPresentsListe,
     : '[À COMPLÉTER : membres du CDE restreint]';
   const nbPresents = presents.length;
 
+  // ── Références d'articles selon l'année scolaire ──────────────────────────
+  const is2526 = (annee === '2025-2026');
+  const ART = is2526 ? {
+    decret:        null,
+    roi:           'ROI/RGE',
+    plage:         'Art. 65 à 68 ROI/RGE',
+    refHeader:     'ROI/RGE Art. 65-68',
+    recevabilite:  'Art. 67 ROI/RGE',
+    porteeRefus:   'Art. 65 ROI/RGE',
+    irrecevMotif:  'Art. 67 ROI/RGE',
+    irrecevNotif:  'Art. 67 ROI/RGE',
+    quorum:        'Art. 14 ROI/RGE',
+    visiteCopies:  'Art. 50 ROI/RGE',
+    publiResultats:'Art. 63 ROI/RGE',
+    appreciation:  'Art. 67 ROI/RGE',
+    recoursExt:    'Art. 68 ROI/RGE',
+    footer:        'Art. 65-68 ROI/RGE',
+  } : {
+    decret:        'Vu le Décret du 27 octobre 2006 organisant les recours dans l\'enseignement pour adultes ;',
+    roi:           'RDE/ROI',
+    plage:         'Art. 87 à 91 RDE/ROI',
+    refHeader:     'RDE/ROI Art. 87-91 · D. 27/10/2006',
+    recevabilite:  'Art. 88 §1 RDE/ROI',
+    porteeRefus:   'Art. 87 §1 RDE/ROI',
+    irrecevMotif:  'Art. 88 §3 RDE/ROI',
+    irrecevNotif:  'Art. 88 §4 du RDE/ROI',
+    quorum:        'Art. 89 §1 RDE/ROI',
+    visiteCopies:  'Art. 71 RDE/ROI',
+    publiResultats:'Art. 82 RDE/ROI',
+    appreciation:  'Art. 91 RDE/ROI',
+    recoursExt:    'Art. 90 du RDE/ROI et au Décret du 27/10/2006',
+    footer:        'Art. 87-91 RDE/ROI et le Décret du 27/10/2006',
+  };
+
   const vu = `
-    <p>Vu le Décret du 16 avril 1991 relatif à l'enseignement de promotion sociale, notamment les art. 123ter et 123quater ;</p>
-    <p>Vu le Décret du 27 octobre 2006 organisant les recours dans l'enseignement pour adultes ;</p>
-    <p>Vu le RDE/ROI de l'Institut Ilya Prigogine, année académique ${annee}, notamment les articles 87 à 91 ;</p>
+    <p>Vu le Décret du 16 avril 1991 relatif à l'enseignement de promotion sociale${is2526 ? '' : ', notamment les art. 123ter et 123quater'} ;</p>
+    ${ART.decret ? `<p>${ART.decret}</p>` : ''}
+    <p>Vu le ${ART.roi} de l'Institut Ilya Prigogine, année académique ${annee}, notamment les ${ART.plage} ;</p>
     <p>Vu la plainte introduite par ${etudiant || '[NOM ÉTUDIANT]'} en date du ${fmtCourt(dateRecours)} concernant la délibération relative à l'UE ${ueNum} — ${ueNom || ''} ;</p>
     <p>Vu les pièces du dossier ;</p>
   `;
@@ -77,37 +111,37 @@ function genererDecision({ etudiant, ueNum, ueNom, profs, profsPresentsListe,
 
   if (verdict === 'irrecevable') {
     const motifs = [];
-    if (q.ecrit === 'non') motifs.push('La plainte n\'est pas rédigée par écrit (condition impérative — Art. 88 §3 RDE/ROI).');
-    if (q.delaiRespect === 'non') motifs.push('La plainte n\'a pas été introduite dans le délai de 4 jours calendrier suivant la publication des résultats (Art. 88 §1 RDE/ROI). La date limite était le ' + fmtCourt(addJoursCalendrier(datePubli, 4)) + '.');
-    if (q.porteRefus === 'non') motifs.push('La plainte ne porte pas sur une décision de refus. Seules les décisions de refus sont susceptibles de recours (Art. 87 §1 RDE/ROI).');
-    if (q.irregulPrecises === 'non') motifs.push('La plainte ne mentionne pas d\'irrégularités précises. Une contestation de la valeur de la note n\'est pas recevable — seules les irrégularités de procédure ou de droit peuvent fonder un recours (Art. 88 §3 RDE/ROI).');
-    if (q.decisionRefus === 'non') motifs.push('La décision contestée n\'est pas une décision de refus au sens de l\'Art. 87 §1 RDE/ROI. Les ajournements, décisions de VA/VAE et décisions de délivrance de titre ne sont pas susceptibles de recours.');
+    if (q.ecrit === 'non') motifs.push(`La plainte n'est pas rédigée par écrit (condition impérative — ${ART.irrecevMotif}).`);
+    if (q.delaiRespect === 'non') motifs.push(`La plainte n'a pas été introduite dans le délai de 4 jours calendrier suivant la publication des résultats (${ART.recevabilite}). La date limite était le ${fmtCourt(addJoursCalendrier(datePubli, 4))}.`);
+    if (q.porteRefus === 'non') motifs.push(`La plainte ne porte pas sur une décision de refus. Seules les décisions de refus sont susceptibles de recours (${ART.porteeRefus}).`);
+    if (q.irregulPrecises === 'non') motifs.push(`La plainte ne mentionne pas d'irrégularités précises. Une contestation de la valeur de la note n'est pas recevable — seules les irrégularités de procédure ou de droit peuvent fonder un recours (${ART.irrecevMotif}).`);
+    if (q.decisionRefus === 'non') motifs.push(`La décision contestée n'est pas une décision de refus au sens de l'${ART.porteeRefus}. Les ajournements, décisions de VA/VAE et décisions de délivrance de titre ne sont pas susceptibles de recours.`);
 
     corps = `
       <h3>QUANT À LA RECEVABILITÉ</h3>
       <p>Le Conseil des Études déclare la plainte <strong>IRRECEVABLE</strong> pour le${motifs.length > 1 ? 's' : ''} motif${motifs.length > 1 ? 's' : ''} suivant${motifs.length > 1 ? 's' : ''} :</p>
       <ol>${motifs.map(m => `<li>${m}</li>`).join('')}</ol>
-      <p>Conformément à l'Art. 88 §4 du RDE/ROI, la présente décision d'irrecevabilité expose les motifs précis de l'irrecevabilité et est notifiée à l'étudiant.</p>
+      <p>Conformément à l'${ART.irrecevNotif}, la présente décision d'irrecevabilité expose les motifs précis de l'irrecevabilité et est notifiée à l'étudiant.</p>
       <h3>DÉCIDE</h3>
       <p>De déclarer la plainte introduite par <strong>${etudiant || '[NOM ÉTUDIANT]'}</strong> <strong>IRRECEVABLE</strong> pour les motifs exposés ci-dessus.</p>
       <p>L'étudiant est informé que cette décision d'irrecevabilité ne peut faire l'objet d'un recours externe, dès lors que les conditions de recevabilité du recours interne ne sont pas réunies.</p>
     `;
   } else {
     const irregList = [];
-    if (q.quorum === 'non') irregList.push('Le quorum du CDE n\'était pas atteint lors de la délibération (Art. 89 §1 RDE/ROI). Cette irrégularité constitue un vice de procédure grave.');
+    if (q.quorum === 'non') irregList.push(`Le quorum du CDE n'était pas atteint lors de la délibération (${ART.quorum}). Cette irrégularité constitue un vice de procédure grave.`);
     if (q.conflitInteret === 'oui') irregList.push('Un conflit d\'intérêt non déclaré a été relevé parmi les membres du jury. Cette irrégularité est susceptible d\'affecter l\'impartialité de la délibération.');
-    if (q.motivJustif === 'non') irregList.push('La justification de l\'échec (AA non atteints) n\'a pas été formellement encodée et communiquée à l\'étudiant, en violation de l\'Art. 71 RDE/ROI.');
-    if (q.visiteCopies === 'non') irregList.push('La visite des copies n\'a pas été proposée à l\'étudiant dans les délais (Art. 71 §1 RDE/ROI — droit à la consultation en présence du chargé de cours).');
-    if (q.publiResultats === 'non') irregList.push('Les résultats n\'ont pas été publiés dans le délai de 2 jours ouvrables suivant la délibération (Art. 82 RDE/ROI).');
+    if (q.motivJustif === 'non') irregList.push(`La justification de l'échec (AA non atteints) n'a pas été formellement encodée et communiquée à l'étudiant, en violation de l'${ART.visiteCopies}.`);
+    if (q.visiteCopies === 'non') irregList.push(`La visite des copies n'a pas été proposée à l'étudiant dans les délais (${ART.visiteCopies} — droit à la consultation en présence du chargé de cours).`);
+    if (q.publiResultats === 'non') irregList.push(`Les résultats n'ont pas été publiés dans le délai de 2 jours ouvrables suivant la délibération (${ART.publiResultats}).`);
 
     const decision = irregList.length > 0 ? 'ACCUEILLE partiellement' : 'REJETTE';
     const conclusionFond = irregList.length > 0
       ? `Le Conseil des Études constate les irrégularités suivantes :\n<ol>${irregList.map(i => `<li>${i}</li>`).join('')}</ol>\nEn conséquence, le recours est fondé sur ces points. Le Conseil des Études procède à un réexamen de la situation de l'étudiant en tenant compte de ces irrégularités.`
-      : `Après examen des griefs soulevés par l'étudiant, le Conseil des Études constate qu'aucune irrégularité de procédure ou de droit n'est établie. Le Conseil des Études apprécie souverainement la valeur des notes et sa décision ne peut être remise en cause sur la seule contestation de l'appréciation pédagogique (Art. 91 RDE/ROI — la Commission de recours dispose d'un pouvoir d'annulation mais ne peut substituer sa propre note à celle du CDE).`;
+      : `Après examen des griefs soulevés par l'étudiant, le Conseil des Études constate qu'aucune irrégularité de procédure ou de droit n'est établie. Le Conseil des Études apprécie souverainement la valeur des notes et sa décision ne peut être remise en cause sur la seule contestation de l'appréciation pédagogique (${ART.appreciation}).`;
 
     corps = `
       <h3>QUANT À LA RECEVABILITÉ</h3>
-      <p>La plainte est déclarée <strong>RECEVABLE</strong> : elle est écrite, introduite dans le délai de 4 jours calendrier (Art. 88 §1), porte sur une décision de refus et mentionne des irrégularités précises (Art. 88 §3 RDE/ROI).</p>
+      <p>La plainte est déclarée <strong>RECEVABLE</strong> : elle est écrite, introduite dans le délai de 4 jours calendrier (${ART.recevabilite}), porte sur une décision de refus et mentionne des irrégularités précises (${ART.irrecevMotif}).</p>
 
       <h3>QUANT AU FOND</h3>
       <p>${conclusionFond}</p>
@@ -115,7 +149,7 @@ function genererDecision({ etudiant, ueNum, ueNom, profs, profsPresentsListe,
       ${!irregList.length ? `
       <p><em>Sur le quorum :</em> Le quorum requis était atteint lors de la délibération. Aucune irrégularité n'est établie.</p>
       <p><em>Sur la motivation de la décision :</em> Les AA non atteints ont été dûment identifiés et communiqués. La décision de refus est fondée sur l'absence d'acquisition des acquis d'apprentissage définis dans le DUE de l'UE ${ueNum}.</p>
-      <p><em>Sur les droits de l'étudiant :</em> La visite des copies et la consultation des épreuves ont été proposées conformément à l'Art. 71 du RDE/ROI.</p>
+      <p><em>Sur les droits de l'étudiant :</em> La visite des copies et la consultation des épreuves ont été proposées conformément à l'${ART.visiteCopies}.</p>
       ` : ''}
 
       <h3>DÉCIDE</h3>
@@ -123,7 +157,7 @@ function genererDecision({ etudiant, ueNum, ueNom, profs, profsPresentsListe,
       ${irregList.length === 0 ? '<p>La décision de refus initiale est <strong>confirmée</strong>.</p>' : '<p>Le dossier fait l\'objet d\'un réexamen par le Conseil des Études dans sa composition complète.</p>'}
 
       <h3>VOIES DE RECOURS</h3>
-      <p>Conformément à l'Art. 90 du RDE/ROI et au Décret du 27/10/2006, la présente décision peut faire l'objet d'un <strong>recours externe</strong> auprès de la Direction générale du Service général de l'Enseignement tout au long de la vie (rue Adolphe Lavallée 1, 1080 Bruxelles), par pli recommandé, dans un délai de <strong>7 jours calendrier</strong> à compter du troisième jour ouvrable suivant la date d'envoi de la présente décision.</p>
+      <p>Conformément à l'${ART.recoursExt}, la présente décision peut faire l'objet d'un <strong>recours externe</strong> auprès de la Direction générale du Service général de l'Enseignement tout au long de la vie (rue Adolphe Lavallée 1, 1080 Bruxelles), par pli recommandé, dans un délai de <strong>7 jours calendrier</strong> à compter du troisième jour ouvrable suivant la date d'envoi de la présente décision.</p>
       ${dateDecisionInterne ? `<p>La date limite pour le recours externe est le : <strong>${fmtCourt(addJoursCalendrier(addJoursOuvrables(dateDecisionInterne, 3), 7))}</strong>.</p>` : ''}
     `;
   }
@@ -156,7 +190,7 @@ function genererDecision({ etudiant, ueNum, ueNom, profs, profsPresentsListe,
     <div class="logo-sub">Campus Erasme · Route de Lennik 808 · 1070 Bruxelles<br>direction@institut-prigogine.be · 02/560.29.59</div>
   </div>
   <div class="ref">
-    RDE/ROI Art. 87-91 · D. 27/10/2006<br>
+    ${ART.refHeader}<br>
     Année académique ${annee}<br>
     Date : ${today}
   </div>
@@ -210,7 +244,7 @@ ${commentaireCDE ? `
 
 <div class="footer">
   Institut Ilya Prigogine · direction@institut-prigogine.be · 02/560.29.59 · www.institut-prigogine.be<br>
-  Document généré par Lucie le ${today} · Fondé sur les Art. 87-91 RDE/ROI et le Décret du 27/10/2006
+  Document généré par Lucie le ${today} · Fondé sur les ${ART.footer}
 </div>
 </body></html>`;
 }
@@ -218,6 +252,18 @@ ${commentaireCDE ? `
 // ─── OUTIL RECOURS ─────────────────────────────────────────────────────────────
 function OutilRecours({ initialPayload, onPayloadConsumed }) {
   const annee = getAnnee();
+  const is2526 = annee === '2025-2026';
+  const UI = is2526 ? {
+    porteeRefus:   'Art. 65 ROI/RGE',
+    porteeRefus2:  'Art. 65 ROI/RGE',
+    recevabilite:  'Art. 67 ROI/RGE',
+    quorum:        'Art. 14 ROI/RGE',
+  } : {
+    porteeRefus:   'Art. 87 §1 RDE/ROI',
+    porteeRefus2:  'Art. 87 §1-2 RDE/ROI · D. 27/10/2006',
+    recevabilite:  'Art. 88 §1 RDE/ROI',
+    quorum:        'Art. 89 §1 RDE/ROI',
+  };
   const [step, setStep] = useState(1);
   const [previewHtml, setPreviewHtml] = useState(null);
 
@@ -327,10 +373,10 @@ function OutilRecours({ initialPayload, onPayloadConsumed }) {
 
   // Verdict recevabilité
   const conditionsRecevabilite = [
-    { ok: q.ecrit === 'oui',           label: 'Plainte écrite',                   ref: 'Art. 88 §3' },
-    { ok: delaiRespect === true,        label: `Dans le délai (J+${nbJours||'?'})`, ref: 'Art. 88 §1' },
-    { ok: q.porteRefus === 'oui',       label: 'Porte sur un refus',               ref: 'Art. 88 §3' },
-    { ok: q.irregulPrecises === 'oui',  label: 'Irrégularités précises',           ref: 'Art. 88 §3' },
+    { ok: q.ecrit === 'oui',           label: 'Plainte écrite',                   ref: is2526 ? 'Art. 67 ROI/RGE' : 'Art. 88 §3' },
+    { ok: delaiRespect === true,        label: `Dans le délai (J+${nbJours||'?'})`, ref: is2526 ? 'Art. 67 ROI/RGE' : 'Art. 88 §1' },
+    { ok: q.porteRefus === 'oui',       label: 'Porte sur un refus',               ref: is2526 ? 'Art. 65 ROI/RGE' : 'Art. 88 §3' },
+    { ok: q.irregulPrecises === 'oui',  label: 'Irrégularités précises',           ref: is2526 ? 'Art. 67 ROI/RGE' : 'Art. 88 §3' },
   ];
   const recevable = conditionsRecevabilite.every(c => c.ok === true);
   const irrecevable = q.decisionRefus === 'non' || conditionsRecevabilite.some(c => c.ok === false);
@@ -479,12 +525,12 @@ function OutilRecours({ initialPayload, onPayloadConsumed }) {
       {step === 2 && (
         <div>
           <Section title="Étape 2 — Qualification de la décision">
-            <Q num="1" text="La décision contestée est-elle une DÉCISION DE REFUS ?" value={q.decisionRefus} onChange={v => set('decisionRefus', v)} ref_="Art. 87 §1 RDE/ROI" />
+            <Q num="1" text="La décision contestée est-elle une DÉCISION DE REFUS ?" value={q.decisionRefus} onChange={v => set('decisionRefus', v)} ref_={UI.porteeRefus} />
             {q.decisionRefus === 'non' && (
               <div className="mt-3 p-4 bg-red-100 border-2 border-red-500 rounded-lg">
                 <p className="font-bold text-red-800">🚫 IRRECEVABLE DE PLEIN DROIT</p>
                 <p className="text-red-700 text-sm mt-1">Seules les décisions de REFUS sont recourables. Les ajournements (1re session), VA/VAE et délivrances de titre ne peuvent pas faire l'objet d'un recours.</p>
-                <p className="text-xs text-red-600 mt-1">⚖ Art. 87 §1-2 RDE/ROI · D. 27/10/2006</p>
+                <p className="text-xs text-red-600 mt-1">⚖ {UI.porteeRefus2}</p>
               </div>
             )}
             {q.decisionRefus === 'oui' && (
@@ -506,14 +552,14 @@ function OutilRecours({ initialPayload, onPayloadConsumed }) {
       {/* ÉTAPE 3 — Recevabilité */}
       {step === 3 && (
         <div>
-          <Section title="Étape 3 — Recevabilité formelle (Art. 88 §3)">
+          <Section title={`Étape 3 — Recevabilité formelle (${is2526 ? 'Art. 67 ROI/RGE' : 'Art. 88 §3'})`}>
             <p className="text-sm text-gray-600 mb-4">4 conditions <strong>cumulatives</strong> — une seule manquante = irrecevable.</p>
-            <Q num="1" text="La plainte est-elle ÉCRITE (e-mail, main propre ou recommandé) ?" value={q.ecrit} onChange={v => set('ecrit', v)} ref_="Art. 88 §3" />
+            <Q num="1" text="La plainte est-elle ÉCRITE (e-mail, main propre ou recommandé) ?" value={q.ecrit} onChange={v => set('ecrit', v)} ref_={is2526 ? 'Art. 67 ROI/RGE' : 'Art. 88 §3'} />
             {delaiRespect !== null
-              ? <div className="mb-4 pl-10"><Badge ok={delaiRespect} label={delaiRespect ? `J+${nbJours} — Dans le délai` : `J+${nbJours} — HORS DÉLAI`} /><Ref text="Art. 88 §1" /></div>
-              : <Q num="2" text="Plainte reçue dans les 4 jours calendrier après publication ?" value={q.delaiRespect} onChange={v => set('delaiRespect', v)} ref_="Art. 88 §1" />}
-            <Q num="3" text="Porte sur une DÉCISION DE REFUS (pas ajournement, pas VA/VAE) ?" value={q.porteRefus} onChange={v => set('porteRefus', v)} ref_="Art. 88 §3" />
-            <Q num="4" text="Mentionne des IRRÉGULARITÉS PRÉCISES (pas juste 'je ne suis pas d'accord') ?" value={q.irregulPrecises} onChange={v => set('irregulPrecises', v)} ref_="Art. 88 §3" />
+              ? <div className="mb-4 pl-10"><Badge ok={delaiRespect} label={delaiRespect ? `J+${nbJours} — Dans le délai` : `J+${nbJours} — HORS DÉLAI`} /><Ref text={is2526 ? 'Art. 67 ROI/RGE' : 'Art. 88 §1'} /></div>
+              : <Q num="2" text="Plainte reçue dans les 4 jours calendrier après publication ?" value={q.delaiRespect} onChange={v => set('delaiRespect', v)} ref_={is2526 ? 'Art. 67 ROI/RGE' : 'Art. 88 §1'} />}
+            <Q num="3" text="Porte sur une DÉCISION DE REFUS (pas ajournement, pas VA/VAE) ?" value={q.porteRefus} onChange={v => set('porteRefus', v)} ref_={is2526 ? 'Art. 65 ROI/RGE' : 'Art. 88 §3'} />
+            <Q num="4" text="Mentionne des IRRÉGULARITÉS PRÉCISES (pas juste 'je ne suis pas d'accord') ?" value={q.irregulPrecises} onChange={v => set('irregulPrecises', v)} ref_={is2526 ? 'Art. 67 ROI/RGE' : 'Art. 88 §3'} />
           </Section>
           {conditionsRecevabilite.some(c => c.ok !== undefined) && (
             <div className={`p-4 rounded-xl border-2 mb-4 ${recevable ? 'bg-green-50 border-green-500' : irrecevable ? 'bg-red-50 border-red-500' : 'bg-gray-50 border-gray-300'}`}>
@@ -526,7 +572,7 @@ function OutilRecours({ initialPayload, onPayloadConsumed }) {
                 {conditionsRecevabilite.filter(c => c.ok === false).map(c => (
                   <p key={c.label} className="text-sm text-red-700 mt-1">✗ {c.label} <Ref text={c.ref} /></p>
                 ))}
-                <p className="text-sm text-red-700 mt-2">→ Notifier à l'étudiant par écrit (Art. 88 §4).</p>
+                <p className="text-sm text-red-700 mt-2">→ Notifier à l'étudiant par écrit ({is2526 ? 'Art. 67 ROI/RGE' : 'Art. 88 §4'}).</p>
               </>}
             </div>
           )}
@@ -546,14 +592,14 @@ function OutilRecours({ initialPayload, onPayloadConsumed }) {
           <Section title="Étape 4 — Analyse au fond (irrégularités invoquées)">
             <p className="text-sm text-gray-600 mb-4">Seules les irrégularités de <strong>procédure ou de droit</strong> peuvent fonder un recours. La Commission de recours peut annuler mais ne substitue pas sa note.</p>
             <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">A — Délibération</p>
-            <Q num="1" text="Le quorum était-il atteint ? (Président + min. 2 membres)" value={q.quorum} onChange={v => set('quorum', v)} ref_="Art. 89 §1" />
+            <Q num="1" text="Le quorum était-il atteint ? (Président + min. 2 membres)" value={q.quorum} onChange={v => set('quorum', v)} ref_={is2526 ? 'Art. 14 ROI/RGE' : 'Art. 89 §1'} />
             <Q num="2" text="Conflit d'intérêt non déclaré parmi les membres du jury ?" value={q.conflitInteret} onChange={v => set('conflitInteret', v)} />
-            <Q num="3" text="Justification de l'échec (AA non atteints) encodée et communiquée ?" value={q.motivJustif} onChange={v => set('motivJustif', v)} ref_="Art. 71" />
+            <Q num="3" text="Justification de l'échec (AA non atteints) encodée et communiquée ?" value={q.motivJustif} onChange={v => set('motivJustif', v)} ref_={is2526 ? 'Art. 50 ROI/RGE' : 'Art. 71'} />
             <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2 mt-3">B — Évaluation</p>
             <Q num="4" text="DUE fournis dans les délais ?" value={q.dueDelai} onChange={v => set('dueDelai', v)} />
-            <Q num="5" text="Visite des copies proposée dans les délais (J+1 après délibération) ?" value={q.visiteCopies} onChange={v => set('visiteCopies', v)} ref_="Art. 71 §1" />
+            <Q num="5" text="Visite des copies proposée dans les délais (J+1 après délibération) ?" value={q.visiteCopies} onChange={v => set('visiteCopies', v)} ref_={is2526 ? 'Art. 50 ROI/RGE' : 'Art. 71 §1'} />
             <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2 mt-3">C — Post-délibération</p>
-            <Q num="6" text="Résultats publiés dans les 2 jours ouvrables suivant la délibération ?" value={q.publiResultats} onChange={v => set('publiResultats', v)} ref_="Art. 82" />
+            <Q num="6" text="Résultats publiés dans les 2 jours ouvrables suivant la délibération ?" value={q.publiResultats} onChange={v => set('publiResultats', v)} ref_={is2526 ? 'Art. 63 ROI/RGE' : 'Art. 82'} />
           </Section>
           <div className="flex justify-between">
             <button onClick={() => setStep(3)} className="border border-gray-300 text-gray-600 px-6 py-2 rounded-lg text-sm">← Retour</button>
@@ -575,7 +621,7 @@ function OutilRecours({ initialPayload, onPayloadConsumed }) {
                   q.conflitInteret === 'oui' && 'Conflit d\'intérêt',
                   q.motivJustif === 'non' && 'Justification AA manquante (Art. 71)',
                   q.visiteCopies === 'non' && 'Visite des copies non proposée (Art. 71 §1)',
-                  q.publiResultats === 'non' && 'Publication tardive (Art. 82)',
+                  q.publiResultats === 'non' && `Publication tardive (${is2526 ? 'Art. 63 ROI/RGE' : 'Art. 82'})`,
                 ].filter(Boolean);
                 return irregs.length
                   ? <><p className="text-sm text-red-700 mt-2 font-medium">Irrégularités relevées :</p>{irregs.map(i=><p key={i} className="text-sm text-red-700">✗ {i}</p>)}</>
@@ -672,7 +718,7 @@ function genererPVFraude({ etudiant, ueNum, ueNom, profs, profsPresents,
   const sanction = decision === 'ajournement'
     ? `L'étudiant·e est AJOURNÉ·E pour les acquis d'apprentissage visés par l'épreuve de l'UE ${ueNum}.`
     : decision === 'refus'
-    ? `L'étudiant·e est REFUSÉ·E pour l'UE ${ueNum}. La décision de refus est susceptible de recours interne (Art. 87-91 RDE/ROI).`
+    ? `L'étudiant·e est REFUSÉ·E pour l'UE ${ueNum}. La décision de refus est susceptible de recours interne (${is2526F ? 'Art. 65-68 ROI/RGE' : 'Art. 87-91 RDE/ROI'}).`
     : 'La décision sera notifiée séparément.';
 
   const fondJuridique = session === '2' || recidive
@@ -756,7 +802,7 @@ ${dateAudition
 
 <h3>III. ANALYSE JURIDIQUE</h3>
 <p>${fondJuridique}</p>
-<p>La décision doit être formellement motivée et notifiée à l'étudiant·e (Art. 75 RDE/ROI). L'étudiant·e dispose du droit au recours prévu aux Art. 87-91 du RDE/ROI contre toute décision de sanction.</p>
+<p>La décision doit être formellement motivée et notifiée à l'étudiant·e (${is2526F ? 'Art. 54 ROI/RGE' : 'Art. 75 RDE/ROI'}). L'étudiant·e dispose du droit au recours prévu aux ${is2526F ? 'Art. 65-68 ROI/RGE' : 'Art. 87-91 du RDE/ROI'} contre toute décision de sanction.</p>
 
 <h3>IV. DÉCISION DU CONSEIL DES ÉTUDES</h3>
 <div class="decision-box">
@@ -784,6 +830,7 @@ ${commentaireCDE ? `
 
 function OutilFraude({ initialPayload, onPayloadConsumed }) {
   const annee = getAnnee();
+  const is2526F = annee === '2025-2026';
   const [step, setStep] = useState(1);
   const [previewHtml, setPreviewHtml] = useState(null);
 
@@ -1523,9 +1570,11 @@ function ArchivesProcedures({ onReprendreRecours, onReprendre }) {
 export default function Procedures() {
   const [outil, setOutil] = useState('recours');
   const [preRemplir, setPreRemplir] = useState(null);
+  const anneeActive = getAnnee();
+  const is2526 = anneeActive === '2025-2026';
   const outils = [
-    { id: 'recours',  label: '⚖ Recours',   desc: 'Aide à la décision — Art. 87-91 RDE/ROI' },
-    { id: 'fraude',   label: '🚨 Fraude',    desc: 'Procédure contradictoire — Art. 72-75 RDE/ROI' },
+    { id: 'recours',  label: '⚖ Recours',   desc: is2526 ? 'Aide à la décision — Art. 65-68 ROI/RGE' : 'Aide à la décision — Art. 87-91 RDE/ROI' },
+    { id: 'fraude',   label: '🚨 Fraude',    desc: is2526 ? 'Procédure contradictoire — Art. 54-55 ROI/RGE' : 'Procédure contradictoire — Art. 72-75 RDE/ROI' },
     { id: 'examens',  label: '📋 Examens',   desc: 'Organisation & surveillance' },
     { id: 'archives', label: '📂 Archives',  desc: 'Toutes les procédures générées' },
   ];
@@ -1542,7 +1591,7 @@ export default function Procedures() {
       <div className="w-56 flex-shrink-0 bg-gray-50 border-r border-gray-200 overflow-auto">
         <div className="px-4 py-4 border-b border-gray-200">
           <h2 className="font-title text-iip-mauve font-bold text-sm uppercase tracking-wide">Procédures IIP</h2>
-          <p className="text-xs text-gray-500 mt-0.5">Année 2026-2027</p>
+          <p className="text-xs text-gray-500 mt-0.5">Année {anneeActive}</p>
         </div>
         <div className="py-2">
           {outils.map(o => (
@@ -1559,7 +1608,7 @@ export default function Procedures() {
           <>
             <div className="mb-6">
               <h1 className="text-2xl font-title text-iip-mauve mb-1">Outil de traitement des recours</h1>
-              <p className="text-sm text-gray-600">Art. 87-91 RDE/ROI IIP 2026-2027 · D. 27/10/2006 · À destination de Nicolas</p>
+              <p className="text-sm text-gray-600">{is2526 ? 'Art. 65-68 ROI/RGE IIP 2025-2026 · Procédure temporaire' : 'Art. 87-91 RDE/ROI IIP 2026-2027 · D. 27/10/2006'} · À destination de Nicolas</p>
               {preRemplir?.type === 'recours' && (
                 <p className="text-xs text-blue-600 mt-1 bg-blue-50 border border-blue-200 rounded px-3 py-1.5 inline-block">
                   ↩ Formulaire pré-rempli depuis une archive — modifiez si nécessaire avant de générer
@@ -1596,3 +1645,4 @@ export default function Procedures() {
     </div>
   );
 }
+
