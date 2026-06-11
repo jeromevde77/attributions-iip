@@ -578,9 +578,9 @@ function OutilRecours({ initialPayload, onPayloadConsumed }) {
           )}
           <div className="flex justify-between">
             <button onClick={() => setStep(2)} className="border border-gray-300 text-gray-600 px-6 py-2 rounded-lg text-sm">← Retour</button>
-            <button onClick={() => setStep(4)} disabled={!recevable}
-              className="bg-iip-mauve disabled:opacity-40 text-white px-6 py-2 rounded-lg text-sm font-medium">
-              Analyser au fond →
+            <button onClick={() => setStep(4)}
+              className="bg-iip-mauve text-white px-6 py-2 rounded-lg text-sm font-medium">
+              {irrecevable && !recevable ? 'Analyser quand même →' : 'Analyser au fond →'}
             </button>
           </div>
         </div>
