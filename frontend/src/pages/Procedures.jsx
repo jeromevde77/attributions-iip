@@ -111,7 +111,7 @@ function genererDecision({ etudiant, ueNum, ueNom, profs, profsPresentsListe,
 
   if (verdict === 'irrecevable') {
     const motifs = [];
-    if (q.ecrit === 'non') motifs.push(`La plainte n'est pas rédigée par écrit (condition impérative — ${ART.irrecevMotif}).`);
+    if (q.ecrit === 'non') motifs.push(`La plainte ne respecte pas les conditions de forme : écrit avec accusé de réception, remise contre accusé de réception ou courrier recommandé (${ART.irrecevMotif}).`);
     if (q.delaiRespect === 'non') motifs.push(`La plainte n'a pas été introduite dans le délai de 4 jours calendrier suivant la publication des résultats (${ART.recevabilite}). La date limite était le ${fmtCourt(addJoursCalendrier(datePubli, 4))}.`);
     if (q.porteRefus === 'non') motifs.push(`La plainte ne porte pas sur une décision de refus. Seules les décisions de refus sont susceptibles de recours (${ART.porteeRefus}).`);
     if (q.irregulPrecises === 'non') motifs.push(`La plainte ne mentionne pas d'irrégularités précises. Une contestation de la valeur de la note n'est pas recevable — seules les irrégularités de procédure ou de droit peuvent fonder un recours (${ART.irrecevMotif}).`);
@@ -373,7 +373,7 @@ function OutilRecours({ initialPayload, onPayloadConsumed }) {
 
   // Verdict recevabilité
   const conditionsRecevabilite = [
-    { ok: q.ecrit === 'oui',           label: 'Plainte écrite',                   ref: is2526 ? 'Art. 67 ROI/RGE' : 'Art. 88 §3' },
+    { ok: q.ecrit === 'oui',           label: 'Conditions de forme respectées',   ref: is2526 ? 'Art. 67 ROI/RGE' : 'Art. 88 §3' },
     { ok: delaiRespect === true,        label: `Dans le délai (J+${nbJours||'?'})`, ref: is2526 ? 'Art. 67 ROI/RGE' : 'Art. 88 §1' },
     { ok: q.porteRefus === 'oui',       label: 'Porte sur un refus',               ref: is2526 ? 'Art. 65 ROI/RGE' : 'Art. 88 §3' },
     { ok: q.irregulPrecises === 'oui',  label: 'Irrégularités précises',           ref: is2526 ? 'Art. 67 ROI/RGE' : 'Art. 88 §3' },
@@ -559,7 +559,7 @@ function OutilRecours({ initialPayload, onPayloadConsumed }) {
         <div>
           <Section title={`Étape 3 — Recevabilité formelle (${is2526 ? 'Art. 67 ROI/RGE' : 'Art. 88 §3'})`}>
             <p className="text-sm text-gray-600 mb-4">4 conditions <strong>cumulatives</strong> — une seule manquante = irrecevable.</p>
-            <Q num="1" text="La plainte est-elle ÉCRITE (e-mail, main propre ou recommandé) ?" value={q.ecrit} onChange={v => set('ecrit', v)} ref_={is2526 ? 'Art. 67 ROI/RGE' : 'Art. 88 §3'} />
+            <Q num="1" text="La plainte respecte-t-elle les conditions de forme (écrit avec accusé de réception, remise contre accusé ou recommandé) ?" value={q.ecrit} onChange={v => set('ecrit', v)} ref_={is2526 ? 'Art. 67 ROI/RGE' : 'Art. 88 §3'} />
             {delaiRespect !== null
               ? <div className="mb-4 pl-10"><Badge ok={delaiRespect} label={delaiRespect ? `J+${nbJours} — Dans le délai` : `J+${nbJours} — HORS DÉLAI`} /><Ref text={is2526 ? 'Art. 67 ROI/RGE' : 'Art. 88 §1'} /></div>
               : <Q num="2" text="Plainte reçue dans les 4 jours calendrier après publication ?" value={q.delaiRespect} onChange={v => set('delaiRespect', v)} ref_={is2526 ? 'Art. 67 ROI/RGE' : 'Art. 88 §1'} />}
