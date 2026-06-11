@@ -352,7 +352,6 @@ export default function Listes() {
           <tr style="background:#e8edf3;border-left:3px solid ${col}">
             <td colspan="2" style="padding:2px 6px 2px 20px;font-size:9px;color:#6b7280;font-style:italic">Sous-total UE\u00a0${u.ue_num}</td>
             <td style="${S}text-align:center"></td>
-             <td style="${S}text-align:center"></td>
              <td style="${SR}font-weight:700;color:#374151">${u.tot_per}</td>
              <td style="${SR}color:#9ca3af">—</td>
              <td style="${SR}color:#9ca3af">—</td>
@@ -824,3 +823,4 @@ export default function Listes() {
     </div>
   );
 }
+
