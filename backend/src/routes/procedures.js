@@ -318,7 +318,7 @@ r.post('/pv-fraude', authRequired, (req, res) => {
   // ── Références d'articles selon l'année scolaire ──────────────────────────
   const is2526F = (annee === '2025-2026');
   const artFraude = is2526F
-    ? { sanction1: 'Art. 55 ROI/RGE', sanction2: 'Art. 55 ROI/RGE', notif: 'Art. 54 ROI/RGE', recours: 'Art. 65-68 ROI/RGE', recoursInterne: 'Art. 67 ROI/RGE' }
+    ? { sanction1: 'Art. 55 ROI/RGE', sanction2: 'Art. 55 ROI/RGE', notif: 'Art. 55 ROI/RGE', recours: 'Art. 65-68 ROI/RGE', recoursInterne: 'Art. 67 ROI/RGE' }
     : { sanction1: 'Art. 73 §1 RDE/ROI', sanction2: 'Art. 73 §2 RDE/ROI', notif: 'Art. 75 RDE/ROI', recours: 'Art. 87-91 RDE/ROI', recoursInterne: 'Art. 88 §1 RDE/ROI' };
 
   const composition = membres_presents?.length
@@ -327,9 +327,17 @@ r.post('/pv-fraude', authRequired, (req, res) => {
 
   const sanction = decision === 'ajournement'
     ? `L'étudiant·e est <strong>AJOURNÉ·E</strong> pour les acquis d'apprentissage visés par l'épreuve de l'UE ${ue_num} (${artFraude.sanction1}).`
+    : is2526F
+    ? `L'étudiant·e est <strong>REFUSÉ·E</strong> pour l'UE ${ue_num} (${artFraude.sanction2}${session === '2' ? ' — refus systématique en seconde session' : ''}).`
     : `L'étudiant·e est <strong>REFUSÉ·E</strong> pour l'UE ${ue_num} (${artFraude.sanction2} — 2e session ou récidive).`;
 
-  const fondjuridique = (session === '2' || recidive)
+  const fondjuridique = is2526F
+    ? (session === '2'
+        ? `L'étudiant·e se trouve en deuxième session. Conformément à l'Art. 55 du ROI/RGE, l'étudiant·e est systématiquement refusé·e en cas de fraude constatée en seconde session.`
+        : recidive
+        ? `L'étudiant·e se trouve en situation de récidive. Conformément à l'Art. 55 du ROI/RGE, le Conseil des Études ou le Jury d'Épreuve intégrée peut refuser l'étudiant·e dès la première session.`
+        : `L'étudiant·e se trouve en première session. Conformément à l'Art. 55 du ROI/RGE, l'étudiant·e est soit ajourné·e, soit refusé·e, sur décision du Conseil des Études ou du Jury d'Épreuve intégrée.`)
+    : (session === '2' || recidive)
     ? `L'étudiant·e se trouve en deuxième session${recidive ? ' et/ou en situation de récidive' : ''}. Conformément à l'${artFraude.sanction2}, le CDE peut prononcer un refus.`
     : `L'étudiant·e se trouve en première session. Conformément à l'${artFraude.sanction1}, la fraude entraîne un ajournement pour les AA visés.`;
 
