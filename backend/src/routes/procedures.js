@@ -185,7 +185,7 @@ r.post('/pv-recours', authRequired, (req, res) => {
   if (verdict === 'irrecevable') {
     typeDecision = "D'IRRECEVABILITÉ";
     const motifs = [];
-    if (q?.ecrit === 'non')           motifs.push(`La plainte n'est pas rédigée par écrit (${ART.irrecevMotif}).`);
+    if (q?.ecrit === 'non')           motifs.push(`La plainte ne respecte pas les conditions de forme : écrit avec accusé de réception, remise contre accusé de réception ou courrier recommandé (${ART.irrecevMotif}).`);
     if (q?.delaiRespect === 'non')    motifs.push(`La plainte n'a pas été introduite dans le délai de ${delaiRecours} jours calendrier (${ART.recevabilite}). La date limite était le ${date_publi ? dateLongue(new Date(date_publi+'T12:00').setDate(new Date(date_publi+'T12:00').getDate()+delaiRecours)) : '—'}.`);
     if (q?.porteRefus === 'non')      motifs.push(`La plainte ne porte pas sur une décision de refus au sens de l'${ART.porteeRefus}.`);
     if (q?.irregulPrecises === 'non') motifs.push(`La plainte ne mentionne pas d'irrégularités précises de procédure ou de droit (${ART.irrecevMotif}).`);
