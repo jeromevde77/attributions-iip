@@ -68,11 +68,27 @@ function genererDepuisTemplate(slug, vars) {
     };
   }
 
+  // Directeur adjoint : tiré du personnel d'établissement (fonction = 'Directeur adjoint').
+  // Alimente les champs {{dir_adjoint.*}} utilisés dans les templates 25-26.
+  let dirAdjointVars = { 'dir_adjoint.nom_prenom': '', 'dir_adjoint.qualite': 'Directeur adjoint', 'dir_adjoint.email': '' };
+  const dirAdjPe = db.prepare(
+    "SELECT professeur_id, fonction FROM personnel_etablissement WHERE fonction = 'Directeur adjoint' ORDER BY ordre LIMIT 1"
+  ).get();
+  if (dirAdjPe) {
+    const p = db.prepare('SELECT * FROM professeur WHERE id = ?').get(dirAdjPe.professeur_id) || {};
+    dirAdjointVars = {
+      'dir_adjoint.nom_prenom': p.nom ? `${p.nom} ${p.prenom || ''}`.trim() : '',
+      'dir_adjoint.qualite':    dirAdjPe.fonction || 'Directeur adjoint',
+      'dir_adjoint.email':      p.email || '',
+    };
+  }
+
   const allVars = {
     'sys.date':     now.toLocaleDateString('fr-BE', { weekday:'long', day:'2-digit', month:'long', year:'numeric' }),
     'sys.annee':    db.prepare(`SELECT code FROM annee_scolaire WHERE active = 1`).get()?.code || '2026-2027',
     'etab.etab_nom': etab.etab_nom || 'Institut Ilya Prigogine',
     ...directeurVars,
+    ...dirAdjointVars,
     ...vars,
   };
 
