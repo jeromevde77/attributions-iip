@@ -354,6 +354,10 @@ function DetailModal({ profId, onClose, onEdit, onFiche }) {
 export default function Professeurs() {
   const [profs, setProfs] = useState([]);
   const [search, setSearch] = useState('');
+  const [fContrat, setFContrat] = useState('');   // '' | IIP | HELB | mixte
+  const [fCharge, setFCharge]   = useState('');   // '' | avec | sans
+  const [fAnc, setFAnc]         = useState(false); // avec ancienneté
+  const [showSansCharge, setShowSansCharge] = useState(false); // volet "à zéro" fermé par défaut
   const [loading, setLoading] = useState(true);
   const [detailId, setDetailId] = useState(null);
   const [editProf, setEditProf] = useState(null);
@@ -812,6 +816,8 @@ export default function Professeurs() {
     finally { setPrinting(false); }
   }
 
+  const charge = (p) => (Number(p.total_per_annee) || 0) + (Number(p.total_hrs_helb) || 0);
+
   const filtered = useMemo(() => {
     let arr = [...profs];
     // Filtrage par recherche
@@ -823,6 +829,23 @@ export default function Professeurs() {
         return hay.includes(q);
       });
     }
+    // Filtre contrat
+    if (fContrat) {
+      arr = arr.filter(p => {
+        const iip = (Number(p.total_per_annee) || 0) > 0;
+        const helb = (Number(p.total_hrs_helb) || 0) > 0;
+        if (fContrat === 'IIP') return iip && !helb;
+        if (fContrat === 'HELB') return helb && !iip;
+        if (fContrat === 'mixte') return iip && helb;
+        return true;
+      });
+    }
+    // Filtre charge
+    if (fCharge === 'avec') arr = arr.filter(p => charge(p) > 0);
+    if (fCharge === 'sans') arr = arr.filter(p => charge(p) === 0);
+    // Filtre ancienneté
+    if (fAnc) arr = arr.filter(p => (Number(p.anciennete_25_26_po) || 0) > 0);
+
     if (sortBy.key) {
       arr = [...arr].sort((a, b) => {
         const va = a[sortBy.key], vb = b[sortBy.key];
@@ -836,7 +859,13 @@ export default function Professeurs() {
       });
     }
     return arr;
-  }, [profs, sortBy, search]);
+  }, [profs, sortBy, search, fContrat, fCharge, fAnc]);
+
+  // Séparation : profs avec charge (affichés) / sans charge (volet repliable)
+  const avecCharge = useMemo(() => filtered.filter(p => charge(p) > 0), [filtered]);
+  const sansCharge = useMemo(() => filtered.filter(p => charge(p) === 0), [filtered]);
+  // Quand un filtre "sans charge" est actif, on affiche tout dans la liste principale
+  const listePrincipale = fCharge === 'sans' ? filtered : avecCharge;
 
   async function handleDelete(p) {
     if (!confirm(`Supprimer ${p.nom_prenom} ? Cette action est irréversible.`)) return;
@@ -855,6 +884,83 @@ export default function Professeurs() {
         onClick={() => toggleSort(k)}>
         {children}{arrow}
       </th>
+    );
+  }
+
+  function renderRow(p) {
+    return (
+      <tr key={p.id} className={p.statut === 'EXP' ? 'bg-slate-100/60 hover:bg-slate-200/60' : 'hover:bg-gray-50'}>
+        <td className="text-center">
+          <input type="checkbox" checked={selection.has(p.id)} onChange={() => toggleSelect(p.id)} />
+        </td>
+        <td className="font-medium">
+          <button onClick={() => setDetailId(p.id)} className="hover:text-iip-gold hover:underline text-left">
+            {p.nom_prenom}
+          </button>
+        </td>
+        <td>
+          <div className="flex items-center gap-1 flex-wrap">
+            {p.type_personnel === 'admin' && (() => {
+              const label = (p.fonction_admin || 'ADM').slice(0, 3).toUpperCase();
+              return <span className="inline-flex items-center justify-center w-7 h-7 rounded text-[10px] font-bold" style={{background:'#00AACC',color:'white'}}>{label}</span>;
+            })()}
+            {(p.contrats_annee || p.statut || '').split(',').filter(c => ['CC','EXP','MDP'].includes(c)).map(c => (
+              <span key={c} className={`inline-flex items-center justify-center w-7 h-7 rounded text-[10px] font-bold ${c === 'CC' ? 'badge-iip' : c === 'EXP' ? 'badge-exp' : 'badge-helb'}`}>{c}</span>
+            ))}
+            {!p.type_personnel && !p.contrats_annee && !p.statut && (
+              <span className="text-gray-300 text-xs">—</span>
+            )}
+          </div>
+        </td>
+        <td className="text-xs text-gray-600">{p.adresse_mail || '—'}</td>
+        <td className="text-xs text-gray-600">{p.commune || '—'}</td>
+        <td className="text-center">
+          {p.capaes === 'x'
+            ? <span className="text-green-600 text-xs font-semibold">✓</span>
+            : <span className="text-gray-300 text-xs">—</span>}
+        </td>
+        <td className="num">{Number(p.total_per_annee ?? p.total_per_iip ?? 0).toLocaleString('fr-BE')}</td>
+        <td className="num">{Number(p.total_hrs_helb || 0).toLocaleString('fr-BE')}</td>
+        <td className="num">{p.anciennete_25_26_po || 0}</td>
+        <td className="text-center">
+          <div className="flex items-center justify-center gap-2 relative">
+            <button onClick={() => setFicheMenu(ficheMenu === p.id ? null : p.id)}
+              className="text-gray-400 hover:text-iip-mauve" title="Fiche d'attributions">
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg>
+            </button>
+            {ficheMenu === p.id && (
+              <>
+                <div className="fixed inset-0 z-40" onClick={() => setFicheMenu(null)} />
+                <div className="absolute z-50 top-full right-0 mt-1 bg-white border border-gray-200 rounded-lg shadow-xl py-1.5 px-1.5 w-40 flex flex-col gap-1" onClick={e => e.stopPropagation()}>
+                  <button onClick={() => { genererFicheAttributions(p.id, null); setFicheMenu(null); }}
+                    className="text-left px-2 py-1.5 rounded hover:bg-gray-50 text-sm flex items-center gap-2">
+                    <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-gray-700 text-white">Global</span>
+                    <span className="text-gray-600 text-xs">IIP + HELB</span>
+                  </button>
+                  <button onClick={() => { genererFicheAttributions(p.id, 'IIP'); setFicheMenu(null); }}
+                    className="text-left px-2 py-1.5 rounded hover:bg-gray-50 text-sm flex items-center gap-2">
+                    <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-blue-100 text-blue-700">IIP</span>
+                    <span className="text-gray-600 text-xs">Contrat IIP</span>
+                  </button>
+                  <button onClick={() => { genererFicheAttributions(p.id, 'HELB'); setFicheMenu(null); }}
+                    className="text-left px-2 py-1.5 rounded hover:bg-gray-50 text-sm flex items-center gap-2">
+                    <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-purple-100 text-purple-700">HELB</span>
+                    <span className="text-gray-600 text-xs">Contrat HELB</span>
+                  </button>
+                </div>
+              </>
+            )}
+            {canEdit && (
+              <button onClick={() => setEditProf(p)}
+                className="text-iip-gold hover:text-iip-amber text-sm" title="Modifier"><IconEdit size={15}/></button>
+            )}
+            {canEdit && (
+              <button onClick={() => handleDelete(p)} disabled={deleting === p.id}
+                className="text-red-400 hover:text-red-600 text-sm disabled:opacity-30" title="Supprimer"><IconTrash size={15}/></button>
+            )}
+          </div>
+        </td>
+      </tr>
     );
   }
 
@@ -887,6 +993,27 @@ export default function Professeurs() {
                 className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600">​<IconX size={13}/></button>
             )}
           </div>
+          <select value={fContrat} onChange={e => setFContrat(e.target.value)}
+            className="border border-gray-300 rounded-lg px-2 py-1.5 text-sm focus:outline-none focus:border-iip-gold">
+            <option value="">Tous contrats</option>
+            <option value="IIP">IIP seul</option>
+            <option value="HELB">HELB seul</option>
+            <option value="mixte">IIP + HELB</option>
+          </select>
+          <select value={fCharge} onChange={e => setFCharge(e.target.value)}
+            className="border border-gray-300 rounded-lg px-2 py-1.5 text-sm focus:outline-none focus:border-iip-gold">
+            <option value="">Charge : toutes</option>
+            <option value="avec">Avec charge cette année</option>
+            <option value="sans">Sans charge</option>
+          </select>
+          <label className="inline-flex items-center gap-1.5 text-sm text-gray-600 border border-gray-300 rounded-lg px-2.5 py-1.5 cursor-pointer hover:bg-gray-50">
+            <input type="checkbox" checked={fAnc} onChange={e => setFAnc(e.target.checked)} />
+            Avec ancienneté
+          </label>
+          {(fContrat || fCharge || fAnc) && (
+            <button onClick={() => { setFContrat(''); setFCharge(''); setFAnc(false); }}
+              className="text-xs text-gray-500 hover:text-gray-700 underline">Réinitialiser</button>
+          )}
           {selection.size > 0 && (
             <div className="relative">
               <button onClick={() => setPrintSelMenu(v => !v)} disabled={printing}
@@ -944,81 +1071,18 @@ export default function Professeurs() {
               </tr>
             </thead>
             <tbody>
-              {filtered.map(p => (
-                <tr key={p.id} className={p.statut === 'EXP' ? 'bg-slate-100/60 hover:bg-slate-200/60' : 'hover:bg-gray-50'}>
-                  <td className="text-center">
-                    <input type="checkbox" checked={selection.has(p.id)}
-                      onChange={() => toggleSelect(p.id)} />
-                  </td>
-                  <td className="font-medium">
-                    <button onClick={() => setDetailId(p.id)} className="hover:text-iip-gold hover:underline text-left">
-                      {p.nom_prenom}
-                    </button>
-                  </td>
-                  <td>
-                    <div className="flex items-center gap-1 flex-wrap">
-                      {p.type_personnel === 'admin' && (() => {
-                        const label = (p.fonction_admin || 'ADM').slice(0, 3).toUpperCase();
-                        return <span className="inline-flex items-center justify-center w-7 h-7 rounded text-[10px] font-bold" style={{background:'#00AACC',color:'white'}}>{label}</span>;
-                      })()}
-                      {(p.contrats_annee || p.statut || '').split(',').filter(c => ['CC','EXP','MDP'].includes(c)).map(c => (
-                        <span key={c} className={`inline-flex items-center justify-center w-7 h-7 rounded text-[10px] font-bold ${c === 'CC' ? 'badge-iip' : c === 'EXP' ? 'badge-exp' : 'badge-helb'}`}>{c}</span>
-                      ))}
-                      {!p.type_personnel && !p.contrats_annee && !p.statut && (
-                        <span className="text-gray-300 text-xs">—</span>
-                      )}
-                    </div>
-                  </td>
-                  <td className="text-xs text-gray-600">{p.adresse_mail || '—'}</td>
-                  <td className="text-xs text-gray-600">{p.commune || '—'}</td>
-                  <td className="text-center">
-                    {p.capaes === 'x'
-                      ? <span className="text-green-600 text-xs font-semibold">✓</span>
-                      : <span className="text-gray-300 text-xs">—</span>}
-                  </td>
-                  <td className="num">{Number(p.total_per_annee ?? p.total_per_iip ?? 0).toLocaleString('fr-BE')}</td>
-                  <td className="num">{Number(p.total_hrs_helb || 0).toLocaleString('fr-BE')}</td>
-                  <td className="num">{p.anciennete_25_26_po || 0}</td>
-                  <td className="text-center">
-                    <div className="flex items-center justify-center gap-2 relative">
-                      <button onClick={() => setFicheMenu(ficheMenu === p.id ? null : p.id)}
-                        className="text-gray-400 hover:text-iip-mauve" title="Fiche d'attributions">
-                        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg>
-                      </button>
-                      {ficheMenu === p.id && (
-                        <>
-                          <div className="fixed inset-0 z-40" onClick={() => setFicheMenu(null)} />
-                          <div className="absolute z-50 top-full right-0 mt-1 bg-white border border-gray-200 rounded-lg shadow-xl py-1.5 px-1.5 w-40 flex flex-col gap-1" onClick={e => e.stopPropagation()}>
-                            <button onClick={() => { genererFicheAttributions(p.id, null); setFicheMenu(null); }}
-                              className="text-left px-2 py-1.5 rounded hover:bg-gray-50 text-sm flex items-center gap-2">
-                              <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-gray-700 text-white">Global</span>
-                              <span className="text-gray-600 text-xs">IIP + HELB</span>
-                            </button>
-                            <button onClick={() => { genererFicheAttributions(p.id, 'IIP'); setFicheMenu(null); }}
-                              className="text-left px-2 py-1.5 rounded hover:bg-gray-50 text-sm flex items-center gap-2">
-                              <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-blue-100 text-blue-700">IIP</span>
-                              <span className="text-gray-600 text-xs">Contrat IIP</span>
-                            </button>
-                            <button onClick={() => { genererFicheAttributions(p.id, 'HELB'); setFicheMenu(null); }}
-                              className="text-left px-2 py-1.5 rounded hover:bg-gray-50 text-sm flex items-center gap-2">
-                              <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-purple-100 text-purple-700">HELB</span>
-                              <span className="text-gray-600 text-xs">Contrat HELB</span>
-                            </button>
-                          </div>
-                        </>
-                      )}
-                      {canEdit && (
-                        <button onClick={() => setEditProf(p)}
-                          className="text-iip-gold hover:text-iip-amber text-sm" title="Modifier"><IconEdit size={15}/></button>
-                      )}
-                      {canEdit && (
-                        <button onClick={() => handleDelete(p)} disabled={deleting === p.id}
-                          className="text-red-400 hover:text-red-600 text-sm disabled:opacity-30" title="Supprimer"><IconTrash size={15}/></button>
-                      )}
-                    </div>
-                  </td>
-                </tr>
-              ))}
+              {listePrincipale.map(renderRow)}
+              {fCharge !== 'sans' && sansCharge.length > 0 && (
+                <>
+                  <tr className="bg-gray-100 cursor-pointer hover:bg-gray-200" onClick={() => setShowSansCharge(v => !v)}>
+                    <td colSpan={10} className="py-2 px-3 text-sm text-gray-600 font-medium select-none">
+                      <span className="inline-block transition-transform" style={{ transform: showSansCharge ? 'rotate(90deg)' : 'none' }}>▶</span>
+                      {' '}Sans charge cette année <span className="text-gray-400 font-normal">({sansCharge.length})</span>
+                    </td>
+                  </tr>
+                  {showSansCharge && sansCharge.map(renderRow)}
+                </>
+              )}
             </tbody>
           </table>
         </div>
