@@ -816,7 +816,7 @@ export default function Professeurs() {
     finally { setPrinting(false); }
   }
 
-  const charge = (p) => (Number(p.total_per_annee) || 0) + (Number(p.total_hrs_helb) || 0);
+  const charge = (p) => Number(p.total_per_annee) || 0;
 
   const filtered = useMemo(() => {
     let arr = [...profs];
@@ -829,11 +829,12 @@ export default function Professeurs() {
         return hay.includes(q);
       });
     }
-    // Filtre contrat
+    // Filtre contrat — basé sur les contrats réels de l'année en cours (contrats_annee)
     if (fContrat) {
       arr = arr.filter(p => {
-        const iip = (Number(p.total_per_annee) || 0) > 0;
-        const helb = (Number(p.total_hrs_helb) || 0) > 0;
+        const contrats = (p.contrats_annee || '').split(',').map(c => c.trim()).filter(Boolean);
+        const iip = contrats.includes('IIP');
+        const helb = contrats.includes('HELB');
         if (fContrat === 'IIP') return iip && !helb;
         if (fContrat === 'HELB') return helb && !iip;
         if (fContrat === 'mixte') return iip && helb;
