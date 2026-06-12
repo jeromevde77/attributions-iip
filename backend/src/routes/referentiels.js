@@ -625,18 +625,20 @@ r.get('/sections/:section/grille', authRequired, (req, res) => {
     const tot_ct  = uesCours.filter(c => c.ct_pp === 'CT').reduce((s,c) => s + (c.cours_per||0), 0);
     const tot_pp  = uesCours.filter(c => c.ct_pp === 'PP').reduce((s,c) => s + (c.cours_per||0), 0);
     const tot_aut = Math.max(0, ...uesCours.map(c => c.ue_autonomie || 0), 0);
-    const tot_heures = uesCours.reduce((s,c) => s + (c.heures||0), 0);
-    const tot_per_etud = uesCours.reduce((s,c) => s + (c.per_etudiant||0), 0);
-    return { ...u, cours: uesCours, tot_ct, tot_pp, tot_aut, tot_per: tot_ct + tot_pp, tot_heures, tot_per_etud };
+    const tot_per_etud = uesCours.reduce((s,c) => {
+      const cp = Number(c.cours_per) || 0;
+      const pe = (c.per_etudiant !== null && c.per_etudiant !== '' && c.per_etudiant != null) ? Number(c.per_etudiant) : cp;
+      return s + pe;
+    }, 0);
+    return { ...u, cours: uesCours, tot_ct, tot_pp, tot_aut, tot_per: tot_ct + tot_pp, tot_per_etud };
   });
 
   const grand_ct  = result.reduce((s,u) => s + u.tot_ct, 0);
   const grand_pp  = result.reduce((s,u) => s + u.tot_pp, 0);
   const grand_aut = result.reduce((s,u) => s + u.tot_aut, 0);
-  const grand_heures = result.reduce((s,u) => s + u.tot_heures, 0);
   const grand_per_etud = result.reduce((s,u) => s + u.tot_per_etud, 0);
 
-  res.json({ section, annee, ues: result, grand_ct, grand_pp, grand_aut, grand_heures, grand_per_etud });
+  res.json({ section, annee, ues: result, grand_ct, grand_pp, grand_aut, grand_per_etud });
 });
 
 r.get('/sections/:section/ue-cours', authRequired, (req, res) => {
