@@ -498,6 +498,14 @@ export default function Listes() {
     const fmt = n => (n != null && n !== '') ? String(n) : '0';
     const S = 'padding:1px 5px;font-size:10px;line-height:1.2;';
     const SR = S + 'text-align:right;';
+    // Affichage du professeur : badge orange si "à désigner" ou non attribué
+    const profCell = (nom) => {
+      const v = (nom || '').trim();
+      const aDesigner = !v || /à\s*d[ée]signer/i.test(v);
+      return aDesigner
+        ? `<span style="display:inline-block;background:#fff7ed;color:#ea580c;font-weight:700;font-size:9px;padding:2px 8px;border:1px solid #fdba74;border-radius:10px;white-space:nowrap">À désigner</span>`
+        : v;
+    };
 
     // Filtrer par UE si mode rapport-ue
     let ues = d.ues || [];
@@ -512,7 +520,7 @@ export default function Listes() {
           <td style="${S}padding-left:20px">${c.code_cours||'—'}</td>
           <td style="${S}max-width:220px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${c.cours_nom||'—'}${c.activite_nom?` <em style="color:#9ca3af">(${c.activite_nom})</em>`:''}</td>
           <td style="${S}white-space:nowrap;color:#6b7280">Gr.${c.groupe_code}</td>
-          <td style="${S}white-space:nowrap">${c.prof_nom}</td>
+          <td style="${S}white-space:nowrap">${profCell(c.prof_nom)}</td>
           <td style="${SR}color:#374151">${fmt(c.periodes)}</td>
           <td style="${SR}color:#6b7280">${fmt(c.autonomie)}</td>
           <td style="${SR}font-weight:600;border-left:1px solid #e5e7eb">${fmt(c.total)}</td>
