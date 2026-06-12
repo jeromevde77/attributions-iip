@@ -624,7 +624,7 @@ r.get('/sections/:section/grille', authRequired, (req, res) => {
     const uesCours = byUE[u.ue_num] || [];
     const tot_ct  = uesCours.filter(c => c.ct_pp === 'CT').reduce((s,c) => s + (c.cours_per||0), 0);
     const tot_pp  = uesCours.filter(c => c.ct_pp === 'PP').reduce((s,c) => s + (c.cours_per||0), 0);
-    const tot_aut = uesCours.reduce((s,c) => s + (c.ue_autonomie||0), 0);
+    const tot_aut = Math.max(0, ...uesCours.map(c => c.ue_autonomie || 0), 0);
     return { ...u, cours: uesCours, tot_ct, tot_pp, tot_aut, tot_per: tot_ct + tot_pp };
   });
 
