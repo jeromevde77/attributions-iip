@@ -503,7 +503,7 @@ export default function Listes() {
       const v = (nom || '').trim();
       const aDesigner = !v || /à\s*d[ée]signer/i.test(v);
       return aDesigner
-        ? `<span style="display:inline-block;background:#fff7ed;color:#ea580c;font-weight:700;font-size:9px;padding:2px 8px;border:1px solid #fdba74;border-radius:10px;white-space:nowrap">À désigner</span>`
+        ? `<span style="display:inline-block;background:#fff7ed;color:#ea580c;font-weight:700;font-size:9px;padding:2px 8px;border:1px solid #fdba74;border-radius:3px;white-space:nowrap">À désigner</span>`
         : v;
     };
 
