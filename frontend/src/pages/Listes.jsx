@@ -332,6 +332,7 @@ export default function Listes() {
             <td style="${S}text-align:center">${badge(c.ct_pp)}</td>
             <td style="${SR}color:#374151">${estZ?'—':(cp||'—')}</td>
             <td style="${SR}color:#7c3aed;font-weight:${estZ?'700':'400'}">${pe||'—'}</td>
+            <td style="${SR}color:#6b7280"></td>
             <td style="${SR}font-weight:600">${pe||'—'}</td>
           </tr>`;
         }).join('');
@@ -345,7 +346,7 @@ export default function Listes() {
             <td style="${SR}color:#6b7280">—</td>
             <td style="${SR}color:#6b7280">—</td>
             <td style="${SR}color:#f59e0b;font-weight:600">${autUE}</td>
-            <td style="${SR}color:#6b7280"></td>
+            <td style="${SR}font-weight:600">${autUE}</td>
           </tr>` : '';
         return `
           <tr style="background:#f1f5f9;border-left:3px solid ${col}">
