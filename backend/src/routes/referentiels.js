@@ -607,10 +607,10 @@ r.get('/sections/:section/grille', authRequired, (req, res) => {
 
   const cours = db.prepare(`
     SELECT c.cours_code, c.cours_nom, c.ue_num, c.ct_pp,
-           c.cours_per, c.ue_autonomie, c.quadrimestre_cours
+           c.cours_per, c.ue_autonomie, c.quadrimestre_cours,
+           c.heures, c.per_etudiant, c.is_stage
     FROM cours c
     WHERE c.section = ? AND c.annee_scolaire = ?
-      AND (c.ct_pp IS NULL OR c.ct_pp != 'Z')
     ORDER BY c.cours_code
   `).all(section, annee);
 
@@ -625,14 +625,18 @@ r.get('/sections/:section/grille', authRequired, (req, res) => {
     const tot_ct  = uesCours.filter(c => c.ct_pp === 'CT').reduce((s,c) => s + (c.cours_per||0), 0);
     const tot_pp  = uesCours.filter(c => c.ct_pp === 'PP').reduce((s,c) => s + (c.cours_per||0), 0);
     const tot_aut = Math.max(0, ...uesCours.map(c => c.ue_autonomie || 0), 0);
-    return { ...u, cours: uesCours, tot_ct, tot_pp, tot_aut, tot_per: tot_ct + tot_pp };
+    const tot_heures = uesCours.reduce((s,c) => s + (c.heures||0), 0);
+    const tot_per_etud = uesCours.reduce((s,c) => s + (c.per_etudiant||0), 0);
+    return { ...u, cours: uesCours, tot_ct, tot_pp, tot_aut, tot_per: tot_ct + tot_pp, tot_heures, tot_per_etud };
   });
 
   const grand_ct  = result.reduce((s,u) => s + u.tot_ct, 0);
   const grand_pp  = result.reduce((s,u) => s + u.tot_pp, 0);
   const grand_aut = result.reduce((s,u) => s + u.tot_aut, 0);
+  const grand_heures = result.reduce((s,u) => s + u.tot_heures, 0);
+  const grand_per_etud = result.reduce((s,u) => s + u.tot_per_etud, 0);
 
-  res.json({ section, annee, ues: result, grand_ct, grand_pp, grand_aut });
+  res.json({ section, annee, ues: result, grand_ct, grand_pp, grand_aut, grand_heures, grand_per_etud });
 });
 
 r.get('/sections/:section/ue-cours', authRequired, (req, res) => {
