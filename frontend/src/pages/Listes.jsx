@@ -345,7 +345,7 @@ export default function Listes() {
             <td style="${SR}color:#6b7280">—</td>
             <td style="${SR}color:#6b7280">—</td>
             <td style="${SR}color:#f59e0b;font-weight:600">${autUE}</td>
-            <td style="${SR}font-weight:600">${autUE}</td>
+            <td style="${SR}color:#6b7280"></td>
           </tr>` : '';
         return `
           <tr style="background:#f1f5f9;border-left:3px solid ${col}">
