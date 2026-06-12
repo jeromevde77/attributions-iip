@@ -323,16 +323,16 @@ export default function Listes() {
         };
         const lignesCours = u.cours.map((c, i) => {
           const estZ = c.ct_pp === 'Z';
+          const cp = Number(c.cours_per) || 0;
+          const pe = (c.per_etudiant !== null && c.per_etudiant !== '' && c.per_etudiant != null) ? Number(c.per_etudiant) : cp;
           return `
           <tr style="background:${estZ?'#f3f4f6':(i%2===0?'#fff':'#f9fafb')}">
             <td style="${S}padding-left:20px;color:#6b7280;font-family:monospace">${c.cours_code}</td>
             <td style="${S}${estZ?'font-style:italic;color:#6b7280':''}">${c.cours_nom || '—'}${estZ?' <span style="font-size:8px;color:#9ca3af">(cours étudiant)</span>':''}</td>
             <td style="${S}text-align:center">${badge(c.ct_pp)}</td>
-            <td style="${SR}color:#374151">${estZ?'—':(c.cours_per||0)}</td>
-            <td style="${SR}color:#7c3aed">${c.heures||'—'}</td>
-            <td style="${SR}color:#7c3aed;font-weight:${estZ?'700':'400'}">${c.per_etudiant||'—'}</td>
-            <td style="${SR}color:#6b7280">—</td>
-            <td style="${SR}font-weight:600">${estZ?(c.per_etudiant||0):(c.cours_per||0)}</td>
+            <td style="${SR}color:#374151">${estZ?'—':(cp||'—')}</td>
+            <td style="${SR}color:#7c3aed;font-weight:${estZ?'700':'400'}">${pe||'—'}</td>
+            <td style="${SR}font-weight:600">${pe||'—'}</td>
           </tr>`;
         }).join('');
         // Ligne autonomie séparée (une seule par UE, après tous les cours)
@@ -342,7 +342,6 @@ export default function Listes() {
             <td style="${S}padding-left:20px;color:#6b7280;font-family:monospace"></td>
             <td style="${S}font-style:italic;color:#6b7280">Autonomie</td>
             <td style="${S}text-align:center;color:#6b7280">Auto</td>
-            <td style="${SR}color:#6b7280">—</td>
             <td style="${SR}color:#6b7280">—</td>
             <td style="${SR}color:#6b7280">—</td>
             <td style="${SR}color:#f59e0b;font-weight:600">${autUE}</td>
@@ -356,7 +355,7 @@ export default function Listes() {
               ${u.ue_quad?`<span style="color:#6b7280;font-weight:400;font-size:9px;margin-left:6px">${u.ue_quad}</span>`:''}
             </td>
             <td style="${S}text-align:center;color:#6b7280;font-size:9px">${u.ue_niveau||''}</td>
-            <td style="${SR}"></td><td style="${SR}"></td><td style="${SR}"></td><td style="${SR}"></td><td style="${SR}"></td>
+            <td style="${SR}"></td><td style="${SR}"></td><td style="${SR}"></td><td style="${SR}"></td>
           </tr>
           ${lignesCours}
           ${ligneAut}
@@ -364,7 +363,6 @@ export default function Listes() {
             <td colspan="2" style="padding:2px 6px 2px 20px;font-size:9px;color:#6b7280;font-style:italic">Sous-total UE\u00a0${u.ue_num}</td>
             <td style="${S}text-align:center"></td>
              <td style="${SR}font-weight:700;color:#374151">${u.tot_per}</td>
-             <td style="${SR}color:#7c3aed;font-weight:600">${u.tot_heures||'—'}</td>
              <td style="${SR}color:#7c3aed;font-weight:600">${u.tot_per_etud||'—'}</td>
              <td style="${SR}font-weight:600;color:#f59e0b">${u.tot_aut}</td>
              <td style="${SR}font-weight:700">${u.tot_per+u.tot_aut}</td>
@@ -373,7 +371,7 @@ export default function Listes() {
 
       return `
         <tr style="background:${col}20">
-          <td colspan="8" style="padding:5px 8px;font-weight:800;font-size:12px;color:${col};border-bottom:2px solid ${col}">
+          <td colspan="7" style="padding:5px 8px;font-weight:800;font-size:12px;color:${col};border-bottom:2px solid ${col}">
             ▌ ${niv}
           </td>
         </tr>
@@ -396,7 +394,6 @@ export default function Listes() {
             <th style="padding:3px 5px;text-align:left;font-size:10px">Cours / UE</th>
             <th style="padding:3px 5px;text-align:center;font-size:10px">CT/PP</th>
             <th style="padding:3px 5px;text-align:right;font-size:10px">Pér. prof.</th>
-            <th style="padding:3px 5px;text-align:right;font-size:10px">H. étud.</th>
             <th style="padding:3px 5px;text-align:right;font-size:10px">Pér. étud.</th>
             <th style="padding:3px 5px;text-align:right;font-size:10px">Aut.</th>
             <th style="padding:3px 5px;text-align:right;font-size:10px">Total</th>
@@ -407,7 +404,6 @@ export default function Listes() {
             <td colspan="2" style="padding:4px 6px;font-weight:700;font-size:12px">TOTAL — ${d.section}</td>
             <td style="${S}text-align:center"></td>
             <td style="${SR}font-weight:700;color:white">${d.grand_ct+d.grand_pp}</td>
-            <td style="${SR}color:rgba(255,255,255,.85)">${d.grand_heures||'—'}</td>
             <td style="${SR}color:rgba(255,255,255,.85)">${d.grand_per_etud||'—'}</td>
             <td style="${SR}color:rgba(255,255,255,.7)">${d.grand_aut}</td>
             <td style="${SR}font-weight:700;color:white">${d.grand_ct+d.grand_pp+d.grand_aut}</td>
