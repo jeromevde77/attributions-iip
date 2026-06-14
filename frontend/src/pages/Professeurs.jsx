@@ -824,7 +824,7 @@ export default function Professeurs() {
     if (search.trim()) {
       const q = search.trim().toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
       arr = arr.filter(p => {
-        const hay = [p.nom_prenom, p.adresse_mail, p.commune, p.fonction_admin, p.statut]
+        const hay = [p.nom_prenom, p.adresse_mail, p.commune, p.missions_libelles, p.statut]
           .filter(Boolean).join(' ').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
         return hay.includes(q);
       });
@@ -901,14 +901,14 @@ export default function Professeurs() {
         </td>
         <td>
           <div className="flex items-center gap-1 flex-wrap">
-            {p.type_personnel === 'admin' && (() => {
-              const label = (p.fonction_admin || 'ADM').slice(0, 3).toUpperCase();
-              return <span className="inline-flex items-center justify-center w-7 h-7 rounded text-[10px] font-bold" style={{background:'#00AACC',color:'white'}}>{label}</span>;
-            })()}
+            {p.missions_libelles && p.missions_libelles.split(',').filter(Boolean).map((f, i) => {
+              const label = f.trim().split(' ').map(w => w[0]).join('').slice(0, 3).toUpperCase();
+              return <span key={i} title={f.trim()} className="inline-flex items-center justify-center min-w-7 h-7 px-1 rounded text-[10px] font-bold" style={{background:'#00AACC',color:'white'}}>{label}</span>;
+            })}
             {(p.contrats_annee || p.statut || '').split(',').filter(c => ['CC','EXP','MDP'].includes(c)).map(c => (
               <span key={c} className={`inline-flex items-center justify-center w-7 h-7 rounded text-[10px] font-bold ${c === 'CC' ? 'badge-iip' : c === 'EXP' ? 'badge-exp' : 'badge-helb'}`}>{c}</span>
             ))}
-            {!p.type_personnel && !p.contrats_annee && !p.statut && (
+            {!p.missions_libelles && !p.contrats_annee && !p.statut && (
               <span className="text-gray-300 text-xs">—</span>
             )}
           </div>
