@@ -1481,7 +1481,7 @@ r.get('/personnel-matrice', authRequired, (req, res) => {
   const fonctions = db.prepare('SELECT id, libelle, portee, ordre FROM fonction_type WHERE portee = ? ORDER BY ordre, libelle')
     .all(estEtab ? 'etablissement' : 'section');
   // Tous les profs
-  const profs = db.prepare('SELECT id, nom, prenom, (nom || \" \" || prenom) AS nom_prenom FROM professeur ORDER BY nom, prenom').all();
+  const profs = db.prepare("SELECT id, nom, prenom, (nom || ' ' || prenom) AS nom_prenom FROM professeur ORDER BY nom, prenom").all();
   // Missions cochées pour cette section + année
   const missions = db.prepare('SELECT professeur_id, fonction FROM personnel_mission WHERE section_code = ? AND annee_scolaire = ?')
     .all(section, annee);
