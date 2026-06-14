@@ -235,9 +235,35 @@ export default function ProfFicheModal({ prof, onClose, onSaved }) {
   const [dispoQ1, setDispoQ1]           = useState({}); // { 'jour_creneauId': bool }
   const [dispoQ2, setDispoQ2]           = useState({});
   const [dispoLoaded, setDispoLoaded]   = useState(false);
+  // Missions & coordinations (personnel d'établissement)
+  const [adminFonction, setAdminFonction] = useState('');     // '' = aucune fonction admin
+  const [adminSections, setAdminSections] = useState([]);      // sections coordonnées
+  const [sectionsDispo, setSectionsDispo] = useState([]);      // toutes les sections
+  const [savingAdmin, setSavingAdmin]     = useState(false);
+  const [savedAdmin, setSavedAdmin]       = useState(false);
 
   function toggle(k) { setOpen(o => ({ ...o, [k]: !o[k] })); }
   function set(k, v) { setForm(f => ({ ...f, [k]: v })); }
+
+  function toggleAdminSection(code) {
+    setAdminSections(arr => arr.includes(code) ? arr.filter(c => c !== code) : [...arr, code]);
+  }
+  async function saveAdmin() {
+    if (isNew) { alert('Enregistrez d\'abord la fiche du membre.'); return; }
+    setSavingAdmin(true); setSavedAdmin(false);
+    try {
+      await api.updateProfAdmin(prof.id, {
+        fonction: adminFonction || null,
+        sections: adminSections,
+      });
+      setSavedAdmin(true);
+      setTimeout(() => setSavedAdmin(false), 2500);
+    } catch (e) {
+      alert('Erreur lors de l\'enregistrement : ' + e.message);
+    } finally {
+      setSavingAdmin(false);
+    }
+  }
 
   // ── Import optionnel depuis la carte eID belge ──
   const eidTimer = useRef(null);
@@ -329,6 +355,13 @@ export default function ProfFicheModal({ prof, onClose, onSaved }) {
         (p.anciennete.cours || []).forEach(c => { rc[c.cours_nom] = c.report; });
         setReportsCours(rc);
       }
+      if (p.admin) {
+        setAdminFonction(p.admin.fonction || '');
+        setAdminSections(Array.isArray(p.admin.sections) ? p.admin.sections : []);
+      } else {
+        setAdminFonction('');
+        setAdminSections([]);
+      }
     }).catch(e => alert('Erreur de chargement : ' + e.message))
       .finally(() => setLoading(false));
   }, [prof, isNew]);
@@ -336,6 +369,7 @@ export default function ProfFicheModal({ prof, onClose, onSaved }) {
   // ── Disponibilités ──
   useEffect(() => {
     _fetch('/api/prerequis/creneaux').then(d => setCreneaux(Array.isArray(d) ? d : []));
+    api.sections().then(d => setSectionsDispo(Array.isArray(d) ? d : [])).catch(() => {});
     if (prof?.id && !isNew) {
       _fetch(`/api/prerequis/disponibilites/${prof.id}`).then(rows => {
         if (!Array.isArray(rows)) return;
@@ -651,6 +685,66 @@ export default function ProfFicheModal({ prof, onClose, onSaved }) {
               </div>
             </Section>
           )}
+
+          {/* 6 ter. Missions & coordinations */}
+          <Section titre="6 ter · Missions & coordinations"
+            sous={adminFonction ? (adminFonction + (adminSections.length ? ` · ${adminSections.length} section(s)` : ' · toutes sections')) : 'Aucune fonction'}
+            ouvert={open.missions} onToggle={() => toggle('missions')}>
+            <div className="space-y-4">
+              <p className="text-xs text-gray-500">
+                La fonction administrative et les sections coordonnées déterminent l'apparition de cette personne
+                dans les procédures (recours, fraude). Sans section cochée, elle apparaît pour toutes les sections ;
+                avec des sections, elle n'apparaît que pour celles-ci.
+              </p>
+
+              <div>
+                <label className="block text-xs font-semibold text-gray-600 mb-1">Fonction dans l'établissement</label>
+                <select value={adminFonction} onChange={e => setAdminFonction(e.target.value)}
+                  className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-iip-gold">
+                  <option value="">— Aucune —</option>
+                  <option value="Directeur">Directeur</option>
+                  <option value="Directeur adjoint">Directeur adjoint</option>
+                  <option value="Secrétaire">Secrétaire</option>
+                  <option value="Coordinateur de cursus">Coordinateur de cursus</option>
+                  <option value="Coordinateur des stages">Coordinateur des stages</option>
+                  <option value="Coordinateur pédagogique">Coordinateur pédagogique</option>
+                  <option value="Coordinateur de TFE">Coordinateur de TFE (épreuve intégrée)</option>
+                  <option value="Conseiller qualité">Conseiller qualité</option>
+                </select>
+              </div>
+
+              {adminFonction && (
+                <div>
+                  <label className="block text-xs font-semibold text-gray-600 mb-1">
+                    Sections coordonnées <span className="font-normal text-gray-400">(aucune = apparaît pour toutes les sections)</span>
+                  </label>
+                  <div className="flex flex-wrap gap-2">
+                    {sectionsDispo.map(s => {
+                      const code = s.code || s.section || s;
+                      const actif = adminSections.includes(code);
+                      return (
+                        <button key={code} type="button" onClick={() => toggleAdminSection(code)}
+                          className={`px-2.5 py-1 rounded text-xs font-medium border transition ${actif
+                            ? 'bg-iip-mauve text-white border-iip-mauve'
+                            : 'bg-white text-gray-600 border-gray-300 hover:border-iip-mauve'}`}>
+                          {code}
+                        </button>
+                      );
+                    })}
+                    {sectionsDispo.length === 0 && <span className="text-xs text-gray-400">Aucune section disponible</span>}
+                  </div>
+                </div>
+              )}
+
+              <div className="flex items-center gap-3">
+                <button type="button" onClick={saveAdmin} disabled={savingAdmin}
+                  className="bg-iip-mauve text-white px-4 py-1.5 rounded-lg text-sm font-medium disabled:opacity-50">
+                  {savingAdmin ? 'Enregistrement…' : 'Enregistrer la fonction'}
+                </button>
+                {savedAdmin && <span className="text-green-600 text-sm">✓ Enregistré</span>}
+              </div>
+            </div>
+          </Section>
 
           {/* 7. Règlement CE 883/2004 */}
           <Section titre="7 · Règlement CE 883/2004" sous="résident d'un autre État UE"
