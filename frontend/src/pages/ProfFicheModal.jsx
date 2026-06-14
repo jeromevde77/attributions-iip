@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { api } from '../lib/api.js';
+import { api, getAnnee } from '../lib/api.js';
 import { eidStatus, eidReadAll, eidToProf, eidChamps } from '../lib/eid.js';
 import NominationsPanel from '../components/NominationsPanel.jsx';
 import { IconId, IconTrash, IconFileText } from '@tabler/icons-react';
@@ -309,7 +309,7 @@ export default function ProfFicheModal({ prof, onClose, onSaved }) {
   // Charger les données complètes du prof (avec titres + charges)
   useEffect(() => {
     if (isNew) return;
-    api.professeur(prof.id).then(p => {
+    api.professeur(prof.id, getAnnee()).then(p => {
       setForm(f => {
         const next = { ...f };
         Object.keys(f).forEach(k => { if (p[k] !== undefined && p[k] !== null) next[k] = p[k]; });
