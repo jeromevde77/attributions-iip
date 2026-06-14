@@ -141,12 +141,16 @@ ${html}${footerHtml}</body></html>`;
 // Construit le pied de page à partir des coordonnées de l'établissement (paramétrable)
 function piedEtablissement() {
   const e = db.prepare('SELECT * FROM etablissement WHERE id = 1').get() || {};
-  const ligne1 = [e.etab_nom, e.po_nom ? 'PO ' + e.po_nom : null, e.num_ecot ? 'N° entreprise ' + e.num_ecot : null]
-    .filter(Boolean).join(' • ');
+  const ligne1 = [
+    e.etab_nom,
+    e.po_nom ? 'PO ' + e.po_nom : null,
+    e.num_entreprise ? 'N° entreprise ' + e.num_entreprise : null,
+  ].filter(Boolean).join(' • ');
   const ligne2 = [
     e.num_fase ? 'Fase ' + e.num_fase : null,
     e.adresse || null,
     e.gest_tel ? 'T. ' + e.gest_tel : null,
+    e.site_web || null,
   ].filter(Boolean).join(' • ');
   return [ligne1, ligne2].filter(Boolean).join('<br>');
 }
