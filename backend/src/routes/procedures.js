@@ -132,10 +132,16 @@ ${html}</body></html>`;
 // ─── POST /procedures/pv-recours ──────────────────────────────────────────────
 r.post('/pv-recours', authRequired, (req, res) => {
   const {
-    etudiant, ue_num, ue_nom, membres_presents,
+    etudiant, ue_num, membres_presents,
     date_publi, date_recours, date_seance, date_envoi,
     q, verdict, commentaire_cde, annee,
   } = req.body;
+  // ue_nom : utilise celui fourni, sinon le récupère en base depuis ue_num + année
+  let ue_nom = req.body.ue_nom;
+  if (!ue_nom && ue_num) {
+    ue_nom = db.prepare('SELECT ue_nom FROM ue WHERE ue_num = ? AND annee_scolaire = ?')
+      .get(ue_num, annee)?.ue_nom || '';
+  }
 
   // Paramètres configurables
   const delaiRecours    = getParamNum('procedures.delai_recours_jours', 4);
@@ -245,6 +251,7 @@ r.post('/pv-recours', authRequired, (req, res) => {
     'pv.etudiant':       etudiant || '',
     'pv.ue_ref':         ueRef,
     'ue.ue_num':         ue_num || '',
+    'ue.ue_nom':         ue_nom || '',
     'pv.date_publi':     date_publi   ? dateLongue(date_publi)   : '',
     'pv.date_recours':   date_recours ? dateLongue(date_recours) : '',
     'pv.date_seance':    date_seance  ? wrap10(`<p><strong>Date de réunion du CDE\u00a0:</strong> ${dateLongue(date_seance)}</p>`) : '',
@@ -262,6 +269,7 @@ r.post('/pv-recours', authRequired, (req, res) => {
       'pv.etudiant':       etudiant || '',
       'pv.ue_ref':         ueRef,
       'ue.ue_num':         ue_num || '',
+      'ue.ue_nom':         ue_nom || '',
       'pv.date_publi':     date_publi   ? dateLongue(date_publi)   : '',
       'pv.date_recours':   date_recours ? dateLongue(date_recours) : '',
       'pv.date_seance':    date_seance  ? `<p><strong>Date de réunion du CDE\u00a0:</strong> ${dateLongue(date_seance)}</p>` : '',
