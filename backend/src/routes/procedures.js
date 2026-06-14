@@ -6,7 +6,7 @@
 import { Router } from 'express';
 import db from '../db/index.js';
 import { authRequired } from '../middleware/auth.js';
-import { getParam, getParamNum } from './parametres.js';
+import { getParam, getParamNum, piedDocument } from './parametres.js';
 
 const r = Router();
 
@@ -139,21 +139,9 @@ ${html}${footerHtml}</body></html>`;
 }
 
 // Construit le pied de page à partir des coordonnées de l'établissement (paramétrable)
+// Pied de page : délègue à la fonction partagée (Configuration > Mise en page)
 function piedEtablissement() {
-  const e = db.prepare('SELECT * FROM etablissement WHERE id = 1').get() || {};
-  const ligne1 = [
-    e.etab_nom,
-    e.po_nom ? 'PO ' + e.po_nom : null,
-    e.num_entreprise ? 'N° entreprise ' + e.num_entreprise : null,
-  ].filter(Boolean).join(' • ');
-  const ligne2 = [
-    e.num_fase ? 'Fase ' + e.num_fase : null,
-    e.adresse || null,
-    e.gest_tel ? 'T. ' + e.gest_tel : null,
-    e.email_contact || null,
-    e.site_web || null,
-  ].filter(Boolean).join(' • ');
-  return [ligne1, ligne2].filter(Boolean).join('<br>');
+  return piedDocument();
 }
 
 // ─── POST /procedures/pv-recours ──────────────────────────────────────────────
