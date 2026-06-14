@@ -237,6 +237,7 @@ export default function ProfFicheModal({ prof, onClose, onSaved }) {
   const [dispoLoaded, setDispoLoaded]   = useState(false);
   // Missions & coordinations (personnel d'établissement)
   const [adminFonction, setAdminFonction] = useState('');     // '' = aucune fonction admin
+  const [adminPortee, setAdminPortee]     = useState('etablissement'); // 'etablissement' | 'section'
   const [adminSections, setAdminSections] = useState([]);      // sections coordonnées
   const [sectionsDispo, setSectionsDispo] = useState([]);      // toutes les sections
   const [savingAdmin, setSavingAdmin]     = useState(false);
@@ -254,6 +255,7 @@ export default function ProfFicheModal({ prof, onClose, onSaved }) {
     try {
       await api.updateProfAdmin(prof.id, {
         fonction: adminFonction || null,
+        portee: adminPortee,
         sections: adminSections,
       });
       setSavedAdmin(true);
@@ -357,9 +359,11 @@ export default function ProfFicheModal({ prof, onClose, onSaved }) {
       }
       if (p.admin) {
         setAdminFonction(p.admin.fonction || '');
+        setAdminPortee(p.admin.portee || 'etablissement');
         setAdminSections(Array.isArray(p.admin.sections) ? p.admin.sections : []);
       } else {
         setAdminFonction('');
+        setAdminPortee('etablissement');
         setAdminSections([]);
       }
     }).catch(e => alert('Erreur de chargement : ' + e.message))
@@ -715,8 +719,26 @@ export default function ProfFicheModal({ prof, onClose, onSaved }) {
 
               {adminFonction && (
                 <div>
+                  <label className="block text-xs font-semibold text-gray-600 mb-1">Portée de la fonction</label>
+                  <div className="flex flex-col gap-1.5">
+                    <label className="inline-flex items-center gap-2 text-sm cursor-pointer">
+                      <input type="radio" name="portee" checked={adminPortee === 'etablissement'}
+                        onChange={() => setAdminPortee('etablissement')} />
+                      <span>Tout l'établissement <span className="text-gray-400">(apparaît dans toutes les procédures — direction, secrétariat…)</span></span>
+                    </label>
+                    <label className="inline-flex items-center gap-2 text-sm cursor-pointer">
+                      <input type="radio" name="portee" checked={adminPortee === 'section'}
+                        onChange={() => setAdminPortee('section')} />
+                      <span>Sections spécifiques <span className="text-gray-400">(apparaît uniquement pour les sections cochées — coordination…)</span></span>
+                    </label>
+                  </div>
+                </div>
+              )}
+
+              {adminFonction && adminPortee === 'section' && (
+                <div>
                   <label className="block text-xs font-semibold text-gray-600 mb-1">
-                    Sections coordonnées <span className="font-normal text-gray-400">(aucune = apparaît pour toutes les sections)</span>
+                    Sections concernées <span className="font-normal text-gray-400">(coche les sections où cette personne intervient)</span>
                   </label>
                   <div className="flex flex-wrap gap-2">
                     {sectionsDispo.map(s => {
@@ -733,6 +755,9 @@ export default function ProfFicheModal({ prof, onClose, onSaved }) {
                     })}
                     {sectionsDispo.length === 0 && <span className="text-xs text-gray-400">Aucune section disponible</span>}
                   </div>
+                  {adminSections.length === 0 && (
+                    <p className="text-xs text-amber-600 mt-1">⚠ Aucune section cochée : cette personne n'apparaîtra dans aucune procédure.</p>
+                  )}
                 </div>
               )}
 
