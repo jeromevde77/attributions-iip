@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { api } from '../lib/api.js';
+import { api, getAnnee } from '../lib/api.js';
 
 const TOKEN = () => localStorage.getItem('token');
 const authFetch = (url, opts = {}) => fetch(url, { ...opts, headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${TOKEN()}`, ...opts.headers } }).then(r => r.json());
@@ -27,12 +27,14 @@ function GestionPersonnel() {
   // Charger la matrice quand la section change
   useEffect(() => {
     setLoading(true);
-    api.personnelMatrice(section)
+    const anneeCourante = getAnnee();
+    setAnnee(anneeCourante);
+    api.personnelMatrice(section, anneeCourante)
       .then(d => {
         setFonctions(Array.isArray(d.fonctions) ? d.fonctions : []);
         setProfs(Array.isArray(d.profs) ? d.profs : []);
         setCoches(d.coches || {});
-        setAnnee(d.annee || '');
+        setAnnee(d.annee || anneeCourante);
       })
       .catch(() => { setFonctions([]); setProfs([]); setCoches({}); })
       .finally(() => setLoading(false));
