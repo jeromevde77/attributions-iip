@@ -661,6 +661,16 @@ try {
     ['session.delib1_vc1_cal',           '3',                               'Jours calendrier entre délib. EV1 et VC EV1',           null, 'session'],
     ['session.ev1_delib1_cal',           '5',                               'Jours calendrier entre EV1 et délib. EV1',              null, 'session'],
     ['session.cours_ev1_cal',            '7',                               'Jours calendrier entre dernier cours et EV1',           null, 'session'],
+    // Mise en page des documents imprimés
+    ['miseenpage.entete_logo',           '1', 'Afficher le logo en en-tête',                null, 'mise_en_page'],
+    ['miseenpage.pied_etab_nom',         '1', 'Pied de page : nom de l\'établissement',     null, 'mise_en_page'],
+    ['miseenpage.pied_po',               '1', 'Pied de page : Pouvoir Organisateur',        null, 'mise_en_page'],
+    ['miseenpage.pied_num_entreprise',   '1', 'Pied de page : N° d\'entreprise',            null, 'mise_en_page'],
+    ['miseenpage.pied_num_fase',         '1', 'Pied de page : N° FASE',                     null, 'mise_en_page'],
+    ['miseenpage.pied_adresse',          '1', 'Pied de page : adresse',                     null, 'mise_en_page'],
+    ['miseenpage.pied_tel',              '1', 'Pied de page : téléphone',                   null, 'mise_en_page'],
+    ['miseenpage.pied_email',            '1', 'Pied de page : e-mail de contact',           null, 'mise_en_page'],
+    ['miseenpage.pied_site_web',         '1', 'Pied de page : site web',                    null, 'mise_en_page'],
   ];
   const _insertParam = db.prepare(`INSERT OR IGNORE INTO parametre (cle, valeur, label, section, groupe) VALUES (?,?,?,?,?)`);
   const _seedParams = db.transaction(() => { for (const p of _params) _insertParam.run(...p); });
