@@ -119,8 +119,8 @@ function GestionPersonnel() {
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead>
-                <tr className="bg-iip-darkblue text-white">
-                  <th className="text-left px-4 py-3 font-semibold sticky left-0 bg-iip-darkblue z-10">
+                <tr className="bg-slate-800 text-white">
+                  <th className="text-left px-4 py-3 font-semibold sticky left-0 bg-slate-800 z-10">
                     Personne <span className="font-normal text-white/60">({profsAvecCoche.length})</span>
                   </th>
                   {fonctions.map(f => (
