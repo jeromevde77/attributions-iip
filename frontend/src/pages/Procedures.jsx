@@ -298,6 +298,8 @@ function OutilRecours({ initialPayload, onPayloadConsumed }) {
   const [profsPresents, setProfsPresents] = useState(new Set()); // IDs cochés comme présents
   const [loadingProfs, setLoadingProfs] = useState(false);
   const [ues, setUes] = useState([]);
+  const [sectionsListe, setSectionsListe] = useState([]); // sections disponibles
+  const [sectionSel, setSectionSel] = useState('');        // section choisie (filtre les UE)
 
   function toggleProfPresent(id) {
     setProfsPresents(s => { const n = new Set(s); n.has(id) ? n.delete(id) : n.add(id); return n; });
@@ -315,14 +317,20 @@ function OutilRecours({ initialPayload, onPayloadConsumed }) {
     authFetch(`/api/ref/structure?annee=${encodeURIComponent(annee)}`)
       .then(d => {
         const map = new Map();
+        const secs = new Set();
         for (const sg of (Array.isArray(d) ? d : [])) {
+          if (sg.section) secs.add(sg.section);
           for (const ue of (sg.ues || [])) {
             if (!map.has(ue.ue_num)) map.set(ue.ue_num, { ...ue, _section: sg.section });
           }
         }
         setUes([...map.values()].sort((a,b) => (a.ue_num||0)-(b.ue_num||0)));
+        setSectionsListe([...secs].sort());
       }).catch(() => {});
   }, [annee]);
+
+  // UE filtrées selon la section choisie
+  const uesFiltrees = sectionSel ? ues.filter(u => u._section === sectionSel) : ues;
 
   // Membres fixes du CDE (chargés depuis la DB au démarrage, avec leurs sections)
   const [membresCde, setMembresCde] = useState([]);
@@ -332,12 +340,25 @@ function OutilRecours({ initialPayload, onPayloadConsumed }) {
       .catch(() => {});
   }, []);
 
-  // Charger les profs quand UE change
+  // Charger les profs quand UE ou section change
   useEffect(() => {
-    if (!ueNum) { setProfs([]); setProfsPresents(new Set()); return; }
     const ue = ues.find(u => String(u.ue_num) === String(ueNum));
     if (ue) setUeNom(ue.ue_nom || '');
-    const ueSection = ue?._section || null;
+    // Section effective : celle choisie explicitement, sinon celle de l'UE
+    const ueSection = sectionSel || ue?._section || null;
+
+    // Membres CDE filtrés par section (sans section = direction/secrétariat → toujours présents)
+    const cdeFiltrés = membresCde.filter(m =>
+      !m.sections || m.sections.length === 0 ||
+      (ueSection && m.sections.includes(ueSection))
+    );
+
+    if (!ueNum) {
+      // Pas d'UE : on affiche quand même les membres CDE filtrés par section
+      setProfs([...cdeFiltrés]);
+      setProfsPresents(new Set());
+      return;
+    }
     setLoadingProfs(true);
     authFetch(`/api/attributions?annee=${encodeURIComponent(annee)}&ue_num=${encodeURIComponent(ueNum)}`)
       .then(rows => {
@@ -350,17 +371,10 @@ function OutilRecours({ initialPayload, onPayloadConsumed }) {
             ps.push({ id: r.professeur_id, nom: parts[0] || '', prenom: parts.slice(1).join(' ') || '', nomComplet: r.professeur || '', qualite: 'Enseignant(e)' });
           }
         }
-        // Filtrer les membres CDE : garder ceux sans section assignée (direction/secrétariat)
-        // ou dont une section correspond à la section de l'UE
-        const cdeFiltrés = membresCde.filter(m =>
-          !m.sections || m.sections.length === 0 ||
-          (ueSection && m.sections.includes(ueSection))
-        );
-        // Membres CDE en tête, puis les enseignants de l'UE
         setProfs([...cdeFiltrés, ...ps]);
-      }).catch(() => setProfs([...membresCde]))
+      }).catch(() => setProfs([...cdeFiltrés]))
       .finally(() => setLoadingProfs(false));
-  }, [ueNum, annee, membresCde]);
+  }, [ueNum, annee, membresCde, sectionSel, ues]);
 
   // Calculs délais
   const limiteRecours = datePubli ? addJoursCalendrier(datePubli, 4) : null;
@@ -438,11 +452,19 @@ function OutilRecours({ initialPayload, onPayloadConsumed }) {
                   className="w-full border border-gray-300 rounded px-3 py-1.5 text-sm" />
               </label>
               <label className="block">
+                <div className="text-xs font-semibold text-gray-600 mb-1">Section</div>
+                <select value={sectionSel} onChange={e => { setSectionSel(e.target.value); setUeNum(''); }}
+                  className="w-full border border-gray-300 rounded px-3 py-1.5 text-sm bg-white">
+                  <option value="">— Toutes les sections —</option>
+                  {sectionsListe.map(s => <option key={s} value={s}>{s}</option>)}
+                </select>
+              </label>
+              <label className="block">
                 <div className="text-xs font-semibold text-gray-600 mb-1">UE concernée *</div>
                 <select value={ueNum} onChange={e => setUeNum(e.target.value)}
                   className="w-full border border-gray-300 rounded px-3 py-1.5 text-sm bg-white">
                   <option value="">— Choisir une UE —</option>
-                  {ues.map(u => <option key={u.ue_num} value={u.ue_num}>UE {u.ue_num} — {u.ue_nom}</option>)}
+                  {uesFiltrees.map(u => <option key={u.ue_num} value={u.ue_num}>UE {u.ue_num} — {u.ue_nom}</option>)}
                 </select>
               </label>
               <label className="block">
@@ -905,26 +927,38 @@ function OutilFraude({ initialPayload, onPayloadConsumed }) {
   const [loadingProfs, setLoadingProfs]   = useState(false);
   const [ues, setUes]                     = useState([]);
   const [membresCde, setMembresCde]       = useState([]);
+  const [sectionsListe, setSectionsListe] = useState([]);
+  const [sectionSel, setSectionSel]       = useState('');
 
   useEffect(() => {
     authFetch(`/api/ref/structure?annee=${encodeURIComponent(annee)}`)
       .then(d => {
         const map = new Map();
-        for (const sg of (Array.isArray(d) ? d : []))
+        const secs = new Set();
+        for (const sg of (Array.isArray(d) ? d : [])) {
+          if (sg.section) secs.add(sg.section);
           for (const ue of (sg.ues || []))
             if (!map.has(ue.ue_num)) map.set(ue.ue_num, { ...ue, _section: sg.section });
+        }
         setUes([...map.values()].sort((a,b) => (a.ue_num||0)-(b.ue_num||0)));
+        setSectionsListe([...secs].sort());
       }).catch(() => {});
     authFetch('/api/ref/membres-cde')
       .then(d => setMembresCde(Array.isArray(d) ? d.map(m => ({...m, id:'cde_'+m.id})) : []))
       .catch(() => {});
   }, [annee]);
 
+  const uesFiltrees = sectionSel ? ues.filter(u => u._section === sectionSel) : ues;
+
   useEffect(() => {
-    if (!ueNum) { setProfs([]); setProfsPresents(new Set()); return; }
     const ue = ues.find(u => String(u.ue_num) === String(ueNum));
     if (ue) setUeNom(ue.ue_nom || '');
-    const ueSection = ue?._section || null;
+    const ueSection = sectionSel || ue?._section || null;
+    const cdeFiltrés = membresCde.filter(m =>
+      !m.sections || m.sections.length === 0 ||
+      (ueSection && m.sections.includes(ueSection))
+    );
+    if (!ueNum) { setProfs([...cdeFiltrés]); setProfsPresents(new Set()); return; }
     setLoadingProfs(true);
     authFetch(`/api/attributions?annee=${encodeURIComponent(annee)}&ue_num=${encodeURIComponent(ueNum)}`)
       .then(rows => {
@@ -935,14 +969,10 @@ function OutilFraude({ initialPayload, onPayloadConsumed }) {
             const parts = (r.professeur||'').split(' ');
             ps.push({ id: r.professeur_id, nom: parts[0]||'', prenom: parts.slice(1).join(' ')||'', nomComplet: r.professeur||'', qualite:'Enseignant(e)' });
           }
-        const cdeFiltrés = membresCde.filter(m =>
-          !m.sections || m.sections.length === 0 ||
-          (ueSection && m.sections.includes(ueSection))
-        );
         setProfs([...cdeFiltrés, ...ps]);
-      }).catch(() => setProfs([...membresCde]))
+      }).catch(() => setProfs([...cdeFiltrés]))
       .finally(() => setLoadingProfs(false));
-  }, [ueNum, annee, membresCde]);
+  }, [ueNum, annee, membresCde, sectionSel, ues]);
 
   function togglePresent(id) {
     setProfsPresents(s => { const n = new Set(s); n.has(id) ? n.delete(id) : n.add(id); return n; });
@@ -1006,11 +1036,19 @@ function OutilFraude({ initialPayload, onPayloadConsumed }) {
                   className="w-full border border-gray-300 rounded px-3 py-1.5 text-sm" />
               </label>
               <label className="block">
+                <div className="text-xs font-semibold text-gray-600 mb-1">Section</div>
+                <select value={sectionSel} onChange={e => { setSectionSel(e.target.value); setUeNum(''); }}
+                  className="w-full border border-gray-300 rounded px-3 py-1.5 text-sm bg-white">
+                  <option value="">— Toutes les sections —</option>
+                  {sectionsListe.map(s => <option key={s} value={s}>{s}</option>)}
+                </select>
+              </label>
+              <label className="block">
                 <div className="text-xs font-semibold text-gray-600 mb-1">UE concernée *</div>
                 <select value={ueNum} onChange={e => setUeNum(e.target.value)}
                   className="w-full border border-gray-300 rounded px-3 py-1.5 text-sm bg-white">
                   <option value="">— Choisir une UE —</option>
-                  {ues.map(u => <option key={u.ue_num} value={u.ue_num}>UE {u.ue_num} — {u.ue_nom}</option>)}
+                  {uesFiltrees.map(u => <option key={u.ue_num} value={u.ue_num}>UE {u.ue_num} — {u.ue_nom}</option>)}
                 </select>
               </label>
               <label className="block">
