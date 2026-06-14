@@ -92,6 +92,10 @@ export default function ParametresEtablissement() {
             placeholder="www.exemple.be" />
         </div>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+          <Champ label="E-mail de contact (secrétariat)" value={f.email_contact} onChange={v => set('email_contact', v)}
+            placeholder="secretariat@exemple.be" hint="Adresse générale affichée sur les documents" />
+        </div>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
           <Champ label="E-mail officiel (ec)" value={f.email_ec} onChange={v => set('email_ec', v)}
             placeholder="…ec@adm.cfwb.be" />
           <Champ label="E-mail officiel (po)" value={f.email_po} onChange={v => set('email_po', v)}
