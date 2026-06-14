@@ -236,36 +236,11 @@ export default function ProfFicheModal({ prof, onClose, onSaved }) {
   const [dispoQ2, setDispoQ2]           = useState({});
   const [dispoLoaded, setDispoLoaded]   = useState(false);
   // Missions & coordinations (personnel d'établissement)
-  const [adminFonction, setAdminFonction] = useState('');     // '' = aucune fonction admin
-  const [adminPortee, setAdminPortee]     = useState('etablissement'); // 'etablissement' | 'section'
-  const [adminSections, setAdminSections] = useState([]);      // sections coordonnées
+  const [missions, setMissions] = useState([]); // missions lues depuis personnel_mission
   const [sectionsDispo, setSectionsDispo] = useState([]);      // toutes les sections
-  const [savingAdmin, setSavingAdmin]     = useState(false);
-  const [savedAdmin, setSavedAdmin]       = useState(false);
 
   function toggle(k) { setOpen(o => ({ ...o, [k]: !o[k] })); }
   function set(k, v) { setForm(f => ({ ...f, [k]: v })); }
-
-  function toggleAdminSection(code) {
-    setAdminSections(arr => arr.includes(code) ? arr.filter(c => c !== code) : [...arr, code]);
-  }
-  async function saveAdmin() {
-    if (isNew) { alert('Enregistrez d\'abord la fiche du membre.'); return; }
-    setSavingAdmin(true); setSavedAdmin(false);
-    try {
-      await api.updateProfAdmin(prof.id, {
-        fonction: adminFonction || null,
-        portee: adminPortee,
-        sections: adminSections,
-      });
-      setSavedAdmin(true);
-      setTimeout(() => setSavedAdmin(false), 2500);
-    } catch (e) {
-      alert('Erreur lors de l\'enregistrement : ' + e.message);
-    } finally {
-      setSavingAdmin(false);
-    }
-  }
 
   // ── Import optionnel depuis la carte eID belge ──
   const eidTimer = useRef(null);
@@ -357,15 +332,7 @@ export default function ProfFicheModal({ prof, onClose, onSaved }) {
         (p.anciennete.cours || []).forEach(c => { rc[c.cours_nom] = c.report; });
         setReportsCours(rc);
       }
-      if (p.admin) {
-        setAdminFonction(p.admin.fonction || '');
-        setAdminPortee(p.admin.portee || 'etablissement');
-        setAdminSections(Array.isArray(p.admin.sections) ? p.admin.sections : []);
-      } else {
-        setAdminFonction('');
-        setAdminPortee('etablissement');
-        setAdminSections([]);
-      }
+      setMissions(Array.isArray(p.missions) ? p.missions : []);
     }).catch(e => alert('Erreur de chargement : ' + e.message))
       .finally(() => setLoading(false));
   }, [prof, isNew]);
@@ -690,86 +657,39 @@ export default function ProfFicheModal({ prof, onClose, onSaved }) {
             </Section>
           )}
 
-          {/* 6 ter. Missions & coordinations */}
+          {/* 6 ter. Missions & coordinations (lecture — édition dans Configuration > Personnel) */}
           <Section titre="6 ter · Missions & coordinations"
-            sous={adminFonction ? (adminFonction + (adminSections.length ? ` · ${adminSections.length} section(s)` : ' · toutes sections')) : 'Aucune fonction'}
+            sous={missions.length ? `${missions.length} mission(s)` : 'Aucune mission'}
             ouvert={open.missions} onToggle={() => toggle('missions')}>
-            <div className="space-y-4">
-              <p className="text-xs text-gray-500">
-                La fonction administrative et les sections coordonnées déterminent l'apparition de cette personne
-                dans les procédures (recours, fraude). Sans section cochée, elle apparaît pour toutes les sections ;
-                avec des sections, elle n'apparaît que pour celles-ci.
+            <div className="space-y-3">
+              {missions.length === 0 ? (
+                <p className="text-sm text-gray-500">
+                  Aucune mission enregistrée pour cette année. Les missions se définissent dans
+                  <span className="font-medium"> Configuration &gt; Personnel</span> (tableau par section).
+                </p>
+              ) : (
+                <div className="space-y-2">
+                  {missions.map((m, i) => (
+                    <div key={i} className="flex items-center justify-between border border-gray-200 rounded-lg px-3 py-2">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <span className="font-medium text-gray-800 text-sm">{m.fonction}</span>
+                        {m.etablissement && (
+                          <span className="text-[11px] px-2 py-0.5 rounded bg-slate-100 text-slate-600">🏛 Tout l'établissement</span>
+                        )}
+                        {(m.sections || []).map(s => (
+                          <span key={s} className="text-[11px] px-2 py-0.5 rounded bg-iip-mauve/10 text-iip-mauve font-medium">{s}</span>
+                        ))}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+              <p className="text-xs text-gray-400">
+                Pour ajouter ou retirer une mission, utilisez le tableau dans Configuration &gt; Personnel.
               </p>
-
-              <div>
-                <label className="block text-xs font-semibold text-gray-600 mb-1">Fonction dans l'établissement</label>
-                <select value={adminFonction} onChange={e => setAdminFonction(e.target.value)}
-                  className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-iip-gold">
-                  <option value="">— Aucune —</option>
-                  <option value="Directeur">Directeur</option>
-                  <option value="Directeur adjoint">Directeur adjoint</option>
-                  <option value="Secrétaire">Secrétaire</option>
-                  <option value="Coordinateur de cursus">Coordinateur de cursus</option>
-                  <option value="Coordinateur des stages">Coordinateur des stages</option>
-                  <option value="Coordinateur pédagogique">Coordinateur pédagogique</option>
-                  <option value="Coordinateur de TFE">Coordinateur de TFE (épreuve intégrée)</option>
-                  <option value="Conseiller qualité">Conseiller qualité</option>
-                </select>
-              </div>
-
-              {adminFonction && (
-                <div>
-                  <label className="block text-xs font-semibold text-gray-600 mb-1">Portée de la fonction</label>
-                  <div className="flex flex-col gap-1.5">
-                    <label className="inline-flex items-center gap-2 text-sm cursor-pointer">
-                      <input type="radio" name="portee" checked={adminPortee === 'etablissement'}
-                        onChange={() => setAdminPortee('etablissement')} />
-                      <span>Tout l'établissement <span className="text-gray-400">(apparaît dans toutes les procédures — direction, secrétariat…)</span></span>
-                    </label>
-                    <label className="inline-flex items-center gap-2 text-sm cursor-pointer">
-                      <input type="radio" name="portee" checked={adminPortee === 'section'}
-                        onChange={() => setAdminPortee('section')} />
-                      <span>Sections spécifiques <span className="text-gray-400">(apparaît uniquement pour les sections cochées — coordination…)</span></span>
-                    </label>
-                  </div>
-                </div>
-              )}
-
-              {adminFonction && adminPortee === 'section' && (
-                <div>
-                  <label className="block text-xs font-semibold text-gray-600 mb-1">
-                    Sections concernées <span className="font-normal text-gray-400">(coche les sections où cette personne intervient)</span>
-                  </label>
-                  <div className="flex flex-wrap gap-2">
-                    {sectionsDispo.map(s => {
-                      const code = s.code || s.section || s;
-                      const actif = adminSections.includes(code);
-                      return (
-                        <button key={code} type="button" onClick={() => toggleAdminSection(code)}
-                          className={`px-2.5 py-1 rounded text-xs font-medium border transition ${actif
-                            ? 'bg-iip-mauve text-white border-iip-mauve'
-                            : 'bg-white text-gray-600 border-gray-300 hover:border-iip-mauve'}`}>
-                          {code}
-                        </button>
-                      );
-                    })}
-                    {sectionsDispo.length === 0 && <span className="text-xs text-gray-400">Aucune section disponible</span>}
-                  </div>
-                  {adminSections.length === 0 && (
-                    <p className="text-xs text-amber-600 mt-1">⚠ Aucune section cochée : cette personne n'apparaîtra dans aucune procédure.</p>
-                  )}
-                </div>
-              )}
-
-              <div className="flex items-center gap-3">
-                <button type="button" onClick={saveAdmin} disabled={savingAdmin}
-                  className="bg-iip-mauve text-white px-4 py-1.5 rounded-lg text-sm font-medium disabled:opacity-50">
-                  {savingAdmin ? 'Enregistrement…' : 'Enregistrer la fonction'}
-                </button>
-                {savedAdmin && <span className="text-green-600 text-sm">✓ Enregistré</span>}
-              </div>
             </div>
           </Section>
+
 
           {/* 7. Règlement CE 883/2004 */}
           <Section titre="7 · Règlement CE 883/2004" sous="résident d'un autre État UE"
