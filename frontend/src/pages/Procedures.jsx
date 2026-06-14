@@ -347,11 +347,14 @@ function OutilRecours({ initialPayload, onPayloadConsumed }) {
     // Section effective : celle choisie explicitement, sinon celle de l'UE
     const ueSection = sectionSel || ue?._section || null;
 
-    // Membres CDE filtrés par section (sans section = direction/secrétariat → toujours présents)
-    const cdeFiltrés = membresCde.filter(m =>
-      !m.sections || m.sections.length === 0 ||
-      (ueSection && m.sections.includes(ueSection))
-    );
+    // Membres CDE filtrés selon leur portée (paramétrable, pas de fonction codée en dur) :
+    //  - portee 'etablissement' → toujours présents (direction, secrétariat…)
+    //  - portee 'section'       → présents uniquement si la section concernée est dans leurs sections
+    const cdeFiltrés = membresCde.filter(m => {
+      const portee = m.portee || 'etablissement';
+      if (portee === 'etablissement') return true;
+      return ueSection && Array.isArray(m.sections) && m.sections.includes(ueSection);
+    });
 
     if (!ueNum) {
       // Pas d'UE : on affiche quand même les membres CDE filtrés par section
@@ -954,10 +957,11 @@ function OutilFraude({ initialPayload, onPayloadConsumed }) {
     const ue = ues.find(u => String(u.ue_num) === String(ueNum));
     if (ue) setUeNom(ue.ue_nom || '');
     const ueSection = sectionSel || ue?._section || null;
-    const cdeFiltrés = membresCde.filter(m =>
-      !m.sections || m.sections.length === 0 ||
-      (ueSection && m.sections.includes(ueSection))
-    );
+    const cdeFiltrés = membresCde.filter(m => {
+      const portee = m.portee || 'etablissement';
+      if (portee === 'etablissement') return true;
+      return ueSection && Array.isArray(m.sections) && m.sections.includes(ueSection);
+    });
     if (!ueNum) { setProfs([...cdeFiltrés]); setProfsPresents(new Set()); return; }
     setLoadingProfs(true);
     authFetch(`/api/attributions?annee=${encodeURIComponent(annee)}&ue_num=${encodeURIComponent(ueNum)}`)
