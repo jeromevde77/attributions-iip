@@ -150,6 +150,7 @@ function piedEtablissement() {
     e.num_fase ? 'Fase ' + e.num_fase : null,
     e.adresse || null,
     e.gest_tel ? 'T. ' + e.gest_tel : null,
+    e.email_contact || null,
     e.site_web || null,
   ].filter(Boolean).join(' • ');
   return [ligne1, ligne2].filter(Boolean).join('<br>');
