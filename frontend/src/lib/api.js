@@ -77,6 +77,8 @@ export const api = {
   historique(annee, limit = 100) { return request(withAnnee('/historique', { limit })); },
   etablissement() { return request('/etablissement'); },
   saveEtablissement(data) { return request('/etablissement', { method: 'PUT', body: data }); },
+  parametres() { return request('/parametres'); },
+  saveParametres(updates) { return request('/parametres/bulk', { method: 'PUT', body: updates }); },
   activiteFeed(jours = 7, limit = 200) { return request(withAnnee('/historique/activite', { jours, limit })); },
   activiteTraitee(snapshotId, traitee = true) { return request(`/historique/activite/${snapshotId}/traitee`, { method: 'POST', body: { traitee } }); },
   historiqueAttribution(id) { return request(`/historique/attribution/${id}`); },
