@@ -1337,17 +1337,6 @@ r.get('/professeurs-attributions', authRequired, (req, res) => {
 });
 
 // ── Personnel de l'établissement (direction, secrétariat, coordination) ───────
-r.get('/membres-cde', authRequired, (req, res) => {
-  res.json(db.prepare(`
-    SELECT pe.id, pe.professeur_id, pe.fonction, pe.ordre,
-           p.nom, p.prenom, (p.prenom || ' ' || p.nom) AS nomComplet,
-           p.adresse_mail, p.tel_gsm
-    FROM personnel_etablissement pe
-    JOIN professeur p ON p.id = pe.professeur_id
-    ORDER BY pe.ordre, p.nom
-  `).all());
-});
-
 // Liste complète pour l'onglet établissement (avec toutes les données prof)
 r.get('/personnel-etablissement', authRequired, (req, res) => {
   res.json(db.prepare(`
