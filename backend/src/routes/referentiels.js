@@ -774,16 +774,33 @@ r.get('/professeurs/:id', authRequired, (req, res) => {
   }
   const etp_annee = Math.round((etp_ct / 800 + etp_pp / 1000) * 100) / 100;
 
-  // Infos "personnel d'établissement" (fonction admin + sections coordonnées)
-  const pe = db.prepare('SELECT id, fonction, ordre, portee FROM personnel_etablissement WHERE professeur_id = ?').get(req.params.id);
-  let admin = null;
-  if (pe) {
-    const sections = db.prepare('SELECT section_code FROM personnel_section WHERE personnel_etablissement_id = ? ORDER BY section_code').all(pe.id).map(r => r.section_code);
-    admin = { pe_id: pe.id, fonction: pe.fonction, ordre: pe.ordre, portee: pe.portee || 'etablissement', sections };
+  // Missions de la personne (depuis personnel_mission) pour l'année concernée
+  // Regroupées par fonction, avec la liste des sections (et le marqueur établissement)
+  const missionRows = db.prepare(`
+    SELECT pm.fonction, pm.section_code, ft.portee, ft.ordre
+    FROM personnel_mission pm
+    LEFT JOIN fonction_type ft ON ft.libelle = pm.fonction
+    WHERE pm.professeur_id = ? AND pm.annee_scolaire = ?
+    ORDER BY ft.ordre, pm.fonction
+  `).all(req.params.id, annee);
+  const missionMap = new Map();
+  for (const m of missionRows) {
+    if (!missionMap.has(m.fonction)) {
+      missionMap.set(m.fonction, { fonction: m.fonction, portee: m.portee || 'section', sections: [], etablissement: false });
+    }
+    const e = missionMap.get(m.fonction);
+    if (m.section_code === '__ETAB__') e.etablissement = true;
+    else if (m.section_code) e.sections.push(m.section_code);
   }
+  const missions = [...missionMap.values()];
+  // Compat : on garde "admin" pour l'ancienne UI (première fonction trouvée)
+  const admin = missions.length ? {
+    fonction: missions.map(m => m.fonction).join(', '),
+    missions,
+  } : null;
 
   res.json({ ...p, attributions: attrs, titres, charges, anciennete, annee,
-    admin,
+    admin, missions,
     tot_per_annee,
     tot_aut_annee,
     tot_global_annee: tot_per_annee + tot_aut_annee,
