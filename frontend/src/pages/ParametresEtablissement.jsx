@@ -86,6 +86,12 @@ export default function ParametresEtablissement() {
           <Champ label="N° FASE" value={f.num_fase} onChange={v => set('num_fase', v)} />
         </div>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+          <Champ label="N° d'entreprise (BCE)" value={f.num_entreprise} onChange={v => set('num_entreprise', v)}
+            placeholder="ex. 458.339.252" hint="Banque-Carrefour des Entreprises" />
+          <Champ label="Site web" value={f.site_web} onChange={v => set('site_web', v)}
+            placeholder="www.exemple.be" />
+        </div>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
           <Champ label="E-mail officiel (ec)" value={f.email_ec} onChange={v => set('email_ec', v)}
             placeholder="…ec@adm.cfwb.be" />
           <Champ label="E-mail officiel (po)" value={f.email_po} onChange={v => set('email_po', v)}
