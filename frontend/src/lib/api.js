@@ -196,6 +196,7 @@ export const api = {
   updateProfesseur(id, data) { return request(`/ref/professeurs/${id}`, { method: 'PATCH', body: data }); },
   deleteProfesseur(id) { return request(`/ref/professeurs/${id}`, { method: 'DELETE' }); },
   saveProfTitres(id, titres) { return request(`/ref/professeurs/${id}/titres`, { method: 'PUT', body: { titres } }); },
+  updateProfAdmin(id, data) { return request(`/ref/professeurs/${id}/admin`, { method: 'PUT', body: data }); },
   saveProfCharges(id, charges) { return request(`/ref/professeurs/${id}/charges`, { method: 'PUT', body: { charges } }); },
   saveProfAncienneteCours(id, reports) { return request(`/ref/professeurs/${id}/anciennete-cours`, { method: 'PUT', body: { reports } }); },
   locaux() { return request('/ref/locaux'); },
