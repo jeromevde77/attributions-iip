@@ -689,16 +689,15 @@ r.get('/professeurs', authRequired, (req, res) => {
       p.code_postal, p.capaes, p.anciennete_25_26_po, p.type_personnel,
       v.nom_prenom, v.total_per_iip, v.total_hrs_helb, v.prestations,
       ${subTotalAnnee},
-      (SELECT pe.fonction FROM personnel_etablissement pe WHERE pe.professeur_id = p.id LIMIT 1) AS fonction_admin,
+      (SELECT GROUP_CONCAT(DISTINCT pm.fonction)
+       FROM personnel_mission pm WHERE pm.professeur_id = p.id AND pm.annee_scolaire = '${anneeActive}') AS missions_libelles,
       (SELECT GROUP_CONCAT(DISTINCT a.contrat_mdp ORDER BY a.contrat_mdp)
        FROM attribution a WHERE a.professeur_id = p.id AND a.annee_scolaire = '${anneeActive}'
        AND a.contrat_mdp IS NOT NULL AND a.contrat_mdp != '') AS contrats_annee
     FROM professeur p
     LEFT JOIN v_professeur_total v ON v.id = p.id`;
 
-  const sql = tous
-    ? `${base} ORDER BY v.nom, v.prenom`
-    : `${base} WHERE p.type_personnel != 'admin' OR p.type_personnel IS NULL ORDER BY v.nom, v.prenom`;
+  const sql = `${base} ORDER BY v.nom, v.prenom`;
 
   res.json(db.prepare(sql).all());
 });
@@ -1508,8 +1507,6 @@ r.put('/personnel-mission', authRequired, roleRequired('admin', 'editeur'), (req
   if (actif) {
     db.prepare('INSERT OR IGNORE INTO personnel_mission (professeur_id, fonction, section_code, annee_scolaire) VALUES (?,?,?,?)')
       .run(professeur_id, fonction, section_code, annee_scolaire);
-    // Marquer la personne comme admin (utile pour les filtres)
-    db.prepare("UPDATE professeur SET type_personnel = 'admin' WHERE id = ? AND (type_personnel IS NULL OR type_personnel = '')").run(professeur_id);
   } else {
     db.prepare('DELETE FROM personnel_mission WHERE professeur_id = ? AND fonction = ? AND section_code = ? AND annee_scolaire = ?')
       .run(professeur_id, fonction, section_code, annee_scolaire);
