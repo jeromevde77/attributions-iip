@@ -48,7 +48,7 @@ const buildLabel = buildDate.toLocaleString('fr-BE', {
 });
 // Version : BUILD_VER peut être "1.2.8+sha" (Vite local), un SHA brut (CI sans fix), ou "dev"
 const _isVersion = BUILD_VER.includes('.');
-const versionNum = _isVersion ? BUILD_VER.split('+')[0] : '2.2.0'; // fallback hardcodé
+const versionNum = _isVersion ? BUILD_VER.split('+')[0] : '2.3.0'; // fallback hardcodé
 const shaOnly = BUILD_VER.includes('+')
   ? BUILD_VER.split('+')[1]?.slice(0,7)
   : BUILD_VER === 'dev' ? '' : BUILD_VER.slice(0,7);
@@ -77,6 +77,24 @@ function ProtectedLayout({ children }) {
   const [annees, setAnnees] = useState([]);
   const [anneeActive, setAnneeActive] = useState(getAnnee());
   const [env, setEnv] = useState(null);
+  const [versionIsNew, setVersionIsNew] = useState(false);
+
+  // Détection d'une nouvelle version : compare la version courante à la dernière
+  // version vue (stockée localement). Si différente → animation pendant 6s.
+  useEffect(() => {
+    try {
+      const vue = localStorage.getItem('derniere_version_vue');
+      if (vue !== versionNum) {
+        // Nouvelle version (ou première visite avec une version connue)
+        if (vue !== null) setVersionIsNew(true);
+        localStorage.setItem('derniere_version_vue', versionNum);
+        if (vue !== null) {
+          const t = setTimeout(() => setVersionIsNew(false), 6000);
+          return () => clearTimeout(t);
+        }
+      }
+    } catch { /* localStorage indisponible — pas d'animation */ }
+  }, []);
 
   useEffect(() => {
     api.annees().then(liste => {
@@ -208,8 +226,16 @@ function ProtectedLayout({ children }) {
 
           {/* User info + version */}
           <div className="flex items-center gap-3 text-sm flex-shrink-0">
-            <span className="bg-iip-gold text-white font-bold px-2 py-0.5 rounded text-[11px] tracking-wide hidden md:inline">
+            <span
+              className={`relative bg-iip-gold text-white font-bold px-2 py-0.5 rounded text-[11px] tracking-wide hidden md:inline ${versionIsNew ? 'version-badge-new' : ''}`}
+              title={versionIsNew ? 'Nouvelle version déployée\u00a0!' : `Version ${versionNum}`}>
               v{versionNum}
+              {versionIsNew && (
+                <span className="absolute -top-1 -right-1 flex h-2.5 w-2.5">
+                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-iip-orange opacity-75"></span>
+                  <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-iip-orange"></span>
+                </span>
+              )}
             </span>
             <div className="flex flex-col items-end leading-tight">
               <span className="text-gray-700 font-medium text-sm">{u?.nom || u?.email}</span>
