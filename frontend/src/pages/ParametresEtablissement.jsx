@@ -18,20 +18,31 @@ function Champ({ label, value, onChange, placeholder, hint, className = '' }) {
 
 export default function ParametresEtablissement() {
   const [f, setF] = useState({});
+  const [mep, setMep] = useState({}); // paramètres mise en page (cle -> '0'/'1')
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [msg, setMsg] = useState('');
 
   useEffect(() => {
-    api.etablissement().then(d => setF(d || {})).catch(() => {}).finally(() => setLoading(false));
+    Promise.all([
+      api.etablissement().then(d => setF(d || {})).catch(() => {}),
+      api.parametres().then(groups => {
+        const arr = (groups && groups.mise_en_page) || [];
+        const o = {};
+        for (const p of arr) o[p.cle] = p.valeur;
+        setMep(o);
+      }).catch(() => {}),
+    ]).finally(() => setLoading(false));
   }, []);
 
   const set = (k, v) => setF(prev => ({ ...prev, [k]: v }));
+  const toggleMep = (cle) => setMep(prev => ({ ...prev, [cle]: prev[cle] === '1' ? '0' : '1' }));
 
   async function save() {
     setSaving(true); setMsg('');
     try {
       await api.saveEtablissement(f);
+      if (Object.keys(mep).length) await api.saveParametres(mep);
       setMsg('Paramètres enregistrés ✓');
       setTimeout(() => setMsg(''), 3000);
     } catch (e) { setMsg('Erreur : ' + e.message); }
@@ -128,6 +139,64 @@ export default function ParametresEtablissement() {
         <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
           <Champ label="Téléphone direct" value={f.gest_tel} onChange={v => set('gest_tel', v)} />
           <Champ label="E-mail" value={f.gest_email} onChange={v => set('gest_email', v)} />
+        </div>
+      </section>
+
+      {/* Mise en page des documents */}
+      <section className="bg-white rounded-lg border border-gray-200 p-4 space-y-3">
+        <div className="text-xs font-semibold text-gray-500 uppercase tracking-wide">
+          Mise en page des documents
+          <span className="font-normal normal-case text-gray-400"> · en-tête et pied de page de tous les documents imprimés</span>
+        </div>
+
+        <label className="flex items-center gap-2 text-sm">
+          <input type="checkbox" checked={mep['miseenpage.entete_logo'] === '1'}
+            onChange={() => toggleMep('miseenpage.entete_logo')} className="rounded" />
+          <span>Afficher le <strong>logo de l'école</strong> en en-tête</span>
+        </label>
+
+        <div className="pt-2">
+          <div className="text-xs text-gray-600 mb-1.5">Champs à inclure dans le <strong>pied de page</strong> :</div>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-1.5">
+            {[
+              ['miseenpage.pied_etab_nom',       "Nom de l'établissement", f.etab_nom],
+              ['miseenpage.pied_po',             'Pouvoir Organisateur',   f.po_nom],
+              ['miseenpage.pied_num_entreprise', "N° d'entreprise",        f.num_entreprise],
+              ['miseenpage.pied_num_fase',       'N° FASE',                f.num_fase],
+              ['miseenpage.pied_adresse',        'Adresse',                f.adresse],
+              ['miseenpage.pied_tel',            'Téléphone',              f.gest_tel],
+              ['miseenpage.pied_email',          'E-mail de contact',      f.email_contact],
+              ['miseenpage.pied_site_web',       'Site web',               f.site_web],
+            ].map(([cle, label, val]) => (
+              <label key={cle} className="flex items-center gap-2 text-sm">
+                <input type="checkbox" checked={mep[cle] === '1'} onChange={() => toggleMep(cle)} className="rounded" />
+                <span className={val ? '' : 'text-gray-400'}>{label}{!val && ' (vide)'}</span>
+              </label>
+            ))}
+          </div>
+        </div>
+
+        {/* Aperçu du pied de page */}
+        <div className="mt-2 pt-3 border-t border-gray-100">
+          <div className="text-[11px] text-gray-400 mb-1">Aperçu du pied de page :</div>
+          <div className="text-center text-[11px] text-gray-600 leading-relaxed border border-dashed border-gray-300 rounded p-2 bg-gray-50">
+            {(() => {
+              const on = (c) => mep[c] === '1';
+              const l1 = [
+                on('miseenpage.pied_etab_nom') ? f.etab_nom : null,
+                on('miseenpage.pied_po') && f.po_nom ? 'PO ' + f.po_nom : null,
+                on('miseenpage.pied_num_entreprise') && f.num_entreprise ? 'N° entreprise ' + f.num_entreprise : null,
+              ].filter(Boolean).join(' • ');
+              const l2 = [
+                on('miseenpage.pied_num_fase') && f.num_fase ? 'Fase ' + f.num_fase : null,
+                on('miseenpage.pied_adresse') ? f.adresse : null,
+                on('miseenpage.pied_tel') && f.gest_tel ? 'T. ' + f.gest_tel : null,
+                on('miseenpage.pied_email') ? f.email_contact : null,
+                on('miseenpage.pied_site_web') ? f.site_web : null,
+              ].filter(Boolean).join(' • ');
+              return <>{l1 || <span className="text-gray-300">—</span>}{l2 && <><br/>{l2}</>}</>;
+            })()}
+          </div>
         </div>
       </section>
 
