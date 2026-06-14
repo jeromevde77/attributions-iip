@@ -4,268 +4,204 @@ import { api } from '../lib/api.js';
 const TOKEN = () => localStorage.getItem('token');
 const authFetch = (url, opts = {}) => fetch(url, { ...opts, headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${TOKEN()}`, ...opts.headers } }).then(r => r.json());
 
-const FONCTIONS = ['Directeur', 'Directeur adjoint', 'Secrétaire', 'Coordinateur', 'Coordinatrice', 'Éducateur', 'Éducatrice', 'Gestionnaire', 'Autre'];
 
-/* ── Gestion du personnel de l'établissement ── */
+
+/* ── Gestion du personnel : matrice missions (section × profs × fonctions) ── */
 function GestionPersonnel() {
-  const [personnel, setPersonnel]   = useState([]);
-  const [allProfs, setAllProfs]     = useState([]);
-  const [allSections, setAllSections] = useState([]);
-  const [loading, setLoading]       = useState(true);
-  const [showAdd, setShowAdd]       = useState(false);
-  const [editId, setEditId]         = useState(null);
-  const [editFonction, setEditFonction] = useState('');
-  const [editOrdre, setEditOrdre]   = useState('');
-  const [editSections, setEditSections] = useState(null); // null = fermé, peId = ouvert
-  const [pendingSections, setPendingSections] = useState([]); // sections en cours d'édition
-  const [newProfId, setNewProfId]   = useState('');
-  const [newFonction, setNewFonction] = useState('Directeur');
-  const [newOrdre, setNewOrdre]     = useState('');
-  const [search, setSearch]         = useState('');
+  const ETAB = '__ETAB__';
+  const [sections, setSections]   = useState([]);
+  const [section, setSection]     = useState(ETAB);
+  const [fonctions, setFonctions] = useState([]);
+  const [profs, setProfs]         = useState([]);
+  const [coches, setCoches]       = useState({}); // prof_id -> [fonctions]
+  const [annee, setAnnee]         = useState('');
+  const [search, setSearch]       = useState('');
+  const [loading, setLoading]     = useState(true);
+  const [saving, setSaving]       = useState({}); // "profId|fonction" -> bool
 
-  useEffect(() => { charger(); }, []);
+  // Charger la liste des sections une fois
+  useEffect(() => {
+    api.sections().then(d => setSections(Array.isArray(d) ? d : [])).catch(() => {});
+  }, []);
 
-  async function charger() {
+  // Charger la matrice quand la section change
+  useEffect(() => {
     setLoading(true);
+    api.personnelMatrice(section)
+      .then(d => {
+        setFonctions(Array.isArray(d.fonctions) ? d.fonctions : []);
+        setProfs(Array.isArray(d.profs) ? d.profs : []);
+        setCoches(d.coches || {});
+        setAnnee(d.annee || '');
+      })
+      .catch(() => { setFonctions([]); setProfs([]); setCoches({}); })
+      .finally(() => setLoading(false));
+  }, [section]);
+
+  function estCoche(profId, fonction) {
+    return (coches[profId] || []).includes(fonction);
+  }
+
+  async function toggle(profId, fonction) {
+    const actif = !estCoche(profId, fonction);
+    const key = profId + '|' + fonction;
+    setSaving(s => ({ ...s, [key]: true }));
+    // Optimiste
+    setCoches(prev => {
+      const cur = new Set(prev[profId] || []);
+      actif ? cur.add(fonction) : cur.delete(fonction);
+      return { ...prev, [profId]: [...cur] };
+    });
     try {
-      const [pe, profs, secs] = await Promise.all([
-        authFetch('/api/ref/personnel-etablissement'),
-        authFetch('/api/ref/professeurs?tous=1'),
-        authFetch('/api/ref/sections'),
-      ]);
-      // Charger les sections de chaque membre
-      const peList = Array.isArray(pe) ? pe : [];
-      await Promise.all(peList.map(async m => {
-        try {
-          const s = await authFetch(`/api/ref/personnel-etablissement/${m.id}/sections`);
-          m.sections = Array.isArray(s) ? s : [];
-        } catch { m.sections = []; }
-      }));
-      setPersonnel(peList);
-      setAllProfs(Array.isArray(profs) ? profs : []);
-      setAllSections(Array.isArray(secs) ? secs.map(s => s.code || s.section_code || s).filter(Boolean) : []);
-    } finally { setLoading(false); }
+      await api.setMission({ professeur_id: profId, fonction, section_code: section, annee_scolaire: annee, actif });
+    } catch (e) {
+      // Revert en cas d'erreur
+      setCoches(prev => {
+        const cur = new Set(prev[profId] || []);
+        actif ? cur.delete(fonction) : cur.add(fonction);
+        return { ...prev, [profId]: [...cur] };
+      });
+      alert('Erreur : ' + e.message);
+    } finally {
+      setSaving(s => { const n = { ...s }; delete n[key]; return n; });
+    }
   }
 
-  async function ajouter() {
-    if (!newProfId || !newFonction) return;
-    await authFetch('/api/ref/personnel-etablissement', {
-      method: 'POST',
-      body: JSON.stringify({ professeur_id: Number(newProfId), fonction: newFonction, ordre: Number(newOrdre) || 99 }),
-    });
-    setShowAdd(false); setNewProfId(''); setNewFonction('Directeur'); setNewOrdre('');
-    charger();
-  }
+  const profsFiltres = search.trim()
+    ? profs.filter(p => {
+        const q = search.trim().toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+        const hay = (p.nom_prenom || (p.nom + ' ' + p.prenom)).toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+        return hay.includes(q);
+      })
+    : profs;
 
-  async function modifier(id) {
-    await authFetch(`/api/ref/personnel-etablissement/${id}`, {
-      method: 'PATCH',
-      body: JSON.stringify({ fonction: editFonction, ordre: Number(editOrdre) || 99 }),
-    });
-    setEditId(null);
-    charger();
-  }
+  // Compte de coches par prof (pour mettre en avant ceux qui ont des fonctions)
+  const profsAvecCoche = profsFiltres.filter(p => (coches[p.id] || []).length > 0);
+  const profsSansCoche = profsFiltres.filter(p => (coches[p.id] || []).length === 0);
+  const [showTous, setShowTous] = useState(false);
 
-  async function supprimer(id, nom) {
-    if (!confirm(`Retirer ${nom} du personnel de l'établissement ?`)) return;
-    await authFetch(`/api/ref/personnel-etablissement/${id}`, { method: 'DELETE' });
-    charger();
-  }
-
-  function ouvrirSections(pe) {
-    setEditSections(pe.id);
-    setPendingSections([...(pe.sections || [])]);
-  }
-
-  function toggleSection(code) {
-    setPendingSections(prev =>
-      prev.includes(code) ? prev.filter(c => c !== code) : [...prev, code]
-    );
-  }
-
-  async function sauvegarderSections(peId) {
-    await authFetch(`/api/ref/personnel-etablissement/${peId}/sections`, {
-      method: 'PUT',
-      body: JSON.stringify({ sections: pendingSections }),
-    });
-    setEditSections(null);
-    charger();
-  }
-
-  // Profs pas encore dans le personnel établissement
-  const existingIds = new Set(personnel.map(p => p.professeur_id));
-  const profsDisponibles = allProfs.filter(p =>
-    !existingIds.has(p.id) &&
-    (!search || `${p.nom} ${p.prenom}`.toLowerCase().includes(search.toLowerCase()))
-  );
-
-  if (loading) return <div className="p-8 text-center text-gray-400">Chargement…</div>;
+  const sectionLabel = section === ETAB ? "Tout l'établissement" : section;
 
   return (
-    <div className="max-w-3xl space-y-4">
-      <div className="bg-white rounded-lg border border-gray-200 overflow-hidden">
-        <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100">
-          <div>
-            <h3 className="font-semibold text-gray-800">Personnel de l'établissement</h3>
-            <p className="text-xs text-gray-500 mt-0.5">Direction, secrétariat, coordination — utilisé dans les outils Procédures et documents</p>
-          </div>
-          <button onClick={() => setShowAdd(v => !v)}
-            className="bg-iip-gold hover:bg-iip-amber text-white text-sm px-4 py-1.5 rounded font-medium">
-            + Ajouter
-          </button>
+    <div className="max-w-6xl">
+      <div className="flex items-center justify-between mb-4 flex-wrap gap-3">
+        <div>
+          <h3 className="font-semibold text-gray-800 text-lg">Personnel &amp; fonctions</h3>
+          <p className="text-sm text-gray-500">Cochez les fonctions de chaque personne pour la portée sélectionnée{annee ? ` · ${annee}` : ''}</p>
         </div>
+      </div>
 
-        {/* Formulaire ajout */}
-        {showAdd && (
-          <div className="px-5 py-4 bg-iip-gold/5 border-b border-gray-100 space-y-3">
-            <p className="text-sm font-medium text-gray-700">Ajouter une personne au personnel de l'établissement</p>
-            <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Rechercher un prof par nom…"
-              className="w-full border border-gray-300 rounded px-3 py-1.5 text-sm" />
-            <div className="flex gap-2">
-              <select value={newProfId} onChange={e => setNewProfId(e.target.value)}
-                className="flex-1 border border-gray-300 rounded px-3 py-1.5 text-sm bg-white">
-                <option value="">— Choisir une personne —</option>
-                {profsDisponibles.slice(0, 50).map(p => (
-                  <option key={p.id} value={p.id}>{p.nom} {p.prenom}</option>
-                ))}
-              </select>
-              <select value={newFonction} onChange={e => setNewFonction(e.target.value)}
-                className="border border-gray-300 rounded px-3 py-1.5 text-sm bg-white">
-                {FONCTIONS.map(f => <option key={f} value={f}>{f}</option>)}
-              </select>
-              <input type="number" value={newOrdre} onChange={e => setNewOrdre(e.target.value)}
-                placeholder="Ordre" className="w-20 border border-gray-300 rounded px-3 py-1.5 text-sm" />
-            </div>
-            <div className="flex gap-2">
-              <button onClick={ajouter} disabled={!newProfId}
-                className="bg-iip-gold disabled:opacity-40 text-white text-sm px-4 py-1.5 rounded">
-                Confirmer
-              </button>
-              <button onClick={() => { setShowAdd(false); setSearch(''); }}
-                className="border border-gray-300 text-gray-600 text-sm px-4 py-1.5 rounded">
-                Annuler
-              </button>
-            </div>
-          </div>
-        )}
+      {/* Sélecteur de portée / section */}
+      <div className="flex items-center gap-3 mb-4 flex-wrap">
+        <label className="text-sm font-medium text-gray-600">Portée :</label>
+        <select value={section} onChange={e => { setSection(e.target.value); setShowTous(false); }}
+          className="border border-gray-300 rounded-lg px-3 py-2 text-sm bg-white focus:outline-none focus:border-iip-gold">
+          <option value={ETAB}>🏛 Tout l'établissement</option>
+          {sections.map(s => {
+            const code = s.code || s.section || s;
+            return <option key={code} value={code}>{code}</option>;
+          })}
+        </select>
+        <div className="relative flex-1 min-w-[200px] max-w-xs">
+          <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Rechercher une personne…"
+            className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-iip-gold" />
+        </div>
+      </div>
 
-        {/* Liste */}
-        <table className="w-full text-sm">
-          <thead className="bg-gray-50 text-xs text-gray-500 uppercase tracking-wide">
-            <tr>
-              <th className="px-5 py-3 text-left">Personne</th>
-              <th className="px-4 py-3 text-left">Fonction</th>
-              <th className="px-4 py-3 text-left">Sections</th>
-              <th className="px-4 py-3 text-center">Ordre</th>
-              <th className="px-4 py-3"></th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-gray-100">
-            {personnel.map(pe => (
-              <>
-                <tr key={pe.id} className="hover:bg-gray-50">
-                  <td className="px-5 py-3 font-medium text-gray-800">{pe.prenom} {pe.nom}</td>
-                  <td className="px-4 py-3">
-                    {editId === pe.id ? (
-                      <select value={editFonction} onChange={e => setEditFonction(e.target.value)}
-                        className="border border-gray-300 rounded px-2 py-1 text-sm bg-white">
-                        {FONCTIONS.map(f => <option key={f} value={f}>{f}</option>)}
-                      </select>
-                    ) : (
-                      <span className="inline-flex items-center bg-iip-gold/10 text-iip-gold text-xs font-semibold px-2.5 py-1 rounded-full">
-                        {pe.fonction}
-                      </span>
-                    )}
-                  </td>
-                  <td className="px-4 py-3">
-                    {pe.sections && pe.sections.length > 0 ? (
-                      <div className="flex flex-wrap gap-1">
-                        {pe.sections.map(s => (
-                          <span key={s} className="inline-flex items-center bg-blue-50 text-blue-700 text-xs font-medium px-2 py-0.5 rounded-full border border-blue-200">{s}</span>
-                        ))}
-                      </div>
-                    ) : (
-                      <span className="text-xs text-gray-400 italic">Toutes sections</span>
-                    )}
-                  </td>
-                  <td className="px-4 py-3 text-center text-gray-500">
-                    {editId === pe.id
-                      ? <input type="number" value={editOrdre} onChange={e => setEditOrdre(e.target.value)} className="w-16 border rounded px-2 py-1 text-sm text-center" />
-                      : pe.ordre}
-                  </td>
-                  <td className="px-4 py-3 text-right">
-                    {editId === pe.id ? (
-                      <div className="flex gap-1 justify-end">
-                        <button onClick={() => modifier(pe.id)} className="text-green-700 hover:text-green-900 text-xs px-2 py-1 border border-green-300 rounded">✓ OK</button>
-                        <button onClick={() => setEditId(null)} className="text-gray-500 text-xs px-2 py-1 border border-gray-200 rounded">✕</button>
-                      </div>
-                    ) : (
-                      <div className="flex gap-1 justify-end">
-                        <button onClick={() => ouvrirSections(pe)}
-                          title="Gérer les sections"
-                          className={`text-xs px-2 py-1 border rounded ${editSections === pe.id ? 'border-blue-400 text-blue-600 bg-blue-50' : 'border-gray-200 text-gray-400 hover:text-blue-500'}`}>
-                          §
-                        </button>
-                        <button onClick={() => { setEditId(pe.id); setEditFonction(pe.fonction); setEditOrdre(String(pe.ordre)); }}
-                          className="text-gray-400 hover:text-iip-gold text-xs px-2 py-1 border border-gray-200 rounded">✏</button>
-                        <button onClick={() => supprimer(pe.id, `${pe.prenom} ${pe.nom}`)}
-                          className="text-gray-400 hover:text-red-500 text-xs px-2 py-1 border border-gray-200 rounded">✕</button>
-                      </div>
-                    )}
-                  </td>
+      {loading ? (
+        <div className="p-12 text-center text-gray-400">Chargement…</div>
+      ) : fonctions.length === 0 ? (
+        <div className="p-8 text-center text-gray-400 bg-gray-50 rounded-xl border border-gray-100">
+          Aucune fonction définie pour cette portée.
+        </div>
+      ) : (
+        <div className="border border-gray-200 rounded-xl overflow-hidden">
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="bg-iip-darkblue text-white">
+                  <th className="text-left px-4 py-3 font-semibold sticky left-0 bg-iip-darkblue z-10">
+                    Personne <span className="font-normal text-white/60">({profsAvecCoche.length})</span>
+                  </th>
+                  {fonctions.map(f => (
+                    <th key={f.id} className="px-2 py-3 font-medium text-center text-xs whitespace-nowrap" style={{ minWidth: 90 }}>
+                      {f.libelle}
+                    </th>
+                  ))}
                 </tr>
-                {/* Panneau sections inline */}
-                {editSections === pe.id && (
-                  <tr key={`sec-${pe.id}`}>
-                    <td colSpan={5} className="px-5 py-4 bg-blue-50 border-t border-blue-100">
-                      <div className="space-y-3">
-                        <p className="text-sm font-medium text-blue-800">
-                          Sections pour {pe.prenom} {pe.nom}
-                          <span className="ml-2 text-xs font-normal text-blue-600">(vide = visible dans toutes les sections)</span>
-                        </p>
-                        <div className="flex flex-wrap gap-2">
-                          {allSections.map(s => (
-                            <label key={s} className={`flex items-center gap-1.5 cursor-pointer text-xs px-3 py-1.5 rounded-full border transition-colors ${
-                              pendingSections.includes(s)
-                                ? 'bg-blue-600 text-white border-blue-600'
-                                : 'bg-white text-gray-700 border-gray-300 hover:border-blue-400'
-                            }`}>
-                              <input type="checkbox" className="hidden" checked={pendingSections.includes(s)} onChange={() => toggleSection(s)} />
-                              {s}
-                            </label>
-                          ))}
-                          {allSections.length === 0 && <span className="text-xs text-gray-400">Aucune section disponible</span>}
-                        </div>
-                        <div className="flex gap-2">
-                          <button onClick={() => sauvegarderSections(pe.id)}
-                            className="bg-blue-600 text-white text-xs px-4 py-1.5 rounded hover:bg-blue-700">
-                            Enregistrer
+              </thead>
+              <tbody>
+                {/* Profs avec au moins une coche d'abord */}
+                {profsAvecCoche.map((p, idx) => (
+                  <tr key={p.id} className={idx % 2 ? 'bg-gray-50' : 'bg-white'}>
+                    <td className={`px-4 py-2 font-medium text-gray-800 sticky left-0 z-10 ${idx % 2 ? 'bg-gray-50' : 'bg-white'}`}>
+                      {p.nom_prenom || `${p.nom} ${p.prenom}`}
+                    </td>
+                    {fonctions.map(f => {
+                      const key = p.id + '|' + f.libelle;
+                      const on = estCoche(p.id, f.libelle);
+                      return (
+                        <td key={f.id} className="px-2 py-2 text-center">
+                          <button type="button" onClick={() => toggle(p.id, f.libelle)} disabled={saving[key]}
+                            className={`w-6 h-6 rounded-md border-2 transition inline-flex items-center justify-center ${on
+                              ? 'bg-iip-mauve border-iip-mauve text-white'
+                              : 'bg-white border-gray-300 hover:border-iip-mauve'} ${saving[key] ? 'opacity-50' : ''}`}>
+                            {on && (
+                              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+                            )}
                           </button>
-                          <button onClick={() => setEditSections(null)}
-                            className="border border-gray-300 text-gray-600 text-xs px-4 py-1.5 rounded hover:bg-gray-50">
-                            Annuler
-                          </button>
-                        </div>
-                      </div>
+                        </td>
+                      );
+                    })}
+                  </tr>
+                ))}
+
+                {/* Séparateur + profs sans coche (repliés) */}
+                {profsSansCoche.length > 0 && (
+                  <tr className="bg-gray-100 cursor-pointer hover:bg-gray-200" onClick={() => setShowTous(v => !v)}>
+                    <td colSpan={fonctions.length + 1} className="px-4 py-2 text-sm text-gray-600 font-medium select-none">
+                      <span className="inline-block transition-transform" style={{ transform: showTous ? 'rotate(90deg)' : 'none' }}>▶</span>
+                      {' '}Autres personnes sans fonction ici <span className="text-gray-400 font-normal">({profsSansCoche.length})</span>
                     </td>
                   </tr>
                 )}
-              </>
-            ))}
-            {!personnel.length && (
-              <tr><td colSpan={5} className="px-5 py-8 text-center text-gray-400 text-sm">Aucun membre du personnel enregistré</td></tr>
-            )}
-          </tbody>
-        </table>
-      </div>
+                {showTous && profsSansCoche.map((p, idx) => (
+                  <tr key={p.id} className={idx % 2 ? 'bg-gray-50' : 'bg-white'}>
+                    <td className={`px-4 py-2 text-gray-700 sticky left-0 z-10 ${idx % 2 ? 'bg-gray-50' : 'bg-white'}`}>
+                      {p.nom_prenom || `${p.nom} ${p.prenom}`}
+                    </td>
+                    {fonctions.map(f => {
+                      const key = p.id + '|' + f.libelle;
+                      const on = estCoche(p.id, f.libelle);
+                      return (
+                        <td key={f.id} className="px-2 py-2 text-center">
+                          <button type="button" onClick={() => toggle(p.id, f.libelle)} disabled={saving[key]}
+                            className={`w-6 h-6 rounded-md border-2 transition inline-flex items-center justify-center ${on
+                              ? 'bg-iip-mauve border-iip-mauve text-white'
+                              : 'bg-white border-gray-300 hover:border-iip-mauve'} ${saving[key] ? 'opacity-50' : ''}`}>
+                            {on && (
+                              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+                            )}
+                          </button>
+                        </td>
+                      );
+                    })}
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
 
-      <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 text-sm text-blue-800">
+      <div className="mt-4 bg-blue-50 border border-blue-100 rounded-xl p-4 text-sm text-blue-900">
         <p className="font-medium mb-1">💡 Comment ça fonctionne</p>
-        <p>Toute personne de la table Professeurs peut se voir attribuer une fonction dans l'établissement. Le bouton <strong>§</strong> permet de rattacher un membre à une ou plusieurs sections — utile pour les coordinatrices qui suivent des sections spécifiques. Sans section cochée, la personne apparaît dans tous les PV et documents. Leurs données complètes (NISS, adresse, etc.) restent dans leur fiche professeur et sont utilisées pour les documents (contrats, courriers).</p>
+        <p>Choisissez d'abord une <strong>portée</strong> : « Tout l'établissement » pour la direction et le secrétariat (présents dans toutes les procédures), ou une <strong>section</strong> précise pour les coordinations. Cochez ensuite les fonctions de chaque personne. Une même personne peut avoir des fonctions différentes selon la section (ex. coordinatrice des stages en TIM, des TFE en AeSI). Ces coches alimentent automatiquement la fiche de la personne et le filtrage des membres dans les procédures de recours et de fraude.</p>
       </div>
     </div>
   );
 }
+
 
 /* ── Purge d'une année scolaire ── */
 function PurgeAnnee() {
