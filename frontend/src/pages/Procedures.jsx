@@ -335,10 +335,10 @@ function OutilRecours({ initialPayload, onPayloadConsumed }) {
   // Membres fixes du CDE (chargés depuis la DB au démarrage, avec leurs sections)
   const [membresCde, setMembresCde] = useState([]);
   useEffect(() => {
-    authFetch('/api/ref/membres-cde')
-      .then(d => setMembresCde(Array.isArray(d) ? d.map(m => ({ ...m, id: 'cde_' + m.id, qualite: m.fonction })) : []))
+    authFetch(`/api/ref/membres-cde?annee=${encodeURIComponent(annee)}`)
+      .then(d => setMembresCde(Array.isArray(d) ? d : []))
       .catch(() => {});
-  }, []);
+  }, [annee]);
 
   // Charger les profs quand UE ou section change
   useEffect(() => {
@@ -946,8 +946,8 @@ function OutilFraude({ initialPayload, onPayloadConsumed }) {
         setUes([...map.values()].sort((a,b) => (a.ue_num||0)-(b.ue_num||0)));
         setSectionsListe([...secs].sort());
       }).catch(() => {});
-    authFetch('/api/ref/membres-cde')
-      .then(d => setMembresCde(Array.isArray(d) ? d.map(m => ({...m, id:'cde_'+m.id})) : []))
+    authFetch(`/api/ref/membres-cde?annee=${encodeURIComponent(annee)}`)
+      .then(d => setMembresCde(Array.isArray(d) ? d : []))
       .catch(() => {});
   }, [annee]);
 
