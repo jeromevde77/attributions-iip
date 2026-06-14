@@ -6,7 +6,7 @@ const r = Router();
 
 const CHAMPS = [
   'po_nom', 'etab_nom', 'adresse', 'type_po', 'sous_type',
-  'num_ecot', 'num_fase', 'num_entreprise', 'site_web', 'email_ec', 'email_po',
+  'num_ecot', 'num_fase', 'num_entreprise', 'site_web', 'email_contact', 'email_ec', 'email_po',
   'gest_nom', 'gest_prenom', 'gest_qualite', 'gest_tel', 'gest_email',
   'jours_fonctionnement',
 ];
