@@ -29,15 +29,15 @@ function GestionPersonnel() {
     setLoading(true);
     try {
       const [pe, profs, secs] = await Promise.all([
-        authFetch('/api/ref/personnel-etablissement').then(r => r.json()),
-        authFetch('/api/ref/professeurs?tous=1').then(r => r.json()),
-        authFetch('/api/ref/sections').then(r => r.json()),
+        authFetch('/api/ref/personnel-etablissement'),
+        authFetch('/api/ref/professeurs?tous=1'),
+        authFetch('/api/ref/sections'),
       ]);
       // Charger les sections de chaque membre
       const peList = Array.isArray(pe) ? pe : [];
       await Promise.all(peList.map(async m => {
         try {
-          const s = await authFetch(`/api/ref/personnel-etablissement/${m.id}/sections`).then(r => r.json());
+          const s = await authFetch(`/api/ref/personnel-etablissement/${m.id}/sections`);
           m.sections = Array.isArray(s) ? s : [];
         } catch { m.sections = []; }
       }));
