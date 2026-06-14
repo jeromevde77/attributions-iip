@@ -109,24 +109,46 @@ function genererDepuisTemplate(slug, vars) {
   return { html, champsManquants };
 }
 
-function wrapHtml(html, titre) {
+function wrapHtml(html, titre, pied) {
+  const footerHtml = pied
+    ? `<div class="doc-footer">${pied}</div>`
+    : '';
   return `<!DOCTYPE html><html lang="fr"><head><meta charset="utf-8"><title>${titre}</title>
 <style>
-  @page{size:A4;margin:14mm}
-  body{font-family:Arial,sans-serif;font-size:11pt;color:#000;margin:0}
+  @page{size:A4;margin:2.5cm 2.5cm 1cm 2.5cm}
+  body{font-family:Arial,sans-serif;font-size:10pt;color:#000;margin:0}
   img{background:#fff;-webkit-print-color-adjust:exact;print-color-adjust:exact;max-width:100%}
   h2{font-size:14pt;margin-bottom:4px}h3{font-size:11pt;border-bottom:1px solid #ccc;padding-bottom:3px;margin-top:16px}
   p{margin:5px 0;line-height:1.5}table{width:100%;border-collapse:collapse;margin:8px 0}
   td,th{border:1px solid #ccc;padding:5px 8px;vertical-align:top}
   .page-break{break-after:page;page-break-after:always;height:0;border:0;margin:0}
+  /* Pied de page : 8pt, centré, collé en bas de page à l'impression */
+  .doc-footer{font-size:8pt;text-align:center;color:#333;line-height:1.35}
+  @media print {
+    .doc-footer{position:fixed;bottom:0;left:0;right:0;padding-top:4px;border-top:.5pt solid #999}
+  }
   /* Aperçu écran : simuler une feuille A4 */
   @media screen {
     html{background:#e5e5e5}
-    body{max-width:210mm;min-height:297mm;margin:16px auto;padding:18mm 16mm;
+    body{max-width:210mm;min-height:297mm;margin:16px auto;padding:2.5cm 2.5cm 1cm 2.5cm;
          background:#fff;box-shadow:0 2px 14px rgba(0,0,0,.18);box-sizing:border-box}
+    .doc-footer{margin-top:24px;padding-top:6px;border-top:.5pt solid #999}
   }
 </style></head><body>
-${html}</body></html>`;
+${html}${footerHtml}</body></html>`;
+}
+
+// Construit le pied de page à partir des coordonnées de l'établissement (paramétrable)
+function piedEtablissement() {
+  const e = db.prepare('SELECT * FROM etablissement WHERE id = 1').get() || {};
+  const ligne1 = [e.etab_nom, e.po_nom ? 'PO ' + e.po_nom : null, e.num_ecot ? 'N° entreprise ' + e.num_ecot : null]
+    .filter(Boolean).join(' • ');
+  const ligne2 = [
+    e.num_fase ? 'Fase ' + e.num_fase : null,
+    e.adresse || null,
+    e.gest_tel ? 'T. ' + e.gest_tel : null,
+  ].filter(Boolean).join(' • ');
+  return [ligne1, ligne2].filter(Boolean).join('<br>');
 }
 
 // ─── POST /procedures/pv-recours ──────────────────────────────────────────────
@@ -303,7 +325,7 @@ r.post('/pv-recours', authRequired, (req, res) => {
   );
 
   res.json({
-    html: wrapHtml(resultat.html, `Décision CDE — ${etudiant}`),
+    html: wrapHtml(resultat.html, `Décision CDE — ${etudiant}`, piedEtablissement()),
     champs_manquants: resultat.champsManquants,
     procedure_id: proc.lastInsertRowid,
   });
@@ -395,7 +417,7 @@ r.post('/pv-fraude', authRequired, (req, res) => {
   );
 
   res.json({
-    html: wrapHtml(resultat.html, `PV Fraude — ${etudiant}`),
+    html: wrapHtml(resultat.html, `PV Fraude — ${etudiant}`, piedEtablissement()),
     champs_manquants: resultat.champsManquants,
     procedure_id: procF.lastInsertRowid,
   });
