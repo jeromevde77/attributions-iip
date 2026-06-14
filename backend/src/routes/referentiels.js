@@ -1397,21 +1397,50 @@ r.put('/personnel-etablissement/:id/sections', authRequired, roleRequired('admin
   res.json({ ok: true });
 });
 
-// membres-cde enrichis avec leurs sections
+// membres-cde : construits à partir de personnel_mission (fonction + section + année)
+// Chaque membre renvoie : portee globale (etablissement si au moins une mission transversale)
+// et la liste des sections où il intervient.
 r.get('/membres-cde', authRequired, (req, res) => {
-  const membres = db.prepare(`
-    SELECT pe.id, pe.professeur_id, pe.fonction, pe.ordre, pe.portee,
-           p.nom, p.prenom, (p.prenom || ' ' || p.nom) AS nomComplet,
-           p.adresse_mail, p.tel_gsm
-    FROM personnel_etablissement pe
-    JOIN professeur p ON p.id = pe.professeur_id
-    ORDER BY pe.ordre, p.nom
-  `).all();
-  // Attacher les sections à chaque membre
-  for (const m of membres) {
-    m.portee = m.portee || 'etablissement';
-    m.sections = db.prepare('SELECT section_code FROM personnel_section WHERE personnel_etablissement_id = ? ORDER BY section_code').all(m.id).map(r => r.section_code);
+  const annee = req.query.annee
+    || db.prepare("SELECT code FROM annee_scolaire WHERE active = 1 LIMIT 1").get()?.code;
+  const rows = db.prepare(`
+    SELECT pm.professeur_id, pm.fonction, pm.section_code,
+           ft.portee, ft.ordre,
+           p.nom, p.prenom, (p.prenom || ' ' || p.nom) AS nomComplet, p.adresse_mail, p.tel_gsm
+    FROM personnel_mission pm
+    JOIN professeur p ON p.id = pm.professeur_id
+    LEFT JOIN fonction_type ft ON ft.libelle = pm.fonction
+    WHERE pm.annee_scolaire = ?
+    ORDER BY ft.ordre, p.nom
+  `).all(annee);
+
+  // Regrouper par personne
+  const parPersonne = new Map();
+  for (const r of rows) {
+    if (!parPersonne.has(r.professeur_id)) {
+      parPersonne.set(r.professeur_id, {
+        id: 'cde_' + r.professeur_id,
+        professeur_id: r.professeur_id,
+        nom: r.nom, prenom: r.prenom, nomComplet: r.nomComplet,
+        adresse_mail: r.adresse_mail, tel_gsm: r.tel_gsm,
+        fonctions: [],          // libellés de fonctions
+        sections: [],           // sections de coordination
+        portee: 'section',      // devient 'etablissement' si une mission transversale
+        ordre: r.ordre || 99,
+      });
+    }
+    const m = parPersonne.get(r.professeur_id);
+    if (!m.fonctions.includes(r.fonction)) m.fonctions.push(r.fonction);
+    if (r.portee === 'etablissement' || r.section_code === '__ETAB__') {
+      m.portee = 'etablissement';
+    } else if (r.section_code && !m.sections.includes(r.section_code)) {
+      m.sections.push(r.section_code);
+    }
+    if ((r.ordre || 99) < m.ordre) m.ordre = r.ordre || 99;
   }
+  // fonction = libellé concaténé pour affichage (qualité)
+  const membres = [...parPersonne.values()].map(m => ({ ...m, fonction: m.fonctions.join(', '), qualite: m.fonctions.join(', ') }));
+  membres.sort((a, b) => (a.ordre - b.ordre) || a.nom.localeCompare(b.nom));
   res.json(membres);
 });
 
@@ -1433,6 +1462,53 @@ r.post('/ue/effectifs-import', authRequired, roleRequired('admin', 'editeur'), (
   });
   tx();
   res.json({ ok: true, maj, inconnus });
+});
+
+// ── Fonctions & matrice des missions (Configuration > Personnel) ──────────────
+// Liste des types de fonctions (colonnes de la matrice)
+r.get('/fonctions', authRequired, (req, res) => {
+  res.json(db.prepare('SELECT id, libelle, portee, ordre FROM fonction_type ORDER BY ordre, libelle').all());
+});
+
+// Matrice pour une section donnée (ou '__ETAB__' pour les fonctions transversales)
+// GET /personnel-matrice?section=TIM&annee=2026-2027
+r.get('/personnel-matrice', authRequired, (req, res) => {
+  const section = req.query.section || '__ETAB__';
+  const annee = req.query.annee
+    || db.prepare("SELECT code FROM annee_scolaire WHERE active = 1 LIMIT 1").get()?.code;
+  const estEtab = section === '__ETAB__';
+  // Fonctions pertinentes : transversales pour __ETAB__, sinon fonctions "section"
+  const fonctions = db.prepare('SELECT id, libelle, portee, ordre FROM fonction_type WHERE portee = ? ORDER BY ordre, libelle')
+    .all(estEtab ? 'etablissement' : 'section');
+  // Tous les profs
+  const profs = db.prepare('SELECT id, nom, prenom, (nom || \" \" || prenom) AS nom_prenom FROM professeur ORDER BY nom, prenom').all();
+  // Missions cochées pour cette section + année
+  const missions = db.prepare('SELECT professeur_id, fonction FROM personnel_mission WHERE section_code = ? AND annee_scolaire = ?')
+    .all(section, annee);
+  const coches = {}; // professeur_id -> Set(fonction)
+  for (const m of missions) {
+    if (!coches[m.professeur_id]) coches[m.professeur_id] = [];
+    coches[m.professeur_id].push(m.fonction);
+  }
+  res.json({ section, annee, fonctions, profs, coches });
+});
+
+// Cocher/décocher une mission
+// PUT /personnel-mission  body: { professeur_id, fonction, section_code, annee_scolaire, actif }
+r.put('/personnel-mission', authRequired, roleRequired('admin', 'editeur'), (req, res) => {
+  const { professeur_id, fonction, section_code, annee_scolaire, actif } = req.body;
+  if (!professeur_id || !fonction || !section_code || !annee_scolaire)
+    return res.status(400).json({ error: 'Paramètres manquants' });
+  if (actif) {
+    db.prepare('INSERT OR IGNORE INTO personnel_mission (professeur_id, fonction, section_code, annee_scolaire) VALUES (?,?,?,?)')
+      .run(professeur_id, fonction, section_code, annee_scolaire);
+    // Marquer la personne comme admin (utile pour les filtres)
+    db.prepare("UPDATE professeur SET type_personnel = 'admin' WHERE id = ? AND (type_personnel IS NULL OR type_personnel = '')").run(professeur_id);
+  } else {
+    db.prepare('DELETE FROM personnel_mission WHERE professeur_id = ? AND fonction = ? AND section_code = ? AND annee_scolaire = ?')
+      .run(professeur_id, fonction, section_code, annee_scolaire);
+  }
+  res.json({ ok: true });
 });
 
 export default r;
