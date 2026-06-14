@@ -774,7 +774,16 @@ r.get('/professeurs/:id', authRequired, (req, res) => {
   }
   const etp_annee = Math.round((etp_ct / 800 + etp_pp / 1000) * 100) / 100;
 
+  // Infos "personnel d'établissement" (fonction admin + sections coordonnées)
+  const pe = db.prepare('SELECT id, fonction, ordre FROM personnel_etablissement WHERE professeur_id = ?').get(req.params.id);
+  let admin = null;
+  if (pe) {
+    const sections = db.prepare('SELECT section_code FROM personnel_section WHERE personnel_etablissement_id = ? ORDER BY section_code').all(pe.id).map(r => r.section_code);
+    admin = { pe_id: pe.id, fonction: pe.fonction, ordre: pe.ordre, sections };
+  }
+
   res.json({ ...p, attributions: attrs, titres, charges, anciennete, annee,
+    admin,
     tot_per_annee,
     tot_aut_annee,
     tot_global_annee: tot_per_annee + tot_aut_annee,
@@ -782,6 +791,59 @@ r.get('/professeurs/:id', authRequired, (req, res) => {
     etp_ct: Math.round(etp_ct / 800 * 100) / 100,
     etp_pp: Math.round(etp_pp / 1000 * 100) / 100,
   });
+});
+
+// ── Fonction admin + sections de coordination (depuis la fiche prof) ──
+// PUT /professeurs/:id/admin  body: { fonction: string|null, ordre?: number, sections?: string[] }
+// fonction null/'' => retire la personne du personnel d'établissement
+r.put('/professeurs/:id/admin', authRequired, roleRequired('admin', 'editeur'), (req, res) => {
+  const profId = Number(req.params.id);
+  const { fonction, ordre, sections } = req.body;
+  const prof = db.prepare('SELECT id FROM professeur WHERE id = ?').get(profId);
+  if (!prof) return res.status(404).json({ error: 'Professeur introuvable' });
+
+  const tx = db.transaction(() => {
+    const existing = db.prepare('SELECT id FROM personnel_etablissement WHERE professeur_id = ?').get(profId);
+
+    // Pas de fonction => on retire du personnel d'établissement (+ ses sections)
+    if (!fonction || !String(fonction).trim()) {
+      if (existing) {
+        db.prepare('DELETE FROM personnel_section WHERE personnel_etablissement_id = ?').run(existing.id);
+        db.prepare('DELETE FROM personnel_etablissement WHERE id = ?').run(existing.id);
+      }
+      return null;
+    }
+
+    let peId;
+    if (existing) {
+      db.prepare('UPDATE personnel_etablissement SET fonction = ?, ordre = ? WHERE id = ?')
+        .run(fonction, ordre ?? 99, existing.id);
+      peId = existing.id;
+    } else {
+      db.prepare("UPDATE professeur SET type_personnel = 'admin' WHERE id = ?").run(profId);
+      const info = db.prepare('INSERT INTO personnel_etablissement (professeur_id, fonction, ordre) VALUES (?, ?, ?)')
+        .run(profId, fonction, ordre ?? 99);
+      peId = info.lastInsertRowid;
+    }
+
+    // Remplacement complet des sections
+    if (Array.isArray(sections)) {
+      db.prepare('DELETE FROM personnel_section WHERE personnel_etablissement_id = ?').run(peId);
+      for (const sc of sections) {
+        if (sc && String(sc).trim())
+          db.prepare('INSERT OR IGNORE INTO personnel_section (personnel_etablissement_id, section_code) VALUES (?, ?)')
+            .run(peId, String(sc).trim());
+      }
+    }
+    return peId;
+  });
+
+  const peId = tx();
+  const result = peId
+    ? { pe_id: peId, fonction, ordre: ordre ?? 99,
+        sections: db.prepare('SELECT section_code FROM personnel_section WHERE personnel_etablissement_id = ? ORDER BY section_code').all(peId).map(r => r.section_code) }
+    : null;
+  res.json({ ok: true, admin: result });
 });
 
 // ── Titres de capacité (liste liée au prof) ──
