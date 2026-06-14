@@ -775,11 +775,11 @@ r.get('/professeurs/:id', authRequired, (req, res) => {
   const etp_annee = Math.round((etp_ct / 800 + etp_pp / 1000) * 100) / 100;
 
   // Infos "personnel d'établissement" (fonction admin + sections coordonnées)
-  const pe = db.prepare('SELECT id, fonction, ordre FROM personnel_etablissement WHERE professeur_id = ?').get(req.params.id);
+  const pe = db.prepare('SELECT id, fonction, ordre, portee FROM personnel_etablissement WHERE professeur_id = ?').get(req.params.id);
   let admin = null;
   if (pe) {
     const sections = db.prepare('SELECT section_code FROM personnel_section WHERE personnel_etablissement_id = ? ORDER BY section_code').all(pe.id).map(r => r.section_code);
-    admin = { pe_id: pe.id, fonction: pe.fonction, ordre: pe.ordre, sections };
+    admin = { pe_id: pe.id, fonction: pe.fonction, ordre: pe.ordre, portee: pe.portee || 'etablissement', sections };
   }
 
   res.json({ ...p, attributions: attrs, titres, charges, anciennete, annee,
@@ -815,14 +815,15 @@ r.put('/professeurs/:id/admin', authRequired, roleRequired('admin', 'editeur'), 
     }
 
     let peId;
+    const porteeVal = (req.body.portee === 'section') ? 'section' : 'etablissement';
     if (existing) {
-      db.prepare('UPDATE personnel_etablissement SET fonction = ?, ordre = ? WHERE id = ?')
-        .run(fonction, ordre ?? 99, existing.id);
+      db.prepare('UPDATE personnel_etablissement SET fonction = ?, ordre = ?, portee = ? WHERE id = ?')
+        .run(fonction, ordre ?? 99, porteeVal, existing.id);
       peId = existing.id;
     } else {
       db.prepare("UPDATE professeur SET type_personnel = 'admin' WHERE id = ?").run(profId);
-      const info = db.prepare('INSERT INTO personnel_etablissement (professeur_id, fonction, ordre) VALUES (?, ?, ?)')
-        .run(profId, fonction, ordre ?? 99);
+      const info = db.prepare('INSERT INTO personnel_etablissement (professeur_id, fonction, ordre, portee) VALUES (?, ?, ?, ?)')
+        .run(profId, fonction, ordre ?? 99, porteeVal);
       peId = info.lastInsertRowid;
     }
 
@@ -841,6 +842,7 @@ r.put('/professeurs/:id/admin', authRequired, roleRequired('admin', 'editeur'), 
   const peId = tx();
   const result = peId
     ? { pe_id: peId, fonction, ordre: ordre ?? 99,
+        portee: (req.body.portee === 'section') ? 'section' : 'etablissement',
         sections: db.prepare('SELECT section_code FROM personnel_section WHERE personnel_etablissement_id = ? ORDER BY section_code').all(peId).map(r => r.section_code) }
     : null;
   res.json({ ok: true, admin: result });
@@ -1398,7 +1400,7 @@ r.put('/personnel-etablissement/:id/sections', authRequired, roleRequired('admin
 // membres-cde enrichis avec leurs sections
 r.get('/membres-cde', authRequired, (req, res) => {
   const membres = db.prepare(`
-    SELECT pe.id, pe.professeur_id, pe.fonction, pe.ordre,
+    SELECT pe.id, pe.professeur_id, pe.fonction, pe.ordre, pe.portee,
            p.nom, p.prenom, (p.prenom || ' ' || p.nom) AS nomComplet,
            p.adresse_mail, p.tel_gsm
     FROM personnel_etablissement pe
@@ -1407,6 +1409,7 @@ r.get('/membres-cde', authRequired, (req, res) => {
   `).all();
   // Attacher les sections à chaque membre
   for (const m of membres) {
+    m.portee = m.portee || 'etablissement';
     m.sections = db.prepare('SELECT section_code FROM personnel_section WHERE personnel_etablissement_id = ? ORDER BY section_code').all(m.id).map(r => r.section_code);
   }
   res.json(membres);
