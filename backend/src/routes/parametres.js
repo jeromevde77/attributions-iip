@@ -19,6 +19,32 @@ export function getParamNum(cle, fallback = 0) {
   return parseFloat(getParam(cle, String(fallback))) || fallback;
 }
 
+// Construit le pied de page commun à tous les documents, selon les cases cochées
+// dans Configuration > Mise en page, à partir des champs de l'établissement.
+export function piedDocument() {
+  let etab = {};
+  try { etab = db.prepare('SELECT * FROM etablissement WHERE id = 1').get() || {}; } catch {}
+  const on = (cle) => getParam(cle, '1') === '1';
+  const ligne1 = [
+    on('miseenpage.pied_etab_nom')       ? etab.etab_nom : null,
+    on('miseenpage.pied_po') && etab.po_nom ? 'PO ' + etab.po_nom : null,
+    on('miseenpage.pied_num_entreprise') && etab.num_entreprise ? 'N° entreprise ' + etab.num_entreprise : null,
+  ].filter(Boolean).join(' • ');
+  const ligne2 = [
+    on('miseenpage.pied_num_fase') && etab.num_fase ? 'Fase ' + etab.num_fase : null,
+    on('miseenpage.pied_adresse')  ? etab.adresse : null,
+    on('miseenpage.pied_tel') && etab.gest_tel ? 'T. ' + etab.gest_tel : null,
+    on('miseenpage.pied_email')    ? etab.email_contact : null,
+    on('miseenpage.pied_site_web') ? etab.site_web : null,
+  ].filter(Boolean).join(' • ');
+  return [ligne1, ligne2].filter(Boolean).join('<br>');
+}
+
+// Indique si le logo doit apparaître en en-tête
+export function enteteLogoActif() {
+  return getParam('miseenpage.entete_logo', '1') === '1';
+}
+
 // GET /parametres — tous les paramètres, groupés
 r.get('/', authRequired, (req, res) => {
   const rows = db.prepare('SELECT * FROM parametre ORDER BY groupe, cle').all();
