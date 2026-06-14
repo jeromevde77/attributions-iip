@@ -1681,6 +1681,12 @@ try {
   try {
     db.exec("ALTER TABLE etablissement ADD COLUMN adresse_impl TEXT");
   } catch(e) {}
+  try {
+    db.exec("ALTER TABLE etablissement ADD COLUMN num_entreprise TEXT");
+  } catch(e) {}
+  try {
+    db.exec("ALTER TABLE etablissement ADD COLUMN site_web TEXT");
+  } catch(e) {}
 
   // Table organisation_ue (Doc A — description des organisations par UE)
   try {
