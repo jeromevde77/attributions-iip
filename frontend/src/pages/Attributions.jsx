@@ -1,5 +1,5 @@
 import { useEffect, useState, useMemo } from 'react';
-import { api, getAnnee, nomDoc, getUnite, perToH, hToPer } from '../lib/api.js';
+import { api, getAnnee, nomDoc, getUnite, setUnite as setUniteGlobal, perToH, hToPer } from '../lib/api.js';
 import PreviewModal from '../components/PreviewModal.jsx';
 import EptModal from '../components/EptModal.jsx';
 import OrganisationUEModal from '../components/OrganisationUEModal.jsx';
@@ -221,9 +221,9 @@ export default function Attributions() {
   const [extDot, setExtDot] = useState({}); // { [attribution_id]: 'EXT'|'DOT'|'EXT+DOT' }
   const [verrous, setVerrous] = useState({}); // { [attribution_id]: {nomination...} }
   const [pertesCharge, setPertesCharge] = useState([]); // profs définitifs en perte de charge
-  const [unite, setUnite] = useState(getUnite());
+  const [unite, setUniteLocal] = useState(getUnite());
   useEffect(() => {
-    const h = () => setUnite(getUnite());
+    const h = () => setUniteLocal(getUnite());
     window.addEventListener('unite-change', h);
     return () => window.removeEventListener('unite-change', h);
   }, []);
@@ -1276,6 +1276,11 @@ export default function Attributions() {
           · HELB <b className="text-iip-mauve">{stats.helb.toLocaleString('fr-BE')}</b>
         </span>
         <div className="ml-auto flex gap-2 flex-wrap">
+          <button onClick={()=>{ const next = unite==='heures'?'periodes':'heures'; setUniteLocal(next); setUniteGlobal(next); window.dispatchEvent(new Event('unite-change')); }}
+            title="Basculer la saisie entre périodes et heures (le stockage reste en périodes)"
+            className="bg-white border border-iip-mauve text-iip-mauve hover:bg-iip-mauve/5 text-sm px-3 py-1.5 rounded font-medium">
+            <span className="inline-flex items-center gap-1.5">{unite==='heures' ? '⏱ Heures' : '⏳ Périodes'}</span>
+          </button>
           <button onClick={()=>setShowForm(true)} className="bg-iip-gold hover:bg-iip-amber text-white text-sm px-3 py-1.5 rounded font-medium"><span className="inline-flex items-center gap-1.5"><IconPlus size={15}/>Nouvelle</span></button>
           <button onClick={()=>setShowBulkCreate(true)} className="bg-iip-gold hover:bg-iip-amber text-white text-sm px-3 py-1.5 rounded font-medium" title="Créer les attributions d'une section"><span className="inline-flex items-center gap-1.5"><IconPlus size={15}/>Créer une section</span></button>
           <button onClick={()=>setShowCopierSection(true)} className="bg-indigo-600 hover:bg-indigo-700 text-white text-sm px-3 py-1.5 rounded font-medium" title="Copier les attributions d'une section vers une autre année"><span className="inline-flex items-center gap-1.5"><IconClipboardText size={15}/>Copier section</span></button>
