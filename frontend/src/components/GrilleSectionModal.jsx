@@ -31,7 +31,10 @@ export default function GrilleSectionModal({ section, onClose }) {
 
   function recalcUE(ue, cours) {
     const placee = cours.reduce((s, c) => s + n(c.cours_autonomie), 0);
-    return { ...ue, cours, autonomie_placee: placee, autonomie_restante: ue.ue_aut - placee };
+    const complement = cours.reduce((s, c) => s + n(c.cours_complement), 0);
+    const utilise = placee + complement;
+    return { ...ue, cours, autonomie_placee: placee, autonomie_complement: complement,
+             autonomie_utilisee: utilise, autonomie_restante: ue.ue_aut - utilise };
   }
 
   function majChamp(ueNum, coursCode, patch) {
@@ -131,6 +134,14 @@ export default function GrilleSectionModal({ section, onClose }) {
     repartirUE(ue.ue_num, ue.cours);
   }
 
+  // Complément (autonomie affectée librement au prof : activité, surveillances…)
+  function onChangeComplement(ueNum, coursCode, valeur) {
+    majChamp(ueNum, coursCode, { cours_complement: valeur });
+  }
+  function blurComplement(coursCode, valeur) {
+    sauver(coursCode, { cours_complement: n(valeur) });
+  }
+
   const inp = 'w-14 text-center border border-gray-300 rounded px-1 py-1 text-sm focus:outline-none focus:border-iip-mauve';
   const inpRO = 'w-14 text-center border border-gray-200 rounded px-1 py-1 text-sm bg-gray-50 text-gray-500';
 
@@ -188,6 +199,10 @@ export default function GrilleSectionModal({ section, onClose }) {
                   <div className="flex items-center gap-3 text-xs">
                     <span className="text-gray-500">DP : <strong>{ue.somme_dp}</strong> pér.</span>
                     <span className="text-gray-500">Enveloppe : <strong>{ue.ue_aut}</strong></span>
+                    <span className="px-2 py-0.5 rounded bg-iip-mauve/10 text-iip-mauve font-medium"
+                      title={`Cours ${ue.autonomie_placee || 0} + complément ${ue.autonomie_complement || 0}`}>
+                      Utilisé {ue.autonomie_utilisee || 0}/{ue.ue_aut}
+                    </span>
                     {insuffisant
                       ? <span className="px-2 py-0.5 rounded font-medium bg-red-100 text-red-700">Besoin {besoinTotal} &gt; enveloppe {ue.ue_aut} · il manque {besoinTotal - n(ue.ue_aut)}</span>
                       : <span className={`px-2 py-0.5 rounded font-medium ${
@@ -208,6 +223,7 @@ export default function GrilleSectionModal({ section, onClose }) {
                       <th className="px-2 py-1.5 font-medium text-center">Classe (h)</th>
                       <th className="px-2 py-1.5 font-medium text-center">EV1 (h)</th>
                       <th className="px-2 py-1.5 font-medium text-center">VC1 (h)</th>
+                      <th className="px-2 py-1.5 font-medium text-center">Complément</th>
                       <th className="px-2 py-1.5 font-medium text-center">Total h</th>
                       <th className="px-2 py-1.5 font-medium text-center">→ pér.</th>
                       <th className="px-2 py-1.5 font-medium text-center">Autonomie</th>
@@ -243,6 +259,13 @@ export default function GrilleSectionModal({ section, onClose }) {
                               value={c.cours_vc1 ?? ''}
                               onChange={e => onChangeGrille(ue.ue_num, c, 'cours_vc1', e.target.value)}
                               onBlur={e => grille && blurGrille(ue.ue_num, c, 'cours_vc1', e.target.value)} />
+                          </td>
+                          <td className="px-2 py-1.5 text-center">
+                            <input type="number" min="0" className={`${inp} text-blue-700 font-medium ${saving[c.cours_code] ? 'opacity-50' : ''}`}
+                              value={c.cours_complement ?? 0}
+                              title="Autonomie donnée au prof (activité, surveillances…) — consomme l'enveloppe"
+                              onChange={e => onChangeComplement(ue.ue_num, c.cours_code, e.target.value)}
+                              onBlur={e => blurComplement(c.cours_code, e.target.value)} />
                           </td>
                           <td className="px-2 py-1.5 text-center font-medium text-gray-700">{totalH || '—'}</td>
                           <td className="px-2 py-1.5 text-center font-semibold text-violet-600">{totalPer || '—'}</td>
