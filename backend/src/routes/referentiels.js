@@ -1514,6 +1514,52 @@ r.put('/personnel-mission', authRequired, roleRequired('admin', 'editeur'), (req
   res.json({ ok: true });
 });
 
+// ── Grille d'autonomie d'une section (répartiteur) ───────────────────────────
+// Renvoie toutes les UE de la section avec leurs cours et l'enveloppe d'autonomie.
+// GET /grille-section?section=TIM&annee=2026-2027
+r.get('/grille-section', authRequired, (req, res) => {
+  const section = req.query.section;
+  const annee = req.query.annee
+    || db.prepare("SELECT code FROM annee_scolaire WHERE active = 1 LIMIT 1").get()?.code;
+  if (!section) return res.status(400).json({ error: 'section requise' });
+
+  // UE rattachées à la section (via ue_section si présent, sinon ue.section)
+  let ueNums = db.prepare(
+    'SELECT DISTINCT ue_num FROM ue_section WHERE section_code = ? AND annee_scolaire = ?'
+  ).all(section, annee).map(r => r.ue_num);
+  if (ueNums.length === 0) {
+    ueNums = db.prepare(
+      'SELECT ue_num FROM ue WHERE section = ? AND annee_scolaire = ?'
+    ).all(section, annee).map(r => r.ue_num);
+  }
+
+  const ues = [];
+  for (const ueNum of ueNums) {
+    const ue = db.prepare('SELECT ue_num, ue_nom, ue_aut FROM ue WHERE ue_num = ? AND annee_scolaire = ?')
+      .get(ueNum, annee);
+    if (!ue) continue;
+    const cours = db.prepare(`
+      SELECT cours_code, cours_nom, ct_pp, cours_per, cours_autonomie, dedouble, heures
+      FROM cours
+      WHERE ue_num = ? AND annee_scolaire = ? AND (section = ? OR section IS NULL OR section = '')
+      ORDER BY cours_code
+    `).all(ueNum, annee, section);
+    const enveloppe = Number(ue.ue_aut) || 0;
+    const placee = cours.reduce((s, c) => s + (Number(c.cours_autonomie) || 0), 0);
+    ues.push({
+      ue_num: ue.ue_num,
+      ue_nom: ue.ue_nom,
+      ue_aut: enveloppe,
+      autonomie_placee: placee,
+      autonomie_restante: enveloppe - placee,
+      somme_dp: cours.reduce((s, c) => s + (Number(c.cours_per) || 0), 0),
+      cours,
+    });
+  }
+  ues.sort((a, b) => String(a.ue_num).localeCompare(String(b.ue_num), 'fr', { numeric: true }));
+  res.json({ section, annee, ues });
+});
+
 export default r;
 
 // ── Organisations UE (Doc A) ─────────────────────────────────────────────────
