@@ -1024,7 +1024,11 @@ export default function Attributions() {
                         onChange={()=>{const real=cg.rows.filter(r=>!r.is_z);const all=real.every(r=>selected.has(r.id));setSelected(s=>{const n=new Set(s);real.forEach(r=>all?n.delete(r.id):n.add(r.id));return n;});}}
                         className="cursor-pointer"/>
                     </th>
-                  : <ResizableHeader key={c.key} col={c} sortKey={sortBy.key} sortDir={sortBy.dir} onSort={toggleSort} onResize={setColWidth}>{c.label}</ResizableHeader>
+                  : <ResizableHeader key={c.key} col={c} sortKey={sortBy.key} sortDir={sortBy.dir} onSort={toggleSort} onResize={setColWidth}>{
+                      unite==='heures' && (c.key==='periodes_attribuees' || c.key==='autonomie_attribuee')
+                        ? (c.key==='periodes_attribuees' ? 'Heu.' : 'Aut.(h)')
+                        : c.label
+                    }</ResizableHeader>
                 )}
               </tr></thead>
               <tbody>{cg.rows.map(r => renderRow(r, COLS_COURS))}</tbody>
@@ -1301,7 +1305,11 @@ export default function Attributions() {
             <thead><tr>
               {COLS.map(c => c.key==='__select'
                 ? <th key={c.key} style={{width:c.width,minWidth:c.width,maxWidth:c.width}}><input type="checkbox" checked={selected.size>0&&selected.size===sortedData.length} onChange={toggleSelectAll} className="cursor-pointer"/></th>
-                : <ResizableHeader key={c.key} col={c} sortKey={sortBy.key} sortDir={sortBy.dir} onSort={toggleSort} onResize={setColWidth}>{c.label}</ResizableHeader>
+                : <ResizableHeader key={c.key} col={c} sortKey={sortBy.key} sortDir={sortBy.dir} onSort={toggleSort} onResize={setColWidth}>{
+                    unite==='heures' && (c.key==='periodes_attribuees' || c.key==='autonomie_attribuee')
+                      ? (c.key==='periodes_attribuees' ? 'Heu.' : 'Aut.(h)')
+                      : c.label
+                  }</ResizableHeader>
               )}
             </tr></thead>
             <tbody>{sortedData.map(r => renderRow(r, COLS))}</tbody>
