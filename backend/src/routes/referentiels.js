@@ -440,7 +440,7 @@ r.patch('/cours/:code', authRequired, roleRequired('admin', 'editeur'), (req, re
   const annee = req.body.annee_scolaire || req.query.annee || '2025-2026';
   const allowed = ['cours_nom','ue_num','section','ct_pp','cours_per','quadrimestre_cours','ue_niveau',
                    'cours_num','cours_total','ue_autonomie','ue_per_total','enc_cours','heures',
-                   'cours_autonomie','dedouble','per_etudiant','is_stage'];
+                   'cours_autonomie','dedouble','per_etudiant','is_stage','cours_ev1','cours_vc1'];
   // Validation autonomie si on modifie l'autonomie / le dédoublement
   if (('cours_autonomie' in req.body) || ('dedouble' in req.body)) {
     const cur = db.prepare('SELECT ue_num, cours_autonomie, dedouble FROM cours WHERE cours_code = ? AND annee_scolaire = ?').get(req.params.code, annee);
@@ -1539,7 +1539,8 @@ r.get('/grille-section', authRequired, (req, res) => {
       .get(ueNum, annee);
     if (!ue) continue;
     const cours = db.prepare(`
-      SELECT cours_code, cours_nom, ct_pp, cours_per, cours_autonomie, dedouble, heures
+      SELECT cours_code, cours_nom, ct_pp, cours_per, cours_autonomie, dedouble, heures,
+             cours_ev1, cours_vc1
       FROM cours
       WHERE ue_num = ? AND annee_scolaire = ? AND (section = ? OR section IS NULL OR section = '')
       ORDER BY cours_code
