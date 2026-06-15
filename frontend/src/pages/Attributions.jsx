@@ -549,7 +549,7 @@ export default function Attributions() {
       const ueMap = secMap.get(sec);
       const org = r.num_organisation || 1;
       const ueKey = (r.ue_num ?? 0) + '/org' + org;
-      if (!ueMap.has(ueKey)) ueMap.set(ueKey, { ue_num: r.ue_num, ue_nom: r.ue_nom, bloc: r.bloc, ue_et_ref: r.ue_et_ref, ue_quad: r.quadri_pour_tous_prevu, num_organisation: org, coursMap: new Map(), rows: [] });
+      if (!ueMap.has(ueKey)) ueMap.set(ueKey, { ue_num: r.ue_num, ue_nom: r.ue_nom, bloc: r.bloc, ue_et_ref: r.ue_et_ref, ue_tc: r.ue_tc, ue_quad: r.quadri_pour_tous_prevu, num_organisation: org, coursMap: new Map(), rows: [] });
       const ueGroup = ueMap.get(ueKey);
       ueGroup.rows.push(r);
       const coursKey = r.code_cours || '?';
@@ -1038,6 +1038,7 @@ export default function Attributions() {
             <span className={`text-iip-gold text-sm transition-transform ${open?'rotate-90':''}`}>▶</span>
             <span className="font-semibold text-iip-gold text-sm whitespace-nowrap">UE {ue.ue_num}</span>
             <span className="flex items-center gap-1 flex-wrap">
+              {ue.ue_tc === 'x' && <span className="text-xs bg-iip-gold/15 text-iip-gold px-1.5 py-0.5 rounded font-bold" title="Unité du tronc commun">TC</span>}
               {org > 1 && <span className="text-xs bg-amber-100 text-amber-800 px-1.5 py-0.5 rounded font-semibold">Org. {org}</span>}
               {ue.bloc && <span className="text-xs bg-iip-gold/10 text-iip-gold px-1.5 py-0.5 rounded">{ue.bloc}</span>}
               {isHelb && <span className="text-xs text-pink-600 font-bold px-1.5 py-0.5 rounded bg-pink-100">HELB</span>}
