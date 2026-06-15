@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
-import { api } from '../lib/api.js';
+import { api, getAnnee } from '../lib/api.js';
+import PreviewModal from './PreviewModal.jsx';
 
 // Conversion heures (×60 min) → périodes (50 min) : ×1.2
 const h2p = (h) => Math.round((Number(h) || 0) * 1.2);
@@ -17,6 +18,7 @@ export default function GrilleSectionModal({ section, onClose }) {
   const [loading, setLoading] = useState(true);
   const [mode, setMode]     = useState('grille'); // 'manuel' | 'grille'
   const [saving, setSaving] = useState({});
+  const [printHtml, setPrintHtml] = useState(null);
   const [annee, setAnnee]   = useState('');
 
   useEffect(() => { charger(); /* eslint-disable-next-line */ }, [section]);
@@ -142,6 +144,80 @@ export default function GrilleSectionModal({ section, onClose }) {
     sauver(coursCode, { cours_complement: n(valeur) });
   }
 
+  // Génère le document imprimable (même format que la grille de section, avec nos colonnes + TC)
+  function imprimer() {
+    const S = 'padding:1px 5px;font-size:10px;';
+    const SR = S + 'text-align:right;';
+    const SC = S + 'text-align:center;';
+    const lignesUE = ues.map(ue => {
+      const tc = ue.ue_tc === 'x'
+        ? '<span style="display:inline-block;background:#eff6ff;color:#1e3a8a;border:1px solid #1e3a8a;font-size:8px;font-weight:700;padding:0 5px;border-radius:3px;margin-left:6px">TC</span>'
+        : '';
+      const lignesCours = ue.cours.map((c, i) => {
+        const dp = n(c.cours_per), auto = n(c.cours_autonomie);
+        const totalH = n(c.heures) + n(c.cours_ev1) + n(c.cours_vc1);
+        const totalPer = h2p(totalH);
+        const comp = n(c.cours_complement);
+        return `
+          <tr style="background:${i%2===0?'#fff':'#f9fafb'}">
+            <td style="${S}padding-left:20px;color:#6b7280;font-family:monospace">${c.cours_code||''}</td>
+            <td style="${S}">${c.cours_nom||'—'}</td>
+            <td style="${SR}color:#374151">${dp||'—'}</td>
+            <td style="${SR}">${n(c.heures)||'—'}</td>
+            <td style="${SR}">${n(c.cours_ev1)||'—'}</td>
+            <td style="${SR}">${n(c.cours_vc1)||'—'}</td>
+            <td style="${SR}color:#1d4ed8">${comp||'—'}</td>
+            <td style="${SR}font-weight:600">${totalH||'—'}</td>
+            <td style="${SR}color:#7c3aed;font-weight:700">${totalPer||'—'}</td>
+            <td style="${SR}color:#f59e0b;font-weight:600">${auto||'—'}</td>
+            <td style="${SR}font-weight:700">${dp+auto}</td>
+          </tr>`;
+      }).join('');
+      const restant = ue.autonomie_restante;
+      const badgeEnv = restant < 0
+        ? `<span style="color:#b91c1c;font-weight:700">Dépassement ${-restant}</span>`
+        : `<span style="color:#92740c">Reste ${restant}</span>`;
+      return `
+        <tr style="background:#f1f5f9;border-left:3px solid ${ue.ue_tc==='x'?'#1e3a8a':'#C9A84C'}">
+          <td colspan="6" style="padding:4px 6px 4px 8px;font-weight:700;font-size:11px;color:#111827">
+            UE\u00a0${ue.ue_num} — ${ue.ue_nom||''}${tc}
+          </td>
+          <td colspan="5" style="${SR}font-size:9px;color:#6b7280">DP ${ue.somme_dp} · Enveloppe ${ue.ue_aut} · Utilisé ${ue.autonomie_utilisee||0} · ${badgeEnv}</td>
+        </tr>
+        ${lignesCours}`;
+    }).join('');
+
+    const html = `<!DOCTYPE html><html><head><meta charset="utf-8">
+      <style>*{box-sizing:border-box;margin:0;padding:0}body{font-family:'Segoe UI',Arial,sans-serif;font-size:11px}table{width:100%;border-collapse:collapse}td,th{border-bottom:1px solid #e5e7eb}@media print{@page{margin:10mm;size:A4 landscape}tr{page-break-inside:avoid}thead{display:table-header-group}}</style>
+      </head><body><div style="padding:8mm">
+        <div style="display:flex;justify-content:space-between;align-items:flex-end;border-bottom:2px solid #1B2B4B;padding-bottom:6px;margin-bottom:10px">
+          <div>
+            <div style="font-size:16px;font-weight:700;color:#1B2B4B">Grille de répartition — ${section}</div>
+            <div style="font-size:11px;color:#6b7280">Année scolaire ${annee} · classe + EV1 + VC1 → périodes (×1.2) + autonomie</div>
+          </div>
+          <div style="font-size:9px;color:#9ca3af">Généré le ${new Date().toLocaleDateString('fr-BE')} · Lucie · IIP</div>
+        </div>
+        <table><thead>
+          <tr style="background:#1B2B4B;color:white">
+            <th style="padding:3px 5px;text-align:left;font-size:10px">Code</th>
+            <th style="padding:3px 5px;text-align:left;font-size:10px">Cours / UE</th>
+            <th style="padding:3px 5px;text-align:right;font-size:10px">DP</th>
+            <th style="padding:3px 5px;text-align:right;font-size:10px">Classe</th>
+            <th style="padding:3px 5px;text-align:right;font-size:10px">EV1</th>
+            <th style="padding:3px 5px;text-align:right;font-size:10px">VC1</th>
+            <th style="padding:3px 5px;text-align:right;font-size:10px">Compl.</th>
+            <th style="padding:3px 5px;text-align:right;font-size:10px">Total h</th>
+            <th style="padding:3px 5px;text-align:right;font-size:10px">→ pér.</th>
+            <th style="padding:3px 5px;text-align:right;font-size:10px">Auton.</th>
+            <th style="padding:3px 5px;text-align:right;font-size:10px">Total</th>
+          </tr>
+        </thead><tbody>
+          ${lignesUE}
+        </tbody></table>
+      </div></body></html>`;
+    setPrintHtml({ html, nom: `Grille_${section}_${annee}` });
+  }
+
   const inp = 'w-14 text-center border border-gray-300 rounded px-1 py-1 text-sm focus:outline-none focus:border-iip-mauve';
   const inpRO = 'w-14 text-center border border-gray-200 rounded px-1 py-1 text-sm bg-gray-50 text-gray-500';
 
@@ -155,7 +231,13 @@ export default function GrilleSectionModal({ section, onClose }) {
             <h2 className="font-title text-lg text-iip-mauve">Répartition de l'autonomie — {section}</h2>
             <p className="text-xs text-gray-500">{annee} · classe + EV1 + VC1 → périodes, comblées par l'autonomie</p>
           </div>
-          <button onClick={onClose} className="text-gray-400 hover:text-red-500 text-2xl leading-none">×</button>
+          <div className="flex items-center gap-2">
+            <button onClick={imprimer} title="Imprimer la grille"
+              className="px-3 py-1.5 text-sm rounded-lg bg-slate-800 text-white hover:bg-slate-700 font-medium">
+              🖨 Imprimer
+            </button>
+            <button onClick={onClose} className="text-gray-400 hover:text-red-500 text-2xl leading-none">×</button>
+          </div>
         </div>
 
         <div className="px-5 py-2 border-b border-gray-100 flex items-center gap-3">
@@ -296,6 +378,7 @@ export default function GrilleSectionModal({ section, onClose }) {
           </button>
         </div>
       </div>
+      {printHtml && <PreviewModal html={printHtml.html} titre={`Grille — ${section}`} nomFichier={printHtml.nom} onClose={() => setPrintHtml(null)} />}
     </div>
   );
 }
