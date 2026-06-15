@@ -39,26 +39,34 @@ export default function GrilleSectionModal({ section, onClose }) {
     }));
   }
 
-  // Sauvegarde l'autonomie d'un cours (auto, au blur)
-  async function sauverAutonomie(coursCode, valeur) {
+  // Sauvegarde l'autonomie d'un cours (valeur explicite, pas de closure périmée)
+  async function sauverAutonomie(coursCode, valeur, heures) {
     const v = Number(valeur) || 0;
     setSaving(s => ({ ...s, [coursCode]: true }));
     try {
-      await api.updateCours(coursCode, { cours_autonomie: v });
+      const payload = { cours_autonomie: v };
+      if (heures != null && heures !== '') payload.heures = Number(heures) || 0;
+      await api.updateCours(coursCode, payload);
     } catch (e) {
       alert('Erreur : ' + e.message);
-      charger(); // resync en cas d'échec (ex. dépassement plafond rejeté par le backend)
+      charger(); // resync si rejet (ex. dépassement plafond)
     } finally {
       setSaving(s => { const n = { ...s }; delete n[coursCode]; return n; });
     }
   }
 
-  // En mode grille : l'objectif heures fixe l'autonomie = max(0, objectif_pér − DP)
+  // Mode grille : l'objectif en heures fixe l'autonomie = max(0, objectif_pér − DP)
   function appliquerObjectifHeures(ueNum, coursCode, heures, coursPer) {
     const objPer = h2p(heures);
     const autoNecessaire = Math.max(0, objPer - (Number(coursPer) || 0));
-    majLocal(ueNum, coursCode, 'heures', heures);
-    majLocal(ueNum, coursCode, 'cours_autonomie', autoNecessaire);
+    setUes(prev => prev.map(ue => {
+      if (ue.ue_num !== ueNum) return ue;
+      const cours = ue.cours.map(c => c.cours_code === coursCode
+        ? { ...c, heures, cours_autonomie: autoNecessaire } : c);
+      const placee = cours.reduce((s, c) => s + (Number(c.cours_autonomie) || 0), 0);
+      return { ...ue, cours, autonomie_placee: placee, autonomie_restante: ue.ue_aut - placee };
+    }));
+    return autoNecessaire;
   }
 
   const inp = 'w-16 text-center border border-gray-300 rounded px-1 py-1 text-sm focus:outline-none focus:border-iip-mauve';
@@ -151,18 +159,22 @@ export default function GrilleSectionModal({ section, onClose }) {
                               <input type="number" min="0" className={inp}
                                 value={c.heures ?? ''}
                                 onChange={e => appliquerObjectifHeures(ue.ue_num, c.cours_code, e.target.value, dp)}
-                                onBlur={() => { sauverAutonomie(c.cours_code, c.cours_autonomie); api.updateCours(c.cours_code, { heures: Number(c.heures) || 0 }).catch(() => {}); }} />
+                                onBlur={e => {
+                                  const objPer = h2p(e.target.value);
+                                  const autoNec = Math.max(0, objPer - dp);
+                                  sauverAutonomie(c.cours_code, autoNec, e.target.value);
+                                }} />
                             </td>
                           )}
                           {mode === 'grille' && (
                             <td className="px-2 py-1.5 text-center font-semibold text-violet-600">{c.heures ? h2p(c.heures) : '—'}</td>
                           )}
                           <td className="px-2 py-1.5 text-center">
-                            <input type="number" min="0" className={`${inp} ${saving[c.cours_code] ? 'opacity-50' : ''} text-amber-700 font-medium`}
+                            <input type="number" min="0" className={`${inp} ${saving[c.cours_code] ? 'opacity-50' : ''} ${mode === 'grille' ? 'bg-gray-50 text-gray-500' : 'text-amber-700 font-medium'}`}
                               value={auto}
-                              disabled={mode === 'grille'}
+                              readOnly={mode === 'grille'}
                               onChange={e => majLocal(ue.ue_num, c.cours_code, 'cours_autonomie', e.target.value)}
-                              onBlur={e => sauverAutonomie(c.cours_code, e.target.value)} />
+                              onBlur={e => mode !== 'grille' && sauverAutonomie(c.cours_code, e.target.value)} />
                           </td>
                           <td className="px-2 py-1.5 text-center font-semibold text-gray-700">{dp + auto}</td>
                         </tr>
