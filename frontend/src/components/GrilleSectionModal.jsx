@@ -42,10 +42,6 @@ export default function GrilleSectionModal({ section, onClose }) {
     }));
   }
 
-  function recalcAutonomie(c) {
-    const totalH = n(c.heures) + n(c.cours_ev1) + n(c.cours_vc1);
-    return Math.max(0, h2p(totalH) - n(c.cours_per));
-  }
 
   async function sauver(coursCode, payload) {
     setSaving(s => ({ ...s, [coursCode]: true }));
@@ -59,61 +55,79 @@ export default function GrilleSectionModal({ section, onClose }) {
     }
   }
 
-  function onChangeGrille(ueNum, c, champ, valeur) {
-    const updated = { ...c, [champ]: valeur };
-    const auto = recalcAutonomie(updated);
-    majChamp(ueNum, c.cours_code, { [champ]: valeur, cours_autonomie: auto });
-  }
-  function blurGrille(c, champ, valeur) {
-    const updated = { ...c, [champ]: valeur };
-    const auto = recalcAutonomie(updated);
-    sauver(c.cours_code, {
-      heures: n(updated.heures),
-      cours_ev1: n(updated.cours_ev1),
-      cours_vc1: n(updated.cours_vc1),
-      cours_autonomie: auto,
-    });
-  }
-
-  // 🪄 Baguette : répartit l'enveloppe ue_aut au prorata des besoins de chaque cours.
+  // Calcule la répartition de l'autonomie d'une UE (prorata si besoin > enveloppe).
   // besoin(cours) = max(0, (classe+EV1+VC1)×1.2 − DP)
-  // - si somme besoins ≤ enveloppe : chaque cours reçoit son besoin exact
-  // - sinon : prorata (E/B), arrondi au plus grand reste pour tomber juste sur E
-  async function baguette(ue) {
-    const besoins = ue.cours.map(c => ({
+  function calculerParts(coursList, enveloppe) {
+    const besoins = coursList.map(c => ({
       code: c.cours_code,
       besoin: Math.max(0, h2p(n(c.heures) + n(c.cours_ev1) + n(c.cours_vc1)) - n(c.cours_per)),
     }));
     const B = besoins.reduce((s, x) => s + x.besoin, 0);
-    const E = n(ue.ue_aut);
-
+    const E = n(enveloppe);
     let parts;
     if (B === 0) {
       parts = besoins.map(x => ({ code: x.code, val: 0 }));
     } else if (B <= E) {
       parts = besoins.map(x => ({ code: x.code, val: x.besoin }));
     } else {
-      // Prorata avec méthode du plus grand reste pour distribuer exactement E
-      const bruts = besoins.map(x => ({ code: x.code, exact: x.besoin * E / B }));
-      let base = bruts.map(x => ({ code: x.code, val: Math.floor(x.exact), reste: x.exact - Math.floor(x.exact) }));
-      let distribue = base.reduce((s, x) => s + x.val, 0);
-      let manque = Math.round(E) - distribue;
+      const base = besoins.map(x => {
+        const exact = x.besoin * E / B;
+        return { code: x.code, val: Math.floor(exact), reste: exact - Math.floor(exact) };
+      });
+      let manque = Math.round(E) - base.reduce((s, x) => s + x.val, 0);
       base.sort((a, b) => b.reste - a.reste);
       for (let i = 0; i < base.length && manque > 0; i++) { base[i].val += 1; manque -= 1; }
       parts = base.map(x => ({ code: x.code, val: x.val }));
     }
+    return Object.fromEntries(parts.map(p => [p.code, p.val]));
+  }
 
-    // Appliquer en local + sauvegarder
-    const map = Object.fromEntries(parts.map(p => [p.code, p.val]));
+  // Recalcule + applique la répartition d'une UE à partir d'une liste de cours à jour
+  function repartirUE(ueNum, coursMaj) {
     setUes(prev => prev.map(u => {
-      if (u.ue_num !== ue.ue_num) return u;
-      const cours = u.cours.map(c => ({ ...c, cours_autonomie: map[c.cours_code] ?? n(c.cours_autonomie) }));
+      if (u.ue_num !== ueNum) return u;
+      const liste = coursMaj || u.cours;
+      const map = calculerParts(liste, u.ue_aut);
+      for (const [code, val] of Object.entries(map)) {
+        api.updateCours(code, { cours_autonomie: val }).catch(() => {});
+      }
+      const cours = liste.map(c => ({ ...c, cours_autonomie: map[c.cours_code] ?? n(c.cours_autonomie) }));
       return recalcUE(u, cours);
     }));
-    for (const p of parts) {
-      // sauvegarde silencieuse (sans bloquer l'UI sur chaque ligne)
-      api.updateCours(p.code, { cours_autonomie: p.val }).catch(() => {});
-    }
+  }
+
+  // Édition d'une cellule heures : maj locale immédiate (sans recalcul pendant la frappe)
+  function onChangeGrille(ueNum, c, champ, valeur) {
+    majChamp(ueNum, c.cours_code, { [champ]: valeur });
+  }
+
+  // Au blur : sauve les heures + recalcule TOUTE l'UE au prorata (le déficit se réajuste)
+  function blurGrille(ueNum, c, champ, valeur) {
+    const updated = { ...c, [champ]: valeur };
+    sauver(c.cours_code, {
+      heures: n(updated.heures),
+      cours_ev1: n(updated.cours_ev1),
+      cours_vc1: n(updated.cours_vc1),
+    });
+    setUes(prev => {
+      const ue = prev.find(u => u.ue_num === ueNum);
+      if (!ue) return prev;
+      const coursMaj = ue.cours.map(x => x.cours_code === c.cours_code ? updated : x);
+      const map = calculerParts(coursMaj, ue.ue_aut);
+      for (const [code, val] of Object.entries(map)) {
+        api.updateCours(code, { cours_autonomie: val }).catch(() => {});
+      }
+      return prev.map(u => {
+        if (u.ue_num !== ueNum) return u;
+        const cours = coursMaj.map(x => ({ ...x, cours_autonomie: map[x.cours_code] ?? n(x.cours_autonomie) }));
+        return recalcUE(u, cours);
+      });
+    });
+  }
+
+  // 🪄 Baguette : applique la répartition au prorata à toute l'UE
+  function baguette(ue) {
+    repartirUE(ue.ue_num, ue.cours);
   }
 
   const inp = 'w-14 text-center border border-gray-300 rounded px-1 py-1 text-sm focus:outline-none focus:border-iip-mauve';
@@ -215,19 +229,19 @@ export default function GrilleSectionModal({ section, onClose }) {
                             <input type="number" min="0" step="0.5" className={grille ? inp : inpRO} readOnly={!grille}
                               value={c.heures ?? ''}
                               onChange={e => onChangeGrille(ue.ue_num, c, 'heures', e.target.value)}
-                              onBlur={e => grille && blurGrille(c, 'heures', e.target.value)} />
+                              onBlur={e => grille && blurGrille(ue.ue_num, c, 'heures', e.target.value)} />
                           </td>
                           <td className="px-2 py-1.5 text-center">
                             <input type="number" min="0" step="0.5" className={grille ? inp : inpRO} readOnly={!grille}
                               value={c.cours_ev1 ?? ''}
                               onChange={e => onChangeGrille(ue.ue_num, c, 'cours_ev1', e.target.value)}
-                              onBlur={e => grille && blurGrille(c, 'cours_ev1', e.target.value)} />
+                              onBlur={e => grille && blurGrille(ue.ue_num, c, 'cours_ev1', e.target.value)} />
                           </td>
                           <td className="px-2 py-1.5 text-center">
                             <input type="number" min="0" step="0.5" className={grille ? inp : inpRO} readOnly={!grille}
                               value={c.cours_vc1 ?? ''}
                               onChange={e => onChangeGrille(ue.ue_num, c, 'cours_vc1', e.target.value)}
-                              onBlur={e => grille && blurGrille(c, 'cours_vc1', e.target.value)} />
+                              onBlur={e => grille && blurGrille(ue.ue_num, c, 'cours_vc1', e.target.value)} />
                           </td>
                           <td className="px-2 py-1.5 text-center font-medium text-gray-700">{totalH || '—'}</td>
                           <td className="px-2 py-1.5 text-center font-semibold text-violet-600">{totalPer || '—'}</td>
