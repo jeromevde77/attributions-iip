@@ -219,7 +219,7 @@ const ENTITES = {
     fetch: (annee, filtres) => authFetch(
       `/api/attributions/rapport-attributions?section=${encodeURIComponent(filtres.section||'')}&annee=${encodeURIComponent(annee)}`
     ),
-    filtres: ['section'],
+    filtres: ['section', 'tc'],
   },
   'rapport-ue': {
     label: 'Rapport par UE', icon: '📋',
@@ -518,6 +518,9 @@ export default function Listes() {
     if (entite === 'rapport-ue' && filtres.ue_num) {
       ues = ues.filter(u => String(u.ue_num) === String(filtres.ue_num));
     }
+    // Filtre tronc commun : 'tc' = uniquement TC, 'hors' = uniquement hors TC
+    if (filtres.tc === 'tc')   ues = ues.filter(u => u.ue_tc === 'x');
+    if (filtres.tc === 'hors') ues = ues.filter(u => u.ue_tc !== 'x');
 
     const renderUErap = (ue) => {
       const col = getNivCol(ue.ue_niv);
@@ -618,6 +621,8 @@ export default function Listes() {
 
     let ues = d.ues || [];
     if (entite === 'rapport-ue' && filtres.ue_num) ues = ues.filter(u => String(u.ue_num) === String(filtres.ue_num));
+    if (filtres.tc === 'tc')   ues = ues.filter(u => u.ue_tc === 'x');
+    if (filtres.tc === 'hors') ues = ues.filter(u => u.ue_tc !== 'x');
 
     const rows = [
       [{ v:`Attributions — ${d.section}`, s:{font:{name:'Calibri',sz:14,bold:true,color:{rgb:BLEU}}}}],
@@ -730,6 +735,17 @@ export default function Listes() {
                     className="w-full border border-gray-300 rounded px-2 py-1.5 text-sm bg-white">
                     <option value="">— Tous —</option>
                     <option value="SUP">SUP</option><option value="DS">DS</option>
+                  </select>
+                </label>
+              )}
+              {def.filtres.includes('tc') && (
+                <label className="block mb-2">
+                  <div className="text-xs text-gray-600 mb-0.5">Tronc commun</div>
+                  <select value={filtres.tc || ''} onChange={e => setFiltres(f => ({ ...f, tc: e.target.value }))}
+                    className="w-full border border-gray-300 rounded px-2 py-1.5 text-sm bg-white">
+                    <option value="">— L'ensemble —</option>
+                    <option value="tc">TC uniquement</option>
+                    <option value="hors">Hors TC</option>
                   </select>
                 </label>
               )}
