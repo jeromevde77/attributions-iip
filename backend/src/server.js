@@ -1700,6 +1700,13 @@ try {
   try {
     db.exec("ALTER TABLE etablissement ADD COLUMN email_contact TEXT");
   } catch(e) {}
+  // Colonnes EV1 (évaluation) et VC1 (visite des copies) par cours — défaut 2h / 1h
+  try {
+    db.exec("ALTER TABLE cours ADD COLUMN cours_ev1 REAL DEFAULT 2");
+  } catch(e) {}
+  try {
+    db.exec("ALTER TABLE cours ADD COLUMN cours_vc1 REAL DEFAULT 1");
+  } catch(e) {}
 
   // Table organisation_ue (Doc A — description des organisations par UE)
   try {
