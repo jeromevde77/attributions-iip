@@ -1,6 +1,7 @@
 import { useEffect, useState, Fragment } from 'react';
 import { api, getAnnee, getUser } from '../lib/api.js';
 import CoursFormModal from '../components/CoursFormModal.jsx';
+import GrilleSectionModal from '../components/GrilleSectionModal.jsx';
 import ImportUEAssistant from '../components/ImportUEAssistant.jsx';
 
 // ─── Modale Section ───
@@ -417,6 +418,7 @@ export default function Referentiels({ embedded = false }) {
   const [importOpen, setImportOpen] = useState(false);
   const [effectifsOpen, setEffectifsOpen] = useState(false);
   const [catalogueSection, setCatalogueSection] = useState(null); // menu + ouvert pour cette section
+  const [grilleSection, setGrilleSection] = useState(null); // section dont on édite l'autonomie
   const [catalogueOpen, setCatalogueOpen] = useState(null); // section pour laquelle le catalogue UE est ouvert
   const [annees, setAnnees] = useState([]);
   const [viewMode, setViewMode] = useState(() => {
@@ -590,7 +592,14 @@ export default function Referentiels({ embedded = false }) {
                         <span className="font-bold text-iip-gold text-sm">{sg.section}</span>
                         {sg.section_niveau && <span className="ml-2 text-xs bg-iip-gold/10 text-iip-gold px-1.5 py-0.5 rounded">{sg.section_niveau}</span>}
                       </td>
-                      <td colSpan="5" className="px-2 py-2 text-right text-sm text-gray-500">{sg.ues.length} UE · {totalCours} cours</td>
+                      <td colSpan="5" className="px-2 py-2 text-right text-sm text-gray-500">
+                        <button onClick={(e) => { e.stopPropagation(); setGrilleSection(sg.section); }}
+                          title={`Répartir l'autonomie de ${sg.section}`}
+                          className="mr-3 text-xs px-2 py-1 rounded bg-iip-mauve/10 text-iip-mauve hover:bg-iip-mauve hover:text-white transition font-medium">
+                          ⚖ Autonomie
+                        </button>
+                        {sg.ues.length} UE · {totalCours} cours
+                      </td>
                       <td className="px-2 py-2 text-right relative">
                         <button onClick={() => setCatalogueSection(catalogueSection === sg.section ? null : sg.section)}
                           title={`Ajouter une UE à ${sg.section}`}
@@ -853,6 +862,7 @@ export default function Referentiels({ embedded = false }) {
       {effectifsOpen && <EffectifsImportModal annee={annee} onClose={() => setEffectifsOpen(false)} onSaved={() => { setEffectifsOpen(false); load(); }} />}
       {ueModal && <UEModal ue={ueModal} sections={sections} onClose={() => setUeModal(null)} onSaved={() => { setUeModal(null); load(); }} />}
       {coursModal && <CoursFormModal {...coursModal} onClose={() => setCoursModal(null)} onSaved={() => { setCoursModal(null); load(); }} />}
+      {grilleSection && <GrilleSectionModal section={grilleSection} onClose={() => { setGrilleSection(null); load(); }} />}
 
       {/* ── Vue Activités ── */}
       {viewMode === 'activites' && <GestionActivites sections={sections} />}
