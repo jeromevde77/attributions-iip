@@ -194,6 +194,9 @@ export default function GrilleSectionModal({ section, onClose }) {
                       className="text-base hover:scale-110 transition" >🪄</button>
                     <div className="font-semibold text-iip-gold text-sm">
                       UE {ue.ue_num} <span className="text-gray-600 font-normal">· {ue.ue_nom}</span>
+                      {ue.ue_tc === 'x' && (
+                        <span className="ml-2 text-[10px] px-1.5 py-0.5 rounded bg-iip-gold/15 text-iip-gold font-bold align-middle" title="Unité du tronc commun">TC</span>
+                      )}
                     </div>
                   </div>
                   <div className="flex items-center gap-3 text-xs">
