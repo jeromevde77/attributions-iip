@@ -187,7 +187,7 @@ export default function GrilleSectionModal({ section, onClose }) {
               s + Math.max(0, h2p(n(c.heures) + n(c.cours_ev1) + n(c.cours_vc1)) - n(c.cours_per)), 0);
             const insuffisant = besoinTotal > n(ue.ue_aut);
             return (
-              <div key={ue.ue_num} className={`border rounded-lg overflow-hidden ${insuffisant ? 'border-red-400 ring-1 ring-red-300' : 'border-gray-200'}`}>
+              <div key={ue.ue_num} className={`border rounded-lg overflow-hidden ${insuffisant ? 'border-red-400 ring-1 ring-red-300' : 'border-gray-200'} ${ue.ue_tc === 'x' ? 'border-t-2 border-t-blue-900' : ''}`}>
                 <div className={`flex items-center justify-between px-3 py-2 border-b ${insuffisant ? 'bg-red-50 border-red-200' : 'bg-gray-50 border-gray-200'}`}>
                   <div className="flex items-center gap-2">
                     <button onClick={() => baguette(ue)} title="Répartir l'autonomie automatiquement (prorata des besoins)"
@@ -195,7 +195,7 @@ export default function GrilleSectionModal({ section, onClose }) {
                     <div className="font-semibold text-iip-gold text-sm">
                       UE {ue.ue_num} <span className="text-gray-600 font-normal">· {ue.ue_nom}</span>
                       {ue.ue_tc === 'x' && (
-                        <span className="ml-2 text-[10px] px-1.5 py-0.5 rounded bg-iip-gold/15 text-iip-gold font-bold align-middle" title="Unité du tronc commun">TC</span>
+                        <span className="ml-2 text-[10px] px-1.5 py-0.5 rounded bg-blue-50 text-blue-900 border border-blue-900 font-bold align-middle" title="Unité du tronc commun">TC</span>
                       )}
                     </div>
                   </div>
