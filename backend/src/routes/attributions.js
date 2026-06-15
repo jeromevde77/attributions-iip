@@ -106,13 +106,19 @@ r.get('/', authRequired, withSectionScope, (req, res) => {
            co.total_attribue       AS cours_total_attribue,
            co.cours_per            AS cours_per,
            co.multiple_attendu     AS cours_multiple_attendu,
-           ue.ue_tc                AS ue_tc
+           ue.ue_tc                AS ue_tc,
+           cg.heures               AS grille_heures,
+           cg.cours_ev1            AS grille_ev1,
+           cg.cours_vc1            AS grille_vc1
     FROM v_attribution_complete a
     LEFT JOIN v_cours_conformite co
       ON co.section = a.section AND co.code_cours = a.code_cours
      AND co.annee_scolaire = a.annee_scolaire
     LEFT JOIN ue
       ON ue.ue_num = a.ue_num AND ue.annee_scolaire = a.annee_scolaire
+    LEFT JOIN cours cg
+      ON cg.cours_code = a.code_cours AND cg.annee_scolaire = a.annee_scolaire
+     AND (cg.section = a.section OR cg.section IS NULL OR cg.section = '')
     ${where.length ? 'WHERE ' + where.join(' AND ') : ''}
     ORDER BY a.section, a.bloc, a.ue_num, a.code_cours
     LIMIT 1000
