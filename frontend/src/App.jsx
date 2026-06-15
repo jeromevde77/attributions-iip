@@ -17,7 +17,7 @@ class ErrorBoundary extends Component {
   }
 }
 import { Routes, Route, Navigate, NavLink, useNavigate } from 'react-router-dom';
-import { isAuthenticated, getUser, api, getAnnee, setAnnee, getUnite, setUnite } from './lib/api.js';
+import { isAuthenticated, getUser, api, getAnnee, setAnnee } from './lib/api.js';
 
 import Login from './pages/Login.jsx';
 import Dashboard from './pages/Dashboard.jsx';
@@ -48,7 +48,7 @@ const buildLabel = buildDate.toLocaleString('fr-BE', {
 });
 // Version : BUILD_VER peut être "1.2.8+sha" (Vite local), un SHA brut (CI sans fix), ou "dev"
 const _isVersion = BUILD_VER.includes('.');
-const versionNum = _isVersion ? BUILD_VER.split('+')[0] : '2.11.0'; // fallback hardcodé
+const versionNum = _isVersion ? BUILD_VER.split('+')[0] : '2.11.1'; // fallback hardcodé
 const shaOnly = BUILD_VER.includes('+')
   ? BUILD_VER.split('+')[1]?.slice(0,7)
   : BUILD_VER === 'dev' ? '' : BUILD_VER.slice(0,7);
@@ -74,7 +74,6 @@ function BuildBadge() {
 function ProtectedLayout({ children }) {
   const navigate = useNavigate();
   const [menuOpen, setMenuOpen] = useState(false);
-  const [unite, setUniteState] = useState(getUnite());
   const [annees, setAnnees] = useState([]);
   const [anneeActive, setAnneeActive] = useState(getAnnee());
   const [env, setEnv] = useState(null);
@@ -213,18 +212,6 @@ function ProtectedLayout({ children }) {
             {annees.map(a => <option key={a.code} value={a.code}>{a.code}</option>)}
             {annees.length === 0 && <option value={anneeActive}>{anneeActive}</option>}
           </select>
-
-          {/* Toggle unité de saisie Périodes / Heures */}
-          <button onClick={() => {
-              const next = unite === 'heures' ? 'periodes' : 'heures';
-              setUniteState(next); setUnite(next);
-              window.dispatchEvent(new Event('unite-change'));
-            }}
-            title="Basculer l'affichage des attributions entre périodes et heures (le stockage reste en périodes)"
-            className="border border-iip-mauve/40 rounded px-2 py-1 text-sm font-semibold text-iip-mauve bg-white hover:bg-iip-mauve/5 cursor-pointer flex items-center gap-1">
-            {unite === 'heures' ? '⏱ Heures' : '⏳ Périodes'}
-          </button>
-
           {/* Nav desktop */}
           <nav className="hidden md:flex gap-1 flex-1 ml-4">
             {nav.map(([to, lbl]) => (
