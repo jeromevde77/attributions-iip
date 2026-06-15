@@ -6,6 +6,13 @@ function clearToken() { localStorage.removeItem('token'); localStorage.removeIte
 
 // Année scolaire active — persistée dans localStorage
 export function getAnnee() { return localStorage.getItem('annee_active') || '2026-2027'; }
+
+// Unité d'affichage/saisie des attributions : 'periodes' (défaut) ou 'heures'
+// Stockage toujours en périodes ; les heures ne sont qu'une aide. 1 période = 50 min.
+export function getUnite() { return localStorage.getItem('unite_saisie') || 'periodes'; }
+export function setUnite(u) { localStorage.setItem('unite_saisie', u); }
+export function perToH(per) { return Math.round((Number(per) || 0) / 1.2); }   // périodes → heures (arrondi)
+export function hToPer(h)  { return Math.round((Number(h) || 0) * 1.2); }       // heures → périodes (arrondi)
 export function setAnnee(a) { localStorage.setItem('annee_active', a); }
 
 async function request(path, { method = 'GET', body, headers = {} } = {}) {
