@@ -559,7 +559,7 @@ export default function Attributions() {
       const ueGroup = ueMap.get(ueKey);
       ueGroup.rows.push(r);
       const coursKey = r.code_cours || '?';
-      if (!ueGroup.coursMap.has(coursKey)) ueGroup.coursMap.set(coursKey, { code_cours: r.code_cours, nom_cours: r.nom_cours, type_cours: r.type_cours, rows: [] });
+      if (!ueGroup.coursMap.has(coursKey)) ueGroup.coursMap.set(coursKey, { code_cours: r.code_cours, nom_cours: r.nom_cours, type_cours: r.type_cours, grille_heures: r.grille_heures, grille_ev1: r.grille_ev1, grille_vc1: r.grille_vc1, rows: [] });
       ueGroup.coursMap.get(coursKey).rows.push(r);
     }
     // Convertir en array structuré
@@ -1001,7 +1001,16 @@ export default function Attributions() {
         <button onClick={()=>toggle(key)} className={`w-full flex items-center gap-2 pl-10 pr-4 py-2 hover:bg-gray-100/60 transition text-left text-sm ${isZCours ? 'opacity-70' : ''}`}>
           <span className={`text-gray-400 text-sm transition-transform ${open?'rotate-90':''}`}>▶</span>
           <span className={`font-mono text-sm ${isZCours ? 'text-gray-400' : 'text-gray-500'}`}>{cg.code_cours}</span>
-          <span className={`truncate flex-1 ${isZCours ? 'text-gray-400 italic' : 'text-gray-700'}`}>{cg.nom_cours}</span>
+          <span className={`truncate ${isZCours ? 'text-gray-400 italic' : 'text-gray-700'}`}>{cg.nom_cours}</span>
+          {(() => {
+            const gh = Number(cg.grille_heures) || 0;
+            const ev = (Number(cg.grille_ev1) || 0) + (Number(cg.grille_vc1) || 0);
+            if (gh === 0 && ev === 0) return null;
+            return <span className="text-xs text-gray-400 whitespace-nowrap flex-shrink-0" title="Issu de la grille étudiant (répartiteur d'autonomie)">
+              Grille : {gh}h{ev > 0 ? ` · examens et rem : ${ev}h` : ''}
+            </span>;
+          })()}
+          <span className="flex-1"></span>
           {cg.type_cours && <span className={`text-xs px-1.5 py-0.5 rounded ${isZCours ? 'bg-gray-100 text-gray-400' : cg.type_cours==='CT'?'bg-blue-100 text-blue-700':'bg-purple-100 text-purple-700'}`}>{cg.type_cours}</span>}
           {isZCours
             ? <span className="text-xs text-gray-400 italic">périodes étudiants — sans prof</span>
