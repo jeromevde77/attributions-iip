@@ -96,32 +96,33 @@ export default function GrilleSectionModal({ section, onClose }) {
     }));
   }
 
-  // Édition d'une cellule heures : maj locale immédiate (sans recalcul pendant la frappe)
+  // Édition d'une cellule heures : recalcule la répartition de l'UE EN TEMPS RÉEL (local, sans sauvegarde)
   function onChangeGrille(ueNum, c, champ, valeur) {
-    majChamp(ueNum, c.cours_code, { [champ]: valeur });
+    setUes(prev => prev.map(u => {
+      if (u.ue_num !== ueNum) return u;
+      const coursMaj = u.cours.map(x => x.cours_code === c.cours_code ? { ...x, [champ]: valeur } : x);
+      const map = calculerParts(coursMaj, u.ue_aut);
+      const cours = coursMaj.map(x => ({ ...x, cours_autonomie: map[x.cours_code] ?? n(x.cours_autonomie) }));
+      return recalcUE(u, cours);
+    }));
   }
 
-  // Au blur : sauve les heures + recalcule TOUTE l'UE au prorata (le déficit se réajuste)
+  // Au blur : sauvegarde les heures du cours édité + l'autonomie (déjà recalculée) de toute l'UE
   function blurGrille(ueNum, c, champ, valeur) {
-    const updated = { ...c, [champ]: valeur };
-    sauver(c.cours_code, {
-      heures: n(updated.heures),
-      cours_ev1: n(updated.cours_ev1),
-      cours_vc1: n(updated.cours_vc1),
-    });
     setUes(prev => {
       const ue = prev.find(u => u.ue_num === ueNum);
       if (!ue) return prev;
-      const coursMaj = ue.cours.map(x => x.cours_code === c.cours_code ? updated : x);
-      const map = calculerParts(coursMaj, ue.ue_aut);
-      for (const [code, val] of Object.entries(map)) {
-        api.updateCours(code, { cours_autonomie: val }).catch(() => {});
+      // L'état local est déjà à jour (recalculé par onChangeGrille) : on persiste tel quel
+      for (const x of ue.cours) {
+        const payload = { cours_autonomie: n(x.cours_autonomie) };
+        if (x.cours_code === c.cours_code) {
+          payload.heures = n(x.heures);
+          payload.cours_ev1 = n(x.cours_ev1);
+          payload.cours_vc1 = n(x.cours_vc1);
+        }
+        api.updateCours(x.cours_code, payload).catch(() => {});
       }
-      return prev.map(u => {
-        if (u.ue_num !== ueNum) return u;
-        const cours = coursMaj.map(x => ({ ...x, cours_autonomie: map[x.cours_code] ?? n(x.cours_autonomie) }));
-        return recalcUE(u, cours);
-      });
+      return prev;
     });
   }
 
