@@ -75,6 +75,47 @@ export default function GrilleSectionModal({ section, onClose }) {
     });
   }
 
+  // 🪄 Baguette : répartit l'enveloppe ue_aut au prorata des besoins de chaque cours.
+  // besoin(cours) = max(0, (classe+EV1+VC1)×1.2 − DP)
+  // - si somme besoins ≤ enveloppe : chaque cours reçoit son besoin exact
+  // - sinon : prorata (E/B), arrondi au plus grand reste pour tomber juste sur E
+  async function baguette(ue) {
+    const besoins = ue.cours.map(c => ({
+      code: c.cours_code,
+      besoin: Math.max(0, h2p(n(c.heures) + n(c.cours_ev1) + n(c.cours_vc1)) - n(c.cours_per)),
+    }));
+    const B = besoins.reduce((s, x) => s + x.besoin, 0);
+    const E = n(ue.ue_aut);
+
+    let parts;
+    if (B === 0) {
+      parts = besoins.map(x => ({ code: x.code, val: 0 }));
+    } else if (B <= E) {
+      parts = besoins.map(x => ({ code: x.code, val: x.besoin }));
+    } else {
+      // Prorata avec méthode du plus grand reste pour distribuer exactement E
+      const bruts = besoins.map(x => ({ code: x.code, exact: x.besoin * E / B }));
+      let base = bruts.map(x => ({ code: x.code, val: Math.floor(x.exact), reste: x.exact - Math.floor(x.exact) }));
+      let distribue = base.reduce((s, x) => s + x.val, 0);
+      let manque = Math.round(E) - distribue;
+      base.sort((a, b) => b.reste - a.reste);
+      for (let i = 0; i < base.length && manque > 0; i++) { base[i].val += 1; manque -= 1; }
+      parts = base.map(x => ({ code: x.code, val: x.val }));
+    }
+
+    // Appliquer en local + sauvegarder
+    const map = Object.fromEntries(parts.map(p => [p.code, p.val]));
+    setUes(prev => prev.map(u => {
+      if (u.ue_num !== ue.ue_num) return u;
+      const cours = u.cours.map(c => ({ ...c, cours_autonomie: map[c.cours_code] ?? n(c.cours_autonomie) }));
+      return recalcUE(u, cours);
+    }));
+    for (const p of parts) {
+      // sauvegarde silencieuse (sans bloquer l'UI sur chaque ligne)
+      api.updateCours(p.code, { cours_autonomie: p.val }).catch(() => {});
+    }
+  }
+
   const inp = 'w-14 text-center border border-gray-300 rounded px-1 py-1 text-sm focus:outline-none focus:border-iip-mauve';
   const inpRO = 'w-14 text-center border border-gray-200 rounded px-1 py-1 text-sm bg-gray-50 text-gray-500';
 
@@ -115,21 +156,31 @@ export default function GrilleSectionModal({ section, onClose }) {
             <div className="p-8 text-center text-gray-400">Aucune UE dans cette section.</div>
           ) : ues.map(ue => {
             const depasse = ue.autonomie_restante < 0;
+            // Besoin total = somme des besoins (objectifs) ; insuffisant si > enveloppe
+            const besoinTotal = ue.cours.reduce((s, c) =>
+              s + Math.max(0, h2p(n(c.heures) + n(c.cours_ev1) + n(c.cours_vc1)) - n(c.cours_per)), 0);
+            const insuffisant = besoinTotal > n(ue.ue_aut);
             return (
-              <div key={ue.ue_num} className="border border-gray-200 rounded-lg overflow-hidden">
-                <div className="flex items-center justify-between px-3 py-2 bg-gray-50 border-b border-gray-200">
-                  <div className="font-semibold text-iip-gold text-sm">
-                    UE {ue.ue_num} <span className="text-gray-600 font-normal">· {ue.ue_nom}</span>
+              <div key={ue.ue_num} className={`border rounded-lg overflow-hidden ${insuffisant ? 'border-red-400 ring-1 ring-red-300' : 'border-gray-200'}`}>
+                <div className={`flex items-center justify-between px-3 py-2 border-b ${insuffisant ? 'bg-red-50 border-red-200' : 'bg-gray-50 border-gray-200'}`}>
+                  <div className="flex items-center gap-2">
+                    <button onClick={() => baguette(ue)} title="Répartir l'autonomie automatiquement (prorata des besoins)"
+                      className="text-base hover:scale-110 transition" >🪄</button>
+                    <div className="font-semibold text-iip-gold text-sm">
+                      UE {ue.ue_num} <span className="text-gray-600 font-normal">· {ue.ue_nom}</span>
+                    </div>
                   </div>
                   <div className="flex items-center gap-3 text-xs">
                     <span className="text-gray-500">DP : <strong>{ue.somme_dp}</strong> pér.</span>
                     <span className="text-gray-500">Enveloppe : <strong>{ue.ue_aut}</strong></span>
-                    <span className={`px-2 py-0.5 rounded font-medium ${
-                      depasse ? 'bg-red-100 text-red-700'
-                        : ue.autonomie_restante === 0 ? 'bg-green-100 text-green-700'
-                        : 'bg-amber-100 text-amber-700'}`}>
-                      {depasse ? `Dépassement de ${-ue.autonomie_restante} pér.` : `Reste ${ue.autonomie_restante} à placer`}
-                    </span>
+                    {insuffisant
+                      ? <span className="px-2 py-0.5 rounded font-medium bg-red-100 text-red-700">Besoin {besoinTotal} &gt; enveloppe {ue.ue_aut} · il manque {besoinTotal - n(ue.ue_aut)}</span>
+                      : <span className={`px-2 py-0.5 rounded font-medium ${
+                          depasse ? 'bg-red-100 text-red-700'
+                            : ue.autonomie_restante === 0 ? 'bg-green-100 text-green-700'
+                            : 'bg-amber-100 text-amber-700'}`}>
+                          {depasse ? `Dépassement de ${-ue.autonomie_restante} pér.` : `Reste ${ue.autonomie_restante} à placer`}
+                        </span>}
                   </div>
                 </div>
 
