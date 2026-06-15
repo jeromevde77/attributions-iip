@@ -1535,7 +1535,7 @@ r.get('/grille-section', authRequired, (req, res) => {
 
   const ues = [];
   for (const ueNum of ueNums) {
-    const ue = db.prepare('SELECT ue_num, ue_nom, ue_aut FROM ue WHERE ue_num = ? AND annee_scolaire = ?')
+    const ue = db.prepare('SELECT ue_num, ue_nom, ue_aut, ue_tc FROM ue WHERE ue_num = ? AND annee_scolaire = ?')
       .get(ueNum, annee);
     if (!ue) continue;
     const cours = db.prepare(`
@@ -1552,6 +1552,7 @@ r.get('/grille-section', authRequired, (req, res) => {
     ues.push({
       ue_num: ue.ue_num,
       ue_nom: ue.ue_nom,
+      ue_tc: ue.ue_tc,
       ue_aut: enveloppe,
       autonomie_placee: placee,
       autonomie_complement: complement,
