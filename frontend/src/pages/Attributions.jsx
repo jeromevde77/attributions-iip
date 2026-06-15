@@ -1,5 +1,5 @@
 import { useEffect, useState, useMemo } from 'react';
-import { api, getAnnee, nomDoc } from '../lib/api.js';
+import { api, getAnnee, nomDoc, getUnite, perToH, hToPer } from '../lib/api.js';
 import PreviewModal from '../components/PreviewModal.jsx';
 import EptModal from '../components/EptModal.jsx';
 import OrganisationUEModal from '../components/OrganisationUEModal.jsx';
@@ -221,6 +221,12 @@ export default function Attributions() {
   const [extDot, setExtDot] = useState({}); // { [attribution_id]: 'EXT'|'DOT'|'EXT+DOT' }
   const [verrous, setVerrous] = useState({}); // { [attribution_id]: {nomination...} }
   const [pertesCharge, setPertesCharge] = useState([]); // profs définitifs en perte de charge
+  const [unite, setUnite] = useState(getUnite());
+  useEffect(() => {
+    const h = () => setUnite(getUnite());
+    window.addEventListener('unite-change', h);
+    return () => window.removeEventListener('unite-change', h);
+  }, []);
   const [alertesCours, setAlertesCours] = useState({}); // { [attribution_id]: {definitif...} } cours avec un définitif
   const [autAnalyse, setAutAnalyse] = useState({}); // { [ue_num]: { ok, reste } }
   const [filters, setFilters] = useState({ section:'', prof_id:'', contrat:'', type_cours:'', ue_num:'', q:'' });
@@ -900,10 +906,25 @@ export default function Attributions() {
             const prevuKey = c.key==='periodes_attribuees' ? 'cours_per_prevu'
                            : c.key==='autonomie_attribuee' ? 'ue_autonomie_prevu' : null;
             const prevu = prevuKey ? row[prevuKey] : null;
+            // Bascule heures : ces colonnes sont en périodes ; on convertit l'affichage/saisie
+            const estPeriode = c.key==='periodes_attribuees' || c.key==='autonomie_attribuee';
+            const enHeures = unite==='heures' && estPeriode;
+            const valAff = enHeures ? perToH(v) : (v??0);
+            const prevuAff = (prevu!=null) ? (enHeures ? perToH(prevu) : Number(prevu).toLocaleString('fr-BE',{maximumFractionDigits:2})) : null;
             return <td key={c.key} className={c.num?'num':''} style={sty}>
               <div className="flex items-center justify-end">
-                <input type="text" inputMode="decimal" defaultValue={v??0} className="input-cell text-right no-spinner" style={{width: prevu!=null ? '2.75rem' : '100%'}} onClick={e=>e.stopPropagation()} onBlur={e=>{const val=e.target.value.replace(',','.');if(Number(val)!==Number(v))saveCell(row.id,c.key,val);}}/>
-                {prevu!=null && <span className="text-gray-400 whitespace-nowrap" title={c.key==='periodes_attribuees'?'Périodes prévues':'Autonomie prévue'}>/{Number(prevu).toLocaleString('fr-BE',{maximumFractionDigits:2})}</span>}
+                <input type="text" inputMode="decimal" defaultValue={valAff} key={`${row.id}-${c.key}-${unite}-${v}`}
+                  className={`input-cell text-right no-spinner ${enHeures ? 'text-iip-mauve' : ''}`}
+                  title={enHeures ? `${v??0} pér.` : undefined}
+                  style={{width: prevu!=null ? '2.75rem' : '100%'}}
+                  onClick={e=>e.stopPropagation()}
+                  onBlur={e=>{
+                    const saisie = Number(e.target.value.replace(',','.'));
+                    if (isNaN(saisie)) return;
+                    const valPer = enHeures ? hToPer(saisie) : saisie;
+                    if (valPer !== Number(v)) saveCell(row.id, c.key, valPer);
+                  }}/>
+                {prevuAff!=null && <span className="text-gray-400 whitespace-nowrap" title={c.key==='periodes_attribuees'?'Périodes prévues':'Autonomie prévue'}>/{prevuAff}</span>}
               </div>
             </td>;
           }
