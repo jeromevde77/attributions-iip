@@ -1707,6 +1707,9 @@ try {
   try {
     db.exec("ALTER TABLE cours ADD COLUMN cours_vc1 REAL DEFAULT 1");
   } catch(e) {}
+  try {
+    db.exec("ALTER TABLE cours ADD COLUMN cours_complement REAL DEFAULT 0");
+  } catch(e) {}
 
   // Table organisation_ue (Doc A — description des organisations par UE)
   try {
