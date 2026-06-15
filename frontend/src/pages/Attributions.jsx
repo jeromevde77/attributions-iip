@@ -1022,6 +1022,7 @@ export default function Attributions() {
     const open = openUEs.has(key);
     const st = groupStats(ue.rows);
     const isHelb = ue.ue_et_ref === 'HELB';
+    const isTC = ue.ue_tc === 'x';
     return (
       <div key={key} className={`overflow-hidden transition-all ${
         activeUE === key
@@ -1031,14 +1032,14 @@ export default function Attributions() {
           : (isHelb
               ? 'border-b border-gray-100 border-l-2 border-l-pink-400'
               : 'border-b border-gray-100')
-      }`}>
+      } ${isTC ? 'border-t-2 border-t-blue-900 rounded-t-md' : ''}`}>
         <div className={`w-full flex items-center pl-6 pr-3 py-1.5 transition relative ${activeUE === key ? (isHelb ? 'bg-pink-50 hover:bg-pink-100/70' : 'bg-iip-gold/5 hover:bg-iip-gold/10') : (isHelb ? 'hover:bg-pink-100/60' : 'hover:bg-gray-50')}`}>
           <div onClick={()=>{toggle(key); setActiveUE(key);}} role="button" className="grid items-center gap-2 flex-1 min-w-0 text-left cursor-pointer"
                   style={{ gridTemplateColumns: '16px 70px 110px 1fr auto' }}>
             <span className={`text-iip-gold text-sm transition-transform ${open?'rotate-90':''}`}>▶</span>
             <span className="font-semibold text-iip-gold text-sm whitespace-nowrap">UE {ue.ue_num}</span>
             <span className="flex items-center gap-1 flex-wrap">
-              {ue.ue_tc === 'x' && <span className="text-xs bg-iip-gold/15 text-iip-gold px-1.5 py-0.5 rounded font-bold" title="Unité du tronc commun">TC</span>}
+              {isTC && <span className="text-xs bg-blue-50 text-blue-900 border border-blue-900 px-1.5 py-0.5 rounded font-bold" title="Unité du tronc commun">TC</span>}
               {org > 1 && <span className="text-xs bg-amber-100 text-amber-800 px-1.5 py-0.5 rounded font-semibold">Org. {org}</span>}
               {ue.bloc && <span className="text-xs bg-iip-gold/10 text-iip-gold px-1.5 py-0.5 rounded">{ue.bloc}</span>}
               {isHelb && <span className="text-xs text-pink-600 font-bold px-1.5 py-0.5 rounded bg-pink-100">HELB</span>}
