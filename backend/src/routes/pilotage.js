@@ -480,6 +480,92 @@ r.get('/efficience', authRequired, (req, res) => {
   });
 });
 
+// GET /etp?annee= — Répartition ETP par section et UE, séparée IIP (CT/800 + PP/1000) et HELB (480/750/1400)
+r.get('/etp', authRequired, (req, res) => {
+  const { annee } = req.query;
+  if (!annee) return res.status(400).json({ error: 'annee requise' });
+
+  // IIP : périodes CT et PP par section/UE (autonomie incluse dans total_attribue_professeur)
+  const lignesIIP = db.prepare(`
+    SELECT v.section, v.ue_num, u.ue_nom,
+      SUM(CASE WHEN v.type_cours='CT' THEN v.total_attribue_professeur ELSE 0 END) AS per_ct,
+      SUM(CASE WHEN v.type_cours='PP' THEN v.total_attribue_professeur ELSE 0 END) AS per_pp,
+      SUM(CASE WHEN v.type_cours NOT IN ('CT','PP') THEN v.total_attribue_professeur ELSE 0 END) AS per_autre
+    FROM v_attribution_complete v
+    LEFT JOIN ue u ON u.ue_num = v.ue_num AND u.annee_scolaire = v.annee_scolaire
+    WHERE v.annee_scolaire = ? AND COALESCE(v.contrat_mdp,'IIP')='IIP'
+    GROUP BY v.section, v.ue_num, u.ue_nom
+    ORDER BY v.section, v.ue_num
+  `).all(annee);
+
+  // HELB : heures par ligne, diviseur selon statut + nature
+  const lignesHELB = db.prepare(`
+    SELECT v.section, v.ue_num,
+      v.charge_en_heures AS heures,
+      COALESCE(p.statut_helb,'') AS statut,
+      COALESCE(v.helb_nature,'CT') AS nature
+    FROM v_attribution_complete v
+    LEFT JOIN professeur p ON p.id = v.professeur_id
+    WHERE v.annee_scolaire = ? AND v.contrat_mdp='HELB'
+  `).all(annee);
+  const divHelb = (statut, nature) => {
+    if (statut === 'COORD') return 1400;
+    if (statut === 'MFP') return 750;
+    return nature === 'TP' ? 750 : 480;
+  };
+  const helbUE = {};
+  for (const l of lignesHELB) {
+    const e = (l.heures || 0) / divHelb(l.statut, l.nature);
+    const k = `${l.section}|${l.ue_num}`;
+    helbUE[k] = (helbUE[k] || 0) + e;
+  }
+
+  const r4 = x => Math.round(x * 10000) / 10000;
+  const sections = {};
+  for (const l of lignesIIP) {
+    const etpCt = (l.per_ct || 0) / 800;
+    const etpPp = (l.per_pp || 0) / 1000;
+    const etpAutre = (l.per_autre || 0) / 800; // fallback CT pour types inconnus
+    const etpIip = etpCt + etpPp + etpAutre;
+    const etpHelb = helbUE[`${l.section}|${l.ue_num}`] || 0;
+    if (etpIip <= 0 && etpHelb <= 0) continue;
+    const s = (sections[l.section] ||= { section: l.section, etp_iip: 0, etp_helb: 0, etp_ct: 0, etp_pp: 0, ues: [] });
+    s.etp_iip += etpIip; s.etp_helb += etpHelb; s.etp_ct += etpCt + etpAutre; s.etp_pp += etpPp;
+    s.ues.push({
+      ue_num: l.ue_num, ue_nom: l.ue_nom,
+      etp_ct: r4(etpCt + etpAutre), etp_pp: r4(etpPp),
+      etp_iip: r4(etpIip), etp_helb: r4(etpHelb), etp_total: r4(etpIip + etpHelb),
+    });
+  }
+  // Sections HELB sans ligne IIP
+  for (const k of Object.keys(helbUE)) {
+    const [sec, ueNum] = k.split('|');
+    if (sections[sec] && sections[sec].ues.some(u => String(u.ue_num) === ueNum)) continue;
+    const e = helbUE[k];
+    if (e <= 0) continue;
+    const s = (sections[sec] ||= { section: sec, etp_iip: 0, etp_helb: 0, etp_ct: 0, etp_pp: 0, ues: [] });
+    s.etp_helb += e;
+    s.ues.push({ ue_num: Number(ueNum), ue_nom: null, etp_ct: 0, etp_pp: 0, etp_iip: 0, etp_helb: r4(e), etp_total: r4(e) });
+  }
+
+  const out = Object.values(sections)
+    .map(s => ({
+      section: s.section,
+      etp_ct: r4(s.etp_ct), etp_pp: r4(s.etp_pp),
+      etp_iip: r4(s.etp_iip), etp_helb: r4(s.etp_helb), etp_total: r4(s.etp_iip + s.etp_helb),
+      ues: s.ues.sort((a, b) => String(a.ue_num).localeCompare(String(b.ue_num), 'fr', { numeric: true })),
+    }))
+    .sort((a, b) => a.section.localeCompare(b.section, 'fr'));
+
+  const total = out.reduce((a, s) => ({
+    etp_ct: a.etp_ct + s.etp_ct, etp_pp: a.etp_pp + s.etp_pp,
+    etp_iip: a.etp_iip + s.etp_iip, etp_helb: a.etp_helb + s.etp_helb, etp_total: a.etp_total + s.etp_total,
+  }), { etp_ct: 0, etp_pp: 0, etp_iip: 0, etp_helb: 0, etp_total: 0 });
+  for (const k of Object.keys(total)) total[k] = r4(total[k]);
+
+  res.json({ annee, sections: out, total });
+});
+
 export default r;
 
 // GET /dotation-ue?section=&annee=&mode=scolaire|civile
