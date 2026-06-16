@@ -356,6 +356,7 @@ export default function Professeurs() {
   const [search, setSearch] = useState('');
   const [fContrat, setFContrat] = useState('');   // '' | IIP | HELB | mixte
   const [fCharge, setFCharge]   = useState('');   // '' | avec | sans
+  const [fSection, setFSection] = useState('');   // '' | code section
   const [fAnc, setFAnc]         = useState(false); // avec ancienneté
   const [showSansCharge, setShowSansCharge] = useState(false); // volet "à zéro" fermé par défaut
   const [loading, setLoading] = useState(true);
@@ -757,6 +758,15 @@ export default function Professeurs() {
   }
   useEffect(() => { load(); }, []);
 
+  // Sections disponibles (dérivées des attributions des profs de l'année)
+  const sectionsListe = useMemo(() => {
+    const set = new Set();
+    for (const p of profs) {
+      (p.sections_annee || '').split(',').forEach(s => { const v = s.trim(); if (v) set.add(v); });
+    }
+    return [...set].sort((a, b) => a.localeCompare(b, 'fr'));
+  }, [profs]);
+
   function toggleSort(key) {
     setSortBy(s => s.key !== key ? { key, dir: 'asc' } : s.dir === 'asc' ? { key, dir: 'desc' } : { key: null, dir: 'asc' });
   }
@@ -844,6 +854,8 @@ export default function Professeurs() {
     // Filtre charge
     if (fCharge === 'avec') arr = arr.filter(p => charge(p) > 0);
     if (fCharge === 'sans') arr = arr.filter(p => charge(p) === 0);
+    // Filtre section : le prof a une attribution dans cette section
+    if (fSection) arr = arr.filter(p => (p.sections_annee || '').split(',').map(s=>s.trim()).includes(fSection));
     // Filtre ancienneté
     if (fAnc) arr = arr.filter(p => (Number(p.anciennete_25_26_po) || 0) > 0);
 
@@ -860,7 +872,7 @@ export default function Professeurs() {
       });
     }
     return arr;
-  }, [profs, sortBy, search, fContrat, fCharge, fAnc]);
+  }, [profs, sortBy, search, fContrat, fCharge, fSection, fAnc]);
 
   // Séparation : profs avec charge (affichés) / sans charge (volet repliable)
   const avecCharge = useMemo(() => filtered.filter(p => charge(p) > 0), [filtered]);
@@ -1007,12 +1019,17 @@ export default function Professeurs() {
             <option value="avec">Avec charge cette année</option>
             <option value="sans">Sans charge</option>
           </select>
+          <select value={fSection} onChange={e => setFSection(e.target.value)}
+            className="border border-gray-300 rounded-lg px-2 py-1.5 text-sm focus:outline-none focus:border-iip-gold">
+            <option value="">Toutes sections</option>
+            {sectionsListe.map(s => <option key={s} value={s}>{s}</option>)}
+          </select>
           <label className="inline-flex items-center gap-1.5 text-sm text-gray-600 border border-gray-300 rounded-lg px-2.5 py-1.5 cursor-pointer hover:bg-gray-50">
             <input type="checkbox" checked={fAnc} onChange={e => setFAnc(e.target.checked)} />
             Avec ancienneté
           </label>
-          {(fContrat || fCharge || fAnc) && (
-            <button onClick={() => { setFContrat(''); setFCharge(''); setFAnc(false); }}
+          {(fContrat || fCharge || fSection || fAnc) && (
+            <button onClick={() => { setFContrat(''); setFCharge(''); setFSection(''); setFAnc(false); }}
               className="text-xs text-gray-500 hover:text-gray-700 underline">Réinitialiser</button>
           )}
           {selection.size > 0 && (
