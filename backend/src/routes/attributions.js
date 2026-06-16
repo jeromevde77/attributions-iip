@@ -1169,4 +1169,98 @@ r.delete('/section/:section/tout', authRequired, roleRequired('admin'), (req, re
   res.json({ ok: true, supprimees, backup: backupName });
 });
 
+// GET /controle?section=&annee= — contrôle des multiples du DP par cours et de l'autonomie par UE
+r.get('/controle', authRequired, (req, res) => {
+  const { section, annee } = req.query;
+  if (!section || !annee) return res.status(400).json({ error: 'section et annee requis' });
+  const r2 = x => Math.round(x * 100) / 100;
+
+  // Cours de la section (hors Z), avec DP (cours_per) et autonomie de base de l'UE (ue_autonomie)
+  const cours = db.prepare(
+    `SELECT cours_code, ue_num, cours_per, ue_autonomie
+     FROM cours
+     WHERE section = ? AND annee_scolaire = ? AND (ct_pp IS NULL OR ct_pp != 'Z')
+     ORDER BY ue_num, cours_code`
+  ).all(section, annee);
+
+  // Périodes et autonomie attribuées par cours (IIP — l'autonomie est une notion IIP)
+  const attribRows = db.prepare(
+    `SELECT code_cours,
+            COALESCE(SUM(periodes_attribuees),0) AS per,
+            COALESCE(SUM(autonomie_attribuee),0) AS aut
+     FROM attribution
+     WHERE section = ? AND annee_scolaire = ?
+     GROUP BY code_cours`
+  ).all(section, annee);
+  const attrib = {};
+  for (const a of attribRows) attrib[a.code_cours] = { per: a.per || 0, aut: a.aut || 0 };
+
+  // Regrouper par UE
+  const ues = {};
+  for (const c of cours) {
+    (ues[c.ue_num] ||= { ue_num: c.ue_num, ue_autonomie: c.ue_autonomie || 0, cours: [] }).cours.push(c);
+  }
+
+  const out = [];
+  for (const ue of Object.values(ues)) {
+    let sommeDP = 0, sommePer = 0, sommeAut = 0;
+    const multiplesPlein = []; // multiples nets (option 2 : seulement si exact)
+    const coursControle = [];
+    for (const c of ue.cours) {
+      const a = attrib[c.cours_code] || { per: 0, aut: 0 };
+      const per = a.per || 0, dp = c.cours_per || 0;
+      sommeDP += dp; sommePer += per; sommeAut += (a.aut || 0);
+      const ratio = dp > 0 ? per / dp : 0;
+      const multipleEntier = Math.floor(ratio + 1e-9);
+      const estMultiple = dp > 0 && per > 0 && Math.abs(per - Math.round(ratio) * dp) < 0.01;
+      // Option 2 : un cours non-multiple net ne fait pas grimper le palier → on retient son multiple entier inférieur
+      multiplesPlein.push(estMultiple ? Math.round(ratio) : multipleEntier);
+      coursControle.push({
+        code_cours: c.cours_code, dp, per,
+        multiple: estMultiple ? Math.round(ratio) : null,    // multiple net si exact
+        multiple_actuel: dp > 0 ? r2(ratio) : null,          // ratio réel (pour affichage ×2,96…)
+        est_multiple: estMultiple,
+        attendu: estMultiple || dp === 0 ? null
+          : `${Math.max(1, Math.round(ratio)) * dp} (×${Math.max(1, Math.round(ratio))}) ou ${(Math.max(1, Math.floor(ratio)) + 1) * dp} (×${Math.max(1, Math.floor(ratio)) + 1})`,
+      });
+    }
+    // Plancher : ue_autonomie × min(multiples nets entiers) ; min des paliers atteints par TOUS les cours
+    const minMult = multiplesPlein.length ? Math.min(...multiplesPlein) : 1;
+    const palier = Math.max(1, minMult);
+    const plancher = (ue.ue_autonomie || 0) * palier;
+    // Bonus 20% : sur les périodes de cours ajoutées au-delà des DP de base
+    const ajouts = Math.max(0, sommePer - sommeDP);
+    const plafond = plancher + 0.20 * ajouts;
+
+    let etat, message;
+    const tousMultiples = coursControle.every(c => c.est_multiple || c.dp === 0);
+    if (!tousMultiples) {
+      etat = 'cours'; message = `Certains cours ne sont pas un multiple de leur DP — corrigez-les d'abord.`;
+    } else if (sommeAut < plancher) {
+      etat = 'sous';
+      message = `Il reste ${r2(plancher - sommeAut)} période(s) d'autonomie à placer (minimum obligatoire : ${r2(plancher)}).`
+        + (plafond > plancher ? ` Vous pouvez monter jusqu'à ${r2(plafond)} (bonus 20% des dédoublements).` : '');
+    } else if (sommeAut > plafond) {
+      etat = 'dépassement';
+      message = `Dépassement de ${r2(sommeAut - plafond)} période(s) d'autonomie (maximum autorisé : ${r2(plafond)}). Supprimez de l'autonomie ou ajoutez un dédoublement de cours.`;
+    } else {
+      etat = 'ok';
+      message = `Autonomie correcte : ${r2(sommeAut)} (entre ${r2(plancher)} et ${r2(plafond)}).`
+        + (sommeAut < plafond ? ` Vous pouvez encore placer jusqu'à ${r2(plafond - sommeAut)} période(s) si besoin.` : '');
+    }
+
+    out.push({
+      ue_num: ue.ue_num,
+      ue_autonomie: ue.ue_autonomie || 0,
+      palier, plancher: r2(plancher), plafond: r2(plafond),
+      autonomie_attribuee: r2(sommeAut),
+      somme_periodes: r2(sommePer), somme_dp: r2(sommeDP),
+      etat, message,
+      cours: coursControle,
+    });
+  }
+
+  res.json({ section, annee, ues: out });
+});
+
 export default r;
