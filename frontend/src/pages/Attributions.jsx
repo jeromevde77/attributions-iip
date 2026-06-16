@@ -777,6 +777,7 @@ export default function Attributions() {
     } catch(e){ alert('Erreur : '+e.message); }
   }
 
+  async function toggleConge(row) {
     try {
       if (!row.en_conge) {
         if (!confirm(`Mettre ${row.professeur_id ? 'ce titulaire' : 'cette ligne'} en congé ?\n\nLa ligne sera grisée (comptée 0 en dotation) et une ligne de remplacement sera créée avec les mêmes périodes.`)) return;
