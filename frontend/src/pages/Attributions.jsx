@@ -209,7 +209,7 @@ const DEFAULT_COLS = [
   { key: 'autonomie_attribuee',   label: 'Aut.',       width: 84, num: true, edit: 'number' },
   { key: 'total_attribue_professeur', label: 'Total',  width: 64, num: true, calc: true, rowClickable: true },
   { key: 'charge_en_heures',      label: 'Hrs',        width: 60, num: true, calc: true, rowClickable: true },
-  { key: '__actions',             label: '',           width: 44 },
+  { key: '__actions',             label: '',           width: 64 },
 ];
 
 // ===========================================================================
@@ -729,7 +729,54 @@ export default function Attributions() {
       }
     } catch(e){ alert('Erreur : '+e.message); }
   }
-  async function toggleConge(row) {
+
+  // Démultiplie une ligne d'attribution : crée N-1 copies (mêmes valeurs, groupes nouveaux sans doublon)
+  async function demultiplier(row) {
+    const saisie = prompt(`Démultiplier ce groupe en combien au total ? (2, 3, 4…)`, '2');
+    if (saisie == null) return;
+    const total = Math.max(2, Math.min(26, parseInt(saisie, 10) || 0));
+    if (!total || total < 2) return;
+    // Lettres de groupe déjà utilisées sur ce cours (même section + code_cours + organisation)
+    const memesLignes = data.filter(r =>
+      r.section === row.section && r.code_cours === row.code_cours &&
+      (r.num_organisation || 1) === (row.num_organisation || 1));
+    const used = new Set(memesLignes.map(r => (r.groupe_code || '').toUpperCase()).filter(Boolean));
+    // Si la ligne source est "Ts" (tous) ou sans code, on la fera basculer en A et on ajoute B, C…
+    const lettres = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
+    const libres = [...lettres].filter(c => !used.has(c));
+    const aCreer = total - memesLignes.length; // combien de nouvelles lignes pour atteindre le total
+    if (aCreer <= 0) { alert(`Il y a déjà ${memesLignes.length} groupe(s) pour ce cours.`); return; }
+    if (!confirm(`Créer ${aCreer} groupe(s) supplémentaire(s) (copie de ce groupe) ?`)) return;
+    try {
+      for (let i = 0; i < aCreer; i++) {
+        const code = libres[i] || null;
+        const payload = {
+          section: row.section,
+          contrat_mdp: row.contrat_mdp || 'IIP',
+          etablissement_referent: row.etablissement_referent || 'IIP',
+          organisation: row.organisation || 'x',
+          ue_num: row.ue_num != null ? Number(row.ue_num) : null,
+          num_organisation: Number(row.num_organisation) || 1,
+          quadrimestre_attribue: row.quadrimestre_attribue,
+          code_cours: row.code_cours,
+          type_cours: row.type_cours,
+          code,
+          nb_groupes: Number(row.nb_groupes) || 1,
+          split_groupe: row.split_groupe || 'N',
+          professeur_id: row.professeur_id ? Number(row.professeur_id) : null,
+          cours_ept_ad: row.cours_ept_ad || 'C',
+          coordination_encadrement: row.coordination_encadrement || 'Cours',
+          activite_id: row.activite_id ? Number(row.activite_id) : null,
+          type_cours_helb: row.type_cours_helb ?? null,
+          periodes_attribuees: Number(row.periodes_attribuees) || 0,
+          autonomie_attribuee: Number(row.autonomie_attribuee) || 0,
+        };
+        await api.createAttribution(payload);
+      }
+      load();
+    } catch(e){ alert('Erreur : '+e.message); }
+  }
+
     try {
       if (!row.en_conge) {
         if (!confirm(`Mettre ${row.professeur_id ? 'ce titulaire' : 'cette ligne'} en congé ?\n\nLa ligne sera grisée (comptée 0 en dotation) et une ligne de remplacement sera créée avec les mêmes périodes.`)) return;
@@ -898,7 +945,7 @@ export default function Attributions() {
           const click = c.rowClickable ? ()=>setEditRow(row) : undefined;
           const cClass = c.rowClickable ? 'cursor-pointer hover:bg-iip-gold/5' : '';
           if (c.key==='__select') return <td key={c.key} className="text-center" style={sty}><input type="checkbox" checked={selected.has(row.id)} onChange={()=>toggleSelect(row.id)} className="cursor-pointer"/></td>;
-          if (c.key==='__actions') return <td key={c.key} className="text-center" style={sty}><button onClick={()=>deleteRow(row.id)} className="text-red-500 hover:text-red-700 text-sm" title="Supprimer"><IconTrash size={15}/></button></td>;
+          if (c.key==='__actions') return <td key={c.key} className="text-center" style={sty}><div className="flex items-center justify-center gap-1.5">{!row.is_z && <button onClick={()=>demultiplier(row)} className="text-gray-400 hover:text-iip-gold text-sm" title="Démultiplier ce groupe (créer des copies)"><IconUsersGroup size={15}/></button>}<button onClick={()=>deleteRow(row.id)} className="text-red-500 hover:text-red-700 text-sm" title="Supprimer"><IconTrash size={15}/></button></div></td>;
           if (c.key==='__conformite') return <td key={c.key} className="text-center" style={sty}>{c.render(null,row)}</td>;
           // Badge EXT/DOT sur la colonne professeur
           if (c.key === 'professeur_id') {
