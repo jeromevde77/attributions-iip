@@ -663,6 +663,26 @@ export default function Attributions() {
     } catch(e){ alert('Erreur : ' + e.message); }
   }
   async function saveCell(id, field, value) {
+    // ── Édition groupée : si la ligne éditée est cochée et que plusieurs lignes le sont,
+    //    on propose d'appliquer le changement à toutes les lignes cochées.
+    const champsGroupables = ['professeur_id', 'periodes_attribuees', 'autonomie_attribuee'];
+    if (champsGroupables.includes(field) && selected.has(id) && selected.size > 1) {
+      const ids = [...selected];
+      const libelleChamp = field === 'professeur_id' ? 'le professeur'
+        : field === 'periodes_attribuees' ? 'les périodes' : 'l\'autonomie';
+      if (confirm(`Appliquer ${libelleChamp} à ${ids.length} lignes sélectionnées ?`)) {
+        for (const lid of ids) {
+          await appliquerCellule(lid, field, value);
+        }
+        return;
+      }
+      // Si l'utilisateur refuse, on applique seulement à la ligne éditée
+    }
+    await appliquerCellule(id, field, value);
+  }
+
+  // Applique une modification à une seule attribution (avec garde-fous)
+  async function appliquerCellule(id, field, value) {
     try {
       // Garde-fou : réattribuer un cours engagé à titre définitif à quelqu'un d'autre
       if (field === 'professeur_id') {
