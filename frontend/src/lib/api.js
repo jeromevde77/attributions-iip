@@ -119,6 +119,7 @@ export const api = {
     const q = new URLSearchParams();
     if (params.section) q.set('section', params.section);
     if (params.ue_num)  q.set('ue_num',  params.ue_num);
+    if (params.all)     q.set('all', '1');
     const qs = q.toString();
     return request(`/ref/activites${qs ? '?' + qs : ''}`);
   },
