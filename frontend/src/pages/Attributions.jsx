@@ -190,7 +190,7 @@ const DEFAULT_COLS = [
     options: [['','—'],['Q1','Q1'],['Q2','Q2'],['Q1/Q2','Q1/Q2']] },
   { key: 'code_cours',            label: 'Code',       width: 70,  rowClickable: true, coursOnly: true },
   { key: 'nom_cours',             label: 'Cours',      width: 200, rowClickable: true, coursOnly: true },
-  { key: 'activite_nom',          label: 'Activité',   width: 120, rowClickable: true,
+  { key: 'activite_nom',          label: 'Activité',   width: 120,
     render: v => v || <span className="text-gray-300 text-xs italic">—</span> },
   { key: 'type_cours',            label: 'Type',       width: 56, rowClickable: true,
     render: v => { const cls = {CT:'badge-ct',CG:'badge-cc',PP:'badge-pp',Z:'badge-z',B:'badge-b',F:'badge-f',T:'badge-t',P:'badge-p',O:'badge-o'}[v]; return cls ? <span className={`badge ${cls}`}>{v}</span> : (v || '—'); } },
@@ -890,6 +890,24 @@ export default function Attributions() {
                 <button onClick={e=>{e.stopPropagation(); toggleConge(row);}} title={row.en_conge ? 'En congé — cliquer pour réactiver' : 'Mettre en congé (crée une ligne de remplacement)'} className={`shrink-0 text-[10px] font-bold px-1 py-0.5 rounded border ${row.en_conge ? 'bg-transparent text-red-600 border-red-500' : 'bg-gray-50 text-gray-400 border-gray-200 hover:border-red-400 hover:text-red-500'}`}>C</button>
               </div>
               {!verrous[row.id] && alertesCours[row.id] && <div className="text-[10px] text-amber-600 leading-tight mt-0.5">⚠ définitif : {alertesCours[row.id].definitif}</div>}
+            </td>;
+          }
+          // Colonne Activité : select éditable directement (sans passer par la fiche cours)
+          if (c.key==='activite_nom') {
+            return <td key={c.key} style={sty}>
+              <select defaultValue={row.activite_id ?? ''} onClick={e=>e.stopPropagation()}
+                className="bg-transparent border-0 outline-none w-full text-sm cursor-pointer focus:bg-yellow-50"
+                onChange={e=>{
+                  const nid = e.target.value ? Number(e.target.value) : null;
+                  if (nid !== row.activite_id) {
+                    const nom = activitesList.find(a => a.id === nid)?.libelle || null;
+                    saveCell(row.id, 'activite_id', nid);
+                    setData(prev => prev.map(r => r.id===row.id ? { ...r, activite_id: nid, activite_nom: nom } : r));
+                  }
+                }}>
+                <option value="">—</option>
+                {activitesList.map(a => <option key={a.id} value={a.id}>{a.libelle}</option>)}
+              </select>
             </td>;
           }
           // Colonne Type : pour les lignes HELB, badge cliquable CT (cours théoriques) ↔ TP (travaux pratiques)
