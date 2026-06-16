@@ -243,6 +243,7 @@ export default function Attributions() {
   const [bulkDeleteModal, setBulkDeleteModal] = useState(null);
   const [secDel, setSecDel] = useState(null); // { section, lignes, count } | null
   const [groupesUE, setGroupesUE] = useState(null); // { portee, section, ues } | null
+  const [rapportSectionChoix, setRapportSectionChoix] = useState(null); // section pour laquelle on demande le filtre TC
   const [secDelText, setSecDelText] = useState('');
   const [secDelBusy, setSecDelBusy] = useState(false);
   const [bulkPreview, setBulkPreview] = useState(null);
@@ -286,12 +287,15 @@ export default function Attributions() {
   const me = JSON.parse(localStorage.getItem('user') || 'null');
   const isAdmin = me?.role === 'admin';
 
-  async function genererRapport(section) {
+  async function genererRapport(section, tcFilter) {
     const annee = getAnnee();
     const tok = localStorage.getItem('token');
     const d = await fetch(`/api/attributions/rapport-attributions?section=${encodeURIComponent(section)}&annee=${encodeURIComponent(annee)}`,
       { headers: { Authorization: `Bearer ${tok}` } }).then(r => r.json());
     if (d.error) { alert(d.error); return; }
+    // Filtre tronc commun (pop-up) : 'tc' = uniquement TC, 'hors' = hors TC, sinon tout
+    if (tcFilter === 'tc')   d.ues = (d.ues || []).filter(u => u.ue_tc === 'x');
+    if (tcFilter === 'hors') d.ues = (d.ues || []).filter(u => u.ue_tc !== 'x');
 
     // Couleurs par niveau (rang 1=orange, 2=bleu clair, 3=bleu marine)
     const niveaux = [...new Set(d.ues.map(u => u.ue_niv).filter(Boolean))].sort((a,b) => {
@@ -1217,7 +1221,7 @@ export default function Attributions() {
                   className="text-iip-gold hover:text-iip-amber" title="Remplir automatiquement les périodes prof"><IconWand size={16}/></button>
                 <button onClick={()=>setGroupesUE({ portee:'section', section: sg.section, ues: sg.ues.map(u => ({ ...u, section: sg.section })) })}
                   className="text-gray-400 hover:text-iip-mauve" title="Organiser les groupes de toutes les UE de la section"><IconUsersGroup size={16}/></button>
-                <button onClick={()=>genererRapport(sg.section)}
+                <button onClick={()=>setRapportSectionChoix(sg.section)}
                   className="text-gray-400 hover:text-iip-mauve" title="Rapport d'attributions (HTML/impression)"><IconFileText size={16}/></button>
                 <button onClick={()=>genererExcel(sg.section)}
                   className="text-gray-400 hover:text-green-600" title="Exporter en Excel (.xlsx)"><IconFileSpreadsheet size={16}/></button>
@@ -1429,6 +1433,32 @@ export default function Attributions() {
         />
       )}
       {editRow && <CoursEditModal section={editRow.section} codeCours={editRow.code_cours} onClose={()=>setEditRow(null)} onChanged={load}/>}
+
+      {rapportSectionChoix && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-40" onClick={e=>e.target===e.currentTarget&&setRapportSectionChoix(null)}>
+          <div className="bg-white rounded-xl shadow-2xl max-w-md w-full p-6 border-t-4 border-iip-mauve">
+            <h2 className="text-lg font-title text-iip-mauve mb-1">Rapport — {rapportSectionChoix}</h2>
+            <p className="text-sm text-gray-500 mb-4">Quel périmètre souhaitez-vous inclure&nbsp;?</p>
+            <div className="space-y-2">
+              <button onClick={()=>{ const s=rapportSectionChoix; setRapportSectionChoix(null); genererRapport(s, ''); }}
+                className="w-full text-left px-4 py-2.5 rounded-lg border border-gray-200 hover:border-iip-mauve hover:bg-iip-mauve/5 text-sm font-medium">
+                📄 L'ensemble <span className="text-gray-400 font-normal">— toutes les UE de la section</span>
+              </button>
+              <button onClick={()=>{ const s=rapportSectionChoix; setRapportSectionChoix(null); genererRapport(s, 'tc'); }}
+                className="w-full text-left px-4 py-2.5 rounded-lg border border-gray-200 hover:border-blue-900 hover:bg-blue-50 text-sm font-medium">
+                <span className="text-blue-900 font-bold">TC</span> uniquement <span className="text-gray-400 font-normal">— tronc commun</span>
+              </button>
+              <button onClick={()=>{ const s=rapportSectionChoix; setRapportSectionChoix(null); genererRapport(s, 'hors'); }}
+                className="w-full text-left px-4 py-2.5 rounded-lg border border-gray-200 hover:border-iip-gold hover:bg-iip-gold/5 text-sm font-medium">
+                Hors TC <span className="text-gray-400 font-normal">— cours propres à la section</span>
+              </button>
+            </div>
+            <div className="mt-4 text-right">
+              <button onClick={()=>setRapportSectionChoix(null)} className="text-sm text-gray-500 hover:text-gray-700">Annuler</button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {secDel && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-40" onClick={e=>e.target===e.currentTarget&&setSecDel(null)}>
