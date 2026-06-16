@@ -902,7 +902,7 @@ export default function Attributions() {
           // Badge EXT/DOT sur la colonne professeur
           if (c.key === 'professeur_id') {
             const badge = extDot[row.id];
-            const select = <select defaultValue={row.professeur_id??''} onClick={e=>e.stopPropagation()} className="bg-transparent border-0 outline-none w-full text-sm cursor-pointer focus:bg-yellow-50" onChange={e=>{const nid=e.target.value?Number(e.target.value):null;if(nid!==row.professeur_id)saveCell(row.id,'professeur_id',nid);}}><option value="">— Aucun —</option>{professeurs.map(p=><option key={p.id} value={p.id}>{p.nom_prenom}</option>)}</select>;
+            const select = <select key={`prof-${row.id}-${row.professeur_id??''}`} defaultValue={row.professeur_id??''} onClick={e=>e.stopPropagation()} className="bg-transparent border-0 outline-none w-full text-sm cursor-pointer focus:bg-yellow-50" onChange={e=>{const nid=e.target.value?Number(e.target.value):null;if(nid!==row.professeur_id)saveCell(row.id,'professeur_id',nid);}}><option value="">— Aucun —</option>{professeurs.map(p=><option key={p.id} value={p.id}>{p.nom_prenom}</option>)}</select>;
             return <td key={c.key} style={sty}>
               <div className="flex items-center gap-1">
                 {verrous[row.id] && <span title={`Nomination définitive — ${verrous[row.id].periodes_nommees||''} pér. ${verrous[row.id].type_charge||''} · code FWB ${verrous[row.id].code_fwb||''} (attribution verrouillée)`} className="shrink-0 text-blue-600"><IconLock size={13}/></span>}
@@ -929,14 +929,12 @@ export default function Attributions() {
               (a.id === row.activite_id)
             );
             return <td key={c.key} style={sty}>
-              <select defaultValue={row.activite_id ?? ''} onClick={e=>e.stopPropagation()}
+              <select key={`act-${row.id}-${row.activite_id??''}`} defaultValue={row.activite_id ?? ''} onClick={e=>e.stopPropagation()}
                 className="bg-transparent border-0 outline-none w-full text-sm cursor-pointer focus:bg-yellow-50"
                 onChange={e=>{
                   const nid = e.target.value ? Number(e.target.value) : null;
                   if (nid !== row.activite_id) {
-                    const nom = activitesList.find(a => a.id === nid)?.libelle || null;
                     saveCell(row.id, 'activite_id', nid);
-                    setData(prev => prev.map(r => r.id===row.id ? { ...r, activite_id: nid, activite_nom: nom } : r));
                   }
                 }}>
                 <option value="">—</option>
