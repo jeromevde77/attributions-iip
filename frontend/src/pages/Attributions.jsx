@@ -732,21 +732,18 @@ export default function Attributions() {
 
   // Démultiplie une ligne d'attribution : crée N-1 copies (mêmes valeurs, groupes nouveaux sans doublon)
   async function demultiplier(row) {
-    const saisie = prompt(`Démultiplier ce groupe en combien au total ? (2, 3, 4…)`, '2');
+    const saisie = prompt(`Combien de groupes ajouter ? (copies de ce groupe)`, '1');
     if (saisie == null) return;
-    const total = Math.max(2, Math.min(26, parseInt(saisie, 10) || 0));
-    if (!total || total < 2) return;
-    // Lettres de groupe déjà utilisées sur ce cours (même section + code_cours + organisation)
-    const memesLignes = data.filter(r =>
+    const aCreer = Math.max(1, Math.min(26, parseInt(saisie, 10) || 0));
+    if (!aCreer || aCreer < 1) return;
+    // Lettres déjà utilisées sur tout le COURS (pour éviter les doublons de lettres)
+    const lignesCours = data.filter(r =>
       r.section === row.section && r.code_cours === row.code_cours &&
       (r.num_organisation || 1) === (row.num_organisation || 1));
-    const used = new Set(memesLignes.map(r => (r.groupe_code || '').toUpperCase()).filter(Boolean));
-    // Si la ligne source est "Ts" (tous) ou sans code, on la fera basculer en A et on ajoute B, C…
+    const used = new Set(lignesCours.map(r => (r.groupe_code || '').toUpperCase()).filter(Boolean));
     const lettres = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
     const libres = [...lettres].filter(c => !used.has(c));
-    const aCreer = total - memesLignes.length; // combien de nouvelles lignes pour atteindre le total
-    if (aCreer <= 0) { alert(`Il y a déjà ${memesLignes.length} groupe(s) pour ce cours.`); return; }
-    if (!confirm(`Créer ${aCreer} groupe(s) supplémentaire(s) (copie de ce groupe) ?`)) return;
+    if (!confirm(`Créer ${aCreer} groupe(s) supplémentaire(s), copie de cette ligne ?`)) return;
     try {
       for (let i = 0; i < aCreer; i++) {
         const code = libres[i] || null;
