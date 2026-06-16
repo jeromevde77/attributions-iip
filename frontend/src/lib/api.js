@@ -191,9 +191,9 @@ export const api = {
   supprimerToutSection(section) { return request(`/attributions/section/${encodeURIComponent(section)}/tout?annee=${encodeURIComponent(getAnnee())}`, { method: 'DELETE' }); },
   detacherUE(ue_num, section_code) { return request(withAnnee(`/ref/ue-section/${ue_num}/${encodeURIComponent(section_code)}`), { method: 'DELETE' }); },
   renameSectionCode(ancien, nouveau_code) { return request(`/ref/sections/${encodeURIComponent(ancien)}/code`, { method: 'PATCH', body: { nouveau_code } }); },
-  ue(section) { return request('/ref/ue' + (section ? `?section=${encodeURIComponent(section)}` : '')); },
+  ue(section) { const p = new URLSearchParams({ annee: getAnnee() }); if (section) p.set('section', section); return request('/ref/ue?' + p.toString()); },
   ueDetail(num) { return request(`/ref/ue/${num}`); },
-  cours(params = {}) { return request('/ref/cours' + (new URLSearchParams(params).toString() ? `?${new URLSearchParams(params)}` : '')); },
+  cours(params = {}) { const p = { annee: getAnnee(), ...params }; return request('/ref/cours?' + new URLSearchParams(p).toString()); },
   professeurs(tous = false, annee = null) {
     const p = new URLSearchParams();
     if (tous) p.set('tous', '1');
