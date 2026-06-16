@@ -693,7 +693,10 @@ r.get('/professeurs', authRequired, (req, res) => {
        FROM personnel_mission pm WHERE pm.professeur_id = p.id AND pm.annee_scolaire = '${anneeActive}') AS missions_libelles,
       (SELECT GROUP_CONCAT(DISTINCT a.contrat_mdp ORDER BY a.contrat_mdp)
        FROM attribution a WHERE a.professeur_id = p.id AND a.annee_scolaire = '${anneeActive}'
-       AND a.contrat_mdp IS NOT NULL AND a.contrat_mdp != '') AS contrats_annee
+       AND a.contrat_mdp IS NOT NULL AND a.contrat_mdp != '') AS contrats_annee,
+      (SELECT GROUP_CONCAT(DISTINCT a.section)
+       FROM attribution a WHERE a.professeur_id = p.id AND a.annee_scolaire = '${anneeActive}'
+       AND a.section IS NOT NULL AND a.section != '') AS sections_annee
     FROM professeur p
     LEFT JOIN v_professeur_total v ON v.id = p.id`;
 
