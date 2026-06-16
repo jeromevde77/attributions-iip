@@ -229,6 +229,7 @@ export default function Attributions() {
   }, []);
   const [alertesCours, setAlertesCours] = useState({}); // { [attribution_id]: {definitif...} } cours avec un définitif
   const [autAnalyse, setAutAnalyse] = useState({}); // { [ue_num]: { ok, reste } }
+  const [controle, setControle] = useState({}); // { [ue_num]: {etat, message, palier, plancher, plafond, cours:[...]} }
   const [filters, setFilters] = useState({ section:'', prof_id:'', contrat:'', type_cours:'', ue_num:'', q:'' });
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
@@ -564,7 +565,7 @@ export default function Attributions() {
       const ueGroup = ueMap.get(ueKey);
       ueGroup.rows.push(r);
       const coursKey = r.code_cours || '?';
-      if (!ueGroup.coursMap.has(coursKey)) ueGroup.coursMap.set(coursKey, { code_cours: r.code_cours, nom_cours: r.nom_cours, type_cours: r.type_cours, grille_heures: r.grille_heures, grille_ev1: r.grille_ev1, grille_vc1: r.grille_vc1, rows: [] });
+      if (!ueGroup.coursMap.has(coursKey)) ueGroup.coursMap.set(coursKey, { code_cours: r.code_cours, ue_num: r.ue_num, nom_cours: r.nom_cours, type_cours: r.type_cours, grille_heures: r.grille_heures, grille_ev1: r.grille_ev1, grille_vc1: r.grille_vc1, rows: [] });
       ueGroup.coursMap.get(coursKey).rows.push(r);
     }
     // Convertir en array structuré
@@ -884,6 +885,19 @@ export default function Attributions() {
           for (const m of results) Object.assign(merged, m || {});
           setAutAnalyse(merged);
         });
+        // Charger le contrôle (multiples du DP + autonomie plancher/plafond) par UE
+        Promise.all(sectionsVisibles.map(sec =>
+          fetch(`/api/attributions/controle?section=${encodeURIComponent(sec)}&annee=${encodeURIComponent(getAnnee())}`,
+            { headers: { Authorization: `Bearer ${tok}` } }).then(r => r.json()).catch(() => null)
+        )).then(results => {
+          const map = {};
+          for (const res of results) {
+            if (res && Array.isArray(res.ues)) {
+              for (const u of res.ues) map[u.ue_num] = u;
+            }
+          }
+          setControle(map);
+        });
       } else {
         setAutAnalyse({});
       }
@@ -1163,6 +1177,16 @@ export default function Attributions() {
           {isZCours
             ? <span className="text-xs text-gray-400 italic">périodes étudiants — sans prof</span>
             : <>
+                {(() => {
+                  // Badge "multiple du DP" : ×N si net, sinon ratio en orange (non conforme)
+                  const ctrlUE = controle[cg.ue_num];
+                  const cc = ctrlUE?.cours?.find(x => x.code_cours === cg.code_cours);
+                  if (!cc || !cc.dp) return null;
+                  if (cc.est_multiple) {
+                    return <span className="text-[11px] px-1.5 py-0.5 rounded bg-green-50 text-green-700 border border-green-200" title={`${cc.per} = ${cc.dp} × ${cc.multiple} (DP ${cc.dp})`}>×{cc.multiple}</span>;
+                  }
+                  return <span className="text-[11px] px-1.5 py-0.5 rounded bg-orange-50 text-orange-700 border border-orange-200" title={`Pas un multiple du DP (${cc.dp}). Attendu : ${cc.attendu}`}>×{cc.multiple_actuel} ⚠</span>;
+                })()}
                 <span className="text-sm text-gray-500">{cg.rows.length} attr.</span>
                 <span className="text-sm font-semibold text-iip-gold">{st.tPer}p</span>
                 {st.tAut>0 && <span className="text-sm text-gray-400">+{st.tAut}a</span>}
@@ -1333,6 +1357,24 @@ export default function Attributions() {
         </div>
         {open && (
           <div className={activeUE === key ? (isHelb ? 'bg-pink-50/60' : 'bg-iip-gold/5') : (isHelb ? 'bg-pink-50/40' : 'bg-gray-50/50')}>
+            {(() => {
+              const ctrl = controle[ue.ue_num];
+              if (!ctrl) return null;
+              const styles = {
+                ok:          'bg-green-50 border-green-200 text-green-800',
+                sous:        'bg-amber-50 border-amber-200 text-amber-800',
+                'dépassement':'bg-red-50 border-red-200 text-red-700',
+                cours:       'bg-orange-50 border-orange-200 text-orange-700',
+              };
+              const icone = { ok:'✓', sous:'➜', 'dépassement':'⚠', cours:'⚠' }[ctrl.etat] || 'ℹ';
+              return (
+                <div className={`mx-6 my-2 px-3 py-2 rounded-lg border text-[12px] ${styles[ctrl.etat] || 'bg-gray-50 border-gray-200 text-gray-600'}`}>
+                  <span className="font-semibold mr-1">{icone} Autonomie</span>
+                  {ctrl.message}
+                  <span className="text-gray-400 ml-2">· base {ctrl.ue_autonomie} × palier {ctrl.palier} = plancher {ctrl.plancher} · plafond {ctrl.plafond} · placé {ctrl.autonomie_attribuee}</span>
+                </div>
+              );
+            })()}
             {ue.cours.map(cg => renderCours(ueKey, cg))}
           </div>
         )}
