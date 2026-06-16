@@ -883,14 +883,15 @@ function GestionActivites({ sections = [] }) {
   const [saving, setSaving]         = useState(false);
   const [editId, setEditId]         = useState(null);
   const [editVal, setEditVal]       = useState('');
+  const [search, setSearch]         = useState('');
+  const [collapsed, setCollapsed]   = useState({}); // { section: true } = replié
 
   function charger() {
     setLoading(true);
-    _fetch('/api/ref/activites')
+    _fetch('/api/ref/activites?all=1')
       .then(d => setActivites(Array.isArray(d) ? d : []))
       .finally(() => setLoading(false));
   }
-
   useEffect(() => { charger(); }, []);
 
   async function creer() {
@@ -913,6 +914,11 @@ function GestionActivites({ sections = [] }) {
     charger();
   }
 
+  async function changerSection(id, section) {
+    await _fetch(`/api/ref/activites/${id}`, { method: 'PATCH', body: JSON.stringify({ section: section || null }) });
+    charger();
+  }
+
   async function supprimer(id, libelle) {
     if (!confirm(`Supprimer l'activité "${libelle}" ?`)) return;
     const r = await _fetch(`/api/ref/activites/${id}`, { method: 'DELETE' });
@@ -920,31 +926,47 @@ function GestionActivites({ sections = [] }) {
     charger();
   }
 
-  // Grouper : globales, par section, par cours
-  const globales  = activites.filter(a => !a.section && !a.ue_num);
+  // Filtre recherche
+  const q = search.trim().toLowerCase();
+  const filtre = (a) => !q || (a.libelle || '').toLowerCase().includes(q);
+
+  // Groupes : globales (section null, ue_num null), par section, par cours (ue_num)
+  const globales   = activites.filter(a => !a.section && !a.ue_num).filter(filtre);
+  const parCours   = activites.filter(a => a.ue_num).filter(filtre);
   const parSection = {};
-  for (const a of activites.filter(a => a.section && !a.ue_num)) {
-    if (!parSection[a.section]) parSection[a.section] = [];
-    parSection[a.section].push(a);
+  for (const a of activites.filter(a => a.section && !a.ue_num).filter(filtre)) {
+    (parSection[a.section] ||= []).push(a);
   }
-  const parCours = activites.filter(a => a.ue_num);
+  // Ordonner les sections selon la liste fournie, puis alpha
+  const ordreSections = sections.map(s => s.code);
+  const sectionsTriees = Object.keys(parSection).sort((a, b) => {
+    const ia = ordreSections.indexOf(a), ib = ordreSections.indexOf(b);
+    if (ia !== -1 && ib !== -1) return ia - ib;
+    if (ia !== -1) return -1; if (ib !== -1) return 1;
+    return a.localeCompare(b, 'fr');
+  });
 
   function RowAct({ a }) {
     const isEdit = editId === a.id;
     return (
-      <tr className="hover:bg-gray-50 group">
-        <td className="px-4 py-2">
+      <tr className="hover:bg-gray-50 group border-b border-gray-100 last:border-0">
+        <td className="px-4 py-2 w-full">
           {isEdit
             ? <input autoFocus value={editVal} onChange={e => setEditVal(e.target.value)}
                 onKeyDown={e => { if (e.key === 'Enter') sauvegarderEdit(a.id); if (e.key === 'Escape') setEditId(null); }}
                 className="border border-iip-gold rounded px-2 py-0.5 text-sm w-full" />
-            : <span className="text-sm text-gray-700">{a.libelle}</span>
-          }
+            : <span className="text-sm text-gray-700">{a.libelle}</span>}
         </td>
-        <td className="px-4 py-2 text-xs text-gray-400">
-          {a.ue_num ? `UE${a.ue_num}` : a.section || '—'}
+        <td className="px-3 py-2 whitespace-nowrap">
+          {a.ue_num
+            ? <span className="text-xs text-gray-400">UE{a.ue_num}</span>
+            : <select value={a.section || ''} onChange={e => changerSection(a.id, e.target.value)}
+                className="text-xs border border-gray-200 rounded px-1.5 py-0.5 bg-white text-gray-500 cursor-pointer hover:border-iip-gold">
+                <option value="">🌐 Globale</option>
+                {sections.map(s => <option key={s.code} value={s.code}>{s.code}</option>)}
+              </select>}
         </td>
-        <td className="px-4 py-2 text-right">
+        <td className="px-3 py-2 text-right whitespace-nowrap">
           <div className="flex gap-2 justify-end opacity-0 group-hover:opacity-100 transition">
             {isEdit
               ? <>
@@ -956,16 +978,41 @@ function GestionActivites({ sections = [] }) {
                     className="text-xs text-gray-400 hover:text-iip-gold">Renommer</button>
                   <button onClick={() => supprimer(a.id, a.libelle)}
                     className="text-xs text-gray-400 hover:text-red-500">✕</button>
-                </>
-            }
+                </>}
           </div>
         </td>
       </tr>
     );
   }
 
+  function Bloc({ cle, titre, sousTitre, acts, couleur }) {
+    const replie = collapsed[cle];
+    return (
+      <div className="bg-white rounded-lg border border-gray-200 overflow-hidden">
+        <button onClick={() => setCollapsed(c => ({ ...c, [cle]: !c[cle] }))}
+          className="w-full flex items-center justify-between px-5 py-3 border-b bg-gray-50 hover:bg-gray-100 transition text-left">
+          <div>
+            <p className={`text-sm font-semibold ${couleur || 'text-gray-700'}`}>
+              <span className={`inline-block transition-transform ${replie ? '' : 'rotate-90'} mr-1 text-gray-400`}>▶</span>
+              {titre} <span className="text-gray-400 font-normal">({acts.length})</span>
+            </p>
+            {sousTitre && <p className="text-xs text-gray-400 ml-4">{sousTitre}</p>}
+          </div>
+        </button>
+        {!replie && (
+          <table className="w-full">
+            <tbody>
+              {acts.map(a => <RowAct key={a.id} a={a} />)}
+              {!acts.length && <tr><td colSpan={3} className="px-4 py-3 text-xs text-gray-400 italic">Aucune</td></tr>}
+            </tbody>
+          </table>
+        )}
+      </div>
+    );
+  }
+
   return (
-    <div className="space-y-5 max-w-2xl">
+    <div className="space-y-4 max-w-3xl">
       {/* Formulaire ajout */}
       <div className="bg-white rounded-lg border border-gray-200 px-5 py-4">
         <p className="text-sm font-medium text-gray-700 mb-3">Ajouter une activité</p>
@@ -978,7 +1025,7 @@ function GestionActivites({ sections = [] }) {
               className="w-full border border-gray-300 rounded px-3 py-1.5 text-sm focus:border-iip-gold outline-none" />
           </div>
           <div>
-            <label className="block text-xs text-gray-500 mb-1">Section (optionnel)</label>
+            <label className="block text-xs text-gray-500 mb-1">Section</label>
             <select value={newSection} onChange={e => setNewSection(e.target.value)}
               className="border border-gray-300 rounded px-3 py-1.5 text-sm bg-white">
               <option value="">Globale (toutes sections)</option>
@@ -992,49 +1039,20 @@ function GestionActivites({ sections = [] }) {
         </div>
       </div>
 
+      {/* Recherche */}
+      <input value={search} onChange={e => setSearch(e.target.value)}
+        placeholder="🔍 Rechercher une activité…"
+        className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:border-iip-gold outline-none" />
+
       {loading ? <div className="text-center text-gray-400 py-8">Chargement…</div> : (
         <>
-          {/* Activités globales */}
-          <div className="bg-white rounded-lg border border-gray-200 overflow-hidden">
-            <div className="px-5 py-3 border-b bg-gray-50">
-              <p className="text-sm font-semibold text-gray-700">🌐 Globales ({globales.length})</p>
-              <p className="text-xs text-gray-400">Disponibles dans toutes les sections</p>
-            </div>
-            <table className="w-full">
-              <tbody className="divide-y divide-gray-100">
-                {globales.map(a => <RowAct key={a.id} a={a} />)}
-                {!globales.length && <tr><td colSpan={3} className="px-4 py-3 text-xs text-gray-400 italic">Aucune</td></tr>}
-              </tbody>
-            </table>
-          </div>
-
-          {/* Par section */}
-          {Object.entries(parSection).map(([sec, acts]) => (
-            <div key={sec} className="bg-white rounded-lg border border-gray-200 overflow-hidden">
-              <div className="px-5 py-3 border-b bg-gray-50">
-                <p className="text-sm font-semibold text-gray-700">📂 {sec} ({acts.length})</p>
-              </div>
-              <table className="w-full">
-                <tbody className="divide-y divide-gray-100">
-                  {acts.map(a => <RowAct key={a.id} a={a} />)}
-                </tbody>
-              </table>
-            </div>
+          <Bloc cle="__glob" titre="🌐 Communes à toutes les sections" sousTitre="Disponibles partout"
+            acts={globales} couleur="text-iip-gold" />
+          {sectionsTriees.map(sec => (
+            <Bloc key={sec} cle={sec} titre={`📂 ${sec}`} acts={parSection[sec]} />
           ))}
-
-          {/* Par cours */}
           {parCours.length > 0 && (
-            <div className="bg-white rounded-lg border border-gray-200 overflow-hidden">
-              <div className="px-5 py-3 border-b bg-gray-50">
-                <p className="text-sm font-semibold text-gray-700">📖 Spécifiques à un cours ({parCours.length})</p>
-                <p className="text-xs text-gray-400">Créées depuis le modal d'un cours</p>
-              </div>
-              <table className="w-full">
-                <tbody className="divide-y divide-gray-100">
-                  {parCours.map(a => <RowAct key={a.id} a={a} />)}
-                </tbody>
-              </table>
-            </div>
+            <Bloc cle="__cours" titre="📖 Spécifiques à un cours" sousTitre="Créées depuis le modal d'un cours" acts={parCours} />
           )}
         </>
       )}
