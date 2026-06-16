@@ -794,7 +794,7 @@ export default function Attributions() {
     try {
       const [a,s,p] = await Promise.all([api.attributions(f), api.sections(), api.professeurs(true)]);
       setData(a); setSections(s); setProfesseurs(p);
-      if (activitesList.length === 0) api.activites().then(setActivitesList).catch(()=>{});
+      if (activitesList.length === 0) api.activites({ all: true }).then(setActivitesList).catch(()=>{});
       // Charger badges EXT/DOT
       const tok = localStorage.getItem('token');
       fetch(`/api/pilotage/ext-dot?annee=${encodeURIComponent(getAnnee())}`, { headers: { Authorization: `Bearer ${tok}` } })
@@ -914,6 +914,14 @@ export default function Attributions() {
           }
           // Colonne Activité : select éditable directement (sans passer par la fiche cours)
           if (c.key==='activite_nom') {
+            // On propose : les activités globales + celles de la section de cette ligne
+            //  + celles spécifiques à l'UE de cette ligne + l'activité actuelle (même hors liste)
+            const actsLigne = activitesList.filter(a =>
+              (!a.section && !a.ue_num) ||
+              (a.section === row.section) ||
+              (a.ue_num && Number(a.ue_num) === Number(row.ue_num)) ||
+              (a.id === row.activite_id)
+            );
             return <td key={c.key} style={sty}>
               <select defaultValue={row.activite_id ?? ''} onClick={e=>e.stopPropagation()}
                 className="bg-transparent border-0 outline-none w-full text-sm cursor-pointer focus:bg-yellow-50"
@@ -926,7 +934,7 @@ export default function Attributions() {
                   }
                 }}>
                 <option value="">—</option>
-                {activitesList.map(a => <option key={a.id} value={a.id}>{a.libelle}</option>)}
+                {actsLigne.map(a => <option key={a.id} value={a.id}>{a.libelle}</option>)}
               </select>
             </td>;
           }
