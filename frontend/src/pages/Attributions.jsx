@@ -665,12 +665,13 @@ export default function Attributions() {
   async function saveCell(id, field, value) {
     // ── Édition groupée : si la ligne éditée est cochée et que plusieurs lignes le sont,
     //    on propose d'appliquer le changement à toutes les lignes cochées.
-    const champsGroupables = ['professeur_id', 'periodes_attribuees', 'autonomie_attribuee', 'helb_nature'];
+    const champsGroupables = ['professeur_id', 'periodes_attribuees', 'autonomie_attribuee', 'helb_nature', 'activite_id'];
     if (champsGroupables.includes(field) && selected.has(id) && selected.size > 1) {
       const ids = [...selected];
       const libelleChamp = field === 'professeur_id' ? 'le professeur'
         : field === 'periodes_attribuees' ? 'les périodes'
-        : field === 'helb_nature' ? 'le type (TH/TP)' : 'l\'autonomie';
+        : field === 'helb_nature' ? 'le type (TH/TP)'
+        : field === 'activite_id' ? 'l\'activité' : 'l\'autonomie';
       if (confirm(`Appliquer ${libelleChamp} à ${ids.length} lignes sélectionnées ?`)) {
         for (const lid of ids) {
           await appliquerCellule(lid, field, value);
@@ -698,10 +699,14 @@ export default function Attributions() {
           }
         }
       }
-      const numF = ['periodes_attribuees','autonomie_attribuee','num_organisation'];
-      const payload = { [field]: numF.includes(field) ? Number(value) : value };
+      const numF = ['periodes_attribuees','autonomie_attribuee','num_organisation','activite_id'];
+      const payload = { [field]: numF.includes(field) ? (value === null || value === '' ? null : Number(value)) : value };
       if (field === 'contrat_mdp' && value !== 'HELB') {
         payload.type_cours_helb = null;
+      }
+      // Mettre à jour le libellé d'activité affiché en même temps que l'id
+      if (field === 'activite_id') {
+        payload.activite_nom = activitesList.find(a => a.id === Number(value))?.libelle || null;
       }
       await api.updateAttribution(id, payload);
       setData(prev=>prev.map(r=>r.id===id?{...r,...payload,...recompute(r,payload)}:r));
