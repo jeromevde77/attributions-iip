@@ -260,6 +260,7 @@ export default function Attributions() {
   const [newCoursForm, setNewCoursForm] = useState(null); // préremplissage AttributionForm pour nouveau cours
   const [viewMode, setViewMode] = useState('ue');
   const [openUEs, setOpenUEs] = useState(new Set());
+  const [openActs, setOpenActs] = useState(new Set()); // volets d'activité dépliés (clé: coursKey|activite_id)
 
   const [colWidths, setColWidths] = useState(() => {
     try {
@@ -1045,6 +1046,54 @@ export default function Attributions() {
   }
 
   /* === Rendu d'un cours (niveau 3) === */
+  // Regroupe les lignes d'un cours par activité. Les activités à plusieurs groupes
+  // forment un volet repliable (fermé par défaut) ; celles à une seule ligne restent directes.
+  function renderActiviteGroups(cg, coursKey) {
+    const rows = cg.rows;
+    // Grouper par activite_id (null = sans activité)
+    const groupes = new Map();
+    for (const r of rows) {
+      const k = r.activite_id ?? '__none__';
+      if (!groupes.has(k)) groupes.set(k, []);
+      groupes.get(k).push(r);
+    }
+    const out = [];
+    for (const [actId, lignes] of groupes) {
+      // Une seule ligne pour cette activité → affichage direct (pas de volet)
+      if (lignes.length <= 1) {
+        for (const r of lignes) out.push(renderRow(r, COLS_COURS));
+        continue;
+      }
+      // Plusieurs lignes (groupes) pour la même activité → volet repliable
+      const voletKey = coursKey + '|' + actId;
+      const ouvert = openActs.has(voletKey);
+      const nom = lignes[0].activite_nom || <span className="text-gray-300 italic">Sans activité</span>;
+      // Tout identique ? (même prof, mêmes périodes, même autonomie) → éditable replié
+      const memeProf = lignes.every(l => l.professeur_id === lignes[0].professeur_id);
+      const memePer  = lignes.every(l => Number(l.periodes_attribuees) === Number(lignes[0].periodes_attribuees));
+      const tPer = lignes.reduce((s,l)=>s+(Number(l.periodes_attribuees)||0),0);
+      out.push(
+        <tr key={voletKey} className="bg-iip-gold/5 border-y border-iip-gold/20 cursor-pointer hover:bg-iip-gold/10"
+            onClick={()=>setOpenActs(s=>{const n=new Set(s);n.has(voletKey)?n.delete(voletKey):n.add(voletKey);return n;})}>
+          <td className="text-center"><span className={`inline-block text-gray-400 text-xs transition-transform ${ouvert?'rotate-90':''}`}>▶</span></td>
+          <td colSpan={COLS_COURS.length - 1} className="px-2 py-1.5">
+            <span className="inline-flex items-center gap-2">
+              <span className="inline-flex items-center justify-center w-5 h-5 rounded-full bg-iip-gold text-white text-[11px] font-bold">{lignes.length}</span>
+              <span className="text-sm font-medium text-gray-700">{nom}</span>
+              <span className="text-xs text-gray-400">· {tPer}p sur {lignes.length} groupes</span>
+              {!memeProf && <span className="text-[10px] text-amber-600 bg-amber-50 px-1.5 py-0.5 rounded">profs différents</span>}
+              {!memePer && <span className="text-[10px] text-gray-400">périodes variables</span>}
+            </span>
+          </td>
+        </tr>
+      );
+      if (ouvert) {
+        for (const r of lignes) out.push(renderRow(r, COLS_COURS));
+      }
+    }
+    return out;
+  }
+
   function renderCours(ueKey, cg) {
     const key = 'cours:'+ueKey+'/'+cg.code_cours;
     const open = openUEs.has(key);
@@ -1094,7 +1143,7 @@ export default function Attributions() {
                     }</ResizableHeader>
                 )}
               </tr></thead>
-              <tbody>{cg.rows.map(r => renderRow(r, COLS_COURS))}</tbody>
+              <tbody>{renderActiviteGroups(cg, key)}</tbody>
             </table>
           </div>
         )}
