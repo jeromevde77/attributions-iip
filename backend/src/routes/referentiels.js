@@ -993,7 +993,14 @@ r.get('/types-encadrement', authRequired, (req, res) => {
 // ─── Activités ───────────────────────────────────────────────────────────────
 // GET /activites?section=&ue_num= — liste filtrée (globales + section + cours)
 r.get('/activites', authRequired, (req, res) => {
-  const { section, ue_num } = req.query;
+  const { section, ue_num, all } = req.query;
+  // Mode 'all' : toutes les activités (pour la vue de gestion)
+  if (all) {
+    return res.json(db.prepare(
+      `SELECT * FROM activite_type
+       ORDER BY CASE WHEN ue_num IS NOT NULL THEN 0 WHEN section IS NOT NULL THEN 1 ELSE 2 END, section, ordre, libelle`
+    ).all());
+  }
   // Toujours inclure les globales (section IS NULL et ue_num IS NULL)
   // + les activités de la section si fournie
   // + les activités du cours si fourni
@@ -1020,11 +1027,12 @@ r.post('/activites', authRequired, roleRequired('admin', 'editeur', 'coordinatio
 
 // PATCH /activites/:id — modifier une activité
 r.patch('/activites/:id', authRequired, roleRequired('admin', 'editeur', 'coordination'), (req, res) => {
-  const { libelle, ordre } = req.body;
+  const { libelle, ordre, section } = req.body;
   const row = db.prepare('SELECT id FROM activite_type WHERE id = ?').get(req.params.id);
   if (!row) return res.status(404).json({ error: 'Activité introuvable' });
   if (libelle !== undefined) db.prepare('UPDATE activite_type SET libelle = ? WHERE id = ?').run(libelle.trim(), row.id);
   if (ordre   !== undefined) db.prepare('UPDATE activite_type SET ordre = ? WHERE id = ?').run(ordre, row.id);
+  if (section !== undefined) db.prepare('UPDATE activite_type SET section = ? WHERE id = ?').run(section || null, row.id);
   res.json({ ok: true });
 });
 
