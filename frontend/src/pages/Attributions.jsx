@@ -665,11 +665,12 @@ export default function Attributions() {
   async function saveCell(id, field, value) {
     // ── Édition groupée : si la ligne éditée est cochée et que plusieurs lignes le sont,
     //    on propose d'appliquer le changement à toutes les lignes cochées.
-    const champsGroupables = ['professeur_id', 'periodes_attribuees', 'autonomie_attribuee'];
+    const champsGroupables = ['professeur_id', 'periodes_attribuees', 'autonomie_attribuee', 'helb_nature'];
     if (champsGroupables.includes(field) && selected.has(id) && selected.size > 1) {
       const ids = [...selected];
       const libelleChamp = field === 'professeur_id' ? 'le professeur'
-        : field === 'periodes_attribuees' ? 'les périodes' : 'l\'autonomie';
+        : field === 'periodes_attribuees' ? 'les périodes'
+        : field === 'helb_nature' ? 'le type (TH/TP)' : 'l\'autonomie';
       if (confirm(`Appliquer ${libelleChamp} à ${ids.length} lignes sélectionnées ?`)) {
         for (const lid of ids) {
           await appliquerCellule(lid, field, value);
