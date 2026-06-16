@@ -462,6 +462,8 @@ export default function Pilotage() {
   const [tab, setTab]               = useState('synthese'); // synthese | detail | efficience | dotation | config
   const [effic, setEffic]           = useState(null);
   const [efficOpen, setEfficOpen]   = useState(new Set());
+  const [etpData, setEtpData]       = useState(null);
+  const [etpOpen, setEtpOpen]       = useState(new Set());
   const [civil, setCivil]           = useState([]);
   const [selYear, setSelYear]       = useState(null);
   const [detail, setDetail]         = useState(null);
@@ -510,6 +512,14 @@ export default function Pilotage() {
     const tok = localStorage.getItem('token');
     fetch(`/api/pilotage/efficience?annee=${encodeURIComponent(anneeActive)}`, { headers: { Authorization: `Bearer ${tok}` } })
       .then(r => r.json()).then(setEffic).catch(console.error);
+  }, [tab, anneeActive]);
+
+  // Charger la répartition ETP (IIP/HELB par section et UE) quand on ouvre l'onglet
+  useEffect(() => {
+    if (tab !== 'etp') return;
+    const tok = localStorage.getItem('token');
+    fetch(`/api/pilotage/etp?annee=${encodeURIComponent(anneeActive)}`, { headers: { Authorization: `Bearer ${tok}` } })
+      .then(r => r.json()).then(setEtpData).catch(console.error);
   }, [tab, anneeActive]);
 
   // Charger les UEs avec pot pour la config
@@ -804,6 +814,75 @@ export default function Pilotage() {
                 <td></td>
               </tr>
             )}
+          </tbody>
+        </table>
+      </div>
+    );
+  };
+
+  // ── Onglet ETP : répartition IIP (CT/800 + PP/1000) et HELB (480/750/1400) par section/UE ──
+  const renderETP = () => {
+    if (!etpData) return <div className="text-gray-400 py-8 text-center">Chargement…</div>;
+    const secs = etpData.sections || [];
+    const t = etpData.total || {};
+    const toggle = (s) => setEtpOpen(prev => { const n = new Set(prev); n.has(s) ? n.delete(s) : n.add(s); return n; });
+    const f = (x) => (x || 0).toFixed(2);
+    const f3 = (x) => (x || 0).toFixed(3);
+    return (
+      <div>
+        <div className="mb-4 bg-iip-gold/5 border border-iip-gold/30 rounded-lg p-3 text-[12px] text-gray-700">
+          <b>Répartition ETP</b> — équivalents temps plein par section et UE, année {etpData.annee}.
+          <span className="block mt-1 text-gray-500">
+            <b>IIP</b> : cours généraux (CT) ÷ 800 périodes + cours pratiques (PP) ÷ 1000 périodes.
+            <b className="ml-2">HELB</b> : selon statut (MA/PI : TH ÷ 480, TP ÷ 750 ; MFP ÷ 750 ; COORD ÷ 1400).
+          </span>
+        </div>
+        <table className="w-full text-sm border-collapse">
+          <thead>
+            <tr className="bg-gray-50 text-gray-500 text-xs uppercase">
+              <th className="text-left px-3 py-2">Section / UE</th>
+              <th className="text-right px-3 py-2">ETP CT <span className="font-normal normal-case">(÷800)</span></th>
+              <th className="text-right px-3 py-2">ETP PP <span className="font-normal normal-case">(÷1000)</span></th>
+              <th className="text-right px-3 py-2 text-iip-gold">ETP IIP</th>
+              <th className="text-right px-3 py-2 text-iip-mauve">ETP HELB</th>
+              <th className="text-right px-3 py-2">ETP total</th>
+              <th className="px-3 py-2 w-8"></th>
+            </tr>
+          </thead>
+          <tbody>
+            {secs.map(s => (
+              <Fragment key={s.section}>
+                <tr className="border-t border-gray-100 hover:bg-gray-50 cursor-pointer" onClick={() => toggle(s.section)}>
+                  <td className="px-3 py-2 font-medium text-gray-800">{s.section}</td>
+                  <td className="px-3 py-2 text-right text-gray-500">{f(s.etp_ct)}</td>
+                  <td className="px-3 py-2 text-right text-gray-500">{f(s.etp_pp)}</td>
+                  <td className="px-3 py-2 text-right font-semibold text-iip-gold">{f(s.etp_iip)}</td>
+                  <td className="px-3 py-2 text-right font-semibold text-iip-mauve">{f(s.etp_helb)}</td>
+                  <td className="px-3 py-2 text-right font-bold text-gray-800">{f(s.etp_total)}</td>
+                  <td className="px-3 py-2 text-right text-gray-400">{etpOpen.has(s.section) ? '▾' : '▸'}</td>
+                </tr>
+                {etpOpen.has(s.section) && s.ues.map(u => (
+                  <tr key={u.ue_num} className="bg-gray-50/50 text-[12px]">
+                    <td className="px-3 py-1 pl-8 text-gray-600">UE {u.ue_num}{u.ue_nom ? ` — ${u.ue_nom}` : ''}</td>
+                    <td className="px-3 py-1 text-right text-gray-400">{f3(u.etp_ct)}</td>
+                    <td className="px-3 py-1 text-right text-gray-400">{f3(u.etp_pp)}</td>
+                    <td className="px-3 py-1 text-right text-iip-gold">{f3(u.etp_iip)}</td>
+                    <td className="px-3 py-1 text-right text-iip-mauve">{f3(u.etp_helb)}</td>
+                    <td className="px-3 py-1 text-right text-gray-600">{f3(u.etp_total)}</td>
+                    <td></td>
+                  </tr>
+                ))}
+              </Fragment>
+            ))}
+            <tr className="border-t-2 border-gray-300 font-bold bg-gray-50">
+              <td className="px-3 py-2">TOTAL</td>
+              <td className="px-3 py-2 text-right text-gray-600">{f(t.etp_ct)}</td>
+              <td className="px-3 py-2 text-right text-gray-600">{f(t.etp_pp)}</td>
+              <td className="px-3 py-2 text-right text-iip-gold">{f(t.etp_iip)}</td>
+              <td className="px-3 py-2 text-right text-iip-mauve">{f(t.etp_helb)}</td>
+              <td className="px-3 py-2 text-right">{f(t.etp_total)}</td>
+              <td></td>
+            </tr>
           </tbody>
         </table>
       </div>
@@ -1117,7 +1196,7 @@ export default function Pilotage() {
 
       {/* Onglets */}
       <div className="flex gap-0.5 border-b border-gray-200">
-        {[['synthese', '🏠 Synthèse'], ['detail', '📋 Détail par section'], ['efficience', '🎯 Efficience'], ['dotation', '📊 Dotation par UE'], ['config', '⚙ Configuration']].map(([k, lbl]) => (
+        {[['synthese', '🏠 Synthèse'], ['detail', '📋 Détail par section'], ['efficience', '🎯 Efficience'], ['etp', '👥 ETP'], ['dotation', '📊 Dotation par UE'], ['config', '⚙ Configuration']].map(([k, lbl]) => (
           <button key={k} onClick={() => setTab(k)}
             className={`text-sm px-4 py-2 -mb-px border-b-2 transition font-medium ${tab === k ? 'border-iip-gold text-iip-gold' : 'border-transparent text-gray-500 hover:text-gray-700'}`}>
             {lbl}
@@ -1137,6 +1216,7 @@ export default function Pilotage() {
           {tab === 'synthese' && renderSynthese()}
           {tab === 'detail'   && renderDetail()}
           {tab === 'efficience' && renderEfficience()}
+          {tab === 'etp'      && renderETP()}
           {tab === 'dotation' && <DotationComparaison civil={civil} />}
                     {tab === 'config'   && renderConfig()}
         </>
