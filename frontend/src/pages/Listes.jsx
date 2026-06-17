@@ -946,9 +946,9 @@ export default function Listes() {
   const ordreGroupes = ['data', 'rapport'];
 
   return (
-    <div className="flex h-full min-h-0 bg-slate-50">
+    <div className="flex bg-slate-50" style={{ minHeight: 'calc(100vh - 64px)' }}>
       {/* ── Rail latéral groupé ── */}
-      <aside className="w-56 flex-shrink-0 bg-iip-blue overflow-y-auto py-4 px-2.5">
+      <aside className="w-56 flex-shrink-0 bg-iip-blue py-4 px-2.5">
         <div className="flex items-center gap-2 px-3 pb-3 text-white text-[15px] font-semibold">
           <IconFileExport size={20} className="text-iip-turquoise" />
           Listes &amp; rapports
