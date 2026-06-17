@@ -290,6 +290,16 @@ try {
     );
     CREATE INDEX IF NOT EXISTS idx_ps_pe ON personnel_section(personnel_etablissement_id);
     CREATE INDEX IF NOT EXISTS idx_ps_section ON personnel_section(section_code);
+    CREATE TABLE IF NOT EXISTS personnel_mission (
+      id            INTEGER PRIMARY KEY AUTOINCREMENT,
+      professeur_id INTEGER NOT NULL,
+      fonction      TEXT NOT NULL,
+      section_code  TEXT NOT NULL,
+      annee_scolaire TEXT NOT NULL,
+      UNIQUE(professeur_id, fonction, section_code, annee_scolaire)
+    );
+    CREATE INDEX IF NOT EXISTS idx_pm_prof ON personnel_mission(professeur_id);
+    CREATE INDEX IF NOT EXISTS idx_pm_annee ON personnel_mission(annee_scolaire);
   `);
 
   // Nettoyage : supprimer l'ancienne table membres_cde si elle existe
