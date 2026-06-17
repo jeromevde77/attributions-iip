@@ -233,6 +233,13 @@ const ENTITES = {
     ),
     filtres: ['section', 'ue_num'],
   },
+  'rapport-etp': {
+    label: 'Rapport ETP', icon: '🎓',
+    rapport: true,
+    cols: [],
+    fetch: (annee) => authFetch(`/api/pilotage/etp?annee=${encodeURIComponent(annee)}`),
+    filtres: ['section'],
+  },
 };
 
 // ─── Exports ─────────────────────────────────────────────────────────────────
@@ -294,7 +301,10 @@ export default function Listes() {
     setLoading(true); setError('');
     try {
       const data = await def.fetch(annee, filtres);
-      if (def.rapport) {
+      if (entite === 'rapport-etp') {
+        genererRapportEtpHtml(data, filtres);
+        setRows([]);
+      } else if (def.rapport) {
         genererRapportHtml(data, filtres);
         setRows([]);
       } else if (def.grille) {
@@ -504,6 +514,166 @@ export default function Listes() {
     ws['!cols'] = [{wch:14},{wch:48},{wch:7},{wch:8},{wch:8},{wch:8}];
     XLSX.utils.book_append_sheet(wb, ws, d.section.slice(0,31));
     XLSX.writeFile(wb, `Grille_${d.section}_${d.annee}.xlsx`);
+  }
+
+  function genererRapportEtpHtml(d, filtres) {
+    if (d.error) { alert(d.error); return; }
+    const secCode = filtres.section || '';
+    const sec = (d.sections || []).find(s => s.section === secCode);
+    if (!sec) { alert('Aucune donnée ETP pour cette section. Choisissez une section.'); return; }
+
+    const BLEU = '#1B2B4B', BLEU2 = '#163A6B', TURQ = '#00AACC', CLAIR = '#E1ECF5', GRIS = '#F4F6FA', VIOLET = '#7c3aed';
+    const fmt = n => Math.round(n || 0).toLocaleString('fr-BE').replace(/\u202f/g, ' ');
+    const fmtEtp = n => (n || 0).toFixed(4).replace('.', ',');
+    const fmtEtp2 = n => (n || 0).toFixed(2).replace('.', ',');
+
+    // Niveau d'une UE (BA1/BA2/BA3) ; fallback "Autres"
+    const nivDe = u => {
+      const m = String(u.ue_niv || '').match(/\d+/);
+      return m ? `BA${m[0]}` : (u.ue_niv || 'Autres');
+    };
+    const contratDe = u => (u.etp_helb > 0 && u.etp_iip <= 0) ? 'HELB' : 'IIP';
+    const cellPer = u => {
+      const ct = (u.per_ct || 0) + (u.per_ct_helb || 0);
+      const pp = (u.per_pp || 0) + (u.per_pp_helb || 0);
+      const parts = [];
+      if (ct) parts.push(`<span style="white-space:nowrap"><b>CT</b> ${fmt(ct)}</span>`);
+      if (pp) parts.push(`<span style="white-space:nowrap"><b>PP</b> ${fmt(pp)}</span>`);
+      return parts.join(' · ') || '—';
+    };
+    const perTot = u => (u.per_ct || 0) + (u.per_pp || 0) + (u.per_ct_helb || 0) + (u.per_pp_helb || 0);
+    const badge = c => {
+      const col = c === 'IIP' ? BLEU : VIOLET;
+      return `<span style="background:${col};color:#fff;font-size:8px;font-weight:700;padding:1px 6px;border-radius:3px">${c}</span>`;
+    };
+
+    // Regrouper les UE par niveau
+    const ordreNiv = ['BA1', 'BA2', 'BA3', 'Autres'];
+    const parNiv = {};
+    for (const u of sec.ues) { (parNiv[nivDe(u)] ||= []).push(u); }
+    const niveaux = Object.keys(parNiv).sort((a, b) => {
+      const ia = ordreNiv.indexOf(a), ib = ordreNiv.indexOf(b);
+      return (ia < 0 ? 99 : ia) - (ib < 0 ? 99 : ib);
+    });
+
+    const NIV_NOM = { BA1: 'Bloc 1 (BA1)', BA2: 'Bloc 2 (BA2)', BA3: 'Bloc 3 (BA3)', Autres: 'Autres' };
+
+    let blocs = '';
+    for (const niv of niveaux) {
+      const ues = parNiv[niv].sort((a, b) => String(a.ue_num).localeCompare(String(b.ue_num), 'fr', { numeric: true }));
+      let nPer = 0, nEtp = 0, nIipPer = 0, nIipEtp = 0, nHelbPer = 0, nHelbEtp = 0;
+      let lignes = '';
+      ues.forEach((u, i) => {
+        const bg = i % 2 === 0 ? '#fff' : GRIS;
+        const c = contratDe(u);
+        const pt = perTot(u);
+        nPer += pt; nEtp += u.etp_total;
+        if (c === 'IIP') { nIipPer += pt; nIipEtp += u.etp_total; } else { nHelbPer += pt; nHelbEtp += u.etp_total; }
+        lignes += `
+          <tr style="background:${bg}">
+            <td style="padding:5px 8px;font-weight:700;color:${BLEU};white-space:nowrap">UE ${u.ue_num}</td>
+            <td style="padding:5px 8px;color:#333">${u.ue_nom || '—'}</td>
+            <td style="padding:5px 8px;text-align:center">${badge(c)}</td>
+            <td style="padding:5px 8px;font-size:9px;color:#555">${cellPer(u)}</td>
+            <td style="padding:5px 8px;text-align:right;color:#333">${fmt(pt)}</td>
+            <td style="padding:5px 8px;text-align:right;font-weight:700;color:${BLEU}">${fmtEtp(u.etp_total)}</td>
+          </tr>`;
+      });
+      blocs += `
+        <div style="margin-bottom:14px;page-break-inside:avoid">
+          <div style="background:${TURQ};color:#fff;font-weight:700;font-size:11px;padding:5px 10px;border-radius:4px 4px 0 0">${NIV_NOM[niv] || niv}</div>
+          <table style="width:100%;border-collapse:collapse;font-size:9.5px">
+            <thead>
+              <tr style="background:${BLEU2};color:#fff">
+                <th style="padding:5px 8px;text-align:left;font-size:8.5px">UE</th>
+                <th style="padding:5px 8px;text-align:left;font-size:8.5px">Intitulé</th>
+                <th style="padding:5px 8px;text-align:center;font-size:8.5px">Contrat</th>
+                <th style="padding:5px 8px;text-align:left;font-size:8.5px">Périodes (CT / PP)</th>
+                <th style="padding:5px 8px;text-align:right;font-size:8.5px">Périodes</th>
+                <th style="padding:5px 8px;text-align:right;font-size:8.5px">ETP</th>
+              </tr>
+            </thead>
+            <tbody>${lignes}</tbody>
+            <tfoot>
+              ${nIipEtp > 0 ? `<tr style="background:#eef2fb;color:${BLEU}"><td colspan="4" style="padding:4px 8px;text-align:right;font-weight:600">dont IIP</td><td style="padding:4px 8px;text-align:right;font-weight:600">${fmt(nIipPer)}</td><td style="padding:4px 8px;text-align:right;font-weight:700">${fmtEtp(nIipEtp)}</td></tr>` : ''}
+              ${nHelbEtp > 0 ? `<tr style="background:#f5f0fc;color:${VIOLET}"><td colspan="4" style="padding:4px 8px;text-align:right;font-weight:600">dont HELB</td><td style="padding:4px 8px;text-align:right;font-weight:600">${fmt(nHelbPer)}</td><td style="padding:4px 8px;text-align:right;font-weight:700">${fmtEtp(nHelbEtp)}</td></tr>` : ''}
+              <tr style="background:${BLEU};color:#fff"><td colspan="4" style="padding:6px 8px;text-align:right;font-weight:700">Sous-total ${niv}</td><td style="padding:6px 8px;text-align:right;font-weight:700">${fmt(nPer)}</td><td style="padding:6px 8px;text-align:right;font-weight:700">${fmtEtp(nEtp)}</td></tr>
+            </tfoot>
+          </table>
+        </div>`;
+    }
+
+    // Totaux section
+    const totEtp = sec.etp_total, iipEtp = sec.etp_iip, helbEtp = sec.etp_helb;
+    const totPer = sec.ues.reduce((s, u) => s + perTot(u), 0);
+    const iipPer = sec.ues.reduce((s, u) => s + (contratDe(u) === 'IIP' ? perTot(u) : 0), 0);
+    const helbPer = totPer - iipPer;
+    const totCt = sec.ues.reduce((s, u) => s + (u.per_ct || 0) + (u.per_ct_helb || 0), 0);
+    const totPp = sec.ues.reduce((s, u) => s + (u.per_pp || 0) + (u.per_pp_helb || 0), 0);
+    const pctIip = totEtp ? Math.round(iipEtp / totEtp * 100) : 0;
+    const pctHelb = totEtp ? Math.round(helbEtp / totEtp * 100) : 0;
+
+    const html = `<!DOCTYPE html><html><head><meta charset="utf-8">
+      <style>
+        *{box-sizing:border-box;margin:0;padding:0;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+        body{font-family:Arial,sans-serif;color:#222;font-size:10px}
+        @media print{@page{size:A4;margin:14mm 12mm}tr{page-break-inside:avoid}thead{display:table-header-group}}
+      </style></head><body><div style="padding:4mm">
+        <div style="border-bottom:3px solid ${TURQ};padding-bottom:10px;margin-bottom:16px">
+          <div style="font-size:8px;letter-spacing:3px;text-transform:uppercase;color:${TURQ};font-weight:700">Institut Ilya Prigogine · Enseignement pour adultes</div>
+          <div style="font-size:21px;color:${BLEU};margin-top:3px;font-weight:700">Rapport de charge ETP — Section ${sec.section}</div>
+          <div style="font-size:11px;color:#555;margin-top:2px">Année académique ${annee}</div>
+          <div style="font-size:8px;color:#999;margin-top:6px">Document destiné au Conseil d'administration · Charge enseignante exprimée en équivalents temps plein (ETP)</div>
+        </div>
+
+        <div style="display:flex;gap:10px;margin-bottom:8px">
+          <div style="flex:1.1;background:${BLEU};color:#fff;border-radius:8px;padding:14px 18px">
+            <div style="font-size:9px;text-transform:uppercase;letter-spacing:1.5px;opacity:.8">Charge totale de la section</div>
+            <div style="font-size:38px;font-weight:700;line-height:1.1;margin-top:2px">${fmtEtp2(totEtp)} <span style="font-size:14px;font-weight:400;opacity:.8">ETP</span></div>
+            <div style="font-size:9px;opacity:.85;margin-top:4px">${fmt(totPer)} périodes attribuées (cours + autonomie)</div>
+          </div>
+          <div style="flex:1;display:flex;flex-direction:column;gap:6px">
+            <div style="border:1px solid #e0e0e0;border-left:4px solid ${BLEU};border-radius:8px;padding:8px 12px;display:flex;justify-content:space-between;align-items:center">
+              <div><div style="font-size:10px;font-weight:700;color:#333">Part IIP</div><div style="font-size:8px;color:#999">${fmt(iipPer)} pér. · ${pctIip}% de la charge</div></div>
+              <div style="font-size:18px;font-weight:700;color:${BLEU}">${fmtEtp2(iipEtp)}</div>
+            </div>
+            <div style="border:1px solid #e0e0e0;border-left:4px solid ${VIOLET};border-radius:8px;padding:8px 12px;display:flex;justify-content:space-between;align-items:center">
+              <div><div style="font-size:10px;font-weight:700;color:#333">Part HELB</div><div style="font-size:8px;color:#999">${fmt(helbPer)} pér. · ${pctHelb}% de la charge</div></div>
+              <div style="font-size:18px;font-weight:700;color:${VIOLET}">${fmtEtp2(helbEtp)}</div>
+            </div>
+          </div>
+        </div>
+
+        <div style="display:flex;gap:10px;margin:14px 0 6px">
+          <div style="flex:1;border:1px solid #e5e5e5;border-top:3px solid ${TURQ};border-radius:6px;padding:10px 12px">
+            <div style="font-size:11px;font-weight:700;color:${TURQ}">CT</div>
+            <div style="font-size:9px;color:#666;margin-bottom:6px">Cours théoriques (÷ 800)</div>
+            <div style="font-size:10px;color:#444">${fmt(totCt)} périodes</div>
+            <div style="font-size:22px;font-weight:700;color:${BLEU};margin-top:2px">${fmtEtp(totCt / 800)} <span style="font-size:10px;font-weight:400;color:#999">ETP</span></div>
+          </div>
+          <div style="flex:1;border:1px solid #e5e5e5;border-top:3px solid ${TURQ};border-radius:6px;padding:10px 12px">
+            <div style="font-size:11px;font-weight:700;color:${TURQ}">PP</div>
+            <div style="font-size:9px;color:#666;margin-bottom:6px">Pratique professionnelle (÷ 1000)</div>
+            <div style="font-size:10px;color:#444">${fmt(totPp)} périodes</div>
+            <div style="font-size:22px;font-weight:700;color:${BLEU};margin-top:2px">${fmtEtp(totPp / 1000)} <span style="font-size:10px;font-weight:400;color:#999">ETP</span></div>
+          </div>
+        </div>
+
+        <div style="font-size:13px;color:${BLEU};font-weight:700;margin:16px 0 8px;padding-bottom:3px;border-bottom:1.5px solid ${CLAIR}">Détail par bloc et par unité d'enseignement</div>
+        ${blocs}
+
+        <div style="margin-top:18px;background:${GRIS};border-radius:8px;padding:12px 16px;page-break-inside:avoid">
+          <div style="font-size:11px;color:${BLEU};font-weight:700;margin-bottom:6px">Méthodologie de calcul</div>
+          <div style="font-size:9px;color:#555;line-height:1.5">La charge enseignante est exprimée en équivalents temps plein (ETP), calculés selon la législation de l'enseignement pour adultes. Le nombre de périodes attribuées est divisé par le volume annuel correspondant à un temps plein selon la nature de l'activité.</div>
+          <div style="display:flex;gap:14px;margin-top:8px;font-size:9px">
+            <div><b style="color:${BLEU}">Cours théoriques (CT)</b> : périodes ÷ 800</div>
+            <div><b style="color:${BLEU}">Pratique professionnelle (PP)</b> : périodes ÷ 1000</div>
+            <div><b style="color:${BLEU}">Travail administratif</b> : 36 h / semaine</div>
+          </div>
+          <div style="font-size:9px;color:#555;line-height:1.5;margin-top:8px">Les périodes intègrent les heures de cours et les heures d'autonomie pédagogique. Le calcul est appliqué de manière identique aux attributions IIP et HELB. Les chiffres correspondent à la charge réellement rémunérée par l'établissement.</div>
+        </div>
+      </div></body></html>`;
+    setRapportHtml(html);
   }
 
   function genererRapportHtml(d, filtres) {
