@@ -6,7 +6,7 @@ import OrganisationUEModal from '../components/OrganisationUEModal.jsx';
 import OrganiserGroupesModal from '../components/OrganiserGroupesModal.jsx';
 import Doc23Modal from '../components/Doc23Modal.jsx';
 import * as XLSX from 'xlsx';
-import { IconClipboardText, IconTrash, IconLock, IconLockOpen, IconArrowsHorizontal, IconRefresh, IconCalendar, IconFileText, IconChartBar, IconEraser, IconWand, IconSearch, IconX, IconSettings, IconFolder, IconPlus, IconFileImport, IconFileSpreadsheet, IconUsersGroup, IconScissors } from '@tabler/icons-react';
+import { IconClipboardText, IconTrash, IconLock, IconLockOpen, IconArrowsHorizontal, IconRefresh, IconCalendar, IconFileText, IconChartBar, IconEraser, IconWand, IconSearch, IconX, IconSettings, IconFolder, IconPlus, IconFileImport, IconFileSpreadsheet, IconUsersGroup, IconScissors, IconClock } from '@tabler/icons-react';
 
 // ─── Modale : copier les attributions d'une section d'une année vers une autre ─
 function CopierSectionModal({ sections, anneeActive, isAdmin, onClose, onCopied }) {
@@ -1515,18 +1515,18 @@ export default function Attributions() {
         <div className="ml-auto flex gap-2 flex-wrap">
           <button onClick={()=>{ const next = unite==='heures'?'periodes':'heures'; setUniteLocal(next); setUniteGlobal(next); window.dispatchEvent(new Event('unite-change')); }}
             title="Basculer la saisie entre périodes et heures (le stockage reste en périodes)"
-            className="bg-white border border-iip-mauve text-iip-mauve hover:bg-iip-mauve/5 text-sm px-3 py-1.5 rounded font-medium">
-            <span className="inline-flex items-center gap-1.5">{unite==='heures' ? '⏱ Heures' : '⏳ Périodes'}</span>
+            className="inline-flex items-center gap-2 bg-white border border-slate-300 text-iip-blue hover:bg-slate-50 text-[13px] font-medium px-3.5 py-2 rounded-lg">
+            <IconClock size={16}/>{unite==='heures' ? 'Heures' : 'Périodes'}
           </button>
-          <button onClick={()=>setShowForm(true)} className="bg-iip-gold hover:bg-iip-amber text-white text-sm px-3 py-1.5 rounded font-medium"><span className="inline-flex items-center gap-1.5"><IconPlus size={15}/>Nouvelle</span></button>
-          <button onClick={()=>setShowBulkCreate(true)} className="bg-iip-gold hover:bg-iip-amber text-white text-sm px-3 py-1.5 rounded font-medium" title="Créer les attributions d'une section"><span className="inline-flex items-center gap-1.5"><IconPlus size={15}/>Créer une section</span></button>
-          <button onClick={()=>setShowCopierSection(true)} className="bg-indigo-600 hover:bg-indigo-700 text-white text-sm px-3 py-1.5 rounded font-medium" title="Copier les attributions d'une section vers une autre année"><span className="inline-flex items-center gap-1.5"><IconClipboardText size={15}/>Copier section</span></button>
-          <button onClick={()=>api.exportExcel()} className="bg-iip-mauve hover:opacity-90 text-white text-sm px-3 py-1.5 rounded font-medium"><span className="inline-flex items-center gap-1.5"><IconFileImport size={15}/>Export</span></button>
+          <button onClick={()=>setShowForm(true)} className="inline-flex items-center gap-2 bg-iip-blue hover:bg-iip-blue-dark text-white text-[13px] font-medium px-3.5 py-2 rounded-lg"><IconPlus size={16}/>Nouvelle</button>
+          <button onClick={()=>setShowBulkCreate(true)} title="Créer les attributions d'une section" className="inline-flex items-center gap-2 bg-white border border-slate-300 text-iip-blue hover:bg-slate-50 text-[13px] font-medium px-3.5 py-2 rounded-lg"><IconPlus size={16}/>Créer une section</button>
+          <button onClick={()=>setShowCopierSection(true)} title="Copier les attributions d'une section vers une autre année" className="inline-flex items-center gap-2 bg-white border border-slate-300 text-iip-blue hover:bg-slate-50 text-[13px] font-medium px-3.5 py-2 rounded-lg"><IconClipboardText size={16}/>Copier section</button>
+          <button onClick={()=>api.exportExcel()} className="inline-flex items-center gap-2 bg-white border border-slate-300 text-iip-blue hover:bg-slate-50 text-[13px] font-medium px-3.5 py-2 rounded-lg"><IconFileImport size={16}/>Export</button>
           {isAdmin && <>
-            {selected.size>0 && <button onClick={()=>openBulkModal('selection')} className="bg-iip-orange hover:opacity-90 text-white text-sm px-3 py-1.5 rounded font-medium"><span className="inline-flex items-center gap-1.5"><IconTrash size={15}/>Sélection ({selected.size})</span></button>}
-            <button onClick={()=>openBulkModal('filtered')} className="bg-orange-500 hover:bg-orange-600 text-white text-sm px-3 py-1.5 rounded font-medium"><span className="inline-flex items-center gap-1.5"><IconTrash size={15}/>Suppr. filtre</span></button>
-            <button onClick={()=>openBulkModal('all')} className="bg-red-600 hover:bg-red-700 text-white text-sm px-3 py-1.5 rounded font-medium"><span className="inline-flex items-center gap-1.5"><IconTrash size={15}/>Tout supprimer</span></button>
-            <button onClick={reimportExcel} className="bg-blue-600 hover:bg-blue-700 text-white text-sm px-3 py-1.5 rounded font-medium"><span className="inline-flex items-center gap-1.5"><IconRefresh size={15}/>Réimporter</span></button>
+            {selected.size>0 && <button onClick={()=>openBulkModal('selection')} className="inline-flex items-center gap-2 bg-white border border-red-200 text-iip-danger hover:bg-red-50 text-[13px] font-medium px-3.5 py-2 rounded-lg"><IconTrash size={16}/>Sélection ({selected.size})</button>}
+            <button onClick={()=>openBulkModal('filtered')} className="inline-flex items-center gap-2 bg-white border border-red-200 text-iip-danger hover:bg-red-50 text-[13px] font-medium px-3.5 py-2 rounded-lg"><IconTrash size={16}/>Suppr. filtre</button>
+            <button onClick={()=>openBulkModal('all')} className="inline-flex items-center gap-2 bg-iip-danger hover:brightness-110 text-white text-[13px] font-medium px-3.5 py-2 rounded-lg"><IconTrash size={16}/>Tout supprimer</button>
+            <button onClick={reimportExcel} className="inline-flex items-center gap-2 bg-white border border-slate-300 text-iip-blue hover:bg-slate-50 text-[13px] font-medium px-3.5 py-2 rounded-lg"><IconRefresh size={16}/>Réimporter</button>
           </>}
         </div>
       </div>
