@@ -724,9 +724,12 @@ r.get('/dotation-comparaison', authRequired, (req, res) => {
   const sco2 = scoFor(annee2);
 
   // Toutes les UE des deux années — une seule ligne par (section, ue_num)
-  // Priorité à annee2 pour les métadonnées, fallback sur annee1
+  // Priorité à annee2 pour les métadonnées, fallback sur annee1.
+  // On part des ATTRIBUTIONS réelles (source de vérité : quelle section utilise quelle UE,
+  // y compris les UE partagées comme l'UE 95 utilisée par SAR mais déclarée sous RESTART),
+  // et on récupère les métadonnées de l'UE par jointure sur ue_num+année SANS critère de section.
   const ues = db.prepare(`
-    SELECT u.section, u.ue_num,
+    SELECT a.section, a.ue_num,
       COALESCE(MAX(CASE WHEN u.annee_scolaire = ? THEN u.ue_nom END),
                MAX(CASE WHEN u.annee_scolaire = ? THEN u.ue_nom END)) AS ue_nom,
       COALESCE(MAX(CASE WHEN u.annee_scolaire = ? THEN u.ue_niv END),
@@ -740,10 +743,11 @@ r.get('/dotation-comparaison', authRequired, (req, res) => {
              WHEN u.ue_code_fwb LIKE '980301%' THEN 'CF'
              WHEN u.ue_code_fwb LIKE '980303%' THEN 'INCL'
              ELSE 'organique' END)) AS pot
-    FROM ue u
-    WHERE u.annee_scolaire IN (?, ?)
-    GROUP BY u.section, u.ue_num
-    ORDER BY u.section, u.ue_num
+    FROM attribution a
+    LEFT JOIN ue u ON u.ue_num = a.ue_num AND u.annee_scolaire = a.annee_scolaire
+    WHERE a.annee_scolaire IN (?, ?)
+    GROUP BY a.section, a.ue_num
+    ORDER BY a.section, a.ue_num
   `).all(sco2, sco1, sco2, sco1, sco2, sco1, sco2, sco1, sco1, sco2);
 
   // Grouper par section
