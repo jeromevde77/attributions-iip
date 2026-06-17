@@ -626,6 +626,7 @@ export default function Listes() {
     } else {
       lignesUE = renderUesParOrga(ues);
     }
+    const totalPer = ues.reduce((s,u)=>s+u.total_per,0);
     const totalAut = ues.reduce((s,u)=>s+u.total_aut,0);
     const titre = entite === 'rapport-ue' && filtres.ue_num
       ? `UE ${filtres.ue_num} — ${d.section}`
