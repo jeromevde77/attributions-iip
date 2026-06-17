@@ -369,7 +369,16 @@ r.get('/rapport-attributions', authRequired, (req, res) => {
     if (oa !== ob) return oa - ob;
     const an = (a.activite_nom||'').localeCompare(b.activite_nom||'', 'fr', {numeric:true});
     if (an !== 0) return an;
-    return (a.num_groupe||0) - (b.num_groupe||0);                    // 5. groupe dans l'activité
+    // 5. groupe dans l'activité : par la LETTRE affichée (Ts en premier, puis A, B, C…)
+    const rangGroupe = (r) => {
+      const code = (r.groupe_code || '').toUpperCase();
+      if (!code || code === 'TS') return -1;        // Ts (ou vide) en tête
+      const c = code.charCodeAt(0);
+      return (c >= 65 && c <= 90) ? c - 64 : 999;   // A=1, B=2, … ; reste à la fin
+    };
+    const ga = rangGroupe(a), gb = rangGroupe(b);
+    if (ga !== gb) return ga - gb;
+    return (a.num_groupe||0) - (b.num_groupe||0);   // départage stable
   });
 
   // Structurer par UE → cours → lignes
