@@ -194,7 +194,7 @@ const DEFAULT_COLS = [
     render: v => v || <span className="text-gray-300 text-xs italic">—</span> },
   { key: 'type_cours',            label: 'Type',       width: 56, rowClickable: true,
     render: v => { const cls = {CT:'badge-ct',CG:'badge-cc',PP:'badge-pp',Z:'badge-z',B:'badge-b',F:'badge-f',T:'badge-t',P:'badge-p',O:'badge-o'}[v]; return cls ? <span className={`badge ${cls}`}>{v}</span> : (v || '—'); } },
-  { key: 'code',                  label: 'Gr.',        width: 52, edit: 'text' },
+  { key: 'code',                  label: 'Gr.',        width: 92, edit: 'text' },
   { key: 'professeur_id',         label: 'Professeur', width: 200, edit: 'prof',
     render: (_, row) => row.professeur || <span className="italic text-orange-500">—</span> },
   { key: 'contrat',               label: 'Stat.',      width: 64, edit: 'statut',
@@ -209,7 +209,7 @@ const DEFAULT_COLS = [
   { key: 'autonomie_attribuee',   label: 'Aut.',       width: 84, num: true, edit: 'number' },
   { key: 'total_attribue_professeur', label: 'Total',  width: 64, num: true, calc: true, rowClickable: true },
   { key: 'charge_en_heures',      label: 'Hrs',        width: 60, num: true, calc: true, rowClickable: true },
-  { key: '__actions',             label: '',           width: 84 },
+  { key: '__actions',             label: '',           width: 44 },
 ];
 
 // ===========================================================================
@@ -978,17 +978,9 @@ export default function Attributions() {
           const cClass = c.rowClickable ? 'cursor-pointer hover:bg-iip-gold/5' : '';
           if (c.key==='__select') return <td key={c.key} className="text-center" style={sty}><input type="checkbox" checked={selected.has(row.id)} onChange={()=>toggleSelect(row.id)} className="cursor-pointer"/></td>;
           if (c.key==='__actions') {
-            const estSplit  = row.split_groupe === 'O';
-            const estGroupe = !!(row.groupe_code && row.groupe_code.toUpperCase() !== 'TS');
-            return <td key={c.key} className="text-center" style={sty}><div className="flex items-center justify-center gap-1">
-              {!row.is_z && <>
-                <button onClick={()=>splitterLigne(row)} title="Split : découper en morceaux partagés (Ts, plusieurs profs)"
-                  className={estSplit ? 'text-green-600' : 'text-gray-300 hover:text-green-600'}><IconScissors size={15}/></button>
-                <button onClick={()=>grouperLigne(row)} title="Groupes : créer des sous-groupes A, B, C… (étudiants répartis)"
-                  className={estGroupe ? 'text-green-600' : 'text-gray-300 hover:text-green-600'}><IconUsersGroup size={15}/></button>
-              </>}
+            return <td key={c.key} className="text-center" style={sty}>
               <button onClick={()=>deleteRow(row.id)} className="text-red-500 hover:text-red-700" title="Supprimer"><IconTrash size={15}/></button>
-            </div></td>;
+            </td>;
           }
           if (c.key==='__conformite') return <td key={c.key} className="text-center" style={sty}>{c.render(null,row)}</td>;
           // Badge EXT/DOT sur la colonne professeur
@@ -1071,6 +1063,22 @@ export default function Attributions() {
                     if (valPer !== Number(v)) saveCell(row.id, c.key, valPer);
                   }}/>
                 {prevuAff!=null && <span className="text-gray-400 whitespace-nowrap" title={c.key==='periodes_attribuees'?'Périodes prévues':'Autonomie prévue'}>/{prevuAff}</span>}
+              </div>
+            </td>;
+          }
+          if (c.key==='code') {
+            const estSplit  = row.split_groupe === 'O';
+            const estGroupe = !!(row.groupe_code && row.groupe_code.toUpperCase() !== 'TS');
+            return <td key={c.key} style={sty}>
+              <div className="flex items-center gap-0.5">
+                <input type="text" defaultValue={v??''} className="input-cell w-full text-center" onClick={e=>e.stopPropagation()}
+                  onBlur={e=>{if(e.target.value!==(v??''))saveCell(row.id,c.key,e.target.value);}}/>
+                {!row.is_z && <>
+                  <button onClick={e=>{e.stopPropagation();splitterLigne(row);}} title="Split : découper en morceaux partagés (Ts, plusieurs profs)"
+                    className={estSplit ? 'text-green-600' : 'text-gray-300 hover:text-green-600'}><IconScissors size={13}/></button>
+                  <button onClick={e=>{e.stopPropagation();grouperLigne(row);}} title="Groupes : créer des sous-groupes A, B, C…"
+                    className={estGroupe ? 'text-green-600' : 'text-gray-300 hover:text-green-600'}><IconUsersGroup size={13}/></button>
+                </>}
               </div>
             </td>;
           }
