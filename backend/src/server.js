@@ -93,6 +93,10 @@ try {
     db.exec(`ALTER TABLE activite_type ADD COLUMN annee_scolaire TEXT`);
     console.log('[migration] activite_type.annee_scolaire ajouté');
   }
+  if (!_colsAT.includes('type_etp')) {
+    db.exec(`ALTER TABLE activite_type ADD COLUMN type_etp TEXT`);
+    console.log('[migration] activite_type.type_etp ajouté');
+  }
 
   // Ajouter les nouvelles activités globales si absentes (pour installations existantes)
   const _activitesGlobales = [
