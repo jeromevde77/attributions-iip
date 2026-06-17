@@ -1,7 +1,19 @@
 import { useState, useEffect } from 'react';
 import { api, getAnnee, nomDoc } from '../lib/api.js';
 import PreviewModal from '../components/PreviewModal.jsx';
+import {
+  IconUser, IconBooks, IconBook, IconLink, IconSchool, IconScale,
+  IconAlertTriangle, IconLayoutGrid, IconFileText, IconFileDescription,
+  IconCertificate, IconBolt, IconPrinter, IconFileSpreadsheet, IconDownload,
+  IconFileExport,
+} from '@tabler/icons-react';
 import * as XLSX from 'xlsx';
+
+// Table des composants d'icônes (référencés par nom dans ENTITES.tabler)
+const TABLER = {
+  IconUser, IconBooks, IconBook, IconLink, IconSchool, IconScale,
+  IconAlertTriangle, IconLayoutGrid, IconFileText, IconFileDescription, IconCertificate,
+};
 
 // Export Excel via import dynamique (évite de bloquer le bundle si xlsx pose problème)
 async function exportExcel(rows, cols, nom) {
@@ -30,7 +42,7 @@ function authFetch(url) {
 // ─── Définition des entités ─────────────────────────────────────────────────
 const ENTITES = {
   profs: {
-    label: 'Professeurs', icon: '👤',
+    label: 'Professeurs', icon: '👤', tabler: 'IconUser',
     cols: [
       { key: 'nom',            label: 'Nom',          defaut: true  },
       { key: 'prenom',         label: 'Prénom',       defaut: true  },
@@ -48,7 +60,7 @@ const ENTITES = {
     filtres: [],
   },
   ues: {
-    label: 'Unités d\'enseignement', icon: '📚',
+    label: 'Unités d\'enseignement', icon: '📚', tabler: 'IconBooks',
     cols: [
       { key: 'ue_num',        label: 'N° UE',          defaut: true  },
       { key: 'ue_nom',        label: 'Nom',             defaut: true  },
@@ -93,7 +105,7 @@ const ENTITES = {
     filtres: ['section', 'niveau'],
   },
   cours: {
-    label: 'Cours', icon: '📖',
+    label: 'Cours', icon: '📖', tabler: 'IconBook',
     cols: [
       { key: 'cours_code',         label: 'Code cours',   defaut: true  },
       { key: 'cours_nom',          label: 'Nom du cours', defaut: true  },
@@ -115,7 +127,7 @@ const ENTITES = {
     filtres: ['section', 'ue_num'],
   },
   profs_par_ue: {
-    label: 'Profs par UE', icon: '🔗',
+    label: 'Profs par UE', icon: '🔗', tabler: 'IconLink',
     cols: [
       { key: 'professeur',    label: 'Professeur',  defaut: true  },
       { key: 'ue_num',        label: 'N° UE',        defaut: true  },
@@ -137,7 +149,7 @@ const ENTITES = {
     filtres: ['section', 'ue_num'],
   },
   profs_par_section: {
-    label: 'Profs par section', icon: '🏫',
+    label: 'Profs par section', icon: '🏫', tabler: 'IconSchool',
     cols: [
       { key: 'section',       label: 'Section',     defaut: true  },
       { key: 'professeur',    label: 'Professeur',  defaut: true  },
@@ -156,7 +168,7 @@ const ENTITES = {
     filtres: ['section'],
   },
   synthese_charge: {
-    label: 'Synthèse charge / prof', icon: '⚖️',
+    label: 'Synthèse charge / prof', icon: '⚖️', tabler: 'IconScale',
     cols: [
       { key: 'professeur',    label: 'Professeur',  defaut: true  },
       { key: 'section',       label: 'Section',     defaut: true  },
@@ -184,7 +196,7 @@ const ENTITES = {
     filtres: ['section'],
   },
   ues_sans_attribution: {
-    label: 'UE sans attribution', icon: '⚠️',
+    label: 'UE sans attribution', icon: '⚠️', tabler: 'IconAlertTriangle',
     cols: [
       { key: 'ue_num',  label: 'N° UE',  defaut: true  },
       { key: 'ue_nom',  label: 'Nom',    defaut: true  },
@@ -204,7 +216,7 @@ const ENTITES = {
     filtres: ['section'],
   },
   'grille-section': {
-    label: 'Grille de section', icon: '📐',
+    label: 'Grille de section', icon: '📐', tabler: 'IconLayoutGrid',
     grille: true,
     cols: [],
     fetch: (annee, filtres) => authFetch(
@@ -213,7 +225,7 @@ const ENTITES = {
     filtres: ['section'],
   },
   'rapport-section': {
-    label: 'Rapport par section', icon: '📄',
+    label: 'Rapport par section', icon: '📄', tabler: 'IconFileText',
     rapport: true,
     cols: [],
     fetch: (annee, filtres) => {
@@ -225,7 +237,7 @@ const ENTITES = {
     filtres: ['section', 'tc'],
   },
   'rapport-ue': {
-    label: 'Rapport par UE', icon: '📋',
+    label: 'Rapport par UE', icon: '📋', tabler: 'IconFileDescription',
     rapport: true,
     cols: [],
     fetch: (annee, filtres) => authFetch(
@@ -234,7 +246,7 @@ const ENTITES = {
     filtres: ['section', 'ue_num'],
   },
   'rapport-etp': {
-    label: 'Rapport ETP', icon: '🎓',
+    label: 'Rapport ETP', icon: '🎓', tabler: 'IconCertificate',
     rapport: true,
     cols: [],
     fetch: (annee) => authFetch(`/api/pilotage/etp?annee=${encodeURIComponent(annee)}`),
@@ -266,6 +278,7 @@ export default function Listes() {
   const [sections, setSections] = useState([]);
   const [rapportHtml, setRapportHtml] = useState(null);
   const [ueList, setUeList] = useState([]);
+  const [orientation, setOrientation] = useState('portrait'); // portrait | landscape (impression)
 
   useEffect(() => {
     api.sections().then(s => setSections(Array.isArray(s) ? s : [])).catch(() => {});
@@ -915,193 +928,234 @@ export default function Listes() {
   const colsVisibles = def.cols.filter(c => colsActives.has(c.key));
   const nomFichier = `lucie_${entite}_${annee}`;
 
+  // Injecte l'orientation choisie dans le HTML du rapport au moment de l'aperçu/impression
+  function htmlAvecOrientation(html) {
+    if (!html) return html;
+    const size = orientation === 'landscape' ? 'A4 landscape' : 'A4 portrait';
+    // Remplace toute déclaration @page{...size:...} existante, sinon en injecte une
+    if (/@page\s*\{[^}]*size\s*:[^;}]*/.test(html)) {
+      return html.replace(/(@page\s*\{[^}]*size\s*:\s*)[^;}]*/g, `$1${size}`);
+    }
+    return html.replace('</style>', `@page{size:${size};margin:12mm}</style>`);
+  }
+
+  const apercuHtml = rapportHtml ? htmlAvecOrientation(rapportHtml.html || rapportHtml) : null;
+  const estRapport = def.rapport || def.grille;
+
   return (
-    <div className="flex flex-col h-full min-h-0">
-      {/* En-tête */}
-      <div className="px-6 pt-6 pb-4 border-b border-gray-100 flex-shrink-0">
-        <h1 className="text-2xl font-title text-iip-gold mb-1">Listes &amp; Extractions</h1>
-        <p className="text-sm text-gray-500">Générez, filtrez et exportez n'importe quelle liste — CSV ou Excel.</p>
+    <div className="flex flex-col h-full min-h-0 bg-slate-50">
+      {/* ── En-tête + barre d'onglets ── */}
+      <div className="flex-shrink-0 bg-white border-b border-slate-200">
+        <div className="px-6 pt-5 pb-3">
+          <h1 className="text-xl font-title text-slate-800 flex items-center gap-2">
+            <IconFileExport size={22} className="text-[#00AACC]" />
+            Listes &amp; rapports
+          </h1>
+        </div>
+        {/* Onglets horizontaux */}
+        <div className="px-4 pb-0 flex gap-1 overflow-x-auto">
+          {Object.entries(ENTITES).map(([k, e]) => {
+            const Ic = TABLER[e.tabler] || IconFileText;
+            const actif = entite === k;
+            return (
+              <button key={k} onClick={() => changerEntite(k)}
+                className={`group relative flex items-center gap-2 px-3.5 py-2.5 text-[13px] whitespace-nowrap transition-colors duration-150 border-b-2
+                  ${actif
+                    ? 'border-[#00AACC] text-slate-900 font-semibold'
+                    : 'border-transparent text-slate-500 hover:text-slate-800'}`}>
+                <Ic size={17} className={actif ? 'text-[#00AACC]' : 'text-slate-400 group-hover:text-slate-600'} />
+                {e.label}
+              </button>
+            );
+          })}
+        </div>
       </div>
 
-      <div className="flex flex-1 min-h-0 overflow-hidden">
-        {/* ── Panneau gauche ── */}
-        <div className="w-64 flex-shrink-0 bg-gradient-to-b from-gray-50 to-white border-r border-gray-200 overflow-auto p-4 space-y-6">
+      {/* ── Barre de filtres + actions ── */}
+      <div className="flex-shrink-0 bg-white border-b border-slate-200 px-5 py-2.5 flex items-center gap-3 flex-wrap">
+        {/* Filtres rapides (sauf rapport-section : pop-up) */}
+        {def.filtres.length > 0 && entite !== 'rapport-section' && (<>
+          {def.filtres.includes('section') && (
+            <label className="flex items-center gap-2">
+              <span className="text-xs text-slate-500">Section</span>
+              <select value={filtres.section || ''} onChange={e => setFiltres(f => ({ ...f, section: e.target.value }))}
+                className="border border-slate-300 rounded-lg px-2.5 py-1.5 text-sm bg-white min-w-[120px]">
+                <option value="">{entite === 'rapport-etp' ? '— Choisir —' : '— Toutes —'}</option>
+                {sections.map(s => <option key={s.code} value={s.code}>{s.code}</option>)}
+              </select>
+            </label>
+          )}
+          {def.filtres.includes('ue_num') && (
+            <label className="flex items-center gap-2">
+              <span className="text-xs text-slate-500">UE</span>
+              {entite === 'rapport-ue' && ueList.length > 0
+                ? <select value={filtres.ue_num || ''} onChange={e => setFiltres(f => ({ ...f, ue_num: e.target.value }))}
+                    className="border border-slate-300 rounded-lg px-2.5 py-1.5 text-sm bg-white">
+                    <option value="">— Toutes les UE —</option>
+                    {ueList.map(u => <option key={u.ue_num} value={u.ue_num}>UE {u.ue_num} — {u.ue_nom?.slice(0,35)}</option>)}
+                  </select>
+                : <input type="number" value={filtres.ue_num || ''} onChange={e => setFiltres(f => ({ ...f, ue_num: e.target.value }))}
+                    placeholder="ex: 95" className="border border-slate-300 rounded-lg px-2.5 py-1.5 text-sm w-24" />
+              }
+            </label>
+          )}
+          {def.filtres.includes('niveau') && (
+            <label className="flex items-center gap-2">
+              <span className="text-xs text-slate-500">Niveau</span>
+              <select value={filtres.niveau || ''} onChange={e => setFiltres(f => ({ ...f, niveau: e.target.value }))}
+                className="border border-slate-300 rounded-lg px-2.5 py-1.5 text-sm bg-white">
+                <option value="">— Tous —</option><option value="SUP">SUP</option><option value="DS">DS</option>
+              </select>
+            </label>
+          )}
+          {def.filtres.includes('tc') && (
+            <label className="flex items-center gap-2">
+              <span className="text-xs text-slate-500">Tronc commun</span>
+              <select value={filtres.tc || ''} onChange={e => setFiltres(f => ({ ...f, tc: e.target.value }))}
+                className="border border-slate-300 rounded-lg px-2.5 py-1.5 text-sm bg-white">
+                <option value="">— L'ensemble —</option><option value="tc">TC uniquement</option><option value="hors">Hors TC</option>
+              </select>
+            </label>
+          )}
+        </>)}
 
-          {/* Type de liste */}
-          <div>
-            <div className="text-[11px] font-semibold text-gray-400 uppercase tracking-wider mb-2.5">Type de liste</div>
-            {Object.entries(ENTITES).map(([k, e]) => (
-              <button key={k} onClick={() => changerEntite(k)}
-                className={`w-full text-left flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-sm mb-1.5 transition-all duration-150
-                  ${entite === k
-                    ? 'bg-iip-gold text-white font-semibold shadow-sm shadow-iip-gold/30'
-                    : 'hover:bg-white hover:shadow-sm text-gray-600 border border-transparent hover:border-gray-100'}`}>
-                <span className="text-base">{e.icon}</span><span>{e.label}</span>
+        {entite === 'rapport-section' && (
+          <span className="text-xs text-slate-500 flex items-center gap-1.5">
+            <IconFileText size={15} className="text-[#00AACC]" />
+            Les critères se choisissent à la génération.
+          </span>
+        )}
+
+        <span className="flex-1" />
+
+        {/* Sélecteur d'orientation (rapports uniquement) */}
+        {estRapport && (
+          <div className="flex items-center gap-1 bg-slate-100 rounded-lg p-0.5">
+            <button onClick={() => setOrientation('portrait')}
+              className={`px-2.5 py-1 text-xs rounded-md transition-colors ${orientation==='portrait'?'bg-white text-slate-800 shadow-sm font-medium':'text-slate-500'}`}>
+              Portrait
+            </button>
+            <button onClick={() => setOrientation('landscape')}
+              className={`px-2.5 py-1 text-xs rounded-md transition-colors ${orientation==='landscape'?'bg-white text-slate-800 shadow-sm font-medium':'text-slate-500'}`}>
+              Paysage
+            </button>
+          </div>
+        )}
+
+        {/* Bouton générer */}
+        <button onClick={generer} disabled={loading}
+          className="bg-[#1B2B4B] hover:bg-[#163A6B] disabled:opacity-40 text-white text-sm font-semibold px-4 py-2 rounded-lg flex items-center gap-2 transition-colors">
+          <IconBolt size={16} />
+          {loading ? 'Chargement…' : (entite === 'rapport-section' ? 'Paramétrer & générer' : 'Générer')}
+        </button>
+
+        {/* Exports */}
+        {rows !== null && (estRapport ? (
+          <>
+            {apercuHtml && (
+              <button onClick={() => {
+                  const w = window.open('', '_blank');
+                  if (!w) { alert('Autorisez les pop-ups pour imprimer.'); return; }
+                  w.document.write(apercuHtml); w.document.close();
+                  setTimeout(() => { w.focus(); w.print(); }, 350);
+                }}
+                className="text-sm border border-[#1B2B4B] text-[#1B2B4B] hover:bg-slate-100 px-3 py-2 rounded-lg font-medium flex items-center gap-1.5">
+                <IconPrinter size={16} /> Imprimer / PDF
               </button>
-            ))}
+            )}
+            <button onClick={async () => {
+                const d = await def.fetch(annee, filtres);
+                def.grille ? genererGrilleExcel(d) : genererRapportExcel(d, filtres);
+              }}
+              className="text-sm border border-emerald-500 text-emerald-700 hover:bg-emerald-50 px-3 py-2 rounded-lg font-medium flex items-center gap-1.5">
+              <IconFileSpreadsheet size={16} /> Excel
+            </button>
+          </>
+        ) : (
+          <>
+            <button onClick={() => exportCSV(rows, colsVisibles, nomFichier)} disabled={rows.length === 0}
+              className="text-sm border border-slate-300 hover:bg-slate-100 disabled:opacity-40 px-3 py-2 rounded-lg text-slate-600 flex items-center gap-1.5">
+              <IconDownload size={16} /> CSV
+            </button>
+            <button onClick={() => exportExcel(rows, colsVisibles, nomFichier)} disabled={rows.length === 0}
+              className="text-sm border border-emerald-500 text-emerald-700 hover:bg-emerald-50 disabled:opacity-40 px-3 py-2 rounded-lg font-medium flex items-center gap-1.5">
+              <IconFileSpreadsheet size={16} /> Excel
+            </button>
+          </>
+        ))}
+      </div>
+
+      {error && <div className="bg-red-50 text-red-700 text-sm p-3 mx-5 mt-3 rounded-lg flex-shrink-0">{error}</div>}
+
+      {/* ── Zone de contenu ── */}
+      <div className="flex-1 min-h-0 overflow-auto">
+        {/* État vide */}
+        {rows === null && (
+          <div className="h-full flex flex-col items-center justify-center text-slate-400 gap-3">
+            {(() => { const Ic = TABLER[def.tabler] || IconFileText; return <Ic size={48} stroke={1.2} className="text-slate-300" />; })()}
+            <p className="text-sm">Configurez vos filtres puis cliquez sur <b className="text-slate-600">Générer</b>.</p>
           </div>
+        )}
 
-          {/* Filtres — masqués pour le rapport-section (paramétrage dans le pop-up) */}
-          {def.filtres.length > 0 && entite !== 'rapport-section' && (
-            <div>
-              <div className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">Filtres</div>
-              {def.filtres.includes('section') && (
-                <label className="block mb-2">
-                  <div className="text-xs text-gray-600 mb-0.5">Section</div>
-                  <select value={filtres.section || ''} onChange={e => setFiltres(f => ({ ...f, section: e.target.value }))}
-                    className="w-full border border-gray-300 rounded px-2 py-1.5 text-sm bg-white">
-                    <option value="">— Toutes —</option>
-                    {sections.map(s => <option key={s.code} value={s.code}>{s.code}</option>)}
-                  </select>
-                </label>
-              )}
-              {def.filtres.includes('ue_num') && (
-                <label className="block mb-2">
-                  <div className="text-xs text-gray-600 mb-0.5">UE</div>
-                  {entite === 'rapport-ue' && ueList.length > 0
-                    ? <select value={filtres.ue_num || ''} onChange={e => setFiltres(f => ({ ...f, ue_num: e.target.value }))}
-                        className="w-full border border-gray-300 rounded px-2 py-1.5 text-sm bg-white">
-                        <option value="">— Toutes les UE —</option>
-                        {ueList.map(u => <option key={u.ue_num} value={u.ue_num}>UE {u.ue_num} — {u.ue_nom?.slice(0,35)}</option>)}
-                      </select>
-                    : <input type="number" value={filtres.ue_num || ''} onChange={e => setFiltres(f => ({ ...f, ue_num: e.target.value }))}
-                        placeholder="ex: 95" className="w-full border border-gray-300 rounded px-2 py-1.5 text-sm" />
-                  }
-                </label>
-              )}
-              {def.filtres.includes('niveau') && (
-                <label className="block mb-2">
-                  <div className="text-xs text-gray-600 mb-0.5">Niveau</div>
-                  <select value={filtres.niveau || ''} onChange={e => setFiltres(f => ({ ...f, niveau: e.target.value }))}
-                    className="w-full border border-gray-300 rounded px-2 py-1.5 text-sm bg-white">
-                    <option value="">— Tous —</option>
-                    <option value="SUP">SUP</option><option value="DS">DS</option>
-                  </select>
-                </label>
-              )}
-              {def.filtres.includes('tc') && (
-                <label className="block mb-2">
-                  <div className="text-xs text-gray-600 mb-0.5">Tronc commun</div>
-                  <select value={filtres.tc || ''} onChange={e => setFiltres(f => ({ ...f, tc: e.target.value }))}
-                    className="w-full border border-gray-300 rounded px-2 py-1.5 text-sm bg-white">
-                    <option value="">— L'ensemble —</option>
-                    <option value="tc">TC uniquement</option>
-                    <option value="hors">Hors TC</option>
-                  </select>
-                </label>
-              )}
+        {/* Aperçu rapport (en ligne, comme une feuille) */}
+        {rows !== null && estRapport && apercuHtml && (
+          <div className="p-5 flex justify-center">
+            <div className={`bg-white shadow-lg rounded-lg overflow-hidden border border-slate-200 ${orientation==='landscape' ? 'w-full max-w-[1100px]' : 'w-full max-w-[820px]'}`}>
+              <iframe title="aperçu" srcDoc={apercuHtml} className="w-full block" style={{ height: '78vh', border: 'none' }} />
             </div>
-          )}
-
-          {/* Colonnes */}
-          {def.cols.length > 0 && (
-          <div>
-            <div className="flex items-center justify-between mb-2">
-              <div className="text-[11px] font-semibold text-gray-400 uppercase tracking-wider">Colonnes</div>
-              <button onClick={() => setColsActives(new Set(def.cols.map(c => c.key)))}
-                className="text-xs text-iip-gold hover:underline">tout</button>
-            </div>
-            {def.cols.map(c => (
-              <label key={c.key} className="flex items-center gap-2 py-0.5 text-sm cursor-pointer">
-                <input type="checkbox" checked={colsActives.has(c.key)} onChange={() => toggleCol(c.key)} />
-                <span className={colsActives.has(c.key) ? 'text-gray-800' : 'text-gray-400'}>{c.label}</span>
-              </label>
-            ))}
           </div>
-          )}
+        )}
 
-          {/* Note pour le rapport par section : paramétrage au clic */}
-          {entite === 'rapport-section' && (
-            <div className="rounded-xl bg-iip-gold/5 border border-iip-gold/20 px-3 py-2.5 text-[12px] text-gray-600 leading-relaxed">
-              <span className="font-semibold text-iip-gold">Paramétrage à la génération</span><br/>
-              Choisissez les sections et les filtres (contrat, TC, niveau, quadrimestre, type, TH/TP) dans la fenêtre qui s'ouvre.
+        {/* Tableau de données */}
+        {rows !== null && !estRapport && (
+          <div className="px-5 py-3">
+            <div className="text-sm text-slate-600 mb-2">
+              <b>{rows.length}</b> résultat{rows.length > 1 ? 's' : ''} · {def.label} · {annee}
+              {filtres.section && <span className="ml-1 font-medium text-[#00AACC]">· {filtres.section}</span>}
             </div>
-          )}
-
-          {/* Bouton */}
-          <button onClick={generer} disabled={loading}
-            className="w-full bg-iip-gold hover:bg-iip-amber disabled:opacity-40 text-white text-sm font-semibold py-2.5 rounded-xl shadow-sm shadow-iip-gold/30 transition-all duration-150">
-            {loading ? 'Chargement…' : (entite === 'rapport-section' ? 'Paramétrer & générer' : '⚡ Générer')}
-          </button>
-        </div>
-
-        {/* ── Zone résultats ── */}
-        <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
-          {rows === null ? (
-            <div className="flex-1 flex flex-col items-center justify-center text-gray-400 gap-3">
-              <span className="text-5xl">📋</span>
-              <p className="text-sm">Choisissez un type, configurez vos colonnes, cliquez <b>Générer</b>.</p>
-            </div>
-          ) : (
-            <>
-              {/* Barre d'actions */}
-              <div className="flex items-center justify-between px-4 py-2 border-b border-gray-100 bg-white flex-shrink-0">
-                <span className="text-sm text-gray-600">
-                  {def.rapport ? <span className="font-medium text-iip-gold">{def.label} · {annee}{filtres.section ? ` · ${filtres.section}` : ''}{filtres.ue_num ? ` · UE ${filtres.ue_num}` : ''}</span>
-                  : <><b>{rows.length}</b> résultat{rows.length > 1 ? 's' : ''} · {def.label} · {annee}
-                    {filtres.section && <span className="ml-2 font-medium text-iip-gold">· {filtres.section}</span>}</>}
-                </span>
-                <div className="flex gap-2">
-                  {def.rapport || def.grille ? (<>
-                    <button onClick={() => rapportHtml && setRapportHtml(rapportHtml)}
-                      disabled={!rapportHtml}
-                      className="text-xs border border-iip-mauve text-iip-mauve hover:bg-iip-mauve/5 disabled:opacity-40 px-3 py-1.5 rounded font-medium">
-                      📄 Voir HTML
-                    </button>
-                    <button onClick={async () => {
-                        const d = await def.fetch(annee, filtres);
-                        def.grille ? genererGrilleExcel(d) : genererRapportExcel(d, filtres);
-                      }}
-                      className="text-xs border border-green-500 text-green-700 hover:bg-green-50 px-3 py-1.5 rounded font-medium">
-                      📊 Excel
-                    </button>
-                  </>) : (<>
-                    <button onClick={() => exportCSV(rows, colsVisibles, nomFichier)}
-                      disabled={rows.length === 0}
-                      className="text-xs border border-gray-300 hover:bg-gray-50 disabled:opacity-40 px-3 py-1.5 rounded text-gray-600">
-                      ⬇ CSV
-                    </button>
-                    <button onClick={() => exportExcel(rows, colsVisibles, nomFichier)}
-                      disabled={rows.length === 0}
-                      className="text-xs border border-green-500 text-green-700 hover:bg-green-50 disabled:opacity-40 px-3 py-1.5 rounded font-medium">
-                      ⬇ Excel
-                    </button>
-                  </>)}
-                </div>
-              </div>
-              {error && <div className="bg-red-50 text-red-700 text-sm p-3 mx-4 mt-2 rounded">{error}</div>}
-              {/* Tableau */}
-              <div className="flex-1 overflow-auto">
-                <table className="w-full text-sm border-collapse">
-                  <thead className="sticky top-0 bg-gray-50 z-10">
-                    <tr>
+            <div className="bg-white rounded-lg border border-slate-200 overflow-auto">
+              <table className="w-full text-sm border-collapse">
+                <thead className="sticky top-0 bg-slate-50 z-10">
+                  <tr>
+                    {colsVisibles.map(c => (
+                      <th key={c.key} className="text-left px-3 py-2 text-xs font-semibold text-slate-600 border-b border-slate-200 whitespace-nowrap">{c.label}</th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {rows.map((row, i) => (
+                    <tr key={i} className={i % 2 ? 'bg-slate-50/50' : ''}>
                       {colsVisibles.map(c => (
-                        <th key={c.key} className="text-left px-3 py-2 text-xs font-semibold text-gray-600 border-b border-gray-200 whitespace-nowrap">
-                          {c.label}
-                        </th>
+                        <td key={c.key} className="px-3 py-1.5 border-b border-slate-100 text-slate-800 max-w-xs truncate" title={String(row[c.key] ?? '')}>
+                          {row[c.key] ?? '—'}
+                        </td>
                       ))}
                     </tr>
-                  </thead>
-                  <tbody>
-                    {rows.map((row, i) => (
-                      <tr key={i} className={i % 2 ? 'bg-gray-50/50' : ''}>
-                        {colsVisibles.map(c => (
-                          <td key={c.key} className="px-3 py-1.5 border-b border-gray-100 text-gray-800 max-w-xs truncate" title={String(row[c.key] ?? '')}>
-                            {row[c.key] ?? '—'}
-                          </td>
-                        ))}
-                      </tr>
-                    ))}
-                    {rows.length === 0 && (
-                      <tr><td colSpan={colsVisibles.length || 1} className="text-center text-gray-400 py-8">Aucun résultat</td></tr>
-                    )}
-                  </tbody>
-                </table>
-              </div>
-            </>
-          )}
-        </div>
+                  ))}
+                  {rows.length === 0 && (
+                    <tr><td colSpan={colsVisibles.length || 1} className="text-center text-slate-400 py-8">Aucun résultat</td></tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+            {/* Colonnes (repliable sous le tableau) */}
+            {def.cols.length > 0 && (
+              <details className="mt-3 text-sm">
+                <summary className="cursor-pointer text-slate-500 hover:text-slate-700">Colonnes affichées</summary>
+                <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1">
+                  {def.cols.map(c => (
+                    <label key={c.key} className="flex items-center gap-1.5 cursor-pointer">
+                      <input type="checkbox" checked={colsActives.has(c.key)} onChange={() => toggleCol(c.key)} />
+                      <span className={colsActives.has(c.key) ? 'text-slate-800' : 'text-slate-400'}>{c.label}</span>
+                    </label>
+                  ))}
+                </div>
+              </details>
+            )}
+          </div>
+        )}
       </div>
+
       {showOptionsRapport && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50" onClick={e=>e.target===e.currentTarget&&setShowOptionsRapport(false)}>
           <div className="bg-white rounded-xl shadow-2xl max-w-lg w-full p-6 border-t-4 border-iip-gold max-h-[90vh] overflow-y-auto">
@@ -1203,8 +1257,6 @@ export default function Listes() {
           </div>
         </div>
       )}
-
-      {rapportHtml && <PreviewModal html={rapportHtml.html||rapportHtml} titre={rapportHtml.nom||"Rapport"} nomFichier={rapportHtml.nom} onClose={() => setRapportHtml(null)} />}
     </div>
   );
 }
