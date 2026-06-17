@@ -1,5 +1,7 @@
 import { useEffect, useState } from 'react';
 import { api, getAnnee } from '../lib/api.js';
+import { IconSettings, IconBooks, IconCalendar, IconBuilding, IconUsers, IconUserShield, IconHistory, IconAdjustments, IconLink, IconSparkles } from '@tabler/icons-react';
+import { PageHeader, Tabs } from '../components/ui.jsx';
 
 const TOKEN = () => localStorage.getItem('token');
 const authFetch = (url, opts = {}) => fetch(url, { ...opts, headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${TOKEN()}`, ...opts.headers } }).then(r => r.json());
@@ -843,47 +845,25 @@ export default function Configuration() {
 
   return (
     <div className="p-4 md:p-6 max-w-7xl mx-auto space-y-6">
-      <h1 className="text-2xl font-title text-iip-gold">Configuration</h1>
+      <PageHeader icon={IconSettings} titre="Configuration"
+        sous="Référentiels, années, établissement, personnel et paramètres système" />
 
       {/* Onglets */}
-      <div className="flex gap-1 border-b border-gray-200 flex-wrap">
-        <button onClick={() => setTab('referentiels')}
-          className={`px-4 py-2 text-sm font-medium border-b-2 -mb-px transition ${tab === 'referentiels' ? 'border-iip-gold text-iip-gold' : 'border-transparent text-gray-500 hover:text-gray-700'}`}>
-          Référentiels
-        </button>
-        <button onClick={() => setTab('annees')}
-          className={`px-4 py-2 text-sm font-medium border-b-2 -mb-px transition ${tab === 'annees' ? 'border-iip-gold text-iip-gold' : 'border-transparent text-gray-500 hover:text-gray-700'}`}>
-          Années
-        </button>
-        <button onClick={() => setTab('etablissement')}
-          className={`px-4 py-2 text-sm font-medium border-b-2 -mb-px transition ${tab === 'etablissement' ? 'border-iip-gold text-iip-gold' : 'border-transparent text-gray-500 hover:text-gray-700'}`}>
-          Établissement
-        </button>
-        <button onClick={() => setTab('personnel')}
-          className={`px-4 py-2 text-sm font-medium border-b-2 -mb-px transition ${tab === 'personnel' ? 'border-iip-gold text-iip-gold' : 'border-transparent text-gray-500 hover:text-gray-700'}`}>
-          👥 Personnel
-        </button>
-        <button onClick={() => setTab('users')}
-          className={`px-4 py-2 text-sm font-medium border-b-2 -mb-px transition ${tab === 'users' ? 'border-iip-gold text-iip-gold' : 'border-transparent text-gray-500 hover:text-gray-700'}`}>
-          Utilisateurs
-        </button>
-        <button onClick={() => setTab('systeme')}
-          className={`px-4 py-2 text-sm font-medium border-b-2 -mb-px transition ${tab === 'systeme' ? 'border-iip-gold text-iip-gold' : 'border-transparent text-gray-500 hover:text-gray-700'}`}>
-          Historique &amp; Sauvegarde
-        </button>
-        <button onClick={() => setTab('parametres')}
-          className={`px-4 py-2 text-sm font-medium border-b-2 -mb-px transition ${tab === 'parametres' ? 'border-iip-gold text-iip-gold' : 'border-transparent text-gray-500 hover:text-gray-700'}`}>
-          ⚙ Paramètres
-        </button>
-        <button onClick={() => setTab('prerequis')}
-          className={`px-4 py-2 text-sm font-medium border-b-2 -mb-px transition ${tab === 'prerequis' ? 'border-iip-gold text-iip-gold' : 'border-transparent text-gray-500 hover:text-gray-700'}`}>
-          🔗 Prérequis UE
-        </button>
-        <button onClick={() => setTab('changelog')}
-          className={`px-4 py-2 text-sm font-medium border-b-2 -mb-px transition ${tab === 'changelog' ? 'border-iip-gold text-iip-gold' : 'border-transparent text-gray-500 hover:text-gray-700'}`}>
-          Nouveautés
-        </button>
-      </div>
+      <Tabs
+        value={tab}
+        onChange={setTab}
+        items={[
+          { key: 'referentiels', label: 'Référentiels', icon: IconBooks },
+          { key: 'annees', label: 'Années', icon: IconCalendar },
+          { key: 'etablissement', label: 'Établissement', icon: IconBuilding },
+          { key: 'personnel', label: 'Personnel', icon: IconUsers },
+          { key: 'users', label: 'Utilisateurs', icon: IconUserShield },
+          { key: 'systeme', label: 'Historique & Sauvegarde', icon: IconHistory },
+          { key: 'parametres', label: 'Paramètres', icon: IconAdjustments },
+          { key: 'prerequis', label: 'Prérequis UE', icon: IconLink },
+          { key: 'changelog', label: 'Nouveautés', icon: IconSparkles },
+        ]}
+      />
 
       {/* ── Onglet Référentiels ── */}
       {tab === 'referentiels' && <Referentiels embedded />}
