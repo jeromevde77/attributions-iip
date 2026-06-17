@@ -309,3 +309,5 @@ export default function App() {
     </ErrorBoundary>
   );
 }
+
+// rebuild 1781700799 pour aligner BUILD_VERSION 2.22.0
