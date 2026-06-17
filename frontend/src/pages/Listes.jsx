@@ -216,9 +216,12 @@ const ENTITES = {
     label: 'Rapport par section', icon: '📄',
     rapport: true,
     cols: [],
-    fetch: (annee, filtres) => authFetch(
-      `/api/attributions/rapport-attributions?section=${encodeURIComponent(filtres.section||'')}&annee=${encodeURIComponent(annee)}`
-    ),
+    fetch: (annee, filtres) => {
+      // sections multiples : filtres.sections = tableau ; sinon filtres.section (compat) ; vide = toutes
+      const liste = Array.isArray(filtres.sections) ? filtres.sections : (filtres.section ? [filtres.section] : []);
+      const param = liste.length ? `section=${encodeURIComponent(liste.join(','))}&` : '';
+      return authFetch(`/api/attributions/rapport-attributions?${param}annee=${encodeURIComponent(annee)}`);
+    },
     filtres: ['section', 'tc'],
   },
   'rapport-ue': {
@@ -897,6 +900,33 @@ export default function Listes() {
             <h2 className="text-lg font-title text-slate-800 mb-1">Paramétrer le rapport</h2>
             <p className="text-sm text-gray-500 mb-4">Choisissez les critères. Laissez « Tous » pour ne pas filtrer.</p>
             <div className="space-y-3">
+              <div>
+                <div className="flex items-center justify-between mb-1">
+                  <label className="block text-xs font-medium text-gray-600">Section(s)</label>
+                  <div className="flex gap-2 text-[11px]">
+                    <button onClick={()=>setFiltres(f=>({...f, sections: sections.map(s=>s.code||s.section||s)}))}
+                      className="text-iip-gold hover:underline">Toutes</button>
+                    <button onClick={()=>setFiltres(f=>({...f, sections: []}))}
+                      className="text-gray-400 hover:underline">Aucune</button>
+                  </div>
+                </div>
+                <div className="border border-gray-200 rounded-lg p-2 max-h-40 overflow-y-auto grid grid-cols-2 gap-1">
+                  {sections.map(s => {
+                    const code = s.code || s.section || s;
+                    const sel = Array.isArray(filtres.sections) && filtres.sections.includes(code);
+                    return (
+                      <label key={code} className="inline-flex items-center gap-1.5 text-sm cursor-pointer hover:bg-gray-50 rounded px-1 py-0.5">
+                        <input type="checkbox" checked={sel} onChange={()=>setFiltres(f=>{
+                          const cur = Array.isArray(f.sections) ? f.sections : [];
+                          return { ...f, sections: sel ? cur.filter(x=>x!==code) : [...cur, code] };
+                        })} />
+                        {code}
+                      </label>
+                    );
+                  })}
+                </div>
+                <p className="text-[11px] text-gray-400 mt-1">Aucune cochée = toutes les sections.</p>
+              </div>
               <div>
                 <label className="block text-xs font-medium text-gray-600 mb-1">Contrat</label>
                 <select value={filtres.contrat||''} onChange={e=>setFiltres(f=>({...f, contrat:e.target.value}))}
