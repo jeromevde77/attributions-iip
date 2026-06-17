@@ -1066,9 +1066,17 @@ export default function Attributions() {
                 {displayVal
                   ? <span className={`inline-flex items-center justify-center min-w-[2.2rem] h-6 px-1.5 rounded text-[10px] font-bold ${badgeCls}`}>{displayVal}</span>
                   : <span className="text-gray-300 text-xs">—</span>}
-                <select defaultValue={v??''} onClick={e=>e.stopPropagation()}
+                <select key={`stat-${row.id}-${v??''}`} defaultValue={v??''} onClick={e=>e.stopPropagation()}
                   className="absolute inset-0 opacity-0 cursor-pointer w-full"
-                  onChange={async e=>{try{await api.updateProfStatut(row.professeur_id,e.target.value);load();}catch(err){alert(err.message);}}}>
+                  onChange={async e=>{
+                    const nv = e.target.value;
+                    try {
+                      await api.updateProfStatut(row.professeur_id, nv);
+                      // Mise à jour locale : toutes les lignes du même prof prennent le nouveau statut
+                      // (sans recharger toute la vue, pour ne pas perdre la position de défilement)
+                      setData(prev => prev.map(r => r.professeur_id === row.professeur_id ? { ...r, contrat: nv } : r));
+                    } catch(err){ alert(err.message); }
+                  }}>
                   {statutOptions.map(([val,lbl])=><option key={val} value={val}>{lbl}</option>)}
                 </select>
               </div>
