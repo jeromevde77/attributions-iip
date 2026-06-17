@@ -1027,12 +1027,13 @@ r.post('/activites', authRequired, roleRequired('admin', 'editeur', 'coordinatio
 
 // PATCH /activites/:id — modifier une activité
 r.patch('/activites/:id', authRequired, roleRequired('admin', 'editeur', 'coordination'), (req, res) => {
-  const { libelle, ordre, section } = req.body;
+  const { libelle, ordre, section, type_etp } = req.body;
   const row = db.prepare('SELECT id FROM activite_type WHERE id = ?').get(req.params.id);
   if (!row) return res.status(404).json({ error: 'Activité introuvable' });
   if (libelle !== undefined) db.prepare('UPDATE activite_type SET libelle = ? WHERE id = ?').run(libelle.trim(), row.id);
   if (ordre   !== undefined) db.prepare('UPDATE activite_type SET ordre = ? WHERE id = ?').run(ordre, row.id);
   if (section !== undefined) db.prepare('UPDATE activite_type SET section = ? WHERE id = ?').run(section || null, row.id);
+  if (type_etp !== undefined) db.prepare('UPDATE activite_type SET type_etp = ? WHERE id = ?').run(type_etp || null, row.id);
   res.json({ ok: true });
 });
 
