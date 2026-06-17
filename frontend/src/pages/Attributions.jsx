@@ -777,32 +777,22 @@ export default function Attributions() {
 
   // 👥 GROUPE : crée N sous-groupes (étudiants répartis), numérotés A, B, C… sans doublon
   async function grouperLigne(row) {
-    const saisie = prompt(`Combien de groupes au total pour ce cours ?\n(sous-groupes A, B, C… avec étudiants répartis)`, '2');
+    const saisie = prompt(`Combien de groupes au total pour cette activité ?\n(sous-groupes A, B, C… avec étudiants répartis)`, '2');
     if (saisie == null) return;
     const total = Math.max(2, Math.min(26, parseInt(saisie, 10) || 0));
     if (!total || total < 2) return;
-    // Lettres déjà utilisées sur le cours (éviter doublons)
-    const lignesCours = data.filter(r =>
+    // Périmètre d'unicité = COURS + ACTIVITÉ (chaque activité a ses propres groupes A,B,C…)
+    const memeActivite = r =>
       r.section === row.section && r.code_cours === row.code_cours &&
-      (r.num_organisation || 1) === (row.num_organisation || 1));
+      (r.num_organisation || 1) === (row.num_organisation || 1) &&
+      (r.activite_id || null) === (row.activite_id || null);
     const lettres = [...'ABCDEFGHIJKLMNOPQRSTUVWXYZ'];
-    if (!confirm(`Organiser ce cours en ${total} groupes (A, B, C…) ?`)) return;
+    if (!confirm(`Organiser cette activité en ${total} groupes (A, B, C…) ?`)) return;
     try {
-      // La ligne source prend la 1re lettre (A si libre)
-      const used = new Set(lignesCours.map(r => (r.groupe_code || '').toUpperCase()).filter(Boolean));
-      // On renumérote proprement : la ligne source = A, puis les nouvelles B, C…
-      const libres = lettres.filter(c => !used.has(c) || c === (row.groupe_code||'').toUpperCase());
-      let idx = 0;
-      const premiereLettre = lettres[0];
-      await api.updateAttribution(row.id, { code: premiereLettre, split_groupe: 'N' });
-      // Créer les groupes restants avec les lettres suivantes libres
-      const dejaPris = new Set([premiereLettre]);
-      for (const r of lignesCours) { const c=(r.groupe_code||'').toUpperCase(); if(c) dejaPris.add(c); }
-      const restantes = lettres.filter(c => !dejaPris.has(c));
-      for (let i = 0; i < total - 1; i++) {
-        const code = restantes[i] || null;
-        dejaPris.add(code);
-        await api.createAttribution(payloadCopie(row, code, 'N'));
+      // La ligne source devient le groupe A ; les nouvelles prennent B, C… séquentiellement
+      await api.updateAttribution(row.id, { code: lettres[0], split_groupe: 'N' });
+      for (let i = 1; i < total; i++) {
+        await api.createAttribution(payloadCopie(row, lettres[i], 'N'));
       }
       load();
     } catch(e){ alert('Erreur : '+e.message); }
