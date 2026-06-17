@@ -597,7 +597,7 @@ r.get('/dotation-ue', authRequired, (req, res) => {
     SELECT a.ue_num,
       ROUND(SUM(${CQ1}), 2) AS cout_q1
     FROM attribution a
-    LEFT JOIN ue u ON u.ue_num = a.ue_num AND u.annee_scolaire = a.annee_scolaire AND u.section = a.section
+    LEFT JOIN ue u ON u.ue_num = a.ue_num AND u.annee_scolaire = a.annee_scolaire
     WHERE a.section = ? AND a.annee_scolaire = ? AND a.contrat_mdp = 'IIP'
     GROUP BY a.ue_num
   `).all(section, anneeQ1).reduce((m, r) => { m[r.ue_num] = r.cout_q1; return m; }, {});
@@ -607,7 +607,7 @@ r.get('/dotation-ue', authRequired, (req, res) => {
     SELECT a.ue_num,
       ROUND(SUM(${CQ2}), 2) AS cout_q2
     FROM attribution a
-    LEFT JOIN ue u ON u.ue_num = a.ue_num AND u.annee_scolaire = a.annee_scolaire AND u.section = a.section
+    LEFT JOIN ue u ON u.ue_num = a.ue_num AND u.annee_scolaire = a.annee_scolaire
     WHERE a.section = ? AND a.annee_scolaire = ? AND a.contrat_mdp = 'IIP'
     GROUP BY a.ue_num
   `).all(section, anneeQ2).reduce((m, r) => { m[r.ue_num] = r.cout_q2; return m; }, {});
@@ -654,7 +654,7 @@ r.get('/dotation-comparaison', authRequired, (req, res) => {
           ROUND(SUM(CASE WHEN a.contrat_mdp='IIP' THEN (${q1iip}) ELSE (${RQ1}) END), 2) AS q1,
           ROUND(SUM(CASE WHEN a.contrat_mdp='IIP' THEN (${q2iip}) ELSE (${RQ2}) END), 2) AS q2
         FROM attribution a
-        LEFT JOIN ue u ON u.ue_num = a.ue_num AND u.annee_scolaire = a.annee_scolaire AND u.section = a.section
+        LEFT JOIN ue u ON u.ue_num = a.ue_num AND u.annee_scolaire = a.annee_scolaire
         WHERE a.annee_scolaire = ?
         GROUP BY a.section, a.ue_num`;
       return db.prepare(sql).all(annee).reduce((m, r) => {
@@ -671,7 +671,7 @@ r.get('/dotation-comparaison', authRequired, (req, res) => {
         ROUND(SUM(${q1expr}), 2) AS q1,
         ROUND(SUM(${q2expr}), 2) AS q2
       FROM attribution a
-      LEFT JOIN ue u ON u.ue_num = a.ue_num AND u.annee_scolaire = a.annee_scolaire AND u.section = a.section
+      LEFT JOIN ue u ON u.ue_num = a.ue_num AND u.annee_scolaire = a.annee_scolaire
       WHERE a.annee_scolaire = ? AND a.contrat_mdp = ?`;
     const params = [annee, isHelb ? 'HELB' : 'IIP'];
     if (!isHelb && potFilter) {
@@ -808,7 +808,7 @@ r.get('/ext-dot', authRequired, (req, res) => {
                   ELSE 1.0 END
            , 2) AS cout_b
     FROM attribution a
-    JOIN ue u ON u.ue_num = a.ue_num AND u.section = a.section AND u.annee_scolaire = a.annee_scolaire
+    JOIN ue u ON u.ue_num = a.ue_num AND u.annee_scolaire = a.annee_scolaire
     LEFT JOIN professeur p ON p.id = a.professeur_id
     WHERE a.annee_scolaire = ?
       AND u.pot_code IN (${POTS_EXT.map(()=>'?').join(',')})
