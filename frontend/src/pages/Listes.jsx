@@ -580,27 +580,52 @@ export default function Listes() {
         </tr>`;
     };
     // Regrouper par organisation : orga 1, puis orga 2, etc., chacune avec son sous-total
-    const orgas = [...new Set(ues.map(u => u.num_organisation || 1))].sort((a,b) => a - b);
-    const plusieursOrgas = orgas.length > 1;
-    const lignesUE = orgas.map(org => {
-      const uesOrg = ues.filter(u => (u.num_organisation || 1) === org);
-      const totP = uesOrg.reduce((s,u) => s + (u.total_per||0), 0);
-      const totA = uesOrg.reduce((s,u) => s + (u.total_aut||0), 0);
-      const enTete = plusieursOrgas
-        ? `<tr style="background:#1B2B4B"><td colspan="7" style="padding:5px 8px"><span style="background:${org>1?'#7c3aed':'#475569'};color:white;font-size:10px;padding:2px 8px;border-radius:3px">Organisation ${org}</span></td></tr>`
-        : '';
-      const sousTotalOrg = plusieursOrgas
-        ? `<tr style="background:#cbd5e1;border-top:2px solid #475569">
-            <td colspan="4" style="padding:3px 8px;font-weight:700;font-size:11px;color:#1B2B4B">Sous-total Organisation ${org}</td>
-            <td style="${SR}font-weight:700;color:#1B2B4B">${fmt(totP)}</td>
-            <td style="${SR}font-weight:700;color:#1B2B4B">${fmt(totA)}</td>
-            <td style="${SR}font-weight:700;color:#1B2B4B;border-left:1px solid #94a3b8">${fmt(totP+totA)}</td>
-          </tr>`
-        : '';
-      return enTete + uesOrg.map(renderUErap).join('') + sousTotalOrg;
-    }).join('');
+    // Détecter les sections présentes (chaque UE porte sa propre section en multi-sections)
+    const sectionsPresentes = [...new Set(ues.map(u => u.section).filter(Boolean))].sort((a,b)=>a.localeCompare(b,'fr'));
+    const plusieursSections = sectionsPresentes.length > 1;
 
-    const totalPer = ues.reduce((s,u)=>s+u.total_per,0);
+    // Rendu des UE d'un ensemble donné, regroupées par organisation
+    const renderUesParOrga = (uesEnsemble) => {
+      const orgas = [...new Set(uesEnsemble.map(u => u.num_organisation || 1))].sort((a,b) => a - b);
+      const plusieursOrgas = orgas.length > 1;
+      return orgas.map(org => {
+        const uesOrg = uesEnsemble.filter(u => (u.num_organisation || 1) === org);
+        const totP = uesOrg.reduce((s,u) => s + (u.total_per||0), 0);
+        const totA = uesOrg.reduce((s,u) => s + (u.total_aut||0), 0);
+        const enTete = plusieursOrgas
+          ? `<tr style="background:#1B2B4B"><td colspan="7" style="padding:5px 8px"><span style="background:${org>1?'#7c3aed':'#475569'};color:white;font-size:10px;padding:2px 8px;border-radius:3px">Organisation ${org}</span></td></tr>`
+          : '';
+        const sousTotalOrg = plusieursOrgas
+          ? `<tr style="background:#cbd5e1;border-top:2px solid #475569">
+              <td colspan="4" style="padding:3px 8px;font-weight:700;font-size:11px;color:#1B2B4B">Sous-total Organisation ${org}</td>
+              <td style="${SR}font-weight:700;color:#1B2B4B">${fmt(totP)}</td>
+              <td style="${SR}font-weight:700;color:#1B2B4B">${fmt(totA)}</td>
+              <td style="${SR}font-weight:700;color:#1B2B4B;border-left:1px solid #94a3b8">${fmt(totP+totA)}</td>
+            </tr>`
+          : '';
+        return enTete + uesOrg.map(renderUErap).join('') + sousTotalOrg;
+      }).join('');
+    };
+
+    let lignesUE;
+    if (plusieursSections) {
+      // Un bloc par section, avec en-tête de section et sous-total de section
+      lignesUE = sectionsPresentes.map(sec => {
+        const uesSec = ues.filter(u => u.section === sec);
+        const secP = uesSec.reduce((s,u)=>s+(u.total_per||0),0);
+        const secA = uesSec.reduce((s,u)=>s+(u.total_aut||0),0);
+        const enTeteSec = `<tr style="background:#C9A84C"><td colspan="7" style="padding:6px 8px;font-weight:700;font-size:13px;color:#1B2B4B;letter-spacing:.5px">${sec}</td></tr>`;
+        const sousTotalSec = `<tr style="background:#1B2B4B;color:white;border-top:2px solid #C9A84C">
+            <td colspan="4" style="padding:4px 8px;font-weight:700;font-size:11px">Sous-total ${sec}</td>
+            <td style="${SR}font-weight:700;color:white">${fmt(secP)}</td>
+            <td style="${SR}font-weight:700;color:white">${fmt(secA)}</td>
+            <td style="${SR}font-weight:700;color:white;border-left:1px solid rgba(255,255,255,.3)">${fmt(secP+secA)}</td>
+          </tr>`;
+        return enTeteSec + renderUesParOrga(uesSec) + sousTotalSec;
+      }).join('');
+    } else {
+      lignesUE = renderUesParOrga(ues);
+    }
     const totalAut = ues.reduce((s,u)=>s+u.total_aut,0);
     const titre = entite === 'rapport-ue' && filtres.ue_num
       ? `UE ${filtres.ue_num} — ${d.section}`
@@ -729,22 +754,24 @@ export default function Listes() {
 
       <div className="flex flex-1 min-h-0 overflow-hidden">
         {/* ── Panneau gauche ── */}
-        <div className="w-64 flex-shrink-0 bg-gray-50 border-r border-gray-200 overflow-auto p-4 space-y-5">
+        <div className="w-64 flex-shrink-0 bg-gradient-to-b from-gray-50 to-white border-r border-gray-200 overflow-auto p-4 space-y-6">
 
           {/* Type de liste */}
           <div>
-            <div className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">Type de liste</div>
+            <div className="text-[11px] font-semibold text-gray-400 uppercase tracking-wider mb-2.5">Type de liste</div>
             {Object.entries(ENTITES).map(([k, e]) => (
               <button key={k} onClick={() => changerEntite(k)}
-                className={`w-full text-left flex items-center gap-2 px-3 py-2 rounded-lg text-sm mb-1 transition
-                  ${entite === k ? 'bg-iip-gold text-white font-semibold' : 'hover:bg-gray-100 text-gray-700'}`}>
-                <span>{e.icon}</span><span>{e.label}</span>
+                className={`w-full text-left flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-sm mb-1.5 transition-all duration-150
+                  ${entite === k
+                    ? 'bg-iip-gold text-white font-semibold shadow-sm shadow-iip-gold/30'
+                    : 'hover:bg-white hover:shadow-sm text-gray-600 border border-transparent hover:border-gray-100'}`}>
+                <span className="text-base">{e.icon}</span><span>{e.label}</span>
               </button>
             ))}
           </div>
 
-          {/* Filtres */}
-          {def.filtres.length > 0 && (
+          {/* Filtres — masqués pour le rapport-section (paramétrage dans le pop-up) */}
+          {def.filtres.length > 0 && entite !== 'rapport-section' && (
             <div>
               <div className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">Filtres</div>
               {def.filtres.includes('section') && (
@@ -796,9 +823,10 @@ export default function Listes() {
           )}
 
           {/* Colonnes */}
+          {def.cols.length > 0 && (
           <div>
             <div className="flex items-center justify-between mb-2">
-              <div className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Colonnes</div>
+              <div className="text-[11px] font-semibold text-gray-400 uppercase tracking-wider">Colonnes</div>
               <button onClick={() => setColsActives(new Set(def.cols.map(c => c.key)))}
                 className="text-xs text-iip-gold hover:underline">tout</button>
             </div>
@@ -809,11 +837,20 @@ export default function Listes() {
               </label>
             ))}
           </div>
+          )}
+
+          {/* Note pour le rapport par section : paramétrage au clic */}
+          {entite === 'rapport-section' && (
+            <div className="rounded-xl bg-iip-gold/5 border border-iip-gold/20 px-3 py-2.5 text-[12px] text-gray-600 leading-relaxed">
+              <span className="font-semibold text-iip-gold">Paramétrage à la génération</span><br/>
+              Choisissez les sections et les filtres (contrat, TC, niveau, quadrimestre, type, TH/TP) dans la fenêtre qui s'ouvre.
+            </div>
+          )}
 
           {/* Bouton */}
           <button onClick={generer} disabled={loading}
-            className="w-full bg-iip-gold hover:bg-iip-amber disabled:opacity-40 text-white text-sm font-semibold py-2.5 rounded-lg transition">
-            {loading ? 'Chargement…' : '⚡ Générer'}
+            className="w-full bg-iip-gold hover:bg-iip-amber disabled:opacity-40 text-white text-sm font-semibold py-2.5 rounded-xl shadow-sm shadow-iip-gold/30 transition-all duration-150">
+            {loading ? 'Chargement…' : (entite === 'rapport-section' ? 'Paramétrer & générer' : '⚡ Générer')}
           </button>
         </div>
 
