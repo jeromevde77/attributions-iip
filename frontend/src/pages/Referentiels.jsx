@@ -1078,3 +1078,5 @@ function GestionActivites({ sections = [] }) {
     </div>
   );
 }
+
+// build final 2.23.0 frontend 1781716177
