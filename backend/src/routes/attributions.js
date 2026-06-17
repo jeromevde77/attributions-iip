@@ -61,6 +61,52 @@ function analyseAutonomieUE(ue_num, section, annee, ueRow) {
     ok = autAttribuee >= min - 0.5 && autAttribuee <= max + 0.5;
   }
 
+  // Détail par cours : multiple du DP atteint
+  const attribParCours = db.prepare(
+    "SELECT code_cours, COALESCE(SUM(periodes_attribuees),0) AS per FROM attribution WHERE ue_num = ? AND section = ? AND annee_scolaire = ? GROUP BY code_cours"
+  ).all(ue_num, section, annee);
+  const perParCours = {};
+  for (const a of attribParCours) perParCours[a.code_cours] = a.per || 0;
+  const coursDetail = cours.map(c => {
+    const per = perParCours[c.cours_code] || 0;
+    const dp = c.cours_per || 0;
+    const ratio = dp > 0 ? per / dp : 0;
+    const estMultiple = dp > 0 && per > 0 && Math.abs(per - Math.round(ratio) * dp) < 0.01;
+    return {
+      code_cours: c.cours_code, dp, per,
+      multiple: estMultiple ? Math.round(ratio) : null,
+      ratio: dp > 0 ? Math.round(ratio * 100) / 100 : null,
+      est_multiple: estMultiple,
+      attendu: estMultiple || dp === 0 ? null
+        : `${Math.max(1, Math.floor(ratio)) * dp} (×${Math.max(1, Math.floor(ratio))}) ou ${(Math.floor(ratio) + 1) * dp} (×${Math.floor(ratio) + 1})`,
+    };
+  });
+  const tousMultiples = coursDetail.every(c => c.est_multiple || c.dp === 0);
+
+  // Message de conseil
+  const r2 = x => Math.round(x * 100) / 100;
+  let etat, message;
+  if (!tousMultiples) {
+    etat = 'cours';
+    message = `Certains cours ne sont pas un multiple de leur DP — corrigez-les d'abord (voir les ✗).`;
+  } else if (multipleObligatoire && Math.abs(autAttribuee - attendu) >= 0.5) {
+    etat = autAttribuee < attendu ? 'sous' : 'dépassement';
+    message = autAttribuee < attendu
+      ? `Tous les cours sont dédoublés ×${multipleObligatoire} : l'autonomie DOIT être ${attendu} (il manque ${r2(attendu - autAttribuee)}).`
+      : `Autonomie trop élevée : attendu ${attendu} pour un dédoublement ×${multipleObligatoire} (retirez ${r2(autAttribuee - attendu)}).`;
+  } else if (autAttribuee < min - 0.5) {
+    etat = 'sous';
+    message = `Il reste ${r2(min - autAttribuee)} période(s) d'autonomie à placer (minimum obligatoire : ${min}).`
+      + (max > min ? ` Vous pouvez monter jusqu'à ${max} (bonus 20% des dédoublements).` : '');
+  } else if (!multipleObligatoire && autAttribuee > max + 0.5) {
+    etat = 'dépassement';
+    message = `Dépassement de ${r2(autAttribuee - max)} période(s) d'autonomie (maximum ${max}). Retirez de l'autonomie ou ajoutez un dédoublement de cours.`;
+  } else {
+    etat = 'ok';
+    message = `Autonomie correcte : ${r2(autAttribuee)} (entre ${min} et ${max}).`
+      + (autAttribuee < max - 0.5 ? ` Marge possible : encore ${r2(max - autAttribuee)} si besoin.` : '');
+  }
+
   return {
     ue_aut: ueAut,
     per_cours_dp: perCoursDP,
@@ -73,6 +119,9 @@ function analyseAutonomieUE(ue_num, section, annee, ueRow) {
     ok,
     nb_cours: cours.length,
     depasse_max: !multipleObligatoire && autAttribuee > max + 0.5,
+    cours: coursDetail,
+    tous_multiples: tousMultiples,
+    etat, message,
   };
 }
 
