@@ -249,6 +249,7 @@ export default function Listes() {
   const [entite, setEntite] = useState('profs');
   const [colsActives, setColsActives] = useState(() => new Set(ENTITES['profs'].cols.filter(c => c.defaut).map(c => c.key)));
   const [filtres, setFiltres] = useState({});
+  const [showOptionsRapport, setShowOptionsRapport] = useState(false); // pop-up de critères avant génération
   const [rows, setRows] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
@@ -281,6 +282,12 @@ export default function Listes() {
   }
 
   async function generer() {
+    // Pour le rapport par section : ouvrir le pop-up de critères d'abord
+    if (entite === 'rapport-section') { setShowOptionsRapport(true); return; }
+    await genererReel();
+  }
+
+  async function genererReel() {
     setLoading(true); setError('');
     try {
       const data = await def.fetch(annee, filtres);
@@ -521,6 +528,25 @@ export default function Listes() {
     // Filtre tronc commun : 'tc' = uniquement TC, 'hors' = uniquement hors TC
     if (filtres.tc === 'tc')   ues = ues.filter(u => u.ue_tc === 'x');
     if (filtres.tc === 'hors') ues = ues.filter(u => u.ue_tc !== 'x');
+    // Filtres niveau / quadrimestre (au niveau UE)
+    if (filtres.niveau) ues = ues.filter(u => u.ue_niv === filtres.niveau);
+    if (filtres.quad)   ues = ues.filter(u => (u.ue_quad || '').includes(filtres.quad));
+    // Filtres au niveau des COURS (contrat, type, nature TH/TP) : on filtre les lignes
+    // de chaque UE, et on retire les UE qui n'ont plus aucun cours après filtrage.
+    const filtreCours = (c) => {
+      if (filtres.contrat && (c.contrat || 'IIP') !== filtres.contrat) return false;
+      if (filtres.type_cours && (c.type_cours || '') !== filtres.type_cours) return false;
+      if (filtres.helb_nature && (c.helb_nature || '') !== filtres.helb_nature) return false;
+      return true;
+    };
+    if (filtres.contrat || filtres.type_cours || filtres.helb_nature) {
+      ues = ues.map(u => {
+        const cours = (u.cours || []).filter(filtreCours);
+        const total_per = cours.reduce((s,c) => s + (c.periodes||0), 0);
+        const total_aut = cours.reduce((s,c) => s + (c.autonomie||0), 0);
+        return { ...u, cours, total_per, total_aut };
+      }).filter(u => u.cours.length > 0);
+    }
 
     const renderUErap = (ue) => {
       const col = getNivCol(ue.ue_niv);
@@ -623,6 +649,20 @@ export default function Listes() {
     if (entite === 'rapport-ue' && filtres.ue_num) ues = ues.filter(u => String(u.ue_num) === String(filtres.ue_num));
     if (filtres.tc === 'tc')   ues = ues.filter(u => u.ue_tc === 'x');
     if (filtres.tc === 'hors') ues = ues.filter(u => u.ue_tc !== 'x');
+    if (filtres.niveau) ues = ues.filter(u => u.ue_niv === filtres.niveau);
+    if (filtres.quad)   ues = ues.filter(u => (u.ue_quad || '').includes(filtres.quad));
+    if (filtres.contrat || filtres.type_cours || filtres.helb_nature) {
+      const fc = (c) => {
+        if (filtres.contrat && (c.contrat || 'IIP') !== filtres.contrat) return false;
+        if (filtres.type_cours && (c.type_cours || '') !== filtres.type_cours) return false;
+        if (filtres.helb_nature && (c.helb_nature || '') !== filtres.helb_nature) return false;
+        return true;
+      };
+      ues = ues.map(u => {
+        const cours = (u.cours || []).filter(fc);
+        return { ...u, cours, total_per: cours.reduce((s,c)=>s+(c.periodes||0),0), total_aut: cours.reduce((s,c)=>s+(c.autonomie||0),0) };
+      }).filter(u => u.cours.length > 0);
+    }
 
     const rows = [
       [{ v:`Attributions — ${d.section}`, s:{font:{name:'Calibri',sz:14,bold:true,color:{rgb:BLEU}}}}],
@@ -851,6 +891,81 @@ export default function Listes() {
           )}
         </div>
       </div>
+      {showOptionsRapport && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50" onClick={e=>e.target===e.currentTarget&&setShowOptionsRapport(false)}>
+          <div className="bg-white rounded-xl shadow-2xl max-w-lg w-full p-6 border-t-4 border-iip-gold max-h-[90vh] overflow-y-auto">
+            <h2 className="text-lg font-title text-slate-800 mb-1">Paramétrer le rapport</h2>
+            <p className="text-sm text-gray-500 mb-4">Choisissez les critères. Laissez « Tous » pour ne pas filtrer.</p>
+            <div className="space-y-3">
+              <div>
+                <label className="block text-xs font-medium text-gray-600 mb-1">Contrat</label>
+                <select value={filtres.contrat||''} onChange={e=>setFiltres(f=>({...f, contrat:e.target.value}))}
+                  className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm">
+                  <option value="">Tous</option>
+                  <option value="IIP">IIP uniquement</option>
+                  <option value="HELB">HELB uniquement</option>
+                </select>
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-gray-600 mb-1">Tronc commun</label>
+                <select value={filtres.tc||''} onChange={e=>setFiltres(f=>({...f, tc:e.target.value}))}
+                  className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm">
+                  <option value="">L'ensemble</option>
+                  <option value="tc">TC uniquement</option>
+                  <option value="hors">Hors TC</option>
+                </select>
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-gray-600 mb-1">Niveau</label>
+                <select value={filtres.niveau||''} onChange={e=>setFiltres(f=>({...f, niveau:e.target.value}))}
+                  className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm">
+                  <option value="">Tous</option>
+                  <option value="BA1">BA1</option>
+                  <option value="BA2">BA2</option>
+                  <option value="BA3">BA3</option>
+                </select>
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-gray-600 mb-1">Quadrimestre</label>
+                <select value={filtres.quad||''} onChange={e=>setFiltres(f=>({...f, quad:e.target.value}))}
+                  className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm">
+                  <option value="">Tous</option>
+                  <option value="Q1">Q1</option>
+                  <option value="Q2">Q2</option>
+                </select>
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-gray-600 mb-1">Type de cours</label>
+                <select value={filtres.type_cours||''} onChange={e=>setFiltres(f=>({...f, type_cours:e.target.value}))}
+                  className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm">
+                  <option value="">Tous</option>
+                  <option value="CT">CT (cours généraux)</option>
+                  <option value="PP">PP (pratique professionnelle)</option>
+                </select>
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-gray-600 mb-1">Nature HELB (TH/TP)</label>
+                <select value={filtres.helb_nature||''} onChange={e=>setFiltres(f=>({...f, helb_nature:e.target.value}))}
+                  className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm">
+                  <option value="">Toutes</option>
+                  <option value="CT">TH (théorie)</option>
+                  <option value="TP">TP (travaux pratiques)</option>
+                </select>
+              </div>
+            </div>
+            <div className="mt-5 flex items-center justify-between">
+              <button onClick={()=>{ setFiltres(f=>({ section:f.section, ue_num:f.ue_num })); }}
+                className="text-xs text-gray-500 hover:text-gray-700 underline">Réinitialiser les critères</button>
+              <div className="flex gap-2">
+                <button onClick={()=>setShowOptionsRapport(false)} className="px-4 py-2 text-sm text-gray-600 hover:text-gray-800">Annuler</button>
+                <button onClick={()=>{ setShowOptionsRapport(false); genererReel(); }}
+                  className="bg-iip-gold hover:bg-iip-amber text-white text-sm font-medium px-5 py-2 rounded-lg">Générer le rapport</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
       {rapportHtml && <PreviewModal html={rapportHtml.html||rapportHtml} titre={rapportHtml.nom||"Rapport"} nomFichier={rapportHtml.nom} onClose={() => setRapportHtml(null)} />}
     </div>
   );
