@@ -1,14 +1,17 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
 body {
-  font-family: 'Aptos', Arial, Helvetica, sans-serif;
+  font-family: 'Inter', 'Aptos', system-ui, Arial, Helvetica, sans-serif;
   background: #F5F7FA;
   color: #1f2937;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
 }
 
-h1, h2, h3, .font-title { font-family: 'Aptos', Arial, Helvetica, sans-serif; font-weight: 700; }
+h1, h2, h3, .font-title { font-family: 'Inter', 'Aptos', system-ui, Arial, Helvetica, sans-serif; font-weight: 600; letter-spacing: -0.01em; }
 
 /* Grille type Excel */
 table.grid-excel { border-collapse: collapse; width: 100%; font-size: 0.875rem; }
