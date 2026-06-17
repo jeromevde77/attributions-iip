@@ -221,6 +221,7 @@ export const api = {
   pilotageSectionNiveau() { return request(withAnnee('/pilotage/section-niveau')); },
   pilotageSectionStatut() { return request(withAnnee('/pilotage/section-statut')); },
   pilotageSectionDetail() { return request(withAnnee('/pilotage/section-detail')); },
+  pilotageEtp()          { return request(withAnnee('/pilotage/etp')); },
   totaux()               { return request(withAnnee('/pilotage/totaux')); },
 
   // pilotage par année civile
