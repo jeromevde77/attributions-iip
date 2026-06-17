@@ -407,28 +407,84 @@ export default function Professeurs() {
     for (const a of attributions) { (sections[a.section] ||= []).push(a); }
 
     let totHeures = 0, totCharge = 0;
-    const lignes = Object.entries(sections).map(([sec, rows]) => rows.map((a, i) => {
-      const h = a.heures || 0; // charge_en_heures (périodes converties)
-      // Nature : priorité à la ligne (CT/TP encodé), puis activité (COURS/TP), puis type_cours
-      const natLigne = a.helb_nature_ligne; // 'CT' | 'TP'
+
+    // Calcule la charge d'une ligne (heures, diviseur, charge)
+    const calcLigne = (a) => {
+      const h = a.heures || 0;
+      const natLigne = a.helb_nature_ligne;
       const nature = natLigne === 'TP' ? 'TP'
                    : natLigne === 'CT' ? 'COURS'
                    : (a.helb_nature || (a.type_cours === 'PP' ? 'TP' : 'COURS'));
       const natureLbl = nature === 'TP' ? 'Trav. P. (TP)' : 'Théorie (TH)';
       const div = diviseur(statut, nature);
       const charge = div ? Math.round((h / div) * 1000) / 1000 : 0;
-      totHeures += h; totCharge += charge;
-      return `
-        <tr style="background:${i%2===0?'#fff':'#f9fafb'}">
-          <td style="${S}color:#6b7280">${a.section}</td>
-          <td style="${S}color:#374151">UE ${a.ue_num}</td>
-          <td style="${S}color:#374151">${a.cours_nom || a.code_cours || '—'}${a.activite_nom ? ` <em style="color:#9ca3af">(${a.activite_nom})</em>` : ''}${a.est_rt ? ` <span style="color:#ea580c;border:1px solid #ef4444;border-radius:3px;font-size:8px;padding:0 3px;font-weight:700">RT</span>` : ''}</td>
-          <td style="${SR}font-weight:600;color:${nature==='TP'?'#00AACC':'#1B2B4B'}">${natureLbl}</td>
-          <td style="${SR}color:#374151">${fmtH(h)} h</td>
-          <td style="${SR}color:#6b7280">/${div}</td>
-          <td style="${SR}font-weight:700;border-left:1px solid #e5e7eb">${charge.toFixed(3)}</td>
-        </tr>`;
-    }).join('')).join('');
+      return { h, nature, natureLbl, div, charge };
+    };
+
+    const lignes = Object.entries(sections).map(([sec, rows]) => {
+      // Regrouper par cours, puis par activité, en préservant l'ordre d'apparition
+      const coursOrdre = [];
+      const coursMap = {};
+      for (const a of rows) {
+        const cc = a.code_cours || '—';
+        if (!coursMap[cc]) { coursMap[cc] = { cours_nom: a.cours_nom, actsOrdre: [], actsMap: {} }; coursOrdre.push(cc); }
+        const actKey = (a.activite_nom || '') + '|' + (a.activite_id ?? '');
+        if (!coursMap[cc].actsMap[actKey]) { coursMap[cc].actsMap[actKey] = []; coursMap[cc].actsOrdre.push(actKey); }
+        coursMap[cc].actsMap[actKey].push(a);
+      }
+
+      let i = 0;
+      let html = '';
+      for (const cc of coursOrdre) {
+        const cours = coursMap[cc];
+        let coursH = 0, coursCharge = 0;
+        for (const actKey of cours.actsOrdre) {
+          const lignesAct = cours.actsMap[actKey];
+          let actH = 0, actCharge = 0;
+          for (const a of lignesAct) {
+            const c = calcLigne(a);
+            actH += c.h; actCharge += c.charge;
+            totHeures += c.h; totCharge += c.charge;
+            html += `
+              <tr style="background:${i%2===0?'#fff':'#f9fafb'}">
+                <td style="${S}color:#6b7280">${a.section}</td>
+                <td style="${S}color:#374151">UE ${a.ue_num}</td>
+                <td style="${S}color:#374151">${a.cours_nom || a.code_cours || '—'}${a.activite_nom ? ` <em style="color:#9ca3af">(${a.activite_nom})</em>` : ''}${a.est_rt ? ` <span style="color:#ea580c;border:1px solid #ef4444;border-radius:3px;font-size:8px;padding:0 3px;font-weight:700">RT</span>` : ''}</td>
+                <td style="${SR}font-weight:600;color:${c.nature==='TP'?'#00AACC':'#1B2B4B'}">${c.natureLbl}</td>
+                <td style="${SR}color:#374151">${fmtH(c.h)} h</td>
+                <td style="${SR}color:#6b7280">/${c.div}</td>
+                <td style="${SR}font-weight:700;border-left:1px solid #e5e7eb">${c.charge.toFixed(3)}</td>
+              </tr>`;
+            i++;
+          }
+          coursH += actH; coursCharge += actCharge;
+          // Sous-total d'activité : seulement si plusieurs lignes
+          if (lignesAct.length > 1) {
+            const libAct = lignesAct[0].activite_nom || 'activité';
+            html += `
+              <tr style="background:#fafafa">
+                <td style="${S}"></td><td style="${S}"></td>
+                <td style="${S}color:#9ca3af;font-style:italic;padding-left:24px">↳ Sous-total ${libAct}</td>
+                <td style="${S}"></td>
+                <td style="${SR}color:#6b7280;font-style:italic">${fmtH(actH)} h</td>
+                <td style="${S}"></td>
+                <td style="${SR}color:#6b7280;font-style:italic;border-left:1px solid #e5e7eb">${actCharge.toFixed(3)}</td>
+              </tr>`;
+          }
+        }
+        // Sous-total de cours (avec le numéro de cours)
+        html += `
+          <tr style="background:#eef2ff;border-top:1px solid #c7d2fe">
+            <td style="${S}"></td><td style="${S}"></td>
+            <td style="${S}font-weight:700;color:#1B2B4B">Sous-total cours ${cc}${cours.cours_nom ? ` — ${cours.cours_nom}` : ''}</td>
+            <td style="${S}"></td>
+            <td style="${SR}font-weight:700;color:#1B2B4B">${fmtH(coursH)} h</td>
+            <td style="${S}"></td>
+            <td style="${SR}font-weight:700;color:#1B2B4B;border-left:1px solid #c7d2fe">${coursCharge.toFixed(3)}</td>
+          </tr>`;
+      }
+      return html;
+    }).join('');
 
     const html = `<!DOCTYPE html><html><head><meta charset="utf-8">
       <style>
