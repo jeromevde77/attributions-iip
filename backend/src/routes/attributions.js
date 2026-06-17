@@ -332,7 +332,7 @@ r.get('/rapport-attributions', authRequired, (req, res) => {
       a.num_groupe, a.code AS groupe_code, a.num_organisation,
       a.professeur_id, p.nom AS prof_nom, p.prenom AS prof_prenom,
       a.periodes_attribuees, a.autonomie_attribuee,
-      a.activite_id, at.libelle AS activite_nom,
+      a.activite_id, at.libelle AS activite_nom, at.ordre AS activite_ordre,
       a.type_cours, a.contrat_mdp, a.helb_nature
     FROM attribution a
     LEFT JOIN professeur p ON p.id = a.professeur_id
@@ -355,15 +355,21 @@ r.get('/rapport-attributions', authRequired, (req, res) => {
     coursInfos[c.cours_code] = c.cours_nom;
   });
 
-  // Trier les lignes par niveau puis ue_num
+  // Trier : 1.niveau 2.ue_num 3.code_cours 4.type d'activité 5.numéro de groupe dans l'activité
   rows.sort((a, b) => {
     const ua = ueInfos[a.ue_num], ub = ueInfos[b.ue_num];
     const na = parseInt((ua?.ue_niv || '').match(/\d+$/)?.[0] ?? 99);
     const nb = parseInt((ub?.ue_niv || '').match(/\d+$/)?.[0] ?? 99);
-    if (na !== nb) return na - nb;
-    if (a.ue_num !== b.ue_num) return a.ue_num - b.ue_num;
-    if (a.code_cours !== b.code_cours) return (a.code_cours||'').localeCompare(b.code_cours||'');
-    return (a.num_groupe||0) - (b.num_groupe||0);
+    if (na !== nb) return na - nb;                                   // 1. niveau
+    if (a.ue_num !== b.ue_num) return a.ue_num - b.ue_num;           // 2. UE
+    const cc = (a.code_cours||'').localeCompare(b.code_cours||'', 'fr', {numeric:true});
+    if (cc !== 0) return cc;                                         // 3. cours
+    // 4. activité : par ordre défini, puis libellé ; les lignes sans activité d'abord
+    const oa = a.activite_ordre ?? 9999, ob = b.activite_ordre ?? 9999;
+    if (oa !== ob) return oa - ob;
+    const an = (a.activite_nom||'').localeCompare(b.activite_nom||'', 'fr', {numeric:true});
+    if (an !== 0) return an;
+    return (a.num_groupe||0) - (b.num_groupe||0);                    // 5. groupe dans l'activité
   });
 
   // Structurer par UE → cours → lignes
