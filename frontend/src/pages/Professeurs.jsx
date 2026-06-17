@@ -437,7 +437,8 @@ export default function Professeurs() {
       let html = '';
       for (const cc of coursOrdre) {
         const cours = coursMap[cc];
-        let coursH = 0, coursCharge = 0;
+        let coursCharge = 0;
+        const coursNat = {}; // heures par nature : { 'Théorie (TH)': 24, 'Trav. P. (TP)': 80, ... }
         for (const actKey of cours.actsOrdre) {
           const lignesAct = cours.actsMap[actKey];
           let actH = 0, actCharge = 0;
@@ -445,6 +446,7 @@ export default function Professeurs() {
             const c = calcLigne(a);
             actH += c.h; actCharge += c.charge;
             totHeures += c.h; totCharge += c.charge;
+            coursNat[c.natureLbl] = (coursNat[c.natureLbl] || 0) + c.h;
             html += `
               <tr style="background:${i%2===0?'#fff':'#f9fafb'}">
                 <td style="${S}color:#6b7280">${a.section}</td>
@@ -457,7 +459,7 @@ export default function Professeurs() {
               </tr>`;
             i++;
           }
-          coursH += actH; coursCharge += actCharge;
+          coursCharge += actCharge;
           // Sous-total d'activité : seulement si plusieurs lignes
           if (lignesAct.length > 1) {
             const libAct = lignesAct[0].activite_nom || 'activité';
@@ -472,14 +474,15 @@ export default function Professeurs() {
               </tr>`;
           }
         }
-        // Sous-total de cours (avec le numéro de cours)
+        // Sous-total de cours : heures ventilées par nature (on n'additionne pas TH et TP ensemble)
+        const detailNat = Object.entries(coursNat)
+          .map(([lbl, h]) => `${lbl.replace(/\s*\(.*\)/,'').trim()} : ${fmtH(h)} h`)
+          .join(' · ');
         html += `
           <tr style="background:#eef2ff;border-top:1px solid #c7d2fe">
             <td style="${S}"></td><td style="${S}"></td>
             <td style="${S}font-weight:700;color:#1B2B4B">Sous-total cours ${cc}${cours.cours_nom ? ` — ${cours.cours_nom}` : ''}</td>
-            <td style="${S}"></td>
-            <td style="${SR}font-weight:700;color:#1B2B4B">${fmtH(coursH)} h</td>
-            <td style="${S}"></td>
+            <td colspan="3" style="${SR}font-weight:600;color:#1B2B4B;font-size:10px">${detailNat}</td>
             <td style="${SR}font-weight:700;color:#1B2B4B;border-left:1px solid #c7d2fe">${coursCharge.toFixed(3)}</td>
           </tr>`;
       }
