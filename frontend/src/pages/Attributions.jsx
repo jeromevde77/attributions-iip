@@ -885,19 +885,6 @@ export default function Attributions() {
           for (const m of results) Object.assign(merged, m || {});
           setAutAnalyse(merged);
         });
-        // Charger le contrôle (multiples du DP + autonomie plancher/plafond) par UE
-        Promise.all(sectionsVisibles.map(sec =>
-          fetch(`/api/attributions/controle?section=${encodeURIComponent(sec)}&annee=${encodeURIComponent(getAnnee())}`,
-            { headers: { Authorization: `Bearer ${tok}` } }).then(r => r.json()).catch(() => null)
-        )).then(results => {
-          const map = {};
-          for (const res of results) {
-            if (res && Array.isArray(res.ues)) {
-              for (const u of res.ues) map[u.ue_num] = u;
-            }
-          }
-          setControle(map);
-        });
       } else {
         setAutAnalyse({});
       }
@@ -1179,13 +1166,13 @@ export default function Attributions() {
             : <>
                 {(() => {
                   // Badge "multiple du DP" : ×N si net, sinon ratio en orange (non conforme)
-                  const ctrlUE = controle[cg.ue_num];
+                  const ctrlUE = autAnalyse[String(cg.ue_num)] || autAnalyse[cg.ue_num];
                   const cc = ctrlUE?.cours?.find(x => x.code_cours === cg.code_cours);
                   if (!cc || !cc.dp) return null;
                   if (cc.est_multiple) {
                     return <span className="text-[11px] px-1.5 py-0.5 rounded bg-green-50 text-green-700 border border-green-200" title={`${cc.per} = ${cc.dp} × ${cc.multiple} (DP ${cc.dp})`}>×{cc.multiple}</span>;
                   }
-                  return <span className="text-[11px] px-1.5 py-0.5 rounded bg-orange-50 text-orange-700 border border-orange-200" title={`Pas un multiple du DP (${cc.dp}). Attendu : ${cc.attendu}`}>×{cc.multiple_actuel} ⚠</span>;
+                  return <span className="text-[11px] px-1.5 py-0.5 rounded bg-orange-50 text-orange-700 border border-orange-200" title={`Pas un multiple du DP (${cc.dp}). Attendu : ${cc.attendu}`}>×{cc.ratio} ⚠</span>;
                 })()}
                 <span className="text-sm text-gray-500">{cg.rows.length} attr.</span>
                 <span className="text-sm font-semibold text-iip-gold">{st.tPer}p</span>
@@ -1358,8 +1345,8 @@ export default function Attributions() {
         {open && (
           <div className={activeUE === key ? (isHelb ? 'bg-pink-50/60' : 'bg-iip-gold/5') : (isHelb ? 'bg-pink-50/40' : 'bg-gray-50/50')}>
             {(() => {
-              const ctrl = controle[ue.ue_num];
-              if (!ctrl) return null;
+              const ctrl = autAnalyse[String(ue.ue_num)] || autAnalyse[ue.ue_num];
+              if (!ctrl || !ctrl.message) return null;
               const styles = {
                 ok:          'bg-green-50 border-green-200 text-green-800',
                 sous:        'bg-amber-50 border-amber-200 text-amber-800',
@@ -1371,7 +1358,7 @@ export default function Attributions() {
                 <div className={`mx-6 my-2 px-3 py-2 rounded-lg border text-[12px] ${styles[ctrl.etat] || 'bg-gray-50 border-gray-200 text-gray-600'}`}>
                   <span className="font-semibold mr-1">{icone} Autonomie</span>
                   {ctrl.message}
-                  <span className="text-gray-400 ml-2">· base {ctrl.ue_autonomie} × palier {ctrl.palier} = plancher {ctrl.plancher} · plafond {ctrl.plafond} · placé {ctrl.autonomie_attribuee}</span>
+                  <span className="text-gray-400 ml-2">· base {ctrl.ue_aut} · plancher {ctrl.min} · plafond {ctrl.max} · placé {ctrl.aut_attribuee}</span>
                 </div>
               );
             })()}
