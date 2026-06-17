@@ -18,6 +18,7 @@ class ErrorBoundary extends Component {
 }
 import { Routes, Route, Navigate, NavLink, useNavigate } from 'react-router-dom';
 import { isAuthenticated, getUser, api, getAnnee, setAnnee } from './lib/api.js';
+import WelcomeV3 from './WelcomeV3.jsx';
 import {
   IconClipboardList, IconUsers, IconFileExport, IconChecklist,
   IconChartBar, IconCalendarStats, IconEdit, IconSettings, IconLogout, IconMenu2, IconX,
@@ -52,7 +53,7 @@ const buildLabel = buildDate.toLocaleString('fr-BE', {
 });
 // Version : BUILD_VER peut être "1.2.8+sha" (Vite local), un SHA brut (CI sans fix), ou "dev"
 const _isVersion = BUILD_VER.includes('.');
-const versionNum = _isVersion ? BUILD_VER.split('+')[0] : '2.24.0'; // fallback hardcodé
+const versionNum = _isVersion ? BUILD_VER.split('+')[0] : '3.0.0'; // fallback hardcodé
 const shaOnly = BUILD_VER.includes('+')
   ? BUILD_VER.split('+')[1]?.slice(0,7)
   : BUILD_VER === 'dev' ? '' : BUILD_VER.slice(0,7);
@@ -82,6 +83,16 @@ function ProtectedLayout({ children }) {
   const [anneeActive, setAnneeActive] = useState(getAnnee());
   const [env, setEnv] = useState(null);
   const [versionIsNew, setVersionIsNew] = useState(false);
+  // Écran d'accueil magique : affiché une seule fois par utilisateur au passage en v3.
+  const [showWelcome, setShowWelcome] = useState(false);
+  useEffect(() => {
+    try {
+      const majeure = parseInt(String(versionNum).split('.')[0], 10);
+      if (majeure >= 3 && localStorage.getItem('welcome_v3_vu') !== '1') {
+        setShowWelcome(true);
+      }
+    } catch { /* localStorage indisponible */ }
+  }, []);
 
   // Détection d'une nouvelle version : compare la version courante à la dernière
   // version vue (stockée localement). Si différente → animation pendant 6s.
@@ -148,6 +159,12 @@ function ProtectedLayout({ children }) {
 
   return (
     <div className="min-h-screen flex flex-col">
+      {showWelcome && (
+        <WelcomeV3 onClose={() => {
+          setShowWelcome(false);
+          try { localStorage.setItem('welcome_v3_vu', '1'); } catch { /* ignore */ }
+        }} />
+      )}
       {env === 'dev' && (
         <div style={{
           background: 'repeating-linear-gradient(45deg, #f59e0b, #f59e0b 12px, #d97706 12px, #d97706 24px)',
