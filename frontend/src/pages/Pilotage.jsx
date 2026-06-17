@@ -820,7 +820,7 @@ export default function Pilotage() {
     );
   };
 
-  // ── Onglet ETP : répartition IIP (CT/800 + PP/1000) et HELB (480/750/1400) par section/UE ──
+  // ── Onglet ETP : répartition IIP et HELB, tout en CT/800 + PP/1000 (périodes) par section/UE ──
   const renderETP = () => {
     if (!etpData) return <div className="text-gray-400 py-8 text-center">Chargement…</div>;
     const secs = etpData.sections || [];
@@ -834,7 +834,7 @@ export default function Pilotage() {
           <b>Répartition ETP</b> — équivalents temps plein par section et UE, année {etpData.annee}.
           <span className="block mt-1 text-gray-500">
             <b>IIP</b> : cours généraux (CT) ÷ 800 périodes + cours pratiques (PP) ÷ 1000 périodes.
-            <b className="ml-2">HELB</b> : selon statut (MA/PI : TH ÷ 480, TP ÷ 750 ; MFP ÷ 750 ; COORD ÷ 1400).
+            <b className="ml-2">HELB</b> : même base (CT ÷ 800, PP ÷ 1000) — tout est exprimé en périodes.
           </span>
         </div>
         <table className="w-full text-sm border-collapse">
