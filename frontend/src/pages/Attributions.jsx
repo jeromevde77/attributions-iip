@@ -6,7 +6,7 @@ import OrganisationUEModal from '../components/OrganisationUEModal.jsx';
 import OrganiserGroupesModal from '../components/OrganiserGroupesModal.jsx';
 import Doc23Modal from '../components/Doc23Modal.jsx';
 import * as XLSX from 'xlsx';
-import { IconClipboardText, IconTrash, IconLock, IconLockOpen, IconArrowsHorizontal, IconRefresh, IconCalendar, IconFileText, IconChartBar, IconEraser, IconWand, IconSearch, IconX, IconSettings, IconFolder, IconPlus, IconFileImport, IconFileSpreadsheet, IconUsersGroup } from '@tabler/icons-react';
+import { IconClipboardText, IconTrash, IconLock, IconLockOpen, IconArrowsHorizontal, IconRefresh, IconCalendar, IconFileText, IconChartBar, IconEraser, IconWand, IconSearch, IconX, IconSettings, IconFolder, IconPlus, IconFileImport, IconFileSpreadsheet, IconUsersGroup, IconScissors } from '@tabler/icons-react';
 
 // ─── Modale : copier les attributions d'une section d'une année vers une autre ─
 function CopierSectionModal({ sections, anneeActive, isAdmin, onClose, onCopied }) {
@@ -209,7 +209,7 @@ const DEFAULT_COLS = [
   { key: 'autonomie_attribuee',   label: 'Aut.',       width: 84, num: true, edit: 'number' },
   { key: 'total_attribue_professeur', label: 'Total',  width: 64, num: true, calc: true, rowClickable: true },
   { key: 'charge_en_heures',      label: 'Hrs',        width: 60, num: true, calc: true, rowClickable: true },
-  { key: '__actions',             label: '',           width: 64 },
+  { key: '__actions',             label: '',           width: 84 },
 ];
 
 // ===========================================================================
@@ -732,44 +732,77 @@ export default function Attributions() {
   }
 
   // Démultiplie une ligne d'attribution : crée N-1 copies (mêmes valeurs, groupes nouveaux sans doublon)
-  async function demultiplier(row) {
-    const saisie = prompt(`Combien de groupes ajouter ? (copies de ce groupe)`, '1');
+  // Helper : crée une copie de la ligne avec un code de groupe et un marqueur split donnés
+  function payloadCopie(row, code, splitFlag) {
+    return {
+      section: row.section,
+      contrat_mdp: row.contrat_mdp || 'IIP',
+      etablissement_referent: row.etablissement_referent || 'IIP',
+      organisation: row.organisation || 'x',
+      ue_num: row.ue_num != null ? Number(row.ue_num) : null,
+      num_organisation: Number(row.num_organisation) || 1,
+      quadrimestre_attribue: row.quadrimestre_attribue,
+      code_cours: row.code_cours,
+      type_cours: row.type_cours,
+      code,
+      nb_groupes: Number(row.nb_groupes) || 1,
+      split_groupe: splitFlag,
+      professeur_id: row.professeur_id ? Number(row.professeur_id) : null,
+      cours_ept_ad: row.cours_ept_ad || 'C',
+      coordination_encadrement: row.coordination_encadrement || 'Cours',
+      activite_id: row.activite_id ? Number(row.activite_id) : null,
+      type_cours_helb: row.type_cours_helb ?? null,
+      periodes_attribuees: Number(row.periodes_attribuees) || 0,
+      autonomie_attribuee: Number(row.autonomie_attribuee) || 0,
+    };
+  }
+
+  // ✂️ SPLIT : découpe le cours en N morceaux partagés (mêmes étudiants = Ts, plusieurs profs/parties)
+  async function splitterLigne(row) {
+    const saisie = prompt(`En combien de morceaux découper ce cours ?\n(même groupe d'étudiants « Ts », partagé entre plusieurs profs)`, '2');
     if (saisie == null) return;
-    const aCreer = Math.max(1, Math.min(26, parseInt(saisie, 10) || 0));
-    if (!aCreer || aCreer < 1) return;
-    // Lettres déjà utilisées sur tout le COURS (pour éviter les doublons de lettres)
+    const total = Math.max(2, Math.min(20, parseInt(saisie, 10) || 0));
+    if (!total || total < 2) return;
+    const aCreer = total - 1; // la ligne actuelle compte déjà comme 1 morceau
+    if (!confirm(`Créer ${aCreer} morceau(x) supplémentaire(s) en split (Ts) ?\nLa somme des périodes devra rester un multiple du DP.`)) return;
+    try {
+      // La ligne source devient un split (Ts, pas de lettre)
+      await api.updateAttribution(row.id, { split_groupe: 'O', code: null });
+      for (let i = 0; i < aCreer; i++) {
+        await api.createAttribution(payloadCopie(row, null, 'O'));
+      }
+      load();
+    } catch(e){ alert('Erreur : '+e.message); }
+  }
+
+  // 👥 GROUPE : crée N sous-groupes (étudiants répartis), numérotés A, B, C… sans doublon
+  async function grouperLigne(row) {
+    const saisie = prompt(`Combien de groupes au total pour ce cours ?\n(sous-groupes A, B, C… avec étudiants répartis)`, '2');
+    if (saisie == null) return;
+    const total = Math.max(2, Math.min(26, parseInt(saisie, 10) || 0));
+    if (!total || total < 2) return;
+    // Lettres déjà utilisées sur le cours (éviter doublons)
     const lignesCours = data.filter(r =>
       r.section === row.section && r.code_cours === row.code_cours &&
       (r.num_organisation || 1) === (row.num_organisation || 1));
-    const used = new Set(lignesCours.map(r => (r.groupe_code || '').toUpperCase()).filter(Boolean));
-    const lettres = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
-    const libres = [...lettres].filter(c => !used.has(c));
-    if (!confirm(`Créer ${aCreer} groupe(s) supplémentaire(s), copie de cette ligne ?`)) return;
+    const lettres = [...'ABCDEFGHIJKLMNOPQRSTUVWXYZ'];
+    if (!confirm(`Organiser ce cours en ${total} groupes (A, B, C…) ?`)) return;
     try {
-      for (let i = 0; i < aCreer; i++) {
-        const code = libres[i] || null;
-        const payload = {
-          section: row.section,
-          contrat_mdp: row.contrat_mdp || 'IIP',
-          etablissement_referent: row.etablissement_referent || 'IIP',
-          organisation: row.organisation || 'x',
-          ue_num: row.ue_num != null ? Number(row.ue_num) : null,
-          num_organisation: Number(row.num_organisation) || 1,
-          quadrimestre_attribue: row.quadrimestre_attribue,
-          code_cours: row.code_cours,
-          type_cours: row.type_cours,
-          code,
-          nb_groupes: Number(row.nb_groupes) || 1,
-          split_groupe: row.split_groupe || 'N',
-          professeur_id: row.professeur_id ? Number(row.professeur_id) : null,
-          cours_ept_ad: row.cours_ept_ad || 'C',
-          coordination_encadrement: row.coordination_encadrement || 'Cours',
-          activite_id: row.activite_id ? Number(row.activite_id) : null,
-          type_cours_helb: row.type_cours_helb ?? null,
-          periodes_attribuees: Number(row.periodes_attribuees) || 0,
-          autonomie_attribuee: Number(row.autonomie_attribuee) || 0,
-        };
-        await api.createAttribution(payload);
+      // La ligne source prend la 1re lettre (A si libre)
+      const used = new Set(lignesCours.map(r => (r.groupe_code || '').toUpperCase()).filter(Boolean));
+      // On renumérote proprement : la ligne source = A, puis les nouvelles B, C…
+      const libres = lettres.filter(c => !used.has(c) || c === (row.groupe_code||'').toUpperCase());
+      let idx = 0;
+      const premiereLettre = lettres[0];
+      await api.updateAttribution(row.id, { code: premiereLettre, split_groupe: 'N' });
+      // Créer les groupes restants avec les lettres suivantes libres
+      const dejaPris = new Set([premiereLettre]);
+      for (const r of lignesCours) { const c=(r.groupe_code||'').toUpperCase(); if(c) dejaPris.add(c); }
+      const restantes = lettres.filter(c => !dejaPris.has(c));
+      for (let i = 0; i < total - 1; i++) {
+        const code = restantes[i] || null;
+        dejaPris.add(code);
+        await api.createAttribution(payloadCopie(row, code, 'N'));
       }
       load();
     } catch(e){ alert('Erreur : '+e.message); }
@@ -944,7 +977,19 @@ export default function Attributions() {
           const click = c.rowClickable ? ()=>setEditRow(row) : undefined;
           const cClass = c.rowClickable ? 'cursor-pointer hover:bg-iip-gold/5' : '';
           if (c.key==='__select') return <td key={c.key} className="text-center" style={sty}><input type="checkbox" checked={selected.has(row.id)} onChange={()=>toggleSelect(row.id)} className="cursor-pointer"/></td>;
-          if (c.key==='__actions') return <td key={c.key} className="text-center" style={sty}><div className="flex items-center justify-center gap-1.5">{!row.is_z && <button onClick={()=>demultiplier(row)} className="text-gray-400 hover:text-iip-gold text-sm" title="Démultiplier ce groupe (créer des copies)"><IconUsersGroup size={15}/></button>}<button onClick={()=>deleteRow(row.id)} className="text-red-500 hover:text-red-700 text-sm" title="Supprimer"><IconTrash size={15}/></button></div></td>;
+          if (c.key==='__actions') {
+            const estSplit  = row.split_groupe === 'O';
+            const estGroupe = !!(row.groupe_code && row.groupe_code.toUpperCase() !== 'TS');
+            return <td key={c.key} className="text-center" style={sty}><div className="flex items-center justify-center gap-1">
+              {!row.is_z && <>
+                <button onClick={()=>splitterLigne(row)} title="Split : découper en morceaux partagés (Ts, plusieurs profs)"
+                  className={estSplit ? 'text-green-600' : 'text-gray-300 hover:text-green-600'}><IconScissors size={15}/></button>
+                <button onClick={()=>grouperLigne(row)} title="Groupes : créer des sous-groupes A, B, C… (étudiants répartis)"
+                  className={estGroupe ? 'text-green-600' : 'text-gray-300 hover:text-green-600'}><IconUsersGroup size={15}/></button>
+              </>}
+              <button onClick={()=>deleteRow(row.id)} className="text-red-500 hover:text-red-700" title="Supprimer"><IconTrash size={15}/></button>
+            </div></td>;
+          }
           if (c.key==='__conformite') return <td key={c.key} className="text-center" style={sty}>{c.render(null,row)}</td>;
           // Badge EXT/DOT sur la colonne professeur
           if (c.key === 'professeur_id') {
