@@ -919,6 +919,11 @@ function GestionActivites({ sections = [] }) {
     charger();
   }
 
+  async function changerType(id, type_etp) {
+    await _fetch(`/api/ref/activites/${id}`, { method: 'PATCH', body: JSON.stringify({ type_etp: type_etp || null }) });
+    charger();
+  }
+
   async function supprimer(id, libelle) {
     if (!confirm(`Supprimer l'activité "${libelle}" ?`)) return;
     const r = await _fetch(`/api/ref/activites/${id}`, { method: 'DELETE' });
@@ -966,6 +971,20 @@ function GestionActivites({ sections = [] }) {
                 {sections.map(s => <option key={s.code} value={s.code}>{s.code}</option>)}
               </select>}
         </td>
+        <td className="px-3 py-2 whitespace-nowrap">
+          <select value={a.type_etp || ''} onChange={e => changerType(a.id, e.target.value)}
+            className={`text-xs font-semibold border rounded px-1.5 py-0.5 cursor-pointer outline-none
+              ${a.type_etp === 'TH' ? 'bg-slate-100 text-slate-800 border-slate-300'
+              : a.type_etp === 'TP' ? 'bg-cyan-50 text-cyan-700 border-cyan-300'
+              : a.type_etp === 'COD' ? 'bg-iip-gold/10 text-iip-gold border-iip-gold/40'
+              : 'bg-gray-50 text-gray-400 border-gray-200'}`}
+            title="Type pour le calcul ETP : TH ÷800, TP ÷1000, COD ÷1440">
+            <option value="">— Type —</option>
+            <option value="TH">TH (÷800)</option>
+            <option value="TP">TP (÷1000)</option>
+            <option value="COD">COD (÷1440)</option>
+          </select>
+        </td>
         <td className="px-3 py-2 text-right whitespace-nowrap">
           <div className="flex gap-2 justify-end opacity-0 group-hover:opacity-100 transition">
             {isEdit
@@ -1003,7 +1022,7 @@ function GestionActivites({ sections = [] }) {
           <table className="w-full">
             <tbody>
               {acts.map(a => <RowAct key={a.id} a={a} />)}
-              {!acts.length && <tr><td colSpan={3} className="px-4 py-3 text-xs text-gray-400 italic">Aucune</td></tr>}
+              {!acts.length && <tr><td colSpan={4} className="px-4 py-3 text-xs text-gray-400 italic">Aucune</td></tr>}
             </tbody>
           </table>
         )}
