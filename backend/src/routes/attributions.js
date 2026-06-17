@@ -315,9 +315,9 @@ r.get('/rapport-attributions', authRequired, (req, res) => {
   const { section, annee } = req.query;
   if (!annee) return res.status(400).json({ error: 'annee requis' });
 
-  // Si pas de section → toutes les sections
+  // Si pas de section → toutes les sections ; sinon accepte une liste séparée par des virgules
   const sections = section
-    ? [section]
+    ? String(section).split(',').map(s => s.trim()).filter(Boolean)
     : db.prepare(`SELECT DISTINCT section FROM attribution WHERE annee_scolaire = ? ORDER BY section`).all(annee).map(r => r.section);
 
   // Construire le résultat multi-sections
