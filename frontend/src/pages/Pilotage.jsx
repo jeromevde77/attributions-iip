@@ -1,5 +1,7 @@
 import { useState, useEffect, useMemo, useRef, Fragment } from 'react';
 import { api, getAnnee } from '../lib/api.js';
+import { IconChartBar, IconHome, IconClipboardList, IconTarget, IconUsers, IconSettings, IconAlertTriangle } from '@tabler/icons-react';
+import { PageHeader, Tabs } from '../components/ui.jsx';
 import {
   BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer,
   Legend, CartesianGrid, ReferenceLine,
@@ -1174,35 +1176,37 @@ export default function Pilotage() {
     <div className="px-3 md:px-6 py-4 max-w-6xl mx-auto space-y-5">
       {/* En-tête */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-3">
-        <div>
-          <h1 className="font-title text-xl text-iip-gold">📊 Pilotage des dotations</h1>
-          <p className="text-xs text-gray-400 mt-0.5">Suivi par année civile · Enveloppes extérieures · Comparaison pluriannuelle</p>
-        </div>
+        <PageHeader icon={IconChartBar} titre="Pilotage des dotations"
+          sous="Suivi par année civile · Enveloppes extérieures · Comparaison pluriannuelle" />
         {/* Sélecteur d'année civile */}
         <div className="flex gap-1.5 flex-wrap">
           {civil.map(y => (
             <button key={y.annee_civile} onClick={() => setSelYear(y.annee_civile)}
-              className={`text-sm px-3 py-1.5 rounded-lg border font-medium transition ${
+              className={`text-sm px-3 py-1.5 rounded-lg border font-medium transition flex items-center gap-1 ${
                 selYear === y.annee_civile
-                  ? 'bg-iip-gold text-white border-iip-gold shadow'
-                  : 'bg-white text-gray-600 border-gray-200 hover:border-iip-gold/50'
+                  ? 'bg-iip-blue text-white border-iip-blue'
+                  : 'bg-white text-gray-600 border-gray-200 hover:border-iip-turquoise/50'
               }`}>
               {y.annee_civile}
-              {y.pct_organique > 95 && <span className="ml-1 text-xs">⚠</span>}
+              {y.pct_organique > 95 && <IconAlertTriangle size={13} className="text-amber-500" />}
             </button>
           ))}
         </div>
       </div>
 
       {/* Onglets */}
-      <div className="flex gap-0.5 border-b border-gray-200">
-        {[['synthese', '🏠 Synthèse'], ['detail', '📋 Détail par section'], ['efficience', '🎯 Efficience'], ['etp', '👥 ETP'], ['dotation', '📊 Dotation par UE'], ['config', '⚙ Configuration']].map(([k, lbl]) => (
-          <button key={k} onClick={() => setTab(k)}
-            className={`text-sm px-4 py-2 -mb-px border-b-2 transition font-medium ${tab === k ? 'border-iip-gold text-iip-gold' : 'border-transparent text-gray-500 hover:text-gray-700'}`}>
-            {lbl}
-          </button>
-        ))}
-      </div>
+      <Tabs
+        value={tab}
+        onChange={setTab}
+        items={[
+          { key: 'synthese', label: 'Synthèse', icon: IconHome },
+          { key: 'detail', label: 'Détail par section', icon: IconClipboardList },
+          { key: 'efficience', label: 'Efficience', icon: IconTarget },
+          { key: 'etp', label: 'ETP', icon: IconUsers },
+          { key: 'dotation', label: 'Dotation par UE', icon: IconChartBar },
+          { key: 'config', label: 'Configuration', icon: IconSettings },
+        ]}
+      />
 
       {/* Contenu */}
       {loading ? (
