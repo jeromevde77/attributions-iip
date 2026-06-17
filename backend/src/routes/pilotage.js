@@ -480,7 +480,7 @@ r.get('/efficience', authRequired, (req, res) => {
   });
 });
 
-// GET /etp?annee= — Répartition ETP par section et UE, séparée IIP (CT/800 + PP/1000) et HELB (480/750/1400)
+// GET /etp?annee= — Répartition ETP par section et UE (IIP et HELB), tout en CT/800 + PP/1000 sur les périodes
 r.get('/etp', authRequired, (req, res) => {
   const { annee } = req.query;
   if (!annee) return res.status(400).json({ error: 'annee requise' });
@@ -498,26 +498,21 @@ r.get('/etp', authRequired, (req, res) => {
     ORDER BY v.section, v.ue_num
   `).all(annee);
 
-  // HELB : heures par ligne, diviseur selon statut + nature
+  // HELB : MÊME logique que IIP — périodes CT/800 + PP/1000 (tout est déjà en périodes).
+  // Le TH/TP (480/750) n'est qu'un affichage de saisie, pas une base de calcul ETP.
   const lignesHELB = db.prepare(`
     SELECT v.section, v.ue_num,
-      v.charge_en_heures AS heures,
-      COALESCE(p.statut_helb,'') AS statut,
-      COALESCE(v.helb_nature,'CT') AS nature
+      SUM(CASE WHEN v.type_cours='CT' THEN v.total_attribue_professeur ELSE 0 END) AS per_ct,
+      SUM(CASE WHEN v.type_cours='PP' THEN v.total_attribue_professeur ELSE 0 END) AS per_pp,
+      SUM(CASE WHEN v.type_cours NOT IN ('CT','PP') THEN v.total_attribue_professeur ELSE 0 END) AS per_autre
     FROM v_attribution_complete v
-    LEFT JOIN professeur p ON p.id = v.professeur_id
     WHERE v.annee_scolaire = ? AND v.contrat_mdp='HELB'
+    GROUP BY v.section, v.ue_num
   `).all(annee);
-  const divHelb = (statut, nature) => {
-    if (statut === 'COORD') return 1400;
-    if (statut === 'MFP') return 750;
-    return nature === 'TP' ? 750 : 480;
-  };
   const helbUE = {};
   for (const l of lignesHELB) {
-    const e = (l.heures || 0) / divHelb(l.statut, l.nature);
-    const k = `${l.section}|${l.ue_num}`;
-    helbUE[k] = (helbUE[k] || 0) + e;
+    const e = (l.per_ct || 0) / 800 + (l.per_pp || 0) / 1000 + (l.per_autre || 0) / 800;
+    helbUE[`${l.section}|${l.ue_num}`] = e;
   }
 
   const r4 = x => Math.round(x * 10000) / 10000;
