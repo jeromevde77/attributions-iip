@@ -18,6 +18,10 @@ class ErrorBoundary extends Component {
 }
 import { Routes, Route, Navigate, NavLink, useNavigate } from 'react-router-dom';
 import { isAuthenticated, getUser, api, getAnnee, setAnnee } from './lib/api.js';
+import {
+  IconClipboardList, IconUsers, IconFileExport, IconChecklist,
+  IconChartBar, IconCalendarStats, IconEdit, IconSettings, IconLogout, IconMenu2, IconX,
+} from '@tabler/icons-react';
 
 import Login from './pages/Login.jsx';
 import Dashboard from './pages/Dashboard.jsx';
@@ -129,20 +133,18 @@ function ProtectedLayout({ children }) {
 
   const nav = isCoordination
     ? [
-        ['/attributions', 'Attributions']
+        ['/attributions', 'Attributions', IconClipboardList]
       ]
     : [
-        ['/attributions', 'Attributions'],
-        ['/professeurs',  'Personnel'],
-        ['/listes',       'Listes'],
-        ['/procedures',   '⚖ Procédures'],
-        ['/pilotage',       '📊 Pilotage'],
-        ['/planification',  '📐 Planification'],
-        // EA12 masqué en prod (LibreOffice absent du Dockerfile prod)
-        // ...(u?.role === 'admin' ? [['/ea12', 'EA12']] : []),
+        ['/attributions', 'Attributions', IconClipboardList],
+        ['/professeurs',  'Personnel', IconUsers],
+        ['/listes',       'Listes', IconFileExport],
+        ['/procedures',   'Procédures', IconChecklist],
+        ['/pilotage',     'Pilotage', IconChartBar],
+        ['/planification','Planification', IconCalendarStats],
       ];
-  if (u?.role === 'admin') nav.push(['/editeur', '📝 Éditeur']);
-  if (u?.role === 'admin') nav.push(['/configuration', '⚙ Configuration']);
+  if (u?.role === 'admin') nav.push(['/editeur', 'Éditeur', IconEdit]);
+  if (u?.role === 'admin') nav.push(['/configuration', 'Configuration', IconSettings]);
 
   return (
     <div className="min-h-screen flex flex-col">
@@ -161,13 +163,9 @@ function ProtectedLayout({ children }) {
           {/* Burger mobile */}
           <button
             onClick={() => setMenuOpen(o => !o)}
-            className="md:hidden text-gray-700 hover:text-iip-gold p-1"
+            className="md:hidden text-gray-700 hover:text-iip-turquoise p-1"
             aria-label="Menu">
-            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-              {menuOpen
-                ? <path strokeLinecap="round" d="M6 6l12 12M6 18L18 6"/>
-                : <path strokeLinecap="round" d="M3 6h18M3 12h18M3 18h18"/>}
-            </svg>
+            {menuOpen ? <IconX size={24} /> : <IconMenu2 size={24} />}
           </button>
 
           <div className="flex-none">
@@ -208,40 +206,45 @@ function ProtectedLayout({ children }) {
 
           {/* Sélecteur d'année */}
           <select value={anneeActive} onChange={e => changeAnnee(e.target.value)}
-            className="border border-iip-gold/40 rounded px-2 py-1 text-sm font-semibold text-iip-gold bg-white focus:outline-none focus:ring-1 focus:ring-iip-gold cursor-pointer">
+            className="border border-iip-blue/30 rounded-lg px-2.5 py-1.5 text-sm font-semibold text-iip-blue bg-white focus:outline-none focus:ring-2 focus:ring-iip-turquoise/40 cursor-pointer">
             {annees.map(a => <option key={a.code} value={a.code}>{a.code}</option>)}
             {annees.length === 0 && <option value={anneeActive}>{anneeActive}</option>}
           </select>
           {/* Nav desktop */}
-          <nav className="hidden md:flex gap-1 flex-1 ml-4">
-            {nav.map(([to, lbl]) => (
+          <nav className="hidden md:flex gap-0.5 flex-1 ml-3">
+            {nav.map(([to, lbl, Icon]) => (
               <NavLink key={to} to={to} end={to === '/'} className={({ isActive }) =>
-                `nav-underline px-3 py-1.5 rounded-md text-sm font-medium transition-colors duration-200 ${
-                  isActive ? 'bg-iip-gold text-white nav-active' : 'text-gray-700 hover:bg-iip-gold/10'
+                `flex items-center gap-2 px-3 py-2 rounded-lg text-sm transition-colors duration-150 ${
+                  isActive
+                    ? 'bg-iip-turquoise/10 text-iip-blue font-semibold'
+                    : 'text-gray-600 hover:text-iip-blue hover:bg-gray-100'
                 }`
-              }>{lbl}</NavLink>
+              }>
+                {Icon && <Icon size={17} stroke={1.8} className="flex-shrink-0" />}
+                <span>{lbl}</span>
+              </NavLink>
             ))}
           </nav>
 
           {/* User info + version */}
           <div className="flex items-center gap-3 text-sm flex-shrink-0">
             <span
-              className={`relative bg-iip-gold text-white font-bold px-2 py-0.5 rounded text-[11px] tracking-wide hidden md:inline ${versionIsNew ? 'version-badge-new' : ''}`}
+              className={`relative bg-iip-blue text-white font-semibold px-2 py-0.5 rounded-md text-[11px] tracking-wide hidden md:inline ${versionIsNew ? 'version-badge-new' : ''}`}
               title={versionIsNew ? 'Nouvelle version déployée\u00a0!' : `Version ${versionNum}`}>
               v{versionNum}
               {versionIsNew && (
                 <span className="absolute -top-1 -right-1 flex h-2.5 w-2.5">
-                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-iip-orange opacity-75"></span>
-                  <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-iip-orange"></span>
+                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-iip-turquoise opacity-75"></span>
+                  <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-iip-turquoise"></span>
                 </span>
               )}
             </span>
             <div className="flex flex-col items-end leading-tight">
               <span className="text-gray-700 font-medium text-sm">{u?.nom || u?.email}</span>
-              <span className="text-xs text-iip-mauve font-semibold">{u?.role}</span>
+              <span className="text-xs text-iip-turquoise font-semibold">{u?.role}</span>
               <button onClick={() => { api.logout(); navigate('/login'); }}
-                className="text-xs text-gray-400 hover:text-iip-orange transition mt-0.5">
-                Déconnexion
+                className="flex items-center gap-1 text-xs text-gray-400 hover:text-iip-danger transition mt-0.5">
+                <IconLogout size={13} /> Déconnexion
               </button>
             </div>
           </div>
@@ -250,13 +253,16 @@ function ProtectedLayout({ children }) {
         {/* Menu mobile déroulant */}
         {menuOpen && (
           <nav className="md:hidden mt-3 pb-2 border-t border-gray-100 pt-2 flex flex-col gap-1">
-            <div className="text-xs text-gray-500 px-3 py-1">{u?.nom || u?.email} · <span className="text-iip-mauve">{u?.role}</span></div>
-            {nav.map(([to, lbl]) => (
+            <div className="text-xs text-gray-500 px-3 py-1">{u?.nom || u?.email} · <span className="text-iip-turquoise">{u?.role}</span></div>
+            {nav.map(([to, lbl, Icon]) => (
               <NavLink key={to} to={to} end={to === '/'} onClick={() => setMenuOpen(false)} className={({ isActive }) =>
-                `px-3 py-2 rounded-md text-sm font-medium ${
-                  isActive ? 'bg-iip-gold text-white' : 'text-gray-700 hover:bg-iip-gold/10'
+                `flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm font-medium ${
+                  isActive ? 'bg-iip-turquoise/10 text-iip-blue' : 'text-gray-700 hover:bg-gray-100'
                 }`
-              }>{lbl}</NavLink>
+              }>
+                {Icon && <Icon size={18} stroke={1.8} />}
+                <span>{lbl}</span>
+              </NavLink>
             ))}
           </nav>
         )}
