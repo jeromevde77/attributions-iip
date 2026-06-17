@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { getAnnee } from '../lib/api.js';
+import { IconCalendarStats } from '@tabler/icons-react';
 import PlanificateurVisuel from '../components/PlanificateurVisuel.jsx';
 
 const TOKEN = () => localStorage.getItem('token');
@@ -1435,7 +1436,7 @@ export default function Planification() {
     <div className="flex flex-col h-full min-h-0 overflow-hidden">
       {/* Barre d'outils */}
       <div className="flex-shrink-0 flex items-center gap-3 px-4 py-2.5 bg-white border-b border-gray-200 flex-wrap">
-        <h1 className="font-title text-iip-mauve font-bold text-sm">📐 Planification — {annee}</h1>
+        <h1 className="font-title text-iip-blue font-semibold text-sm flex items-center gap-1.5"><IconCalendarStats size={16} className="text-iip-turquoise"/>Planification — {annee}</h1>
         <select value={filtreSection} onChange={e => setFiltreSection(e.target.value)}
           className="border border-gray-300 rounded px-2 py-1 text-xs bg-white">
           <option value="">Toutes les sections</option>
