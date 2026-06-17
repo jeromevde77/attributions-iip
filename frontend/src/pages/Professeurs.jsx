@@ -668,6 +668,11 @@ export default function Professeurs() {
     const { prof, nominations, bilan_nomination, etp } = d;
     let attributions = d.attributions;
     if (contratFiltre) attributions = attributions.filter(a => (a.contrat_mdp || 'IIP') === contratFiltre);
+    // Si on demande un type précis et que le prof n'a aucune attribution de ce type, pas de fiche
+    if (contratFiltre && attributions.length === 0) {
+      if (!returnOnly) alert(`Ce membre du personnel n'a aucune attribution ${contratFiltre} pour ${annee}.`);
+      return null;
+    }
     if (contratFiltre === 'HELB') { return genererFicheHELB(prof, attributions, annee, returnOnly); }
     if (contratFiltre === null) { return genererFicheGlobale(prof, attributions, nominations, bilan_nomination, annee, returnOnly); }
 
@@ -895,14 +900,15 @@ export default function Professeurs() {
         return hay.includes(q);
       });
     }
-    // Filtre contrat — basé sur les contrats réels de l'année en cours (contrats_annee)
+    // Filtre contrat — un prof est retenu dès qu'il a des attributions du type demandé.
+    // HELB inclut les MDP mixtes (IIP+HELB) ; IIP idem. 'mixte' = a les deux.
     if (fContrat) {
       arr = arr.filter(p => {
         const contrats = (p.contrats_annee || '').split(',').map(c => c.trim()).filter(Boolean);
         const iip = contrats.includes('IIP');
         const helb = contrats.includes('HELB');
-        if (fContrat === 'IIP') return iip && !helb;
-        if (fContrat === 'HELB') return helb && !iip;
+        if (fContrat === 'IIP') return iip;          // tous ceux qui ont de l'IIP (mixtes compris)
+        if (fContrat === 'HELB') return helb;        // tous ceux qui ont du HELB (mixtes compris)
         if (fContrat === 'mixte') return iip && helb;
         return true;
       });
@@ -1177,4 +1183,3 @@ export default function Professeurs() {
   );
 }
 
-// build final 2.23.1 fiche HELB sous-totaux 1781717759
