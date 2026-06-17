@@ -637,12 +637,12 @@ r.get('/dotation-comparaison', authRequired, (req, res) => {
   const pondere = req.query.pondere !== '0'; // true par défaut, false = brut
   const mode = req.query.mode === 'civil' ? 'civil' : 'scolaire';
 
-  // Coûts bruts Q1/Q2 (sans pondération)
+  // Coûts bruts Q1/Q2 (sans pondération) — total_attribue_professeur = périodes + autonomie
   const RQ1 = `CASE WHEN COALESCE(a.quadrimestre_attribue, u.ue_quad) IN ('Q1','Q1/Q2')
-    THEN a.periodes_attribuees * CASE WHEN COALESCE(a.quadrimestre_attribue, u.ue_quad)='Q1/Q2' THEN 0.4 ELSE 1 END
+    THEN a.total_attribue_professeur * CASE WHEN COALESCE(a.quadrimestre_attribue, u.ue_quad)='Q1/Q2' THEN 0.4 ELSE 1 END
     ELSE 0 END`;
   const RQ2 = `CASE WHEN COALESCE(a.quadrimestre_attribue, u.ue_quad) IN ('Q2','Q1/Q2')
-    THEN a.periodes_attribuees * CASE WHEN COALESCE(a.quadrimestre_attribue, u.ue_quad)='Q1/Q2' THEN 0.6 ELSE 1 END
+    THEN a.total_attribue_professeur * CASE WHEN COALESCE(a.quadrimestre_attribue, u.ue_quad)='Q1/Q2' THEN 0.6 ELSE 1 END
     ELSE 0 END`;
 
   function getCoutsAnnee(annee) {
