@@ -42,7 +42,7 @@ function authFetch(url) {
 // ─── Définition des entités ─────────────────────────────────────────────────
 const ENTITES = {
   profs: {
-    label: 'Professeurs', icon: '👤', tabler: 'IconUser',
+    label: 'Professeurs', groupe: 'data', icon: '👤', tabler: 'IconUser',
     cols: [
       { key: 'nom',            label: 'Nom',          defaut: true  },
       { key: 'prenom',         label: 'Prénom',       defaut: true  },
@@ -60,7 +60,7 @@ const ENTITES = {
     filtres: [],
   },
   ues: {
-    label: 'Unités d\'enseignement', icon: '📚', tabler: 'IconBooks',
+    label: 'Unités d\'enseignement', groupe: 'data', icon: '📚', tabler: 'IconBooks',
     cols: [
       { key: 'ue_num',        label: 'N° UE',          defaut: true  },
       { key: 'ue_nom',        label: 'Nom',             defaut: true  },
@@ -105,7 +105,7 @@ const ENTITES = {
     filtres: ['section', 'niveau'],
   },
   cours: {
-    label: 'Cours', icon: '📖', tabler: 'IconBook',
+    label: 'Cours', groupe: 'data', icon: '📖', tabler: 'IconBook',
     cols: [
       { key: 'cours_code',         label: 'Code cours',   defaut: true  },
       { key: 'cours_nom',          label: 'Nom du cours', defaut: true  },
@@ -127,7 +127,7 @@ const ENTITES = {
     filtres: ['section', 'ue_num'],
   },
   profs_par_ue: {
-    label: 'Profs par UE', icon: '🔗', tabler: 'IconLink',
+    label: 'Profs par UE', groupe: 'data', icon: '🔗', tabler: 'IconLink',
     cols: [
       { key: 'professeur',    label: 'Professeur',  defaut: true  },
       { key: 'ue_num',        label: 'N° UE',        defaut: true  },
@@ -149,7 +149,7 @@ const ENTITES = {
     filtres: ['section', 'ue_num'],
   },
   profs_par_section: {
-    label: 'Profs par section', icon: '🏫', tabler: 'IconSchool',
+    label: 'Profs par section', groupe: 'data', icon: '🏫', tabler: 'IconSchool',
     cols: [
       { key: 'section',       label: 'Section',     defaut: true  },
       { key: 'professeur',    label: 'Professeur',  defaut: true  },
@@ -168,7 +168,7 @@ const ENTITES = {
     filtres: ['section'],
   },
   synthese_charge: {
-    label: 'Synthèse charge / prof', icon: '⚖️', tabler: 'IconScale',
+    label: 'Synthèse charge / prof', groupe: 'data', icon: '⚖️', tabler: 'IconScale',
     cols: [
       { key: 'professeur',    label: 'Professeur',  defaut: true  },
       { key: 'section',       label: 'Section',     defaut: true  },
@@ -196,7 +196,7 @@ const ENTITES = {
     filtres: ['section'],
   },
   ues_sans_attribution: {
-    label: 'UE sans attribution', icon: '⚠️', tabler: 'IconAlertTriangle',
+    label: 'UE sans attribution', groupe: 'data', icon: '⚠️', tabler: 'IconAlertTriangle',
     cols: [
       { key: 'ue_num',  label: 'N° UE',  defaut: true  },
       { key: 'ue_nom',  label: 'Nom',    defaut: true  },
@@ -216,7 +216,7 @@ const ENTITES = {
     filtres: ['section'],
   },
   'grille-section': {
-    label: 'Grille de section', icon: '📐', tabler: 'IconLayoutGrid',
+    label: 'Grille de section', groupe: 'rapport', icon: '📐', tabler: 'IconLayoutGrid',
     grille: true,
     cols: [],
     fetch: (annee, filtres) => authFetch(
@@ -225,7 +225,7 @@ const ENTITES = {
     filtres: ['section'],
   },
   'rapport-section': {
-    label: 'Rapport par section', icon: '📄', tabler: 'IconFileText',
+    label: 'Rapport par section', groupe: 'rapport', icon: '📄', tabler: 'IconFileText',
     rapport: true,
     cols: [],
     fetch: (annee, filtres) => {
@@ -237,7 +237,7 @@ const ENTITES = {
     filtres: ['section', 'tc'],
   },
   'rapport-ue': {
-    label: 'Rapport par UE', icon: '📋', tabler: 'IconFileDescription',
+    label: 'Rapport par UE', groupe: 'rapport', icon: '📋', tabler: 'IconFileDescription',
     rapport: true,
     cols: [],
     fetch: (annee, filtres) => authFetch(
@@ -246,7 +246,7 @@ const ENTITES = {
     filtres: ['section', 'ue_num'],
   },
   'rapport-etp': {
-    label: 'Rapport ETP', icon: '🎓', tabler: 'IconCertificate',
+    label: 'Rapport ETP', groupe: 'rapport', icon: '🎓', tabler: 'IconCertificate',
     rapport: true,
     cols: [],
     fetch: (annee) => authFetch(`/api/pilotage/etp?annee=${encodeURIComponent(annee)}`),
@@ -942,34 +942,46 @@ export default function Listes() {
   const apercuHtml = rapportHtml ? htmlAvecOrientation(rapportHtml.html || rapportHtml) : null;
   const estRapport = def.rapport || def.grille;
 
+  const GROUPES_LABEL = { data: 'Listes de données', rapport: 'Rapports' };
+  const ordreGroupes = ['data', 'rapport'];
+
   return (
-    <div className="flex flex-col h-full min-h-0 bg-slate-50">
-      {/* ── En-tête + barre d'onglets ── */}
-      <div className="flex-shrink-0 bg-white border-b border-slate-200">
-        <div className="px-6 pt-5 pb-3">
-          <h1 className="text-xl font-title text-slate-800 flex items-center gap-2">
-            <IconFileExport size={22} className="text-[#00AACC]" />
-            Listes &amp; rapports
-          </h1>
+    <div className="flex h-full min-h-0 bg-slate-50">
+      {/* ── Rail latéral groupé ── */}
+      <aside className="w-56 flex-shrink-0 bg-iip-blue overflow-y-auto py-4 px-2.5">
+        <div className="flex items-center gap-2 px-3 pb-3 text-white text-[15px] font-semibold">
+          <IconFileExport size={20} className="text-iip-turquoise" />
+          Listes &amp; rapports
         </div>
-        {/* Onglets horizontaux */}
-        <div className="px-4 pb-0 flex gap-1 overflow-x-auto">
-          {Object.entries(ENTITES).map(([k, e]) => {
-            const Ic = TABLER[e.tabler] || IconFileText;
-            const actif = entite === k;
-            return (
-              <button key={k} onClick={() => changerEntite(k)}
-                className={`group relative flex items-center gap-2 px-3.5 py-2.5 text-[13px] whitespace-nowrap transition-colors duration-150 border-b-2
-                  ${actif
-                    ? 'border-[#00AACC] text-slate-900 font-semibold'
-                    : 'border-transparent text-slate-500 hover:text-slate-800'}`}>
-                <Ic size={17} className={actif ? 'text-[#00AACC]' : 'text-slate-400 group-hover:text-slate-600'} />
-                {e.label}
-              </button>
-            );
-          })}
-        </div>
-      </div>
+        {ordreGroupes.map(grp => {
+          const items = Object.entries(ENTITES).filter(([, e]) => (e.groupe || 'data') === grp);
+          if (items.length === 0) return null;
+          return (
+            <div key={grp} className="mb-3">
+              <div className="px-3 mt-2 mb-1 text-[10px] font-semibold uppercase tracking-wider text-white/40">
+                {GROUPES_LABEL[grp]}
+              </div>
+              {items.map(([k, e]) => {
+                const Ic = TABLER[e.tabler] || IconFileText;
+                const actif = entite === k;
+                return (
+                  <button key={k} onClick={() => changerEntite(k)}
+                    className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-[13px] mb-0.5 transition-colors duration-150
+                      ${actif
+                        ? 'bg-iip-turquoise text-white font-semibold'
+                        : 'text-white/75 hover:bg-white/10 hover:text-white'}`}>
+                    <Ic size={17} stroke={1.8} className="flex-shrink-0" />
+                    <span className="text-left leading-tight">{e.label}</span>
+                  </button>
+                );
+              })}
+            </div>
+          );
+        })}
+      </aside>
+
+      {/* ── Colonne droite : filtres + contenu ── */}
+      <div className="flex-1 flex flex-col min-w-0">
 
       {/* ── Barre de filtres + actions ── */}
       <div className="flex-shrink-0 bg-white border-b border-slate-200 px-5 py-2.5 flex items-center gap-3 flex-wrap">
@@ -1154,6 +1166,7 @@ export default function Listes() {
             )}
           </div>
         )}
+      </div>
       </div>
 
       {showOptionsRapport && (
