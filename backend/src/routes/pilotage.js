@@ -487,14 +487,14 @@ r.get('/etp', authRequired, (req, res) => {
 
   // IIP : périodes CT et PP par section/UE (autonomie incluse dans total_attribue_professeur)
   const lignesIIP = db.prepare(`
-    SELECT v.section, v.ue_num, u.ue_nom,
+    SELECT v.section, v.ue_num, u.ue_nom, u.ue_niv,
       SUM(CASE WHEN v.type_cours='CT' THEN v.total_attribue_professeur ELSE 0 END) AS per_ct,
       SUM(CASE WHEN v.type_cours='PP' THEN v.total_attribue_professeur ELSE 0 END) AS per_pp,
       SUM(CASE WHEN v.type_cours NOT IN ('CT','PP') THEN v.total_attribue_professeur ELSE 0 END) AS per_autre
     FROM v_attribution_complete v
     LEFT JOIN ue u ON u.ue_num = v.ue_num AND u.annee_scolaire = v.annee_scolaire
     WHERE v.annee_scolaire = ? AND COALESCE(v.contrat_mdp,'IIP')='IIP'
-    GROUP BY v.section, v.ue_num, u.ue_nom
+    GROUP BY v.section, v.ue_num, u.ue_nom, u.ue_niv
     ORDER BY v.section, v.ue_num
   `).all(annee);
 
@@ -512,7 +512,11 @@ r.get('/etp', authRequired, (req, res) => {
   const helbUE = {};
   for (const l of lignesHELB) {
     const e = (l.per_ct || 0) / 800 + (l.per_pp || 0) / 1000 + (l.per_autre || 0) / 800;
-    helbUE[`${l.section}|${l.ue_num}`] = e;
+    helbUE[`${l.section}|${l.ue_num}`] = {
+      etp: e,
+      per_ct: Math.round((l.per_ct || 0) + (l.per_autre || 0)),
+      per_pp: Math.round(l.per_pp || 0),
+    };
   }
 
   const r4 = x => Math.round(x * 10000) / 10000;
@@ -522,25 +526,36 @@ r.get('/etp', authRequired, (req, res) => {
     const etpPp = (l.per_pp || 0) / 1000;
     const etpAutre = (l.per_autre || 0) / 800; // fallback CT pour types inconnus
     const etpIip = etpCt + etpPp + etpAutre;
-    const etpHelb = helbUE[`${l.section}|${l.ue_num}`] || 0;
+    const helbInfo = helbUE[`${l.section}|${l.ue_num}`];
+    const etpHelb = helbInfo ? helbInfo.etp : 0;
     if (etpIip <= 0 && etpHelb <= 0) continue;
     const s = (sections[l.section] ||= { section: l.section, etp_iip: 0, etp_helb: 0, etp_ct: 0, etp_pp: 0, ues: [] });
     s.etp_iip += etpIip; s.etp_helb += etpHelb; s.etp_ct += etpCt + etpAutre; s.etp_pp += etpPp;
     s.ues.push({
-      ue_num: l.ue_num, ue_nom: l.ue_nom,
+      ue_num: l.ue_num, ue_nom: l.ue_nom, ue_niv: l.ue_niv || null,
+      per_ct: Math.round((l.per_ct || 0) + (l.per_autre || 0)), per_pp: Math.round(l.per_pp || 0),
+      per_ct_helb: helbInfo ? helbInfo.per_ct : 0, per_pp_helb: helbInfo ? helbInfo.per_pp : 0,
       etp_ct: r4(etpCt + etpAutre), etp_pp: r4(etpPp),
       etp_iip: r4(etpIip), etp_helb: r4(etpHelb), etp_total: r4(etpIip + etpHelb),
     });
   }
-  // Sections HELB sans ligne IIP
+  // Sections HELB sans ligne IIP — récupérer nom/niveau depuis la table ue
+  const ueInfo = db.prepare(`SELECT ue_num, ue_nom, ue_niv FROM ue WHERE annee_scolaire = ?`).all(annee);
+  const ueInfoMap = {};
+  for (const u of ueInfo) ueInfoMap[String(u.ue_num)] = u;
   for (const k of Object.keys(helbUE)) {
     const [sec, ueNum] = k.split('|');
     if (sections[sec] && sections[sec].ues.some(u => String(u.ue_num) === ueNum)) continue;
-    const e = helbUE[k];
-    if (e <= 0) continue;
+    const info = helbUE[k];
+    if (!info || info.etp <= 0) continue;
+    const ui = ueInfoMap[ueNum] || {};
     const s = (sections[sec] ||= { section: sec, etp_iip: 0, etp_helb: 0, etp_ct: 0, etp_pp: 0, ues: [] });
-    s.etp_helb += e;
-    s.ues.push({ ue_num: Number(ueNum), ue_nom: null, etp_ct: 0, etp_pp: 0, etp_iip: 0, etp_helb: r4(e), etp_total: r4(e) });
+    s.etp_helb += info.etp;
+    s.ues.push({
+      ue_num: Number(ueNum), ue_nom: ui.ue_nom || null, ue_niv: ui.ue_niv || null,
+      per_ct: 0, per_pp: 0, per_ct_helb: info.per_ct, per_pp_helb: info.per_pp,
+      etp_ct: 0, etp_pp: 0, etp_iip: 0, etp_helb: r4(info.etp), etp_total: r4(info.etp),
+    });
   }
 
   const out = Object.values(sections)
