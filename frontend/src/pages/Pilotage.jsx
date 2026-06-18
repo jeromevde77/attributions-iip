@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo, useRef, Fragment } from 'react';
 import { api, getAnnee } from '../lib/api.js';
-import { IconChartBar, IconHome, IconClipboardList, IconTarget, IconUsers, IconSettings, IconAlertTriangle } from '@tabler/icons-react';
+import { IconChartBar, IconHome, IconClipboardList, IconTarget, IconUsers, IconSettings, IconAlertTriangle, IconChevronRight, IconChevronDown, IconPrinter } from '@tabler/icons-react';
 import { PageHeader, Tabs, RailLateral } from '../components/ui.jsx';
 import {
   BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer,
@@ -465,6 +465,12 @@ export default function Pilotage() {
   const [effic, setEffic]           = useState(null);
   const [efficOpen, setEfficOpen]   = useState(new Set());
   const [etpData, setEtpData]       = useState(null);
+  // Dotation détaillée par section/UE (table fidèle maquette v3)
+  const [dotEffic, setDotEffic]     = useState(null);   // efficience année active
+  const [dotEfficPrev, setDotEfficPrev] = useState(null); // efficience année précédente (pour Δ%)
+  const [dotNiv, setDotNiv]         = useState(null);   // /etp → niveau UE (BA1/BA2)
+  const [dotOpen, setDotOpen]       = useState(new Set()); // volets fermés par défaut
+  const anneePrec = (() => { const p = (anneeActive||'').split('-'); return p.length === 2 ? `${+p[0]-1}-${p[0]}` : ''; })();
   const [etpOpen, setEtpOpen]       = useState(new Set());
   const [civil, setCivil]           = useState([]);
   const [selYear, setSelYear]       = useState(null);
@@ -522,6 +528,17 @@ export default function Pilotage() {
     const tok = localStorage.getItem('token');
     fetch(`/api/pilotage/etp?annee=${encodeURIComponent(anneeActive)}`, { headers: { Authorization: `Bearer ${tok}` } })
       .then(r => r.json()).then(setEtpData).catch(console.error);
+  }, [tab, anneeActive]);
+
+  // Charger la dotation détaillée (section→UE + Δ% vs année précédente) sur l'onglet Dotation
+  useEffect(() => {
+    if (tab !== 'synthese') return;
+    const tok = localStorage.getItem('token');
+    const h = { headers: { Authorization: `Bearer ${tok}` } };
+    fetch(`/api/pilotage/efficience?annee=${encodeURIComponent(anneeActive)}`, h).then(r => r.json()).then(setDotEffic).catch(() => {});
+    fetch(`/api/pilotage/etp?annee=${encodeURIComponent(anneeActive)}`, h).then(r => r.json()).then(setDotNiv).catch(() => {});
+    if (anneePrec) fetch(`/api/pilotage/efficience?annee=${encodeURIComponent(anneePrec)}`, h).then(r => r.json()).then(setDotEfficPrev).catch(() => setDotEfficPrev(null));
+    else setDotEfficPrev(null);
   }, [tab, anneeActive]);
 
   // Charger les UEs avec pot pour la config
@@ -590,6 +607,150 @@ export default function Pilotage() {
       });
   }, [civil]);
 
+  // ── Dotation détaillée par section → UE (table fidèle maquette v3) ───────────
+  const dotTable = useMemo(() => {
+    if (!dotEffic?.sections) return null;
+    const nivMap = {};
+    for (const s of (dotNiv?.sections || [])) for (const u of s.ues) nivMap[`${s.section}|${u.ue_num}`] = u.ue_niv;
+    const prevMap = {};
+    for (const s of (dotEfficPrev?.sections || [])) for (const u of s.ues) prevMap[`${s.section}|${u.ue_num}`] = u.periodes;
+    return dotEffic.sections.map(s => {
+      const ues = s.ues.map(u => {
+        const niv = nivMap[`${s.section}|${u.ue_num}`] || '—';
+        const prev = prevMap[`${s.section}|${u.ue_num}`];
+        const delta = (prev != null && prev > 0) ? ((u.periodes - prev) / prev) * 100 : null;
+        const pct = s.periodes > 0 ? (u.periodes / s.periodes) * 100 : null;
+        return { ...u, niv, prev, delta, pct };
+      });
+      const groups = {};
+      for (const u of ues) (groups[u.niv] ||= []).push(u);
+      const niveaux = Object.keys(groups).sort((a, b) =>
+        (parseInt((a.match(/\d+$/) || [99])[0])) - (parseInt((b.match(/\d+$/) || [99])[0])));
+      const grouped = niveaux.map(niv => ({
+        niv,
+        ues: groups[niv].sort((a, b) => (b.periodes || 0) - (a.periodes || 0)),
+        periodes: groups[niv].reduce((t, u) => t + (u.periodes || 0), 0),
+        etp: groups[niv].reduce((t, u) => t + (u.etp || 0), 0),
+      }));
+      return { ...s, grouped };
+    }).sort((a, b) => (b.periodes || 0) - (a.periodes || 0));
+  }, [dotEffic, dotEfficPrev, dotNiv]);
+
+  // Rapport A4 imprimable (bascule portrait / paysage)
+  const [rapportPaysage, setRapportPaysage] = useState(false);
+  function imprimerDotation(paysage) {
+    if (!dotTable) return;
+    const lignes = dotTable.map(s => {
+      const rows = s.grouped.map(g => {
+        const sub = s.grouped.length > 1
+          ? `<tr style="background:#eef2ff"><td colspan="2"><b>${g.niv}</b></td><td style="text-align:right"><b>${Math.round(g.periodes)}</b></td><td colspan="2"></td></tr>` : '';
+        const us = g.ues.map(u => `<tr>
+          <td>UE${u.ue_num}</td><td>${(u.ue_nom||'').replace(/</g,'&lt;')}</td>
+          <td style="text-align:right">${Math.round(u.periodes||0)}</td>
+          <td style="text-align:right">${u.pct!=null?u.pct.toFixed(0)+' %':'—'}</td>
+          <td style="text-align:right">${u.delta==null?'—':(u.delta>0?'+':'')+u.delta.toFixed(0)+' %'}</td></tr>`).join('');
+        return sub + us;
+      }).join('');
+      return `<h3 style="margin:14px 0 4px">${s.section} — ${Math.round(s.periodes)} pér. · ${(s.etp||0).toFixed(1)} ETP${s.etudiants?` · ${s.etudiants} ét.`:''}</h3>
+        <table><thead><tr><th>UE</th><th>Intitulé</th><th>Périodes</th><th>% dot.</th><th>Δ% ${anneePrec||''}</th></tr></thead><tbody>${rows}</tbody></table>`;
+    }).join('');
+    const w = window.open('about:blank');
+    w.document.write(`<!doctype html><html><head><meta charset="utf-8"><title>Dotation ${anneeActive}</title>
+      <style>
+        @page { size: A4 ${paysage ? 'landscape' : 'portrait'}; margin: 14mm; }
+        body { font-family: Inter, Arial, sans-serif; font-size: 11px; color: #1f2937; }
+        h1 { font-size: 16px; color: #1B2B4B; margin: 0 0 2px; }
+        h3 { font-size: 12px; color: #1B2B4B; }
+        table { border-collapse: collapse; width: 100%; margin-bottom: 6px; }
+        th, td { border: 0.5px solid #d1d5db; padding: 3px 6px; }
+        th { background: #1B2B4B; color: #fff; text-align: left; font-weight: 500; }
+        tbody tr:nth-child(even) { background: #f8fafc; }
+      </style></head><body>
+      <h1>Dotation détaillée par section et UE</h1>
+      <div style="color:#6b7280;margin-bottom:8px">Année ${anneeActive}${anneePrec?` · Δ% vs ${anneePrec}`:''} · Institut Ilya Prigogine</div>
+      ${lignes}
+      <script>window.onload=function(){window.print();}<\/script>
+      </body></html>`);
+    w.document.close();
+  }
+
+  const renderDotationTable = () => {
+    if (!dotTable) return <div className="text-gray-400 text-sm py-4">Chargement de la dotation détaillée…</div>;
+    return (
+      <div>
+        <div className="flex items-center justify-between mb-2">
+          <div className="text-xs font-semibold text-gray-500 uppercase tracking-wider">
+            Dotation détaillée par section et UE · {anneeActive}{anneePrec ? ` · Δ% vs ${anneePrec}` : ''}
+          </div>
+          <div className="flex items-center gap-2">
+            <div className="flex rounded-lg border border-gray-300 overflow-hidden text-xs">
+              <button onClick={() => setRapportPaysage(false)} className={`px-2.5 py-1 ${!rapportPaysage ? 'bg-iip-blue text-white' : 'bg-white text-gray-500'}`}>Portrait</button>
+              <button onClick={() => setRapportPaysage(true)} className={`px-2.5 py-1 ${rapportPaysage ? 'bg-iip-blue text-white' : 'bg-white text-gray-500'}`}>Paysage</button>
+            </div>
+            <button onClick={() => imprimerDotation(rapportPaysage)}
+              className="inline-flex items-center gap-1.5 bg-iip-blue text-white text-xs px-3 py-1.5 rounded-lg hover:opacity-90">
+              <IconPrinter size={15} /> Rapport A4
+            </button>
+          </div>
+        </div>
+        <div className="space-y-2">
+          {dotTable.map(s => {
+            const open = dotOpen.has(s.section);
+            return (
+              <div key={s.section} className="bg-white rounded-xl border border-gray-200 overflow-hidden shadow-sm">
+                <button onClick={() => setDotOpen(p => { const n = new Set(p); n.has(s.section) ? n.delete(s.section) : n.add(s.section); return n; })}
+                  className="w-full flex items-center gap-2 px-4 py-2.5 hover:bg-gray-50 text-left">
+                  {open ? <IconChevronDown size={16} className="text-gray-400" /> : <IconChevronRight size={16} className="text-gray-400" />}
+                  <span className="font-semibold text-iip-blue text-sm flex-1">{s.section}</span>
+                  <span className="text-xs text-gray-500">{fmt(s.periodes)} pér. · {fmt(s.etp, 1)} ETP{s.etudiants ? ` · ${s.etudiants} ét.` : ''}</span>
+                </button>
+                {open && (
+                  <div className="border-t border-gray-100 overflow-x-auto">
+                    <table className="w-full text-sm">
+                      <thead className="bg-gray-50 text-[11px] text-gray-500 uppercase tracking-wider">
+                        <tr>
+                          <th className="px-4 py-2 text-left">UE</th>
+                          <th className="px-3 py-2 text-right">Périodes</th>
+                          <th className="px-3 py-2 text-right">% dot.</th>
+                          <th className="px-3 py-2 text-right whitespace-nowrap">Δ% {anneePrec || ''}</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {s.grouped.map(g => (
+                          <Fragment key={g.niv}>
+                            {s.grouped.length > 1 && (
+                              <tr className="bg-iip-blue/5">
+                                <td className="px-4 py-1.5 text-xs font-semibold text-iip-blue">{g.niv}</td>
+                                <td className="px-3 py-1.5 text-right text-xs font-semibold text-iip-blue">{fmt(g.periodes)}</td>
+                                <td colSpan={2}></td>
+                              </tr>
+                            )}
+                            {g.ues.map(u => (
+                              <tr key={u.ue_num} className="border-t border-gray-100 hover:bg-gray-50">
+                                <td className="px-4 py-2 text-gray-700"><span className="text-gray-400 text-xs mr-1">UE{u.ue_num}</span>{u.ue_nom || ''}</td>
+                                <td className="px-3 py-2 text-right font-mono">{fmt(u.periodes)}</td>
+                                <td className="px-3 py-2 text-right text-gray-500">{u.pct != null ? u.pct.toFixed(0) + ' %' : '—'}</td>
+                                <td className="px-3 py-2 text-right">
+                                  {u.delta == null
+                                    ? <span className="text-gray-300">—</span>
+                                    : <span className={u.delta > 0 ? 'text-green-600 font-semibold' : u.delta < 0 ? 'text-red-600 font-semibold' : 'text-gray-400'}>{u.delta > 0 ? '+' : ''}{u.delta.toFixed(0)} %</span>}
+                                </td>
+                              </tr>
+                            ))}
+                          </Fragment>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      </div>
+    );
+  };
+
   // ── Onglet synthèse ─────────────────────────────────────────────────────────
   const renderSynthese = () => {
     if (!selectedData) return <div className="text-gray-400 py-12 text-center">Aucune donnée</div>;
@@ -641,6 +802,9 @@ export default function Pilotage() {
             </div>
           </div>
         )}
+
+        {/* Dotation détaillée par section → UE (Δ% inter-années) */}
+        {renderDotationTable()}
 
         {/* Graphique multi-années */}
         {chartData.length > 1 && (
