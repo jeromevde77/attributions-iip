@@ -86,11 +86,11 @@ export default function CoursFormModal({ cours, ueNum, section, onClose, onSaved
   return (
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50"
          onClick={e => e.target === e.currentTarget && onClose()}>
-      <div className="bg-white rounded-xl shadow-2xl w-full max-w-lg border-t-4 border-iip-mauve">
+      <div className="bg-white rounded-xl shadow-2xl w-full max-w-lg border-t-4 border-iip-blue">
 
         {/* ── En-tête ── */}
         <div className="flex items-center justify-between px-5 py-3 border-b border-gray-100">
-          <h2 className="font-title text-lg text-iip-mauve">
+          <h2 className="font-title text-lg text-iip-blue">
             {isNew ? `Nouveau cours${ueNum ? ` — UE ${ueNum}` : ''}` : `Modifier ${cours.cours_code}`}
           </h2>
           <button onClick={onClose} className="text-gray-400 hover:text-red-500 text-2xl leading-none">×</button>
@@ -120,7 +120,7 @@ export default function CoursFormModal({ cours, ueNum, section, onClose, onSaved
 
               {!isNew && isAdmin && !renaming && (
                 <button type="button" onClick={() => { setRenaming(true); setNewCode(cours.cours_code); }}
-                  className="text-xs text-iip-mauve border border-iip-mauve/40 rounded px-2 py-1 hover:bg-iip-mauve/5 whitespace-nowrap">
+                  className="text-xs text-iip-blue border border-iip-blue/30 rounded px-2 py-1 hover:bg-iip-blue/5 whitespace-nowrap">
                   ✎ Forcer
                 </button>
               )}
@@ -157,13 +157,13 @@ export default function CoursFormModal({ cours, ueNum, section, onClose, onSaved
 
           {/* Forçage code (admin) */}
           {renaming && (
-            <div className="bg-iip-mauve/5 border border-iip-mauve/30 rounded-lg p-3 space-y-2">
+            <div className="bg-iip-blue/5 border border-iip-blue/20 rounded-lg p-3 space-y-2">
               <p className="text-xs text-gray-700">⚠️ Met à jour le cours, ses attributions et activités liées.</p>
               <div className="flex gap-2">
                 <input value={newCode} onChange={e => setNewCode(e.target.value)} placeholder="Nouveau code"
                   className="flex-1 border border-gray-300 rounded px-3 py-1.5 text-sm font-mono" />
                 <button type="button" onClick={forcerCode} disabled={saving}
-                  className="bg-iip-mauve text-white text-sm px-3 py-1.5 rounded disabled:opacity-40">Forcer</button>
+                  className="bg-iip-blue text-white text-sm px-3 py-1.5 rounded disabled:opacity-40">Forcer</button>
                 <button type="button" onClick={() => setRenaming(false)} className="text-sm text-gray-500 px-2"><IconX size={16} /></button>
               </div>
             </div>
@@ -199,10 +199,10 @@ export default function CoursFormModal({ cours, ueNum, section, onClose, onSaved
                 </select>
               </label>
               <label className="block">
-                <div className={isZ ? lblZ : lbl + ' text-iip-gold'}>Périodes Prof.</div>
+                <div className={isZ ? lblZ : lbl}>Périodes Prof.</div>
                 <input type="number" min="0" value={form.cours_per} onChange={e => set('cours_per', e.target.value)}
                   disabled={isZ} placeholder="0"
-                  className={isZ ? inpZ : 'w-full border border-iip-gold/40 rounded px-3 py-1.5 text-sm bg-iip-gold/5'} />
+                  className={isZ ? inpZ : 'w-full border border-gray-300 rounded px-3 py-1.5 text-sm'} />
               </label>
               <label className="block">
                 <div className={isZ ? lblZ : lbl}>Quadrimestre</div>
@@ -241,24 +241,24 @@ export default function CoursFormModal({ cours, ueNum, section, onClose, onSaved
 
             {/* ── ENCART VUE ÉTUDIANT ───────────────────────────────────── */}
             {!isZ && (
-              <div className="bg-violet-50 border border-violet-200 rounded-lg p-3 space-y-1.5">
-                <div className="text-xs font-semibold text-violet-700 uppercase tracking-wider flex items-center gap-1.5">
+              <div className="bg-iip-blue/5 border border-iip-blue/15 rounded-lg p-3 space-y-1.5">
+                <div className="text-xs font-semibold text-iip-blue uppercase tracking-wider flex items-center gap-1.5">
                   🎓 Vue étudiant
                 </div>
                 <div className="grid grid-cols-4 gap-3 text-center">
-                  <div className="bg-white rounded border border-violet-100 p-2">
+                  <div className="bg-white rounded border border-iip-blue/10 p-2">
                     <div className="text-[10px] text-gray-500 mb-0.5">Heures de contact</div>
-                    <div className="font-bold text-violet-700 text-lg">{form.heures || '—'} h</div>
+                    <div className="font-bold text-iip-blue text-lg">{form.heures || '—'} h</div>
                     <div className="text-[10px] text-gray-400">×60 min</div>
                   </div>
-                  <div className="bg-white rounded border border-violet-100 p-2">
+                  <div className="bg-white rounded border border-iip-blue/10 p-2">
                     <div className="text-[10px] text-gray-500 mb-0.5">Pér. contact (×1.2)</div>
-                    <div className="font-bold text-violet-600 text-lg">
+                    <div className="font-bold text-iip-turquoise text-lg">
                       {Number(form.heures) > 0 ? Math.round(Number(form.heures) * 1.2) : '—'}
                     </div>
                     <div className="text-[10px] text-gray-400">périodes 50 min</div>
                   </div>
-                  <div className="bg-white rounded border border-violet-100 p-2">
+                  <div className="bg-white rounded border border-iip-blue/10 p-2">
                     <div className="text-[10px] text-gray-500 mb-0.5">Pér. dossier pédag.</div>
                     <div className="font-bold text-iip-gold text-lg">{form.cours_per || '—'}</div>
                     <div className="text-[10px] text-gray-400">périodes prof.</div>
@@ -273,7 +273,7 @@ export default function CoursFormModal({ cours, ueNum, section, onClose, onSaved
                   </div>
                 </div>
                 {Number(form.heures) > 0 && Number(form.cours_per) > 0 && (
-                  <div className="text-xs text-violet-600 text-center pt-1 border-t border-violet-100">
+                  <div className="text-xs text-iip-blue text-center pt-1 border-t border-iip-blue/10">
                     Temps hors-contact estimé : <strong>{Math.max(0, Math.round(Number(form.cours_per) - Number(form.heures) * 1.2))} pér.</strong>
                     <span className="text-gray-400"> (corrections, évaluations, préparation...)</span>
                   </div>
@@ -306,7 +306,7 @@ export default function CoursFormModal({ cours, ueNum, section, onClose, onSaved
           <div className="flex justify-end gap-2 pt-2 border-t border-gray-100">
             <button type="button" onClick={onClose} className="px-4 py-2 text-sm text-gray-500 hover:text-gray-700">Annuler</button>
             <button type="submit" disabled={saving}
-              className="bg-iip-mauve hover:opacity-90 disabled:opacity-40 text-white text-sm px-5 py-2 rounded-lg font-medium">
+              className="bg-iip-blue hover:bg-iip-blue-dark disabled:opacity-40 text-white text-sm px-5 py-2 rounded-lg font-medium">
               {saving ? '…' : isNew ? 'Créer' : 'Enregistrer'}
             </button>
           </div>

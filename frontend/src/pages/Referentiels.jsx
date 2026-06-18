@@ -221,107 +221,124 @@ function UEModal({ ue, sections, onClose, onSaved }) {
     finally { setSaving(false); }
   }
 
+  const lbl = 'text-xs font-medium text-gray-500 mb-0.5 uppercase tracking-wide';
+  const inp = 'w-full border border-gray-300 rounded px-3 py-1.5 text-sm focus:outline-none focus:border-iip-blue';
+  const sep = 'text-[10px] font-semibold uppercase tracking-widest text-gray-400 border-b border-gray-100 pb-1 mb-2 mt-1';
+
   return (
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50" onClick={e => e.target === e.currentTarget && onClose()}>
-      <div className="bg-white rounded-xl shadow-2xl max-w-lg w-full border-t-4 border-iip-gold max-h-[90vh] overflow-hidden flex flex-col">
+      <div className="bg-white rounded-xl shadow-2xl max-w-lg w-full border-t-4 border-iip-blue max-h-[90vh] overflow-hidden flex flex-col">
         <div className="flex items-center justify-between px-5 py-3 border-b flex-shrink-0">
-          <h2 className="font-title text-lg text-iip-gold">{isNew ? 'Nouvelle UE' : `Modifier UE ${ue.ue_num}`}</h2>
-          <button onClick={onClose} className="text-gray-400 hover:text-red-500 text-2xl"><IconX size={20} /></button>
+          <h2 className="font-title text-lg text-iip-blue">{isNew ? 'Nouvelle UE' : `Modifier UE ${ue.ue_num}`}</h2>
+          <button onClick={onClose} className="text-gray-400 hover:text-red-500"><IconX size={20} /></button>
         </div>
-        <form onSubmit={submit} className="p-5 space-y-3 overflow-auto">
+
+        <form onSubmit={submit} className="p-5 space-y-4 overflow-auto">
+
+          {/* ── 1. IDENTIFICATION OFFICIELLE (FWB) ── */}
+          <div className={sep}>Identification officielle</div>
           <div className="grid grid-cols-2 gap-3">
-            <label className="block"><div className="text-xs text-gray-600 mb-0.5">N° UE *</div>
+            <label className="block"><div className={lbl}>N° UE *</div>
               <div className="flex gap-1 items-center">
                 <input type="number" value={form.ue_num} onChange={e => set('ue_num', e.target.value)} disabled={!isNew}
-                  className="w-full border border-gray-300 rounded px-3 py-1.5 text-sm disabled:bg-gray-100" />
+                  className={inp + ' disabled:bg-gray-100'} />
                 {!isNew && isAdmin && !renaming && (
                   <button type="button" onClick={() => { setRenaming(true); setNewNum(ue.ue_num); }}
-                    className="text-xs text-iip-gold border border-iip-gold/40 rounded px-2 py-1 hover:bg-iip-gold/5 whitespace-nowrap" title="Forcer le N° (admin)"><IconPencil size={14} /></button>
+                    className="text-xs text-iip-blue border border-iip-blue/30 rounded px-2 py-1.5 hover:bg-iip-blue/5" title="Forcer le N°">
+                    <IconPencil size={14} />
+                  </button>
                 )}
-              </div></label>
-            <label className="block"><div className="text-xs text-gray-600 mb-0.5">Section(s) *</div>
-              <div className="border border-gray-300 rounded px-2 py-1.5 max-h-24 overflow-auto bg-white">
-                {sections.map(s => (
-                  <label key={s.code} className="flex items-center gap-2 py-0.5 text-sm cursor-pointer hover:bg-gray-50">
-                    <input type="checkbox" checked={selSections.has(s.code)} onChange={() => toggleSection(s.code)} />
-                    <span>{s.code}</span>
-                  </label>
-                ))}
-              </div></label>
+              </div>
+            </label>
+            <label className="block"><div className={lbl}>Code FWB</div>
+              <input value={form.ue_code_fwb} onChange={e => set('ue_code_fwb', e.target.value)} className={inp} />
+            </label>
           </div>
-          <label className="block"><div className="text-xs text-gray-600 mb-0.5">Nom de l'UE *</div>
-            <input value={form.ue_nom} onChange={e => set('ue_nom', e.target.value)}
-              className="w-full border border-gray-300 rounded px-3 py-1.5 text-sm" /></label>
+          <div className="grid grid-cols-3 gap-3">
+            <label className="block"><div className={lbl}>Niveau</div>
+              <select value={form.ue_niveau} onChange={e => set('ue_niveau', e.target.value)} className={inp + ' bg-white'}>
+                <option value="">—</option><option value="SUP">SUP</option><option value="DS">DS</option>
+              </select></label>
+            <label className="block"><div className={lbl}>Bloc</div>
+              <input value={form.ue_niv} onChange={e => set('ue_niv', e.target.value)} placeholder="BA1" className={inp} />
+            </label>
+            <label className="block"><div className={lbl}>ECTS</div>
+              <input type="number" value={form.ects} onChange={e => set('ects', e.target.value)} className={inp} />
+            </label>
+          </div>
+          <label className="block"><div className={lbl}>Section(s) *</div>
+            <div className="border border-gray-300 rounded px-2 py-1.5 max-h-24 overflow-auto bg-white grid grid-cols-3 gap-x-2">
+              {sections.map(s => (
+                <label key={s.code} className="flex items-center gap-1.5 py-0.5 text-sm cursor-pointer hover:bg-gray-50 rounded px-1">
+                  <input type="checkbox" checked={selSections.has(s.code)} onChange={() => toggleSection(s.code)} />
+                  <span>{s.code}</span>
+                </label>
+              ))}
+            </div>
+          </label>
+
           {renaming && (
-            <div className="bg-iip-gold/5 border border-iip-gold/30 rounded p-3 space-y-2">
-              <div className="text-xs text-gray-700">⚠️ Forcer le N° d'UE met à jour l'UE, ses cours, attributions et rattachements de sections. Lucie vérifie l'unicité.</div>
+            <div className="bg-iip-blue/5 border border-iip-blue/20 rounded p-3 space-y-2">
+              <div className="text-xs text-gray-700">⚠️ Forcer le N° d'UE met à jour l'UE, ses cours, attributions et rattachements. Lucie vérifie l'unicité.</div>
               <div className="flex gap-2">
                 <input type="number" value={newNum} onChange={e => setNewNum(e.target.value)} placeholder="Nouveau N°"
                   className="flex-1 border border-gray-300 rounded px-3 py-1.5 text-sm" />
                 <button type="button" onClick={forcerNum} disabled={saving}
-                  className="bg-iip-gold text-white text-sm px-3 py-1.5 rounded disabled:opacity-40">Forcer</button>
+                  className="bg-iip-blue text-white text-sm px-3 py-1.5 rounded disabled:opacity-40">Forcer</button>
                 <button type="button" onClick={() => setRenaming(false)} className="text-sm text-gray-500 px-2">Annuler</button>
               </div>
             </div>
           )}
+
+          {/* ── 2. CONTENU PÉDAGOGIQUE ── */}
+          <div className={sep}>Contenu pédagogique</div>
+          <label className="block"><div className={lbl}>Nom de l'UE *</div>
+            <input value={form.ue_nom} onChange={e => set('ue_nom', e.target.value)} className={inp} />
+          </label>
           <div className="grid grid-cols-3 gap-3">
-            <label className="block"><div className="text-xs text-gray-600 mb-0.5">Bloc</div>
-              <input value={form.ue_niv} onChange={e => set('ue_niv', e.target.value)} placeholder="BA1"
-                className="w-full border border-gray-300 rounded px-3 py-1.5 text-sm" /></label>
-            <label className="block"><div className="text-xs text-gray-600 mb-0.5">Niveau</div>
-              <select value={form.ue_niveau} onChange={e => set('ue_niveau', e.target.value)}
-                className="w-full border border-gray-300 rounded px-3 py-1.5 text-sm bg-white">
-                <option value="">—</option><option value="SUP">SUP</option><option value="DS">DS</option>
-              </select></label>
-            <label className="block"><div className="text-xs text-gray-600 mb-0.5">Quadri</div>
-              <select value={form.ue_quad} onChange={e => set('ue_quad', e.target.value)}
-                className="w-full border border-gray-300 rounded px-3 py-1.5 text-sm bg-white">
+            <label className="block"><div className={lbl}>Quadrimestre</div>
+              <select value={form.ue_quad} onChange={e => set('ue_quad', e.target.value)} className={inp + ' bg-white'}>
                 <option value="">—</option><option value="Q1">Q1</option><option value="Q2">Q2</option><option value="Q1/Q2">Q1/Q2</option>
               </select></label>
-          </div>
-          <div className="grid grid-cols-3 gap-3">
-            <label className="block"><div className="text-xs text-gray-600 mb-0.5">Autonomie (UE)</div>
-              <input type="number" value={form.ue_aut} onChange={e => set('ue_aut', e.target.value)}
-                className="w-full border border-gray-300 rounded px-3 py-1.5 text-sm" /></label>
-            <label className="block"><div className="text-xs text-gray-600 mb-0.5">Nb étudiants</div>
-              <input type="number" value={form.nb_etudiants} onChange={e => set('nb_etudiants', e.target.value)} placeholder="Effectif inscrit"
-                className="w-full border border-iip-turquoise/40 rounded px-3 py-1.5 text-sm bg-iip-turquoise/5/40" /></label>
-            <label className="block"><div className="text-xs text-gray-600 mb-0.5">Périodes Z (7.3)</div>
-              <input type="number" value={form.ue_per_z} onChange={e => set('ue_per_z', e.target.value)} placeholder="Activités autonomes"
-                className="w-full border border-iip-mauve/40 rounded px-3 py-1.5 text-sm bg-iip-mauve/5" /></label>
-            <label className="block"><div className="text-xs text-gray-600 mb-0.5">Réf.</div>
-              <select value={form.et_ref} onChange={e => set('et_ref', e.target.value)}
-                className="w-full border border-gray-300 rounded px-3 py-1.5 text-sm bg-white">
+            <label className="block"><div className={lbl}>Tronc commun</div>
+              <select value={form.ue_tc} onChange={e => set('ue_tc', e.target.value)} className={inp + ' bg-white'}>
+                <option value="">Non</option><option value="x">Oui</option>
+              </select></label>
+            <label className="block"><div className={lbl}>Réf.</div>
+              <select value={form.et_ref} onChange={e => set('et_ref', e.target.value)} className={inp + ' bg-white'}>
                 <option value="">—</option><option value="IIP">IIP</option><option value="HELB">HELB</option>
               </select></label>
           </div>
-          <div className="grid grid-cols-2 gap-3">
-            <label className="block"><div className="text-xs text-gray-600 mb-0.5">Code FWB</div>
-              <input value={form.ue_code_fwb} onChange={e => set('ue_code_fwb', e.target.value)}
-                className="w-full border border-gray-300 rounded px-3 py-1.5 text-sm" /></label>
-            <label className="block"><div className="text-xs text-gray-600 mb-0.5">ECTS</div>
-              <input type="number" value={form.ects} onChange={e => set('ects', e.target.value)}
-                className="w-full border border-gray-300 rounded px-3 py-1.5 text-sm" /></label>
+          <label className="block"><div className={lbl}>Prérequis</div>
+            <input value={form.ue_prerequise} onChange={e => set('ue_prerequise', e.target.value)} className={inp} />
+          </label>
+
+          {/* ── 3. CHARGE ── */}
+          <div className={sep}>Charge</div>
+          <div className="grid grid-cols-4 gap-3">
+            <label className="block"><div className={lbl}>Autonomie</div>
+              <input type="number" value={form.ue_aut} onChange={e => set('ue_aut', e.target.value)} className={inp} />
+            </label>
+            <label className="block"><div className={lbl}>Pér. étud.</div>
+              <input type="number" value={form.ue_per_etudiants} onChange={e => set('ue_per_etudiants', e.target.value)} className={inp} />
+            </label>
+            <label className="block"><div className={lbl}>Nb étud.</div>
+              <input type="number" value={form.nb_etudiants} onChange={e => set('nb_etudiants', e.target.value)} placeholder="Effectif" className={inp} />
+            </label>
+            <label className="block"><div className={lbl}>Pér. Z (7.3)</div>
+              <input type="number" value={form.ue_per_z} onChange={e => set('ue_per_z', e.target.value)} placeholder="Auto." className={inp} />
+            </label>
           </div>
-          <div className="grid grid-cols-3 gap-3">
-            <label className="block"><div className="text-xs text-gray-600 mb-0.5">Pér. étudiants</div>
-              <input type="number" value={form.ue_per_etudiants} onChange={e => set('ue_per_etudiants', e.target.value)}
-                className="w-full border border-gray-300 rounded px-3 py-1.5 text-sm" /></label>
-            <label className="block"><div className="text-xs text-gray-600 mb-0.5">Tronc commun</div>
-              <select value={form.ue_tc} onChange={e => set('ue_tc', e.target.value)}
-                className="w-full border border-gray-300 rounded px-3 py-1.5 text-sm bg-white">
-                <option value="">Non</option><option value="x">Oui</option>
-              </select></label>
-            <label className="block"><div className="text-xs text-gray-600 mb-0.5">Prérequis</div>
-              <input value={form.ue_prerequise} onChange={e => set('ue_prerequise', e.target.value)}
-                className="w-full border border-gray-300 rounded px-3 py-1.5 text-sm" /></label>
-          </div>
-          <label className="block"><div className="text-xs text-gray-600 mb-0.5">Détails</div>
-            <textarea value={form.ue_det} onChange={e => set('ue_det', e.target.value)} rows="2"
-              className="w-full border border-gray-300 rounded px-3 py-1.5 text-sm" /></label>
+
+          {/* ── 4. DÉTAILS ── */}
+          <div className={sep}>Détails</div>
+          <label className="block">
+            <textarea value={form.ue_det} onChange={e => set('ue_det', e.target.value)} rows="2" className={inp} />
+          </label>
+
           <div className="flex justify-end gap-2 pt-2 border-t">
             <button type="button" onClick={onClose} className="px-4 py-2 text-sm text-gray-600">Annuler</button>
-            <button type="submit" disabled={saving} className="bg-iip-gold hover:bg-iip-amber disabled:opacity-40 text-white text-sm px-5 py-2 rounded font-medium">
+            <button type="submit" disabled={saving} className="bg-iip-blue hover:bg-iip-blue-dark disabled:opacity-40 text-white text-sm px-5 py-2 rounded font-medium">
               {saving ? '…' : isNew ? 'Créer' : 'Enregistrer'}
             </button>
           </div>
