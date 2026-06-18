@@ -756,83 +756,180 @@ export default function Pilotage() {
     return (
       <div className="space-y-5">
 
-        {/* ── Carte flip : KPIs ⇄ graphique pluriannuel ── */}
-        <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-4">
-          <div className="flex items-center justify-between mb-3">
+        {/* ── Grande carte unique : KPIs + enveloppes + dotation détaillée ── */}
+        <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
+
+          {/* ── En-tête avec flip ── */}
+          <div className="flex items-center justify-between px-5 py-3 border-b border-gray-100">
             <div className="text-xs font-semibold text-gray-500 uppercase tracking-wider">
               {dotFace === 'recto'
                 ? `Dotation organique · Civile ${d.annee_civile}`
-                : 'Comparaison pluriannuelle — dotation'}
+                : 'Comparaison pluriannuelle'}
             </div>
-            <div className="flex items-center gap-2">
-              <button onClick={() => setDotFace(f => f === 'recto' ? 'verso' : 'recto')}
-                title="Retourner la carte"
-                className="w-8 h-8 rounded-full border border-iip-turquoise/40 text-iip-turquoise hover:bg-iip-turquoise hover:text-white flex items-center justify-center transition flex-shrink-0">
-                <IconRotateClockwise size={16} />
-              </button>
-            </div>
+            <button onClick={() => setDotFace(f => f === 'recto' ? 'verso' : 'recto')}
+              title="Retourner la carte"
+              className="w-8 h-8 rounded-full border border-iip-turquoise/40 text-iip-turquoise hover:bg-iip-turquoise hover:text-white flex items-center justify-center transition flex-shrink-0">
+              <IconRotateClockwise size={16} />
+            </button>
           </div>
 
-          {dotFace === 'recto' ? (
-            <div className="space-y-4">
-              {/* Ligne KPIs compacts */}
-              <div className="grid grid-cols-5 gap-3">
-                {[
-                  { label: 'Dotation',     value: fmt(d.dotation_organique), sub: 'périodes B' },
-                  { label: 'Utilisées',    value: fmt(d.usage_organique),
-                    sub: d.dot_total > 0
-                      ? <span className="text-orange-600">dont {fmt(d.dot_total)} pér. B de dépassement enveloppes</span>
-                      : 'périodes B',
-                    color: trafficColor(d.pct_organique) },
-                  { label: 'Charges fixes', value: <span className="text-orange-600">−{fmt(charges)}</span>, sub: `FELSI ${fmt(felsi)} + GIPS 40` },
-                  { label: 'Solde réel',   value: <span className={soldeReel < 0 ? 'text-red-600' : 'text-green-700'}>{sign(soldeReel)}{fmt(soldeReel)}</span>,
-                    sub: soldeReel < -200 ? '⚠ Pénalité ×1,5 possible' : 'après FELSI + GIPS' },
-                ].map(({ label, value, sub, color }) => (
-                  <div key={label} className="rounded-lg border border-gray-200 p-3">
-                    <div className="text-[10px] uppercase tracking-wider text-gray-500 mb-0.5">{label}</div>
-                    <div className={`text-xl font-bold leading-tight ${color || 'text-iip-blue'}`}>{value}</div>
-                    <div className="text-[10px] text-gray-500 mt-1">{sub}</div>
-                  </div>
-                ))}
-                {/* Taux */}
-                <div className={`rounded-lg border p-3 ${trafficBg(d.pct_organique)}`}>
-                  <div className="text-[10px] uppercase tracking-wider text-gray-500 mb-0.5">Taux</div>
-                  <div className={`text-xl font-bold leading-tight ${trafficColor(d.pct_organique)}`}>{pct(d.pct_organique)}</div>
-                  <div className="mt-1"><ProgressBar pct={d.pct_organique} /></div>
-                </div>
-              </div>
-
-              {/* Enveloppes extérieures */}
-              {d.enveloppes.length > 0 && (
-                <div>
-                  <div className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">Enveloppes extérieures</div>
-                  <div className="flex flex-col gap-1.5">
-                    {d.enveloppes.map(e => <EnvCard key={e.code} env={e} />)}
-                  </div>
-                </div>
+          {dotFace === 'verso' ? (
+            /* ── VERSO : graphiques ── */
+            <div className="p-4">
+              {chartData.length > 1 ? (
+                <ResponsiveContainer width="100%" height={260}>
+                  <BarChart data={chartData} barCategoryGap="30%">
+                    <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
+                    <XAxis dataKey="annee" tick={{ fontSize: 12 }} />
+                    <YAxis tick={{ fontSize: 11 }} tickFormatter={v => fmt(v / 1000, 1) + 'k'} />
+                    <Tooltip content={<ChartTip />} />
+                    <Legend iconType="circle" iconSize={8} wrapperStyle={{ fontSize: 12 }} />
+                    <Bar dataKey="Dotation organique" fill="#1B2B4B" radius={[3, 3, 0, 0]} />
+                    <Bar dataKey="Usage organique"    fill="#00AACC" radius={[3, 3, 0, 0]} />
+                  </BarChart>
+                </ResponsiveContainer>
+              ) : (
+                <div className="text-gray-400 text-sm py-12 text-center">Pas assez d'années pour la comparaison pluriannuelle.</div>
               )}
             </div>
           ) : (
-            chartData.length > 1 ? (
-              <ResponsiveContainer width="100%" height={280}>
-                <BarChart data={chartData} barCategoryGap="30%">
-                  <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
-                  <XAxis dataKey="annee" tick={{ fontSize: 12 }} />
-                  <YAxis tick={{ fontSize: 11 }} tickFormatter={v => fmt(v / 1000, 1) + 'k'} />
-                  <Tooltip content={<ChartTip />} />
-                  <Legend iconType="circle" iconSize={8} wrapperStyle={{ fontSize: 12 }} />
-                  <Bar dataKey="Dotation organique" fill="#1B2B4B" radius={[3, 3, 0, 0]} />
-                  <Bar dataKey="Usage organique"    fill="#00AACC" radius={[3, 3, 0, 0]} />
-                </BarChart>
-              </ResponsiveContainer>
-            ) : (
-              <div className="text-gray-400 text-sm py-12 text-center">Pas assez d'années pour la comparaison pluriannuelle.</div>
-            )
+            /* ── RECTO : KPIs + enveloppes + table ── */
+            <>
+              {/* KPIs compacts */}
+              <div className="grid grid-cols-5 gap-px bg-gray-100 border-b border-gray-100">
+                {[
+                  { label: 'Dotation',      value: fmt(d.dotation_organique), sub: 'périodes B',            color: 'text-iip-blue' },
+                  { label: 'Utilisées',     value: fmt(d.usage_organique),
+                    sub: d.dot_total > 0
+                      ? <span className="text-orange-600 text-[10px]">dont {fmt(d.dot_total)} pér. de dépassement</span>
+                      : 'périodes B',
+                    color: trafficColor(d.pct_organique) },
+                  { label: 'Charges fixes', value: <span className="text-orange-600">−{fmt(charges)}</span>, sub: `FELSI ${fmt(felsi)} + GIPS 40`, color: '' },
+                  { label: 'Solde réel',    value: <span className={soldeReel < 0 ? 'text-red-600' : 'text-green-700'}>{sign(soldeReel)}{fmt(soldeReel)}</span>, sub: soldeReel < -200 ? '⚠ Pénalité ×1,5' : 'après FELSI + GIPS', color: '' },
+                  { label: 'Taux',          value: <span className={trafficColor(d.pct_organique)}>{pct(d.pct_organique)}</span>, sub: <ProgressBar pct={d.pct_organique} />, taux: true },
+                ].map(({ label, value, sub, color, taux }) => (
+                  <div key={label} className={`px-4 py-3 bg-white ${taux ? trafficBg(d.pct_organique) : ''}`}>
+                    <div className="text-[9px] uppercase tracking-wider text-gray-400 mb-0.5">{label}</div>
+                    <div className={`text-lg font-bold leading-tight ${color || 'text-iip-blue'}`}>{value}</div>
+                    <div className="text-[10px] text-gray-400 mt-0.5">{sub}</div>
+                  </div>
+                ))}
+              </div>
+
+              {/* Enveloppes extérieures — 4 cartes sur une ligne */}
+              {d.enveloppes.length > 0 && (
+                <div className="px-4 py-3 border-b border-gray-100">
+                  <div className="text-[9px] font-semibold text-gray-400 uppercase tracking-wider mb-2">Enveloppes extérieures</div>
+                  <div className="grid grid-cols-4 gap-2">
+                    {d.enveloppes.map(e => {
+                      const dep = e.solde < 0;
+                      const dot = Math.abs(Math.min(0, e.solde));
+                      return (
+                        <div key={e.code} className={`rounded-lg border px-3 py-2 text-xs ${dep ? 'border-orange-200 bg-orange-50' : 'border-gray-200'}`}>
+                          <div className="font-semibold text-iip-blue truncate">{e.label}</div>
+                          <div className="text-[9px] text-gray-400 mb-1.5">{e.code}</div>
+                          <div className="flex justify-between text-[10px] text-gray-500 mb-1">
+                            <span>{fmt(e.periodes_b)}</span>
+                            <span className={trafficColor(e.pct)}>{fmt(e.usage)}</span>
+                            <span className={e.solde < 0 ? 'text-red-600 font-semibold' : 'text-green-700 font-semibold'}>{sign(e.solde)}{fmt(e.solde)}</span>
+                          </div>
+                          <ProgressBar pct={e.pct} />
+                          <div className="flex justify-between mt-0.5">
+                            <span className={`text-[9px] font-medium ${trafficColor(e.pct)}`}>{pct(e.pct)}</span>
+                            {dep && <span className="text-[9px] text-orange-600 font-bold">⚠ +{fmt(dot)}</span>}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+
+              {/* Table dotation par section/UE */}
+              <div className="px-4 pt-3 pb-2">
+                <div className="flex items-center justify-between mb-2">
+                  <div className="text-[9px] font-semibold text-gray-400 uppercase tracking-wider">
+                    Détail par section · {anneeActive}{anneePrec ? ` · Δ% vs ${anneePrec}` : ''}
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <div className="flex rounded border border-gray-200 overflow-hidden text-[10px]">
+                      <button onClick={() => setRapportPaysage(false)} className={`px-2 py-1 ${!rapportPaysage ? 'bg-iip-blue text-white' : 'bg-white text-gray-500'}`}>Portrait</button>
+                      <button onClick={() => setRapportPaysage(true)}  className={`px-2 py-1 ${rapportPaysage  ? 'bg-iip-blue text-white' : 'bg-white text-gray-500'}`}>Paysage</button>
+                    </div>
+                    <button onClick={() => imprimerDotation(rapportPaysage)}
+                      className="inline-flex items-center gap-1 bg-iip-blue text-white text-[10px] px-2.5 py-1 rounded hover:opacity-90">
+                      <IconPrinter size={12} /> Rapport A4
+                    </button>
+                  </div>
+                </div>
+                {!dotTable ? (
+                  <div className="text-gray-400 text-sm py-4 text-center">Chargement…</div>
+                ) : (
+                  <div className="divide-y divide-gray-100">
+                    {dotTable.map(s => {
+                      const open = dotOpen.has(s.section);
+                      return (
+                        <div key={s.section}>
+                          <button
+                            onClick={() => setDotOpen(p => { const n = new Set(p); n.has(s.section) ? n.delete(s.section) : n.add(s.section); return n; })}
+                            className="w-full flex items-center gap-2 py-2 hover:bg-gray-50 text-left">
+                            {open
+                              ? <IconChevronDown size={14} className="text-gray-400 flex-shrink-0" />
+                              : <IconChevronRight size={14} className="text-gray-400 flex-shrink-0" />}
+                            <span className="font-semibold text-iip-blue text-sm flex-1">{s.section}</span>
+                            <span className="text-xs text-gray-400">{fmt(s.periodes)} pér. · {fmt(s.etp, 1)} ETP{s.etudiants ? ` · ${s.etudiants} ét.` : ''}</span>
+                            {s.delta != null && (
+                              <span className={`text-xs font-semibold ml-3 ${s.delta > 0 ? 'text-green-600' : s.delta < 0 ? 'text-red-500' : 'text-gray-400'}`}>
+                                {s.delta > 0 ? '+' : ''}{s.delta.toFixed(1)} %
+                              </span>
+                            )}
+                          </button>
+                          {open && (
+                            <table className="w-full text-sm mb-1">
+                              <thead>
+                                <tr className="text-[10px] text-gray-400 uppercase tracking-wider border-b border-gray-100">
+                                  <th className="pb-1 text-left pl-5 font-medium">UE</th>
+                                  <th className="pb-1 text-right font-medium pr-2">Périodes</th>
+                                  <th className="pb-1 text-right font-medium pr-2">% Dot.</th>
+                                  <th className="pb-1 text-right font-medium pr-1">Δ% {anneePrec || ''}</th>
+                                </tr>
+                              </thead>
+                              <tbody>
+                                {s.grouped.map(g => (
+                                  <Fragment key={g.niv}>
+                                    {s.grouped.length > 1 && (
+                                      <tr className="bg-iip-blue/5">
+                                        <td className="pl-5 py-1 text-[10px] font-semibold text-iip-blue" colSpan={4}>{g.niv}</td>
+                                      </tr>
+                                    )}
+                                    {g.ues.map(u => (
+                                      <tr key={u.ue_num} className="border-t border-gray-50 hover:bg-gray-50">
+                                        <td className="pl-5 py-1.5 text-gray-700"><span className="text-gray-400 text-[10px] mr-1">UE{u.ue_num}</span>{u.ue_nom || ''}</td>
+                                        <td className="py-1.5 text-right pr-2 font-mono text-gray-700">{fmt(u.periodes)}</td>
+                                        <td className="py-1.5 text-right pr-2 text-gray-400 text-xs">{u.pct != null ? u.pct.toFixed(0) + ' %' : '—'}</td>
+                                        <td className="py-1.5 text-right pr-1">
+                                          {u.delta == null
+                                            ? <span className="text-gray-300 text-xs">—</span>
+                                            : <span className={`text-xs font-semibold ${u.delta > 0 ? 'text-green-600' : u.delta < 0 ? 'text-red-500' : 'text-gray-400'}`}>
+                                                {u.delta > 0 ? '+' : ''}{u.delta.toFixed(0)} %
+                                              </span>}
+                                        </td>
+                                      </tr>
+                                    ))}
+                                  </Fragment>
+                                ))}
+                              </tbody>
+                            </table>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+            </>
           )}
         </div>
-
-        {/* Dotation détaillée par section → UE (Δ% inter-années) */}
-        {renderDotationTable()}
 
         {/* Section PEP */}
         {pepChartData.length > 0 && (
