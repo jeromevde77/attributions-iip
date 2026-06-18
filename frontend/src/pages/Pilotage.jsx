@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo, useRef, Fragment } from 'react';
 import { api, getAnnee } from '../lib/api.js';
 import { IconChartBar, IconHome, IconClipboardList, IconTarget, IconUsers, IconSettings, IconAlertTriangle } from '@tabler/icons-react';
-import { PageHeader, Tabs } from '../components/ui.jsx';
+import { PageHeader, Tabs, RailLateral } from '../components/ui.jsx';
 import {
   BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer,
   Legend, CartesianGrid, ReferenceLine,
@@ -848,6 +848,7 @@ export default function Pilotage() {
               <th className="text-right px-3 py-2 text-iip-gold">ETP IIP</th>
               <th className="text-right px-3 py-2 text-iip-mauve">ETP HELB</th>
               <th className="text-right px-3 py-2">ETP total</th>
+              <th className="text-right px-3 py-2">% total</th>
               <th className="px-3 py-2 w-8"></th>
             </tr>
           </thead>
@@ -861,6 +862,7 @@ export default function Pilotage() {
                   <td className="px-3 py-2 text-right font-semibold text-iip-gold">{f(s.etp_iip)}</td>
                   <td className="px-3 py-2 text-right font-semibold text-iip-mauve">{f(s.etp_helb)}</td>
                   <td className="px-3 py-2 text-right font-bold text-gray-800">{f(s.etp_total)}</td>
+                  <td className="px-3 py-2 text-right text-gray-500">{t.etp_total ? (s.etp_total / t.etp_total * 100).toFixed(1) + ' %' : '—'}</td>
                   <td className="px-3 py-2 text-right text-gray-400">{etpOpen.has(s.section) ? '▾' : '▸'}</td>
                 </tr>
                 {etpOpen.has(s.section) && s.ues.map(u => (
@@ -871,6 +873,7 @@ export default function Pilotage() {
                     <td className="px-3 py-1 text-right text-iip-gold">{f3(u.etp_iip)}</td>
                     <td className="px-3 py-1 text-right text-iip-mauve">{f3(u.etp_helb)}</td>
                     <td className="px-3 py-1 text-right text-gray-600">{f3(u.etp_total)}</td>
+                    <td className="px-3 py-1 text-right text-gray-300">{t.etp_total ? (u.etp_total / t.etp_total * 100).toFixed(1) + ' %' : ''}</td>
                     <td></td>
                   </tr>
                 ))}
@@ -883,6 +886,7 @@ export default function Pilotage() {
               <td className="px-3 py-2 text-right text-iip-gold">{f(t.etp_iip)}</td>
               <td className="px-3 py-2 text-right text-iip-mauve">{f(t.etp_helb)}</td>
               <td className="px-3 py-2 text-right">{f(t.etp_total)}</td>
+              <td className="px-3 py-2 text-right">100 %</td>
               <td></td>
             </tr>
           </tbody>
@@ -1173,58 +1177,47 @@ export default function Pilotage() {
 
   // ── Rendu ──────────────────────────────────────────────────────────────────
   return (
-    <div className="px-3 md:px-6 py-4 max-w-6xl mx-auto space-y-5">
-      {/* En-tête */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-3">
-        <PageHeader icon={IconChartBar} titre="Pilotage des dotations"
-          sous="Suivi par année civile · Enveloppes extérieures · Comparaison pluriannuelle" />
-        {/* Sélecteur d'année civile */}
-        <div className="flex gap-1.5 flex-wrap">
-          {civil.map(y => (
-            <button key={y.annee_civile} onClick={() => setSelYear(y.annee_civile)}
-              className={`text-sm px-3 py-1.5 rounded-lg border font-medium transition flex items-center gap-1 ${
-                selYear === y.annee_civile
-                  ? 'bg-iip-blue text-white border-iip-blue'
-                  : 'bg-white text-gray-600 border-gray-200 hover:border-iip-turquoise/50'
-              }`}>
-              {y.annee_civile}
-              {y.pct_organique > 95 && <IconAlertTriangle size={13} className="text-amber-500" />}
-            </button>
-          ))}
-        </div>
-      </div>
-
-      {/* Onglets */}
-      <Tabs
-        value={tab}
-        onChange={setTab}
-        items={[
-          { key: 'synthese', label: 'Synthèse', icon: IconHome },
-          { key: 'detail', label: 'Détail par section', icon: IconClipboardList },
-          { key: 'efficience', label: 'Efficience', icon: IconTarget },
-          { key: 'etp', label: 'ETP', icon: IconUsers },
-          { key: 'dotation', label: 'Dotation par UE', icon: IconChartBar },
-          { key: 'config', label: 'Configuration', icon: IconSettings },
-        ]}
+    <div className="relative bg-slate-50" style={{ minHeight: 'calc(100vh - 64px)' }}>
+      <RailLateral
+        icon={IconChartBar}
+        titre="Pilotage"
+        extra={
+          <select value={selYear} onChange={e => setSelYear(Number(e.target.value))}
+            className="w-full bg-white/10 text-white text-[13px] rounded-lg px-2 py-1.5 border border-white/20 focus:outline-none">
+            {civil.map(y => (
+              <option key={y.annee_civile} value={y.annee_civile} className="text-gray-800">
+                {y.annee_civile}{y.pct_organique > 95 ? ' ⚠' : ''}
+              </option>
+            ))}
+          </select>
+        }
+        sections={[{ items: [
+          { key: 'synthese', label: 'Dotation',      icon: IconHome,     actif: tab === 'synthese', onClick: () => setTab('synthese') },
+          { key: 'etp',      label: 'ETP',           icon: IconUsers,    actif: tab === 'etp',      onClick: () => setTab('etp') },
+          { key: 'dotation', label: 'Comparaison',   icon: IconChartBar, actif: tab === 'dotation', onClick: () => setTab('dotation') },
+          { key: 'config',   label: 'Configuration', icon: IconSettings, actif: tab === 'config',   onClick: () => setTab('config') },
+        ] }]}
       />
 
-      {/* Contenu */}
-      {loading ? (
-        <div className="text-gray-400 py-12 text-center">Chargement…</div>
-      ) : civil.length === 0 ? (
-        <div className="bg-amber-50 border border-amber-200 rounded-xl p-6 text-sm text-amber-700">
-          Aucune année civile configurée. Allez dans <strong>Configuration</strong> pour ajouter les premières années.
-        </div>
-      ) : (
-        <>
-          {tab === 'synthese' && renderSynthese()}
-          {tab === 'detail'   && renderDetail()}
-          {tab === 'efficience' && renderEfficience()}
-          {tab === 'etp'      && renderETP()}
-          {tab === 'dotation' && <DotationComparaison civil={civil} />}
-                    {tab === 'config'   && renderConfig()}
-        </>
-      )}
+      <div className="ml-16 px-3 md:px-6 py-4 space-y-5">
+        <PageHeader icon={IconChartBar} titre="Pilotage des dotations"
+          sous={`Année civile ${selYear} · Enveloppes extérieures · Comparaison pluriannuelle`} />
+
+        {loading ? (
+          <div className="text-gray-400 py-12 text-center">Chargement…</div>
+        ) : civil.length === 0 ? (
+          <div className="bg-amber-50 border border-amber-200 rounded-xl p-6 text-sm text-amber-700">
+            Aucune année civile configurée. Allez dans <strong>Configuration</strong> pour ajouter les premières années.
+          </div>
+        ) : (
+          <>
+            {tab === 'synthese' && renderSynthese()}
+            {tab === 'etp'      && renderETP()}
+            {tab === 'dotation' && <DotationComparaison civil={civil} />}
+            {tab === 'config'   && renderConfig()}
+          </>
+        )}
+      </div>
     </div>
   );
 }
