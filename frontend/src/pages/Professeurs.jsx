@@ -4,7 +4,8 @@ import { api, getAnnee, getUser, nomDoc } from '../lib/api.js';
 import ProfFicheModal from './ProfFicheModal.jsx';
 import PreviewModal from '../components/PreviewModal.jsx';
 import CoursEditModal from '../components/CoursEditModal.jsx';
-import { IconMail, IconMapPin, IconFileText, IconEdit, IconDownload, IconRefresh, IconX, IconPrinter, IconPlus, IconTrash, IconKey, IconLock, IconCheck, IconBriefcase, IconChevronDown, IconChevronRight } from '@tabler/icons-react';
+import { IconMail, IconMapPin, IconFileText, IconEdit, IconDownload, IconRefresh, IconX, IconPrinter, IconPlus, IconTrash, IconKey, IconLock, IconCheck, IconBriefcase, IconChevronDown, IconChevronRight, IconUsers } from '@tabler/icons-react';
+import { RailLateral } from '../components/ui.jsx';
 
 const EMPTY = {
   nom: '', prenom: '', adresse_mail: '', mail_prive: '',
@@ -1235,7 +1236,16 @@ export default function Professeurs() {
   }
 
   return (
-    <div className="p-4 md:p-6 max-w-7xl mx-auto">
+    <div className="relative bg-slate-50" style={{ minHeight: 'calc(100vh - 64px)' }}>
+      <RailLateral
+        icon={IconUsers}
+        titre="Personnel"
+        sousTitre="Membres du personnel"
+        sections={[{ items: [
+          { key: 'membres', label: 'Membres', icon: IconUsers, actif: true, onClick: () => {} },
+        ]}]}
+      />
+      <div className="ml-16 p-4 md:p-6">
       <div className="flex items-center justify-between mb-4 gap-3 flex-wrap">
         <h1 className="text-2xl font-title text-iip-gold">
           Membres du personnel <span className="text-base font-normal text-gray-400">({filtered.length})</span>
@@ -1374,6 +1384,7 @@ export default function Professeurs() {
           onSaved={() => { setEditProf(null); load(); }} />
       )}
       {ficheHtml && <PreviewModal html={ficheHtml.html||ficheHtml} titre="Fiche d'attributions" nomFichier={ficheHtml.nom} onClose={() => setFicheHtml(null)} />}
+      </div>
     </div>
   );
 }
