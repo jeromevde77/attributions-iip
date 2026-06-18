@@ -2,7 +2,7 @@ import { useState, useEffect, useRef } from 'react';
 import { api, getAnnee } from '../lib/api.js';
 import { eidStatus, eidReadAll, eidToProf, eidChamps } from '../lib/eid.js';
 import NominationsPanel from '../components/NominationsPanel.jsx';
-import { IconId, IconTrash, IconFileText } from '@tabler/icons-react';
+import { IconId, IconTrash, IconFileText, IconChevronRight } from '@tabler/icons-react';
 
 const _tok = () => localStorage.getItem('token');
 const _fetch = (url, opts = {}) =>
@@ -39,7 +39,7 @@ function Section({ titre, sous, ouvert, onToggle, children, complet }) {
       <button type="button" onClick={onToggle}
         className="w-full flex items-center justify-between px-4 py-2.5 bg-iip-gold/5 hover:bg-iip-gold/10 transition text-left">
         <div className="flex items-center gap-2">
-          <span className={`text-iip-gold text-sm transition-transform ${ouvert ? 'rotate-90' : ''}`}>▶</span>
+          <IconChevronRight size={14} className={`text-iip-gold transition-transform ${ouvert ? 'rotate-90' : ''}`} />
           <span className="font-semibold text-iip-gold text-sm">{titre}</span>
           {sous && <span className="text-xs text-gray-400">· {sous}</span>}
         </div>

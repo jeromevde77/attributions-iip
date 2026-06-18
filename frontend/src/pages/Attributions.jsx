@@ -1174,7 +1174,7 @@ export default function Attributions() {
       out.push(
         <tr key={voletKey} className="bg-iip-gold/5 border-y border-iip-gold/20 cursor-pointer hover:bg-iip-gold/10"
             onClick={()=>setOpenActs(s=>{const n=new Set(s);n.has(voletKey)?n.delete(voletKey):n.add(voletKey);return n;})}>
-          <td className="text-center"><span className={`inline-block text-gray-400 text-xs transition-transform ${ouvert?'rotate-90':''}`}>▶</span></td>
+          <td className="text-center"><IconChevronRight size={14} className={`inline-block text-gray-400 text-xs transition-transform ${ouvert?'rotate-90':''}`} /></td>
           <td colSpan={COLS_COURS.length - 1} className="px-2 py-1.5">
             <span className="inline-flex items-center gap-2">
               <span className="inline-flex items-center justify-center w-5 h-5 rounded-full bg-iip-gold text-white text-[11px] font-bold">{lignes.length}</span>
@@ -1201,7 +1201,7 @@ export default function Attributions() {
     return (
       <div key={key} className="border-t border-gray-100">
         <button onClick={()=>toggle(key)} className={`w-full flex items-center gap-2 pl-10 pr-4 py-2 hover:bg-gray-100/60 transition text-left text-sm ${isZCours ? 'opacity-70' : ''}`}>
-          <span className={`text-gray-400 text-sm transition-transform ${open?'rotate-90':''}`}>▶</span>
+          <IconChevronRight size={14} className={`text-gray-400 text-sm transition-transform ${open?'rotate-90':''}`} />
           <span className={`font-mono text-sm ${isZCours ? 'text-gray-400' : 'text-gray-500'}`}>{cg.code_cours}</span>
           <span className={`truncate ${isZCours ? 'text-gray-400 italic' : 'text-gray-700'}`}>{cg.nom_cours}</span>
           {(() => {
@@ -1282,7 +1282,7 @@ export default function Attributions() {
         <div className={`w-full flex items-center pl-6 pr-3 py-1.5 transition relative ${activeUE === key ? (isHelb ? 'bg-pink-50 hover:bg-pink-100/70' : 'bg-iip-gold/5 hover:bg-iip-gold/10') : (isHelb ? 'hover:bg-pink-100/60' : 'hover:bg-gray-50')}`}>
           <div onClick={()=>{toggle(key); setActiveUE(key);}} role="button" className="grid items-center gap-2 flex-1 min-w-0 text-left cursor-pointer"
                   style={{ gridTemplateColumns: '16px 70px 110px 1fr auto' }}>
-            <span className={`text-iip-gold text-sm transition-transform ${open?'rotate-90':''}`}>▶</span>
+            <IconChevronRight size={14} className={`text-iip-gold text-sm transition-transform ${open?'rotate-90':''}`} />
             <span className="font-semibold text-iip-gold text-sm whitespace-nowrap">UE {ue.ue_num}</span>
             <span className="flex items-center gap-1 flex-wrap">
               {isTC && <span className="text-xs bg-blue-50 text-blue-900 border border-blue-900 px-1.5 py-0.5 rounded font-bold" title="Unité du tronc commun">TC</span>}
@@ -1430,7 +1430,7 @@ export default function Attributions() {
     return (
       <div key={key}>
         <button onClick={()=>toggle(key)} className={`w-full flex items-center gap-3 px-4 py-2.5 hover:bg-iip-gold/10 transition text-left bg-iip-gold/5 first:border-t-0 ${open ? 'border-t-2 border-iip-gold/60' : 'border-t border-gray-200'}`}>
-          <span className={`text-iip-gold font-bold transition-transform ${open?'rotate-90':''}`}>▶</span>
+          <IconChevronRight size={14} className={`text-iip-gold font-bold transition-transform ${open?'rotate-90':''}`} />
           <span className="font-bold text-iip-gold text-sm">{sg.section}</span>
           <div className="flex items-center gap-3 text-sm text-gray-500 flex-shrink-0 ml-auto">
             <span>{sg.ues.length} UE</span>
@@ -1628,7 +1628,7 @@ export default function Attributions() {
                  <button onClick={() => toggle(secKey)}
                    className="w-full sticky top-0 z-10 bg-iip-gold text-white px-3 py-2.5 rounded-lg text-sm font-semibold flex items-center justify-between gap-2">
                    <span className="flex items-center gap-2">
-                     <span className={`transition-transform ${closed ? '' : 'rotate-90'}`}>▶</span>
+                     <IconChevronRight size={14} className={`transition-transform ${closed ? '' : 'rotate-90'}`} />
                      {sg.section}
                    </span>
                    <span className="text-xs font-normal opacity-90">{sg.rows.length} attr. · {sg.rows.reduce((s,r)=>s+(Number(r.periodes_attribuees)||0),0)}p</span>

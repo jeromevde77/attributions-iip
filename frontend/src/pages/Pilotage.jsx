@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo, useRef, Fragment } from 'react';
 import { api, getAnnee } from '../lib/api.js';
-import { IconChartBar, IconHome, IconUsers, IconSettings, IconChevronRight, IconChevronDown, IconPrinter, IconRotateClockwise } from '@tabler/icons-react';
+import { IconChartBar, IconHome, IconUsers, IconSettings, IconChevronRight, IconChevronDown, IconPrinter, IconRotateClockwise, IconCheck, IconX, IconTrash } from '@tabler/icons-react';
 import { PageHeader, Tabs, RailLateral } from '../components/ui.jsx';
 import {
   BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer,
@@ -387,7 +387,7 @@ function DotationComparaison({ civil }) {
                       onClick={() => toggleSec(sec.section)}>
                       <td className="px-3 py-2 font-bold text-iip-gold sticky left-0 z-10 overflow-hidden text-ellipsis whitespace-nowrap"
                         style={{background: si % 2 === 0 ? '#f9fafb' : 'white', width:colW.nom, maxWidth:colW.nom}}>
-                        <span className="mr-2 text-xs">{open ? '▼' : '▶'}</span>
+                        <IconChevronRight size={14} className={`mr-2 transition-transform ${open ? 'rotate-90' : ''}`} />
                         {sec.section}
                       </td>
                       <td style={{width:colW.niv}}></td><td style={{width:colW.quad}}></td>
@@ -1067,8 +1067,8 @@ export default function Pilotage() {
                 <td className="px-4 py-2"><input type="number" value={editDot.usage_historique_organique ?? ''} onChange={e => setEditDot({ ...editDot, usage_historique_organique: e.target.value })} placeholder="calculé si vide" className="border border-gray-300 rounded px-2 py-1 text-sm w-28 text-right" /></td>
                 <td className="px-4 py-2"><input value={editDot.notes || ''} onChange={e => setEditDot({ ...editDot, notes: e.target.value })} className="border border-gray-300 rounded px-2 py-1 text-sm w-full" /></td>
                 <td className="px-4 py-2 flex gap-1 justify-end">
-                  <button onClick={saveDotation} disabled={saving} className="bg-iip-gold text-white text-xs px-2 py-1 rounded">✓</button>
-                  <button onClick={() => setEditDot(null)} className="text-gray-500 text-xs px-2 py-1 rounded border">✕</button>
+                  <button onClick={saveDotation} disabled={saving} className="bg-iip-gold text-white text-xs px-2 py-1 rounded"><IconCheck size={14} /></button>
+                  <button onClick={() => setEditDot(null)} className="text-gray-500 text-xs px-2 py-1 rounded border"><IconX size={14} /></button>
                 </td>
               </tr>
             ) : (
@@ -1083,7 +1083,7 @@ export default function Pilotage() {
                 <td className="px-4 py-2.5">
                   <div className="flex gap-1 justify-end">
                     <button onClick={() => setEditDot({ annee_civile: y.annee_civile, dotation_organique: y.dotation_organique, periodes_eleves: y.periodes_eleves ?? '', pep_reference: y.pep_reference ?? '', pep_annee_utilisee: y.pep_annee_utilisee ?? '', usage_historique_organique: y.source === 'historique' ? y.usage_organique : '', notes: y.notes || '' })} className="text-iip-gold hover:text-iip-amber text-xs border border-iip-gold/30 px-2 py-1 rounded">Modifier</button>
-                    <button onClick={() => deleteYear(y.annee_civile)} className="text-red-400 hover:text-red-600 text-xs px-2 py-1">🗑</button>
+                    <button onClick={() => deleteYear(y.annee_civile)} className="text-red-400 hover:text-red-600 text-xs px-2 py-1"><IconTrash size={16} /></button>
                   </div>
                 </td>
               </tr>
@@ -1112,7 +1112,7 @@ export default function Pilotage() {
                 <input type="number" value={editEnv.periodes_b} onChange={e => setEditEnv({ ...editEnv, periodes_b: e.target.value })} className="border border-gray-300 rounded px-2 py-1.5 text-sm w-full" /></div>
               <div className="flex gap-1">
                 <button onClick={saveEnv} disabled={saving} className="bg-iip-gold text-white text-xs px-3 py-1.5 rounded w-full">Créer</button>
-                <button onClick={() => setEditEnv(null)} className="border text-gray-500 text-xs px-2 py-1.5 rounded">✕</button>
+                <button onClick={() => setEditEnv(null)} className="border text-gray-500 text-xs px-2 py-1.5 rounded"><IconX size={14} /></button>
               </div>
             </div>
           </div>
@@ -1130,8 +1130,8 @@ export default function Pilotage() {
                 <td className="px-4 py-2"><input type="number" value={editEnv.periodes_b} onChange={ev => setEditEnv({ ...editEnv, periodes_b: ev.target.value })} className="border border-gray-300 rounded px-2 py-1 text-sm w-24 text-right" /></td>
                 <td className="px-4 py-2"><input type="number" value={editEnv.usage_historique ?? ''} onChange={ev => setEditEnv({ ...editEnv, usage_historique: ev.target.value })} placeholder="calculé" className="border border-gray-300 rounded px-2 py-1 text-sm w-24 text-right" /></td>
                 <td className="px-4 py-2 flex gap-1 justify-end">
-                  <button onClick={saveEnv} disabled={saving} className="bg-iip-gold text-white text-xs px-2 py-1 rounded">✓</button>
-                  <button onClick={() => setEditEnv(null)} className="text-gray-500 text-xs px-2 py-1 rounded border">✕</button>
+                  <button onClick={saveEnv} disabled={saving} className="bg-iip-gold text-white text-xs px-2 py-1 rounded"><IconCheck size={14} /></button>
+                  <button onClick={() => setEditEnv(null)} className="text-gray-500 text-xs px-2 py-1 rounded border"><IconX size={14} /></button>
                 </td>
               </tr>
             ) : (
@@ -1144,7 +1144,7 @@ export default function Pilotage() {
                 <td className="px-4 py-2.5">
                   <div className="flex gap-1 justify-end">
                     <button onClick={() => setEditEnv({ id: e.id, label: e.label, periodes_b: e.periodes_b, usage_historique: e.usage_historique ?? '', notes: e.notes || '' })} className="text-iip-gold hover:text-iip-amber text-xs border border-iip-gold/30 px-2 py-1 rounded">Modifier</button>
-                    <button onClick={async () => { if (confirm('Supprimer cette enveloppe ?')) { await api.enveloppeDelete(e.id); load(); } }} className="text-red-400 hover:text-red-600 text-xs px-2 py-1">🗑</button>
+                    <button onClick={async () => { if (confirm('Supprimer cette enveloppe ?')) { await api.enveloppeDelete(e.id); load(); } }} className="text-red-400 hover:text-red-600 text-xs px-2 py-1"><IconTrash size={16} /></button>
                   </div>
                 </td>
               </tr>

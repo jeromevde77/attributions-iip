@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { getAnnee } from '../lib/api.js';
-import { IconCalendarStats, IconPencil, IconChevronDown, IconChevronRight, IconX, IconDeviceFloppy, IconTrash, IconPlus } from '@tabler/icons-react';
+import { IconCalendarStats, IconPencil, IconChevronDown, IconChevronRight, IconX, IconDeviceFloppy, IconTrash, IconPlus, IconHash, IconCalendar, IconSitemap, IconBook, IconAlertTriangle } from '@tabler/icons-react';
 import PlanificateurVisuel from '../components/PlanificateurVisuel.jsx';
 
 const TOKEN = () => localStorage.getItem('token');
@@ -149,7 +149,7 @@ function Cellule({ groupeId, semaineId, semaineType, value, onChange, warning })
           {display || <span className="text-gray-200">·</span>}
         </span>
       )}
-      {warning && <span className="absolute top-0 right-0 text-[8px] text-red-500 leading-none">⚠</span>}
+      {warning && <IconAlertTriangle size={10} className="absolute top-0 right-0 text-red-500" />}
     </td>
   );
 }
@@ -738,7 +738,7 @@ function ModalIA({ annee, section, onApplied, onClose }) {
 
               {/* Note évaluations */}
               <div className="bg-blue-50 border border-blue-200 rounded p-3 text-xs text-blue-700">
-                📅 EV1, VC et EV2 sont placés automatiquement après les derniers cours de chaque groupe
+                <IconCalendar size={13} className="inline align-[-2px] mr-1" />EV1, VC et EV2 sont placés automatiquement après les derniers cours de chaque groupe
               </div>
 
               {/* Alertes */}
@@ -810,7 +810,7 @@ function ModalSequence({ annee, section, groupes, onClose }) {
         {/* Header */}
         <div className="flex items-center justify-between px-6 py-4 border-b">
           <div>
-            <h3 className="font-semibold text-gray-800">🔢 Séquencer — {section}</h3>
+            <h3 className="font-semibold text-gray-800"><IconHash size={16} className="inline align-[-2px] mr-1" />Séquencer — {section}</h3>
             <p className="text-xs text-gray-400 mt-0.5">{annee}</p>
           </div>
           <button onClick={onClose} className="text-gray-400 hover:text-gray-600 text-lg"><IconX size={15} /></button>
@@ -821,12 +821,12 @@ function ModalSequence({ annee, section, groupes, onClose }) {
           <button onClick={() => setOnglet('prereqs')}
             className={`px-4 py-3 text-sm font-medium border-b-2 -mb-px transition
               ${onglet === 'prereqs' ? 'border-iip-mauve text-iip-mauve' : 'border-transparent text-gray-500 hover:text-gray-700'}`}>
-            🏗 Structure des UE
+            <IconSitemap size={14} className="inline align-[-2px] mr-1" />Structure des UE
           </button>
           <button onClick={() => setOnglet('cours')}
             className={`px-4 py-3 text-sm font-medium border-b-2 -mb-px transition
               ${onglet === 'cours' ? 'border-iip-mauve text-iip-mauve' : 'border-transparent text-gray-500 hover:text-gray-700'}`}>
-            📚 Séquencer les cours
+            <IconBook size={14} className="inline align-[-2px] mr-1" />Séquencer les cours
           </button>
         </div>
 
@@ -1456,12 +1456,12 @@ export default function Planification() {
         {filtreSection && (
           <button onClick={() => setShowSequence(true)}
             className="bg-iip-mauve/10 text-iip-mauve text-xs px-3 py-1.5 rounded hover:bg-iip-mauve/20 flex items-center gap-1">
-            🔢 Séquencer
+            <IconHash size={14} />Séquencer
           </button>
         )}
         <button onClick={() => setShowVisuel(true)}
           className="bg-blue-100 text-blue-700 text-xs px-3 py-1.5 rounded hover:bg-blue-200 flex items-center gap-1">
-          📅 Planificateur visuel
+          <IconCalendar size={14} />Planificateur visuel
         </button>
         {filtreSection && (
           <button onClick={() => setShowIA(true)}
@@ -1477,7 +1477,7 @@ export default function Planification() {
         )}
         <button onClick={() => setShowCalendrier(true)}
           className="border border-gray-300 text-gray-600 text-xs px-3 py-1.5 rounded hover:bg-gray-50">
-          📅 Calendrier
+          <IconCalendar size={14} className="inline align-[-2px] mr-1" />Calendrier
         </button>
         {saving && <span className="text-xs text-iip-gold animate-pulse"><IconDeviceFloppy size={12} className="inline" /></span>}
         {!saving && Object.keys(pendingCells).length === 0 && grille && <span className="text-xs text-green-500">✓</span>}

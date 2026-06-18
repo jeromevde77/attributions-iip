@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { IconDeviceFloppy, IconPrinter, IconX } from '@tabler/icons-react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { api } from '../lib/api.js';
 import PreviewModal from '../components/PreviewModal.jsx';
@@ -185,10 +186,10 @@ export default function EA12Editor() {
         </div>
         <div className="flex gap-2">
           <button onClick={save} disabled={saving} className="px-4 py-2 text-sm border border-iip-gold text-iip-gold rounded-lg hover:bg-iip-gold/5 disabled:opacity-50">
-            💾 Enregistrer
+            <IconDeviceFloppy size={15} className="inline align-[-2px] mr-1" />Enregistrer
           </button>
           <button onClick={imprimer} disabled={saving} className="px-4 py-2 text-sm bg-iip-mauve text-white rounded-lg hover:opacity-90 disabled:opacity-50">
-            {saving ? 'Génération…' : '🖨 Aperçu / PDF'}
+            {saving ? 'Génération…' : <><IconPrinter size={15} className="inline align-[-2px] mr-1" />Aperçu / PDF</>}
           </button>
         </div>
       </div>
@@ -379,7 +380,7 @@ export default function EA12Editor() {
                     </td>
                   ))}
                   <td className="border border-gray-200 p-0.5 text-center">
-                    <button onClick={() => delAttrRow(i)} className="text-red-400 hover:text-red-600 px-1">✕</button>
+                    <button onClick={() => delAttrRow(i)} className="text-red-400 hover:text-red-600 px-1"><IconX size={14} /></button>
                   </td>
                 </tr>
               ))}
@@ -424,8 +425,8 @@ export default function EA12Editor() {
 
       {/* ─── Boutons bas ────────────────────────────────────────────────── */}
       <div className="flex justify-end gap-2">
-        <button onClick={save} disabled={saving} className="px-5 py-2 text-sm border border-iip-gold text-iip-gold rounded-lg hover:bg-iip-gold/5 disabled:opacity-50">💾 Enregistrer</button>
-        <button onClick={imprimer} disabled={saving} className="px-5 py-2 text-sm bg-iip-mauve text-white rounded-lg hover:opacity-90 disabled:opacity-50">{saving ? 'Génération…' : '🖨 Aperçu / PDF'}</button>
+        <button onClick={save} disabled={saving} className="px-5 py-2 text-sm border border-iip-gold text-iip-gold rounded-lg hover:bg-iip-gold/5 disabled:opacity-50"><IconDeviceFloppy size={15} className="inline align-[-2px] mr-1" />Enregistrer</button>
+        <button onClick={imprimer} disabled={saving} className="px-5 py-2 text-sm bg-iip-mauve text-white rounded-lg hover:opacity-90 disabled:opacity-50">{saving ? 'Génération…' : <><IconPrinter size={15} className="inline align-[-2px] mr-1" />Aperçu / PDF</>}</button>
       </div>
 
       {previewHtml && (
