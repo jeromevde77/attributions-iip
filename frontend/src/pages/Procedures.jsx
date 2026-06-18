@@ -860,6 +860,8 @@ function OutilFraude({ initialPayload, onPayloadConsumed }) {
   const [dateEnvoi, setDateEnvoi]         = useState('');
   const [decision, setDecision]           = useState('');
   const [commentaireCDE, setCommentaireCDE] = useState('');
+  const [momentFaits, setMomentFaits]     = useState('pendant'); // 'pendant' (Art.73) | 'correction' (Art.74)
+  const [conteste, setConteste]           = useState(false);     // l'étudiant conteste les faits → audition
 
   // Pré-remplissage depuis une archive
   useEffect(() => {
@@ -881,6 +883,9 @@ function OutilFraude({ initialPayload, onPayloadConsumed }) {
     if (p.date_envoi)            setDateEnvoi(p.date_envoi);
     if (p.decision)              setDecision(p.decision);
     if (p.commentaire_cde)       setCommentaireCDE(p.commentaire_cde);
+    if (p.moment_faits)          setMomentFaits(p.moment_faits);
+    if (p.conteste !== undefined) setConteste(!!p.conteste);
+    else if (p.date_audition)    setConteste(true);
     setStep(1);
     onPayloadConsumed?.();
   }, [initialPayload]);
@@ -958,6 +963,7 @@ function OutilFraude({ initialPayload, onPayloadConsumed }) {
           description_faits: descriptionFraits,
           declarations_etudiant: declarationsEtudiant,
           commentaire_cde: commentaireCDE,
+          moment_faits: momentFaits, conteste,
           session, recidive, decision, annee,
         }),
       });
@@ -969,181 +975,170 @@ function OutilFraude({ initialPayload, onPayloadConsumed }) {
     } catch(e) { alert('Erreur : ' + e.message); }
   }
 
-  const steps = ['Dossier & UE', 'Faits', 'Procédure contradictoire', 'Délibération', 'PV & décision'];
-
   // Délai notification (3 jours après les faits)
   const limiteNotif = dateFaits ? addJoursCalendrier(dateFaits, 3) : null;
 
   return (
-    <div className="max-w-3xl">
-      {/* Stepper */}
-      <div className="flex items-center gap-1 mb-7 overflow-x-auto pb-1">
-        {steps.map((s, i) => (
-          <div key={i} className="flex items-center gap-1 flex-shrink-0">
-            <button onClick={() => setStep(i+1)}
-              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium transition
-                ${step===i+1?'bg-red-700 text-white':step>i+1?'bg-green-500 text-white':'bg-gray-100 text-gray-500'}`}>
-              {step>i+1?'✓':i+1}. {s}
-            </button>
-            {i<steps.length-1 && <div className={`h-0.5 w-4 flex-shrink-0 ${step>i+1?'bg-green-400':'bg-gray-200'}`} />}
-          </div>
-        ))}
-      </div>
+    <div className="max-w-4xl space-y-6">
 
-      {/* ÉTAPE 1 — Dossier & UE */}
-      {step === 1 && (
-        <div>
-          <Section title="Étape 1 — Constitution du dossier">
-            <div className="grid grid-cols-2 gap-4 mb-4">
-              <label className="block">
-                <div className="text-xs font-semibold text-gray-600 mb-1">Nom de l'étudiant·e *</div>
-                <input value={etudiant} onChange={e => setEtudiant(e.target.value)} placeholder="Prénom NOM"
-                  className="w-full border border-gray-300 rounded px-3 py-1.5 text-sm" />
-              </label>
-              <label className="block">
-                <div className="text-xs font-semibold text-gray-600 mb-1">Section</div>
-                <select value={sectionSel} onChange={e => { setSectionSel(e.target.value); setUeNum(''); }}
-                  className="w-full border border-gray-300 rounded px-3 py-1.5 text-sm bg-white">
-                  <option value="">— Toutes les sections —</option>
-                  {sectionsListe.map(s => <option key={s} value={s}>{s}</option>)}
-                </select>
-              </label>
-              <label className="block">
-                <div className="text-xs font-semibold text-gray-600 mb-1">UE concernée *</div>
-                <select value={ueNum} onChange={e => setUeNum(e.target.value)}
-                  className="w-full border border-gray-300 rounded px-3 py-1.5 text-sm bg-white">
-                  <option value="">— Choisir une UE —</option>
-                  {uesFiltrees.map(u => <option key={u.ue_num} value={u.ue_num}>UE {u.ue_num} — {u.ue_nom}</option>)}
-                </select>
-              </label>
-              <label className="block">
-                <div className="text-xs font-semibold text-gray-600 mb-1">Session</div>
-                <select value={session} onChange={e => setSession(e.target.value)}
-                  className="w-full border border-gray-300 rounded px-3 py-1.5 text-sm bg-white">
-                  <option value="1">1re session</option>
-                  <option value="2">2e session</option>
-                </select>
-              </label>
-              <label className="flex items-center gap-2 cursor-pointer pt-5">
-                <input type="checkbox" checked={recidive} onChange={e => setRecidive(e.target.checked)} className="w-4 h-4 accent-red-700" />
-                <span className="text-sm font-medium text-red-800">Récidive (fraude antérieure)</span>
-              </label>
-              <label className="block">
-                <div className="text-xs font-semibold text-gray-600 mb-1">Date de l'épreuve</div>
-                <input type="date" value={dateExamen} onChange={e => setDateExamen(e.target.value)}
-                  className="w-full border border-gray-300 rounded px-3 py-1.5 text-sm" />
-              </label>
-              <label className="block">
-                <div className="text-xs font-semibold text-gray-600 mb-1">Date de réunion du CDE</div>
-                <input type="date" value={dateCDE} onChange={e => setDateCDE(e.target.value)}
-                  className="w-full border border-gray-300 rounded px-3 py-1.5 text-sm" />
-              </label>
+      {/* ── 1 · IDENTIFICATION DU DOSSIER ── */}
+      <Section title="1 · Identification du dossier" color="red">
+        <div className="grid grid-cols-2 gap-4 mb-4">
+          <label className="block">
+            <div className="text-xs font-semibold text-gray-600 mb-1">Nom de l'étudiant·e *</div>
+            <input value={etudiant} onChange={e => setEtudiant(e.target.value)} placeholder="Prénom NOM"
+              className="w-full border border-gray-300 rounded px-3 py-1.5 text-sm" />
+          </label>
+          <label className="block">
+            <div className="text-xs font-semibold text-gray-600 mb-1">Section</div>
+            <select value={sectionSel} onChange={e => { setSectionSel(e.target.value); setUeNum(''); }}
+              className="w-full border border-gray-300 rounded px-3 py-1.5 text-sm bg-white">
+              <option value="">— Toutes les sections —</option>
+              {sectionsListe.map(s => <option key={s} value={s}>{s}</option>)}
+            </select>
+          </label>
+          <label className="block">
+            <div className="text-xs font-semibold text-gray-600 mb-1">UE concernée *</div>
+            <select value={ueNum} onChange={e => setUeNum(e.target.value)}
+              className="w-full border border-gray-300 rounded px-3 py-1.5 text-sm bg-white">
+              <option value="">— Choisir une UE —</option>
+              {uesFiltrees.map(u => <option key={u.ue_num} value={u.ue_num}>UE {u.ue_num} — {u.ue_nom}</option>)}
+            </select>
+          </label>
+          <label className="block">
+            <div className="text-xs font-semibold text-gray-600 mb-1">Session</div>
+            <select value={session} onChange={e => setSession(e.target.value)}
+              className="w-full border border-gray-300 rounded px-3 py-1.5 text-sm bg-white">
+              <option value="1">1re session</option>
+              <option value="2">2e session</option>
+            </select>
+          </label>
+          <label className="flex items-center gap-2 cursor-pointer pt-5">
+            <input type="checkbox" checked={recidive} onChange={e => setRecidive(e.target.checked)} className="w-4 h-4 accent-red-700" />
+            <span className="text-sm font-medium text-red-800">Récidive (fraude antérieure)</span>
+          </label>
+          <label className="block">
+            <div className="text-xs font-semibold text-gray-600 mb-1">Date de l'épreuve</div>
+            <input type="date" value={dateExamen} onChange={e => setDateExamen(e.target.value)}
+              className="w-full border border-gray-300 rounded px-3 py-1.5 text-sm" />
+          </label>
+        </div>
+
+        {/* Membres présents */}
+        {ueNum && (
+          <div className="mt-3 p-4 bg-red-50 border border-red-200 rounded-lg">
+            <div className="flex items-center justify-between mb-2">
+              <p className="text-sm font-bold text-red-900">
+                Membres du CDE présents {loadingProfs && <span className="text-xs font-normal ml-1">…</span>}
+              </p>
+              {profs.length > 0 && (
+                <button onClick={() => setProfsPresents(new Set(profs.map(p => p.id)))}
+                  className="text-xs text-red-600 hover:underline">Tout cocher</button>
+              )}
             </div>
-
-            {/* Membres présents */}
-            {ueNum && (
-              <div className="mt-3 p-4 bg-red-50 border border-red-200 rounded-lg">
-                <div className="flex items-center justify-between mb-2">
-                  <p className="text-sm font-bold text-red-900">
-                    Membres du CDE présents {loadingProfs && <span className="text-xs font-normal ml-1">…</span>}
-                  </p>
-                  {profs.length > 0 && (
-                    <button onClick={() => setProfsPresents(new Set(profs.map(p => p.id)))}
-                      className="text-xs text-red-600 hover:underline">Tout cocher</button>
-                  )}
-                </div>
-                <div className="space-y-1">
-                  {profs.map(p => (
-                    <label key={p.id} className={`flex items-center gap-3 px-3 py-2 rounded-lg border cursor-pointer transition ${profsPresents.has(p.id)?'bg-green-50 border-green-400':'bg-white border-red-200 hover:bg-red-50'}`}>
-                      <input type="checkbox" checked={profsPresents.has(p.id)} onChange={() => togglePresent(p.id)} className="w-4 h-4 accent-green-600" />
-                      <span className={`w-7 h-7 rounded-full text-white text-xs font-bold flex items-center justify-center flex-shrink-0 ${profsPresents.has(p.id)?'bg-green-600':'bg-red-700'}`}>
-                        {(p.nom[0]||'?').toUpperCase()}
-                      </span>
-                      <span className="text-sm font-medium flex-1">{p.nomComplet}</span>
-                      {p.qualite && <span className="text-xs text-gray-400 italic">{p.qualite}</span>}
-                      {profsPresents.has(p.id) && <span className="text-xs text-green-700 font-semibold">✓</span>}
-                    </label>
-                  ))}
-                </div>
-                {profsPresents.size > 0 && (
-                  <p className={`text-xs mt-2 font-medium ${profsPresents.size >= 3 ? 'text-green-700' : 'text-orange-600'}`}>
-                    {profsPresents.size} membre{profsPresents.size>1?'s':''} présent{profsPresents.size>1?'s':''}
-                    {profsPresents.size >= 3 ? ' — ✓ Quorum atteint' : ` — ⚠ Min. 3 membres requis`}
-                  </p>
-                )}
-              </div>
+            <div className="space-y-1">
+              {profs.map(p => (
+                <label key={p.id} className={`flex items-center gap-3 px-3 py-2 rounded-lg border cursor-pointer transition ${profsPresents.has(p.id)?'bg-green-50 border-green-400':'bg-white border-red-200 hover:bg-red-50'}`}>
+                  <input type="checkbox" checked={profsPresents.has(p.id)} onChange={() => togglePresent(p.id)} className="w-4 h-4 accent-green-600" />
+                  <span className={`w-7 h-7 rounded-full text-white text-xs font-bold flex items-center justify-center flex-shrink-0 ${profsPresents.has(p.id)?'bg-green-600':'bg-red-700'}`}>
+                    {(p.nom[0]||'?').toUpperCase()}
+                  </span>
+                  <span className="text-sm font-medium flex-1">{p.nomComplet}</span>
+                  {p.qualite && <span className="text-xs text-gray-400 italic">{p.qualite}</span>}
+                  {profsPresents.has(p.id) && <IconCheck size={15} className="text-green-700" />}
+                </label>
+              ))}
+            </div>
+            {profsPresents.size > 0 && (
+              <p className={`text-xs mt-2 font-medium inline-flex items-center gap-1 ${profsPresents.size >= 3 ? 'text-green-700' : 'text-orange-600'}`}>
+                {profsPresents.size} membre{profsPresents.size>1?'s':''} présent{profsPresents.size>1?'s':''}
+                {profsPresents.size >= 3
+                  ? <><IconCheck size={14} /> Quorum atteint</>
+                  : <><IconAlertTriangle size={14} /> Min. 3 membres requis</>}
+              </p>
             )}
-          </Section>
-          <div className="flex justify-end">
-            <button onClick={() => setStep(2)} className="bg-red-700 text-white px-6 py-2 rounded-lg text-sm font-medium">Étape suivante →</button>
+          </div>
+        )}
+      </Section>
+
+      {/* ── 2 · LES FAITS ── */}
+      <Section title="2 · Les faits" color="red">
+        {/* Moment de la constatation : pendant l'épreuve (Art. 73) / à la correction (Art. 74) */}
+        <div className="mb-4">
+          <div className="text-xs font-semibold text-gray-600 mb-1.5">Moment de la constatation</div>
+          <div className="grid grid-cols-2 gap-3">
+            {[
+              ['pendant',    "Pendant l'épreuve", is2526F ? 'Art. 54 ROI/RGE' : 'Art. 73 RDE/ROI'],
+              ['correction', "À la correction / après l'épreuve", is2526F ? 'Art. 54 ROI/RGE' : 'Art. 74 RDE/ROI'],
+            ].map(([val, label, ref]) => (
+              <label key={val} className={`flex items-start gap-2.5 p-3 rounded-lg border cursor-pointer transition ${momentFaits===val?'bg-red-50 border-red-500':'bg-white border-gray-300 hover:bg-gray-50'}`}>
+                <input type="radio" name="momentFaits" value={val} checked={momentFaits===val} onChange={() => setMomentFaits(val)} className="accent-red-700 mt-0.5" />
+                <span><span className="text-sm font-medium block">{label}</span><Ref text={ref} /></span>
+              </label>
+            ))}
           </div>
         </div>
-      )}
 
-      {/* ÉTAPE 2 — Faits */}
-      {step === 2 && (
-        <div>
-          <Section title="Étape 2 — Description des faits" color="red">
-            <div className="space-y-4">
-              <div>
-                <div className="text-xs font-semibold text-gray-600 mb-1">Type de fraude constatée <Ref text={is2526F ? 'Art. 54 ROI/RGE' : 'Art. 72 RDE/ROI'} /></div>
-                <select value={typeFraude} onChange={e => setTypeFraude(e.target.value)}
-                  className="w-full border border-gray-300 rounded px-3 py-1.5 text-sm bg-white">
-                  <option value="">— Sélectionner —</option>
-                  <option value="Usage de notes ou documents non autorisés (antisèche)">Usage de notes ou documents non autorisés (antisèche)</option>
-                  <option value="Communication entre étudiants pendant l'épreuve">Communication entre étudiants pendant l'épreuve</option>
-                  <option value="Utilisation d'un appareil électronique non autorisé">Utilisation d'un appareil électronique non autorisé</option>
-                  <option value="Copie sur la copie d'un autre étudiant">Copie sur la copie d'un autre étudiant</option>
-                  <option value="Substitution d'identité ou usurpation">Substitution d'identité ou usurpation</option>
-                  <option value="Plagiat ou travail non personnel">Plagiat ou travail non personnel</option>
-                  <option value="Autre fraude (à préciser ci-dessous)">Autre fraude (à préciser ci-dessous)</option>
-                </select>
-              </div>
-              <div>
-                <div className="text-xs font-semibold text-gray-600 mb-1">Date des faits constatés</div>
-                <input type="date" value={dateFaits} onChange={e => setDateFaits(e.target.value)}
-                  className="border border-gray-300 rounded px-3 py-1.5 text-sm" />
-                {limiteNotif && <p className="text-xs text-orange-600 mt-1">⏱ Notification à l'étudiant recommandée avant le : <strong>{fmt(limiteNotif)}</strong></p>}
-              </div>
-              <div>
-                <div className="text-xs font-semibold text-gray-600 mb-1">Description détaillée des faits (rapport du surveillant)</div>
-                <textarea value={descriptionFraits} onChange={e => setDescriptionFraits(e.target.value)}
-                  rows={5} placeholder="Décrire précisément : qui a constaté la fraude, à quelle heure, ce qui a été saisi ou observé, le comportement de l'étudiant, les témoins éventuels..."
-                  className="w-full border border-gray-300 rounded px-3 py-2 text-sm resize-y" />
-              </div>
-            </div>
-            <div className="mt-4 p-3 bg-amber-50 border border-amber-300 rounded text-sm">
-              <p className="font-semibold text-amber-800">⚠ Important — {is2526F ? 'Art. 54 ROI/RGE' : 'Art. 72 §2 RDE/ROI'}</p>
-              <p className="text-amber-700 mt-1">L'élément suspect doit être saisi et joint au dossier. Le rapport du surveillant est obligatoire. L'étudiant peut terminer son épreuve même en cas de fraude constatée.</p>
-            </div>
-          </Section>
-          <div className="flex justify-between">
-            <button onClick={() => setStep(1)} className="border border-gray-300 text-gray-600 px-6 py-2 rounded-lg text-sm">← Retour</button>
-            <button onClick={() => setStep(3)} className="bg-red-700 text-white px-6 py-2 rounded-lg text-sm font-medium">Procédure contradictoire →</button>
+        <div className="space-y-4">
+          <div>
+            <div className="text-xs font-semibold text-gray-600 mb-1">Type de fraude constatée <Ref text={is2526F ? 'Art. 54 ROI/RGE' : 'Art. 72 RDE/ROI'} /></div>
+            <select value={typeFraude} onChange={e => setTypeFraude(e.target.value)}
+              className="w-full border border-gray-300 rounded px-3 py-1.5 text-sm bg-white">
+              <option value="">— Sélectionner —</option>
+              <option value="Usage de notes ou documents non autorisés (antisèche)">Usage de notes ou documents non autorisés (antisèche)</option>
+              <option value="Communication entre étudiants pendant l'épreuve">Communication entre étudiants pendant l'épreuve</option>
+              <option value="Utilisation d'un appareil électronique non autorisé">Utilisation d'un appareil électronique non autorisé</option>
+              <option value="Copie sur la copie d'un autre étudiant">Copie sur la copie d'un autre étudiant</option>
+              <option value="Substitution d'identité ou usurpation">Substitution d'identité ou usurpation</option>
+              <option value="Plagiat ou travail non personnel">Plagiat ou travail non personnel</option>
+              <option value="Autre fraude (à préciser ci-dessous)">Autre fraude (à préciser ci-dessous)</option>
+            </select>
+          </div>
+          <div>
+            <div className="text-xs font-semibold text-gray-600 mb-1">Date des faits constatés</div>
+            <input type="date" value={dateFaits} onChange={e => setDateFaits(e.target.value)}
+              className="border border-gray-300 rounded px-3 py-1.5 text-sm" />
+            {limiteNotif && <p className="text-xs text-orange-600 mt-1 inline-flex items-center gap-1"><IconClock size={13} /> Notification à l'étudiant recommandée avant le : <strong>{fmt(limiteNotif)}</strong></p>}
+          </div>
+          <div>
+            <div className="text-xs font-semibold text-gray-600 mb-1">Description détaillée des faits (rapport du surveillant)</div>
+            <textarea value={descriptionFraits} onChange={e => setDescriptionFraits(e.target.value)}
+              rows={5} placeholder="Décrire précisément : qui a constaté la fraude, à quelle heure, ce qui a été saisi ou observé, le comportement de l'étudiant, les témoins éventuels..."
+              className="w-full border border-gray-300 rounded px-3 py-2 text-sm resize-y" />
           </div>
         </div>
-      )}
+        <div className="mt-4 p-3 bg-amber-50 border border-amber-300 rounded text-sm">
+          <p className="font-semibold text-amber-800 inline-flex items-center gap-1.5"><IconAlertTriangle size={15} /> Important — {is2526F ? 'Art. 54 ROI/RGE' : 'Art. 72 §2 RDE/ROI'}</p>
+          <p className="text-amber-700 mt-1">L'élément suspect doit être saisi et joint au dossier. Le rapport du surveillant est obligatoire. L'étudiant peut terminer son épreuve même en cas de fraude constatée.</p>
+        </div>
 
-      {/* ÉTAPE 3 — Procédure contradictoire */}
-      {step === 3 && (
-        <div>
-          <Section title={`Étape 3 — Procédure contradictoire (${is2526F ? 'Art. 54 ROI/RGE' : 'Art. 74 RDE/ROI'})`} color="orange">
-            <p className="text-sm text-gray-600 mb-4">La procédure contradictoire est <strong>obligatoire</strong> avant toute sanction. L'étudiant doit être notifié et avoir la possibilité d'être entendu.</p>
-            <div className="space-y-4">
-              <div className="grid grid-cols-2 gap-4">
-                <label className="block">
-                  <div className="text-xs font-semibold text-gray-600 mb-1">Date de notification à l'étudiant *</div>
-                  <input type="date" value={dateNotification} onChange={e => setDateNotification(e.target.value)}
-                    className="w-full border border-gray-300 rounded px-3 py-1.5 text-sm" />
-                  <p className="text-xs text-gray-400 mt-0.5">Courrier/e-mail informant des faits reprochés et du droit à l'audition</p>
-                </label>
-                <label className="block">
-                  <div className="text-xs font-semibold text-gray-600 mb-1">Date de l'audition <span className="text-gray-400 font-normal">(si tenue)</span></div>
-                  <input type="date" value={dateAudition} onChange={e => setDateAudition(e.target.value)}
-                    className="w-full border border-gray-300 rounded px-3 py-1.5 text-sm" />
-                  <p className="text-xs text-gray-400 mt-0.5">Laisser vide si l'étudiant ne s'est pas présenté</p>
-                </label>
-              </div>
+        {/* Procédure contradictoire — notification + contestation */}
+        <div className="mt-5 pt-4 border-t border-gray-200">
+          <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-3">Procédure contradictoire ({is2526F ? 'Art. 54 ROI/RGE' : 'Art. 74 RDE/ROI'})</p>
+          <label className="block mb-3">
+            <div className="text-xs font-semibold text-gray-600 mb-1">Date de notification à l'étudiant *</div>
+            <input type="date" value={dateNotification} onChange={e => setDateNotification(e.target.value)}
+              className="w-full border border-gray-300 rounded px-3 py-1.5 text-sm" />
+            <p className="text-xs text-gray-400 mt-0.5">Courrier/e-mail informant des faits reprochés et du droit à l'audition</p>
+          </label>
+          {!dateNotification && (
+            <div className="mb-3 p-3 bg-red-50 border border-red-400 rounded text-sm text-red-800 flex items-start gap-1.5">
+              <IconBan size={16} className="flex-shrink-0 mt-0.5" />
+              <span>La notification préalable est obligatoire ({is2526F ? 'Art. 54 ROI/RGE' : 'Art. 74 §1'}). Toute décision sans notification préalable serait nulle.</span>
+            </div>
+          )}
+          <label className="flex items-center gap-2.5 p-3 rounded-lg border border-gray-300 bg-white cursor-pointer hover:bg-gray-50">
+            <input type="checkbox" checked={conteste} onChange={e => setConteste(e.target.checked)} className="w-4 h-4 accent-red-700" />
+            <span className="text-sm font-medium text-gray-700">L'étudiant conteste les faits / demande à être entendu</span>
+          </label>
+          {conteste && (
+            <div className="mt-3 space-y-4 pl-1">
+              <label className="block">
+                <div className="text-xs font-semibold text-gray-600 mb-1">Date de l'audition</div>
+                <input type="date" value={dateAudition} onChange={e => setDateAudition(e.target.value)}
+                  className="w-full border border-gray-300 rounded px-3 py-1.5 text-sm" />
+                <p className="text-xs text-gray-400 mt-0.5">Laisser vide si l'étudiant ne s'est finalement pas présenté</p>
+              </label>
               <div>
                 <div className="text-xs font-semibold text-gray-600 mb-1">Déclarations de l'étudiant lors de l'audition</div>
                 <textarea value={declarationsEtudiant} onChange={e => setDeclarationsEtudiant(e.target.value)}
@@ -1151,145 +1146,128 @@ function OutilFraude({ initialPayload, onPayloadConsumed }) {
                   className="w-full border border-gray-300 rounded px-3 py-2 text-sm resize-y" />
               </div>
             </div>
-            {!dateNotification && (
-              <div className="mt-3 p-3 bg-red-50 border border-red-400 rounded text-sm text-red-800">
-                ⛔ La notification préalable est obligatoire ({is2526F ? 'Art. 54 ROI/RGE' : 'Art. 74 §1'}). Toute décision sans notification préalable serait nulle.
-              </div>
-            )}
-          </Section>
-          <div className="flex justify-between">
-            <button onClick={() => setStep(2)} className="border border-gray-300 text-gray-600 px-6 py-2 rounded-lg text-sm">← Retour</button>
-            <button onClick={() => setStep(4)} disabled={!dateNotification}
-              className="bg-red-700 disabled:opacity-40 text-white px-6 py-2 rounded-lg text-sm font-medium">
-              Délibération →
-            </button>
+          )}
+        </div>
+      </Section>
+
+      {/* ── 3 · DÉCISION DU CDE ── */}
+      <Section title={`3 · Décision du CDE (${is2526F ? 'Art. 55 ROI/RGE' : 'Art. 75 RDE/ROI'})`} color="red">
+        <p className="text-sm text-gray-600 mb-4">Le CDE délibère après avoir entendu l'étudiant (ou après expiration du délai). La décision doit être formellement motivée ({is2526F ? 'Art. 55 ROI/RGE' : 'Art. 75 RDE/ROI'}).</p>
+
+        <div className="grid grid-cols-2 gap-4 mb-4">
+          <label className="block">
+            <div className="text-xs font-semibold text-gray-600 mb-1">Date de réunion du CDE</div>
+            <input type="date" value={dateCDE} onChange={e => setDateCDE(e.target.value)}
+              className="w-full border border-gray-300 rounded px-3 py-1.5 text-sm" />
+          </label>
+        </div>
+
+        <div className="mb-4 p-3 bg-amber-50 border border-amber-300 rounded text-sm">
+          <p className="font-semibold text-amber-800">Sanction applicable selon la situation :</p>
+          <p className="text-amber-700 mt-1">
+            {is2526F
+              ? (session === '2'
+                  ? '2e session → Refus systématique (Art. 55 ROI/RGE)'
+                  : recidive
+                  ? 'Récidive → Le CDE peut refuser dès la 1re session (Art. 55 ROI/RGE)'
+                  : '1re session → Ajournement OU refus, sur décision du CDE (Art. 55 ROI/RGE)')
+              : (session === '1' && !recidive
+                  ? '1re session + 1re fraude → Ajournement pour les AA visés (Art. 73 §1)'
+                  : '2e session ou récidive → Refus possible pour l\'UE (Art. 73 §2)')}
+          </p>
+        </div>
+
+        <div>
+          <div className="text-xs font-semibold text-gray-600 mb-2">Décision du CDE *</div>
+          <div className="space-y-2">
+            {(is2526F ? [
+              ['ajournement', `Ajournement pour les AA visés par l'épreuve (Art. 55 ROI/RGE)`, session==='1'&&!recidive],
+              ['refus',       `Refus pour l'UE ${ueNum} (Art. 55 ROI/RGE${session==='2' ? ' — systématique en 2e session' : ''})`, session==='2'],
+            ] : [
+              ['ajournement', `Ajournement pour les AA visés par l'épreuve (Art. 73 §1)`, session==='1'&&!recidive],
+              ['refus',       `Refus pour l'UE ${ueNum} (Art. 73 §2 — 2e session ou récidive)`, session==='2'||recidive],
+            ]).map(([val, label, recommande]) => (
+              <label key={val} className={`flex items-center gap-3 p-3 rounded-lg border cursor-pointer transition ${decision===val?'bg-green-50 border-green-500':'bg-white border-gray-300 hover:bg-gray-50'}`}>
+                <input type="radio" name="decision" value={val} checked={decision===val} onChange={() => setDecision(val)} className="accent-red-700" />
+                <span className="text-sm flex-1">{label}</span>
+                {recommande && <span className="text-xs bg-green-100 text-green-800 border border-green-300 rounded-full px-2 py-0.5">Recommandé</span>}
+              </label>
+            ))}
           </div>
         </div>
-      )}
 
-      {/* ÉTAPE 4 — Délibération */}
-      {step === 4 && (
-        <div>
-          <Section title="Étape 4 — Délibération du CDE" color="red">
-            <p className="text-sm text-gray-600 mb-4">Le CDE délibère après avoir entendu l'étudiant (ou après expiration du délai). La décision doit être formellement motivée ({is2526F ? 'Art. 55 ROI/RGE' : 'Art. 75 RDE/ROI'}).</p>
+        <div className="mt-4">
+          <div className="text-xs font-semibold text-gray-600 mb-1">Observations / motivation complémentaire du CDE</div>
+          <textarea value={commentaireCDE} onChange={e => setCommentaireCDE(e.target.value)}
+            rows={3} placeholder="Ex : Le CDE a examiné les pièces saisies. Les faits sont établis sans ambiguïté. L'étudiant a reconnu les faits lors de l'audition..."
+            className="w-full border border-gray-300 rounded px-3 py-2 text-sm resize-y" />
+        </div>
 
-            <div className="mb-4 p-3 bg-amber-50 border border-amber-300 rounded text-sm">
-              <p className="font-semibold text-amber-800">Sanction applicable selon la situation :</p>
-              <p className="text-amber-700 mt-1">
-                {is2526F
-                  ? (session === '2'
-                      ? '2e session → Refus systématique (Art. 55 ROI/RGE)'
-                      : recidive
-                      ? 'Récidive → Le CDE peut refuser dès la 1re session (Art. 55 ROI/RGE)'
-                      : '1re session → Ajournement OU refus, sur décision du CDE (Art. 55 ROI/RGE)')
-                  : (session === '1' && !recidive
-                      ? '1re session + 1re fraude → Ajournement pour les AA visés (Art. 73 §1)'
-                      : '2e session ou récidive → Refus possible pour l\'UE (Art. 73 §2)')}
-              </p>
-            </div>
-
-            <div>
-              <div className="text-xs font-semibold text-gray-600 mb-2">Décision du CDE *</div>
-              <div className="space-y-2">
-                {(is2526F ? [
-                  ['ajournement', `Ajournement pour les AA visés par l'épreuve (Art. 55 ROI/RGE)`, session==='1'&&!recidive],
-                  ['refus',       `Refus pour l'UE ${ueNum} (Art. 55 ROI/RGE${session==='2' ? ' — systématique en 2e session' : ''})`, session==='2'],
-                ] : [
-                  ['ajournement', `Ajournement pour les AA visés par l'épreuve (Art. 73 §1)`, session==='1'&&!recidive],
-                  ['refus',       `Refus pour l'UE ${ueNum} (Art. 73 §2 — 2e session ou récidive)`, session==='2'||recidive],
-                ]).map(([val, label, recommande]) => (
-                  <label key={val} className={`flex items-center gap-3 p-3 rounded-lg border cursor-pointer transition ${decision===val?'bg-green-50 border-green-500':'bg-white border-gray-300 hover:bg-gray-50'}`}>
-                    <input type="radio" name="decision" value={val} checked={decision===val} onChange={() => setDecision(val)} className="accent-red-700" />
-                    <span className="text-sm flex-1">{label}</span>
-                    {recommande && <span className="text-xs bg-green-100 text-green-800 border border-green-300 rounded-full px-2 py-0.5">Recommandé</span>}
-                  </label>
+        {/* Synthèse */}
+        {decision && (
+          <div className="p-4 bg-red-50 border-2 border-red-500 rounded-lg mt-5">
+            <p className="font-bold text-red-900 inline-flex items-center gap-1.5">
+              Décision : {decision === 'ajournement'
+                ? <><IconCheck size={16} /> Ajournement ({is2526F ? 'Art. 55 ROI/RGE' : 'Art. 73 §1'})</>
+                : <><IconBan size={16} /> Refus pour l'UE {ueNum} ({is2526F ? 'Art. 55 ROI/RGE' : 'Art. 73 §2'})</>}
+            </p>
+            <p className="text-sm text-red-700 mt-1">{etudiant} · UE {ueNum}{ueNom ? ' — ' + ueNom : ''} · {session === '1' ? '1re session' : '2e session'}{recidive ? ' · Récidive' : ''}</p>
+            {profsPresents.size > 0 && (
+              <div className="mt-2 flex flex-wrap gap-1">
+                {profs.filter(p => profsPresents.has(p.id)).map(p => (
+                  <span key={p.id} className="text-xs bg-green-100 text-green-800 border border-green-300 rounded-full px-2 py-0.5 inline-flex items-center gap-1"><IconCheck size={12} /> {p.nomComplet}</span>
                 ))}
               </div>
-            </div>
-
-            <div className="mt-4">
-              <div className="text-xs font-semibold text-gray-600 mb-1">Observations / motivation complémentaire du CDE</div>
-              <textarea value={commentaireCDE} onChange={e => setCommentaireCDE(e.target.value)}
-                rows={3} placeholder="Ex : Le CDE a examiné les pièces saisies. Les faits sont établis sans ambiguïté. L'étudiant a reconnu les faits lors de l'audition..."
-                className="w-full border border-gray-300 rounded px-3 py-2 text-sm resize-y" />
-            </div>
-          </Section>
-          <div className="flex justify-between">
-            <button onClick={() => setStep(3)} className="border border-gray-300 text-gray-600 px-6 py-2 rounded-lg text-sm">← Retour</button>
-            <button onClick={() => setStep(5)} disabled={!decision}
-              className="bg-red-700 disabled:opacity-40 text-white px-6 py-2 rounded-lg text-sm font-medium">
-              PV & décision →
-            </button>
+            )}
           </div>
-        </div>
-      )}
+        )}
 
-      {/* ÉTAPE 5 — PV & décision */}
-      {step === 5 && (
-        <div>
-          <Section title="Étape 5 — Notification et PV">
-            {/* Synthèse */}
-            <div className="p-4 bg-red-50 border-2 border-red-500 rounded-lg mb-5">
-              <p className="font-bold text-red-900">
-                Décision : {decision === 'ajournement' ? `✓ Ajournement (${is2526F ? 'Art. 55 ROI/RGE' : 'Art. 73 §1'})` : `⛔ Refus pour l'UE ${ueNum} (${is2526F ? 'Art. 55 ROI/RGE' : 'Art. 73 §2'})`}
+        {/* Date d'envoi */}
+        <div className="border border-gray-200 rounded-lg p-4 mt-5 bg-gray-50">
+          <p className="text-sm font-semibold text-gray-700 mb-3">À compléter après la réunion du CDE :</p>
+          <label className="block">
+            <div className="text-xs font-semibold text-gray-600 mb-1">Date d'envoi de la décision à l'étudiant (recommandé)</div>
+            <input type="date" value={dateEnvoi} onChange={e => setDateEnvoi(e.target.value)}
+              className="border border-gray-300 rounded px-3 py-1.5 text-sm bg-white" />
+            {dateEnvoi && (
+              <p className="text-xs text-orange-700 mt-1 inline-flex items-center gap-1">
+                <IconClock size={13} /> Limite recours interne : <strong>{fmt(addJoursCalendrier(dateEnvoi, 4))}</strong>
+                <span className="text-gray-400 font-normal ml-1">(4 jours calendrier après notification — Art. 88 §1)</span>
               </p>
-              <p className="text-sm text-red-700 mt-1">{etudiant} · UE {ueNum}{ueNom ? ' — ' + ueNom : ''} · {session === '1' ? '1re session' : '2e session'}{recidive ? ' · Récidive' : ''}</p>
-              {profsPresents.size > 0 && (
-                <div className="mt-2 flex flex-wrap gap-1">
-                  {profs.filter(p => profsPresents.has(p.id)).map(p => (
-                    <span key={p.id} className="text-xs bg-green-100 text-green-800 border border-green-300 rounded-full px-2 py-0.5">✓ {p.nomComplet}</span>
-                  ))}
-                </div>
-              )}
-            </div>
-
-            {/* Date d'envoi */}
-            <div className="border border-gray-200 rounded-lg p-4 mb-5 bg-gray-50">
-              <p className="text-sm font-semibold text-gray-700 mb-3">À compléter après la réunion du CDE :</p>
-              <label className="block">
-                <div className="text-xs font-semibold text-gray-600 mb-1">Date d'envoi de la décision à l'étudiant (recommandé)</div>
-                <input type="date" value={dateEnvoi} onChange={e => setDateEnvoi(e.target.value)}
-                  className="border border-gray-300 rounded px-3 py-1.5 text-sm bg-white" />
-                {dateEnvoi && (
-                  <p className="text-xs text-orange-700 mt-1">
-                    ⏱ Limite recours interne : <strong>{fmt(addJoursCalendrier(dateEnvoi, 4))}</strong>
-                    <span className="text-gray-400 font-normal ml-1">(4 jours calendrier après notification — Art. 88 §1)</span>
-                  </p>
-                )}
-              </label>
-            </div>
-
-            {/* Procédure de notification */}
-            <div className="space-y-2 mb-5">
-              {[
-                {n:1, label:'Envoyer par recommandé', detail:'Notifier la décision motivée à l\'étudiant par pli recommandé avec accusé de réception.'},
-                {n:2, label:'Encoder dans Lucie', detail:`Encoder l'AA/UE concerné avec la mention de fraude et la sanction appliquée.`},
-                {n:3, label:'Archiver le dossier', detail:'Classer : rapport de fraude + pièces saisies + preuve de notification + PV de délibération + récépissé recommandé.'},
-                {n:4, label:'Informer les voies de recours', detail:'L\'étudiant dispose de 4 jours calendrier pour introduire un recours interne (Art. 88 §1 RDE/ROI).'},
-              ].map(item => (
-                <div key={item.n} className="flex gap-3 p-3 bg-white border border-gray-200 rounded-lg text-sm">
-                  <div className="w-6 h-6 rounded-full bg-red-700 text-white text-xs font-bold flex items-center justify-center flex-shrink-0">{item.n}</div>
-                  <div><p className="font-semibold">{item.label}</p><p className="text-gray-600">{item.detail}</p></div>
-                </div>
-              ))}
-            </div>
-
-            <button onClick={ouvrirPV}
-              className="w-full bg-red-700 hover:opacity-90 text-white py-3 rounded-xl text-sm font-bold flex items-center justify-center gap-2">
-              📄 Générer le procès-verbal (PDF)
-            </button>
-            <p className="text-xs text-gray-500 text-center mt-1">Document officiel · CONFIDENTIEL · À signer et envoyer par recommandé à l'étudiant</p>
-          </Section>
-
-          <div className="flex justify-between mt-2">
-            <button onClick={() => setStep(4)} className="border border-gray-300 text-gray-600 px-6 py-2 rounded-lg text-sm">← Retour</button>
-            <button onClick={() => { setStep(1); setEtudiant(''); setUeNum(''); setSession('1'); setRecidive(false); setDateExamen(''); setDateFaits(''); setTypeFraude(''); setDescriptionFraits(''); setDateNotification(''); setDateAudition(''); setDeclarationsEtudiant(''); setDateCDE(''); setDateEnvoi(''); setDecision(''); setCommentaireCDE(''); setProfsPresents(new Set()); }}
-              className="border border-red-700 text-red-700 px-6 py-2 rounded-lg text-sm font-medium hover:bg-red-50">
-              ↺ Nouveau dossier
-            </button>
-          </div>
+            )}
+          </label>
         </div>
-      )}
+
+        {/* Procédure de notification */}
+        <div className="space-y-2 my-5">
+          {[
+            {n:1, label:'Envoyer par recommandé', detail:'Notifier la décision motivée à l\'étudiant par pli recommandé avec accusé de réception.'},
+            {n:2, label:'Encoder dans Lucie', detail:`Encoder l'AA/UE concerné avec la mention de fraude et la sanction appliquée.`},
+            {n:3, label:'Archiver le dossier', detail:'Classer : rapport de fraude + pièces saisies + preuve de notification + PV de délibération + récépissé recommandé.'},
+            {n:4, label:'Informer les voies de recours', detail:'L\'étudiant dispose de 4 jours calendrier pour introduire un recours interne (Art. 88 §1 RDE/ROI).'},
+          ].map(item => (
+            <div key={item.n} className="flex gap-3 p-3 bg-white border border-gray-200 rounded-lg text-sm">
+              <div className="w-6 h-6 rounded-full bg-red-700 text-white text-xs font-bold flex items-center justify-center flex-shrink-0">{item.n}</div>
+              <div><p className="font-semibold">{item.label}</p><p className="text-gray-600">{item.detail}</p></div>
+            </div>
+          ))}
+        </div>
+
+        <button onClick={ouvrirPV}
+          className="w-full bg-red-700 hover:opacity-90 text-white py-3 rounded-xl text-sm font-bold flex items-center justify-center gap-2">
+          <IconFileText size={18} /> Générer le procès-verbal (PDF)
+        </button>
+        <p className="text-xs text-gray-500 text-center mt-1">Document officiel · CONFIDENTIEL · À signer et envoyer par recommandé à l'étudiant</p>
+      </Section>
+
+      {/* Réinitialiser */}
+      <div className="flex justify-end">
+        <button onClick={() => { setStep(1); setEtudiant(''); setUeNum(''); setSession('1'); setRecidive(false); setDateExamen(''); setDateFaits(''); setTypeFraude(''); setDescriptionFraits(''); setDateNotification(''); setDateAudition(''); setDeclarationsEtudiant(''); setDateCDE(''); setDateEnvoi(''); setDecision(''); setCommentaireCDE(''); setMomentFaits('pendant'); setConteste(false); setProfsPresents(new Set()); window.scrollTo({ top: 0, behavior: 'smooth' }); }}
+          className="border border-red-700 text-red-700 px-6 py-2 rounded-lg text-sm font-medium hover:bg-red-50 inline-flex items-center gap-1.5">
+          <IconRefresh size={16} /> Nouveau dossier
+        </button>
+      </div>
+
       {previewHtml && (
         <PreviewModal html={previewHtml} titre="PV de fraude" onClose={() => setPreviewHtml(null)} />
       )}
