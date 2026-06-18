@@ -5,6 +5,7 @@ import { PageHeader, RailLateral } from '../components/ui.jsx';
 import {
   IconChecklist, IconScale, IconShieldExclamation, IconClipboardList,
   IconFolder, IconCheck, IconX, IconArrowBackUp,
+  IconBan, IconAlertTriangle, IconClock, IconCircleCheck, IconRefresh, IconFileText,
 } from '@tabler/icons-react';
 
 // ─── Utilitaires ──────────────────────────────────────────────────────────────
@@ -434,307 +435,262 @@ function OutilRecours({ initialPayload, onPayloadConsumed }) {
   const steps = ['Dossier & UE', 'Qualification', 'Recevabilité', 'Analyse au fond', 'Décision'];
 
   return (
-    <div className="max-w-3xl">
-      {/* Stepper */}
-      <div className="flex items-center gap-1 mb-7 overflow-x-auto pb-1">
-        {steps.map((s, i) => (
-          <div key={i} className="flex items-center gap-1 flex-shrink-0">
-            <button onClick={() => setStep(i+1)}
-              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium transition
-                ${step === i+1 ? 'bg-iip-turquoise text-white' : step > i+1 ? 'bg-green-500 text-white' : 'bg-gray-100 text-gray-500'}`}>
-              {step > i+1 ? '✓' : i+1}. {s}
-            </button>
-            {i < steps.length-1 && <div className={`h-0.5 w-4 flex-shrink-0 ${step > i+1 ? 'bg-green-400' : 'bg-gray-200'}`} />}
+    <div className="max-w-4xl space-y-6">
+
+      {/* ── 1 · IDENTIFICATION DU DOSSIER ── */}
+      <Section title="1 · Identification du dossier">
+        <div className="grid grid-cols-2 gap-4 mb-4">
+          <label className="block">
+            <div className="text-xs font-semibold text-gray-600 mb-1">Nom de l'étudiant·e *</div>
+            <input value={etudiant} onChange={e => setEtudiant(e.target.value)} placeholder="Prénom NOM"
+              className="w-full border border-gray-300 rounded px-3 py-1.5 text-sm" />
+          </label>
+          <label className="block">
+            <div className="text-xs font-semibold text-gray-600 mb-1">Section</div>
+            <select value={sectionSel} onChange={e => { setSectionSel(e.target.value); setUeNum(''); }}
+              className="w-full border border-gray-300 rounded px-3 py-1.5 text-sm bg-white">
+              <option value="">— Toutes les sections —</option>
+              {sectionsListe.map(s => <option key={s} value={s}>{s}</option>)}
+            </select>
+          </label>
+          <label className="block">
+            <div className="text-xs font-semibold text-gray-600 mb-1">UE concernée *</div>
+            <select value={ueNum} onChange={e => setUeNum(e.target.value)}
+              className="w-full border border-gray-300 rounded px-3 py-1.5 text-sm bg-white">
+              <option value="">— Choisir une UE —</option>
+              {uesFiltrees.map(u => <option key={u.ue_num} value={u.ue_num}>UE {u.ue_num} — {u.ue_nom}</option>)}
+            </select>
+          </label>
+          <label className="block">
+            <div className="text-xs font-semibold text-gray-600 mb-1">Date de publication des résultats</div>
+            <input type="date" value={datePubli} onChange={e => setDatePubli(e.target.value)}
+              className="w-full border border-gray-300 rounded px-3 py-1.5 text-sm" />
+            {datePubli && <p className="text-xs text-gray-500 mt-0.5">Limite recours : <strong>{fmt(limiteRecours)}</strong></p>}
+          </label>
+          <label className="block">
+            <div className="text-xs font-semibold text-gray-600 mb-1">Date de réception de la plainte</div>
+            <input type="date" value={dateRecours} onChange={e => setDateRecours(e.target.value)}
+              className="w-full border border-gray-300 rounded px-3 py-1.5 text-sm" />
+            {nbJours !== null && (
+              <p className={`text-xs mt-0.5 font-semibold inline-flex items-center gap-1 ${delaiRespect ? 'text-green-700' : 'text-red-700'}`}>
+                J+{nbJours} → {delaiRespect ? <><IconCheck size={14} /> Dans le délai</> : <><IconX size={14} /> HORS DÉLAI</>}
+              </p>
+            )}
+          </label>
+        </div>
+
+        {/* Professeurs de l'UE — checkboxes présents à la délibération */}
+        {ueNum && (
+          <div className="mt-3 p-4 bg-blue-50 border border-blue-200 rounded-lg">
+            <div className="flex items-center justify-between mb-2">
+              <p className="text-sm font-bold text-blue-900">
+                Enseignants de l'UE {ueNum}{ueNom ? ` — ${ueNom}` : ''} ({annee})
+                {loadingProfs && <span className="text-xs font-normal ml-2">Chargement…</span>}
+              </p>
+              {profs.length > 0 && (
+                <button onClick={() => setProfsPresents(new Set(profs.map(p => p.id)))}
+                  className="text-xs text-blue-600 hover:underline">Tout cocher</button>
+              )}
+            </div>
+            {profs.length === 0 && !loadingProfs && (
+              <p className="text-sm text-gray-500 italic">Aucun enseignant attribué pour cette UE.</p>
+            )}
+            {profs.length > 0 && (
+              <>
+                <p className="text-xs text-blue-700 mb-2">Cochez les membres <strong>présents</strong> à la délibération (CDE restreint = Président + min. 2 membres — Art. 89 §1) :</p>
+                <div className="space-y-1">
+                  {profs.map(p => (
+                    <label key={p.id} className={`flex items-center gap-3 px-3 py-2 rounded-lg border cursor-pointer transition ${profsPresents.has(p.id) ? 'bg-green-50 border-green-400' : 'bg-white border-blue-200 hover:bg-blue-50'}`}>
+                      <input type="checkbox" checked={profsPresents.has(p.id)} onChange={() => toggleProfPresent(p.id)} className="w-4 h-4 accent-green-600" />
+                      <span className={`w-7 h-7 rounded-full text-white text-xs font-bold flex items-center justify-center flex-shrink-0 ${profsPresents.has(p.id) ? 'bg-green-600' : 'bg-iip-turquoise'}`}>
+                        {(p.nom[0]||'?').toUpperCase()}
+                      </span>
+                      <span className={`text-sm font-medium flex-1 ${profsPresents.has(p.id) ? 'text-green-800' : 'text-gray-700'}`}>{p.nomComplet}</span>
+                      {p.qualite && <span className="text-xs text-gray-400 italic">{p.qualite}</span>}
+                      {profsPresents.has(p.id) && <IconCheck size={15} className="text-green-700 ml-1" />}
+                    </label>
+                  ))}
+                </div>
+                {profsPresents.size > 0 && (
+                  <p className={`text-xs mt-2 font-medium inline-flex items-center gap-1 ${profsPresents.size >= 3 ? 'text-green-700' : 'text-orange-600'}`}>
+                    {profsPresents.size} membre{profsPresents.size > 1 ? 's' : ''} présent{profsPresents.size > 1 ? 's' : ''}
+                    {profsPresents.size >= 3
+                      ? <><IconCheck size={14} /> Quorum atteint</>
+                      : <><IconAlertTriangle size={14} /> Min. 3 membres requis ({3 - profsPresents.size} manquant{3 - profsPresents.size > 1 ? 's' : ''})</>}
+                  </p>
+                )}
+                {profsPresents.size === 0 && (
+                  <p className="text-xs text-orange-600 mt-2 inline-flex items-center gap-1"><IconAlertTriangle size={14} /> Cochez les membres présents pour les inclure dans le PV.</p>
+                )}
+              </>
+            )}
           </div>
-        ))}
+        )}
+      </Section>
+
+      {/* ── 2 · QUALIFICATION DE LA DÉCISION ── */}
+      <Section title="2 · Qualification de la décision">
+        <Q num="1" text="La décision contestée est-elle une DÉCISION DE REFUS ?" value={q.decisionRefus} onChange={v => set('decisionRefus', v)} ref_={UI.porteeRefus} />
+        {q.decisionRefus === 'non' && (
+          <div className="mt-3 p-4 bg-red-100 border-2 border-red-500 rounded-lg">
+            <p className="font-bold text-red-800 inline-flex items-center gap-1.5"><IconBan size={18} /> IRRECEVABLE DE PLEIN DROIT</p>
+            <p className="text-red-700 text-sm mt-1">Seules les décisions de REFUS sont recourables. Les ajournements (1re session), VA/VAE et délivrances de titre ne peuvent pas faire l'objet d'un recours.</p>
+            <p className="text-xs text-red-600 mt-1 inline-flex items-center gap-1"><IconScale size={13} /> {UI.porteeRefus2}</p>
+          </div>
+        )}
+        {q.decisionRefus === 'oui' && (
+          <div className="mt-3 p-3 bg-green-50 border border-green-200 rounded text-sm text-green-800 inline-flex items-center gap-1.5">
+            <IconCheck size={16} /> La décision est de nature recourable (décision de refus). Procéder à l'analyse de recevabilité.
+          </div>
+        )}
+        {q.decisionRefus === 'oui' && delaiRespect === false && (
+          <div className="mt-2 p-3 bg-orange-50 border-2 border-orange-400 rounded text-sm text-orange-800 flex items-start gap-1.5">
+            <IconAlertTriangle size={16} className="flex-shrink-0 mt-0.5" />
+            <span><strong>Attention :</strong> le délai de 4 jours calendrier est dépassé (J+{nbJours}). La plainte sera vraisemblablement <strong>irrecevable</strong> pour ce motif — vérification formelle ci-dessous.</span>
+          </div>
+        )}
+      </Section>
+
+      {/* ── 3 · RECEVABILITÉ FORMELLE ── */}
+      <Section title={`3 · Recevabilité formelle (${is2526 ? 'Art. 67 ROI/RGE' : 'Art. 88 §3'})`}>
+        <p className="text-sm text-gray-600 mb-4">4 conditions <strong>cumulatives</strong> — une seule manquante = irrecevable.</p>
+        <Q num="1" text="La plainte respecte-t-elle les conditions de forme (écrit avec accusé de réception, remise contre accusé ou recommandé) ?" value={q.ecrit} onChange={v => set('ecrit', v)} ref_={is2526 ? 'Art. 67 ROI/RGE' : 'Art. 88 §3'} />
+        {delaiRespect !== null
+          ? <div className="mb-4 pl-10"><Badge ok={delaiRespect} label={delaiRespect ? `J+${nbJours} — Dans le délai` : `J+${nbJours} — HORS DÉLAI`} /><Ref text={is2526 ? 'Art. 67 ROI/RGE' : 'Art. 88 §1'} /></div>
+          : <Q num="2" text="Plainte reçue dans les 4 jours calendrier après publication ?" value={q.delaiRespect} onChange={v => set('delaiRespect', v)} ref_={is2526 ? 'Art. 67 ROI/RGE' : 'Art. 88 §1'} />}
+        <Q num="3" text="Porte sur une DÉCISION DE REFUS (pas ajournement, pas VA/VAE) ?" value={q.porteRefus} onChange={v => set('porteRefus', v)} ref_={is2526 ? 'Art. 65 ROI/RGE' : 'Art. 88 §3'} />
+        <Q num="4" text="Mentionne des IRRÉGULARITÉS PRÉCISES (pas juste 'je ne suis pas d'accord') ?" value={q.irregulPrecises} onChange={v => set('irregulPrecises', v)} ref_={is2526 ? 'Art. 67 ROI/RGE' : 'Art. 88 §3'} />
+
+        {conditionsRecevabilite.some(c => c.ok !== undefined) && (
+          <div className={`p-4 rounded-xl border-2 mt-4 ${recevable ? 'bg-green-50 border-green-500' : irrecevable ? 'bg-red-50 border-red-500' : 'bg-gray-50 border-gray-300'}`}>
+            {recevable && <>
+              <p className="font-bold text-green-800 text-base inline-flex items-center gap-1.5"><IconCircleCheck size={20} /> RECEVABLE — Procéder à l'instruction</p>
+              {limiteDecisionInterne && <p className="text-sm text-green-700 mt-1 inline-flex items-center gap-1"><IconClock size={14} /> Date limite décision interne : <strong>{fmt(limiteDecisionInterne)}</strong></p>}
+            </>}
+            {irrecevable && !recevable && <>
+              <p className="font-bold text-red-800 text-base inline-flex items-center gap-1.5"><IconBan size={20} /> IRRECEVABLE</p>
+              {conditionsRecevabilite.filter(c => c.ok === false).map(c => (
+                <p key={c.label} className="text-sm text-red-700 mt-1 inline-flex items-center gap-1"><IconX size={14} /> {c.label} <Ref text={c.ref} /></p>
+              ))}
+              <p className="text-sm text-red-700 mt-2">→ Notifier à l'étudiant par écrit ({is2526 ? 'Art. 67 ROI/RGE' : 'Art. 88 §4'}).</p>
+            </>}
+          </div>
+        )}
+      </Section>
+
+      {/* ── 4 · ANALYSE AU FOND ── */}
+      <Section title="4 · Analyse au fond (irrégularités invoquées)">
+        <p className="text-sm text-gray-600 mb-4">Seules les irrégularités de <strong>procédure ou de droit</strong> peuvent fonder un recours. La Commission de recours peut annuler mais ne substitue pas sa note.</p>
+        <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">A — Délibération</p>
+        <Q num="1" text="Le quorum était-il atteint ? (Président + min. 2 membres)" value={q.quorum} onChange={v => set('quorum', v)} ref_={is2526 ? 'Art. 14 ROI/RGE' : 'Art. 89 §1'} />
+        <Q num="2" text="Conflit d'intérêt non déclaré parmi les membres du jury ?" value={q.conflitInteret} onChange={v => set('conflitInteret', v)} />
+        <Q num="3" text="Justification de l'échec (AA non atteints) encodée et communiquée ?" value={q.motivJustif} onChange={v => set('motivJustif', v)} ref_={is2526 ? 'Art. 50 ROI/RGE' : 'Art. 71'} />
+        <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2 mt-3">B — Évaluation</p>
+        <Q num="4" text="DUE fournis dans les délais ?" value={q.dueDelai} onChange={v => set('dueDelai', v)} />
+        <Q num="5" text="Visite des copies proposée dans les délais (J+1 après délibération) ?" value={q.visiteCopies} onChange={v => set('visiteCopies', v)} ref_={is2526 ? 'Art. 50 ROI/RGE' : 'Art. 71 §1'} />
+        <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2 mt-3">C — Post-délibération</p>
+        <Q num="6" text="Résultats publiés dans les 2 jours ouvrables suivant la délibération ?" value={q.publiResultats} onChange={v => set('publiResultats', v)} ref_={is2526 ? 'Art. 63 ROI/RGE' : 'Art. 82'} />
+      </Section>
+
+      {/* ── 5 · DÉCISION MOTIVÉE & RÉUNION DU CDE ── */}
+      <Section title="5 · Décision motivée & réunion du CDE">
+        {/* Date du CDE — placée ici, APRÈS la recevabilité */}
+        <div className="grid grid-cols-2 gap-4 mb-5">
+          <label className="block">
+            <div className="text-xs font-semibold text-gray-600 mb-1">Date de réunion du CDE restreint</div>
+            <input type="date" value={dateSeance} onChange={e => setDateSeance(e.target.value)}
+              className="w-full border border-gray-300 rounded px-3 py-1.5 text-sm" />
+            {limiteDecisionInterne && <p className="text-xs text-gray-500 mt-0.5">Date limite décision : <strong>{fmt(limiteDecisionInterne)}</strong></p>}
+          </label>
+        </div>
+
+        {/* Synthèse */}
+        <div className={`p-4 rounded-lg border-2 mb-5 ${recevable ? 'border-green-500 bg-green-50' : 'border-red-500 bg-red-50'}`}>
+          <p className="font-bold text-base inline-flex items-center gap-1.5">{recevable ? <><IconCircleCheck size={18} /> Recevable</> : <><IconBan size={18} /> Irrecevable</>}</p>
+          {recevable && (() => {
+            const irregs = [
+              q.quorum === 'non' && 'Quorum non atteint (Art. 89 §1)',
+              q.conflitInteret === 'oui' && 'Conflit d\'intérêt',
+              q.motivJustif === 'non' && 'Justification AA manquante (Art. 71)',
+              q.visiteCopies === 'non' && 'Visite des copies non proposée (Art. 71 §1)',
+              q.publiResultats === 'non' && `Publication tardive (${is2526 ? 'Art. 63 ROI/RGE' : 'Art. 82'})`,
+            ].filter(Boolean);
+            return irregs.length
+              ? <><p className="text-sm text-red-700 mt-2 font-medium">Irrégularités relevées :</p>{irregs.map(i=><p key={i} className="text-sm text-red-700 inline-flex items-center gap-1"><IconX size={14} /> {i}</p>)}</>
+              : <p className="text-sm text-green-700 mt-1">Aucune irrégularité de fond relevée — recours rejeté.</p>;
+          })()}
+        </div>
+
+        {/* Procédure */}
+        <div className="space-y-2 mb-5">
+          {[
+            {n:1, label:'Accusé de réception', detail:'Envoyer immédiatement un accusé de réception à l\'étudiant.'},
+            {n:2, label:'Convoquer le CDE restreint', detail:`Président + min. 2 membres.${profsPresents.size > 0 ? ' Présents cochés : ' + profs.filter(p=>profsPresents.has(p.id)).map(p=>p.nomComplet).join(', ') + '.' : profs.length ? ' Enseignants de l\'UE : ' + profs.map(p=>p.nomComplet).join(', ') + ' (cochez les présents en section 1).' : ''}`},
+            {n:3, label:'Instruction', detail:'Examiner les griefs argument par argument. Consulter épreuves, DUE, feuilles de délibération.'},
+            {n:4, label:'Décision motivée', detail:'Rédiger la décision en exposant pourquoi chaque grief est accepté ou rejeté.'},
+            {n:5, label:'Notification par recommandé', detail:`${limiteDecisionInterne ? 'Date limite : ' + fmt(limiteDecisionInterne) + '.' : 'Envoyer dans le délai légal (7 jours calendrier hors congés).'}`},
+            {n:6, label:'Archivage', detail:'Classer le dossier complet (plainte + pièces + décision + récépissé recommandé).'},
+          ].map(item => (
+            <div key={item.n} className="flex gap-3 p-3 bg-white border border-gray-200 rounded-lg text-sm">
+              <div className="w-6 h-6 rounded-full bg-iip-turquoise text-white text-xs font-bold flex items-center justify-center flex-shrink-0">{item.n}</div>
+              <div><p className="font-semibold">{item.label}</p><p className="text-gray-600">{item.detail}</p></div>
+            </div>
+          ))}
+        </div>
+
+        {limiteRecourseExterne && (
+          <div className="p-3 bg-orange-50 border border-orange-300 rounded text-sm mb-5 inline-flex items-center gap-1.5">
+            <IconClock size={15} /> <strong>Limite recours externe :</strong> {fmt(limiteRecourseExterne)}
+            <span className="text-xs text-orange-700 ml-2 inline-flex items-center gap-1"><IconScale size={12} /> Art. 90 §2 RDE/ROI</span>
+          </div>
+        )}
+
+        {/* Date d'envoi + commentaire — saisis après la délibération */}
+        <div className="border border-gray-200 rounded-lg p-4 mb-5 bg-gray-50 space-y-4">
+          <p className="text-sm font-semibold text-gray-700">À compléter après la réunion du CDE restreint :</p>
+
+          <label className="block">
+            <div className="text-xs font-semibold text-gray-600 mb-1">
+              Date d'envoi de la décision par recommandé
+              <span className="text-gray-400 font-normal ml-1">(déclenche le délai de recours externe)</span>
+            </div>
+            <input type="date" value={dateDecisionInterne} onChange={e => setDateDecisionInterne(e.target.value)}
+              className="w-full border border-gray-300 rounded px-3 py-1.5 text-sm bg-white" />
+            {limiteRecourseExterne && (
+              <p className="text-xs text-orange-700 mt-1 font-medium inline-flex items-center gap-1">
+                <IconClock size={13} /> Limite recours externe : <strong>{fmt(limiteRecourseExterne)}</strong>
+                <span className="text-gray-500 font-normal ml-1">(J+3 ouvrables + 7 jours calendrier — Art. 90 §2)</span>
+              </p>
+            )}
+          </label>
+
+          <label className="block">
+            <div className="text-xs font-semibold text-gray-600 mb-1">
+              Observations / commentaire du CDE
+              <span className="text-gray-400 font-normal ml-1">(facultatif — apparaîtra dans la décision)</span>
+            </div>
+            <textarea value={commentaireCDE} onChange={e => setCommentaireCDE(e.target.value)}
+              rows={4} placeholder="Ex : Le CDE a examiné les épreuves en présence du responsable d'UE. Il ressort que les AA notifiés sur E-campus ont bien été communiqués à l'étudiant le [date]. La note de [X/20] reflète fidèlement le niveau d'acquisition constaté lors de l'épreuve."
+              className="w-full border border-gray-300 rounded px-3 py-2 text-sm bg-white resize-y" />
+          </label>
+        </div>
+
+        {/* Bouton génération */}
+        <button onClick={ouvrirDecision}
+          className="w-full bg-iip-turquoise hover:opacity-90 text-white py-3 rounded-xl text-sm font-bold flex items-center justify-center gap-2">
+          <IconFileText size={18} /> Générer la décision motivée (Word / PDF)
+        </button>
+        <p className="text-xs text-gray-500 text-center mt-1">Document officiel à imprimer, signer et envoyer par recommandé à l'étudiant.</p>
+      </Section>
+
+      {/* Réinitialiser */}
+      <div className="flex justify-end">
+        <button onClick={() => { setStep(1); setQ({}); setEtudiant(''); setUeNum(''); setDatePubli(''); setDateRecours(''); setDateDecisionInterne(''); setDateSeance(''); setCommentaireCDE(''); setProfsPresents(new Set()); window.scrollTo({ top: 0, behavior: 'smooth' }); }}
+          className="border border-iip-turquoise text-iip-turquoise px-6 py-2 rounded-lg text-sm font-medium hover:bg-iip-turquoise/5 inline-flex items-center gap-1.5">
+          <IconRefresh size={16} /> Nouveau recours
+        </button>
       </div>
 
-      {/* ÉTAPE 1 — Dossier & UE */}
-      {step === 1 && (
-        <div>
-          <Section title="Étape 1 — Constitution du dossier">
-            <div className="grid grid-cols-2 gap-4 mb-4">
-              <label className="block">
-                <div className="text-xs font-semibold text-gray-600 mb-1">Nom de l'étudiant·e *</div>
-                <input value={etudiant} onChange={e => setEtudiant(e.target.value)} placeholder="Prénom NOM"
-                  className="w-full border border-gray-300 rounded px-3 py-1.5 text-sm" />
-              </label>
-              <label className="block">
-                <div className="text-xs font-semibold text-gray-600 mb-1">Section</div>
-                <select value={sectionSel} onChange={e => { setSectionSel(e.target.value); setUeNum(''); }}
-                  className="w-full border border-gray-300 rounded px-3 py-1.5 text-sm bg-white">
-                  <option value="">— Toutes les sections —</option>
-                  {sectionsListe.map(s => <option key={s} value={s}>{s}</option>)}
-                </select>
-              </label>
-              <label className="block">
-                <div className="text-xs font-semibold text-gray-600 mb-1">UE concernée *</div>
-                <select value={ueNum} onChange={e => setUeNum(e.target.value)}
-                  className="w-full border border-gray-300 rounded px-3 py-1.5 text-sm bg-white">
-                  <option value="">— Choisir une UE —</option>
-                  {uesFiltrees.map(u => <option key={u.ue_num} value={u.ue_num}>UE {u.ue_num} — {u.ue_nom}</option>)}
-                </select>
-              </label>
-              <label className="block">
-                <div className="text-xs font-semibold text-gray-600 mb-1">Date de publication des résultats</div>
-                <input type="date" value={datePubli} onChange={e => setDatePubli(e.target.value)}
-                  className="w-full border border-gray-300 rounded px-3 py-1.5 text-sm" />
-                {datePubli && <p className="text-xs text-gray-500 mt-0.5">Limite recours : <strong>{fmt(limiteRecours)}</strong></p>}
-              </label>
-              <label className="block">
-                <div className="text-xs font-semibold text-gray-600 mb-1">Date de réception de la plainte</div>
-                <input type="date" value={dateRecours} onChange={e => setDateRecours(e.target.value)}
-                  className="w-full border border-gray-300 rounded px-3 py-1.5 text-sm" />
-                {nbJours !== null && (
-                  <p className={`text-xs mt-0.5 font-semibold ${delaiRespect ? 'text-green-700' : 'text-red-700'}`}>
-                    J+{nbJours} → {delaiRespect ? '✓ Dans le délai' : '✗ HORS DÉLAI'}
-                  </p>
-                )}
-              </label>
-              <label className="block">
-                <div className="text-xs font-semibold text-gray-600 mb-1">Date de réunion du CDE restreint</div>
-                <input type="date" value={dateSeance} onChange={e => setDateSeance(e.target.value)}
-                  className="w-full border border-gray-300 rounded px-3 py-1.5 text-sm" />
-                {limiteDecisionInterne && <p className="text-xs text-gray-500 mt-0.5">Date limite décision : <strong>{fmt(limiteDecisionInterne)}</strong></p>}
-              </label>
-            </div>
-
-            {/* Professeurs de l'UE — checkboxes présents à la délibération */}
-            {ueNum && (
-              <div className="mt-3 p-4 bg-blue-50 border border-blue-200 rounded-lg">
-                <div className="flex items-center justify-between mb-2">
-                  <p className="text-sm font-bold text-blue-900">
-                    Enseignants de l'UE {ueNum}{ueNom ? ` — ${ueNom}` : ''} ({annee})
-                    {loadingProfs && <span className="text-xs font-normal ml-2">Chargement…</span>}
-                  </p>
-                  {profs.length > 0 && (
-                    <button onClick={() => setProfsPresents(new Set(profs.map(p => p.id)))}
-                      className="text-xs text-blue-600 hover:underline">Tout cocher</button>
-                  )}
-                </div>
-                {profs.length === 0 && !loadingProfs && (
-                  <p className="text-sm text-gray-500 italic">Aucun enseignant attribué pour cette UE.</p>
-                )}
-                {profs.length > 0 && (
-                  <>
-                    <p className="text-xs text-blue-700 mb-2">Cochez les membres <strong>présents</strong> à la délibération (CDE restreint = Président + min. 2 membres — Art. 89 §1) :</p>
-                    <div className="space-y-1">
-                      {profs.map(p => (
-                        <label key={p.id} className={`flex items-center gap-3 px-3 py-2 rounded-lg border cursor-pointer transition ${profsPresents.has(p.id) ? 'bg-green-50 border-green-400' : 'bg-white border-blue-200 hover:bg-blue-50'}`}>
-                          <input type="checkbox" checked={profsPresents.has(p.id)} onChange={() => toggleProfPresent(p.id)} className="w-4 h-4 accent-green-600" />
-                          <span className={`w-7 h-7 rounded-full text-white text-xs font-bold flex items-center justify-center flex-shrink-0 ${profsPresents.has(p.id) ? 'bg-green-600' : 'bg-iip-turquoise'}`}>
-                            {(p.nom[0]||'?').toUpperCase()}
-                          </span>
-                          <span className={`text-sm font-medium flex-1 ${profsPresents.has(p.id) ? 'text-green-800' : 'text-gray-700'}`}>{p.nomComplet}</span>
-                          {p.qualite && <span className="text-xs text-gray-400 italic">{p.qualite}</span>}
-                          {profsPresents.has(p.id) && <span className="text-xs text-green-700 font-semibold ml-1">✓</span>}
-                        </label>
-                      ))}
-                    </div>
-                    {profsPresents.size > 0 && (
-                      <p className={`text-xs mt-2 font-medium ${profsPresents.size >= 3 ? 'text-green-700' : 'text-orange-600'}`}>
-                        {profsPresents.size} membre{profsPresents.size > 1 ? 's' : ''} présent{profsPresents.size > 1 ? 's' : ''}
-                        {profsPresents.size >= 3 ? ' — ✓ Quorum atteint' : ` — ⚠ Min. 3 membres requis (${3 - profsPresents.size} manquant${3 - profsPresents.size > 1 ? 's' : ''})`}
-                      </p>
-                    )}
-                    {profsPresents.size === 0 && (
-                      <p className="text-xs text-orange-600 mt-2">⚠ Cochez les membres présents pour les inclure dans le PV.</p>
-                    )}
-                  </>
-                )}
-              </div>
-            )}
-          </Section>
-          <div className="flex justify-end">
-            <button onClick={() => setStep(2)} className="bg-iip-turquoise text-white px-6 py-2 rounded-lg text-sm font-medium">Étape suivante →</button>
-          </div>
-        </div>
-      )}
-
-      {/* ÉTAPE 2 — Qualification */}
-      {step === 2 && (
-        <div>
-          <Section title="Étape 2 — Qualification de la décision">
-            <Q num="1" text="La décision contestée est-elle une DÉCISION DE REFUS ?" value={q.decisionRefus} onChange={v => set('decisionRefus', v)} ref_={UI.porteeRefus} />
-            {q.decisionRefus === 'non' && (
-              <div className="mt-3 p-4 bg-red-100 border-2 border-red-500 rounded-lg">
-                <p className="font-bold text-red-800">🚫 IRRECEVABLE DE PLEIN DROIT</p>
-                <p className="text-red-700 text-sm mt-1">Seules les décisions de REFUS sont recourables. Les ajournements (1re session), VA/VAE et délivrances de titre ne peuvent pas faire l'objet d'un recours.</p>
-                <p className="text-xs text-red-600 mt-1">⚖ {UI.porteeRefus2}</p>
-              </div>
-            )}
-            {q.decisionRefus === 'oui' && (
-              <div className="mt-3 p-3 bg-green-50 border border-green-200 rounded text-sm text-green-800">
-                ✓ La décision est de nature recourable (décision de refus). Procéder à l'analyse de recevabilité.
-              </div>
-            )}
-            {q.decisionRefus === 'oui' && delaiRespect === false && (
-              <div className="mt-2 p-3 bg-orange-50 border-2 border-orange-400 rounded text-sm text-orange-800">
-                ⚠ <strong>Attention :</strong> le délai de 4 jours calendrier est dépassé (J+{nbJours}). La plainte sera vraisemblablement <strong>irrecevable</strong> pour ce motif — vérification formelle à l'étape 3.
-              </div>
-            )}
-          </Section>
-          <div className="flex justify-between">
-            <button onClick={() => setStep(1)} className="border border-gray-300 text-gray-600 px-6 py-2 rounded-lg text-sm">← Retour</button>
-            <button onClick={() => setStep(3)} disabled={!q.decisionRefus}
-              className="bg-iip-turquoise disabled:opacity-40 text-white px-6 py-2 rounded-lg text-sm font-medium">
-              Recevabilité →
-            </button>
-          </div>
-        </div>
-      )}
-
-      {/* ÉTAPE 3 — Recevabilité */}
-      {step === 3 && (
-        <div>
-          <Section title={`Étape 3 — Recevabilité formelle (${is2526 ? 'Art. 67 ROI/RGE' : 'Art. 88 §3'})`}>
-            <p className="text-sm text-gray-600 mb-4">4 conditions <strong>cumulatives</strong> — une seule manquante = irrecevable.</p>
-            <Q num="1" text="La plainte respecte-t-elle les conditions de forme (écrit avec accusé de réception, remise contre accusé ou recommandé) ?" value={q.ecrit} onChange={v => set('ecrit', v)} ref_={is2526 ? 'Art. 67 ROI/RGE' : 'Art. 88 §3'} />
-            {delaiRespect !== null
-              ? <div className="mb-4 pl-10"><Badge ok={delaiRespect} label={delaiRespect ? `J+${nbJours} — Dans le délai` : `J+${nbJours} — HORS DÉLAI`} /><Ref text={is2526 ? 'Art. 67 ROI/RGE' : 'Art. 88 §1'} /></div>
-              : <Q num="2" text="Plainte reçue dans les 4 jours calendrier après publication ?" value={q.delaiRespect} onChange={v => set('delaiRespect', v)} ref_={is2526 ? 'Art. 67 ROI/RGE' : 'Art. 88 §1'} />}
-            <Q num="3" text="Porte sur une DÉCISION DE REFUS (pas ajournement, pas VA/VAE) ?" value={q.porteRefus} onChange={v => set('porteRefus', v)} ref_={is2526 ? 'Art. 65 ROI/RGE' : 'Art. 88 §3'} />
-            <Q num="4" text="Mentionne des IRRÉGULARITÉS PRÉCISES (pas juste 'je ne suis pas d'accord') ?" value={q.irregulPrecises} onChange={v => set('irregulPrecises', v)} ref_={is2526 ? 'Art. 67 ROI/RGE' : 'Art. 88 §3'} />
-          </Section>
-          {conditionsRecevabilite.some(c => c.ok !== undefined) && (
-            <div className={`p-4 rounded-xl border-2 mb-4 ${recevable ? 'bg-green-50 border-green-500' : irrecevable ? 'bg-red-50 border-red-500' : 'bg-gray-50 border-gray-300'}`}>
-              {recevable && <>
-                <p className="font-bold text-green-800 text-base">✅ RECEVABLE — Procéder à l'instruction</p>
-                {limiteDecisionInterne && <p className="text-sm text-green-700 mt-1">⏱ Date limite décision interne : <strong>{fmt(limiteDecisionInterne)}</strong></p>}
-              </>}
-              {irrecevable && !recevable && <>
-                <p className="font-bold text-red-800 text-base">🚫 IRRECEVABLE</p>
-                {conditionsRecevabilite.filter(c => c.ok === false).map(c => (
-                  <p key={c.label} className="text-sm text-red-700 mt-1">✗ {c.label} <Ref text={c.ref} /></p>
-                ))}
-                <p className="text-sm text-red-700 mt-2">→ Notifier à l'étudiant par écrit ({is2526 ? 'Art. 67 ROI/RGE' : 'Art. 88 §4'}).</p>
-              </>}
-            </div>
-          )}
-          <div className="flex justify-between">
-            <button onClick={() => setStep(2)} className="border border-gray-300 text-gray-600 px-6 py-2 rounded-lg text-sm">← Retour</button>
-            <button onClick={() => setStep(4)}
-              className="bg-iip-turquoise text-white px-6 py-2 rounded-lg text-sm font-medium">
-              {irrecevable && !recevable ? 'Analyser quand même →' : 'Analyser au fond →'}
-            </button>
-          </div>
-        </div>
-      )}
-
-      {/* ÉTAPE 4 — Analyse au fond */}
-      {step === 4 && (
-        <div>
-          <Section title="Étape 4 — Analyse au fond (irrégularités invoquées)">
-            <p className="text-sm text-gray-600 mb-4">Seules les irrégularités de <strong>procédure ou de droit</strong> peuvent fonder un recours. La Commission de recours peut annuler mais ne substitue pas sa note.</p>
-            <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">A — Délibération</p>
-            <Q num="1" text="Le quorum était-il atteint ? (Président + min. 2 membres)" value={q.quorum} onChange={v => set('quorum', v)} ref_={is2526 ? 'Art. 14 ROI/RGE' : 'Art. 89 §1'} />
-            <Q num="2" text="Conflit d'intérêt non déclaré parmi les membres du jury ?" value={q.conflitInteret} onChange={v => set('conflitInteret', v)} />
-            <Q num="3" text="Justification de l'échec (AA non atteints) encodée et communiquée ?" value={q.motivJustif} onChange={v => set('motivJustif', v)} ref_={is2526 ? 'Art. 50 ROI/RGE' : 'Art. 71'} />
-            <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2 mt-3">B — Évaluation</p>
-            <Q num="4" text="DUE fournis dans les délais ?" value={q.dueDelai} onChange={v => set('dueDelai', v)} />
-            <Q num="5" text="Visite des copies proposée dans les délais (J+1 après délibération) ?" value={q.visiteCopies} onChange={v => set('visiteCopies', v)} ref_={is2526 ? 'Art. 50 ROI/RGE' : 'Art. 71 §1'} />
-            <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2 mt-3">C — Post-délibération</p>
-            <Q num="6" text="Résultats publiés dans les 2 jours ouvrables suivant la délibération ?" value={q.publiResultats} onChange={v => set('publiResultats', v)} ref_={is2526 ? 'Art. 63 ROI/RGE' : 'Art. 82'} />
-          </Section>
-          <div className="flex justify-between">
-            <button onClick={() => setStep(3)} className="border border-gray-300 text-gray-600 px-6 py-2 rounded-lg text-sm">← Retour</button>
-            <button onClick={() => setStep(5)} className="bg-iip-turquoise text-white px-6 py-2 rounded-lg text-sm font-medium">Décision →</button>
-          </div>
-        </div>
-      )}
-
-      {/* ÉTAPE 5 — Décision */}
-      {step === 5 && (
-        <div>
-          <Section title="Étape 5 — Décision motivée">
-            {/* Synthèse */}
-            <div className={`p-4 rounded-lg border-2 mb-5 ${recevable ? 'border-green-500 bg-green-50' : 'border-red-500 bg-red-50'}`}>
-              <p className="font-bold text-base">{recevable ? '✅ Recevable' : '🚫 Irrecevable'}</p>
-              {recevable && (() => {
-                const irregs = [
-                  q.quorum === 'non' && 'Quorum non atteint (Art. 89 §1)',
-                  q.conflitInteret === 'oui' && 'Conflit d\'intérêt',
-                  q.motivJustif === 'non' && 'Justification AA manquante (Art. 71)',
-                  q.visiteCopies === 'non' && 'Visite des copies non proposée (Art. 71 §1)',
-                  q.publiResultats === 'non' && `Publication tardive (${is2526 ? 'Art. 63 ROI/RGE' : 'Art. 82'})`,
-                ].filter(Boolean);
-                return irregs.length
-                  ? <><p className="text-sm text-red-700 mt-2 font-medium">Irrégularités relevées :</p>{irregs.map(i=><p key={i} className="text-sm text-red-700">✗ {i}</p>)}</>
-                  : <p className="text-sm text-green-700 mt-1">Aucune irrégularité de fond relevée — recours rejeté.</p>;
-              })()}
-            </div>
-
-            {/* Procédure */}
-            <div className="space-y-2 mb-5">
-              {[
-                {n:1, label:'Accusé de réception', detail:'Envoyer immédiatement un accusé de réception à l\'étudiant.'},
-                {n:2, label:'Convoquer le CDE restreint', detail:`Président + min. 2 membres.${profsPresents.size > 0 ? ' Présents cochés : ' + profs.filter(p=>profsPresents.has(p.id)).map(p=>p.nomComplet).join(', ') + '.' : profs.length ? ' Enseignants de l\'UE : ' + profs.map(p=>p.nomComplet).join(', ') + ' (cochez les présents à l\'étape 1).' : ''}`},
-                {n:3, label:'Instruction', detail:'Examiner les griefs argument par argument. Consulter épreuves, DUE, feuilles de délibération.'},
-                {n:4, label:'Décision motivée', detail:'Rédiger la décision en exposant pourquoi chaque grief est accepté ou rejeté.'},
-                {n:5, label:'Notification par recommandé', detail:`${limiteDecisionInterne ? 'Date limite : ' + fmt(limiteDecisionInterne) + '.' : 'Envoyer dans le délai légal (7 jours calendrier hors congés).'}`},
-                {n:6, label:'Archivage', detail:'Classer le dossier complet (plainte + pièces + décision + récépissé recommandé).'},
-              ].map(item => (
-                <div key={item.n} className="flex gap-3 p-3 bg-white border border-gray-200 rounded-lg text-sm">
-                  <div className="w-6 h-6 rounded-full bg-iip-turquoise text-white text-xs font-bold flex items-center justify-center flex-shrink-0">{item.n}</div>
-                  <div><p className="font-semibold">{item.label}</p><p className="text-gray-600">{item.detail}</p></div>
-                </div>
-              ))}
-            </div>
-
-            {limiteRecourseExterne && (
-              <div className="p-3 bg-orange-50 border border-orange-300 rounded text-sm mb-5">
-                ⏱ <strong>Limite recours externe :</strong> {fmt(limiteRecourseExterne)}
-                <span className="text-xs text-orange-700 ml-2">⚖ Art. 90 §2 RDE/ROI</span>
-              </div>
-            )}
-
-            {/* Date d'envoi + commentaire — saisis après la délibération */}
-            <div className="border border-gray-200 rounded-lg p-4 mb-5 bg-gray-50 space-y-4">
-              <p className="text-sm font-semibold text-gray-700">À compléter après la réunion du CDE restreint :</p>
-
-              <label className="block">
-                <div className="text-xs font-semibold text-gray-600 mb-1">
-                  Date d'envoi de la décision par recommandé
-                  <span className="text-gray-400 font-normal ml-1">(déclenche le délai de recours externe)</span>
-                </div>
-                <input type="date" value={dateDecisionInterne} onChange={e => setDateDecisionInterne(e.target.value)}
-                  className="w-full border border-gray-300 rounded px-3 py-1.5 text-sm bg-white" />
-                {limiteRecourseExterne && (
-                  <p className="text-xs text-orange-700 mt-1 font-medium">
-                    ⏱ Limite recours externe : <strong>{fmt(limiteRecourseExterne)}</strong>
-                    <span className="text-gray-500 font-normal ml-1">(J+3 ouvrables + 7 jours calendrier — Art. 90 §2)</span>
-                  </p>
-                )}
-              </label>
-
-              <label className="block">
-                <div className="text-xs font-semibold text-gray-600 mb-1">
-                  Observations / commentaire du CDE
-                  <span className="text-gray-400 font-normal ml-1">(facultatif — apparaîtra dans la décision)</span>
-                </div>
-                <textarea value={commentaireCDE} onChange={e => setCommentaireCDE(e.target.value)}
-                  rows={4} placeholder="Ex : Le CDE a examiné les épreuves en présence du responsable d'UE. Il ressort que les AA notifiés sur E-campus ont bien été communiqués à l'étudiant le [date]. La note de [X/20] reflète fidèlement le niveau d'acquisition constaté lors de l'épreuve."
-                  className="w-full border border-gray-300 rounded px-3 py-2 text-sm bg-white resize-y" />
-              </label>
-            </div>
-
-            {/* Bouton génération */}
-            <button onClick={ouvrirDecision}
-              className="w-full bg-iip-turquoise hover:opacity-90 text-white py-3 rounded-xl text-sm font-bold flex items-center justify-center gap-2">
-              📄 Générer la décision motivée (Word / PDF)
-            </button>
-            <p className="text-xs text-gray-500 text-center mt-1">Document officiel à imprimer, signer et envoyer par recommandé à l'étudiant.</p>
-          </Section>
-
-          <div className="flex justify-between mt-2">
-            <button onClick={() => setStep(4)} className="border border-gray-300 text-gray-600 px-6 py-2 rounded-lg text-sm">← Retour</button>
-            <button onClick={() => { setStep(1); setQ({}); setEtudiant(''); setUeNum(''); setDatePubli(''); setDateRecours(''); setDateDecisionInterne(''); setDateSeance(''); setCommentaireCDE(''); setProfsPresents(new Set()); }}
-              className="border border-iip-turquoise text-iip-turquoise px-6 py-2 rounded-lg text-sm font-medium hover:bg-iip-turquoise/5">
-              ↺ Nouveau recours
-            </button>
-          </div>
-        </div>
-      )}
       {previewHtml && (
         <PreviewModal html={previewHtml} titre="PV de recours — Décision motivée" onClose={() => setPreviewHtml(null)} />
       )}
