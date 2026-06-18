@@ -1240,10 +1240,20 @@ export default function Professeurs() {
       <RailLateral
         icon={IconUsers}
         titre="Personnel"
-        sousTitre="Membres du personnel"
-        sections={[{ items: [
-          { key: 'membres', label: 'Membres', icon: IconUsers, actif: true, onClick: () => {} },
-        ]}]}
+        sousTitre={`${filtered.length} membre${filtered.length > 1 ? 's' : ''}`}
+        sections={[
+          { label: 'Contrat', items: [
+            { key: 'c-',     label: 'Tous contrats', icon: IconUsers,     actif: fContrat === '',      onClick: () => setFContrat('') },
+            { key: 'c-IIP',  label: 'IIP seul',      icon: IconBriefcase, actif: fContrat === 'IIP',   onClick: () => setFContrat('IIP') },
+            { key: 'c-HELB', label: 'HELB seul',     icon: IconBriefcase, actif: fContrat === 'HELB',  onClick: () => setFContrat('HELB') },
+            { key: 'c-mix',  label: 'IIP + HELB',    icon: IconBriefcase, actif: fContrat === 'mixte', onClick: () => setFContrat('mixte') },
+          ]},
+          { label: 'Charge', items: [
+            { key: 'ch-',    label: 'Toutes',         icon: IconUsers, actif: fCharge === '',     onClick: () => setFCharge('') },
+            { key: 'ch-av',  label: 'Avec charge',    icon: IconCheck, actif: fCharge === 'avec', onClick: () => setFCharge('avec') },
+            { key: 'ch-sa',  label: 'Sans charge',    icon: IconX,     actif: fCharge === 'sans', onClick: () => setFCharge('sans') },
+          ]},
+        ]}
       />
       <div className="ml-16 p-4 md:p-6">
       <div className="flex items-center justify-between mb-4 gap-3 flex-wrap">
@@ -1273,19 +1283,6 @@ export default function Professeurs() {
                 className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600">​<IconX size={13}/></button>
             )}
           </div>
-          <select value={fContrat} onChange={e => setFContrat(e.target.value)}
-            className="border border-gray-300 rounded-lg px-2 py-1.5 text-sm focus:outline-none focus:border-iip-gold">
-            <option value="">Tous contrats</option>
-            <option value="IIP">IIP seul</option>
-            <option value="HELB">HELB seul</option>
-            <option value="mixte">IIP + HELB</option>
-          </select>
-          <select value={fCharge} onChange={e => setFCharge(e.target.value)}
-            className="border border-gray-300 rounded-lg px-2 py-1.5 text-sm focus:outline-none focus:border-iip-gold">
-            <option value="">Charge : toutes</option>
-            <option value="avec">Avec charge cette année</option>
-            <option value="sans">Sans charge</option>
-          </select>
           <select value={fSection} onChange={e => setFSection(e.target.value)}
             className="border border-gray-300 rounded-lg px-2 py-1.5 text-sm focus:outline-none focus:border-iip-gold">
             <option value="">Toutes sections</option>
