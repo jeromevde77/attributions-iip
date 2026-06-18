@@ -1146,7 +1146,7 @@ function GestionActivites({ sections = [] }) {
           {isEdit
             ? <input autoFocus value={editVal} onChange={e => setEditVal(e.target.value)}
                 onKeyDown={e => { if (e.key === 'Enter') sauvegarderEdit(a.id); if (e.key === 'Escape') setEditId(null); }}
-                className="border border-iip-gold rounded px-2 py-0.5 text-sm w-full" />
+                className="border border-iip-gold rounded px-3 py-1.5 text-sm w-full" />
             : <span className="text-sm text-gray-700">{a.libelle}</span>}
         </td>
         <td className="px-3 py-2 whitespace-nowrap">

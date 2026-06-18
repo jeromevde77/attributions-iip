@@ -148,7 +148,7 @@ export default function CoursFormModal({ cours, ueNum, section, onClose, onSaved
               <input type="number" min="0" value={form.per_etudiant}
                 onChange={e => set('per_etudiant', e.target.value)}
                 placeholder="Nombre de périodes autonomes de l'étudiant"
-                className="w-full border-2 border-iip-blue rounded-lg px-3 py-2 text-sm font-semibold focus:ring-2 focus:ring-iip-blue/30" />
+                className="w-full border-2 border-iip-blue rounded-lg px-3 py-1.5 text-sm font-semibold focus:ring-2 focus:ring-iip-blue/30" />
               <p className="text-xs text-gray-500 mt-1">
                 Ces périodes s'ajoutent aux périodes étudiant totaux de l'UE.
               </p>

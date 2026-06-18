@@ -1475,7 +1475,7 @@ export default function Attributions() {
 
       {/* Barre mobile */}
       <div className="md:hidden mb-2 flex gap-2">
-        <input value={filters.q} onChange={e=>setFilters({...filters,q:e.target.value})} onKeyDown={e=>e.key==='Enter'&&applyFilters()} placeholder="Rechercher…" className="flex-1 border border-gray-300 rounded-lg px-3 py-2 text-sm"/>
+        <input value={filters.q} onChange={e=>setFilters({...filters,q:e.target.value})} onKeyDown={e=>e.key==='Enter'&&applyFilters()} placeholder="Rechercher…" className="flex-1 border border-gray-300 rounded-lg px-3 py-1.5 text-sm"/>
         <button onClick={mobileCollapseAll} title="Tout replier" className="bg-white border border-gray-300 rounded-lg px-3 py-2 text-sm font-medium">⊟</button>
         <button onClick={mobileExpandAll} title="Tout déplier" className="bg-white border border-gray-300 rounded-lg px-3 py-2 text-sm font-medium">⊞</button>
         <button onClick={()=>setFiltersOpenMobile(o=>!o)} className="bg-white border border-gray-300 rounded-lg px-3 py-2 text-sm font-medium">{filtersOpenMobile ? <IconX size={16}/> : <IconSettings size={16}/>}</button>
@@ -1494,7 +1494,7 @@ export default function Attributions() {
         <div><label className="block text-xs text-gray-600 mb-0.5">Type</label>
           <select value={filters.type_cours} onChange={e=>{const f={...filters,type_cours:e.target.value};setFilters(f);load(f);}} className="border border-gray-300 rounded px-2 py-1 text-sm"><option value="">—</option><option value="CT">CT</option><option value="PP">PP</option></select></div>
         <div className="flex-1"><label className="block text-xs text-gray-600 mb-0.5">Recherche libre</label>
-          <input value={filters.q} onChange={e=>setFilters({...filters,q:e.target.value})} onKeyDown={e=>e.key==='Enter'&&applyFilters()} placeholder="UE, cours, professeur..." className="border border-gray-300 rounded px-2 py-1 text-sm w-full"/></div>
+          <input value={filters.q} onChange={e=>setFilters({...filters,q:e.target.value})} onKeyDown={e=>e.key==='Enter'&&applyFilters()} placeholder="UE, cours, professeur..." className="border border-gray-300 rounded px-2 py-1.5 text-sm w-full"/></div>
         <button onClick={applyFilters} className="bg-iip-gold hover:bg-iip-amber text-white text-sm px-4 py-1.5 rounded">Filtrer</button>
         <button onClick={resetFilters} className="text-gray-600 hover:text-iip-orange text-sm px-2 py-1.5">Réinitialiser</button>
       </div>
@@ -1529,19 +1529,19 @@ export default function Attributions() {
                 <div className="text-[10px] font-semibold uppercase tracking-wider text-gray-400 mb-1.5">Filtres</div>
                 <div className="space-y-2">
                   <label className="block"><span className="block text-xs text-gray-600 mb-0.5">Section</span>
-                    <select value={filters.section} onChange={e=>{const f={...filters,section:e.target.value};setFilters(f);load(f);}} className="w-full border border-gray-300 rounded px-2 py-1 text-sm"><option value="">— Toutes —</option>{sections.map(s=><option key={s.code} value={s.code}>{s.code}</option>)}</select></label>
+                    <select value={filters.section} onChange={e=>{const f={...filters,section:e.target.value};setFilters(f);load(f);}} className="w-full border border-gray-300 rounded px-2 py-1.5 text-sm"><option value="">— Toutes —</option>{sections.map(s=><option key={s.code} value={s.code}>{s.code}</option>)}</select></label>
                   <label className="block"><span className="block text-xs text-gray-600 mb-0.5">UE</span>
-                    <select value={filters.ue_num} onChange={e=>{const f={...filters,ue_num:e.target.value};setFilters(f);load(f);}} className="w-full border border-gray-300 rounded px-2 py-1 text-sm"><option value="">— Toutes —</option>{ueList.map(([n,nom])=><option key={n} value={n}>UE {n} — {nom}</option>)}</select></label>
+                    <select value={filters.ue_num} onChange={e=>{const f={...filters,ue_num:e.target.value};setFilters(f);load(f);}} className="w-full border border-gray-300 rounded px-2 py-1.5 text-sm"><option value="">— Toutes —</option>{ueList.map(([n,nom])=><option key={n} value={n}>UE {n} — {nom}</option>)}</select></label>
                   <label className="block"><span className="block text-xs text-gray-600 mb-0.5">Professeur</span>
-                    <select value={filters.prof_id} onChange={e=>{const f={...filters,prof_id:e.target.value};setFilters(f);load(f);}} className="w-full border border-gray-300 rounded px-2 py-1 text-sm"><option value="">— Tous —</option>{professeurs.map(p=><option key={p.id} value={p.id}>{p.nom_prenom}</option>)}</select></label>
+                    <select value={filters.prof_id} onChange={e=>{const f={...filters,prof_id:e.target.value};setFilters(f);load(f);}} className="w-full border border-gray-300 rounded px-2 py-1.5 text-sm"><option value="">— Tous —</option>{professeurs.map(p=><option key={p.id} value={p.id}>{p.nom_prenom}</option>)}</select></label>
                   <div className="flex gap-2">
                     <label className="block flex-1"><span className="block text-xs text-gray-600 mb-0.5">Contrat</span>
-                      <select value={filters.contrat} onChange={e=>{const f={...filters,contrat:e.target.value};setFilters(f);load(f);}} className="w-full border border-gray-300 rounded px-2 py-1 text-sm"><option value="">—</option><option value="IIP">IIP</option><option value="HELB">HELB</option></select></label>
+                      <select value={filters.contrat} onChange={e=>{const f={...filters,contrat:e.target.value};setFilters(f);load(f);}} className="w-full border border-gray-300 rounded px-2 py-1.5 text-sm"><option value="">—</option><option value="IIP">IIP</option><option value="HELB">HELB</option></select></label>
                     <label className="block flex-1"><span className="block text-xs text-gray-600 mb-0.5">Type</span>
-                      <select value={filters.type_cours} onChange={e=>{const f={...filters,type_cours:e.target.value};setFilters(f);load(f);}} className="w-full border border-gray-300 rounded px-2 py-1 text-sm"><option value="">—</option><option value="CT">CT</option><option value="PP">PP</option></select></label>
+                      <select value={filters.type_cours} onChange={e=>{const f={...filters,type_cours:e.target.value};setFilters(f);load(f);}} className="w-full border border-gray-300 rounded px-2 py-1.5 text-sm"><option value="">—</option><option value="CT">CT</option><option value="PP">PP</option></select></label>
                   </div>
                   <label className="block"><span className="block text-xs text-gray-600 mb-0.5">Recherche libre</span>
-                    <input value={filters.q} onChange={e=>setFilters({...filters,q:e.target.value})} onKeyDown={e=>e.key==='Enter'&&applyFilters()} placeholder="UE, cours, professeur..." className="w-full border border-gray-300 rounded px-2 py-1 text-sm"/></label>
+                    <input value={filters.q} onChange={e=>setFilters({...filters,q:e.target.value})} onKeyDown={e=>e.key==='Enter'&&applyFilters()} placeholder="UE, cours, professeur..." className="w-full border border-gray-300 rounded px-2 py-1.5 text-sm"/></label>
                   <div className="flex gap-2 pt-1">
                     <button onClick={applyFilters} className="flex-1 bg-iip-blue hover:bg-iip-blue-dark text-white text-sm py-1.5 rounded-lg">Filtrer</button>
                     <button onClick={resetFilters} className="text-gray-500 hover:text-iip-blue text-sm px-2">Réinitialiser</button>

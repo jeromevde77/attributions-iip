@@ -1160,7 +1160,7 @@ export default function Pilotage() {
           <h3 className="font-semibold text-gray-700 text-sm">Dotations organiques par année civile</h3>
           <div className="flex gap-2">
             <input value={newYear} onChange={e => setNewYear(e.target.value)} placeholder="Ex: 2027"
-              className="border border-gray-300 rounded px-2 py-1 text-sm w-24" />
+              className="border border-gray-300 rounded px-2 py-1.5 text-sm w-24" />
             <button onClick={addYear} disabled={saving || !newYear} className="bg-iip-gold hover:bg-iip-amber disabled:opacity-40 text-white text-xs px-3 py-1.5 rounded">Ajouter</button>
           </div>
         </div>
@@ -1172,12 +1172,12 @@ export default function Pilotage() {
             {civil.map(y => editDot?.annee_civile === y.annee_civile ? (
               <tr key={y.annee_civile} className="border-t border-gray-100 bg-iip-gold/5">
                 <td className="px-4 py-2 font-semibold text-iip-gold">{y.annee_civile}</td>
-                <td className="px-4 py-2"><input type="number" value={editDot.dotation_organique} onChange={e => setEditDot({ ...editDot, dotation_organique: e.target.value })} className="border border-gray-300 rounded px-2 py-1 text-sm w-24 text-right" /></td>
-                <td className="px-4 py-2"><input type="number" value={editDot.periodes_eleves ?? ''} onChange={e => setEditDot({ ...editDot, periodes_eleves: e.target.value })} placeholder="HOD" className="border border-gray-300 rounded px-2 py-1 text-sm w-28 text-right" /></td>
-                <td className="px-4 py-2"><input type="number" value={editDot.pep_reference ?? ''} onChange={e => setEditDot({ ...editDot, pep_reference: e.target.value })} placeholder="HOD" className="border border-gray-300 rounded px-2 py-1 text-sm w-28 text-right" /></td>
-                <td className="px-4 py-2"><input type="number" value={editDot.pep_annee_utilisee ?? ''} onChange={e => setEditDot({ ...editDot, pep_annee_utilisee: e.target.value })} placeholder="ex: 2023" className="border border-gray-300 rounded px-2 py-1 text-sm w-20 text-right" /></td>
-                <td className="px-4 py-2"><input type="number" value={editDot.usage_historique_organique ?? ''} onChange={e => setEditDot({ ...editDot, usage_historique_organique: e.target.value })} placeholder="calculé si vide" className="border border-gray-300 rounded px-2 py-1 text-sm w-28 text-right" /></td>
-                <td className="px-4 py-2"><input value={editDot.notes || ''} onChange={e => setEditDot({ ...editDot, notes: e.target.value })} className="border border-gray-300 rounded px-2 py-1 text-sm w-full" /></td>
+                <td className="px-4 py-2"><input type="number" value={editDot.dotation_organique} onChange={e => setEditDot({ ...editDot, dotation_organique: e.target.value })} className="border border-gray-300 rounded px-2 py-1.5 text-sm w-24 text-right" /></td>
+                <td className="px-4 py-2"><input type="number" value={editDot.periodes_eleves ?? ''} onChange={e => setEditDot({ ...editDot, periodes_eleves: e.target.value })} placeholder="HOD" className="border border-gray-300 rounded px-2 py-1.5 text-sm w-28 text-right" /></td>
+                <td className="px-4 py-2"><input type="number" value={editDot.pep_reference ?? ''} onChange={e => setEditDot({ ...editDot, pep_reference: e.target.value })} placeholder="HOD" className="border border-gray-300 rounded px-2 py-1.5 text-sm w-28 text-right" /></td>
+                <td className="px-4 py-2"><input type="number" value={editDot.pep_annee_utilisee ?? ''} onChange={e => setEditDot({ ...editDot, pep_annee_utilisee: e.target.value })} placeholder="ex: 2023" className="border border-gray-300 rounded px-2 py-1.5 text-sm w-20 text-right" /></td>
+                <td className="px-4 py-2"><input type="number" value={editDot.usage_historique_organique ?? ''} onChange={e => setEditDot({ ...editDot, usage_historique_organique: e.target.value })} placeholder="calculé si vide" className="border border-gray-300 rounded px-2 py-1.5 text-sm w-28 text-right" /></td>
+                <td className="px-4 py-2"><input value={editDot.notes || ''} onChange={e => setEditDot({ ...editDot, notes: e.target.value })} className="border border-gray-300 rounded px-2 py-1.5 text-sm w-full" /></td>
                 <td className="px-4 py-2 flex gap-1 justify-end">
                   <button onClick={saveDotation} disabled={saving} className="bg-iip-gold text-white text-xs px-2 py-1 rounded"><IconCheck size={14} /></button>
                   <button onClick={() => setEditDot(null)} className="text-gray-500 text-xs px-2 py-1 rounded border"><IconX size={14} /></button>
@@ -1237,10 +1237,10 @@ export default function Pilotage() {
             {civil.flatMap(y => y.enveloppes.map(e => editEnv?.id === e.id ? (
               <tr key={e.id} className="border-t border-gray-100 bg-iip-gold/5">
                 <td className="px-4 py-2 font-mono text-iip-gold">{e.code}</td>
-                <td className="px-4 py-2"><input value={editEnv.label} onChange={ev => setEditEnv({ ...editEnv, label: ev.target.value })} className="border border-gray-300 rounded px-2 py-1 text-sm w-full" /></td>
+                <td className="px-4 py-2"><input value={editEnv.label} onChange={ev => setEditEnv({ ...editEnv, label: ev.target.value })} className="border border-gray-300 rounded px-2 py-1.5 text-sm w-full" /></td>
                 <td className="px-4 py-2 text-right">{e.annee_civile}</td>
-                <td className="px-4 py-2"><input type="number" value={editEnv.periodes_b} onChange={ev => setEditEnv({ ...editEnv, periodes_b: ev.target.value })} className="border border-gray-300 rounded px-2 py-1 text-sm w-24 text-right" /></td>
-                <td className="px-4 py-2"><input type="number" value={editEnv.usage_historique ?? ''} onChange={ev => setEditEnv({ ...editEnv, usage_historique: ev.target.value })} placeholder="calculé" className="border border-gray-300 rounded px-2 py-1 text-sm w-24 text-right" /></td>
+                <td className="px-4 py-2"><input type="number" value={editEnv.periodes_b} onChange={ev => setEditEnv({ ...editEnv, periodes_b: ev.target.value })} className="border border-gray-300 rounded px-2 py-1.5 text-sm w-24 text-right" /></td>
+                <td className="px-4 py-2"><input type="number" value={editEnv.usage_historique ?? ''} onChange={ev => setEditEnv({ ...editEnv, usage_historique: ev.target.value })} placeholder="calculé" className="border border-gray-300 rounded px-2 py-1.5 text-sm w-24 text-right" /></td>
                 <td className="px-4 py-2 flex gap-1 justify-end">
                   <button onClick={saveEnv} disabled={saving} className="bg-iip-gold text-white text-xs px-2 py-1 rounded"><IconCheck size={14} /></button>
                   <button onClick={() => setEditEnv(null)} className="text-gray-500 text-xs px-2 py-1 rounded border"><IconX size={14} /></button>
