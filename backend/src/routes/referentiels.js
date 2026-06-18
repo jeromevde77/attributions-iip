@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import db from '../db/index.js';
 import { authRequired, roleRequired, getUserSections } from '../middleware/auth.js';
+import { parseDossierPedagogique } from '../parseDossierPedagogique.js';
 
 const r = Router();
 
@@ -1715,4 +1716,141 @@ r.get('/doc23', authRequired, (req, res) => {
     attrs,
     tot_prevu, tot_prevu_aut, tot_reel, tot_aut,
   });
+});
+
+// ── Import dossier pédagogique FWB (.docx) ─────────────────────────────────
+// POST /ref/import-dp
+// Body : multipart ou raw binaire du .docx
+// Query : annee (optionnel), section (obligatoire pour création)
+// Comportement :
+//   1. Parse le .docx → { ue, cours[] }
+//   2. Cherche une UE existante par ue_code_fwb (exact match normalisé)
+//   3. Si trouvée → PATCH (mise à jour des champs FWB)
+//   4. Si non trouvée → POST (création, section requise)
+//   5. Pour chaque cours du tableau 7.1 → création si absent (par nom exact)
+// Retourne { action, ue_num, ue, cours_crees, cours_existants, parsed }
+r.post('/import-dp', authRequired, roleRequired('admin', 'editeur'), async (req, res) => {
+  try {
+    // Lire le body brut (le frontend envoie le .docx en multipart/form-data)
+    const buffer = await new Promise((resolve, reject) => {
+      const chunks = [];
+      req.on('data', c => chunks.push(c));
+      req.on('end', () => {
+        const full = Buffer.concat(chunks);
+        // Si multipart : extraire la partie binaire (après les headers MIME)
+        // Chercher la séquence PK (signature ZIP/DOCX)
+        const pk = full.indexOf(Buffer.from([0x50, 0x4B, 0x03, 0x04]));
+        resolve(pk >= 0 ? full.slice(pk) : full);
+      });
+      req.on('error', reject);
+    });
+
+    if (buffer.length < 100) return res.status(400).json({ error: 'Fichier vide ou invalide' });
+
+    // Parse
+    const parsed = await parseDossierPedagogique(buffer);
+    const { ue: ueData, cours: coursData } = parsed;
+
+    if (!ueData.ue_code_fwb) return res.status(422).json({
+      error: 'Code FWB introuvable dans le document',
+      parsed,
+    });
+
+    const annee = req.query.annee
+      || db.prepare("SELECT code FROM annee_scolaire WHERE active = 1 LIMIT 1").get()?.code
+      || '2026-2027';
+
+    // Normaliser le code FWB (supprimer espaces pour comparaison)
+    const normFwb = ueData.ue_code_fwb.replace(/\s+/g, '');
+
+    // Chercher UE existante par code FWB (comparaison normalisée)
+    const allUes = db.prepare('SELECT ue_num, ue_code_fwb, section FROM ue WHERE annee_scolaire = ?').all(annee);
+    const existing = allUes.find(u => u.ue_code_fwb && u.ue_code_fwb.replace(/\s+/g, '') === normFwb);
+
+    const section = req.query.section || existing?.section || null;
+
+    // MODE PREVIEW : retourne le résultat du parsing + action prévue sans écrire
+    if (req.query.preview === '1') {
+      return res.json({
+        action: existing ? 'updated' : 'created',
+        ue_num: existing?.ue_num || '(nouveau)',
+        annee,
+        section,
+        parsed,
+      });
+    }
+    let ueNum, action;
+
+    const fieldsToUpdate = {
+      ue_nom:           ueData.ue_nom        || undefined,
+      ue_niveau:        ueData.ue_niveau      || undefined,
+      ects:             ueData.ects           ?? undefined,
+      ue_aut:           ueData.ue_aut         ?? undefined,
+      ue_per_etudiants: ueData.ue_per_etudiants ?? undefined,
+      ue_code_fwb:      ueData.ue_code_fwb    || undefined,
+      ue_det:           ueData.ue_det         || undefined,
+    };
+    // Supprimer les undefined
+    for (const k of Object.keys(fieldsToUpdate)) if (fieldsToUpdate[k] === undefined) delete fieldsToUpdate[k];
+
+    if (existing) {
+      // Mise à jour
+      const sets = Object.keys(fieldsToUpdate).map(k => `${k} = @${k}`).join(', ');
+      db.prepare(`UPDATE ue SET ${sets} WHERE ue_num = @ue_num AND annee_scolaire = @annee`)
+        .run({ ...fieldsToUpdate, ue_num: existing.ue_num, annee });
+      ueNum = existing.ue_num;
+      action = 'updated';
+    } else {
+      // Création
+      if (!section) return res.status(422).json({
+        error: 'UE non trouvée et aucune section fournie pour la créer (param ?section=)',
+        code_fwb: ueData.ue_code_fwb,
+      });
+      // Générer un numéro UE : max existant + 1
+      const maxRow = db.prepare('SELECT MAX(ue_num) AS m FROM ue WHERE annee_scolaire = ?').get(annee);
+      ueNum = (maxRow?.m || 0) + 1;
+      db.prepare(`INSERT INTO ue (ue_num, annee_scolaire, ue_nom, section, ue_niveau, ects, ue_aut, ue_per_etudiants, ue_code_fwb, ue_det)
+        VALUES (@ue_num, @annee, @ue_nom, @section, @ue_niveau, @ects, @ue_aut, @ue_per_etudiants, @ue_code_fwb, @ue_det)`)
+        .run({
+          ue_num: ueNum, annee, section,
+          ue_nom: ueData.ue_nom || '', ue_niveau: ueData.ue_niveau || null,
+          ects: ueData.ects || null, ue_aut: ueData.ue_aut || null,
+          ue_per_etudiants: ueData.ue_per_etudiants || null,
+          ue_code_fwb: ueData.ue_code_fwb, ue_det: ueData.ue_det || null,
+        });
+      action = 'created';
+    }
+
+    // Cours : créer ceux qui n'existent pas déjà (par nom exact sur cette UE)
+    const existingCours = db.prepare('SELECT cours_code, cours_nom FROM cours WHERE ue_num = ? AND annee_scolaire = ?')
+      .all(ueNum, annee);
+    const existingNoms = new Set(existingCours.map(c => c.cours_nom.trim().toLowerCase()));
+
+    const coursSection = section || existing?.section;
+    const coursCrees = [], coursExistants = [];
+
+    for (const c of coursData) {
+      if (existingNoms.has(c.nom.trim().toLowerCase())) {
+        coursExistants.push(c.nom); continue;
+      }
+      // Générer un code cours : ue_num.N
+      const maxCours = db.prepare('SELECT MAX(cours_code) AS m FROM cours WHERE ue_num = ? AND annee_scolaire = ?').get(ueNum, annee);
+      // Code : "ueNum.N" → chercher le prochain indice
+      const existCodes = existingCours.map(c2 => c2.cours_code);
+      let idx = existCodes.length + coursCrees.length + 1;
+      let code = `${ueNum}.${idx}`;
+      while (db.prepare('SELECT 1 FROM cours WHERE cours_code = ? AND annee_scolaire = ?').get(code, annee)) {
+        idx++; code = `${ueNum}.${idx}`;
+      }
+      db.prepare(`INSERT INTO cours (cours_code, ue_num, annee_scolaire, cours_nom, ct_pp, cours_per, section)
+        VALUES (@code, @ue_num, @annee, @nom, @ct_pp, @cours_per, @section)`)
+        .run({ code, ue_num: ueNum, annee, nom: c.nom, ct_pp: c.classement || null, cours_per: c.periodes || null, section: coursSection || null });
+      coursCrees.push({ code, nom: c.nom });
+    }
+
+    res.json({ ok: true, action, ue_num: ueNum, annee, cours_crees: coursCrees, cours_existants: coursExistants, parsed: { ue: ueData, cours: coursData } });
+  } catch (err) {
+    console.error('[import-dp]', err);
+    res.status(500).json({ error: err.message });
+  }
 });

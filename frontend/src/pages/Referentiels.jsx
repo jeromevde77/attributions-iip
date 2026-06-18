@@ -3,7 +3,173 @@ import { api, getAnnee, getUser } from '../lib/api.js';
 import CoursFormModal from '../components/CoursFormModal.jsx';
 import GrilleSectionModal from '../components/GrilleSectionModal.jsx';
 import ImportUEAssistant from '../components/ImportUEAssistant.jsx';
-import { IconX, IconPencil, IconTrash, IconPlus, IconCheck, IconLink, IconChevronRight, IconTarget } from '@tabler/icons-react';
+import { IconX, IconPencil, IconTrash, IconPlus, IconCheck, IconLink, IconChevronRight, IconTarget, IconUpload, IconFileText, IconAlertTriangle } from '@tabler/icons-react';
+
+// ─── Import Dossier Pédagogique FWB ───────────────────────────────────────────
+function DPImportModal({ annee, sections, onClose, onSaved }) {
+  const [file, setFile]           = useState(null);
+  const [section, setSection]     = useState('');
+  const [loading, setLoading]     = useState(false);
+  const [preview, setPreview]     = useState(null); // résultat du parse avant confirmation
+  const [result, setResult]       = useState(null); // résultat après import
+  const [error, setError]         = useState('');
+
+  async function analyser() {
+    if (!file) return setError('Sélectionnez un fichier .docx');
+    setError(''); setLoading(true); setPreview(null);
+    try {
+      const buf = await file.arrayBuffer();
+      const res = await fetch(`/api/ref/import-dp?annee=${annee}&section=${section}&preview=1`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/octet-stream', 'Authorization': `Bearer ${localStorage.getItem('token')}` },
+        body: buf,
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Erreur analyse');
+      setPreview(data);
+    } catch (e) { setError(e.message); }
+    finally { setLoading(false); }
+  }
+
+  async function confirmer() {
+    if (!file) return;
+    setError(''); setLoading(true);
+    try {
+      const buf = await file.arrayBuffer();
+      const res = await fetch(`/api/ref/import-dp?annee=${annee}&section=${section}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/octet-stream', 'Authorization': `Bearer ${localStorage.getItem('token')}` },
+        body: buf,
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Erreur import');
+      setResult(data);
+      onSaved?.();
+    } catch (e) { setError(e.message); }
+    finally { setLoading(false); }
+  }
+
+  const ue = preview?.parsed?.ue || result?.parsed?.ue;
+  const cours = preview?.parsed?.cours || result?.parsed?.cours || [];
+
+  return (
+    <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50"
+         onClick={e => e.target === e.currentTarget && onClose()}>
+      <div className="bg-white rounded-xl shadow-2xl max-w-xl w-full border-t-4 border-iip-turquoise max-h-[90vh] overflow-hidden flex flex-col">
+        <div className="flex items-center justify-between px-5 py-3 border-b flex-shrink-0">
+          <h2 className="font-title text-lg text-iip-blue flex items-center gap-2">
+            <IconFileText size={20} className="text-iip-turquoise" />
+            Import dossier pédagogique FWB
+          </h2>
+          <button onClick={onClose} className="text-gray-400 hover:text-red-500"><IconX size={20} /></button>
+        </div>
+
+        <div className="p-5 space-y-4 overflow-auto">
+          {!result ? (<>
+            {/* Étape 1 : sélection fichier */}
+            <div>
+              <div className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-1">Fichier .docx</div>
+              <label className="flex items-center gap-3 border-2 border-dashed border-iip-turquoise/30 rounded-lg p-4 cursor-pointer hover:border-iip-turquoise/60 hover:bg-iip-turquoise/3 transition">
+                <IconUpload size={22} className="text-iip-turquoise flex-shrink-0" />
+                <div>
+                  <div className="text-sm font-medium text-iip-blue">{file ? file.name : 'Cliquer pour sélectionner'}</div>
+                  <div className="text-xs text-gray-400">Dossier pédagogique FWB au format Word (.docx)</div>
+                </div>
+                <input type="file" accept=".docx" className="sr-only" onChange={e => { setFile(e.target.files[0]); setPreview(null); setError(''); }} />
+              </label>
+            </div>
+
+            {/* Section (pour création) */}
+            <div>
+              <div className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-1">Section cible <span className="text-gray-400 font-normal normal-case">(si l'UE n'existe pas encore)</span></div>
+              <select value={section} onChange={e => setSection(e.target.value)}
+                className="w-full border border-gray-300 rounded px-3 py-1.5 text-sm bg-white focus:outline-none focus:border-iip-blue">
+                <option value="">— Rechercher par code FWB uniquement —</option>
+                {sections.map(s => <option key={s.code} value={s.code}>{s.code} — {s.libelle}</option>)}
+              </select>
+            </div>
+
+            {error && (
+              <div className="bg-red-50 border border-red-200 rounded-lg p-3 text-sm text-red-700 flex items-start gap-2">
+                <IconAlertTriangle size={16} className="flex-shrink-0 mt-0.5" />{error}
+              </div>
+            )}
+
+            <button onClick={analyser} disabled={loading || !file}
+              className="w-full bg-iip-turquoise hover:opacity-90 disabled:opacity-40 text-white text-sm py-2.5 rounded-lg font-medium flex items-center justify-center gap-2">
+              <IconFileText size={16} />{loading ? 'Analyse en cours…' : 'Analyser le document'}
+            </button>
+
+            {/* Preview du parsing */}
+            {preview && (
+              <div className="border border-iip-turquoise/30 rounded-lg overflow-hidden">
+                <div className="bg-iip-turquoise/8 px-4 py-2 text-xs font-semibold text-iip-blue uppercase tracking-wide">
+                  Résultat de l'analyse
+                </div>
+                <div className="p-4 space-y-3 text-sm">
+                  <div className="grid grid-cols-2 gap-2 text-xs">
+                    <div><span className="text-gray-500">Code FWB :</span> <strong>{ue?.ue_code_fwb || '—'}</strong></div>
+                    <div><span className="text-gray-500">Action :</span> <strong className={preview.action === 'created' ? 'text-iip-turquoise' : 'text-iip-blue'}>{preview.action === 'created' ? '✚ Création' : '↻ Mise à jour'}</strong></div>
+                    <div><span className="text-gray-500">UE N° :</span> <strong>{preview.ue_num}</strong></div>
+                    <div><span className="text-gray-500">Niveau :</span> {ue?.ue_niveau} · {ue?.ects} ECTS</div>
+                    <div className="col-span-2"><span className="text-gray-500">Intitulé :</span> {ue?.ue_nom}</div>
+                    <div><span className="text-gray-500">Autonomie :</span> {ue?.ue_aut ?? '—'} pér.</div>
+                    <div><span className="text-gray-500">Total périodes :</span> {ue?.ue_per_etudiants ?? '—'}</div>
+                  </div>
+                  <div>
+                    <div className="text-xs text-gray-500 mb-1">Cours détectés ({cours.length}) :</div>
+                    {cours.map((c, i) => (
+                      <div key={i} className="text-xs flex gap-2 py-0.5 border-b border-gray-50 last:border-0">
+                        <span className="font-mono bg-gray-100 rounded px-1 text-gray-600 flex-shrink-0">{c.classement || '?'} {c.codeU}</span>
+                        <span className="flex-1">{c.nom}</span>
+                        <span className="text-gray-400 flex-shrink-0">{c.periodes ?? '—'} pér.</span>
+                      </div>
+                    ))}
+                  </div>
+                  {preview.action === 'created' && !section && (
+                    <div className="bg-amber-50 border border-amber-200 rounded p-2 text-xs text-amber-700 flex items-start gap-1.5">
+                      <IconAlertTriangle size={14} className="flex-shrink-0 mt-0.5" />
+                      UE non trouvée — sélectionnez une section cible pour la créer.
+                    </div>
+                  )}
+                  <button onClick={confirmer} disabled={loading || (preview.action === 'created' && !section)}
+                    className="w-full bg-iip-blue hover:bg-iip-blue-dark disabled:opacity-40 text-white text-sm py-2 rounded-lg font-medium flex items-center justify-center gap-2">
+                    <IconCheck size={16} />{loading ? 'Import en cours…' : 'Confirmer l\'import'}
+                  </button>
+                </div>
+              </div>
+            )}
+          </>) : (
+            /* Résultat final */
+            <div className="space-y-3">
+              <div className="bg-green-50 border border-green-200 rounded-lg p-4 flex items-start gap-3">
+                <IconCheck size={20} className="text-green-600 flex-shrink-0 mt-0.5" />
+                <div>
+                  <div className="font-semibold text-green-800">Import réussi</div>
+                  <div className="text-sm text-green-700 mt-0.5">
+                    UE N° <strong>{result.ue_num}</strong> — {result.action === 'created' ? 'créée' : 'mise à jour'}
+                  </div>
+                </div>
+              </div>
+              {result.cours_crees?.length > 0 && (
+                <div className="text-sm text-gray-700">
+                  <strong>{result.cours_crees.length}</strong> cours créé(s) :
+                  {result.cours_crees.map(c => <div key={c.code} className="text-xs text-gray-500 pl-3">· {c.code} — {c.nom}</div>)}
+                </div>
+              )}
+              {result.cours_existants?.length > 0 && (
+                <div className="text-xs text-gray-400">
+                  {result.cours_existants.length} cours déjà présent(s) (inchangé(s)) : {result.cours_existants.join(', ')}
+                </div>
+              )}
+              <button onClick={onClose} className="w-full bg-iip-blue text-white text-sm py-2 rounded-lg font-medium">Fermer</button>
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
 
 // ─── Modale Section ───
 // Modal d'import des effectifs étudiants par UE — colle le tableau (n° UE + nb étudiants)
@@ -434,6 +600,7 @@ export default function Referentiels({ embedded = false }) {
   const [coursModal, setCoursModal] = useState(null);
   const [sectionModal, setSectionModal] = useState(null); // {code, libelle, _edit} ou {} pour nouvelle
   const [importOpen, setImportOpen] = useState(false);
+  const [dpImportOpen, setDpImportOpen] = useState(false);
   const [effectifsOpen, setEffectifsOpen] = useState(false);
   const [catalogueSection, setCatalogueSection] = useState(null); // menu + ouvert pour cette section
   const [grilleSection, setGrilleSection] = useState(null); // section dont on édite l'autonomie
@@ -485,6 +652,7 @@ export default function Referentiels({ embedded = false }) {
           )}
           <button onClick={() => setEffectifsOpen(true)} className="bg-white border border-iip-turquoise/40 text-iip-blue hover:bg-iip-turquoise/5 text-sm px-4 py-2 rounded font-medium">Importer effectifs étudiants</button>
           <button onClick={() => setSectionModal({})} className="bg-white border border-iip-gold text-iip-gold hover:bg-iip-gold/5 text-sm px-4 py-2 rounded font-medium"><IconPlus size={15} className="inline align-[-2px] mr-0.5" /> Nouvelle section</button>
+          <button onClick={() => setDpImportOpen(true)} className="bg-white border border-iip-turquoise text-iip-blue hover:bg-iip-turquoise/5 text-sm px-4 py-2 rounded font-medium flex items-center gap-1.5"><IconUpload size={15} /> Import DP</button>
           <button onClick={() => setUeModal({})} className="bg-iip-gold hover:bg-iip-amber text-white text-sm px-4 py-2 rounded font-medium"><IconPlus size={15} className="inline align-[-2px] mr-0.5" /> Nouvelle UE</button>
         </div>
       </div>
@@ -878,6 +1046,7 @@ export default function Referentiels({ embedded = false }) {
         />
       )}
       {effectifsOpen && <EffectifsImportModal annee={annee} onClose={() => setEffectifsOpen(false)} onSaved={() => { setEffectifsOpen(false); load(); }} />}
+      {dpImportOpen && <DPImportModal annee={annee} sections={sections} onClose={() => setDpImportOpen(false)} onSaved={() => { setDpImportOpen(false); load(); }} />}
       {ueModal && <UEModal ue={ueModal} sections={sections} onClose={() => setUeModal(null)} onSaved={() => { setUeModal(null); load(); }} />}
       {coursModal && <CoursFormModal {...coursModal} onClose={() => setCoursModal(null)} onSaved={() => { setCoursModal(null); load(); }} />}
       {grilleSection && <GrilleSectionModal section={grilleSection} onClose={() => { setGrilleSection(null); load(); }} />}
