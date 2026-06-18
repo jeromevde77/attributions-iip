@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { api, getAnnee } from '../lib/api.js';
-import { IconAdjustments, IconBooks, IconBuilding, IconCalendar, IconCheck, IconChevronRight, IconHistory, IconLink, IconScale, IconSettings, IconSparkles, IconUserShield, IconUsers, IconX } from '@tabler/icons-react';
-import { PageHeader, Tabs } from '../components/ui.jsx';
+import { IconAdjustments, IconBooks, IconBuilding, IconCalendar, IconCheck, IconChevronRight, IconDownload, IconHistory, IconLink, IconScale, IconSettings, IconSparkles, IconUserShield, IconUsers, IconX } from '@tabler/icons-react';
+import { PageHeader, RailLateral } from '../components/ui.jsx';
 
 const TOKEN = () => localStorage.getItem('token');
 const authFetch = (url, opts = {}) => fetch(url, { ...opts, headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${TOKEN()}`, ...opts.headers } }).then(r => r.json());
@@ -844,27 +844,28 @@ export default function Configuration() {
   }
 
 
+  const CONF_TABS = [
+    { key: 'referentiels', label: 'Référentiels', icon: IconBooks },
+    { key: 'annees', label: 'Années', icon: IconCalendar },
+    { key: 'etablissement', label: 'Établissement', icon: IconBuilding },
+    { key: 'personnel', label: 'Personnel', icon: IconUsers },
+    { key: 'users', label: 'Utilisateurs', icon: IconUserShield },
+    { key: 'systeme', label: 'Historique & Sauvegarde', icon: IconHistory },
+    { key: 'parametres', label: 'Paramètres', icon: IconAdjustments },
+    { key: 'prerequis', label: 'Prérequis UE', icon: IconLink },
+    { key: 'changelog', label: 'Nouveautés', icon: IconSparkles },
+  ];
   return (
-    <div className="p-4 md:p-6 max-w-7xl mx-auto space-y-6">
-      <PageHeader icon={IconSettings} titre="Configuration"
-        sous="Référentiels, années, établissement, personnel et paramètres système" />
-
-      {/* Onglets */}
-      <Tabs
-        value={tab}
-        onChange={setTab}
-        items={[
-          { key: 'referentiels', label: 'Référentiels', icon: IconBooks },
-          { key: 'annees', label: 'Années', icon: IconCalendar },
-          { key: 'etablissement', label: 'Établissement', icon: IconBuilding },
-          { key: 'personnel', label: 'Personnel', icon: IconUsers },
-          { key: 'users', label: 'Utilisateurs', icon: IconUserShield },
-          { key: 'systeme', label: 'Historique & Sauvegarde', icon: IconHistory },
-          { key: 'parametres', label: 'Paramètres', icon: IconAdjustments },
-          { key: 'prerequis', label: 'Prérequis UE', icon: IconLink },
-          { key: 'changelog', label: 'Nouveautés', icon: IconSparkles },
-        ]}
+    <div className="relative bg-slate-50" style={{ minHeight: 'calc(100vh - 64px)' }}>
+      <RailLateral
+        icon={IconSettings}
+        titre="Configuration"
+        sousTitre="Administration"
+        sections={[{ items: CONF_TABS.map(t => ({ key: t.key, label: t.label, icon: t.icon, actif: tab === t.key, onClick: () => setTab(t.key) })) }]}
       />
+      <div className="ml-16 px-3 md:px-6 py-4 space-y-6">
+        <PageHeader icon={IconSettings} titre="Configuration"
+          sous="Référentiels, années, établissement, personnel et paramètres système" />
 
       {/* ── Onglet Référentiels ── */}
       {tab === 'referentiels' && <Referentiels embedded />}
@@ -945,7 +946,7 @@ export default function Configuration() {
             </div>
             <button onClick={downloadBackup}
               className="bg-iip-gold hover:bg-iip-amber text-white text-sm px-4 py-2 rounded font-medium whitespace-nowrap">
-              📥 Télécharger
+              <IconDownload size={15} className="inline align-[-2px] mr-1" />Télécharger
             </button>
           </div>
 
@@ -1014,6 +1015,7 @@ docker start attributions-backend-dev`}</div>
       {env === 'dev' && <RegenererDonneesDev />}
 
       </div>)}
+        </div>
     </div>
   );
 }

@@ -37,8 +37,8 @@ function Ref({ text }) {
   return <span className="inline-flex items-center gap-1 text-xs text-iip-blue bg-iip-turquoise/5 border border-iip-turquoise/30 rounded px-1.5 py-0.5 ml-1"><IconScale size={13} stroke={1.8} /> {text}</span>;
 }
 function Section({ title, color = 'turquoise', children }) {
-  const cls = { red:'border-red-500 bg-red-50', green:'border-green-500 bg-green-50',
-    orange:'border-orange-500 bg-orange-50', turquoise:'border-iip-turquoise bg-iip-turquoise/5' };
+  const cls = { red:'border-red-500', green:'border-green-500',
+    orange:'border-orange-500', turquoise:'border-iip-turquoise' };
   return <div className={`border-l-4 pl-5 py-4 mb-5 ${cls[color]||cls.turquoise}`}><h3 className="font-bold text-base mb-3 text-iip-blue">{title}</h3>{children}</div>;
 }
 function Q({ num, text, value, onChange, ref_ }) {
