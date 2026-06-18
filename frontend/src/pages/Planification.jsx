@@ -76,7 +76,7 @@ const TYPE_STYLE = {
   cours:    { header: 'bg-gray-50',    text: 'text-gray-600' },
   vacances: { header: 'bg-gray-200',   text: 'text-gray-500' },
   stage:    { header: 'bg-green-100',  text: 'text-green-700' },
-  ferie:    { header: 'bg-blue-100',   text: 'text-blue-600' },
+  ferie:    { header: 'bg-iip-turquoise/10',   text: 'text-iip-blue' },
   autre:    { header: 'bg-yellow-100', text: 'text-yellow-700' },
 };
 
@@ -221,7 +221,7 @@ function LigneGroupe({ groupe, semaines, cellules, onCellChange, onEditGroupe, w
         />
       ))}
       {/* PEP */}
-      <td className="border border-gray-200 text-center text-[10px] w-14 bg-blue-50 text-blue-600 font-mono">
+      <td className="border border-gray-200 text-center text-[10px] w-14 bg-iip-turquoise/5 text-iip-blue font-mono">
         {groupe.nb_etudiants > 0
           ? Math.round(hPlanif * groupe.nb_etudiants * 1.2)
           : <span className="text-gray-300">—</span>}
@@ -277,7 +277,7 @@ function BlocSection({ section, groupes, semaines, cellules, onCellChange, onEdi
             </td>
           );
         })}
-        <td className="border border-gray-200 text-center text-[10px] w-14 bg-blue-50 text-blue-600 font-bold">
+        <td className="border border-gray-200 text-center text-[10px] w-14 bg-iip-turquoise/5 text-iip-blue font-bold">
           {Math.round(pepTotal)}
         </td>
       </tr>
@@ -737,7 +737,7 @@ function ModalIA({ annee, section, onApplied, onClose }) {
               </div>
 
               {/* Note évaluations */}
-              <div className="bg-blue-50 border border-blue-200 rounded p-3 text-xs text-blue-700">
+              <div className="bg-iip-turquoise/5 border border-iip-turquoise/30 rounded p-3 text-xs text-iip-blue">
                 <IconCalendar size={13} className="inline align-[-2px] mr-1" />EV1, VC et EV2 sont placés automatiquement après les derniers cours de chaque groupe
               </div>
 
@@ -855,8 +855,8 @@ function triNiveaux(niveaux) {
 const NIV_COLORS = [
   // rang 1 = orange, rang 2 = bleu clair, rang 3 = bleu marine
   { bg: 'bg-orange-100', text: 'text-orange-700', border: '#f97316', hex: '#fff7ed' },
-  { bg: 'bg-blue-100',   text: 'text-blue-600',   border: '#60a5fa', hex: '#eff6ff' },
-  { bg: 'bg-blue-900',   text: 'text-blue-900',   border: '#1e3a8a', hex: '#1e3a8a' },
+  { bg: 'bg-iip-turquoise/10',   text: 'text-iip-blue',   border: '#60a5fa', hex: '#eff6ff' },
+  { bg: 'bg-blue-900',   text: 'text-iip-blue',   border: '#1e3a8a', hex: '#1e3a8a' },
   { bg: 'bg-purple-100', text: 'text-purple-700', border: '#a855f7', hex: '#faf5ff' },
   { bg: 'bg-pink-100',   text: 'text-pink-700',   border: '#ec4899', hex: '#fdf2f8' },
 ];
@@ -976,7 +976,7 @@ function StructureUE({ annee, section, groupes }) {
         <div className="flex items-center gap-1.5">
           <span className="text-[10px] font-bold text-iip-mauve">UE{u.ue_num}</span>
           {saving === u.ue_num && <span className="text-[9px] text-gray-400"><IconDeviceFloppy size={12} className="inline" /></span>}
-          {nbPre > 0 && <span className="text-[9px] bg-blue-100 text-blue-600 px-1 rounded">{nbPre}↑</span>}
+          {nbPre > 0 && <span className="text-[9px] bg-iip-turquoise/10 text-iip-blue px-1 rounded">{nbPre}↑</span>}
           {nbDep > 0 && <span className="text-[9px] bg-orange-100 text-orange-600 px-1 rounded">{nbDep}↓</span>}
         </div>
         <p className="text-[10px] text-gray-600 leading-tight mt-0.5">{u.ue_nom?.slice(0, 40)}</p>
@@ -1460,7 +1460,7 @@ export default function Planification() {
           </button>
         )}
         <button onClick={() => setShowVisuel(true)}
-          className="bg-blue-100 text-blue-700 text-xs px-3 py-1.5 rounded hover:bg-blue-200 flex items-center gap-1">
+          className="bg-iip-turquoise/10 text-iip-blue text-xs px-3 py-1.5 rounded hover:bg-iip-turquoise/20 flex items-center gap-1">
           <IconCalendar size={14} />Planificateur visuel
         </button>
         {filtreSection && (
@@ -1487,7 +1487,7 @@ export default function Planification() {
       {grille && (
         <div className="flex-shrink-0 flex gap-6 px-4 py-1.5 bg-iip-gold/5 border-b border-iip-gold/20 text-xs">
           <span className="text-gray-500">Heures planifiées <strong className="text-gray-800">{Math.round(totalH * 10) / 10} h</strong></span>
-          <span className="text-gray-500">PEP générées <strong className="text-blue-700">{Math.round(totalPEP)}</strong></span>
+          <span className="text-gray-500">PEP générées <strong className="text-iip-blue">{Math.round(totalPEP)}</strong></span>
           <span className="text-gray-500">Groupes <strong className="text-gray-800">{grille.groupes?.length || 0}</strong></span>
         </div>
       )}
@@ -1514,7 +1514,7 @@ export default function Planification() {
                     </th>
                   );
                 })}
-                <th className="border border-gray-300 bg-blue-50 text-blue-600 text-[9px] w-14 text-center">PEP</th>
+                <th className="border border-gray-300 bg-iip-turquoise/5 text-iip-blue text-[9px] w-14 text-center">PEP</th>
               </tr>
               {/* N° semaine + date */}
               <tr>
@@ -1530,7 +1530,7 @@ export default function Planification() {
                     </th>
                   );
                 })}
-                <th className="border border-gray-300 bg-blue-50 w-14"></th>
+                <th className="border border-gray-300 bg-iip-turquoise/5 w-14"></th>
               </tr>
             </thead>
             <tbody>

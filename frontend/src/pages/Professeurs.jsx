@@ -359,7 +359,7 @@ function DetailModal({ profId, onClose, onEdit, onFiche }) {
                     </button>
                     <button onClick={() => { onFiche && onFiche(profId, 'IIP'); setPrintMenu(false); }}
                       className="text-left px-2 py-1.5 rounded hover:bg-gray-50 text-sm flex items-center gap-2">
-                      <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-blue-100 text-blue-700">IIP</span>
+                      <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-iip-turquoise/10 text-iip-blue">IIP</span>
                       <span className="text-gray-600 text-xs">Contrat IIP</span>
                     </button>
                     <button onClick={() => { onFiche && onFiche(profId, 'HELB'); setPrintMenu(false); }}
@@ -1209,7 +1209,7 @@ export default function Professeurs() {
                   </button>
                   <button onClick={() => { genererFicheAttributions(p.id, 'IIP'); setFicheMenu(null); }}
                     className="text-left px-2 py-1.5 rounded hover:bg-gray-50 text-sm flex items-center gap-2">
-                    <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-blue-100 text-blue-700">IIP</span>
+                    <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-iip-turquoise/10 text-iip-blue">IIP</span>
                     <span className="text-gray-600 text-xs">Contrat IIP</span>
                   </button>
                   <button onClick={() => { genererFicheAttributions(p.id, 'HELB'); setFicheMenu(null); }}
@@ -1305,7 +1305,7 @@ export default function Professeurs() {
                       <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-gray-700 text-white">Global</span><span className="text-gray-600 text-xs">IIP + HELB</span>
                     </button>
                     <button onClick={() => imprimerSelectionFiches('IIP')} className="text-left px-2 py-1.5 rounded hover:bg-gray-50 text-sm flex items-center gap-2">
-                      <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-blue-100 text-blue-700">IIP</span><span className="text-gray-600 text-xs">Contrat IIP</span>
+                      <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-iip-turquoise/10 text-iip-blue">IIP</span><span className="text-gray-600 text-xs">Contrat IIP</span>
                     </button>
                     <button onClick={() => imprimerSelectionFiches('HELB')} className="text-left px-2 py-1.5 rounded hover:bg-gray-50 text-sm flex items-center gap-2">
                       <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-purple-100 text-purple-700">HELB</span><span className="text-gray-600 text-xs">Contrat HELB</span>

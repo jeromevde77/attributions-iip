@@ -34,7 +34,7 @@ function Badge({ ok, label }) {
     : <span className="inline-flex items-center gap-1 bg-red-100 text-red-800 border border-red-300 rounded-full px-3 py-0.5 text-sm font-semibold"><IconX size={15} stroke={2.2} /> {label}</span>;
 }
 function Ref({ text }) {
-  return <span className="inline-flex items-center gap-1 text-xs text-blue-700 bg-blue-50 border border-blue-200 rounded px-1.5 py-0.5 ml-1"><IconScale size={13} stroke={1.8} /> {text}</span>;
+  return <span className="inline-flex items-center gap-1 text-xs text-iip-blue bg-iip-turquoise/5 border border-iip-turquoise/30 rounded px-1.5 py-0.5 ml-1"><IconScale size={13} stroke={1.8} /> {text}</span>;
 }
 function Section({ title, color = 'turquoise', children }) {
   const cls = { red:'border-red-500 bg-red-50', green:'border-green-500 bg-green-50',
@@ -481,15 +481,15 @@ function OutilRecours({ initialPayload, onPayloadConsumed }) {
 
         {/* Professeurs de l'UE — checkboxes présents à la délibération */}
         {ueNum && (
-          <div className="mt-3 p-4 bg-blue-50 border border-blue-200 rounded-lg">
+          <div className="mt-3 p-4 bg-iip-turquoise/5 border border-iip-turquoise/30 rounded-lg">
             <div className="flex items-center justify-between mb-2">
-              <p className="text-sm font-bold text-blue-900">
+              <p className="text-sm font-bold text-iip-blue">
                 Enseignants de l'UE {ueNum}{ueNom ? ` — ${ueNom}` : ''} ({annee})
                 {loadingProfs && <span className="text-xs font-normal ml-2">Chargement…</span>}
               </p>
               {profs.length > 0 && (
                 <button onClick={() => setProfsPresents(new Set(profs.map(p => p.id)))}
-                  className="text-xs text-blue-600 hover:underline">Tout cocher</button>
+                  className="text-xs text-iip-blue hover:underline">Tout cocher</button>
               )}
             </div>
             {profs.length === 0 && !loadingProfs && (
@@ -497,10 +497,10 @@ function OutilRecours({ initialPayload, onPayloadConsumed }) {
             )}
             {profs.length > 0 && (
               <>
-                <p className="text-xs text-blue-700 mb-2">Cochez les membres <strong>présents</strong> à la délibération (CDE restreint = Président + min. 2 membres — Art. 89 §1) :</p>
+                <p className="text-xs text-iip-blue mb-2">Cochez les membres <strong>présents</strong> à la délibération (CDE restreint = Président + min. 2 membres — Art. 89 §1) :</p>
                 <div className="space-y-1">
                   {profs.map(p => (
-                    <label key={p.id} className={`flex items-center gap-3 px-3 py-2 rounded-lg border cursor-pointer transition ${profsPresents.has(p.id) ? 'bg-green-50 border-green-400' : 'bg-white border-blue-200 hover:bg-blue-50'}`}>
+                    <label key={p.id} className={`flex items-center gap-3 px-3 py-2 rounded-lg border cursor-pointer transition ${profsPresents.has(p.id) ? 'bg-green-50 border-green-400' : 'bg-white border-iip-turquoise/30 hover:bg-iip-turquoise/5'}`}>
                       <input type="checkbox" checked={profsPresents.has(p.id)} onChange={() => toggleProfPresent(p.id)} className="w-4 h-4 accent-green-600" />
                       <span className={`w-7 h-7 rounded-full text-white text-xs font-bold flex items-center justify-center flex-shrink-0 ${profsPresents.has(p.id) ? 'bg-green-600' : 'bg-iip-turquoise'}`}>
                         {(p.nom[0]||'?').toUpperCase()}
@@ -1278,7 +1278,7 @@ function OutilFraude({ initialPayload, onPayloadConsumed }) {
 // ─── PAGE PRINCIPALE ──────────────────────────────────────────────────────────
 // ─── ArchivesProcedures ───────────────────────────────────────────────────────
 const STATUT_LABEL = { en_cours: 'En cours', clos: 'Clôturé', annule: 'Annulé' };
-const STATUT_COLOR = { en_cours: 'bg-blue-100 text-blue-700', clos: 'bg-green-100 text-green-700', annule: 'bg-gray-100 text-gray-500' };
+const STATUT_COLOR = { en_cours: 'bg-iip-turquoise/10 text-iip-blue', clos: 'bg-green-100 text-green-700', annule: 'bg-gray-100 text-gray-500' };
 const VERDICT_LABEL = { irrecevable: 'Irrecevable', rejete: 'Rejeté', accueilli: 'Accueilli', ajourne: 'Ajourné', refus: 'Refus' };
 const VERDICT_COLOR = { irrecevable: 'bg-red-100 text-red-700', rejete: 'bg-orange-100 text-orange-700', accueilli: 'bg-green-100 text-green-700', ajourne: 'bg-yellow-100 text-yellow-700', refus: 'bg-red-100 text-red-700' };
 const TYPE_COLOR = { recours: 'bg-iip-turquoise/10 text-iip-turquoise', fraude: 'bg-red-50 text-red-700' };
@@ -1598,7 +1598,7 @@ export default function Procedures() {
   }
 
   const bandeauPreRempli = (
-    <p className="text-xs text-blue-600 -mt-2 mb-5 bg-blue-50 border border-blue-200 rounded px-3 py-1.5 inline-flex items-center gap-1.5">
+    <p className="text-xs text-iip-blue -mt-2 mb-5 bg-iip-turquoise/5 border border-iip-turquoise/30 rounded px-3 py-1.5 inline-flex items-center gap-1.5">
       <IconArrowBackUp size={14} stroke={1.8} /> Formulaire pré-rempli depuis une archive — modifiez si nécessaire avant de générer
     </p>
   );

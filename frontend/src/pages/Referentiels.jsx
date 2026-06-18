@@ -42,7 +42,7 @@ function EffectifsImportModal({ annee, onClose, onSaved }) {
   return (
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50" onClick={e => e.target === e.currentTarget && onClose()}>
       <div className="bg-white rounded-xl shadow-2xl max-w-2xl w-full p-6 flex flex-col" style={{ maxHeight: '85vh' }}>
-        <h2 className="font-title text-lg text-blue-600 mb-1">Importer les effectifs étudiants — {annee}</h2>
+        <h2 className="font-title text-lg text-iip-blue mb-1">Importer les effectifs étudiants — {annee}</h2>
         <p className="text-xs text-gray-500 mb-3">
           Collez votre tableau (depuis Word/Excel). Chaque ligne doit contenir le <b>n° d'UE</b> et le <b>nombre d'étudiants</b> (dernier nombre de la ligne). Les colonnes intermédiaires (section, nom, bloc, quadri) sont ignorées.
         </p>
@@ -285,7 +285,7 @@ function UEModal({ ue, sections, onClose, onSaved }) {
                 className="w-full border border-gray-300 rounded px-3 py-1.5 text-sm" /></label>
             <label className="block"><div className="text-xs text-gray-600 mb-0.5">Nb étudiants</div>
               <input type="number" value={form.nb_etudiants} onChange={e => set('nb_etudiants', e.target.value)} placeholder="Effectif inscrit"
-                className="w-full border border-blue-300 rounded px-3 py-1.5 text-sm bg-blue-50/40" /></label>
+                className="w-full border border-blue-300 rounded px-3 py-1.5 text-sm bg-iip-turquoise/5/40" /></label>
             <label className="block"><div className="text-xs text-gray-600 mb-0.5">Périodes Z (7.3)</div>
               <input type="number" value={form.ue_per_z} onChange={e => set('ue_per_z', e.target.value)} placeholder="Activités autonomes"
                 className="w-full border border-iip-mauve/40 rounded px-3 py-1.5 text-sm bg-iip-mauve/5" /></label>
@@ -466,7 +466,7 @@ export default function Referentiels({ embedded = false }) {
           {annees.filter(a => a.code !== annee).length > 0 && (
             <button onClick={() => setImportOpen(true)} className="bg-white border border-iip-mauve text-iip-mauve hover:bg-iip-mauve/5 text-sm px-4 py-2 rounded font-medium">Importer des UE</button>
           )}
-          <button onClick={() => setEffectifsOpen(true)} className="bg-white border border-blue-400 text-blue-600 hover:bg-blue-50 text-sm px-4 py-2 rounded font-medium">Importer effectifs étudiants</button>
+          <button onClick={() => setEffectifsOpen(true)} className="bg-white border border-blue-400 text-iip-blue hover:bg-iip-turquoise/5 text-sm px-4 py-2 rounded font-medium">Importer effectifs étudiants</button>
           <button onClick={() => setSectionModal({})} className="bg-white border border-iip-gold text-iip-gold hover:bg-iip-gold/5 text-sm px-4 py-2 rounded font-medium"><IconPlus size={15} className="inline align-[-2px] mr-0.5" /> Nouvelle section</button>
           <button onClick={() => setUeModal({})} className="bg-iip-gold hover:bg-iip-amber text-white text-sm px-4 py-2 rounded font-medium"><IconPlus size={15} className="inline align-[-2px] mr-0.5" /> Nouvelle UE</button>
         </div>
@@ -565,7 +565,7 @@ export default function Referentiels({ embedded = false }) {
                 <th className="text-left px-2 py-2">Nom de l'UE</th>
                 <th className="text-right px-2 py-2" title="Somme des périodes prof de tous les cours de l'UE">Pér. prof.</th>
                 <th className="text-right px-2 py-2" title="Autonomie (7.2) de l'UE">Aut. 7.2</th>
-                <th className="text-right px-2 py-2 text-blue-600" title="Nombre d'étudiants inscrits à l'UE">Étud.</th>
+                <th className="text-right px-2 py-2 text-iip-blue" title="Nombre d'étudiants inscrits à l'UE">Étud.</th>
                 <th className="text-right px-2 py-2 text-iip-mauve" title="Périodes étudiant cibles (DP) = cours + autonomie + Z — encodées dans la fiche UE">Pér. étud. DP</th>
                 <th className="text-right px-2 py-2">Cours</th>
                 <th className="text-right px-2 py-2">Attr.</th>
@@ -660,7 +660,7 @@ export default function Referentiels({ embedded = false }) {
                             </td>
                             <td className="px-2 py-1.5 text-right" title="Périodes prof. = somme des cours_per des cours">{ue.calc_per_cours ?? ue.ue_per_cours ?? '—'}</td>
                             <td className="px-2 py-1.5 text-right text-gray-400" title="Autonomie (7.2) saisie dans la fiche UE">{ue.ue_aut ?? '—'}</td>
-                            <td className="px-2 py-1.5 text-right text-blue-600 font-medium">{ue.nb_etudiants ?? '—'}</td>
+                            <td className="px-2 py-1.5 text-right text-iip-blue font-medium">{ue.nb_etudiants ?? '—'}</td>
                             <td className="px-2 py-1.5 text-right font-semibold text-iip-mauve">{ue.ue_per_etudiants ?? '—'}</td>
                             <td className="px-2 py-1.5 text-right text-gray-400">{ue.cours.length}</td>
                             <td className="px-2 py-1.5 text-right text-gray-400">{ue.nb_attributions}</td>
@@ -760,7 +760,7 @@ export default function Referentiels({ embedded = false }) {
                   <th className="text-center px-2 py-2">Réf.</th>
                   <th className="text-right px-2 py-2" title="Somme des périodes prof de tous les cours de l'UE">Pér. prof.</th>
                   <th className="text-right px-2 py-2" title="Autonomie (7.2) de l'UE">Aut. 7.2</th>
-                <th className="text-right px-2 py-2 text-blue-600" title="Nombre d'étudiants inscrits à l'UE">Étud.</th>
+                <th className="text-right px-2 py-2 text-iip-blue" title="Nombre d'étudiants inscrits à l'UE">Étud.</th>
                   <th className="text-right px-2 py-2">ECTS</th>
                   <th className="text-right px-2 py-2">Cours</th>
                   <th className="px-2 py-2"></th>
@@ -791,7 +791,7 @@ export default function Referentiels({ embedded = false }) {
                         <td className="px-2 py-1.5 text-center">{ue.et_ref || '—'}</td>
                         <td className="px-2 py-1.5 text-right" title="Périodes prof. = somme des cours_per des cours">{ue.calc_per_cours ?? ue.ue_per_cours ?? '—'}</td>
                         <td className="px-2 py-1.5 text-right text-gray-400" title="Autonomie (7.2) saisie dans la fiche UE">{ue.ue_aut ?? '—'}</td>
-                            <td className="px-2 py-1.5 text-right text-blue-600 font-medium">{ue.nb_etudiants ?? '—'}</td>
+                            <td className="px-2 py-1.5 text-right text-iip-blue font-medium">{ue.nb_etudiants ?? '—'}</td>
                         <td className="px-2 py-1.5 text-right">{ue.ects ?? '—'}</td>
                         <td className="px-2 py-1.5 text-right text-gray-400">{ue.cours.length}</td>
                         <td className="px-2 py-1.5 text-right whitespace-nowrap">

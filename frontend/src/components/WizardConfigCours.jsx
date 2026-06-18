@@ -191,7 +191,7 @@ export default function WizardConfigCours({ cours: coursInit, ueNum, section, an
                 <option value="">— Choisir un local —</option>
                 {locaux.map(l => <option key={l.id} value={l.id}>{l.nom} · {l.type}{l.places ? ` (${l.places} pl.)` : ''}</option>)}
               </select>
-              <div className="bg-blue-50 rounded p-3 text-sm text-blue-700">
+              <div className="bg-iip-turquoise/5 rounded p-3 text-sm text-iip-blue">
                 Le cours occupera <strong>{totalPer} périodes</strong> en groupe entier dans ce local.
               </div>
             </div>
@@ -282,13 +282,13 @@ export default function WizardConfigCours({ cours: coursInit, ueNum, section, an
                 <p className="text-xs font-semibold text-gray-500 uppercase mb-2">Aperçu des lignes générées</p>
                 <div className="space-y-1 text-sm">
                   {format === 'classique' ? (
-                    <div className="flex justify-between bg-blue-50 rounded px-2 py-1">
+                    <div className="flex justify-between bg-iip-turquoise/5 rounded px-2 py-1">
                       <span>Cours (auditoire) — {localNom(localTheorie)}</span><span>{totalPer}h</span>
                     </div>
                   ) : (
                     <>
                       {format === 'mixte' && Number(heuresTheorie) > 0 && (
-                        <div className="flex justify-between bg-blue-50 rounded px-2 py-1">
+                        <div className="flex justify-between bg-iip-turquoise/5 rounded px-2 py-1">
                           <span>Théorie (groupe entier) — {localNom(localTheorie)}</span><span>{heuresTheorie}h</span>
                         </div>
                       )}

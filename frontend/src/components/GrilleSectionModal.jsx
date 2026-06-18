@@ -277,7 +277,7 @@ export default function GrilleSectionModal({ section, onClose }) {
                     <div className="font-semibold text-iip-gold text-sm">
                       UE {ue.ue_num} <span className="text-gray-600 font-normal">· {ue.ue_nom}</span>
                       {ue.ue_tc === 'x' && (
-                        <span className="ml-2 text-[10px] px-1.5 py-0.5 rounded bg-blue-50 text-blue-900 border border-blue-900 font-bold align-middle" title="Unité du tronc commun">TC</span>
+                        <span className="ml-2 text-[10px] px-1.5 py-0.5 rounded bg-iip-turquoise/5 text-iip-blue border border-iip-turquoise font-bold align-middle" title="Unité du tronc commun">TC</span>
                       )}
                     </div>
                   </div>
@@ -346,7 +346,7 @@ export default function GrilleSectionModal({ section, onClose }) {
                               onBlur={e => grille && blurGrille(ue.ue_num, c, 'cours_vc1', e.target.value)} />
                           </td>
                           <td className="px-2 py-1.5 text-center">
-                            <input type="number" min="0" className={`${inp} text-blue-700 font-medium ${saving[c.cours_code] ? 'opacity-50' : ''}`}
+                            <input type="number" min="0" className={`${inp} text-iip-blue font-medium ${saving[c.cours_code] ? 'opacity-50' : ''}`}
                               value={c.cours_complement ?? 0}
                               title="Autonomie donnée au prof (activité, surveillances…) — consomme l'enveloppe"
                               onChange={e => onChangeComplement(ue.ue_num, c.cours_code, e.target.value)}

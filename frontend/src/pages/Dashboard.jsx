@@ -131,7 +131,7 @@ export default function Dashboard() {
               <Tooltip />
               <Legend />
               <Bar dataKey="IIP"  stackId="a" fill="#1B2B4B" />
-              <Bar dataKey="HELB" stackId="a" fill="#EC4899" />
+              <Bar dataKey="HELB" stackId="a" fill="#00AACC" />
             </BarChart>
           </ResponsiveContainer>
         </div>

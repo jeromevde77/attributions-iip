@@ -520,7 +520,7 @@ export default function CoursEditModal({ section, codeCours, onClose, onChanged 
                       </div>
                     )}
                     {ueAut != null && ueAut > 0 && (
-                      <div className="rounded p-2.5 bg-blue-50 text-blue-700 flex items-center gap-2">
+                      <div className="rounded p-2.5 bg-iip-turquoise/5 text-iip-blue flex items-center gap-2">
                         <span className="text-base">ℹ</span>
                         <span>
                           <b>Autonomie</b> : UE autonomie <b>{Number(ueAut).toLocaleString('fr-BE')}p</b> × <b>{autMultiple != null ? autMultiple.toLocaleString('fr-BE', { maximumFractionDigits: 2 }) : '?'}</b> = <b>{totals.autonomie}p</b>

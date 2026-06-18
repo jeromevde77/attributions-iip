@@ -877,7 +877,7 @@ export default function Pilotage() {
                         <td className={`px-3 py-2 font-semibold ${row.annee_civile === selYear ? 'text-iip-gold' : 'text-gray-700'}`}>
                           {row.annee_civile} {row.annee_civile === selYear ? '◄' : ''}
                           {row.derogation && <span className="ml-1 text-[10px] bg-amber-100 text-amber-600 px-1 rounded">dérог.</span>}
-                          {row.partiel && <span className="ml-1 text-[10px] bg-blue-100 text-blue-600 px-1 rounded">partiel</span>}
+                          {row.partiel && <span className="ml-1 text-[10px] bg-iip-turquoise/10 text-iip-blue px-1 rounded">partiel</span>}
                         </td>
                         <td className="px-3 py-2 text-right text-gray-500 font-mono text-xs">{row.pep_annee_utilisee || '—'}</td>
                         <td className="px-3 py-2 text-right font-mono">
@@ -894,7 +894,7 @@ export default function Pilotage() {
                         </td>
                         <td className="px-3 py-2 text-center">
                           {row.zone === 'NEUTRE' && <span className="text-xs bg-green-100 text-green-700 px-2 py-0.5 rounded-full">Neutre ±8 %</span>}
-                          {row.zone === 'HAUSSE' && <span className="text-xs bg-blue-100 text-blue-700 px-2 py-0.5 rounded-full">↑ Hausse &gt;+8 %</span>}
+                          {row.zone === 'HAUSSE' && <span className="text-xs bg-iip-turquoise/10 text-iip-blue px-2 py-0.5 rounded-full">↑ Hausse &gt;+8 %</span>}
                           {row.zone === 'BAISSE' && <span className="text-xs bg-red-100 text-red-700 px-2 py-0.5 rounded-full">↓ Baisse &lt;−8 %</span>}
                           {row.zone == null && <span className="text-gray-300 text-xs">—</span>}
                         </td>
@@ -1075,7 +1075,7 @@ export default function Pilotage() {
               <tr key={y.annee_civile} className="border-t border-gray-100 hover:bg-gray-50">
                 <td className="px-4 py-2.5 font-semibold text-gray-700">{y.annee_civile}</td>
                 <td className="px-4 py-2.5 text-right font-mono">{y.dotation_organique > 0 ? fmt(y.dotation_organique) : <span className="text-gray-300">—</span>}</td>
-                <td className="px-4 py-2.5 text-right font-mono text-blue-700">{y.periodes_eleves ? fmt(y.periodes_eleves) : <span className="text-gray-300">—</span>}</td>
+                <td className="px-4 py-2.5 text-right font-mono text-iip-blue">{y.periodes_eleves ? fmt(y.periodes_eleves) : <span className="text-gray-300">—</span>}</td>
                 <td className="px-4 py-2.5 text-right font-mono text-red-400">{y.pep_reference ? fmt(y.pep_reference) : <span className="text-gray-300">à saisir</span>}</td>
                 <td className="px-4 py-2.5 text-right text-gray-500 text-xs">{y.pep_annee_utilisee || '—'}</td>
                 <td className="px-4 py-2.5 text-right text-gray-400 text-xs">{y.source === 'historique' ? fmt(y.usage_organique) : '(calculé)'}</td>

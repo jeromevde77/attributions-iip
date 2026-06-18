@@ -123,7 +123,7 @@ export default function Annees({ embedded = false }) {
                       </button>
                     )}
                     <button onClick={() => handleRename(a.code)}
-                      className="text-blue-500 hover:text-blue-700 text-xs inline-flex items-center gap-1">
+                      className="text-iip-blue hover:text-iip-blue text-xs inline-flex items-center gap-1">
                       <IconPencil size={13} /> Renommer
                     </button>
                     {annees.length > 1 && (

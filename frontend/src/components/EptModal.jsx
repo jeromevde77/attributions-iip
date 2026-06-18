@@ -104,7 +104,7 @@ export default function EptModal({ section, ue_num, ue_nom, annee, onClose }) {
               <tbody>
                 {lignes.map((l, i) => (
                   <tr key={l.id} className={`border-t ${i % 2 === 0 ? '' : 'bg-gray-50'}`}>
-                    <td className="px-3 py-2 font-mono font-bold text-blue-700">{l.code_ept}</td>
+                    <td className="px-3 py-2 font-mono font-bold text-iip-blue">{l.code_ept}</td>
                     <td className="px-3 py-2">{l.prof_nom}</td>
                     <td className="px-3 py-2 text-xs text-gray-500">{l.activite_nom || '—'}</td>
                     <td className="px-3 py-2 text-right font-semibold">{l.periodes}</td>
@@ -120,8 +120,8 @@ export default function EptModal({ section, ue_num, ue_nom, annee, onClose }) {
           )}
 
           {/* Formulaire ajout */}
-          <div className="border border-blue-100 bg-blue-50/40 rounded-lg p-4">
-            <div className="text-xs font-semibold text-blue-700 mb-3 uppercase tracking-wider">Ajouter une ligne</div>
+          <div className="border border-iip-turquoise/20 bg-iip-turquoise/5/40 rounded-lg p-4">
+            <div className="text-xs font-semibold text-iip-blue mb-3 uppercase tracking-wider">Ajouter une ligne</div>
             <div className="grid grid-cols-2 gap-3 mb-3">
               <div>
                 <label className="block text-xs text-gray-500 mb-1">Code EPT</label>

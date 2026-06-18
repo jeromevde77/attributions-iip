@@ -198,7 +198,7 @@ function GestionPersonnel() {
         </div>
       )}
 
-      <div className="mt-4 bg-blue-50 border border-blue-100 rounded-xl p-4 text-sm text-blue-900">
+      <div className="mt-4 bg-iip-turquoise/5 border border-iip-turquoise/20 rounded-xl p-4 text-sm text-iip-blue">
         <p className="font-medium mb-1">💡 Comment ça fonctionne</p>
         <p>Choisissez d'abord une <strong>portée</strong> : « Tout l'établissement » pour la direction et le secrétariat (présents dans toutes les procédures), ou une <strong>section</strong> précise pour les coordinations. Cochez ensuite les fonctions de chaque personne. Une même personne peut avoir des fonctions différentes selon la section (ex. coordinatrice des stages en TIM, des TFE en AeSI). Ces coches alimentent automatiquement la fiche de la personne et le filtrage des membres dans les procédures de recours et de fraude.</p>
       </div>
@@ -414,7 +414,7 @@ function commitTag(s) {
   const l = s.toLowerCase();
   if (/^fix|corrig|bug/.test(l)) return { label: 'Correctif', cls: 'bg-red-100 text-red-700' };
   if (/^feat|ajout|nouveau|nouvelle|module/.test(l)) return { label: 'Nouveauté', cls: 'bg-green-100 text-green-700' };
-  return { label: 'Amélioration', cls: 'bg-blue-100 text-blue-700' };
+  return { label: 'Amélioration', cls: 'bg-iip-turquoise/10 text-iip-blue' };
 }
 
 function ChangelogView({ data }) {
@@ -575,7 +575,7 @@ function GestionParametres() {
         );
       })}
 
-      <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 text-xs text-blue-700">
+      <div className="bg-iip-turquoise/5 border border-iip-turquoise/30 rounded-lg p-4 text-xs text-iip-blue">
         <p className="font-medium mb-1">💡 Ces paramètres sont globaux</p>
         <p>Ils s'appliquent à toutes les sections. Une configuration par section (ex. EV1 différent en AESI) peut être ajoutée sur demande.</p>
       </div>
@@ -720,7 +720,7 @@ function GestionPrerequis() {
             </div>
           )}
 
-          <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 text-xs text-blue-700">
+          <div className="bg-iip-turquoise/5 border border-iip-turquoise/30 rounded-lg p-3 text-xs text-iip-blue">
             <p className="font-medium mb-0.5">💡 Comment ça fonctionne</p>
             <p>Si UE-B dépend de UE-A, le planificateur IA s'assurera que toutes les heures de UE-A sont terminées avant que UE-B puisse commencer. Les épreuves intégrées dépendent automatiquement de toutes les UE de la section.</p>
           </div>

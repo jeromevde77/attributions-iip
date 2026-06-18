@@ -593,7 +593,7 @@ export default function Attributions() {
 
   // Couleurs du badge quadrimestre (3 états + neutre)
   function quadriStyle(q) {
-    if (q === 'Q1')    return 'bg-blue-100 text-blue-700';
+    if (q === 'Q1')    return 'bg-iip-turquoise/10 text-iip-blue';
     if (q === 'Q2')    return 'bg-amber-100 text-amber-800';
     if (q === 'Q1/Q2') return 'bg-iip-mauve/15 text-iip-mauve';
     return 'bg-gray-100 text-gray-400'; // non défini
@@ -981,9 +981,9 @@ export default function Attributions() {
             const select = <select key={`prof-${row.id}-${row.professeur_id??''}`} defaultValue={row.professeur_id??''} onClick={e=>e.stopPropagation()} className="bg-transparent border-0 outline-none w-full text-sm cursor-pointer focus:bg-yellow-50" onChange={e=>{const nid=e.target.value?Number(e.target.value):null;if(nid!==row.professeur_id)saveCell(row.id,'professeur_id',nid);}}><option value="">— Aucun —</option>{professeurs.map(p=><option key={p.id} value={p.id}>{p.nom_prenom}</option>)}</select>;
             return <td key={c.key} style={sty}>
               <div className="flex items-center gap-1">
-                {verrous[row.id] && <span title={`Nomination définitive — ${verrous[row.id].periodes_nommees||''} pér. ${verrous[row.id].type_charge||''} · code FWB ${verrous[row.id].code_fwb||''} (attribution verrouillée)`} className="shrink-0 text-blue-600"><IconLock size={13}/></span>}
+                {verrous[row.id] && <span title={`Nomination définitive — ${verrous[row.id].periodes_nommees||''} pér. ${verrous[row.id].type_charge||''} · code FWB ${verrous[row.id].code_fwb||''} (attribution verrouillée)`} className="shrink-0 text-iip-blue"><IconLock size={13}/></span>}
                 {!verrous[row.id] && alertesCours[row.id] && <span title={`⚠ ${alertesCours[row.id].definitif} est engagé(e) à titre définitif sur ce cours (${alertesCours[row.id].periodes_nommees||''} pér. ${alertesCours[row.id].type_charge||''}, FWB ${alertesCours[row.id].code_fwb||''})`} className="shrink-0 cursor-help text-amber-600"><IconLockOpen size={13}/></span>}
-                {!!row.remplace_attribution_id && <span title="Ligne de remplacement (titulaire en congé)" className="shrink-0 text-[9px] text-blue-600 font-bold">R</span>}
+                {!!row.remplace_attribution_id && <span title="Ligne de remplacement (titulaire en congé)" className="shrink-0 text-[9px] text-iip-blue font-bold">R</span>}
                 {!!row.est_rt && <span title="Remise au travail (RT) — charge d'un définitif recasée ici" className="shrink-0 text-[9px] px-1 py-0 rounded font-bold text-orange-600 border border-red-500">RT</span>}
                 {badge === 'EXT' && <span className="text-[9px] px-1 py-0 rounded font-bold bg-teal-100 text-teal-700 border border-teal-300 shrink-0" title="Couvert par l'enveloppe externe">EXT</span>}
                 {badge === 'DOT' && <span className="text-[9px] px-1 py-0 rounded font-bold bg-orange-100 text-orange-700 border border-orange-300 shrink-0" title="Dépasse le plafond → dotation organique">DOT</span>}
@@ -1099,7 +1099,7 @@ export default function Attributions() {
             </td>;
           }
           if (c.edit==='select') return <td key={c.key} style={sty}><select defaultValue={v??''} onClick={e=>e.stopPropagation()} className="bg-transparent border-0 outline-none w-full text-sm cursor-pointer focus:bg-yellow-50" onChange={e=>{if(e.target.value!==(v??''))saveCell(row.id,c.key,e.target.value);}}>{c.options.map(([val,lbl])=><option key={val} value={val}>{lbl}</option>)}</select></td>;
-          if (c.edit==='prof') return <td key={c.key} style={sty}><div className="flex items-center gap-1">{verrous[row.id] && <span title={`Nomination définitive — ${verrous[row.id].periodes_nommees||''} pér. ${verrous[row.id].type_charge||''} · code FWB ${verrous[row.id].code_fwb||''} (attribution verrouillée)`} className="flex-shrink-0">🔒</span>}{!verrous[row.id] && alertesCours[row.id] && <span title={`⚠ ${alertesCours[row.id].definitif} est engagé(e) à titre définitif sur ce cours (${alertesCours[row.id].periodes_nommees||''} pér. ${alertesCours[row.id].type_charge||''}, FWB ${alertesCours[row.id].code_fwb||''})`} className="flex-shrink-0 cursor-help">🔓</span>}{row.remplace_attribution_id && <span title="Ligne de remplacement (titulaire en congé)" className="flex-shrink-0 text-[9px] text-blue-600 font-bold">R</span>}<select defaultValue={row.professeur_id??''} onClick={e=>e.stopPropagation()} className="bg-transparent border-0 outline-none w-full text-sm cursor-pointer focus:bg-yellow-50" onChange={e=>{const nid=e.target.value?Number(e.target.value):null;if(nid!==row.professeur_id)saveCell(row.id,'professeur_id',nid);}}><option value="">— Aucun —</option>{professeurs.map(p=><option key={p.id} value={p.id}>{p.nom_prenom}</option>)}</select><button onClick={e=>{e.stopPropagation(); toggleConge(row);}} title={row.en_conge ? 'En congé — cliquer pour réactiver' : 'Mettre en congé (crée une ligne de remplacement)'} className={`flex-shrink-0 text-[10px] font-bold px-1 py-0.5 rounded border ${row.en_conge ? 'bg-transparent text-red-600 border-red-500' : 'bg-gray-50 text-gray-400 border-gray-200 hover:border-red-400 hover:text-red-500'}`}>C</button></div>{!verrous[row.id] && alertesCours[row.id] && <div className="text-[10px] text-amber-600 leading-tight mt-0.5">⚠ définitif : {alertesCours[row.id].definitif}</div>}</td>;
+          if (c.edit==='prof') return <td key={c.key} style={sty}><div className="flex items-center gap-1">{verrous[row.id] && <span title={`Nomination définitive — ${verrous[row.id].periodes_nommees||''} pér. ${verrous[row.id].type_charge||''} · code FWB ${verrous[row.id].code_fwb||''} (attribution verrouillée)`} className="flex-shrink-0">🔒</span>}{!verrous[row.id] && alertesCours[row.id] && <span title={`⚠ ${alertesCours[row.id].definitif} est engagé(e) à titre définitif sur ce cours (${alertesCours[row.id].periodes_nommees||''} pér. ${alertesCours[row.id].type_charge||''}, FWB ${alertesCours[row.id].code_fwb||''})`} className="flex-shrink-0 cursor-help">🔓</span>}{row.remplace_attribution_id && <span title="Ligne de remplacement (titulaire en congé)" className="flex-shrink-0 text-[9px] text-iip-blue font-bold">R</span>}<select defaultValue={row.professeur_id??''} onClick={e=>e.stopPropagation()} className="bg-transparent border-0 outline-none w-full text-sm cursor-pointer focus:bg-yellow-50" onChange={e=>{const nid=e.target.value?Number(e.target.value):null;if(nid!==row.professeur_id)saveCell(row.id,'professeur_id',nid);}}><option value="">— Aucun —</option>{professeurs.map(p=><option key={p.id} value={p.id}>{p.nom_prenom}</option>)}</select><button onClick={e=>{e.stopPropagation(); toggleConge(row);}} title={row.en_conge ? 'En congé — cliquer pour réactiver' : 'Mettre en congé (crée une ligne de remplacement)'} className={`flex-shrink-0 text-[10px] font-bold px-1 py-0.5 rounded border ${row.en_conge ? 'bg-transparent text-red-600 border-red-500' : 'bg-gray-50 text-gray-400 border-gray-200 hover:border-red-400 hover:text-red-500'}`}>C</button></div>{!verrous[row.id] && alertesCours[row.id] && <div className="text-[10px] text-amber-600 leading-tight mt-0.5">⚠ définitif : {alertesCours[row.id].definitif}</div>}</td>;
           if (c.edit==='statut') {
             const isHelb = row.contrat_mdp === 'HELB';
             const statutOptions = c.options.map(([val, lbl]) => [val, (isHelb && val === 'EXP') ? 'PI' : lbl]);
@@ -1213,7 +1213,7 @@ export default function Attributions() {
             </span>;
           })()}
           <span className="flex-1"></span>
-          {cg.type_cours && <span className={`text-xs px-1.5 py-0.5 rounded ${isZCours ? 'bg-gray-100 text-gray-400' : cg.type_cours==='CT'?'bg-blue-100 text-blue-700':'bg-purple-100 text-purple-700'}`}>{cg.type_cours}</span>}
+          {cg.type_cours && <span className={`text-xs px-1.5 py-0.5 rounded ${isZCours ? 'bg-gray-100 text-gray-400' : cg.type_cours==='CT'?'bg-iip-turquoise/10 text-iip-blue':'bg-purple-100 text-purple-700'}`}>{cg.type_cours}</span>}
           {isZCours
             ? <span className="text-xs text-gray-400 italic">périodes étudiants — sans prof</span>
             : <>
@@ -1285,7 +1285,7 @@ export default function Attributions() {
             <IconChevronRight size={14} className={`text-iip-gold text-sm transition-transform ${open?'rotate-90':''}`} />
             <span className="font-semibold text-iip-gold text-sm whitespace-nowrap">UE {ue.ue_num}</span>
             <span className="flex items-center gap-1 flex-wrap">
-              {isTC && <span className="text-xs bg-blue-50 text-blue-900 border border-blue-900 px-1.5 py-0.5 rounded font-bold" title="Unité du tronc commun">TC</span>}
+              {isTC && <span className="text-xs bg-iip-turquoise/5 text-iip-blue border border-iip-turquoise px-1.5 py-0.5 rounded font-bold" title="Unité du tronc commun">TC</span>}
               {org > 1 && <span className="text-xs bg-amber-100 text-amber-800 px-1.5 py-0.5 rounded font-semibold">Org. {org}</span>}
               {ue.bloc && <span className="text-xs bg-iip-gold/10 text-iip-gold px-1.5 py-0.5 rounded">{ue.bloc}</span>}
               {isHelb && <span className="text-xs text-pink-600 font-bold px-1.5 py-0.5 rounded bg-pink-100">HELB</span>}
@@ -1381,7 +1381,7 @@ export default function Attributions() {
                 <span>＋</span><span>Nouveau cours dans cette UE</span>
               </button>
               <button onClick={()=>{ setEptModal({section: sec, ue_num: ue.ue_num, ue_nom: ue.ue_nom}); setAddMenuUE(null); }}
-                      className="w-full text-left px-3 py-1.5 text-sm hover:bg-blue-50 text-blue-700 border-t border-gray-100 flex items-center gap-2">
+                      className="w-full text-left px-3 py-1.5 text-sm hover:bg-iip-turquoise/5 text-iip-blue border-t border-gray-100 flex items-center gap-2">
                 <IconClipboardText size={15}/><span>Lignes EPT (95-99)</span>
               </button>
               <button onClick={()=>{ setOrgModal({section: sec, ue_num: ue.ue_num, ue_nom: ue.ue_nom}); setAddMenuUE(null); }}
@@ -1725,8 +1725,8 @@ export default function Attributions() {
                 📄 L'ensemble <span className="text-gray-400 font-normal">— toutes les UE de la section</span>
               </button>
               <button onClick={()=>{ const s=rapportSectionChoix; setRapportSectionChoix(null); genererRapport(s, 'tc'); }}
-                className="w-full text-left px-4 py-2.5 rounded-lg border border-gray-200 hover:border-blue-900 hover:bg-blue-50 text-sm font-medium">
-                <span className="text-blue-900 font-bold">TC</span> uniquement <span className="text-gray-400 font-normal">— tronc commun</span>
+                className="w-full text-left px-4 py-2.5 rounded-lg border border-gray-200 hover:border-iip-turquoise hover:bg-iip-turquoise/5 text-sm font-medium">
+                <span className="text-iip-blue font-bold">TC</span> uniquement <span className="text-gray-400 font-normal">— tronc commun</span>
               </button>
               <button onClick={()=>{ const s=rapportSectionChoix; setRapportSectionChoix(null); genererRapport(s, 'hors'); }}
                 className="w-full text-left px-4 py-2.5 rounded-lg border border-gray-200 hover:border-iip-gold hover:bg-iip-gold/5 text-sm font-medium">

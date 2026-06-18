@@ -18,13 +18,13 @@ function SelecteurGroupes({ valeur, onChange }) {
       {presets.map(n => (
         <button key={n} type="button" onClick={() => { onChange(n); setLibreOpen(false); }}
           className={`text-[11px] px-2.5 py-1 rounded-md border transition ${valeur === n
-            ? 'bg-blue-100 text-blue-700 border-blue-300 font-medium'
+            ? 'bg-iip-turquoise/10 text-iip-blue border-blue-300 font-medium'
             : 'border-gray-200 text-gray-500 hover:bg-gray-50'}`}>
           {n === 1 ? 'Ts' : n}
         </button>
       ))}
       {!estPreset && (
-        <span className="text-[11px] px-2.5 py-1 rounded-md bg-blue-100 text-blue-700 border border-blue-300 font-medium">{valeur}</span>
+        <span className="text-[11px] px-2.5 py-1 rounded-md bg-iip-turquoise/10 text-iip-blue border border-blue-300 font-medium">{valeur}</span>
       )}
       {libreOpen ? (
         <input type="number" min={1} max={100} autoFocus defaultValue={estPreset ? '' : valeur}
