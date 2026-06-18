@@ -2,6 +2,7 @@ import { useEffect, useState, useMemo } from 'react';
 import { api, getAnnee } from '../lib/api.js';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Legend, CartesianGrid } from 'recharts';
 import ActivityFeed from '../components/ActivityFeed.jsx';
+import { IconChevronRight } from '@tabler/icons-react';
 
 function n(v, d = 0) { return v == null ? '—' : Number(v).toLocaleString('fr-BE', { maximumFractionDigits: d }); }
 
@@ -208,7 +209,7 @@ export default function Dashboard() {
                   <div key={sec.section} className="bg-white rounded-lg border border-gray-200 overflow-hidden">
                     <button onClick={() => toggleSection(sec.section)}
                       className="w-full flex items-center gap-3 px-4 py-3 hover:bg-iip-gold/5 transition text-left bg-iip-gold/5">
-                      <span className={`text-iip-gold font-bold transition-transform ${open ? 'rotate-90' : ''}`}>▶</span>
+                      <IconChevronRight size={18} className={`text-iip-gold transition-transform ${open ? 'rotate-90' : ''}`} />
                       <span className="font-bold text-iip-gold text-lg">{sec.section}</span>
                       <div className="flex items-center gap-4 text-xs text-gray-500 ml-auto">
                         <span><b className="text-iip-gold">{n(sec.per)}</b> per.</span>
