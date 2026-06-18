@@ -378,7 +378,7 @@ function ModalGroupe({ initial, annee, profs, ues, onSave, onClose }) {
             <div className="col-span-2">
               <label className="block text-xs text-gray-500 mb-1">UE *</label>
               <select value={ueNum} onChange={e => setUeNum(e.target.value)}
-                className="w-full border border-gray-300 rounded px-3 py-1.5 text-sm bg-white">
+                className="w-full border border-gray-300 rounded px-3 py-1.5 h-9 text-sm bg-white">
                 <option value="">— Choisir une UE —</option>
                 {ues.map(u => <option key={u.ue_num} value={u.ue_num}>UE {u.ue_num} — {u.ue_nom}</option>)}
               </select>
@@ -387,17 +387,17 @@ function ModalGroupe({ initial, annee, profs, ues, onSave, onClose }) {
           <div>
             <label className="block text-xs text-gray-500 mb-1">Groupe *</label>
             <input value={nom} onChange={e => setNom(e.target.value)} placeholder="A, B, 1…"
-              className="w-full border border-gray-300 rounded px-3 py-1.5 text-sm" autoFocus />
+              className="w-full border border-gray-300 rounded px-3 py-1.5 h-9 text-sm" autoFocus />
           </div>
           <div>
             <label className="block text-xs text-gray-500 mb-1">Nb étudiants</label>
             <input type="number" value={nbEtu} onChange={e => setNbEtu(e.target.value)} min="0"
-              className="w-full border border-gray-300 rounded px-3 py-1.5 text-sm" />
+              className="w-full border border-gray-300 rounded px-3 py-1.5 h-9 text-sm" />
           </div>
           <div className="col-span-2">
             <label className="block text-xs text-gray-500 mb-1">Professeur</label>
             <select value={profId} onChange={e => setProfId(e.target.value)}
-              className="w-full border border-gray-300 rounded px-3 py-1.5 text-sm bg-white">
+              className="w-full border border-gray-300 rounded px-3 py-1.5 h-9 text-sm bg-white">
               <option value="">— Aucun / À définir —</option>
               {profs.map(p => <option key={p.id} value={p.id}>{p.nom} {p.prenom}</option>)}
             </select>
@@ -405,19 +405,19 @@ function ModalGroupe({ initial, annee, profs, ues, onSave, onClose }) {
           <div>
             <label className="block text-xs text-gray-500 mb-1">Heures attribuées (60 min)</label>
             <input type="number" step="0.5" value={heures} onChange={e => setHeures(e.target.value)} min="0"
-              className="w-full border border-gray-300 rounded px-3 py-1.5 text-sm" />
+              className="w-full border border-gray-300 rounded px-3 py-1.5 h-9 text-sm" />
             {heures > 0 && <p className="text-[10px] text-gray-400 mt-0.5">= {hToPer(Number(heures))} périodes de 50 min</p>}
           </div>
           <div>
             <label className="block text-xs text-gray-500 mb-1">Notes</label>
             <input value={notes} onChange={e => setNotes(e.target.value)}
-              className="w-full border border-gray-300 rounded px-3 py-1.5 text-sm" />
+              className="w-full border border-gray-300 rounded px-3 py-1.5 h-9 text-sm" />
           </div>
         </div>
         <div className="flex justify-end gap-2 pt-2">
-          <button onClick={onClose} className="border border-gray-300 text-gray-600 text-sm px-4 py-1.5 rounded">Annuler</button>
+          <button onClick={onClose} className="border border-gray-300 text-gray-600 text-sm px-4 py-1.5 h-9 rounded">Annuler</button>
           <button onClick={sauvegarder} disabled={!nom || !ueNum || saving}
-            className="bg-iip-gold text-white text-sm px-4 py-1.5 rounded hover:bg-iip-amber disabled:opacity-50">
+            className="bg-iip-gold text-white text-sm px-4 py-1.5 h-9 rounded hover:bg-iip-amber disabled:opacity-50">
             {saving ? 'Enregistrement…' : 'Enregistrer'}
           </button>
         </div>
@@ -466,17 +466,17 @@ function PanelCalendrier({ semaines, onUpdate, onClose }) {
             <div>
               <label className="block text-xs text-gray-500 mb-1">Type</label>
               <select value={type} onChange={e => setType(e.target.value)}
-                className="border border-gray-300 rounded px-2 py-1.5 text-sm bg-white">
+                className="border border-gray-300 rounded px-2 py-1.5 h-9 text-sm bg-white">
                 {TYPES.map(t => <option key={t.k} value={t.k}>{t.l}</option>)}
               </select>
             </div>
             <div className="flex-1">
               <label className="block text-xs text-gray-500 mb-1">Label (optionnel)</label>
               <input value={label} onChange={e => setLabel(e.target.value)} placeholder="ex. Vacances Noël"
-                className="w-full border border-gray-300 rounded px-2 py-1.5 text-sm" />
+                className="w-full border border-gray-300 rounded px-2 py-1.5 h-9 text-sm" />
             </div>
             <button onClick={appliquer} disabled={!selected.size || saving}
-              className="bg-iip-gold text-white text-sm px-4 py-1.5 rounded hover:bg-iip-amber disabled:opacity-40">
+              className="bg-iip-gold text-white text-sm px-4 py-1.5 h-9 rounded hover:bg-iip-amber disabled:opacity-40">
               Appliquer à {selected.size} sem.
             </button>
             {selected.size > 0 && (
@@ -594,12 +594,12 @@ function ModalImport({ annee, onImported, onClose }) {
                   <tbody className="divide-y divide-gray-100">
                     {(preview?.groupes || []).map((g, i) => (
                       <tr key={i} className="hover:bg-gray-50">
-                        <td className="px-3 py-1.5 font-medium text-iip-mauve">{g.section || '—'}</td>
-                        <td className="px-3 py-1.5 text-gray-600">UE {g.ue_num} <span className="text-gray-400">{g.ue_nom?.slice(0,20)}</span></td>
-                        <td className="px-3 py-1.5 text-gray-500 text-[10px]">{g.code_cours || '—'}</td>
-                        <td className="px-3 py-1.5 text-center font-bold">{g.nom}</td>
-                        <td className="px-3 py-1.5 text-right font-mono">{g.heures_attribuees}h</td>
-                        <td className="px-3 py-1.5 text-gray-400 italic">{g.notes || ''}</td>
+                        <td className="px-3 py-1.5 h-9 font-medium text-iip-mauve">{g.section || '—'}</td>
+                        <td className="px-3 py-1.5 h-9 text-gray-600">UE {g.ue_num} <span className="text-gray-400">{g.ue_nom?.slice(0,20)}</span></td>
+                        <td className="px-3 py-1.5 h-9 text-gray-500 text-[10px]">{g.code_cours || '—'}</td>
+                        <td className="px-3 py-1.5 h-9 text-center font-bold">{g.nom}</td>
+                        <td className="px-3 py-1.5 h-9 text-right font-mono">{g.heures_attribuees}h</td>
+                        <td className="px-3 py-1.5 h-9 text-gray-400 italic">{g.notes || ''}</td>
                       </tr>
                     ))}
                   </tbody>
@@ -996,7 +996,7 @@ function StructureUE({ annee, section, groupes }) {
             <tr>
               <th className="w-12"></th>
               {QUADS.map(q => (
-                <th key={q.key} className="text-xs font-semibold text-gray-500 px-2 py-1.5 text-center border-b-2 border-gray-200">
+                <th key={q.key} className="text-xs font-semibold text-gray-500 px-2 py-1.5 h-9 text-center border-b-2 border-gray-200">
                   {q.label}
                 </th>
               ))}
@@ -1052,7 +1052,7 @@ function StructureUE({ annee, section, groupes }) {
               );
             })}
           </div>
-          <button onClick={() => setSelected(null)} className="mt-4 w-full text-xs text-gray-400 hover:text-gray-600 border border-gray-200 rounded py-1.5">Fermer</button>
+          <button onClick={() => setSelected(null)} className="mt-4 w-full text-xs text-gray-400 hover:text-gray-600 border border-gray-200 rounded py-1.5 h-9">Fermer</button>
         </div>
       )}
     </div>
@@ -1450,33 +1450,33 @@ export default function Planification() {
           <span className="px-1.5 py-0.5 rounded bg-purple-100 text-purple-700 font-bold">VC = 1h</span>
         </div>
         <button onClick={() => setShowImport(true)}
-          className="bg-iip-gold text-white text-xs px-3 py-1.5 rounded hover:bg-iip-amber">
+          className="bg-iip-gold text-white text-xs px-3 py-1.5 h-9 rounded hover:bg-iip-amber">
           ⬇ Importer
         </button>
         {filtreSection && (
           <button onClick={() => setShowSequence(true)}
-            className="bg-iip-mauve/10 text-iip-mauve text-xs px-3 py-1.5 rounded hover:bg-iip-mauve/20 flex items-center gap-1">
+            className="bg-iip-mauve/10 text-iip-mauve text-xs px-3 py-1.5 h-9 rounded hover:bg-iip-mauve/20 flex items-center gap-1">
             <IconHash size={14} />Séquencer
           </button>
         )}
         <button onClick={() => setShowVisuel(true)}
-          className="bg-iip-turquoise/10 text-iip-blue text-xs px-3 py-1.5 rounded hover:bg-iip-turquoise/20 flex items-center gap-1">
+          className="bg-iip-turquoise/10 text-iip-blue text-xs px-3 py-1.5 h-9 rounded hover:bg-iip-turquoise/20 flex items-center gap-1">
           <IconCalendar size={14} />Planificateur visuel
         </button>
         {filtreSection && (
           <button onClick={() => setShowIA(true)}
-            className="bg-iip-mauve text-white text-xs px-3 py-1.5 rounded hover:opacity-90 flex items-center gap-1">
+            className="bg-iip-mauve text-white text-xs px-3 py-1.5 h-9 rounded hover:opacity-90 flex items-center gap-1">
             ✨ Générer avec Lucie IA
           </button>
         )}
         {filtreSection && (
           <button onClick={() => setShowReset(true)}
-            className="bg-red-100 text-red-600 text-xs px-3 py-1.5 rounded hover:bg-red-200 flex items-center gap-1">
+            className="bg-red-100 text-red-600 text-xs px-3 py-1.5 h-9 rounded hover:bg-red-200 flex items-center gap-1">
             <IconTrash size={15} className="inline align-[-2px] mr-1" /> Réinitialiser
           </button>
         )}
         <button onClick={() => setShowCalendrier(true)}
-          className="border border-gray-300 text-gray-600 text-xs px-3 py-1.5 rounded hover:bg-gray-50">
+          className="border border-gray-300 text-gray-600 text-xs px-3 py-1.5 h-9 rounded hover:bg-gray-50">
           <IconCalendar size={14} className="inline align-[-2px] mr-1" />Calendrier
         </button>
         {saving && <span className="text-xs text-iip-gold animate-pulse"><IconDeviceFloppy size={12} className="inline" /></span>}
@@ -1485,7 +1485,7 @@ export default function Planification() {
 
       {/* Bandeau synthèse */}
       {grille && (
-        <div className="flex-shrink-0 flex gap-6 px-4 py-1.5 bg-iip-gold/5 border-b border-iip-gold/20 text-xs">
+        <div className="flex-shrink-0 flex gap-6 px-4 py-1.5 h-9 bg-iip-gold/5 border-b border-iip-gold/20 text-xs">
           <span className="text-gray-500">Heures planifiées <strong className="text-gray-800">{Math.round(totalH * 10) / 10} h</strong></span>
           <span className="text-gray-500">PEP générées <strong className="text-iip-blue">{Math.round(totalPEP)}</strong></span>
           <span className="text-gray-500">Groupes <strong className="text-gray-800">{grille.groupes?.length || 0}</strong></span>

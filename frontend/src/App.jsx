@@ -223,7 +223,7 @@ function ProtectedLayout({ children }) {
 
           {/* Sélecteur d'année */}
           <select value={anneeActive} onChange={e => changeAnnee(e.target.value)}
-            className="border border-iip-blue/30 rounded-lg px-2.5 py-1.5 text-sm font-semibold text-iip-blue bg-white focus:outline-none focus:ring-2 focus:ring-iip-turquoise/40 cursor-pointer">
+            className="border border-iip-blue/30 rounded-lg px-2.5 py-1.5 h-9 text-sm font-semibold text-iip-blue bg-white focus:outline-none focus:ring-2 focus:ring-iip-turquoise/40 cursor-pointer">
             {annees.map(a => <option key={a.code} value={a.code}>{a.code}</option>)}
             {annees.length === 0 && <option value={anneeActive}>{anneeActive}</option>}
           </select>

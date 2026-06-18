@@ -459,18 +459,18 @@ export default function PlanificateurVisuel({ onClose }) {
           <div className="flex items-center gap-3">
             <h2 className="font-title text-lg text-iip-gold"><IconCalendar size={18} className="inline align-[-2px] mr-1" />Planificateur visuel d'UE</h2>
             <select value={section} onChange={e => setSection(e.target.value)}
-              className="border border-gray-300 rounded px-3 py-1.5 text-sm bg-white">
+              className="border border-gray-300 rounded px-3 py-1.5 h-9 text-sm bg-white">
               <option value="">— Section —</option>
               {sections.map(s => <option key={s.code} value={s.code}>{s.code} — {s.nom}</option>)}
             </select>
             <select value={ueNum} onChange={e => setUeNum(e.target.value)} disabled={!section}
-              className="border border-gray-300 rounded px-3 py-1.5 text-sm bg-white disabled:opacity-50">
+              className="border border-gray-300 rounded px-3 py-1.5 h-9 text-sm bg-white disabled:opacity-50">
               <option value="">— UE —</option>
               {ues.map(u => <option key={u.ue_num} value={u.ue_num}>UE {u.ue_num} — {u.ue_nom}</option>)}
             </select>
             {ueNum && (
               <button onClick={() => setWizardCours(true)}
-                className="bg-iip-mauve/10 text-iip-mauve text-xs px-3 py-1.5 rounded hover:bg-iip-mauve/20 whitespace-nowrap">
+                className="bg-iip-mauve/10 text-iip-mauve text-xs px-3 py-1.5 h-9 rounded hover:bg-iip-mauve/20 whitespace-nowrap">
                 ⚙ Configurer un cours
               </button>
             )}
@@ -809,10 +809,10 @@ export default function PlanificateurVisuel({ onClose }) {
             <button onClick={() => dedoublerBloc(menuBloc)} className="w-full text-left px-3 py-2 hover:bg-gray-50 flex items-center gap-2">
               <IconPlus size={14} className="inline align-[-2px] mr-1" />Dédoubler le groupe (B, C…)
             </button>
-            <div className="px-3 py-1.5 text-xs text-gray-400">Activité :</div>
+            <div className="px-3 py-1.5 h-9 text-xs text-gray-400">Activité :</div>
             {['Cours', 'TP / Labo', 'Remédiation', 'Autonomie', 'Évaluation'].map(act => (
               <button key={act} onClick={() => setActiviteBloc(menuBloc, act)}
-                className="w-full text-left px-5 py-1.5 hover:bg-gray-50 text-xs">{act}</button>
+                className="w-full text-left px-5 py-1.5 h-9 hover:bg-gray-50 text-xs">{act}</button>
             ))}
             <div className="border-t border-gray-100 my-1" />
             <button onClick={() => toggleAlternance(menuBloc)} className="w-full text-left px-3 py-2 hover:bg-gray-50 flex items-center gap-2">

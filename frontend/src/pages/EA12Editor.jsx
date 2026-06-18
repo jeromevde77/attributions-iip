@@ -43,7 +43,7 @@ function Txt({ label, value, onChange, placeholder, type = 'text', className = '
       {label && <div className="text-xs text-gray-600 mb-0.5">{label}</div>}
       <input type={type} value={value ?? ''} onChange={e => onChange(e.target.value)}
         placeholder={placeholder}
-        className="w-full border border-gray-300 rounded px-3 py-1.5 text-sm focus:ring-1 focus:ring-iip-gold focus:outline-none" />
+        className="w-full border border-gray-300 rounded px-3 py-1.5 h-9 text-sm focus:ring-1 focus:ring-iip-gold focus:outline-none" />
     </label>
   );
 }
@@ -52,7 +52,7 @@ function Sel({ label, value, onChange, options }) {
     <label className="block">
       {label && <div className="text-xs text-gray-600 mb-0.5">{label}</div>}
       <select value={value ?? ''} onChange={e => onChange(e.target.value)}
-        className="w-full border border-gray-300 rounded px-3 py-1.5 text-sm bg-white focus:ring-1 focus:ring-iip-gold focus:outline-none">
+        className="w-full border border-gray-300 rounded px-3 py-1.5 h-9 text-sm bg-white focus:ring-1 focus:ring-iip-gold focus:outline-none">
         <option value="">— choisir —</option>
         {options.map(o => <option key={o} value={o}>{o}</option>)}
       </select>
@@ -200,7 +200,7 @@ export default function EA12Editor() {
         <div className="grid grid-cols-2 gap-3">
           <div>
             <div className="text-xs text-gray-600 mb-0.5">Document n° (attribué automatiquement)</div>
-            <div className="px-3 py-1.5 text-sm bg-gray-50 border border-gray-200 rounded text-gray-600">{ea12.num_doc || '—'}</div>
+            <div className="px-3 py-1.5 h-9 text-sm bg-gray-50 border border-gray-200 rounded text-gray-600">{ea12.num_doc || '—'}</div>
           </div>
           <Txt label="Dernier Doc12 transmis le" value={d.dernier_doc12} onChange={v => set('dernier_doc12', v)} type="date" />
         </div>

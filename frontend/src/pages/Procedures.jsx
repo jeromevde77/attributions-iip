@@ -443,12 +443,12 @@ function OutilRecours({ initialPayload, onPayloadConsumed }) {
           <label className="block">
             <div className="text-xs font-semibold text-gray-600 mb-1">Nom de l'étudiant·e *</div>
             <input value={etudiant} onChange={e => setEtudiant(e.target.value)} placeholder="Prénom NOM"
-              className="w-full border border-gray-300 rounded px-3 py-1.5 text-sm" />
+              className="w-full border border-gray-300 rounded px-3 py-1.5 h-9 text-sm" />
           </label>
           <label className="block">
             <div className="text-xs font-semibold text-gray-600 mb-1">Section</div>
             <select value={sectionSel} onChange={e => { setSectionSel(e.target.value); setUeNum(''); }}
-              className="w-full border border-gray-300 rounded px-3 py-1.5 text-sm bg-white">
+              className="w-full border border-gray-300 rounded px-3 py-1.5 h-9 text-sm bg-white">
               <option value="">— Toutes les sections —</option>
               {sectionsListe.map(s => <option key={s} value={s}>{s}</option>)}
             </select>
@@ -456,7 +456,7 @@ function OutilRecours({ initialPayload, onPayloadConsumed }) {
           <label className="block">
             <div className="text-xs font-semibold text-gray-600 mb-1">UE concernée *</div>
             <select value={ueNum} onChange={e => setUeNum(e.target.value)}
-              className="w-full border border-gray-300 rounded px-3 py-1.5 text-sm bg-white">
+              className="w-full border border-gray-300 rounded px-3 py-1.5 h-9 text-sm bg-white">
               <option value="">— Choisir une UE —</option>
               {uesFiltrees.map(u => <option key={u.ue_num} value={u.ue_num}>UE {u.ue_num} — {u.ue_nom}</option>)}
             </select>
@@ -464,13 +464,13 @@ function OutilRecours({ initialPayload, onPayloadConsumed }) {
           <label className="block">
             <div className="text-xs font-semibold text-gray-600 mb-1">Date de publication des résultats</div>
             <input type="date" value={datePubli} onChange={e => setDatePubli(e.target.value)}
-              className="w-full border border-gray-300 rounded px-3 py-1.5 text-sm" />
+              className="w-full border border-gray-300 rounded px-3 py-1.5 h-9 text-sm" />
             {datePubli && <p className="text-xs text-gray-500 mt-0.5">Limite recours : <strong>{fmt(limiteRecours)}</strong></p>}
           </label>
           <label className="block">
             <div className="text-xs font-semibold text-gray-600 mb-1">Date de réception de la plainte</div>
             <input type="date" value={dateRecours} onChange={e => setDateRecours(e.target.value)}
-              className="w-full border border-gray-300 rounded px-3 py-1.5 text-sm" />
+              className="w-full border border-gray-300 rounded px-3 py-1.5 h-9 text-sm" />
             {nbJours !== null && (
               <p className={`text-xs mt-0.5 font-semibold inline-flex items-center gap-1 ${delaiRespect ? 'text-green-700' : 'text-red-700'}`}>
                 J+{nbJours} → {delaiRespect ? <><IconCheck size={14} /> Dans le délai</> : <><IconX size={14} /> HORS DÉLAI</>}
@@ -599,7 +599,7 @@ function OutilRecours({ initialPayload, onPayloadConsumed }) {
           <label className="block">
             <div className="text-xs font-semibold text-gray-600 mb-1">Date de réunion du CDE restreint</div>
             <input type="date" value={dateSeance} onChange={e => setDateSeance(e.target.value)}
-              className="w-full border border-gray-300 rounded px-3 py-1.5 text-sm" />
+              className="w-full border border-gray-300 rounded px-3 py-1.5 h-9 text-sm" />
             {limiteDecisionInterne && <p className="text-xs text-gray-500 mt-0.5">Date limite décision : <strong>{fmt(limiteDecisionInterne)}</strong></p>}
           </label>
         </div>
@@ -655,7 +655,7 @@ function OutilRecours({ initialPayload, onPayloadConsumed }) {
               <span className="text-gray-400 font-normal ml-1">(déclenche le délai de recours externe)</span>
             </div>
             <input type="date" value={dateDecisionInterne} onChange={e => setDateDecisionInterne(e.target.value)}
-              className="w-full border border-gray-300 rounded px-3 py-1.5 text-sm bg-white" />
+              className="w-full border border-gray-300 rounded px-3 py-1.5 h-9 text-sm bg-white" />
             {limiteRecourseExterne && (
               <p className="text-xs text-orange-700 mt-1 font-medium inline-flex items-center gap-1">
                 <IconClock size={13} /> Limite recours externe : <strong>{fmt(limiteRecourseExterne)}</strong>
@@ -987,12 +987,12 @@ function OutilFraude({ initialPayload, onPayloadConsumed }) {
           <label className="block">
             <div className="text-xs font-semibold text-gray-600 mb-1">Nom de l'étudiant·e *</div>
             <input value={etudiant} onChange={e => setEtudiant(e.target.value)} placeholder="Prénom NOM"
-              className="w-full border border-gray-300 rounded px-3 py-1.5 text-sm" />
+              className="w-full border border-gray-300 rounded px-3 py-1.5 h-9 text-sm" />
           </label>
           <label className="block">
             <div className="text-xs font-semibold text-gray-600 mb-1">Section</div>
             <select value={sectionSel} onChange={e => { setSectionSel(e.target.value); setUeNum(''); }}
-              className="w-full border border-gray-300 rounded px-3 py-1.5 text-sm bg-white">
+              className="w-full border border-gray-300 rounded px-3 py-1.5 h-9 text-sm bg-white">
               <option value="">— Toutes les sections —</option>
               {sectionsListe.map(s => <option key={s} value={s}>{s}</option>)}
             </select>
@@ -1000,7 +1000,7 @@ function OutilFraude({ initialPayload, onPayloadConsumed }) {
           <label className="block">
             <div className="text-xs font-semibold text-gray-600 mb-1">UE concernée *</div>
             <select value={ueNum} onChange={e => setUeNum(e.target.value)}
-              className="w-full border border-gray-300 rounded px-3 py-1.5 text-sm bg-white">
+              className="w-full border border-gray-300 rounded px-3 py-1.5 h-9 text-sm bg-white">
               <option value="">— Choisir une UE —</option>
               {uesFiltrees.map(u => <option key={u.ue_num} value={u.ue_num}>UE {u.ue_num} — {u.ue_nom}</option>)}
             </select>
@@ -1008,7 +1008,7 @@ function OutilFraude({ initialPayload, onPayloadConsumed }) {
           <label className="block">
             <div className="text-xs font-semibold text-gray-600 mb-1">Session</div>
             <select value={session} onChange={e => setSession(e.target.value)}
-              className="w-full border border-gray-300 rounded px-3 py-1.5 text-sm bg-white">
+              className="w-full border border-gray-300 rounded px-3 py-1.5 h-9 text-sm bg-white">
               <option value="1">1re session</option>
               <option value="2">2e session</option>
             </select>
@@ -1020,7 +1020,7 @@ function OutilFraude({ initialPayload, onPayloadConsumed }) {
           <label className="block">
             <div className="text-xs font-semibold text-gray-600 mb-1">Date de l'épreuve</div>
             <input type="date" value={dateExamen} onChange={e => setDateExamen(e.target.value)}
-              className="w-full border border-gray-300 rounded px-3 py-1.5 text-sm" />
+              className="w-full border border-gray-300 rounded px-3 py-1.5 h-9 text-sm" />
           </label>
         </div>
 
@@ -1083,7 +1083,7 @@ function OutilFraude({ initialPayload, onPayloadConsumed }) {
           <div>
             <div className="text-xs font-semibold text-gray-600 mb-1">Type de fraude constatée <Ref text={is2526F ? 'Art. 54 ROI/RGE' : 'Art. 72 RDE/ROI'} /></div>
             <select value={typeFraude} onChange={e => setTypeFraude(e.target.value)}
-              className="w-full border border-gray-300 rounded px-3 py-1.5 text-sm bg-white">
+              className="w-full border border-gray-300 rounded px-3 py-1.5 h-9 text-sm bg-white">
               <option value="">— Sélectionner —</option>
               <option value="Usage de notes ou documents non autorisés (antisèche)">Usage de notes ou documents non autorisés (antisèche)</option>
               <option value="Communication entre étudiants pendant l'épreuve">Communication entre étudiants pendant l'épreuve</option>
@@ -1097,7 +1097,7 @@ function OutilFraude({ initialPayload, onPayloadConsumed }) {
           <div>
             <div className="text-xs font-semibold text-gray-600 mb-1">Date des faits constatés</div>
             <input type="date" value={dateFaits} onChange={e => setDateFaits(e.target.value)}
-              className="border border-gray-300 rounded px-3 py-1.5 text-sm" />
+              className="border border-gray-300 rounded px-3 py-1.5 h-9 text-sm" />
             {limiteNotif && <p className="text-xs text-orange-600 mt-1 inline-flex items-center gap-1"><IconClock size={13} /> Notification à l'étudiant recommandée avant le : <strong>{fmt(limiteNotif)}</strong></p>}
           </div>
           <div>
@@ -1118,7 +1118,7 @@ function OutilFraude({ initialPayload, onPayloadConsumed }) {
           <label className="block mb-3">
             <div className="text-xs font-semibold text-gray-600 mb-1">Date de notification à l'étudiant *</div>
             <input type="date" value={dateNotification} onChange={e => setDateNotification(e.target.value)}
-              className="w-full border border-gray-300 rounded px-3 py-1.5 text-sm" />
+              className="w-full border border-gray-300 rounded px-3 py-1.5 h-9 text-sm" />
             <p className="text-xs text-gray-400 mt-0.5">Courrier/e-mail informant des faits reprochés et du droit à l'audition</p>
           </label>
           {!dateNotification && (
@@ -1136,7 +1136,7 @@ function OutilFraude({ initialPayload, onPayloadConsumed }) {
               <label className="block">
                 <div className="text-xs font-semibold text-gray-600 mb-1">Date de l'audition</div>
                 <input type="date" value={dateAudition} onChange={e => setDateAudition(e.target.value)}
-                  className="w-full border border-gray-300 rounded px-3 py-1.5 text-sm" />
+                  className="w-full border border-gray-300 rounded px-3 py-1.5 h-9 text-sm" />
                 <p className="text-xs text-gray-400 mt-0.5">Laisser vide si l'étudiant ne s'est finalement pas présenté</p>
               </label>
               <div>
@@ -1158,7 +1158,7 @@ function OutilFraude({ initialPayload, onPayloadConsumed }) {
           <label className="block">
             <div className="text-xs font-semibold text-gray-600 mb-1">Date de réunion du CDE</div>
             <input type="date" value={dateCDE} onChange={e => setDateCDE(e.target.value)}
-              className="w-full border border-gray-300 rounded px-3 py-1.5 text-sm" />
+              className="w-full border border-gray-300 rounded px-3 py-1.5 h-9 text-sm" />
           </label>
         </div>
 
@@ -1228,7 +1228,7 @@ function OutilFraude({ initialPayload, onPayloadConsumed }) {
           <label className="block">
             <div className="text-xs font-semibold text-gray-600 mb-1">Date d'envoi de la décision à l'étudiant (recommandé)</div>
             <input type="date" value={dateEnvoi} onChange={e => setDateEnvoi(e.target.value)}
-              className="border border-gray-300 rounded px-3 py-1.5 text-sm bg-white" />
+              className="border border-gray-300 rounded px-3 py-1.5 h-9 text-sm bg-white" />
             {dateEnvoi && (
               <p className="text-xs text-orange-700 mt-1 inline-flex items-center gap-1">
                 <IconClock size={13} /> Limite recours interne : <strong>{fmt(addJoursCalendrier(dateEnvoi, 4))}</strong>
@@ -1381,7 +1381,7 @@ function ArchivesProcedures({ onReprendreRecours, onReprendre }) {
         <div>
           <label className="block text-xs text-gray-500 mb-1">Type</label>
           <select value={filtreType} onChange={e => setFiltreType(e.target.value)}
-            className="border border-gray-300 rounded px-2 py-1.5 text-sm bg-white">
+            className="border border-gray-300 rounded px-2 py-1.5 h-9 text-sm bg-white">
             <option value="">Tous</option>
             <option value="recours">Recours</option>
             <option value="fraude">Fraude</option>
@@ -1390,7 +1390,7 @@ function ArchivesProcedures({ onReprendreRecours, onReprendre }) {
         <div>
           <label className="block text-xs text-gray-500 mb-1">Statut</label>
           <select value={filtreStatut} onChange={e => setFiltreStatut(e.target.value)}
-            className="border border-gray-300 rounded px-2 py-1.5 text-sm bg-white">
+            className="border border-gray-300 rounded px-2 py-1.5 h-9 text-sm bg-white">
             <option value="">Tous</option>
             <option value="en_cours">En cours</option>
             <option value="clos">Clôturé</option>
@@ -1400,7 +1400,7 @@ function ArchivesProcedures({ onReprendreRecours, onReprendre }) {
         <div>
           <label className="block text-xs text-gray-500 mb-1">Année</label>
           <select value={filtreAnnee} onChange={e => setFiltreAnnee(e.target.value)}
-            className="border border-gray-300 rounded px-2 py-1.5 text-sm bg-white">
+            className="border border-gray-300 rounded px-2 py-1.5 h-9 text-sm bg-white">
             <option value="">Toutes</option>
             {annees.map(a => <option key={a} value={a}>{a}</option>)}
           </select>
@@ -1408,9 +1408,9 @@ function ArchivesProcedures({ onReprendreRecours, onReprendre }) {
         <div className="flex-1 min-w-40">
           <label className="block text-xs text-gray-500 mb-1">Étudiant</label>
           <input value={filtreQ} onChange={e => setFiltreQ(e.target.value)}
-            placeholder="Rechercher…" className="w-full border border-gray-300 rounded px-2 py-1.5 text-sm" />
+            placeholder="Rechercher…" className="w-full border border-gray-300 rounded px-2 py-1.5 h-9 text-sm" />
         </div>
-        <button onClick={charger} className="border border-gray-300 text-gray-600 text-sm px-3 py-1.5 rounded hover:bg-gray-50">
+        <button onClick={charger} className="border border-gray-300 text-gray-600 text-sm px-3 py-1.5 h-9 rounded hover:bg-gray-50">
           ↺ Actualiser
         </button>
       </div>
@@ -1550,10 +1550,10 @@ function ArchivesProcedures({ onReprendreRecours, onReprendre }) {
                     <p className="text-xs text-red-700">Cette action est irréversible. La procédure et toutes ses traces seront effacées de la base de données.</p>
                     <div className="flex gap-2">
                       <button onClick={() => supprimerPhysique(detail.id)} disabled={saving}
-                        className="bg-red-600 text-white text-xs px-4 py-1.5 rounded hover:bg-red-700 disabled:opacity-50">
+                        className="bg-red-600 text-white text-xs px-4 py-1.5 h-9 rounded hover:bg-red-700 disabled:opacity-50">
                         Confirmer la suppression
                       </button>
-                      <button onClick={() => setConfirmSupp(null)} className="border border-gray-300 text-gray-600 text-xs px-4 py-1.5 rounded">
+                      <button onClick={() => setConfirmSupp(null)} className="border border-gray-300 text-gray-600 text-xs px-4 py-1.5 h-9 rounded">
                         Annuler
                       </button>
                     </div>
@@ -1598,7 +1598,7 @@ export default function Procedures() {
   }
 
   const bandeauPreRempli = (
-    <p className="text-xs text-iip-blue -mt-2 mb-5 bg-iip-turquoise/5 border border-iip-turquoise/30 rounded px-3 py-1.5 inline-flex items-center gap-1.5">
+    <p className="text-xs text-iip-blue -mt-2 mb-5 bg-iip-turquoise/5 border border-iip-turquoise/30 rounded px-3 py-1.5 h-9 inline-flex items-center gap-1.5">
       <IconArrowBackUp size={14} stroke={1.8} /> Formulaire pré-rempli depuis une archive — modifiez si nécessaire avant de générer
     </p>
   );

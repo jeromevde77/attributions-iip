@@ -9,7 +9,7 @@ function Champ({ label, value, onChange, placeholder, hint, className = '' }) {
         value={value ?? ''}
         onChange={e => onChange(e.target.value)}
         placeholder={placeholder}
-        className="w-full border border-gray-300 rounded px-3 py-1.5 text-sm"
+        className="w-full border border-gray-300 rounded px-3 py-1.5 h-9 text-sm"
       />
       {hint && <div className="text-[11px] text-gray-400 mt-0.5">{hint}</div>}
     </label>
@@ -73,7 +73,7 @@ export default function ParametresEtablissement() {
           <label className="block">
             <div className="text-xs text-gray-600 mb-0.5">Type de Pouvoir Organisateur</div>
             <select value={f.type_po ?? ''} onChange={e => set('type_po', e.target.value)}
-              className="w-full border border-gray-300 rounded px-3 py-1.5 text-sm bg-white">
+              className="w-full border border-gray-300 rounded px-3 py-1.5 h-9 text-sm bg-white">
               <option value="">—</option>
               <option value="WBE">Organisé par WBE (33)</option>
               <option value="FWB">Subventionné par la FWB (22)</option>
@@ -83,7 +83,7 @@ export default function ParametresEtablissement() {
             <label className="block">
               <div className="text-xs text-gray-600 mb-0.5">Sous-type (subventionné)</div>
               <select value={f.sous_type ?? ''} onChange={e => set('sous_type', e.target.value)}
-                className="w-full border border-gray-300 rounded px-3 py-1.5 text-sm bg-white">
+                className="w-full border border-gray-300 rounded px-3 py-1.5 h-9 text-sm bg-white">
                 <option value="">—</option>
                 <option value="officiel">Officiel subventionné</option>
                 <option value="libre">Libre subventionné</option>
@@ -115,7 +115,7 @@ export default function ParametresEtablissement() {
         <label className="block">
           <div className="text-xs text-gray-600 mb-0.5">Nombre de jours de fonctionnement / semaine</div>
           <select value={f.jours_fonctionnement ?? ''} onChange={e => set('jours_fonctionnement', e.target.value ? Number(e.target.value) : null)}
-            className="w-full md:w-48 border border-gray-300 rounded px-3 py-1.5 text-sm bg-white">
+            className="w-full md:w-48 border border-gray-300 rounded px-3 py-1.5 h-9 text-sm bg-white">
             <option value="">—</option>
             <option value="4">4 jours</option>
             <option value="5">5 jours</option>

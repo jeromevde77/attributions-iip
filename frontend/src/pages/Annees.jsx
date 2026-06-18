@@ -178,7 +178,7 @@ export default function Annees({ embedded = false }) {
                 {form.mode === 'copie' && (
                   <div className="mt-2 ml-6">
                     <select value={form.source} onChange={e => setForm({...form, source: e.target.value})}
-                      className="border border-gray-300 rounded px-3 py-1.5 text-sm w-full focus:outline-none focus:ring-1 focus:ring-iip-gold">
+                      className="border border-gray-300 rounded px-3 py-1.5 h-9 text-sm w-full focus:outline-none focus:ring-1 focus:ring-iip-gold">
                       {annees.map(a => <option key={a.code} value={a.code}>{a.code} — {a.libelle}</option>)}
                     </select>
                     <p className="text-xs text-gray-500 mt-1">Structure copiée (section, UE, cours, contrat, périodes). Les professeurs sont réinitialisés.</p>
@@ -187,7 +187,7 @@ export default function Annees({ embedded = false }) {
                 {form.mode === 'selection' && (
                   <div className="mt-2 ml-6">
                     <select value={form.source} onChange={e => setForm({...form, source: e.target.value})}
-                      className="border border-gray-300 rounded px-3 py-1.5 text-sm w-full focus:outline-none focus:ring-1 focus:ring-iip-gold">
+                      className="border border-gray-300 rounded px-3 py-1.5 h-9 text-sm w-full focus:outline-none focus:ring-1 focus:ring-iip-gold">
                       <option value="">— Choisir l'année source —</option>
                       {annees.map(a => <option key={a.code} value={a.code}>{a.code} — {a.libelle}</option>)}
                     </select>

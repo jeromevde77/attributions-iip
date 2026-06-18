@@ -190,7 +190,7 @@ function AccesLuciePanel({ profId, detail }) {
         {account && <span className={`ml-auto text-xs px-2 py-0.5 rounded-full ${account.actif ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500'}`}>{account.actif ? 'Actif' : 'Désactivé'}</span>}
       </div>
       <div className="p-4 space-y-3">
-        {err && <div className="text-xs text-red-600 bg-red-50 border border-red-200 rounded px-2 py-1.5">{err}</div>}
+        {err && <div className="text-xs text-red-600 bg-red-50 border border-red-200 rounded px-2 py-1.5 h-9">{err}</div>}
         {pwd && (
           <div className="text-sm bg-amber-50 border border-amber-300 rounded px-3 py-2">
             <div className="font-semibold text-amber-800 inline-flex items-center gap-1.5"><IconKey size={15} /> Mot de passe (à noter maintenant, non récupérable ensuite)</div>
@@ -207,11 +207,11 @@ function AccesLuciePanel({ profId, detail }) {
             <div className="grid grid-cols-2 gap-3">
               <div>
                 <div className="text-xs text-gray-500 mb-1">E-mail (suggéré)</div>
-                <div className="text-sm border border-gray-200 rounded px-2 py-1.5 bg-gray-50 text-gray-600 truncate" title={emailSuggere}>{emailSuggere}</div>
+                <div className="text-sm border border-gray-200 rounded px-2 py-1.5 h-9 bg-gray-50 text-gray-600 truncate" title={emailSuggere}>{emailSuggere}</div>
               </div>
               <div>
                 <div className="text-xs text-gray-500 mb-1">Rôle</div>
-                <select value={role} onChange={e => setRole(e.target.value)} className="w-full border border-gray-300 rounded px-2 py-1.5 text-sm bg-white">
+                <select value={role} onChange={e => setRole(e.target.value)} className="w-full border border-gray-300 rounded px-2 py-1.5 h-9 text-sm bg-white">
                   {ROLES_LUCIE.map(([v, l]) => <option key={v} value={v}>{l}</option>)}
                 </select>
               </div>
@@ -228,7 +228,7 @@ function AccesLuciePanel({ profId, detail }) {
               </div>
             )}
             <button onClick={creer} disabled={busy}
-              className="inline-flex items-center gap-1.5 bg-iip-blue text-white text-sm px-3 py-1.5 rounded-lg disabled:opacity-40 hover:opacity-90">
+              className="inline-flex items-center gap-1.5 bg-iip-blue text-white text-sm px-3 py-1.5 h-9 rounded-lg disabled:opacity-40 hover:opacity-90">
               <IconPlus size={15} /> Créer l'accès &amp; générer le mot de passe
             </button>
           </>
@@ -239,12 +239,12 @@ function AccesLuciePanel({ profId, detail }) {
             <div className="grid grid-cols-2 gap-3">
               <div>
                 <div className="text-xs text-gray-500 mb-1">E-mail</div>
-                <div className="text-sm border border-gray-200 rounded px-2 py-1.5 bg-gray-50 text-gray-700 truncate" title={account.email}>{account.email}</div>
+                <div className="text-sm border border-gray-200 rounded px-2 py-1.5 h-9 bg-gray-50 text-gray-700 truncate" title={account.email}>{account.email}</div>
               </div>
               <div>
                 <div className="text-xs text-gray-500 mb-1">Rôle</div>
                 <select value={role} onChange={e => changerRole(e.target.value)} disabled={busy}
-                  className="w-full border border-gray-300 rounded px-2 py-1.5 text-sm bg-white">
+                  className="w-full border border-gray-300 rounded px-2 py-1.5 h-9 text-sm bg-white">
                   {ROLES_LUCIE.map(([v, l]) => <option key={v} value={v}>{l}</option>)}
                 </select>
               </div>
@@ -262,7 +262,7 @@ function AccesLuciePanel({ profId, detail }) {
               </div>
             )}
             <div className="flex flex-wrap gap-2 pt-1">
-              <button onClick={nouveauMdp} disabled={busy} className="inline-flex items-center gap-1.5 text-sm border border-gray-300 text-gray-700 px-3 py-1.5 rounded-lg hover:bg-gray-50 disabled:opacity-40">
+              <button onClick={nouveauMdp} disabled={busy} className="inline-flex items-center gap-1.5 text-sm border border-gray-300 text-gray-700 px-3 py-1.5 h-9 rounded-lg hover:bg-gray-50 disabled:opacity-40">
                 <IconKey size={15} /> Nouveau mot de passe
               </button>
               <button onClick={() => patch({ actif: !account.actif })} disabled={busy}
@@ -344,7 +344,7 @@ function DetailModal({ profId, onClose, onEdit, onFiche }) {
           <div className="flex gap-2 flex-shrink-0 flex-wrap justify-end">
             <div className="relative">
               <button onClick={() => setPrintMenu(v => !v)}
-                className="flex items-center gap-1.5 bg-gray-100 hover:bg-gray-200 text-gray-700 text-sm px-3 py-1.5 rounded" title="Fiche d'attributions">
+                className="flex items-center gap-1.5 bg-gray-100 hover:bg-gray-200 text-gray-700 text-sm px-3 py-1.5 h-9 rounded" title="Fiche d'attributions">
                 <IconPrinter size={15} />
                 Fiche
                 <IconChevronDown size={12} />
@@ -352,19 +352,19 @@ function DetailModal({ profId, onClose, onEdit, onFiche }) {
               {printMenu && (
                 <>
                   <div className="fixed inset-0 z-40" onClick={() => setPrintMenu(false)} />
-                  <div className="absolute z-50 top-full right-0 mt-1 bg-white border border-gray-200 rounded-lg shadow-xl py-1.5 px-1.5 w-40 flex flex-col gap-1">
+                  <div className="absolute z-50 top-full right-0 mt-1 bg-white border border-gray-200 rounded-lg shadow-xl py-1.5 h-9 px-1.5 w-40 flex flex-col gap-1">
                     <button onClick={() => { onFiche && onFiche(profId, null); setPrintMenu(false); }}
-                      className="text-left px-2 py-1.5 rounded hover:bg-gray-50 text-sm flex items-center gap-2">
+                      className="text-left px-2 py-1.5 h-9 rounded hover:bg-gray-50 text-sm flex items-center gap-2">
                       <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-gray-700 text-white">Global</span>
                       <span className="text-gray-600 text-xs">IIP + HELB</span>
                     </button>
                     <button onClick={() => { onFiche && onFiche(profId, 'IIP'); setPrintMenu(false); }}
-                      className="text-left px-2 py-1.5 rounded hover:bg-gray-50 text-sm flex items-center gap-2">
+                      className="text-left px-2 py-1.5 h-9 rounded hover:bg-gray-50 text-sm flex items-center gap-2">
                       <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-iip-turquoise/10 text-iip-blue">IIP</span>
                       <span className="text-gray-600 text-xs">Contrat IIP</span>
                     </button>
                     <button onClick={() => { onFiche && onFiche(profId, 'HELB'); setPrintMenu(false); }}
-                      className="text-left px-2 py-1.5 rounded hover:bg-gray-50 text-sm flex items-center gap-2">
+                      className="text-left px-2 py-1.5 h-9 rounded hover:bg-gray-50 text-sm flex items-center gap-2">
                       <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-purple-100 text-purple-700">HELB</span>
                       <span className="text-gray-600 text-xs">Contrat HELB</span>
                     </button>
@@ -374,18 +374,18 @@ function DetailModal({ profId, onClose, onEdit, onFiche }) {
             </div>
             {u?.role === 'admin' && (
               <button onClick={() => setShowContratModal(true)}
-                className="bg-green-700 hover:opacity-90 text-white text-sm px-3 py-1.5 rounded">
+                className="bg-green-700 hover:opacity-90 text-white text-sm px-3 py-1.5 h-9 rounded">
                 <span className="inline-flex items-center gap-1.5"><IconFileText size={15}/>Contrat</span>
               </button>
             )}
             {u?.role === 'admin' && (
               <button onClick={nouvelEA12}
-                className="bg-iip-mauve hover:opacity-90 text-white text-sm px-3 py-1.5 rounded">
+                className="bg-iip-mauve hover:opacity-90 text-white text-sm px-3 py-1.5 h-9 rounded">
                 + Nouvel EA12
               </button>
             )}
             <button onClick={() => onEdit(detail)}
-              className="bg-iip-gold hover:bg-iip-amber text-white text-sm px-3 py-1.5 rounded">
+              className="bg-iip-gold hover:bg-iip-amber text-white text-sm px-3 py-1.5 h-9 rounded">
               <span className="inline-flex items-center gap-1.5"><IconEdit size={15}/>Modifier</span>
             </button>
             <button onClick={onClose} className="text-gray-400 hover:text-red-500 text-2xl leading-none ml-2">×</button>
@@ -1202,19 +1202,19 @@ export default function Professeurs() {
             {ficheMenu === p.id && (
               <>
                 <div className="fixed inset-0 z-40" onClick={() => setFicheMenu(null)} />
-                <div className="absolute z-50 top-full right-0 mt-1 bg-white border border-gray-200 rounded-lg shadow-xl py-1.5 px-1.5 w-40 flex flex-col gap-1" onClick={e => e.stopPropagation()}>
+                <div className="absolute z-50 top-full right-0 mt-1 bg-white border border-gray-200 rounded-lg shadow-xl py-1.5 h-9 px-1.5 w-40 flex flex-col gap-1" onClick={e => e.stopPropagation()}>
                   <button onClick={() => { genererFicheAttributions(p.id, null); setFicheMenu(null); }}
-                    className="text-left px-2 py-1.5 rounded hover:bg-gray-50 text-sm flex items-center gap-2">
+                    className="text-left px-2 py-1.5 h-9 rounded hover:bg-gray-50 text-sm flex items-center gap-2">
                     <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-gray-700 text-white">Global</span>
                     <span className="text-gray-600 text-xs">IIP + HELB</span>
                   </button>
                   <button onClick={() => { genererFicheAttributions(p.id, 'IIP'); setFicheMenu(null); }}
-                    className="text-left px-2 py-1.5 rounded hover:bg-gray-50 text-sm flex items-center gap-2">
+                    className="text-left px-2 py-1.5 h-9 rounded hover:bg-gray-50 text-sm flex items-center gap-2">
                     <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-iip-turquoise/10 text-iip-blue">IIP</span>
                     <span className="text-gray-600 text-xs">Contrat IIP</span>
                   </button>
                   <button onClick={() => { genererFicheAttributions(p.id, 'HELB'); setFicheMenu(null); }}
-                    className="text-left px-2 py-1.5 rounded hover:bg-gray-50 text-sm flex items-center gap-2">
+                    className="text-left px-2 py-1.5 h-9 rounded hover:bg-gray-50 text-sm flex items-center gap-2">
                     <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-purple-100 text-purple-700">HELB</span>
                     <span className="text-gray-600 text-xs">Contrat HELB</span>
                   </button>
@@ -1283,7 +1283,7 @@ export default function Professeurs() {
               data-1p-ignore="true"
               data-lpignore="true"
               data-form-type="other"
-              className="border border-gray-300 rounded-lg pl-3 pr-8 py-1.5 text-sm focus:outline-none focus:border-iip-gold w-48"
+              className="border border-gray-300 rounded-lg pl-3 pr-8 py-1.5 h-9 text-sm focus:outline-none focus:border-iip-gold w-48"
             />
             {search && (
               <button onClick={() => setSearch('')}
@@ -1291,11 +1291,11 @@ export default function Professeurs() {
             )}
           </div>
           <select value={fSection} onChange={e => setFSection(e.target.value)}
-            className="border border-gray-300 rounded-lg px-2 py-1.5 text-sm focus:outline-none focus:border-iip-gold">
+            className="border border-gray-300 rounded-lg px-2 py-1.5 h-9 text-sm focus:outline-none focus:border-iip-gold">
             <option value="">Toutes sections</option>
             {sectionsListe.map(s => <option key={s} value={s}>{s}</option>)}
           </select>
-          <label className="inline-flex items-center gap-1.5 text-sm text-gray-600 border border-gray-300 rounded-lg px-2.5 py-1.5 cursor-pointer hover:bg-gray-50">
+          <label className="inline-flex items-center gap-1.5 text-sm text-gray-600 border border-gray-300 rounded-lg px-2.5 py-1.5 h-9 cursor-pointer hover:bg-gray-50">
             <input type="checkbox" checked={fAnc} onChange={e => setFAnc(e.target.checked)} />
             Avec ancienneté
           </label>
@@ -1306,22 +1306,22 @@ export default function Professeurs() {
           {selection.size > 0 && (
             <div className="relative">
               <button onClick={() => setPrintSelMenu(v => !v)} disabled={printing}
-                className="bg-iip-mauve hover:opacity-90 disabled:opacity-50 text-white text-sm px-3 py-1.5 rounded font-medium inline-flex items-center gap-1.5">
+                className="bg-iip-mauve hover:opacity-90 disabled:opacity-50 text-white text-sm px-3 py-1.5 h-9 rounded font-medium inline-flex items-center gap-1.5">
                 <IconPrinter size={15}/>{printing ? 'Préparation…' : `Imprimer (${selection.size})`}
                 <IconChevronDown size={12} />
               </button>
               {printSelMenu && (
                 <>
                   <div className="fixed inset-0 z-40" onClick={() => setPrintSelMenu(false)} />
-                  <div className="absolute z-50 top-full right-0 mt-1 bg-white border border-gray-200 rounded-lg shadow-xl py-1.5 px-1.5 w-44 flex flex-col gap-1">
+                  <div className="absolute z-50 top-full right-0 mt-1 bg-white border border-gray-200 rounded-lg shadow-xl py-1.5 h-9 px-1.5 w-44 flex flex-col gap-1">
                     <div className="text-[10px] text-gray-400 uppercase px-2 pt-0.5 pb-1">Type de fiche</div>
-                    <button onClick={() => imprimerSelectionFiches('GLOBAL')} className="text-left px-2 py-1.5 rounded hover:bg-gray-50 text-sm flex items-center gap-2">
+                    <button onClick={() => imprimerSelectionFiches('GLOBAL')} className="text-left px-2 py-1.5 h-9 rounded hover:bg-gray-50 text-sm flex items-center gap-2">
                       <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-gray-700 text-white">Global</span><span className="text-gray-600 text-xs">IIP + HELB</span>
                     </button>
-                    <button onClick={() => imprimerSelectionFiches('IIP')} className="text-left px-2 py-1.5 rounded hover:bg-gray-50 text-sm flex items-center gap-2">
+                    <button onClick={() => imprimerSelectionFiches('IIP')} className="text-left px-2 py-1.5 h-9 rounded hover:bg-gray-50 text-sm flex items-center gap-2">
                       <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-iip-turquoise/10 text-iip-blue">IIP</span><span className="text-gray-600 text-xs">Contrat IIP</span>
                     </button>
-                    <button onClick={() => imprimerSelectionFiches('HELB')} className="text-left px-2 py-1.5 rounded hover:bg-gray-50 text-sm flex items-center gap-2">
+                    <button onClick={() => imprimerSelectionFiches('HELB')} className="text-left px-2 py-1.5 h-9 rounded hover:bg-gray-50 text-sm flex items-center gap-2">
                       <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-purple-100 text-purple-700">HELB</span><span className="text-gray-600 text-xs">Contrat HELB</span>
                     </button>
                   </div>

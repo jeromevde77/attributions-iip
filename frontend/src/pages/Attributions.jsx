@@ -77,7 +77,7 @@ function CopierSectionModal({ sections, anneeActive, isAdmin, onClose, onCopied 
           <label className="block">
             <div className="text-xs font-medium text-gray-600 mb-1">Section</div>
             <select value={sectionSrc} onChange={e => handleSectionChange(e.target.value)}
-              className="w-full border border-gray-300 rounded px-3 py-1.5 text-sm">
+              className="w-full border border-gray-300 rounded px-3 py-1.5 h-9 text-sm">
               {sections.map(s => <option key={s.code} value={s.code}>{s.code}{s.libelle && s.libelle !== s.code ? ` — ${s.libelle}` : ''}</option>)}
             </select>
           </label>
@@ -86,7 +86,7 @@ function CopierSectionModal({ sections, anneeActive, isAdmin, onClose, onCopied 
             <label className="block">
               <div className="text-xs font-medium text-gray-600 mb-1">Année source</div>
               <select value={anneeSrc} onChange={e => setAnneeSrc(e.target.value)}
-                className="w-full border border-gray-300 rounded px-3 py-1.5 text-sm">
+                className="w-full border border-gray-300 rounded px-3 py-1.5 h-9 text-sm">
                 <option value="">— Choisir —</option>
                 {anneesDispo.map(a => (
                   <option key={a.annee} value={a.annee}>{a.annee} ({a.n} lignes)</option>
@@ -99,7 +99,7 @@ function CopierSectionModal({ sections, anneeActive, isAdmin, onClose, onCopied 
             <label className="block">
               <div className="text-xs font-medium text-gray-600 mb-1">Année destination</div>
               <select value={anneeDest} onChange={e => setAnneeDest(e.target.value)}
-                className="w-full border border-gray-300 rounded px-3 py-1.5 text-sm">
+                className="w-full border border-gray-300 rounded px-3 py-1.5 h-9 text-sm">
                 {Object.keys(anneesMap).length > 0
                   ? [...new Set([anneeActive, ...Object.values(anneesMap).flat().map(a => a.annee)])].sort().reverse().map(a => (
                       <option key={a} value={a}>{a}{a === anneeActive ? ' ✓' : ''}</option>
@@ -122,7 +122,7 @@ function CopierSectionModal({ sections, anneeActive, isAdmin, onClose, onCopied 
               {conflict && isAdmin && (
                 <div className="mt-2">
                   <button onClick={() => copier(true)} disabled={loading}
-                    className="bg-red-600 hover:bg-red-700 text-white text-xs px-3 py-1.5 rounded font-medium disabled:opacity-40">
+                    className="bg-red-600 hover:bg-red-700 text-white text-xs px-3 py-1.5 h-9 rounded font-medium disabled:opacity-40">
                     ⚠️ Forcer — supprimer les {conflict.count} existantes et recopier
                   </button>
                 </div>
@@ -1175,7 +1175,7 @@ export default function Attributions() {
         <tr key={voletKey} className="bg-iip-gold/5 border-y border-iip-gold/20 cursor-pointer hover:bg-iip-gold/10"
             onClick={()=>setOpenActs(s=>{const n=new Set(s);n.has(voletKey)?n.delete(voletKey):n.add(voletKey);return n;})}>
           <td className="text-center"><IconChevronRight size={14} className={`inline-block text-gray-400 text-xs transition-transform ${ouvert?'rotate-90':''}`} /></td>
-          <td colSpan={COLS_COURS.length - 1} className="px-2 py-1.5">
+          <td colSpan={COLS_COURS.length - 1} className="px-2 py-1.5 h-9">
             <span className="inline-flex items-center gap-2">
               <span className="inline-flex items-center justify-center w-5 h-5 rounded-full bg-iip-gold text-white text-[11px] font-bold">{lignes.length}</span>
               <span className="text-sm font-medium text-gray-700">{nom}</span>
@@ -1349,10 +1349,10 @@ export default function Attributions() {
             <div className="fixed z-50 bg-white border border-gray-200 rounded-lg shadow-xl py-1 w-64"
               style={{top: menuPos.top, right: menuPos.right}}
               onClick={e=>e.stopPropagation()}>
-              <div className="px-3 py-1.5 text-xs font-semibold text-gray-400 border-b border-gray-100">Ajouter dans l'UE {ue.ue_num}</div>
+              <div className="px-3 py-1.5 h-9 text-xs font-semibold text-gray-400 border-b border-gray-100">Ajouter dans l'UE {ue.ue_num}</div>
               {ue.cours.filter(cg => cg.type_cours !== 'Z').map(cg => (
                 <button key={cg.code_cours} onClick={()=>{ setEditRow({section: sec, code_cours: cg.code_cours}); setAddMenuUE(null); }}
-                        className="w-full text-left px-3 py-1.5 text-sm hover:bg-iip-gold/10 flex items-center gap-2">
+                        className="w-full text-left px-3 py-1.5 h-9 text-sm hover:bg-iip-gold/10 flex items-center gap-2">
                   <span className="text-iip-gold">＋</span>
                   <span className="truncate">Ligne sur <b>{cg.code_cours}</b> — {cg.nom_cours}</span>
                 </button>
@@ -1360,7 +1360,7 @@ export default function Attributions() {
               {/* Cours du référentiel (DP) sans aucune ligne d'attribution — re-créables */}
               {coursManquants.length > 0 && (
                 <>
-                  <div className="px-3 py-1.5 text-xs font-semibold text-amber-600 border-t border-gray-100 bg-amber-50">Cours du DP sans ligne (à rétablir)</div>
+                  <div className="px-3 py-1.5 h-9 text-xs font-semibold text-amber-600 border-t border-gray-100 bg-amber-50">Cours du DP sans ligne (à rétablir)</div>
                   {coursManquants.map(cm => (
                     <button key={cm.cours_code} onClick={async ()=>{
                         try {
@@ -1369,7 +1369,7 @@ export default function Attributions() {
                           load();
                         } catch(err){ alert('Erreur : ' + err.message); }
                       }}
-                      className="w-full text-left px-3 py-1.5 text-sm hover:bg-amber-100 flex items-center gap-2">
+                      className="w-full text-left px-3 py-1.5 h-9 text-sm hover:bg-amber-100 flex items-center gap-2">
                       <span className="text-amber-600">↻</span>
                       <span className="truncate">Rétablir <b>{cm.cours_code}</b> — {cm.cours_nom} <span className="text-gray-400">({cm.cours_per}p {cm.ct_pp})</span></span>
                     </button>
@@ -1377,19 +1377,19 @@ export default function Attributions() {
                 </>
               )}
               <button onClick={()=>{ setNewCoursForm({section: sec, ue_num: ue.ue_num, ue_nom: ue.ue_nom, num_organisation: org}); setAddMenuUE(null); }}
-                      className="w-full text-left px-3 py-1.5 text-sm hover:bg-iip-mauve/10 text-iip-mauve border-t border-gray-100 flex items-center gap-2">
+                      className="w-full text-left px-3 py-1.5 h-9 text-sm hover:bg-iip-mauve/10 text-iip-mauve border-t border-gray-100 flex items-center gap-2">
                 <span>＋</span><span>Nouveau cours dans cette UE</span>
               </button>
               <button onClick={()=>{ setEptModal({section: sec, ue_num: ue.ue_num, ue_nom: ue.ue_nom}); setAddMenuUE(null); }}
-                      className="w-full text-left px-3 py-1.5 text-sm hover:bg-iip-turquoise/5 text-iip-blue border-t border-gray-100 flex items-center gap-2">
+                      className="w-full text-left px-3 py-1.5 h-9 text-sm hover:bg-iip-turquoise/5 text-iip-blue border-t border-gray-100 flex items-center gap-2">
                 <IconClipboardText size={15}/><span>Lignes EPT (95-99)</span>
               </button>
               <button onClick={()=>{ setOrgModal({section: sec, ue_num: ue.ue_num, ue_nom: ue.ue_nom}); setAddMenuUE(null); }}
-                      className="w-full text-left px-3 py-1.5 text-sm hover:bg-teal-50 text-teal-700 border-t border-gray-100 flex items-center gap-2">
+                      className="w-full text-left px-3 py-1.5 h-9 text-sm hover:bg-teal-50 text-teal-700 border-t border-gray-100 flex items-center gap-2">
                 <IconCalendar size={15}/><span>Organisations (Doc A)</span>
               </button>
               <button onClick={()=>{ setDoc23Modal({section: sec, ue_num: ue.ue_num, ue_nom: ue.ue_nom}); setAddMenuUE(null); }}
-                      className="w-full text-left px-3 py-1.5 text-sm hover:bg-purple-50 text-purple-700 border-t border-gray-100 flex items-center gap-2">
+                      className="w-full text-left px-3 py-1.5 h-9 text-sm hover:bg-purple-50 text-purple-700 border-t border-gray-100 flex items-center gap-2">
                 <IconFileText size={15}/><span>DOC2 / DOC3</span>
               </button>
             </div>
@@ -1475,7 +1475,7 @@ export default function Attributions() {
 
       {/* Barre mobile */}
       <div className="md:hidden mb-2 flex gap-2">
-        <input value={filters.q} onChange={e=>setFilters({...filters,q:e.target.value})} onKeyDown={e=>e.key==='Enter'&&applyFilters()} placeholder="Rechercher…" className="flex-1 border border-gray-300 rounded-lg px-3 py-1.5 text-sm"/>
+        <input value={filters.q} onChange={e=>setFilters({...filters,q:e.target.value})} onKeyDown={e=>e.key==='Enter'&&applyFilters()} placeholder="Rechercher…" className="flex-1 border border-gray-300 rounded-lg px-3 py-1.5 h-9 text-sm"/>
         <button onClick={mobileCollapseAll} title="Tout replier" className="bg-white border border-gray-300 rounded-lg px-3 py-2 text-sm font-medium">⊟</button>
         <button onClick={mobileExpandAll} title="Tout déplier" className="bg-white border border-gray-300 rounded-lg px-3 py-2 text-sm font-medium">⊞</button>
         <button onClick={()=>setFiltersOpenMobile(o=>!o)} className="bg-white border border-gray-300 rounded-lg px-3 py-2 text-sm font-medium">{filtersOpenMobile ? <IconX size={16}/> : <IconSettings size={16}/>}</button>
@@ -1494,9 +1494,9 @@ export default function Attributions() {
         <div><label className="block text-xs text-gray-600 mb-0.5">Type</label>
           <select value={filters.type_cours} onChange={e=>{const f={...filters,type_cours:e.target.value};setFilters(f);load(f);}} className="border border-gray-300 rounded px-2 py-1 text-sm"><option value="">—</option><option value="CT">CT</option><option value="PP">PP</option></select></div>
         <div className="flex-1"><label className="block text-xs text-gray-600 mb-0.5">Recherche libre</label>
-          <input value={filters.q} onChange={e=>setFilters({...filters,q:e.target.value})} onKeyDown={e=>e.key==='Enter'&&applyFilters()} placeholder="UE, cours, professeur..." className="border border-gray-300 rounded px-2 py-1.5 text-sm w-full"/></div>
-        <button onClick={applyFilters} className="bg-iip-gold hover:bg-iip-amber text-white text-sm px-4 py-1.5 rounded">Filtrer</button>
-        <button onClick={resetFilters} className="text-gray-600 hover:text-iip-orange text-sm px-2 py-1.5">Réinitialiser</button>
+          <input value={filters.q} onChange={e=>setFilters({...filters,q:e.target.value})} onKeyDown={e=>e.key==='Enter'&&applyFilters()} placeholder="UE, cours, professeur..." className="border border-gray-300 rounded px-2 py-1.5 h-9 text-sm w-full"/></div>
+        <button onClick={applyFilters} className="bg-iip-gold hover:bg-iip-amber text-white text-sm px-4 py-1.5 h-9 rounded">Filtrer</button>
+        <button onClick={resetFilters} className="text-gray-600 hover:text-iip-orange text-sm px-2 py-1.5 h-9">Réinitialiser</button>
       </div>
 
       {/* ── Desktop : panneau latéral épinglable (vue + filtres + actions) + tableau ── */}
@@ -1529,21 +1529,21 @@ export default function Attributions() {
                 <div className="text-[10px] font-semibold uppercase tracking-wider text-gray-400 mb-1.5">Filtres</div>
                 <div className="space-y-2">
                   <label className="block"><span className="block text-xs text-gray-600 mb-0.5">Section</span>
-                    <select value={filters.section} onChange={e=>{const f={...filters,section:e.target.value};setFilters(f);load(f);}} className="w-full border border-gray-300 rounded px-2 py-1.5 text-sm"><option value="">— Toutes —</option>{sections.map(s=><option key={s.code} value={s.code}>{s.code}</option>)}</select></label>
+                    <select value={filters.section} onChange={e=>{const f={...filters,section:e.target.value};setFilters(f);load(f);}} className="w-full border border-gray-300 rounded px-2 py-1.5 h-9 text-sm"><option value="">— Toutes —</option>{sections.map(s=><option key={s.code} value={s.code}>{s.code}</option>)}</select></label>
                   <label className="block"><span className="block text-xs text-gray-600 mb-0.5">UE</span>
-                    <select value={filters.ue_num} onChange={e=>{const f={...filters,ue_num:e.target.value};setFilters(f);load(f);}} className="w-full border border-gray-300 rounded px-2 py-1.5 text-sm"><option value="">— Toutes —</option>{ueList.map(([n,nom])=><option key={n} value={n}>UE {n} — {nom}</option>)}</select></label>
+                    <select value={filters.ue_num} onChange={e=>{const f={...filters,ue_num:e.target.value};setFilters(f);load(f);}} className="w-full border border-gray-300 rounded px-2 py-1.5 h-9 text-sm"><option value="">— Toutes —</option>{ueList.map(([n,nom])=><option key={n} value={n}>UE {n} — {nom}</option>)}</select></label>
                   <label className="block"><span className="block text-xs text-gray-600 mb-0.5">Professeur</span>
-                    <select value={filters.prof_id} onChange={e=>{const f={...filters,prof_id:e.target.value};setFilters(f);load(f);}} className="w-full border border-gray-300 rounded px-2 py-1.5 text-sm"><option value="">— Tous —</option>{professeurs.map(p=><option key={p.id} value={p.id}>{p.nom_prenom}</option>)}</select></label>
+                    <select value={filters.prof_id} onChange={e=>{const f={...filters,prof_id:e.target.value};setFilters(f);load(f);}} className="w-full border border-gray-300 rounded px-2 py-1.5 h-9 text-sm"><option value="">— Tous —</option>{professeurs.map(p=><option key={p.id} value={p.id}>{p.nom_prenom}</option>)}</select></label>
                   <div className="flex gap-2">
                     <label className="block flex-1"><span className="block text-xs text-gray-600 mb-0.5">Contrat</span>
-                      <select value={filters.contrat} onChange={e=>{const f={...filters,contrat:e.target.value};setFilters(f);load(f);}} className="w-full border border-gray-300 rounded px-2 py-1.5 text-sm"><option value="">—</option><option value="IIP">IIP</option><option value="HELB">HELB</option></select></label>
+                      <select value={filters.contrat} onChange={e=>{const f={...filters,contrat:e.target.value};setFilters(f);load(f);}} className="w-full border border-gray-300 rounded px-2 py-1.5 h-9 text-sm"><option value="">—</option><option value="IIP">IIP</option><option value="HELB">HELB</option></select></label>
                     <label className="block flex-1"><span className="block text-xs text-gray-600 mb-0.5">Type</span>
-                      <select value={filters.type_cours} onChange={e=>{const f={...filters,type_cours:e.target.value};setFilters(f);load(f);}} className="w-full border border-gray-300 rounded px-2 py-1.5 text-sm"><option value="">—</option><option value="CT">CT</option><option value="PP">PP</option></select></label>
+                      <select value={filters.type_cours} onChange={e=>{const f={...filters,type_cours:e.target.value};setFilters(f);load(f);}} className="w-full border border-gray-300 rounded px-2 py-1.5 h-9 text-sm"><option value="">—</option><option value="CT">CT</option><option value="PP">PP</option></select></label>
                   </div>
                   <label className="block"><span className="block text-xs text-gray-600 mb-0.5">Recherche libre</span>
-                    <input value={filters.q} onChange={e=>setFilters({...filters,q:e.target.value})} onKeyDown={e=>e.key==='Enter'&&applyFilters()} placeholder="UE, cours, professeur..." className="w-full border border-gray-300 rounded px-2 py-1.5 text-sm"/></label>
+                    <input value={filters.q} onChange={e=>setFilters({...filters,q:e.target.value})} onKeyDown={e=>e.key==='Enter'&&applyFilters()} placeholder="UE, cours, professeur..." className="w-full border border-gray-300 rounded px-2 py-1.5 h-9 text-sm"/></label>
                   <div className="flex gap-2 pt-1">
-                    <button onClick={applyFilters} className="flex-1 bg-iip-blue hover:bg-iip-blue-dark text-white text-sm py-1.5 rounded-lg">Filtrer</button>
+                    <button onClick={applyFilters} className="flex-1 bg-iip-blue hover:bg-iip-blue-dark text-white text-sm py-1.5 h-9 rounded-lg">Filtrer</button>
                     <button onClick={resetFilters} className="text-gray-500 hover:text-iip-blue text-sm px-2">Réinitialiser</button>
                   </div>
                 </div>
@@ -1814,7 +1814,7 @@ export default function Attributions() {
           </p>
           <div className="space-y-1">
             {pertesCharge.map(p => (
-              <div key={p.professeur_id} className="flex items-center justify-between bg-white rounded px-2.5 py-1.5 text-[12px]">
+              <div key={p.professeur_id} className="flex items-center justify-between bg-white rounded px-2.5 py-1.5 h-9 text-[12px]">
                 <span className="text-gray-700"><strong>{p.prof}</strong></span>
                 <span className="text-red-600 font-semibold whitespace-nowrap ml-2">
                   manque {p.etp_manque} ETP (~{p.equiv_periodes_ct} pér. CT)

@@ -348,7 +348,7 @@ export default function Doc23Modal({ ue_num, section, ue_nom, annee, onClose }) 
           <div>
             <label className="block text-xs text-gray-500 mb-1">Organisation</label>
             <select value={numOrg} onChange={e => setNumOrg(parseInt(e.target.value))}
-              className="w-full border border-gray-300 rounded px-3 py-1.5 text-sm bg-white">
+              className="w-full border border-gray-300 rounded px-3 py-1.5 h-9 text-sm bg-white">
               {orgs.length > 0
                 ? orgs.map(o => <option key={o.num_organisation} value={o.num_organisation}>
                     Org {o.num_organisation} — {o.date_debut||'?'} → {o.date_fin||'?'}
@@ -393,7 +393,7 @@ export default function Doc23Modal({ ue_num, section, ue_nom, annee, onClose }) 
                     {data.cours.map(c => (
                       <button key={c.cours_code}
                         onClick={() => ouvrir(genDoc3Html(data, annee, c.cours_code), nomDoc('DOC3', 'UE'+ue_num, c.cours_nom, 'Org'+numOrg, annee))}
-                        className="w-full text-left text-xs border border-gray-200 rounded px-3 py-1.5 hover:bg-gray-50 flex justify-between items-center">
+                        className="w-full text-left text-xs border border-gray-200 rounded px-3 py-1.5 h-9 hover:bg-gray-50 flex justify-between items-center">
                         <span><b>{c.num_activite}</b> — {c.cours_nom}</span>
                         <span className="text-gray-400">📋</span>
                       </button>
@@ -408,7 +408,7 @@ export default function Doc23Modal({ ue_num, section, ue_nom, annee, onClose }) 
         </div>
 
         <div className="px-6 py-3 border-t flex justify-end">
-          <button onClick={onClose} className="border border-gray-300 text-gray-600 px-4 py-1.5 rounded text-sm hover:bg-gray-50">
+          <button onClick={onClose} className="border border-gray-300 text-gray-600 px-4 py-1.5 h-9 rounded text-sm hover:bg-gray-50">
             Fermer
           </button>
         </div>

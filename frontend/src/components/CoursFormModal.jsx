@@ -104,7 +104,7 @@ export default function CoursFormModal({ cours, ueNum, section, onClose, onSaved
             <div className="flex items-center gap-3">
               <input value={form.cours_code} onChange={e => set('cours_code', e.target.value)}
                 disabled={!isNew} placeholder="ex: 900.1"
-                className="flex-1 border border-gray-300 rounded px-3 py-1.5 text-sm font-mono disabled:bg-gray-100" />
+                className="flex-1 border border-gray-300 rounded px-3 py-1.5 h-9 text-sm font-mono disabled:bg-gray-100" />
 
               {/* Case Z */}
               <label className={`flex items-center gap-2 cursor-pointer select-none px-3 py-1.5 rounded-lg border-2 transition
@@ -148,7 +148,7 @@ export default function CoursFormModal({ cours, ueNum, section, onClose, onSaved
               <input type="number" min="0" value={form.per_etudiant}
                 onChange={e => set('per_etudiant', e.target.value)}
                 placeholder="Nombre de périodes autonomes de l'étudiant"
-                className="w-full border-2 border-iip-blue rounded-lg px-3 py-1.5 text-sm font-semibold focus:ring-2 focus:ring-iip-blue/30" />
+                className="w-full border-2 border-iip-blue rounded-lg px-3 py-1.5 h-9 text-sm font-semibold focus:ring-2 focus:ring-iip-blue/30" />
               <p className="text-xs text-gray-500 mt-1">
                 Ces périodes s'ajoutent aux périodes étudiant totaux de l'UE.
               </p>
@@ -161,9 +161,9 @@ export default function CoursFormModal({ cours, ueNum, section, onClose, onSaved
               <p className="text-xs text-gray-700">⚠️ Met à jour le cours, ses attributions et activités liées.</p>
               <div className="flex gap-2">
                 <input value={newCode} onChange={e => setNewCode(e.target.value)} placeholder="Nouveau code"
-                  className="flex-1 border border-gray-300 rounded px-3 py-1.5 text-sm font-mono" />
+                  className="flex-1 border border-gray-300 rounded px-3 py-1.5 h-9 text-sm font-mono" />
                 <button type="button" onClick={forcerCode} disabled={saving}
-                  className="bg-iip-blue text-white text-sm px-3 py-1.5 rounded disabled:opacity-40">Forcer</button>
+                  className="bg-iip-blue text-white text-sm px-3 py-1.5 h-9 rounded disabled:opacity-40">Forcer</button>
                 <button type="button" onClick={() => setRenaming(false)} className="text-sm text-gray-500 px-2"><IconX size={16} /></button>
               </div>
             </div>

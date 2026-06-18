@@ -127,7 +127,7 @@ export default function EptModal({ section, ue_num, ue_nom, annee, onClose }) {
               <div>
                 <label className="block text-xs text-gray-500 mb-1">Code EPT</label>
                 <select value={form.code_ept} onChange={e => setForm(f => ({ ...f, code_ept: e.target.value }))}
-                  className="w-full border border-gray-300 rounded px-2 py-1.5 text-sm bg-white">
+                  className="w-full border border-gray-300 rounded px-2 py-1.5 h-9 text-sm bg-white">
                   {CODES_EPT.map(c => (
                     <option key={c.code} value={c.code}>{c.code} — {c.label.split('—')[1]?.trim() || c.label}</option>
                   ))}
@@ -137,14 +137,14 @@ export default function EptModal({ section, ue_num, ue_nom, annee, onClose }) {
                 <label className="block text-xs text-gray-500 mb-1">Périodes</label>
                 <input type="number" min="0" value={form.periodes}
                   onChange={e => setForm(f => ({ ...f, periodes: e.target.value }))}
-                  className="w-full border border-gray-300 rounded px-2 py-1.5 text-sm"
+                  className="w-full border border-gray-300 rounded px-2 py-1.5 h-9 text-sm"
                   placeholder="0" />
               </div>
             </div>
             <div className="mb-3">
               <label className="block text-xs text-gray-500 mb-1">Professeur</label>
               <select value={form.professeur_id} onChange={e => setForm(f => ({ ...f, professeur_id: e.target.value }))}
-                className="w-full border border-gray-300 rounded px-2 py-1.5 text-sm bg-white">
+                className="w-full border border-gray-300 rounded px-2 py-1.5 h-9 text-sm bg-white">
                 <option value="">— Choisir un professeur —</option>
                 {[...profs].sort((a,b) => {
                   if (a.nom === 'À DÉSIGNER') return -1;
@@ -158,7 +158,7 @@ export default function EptModal({ section, ue_num, ue_nom, annee, onClose }) {
             <div className="mb-3">
               <label className="block text-xs text-gray-500 mb-1">Activité <span className="text-gray-400">(décrit la tâche à l'enseignant)</span></label>
               <select value={form.activite_id} onChange={e => setForm(f => ({ ...f, activite_id: e.target.value }))}
-                className="w-full border border-gray-300 rounded px-2 py-1.5 text-sm bg-white">
+                className="w-full border border-gray-300 rounded px-2 py-1.5 h-9 text-sm bg-white">
                 <option value="">— Aucune activité —</option>
                 {activites.map(a => (
                   <option key={a.id} value={a.id}>{a.libelle}</option>
@@ -166,14 +166,14 @@ export default function EptModal({ section, ue_num, ue_nom, annee, onClose }) {
               </select>
             </div>
             <button onClick={ajouterLigne} disabled={saving || !form.professeur_id || !form.periodes}
-              className="bg-iip-blue hover:bg-iip-blue-dark text-white text-sm px-4 py-1.5 rounded disabled:opacity-50">
+              className="bg-iip-blue hover:bg-iip-blue-dark text-white text-sm px-4 py-1.5 h-9 rounded disabled:opacity-50">
               {saving ? 'Ajout...' : '＋ Ajouter'}
             </button>
           </div>
         </div>
 
         <div className="px-6 py-3 border-t flex justify-end">
-          <button onClick={onClose} className="bg-iip-gold text-white px-4 py-1.5 rounded text-sm hover:bg-iip-amber">
+          <button onClick={onClose} className="bg-iip-gold text-white px-4 py-1.5 h-9 rounded text-sm hover:bg-iip-amber">
             Fermer
           </button>
         </div>

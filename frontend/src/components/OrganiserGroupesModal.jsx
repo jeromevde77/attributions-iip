@@ -149,7 +149,7 @@ export default function OrganiserGroupesModal({ portee, section, ues, onClose, o
                 {open && (
                   <div className="divide-y divide-gray-50">
                     {ue.cours.map(c => (
-                      <div key={c.code_cours} className="flex items-center gap-2 px-3 py-1.5 pl-10 text-[13px]">
+                      <div key={c.code_cours} className="flex items-center gap-2 px-3 py-1.5 h-9 pl-10 text-[13px]">
                         <span className="flex-1 text-gray-600 truncate" title={c.nom_cours || c.code_cours}>{c.code_cours} — {c.nom_cours || ''}</span>
                         <SelecteurGroupes valeur={groupes[k]?.[c.code_cours] || 1} onChange={(n) => setNb(k, c.code_cours, n)} />
                       </div>

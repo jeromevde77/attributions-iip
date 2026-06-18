@@ -189,22 +189,22 @@ export default function Users({ embedded = false }) {
               <div>
                 <label className="block text-xs text-gray-600 mb-0.5">Nom complet</label>
                 <input value={form.nom_complet} onChange={e => setForm({...form, nom_complet: e.target.value})}
-                       className="w-full border border-gray-300 rounded px-2 py-1.5 text-sm" />
+                       className="w-full border border-gray-300 rounded px-2 py-1.5 h-9 text-sm" />
               </div>
               <div>
                 <label className="block text-xs text-gray-600 mb-0.5">Email *</label>
                 <input type="email" value={form.email} onChange={e => setForm({...form, email: e.target.value})}
-                       className="w-full border border-gray-300 rounded px-2 py-1.5 text-sm" />
+                       className="w-full border border-gray-300 rounded px-2 py-1.5 h-9 text-sm" />
               </div>
               <div>
                 <label className="block text-xs text-gray-600 mb-0.5">Mot de passe initial *</label>
                 <input type="text" value={form.password} onChange={e => setForm({...form, password: e.target.value})}
-                       className="w-full border border-gray-300 rounded px-2 py-1.5 text-sm" />
+                       className="w-full border border-gray-300 rounded px-2 py-1.5 h-9 text-sm" />
               </div>
               <div>
                 <label className="block text-xs text-gray-600 mb-0.5">Rôle</label>
                 <select value={form.role} onChange={e => setForm({...form, role: e.target.value})}
-                        className="w-full border border-gray-300 rounded px-2 py-1.5 text-sm">
+                        className="w-full border border-gray-300 rounded px-2 py-1.5 h-9 text-sm">
                   {Object.entries(ROLE_LABEL).map(([k,l]) => <option key={k} value={k}>{l}</option>)}
                 </select>
               </div>

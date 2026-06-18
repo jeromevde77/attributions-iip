@@ -182,7 +182,7 @@ function DotSectionSelect({ value, onChange }) {
     <div>
       <label className="block text-xs text-gray-500 mb-1">Section</label>
       <select value={value} onChange={e => onChange(e.target.value)}
-        className="border border-gray-300 rounded px-3 py-1.5 text-sm bg-white w-52">
+        className="border border-gray-300 rounded px-3 py-1.5 h-9 text-sm bg-white w-52">
         <option value="">— Choisir une section —</option>
         {sections.map(s => <option key={s.code} value={s.code}>{s.libelle || s.code}</option>)}
       </select>
@@ -308,7 +308,7 @@ function DotationComparaison({ civil }) {
           <div key={k}>
             <label className="block text-xs text-gray-500 mb-1">{lbl}</label>
             <select value={val} onChange={e => set(e.target.value)}
-              className="border border-gray-300 rounded px-3 py-1.5 text-sm bg-white w-36">
+              className="border border-gray-300 rounded px-3 py-1.5 h-9 text-sm bg-white w-36">
               <option value="">— Choisir —</option>
               {optionsAnnees.map(a => <option key={a} value={a}>{a}</option>)}
             </select>
@@ -344,7 +344,7 @@ function DotationComparaison({ civil }) {
         <div>
           <label className="block text-xs text-gray-500 mb-1">Enveloppe</label>
           <select value={potFilter} onChange={e => setPotFilter(e.target.value)}
-            className="border border-gray-300 rounded px-3 py-1.5 text-sm bg-white">
+            className="border border-gray-300 rounded px-3 py-1.5 h-9 text-sm bg-white">
             <option value="TOUT">Tout (IIP + HELB)</option>
             <option value="">Toutes (IIP)</option>
             <option value="organique">Organique</option>
@@ -373,9 +373,9 @@ function DotationComparaison({ civil }) {
                 <Th col="nom" align="left" rowSpan={2} style={{position:'sticky',left:0,background:'#1B2B4B',zIndex:10,verticalAlign:'bottom',paddingBottom:'0.5rem'}}>Section / UE</Th>
                 <Th col="niv" align="center" rowSpan={2} style={{verticalAlign:'bottom',paddingBottom:'0.5rem'}}>Niv.</Th>
                 <Th col="quad" align="center" rowSpan={2} style={{verticalAlign:'bottom',paddingBottom:'0.5rem'}}>Quad.</Th>
-                <th className="px-2 py-1.5 text-center font-semibold" colSpan={3}
+                <th className="px-2 py-1.5 h-9 text-center font-semibold" colSpan={3}
                   style={{borderLeft:'1px solid rgba(255,255,255,.18)'}}>{annee1}</th>
-                <th className="px-2 py-1.5 text-center font-semibold" colSpan={3}
+                <th className="px-2 py-1.5 h-9 text-center font-semibold" colSpan={3}
                   style={{borderLeft:'1px solid rgba(255,255,255,.18)'}}>{annee2}</th>
                 <Th col="delta" align="center" rowSpan={2} style={{borderLeft:'1px solid rgba(255,255,255,.18)',verticalAlign:'bottom',paddingBottom:'0.5rem'}}>Δ</Th>
               </tr>
@@ -417,23 +417,23 @@ function DotationComparaison({ civil }) {
                     {open && sec.ues.map((u, i) => (
                       <tr key={`${u.section}-${u.ue_num}`}
                         className={`border-t border-gray-100 text-xs hover:bg-gray-50/60`}>
-                        <td className="px-3 py-1.5 sticky left-0 z-10 pl-8 overflow-hidden text-ellipsis whitespace-nowrap"
+                        <td className="px-3 py-1.5 h-9 sticky left-0 z-10 pl-8 overflow-hidden text-ellipsis whitespace-nowrap"
                           style={{background:'white', width:colW.nom, maxWidth:colW.nom}}>
                           <span className="font-mono text-gray-400 mr-2">UE {u.ue_num}</span>
                           <span className="text-gray-600">{u.ue_nom}</span>
                         </td>
-                        <td className="px-2 py-1.5 text-center" style={{width:colW.niv}}>
+                        <td className="px-2 py-1.5 h-9 text-center" style={{width:colW.niv}}>
                           {u.ue_niv && <span className="text-[9px] font-bold px-1 py-0.5 rounded text-white"
                             style={{background: nivColor(u.ue_niv)}}>{u.ue_niv}</span>}
                         </td>
-                        <td className="px-2 py-1.5 text-center text-gray-400">{u.ue_quad||'—'}</td>
-                        <td className="px-2 py-1.5 text-right text-gray-600">{fmt(u.c1.q1)}</td>
-                        <td className="px-2 py-1.5 text-right text-gray-600">{fmt(u.c1.q2)}</td>
-                        <td className="px-2 py-1.5 text-right font-semibold text-gray-700">{u.t1||'—'}</td>
-                        <td className="px-2 py-1.5 text-right text-gray-600">{fmt(u.c2.q1)}</td>
-                        <td className="px-2 py-1.5 text-right text-gray-600">{fmt(u.c2.q2)}</td>
+                        <td className="px-2 py-1.5 h-9 text-center text-gray-400">{u.ue_quad||'—'}</td>
+                        <td className="px-2 py-1.5 h-9 text-right text-gray-600">{fmt(u.c1.q1)}</td>
+                        <td className="px-2 py-1.5 h-9 text-right text-gray-600">{fmt(u.c1.q2)}</td>
+                        <td className="px-2 py-1.5 h-9 text-right font-semibold text-gray-700">{u.t1||'—'}</td>
+                        <td className="px-2 py-1.5 h-9 text-right text-gray-600">{fmt(u.c2.q1)}</td>
+                        <td className="px-2 py-1.5 h-9 text-right text-gray-600">{fmt(u.c2.q2)}</td>
                         <td className={`px-2 py-1.5 text-right font-semibold ${u.delta > 0 ? 'text-red-500' : u.delta < 0 ? 'text-green-500' : 'text-gray-700'}`}>{u.t2||'—'}</td>
-                        <td className="px-3 py-1.5 text-center border-l border-gray-100">{delta(u.delta)}</td>
+                        <td className="px-3 py-1.5 h-9 text-center border-l border-gray-100">{delta(u.delta)}</td>
                       </tr>
                     ))}
                   </>
@@ -681,7 +681,7 @@ export default function Pilotage() {
               <button onClick={() => setRapportPaysage(true)} className={`px-2.5 py-1 ${rapportPaysage ? 'bg-iip-blue text-white' : 'bg-white text-gray-500'}`}>Paysage</button>
             </div>
             <button onClick={() => imprimerDotation(rapportPaysage)}
-              className="inline-flex items-center gap-1.5 bg-iip-blue text-white text-xs px-3 py-1.5 rounded-lg hover:opacity-90">
+              className="inline-flex items-center gap-1.5 bg-iip-blue text-white text-xs px-3 py-1.5 h-9 rounded-lg hover:opacity-90">
               <IconPrinter size={15} /> Rapport A4
             </button>
           </div>
@@ -713,8 +713,8 @@ export default function Pilotage() {
                           <Fragment key={g.niv}>
                             {s.grouped.length > 1 && (
                               <tr className="bg-iip-blue/5">
-                                <td className="px-4 py-1.5 text-xs font-semibold text-iip-blue">{g.niv}</td>
-                                <td className="px-3 py-1.5 text-right text-xs font-semibold text-iip-blue">{fmt(g.periodes)}</td>
+                                <td className="px-4 py-1.5 h-9 text-xs font-semibold text-iip-blue">{g.niv}</td>
+                                <td className="px-3 py-1.5 h-9 text-right text-xs font-semibold text-iip-blue">{fmt(g.periodes)}</td>
                                 <td colSpan={2}></td>
                               </tr>
                             )}
@@ -904,10 +904,10 @@ export default function Pilotage() {
                                     )}
                                     {g.ues.map(u => (
                                       <tr key={u.ue_num} className="border-t border-gray-50 hover:bg-gray-50">
-                                        <td className="pl-5 py-1.5 text-gray-700"><span className="text-gray-400 text-[10px] mr-1">UE{u.ue_num}</span>{u.ue_nom || ''}</td>
-                                        <td className="py-1.5 text-right pr-2 font-mono text-gray-700">{fmt(u.periodes)}</td>
-                                        <td className="py-1.5 text-right pr-2 text-gray-400 text-xs">{u.pct != null ? u.pct.toFixed(0) + ' %' : '—'}</td>
-                                        <td className="py-1.5 text-right pr-1">
+                                        <td className="pl-5 py-1.5 h-9 text-gray-700"><span className="text-gray-400 text-[10px] mr-1">UE{u.ue_num}</span>{u.ue_nom || ''}</td>
+                                        <td className="py-1.5 h-9 text-right pr-2 font-mono text-gray-700">{fmt(u.periodes)}</td>
+                                        <td className="py-1.5 h-9 text-right pr-2 text-gray-400 text-xs">{u.pct != null ? u.pct.toFixed(0) + ' %' : '—'}</td>
+                                        <td className="py-1.5 h-9 text-right pr-1">
                                           {u.delta == null
                                             ? <span className="text-gray-300 text-xs">—</span>
                                             : <span className={`text-xs font-semibold ${u.delta > 0 ? 'text-green-600' : u.delta < 0 ? 'text-red-500' : 'text-gray-400'}`}>
@@ -1160,8 +1160,8 @@ export default function Pilotage() {
           <h3 className="font-semibold text-gray-700 text-sm">Dotations organiques par année civile</h3>
           <div className="flex gap-2">
             <input value={newYear} onChange={e => setNewYear(e.target.value)} placeholder="Ex: 2027"
-              className="border border-gray-300 rounded px-2 py-1.5 text-sm w-24" />
-            <button onClick={addYear} disabled={saving || !newYear} className="bg-iip-gold hover:bg-iip-amber disabled:opacity-40 text-white text-xs px-3 py-1.5 rounded">Ajouter</button>
+              className="border border-gray-300 rounded px-2 py-1.5 h-9 text-sm w-24" />
+            <button onClick={addYear} disabled={saving || !newYear} className="bg-iip-gold hover:bg-iip-amber disabled:opacity-40 text-white text-xs px-3 py-1.5 h-9 rounded">Ajouter</button>
           </div>
         </div>
         <table className="w-full text-sm">
@@ -1172,12 +1172,12 @@ export default function Pilotage() {
             {civil.map(y => editDot?.annee_civile === y.annee_civile ? (
               <tr key={y.annee_civile} className="border-t border-gray-100 bg-iip-gold/5">
                 <td className="px-4 py-2 font-semibold text-iip-gold">{y.annee_civile}</td>
-                <td className="px-4 py-2"><input type="number" value={editDot.dotation_organique} onChange={e => setEditDot({ ...editDot, dotation_organique: e.target.value })} className="border border-gray-300 rounded px-2 py-1.5 text-sm w-24 text-right" /></td>
-                <td className="px-4 py-2"><input type="number" value={editDot.periodes_eleves ?? ''} onChange={e => setEditDot({ ...editDot, periodes_eleves: e.target.value })} placeholder="HOD" className="border border-gray-300 rounded px-2 py-1.5 text-sm w-28 text-right" /></td>
-                <td className="px-4 py-2"><input type="number" value={editDot.pep_reference ?? ''} onChange={e => setEditDot({ ...editDot, pep_reference: e.target.value })} placeholder="HOD" className="border border-gray-300 rounded px-2 py-1.5 text-sm w-28 text-right" /></td>
-                <td className="px-4 py-2"><input type="number" value={editDot.pep_annee_utilisee ?? ''} onChange={e => setEditDot({ ...editDot, pep_annee_utilisee: e.target.value })} placeholder="ex: 2023" className="border border-gray-300 rounded px-2 py-1.5 text-sm w-20 text-right" /></td>
-                <td className="px-4 py-2"><input type="number" value={editDot.usage_historique_organique ?? ''} onChange={e => setEditDot({ ...editDot, usage_historique_organique: e.target.value })} placeholder="calculé si vide" className="border border-gray-300 rounded px-2 py-1.5 text-sm w-28 text-right" /></td>
-                <td className="px-4 py-2"><input value={editDot.notes || ''} onChange={e => setEditDot({ ...editDot, notes: e.target.value })} className="border border-gray-300 rounded px-2 py-1.5 text-sm w-full" /></td>
+                <td className="px-4 py-2"><input type="number" value={editDot.dotation_organique} onChange={e => setEditDot({ ...editDot, dotation_organique: e.target.value })} className="border border-gray-300 rounded px-2 py-1.5 h-9 text-sm w-24 text-right" /></td>
+                <td className="px-4 py-2"><input type="number" value={editDot.periodes_eleves ?? ''} onChange={e => setEditDot({ ...editDot, periodes_eleves: e.target.value })} placeholder="HOD" className="border border-gray-300 rounded px-2 py-1.5 h-9 text-sm w-28 text-right" /></td>
+                <td className="px-4 py-2"><input type="number" value={editDot.pep_reference ?? ''} onChange={e => setEditDot({ ...editDot, pep_reference: e.target.value })} placeholder="HOD" className="border border-gray-300 rounded px-2 py-1.5 h-9 text-sm w-28 text-right" /></td>
+                <td className="px-4 py-2"><input type="number" value={editDot.pep_annee_utilisee ?? ''} onChange={e => setEditDot({ ...editDot, pep_annee_utilisee: e.target.value })} placeholder="ex: 2023" className="border border-gray-300 rounded px-2 py-1.5 h-9 text-sm w-20 text-right" /></td>
+                <td className="px-4 py-2"><input type="number" value={editDot.usage_historique_organique ?? ''} onChange={e => setEditDot({ ...editDot, usage_historique_organique: e.target.value })} placeholder="calculé si vide" className="border border-gray-300 rounded px-2 py-1.5 h-9 text-sm w-28 text-right" /></td>
+                <td className="px-4 py-2"><input value={editDot.notes || ''} onChange={e => setEditDot({ ...editDot, notes: e.target.value })} className="border border-gray-300 rounded px-2 py-1.5 h-9 text-sm w-full" /></td>
                 <td className="px-4 py-2 flex gap-1 justify-end">
                   <button onClick={saveDotation} disabled={saving} className="bg-iip-gold text-white text-xs px-2 py-1 rounded"><IconCheck size={14} /></button>
                   <button onClick={() => setEditDot(null)} className="text-gray-500 text-xs px-2 py-1 rounded border"><IconX size={14} /></button>
@@ -1208,23 +1208,23 @@ export default function Pilotage() {
       <div className="bg-white rounded-xl border border-gray-200">
         <div className="px-5 py-3 border-b border-gray-100 flex items-center justify-between">
           <h3 className="font-semibold text-gray-700 text-sm">Enveloppes extérieures</h3>
-          <button onClick={() => setEditEnv({ id: null, code: 'QUAL', label: '', annee_civile: selYear || 2026, periodes_b: 0, usage_historique: '', notes: '' })} className="bg-iip-gold hover:bg-iip-amber text-white text-xs px-3 py-1.5 rounded">+ Ajouter</button>
+          <button onClick={() => setEditEnv({ id: null, code: 'QUAL', label: '', annee_civile: selYear || 2026, periodes_b: 0, usage_historique: '', notes: '' })} className="bg-iip-gold hover:bg-iip-amber text-white text-xs px-3 py-1.5 h-9 rounded">+ Ajouter</button>
         </div>
         {editEnv && !editEnv.id && (
           <div className="p-4 bg-iip-gold/5 border-b border-gray-100">
             <div className="grid grid-cols-2 md:grid-cols-5 gap-2 items-end">
               <div><label className="block text-xs text-gray-500 mb-0.5">Code</label>
-                <select value={editEnv.code} onChange={e => setEditEnv({ ...editEnv, code: e.target.value })} className="border border-gray-300 rounded px-2 py-1.5 text-sm w-full">
+                <select value={editEnv.code} onChange={e => setEditEnv({ ...editEnv, code: e.target.value })} className="border border-gray-300 rounded px-2 py-1.5 h-9 text-sm w-full">
                   {['QUAL', 'CF', 'INCL'].map(c => <option key={c}>{c}</option>)}</select></div>
               <div><label className="block text-xs text-gray-500 mb-0.5">Libellé</label>
-                <input value={editEnv.label} onChange={e => setEditEnv({ ...editEnv, label: e.target.value })} className="border border-gray-300 rounded px-2 py-1.5 text-sm w-full" /></div>
+                <input value={editEnv.label} onChange={e => setEditEnv({ ...editEnv, label: e.target.value })} className="border border-gray-300 rounded px-2 py-1.5 h-9 text-sm w-full" /></div>
               <div><label className="block text-xs text-gray-500 mb-0.5">Année civile</label>
-                <input type="number" value={editEnv.annee_civile} onChange={e => setEditEnv({ ...editEnv, annee_civile: e.target.value })} className="border border-gray-300 rounded px-2 py-1.5 text-sm w-full" /></div>
+                <input type="number" value={editEnv.annee_civile} onChange={e => setEditEnv({ ...editEnv, annee_civile: e.target.value })} className="border border-gray-300 rounded px-2 py-1.5 h-9 text-sm w-full" /></div>
               <div><label className="block text-xs text-gray-500 mb-0.5">Périodes B</label>
-                <input type="number" value={editEnv.periodes_b} onChange={e => setEditEnv({ ...editEnv, periodes_b: e.target.value })} className="border border-gray-300 rounded px-2 py-1.5 text-sm w-full" /></div>
+                <input type="number" value={editEnv.periodes_b} onChange={e => setEditEnv({ ...editEnv, periodes_b: e.target.value })} className="border border-gray-300 rounded px-2 py-1.5 h-9 text-sm w-full" /></div>
               <div className="flex gap-1">
-                <button onClick={saveEnv} disabled={saving} className="bg-iip-gold text-white text-xs px-3 py-1.5 rounded w-full">Créer</button>
-                <button onClick={() => setEditEnv(null)} className="border text-gray-500 text-xs px-2 py-1.5 rounded"><IconX size={14} /></button>
+                <button onClick={saveEnv} disabled={saving} className="bg-iip-gold text-white text-xs px-3 py-1.5 h-9 rounded w-full">Créer</button>
+                <button onClick={() => setEditEnv(null)} className="border text-gray-500 text-xs px-2 py-1.5 h-9 rounded"><IconX size={14} /></button>
               </div>
             </div>
           </div>
@@ -1237,10 +1237,10 @@ export default function Pilotage() {
             {civil.flatMap(y => y.enveloppes.map(e => editEnv?.id === e.id ? (
               <tr key={e.id} className="border-t border-gray-100 bg-iip-gold/5">
                 <td className="px-4 py-2 font-mono text-iip-gold">{e.code}</td>
-                <td className="px-4 py-2"><input value={editEnv.label} onChange={ev => setEditEnv({ ...editEnv, label: ev.target.value })} className="border border-gray-300 rounded px-2 py-1.5 text-sm w-full" /></td>
+                <td className="px-4 py-2"><input value={editEnv.label} onChange={ev => setEditEnv({ ...editEnv, label: ev.target.value })} className="border border-gray-300 rounded px-2 py-1.5 h-9 text-sm w-full" /></td>
                 <td className="px-4 py-2 text-right">{e.annee_civile}</td>
-                <td className="px-4 py-2"><input type="number" value={editEnv.periodes_b} onChange={ev => setEditEnv({ ...editEnv, periodes_b: ev.target.value })} className="border border-gray-300 rounded px-2 py-1.5 text-sm w-24 text-right" /></td>
-                <td className="px-4 py-2"><input type="number" value={editEnv.usage_historique ?? ''} onChange={ev => setEditEnv({ ...editEnv, usage_historique: ev.target.value })} placeholder="calculé" className="border border-gray-300 rounded px-2 py-1.5 text-sm w-24 text-right" /></td>
+                <td className="px-4 py-2"><input type="number" value={editEnv.periodes_b} onChange={ev => setEditEnv({ ...editEnv, periodes_b: ev.target.value })} className="border border-gray-300 rounded px-2 py-1.5 h-9 text-sm w-24 text-right" /></td>
+                <td className="px-4 py-2"><input type="number" value={editEnv.usage_historique ?? ''} onChange={ev => setEditEnv({ ...editEnv, usage_historique: ev.target.value })} placeholder="calculé" className="border border-gray-300 rounded px-2 py-1.5 h-9 text-sm w-24 text-right" /></td>
                 <td className="px-4 py-2 flex gap-1 justify-end">
                   <button onClick={saveEnv} disabled={saving} className="bg-iip-gold text-white text-xs px-2 py-1 rounded"><IconCheck size={14} /></button>
                   <button onClick={() => setEditEnv(null)} className="text-gray-500 text-xs px-2 py-1 rounded border"><IconX size={14} /></button>
@@ -1333,7 +1333,7 @@ export default function Pilotage() {
         titre="Pilotage"
         extra={
           <select value={selYear} onChange={e => setSelYear(Number(e.target.value))}
-            className="w-full bg-white/10 text-white text-[13px] rounded-lg px-2 py-1.5 border border-white/20 focus:outline-none">
+            className="w-full bg-white/10 text-white text-[13px] rounded-lg px-2 py-1.5 h-9 border border-white/20 focus:outline-none">
             {civil.map(y => (
               <option key={y.annee_civile} value={y.annee_civile} className="text-gray-800">
                 {y.annee_civile}{y.pct_organique > 95 ? ' ⚠' : ''}

@@ -248,14 +248,14 @@ function PurgeAnnee() {
               <div>
                 <label className="block text-xs text-gray-600 mb-1">Année à purger</label>
                 <select value={annee} onChange={e => setAnnee(e.target.value)}
-                  className="border border-gray-300 rounded px-3 py-1.5 text-sm w-44 bg-white">
+                  className="border border-gray-300 rounded px-3 py-1.5 h-9 text-sm w-44 bg-white">
                   <option value="">— Choisir —</option>
                   {annees.map(a => <option key={a.code} value={a.code}>{a.code}</option>)}
                 </select>
               </div>
               <button onClick={() => { if(annee) setEtape(2); }}
                 disabled={!annee}
-                className="px-4 py-1.5 bg-red-600 text-white text-sm rounded disabled:opacity-40 hover:bg-red-700">
+                className="px-4 py-1.5 h-9 bg-red-600 text-white text-sm rounded disabled:opacity-40 hover:bg-red-700">
                 Purger…
               </button>
             </div>
@@ -273,11 +273,11 @@ function PurgeAnnee() {
             {err && <p className="text-xs text-red-600 bg-red-100 rounded p-2">{err}</p>}
             <div className="flex gap-3">
               <button onClick={purger} disabled={loading}
-                className="px-4 py-1.5 bg-red-600 text-white text-sm rounded hover:bg-red-700 disabled:opacity-50">
+                className="px-4 py-1.5 h-9 bg-red-600 text-white text-sm rounded hover:bg-red-700 disabled:opacity-50">
                 {loading ? 'Suppression…' : `Oui, supprimer ${annee}`}
               </button>
               <button onClick={() => { setEtape(1); setErr(''); }}
-                className="px-4 py-1.5 border border-gray-300 text-gray-600 text-sm rounded hover:bg-gray-50">
+                className="px-4 py-1.5 h-9 border border-gray-300 text-gray-600 text-sm rounded hover:bg-gray-50">
                 Annuler
               </button>
             </div>
@@ -334,7 +334,7 @@ function RegenererDonneesDev() {
               mais réalistes (matricules, titres, communes belges, statuts EA12 variés).
             </p>
             <button onClick={() => setEtape(2)}
-              className="px-4 py-1.5 bg-amber-500 text-white text-sm rounded hover:bg-amber-600">
+              className="px-4 py-1.5 h-9 bg-amber-500 text-white text-sm rounded hover:bg-amber-600">
               Régénérer les données fictives
             </button>
           </>
@@ -352,11 +352,11 @@ function RegenererDonneesDev() {
             {err && <p className="text-xs text-red-600 bg-red-100 rounded p-2">{err}</p>}
             <div className="flex gap-3">
               <button onClick={regenerer} disabled={loading}
-                className="px-4 py-1.5 bg-amber-500 text-white text-sm rounded hover:bg-amber-600 disabled:opacity-50">
+                className="px-4 py-1.5 h-9 bg-amber-500 text-white text-sm rounded hover:bg-amber-600 disabled:opacity-50">
                 {loading ? 'Régénération…' : 'Oui, régénérer'}
               </button>
               <button onClick={() => { setEtape(1); setErr(''); }}
-                className="px-4 py-1.5 border border-gray-300 text-gray-600 text-sm rounded hover:bg-gray-50">
+                className="px-4 py-1.5 h-9 border border-gray-300 text-gray-600 text-sm rounded hover:bg-gray-50">
                 Annuler
               </button>
             </div>
@@ -524,7 +524,7 @@ function GestionParametres() {
             : `${nbModifs} modification${nbModifs > 1 ? 's' : ''} non sauvegardée${nbModifs > 1 ? 's' : ''}`}
           {!saved && (
             <button onClick={sauvegarder} disabled={saving}
-              className="bg-iip-gold text-white text-xs px-4 py-1.5 rounded hover:bg-iip-amber disabled:opacity-50">
+              className="bg-iip-gold text-white text-xs px-4 py-1.5 h-9 rounded hover:bg-iip-amber disabled:opacity-50">
               {saving ? 'Enregistrement…' : 'Enregistrer'}
             </button>
           )}
@@ -648,7 +648,7 @@ function GestionPrerequis() {
     <div className="max-w-3xl space-y-4">
       <div className="flex items-center gap-3">
         <select value={section} onChange={e => setSection(e.target.value)}
-          className="border border-gray-300 rounded px-3 py-1.5 text-sm bg-white">
+          className="border border-gray-300 rounded px-3 py-1.5 h-9 text-sm bg-white">
           <option value="">— Choisir une section —</option>
           {sections.map(s => <option key={s.code} value={s.code}>{s.code}</option>)}
         </select>
@@ -664,7 +664,7 @@ function GestionPrerequis() {
               <div>
                 <label className="block text-xs text-gray-500 mb-1">UE qui dépend de…</label>
                 <select value={newUe} onChange={e => setNewUe(e.target.value)}
-                  className="border border-gray-300 rounded px-2 py-1.5 text-sm bg-white w-72">
+                  className="border border-gray-300 rounded px-2 py-1.5 h-9 text-sm bg-white w-72">
                   <option value="">— Choisir l'UE —</option>
                   {ues.map(u => <option key={u.ue_num} value={u.ue_num}>UE{u.ue_num} — {u.ue_nom?.slice(0,40)}</option>)}
                 </select>
@@ -672,13 +672,13 @@ function GestionPrerequis() {
               <div>
                 <label className="block text-xs text-gray-500 mb-1">…doit être terminée après</label>
                 <select value={newPre} onChange={e => setNewPre(e.target.value)}
-                  className="border border-gray-300 rounded px-2 py-1.5 text-sm bg-white w-72">
+                  className="border border-gray-300 rounded px-2 py-1.5 h-9 text-sm bg-white w-72">
                   <option value="">— Choisir le prérequis —</option>
                   {ues.filter(u => String(u.ue_num) !== newUe).map(u => <option key={u.ue_num} value={u.ue_num}>UE{u.ue_num} — {u.ue_nom?.slice(0,40)}</option>)}
                 </select>
               </div>
               <button onClick={ajouter} disabled={!newUe || !newPre || saving}
-                className="bg-iip-gold text-white text-sm px-4 py-1.5 rounded hover:bg-iip-amber disabled:opacity-50">
+                className="bg-iip-gold text-white text-sm px-4 py-1.5 h-9 rounded hover:bg-iip-amber disabled:opacity-50">
                 + Ajouter
               </button>
             </div>
@@ -967,7 +967,7 @@ export default function Configuration() {
             <div className="flex items-center gap-3 flex-wrap">
               <input type="file" accept=".db,application/octet-stream"
                 onChange={e => { setRestoreFile(e.target.files?.[0] || null); setRestoreStatus(''); }}
-                className="text-sm text-gray-600 file:mr-3 file:py-1.5 file:px-3 file:rounded file:border-0 file:text-sm file:bg-gray-100 file:text-gray-700 hover:file:bg-gray-200" />
+                className="text-sm text-gray-600 file:mr-3 file:py-1.5 h-9 file:px-3 file:rounded file:border-0 file:text-sm file:bg-gray-100 file:text-gray-700 hover:file:bg-gray-200" />
               <button onClick={restaurerBase} disabled={!restoreFile || restoring}
                 className="bg-red-600 hover:bg-red-700 disabled:opacity-40 text-white text-sm px-4 py-2 rounded font-medium whitespace-nowrap">
                 {restoring ? 'Restauration…' : '♻ Restaurer cette base'}

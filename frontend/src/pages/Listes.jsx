@@ -974,7 +974,7 @@ export default function Listes() {
             <label className="flex items-center gap-2">
               <span className="text-xs text-slate-500">Section</span>
               <select value={filtres.section || ''} onChange={e => setFiltres(f => ({ ...f, section: e.target.value }))}
-                className="border border-slate-300 rounded-lg px-2.5 py-1.5 text-sm bg-white min-w-[120px]">
+                className="border border-slate-300 rounded-lg px-2.5 py-1.5 h-9 text-sm bg-white min-w-[120px]">
                 <option value="">{entite === 'rapport-etp' ? '— Choisir —' : '— Toutes —'}</option>
                 {sections.map(s => <option key={s.code} value={s.code}>{s.code}</option>)}
               </select>
@@ -985,12 +985,12 @@ export default function Listes() {
               <span className="text-xs text-slate-500">UE</span>
               {entite === 'rapport-ue' && ueList.length > 0
                 ? <select value={filtres.ue_num || ''} onChange={e => setFiltres(f => ({ ...f, ue_num: e.target.value }))}
-                    className="border border-slate-300 rounded-lg px-2.5 py-1.5 text-sm bg-white">
+                    className="border border-slate-300 rounded-lg px-2.5 py-1.5 h-9 text-sm bg-white">
                     <option value="">— Toutes les UE —</option>
                     {ueList.map(u => <option key={u.ue_num} value={u.ue_num}>UE {u.ue_num} — {u.ue_nom?.slice(0,35)}</option>)}
                   </select>
                 : <input type="number" value={filtres.ue_num || ''} onChange={e => setFiltres(f => ({ ...f, ue_num: e.target.value }))}
-                    placeholder="ex: 95" className="border border-slate-300 rounded-lg px-2.5 py-1.5 text-sm w-24" />
+                    placeholder="ex: 95" className="border border-slate-300 rounded-lg px-2.5 py-1.5 h-9 text-sm w-24" />
               }
             </label>
           )}
@@ -998,7 +998,7 @@ export default function Listes() {
             <label className="flex items-center gap-2">
               <span className="text-xs text-slate-500">Niveau</span>
               <select value={filtres.niveau || ''} onChange={e => setFiltres(f => ({ ...f, niveau: e.target.value }))}
-                className="border border-slate-300 rounded-lg px-2.5 py-1.5 text-sm bg-white">
+                className="border border-slate-300 rounded-lg px-2.5 py-1.5 h-9 text-sm bg-white">
                 <option value="">— Tous —</option><option value="SUP">SUP</option><option value="DS">DS</option>
               </select>
             </label>
@@ -1007,7 +1007,7 @@ export default function Listes() {
             <label className="flex items-center gap-2">
               <span className="text-xs text-slate-500">Tronc commun</span>
               <select value={filtres.tc || ''} onChange={e => setFiltres(f => ({ ...f, tc: e.target.value }))}
-                className="border border-slate-300 rounded-lg px-2.5 py-1.5 text-sm bg-white">
+                className="border border-slate-300 rounded-lg px-2.5 py-1.5 h-9 text-sm bg-white">
                 <option value="">— L'ensemble —</option><option value="tc">TC uniquement</option><option value="hors">Hors TC</option>
               </select>
             </label>
@@ -1121,7 +1121,7 @@ export default function Listes() {
                   {rows.map((row, i) => (
                     <tr key={i} className={i % 2 ? 'bg-slate-50/50' : ''}>
                       {colsVisibles.map(c => (
-                        <td key={c.key} className="px-3 py-1.5 border-b border-slate-100 text-slate-800 max-w-xs truncate" title={String(row[c.key] ?? '')}>
+                        <td key={c.key} className="px-3 py-1.5 h-9 border-b border-slate-100 text-slate-800 max-w-xs truncate" title={String(row[c.key] ?? '')}>
                           {row[c.key] ?? '—'}
                         </td>
                       ))}

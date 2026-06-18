@@ -234,7 +234,7 @@ export default function GrilleSectionModal({ section, onClose }) {
           </div>
           <div className="flex items-center gap-2">
             <button onClick={imprimer} title="Imprimer la grille"
-              className="px-3 py-1.5 text-sm rounded-lg bg-slate-800 text-white hover:bg-slate-700 font-medium">
+              className="px-3 py-1.5 h-9 text-sm rounded-lg bg-slate-800 text-white hover:bg-slate-700 font-medium">
               <IconPrinter size={14} className="inline align-[-2px] mr-1" />Imprimer
             </button>
             <button onClick={onClose} className="text-gray-400 hover:text-red-500 text-2xl leading-none">×</button>
@@ -303,17 +303,17 @@ export default function GrilleSectionModal({ section, onClose }) {
                 <table className="w-full text-sm">
                   <thead>
                     <tr className="text-xs uppercase text-gray-500 bg-white border-b border-gray-100">
-                      <th className="text-left px-3 py-1.5 font-medium">Code</th>
-                      <th className="text-left px-3 py-1.5 font-medium">Cours</th>
-                      <th className="px-2 py-1.5 font-medium text-center">DP</th>
-                      <th className="px-2 py-1.5 font-medium text-center">Classe (h)</th>
-                      <th className="px-2 py-1.5 font-medium text-center">EV1 (h)</th>
-                      <th className="px-2 py-1.5 font-medium text-center">VC1 (h)</th>
-                      <th className="px-2 py-1.5 font-medium text-center">Complément</th>
-                      <th className="px-2 py-1.5 font-medium text-center">Total h</th>
-                      <th className="px-2 py-1.5 font-medium text-center">→ pér.</th>
-                      <th className="px-2 py-1.5 font-medium text-center">Autonomie</th>
-                      <th className="px-2 py-1.5 font-medium text-center">Total cours</th>
+                      <th className="text-left px-3 py-1.5 h-9 font-medium">Code</th>
+                      <th className="text-left px-3 py-1.5 h-9 font-medium">Cours</th>
+                      <th className="px-2 py-1.5 h-9 font-medium text-center">DP</th>
+                      <th className="px-2 py-1.5 h-9 font-medium text-center">Classe (h)</th>
+                      <th className="px-2 py-1.5 h-9 font-medium text-center">EV1 (h)</th>
+                      <th className="px-2 py-1.5 h-9 font-medium text-center">VC1 (h)</th>
+                      <th className="px-2 py-1.5 h-9 font-medium text-center">Complément</th>
+                      <th className="px-2 py-1.5 h-9 font-medium text-center">Total h</th>
+                      <th className="px-2 py-1.5 h-9 font-medium text-center">→ pér.</th>
+                      <th className="px-2 py-1.5 h-9 font-medium text-center">Autonomie</th>
+                      <th className="px-2 py-1.5 h-9 font-medium text-center">Total cours</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -325,44 +325,44 @@ export default function GrilleSectionModal({ section, onClose }) {
                       const grille = mode === 'grille';
                       return (
                         <tr key={c.cours_code} className={idx % 2 ? 'bg-gray-50/50' : 'bg-white'}>
-                          <td className="px-3 py-1.5 font-medium text-gray-700">{c.cours_code}</td>
-                          <td className="px-3 py-1.5 text-gray-600 truncate max-w-[200px]" title={c.cours_nom}>{c.cours_nom}</td>
-                          <td className="px-2 py-1.5 text-center text-gray-500">{dp || '—'}</td>
-                          <td className="px-2 py-1.5 text-center">
+                          <td className="px-3 py-1.5 h-9 font-medium text-gray-700">{c.cours_code}</td>
+                          <td className="px-3 py-1.5 h-9 text-gray-600 truncate max-w-[200px]" title={c.cours_nom}>{c.cours_nom}</td>
+                          <td className="px-2 py-1.5 h-9 text-center text-gray-500">{dp || '—'}</td>
+                          <td className="px-2 py-1.5 h-9 text-center">
                             <input type="number" min="0" step="0.5" className={grille ? inp : inpRO} readOnly={!grille}
                               value={c.heures ?? ''}
                               onChange={e => onChangeGrille(ue.ue_num, c, 'heures', e.target.value)}
                               onBlur={e => grille && blurGrille(ue.ue_num, c, 'heures', e.target.value)} />
                           </td>
-                          <td className="px-2 py-1.5 text-center">
+                          <td className="px-2 py-1.5 h-9 text-center">
                             <input type="number" min="0" step="0.5" className={grille ? inp : inpRO} readOnly={!grille}
                               value={c.cours_ev1 ?? ''}
                               onChange={e => onChangeGrille(ue.ue_num, c, 'cours_ev1', e.target.value)}
                               onBlur={e => grille && blurGrille(ue.ue_num, c, 'cours_ev1', e.target.value)} />
                           </td>
-                          <td className="px-2 py-1.5 text-center">
+                          <td className="px-2 py-1.5 h-9 text-center">
                             <input type="number" min="0" step="0.5" className={grille ? inp : inpRO} readOnly={!grille}
                               value={c.cours_vc1 ?? ''}
                               onChange={e => onChangeGrille(ue.ue_num, c, 'cours_vc1', e.target.value)}
                               onBlur={e => grille && blurGrille(ue.ue_num, c, 'cours_vc1', e.target.value)} />
                           </td>
-                          <td className="px-2 py-1.5 text-center">
+                          <td className="px-2 py-1.5 h-9 text-center">
                             <input type="number" min="0" className={`${inp} text-iip-blue font-medium ${saving[c.cours_code] ? 'opacity-50' : ''}`}
                               value={c.cours_complement ?? 0}
                               title="Autonomie donnée au prof (activité, surveillances…) — consomme l'enveloppe"
                               onChange={e => onChangeComplement(ue.ue_num, c.cours_code, e.target.value)}
                               onBlur={e => blurComplement(c.cours_code, e.target.value)} />
                           </td>
-                          <td className="px-2 py-1.5 text-center font-medium text-gray-700">{totalH || '—'}</td>
-                          <td className="px-2 py-1.5 text-center font-semibold text-violet-600">{totalPer || '—'}</td>
-                          <td className="px-2 py-1.5 text-center">
+                          <td className="px-2 py-1.5 h-9 text-center font-medium text-gray-700">{totalH || '—'}</td>
+                          <td className="px-2 py-1.5 h-9 text-center font-semibold text-violet-600">{totalPer || '—'}</td>
+                          <td className="px-2 py-1.5 h-9 text-center">
                             <input type="number" min="0" className={`${grille ? inpRO : inp} ${saving[c.cours_code] ? 'opacity-50' : ''} ${grille ? '' : 'text-amber-700 font-medium'}`}
                               value={auto}
                               readOnly={grille}
                               onChange={e => majChamp(ue.ue_num, c.cours_code, { cours_autonomie: e.target.value })}
                               onBlur={e => !grille && sauver(c.cours_code, { cours_autonomie: n(e.target.value) })} />
                           </td>
-                          <td className="px-2 py-1.5 text-center font-semibold text-gray-700">{dp + auto}</td>
+                          <td className="px-2 py-1.5 h-9 text-center font-semibold text-gray-700">{dp + auto}</td>
                         </tr>
                       );
                     })}

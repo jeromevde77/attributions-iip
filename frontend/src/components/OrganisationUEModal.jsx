@@ -47,19 +47,19 @@ function OrgForm({ org, onSave, onDelete, onCancel }) {
           <label className="block text-xs text-gray-500 mb-1">* Début organisation</label>
           <input type="text" placeholder="JJ/MM/AAAA" value={form.date_debut}
             onChange={e => set('date_debut', e.target.value)}
-            className="w-full border border-gray-300 rounded px-2 py-1.5 text-sm" />
+            className="w-full border border-gray-300 rounded px-2 py-1.5 h-9 text-sm" />
         </div>
         <div>
           <label className="block text-xs text-gray-500 mb-1">* Fin organisation</label>
           <input type="text" placeholder="JJ/MM/AAAA" value={form.date_fin}
             onChange={e => set('date_fin', e.target.value)}
-            className="w-full border border-gray-300 rounded px-2 py-1.5 text-sm" />
+            className="w-full border border-gray-300 rounded px-2 py-1.5 h-9 text-sm" />
         </div>
         <div>
           <label className="block text-xs text-gray-500 mb-1">Nb semaines</label>
           <input type="number" min="1" max="52" value={form.nb_semaines}
             onChange={e => set('nb_semaines', e.target.value)}
-            className="w-full border border-gray-300 rounded px-2 py-1.5 text-sm" />
+            className="w-full border border-gray-300 rounded px-2 py-1.5 h-9 text-sm" />
         </div>
       </div>
 
@@ -81,13 +81,13 @@ function OrgForm({ org, onSave, onDelete, onCancel }) {
           <label className="block text-xs text-gray-500 mb-1">UE sur 2 ans — N° org année préc.</label>
           <input type="number" min="1" value={form.ue_2_annees_org_prec}
             onChange={e => set('ue_2_annees_org_prec', e.target.value)}
-            className="w-full border border-gray-300 rounded px-2 py-1.5 text-sm" />
+            className="w-full border border-gray-300 rounded px-2 py-1.5 h-9 text-sm" />
         </div>
         <div>
           <label className="block text-xs text-gray-500 mb-1">Type intervention extérieure</label>
           <input type="text" value={form.intervention_ext_type}
             onChange={e => set('intervention_ext_type', e.target.value)}
-            className="w-full border border-gray-300 rounded px-2 py-1.5 text-sm" />
+            className="w-full border border-gray-300 rounded px-2 py-1.5 h-9 text-sm" />
         </div>
       </div>
       <label className="flex items-center gap-2 text-xs text-gray-600">
@@ -99,11 +99,11 @@ function OrgForm({ org, onSave, onDelete, onCancel }) {
       <div className="flex gap-2 pt-2">
         <button onClick={() => onSave(form)}
           disabled={!form.date_debut || !form.date_fin}
-          className="bg-iip-gold text-white text-sm px-4 py-1.5 rounded hover:bg-iip-amber disabled:opacity-50">
+          className="bg-iip-gold text-white text-sm px-4 py-1.5 h-9 rounded hover:bg-iip-amber disabled:opacity-50">
           <IconDeviceFloppy size={14} className="inline align-[-2px] mr-1" />Enregistrer
         </button>
         <button onClick={onCancel}
-          className="text-gray-500 text-sm px-3 py-1.5 rounded border border-gray-300 hover:bg-gray-50">
+          className="text-gray-500 text-sm px-3 py-1.5 h-9 rounded border border-gray-300 hover:bg-gray-50">
           Annuler
         </button>
       </div>
@@ -216,7 +216,7 @@ export default function OrganisationUEModal({ ue_num, section, ue_nom, annee, on
         </div>
 
         <div className="px-6 py-3 border-t flex justify-end">
-          <button onClick={onClose} className="bg-iip-gold text-white px-4 py-1.5 rounded text-sm hover:bg-iip-amber">
+          <button onClick={onClose} className="bg-iip-gold text-white px-4 py-1.5 h-9 rounded text-sm hover:bg-iip-amber">
             Fermer
           </button>
         </div>

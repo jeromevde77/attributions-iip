@@ -44,11 +44,11 @@ export default function PreviewModal({ html, titre = 'Aperçu du document', nomF
               ⊞ Pensez à choisir « Paysage »
             </span>
             <button onClick={imprimer} disabled={!pret}
-              className="px-4 py-1.5 bg-iip-mauve text-white rounded-lg text-sm font-medium hover:opacity-90 disabled:opacity-40">
+              className="px-4 py-1.5 h-9 bg-iip-mauve text-white rounded-lg text-sm font-medium hover:opacity-90 disabled:opacity-40">
               <IconPrinter size={14} className="inline align-[-2px] mr-1" />Imprimer / Enregistrer en PDF
             </button>
             <button onClick={onClose}
-              className="px-3 py-1.5 text-gray-500 hover:text-gray-700 text-sm">
+              className="px-3 py-1.5 h-9 text-gray-500 hover:text-gray-700 text-sm">
               <IconX size={14} className="inline align-[-2px] mr-1" />Fermer
             </button>
           </div>

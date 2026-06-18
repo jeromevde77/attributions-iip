@@ -128,7 +128,7 @@ export default function AttributionCard({ row, selected, onToggleSelect, onChang
               <label className="block">
                 <div className="text-xs text-gray-600 mb-1">Professeur</div>
                 <select value={form.professeur_id} onChange={e => set('professeur_id', e.target.value)}
-                        className="w-full border border-gray-300 rounded px-3 py-1.5 text-base bg-white">
+                        className="w-full border border-gray-300 rounded px-3 py-1.5 h-9 text-base bg-white">
                   <option value="">— Aucun —</option>
                   {professeurs.map(p => <option key={p.id} value={p.id}>{p.nom_prenom}</option>)}
                 </select>
@@ -138,7 +138,7 @@ export default function AttributionCard({ row, selected, onToggleSelect, onChang
               <label className="block">
                 <div className="text-xs text-gray-600 mb-1">Activité</div>
                 <select value={form.activite_id} onChange={e => set('activite_id', e.target.value)}
-                        className="w-full border border-gray-300 rounded px-3 py-1.5 text-base bg-white">
+                        className="w-full border border-gray-300 rounded px-3 py-1.5 h-9 text-base bg-white">
                   <option value="">— Aucune —</option>
                   {activites.map(a => <option key={a.id} value={a.id}>{a.libelle}</option>)}
                 </select>
@@ -148,7 +148,7 @@ export default function AttributionCard({ row, selected, onToggleSelect, onChang
                 <label className="block">
                   <div className="text-xs text-gray-600 mb-1">Contrat</div>
                   <select value={form.contrat_mdp} onChange={e => set('contrat_mdp', e.target.value)}
-                          className="w-full border border-gray-300 rounded px-3 py-1.5 text-base bg-white">
+                          className="w-full border border-gray-300 rounded px-3 py-1.5 h-9 text-base bg-white">
                     <option value="">—</option>
                     <option value="IIP">IIP</option>
                     <option value="HELB">HELB</option>
@@ -157,7 +157,7 @@ export default function AttributionCard({ row, selected, onToggleSelect, onChang
                 <label className="block">
                   <div className="text-xs text-gray-600 mb-1">Quadrimestre</div>
                   <select value={form.quadrimestre_attribue} onChange={e => set('quadrimestre_attribue', e.target.value)}
-                          className="w-full border border-gray-300 rounded px-3 py-1.5 text-base bg-white">
+                          className="w-full border border-gray-300 rounded px-3 py-1.5 h-9 text-base bg-white">
                     <option value="">—</option>
                     <option value="Q1">Q1</option>
                     <option value="Q2">Q2</option>
@@ -167,12 +167,12 @@ export default function AttributionCard({ row, selected, onToggleSelect, onChang
                 <label className="block">
                   <div className="text-xs text-gray-600 mb-1">Groupe</div>
                   <input type="text" value={form.code} onChange={e => set('code', e.target.value)}
-                         className="w-full border border-gray-300 rounded px-3 py-1.5 text-base bg-white" />
+                         className="w-full border border-gray-300 rounded px-3 py-1.5 h-9 text-base bg-white" />
                 </label>
                 <label className="block">
                   <div className="text-xs text-gray-600 mb-1">Organisation</div>
                   <select value={form.num_organisation} onChange={e => set('num_organisation', e.target.value)}
-                          className="w-full border border-gray-300 rounded px-3 py-1.5 text-base bg-white">
+                          className="w-full border border-gray-300 rounded px-3 py-1.5 h-9 text-base bg-white">
                     <option value="1">1</option><option value="2">2</option>
                     <option value="3">3</option><option value="4">4</option>
                   </select>
@@ -181,7 +181,7 @@ export default function AttributionCard({ row, selected, onToggleSelect, onChang
                   <label className="block col-span-2">
                     <div className="text-xs text-gray-600 mb-1">Statut HELB</div>
                     <select value={form.type_cours_helb} onChange={e => set('type_cours_helb', e.target.value)}
-                            className="w-full border border-pink-300 rounded px-3 py-1.5 text-base bg-white">
+                            className="w-full border border-pink-300 rounded px-3 py-1.5 h-9 text-base bg-white">
                       <option value="">—</option>
                       <option value="MFP">MFP</option>
                       <option value="MA">MA</option>
@@ -195,13 +195,13 @@ export default function AttributionCard({ row, selected, onToggleSelect, onChang
                   <div className="text-xs text-gray-600 mb-1">Périodes</div>
                   <input type="text" inputMode="decimal" value={form.periodes_attribuees}
                          onChange={e => set('periodes_attribuees', e.target.value)}
-                         className="w-full border border-iip-gold/40 rounded px-3 py-1.5 text-base bg-iip-gold/5 no-spinner" />
+                         className="w-full border border-iip-gold/40 rounded px-3 py-1.5 h-9 text-base bg-iip-gold/5 no-spinner" />
                 </label>
                 <label className="block">
                   <div className="text-xs text-gray-600 mb-1">Autonomie</div>
                   <input type="text" inputMode="decimal" value={form.autonomie_attribuee}
                          onChange={e => set('autonomie_attribuee', e.target.value)}
-                         className="w-full border border-iip-gold/40 rounded px-3 py-1.5 text-base bg-iip-gold/5 no-spinner" />
+                         className="w-full border border-iip-gold/40 rounded px-3 py-1.5 h-9 text-base bg-iip-gold/5 no-spinner" />
                 </label>
               </div>
 

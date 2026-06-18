@@ -504,7 +504,7 @@ function Toolbar({ editor }) {
   }
   if (!editor) return null;
   return (
-    <div className="flex flex-wrap items-center gap-0.5 px-2 py-1.5 border-b border-gray-200 bg-gray-50 sticky top-0 z-10">
+    <div className="flex flex-wrap items-center gap-0.5 px-2 py-1.5 h-9 border-b border-gray-200 bg-gray-50 sticky top-0 z-10">
       <Btn onClick={() => editor.chain().focus().undo().run()} disabled={!editor?.can()?.undo?.()} title="Annuler">↩</Btn>
       <Btn onClick={() => editor.chain().focus().redo().run()} disabled={!editor?.can()?.redo?.()} title="Rétablir">↪</Btn>
       <Sep/>
@@ -827,7 +827,7 @@ export default function Editeur() {
       <div className="w-52 flex-shrink-0 border-r border-gray-200 bg-gray-50 flex flex-col overflow-hidden">
         <div className="px-3 py-3 border-b border-gray-200">
           <div className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">Templates</div>
-          <button onClick={nouveauTemplate} className="w-full text-left text-xs bg-iip-gold text-white rounded px-2 py-1.5 hover:bg-iip-amber">+ Nouveau</button>
+          <button onClick={nouveauTemplate} className="w-full text-left text-xs bg-iip-gold text-white rounded px-2 py-1.5 h-9 hover:bg-iip-amber">+ Nouveau</button>
         </div>
         <div className="flex-1 overflow-auto py-1">
           {templates.map(t => (
@@ -859,12 +859,12 @@ export default function Editeur() {
         {/* Barre du haut */}
         <div className="flex items-center gap-2 px-4 py-2 border-b border-gray-200 bg-white flex-shrink-0 flex-wrap">
           <input value={nom} onChange={e => setNom(e.target.value)}
-            className="flex-1 min-w-32 border border-gray-300 rounded px-3 py-1.5 text-sm font-medium" placeholder="Nom du template" />
+            className="flex-1 min-w-32 border border-gray-300 rounded px-3 py-1.5 h-9 text-sm font-medium" placeholder="Nom du template" />
           <button onClick={sauvegarder} disabled={saving}
-            className="bg-iip-gold hover:bg-iip-amber disabled:opacity-40 text-white text-sm px-4 py-1.5 rounded font-medium whitespace-nowrap">
+            className="bg-iip-gold hover:bg-iip-amber disabled:opacity-40 text-white text-sm px-4 py-1.5 h-9 rounded font-medium whitespace-nowrap">
             {saving ? '…' : <><IconDeviceFloppy size={15} className="inline align-[-2px] mr-1" />Sauvegarder</>}
           </button>
-          <label title="Importer un document Word (.docx) et l'éditer" className="bg-white border border-gray-300 hover:bg-gray-50 text-gray-700 text-sm px-3 py-1.5 rounded font-medium whitespace-nowrap cursor-pointer">
+          <label title="Importer un document Word (.docx) et l'éditer" className="bg-white border border-gray-300 hover:bg-gray-50 text-gray-700 text-sm px-3 py-1.5 h-9 rounded font-medium whitespace-nowrap cursor-pointer">
             📄 Importer Word
             <input type="file" accept=".docx" className="hidden"
               onChange={e => { const f = e.target.files?.[0]; if (f) importerWord(f); e.target.value = ''; }} />
@@ -879,7 +879,7 @@ export default function Editeur() {
           </div>
           <div className="relative">
             <button onClick={() => setShowMargins(v => !v)}
-              className="border border-gray-300 bg-white hover:bg-gray-50 text-gray-700 text-sm px-3 py-1.5 rounded font-medium whitespace-nowrap"
+              className="border border-gray-300 bg-white hover:bg-gray-50 text-gray-700 text-sm px-3 py-1.5 h-9 rounded font-medium whitespace-nowrap"
               title="Régler les marges">
               📐 Marges
             </button>
@@ -904,19 +904,19 @@ export default function Editeur() {
             )}
           </div>
           <select value={section} onChange={e => setSection(e.target.value)}
-            className="border border-gray-300 rounded px-2 py-1.5 text-sm bg-white">
+            className="border border-gray-300 rounded px-2 py-1.5 h-9 text-sm bg-white">
             <option value="">— Section —</option>
             {sections.map(s => <option key={s.code} value={s.code}>{s.code}</option>)}
           </select>
           <select value={profId} onChange={e => setProfId(e.target.value)}
-            className="border border-gray-300 rounded px-2 py-1.5 text-sm bg-white">
+            className="border border-gray-300 rounded px-2 py-1.5 h-9 text-sm bg-white">
             <option value="">— Prof —</option>
             {profs.map(p => <option key={p.id} value={p.id}>{p.nom} {p.prenom}</option>)}
           </select>
           <input type="number" value={ueNum} onChange={e => setUeNum(e.target.value)}
-            placeholder="N° UE" className="w-20 border border-gray-300 rounded px-2 py-1.5 text-sm" />
+            placeholder="N° UE" className="w-20 border border-gray-300 rounded px-2 py-1.5 h-9 text-sm" />
           <button onClick={generer} disabled={generating}
-            className="bg-iip-mauve hover:opacity-90 disabled:opacity-40 text-white text-sm px-4 py-1.5 rounded font-medium whitespace-nowrap">
+            className="bg-iip-mauve hover:opacity-90 disabled:opacity-40 text-white text-sm px-4 py-1.5 h-9 rounded font-medium whitespace-nowrap">
             {generating ? '…' : <><IconPrinter size={15} className="inline align-[-2px] mr-1" />Générer PDF</>}
           </button>
         </div>
@@ -963,7 +963,7 @@ export default function Editeur() {
                   <div className="text-xs font-semibold text-gray-500 uppercase tracking-wide px-3 pt-3 pb-1">{cat}</div>
                   {champs.map(c => (
                     <button key={c.key} onClick={() => insererChamp(c)}
-                      className="w-full text-left px-3 py-1.5 text-xs hover:bg-iip-gold/10 hover:text-iip-gold flex items-center gap-1 group">
+                      className="w-full text-left px-3 py-1.5 h-9 text-xs hover:bg-iip-gold/10 hover:text-iip-gold flex items-center gap-1 group">
                       <span className="text-gray-400 group-hover:text-iip-gold">⊕</span>
                       <span className="truncate">{c.label}</span>
                     </button>
@@ -1002,7 +1002,7 @@ export default function Editeur() {
                   <div className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">Champs disponibles dans ce bloc</div>
                   {boucleInfo.champs.map(c => (
                     <button key={c.key} onClick={() => insererChamp(c)}
-                      className="w-full text-left px-2 py-1.5 text-xs hover:bg-gray-100 flex items-center gap-1 group rounded">
+                      className="w-full text-left px-2 py-1.5 h-9 text-xs hover:bg-gray-100 flex items-center gap-1 group rounded">
                       <span className="text-gray-400 group-hover:text-iip-gold">⊕</span>
                       <span className="truncate">{c.label}</span>
                     </button>

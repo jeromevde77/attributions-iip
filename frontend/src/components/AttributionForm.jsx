@@ -157,7 +157,7 @@ export default function AttributionForm({ onClose, onCreated, editRow = null }) 
             <div>
               <label className="block text-xs text-gray-600 mb-0.5">Section *</label>
               <select value={form.section} onChange={e => set('section', e.target.value)}
-                      className="w-full border border-gray-300 rounded px-2 py-1.5 text-sm">
+                      className="w-full border border-gray-300 rounded px-2 py-1.5 h-9 text-sm">
                 <option value="">—</option>
                 {sections.map(s => <option key={s.code} value={s.code}>{s.code}</option>)}
               </select>
@@ -165,7 +165,7 @@ export default function AttributionForm({ onClose, onCreated, editRow = null }) 
             <div>
               <label className="block text-xs text-gray-600 mb-0.5">Contrat MDP</label>
               <select value={form.contrat_mdp} onChange={e => set('contrat_mdp', e.target.value)}
-                      className="w-full border border-gray-300 rounded px-2 py-1.5 text-sm">
+                      className="w-full border border-gray-300 rounded px-2 py-1.5 h-9 text-sm">
                 <option value="IIP">IIP</option>
                 <option value="HELB">HELB</option>
               </select>
@@ -173,7 +173,7 @@ export default function AttributionForm({ onClose, onCreated, editRow = null }) 
             <div>
               <label className="block text-xs text-gray-600 mb-0.5">Établissement réf.</label>
               <select value={form.etablissement_referent} onChange={e => set('etablissement_referent', e.target.value)}
-                      className="w-full border border-gray-300 rounded px-2 py-1.5 text-sm">
+                      className="w-full border border-gray-300 rounded px-2 py-1.5 h-9 text-sm">
                 <option value="IIP">IIP</option>
                 <option value="HELB">HELB</option>
               </select>
@@ -181,7 +181,7 @@ export default function AttributionForm({ onClose, onCreated, editRow = null }) 
             <div>
               <label className="block text-xs text-gray-600 mb-0.5">Organisation</label>
               <select value={form.organisation} onChange={e => set('organisation', e.target.value)}
-                      className="w-full border border-gray-300 rounded px-2 py-1.5 text-sm">
+                      className="w-full border border-gray-300 rounded px-2 py-1.5 h-9 text-sm">
                 <option value="x">Organisé (x)</option>
                 <option value="">Non organisé</option>
               </select>
@@ -194,7 +194,7 @@ export default function AttributionForm({ onClose, onCreated, editRow = null }) 
             <div className="col-span-2">
               <label className="block text-xs text-gray-600 mb-0.5">UE *</label>
               <select value={form.ue_num} onChange={e => set('ue_num', e.target.value)}
-                      className="w-full border border-gray-300 rounded px-2 py-1.5 text-sm">
+                      className="w-full border border-gray-300 rounded px-2 py-1.5 h-9 text-sm">
                 <option value="">—</option>
                 {ueList.map(u => <option key={u.ue_num} value={u.ue_num}>{u.ue_num} — {u.ue_nom}</option>)}
               </select>
@@ -203,12 +203,12 @@ export default function AttributionForm({ onClose, onCreated, editRow = null }) 
               <label className="block text-xs text-gray-600 mb-0.5">N° organisation</label>
               <input type="number" value={form.num_organisation} min="1"
                      onChange={e => set('num_organisation', e.target.value)}
-                     className="w-full border border-gray-300 rounded px-2 py-1.5 text-sm" />
+                     className="w-full border border-gray-300 rounded px-2 py-1.5 h-9 text-sm" />
             </div>
             <div>
               <label className="block text-xs text-gray-600 mb-0.5">Quadri attribué</label>
               <select value={form.quadrimestre_attribue} onChange={e => set('quadrimestre_attribue', e.target.value)}
-                      className="w-full border border-gray-300 rounded px-2 py-1.5 text-sm">
+                      className="w-full border border-gray-300 rounded px-2 py-1.5 h-9 text-sm">
                 <option value="">—</option>
                 <option value="Q1">Q1</option>
                 <option value="Q2">Q2</option>
@@ -219,7 +219,7 @@ export default function AttributionForm({ onClose, onCreated, editRow = null }) 
               <label className="block text-xs text-gray-600 mb-0.5">Cours *</label>
               <select value={form.code_cours} onChange={e => set('code_cours', e.target.value)}
                       disabled={!coursList.length}
-                      className="w-full border border-gray-300 rounded px-2 py-1.5 text-sm disabled:bg-gray-50">
+                      className="w-full border border-gray-300 rounded px-2 py-1.5 h-9 text-sm disabled:bg-gray-50">
                 <option value="">—</option>
                 {coursList.map(c => <option key={c.cours_code} value={c.cours_code}>{c.cours_code} — {c.cours_nom}</option>)}
               </select>
@@ -227,7 +227,7 @@ export default function AttributionForm({ onClose, onCreated, editRow = null }) 
             <div>
               <label className="block text-xs text-gray-600 mb-0.5">Type cours</label>
               <select value={form.type_cours} onChange={e => set('type_cours', e.target.value)}
-                      className="w-full border border-gray-300 rounded px-2 py-1.5 text-sm">
+                      className="w-full border border-gray-300 rounded px-2 py-1.5 h-9 text-sm">
                 <option value="CT">CT (800ᵉ)</option>
                 <option value="PP">PP (1000ᵉ)</option>
               </select>
@@ -235,7 +235,7 @@ export default function AttributionForm({ onClose, onCreated, editRow = null }) 
             <div>
               <label className="block text-xs text-gray-600 mb-0.5">Type HELB</label>
               <select value={form.type_cours_helb} onChange={e => set('type_cours_helb', e.target.value)}
-                      className="w-full border border-gray-300 rounded px-2 py-1.5 text-sm">
+                      className="w-full border border-gray-300 rounded px-2 py-1.5 h-9 text-sm">
                 <option value="">—</option>
                 <option value="MFP">MFP (750h)</option>
                 <option value="MA">MA (480h)</option>
@@ -249,18 +249,18 @@ export default function AttributionForm({ onClose, onCreated, editRow = null }) 
             <div>
               <label className="block text-xs text-gray-600 mb-0.5">Code (A/B/...)</label>
               <input value={form.code} onChange={e => set('code', e.target.value)}
-                     className="w-full border border-gray-300 rounded px-2 py-1.5 text-sm" />
+                     className="w-full border border-gray-300 rounded px-2 py-1.5 h-9 text-sm" />
             </div>
             <div>
               <label className="block text-xs text-gray-600 mb-0.5">Nb groupes</label>
               <input type="number" value={form.nb_groupes} min="1"
                      onChange={e => set('nb_groupes', e.target.value)}
-                     className="w-full border border-gray-300 rounded px-2 py-1.5 text-sm" />
+                     className="w-full border border-gray-300 rounded px-2 py-1.5 h-9 text-sm" />
             </div>
             <div>
               <label className="block text-xs text-gray-600 mb-0.5">Split-groupe</label>
               <select value={form.split_groupe} onChange={e => set('split_groupe', e.target.value)}
-                      className="w-full border border-gray-300 rounded px-2 py-1.5 text-sm">
+                      className="w-full border border-gray-300 rounded px-2 py-1.5 h-9 text-sm">
                 <option value="N">Non</option>
                 <option value="O">Oui</option>
               </select>
@@ -269,7 +269,7 @@ export default function AttributionForm({ onClose, onCreated, editRow = null }) 
               <label className="block text-xs text-gray-600 mb-0.5">Per. étudiant DP</label>
               <input type="number" value={form.per_etudiant_total_dp}
                      onChange={e => set('per_etudiant_total_dp', e.target.value)}
-                     className="w-full border border-gray-300 rounded px-2 py-1.5 text-sm" />
+                     className="w-full border border-gray-300 rounded px-2 py-1.5 h-9 text-sm" />
             </div>
           </fieldset>
 
@@ -279,7 +279,7 @@ export default function AttributionForm({ onClose, onCreated, editRow = null }) 
             <div className="col-span-2">
               <label className="block text-xs text-gray-600 mb-0.5">Professeur *</label>
               <select value={form.professeur_id} onChange={e => set('professeur_id', e.target.value)}
-                      className="w-full border border-gray-300 rounded px-2 py-1.5 text-sm">
+                      className="w-full border border-gray-300 rounded px-2 py-1.5 h-9 text-sm">
                 <option value="">— À DÉSIGNER —</option>
                 {profs.filter(p => p.nom !== 'À DÉSIGNER').map(p => <option key={p.id} value={p.id}>{p.nom_prenom} ({p.statut || '?'})</option>)}
               </select>
@@ -287,7 +287,7 @@ export default function AttributionForm({ onClose, onCreated, editRow = null }) 
             <div>
               <label className="block text-xs text-gray-600 mb-0.5">Cours/EPT/AD</label>
               <select value={form.cours_ept_ad} onChange={e => set('cours_ept_ad', e.target.value)}
-                      className="w-full border border-gray-300 rounded px-2 py-1.5 text-sm">
+                      className="w-full border border-gray-300 rounded px-2 py-1.5 h-9 text-sm">
                 <option value="C">C</option>
                 <option value="EPT">EPT</option>
                 <option value="AD">AD</option>
@@ -296,7 +296,7 @@ export default function AttributionForm({ onClose, onCreated, editRow = null }) 
             <div>
               <label className="block text-xs text-gray-600 mb-0.5">Coordination/Encadrement</label>
               <select value={form.coordination_encadrement} onChange={e => set('coordination_encadrement', e.target.value)}
-                      className="w-full border border-gray-300 rounded px-2 py-1.5 text-sm">
+                      className="w-full border border-gray-300 rounded px-2 py-1.5 h-9 text-sm">
                 {types.map(t => <option key={t.code} value={t.code}>{t.libelle}</option>)}
               </select>
             </div>
@@ -310,25 +310,25 @@ export default function AttributionForm({ onClose, onCreated, editRow = null }) 
                 <label className="block text-xs text-gray-600 mb-0.5">Périodes attribuées</label>
                 <input type="number" step="0.5" value={form.periodes_attribuees}
                        onChange={e => set('periodes_attribuees', e.target.value)}
-                       className="w-full border border-iip-gold/40 rounded px-2 py-1.5 text-sm bg-white" />
+                       className="w-full border border-iip-gold/40 rounded px-2 py-1.5 h-9 text-sm bg-white" />
               </div>
               <div>
                 <label className="block text-xs text-gray-600 mb-0.5">Autonomie attribuée</label>
                 <input type="number" step="0.5" value={form.autonomie_attribuee}
                        onChange={e => set('autonomie_attribuee', e.target.value)}
-                       className="w-full border border-iip-gold/40 rounded px-2 py-1.5 text-sm bg-white" />
+                       className="w-full border border-iip-gold/40 rounded px-2 py-1.5 h-9 text-sm bg-white" />
               </div>
               <div>
                 <label className="block text-xs text-gray-500 mb-0.5">Total (calculé)</label>
-                <div className="border border-gray-200 rounded px-2 py-1.5 text-sm bg-gray-50 font-semibold">{total}</div>
+                <div className="border border-gray-200 rounded px-2 py-1.5 h-9 text-sm bg-gray-50 font-semibold">{total}</div>
               </div>
               <div>
                 <label className="block text-xs text-gray-500 mb-0.5">Heures (50/60)</label>
-                <div className="border border-gray-200 rounded px-2 py-1.5 text-sm bg-gray-50">{heures}</div>
+                <div className="border border-gray-200 rounded px-2 py-1.5 h-9 text-sm bg-gray-50">{heures}</div>
               </div>
               <div>
                 <label className="block text-xs text-gray-500 mb-0.5">Coût dot. (SUP×1.5)</label>
-                <div className="border border-gray-200 rounded px-2 py-1.5 text-sm bg-gray-50">{cout}</div>
+                <div className="border border-gray-200 rounded px-2 py-1.5 h-9 text-sm bg-gray-50">{cout}</div>
               </div>
             </div>
           </fieldset>
@@ -337,7 +337,7 @@ export default function AttributionForm({ onClose, onCreated, editRow = null }) 
           <div>
             <label className="block text-xs text-gray-600 mb-0.5">Commentaire</label>
             <textarea value={form.commentaire} onChange={e => set('commentaire', e.target.value)}
-                      rows="2" className="w-full border border-gray-300 rounded px-2 py-1.5 text-sm" />
+                      rows="2" className="w-full border border-gray-300 rounded px-2 py-1.5 h-9 text-sm" />
           </div>
         </div>
 

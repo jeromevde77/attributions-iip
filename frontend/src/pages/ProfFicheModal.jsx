@@ -153,9 +153,9 @@ function DispoGrid({ creneaux, dispoQ1, setDispoQ1, dispoQ2, setDispoQ2, profId 
         <table className="text-xs border-collapse w-full">
           <thead>
             <tr>
-              <th className="text-left px-2 py-1.5 text-gray-400 font-normal w-32">Créneau</th>
+              <th className="text-left px-2 py-1.5 h-9 text-gray-400 font-normal w-32">Créneau</th>
               {JOURS.map(j => (
-                <th key={j} className="px-3 py-1.5 text-center text-gray-600 font-medium">{j}</th>
+                <th key={j} className="px-3 py-1.5 h-9 text-center text-gray-600 font-medium">{j}</th>
               ))}
             </tr>
           </thead>
@@ -189,7 +189,7 @@ function DispoGrid({ creneaux, dispoQ1, setDispoQ1, dispoQ2, setDispoQ2, profId 
 
       <div className="flex items-center gap-3">
         <button onClick={sauvegarder} disabled={saving}
-          className="bg-iip-mauve text-white text-xs px-4 py-1.5 rounded hover:opacity-90 disabled:opacity-50">
+          className="bg-iip-mauve text-white text-xs px-4 py-1.5 h-9 rounded hover:opacity-90 disabled:opacity-50">
           {saving ? 'Sauvegarde…' : `Enregistrer les dispos ${quadrimestre}`}
         </button>
         {saved && <span className="text-xs text-green-500">✓ Sauvegardé</span>}
@@ -725,7 +725,7 @@ export default function ProfFicheModal({ prof, onClose, onSaved }) {
                 <label className="block">
                   <span className="text-[11px] text-gray-500">Statut de nomination</span>
                   <select value={form.statut_nomination || 'temporaire'} onChange={v => set('statut_nomination', v.target.value)}
-                    className="w-full border border-gray-300 rounded px-2 py-1.5 text-sm max-w-xs">
+                    className="w-full border border-gray-300 rounded px-2 py-1.5 h-9 text-sm max-w-xs">
                     <option value="temporaire">Temporaire</option>
                     <option value="temporaire_prioritaire">Temporaire prioritaire</option>
                     <option value="definitif">Engagé à titre définitif</option>
@@ -734,7 +734,7 @@ export default function ProfFicheModal({ prof, onClose, onSaved }) {
                 <label className="block">
                   <span className="text-[11px] text-gray-500">Statut HELB (contrat HE)</span>
                   <select value={form.statut_helb || ''} onChange={v => set('statut_helb', v.target.value)}
-                    className="w-full border border-gray-300 rounded px-2 py-1.5 text-sm max-w-xs">
+                    className="w-full border border-gray-300 rounded px-2 py-1.5 h-9 text-sm max-w-xs">
                     <option value="">— aucun —</option>
                     <option value="MA">Maître-Assistant (MA)</option>
                     <option value="MFP">Maître de Formation Pratique (MFP)</option>
