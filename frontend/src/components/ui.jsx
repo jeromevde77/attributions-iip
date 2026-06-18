@@ -74,3 +74,56 @@ export function KpiCard({ label, valeur, sous, ton = 'neutral' }) {
     </div>
   );
 }
+
+// Rail latéral « glissant » partagé.
+// Étroit (icônes seules) par défaut, s'élargit au survol PAR-DESSUS le contenu
+// (positionné en absolute) pour ne pas faire sauter la zone de travail centrale.
+// Le conteneur parent doit être `relative` et le contenu décalé de `ml-16`.
+//   icon       : composant icône d'en-tête (turquoise)
+//   titre      : titre de l'en-tête (blanc, visible au survol)
+//   sousTitre  : petite ligne sous le titre (optionnel)
+//   extra      : noeud rendu sous l'en-tête (ex. déroulant année) — visible au survol
+//   sections   : [{ label?, items: [{ key, label, icon, actif, onClick }] }]
+export function RailLateral({ icon: HeaderIcon, titre, sousTitre, extra, sections = [] }) {
+  const reveal = 'whitespace-nowrap opacity-0 group-hover/rail:opacity-100 transition-opacity duration-150';
+  return (
+    <aside
+      className="group/rail absolute left-0 top-0 h-full w-16 hover:w-60 z-20
+                 bg-iip-blue overflow-hidden transition-[width] duration-200 ease-out
+                 flex flex-col py-4 hover:shadow-xl hover:shadow-black/20">
+      {/* En-tête */}
+      <div className="flex items-center gap-3 px-4 mb-1 text-white flex-shrink-0">
+        {HeaderIcon && <HeaderIcon size={22} className="text-iip-turquoise flex-shrink-0" />}
+        <span className={`text-[15px] font-semibold ${reveal}`}>{titre}</span>
+      </div>
+      {sousTitre && <div className={`px-4 h-4 text-[11px] text-white/40 ${reveal}`}>{sousTitre}</div>}
+      {extra && <div className={`px-3 pt-2 ${reveal}`}>{extra}</div>}
+
+      {/* Sections */}
+      <div className="flex-1 overflow-y-auto overflow-x-hidden px-2.5 mt-2">
+        {sections.map((sec, si) => (
+          <div key={si} className="mb-3">
+            {sec.label && (
+              <div className={`px-1.5 mt-2 mb-1 h-4 text-[10px] font-semibold uppercase tracking-wider text-white/40 ${reveal}`}>
+                {sec.label}
+              </div>
+            )}
+            {sec.items.map(it => {
+              const Ic = it.icon;
+              return (
+                <button key={it.key} onClick={it.onClick} title={it.label}
+                  className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg text-[13px] mb-0.5 transition-colors duration-150
+                    ${it.actif
+                      ? 'bg-iip-turquoise text-white font-semibold'
+                      : 'text-white/75 hover:bg-white/10 hover:text-white'}`}>
+                  {Ic && <Ic size={18} stroke={1.8} className="flex-shrink-0" />}
+                  <span className={`text-left leading-tight ${reveal}`}>{it.label}</span>
+                </button>
+              );
+            })}
+          </div>
+        ))}
+      </div>
+    </aside>
+  );
+}

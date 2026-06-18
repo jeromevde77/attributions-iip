@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { getAnnee } from '../lib/api.js';
 import PreviewModal from '../components/PreviewModal.jsx';
-import { PageHeader } from '../components/ui.jsx';
+import { PageHeader, RailLateral } from '../components/ui.jsx';
 import {
   IconChecklist, IconScale, IconShieldExclamation, IconClipboardList,
   IconFolder, IconCheck, IconX, IconArrowBackUp,
@@ -1670,60 +1670,47 @@ export default function Procedures() {
   );
 
   return (
-    <div className="flex bg-slate-50" style={{ minHeight: 'calc(100vh - 64px)' }}>
-      {/* ── Rail latéral (look identique à Listes) ── */}
-      <aside className="w-56 flex-shrink-0 bg-iip-blue py-4 px-2.5">
-        <div className="flex items-center gap-2 px-3 pb-1 text-white text-[15px] font-semibold">
-          <IconChecklist size={20} className="text-iip-turquoise" />
-          Procédures IIP
-        </div>
-        <div className="px-3 pb-3 text-[11px] text-white/40">Année {anneeActive}</div>
-        {outils.map(o => {
-          const Ic = o.icon;
-          const actif = outil === o.id;
-          return (
-            <button key={o.id}
-              onClick={() => { setOutil(o.id); if (o.id !== 'recours' && o.id !== 'fraude') setPreRemplir(null); }}
-              className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-[13px] mb-0.5 transition-colors duration-150
-                ${actif
-                  ? 'bg-iip-turquoise text-white font-semibold'
-                  : 'text-white/75 hover:bg-white/10 hover:text-white'}`}>
-              <Ic size={17} stroke={1.8} className="flex-shrink-0" />
-              <span className="text-left leading-tight">{o.label}</span>
-            </button>
-          );
-        })}
-      </aside>
+    <div className="relative bg-slate-50" style={{ minHeight: 'calc(100vh - 64px)' }}>
+      {/* ── Rail latéral glissant (composant partagé) ── */}
+      <RailLateral
+        icon={IconChecklist}
+        titre="Procédures IIP"
+        sousTitre={`Année ${anneeActive}`}
+        sections={[{
+          items: outils.map(o => ({
+            key: o.id, label: o.label, icon: o.icon, actif: outil === o.id,
+            onClick: () => { setOutil(o.id); if (o.id !== 'recours' && o.id !== 'fraude') setPreRemplir(null); },
+          })),
+        }]}
+      />
 
-      {/* ── Colonne droite : contenu ── */}
-      <div className="flex-1 flex flex-col min-w-0">
-        <div className="flex-1 overflow-auto p-6">
-          {outil === 'recours' && (
-            <>
-              <PageHeader icon={IconScale} titre="Outil de traitement des recours"
-                sous={`${is2526 ? 'Art. 65-68 ROI/RGE IIP 2025-2026 · Procédure temporaire' : 'Art. 87-91 RDE/ROI IIP 2026-2027 · D. 27/10/2006'} · À destination de Nicolas`} />
-              {preRemplir?.type === 'recours' && bandeauPreRempli}
-              <OutilRecours initialPayload={preRemplir?.type === 'recours' ? preRemplir.payload : null} onPayloadConsumed={() => setPreRemplir(null)} />
-            </>
-          )}
-          {outil === 'fraude' && (
-            <>
-              <PageHeader icon={IconShieldExclamation} titre="Procédure de traitement des fraudes"
-                sous={`${is2526 ? 'Art. 54-55 ROI/RGE IIP 2025-2026 · Procédure temporaire' : 'Art. 72-75 RDE/ROI IIP 2026-2027'} · Procédure contradictoire obligatoire · À destination de Nicolas`} />
-              {preRemplir?.type === 'fraude' && bandeauPreRempli}
-              <OutilFraude initialPayload={preRemplir?.type === 'fraude' ? preRemplir.payload : null} onPayloadConsumed={() => setPreRemplir(null)} />
-            </>
-          )}
-          {outil === 'examens' && (
-            <div className="text-center text-gray-400 p-12">
-              <IconClipboardList size={44} stroke={1.5} className="mx-auto mb-3 text-gray-300" />
-              <p className="font-medium">Procédure Examens — en cours de développement</p>
-            </div>
-          )}
-          {outil === 'archives' && (
-            <ArchivesProcedures onReprendreRecours={reprendreDepuisArchive} />
-          )}
-        </div>
+      {/* ── Contenu (décalé du gutter du rail) ── */}
+      <div className="ml-16 p-6">
+        {outil === 'recours' && (
+          <>
+            <PageHeader icon={IconScale} titre="Outil de traitement des recours"
+              sous={`${is2526 ? 'Art. 65-68 ROI/RGE IIP 2025-2026 · Procédure temporaire' : 'Art. 87-91 RDE/ROI IIP 2026-2027 · D. 27/10/2006'} · À destination de Nicolas`} />
+            {preRemplir?.type === 'recours' && bandeauPreRempli}
+            <OutilRecours initialPayload={preRemplir?.type === 'recours' ? preRemplir.payload : null} onPayloadConsumed={() => setPreRemplir(null)} />
+          </>
+        )}
+        {outil === 'fraude' && (
+          <>
+            <PageHeader icon={IconShieldExclamation} titre="Procédure de traitement des fraudes"
+              sous={`${is2526 ? 'Art. 54-55 ROI/RGE IIP 2025-2026 · Procédure temporaire' : 'Art. 72-75 RDE/ROI IIP 2026-2027'} · Procédure contradictoire obligatoire · À destination de Nicolas`} />
+            {preRemplir?.type === 'fraude' && bandeauPreRempli}
+            <OutilFraude initialPayload={preRemplir?.type === 'fraude' ? preRemplir.payload : null} onPayloadConsumed={() => setPreRemplir(null)} />
+          </>
+        )}
+        {outil === 'examens' && (
+          <div className="text-center text-gray-400 p-12">
+            <IconClipboardList size={44} stroke={1.5} className="mx-auto mb-3 text-gray-300" />
+            <p className="font-medium">Procédure Examens — en cours de développement</p>
+          </div>
+        )}
+        {outil === 'archives' && (
+          <ArchivesProcedures onReprendreRecours={reprendreDepuisArchive} />
+        )}
       </div>
     </div>
   );
