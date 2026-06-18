@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { getUser } from '../lib/api.js';
+import { IconPlus, IconKey, IconTrash, IconAlertTriangle } from '@tabler/icons-react';
 
 const ROLE_LABEL = {
   admin: 'Administrateur',
@@ -124,8 +125,8 @@ export default function Users({ embedded = false }) {
     <div className={embedded ? '' : 'p-6 max-w-5xl mx-auto'}>
       <div className="flex items-center justify-between mb-4">
         {!embedded && <h1 className="text-2xl font-title text-iip-gold">Utilisateurs</h1>}
-        <button onClick={() => setShowForm(true)} className={`bg-iip-gold hover:bg-iip-amber text-white text-sm px-4 py-1.5 rounded font-medium ${embedded ? 'ml-auto' : ''}`}>
-          ➕ Nouvel utilisateur
+        <button onClick={() => setShowForm(true)} className={`bg-iip-gold hover:bg-iip-amber text-white text-sm px-4 py-1.5 rounded font-medium inline-flex items-center gap-1.5 ${embedded ? 'ml-auto' : ''}`}>
+          <IconPlus size={16} /> Nouvel utilisateur
         </button>
       </div>
 
@@ -155,7 +156,7 @@ export default function Users({ embedded = false }) {
                     {u.role === 'coordination' ? (
                       <button onClick={() => setEditingSections({ userId: u.id, nom: u.nom_complet, sections: [...(u.sections || [])] })}
                               className="text-iip-gold hover:underline">
-                        {u.sections?.length ? u.sections.join(', ') : <span className="text-orange-500">⚠ aucune</span>}
+                        {u.sections?.length ? u.sections.join(', ') : <span className="text-orange-500 inline-flex items-center gap-1"><IconAlertTriangle size={13} /> aucune</span>}
                       </button>
                     ) : <span className="text-gray-300">— toutes —</span>}
                   </td>
@@ -168,9 +169,9 @@ export default function Users({ embedded = false }) {
                   <td className="text-xs text-gray-500">{u.created_at?.slice(0,10)}</td>
                   <td className="text-xs text-gray-500">{u.last_login_at ? u.last_login_at.slice(0,16).replace('T', ' ') : '—'}</td>
                   <td className="text-xs">
-                    <button onClick={() => resetPassword(u)} className="text-iip-orange hover:underline">🔑 MDP</button>
+                    <button onClick={() => resetPassword(u)} className="text-iip-orange hover:underline inline-flex items-center gap-1"><IconKey size={14} /> MDP</button>
                     {u.id !== me.id && <>
-                      {' · '}<button onClick={() => deleteUser(u)} className="text-red-500 hover:underline">🗑</button>
+                      {' · '}<button onClick={() => deleteUser(u)} className="text-red-500 hover:underline"><IconTrash size={15} /></button>
                     </>}
                   </td>
                 </tr>

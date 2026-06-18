@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { api, getAnnee, setAnnee } from '../lib/api.js';
 import ImportUEAssistant from '../components/ImportUEAssistant.jsx';
+import { IconPlus, IconPencil, IconTrash } from '@tabler/icons-react';
 
 export default function Annees({ embedded = false }) {
   const [annees, setAnnees] = useState([]);
@@ -88,8 +89,8 @@ export default function Annees({ embedded = false }) {
         {!embedded && <h1 className="text-2xl font-title text-iip-gold">Années scolaires</h1>}
         {embedded && <div className="text-sm text-gray-500">Gestion des années scolaires</div>}
         <button onClick={() => { setShowForm(true); setForm({ code: nextYear(), libelle: `Année ${nextYear()}`, source: annees[annees.length-1]?.code || '2025-2026', mode: 'copie' }); }}
-          className="bg-iip-gold hover:bg-iip-amber text-white text-sm px-4 py-2 rounded font-medium">
-          ➕ Nouvelle année
+          className="bg-iip-gold hover:bg-iip-amber text-white text-sm px-4 py-2 rounded font-medium inline-flex items-center gap-1.5">
+          <IconPlus size={16} /> Nouvelle année
         </button>
       </div>
 
@@ -122,13 +123,13 @@ export default function Annees({ embedded = false }) {
                       </button>
                     )}
                     <button onClick={() => handleRename(a.code)}
-                      className="text-blue-500 hover:text-blue-700 text-xs">
-                      ✎ Renommer
+                      className="text-blue-500 hover:text-blue-700 text-xs inline-flex items-center gap-1">
+                      <IconPencil size={13} /> Renommer
                     </button>
                     {annees.length > 1 && (
                       <button onClick={() => handleDelete(a.code)} disabled={deleting === a.code}
-                        className="text-red-500 hover:text-red-700 text-xs disabled:opacity-40">
-                        {deleting === a.code ? '…' : '🗑 Supprimer'}
+                        className="text-red-500 hover:text-red-700 text-xs disabled:opacity-40 inline-flex items-center gap-1">
+                        {deleting === a.code ? '…' : <><IconTrash size={13} /> Supprimer</>}
                       </button>
                     )}
                   </td>
