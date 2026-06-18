@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo, useRef, Fragment } from 'react';
 import { api, getAnnee } from '../lib/api.js';
-import { IconChartBar, IconHome, IconClipboardList, IconTarget, IconUsers, IconSettings, IconAlertTriangle, IconChevronRight, IconChevronDown, IconPrinter } from '@tabler/icons-react';
+import { IconChartBar, IconHome, IconClipboardList, IconTarget, IconUsers, IconSettings, IconAlertTriangle, IconChevronRight, IconChevronDown, IconPrinter, IconRotateClockwise } from '@tabler/icons-react';
 import { PageHeader, Tabs, RailLateral } from '../components/ui.jsx';
 import {
   BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer,
@@ -470,6 +470,7 @@ export default function Pilotage() {
   const [dotEfficPrev, setDotEfficPrev] = useState(null); // efficience année précédente (pour Δ%)
   const [dotNiv, setDotNiv]         = useState(null);   // /etp → niveau UE (BA1/BA2)
   const [dotOpen, setDotOpen]       = useState(new Set()); // volets fermés par défaut
+  const [dotFace, setDotFace]       = useState('recto');    // carte flip : 'recto' (KPIs) | 'verso' (pluriannuel)
   const anneePrec = (() => { const p = (anneeActive||'').split('-'); return p.length === 2 ? `${+p[0]-1}-${p[0]}` : ''; })();
   const [etpOpen, setEtpOpen]       = useState(new Set());
   const [civil, setCivil]           = useState([]);
@@ -757,7 +758,20 @@ export default function Pilotage() {
     const d = selectedData;
     return (
       <div className="space-y-6">
-        {/* KPIs organiques */}
+        {/* Carte dotation — flip : indicateurs ⇄ pluriannuel */}
+        <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-4">
+          <div className="flex items-center justify-between mb-3">
+            <div className="text-xs font-semibold text-gray-500 uppercase tracking-wider">
+              {dotFace === 'recto' ? `Dotation organique · Civile ${d.annee_civile}` : 'Comparaison pluriannuelle — dotation'}
+            </div>
+            <button onClick={() => setDotFace(face => face === 'recto' ? 'verso' : 'recto')} title="Retourner la carte"
+              className="w-8 h-8 rounded-full border border-gray-300 text-gray-500 hover:bg-iip-blue hover:text-white hover:border-iip-blue flex items-center justify-center transition flex-shrink-0">
+              <IconRotateClockwise size={16} />
+            </button>
+          </div>
+          {dotFace === 'recto' ? (
+            <div className="space-y-4">
+              {/* KPIs organiques */}
         <div>
           <div className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2 flex items-center gap-2">
             Dotation organique · Civile {d.annee_civile}
@@ -802,15 +816,10 @@ export default function Pilotage() {
             </div>
           </div>
         )}
-
-        {/* Dotation détaillée par section → UE (Δ% inter-années) */}
-        {renderDotationTable()}
-
-        {/* Graphique multi-années */}
-        {chartData.length > 1 && (
-          <div className="bg-white rounded-xl border border-gray-200 p-4 shadow-sm">
-            <div className="text-xs font-semibold text-gray-600 uppercase tracking-wider mb-4">Comparaison pluriannuelle — dotation</div>
-            <ResponsiveContainer width="100%" height={280}>
+            </div>
+          ) : (
+            chartData.length > 1 ? (
+              <ResponsiveContainer width="100%" height={280}>
               <BarChart data={chartData} barCategoryGap="30%">
                 <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
                 <XAxis dataKey="annee" tick={{ fontSize: 12 }} />
@@ -823,8 +832,14 @@ export default function Pilotage() {
                 <Bar dataKey="Usage enveloppes"   fill="#7bc4a8" radius={[3, 3, 0, 0]} />
               </BarChart>
             </ResponsiveContainer>
-          </div>
-        )}
+            ) : (
+              <div className="text-gray-400 text-sm py-12 text-center">Pas assez d’années pour la comparaison pluriannuelle.</div>
+            )
+          )}
+        </div>
+
+        {/* Dotation détaillée par section → UE (Δ% inter-années) */}
+        {renderDotationTable()}
 
         {/* Section PEP */}
         {pepChartData.length > 0 && (
