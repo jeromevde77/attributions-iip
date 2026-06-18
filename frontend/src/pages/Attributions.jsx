@@ -1,13 +1,12 @@
 import { useEffect, useState, useMemo } from 'react';
 import { api, getAnnee, nomDoc, getUnite, setUnite as setUniteGlobal, perToH, hToPer } from '../lib/api.js';
 import PreviewModal from '../components/PreviewModal.jsx';
-import { RailLateral } from '../components/ui.jsx';
 import EptModal from '../components/EptModal.jsx';
 import OrganisationUEModal from '../components/OrganisationUEModal.jsx';
 import OrganiserGroupesModal from '../components/OrganiserGroupesModal.jsx';
 import Doc23Modal from '../components/Doc23Modal.jsx';
 import * as XLSX from 'xlsx';
-import { IconClipboardText, IconTrash, IconLock, IconLockOpen, IconArrowsHorizontal, IconRefresh, IconCalendar, IconFileText, IconChartBar, IconEraser, IconWand, IconSearch, IconX, IconSettings, IconFolder, IconPlus, IconFileImport, IconFileSpreadsheet, IconUsersGroup, IconScissors, IconClock } from '@tabler/icons-react';
+import { IconClipboardText, IconTrash, IconLock, IconLockOpen, IconArrowsHorizontal, IconRefresh, IconCalendar, IconFileText, IconChartBar, IconEraser, IconWand, IconSearch, IconX, IconSettings, IconFolder, IconPlus, IconFileImport, IconFileSpreadsheet, IconUsersGroup, IconScissors, IconClock, IconChevronLeft, IconChevronRight, IconFilter } from '@tabler/icons-react';
 
 // ─── Modale : copier les attributions d'une section d'une année vers une autre ─
 function CopierSectionModal({ sections, anneeActive, isAdmin, onClose, onCopied }) {
@@ -261,6 +260,8 @@ export default function Attributions() {
   const [activeUE, setActiveUE] = useState(null);     // key de la dernière UE cliquée (encadrée)
   const [newCoursForm, setNewCoursForm] = useState(null); // préremplissage AttributionForm pour nouveau cours
   const [viewMode, setViewMode] = useState('ue');
+  const [panneauOuvert, setPanneauOuvert] = useState(() => localStorage.getItem('attr_panneau') !== '0');
+  const togglePanneau = () => setPanneauOuvert(v => { const n = !v; localStorage.setItem('attr_panneau', n ? '1' : '0'); return n; });
   const [openUEs, setOpenUEs] = useState(new Set());
   const [openActs, setOpenActs] = useState(new Set()); // volets d'activité dépliés (clé: coursKey|activite_id)
 
@@ -1469,16 +1470,7 @@ export default function Attributions() {
 
   // ===================== RENDU =====================
   return (
-    <div className="relative" style={{ minHeight: 'calc(100vh - 64px)' }}>
-      <RailLateral
-        icon={IconClipboardText}
-        titre="Attributions"
-        sections={[{ items: [
-          { key: 'ue',   label: 'Par section',  icon: IconFolder,        actif: viewMode === 'ue',   onClick: () => setViewMode('ue') },
-          { key: 'flat', label: 'Vue complète', icon: IconClipboardText, actif: viewMode === 'flat', onClick: () => setViewMode('flat') },
-        ] }]}
-      />
-      <div className="ml-16 p-2 md:p-4 max-w-7xl mx-auto">
+    <div className="p-2 md:p-4">
       {/* (bandeau perte de charge déplacé en bas de page) */}
 
       {/* Barre mobile */}
@@ -1489,8 +1481,8 @@ export default function Attributions() {
         <button onClick={()=>setFiltersOpenMobile(o=>!o)} className="bg-white border border-gray-300 rounded-lg px-3 py-2 text-sm font-medium">{filtersOpenMobile ? <IconX size={16}/> : <IconSettings size={16}/>}</button>
       </div>
 
-      {/* Filtres */}
-      <div className={`bg-white rounded-lg border border-gray-200 p-3 mb-3 flex flex-wrap items-end gap-2 ${filtersOpenMobile?'':'hidden md:flex'}`}>
+      {/* Filtres (mobile uniquement — desktop : dans le panneau latéral) */}
+      <div className={`bg-white rounded-lg border border-gray-200 p-3 mb-3 flex flex-wrap items-end gap-2 md:hidden ${filtersOpenMobile?'':'hidden'}`}>
         <div><label className="block text-xs text-gray-600 mb-0.5">Section</label>
           <select value={filters.section} onChange={e=>{const f={...filters,section:e.target.value};setFilters(f);load(f);}} className="border border-gray-300 rounded px-2 py-1 text-sm"><option value="">— Toutes —</option>{sections.map(s=><option key={s.code} value={s.code}>{s.code}</option>)}</select></div>
         <div><label className="block text-xs text-gray-600 mb-0.5">UE</label>
@@ -1507,35 +1499,91 @@ export default function Attributions() {
         <button onClick={resetFilters} className="text-gray-600 hover:text-iip-orange text-sm px-2 py-1.5">Réinitialiser</button>
       </div>
 
-      {/* Barre d'actions desktop */}
-      <div className="hidden md:flex items-center gap-2 mb-3 flex-wrap">
-        {viewMode==='ue' && <div className="flex gap-1 text-xs mr-2">
-          <button onClick={expandAll} className="text-gray-500 hover:text-iip-gold px-2 py-1">Tout déplier</button>
-          <button onClick={collapseAll} className="text-gray-500 hover:text-iip-gold px-2 py-1">Tout replier</button>
-        </div>}
-        <span className="bg-white rounded px-3 py-1 border border-gray-200 text-sm">
-          <b>{data.length}</b> attr. · {sectionGroups.length} sect. · {totalUECount} UE · <b>{stats.total.toLocaleString('fr-BE')}</b> per.
-          · IIP <b className="text-iip-gold">{stats.iip.toLocaleString('fr-BE')}</b>
-          · HELB <b className="text-iip-mauve">{stats.helb.toLocaleString('fr-BE')}</b>
-        </span>
-        <div className="ml-auto flex gap-2 flex-wrap">
-          <button onClick={()=>{ const next = unite==='heures'?'periodes':'heures'; setUniteLocal(next); setUniteGlobal(next); window.dispatchEvent(new Event('unite-change')); }}
-            title="Basculer la saisie entre périodes et heures (le stockage reste en périodes)"
-            className="inline-flex items-center gap-2 bg-white border border-slate-300 text-iip-blue hover:bg-slate-50 text-[13px] font-medium px-3.5 py-2 rounded-lg">
-            <IconClock size={16}/>{unite==='heures' ? 'Heures' : 'Périodes'}
-          </button>
-          <button onClick={()=>setShowForm(true)} className="inline-flex items-center gap-2 bg-iip-blue hover:bg-iip-blue-dark text-white text-[13px] font-medium px-3.5 py-2 rounded-lg"><IconPlus size={16}/>Nouvelle</button>
-          <button onClick={()=>setShowBulkCreate(true)} title="Créer les attributions d'une section" className="inline-flex items-center gap-2 bg-white border border-slate-300 text-iip-blue hover:bg-slate-50 text-[13px] font-medium px-3.5 py-2 rounded-lg"><IconPlus size={16}/>Créer une section</button>
-          <button onClick={()=>setShowCopierSection(true)} title="Copier les attributions d'une section vers une autre année" className="inline-flex items-center gap-2 bg-white border border-slate-300 text-iip-blue hover:bg-slate-50 text-[13px] font-medium px-3.5 py-2 rounded-lg"><IconClipboardText size={16}/>Copier section</button>
-          <button onClick={()=>api.exportExcel()} className="inline-flex items-center gap-2 bg-white border border-slate-300 text-iip-blue hover:bg-slate-50 text-[13px] font-medium px-3.5 py-2 rounded-lg"><IconFileImport size={16}/>Export</button>
-          {isAdmin && <>
-            {selected.size>0 && <button onClick={()=>openBulkModal('selection')} className="inline-flex items-center gap-2 bg-white border border-red-200 text-iip-danger hover:bg-red-50 text-[13px] font-medium px-3.5 py-2 rounded-lg"><IconTrash size={16}/>Sélection ({selected.size})</button>}
-            <button onClick={()=>openBulkModal('filtered')} className="inline-flex items-center gap-2 bg-white border border-red-200 text-iip-danger hover:bg-red-50 text-[13px] font-medium px-3.5 py-2 rounded-lg"><IconTrash size={16}/>Suppr. filtre</button>
-            <button onClick={()=>openBulkModal('all')} className="inline-flex items-center gap-2 bg-iip-danger hover:brightness-110 text-white text-[13px] font-medium px-3.5 py-2 rounded-lg"><IconTrash size={16}/>Tout supprimer</button>
-            <button onClick={reimportExcel} className="inline-flex items-center gap-2 bg-white border border-slate-300 text-iip-blue hover:bg-slate-50 text-[13px] font-medium px-3.5 py-2 rounded-lg"><IconRefresh size={16}/>Réimporter</button>
-          </>}
-        </div>
-      </div>
+      {/* ── Desktop : panneau latéral épinglable (vue + filtres + actions) + tableau ── */}
+      <div className="hidden md:flex gap-4 items-start">
+        <aside className={`flex-shrink-0 self-start sticky top-2 bg-white border border-gray-200 rounded-lg flex flex-col max-h-[calc(100vh-80px)] overflow-hidden transition-[width] duration-200 ${panneauOuvert ? 'w-72' : 'w-12'}`}>
+          <div className="flex items-center justify-between px-2 py-2 border-b border-gray-100 flex-shrink-0">
+            {panneauOuvert && <span className="text-[13px] font-semibold text-iip-blue pl-1.5">Filtres &amp; actions</span>}
+            <button onClick={togglePanneau} title={panneauOuvert ? 'Replier le panneau' : 'Déplier le panneau'} className="p-1.5 rounded hover:bg-gray-100 text-gray-500">
+              {panneauOuvert ? <IconChevronLeft size={18}/> : <IconChevronRight size={18}/>}
+            </button>
+          </div>
+
+          {panneauOuvert ? (
+            <div className="flex-1 overflow-y-auto p-3 space-y-4">
+              {/* Vue */}
+              <div>
+                <div className="text-[10px] font-semibold uppercase tracking-wider text-gray-400 mb-1.5">Vue</div>
+                <div className="flex flex-col gap-1">
+                  <button onClick={()=>setViewMode('ue')} className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-[13px] font-medium transition ${viewMode==='ue'?'bg-iip-blue text-white':'text-gray-600 hover:bg-gray-100'}`}><IconFolder size={16}/>Par section</button>
+                  <button onClick={()=>setViewMode('flat')} className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-[13px] font-medium transition ${viewMode==='flat'?'bg-iip-blue text-white':'text-gray-600 hover:bg-gray-100'}`}><IconClipboardText size={16}/>Vue complète</button>
+                </div>
+                {viewMode==='ue' && <div className="flex gap-3 mt-1.5 text-xs px-1">
+                  <button onClick={expandAll} className="text-gray-500 hover:text-iip-turquoise">Tout déplier</button>
+                  <button onClick={collapseAll} className="text-gray-500 hover:text-iip-turquoise">Tout replier</button>
+                </div>}
+              </div>
+
+              {/* Filtres */}
+              <div>
+                <div className="text-[10px] font-semibold uppercase tracking-wider text-gray-400 mb-1.5">Filtres</div>
+                <div className="space-y-2">
+                  <label className="block"><span className="block text-xs text-gray-600 mb-0.5">Section</span>
+                    <select value={filters.section} onChange={e=>{const f={...filters,section:e.target.value};setFilters(f);load(f);}} className="w-full border border-gray-300 rounded px-2 py-1 text-sm"><option value="">— Toutes —</option>{sections.map(s=><option key={s.code} value={s.code}>{s.code}</option>)}</select></label>
+                  <label className="block"><span className="block text-xs text-gray-600 mb-0.5">UE</span>
+                    <select value={filters.ue_num} onChange={e=>{const f={...filters,ue_num:e.target.value};setFilters(f);load(f);}} className="w-full border border-gray-300 rounded px-2 py-1 text-sm"><option value="">— Toutes —</option>{ueList.map(([n,nom])=><option key={n} value={n}>UE {n} — {nom}</option>)}</select></label>
+                  <label className="block"><span className="block text-xs text-gray-600 mb-0.5">Professeur</span>
+                    <select value={filters.prof_id} onChange={e=>{const f={...filters,prof_id:e.target.value};setFilters(f);load(f);}} className="w-full border border-gray-300 rounded px-2 py-1 text-sm"><option value="">— Tous —</option>{professeurs.map(p=><option key={p.id} value={p.id}>{p.nom_prenom}</option>)}</select></label>
+                  <div className="flex gap-2">
+                    <label className="block flex-1"><span className="block text-xs text-gray-600 mb-0.5">Contrat</span>
+                      <select value={filters.contrat} onChange={e=>{const f={...filters,contrat:e.target.value};setFilters(f);load(f);}} className="w-full border border-gray-300 rounded px-2 py-1 text-sm"><option value="">—</option><option value="IIP">IIP</option><option value="HELB">HELB</option></select></label>
+                    <label className="block flex-1"><span className="block text-xs text-gray-600 mb-0.5">Type</span>
+                      <select value={filters.type_cours} onChange={e=>{const f={...filters,type_cours:e.target.value};setFilters(f);load(f);}} className="w-full border border-gray-300 rounded px-2 py-1 text-sm"><option value="">—</option><option value="CT">CT</option><option value="PP">PP</option></select></label>
+                  </div>
+                  <label className="block"><span className="block text-xs text-gray-600 mb-0.5">Recherche libre</span>
+                    <input value={filters.q} onChange={e=>setFilters({...filters,q:e.target.value})} onKeyDown={e=>e.key==='Enter'&&applyFilters()} placeholder="UE, cours, professeur..." className="w-full border border-gray-300 rounded px-2 py-1 text-sm"/></label>
+                  <div className="flex gap-2 pt-1">
+                    <button onClick={applyFilters} className="flex-1 bg-iip-blue hover:bg-iip-blue-dark text-white text-sm py-1.5 rounded-lg">Filtrer</button>
+                    <button onClick={resetFilters} className="text-gray-500 hover:text-iip-blue text-sm px-2">Réinitialiser</button>
+                  </div>
+                </div>
+              </div>
+
+              {/* Actions */}
+              <div>
+                <div className="text-[10px] font-semibold uppercase tracking-wider text-gray-400 mb-1.5">Actions</div>
+                <div className="flex flex-col gap-1.5">
+                  <button onClick={()=>{ const next = unite==='heures'?'periodes':'heures'; setUniteLocal(next); setUniteGlobal(next); window.dispatchEvent(new Event('unite-change')); }} title="Basculer périodes / heures" className="flex items-center gap-2 bg-white border border-slate-300 text-iip-blue hover:bg-slate-50 text-[13px] font-medium px-3 py-2 rounded-lg"><IconClock size={16}/>{unite==='heures' ? 'Heures' : 'Périodes'}</button>
+                  <button onClick={()=>setShowForm(true)} className="flex items-center gap-2 bg-iip-blue hover:bg-iip-blue-dark text-white text-[13px] font-medium px-3 py-2 rounded-lg"><IconPlus size={16}/>Nouvelle</button>
+                  <button onClick={()=>setShowBulkCreate(true)} className="flex items-center gap-2 bg-white border border-slate-300 text-iip-blue hover:bg-slate-50 text-[13px] font-medium px-3 py-2 rounded-lg"><IconPlus size={16}/>Créer une section</button>
+                  <button onClick={()=>setShowCopierSection(true)} className="flex items-center gap-2 bg-white border border-slate-300 text-iip-blue hover:bg-slate-50 text-[13px] font-medium px-3 py-2 rounded-lg"><IconClipboardText size={16}/>Copier section</button>
+                  <button onClick={()=>api.exportExcel()} className="flex items-center gap-2 bg-white border border-slate-300 text-iip-blue hover:bg-slate-50 text-[13px] font-medium px-3 py-2 rounded-lg"><IconFileImport size={16}/>Export</button>
+                  {isAdmin && <>
+                    {selected.size>0 && <button onClick={()=>openBulkModal('selection')} className="flex items-center gap-2 bg-white border border-red-200 text-iip-danger hover:bg-red-50 text-[13px] font-medium px-3 py-2 rounded-lg"><IconTrash size={16}/>Sélection ({selected.size})</button>}
+                    <button onClick={()=>openBulkModal('filtered')} className="flex items-center gap-2 bg-white border border-red-200 text-iip-danger hover:bg-red-50 text-[13px] font-medium px-3 py-2 rounded-lg"><IconTrash size={16}/>Suppr. filtre</button>
+                    <button onClick={()=>openBulkModal('all')} className="flex items-center gap-2 bg-iip-danger hover:brightness-110 text-white text-[13px] font-medium px-3 py-2 rounded-lg"><IconTrash size={16}/>Tout supprimer</button>
+                    <button onClick={reimportExcel} className="flex items-center gap-2 bg-white border border-slate-300 text-iip-blue hover:bg-slate-50 text-[13px] font-medium px-3 py-2 rounded-lg"><IconRefresh size={16}/>Réimporter</button>
+                  </>}
+                </div>
+              </div>
+
+              {/* Stats */}
+              <div className="text-[11px] text-gray-500 border-t border-gray-100 pt-3 leading-relaxed">
+                <b>{data.length}</b> attr · {sectionGroups.length} sect · {totalUECount} UE · <b>{stats.total.toLocaleString('fr-BE')}</b> pér.<br/>
+                IIP <b className="text-iip-blue">{stats.iip.toLocaleString('fr-BE')}</b> · HELB <b className="text-iip-turquoise">{stats.helb.toLocaleString('fr-BE')}</b>
+              </div>
+            </div>
+          ) : (
+            <div className="flex flex-col items-center gap-1 py-2">
+              <button onClick={()=>setViewMode('ue')} title="Par section" className={`p-2 rounded-lg ${viewMode==='ue'?'bg-iip-blue text-white':'text-gray-500 hover:bg-gray-100'}`}><IconFolder size={18}/></button>
+              <button onClick={()=>setViewMode('flat')} title="Vue complète" className={`p-2 rounded-lg ${viewMode==='flat'?'bg-iip-blue text-white':'text-gray-500 hover:bg-gray-100'}`}><IconClipboardText size={18}/></button>
+              <button onClick={togglePanneau} title="Filtres" className="p-2 rounded-lg text-gray-500 hover:bg-gray-100"><IconFilter size={18}/></button>
+              <button onClick={()=>setShowForm(true)} title="Nouvelle attribution" className="p-2 rounded-lg text-iip-blue hover:bg-gray-100"><IconPlus size={18}/></button>
+            </div>
+          )}
+        </aside>
+
+        <main className="flex-1 min-w-0">
 
       {/* VUE PAR SECTION/UE/COURS — tableau unique continu */}
       {viewMode==='ue' && <div className="hidden md:block">
@@ -1564,6 +1612,8 @@ export default function Attributions() {
           </table>
         )}
       </div>}
+        </main>
+      </div>
 
       {/* VUE MOBILE */}
       <div className="md:hidden">
@@ -1775,7 +1825,6 @@ export default function Attributions() {
           </div>
         </div>
       )}
-    </div>
     </div>
   );
 }
