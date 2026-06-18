@@ -3,8 +3,15 @@
 @tailwind components;
 @tailwind utilities;
 
+:root {
+  /* Échelle typo globale de l'appli — pour tout agrandir/réduire, change CETTE seule valeur. */
+  --app-font-size: 14px;
+}
+
 body {
   font-family: 'Inter', 'Aptos', system-ui, Arial, Helvetica, sans-serif;
+  font-size: var(--app-font-size);
+  line-height: 1.5;
   background: #F5F7FA;
   color: #1f2937;
   -webkit-font-smoothing: antialiased;
