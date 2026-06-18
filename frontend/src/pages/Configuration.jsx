@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { api, getAnnee } from '../lib/api.js';
-import { IconSettings, IconBooks, IconCalendar, IconBuilding, IconUsers, IconUserShield, IconHistory, IconAdjustments, IconLink, IconSparkles, IconX, IconChevronRight, IconCheck } from '@tabler/icons-react';
+import { IconAdjustments, IconBooks, IconBuilding, IconCalendar, IconCheck, IconChevronRight, IconHistory, IconLink, IconScale, IconSettings, IconSparkles, IconUserShield, IconUsers, IconX } from '@tabler/icons-react';
 import { PageHeader, Tabs } from '../components/ui.jsx';
 
 const TOKEN = () => localStorage.getItem('token');
@@ -448,10 +448,10 @@ function ChangelogView({ data }) {
 // ─── Gestion des paramètres ───────────────────────────────────────────────────
 
 const GROUPE_LABELS = {
-  planification: { label: '📐 Planification', desc: 'Valeurs des cellules EV1/EV2/VC, durée des périodes, contraintes calendaires' },
-  session:       { label: '📅 Calendrier des sessions', desc: 'Dernier jour admin + délais rétroactifs (EV1, VC, EV2, délibé, recours) pour calculer la dernière semaine de cours' },
-  procedures:    { label: '⚖ Procédures',    desc: 'Délais légaux, email de direction utilisé dans les PV' },
-  etablissement: { label: '🏫 Établissement', desc: 'Nom et informations de l\'établissement' },
+  planification: { icon: IconAdjustments, label: 'Planification', desc: 'Valeurs des cellules EV1/EV2/VC, durée des périodes, contraintes calendaires' },
+  session:       { icon: IconCalendar, label: 'Calendrier des sessions', desc: 'Dernier jour admin + délais rétroactifs (EV1, VC, EV2, délibé, recours) pour calculer la dernière semaine de cours' },
+  procedures:    { icon: IconScale, label: 'Procédures',    desc: 'Délais légaux, email de direction utilisé dans les PV' },
+  etablissement: { icon: IconBuilding, label: 'Établissement', desc: 'Nom et informations de l\'établissement' },
 };
 
 const PARAM_TYPES = {
@@ -534,10 +534,11 @@ function GestionParametres() {
       {Object.entries(GROUPE_LABELS).map(([groupe, meta]) => {
         const params = grouped[groupe] || [];
         if (!params.length) return null;
+        const Icon = meta.icon;
         return (
           <div key={groupe} className="bg-white rounded-lg border border-gray-200 overflow-hidden">
             <div className="px-5 py-4 border-b border-gray-100">
-              <h3 className="font-semibold text-gray-800">{meta.label}</h3>
+              <h3 className="font-semibold text-gray-800 flex items-center gap-2">{Icon && <Icon size={17} className="text-iip-turquoise" />}{meta.label}</h3>
               <p className="text-xs text-gray-500 mt-0.5">{meta.desc}</p>
             </div>
             <div className="divide-y divide-gray-100">

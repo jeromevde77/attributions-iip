@@ -108,7 +108,7 @@ export default function CoursFormModal({ cours, ueNum, section, onClose, onSaved
 
               {/* Case Z */}
               <label className={`flex items-center gap-2 cursor-pointer select-none px-3 py-1.5 rounded-lg border-2 transition
-                ${isZ ? 'border-[#1F3864] bg-[#1F3864]' : 'border-gray-300 hover:border-[#1F3864]/50'}`}>
+                ${isZ ? 'border-iip-blue bg-iip-blue' : 'border-gray-300 hover:border-iip-blue/50'}`}>
                 <div className={`w-4 h-4 rounded flex items-center justify-center border-2 transition
                   ${isZ ? 'bg-white border-white' : 'border-gray-400'}`}>
                   {isZ && <IconCheck size={10} className="text-iip-blue" stroke={2.2} />}
@@ -128,9 +128,9 @@ export default function CoursFormModal({ cours, ueNum, section, onClose, onSaved
 
             {/* Explication Z */}
             {isZ && (
-              <div className="mt-2 px-3 py-2 bg-[#1F3864]/8 border border-[#1F3864]/20 rounded-lg flex items-start gap-2">
+              <div className="mt-2 px-3 py-2 bg-iip-blue/8 border border-iip-blue/20 rounded-lg flex items-start gap-2">
                 <span className="badge badge-z mt-0.5">Z</span>
-                <div className="text-xs text-[#1F3864]">
+                <div className="text-xs text-iip-blue">
                   <strong>Activité autonome — Art. 7.3</strong><br/>
                   Périodes étudiant uniquement. Pas de charge prof, pas de coût dotation.
                 </div>
@@ -141,14 +141,14 @@ export default function CoursFormModal({ cours, ueNum, section, onClose, onSaved
           {/* ── PÉRIODES ÉTUDIANT (Z uniquement) ──────────────────────────── */}
           {isZ && (
             <label className="block">
-              <div className="text-xs font-semibold text-[#1F3864] mb-1 flex items-center gap-2">
+              <div className="text-xs font-semibold text-iip-blue mb-1 flex items-center gap-2">
                 <span className="badge badge-z text-xs">Z</span>
                 Périodes étudiant (7.3) *
               </div>
               <input type="number" min="0" value={form.per_etudiant}
                 onChange={e => set('per_etudiant', e.target.value)}
                 placeholder="Nombre de périodes autonomes de l'étudiant"
-                className="w-full border-2 border-[#1F3864] rounded-lg px-3 py-2 text-sm font-semibold focus:ring-2 focus:ring-[#1F3864]/30" />
+                className="w-full border-2 border-iip-blue rounded-lg px-3 py-2 text-sm font-semibold focus:ring-2 focus:ring-iip-blue/30" />
               <p className="text-xs text-gray-500 mt-1">
                 Ces périodes s'ajoutent aux périodes étudiant totaux de l'UE.
               </p>

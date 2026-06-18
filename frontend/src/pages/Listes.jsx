@@ -1016,7 +1016,7 @@ export default function Listes() {
 
         {entite === 'rapport-section' && (
           <span className="text-xs text-slate-500 flex items-center gap-1.5">
-            <IconFileText size={15} className="text-[#00AACC]" />
+            <IconFileText size={15} className="text-iip-turquoise" />
             Les critères se choisissent à la génération.
           </span>
         )}
@@ -1039,7 +1039,7 @@ export default function Listes() {
 
         {/* Bouton générer */}
         <button onClick={generer} disabled={loading}
-          className="bg-[#1B2B4B] hover:bg-[#163A6B] disabled:opacity-40 text-white text-sm font-semibold px-4 py-2 rounded-lg flex items-center gap-2 transition-colors">
+          className="bg-iip-blue hover:bg-iip-blue-dark disabled:opacity-40 text-white text-sm font-semibold px-4 py-2 rounded-lg flex items-center gap-2 transition-colors">
           <IconBolt size={16} />
           {loading ? 'Chargement…' : (entite === 'rapport-section' ? 'Paramétrer & générer' : 'Générer')}
         </button>
@@ -1054,7 +1054,7 @@ export default function Listes() {
                   w.document.write(apercuHtml); w.document.close();
                   setTimeout(() => { w.focus(); w.print(); }, 350);
                 }}
-                className="text-sm border border-[#1B2B4B] text-[#1B2B4B] hover:bg-slate-100 px-3 py-2 rounded-lg font-medium flex items-center gap-1.5">
+                className="text-sm border border-iip-blue text-iip-blue hover:bg-slate-100 px-3 py-2 rounded-lg font-medium flex items-center gap-1.5">
                 <IconPrinter size={16} /> Imprimer / PDF
               </button>
             )}
@@ -1106,7 +1106,7 @@ export default function Listes() {
           <div className="px-5 py-3">
             <div className="text-sm text-slate-600 mb-2">
               <b>{rows.length}</b> résultat{rows.length > 1 ? 's' : ''} · {def.label} · {annee}
-              {filtres.section && <span className="ml-1 font-medium text-[#00AACC]">· {filtres.section}</span>}
+              {filtres.section && <span className="ml-1 font-medium text-iip-turquoise">· {filtres.section}</span>}
             </div>
             <div className="bg-white rounded-lg border border-slate-200 overflow-auto">
               <table className="w-full text-sm border-collapse">
