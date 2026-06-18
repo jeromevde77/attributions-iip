@@ -1,6 +1,11 @@
 import { useState, useEffect } from 'react';
 import { getAnnee } from '../lib/api.js';
 import PreviewModal from '../components/PreviewModal.jsx';
+import { PageHeader } from '../components/ui.jsx';
+import {
+  IconChecklist, IconScale, IconShieldExclamation, IconClipboardList,
+  IconFolder, IconCheck, IconX, IconArrowBackUp,
+} from '@tabler/icons-react';
 
 // ─── Utilitaires ──────────────────────────────────────────────────────────────
 const TOKEN = () => localStorage.getItem('token');
@@ -24,28 +29,28 @@ function fmtCourt(d) {
 // ─── Composants UI ────────────────────────────────────────────────────────────
 function Badge({ ok, label }) {
   return ok
-    ? <span className="inline-flex items-center gap-1 bg-green-100 text-green-800 border border-green-300 rounded-full px-3 py-0.5 text-sm font-semibold">✓ {label}</span>
-    : <span className="inline-flex items-center gap-1 bg-red-100 text-red-800 border border-red-300 rounded-full px-3 py-0.5 text-sm font-semibold">✗ {label}</span>;
+    ? <span className="inline-flex items-center gap-1 bg-green-100 text-green-800 border border-green-300 rounded-full px-3 py-0.5 text-sm font-semibold"><IconCheck size={15} stroke={2.2} /> {label}</span>
+    : <span className="inline-flex items-center gap-1 bg-red-100 text-red-800 border border-red-300 rounded-full px-3 py-0.5 text-sm font-semibold"><IconX size={15} stroke={2.2} /> {label}</span>;
 }
 function Ref({ text }) {
-  return <span className="text-xs text-blue-700 bg-blue-50 border border-blue-200 rounded px-1.5 py-0.5 ml-1">⚖ {text}</span>;
+  return <span className="inline-flex items-center gap-1 text-xs text-blue-700 bg-blue-50 border border-blue-200 rounded px-1.5 py-0.5 ml-1"><IconScale size={13} stroke={1.8} /> {text}</span>;
 }
-function Section({ title, color = 'mauve', children }) {
+function Section({ title, color = 'turquoise', children }) {
   const cls = { red:'border-red-500 bg-red-50', green:'border-green-500 bg-green-50',
-    orange:'border-orange-500 bg-orange-50', mauve:'border-iip-mauve bg-iip-mauve/5' };
-  return <div className={`border-l-4 pl-5 py-4 mb-5 ${cls[color]||cls.mauve}`}><h3 className="font-bold text-base mb-3">{title}</h3>{children}</div>;
+    orange:'border-orange-500 bg-orange-50', turquoise:'border-iip-turquoise bg-iip-turquoise/5' };
+  return <div className={`border-l-4 pl-5 py-4 mb-5 ${cls[color]||cls.turquoise}`}><h3 className="font-bold text-base mb-3 text-iip-blue">{title}</h3>{children}</div>;
 }
 function Q({ num, text, value, onChange, ref_ }) {
   return (
     <div className="mb-4 flex items-start gap-3">
-      <span className="flex-shrink-0 w-7 h-7 rounded-full bg-iip-mauve text-white text-sm font-bold flex items-center justify-center">{num}</span>
+      <span className="flex-shrink-0 w-7 h-7 rounded-full bg-iip-turquoise text-white text-sm font-bold flex items-center justify-center">{num}</span>
       <div className="flex-1">
         <p className="text-sm font-medium text-gray-800 mb-2">{text}{ref_ && <Ref text={ref_} />}</p>
         <div className="flex gap-2">
-          {[['oui','✓ Oui'],['non','✗ Non'],['','—']].map(([v,l]) => (
+          {[['oui', 'Oui', IconCheck], ['non', 'Non', IconX], ['', '—', null]].map(([v, l, Ic]) => (
             <button key={v} onClick={() => onChange(v)}
-              className={`px-4 py-1.5 rounded-full text-sm border transition ${value===v?(v==='oui'?'bg-green-600 text-white border-green-600':v==='non'?'bg-red-600 text-white border-red-600':'bg-gray-400 text-white border-gray-400'):'bg-white text-gray-600 border-gray-300 hover:bg-gray-50'}`}>
-              {l}
+              className={`inline-flex items-center gap-1 px-4 py-1.5 rounded-full text-sm border transition ${value===v?(v==='oui'?'bg-green-600 text-white border-green-600':v==='non'?'bg-red-600 text-white border-red-600':'bg-gray-400 text-white border-gray-400'):'bg-white text-gray-600 border-gray-300 hover:bg-gray-50'}`}>
+              {Ic && <Ic size={15} stroke={2.2} />}{l}
             </button>
           ))}
         </div>
@@ -436,7 +441,7 @@ function OutilRecours({ initialPayload, onPayloadConsumed }) {
           <div key={i} className="flex items-center gap-1 flex-shrink-0">
             <button onClick={() => setStep(i+1)}
               className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium transition
-                ${step === i+1 ? 'bg-iip-mauve text-white' : step > i+1 ? 'bg-green-500 text-white' : 'bg-gray-100 text-gray-500'}`}>
+                ${step === i+1 ? 'bg-iip-turquoise text-white' : step > i+1 ? 'bg-green-500 text-white' : 'bg-gray-100 text-gray-500'}`}>
               {step > i+1 ? '✓' : i+1}. {s}
             </button>
             {i < steps.length-1 && <div className={`h-0.5 w-4 flex-shrink-0 ${step > i+1 ? 'bg-green-400' : 'bg-gray-200'}`} />}
@@ -517,7 +522,7 @@ function OutilRecours({ initialPayload, onPayloadConsumed }) {
                       {profs.map(p => (
                         <label key={p.id} className={`flex items-center gap-3 px-3 py-2 rounded-lg border cursor-pointer transition ${profsPresents.has(p.id) ? 'bg-green-50 border-green-400' : 'bg-white border-blue-200 hover:bg-blue-50'}`}>
                           <input type="checkbox" checked={profsPresents.has(p.id)} onChange={() => toggleProfPresent(p.id)} className="w-4 h-4 accent-green-600" />
-                          <span className={`w-7 h-7 rounded-full text-white text-xs font-bold flex items-center justify-center flex-shrink-0 ${profsPresents.has(p.id) ? 'bg-green-600' : 'bg-iip-mauve'}`}>
+                          <span className={`w-7 h-7 rounded-full text-white text-xs font-bold flex items-center justify-center flex-shrink-0 ${profsPresents.has(p.id) ? 'bg-green-600' : 'bg-iip-turquoise'}`}>
                             {(p.nom[0]||'?').toUpperCase()}
                           </span>
                           <span className={`text-sm font-medium flex-1 ${profsPresents.has(p.id) ? 'text-green-800' : 'text-gray-700'}`}>{p.nomComplet}</span>
@@ -541,7 +546,7 @@ function OutilRecours({ initialPayload, onPayloadConsumed }) {
             )}
           </Section>
           <div className="flex justify-end">
-            <button onClick={() => setStep(2)} className="bg-iip-mauve text-white px-6 py-2 rounded-lg text-sm font-medium">Étape suivante →</button>
+            <button onClick={() => setStep(2)} className="bg-iip-turquoise text-white px-6 py-2 rounded-lg text-sm font-medium">Étape suivante →</button>
           </div>
         </div>
       )}
@@ -572,7 +577,7 @@ function OutilRecours({ initialPayload, onPayloadConsumed }) {
           <div className="flex justify-between">
             <button onClick={() => setStep(1)} className="border border-gray-300 text-gray-600 px-6 py-2 rounded-lg text-sm">← Retour</button>
             <button onClick={() => setStep(3)} disabled={!q.decisionRefus}
-              className="bg-iip-mauve disabled:opacity-40 text-white px-6 py-2 rounded-lg text-sm font-medium">
+              className="bg-iip-turquoise disabled:opacity-40 text-white px-6 py-2 rounded-lg text-sm font-medium">
               Recevabilité →
             </button>
           </div>
@@ -609,7 +614,7 @@ function OutilRecours({ initialPayload, onPayloadConsumed }) {
           <div className="flex justify-between">
             <button onClick={() => setStep(2)} className="border border-gray-300 text-gray-600 px-6 py-2 rounded-lg text-sm">← Retour</button>
             <button onClick={() => setStep(4)}
-              className="bg-iip-mauve text-white px-6 py-2 rounded-lg text-sm font-medium">
+              className="bg-iip-turquoise text-white px-6 py-2 rounded-lg text-sm font-medium">
               {irrecevable && !recevable ? 'Analyser quand même →' : 'Analyser au fond →'}
             </button>
           </div>
@@ -633,7 +638,7 @@ function OutilRecours({ initialPayload, onPayloadConsumed }) {
           </Section>
           <div className="flex justify-between">
             <button onClick={() => setStep(3)} className="border border-gray-300 text-gray-600 px-6 py-2 rounded-lg text-sm">← Retour</button>
-            <button onClick={() => setStep(5)} className="bg-iip-mauve text-white px-6 py-2 rounded-lg text-sm font-medium">Décision →</button>
+            <button onClick={() => setStep(5)} className="bg-iip-turquoise text-white px-6 py-2 rounded-lg text-sm font-medium">Décision →</button>
           </div>
         </div>
       )}
@@ -670,7 +675,7 @@ function OutilRecours({ initialPayload, onPayloadConsumed }) {
                 {n:6, label:'Archivage', detail:'Classer le dossier complet (plainte + pièces + décision + récépissé recommandé).'},
               ].map(item => (
                 <div key={item.n} className="flex gap-3 p-3 bg-white border border-gray-200 rounded-lg text-sm">
-                  <div className="w-6 h-6 rounded-full bg-iip-mauve text-white text-xs font-bold flex items-center justify-center flex-shrink-0">{item.n}</div>
+                  <div className="w-6 h-6 rounded-full bg-iip-turquoise text-white text-xs font-bold flex items-center justify-center flex-shrink-0">{item.n}</div>
                   <div><p className="font-semibold">{item.label}</p><p className="text-gray-600">{item.detail}</p></div>
                 </div>
               ))}
@@ -715,7 +720,7 @@ function OutilRecours({ initialPayload, onPayloadConsumed }) {
 
             {/* Bouton génération */}
             <button onClick={ouvrirDecision}
-              className="w-full bg-iip-mauve hover:opacity-90 text-white py-3 rounded-xl text-sm font-bold flex items-center justify-center gap-2">
+              className="w-full bg-iip-turquoise hover:opacity-90 text-white py-3 rounded-xl text-sm font-bold flex items-center justify-center gap-2">
               📄 Générer la décision motivée (Word / PDF)
             </button>
             <p className="text-xs text-gray-500 text-center mt-1">Document officiel à imprimer, signer et envoyer par recommandé à l'étudiant.</p>
@@ -724,7 +729,7 @@ function OutilRecours({ initialPayload, onPayloadConsumed }) {
           <div className="flex justify-between mt-2">
             <button onClick={() => setStep(4)} className="border border-gray-300 text-gray-600 px-6 py-2 rounded-lg text-sm">← Retour</button>
             <button onClick={() => { setStep(1); setQ({}); setEtudiant(''); setUeNum(''); setDatePubli(''); setDateRecours(''); setDateDecisionInterne(''); setDateSeance(''); setCommentaireCDE(''); setProfsPresents(new Set()); }}
-              className="border border-iip-mauve text-iip-mauve px-6 py-2 rounded-lg text-sm font-medium hover:bg-iip-mauve/5">
+              className="border border-iip-turquoise text-iip-turquoise px-6 py-2 rounded-lg text-sm font-medium hover:bg-iip-turquoise/5">
               ↺ Nouveau recours
             </button>
           </div>
@@ -1342,7 +1347,7 @@ const STATUT_LABEL = { en_cours: 'En cours', clos: 'Clôturé', annule: 'Annulé
 const STATUT_COLOR = { en_cours: 'bg-blue-100 text-blue-700', clos: 'bg-green-100 text-green-700', annule: 'bg-gray-100 text-gray-500' };
 const VERDICT_LABEL = { irrecevable: 'Irrecevable', rejete: 'Rejeté', accueilli: 'Accueilli', ajourne: 'Ajourné', refus: 'Refus' };
 const VERDICT_COLOR = { irrecevable: 'bg-red-100 text-red-700', rejete: 'bg-orange-100 text-orange-700', accueilli: 'bg-green-100 text-green-700', ajourne: 'bg-yellow-100 text-yellow-700', refus: 'bg-red-100 text-red-700' };
-const TYPE_COLOR = { recours: 'bg-iip-mauve/10 text-iip-mauve', fraude: 'bg-red-50 text-red-700' };
+const TYPE_COLOR = { recours: 'bg-iip-turquoise/10 text-iip-turquoise', fraude: 'bg-red-50 text-red-700' };
 
 function fmtDate(s) {
   if (!s) return '—';
@@ -1434,10 +1439,8 @@ function ArchivesProcedures({ onReprendreRecours, onReprendre }) {
 
   return (
     <div className="space-y-4">
-      <div className="mb-6">
-        <h1 className="text-2xl font-title text-iip-mauve mb-1">Archives des procédures</h1>
-        <p className="text-sm text-gray-600">Toutes les procédures générées — recours et fraudes</p>
-      </div>
+      <PageHeader icon={IconFolder} titre="Archives des procédures"
+        sous="Toutes les procédures générées — recours et fraudes" />
 
       {/* Filtres */}
       <div className="bg-white rounded-lg border border-gray-200 px-4 py-3 flex flex-wrap gap-3 items-end">
@@ -1530,7 +1533,7 @@ function ArchivesProcedures({ onReprendreRecours, onReprendre }) {
                   <td className="px-4 py-3 text-gray-500 text-xs">{fmtDate(proc.date_seance_cde)}</td>
                   <td className="px-4 py-3">
                     <button onClick={() => voirDetail(proc)}
-                      className="text-iip-mauve hover:underline text-xs font-medium">
+                      className="text-iip-turquoise hover:underline text-xs font-medium">
                       Détail →
                     </button>
                   </td>
@@ -1583,7 +1586,7 @@ function ArchivesProcedures({ onReprendreRecours, onReprendre }) {
                 <div className="flex gap-2">
                   {['en_cours', 'clos', 'annule'].map(s => (
                     <button key={s} onClick={() => changerStatut(detail.id, s)} disabled={saving || detail.statut === s}
-                      className={`text-xs px-3 py-1.5 rounded border transition ${detail.statut === s ? 'bg-iip-mauve text-white border-iip-mauve font-semibold' : 'border-gray-300 text-gray-600 hover:border-iip-mauve hover:text-iip-mauve'}`}>
+                      className={`text-xs px-3 py-1.5 rounded border transition ${detail.statut === s ? 'bg-iip-turquoise text-white border-iip-turquoise font-semibold' : 'border-gray-300 text-gray-600 hover:border-iip-turquoise hover:text-iip-turquoise'}`}>
                       {STATUT_LABEL[s]}
                     </button>
                   ))}
@@ -1595,7 +1598,7 @@ function ArchivesProcedures({ onReprendreRecours, onReprendre }) {
                 <p className="text-xs text-gray-500 font-medium">Actions</p>
                 <div className="flex flex-wrap gap-2">
                   <button onClick={() => regenererHTML(detail)}
-                    className="flex items-center gap-1.5 text-sm px-3 py-2 rounded border border-iip-mauve text-iip-mauve hover:bg-iip-mauve hover:text-white transition">
+                    className="flex items-center gap-1.5 text-sm px-3 py-2 rounded border border-iip-turquoise text-iip-turquoise hover:bg-iip-turquoise hover:text-white transition">
                     🖨 Voir / Imprimer le document
                   </button>
                   <button onClick={() => { setDetail(null); onReprendreRecours && onReprendreRecours(detail); }}
@@ -1647,10 +1650,10 @@ export default function Procedures() {
   const anneeActive = getAnnee();
   const is2526 = anneeActive === '2025-2026';
   const outils = [
-    { id: 'recours',  label: '⚖ Recours',   desc: is2526 ? 'Aide à la décision — Art. 65-68 ROI/RGE' : 'Aide à la décision — Art. 87-91 RDE/ROI' },
-    { id: 'fraude',   label: '🚨 Fraude',    desc: is2526 ? 'Procédure contradictoire — Art. 54-55 ROI/RGE' : 'Procédure contradictoire — Art. 72-75 RDE/ROI' },
-    { id: 'examens',  label: '📋 Examens',   desc: 'Organisation & surveillance' },
-    { id: 'archives', label: '📂 Archives',  desc: 'Toutes les procédures générées' },
+    { id: 'recours',  label: 'Recours',  icon: IconScale },
+    { id: 'fraude',   label: 'Fraude',   icon: IconShieldExclamation },
+    { id: 'examens',  label: 'Examens',  icon: IconClipboardList },
+    { id: 'archives', label: 'Archives', icon: IconFolder },
   ];
 
   function reprendreDepuisArchive(proc) {
@@ -1660,61 +1663,67 @@ export default function Procedures() {
     setOutil(proc.type === 'recours' ? 'recours' : 'fraude');
   }
 
+  const bandeauPreRempli = (
+    <p className="text-xs text-blue-600 -mt-2 mb-5 bg-blue-50 border border-blue-200 rounded px-3 py-1.5 inline-flex items-center gap-1.5">
+      <IconArrowBackUp size={14} stroke={1.8} /> Formulaire pré-rempli depuis une archive — modifiez si nécessaire avant de générer
+    </p>
+  );
+
   return (
-    <div className="flex h-full min-h-0 overflow-hidden">
-      <div className="w-56 flex-shrink-0 bg-gray-50 border-r border-gray-200 overflow-auto">
-        <div className="px-4 py-4 border-b border-gray-200">
-          <h2 className="font-title text-iip-mauve font-bold text-sm uppercase tracking-wide">Procédures IIP</h2>
-          <p className="text-xs text-gray-500 mt-0.5">Année {anneeActive}</p>
+    <div className="flex bg-slate-50" style={{ minHeight: 'calc(100vh - 64px)' }}>
+      {/* ── Rail latéral (look identique à Listes) ── */}
+      <aside className="w-56 flex-shrink-0 bg-iip-blue py-4 px-2.5">
+        <div className="flex items-center gap-2 px-3 pb-1 text-white text-[15px] font-semibold">
+          <IconChecklist size={20} className="text-iip-turquoise" />
+          Procédures IIP
         </div>
-        <div className="py-2">
-          {outils.map(o => (
-            <button key={o.id} onClick={() => { setOutil(o.id); if (o.id !== 'recours' && o.id !== 'fraude') setPreRemplir(null); }}
-              className={`w-full text-left px-4 py-3 border-b border-gray-100 transition ${outil===o.id?'bg-iip-mauve/10 border-l-4 border-l-iip-mauve':'hover:bg-gray-100'}`}>
-              <p className={`text-sm font-semibold ${outil===o.id?'text-iip-mauve':'text-gray-700'}`}>{o.label}</p>
-              <p className="text-xs text-gray-500 mt-0.5">{o.desc}</p>
+        <div className="px-3 pb-3 text-[11px] text-white/40">Année {anneeActive}</div>
+        {outils.map(o => {
+          const Ic = o.icon;
+          const actif = outil === o.id;
+          return (
+            <button key={o.id}
+              onClick={() => { setOutil(o.id); if (o.id !== 'recours' && o.id !== 'fraude') setPreRemplir(null); }}
+              className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-[13px] mb-0.5 transition-colors duration-150
+                ${actif
+                  ? 'bg-iip-turquoise text-white font-semibold'
+                  : 'text-white/75 hover:bg-white/10 hover:text-white'}`}>
+              <Ic size={17} stroke={1.8} className="flex-shrink-0" />
+              <span className="text-left leading-tight">{o.label}</span>
             </button>
-          ))}
+          );
+        })}
+      </aside>
+
+      {/* ── Colonne droite : contenu ── */}
+      <div className="flex-1 flex flex-col min-w-0">
+        <div className="flex-1 overflow-auto p-6">
+          {outil === 'recours' && (
+            <>
+              <PageHeader icon={IconScale} titre="Outil de traitement des recours"
+                sous={`${is2526 ? 'Art. 65-68 ROI/RGE IIP 2025-2026 · Procédure temporaire' : 'Art. 87-91 RDE/ROI IIP 2026-2027 · D. 27/10/2006'} · À destination de Nicolas`} />
+              {preRemplir?.type === 'recours' && bandeauPreRempli}
+              <OutilRecours initialPayload={preRemplir?.type === 'recours' ? preRemplir.payload : null} onPayloadConsumed={() => setPreRemplir(null)} />
+            </>
+          )}
+          {outil === 'fraude' && (
+            <>
+              <PageHeader icon={IconShieldExclamation} titre="Procédure de traitement des fraudes"
+                sous={`${is2526 ? 'Art. 54-55 ROI/RGE IIP 2025-2026 · Procédure temporaire' : 'Art. 72-75 RDE/ROI IIP 2026-2027'} · Procédure contradictoire obligatoire · À destination de Nicolas`} />
+              {preRemplir?.type === 'fraude' && bandeauPreRempli}
+              <OutilFraude initialPayload={preRemplir?.type === 'fraude' ? preRemplir.payload : null} onPayloadConsumed={() => setPreRemplir(null)} />
+            </>
+          )}
+          {outil === 'examens' && (
+            <div className="text-center text-gray-400 p-12">
+              <IconClipboardList size={44} stroke={1.5} className="mx-auto mb-3 text-gray-300" />
+              <p className="font-medium">Procédure Examens — en cours de développement</p>
+            </div>
+          )}
+          {outil === 'archives' && (
+            <ArchivesProcedures onReprendreRecours={reprendreDepuisArchive} />
+          )}
         </div>
-      </div>
-      <div className="flex-1 overflow-auto p-6">
-        {outil === 'recours' && (
-          <>
-            <div className="mb-6">
-              <h1 className="text-2xl font-title text-iip-mauve mb-1">Outil de traitement des recours</h1>
-              <p className="text-sm text-gray-600">{is2526 ? 'Art. 65-68 ROI/RGE IIP 2025-2026 · Procédure temporaire' : 'Art. 87-91 RDE/ROI IIP 2026-2027 · D. 27/10/2006'} · À destination de Nicolas</p>
-              {preRemplir?.type === 'recours' && (
-                <p className="text-xs text-blue-600 mt-1 bg-blue-50 border border-blue-200 rounded px-3 py-1.5 inline-block">
-                  ↩ Formulaire pré-rempli depuis une archive — modifiez si nécessaire avant de générer
-                </p>
-              )}
-            </div>
-            <OutilRecours initialPayload={preRemplir?.type === 'recours' ? preRemplir.payload : null} onPayloadConsumed={() => setPreRemplir(null)} />
-          </>
-        )}
-        {outil === 'fraude' && (
-          <>
-            <div className="mb-6">
-              <h1 className="text-2xl font-title text-iip-mauve mb-1">Procédure de traitement des fraudes</h1>
-              <p className="text-sm text-gray-600">{is2526 ? 'Art. 54-55 ROI/RGE IIP 2025-2026 · Procédure temporaire' : 'Art. 72-75 RDE/ROI IIP 2026-2027'} · Procédure contradictoire obligatoire · À destination de Nicolas</p>
-              {preRemplir?.type === 'fraude' && (
-                <p className="text-xs text-blue-600 mt-1 bg-blue-50 border border-blue-200 rounded px-3 py-1.5 inline-block">
-                  ↩ Formulaire pré-rempli depuis une archive — modifiez si nécessaire avant de générer
-                </p>
-              )}
-            </div>
-            <OutilFraude initialPayload={preRemplir?.type === 'fraude' ? preRemplir.payload : null} onPayloadConsumed={() => setPreRemplir(null)} />
-          </>
-        )}
-        {outil === 'examens' && (
-          <div className="text-center text-gray-500 p-12">
-            <p className="text-4xl mb-3">📋</p>
-            <p className="font-medium">Procédure Examens — en cours de développement</p>
-          </div>
-        )}
-        {outil === 'archives' && (
-          <ArchivesProcedures onReprendreRecours={reprendreDepuisArchive} />
-        )}
       </div>
     </div>
   );
