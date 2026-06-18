@@ -1241,6 +1241,13 @@ export default function Professeurs() {
         icon={IconUsers}
         titre="Personnel"
         sousTitre={`${filtered.length} membre${filtered.length > 1 ? 's' : ''}`}
+        extra={canEdit && (
+          <button onClick={() => setEditProf({ ...EMPTY })}
+            className="w-full flex items-center gap-2 bg-iip-turquoise hover:opacity-90 text-white text-[13px] font-medium px-3 py-2 rounded-lg transition">
+            <IconPlus size={16} className="flex-shrink-0" />
+            <span className="whitespace-nowrap opacity-0 group-hover/rail:opacity-100 transition-opacity duration-150">Nouveau prof.</span>
+          </button>
+        )}
         sections={[
           { label: 'Contrat', items: [
             { key: 'c-',     label: 'Tous contrats', icon: IconUsers,     actif: fContrat === '',      onClick: () => setFContrat('') },
@@ -1321,12 +1328,6 @@ export default function Professeurs() {
                 </>
               )}
             </div>
-          )}
-          {canEdit && (
-            <button onClick={() => setEditProf({ ...EMPTY })}
-              className="bg-iip-gold hover:bg-iip-amber text-white text-sm px-3 py-1.5 rounded font-medium">
-              <span className="inline-flex items-center gap-1.5"><IconPlus size={15}/>Nouveau prof.</span>
-            </button>
           )}
         </div>
       </div>
