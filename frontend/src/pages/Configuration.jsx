@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { api, getAnnee } from '../lib/api.js';
-import { IconSettings, IconBooks, IconCalendar, IconBuilding, IconUsers, IconUserShield, IconHistory, IconAdjustments, IconLink, IconSparkles } from '@tabler/icons-react';
+import { IconSettings, IconBooks, IconCalendar, IconBuilding, IconUsers, IconUserShield, IconHistory, IconAdjustments, IconLink, IconSparkles, IconX, IconChevronRight } from '@tabler/icons-react';
 import { PageHeader, Tabs } from '../components/ui.jsx';
 
 const TOKEN = () => localStorage.getItem('token');
@@ -164,7 +164,7 @@ function GestionPersonnel() {
                 {profsSansCoche.length > 0 && (
                   <tr className="bg-gray-100 cursor-pointer hover:bg-gray-200" onClick={() => setShowTous(v => !v)}>
                     <td colSpan={fonctions.length + 1} className="px-4 py-2 text-sm text-gray-600 font-medium select-none">
-                      <span className="inline-block transition-transform" style={{ transform: showTous ? 'rotate(90deg)' : 'none' }}>▶</span>
+                      <span className="inline-block transition-transform" style={{ transform: showTous ? 'rotate(90deg)' : 'none' }}><IconChevronRight size={14} /></span>
                       {' '}Autres personnes sans fonction ici <span className="text-gray-400 font-normal">({profsSansCoche.length})</span>
                     </td>
                   </tr>
@@ -564,7 +564,7 @@ function GestionParametres() {
                       />
                       {modified && (
                         <button onClick={() => setPending(prev => { const n = {...prev}; delete n[p.cle]; return n; })}
-                          className="text-gray-300 hover:text-gray-500 text-xs">✕</button>
+                          className="text-gray-300 hover:text-gray-500 text-xs"><IconX size={13} /></button>
                       )}
                     </div>
                   </div>
@@ -710,7 +710,7 @@ function GestionPrerequis() {
                         <td className="px-4 py-2 text-gray-600">{ueLabel(p.prerequis_num)}</td>
                         <td className="px-4 py-2">
                           <button onClick={() => supprimer(p.id)}
-                            className="text-gray-300 hover:text-red-500 transition text-xs">✕</button>
+                            className="text-gray-300 hover:text-red-500 transition text-xs"><IconX size={13} /></button>
                         </td>
                       </tr>
                     ))

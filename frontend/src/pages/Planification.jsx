@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { getAnnee } from '../lib/api.js';
-import { IconCalendarStats } from '@tabler/icons-react';
+import { IconCalendarStats, IconPencil, IconChevronDown, IconChevronRight, IconX, IconDeviceFloppy, IconTrash, IconPlus } from '@tabler/icons-react';
 import PlanificateurVisuel from '../components/PlanificateurVisuel.jsx';
 
 const TOKEN = () => localStorage.getItem('token');
@@ -198,7 +198,7 @@ function LigneGroupe({ groupe, semaines, cellules, onCellChange, onEditGroupe, w
             </span>
           )}
           <button onClick={() => onEditGroupe(groupe)}
-            className="opacity-0 group-hover:opacity-100 text-gray-300 hover:text-iip-gold text-xs transition ml-1">✏</button>
+            className="opacity-0 group-hover:opacity-100 text-gray-300 hover:text-iip-gold text-xs transition ml-1"><IconPencil size={13} /></button>
         </div>
       </td>
       {/* Total — bordure colorée à gauche = repère visuel du niveau */}
@@ -256,7 +256,7 @@ function BlocSection({ section, groupes, semaines, cellules, onCellChange, onEdi
       <tr className="bg-iip-gold/10 cursor-pointer select-none" onClick={() => setOpen(v => !v)}>
         <td colSpan={2} className="sticky left-0 z-10 border border-gray-300 px-3 py-2" style={{ backgroundColor: '#E8EAEF' }}>
           <div className="flex items-center gap-3">
-            <span className="font-bold text-sm text-iip-gold">{open ? '▼' : '▶'} {section}</span>
+            <span className="font-bold text-sm text-iip-gold">{open ? <IconChevronDown size={14} className="inline align-[-2px]" /> : <IconChevronRight size={14} className="inline align-[-2px]" />} {section}</span>
             <span className="text-xs text-gray-500">{groupes.length} groupe{groupes.length > 1 ? 's' : ''}</span>
             {totalWarnings > 0 && (
               <span className="text-xs text-red-500 font-medium">⚠ {totalWarnings} alerte{totalWarnings > 1 ? 's' : ''}</span>
@@ -371,7 +371,7 @@ function ModalGroupe({ initial, annee, profs, ues, onSave, onClose }) {
       <div className="bg-white rounded-xl shadow-2xl w-full max-w-md p-6 space-y-4">
         <div className="flex items-center justify-between">
           <h3 className="font-semibold text-gray-800">{initial?.id ? 'Modifier le groupe' : 'Nouveau groupe'}</h3>
-          <button onClick={onClose} className="text-gray-400 hover:text-gray-600">✕</button>
+          <button onClick={onClose} className="text-gray-400 hover:text-gray-600"><IconX size={15} /></button>
         </div>
         <div className="grid grid-cols-2 gap-3">
           {!initial?.id && (
@@ -459,7 +459,7 @@ function PanelCalendrier({ semaines, onUpdate, onClose }) {
       <div className="bg-white w-full max-w-2xl h-full overflow-auto shadow-2xl flex flex-col">
         <div className="flex items-center justify-between px-6 py-4 border-b bg-gray-50">
           <h3 className="font-semibold text-gray-800">Calendrier — ajuster les semaines</h3>
-          <button onClick={onClose} className="text-gray-400 hover:text-gray-600 text-xl">✕</button>
+          <button onClick={onClose} className="text-gray-400 hover:text-gray-600 text-xl"><IconX size={15} /></button>
         </div>
         <div className="px-6 py-4 border-b space-y-3">
           <div className="flex gap-3 items-end flex-wrap">
@@ -535,7 +535,7 @@ function ModalImport({ annee, onImported, onClose }) {
       <div className="bg-white rounded-xl shadow-2xl w-full max-w-2xl max-h-[90vh] flex flex-col">
         <div className="flex items-center justify-between px-6 py-4 border-b">
           <h3 className="font-semibold text-gray-800">Import depuis les attributions — {annee}</h3>
-          <button onClick={onClose} className="text-gray-400 hover:text-gray-600">✕</button>
+          <button onClick={onClose} className="text-gray-400 hover:text-gray-600"><IconX size={15} /></button>
         </div>
         <div className="flex-1 overflow-auto px-6 py-4 space-y-4">
           {loading ? (
@@ -548,7 +548,7 @@ function ModalImport({ annee, onImported, onClose }) {
                 <div><span className="text-2xl font-bold text-green-600">{result.created}</span><p className="text-gray-500">groupes créés</p></div>
                 <div><span className="text-2xl font-bold text-gray-400">{result.skipped}</span><p className="text-gray-500">déjà existants</p></div>
               </div>
-              <p className="text-xs text-gray-400">Le nombre d'étudiants reste à 0 — à compléter via le bouton ✏ de chaque ligne.</p>
+              <p className="text-xs text-gray-400">Le nombre d'étudiants reste à 0 — à compléter via le crayon de chaque ligne.</p>
             </div>
           ) : (
             <>
@@ -605,7 +605,7 @@ function ModalImport({ annee, onImported, onClose }) {
                   </tbody>
                 </table>
               </div>
-              <p className="text-xs text-gray-400">⚠ Le nombre d'étudiants restera à 0 — à compléter via le bouton ✏.</p>
+              <p className="text-xs text-gray-400">⚠ Le nombre d'étudiants restera à 0 — à compléter via le crayon.</p>
             </>
           )}
         </div>
@@ -673,7 +673,7 @@ function ModalIA({ annee, section, onApplied, onClose }) {
             <h3 className="font-semibold text-gray-800">✨ Planification IA — {section}</h3>
             <p className="text-xs text-gray-400 mt-0.5">{annee}</p>
           </div>
-          <button onClick={onClose} className="text-gray-400 hover:text-gray-600">✕</button>
+          <button onClick={onClose} className="text-gray-400 hover:text-gray-600"><IconX size={15} /></button>
         </div>
 
         <div className="flex-1 overflow-auto px-6 py-5 space-y-4">
@@ -813,7 +813,7 @@ function ModalSequence({ annee, section, groupes, onClose }) {
             <h3 className="font-semibold text-gray-800">🔢 Séquencer — {section}</h3>
             <p className="text-xs text-gray-400 mt-0.5">{annee}</p>
           </div>
-          <button onClick={onClose} className="text-gray-400 hover:text-gray-600 text-lg">✕</button>
+          <button onClick={onClose} className="text-gray-400 hover:text-gray-600 text-lg"><IconX size={15} /></button>
         </div>
 
         {/* Onglets */}
@@ -975,7 +975,7 @@ function StructureUE({ annee, section, groupes }) {
             'border-gray-200 hover:border-gray-400 bg-white'}`}>
         <div className="flex items-center gap-1.5">
           <span className="text-[10px] font-bold text-iip-mauve">UE{u.ue_num}</span>
-          {saving === u.ue_num && <span className="text-[9px] text-gray-400">💾</span>}
+          {saving === u.ue_num && <span className="text-[9px] text-gray-400"><IconDeviceFloppy size={12} className="inline" /></span>}
           {nbPre > 0 && <span className="text-[9px] bg-blue-100 text-blue-600 px-1 rounded">{nbPre}↑</span>}
           {nbDep > 0 && <span className="text-[9px] bg-orange-100 text-orange-600 px-1 rounded">{nbDep}↓</span>}
         </div>
@@ -1209,7 +1209,7 @@ function SeqCours({ annee, section, groupes }) {
                       {idx === 0 ? '▶ Démarre en premier' : `▶ Rang ${idx + 1}`}
                       <span className="ml-2 font-normal text-gray-400">— en parallèle</span>
                     </span>
-                    <button onClick={() => supprimerRang(idx)} className="text-gray-300 hover:text-red-500 text-xs">✕</button>
+                    <button onClick={() => supprimerRang(idx)} className="text-gray-300 hover:text-red-500 text-xs"><IconX size={15} /></button>
                   </div>
                   <div className="flex flex-wrap gap-2">
                     {rang.groupe_ids.map(id => <BadgeGroupe key={id} groupe_id={id} from={idx} />)}
@@ -1262,8 +1262,8 @@ function ModalReset({ annee, section, onReset, onClose }) {
     <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center">
       <div className="bg-white rounded-xl shadow-2xl w-full max-w-md flex flex-col">
         <div className="flex items-center justify-between px-6 py-4 border-b">
-          <h3 className="font-semibold text-gray-800">🗑 Réinitialiser la planification</h3>
-          <button onClick={onClose} className="text-gray-400 hover:text-gray-600">✕</button>
+          <h3 className="font-semibold text-gray-800"><IconTrash size={15} className="inline align-[-2px] mr-1" /> Réinitialiser la planification</h3>
+          <button onClick={onClose} className="text-gray-400 hover:text-gray-600"><IconX size={15} /></button>
         </div>
 
         <div className="px-6 py-5 space-y-4">
@@ -1472,14 +1472,14 @@ export default function Planification() {
         {filtreSection && (
           <button onClick={() => setShowReset(true)}
             className="bg-red-100 text-red-600 text-xs px-3 py-1.5 rounded hover:bg-red-200 flex items-center gap-1">
-            🗑 Réinitialiser
+            <IconTrash size={15} className="inline align-[-2px] mr-1" /> Réinitialiser
           </button>
         )}
         <button onClick={() => setShowCalendrier(true)}
           className="border border-gray-300 text-gray-600 text-xs px-3 py-1.5 rounded hover:bg-gray-50">
           📅 Calendrier
         </button>
-        {saving && <span className="text-xs text-iip-gold animate-pulse">💾</span>}
+        {saving && <span className="text-xs text-iip-gold animate-pulse"><IconDeviceFloppy size={12} className="inline" /></span>}
         {!saving && Object.keys(pendingCells).length === 0 && grille && <span className="text-xs text-green-500">✓</span>}
       </div>
 
@@ -1537,7 +1537,7 @@ export default function Planification() {
               {Object.keys(parSection).length === 0 ? (
                 <tr>
                   <td colSpan={semaines.length + 3} className="text-center py-16 text-gray-400">
-                    <p className="text-2xl mb-2">➕</p>
+                    <p className="text-2xl mb-2"><IconPlus size={28} className="inline text-gray-300" /></p>
                     <p className="text-sm">Aucun groupe configuré pour {annee}.</p>
                     <button onClick={() => setShowImport(true)}
                       className="mt-3 bg-iip-gold text-white text-sm px-5 py-2 rounded hover:bg-iip-amber">
