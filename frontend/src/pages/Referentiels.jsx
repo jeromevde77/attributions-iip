@@ -759,7 +759,7 @@ export default function Referentiels({ embedded = false }) {
             </thead>
             <tbody>
               {structure.length === 0 && (
-                <tr><td colSpan="13" className="text-center text-gray-400 py-8">Aucune UE pour {annee}.</td></tr>
+                <tr><td colSpan="14" className="text-center text-gray-400 py-8">Aucune UE pour {annee}.</td></tr>
               )}
               {structure.map(sg => {
                 const secKey = 'sec:' + sg.section;
@@ -774,11 +774,11 @@ export default function Referentiels({ embedded = false }) {
                           <IconChevronRight size={14} className={`inline-block transition-transform ${secOpen ? 'rotate-90' : ''}`} />
                         </button>
                       </td>
-                      <td colSpan="6" className="px-2 py-2 cursor-pointer" onClick={() => toggle(secKey)}>
+                      <td colSpan="7" className="px-2 py-2 cursor-pointer" onClick={() => toggle(secKey)}>
                         <span className="font-bold text-iip-gold text-sm">{sg.section}</span>
                         {sg.section_niveau && <span className="ml-2 text-xs bg-iip-gold/10 text-iip-gold px-1.5 py-0.5 rounded">{sg.section_niveau}</span>}
                       </td>
-                      <td colSpan="5" className="px-2 py-2 text-right text-sm text-gray-500">
+                      <td colSpan="6" className="px-2 py-2 text-right text-sm text-gray-500">
                         <button onClick={(e) => { e.stopPropagation(); setGrilleSection(sg.section); }}
                           title={`Répartir l'autonomie de ${sg.section}`}
                           className="mr-3 text-xs px-2 py-1 rounded bg-iip-mauve/10 text-iip-mauve hover:bg-iip-mauve hover:text-white transition font-medium">
@@ -860,7 +860,7 @@ export default function Referentiels({ embedded = false }) {
                                 ? (isHelb ? 'bg-pink-50/60' : 'bg-iip-gold/5')
                                 : (isHelb ? 'bg-pink-50/40' : 'bg-gray-50/50')
                             }>
-                              <td colSpan="13" className={`px-8 py-2 ${activeUE === ueKey ? (isHelb ? 'border-b-2 border-l-2 border-r-2 border-pink-400' : 'border-b-2 border-l-2 border-r-2 border-iip-gold/60') : ''}`}>
+                              <td colSpan="14" className={`px-8 py-2 ${activeUE === ueKey ? (isHelb ? 'border-b-2 border-l-2 border-r-2 border-pink-400' : 'border-b-2 border-l-2 border-r-2 border-iip-gold/60') : ''}`}>
                                 <table className="w-full text-sm">
                                   <thead><tr className="text-gray-500 text-xs">
                                     <th className="text-left py-1 pr-2">Code</th>
@@ -986,7 +986,7 @@ export default function Referentiels({ embedded = false }) {
                       </tr>
                       {ueOpen && (
                         <tr className={isHelb ? 'bg-pink-50/40' : 'bg-gray-50/50'}>
-                          <td colSpan="13" className="px-6 py-2">
+                          <td colSpan="14" className="px-6 py-2">
                             <table className="w-full text-sm">
                               <thead><tr className="text-gray-500 text-xs">
                                 <th className="text-left py-1 pr-2">Code</th><th className="text-left">Nom du cours</th>
