@@ -4,7 +4,7 @@ import { api, getAnnee, getUser, nomDoc } from '../lib/api.js';
 import ProfFicheModal from './ProfFicheModal.jsx';
 import PreviewModal from '../components/PreviewModal.jsx';
 import CoursEditModal from '../components/CoursEditModal.jsx';
-import { IconMail, IconMapPin, IconFileText, IconEdit, IconDownload, IconRefresh, IconSearch, IconX, IconPrinter, IconPlus, IconTrash } from '@tabler/icons-react';
+import { IconMail, IconMapPin, IconFileText, IconEdit, IconDownload, IconRefresh, IconSearch, IconX, IconPrinter, IconPlus, IconTrash, IconKey, IconLock, IconCheck } from '@tabler/icons-react';
 
 const EMPTY = {
   nom: '', prenom: '', adresse_mail: '', mail_prive: '',
@@ -85,6 +85,169 @@ function ouvrirFeuilleImpression(data) {
   w.document.close();
 }
 
+
+// ─── Panneau « Accès Lucie » (admin) : lie un compte utilisateur à un·e membre ───
+const ROLES_LUCIE = [
+  ['consultation', 'Consultation'],
+  ['editeur', 'Éditeur'],
+  ['coordination', 'Coordination'],
+  ['admin', 'Administrateur'],
+];
+function AccesLuciePanel({ profId, detail }) {
+  const af = (url, opts = {}) => fetch(url, {
+    ...opts,
+    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${localStorage.getItem('token')}`, ...(opts.headers || {}) },
+  }).then(async r => { const j = await r.json().catch(() => ({})); if (!r.ok) throw new Error(j.error || 'Erreur'); return j; });
+
+  const [account, setAccount]   = useState(undefined); // undefined = chargement, null = aucun
+  const [sectionsDispo, setSectionsDispo] = useState([]);
+  const [role, setRole]         = useState('editeur');
+  const [sections, setSections] = useState([]);
+  const [pwd, setPwd]           = useState(null);       // mot de passe à afficher une seule fois
+  const [busy, setBusy]         = useState(false);
+  const [err, setErr]           = useState('');
+
+  const norm = s => (s || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
+  const emailSuggere = `${norm(detail.prenom)}.${norm(detail.nom)}@institut-prigogine.be`;
+  const genPwd = () => { const c = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnpqrstuvwxyz23456789'; return Array.from({ length: 12 }, () => c[Math.floor(Math.random() * c.length)]).join(''); };
+
+  function charger() {
+    af('/api/users').then(list => {
+      const a = (Array.isArray(list) ? list : []).find(u => u.professeur_id === profId) || null;
+      setAccount(a);
+      if (a) { setRole(a.role); setSections(a.sections || []); }
+    }).catch(e => { setErr(e.message); setAccount(null); });
+  }
+  useEffect(() => {
+    charger();
+    af('/api/ref/sections').then(d => setSectionsDispo(Array.isArray(d) ? d : [])).catch(() => {});
+  }, [profId]);
+
+  const toggleSection = code => setSections(s => s.includes(code) ? s.filter(x => x !== code) : [...s, code]);
+
+  async function creer() {
+    setErr(''); setBusy(true);
+    try {
+      if (role === 'coordination' && sections.length === 0) throw new Error('Une coordination doit avoir au moins une section.');
+      const p = genPwd();
+      await af('/api/users', { method: 'POST', body: JSON.stringify({
+        email: emailSuggere, password: p, nom_complet: detail.nom_prenom, role, professeur_id: profId,
+        sections: role === 'coordination' ? sections : [],
+      }) });
+      setPwd(p); charger();
+    } catch (e) { setErr(e.message); } finally { setBusy(false); }
+  }
+
+  async function patch(body) {
+    setErr(''); setBusy(true);
+    try { await af(`/api/users/${account.id}`, { method: 'PATCH', body: JSON.stringify(body) }); charger(); }
+    catch (e) { setErr(e.message); } finally { setBusy(false); }
+  }
+  async function changerRole(nv) {
+    setRole(nv);
+    await patch({ role: nv, sections: nv === 'coordination' ? sections : [] });
+  }
+  async function nouveauMdp() {
+    const p = genPwd();
+    setErr(''); setBusy(true);
+    try { await af(`/api/users/${account.id}`, { method: 'PATCH', body: JSON.stringify({ password: p }) }); setPwd(p); }
+    catch (e) { setErr(e.message); } finally { setBusy(false); }
+  }
+
+  return (
+    <div className="mb-4 border border-iip-turquoise/40 rounded-lg overflow-hidden">
+      <div className="flex items-center gap-2 px-4 py-2 bg-iip-turquoise/5 border-b border-iip-turquoise/20">
+        <IconLock size={16} className="text-iip-turquoise" />
+        <span className="text-sm font-semibold text-iip-blue">Accès Lucie</span>
+        {account && <span className={`ml-auto text-xs px-2 py-0.5 rounded-full ${account.actif ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500'}`}>{account.actif ? 'Actif' : 'Désactivé'}</span>}
+      </div>
+      <div className="p-4 space-y-3">
+        {err && <div className="text-xs text-red-600 bg-red-50 border border-red-200 rounded px-2 py-1.5">{err}</div>}
+        {pwd && (
+          <div className="text-sm bg-amber-50 border border-amber-300 rounded px-3 py-2">
+            <div className="font-semibold text-amber-800 inline-flex items-center gap-1.5"><IconKey size={15} /> Mot de passe (à noter maintenant, non récupérable ensuite)</div>
+            <div className="mt-1 font-mono text-base bg-white border border-amber-200 rounded px-2 py-1 inline-block select-all">{pwd}</div>
+            <button onClick={() => setPwd(null)} className="ml-2 text-xs text-amber-700 hover:underline">masquer</button>
+          </div>
+        )}
+
+        {account === undefined && <div className="text-xs text-gray-400">Chargement…</div>}
+
+        {account === null && (
+          <>
+            <div className="text-xs text-gray-500">Aucun compte Lucie lié à ce membre.</div>
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <div className="text-xs text-gray-500 mb-1">E-mail (suggéré)</div>
+                <div className="text-sm border border-gray-200 rounded px-2 py-1.5 bg-gray-50 text-gray-600 truncate" title={emailSuggere}>{emailSuggere}</div>
+              </div>
+              <div>
+                <div className="text-xs text-gray-500 mb-1">Rôle</div>
+                <select value={role} onChange={e => setRole(e.target.value)} className="w-full border border-gray-300 rounded px-2 py-1.5 text-sm bg-white">
+                  {ROLES_LUCIE.map(([v, l]) => <option key={v} value={v}>{l}</option>)}
+                </select>
+              </div>
+            </div>
+            {role === 'coordination' && (
+              <div>
+                <div className="text-xs text-gray-500 mb-1">Sections autorisées</div>
+                <div className="flex flex-wrap gap-1.5">
+                  {sectionsDispo.map(s => (
+                    <button key={s.code} onClick={() => toggleSection(s.code)} type="button"
+                      className={`text-xs px-2 py-0.5 rounded-full border ${sections.includes(s.code) ? 'bg-iip-turquoise/15 border-iip-turquoise text-iip-blue' : 'border-gray-300 text-gray-500'}`}>{s.code}</button>
+                  ))}
+                </div>
+              </div>
+            )}
+            <button onClick={creer} disabled={busy}
+              className="inline-flex items-center gap-1.5 bg-iip-blue text-white text-sm px-3 py-1.5 rounded-lg disabled:opacity-40 hover:opacity-90">
+              <IconPlus size={15} /> Créer l'accès &amp; générer le mot de passe
+            </button>
+          </>
+        )}
+
+        {account && (
+          <>
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <div className="text-xs text-gray-500 mb-1">E-mail</div>
+                <div className="text-sm border border-gray-200 rounded px-2 py-1.5 bg-gray-50 text-gray-700 truncate" title={account.email}>{account.email}</div>
+              </div>
+              <div>
+                <div className="text-xs text-gray-500 mb-1">Rôle</div>
+                <select value={role} onChange={e => changerRole(e.target.value)} disabled={busy}
+                  className="w-full border border-gray-300 rounded px-2 py-1.5 text-sm bg-white">
+                  {ROLES_LUCIE.map(([v, l]) => <option key={v} value={v}>{l}</option>)}
+                </select>
+              </div>
+            </div>
+            {role === 'coordination' && (
+              <div>
+                <div className="text-xs text-gray-500 mb-1">Sections autorisées</div>
+                <div className="flex flex-wrap gap-1.5">
+                  {sectionsDispo.map(s => (
+                    <button key={s.code} type="button" disabled={busy}
+                      onClick={() => { const nv = sections.includes(s.code) ? sections.filter(x => x !== s.code) : [...sections, s.code]; setSections(nv); patch({ sections: nv }); }}
+                      className={`text-xs px-2 py-0.5 rounded-full border ${sections.includes(s.code) ? 'bg-iip-turquoise/15 border-iip-turquoise text-iip-blue' : 'border-gray-300 text-gray-500'}`}>{s.code}</button>
+                  ))}
+                </div>
+              </div>
+            )}
+            <div className="flex flex-wrap gap-2 pt-1">
+              <button onClick={nouveauMdp} disabled={busy} className="inline-flex items-center gap-1.5 text-sm border border-gray-300 text-gray-700 px-3 py-1.5 rounded-lg hover:bg-gray-50 disabled:opacity-40">
+                <IconKey size={15} /> Nouveau mot de passe
+              </button>
+              <button onClick={() => patch({ actif: !account.actif })} disabled={busy}
+                className={`inline-flex items-center gap-1.5 text-sm px-3 py-1.5 rounded-lg disabled:opacity-40 ${account.actif ? 'border border-iip-danger text-iip-danger hover:bg-red-50' : 'border border-green-500 text-green-700 hover:bg-green-50'}`}>
+                {account.actif ? <><IconX size={15} /> Désactiver</> : <><IconCheck size={15} /> Réactiver</>}
+              </button>
+            </div>
+          </>
+        )}
+      </div>
+    </div>
+  );
+}
 
 function DetailModal({ profId, onClose, onEdit, onFiche }) {
   const [detail, setDetail] = useState(null);
@@ -259,6 +422,7 @@ function DetailModal({ profId, onClose, onEdit, onFiche }) {
 
         {/* Attributions */}
         <div className="flex-1 overflow-auto px-6 py-3">
+          {u?.role === 'admin' && <AccesLuciePanel profId={profId} detail={detail} />}
           <h3 className="font-semibold text-sm mb-2 text-gray-700">
             Attributions ({detail.attributions?.length || 0})
           </h3>

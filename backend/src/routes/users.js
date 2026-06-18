@@ -24,7 +24,7 @@ function setSections(userId, sections) {
 
 r.get('/', authRequired, roleRequired('admin'), (req, res) => {
   const users = db.prepare(`
-    SELECT id, email, nom_complet, role, actif, created_at, last_login_at
+    SELECT id, email, nom_complet, role, actif, professeur_id, created_at, last_login_at
     FROM utilisateur ORDER BY nom_complet
   `).all();
   // Joindre les sections pour les coordinations
@@ -35,15 +35,15 @@ r.get('/', authRequired, roleRequired('admin'), (req, res) => {
 });
 
 r.post('/', authRequired, roleRequired('admin'), (req, res) => {
-  const { email, password, nom_complet, role, sections } = req.body || {};
+  const { email, password, nom_complet, role, sections, professeur_id } = req.body || {};
   if (!email || !password) return res.status(400).json({ error: 'Email et mot de passe requis' });
   if (!ROLES.includes(role)) return res.status(400).json({ error: 'Rôle invalide' });
   try {
     const hash = bcrypt.hashSync(password, 10);
     const result = db.prepare(`
-      INSERT INTO utilisateur (email, password_hash, nom_complet, role, actif)
-      VALUES (?, ?, ?, ?, 1)
-    `).run(email, hash, nom_complet || email, role);
+      INSERT INTO utilisateur (email, password_hash, nom_complet, role, actif, professeur_id)
+      VALUES (?, ?, ?, ?, 1, ?)
+    `).run(email, hash, nom_complet || email, role, professeur_id || null);
     if (role === 'coordination') setSections(result.lastInsertRowid, sections);
     res.status(201).json({ id: result.lastInsertRowid });
   } catch (e) {
@@ -53,10 +53,11 @@ r.post('/', authRequired, roleRequired('admin'), (req, res) => {
 });
 
 r.patch('/:id', authRequired, roleRequired('admin'), (req, res) => {
-  const { nom_complet, role, actif, password, sections } = req.body || {};
+  const { nom_complet, role, actif, password, sections, professeur_id } = req.body || {};
   const updates = [];
   const params = { id: req.params.id };
   if (nom_complet !== undefined) { updates.push('nom_complet = @nom_complet'); params.nom_complet = nom_complet; }
+  if (professeur_id !== undefined) { updates.push('professeur_id = @professeur_id'); params.professeur_id = professeur_id || null; }
   if (role !== undefined) {
     if (!ROLES.includes(role)) return res.status(400).json({ error: 'Rôle invalide' });
     updates.push('role = @role'); params.role = role;

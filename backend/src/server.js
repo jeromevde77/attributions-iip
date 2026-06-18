@@ -200,6 +200,16 @@ try {
     CREATE INDEX IF NOT EXISTS idx_us_user ON utilisateur_section(utilisateur_id);
   `);
 
+  // 5c. Lien compte ↔ professeur (panneau « Accès Lucie » depuis la fiche Membre du personnel)
+  //     Pas de contrainte UNIQUE (interdit en ALTER ADD COLUMN sous SQLite) ; unicité gérée applicativement.
+  try {
+    const colsUtil = db.prepare(`PRAGMA table_info(utilisateur)`).all().map(c => c.name);
+    if (!colsUtil.includes('professeur_id')) {
+      db.exec(`ALTER TABLE utilisateur ADD COLUMN professeur_id INTEGER`);
+    }
+    db.exec(`CREATE INDEX IF NOT EXISTS idx_user_prof ON utilisateur(professeur_id)`);
+  } catch (e) { console.error('[migration] professeur_id sur utilisateur:', e.message); }
+
   // Table des templates de documents (éditeur visuel)
   db.exec(`
     CREATE TABLE IF NOT EXISTS document_template (
