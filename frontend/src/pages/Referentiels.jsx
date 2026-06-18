@@ -3,6 +3,7 @@ import { api, getAnnee, getUser } from '../lib/api.js';
 import CoursFormModal from '../components/CoursFormModal.jsx';
 import GrilleSectionModal from '../components/GrilleSectionModal.jsx';
 import ImportUEAssistant from '../components/ImportUEAssistant.jsx';
+import { IconX, IconPencil, IconTrash, IconPlus, IconCheck, IconLink } from '@tabler/icons-react';
 
 // ─── Modale Section ───
 // Modal d'import des effectifs étudiants par UE — colle le tableau (n° UE + nb étudiants)
@@ -121,7 +122,7 @@ function SectionModal({ section, onClose, onSaved }) {
       <div className="bg-white rounded-xl shadow-2xl max-w-md w-full border-t-4 border-iip-gold">
         <div className="flex items-center justify-between px-5 py-3 border-b">
           <h2 className="font-title text-lg text-iip-gold">{isNew ? 'Nouvelle section' : `Modifier ${section.code}`}</h2>
-          <button onClick={onClose} className="text-gray-400 hover:text-red-500 text-2xl">×</button>
+          <button onClick={onClose} className="text-gray-400 hover:text-red-500 text-2xl"><IconX size={20} /></button>
         </div>
         <form onSubmit={submit} className="p-5 space-y-3">
           <div className="grid grid-cols-2 gap-3">
@@ -225,7 +226,7 @@ function UEModal({ ue, sections, onClose, onSaved }) {
       <div className="bg-white rounded-xl shadow-2xl max-w-lg w-full border-t-4 border-iip-gold max-h-[90vh] overflow-hidden flex flex-col">
         <div className="flex items-center justify-between px-5 py-3 border-b flex-shrink-0">
           <h2 className="font-title text-lg text-iip-gold">{isNew ? 'Nouvelle UE' : `Modifier UE ${ue.ue_num}`}</h2>
-          <button onClick={onClose} className="text-gray-400 hover:text-red-500 text-2xl">×</button>
+          <button onClick={onClose} className="text-gray-400 hover:text-red-500 text-2xl"><IconX size={20} /></button>
         </div>
         <form onSubmit={submit} className="p-5 space-y-3 overflow-auto">
           <div className="grid grid-cols-2 gap-3">
@@ -235,7 +236,7 @@ function UEModal({ ue, sections, onClose, onSaved }) {
                   className="w-full border border-gray-300 rounded px-3 py-1.5 text-sm disabled:bg-gray-100" />
                 {!isNew && isAdmin && !renaming && (
                   <button type="button" onClick={() => { setRenaming(true); setNewNum(ue.ue_num); }}
-                    className="text-xs text-iip-gold border border-iip-gold/40 rounded px-2 py-1 hover:bg-iip-gold/5 whitespace-nowrap" title="Forcer le N° (admin)">✎</button>
+                    className="text-xs text-iip-gold border border-iip-gold/40 rounded px-2 py-1 hover:bg-iip-gold/5 whitespace-nowrap" title="Forcer le N° (admin)"><IconPencil size={14} /></button>
                 )}
               </div></label>
             <label className="block"><div className="text-xs text-gray-600 mb-0.5">Section(s) *</div>
@@ -369,10 +370,10 @@ function CatalogueUEModal({ section, onClose, onDone }) {
             <h2 className="font-title text-lg text-iip-gold">Rattacher une UE à {section}</h2>
             <p className="text-xs text-gray-500">Catalogue de toutes les UE. Une UE absente de l'année courante y sera copiée automatiquement.</p>
           </div>
-          <button onClick={onClose} className="text-gray-400 hover:text-red-500 text-2xl">×</button>
+          <button onClick={onClose} className="text-gray-400 hover:text-red-500 text-2xl"><IconX size={20} /></button>
         </div>
         <div className="px-5 py-2 border-b flex-shrink-0">
-          <input value={q} onChange={e => setQ(e.target.value)} placeholder="🔍 Rechercher une UE (numéro ou nom)…"
+          <input value={q} onChange={e => setQ(e.target.value)} placeholder="Rechercher une UE (numéro ou nom)…"
             className="w-full border border-gray-300 rounded px-3 py-1.5 text-sm" autoFocus />
         </div>
         {loading ? (
@@ -463,11 +464,11 @@ export default function Referentiels({ embedded = false }) {
         {embedded && <div className="text-sm text-gray-500">Structure académique · {annee}</div>}
         <div className="flex gap-2">
           {annees.filter(a => a.code !== annee).length > 0 && (
-            <button onClick={() => setImportOpen(true)} className="bg-white border border-iip-mauve text-iip-mauve hover:bg-iip-mauve/5 text-sm px-4 py-2 rounded font-medium">⇄ Importer des UE</button>
+            <button onClick={() => setImportOpen(true)} className="bg-white border border-iip-mauve text-iip-mauve hover:bg-iip-mauve/5 text-sm px-4 py-2 rounded font-medium">Importer des UE</button>
           )}
           <button onClick={() => setEffectifsOpen(true)} className="bg-white border border-blue-400 text-blue-600 hover:bg-blue-50 text-sm px-4 py-2 rounded font-medium">Importer effectifs étudiants</button>
-          <button onClick={() => setSectionModal({})} className="bg-white border border-iip-gold text-iip-gold hover:bg-iip-gold/5 text-sm px-4 py-2 rounded font-medium">➕ Nouvelle section</button>
-          <button onClick={() => setUeModal({})} className="bg-iip-gold hover:bg-iip-amber text-white text-sm px-4 py-2 rounded font-medium">➕ Nouvelle UE</button>
+          <button onClick={() => setSectionModal({})} className="bg-white border border-iip-gold text-iip-gold hover:bg-iip-gold/5 text-sm px-4 py-2 rounded font-medium"><IconPlus size={15} className="inline align-[-2px] mr-0.5" /> Nouvelle section</button>
+          <button onClick={() => setUeModal({})} className="bg-iip-gold hover:bg-iip-amber text-white text-sm px-4 py-2 rounded font-medium"><IconPlus size={15} className="inline align-[-2px] mr-0.5" /> Nouvelle UE</button>
         </div>
       </div>
 
@@ -531,9 +532,9 @@ export default function Referentiels({ embedded = false }) {
                     <td className="px-3 py-2 text-right text-gray-500">{nbUe}</td>
                     <td className="px-3 py-2 text-right text-gray-500">{nbCours}</td>
                     <td className="px-3 py-2 text-right whitespace-nowrap">
-                      <button onClick={() => setUeModal({ section: s.code })} className="text-iip-mauve hover:opacity-70 font-bold" title={`Ajouter une UE à ${s.code}`}>+</button>
-                      <button onClick={() => setSectionModal({ ...s, _edit: true })} className="text-iip-gold hover:text-iip-amber ml-3" title="Modifier">✏</button>
-                      <button onClick={() => delSection(s.code)} className="text-red-400 hover:text-red-600 ml-2" title="Supprimer">🗑</button>
+                      <button onClick={() => setUeModal({ section: s.code })} className="text-iip-mauve hover:opacity-70 font-bold" title={`Ajouter une UE à ${s.code}`}><IconPlus size={14} /></button>
+                      <button onClick={() => setSectionModal({ ...s, _edit: true })} className="text-iip-gold hover:text-iip-amber ml-3" title="Modifier"><IconPencil size={15} /></button>
+                      <button onClick={() => delSection(s.code)} className="text-red-400 hover:text-red-600 ml-2" title="Supprimer"><IconTrash size={15} /></button>
                     </td>
                   </tr>
                 );
@@ -603,12 +604,12 @@ export default function Referentiels({ embedded = false }) {
                       <td className="px-2 py-2 text-right relative">
                         <button onClick={() => setCatalogueSection(catalogueSection === sg.section ? null : sg.section)}
                           title={`Ajouter une UE à ${sg.section}`}
-                          className="w-6 h-6 inline-flex items-center justify-center rounded-full bg-iip-gold/10 hover:bg-iip-gold hover:text-white text-iip-gold font-bold transition">+</button>
+                          className="w-6 h-6 inline-flex items-center justify-center rounded-full bg-iip-gold/10 hover:bg-iip-gold hover:text-white text-iip-gold font-bold transition"><IconPlus size={14} /></button>
                         {catalogueSection === sg.section && (
                           <div className="absolute right-2 top-full mt-1 z-30 bg-white border border-gray-200 rounded-lg shadow-xl py-1 w-64 text-left">
                             <button onClick={() => { setCatalogueOpen(sg.section); setCatalogueSection(null); }}
                               className="w-full text-left px-3 py-2 text-sm hover:bg-iip-gold/10 flex items-center gap-2">
-                              <span className="text-iip-gold">⇄</span><span>Rattacher une UE existante</span>
+                              <IconLink size={15} className="text-iip-gold" /><span>Rattacher une UE existante</span>
                             </button>
                             <button onClick={() => { setUeModal({ section: sg.section }); setCatalogueSection(null); }}
                               className="w-full text-left px-3 py-2 text-sm hover:bg-iip-mauve/10 text-iip-mauve border-t border-gray-100 flex items-center gap-2">
@@ -653,7 +654,7 @@ export default function Referentiels({ embedded = false }) {
                               )}
                               {ue.sections_partagees && (
                                 <span className="ml-2 text-sm text-iip-mauve" title={`Aussi organisée dans : ${ue.sections_partagees.filter(s => s !== sg.section).join(', ')}`}>
-                                  ⇄ partagée
+                                  partagée
                                 </span>
                               )}
                             </td>
@@ -664,8 +665,8 @@ export default function Referentiels({ embedded = false }) {
                             <td className="px-2 py-1.5 text-right text-gray-400">{ue.cours.length}</td>
                             <td className="px-2 py-1.5 text-right text-gray-400">{ue.nb_attributions}</td>
                             <td className={`px-2 py-1.5 text-right whitespace-nowrap ${activeUE === ueKey ? (isHelb ? 'border-r-2 border-pink-400' : 'border-r-2 border-iip-gold/60') : ''}`}>
-                              <button onClick={() => setUeModal({ ...ue, _edit: true })} className="text-iip-gold hover:text-iip-amber" title="Modifier l'UE">✏</button>
-                              <button onClick={() => delUE(ue)} className="text-red-400 hover:text-red-600 ml-2" title="Supprimer">🗑</button>
+                              <button onClick={() => setUeModal({ ...ue, _edit: true })} className="text-iip-gold hover:text-iip-amber" title="Modifier l'UE"><IconPencil size={15} /></button>
+                              <button onClick={() => delUE(ue)} className="text-red-400 hover:text-red-600 ml-2" title="Supprimer"><IconTrash size={15} /></button>
                             </td>
                           </tr>
                           {ueOpen && (
@@ -699,8 +700,8 @@ export default function Referentiels({ embedded = false }) {
                                         <td className="text-center">{c.quadrimestre_cours || '—'}</td>
                                         <td className="text-right text-gray-400">{c.nb_attributions}</td>
                                         <td className="text-right whitespace-nowrap">
-                                          <button onClick={() => setCoursModal({ cours: { ...c, _edit: true }, ueNum: ue.ue_num, section: sg.section })} className="text-iip-mauve hover:opacity-70" title="Modifier">✏</button>
-                                          <button onClick={() => delCours(c)} className="text-red-400 hover:text-red-600 ml-2" title="Supprimer">🗑</button>
+                                          <button onClick={() => setCoursModal({ cours: { ...c, _edit: true }, ueNum: ue.ue_num, section: sg.section })} className="text-iip-mauve hover:opacity-70" title="Modifier"><IconPencil size={15} /></button>
+                                          <button onClick={() => delCours(c)} className="text-red-400 hover:text-red-600 ml-2" title="Supprimer"><IconTrash size={15} /></button>
                                         </td>
                                       </tr>
                                     ))}
@@ -708,7 +709,7 @@ export default function Referentiels({ embedded = false }) {
                                   </tbody>
                                 </table>
                                 <button onClick={() => setCoursModal({ cours: {}, ueNum: ue.ue_num, section: sg.section })}
-                                  className="mt-2 text-iip-mauve hover:underline">➕ Ajouter un cours</button>
+                                  className="mt-2 text-iip-mauve hover:underline"><IconPlus size={15} className="inline align-[-2px] mr-0.5" /> Ajouter un cours</button>
                               </td>
                             </tr>
                           )}
@@ -794,8 +795,8 @@ export default function Referentiels({ embedded = false }) {
                         <td className="px-2 py-1.5 text-right">{ue.ects ?? '—'}</td>
                         <td className="px-2 py-1.5 text-right text-gray-400">{ue.cours.length}</td>
                         <td className="px-2 py-1.5 text-right whitespace-nowrap">
-                          <button onClick={() => setUeModal({ ...ue, _edit: true })} className="text-iip-gold hover:text-iip-amber" title="Modifier l'UE">✏</button>
-                          <button onClick={() => delUE(ue)} className="text-red-400 hover:text-red-600 ml-2" title="Supprimer">🗑</button>
+                          <button onClick={() => setUeModal({ ...ue, _edit: true })} className="text-iip-gold hover:text-iip-amber" title="Modifier l'UE"><IconPencil size={15} /></button>
+                          <button onClick={() => delUE(ue)} className="text-red-400 hover:text-red-600 ml-2" title="Supprimer"><IconTrash size={15} /></button>
                         </td>
                       </tr>
                       {ueOpen && (
@@ -822,8 +823,8 @@ export default function Referentiels({ embedded = false }) {
                                     <td className="text-center">{c.quadrimestre_cours || '—'}</td>
                                     <td className="text-right text-gray-400">{c.nb_attributions}</td>
                                     <td className="text-right whitespace-nowrap">
-                                      <button onClick={() => setCoursModal({ cours: { ...c, _edit: true }, ueNum: ue.ue_num, section: ([...ue._sections][0] || null) })} className="text-iip-mauve hover:opacity-70" title="Modifier">✏</button>
-                                      <button onClick={() => delCours(c)} className="text-red-400 hover:text-red-600 ml-2" title="Supprimer">🗑</button>
+                                      <button onClick={() => setCoursModal({ cours: { ...c, _edit: true }, ueNum: ue.ue_num, section: ([...ue._sections][0] || null) })} className="text-iip-mauve hover:opacity-70" title="Modifier"><IconPencil size={15} /></button>
+                                      <button onClick={() => delCours(c)} className="text-red-400 hover:text-red-600 ml-2" title="Supprimer"><IconTrash size={15} /></button>
                                     </td>
                                   </tr>
                                 ))}
@@ -831,7 +832,7 @@ export default function Referentiels({ embedded = false }) {
                               </tbody>
                             </table>
                             <button onClick={() => setCoursModal({ cours: {}, ueNum: ue.ue_num, section: ([...ue._sections][0] || null) })}
-                              className="mt-2 text-iip-mauve hover:underline">➕ Ajouter un cours</button>
+                              className="mt-2 text-iip-mauve hover:underline"><IconPlus size={15} className="inline align-[-2px] mr-0.5" /> Ajouter un cours</button>
                           </td>
                         </tr>
                       )}
@@ -967,7 +968,7 @@ function GestionActivites({ sections = [] }) {
             ? <span className="text-xs text-gray-400">UE{a.ue_num}</span>
             : <select value={a.section || ''} onChange={e => changerSection(a.id, e.target.value)}
                 className="text-xs border border-gray-200 rounded px-1.5 py-0.5 bg-white text-gray-500 cursor-pointer hover:border-iip-gold">
-                <option value="">🌐 Globale</option>
+                <option value="">Globale</option>
                 {sections.map(s => <option key={s.code} value={s.code}>{s.code}</option>)}
               </select>}
         </td>
@@ -989,14 +990,14 @@ function GestionActivites({ sections = [] }) {
           <div className="flex gap-2 justify-end opacity-0 group-hover:opacity-100 transition">
             {isEdit
               ? <>
-                  <button onClick={() => sauvegarderEdit(a.id)} className="text-xs text-iip-gold hover:underline">✓ OK</button>
+                  <button onClick={() => sauvegarderEdit(a.id)} className="text-xs text-iip-gold hover:underline"><IconCheck size={13} className="inline align-[-2px]" /> OK</button>
                   <button onClick={() => setEditId(null)} className="text-xs text-gray-400 hover:underline">Annuler</button>
                 </>
               : <>
                   <button onClick={() => { setEditId(a.id); setEditVal(a.libelle); }}
                     className="text-xs text-gray-400 hover:text-iip-gold">Renommer</button>
                   <button onClick={() => supprimer(a.id, a.libelle)}
-                    className="text-xs text-gray-400 hover:text-red-500">✕</button>
+                    className="text-xs text-gray-400 hover:text-red-500"><IconX size={14} /></button>
                 </>}
           </div>
         </td>
@@ -1060,18 +1061,18 @@ function GestionActivites({ sections = [] }) {
 
       {/* Recherche */}
       <input value={search} onChange={e => setSearch(e.target.value)}
-        placeholder="🔍 Rechercher une activité…"
+        placeholder="Rechercher une activité…"
         className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:border-iip-gold outline-none" />
 
       {loading ? <div className="text-center text-gray-400 py-8">Chargement…</div> : (
         <>
-          <Bloc cle="__glob" titre="🌐 Communes à toutes les sections" sousTitre="Disponibles partout"
+          <Bloc cle="__glob" titre="Communes à toutes les sections" sousTitre="Disponibles partout"
             acts={globales} couleur="text-iip-gold" />
           {sectionsTriees.map(sec => (
-            <Bloc key={sec} cle={sec} titre={`📂 ${sec}`} acts={parSection[sec]} />
+            <Bloc key={sec} cle={sec} titre={`${sec}`} acts={parSection[sec]} />
           ))}
           {parCours.length > 0 && (
-            <Bloc cle="__cours" titre="📖 Spécifiques à un cours" sousTitre="Créées depuis le modal d'un cours" acts={parCours} />
+            <Bloc cle="__cours" titre="Spécifiques à un cours" sousTitre="Créées depuis le modal d'un cours" acts={parCours} />
           )}
         </>
       )}
