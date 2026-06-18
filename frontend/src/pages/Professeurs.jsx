@@ -4,7 +4,7 @@ import { api, getAnnee, getUser, nomDoc } from '../lib/api.js';
 import ProfFicheModal from './ProfFicheModal.jsx';
 import PreviewModal from '../components/PreviewModal.jsx';
 import CoursEditModal from '../components/CoursEditModal.jsx';
-import { IconMail, IconMapPin, IconFileText, IconEdit, IconDownload, IconRefresh, IconSearch, IconX, IconPrinter, IconPlus, IconTrash, IconKey, IconLock, IconCheck } from '@tabler/icons-react';
+import { IconMail, IconMapPin, IconFileText, IconEdit, IconDownload, IconRefresh, IconX, IconPrinter, IconPlus, IconTrash, IconKey, IconLock, IconCheck } from '@tabler/icons-react';
 
 const EMPTY = {
   nom: '', prenom: '', adresse_mail: '', mail_prive: '',

@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo, useRef, Fragment } from 'react';
 import { api, getAnnee } from '../lib/api.js';
-import { IconChartBar, IconHome, IconClipboardList, IconTarget, IconUsers, IconSettings, IconAlertTriangle, IconChevronRight, IconChevronDown, IconPrinter, IconRotateClockwise } from '@tabler/icons-react';
+import { IconChartBar, IconHome, IconUsers, IconSettings, IconChevronRight, IconChevronDown, IconPrinter, IconRotateClockwise } from '@tabler/icons-react';
 import { PageHeader, Tabs, RailLateral } from '../components/ui.jsx';
 import {
   BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer,

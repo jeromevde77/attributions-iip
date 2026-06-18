@@ -6,7 +6,7 @@ import OrganisationUEModal from '../components/OrganisationUEModal.jsx';
 import OrganiserGroupesModal from '../components/OrganiserGroupesModal.jsx';
 import Doc23Modal from '../components/Doc23Modal.jsx';
 import * as XLSX from 'xlsx';
-import { IconClipboardText, IconTrash, IconLock, IconLockOpen, IconArrowsHorizontal, IconRefresh, IconCalendar, IconFileText, IconChartBar, IconEraser, IconWand, IconSearch, IconX, IconSettings, IconFolder, IconPlus, IconFileImport, IconFileSpreadsheet, IconUsersGroup, IconScissors, IconClock, IconChevronLeft, IconChevronRight, IconFilter } from '@tabler/icons-react';
+import { IconClipboardText, IconTrash, IconLock, IconLockOpen, IconRefresh, IconCalendar, IconFileText, IconEraser, IconWand, IconX, IconSettings, IconFolder, IconPlus, IconFileImport, IconFileSpreadsheet, IconUsersGroup, IconScissors, IconClock, IconChevronLeft, IconChevronRight, IconFilter } from '@tabler/icons-react';
 
 // ─── Modale : copier les attributions d'une section d'une année vers une autre ─
 function CopierSectionModal({ sections, anneeActive, isAdmin, onClose, onCopied }) {
