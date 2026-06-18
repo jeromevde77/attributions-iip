@@ -306,6 +306,43 @@ try {
     CREATE INDEX IF NOT EXISTS idx_pm_annee ON personnel_mission(annee_scolaire);
   `);
 
+  // ── fonction_type : référentiel des fonctions (colonnes de la matrice missions) ──
+  // Table interrogée par referentiels.js (GET professeur, /fonctions, /personnel-matrice)
+  // mais jamais créée par migration (oubli de b21a34a). Présente en prod uniquement car
+  // créée à la main → absente sur toute base fraîche (d'où "no such table: fonction_type"
+  // en dev). On la (re)crée ici pour la garantir partout, puis on la seede.
+  try {
+    db.exec(`
+      CREATE TABLE IF NOT EXISTS fonction_type (
+        id       INTEGER PRIMARY KEY AUTOINCREMENT,
+        libelle  TEXT NOT NULL,
+        portee   TEXT NOT NULL DEFAULT 'section',   -- 'etablissement' | 'section'
+        ordre    INTEGER NOT NULL DEFAULT 0
+      );
+    `);
+    console.log('[migration] Table fonction_type initialisée');
+  } catch (e) { console.error('[migration] fonction_type:', e.message); }
+
+  // Seed dans un try/catch séparé (indépendant de la création) — uniquement si vide.
+  // Contenu repris à l'identique de la table fonction_type de prod (libellé/portée/ordre).
+  try {
+    if (db.prepare('SELECT COUNT(*) AS n FROM fonction_type').get().n === 0) {
+      const insFt = db.prepare('INSERT INTO fonction_type (libelle, portee, ordre) VALUES (?, ?, ?)');
+      const seedFt = [
+        ['Directeur',                'etablissement',  1],
+        ['Directeur adjoint',        'etablissement',  2],
+        ['Secrétaire',               'etablissement',  3],
+        ['Coordinateur de cursus',   'section',       10],
+        ['Coordinateur des stages',  'section',       11],
+        ['Coordinateur de TFE',      'section',       12],
+        ['Coordinateur pédagogique', 'section',       13],
+        ['Conseiller qualité',       'section',       14],
+      ];
+      for (const [libelle, portee, ordre] of seedFt) insFt.run(libelle, portee, ordre);
+      console.log('[migration] fonction_type seedée (' + seedFt.length + ' fonctions)');
+    }
+  } catch (e) { console.error('[migration] seed fonction_type:', e.message); }
+
   // Nettoyage : supprimer l'ancienne table membres_cde si elle existe
   try { db.exec(`DROP TABLE IF EXISTS membres_cde`); } catch { /* ignoré */ }
 
