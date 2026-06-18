@@ -734,84 +734,85 @@ export default function Pilotage() {
   const renderSynthese = () => {
     if (!selectedData) return <div className="text-gray-400 py-12 text-center">Aucune donnée</div>;
     const d = selectedData;
+    const felsi     = Math.round(d.dotation_organique * 0.01);
+    const gips      = 40;
+    const charges   = felsi + gips;
+    const soldeReel = d.solde_organique - charges;
+
     return (
-      <div className="space-y-6">
-        {/* Carte dotation — flip : indicateurs ⇄ pluriannuel */}
+      <div className="space-y-5">
+
+        {/* ── Carte flip : KPIs ⇄ graphique pluriannuel ── */}
         <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-4">
           <div className="flex items-center justify-between mb-3">
             <div className="text-xs font-semibold text-gray-500 uppercase tracking-wider">
-              {dotFace === 'recto' ? `Dotation organique · Civile ${d.annee_civile}` : 'Comparaison pluriannuelle — dotation'}
+              {dotFace === 'recto'
+                ? `Dotation organique · Civile ${d.annee_civile}`
+                : 'Comparaison pluriannuelle — dotation'}
             </div>
-            <button onClick={() => setDotFace(face => face === 'recto' ? 'verso' : 'recto')} title="Retourner la carte"
-              className="w-8 h-8 rounded-full border border-gray-300 text-gray-500 hover:bg-iip-blue hover:text-white hover:border-iip-blue flex items-center justify-center transition flex-shrink-0">
-              <IconRotateClockwise size={16} />
-            </button>
+            <div className="flex items-center gap-2">
+              <button onClick={() => setDotFace(f => f === 'recto' ? 'verso' : 'recto')}
+                title="Retourner la carte"
+                className="w-8 h-8 rounded-full border border-iip-turquoise/40 text-iip-turquoise hover:bg-iip-turquoise hover:text-white flex items-center justify-center transition flex-shrink-0">
+                <IconRotateClockwise size={16} />
+              </button>
+            </div>
           </div>
+
           {dotFace === 'recto' ? (
             <div className="space-y-4">
-              {/* KPIs organiques */}
-        <div>
-          <div className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2 flex items-center gap-2">
-            Dotation organique · Civile {d.annee_civile}
-            {d.source === 'historique' && <span className="text-[10px] bg-amber-100 text-amber-700 px-1.5 py-0.5 rounded">données historiques</span>}
-          </div>
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-            <Kpi label="Dotation" value={fmt(d.dotation_organique)} sub="périodes B" />
-            <Kpi label="Utilisées" value={fmt(d.usage_organique)} sub={
-              d.dot_total > 0
-                ? <span className="text-orange-600">dont {fmt(d.dot_total)} pér. B de dépassement enveloppes</span>
-                : "périodes B"
-            }
-              color={trafficColor(d.pct_organique)} />
-            {(() => {
-              const felsi = Math.round(d.dotation_organique * 0.01);
-              const gips = 40;
-              const charges = felsi + gips;
-              const soldeReel = d.solde_organique - charges;
-              return (<>
-                <Kpi label="Charges fixes"
-                  value={<span className="text-orange-600">−{fmt(charges)}</span>}
-                  sub={`FELSI ${fmt(felsi)} + GIPS 40`} />
-                <Kpi label="Solde réel"
-                  value={<span className={soldeReel < 0 ? 'text-red-600' : 'text-green-700'}>{sign(soldeReel)}{fmt(soldeReel)}</span>}
-                  sub={soldeReel < -200 ? '⚠ Pénalité ×1,5 possible' : 'après FELSI + GIPS'} />
-              </>);
-            })()}
-            <div className={`rounded-xl border p-4 shadow-sm ${trafficBg(d.pct_organique)}`}>
-              <div className="text-xs uppercase tracking-wider text-gray-500 mb-1">Taux d'utilisation</div>
-              <div className={`text-2xl font-bold ${trafficColor(d.pct_organique)}`}>{pct(d.pct_organique)}</div>
-              <ProgressBar pct={d.pct_organique} />
-            </div>
-          </div>
-        </div>
+              {/* Ligne KPIs compacts */}
+              <div className="grid grid-cols-5 gap-3">
+                {[
+                  { label: 'Dotation',     value: fmt(d.dotation_organique), sub: 'périodes B' },
+                  { label: 'Utilisées',    value: fmt(d.usage_organique),
+                    sub: d.dot_total > 0
+                      ? <span className="text-orange-600">dont {fmt(d.dot_total)} pér. B de dépassement enveloppes</span>
+                      : 'périodes B',
+                    color: trafficColor(d.pct_organique) },
+                  { label: 'Charges fixes', value: <span className="text-orange-600">−{fmt(charges)}</span>, sub: `FELSI ${fmt(felsi)} + GIPS 40` },
+                  { label: 'Solde réel',   value: <span className={soldeReel < 0 ? 'text-red-600' : 'text-green-700'}>{sign(soldeReel)}{fmt(soldeReel)}</span>,
+                    sub: soldeReel < -200 ? '⚠ Pénalité ×1,5 possible' : 'après FELSI + GIPS' },
+                ].map(({ label, value, sub, color }) => (
+                  <div key={label} className="rounded-lg border border-gray-200 p-3">
+                    <div className="text-[10px] uppercase tracking-wider text-gray-500 mb-0.5">{label}</div>
+                    <div className={`text-xl font-bold leading-tight ${color || 'text-iip-blue'}`}>{value}</div>
+                    <div className="text-[10px] text-gray-500 mt-1">{sub}</div>
+                  </div>
+                ))}
+                {/* Taux */}
+                <div className={`rounded-lg border p-3 ${trafficBg(d.pct_organique)}`}>
+                  <div className="text-[10px] uppercase tracking-wider text-gray-500 mb-0.5">Taux</div>
+                  <div className={`text-xl font-bold leading-tight ${trafficColor(d.pct_organique)}`}>{pct(d.pct_organique)}</div>
+                  <div className="mt-1"><ProgressBar pct={d.pct_organique} /></div>
+                </div>
+              </div>
 
-        {/* Enveloppes extérieures */}
-        {d.enveloppes.length > 0 && (
-          <div>
-            <div className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">Enveloppes extérieures</div>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-              {d.enveloppes.map(e => <EnvCard key={e.code} env={e} />)}
-            </div>
-          </div>
-        )}
+              {/* Enveloppes extérieures */}
+              {d.enveloppes.length > 0 && (
+                <div>
+                  <div className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">Enveloppes extérieures</div>
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                    {d.enveloppes.map(e => <EnvCard key={e.code} env={e} />)}
+                  </div>
+                </div>
+              )}
             </div>
           ) : (
             chartData.length > 1 ? (
               <ResponsiveContainer width="100%" height={280}>
-              <BarChart data={chartData} barCategoryGap="30%">
-                <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
-                <XAxis dataKey="annee" tick={{ fontSize: 12 }} />
-                <YAxis tick={{ fontSize: 11 }} tickFormatter={v => fmt(v / 1000, 1) + 'k'} />
-                <Tooltip content={<ChartTip />} />
-                <Legend iconType="circle" iconSize={8} wrapperStyle={{ fontSize: 12 }} />
-                <Bar dataKey="Dotation organique" fill="#d1a846" radius={[3, 3, 0, 0]} />
-                <Bar dataKey="Usage organique"    fill="#4a7fa5" radius={[3, 3, 0, 0]} />
-                <Bar dataKey="Total enveloppes"   fill="#b8e0d2" radius={[3, 3, 0, 0]} />
-                <Bar dataKey="Usage enveloppes"   fill="#7bc4a8" radius={[3, 3, 0, 0]} />
-              </BarChart>
-            </ResponsiveContainer>
+                <BarChart data={chartData} barCategoryGap="30%">
+                  <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
+                  <XAxis dataKey="annee" tick={{ fontSize: 12 }} />
+                  <YAxis tick={{ fontSize: 11 }} tickFormatter={v => fmt(v / 1000, 1) + 'k'} />
+                  <Tooltip content={<ChartTip />} />
+                  <Legend iconType="circle" iconSize={8} wrapperStyle={{ fontSize: 12 }} />
+                  <Bar dataKey="Dotation organique" fill="#1B2B4B" radius={[3, 3, 0, 0]} />
+                  <Bar dataKey="Usage organique"    fill="#00AACC" radius={[3, 3, 0, 0]} />
+                </BarChart>
+              </ResponsiveContainer>
             ) : (
-              <div className="text-gray-400 text-sm py-12 text-center">Pas assez d’années pour la comparaison pluriannuelle.</div>
+              <div className="text-gray-400 text-sm py-12 text-center">Pas assez d'années pour la comparaison pluriannuelle.</div>
             )
           )}
         </div>
