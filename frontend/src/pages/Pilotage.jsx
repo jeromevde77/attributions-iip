@@ -461,9 +461,7 @@ function DotationComparaison({ civil }) {
 
 export default function Pilotage() {
   const anneeActive = getAnnee();
-  const [tab, setTab]               = useState('synthese'); // synthese | detail | efficience | dotation | config
-  const [effic, setEffic]           = useState(null);
-  const [efficOpen, setEfficOpen]   = useState(new Set());
+  const [tab, setTab]               = useState('synthese'); // synthese | etp | dotation | config
   const [etpData, setEtpData]       = useState(null);
   // Dotation détaillée par section/UE (table fidèle maquette v3)
   const [dotEffic, setDotEffic]     = useState(null);   // efficience année active
@@ -475,9 +473,7 @@ export default function Pilotage() {
   const [etpOpen, setEtpOpen]       = useState(new Set());
   const [civil, setCivil]           = useState([]);
   const [selYear, setSelYear]       = useState(null);
-  const [detail, setDetail]         = useState(null);
   const [loading, setLoading]       = useState(true);
-  const [loadingDetail, setLoadingDetail] = useState(false);
 
   // Config state
   const [editDot, setEditDot]       = useState(null);   // { annee_civile, dotation_organique, usage_historique_organique, notes }
@@ -504,24 +500,6 @@ export default function Pilotage() {
   };
 
   useEffect(() => { load(); }, []);
-
-  // Charger le détail quand on change d'année ou d'onglet
-  useEffect(() => {
-    if (!selYear || tab !== 'detail') return;
-    setLoadingDetail(true);
-    api.pilotageCivilDetail(selYear)
-      .then(setDetail)
-      .catch(console.error)
-      .finally(() => setLoadingDetail(false));
-  }, [selYear, tab]);
-
-  // Charger l'efficience (ratio étudiants/ETP) quand on ouvre l'onglet
-  useEffect(() => {
-    if (tab !== 'efficience') return;
-    const tok = localStorage.getItem('token');
-    fetch(`/api/pilotage/efficience?annee=${encodeURIComponent(anneeActive)}`, { headers: { Authorization: `Bearer ${tok}` } })
-      .then(r => r.json()).then(setEffic).catch(console.error);
-  }, [tab, anneeActive]);
 
   // Charger la répartition ETP (IIP/HELB par section et UE) quand on ouvre l'onglet
   useEffect(() => {
@@ -937,70 +915,6 @@ export default function Pilotage() {
     );
   };
 
-  // ── Onglet détail par section ──────────────────────────────────────────────
-  const renderEfficience = () => {
-    if (!effic) return <div className="text-gray-400 py-8 text-center">Chargement…</div>;
-    const secs = effic.sections || [];
-    const toggle = (s) => setEfficOpen(prev => { const n = new Set(prev); n.has(s) ? n.delete(s) : n.add(s); return n; });
-    return (
-      <div>
-        <div className="mb-4 bg-blue-50 border border-blue-200 rounded-lg p-3 text-[12px] text-blue-800">
-          <b>Encadrement</b> — par section ({effic.annee}). <b>Étud./période</b> = nombre d'étudiants par période-prof payée ; <b>Étud./ETP</b> = étudiants par équivalent temps plein. Plus le chiffre est élevé, plus l'encadrement est « rentable » (beaucoup d'étudiants pour peu de moyens).
-        </div>
-        <table className="w-full text-sm border-collapse">
-          <thead>
-            <tr className="bg-gray-50 text-gray-500 text-xs uppercase">
-              <th className="text-left px-3 py-2">Section</th>
-              <th className="text-right px-3 py-2">Étudiants</th>
-              <th className="text-right px-3 py-2">Périodes payées</th>
-              <th className="text-right px-3 py-2">ETP</th>
-              <th className="text-right px-3 py-2">Étud./période</th>
-              <th className="text-right px-3 py-2">Étud./ETP</th>
-              <th className="px-3 py-2"></th>
-            </tr>
-          </thead>
-          <tbody>
-            {secs.map(s => (
-              <Fragment key={s.section}>
-                <tr className="border-t border-gray-100 hover:bg-gray-50 cursor-pointer" onClick={() => toggle(s.section)}>
-                  <td className="px-3 py-2 font-medium text-gray-800">{s.section}{s.ues_sans_effectif > 0 && <span className="ml-2 text-[10px] text-amber-600" title="UE sans effectif saisi">⚠ {s.ues_sans_effectif} sans effectif</span>}</td>
-                  <td className="px-3 py-2 text-right text-gray-700">{s.etudiants || '—'}</td>
-                  <td className="px-3 py-2 text-right text-gray-500">{s.periodes}</td>
-                  <td className="px-3 py-2 text-right text-gray-500">{s.etp?.toFixed(2)}</td>
-                  <td className="px-3 py-2 text-right font-bold text-iip-mauve">{s.etud_par_periode ?? '—'}</td>
-                  <td className="px-3 py-2 text-right font-bold text-cyan-700">{s.etud_par_etp ?? '—'}</td>
-                  <td className="px-3 py-2 text-right text-gray-400">{efficOpen.has(s.section) ? '▾' : '▸'}</td>
-                </tr>
-                {efficOpen.has(s.section) && s.ues.map(u => (
-                  <tr key={u.ue_num} className="bg-gray-50/50 text-[12px]">
-                    <td className="px-3 py-1 pl-8 text-gray-600">UE {u.ue_num} — {u.ue_nom || ''}</td>
-                    <td className="px-3 py-1 text-right text-gray-500">{u.nb_etudiants ?? <span className="text-amber-500">non saisi</span>}</td>
-                    <td className="px-3 py-1 text-right text-gray-400">{u.periodes}</td>
-                    <td className="px-3 py-1 text-right text-gray-400">{u.etp?.toFixed(3)}</td>
-                    <td className="px-3 py-1 text-right text-iip-mauve">{u.etud_par_periode ?? '—'}</td>
-                    <td className="px-3 py-1 text-right text-cyan-700">{u.etud_par_etp ?? '—'}</td>
-                    <td></td>
-                  </tr>
-                ))}
-              </Fragment>
-            ))}
-            {effic.total && (
-              <tr className="border-t-2 border-gray-300 font-bold bg-gray-50">
-                <td className="px-3 py-2">TOTAL</td>
-                <td className="px-3 py-2 text-right">{effic.total.etudiants || '—'}</td>
-                <td className="px-3 py-2 text-right">{effic.total.periodes}</td>
-                <td className="px-3 py-2 text-right">{effic.total.etp?.toFixed(2)}</td>
-                <td className="px-3 py-2 text-right text-iip-mauve">{effic.total.etud_par_periode ?? '—'}</td>
-                <td className="px-3 py-2 text-right text-cyan-700">{effic.total.etud_par_etp ?? '—'}</td>
-                <td></td>
-              </tr>
-            )}
-          </tbody>
-        </table>
-      </div>
-    );
-  };
-
   // ── Onglet ETP : répartition IIP et HELB, tout en CT/800 + PP/1000 (périodes) par section/UE ──
   const renderETP = () => {
     if (!etpData) return <div className="text-gray-400 py-8 text-center">Chargement…</div>;
@@ -1069,61 +983,6 @@ export default function Pilotage() {
               <td></td>
             </tr>
           </tbody>
-        </table>
-      </div>
-    );
-  };
-
-  const renderDetail = () => {
-    if (loadingDetail) return <div className="text-gray-400 py-8 text-center">Chargement…</div>;
-    if (!detail) return null;
-    if (detail.source === 'historique') return <p className="text-gray-500 py-8 text-center">Données historiques — pas de détail par section disponible.</p>;
-
-    // Grouper par section
-    const bySection = {};
-    for (const row of detail.sections || []) {
-      if (!bySection[row.section]) bySection[row.section] = { organique: 0, pots: {} };
-      if (row.pot === 'organique') bySection[row.section].organique += row.usage;
-      else bySection[row.section].pots[row.pot] = (bySection[row.section].pots[row.pot] || 0) + row.usage;
-    }
-    const rows = Object.entries(bySection).sort((a, b) => b[1].organique - a[1].organique);
-    const total = rows.reduce((s, [, v]) => s + v.organique, 0);
-
-    return (
-      <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
-        <table className="w-full text-sm">
-          <thead className="bg-gray-50 text-xs text-gray-500 uppercase tracking-wider">
-            <tr>
-              <th className="px-4 py-3 text-left">Section</th>
-              <th className="px-4 py-3 text-right">Usage organique (pér. B)</th>
-              <th className="px-4 py-3 text-right">% dotation ({fmt(detail.dotation_organique)})</th>
-              <th className="px-4 py-3 text-left">Enveloppes</th>
-            </tr>
-          </thead>
-          <tbody>
-            {rows.map(([sec, v]) => (
-              <tr key={sec} className="border-t border-gray-100 hover:bg-gray-50">
-                <td className="px-4 py-2.5 font-medium text-gray-700">{sec || '—'}</td>
-                <td className="px-4 py-2.5 text-right font-mono">{fmt(v.organique)}</td>
-                <td className="px-4 py-2.5 text-right">
-                  <span className={trafficColor(detail.dotation_organique ? v.organique / detail.dotation_organique * 100 : null)}>
-                    {detail.dotation_organique ? pct(v.organique / detail.dotation_organique * 100) : '—'}
-                  </span>
-                </td>
-                <td className="px-4 py-2.5 text-xs text-gray-500">
-                  {Object.entries(v.pots).map(([p, u]) => <span key={p} className="mr-2">{p}: {fmt(u)}</span>)}
-                </td>
-              </tr>
-            ))}
-          </tbody>
-          <tfoot className="bg-iip-gold/5 text-xs font-semibold">
-            <tr className="border-t-2 border-iip-gold/20">
-              <td className="px-4 py-2.5 text-iip-gold">TOTAL</td>
-              <td className="px-4 py-2.5 text-right font-mono text-iip-gold">{fmt(total)}</td>
-              <td className="px-4 py-2.5 text-right text-iip-gold">{detail.dotation_organique ? pct(total / detail.dotation_organique * 100) : '—'}</td>
-              <td />
-            </tr>
-          </tfoot>
         </table>
       </div>
     );
