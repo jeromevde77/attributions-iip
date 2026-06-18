@@ -116,23 +116,37 @@ function EnvCard({ env }) {
   const depasse = env.solde < 0;
   const dot = Math.abs(Math.min(0, env.solde));
   return (
-    <div className={`hover-darken border rounded-xl p-4 ${depasse ? 'border-orange-300 bg-orange-50' : trafficBg(env.pct)}`}>
-      <div className="flex items-center justify-between mb-0.5">
-        <div className="text-sm font-semibold text-gray-700">{env.label}</div>
-        {depasse && <span className="text-[10px] bg-orange-200 text-orange-800 px-1.5 py-0.5 rounded font-bold">⚠ DOT {fmt(dot)} pér. B</span>}
+    <div className={`border rounded-lg px-3 py-2 flex items-center gap-3 ${depasse ? 'border-orange-200 bg-orange-50' : 'border-gray-200 bg-white'}`}>
+      {/* Nom + code */}
+      <div className="min-w-0 flex-1">
+        <div className="text-xs font-semibold text-gray-700 truncate">{env.label}</div>
+        <div className="text-[10px] text-gray-400">{env.code}</div>
       </div>
-      <div className="text-xs text-gray-500 mb-2">Enveloppe {env.code} · Civile {env.annee_civile}</div>
-      <div className="grid grid-cols-3 gap-2 text-center mb-2">
-        <div><div className="text-[10px] text-gray-500">Allocation</div><div className="font-bold text-gray-700">{fmt(env.periodes_b)}</div></div>
-        <div><div className="text-[10px] text-gray-500">Utilisé</div><div className={`font-bold ${trafficColor(env.pct)}`}>{fmt(env.usage)}</div></div>
-        <div><div className="text-[10px] text-gray-500">Solde</div><div className={`font-bold ${env.solde < 0 ? 'text-red-600' : 'text-green-700'}`}>{sign(env.solde)}{fmt(env.solde)}</div></div>
-      </div>
-      <ProgressBar pct={env.pct} />
-      <div className={`text-xs mt-1 text-right font-medium ${trafficColor(env.pct)}`}>{pct(env.pct)}</div>
-      {depasse && (
-        <div className="text-xs text-orange-700 mt-2 font-medium">
-          ⚠ {fmt(dot)} pér. B au-delà du plafond → à charge de la dotation organique
+      {/* Alloc / Utilisé / Solde */}
+      <div className="flex items-center gap-3 text-center flex-shrink-0">
+        <div>
+          <div className="text-[9px] text-gray-400 uppercase">Alloc.</div>
+          <div className="text-xs font-bold text-gray-600">{fmt(env.periodes_b)}</div>
         </div>
+        <div>
+          <div className="text-[9px] text-gray-400 uppercase">Utilisé</div>
+          <div className={`text-xs font-bold ${trafficColor(env.pct)}`}>{fmt(env.usage)}</div>
+        </div>
+        <div>
+          <div className="text-[9px] text-gray-400 uppercase">Solde</div>
+          <div className={`text-xs font-bold ${env.solde < 0 ? 'text-red-600' : 'text-green-700'}`}>{sign(env.solde)}{fmt(env.solde)}</div>
+        </div>
+      </div>
+      {/* Barre + % */}
+      <div className="w-20 flex-shrink-0">
+        <ProgressBar pct={env.pct} />
+        <div className={`text-[10px] text-right font-medium mt-0.5 ${trafficColor(env.pct)}`}>{pct(env.pct)}</div>
+      </div>
+      {/* Badge dépassement */}
+      {depasse && (
+        <span className="text-[9px] bg-orange-100 text-orange-700 border border-orange-200 px-1.5 py-0.5 rounded font-bold flex-shrink-0 whitespace-nowrap">
+          ⚠ +{fmt(dot)}
+        </span>
       )}
     </div>
   );
@@ -792,7 +806,7 @@ export default function Pilotage() {
               {d.enveloppes.length > 0 && (
                 <div>
                   <div className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">Enveloppes extérieures</div>
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                  <div className="flex flex-col gap-1.5">
                     {d.enveloppes.map(e => <EnvCard key={e.code} env={e} />)}
                   </div>
                 </div>
