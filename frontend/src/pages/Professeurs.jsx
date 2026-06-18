@@ -4,7 +4,7 @@ import { api, getAnnee, getUser, nomDoc } from '../lib/api.js';
 import ProfFicheModal from './ProfFicheModal.jsx';
 import PreviewModal from '../components/PreviewModal.jsx';
 import CoursEditModal from '../components/CoursEditModal.jsx';
-import { IconMail, IconMapPin, IconFileText, IconEdit, IconDownload, IconRefresh, IconX, IconPrinter, IconPlus, IconTrash, IconKey, IconLock, IconCheck } from '@tabler/icons-react';
+import { IconMail, IconMapPin, IconFileText, IconEdit, IconDownload, IconRefresh, IconX, IconPrinter, IconPlus, IconTrash, IconKey, IconLock, IconCheck, IconBriefcase } from '@tabler/icons-react';
 
 const EMPTY = {
   nom: '', prenom: '', adresse_mail: '', mail_prive: '',
@@ -85,6 +85,33 @@ function ouvrirFeuilleImpression(data) {
   w.document.close();
 }
 
+
+// ─── Panneau « Fonctions & missions » (lecture seule) : reflète personnel_mission de la personne ───
+function FonctionsPanel({ missions }) {
+  if (!missions || missions.length === 0) return null;
+  return (
+    <div className="mb-4 border border-gray-200 rounded-lg overflow-hidden">
+      <div className="flex items-center gap-2 px-4 py-2 bg-gray-50 border-b border-gray-100">
+        <IconBriefcase size={16} className="text-iip-blue" />
+        <span className="text-sm font-semibold text-iip-blue">Fonctions &amp; missions</span>
+      </div>
+      <div className="p-4 space-y-2">
+        {missions.map((m, i) => (
+          <div key={i} className="flex items-center gap-2 flex-wrap">
+            <span className="text-sm font-medium text-gray-800">{m.fonction}</span>
+            {(m.etablissement || m.portee === 'etablissement')
+              ? <span className="text-xs px-2 py-0.5 rounded-full bg-iip-blue/10 text-iip-blue">Établissement</span>
+              : (m.sections || []).map(s => (
+                  <span key={s} className="text-xs px-2 py-0.5 rounded-full bg-iip-turquoise/15 text-iip-blue">{s}</span>
+                ))}
+            {(!m.etablissement && m.portee !== 'etablissement' && (!m.sections || m.sections.length === 0)) &&
+              <span className="text-xs text-gray-400">— aucune section</span>}
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
 
 // ─── Panneau « Accès Lucie » (admin) : lie un compte utilisateur à un·e membre ───
 const ROLES_LUCIE = [
@@ -422,6 +449,7 @@ function DetailModal({ profId, onClose, onEdit, onFiche }) {
 
         {/* Attributions */}
         <div className="flex-1 overflow-auto px-6 py-3">
+          <FonctionsPanel missions={detail.missions} />
           {u?.role === 'admin' && <AccesLuciePanel profId={profId} detail={detail} />}
           <h3 className="font-semibold text-sm mb-2 text-gray-700">
             Attributions ({detail.attributions?.length || 0})
