@@ -2,7 +2,10 @@ import { useEffect, useState, useMemo } from 'react';
 import { api, getAnnee } from '../lib/api.js';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Legend, CartesianGrid } from 'recharts';
 import ActivityFeed from '../components/ActivityFeed.jsx';
-import { IconChevronRight } from '@tabler/icons-react';
+import { RailLateral } from '../components/ui.jsx';
+import { IconChevronRight, IconLayoutDashboard, IconChartBar, IconBuildingCommunity, IconFileText, IconUsers } from '@tabler/icons-react';
+
+const TAB_ICONS = { apercu: IconChartBar, sections: IconBuildingCommunity, doc23: IconFileText, etp: IconUsers };
 
 function n(v, d = 0) { return v == null ? '—' : Number(v).toLocaleString('fr-BE', { maximumFractionDigits: d }); }
 
@@ -88,7 +91,15 @@ export default function Dashboard() {
   ];
 
   return (
-    <div className="p-4 md:p-6 max-w-7xl mx-auto space-y-6">
+    <div className="relative bg-slate-50" style={{ minHeight: 'calc(100vh - 64px)' }}>
+      <RailLateral
+        icon={IconLayoutDashboard}
+        titre="Tableau de bord"
+        sousTitre={annee}
+        sections={[{ items: TABS.map(([k, l]) => ({ key: k, label: l, icon: TAB_ICONS[k], actif: tab === k, onClick: () => setTab(k) })) }]}
+      />
+      <div className="ml-16 flex flex-col min-w-0">
+        <div className="p-4 md:p-6 max-w-7xl mx-auto w-full space-y-6">
       <h1 className="text-2xl font-title text-iip-gold">Tableau de bord <span className="text-base font-normal text-gray-400">· {annee}</span></h1>
 
       {/* Fil d'activité : nouveautés depuis la dernière visite */}
@@ -106,16 +117,6 @@ export default function Dashboard() {
           value={totaux?.solde != null ? n(totaux.solde) : '—'}
           sub={totaux?.periodes_disponibles ? `sur ${n(totaux.periodes_disponibles)} disponibles` : ''}
           color={totaux?.solde >= 0 ? 'text-green-600' : 'text-red-600'} />
-      </div>
-
-      {/* Onglets de détail */}
-      <div className="flex gap-1 border-b border-gray-200 flex-wrap">
-        {TABS.map(([k, l]) => (
-          <button key={k} onClick={() => setTab(k)}
-            className={`px-4 py-2 text-sm font-medium border-b-2 -mb-px transition ${tab === k ? 'border-iip-gold text-iip-gold' : 'border-transparent text-gray-500 hover:text-gray-700'}`}>
-            {l}
-          </button>
-        ))}
       </div>
 
       {/* ═══════════ Onglet Aperçu : graphe ═══════════ */}
@@ -383,6 +384,8 @@ export default function Dashboard() {
           </div>
         </section>
       )}
+        </div>
+      </div>
     </div>
   );
 }
