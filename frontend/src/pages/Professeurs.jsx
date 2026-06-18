@@ -1351,7 +1351,7 @@ export default function Professeurs() {
                 <>
                   <tr className="bg-gray-100 cursor-pointer hover:bg-gray-200" onClick={() => setShowSansCharge(v => !v)}>
                     <td colSpan={10} className="py-2 px-3 text-sm text-gray-600 font-medium select-none">
-                      <span className="inline-block transition-transform" style={{ transform: showSansCharge ? 'rotate(90deg)' : 'none' }}>▶</span>
+                      <IconChevronRight size={14} className="inline-block transition-transform" style={{ transform: showSansCharge ? 'rotate(90deg)' : 'none' }} />
                       {' '}Sans charge cette année <span className="text-gray-400 font-normal">({sansCharge.length})</span>
                     </td>
                   </tr>

@@ -18,19 +18,19 @@ function SelecteurGroupes({ valeur, onChange }) {
       {presets.map(n => (
         <button key={n} type="button" onClick={() => { onChange(n); setLibreOpen(false); }}
           className={`text-[11px] px-2.5 py-1 rounded-md border transition ${valeur === n
-            ? 'bg-iip-turquoise/10 text-iip-blue border-blue-300 font-medium'
+            ? 'bg-iip-turquoise/10 text-iip-blue border-iip-turquoise/40 font-medium'
             : 'border-gray-200 text-gray-500 hover:bg-gray-50'}`}>
           {n === 1 ? 'Ts' : n}
         </button>
       ))}
       {!estPreset && (
-        <span className="text-[11px] px-2.5 py-1 rounded-md bg-iip-turquoise/10 text-iip-blue border border-blue-300 font-medium">{valeur}</span>
+        <span className="text-[11px] px-2.5 py-1 rounded-md bg-iip-turquoise/10 text-iip-blue border border-iip-turquoise/40 font-medium">{valeur}</span>
       )}
       {libreOpen ? (
         <input type="number" min={1} max={100} autoFocus defaultValue={estPreset ? '' : valeur}
           onBlur={e => { const v = parseInt(e.target.value); if (v >= 1 && v <= 100) onChange(v); setLibreOpen(false); }}
           onKeyDown={e => { if (e.key === 'Enter') e.target.blur(); }}
-          className="w-14 text-[11px] px-1.5 py-1 rounded-md border border-blue-300" placeholder="2-100" />
+          className="w-14 text-[11px] px-1.5 py-1 rounded-md border border-iip-turquoise/40" placeholder="2-100" />
       ) : (
         <button type="button" onClick={() => setLibreOpen(true)}
           className="text-[11px] px-2 py-1 rounded-md border border-gray-200 text-gray-400 hover:bg-gray-50" title="Autre nombre (jusqu'à 100)">+</button>

@@ -3,7 +3,7 @@ import { api, getAnnee, getUser } from '../lib/api.js';
 import CoursFormModal from '../components/CoursFormModal.jsx';
 import GrilleSectionModal from '../components/GrilleSectionModal.jsx';
 import ImportUEAssistant from '../components/ImportUEAssistant.jsx';
-import { IconX, IconPencil, IconTrash, IconPlus, IconCheck, IconLink } from '@tabler/icons-react';
+import { IconX, IconPencil, IconTrash, IconPlus, IconCheck, IconLink, IconChevronRight, IconTarget } from '@tabler/icons-react';
 
 // ─── Modale Section ───
 // Modal d'import des effectifs étudiants par UE — colle le tableau (n° UE + nb étudiants)
@@ -68,7 +68,7 @@ function EffectifsImportModal({ annee, onClose, onSaved }) {
         <div className="flex justify-end gap-2">
           <button type="button" onClick={onClose} className="px-4 py-2 text-sm text-gray-600">Annuler</button>
           <button type="button" onClick={importer} disabled={!preview || preview.length === 0 || busy}
-            className="bg-blue-600 hover:bg-blue-700 disabled:opacity-30 text-white text-sm px-5 py-2 rounded font-medium">
+            className="bg-iip-blue hover:bg-iip-blue-dark disabled:opacity-30 text-white text-sm px-5 py-2 rounded font-medium">
             {busy ? 'Import…' : `Importer ${preview?.length || 0} effectif(s)`}
           </button>
         </div>
@@ -285,7 +285,7 @@ function UEModal({ ue, sections, onClose, onSaved }) {
                 className="w-full border border-gray-300 rounded px-3 py-1.5 text-sm" /></label>
             <label className="block"><div className="text-xs text-gray-600 mb-0.5">Nb étudiants</div>
               <input type="number" value={form.nb_etudiants} onChange={e => set('nb_etudiants', e.target.value)} placeholder="Effectif inscrit"
-                className="w-full border border-blue-300 rounded px-3 py-1.5 text-sm bg-iip-turquoise/5/40" /></label>
+                className="w-full border border-iip-turquoise/40 rounded px-3 py-1.5 text-sm bg-iip-turquoise/5/40" /></label>
             <label className="block"><div className="text-xs text-gray-600 mb-0.5">Périodes Z (7.3)</div>
               <input type="number" value={form.ue_per_z} onChange={e => set('ue_per_z', e.target.value)} placeholder="Activités autonomes"
                 className="w-full border border-iip-mauve/40 rounded px-3 py-1.5 text-sm bg-iip-mauve/5" /></label>
@@ -466,7 +466,7 @@ export default function Referentiels({ embedded = false }) {
           {annees.filter(a => a.code !== annee).length > 0 && (
             <button onClick={() => setImportOpen(true)} className="bg-white border border-iip-mauve text-iip-mauve hover:bg-iip-mauve/5 text-sm px-4 py-2 rounded font-medium">Importer des UE</button>
           )}
-          <button onClick={() => setEffectifsOpen(true)} className="bg-white border border-blue-400 text-iip-blue hover:bg-iip-turquoise/5 text-sm px-4 py-2 rounded font-medium">Importer effectifs étudiants</button>
+          <button onClick={() => setEffectifsOpen(true)} className="bg-white border border-iip-turquoise/40 text-iip-blue hover:bg-iip-turquoise/5 text-sm px-4 py-2 rounded font-medium">Importer effectifs étudiants</button>
           <button onClick={() => setSectionModal({})} className="bg-white border border-iip-gold text-iip-gold hover:bg-iip-gold/5 text-sm px-4 py-2 rounded font-medium"><IconPlus size={15} className="inline align-[-2px] mr-0.5" /> Nouvelle section</button>
           <button onClick={() => setUeModal({})} className="bg-iip-gold hover:bg-iip-amber text-white text-sm px-4 py-2 rounded font-medium"><IconPlus size={15} className="inline align-[-2px] mr-0.5" /> Nouvelle UE</button>
         </div>
@@ -494,7 +494,7 @@ export default function Referentiels({ embedded = false }) {
         </button>
         <button onClick={() => setViewMode('activites')}
           className={`px-3 py-1.5 text-sm rounded-md transition ${viewMode === 'activites' ? 'bg-white shadow-sm text-iip-gold font-medium' : 'text-gray-500 hover:text-gray-700'}`}>
-          🎯 Activités
+          <IconTarget size={15} className="inline align-[-2px] mr-1" />Activités
         </button>
       </div>
 
@@ -586,7 +586,7 @@ export default function Referentiels({ embedded = false }) {
                     <tr className="bg-iip-gold/5 border-t border-gray-200">
                       <td className="px-2 py-2 text-center">
                         <button onClick={() => toggle(secKey)} className="text-iip-gold font-bold">
-                          <span className={`inline-block transition-transform ${secOpen ? 'rotate-90' : ''}`}>▶</span>
+                          <IconChevronRight size={14} className={`inline-block transition-transform ${secOpen ? 'rotate-90' : ''}`} />
                         </button>
                       </td>
                       <td colSpan="6" className="px-2 py-2 cursor-pointer" onClick={() => toggle(secKey)}>
@@ -635,7 +635,7 @@ export default function Referentiels({ embedded = false }) {
                           }`}>
                             <td className={`px-2 py-1.5 text-center ${activeUE === ueKey ? (isHelb ? 'border-l-2 border-pink-400' : 'border-l-2 border-iip-gold/60') : ''}`}>
                               <button onClick={() => { toggle(ueKey); setActiveUE(ueKey); }} className="text-iip-gold">
-                                <span className={`inline-block text-sm transition-transform ${ueOpen ? 'rotate-90' : ''}`}>▶</span>
+                                <IconChevronRight size={14} className={`inline-block text-sm transition-transform ${ueOpen ? 'rotate-90' : ''}`} />
                               </button>
                             </td>
                             <td className="px-2 py-1.5 font-semibold text-iip-gold whitespace-nowrap cursor-pointer" onClick={() => { toggle(ueKey); setActiveUE(ueKey); }}>UE {ue.ue_num}</td>
@@ -776,7 +776,7 @@ export default function Referentiels({ embedded = false }) {
                       <tr className={`border-b border-gray-100 hover:bg-gray-50 ${isHelb ? 'bg-pink-50' : ''}`}>
                         <td className="px-3 py-1.5">
                           <button onClick={() => { toggle(ueKey); setActiveUE(ueKey); }} className="text-iip-gold">
-                            <span className={`inline-block text-sm transition-transform ${ueOpen ? 'rotate-90' : ''}`}>▶</span>
+                            <IconChevronRight size={14} className={`inline-block text-sm transition-transform ${ueOpen ? 'rotate-90' : ''}`} />
                           </button>
                         </td>
                         <td className="px-2 py-1.5 font-semibold text-iip-gold cursor-pointer" onClick={() => { toggle(ueKey); setActiveUE(ueKey); }}>{ue.ue_num}</td>
@@ -1013,7 +1013,7 @@ function GestionActivites({ sections = [] }) {
           className="w-full flex items-center justify-between px-5 py-3 border-b bg-gray-50 hover:bg-gray-100 transition text-left">
           <div>
             <p className={`text-sm font-semibold ${couleur || 'text-gray-700'}`}>
-              <span className={`inline-block transition-transform ${replie ? '' : 'rotate-90'} mr-1 text-gray-400`}>▶</span>
+              <IconChevronRight size={14} className={`inline-block transition-transform ${replie ? '' : 'rotate-90'} mr-1 text-gray-400`} />
               {titre} <span className="text-gray-400 font-normal">({acts.length})</span>
             </p>
             {sousTitre && <p className="text-xs text-gray-400 ml-4">{sousTitre}</p>}

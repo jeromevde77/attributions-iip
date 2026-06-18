@@ -1,5 +1,5 @@
 import { useEditor, EditorContent } from '@tiptap/react';
-import { IconAlignLeft, IconAlignCenter, IconAlignRight, IconAlignJustified } from '@tabler/icons-react';
+import { IconAlignLeft, IconAlignCenter, IconAlignRight, IconAlignJustified, IconX, IconDeviceFloppy, IconPrinter } from '@tabler/icons-react';
 import StarterKit from '@tiptap/starter-kit';
 import { Table } from '@tiptap/extension-table';
 import { TableRow } from '@tiptap/extension-table-row';
@@ -846,7 +846,7 @@ export default function Editeur() {
                 }}
                 title="Supprimer ce template"
                 className="opacity-0 group-hover:opacity-100 flex-shrink-0 px-2 py-2 text-gray-300 hover:text-red-500 transition text-base">
-                ✕
+                <IconX size={16} />
               </button>
             </div>
           ))}
@@ -862,7 +862,7 @@ export default function Editeur() {
             className="flex-1 min-w-32 border border-gray-300 rounded px-3 py-1.5 text-sm font-medium" placeholder="Nom du template" />
           <button onClick={sauvegarder} disabled={saving}
             className="bg-iip-gold hover:bg-iip-amber disabled:opacity-40 text-white text-sm px-4 py-1.5 rounded font-medium whitespace-nowrap">
-            {saving ? '…' : '💾 Sauvegarder'}
+            {saving ? '…' : <><IconDeviceFloppy size={15} className="inline align-[-2px] mr-1" />Sauvegarder</>}
           </button>
           <label title="Importer un document Word (.docx) et l'éditer" className="bg-white border border-gray-300 hover:bg-gray-50 text-gray-700 text-sm px-3 py-1.5 rounded font-medium whitespace-nowrap cursor-pointer">
             📄 Importer Word
@@ -917,7 +917,7 @@ export default function Editeur() {
             placeholder="N° UE" className="w-20 border border-gray-300 rounded px-2 py-1.5 text-sm" />
           <button onClick={generer} disabled={generating}
             className="bg-iip-mauve hover:opacity-90 disabled:opacity-40 text-white text-sm px-4 py-1.5 rounded font-medium whitespace-nowrap">
-            {generating ? '…' : '🖨 Générer PDF'}
+            {generating ? '…' : <><IconPrinter size={15} className="inline align-[-2px] mr-1" />Générer PDF</>}
           </button>
         </div>
         <Toolbar editor={editor} />

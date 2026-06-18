@@ -113,7 +113,7 @@ export default function CoursFormModal({ cours, ueNum, section, onClose, onSaved
                   {isZ && <svg className="w-2.5 h-2.5 text-[#1F3864]" fill="none" viewBox="0 0 10 10"><path d="M1 5l3 3 5-5" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/></svg>}
                 </div>
                 <span className={`text-sm font-bold ${isZ ? 'text-white' : 'text-gray-600'}`}>Z</span>
-                <span className={`text-xs ${isZ ? 'text-blue-200' : 'text-gray-400'}`}>7.3</span>
+                <span className={`text-xs ${isZ ? 'text-iip-turquoise' : 'text-gray-400'}`}>7.3</span>
                 <input type="checkbox" checked={isZ} onChange={e => toggleZ(e.target.checked)} className="sr-only" />
               </label>
 

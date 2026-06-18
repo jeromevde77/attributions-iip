@@ -5,7 +5,7 @@ import { PageHeader, RailLateral } from '../components/ui.jsx';
 import {
   IconChecklist, IconScale, IconShieldExclamation, IconClipboardList,
   IconFolder, IconCheck, IconX, IconArrowBackUp,
-  IconBan, IconAlertTriangle, IconClock, IconCircleCheck, IconRefresh, IconFileText,
+  IconBan, IconAlertTriangle, IconClock, IconCircleCheck, IconRefresh, IconFileText, IconPrinter, IconPencil,
 } from '@tabler/icons-react';
 
 // ─── Utilitaires ──────────────────────────────────────────────────────────────
@@ -1490,7 +1490,7 @@ function ArchivesProcedures({ onReprendreRecours, onReprendre }) {
                   {detail.type === 'recours' ? '⚖ Recours' : '🚨 Fraude'} · UE {detail.ue_num} · {detail.section} · {detail.annee_scolaire}
                 </p>
               </div>
-              <button onClick={() => setDetail(null)} className="text-gray-400 hover:text-gray-600 text-xl font-light">✕</button>
+              <button onClick={() => setDetail(null)} className="text-gray-400 hover:text-gray-600 text-xl font-light"><IconX size={18} /></button>
             </div>
 
             <div className="flex-1 px-6 py-5 space-y-5 overflow-auto">
@@ -1533,11 +1533,11 @@ function ArchivesProcedures({ onReprendreRecours, onReprendre }) {
                 <div className="flex flex-wrap gap-2">
                   <button onClick={() => regenererHTML(detail)}
                     className="flex items-center gap-1.5 text-sm px-3 py-2 rounded border border-iip-turquoise text-iip-turquoise hover:bg-iip-turquoise hover:text-white transition">
-                    🖨 Voir / Imprimer le document
+                    <IconPrinter size={15} className="inline align-[-2px] mr-1" />Voir / Imprimer le document
                   </button>
                   <button onClick={() => { setDetail(null); onReprendreRecours && onReprendreRecours(detail); }}
                     className="flex items-center gap-1.5 text-sm px-3 py-2 rounded border border-gray-300 text-gray-700 hover:bg-gray-50 transition">
-                    ✏ Reprendre dans le formulaire
+                    <IconPencil size={15} className="inline align-[-2px] mr-1" />Reprendre dans le formulaire
                   </button>
                 </div>
               </div>
