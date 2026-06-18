@@ -1,4 +1,5 @@
 import { useEditor, EditorContent } from '@tiptap/react';
+import { IconAlignLeft, IconAlignCenter, IconAlignRight, IconAlignJustified } from '@tabler/icons-react';
 import StarterKit from '@tiptap/starter-kit';
 import { Table } from '@tiptap/extension-table';
 import { TableRow } from '@tiptap/extension-table-row';
@@ -418,10 +419,10 @@ const PAGE_FORMATS = {
 const DEFAULT_MARGINS = { top: 20, right: 20, bottom: 20, left: 20 };
 
 // Icônes d'alignement (SVG minimaliste, 4 lignes horizontales)
-const IcoAlignLeft    = () => <svg width="14" height="12" viewBox="0 0 14 12" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"><line x1="0" y1="2" x2="14" y2="2"/><line x1="0" y1="5.5" x2="9" y2="5.5"/><line x1="0" y1="9" x2="14" y2="9"/><line x1="0" y1="12" x2="7" y2="12"/></svg>;
-const IcoAlignCenter  = () => <svg width="14" height="12" viewBox="0 0 14 12" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"><line x1="0" y1="2" x2="14" y2="2"/><line x1="2.5" y1="5.5" x2="11.5" y2="5.5"/><line x1="0" y1="9" x2="14" y2="9"/><line x1="3.5" y1="12" x2="10.5" y2="12"/></svg>;
-const IcoAlignRight   = () => <svg width="14" height="12" viewBox="0 0 14 12" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"><line x1="0" y1="2" x2="14" y2="2"/><line x1="5" y1="5.5" x2="14" y2="5.5"/><line x1="0" y1="9" x2="14" y2="9"/><line x1="7" y1="12" x2="14" y2="12"/></svg>;
-const IcoAlignJustify = () => <svg width="14" height="12" viewBox="0 0 14 12" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"><line x1="0" y1="2" x2="14" y2="2"/><line x1="0" y1="5.5" x2="14" y2="5.5"/><line x1="0" y1="9" x2="14" y2="9"/><line x1="0" y1="12" x2="14" y2="12"/></svg>;
+const IcoAlignLeft = () => <IconAlignLeft size={14} stroke={1.8} />;
+const IcoAlignCenter = () => <IconAlignCenter size={14} stroke={1.8} />;
+const IcoAlignRight = () => <IconAlignRight size={14} stroke={1.8} />;
+const IcoAlignJustify = () => <IconAlignJustified size={14} stroke={1.8} />;
 // Les zones de marge sont grisées. Les poignées gauche/droite sont glissables.
 function Regle({ fmt = 'A4P', margins, onMarginChange }) {
   const { rulerCount } = PAGE_FORMATS[fmt] || PAGE_FORMATS.A4P;

@@ -4,7 +4,7 @@ import { api, getAnnee, getUser, nomDoc } from '../lib/api.js';
 import ProfFicheModal from './ProfFicheModal.jsx';
 import PreviewModal from '../components/PreviewModal.jsx';
 import CoursEditModal from '../components/CoursEditModal.jsx';
-import { IconMail, IconMapPin, IconFileText, IconEdit, IconDownload, IconRefresh, IconX, IconPrinter, IconPlus, IconTrash, IconKey, IconLock, IconCheck, IconBriefcase } from '@tabler/icons-react';
+import { IconMail, IconMapPin, IconFileText, IconEdit, IconDownload, IconRefresh, IconX, IconPrinter, IconPlus, IconTrash, IconKey, IconLock, IconCheck, IconBriefcase, IconChevronDown } from '@tabler/icons-react';
 
 const EMPTY = {
   nom: '', prenom: '', adresse_mail: '', mail_prive: '',
@@ -344,9 +344,9 @@ function DetailModal({ profId, onClose, onEdit, onFiche }) {
             <div className="relative">
               <button onClick={() => setPrintMenu(v => !v)}
                 className="flex items-center gap-1.5 bg-gray-100 hover:bg-gray-200 text-gray-700 text-sm px-3 py-1.5 rounded" title="Fiche d'attributions">
-                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg>
+                <IconPrinter size={15} />
                 Fiche
-                <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+                <IconChevronDown size={12} />
               </button>
               {printMenu && (
                 <>
@@ -1196,7 +1196,7 @@ export default function Professeurs() {
           <div className="flex items-center justify-center gap-2 relative">
             <button onClick={() => setFicheMenu(ficheMenu === p.id ? null : p.id)}
               className="text-gray-400 hover:text-iip-mauve" title="Fiche d'attributions">
-              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg>
+              <IconPrinter size={15} />
             </button>
             {ficheMenu === p.id && (
               <>
@@ -1294,7 +1294,7 @@ export default function Professeurs() {
               <button onClick={() => setPrintSelMenu(v => !v)} disabled={printing}
                 className="bg-iip-mauve hover:opacity-90 disabled:opacity-50 text-white text-sm px-3 py-1.5 rounded font-medium inline-flex items-center gap-1.5">
                 <IconPrinter size={15}/>{printing ? 'Préparation…' : `Imprimer (${selection.size})`}
-                <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+                <IconChevronDown size={12} />
               </button>
               {printSelMenu && (
                 <>

@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { api, getAnnee } from '../lib/api.js';
-import { IconSettings, IconBooks, IconCalendar, IconBuilding, IconUsers, IconUserShield, IconHistory, IconAdjustments, IconLink, IconSparkles, IconX, IconChevronRight } from '@tabler/icons-react';
+import { IconSettings, IconBooks, IconCalendar, IconBuilding, IconUsers, IconUserShield, IconHistory, IconAdjustments, IconLink, IconSparkles, IconX, IconChevronRight, IconCheck } from '@tabler/icons-react';
 import { PageHeader, Tabs } from '../components/ui.jsx';
 
 const TOKEN = () => localStorage.getItem('token');
@@ -151,7 +151,7 @@ function GestionPersonnel() {
                               ? 'bg-iip-mauve border-iip-mauve text-white'
                               : 'bg-white border-gray-300 hover:border-iip-mauve'} ${saving[key] ? 'opacity-50' : ''}`}>
                             {on && (
-                              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+                              <IconCheck size={14} />
                             )}
                           </button>
                         </td>
@@ -184,7 +184,7 @@ function GestionPersonnel() {
                               ? 'bg-iip-mauve border-iip-mauve text-white'
                               : 'bg-white border-gray-300 hover:border-iip-mauve'} ${saving[key] ? 'opacity-50' : ''}`}>
                             {on && (
-                              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+                              <IconCheck size={14} />
                             )}
                           </button>
                         </td>
