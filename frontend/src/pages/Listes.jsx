@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { api, getAnnee, nomDoc } from '../lib/api.js';
 import PreviewModal from '../components/PreviewModal.jsx';
+import { RailLateral } from '../components/ui.jsx';
 import {
   IconUser, IconBooks, IconBook, IconLink, IconSchool, IconScale,
   IconAlertTriangle, IconLayoutGrid, IconFileText, IconFileDescription,
@@ -946,42 +947,24 @@ export default function Listes() {
   const ordreGroupes = ['data', 'rapport'];
 
   return (
-    <div className="flex bg-slate-50" style={{ minHeight: 'calc(100vh - 64px)' }}>
-      {/* ── Rail latéral groupé ── */}
-      <aside className="w-56 flex-shrink-0 bg-iip-blue py-4 px-2.5">
-        <div className="flex items-center gap-2 px-3 pb-3 text-white text-[15px] font-semibold">
-          <IconFileExport size={20} className="text-iip-turquoise" />
-          Listes &amp; rapports
-        </div>
-        {ordreGroupes.map(grp => {
-          const items = Object.entries(ENTITES).filter(([, e]) => (e.groupe || 'data') === grp);
-          if (items.length === 0) return null;
-          return (
-            <div key={grp} className="mb-3">
-              <div className="px-3 mt-2 mb-1 text-[10px] font-semibold uppercase tracking-wider text-white/40">
-                {GROUPES_LABEL[grp]}
-              </div>
-              {items.map(([k, e]) => {
-                const Ic = TABLER[e.tabler] || IconFileText;
-                const actif = entite === k;
-                return (
-                  <button key={k} onClick={() => changerEntite(k)}
-                    className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-[13px] mb-0.5 transition-colors duration-150
-                      ${actif
-                        ? 'bg-iip-turquoise text-white font-semibold'
-                        : 'text-white/75 hover:bg-white/10 hover:text-white'}`}>
-                    <Ic size={17} stroke={1.8} className="flex-shrink-0" />
-                    <span className="text-left leading-tight">{e.label}</span>
-                  </button>
-                );
-              })}
-            </div>
-          );
-        })}
-      </aside>
+    <div className="relative bg-slate-50" style={{ minHeight: 'calc(100vh - 64px)' }}>
+      {/* ── Rail latéral glissant (composant partagé) ── */}
+      <RailLateral
+        icon={IconFileExport}
+        titre="Listes & rapports"
+        sections={ordreGroupes.map(grp => ({
+          label: GROUPES_LABEL[grp],
+          items: Object.entries(ENTITES)
+            .filter(([, e]) => (e.groupe || 'data') === grp)
+            .map(([k, e]) => ({
+              key: k, label: e.label, icon: TABLER[e.tabler] || IconFileText,
+              actif: entite === k, onClick: () => changerEntite(k),
+            })),
+        })).filter(s => s.items.length > 0)}
+      />
 
       {/* ── Colonne droite : filtres + contenu ── */}
-      <div className="flex-1 flex flex-col min-w-0">
+      <div className="ml-16 flex flex-col min-w-0">
 
       {/* ── Barre de filtres + actions ── */}
       <div className="flex-shrink-0 bg-white border-b border-slate-200 px-5 py-2.5 flex items-center gap-3 flex-wrap">

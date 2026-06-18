@@ -1,6 +1,7 @@
 import { useEffect, useState, useMemo } from 'react';
 import { api, getAnnee, nomDoc, getUnite, setUnite as setUniteGlobal, perToH, hToPer } from '../lib/api.js';
 import PreviewModal from '../components/PreviewModal.jsx';
+import { RailLateral } from '../components/ui.jsx';
 import EptModal from '../components/EptModal.jsx';
 import OrganisationUEModal from '../components/OrganisationUEModal.jsx';
 import OrganiserGroupesModal from '../components/OrganiserGroupesModal.jsx';
@@ -1468,7 +1469,16 @@ export default function Attributions() {
 
   // ===================== RENDU =====================
   return (
-    <div className="p-2 md:p-4 max-w-7xl mx-auto">
+    <div className="relative" style={{ minHeight: 'calc(100vh - 64px)' }}>
+      <RailLateral
+        icon={IconClipboardText}
+        titre="Attributions"
+        sections={[{ items: [
+          { key: 'ue',   label: 'Par section',  icon: IconFolder,        actif: viewMode === 'ue',   onClick: () => setViewMode('ue') },
+          { key: 'flat', label: 'Vue complète', icon: IconClipboardText, actif: viewMode === 'flat', onClick: () => setViewMode('flat') },
+        ] }]}
+      />
+      <div className="ml-16 p-2 md:p-4 max-w-7xl mx-auto">
       {/* (bandeau perte de charge déplacé en bas de page) */}
 
       {/* Barre mobile */}
@@ -1499,10 +1509,6 @@ export default function Attributions() {
 
       {/* Barre d'actions desktop */}
       <div className="hidden md:flex items-center gap-2 mb-3 flex-wrap">
-        <div className="bg-white border border-gray-200 rounded-lg flex overflow-hidden text-sm mr-2">
-          <button onClick={()=>setViewMode('ue')} className={`px-3 py-1.5 font-medium transition ${viewMode==='ue'?'bg-iip-gold text-white':'text-gray-600 hover:bg-gray-50'}`}><span className="inline-flex items-center gap-1.5"><IconFolder size={15}/>Par section</span></button>
-          <button onClick={()=>setViewMode('flat')} className={`px-3 py-1.5 font-medium transition ${viewMode==='flat'?'bg-iip-gold text-white':'text-gray-600 hover:bg-gray-50'}`}><span className="inline-flex items-center gap-1.5"><IconClipboardText size={15}/>Vue complète</span></button>
-        </div>
         {viewMode==='ue' && <div className="flex gap-1 text-xs mr-2">
           <button onClick={expandAll} className="text-gray-500 hover:text-iip-gold px-2 py-1">Tout déplier</button>
           <button onClick={collapseAll} className="text-gray-500 hover:text-iip-gold px-2 py-1">Tout replier</button>
@@ -1769,6 +1775,7 @@ export default function Attributions() {
           </div>
         </div>
       )}
+    </div>
     </div>
   );
 }
