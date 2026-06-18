@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { IconCheck, IconX } from '@tabler/icons-react';
 import { api, getUser } from '../lib/api.js';
 
 /**
@@ -110,7 +111,7 @@ export default function CoursFormModal({ cours, ueNum, section, onClose, onSaved
                 ${isZ ? 'border-[#1F3864] bg-[#1F3864]' : 'border-gray-300 hover:border-[#1F3864]/50'}`}>
                 <div className={`w-4 h-4 rounded flex items-center justify-center border-2 transition
                   ${isZ ? 'bg-white border-white' : 'border-gray-400'}`}>
-                  {isZ && <svg className="w-2.5 h-2.5 text-[#1F3864]" fill="none" viewBox="0 0 10 10"><path d="M1 5l3 3 5-5" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/></svg>}
+                  {isZ && <IconCheck size={10} className="text-iip-blue" stroke={2.2} />}
                 </div>
                 <span className={`text-sm font-bold ${isZ ? 'text-white' : 'text-gray-600'}`}>Z</span>
                 <span className={`text-xs ${isZ ? 'text-iip-turquoise' : 'text-gray-400'}`}>7.3</span>
@@ -163,7 +164,7 @@ export default function CoursFormModal({ cours, ueNum, section, onClose, onSaved
                   className="flex-1 border border-gray-300 rounded px-3 py-1.5 text-sm font-mono" />
                 <button type="button" onClick={forcerCode} disabled={saving}
                   className="bg-iip-mauve text-white text-sm px-3 py-1.5 rounded disabled:opacity-40">Forcer</button>
-                <button type="button" onClick={() => setRenaming(false)} className="text-sm text-gray-500 px-2">✕</button>
+                <button type="button" onClick={() => setRenaming(false)} className="text-sm text-gray-500 px-2"><IconX size={16} /></button>
               </div>
             </div>
           )}

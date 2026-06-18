@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { IconBook, IconUsers } from '@tabler/icons-react';
 import { api } from '../lib/api.js';
 
 /**
@@ -189,7 +190,7 @@ export default function AttributionForm({ onClose, onCreated, editRow = null }) 
 
           {/* UE et Cours */}
           <fieldset className="grid grid-cols-2 md:grid-cols-4 gap-3">
-            <legend className="text-sm font-medium text-gray-700 mb-2 col-span-full">📚 UE et cours</legend>
+            <legend className="text-sm font-medium text-gray-700 mb-2 col-span-full"><IconBook size={15} className="inline align-[-2px] mr-1" />UE et cours</legend>
             <div className="col-span-2">
               <label className="block text-xs text-gray-600 mb-0.5">UE *</label>
               <select value={form.ue_num} onChange={e => set('ue_num', e.target.value)}
@@ -244,7 +245,7 @@ export default function AttributionForm({ onClose, onCreated, editRow = null }) 
 
           {/* Groupe */}
           <fieldset className="grid grid-cols-2 md:grid-cols-4 gap-3">
-            <legend className="text-sm font-medium text-gray-700 mb-2 col-span-full">👥 Groupe</legend>
+            <legend className="text-sm font-medium text-gray-700 mb-2 col-span-full"><IconUsers size={15} className="inline align-[-2px] mr-1" />Groupe</legend>
             <div>
               <label className="block text-xs text-gray-600 mb-0.5">Code (A/B/...)</label>
               <input value={form.code} onChange={e => set('code', e.target.value)}

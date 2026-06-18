@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { IconPrinter } from '@tabler/icons-react';
 import { api, getAnnee } from '../lib/api.js';
 import PreviewModal from './PreviewModal.jsx';
 
@@ -234,7 +235,7 @@ export default function GrilleSectionModal({ section, onClose }) {
           <div className="flex items-center gap-2">
             <button onClick={imprimer} title="Imprimer la grille"
               className="px-3 py-1.5 text-sm rounded-lg bg-slate-800 text-white hover:bg-slate-700 font-medium">
-              🖨 Imprimer
+              <IconPrinter size={14} className="inline align-[-2px] mr-1" />Imprimer
             </button>
             <button onClick={onClose} className="text-gray-400 hover:text-red-500 text-2xl leading-none">×</button>
           </div>

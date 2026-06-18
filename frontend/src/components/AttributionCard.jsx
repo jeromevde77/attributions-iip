@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { IconTrash } from '@tabler/icons-react';
 import { api } from '../lib/api.js';
 
 /**
@@ -237,7 +238,7 @@ export default function AttributionCard({ row, selected, onToggleSelect, onChang
               {isAdmin && (
                 <button onClick={() => { setOpen(false); onDelete?.(row.id); }}
                         className="px-4 py-2.5 text-sm bg-red-50 hover:bg-red-100 text-red-600 rounded font-medium">
-                  🗑
+                  <IconTrash size={15} />
                 </button>
               )}
               <button onClick={save} disabled={saving}

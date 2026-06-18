@@ -1,4 +1,5 @@
 import { useEffect, useState, useMemo } from 'react';
+import { IconPlus, IconTarget, IconTrash } from '@tabler/icons-react';
 import { api } from '../lib/api.js';
 
 /**
@@ -474,7 +475,7 @@ export default function CoursEditModal({ section, codeCours, onClose, onChanged 
                             {canEdit && (
                               <button onClick={() => deleteRow(r.id)}
                                       className="text-red-400 hover:text-red-600 text-base"
-                                      title="Supprimer cette ligne">🗑</button>
+                                      title="Supprimer cette ligne"><IconTrash size={14} /></button>
                             )}
                           </td>
                         </tr>
@@ -534,7 +535,7 @@ export default function CoursEditModal({ section, codeCours, onClose, onChanged 
               {canEdit && (
                 <button onClick={addRow}
                         className="mt-3 bg-iip-mauve/15 hover:bg-iip-mauve/25 text-iip-mauve text-sm font-medium px-4 py-2 rounded">
-                  ➕ Ajouter une ligne
+                  <IconPlus size={14} className="inline align-[-2px] mr-1" />Ajouter une ligne
                 </button>
               )}
             </>
@@ -556,7 +557,7 @@ export default function CoursEditModal({ section, codeCours, onClose, onChanged 
               }}
               title="Ouvrir la gestion des activités dans les Référentiels"
               className="text-sm text-gray-500 hover:text-iip-gold border border-gray-200 hover:border-iip-gold/40 px-3 py-2 rounded transition mr-auto">
-              🎯 Gérer les activités…
+              <IconTarget size={14} className="inline align-[-2px] mr-1" />Gérer les activités…
             </button>
             <button onClick={onClose} className="px-4 py-2 text-sm text-gray-600 hover:text-gray-800">Fermer</button>
             {canEdit && (

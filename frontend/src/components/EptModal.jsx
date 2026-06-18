@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { IconTrash } from '@tabler/icons-react';
 
 const CODES_EPT = [
   { code: '95', label: 'ExPT — Expertise Pédagogique et Technique' },
@@ -111,7 +112,7 @@ export default function EptModal({ section, ue_num, ue_nom, annee, onClose }) {
                     <td className="px-3 py-2 text-center text-gray-400 text-xs">Org {l.num_organisation}</td>
                     <td className="px-3 py-2 text-center">
                       <button onClick={() => supprimerLigne(l.id)}
-                        className="text-red-400 hover:text-red-600 text-xs">🗑</button>
+                        className="text-red-400 hover:text-red-600 text-xs"><IconTrash size={14} /></button>
                     </td>
                   </tr>
                 ))}

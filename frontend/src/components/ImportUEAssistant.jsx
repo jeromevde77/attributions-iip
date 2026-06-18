@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { IconChevronRight } from '@tabler/icons-react';
 import { api } from '../lib/api.js';
 
 /**
@@ -103,7 +104,7 @@ export default function ImportUEAssistant({ source, cible, onClose, onDone }) {
                       <input type="checkbox" checked={allChecked} onChange={() => toggleSec(sg)}
                              disabled={importables.length === 0} />
                       <button onClick={() => toggleOpen(sg.section)} className="flex items-center gap-2 flex-1 text-left">
-                        <span className={`text-iip-gold text-xs transition-transform ${isOpen ? 'rotate-90' : ''}`}>▶</span>
+                        <IconChevronRight size={14} className={`text-iip-gold text-xs transition-transform ${isOpen ? 'rotate-90' : ''}`} />
                         <span className="font-semibold text-iip-gold text-sm">{sg.section}</span>
                         <span className="text-xs text-gray-400">{sg.ues.length} UE</span>
                       </button>

@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { IconChevronRight } from '@tabler/icons-react';
 import { api } from '../lib/api.js';
 
 /* Libellés et couleurs par type d'action */
@@ -63,7 +64,7 @@ export default function ActivityFeed() {
               ? <span className="ml-1 text-iip-mauve">· {nonTraitees} à vérifier</span>
               : <span className="ml-1 text-green-600 font-normal">· tout est vérifié ✓</span>}
           </span>
-          <span className={`text-iip-gold text-sm transition-transform ${open ? 'rotate-90' : ''}`}>▶</span>
+          <IconChevronRight size={14} className={`text-iip-gold text-sm transition-transform ${open ? 'rotate-90' : ''}`} />
         </button>
         {open && (
           <label className="flex items-center gap-1.5 text-xs text-gray-500 cursor-pointer">

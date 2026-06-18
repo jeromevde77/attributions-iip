@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { IconCalendar, IconDeviceFloppy, IconPencil, IconTrash } from '@tabler/icons-react';
 
 const FLAGS = [
   { key: 'ept_uniquement',        label: 'Uniquement EPT / périodes suppl.' },
@@ -36,7 +37,7 @@ function OrgForm({ org, onSave, onDelete, onCancel }) {
         <div className="font-semibold text-iip-gold text-sm">Organisation N° {form.num_organisation}</div>
         {org?.id && (
           <button onClick={() => onDelete(org.id)}
-            className="text-red-400 hover:text-red-600 text-xs">🗑 Supprimer</button>
+            className="text-red-400 hover:text-red-600 text-xs"><IconTrash size={14} className="inline align-[-2px] mr-1" />Supprimer</button>
         )}
       </div>
 
@@ -99,7 +100,7 @@ function OrgForm({ org, onSave, onDelete, onCancel }) {
         <button onClick={() => onSave(form)}
           disabled={!form.date_debut || !form.date_fin}
           className="bg-iip-gold text-white text-sm px-4 py-1.5 rounded hover:bg-iip-amber disabled:opacity-50">
-          💾 Enregistrer
+          <IconDeviceFloppy size={14} className="inline align-[-2px] mr-1" />Enregistrer
         </button>
         <button onClick={onCancel}
           className="text-gray-500 text-sm px-3 py-1.5 rounded border border-gray-300 hover:bg-gray-50">
@@ -186,7 +187,7 @@ export default function OrganisationUEModal({ ue_num, section, ue_nom, annee, on
                         Organisation N° {org.num_organisation}
                       </div>
                       <div className="text-xs text-gray-600">
-                        📅 {fmt(org.date_debut)} → {fmt(org.date_fin)}
+                        <IconCalendar size={13} className="inline align-[-2px] mr-1" />{fmt(org.date_debut)} → {fmt(org.date_fin)}
                         {org.nb_semaines && <span className="ml-3">📆 {org.nb_semaines} semaines</span>}
                       </div>
                       {FLAGS.filter(f => org[f.key]).length > 0 && (
@@ -195,7 +196,7 @@ export default function OrganisationUEModal({ ue_num, section, ue_nom, annee, on
                         </div>
                       )}
                     </div>
-                    <span className="text-iip-gold text-xs">✏ Modifier</span>
+                    <span className="text-iip-gold text-xs"><IconPencil size={12} className="inline align-[-2px] mr-1" />Modifier</span>
                   </div>
                 )
               ))}

@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef, useMemo } from 'react';
+import { IconCalendar, IconPlus, IconScissors, IconTrash } from '@tabler/icons-react';
 import { getAnnee } from '../lib/api.js';
 import WizardConfigCours from './WizardConfigCours.jsx';
 
@@ -456,7 +457,7 @@ export default function PlanificateurVisuel({ onClose }) {
         {/* En-tête */}
         <div className="border-b border-gray-200 p-4 flex items-center justify-between gap-4">
           <div className="flex items-center gap-3">
-            <h2 className="font-title text-lg text-iip-gold">📅 Planificateur visuel d'UE</h2>
+            <h2 className="font-title text-lg text-iip-gold"><IconCalendar size={18} className="inline align-[-2px] mr-1" />Planificateur visuel d'UE</h2>
             <select value={section} onChange={e => setSection(e.target.value)}
               className="border border-gray-300 rounded px-3 py-1.5 text-sm bg-white">
               <option value="">— Section —</option>
@@ -663,7 +664,7 @@ export default function PlanificateurVisuel({ onClose }) {
                 <span className="flex items-center gap-1"><span className="inline-block w-3 h-3 rounded" style={{background:'#dbeafe',border:'1.5px solid #3b82f6'}}/>Cours</span>
                 <span className="flex items-center gap-1"><span className="inline-block w-3 h-3 rounded" style={{background:'#fef3c7',border:'1.5px solid #f59e0b'}}/>Remédiation</span>
                 <span className="flex items-center gap-1"><span className="inline-block w-3 h-3 rounded" style={{background:'#fae8ff',border:'1.5px solid #c026d3'}}/>Autonomie</span>
-                <span className="ml-4">Glisser = décaler · bord droit = rythme · ✂ = couper</span>
+                <span className="ml-4">Glisser = décaler · bord droit = rythme · <IconScissors size={12} className="inline align-[-2px]" /> = couper</span>
               </div>
             </div>
           )}
@@ -762,7 +763,7 @@ export default function PlanificateurVisuel({ onClose }) {
       {coupeBloc && (
         <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-[58]" onClick={e => e.target === e.currentTarget && setCoupeBloc(null)}>
           <div className="bg-white rounded-xl shadow-2xl w-full max-w-sm p-5">
-            <h3 className="font-title text-lg text-iip-gold mb-1">✂ Scinder le bloc</h3>
+            <h3 className="font-title text-lg text-iip-gold mb-1"><IconScissors size={14} className="inline align-[-2px] mr-1" />Scinder le bloc</h3>
             <p className="text-sm text-gray-600 mb-4">{coupeBloc.activite} · {coupeBloc.heures}h sur {coupeBloc.dureeSem} sem.</p>
             <div className="flex rounded border border-gray-300 overflow-hidden text-sm mb-3">
               <button onClick={() => setCoupeMode('heures')}
@@ -806,7 +807,7 @@ export default function PlanificateurVisuel({ onClose }) {
               {menuBloc.activite}
             </div>
             <button onClick={() => dedoublerBloc(menuBloc)} className="w-full text-left px-3 py-2 hover:bg-gray-50 flex items-center gap-2">
-              ➕ Dédoubler le groupe (B, C…)
+              <IconPlus size={14} className="inline align-[-2px] mr-1" />Dédoubler le groupe (B, C…)
             </button>
             <div className="px-3 py-1.5 text-xs text-gray-400">Activité :</div>
             {['Cours', 'TP / Labo', 'Remédiation', 'Autonomie', 'Évaluation'].map(act => (
@@ -818,11 +819,11 @@ export default function PlanificateurVisuel({ onClose }) {
               {menuBloc.alternance ? '✓ ' : ''}🔁 Une semaine sur deux
             </button>
             <button onClick={() => { setCoupeBloc(menuBloc); setMenuBloc(null); setCoupeMode('heures'); setCoupeVal(''); }} className="w-full text-left px-3 py-2 hover:bg-gray-50 flex items-center gap-2">
-              ✂ Scinder le bloc…
+              <IconScissors size={14} className="inline align-[-2px] mr-1" />Scinder le bloc…
             </button>
             <div className="border-t border-gray-100 my-1" />
             <button onClick={() => supprimerBloc(menuBloc.id)} className="w-full text-left px-3 py-2 hover:bg-red-50 text-red-600 flex items-center gap-2">
-              🗑 Supprimer ce bloc
+              <IconTrash size={14} className="inline align-[-2px] mr-1" />Supprimer ce bloc
             </button>
           </div>
         </div>

@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { IconTrash } from '@tabler/icons-react';
 import { getAnnee } from '../lib/api.js';
 
 const TOKEN = () => localStorage.getItem('token');
@@ -110,7 +111,7 @@ export default function NominationsPanel({ profId }) {
                 className="text-[11px] bg-amber-100 text-amber-700 px-2 py-1 rounded hover:bg-amber-200 whitespace-nowrap">
                 RT
               </button>
-              <button type="button" onClick={() => supprimer(n.id)} className="text-gray-400 hover:text-red-500 text-sm">🗑</button>
+              <button type="button" onClick={() => supprimer(n.id)} className="text-gray-400 hover:text-red-500 text-sm"><IconTrash size={15} /></button>
             </div>
           ))}
           {/* Totaux par type */}
