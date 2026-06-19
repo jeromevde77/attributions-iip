@@ -1225,6 +1225,7 @@ export default function Attributions() {
                 {/* Badge lettre — clic pour choisir, drag pour échanger */}
                 <span
                   onClick={e => { e.stopPropagation(); if (estGroupe) setBadgeMenuOpen(menuOuvert ? null : row.id); }}
+                  id={'badge-'+row.id}
                   title={estGroupe ? 'Cliquer pour changer la lettre' : ''}
                   style={{
                     display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
@@ -1236,11 +1237,14 @@ export default function Attributions() {
                     userSelect: 'none',
                   }}>{lettre}</span>
 
-                {/* Mini-menu de sélection de lettre */}
+                {/* Mini-menu de sélection de lettre — position fixed pour éviter le clipping du td */}
                 {menuOuvert && (
                   <>
                     <div style={{position:'fixed',inset:0,zIndex:998}} onClick={e=>{e.stopPropagation();setBadgeMenuOpen(null);}} />
-                    <div style={{position:'absolute',top:'100%',left:0,zIndex:999,background:'#fff',border:'1px solid #E2E8F0',borderRadius:8,boxShadow:'0 4px 12px rgba(0,0,0,0.12)',padding:4,display:'flex',gap:3,flexWrap:'wrap',minWidth:80,marginTop:2}}>
+                    <div style={{position:'fixed',zIndex:999,background:'#fff',border:'1px solid #E2E8F0',borderRadius:8,boxShadow:'0 4px 12px rgba(0,0,0,0.15)',padding:4,display:'flex',gap:3,flexWrap:'wrap',minWidth:80,
+                      top: (() => { const el = document.getElementById('badge-'+row.id); if (!el) return 0; const r = el.getBoundingClientRect(); return r.bottom + 4; })(),
+                      left: (() => { const el = document.getElementById('badge-'+row.id); if (!el) return 0; const r = el.getBoundingClientRect(); return r.left; })(),
+                    }}>
                       {Array.from({length: nbGroupes}, (_, i) => String.fromCharCode(65+i)).map(l => {
                         const prise = lettresPrises.has(l);
                         const courante = l === lettre;
