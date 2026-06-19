@@ -217,6 +217,7 @@ export default function Attributions() {
   const [data, setData] = useState([]);
   const [dragSrcId, setDragSrcId] = useState(null); // id de la ligne en cours de drag
   const [dragOverId, setDragOverId] = useState(null);   // id de la cible survolée
+  const [badgeMenuOpen, setBadgeMenuOpen] = useState(null); // id de la ligne dont le menu lettre est ouvert
   const [groupeAlertes, setGroupeAlertes] = useState(null); // { section, anomalies[] } | null
   const [sections, setSections] = useState([]);
   const [professeurs, setProfesseurs] = useState([]);
@@ -916,16 +917,17 @@ export default function Attributions() {
 
   // Détecte les anomalies de numérotation de groupes dans un tableau de lignes
   function detecterAnomaliesGroupes(rows) {
-    // Grouper par cours + activité (périmètre d'unicité)
+    // Grouper par cours + activité (périmètre d'unicité) — on ignore les splits (Ts partagé entre profs = normal)
     const map = new Map();
     for (const r of rows) {
-      if (r.split_groupe === 'O') continue; // les splits Ts sont normaux
       const k = (r.section||'') + '|' + (r.code_cours||'') + '|' + (r.num_organisation||1) + '|' + (r.activite_id||'__none__');
       if (!map.has(k)) map.set(k, []);
       map.get(k).push(r);
     }
     const anomalies = [];
     for (const [, lignes] of map) {
+      // Si toutes les lignes sont des splits (Ts partagé entre profs), c'est normal
+      if (lignes.every(r => r.split_groupe === 'O')) continue;
       if (lignes.length <= 1) {
         // Une seule ligne : doit être Ts (code vide ou 'TS')
         const code = (lignes[0].code || '').toUpperCase();
@@ -1222,17 +1224,42 @@ export default function Attributions() {
               }
             }
 
+            // Lettres déjà utilisées par les frères du même cours+activité
+            const freres = data.filter(r =>
+              r.id !== row.id &&
+              r.section === row.section &&
+              r.code_cours === row.code_cours &&
+              (r.num_organisation||1) === (row.num_organisation||1) &&
+              r.split_groupe !== 'O'
+            );
+            // Nombre total de lignes dans ce groupe (this + frères)
+            const nbGroupes = freres.length + 1;
+            // Lettres disponibles = A..Z jusqu'à nbGroupes, moins celles déjà prises par les frères
+            const lettresPrises = new Set(freres.map(r => (r.code||'').toUpperCase()).filter(l => l && l !== 'TS'));
+            const lettresDispos = Array.from({length: nbGroupes}, (_, i) => String.fromCharCode(65+i))
+              .filter(l => !lettresPrises.has(l));
+            const badgeMenuKey = row.id + '-badge-menu';
+            const menuOuvert = badgeMenuOpen === row.id;
+
+            async function assignerLettre(newLettre) {
+              setBadgeMenuOpen(null);
+              setData(prev => prev.map(r => r.id === row.id ? { ...r, code: newLettre } : r));
+              try { await api.updateAttribution(row.id, { code: newLettre }); }
+              catch(e) { setData(prev => prev.map(r => r.id === row.id ? { ...r, code: row.code } : r)); alert('Erreur : ' + e.message); }
+            }
+
             return <td key={c.key} style={sty}>
-              <div className="flex items-center gap-0.5 justify-center">
-                {/* Badge lettre — draggable si groupe actif */}
+              <div className="flex items-center gap-0.5 justify-center" style={{position:'relative'}}>
+                {/* Badge lettre — clic pour choisir, drag pour échanger */}
                 <span
                   draggable={estGroupe}
+                  onClick={e => { e.stopPropagation(); if (estGroupe) setBadgeMenuOpen(menuOuvert ? null : row.id); }}
                   onDragStart={e => { setDragSrcId(row.id); e.dataTransfer.setData('text/plain', String(row.id)); e.dataTransfer.effectAllowed = 'move'; }}
                   onDragOver={e => { e.preventDefault(); e.stopPropagation(); setDragOverId(row.id); }}
                   onDragLeave={e => { setDragOverId(null); }}
                   onDragEnd={e => { setDragSrcId(null); setDragOverId(null); }}
                   onDrop={e => { e.preventDefault(); e.stopPropagation(); setDragOverId(null); setDragSrcId(null); swapAvecId(row.id); }}
-                  title={estGroupe ? 'Glisser sur un autre groupe pour échanger les lettres' : ''}
+                  title={estGroupe ? 'Cliquer pour changer la lettre · Glisser pour échanger' : ''}
                   style={{
                     display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
                     minWidth: 22, height: 20, paddingInline: 5, borderRadius: 5,
@@ -1240,10 +1267,40 @@ export default function Attributions() {
                     background: dragOverId === row.id && dragSrcId !== row.id ? '#00AACC' : badgeStyle.bg,
                     color: dragOverId === row.id && dragSrcId !== row.id ? '#fff' : badgeStyle.color,
                     border: dragOverId === row.id && dragSrcId !== row.id ? '2px solid #007A99' : `1px solid ${badgeStyle.border}`,
-                    cursor: estGroupe ? (dragSrcId === row.id ? 'grabbing' : 'grab') : 'default',
+                    cursor: estGroupe ? (dragSrcId === row.id ? 'grabbing' : 'pointer') : 'default',
                     userSelect: 'none',
                     transition: 'background 0.1s, border 0.1s',
                   }}>{lettre}</span>
+
+                {/* Mini-menu de sélection de lettre */}
+                {menuOuvert && (
+                  <>
+                    <div style={{position:'fixed',inset:0,zIndex:998}} onClick={e=>{e.stopPropagation();setBadgeMenuOpen(null);}} />
+                    <div style={{position:'absolute',top:'100%',left:0,zIndex:999,background:'#fff',border:'1px solid #E2E8F0',borderRadius:8,boxShadow:'0 4px 12px rgba(0,0,0,0.12)',padding:4,display:'flex',gap:3,flexWrap:'wrap',minWidth:80,marginTop:2}}>
+                      {Array.from({length: nbGroupes}, (_, i) => String.fromCharCode(65+i)).map(l => {
+                        const prise = lettresPrises.has(l);
+                        const courante = l === lettre;
+                        const bs = BADGE_COLORS[l] || { bg:'#F3F4F6', color:'#374151', border:'#E5E7EB' };
+                        return (
+                          <span key={l}
+                            onClick={e => { e.stopPropagation(); if (!prise || courante) assignerLettre(l); }}
+                            title={prise && !courante ? `Déjà prise par un autre groupe` : `Assigner ${l}`}
+                            style={{
+                              display:'inline-flex',alignItems:'center',justifyContent:'center',
+                              width:24,height:22,borderRadius:5,fontSize:11,fontWeight:700,
+                              background: courante ? '#1B2B4B' : prise ? '#F3F4F6' : bs.bg,
+                              color: courante ? '#fff' : prise ? '#CBD5E1' : bs.color,
+                              border: `1px solid ${courante ? '#1B2B4B' : prise ? '#E5E7EB' : bs.border}`,
+                              cursor: prise && !courante ? 'not-allowed' : 'pointer',
+                              opacity: prise && !courante ? 0.5 : 1,
+                            }}>
+                            {l}
+                          </span>
+                        );
+                      })}
+                    </div>
+                  </>
+                )}
 
                 {/* Toggle split / groupe */}
                 {!row.is_z && <>
