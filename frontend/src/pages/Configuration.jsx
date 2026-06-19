@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { api, getAnnee } from '../lib/api.js';
-import { IconAdjustments, IconBooks, IconBuilding, IconCalendar, IconCheck, IconChevronRight, IconDownload, IconHistory, IconLink, IconScale, IconSettings, IconSparkles, IconUserShield, IconUsers, IconX } from '@tabler/icons-react';
+import { IconAdjustments, IconBooks, IconBuilding, IconCalendar, IconCheck, IconChevronRight, IconDownload, IconHistory, IconLink, IconScale, IconSettings, IconSparkles, IconUserShield, IconUsers, IconX, IconGavel, IconPlus, IconTrash, IconGripVertical } from '@tabler/icons-react';
 import { PageHeader, RailLateral } from '../components/ui.jsx';
 
 const TOKEN = () => localStorage.getItem('token');
@@ -853,6 +853,8 @@ export default function Configuration() {
     { key: 'systeme', label: 'Historique & Sauvegarde', icon: IconHistory },
     { key: 'parametres', label: 'Paramètres', icon: IconAdjustments },
     { key: 'prerequis', label: 'Prérequis UE', icon: IconLink },
+    { key: 'procedures', label: 'Procédures', icon: IconGavel },
+    { key: 'procedures', label: 'Procédures', icon: IconGavel },
     { key: 'changelog', label: 'Nouveautés', icon: IconSparkles },
   ];
   return (
@@ -1015,7 +1017,147 @@ docker start attributions-backend-dev`}</div>
       {env === 'dev' && <RegenererDonneesDev />}
 
       </div>)}
+
+      {/* ── Onglet Procédures ── */}
+      {tab === 'procedures' && <OngletProcedures />}
+
         </div>
+    </div>
+  );
+}
+
+
+// ── Onglet Procédures : justifications types configurables ───────────────────
+function OngletProcedures() {
+  const [justifs, setJustifs] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [saved, setSaved] = useState(false);
+  const [nouveau, setNouveau] = useState('');
+
+  const CLE = 'procedure.justifications_recours';
+
+  useEffect(() => {
+    fetch('/api/parametres/' + CLE, { headers: { Authorization: `Bearer ${localStorage.getItem('token')}` } })
+      .then(r => r.ok ? r.json() : null)
+      .then(d => {
+        if (d?.valeur) {
+          try { setJustifs(JSON.parse(d.valeur)); } catch { setJustifs([]); }
+        } else {
+          // Valeurs par défaut si pas encore configuré
+          setJustifs([
+            "L'étudiant·e ne conteste aucune irrégularité de procédure, mais exprime un désaccord avec l'appréciation pédagogique. Or, la Commission de recours ne peut substituer sa note à celle du jury (art. 123ter).",
+            "Les acquis d'apprentissage et les critères d'évaluation ont été communiqués conformément au dossier pédagogique. L'évaluation reflète fidèlement le niveau d'acquisition observé lors de l'épreuve.",
+            "Le CDE a examiné les copies en séance. Aucune erreur matérielle, aucun écart de traitement entre étudiants n'a été relevé.",
+            "La modalité d'évaluation contestée était prévue au dossier pédagogique et portée à la connaissance des étudiants en début d'UE.",
+            "L'irrégularité invoquée n'a pas eu d'incidence sur l'issue de la délibération : le résultat reste en-dessous du seuil de réussite, indépendamment du point litigieux.",
+            "Le délai de recours n'est pas respecté. La plainte a été introduite après le 4e jour calendrier suivant la publication des résultats (art. 123ter §4).",
+            "La plainte ne mentionne pas d'irrégularités précises au sens de l'art. 123ter. Une contestation de la valeur d'une note n'est pas recevable comme motif de recours.",
+          ]);
+        }
+      })
+      .finally(() => setLoading(false));
+  }, []);
+
+  async function sauvegarder(newJustifs) {
+    setSaving(true);
+    try {
+      await fetch('/api/parametres/' + CLE, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${localStorage.getItem('token')}` },
+        body: JSON.stringify({ valeur: JSON.stringify(newJustifs) })
+      });
+      setSaved(true);
+      setTimeout(() => setSaved(false), 2000);
+    } catch(e) { alert('Erreur : ' + e.message); }
+    finally { setSaving(false); }
+  }
+
+  function ajouter() {
+    if (!nouveau.trim()) return;
+    const updated = [...justifs, nouveau.trim()];
+    setJustifs(updated);
+    setNouveau('');
+    sauvegarder(updated);
+  }
+
+  function supprimer(i) {
+    const updated = justifs.filter((_, idx) => idx !== i);
+    setJustifs(updated);
+    sauvegarder(updated);
+  }
+
+  function modifier(i, val) {
+    const updated = justifs.map((j, idx) => idx === i ? val : j);
+    setJustifs(updated);
+  }
+
+  function monterDescendre(i, dir) {
+    const updated = [...justifs];
+    const j = i + dir;
+    if (j < 0 || j >= updated.length) return;
+    [updated[i], updated[j]] = [updated[j], updated[i]];
+    setJustifs(updated);
+    sauvegarder(updated);
+  }
+
+  if (loading) return <div className="p-8 text-gray-400">Chargement…</div>;
+
+  return (
+    <div className="max-w-3xl bg-white rounded-lg border border-gray-200 p-5 space-y-4">
+      <div>
+        <h2 className="font-semibold text-gray-800 text-base flex items-center gap-2">
+          <IconGavel size={17} className="text-iip-turquoise" />
+          Justifications types — Procédure de recours
+        </h2>
+        <p className="text-xs text-gray-500 mt-1">
+          Ces textes apparaissent sous forme de cases à cocher dans le formulaire de recours.
+          L'établissement peut en ajouter, modifier ou supprimer selon ses besoins.
+        </p>
+      </div>
+
+      <div className="space-y-2">
+        {justifs.map((j, i) => (
+          <div key={i} className="flex items-start gap-2 group">
+            <div className="flex flex-col gap-0.5 pt-1 opacity-0 group-hover:opacity-100 transition-opacity">
+              <button onClick={() => monterDescendre(i, -1)} disabled={i === 0}
+                className="text-gray-400 hover:text-gray-600 disabled:opacity-20 leading-none text-xs">▲</button>
+              <button onClick={() => monterDescendre(i, 1)} disabled={i === justifs.length - 1}
+                className="text-gray-400 hover:text-gray-600 disabled:opacity-20 leading-none text-xs">▼</button>
+            </div>
+            <textarea
+              value={j}
+              onChange={e => modifier(i, e.target.value)}
+              onBlur={() => sauvegarder(justifs)}
+              rows={2}
+              className="flex-1 border border-gray-200 rounded px-3 py-2 text-sm resize-none focus:outline-none focus:border-iip-turquoise"
+            />
+            <button onClick={() => supprimer(i)} className="text-red-400 hover:text-red-600 pt-1 flex-shrink-0">
+              <IconTrash size={15} />
+            </button>
+          </div>
+        ))}
+      </div>
+
+      {/* Ajouter une justification */}
+      <div className="border-t border-gray-100 pt-3 space-y-2">
+        <div className="text-xs font-semibold text-gray-600">Ajouter une justification</div>
+        <div className="flex gap-2">
+          <textarea value={nouveau} onChange={e => setNouveau(e.target.value)} rows={2}
+            placeholder="Rédigez la nouvelle justification…"
+            className="flex-1 border border-gray-300 rounded px-3 py-2 text-sm resize-none" />
+          <button onClick={ajouter} disabled={!nouveau.trim()}
+            className="flex-shrink-0 bg-iip-turquoise text-white px-3 py-2 rounded text-sm font-semibold flex items-center gap-1 disabled:opacity-40">
+            <IconPlus size={14} /> Ajouter
+          </button>
+        </div>
+      </div>
+
+      {saved && (
+        <p className="text-xs text-green-600 flex items-center gap-1">
+          <IconCheck size={13} /> Sauvegardé
+        </p>
+      )}
     </div>
   );
 }
