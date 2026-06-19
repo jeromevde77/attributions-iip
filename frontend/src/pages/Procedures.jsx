@@ -283,6 +283,7 @@ function OutilRecours({ initialPayload, onPayloadConsumed }) {
   const [dateSeance, setDateSeance] = useState('');
   const [commentaireCDE, setCommentaireCDE] = useState('');
   const [procId, setProcId]           = useState(null);   // ID archive après première génération
+  const [justificationsChoisies, setJustificationsChoisies] = useState(new Set()); // indices cochés
   const [fichierRecours, setFichierRecours] = useState(null); // { nom, uploading, ok }
 
   // Pré-remplissage depuis une archive
@@ -424,7 +425,12 @@ function OutilRecours({ initialPayload, onPayloadConsumed }) {
             .map(p => ({ nomComplet: p.nomComplet, qualite: p.qualite })),
           date_publi: datePubli, date_recours: dateRecours,
           date_seance: dateSeance, date_envoi: dateDecisionInterne,
-          commentaire_cde: commentaireCDE, q, verdict, annee,
+          commentaire_cde: (() => {
+            const parts = [];
+            justificationsChoisies.forEach(i => parts.push(JUSTIFS_RECOURS[i]));
+            if (commentaireCDE.trim()) parts.push(commentaireCDE.trim());
+            return parts.join('\n\n');
+          })(), q, verdict, annee,
         }),
       });
       if (res.error) { alert('Erreur : ' + res.error); return; }
@@ -706,23 +712,27 @@ function OutilRecours({ initialPayload, onPayloadConsumed }) {
               Observations / commentaire du CDE
               <span className="text-gray-400 font-normal ml-1">(facultatif — apparaîtra dans la décision)</span>
             </div>
-            {/* Justifications prédéfinies */}
-            <select className="w-full border border-gray-300 rounded px-3 py-1.5 h-9 text-sm bg-white mb-2"
-              value=""
-              onChange={e => { if (e.target.value) setCommentaireCDE(e.target.value); }}>
-              <option value="">— Insérer une justification type —</option>
-              {[
-                "L'étudiant·e ne conteste aucune irrégularité de procédure, mais exprime un désaccord avec l'appréciation pédagogique. Or, la Commission de recours ne peut substituer sa note à celle du jury (art. 123ter).",
-                "Les acquis d'apprentissage et les critères d'évaluation ont été communiqués conformément au dossier pédagogique. L'évaluation reflète fidèlement le niveau d'acquisition observé lors de l'épreuve.",
-                "Le CDE a examiné les copies en séance. Aucune erreur matérielle, aucun écart de traitement entre étudiants n'a été relevé.",
-                "La modalité d'évaluation contestée était prévue au dossier pédagogique et portée à la connaissance des étudiants en début d'UE.",
-                "L'irrégularité invoquée n'a pas eu d'incidence sur l'issue de la délibération : le résultat reste en-dessous du seuil de réussite, indépendamment du point litigieux.",
-                "Le délai de recours n'est pas respecté. La plainte a été introduite après le 4e jour calendrier suivant la publication des résultats (art. 123ter §4).",
-                "La plainte ne mentionne pas d'irrégularités précises au sens de l'art. 123ter. Une contestation de la valeur d'une note n'est pas recevable comme motif de recours.",
-              ].map((j,i) => <option key={i} value={j}>{j.length > 80 ? j.slice(0,80)+'…' : j}</option>)}
-            </select>
+            {/* Justifications cochables */}
+            <div className="border border-gray-200 rounded-lg overflow-hidden mb-2">
+              {JUSTIFS_RECOURS.map((j, i) => {
+                const checked = justificationsChoisies.has(i);
+                return (
+                  <label key={i} className={`flex items-start gap-2.5 px-3 py-2 cursor-pointer transition-colors ${checked ? 'bg-blue-50 border-l-2 border-iip-turquoise' : 'hover:bg-gray-50 border-l-2 border-transparent'} ${i > 0 ? 'border-t border-gray-100' : ''}`}>
+                    <input type="checkbox" checked={checked} onChange={() => {
+                      setJustificationsChoisies(prev => {
+                        const n = new Set(prev);
+                        n.has(i) ? n.delete(i) : n.add(i);
+                        return n;
+                      });
+                    }} className="mt-0.5 flex-shrink-0 accent-iip-turquoise" />
+                    <span className="text-xs text-gray-700 leading-relaxed">{j}</span>
+                  </label>
+                );
+              })}
+            </div>
+            {/* Commentaire libre complémentaire */}
             <textarea value={commentaireCDE} onChange={e => setCommentaireCDE(e.target.value)}
-              rows={4} placeholder="Sélectionnez une justification type ci-dessus ou rédigez librement…"
+              rows={3} placeholder="Commentaire libre complémentaire (optionnel)…"
               className="w-full border border-gray-300 rounded px-3 py-2 text-sm bg-white resize-y" />
           </label>
 
@@ -952,6 +962,7 @@ function OutilFraude({ initialPayload, onPayloadConsumed }) {
   const [decision, setDecision]           = useState('');
   const [commentaireCDE, setCommentaireCDE] = useState('');
   const [procId, setProcId]           = useState(null);   // ID archive après première génération
+  const [justificationsChoisies, setJustificationsChoisies] = useState(new Set()); // indices cochés
   const [fichierRecours, setFichierRecours] = useState(null); // { nom, uploading, ok }
   const [momentFaits, setMomentFaits]     = useState('pendant'); // 'pendant' (Art.73) | 'correction' (Art.74)
   const [conteste, setConteste]           = useState(false);     // l'étudiant conteste les faits → audition
