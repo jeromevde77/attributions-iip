@@ -296,6 +296,9 @@ function OutilRecours({ initialPayload, onPayloadConsumed }) {
   const [justificationsChoisies, setJustificationsChoisies] = useState(new Set()); // indices cochés
   const [justificationsDB, setJustificationsDB] = useState(JUSTIFS_DEFAUT); // chargées depuis la config
   const [fichierRecours, setFichierRecours] = useState(null); // { nom, uploading, ok }
+  const [autosaved, setAutosaved]       = useState(false);
+  const autosaveTimer = useRef(null);
+  const procIdRef     = useRef(null);
 
   // Pré-remplissage depuis une archive
   useEffect(() => {
