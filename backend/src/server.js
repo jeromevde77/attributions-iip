@@ -2084,16 +2084,18 @@ try {
   }
 } catch(e) { console.error('[migration] recours colonnes :', e.message); }
 
-// ── Migration personnel_mission : ajout périodes + contrat_mdp ───────────────
+// ── Migration personnel_mission : ajout etp_helb ────────────────────────────
 try {
   const _colsPM = db.prepare('PRAGMA table_info(personnel_mission)').all().map(c => c.name);
   if (!_colsPM.includes('periodes')) {
     db.exec(`ALTER TABLE personnel_mission ADD COLUMN periodes REAL DEFAULT 0`);
-    console.log('[migration] personnel_mission : colonne periodes ajoutée');
   }
   if (!_colsPM.includes('contrat_mdp')) {
     db.exec(`ALTER TABLE personnel_mission ADD COLUMN contrat_mdp TEXT DEFAULT 'IIP'`);
-    console.log('[migration] personnel_mission : colonne contrat_mdp ajoutée');
+  }
+  if (!_colsPM.includes('etp_helb')) {
+    db.exec(`ALTER TABLE personnel_mission ADD COLUMN etp_helb REAL DEFAULT 0`);
+    console.log('[migration] personnel_mission : colonne etp_helb ajoutée');
   }
 } catch(e) { console.error('[migration] personnel_mission colonnes :', e.message); }
 
