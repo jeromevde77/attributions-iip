@@ -6,7 +6,7 @@ import OrganisationUEModal from '../components/OrganisationUEModal.jsx';
 import OrganiserGroupesModal from '../components/OrganiserGroupesModal.jsx';
 import Doc23Modal from '../components/Doc23Modal.jsx';
 import * as XLSX from 'xlsx';
-import { IconClipboardText, IconTrash, IconLock, IconLockOpen, IconRefresh, IconCalendar, IconFileText, IconEraser, IconWand, IconX, IconSettings, IconFolder, IconPlus, IconFileImport, IconFileSpreadsheet, IconUsersGroup, IconScissors, IconClock, IconChevronLeft, IconChevronRight, IconFilter } from '@tabler/icons-react';
+import { IconClipboardText, IconTrash, IconLock, IconLockOpen, IconRefresh, IconCalendar, IconFileText, IconEraser, IconWand, IconX, IconSettings, IconFolder, IconPlus, IconFileImport, IconFileSpreadsheet, IconUsersGroup, IconScissors, IconClock, IconChevronLeft, IconChevronRight, IconFilter, IconArrowUp, IconArrowDown } from '@tabler/icons-react';
 
 // ─── Modale : copier les attributions d'une section d'une année vers une autre ─
 function CopierSectionModal({ sections, anneeActive, isAdmin, onClose, onCopied }) {
@@ -1061,15 +1061,97 @@ export default function Attributions() {
           if (c.key==='code') {
             const estSplit  = row.split_groupe === 'O';
             const estGroupe = !!(row.groupe_code && row.groupe_code.toUpperCase() !== 'TS');
+            // Lettre affichée : Ts si pas de groupe, sinon la lettre (A/B/C…)
+            const lettre = estGroupe ? (row.groupe_code || row.code || '?').toUpperCase() : 'Ts';
+            // Couleurs des badges par lettre
+            const BADGE_COLORS = {
+              A: { bg: '#DBEAFE', color: '#1D4ED8', border: '#BFDBFE' },
+              B: { bg: '#D1FAE5', color: '#065F46', border: '#A7F3D0' },
+              C: { bg: '#FEF3C7', color: '#92400E', border: '#FDE68A' },
+              D: { bg: '#FCE7F3', color: '#9D174D', border: '#FBCFE8' },
+              E: { bg: '#EDE9FE', color: '#5B21B6', border: '#DDD6FE' },
+              F: { bg: '#FFE4E6', color: '#9F1239', border: '#FECDD3' },
+            };
+            const badgeStyle = estGroupe
+              ? (BADGE_COLORS[lettre] || { bg: '#F3F4F6', color: '#374151', border: '#E5E7EB' })
+              : { bg: '#F9FAFB', color: '#9CA3AF', border: '#E5E7EB' };
+
+            // Frères : lignes du même cours + même activité (pour le swap)
+            const pairs = data
+              .filter(r =>
+                r.id !== row.id &&
+                r.section === row.section &&
+                r.code_cours === row.code_cours &&
+                (r.num_organisation || 1) === (row.num_organisation || 1) &&
+                (r.activite_id || null) === (row.activite_id || null) &&
+                r.split_groupe !== 'O'
+              )
+              .sort((a, b) => (a.groupe_code || a.code || '').localeCompare(b.groupe_code || b.code || '', 'fr'));
+
+            // Swap de lettre avec un frère (échange les codes entre deux attributions)
+            async function swapAvec(autreRow) {
+              try {
+                const monCode    = row.code    || row.groupe_code || null;
+                const autreCode  = autreRow.code || autreRow.groupe_code || null;
+                await api.updateAttribution(row.id,      { code: autreCode });
+                await api.updateAttribution(autreRow.id, { code: monCode });
+                load();
+              } catch(e) { alert('Erreur swap : ' + e.message); }
+            }
+
+            // Frère précédent / suivant dans l'ordre alphabétique
+            const monIdx  = pairs.findIndex(r => (r.groupe_code||r.code||'') >= lettre);
+            const frereUp   = pairs.slice(0, monIdx < 0 ? pairs.length : monIdx).at(-1) || null;
+            const frereDown = pairs[monIdx < 0 ? 0 : monIdx] || null;
+
             return <td key={c.key} style={sty}>
-              <div className="flex items-center gap-0.5">
-                <input type="text" defaultValue={v??''} className="input-cell w-full text-center" onClick={e=>e.stopPropagation()}
-                  onBlur={e=>{if(e.target.value!==(v??''))saveCell(row.id,c.key,e.target.value);}}/>
+              <div className="flex items-center gap-0.5 justify-center">
+                {/* Badge lettre */}
+                <span style={{
+                  display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+                  minWidth: 22, height: 20, paddingInline: 5, borderRadius: 5,
+                  fontSize: 11, fontWeight: 700, letterSpacing: '0.03em',
+                  background: badgeStyle.bg, color: badgeStyle.color,
+                  border: `1px solid ${badgeStyle.border}`,
+                  userSelect: 'none',
+                }}>{lettre}</span>
+
+                {/* Flèches swap — visibles seulement si groupes actifs ET frères disponibles */}
+                {estGroupe && pairs.length > 0 && <>
+                  <button
+                    onClick={e=>{e.stopPropagation(); if(frereUp) swapAvec(frereUp);}}
+                    disabled={!frereUp}
+                    title={frereUp ? `Échanger avec ${frereUp.groupe_code||frereUp.code}` : ''}
+                    style={{ padding: 1, background:'none', border:'none', cursor: frereUp?'pointer':'default',
+                      color: frereUp ? '#6B7280' : '#E5E7EB' }}>
+                    <IconArrowUp size={11}/>
+                  </button>
+                  <button
+                    onClick={e=>{e.stopPropagation(); if(frereDown) swapAvec(frereDown);}}
+                    disabled={!frereDown}
+                    title={frereDown ? `Échanger avec ${frereDown.groupe_code||frereDown.code}` : ''}
+                    style={{ padding: 1, background:'none', border:'none', cursor: frereDown?'pointer':'default',
+                      color: frereDown ? '#6B7280' : '#E5E7EB' }}>
+                    <IconArrowDown size={11}/>
+                  </button>
+                </>}
+
+                {/* Toggle split / groupe */}
                 {!row.is_z && <>
                   <button onClick={e=>{e.stopPropagation();splitterLigne(row);}} title="Split : découper en morceaux partagés (Ts, plusieurs profs)"
-                    className={estSplit ? 'text-green-600' : 'text-gray-300 hover:text-green-600'}><IconScissors size={13}/></button>
-                  <button onClick={e=>{e.stopPropagation();grouperLigne(row);}} title="Groupes : créer des sous-groupes A, B, C…"
-                    className={estGroupe ? 'text-green-600' : 'text-gray-300 hover:text-green-600'}><IconUsersGroup size={13}/></button>
+                    style={{ padding:1, background:'none', border:'none', cursor:'pointer',
+                      color: estSplit ? '#16A34A' : '#D1D5DB' }}
+                    onMouseEnter={e=>{if(!estSplit) e.currentTarget.style.color='#16A34A';}}
+                    onMouseLeave={e=>{if(!estSplit) e.currentTarget.style.color='#D1D5DB';}}>
+                    <IconScissors size={13}/>
+                  </button>
+                  <button onClick={e=>{e.stopPropagation();grouperLigne(row);}} title={estGroupe ? 'Groupes actifs — recliquer pour recréer' : 'Créer des sous-groupes A, B, C…'}
+                    style={{ padding:1, background:'none', border:'none', cursor:'pointer',
+                      color: estGroupe ? '#16A34A' : '#D1D5DB' }}
+                    onMouseEnter={e=>{if(!estGroupe) e.currentTarget.style.color='#16A34A';}}
+                    onMouseLeave={e=>{if(!estGroupe) e.currentTarget.style.color='#D1D5DB';}}>
+                    <IconUsersGroup size={13}/>
+                  </button>
                 </>}
               </div>
             </td>;
