@@ -619,13 +619,20 @@ export default function Listes() {
 
     // Totaux section
     const totEtp = sec.etp_total, iipEtp = sec.etp_iip, helbEtp = sec.etp_helb;
+    const coordEtp = sec.etp_coord_helb || 0;
+    const globalEtp = totEtp + coordEtp; // cours + coordination
     const totPer = sec.ues.reduce((s, u) => s + perTot(u), 0);
     const iipPer = sec.ues.reduce((s, u) => s + (contratDe(u) === 'IIP' ? perTot(u) : 0), 0);
     const helbPer = totPer - iipPer;
     const totCt = sec.ues.reduce((s, u) => s + (u.per_ct || 0) + (u.per_ct_helb || 0), 0);
     const totPp = sec.ues.reduce((s, u) => s + (u.per_pp || 0) + (u.per_pp_helb || 0), 0);
-    const pctIip = totEtp ? Math.round(iipEtp / totEtp * 100) : 0;
-    const pctHelb = totEtp ? Math.round(helbEtp / totEtp * 100) : 0;
+    const iipCt = sec.ues.reduce((s, u) => s + (u.per_ct || 0), 0);
+    const iipPp = sec.ues.reduce((s, u) => s + (u.per_pp || 0), 0);
+    const helbCt = sec.ues.reduce((s, u) => s + (u.per_ct_helb || 0), 0);
+    const helbPp = sec.ues.reduce((s, u) => s + (u.per_pp_helb || 0), 0);
+    const pctIip = globalEtp ? Math.round(iipEtp / globalEtp * 100) : 0;
+    const pctHelb = globalEtp ? Math.round(helbEtp / globalEtp * 100) : 0;
+    const pctCoord = globalEtp ? Math.round(coordEtp / globalEtp * 100) : 0;
 
     const html = `<!DOCTYPE html><html><head><meta charset="utf-8">
       <style>
@@ -640,25 +647,56 @@ export default function Listes() {
           <div style="font-size:8px;color:#999;margin-top:6px">Document destiné au Conseil d'administration · Charge enseignante exprimée en équivalents temps plein (ETP)</div>
         </div>
 
-        <div style="display:flex;gap:10px;margin-bottom:8px">
-          <div style="flex:1.1;background:${BLEU};color:#fff;border-radius:8px;padding:14px 18px">
-            <div style="font-size:9px;text-transform:uppercase;letter-spacing:1.5px;opacity:.8">Charge totale de la section</div>
-            <div style="font-size:38px;font-weight:700;line-height:1.1;margin-top:2px">${fmtEtp2(totEtp)} <span style="font-size:14px;font-weight:400;opacity:.8">ETP</span></div>
-            <div style="font-size:9px;opacity:.85;margin-top:4px">${fmt(totPer)} périodes attribuées (cours + autonomie)</div>
+        <!-- Ligne 1 : 3 cartes globales -->
+        <div style="display:flex;gap:10px;margin-bottom:10px;align-items:stretch">
+
+          <!-- Carte 1 : Charge globale -->
+          <div style="flex:1.2;background:${BLEU};color:#fff;border-radius:8px;padding:14px 18px;display:flex;flex-direction:column;justify-content:center">
+            <div style="font-size:8px;text-transform:uppercase;letter-spacing:1.5px;opacity:.75">Charge globale de la section</div>
+            <div style="font-size:40px;font-weight:700;line-height:1;margin-top:4px">${fmtEtp2(globalEtp)} <span style="font-size:13px;font-weight:400;opacity:.8">ETP</span></div>
+            <div style="font-size:8px;opacity:.7;margin-top:5px">Cours (${fmt(totPer)} pér.) + coordination HELB</div>
           </div>
-          <div style="flex:1;display:flex;flex-direction:column;gap:6px">
-            <div style="border:1px solid #e0e0e0;border-left:4px solid ${BLEU};border-radius:8px;padding:8px 12px;display:flex;justify-content:space-between;align-items:center">
-              <div><div style="font-size:10px;font-weight:700;color:#333">Part IIP</div><div style="font-size:8px;color:#999">${fmt(iipPer)} pér. · ${pctIip}% de la charge</div></div>
-              <div style="font-size:18px;font-weight:700;color:${BLEU}">${fmtEtp2(iipEtp)}</div>
+
+          <!-- Carte 2 : dont cours (flèche) -->
+          <div style="display:flex;flex-direction:column;justify-content:center;opacity:.6;font-size:16px;color:${BLEU};padding:0 2px">▸</div>
+          <div style="flex:1.4;border:1.5px solid #E2E8F0;border-radius:8px;padding:12px 14px;background:#FAFBFC">
+            <div style="font-size:8px;text-transform:uppercase;letter-spacing:1px;color:#94A3B8;margin-bottom:8px;font-weight:600">dont cours</div>
+            <div style="display:flex;flex-direction:column;gap:5px">
+              <div style="display:flex;justify-content:space-between;align-items:center;padding:5px 8px;background:#EFF6FF;border-radius:5px;border-left:3px solid ${BLEU}">
+                <div>
+                  <div style="font-size:9px;font-weight:700;color:${BLEU}">Cours IIP</div>
+                  <div style="font-size:8px;color:#64748B">CT ${fmt(iipCt)} pér. · PP ${fmt(iipPp)} pér. · ${pctIip}%</div>
+                </div>
+                <div style="font-size:17px;font-weight:700;color:${BLEU}">${fmtEtp2(iipEtp)}</div>
+              </div>
+              <div style="display:flex;justify-content:space-between;align-items:center;padding:5px 8px;background:#F5F3FF;border-radius:5px;border-left:3px solid ${VIOLET}">
+                <div>
+                  <div style="font-size:9px;font-weight:700;color:${VIOLET}">Cours HELB</div>
+                  <div style="font-size:8px;color:#64748B">CT ${fmt(helbCt)} pér. · PP ${fmt(helbPp)} pér. · ${pctHelb}%</div>
+                </div>
+                <div style="font-size:17px;font-weight:700;color:${VIOLET}">${fmtEtp2(helbEtp)}</div>
+              </div>
             </div>
-            <div style="border:1px solid #e0e0e0;border-left:4px solid ${VIOLET};border-radius:8px;padding:8px 12px;display:flex;justify-content:space-between;align-items:center">
-              <div><div style="font-size:10px;font-weight:700;color:#333">Part HELB</div><div style="font-size:8px;color:#999">${fmt(helbPer)} pér. · ${pctHelb}% de la charge</div></div>
-              <div style="font-size:18px;font-weight:700;color:${VIOLET}">${fmtEtp2(helbEtp)}</div>
+          </div>
+
+          <!-- Carte 3 : dont coordination -->
+          <div style="display:flex;flex-direction:column;justify-content:center;opacity:.6;font-size:16px;color:#4C1D95;padding:0 2px">▸</div>
+          <div style="flex:1;border:1.5px solid #EDE9FE;border-radius:8px;padding:12px 14px;background:#FAF8FF;${coordEtp > 0 ? '' : 'opacity:.5'}">
+            <div style="font-size:8px;text-transform:uppercase;letter-spacing:1px;color:#A78BFA;margin-bottom:8px;font-weight:600">dont coordination</div>
+            ${coordEtp > 0 ? `
+            <div style="display:flex;justify-content:space-between;align-items:center;padding:5px 8px;background:#EDE9FE;border-radius:5px;border-left:3px solid #7C3AED">
+              <div>
+                <div style="font-size:9px;font-weight:700;color:#4C1D95">Coordination HELB</div>
+                <div style="font-size:8px;color:#64748B">${(sec.coord_helb||[]).length} poste(s) · ${pctCoord}%</div>
+              </div>
+              <div style="font-size:17px;font-weight:700;color:#4C1D95">${fmtEtp2(coordEtp)}</div>
             </div>
+            ` : `<div style="font-size:9px;color:#C4B5FD;font-style:italic">Aucun poste HELB direct</div>`}
           </div>
         </div>
 
-        <div style="display:flex;gap:10px;margin:14px 0 6px">
+        <!-- Ligne 2 : CT / PP détail -->
+        <div style="display:flex;gap:10px;margin:10px 0 6px">
           <div style="flex:1;border:1px solid #e5e5e5;border-top:3px solid ${TURQ};border-radius:6px;padding:10px 12px">
             <div style="font-size:11px;font-weight:700;color:${TURQ}">CT</div>
             <div style="font-size:9px;color:#666;margin-bottom:6px">Cours théoriques (÷ 800)</div>
