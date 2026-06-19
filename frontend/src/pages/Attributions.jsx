@@ -217,6 +217,7 @@ export default function Attributions() {
   const [data, setData] = useState([]);
   const [dragSrcId, setDragSrcId] = useState(null); // id de la ligne en cours de drag
   const [dragOverId, setDragOverId] = useState(null);   // id de la cible survolée
+  const [groupeAlertes, setGroupeAlertes] = useState(null); // { section, anomalies[] } | null
   const [sections, setSections] = useState([]);
   const [professeurs, setProfesseurs] = useState([]);
   const [activitesList, setActivitesList] = useState([]);
@@ -868,12 +869,68 @@ export default function Attributions() {
   }
 
   /* --- Chargement --- */
+  // Détecte les anomalies de numérotation de groupes dans un tableau de lignes
+  function detecterAnomaliesGroupes(rows) {
+    // Grouper par cours + activité (périmètre d'unicité)
+    const map = new Map();
+    for (const r of rows) {
+      if (r.split_groupe === 'O') continue; // les splits Ts sont normaux
+      const k = (r.section||'') + '|' + (r.code_cours||'') + '|' + (r.num_organisation||1) + '|' + (r.activite_id||'__none__');
+      if (!map.has(k)) map.set(k, []);
+      map.get(k).push(r);
+    }
+    const anomalies = [];
+    for (const [, lignes] of map) {
+      if (lignes.length <= 1) {
+        // Une seule ligne : doit être Ts (code vide ou 'TS')
+        const code = (lignes[0].code || '').toUpperCase();
+        if (code && code !== 'TS') {
+          const r = lignes[0];
+          anomalies.push({
+            cours: r.nom_cours || r.code_cours || '?',
+            code_cours: r.code_cours,
+            activite: r.activite_nom || null,
+            probleme: `1 seule ligne avec lettre « ${code} » au lieu de « Ts »`,
+          });
+        }
+      } else {
+        // Plusieurs lignes : codes doivent être A, B, C… séquentiels sans trou ni doublon
+        const codes = lignes.map(r => (r.code || '').toUpperCase()).sort();
+        const attendu = codes.map((_, i) => String.fromCharCode(65 + i));
+        const avecTs  = codes.some(c => !c || c === 'TS');
+        const doublons = codes.length !== new Set(codes).size;
+        const mauvaisSeq = JSON.stringify(codes) !== JSON.stringify(attendu);
+        if (avecTs || doublons || mauvaisSeq) {
+          const r = lignes[0];
+          let desc = '';
+          if (avecTs)     desc = `mélange Ts et lettres (${codes.join(',')})`;
+          else if (doublons) desc = `doublons (${codes.join(',')})`;
+          else             desc = `séquence incomplète (${codes.join(',')}) — attendu ${attendu.join(',')}`;
+          anomalies.push({
+            cours: r.nom_cours || r.code_cours || '?',
+            code_cours: r.code_cours,
+            activite: r.activite_nom || null,
+            probleme: desc,
+          });
+        }
+      }
+    }
+    return anomalies;
+  }
+
   async function load(overrideFilters) {
     setLoading(true);
     const f = overrideFilters ?? filters;
     try {
       const [a,s,p] = await Promise.all([api.attributions(f), api.sections(), api.professeurs(true)]);
       setData(a); setSections(s); setProfesseurs(p);
+      // Diagnostic groupes : vérifie Ts / séquence A,B,C sans trou
+      if (f.section && Array.isArray(a)) {
+        const anomalies = detecterAnomaliesGroupes(a);
+        setGroupeAlertes(anomalies.length > 0 ? { section: f.section, anomalies } : null);
+      } else {
+        setGroupeAlertes(null);
+      }
       if (activitesList.length === 0) api.activites({ all: true }).then(setActivitesList).catch(()=>{});
       // Charger badges EXT/DOT
       const tok = localStorage.getItem('token');
@@ -1724,6 +1781,37 @@ export default function Attributions() {
 
       {/* Overlay pour fermer le menu + */}
       {addMenuUE && <div className="fixed inset-0 z-20" onClick={()=>setAddMenuUE(null)} />}
+      {/* ── Popup anomalies de groupes ── */}
+      {groupeAlertes && (
+        <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4" onClick={() => setGroupeAlertes(null)}>
+          <div className="bg-white rounded-xl shadow-2xl max-w-lg w-full" onClick={e => e.stopPropagation()}>
+            <div className="flex items-center gap-3 px-5 py-4 border-b border-gray-100">
+              <span className="text-amber-500 text-xl">⚠</span>
+              <div>
+                <div className="font-semibold text-gray-800">Anomalies de numérotation — section {groupeAlertes.section}</div>
+                <div className="text-xs text-gray-500 mt-0.5">{groupeAlertes.anomalies.length} cours avec un problème de groupe</div>
+              </div>
+              <button onClick={() => setGroupeAlertes(null)} className="ml-auto text-gray-400 hover:text-gray-600 text-xl leading-none">×</button>
+            </div>
+            <div className="px-5 py-3 max-h-80 overflow-auto space-y-2">
+              {groupeAlertes.anomalies.map((a, i) => (
+                <div key={i} className="border border-amber-200 bg-amber-50 rounded-lg px-3 py-2.5">
+                  <div className="font-medium text-sm text-gray-800 truncate">{a.cours}</div>
+                  {a.activite && <div className="text-xs text-gray-500 mt-0.5">Activité : {a.activite}</div>}
+                  <div className="text-xs text-amber-700 mt-1">{a.probleme}</div>
+                </div>
+              ))}
+            </div>
+            <div className="px-5 py-3 border-t border-gray-100 flex justify-end">
+              <button onClick={() => setGroupeAlertes(null)}
+                className="bg-iip-blue text-white text-sm px-4 py-2 rounded-lg hover:opacity-90">
+                Compris
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {confirmDeleteSection && (
         <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center">
           <div className="bg-white rounded-xl shadow-2xl p-6 max-w-sm w-full space-y-4">
