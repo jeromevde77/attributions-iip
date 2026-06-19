@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { getAnnee } from '../lib/api.js';
 import PreviewModal from '../components/PreviewModal.jsx';
 import { PageHeader, RailLateral } from '../components/ui.jsx';
@@ -322,6 +322,50 @@ function OutilRecours({ initialPayload, onPayloadConsumed }) {
       .catch(() => {});
   }, []);
 
+  // ── Autosave brouillon ────────────────────────────────────────────────────
+  // Construit le payload courant
+  function buildPayload() {
+    return {
+      etudiant, ue_num: ueNum, ue_nom: ueNom,
+      date_publi: datePubli, date_recours: dateRecours,
+      date_seance: dateSeance, date_envoi: dateDecisionInterne,
+      commentaire_cde: commentaireCDE,
+      justificationsChoisies: Array.from(justificationsChoisies),
+      q, verdict, annee,
+      _proc_id: procIdRef.current,
+      _profs_presents: Array.from(profsPresents),
+    };
+  }
+
+  // Debounce autosave : crée le brouillon si pas encore de procId, sinon met à jour
+  useEffect(() => {
+    // Ne pas sauvegarder si rien n'est rempli
+    if (!etudiant && !ueNum) return;
+    clearTimeout(autosaveTimer.current);
+    autosaveTimer.current = setTimeout(async () => {
+      const payload = buildPayload();
+      try {
+        if (!procIdRef.current) {
+          // Première sauvegarde — créer le brouillon
+          const d = await authFetch('/api/procedures/draft', {
+            method: 'POST',
+            body: JSON.stringify({ type: 'recours', annee, etudiant, ue_num: ueNum, ue_nom: ueNom, payload }),
+          });
+          if (d?.id) { setProcId(d.id); procIdRef.current = d.id; setAutosaved(true); setTimeout(()=>setAutosaved(false),2000); }
+        } else {
+          // Mise à jour du brouillon existant
+          await authFetch(`/api/procedures/draft/${procIdRef.current}`, {
+            method: 'PATCH',
+            body: JSON.stringify({ etudiant, ue_num: ueNum, ue_nom: ueNom, annee, payload }),
+          });
+          setAutosaved(true); setTimeout(()=>setAutosaved(false),2000);
+        }
+      } catch { /* silencieux */ }
+    }, 1500);
+    return () => clearTimeout(autosaveTimer.current);
+  }, [etudiant, ueNum, ueNom, datePubli, dateRecours, dateSeance, dateDecisionInterne,
+      commentaireCDE, justificationsChoisies, q, annee]);
+
   // Profs de l'UE (depuis la DB)
   const [profs, setProfs] = useState([]);
   const [profsPresents, setProfsPresents] = useState(new Set()); // IDs cochés comme présents
@@ -459,6 +503,11 @@ function OutilRecours({ initialPayload, onPayloadConsumed }) {
       const pid = res.procedure_id;
       if (pid) {
         setProcId(pid);
+        procIdRef.current = pid;
+        // Passer le statut brouillon → en_cours
+        authFetch(`/api/procedures/archives/${pid}`, {
+          method: 'PATCH', body: JSON.stringify({ statut: 'en_cours' })
+        }).catch(() => {});
         // Upload du fichier en attente si présent
         if (fichierRecours?.file && !fichierRecours.ok) {
           const fd = new FormData(); fd.append('fichier', fichierRecours.file);
@@ -497,6 +546,13 @@ function OutilRecours({ initialPayload, onPayloadConsumed }) {
 
   return (
     <div className="max-w-4xl space-y-6">
+
+      {/* Indicateur autosave */}
+      {autosaved && (
+        <div className="fixed bottom-4 right-4 z-50 bg-gray-800/80 text-white text-xs px-3 py-1.5 rounded-full flex items-center gap-1.5 pointer-events-none">
+          <span>✓</span> Brouillon sauvegardé
+        </div>
+      )}
 
       {/* ── 1 · IDENTIFICATION DU DOSSIER ── */}
       <Section title="1 · Identification du dossier">
@@ -1104,6 +1160,13 @@ function OutilFraude({ initialPayload, onPayloadConsumed }) {
   return (
     <div className="max-w-4xl space-y-6">
 
+      {/* Indicateur autosave */}
+      {autosaved && (
+        <div className="fixed bottom-4 right-4 z-50 bg-gray-800/80 text-white text-xs px-3 py-1.5 rounded-full flex items-center gap-1.5 pointer-events-none">
+          <span>✓</span> Brouillon sauvegardé
+        </div>
+      )}
+
       {/* ── 1 · IDENTIFICATION DU DOSSIER ── */}
       <Section title="1 · Identification du dossier" color="red">
         <div className="grid grid-cols-2 gap-4 mb-4">
@@ -1400,8 +1463,8 @@ function OutilFraude({ initialPayload, onPayloadConsumed }) {
 
 // ─── PAGE PRINCIPALE ──────────────────────────────────────────────────────────
 // ─── ArchivesProcedures ───────────────────────────────────────────────────────
-const STATUT_LABEL = { en_cours: 'En cours', clos: 'Clôturé', annule: 'Annulé' };
-const STATUT_COLOR = { en_cours: 'bg-iip-turquoise/10 text-iip-blue', clos: 'bg-green-100 text-green-700', annule: 'bg-gray-100 text-gray-500' };
+const STATUT_LABEL = { en_cours: 'En cours', clos: 'Clôturé', annule: 'Annulé', brouillon: 'Brouillon' };
+const STATUT_COLOR = { en_cours: 'bg-iip-turquoise/10 text-iip-blue', clos: 'bg-green-100 text-green-700', annule: 'bg-gray-100 text-gray-500', brouillon: 'bg-amber-100 text-amber-700' };
 const VERDICT_LABEL = { irrecevable: 'Irrecevable', rejete: 'Rejeté', accueilli: 'Accueilli', ajourne: 'Ajourné', refus: 'Refus' };
 const VERDICT_COLOR = { irrecevable: 'bg-red-100 text-red-700', rejete: 'bg-orange-100 text-orange-700', accueilli: 'bg-green-100 text-green-700', ajourne: 'bg-yellow-100 text-yellow-700', refus: 'bg-red-100 text-red-700' };
 const TYPE_COLOR = { recours: 'bg-iip-turquoise/10 text-iip-turquoise', fraude: 'bg-red-50 text-red-700' };
@@ -1515,6 +1578,8 @@ function ArchivesProcedures({ onReprendreRecours, onReprendre }) {
           <select value={filtreStatut} onChange={e => setFiltreStatut(e.target.value)}
             className="border border-gray-300 rounded px-2 py-1.5 h-9 text-sm bg-white">
             <option value="">Tous</option>
+            <option value="">Tous</option>
+            <option value="brouillon">Brouillon</option>
             <option value="en_cours">En cours</option>
             <option value="clos">Clôturé</option>
             <option value="annule">Annulé</option>
@@ -1641,7 +1706,7 @@ function ArchivesProcedures({ onReprendreRecours, onReprendre }) {
               <div>
                 <p className="text-xs text-gray-500 font-medium mb-2">Changer le statut</p>
                 <div className="flex gap-2">
-                  {['en_cours', 'clos', 'annule'].map(s => (
+                  {['brouillon', 'en_cours', 'clos', 'annule'].map(s => (
                     <button key={s} onClick={() => changerStatut(detail.id, s)} disabled={saving || detail.statut === s}
                       className={`text-xs px-3 py-1.5 rounded border transition ${detail.statut === s ? 'bg-iip-turquoise text-white border-iip-turquoise font-semibold' : 'border-gray-300 text-gray-600 hover:border-iip-turquoise hover:text-iip-turquoise'}`}>
                       {STATUT_LABEL[s]}

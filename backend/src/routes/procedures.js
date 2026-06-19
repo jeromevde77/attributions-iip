@@ -472,7 +472,7 @@ r.patch('/archives/:id', authRequired, (req, res) => {
   const { statut } = req.body;
   const proc = db.prepare('SELECT id FROM procedure_archive WHERE id = ?').get(req.params.id);
   if (!proc) return res.status(404).json({ error: 'Procédure introuvable' });
-  const allowed = ['en_cours', 'clos', 'annule'];
+  const allowed = ['en_cours', 'clos', 'annule', 'brouillon'];
   if (statut && !allowed.includes(statut))
     return res.status(400).json({ error: `Statut invalide. Valeurs acceptées : ${allowed.join(', ')}` });
   if (statut) db.prepare('UPDATE procedure_archive SET statut = ?, modifie_le = datetime(\'now\') WHERE id = ?').run(statut, proc.id);
@@ -510,6 +510,48 @@ r.post('/archives/:id/regenerer', authRequired, (req, res) => {
   }
   // Mode par défaut : retourner le payload pour pré-remplissage du formulaire
   res.json({ payload, procedure_id: proc.id, type: proc.type });
+});
+
+// ── Créer ou mettre à jour un brouillon ─────────────────────────────────────
+// POST : crée un brouillon (statut='brouillon'), retourne l'id
+r.post('/draft', authRequired, (req, res) => {
+  const { type = 'recours', annee, etudiant, ue_num, ue_nom, section, payload } = req.body;
+  const proc = db.prepare(`
+    INSERT INTO procedure_archive
+      (type, statut, etudiant, ue_num, ue_nom, section, annee_scolaire, payload_json, cree_par)
+    VALUES (?, 'brouillon', ?, ?, ?, ?, ?, ?, ?)
+  `).run(type, etudiant || null, ue_num || null, ue_nom || null, section || null,
+         annee || null, JSON.stringify(payload || {}), req.user?.email || null);
+  res.json({ id: proc.lastInsertRowid });
+});
+
+// PATCH /draft/:id : mettre à jour le payload du brouillon
+r.patch('/draft/:id', authRequired, (req, res) => {
+  const proc = db.prepare('SELECT id, statut FROM procedure_archive WHERE id = ?').get(req.params.id);
+  if (!proc) return res.status(404).json({ error: 'Brouillon introuvable' });
+  const { etudiant, ue_num, ue_nom, section, annee, payload } = req.body;
+  db.prepare(`UPDATE procedure_archive SET
+    etudiant = COALESCE(?, etudiant),
+    ue_num   = COALESCE(?, ue_num),
+    ue_nom   = COALESCE(?, ue_nom),
+    section  = COALESCE(?, section),
+    annee_scolaire = COALESCE(?, annee_scolaire),
+    payload_json = ?,
+    modifie_le = datetime('now')
+    WHERE id = ?
+  `).run(etudiant || null, ue_num || null, ue_nom || null, section || null,
+         annee || null, JSON.stringify(payload || {}), proc.id);
+  res.json({ ok: true });
+});
+
+// GET /drafts : liste des brouillons en cours pour l'utilisateur connecté
+r.get('/drafts', authRequired, (req, res) => {
+  const { type = 'recours', annee } = req.query;
+  let sql = "SELECT id, etudiant, ue_num, ue_nom, section, annee_scolaire, modifie_le FROM procedure_archive WHERE statut = 'brouillon' AND type = ?";
+  const args = [type];
+  if (annee) { sql += ' AND annee_scolaire = ?'; args.push(annee); }
+  sql += ' ORDER BY modifie_le DESC LIMIT 20';
+  res.json(db.prepare(sql).all(...args));
 });
 
 // ── Upload courrier étudiant ─────────────────────────────────────────────────
