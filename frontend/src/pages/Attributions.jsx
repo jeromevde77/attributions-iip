@@ -1196,28 +1196,65 @@ export default function Attributions() {
               ? (BADGE_COLORS[lettre] || { bg: '#F3F4F6', color: '#374151', border: '#E5E7EB' })
               : { bg: '#F9FAFB', color: '#9CA3AF', border: '#E5E7EB' };
 
-            // Lettres déjà utilisées par les frères du même cours+activité
+            // Frères = toutes les lignes du même cours (même activité OU même cours si pas d'activité)
             const freres = data.filter(r =>
               r.id !== row.id &&
               r.section === row.section &&
               r.code_cours === row.code_cours &&
               (r.num_organisation||1) === (row.num_organisation||1) &&
-              r.split_groupe !== 'O'
+              r.split_groupe !== 'O' &&
+              (r.activite_id || null) === (row.activite_id || null)
             );
-            // Nombre total de lignes dans ce groupe (this + frères)
             const nbGroupes = freres.length + 1;
-            // Lettres disponibles = A..Z jusqu'à nbGroupes, moins celles déjà prises par les frères
-            const lettresPrises = new Set(freres.map(r => (r.code||'').toUpperCase()).filter(l => l && l !== 'TS'));
-            const lettresDispos = Array.from({length: nbGroupes}, (_, i) => String.fromCharCode(65+i))
-              .filter(l => !lettresPrises.has(l));
-            const badgeMenuKey = row.id + '-badge-menu';
+            // Toutes les lettres du groupe (A..Z selon le nombre total)
+            const toutesLettres = Array.from({length: nbGroupes}, (_, i) => String.fromCharCode(65+i));
+            // Map lettre → frère qui l'a
+            const lettreAFrere = {};
+            freres.forEach(r => { const l = (r.code||'').toUpperCase(); if (l && l !== 'TS') lettreAFrere[l] = r; });
             const menuOuvert = badgeMenuOpen === row.id;
 
+            // Assigner une lettre à cette ligne (swap si prise, direct sinon)
             async function assignerLettre(newLettre) {
               setBadgeMenuOpen(null);
-              setData(prev => prev.map(r => r.id === row.id ? { ...r, code: newLettre } : r));
-              try { await api.updateAttribution(row.id, { code: newLettre }); }
-              catch(e) { setData(prev => prev.map(r => r.id === row.id ? { ...r, code: row.code } : r)); alert('Erreur : ' + e.message); }
+              if (newLettre === lettre) return; // déjà cette lettre
+              const frereAvecCetteLetttre = lettreAFrere[newLettre];
+              // Vérifier si la séquence sera respectée après l'opération
+              const codesApres = freres
+                .map(r => r.id === frereAvecCetteLetttre?.id ? lettre : (r.code||'').toUpperCase())
+                .concat([newLettre])
+                .filter(l => l && l !== 'TS')
+                .sort();
+              const attendu = codesApres.map((_, i) => String.fromCharCode(65+i));
+              const seqOk = JSON.stringify(codesApres) === JSON.stringify(attendu);
+              if (!seqOk) {
+                if (!confirm(\`La lettre \${newLettre} rompt la séquence alphabétique. Continuer quand même ?\`)) return;
+              }
+              if (frereAvecCetteLetttre) {
+                // Switch : échanger les deux lettres
+                const ancienCode = row.code || null;
+                setData(prev => prev.map(r => {
+                  if (r.id === row.id) return { ...r, code: newLettre };
+                  if (r.id === frereAvecCetteLetttre.id) return { ...r, code: ancienCode };
+                  return r;
+                }));
+                try {
+                  await api.updateAttribution(row.id, { code: newLettre });
+                  await api.updateAttribution(frereAvecCetteLetttre.id, { code: ancienCode });
+                } catch(e) {
+                  setData(prev => prev.map(r => {
+                    if (r.id === row.id) return { ...r, code: ancienCode };
+                    if (r.id === frereAvecCetteLetttre.id) return { ...r, code: newLettre };
+                    return r;
+                  }));
+                  alert('Erreur : ' + e.message);
+                }
+              } else {
+                // Lettre libre : assigner directement
+                const ancienCode = row.code || null;
+                setData(prev => prev.map(r => r.id === row.id ? { ...r, code: newLettre } : r));
+                try { await api.updateAttribution(row.id, { code: newLettre }); }
+                catch(e) { setData(prev => prev.map(r => r.id === row.id ? { ...r, code: ancienCode } : r)); alert('Erreur : ' + e.message); }
+              }
             }
 
             return <td key={c.key} style={sty}>
@@ -1245,22 +1282,21 @@ export default function Attributions() {
                       top: (() => { const el = document.getElementById('badge-'+row.id); if (!el) return 0; const r = el.getBoundingClientRect(); return r.bottom + 4; })(),
                       left: (() => { const el = document.getElementById('badge-'+row.id); if (!el) return 0; const r = el.getBoundingClientRect(); return r.left; })(),
                     }}>
-                      {Array.from({length: nbGroupes}, (_, i) => String.fromCharCode(65+i)).map(l => {
-                        const prise = lettresPrises.has(l);
+                      {toutesLettres.map(l => {
+                        const prise = !!lettreAFrere[l];
                         const courante = l === lettre;
                         const bs = BADGE_COLORS[l] || { bg:'#F3F4F6', color:'#374151', border:'#E5E7EB' };
                         return (
                           <span key={l}
-                            onClick={e => { e.stopPropagation(); if (!prise || courante) assignerLettre(l); }}
-                            title={prise && !courante ? `Déjà prise par un autre groupe` : `Assigner ${l}`}
+                            onClick={e => { e.stopPropagation(); assignerLettre(l); }}
+                            title={courante ? 'Lettre actuelle' : prise ? `Échanger avec le groupe ${l}` : `Assigner ${l}`}
                             style={{
                               display:'inline-flex',alignItems:'center',justifyContent:'center',
                               width:24,height:22,borderRadius:5,fontSize:11,fontWeight:700,
-                              background: courante ? '#1B2B4B' : prise ? '#F3F4F6' : bs.bg,
-                              color: courante ? '#fff' : prise ? '#CBD5E1' : bs.color,
-                              border: `1px solid ${courante ? '#1B2B4B' : prise ? '#E5E7EB' : bs.border}`,
-                              cursor: prise && !courante ? 'not-allowed' : 'pointer',
-                              opacity: prise && !courante ? 0.5 : 1,
+                              background: courante ? '#1B2B4B' : bs.bg,
+                              color: courante ? '#fff' : bs.color,
+                              border: `2px solid ${courante ? '#1B2B4B' : prise ? bs.color : bs.border}`,
+                              cursor: courante ? 'default' : 'pointer',
                             }}>
                             {l}
                           </span>
