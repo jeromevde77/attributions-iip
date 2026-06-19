@@ -1084,14 +1084,28 @@ export default function Attributions() {
               const src    = data.find(r => r.id === dragSrcId);
               const target = data.find(r => r.id === targetId);
               if (!src || !target) return;
-              // Vérifier même cours
               if (src.section !== target.section || src.code_cours !== target.code_cours ||
                   (src.num_organisation||1) !== (target.num_organisation||1)) return;
+              // Mise à jour optimiste locale — pas de load() pour éviter le scroll en haut
+              const srcCode    = src.code    || null;
+              const targetCode = target.code || null;
+              setData(prev => prev.map(r => {
+                if (r.id === src.id)    return { ...r, code: targetCode };
+                if (r.id === target.id) return { ...r, code: srcCode };
+                return r;
+              }));
               try {
-                await api.updateAttribution(src.id,    { code: target.code || null });
-                await api.updateAttribution(target.id, { code: src.code    || null });
-                load();
-              } catch(e) { alert('Erreur swap : ' + e.message); }
+                await api.updateAttribution(src.id,    { code: targetCode });
+                await api.updateAttribution(target.id, { code: srcCode });
+              } catch(e) {
+                // Rollback en cas d'erreur
+                setData(prev => prev.map(r => {
+                  if (r.id === src.id)    return { ...r, code: srcCode };
+                  if (r.id === target.id) return { ...r, code: targetCode };
+                  return r;
+                }));
+                alert('Erreur swap : ' + e.message);
+              }
             }
 
             return <td key={c.key} style={sty}>
