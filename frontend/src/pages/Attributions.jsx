@@ -1060,9 +1060,11 @@ export default function Attributions() {
           }
           if (c.key==='code') {
             const estSplit  = row.split_groupe === 'O';
-            const estGroupe = !!(row.groupe_code && row.groupe_code.toUpperCase() !== 'TS');
+            // groupe_code n'existe que dans le rapport — ici les données viennent de data (row.code)
+            const codeVal   = (row.code || '').toUpperCase();
+            const estGroupe = !!(codeVal && codeVal !== 'TS');
             // Lettre affichée : Ts si pas de groupe, sinon la lettre (A/B/C…)
-            const lettre = estGroupe ? (row.groupe_code || row.code || '?').toUpperCase() : 'Ts';
+            const lettre = estGroupe ? codeVal : 'Ts';
             // Couleurs des badges par lettre
             const BADGE_COLORS = {
               A: { bg: '#DBEAFE', color: '#1D4ED8', border: '#BFDBFE' },
@@ -1086,21 +1088,19 @@ export default function Attributions() {
                 (r.activite_id || null) === (row.activite_id || null) &&
                 r.split_groupe !== 'O'
               )
-              .sort((a, b) => (a.groupe_code || a.code || '').localeCompare(b.groupe_code || b.code || '', 'fr'));
+              .sort((a, b) => (a.code || '').localeCompare(b.code || '', 'fr'));
 
             // Swap de lettre avec un frère (échange les codes entre deux attributions)
             async function swapAvec(autreRow) {
               try {
-                const monCode    = row.code    || row.groupe_code || null;
-                const autreCode  = autreRow.code || autreRow.groupe_code || null;
-                await api.updateAttribution(row.id,      { code: autreCode });
-                await api.updateAttribution(autreRow.id, { code: monCode });
+                await api.updateAttribution(row.id,      { code: autreRow.code || null });
+                await api.updateAttribution(autreRow.id, { code: row.code    || null });
                 load();
               } catch(e) { alert('Erreur swap : ' + e.message); }
             }
 
             // Frère précédent / suivant dans l'ordre alphabétique
-            const monIdx  = pairs.findIndex(r => (r.groupe_code||r.code||'') >= lettre);
+            const monIdx  = pairs.findIndex(r => (r.code || '') >= lettre);
             const frereUp   = pairs.slice(0, monIdx < 0 ? pairs.length : monIdx).at(-1) || null;
             const frereDown = pairs[monIdx < 0 ? 0 : monIdx] || null;
 
@@ -1121,7 +1121,7 @@ export default function Attributions() {
                   <button
                     onClick={e=>{e.stopPropagation(); if(frereUp) swapAvec(frereUp);}}
                     disabled={!frereUp}
-                    title={frereUp ? `Échanger avec ${frereUp.groupe_code||frereUp.code}` : ''}
+                    title={frereUp ? `Échanger avec ${frereUp.code}` : ''}
                     style={{ padding: 1, background:'none', border:'none', cursor: frereUp?'pointer':'default',
                       color: frereUp ? '#6B7280' : '#E5E7EB' }}>
                     <IconArrowUp size={11}/>
@@ -1129,7 +1129,7 @@ export default function Attributions() {
                   <button
                     onClick={e=>{e.stopPropagation(); if(frereDown) swapAvec(frereDown);}}
                     disabled={!frereDown}
-                    title={frereDown ? `Échanger avec ${frereDown.groupe_code||frereDown.code}` : ''}
+                    title={frereDown ? `Échanger avec ${frereDown.code}` : ''}
                     style={{ padding: 1, background:'none', border:'none', cursor: frereDown?'pointer':'default',
                       color: frereDown ? '#6B7280' : '#E5E7EB' }}>
                     <IconArrowDown size={11}/>
