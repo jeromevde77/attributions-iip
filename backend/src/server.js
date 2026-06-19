@@ -2099,6 +2099,23 @@ try {
   }
 } catch(e) { console.error('[migration] personnel_mission colonnes :', e.message); }
 
+// ── Table poste_pncc ─────────────────────────────────────────────────────────
+try {
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS poste_pncc (
+      id              INTEGER PRIMARY KEY AUTOINCREMENT,
+      annee_scolaire  TEXT NOT NULL,
+      categorie       TEXT NOT NULL,  -- 'secretariat_etudiant' | 'secretariat_rh' | 'direction' | 'economat' | 'autre'
+      libelle_fonction TEXT NOT NULL, -- ex: 'Secrétaire étudiant', 'Directeur adjoint'
+      nom_personne    TEXT,           -- nom libre
+      etp             REAL NOT NULL DEFAULT 1.0,
+      notes           TEXT
+    );
+    CREATE INDEX IF NOT EXISTS idx_pncc_annee ON poste_pncc(annee_scolaire);
+  `);
+  console.log('[migration] Table poste_pncc créée');
+} catch(e) { console.error('[migration] poste_pncc :', e.message); }
+
 // Recréer les VIEW à chaque démarrage pour qu'elles soient à jour
 // quand le schéma évolue (sans nécessiter un init-db complet).
 try {
