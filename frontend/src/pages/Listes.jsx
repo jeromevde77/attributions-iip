@@ -586,9 +586,9 @@ export default function Listes() {
         lignes += `
           <tr style="background:${bg}">
             <td style="padding:5px 8px;font-weight:700;color:${BLEU};white-space:nowrap">UE ${u.ue_num}</td>
-            <td style="padding:5px 8px;color:#333">${u.ue_nom || '—'}</td>
+            <td style="padding:5px 8px;color:#333;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${u.ue_nom || '—'}</td>
             <td style="padding:5px 8px;text-align:center">${badge(c)}</td>
-            <td style="padding:5px 8px;font-size:9px;color:#555">${cellPer(u)}</td>
+            <td style="padding:5px 8px;font-size:9px;color:#555;text-align:right">${cellPer(u)}</td>
             <td style="padding:5px 8px;text-align:right;color:#333">${fmt(pt)}</td>
             <td style="padding:5px 8px;text-align:right;font-weight:700;color:${BLEU}">${fmtEtp(u.etp_total)}</td>
           </tr>`;
@@ -596,13 +596,21 @@ export default function Listes() {
       blocs += `
         <div style="margin-bottom:14px;page-break-inside:avoid">
           <div style="background:${TURQ};color:#fff;font-weight:700;font-size:11px;padding:5px 10px;border-radius:4px 4px 0 0">${NIV_NOM[niv] || niv}</div>
-          <table style="width:100%;border-collapse:collapse;font-size:9.5px">
+          <table style="width:100%;border-collapse:collapse;font-size:9.5px;table-layout:fixed">
+            <colgroup>
+              <col style="width:52px">
+              <col>
+              <col style="width:52px">
+              <col style="width:130px">
+              <col style="width:64px">
+              <col style="width:64px">
+            </colgroup>
             <thead>
               <tr style="background:${BLEU2};color:#fff">
                 <th style="padding:5px 8px;text-align:left;font-size:8.5px">UE</th>
                 <th style="padding:5px 8px;text-align:left;font-size:8.5px">Intitulé</th>
                 <th style="padding:5px 8px;text-align:center;font-size:8.5px">Contrat</th>
-                <th style="padding:5px 8px;text-align:left;font-size:8.5px">Périodes (CT / PP)</th>
+                <th style="padding:5px 8px;text-align:right;font-size:8.5px">Périodes (CT / PP)</th>
                 <th style="padding:5px 8px;text-align:right;font-size:8.5px">Périodes</th>
                 <th style="padding:5px 8px;text-align:right;font-size:8.5px">ETP</th>
               </tr>
