@@ -367,7 +367,6 @@ export default function Attributions() {
         </tr>`;
     }).join('')
 
-    console.log('[rapport] missions_hors_ue:', d.missions_hors_ue);
     const html = `<!DOCTYPE html><html><head><meta charset="utf-8">
       <style>
         * { box-sizing:border-box; margin:0; padding:0; }
@@ -405,18 +404,25 @@ export default function Attributions() {
             ${lignesUE}
             ${(d.missions_hors_ue && d.missions_hors_ue.length > 0) ? `
             <tr style="background:#4C1D95;color:white">
-              <td colspan="7" style="padding:4px 6px;font-weight:700;font-size:11px">
-                Postes HELB hors dotation IIP
-              </td>
+              <td colspan="3" style="padding:4px 6px;font-weight:700;font-size:11px">Coordination HELB — hors dotation IIP</td>
+              <td style="${SR}font-size:10px;opacity:0.8">ETP</td>
+              <td style="${SR}font-size:10px;opacity:0.8">≈ pér. (×800)</td>
+              <td colspan="2"></td>
             </tr>
             ${d.missions_hors_ue.map(m => `
-            <tr style="background:#F5F3FF;border-bottom:1px solid #E2E8F0">
-              <td style="${SN}">${m.prof_nom} ${m.prof_prenom}</td>
-              <td colspan="2" style="${S}">${m.fonction}</td>
-              <td colspan="4" style="${S}font-weight:700;color:#6D28D9;font-size:11px">
-                ${m.etp_helb} ETP · HELB
-              </td>
+            <tr style="background:#F5F3FF;border-bottom:1px solid #EDE9FE">
+              <td style="${SN};color:#4C1D95">${m.prof_nom} ${m.prof_prenom}</td>
+              <td colspan="2" style="${S};color:#64748B">${m.fonction}</td>
+              <td style="${SR};font-weight:700;color:#6D28D9">${(m.etp_helb||0).toFixed(2)}</td>
+              <td style="${SR};color:#6D28D9">${Math.round((m.etp_helb||0)*800)}</td>
+              <td colspan="2"></td>
             </tr>`).join('')}
+            <tr style="background:#EDE9FE">
+              <td colspan="3" style="${SN};font-weight:700;color:#4C1D95">Total coordination HELB</td>
+              <td style="${SR};font-weight:700;color:#4C1D95">${(d.missions_hors_ue.reduce((s,m)=>s+(m.etp_helb||0),0)).toFixed(2)}</td>
+              <td style="${SR};font-weight:700;color:#4C1D95">${Math.round(d.missions_hors_ue.reduce((s,m)=>s+(m.etp_helb||0),0)*800)}</td>
+              <td colspan="2"></td>
+            </tr>
             ` : ''}
             <tr style="background:#1B2B4B;color:white">
               <td colspan="4" style="padding:4px 6px;font-weight:700;font-size:12px;white-space:nowrap">TOTAL — ${section}</td>

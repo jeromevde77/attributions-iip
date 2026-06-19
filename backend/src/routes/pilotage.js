@@ -573,7 +573,35 @@ r.get('/etp', authRequired, (req, res) => {
   }), { etp_ct: 0, etp_pp: 0, etp_iip: 0, etp_helb: 0, etp_total: 0 });
   for (const k of Object.keys(total)) total[k] = r4(total[k]);
 
-  res.json({ annee, sections: out, total });
+  // ── Postes de coordination HELB directs (etp_helb sur personnel_mission) ────
+  const coordHelb = db.prepare(`
+    SELECT pm.section_code AS section, pm.fonction, pm.etp_helb,
+           p.nom AS prof_nom, p.prenom AS prof_prenom
+    FROM personnel_mission pm
+    JOIN professeur p ON p.id = pm.professeur_id
+    WHERE pm.annee_scolaire = ? AND COALESCE(pm.etp_helb, 0) > 0
+    ORDER BY pm.section_code, p.nom, pm.fonction
+  `).all(annee);
+
+  // Ajouter etp_coordination_helb à chaque section + total
+  const coordBySec = {};
+  for (const m of coordHelb) {
+    if (!coordBySec[m.section]) coordBySec[m.section] = [];
+    coordBySec[m.section].push(m);
+  }
+  const outWithCoord = out.map(s => ({
+    ...s,
+    coord_helb: coordBySec[s.section] || [],
+    etp_coord_helb: r4((coordBySec[s.section] || []).reduce((sum, m) => sum + (m.etp_helb || 0), 0)),
+  }));
+  const totalCoordHelb = r4(coordHelb.reduce((sum, m) => sum + (m.etp_helb || 0), 0));
+
+  res.json({
+    annee,
+    sections: outWithCoord,
+    total: { ...total, etp_coord_helb: totalCoordHelb },
+    coord_helb: coordHelb,
+  });
 });
 
 export default r;

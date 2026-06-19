@@ -686,6 +686,55 @@ export default function Listes() {
           </div>
           <div style="font-size:9px;color:#555;line-height:1.5;margin-top:8px">Les périodes intègrent les heures de cours et les heures d'autonomie pédagogique. Le calcul est appliqué de manière identique aux attributions IIP et HELB. Les chiffres correspondent à la charge réellement rémunérée par l'établissement.</div>
         </div>
+
+        ${(sec.coord_helb && sec.coord_helb.length > 0) ? `
+        <!-- Section postes coordination HELB -->
+        <div style="margin-top:16px;border:2px solid #7c3aed;border-radius:8px;overflow:hidden">
+          <div style="background:#4C1D95;color:white;padding:8px 12px;display:flex;justify-content:space-between;align-items:center">
+            <div style="font-weight:700;font-size:12px">Postes de coordination HELB — hors dotation IIP</div>
+            <div style="font-size:13px;font-weight:700">${fmtEtp2(sec.etp_coord_helb)} ETP</div>
+          </div>
+          <table style="width:100%;border-collapse:collapse;font-size:11px">
+            <thead>
+              <tr style="background:#F5F3FF">
+                <th style="padding:5px 8px;text-align:left;color:#4C1D95;font-weight:600">Personne</th>
+                <th style="padding:5px 8px;text-align:left;color:#4C1D95;font-weight:600">Fonction</th>
+                <th style="padding:5px 8px;text-align:right;color:#4C1D95;font-weight:600">ETP</th>
+                <th style="padding:5px 8px;text-align:right;color:#4C1D95;font-weight:600">≈ pér. (×800)</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${sec.coord_helb.map(m => `
+              <tr style="border-bottom:1px solid #EDE9FE">
+                <td style="padding:5px 8px;color:#1E293B">${m.prof_nom} ${m.prof_prenom}</td>
+                <td style="padding:5px 8px;color:#64748B">${m.fonction}</td>
+                <td style="padding:5px 8px;text-align:right;font-weight:700;color:#6D28D9">${(m.etp_helb||0).toFixed(2).replace('.',',')}</td>
+                <td style="padding:5px 8px;text-align:right;color:#6D28D9">${Math.round((m.etp_helb||0)*800)}</td>
+              </tr>`).join('')}
+              <tr style="background:#EDE9FE;font-weight:700">
+                <td colspan="2" style="padding:5px 8px;color:#4C1D95">Total coordination HELB</td>
+                <td style="padding:5px 8px;text-align:right;color:#4C1D95">${fmtEtp2(sec.etp_coord_helb)}</td>
+                <td style="padding:5px 8px;text-align:right;color:#4C1D95">${Math.round((sec.etp_coord_helb||0)*800)}</td>
+              </tr>
+            </tbody>
+          </table>
+          <div style="padding:6px 12px;background:#F5F3FF;font-size:9px;color:#6D28D9">
+            Ces postes sont financés directement par la HELB et ne sont pas prélevés sur la dotation de périodes IIP.
+            La conversion ETP × 800 est indicative (base CT).
+          </div>
+        </div>
+        ` : ''}
+
+        <div style="margin-top:12px;padding:10px 12px;background:#F8FAFC;border-radius:6px;border:1px solid #E2E8F0">
+          <div style="font-size:11px;color:${BLEU};font-weight:700;margin-bottom:6px">Méthodologie de calcul</div>
+          <div style="font-size:9px;color:#555;line-height:1.5">La charge enseignante est exprimée en équivalents temps plein (ETP), calculés selon la législation de l'enseignement pour adultes. Le nombre de périodes attribuées est divisé par le volume annuel correspondant à un temps plein selon la nature de l'activité.</div>
+          <div style="display:flex;gap:14px;margin-top:8px;font-size:9px">
+            <div><b style="color:${BLEU}">Cours théoriques (CT)</b> : périodes ÷ 800</div>
+            <div><b style="color:${BLEU}">Pratique professionnelle (PP)</b> : périodes ÷ 1000</div>
+            <div><b style="color:${BLEU}">Travail administratif</b> : 36 h / semaine</div>
+          </div>
+          <div style="font-size:9px;color:#555;line-height:1.5;margin-top:8px">Les périodes intègrent les heures de cours et les heures d'autonomie pédagogique. Le calcul est appliqué de manière identique aux attributions IIP et HELB. Les chiffres correspondent à la charge réellement rémunérée par l'établissement.</div>
+        </div>
       </div></body></html>`;
     setRapportHtml(html);
   }
