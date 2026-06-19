@@ -164,7 +164,7 @@ function GestionPersonnel() {
                     {fonctions.map(f => {
                       const key = p.id + '|' + f.libelle;
                       const on = estCoche(p.id, f.libelle);
-                      const perInfo = periodes[key] || { per: 0, contrat: 'IIP' };
+                      const etpVal = etpHelb[key] || 0;
                       return (
                         <td key={f.id} className="px-2 py-2 text-center">
                           <button type="button" onClick={() => toggle(p.id, f.libelle)} disabled={saving[key]}
@@ -178,7 +178,7 @@ function GestionPersonnel() {
                               <div className="text-xs text-gray-400 leading-none mb-0.5">ETP HELB</div>
                               <input
                                 type="number" min="0" max="1" step="0.1"
-                                defaultValue={etpHelb[key] || ''}
+                                defaultValue={etpVal || ''}
                                 placeholder="0.0"
                                 title="ETP financé HELB (hors dotation IIP)"
                                 onBlur={e => {
@@ -212,7 +212,7 @@ function GestionPersonnel() {
                     {fonctions.map(f => {
                       const key = p.id + '|' + f.libelle;
                       const on = estCoche(p.id, f.libelle);
-                      const perInfo = periodes[key] || { per: 0, contrat: 'IIP' };
+                      const etpVal = etpHelb[key] || 0;
                       return (
                         <td key={f.id} className="px-2 py-2 text-center">
                           <button type="button" onClick={() => toggle(p.id, f.libelle)} disabled={saving[key]}
@@ -226,7 +226,7 @@ function GestionPersonnel() {
                               <div className="text-xs text-gray-400 leading-none mb-0.5">ETP HELB</div>
                               <input
                                 type="number" min="0" max="1" step="0.1"
-                                defaultValue={etpHelb[key] || ''}
+                                defaultValue={etpVal || ''}
                                 placeholder="0.0"
                                 title="ETP financé HELB (hors dotation IIP)"
                                 onBlur={e => {
