@@ -2083,6 +2083,19 @@ try {
   }
 } catch(e) { console.error('[migration] recours colonnes :', e.message); }
 
+// ── Migration personnel_mission : ajout périodes + contrat_mdp ───────────────
+try {
+  const _colsPM = db.prepare('PRAGMA table_info(personnel_mission)').all().map(c => c.name);
+  if (!_colsPM.includes('periodes')) {
+    db.exec(`ALTER TABLE personnel_mission ADD COLUMN periodes REAL DEFAULT 0`);
+    console.log('[migration] personnel_mission : colonne periodes ajoutée');
+  }
+  if (!_colsPM.includes('contrat_mdp')) {
+    db.exec(`ALTER TABLE personnel_mission ADD COLUMN contrat_mdp TEXT DEFAULT 'IIP'`);
+    console.log('[migration] personnel_mission : colonne contrat_mdp ajoutée');
+  }
+} catch(e) { console.error('[migration] personnel_mission colonnes :', e.message); }
+
 // Recréer les VIEW à chaque démarrage pour qu'elles soient à jour
 // quand le schéma évolue (sans nécessiter un init-db complet).
 try {
