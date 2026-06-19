@@ -322,49 +322,6 @@ function OutilRecours({ initialPayload, onPayloadConsumed }) {
       .catch(() => {});
   }, []);
 
-  // ── Autosave brouillon ────────────────────────────────────────────────────
-  // Construit le payload courant
-  function buildPayload() {
-    return {
-      etudiant, ue_num: ueNum, ue_nom: ueNom,
-      date_publi: datePubli, date_recours: dateRecours,
-      date_seance: dateSeance, date_envoi: dateDecisionInterne,
-      commentaire_cde: commentaireCDE,
-      justificationsChoisies: Array.from(justificationsChoisies),
-      q, verdict, annee,
-      _proc_id: procIdRef.current,
-      _profs_presents: Array.from(profsPresents),
-    };
-  }
-
-  // Debounce autosave : crée le brouillon si pas encore de procId, sinon met à jour
-  useEffect(() => {
-    // Ne pas sauvegarder si rien n'est rempli
-    if (!etudiant && !ueNum) return;
-    clearTimeout(autosaveTimer.current);
-    autosaveTimer.current = setTimeout(async () => {
-      const payload = buildPayload();
-      try {
-        if (!procIdRef.current) {
-          // Première sauvegarde — créer le brouillon
-          const d = await authFetch('/api/procedures/draft', {
-            method: 'POST',
-            body: JSON.stringify({ type: 'recours', annee, etudiant, ue_num: ueNum, ue_nom: ueNom, payload }),
-          });
-          if (d?.id) { setProcId(d.id); procIdRef.current = d.id; setAutosaved(true); setTimeout(()=>setAutosaved(false),2000); }
-        } else {
-          // Mise à jour du brouillon existant
-          await authFetch(`/api/procedures/draft/${procIdRef.current}`, {
-            method: 'PATCH',
-            body: JSON.stringify({ etudiant, ue_num: ueNum, ue_nom: ueNom, annee, payload }),
-          });
-          setAutosaved(true); setTimeout(()=>setAutosaved(false),2000);
-        }
-      } catch { /* silencieux */ }
-    }, 1500);
-    return () => clearTimeout(autosaveTimer.current);
-  }, [etudiant, ueNum, ueNom, datePubli, dateRecours, dateSeance, dateDecisionInterne,
-      commentaireCDE, justificationsChoisies, q, annee]);
 
   // Profs de l'UE (depuis la DB)
   const [profs, setProfs] = useState([]);
@@ -475,6 +432,42 @@ function OutilRecours({ initialPayload, onPayloadConsumed }) {
   const verdict = q.decisionRefus === 'non' ? 'irrecevable'
     : irrecevable ? 'irrecevable'
     : recevable ? 'recevable' : null;
+
+  // ── Autosave brouillon (après toutes les déclarations de state) ──────────
+  useEffect(() => {
+    if (!etudiant && !ueNum) return;
+    clearTimeout(autosaveTimer.current);
+    autosaveTimer.current = setTimeout(async () => {
+      const payload = {
+        etudiant, ue_num: ueNum, ue_nom: ueNom,
+        date_publi: datePubli, date_recours: dateRecours,
+        date_seance: dateSeance, date_envoi: dateDecisionInterne,
+        commentaire_cde: commentaireCDE,
+        justificationsChoisies: Array.from(justificationsChoisies),
+        q, verdict, annee,
+        _proc_id: procIdRef.current,
+        _profs_presents: Array.from(profsPresents),
+      };
+      try {
+        if (!procIdRef.current) {
+          const d = await authFetch('/api/procedures/draft', {
+            method: 'POST',
+            body: JSON.stringify({ type: 'recours', annee, etudiant, ue_num: ueNum, ue_nom: ueNom, payload }),
+          });
+          if (d?.id) { setProcId(d.id); procIdRef.current = d.id; setAutosaved(true); setTimeout(()=>setAutosaved(false),2000); }
+        } else {
+          await authFetch(`/api/procedures/draft/${procIdRef.current}`, {
+            method: 'PATCH',
+            body: JSON.stringify({ etudiant, ue_num: ueNum, ue_nom: ueNom, annee, payload }),
+          });
+          setAutosaved(true); setTimeout(()=>setAutosaved(false),2000);
+        }
+      } catch { /* silencieux */ }
+    }, 1500);
+    return () => clearTimeout(autosaveTimer.current);
+  }, [etudiant, ueNum, ueNom, datePubli, dateRecours, dateSeance, dateDecisionInterne,
+      commentaireCDE, justificationsChoisies, q, annee]);
+
 
   async function ouvrirDecision() {
     const profsPresentsListe = profs.filter(p => profsPresents.has(p.id));
