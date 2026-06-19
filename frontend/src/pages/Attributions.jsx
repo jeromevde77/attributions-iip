@@ -6,7 +6,7 @@ import OrganisationUEModal from '../components/OrganisationUEModal.jsx';
 import OrganiserGroupesModal from '../components/OrganiserGroupesModal.jsx';
 import Doc23Modal from '../components/Doc23Modal.jsx';
 import * as XLSX from 'xlsx';
-import { IconClipboardText, IconTrash, IconLock, IconLockOpen, IconRefresh, IconCalendar, IconFileText, IconEraser, IconWand, IconX, IconSettings, IconFolder, IconPlus, IconFileImport, IconFileSpreadsheet, IconUsersGroup, IconScissors, IconClock, IconChevronLeft, IconChevronRight, IconFilter, IconArrowUp, IconArrowDown } from '@tabler/icons-react';
+import { IconClipboardText, IconTrash, IconLock, IconLockOpen, IconRefresh, IconCalendar, IconFileText, IconEraser, IconWand, IconX, IconSettings, IconFolder, IconPlus, IconFileImport, IconFileSpreadsheet, IconUsersGroup, IconScissors, IconClock, IconChevronLeft, IconChevronRight, IconFilter } from '@tabler/icons-react';
 
 // ─── Modale : copier les attributions d'une section d'une année vers une autre ─
 function CopierSectionModal({ sections, anneeActive, isAdmin, onClose, onCopied }) {
@@ -215,8 +215,6 @@ const DEFAULT_COLS = [
 // ===========================================================================
 export default function Attributions() {
   const [data, setData] = useState([]);
-  const [dragSrcId, setDragSrcId] = useState(null); // id de la ligne en cours de drag
-  const [dragOverId, setDragOverId] = useState(null);   // id de la cible survolée
   const [badgeMenuOpen, setBadgeMenuOpen] = useState(null); // id de la ligne dont le menu lettre est ouvert
   const [groupeAlertes, setGroupeAlertes] = useState(null); // { section, anomalies[] } | null
   const [sections, setSections] = useState([]);
@@ -1193,37 +1191,6 @@ export default function Attributions() {
               ? (BADGE_COLORS[lettre] || { bg: '#F3F4F6', color: '#374151', border: '#E5E7EB' })
               : { bg: '#F9FAFB', color: '#9CA3AF', border: '#E5E7EB' };
 
-            // Drag & drop : échange les codes entre deux lignes sœurs (même cours)
-            // row = cible (drop target), dragSrcId = id de la source
-            async function swapAvecId(targetId) {
-              if (!dragSrcId || dragSrcId === targetId) return;
-              const src    = data.find(r => r.id === dragSrcId);
-              const target = data.find(r => r.id === targetId);
-              if (!src || !target) return;
-              if (src.section !== target.section || src.code_cours !== target.code_cours ||
-                  (src.num_organisation||1) !== (target.num_organisation||1)) return;
-              // Mise à jour optimiste locale — pas de load() pour éviter le scroll en haut
-              const srcCode    = src.code    || null;
-              const targetCode = target.code || null;
-              setData(prev => prev.map(r => {
-                if (r.id === src.id)    return { ...r, code: targetCode };
-                if (r.id === target.id) return { ...r, code: srcCode };
-                return r;
-              }));
-              try {
-                await api.updateAttribution(src.id,    { code: targetCode });
-                await api.updateAttribution(target.id, { code: srcCode });
-              } catch(e) {
-                // Rollback en cas d'erreur
-                setData(prev => prev.map(r => {
-                  if (r.id === src.id)    return { ...r, code: srcCode };
-                  if (r.id === target.id) return { ...r, code: targetCode };
-                  return r;
-                }));
-                alert('Erreur swap : ' + e.message);
-              }
-            }
-
             // Lettres déjà utilisées par les frères du même cours+activité
             const freres = data.filter(r =>
               r.id !== row.id &&
@@ -1252,24 +1219,16 @@ export default function Attributions() {
               <div className="flex items-center gap-0.5 justify-center" style={{position:'relative'}}>
                 {/* Badge lettre — clic pour choisir, drag pour échanger */}
                 <span
-                  draggable={estGroupe}
                   onClick={e => { e.stopPropagation(); if (estGroupe) setBadgeMenuOpen(menuOuvert ? null : row.id); }}
-                  onDragStart={e => { setDragSrcId(row.id); e.dataTransfer.setData('text/plain', String(row.id)); e.dataTransfer.effectAllowed = 'move'; }}
-                  onDragOver={e => { e.preventDefault(); e.stopPropagation(); setDragOverId(row.id); }}
-                  onDragLeave={e => { setDragOverId(null); }}
-                  onDragEnd={e => { setDragSrcId(null); setDragOverId(null); }}
-                  onDrop={e => { e.preventDefault(); e.stopPropagation(); setDragOverId(null); setDragSrcId(null); swapAvecId(row.id); }}
-                  title={estGroupe ? 'Cliquer pour changer la lettre · Glisser pour échanger' : ''}
+                  title={estGroupe ? 'Cliquer pour changer la lettre' : ''}
                   style={{
                     display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
                     minWidth: 22, height: 20, paddingInline: 5, borderRadius: 5,
                     fontSize: 11, fontWeight: 700, letterSpacing: '0.03em',
-                    background: dragOverId === row.id && dragSrcId !== row.id ? '#00AACC' : badgeStyle.bg,
-                    color: dragOverId === row.id && dragSrcId !== row.id ? '#fff' : badgeStyle.color,
-                    border: dragOverId === row.id && dragSrcId !== row.id ? '2px solid #007A99' : `1px solid ${badgeStyle.border}`,
-                    cursor: estGroupe ? (dragSrcId === row.id ? 'grabbing' : 'pointer') : 'default',
+                    background: badgeStyle.bg, color: badgeStyle.color,
+                    border: `1px solid ${badgeStyle.border}`,
+                    cursor: estGroupe ? 'pointer' : 'default',
                     userSelect: 'none',
-                    transition: 'background 0.1s, border 0.1s',
                   }}>{lettre}</span>
 
                 {/* Mini-menu de sélection de lettre */}
