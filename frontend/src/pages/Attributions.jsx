@@ -897,15 +897,18 @@ export default function Attributions() {
         // Plusieurs lignes : codes doivent être A, B, C… séquentiels sans trou ni doublon
         const codes = lignes.map(r => (r.code || '').toUpperCase()).sort();
         const attendu = codes.map((_, i) => String.fromCharCode(65 + i));
-        const avecTs  = codes.some(c => !c || c === 'TS');
+        const avecTs   = codes.some(c => !c || c === 'TS');
         const doublons = codes.length !== new Set(codes).size;
+        // Séquence invalide : ne commence pas par A, ou trou, ou lettre hors A-Z
+        const horsAlpha = codes.some(c => c.length !== 1 || c < 'A' || c > 'Z');
         const mauvaisSeq = JSON.stringify(codes) !== JSON.stringify(attendu);
-        if (avecTs || doublons || mauvaisSeq) {
+        if (avecTs || doublons || horsAlpha || mauvaisSeq) {
           const r = lignes[0];
           let desc = '';
-          if (avecTs)     desc = `mélange Ts et lettres (${codes.join(',')})`;
-          else if (doublons) desc = `doublons (${codes.join(',')})`;
-          else             desc = `séquence incomplète (${codes.join(',')}) — attendu ${attendu.join(',')}`;
+          if (avecTs)       desc = `mélange Ts et lettres (${codes.join(',')})`;
+          else if (doublons) desc = `lettres dupliquées (${codes.join(',')})`;
+          else if (horsAlpha) desc = `lettres hors séquence A-Z (${codes.join(',')})`;
+          else               desc = `séquence incomplète (${codes.join(',')}) — attendu ${attendu.join(',')}`;
           anomalies.push({
             cours: r.nom_cours || r.code_cours || '?',
             code_cours: r.code_cours,
@@ -925,9 +928,10 @@ export default function Attributions() {
       const [a,s,p] = await Promise.all([api.attributions(f), api.sections(), api.professeurs(true)]);
       setData(a); setSections(s); setProfesseurs(p);
       // Diagnostic groupes : vérifie Ts / séquence A,B,C sans trou
-      if (f.section && Array.isArray(a)) {
+      if (Array.isArray(a) && a.length > 0) {
         const anomalies = detecterAnomaliesGroupes(a);
-        setGroupeAlertes(anomalies.length > 0 ? { section: f.section, anomalies } : null);
+        const label = f.section || 'toutes sections';
+        setGroupeAlertes(anomalies.length > 0 ? { section: label, anomalies } : null);
       } else {
         setGroupeAlertes(null);
       }
