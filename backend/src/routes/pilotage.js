@@ -607,12 +607,64 @@ r.get('/etp', authRequired, (req, res) => {
   }));
   const totalCoordHelb = r4(coordHelb.reduce((sum, m) => sum + (m.etp_helb || 0), 0));
 
+  // ── Postes PNCC (secrétariat étudiant proratisé, etc.) ─────────────────────
+  const pnccAll = db.prepare(`
+    SELECT id, categorie, libelle_fonction, nom_personne, etp, notes
+    FROM poste_pncc WHERE annee_scolaire = ? ORDER BY categorie, libelle_fonction
+  `).all(annee);
+
+  // Nb sections actives (pour prorata)
+  const nbSections = outWithCoord.length || 1;
+
+  // ETP secrétariat étudiant total + proratisé
+  const etpSecEtu = pnccAll
+    .filter(p => p.categorie === 'secretariat_etudiant')
+    .reduce((s, p) => s + (p.etp || 0), 0);
+  const etpSecEtuProrata = r4(etpSecEtu / nbSections);
+
+  // Ajouter etp_secretariat à chaque section
+  const outFinal = outWithCoord.map(s => ({
+    ...s,
+    etp_secretariat: etpSecEtuProrata,
+  }));
+
   res.json({
     annee,
-    sections: outWithCoord,
+    sections: outFinal,
     total: { ...total, etp_coord_helb: totalCoordHelb },
     coord_helb: coordHelb,
+    pncc: pnccAll,
+    nb_sections: nbSections,
+    etp_sec_etu_total: r4(etpSecEtu),
+    etp_sec_etu_prorata: etpSecEtuProrata,
   });
+});
+
+// ── CRUD poste_pncc ──────────────────────────────────────────────────────────
+r.get('/pncc', authRequired, (req, res) => {
+  const { annee } = req.query;
+  if (!annee) return res.status(400).json({ error: 'annee requis' });
+  res.json(db.prepare('SELECT * FROM poste_pncc WHERE annee_scolaire = ? ORDER BY categorie, libelle_fonction').all(annee));
+});
+
+r.post('/pncc', authRequired, roleRequired('admin', 'editeur'), (req, res) => {
+  const { annee_scolaire, categorie, libelle_fonction, nom_personne, etp, notes } = req.body;
+  if (!annee_scolaire || !categorie || !libelle_fonction) return res.status(400).json({ error: 'Paramètres manquants' });
+  const r2 = db.prepare('INSERT INTO poste_pncc (annee_scolaire, categorie, libelle_fonction, nom_personne, etp, notes) VALUES (?,?,?,?,?,?)')
+    .run(annee_scolaire, categorie, libelle_fonction, nom_personne || null, etp || 1.0, notes || null);
+  res.json({ id: r2.lastInsertRowid });
+});
+
+r.put('/pncc/:id', authRequired, roleRequired('admin', 'editeur'), (req, res) => {
+  const { categorie, libelle_fonction, nom_personne, etp, notes } = req.body;
+  db.prepare('UPDATE poste_pncc SET categorie=?, libelle_fonction=?, nom_personne=?, etp=?, notes=? WHERE id=?')
+    .run(categorie, libelle_fonction, nom_personne || null, etp || 1.0, notes || null, req.params.id);
+  res.json({ ok: true });
+});
+
+r.delete('/pncc/:id', authRequired, roleRequired('admin', 'editeur'), (req, res) => {
+  db.prepare('DELETE FROM poste_pncc WHERE id=?').run(req.params.id);
+  res.json({ ok: true });
 });
 
 export default r;

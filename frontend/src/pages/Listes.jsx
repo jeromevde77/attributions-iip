@@ -619,12 +619,17 @@ export default function Listes() {
 
     // Totaux section
     const sourceEtu = filtres.source_etudiants || 'auto';
-    const nbEtusEstimes = sourceEtu === 'auto'
+    const nbEtus = sourceEtu === 'auto'
       ? (sec.nb_etudiants || 0)
       : (parseInt(filtres.nb_etudiants_estimes) || 0);
     const sourceLabel = sourceEtu === 'auto'
       ? (sec.nb_etudiants > 0 ? `données Lucie ${annee}` : 'aucune donnée Lucie')
       : 'estimation manuelle';
+    const etpSec = sec.etp_secretariat || 0; // secrétariat étudiant proratisé
+    const ratioGlobal = globalEtp > 0 && nbEtus > 0 ? (nbEtus / globalEtp).toFixed(1) : null;
+    const ratioCours  = totEtp > 0  && nbEtus > 0 ? (nbEtus / totEtp).toFixed(1)   : null;
+    const ratioCoord  = coordEtp > 0 && nbEtus > 0 ? (nbEtus / coordEtp).toFixed(1) : null;
+    const ratioSec    = etpSec > 0   && nbEtus > 0 ? (nbEtus / etpSec).toFixed(1)   : null;
     const totEtp = sec.etp_total, iipEtp = sec.etp_iip, helbEtp = sec.etp_helb;
     const coordEtp = sec.etp_coord_helb || 0;
     const globalEtp = totEtp + coordEtp; // cours + coordination
@@ -662,11 +667,28 @@ export default function Listes() {
             <div style="font-size:8px;text-transform:uppercase;letter-spacing:1.5px;opacity:.75">Charge globale de la section</div>
             <div style="font-size:40px;font-weight:700;line-height:1;margin-top:4px">${fmtEtp2(globalEtp)} <span style="font-size:13px;font-weight:400;opacity:.8">ETP</span></div>
             <div style="font-size:8px;opacity:.7;margin-top:5px">Cours (${fmt(totPer)} pér.) + coordination HELB</div>
-            ${nbEtusEstimes > 0 ? `
+            ${nbEtus > 0 ? `
             <div style="margin-top:8px;padding-top:8px;border-top:1px solid rgba(255,255,255,.2)">
-              <div style="font-size:8px;opacity:.7;text-transform:uppercase;letter-spacing:1px">Ratio indicatif</div>
-              <div style="font-size:18px;font-weight:700;margin-top:1px">${(nbEtusEstimes / globalEtp).toFixed(1)} <span style="font-size:10px;font-weight:400;opacity:.8">étu./ETP</span></div>
-              <div style="font-size:8px;opacity:.6">${nbEtusEstimes} étudiants · ${sourceLabel}</div>
+              <div style="font-size:8px;opacity:.7;text-transform:uppercase;letter-spacing:1px">Ratios étu./ETP · ${sourceLabel}</div>
+              <div style="display:grid;grid-template-columns:1fr 1fr;gap:4px;margin-top:4px">
+                <div style="background:rgba(255,255,255,.12);border-radius:4px;padding:4px 6px">
+                  <div style="font-size:7px;opacity:.7;text-transform:uppercase">Global</div>
+                  <div style="font-size:15px;font-weight:700">${ratioGlobal || '—'} <span style="font-size:8px;opacity:.7">étu./ETP</span></div>
+                </div>
+                <div style="background:rgba(255,255,255,.12);border-radius:4px;padding:4px 6px">
+                  <div style="font-size:7px;opacity:.7;text-transform:uppercase">Cours</div>
+                  <div style="font-size:15px;font-weight:700">${ratioCours || '—'} <span style="font-size:8px;opacity:.7">étu./ETP</span></div>
+                </div>
+                <div style="background:rgba(255,255,255,.12);border-radius:4px;padding:4px 6px">
+                  <div style="font-size:7px;opacity:.7;text-transform:uppercase">Coordination</div>
+                  <div style="font-size:15px;font-weight:700">${ratioCoord || '—'} <span style="font-size:8px;opacity:.7">étu./ETP</span></div>
+                </div>
+                <div style="background:rgba(255,255,255,.12);border-radius:4px;padding:4px 6px">
+                  <div style="font-size:7px;opacity:.7;text-transform:uppercase">Secrétariat</div>
+                  <div style="font-size:15px;font-weight:700">${ratioSec || '—'} <span style="font-size:8px;opacity:.7">étu./ETP</span></div>
+                </div>
+              </div>
+              <div style="font-size:7px;opacity:.5;margin-top:4px">${nbEtus} étudiants · ${sourceLabel}</div>
             </div>` : ''}
           </div>
 

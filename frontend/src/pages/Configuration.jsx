@@ -1080,6 +1080,157 @@ docker start attributions-backend-dev`}</div>
 }
 
 
+      )}
+
+      {/* ── Section PNCC ── */}
+      <PnccSection annee={annee} />
+    </div>
+  );
+}
+
+// Catégories PNCC
+const PNCC_CATS = [
+  { value: 'secretariat_etudiant', label: 'Secrétariat étudiant', color: '#0EA5E9', desc: 'Proratisé au nb de sections pour le ratio étu./ETP' },
+  { value: 'secretariat_rh',       label: 'Secrétariat RH',       color: '#8B5CF6', desc: '' },
+  { value: 'direction',            label: 'Direction',             color: '#1B2B4B', desc: '' },
+  { value: 'economat',             label: 'Économat',              color: '#F59E0B', desc: '' },
+  { value: 'autre',                label: 'Autre',                 color: '#6B7280', desc: '' },
+];
+
+function PnccSection({ annee }) {
+  const [postes, setPostes] = useState([]);
+  const [loading, setLoading] = useState(false);
+  const [form, setForm]     = useState({ categorie: 'secretariat_etudiant', libelle_fonction: '', nom_personne: '', etp: '1.0', notes: '' });
+  const [saving, setSaving] = useState(false);
+  const tok = () => localStorage.getItem('token');
+
+  useEffect(() => {
+    if (!annee) return;
+    setLoading(true);
+    fetch(`/api/pilotage/pncc?annee=${encodeURIComponent(annee)}`, { headers: { Authorization: `Bearer ${tok()}` } })
+      .then(r => r.json()).then(d => setPostes(Array.isArray(d) ? d : []))
+      .catch(() => {}).finally(() => setLoading(false));
+  }, [annee]);
+
+  async function ajouter() {
+    if (!form.libelle_fonction.trim()) return;
+    setSaving(true);
+    try {
+      const r = await fetch('/api/pilotage/pncc', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${tok()}` },
+        body: JSON.stringify({ ...form, annee_scolaire: annee, etp: parseFloat(form.etp) || 1.0 })
+      });
+      const d = await r.json();
+      setPostes(prev => [...prev, { id: d.id, ...form, annee_scolaire: annee, etp: parseFloat(form.etp) || 1.0 }]);
+      setForm(f => ({ ...f, libelle_fonction: '', nom_personne: '', notes: '' }));
+    } catch(e) { alert('Erreur : ' + e.message); }
+    finally { setSaving(false); }
+  }
+
+  async function supprimer(id) {
+    if (!confirm('Supprimer ce poste ?')) return;
+    await fetch(`/api/pilotage/pncc/${id}`, { method: 'DELETE', headers: { Authorization: `Bearer ${tok()}` } });
+    setPostes(prev => prev.filter(p => p.id !== id));
+  }
+
+  async function updateEtp(id, etp) {
+    const p = postes.find(p => p.id === id);
+    if (!p) return;
+    await fetch(`/api/pilotage/pncc/${id}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${tok()}` },
+      body: JSON.stringify({ ...p, etp: parseFloat(etp) || 1.0 })
+    });
+    setPostes(prev => prev.map(p => p.id === id ? { ...p, etp: parseFloat(etp) || 1.0 } : p));
+  }
+
+  const totalSecEtu = postes.filter(p => p.categorie === 'secretariat_etudiant').reduce((s, p) => s + (p.etp || 0), 0);
+  const totalAll = postes.reduce((s, p) => s + (p.etp || 0), 0);
+
+  return (
+    <div className="bg-white rounded-lg border border-gray-200 overflow-hidden">
+      <div className="px-5 py-3 border-b border-gray-100 bg-gray-50 flex items-center justify-between">
+        <div>
+          <h3 className="font-semibold text-gray-800 text-sm">Postes PNCC — Personnel non chargé de cours</h3>
+          <p className="text-xs text-gray-500 mt-0.5">
+            Année {annee} · Total : <strong>{totalAll.toFixed(1)} ETP</strong>
+            {totalSecEtu > 0 && <> · dont secrétariat étudiant : <strong className="text-sky-600">{totalSecEtu.toFixed(1)} ETP</strong> (proratisé par section)</>}
+          </p>
+        </div>
+      </div>
+
+      {/* Liste par catégorie */}
+      <div className="divide-y divide-gray-100">
+        {loading ? (
+          <div className="px-5 py-6 text-center text-gray-400 text-sm">Chargement…</div>
+        ) : postes.length === 0 ? (
+          <div className="px-5 py-6 text-center text-gray-400 text-sm">Aucun poste PNCC pour {annee}.</div>
+        ) : PNCC_CATS.map(cat => {
+          const liste = postes.filter(p => p.categorie === cat.value);
+          if (!liste.length) return null;
+          const totCat = liste.reduce((s, p) => s + (p.etp || 0), 0);
+          return (
+            <div key={cat.value} className="px-5 py-3">
+              <div className="flex items-center gap-2 mb-2">
+                <span style={{background: cat.color}} className="text-white text-xs font-bold px-2 py-0.5 rounded">{cat.label}</span>
+                <span className="text-xs text-gray-400">{totCat.toFixed(1)} ETP</span>
+                {cat.desc && <span className="text-xs text-gray-400 italic">· {cat.desc}</span>}
+              </div>
+              <div className="space-y-1.5">
+                {liste.map(p => (
+                  <div key={p.id} className="flex items-center gap-3 bg-gray-50 rounded-lg px-3 py-2">
+                    <div className="flex-1 min-w-0">
+                      <span className="text-sm font-medium text-gray-800">{p.libelle_fonction}</span>
+                      {p.nom_personne && <span className="text-xs text-gray-500 ml-2">— {p.nom_personne}</span>}
+                    </div>
+                    <input type="number" min="0" max="2" step="0.1"
+                      defaultValue={p.etp}
+                      onBlur={e => updateEtp(p.id, e.target.value)}
+                      className="w-16 border border-gray-200 rounded px-2 py-1 text-sm text-right font-semibold text-iip-blue"
+                    />
+                    <span className="text-xs text-gray-400">ETP</span>
+                    <button onClick={() => supprimer(p.id)} className="text-red-400 hover:text-red-600 ml-1">
+                      <IconTrash size={14} />
+                    </button>
+                  </div>
+                ))}
+              </div>
+            </div>
+          );
+        })}
+      </div>
+
+      {/* Formulaire ajout */}
+      <div className="px-5 py-4 border-t border-gray-100 bg-gray-50">
+        <div className="text-xs font-semibold text-gray-600 mb-2">Ajouter un poste</div>
+        <div className="flex flex-wrap gap-2 items-end">
+          <select value={form.categorie} onChange={e => setForm(f => ({...f, categorie: e.target.value}))}
+            className="border border-gray-300 rounded px-2.5 py-1.5 h-9 text-sm bg-white">
+            {PNCC_CATS.map(c => <option key={c.value} value={c.value}>{c.label}</option>)}
+          </select>
+          <input value={form.libelle_fonction} onChange={e => setForm(f => ({...f, libelle_fonction: e.target.value}))}
+            placeholder="Fonction (ex: Secrétaire étudiant)" onKeyDown={e => e.key === 'Enter' && ajouter()}
+            className="border border-gray-300 rounded px-2.5 py-1.5 h-9 text-sm flex-1 min-w-[180px]" />
+          <input value={form.nom_personne} onChange={e => setForm(f => ({...f, nom_personne: e.target.value}))}
+            placeholder="Personne (optionnel)"
+            className="border border-gray-300 rounded px-2.5 py-1.5 h-9 text-sm w-40" />
+          <div className="flex items-center gap-1.5">
+            <input type="number" min="0" max="2" step="0.1" value={form.etp}
+              onChange={e => setForm(f => ({...f, etp: e.target.value}))}
+              className="border border-gray-300 rounded px-2.5 py-1.5 h-9 text-sm w-20 text-right" />
+            <span className="text-xs text-gray-500">ETP</span>
+          </div>
+          <button onClick={ajouter} disabled={saving || !form.libelle_fonction.trim()}
+            className="h-9 px-3 bg-iip-turquoise text-white text-sm font-semibold rounded flex items-center gap-1.5 disabled:opacity-40">
+            <IconPlus size={14} /> Ajouter
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ── Onglet Procédures : justifications types configurables ───────────────────
 function OngletProcedures() {
   const [justifs, setJustifs] = useState([]);
