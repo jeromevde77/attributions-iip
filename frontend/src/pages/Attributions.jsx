@@ -1060,12 +1060,9 @@ export default function Attributions() {
           }
           if (c.key==='code') {
             const estSplit  = row.split_groupe === 'O';
-            // groupe_code n'existe que dans le rapport — ici les données viennent de data (row.code)
             const codeVal   = (row.code || '').toUpperCase();
             const estGroupe = !!(codeVal && codeVal !== 'TS');
-            // Lettre affichée : Ts si pas de groupe, sinon la lettre (A/B/C…)
-            const lettre = estGroupe ? codeVal : 'Ts';
-            // Couleurs des badges par lettre
+            const lettre    = estGroupe ? codeVal : 'Ts';
             const BADGE_COLORS = {
               A: { bg: '#DBEAFE', color: '#1D4ED8', border: '#BFDBFE' },
               B: { bg: '#D1FAE5', color: '#065F46', border: '#A7F3D0' },
@@ -1078,76 +1075,49 @@ export default function Attributions() {
               ? (BADGE_COLORS[lettre] || { bg: '#F3F4F6', color: '#374151', border: '#E5E7EB' })
               : { bg: '#F9FAFB', color: '#9CA3AF', border: '#E5E7EB' };
 
-            // Frères : lignes du même cours + même activité (pour le swap)
-            const pairs = data
-              .filter(r =>
-                r.id !== row.id &&
-                r.section === row.section &&
-                r.code_cours === row.code_cours &&
-                (r.num_organisation || 1) === (row.num_organisation || 1) &&
-                (r.activite_id || null) === (row.activite_id || null) &&
-                r.split_groupe !== 'O'
-              )
-              .sort((a, b) => (a.code || '').localeCompare(b.code || '', 'fr'));
-
-            // Swap de lettre avec un frère (échange les codes entre deux attributions)
-            async function swapAvec(autreRow) {
+            // Drag & drop : échange les codes entre deux lignes sœurs (même cours)
+            async function swapAvecId(autreId) {
+              const autre = data.find(r => r.id === autreId);
+              if (!autre) return;
+              if (autre.section !== row.section || autre.code_cours !== row.code_cours ||
+                  (autre.num_organisation||1) !== (row.num_organisation||1) || autre.split_groupe === 'O') return;
               try {
-                await api.updateAttribution(row.id,      { code: autreRow.code || null });
-                await api.updateAttribution(autreRow.id, { code: row.code    || null });
+                await api.updateAttribution(row.id,   { code: autre.code || null });
+                await api.updateAttribution(autre.id, { code: row.code   || null });
                 load();
               } catch(e) { alert('Erreur swap : ' + e.message); }
             }
 
-            // Frère précédent / suivant dans l'ordre alphabétique
-            const monIdx  = pairs.findIndex(r => (r.code || '') >= lettre);
-            const frereUp   = pairs.slice(0, monIdx < 0 ? pairs.length : monIdx).at(-1) || null;
-            const frereDown = pairs[monIdx < 0 ? 0 : monIdx] || null;
-
             return <td key={c.key} style={sty}>
               <div className="flex items-center gap-0.5 justify-center">
-                {/* Badge lettre */}
-                <span style={{
-                  display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
-                  minWidth: 22, height: 20, paddingInline: 5, borderRadius: 5,
-                  fontSize: 11, fontWeight: 700, letterSpacing: '0.03em',
-                  background: badgeStyle.bg, color: badgeStyle.color,
-                  border: `1px solid ${badgeStyle.border}`,
-                  userSelect: 'none',
-                }}>{lettre}</span>
-
-                {/* Flèches swap — visibles seulement si groupes actifs ET frères disponibles */}
-                {estGroupe && pairs.length > 0 && <>
-                  <button
-                    onClick={e=>{e.stopPropagation(); if(frereUp) swapAvec(frereUp);}}
-                    disabled={!frereUp}
-                    title={frereUp ? `Échanger avec ${frereUp.code}` : ''}
-                    style={{ padding: 1, background:'none', border:'none', cursor: frereUp?'pointer':'default',
-                      color: frereUp ? '#6B7280' : '#E5E7EB' }}>
-                    <IconArrowUp size={11}/>
-                  </button>
-                  <button
-                    onClick={e=>{e.stopPropagation(); if(frereDown) swapAvec(frereDown);}}
-                    disabled={!frereDown}
-                    title={frereDown ? `Échanger avec ${frereDown.code}` : ''}
-                    style={{ padding: 1, background:'none', border:'none', cursor: frereDown?'pointer':'default',
-                      color: frereDown ? '#6B7280' : '#E5E7EB' }}>
-                    <IconArrowDown size={11}/>
-                  </button>
-                </>}
+                {/* Badge lettre — draggable si groupe actif */}
+                <span
+                  draggable={estGroupe}
+                  onDragStart={e => { e.stopPropagation(); e.dataTransfer.setData('text/plain', String(row.id)); e.dataTransfer.effectAllowed = 'move'; }}
+                  onDragOver={e => { if (estGroupe) { e.preventDefault(); e.dataTransfer.dropEffect = 'move'; e.currentTarget.style.outline = '2px solid #00AACC'; e.currentTarget.style.outlineOffset = '1px'; } }}
+                  onDragLeave={e => { e.currentTarget.style.outline = ''; }}
+                  onDrop={e => { e.preventDefault(); e.stopPropagation(); e.currentTarget.style.outline = ''; const srcId = Number(e.dataTransfer.getData('text/plain')); if (srcId && srcId !== row.id) swapAvecId(srcId); }}
+                  title={estGroupe ? 'Glisser sur un autre groupe pour échanger les lettres' : ''}
+                  style={{
+                    display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+                    minWidth: 22, height: 20, paddingInline: 5, borderRadius: 5,
+                    fontSize: 11, fontWeight: 700, letterSpacing: '0.03em',
+                    background: badgeStyle.bg, color: badgeStyle.color,
+                    border: `1px solid ${badgeStyle.border}`,
+                    cursor: estGroupe ? 'grab' : 'default',
+                    userSelect: 'none',
+                  }}>{lettre}</span>
 
                 {/* Toggle split / groupe */}
                 {!row.is_z && <>
                   <button onClick={e=>{e.stopPropagation();splitterLigne(row);}} title="Split : découper en morceaux partagés (Ts, plusieurs profs)"
-                    style={{ padding:1, background:'none', border:'none', cursor:'pointer',
-                      color: estSplit ? '#16A34A' : '#D1D5DB' }}
+                    style={{ padding:1, background:'none', border:'none', cursor:'pointer', color: estSplit ? '#16A34A' : '#D1D5DB' }}
                     onMouseEnter={e=>{if(!estSplit) e.currentTarget.style.color='#16A34A';}}
                     onMouseLeave={e=>{if(!estSplit) e.currentTarget.style.color='#D1D5DB';}}>
                     <IconScissors size={13}/>
                   </button>
                   <button onClick={e=>{e.stopPropagation();grouperLigne(row);}} title={estGroupe ? 'Groupes actifs — recliquer pour recréer' : 'Créer des sous-groupes A, B, C…'}
-                    style={{ padding:1, background:'none', border:'none', cursor:'pointer',
-                      color: estGroupe ? '#16A34A' : '#D1D5DB' }}
+                    style={{ padding:1, background:'none', border:'none', cursor:'pointer', color: estGroupe ? '#16A34A' : '#D1D5DB' }}
                     onMouseEnter={e=>{if(!estGroupe) e.currentTarget.style.color='#16A34A';}}
                     onMouseLeave={e=>{if(!estGroupe) e.currentTarget.style.color='#D1D5DB';}}>
                     <IconUsersGroup size={13}/>
