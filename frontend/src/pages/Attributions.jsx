@@ -315,6 +315,11 @@ export default function Attributions() {
     const SR = S + 'text-align:right;';
     const SN = S + 'white-space:nowrap;';
 
+    // Détecter si la section contient des cours HELB (pour afficher le badge contrat)
+    const aDesHelb = (d.ues || []).some(u => (u.cours || []).some(co => co.contrat === 'HELB'));
+    const aDesIIP  = (d.ues || []).some(u => (u.cours || []).some(co => co.contrat !== 'HELB'));
+    const mixte = aDesHelb && aDesIIP;
+
     const renderUErap = (ue) => {
       const col = getNivCol(ue.ue_niv);
       const lignesCours = ue.cours.map((c,i) => `
@@ -323,18 +328,18 @@ export default function Attributions() {
           <td style="${S}max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap"
               title="${(c.cours_nom||'').replace(/"/g,"'")}">${c.cours_nom||'\u2014'}${c.activite_nom?` <em style="color:#9ca3af;font-size:10px">(${c.activite_nom})</em>`:''}</td>
           <td style="${SN}color:#6b7280">Gr.${c.groupe_code}</td>
-          <td style="${SN}">${c.prof_nom}</td>
+          <td style="${SN}">${c.prof_nom}${mixte ? ` <span style="font-size:8px;font-weight:700;padding:1px 4px;border-radius:3px;background:${c.contrat==='HELB'?'#ede9fe':'#dbeafe'};color:${c.contrat==='HELB'?'#6d28d9':'#1d4ed8'};margin-left:3px">${c.contrat}</span>` : ''}</td>
           <td style="${S}text-align:center"><span style="font-size:8px;font-weight:700;padding:1px 4px;border-radius:3px;background:${c.contrat==='HELB'?'#ede9fe':'#dbeafe'};color:${c.contrat==='HELB'?'#6d28d9':'#1d4ed8'}">${c.contrat}</span></td>
           <td style="${SR}color:#374151">${fmt(c.periodes)}</td>
           <td style="${SR}color:#6b7280">${fmt(c.autonomie)}</td>
           <td style="${SR}font-weight:600;border-left:1px solid #e5e7eb">${fmt(c.total)}</td>
         </tr>`).join('');
       return `
-        <tr style="background:#f1f5f9;border-left:3px solid ${col}">
-          <td colspan="5" style="padding:4px 6px 4px 8px;font-weight:700;font-size:12px;color:#111827;white-space:nowrap">
-            <span style="background:${col};color:white;font-size:9px;padding:1px 4px;border-radius:2px;margin-right:5px">${ue.ue_niv||''}</span>UE ${ue.ue_num} \u2014 ${ue.ue_nom||''}
+        <tr style="background:${col};border-left:3px solid ${col}">
+          <td colspan="5" style="padding:4px 6px 4px 8px;font-weight:700;font-size:12px;color:white;white-space:nowrap">
+            <span style="background:rgba(255,255,255,0.2);color:white;font-size:9px;padding:1px 4px;border-radius:2px;margin-right:5px">${ue.ue_niv||''}</span>UE ${ue.ue_num} \u2014 ${ue.ue_nom||''}${ue.ects ? ` <span style="border:1px solid rgba(255,255,255,0.7);color:white;font-size:9px;padding:1px 5px;border-radius:10px;margin-left:6px;font-weight:600">${ue.ects} cr.</span>` : ''}
           </td>
-          <td style="${SR}"></td><td style="${SR}"></td><td style="${SR}border-left:1px solid #e5e7eb"></td>
+          <td style="${SR}"></td><td style="${SR}"></td><td style="${SR}border-left:1px solid rgba(255,255,255,0.2)"></td>
         </tr>
         ${lignesCours}
         <tr style="background:#e8edf3;border-left:3px solid ${col}">

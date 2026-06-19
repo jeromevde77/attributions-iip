@@ -345,7 +345,7 @@ r.get('/rapport-attributions', authRequired, (req, res) => {
 
   // Charger les infos UE séparément (sans jointure pour éviter les doublons)
   const ueInfos = {};
-  db.prepare(`SELECT ue_num, ue_nom, ue_niv, ue_quad, ue_tc FROM ue WHERE annee_scolaire = ? ORDER BY ue_num`).all(annee).forEach(u => {
+  db.prepare(`SELECT ue_num, ue_nom, ue_niv, ue_quad, ue_tc, ects FROM ue WHERE annee_scolaire = ? ORDER BY ue_num`).all(annee).forEach(u => {
     if (!ueInfos[u.ue_num]) ueInfos[u.ue_num] = u;
   });
 
@@ -396,6 +396,7 @@ r.get('/rapport-attributions', authRequired, (req, res) => {
         ue_niv: uInfo.ue_niv,
         ue_quad: uInfo.ue_quad,
         ue_tc: uInfo.ue_tc,
+        ects: uInfo.ects || null,
         cours: [], total_per: 0, total_aut: 0
       };
       ueMap[uKey] = ue;
