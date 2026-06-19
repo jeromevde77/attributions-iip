@@ -1948,21 +1948,23 @@ export default function Attributions() {
 
         // Correction depuis le popup
         async function corrigerIci(rowId, newCode) {
-          const autre = toutesLignes.find(r => (r.code||'').toUpperCase() === newCode && r.id !== rowId);
+          // newCode=null → remettre en Ts (effacer la lettre)
+          const codeEffectif = newCode || null;
+          const autre = newCode ? toutesLignes.find(r => (r.code||'').toUpperCase() === newCode && r.id !== rowId) : null;
           const cible = toutesLignes.find(r => r.id === rowId);
           if (!cible) return;
           if (autre) {
             const ancienCode = cible.code || null;
             setData(prev => prev.map(r => {
-              if (r.id === rowId) return { ...r, code: newCode };
+              if (r.id === rowId) return { ...r, code: codeEffectif };
               if (r.id === autre.id) return { ...r, code: ancienCode };
               return r;
             }));
-            try { await api.updateAttribution(rowId, { code: newCode }); await api.updateAttribution(autre.id, { code: ancienCode }); }
+            try { await api.updateAttribution(rowId, { code: codeEffectif }); await api.updateAttribution(autre.id, { code: ancienCode }); }
             catch(e) { alert(e.message); }
           } else {
-            setData(prev => prev.map(r => r.id === rowId ? { ...r, code: newCode } : r));
-            try { await api.updateAttribution(rowId, { code: newCode }); }
+            setData(prev => prev.map(r => r.id === rowId ? { ...r, code: codeEffectif } : r));
+            try { await api.updateAttribution(rowId, { code: codeEffectif }); }
             catch(e) { alert(e.message); }
           }
           // Re-vérifier
@@ -2042,9 +2044,21 @@ export default function Attributions() {
                             }}>{code}</span>
                           </td>
                           <td style={{padding:'6px 8px', textAlign:'center'}}>
-                            {!isSplit && peerAttendu.length > 0 && (
-                              <div style={{display:'flex', gap:3, justifyContent:'center', flexWrap:'wrap'}}>
-                                {peerAttendu.map(l => {
+                            {!isSplit && (
+                              <div style={{display:'flex', gap:3, justifyContent:'center', flexWrap:'wrap', alignItems:'center'}}>
+                                {/* Bouton Ts — toujours disponible si la ligne a une lettre */}
+                                {code !== 'TS' && code !== '' && (
+                                  <span
+                                    onClick={e => { e.stopPropagation(); corrigerIci(r.id, null); }}
+                                    title="Remettre en Ts (pas de groupe)"
+                                    style={{
+                                      display:'inline-flex', alignItems:'center', justifyContent:'center',
+                                      height:20, paddingInline:5, borderRadius:5, fontSize:10, fontWeight:700,
+                                      background:'#F9FAFB', color:'#6B7280', border:'1px solid #D1D5DB',
+                                      cursor:'pointer',
+                                    }}>Ts</span>
+                                )}
+                                {peerAttendu.length > 1 && peerAttendu.map(l => {
                                   const estCourante = l === code;
                                   const dejaPrise = peerCodes.includes(l) && !estCourante;
                                   const bs2 = BADGE_COLORS[l[0]] || { bg:'#F3F4F6', color:'#374151', border:'#E5E7EB' };
