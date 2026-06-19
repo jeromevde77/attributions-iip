@@ -795,13 +795,12 @@ export default function Attributions() {
       r.section === row.section && r.code_cours === row.code_cours &&
       (r.num_organisation || 1) === (row.num_organisation || 1) &&
       (r.activite_id || null) === (row.activite_id || null);
-    const lettres = [...'ABCDEFGHIJKLMNOPQRSTUVWXYZ'];
     if (!confirm(`Organiser cette activité en ${total} groupes (A, B, C…) ?`)) return;
     try {
       // La ligne source devient le groupe A ; les nouvelles prennent B, C… séquentiellement
-      await api.updateAttribution(row.id, { code: lettres[0], split_groupe: 'N' });
+      await api.updateAttribution(row.id, { code: groupCode(0), split_groupe: 'N' });
       for (let i = 1; i < total; i++) {
-        await api.createAttribution(payloadCopie(row, lettres[i], 'N'));
+        await api.createAttribution(payloadCopie(row, groupCode(i), 'N'));
       }
       load();
     } catch(e){ alert('Erreur : '+e.message); }
@@ -873,6 +872,15 @@ export default function Attributions() {
   }
 
   /* --- Chargement --- */
+  // Génère le code de groupe pour l'index i (0-based) : A,B,...,Z,AA,BB,...
+  function groupCode(i) {
+    const alpha = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
+    if (i < 26) return alpha[i];
+    const rep = Math.floor(i / 26);
+    return alpha[i % 26].repeat(rep + 1);
+  }
+  function groupCodeSeq(n) { return Array.from({length: n}, (_, i) => groupCode(i)); }
+
   // Ouvre et scrolle jusqu'au cours concerné par une anomalie de groupe
   function naviguerVersAnomalie(a) {
     setGroupeAlertes(null);
@@ -950,18 +958,15 @@ export default function Attributions() {
       } else {
         // Plusieurs lignes : codes doivent être A, B, C… séquentiels sans trou ni doublon
         const codes = lignes.map(r => (r.code || '').toUpperCase()).sort();
-        const attendu = codes.map((_, i) => String.fromCharCode(65 + i));
+        const attendu = groupCodeSeq(codes.length);
         const avecTs   = codes.some(c => !c || c === 'TS');
         const doublons = codes.length !== new Set(codes).size;
-        // Séquence invalide : ne commence pas par A, ou trou, ou lettre hors A-Z
-        const horsAlpha = codes.some(c => c.length !== 1 || c < 'A' || c > 'Z');
         const mauvaisSeq = JSON.stringify(codes) !== JSON.stringify(attendu);
-        if (avecTs || doublons || horsAlpha || mauvaisSeq) {
+        if (avecTs || doublons || mauvaisSeq) {
           const r = lignes[0];
           let desc = '';
           if (avecTs)       desc = `mélange Ts et lettres (${codes.join(',')})`;
           else if (doublons) desc = `lettres dupliquées (${codes.join(',')})`;
-          else if (horsAlpha) desc = `lettres hors séquence A-Z (${codes.join(',')})`;
           else               desc = `séquence incomplète (${codes.join(',')}) — attendu ${attendu.join(',')}`;
           anomalies.push({
             cours: r.nom_cours || r.code_cours || '?',
@@ -1193,7 +1198,7 @@ export default function Attributions() {
               F: { bg: '#FFE4E6', color: '#9F1239', border: '#FECDD3' },
             };
             const badgeStyle = estGroupe
-              ? (BADGE_COLORS[lettre] || { bg: '#F3F4F6', color: '#374151', border: '#E5E7EB' })
+              ? (BADGE_COLORS[lettre[0]] || { bg: '#F3F4F6', color: '#374151', border: '#E5E7EB' })
               : { bg: '#F9FAFB', color: '#9CA3AF', border: '#E5E7EB' };
 
             // Frères = toutes les lignes du même cours (même activité OU même cours si pas d'activité)
@@ -1207,7 +1212,7 @@ export default function Attributions() {
             );
             const nbGroupes = freres.length + 1;
             // Toutes les lettres du groupe (A..Z selon le nombre total)
-            const toutesLettres = Array.from({length: nbGroupes}, (_, i) => String.fromCharCode(65+i));
+            const toutesLettres = groupCodeSeq(nbGroupes);
             // Map lettre → frère qui l'a
             const lettreAFrere = {};
             freres.forEach(r => { const l = (r.code||'').toUpperCase(); if (l && l !== 'TS') lettreAFrere[l] = r; });
@@ -1224,7 +1229,7 @@ export default function Attributions() {
                 .concat([newLettre])
                 .filter(l => l && l !== 'TS')
                 .sort();
-              const attendu = codesApres.map((_, i) => String.fromCharCode(65+i));
+              const attendu = groupCodeSeq(codesApres.length);
               const seqOk = JSON.stringify(codesApres) === JSON.stringify(attendu);
               if (!seqOk) {
                 if (!confirm(\`La lettre \${newLettre} rompt la séquence alphabétique. Continuer quand même ?\`)) return;
@@ -1266,7 +1271,7 @@ export default function Attributions() {
                   title={estGroupe ? 'Cliquer pour changer la lettre' : ''}
                   style={{
                     display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
-                    minWidth: 22, height: 20, paddingInline: 5, borderRadius: 5,
+                    minWidth: lettre.length > 1 ? 30 : 22, height: 20, paddingInline: 5, borderRadius: 5,
                     fontSize: 11, fontWeight: 700, letterSpacing: '0.03em',
                     background: badgeStyle.bg, color: badgeStyle.color,
                     border: `1px solid ${badgeStyle.border}`,
@@ -1285,7 +1290,7 @@ export default function Attributions() {
                       {toutesLettres.map(l => {
                         const prise = !!lettreAFrere[l];
                         const courante = l === lettre;
-                        const bs = BADGE_COLORS[l] || { bg:'#F3F4F6', color:'#374151', border:'#E5E7EB' };
+                        const bs = BADGE_COLORS[l[0]] || { bg:'#F3F4F6', color:'#374151', border:'#E5E7EB' };
                         return (
                           <span key={l}
                             onClick={e => { e.stopPropagation(); assignerLettre(l); }}
