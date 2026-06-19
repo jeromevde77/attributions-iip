@@ -618,6 +618,7 @@ export default function Listes() {
     }
 
     // Totaux section
+    const nbEtusEstimes = parseInt(filtres.nb_etudiants_estimes) || 0;
     const totEtp = sec.etp_total, iipEtp = sec.etp_iip, helbEtp = sec.etp_helb;
     const coordEtp = sec.etp_coord_helb || 0;
     const globalEtp = totEtp + coordEtp; // cours + coordination
@@ -655,6 +656,12 @@ export default function Listes() {
             <div style="font-size:8px;text-transform:uppercase;letter-spacing:1.5px;opacity:.75">Charge globale de la section</div>
             <div style="font-size:40px;font-weight:700;line-height:1;margin-top:4px">${fmtEtp2(globalEtp)} <span style="font-size:13px;font-weight:400;opacity:.8">ETP</span></div>
             <div style="font-size:8px;opacity:.7;margin-top:5px">Cours (${fmt(totPer)} pér.) + coordination HELB</div>
+            ${nbEtusEstimes > 0 ? `
+            <div style="margin-top:8px;padding-top:8px;border-top:1px solid rgba(255,255,255,.2)">
+              <div style="font-size:8px;opacity:.7;text-transform:uppercase;letter-spacing:1px">Ratio indicatif</div>
+              <div style="font-size:18px;font-weight:700;margin-top:1px">${(nbEtusEstimes / globalEtp).toFixed(1)} <span style="font-size:10px;font-weight:400;opacity:.8">étu./ETP</span></div>
+              <div style="font-size:8px;opacity:.6">${nbEtusEstimes} étudiants estimés</div>
+            </div>` : ''}
           </div>
 
           <!-- Carte 2 : dont cours (flèche) -->
@@ -1065,6 +1072,17 @@ export default function Listes() {
                 <option value="">{entite === 'rapport-etp' ? '— Choisir —' : '— Toutes —'}</option>
                 {sections.map(s => <option key={s.code} value={s.code}>{s.code}</option>)}
               </select>
+            </label>
+          )}
+          {entite === 'rapport-etp' && (
+            <label className="flex items-center gap-2">
+              <span className="text-xs text-slate-500">Étudiants estimés</span>
+              <input type="number" min="0" step="1"
+                value={filtres.nb_etudiants_estimes || ''}
+                onChange={e => setFiltres(f => ({ ...f, nb_etudiants_estimes: e.target.value }))}
+                placeholder="ex: 120"
+                title="Nombre d'étudiants estimés pour le calcul du ratio étudiants/ETP"
+                className="border border-slate-300 rounded-lg px-2.5 py-1.5 h-9 text-sm w-24" />
             </label>
           )}
           {def.filtres.includes('ue_num') && (
