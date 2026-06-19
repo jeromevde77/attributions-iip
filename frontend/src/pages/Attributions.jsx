@@ -367,6 +367,7 @@ export default function Attributions() {
         </tr>`;
     }).join('')
 
+    console.log('[rapport] missions_hors_ue:', d.missions_hors_ue);
     const html = `<!DOCTYPE html><html><head><meta charset="utf-8">
       <style>
         * { box-sizing:border-box; margin:0; padding:0; }
