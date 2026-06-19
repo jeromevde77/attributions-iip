@@ -757,7 +757,7 @@ export default function Listes() {
             <div><b style="color:${BLEU}">Pratique professionnelle (PP)</b> : périodes ÷ 1000</div>
             <div><b style="color:${BLEU}">Travail administratif</b> : 36 h / semaine</div>
           </div>
-          <div style="font-size:9px;color:#555;line-height:1.5;margin-top:8px">Les périodes intègrent les heures de cours et les heures d'autonomie pédagogique. Le calcul est appliqué de manière identique aux attributions IIP et HELB. Les chiffres correspondent à la charge réellement rémunérée par l'établissement.</div>
+          <div style="font-size:9px;color:#555;line-height:1.5;margin-top:8px">Les périodes intègrent les heures de cours et les heures d'autonomie pédagogique. Le calcul est appliqué de manière identique aux attributions IIP et HELB. </div>
         </div>
 
         ${(sec.coord_helb && sec.coord_helb.length > 0) ? `
@@ -806,7 +806,7 @@ export default function Listes() {
             <div><b style="color:${BLEU}">Pratique professionnelle (PP)</b> : périodes ÷ 1000</div>
             <div><b style="color:${BLEU}">Travail administratif</b> : 36 h / semaine</div>
           </div>
-          <div style="font-size:9px;color:#555;line-height:1.5;margin-top:8px">Les périodes intègrent les heures de cours et les heures d'autonomie pédagogique. Le calcul est appliqué de manière identique aux attributions IIP et HELB. Les chiffres correspondent à la charge réellement rémunérée par l'établissement.</div>
+          <div style="font-size:9px;color:#555;line-height:1.5;margin-top:8px">Les périodes intègrent les heures de cours et les heures d'autonomie pédagogique. Le calcul est appliqué de manière identique aux attributions IIP et HELB. </div>
         </div>
       </div></body></html>`;
     setRapportHtml(html);
