@@ -7,6 +7,30 @@ import { Router } from 'express';
 import db from '../db/index.js';
 import { authRequired } from '../middleware/auth.js';
 import { getParam, getParamNum, piedDocument } from './parametres.js';
+import multer from 'multer';
+import { mkdirSync, existsSync } from 'fs';
+import { join, resolve } from 'path';
+import { createHash } from 'crypto';
+
+const DATA_DIR = process.env.DATA_DIR || '/app/data';
+
+// Multer : stockage fichiers recours
+const uploadStorage = multer.diskStorage({
+  destination(req, file, cb) {
+    const proc = db.prepare('SELECT etudiant, annee_scolaire FROM procedure_archive WHERE id = ?').get(req.params.id);
+    const annee = (proc?.annee_scolaire || 'inconnu').replace(/[^\w-]/g, '_');
+    const nom   = (proc?.etudiant || 'inconnu').replace(/[^\w\s-]/g, '').replace(/\s+/g, '_');
+    const dir   = join(DATA_DIR, 'recours', annee, nom);
+    mkdirSync(dir, { recursive: true });
+    req._uploadDir = dir;
+    cb(null, dir);
+  },
+  filename(req, file, cb) {
+    const ts = new Date().toISOString().replace(/[:.]/g, '-').slice(0,19);
+    cb(null, `${ts}_${file.originalname}`);
+  }
+});
+const upload = multer({ storage: uploadStorage, limits: { fileSize: 20 * 1024 * 1024 } });
 
 const r = Router();
 
@@ -486,6 +510,41 @@ r.post('/archives/:id/regenerer', authRequired, (req, res) => {
   }
   // Mode par défaut : retourner le payload pour pré-remplissage du formulaire
   res.json({ payload, procedure_id: proc.id, type: proc.type });
+});
+
+// ── Upload courrier étudiant ─────────────────────────────────────────────────
+r.post('/archives/:id/upload', authRequired, upload.single('fichier'), (req, res) => {
+  const proc = db.prepare('SELECT id FROM procedure_archive WHERE id = ?').get(req.params.id);
+  if (!proc) return res.status(404).json({ error: 'Procédure introuvable' });
+  if (!req.file) return res.status(400).json({ error: 'Aucun fichier reçu' });
+  db.prepare(`UPDATE procedure_archive SET
+    fichier_recours_path = ?, fichier_recours_nom = ?, modifie_le = datetime('now')
+    WHERE id = ?`).run(req.file.path, req.file.originalname, proc.id);
+  res.json({ ok: true, nom: req.file.originalname, path: req.file.path });
+});
+
+// ── Persister profs présents ────────────────────────────────────────────────
+r.patch('/archives/:id/profs', authRequired, (req, res) => {
+  const proc = db.prepare('SELECT id FROM procedure_archive WHERE id = ?').get(req.params.id);
+  if (!proc) return res.status(404).json({ error: 'Procédure introuvable' });
+  const { profs_presents } = req.body; // array d'IDs
+  db.prepare(`UPDATE procedure_archive SET profs_presents_json = ?, modifie_le = datetime('now') WHERE id = ?`)
+    .run(JSON.stringify(profs_presents || []), proc.id);
+  res.json({ ok: true });
+});
+
+// ── Tracer le PDF généré (appelé côté client après impression) ──────────────
+r.post('/archives/:id/trace-pdf', authRequired, (req, res) => {
+  const proc = db.prepare('SELECT id, etudiant FROM procedure_archive WHERE id = ?').get(req.params.id);
+  if (!proc) return res.status(404).json({ error: 'Procédure introuvable' });
+  const genere_par = req.user?.email || req.user?.nom || 'inconnu';
+  const genere_le  = new Date().toISOString();
+  // Code discret : hash sha256(id + user + timestamp) tronqué à 12 chars
+  const sigCode = createHash('sha256').update(`${proc.id}|${genere_par}|${genere_le}`).digest('hex').slice(0,12);
+  db.prepare(`UPDATE procedure_archive SET
+    pdf_genere_par = ?, pdf_genere_le = ?, pdf_sig_code = ?, modifie_le = datetime('now')
+    WHERE id = ?`).run(genere_par, genere_le, sigCode, proc.id);
+  res.json({ ok: true, sig_code: sigCode, genere_par, genere_le });
 });
 
 export default r;

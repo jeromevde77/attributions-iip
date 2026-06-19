@@ -282,6 +282,8 @@ function OutilRecours({ initialPayload, onPayloadConsumed }) {
   const [dateDecisionInterne, setDateDecisionInterne] = useState('');
   const [dateSeance, setDateSeance] = useState('');
   const [commentaireCDE, setCommentaireCDE] = useState('');
+  const [procId, setProcId]           = useState(null);   // ID archive après première génération
+  const [fichierRecours, setFichierRecours] = useState(null); // { nom, uploading, ok }
 
   // Pré-remplissage depuis une archive
   useEffect(() => {
@@ -295,6 +297,8 @@ function OutilRecours({ initialPayload, onPayloadConsumed }) {
     if (p.date_seance)   setDateSeance(p.date_seance);
     if (p.commentaire_cde) setCommentaireCDE(p.commentaire_cde);
     if (p.q)             setQ(prev => ({ ...prev, ...p.q }));
+    if (p._proc_id)      setProcId(p._proc_id);
+    if (p._profs_presents) setProfsPresents(new Set(p._profs_presents));
     setStep(1);
     onPayloadConsumed?.();
   }, [initialPayload]);
@@ -428,6 +432,39 @@ function OutilRecours({ initialPayload, onPayloadConsumed }) {
         alert('⚠ Champs du modèle non disponibles pour cette procédure (laissés vides dans le document) :\n\n• '
           + res.champs_manquants.join('\n• '));
       setPreviewHtml(res.html);
+      const pid = res.procedure_id;
+      if (pid) {
+        setProcId(pid);
+        // Upload du fichier en attente si présent
+        if (fichierRecours?.file && !fichierRecours.ok) {
+          const fd = new FormData(); fd.append('fichier', fichierRecours.file);
+          fetch(`/api/procedures/archives/${pid}/upload`, {
+            method: 'POST', headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }, body: fd
+          }).then(r => r.json()).then(d => {
+            if (d.ok) setFichierRecours(prev => ({ ...prev, ok: true, uploading: false }));
+          }).catch(() => {});
+        }
+        // Persister les profs présents immédiatement
+        const profsIds = profsPresentsListe.map(p => p.id).filter(Boolean);
+        if (profsIds.length) {
+          authFetch(`/api/procedures/archives/${pid}/profs`, {
+            method: 'PATCH', body: JSON.stringify({ profs_presents: profsIds })
+          }).catch(() => {});
+        }
+        // Tracer le PDF (appel après un court délai pour laisser le temps à l'utilisateur d'imprimer)
+        setTimeout(() => {
+          authFetch(`/api/procedures/archives/${pid}/trace-pdf`, { method: 'POST' })
+            .then(tr => {
+              if (tr?.sig_code) {
+                // Injecter le code signature en invisible dans le HTML (blanc sur blanc, hors impression)
+                setPreviewHtml(prev => prev
+                  ? prev + `<div style="color:white;font-size:1px;user-select:none;position:absolute;opacity:0" aria-hidden="true"><!--lucie-sig:${pid}:${tr.sig_code}:${tr.genere_par}:${tr.genere_le}--></div>`
+                  : prev
+                );
+              }
+            }).catch(() => {});
+        }, 1500);
+      }
     } catch(e) { alert('Erreur : ' + e.message); }
   }
 
@@ -669,10 +706,64 @@ function OutilRecours({ initialPayload, onPayloadConsumed }) {
               Observations / commentaire du CDE
               <span className="text-gray-400 font-normal ml-1">(facultatif — apparaîtra dans la décision)</span>
             </div>
+            {/* Justifications prédéfinies */}
+            <select className="w-full border border-gray-300 rounded px-3 py-1.5 h-9 text-sm bg-white mb-2"
+              value=""
+              onChange={e => { if (e.target.value) setCommentaireCDE(e.target.value); }}>
+              <option value="">— Insérer une justification type —</option>
+              {[
+                "L'étudiant·e ne conteste aucune irrégularité de procédure, mais exprime un désaccord avec l'appréciation pédagogique. Or, la Commission de recours ne peut substituer sa note à celle du jury (art. 123ter).",
+                "Les acquis d'apprentissage et les critères d'évaluation ont été communiqués conformément au dossier pédagogique. L'évaluation reflète fidèlement le niveau d'acquisition observé lors de l'épreuve.",
+                "Le CDE a examiné les copies en séance. Aucune erreur matérielle, aucun écart de traitement entre étudiants n'a été relevé.",
+                "La modalité d'évaluation contestée était prévue au dossier pédagogique et portée à la connaissance des étudiants en début d'UE.",
+                "L'irrégularité invoquée n'a pas eu d'incidence sur l'issue de la délibération : le résultat reste en-dessous du seuil de réussite, indépendamment du point litigieux.",
+                "Le délai de recours n'est pas respecté. La plainte a été introduite après le 4e jour calendrier suivant la publication des résultats (art. 123ter §4).",
+                "La plainte ne mentionne pas d'irrégularités précises au sens de l'art. 123ter. Une contestation de la valeur d'une note n'est pas recevable comme motif de recours.",
+              ].map((j,i) => <option key={i} value={j}>{j.length > 80 ? j.slice(0,80)+'…' : j}</option>)}
+            </select>
             <textarea value={commentaireCDE} onChange={e => setCommentaireCDE(e.target.value)}
-              rows={4} placeholder="Ex : Le CDE a examiné les épreuves en présence du responsable d'UE. Il ressort que les AA notifiés sur E-campus ont bien été communiqués à l'étudiant le [date]. La note de [X/20] reflète fidèlement le niveau d'acquisition constaté lors de l'épreuve."
+              rows={4} placeholder="Sélectionnez une justification type ci-dessus ou rédigez librement…"
               className="w-full border border-gray-300 rounded px-3 py-2 text-sm bg-white resize-y" />
           </label>
+
+          {/* Upload courrier étudiant */}
+          <div className="border border-dashed border-gray-300 rounded-lg p-3 bg-gray-50">
+            <div className="text-xs font-semibold text-gray-600 mb-1">
+              Courrier de recours reçu
+              <span className="text-gray-400 font-normal ml-1">(optionnel — PDF, Word, image…)</span>
+            </div>
+            {fichierRecours?.ok ? (
+              <div className="flex items-center gap-2 text-sm text-green-700">
+                <span>✓</span>
+                <span className="truncate">{fichierRecours.nom}</span>
+                <button onClick={() => setFichierRecours(null)} className="text-gray-400 hover:text-red-500 ml-auto text-xs">×</button>
+              </div>
+            ) : (
+              <label className="flex items-center gap-2 cursor-pointer">
+                <input type="file" accept=".pdf,.doc,.docx,.jpg,.jpeg,.png,.eml,.msg" className="hidden"
+                  onChange={async e => {
+                    const file = e.target.files?.[0];
+                    if (!file) return;
+                    setFichierRecours({ nom: file.name, uploading: true, ok: false });
+                    if (!procId) {
+                      // Pas encore de procédure créée : stocker le fichier en mémoire pour upload après génération
+                      setFichierRecours({ nom: file.name, uploading: false, ok: false, file });
+                      return;
+                    }
+                    const fd = new FormData(); fd.append('fichier', file);
+                    try {
+                      const r = await fetch(`/api/procedures/archives/${procId}/upload`, {
+                        method: 'POST', headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }, body: fd
+                      });
+                      const d = await r.json();
+                      if (d.ok) setFichierRecours({ nom: file.name, uploading: false, ok: true });
+                      else setFichierRecours({ nom: file.name, uploading: false, ok: false, erreur: d.error });
+                    } catch { setFichierRecours({ nom: file.name, uploading: false, ok: false, erreur: 'Erreur réseau' }); }
+                  }} />
+                <span className="text-xs text-gray-500">{fichierRecours?.uploading ? 'Envoi…' : 'Cliquer pour téléverser le courrier reçu'}</span>
+              </label>
+            )}
+          </div>
         </div>
 
         {/* Bouton génération */}
@@ -860,6 +951,8 @@ function OutilFraude({ initialPayload, onPayloadConsumed }) {
   const [dateEnvoi, setDateEnvoi]         = useState('');
   const [decision, setDecision]           = useState('');
   const [commentaireCDE, setCommentaireCDE] = useState('');
+  const [procId, setProcId]           = useState(null);   // ID archive après première génération
+  const [fichierRecours, setFichierRecours] = useState(null); // { nom, uploading, ok }
   const [momentFaits, setMomentFaits]     = useState('pendant'); // 'pendant' (Art.73) | 'correction' (Art.74)
   const [conteste, setConteste]           = useState(false);     // l'étudiant conteste les faits → audition
 

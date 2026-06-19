@@ -2063,6 +2063,27 @@ try {
   console.error('[seed-templates] ERREUR :', e.message);
 }
 
+// ── Migrations recours : upload fichier + PDF trace + profs persistés ────────
+try {
+  const _colsProc = db.prepare('PRAGMA table_info(procedure_archive)').all().map(c => c.name);
+  if (!_colsProc.includes('fichier_recours_path')) {
+    db.exec(`ALTER TABLE procedure_archive ADD COLUMN fichier_recours_path TEXT`);
+    db.exec(`ALTER TABLE procedure_archive ADD COLUMN fichier_recours_nom  TEXT`);
+    console.log('[migration] procedure_archive : colonnes fichier_recours ajoutées');
+  }
+  if (!_colsProc.includes('pdf_genere_path')) {
+    db.exec(`ALTER TABLE procedure_archive ADD COLUMN pdf_genere_path TEXT`);
+    db.exec(`ALTER TABLE procedure_archive ADD COLUMN pdf_genere_par  TEXT`);
+    db.exec(`ALTER TABLE procedure_archive ADD COLUMN pdf_genere_le   TEXT`);
+    db.exec(`ALTER TABLE procedure_archive ADD COLUMN pdf_sig_code    TEXT`);
+    console.log('[migration] procedure_archive : colonnes pdf_genere ajoutées');
+  }
+  if (!_colsProc.includes('profs_presents_json')) {
+    db.exec(`ALTER TABLE procedure_archive ADD COLUMN profs_presents_json TEXT`);
+    console.log('[migration] procedure_archive : colonne profs_presents_json ajoutée');
+  }
+} catch(e) { console.error('[migration] recours colonnes :', e.message); }
+
 // Recréer les VIEW à chaque démarrage pour qu'elles soient à jour
 // quand le schéma évolue (sans nécessiter un init-db complet).
 try {
