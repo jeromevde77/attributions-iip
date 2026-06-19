@@ -1,4 +1,4 @@
-import { useEffect, useState, useMemo, useRef } from 'react';
+import { useEffect, useState, useMemo } from 'react';
 import { api, getAnnee, nomDoc, getUnite, setUnite as setUniteGlobal, perToH, hToPer } from '../lib/api.js';
 import PreviewModal from '../components/PreviewModal.jsx';
 import EptModal from '../components/EptModal.jsx';
@@ -215,7 +215,8 @@ const DEFAULT_COLS = [
 // ===========================================================================
 export default function Attributions() {
   const [data, setData] = useState([]);
-  const dragSrcId = useRef(null); // id de la ligne en cours de drag
+  const [dragSrcId, setDragSrcId] = useState(null); // id de la ligne en cours de drag
+  const [dragOverId, setDragOverId] = useState(null);   // id de la cible survolée
   const [sections, setSections] = useState([]);
   const [professeurs, setProfesseurs] = useState([]);
   const [activitesList, setActivitesList] = useState([]);
@@ -1077,14 +1078,18 @@ export default function Attributions() {
               : { bg: '#F9FAFB', color: '#9CA3AF', border: '#E5E7EB' };
 
             // Drag & drop : échange les codes entre deux lignes sœurs (même cours)
-            async function swapAvecId(autreId) {
-              const autre = data.find(r => r.id === autreId);
-              if (!autre) return;
-              if (autre.section !== row.section || autre.code_cours !== row.code_cours ||
-                  (autre.num_organisation||1) !== (row.num_organisation||1) || autre.split_groupe === 'O') return;
+            // row = cible (drop target), dragSrcId = id de la source
+            async function swapAvecId(targetId) {
+              if (!dragSrcId || dragSrcId === targetId) return;
+              const src    = data.find(r => r.id === dragSrcId);
+              const target = data.find(r => r.id === targetId);
+              if (!src || !target) return;
+              // Vérifier même cours
+              if (src.section !== target.section || src.code_cours !== target.code_cours ||
+                  (src.num_organisation||1) !== (target.num_organisation||1)) return;
               try {
-                await api.updateAttribution(row.id,   { code: autre.code || null });
-                await api.updateAttribution(autre.id, { code: row.code   || null });
+                await api.updateAttribution(src.id,    { code: target.code || null });
+                await api.updateAttribution(target.id, { code: src.code    || null });
                 load();
               } catch(e) { alert('Erreur swap : ' + e.message); }
             }
@@ -1094,20 +1099,22 @@ export default function Attributions() {
                 {/* Badge lettre — draggable si groupe actif */}
                 <span
                   draggable={estGroupe}
-                  onDragStart={e => { dragSrcId.current = row.id; e.dataTransfer.effectAllowed = 'move'; }}
-                  onDragOver={e => { e.preventDefault(); e.stopPropagation(); e.currentTarget.style.outline = '2px solid #00AACC'; e.currentTarget.style.outlineOffset = '1px'; }}
-                  onDragLeave={e => { e.currentTarget.style.outline = ''; e.currentTarget.style.outlineOffset = ''; }}
-                  onDragEnd={e => { dragSrcId.current = null; }}
-                  onDrop={e => { e.preventDefault(); e.stopPropagation(); e.currentTarget.style.outline = ''; e.currentTarget.style.outlineOffset = ''; const srcId = dragSrcId.current; dragSrcId.current = null; if (srcId && srcId !== row.id) swapAvecId(srcId); }}
+                  onDragStart={e => { setDragSrcId(row.id); e.dataTransfer.setData('text/plain', String(row.id)); e.dataTransfer.effectAllowed = 'move'; }}
+                  onDragOver={e => { e.preventDefault(); e.stopPropagation(); setDragOverId(row.id); }}
+                  onDragLeave={e => { setDragOverId(null); }}
+                  onDragEnd={e => { setDragSrcId(null); setDragOverId(null); }}
+                  onDrop={e => { e.preventDefault(); e.stopPropagation(); setDragOverId(null); setDragSrcId(null); swapAvecId(row.id); }}
                   title={estGroupe ? 'Glisser sur un autre groupe pour échanger les lettres' : ''}
                   style={{
                     display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
                     minWidth: 22, height: 20, paddingInline: 5, borderRadius: 5,
                     fontSize: 11, fontWeight: 700, letterSpacing: '0.03em',
-                    background: badgeStyle.bg, color: badgeStyle.color,
-                    border: `1px solid ${badgeStyle.border}`,
-                    cursor: estGroupe ? 'grab' : 'default',
+                    background: dragOverId === row.id && dragSrcId !== row.id ? '#00AACC' : badgeStyle.bg,
+                    color: dragOverId === row.id && dragSrcId !== row.id ? '#fff' : badgeStyle.color,
+                    border: dragOverId === row.id && dragSrcId !== row.id ? '2px solid #007A99' : `1px solid ${badgeStyle.border}`,
+                    cursor: estGroupe ? (dragSrcId === row.id ? 'grabbing' : 'grab') : 'default',
                     userSelect: 'none',
+                    transition: 'background 0.1s, border 0.1s',
                   }}>{lettre}</span>
 
                 {/* Toggle split / groupe */}
