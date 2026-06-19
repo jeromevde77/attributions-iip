@@ -558,11 +558,22 @@ r.get('/etp', authRequired, (req, res) => {
     });
   }
 
+  // Effectifs par UE pour le ratio étu./ETP
+  const effectifs = db.prepare(`
+    SELECT ue_num, nb_etudiants, section FROM ue WHERE annee_scolaire = ? AND nb_etudiants IS NOT NULL AND nb_etudiants > 0
+  `).all(annee);
+  const effMap = {}; // section -> total nb_etudiants
+  for (const e of effectifs) {
+    if (!effMap[e.section]) effMap[e.section] = 0;
+    effMap[e.section] += (e.nb_etudiants || 0);
+  }
+
   const out = Object.values(sections)
     .map(s => ({
       section: s.section,
       etp_ct: r4(s.etp_ct), etp_pp: r4(s.etp_pp),
       etp_iip: r4(s.etp_iip), etp_helb: r4(s.etp_helb), etp_total: r4(s.etp_iip + s.etp_helb),
+      nb_etudiants: effMap[s.section] || 0,
       ues: s.ues.sort((a, b) => String(a.ue_num).localeCompare(String(b.ue_num), 'fr', { numeric: true })),
     }))
     .sort((a, b) => a.section.localeCompare(b.section, 'fr'));

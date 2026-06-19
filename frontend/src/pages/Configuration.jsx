@@ -904,7 +904,9 @@ export default function Configuration() {
     { key: 'parametres', label: 'Paramètres', icon: IconAdjustments },
     { key: 'prerequis', label: 'Prérequis UE', icon: IconLink },
     { key: 'procedures', label: 'Procédures', icon: IconGavel },
+    { key: 'statistiques', label: 'Statistiques', icon: IconChartBar },
     { key: 'procedures', label: 'Procédures', icon: IconGavel },
+    { key: 'statistiques', label: 'Statistiques', icon: IconChartBar },
     { key: 'changelog', label: 'Nouveautés', icon: IconSparkles },
   ];
   return (
@@ -1070,6 +1072,7 @@ docker start attributions-backend-dev`}</div>
 
       {/* ── Onglet Procédures ── */}
       {tab === 'procedures' && <OngletProcedures />}
+      {tab === 'statistiques' && <OngletStatistiques />}
 
         </div>
     </div>
@@ -1207,6 +1210,240 @@ function OngletProcedures() {
         <p className="text-xs text-green-600 flex items-center gap-1">
           <IconCheck size={13} /> Sauvegardé
         </p>
+      )}
+    </div>
+  );
+}
+
+// ── Onglet Statistiques : effectifs estimés par section / UE ─────────────────
+function OngletStatistiques() {
+  const [annees, setAnnees]       = useState([]);
+  const [annee, setAnnee]         = useState('');
+  const [sections, setSections]   = useState([]);
+  const [section, setSection]     = useState('');
+  const [ues, setUes]             = useState([]); // [{ue_num, ue_nom, ue_niv, nb_etudiants}]
+  const [loading, setLoading]     = useState(false);
+  const [saving, setSaving]       = useState(false);
+  const [saved, setSaved]         = useState(false);
+  const [totalSection, setTotalSection] = useState(''); // saisie rapide total section
+  const [modeSaisie, setModeSaisie] = useState('ue'); // 'ue' | 'section'
+
+  // Charger années et sections
+  useEffect(() => {
+    api.annees().then(d => {
+      const liste = Array.isArray(d) ? d.map(a => a.annee_scolaire || a) : [];
+      setAnnees(liste);
+      if (liste.length) setAnnee(liste[0]);
+    }).catch(() => {});
+    api.sections().then(d => {
+      const liste = Array.isArray(d) ? d : [];
+      setSections(liste);
+      if (liste.length) setSection(liste[0].code || liste[0]);
+    }).catch(() => {});
+  }, []);
+
+  // Charger UEs de la section/année
+  useEffect(() => {
+    if (!annee || !section) return;
+    setLoading(true);
+    fetch(`/api/ref/ues?section=${encodeURIComponent(section)}&annee=${encodeURIComponent(annee)}`,
+      { headers: { Authorization: `Bearer ${localStorage.getItem('token')}` } })
+      .then(r => r.json())
+      .then(d => {
+        const liste = (Array.isArray(d) ? d : [])
+          .filter(u => u.ue_num)
+          .sort((a, b) => (a.ue_num - b.ue_num));
+        setUes(liste.map(u => ({ ...u, nb_etudiants: u.nb_etudiants ?? '' })));
+      })
+      .catch(() => setUes([]))
+      .finally(() => setLoading(false));
+  }, [annee, section]);
+
+  // Total section courant
+  const totalReel = ues.reduce((s, u) => s + (parseInt(u.nb_etudiants) || 0), 0);
+
+  // Grouper par niveau
+  const niveaux = [...new Set(ues.map(u => u.ue_niv || 'Autres'))].sort();
+
+  async function sauvegarder(uesList) {
+    setSaving(true);
+    try {
+      await fetch('/api/ref/ue/effectifs-import', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${localStorage.getItem('token')}` },
+        body: JSON.stringify({ annee, effectifs: uesList.map(u => ({ ue_num: u.ue_num, nb_etudiants: u.nb_etudiants === '' ? null : parseInt(u.nb_etudiants) || 0 })) })
+      });
+      setSaved(true); setTimeout(() => setSaved(false), 2000);
+    } catch(e) { alert('Erreur : ' + e.message); }
+    finally { setSaving(false); }
+  }
+
+  function setNbForUe(ue_num, val) {
+    setUes(prev => prev.map(u => u.ue_num === ue_num ? { ...u, nb_etudiants: val } : u));
+  }
+
+  function appliquerTotal() {
+    const total = parseInt(totalSection) || 0;
+    if (!total || !ues.length) return;
+    // Répartir proportionnellement aux périodes, ou uniformément si pas de périodes
+    const totalPer = ues.reduce((s, u) => s + (u.per_etudiant || u.ue_per || 1), 0);
+    const updated = ues.map(u => {
+      const poids = (u.per_etudiant || u.ue_per || 1) / totalPer;
+      return { ...u, nb_etudiants: String(Math.round(total * poids)) };
+    });
+    setUes(updated);
+    sauvegarder(updated);
+  }
+
+  function appliquerMemeEtudiantsPartout() {
+    const val = parseInt(totalSection) || 0;
+    const updated = ues.map(u => ({ ...u, nb_etudiants: String(val) }));
+    setUes(updated);
+    sauvegarder(updated);
+  }
+
+  return (
+    <div className="max-w-4xl space-y-4">
+      {/* En-tête */}
+      <div className="bg-white rounded-lg border border-gray-200 p-5">
+        <h2 className="font-semibold text-gray-800 text-base flex items-center gap-2 mb-1">
+          <IconChartBar size={17} className="text-iip-turquoise" />
+          Effectifs estimés par section
+        </h2>
+        <p className="text-xs text-gray-500">
+          Saisissez les effectifs réels ou prévisionnels par UE pour le calcul du ratio étudiants/ETP dans les rapports.
+          Ces données alimentent automatiquement le rapport ETP.
+        </p>
+      </div>
+
+      {/* Sélecteurs */}
+      <div className="bg-white rounded-lg border border-gray-200 p-4 flex flex-wrap gap-4 items-end">
+        <label className="flex flex-col gap-1">
+          <span className="text-xs font-semibold text-gray-600">Année</span>
+          <select value={annee} onChange={e => setAnnee(e.target.value)}
+            className="border border-gray-300 rounded px-3 py-1.5 h-9 text-sm bg-white min-w-[130px]">
+            {annees.map(a => <option key={a} value={a}>{a}</option>)}
+          </select>
+        </label>
+        <label className="flex flex-col gap-1">
+          <span className="text-xs font-semibold text-gray-600">Section</span>
+          <select value={section} onChange={e => setSection(e.target.value)}
+            className="border border-gray-300 rounded px-3 py-1.5 h-9 text-sm bg-white min-w-[100px]">
+            {sections.map(s => <option key={s.code||s} value={s.code||s}>{s.code||s}</option>)}
+          </select>
+        </label>
+
+        {/* Mode de saisie */}
+        <label className="flex flex-col gap-1">
+          <span className="text-xs font-semibold text-gray-600">Mode de saisie</span>
+          <div className="flex gap-1 h-9 items-center">
+            <button onClick={() => setModeSaisie('ue')}
+              className={`px-3 h-9 rounded-l border text-xs font-medium transition-colors ${modeSaisie==='ue' ? 'bg-iip-blue text-white border-iip-blue' : 'bg-white text-gray-600 border-gray-300 hover:bg-gray-50'}`}>
+              Par UE
+            </button>
+            <button onClick={() => setModeSaisie('section')}
+              className={`px-3 h-9 rounded-r border-t border-b border-r text-xs font-medium transition-colors ${modeSaisie==='section' ? 'bg-iip-blue text-white border-iip-blue' : 'bg-white text-gray-600 border-gray-300 hover:bg-gray-50'}`}>
+              Par section
+            </button>
+          </div>
+        </label>
+
+        {/* Saisie rapide section */}
+        {modeSaisie === 'section' && (
+          <div className="flex flex-col gap-1">
+            <span className="text-xs font-semibold text-gray-600">Nb étudiants total</span>
+            <div className="flex gap-2 items-center">
+              <input type="number" min="0" value={totalSection} onChange={e => setTotalSection(e.target.value)}
+                placeholder="ex: 120"
+                className="border border-gray-300 rounded px-3 py-1.5 h-9 text-sm w-24" />
+              <button onClick={appliquerTotal}
+                title="Répartir proportionnellement aux périodes de chaque UE"
+                className="h-9 px-3 bg-iip-turquoise text-white text-xs font-semibold rounded hover:opacity-90">
+                Répartir
+              </button>
+              <button onClick={appliquerMemeEtudiantsPartout}
+                title="Mettre le même chiffre sur toutes les UE"
+                className="h-9 px-3 bg-gray-200 text-gray-700 text-xs font-semibold rounded hover:bg-gray-300">
+                Uniforme
+              </button>
+            </div>
+            <span className="text-xs text-gray-400">Répartir = selon poids périodes · Uniforme = même nb partout</span>
+          </div>
+        )}
+
+        <div className="flex-1" />
+        {saved && <span className="text-xs text-green-600 flex items-center gap-1"><IconCheck size={13} /> Sauvegardé</span>}
+      </div>
+
+      {/* Tableau UEs */}
+      {loading ? (
+        <div className="bg-white rounded-lg border border-gray-200 p-8 text-center text-gray-400 text-sm">Chargement…</div>
+      ) : ues.length === 0 ? (
+        <div className="bg-white rounded-lg border border-gray-200 p-8 text-center text-gray-400 text-sm">Aucune UE trouvée pour cette section / année.</div>
+      ) : (
+        <div className="bg-white rounded-lg border border-gray-200 overflow-hidden">
+          {/* Résumé total */}
+          <div className="px-5 py-3 border-b border-gray-100 flex items-center justify-between bg-gray-50">
+            <div className="text-sm text-gray-600">
+              <span className="font-semibold text-gray-800">{ues.length}</span> UEs ·
+              Total estimé : <span className="font-semibold text-iip-blue">{totalReel > 0 ? totalReel : '—'}</span> étudiants
+            </div>
+            <button onClick={() => sauvegarder(ues)} disabled={saving}
+              className="bg-iip-blue text-white text-xs font-semibold px-4 py-1.5 rounded-lg hover:opacity-90 disabled:opacity-40 flex items-center gap-1.5">
+              {saving ? 'Sauvegarde…' : <><IconCheck size={12} /> Sauvegarder tout</>}
+            </button>
+          </div>
+
+          {/* Tableau par niveau */}
+          <table className="w-full text-sm border-collapse">
+            <thead>
+              <tr className="bg-iip-blue text-white text-xs">
+                <th className="px-4 py-2 text-left font-semibold">UE</th>
+                <th className="px-4 py-2 text-left font-semibold">Intitulé</th>
+                <th className="px-3 py-2 text-right font-semibold w-24">Nb étudiants</th>
+              </tr>
+            </thead>
+            <tbody>
+              {niveaux.map(niv => {
+                const uesNiv = ues.filter(u => (u.ue_niv || 'Autres') === niv);
+                const totalNiv = uesNiv.reduce((s, u) => s + (parseInt(u.nb_etudiants) || 0), 0);
+                return (
+                  <>
+                    <tr key={`niv-${niv}`} className="bg-slate-100 border-t-2 border-slate-200">
+                      <td colSpan={2} className="px-4 py-1.5 text-xs font-bold text-slate-600 uppercase tracking-wide">
+                        {niv}
+                      </td>
+                      <td className="px-3 py-1.5 text-right text-xs font-bold text-iip-blue">
+                        {totalNiv > 0 ? `${totalNiv} étu.` : '—'}
+                      </td>
+                    </tr>
+                    {uesNiv.map((u, i) => (
+                      <tr key={u.ue_num} className={`border-b border-gray-100 ${i % 2 ? 'bg-gray-50' : 'bg-white'} hover:bg-blue-50/30 transition-colors`}>
+                        <td className="px-4 py-2 text-gray-500 font-mono text-xs whitespace-nowrap">UE {u.ue_num}</td>
+                        <td className="px-4 py-2 text-gray-700 text-xs">{u.ue_nom || '—'}</td>
+                        <td className="px-3 py-1.5 text-right">
+                          <input type="number" min="0" step="1"
+                            value={u.nb_etudiants}
+                            onChange={e => setNbForUe(u.ue_num, e.target.value)}
+                            onBlur={() => sauvegarder(ues)}
+                            placeholder="—"
+                            className="w-20 border border-gray-200 rounded px-2 py-1 text-sm text-right focus:outline-none focus:border-iip-turquoise text-iip-blue font-semibold"
+                          />
+                        </td>
+                      </tr>
+                    ))}
+                  </>
+                );
+              })}
+            </tbody>
+            <tfoot>
+              <tr className="bg-iip-blue text-white font-semibold">
+                <td colSpan={2} className="px-4 py-2 text-sm">Total — {section}</td>
+                <td className="px-3 py-2 text-right text-sm">{totalReel > 0 ? `${totalReel} étu.` : '—'}</td>
+              </tr>
+            </tfoot>
+          </table>
+        </div>
       )}
     </div>
   );
