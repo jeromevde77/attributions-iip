@@ -284,6 +284,7 @@ function OutilRecours({ initialPayload, onPayloadConsumed }) {
   const [commentaireCDE, setCommentaireCDE] = useState('');
   const [procId, setProcId]           = useState(null);   // ID archive après première génération
   const [justificationsChoisies, setJustificationsChoisies] = useState(new Set()); // indices cochés
+  const [justificationsDB, setJustificationsDB] = useState(JUSTIFS_DEFAUT); // chargées depuis la config
   const [fichierRecours, setFichierRecours] = useState(null); // { nom, uploading, ok }
 
   // Pré-remplissage depuis une archive
@@ -303,6 +304,13 @@ function OutilRecours({ initialPayload, onPayloadConsumed }) {
     setStep(1);
     onPayloadConsumed?.();
   }, [initialPayload]);
+
+  // Charger justifications depuis la configuration
+  useEffect(() => {
+    authFetch('/api/parametres/procedure.justifications_recours')
+      .then(d => { if (d?.valeur) { try { setJustificationsDB(JSON.parse(d.valeur)); } catch {} } })
+      .catch(() => {});
+  }, []);
 
   // Profs de l'UE (depuis la DB)
   const [profs, setProfs] = useState([]);
@@ -427,7 +435,7 @@ function OutilRecours({ initialPayload, onPayloadConsumed }) {
           date_seance: dateSeance, date_envoi: dateDecisionInterne,
           commentaire_cde: (() => {
             const parts = [];
-            justificationsChoisies.forEach(i => parts.push(JUSTIFS_RECOURS[i]));
+            justificationsChoisies.forEach(i => parts.push(justificationsDB[i]));
             if (commentaireCDE.trim()) parts.push(commentaireCDE.trim());
             return parts.join('\n\n');
           })(), q, verdict, annee,
@@ -714,7 +722,7 @@ function OutilRecours({ initialPayload, onPayloadConsumed }) {
             </div>
             {/* Justifications cochables */}
             <div className="border border-gray-200 rounded-lg overflow-hidden mb-2">
-              {JUSTIFS_RECOURS.map((j, i) => {
+              {justificationsDB.map((j, i) => {
                 const checked = justificationsChoisies.has(i);
                 return (
                   <label key={i} className={`flex items-start gap-2.5 px-3 py-2 cursor-pointer transition-colors ${checked ? 'bg-blue-50 border-l-2 border-iip-turquoise' : 'hover:bg-gray-50 border-l-2 border-transparent'} ${i > 0 ? 'border-t border-gray-100' : ''}`}>
@@ -963,6 +971,7 @@ function OutilFraude({ initialPayload, onPayloadConsumed }) {
   const [commentaireCDE, setCommentaireCDE] = useState('');
   const [procId, setProcId]           = useState(null);   // ID archive après première génération
   const [justificationsChoisies, setJustificationsChoisies] = useState(new Set()); // indices cochés
+  const [justificationsDB, setJustificationsDB] = useState(JUSTIFS_DEFAUT); // chargées depuis la config
   const [fichierRecours, setFichierRecours] = useState(null); // { nom, uploading, ok }
   const [momentFaits, setMomentFaits]     = useState('pendant'); // 'pendant' (Art.73) | 'correction' (Art.74)
   const [conteste, setConteste]           = useState(false);     // l'étudiant conteste les faits → audition
