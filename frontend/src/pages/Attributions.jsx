@@ -328,7 +328,7 @@ export default function Attributions() {
           <td style="${S}max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap"
               title="${(c.cours_nom||'').replace(/"/g,"'")}">${c.cours_nom||'\u2014'}${c.activite_nom?` <em style="color:#9ca3af;font-size:10px">(${c.activite_nom})</em>`:''}</td>
           <td style="${SN}color:#6b7280">Gr.${c.groupe_code}</td>
-          <td style="${SN}">${c.prof_nom}${mixte ? ` <span style="font-size:8px;font-weight:700;padding:1px 4px;border-radius:3px;background:${c.contrat==='HELB'?'#ede9fe':'#dbeafe'};color:${c.contrat==='HELB'?'#6d28d9':'#1d4ed8'};margin-left:3px">${c.contrat}</span>` : ''}</td>
+          <td style="${SN}">${c.prof_nom} <span style="font-size:8px;font-weight:600;padding:1px 5px;border-radius:3px;background:${c.contrat==='HELB'?'#7c3aed':'#1d4ed8'};color:white;margin-left:4px">${c.contrat}</span></td>
           <td style="${S}text-align:center"><span style="font-size:8px;font-weight:700;padding:1px 4px;border-radius:3px;background:${c.contrat==='HELB'?'#ede9fe':'#dbeafe'};color:${c.contrat==='HELB'?'#6d28d9':'#1d4ed8'}">${c.contrat}</span></td>
           <td style="${SR}color:#374151">${fmt(c.periodes)}</td>
           <td style="${SR}color:#6b7280">${fmt(c.autonomie)}</td>
