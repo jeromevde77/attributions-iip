@@ -872,26 +872,46 @@ export default function Attributions() {
   // Ouvre et scrolle jusqu'au cours concerné par une anomalie de groupe
   function naviguerVersAnomalie(a) {
     setGroupeAlertes(null);
-    const ueKey  = (a.section || '') + '/' + a.ue_num + '/' + (a.num_organisation || 1);
-    const coursOpenKey = 'cours:' + ueKey + '/' + a.code_cours;
+    const sec = a.section || '';
+    const org = a.num_organisation || 1;
+    const ueKey        = sec + '/' + a.ue_num + '/' + org;
     const ueOpenKey    = 'ue:' + ueKey;
-    // Ouvrir l'UE et le cours dans l'accordéon
-    setOpenUEs(prev => {
-      const n = new Set(prev);
-      n.add(ueOpenKey);
-      n.add(coursOpenKey);
-      return n;
-    });
+    const coursOpenKey = 'cours:' + ueKey + '/' + a.code_cours;
+
+    // Si une section est connue, forcer le filtre sur cette section pour que l'UE soit visible
+    if (sec && filters.section !== sec) {
+      const newFilters = { ...filters, section: sec };
+      setFilters(newFilters);
+      load(newFilters);
+    }
+
+    // Basculer en mode accordéon
+    setViewMode('ue');
+
+    // Ouvrir l'UE et le cours
+    setOpenUEs(prev => { const n = new Set(prev); n.add(ueOpenKey); n.add(coursOpenKey); return n; });
+
     // Ouvrir le volet activité si applicable
     if (a.activite_id) {
       const voletKey = coursOpenKey + '|' + a.activite_id;
       setOpenActs(prev => { const n = new Set(prev); n.add(voletKey); return n; });
     }
-    // Scroller après un court délai (le temps que React re-rende l'accordéon)
-    setTimeout(() => {
+
+    // Scroller — attendre que React ait rendu l'accordéon ouvert
+    // On essaie plusieurs fois avec un backoff car le rendu peut prendre du temps
+    const scrollTo = (attempts) => {
       const el = document.getElementById('cours-' + a.code_cours);
-      if (el) el.scrollIntoView({ behavior: 'smooth', block: 'center' });
-    }, 120);
+      if (el) {
+        el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        // Flash visuel pour repérer le cours
+        el.style.transition = 'background 0.2s';
+        el.style.background = '#FEF9C3';
+        setTimeout(() => { el.style.background = ''; }, 1500);
+      } else if (attempts > 0) {
+        setTimeout(() => scrollTo(attempts - 1), 150);
+      }
+    };
+    setTimeout(() => scrollTo(5), 200);
   }
 
   // Détecte les anomalies de numérotation de groupes dans un tableau de lignes
