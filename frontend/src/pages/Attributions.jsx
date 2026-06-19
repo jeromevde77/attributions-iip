@@ -882,6 +882,15 @@ export default function Attributions() {
   }
   function groupCodeSeq(n) { return Array.from({length: n}, (_, i) => groupCode(i)); }
 
+  const BADGE_COLORS = {
+    A: { bg: '#DBEAFE', color: '#1D4ED8', border: '#BFDBFE' },
+    B: { bg: '#D1FAE5', color: '#065F46', border: '#A7F3D0' },
+    C: { bg: '#FEF3C7', color: '#92400E', border: '#FDE68A' },
+    D: { bg: '#FCE7F3', color: '#9D174D', border: '#FBCFE8' },
+    E: { bg: '#EDE9FE', color: '#5B21B6', border: '#DDD6FE' },
+    F: { bg: '#FFE4E6', color: '#9F1239', border: '#FECDD3' },
+  };
+
   // Ouvre et scrolle jusqu'au cours concerné par une anomalie de groupe
   function naviguerVersAnomalie(a) {
     setGroupeAlertes(null);
@@ -1190,14 +1199,7 @@ export default function Attributions() {
             const codeVal   = (row.code || '').toUpperCase();
             const estGroupe = !!(codeVal && codeVal !== 'TS');
             const lettre    = estGroupe ? codeVal : 'Ts';
-            const BADGE_COLORS = {
-              A: { bg: '#DBEAFE', color: '#1D4ED8', border: '#BFDBFE' },
-              B: { bg: '#D1FAE5', color: '#065F46', border: '#A7F3D0' },
-              C: { bg: '#FEF3C7', color: '#92400E', border: '#FDE68A' },
-              D: { bg: '#FCE7F3', color: '#9D174D', border: '#FBCFE8' },
-              E: { bg: '#EDE9FE', color: '#5B21B6', border: '#DDD6FE' },
-              F: { bg: '#FFE4E6', color: '#9F1239', border: '#FECDD3' },
-            };
+            // BADGE_COLORS défini au niveau composant
             const badgeStyle = estGroupe
               ? (BADGE_COLORS[lettre[0]] || { bg: '#F3F4F6', color: '#374151', border: '#E5E7EB' })
               : { bg: '#F9FAFB', color: '#9CA3AF', border: '#E5E7EB' };
