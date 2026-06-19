@@ -9,6 +9,16 @@ import {
 } from '@tabler/icons-react';
 
 // ─── Utilitaires ──────────────────────────────────────────────────────────────
+const JUSTIFS_DEFAUT = [
+  "L'étudiant·e ne conteste aucune irrégularité de procédure, mais exprime un désaccord avec l'appréciation pédagogique. Or, la Commission de recours ne peut substituer sa note à celle du jury (art. 123ter).",
+  "Les acquis d'apprentissage et les critères d'évaluation ont été communiqués conformément au dossier pédagogique. L'évaluation reflète fidèlement le niveau d'acquisition observé lors de l'épreuve.",
+  "Le CDE a examiné les copies en séance. Aucune erreur matérielle, aucun écart de traitement entre étudiants n'a été relevé.",
+  "La modalité d'évaluation contestée était prévue au dossier pédagogique et portée à la connaissance des étudiants en début d'UE.",
+  "L'irrégularité invoquée n'a pas eu d'incidence sur l'issue de la délibération : le résultat reste en-dessous du seuil de réussite, indépendamment du point litigieux.",
+  "Le délai de recours n'est pas respecté. La plainte a été introduite après le 4e jour calendrier suivant la publication des résultats (art. 123ter §4).",
+  "La plainte ne mentionne pas d'irrégularités précises au sens de l'art. 123ter. Une contestation de la valeur d'une note n'est pas recevable comme motif de recours.",
+];
+
 const TOKEN = () => localStorage.getItem('token');
 const authFetch = (url, opts = {}) => fetch(url, { ...opts, headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${TOKEN()}`, ...(opts.headers || {}) } }).then(r => r.json());
 
