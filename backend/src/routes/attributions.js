@@ -220,49 +220,6 @@ r.get('/', authRequired, withSectionScope, (req, res) => {
     }
   } catch (e) { console.error('[grille] lignes Z :', e.message); }
 
-  // ── Lignes hors UE : missions avec périodes (coordination, accompagnement…) ──
-  try {
-    const whereM = ['pm.annee_scolaire = @annee', 'COALESCE(pm.periodes, 0) > 0'];
-    const mParams = { annee };
-    if (section) { whereM.push('pm.section_code = @section'); mParams.section = section; }
-    if (req.allowedSections !== null && req.allowedSections.length > 0) {
-      const ph = req.allowedSections.map((_, i) => `@msec${i}`).join(', ');
-      whereM.push(`pm.section_code IN (${ph})`);
-      req.allowedSections.forEach((s, i) => { mParams[`msec${i}`] = s; });
-    }
-    const missions = db.prepare(`
-      SELECT pm.id, pm.professeur_id, pm.fonction, pm.section_code, pm.annee_scolaire,
-             pm.periodes, pm.contrat_mdp,
-             p.nom AS prof_nom, p.prenom AS prof_prenom
-      FROM personnel_mission pm
-      JOIN professeur p ON p.id = pm.professeur_id
-      WHERE ${whereM.join(' AND ')}
-      ORDER BY pm.section_code, p.nom, pm.fonction
-    `).all(mParams);
-    for (const m of missions) {
-      lignes.push({
-        id: `m-${m.id}`,
-        is_mission: true,
-        section: m.section_code,
-        ue_num: null,
-        ue_nom: null,
-        code_cours: `MISSION-${m.fonction}`,
-        nom_cours: m.fonction,
-        type_cours: 'MISSION',
-        professeur_id: m.professeur_id,
-        prof_nom: m.prof_nom,
-        prof_prenom: m.prof_prenom,
-        contrat_mdp: m.contrat_mdp || 'IIP',
-        periodes_attribuees: m.periodes,
-        autonomie_attribuee: 0,
-        total_attribue_professeur: m.periodes,
-        split_groupe: 'N',
-        code: null,
-        is_z: false,
-      });
-    }
-  } catch(e) { console.error('[grille] lignes missions :', e.message); }
-
   res.json(lignes);
 });
 
@@ -477,12 +434,12 @@ r.get('/rapport-attributions', authRequired, (req, res) => {
 
   // ── Missions hors UE avec périodes ──────────────────────────────────────────
   const missionsHorsUE = db.prepare(`
-    SELECT pm.professeur_id, pm.fonction, pm.section_code, pm.periodes, pm.contrat_mdp,
+    SELECT pm.professeur_id, pm.fonction, pm.section_code, pm.etp_helb,
            p.nom AS prof_nom, p.prenom AS prof_prenom
     FROM personnel_mission pm
     JOIN professeur p ON p.id = pm.professeur_id
     WHERE pm.annee_scolaire = ?
-      AND COALESCE(pm.periodes, 0) > 0
+      AND COALESCE(pm.etp_helb, 0) > 0
       AND pm.section_code IN (${sections.map(() => '?').join(',')})
     ORDER BY pm.section_code, p.nom, pm.fonction
   `).all(annee, ...sections);

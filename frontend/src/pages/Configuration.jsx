@@ -20,7 +20,7 @@ function GestionPersonnel() {
   const [search, setSearch]       = useState('');
   const [loading, setLoading]     = useState(true);
   const [saving, setSaving]       = useState({}); // "profId|fonction" -> bool
-  const [periodes, setPeriodes]   = useState({}); // "profId|fonction" -> { per, contrat }
+  const [etpHelb, setEtpHelb]     = useState({}); // "profId|fonction" -> etp (0.5, 1.0…)
 
   // Charger la liste des sections une fois
   useEffect(() => {
@@ -43,12 +43,12 @@ function GestionPersonnel() {
         setProfs(Array.isArray(d.profs) ? d.profs : []);
         setCoches(d.coches || {});
         setAnnee(d.annee || anneeCourante);
-        // Charger les périodes existantes
-        const perMap = {};
+        // Charger les ETP HELB existants
+        const etpMap = {};
         (missions || []).forEach(m => {
-          perMap[`${m.professeur_id}|${m.fonction}`] = { per: m.periodes || 0, contrat: m.contrat_mdp || 'IIP' };
+          if (m.etp_helb > 0) etpMap[`${m.professeur_id}|${m.fonction}`] = m.etp_helb;
         });
-        setPeriodes(perMap);
+        setEtpHelb(etpMap);
       })
       .catch(() => { setFonctions([]); setProfs([]); setCoches({}); })
       .finally(() => setLoading(false));
@@ -83,12 +83,12 @@ function GestionPersonnel() {
     }
   }
 
-  async function savePeriodes(profId, fonction, per, contrat) {
+  async function saveEtpHelb(profId, fonction, etp) {
     const key = `${profId}|${fonction}`;
-    setPeriodes(prev => ({ ...prev, [key]: { per, contrat } }));
+    setEtpHelb(prev => ({ ...prev, [key]: etp }));
     try {
-      await api.setMission({ professeur_id: profId, fonction, section_code: section, annee_scolaire: annee, periodes: per, contrat_mdp: contrat });
-    } catch(e) { alert('Erreur périodes : ' + e.message); }
+      await api.setMission({ professeur_id: profId, fonction, section_code: section, annee_scolaire: annee, etp_helb: etp });
+    } catch(e) { alert('Erreur ETP HELB : ' + e.message); }
   }
 
   const profsFiltres = search.trim()
@@ -174,25 +174,19 @@ function GestionPersonnel() {
                             {on && <IconCheck size={14} />}
                           </button>
                           {on && section !== '__ETAB__' && (
-                            <div className="mt-1 space-y-1">
+                            <div className="mt-1">
+                              <div className="text-xs text-gray-400 leading-none mb-0.5">ETP HELB</div>
                               <input
-                                type="number" min="0" step="1"
-                                defaultValue={perInfo.per || ''}
-                                placeholder="pér."
-                                title="Périodes hors UE pour cette mission"
+                                type="number" min="0" max="1" step="0.1"
+                                defaultValue={etpHelb[key] || ''}
+                                placeholder="0.0"
+                                title="ETP financé HELB (hors dotation IIP)"
                                 onBlur={e => {
                                   const v = parseFloat(e.target.value) || 0;
-                                  savePeriodes(p.id, f.libelle, v, perInfo.contrat);
+                                  saveEtpHelb(p.id, f.libelle, v);
                                 }}
                                 className="w-14 border border-gray-300 rounded px-1 py-0.5 text-xs text-center"
                               />
-                              <select
-                                defaultValue={perInfo.contrat || 'IIP'}
-                                onChange={e => savePeriodes(p.id, f.libelle, perInfo.per, e.target.value)}
-                                className="w-14 border border-gray-300 rounded px-1 py-0.5 text-xs bg-white">
-                                <option value="IIP">IIP</option>
-                                <option value="HELB">HELB</option>
-                              </select>
                             </div>
                           )}
                         </td>
@@ -228,25 +222,19 @@ function GestionPersonnel() {
                             {on && <IconCheck size={14} />}
                           </button>
                           {on && section !== '__ETAB__' && (
-                            <div className="mt-1 space-y-1">
+                            <div className="mt-1">
+                              <div className="text-xs text-gray-400 leading-none mb-0.5">ETP HELB</div>
                               <input
-                                type="number" min="0" step="1"
-                                defaultValue={perInfo.per || ''}
-                                placeholder="pér."
-                                title="Périodes hors UE pour cette mission"
+                                type="number" min="0" max="1" step="0.1"
+                                defaultValue={etpHelb[key] || ''}
+                                placeholder="0.0"
+                                title="ETP financé HELB (hors dotation IIP)"
                                 onBlur={e => {
                                   const v = parseFloat(e.target.value) || 0;
-                                  savePeriodes(p.id, f.libelle, v, perInfo.contrat);
+                                  saveEtpHelb(p.id, f.libelle, v);
                                 }}
                                 className="w-14 border border-gray-300 rounded px-1 py-0.5 text-xs text-center"
                               />
-                              <select
-                                defaultValue={perInfo.contrat || 'IIP'}
-                                onChange={e => savePeriodes(p.id, f.libelle, perInfo.per, e.target.value)}
-                                className="w-14 border border-gray-300 rounded px-1 py-0.5 text-xs bg-white">
-                                <option value="IIP">IIP</option>
-                                <option value="HELB">HELB</option>
-                              </select>
                             </div>
                           )}
                         </td>
