@@ -1922,29 +1922,44 @@ export default function Attributions() {
             <div className="px-5 py-3 overflow-auto space-y-2" style={{maxHeight: '70vh'}}>
               {groupeAlertes.anomalies.map((a, i) => {
                 const expanded = expandedAnomalie === i;
-                // Lignes du groupe concerné
-                const lignesGroupe = data.filter(r =>
+                // Toutes les lignes du cours (toutes activités) pour avoir le contexte complet
+                const toutesLignesCours = data.filter(r =>
                   r.section === a.section &&
                   r.code_cours === a.code_cours &&
-                  (r.num_organisation||1) === (a.num_organisation||1) &&
+                  (r.num_organisation||1) === (a.num_organisation||1)
+                ).sort((x,y) => {
+                  // Trier par activité puis par code groupe
+                  const actA = x.activite_nom || x.activite_id || '';
+                  const actB = y.activite_nom || y.activite_id || '';
+                  if (actA !== actB) return String(actA).localeCompare(String(actB), 'fr');
+                  return (x.code||'Ts').localeCompare(y.code||'Ts', 'fr');
+                });
+                // Lignes du périmètre exact de l'anomalie (même activité) pour le calcul
+                const lignesGroupe = toutesLignesCours.filter(r =>
                   (r.activite_id||null) === (a.activite_id||null) &&
                   r.split_groupe !== 'O'
-                ).sort((x,y) => (x.code||'').localeCompare(y.code||'', 'fr'));
+                );
                 const nbG = lignesGroupe.length;
                 const attenduSeq = groupCodeSeq(nbG);
-                // Déterminer si une ligne est en anomalie
+                // Déterminer si une ligne est en anomalie (dans son périmètre activité)
                 const codesActuels = lignesGroupe.map(r => (r.code||'').toUpperCase());
                 const isAnomalie = (r) => {
+                  if (r.split_groupe === 'O') return false; // splits OK
                   const code = (r.code||'').toUpperCase();
-                  if (!code || code === 'TS') return true;
-                  if (codesActuels.filter(c => c === code).length > 1) return true; // doublon
-                  if (!attenduSeq.includes(code)) return true; // hors séquence
+                  // Calcul par rapport au périmètre de l'activité de cette ligne
+                  const peerCodes = toutesLignesCours.filter(p =>
+                    (p.activite_id||null) === (r.activite_id||null) && p.split_groupe !== 'O'
+                  ).map(p => (p.code||'').toUpperCase());
+                  const peerAttendu = groupCodeSeq(peerCodes.length);
+                  if (!code || code === 'TS') return peerCodes.length > 1; // Ts seule = OK, Ts parmi d'autres = anomalie
+                  if (peerCodes.filter(c => c === code).length > 1) return true; // doublon
+                  if (!peerAttendu.includes(code)) return true; // hors séquence
                   return false;
                 };
 
                 async function corrigerLigne(rowId, newCode) {
-                  const autre = lignesGroupe.find(r => (r.code||'').toUpperCase() === newCode && r.id !== rowId);
-                  const cible = lignesGroupe.find(r => r.id === rowId);
+                  const autre = toutesLignesCours.find(r => (r.code||'').toUpperCase() === newCode && r.id !== rowId);
+                  const cible = toutesLignesCours.find(r => r.id === rowId);
                   if (!cible) return;
                   if (autre) {
                     // switch
@@ -2023,28 +2038,40 @@ export default function Attributions() {
                                     }}>{code}</span>
                                   </td>
                                   <td style={{padding:'5px 6px', textAlign:'center'}}>
-                                    {enErreur && (
-                                      <div style={{display:'flex', gap:3, justifyContent:'center', flexWrap:'wrap'}}>
-                                        {attenduSeq.map(l => {
-                                          const dejaPrise = codesActuels.includes(l) && l !== code;
-                                          const bs2 = BADGE_COLORS[l[0]] || { bg:'#F3F4F6', color:'#374151', border:'#E5E7EB' };
-                                          return (
-                                            <span key={l}
-                                              onClick={e => { e.stopPropagation(); corrigerLigne(r.id, l); }}
-                                              title={dejaPrise ? `Échange avec le groupe ${l}` : `Assigner ${l}`}
-                                              style={{
-                                                display:'inline-flex', alignItems:'center', justifyContent:'center',
-                                                width:22, height:20, borderRadius:5, fontSize:11, fontWeight:700,
-                                                background: bs2.bg, color: bs2.color,
-                                                border: `${dejaPrise ? 2 : 1}px solid ${bs2.color}`,
-                                                cursor:'pointer',
-                                              }}>
-                                              {l}
-                                            </span>
-                                          );
-                                        })}
-                                      </div>
-                                    )}
+                                    {(() => {
+                                      // Lettres attendues pour le périmètre de cette ligne
+                                      const peerLines = toutesLignesCours.filter(p =>
+                                        (p.activite_id||null) === (r.activite_id||null) && p.split_groupe !== 'O'
+                                      );
+                                      const peerCodes = peerLines.map(p => (p.code||'').toUpperCase());
+                                      const peerAttendu = groupCodeSeq(peerLines.length);
+                                      if (peerAttendu.length === 0) return null;
+                                      return (
+                                        <div style={{display:'flex', gap:3, justifyContent:'center', flexWrap:'wrap'}}>
+                                          {peerAttendu.map(l => {
+                                            const dejaPrise = peerCodes.includes(l) && l !== code;
+                                            const estCourante = l === code;
+                                            const bs2 = BADGE_COLORS[l[0]] || { bg:'#F3F4F6', color:'#374151', border:'#E5E7EB' };
+                                            return (
+                                              <span key={l}
+                                                onClick={e => { e.stopPropagation(); if (!estCourante) corrigerLigne(r.id, l); }}
+                                                title={estCourante ? 'Lettre actuelle' : dejaPrise ? `Échanger avec le groupe ${l}` : `Assigner ${l}`}
+                                                style={{
+                                                  display:'inline-flex', alignItems:'center', justifyContent:'center',
+                                                  width:22, height:20, borderRadius:5, fontSize:11, fontWeight:700,
+                                                  background: estCourante ? '#1B2B4B' : bs2.bg,
+                                                  color: estCourante ? '#fff' : bs2.color,
+                                                  border: `${dejaPrise ? 2 : 1}px solid ${estCourante ? '#1B2B4B' : bs2.color}`,
+                                                  cursor: estCourante ? 'default' : 'pointer',
+                                                  opacity: estCourante ? 0.7 : 1,
+                                                }}>
+                                                {l}
+                                              </span>
+                                            );
+                                          })}
+                                        </div>
+                                      );
+                                    })()}
                                   </td>
                                 </tr>
                               );
