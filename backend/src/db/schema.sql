@@ -638,3 +638,149 @@ FROM attribution a
 LEFT JOIN cours c ON c.cours_code = a.code_cours AND c.annee_scolaire = a.annee_scolaire
 WHERE a.code_cours IS NOT NULL
 GROUP BY a.section, a.annee_scolaire, a.code_cours, c.cours_nom, c.cours_per;
+
+-- ============================================================================
+-- MODULE DCPP — Développement des compétences professionnelles
+-- ============================================================================
+
+-- Axes (4 axes du référentiel CAPAES/décret)
+CREATE TABLE IF NOT EXISTS dc_axe (
+  id    INTEGER PRIMARY KEY,
+  code  TEXT NOT NULL UNIQUE,
+  label TEXT NOT NULL
+);
+
+-- Thématiques (6 thématiques transversales)
+CREATE TABLE IF NOT EXISTS dc_theme (
+  id     INTEGER PRIMARY KEY,
+  code   TEXT NOT NULL UNIQUE,
+  label  TEXT NOT NULL,
+  axe_id INTEGER REFERENCES dc_axe(id)
+);
+
+-- Critères (codes 1 à 15d — référentiel partagé)
+CREATE TABLE IF NOT EXISTS dc_critere (
+  id       INTEGER PRIMARY KEY,
+  code     TEXT NOT NULL UNIQUE,  -- ex: '1', '2a', '15d'
+  theme_id INTEGER REFERENCES dc_theme(id),
+  axe_id   INTEGER REFERENCES dc_axe(id),
+  ordre    INTEGER NOT NULL DEFAULT 0
+);
+
+-- Libellés par critère et par dispositif (auto-analyse / observation)
+CREATE TABLE IF NOT EXISTS dc_critere_libelle (
+  id           INTEGER PRIMARY KEY,
+  critere_id   INTEGER NOT NULL REFERENCES dc_critere(id),
+  dispositif   TEXT NOT NULL CHECK(dispositif IN ('auto-analyse','observation')),
+  type_cours   TEXT NOT NULL CHECK(type_cours IN ('cours','tp','tous')),
+  libelle      TEXT NOT NULL,
+  question_ref TEXT  -- question réflexive (extraite des commentaires Excel)
+);
+
+-- Séances (une démarche = une séance par professeur)
+CREATE TABLE IF NOT EXISTS dc_seance (
+  id             INTEGER PRIMARY KEY,
+  professeur_id  INTEGER NOT NULL REFERENCES professeur(id) ON DELETE CASCADE,
+  dispositif     TEXT NOT NULL CHECK(dispositif IN ('auto-analyse','observation')),
+  annee_scolaire TEXT NOT NULL,
+  date_seance    TEXT,            -- ISO date
+  ue_num         TEXT,
+  cours_nom      TEXT,
+  type_cours     TEXT CHECK(type_cours IN ('cours','tp')),
+  statut         TEXT NOT NULL DEFAULT 'en-cours' CHECK(statut IN ('en-cours','complete')),
+  observateur_id INTEGER REFERENCES professeur(id),  -- pour observation seulement
+  rencontre_num  INTEGER DEFAULT 1,                  -- 1,2,3 pour observation
+  notes          TEXT,
+  created_at     TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at     TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Réponses par critère
+CREATE TABLE IF NOT EXISTS dc_reponse (
+  id          INTEGER PRIMARY KEY,
+  seance_id   INTEGER NOT NULL REFERENCES dc_seance(id) ON DELETE CASCADE,
+  critere_id  INTEGER NOT NULL REFERENCES dc_critere(id),
+  -- Auto-analyse : texte qualitatif
+  reponse_txt TEXT,
+  -- Observation : score 0/1/2 (initial + apres)
+  score_avant INTEGER CHECK(score_avant IN (0,1,2)),
+  score_apres INTEGER CHECK(score_apres IN (0,1,2)),
+  UNIQUE(seance_id, critere_id)
+);
+
+-- Objectifs PDCP (max 4 par professeur par année)
+CREATE TABLE IF NOT EXISTS dc_objectif (
+  id             INTEGER PRIMARY KEY,
+  professeur_id  INTEGER NOT NULL REFERENCES professeur(id) ON DELETE CASCADE,
+  annee_scolaire TEXT NOT NULL,
+  numero         INTEGER NOT NULL CHECK(numero BETWEEN 1 AND 4),
+  critere_id     INTEGER REFERENCES dc_critere(id),
+  libelle        TEXT NOT NULL,
+  indicateurs    TEXT,     -- JSON array de strings
+  echeance       TEXT,     -- ISO date
+  statut         TEXT NOT NULL DEFAULT 'actif' CHECK(statut IN ('actif','atteint','abandonne')),
+  note_suivi     TEXT,
+  note_cloture   TEXT,
+  date_entretien TEXT,
+  created_at     TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at     TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  UNIQUE(professeur_id, annee_scolaire, numero)
+);
+
+CREATE TRIGGER IF NOT EXISTS trg_dc_seance_updated AFTER UPDATE ON dc_seance
+BEGIN UPDATE dc_seance SET updated_at = CURRENT_TIMESTAMP WHERE id = NEW.id; END;
+
+CREATE TRIGGER IF NOT EXISTS trg_dc_objectif_updated AFTER UPDATE ON dc_objectif
+BEGIN UPDATE dc_objectif SET updated_at = CURRENT_TIMESTAMP WHERE id = NEW.id; END;
+
+-- Données de référence (axes, thèmes, critères) — INSERT OR IGNORE pour idempotence
+INSERT OR IGNORE INTO dc_axe(id,code,label) VALUES
+  (1,'A1','Maîtrise des savoirs disciplinaires et interdisciplinaires'),
+  (2,'A2','Maîtrise des compétences pédagogiques et didactiques'),
+  (3,'A3','Dimension relationnelle, éthique et réflexive'),
+  (4,'A4','Engagement professionnel');
+
+INSERT OR IGNORE INTO dc_theme(id,code,label,axe_id) VALUES
+  (1,'T1','Savoirs disciplinaires',1),
+  (2,'T2','Conception et planification',2),
+  (3,'T3','Gestion de classe et interactions',2),
+  (4,'T4','Évaluation',2),
+  (5,'T5','Éthique et réflexivité',3),
+  (6,'T6','Engagement et développement professionnel',4);
+
+INSERT OR IGNORE INTO dc_critere(id,code,theme_id,axe_id,ordre) VALUES
+  (1,'1',1,1,10),(2,'2',2,2,20),(3,'3a',2,2,30),(4,'3b',2,2,31),
+  (5,'4',3,2,40),(6,'5',3,2,50),(7,'6',3,2,60),(8,'7',4,2,70),
+  (9,'8',5,3,80),(10,'9',5,3,90),(11,'10',5,3,100),(12,'11',6,4,110),
+  (13,'12',6,4,120),(14,'13',6,4,130),(15,'14',6,4,140),(16,'15a',6,4,150),
+  (17,'15b',6,4,151),(18,'15c',6,4,152),(19,'15d',6,4,153);
+
+INSERT OR IGNORE INTO dc_critere_libelle(critere_id,dispositif,type_cours,libelle,question_ref) VALUES
+  (1,'auto-analyse','tous','Maîtrise du contenu disciplinaire enseigné','Quelle est mon aisance avec les savoirs que j''enseigne ?'),
+  (2,'auto-analyse','tous','Conception des apprentissages et planification','Comment est-ce que je planifie mes séquences d''enseignement ?'),
+  (3,'auto-analyse','cours','Formulation claire des objectifs (cours théorique)','Mes objectifs sont-ils compréhensibles pour les étudiants ?'),
+  (3,'auto-analyse','tp','Formulation claire des objectifs (TP/TD)','Les consignes de mes TP sont-elles suffisamment explicites ?'),
+  (4,'auto-analyse','cours','Structuration et progression de la matière','Ma progression est-elle cohérente et adaptée au niveau ?'),
+  (4,'auto-analyse','tp','Organisation des activités pratiques','Les activités pratiques sont-elles bien séquencées ?'),
+  (5,'auto-analyse','tous','Gestion du groupe et du climat de classe','Comment je gère les interactions et l''ambiance du groupe ?'),
+  (6,'auto-analyse','tous','Différenciation pédagogique','Est-ce que j''adapte mon enseignement aux besoins individuels ?'),
+  (7,'auto-analyse','tous','Utilisation des ressources et outils pédagogiques','Quels outils j''utilise et avec quelle pertinence ?'),
+  (8,'auto-analyse','tous','Évaluation des apprentissages','Comment j''évalue et comment j''exploite les résultats ?'),
+  (9,'auto-analyse','tous','Posture éthique et professionnelle','Comment je me positionne dans ma relation aux étudiants et collègues ?'),
+  (10,'auto-analyse','tous','Réflexivité sur sa pratique','Suis-je capable d''analyser ma propre pratique avec recul ?'),
+  (11,'auto-analyse','tous','Capacité à recevoir et intégrer du feedback','Comment est-ce que j''accueille les retours et les conseils ?'),
+  (12,'auto-analyse','tous','Collaboration avec les collègues','Comment je travaille avec mes collègues ?'),
+  (13,'auto-analyse','tous','Connaissance du cadre institutionnel','Suis-je au clair avec les règles et procédures de l''établissement ?'),
+  (14,'auto-analyse','tous','Participation à la vie de l''établissement','Quelle est mon implication dans les projets collectifs ?'),
+  (15,'auto-analyse','tous','Formation continue (15a)','Quelles formations ai-je suivies récemment ?'),
+  (16,'auto-analyse','tous','Formation continue (15b)','Comment j''intègre les apports de ces formations dans ma pratique ?'),
+  (17,'auto-analyse','tous','Formation continue (15c)','Comment je partage mes apprentissages avec mes collègues ?'),
+  (18,'auto-analyse','tous','Formation continue (15d)','Quel projet de formation est-ce que j''envisage ?'),
+  (1,'observation','cours','Maîtrise du contenu (cours)','Le professeur démontre une connaissance solide de la matière.'),
+  (1,'observation','tp','Maîtrise du contenu (TP)','Le professeur guide efficacement les manipulations pratiques.'),
+  (2,'observation','tous','Planification et cohérence de la séance','La séance est bien structurée et les transitions sont claires.'),
+  (5,'observation','tous','Gestion du groupe','Le professeur maintient un climat propice aux apprentissages.'),
+  (6,'observation','tous','Différenciation observable','Des adaptations pour différents profils d''apprenants sont visibles.'),
+  (8,'observation','tous','Pratiques d''évaluation formative','Des moments de vérification des acquis sont présents.'),
+  (9,'observation','tous','Posture et communication','Le professeur communique avec clarté et respect.'),
+  (10,'observation','tous','Réajustements en cours de séance','Le professeur adapte son enseignement en fonction des réactions du groupe.');
