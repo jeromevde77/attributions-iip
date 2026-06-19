@@ -402,11 +402,29 @@ export default function Attributions() {
           </thead>
           <tbody>
             ${lignesUE}
+            ${(d.missions_hors_ue && d.missions_hors_ue.length > 0) ? `
+            <tr style="background:#0F172A;color:white">
+              <td colspan="7" style="padding:4px 6px;font-weight:700;font-size:11px">
+                Charges hors UE
+              </td>
+            </tr>
+            ${d.missions_hors_ue.map(m => `
+            <tr style="background:#F8FAFC;border-bottom:1px solid #E2E8F0">
+              <td style="${SN}">${m.prof_nom} ${m.prof_prenom}</td>
+              <td colspan="2" style="${S}">${m.fonction}</td>
+              <td style="${S}text-align:center">
+                <span style="font-size:8px;font-weight:700;padding:1px 4px;border-radius:3px;background:${m.contrat_mdp==='HELB'?'#ede9fe':'#dbeafe'};color:${m.contrat_mdp==='HELB'?'#6d28d9':'#1d4ed8'}">${m.contrat_mdp||'IIP'}</span>
+              </td>
+              <td style="${SR}font-weight:600">${fmt(m.periodes)}</td>
+              <td style="${SR}">0</td>
+              <td style="${SR}border-left:1px solid #e5e7eb;font-weight:600">${fmt(m.periodes)}</td>
+            </tr>`).join('')}
+            ` : ''}
             <tr style="background:#1B2B4B;color:white">
               <td colspan="4" style="padding:4px 6px;font-weight:700;font-size:12px;white-space:nowrap">TOTAL — ${section}</td>
-              <td style="${SR}font-weight:700;color:white">${fmt(d.total_per)}</td>
+              <td style="${SR}font-weight:700;color:white">${fmt(d.total_per + (d.missions_hors_ue||[]).reduce((s,m)=>s+(m.periodes||0),0))}</td>
               <td style="${SR}font-weight:700;color:white">${fmt(d.total_aut)}</td>
-              <td style="${SR}font-weight:700;color:white;border-left:1px solid rgba(255,255,255,.3)">${fmt(d.total)}</td>
+              <td style="${SR}font-weight:700;color:white;border-left:1px solid rgba(255,255,255,.3)">${fmt(d.total + (d.missions_hors_ue||[]).reduce((s,m)=>s+(m.periodes||0),0))}</td>
             </tr>
           </tbody>
         </table>

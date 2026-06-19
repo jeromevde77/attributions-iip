@@ -20,6 +20,7 @@ function GestionPersonnel() {
   const [search, setSearch]       = useState('');
   const [loading, setLoading]     = useState(true);
   const [saving, setSaving]       = useState({}); // "profId|fonction" -> bool
+  const [periodes, setPeriodes]   = useState({}); // "profId|fonction" -> { per, contrat }
 
   // Charger la liste des sections une fois
   useEffect(() => {
@@ -31,12 +32,23 @@ function GestionPersonnel() {
     setLoading(true);
     const anneeCourante = getAnnee();
     setAnnee(anneeCourante);
-    api.personnelMatrice(section, anneeCourante)
-      .then(d => {
+    Promise.all([
+      api.personnelMatrice(section, anneeCourante),
+      section !== '__ETAB__'
+        ? fetch(`/api/ref/personnel-missions?section=${encodeURIComponent(section)}&annee=${encodeURIComponent(anneeCourante)}`,
+            { headers: { Authorization: `Bearer ${localStorage.getItem('token')}` } }).then(r => r.json()).catch(() => [])
+        : Promise.resolve([])
+    ]).then(([d, missions]) => {
         setFonctions(Array.isArray(d.fonctions) ? d.fonctions : []);
         setProfs(Array.isArray(d.profs) ? d.profs : []);
         setCoches(d.coches || {});
         setAnnee(d.annee || anneeCourante);
+        // Charger les périodes existantes
+        const perMap = {};
+        (missions || []).forEach(m => {
+          perMap[`${m.professeur_id}|${m.fonction}`] = { per: m.periodes || 0, contrat: m.contrat_mdp || 'IIP' };
+        });
+        setPeriodes(perMap);
       })
       .catch(() => { setFonctions([]); setProfs([]); setCoches({}); })
       .finally(() => setLoading(false));
@@ -69,6 +81,14 @@ function GestionPersonnel() {
     } finally {
       setSaving(s => { const n = { ...s }; delete n[key]; return n; });
     }
+  }
+
+  async function savePeriodes(profId, fonction, per, contrat) {
+    const key = `${profId}|${fonction}`;
+    setPeriodes(prev => ({ ...prev, [key]: { per, contrat } }));
+    try {
+      await api.setMission({ professeur_id: profId, fonction, section_code: section, annee_scolaire: annee, periodes: per, contrat_mdp: contrat });
+    } catch(e) { alert('Erreur périodes : ' + e.message); }
   }
 
   const profsFiltres = search.trim()
@@ -144,16 +164,37 @@ function GestionPersonnel() {
                     {fonctions.map(f => {
                       const key = p.id + '|' + f.libelle;
                       const on = estCoche(p.id, f.libelle);
+                      const perInfo = periodes[key] || { per: 0, contrat: 'IIP' };
                       return (
                         <td key={f.id} className="px-2 py-2 text-center">
                           <button type="button" onClick={() => toggle(p.id, f.libelle)} disabled={saving[key]}
                             className={`w-6 h-6 rounded-md border-2 transition inline-flex items-center justify-center ${on
                               ? 'bg-iip-mauve border-iip-mauve text-white'
                               : 'bg-white border-gray-300 hover:border-iip-mauve'} ${saving[key] ? 'opacity-50' : ''}`}>
-                            {on && (
-                              <IconCheck size={14} />
-                            )}
+                            {on && <IconCheck size={14} />}
                           </button>
+                          {on && section !== '__ETAB__' && (
+                            <div className="mt-1 space-y-1">
+                              <input
+                                type="number" min="0" step="1"
+                                defaultValue={perInfo.per || ''}
+                                placeholder="pér."
+                                title="Périodes hors UE pour cette mission"
+                                onBlur={e => {
+                                  const v = parseFloat(e.target.value) || 0;
+                                  savePeriodes(p.id, f.libelle, v, perInfo.contrat);
+                                }}
+                                className="w-14 border border-gray-300 rounded px-1 py-0.5 text-xs text-center"
+                              />
+                              <select
+                                defaultValue={perInfo.contrat || 'IIP'}
+                                onChange={e => savePeriodes(p.id, f.libelle, perInfo.per, e.target.value)}
+                                className="w-14 border border-gray-300 rounded px-1 py-0.5 text-xs bg-white">
+                                <option value="IIP">IIP</option>
+                                <option value="HELB">HELB</option>
+                              </select>
+                            </div>
+                          )}
                         </td>
                       );
                     })}
@@ -177,16 +218,37 @@ function GestionPersonnel() {
                     {fonctions.map(f => {
                       const key = p.id + '|' + f.libelle;
                       const on = estCoche(p.id, f.libelle);
+                      const perInfo = periodes[key] || { per: 0, contrat: 'IIP' };
                       return (
                         <td key={f.id} className="px-2 py-2 text-center">
                           <button type="button" onClick={() => toggle(p.id, f.libelle)} disabled={saving[key]}
                             className={`w-6 h-6 rounded-md border-2 transition inline-flex items-center justify-center ${on
                               ? 'bg-iip-mauve border-iip-mauve text-white'
                               : 'bg-white border-gray-300 hover:border-iip-mauve'} ${saving[key] ? 'opacity-50' : ''}`}>
-                            {on && (
-                              <IconCheck size={14} />
-                            )}
+                            {on && <IconCheck size={14} />}
                           </button>
+                          {on && section !== '__ETAB__' && (
+                            <div className="mt-1 space-y-1">
+                              <input
+                                type="number" min="0" step="1"
+                                defaultValue={perInfo.per || ''}
+                                placeholder="pér."
+                                title="Périodes hors UE pour cette mission"
+                                onBlur={e => {
+                                  const v = parseFloat(e.target.value) || 0;
+                                  savePeriodes(p.id, f.libelle, v, perInfo.contrat);
+                                }}
+                                className="w-14 border border-gray-300 rounded px-1 py-0.5 text-xs text-center"
+                              />
+                              <select
+                                defaultValue={perInfo.contrat || 'IIP'}
+                                onChange={e => savePeriodes(p.id, f.libelle, perInfo.per, e.target.value)}
+                                className="w-14 border border-gray-300 rounded px-1 py-0.5 text-xs bg-white">
+                                <option value="IIP">IIP</option>
+                                <option value="HELB">HELB</option>
+                              </select>
+                            </div>
+                          )}
                         </td>
                       );
                     })}

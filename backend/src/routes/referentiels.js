@@ -1514,17 +1514,47 @@ r.get('/personnel-matrice', authRequired, (req, res) => {
 // Cocher/décocher une mission
 // PUT /personnel-mission  body: { professeur_id, fonction, section_code, annee_scolaire, actif }
 r.put('/personnel-mission', authRequired, roleRequired('admin', 'editeur'), (req, res) => {
-  const { professeur_id, fonction, section_code, annee_scolaire, actif } = req.body;
+  const { professeur_id, fonction, section_code, annee_scolaire, actif, periodes, contrat_mdp } = req.body;
   if (!professeur_id || !fonction || !section_code || !annee_scolaire)
     return res.status(400).json({ error: 'Paramètres manquants' });
-  if (actif) {
-    db.prepare('INSERT OR IGNORE INTO personnel_mission (professeur_id, fonction, section_code, annee_scolaire) VALUES (?,?,?,?)')
-      .run(professeur_id, fonction, section_code, annee_scolaire);
-  } else {
-    db.prepare('DELETE FROM personnel_mission WHERE professeur_id = ? AND fonction = ? AND section_code = ? AND annee_scolaire = ?')
-      .run(professeur_id, fonction, section_code, annee_scolaire);
+  if (actif !== undefined) {
+    if (actif) {
+      db.prepare('INSERT OR IGNORE INTO personnel_mission (professeur_id, fonction, section_code, annee_scolaire) VALUES (?,?,?,?)')
+        .run(professeur_id, fonction, section_code, annee_scolaire);
+    } else {
+      db.prepare('DELETE FROM personnel_mission WHERE professeur_id = ? AND fonction = ? AND section_code = ? AND annee_scolaire = ?')
+        .run(professeur_id, fonction, section_code, annee_scolaire);
+    }
+  }
+  // Mise à jour des périodes et contrat si fournis
+  if (periodes !== undefined || contrat_mdp !== undefined) {
+    const per = periodes !== undefined ? Number(periodes) : null;
+    const contrat = contrat_mdp || 'IIP';
+    db.prepare(`UPDATE personnel_mission SET
+      periodes = COALESCE(?, periodes),
+      contrat_mdp = ?
+      WHERE professeur_id = ? AND fonction = ? AND section_code = ? AND annee_scolaire = ?`)
+      .run(per, contrat, professeur_id, fonction, section_code, annee_scolaire);
   }
   res.json({ ok: true });
+});
+
+// ── Missions avec périodes pour une section ─────────────────────────────────
+// GET /personnel-missions?section=TIM&annee=2026-2027
+r.get('/personnel-missions', authRequired, (req, res) => {
+  const { section, annee } = req.query;
+  if (!section || !annee) return res.status(400).json({ error: 'section et annee requis' });
+  const rows = db.prepare(`
+    SELECT pm.id, pm.professeur_id, pm.fonction, pm.section_code, pm.annee_scolaire,
+           pm.periodes, pm.contrat_mdp,
+           p.nom, p.prenom, p.nom || ' ' || p.prenom AS nom_complet
+    FROM personnel_mission pm
+    JOIN professeur p ON p.id = pm.professeur_id
+    WHERE pm.section_code = ? AND pm.annee_scolaire = ?
+      AND COALESCE(pm.periodes, 0) > 0
+    ORDER BY p.nom, p.prenom, pm.fonction
+  `).all(section, annee);
+  res.json(rows);
 });
 
 // ── Grille d'autonomie d'une section (répartiteur) ───────────────────────────
