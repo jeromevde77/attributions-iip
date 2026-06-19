@@ -869,6 +869,31 @@ export default function Attributions() {
   }
 
   /* --- Chargement --- */
+  // Ouvre et scrolle jusqu'au cours concerné par une anomalie de groupe
+  function naviguerVersAnomalie(a) {
+    setGroupeAlertes(null);
+    const ueKey  = (a.section || '') + '/' + a.ue_num + '/' + (a.num_organisation || 1);
+    const coursOpenKey = 'cours:' + ueKey + '/' + a.code_cours;
+    const ueOpenKey    = 'ue:' + ueKey;
+    // Ouvrir l'UE et le cours dans l'accordéon
+    setOpenUEs(prev => {
+      const n = new Set(prev);
+      n.add(ueOpenKey);
+      n.add(coursOpenKey);
+      return n;
+    });
+    // Ouvrir le volet activité si applicable
+    if (a.activite_id) {
+      const voletKey = coursOpenKey + '|' + a.activite_id;
+      setOpenActs(prev => { const n = new Set(prev); n.add(voletKey); return n; });
+    }
+    // Scroller après un court délai (le temps que React re-rende l'accordéon)
+    setTimeout(() => {
+      const el = document.getElementById('cours-' + a.code_cours);
+      if (el) el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }, 120);
+  }
+
   // Détecte les anomalies de numérotation de groupes dans un tableau de lignes
   function detecterAnomaliesGroupes(rows) {
     // Grouper par cours + activité (périmètre d'unicité)
@@ -889,7 +914,11 @@ export default function Attributions() {
           anomalies.push({
             cours: r.nom_cours || r.code_cours || '?',
             code_cours: r.code_cours,
+            ue_num: r.ue_num,
+            num_organisation: r.num_organisation || 1,
+            section: r.section,
             activite: r.activite_nom || null,
+            activite_id: r.activite_id || null,
             probleme: `1 seule ligne avec lettre « ${code} » au lieu de « Ts »`,
           });
         }
@@ -912,7 +941,11 @@ export default function Attributions() {
           anomalies.push({
             cours: r.nom_cours || r.code_cours || '?',
             code_cours: r.code_cours,
+            ue_num: r.ue_num,
+            num_organisation: r.num_organisation || 1,
+            section: r.section,
             activite: r.activite_nom || null,
+            activite_id: r.activite_id || null,
             probleme: desc,
           });
         }
@@ -1335,7 +1368,7 @@ export default function Attributions() {
     const st = groupStats(cg.rows);
     const isZCours = cg.type_cours === 'Z';
     return (
-      <div key={key} className="border-t border-gray-100">
+      <div key={key} id={'cours-'+cg.code_cours} className="border-t border-gray-100">
         <button onClick={()=>toggle(key)} className={`w-full flex items-center gap-2 pl-10 pr-4 py-2 hover:bg-gray-100/60 transition text-left text-sm ${isZCours ? 'opacity-70' : ''}`}>
           <IconChevronRight size={14} className={`text-gray-400 text-sm transition-transform ${open?'rotate-90':''}`} />
           <span className={`font-mono text-sm ${isZCours ? 'text-gray-400' : 'text-gray-500'}`}>{cg.code_cours}</span>
@@ -1799,8 +1832,13 @@ export default function Attributions() {
             </div>
             <div className="px-5 py-3 max-h-80 overflow-auto space-y-2">
               {groupeAlertes.anomalies.map((a, i) => (
-                <div key={i} className="border border-amber-200 bg-amber-50 rounded-lg px-3 py-2.5">
-                  <div className="font-medium text-sm text-gray-800 truncate">{a.cours}</div>
+                <div key={i}
+                  onClick={() => naviguerVersAnomalie(a)}
+                  className="border border-amber-200 bg-amber-50 rounded-lg px-3 py-2.5 cursor-pointer hover:bg-amber-100 hover:border-amber-400 transition-colors">
+                  <div className="flex items-center justify-between gap-2">
+                    <div className="font-medium text-sm text-gray-800 truncate">{a.cours}</div>
+                    <span className="text-xs text-amber-600 whitespace-nowrap flex-shrink-0">→ aller au cours</span>
+                  </div>
                   {a.activite && <div className="text-xs text-gray-500 mt-0.5">Activité : {a.activite}</div>}
                   <div className="text-xs text-amber-700 mt-1">{a.probleme}</div>
                 </div>
