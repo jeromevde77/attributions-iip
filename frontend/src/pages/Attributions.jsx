@@ -1232,7 +1232,7 @@ export default function Attributions() {
               const attendu = groupCodeSeq(codesApres.length);
               const seqOk = JSON.stringify(codesApres) === JSON.stringify(attendu);
               if (!seqOk) {
-                if (!confirm(\`La lettre \${newLettre} rompt la séquence alphabétique. Continuer quand même ?\`)) return;
+                if (!confirm(`La lettre ${newLettre} rompt la séquence alphabétique. Continuer quand même ?`)) return;
               }
               if (frereAvecCetteLetttre) {
                 // Switch : échanger les deux lettres
