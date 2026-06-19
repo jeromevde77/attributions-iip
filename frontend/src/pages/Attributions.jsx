@@ -217,6 +217,7 @@ export default function Attributions() {
   const [data, setData] = useState([]);
   const [badgeMenuOpen, setBadgeMenuOpen] = useState(null); // id de la ligne dont le menu lettre est ouvert
   const [groupeAlertes, setGroupeAlertes] = useState(null); // { section, anomalies[] } | null
+  const [expandedAnomalie, setExpandedAnomalie] = useState(null); // index de la carte expandée
   const [sections, setSections] = useState([]);
   const [professeurs, setProfesseurs] = useState([]);
   const [activitesList, setActivitesList] = useState([]);
@@ -1906,34 +1907,158 @@ export default function Attributions() {
       {addMenuUE && <div className="fixed inset-0 z-20" onClick={()=>setAddMenuUE(null)} />}
       {/* ── Popup anomalies de groupes ── */}
       {groupeAlertes && (
-        <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4" onClick={() => setGroupeAlertes(null)}>
-          <div className="bg-white rounded-xl shadow-2xl max-w-lg w-full" onClick={e => e.stopPropagation()}>
+        <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4" onClick={() => { setGroupeAlertes(null); setExpandedAnomalie(null); }}>
+          <div className="bg-white rounded-xl shadow-2xl w-full" style={{maxWidth: 640}} onClick={e => e.stopPropagation()}>
             <div className="flex items-center gap-3 px-5 py-4 border-b border-gray-100">
               <span className="text-amber-500 text-xl">⚠</span>
               <div>
                 <div className="font-semibold text-gray-800">Anomalies de numérotation — section {groupeAlertes.section}</div>
                 <div className="text-xs text-gray-500 mt-0.5">{groupeAlertes.anomalies.length} cours avec un problème de groupe</div>
               </div>
-              <button onClick={() => setGroupeAlertes(null)} className="ml-auto text-gray-400 hover:text-gray-600 text-xl leading-none">×</button>
+              <button onClick={() => { setGroupeAlertes(null); setExpandedAnomalie(null); }} className="ml-auto text-gray-400 hover:text-gray-600 text-xl leading-none">×</button>
             </div>
-            <div className="px-5 py-3 max-h-80 overflow-auto space-y-2">
-              {groupeAlertes.anomalies.map((a, i) => (
-                <div key={i}
-                  onClick={() => naviguerVersAnomalie(a)}
-                  className="border border-amber-200 bg-amber-50 rounded-lg px-3 py-2.5 cursor-pointer hover:bg-amber-100 hover:border-amber-400 transition-colors">
-                  <div className="flex items-center justify-between gap-2">
-                    <div className="font-medium text-sm text-gray-800 truncate">{a.cours}</div>
-                    <span className="text-xs text-amber-600 whitespace-nowrap flex-shrink-0">→ aller au cours</span>
+            <div className="px-5 py-3 overflow-auto space-y-2" style={{maxHeight: '70vh'}}>
+              {groupeAlertes.anomalies.map((a, i) => {
+                const expanded = expandedAnomalie === i;
+                // Lignes du groupe concerné
+                const lignesGroupe = data.filter(r =>
+                  r.section === a.section &&
+                  r.code_cours === a.code_cours &&
+                  (r.num_organisation||1) === (a.num_organisation||1) &&
+                  (r.activite_id||null) === (a.activite_id||null) &&
+                  r.split_groupe !== 'O'
+                ).sort((x,y) => (x.code||'').localeCompare(y.code||'', 'fr'));
+                const nbG = lignesGroupe.length;
+                const attenduSeq = groupCodeSeq(nbG);
+                // Déterminer si une ligne est en anomalie
+                const codesActuels = lignesGroupe.map(r => (r.code||'').toUpperCase());
+                const isAnomalie = (r) => {
+                  const code = (r.code||'').toUpperCase();
+                  if (!code || code === 'TS') return true;
+                  if (codesActuels.filter(c => c === code).length > 1) return true; // doublon
+                  if (!attenduSeq.includes(code)) return true; // hors séquence
+                  return false;
+                };
+
+                async function corrigerLigne(rowId, newCode) {
+                  const autre = lignesGroupe.find(r => (r.code||'').toUpperCase() === newCode && r.id !== rowId);
+                  const cible = lignesGroupe.find(r => r.id === rowId);
+                  if (!cible) return;
+                  if (autre) {
+                    // switch
+                    const ancienCode = cible.code || null;
+                    setData(prev => prev.map(r => {
+                      if (r.id === rowId) return { ...r, code: newCode };
+                      if (r.id === autre.id) return { ...r, code: ancienCode };
+                      return r;
+                    }));
+                    try {
+                      await api.updateAttribution(rowId, { code: newCode });
+                      await api.updateAttribution(autre.id, { code: ancienCode });
+                    } catch(e) { alert(e.message); }
+                  } else {
+                    setData(prev => prev.map(r => r.id === rowId ? { ...r, code: newCode } : r));
+                    try { await api.updateAttribution(rowId, { code: newCode }); }
+                    catch(e) { alert(e.message); }
+                  }
+                  // Re-vérifier les anomalies après correction
+                  setTimeout(() => {
+                    const lignesMaj = data.filter(r =>
+                      r.section === a.section && r.code_cours === a.code_cours &&
+                      (r.num_organisation||1) === (a.num_organisation||1) &&
+                      (r.activite_id||null) === (a.activite_id||null) && r.split_groupe !== 'O'
+                    );
+                    const nouvellesAnos = detecterAnomaliesGroupes(lignesMaj.length > 0 ? data : []);
+                    setGroupeAlertes(prev => prev ? { ...prev, anomalies: nouvellesAnos } : null);
+                    if (nouvellesAnos.length === 0) { setGroupeAlertes(null); setExpandedAnomalie(null); }
+                  }, 200);
+                }
+
+                return (
+                  <div key={i} className={`border rounded-lg overflow-hidden transition-all ${expanded ? 'border-amber-400' : 'border-amber-200'}`}>
+                    {/* En-tête de la carte — clic pour expand */}
+                    <div
+                      onClick={() => setExpandedAnomalie(expanded ? null : i)}
+                      className={`px-3 py-2.5 cursor-pointer flex items-center gap-2 ${expanded ? 'bg-amber-100' : 'bg-amber-50 hover:bg-amber-100'} transition-colors`}>
+                      <span style={{fontSize:12, color: expanded ? '#92400E' : '#B45309', transition:'transform 0.15s', display:'inline-block', transform: expanded ? 'rotate(90deg)' : 'rotate(0deg)'}}>▶</span>
+                      <div className="flex-1 min-w-0">
+                        <div className="font-medium text-sm text-gray-800 truncate">{a.cours}</div>
+                        {a.activite && <div className="text-xs text-gray-500">Activité : {a.activite}</div>}
+                        <div className="text-xs text-amber-700 mt-0.5">{a.probleme}</div>
+                      </div>
+                      <span className="text-xs text-amber-600 whitespace-nowrap">{expanded ? 'réduire' : 'corriger →'}</span>
+                    </div>
+
+                    {/* Tableau de correction — visible si expanded */}
+                    {expanded && (
+                      <div className="bg-white border-t border-amber-200 px-3 py-2">
+                        <table style={{width:'100%', borderCollapse:'collapse', fontSize:12}}>
+                          <thead>
+                            <tr style={{borderBottom:'1px solid #E5E7EB'}}>
+                              <th style={{padding:'4px 6px', textAlign:'left', color:'#6B7280', fontWeight:600}}>Professeur</th>
+                              <th style={{padding:'4px 6px', textAlign:'center', color:'#6B7280', fontWeight:600}}>Groupe actuel</th>
+                              <th style={{padding:'4px 6px', textAlign:'center', color:'#6B7280', fontWeight:600}}>Corriger</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {lignesGroupe.map((r, ri) => {
+                              const code = (r.code||'').toUpperCase()||'Ts';
+                              const enErreur = isAnomalie(r);
+                              const bs = BADGE_COLORS[code[0]] || { bg:'#F3F4F6', color:'#374151', border:'#E5E7EB' };
+                              return (
+                                <tr key={r.id} style={{background: enErreur ? '#FEF2F2' : '#F9FAFB', borderBottom:'1px solid #F3F4F6'}}>
+                                  <td style={{padding:'5px 6px', color: enErreur ? '#991B1B' : '#374151', fontWeight: enErreur ? 600 : 400}}>
+                                    {r.prof_nom || r.prof_prenom ? `${r.prof_nom||''} ${r.prof_prenom||''}`.trim() : '—'}
+                                  </td>
+                                  <td style={{padding:'5px 6px', textAlign:'center'}}>
+                                    <span style={{
+                                      display:'inline-flex', alignItems:'center', justifyContent:'center',
+                                      minWidth:22, height:20, paddingInline:5, borderRadius:5,
+                                      fontSize:11, fontWeight:700,
+                                      background: enErreur ? '#FEE2E2' : bs.bg,
+                                      color: enErreur ? '#DC2626' : bs.color,
+                                      border: `1px solid ${enErreur ? '#FECACA' : bs.border}`,
+                                    }}>{code}</span>
+                                  </td>
+                                  <td style={{padding:'5px 6px', textAlign:'center'}}>
+                                    {enErreur && (
+                                      <div style={{display:'flex', gap:3, justifyContent:'center', flexWrap:'wrap'}}>
+                                        {attenduSeq.map(l => {
+                                          const dejaPrise = codesActuels.includes(l) && l !== code;
+                                          const bs2 = BADGE_COLORS[l[0]] || { bg:'#F3F4F6', color:'#374151', border:'#E5E7EB' };
+                                          return (
+                                            <span key={l}
+                                              onClick={e => { e.stopPropagation(); corrigerLigne(r.id, l); }}
+                                              title={dejaPrise ? `Échange avec le groupe ${l}` : `Assigner ${l}`}
+                                              style={{
+                                                display:'inline-flex', alignItems:'center', justifyContent:'center',
+                                                width:22, height:20, borderRadius:5, fontSize:11, fontWeight:700,
+                                                background: bs2.bg, color: bs2.color,
+                                                border: `${dejaPrise ? 2 : 1}px solid ${bs2.color}`,
+                                                cursor:'pointer',
+                                              }}>
+                                              {l}
+                                            </span>
+                                          );
+                                        })}
+                                      </div>
+                                    )}
+                                  </td>
+                                </tr>
+                              );
+                            })}
+                          </tbody>
+                        </table>
+                      </div>
+                    )}
                   </div>
-                  {a.activite && <div className="text-xs text-gray-500 mt-0.5">Activité : {a.activite}</div>}
-                  <div className="text-xs text-amber-700 mt-1">{a.probleme}</div>
-                </div>
-              ))}
+                );
+              })}
             </div>
             <div className="px-5 py-3 border-t border-gray-100 flex justify-end">
-              <button onClick={() => setGroupeAlertes(null)}
+              <button onClick={() => { setGroupeAlertes(null); setExpandedAnomalie(null); }}
                 className="bg-iip-blue text-white text-sm px-4 py-2 rounded-lg hover:opacity-90">
-                Compris
+                Fermer
               </button>
             </div>
           </div>
