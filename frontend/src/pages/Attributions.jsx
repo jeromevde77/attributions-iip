@@ -1,4 +1,4 @@
-import { useEffect, useState, useMemo } from 'react';
+import { useEffect, useState, useMemo, useRef } from 'react';
 import { api, getAnnee, nomDoc, getUnite, setUnite as setUniteGlobal, perToH, hToPer } from '../lib/api.js';
 import PreviewModal from '../components/PreviewModal.jsx';
 import EptModal from '../components/EptModal.jsx';
@@ -215,6 +215,7 @@ const DEFAULT_COLS = [
 // ===========================================================================
 export default function Attributions() {
   const [data, setData] = useState([]);
+  const dragSrcId = useRef(null); // id de la ligne en cours de drag
   const [sections, setSections] = useState([]);
   const [professeurs, setProfesseurs] = useState([]);
   const [activitesList, setActivitesList] = useState([]);
@@ -1093,10 +1094,11 @@ export default function Attributions() {
                 {/* Badge lettre — draggable si groupe actif */}
                 <span
                   draggable={estGroupe}
-                  onDragStart={e => { e.stopPropagation(); e.dataTransfer.setData('text/plain', String(row.id)); e.dataTransfer.effectAllowed = 'move'; }}
-                  onDragOver={e => { if (estGroupe) { e.preventDefault(); e.dataTransfer.dropEffect = 'move'; e.currentTarget.style.outline = '2px solid #00AACC'; e.currentTarget.style.outlineOffset = '1px'; } }}
-                  onDragLeave={e => { e.currentTarget.style.outline = ''; }}
-                  onDrop={e => { e.preventDefault(); e.stopPropagation(); e.currentTarget.style.outline = ''; const srcId = Number(e.dataTransfer.getData('text/plain')); if (srcId && srcId !== row.id) swapAvecId(srcId); }}
+                  onDragStart={e => { dragSrcId.current = row.id; e.dataTransfer.effectAllowed = 'move'; }}
+                  onDragOver={e => { e.preventDefault(); e.stopPropagation(); e.currentTarget.style.outline = '2px solid #00AACC'; e.currentTarget.style.outlineOffset = '1px'; }}
+                  onDragLeave={e => { e.currentTarget.style.outline = ''; e.currentTarget.style.outlineOffset = ''; }}
+                  onDragEnd={e => { dragSrcId.current = null; }}
+                  onDrop={e => { e.preventDefault(); e.stopPropagation(); e.currentTarget.style.outline = ''; e.currentTarget.style.outlineOffset = ''; const srcId = dragSrcId.current; dragSrcId.current = null; if (srcId && srcId !== row.id) swapAvecId(srcId); }}
                   title={estGroupe ? 'Glisser sur un autre groupe pour échanger les lettres' : ''}
                   style={{
                     display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
