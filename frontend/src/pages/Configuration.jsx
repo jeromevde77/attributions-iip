@@ -906,8 +906,6 @@ export default function Configuration() {
     { key: 'prerequis', label: 'Prérequis UE', icon: IconLink },
     { key: 'procedures', label: 'Procédures', icon: IconGavel },
     { key: 'statistiques', label: 'Statistiques', icon: IconChartBar },
-    { key: 'procedures', label: 'Procédures', icon: IconGavel },
-    { key: 'statistiques', label: 'Statistiques', icon: IconChartBar },
     { key: 'changelog', label: 'Nouveautés', icon: IconSparkles },
   ];
   return (
