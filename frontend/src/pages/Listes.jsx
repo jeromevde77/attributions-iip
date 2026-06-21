@@ -588,7 +588,7 @@ export default function Listes() {
         lignes += `
           <tr style="background:${bg}">
             <td style="padding:5px 8px;font-weight:700;color:${BLEU};white-space:nowrap">UE ${u.ue_num}</td>
-            <td style="padding:5px 8px;color:#333;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${u.ue_nom || '—'}</td>
+            <td style="padding:5px 8px;color:#333;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${u.ue_nom || '—'}${u.ects?` <span style="background:#e0f2fe;color:#0369a1;font-size:7.5px;font-weight:700;padding:1px 5px;border-radius:3px;margin-left:4px;vertical-align:middle">${u.ects} ECTS</span>`:''}</td>
             <td style="padding:5px 8px;text-align:center">${badge(c)}</td>
             <td style="padding:5px 8px;font-size:9px;color:#555;text-align:right">${cellPer(u)}</td>
             <td style="padding:5px 8px;text-align:right;font-size:8px;color:#94A3B8">${nPer > 0 ? Math.round(pt/nPer*100) + '%' : ''}</td>
@@ -826,7 +826,7 @@ export default function Listes() {
     const fmtTot = (per) => {
       const p = per || 0;
       const h = Math.round(p * 50 / 60);
-      return `${fmt(p)} <span style="color:#b0b6c0;font-weight:400">(${h}h)</span>`;
+      return `${fmt(p)} <span style="color:#6b7280;font-weight:400">(${h}h)</span>`;
     };
     // Variante pour fonds foncés (texte total en blanc)
     const fmtTotDark = (per) => {
@@ -843,6 +843,12 @@ export default function Listes() {
       return aDesigner
         ? `<span style="display:inline-block;background:#fff7ed;color:#ea580c;font-weight:700;font-size:9px;padding:2px 8px;border:1px solid #fdba74;border-radius:3px;white-space:nowrap">À désigner</span>`
         : v;
+    };
+    // Badge du contrat (IIP marine / HELB violet) en regard du nom du MDP
+    const contratBadge = (ct) => {
+      const c = ct || 'IIP';
+      if (c === 'HELB') return `<span style="display:inline-block;background:#8B5CF6;color:#fff;font-size:7.5px;font-weight:700;padding:1px 5px;border-radius:3px;margin-right:5px;vertical-align:middle">HELB</span>`;
+      return `<span style="display:inline-block;background:#1B2B4B;color:#fff;font-size:7.5px;font-weight:700;padding:1px 5px;border-radius:3px;margin-right:5px;vertical-align:middle">IIP</span>`;
     };
 
     // Filtrer par UE si mode rapport-ue
@@ -878,9 +884,9 @@ export default function Listes() {
       const lignesCours = ue.cours.map((c,i) => `
         <tr style="background:${i%2===0?'#fff':'#f9fafb'}">
           <td style="${S}padding-left:20px">${c.code_cours||'—'}</td>
-          <td style="${S}max-width:220px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${c.cours_nom||'—'}${c.activite_nom?` <em style="color:#9ca3af">(${c.activite_nom})</em>`:''}</td>
+          <td style="${S}max-width:220px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${c.cours_nom||'—'}${c.activite_nom?` <em style="color:#6b7280">(${c.activite_nom})</em>`:''}</td>
           <td style="${S}white-space:nowrap;color:#6b7280">Gr.${c.groupe_code}</td>
-          <td style="${S}white-space:nowrap">${profCell(c.prof_nom)}</td>
+          <td style="${S}white-space:nowrap">${contratBadge(c.contrat)}${profCell(c.prof_nom)}</td>
           <td style="${SR}color:#374151">${fmt(c.periodes)}</td>
           <td style="${SR}color:#6b7280">${fmt(c.autonomie)}</td>
           <td style="${SR}font-weight:600;border-left:1px solid #e5e7eb">${fmtTot(c.total)}</td>
@@ -888,7 +894,7 @@ export default function Listes() {
       return `
         <tr style="background:#f1f5f9;border-left:3px solid ${col}">
           <td colspan="4" style="padding:4px 6px 4px 8px;font-weight:700;font-size:12px;color:#111827;white-space:nowrap">
-            <span style="background:${col};color:white;font-size:9px;padding:1px 4px;border-radius:2px;margin-right:5px">${ue.ue_niv||''}</span>UE\u00a0${ue.ue_num} — ${ue.ue_nom||''}
+            <span style="background:${col};color:white;font-size:9px;padding:1px 4px;border-radius:2px;margin-right:5px">${ue.ue_niv||''}</span>UE\u00a0${ue.ue_num} — ${ue.ue_nom||''}${ue.ects?` <span style="background:#e0f2fe;color:#0369a1;font-size:8px;font-weight:700;padding:1px 6px;border-radius:3px;margin-left:5px;vertical-align:middle">${ue.ects} ECTS</span>`:''}
           </td>
           <td style="${SR}"></td><td style="${SR}"></td>
           <td style="${SR}border-left:1px solid #e5e7eb"></td>

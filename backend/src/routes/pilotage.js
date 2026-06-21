@@ -487,14 +487,14 @@ r.get('/etp', authRequired, (req, res) => {
 
   // IIP : périodes CT et PP par section/UE (autonomie incluse dans total_attribue_professeur)
   const lignesIIP = db.prepare(`
-    SELECT v.section, v.ue_num, u.ue_nom, u.ue_niv,
+    SELECT v.section, v.ue_num, u.ue_nom, u.ue_niv, u.ects,
       SUM(CASE WHEN v.type_cours='CT' THEN v.total_attribue_professeur ELSE 0 END) AS per_ct,
       SUM(CASE WHEN v.type_cours='PP' THEN v.total_attribue_professeur ELSE 0 END) AS per_pp,
       SUM(CASE WHEN v.type_cours NOT IN ('CT','PP') THEN v.total_attribue_professeur ELSE 0 END) AS per_autre
     FROM v_attribution_complete v
     LEFT JOIN ue u ON u.ue_num = v.ue_num AND u.annee_scolaire = v.annee_scolaire
     WHERE v.annee_scolaire = ? AND COALESCE(v.contrat_mdp,'IIP')='IIP'
-    GROUP BY v.section, v.ue_num, u.ue_nom, u.ue_niv
+    GROUP BY v.section, v.ue_num, u.ue_nom, u.ue_niv, u.ects
     ORDER BY v.section, v.ue_num
   `).all(annee);
 
@@ -532,7 +532,7 @@ r.get('/etp', authRequired, (req, res) => {
     const s = (sections[l.section] ||= { section: l.section, etp_iip: 0, etp_helb: 0, etp_ct: 0, etp_pp: 0, ues: [] });
     s.etp_iip += etpIip; s.etp_helb += etpHelb; s.etp_ct += etpCt + etpAutre; s.etp_pp += etpPp;
     s.ues.push({
-      ue_num: l.ue_num, ue_nom: l.ue_nom, ue_niv: l.ue_niv || null,
+      ue_num: l.ue_num, ue_nom: l.ue_nom, ue_niv: l.ue_niv || null, ects: l.ects || null,
       per_ct: Math.round((l.per_ct || 0) + (l.per_autre || 0)), per_pp: Math.round(l.per_pp || 0),
       per_ct_helb: helbInfo ? helbInfo.per_ct : 0, per_pp_helb: helbInfo ? helbInfo.per_pp : 0,
       etp_ct: r4(etpCt + etpAutre), etp_pp: r4(etpPp),
@@ -540,7 +540,7 @@ r.get('/etp', authRequired, (req, res) => {
     });
   }
   // Sections HELB sans ligne IIP — récupérer nom/niveau depuis la table ue
-  const ueInfo = db.prepare(`SELECT ue_num, ue_nom, ue_niv FROM ue WHERE annee_scolaire = ?`).all(annee);
+  const ueInfo = db.prepare(`SELECT ue_num, ue_nom, ue_niv, ects FROM ue WHERE annee_scolaire = ?`).all(annee);
   const ueInfoMap = {};
   for (const u of ueInfo) ueInfoMap[String(u.ue_num)] = u;
   for (const k of Object.keys(helbUE)) {
@@ -552,7 +552,7 @@ r.get('/etp', authRequired, (req, res) => {
     const s = (sections[sec] ||= { section: sec, etp_iip: 0, etp_helb: 0, etp_ct: 0, etp_pp: 0, ues: [] });
     s.etp_helb += info.etp;
     s.ues.push({
-      ue_num: Number(ueNum), ue_nom: ui.ue_nom || null, ue_niv: ui.ue_niv || null,
+      ue_num: Number(ueNum), ue_nom: ui.ue_nom || null, ue_niv: ui.ue_niv || null, ects: ui.ects || null,
       per_ct: 0, per_pp: 0, per_ct_helb: info.per_ct, per_pp_helb: info.per_pp,
       etp_ct: 0, etp_pp: 0, etp_iip: 0, etp_helb: r4(info.etp), etp_total: r4(info.etp),
     });
