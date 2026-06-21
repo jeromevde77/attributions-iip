@@ -634,13 +634,13 @@ export default function Listes() {
       ? (sec.nb_etudiants > 0 ? `données Lucie ${annee}` : 'aucune donnée Lucie')
       : 'estimation manuelle';
     const etpSec = sec.etp_secretariat || 0; // secrétariat étudiant proratisé
+    const totEtp = sec.etp_total, iipEtp = sec.etp_iip, helbEtp = sec.etp_helb;
+    const coordEtp = sec.etp_coord_helb || 0;
+    const globalEtp = totEtp + coordEtp; // cours + coordination
     const ratioGlobal = globalEtp > 0 && nbEtus > 0 ? (nbEtus / globalEtp).toFixed(1) : null;
     const ratioCours  = totEtp > 0  && nbEtus > 0 ? (nbEtus / totEtp).toFixed(1)   : null;
     const ratioCoord  = coordEtp > 0 && nbEtus > 0 ? (nbEtus / coordEtp).toFixed(1) : null;
     const ratioSec    = etpSec > 0   && nbEtus > 0 ? (nbEtus / etpSec).toFixed(1)   : null;
-    const totEtp = sec.etp_total, iipEtp = sec.etp_iip, helbEtp = sec.etp_helb;
-    const coordEtp = sec.etp_coord_helb || 0;
-    const globalEtp = totEtp + coordEtp; // cours + coordination
     const totPer = sec.ues.reduce((s, u) => s + perTot(u), 0);
     const iipPer = sec.ues.reduce((s, u) => s + (contratDe(u) === 'IIP' ? perTot(u) : 0), 0);
     const helbPer = totPer - iipPer;
