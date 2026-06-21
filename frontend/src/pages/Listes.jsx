@@ -686,7 +686,7 @@ export default function Listes() {
             <div style="font-size:8px;letter-spacing:3px;text-transform:uppercase;color:${TURQ};font-weight:700">Institut Ilya Prigogine · Enseignement pour adultes</div>
             <div style="font-size:19px;color:${BLEU};margin-top:2px;font-weight:700">Rapport de charge ETP — Section ${sec.section}</div>
             <div style="font-size:10px;color:#555;margin-top:1px">Année académique ${annee}</div>
-            <div style="font-size:8px;color:#999;margin-top:3px">Document destiné au Conseil d'administration · Charge enseignante exprimée en équivalents temps plein (ETP)</div>
+            <div style="font-size:8px;color:#999;margin-top:3px">Document destiné au COPIL ou Conseil d'administration basé sur les projections en cours pour l'année académique prochaine sur base des prévisions d'inscriptions. Charge enseignante exprimée en équivalents temps plein (ETP).</div>
           </div>
         </div>
 
