@@ -623,19 +623,19 @@ export default function Listes() {
             <tbody>${lignes}</tbody>
             <tfoot>
               ${nIipEtp > 0 ? `<tr style="background:#eef2fb;color:${BLEU}">
-                <td colspan="3" style="padding:4px 8px;text-align:right;font-weight:600">dont IIP</td>
+                <td colspan="4" style="padding:4px 8px;text-align:right;font-weight:600">dont IIP</td>
                 <td style="padding:4px 8px;text-align:right;font-size:9px;color:#64748B">${nPer > 0 ? Math.round(nIipPer/nPer*100) + '%' : ''}</td>
                 <td style="padding:4px 8px;text-align:right;font-weight:600;white-space:nowrap">${fmt(nIipPer)}</td>
                 <td style="padding:4px 8px;text-align:right;font-weight:700;white-space:nowrap">${fmtEtp(nIipEtp)}</td>
               </tr>` : ''}
               ${nHelbEtp > 0 ? `<tr style="background:#f5f0fc;color:${VIOLET}">
-                <td colspan="3" style="padding:4px 8px;text-align:right;font-weight:600">dont HELB</td>
+                <td colspan="4" style="padding:4px 8px;text-align:right;font-weight:600">dont HELB</td>
                 <td style="padding:4px 8px;text-align:right;font-size:9px;color:#A78BFA">${nPer > 0 ? Math.round(nHelbPer/nPer*100) + '%' : ''}</td>
                 <td style="padding:4px 8px;text-align:right;font-weight:600;white-space:nowrap">${fmt(nHelbPer)}</td>
                 <td style="padding:4px 8px;text-align:right;font-weight:700;white-space:nowrap">${fmtEtp(nHelbEtp)}</td>
               </tr>` : ''}
               <tr style="background:${BLEU};color:#fff">
-                <td colspan="3" style="padding:6px 8px;text-align:right;font-weight:700">Sous-total ${niv}</td>
+                <td colspan="4" style="padding:6px 8px;text-align:right;font-weight:700">Sous-total ${niv}</td>
                 <td style="padding:6px 8px;text-align:right;font-size:9px;opacity:.7">100%</td>
                 <td style="padding:6px 8px;text-align:right;font-weight:700;white-space:nowrap">${fmt(nPer)}</td>
                 <td style="padding:6px 8px;text-align:right;font-weight:700;white-space:nowrap">${fmtEtp(nEtp)}</td>
