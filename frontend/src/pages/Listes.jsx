@@ -689,7 +689,7 @@ export default function Listes() {
                 ${[['Global',ratioGlobal],['Cours',ratioCours],['Coord.',ratioCoord]].map(([lbl,val]) => `
                 <div style="display:flex;justify-content:space-between;align-items:baseline;background:rgba(255,255,255,.12);border-radius:4px;padding:2px 7px">
                   <span style="font-size:7px;opacity:.7;text-transform:uppercase">${lbl}</span>
-                  <span style="font-size:13px;font-weight:700">${val || '—'}</span>
+                  <span style="font-size:13px;font-weight:700">${val || '—'} <span style="font-size:7px;font-weight:400;opacity:.6">étu/ETP</span></span>
                 </div>`).join('')}
               </div>
             </div>` : ''}
