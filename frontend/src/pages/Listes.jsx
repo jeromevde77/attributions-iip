@@ -826,6 +826,18 @@ export default function Listes() {
     const niveaux = [...new Set(d.ues?.map(u => u.ue_niv).filter(Boolean))].sort((a,b)=>parseInt(a.match(/\d+$/)?.[0]??99)-parseInt(b.match(/\d+$/)?.[0]??99));
     const getNivCol = niv => NIV_PAL[niveaux.indexOf(niv) % NIV_PAL.length] || '#6b7280';
     const fmt = n => (n != null && n !== '') ? String(n) : '0';
+    // Total périodes (pér.+aut.) suivi de l'équivalent heures (1 période = 50 min) entre parenthèses, gris clair
+    const fmtTot = (per) => {
+      const p = per || 0;
+      const h = Math.round(p * 50 / 60);
+      return `${fmt(p)} <span style="color:#b0b6c0;font-weight:400">(${h}h)</span>`;
+    };
+    // Variante pour fonds foncés (texte total en blanc)
+    const fmtTotDark = (per) => {
+      const p = per || 0;
+      const h = Math.round(p * 50 / 60);
+      return `${fmt(p)} <span style="color:rgba(255,255,255,.55);font-weight:400">(${h}h)</span>`;
+    };
     const S = 'padding:1px 5px;font-size:10px;line-height:1.2;';
     const SR = S + 'text-align:right;';
     // Affichage du professeur : badge orange si "à désigner" ou non attribué
@@ -875,7 +887,7 @@ export default function Listes() {
           <td style="${S}white-space:nowrap">${profCell(c.prof_nom)}</td>
           <td style="${SR}color:#374151">${fmt(c.periodes)}</td>
           <td style="${SR}color:#6b7280">${fmt(c.autonomie)}</td>
-          <td style="${SR}font-weight:600;border-left:1px solid #e5e7eb">${fmt(c.total)}</td>
+          <td style="${SR}font-weight:600;border-left:1px solid #e5e7eb">${fmtTot(c.total)}</td>
         </tr>`).join('');
       return `
         <tr style="background:#f1f5f9;border-left:3px solid ${col}">
@@ -890,7 +902,7 @@ export default function Listes() {
           <td colspan="4" style="padding:2px 6px 2px 20px;font-size:10px;color:#6b7280;font-style:italic">Sous-total UE\u00a0${ue.ue_num}</td>
           <td style="${SR}font-weight:700;color:#374151">${fmt(ue.total_per)}</td>
           <td style="${SR}font-weight:600;color:#6b7280">${fmt(ue.total_aut)}</td>
-          <td style="${SR}font-weight:700;border-left:1px solid #e5e7eb">${fmt(ue.total_per+ue.total_aut)}</td>
+          <td style="${SR}font-weight:700;border-left:1px solid #e5e7eb">${fmtTot(ue.total_per+ue.total_aut)}</td>
         </tr>`;
     };
     // Regrouper par organisation : orga 1, puis orga 2, etc., chacune avec son sous-total
@@ -914,7 +926,7 @@ export default function Listes() {
               <td colspan="4" style="padding:3px 8px;font-weight:700;font-size:11px;color:#1B2B4B">Sous-total Organisation ${org}</td>
               <td style="${SR}font-weight:700;color:#1B2B4B">${fmt(totP)}</td>
               <td style="${SR}font-weight:700;color:#1B2B4B">${fmt(totA)}</td>
-              <td style="${SR}font-weight:700;color:#1B2B4B;border-left:1px solid #94a3b8">${fmt(totP+totA)}</td>
+              <td style="${SR}font-weight:700;color:#1B2B4B;border-left:1px solid #94a3b8">${fmtTot(totP+totA)}</td>
             </tr>`
           : '';
         return enTete + uesOrg.map(renderUErap).join('') + sousTotalOrg;
@@ -933,7 +945,7 @@ export default function Listes() {
             <td colspan="4" style="padding:4px 8px;font-weight:700;font-size:11px">Sous-total ${sec}</td>
             <td style="${SR}font-weight:700;color:white">${fmt(secP)}</td>
             <td style="${SR}font-weight:700;color:white">${fmt(secA)}</td>
-            <td style="${SR}font-weight:700;color:white;border-left:1px solid rgba(255,255,255,.3)">${fmt(secP+secA)}</td>
+            <td style="${SR}font-weight:700;color:white;border-left:1px solid rgba(255,255,255,.3)">${fmtTotDark(secP+secA)}</td>
           </tr>`;
         return enTeteSec + renderUesParOrga(uesSec) + sousTotalSec;
       }).join('');
@@ -972,7 +984,7 @@ export default function Listes() {
             <td colspan="4" style="padding:4px 6px;font-weight:700;font-size:12px">TOTAL — ${titre}</td>
             <td style="${SR}font-weight:700;color:white">${fmt(totalPer)}</td>
             <td style="${SR}font-weight:700;color:white">${fmt(totalAut)}</td>
-            <td style="${SR}font-weight:700;color:white;border-left:1px solid rgba(255,255,255,.3)">${fmt(totalPer+totalAut)}</td>
+            <td style="${SR}font-weight:700;color:white;border-left:1px solid rgba(255,255,255,.3)">${fmtTotDark(totalPer+totalAut)}</td>
           </tr>
         </tbody></table>
       </div></body></html>`;
