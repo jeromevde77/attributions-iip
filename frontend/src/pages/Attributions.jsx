@@ -1023,7 +1023,10 @@ export default function Attributions() {
     try {
       const [a,s,p] = await Promise.all([api.attributions(f), api.sections(), api.professeurs(true)]);
       setData(a); setSections(s); setProfesseurs(p);
-      // Diagnostic groupes : vérifie Ts / séquence A,B,C sans trou
+      // Diagnostic groupes : POPUP DESACTIVEE TEMPORAIREMENT (à réparer avant réactivation)
+      // Pour réactiver : retirer le bloc ci-dessous et décommenter le bloc d'origine.
+      setGroupeAlertes(null);
+      /* --- bloc d'origine désactivé ---
       if (Array.isArray(a) && a.length > 0) {
         const anomalies = detecterAnomaliesGroupes(a);
         const label = f.section || 'toutes sections';
@@ -1031,6 +1034,7 @@ export default function Attributions() {
       } else {
         setGroupeAlertes(null);
       }
+      --- fin bloc désactivé --- */
       if (activitesList.length === 0) api.activites({ all: true }).then(setActivitesList).catch(()=>{});
       // Charger badges EXT/DOT
       const tok = localStorage.getItem('token');
