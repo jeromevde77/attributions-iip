@@ -1080,14 +1080,6 @@ docker start attributions-backend-dev`}</div>
 }
 
 // Catégories PNCC
-const PNCC_CATS = [
-  { value: 'secretariat_etudiant', label: 'Secrétariat étudiant', color: '#0EA5E9', desc: 'Proratisé au nb de sections pour le ratio étu./ETP' },
-  { value: 'secretariat_rh',       label: 'Secrétariat RH',       color: '#8B5CF6', desc: '' },
-  { value: 'direction',            label: 'Direction',             color: '#1B2B4B', desc: '' },
-  { value: 'economat',             label: 'Économat',              color: '#F59E0B', desc: '' },
-  { value: 'autre',                label: 'Autre',                 color: '#6B7280', desc: '' },
-];
-
 function PnccSection({ annee }) {
   const [postes, setPostes] = useState([]);
   const [loading, setLoading] = useState(false);
@@ -1358,6 +1350,14 @@ function OngletProcedures() {
 }
 
 // ── Onglet Statistiques : effectifs estimés par section / UE ─────────────────
+const PNCC_CATS = [
+  { value: 'secretariat_etudiant', label: 'Secrétariat étudiant', color: '#0EA5E9', desc: 'Proratisé au nb de sections pour le ratio étu./ETP' },
+  { value: 'secretariat_rh',       label: 'Secrétariat RH',       color: '#8B5CF6', desc: '' },
+  { value: 'direction',            label: 'Direction',             color: '#1B2B4B', desc: '' },
+  { value: 'economat',             label: 'Économat',              color: '#F59E0B', desc: '' },
+  { value: 'autre',                label: 'Autre',                 color: '#6B7280', desc: '' },
+];
+
 function OngletStatistiques() {
   const [annees, setAnnees]       = useState([]);
   const [annee, setAnnee]         = useState('');
