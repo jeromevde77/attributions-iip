@@ -22,6 +22,10 @@ jobs:
         with:
           fetch-depth: 0
 
+      - name: Lire la version
+        id: version
+        run: echo "value=$(cat VERSION)" >> "$GITHUB_OUTPUT"
+
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 
@@ -59,7 +63,7 @@ jobs:
             ${{ env.REGISTRY }}/${{ env.IMAGE_NAMESPACE }}/attributions-frontend:dev
             ${{ env.REGISTRY }}/${{ env.IMAGE_NAMESPACE }}/attributions-frontend:dev-${{ github.sha }}
           build-args: |
-            BUILD_VERSION=${{ github.sha }}-dev
+            BUILD_VERSION=${{ steps.version.outputs.value }}-dev+${{ github.sha }}
           cache-from: type=gha,scope=frontend-dev
           cache-to: type=gha,scope=frontend-dev,mode=max
 
