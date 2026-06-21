@@ -813,7 +813,7 @@ export default function Listes() {
           <div style="font-size:9px;color:#555;line-height:1.5;margin-top:8px">Les périodes intègrent les heures de cours et les heures d'autonomie pédagogique. Le calcul est appliqué de manière identique aux attributions IIP et HELB. </div>
         </div>
       </div></body></html>`;
-    setRapportHtml(html);
+    setRapportHtml({ html, nom: nomDoc('Rapport_ETP', sec.section, annee) });
   }
 
   function genererRapportHtml(d, filtres) {
@@ -990,7 +990,10 @@ export default function Listes() {
           </tr>
         </tbody></table>
       </div></body></html>`;
-    setRapportHtml(html);
+    const nomRapport = entite === 'rapport-ue'
+      ? nomDoc('Rapport_UE', filtres.ue_num ? `UE${filtres.ue_num}` : '', filtres.section, annee)
+      : nomDoc('Rapport_Section', filtres.section, annee);
+    setRapportHtml({ html, nom: nomRapport });
   }
 
   function genererRapportExcel(d, filtres) {
@@ -1073,18 +1076,24 @@ export default function Listes() {
   const colsVisibles = def.cols.filter(c => colsActives.has(c.key));
   const nomFichier = `lucie_${entite}_${annee}`;
 
-  // Injecte l'orientation choisie dans le HTML du rapport au moment de l'aperçu/impression
-  function htmlAvecOrientation(html) {
+  // Injecte l'orientation choisie + le titre du document dans le HTML du rapport
+  function htmlAvecOrientation(html, nom) {
     if (!html) return html;
     const size = orientation === 'landscape' ? 'A4 landscape' : 'A4 portrait';
-    // Remplace toute déclaration @page{...size:...} existante, sinon en injecte une
-    if (/@page\s*\{[^}]*size\s*:[^;}]*/.test(html)) {
-      return html.replace(/(@page\s*\{[^}]*size\s*:\s*)[^;}]*/g, `$1${size}`);
+    // Titre du document (nom du PDF à l'impression) — remplace l'underscore par espace pour lisibilité
+    let out = html;
+    if (nom && !/<title>/.test(out)) {
+      const titre = String(nom).replace(/_/g, ' ');
+      out = out.replace('<head>', `<head><title>${titre}</title>`);
     }
-    return html.replace('</style>', `@page{size:${size};margin:12mm}</style>`);
+    // Remplace toute déclaration @page{...size:...} existante, sinon en injecte une
+    if (/@page\s*\{[^}]*size\s*:[^;}]*/.test(out)) {
+      return out.replace(/(@page\s*\{[^}]*size\s*:\s*)[^;}]*/g, `$1${size}`);
+    }
+    return out.replace('</style>', `@page{size:${size};margin:12mm}</style>`);
   }
 
-  const apercuHtml = rapportHtml ? htmlAvecOrientation(rapportHtml.html || rapportHtml) : null;
+  const apercuHtml = rapportHtml ? htmlAvecOrientation(rapportHtml.html || rapportHtml, rapportHtml.nom) : null;
   const estRapport = def.rapport || def.grille;
 
   const GROUPES_LABEL = { data: 'Listes de données', rapport: 'Rapports' };
