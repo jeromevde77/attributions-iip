@@ -679,7 +679,7 @@ export default function Listes() {
             <div style="margin-top:auto;padding-top:10px">
               <div style="font-size:7px;opacity:.7;text-transform:uppercase;letter-spacing:1px;margin-bottom:4px">Ratios étu./ETP · ${nbEtus} étu. · ${sourceLabel}</div>
               <div style="display:flex;gap:5px">
-                ${[['Global',ratioGlobal],['Cours',ratioCours],['Coord.',ratioCoord],['Secr.',ratioSec]].map(([lbl,val]) => `
+                ${[['Global',ratioGlobal],['Cours',ratioCours],['Coord.',ratioCoord]].map(([lbl,val]) => `
                 <div style="flex:1;background:rgba(255,255,255,.12);border-radius:4px;padding:4px 5px;text-align:center">
                   <div style="font-size:6.5px;opacity:.7;text-transform:uppercase">${lbl}</div>
                   <div style="font-size:14px;font-weight:700;line-height:1.1">${val || '—'}</div>
