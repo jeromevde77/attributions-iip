@@ -1374,7 +1374,9 @@ function OngletStatistiques() {
   // Charger années et sections
   useEffect(() => {
     api.annees().then(d => {
-      const liste = Array.isArray(d) ? d.map(a => a.annee_scolaire || a) : [];
+      const liste = Array.isArray(d)
+        ? d.map(a => typeof a === 'string' ? a : (a.code ?? a.annee_scolaire ?? '')).filter(Boolean)
+        : [];
       setAnnees(liste);
       if (liste.length) setAnnee(liste[0]);
     }).catch(() => {});
