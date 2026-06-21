@@ -1079,15 +1079,6 @@ docker start attributions-backend-dev`}</div>
   );
 }
 
-
-      )}
-
-      {/* ── Section PNCC ── */}
-      <PnccSection annee={annee} />
-    </div>
-  );
-}
-
 // Catégories PNCC
 const PNCC_CATS = [
   { value: 'secretariat_etudiant', label: 'Secrétariat étudiant', color: '#0EA5E9', desc: 'Proratisé au nb de sections pour le ratio étu./ETP' },
@@ -1596,6 +1587,9 @@ function OngletStatistiques() {
           </table>
         </div>
       )}
+
+      {/* ── Section PNCC ── */}
+      <PnccSection annee={annee} />
     </div>
   );
 }
