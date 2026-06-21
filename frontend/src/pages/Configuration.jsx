@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { api, getAnnee } from '../lib/api.js';
-import { IconAdjustments, IconBooks, IconBuilding, IconCalendar, IconCheck, IconChevronRight, IconDownload, IconHistory, IconLink, IconScale, IconSettings, IconSparkles, IconUserShield, IconUsers, IconX, IconGavel, IconPlus, IconTrash, IconGripVertical } from '@tabler/icons-react';
+import { IconAdjustments, IconBooks, IconBuilding, IconCalendar, IconChartBar, IconCheck, IconChevronRight, IconDownload, IconHistory, IconLink, IconScale, IconSettings, IconSparkles, IconUserShield, IconUsers, IconX, IconGavel, IconPlus, IconTrash, IconGripVertical } from '@tabler/icons-react';
 import { PageHeader, RailLateral } from '../components/ui.jsx';
 
 const TOKEN = () => localStorage.getItem('token');
