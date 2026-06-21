@@ -122,7 +122,8 @@ function GestionPersonnel() {
           className="border border-gray-300 rounded-lg px-3 py-2 text-sm bg-white focus:outline-none focus:border-iip-gold">
           <option value={ETAB}>🏛 Tout l'établissement</option>
           {sections.map(s => {
-            const code = s.code || s.section || s;
+            const code = typeof s === 'string' ? s : (s.code ?? s.section ?? '');
+            if (!code) return null;
             return <option key={code} value={code}>{code}</option>;
           })}
         </select>
@@ -1380,7 +1381,10 @@ function OngletStatistiques() {
     api.sections().then(d => {
       const liste = Array.isArray(d) ? d : [];
       setSections(liste);
-      if (liste.length) setSection(liste[0].code || liste[0]);
+      if (liste.length) {
+        const premier = liste.find(s => (typeof s === 'string' ? s : (s.code ?? s.section)));
+        if (premier) setSection(typeof premier === 'string' ? premier : (premier.code ?? premier.section));
+      }
     }).catch(() => {});
   }, []);
 
@@ -1471,7 +1475,11 @@ function OngletStatistiques() {
           <span className="text-xs font-semibold text-gray-600">Section</span>
           <select value={section} onChange={e => setSection(e.target.value)}
             className="border border-gray-300 rounded px-3 py-1.5 h-9 text-sm bg-white min-w-[100px]">
-            {sections.map(s => <option key={s.code||s} value={s.code||s}>{s.code||s}</option>)}
+            {sections.map(s => {
+              const code = typeof s === 'string' ? s : (s.code ?? s.section ?? '');
+              if (!code) return null;
+              return <option key={code} value={code}>{code}</option>;
+            })}
           </select>
         </label>
 

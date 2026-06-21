@@ -1333,7 +1333,7 @@ export default function Listes() {
                 <div className="flex items-center justify-between mb-1">
                   <label className="block text-xs font-medium text-gray-600">Section(s)</label>
                   <div className="flex gap-2 text-[11px]">
-                    <button onClick={()=>setFiltres(f=>({...f, sections: sections.map(s=>s.code||s.section||s)}))}
+                    <button onClick={()=>setFiltres(f=>({...f, sections: sections.map(s=> typeof s === 'string' ? s : (s.code ?? s.section ?? '')).filter(Boolean)}))}
                       className="text-iip-gold hover:underline">Toutes</button>
                     <button onClick={()=>setFiltres(f=>({...f, sections: []}))}
                       className="text-gray-400 hover:underline">Aucune</button>
@@ -1341,7 +1341,8 @@ export default function Listes() {
                 </div>
                 <div className="border border-gray-200 rounded-lg p-2 max-h-40 overflow-y-auto grid grid-cols-2 gap-1">
                   {sections.map(s => {
-                    const code = s.code || s.section || s;
+                    const code = typeof s === 'string' ? s : (s.code ?? s.section ?? '');
+                    if (!code) return null;
                     const sel = Array.isArray(filtres.sections) && filtres.sections.includes(code);
                     return (
                       <label key={code} className="inline-flex items-center gap-1.5 text-sm cursor-pointer hover:bg-gray-50 rounded px-1 py-0.5">
