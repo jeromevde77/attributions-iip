@@ -593,7 +593,7 @@ export default function Listes() {
             <td style="padding:5px 8px;font-size:9px;color:#555;text-align:right">${cellPer(u)}</td>
             <td style="padding:5px 8px;text-align:right;font-size:8px;color:#94A3B8">${nPer > 0 ? Math.round(pt/nPer*100) + '%' : ''}</td>
             <td style="padding:5px 8px;text-align:right;color:#333;white-space:nowrap">${fmt(pt)}</td>
-            <td style="padding:5px 8px;text-align:right;font-weight:700;color:${BLEU}">${fmtEtp(u.etp_total)}</td>
+            <td style="padding:5px 8px;text-align:right;font-weight:700;color:${BLEU};white-space:nowrap">${fmtEtp(u.etp_total)}</td>
           </tr>`;
       });
       blocs += `
@@ -604,10 +604,10 @@ export default function Listes() {
               <col style="width:52px">
               <col>
               <col style="width:52px">
-              <col style="width:112px">
+              <col style="width:106px">
               <col style="width:36px">
               <col style="width:68px">
-              <col style="width:60px">
+              <col style="width:66px">
             </colgroup>
             <thead>
               <tr style="background:${BLEU2};color:#fff">
@@ -626,19 +626,19 @@ export default function Listes() {
                 <td colspan="3" style="padding:4px 8px;text-align:right;font-weight:600">dont IIP</td>
                 <td style="padding:4px 8px;text-align:right;font-size:9px;color:#64748B">${nPer > 0 ? Math.round(nIipPer/nPer*100) + '%' : ''}</td>
                 <td style="padding:4px 8px;text-align:right;font-weight:600;white-space:nowrap">${fmt(nIipPer)}</td>
-                <td style="padding:4px 8px;text-align:right;font-weight:700">${fmtEtp(nIipEtp)}</td>
+                <td style="padding:4px 8px;text-align:right;font-weight:700;white-space:nowrap">${fmtEtp(nIipEtp)}</td>
               </tr>` : ''}
               ${nHelbEtp > 0 ? `<tr style="background:#f5f0fc;color:${VIOLET}">
                 <td colspan="3" style="padding:4px 8px;text-align:right;font-weight:600">dont HELB</td>
                 <td style="padding:4px 8px;text-align:right;font-size:9px;color:#A78BFA">${nPer > 0 ? Math.round(nHelbPer/nPer*100) + '%' : ''}</td>
                 <td style="padding:4px 8px;text-align:right;font-weight:600;white-space:nowrap">${fmt(nHelbPer)}</td>
-                <td style="padding:4px 8px;text-align:right;font-weight:700">${fmtEtp(nHelbEtp)}</td>
+                <td style="padding:4px 8px;text-align:right;font-weight:700;white-space:nowrap">${fmtEtp(nHelbEtp)}</td>
               </tr>` : ''}
               <tr style="background:${BLEU};color:#fff">
                 <td colspan="3" style="padding:6px 8px;text-align:right;font-weight:700">Sous-total ${niv}</td>
                 <td style="padding:6px 8px;text-align:right;font-size:9px;opacity:.7">100%</td>
                 <td style="padding:6px 8px;text-align:right;font-weight:700;white-space:nowrap">${fmt(nPer)}</td>
-                <td style="padding:6px 8px;text-align:right;font-weight:700">${fmtEtp(nEtp)}</td>
+                <td style="padding:6px 8px;text-align:right;font-weight:700;white-space:nowrap">${fmtEtp(nEtp)}</td>
               </tr>
             </tfoot>
           </table>
@@ -686,7 +686,7 @@ export default function Listes() {
             <div style="font-size:8px;letter-spacing:3px;text-transform:uppercase;color:${TURQ};font-weight:700">Institut Ilya Prigogine · Enseignement pour adultes</div>
             <div style="font-size:19px;color:${BLEU};margin-top:2px;font-weight:700">Rapport de charge ETP — Section ${sec.section}</div>
             <div style="font-size:10px;color:#555;margin-top:1px">Année académique ${annee}</div>
-            <div style="font-size:8px;color:#999;margin-top:3px">Document destiné au COPIL ou Conseil d'administration basé sur les projections en cours pour l'année académique prochaine sur base des prévisions d'inscriptions. Charge enseignante exprimée en équivalents temps plein (ETP).</div>
+            <div style="font-size:8px;color:#999;margin-top:3px">Document destiné au COPIL ou Conseil d'administration basé sur les projections en cours pour l'année académique prochaine sur base des prévisions d'inscriptions${nbEtus > 0 ? ` (simulation sur ${nbEtus} étudiants)` : ''}. Charge enseignante exprimée en équivalents temps plein (ETP).</div>
           </div>
         </div>
 
