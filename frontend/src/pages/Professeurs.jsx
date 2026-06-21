@@ -4,7 +4,7 @@ import { api, getAnnee, getUser, nomDoc } from '../lib/api.js';
 import ProfFicheModal from './ProfFicheModal.jsx';
 import PreviewModal from '../components/PreviewModal.jsx';
 import CoursEditModal from '../components/CoursEditModal.jsx';
-import { IconMail, IconMapPin, IconFileText, IconEdit, IconDownload, IconRefresh, IconX, IconPrinter, IconPlus, IconTrash, IconKey, IconLock, IconCheck, IconBriefcase, IconChevronDown, IconChevronRight, IconUsers } from '@tabler/icons-react';
+import { IconMail, IconMapPin, IconFileText, IconEdit, IconDownload, IconRefresh, IconX, IconPrinter, IconPlus, IconTrash, IconKey, IconLock, IconCheck, IconBriefcase, IconChevronDown, IconChevronRight, IconUsers, IconSchool } from '@tabler/icons-react';
 import { RailLateral } from '../components/ui.jsx';
 
 const EMPTY = {
@@ -384,6 +384,10 @@ function DetailModal({ profId, onClose, onEdit, onFiche }) {
                 + Nouvel EA12
               </button>
             )}
+            <button onClick={() => navigate(`/dcpp/${profId}`)}
+              className="bg-iip-turquoise hover:opacity-90 text-white text-sm px-3 py-1.5 h-9 rounded">
+              <span className="inline-flex items-center gap-1.5"><IconSchool size={15}/>DCPP</span>
+            </button>
             <button onClick={() => onEdit(detail)}
               className="bg-iip-gold hover:bg-iip-amber text-white text-sm px-3 py-1.5 h-9 rounded">
               <span className="inline-flex items-center gap-1.5"><IconEdit size={15}/>Modifier</span>

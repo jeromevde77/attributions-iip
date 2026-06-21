@@ -325,7 +325,6 @@ function OutilRecours({ initialPayload, onPayloadConsumed }) {
       .catch(() => {});
   }, []);
 
-
   // Profs de l'UE (depuis la DB)
   const [profs, setProfs] = useState([]);
   const [profsPresents, setProfsPresents] = useState(new Set()); // IDs cochés comme présents

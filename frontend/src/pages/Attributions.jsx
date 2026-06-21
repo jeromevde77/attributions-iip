@@ -215,6 +215,10 @@ const DEFAULT_COLS = [
 // ===========================================================================
 export default function Attributions() {
   const [data, setData] = useState([]);
+  const [badgeMenuOpen, setBadgeMenuOpen] = useState(null); // id de la ligne dont le menu lettre est ouvert
+  const [groupeAlertes, setGroupeAlertes] = useState(null); // { section, anomalies[] } | null
+  const [expandedAnomalie, setExpandedAnomalie] = useState(null); // index de la carte expandée
+  const [erreurIndex, setErreurIndex] = useState(0); // index de l'erreur courante dans le popup détail
   const [sections, setSections] = useState([]);
   const [professeurs, setProfesseurs] = useState([]);
   const [activitesList, setActivitesList] = useState([]);
@@ -313,6 +317,11 @@ export default function Attributions() {
     const SR = S + 'text-align:right;';
     const SN = S + 'white-space:nowrap;';
 
+    // Détecter si la section contient des cours HELB (pour afficher le badge contrat)
+    const aDesHelb = (d.ues || []).some(u => (u.cours || []).some(co => co.contrat === 'HELB'));
+    const aDesIIP  = (d.ues || []).some(u => (u.cours || []).some(co => co.contrat !== 'HELB'));
+    const mixte = aDesHelb && aDesIIP;
+
     const renderUErap = (ue) => {
       const col = getNivCol(ue.ue_niv);
       const lignesCours = ue.cours.map((c,i) => `
@@ -321,18 +330,18 @@ export default function Attributions() {
           <td style="${S}max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap"
               title="${(c.cours_nom||'').replace(/"/g,"'")}">${c.cours_nom||'\u2014'}${c.activite_nom?` <em style="color:#9ca3af;font-size:10px">(${c.activite_nom})</em>`:''}</td>
           <td style="${SN}color:#6b7280">Gr.${c.groupe_code}</td>
-          <td style="${SN}">${c.prof_nom}</td>
+          <td style="${SN}">${c.prof_nom} <span style="font-size:8px;font-weight:600;padding:1px 5px;border-radius:3px;background:${c.contrat==='HELB'?'#7c3aed':'#1d4ed8'};color:white;margin-left:4px">${c.contrat}</span></td>
           <td style="${S}text-align:center"><span style="font-size:8px;font-weight:700;padding:1px 4px;border-radius:3px;background:${c.contrat==='HELB'?'#ede9fe':'#dbeafe'};color:${c.contrat==='HELB'?'#6d28d9':'#1d4ed8'}">${c.contrat}</span></td>
           <td style="${SR}color:#374151">${fmt(c.periodes)}</td>
           <td style="${SR}color:#6b7280">${fmt(c.autonomie)}</td>
           <td style="${SR}font-weight:600;border-left:1px solid #e5e7eb">${fmt(c.total)}</td>
         </tr>`).join('');
       return `
-        <tr style="background:#f1f5f9;border-left:3px solid ${col}">
-          <td colspan="5" style="padding:4px 6px 4px 8px;font-weight:700;font-size:12px;color:#111827;white-space:nowrap">
-            <span style="background:${col};color:white;font-size:9px;padding:1px 4px;border-radius:2px;margin-right:5px">${ue.ue_niv||''}</span>UE ${ue.ue_num} \u2014 ${ue.ue_nom||''}
+        <tr style="background:${col};border-left:3px solid ${col}">
+          <td colspan="5" style="padding:4px 6px 4px 8px;font-weight:700;font-size:12px;color:white;white-space:nowrap">
+            <span style="background:rgba(255,255,255,0.2);color:white;font-size:9px;padding:1px 4px;border-radius:2px;margin-right:5px">${ue.ue_niv||''}</span>UE ${ue.ue_num} \u2014 ${ue.ue_nom||''}${ue.ects ? ` <span style="border:1px solid rgba(255,255,255,0.7);color:white;font-size:9px;padding:1px 5px;border-radius:10px;margin-left:6px;font-weight:600">${ue.ects} cr.</span>` : ''}
           </td>
-          <td style="${SR}"></td><td style="${SR}"></td><td style="${SR}border-left:1px solid #e5e7eb"></td>
+          <td style="${SR}"></td><td style="${SR}"></td><td style="${SR}border-left:1px solid rgba(255,255,255,0.2)"></td>
         </tr>
         ${lignesCours}
         <tr style="background:#e8edf3;border-left:3px solid ${col}">
@@ -810,13 +819,12 @@ export default function Attributions() {
       r.section === row.section && r.code_cours === row.code_cours &&
       (r.num_organisation || 1) === (row.num_organisation || 1) &&
       (r.activite_id || null) === (row.activite_id || null);
-    const lettres = [...'ABCDEFGHIJKLMNOPQRSTUVWXYZ'];
     if (!confirm(`Organiser cette activité en ${total} groupes (A, B, C…) ?`)) return;
     try {
       // La ligne source devient le groupe A ; les nouvelles prennent B, C… séquentiellement
-      await api.updateAttribution(row.id, { code: lettres[0], split_groupe: 'N' });
+      await api.updateAttribution(row.id, { code: groupCode(0), split_groupe: 'N' });
       for (let i = 1; i < total; i++) {
-        await api.createAttribution(payloadCopie(row, lettres[i], 'N'));
+        await api.createAttribution(payloadCopie(row, groupCode(i), 'N'));
       }
       load();
     } catch(e){ alert('Erreur : '+e.message); }
@@ -888,12 +896,145 @@ export default function Attributions() {
   }
 
   /* --- Chargement --- */
+  // Génère le code de groupe pour l'index i (0-based) : A,B,...,Z,AA,BB,...
+  function groupCode(i) {
+    const alpha = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
+    if (i < 26) return alpha[i];
+    const rep = Math.floor(i / 26);
+    return alpha[i % 26].repeat(rep + 1);
+  }
+  function groupCodeSeq(n) { return Array.from({length: n}, (_, i) => groupCode(i)); }
+
+  const BADGE_COLORS = {
+    A: { bg: '#DBEAFE', color: '#1D4ED8', border: '#BFDBFE' },
+    B: { bg: '#D1FAE5', color: '#065F46', border: '#A7F3D0' },
+    C: { bg: '#FEF3C7', color: '#92400E', border: '#FDE68A' },
+    D: { bg: '#FCE7F3', color: '#9D174D', border: '#FBCFE8' },
+    E: { bg: '#EDE9FE', color: '#5B21B6', border: '#DDD6FE' },
+    F: { bg: '#FFE4E6', color: '#9F1239', border: '#FECDD3' },
+  };
+
+  // Ouvre et scrolle jusqu'au cours concerné par une anomalie de groupe
+  function naviguerVersAnomalie(a) {
+    setGroupeAlertes(null);
+    const sec = a.section || '';
+    const org = a.num_organisation || 1;
+    const ueKey        = sec + '/' + a.ue_num + '/' + org;
+    const ueOpenKey    = 'ue:' + ueKey;
+    const coursOpenKey = 'cours:' + ueKey + '/' + a.code_cours;
+
+    // Si une section est connue, forcer le filtre sur cette section pour que l'UE soit visible
+    if (sec && filters.section !== sec) {
+      const newFilters = { ...filters, section: sec };
+      setFilters(newFilters);
+      load(newFilters);
+    }
+
+    // Basculer en mode accordéon
+    setViewMode('ue');
+
+    // Ouvrir l'UE et le cours
+    setOpenUEs(prev => { const n = new Set(prev); n.add(ueOpenKey); n.add(coursOpenKey); return n; });
+
+    // Ouvrir le volet activité si applicable
+    if (a.activite_id) {
+      const voletKey = coursOpenKey + '|' + a.activite_id;
+      setOpenActs(prev => { const n = new Set(prev); n.add(voletKey); return n; });
+    }
+
+    // Scroller — attendre que React ait rendu l'accordéon ouvert
+    // On essaie plusieurs fois avec un backoff car le rendu peut prendre du temps
+    const scrollTo = (attempts) => {
+      const el = document.getElementById('cours-' + a.code_cours);
+      if (el) {
+        el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        // Flash visuel pour repérer le cours
+        el.style.transition = 'background 0.2s';
+        el.style.background = '#FEF9C3';
+        setTimeout(() => { el.style.background = ''; }, 1500);
+      } else if (attempts > 0) {
+        setTimeout(() => scrollTo(attempts - 1), 150);
+      }
+    };
+    setTimeout(() => scrollTo(5), 200);
+  }
+
+  // Détecte les anomalies de numérotation de groupes dans un tableau de lignes
+  function detecterAnomaliesGroupes(rows) {
+    // Grouper par cours + activité (périmètre d'unicité) — on ignore les splits (Ts partagé entre profs = normal)
+    const map = new Map();
+    for (const r of rows) {
+      const k = (r.section||'') + '|' + (r.code_cours||'') + '|' + (r.num_organisation||1) + '|' + (r.activite_id||'__none__');
+      if (!map.has(k)) map.set(k, []);
+      map.get(k).push(r);
+    }
+    const anomalies = [];
+    for (const [, lignes] of map) {
+      // Si toutes les lignes sont des splits (Ts partagé entre profs), c'est normal
+      if (lignes.every(r => r.split_groupe === 'O')) continue;
+      if (lignes.length <= 1) {
+        // Une seule ligne : doit être Ts (code vide ou 'TS')
+        const code = (lignes[0].code || '').toUpperCase();
+        if (code && code !== 'TS') {
+          const r = lignes[0];
+          anomalies.push({
+            cours: r.nom_cours || r.code_cours || '?',
+            code_cours: r.code_cours,
+            ue_num: r.ue_num,
+            num_organisation: r.num_organisation || 1,
+            section: r.section,
+            activite: r.activite_nom || null,
+            activite_id: r.activite_id || null,
+            probleme: `1 seule ligne avec lettre « ${code} » au lieu de « Ts »`,
+          });
+        }
+      } else {
+        // Plusieurs lignes : codes doivent être A, B, C… séquentiels sans trou ni doublon
+        const codes = lignes.map(r => (r.code || '').toUpperCase()).sort();
+        const attendu = groupCodeSeq(codes.length);
+        const avecTs   = codes.some(c => !c || c === 'TS');
+        const doublons = codes.length !== new Set(codes).size;
+        const mauvaisSeq = JSON.stringify(codes) !== JSON.stringify(attendu);
+        if (avecTs || doublons || mauvaisSeq) {
+          const r = lignes[0];
+          let desc = '';
+          if (avecTs)       desc = `mélange Ts et lettres (${codes.join(',')})`;
+          else if (doublons) desc = `lettres dupliquées (${codes.join(',')})`;
+          else               desc = `séquence incomplète (${codes.join(',')}) — attendu ${attendu.join(',')}`;
+          anomalies.push({
+            cours: r.nom_cours || r.code_cours || '?',
+            code_cours: r.code_cours,
+            ue_num: r.ue_num,
+            num_organisation: r.num_organisation || 1,
+            section: r.section,
+            activite: r.activite_nom || null,
+            activite_id: r.activite_id || null,
+            probleme: desc,
+          });
+        }
+      }
+    }
+    return anomalies;
+  }
+
   async function load(overrideFilters) {
     setLoading(true);
     const f = overrideFilters ?? filters;
     try {
       const [a,s,p] = await Promise.all([api.attributions(f), api.sections(), api.professeurs(true)]);
       setData(a); setSections(s); setProfesseurs(p);
+      // Diagnostic groupes : POPUP DESACTIVEE TEMPORAIREMENT (à réparer avant réactivation)
+      // Pour réactiver : retirer le bloc ci-dessous et décommenter le bloc d'origine.
+      setGroupeAlertes(null);
+      /* --- bloc d'origine désactivé ---
+      if (Array.isArray(a) && a.length > 0) {
+        const anomalies = detecterAnomaliesGroupes(a);
+        const label = f.section || 'toutes sections';
+        setGroupeAlertes(anomalies.length > 0 ? { section: label, anomalies } : null);
+      } else {
+        setGroupeAlertes(null);
+      }
+      --- fin bloc désactivé --- */
       if (activitesList.length === 0) api.activites({ all: true }).then(setActivitesList).catch(()=>{});
       // Charger badges EXT/DOT
       const tok = localStorage.getItem('token');
@@ -1082,16 +1223,138 @@ export default function Attributions() {
           }
           if (c.key==='code') {
             const estSplit  = row.split_groupe === 'O';
-            const estGroupe = !!(row.groupe_code && row.groupe_code.toUpperCase() !== 'TS');
+            const codeVal   = (row.code || '').toUpperCase();
+            const estGroupe = !!(codeVal && codeVal !== 'TS');
+            const lettre    = estGroupe ? codeVal : 'Ts';
+            // BADGE_COLORS défini au niveau composant
+            const badgeStyle = estGroupe
+              ? (BADGE_COLORS[lettre[0]] || { bg: '#F3F4F6', color: '#374151', border: '#E5E7EB' })
+              : { bg: '#F9FAFB', color: '#9CA3AF', border: '#E5E7EB' };
+
+            // Frères = toutes les lignes du même cours (même activité OU même cours si pas d'activité)
+            const freres = data.filter(r =>
+              r.id !== row.id &&
+              r.section === row.section &&
+              r.code_cours === row.code_cours &&
+              (r.num_organisation||1) === (row.num_organisation||1) &&
+              r.split_groupe !== 'O' &&
+              (r.activite_id || null) === (row.activite_id || null)
+            );
+            const nbGroupes = freres.length + 1;
+            // Toutes les lettres du groupe (A..Z selon le nombre total)
+            const toutesLettres = groupCodeSeq(nbGroupes);
+            // Map lettre → frère qui l'a
+            const lettreAFrere = {};
+            freres.forEach(r => { const l = (r.code||'').toUpperCase(); if (l && l !== 'TS') lettreAFrere[l] = r; });
+            const menuOuvert = badgeMenuOpen === row.id;
+
+            // Assigner une lettre à cette ligne (swap si prise, direct sinon)
+            async function assignerLettre(newLettre) {
+              setBadgeMenuOpen(null);
+              if (newLettre === lettre) return; // déjà cette lettre
+              const frereAvecCetteLetttre = lettreAFrere[newLettre];
+              // Vérifier si la séquence sera respectée après l'opération
+              const codesApres = freres
+                .map(r => r.id === frereAvecCetteLetttre?.id ? lettre : (r.code||'').toUpperCase())
+                .concat([newLettre])
+                .filter(l => l && l !== 'TS')
+                .sort();
+              const attendu = groupCodeSeq(codesApres.length);
+              const seqOk = JSON.stringify(codesApres) === JSON.stringify(attendu);
+              if (!seqOk) {
+                if (!confirm(`La lettre ${newLettre} rompt la séquence alphabétique. Continuer quand même ?`)) return;
+              }
+              if (frereAvecCetteLetttre) {
+                // Switch : échanger les deux lettres
+                const ancienCode = row.code || null;
+                setData(prev => prev.map(r => {
+                  if (r.id === row.id) return { ...r, code: newLettre };
+                  if (r.id === frereAvecCetteLetttre.id) return { ...r, code: ancienCode };
+                  return r;
+                }));
+                try {
+                  await api.updateAttribution(row.id, { code: newLettre });
+                  await api.updateAttribution(frereAvecCetteLetttre.id, { code: ancienCode });
+                } catch(e) {
+                  setData(prev => prev.map(r => {
+                    if (r.id === row.id) return { ...r, code: ancienCode };
+                    if (r.id === frereAvecCetteLetttre.id) return { ...r, code: newLettre };
+                    return r;
+                  }));
+                  alert('Erreur : ' + e.message);
+                }
+              } else {
+                // Lettre libre : assigner directement
+                const ancienCode = row.code || null;
+                setData(prev => prev.map(r => r.id === row.id ? { ...r, code: newLettre } : r));
+                try { await api.updateAttribution(row.id, { code: newLettre }); }
+                catch(e) { setData(prev => prev.map(r => r.id === row.id ? { ...r, code: ancienCode } : r)); alert('Erreur : ' + e.message); }
+              }
+            }
+
             return <td key={c.key} style={sty}>
-              <div className="flex items-center gap-0.5">
-                <input type="text" defaultValue={v??''} className="input-cell w-full text-center" onClick={e=>e.stopPropagation()}
-                  onBlur={e=>{if(e.target.value!==(v??''))saveCell(row.id,c.key,e.target.value);}}/>
+              <div className="flex items-center gap-0.5 justify-center" style={{position:'relative'}}>
+                {/* Badge lettre — clic pour choisir, drag pour échanger */}
+                <span
+                  onClick={e => { e.stopPropagation(); if (estGroupe) setBadgeMenuOpen(menuOuvert ? null : row.id); }}
+                  id={'badge-'+row.id}
+                  title={estGroupe ? 'Cliquer pour changer la lettre' : ''}
+                  style={{
+                    display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+                    minWidth: lettre.length > 1 ? 30 : 22, height: 20, paddingInline: 5, borderRadius: 5,
+                    fontSize: 11, fontWeight: 700, letterSpacing: '0.03em',
+                    background: badgeStyle.bg, color: badgeStyle.color,
+                    border: `1px solid ${badgeStyle.border}`,
+                    cursor: estGroupe ? 'pointer' : 'default',
+                    userSelect: 'none',
+                  }}>{lettre}</span>
+
+                {/* Mini-menu de sélection de lettre — position fixed pour éviter le clipping du td */}
+                {menuOuvert && (
+                  <>
+                    <div style={{position:'fixed',inset:0,zIndex:998}} onClick={e=>{e.stopPropagation();setBadgeMenuOpen(null);}} />
+                    <div style={{position:'fixed',zIndex:999,background:'#fff',border:'1px solid #E2E8F0',borderRadius:8,boxShadow:'0 4px 12px rgba(0,0,0,0.15)',padding:4,display:'flex',gap:3,flexWrap:'wrap',minWidth:80,
+                      top: (() => { const el = document.getElementById('badge-'+row.id); if (!el) return 0; const r = el.getBoundingClientRect(); return r.bottom + 4; })(),
+                      left: (() => { const el = document.getElementById('badge-'+row.id); if (!el) return 0; const r = el.getBoundingClientRect(); return r.left; })(),
+                    }}>
+                      {toutesLettres.map(l => {
+                        const prise = !!lettreAFrere[l];
+                        const courante = l === lettre;
+                        const bs = BADGE_COLORS[l[0]] || { bg:'#F3F4F6', color:'#374151', border:'#E5E7EB' };
+                        return (
+                          <span key={l}
+                            onClick={e => { e.stopPropagation(); assignerLettre(l); }}
+                            title={courante ? 'Lettre actuelle' : prise ? `Échanger avec le groupe ${l}` : `Assigner ${l}`}
+                            style={{
+                              display:'inline-flex',alignItems:'center',justifyContent:'center',
+                              width:24,height:22,borderRadius:5,fontSize:11,fontWeight:700,
+                              background: courante ? '#1B2B4B' : bs.bg,
+                              color: courante ? '#fff' : bs.color,
+                              border: `2px solid ${courante ? '#1B2B4B' : prise ? bs.color : bs.border}`,
+                              cursor: courante ? 'default' : 'pointer',
+                            }}>
+                            {l}
+                          </span>
+                        );
+                      })}
+                    </div>
+                  </>
+                )}
+
+                {/* Toggle split / groupe */}
                 {!row.is_z && <>
                   <button onClick={e=>{e.stopPropagation();splitterLigne(row);}} title="Split : découper en morceaux partagés (Ts, plusieurs profs)"
-                    className={estSplit ? 'text-green-600' : 'text-gray-300 hover:text-green-600'}><IconScissors size={13}/></button>
-                  <button onClick={e=>{e.stopPropagation();grouperLigne(row);}} title="Groupes : créer des sous-groupes A, B, C…"
-                    className={estGroupe ? 'text-green-600' : 'text-gray-300 hover:text-green-600'}><IconUsersGroup size={13}/></button>
+                    style={{ padding:1, background:'none', border:'none', cursor:'pointer', color: estSplit ? '#16A34A' : '#D1D5DB' }}
+                    onMouseEnter={e=>{if(!estSplit) e.currentTarget.style.color='#16A34A';}}
+                    onMouseLeave={e=>{if(!estSplit) e.currentTarget.style.color='#D1D5DB';}}>
+                    <IconScissors size={13}/>
+                  </button>
+                  <button onClick={e=>{e.stopPropagation();grouperLigne(row);}} title={estGroupe ? 'Groupes actifs — recliquer pour recréer' : 'Créer des sous-groupes A, B, C…'}
+                    style={{ padding:1, background:'none', border:'none', cursor:'pointer', color: estGroupe ? '#16A34A' : '#D1D5DB' }}
+                    onMouseEnter={e=>{if(!estGroupe) e.currentTarget.style.color='#16A34A';}}
+                    onMouseLeave={e=>{if(!estGroupe) e.currentTarget.style.color='#D1D5DB';}}>
+                    <IconUsersGroup size={13}/>
+                  </button>
                 </>}
               </div>
             </td>;
@@ -1221,7 +1484,7 @@ export default function Attributions() {
     const st = groupStats(cg.rows);
     const isZCours = cg.type_cours === 'Z';
     return (
-      <div key={key} className="border-t border-gray-100">
+      <div key={key} id={'cours-'+cg.code_cours} className="border-t border-gray-100">
         <button onClick={()=>toggle(key)} className={`w-full flex items-center gap-2 pl-10 pr-4 py-2 hover:bg-gray-100/60 transition text-left text-sm ${isZCours ? 'opacity-70' : ''}`}>
           <IconChevronRight size={14} className={`text-gray-400 text-sm transition-transform ${open?'rotate-90':''}`} />
           <span className={`font-mono text-sm ${isZCours ? 'text-gray-400' : 'text-gray-500'}`}>{cg.code_cours}</span>
@@ -1671,6 +1934,210 @@ export default function Attributions() {
 
       {/* Overlay pour fermer le menu + */}
       {addMenuUE && <div className="fixed inset-0 z-20" onClick={()=>setAddMenuUE(null)} />}
+      {/* ── Popup anomalies de groupes ── */}
+      {groupeAlertes && (() => {
+        const anomalies = groupeAlertes.anomalies;
+        const idx = Math.min(erreurIndex, anomalies.length - 1);
+        const a = anomalies[idx];
+        const fermer = () => { setGroupeAlertes(null); setExpandedAnomalie(null); setErreurIndex(0); };
+
+        // Toutes les lignes du cours concerné
+        const toutesLignes = data.filter(r =>
+          r.section === a.section &&
+          r.code_cours === a.code_cours &&
+          (r.num_organisation||1) === (a.num_organisation||1)
+        ).sort((x,y) => {
+          const actA = x.activite_nom || String(x.activite_id||'');
+          const actB = y.activite_nom || String(y.activite_id||'');
+          if (actA !== actB) return actA.localeCompare(actB, 'fr');
+          return (x.code||'Ts').localeCompare(y.code||'Ts', 'fr');
+        });
+
+        // Déterminer les lignes en erreur
+        const lignesErreur = new Set();
+        const parActivite = {};
+        toutesLignes.forEach(r => {
+          const k = r.activite_id || '__none__';
+          if (!parActivite[k]) parActivite[k] = [];
+          if (r.split_groupe !== 'O') parActivite[k].push(r);
+        });
+        Object.values(parActivite).forEach(lignes => {
+          const codes = lignes.map(r => (r.code||'').toUpperCase());
+          const attendu = groupCodeSeq(lignes.length);
+          lignes.forEach(r => {
+            const code = (r.code||'').toUpperCase();
+            if (!code || code === 'TS') { if (lignes.length > 1) lignesErreur.add(r.id); }
+            else if (codes.filter(c => c === code).length > 1) lignesErreur.add(r.id);
+            else if (!attendu.includes(code)) lignesErreur.add(r.id);
+          });
+        });
+
+        // Correction depuis le popup
+        async function corrigerIci(rowId, newCode) {
+          // newCode=null → remettre en Ts (effacer la lettre)
+          const codeEffectif = newCode || null;
+          const autre = newCode ? toutesLignes.find(r => (r.code||'').toUpperCase() === newCode && r.id !== rowId) : null;
+          const cible = toutesLignes.find(r => r.id === rowId);
+          if (!cible) return;
+          if (autre) {
+            const ancienCode = cible.code || null;
+            setData(prev => prev.map(r => {
+              if (r.id === rowId) return { ...r, code: codeEffectif };
+              if (r.id === autre.id) return { ...r, code: ancienCode };
+              return r;
+            }));
+            try { await api.updateAttribution(rowId, { code: codeEffectif }); await api.updateAttribution(autre.id, { code: ancienCode }); }
+            catch(e) { alert(e.message); }
+          } else {
+            setData(prev => prev.map(r => r.id === rowId ? { ...r, code: codeEffectif } : r));
+            try { await api.updateAttribution(rowId, { code: codeEffectif }); }
+            catch(e) { alert(e.message); }
+          }
+          // Re-vérifier
+          setTimeout(() => {
+            const nouvellesAnos = detecterAnomaliesGroupes(data);
+            if (nouvellesAnos.length === 0) { fermer(); return; }
+            setGroupeAlertes(prev => prev ? { ...prev, anomalies: nouvellesAnos } : null);
+            setErreurIndex(i => Math.min(i, nouvellesAnos.length - 1));
+          }, 200);
+        }
+
+        return (
+        <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4" onClick={fermer}>
+          <div className="bg-white rounded-xl shadow-2xl w-full flex flex-col" style={{maxWidth: 680, maxHeight: '85vh'}} onClick={e => e.stopPropagation()}>
+
+            {/* En-tête */}
+            <div className="flex items-start gap-3 px-5 py-4 border-b border-gray-100 flex-shrink-0">
+              <span className="text-amber-500 text-xl mt-0.5">⚠</span>
+              <div className="flex-1 min-w-0">
+                <div className="font-semibold text-gray-800">
+                  Erreur {idx + 1} / {anomalies.length} — {a.section} · {a.code_cours}
+                </div>
+                <div className="text-sm text-gray-600 mt-0.5 truncate">{a.cours}</div>
+                {a.activite && <div className="text-xs text-gray-400 mt-0.5">Activité : {a.activite}</div>}
+                <div className="text-xs text-amber-700 mt-1 font-medium">{a.probleme}</div>
+              </div>
+              <button onClick={fermer} className="text-gray-400 hover:text-gray-600 text-xl leading-none flex-shrink-0">×</button>
+            </div>
+            {/* Corps — tableau des attributions du cours */}
+            <div className="overflow-auto flex-1 px-4 py-3">
+              {toutesLignes.length === 0 ? (
+                <p style={{color:'#94A3B8', fontSize:13, fontStyle:'italic'}}>Aucune attribution trouvée pour ce cours.</p>
+              ) : (
+                <table style={{width:'100%', borderCollapse:'collapse', fontSize:12}}>
+                  <thead>
+                    <tr style={{borderBottom:'2px solid #E2E8F0', background:'#F8FAFC'}}>
+                      <th style={{padding:'6px 8px', textAlign:'left', color:'#475569', fontWeight:600}}>Activité</th>
+                      <th style={{padding:'6px 8px', textAlign:'left', color:'#475569', fontWeight:600}}>Professeur</th>
+                      <th style={{padding:'6px 8px', textAlign:'center', color:'#475569', fontWeight:600}}>Split</th>
+                      <th style={{padding:'6px 8px', textAlign:'center', color:'#475569', fontWeight:600}}>Groupe</th>
+                      <th style={{padding:'6px 8px', textAlign:'center', color:'#475569', fontWeight:600}}>Corriger</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {toutesLignes.map(r => {
+                      const code = (r.code||'').toUpperCase() || 'Ts';
+                      const enErreur = lignesErreur.has(r.id);
+                      const isSplit = r.split_groupe === 'O';
+                      const bs = BADGE_COLORS[code[0]] || { bg:'#F3F4F6', color:'#374151', border:'#E5E7EB' };
+                      const peerLines = toutesLignes.filter(p =>
+                        (p.activite_id||null) === (r.activite_id||null) && p.split_groupe !== 'O'
+                      );
+                      const peerCodes = peerLines.map(p => (p.code||'').toUpperCase());
+                      const peerAttendu = groupCodeSeq(peerLines.length);
+                      return (
+                        <tr key={r.id} style={{
+                          background: enErreur ? '#FEF2F2' : '#fff',
+                          borderBottom: '1px solid #F1F5F9',
+                          borderLeft: enErreur ? '3px solid #EF4444' : '3px solid transparent',
+                        }}>
+                          <td style={{padding:'6px 8px', color:'#64748B', fontSize:11}}>
+                            {r.activite_nom || <span style={{color:'#CBD5E1'}}>—</span>}
+                          </td>
+                          <td style={{padding:'6px 8px', fontWeight: enErreur ? 600 : 400, color: enErreur ? '#991B1B' : '#1E293B'}}>
+                            {r.prof_nom || r.prof_prenom ? `${r.prof_nom||''} ${r.prof_prenom||''}`.trim() : <span style={{color:'#CBD5E1'}}>À désigner</span>}
+                          </td>
+                          <td style={{padding:'6px 8px', textAlign:'center'}}>
+                            {isSplit && <span style={{fontSize:10, background:'#EEF2FF', color:'#4338CA', padding:'1px 5px', borderRadius:4, fontWeight:600}}>Split</span>}
+                          </td>
+                          <td style={{padding:'6px 8px', textAlign:'center'}}>
+                            <span style={{
+                              display:'inline-flex', alignItems:'center', justifyContent:'center',
+                              minWidth:22, height:20, paddingInline:5, borderRadius:5, fontSize:11, fontWeight:700,
+                              background: enErreur ? '#FEE2E2' : bs.bg,
+                              color: enErreur ? '#DC2626' : bs.color,
+                              border: `1px solid ${enErreur ? '#FECACA' : bs.border}`,
+                            }}>{code}</span>
+                          </td>
+                          <td style={{padding:'6px 8px', textAlign:'center'}}>
+                            {!isSplit && (
+                              <div style={{display:'flex', gap:3, justifyContent:'center', flexWrap:'wrap', alignItems:'center'}}>
+                                {/* Bouton Ts — toujours disponible si la ligne a une lettre */}
+                                {code !== 'TS' && code !== '' && (
+                                  <span
+                                    onClick={e => { e.stopPropagation(); corrigerIci(r.id, null); }}
+                                    title="Remettre en Ts (pas de groupe)"
+                                    style={{
+                                      display:'inline-flex', alignItems:'center', justifyContent:'center',
+                                      height:20, paddingInline:5, borderRadius:5, fontSize:10, fontWeight:700,
+                                      background:'#F9FAFB', color:'#6B7280', border:'1px solid #D1D5DB',
+                                      cursor:'pointer',
+                                    }}>Ts</span>
+                                )}
+                                {peerAttendu.length > 1 && peerAttendu.map(l => {
+                                  const estCourante = l === code;
+                                  const dejaPrise = peerCodes.includes(l) && !estCourante;
+                                  const bs2 = BADGE_COLORS[l[0]] || { bg:'#F3F4F6', color:'#374151', border:'#E5E7EB' };
+                                  return (
+                                    <span key={l}
+                                      onClick={e => { e.stopPropagation(); if (!estCourante) corrigerIci(r.id, l); }}
+                                      title={estCourante ? 'Lettre actuelle' : dejaPrise ? `Échanger avec ${l}` : `Assigner ${l}`}
+                                      style={{
+                                        display:'inline-flex', alignItems:'center', justifyContent:'center',
+                                        width:22, height:20, borderRadius:5, fontSize:11, fontWeight:700,
+                                        background: estCourante ? '#1B2B4B' : bs2.bg,
+                                        color: estCourante ? '#fff' : bs2.color,
+                                        border: `${dejaPrise?2:1}px solid ${estCourante?'#1B2B4B':bs2.color}`,
+                                        cursor: estCourante ? 'default' : 'pointer',
+                                        opacity: estCourante ? 0.7 : 1,
+                                      }}>{l}</span>
+                                  );
+                                })}
+                              </div>
+                            )}
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              )}
+            </div>
+
+            {/* Pied — navigation + fermer */}
+            <div className="px-5 py-3 border-t border-gray-100 flex items-center justify-between flex-shrink-0">
+              <div className="flex gap-2">
+                <button onClick={() => setErreurIndex(i => Math.max(0, i-1))} disabled={idx===0}
+                  style={{padding:'6px 14px', borderRadius:8, fontSize:13, fontWeight:600, border:'1px solid #D1D5DB',
+                    background: idx===0?'#F9FAFB':'#fff', color: idx===0?'#CBD5E1':'#374151', cursor: idx===0?'default':'pointer'}}>
+                  ← Précédent
+                </button>
+                <button onClick={() => setErreurIndex(i => Math.min(anomalies.length-1, i+1))} disabled={idx===anomalies.length-1}
+                  style={{padding:'6px 14px', borderRadius:8, fontSize:13, fontWeight:600, border:'1px solid #D1D5DB',
+                    background: idx===anomalies.length-1?'#F9FAFB':'#fff', color: idx===anomalies.length-1?'#CBD5E1':'#374151', cursor: idx===anomalies.length-1?'default':'pointer'}}>
+                  Suivant →
+                </button>
+              </div>
+              <button onClick={fermer}
+                style={{padding:'6px 16px', borderRadius:8, fontSize:13, fontWeight:600, background:'#1B2B4B', color:'#fff', border:'none', cursor:'pointer'}}>
+                Fermer
+              </button>
+            </div>
+          </div>
+        </div>
+        );
+      })()}
+
       {confirmDeleteSection && (
         <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center">
           <div className="bg-white rounded-xl shadow-2xl p-6 max-w-sm w-full space-y-4">

@@ -30,6 +30,7 @@ import planifIARoutes      from './routes/planification-ia.js';
 import locauxRoutes        from './routes/locaux.js';
 import nominationsRoutes   from './routes/nominations.js';
 import sequenceRoutes      from './routes/sequence.js';
+import dcppRoutes          from './routes/dcpp.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
@@ -2176,6 +2177,7 @@ app.use('/api/planification-ia', planifIARoutes);
 app.use('/api/locaux', locauxRoutes);
 app.use('/api/nominations', nominationsRoutes);
 app.use('/api/sequence',        sequenceRoutes);
+app.use('/api/dcpp',            dcppRoutes);
 
 // Route logo IIP
 import { createRequire as _cr } from 'module';
