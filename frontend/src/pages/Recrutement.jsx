@@ -320,7 +320,7 @@ const TYPES_DOC = {
 };
 
 function FormulaireCandidatIA({ annee, ue_num, code_cours, section, onSaved, onCancel }) {
-  const [f, setF]               = useState({ nom: '', email: '', telephone: '', cv_url: '', notes: '' });
+  const [f, setF]               = useState({ nom: '', prenom: '', email: '', telephone: '', cv_url: '', notes: '' });
   const [docs, setDocs]         = useState([]); // [{ type, file }]
   const [extracting, setExtracting] = useState(false);
   const [busy, setBusy]         = useState(false);
@@ -349,7 +349,7 @@ function FormulaireCandidatIA({ annee, ue_num, code_cours, section, onSaved, onC
           model: 'claude-sonnet-4-6', max_tokens: 500,
           messages: [{ role: 'user', content: [
             { type: 'document', source: { type: 'base64', media_type: 'application/pdf', data: base64 } },
-            { type: 'text', text: 'Extrais du CV. JSON strict sans backticks : {"nom":"prénom nom","email":"","telephone":"","notes":"profil en 1-2 phrases"}' }
+            { type: 'text', text: 'Extrais du CV. JSON strict sans backticks : {"nom":"NOM (en majuscules)","prenom":"Prénom","email":"","telephone":"","notes":"profil en 1-2 phrases"}' }
           ]}]
         }),
       });
@@ -357,6 +357,7 @@ function FormulaireCandidatIA({ annee, ue_num, code_cours, section, onSaved, onC
       const info = JSON.parse((data.content || []).map(b => b.text || '').join('').trim());
       setF(prev => ({
         nom:       info.nom       || prev.nom,
+        prenom:    info.prenom    || prev.prenom,
         email:     info.email     || prev.email,
         telephone: info.telephone || prev.telephone,
         notes:     info.notes     || prev.notes,
@@ -434,6 +435,7 @@ function FormulaireCandidatIA({ annee, ue_num, code_cours, section, onSaved, onC
 
       {/* Infos candidat */}
       <div className="grid grid-cols-2 gap-3">
+        <Champ label="Prénom" value={f.prenom} onChange={v => setF({ ...f, prenom: v })} />
         <Champ label="Nom *" value={f.nom} onChange={v => setF({ ...f, nom: v })} />
         <Champ label="E-mail" value={f.email} onChange={v => setF({ ...f, email: v })} />
         <Champ label="Téléphone" value={f.telephone} onChange={v => setF({ ...f, telephone: v })} />
@@ -849,7 +851,7 @@ function EntretienModal({ candidature, poste, annee, qIA, grille, onClose, onSav
       <div className="flex items-center justify-between px-5 py-3 bg-white border-b border-gray-200 flex-shrink-0"
         onClick={e => e.stopPropagation()}>
         <div>
-          <h3 className="text-base font-bold text-iip-blue">Entretien — {candidature.nom}</h3>
+          <h3 className="text-base font-bold text-iip-blue">Entretien — {candidature.prenom ? `${candidature.prenom} ${candidature.nom}` : candidature.nom}</h3>
           <div className="text-xs text-gray-400">{poste.nom_cours || poste.ue_nom} · {poste.section}</div>
         </div>
         <div className="flex items-center gap-3">
@@ -973,12 +975,12 @@ function VueParallele({ postes, candidats, fonctions, annee, onRecharger }) {
           annee, ue_num: poste.ue_num, code_cours: poste.code_cours, section: poste.section,
         }),
       });
-      setFeedback(`${cand.nom} rattaché à ${poste.nom_cours || poste.ue_nom}`);
+      setFeedback(`${cand.prenom ? cand.prenom + ' ' : ''}${cand.nom} rattaché à ${poste.nom_cours || poste.ue_nom}`);
       setTimeout(() => setFeedback(''), 3000);
       onRecharger();
     } catch (e) {
       if (e.message.includes('déjà rattaché') || e.message.includes('UNIQUE')) {
-        setFeedback(`${cand.nom} est déjà candidat pour ce cours`);
+        setFeedback(`${cand.prenom ? cand.prenom + ' ' : ''}${cand.nom} est déjà candidat pour ce cours`);
         setTimeout(() => setFeedback(''), 3000);
       } else { alert(e.message); }
     }
@@ -1097,7 +1099,7 @@ function VueParallele({ postes, candidats, fonctions, annee, onRecharger }) {
                     <span className="text-lg leading-none">⠿</span>
                   </div>
                   <div className="min-w-0 flex-1">
-                    <div className="text-sm font-semibold text-iip-blue">{c.nom}</div>
+                    <div className="text-sm font-semibold text-iip-blue">{c.prenom ? `${c.prenom} ${c.nom}` : c.nom}</div>
                     <div className="flex items-center gap-2 mt-0.5 flex-wrap">
                       {c.fonction && (
                         <span className="text-[10px] bg-iip-blue/10 text-iip-blue px-1.5 py-0.5 rounded font-medium">
@@ -1165,7 +1167,7 @@ function VueCandidatsGlobal({ candidats, fonctions, onRecharger }) {
           <button key={c.id} onClick={() => setFiche(c)}
             className="text-left border border-gray-200 bg-white rounded-lg px-4 py-3 hover:border-iip-turquoise hover:shadow-sm transition flex items-center justify-between gap-3">
             <div className="min-w-0">
-              <div className="font-semibold text-iip-blue">{c.nom}</div>
+              <div className="font-semibold text-iip-blue">{c.prenom ? `${c.prenom} ${c.nom}` : c.nom}</div>
               <div className="text-xs text-gray-400 mt-0.5">
                 {[c.email, c.telephone].filter(Boolean).join(' · ') || '—'}
               </div>
@@ -1213,7 +1215,7 @@ function VueCandidatsGlobal({ candidats, fonctions, onRecharger }) {
 
 /* ── Fiche candidat (modale d'édition) ── */
 function FicheCandidat({ candidat, fonctions, onClose, onSaved }) {
-  const [f, setF] = useState({ nom: candidat.nom, email: candidat.email || '', telephone: candidat.telephone || '', cv_url: candidat.cv_url || '', notes: candidat.notes || '', fonction: candidat.fonction || '' });
+  const [f, setF] = useState({ nom: candidat.nom || '', prenom: candidat.prenom || '', email: candidat.email || '', telephone: candidat.telephone || '', cv_url: candidat.cv_url || '', notes: candidat.notes || '', fonction: candidat.fonction || '' });
   const [nouvelleF, setNouvelleF] = useState('');
   const [docs, setDocs]       = useState(candidat.documents || []);
   const [busy, setBusy]       = useState(false);
@@ -1306,7 +1308,12 @@ function FicheCandidat({ candidat, fonctions, onClose, onSaved }) {
         <div className="p-5 space-y-4">
           {/* Infos */}
           <div className="grid grid-cols-2 gap-3">
-            <div className="col-span-2">
+            <div>
+              <div className="text-xs text-gray-500 mb-1">Prénom</div>
+              <input value={f.prenom} onChange={e => setF({ ...f, prenom: e.target.value })}
+                className="w-full text-sm border border-gray-300 rounded px-2 py-1.5 h-9" />
+            </div>
+            <div>
               <div className="text-xs text-gray-500 mb-1">Nom *</div>
               <input value={f.nom} onChange={e => setF({ ...f, nom: e.target.value })}
                 className="w-full text-sm border border-gray-300 rounded px-2 py-1.5 h-9" />
@@ -1413,7 +1420,7 @@ function FicheCandidat({ candidat, fonctions, onClose, onSaved }) {
 }
 /* ── Nouveau candidat sans poste ── */
 function ModalNouveauCandidat({ onClose, onSaved }) {
-  const [f, setF]   = useState({ nom: '', email: '', telephone: '', cv_url: '', notes: '' });
+  const [f, setF]   = useState({ nom: '', prenom: '', email: '', telephone: '', cv_url: '', notes: '' });
   const [busy, setBusy] = useState(false);
   const soumettre = async () => {
     if (!f.nom.trim()) return;
@@ -1426,7 +1433,9 @@ function ModalNouveauCandidat({ onClose, onSaved }) {
       <div className="bg-white rounded-xl w-full max-w-md shadow-xl p-5 space-y-3" onClick={e => e.stopPropagation()}>
         <h3 className="text-lg font-bold text-iip-blue mb-1">Nouveau candidat</h3>
         <div className="grid grid-cols-2 gap-3">
-          <div className="col-span-2"><div className="text-xs text-gray-500 mb-1">Nom *</div>
+          <div><div className="text-xs text-gray-500 mb-1">Prénom</div>
+            <input value={f.prenom} onChange={e => setF({ ...f, prenom: e.target.value })} className="w-full text-sm border border-gray-300 rounded px-2 py-1.5 h-9" /></div>
+          <div><div className="text-xs text-gray-500 mb-1">Nom *</div>
             <input value={f.nom} onChange={e => setF({ ...f, nom: e.target.value })} className="w-full text-sm border border-gray-300 rounded px-2 py-1.5 h-9" /></div>
           <div><div className="text-xs text-gray-500 mb-1">E-mail</div>
             <input value={f.email} onChange={e => setF({ ...f, email: e.target.value })} className="w-full text-sm border border-gray-300 rounded px-2 py-1.5 h-9" /></div>

@@ -118,7 +118,7 @@ r.get('/postes/:ue_num/:code_cours/:section', (req, res) => {
   ).all(ue_num);
 
   const candidats = db.prepare(`
-    SELECT rc.*, c.nom, c.email, c.telephone, c.cv_url, c.notes
+    SELECT rc.*, c.nom, c.prenom, c.email, c.telephone, c.cv_url, c.notes
     FROM recrutement_candidature rc
     JOIN recrutement_candidat c ON c.id = rc.candidat_id
     WHERE rc.annee_scolaire = ? AND rc.ue_num = ? AND rc.code_cours = ? AND rc.section = ?
@@ -145,7 +145,7 @@ r.get('/postes/:ue_num/:code_cours/:section', (req, res) => {
 // ═══════════════════════════════════════════════════════════════════════════════
 
 r.get('/candidats', (req, res) => {
-  const candidats = db.prepare('SELECT * FROM recrutement_candidat ORDER BY nom').all();
+  const candidats = db.prepare('SELECT * FROM recrutement_candidat ORDER BY nom, prenom').all();
   res.json(candidats.map(c => ({
     ...c,
     documents: db.prepare(
@@ -154,10 +154,10 @@ r.get('/candidats', (req, res) => {
     candidatures: db.prepare(`
       SELECT rc.id, rc.annee_scolaire, rc.ue_num, rc.code_cours, rc.section, rc.statut,
              rc.note_globale, rc.commentaire,
-             u.ue_nom, c.cours_nom
+             u.ue_nom, cr.cours_nom
       FROM recrutement_candidature rc
       LEFT JOIN ue u ON u.ue_num = rc.ue_num AND u.annee_scolaire = rc.annee_scolaire
-      LEFT JOIN cours c ON c.cours_code = rc.code_cours AND c.annee_scolaire = rc.annee_scolaire
+      LEFT JOIN cours cr ON cr.cours_code = rc.code_cours AND cr.annee_scolaire = rc.annee_scolaire
       WHERE rc.candidat_id = ?
       ORDER BY rc.cree_le DESC
     `).all(c.id),
@@ -184,13 +184,13 @@ r.delete('/fonctions/:id', (req, res) => {
 });
 
 r.patch('/candidats/:id', (req, res) => {
-  const { nom, email, telephone, cv_url, notes, fonction } = req.body;
+  const { nom, prenom, email, telephone, cv_url, notes, fonction } = req.body;
   const c = db.prepare('SELECT id FROM recrutement_candidat WHERE id = ?').get(req.params.id);
   if (!c) return res.status(404).json({ error: 'Candidat introuvable' });
   db.prepare(`UPDATE recrutement_candidat SET
-    nom = COALESCE(?, nom), email = ?, telephone = ?,
+    nom = COALESCE(?, nom), prenom = ?, email = ?, telephone = ?,
     cv_url = ?, notes = ?, fonction = ?
-    WHERE id = ?`).run(nom ?? null, email ?? null, telephone ?? null,
+    WHERE id = ?`).run(nom ?? null, prenom ?? null, email ?? null, telephone ?? null,
       cv_url ?? null, notes ?? null, fonction ?? null, c.id);
   res.json({ ok: true });
 });
@@ -201,7 +201,7 @@ r.delete('/candidats/:id', (req, res) => {
 });
 
 r.post('/candidats', (req, res) => {
-  const { nom, email, telephone, cv_url, notes, annee, ue_num, code_cours, section } = req.body;
+  const { nom, prenom, email, telephone, cv_url, notes, annee, ue_num, code_cours, section } = req.body;
   if (!nom) return res.status(400).json({ error: 'Nom requis' });
 
   const tx = db.transaction(() => {
@@ -210,12 +210,12 @@ r.post('/candidats', (req, res) => {
       : null;
     if (!cand) {
       const info = db.prepare(
-        'INSERT INTO recrutement_candidat (nom, email, telephone, cv_url, notes) VALUES (?, ?, ?, ?, ?)'
-      ).run(nom, email || null, telephone || null, cv_url || null, notes || null);
+        'INSERT INTO recrutement_candidat (nom, prenom, email, telephone, cv_url, notes) VALUES (?, ?, ?, ?, ?, ?)'
+      ).run(nom, prenom || null, email || null, telephone || null, cv_url || null, notes || null);
       cand = { id: info.lastInsertRowid };
     } else {
-      db.prepare('UPDATE recrutement_candidat SET nom=?, telephone=COALESCE(?,telephone), notes=COALESCE(?,notes) WHERE id=?')
-        .run(nom, telephone || null, notes || null, cand.id);
+      db.prepare('UPDATE recrutement_candidat SET nom=COALESCE(?,nom), prenom=COALESCE(?,prenom), telephone=COALESCE(?,telephone), notes=COALESCE(?,notes) WHERE id=?')
+        .run(nom || null, prenom || null, telephone || null, notes || null, cand.id);
     }
     if (annee && ue_num && code_cours && section) {
       try {

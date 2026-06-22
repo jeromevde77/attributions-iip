@@ -2253,6 +2253,27 @@ try {
   }
 } catch(e) { console.error('[migration] recrutement_fonction :', e.message); }
 
+// ── Recrutement : séparation nom/prenom sur recrutement_candidat ──────────────
+try {
+  const cols = db.prepare('PRAGMA table_info(recrutement_candidat)').all().map(c => c.name);
+  if (!cols.includes('prenom')) {
+    db.exec("ALTER TABLE recrutement_candidat ADD COLUMN prenom TEXT");
+    // Tenter de splitter les noms existants "Prénom NOM" → heuristique simple
+    const candidats = db.prepare("SELECT id, nom FROM recrutement_candidat WHERE nom IS NOT NULL").all();
+    const upd = db.prepare("UPDATE recrutement_candidat SET prenom = ?, nom = ? WHERE id = ?");
+    const tx = db.transaction(() => {
+      candidats.forEach(c => {
+        const parts = (c.nom || '').trim().split(/\s+/);
+        if (parts.length >= 2) {
+          upd.run(parts[0], parts.slice(1).join(' '), c.id);
+        }
+      });
+    });
+    tx();
+    console.log('[migration] colonne prenom ajoutée sur recrutement_candidat');
+  }
+} catch(e) { console.error('[migration] recrutement prenom :', e.message); }
+
 // ── Recrutement : grille de questions d'entretien éditable ────────────────────
 try {
   db.exec(`CREATE TABLE IF NOT EXISTS recrutement_grille_axe (
