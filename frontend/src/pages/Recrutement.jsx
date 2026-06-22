@@ -244,7 +244,9 @@ function FichePoste({ poste, annee, onBack }) {
 }
 
 /* ══════════════════════ FORMULAIRE CANDIDAT + EXTRACTION CV ══════════════════════ */
-const telechargerDoc = async (docId, nomOriginal) => {
+const [visionneur, setVisionneur] = useState(null); // { url, nom, type }
+
+const ouvrirDoc = async (docId, nomOriginal) => {
   try {
     const resp = await fetch(`/api/recrutement/documents/${docId}`, {
       headers: { Authorization: `Bearer ${tok()}` },
@@ -252,9 +254,24 @@ const telechargerDoc = async (docId, nomOriginal) => {
     if (!resp.ok) throw new Error('Document introuvable');
     const blob = await resp.blob();
     const url = URL.createObjectURL(blob);
+    setVisionneur({ url, nom: nomOriginal, mime: blob.type });
+  } catch (e) { alert(e.message); }
+};
+
+const telechargerDoc = async (docId, nomOriginal, blobUrl = null) => {
+  try {
+    let url = blobUrl;
+    if (!url) {
+      const resp = await fetch(`/api/recrutement/documents/${docId}`, {
+        headers: { Authorization: `Bearer ${tok()}` },
+      });
+      if (!resp.ok) throw new Error('Document introuvable');
+      const blob = await resp.blob();
+      url = URL.createObjectURL(blob);
+    }
     const a = document.createElement('a');
     a.href = url; a.download = nomOriginal; a.click();
-    URL.revokeObjectURL(url);
+    if (!blobUrl) URL.revokeObjectURL(url); // ne pas révoquer si c'est l'URL du visionneur
   } catch (e) { alert(e.message); }
 };
 
@@ -475,7 +492,7 @@ function CarteCandidatPoste({ candidature: c, onChange }) {
                 <div key={d.id} className="flex items-center gap-2 text-xs bg-white border border-gray-100 rounded px-2 py-1.5">
                   <IconFileCv size={13} className="text-iip-blue flex-shrink-0" />
                   <span className="text-gray-400 flex-shrink-0 w-20">{TYPES_DOC[d.type]?.label || d.type}</span>
-                  <button onClick={() => telechargerDoc(d.id, d.nom_original)}
+                  <button onClick={() => ouvrirDoc(d.id, d.nom_original)}
                     className="text-iip-blue hover:underline truncate flex-1 text-left">{d.nom_original}</button>
                   <button onClick={() => supprimerDoc(d.id)} className="text-gray-300 hover:text-red-500 flex-shrink-0">
                     <IconTrash size={12} />
@@ -501,11 +518,46 @@ function CarteCandidatPoste({ candidature: c, onChange }) {
           </div>
         </div>
       )}
+      {/* Visionneuse inline */}
+      {visionneur && (
+        <div className="fixed inset-0 bg-black/60 z-50 flex flex-col" onClick={() => { URL.revokeObjectURL(visionneur.url); setVisionneur(null); }}>
+          <div className="flex items-center justify-between px-4 py-2 bg-white border-b border-gray-200 flex-shrink-0" onClick={e => e.stopPropagation()}>
+            <span className="text-sm font-medium text-iip-blue truncate">{visionneur.nom}</span>
+            <div className="flex items-center gap-2">
+              <button onClick={() => telechargerDoc(null, visionneur.nom, visionneur.url)}
+                className="text-xs border border-gray-300 rounded px-2 py-1 hover:bg-gray-50 flex items-center gap-1">
+                <IconDownload size={13} /> Télécharger
+              </button>
+              <button onClick={() => { URL.revokeObjectURL(visionneur.url); setVisionneur(null); }}
+                className="text-gray-400 hover:text-gray-700 ml-2"><IconX size={20} /></button>
+            </div>
+          </div>
+          <div className="flex-1 overflow-hidden" onClick={e => e.stopPropagation()}>
+            {visionneur.mime?.startsWith('image/') ? (
+              <div className="h-full flex items-center justify-center p-4">
+                <img src={visionneur.url} alt={visionneur.nom} className="max-h-full max-w-full object-contain rounded shadow-lg" />
+              </div>
+            ) : visionneur.mime === 'application/pdf' ? (
+              <iframe src={visionneur.url} title={visionneur.nom} className="w-full h-full border-none" />
+            ) : (
+              <div className="h-full flex flex-col items-center justify-center text-white gap-4">
+                <IconFileCv size={48} className="opacity-50" />
+                <div className="text-center">
+                  <div className="text-lg font-medium">{visionneur.nom}</div>
+                  <div className="text-sm opacity-60 mt-1">Ce format ne peut pas être prévisualisé</div>
+                </div>
+                <button onClick={() => telechargerDoc(null, visionneur.nom, visionneur.url)}
+                  className="mt-2 bg-white text-iip-blue px-4 py-2 rounded-lg font-medium hover:bg-gray-100 flex items-center gap-2">
+                  <IconDownload size={16} /> Télécharger le fichier
+                </button>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   );
 }
-
-/* ══════════════════════ MODAL ANNONCE IA ══════════════════════ */
 function ModalAnnonce({ poste, annee, onClose }) {
   const [annonce, setAnnonce] = useState('');
   const [loading, setLoading] = useState(true);
