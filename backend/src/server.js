@@ -31,6 +31,8 @@ import locauxRoutes        from './routes/locaux.js';
 import nominationsRoutes   from './routes/nominations.js';
 import sequenceRoutes      from './routes/sequence.js';
 import dcppRoutes          from './routes/dcpp.js';
+import recrutementRoutes   from './routes/recrutement.js';
+import aaRoutes            from './routes/aa.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
@@ -2116,6 +2118,71 @@ try {
   console.log('[migration] Table poste_pncc créée');
 } catch(e) { console.error('[migration] poste_pncc :', e.message); }
 
+// ── Module recrutement : postes, candidats, questions, évaluations ───────────
+try {
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS recrutement_poste (
+      id              INTEGER PRIMARY KEY AUTOINCREMENT,
+      intitule        TEXT NOT NULL,
+      section         TEXT,
+      contrat         TEXT,
+      ue_num          TEXT,
+      description     TEXT,
+      statut          TEXT NOT NULL DEFAULT 'ouvert',
+      annee_scolaire  TEXT,
+      cree_le         TEXT DEFAULT (datetime('now')),
+      cree_par        TEXT
+    );
+    CREATE TABLE IF NOT EXISTS recrutement_question (
+      id              INTEGER PRIMARY KEY AUTOINCREMENT,
+      poste_id        INTEGER NOT NULL,
+      libelle         TEXT NOT NULL,
+      ordre           INTEGER NOT NULL DEFAULT 0,
+      ponderation     REAL NOT NULL DEFAULT 1.0,
+      FOREIGN KEY (poste_id) REFERENCES recrutement_poste(id) ON DELETE CASCADE
+    );
+    CREATE TABLE IF NOT EXISTS recrutement_candidat (
+      id              INTEGER PRIMARY KEY AUTOINCREMENT,
+      nom             TEXT NOT NULL,
+      email           TEXT,
+      telephone       TEXT,
+      cv_path         TEXT,
+      cv_nom          TEXT,
+      cv_url          TEXT,
+      notes           TEXT,
+      cree_le         TEXT DEFAULT (datetime('now'))
+    );
+    CREATE TABLE IF NOT EXISTS recrutement_candidature (
+      id              INTEGER PRIMARY KEY AUTOINCREMENT,
+      candidat_id     INTEGER NOT NULL,
+      poste_id        INTEGER NOT NULL,
+      statut          TEXT NOT NULL DEFAULT 'a_voir',
+      note_globale    REAL,
+      commentaire     TEXT,
+      date_entretien  TEXT,
+      reponses_json   TEXT,
+      cree_le         TEXT DEFAULT (datetime('now')),
+      modifie_le      TEXT,
+      UNIQUE(candidat_id, poste_id),
+      FOREIGN KEY (candidat_id) REFERENCES recrutement_candidat(id) ON DELETE CASCADE,
+      FOREIGN KEY (poste_id)    REFERENCES recrutement_poste(id)    ON DELETE CASCADE
+    );
+    CREATE INDEX IF NOT EXISTS idx_recrut_q_poste ON recrutement_question(poste_id);
+    CREATE INDEX IF NOT EXISTS idx_recrut_cand_poste ON recrutement_candidature(poste_id);
+    CREATE INDEX IF NOT EXISTS idx_recrut_cand_candidat ON recrutement_candidature(candidat_id);
+  `);
+  console.log('[migration] Tables recrutement créées');
+} catch(e) { console.error('[migration] recrutement :', e.message); }
+
+// ── Recrutement : ajout colonnes fonction / charge / prise_de_fonction ────────
+try {
+  const cols = db.prepare("PRAGMA table_info(recrutement_poste)").all().map(c => c.name);
+  if (!cols.includes('fonction'))          db.exec("ALTER TABLE recrutement_poste ADD COLUMN fonction TEXT");
+  if (!cols.includes('charge_periodes'))   db.exec("ALTER TABLE recrutement_poste ADD COLUMN charge_periodes INTEGER");
+  if (!cols.includes('prise_de_fonction')) db.exec("ALTER TABLE recrutement_poste ADD COLUMN prise_de_fonction TEXT");
+  if (!cols.includes('cours_nom'))         db.exec("ALTER TABLE recrutement_poste ADD COLUMN cours_nom TEXT");
+} catch(e) { console.error('[migration] recrutement colonnes :', e.message); }
+
 // Recréer les VIEW à chaque démarrage pour qu'elles soient à jour
 // quand le schéma évolue (sans nécessiter un init-db complet).
 try {
@@ -2178,6 +2245,8 @@ app.use('/api/locaux', locauxRoutes);
 app.use('/api/nominations', nominationsRoutes);
 app.use('/api/sequence',        sequenceRoutes);
 app.use('/api/dcpp',            dcppRoutes);
+app.use('/api/recrutement',     recrutementRoutes);
+app.use('/api/aa',              aaRoutes);
 
 // Route logo IIP
 import { createRequire as _cr } from 'module';

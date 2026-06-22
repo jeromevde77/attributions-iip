@@ -549,6 +549,7 @@ function DetailModal({ profId, onClose, onEdit, onFiche }) {
 }
 
 export default function Professeurs() {
+  const navigate = useNavigate();
   const [profs, setProfs] = useState([]);
   const [search, setSearch] = useState('');
   const [fContrat, setFContrat] = useState('');   // '' | IIP | HELB | mixte
@@ -1272,6 +1273,12 @@ export default function Professeurs() {
           Membres du personnel <span className="text-base font-normal text-gray-400">({filtered.length})</span>
         </h1>
         <div className="flex gap-2 items-center flex-wrap">
+          {getUser()?.role === 'admin' && (
+            <button onClick={() => navigate('/recrutement')}
+              className="flex items-center gap-1.5 text-sm border border-iip-blue text-iip-blue hover:bg-iip-blue hover:text-white px-3 py-1.5 h-9 rounded-lg font-medium transition">
+              <IconBriefcase size={16} /> Recrutement
+            </button>
+          )}
           <div className="relative">
             <input
               type="text"
