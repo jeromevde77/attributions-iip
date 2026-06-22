@@ -277,19 +277,6 @@ function FichePoste({ poste, annee, onBack }) {
 }
 
 /* ══════════════════════ FORMULAIRE CANDIDAT + EXTRACTION CV ══════════════════════ */
-const [visionneur, setVisionneur] = useState(null); // { url, nom, type }
-
-const ouvrirDoc = async (docId, nomOriginal) => {
-  try {
-    const resp = await fetch(`/api/recrutement/documents/${docId}`, {
-      headers: { Authorization: `Bearer ${tok()}` },
-    });
-    if (!resp.ok) throw new Error('Document introuvable');
-    const blob = await resp.blob();
-    const url = URL.createObjectURL(blob);
-    setVisionneur({ url, nom: nomOriginal, mime: blob.type });
-  } catch (e) { alert(e.message); }
-};
 
 const telechargerDoc = async (docId, nomOriginal, blobUrl = null) => {
   try {
@@ -304,7 +291,7 @@ const telechargerDoc = async (docId, nomOriginal, blobUrl = null) => {
     }
     const a = document.createElement('a');
     a.href = url; a.download = nomOriginal; a.click();
-    if (!blobUrl) URL.revokeObjectURL(url); // ne pas révoquer si c'est l'URL du visionneur
+    if (!blobUrl) URL.revokeObjectURL(url);
   } catch (e) { alert(e.message); }
 };
 
@@ -453,10 +440,23 @@ function FormulaireCandidatIA({ annee, ue_num, code_cours, section, onSaved, onC
 
 /* ══════════════════════ CARTE CANDIDAT ══════════════════════ */
 function CarteCandidatPoste({ candidature: c, onChange, onEntretien }) {
-  const [open, setOpen]       = useState(false);
+  const [open, setOpen]           = useState(false);
   const [uploading, setUploading] = useState(false);
+  const [visionneur, setVisionneur] = useState(null);
   const st = STATUT[c.statut] || STATUT.a_voir;
   const docs = c.documents || [];
+
+  const ouvrirDoc = async (docId, nomOriginal) => {
+    try {
+      const resp = await fetch(`/api/recrutement/documents/${docId}`, {
+        headers: { Authorization: `Bearer ${tok()}` },
+      });
+      if (!resp.ok) throw new Error('Document introuvable');
+      const blob = await resp.blob();
+      const url = URL.createObjectURL(blob);
+      setVisionneur({ url, nom: nomOriginal, mime: blob.type });
+    } catch (e) { alert(e.message); }
+  };
 
   const supprimerCandidature = async () => {
     if (!confirm('Retirer ce candidat de ce poste ?')) return;
