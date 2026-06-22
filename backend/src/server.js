@@ -2174,6 +2174,41 @@ try {
   console.log('[migration] Tables recrutement créées');
 } catch(e) { console.error('[migration] recrutement :', e.message); }
 
+// ── Recrutement v2 : candidature liée aux attributions (pas à recrutement_poste) ──
+try {
+  // Table candidats (inchangée)
+  db.exec(`CREATE TABLE IF NOT EXISTS recrutement_candidat (
+    id          INTEGER PRIMARY KEY AUTOINCREMENT,
+    nom         TEXT NOT NULL,
+    email       TEXT UNIQUE,
+    telephone   TEXT,
+    cv_path     TEXT,
+    cv_nom      TEXT,
+    cv_url      TEXT,
+    notes       TEXT,
+    cree_le     TEXT DEFAULT (datetime('now'))
+  );`);
+
+  // Table candidature v2 : liée directement à l'attribution (annee+ue+cours+section)
+  db.exec(`CREATE TABLE IF NOT EXISTS recrutement_candidature (
+    id              INTEGER PRIMARY KEY AUTOINCREMENT,
+    candidat_id     INTEGER NOT NULL REFERENCES recrutement_candidat(id) ON DELETE CASCADE,
+    annee_scolaire  TEXT NOT NULL,
+    ue_num          INTEGER NOT NULL,
+    code_cours      TEXT NOT NULL,
+    section         TEXT NOT NULL,
+    statut          TEXT NOT NULL DEFAULT 'a_voir',
+    note_globale    REAL,
+    commentaire     TEXT,
+    cree_le         TEXT DEFAULT (datetime('now')),
+    modifie_le      TEXT,
+    UNIQUE(candidat_id, annee_scolaire, ue_num, code_cours, section)
+  );
+  CREATE INDEX IF NOT EXISTS idx_rcand_poste ON recrutement_candidature(annee_scolaire, ue_num, code_cours, section);
+  `);
+  console.log('[migration] Tables recrutement v2 créées');
+} catch(e) { console.error('[migration] recrutement v2 :', e.message); }
+
 // ── Recrutement : ajout colonnes fonction / charge / prise_de_fonction ────────
 try {
   const cols = db.prepare("PRAGMA table_info(recrutement_poste)").all().map(c => c.name);
