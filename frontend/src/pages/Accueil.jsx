@@ -1,25 +1,32 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { api, getAnnee, getUser } from '../lib/api.js';
 import { RailLateral } from '../components/ui.jsx';
 import {
-  IconHome, IconBell, IconActivity, IconCheck, IconBriefcase,
-  IconUserPlus, IconEdit, IconTrash, IconChevronRight,
+  IconHome, IconBell, IconActivity, IconCheck, IconChevronRight,
+  IconUserPlus, IconClipboardList, IconSettings, IconRefresh,
 } from '@tabler/icons-react';
 
 const tok = () => localStorage.getItem('token');
 
-const TYPE_ICONS = {
-  recrutement_attribue: { icon: IconUserPlus, color: '#15803d', bg: '#dcfce7', label: 'Recrutement' },
-  attribution_new:      { icon: IconEdit,     color: '#0369a1', bg: '#e0f2fe', label: 'Attribution' },
-  default:              { icon: IconBell,     color: '#6b7280', bg: '#f3f4f6', label: 'Info' },
+// ── Config visuelle par type d'événement ──────────────────────────────────────
+const TYPE_CONFIG = {
+  attribution: {
+    create: { label: 'Nouvelle attribution', color: '#15803d', bg: '#dcfce7', icon: IconUserPlus },
+    delete: { label: 'Attribution retirée',  color: '#b91c1c', bg: '#fee2e2', icon: IconClipboardList },
+    update: { label: 'Modification',         color: '#0369a1', bg: '#e0f2fe', icon: IconClipboardList },
+  },
+  recrutement: {
+    info: { label: 'Recrutement', color: '#7c3aed', bg: '#ede9fe', icon: IconUserPlus },
+  },
+  systeme: {
+    info: { label: 'Lucie',       color: '#1B2B4B', bg: '#e8edf5', icon: IconSettings },
+  },
 };
 
-const ACTION_STYLE = {
-  create: { label: 'Ajout',        cls: 'bg-green-100 text-green-700' },
-  update: { label: 'Modification', cls: 'bg-iip-turquoise/10 text-iip-blue' },
-  delete: { label: 'Suppression',  cls: 'bg-red-100 text-red-700' },
-};
+function getConfig(type, action) {
+  return TYPE_CONFIG[type]?.[action] || { label: 'Info', color: '#6b7280', bg: '#f3f4f6', icon: IconBell };
+}
 
 function timeAgo(iso) {
   if (!iso) return '';
@@ -28,184 +35,217 @@ function timeAgo(iso) {
   if (diff < 60)    return "à l'instant";
   if (diff < 3600)  return `il y a ${Math.floor(diff / 60)} min`;
   if (diff < 86400) return `il y a ${Math.floor(diff / 3600)} h`;
-  return d.toLocaleDateString('fr-BE', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' });
+  if (diff < 604800) return `il y a ${Math.floor(diff / 86400)} j`;
+  return d.toLocaleDateString('fr-BE', { day: '2-digit', month: 'long' });
+}
+
+// Extraire le prénom depuis nom_complet
+function prenom(nomComplet) {
+  if (!nomComplet) return '';
+  return nomComplet.trim().split(/\s+/)[0];
 }
 
 export default function Accueil() {
-  const [vue, setVue]           = useState('notifications');
-  const [notifs, setNotifs]     = useState([]);
-  const [activite, setActivite] = useState(null);
-  const [loadingN, setLoadingN] = useState(true);
-  const [loadingA, setLoadingA] = useState(true);
-  const u = getUser();
-  const annee = getAnnee();
+  const [items, setItems]     = useState([]);
+  const [nbNonLus, setNbNonLus] = useState(0);
+  const [loading, setLoading] = useState(true);
+  const [filtre, setFiltre]   = useState('tout'); // 'tout' | 'attribution' | 'recrutement' | 'systeme'
+  const [jours, setJours]     = useState(30);
+  const annee   = getAnnee();
+  const u       = getUser();
   const navigate = useNavigate();
 
-  const chargerNotifs = () => {
-    setLoadingN(true);
-    fetch('/api/recrutement/notifications', { headers: { Authorization: `Bearer ${tok()}` } })
-      .then(r => r.json()).then(d => setNotifs(Array.isArray(d) ? d : []))
-      .catch(() => setNotifs([])).finally(() => setLoadingN(false));
-  };
+  const charger = useCallback(() => {
+    setLoading(true);
+    fetch(`/api/historique/feed?annee=${encodeURIComponent(annee)}&jours=${jours}`,
+      { headers: { Authorization: `Bearer ${tok()}` } })
+      .then(r => r.json())
+      .then(d => { setItems(d.items || []); setNbNonLus(d.nbNonLus || 0); })
+      .catch(() => {})
+      .finally(() => setLoading(false));
+  }, [annee, jours]);
 
-  const chargerActivite = () => {
-    setLoadingA(true);
-    api.activiteFeed(14, 100)
-      .then(setActivite).catch(() => setActivite(null)).finally(() => setLoadingA(false));
-  };
+  useEffect(() => { charger(); }, [charger]);
 
-  useEffect(() => { chargerNotifs(); chargerActivite(); }, []);
-
-  const marquerLue = async (id) => {
-    await fetch(`/api/recrutement/notifications/${id}/lue`, {
+  const marquerLu = async (item) => {
+    const [, type, id] = item.id.split('-');
+    await fetch(`/api/historique/feed/${type}/${id}/lu`, {
       method: 'POST', headers: { Authorization: `Bearer ${tok()}` },
     });
-    chargerNotifs();
+    setItems(prev => prev.map(i => i.id === item.id ? { ...i, lue: true } : i));
+    setNbNonLus(n => Math.max(0, n - 1));
   };
 
-  const nbNonLues = notifs.filter(n => !n.lue).length;
-  const nbNonTraitees = activite?.non_traitees || 0;
+  const marquerTousLus = async () => {
+    for (const item of items.filter(i => !i.lue)) await marquerLu(item);
+  };
+
+  const itemsFiltres = filtre === 'tout' ? items : items.filter(i => i.type === filtre);
+  const nbNonLusType = (type) => items.filter(i => i.type === type && !i.lue).length;
+
+  const nbAttr    = nbNonLusType('attribution');
+  const nbRecr    = nbNonLusType('recrutement');
+  const nbSys     = nbNonLusType('systeme');
+
+  // Grouper par date (aujourd'hui, hier, cette semaine, plus ancien)
+  const grouper = (items) => {
+    const now   = new Date();
+    const today = now.toDateString();
+    const yesterday = new Date(now - 86400000).toDateString();
+    const groupes = { "Aujourd'hui": [], 'Hier': [], 'Cette semaine': [], 'Plus ancien': [] };
+    for (const item of items) {
+      const d = new Date(item.date.replace(' ', 'T') + (item.date.includes('Z') ? '' : 'Z'));
+      const ds = d.toDateString();
+      const diff = (now - d) / 86400000;
+      if (ds === today)           groupes["Aujourd'hui"].push(item);
+      else if (ds === yesterday)  groupes['Hier'].push(item);
+      else if (diff < 7)          groupes['Cette semaine'].push(item);
+      else                        groupes['Plus ancien'].push(item);
+    }
+    return Object.entries(groupes).filter(([, v]) => v.length > 0);
+  };
+
+  const groupes = grouper(itemsFiltres);
 
   return (
     <div className="relative bg-slate-50" style={{ minHeight: 'calc(100vh - 64px)' }}>
       <RailLateral
         icon={IconHome}
         titre="Accueil"
-        sousTitre={`Bonjour${u?.nom ? `, ${u.nom.split(' ')[0]}` : ''} !`}
+        sousTitre={annee}
         sections={[
-          { label: 'Vue', items: [
-            { key: 'notifications', label: `Notifications${nbNonLues > 0 ? ` (${nbNonLues})` : ''}`,
-              icon: IconBell,     actif: vue === 'notifications', onClick: () => setVue('notifications') },
-            { key: 'activite',     label: `Activité${nbNonTraitees > 0 ? ` (${nbNonTraitees})` : ''}`,
-              icon: IconActivity, actif: vue === 'activite',     onClick: () => setVue('activite') },
+          { label: 'Filtre', items: [
+            { key: 'tout',         label: `Tout${nbNonLus > 0 ? ` (${nbNonLus})` : ''}`,            icon: IconBell,          actif: filtre === 'tout',         onClick: () => setFiltre('tout') },
+            { key: 'attribution',  label: `Attributions${nbAttr > 0 ? ` (${nbAttr})` : ''}`,       icon: IconClipboardList, actif: filtre === 'attribution',  onClick: () => setFiltre('attribution') },
+            { key: 'recrutement',  label: `Recrutement${nbRecr > 0 ? ` (${nbRecr})` : ''}`,        icon: IconUserPlus,      actif: filtre === 'recrutement',  onClick: () => setFiltre('recrutement') },
+            { key: 'systeme',      label: `Système${nbSys > 0 ? ` (${nbSys})` : ''}`,              icon: IconSettings,      actif: filtre === 'systeme',      onClick: () => setFiltre('systeme') },
+          ]},
+          { label: 'Période', items: [
+            { key: '7',  label: '7 derniers jours',  icon: IconActivity, actif: jours === 7,  onClick: () => setJours(7) },
+            { key: '30', label: '30 derniers jours', icon: IconActivity, actif: jours === 30, onClick: () => setJours(30) },
+            { key: '90', label: '3 derniers mois',   icon: IconActivity, actif: jours === 90, onClick: () => setJours(90) },
           ]},
         ]}
       />
 
-      <div className="ml-16 p-4 md:p-6 max-w-3xl">
+      <div className="ml-16 p-4 md:p-8 max-w-3xl">
 
-        {vue === 'notifications' && (
-          <>
-            <div className="flex items-center justify-between mb-5">
-              <h1 className="text-2xl font-title text-iip-gold">
-                Notifications
-                {nbNonLues > 0 && (
-                  <span className="ml-2 text-sm font-normal text-white bg-red-500 rounded-full px-2 py-0.5">{nbNonLues}</span>
-                )}
-              </h1>
-              {nbNonLues > 0 && (
-                <button onClick={async () => {
-                  for (const n of notifs.filter(x => !x.lue)) await marquerLue(n.id);
-                }} className="text-xs text-gray-400 hover:text-iip-blue">
-                  Tout marquer comme lu
-                </button>
-              )}
-            </div>
+        {/* Bonjour */}
+        <div className="mb-8">
+          <h1 className="text-3xl font-title text-iip-blue">
+            Bonjour, {prenom(u?.nom) || u?.email?.split('@')[0] || 'vous'} !
+          </h1>
+          <p className="text-sm text-gray-400 mt-1">
+            {new Date().toLocaleDateString('fr-BE', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}
+          </p>
+        </div>
 
-            {loadingN && <div className="text-sm text-gray-400">Chargement…</div>}
-
-            {!loadingN && notifs.length === 0 && (
-              <div className="text-sm text-gray-400 text-center py-16">
-                Aucune notification pour l'instant.
-              </div>
+        {/* En-tête du fil */}
+        <div className="flex items-center justify-between mb-4">
+          <div className="flex items-center gap-2">
+            <h2 className="text-lg font-semibold text-iip-blue">
+              {filtre === 'tout' ? 'Fil d\'activité' :
+               filtre === 'attribution' ? 'Attributions' :
+               filtre === 'recrutement' ? 'Recrutement' : 'Système'}
+            </h2>
+            {nbNonLus > 0 && (
+              <span className="text-xs bg-red-500 text-white rounded-full px-2 py-0.5 font-bold">{nbNonLus} non lu{nbNonLus > 1 ? 's' : ''}</span>
             )}
+          </div>
+          <div className="flex items-center gap-2">
+            {nbNonLus > 0 && (
+              <button onClick={marquerTousLus}
+                className="text-xs text-gray-400 hover:text-iip-blue">
+                Tout marquer comme lu
+              </button>
+            )}
+            <button onClick={charger} title="Actualiser"
+              className="text-gray-300 hover:text-iip-blue p-1 rounded">
+              <IconRefresh size={16} className={loading ? 'animate-spin' : ''} />
+            </button>
+          </div>
+        </div>
 
-            <div className="space-y-2">
-              {notifs.map(n => {
-                const t = TYPE_ICONS[n.type] || TYPE_ICONS.default;
-                const Icon = t.icon;
-                return (
-                  <div key={n.id}
-                    className={`border rounded-xl p-4 flex items-start gap-3 transition ${
-                      n.lue ? 'border-gray-200 bg-white opacity-70' : 'border-iip-blue/20 bg-white shadow-sm'
-                    }`}>
-                    <div className="flex-shrink-0 w-9 h-9 rounded-full flex items-center justify-center"
-                      style={{ background: t.bg }}>
-                      <Icon size={18} style={{ color: t.color }} />
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-start justify-between gap-2">
-                        <div className="font-semibold text-sm text-iip-blue">{n.titre}</div>
-                        <div className="text-[10px] text-gray-400 flex-shrink-0">{timeAgo(n.cree_le)}</div>
-                      </div>
-                      {n.corps && (
-                        <div className="text-sm text-gray-600 mt-1 leading-relaxed"
-                          dangerouslySetInnerHTML={{ __html: n.corps }} />
-                      )}
-                      <div className="flex items-center gap-3 mt-2">
-                        {n.lien && (
-                          <button onClick={() => { marquerLue(n.id); navigate(n.lien); }}
-                            className="text-xs text-iip-blue hover:underline flex items-center gap-0.5">
-                            Voir <IconChevronRight size={12} />
-                          </button>
-                        )}
-                        {!n.lue && (
-                          <button onClick={() => marquerLue(n.id)}
-                            className="text-xs text-gray-400 hover:text-green-600 flex items-center gap-1">
-                            <IconCheck size={12} /> Marquer comme lu
-                          </button>
-                        )}
-                      </div>
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          </>
+        {loading && items.length === 0 && (
+          <div className="text-sm text-gray-400 py-8 text-center">Chargement…</div>
         )}
 
-        {vue === 'activite' && (
-          <>
-            <div className="flex items-center justify-between mb-5">
-              <h1 className="text-2xl font-title text-iip-gold">
-                Activité récente
-                {nbNonTraitees > 0 && (
-                  <span className="ml-2 text-sm font-normal text-white bg-iip-blue rounded-full px-2 py-0.5">{nbNonTraitees}</span>
-                )}
-              </h1>
-              <div className="text-xs text-gray-400">14 derniers jours · {activite?.count || 0} modifications</div>
-            </div>
+        {!loading && itemsFiltres.length === 0 && (
+          <div className="text-sm text-gray-400 py-16 text-center">
+            Aucune activité sur les {jours} derniers jours.
+          </div>
+        )}
 
-            {loadingA && <div className="text-sm text-gray-400">Chargement…</div>}
-
-            {!loadingA && (!activite?.items?.length) && (
-              <div className="text-sm text-gray-400 text-center py-16">Aucune activité récente.</div>
-            )}
-
-            <div className="space-y-1.5">
-              {(activite?.items || []).map(it => {
-                const st = ACTION_STYLE[it.action] || ACTION_STYLE.update;
-                return (
-                  <div key={it.id}
-                    className={`border rounded-lg px-4 py-2.5 flex items-center gap-3 transition ${
-                      it.traitee ? 'border-gray-100 bg-white opacity-60' : 'border-gray-200 bg-white'
-                    }`}>
-                    <span className={`text-[10px] font-bold px-2 py-0.5 rounded flex-shrink-0 ${st.cls}`}>
-                      {st.label}
-                    </span>
-                    <div className="flex-1 min-w-0">
-                      <div className="text-sm text-iip-blue font-medium truncate">
-                        {it.nom_cours || `UE ${it.ue_num}`}
-                        <span className="font-normal text-gray-500 ml-1">· {it.section}</span>
-                      </div>
-                      <div className="text-xs text-gray-400">{it.utilisateur_nom}</div>
-                    </div>
-                    <div className="text-[10px] text-gray-400 flex-shrink-0">{timeAgo(it.created_at)}</div>
-                    <button onClick={async () => {
-                      await api.activiteTraitee(it.id, !it.traitee);
-                      chargerActivite();
-                    }} title={it.traitee ? 'Marquer non traité' : 'Marquer traité'}
-                      className={`flex-shrink-0 w-5 h-5 rounded-full border flex items-center justify-center transition ${
-                        it.traitee ? 'border-green-400 bg-green-50' : 'border-gray-300 hover:border-green-400'
+        {/* Fil groupé par date */}
+        <div className="space-y-6">
+          {groupes.map(([groupe, gItems]) => (
+            <div key={groupe}>
+              <div className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-2">{groupe}</div>
+              <div className="space-y-2">
+                {gItems.map(item => {
+                  const cfg = getConfig(item.type, item.action);
+                  const Icon = cfg.icon;
+                  return (
+                    <div key={item.id}
+                      className={`border rounded-xl p-3.5 flex items-start gap-3 transition ${
+                        item.lue
+                          ? 'border-gray-100 bg-white/60'
+                          : 'border-gray-200 bg-white shadow-sm'
                       }`}>
-                      {it.traitee && <IconCheck size={11} className="text-green-500" />}
-                    </button>
-                  </div>
-                );
-              })}
+
+                      {/* Icône colorée */}
+                      <div className="flex-shrink-0 w-8 h-8 rounded-lg flex items-center justify-center mt-0.5"
+                        style={{ background: cfg.bg }}>
+                        <Icon size={16} style={{ color: cfg.color }} />
+                      </div>
+
+                      {/* Contenu */}
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-start justify-between gap-2">
+                          <div>
+                            <span className="text-[10px] font-bold uppercase tracking-wide mr-2"
+                              style={{ color: cfg.color }}>{cfg.label}</span>
+                            <span className={`text-sm font-medium ${item.lue ? 'text-gray-500' : 'text-gray-800'}`}>
+                              {item.titre}
+                            </span>
+                          </div>
+                          <span className="text-[10px] text-gray-400 flex-shrink-0 mt-0.5">{timeAgo(item.date)}</span>
+                        </div>
+
+                        {item.detail && (
+                          <div className="text-xs text-gray-400 mt-0.5">{item.detail}</div>
+                        )}
+                        {item.auteur && item.auteur !== 'Lucie' && (
+                          <div className="text-xs text-gray-400 mt-0.5">par {item.auteur}</div>
+                        )}
+                        {item.corps && (
+                          <div className="text-xs text-gray-600 mt-1.5 leading-relaxed bg-gray-50 rounded-lg px-3 py-2"
+                            dangerouslySetInnerHTML={{ __html: item.corps }} />
+                        )}
+
+                        {/* Actions */}
+                        <div className="flex items-center gap-3 mt-2">
+                          {item.lien && (
+                            <button onClick={() => { if (!item.lue) marquerLu(item); navigate(item.lien); }}
+                              className="text-xs text-iip-blue hover:underline flex items-center gap-0.5">
+                              Voir <IconChevronRight size={12} />
+                            </button>
+                          )}
+                          {!item.lue && (
+                            <button onClick={() => marquerLu(item)}
+                              className="text-xs text-gray-400 hover:text-green-600 flex items-center gap-1">
+                              <IconCheck size={12} /> Marquer comme lu
+                            </button>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
             </div>
-          </>
-        )}
+          ))}
+        </div>
       </div>
     </div>
   );

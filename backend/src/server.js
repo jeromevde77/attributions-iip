@@ -2246,6 +2246,27 @@ try {
   console.log('[migration] Table lucie_notification créée');
 } catch(e) { console.error('[migration] lucie_notification :', e.message); }
 
+// ── Table changelog (annonces importantes de l'équipe Lucie) ─────────────────
+try {
+  db.exec(`CREATE TABLE IF NOT EXISTS lucie_changelog (
+    id        INTEGER PRIMARY KEY AUTOINCREMENT,
+    titre     TEXT NOT NULL,
+    corps     TEXT,
+    version   TEXT,
+    cree_le   TEXT DEFAULT (datetime('now')),
+    lue_par   TEXT DEFAULT '[]'
+  );`);
+  // Entrée initiale
+  const nb = db.prepare('SELECT COUNT(*) as n FROM lucie_changelog').get().n;
+  if (nb === 0) {
+    db.prepare("INSERT INTO lucie_changelog (titre, corps, version) VALUES (?, ?, ?)").run(
+      'Module Recrutement disponible',
+      'Le module Recrutement est maintenant actif. Il permet de gérer les postes à pourvoir, les candidats, les entretiens et d\'attribuer directement un candidat retenu vers le personnel.',
+      '3.4.0'
+    );
+  }
+} catch(e) { console.error('[migration] lucie_changelog :', e.message); }
+
 // ── Recrutement : champ fonction sur candidat + table fonctions ───────────────
 try {
   const cols = db.prepare('PRAGMA table_info(recrutement_candidat)').all().map(c => c.name);

@@ -331,4 +331,130 @@ r.get('/changelog', authRequired, (req, res) => {
   }
 });
 
+// ─── Feed unifié pour la page Accueil ────────────────────────────────────────
+// Combine : attributions (créations/suppression de prof), notifications recrutement, changelog
+r.get('/feed', authRequired, (req, res) => {
+  const { annee, jours = 30 } = req.query;
+  const u = req.user;
+  const items = [];
+
+  // 1. Attributions : seulement les CREATE et DELETE (changement de prof), pas les updates mineurs
+  try {
+    const where = [`s.created_at >= datetime('now', '-${Number(jours)} days')`, "s.action IN ('create','delete')"];
+    const params = [];
+    if (annee) { where.push("json_extract(s.snapshot, '$.annee_scolaire') = ?"); params.push(annee); }
+
+    const attrs = db.prepare(`
+      SELECT s.id, s.action, s.utilisateur_nom, s.created_at,
+             json_extract(s.snapshot, '$.section')        AS section,
+             json_extract(s.snapshot, '$.ue_num')         AS ue_num,
+             json_extract(s.snapshot, '$.nom_cours')      AS nom_cours,
+             json_extract(s.snapshot, '$.annee_scolaire') AS annee_scolaire,
+             json_extract(s.snapshot, '$.nom_professeur') AS nom_prof,
+             CASE WHEN t.snapshot_id IS NOT NULL THEN 1 ELSE 0 END AS lue
+      FROM attribution_snapshot s
+      LEFT JOIN activite_traitee t ON t.snapshot_id = s.id AND t.utilisateur_id = ?
+      WHERE ${where.join(' AND ')}
+      ORDER BY s.created_at DESC LIMIT 100
+    `).all(u.id, ...params);
+
+    for (const a of attrs) {
+      items.push({
+        id: `attr-${a.id}`,
+        source_id: a.id,
+        type: 'attribution',
+        action: a.action,
+        titre: a.action === 'create'
+          ? `${a.nom_prof || 'Professeur'} attribué à ${a.nom_cours || `UE ${a.ue_num}`}`
+          : `Attribution supprimée : ${a.nom_cours || `UE ${a.ue_num}`}`,
+        detail: `${a.section || ''} · ${a.annee_scolaire || ''}`,
+        auteur: a.utilisateur_nom,
+        date: a.created_at,
+        lue: !!a.lue,
+        lien: '/attributions',
+      });
+    }
+  } catch(e) { console.error('[feed] attributions:', e.message); }
+
+  // 2. Notifications recrutement
+  try {
+    const notifs = db.prepare(`
+      SELECT * FROM lucie_notification
+      WHERE (cible_role IS NULL OR cible_role = ? OR cible_user_id = ?)
+        AND cree_le >= datetime('now', '-${Number(jours)} days')
+      ORDER BY cree_le DESC LIMIT 50
+    `).all(u.role, u.id);
+
+    for (const n of notifs) {
+      let lue = false;
+      try { lue = JSON.parse(n.lue_par || '[]').includes(u.id); } catch {}
+      items.push({
+        id: `notif-${n.id}`,
+        source_id: n.id,
+        type: 'recrutement',
+        action: 'info',
+        titre: n.titre,
+        detail: null,
+        auteur: n.cree_par,
+        date: n.cree_le,
+        lue,
+        lien: n.lien || '/recrutement',
+        corps: n.corps,
+      });
+    }
+  } catch(e) { console.error('[feed] notifications:', e.message); }
+
+  // 3. Changelog système
+  try {
+    const cl = db.prepare('SELECT * FROM lucie_changelog ORDER BY cree_le DESC LIMIT 10').all();
+    for (const c of cl) {
+      let lue = false;
+      try { lue = JSON.parse(c.lue_par || '[]').includes(u.id); } catch {}
+      items.push({
+        id: `cl-${c.id}`,
+        source_id: c.id,
+        type: 'systeme',
+        action: 'info',
+        titre: c.titre,
+        detail: c.version ? `v${c.version}` : null,
+        auteur: 'Lucie',
+        date: c.cree_le,
+        lue,
+        lien: null,
+        corps: c.corps,
+      });
+    }
+  } catch(e) { console.error('[feed] changelog:', e.message); }
+
+  // Trier par date décroissante
+  items.sort((a, b) => new Date(b.date) - new Date(a.date));
+  const nbNonLus = items.filter(i => !i.lue).length;
+
+  res.json({ items, nbNonLus });
+});
+
+// Marquer un item du feed comme lu
+r.post('/feed/:type/:id/lu', authRequired, (req, res) => {
+  const { type, id } = req.params;
+  const uid = req.user.id;
+  try {
+    if (type === 'attr') {
+      db.prepare('INSERT OR IGNORE INTO activite_traitee (snapshot_id, utilisateur_id) VALUES (?, ?)').run(id, uid);
+    } else if (type === 'notif') {
+      const n = db.prepare('SELECT lue_par FROM lucie_notification WHERE id = ?').get(id);
+      if (n) {
+        const lus = JSON.parse(n.lue_par || '[]');
+        if (!lus.includes(uid)) { lus.push(uid); db.prepare('UPDATE lucie_notification SET lue_par = ? WHERE id = ?').run(JSON.stringify(lus), id); }
+      }
+    } else if (type === 'cl') {
+      const c = db.prepare('SELECT lue_par FROM lucie_changelog WHERE id = ?').get(id);
+      if (c) {
+        const lus = JSON.parse(c.lue_par || '[]');
+        if (!lus.includes(uid)) { lus.push(uid); db.prepare('UPDATE lucie_changelog SET lue_par = ? WHERE id = ?').run(JSON.stringify(lus), id); }
+      }
+    }
+  } catch(e) { console.error('[feed/lu]', e.message); }
+  res.json({ ok: true });
+});
+
 export default r;

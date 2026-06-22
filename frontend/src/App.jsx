@@ -101,9 +101,9 @@ function ProtectedLayout({ children }) {
     const chargerNotifs = () => {
       const tok = localStorage.getItem('token');
       if (!tok) return;
-      fetch('/api/recrutement/notifications', { headers: { Authorization: `Bearer ${tok}` } })
-        .then(r => r.ok ? r.json() : [])
-        .then(d => setNbNotifs(Array.isArray(d) ? d.filter(n => !n.lue).length : 0))
+      fetch(`/api/historique/feed?jours=30`, { headers: { Authorization: `Bearer ${tok}` } })
+        .then(r => r.ok ? r.json() : { nbNonLus: 0 })
+        .then(d => setNbNotifs(d.nbNonLus || 0))
         .catch(() => {});
     };
     chargerNotifs();
