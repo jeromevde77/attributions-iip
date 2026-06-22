@@ -787,11 +787,11 @@ Réponds en JSON strict sans backticks : {"questions":["question 1","question 2"
 
 /* ══════════════════════ MODAL ENTRETIEN ══════════════════════ */
 const LIKERT = [
-  { val: 1, label: 'Insuffisant',   color: '#ef4444' },
-  { val: 2, label: 'Faible',        color: '#f97316' },
-  { val: 3, label: 'Satisfaisant',  color: '#eab308' },
-  { val: 4, label: 'Bien',          color: '#22c55e' },
-  { val: 5, label: 'Excellent',     color: '#0ea5e9' },
+  { val: 1, label: 'Peu structurée',       color: '#ef4444' },
+  { val: 2, label: 'Partiellement',         color: '#f97316' },
+  { val: 3, label: 'Structurée',            color: '#eab308' },
+  { val: 4, label: 'Bien structurée',       color: '#22c55e' },
+  { val: 5, label: 'Très structurée',       color: '#0ea5e9' },
 ];
 
 function EntretienModal({ candidature, poste, annee, qIA, grille, onClose, onSaved }) {
@@ -815,14 +815,17 @@ function EntretienModal({ candidature, poste, annee, qIA, grille, onClose, onSav
   const [saving, setSaving]     = useState(false);
   const [saved, setSaved]       = useState(false);
 
-  // Note globale = moyenne des notes saisies (ignorer les 0)
-  const notees = Object.values(reponses).filter(r => r.note > 0);
+  // Note globale = moyenne des notes saisies (ignorer les 0 et les questions désactivées)
+  const notees = Object.values(reponses).filter(r => r.note > 0 && !r.disabled);
   const noteGlobale = notees.length > 0
     ? Math.round((notees.reduce((s, r) => s + r.note, 0) / notees.length) * 10) / 10
     : null;
 
   const majReponse = (i, champ, val) =>
     setReponses(r => ({ ...r, [i]: { ...r[i], [champ]: val } }));
+
+  const toggleDisabled = (i) =>
+    setReponses(r => ({ ...r, [i]: { ...r[i], disabled: !r[i]?.disabled } }));
 
   const sauvegarder = async () => {
     setSaving(true);
@@ -880,10 +883,21 @@ function EntretienModal({ candidature, poste, annee, qIA, grille, onClose, onSav
                 {axe}
               </div>
               <div className="divide-y divide-gray-100">
-                {questions.map(({ q, i }) => (
-                  <div key={i} className="px-4 py-3">
-                    <div className="text-sm text-gray-800 font-medium mb-2">{q}</div>
+                {questions.map(({ q, i }) => {
+                  const disabled = !!reponses[i]?.disabled;
+                  return (
+                  <div key={i} className={`px-4 py-3 transition ${disabled ? 'opacity-40' : ''}`}>
+                    <div className="flex items-start justify-between gap-2 mb-2">
+                      <div className="text-sm text-gray-800 font-medium flex-1">{q}</div>
+                      <button onClick={() => toggleDisabled(i)} title={disabled ? 'Réactiver la question' : 'Ne pas poser cette question'}
+                        className={`text-[10px] px-2 py-0.5 rounded border flex-shrink-0 mt-0.5 transition ${
+                          disabled ? 'border-gray-300 text-gray-400 bg-gray-50' : 'border-gray-200 text-gray-300 hover:border-orange-300 hover:text-orange-400'
+                        }`}>
+                        {disabled ? '+ Réactiver' : '✕ Non posée'}
+                      </button>
+                    </div>
 
+                    {!disabled && (<>
                     {/* Likert */}
                     <div className="flex gap-1.5 mb-2 flex-wrap">
                       {LIKERT.map(({ val, label, color }) => (
@@ -900,8 +914,6 @@ function EntretienModal({ candidature, poste, annee, qIA, grille, onClose, onSav
                         </button>
                       ))}
                     </div>
-
-                    {/* Note */}
                     <textarea
                       value={reponses[i]?.commentaire || ''}
                       onChange={e => majReponse(i, 'commentaire', e.target.value)}
@@ -909,8 +921,10 @@ function EntretienModal({ candidature, poste, annee, qIA, grille, onClose, onSav
                       rows={2}
                       className="w-full text-sm border border-gray-200 rounded-lg px-3 py-1.5 resize-none text-gray-600 placeholder-gray-300 focus:outline-none focus:border-iip-turquoise"
                     />
+                    </>)}
                   </div>
-                ))}
+                  );
+                })}
               </div>
             </div>
           ))}
@@ -1458,10 +1472,12 @@ function ModalNouveauCandidat({ onClose, onSaved }) {
 const COULEURS_AXES = ['#0369a1','#7c3aed','#15803d','#b45309','#dc2626','#0891b2','#4f46e5','#b45309'];
 
 function EditeurGrille({ grille, onSaved }) {
-  const [axes, setAxes]   = useState(null);
+  const [axes, setAxes]     = useState(null);
   const [saving, setSaving] = useState(false);
   const [saved, setSaved]   = useState(false);
   const [err, setErr]       = useState('');
+  const [dragAxe, setDragAxe] = useState(null); // index de l'axe en cours de drag
+  const [dragOver, setDragOver] = useState(null); // index cible
 
   useEffect(() => {
     if (grille) setAxes(grille.map(a => ({
@@ -1471,6 +1487,20 @@ function EditeurGrille({ grille, onSaved }) {
   }, [grille]);
 
   if (!axes) return <div className="text-gray-400 py-8">Chargement de la grille…</div>;
+
+  // Réordonner les axes par drag & drop
+  const onDragStartAxe = (i) => setDragAxe(i);
+  const onDragOverAxe  = (e, i) => { e.preventDefault(); setDragOver(i); };
+  const onDropAxe      = (i) => {
+    if (dragAxe === null || dragAxe === i) { setDragAxe(null); setDragOver(null); return; }
+    setAxes(ax => {
+      const nv = [...ax];
+      const [moved] = nv.splice(dragAxe, 1);
+      nv.splice(i, 0, moved);
+      return nv;
+    });
+    setDragAxe(null); setDragOver(null);
+  };
 
   const majAxe = (i, champ, val) => setAxes(ax => ax.map((a, j) => j === i ? { ...a, [champ]: val } : a));
   const majQ   = (ai, qi, val) => setAxes(ax => ax.map((a, j) => j !== ai ? a : {
@@ -1509,9 +1539,20 @@ function EditeurGrille({ grille, onSaved }) {
 
       <div className="space-y-4">
         {axes.map((axe, ai) => (
-          <div key={ai} className="border border-gray-200 rounded-xl overflow-hidden">
-            {/* En-tête axe */}
+          <div key={ai}
+            draggable
+            onDragStart={() => onDragStartAxe(ai)}
+            onDragOver={e => onDragOverAxe(e, ai)}
+            onDragLeave={() => setDragOver(null)}
+            onDrop={() => onDropAxe(ai)}
+            className={`border rounded-xl overflow-hidden transition ${
+              dragOver === ai && dragAxe !== ai
+                ? 'border-iip-turquoise shadow-md scale-[1.01]'
+                : 'border-gray-200'
+            }`}>
+            {/* En-tête axe — poignée de drag + titre + couleur + suppr */}
             <div className="flex items-center gap-2 px-3 py-2" style={{ background: axe.couleur }}>
+              <span className="text-white/50 cursor-grab active:cursor-grabbing text-lg select-none" title="Glisser pour réordonner">⠿</span>
               <input
                 value={axe.libelle}
                 onChange={e => majAxe(ai, 'libelle', e.target.value)}
