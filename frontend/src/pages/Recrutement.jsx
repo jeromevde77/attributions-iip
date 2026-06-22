@@ -168,9 +168,18 @@ function VuePostes({ postes, recharger, onOuvrir, annee }) {
       {/* Panneau import depuis À désigner */}
       {importPanel && (
         <div className="border border-iip-blue/30 rounded-lg p-4 mb-4 bg-iip-blue/5">
-          <div className="text-sm font-semibold text-iip-blue mb-3">
-            Attributions sans professeur — {annee}
-            <span className="text-xs font-normal text-gray-500 ml-2">Cliquez sur une ligne pour créer le poste</span>
+          <div className="text-sm font-semibold text-iip-blue mb-3 flex items-center justify-between">
+            <div>
+              Attributions sans professeur — {annee}
+              <span className="text-xs font-normal text-gray-500 ml-2">Cliquez sur une ligne ou importez tout</span>
+            </div>
+            {aDesigner.length > 0 && (
+              <Btn variant="primary" icon={IconCheck} onClick={async () => {
+                for (const ad of aDesigner) await creerDepuisAD(ad);
+              }}>
+                Tout créer ({aDesigner.length} postes)
+              </Btn>
+            )}
           </div>
           {loadingAD && <div className="text-sm text-gray-400">Chargement…</div>}
           {!loadingAD && aDesigner.length === 0 && (
