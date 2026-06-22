@@ -1,8 +1,6 @@
 /**
- * recrutement.js — Module recrutement (v2 simplifié)
- * Les postes à pourvoir = attributions "À désigner" dans Lucie.
- * Pas de table recrutement_poste — source de vérité = les attributions.
- * Seule table additionnelle : recrutement_candidat + recrutement_candidature.
+ * recrutement.js — Module recrutement (v3)
+ * Documents multiples par candidat (CV, lettre, diplômes, annexes).
  */
 import { Router } from 'express';
 import db from '../db/index.js';
@@ -13,30 +11,50 @@ import { join } from 'path';
 
 const DATA_DIR = process.env.DATA_DIR || '/app/data';
 
+// Types de documents acceptés
+export const TYPES_DOC = {
+  cv:           'CV',
+  lettre:       'Lettre de motivation',
+  diplome:      'Diplôme / Certificat',
+  annexe:       'Annexe',
+};
+
+const MIMETYPES_ACCEPTES = [
+  'application/pdf',
+  'application/msword',
+  'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+  'image/jpeg', 'image/png', 'image/webp', 'image/gif',
+  'application/vnd.ms-excel',
+  'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+];
+
 const uploadStorage = multer.diskStorage({
   destination(req, file, cb) {
-    const dir = join(DATA_DIR, 'recrutement', 'cv');
+    const dir = join(DATA_DIR, 'recrutement', 'docs', String(req.params.id || 'tmp'));
     mkdirSync(dir, { recursive: true });
     cb(null, dir);
   },
   filename(req, file, cb) {
     const ts = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19);
-    const safe = (file.originalname || 'cv.pdf').replace(/[^\w.\-]/g, '_');
+    const safe = (file.originalname || 'doc').replace(/[^\w.\-]/g, '_');
     cb(null, `${ts}_${safe}`);
   }
 });
-const upload = multer({ storage: uploadStorage, limits: { fileSize: 20 * 1024 * 1024 } });
+const upload = multer({
+  storage: uploadStorage,
+  limits: { fileSize: 25 * 1024 * 1024 },
+  fileFilter(req, file, cb) {
+    cb(null, MIMETYPES_ACCEPTES.includes(file.mimetype) || true); // accepte tout, vérifie côté DB
+  }
+});
 
 const r = Router();
 r.use(authRequired);
 r.use(roleRequired('admin'));
 
 // ═══════════════════════════════════════════════════════════════════════════════
-// POSTES À POURVOIR — directement depuis les attributions "À désigner"
+// POSTES À POURVOIR
 // ═══════════════════════════════════════════════════════════════════════════════
-
-// GET /api/recrutement/postes?annee=
-// Retourne la liste des cours à pourvoir (groupés par UE+cours+section)
 r.get('/postes', (req, res) => {
   const { annee } = req.query;
   if (!annee) return res.status(400).json({ error: 'annee requise' });
@@ -51,19 +69,9 @@ r.get('/postes', (req, res) => {
 
   const postes = db.prepare(`
     SELECT
-      v.section,
-      v.ue_num,
-      v.ue_nom,
-      v.contrat_mdp,
-      v.code_cours,
-      v.nom_cours,
-      v.type_cours,
-      v.bloc,
-      u.ue_quad,
-      u.ue_per_cours,
-      u.ue_aut,
-      u.ects,
-      u.ue_niv,
+      v.section, v.ue_num, v.ue_nom, v.contrat_mdp,
+      v.code_cours, v.nom_cours, v.type_cours, v.bloc,
+      u.ue_quad, u.ue_per_cours, u.ue_aut, u.ects, u.ue_niv,
       COUNT(*) AS nb_groupes,
       (SELECT COUNT(*) FROM recrutement_candidature rc
        WHERE rc.annee_scolaire = v.annee_scolaire
@@ -82,14 +90,11 @@ r.get('/postes', (req, res) => {
   res.json(postes);
 });
 
-// GET /api/recrutement/postes/:ue_num/:code_cours/:section?annee=
-// Détail d'un poste : infos UE + AA + candidats
 r.get('/postes/:ue_num/:code_cours/:section', (req, res) => {
   const { annee } = req.query;
   const { ue_num, code_cours, section } = req.params;
   if (!annee) return res.status(400).json({ error: 'annee requise' });
 
-  // Infos UE
   const ue = db.prepare(`
     SELECT u.*, c.cours_nom, c.ct_pp, c.cours_per
     FROM ue u
@@ -98,34 +103,37 @@ r.get('/postes/:ue_num/:code_cours/:section', (req, res) => {
     WHERE u.ue_num = ? AND u.annee_scolaire = ?
   `).get(code_cours, ue_num, annee);
 
-  // AA de l'UE
   const aa = db.prepare(
     'SELECT aa_code, aa_num, description FROM aa WHERE ue_num = ? ORDER BY aa_num'
   ).all(ue_num);
 
-  // Candidats rattachés
   const candidats = db.prepare(`
-    SELECT rc.*, c.nom, c.email, c.telephone, c.cv_path, c.cv_nom, c.cv_url, c.notes
+    SELECT rc.*, c.nom, c.email, c.telephone, c.cv_url, c.notes
     FROM recrutement_candidature rc
     JOIN recrutement_candidat c ON c.id = rc.candidat_id
     WHERE rc.annee_scolaire = ? AND rc.ue_num = ? AND rc.code_cours = ? AND rc.section = ?
     ORDER BY rc.cree_le DESC
   `).all(annee, ue_num, code_cours, section);
 
-  res.json({ ue, aa, candidats, ue_num, code_cours, section, annee });
+  // Documents pour chaque candidat
+  const candidatsAvecDocs = candidats.map(c => ({
+    ...c,
+    documents: db.prepare(
+      'SELECT id, type, nom_original, taille, cree_le FROM recrutement_document WHERE candidat_id = ? ORDER BY cree_le DESC'
+    ).all(c.candidat_id),
+  }));
+
+  res.json({ ue, aa, candidats: candidatsAvecDocs, ue_num, code_cours, section, annee });
 });
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // CANDIDATS
 // ═══════════════════════════════════════════════════════════════════════════════
-
-// POST /api/recrutement/candidats — créer un candidat et le rattacher à un poste
 r.post('/candidats', (req, res) => {
   const { nom, email, telephone, cv_url, notes, annee, ue_num, code_cours, section } = req.body;
   if (!nom) return res.status(400).json({ error: 'Nom requis' });
 
   const tx = db.transaction(() => {
-    // Créer ou réutiliser le candidat (par email si fourni)
     let cand = email
       ? db.prepare('SELECT id FROM recrutement_candidat WHERE email = ?').get(email)
       : null;
@@ -138,78 +146,80 @@ r.post('/candidats', (req, res) => {
       db.prepare('UPDATE recrutement_candidat SET nom=?, telephone=COALESCE(?,telephone), notes=COALESCE(?,notes) WHERE id=?')
         .run(nom, telephone || null, notes || null, cand.id);
     }
-
-    // Rattacher au poste
     if (annee && ue_num && code_cours && section) {
       try {
         db.prepare(`INSERT INTO recrutement_candidature
           (candidat_id, annee_scolaire, ue_num, code_cours, section, statut)
           VALUES (?, ?, ?, ?, ?, 'a_voir')`
         ).run(cand.id, annee, ue_num, code_cours, section);
-      } catch (e) {
-        if (!String(e.message).includes('UNIQUE')) throw e;
-      }
+      } catch (e) { if (!String(e.message).includes('UNIQUE')) throw e; }
     }
     return cand.id;
   });
 
-  const id = tx();
-  res.json({ id });
+  res.json({ id: tx() });
 });
 
-// POST /api/recrutement/candidats/:id/cv — upload CV
-r.post('/candidats/:id/cv', upload.single('fichier'), (req, res) => {
-  const c = db.prepare('SELECT id, cv_path FROM recrutement_candidat WHERE id = ?').get(req.params.id);
+// ═══════════════════════════════════════════════════════════════════════════════
+// DOCUMENTS (multiples par candidat, par type)
+// ═══════════════════════════════════════════════════════════════════════════════
+
+// POST /candidats/:id/documents?type=cv|lettre|diplome|annexe
+r.post('/candidats/:id/documents', upload.single('fichier'), (req, res) => {
+  const c = db.prepare('SELECT id FROM recrutement_candidat WHERE id = ?').get(req.params.id);
   if (!c) return res.status(404).json({ error: 'Candidat introuvable' });
   if (!req.file) return res.status(400).json({ error: 'Aucun fichier reçu' });
-  if (c.cv_path && existsSync(c.cv_path)) { try { unlinkSync(c.cv_path); } catch {} }
-  db.prepare('UPDATE recrutement_candidat SET cv_path = ?, cv_nom = ? WHERE id = ?')
-    .run(req.file.path, req.file.originalname, c.id);
-  res.json({ ok: true, cv_nom: req.file.originalname });
+
+  const type = req.query.type && TYPES_DOC[req.query.type] ? req.query.type : 'annexe';
+  const info = db.prepare(
+    'INSERT INTO recrutement_document (candidat_id, type, nom_original, chemin, taille) VALUES (?, ?, ?, ?, ?)'
+  ).run(c.id, type, req.file.originalname, req.file.path, req.file.size);
+
+  res.json({ id: info.lastInsertRowid, type, nom_original: req.file.originalname });
 });
 
-// GET /api/recrutement/candidats/:id/cv — télécharger le CV
-r.get('/candidats/:id/cv', (req, res) => {
-  const c = db.prepare('SELECT cv_path, cv_nom FROM recrutement_candidat WHERE id = ?').get(req.params.id);
-  if (!c || !c.cv_path || !existsSync(c.cv_path)) return res.status(404).json({ error: 'CV introuvable' });
-  res.download(c.cv_path, c.cv_nom || 'cv.pdf');
+// GET /documents/:id — télécharger un document
+r.get('/documents/:id', (req, res) => {
+  const doc = db.prepare('SELECT * FROM recrutement_document WHERE id = ?').get(req.params.id);
+  if (!doc || !existsSync(doc.chemin)) return res.status(404).json({ error: 'Document introuvable' });
+  res.download(doc.chemin, doc.nom_original);
 });
 
-// PATCH /api/recrutement/candidatures/:id — mettre à jour statut/notes
-r.patch('/candidatures/:id', (req, res) => {
-  const { statut, commentaire, note_globale } = req.body;
-  db.prepare(`UPDATE recrutement_candidature SET
-    statut = COALESCE(?, statut),
-    commentaire = ?,
-    note_globale = ?,
-    modifie_le = datetime('now')
-    WHERE id = ?`).run(statut || null, commentaire ?? null, note_globale ?? null, req.params.id);
+// DELETE /documents/:id
+r.delete('/documents/:id', (req, res) => {
+  const doc = db.prepare('SELECT chemin FROM recrutement_document WHERE id = ?').get(req.params.id);
+  if (!doc) return res.status(404).json({ error: 'Document introuvable' });
+  if (existsSync(doc.chemin)) { try { unlinkSync(doc.chemin); } catch {} }
+  db.prepare('DELETE FROM recrutement_document WHERE id = ?').run(req.params.id);
   res.json({ ok: true });
 });
 
-// DELETE /api/recrutement/candidatures/:id
+// ═══════════════════════════════════════════════════════════════════════════════
+// CANDIDATURES
+// ═══════════════════════════════════════════════════════════════════════════════
+r.patch('/candidatures/:id', (req, res) => {
+  const { statut, commentaire, note_globale } = req.body;
+  db.prepare(`UPDATE recrutement_candidature SET
+    statut = COALESCE(?, statut), commentaire = ?, note_globale = ?,
+    modifie_le = datetime('now') WHERE id = ?`
+  ).run(statut || null, commentaire ?? null, note_globale ?? null, req.params.id);
+  res.json({ ok: true });
+});
+
 r.delete('/candidatures/:id', (req, res) => {
   db.prepare('DELETE FROM recrutement_candidature WHERE id = ?').run(req.params.id);
   res.json({ ok: true });
 });
 
 // ═══════════════════════════════════════════════════════════════════════════════
-// CONTEXTE POUR L'IA (suggestions + annonce)
+// CONTEXTE IA
 // ═══════════════════════════════════════════════════════════════════════════════
 r.get('/contexte', (req, res) => {
   const { annee, ue_num, section } = req.query;
   if (!annee) return res.status(400).json({ error: 'annee requise' });
-
-  const ue = ue_num
-    ? db.prepare('SELECT * FROM ue WHERE ue_num = ? AND annee_scolaire = ?').get(ue_num, annee)
-    : null;
-  const cours = ue_num
-    ? db.prepare('SELECT cours_nom, ct_pp, cours_per FROM cours WHERE ue_num = ? AND annee_scolaire = ?').all(ue_num, annee)
-    : [];
-  const aa = ue_num
-    ? db.prepare('SELECT aa_code, description FROM aa WHERE ue_num = ? ORDER BY aa_num').all(ue_num)
-    : [];
-
+  const ue = ue_num ? db.prepare('SELECT * FROM ue WHERE ue_num = ? AND annee_scolaire = ?').get(ue_num, annee) : null;
+  const cours = ue_num ? db.prepare('SELECT cours_nom, ct_pp, cours_per FROM cours WHERE ue_num = ? AND annee_scolaire = ?').all(ue_num, annee) : [];
+  const aa = ue_num ? db.prepare('SELECT aa_code, description FROM aa WHERE ue_num = ? ORDER BY aa_num').all(ue_num) : [];
   res.json({ ue, cours, aa, section, annee });
 });
 

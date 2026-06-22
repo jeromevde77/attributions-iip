@@ -244,16 +244,28 @@ function FichePoste({ poste, annee, onBack }) {
 }
 
 /* ══════════════════════ FORMULAIRE CANDIDAT + EXTRACTION CV ══════════════════════ */
-function FormulaireCandidatIA({ annee, ue_num, code_cours, section, onSaved, onCancel }) {
-  const [f, setF] = useState({ nom: '', email: '', telephone: '', cv_url: '', notes: '' });
-  const [cvFile, setCvFile]   = useState(null);
-  const [extracting, setExtracting] = useState(false);
-  const [busy, setBusy]       = useState(false);
-  const [err, setErr]         = useState('');
+const TYPES_DOC = {
+  cv:      { label: 'CV',                    accept: '.pdf,.doc,.docx,.jpg,.jpeg,.png' },
+  lettre:  { label: 'Lettre de motivation',  accept: '.pdf,.doc,.docx' },
+  diplome: { label: 'Diplôme / Certificat',  accept: '.pdf,.jpg,.jpeg,.png' },
+  annexe:  { label: 'Annexe',               accept: '*' },
+};
 
-  // Extraction des infos du CV via IA (lecture du PDF en base64 + appel Claude)
+function FormulaireCandidatIA({ annee, ue_num, code_cours, section, onSaved, onCancel }) {
+  const [f, setF]               = useState({ nom: '', email: '', telephone: '', cv_url: '', notes: '' });
+  const [docs, setDocs]         = useState([]); // [{ type, file }]
+  const [extracting, setExtracting] = useState(false);
+  const [busy, setBusy]         = useState(false);
+  const [err, setErr]           = useState('');
+
+  const ajouterDoc = (type, file) => {
+    setDocs(prev => [...prev, { type, file }]);
+  };
+  const retirerDoc = (i) => setDocs(prev => prev.filter((_, j) => j !== i));
+
+  // Extraction IA depuis un PDF (CV prioritairement)
   const extraireCV = async (file) => {
-    setCvFile(file);
+    if (file.type !== 'application/pdf') return; // extraction seulement sur PDF
     setExtracting(true);
     try {
       const base64 = await new Promise((res, rej) => {
@@ -262,34 +274,28 @@ function FormulaireCandidatIA({ annee, ue_num, code_cours, section, onSaved, onC
         r.onerror = rej;
         r.readAsDataURL(file);
       });
-
       const resp = await fetch('https://api.anthropic.com/v1/messages', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          model: 'claude-sonnet-4-6',
-          max_tokens: 500,
+          model: 'claude-sonnet-4-6', max_tokens: 500,
           messages: [{ role: 'user', content: [
             { type: 'document', source: { type: 'base64', media_type: 'application/pdf', data: base64 } },
-            { type: 'text', text: 'Extrais les informations suivantes de ce CV. Réponds UNIQUEMENT en JSON valide sans backticks : {"nom":"prénom nom complet","email":"","telephone":"","notes":"résumé en 1-2 phrases du profil et de l\'expérience pertinente"}' }
+            { type: 'text', text: 'Extrais du CV. JSON strict sans backticks : {"nom":"prénom nom","email":"","telephone":"","notes":"profil en 1-2 phrases"}' }
           ]}]
         }),
       });
       const data = await resp.json();
-      const text = (data.content || []).map(b => b.text || '').join('').trim();
-      const info = JSON.parse(text);
+      const info = JSON.parse((data.content || []).map(b => b.text || '').join('').trim());
       setF(prev => ({
-        ...prev,
         nom:       info.nom       || prev.nom,
         email:     info.email     || prev.email,
         telephone: info.telephone || prev.telephone,
         notes:     info.notes     || prev.notes,
+        cv_url:    prev.cv_url,
       }));
-    } catch (e) {
-      setErr('Extraction impossible : ' + e.message);
-    } finally {
-      setExtracting(false);
-    }
+    } catch { /* extraction optionnelle, pas bloquante */ }
+    finally { setExtracting(false); }
   };
 
   const soumettre = async () => {
@@ -299,11 +305,11 @@ function FormulaireCandidatIA({ annee, ue_num, code_cours, section, onSaved, onC
       const { id } = await af('/candidats', { method: 'POST',
         body: JSON.stringify({ ...f, annee, ue_num, code_cours, section }) });
 
-      // Upload du CV si présent
-      if (cvFile && id) {
+      // Upload de tous les documents
+      for (const { type, file } of docs) {
         const fd = new FormData();
-        fd.append('fichier', cvFile);
-        await fetch(`/api/recrutement/candidats/${id}/cv`, {
+        fd.append('fichier', file);
+        await fetch(`/api/recrutement/candidats/${id}/documents?type=${type}`, {
           method: 'POST', headers: { Authorization: `Bearer ${tok()}` }, body: fd,
         });
       }
@@ -312,31 +318,53 @@ function FormulaireCandidatIA({ annee, ue_num, code_cours, section, onSaved, onC
   };
 
   return (
-    <div className="border border-iip-turquoise/40 rounded-xl p-4 mb-4 bg-iip-turquoise/5 space-y-3">
-      {/* Upload CV avec extraction IA */}
-      <div className="border-2 border-dashed border-iip-turquoise/30 rounded-lg p-4 text-center">
-        <label className="cursor-pointer">
-          <div className="text-sm text-gray-600 mb-1">
-            {extracting ? (
-              <span className="flex items-center justify-center gap-2">
-                <span className="animate-spin w-4 h-4 border-2 border-iip-blue border-t-transparent rounded-full inline-block" />
-                Extraction des infos en cours…
-              </span>
-            ) : cvFile ? (
-              <span className="text-iip-blue font-medium flex items-center justify-center gap-1">
-                <IconFileCv size={16} /> {cvFile.name}
-              </span>
-            ) : (
-              <span className="flex items-center justify-center gap-1 text-gray-500">
-                <IconUpload size={16} /> Déposer le CV (PDF) — les infos seront extraites automatiquement
-              </span>
-            )}
+    <div className="border border-iip-turquoise/40 rounded-xl p-4 mb-4 bg-iip-turquoise/5 space-y-4">
+
+      {/* Zone dépôt de documents par type */}
+      <div>
+        <div className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">Documents</div>
+        <div className="grid grid-cols-2 gap-2">
+          {Object.entries(TYPES_DOC).map(([type, { label, accept }]) => (
+            <label key={type} className="cursor-pointer border border-dashed border-gray-300 rounded-lg px-3 py-2.5 hover:border-iip-turquoise hover:bg-white transition flex items-center gap-2">
+              <IconUpload size={14} className="text-gray-400 flex-shrink-0" />
+              <div>
+                <div className="text-xs font-medium text-gray-700">{label}</div>
+                <div className="text-[10px] text-gray-400">PDF, Word, image…</div>
+              </div>
+              <input type="file" accept={accept} className="hidden" onChange={e => {
+                const file = e.target.files?.[0];
+                if (!file) return;
+                ajouterDoc(type, file);
+                if (type === 'cv') extraireCV(file);
+                e.target.value = '';
+              }} />
+            </label>
+          ))}
+        </div>
+
+        {/* Liste des fichiers ajoutés */}
+        {docs.length > 0 && (
+          <div className="mt-2 space-y-1">
+            {docs.map((d, i) => (
+              <div key={i} className="flex items-center gap-2 text-xs bg-white border border-gray-100 rounded px-2 py-1.5">
+                <IconFileCv size={13} className="text-iip-blue flex-shrink-0" />
+                <span className="text-gray-500 flex-shrink-0">{TYPES_DOC[d.type]?.label}</span>
+                <span className="text-gray-700 truncate flex-1">{d.file.name}</span>
+                <button onClick={() => retirerDoc(i)} className="text-gray-300 hover:text-red-500 flex-shrink-0"><IconX size={13} /></button>
+              </div>
+            ))}
           </div>
-          <input type="file" accept="application/pdf" className="hidden"
-            onChange={e => e.target.files?.[0] && extraireCV(e.target.files[0])} />
-        </label>
+        )}
+
+        {extracting && (
+          <div className="flex items-center gap-1.5 text-xs text-iip-blue mt-2">
+            <span className="animate-spin w-3 h-3 border-2 border-iip-blue border-t-transparent rounded-full" />
+            Extraction des infos du CV…
+          </div>
+        )}
       </div>
 
+      {/* Infos candidat */}
       <div className="grid grid-cols-2 gap-3">
         <Champ label="Nom *" value={f.nom} onChange={v => setF({ ...f, nom: v })} />
         <Champ label="E-mail" value={f.email} onChange={v => setF({ ...f, email: v })} />
@@ -348,6 +376,7 @@ function FormulaireCandidatIA({ annee, ue_num, code_cours, section, onSaved, onC
         <textarea value={f.notes} onChange={e => setF({ ...f, notes: e.target.value })} rows={2}
           className="w-full text-sm border border-gray-300 rounded px-2 py-1.5" />
       </div>
+
       {err && <div className="text-xs text-red-600">{err}</div>}
       <div className="flex gap-2 justify-end">
         <Btn variant="ghost" onClick={onCancel}>Annuler</Btn>
@@ -361,8 +390,10 @@ function FormulaireCandidatIA({ annee, ue_num, code_cours, section, onSaved, onC
 
 /* ══════════════════════ CARTE CANDIDAT ══════════════════════ */
 function CarteCandidatPoste({ candidature: c, onChange }) {
-  const [open, setOpen] = useState(false);
+  const [open, setOpen]       = useState(false);
+  const [uploading, setUploading] = useState(false);
   const st = STATUT[c.statut] || STATUT.a_voir;
+  const docs = c.documents || [];
 
   const supprimerCandidature = async () => {
     if (!confirm('Retirer ce candidat de ce poste ?')) return;
@@ -375,38 +406,88 @@ function CarteCandidatPoste({ candidature: c, onChange }) {
     onChange();
   };
 
+  const ajouterDoc = async (type, file) => {
+    setUploading(true);
+    try {
+      const fd = new FormData();
+      fd.append('fichier', file);
+      await fetch(`/api/recrutement/candidats/${c.candidat_id}/documents?type=${type}`, {
+        method: 'POST', headers: { Authorization: `Bearer ${tok()}` }, body: fd,
+      });
+      onChange();
+    } catch (e) { alert(e.message); } finally { setUploading(false); }
+  };
+
+  const supprimerDoc = async (docId) => {
+    await af(`/documents/${docId}`, { method: 'DELETE' });
+    onChange();
+  };
+
   return (
-    <div className="border border-gray-200 bg-white rounded-lg">
+    <div className="border border-gray-200 bg-white rounded-lg overflow-hidden">
+      {/* En-tête candidat */}
       <div className="px-4 py-3 flex items-center justify-between gap-3">
-        <div className="min-w-0">
-          <div className="font-semibold text-iip-blue">{c.nom}</div>
-          <div className="text-xs text-gray-500">{[c.email, c.telephone].filter(Boolean).join(' · ') || '—'}</div>
-          {c.notes && <div className="text-xs text-gray-500 mt-0.5 italic truncate max-w-md">{c.notes}</div>}
+        <div className="min-w-0 flex-1">
+          <div className="font-semibold text-iip-blue flex items-center gap-2">
+            {c.nom}
+            <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full"
+              style={{ color: st.color, background: st.bg }}>{st.label}</span>
+          </div>
+          <div className="text-xs text-gray-400">{[c.email, c.telephone].filter(Boolean).join(' · ') || '—'}</div>
+          {c.notes && <div className="text-xs text-gray-500 mt-0.5 italic">{c.notes}</div>}
         </div>
         <div className="flex items-center gap-2 flex-shrink-0">
-          {/* Sélecteur statut */}
           <select value={c.statut} onChange={e => majStatut(e.target.value)}
-            className="text-xs border border-gray-200 rounded px-2 py-1"
-            style={{ color: st.color, background: st.bg }}>
+            className="text-xs border border-gray-200 rounded px-2 py-1 h-7"
+            style={{ color: st.color }}>
             {Object.entries(STATUT).map(([k, v]) => <option key={k} value={k}>{v.label}</option>)}
           </select>
-          {/* CV */}
-          {c.cv_path ? (
-            <a href={`/api/recrutement/candidats/${c.candidat_id}/cv`} target="_blank" rel="noreferrer"
-              className="text-xs border border-gray-200 rounded px-2 py-1 flex items-center gap-1 hover:bg-gray-50">
-              <IconFileCv size={13} /> CV
-            </a>
-          ) : c.cv_url ? (
-            <a href={c.cv_url} target="_blank" rel="noreferrer"
-              className="text-xs border border-gray-200 rounded px-2 py-1 flex items-center gap-1 hover:bg-gray-50">
-              <IconExternalLink size={13} /> CV
-            </a>
-          ) : null}
+          <button onClick={() => setOpen(v => !v)}
+            className="text-xs text-gray-400 hover:text-iip-blue px-2 py-1 border border-gray-200 rounded">
+            {open ? '▲' : `▼ Docs (${docs.length})`}
+          </button>
           <button onClick={supprimerCandidature} className="text-gray-300 hover:text-red-500 p-1">
             <IconX size={15} />
           </button>
         </div>
       </div>
+
+      {/* Section documents dépliable */}
+      {open && (
+        <div className="border-t border-gray-100 px-4 py-3 bg-gray-50/50">
+          {/* Documents existants groupés par type */}
+          {docs.length > 0 && (
+            <div className="space-y-1 mb-3">
+              {docs.map(d => (
+                <div key={d.id} className="flex items-center gap-2 text-xs bg-white border border-gray-100 rounded px-2 py-1.5">
+                  <IconFileCv size={13} className="text-iip-blue flex-shrink-0" />
+                  <span className="text-gray-400 flex-shrink-0 w-20">{TYPES_DOC[d.type]?.label || d.type}</span>
+                  <a href={`/api/recrutement/documents/${d.id}`} target="_blank" rel="noreferrer"
+                    className="text-iip-blue hover:underline truncate flex-1">{d.nom_original}</a>
+                  <button onClick={() => supprimerDoc(d.id)} className="text-gray-300 hover:text-red-500 flex-shrink-0">
+                    <IconTrash size={12} />
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
+
+          {/* Ajouter des documents */}
+          <div className="flex flex-wrap gap-2">
+            {Object.entries(TYPES_DOC).map(([type, { label, accept }]) => (
+              <label key={type} className="cursor-pointer text-[11px] border border-dashed border-gray-300 rounded px-2 py-1 hover:border-iip-turquoise hover:bg-white flex items-center gap-1 text-gray-500">
+                <IconUpload size={11} />
+                {label}
+                <input type="file" accept={accept} className="hidden" onChange={e => {
+                  const file = e.target.files?.[0];
+                  if (file) { ajouterDoc(type, file); e.target.value = ''; }
+                }} />
+              </label>
+            ))}
+            {uploading && <span className="text-[11px] text-iip-blue animate-pulse">Envoi…</span>}
+          </div>
+        </div>
+      )}
     </div>
   );
 }

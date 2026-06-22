@@ -2182,12 +2182,23 @@ try {
     nom         TEXT NOT NULL,
     email       TEXT UNIQUE,
     telephone   TEXT,
-    cv_path     TEXT,
-    cv_nom      TEXT,
     cv_url      TEXT,
     notes       TEXT,
     cree_le     TEXT DEFAULT (datetime('now'))
   );`);
+
+  // Table documents : plusieurs fichiers par candidat, par type
+  db.exec(`CREATE TABLE IF NOT EXISTS recrutement_document (
+    id           INTEGER PRIMARY KEY AUTOINCREMENT,
+    candidat_id  INTEGER NOT NULL REFERENCES recrutement_candidat(id) ON DELETE CASCADE,
+    type         TEXT NOT NULL DEFAULT 'autre',
+    nom_original TEXT NOT NULL,
+    chemin       TEXT NOT NULL,
+    taille       INTEGER,
+    cree_le      TEXT DEFAULT (datetime('now'))
+  );
+  CREATE INDEX IF NOT EXISTS idx_rdoc_candidat ON recrutement_document(candidat_id);
+  `);
 
   // Migration : si l'ancienne recrutement_candidature existe avec poste_id, la renommer
   const cols = db.prepare("PRAGMA table_info(recrutement_candidature)").all().map(c => c.name);
