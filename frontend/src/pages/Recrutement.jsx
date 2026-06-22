@@ -507,6 +507,16 @@ function CarteCandidatPoste({ candidature: c, onChange, onEntretien }) {
     onChange();
   };
 
+  const attribuer = async () => {
+    const nomAff = [c.prenom, c.nom].filter(Boolean).join(' ');
+    if (!confirm(`Attribuer ${nomAff} à ce cours ?\n\nCela va :\n• Créer sa fiche dans Personnel\n• L'assigner au cours\n• Notifier la direction et les RH`)) return;
+    try {
+      const res = await af(`/candidatures/${c.id}/attribuer`, { method: 'POST' });
+      alert(`✓ ${res.nom} a été créé dans Personnel et attribué au cours.\nNotification envoyée.`);
+      onChange();
+    } catch (e) { alert('Erreur : ' + e.message); }
+  };
+
   return (
     <div className="border border-gray-200 bg-white rounded-lg overflow-hidden">
       {/* En-tête candidat */}
@@ -525,6 +535,12 @@ function CarteCandidatPoste({ candidature: c, onChange, onEntretien }) {
             className="text-xs border border-iip-turquoise text-iip-blue hover:bg-iip-turquoise/10 rounded px-2 py-1 h-7 flex items-center gap-1 flex-shrink-0">
             <IconClipboardText size={12} /> Entretien
           </button>
+          {c.statut === 'retenu' && (
+            <button onClick={attribuer}
+              className="text-xs bg-green-600 hover:bg-green-700 text-white rounded px-2 py-1 h-7 flex items-center gap-1 font-semibold flex-shrink-0">
+              <IconCheck size={12} /> Attribuer
+            </button>
+          )}
           <select value={c.statut} onChange={e => majStatut(e.target.value)}
             className="text-xs border border-gray-200 rounded px-2 py-1 h-7"
             style={{ color: st.color }}>

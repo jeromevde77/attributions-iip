@@ -8,6 +8,7 @@ import { authRequired, roleRequired } from '../middleware/auth.js';
 import multer from 'multer';
 import { mkdirSync, existsSync, unlinkSync } from 'fs';
 import { join } from 'path';
+import { envoyerEmail, templateNotif } from '../services/mailer.js';
 
 const DATA_DIR = process.env.DATA_DIR || '/app/data';
 
@@ -285,6 +286,169 @@ r.patch('/candidatures/:id', (req, res) => {
 
 r.delete('/candidatures/:id', (req, res) => {
   db.prepare('DELETE FROM recrutement_candidature WHERE id = ?').run(req.params.id);
+  res.json({ ok: true });
+});
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// ATTRIBUTION D'UN CANDIDAT → CRÉE LE PROFESSEUR + L'ATTRIBUTION
+// ═══════════════════════════════════════════════════════════════════════════════
+r.post('/candidatures/:id/attribuer', async (req, res) => {
+  const cand = db.prepare(`
+    SELECT rc.*, c.nom, c.prenom, c.email, c.telephone, c.fonction
+    FROM recrutement_candidature rc
+    JOIN recrutement_candidat c ON c.id = rc.candidat_id
+    WHERE rc.id = ?
+  `).get(req.params.id);
+  if (!cand) return res.status(404).json({ error: 'Candidature introuvable' });
+
+  // Récupérer les infos du cours (charge horaire)
+  const ue = db.prepare('SELECT * FROM ue WHERE ue_num = ? AND annee_scolaire = ?')
+    .get(cand.ue_num, cand.annee_scolaire);
+
+  const tx = db.transaction(() => {
+    // 1. Créer ou retrouver le professeur
+    let prof = db.prepare('SELECT id FROM professeur WHERE nom = ? AND prenom = ?')
+      .get(cand.nom?.toUpperCase() || cand.nom, cand.prenom);
+
+    if (!prof) {
+      const info = db.prepare(`
+        INSERT INTO professeur (nom, prenom, adresse_mail, mail_prive, statut)
+        VALUES (?, ?, ?, ?, 'MDP')
+      `).run(
+        (cand.nom || '').toUpperCase(),
+        cand.prenom || '',
+        cand.email ? cand.email.toLowerCase() : null,
+        cand.email ? cand.email.toLowerCase() : null
+      );
+      prof = { id: info.lastInsertRowid };
+    }
+
+    // 2. Créer l'attribution (remplace le À DÉSIGNER)
+    const aDesignerIds = db.prepare("SELECT id FROM professeur WHERE UPPER(nom) LIKE '%SIGN%'").all().map(p => p.id);
+    const periodes = ue ? (ue.ue_per_cours || 0) : 0;
+    const autonomie = ue ? (ue.ue_aut || 0) : 0;
+
+    // Chercher une attribution À désigner pour ce cours/section et la mettre à jour
+    let attrMaj = false;
+    if (aDesignerIds.length) {
+      const placeholders = aDesignerIds.map(() => '?').join(',');
+      const attrExist = db.prepare(`
+        SELECT id FROM attribution
+        WHERE section = ? AND ue_num = ? AND code_cours = ? AND annee_scolaire = ?
+          AND professeur_id IN (${placeholders})
+        LIMIT 1
+      `).get(cand.section, cand.ue_num, cand.code_cours, cand.annee_scolaire, ...aDesignerIds);
+
+      if (attrExist) {
+        db.prepare('UPDATE attribution SET professeur_id = ? WHERE id = ?')
+          .run(prof.id, attrExist.id);
+        attrMaj = true;
+      }
+    }
+
+    // Si pas d'attribution existante, en créer une
+    if (!attrMaj) {
+      const maxOrg = db.prepare(
+        'SELECT MAX(num_organisation) AS m FROM attribution WHERE section = ? AND ue_num = ? AND annee_scolaire = ?'
+      ).get(cand.section, cand.ue_num, cand.annee_scolaire);
+      db.prepare(`
+        INSERT INTO attribution
+          (section, ue_num, annee_scolaire, professeur_id, periodes_attribuees,
+           autonomie_attribuee, num_organisation, organisation, contrat_mdp,
+           etablissement_referent, code_cours)
+        VALUES (?, ?, ?, ?, ?, ?, ?, 'x', ?, 'IIP', ?)
+      `).run(
+        cand.section, cand.ue_num, cand.annee_scolaire, prof.id,
+        periodes, autonomie, (maxOrg?.m || 0) + 1,
+        cand.contrat_mdp || 'IIP', cand.code_cours
+      );
+    }
+
+    // 3. Passer la candidature en "retenu"
+    db.prepare("UPDATE recrutement_candidature SET statut = 'retenu', modifie_le = datetime('now') WHERE id = ?")
+      .run(cand.id);
+
+    return prof.id;
+  });
+
+  let profId;
+  try { profId = tx(); } catch(e) {
+    console.error('[attribuer]', e.message);
+    return res.status(500).json({ error: e.message });
+  }
+
+  const nomComplet = [cand.prenom, cand.nom].filter(Boolean).join(' ');
+  const coursNom   = ue?.ue_nom || `UE ${cand.ue_num}`;
+
+  // 4. Créer la notification en base
+  const notifTitre = `Nouveau membre du personnel attribué : ${nomComplet}`;
+  const notifCorps = `
+    <strong>${nomComplet}</strong> a été attribué au cours <strong>${coursNom}</strong>
+    (${cand.section} · ${cand.annee_scolaire}).<br>
+    Sa fiche membre du personnel a été créée automatiquement dans Lucie.
+    Merci de compléter les informations manquantes (adresse, statut, etc.).
+  `;
+  db.prepare(`
+    INSERT INTO lucie_notification (type, titre, corps, lien, cible_role, cree_par)
+    VALUES (?, ?, ?, ?, ?, ?)
+  `).run('recrutement_attribue', notifTitre, notifCorps, '/professeurs', 'admin', req.user?.email || null);
+  // Notif pour la coordination de section
+  db.prepare(`
+    INSERT INTO lucie_notification (type, titre, corps, lien, cible_role, cree_par)
+    VALUES (?, ?, ?, ?, ?, ?)
+  `).run('recrutement_attribue', notifTitre, notifCorps, `/attributions`, 'coordination', req.user?.email || null);
+
+  // 5. Envoyer l'e-mail aux admins et RH (acces_recrutement)
+  const destinataires = db.prepare(`
+    SELECT email FROM utilisateur
+    WHERE actif = 1 AND email IS NOT NULL
+      AND (role = 'admin' OR acces_recrutement = 1)
+  `).all().map(u => u.email);
+
+  if (destinataires.length) {
+    const html = templateNotif({
+      titre: notifTitre,
+      corps: notifCorps,
+      lien: '/professeurs',
+      lienTexte: 'Voir la fiche dans Personnel',
+    });
+    await envoyerEmail({ to: destinataires, subject: `[Lucie] ${notifTitre}`, html });
+  }
+
+  res.json({ ok: true, professeur_id: profId, nom: nomComplet });
+});
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// NOTIFICATIONS
+// ═══════════════════════════════════════════════════════════════════════════════
+r.get('/notifications', (req, res) => {
+  const u = req.user;
+  const notifs = db.prepare(`
+    SELECT * FROM lucie_notification
+    WHERE cible_role IS NULL
+       OR cible_role = ?
+       OR (cible_user_id IS NOT NULL AND cible_user_id = ?)
+    ORDER BY cree_le DESC LIMIT 50
+  `).all(u.role, u.id);
+
+  res.json(notifs.map(n => ({
+    ...n,
+    lue: (() => {
+      try { return JSON.parse(n.lue_par || '[]').includes(u.id); } catch { return false; }
+    })(),
+  })));
+});
+
+r.post('/notifications/:id/lue', (req, res) => {
+  const n = db.prepare('SELECT id, lue_par FROM lucie_notification WHERE id = ?').get(req.params.id);
+  if (!n) return res.status(404).json({ error: 'Notification introuvable' });
+  try {
+    const lus = JSON.parse(n.lue_par || '[]');
+    if (!lus.includes(req.user.id)) {
+      lus.push(req.user.id);
+      db.prepare('UPDATE lucie_notification SET lue_par = ? WHERE id = ?').run(JSON.stringify(lus), n.id);
+    }
+  } catch {}
   res.json({ ok: true });
 });
 

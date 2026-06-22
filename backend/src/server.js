@@ -2227,6 +2227,25 @@ try {
   console.log('[migration] Tables recrutement v2 créées');
 } catch(e) { console.error('[migration] recrutement v2 :', e.message); }
 
+// ── Table de notifications Lucie ──────────────────────────────────────────────
+try {
+  db.exec(`CREATE TABLE IF NOT EXISTS lucie_notification (
+    id            INTEGER PRIMARY KEY AUTOINCREMENT,
+    type          TEXT NOT NULL,          -- 'recrutement_attribue' | 'attribution_new' | etc.
+    titre         TEXT NOT NULL,
+    corps         TEXT,                   -- HTML court
+    lien          TEXT,                   -- route frontend (ex: /recrutement)
+    cible_role    TEXT,                   -- 'admin' | 'editeur' | 'coordination' | null = tous
+    cible_user_id INTEGER,               -- utilisateur spécifique (null = par rôle)
+    cree_par      TEXT,
+    cree_le       TEXT DEFAULT (datetime('now')),
+    lue_par       TEXT DEFAULT '[]'       -- JSON array d'user ids
+  );
+  CREATE INDEX IF NOT EXISTS idx_notif_cree_le ON lucie_notification(cree_le DESC);
+  `);
+  console.log('[migration] Table lucie_notification créée');
+} catch(e) { console.error('[migration] lucie_notification :', e.message); }
+
 // ── Recrutement : champ fonction sur candidat + table fonctions ───────────────
 try {
   const cols = db.prepare('PRAGMA table_info(recrutement_candidat)').all().map(c => c.name);

@@ -22,6 +22,7 @@ import WelcomeV3 from './WelcomeV3.jsx';
 import {
   IconClipboardList, IconUsers, IconFileExport, IconChecklist,
   IconChartBar, IconCalendarStats, IconEdit, IconSettings, IconLogout, IconMenu2, IconX,
+  IconHome, IconBell,
 } from '@tabler/icons-react';
 
 import Login from './pages/Login.jsx';
@@ -30,6 +31,7 @@ import Attributions from './pages/Attributions.jsx';
 import Professeurs from './pages/Professeurs.jsx';
 import DCPP from './pages/DCPP.jsx';
 import Recrutement from './pages/Recrutement.jsx';
+import Accueil from './pages/Accueil.jsx';
 import { lazy, Suspense } from 'react';
 const Listes     = lazy(() => import('./pages/Listes.jsx'));
 const Editeur    = lazy(() => import('./pages/Editeur.jsx'));
@@ -91,8 +93,23 @@ function ProtectedLayout({ children }) {
   const [anneeActive, setAnneeActive] = useState(getAnnee());
   const [env, setEnv] = useState(null);
   const [versionIsNew, setVersionIsNew] = useState(false);
-  // Écran d'accueil magique : affiché une seule fois par utilisateur au passage en v3.
+  const [nbNotifs, setNbNotifs] = useState(0);
   const [showWelcome, setShowWelcome] = useState(false);
+
+  // Polling notifications non lues (toutes les 60s)
+  useEffect(() => {
+    const chargerNotifs = () => {
+      const tok = localStorage.getItem('token');
+      if (!tok) return;
+      fetch('/api/recrutement/notifications', { headers: { Authorization: `Bearer ${tok}` } })
+        .then(r => r.ok ? r.json() : [])
+        .then(d => setNbNotifs(Array.isArray(d) ? d.filter(n => !n.lue).length : 0))
+        .catch(() => {});
+    };
+    chargerNotifs();
+    const timer = setInterval(chargerNotifs, 60000);
+    return () => clearInterval(timer);
+  }, []);
   useEffect(() => {
     try {
       const majeure = parseInt(String(versionNum).split('.')[0], 10);
@@ -152,9 +169,11 @@ function ProtectedLayout({ children }) {
 
   const nav = isCoordination
     ? [
+        ['/accueil',      'Accueil',      IconHome],
         ['/attributions', 'Attributions', IconClipboardList]
       ]
     : [
+        ['/accueil',      'Accueil',      IconHome],
         ['/attributions', 'Attributions', IconClipboardList],
         ['/professeurs',  'Personnel', IconUsers],
         ['/listes',       'Listes', IconFileExport],
@@ -245,7 +264,14 @@ function ProtectedLayout({ children }) {
                     : 'text-gray-600 hover:text-iip-blue hover:bg-gray-100'
                 }`
               }>
-                {Icon && <Icon size={17} stroke={1.8} className="flex-shrink-0" />}
+                <span className="relative flex-shrink-0">
+                  {Icon && <Icon size={17} stroke={1.8} />}
+                  {to === '/accueil' && nbNotifs > 0 && (
+                    <span className="absolute -top-1.5 -right-1.5 w-3.5 h-3.5 bg-red-500 rounded-full text-[8px] text-white flex items-center justify-center font-bold">
+                      {nbNotifs > 9 ? '9+' : nbNotifs}
+                    </span>
+                  )}
+                </span>
                 <span>{lbl}</span>
               </NavLink>
             ))}
@@ -306,6 +332,7 @@ export default function App() {
       <Route path="/"             element={<Navigate to="/attributions" replace />} />
       <Route path="/attributions" element={<ProtectedLayout><Attributions /></ProtectedLayout>} />
       <Route path="/professeurs"  element={<ProtectedLayout><Professeurs /></ProtectedLayout>} />
+      <Route path="/accueil"      element={<ProtectedLayout><Accueil /></ProtectedLayout>} />
       <Route path="/recrutement"   element={<ProtectedLayout><AdminOrRH><Recrutement /></AdminOrRH></ProtectedLayout>} />
       <Route path="/dcpp/:profId" element={<ProtectedLayout><DCPP /></ProtectedLayout>} />
       <Route path="/listes" element={
