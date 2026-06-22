@@ -9,6 +9,7 @@ import { authRequired } from '../middleware/auth.js';
 import multer from 'multer';
 import { mkdirSync, existsSync, unlinkSync } from 'fs';
 import { join } from 'path';
+import { genererAppelCandidature } from '../services/appel_candidature.js';
 
 const DATA_DIR = process.env.DATA_DIR || '/app/data';
 
@@ -62,31 +63,80 @@ r.get('/postes/:id', (req, res) => {
 });
 
 r.post('/postes', (req, res) => {
-  const { intitule, section, contrat, ue_num, description, statut, annee_scolaire } = req.body;
+  const { intitule, section, contrat, ue_num, cours_nom, description, statut, annee_scolaire,
+          fonction, charge_periodes, prise_de_fonction } = req.body;
   if (!intitule) return res.status(400).json({ error: 'Intitulé requis' });
   const info = db.prepare(`
-    INSERT INTO recrutement_poste (intitule, section, contrat, ue_num, description, statut, annee_scolaire, cree_par)
-    VALUES (?, ?, ?, ?, ?, COALESCE(?, 'ouvert'), ?, ?)
-  `).run(intitule, section || null, contrat || null, ue_num || null, description || null,
-         statut || null, annee_scolaire || null, req.user?.email || null);
+    INSERT INTO recrutement_poste
+      (intitule, section, contrat, ue_num, cours_nom, description, statut, annee_scolaire, cree_par,
+       fonction, charge_periodes, prise_de_fonction)
+    VALUES (?, ?, ?, ?, ?, ?, COALESCE(?, 'ouvert'), ?, ?, ?, ?, ?)
+  `).run(intitule, section || null, contrat || null, ue_num || null, cours_nom || null,
+         description || null, statut || null, annee_scolaire || null, req.user?.email || null,
+         fonction || null, charge_periodes || null, prise_de_fonction || null);
   res.json({ id: info.lastInsertRowid });
 });
 
 r.patch('/postes/:id', (req, res) => {
   const p = db.prepare('SELECT id FROM recrutement_poste WHERE id = ?').get(req.params.id);
   if (!p) return res.status(404).json({ error: 'Poste introuvable' });
-  const { intitule, section, contrat, ue_num, description, statut, annee_scolaire } = req.body;
+  const { intitule, section, contrat, ue_num, cours_nom, description, statut, annee_scolaire,
+          fonction, charge_periodes, prise_de_fonction } = req.body;
   db.prepare(`UPDATE recrutement_poste SET
-    intitule = COALESCE(?, intitule), section = ?, contrat = ?, ue_num = ?,
-    description = ?, statut = COALESCE(?, statut), annee_scolaire = ?
-    WHERE id = ?`).run(intitule ?? null, section ?? null, contrat ?? null, ue_num ?? null,
-       description ?? null, statut ?? null, annee_scolaire ?? null, p.id);
+    intitule = COALESCE(?, intitule), section = ?, contrat = ?, ue_num = ?, cours_nom = ?,
+    description = ?, statut = COALESCE(?, statut), annee_scolaire = ?,
+    fonction = ?, charge_periodes = ?, prise_de_fonction = ?
+    WHERE id = ?`).run(intitule ?? null, section ?? null, contrat ?? null, ue_num ?? null, cours_nom ?? null,
+       description ?? null, statut ?? null, annee_scolaire ?? null,
+       fonction ?? null, charge_periodes ?? null, prise_de_fonction ?? null, p.id);
   res.json({ ok: true });
 });
 
 r.delete('/postes/:id', (req, res) => {
   db.prepare('DELETE FROM recrutement_poste WHERE id = ?').run(req.params.id);
   res.json({ ok: true });
+});
+
+// ── Génération du document "Appel à candidature" (docx) ──────────────────────
+r.post('/postes/:id/appel', async (req, res) => {
+  const poste = db.prepare('SELECT * FROM recrutement_poste WHERE id = ?').get(req.params.id);
+  if (!poste) return res.status(404).json({ error: 'Poste introuvable' });
+
+  const { contenuSynthetique, profil } = req.body; // textes générés par l'IA (optionnels)
+
+  // Si ue_num, récupérer le nom complet de l'UE depuis la DB
+  let coursNom = poste.cours_nom;
+  if (!coursNom && poste.ue_num && poste.annee_scolaire) {
+    const ue = db.prepare('SELECT ue_nom FROM ue WHERE ue_num = ? AND annee_scolaire = ?')
+                 .get(poste.ue_num, poste.annee_scolaire);
+    if (ue) coursNom = ue.ue_nom;
+  }
+
+  try {
+    const buffer = await genererAppelCandidature({
+      section:            poste.section,
+      fonction:           poste.fonction,
+      chargePeriodes:     poste.charge_periodes,
+      coursNom:           coursNom,
+      contenuSynthetique: contenuSynthetique || null,
+      profil:             profil || null,
+      priseDeFonction:    poste.prise_de_fonction,
+      intitule:           poste.intitule,
+    });
+
+    const section = (poste.section || 'IIP').replace(/[^\w]/g, '_');
+    const today   = new Date().toISOString().slice(0, 10);
+    const nom     = `Appel_candidature_${section}_${today}.docx`;
+
+    res.set({
+      'Content-Type': 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+      'Content-Disposition': `attachment; filename="${nom}"`,
+    });
+    res.send(buffer);
+  } catch (e) {
+    console.error('[appel candidature]', e);
+    res.status(500).json({ error: 'Erreur génération document : ' + e.message });
+  }
 });
 
 // ═══════════════════════ QUESTIONS (grille par poste) ═══════════════════════

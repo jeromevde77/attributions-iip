@@ -2,7 +2,7 @@ import { useEffect, useState, useMemo } from 'react';
 import {
   IconBriefcase, IconUserPlus, IconArrowLeft, IconTrash, IconPlus,
   IconFileCv, IconExternalLink, IconUpload, IconStar, IconDeviceFloppy,
-  IconCheck, IconX, IconUsersGroup, IconClipboardText, IconSparkles,
+  IconCheck, IconX, IconUsersGroup, IconClipboardText, IconSparkles, IconDownload,
 } from '@tabler/icons-react';
 import { PageHeader, Btn } from '../components/ui.jsx';
 import { getAnnee } from '../lib/api.js';
@@ -65,12 +65,14 @@ export default function Recrutement() {
 /* ═══════════════════════ VUE POSTES ═══════════════════════ */
 function VuePostes({ postes, recharger, onOuvrir, annee }) {
   const [creation, setCreation] = useState(false);
-  const [f, setF] = useState({ intitule: '', section: '', contrat: '', ue_num: '', description: '' });
+  const [f, setF] = useState({ intitule: '', section: '', contrat: '', ue_num: '', cours_nom: '',
+                                description: '', fonction: '', charge_periodes: '', prise_de_fonction: '' });
 
   const creer = async () => {
     if (!f.intitule.trim()) return;
     await af('/postes', { method: 'POST', body: JSON.stringify({ ...f, annee_scolaire: annee }) });
-    setF({ intitule: '', section: '', contrat: '', ue_num: '', description: '' });
+    setF({ intitule: '', section: '', contrat: '', ue_num: '', cours_nom: '',
+            description: '', fonction: '', charge_periodes: '', prise_de_fonction: '' });
     setCreation(false); recharger();
   };
 
@@ -92,7 +94,19 @@ function VuePostes({ postes, recharger, onOuvrir, annee }) {
                 <option value="">—</option><option value="IIP">IIP</option><option value="HELB">HELB</option>
               </select>
             </div>
-            <Champ label="UE / cours visé" value={f.ue_num} onChange={v => setF({ ...f, ue_num: v })} placeholder="ex: UE 253" />
+            <div>
+              <div className="text-xs text-gray-500 mb-1">Fonction</div>
+              <select value={f.fonction} onChange={e => setF({ ...f, fonction: e.target.value })}
+                className="w-full text-sm border border-gray-300 rounded px-2 py-1.5 h-9">
+                <option value="">—</option>
+                <option value="Expert">Expert</option>
+                <option value="Chargé de cours">Chargé de cours</option>
+              </select>
+            </div>
+            <Champ label="UE n°" value={f.ue_num} onChange={v => setF({ ...f, ue_num: v })} placeholder="ex: 253" />
+            <Champ label="Cours (nom complet)" value={f.cours_nom} onChange={v => setF({ ...f, cours_nom: v })} placeholder="ex: Radiothérapie" />
+            <Champ label="Charge (périodes)" value={f.charge_periodes} onChange={v => setF({ ...f, charge_periodes: v })} placeholder="ex: 80" />
+            <Champ label="Prise de fonction" value={f.prise_de_fonction} onChange={v => setF({ ...f, prise_de_fonction: v })} placeholder="ex: Septembre 2026" />
           </div>
           <div>
             <div className="text-xs text-gray-500 mb-1">Description / profil recherché</div>
@@ -267,8 +281,11 @@ function BoutonAnnonce({ poste, annee }) {
   const [open, setOpen]       = useState(false);
   const [loading, setLoading] = useState(false);
   const [annonce, setAnnonce] = useState('');
+  const [contenu, setContenu] = useState('');  // extrait pour le .docx
+  const [profil, setProfil]   = useState('');  // extrait pour le .docx
   const [err, setErr]         = useState('');
   const [copie, setCopie]     = useState(false);
+  const [dlLoading, setDlLoading] = useState(false);
 
   const generer = async () => {
     setLoading(true); setErr(''); setAnnonce('');
@@ -294,27 +311,25 @@ ${lignesCours ? `Cours à enseigner : ${lignesCours}` : ''}
 
 ${lignesAA ? `Acquis d'apprentissage que le professeur devra faire atteindre aux étudiants :\n${lignesAA}` : ''}
 
-Rédige une annonce de recrutement professionnelle et attrayante en français, structurée ainsi :
-1. **Contexte** (2-3 phrases présentant l'IIP et le poste)
-2. **Votre mission** (description des cours à donner, basée sur les AA ci-dessus)
-3. **Profil recherché** (compétences disciplinaires, expérience, qualités pédagogiques)
-4. **Ce que nous offrons** (conditions, flexibilité, environnement)
-5. **Comment postuler** (envoyer CV + lettre de motivation à direction@institut-prigogine.be)
-
-Ton : professionnel, chaleureux, inclusif. Longueur : environ 300 mots.`;
+Réponds UNIQUEMENT en JSON valide, sans backticks, ce format exact :
+{
+  "annonce": "texte complet de l'annonce (~300 mots, structurée avec sections numérotées : 1.Contexte 2.Votre mission 3.Profil recherché 4.Ce que nous offrons 5.Comment postuler)",
+  "contenu_synthetique": "2-3 phrases décrivant le contenu du cours à enseigner, basées sur les AA",
+  "profil": "liste des compétences et qualifications requises, séparées par des sauts de ligne"
+}`;
 
       const resp = await fetch('https://api.anthropic.com/v1/messages', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          model: 'claude-sonnet-4-6',
-          max_tokens: 1000,
-          messages: [{ role: 'user', content: prompt }],
-        }),
+        body: JSON.stringify({ model: 'claude-sonnet-4-6', max_tokens: 1200,
+          messages: [{ role: 'user', content: prompt }] }),
       });
       const data = await resp.json();
-      const texte = (data.content || []).map(b => b.text || '').join('').trim();
-      setAnnonce(texte);
+      const text = (data.content || []).map(b => b.text || '').join('').trim();
+      const parsed = JSON.parse(text);
+      setAnnonce(parsed.annonce || '');
+      setContenu(parsed.contenu_synthetique || '');
+      setProfil(parsed.profil || '');
     } catch (e) {
       setErr('Erreur : ' + e.message);
     } finally {
@@ -327,9 +342,28 @@ Ton : professionnel, chaleureux, inclusif. Longueur : environ 300 mots.`;
     setCopie(true); setTimeout(() => setCopie(false), 2000);
   };
 
+  const telechargerDocx = async () => {
+    setDlLoading(true);
+    try {
+      const resp = await fetch(`/api/recrutement/postes/${poste.id}/appel`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${tok()}` },
+        body: JSON.stringify({ contenuSynthetique: contenu, profil }),
+      });
+      if (!resp.ok) throw new Error((await resp.json().catch(() => ({}))).error || 'Erreur');
+      const blob = await resp.blob();
+      const url  = URL.createObjectURL(blob);
+      const a    = document.createElement('a');
+      a.href = url;
+      const section = (poste.section || 'IIP').replace(/[^\w]/g, '_');
+      a.download = `Appel_candidature_${section}_${new Date().toISOString().slice(0,10)}.docx`;
+      a.click(); URL.revokeObjectURL(url);
+    } catch (e) { alert(e.message); } finally { setDlLoading(false); }
+  };
+
   return (
     <>
-      <Btn variant="secondary" icon={IconSparkles} onClick={() => { setOpen(true); generer(); }}>
+      <Btn variant="secondary" icon={IconSparkles} onClick={() => { setOpen(true); if (!annonce) generer(); }}>
         Générer l'annonce
       </Btn>
       {open && (
@@ -352,14 +386,24 @@ Ton : professionnel, chaleureux, inclusif. Longueur : environ 300 mots.`;
               {err && <div className="text-sm text-red-600 bg-red-50 border border-red-200 rounded px-3 py-2">{err}</div>}
               {annonce && (
                 <>
-                  <div className="text-sm text-gray-700 whitespace-pre-wrap leading-relaxed border border-gray-100 rounded-lg p-4 bg-gray-50/50">
+                  <div className="text-sm text-gray-700 whitespace-pre-wrap leading-relaxed border border-gray-100 rounded-lg p-4 bg-gray-50/50 mb-4">
                     {annonce}
                   </div>
-                  <div className="flex gap-2 mt-4 justify-end">
-                    <Btn variant="ghost" icon={IconCheck} onClick={copier}>
-                      {copie ? 'Copié !' : 'Copier le texte'}
+                  {(contenu || profil) && (
+                    <div className="border border-iip-turquoise/30 rounded-lg p-3 bg-iip-turquoise/5 mb-4 space-y-2">
+                      <div className="text-xs font-semibold text-iip-blue uppercase tracking-wide">Contenu pour le document Word</div>
+                      {contenu && <div className="text-xs text-gray-600"><span className="font-medium">Contenu synthétique :</span> {contenu}</div>}
+                      {profil  && <div className="text-xs text-gray-600"><span className="font-medium">Profil :</span> {profil}</div>}
+                    </div>
+                  )}
+                  <div className="flex gap-2 justify-between">
+                    <div className="flex gap-2">
+                      <Btn variant="ghost" icon={IconCheck} onClick={copier}>{copie ? 'Copié !' : 'Copier le texte'}</Btn>
+                      <Btn variant="secondary" icon={IconSparkles} onClick={generer}>Regénérer</Btn>
+                    </div>
+                    <Btn variant="primary" icon={IconDownload} onClick={telechargerDocx} disabled={dlLoading}>
+                      {dlLoading ? 'Génération…' : 'Télécharger .docx IIP'}
                     </Btn>
-                    <Btn variant="secondary" icon={IconSparkles} onClick={generer}>Regénérer</Btn>
                   </div>
                 </>
               )}

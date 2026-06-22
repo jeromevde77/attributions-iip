@@ -2174,6 +2174,15 @@ try {
   console.log('[migration] Tables recrutement créées');
 } catch(e) { console.error('[migration] recrutement :', e.message); }
 
+// ── Recrutement : ajout colonnes fonction / charge / prise_de_fonction ────────
+try {
+  const cols = db.prepare("PRAGMA table_info(recrutement_poste)").all().map(c => c.name);
+  if (!cols.includes('fonction'))          db.exec("ALTER TABLE recrutement_poste ADD COLUMN fonction TEXT");
+  if (!cols.includes('charge_periodes'))   db.exec("ALTER TABLE recrutement_poste ADD COLUMN charge_periodes INTEGER");
+  if (!cols.includes('prise_de_fonction')) db.exec("ALTER TABLE recrutement_poste ADD COLUMN prise_de_fonction TEXT");
+  if (!cols.includes('cours_nom'))         db.exec("ALTER TABLE recrutement_poste ADD COLUMN cours_nom TEXT");
+} catch(e) { console.error('[migration] recrutement colonnes :', e.message); }
+
 // Recréer les VIEW à chaque démarrage pour qu'elles soient à jour
 // quand le schéma évolue (sans nécessiter un init-db complet).
 try {
