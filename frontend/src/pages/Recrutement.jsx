@@ -399,6 +399,14 @@ function DetailPoste({ id, onBack, candidats, rechargerCandidats, annee }) {
   const charger = () => af(`/postes/${id}`).then(setPoste).catch(e => setErr(e.message));
   useEffect(() => { charger(); }, [id]);
 
+  if (err && !poste) return (
+    <div className="max-w-5xl mx-auto px-4 py-6">
+      <button onClick={onBack} className="text-sm text-gray-500 hover:text-iip-blue flex items-center gap-1 mb-4">
+        <IconArrowLeft size={16} /> Retour aux postes
+      </button>
+      <div className="text-sm text-red-600 bg-red-50 border border-red-200 rounded px-3 py-2">{err}</div>
+    </div>
+  );
   if (!poste) return <div className="max-w-5xl mx-auto px-4 py-6 text-gray-400">Chargement…</div>;
 
   const classement = [...(poste.candidatures || [])].sort((a, b) => {

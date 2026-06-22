@@ -49,17 +49,22 @@ r.get('/postes', (req, res) => {
 
 // Détail d'un poste : poste + questions + candidatures (avec infos candidat)
 r.get('/postes/:id', (req, res) => {
-  const poste = db.prepare('SELECT * FROM recrutement_poste WHERE id = ?').get(req.params.id);
-  if (!poste) return res.status(404).json({ error: 'Poste introuvable' });
-  const questions = db.prepare('SELECT * FROM recrutement_question WHERE poste_id = ? ORDER BY ordre, id').all(poste.id);
-  const candidatures = db.prepare(`
-    SELECT c.*, cand.nom, cand.email, cand.telephone, cand.cv_path, cand.cv_nom, cand.cv_url
-    FROM recrutement_candidature c
-    JOIN recrutement_candidat cand ON cand.id = c.candidat_id
-    WHERE c.poste_id = ?
-    ORDER BY (c.note_globale IS NULL), c.note_globale DESC, cand.nom
-  `).all(poste.id);
-  res.json({ ...poste, questions, candidatures });
+  try {
+    const poste = db.prepare('SELECT * FROM recrutement_poste WHERE id = ?').get(req.params.id);
+    if (!poste) return res.status(404).json({ error: 'Poste introuvable' });
+    const questions = db.prepare('SELECT * FROM recrutement_question WHERE poste_id = ? ORDER BY ordre, id').all(poste.id);
+    const candidatures = db.prepare(`
+      SELECT c.*, cand.nom, cand.email, cand.telephone, cand.cv_path, cand.cv_nom, cand.cv_url
+      FROM recrutement_candidature c
+      JOIN recrutement_candidat cand ON cand.id = c.candidat_id
+      WHERE c.poste_id = ?
+      ORDER BY (c.note_globale IS NULL), c.note_globale DESC, cand.nom
+    `).all(poste.id);
+    res.json({ ...poste, questions, candidatures });
+  } catch (e) {
+    console.error('[recrutement GET /postes/:id]', e.message);
+    res.status(500).json({ error: e.message });
+  }
 });
 
 r.post('/postes', (req, res) => {
