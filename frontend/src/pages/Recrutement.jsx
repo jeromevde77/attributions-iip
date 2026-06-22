@@ -83,7 +83,7 @@ export default function Recrutement() {
       <div className="ml-16 p-4 md:p-6">
 
         {vue === 'grille' && <EditeurGrille grille={grille} onSaved={chargerGrille} />}
-        {vue === 'candidats' && <VueCandidatsGlobal candidats={candidats} fonctions={fonctions} onRecharger={() => { chargerCandidats(); chargerFonctions(); }} />}
+        {vue === 'candidats' && <VueCandidatsGlobal candidats={candidats} fonctions={fonctions} grille={grille} onRecharger={() => { chargerCandidats(); chargerFonctions(); }} />}
         {vue === 'parallele' && <VueParallele postes={postes} candidats={candidats} fonctions={fonctions} annee={annee} onRecharger={() => { charger(); chargerCandidats(); }} />}
 
         {vue === 'postes' && (<>
@@ -1161,7 +1161,7 @@ function VueParallele({ postes, candidats, fonctions, annee, onRecharger }) {
 }
 
 /* ══════════════════════ VUE CANDIDATS GLOBALE ══════════════════════ */
-function VueCandidatsGlobal({ candidats, fonctions, onRecharger }) {
+function VueCandidatsGlobal({ candidats, fonctions, grille, onRecharger }) {
   const [fiche, setFiche]   = useState(null); // candidat sélectionné
   const [search, setSearch] = useState('');
   const [nouveau, setNouveau] = useState(false);
@@ -1229,6 +1229,7 @@ function VueCandidatsGlobal({ candidats, fonctions, onRecharger }) {
         <FicheCandidat
           candidat={fiche}
           fonctions={fonctions}
+          grille={grille}
           onClose={() => setFiche(null)}
           onSaved={() => { setFiche(null); onRecharger(); }}
         />
@@ -1245,13 +1246,58 @@ function VueCandidatsGlobal({ candidats, fonctions, onRecharger }) {
 }
 
 /* ── Fiche candidat (modale d'édition) ── */
-function FicheCandidat({ candidat, fonctions, onClose, onSaved }) {
+function FicheCandidat({ candidat, fonctions, grille, onClose, onSaved }) {
+  const annee = getAnnee();
   const [f, setF] = useState({ nom: candidat.nom || '', prenom: candidat.prenom || '', email: candidat.email || '', telephone: candidat.telephone || '', cv_url: candidat.cv_url || '', notes: candidat.notes || '', fonction: candidat.fonction || '' });
-  const [nouvelleF, setNouvelleF] = useState('');
-  const [docs, setDocs]       = useState(candidat.documents || []);
-  const [busy, setBusy]       = useState(false);
-  const [uploading, setUploading] = useState(false);
+  const [nouvelleF, setNouvelleF]   = useState('');
+  const [docs, setDocs]             = useState(candidat.documents || []);
+  const [candidatures, setCandidatures] = useState(candidat.candidatures || []);
+  const [busy, setBusy]             = useState(false);
+  const [uploading, setUploading]   = useState(false);
   const [visionneur, setVisionneur] = useState(null);
+
+  // Sélecteur cascadant section → UE → cours
+  const [sections, setSections]     = useState([]);
+  const [selSection, setSelSection] = useState('');
+  const [ues, setUes]               = useState([]);
+  const [selUE, setSelUE]           = useState('');
+  const [cours, setCours]           = useState([]);
+  const [selCours, setSelCours]     = useState('');
+  const [loadingUE, setLoadingUE]   = useState(false);
+  const [ajoutBusy, setAjoutBusy]   = useState(false);
+  const [entretienCand, setEntretienCand] = useState(null);
+
+  // Charger les sections au montage
+  useEffect(() => {
+    fetch('/api/ref/sections', { headers: { Authorization: `Bearer ${tok()}` } })
+      .then(r => r.json()).then(d => setSections(Array.isArray(d) ? d : [])).catch(() => {});
+  }, []);
+
+  // Section → UE
+  useEffect(() => {
+    if (!selSection) { setUes([]); setSelUE(''); setCours([]); return; }
+    setLoadingUE(true);
+    fetch(`/api/ref/ue?section=${encodeURIComponent(selSection)}&annee=${encodeURIComponent(annee)}`,
+      { headers: { Authorization: `Bearer ${tok()}` } })
+      .then(r => r.json()).then(d => setUes(Array.isArray(d) ? d : []))
+      .catch(() => setUes([])).finally(() => setLoadingUE(false));
+  }, [selSection]);
+
+  // UE → cours
+  useEffect(() => {
+    if (!selUE) { setCours([]); setSelCours(''); return; }
+    fetch(`/api/ref/ue/${selUE}?annee=${encodeURIComponent(annee)}`,
+      { headers: { Authorization: `Bearer ${tok()}` } })
+      .then(r => r.json())
+      .then(ue => { setCours(ue.cours || []); setSelCours(''); })
+      .catch(() => {});
+  }, [selUE]);
+
+  const rechargerCandidatures = async () => {
+    const updated = await af('/candidats');
+    const me = updated.find(c => c.id === candidat.id);
+    if (me) setCandidatures(me.candidatures || []);
+  };
 
   const enregistrer = async () => {
     setBusy(true);
@@ -1292,6 +1338,18 @@ function FicheCandidat({ candidat, fonctions, onClose, onSaved }) {
     const blob = await resp.blob();
     setVisionneur({ url: URL.createObjectURL(blob), nom, mime: blob.type });
   };
+
+  if (entretienCand) return (
+    <EntretienModal
+      candidature={entretienCand}
+      poste={{ nom_cours: entretienCand.cours_nom || entretienCand.ue_nom, ue_num: entretienCand.ue_num, section: entretienCand.section, nom_cours: entretienCand.cours_nom }}
+      annee={annee}
+      qIA={[]}
+      grille={grille}
+      onClose={() => setEntretienCand(null)}
+      onSaved={() => { setEntretienCand(null); rechargerCandidatures(); }}
+    />
+  );
 
   if (visionneur) return (
     <div className="fixed inset-0 bg-black/70 z-[60] flex flex-col"
@@ -1420,23 +1478,117 @@ function FicheCandidat({ candidat, fonctions, onClose, onSaved }) {
             </div>
           </div>
 
-          {/* Candidatures */}
-          {candidat.candidatures?.length > 0 && (
-            <div>
-              <div className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">Candidatures ({candidat.candidatures.length})</div>
-              <div className="space-y-1">
-                {candidat.candidatures.map((ca, i) => {
+          {/* Cours envisagés */}
+          <div>
+            <div className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">
+              Cours envisagés ({candidatures.length})
+            </div>
+
+            {/* Liste des candidatures existantes */}
+            {candidatures.length > 0 && (
+              <div className="space-y-1 mb-3">
+                {candidatures.map((ca, i) => {
                   const st = STATUT[ca.statut] || STATUT.a_voir;
                   return (
-                    <div key={i} className="flex items-center justify-between text-xs bg-gray-50 rounded px-3 py-1.5 border border-gray-100">
-                      <span className="text-gray-700">{ca.cours_nom || ca.ue_nom || `UE ${ca.ue_num}`} · {ca.section} · {ca.annee_scolaire}</span>
-                      <span className="font-semibold px-2 py-0.5 rounded-full" style={{ color: st.color, background: st.bg }}>{st.label}</span>
+                    <div key={i} className="flex items-center gap-2 text-xs bg-gray-50 border border-gray-100 rounded-lg px-3 py-2">
+                      <div className="flex-1 min-w-0">
+                        <div className="font-medium text-gray-700 truncate">
+                          {ca.cours_nom || ca.ue_nom || `UE ${ca.ue_num}`}
+                        </div>
+                        <div className="text-gray-400">{ca.section} · {ca.annee_scolaire}</div>
+                      </div>
+                      <span className="font-semibold px-2 py-0.5 rounded-full flex-shrink-0"
+                        style={{ color: st.color, background: st.bg }}>{st.label}</span>
+                      {/* Bouton entretien */}
+                      <button
+                        onClick={() => setEntretienCand(ca)}
+                        className="text-[10px] border border-iip-turquoise text-iip-blue hover:bg-iip-turquoise/10 rounded px-1.5 py-0.5 flex-shrink-0 flex items-center gap-0.5">
+                        <IconClipboardText size={10} /> Entretien
+                      </button>
+                      {/* Supprimer la candidature */}
+                      <button onClick={async () => {
+                        if (!confirm('Retirer ce cours de la liste ?')) return;
+                        await af(`/candidatures/${ca.id}`, { method: 'DELETE' });
+                        rechargerCandidatures();
+                      }} className="text-gray-300 hover:text-red-400 flex-shrink-0">
+                        <IconX size={13} />
+                      </button>
                     </div>
                   );
                 })}
               </div>
+            )}
+
+            {/* Sélecteur cascadant : section → UE → cours */}
+            <div className="border border-dashed border-gray-300 rounded-lg p-3 space-y-2 bg-gray-50/50">
+              <div className="text-[10px] font-semibold text-gray-400 uppercase tracking-wide">Ajouter un cours</div>
+              <div className="grid grid-cols-2 gap-2">
+                {/* Section */}
+                <div>
+                  <div className="text-xs text-gray-500 mb-0.5">Section</div>
+                  <select value={selSection} onChange={e => { setSelSection(e.target.value); setSelUE(''); setSelCours(''); }}
+                    className="w-full text-xs border border-gray-300 rounded px-2 py-1.5 h-8">
+                    <option value="">— choisir —</option>
+                    {sections.map(s => <option key={s.code} value={s.code}>{s.code}{s.libelle ? ` — ${s.libelle}` : ''}</option>)}
+                  </select>
+                </div>
+
+                {/* UE */}
+                <div>
+                  <div className="text-xs text-gray-500 mb-0.5">UE {loadingUE && <span className="text-gray-400">…</span>}</div>
+                  <select value={selUE} onChange={e => { setSelUE(e.target.value); setSelCours(''); }}
+                    disabled={!selSection || ues.length === 0}
+                    className="w-full text-xs border border-gray-300 rounded px-2 py-1.5 h-8 disabled:bg-gray-100 disabled:text-gray-400">
+                    <option value="">— choisir —</option>
+                    {ues.map(u => <option key={u.ue_num} value={u.ue_num}>UE {u.ue_num} — {u.ue_nom}</option>)}
+                  </select>
+                </div>
+
+                {/* Cours (si UE a plusieurs cours) */}
+                {cours.length > 1 && (
+                  <div className="col-span-2">
+                    <div className="text-xs text-gray-500 mb-0.5">Cours</div>
+                    <select value={selCours} onChange={e => setSelCours(e.target.value)}
+                      className="w-full text-xs border border-gray-300 rounded px-2 py-1.5 h-8">
+                      <option value="">— choisir —</option>
+                      {cours.map(c => <option key={c.cours_code} value={c.cours_code}>{c.cours_nom} ({c.ct_pp})</option>)}
+                    </select>
+                  </div>
+                )}
+              </div>
+
+              {/* Bouton ajouter */}
+              <button
+                disabled={!selUE || (cours.length > 1 && !selCours) || ajoutBusy}
+                onClick={async () => {
+                  if (!selUE) return;
+                  const codeCours = selCours || (cours.length === 1 ? cours[0].cours_code : '');
+                  if (!codeCours && cours.length !== 0) return;
+                  setAjoutBusy(true);
+                  try {
+                    await af('/candidats', { method: 'POST', body: JSON.stringify({
+                      nom: f.nom || candidat.nom,
+                      prenom: f.prenom || candidat.prenom,
+                      email: f.email || candidat.email,
+                      annee: annee,
+                      ue_num: selUE,
+                      code_cours: codeCours,
+                      section: selSection,
+                    })});
+                    setSelSection(''); setSelUE(''); setSelCours('');
+                    rechargerCandidatures();
+                  } catch (e) {
+                    if (e.message.includes('UNIQUE') || e.message.includes('déjà')) {
+                      alert('Ce candidat est déjà associé à ce cours.');
+                    } else { alert(e.message); }
+                  } finally { setAjoutBusy(false); }
+                }}
+                className="w-full text-xs bg-iip-blue text-white rounded px-3 py-1.5 hover:opacity-90 disabled:opacity-40 flex items-center justify-center gap-1.5">
+                <IconPlus size={12} />
+                {ajoutBusy ? 'Ajout…' : 'Rattacher ce cours'}
+              </button>
             </div>
-          )}
+          </div>
         </div>
 
         <div className="px-5 py-3 border-t border-gray-100 flex justify-end gap-2 bg-white rounded-b-xl">
