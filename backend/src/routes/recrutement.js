@@ -210,17 +210,14 @@ r.delete('/candidatures/:id', (req, res) => {
 });
 
 // ── Suggestions de questions d'entretien basées sur le contexte pédagogique ──
-// GET /suggestions?annee=&section=&ue_num=
 r.get('/suggestions/contexte', (req, res) => {
   const { annee, section, ue_num } = req.query;
   if (!annee) return res.status(400).json({ error: 'annee requise' });
 
-  // UE ciblée si précisée
   const ue = ue_num
     ? db.prepare('SELECT ue_num, ue_nom, ue_niv, ects, ue_quad, et_ref FROM ue WHERE ue_num = ? AND annee_scolaire = ?').get(ue_num, annee)
     : null;
 
-  // Cours de la section (ou de l'UE si précisée)
   let cours = [];
   if (ue_num) {
     cours = db.prepare('SELECT cours_nom, ct_pp, cours_per FROM cours WHERE ue_num = ? AND annee_scolaire = ? ORDER BY cours_nom').all(ue_num, annee);
@@ -228,12 +225,21 @@ r.get('/suggestions/contexte', (req, res) => {
     cours = db.prepare('SELECT cours_nom, ct_pp, cours_per FROM cours WHERE section = ? AND annee_scolaire = ? ORDER BY cours_nom LIMIT 40').all(section, annee);
   }
 
-  // UE de la section pour donner un aperçu du programme
   const ues = section
     ? db.prepare('SELECT ue_num, ue_nom, ue_niv, ects FROM ue WHERE section = ? AND annee_scolaire = ? ORDER BY ue_num').all(section, annee)
     : [];
 
-  res.json({ ue, cours, ues, section: section || null, annee });
+  // Acquis d'apprentissage de l'UE ciblée (ou de toutes les UE de la section si pas d'UE précisée)
+  let aa = [];
+  if (ue_num) {
+    aa = db.prepare('SELECT aa_code, aa_num, description FROM aa WHERE ue_num = ? ORDER BY aa_num').all(ue_num);
+  } else if (section && ues.length) {
+    const ids = ues.map(u => u.ue_num);
+    const placeholders = ids.map(() => '?').join(',');
+    aa = db.prepare(`SELECT aa.aa_code, aa.aa_num, aa.ue_num, aa.description FROM aa WHERE aa.ue_num IN (${placeholders}) ORDER BY aa.ue_num, aa.aa_num LIMIT 60`).all(...ids);
+  }
+
+  res.json({ ue, cours, ues, aa, section: section || null, annee });
 });
 
 export default r;

@@ -231,7 +231,10 @@ function DetailPoste({ id, onBack, candidats, rechargerCandidats, annee }) {
           <div className="text-sm text-gray-500 mt-1">{[poste.section, poste.ue_num].filter(Boolean).join(' · ')}</div>
           {poste.description && <p className="text-sm text-gray-600 mt-2 max-w-2xl">{poste.description}</p>}
         </div>
-        <StatutPoste poste={poste} onChange={charger} />
+        <div className="flex items-center gap-2">
+          <BoutonAnnonce poste={poste} annee={annee} />
+          <StatutPoste poste={poste} onChange={charger} />
+        </div>
       </div>
 
       {err && <div className="text-sm text-red-600 bg-red-50 border border-red-200 rounded px-3 py-2 mb-4">{err}</div>}
@@ -256,6 +259,115 @@ function DetailPoste({ id, onBack, candidats, rechargerCandidats, annee }) {
       {evalCand && <ModalEvaluation candidature={evalCand} questions={poste.questions || []}
                                     onClose={() => setEvalCand(null)} onSaved={() => { setEvalCand(null); charger(); }} />}
     </div>
+  );
+}
+
+/* ── Bouton + modale de génération d'annonce de recrutement ── */
+function BoutonAnnonce({ poste, annee }) {
+  const [open, setOpen]       = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [annonce, setAnnonce] = useState('');
+  const [err, setErr]         = useState('');
+  const [copie, setCopie]     = useState(false);
+
+  const generer = async () => {
+    setLoading(true); setErr(''); setAnnonce('');
+    try {
+      const params = new URLSearchParams({ annee });
+      if (poste.section) params.append('section', poste.section);
+      if (poste.ue_num)  params.append('ue_num', poste.ue_num);
+      const ctx = await af(`/suggestions/contexte?${params}`);
+
+      const lignesAA = (ctx.aa || []).map(a => `- L'étudiant sera capable ${a.description}`).join('\n');
+      const lignesCours = (ctx.cours || []).map(c => c.cours_nom).join(', ');
+
+      const prompt = `Tu es chargé de rédiger une annonce de recrutement pour l'Institut Ilya Prigogine (IIP), établissement d'enseignement de promotion sociale à Bruxelles, réseau FELSI.
+
+Poste à pourvoir :
+- Intitulé : ${poste.intitule}
+- Section : ${poste.section || 'non précisée'}
+- Contrat : ${poste.contrat || 'IIP'}
+- UE / cours visé : ${poste.ue_num || 'non précisé'}${ctx.ue ? ` — ${ctx.ue.ue_nom} (${ctx.ue.ects || '?'} ECTS)` : ''}
+- Description : ${poste.description || 'aucune'}
+
+${lignesCours ? `Cours à enseigner : ${lignesCours}` : ''}
+
+${lignesAA ? `Acquis d'apprentissage que le professeur devra faire atteindre aux étudiants :\n${lignesAA}` : ''}
+
+Rédige une annonce de recrutement professionnelle et attrayante en français, structurée ainsi :
+1. **Contexte** (2-3 phrases présentant l'IIP et le poste)
+2. **Votre mission** (description des cours à donner, basée sur les AA ci-dessus)
+3. **Profil recherché** (compétences disciplinaires, expérience, qualités pédagogiques)
+4. **Ce que nous offrons** (conditions, flexibilité, environnement)
+5. **Comment postuler** (envoyer CV + lettre de motivation à direction@institut-prigogine.be)
+
+Ton : professionnel, chaleureux, inclusif. Longueur : environ 300 mots.`;
+
+      const resp = await fetch('https://api.anthropic.com/v1/messages', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          model: 'claude-sonnet-4-6',
+          max_tokens: 1000,
+          messages: [{ role: 'user', content: prompt }],
+        }),
+      });
+      const data = await resp.json();
+      const texte = (data.content || []).map(b => b.text || '').join('').trim();
+      setAnnonce(texte);
+    } catch (e) {
+      setErr('Erreur : ' + e.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const copier = () => {
+    navigator.clipboard.writeText(annonce);
+    setCopie(true); setTimeout(() => setCopie(false), 2000);
+  };
+
+  return (
+    <>
+      <Btn variant="secondary" icon={IconSparkles} onClick={() => { setOpen(true); generer(); }}>
+        Générer l'annonce
+      </Btn>
+      {open && (
+        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4" onClick={() => setOpen(false)}>
+          <div className="bg-white rounded-xl max-w-2xl w-full max-h-[90vh] overflow-auto" onClick={e => e.stopPropagation()}>
+            <div className="px-5 py-4 border-b border-gray-100 flex items-center justify-between sticky top-0 bg-white">
+              <div>
+                <h3 className="text-lg font-bold text-iip-blue">Annonce de recrutement</h3>
+                <div className="text-xs text-gray-500">{poste.intitule} · générée par IA</div>
+              </div>
+              <button onClick={() => setOpen(false)} className="text-gray-400 hover:text-gray-700"><IconX size={20} /></button>
+            </div>
+            <div className="p-5">
+              {loading && (
+                <div className="flex items-center gap-2 text-sm text-gray-500 py-6 justify-center">
+                  <span className="animate-spin inline-block w-4 h-4 border-2 border-iip-blue border-t-transparent rounded-full" />
+                  Génération en cours…
+                </div>
+              )}
+              {err && <div className="text-sm text-red-600 bg-red-50 border border-red-200 rounded px-3 py-2">{err}</div>}
+              {annonce && (
+                <>
+                  <div className="text-sm text-gray-700 whitespace-pre-wrap leading-relaxed border border-gray-100 rounded-lg p-4 bg-gray-50/50">
+                    {annonce}
+                  </div>
+                  <div className="flex gap-2 mt-4 justify-end">
+                    <Btn variant="ghost" icon={IconCheck} onClick={copier}>
+                      {copie ? 'Copié !' : 'Copier le texte'}
+                    </Btn>
+                    <Btn variant="secondary" icon={IconSparkles} onClick={generer}>Regénérer</Btn>
+                  </div>
+                </>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+    </>
   );
 }
 
@@ -301,6 +413,7 @@ function GrilleQuestions({ poste, onChange }) {
       // 2. Construire le prompt contextualisé
       const lignesUE = (ctx.ues || []).map(u => `- UE ${u.ue_num} : ${u.ue_nom}${u.ects ? ` (${u.ects} ECTS)` : ''}${u.ue_niv ? ` [${u.ue_niv}]` : ''}`).join('\n');
       const lignesCours = (ctx.cours || []).map(c => `- ${c.cours_nom} (${c.ct_pp || '?'}, ${c.cours_per || '?'} pér.)`).join('\n');
+      const lignesAA = (ctx.aa || []).map(a => `- ${a.aa_code} : L'étudiant sera capable ${a.description}`).join('\n');
 
       const prompt = `Tu es expert en recrutement pour l'enseignement supérieur de promotion sociale en Belgique (Institut Ilya Prigogine, Bruxelles).
 
@@ -316,6 +429,8 @@ ${ctx.ue ? `UE ciblée : ${ctx.ue.ue_nom} (${ctx.ue.ects || '?'} ECTS, ${ctx.ue.
 ${lignesUE ? `Programme de la section (extrait) :\n${lignesUE}` : ''}
 
 ${lignesCours ? `Cours de l'UE / section :\n${lignesCours}` : ''}
+
+${lignesAA ? `Acquis d'apprentissage visés (ce que l'étudiant doit maîtriser) :\n${lignesAA}` : ''}
 
 Génère une grille de 10 questions d'entretien pertinentes pour ce poste, réparties en catégories :
 - Motivation et connaissance de l'établissement (2 questions)

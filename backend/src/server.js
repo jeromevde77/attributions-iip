@@ -32,6 +32,7 @@ import nominationsRoutes   from './routes/nominations.js';
 import sequenceRoutes      from './routes/sequence.js';
 import dcppRoutes          from './routes/dcpp.js';
 import recrutementRoutes   from './routes/recrutement.js';
+import aaRoutes            from './routes/aa.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
@@ -2236,6 +2237,7 @@ app.use('/api/nominations', nominationsRoutes);
 app.use('/api/sequence',        sequenceRoutes);
 app.use('/api/dcpp',            dcppRoutes);
 app.use('/api/recrutement',     recrutementRoutes);
+app.use('/api/aa',              aaRoutes);
 
 // Route logo IIP
 import { createRequire as _cr } from 'module';
