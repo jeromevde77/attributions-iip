@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import {
   IconBriefcase, IconUserPlus, IconArrowLeft, IconTrash,
   IconFileCv, IconExternalLink, IconUpload, IconSparkles,
-  IconCheck, IconX, IconUsersGroup, IconDownload,
+  IconCheck, IconX, IconUsersGroup, IconDownload, IconClipboardText,
 } from '@tabler/icons-react';
 import { Btn, RailLateral } from '../components/ui.jsx';
 import { getAnnee } from '../lib/api.js';
@@ -137,6 +137,7 @@ function FichePoste({ poste, annee, onBack }) {
   const [candidats, setCandidats] = useState(poste.candidats || []);
   const [ajout, setAjout]         = useState(false);
   const [genAnnonce, setGenAnnonce] = useState(false);
+  const [onglet, setOnglet]       = useState('candidats'); // 'candidats' | 'grille'
 
   const recharger = async () => {
     const detail = await af(`/postes/${poste.ue_num}/${encodeURIComponent(poste.code_cours)}/${encodeURIComponent(poste.section)}?annee=${encodeURIComponent(annee)}`);
@@ -206,6 +207,23 @@ function FichePoste({ poste, annee, onBack }) {
         )}
       </div>
 
+      {/* Onglets */}
+      <div className="flex gap-1 border-b border-gray-200 mb-4">
+        {[
+          ['candidats', `Candidats (${candidats.length})`, IconUsersGroup],
+          ['grille', 'Grille d\'entretien', IconClipboardText],
+        ].map(([v, lbl, Icon]) => (
+          <button key={v} onClick={() => setOnglet(v)}
+            className={`px-4 py-2 text-sm font-medium border-b-2 -mb-px flex items-center gap-1.5 ${
+              onglet === v ? 'border-iip-turquoise text-iip-blue' : 'border-transparent text-gray-500 hover:text-gray-700'}`}>
+            <Icon size={15} />{lbl}
+          </button>
+        ))}
+      </div>
+
+      {onglet === 'grille' && <GrilleEntretien poste={poste} annee={annee} />}
+
+      {onglet === 'candidats' && (<>
       {/* Candidats */}
       <div className="flex items-center justify-between mb-3">
         <h2 className="text-lg font-semibold text-iip-blue flex items-center gap-2">
@@ -235,6 +253,7 @@ function FichePoste({ poste, annee, onBack }) {
           <CarteCandidatPoste key={c.id} candidature={c} onChange={recharger} />
         ))}
       </div>
+      </>)}
 
       {genAnnonce && (
         <ModalAnnonce poste={poste} annee={annee} onClose={() => setGenAnnonce(false)} />
@@ -558,6 +577,175 @@ function CarteCandidatPoste({ candidature: c, onChange }) {
     </div>
   );
 }
+
+/* ══════════════════════ GRILLE D'ENTRETIEN ══════════════════════ */
+
+const GRILLE_IIP = [
+  {
+    axe: 'Axe 1 — Connaissance de la formation et du contexte',
+    couleur: '#0369a1',
+    questions: [
+      "Quelles sont, selon vous, les différences les plus marquantes entre l'ancienne formation et la nouvelle ?",
+      "Que savez-vous du cadre légal de cette formation ?",
+      "Quelle sera la position du diplômé dans un service de soins ou en milieu professionnel ?",
+      "Quel est le positionnement de l'enseignement pour adultes (EA) par rapport à l'enseignement supérieur de type court ?",
+    ],
+  },
+  {
+    axe: 'Axe 2 — Expérience professionnelle et clinique',
+    couleur: '#7c3aed',
+    questions: [
+      "Décrivez votre parcours professionnel dans votre domaine de spécialité.",
+      "Avez-vous une expérience d'encadrement de stagiaires ou d'étudiants en milieu clinique ou professionnel ?",
+      "Dans quels services ou spécialités avez-vous exercé ? Pendant combien d'années ?",
+      "Quels cours avez-vous déjà enseignés ? Sur quelle base juridique (titre requis / suffisant) ?",
+    ],
+  },
+  {
+    axe: 'Axe 3 — Compétences pédagogiques',
+    couleur: '#15803d',
+    questions: [
+      "Comment organiseriez-vous vos cours pour satisfaire un public de l'enseignement pour adultes ?",
+      "Avez-vous déjà donné cours à des groupes de 50 à 100 étudiants ?",
+      "Comment gérez-vous l'hétérogénéité d'un groupe (niveaux différents, adultes en reconversion) ?",
+      "Quelle différence faites-vous entre l'enseignement supérieur pour adultes et l'enseignement obligatoire au niveau pédagogique ?",
+      "Quelle est votre approche de l'évaluation formative vs certificative ?",
+      "Comment travailleriez-vous la pratique réflexive avec les étudiants avant, pendant et après un stage ?",
+    ],
+  },
+  {
+    axe: 'Axe 4 — Contraintes pratiques et administratives',
+    couleur: '#b45309',
+    questions: [
+      "Quel volume horaire hebdomadaire êtes-vous en mesure d'assumer ?",
+      "Avez-vous des contraintes de jours ou d'horaires (activité clinique en parallèle, etc.) ?",
+      "Connaissez-vous les attendus de l'IIP quant au travail invisible (jury, suivi de TFE, encadrement) ?",
+      "Êtes-vous flexible sachant que l'organisation en EA ne se fait pas toujours sur une base fixe annuelle ?",
+    ],
+  },
+];
+
+function GrilleEntretien({ poste, annee }) {
+  const [qIA, setQIA]         = useState([]);
+  const [loading, setLoading] = useState(false);
+  const [err, setErr]         = useState('');
+
+  const genererQIA = async () => {
+    setLoading(true); setErr('');
+    try {
+      const ctx = await af(`/contexte?annee=${encodeURIComponent(annee)}&ue_num=${poste.ue_num}&section=${encodeURIComponent(poste.section)}`);
+      const lignesAA = (ctx.aa || []).map(a => `- ${a.aa_code} : L'étudiant sera capable ${a.description}`).join('\n');
+      const lignesCours = (ctx.cours || []).map(c => `${c.cours_nom} (${c.ct_pp})`).join(', ');
+
+      const resp = await fetch('https://api.anthropic.com/v1/messages', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          model: 'claude-sonnet-4-6', max_tokens: 800,
+          messages: [{ role: 'user', content:
+            `Tu aides à recruter un professeur pour ce cours à l'Institut Ilya Prigogine (enseignement de promotion sociale, Bruxelles).
+
+Cours : ${poste.nom_cours || poste.ue_nom} — UE ${poste.ue_num} — Section ${poste.section}
+${lignesCours ? `Activités : ${lignesCours}` : ''}
+${lignesAA ? `\nAcquis d'apprentissage visés :\n${lignesAA}` : ''}
+
+Génère 6 à 8 questions d'entretien SPÉCIFIQUES à ce cours et à ces acquis d'apprentissage.
+Ces questions complètent une grille générale (connaissance formation, expérience, pédagogie, contraintes) déjà posée.
+Tester ici la maîtrise disciplinaire et la capacité à enseigner CES contenus précis.
+
+Réponds en JSON strict sans backticks : {"questions":["question 1","question 2",...]}`
+          }],
+        }),
+      });
+      const data = await resp.json();
+      const parsed = JSON.parse((data.content || []).map(b => b.text || '').join('').trim());
+      setQIA(Array.isArray(parsed.questions) ? parsed.questions : []);
+    } catch (e) { setErr('Erreur : ' + e.message); }
+    finally { setLoading(false); }
+  };
+
+  const imprimer = () => {
+    const html = `<!DOCTYPE html><html><head><meta charset="utf-8">
+    <style>
+      body{font-family:Arial,sans-serif;font-size:11px;color:#222;padding:0}
+      h1{color:#1B2B4B;font-size:15px;border-bottom:2px solid #00AACC;padding-bottom:6px;margin-bottom:4px}
+      .meta{color:#777;font-size:9px;margin-bottom:14px}
+      h2{font-size:11px;font-weight:bold;margin:12px 0 5px;padding:4px 10px;border-radius:3px;color:white}
+      ul{margin:0 0 6px 16px;padding:0}
+      li{margin-bottom:8px;line-height:1.5}
+      @media print{@page{size:A4;margin:14mm 12mm}}
+    </style></head><body>
+    <h1>Grille d'entretien — ${poste.nom_cours || poste.ue_nom}</h1>
+    <div class="meta">UE ${poste.ue_num} · Section ${poste.section} · ${annee}</div>
+    ${GRILLE_IIP.map(axe => `<h2 style="background:${axe.couleur}">${axe.axe}</h2><ul>${axe.questions.map(q => `<li>${q}</li>`).join('')}</ul>`).join('')}
+    ${qIA.length > 0 ? `<h2 style="background:#1B2B4B">Axe 5 — Questions spécifiques au cours</h2><ul>${qIA.map(q => `<li>${q}</li>`).join('')}</ul>` : ''}
+    </body></html>`;
+    const w = window.open('', '_blank');
+    w.document.write(html); w.document.close();
+    setTimeout(() => { w.focus(); w.print(); }, 300);
+  };
+
+  return (
+    <div className="max-w-3xl">
+      <div className="flex items-center justify-between mb-4 gap-3 flex-wrap">
+        <p className="text-sm text-gray-500">
+          Grille commune IIP (4 axes fixes) + questions spécifiques générées selon les acquis d'apprentissage du cours.
+        </p>
+        <div className="flex gap-2">
+          <Btn variant="secondary" icon={IconSparkles} onClick={genererQIA} disabled={loading}>
+            {loading ? 'Génération…' : 'Générer l\'axe 5'}
+          </Btn>
+          <Btn variant="ghost" icon={IconDownload} onClick={imprimer}>Imprimer</Btn>
+        </div>
+      </div>
+
+      {err && <div className="text-xs text-red-600 bg-red-50 rounded px-3 py-2 mb-3">{err}</div>}
+
+      <div className="space-y-3">
+        {GRILLE_IIP.map((axe, i) => (
+          <div key={i} className="border border-gray-200 rounded-xl overflow-hidden">
+            <div className="px-4 py-2.5 text-sm font-semibold text-white" style={{ background: axe.couleur }}>
+              {axe.axe}
+            </div>
+            <ul className="px-4 py-3 space-y-2.5">
+              {axe.questions.map((q, j) => (
+                <li key={j} className="text-sm text-gray-700 flex gap-2 list-none">
+                  <span className="flex-shrink-0 w-1.5 h-1.5 mt-2 rounded-full" style={{ background: axe.couleur }} />
+                  {q}
+                </li>
+              ))}
+            </ul>
+          </div>
+        ))}
+
+        {loading && (
+          <div className="border border-dashed border-iip-turquoise/40 rounded-xl p-4 flex items-center gap-2 text-sm text-gray-400">
+            <span className="animate-spin w-4 h-4 border-2 border-iip-blue border-t-transparent rounded-full flex-shrink-0" />
+            Génération des questions spécifiques à « {poste.nom_cours || poste.ue_nom} »…
+          </div>
+        )}
+
+        {qIA.length > 0 && (
+          <div className="border border-iip-blue/20 rounded-xl overflow-hidden">
+            <div className="px-4 py-2.5 text-sm font-semibold text-white flex items-center justify-between" style={{ background: '#1B2B4B' }}>
+              <span>Axe 5 — Questions spécifiques au cours</span>
+              <span className="text-[10px] font-normal opacity-60">générées par l'IA · UE {poste.ue_num}</span>
+            </div>
+            <ul className="px-4 py-3 space-y-2.5">
+              {qIA.map((q, i) => (
+                <li key={i} className="text-sm text-gray-700 flex gap-2 list-none">
+                  <span className="flex-shrink-0 w-1.5 h-1.5 mt-2 rounded-full bg-iip-turquoise" />
+                  {q}
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
 function ModalAnnonce({ poste, annee, onClose }) {
   const [annonce, setAnnonce] = useState('');
   const [loading, setLoading] = useState(true);
