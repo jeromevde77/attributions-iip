@@ -244,8 +244,21 @@ function FichePoste({ poste, annee, onBack }) {
 }
 
 /* ══════════════════════ FORMULAIRE CANDIDAT + EXTRACTION CV ══════════════════════ */
+const telechargerDoc = async (docId, nomOriginal) => {
+  try {
+    const resp = await fetch(`/api/recrutement/documents/${docId}`, {
+      headers: { Authorization: `Bearer ${tok()}` },
+    });
+    if (!resp.ok) throw new Error('Document introuvable');
+    const blob = await resp.blob();
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url; a.download = nomOriginal; a.click();
+    URL.revokeObjectURL(url);
+  } catch (e) { alert(e.message); }
+};
+
 const TYPES_DOC = {
-  cv:      { label: 'CV',                    accept: '.pdf,.doc,.docx,.jpg,.jpeg,.png' },
   lettre:  { label: 'Lettre de motivation',  accept: '.pdf,.doc,.docx' },
   diplome: { label: 'Diplôme / Certificat',  accept: '.pdf,.jpg,.jpeg,.png' },
   annexe:  { label: 'Annexe',               accept: '*' },
@@ -462,8 +475,8 @@ function CarteCandidatPoste({ candidature: c, onChange }) {
                 <div key={d.id} className="flex items-center gap-2 text-xs bg-white border border-gray-100 rounded px-2 py-1.5">
                   <IconFileCv size={13} className="text-iip-blue flex-shrink-0" />
                   <span className="text-gray-400 flex-shrink-0 w-20">{TYPES_DOC[d.type]?.label || d.type}</span>
-                  <a href={`/api/recrutement/documents/${d.id}`} target="_blank" rel="noreferrer"
-                    className="text-iip-blue hover:underline truncate flex-1">{d.nom_original}</a>
+                  <button onClick={() => telechargerDoc(d.id, d.nom_original)}
+                    className="text-iip-blue hover:underline truncate flex-1 text-left">{d.nom_original}</button>
                   <button onClick={() => supprimerDoc(d.id)} className="text-gray-300 hover:text-red-500 flex-shrink-0">
                     <IconTrash size={12} />
                   </button>
