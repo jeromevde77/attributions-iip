@@ -1381,7 +1381,7 @@ function FicheCandidat({ candidat, fonctions, grille, onClose, onSaved }) {
 
   return (
     <div className="fixed inset-0 bg-black/40 z-50 flex items-start justify-center p-4 pt-12 overflow-auto" onClick={onClose}>
-      <div className="bg-white rounded-xl w-full max-w-lg shadow-xl" onClick={e => e.stopPropagation()}>
+      <div className="bg-white rounded-xl w-full max-w-2xl shadow-xl" onClick={e => e.stopPropagation()}>
 
         {/* En-tête */}
         <div className="px-5 py-4 border-b border-gray-100 flex items-center justify-between sticky top-0 bg-white rounded-t-xl">
@@ -1490,29 +1490,30 @@ function FicheCandidat({ candidat, fonctions, grille, onClose, onSaved }) {
                 {candidatures.map((ca, i) => {
                   const st = STATUT[ca.statut] || STATUT.a_voir;
                   return (
-                    <div key={i} className="flex items-center gap-2 text-xs bg-gray-50 border border-gray-100 rounded-lg px-3 py-2">
-                      <div className="flex-1 min-w-0">
-                        <div className="font-medium text-gray-700 truncate">
-                          {ca.cours_nom || ca.ue_nom || `UE ${ca.ue_num}`}
+                    <div key={i} className="bg-gray-50 border border-gray-100 rounded-lg px-3 py-2 space-y-1.5">
+                      <div className="flex items-center justify-between gap-2">
+                        <div className="min-w-0">
+                          <div className="text-sm font-medium text-gray-800 truncate">
+                            {ca.cours_nom || ca.ue_nom || `UE ${ca.ue_num}`}
+                          </div>
+                          <div className="text-xs text-gray-400">{ca.section} · {ca.annee_scolaire}</div>
                         </div>
-                        <div className="text-gray-400">{ca.section} · {ca.annee_scolaire}</div>
+                        <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full flex-shrink-0"
+                          style={{ color: st.color, background: st.bg }}>{st.label}</span>
                       </div>
-                      <span className="font-semibold px-2 py-0.5 rounded-full flex-shrink-0"
-                        style={{ color: st.color, background: st.bg }}>{st.label}</span>
-                      {/* Bouton entretien */}
-                      <button
-                        onClick={() => setEntretienCand(ca)}
-                        className="text-[10px] border border-iip-turquoise text-iip-blue hover:bg-iip-turquoise/10 rounded px-1.5 py-0.5 flex-shrink-0 flex items-center gap-0.5">
-                        <IconClipboardText size={10} /> Entretien
-                      </button>
-                      {/* Supprimer la candidature */}
-                      <button onClick={async () => {
-                        if (!confirm('Retirer ce cours de la liste ?')) return;
-                        await af(`/candidatures/${ca.id}`, { method: 'DELETE' });
-                        rechargerCandidatures();
-                      }} className="text-gray-300 hover:text-red-400 flex-shrink-0">
-                        <IconX size={13} />
-                      </button>
+                      <div className="flex items-center gap-2">
+                        <button onClick={() => setEntretienCand(ca)}
+                          className="text-xs border border-iip-turquoise text-iip-blue hover:bg-iip-turquoise/10 rounded px-2 py-1 flex items-center gap-1 font-medium">
+                          <IconClipboardText size={12} /> Lancer l'entretien
+                        </button>
+                        <button onClick={async () => {
+                          if (!confirm('Retirer ce cours de la liste ?')) return;
+                          await af(`/candidatures/${ca.id}`, { method: 'DELETE' });
+                          rechargerCandidatures();
+                        }} className="text-xs text-gray-400 hover:text-red-500 flex items-center gap-1">
+                          <IconX size={12} /> Retirer
+                        </button>
+                      </div>
                     </div>
                   );
                 })}
