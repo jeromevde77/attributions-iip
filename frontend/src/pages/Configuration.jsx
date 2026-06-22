@@ -1,7 +1,8 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, lazy, Suspense } from 'react';
 import { api, getAnnee } from '../lib/api.js';
-import { IconAdjustments, IconBooks, IconBuilding, IconCalendar, IconChartBar, IconCheck, IconChevronRight, IconDownload, IconHistory, IconLink, IconScale, IconSettings, IconSparkles, IconUserShield, IconUsers, IconX, IconGavel, IconPlus, IconTrash, IconGripVertical } from '@tabler/icons-react';
+import { IconAdjustments, IconBooks, IconBuilding, IconCalendar, IconChartBar, IconCheck, IconChevronRight, IconDownload, IconHistory, IconLink, IconScale, IconSettings, IconSparkles, IconUserShield, IconUsers, IconX, IconGavel, IconPlus, IconTrash, IconGripVertical, IconEdit } from '@tabler/icons-react';
 import { PageHeader, RailLateral } from '../components/ui.jsx';
+const Editeur = lazy(() => import('./Editeur.jsx'));
 
 const TOKEN = () => localStorage.getItem('token');
 const authFetch = (url, opts = {}) => fetch(url, { ...opts, headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${TOKEN()}`, ...opts.headers } }).then(r => r.json());
@@ -907,6 +908,7 @@ export default function Configuration() {
     { key: 'procedures', label: 'Procédures', icon: IconGavel },
     { key: 'statistiques', label: 'Statistiques', icon: IconChartBar },
     { key: 'changelog', label: 'Nouveautés', icon: IconSparkles },
+    { key: 'editeur',   label: 'Éditeur',     icon: IconEdit },
   ];
   return (
     <div className="relative bg-slate-50" style={{ minHeight: 'calc(100vh - 64px)' }}>
@@ -946,6 +948,13 @@ export default function Configuration() {
         <div className="max-w-3xl bg-white rounded-lg border border-gray-200 p-5">
           <ChangelogView data={changelog} />
         </div>
+      )}
+
+      {/* ── Onglet Éditeur ── */}
+      {tab === 'editeur' && (
+        <Suspense fallback={<div className="p-8 text-center text-gray-400">Chargement…</div>}>
+          <Editeur />
+        </Suspense>
       )}
 
       {/* ── Onglet Système ── */}

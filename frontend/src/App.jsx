@@ -181,8 +181,7 @@ function ProtectedLayout({ children }) {
         ['/pilotage',     'Pilotage', IconChartBar],
         ['/planification','Planification', IconCalendarStats],
       ];
-  if (u?.role === 'admin') nav.push(['/editeur', 'Éditeur', IconEdit]);
-  if (u?.role === 'admin') nav.push(['/configuration', 'Configuration', IconSettings]);
+  if (u?.role === 'admin') nav.push(['/configuration', 'Config.', IconSettings]);
 
   return (
     <div className="min-h-screen flex flex-col">
@@ -329,7 +328,7 @@ export default function App() {
     <ErrorBoundary>
       <Routes>
       <Route path="/login" element={<Login />} />
-      <Route path="/"             element={<Navigate to="/attributions" replace />} />
+      <Route path="/"             element={<Navigate to="/accueil" replace />} />
       <Route path="/attributions" element={<ProtectedLayout><Attributions /></ProtectedLayout>} />
       <Route path="/professeurs"  element={<ProtectedLayout><Professeurs /></ProtectedLayout>} />
       <Route path="/accueil"      element={<ProtectedLayout><Accueil /></ProtectedLayout>} />
