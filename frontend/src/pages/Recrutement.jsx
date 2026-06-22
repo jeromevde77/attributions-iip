@@ -314,6 +314,7 @@ const telechargerDoc = async (docId, nomOriginal, blobUrl = null) => {
 };
 
 const TYPES_DOC = {
+  cv:      { label: 'CV',                    accept: '.pdf,.doc,.docx,.jpg,.jpeg,.png' },
   lettre:  { label: 'Lettre de motivation',  accept: '.pdf,.doc,.docx' },
   diplome: { label: 'Diplôme / Certificat',  accept: '.pdf,.jpg,.jpeg,.png' },
   annexe:  { label: 'Annexe',               accept: '*' },
@@ -1306,7 +1307,6 @@ function FicheCandidat({ candidat, fonctions, onClose, onSaved }) {
         </div>
 
         <div className="p-5 space-y-4">
-          {/* Infos */}
           <div className="grid grid-cols-2 gap-3">
             <div>
               <div className="text-xs text-gray-500 mb-1">Prénom</div>
@@ -1347,6 +1347,8 @@ function FicheCandidat({ candidat, fonctions, onClose, onSaved }) {
                 )}
               </div>
             </div>
+            <div className="col-span-2">
+              <div className="text-xs text-gray-500 mb-1">Lien CV (Drive…)</div>
               <input value={f.cv_url} onChange={e => setF({ ...f, cv_url: e.target.value })}
                 className="w-full text-sm border border-gray-300 rounded px-2 py-1.5 h-9" />
             </div>
@@ -1407,13 +1409,12 @@ function FicheCandidat({ candidat, fonctions, onClose, onSaved }) {
           )}
         </div>
 
-        <div className="px-5 py-3 border-t border-gray-100 flex justify-end gap-2 sticky bottom-0 bg-white rounded-b-xl">
+        <div className="px-5 py-3 border-t border-gray-100 flex justify-end gap-2 bg-white rounded-b-xl">
           <Btn variant="ghost" onClick={onClose}>Annuler</Btn>
           <Btn variant="primary" icon={IconCheck} onClick={enregistrer} disabled={busy}>
             {busy ? 'Enregistrement…' : 'Enregistrer'}
           </Btn>
-
-        
+        </div>
       </div>
     </div>
   );
