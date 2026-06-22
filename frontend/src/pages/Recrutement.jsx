@@ -2,7 +2,7 @@ import { useEffect, useState, useMemo } from 'react';
 import {
   IconBriefcase, IconUserPlus, IconArrowLeft, IconTrash, IconPlus,
   IconFileCv, IconExternalLink, IconUpload, IconStar, IconDeviceFloppy,
-  IconCheck, IconX, IconUsersGroup, IconClipboardText,
+  IconCheck, IconX, IconUsersGroup, IconClipboardText, IconSparkles,
 } from '@tabler/icons-react';
 import { PageHeader, Btn } from '../components/ui.jsx';
 import { getAnnee } from '../lib/api.js';
@@ -276,7 +276,10 @@ function StatutPoste({ poste, onChange }) {
 /* ── Grille de questions réutilisable ── */
 function GrilleQuestions({ poste, onChange }) {
   const [questions, setQuestions] = useState(poste.questions?.length ? poste.questions.map(q => ({ ...q })) : []);
-  const [saved, setSaved] = useState(false);
+  const [saved, setSaved]         = useState(false);
+  const [genLoading, setGenLoading] = useState(false);
+  const [genErr, setGenErr]         = useState('');
+  const annee = getAnnee();
 
   const maj = (i, champ, val) => setQuestions(qs => qs.map((q, j) => j === i ? { ...q, [champ]: val } : q));
   const ajouter = () => setQuestions(qs => [...qs, { libelle: '', ponderation: 1, ordre: qs.length }]);
@@ -286,9 +289,80 @@ function GrilleQuestions({ poste, onChange }) {
     setSaved(true); setTimeout(() => setSaved(false), 2000); onChange();
   };
 
+  const suggerer = async () => {
+    setGenLoading(true); setGenErr('');
+    try {
+      // 1. Récupérer le contexte pédagogique depuis la base
+      const params = new URLSearchParams({ annee });
+      if (poste.section) params.append('section', poste.section);
+      if (poste.ue_num)  params.append('ue_num', poste.ue_num);
+      const ctx = await af(`/suggestions/contexte?${params}`);
+
+      // 2. Construire le prompt contextualisé
+      const lignesUE = (ctx.ues || []).map(u => `- UE ${u.ue_num} : ${u.ue_nom}${u.ects ? ` (${u.ects} ECTS)` : ''}${u.ue_niv ? ` [${u.ue_niv}]` : ''}`).join('\n');
+      const lignesCours = (ctx.cours || []).map(c => `- ${c.cours_nom} (${c.ct_pp || '?'}, ${c.cours_per || '?'} pér.)`).join('\n');
+
+      const prompt = `Tu es expert en recrutement pour l'enseignement supérieur de promotion sociale en Belgique (Institut Ilya Prigogine, Bruxelles).
+
+Contexte du poste à pourvoir :
+- Intitulé : ${poste.intitule}
+- Section : ${poste.section || 'non précisée'}
+- Contrat : ${poste.contrat || 'non précisé'}
+- UE / cours visé : ${poste.ue_num || 'non précisé'}
+- Description : ${poste.description || 'aucune'}
+
+${ctx.ue ? `UE ciblée : ${ctx.ue.ue_nom} (${ctx.ue.ects || '?'} ECTS, ${ctx.ue.ue_niv || ''}, réf. ${ctx.ue.et_ref || 'IIP'})` : ''}
+
+${lignesUE ? `Programme de la section (extrait) :\n${lignesUE}` : ''}
+
+${lignesCours ? `Cours de l'UE / section :\n${lignesCours}` : ''}
+
+Génère une grille de 10 questions d'entretien pertinentes pour ce poste, réparties en catégories :
+- Motivation et connaissance de l'établissement (2 questions)
+- Compétences disciplinaires et pédagogiques (4 questions, en lien avec les cours/UE ci-dessus)
+- Expérience pratique et professionnelle (2 questions)
+- Soft skills et travail en équipe (2 questions)
+
+Pour chaque question, précise une pondération (1.0 = normale, 1.5 = importante, 2.0 = critique).
+
+Réponds UNIQUEMENT en JSON valide, sans backticks, sans commentaires, ce format exact :
+{"questions":[{"libelle":"...","ponderation":1.0},...]}`; 
+
+      // 3. Appel API Anthropic
+      const resp = await fetch('https://api.anthropic.com/v1/messages', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          model: 'claude-sonnet-4-6',
+          max_tokens: 1000,
+          messages: [{ role: 'user', content: prompt }],
+        }),
+      });
+      const data = await resp.json();
+      const text = (data.content || []).map(b => b.text || '').join('').trim();
+      const parsed = JSON.parse(text);
+      if (!Array.isArray(parsed.questions)) throw new Error('Format inattendu');
+
+      // 4. Fusionner avec les questions existantes (ou remplacer si vides)
+      const nouvelles = parsed.questions.map((q, i) => ({ libelle: q.libelle, ponderation: q.ponderation || 1.0, ordre: i }));
+      setQuestions(q => q.length === 0 ? nouvelles : [...q, ...nouvelles]);
+    } catch (e) {
+      setGenErr('Erreur lors de la génération : ' + e.message);
+    } finally {
+      setGenLoading(false);
+    }
+  };
+
   return (
     <div className="space-y-2">
-      <p className="text-sm text-gray-500 mb-2">Questions posées à chaque candidat lors de l'entretien. La pondération sert au calcul de la note.</p>
+      <div className="flex items-center justify-between mb-2">
+        <p className="text-sm text-gray-500">Questions posées à chaque candidat lors de l'entretien. La pondération sert au calcul de la note.</p>
+        <Btn variant="secondary" icon={genLoading ? null : IconSparkles} onClick={suggerer} disabled={genLoading}
+          className="whitespace-nowrap">
+          {genLoading ? <span className="flex items-center gap-1.5"><span className="animate-spin inline-block w-3.5 h-3.5 border-2 border-iip-blue border-t-transparent rounded-full" />Génération…</span> : 'Suggérer des questions'}
+        </Btn>
+      </div>
+      {genErr && <div className="text-xs text-red-600 bg-red-50 border border-red-200 rounded px-2 py-1.5 mb-2">{genErr}</div>}
       {questions.map((q, i) => (
         <div key={i} className="flex items-center gap-2">
           <span className="text-xs text-gray-400 w-5">{i + 1}.</span>
