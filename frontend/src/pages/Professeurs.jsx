@@ -549,6 +549,7 @@ function DetailModal({ profId, onClose, onEdit, onFiche }) {
 }
 
 export default function Professeurs() {
+  const navigate = useNavigate();
   const [profs, setProfs] = useState([]);
   const [search, setSearch] = useState('');
   const [fContrat, setFContrat] = useState('');   // '' | IIP | HELB | mixte
