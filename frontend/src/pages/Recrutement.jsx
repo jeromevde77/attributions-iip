@@ -1265,6 +1265,7 @@ function FicheCandidat({ candidat, fonctions, grille, onClose, onSaved }) {
   const [selCours, setSelCours]     = useState('');
   const [loadingUE, setLoadingUE]   = useState(false);
   const [ajoutBusy, setAjoutBusy]   = useState(false);
+  const [entretienLibre, setEntretienLibre] = useState(false);
   const [entretienCand, setEntretienCand] = useState(null);
 
   // Charger les sections au montage
@@ -1339,6 +1340,23 @@ function FicheCandidat({ candidat, fonctions, grille, onClose, onSaved }) {
     setVisionneur({ url: URL.createObjectURL(blob), nom, mime: blob.type });
   };
 
+  if (entretienLibre) return (
+    <EntretienLibre
+      candidat={candidat}
+      grille={grille}
+      onClose={() => setEntretienLibre(false)}
+      onSaved={async (reponses, note, commentaire) => {
+        await af(`/candidats/${candidat.id}`, { method: 'PATCH', body: JSON.stringify({
+          entretien_reponses: reponses,
+          entretien_note: note,
+          entretien_commentaire: commentaire,
+        })});
+        setEntretienLibre(false);
+        onSaved();
+      }}
+    />
+  );
+
   if (entretienCand) return (
     <EntretienModal
       candidature={entretienCand}
@@ -1387,6 +1405,16 @@ function FicheCandidat({ candidat, fonctions, grille, onClose, onSaved }) {
         <div className="px-5 py-4 border-b border-gray-100 flex items-center justify-between sticky top-0 bg-white rounded-t-xl">
           <h3 className="text-lg font-bold text-iip-blue">Fiche candidat</h3>
           <div className="flex items-center gap-2">
+            <button onClick={() => setEntretienLibre(true)}
+              title="Mener un entretien sans cours attaché"
+              className="text-xs border border-iip-turquoise text-iip-blue hover:bg-iip-turquoise/10 rounded px-2.5 py-1.5 flex items-center gap-1.5 font-medium">
+              <IconClipboardText size={14} /> Entretien
+              {candidat.entretien_note && (
+                <span className="bg-iip-turquoise/20 text-iip-blue rounded-full px-1.5 font-bold">
+                  {candidat.entretien_note}/5
+                </span>
+              )}
+            </button>
             <button onClick={supprimerCandidat} className="text-gray-300 hover:text-red-500 p-1" title="Supprimer le candidat">
               <IconTrash size={17} />
             </button>
@@ -1764,6 +1792,143 @@ function EditeurGrille({ grille, onSaved }) {
           className="w-full border-2 border-dashed border-gray-200 rounded-xl py-3 text-sm text-gray-400 hover:border-iip-turquoise hover:text-iip-blue flex items-center justify-center gap-1.5 transition">
           <IconPlus size={16} /> Ajouter un axe
         </button>
+      </div>
+    </div>
+  );
+}
+
+/* ══════════════════════ ENTRETIEN LIBRE (sans cours attaché) ══════════════════════ */
+function EntretienLibre({ candidat, grille, onClose, onSaved }) {
+  const grilleActive = grille || GRILLE_IIP;
+  const qIA = []; // pas d'axe IA sans cours ciblé
+
+  const toutesQuestions = grilleActive.flatMap(axe =>
+    (axe.questions || []).map(q => ({ axe: axe.axe || axe.libelle, q: q.libelle || q, couleur: axe.couleur }))
+  );
+
+  const initReponses = () => {
+    const saved = candidat.entretien_reponses || {};
+    return toutesQuestions.reduce((acc, _, i) => {
+      acc[i] = { note: saved[i]?.note ?? 0, commentaire: saved[i]?.commentaire ?? '', disabled: saved[i]?.disabled ?? false };
+      return acc;
+    }, {});
+  };
+
+  const [reponses, setReponses]             = useState(initReponses);
+  const [commentaireGlobal, setCommentaireGlobal] = useState(candidat.entretien_commentaire || '');
+  const [saving, setSaving]                 = useState(false);
+  const [saved, setSaved]                   = useState(false);
+
+  const notees = Object.values(reponses).filter(r => r.note > 0 && !r.disabled);
+  const noteGlobale = notees.length > 0
+    ? Math.round((notees.reduce((s, r) => s + r.note, 0) / notees.length) * 10) / 10
+    : null;
+
+  const majReponse = (i, champ, val) =>
+    setReponses(r => ({ ...r, [i]: { ...r[i], [champ]: val } }));
+  const toggleDisabled = (i) =>
+    setReponses(r => ({ ...r, [i]: { ...r[i], disabled: !r[i]?.disabled } }));
+
+  const sauvegarder = async () => {
+    setSaving(true);
+    try {
+      await onSaved(reponses, noteGlobale, commentaireGlobal);
+      setSaved(true); setTimeout(() => setSaved(false), 2000);
+    } finally { setSaving(false); }
+  };
+
+  const parAxe = toutesQuestions.reduce((acc, { axe, q, couleur }, i) => {
+    if (!acc[axe]) acc[axe] = { couleur, questions: [] };
+    acc[axe].questions.push({ q, i });
+    return acc;
+  }, {});
+
+  const nomComplet = [candidat.prenom, candidat.nom].filter(Boolean).join(' ');
+
+  return (
+    <div className="fixed inset-0 bg-black/50 z-50 flex flex-col" onClick={onClose}>
+      <div className="flex items-center justify-between px-5 py-3 bg-white border-b border-gray-200 flex-shrink-0"
+        onClick={e => e.stopPropagation()}>
+        <div>
+          <h3 className="text-base font-bold text-iip-blue">Entretien — {nomComplet}</h3>
+          <div className="text-xs text-gray-400">Entretien exploratoire (sans cours attaché)</div>
+        </div>
+        <div className="flex items-center gap-3">
+          {noteGlobale != null && (
+            <div className="text-right">
+              <div className="text-xs text-gray-400">Moyenne</div>
+              <div className="text-xl font-bold text-iip-blue">{noteGlobale}<span className="text-sm font-normal text-gray-400">/5</span></div>
+            </div>
+          )}
+          <button onClick={async () => { await sauvegarder(); }}
+            disabled={saving}
+            className="bg-iip-blue text-white text-sm px-4 py-2 rounded-lg font-medium hover:opacity-90 flex items-center gap-1.5 disabled:opacity-50">
+            {saved ? <><IconCheck size={15} /> Sauvegardé</> : saving ? 'Sauvegarde…' : <><IconCheck size={15} /> Terminer</>}
+          </button>
+          <button onClick={onClose} className="text-gray-400 hover:text-gray-700 ml-1"><IconX size={20} /></button>
+        </div>
+      </div>
+
+      <div className="flex-1 overflow-auto bg-gray-50" onClick={e => e.stopPropagation()}>
+        <div className="max-w-3xl mx-auto px-4 py-5 space-y-5">
+          {Object.entries(parAxe).map(([axe, { couleur, questions }]) => (
+            <div key={axe} className="bg-white border border-gray-200 rounded-xl overflow-hidden shadow-sm">
+              <div className="px-4 py-2.5 text-sm font-semibold text-white" style={{ background: couleur }}>{axe}</div>
+              <div className="divide-y divide-gray-100">
+                {questions.map(({ q, i }) => {
+                  const disabled = !!reponses[i]?.disabled;
+                  return (
+                    <div key={i} className={`px-4 py-3 transition ${disabled ? 'opacity-40' : ''}`}>
+                      <div className="flex items-start justify-between gap-2 mb-2">
+                        <div className="text-sm text-gray-800 font-medium flex-1">{q}</div>
+                        <button onClick={() => toggleDisabled(i)}
+                          className={`text-[10px] px-2 py-0.5 rounded border flex-shrink-0 mt-0.5 transition ${
+                            disabled ? 'border-gray-300 text-gray-400 bg-gray-50' : 'border-gray-200 text-gray-300 hover:border-orange-300 hover:text-orange-400'
+                          }`}>
+                          {disabled ? '+ Réactiver' : '✕ Non posée'}
+                        </button>
+                      </div>
+                      {!disabled && (<>
+                        <div className="flex gap-1.5 mb-2 flex-wrap">
+                          {LIKERT.map(({ val, label, color }) => (
+                            <button key={val} onClick={() => majReponse(i, 'note', reponses[i]?.note === val ? 0 : val)}
+                              title={label}
+                              className={`flex items-center gap-1 text-xs px-2.5 py-1 rounded-full border transition font-medium ${
+                                reponses[i]?.note === val ? 'text-white border-transparent shadow-sm' : 'bg-white border-gray-200 text-gray-400 hover:border-gray-300'
+                              }`}
+                              style={reponses[i]?.note === val ? { background: color, borderColor: color } : {}}>
+                              <span className="font-bold">{val}</span>
+                              <span className="hidden sm:inline">{label}</span>
+                            </button>
+                          ))}
+                        </div>
+                        <textarea value={reponses[i]?.commentaire || ''} onChange={e => majReponse(i, 'commentaire', e.target.value)}
+                          placeholder="Notes sur la réponse…" rows={2}
+                          className="w-full text-sm border border-gray-200 rounded-lg px-3 py-1.5 resize-none text-gray-600 placeholder-gray-300 focus:outline-none focus:border-iip-turquoise" />
+                      </>)}
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          ))}
+
+          <div className="bg-white border border-gray-200 rounded-xl p-4 shadow-sm">
+            <div className="text-sm font-semibold text-iip-blue mb-2">Bilan global</div>
+            <textarea value={commentaireGlobal} onChange={e => setCommentaireGlobal(e.target.value)}
+              placeholder="Impression générale, points forts, réserves, recommandation…" rows={4}
+              className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 resize-none focus:outline-none focus:border-iip-turquoise" />
+            <div className="flex justify-between items-center mt-3">
+              <div className="text-xs text-gray-400">
+                {notees.length} question{notees.length > 1 ? 's' : ''} évaluée{notees.length > 1 ? 's' : ''} sur {toutesQuestions.length}
+              </div>
+              <button onClick={sauvegarder} disabled={saving}
+                className="text-sm bg-iip-blue text-white px-4 py-1.5 rounded-lg hover:opacity-90 disabled:opacity-50 flex items-center gap-1.5">
+                <IconCheck size={14} /> Sauvegarder
+              </button>
+            </div>
+          </div>
+        </div>
       </div>
     </div>
   );

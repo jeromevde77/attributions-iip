@@ -2293,6 +2293,17 @@ try {
   }
 } catch(e) { console.error('[migration] recrutement_fonction :', e.message); }
 
+// ── Recrutement : entretien libre sur candidat ────────────────────────────────
+try {
+  const cols = db.prepare('PRAGMA table_info(recrutement_candidat)').all().map(c => c.name);
+  if (!cols.includes('entretien_reponses')) {
+    db.exec("ALTER TABLE recrutement_candidat ADD COLUMN entretien_reponses TEXT");
+    db.exec("ALTER TABLE recrutement_candidat ADD COLUMN entretien_note REAL");
+    db.exec("ALTER TABLE recrutement_candidat ADD COLUMN entretien_commentaire TEXT");
+    console.log('[migration] colonnes entretien ajoutées sur recrutement_candidat');
+  }
+} catch(e) { console.error('[migration] entretien candidat :', e.message); }
+
 // ── Recrutement : séparation nom/prenom sur recrutement_candidat ──────────────
 try {
   const cols = db.prepare('PRAGMA table_info(recrutement_candidat)').all().map(c => c.name);

@@ -149,6 +149,7 @@ r.get('/candidats', (req, res) => {
   const candidats = db.prepare('SELECT * FROM recrutement_candidat ORDER BY nom, prenom').all();
   res.json(candidats.map(c => ({
     ...c,
+    entretien_reponses: c.entretien_reponses ? (() => { try { return JSON.parse(c.entretien_reponses); } catch { return {}; } })() : {},
     documents: db.prepare(
       'SELECT id, type, nom_original, taille, cree_le FROM recrutement_document WHERE candidat_id = ? ORDER BY cree_le DESC'
     ).all(c.id),
@@ -185,14 +186,22 @@ r.delete('/fonctions/:id', (req, res) => {
 });
 
 r.patch('/candidats/:id', (req, res) => {
-  const { nom, prenom, email, telephone, cv_url, notes, fonction } = req.body;
+  const { nom, prenom, email, telephone, cv_url, notes, fonction,
+          entretien_reponses, entretien_note, entretien_commentaire } = req.body;
   const c = db.prepare('SELECT id FROM recrutement_candidat WHERE id = ?').get(req.params.id);
   if (!c) return res.status(404).json({ error: 'Candidat introuvable' });
   db.prepare(`UPDATE recrutement_candidat SET
     nom = COALESCE(?, nom), prenom = ?, email = ?, telephone = ?,
-    cv_url = ?, notes = ?, fonction = ?
-    WHERE id = ?`).run(nom ?? null, prenom ?? null, email ?? null, telephone ?? null,
-      cv_url ?? null, notes ?? null, fonction ?? null, c.id);
+    cv_url = ?, notes = ?, fonction = ?,
+    entretien_reponses = COALESCE(?, entretien_reponses),
+    entretien_note = COALESCE(?, entretien_note),
+    entretien_commentaire = COALESCE(?, entretien_commentaire)
+    WHERE id = ?`).run(
+      nom ?? null, prenom ?? null, email ?? null, telephone ?? null,
+      cv_url ?? null, notes ?? null, fonction ?? null,
+      entretien_reponses != null ? JSON.stringify(entretien_reponses) : null,
+      entretien_note ?? null, entretien_commentaire ?? null,
+      c.id);
   res.json({ ok: true });
 });
 
