@@ -140,6 +140,45 @@ r.get('/postes/:ue_num/:code_cours/:section', (req, res) => {
 // ═══════════════════════════════════════════════════════════════════════════════
 // CANDIDATS
 // ═══════════════════════════════════════════════════════════════════════════════
+// ═══════════════════════════════════════════════════════════════════════════════
+// CANDIDATS — liste globale + fiche individuelle
+// ═══════════════════════════════════════════════════════════════════════════════
+
+r.get('/candidats', (req, res) => {
+  const candidats = db.prepare('SELECT * FROM recrutement_candidat ORDER BY nom').all();
+  res.json(candidats.map(c => ({
+    ...c,
+    documents: db.prepare(
+      'SELECT id, type, nom_original, taille, cree_le FROM recrutement_document WHERE candidat_id = ? ORDER BY cree_le DESC'
+    ).all(c.id),
+    candidatures: db.prepare(`
+      SELECT rc.id, rc.annee_scolaire, rc.ue_num, rc.code_cours, rc.section, rc.statut,
+             rc.note_globale, rc.commentaire,
+             u.ue_nom, c.cours_nom
+      FROM recrutement_candidature rc
+      LEFT JOIN ue u ON u.ue_num = rc.ue_num AND u.annee_scolaire = rc.annee_scolaire
+      LEFT JOIN cours c ON c.cours_code = rc.code_cours AND c.annee_scolaire = rc.annee_scolaire
+      WHERE rc.candidat_id = ?
+      ORDER BY rc.cree_le DESC
+    `).all(c.id),
+  })));
+});
+
+r.patch('/candidats/:id', (req, res) => {
+  const { nom, email, telephone, cv_url, notes } = req.body;
+  const c = db.prepare('SELECT id FROM recrutement_candidat WHERE id = ?').get(req.params.id);
+  if (!c) return res.status(404).json({ error: 'Candidat introuvable' });
+  db.prepare(`UPDATE recrutement_candidat SET
+    nom = COALESCE(?, nom), email = ?, telephone = ?, cv_url = ?, notes = ?
+    WHERE id = ?`).run(nom ?? null, email ?? null, telephone ?? null, cv_url ?? null, notes ?? null, c.id);
+  res.json({ ok: true });
+});
+
+r.delete('/candidats/:id', (req, res) => {
+  db.prepare('DELETE FROM recrutement_candidat WHERE id = ?').run(req.params.id);
+  res.json({ ok: true });
+});
+
 r.post('/candidats', (req, res) => {
   const { nom, email, telephone, cv_url, notes, annee, ue_num, code_cours, section } = req.body;
   if (!nom) return res.status(400).json({ error: 'Nom requis' });

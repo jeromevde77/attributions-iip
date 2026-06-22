@@ -27,8 +27,9 @@ export default function Recrutement() {
   const [loading, setLoading]   = useState(true);
   const [err, setErr]           = useState('');
   const [filtre, setFiltre]     = useState('');
-  const [vue, setVue]           = useState('postes'); // 'postes' | 'grille'
+  const [vue, setVue]           = useState('postes');
   const [grille, setGrille]     = useState(null);
+  const [candidats, setCandidats] = useState([]);
   const annee = getAnnee();
 
   const charger = () => {
@@ -36,9 +37,10 @@ export default function Recrutement() {
     af(`/postes?annee=${encodeURIComponent(annee)}`)
       .then(setPostes).catch(e => setErr(e.message)).finally(() => setLoading(false));
   };
-  const chargerGrille = () => af('/grille').then(setGrille).catch(() => {});
+  const chargerGrille    = () => af('/grille').then(setGrille).catch(() => {});
+  const chargerCandidats = () => af('/candidats').then(setCandidats).catch(() => {});
 
-  useEffect(() => { charger(); chargerGrille(); }, []);
+  useEffect(() => { charger(); chargerGrille(); chargerCandidats(); }, []);
 
   const sections = [...new Set(postes.map(p => p.section).filter(Boolean))].sort();
   const postesFiltres = filtre ? postes.filter(p => p.section === filtre) : postes;
@@ -66,8 +68,9 @@ export default function Recrutement() {
         sousTitre={loading ? '…' : `${postes.length} cours à pourvoir`}
         sections={[
           { label: 'Vue', items: [
-            { key: 'postes', label: 'Cours à pourvoir', icon: IconBriefcase,     actif: vue === 'postes', onClick: () => setVue('postes') },
-            { key: 'grille', label: 'Grille entretien', icon: IconClipboardText, actif: vue === 'grille', onClick: () => setVue('grille') },
+            { key: 'postes',    label: 'Cours à pourvoir',    icon: IconBriefcase,     actif: vue === 'postes',    onClick: () => setVue('postes') },
+            { key: 'candidats', label: `Candidats (${candidats.length})`, icon: IconUsersGroup, actif: vue === 'candidats', onClick: () => setVue('candidats') },
+            { key: 'grille',    label: 'Grille entretien',    icon: IconClipboardText, actif: vue === 'grille',    onClick: () => setVue('grille') },
           ]},
           { label: 'Section', items: [
             { key: 'all', label: 'Toutes', icon: IconBriefcase, actif: filtre === '', onClick: () => setFiltre('') },
@@ -81,6 +84,10 @@ export default function Recrutement() {
 
         {vue === 'grille' && (
           <EditeurGrille grille={grille} onSaved={chargerGrille} />
+        )}
+
+        {vue === 'candidats' && (
+          <VueCandidatsGlobal candidats={candidats} onRecharger={chargerCandidats} />
         )}
 
         {vue === 'postes' && (<>
@@ -929,6 +936,300 @@ function EntretienModal({ candidature, poste, annee, qIA, grille, onClose, onSav
               </button>
             </div>
           </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* ══════════════════════ VUE CANDIDATS GLOBALE ══════════════════════ */
+function VueCandidatsGlobal({ candidats, onRecharger }) {
+  const [fiche, setFiche]   = useState(null); // candidat sélectionné
+  const [search, setSearch] = useState('');
+  const [nouveau, setNouveau] = useState(false);
+
+  const filtres = search
+    ? candidats.filter(c => c.nom.toLowerCase().includes(search.toLowerCase())
+        || (c.email || '').toLowerCase().includes(search.toLowerCase()))
+    : candidats;
+
+  return (
+    <div className="max-w-3xl">
+      <div className="flex items-center justify-between mb-5">
+        <h1 className="text-2xl font-title text-iip-gold">
+          Candidats <span className="text-base font-normal text-gray-400">({candidats.length})</span>
+        </h1>
+        <Btn variant="primary" icon={IconUserPlus} onClick={() => setNouveau(true)}>
+          Nouveau candidat
+        </Btn>
+      </div>
+
+      {/* Recherche */}
+      <input value={search} onChange={e => setSearch(e.target.value)}
+        placeholder="Rechercher par nom ou e-mail…"
+        className="w-full text-sm border border-gray-300 rounded-lg px-3 py-2 mb-4 focus:outline-none focus:border-iip-turquoise" />
+
+      {filtres.length === 0 && (
+        <div className="text-sm text-gray-400 text-center py-12">
+          {search ? 'Aucun candidat trouvé.' : 'Aucun candidat pour l\'instant.'}
+        </div>
+      )}
+
+      <div className="grid gap-2">
+        {filtres.map(c => (
+          <button key={c.id} onClick={() => setFiche(c)}
+            className="text-left border border-gray-200 bg-white rounded-lg px-4 py-3 hover:border-iip-turquoise hover:shadow-sm transition flex items-center justify-between gap-3">
+            <div className="min-w-0">
+              <div className="font-semibold text-iip-blue">{c.nom}</div>
+              <div className="text-xs text-gray-400 mt-0.5">
+                {[c.email, c.telephone].filter(Boolean).join(' · ') || '—'}
+              </div>
+              {c.candidatures?.length > 0 && (
+                <div className="flex flex-wrap gap-1 mt-1.5">
+                  {c.candidatures.map((ca, i) => (
+                    <span key={i} className="text-[10px] px-1.5 py-0.5 rounded-full font-medium"
+                      style={{ background: STATUT[ca.statut]?.bg || '#f3f4f6', color: STATUT[ca.statut]?.color || '#6b7280' }}>
+                      {ca.cours_nom || ca.ue_nom || `UE ${ca.ue_num}`} · {STATUT[ca.statut]?.label || ca.statut}
+                    </span>
+                  ))}
+                </div>
+              )}
+            </div>
+            <div className="flex items-center gap-2 flex-shrink-0 text-gray-300">
+              {c.documents?.length > 0 && (
+                <span className="text-xs text-gray-400 flex items-center gap-0.5">
+                  <IconFileCv size={13} /> {c.documents.length}
+                </span>
+              )}
+              <span className="text-xs">→</span>
+            </div>
+          </button>
+        ))}
+      </div>
+
+      {fiche && (
+        <FicheCandidat
+          candidat={fiche}
+          onClose={() => setFiche(null)}
+          onSaved={() => { setFiche(null); onRecharger(); }}
+        />
+      )}
+
+      {nouveau && (
+        <ModalNouveauCandidat
+          onClose={() => setNouveau(false)}
+          onSaved={() => { setNouveau(false); onRecharger(); }}
+        />
+      )}
+    </div>
+  );
+}
+
+/* ── Fiche candidat (modale d'édition) ── */
+function FicheCandidat({ candidat, onClose, onSaved }) {
+  const [f, setF]             = useState({ nom: candidat.nom, email: candidat.email || '', telephone: candidat.telephone || '', cv_url: candidat.cv_url || '', notes: candidat.notes || '' });
+  const [docs, setDocs]       = useState(candidat.documents || []);
+  const [busy, setBusy]       = useState(false);
+  const [uploading, setUploading] = useState(false);
+  const [visionneur, setVisionneur] = useState(null);
+
+  const enregistrer = async () => {
+    setBusy(true);
+    try {
+      await af(`/candidats/${candidat.id}`, { method: 'PATCH', body: JSON.stringify(f) });
+      onSaved();
+    } catch (e) { alert(e.message); } finally { setBusy(false); }
+  };
+
+  const supprimerCandidat = async () => {
+    if (!confirm(`Supprimer définitivement ${candidat.nom} et tous ses documents/candidatures ?`)) return;
+    await af(`/candidats/${candidat.id}`, { method: 'DELETE' });
+    onSaved();
+  };
+
+  const ajouterDoc = async (type, file) => {
+    setUploading(true);
+    try {
+      const fd = new FormData();
+      fd.append('fichier', file);
+      await fetch(`/api/recrutement/candidats/${candidat.id}/documents?type=${type}`, {
+        method: 'POST', headers: { Authorization: `Bearer ${tok()}` }, body: fd,
+      });
+      // Recharger les docs
+      const updated = await af('/candidats');
+      const me = updated.find(c => c.id === candidat.id);
+      if (me) setDocs(me.documents || []);
+    } catch (e) { alert(e.message); } finally { setUploading(false); }
+  };
+
+  const supprimerDoc = async (docId) => {
+    await af(`/documents/${docId}`, { method: 'DELETE' });
+    setDocs(d => d.filter(x => x.id !== docId));
+  };
+
+  const ouvrirDoc = async (docId, nom) => {
+    const resp = await fetch(`/api/recrutement/documents/${docId}`, { headers: { Authorization: `Bearer ${tok()}` } });
+    const blob = await resp.blob();
+    setVisionneur({ url: URL.createObjectURL(blob), nom, mime: blob.type });
+  };
+
+  return (
+    <div className="fixed inset-0 bg-black/40 z-50 flex items-start justify-center p-4 pt-12 overflow-auto" onClick={onClose}>
+      <div className="bg-white rounded-xl w-full max-w-lg shadow-xl" onClick={e => e.stopPropagation()}>
+
+        {/* En-tête */}
+        <div className="px-5 py-4 border-b border-gray-100 flex items-center justify-between sticky top-0 bg-white rounded-t-xl">
+          <h3 className="text-lg font-bold text-iip-blue">Fiche candidat</h3>
+          <div className="flex items-center gap-2">
+            <button onClick={supprimerCandidat} className="text-gray-300 hover:text-red-500 p-1" title="Supprimer le candidat">
+              <IconTrash size={17} />
+            </button>
+            <button onClick={onClose} className="text-gray-400 hover:text-gray-700"><IconX size={20} /></button>
+          </div>
+        </div>
+
+        <div className="p-5 space-y-4">
+          {/* Infos */}
+          <div className="grid grid-cols-2 gap-3">
+            <div className="col-span-2">
+              <div className="text-xs text-gray-500 mb-1">Nom *</div>
+              <input value={f.nom} onChange={e => setF({ ...f, nom: e.target.value })}
+                className="w-full text-sm border border-gray-300 rounded px-2 py-1.5 h-9" />
+            </div>
+            <div>
+              <div className="text-xs text-gray-500 mb-1">E-mail</div>
+              <input value={f.email} onChange={e => setF({ ...f, email: e.target.value })}
+                className="w-full text-sm border border-gray-300 rounded px-2 py-1.5 h-9" />
+            </div>
+            <div>
+              <div className="text-xs text-gray-500 mb-1">Téléphone</div>
+              <input value={f.telephone} onChange={e => setF({ ...f, telephone: e.target.value })}
+                className="w-full text-sm border border-gray-300 rounded px-2 py-1.5 h-9" />
+            </div>
+            <div className="col-span-2">
+              <div className="text-xs text-gray-500 mb-1">Lien CV (Drive…)</div>
+              <input value={f.cv_url} onChange={e => setF({ ...f, cv_url: e.target.value })}
+                className="w-full text-sm border border-gray-300 rounded px-2 py-1.5 h-9" />
+            </div>
+            <div className="col-span-2">
+              <div className="text-xs text-gray-500 mb-1">Notes / profil</div>
+              <textarea value={f.notes} onChange={e => setF({ ...f, notes: e.target.value })} rows={3}
+                className="w-full text-sm border border-gray-300 rounded px-2 py-1.5 resize-none" />
+            </div>
+          </div>
+
+          {/* Documents */}
+          <div>
+            <div className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">Documents ({docs.length})</div>
+            {docs.length > 0 && (
+              <div className="space-y-1 mb-2">
+                {docs.map(d => (
+                  <div key={d.id} className="flex items-center gap-2 text-xs bg-gray-50 border border-gray-100 rounded px-2 py-1.5">
+                    <IconFileCv size={13} className="text-iip-blue flex-shrink-0" />
+                    <span className="text-gray-400 w-20 flex-shrink-0">{TYPES_DOC[d.type]?.label || d.type}</span>
+                    <button onClick={() => ouvrirDoc(d.id, d.nom_original)}
+                      className="text-iip-blue hover:underline truncate flex-1 text-left">{d.nom_original}</button>
+                    <button onClick={() => supprimerDoc(d.id)} className="text-gray-300 hover:text-red-400 flex-shrink-0">
+                      <IconTrash size={12} />
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
+            <div className="flex flex-wrap gap-2">
+              {Object.entries(TYPES_DOC).map(([type, { label, accept }]) => (
+                <label key={type} className="cursor-pointer text-[11px] border border-dashed border-gray-300 rounded px-2 py-1 hover:border-iip-turquoise flex items-center gap-1 text-gray-500">
+                  <IconUpload size={11} /> {label}
+                  <input type="file" accept={accept} className="hidden" onChange={e => {
+                    const file = e.target.files?.[0]; if (file) { ajouterDoc(type, file); e.target.value = ''; }
+                  }} />
+                </label>
+              ))}
+              {uploading && <span className="text-[11px] text-iip-blue animate-pulse">Envoi…</span>}
+            </div>
+          </div>
+
+          {/* Candidatures */}
+          {candidat.candidatures?.length > 0 && (
+            <div>
+              <div className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">Candidatures ({candidat.candidatures.length})</div>
+              <div className="space-y-1">
+                {candidat.candidatures.map((ca, i) => {
+                  const st = STATUT[ca.statut] || STATUT.a_voir;
+                  return (
+                    <div key={i} className="flex items-center justify-between text-xs bg-gray-50 rounded px-3 py-1.5 border border-gray-100">
+                      <span className="text-gray-700">{ca.cours_nom || ca.ue_nom || `UE ${ca.ue_num}`} · {ca.section} · {ca.annee_scolaire}</span>
+                      <span className="font-semibold px-2 py-0.5 rounded-full" style={{ color: st.color, background: st.bg }}>{st.label}</span>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+        </div>
+
+        <div className="px-5 py-3 border-t border-gray-100 flex justify-end gap-2 sticky bottom-0 bg-white rounded-b-xl">
+          <Btn variant="ghost" onClick={onClose}>Annuler</Btn>
+          <Btn variant="primary" icon={IconCheck} onClick={enregistrer} disabled={busy}>
+            {busy ? 'Enregistrement…' : 'Enregistrer'}
+          </Btn>
+        </div>
+
+        {/* Visionneuse */}
+        {visionneur && (
+          <div className="fixed inset-0 bg-black/70 z-[60] flex flex-col" onClick={() => { URL.revokeObjectURL(visionneur.url); setVisionneur(null); }}>
+            <div className="flex items-center justify-between px-4 py-2 bg-white flex-shrink-0" onClick={e => e.stopPropagation()}>
+              <span className="text-sm font-medium text-iip-blue truncate">{visionneur.nom}</span>
+              <button onClick={() => { URL.revokeObjectURL(visionneur.url); setVisionneur(null); }} className="text-gray-400 hover:text-gray-700 ml-3"><IconX size={20} /></button>
+            </div>
+            <div className="flex-1 overflow-hidden" onClick={e => e.stopPropagation()}>
+              {visionneur.mime?.startsWith('image/') ? (
+                <div className="h-full flex items-center justify-center p-4">
+                  <img src={visionneur.url} alt={visionneur.nom} className="max-h-full max-w-full object-contain rounded shadow-lg" />
+                </div>
+              ) : visionneur.mime === 'application/pdf' ? (
+                <iframe src={visionneur.url} title={visionneur.nom} className="w-full h-full border-none" />
+              ) : (
+                <div className="h-full flex flex-col items-center justify-center text-white gap-3">
+                  <IconFileCv size={40} className="opacity-40" />
+                  <div className="text-sm opacity-60">Ce format ne peut pas être prévisualisé</div>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+/* ── Nouveau candidat sans poste ── */
+function ModalNouveauCandidat({ onClose, onSaved }) {
+  const [f, setF]   = useState({ nom: '', email: '', telephone: '', cv_url: '', notes: '' });
+  const [busy, setBusy] = useState(false);
+  const soumettre = async () => {
+    if (!f.nom.trim()) return;
+    setBusy(true);
+    try { await af('/candidats', { method: 'POST', body: JSON.stringify(f) }); onSaved(); }
+    catch (e) { alert(e.message); } finally { setBusy(false); }
+  };
+  return (
+    <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4" onClick={onClose}>
+      <div className="bg-white rounded-xl w-full max-w-md shadow-xl p-5 space-y-3" onClick={e => e.stopPropagation()}>
+        <h3 className="text-lg font-bold text-iip-blue mb-1">Nouveau candidat</h3>
+        <div className="grid grid-cols-2 gap-3">
+          <div className="col-span-2"><div className="text-xs text-gray-500 mb-1">Nom *</div>
+            <input value={f.nom} onChange={e => setF({ ...f, nom: e.target.value })} className="w-full text-sm border border-gray-300 rounded px-2 py-1.5 h-9" /></div>
+          <div><div className="text-xs text-gray-500 mb-1">E-mail</div>
+            <input value={f.email} onChange={e => setF({ ...f, email: e.target.value })} className="w-full text-sm border border-gray-300 rounded px-2 py-1.5 h-9" /></div>
+          <div><div className="text-xs text-gray-500 mb-1">Téléphone</div>
+            <input value={f.telephone} onChange={e => setF({ ...f, telephone: e.target.value })} className="w-full text-sm border border-gray-300 rounded px-2 py-1.5 h-9" /></div>
+          <div className="col-span-2"><div className="text-xs text-gray-500 mb-1">Notes</div>
+            <textarea value={f.notes} onChange={e => setF({ ...f, notes: e.target.value })} rows={2} className="w-full text-sm border border-gray-300 rounded px-2 py-1.5 resize-none" /></div>
+        </div>
+        <div className="flex justify-end gap-2 pt-1">
+          <Btn variant="ghost" onClick={onClose}>Annuler</Btn>
+          <Btn variant="primary" icon={IconCheck} onClick={soumettre} disabled={busy}>Créer</Btn>
         </div>
       </div>
     </div>
