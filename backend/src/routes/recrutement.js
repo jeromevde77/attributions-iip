@@ -270,6 +270,16 @@ r.get('/a-designer', (req, res) => {
   const { annee } = req.query;
   if (!annee) return res.status(400).json({ error: 'annee requise' });
 
+  // Le prof "À DÉSIGNER" peut être stocké comme professeur_id IS NULL
+  // OU comme un professeur fictif dont le nom contient "désigner" (cas IIP : id 661)
+  const aDesignerIds = db.prepare(
+    "SELECT id FROM professeur WHERE UPPER(nom) LIKE '%SIGN%' OR UPPER(nom) LIKE '%SIGNÉ%'"
+  ).all().map(p => p.id);
+
+  const placeholders = aDesignerIds.length
+    ? `OR v.professeur_id IN (${aDesignerIds.map(() => '?').join(',')})`
+    : '';
+
   const lignes = db.prepare(`
     SELECT
       v.section, v.ue_num, v.ue_nom, v.contrat_mdp,
@@ -278,11 +288,12 @@ r.get('/a-designer', (req, res) => {
       COUNT(*) AS nb_groupes_adesigner
     FROM v_attribution_complete v
     LEFT JOIN ue u ON u.ue_num = v.ue_num AND u.annee_scolaire = v.annee_scolaire
-    WHERE v.annee_scolaire = ? AND v.professeur_id IS NULL
+    WHERE v.annee_scolaire = ?
+      AND (v.professeur_id IS NULL ${placeholders})
       AND (v.type_cours IS NULL OR v.type_cours != 'Z')
     GROUP BY v.section, v.ue_num, v.code_cours, v.contrat_mdp
     ORDER BY v.section, v.ue_num, v.code_cours
-  `).all(annee);
+  `).all(annee, ...aDesignerIds);
 
   res.json(lignes);
 });
