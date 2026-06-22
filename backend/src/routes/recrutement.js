@@ -259,7 +259,27 @@ r.delete('/candidatures/:id', (req, res) => {
   res.json({ ok: true });
 });
 
-// ── Suggestions de questions d'entretien basées sur le contexte pédagogique ──
+// ── Attributions "À désigner" — source naturelle des postes à recruter ────────
+r.get('/a-designer', (req, res) => {
+  const { annee } = req.query;
+  if (!annee) return res.status(400).json({ error: 'annee requise' });
+
+  const lignes = db.prepare(`
+    SELECT
+      v.section, v.ue_num, v.ue_nom, v.contrat_mdp,
+      v.code_cours, v.nom_cours, v.type_cours,
+      u.ue_per_cours, u.ue_aut, u.ue_tot_prf, u.ects,
+      COUNT(*) AS nb_groupes_adesigner
+    FROM v_attribution_complete v
+    LEFT JOIN ue u ON u.ue_num = v.ue_num AND u.annee_scolaire = v.annee_scolaire
+    WHERE v.annee_scolaire = ? AND v.professeur_id IS NULL
+      AND (v.type_cours IS NULL OR v.type_cours != 'Z')
+    GROUP BY v.section, v.ue_num, v.code_cours, v.contrat_mdp
+    ORDER BY v.section, v.ue_num, v.code_cours
+  `).all(annee);
+
+  res.json(lignes);
+});
 r.get('/suggestions/contexte', (req, res) => {
   const { annee, section, ue_num } = req.query;
   if (!annee) return res.status(400).json({ error: 'annee requise' });

@@ -64,37 +64,34 @@ export default function Recrutement() {
 
 /* ═══════════════════════ VUE POSTES ═══════════════════════ */
 function VuePostes({ postes, recharger, onOuvrir, annee }) {
-  const [creation, setCreation] = useState(false);
+  const [creation, setCreation]   = useState(false);
+  const [importPanel, setImportPanel] = useState(false);
+  const [aDesigner, setADesigner] = useState([]);
+  const [loadingAD, setLoadingAD] = useState(false);
   const [f, setF] = useState({ intitule: '', section: '', contrat: '', ue_num: '', cours_nom: '',
                                 description: '', fonction: '', charge_periodes: '', prise_de_fonction: '' });
 
-  // Données cascadantes
   const [sections, setSections]   = useState([]);
   const [ues, setUes]             = useState([]);
   const [coursUE, setCoursUE]     = useState([]);
   const [loadingUE, setLoadingUE] = useState(false);
 
   useEffect(() => {
-    af('/suggestions/contexte?annee=' + encodeURIComponent(annee))
-      .catch(() => null);
-    // Charger les sections via l'API ref
     fetch('/api/ref/sections', { headers: { Authorization: `Bearer ${tok()}` } })
       .then(r => r.json()).then(d => setSections(Array.isArray(d) ? d : [])).catch(() => {});
   }, []);
 
-  // Quand section change → charger les UE
+  // Section → UE
   useEffect(() => {
     if (!f.section) { setUes([]); setCoursUE([]); return; }
     setLoadingUE(true);
     fetch(`/api/ref/ue?section=${encodeURIComponent(f.section)}&annee=${encodeURIComponent(annee)}`,
       { headers: { Authorization: `Bearer ${tok()}` } })
-      .then(r => r.json())
-      .then(d => setUes(Array.isArray(d) ? d : []))
-      .catch(() => setUes([]))
-      .finally(() => setLoadingUE(false));
+      .then(r => r.json()).then(d => setUes(Array.isArray(d) ? d : []))
+      .catch(() => setUes([])).finally(() => setLoadingUE(false));
   }, [f.section]);
 
-  // Quand UE change → pré-remplir cours_nom + charge
+  // UE → cours + pré-remplissage charge
   useEffect(() => {
     if (!f.ue_num) { setCoursUE([]); return; }
     fetch(`/api/ref/ue/${f.ue_num}?annee=${encodeURIComponent(annee)}`,
@@ -103,13 +100,47 @@ function VuePostes({ postes, recharger, onOuvrir, annee }) {
       .then(ue => {
         if (!ue || ue.error) return;
         setCoursUE(ue.cours || []);
+        // Charge = ue_per_cours (ue_aut)
+        const chargeStr = ue.ue_per_cours != null
+          ? `${ue.ue_per_cours}${ue.ue_aut ? ` (${ue.ue_aut})` : ''}`
+          : (ue.ue_tot_prf ? String(ue.ue_tot_prf) : '');
         setF(prev => ({
           ...prev,
           cours_nom: prev.cours_nom || ue.ue_nom || '',
-          charge_periodes: prev.charge_periodes || (ue.ue_tot_prf ? String(ue.ue_tot_prf) : ''),
+          charge_periodes: prev.charge_periodes || chargeStr,
         }));
       }).catch(() => {});
   }, [f.ue_num]);
+
+  // Charger les À désigner
+  const ouvrirImport = () => {
+    setImportPanel(v => !v);
+    if (!importPanel && aDesigner.length === 0) {
+      setLoadingAD(true);
+      af(`/a-designer?annee=${encodeURIComponent(annee)}`)
+        .then(d => setADesigner(Array.isArray(d) ? d : []))
+        .catch(() => {}).finally(() => setLoadingAD(false));
+    }
+  };
+
+  // Créer un poste depuis une ligne À désigner
+  const creerDepuisAD = async (ad) => {
+    const chargeStr = ad.ue_per_cours != null
+      ? `${ad.ue_per_cours}${ad.ue_aut ? ` (${ad.ue_aut})` : ''}`
+      : (ad.ue_tot_prf ? String(ad.ue_tot_prf) : '');
+    await af('/postes', { method: 'POST', body: JSON.stringify({
+      intitule: ad.nom_cours || ad.ue_nom || `UE ${ad.ue_num}`,
+      section: ad.section,
+      contrat: ad.contrat_mdp || 'IIP',
+      ue_num: String(ad.ue_num),
+      cours_nom: ad.nom_cours || ad.ue_nom || '',
+      charge_periodes: chargeStr,
+      annee_scolaire: annee,
+    })});
+    recharger();
+    // Retirer la ligne importée de la liste
+    setADesigner(prev => prev.filter(x => !(x.ue_num === ad.ue_num && x.code_cours === ad.code_cours && x.section === ad.section)));
+  };
 
   const creer = async () => {
     if (!f.intitule.trim()) return;
@@ -119,21 +150,76 @@ function VuePostes({ postes, recharger, onOuvrir, annee }) {
     setCreation(false); recharger();
   };
 
+  // Grouper les À désigner par section pour l'affichage
+  const adParSection = aDesigner.reduce((acc, ad) => {
+    (acc[ad.section] ||= []).push(ad);
+    return acc;
+  }, {});
+
   return (
     <div>
-      <div className="flex justify-end mb-3">
+      <div className="flex justify-end gap-2 mb-3">
+        <Btn variant="secondary" icon={IconClipboardText} onClick={ouvrirImport}>
+          Depuis les À désigner
+        </Btn>
         <Btn variant="primary" icon={IconPlus} onClick={() => setCreation(v => !v)}>Nouveau poste</Btn>
       </div>
 
+      {/* Panneau import depuis À désigner */}
+      {importPanel && (
+        <div className="border border-iip-blue/30 rounded-lg p-4 mb-4 bg-iip-blue/5">
+          <div className="text-sm font-semibold text-iip-blue mb-3">
+            Attributions sans professeur — {annee}
+            <span className="text-xs font-normal text-gray-500 ml-2">Cliquez sur une ligne pour créer le poste</span>
+          </div>
+          {loadingAD && <div className="text-sm text-gray-400">Chargement…</div>}
+          {!loadingAD && aDesigner.length === 0 && (
+            <div className="text-sm text-gray-400">Aucune attribution sans professeur pour cette année.</div>
+          )}
+          {Object.entries(adParSection).map(([sec, lignes]) => (
+            <div key={sec} className="mb-3">
+              <div className="text-xs font-bold text-gray-500 uppercase tracking-wide mb-1">{sec}</div>
+              <div className="grid gap-1">
+                {lignes.map((ad, i) => (
+                  <button key={i} onClick={() => creerDepuisAD(ad)}
+                    className="text-left text-sm border border-gray-200 rounded px-3 py-2 bg-white hover:border-iip-turquoise hover:bg-iip-turquoise/5 transition flex items-center justify-between gap-3">
+                    <div>
+                      <span className="font-medium text-iip-blue">UE {ad.ue_num}</span>
+                      <span className="text-gray-600 ml-2">{ad.nom_cours || ad.ue_nom}</span>
+                      {ad.type_cours && <span className="ml-1 text-[10px] text-gray-400">({ad.type_cours})</span>}
+                    </div>
+                    <div className="flex items-center gap-2 flex-shrink-0">
+                      {ad.contrat_mdp && (
+                        <span className="text-[10px] font-bold px-1.5 py-0.5 rounded text-white"
+                          style={{ background: ad.contrat_mdp === 'HELB' ? '#8B5CF6' : '#1B2B4B' }}>
+                          {ad.contrat_mdp}
+                        </span>
+                      )}
+                      {ad.ue_per_cours != null && (
+                        <span className="text-xs text-gray-500">
+                          {ad.ue_per_cours} pér.{ad.ue_aut ? ` (${ad.ue_aut} aut.)` : ''}
+                        </span>
+                      )}
+                      {ad.nb_groupes_adesigner > 1 && (
+                        <span className="text-[10px] text-gray-400">{ad.nb_groupes_adesigner} groupes</span>
+                      )}
+                      <span className="text-iip-turquoise text-xs">+ Créer →</span>
+                    </div>
+                  </button>
+                ))}
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* Formulaire création manuelle */}
       {creation && (
         <div className="border border-iip-turquoise/40 rounded-lg p-4 mb-4 bg-iip-turquoise/5 space-y-3">
           <div className="grid grid-cols-2 gap-3">
-            {/* Intitulé */}
             <div className="col-span-2">
               <Champ label="Intitulé du poste *" value={f.intitule} onChange={v => setF({ ...f, intitule: v })} placeholder="ex: Professeur de radiothérapie" />
             </div>
-
-            {/* Section → liste déroulante */}
             <div>
               <div className="text-xs text-gray-500 mb-1">Section</div>
               <select value={f.section} onChange={e => setF({ ...f, section: e.target.value, ue_num: '', cours_nom: '', charge_periodes: '' })}
@@ -142,8 +228,6 @@ function VuePostes({ postes, recharger, onOuvrir, annee }) {
                 {sections.map(s => <option key={s.code} value={s.code}>{s.code}{s.libelle ? ` — ${s.libelle}` : ''}</option>)}
               </select>
             </div>
-
-            {/* Contrat */}
             <div>
               <div className="text-xs text-gray-500 mb-1">Contrat</div>
               <select value={f.contrat} onChange={e => setF({ ...f, contrat: e.target.value })}
@@ -151,8 +235,6 @@ function VuePostes({ postes, recharger, onOuvrir, annee }) {
                 <option value="">—</option><option value="IIP">IIP</option><option value="HELB">HELB</option>
               </select>
             </div>
-
-            {/* UE → liste déroulante alimentée par la section */}
             <div>
               <div className="text-xs text-gray-500 mb-1">UE {loadingUE && <span className="text-gray-400">…</span>}</div>
               <select value={f.ue_num} onChange={e => setF({ ...f, ue_num: e.target.value, cours_nom: '', charge_periodes: '' })}
@@ -162,8 +244,6 @@ function VuePostes({ postes, recharger, onOuvrir, annee }) {
                 {ues.map(u => <option key={u.ue_num} value={u.ue_num}>UE {u.ue_num} — {u.ue_nom}</option>)}
               </select>
             </div>
-
-            {/* Fonction */}
             <div>
               <div className="text-xs text-gray-500 mb-1">Fonction</div>
               <select value={f.fonction} onChange={e => setF({ ...f, fonction: e.target.value })}
@@ -173,33 +253,29 @@ function VuePostes({ postes, recharger, onOuvrir, annee }) {
                 <option value="Chargé de cours">Chargé de cours</option>
               </select>
             </div>
-
-            {/* Cours → liste déroulante si UE choisie, sinon texte libre */}
             <div>
-              <div className="text-xs text-gray-500 mb-1">Cours (nom complet)</div>
+              <div className="text-xs text-gray-500 mb-1">Cours</div>
               {coursUE.length > 0
                 ? <select value={f.cours_nom} onChange={e => setF({ ...f, cours_nom: e.target.value })}
                     className="w-full text-sm border border-gray-300 rounded px-2 py-1.5 h-9">
-                    <option value="">— choisir un cours —</option>
+                    <option value="">— choisir —</option>
                     {coursUE.map(c => <option key={c.cours_code} value={c.cours_nom}>{c.cours_nom} ({c.ct_pp})</option>)}
                   </select>
                 : <input value={f.cours_nom} onChange={e => setF({ ...f, cours_nom: e.target.value })}
                     placeholder="ex: Radiothérapie"
                     className="w-full text-sm border border-gray-300 rounded px-2 py-1.5 h-9" />}
             </div>
-
-            {/* Charge — pré-remplie depuis ue_tot_prf, modifiable */}
             <div>
-              <div className="text-xs text-gray-500 mb-1">Charge (périodes){f.ue_num && f.charge_periodes ? <span className="text-iip-turquoise ml-1">← UE</span> : null}</div>
-              <input type="number" value={f.charge_periodes} onChange={e => setF({ ...f, charge_periodes: e.target.value })}
-                placeholder="ex: 80"
+              <div className="text-xs text-gray-500 mb-1">
+                Charge{f.ue_num && f.charge_periodes ? <span className="text-iip-turquoise ml-1">← UE</span> : null}
+              </div>
+              <input value={f.charge_periodes} onChange={e => setF({ ...f, charge_periodes: e.target.value })}
+                placeholder="ex: 80 (20)"
                 className="w-full text-sm border border-gray-300 rounded px-2 py-1.5 h-9" />
+              <div className="text-[10px] text-gray-400 mt-0.5">périodes cours (autonomie)</div>
             </div>
-
-            {/* Prise de fonction */}
             <Champ label="Prise de fonction" value={f.prise_de_fonction} onChange={v => setF({ ...f, prise_de_fonction: v })} placeholder="ex: Septembre 2026" />
           </div>
-
           <div>
             <div className="text-xs text-gray-500 mb-1">Description / profil recherché</div>
             <textarea value={f.description} onChange={e => setF({ ...f, description: e.target.value })}
@@ -221,7 +297,8 @@ function VuePostes({ postes, recharger, onOuvrir, annee }) {
                 <div>
                   <div className="font-semibold text-iip-blue flex items-center gap-2">
                     {p.intitule}
-                    {p.contrat && <span className="text-[10px] font-bold px-1.5 py-0.5 rounded text-white" style={{ background: p.contrat === 'HELB' ? '#8B5CF6' : '#1B2B4B' }}>{p.contrat}</span>}
+                    {p.contrat && <span className="text-[10px] font-bold px-1.5 py-0.5 rounded text-white"
+                      style={{ background: p.contrat === 'HELB' ? '#8B5CF6' : '#1B2B4B' }}>{p.contrat}</span>}
                     {p.statut === 'cloture' && <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-gray-200 text-gray-600">Clôturé</span>}
                   </div>
                   <div className="text-xs text-gray-500 mt-0.5">
