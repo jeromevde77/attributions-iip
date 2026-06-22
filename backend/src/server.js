@@ -2227,6 +2227,15 @@ try {
   console.log('[migration] Tables recrutement v2 créées');
 } catch(e) { console.error('[migration] recrutement v2 :', e.message); }
 
+// ── Recrutement : ajout reponses_json sur candidature v2 ─────────────────────
+try {
+  const cols = db.prepare('PRAGMA table_info(recrutement_candidature)').all().map(c => c.name);
+  if (!cols.includes('reponses_json') && cols.includes('annee_scolaire')) {
+    db.exec("ALTER TABLE recrutement_candidature ADD COLUMN reponses_json TEXT");
+    console.log('[migration] reponses_json ajouté sur recrutement_candidature');
+  }
+} catch(e) { console.error('[migration] reponses_json :', e.message); }
+
 // ── Recrutement : colonne acces_recrutement sur utilisateur ───────────────────
 try {
   const cols = db.prepare('PRAGMA table_info(utilisateur)').all().map(c => c.name);

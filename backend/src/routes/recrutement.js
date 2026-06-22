@@ -128,6 +128,7 @@ r.get('/postes/:ue_num/:code_cours/:section', (req, res) => {
   // Documents pour chaque candidat
   const candidatsAvecDocs = candidats.map(c => ({
     ...c,
+    reponses_json: c.reponses_json ? (() => { try { return JSON.parse(c.reponses_json); } catch { return {}; } })() : {},
     documents: db.prepare(
       'SELECT id, type, nom_original, taille, cree_le FROM recrutement_document WHERE candidat_id = ? ORDER BY cree_le DESC'
     ).all(c.candidat_id),
@@ -208,11 +209,17 @@ r.delete('/documents/:id', (req, res) => {
 // CANDIDATURES
 // ═══════════════════════════════════════════════════════════════════════════════
 r.patch('/candidatures/:id', (req, res) => {
-  const { statut, commentaire, note_globale } = req.body;
+  const { statut, commentaire, note_globale, reponses_json } = req.body;
   db.prepare(`UPDATE recrutement_candidature SET
-    statut = COALESCE(?, statut), commentaire = ?, note_globale = ?,
-    modifie_le = datetime('now') WHERE id = ?`
-  ).run(statut || null, commentaire ?? null, note_globale ?? null, req.params.id);
+    statut = COALESCE(?, statut),
+    commentaire = ?,
+    note_globale = ?,
+    reponses_json = COALESCE(?, reponses_json),
+    modifie_le = datetime('now')
+    WHERE id = ?`
+  ).run(statut || null, commentaire ?? null, note_globale ?? null,
+        reponses_json != null ? JSON.stringify(reponses_json) : null,
+        req.params.id);
   res.json({ ok: true });
 });
 

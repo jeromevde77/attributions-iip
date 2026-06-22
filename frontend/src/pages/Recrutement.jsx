@@ -134,10 +134,12 @@ export default function Recrutement() {
 
 /* ══════════════════════ FICHE POSTE ══════════════════════ */
 function FichePoste({ poste, annee, onBack }) {
-  const [candidats, setCandidats] = useState(poste.candidats || []);
-  const [ajout, setAjout]         = useState(false);
-  const [genAnnonce, setGenAnnonce] = useState(false);
-  const [onglet, setOnglet]       = useState('candidats'); // 'candidats' | 'grille'
+  const [candidats, setCandidats]       = useState(poste.candidats || []);
+  const [ajout, setAjout]               = useState(false);
+  const [genAnnonce, setGenAnnonce]     = useState(false);
+  const [onglet, setOnglet]             = useState('candidats');
+  const [entretienCand, setEntretienCand] = useState(null); // candidature en cours d'entretien
+  const [qIA, setQIA]                   = useState([]); // partagé grille↔entretien
 
   const recharger = async () => {
     const detail = await af(`/postes/${poste.ue_num}/${encodeURIComponent(poste.code_cours)}/${encodeURIComponent(poste.section)}?annee=${encodeURIComponent(annee)}`);
@@ -221,9 +223,9 @@ function FichePoste({ poste, annee, onBack }) {
         ))}
       </div>
 
-      {onglet === 'grille' && <GrilleEntretien poste={poste} annee={annee} />}
+      {onglet === 'grille' && <GrilleEntretien poste={poste} annee={annee} qIA={qIA} setQIA={setQIA} />}
 
-      {onglet === 'candidats' && (<>
+        {onglet === 'candidats' && (<>
       {/* Candidats */}
       <div className="flex items-center justify-between mb-3">
         <h2 className="text-lg font-semibold text-iip-blue flex items-center gap-2">
@@ -250,10 +252,22 @@ function FichePoste({ poste, annee, onBack }) {
 
       <div className="grid gap-2 mt-2">
         {candidats.map(c => (
-          <CarteCandidatPoste key={c.id} candidature={c} onChange={recharger} />
+          <CarteCandidatPoste key={c.id} candidature={c} onChange={recharger}
+            onEntretien={() => setEntretienCand(c)} />
         ))}
       </div>
       </>)}
+
+      {entretienCand && (
+        <EntretienModal
+          candidature={entretienCand}
+          poste={poste}
+          annee={annee}
+          qIA={qIA}
+          onClose={() => setEntretienCand(null)}
+          onSaved={() => { setEntretienCand(null); recharger(); }}
+        />
+      )}
 
       {genAnnonce && (
         <ModalAnnonce poste={poste} annee={annee} onClose={() => setGenAnnonce(false)} />
@@ -438,7 +452,7 @@ function FormulaireCandidatIA({ annee, ue_num, code_cours, section, onSaved, onC
 }
 
 /* ══════════════════════ CARTE CANDIDAT ══════════════════════ */
-function CarteCandidatPoste({ candidature: c, onChange }) {
+function CarteCandidatPoste({ candidature: c, onChange, onEntretien }) {
   const [open, setOpen]       = useState(false);
   const [uploading, setUploading] = useState(false);
   const st = STATUT[c.statut] || STATUT.a_voir;
@@ -486,6 +500,10 @@ function CarteCandidatPoste({ candidature: c, onChange }) {
           {c.notes && <div className="text-xs text-gray-500 mt-0.5 italic">{c.notes}</div>}
         </div>
         <div className="flex items-center gap-2 flex-shrink-0">
+          <button onClick={() => onEntretien && onEntretien()}
+            className="text-xs border border-iip-turquoise text-iip-blue hover:bg-iip-turquoise/10 rounded px-2 py-1 h-7 flex items-center gap-1 flex-shrink-0">
+            <IconClipboardText size={12} /> Entretien
+          </button>
           <select value={c.statut} onChange={e => majStatut(e.target.value)}
             className="text-xs border border-gray-200 rounded px-2 py-1 h-7"
             style={{ color: st.color }}>
@@ -625,8 +643,7 @@ const GRILLE_IIP = [
   },
 ];
 
-function GrilleEntretien({ poste, annee }) {
-  const [qIA, setQIA]         = useState([]);
+function GrilleEntretien({ poste, annee, qIA, setQIA }) {
   const [loading, setLoading] = useState(false);
   const [err, setErr]         = useState('');
 
@@ -741,6 +758,162 @@ Réponds en JSON strict sans backticks : {"questions":["question 1","question 2"
             </ul>
           </div>
         )}
+      </div>
+    </div>
+  );
+}
+
+/* ══════════════════════ MODAL ENTRETIEN ══════════════════════ */
+const LIKERT = [
+  { val: 1, label: 'Insuffisant',   color: '#ef4444' },
+  { val: 2, label: 'Faible',        color: '#f97316' },
+  { val: 3, label: 'Satisfaisant',  color: '#eab308' },
+  { val: 4, label: 'Bien',          color: '#22c55e' },
+  { val: 5, label: 'Excellent',     color: '#0ea5e9' },
+];
+
+function EntretienModal({ candidature, poste, annee, qIA, onClose, onSaved }) {
+  // Construire la liste complète des questions (grille IIP + axe 5 IA)
+  const toutesQuestions = [
+    ...GRILLE_IIP.flatMap(axe => axe.questions.map(q => ({ axe: axe.axe, q, couleur: axe.couleur }))),
+    ...qIA.map(q => ({ axe: 'Axe 5 — Questions spécifiques au cours', q, couleur: '#1B2B4B' })),
+  ];
+
+  // Initialiser depuis les réponses sauvegardées
+  const initReponses = () => {
+    const saved = candidature.reponses_json || {};
+    return toutesQuestions.reduce((acc, { q }, i) => {
+      acc[i] = { note: saved[i]?.note ?? 0, commentaire: saved[i]?.commentaire ?? '' };
+      return acc;
+    }, {});
+  };
+
+  const [reponses, setReponses] = useState(initReponses);
+  const [commentaireGlobal, setCommentaireGlobal] = useState(candidature.commentaire || '');
+  const [saving, setSaving]     = useState(false);
+  const [saved, setSaved]       = useState(false);
+
+  // Note globale = moyenne des notes saisies (ignorer les 0)
+  const notees = Object.values(reponses).filter(r => r.note > 0);
+  const noteGlobale = notees.length > 0
+    ? Math.round((notees.reduce((s, r) => s + r.note, 0) / notees.length) * 10) / 10
+    : null;
+
+  const majReponse = (i, champ, val) =>
+    setReponses(r => ({ ...r, [i]: { ...r[i], [champ]: val } }));
+
+  const sauvegarder = async () => {
+    setSaving(true);
+    try {
+      await af(`/candidatures/${candidature.id}`, {
+        method: 'PATCH',
+        body: JSON.stringify({
+          reponses_json: reponses,
+          commentaire: commentaireGlobal,
+          note_globale: noteGlobale,
+          statut: candidature.statut === 'a_voir' ? 'entretien' : candidature.statut,
+        }),
+      });
+      setSaved(true); setTimeout(() => setSaved(false), 2000);
+    } finally { setSaving(false); }
+  };
+
+  // Grouper les questions par axe pour l'affichage
+  const parAxe = toutesQuestions.reduce((acc, { axe, q, couleur }, i) => {
+    if (!acc[axe]) acc[axe] = { couleur, questions: [] };
+    acc[axe].questions.push({ q, i });
+    return acc;
+  }, {});
+
+  return (
+    <div className="fixed inset-0 bg-black/50 z-50 flex flex-col" onClick={onClose}>
+      <div className="flex items-center justify-between px-5 py-3 bg-white border-b border-gray-200 flex-shrink-0"
+        onClick={e => e.stopPropagation()}>
+        <div>
+          <h3 className="text-base font-bold text-iip-blue">Entretien — {candidature.nom}</h3>
+          <div className="text-xs text-gray-400">{poste.nom_cours || poste.ue_nom} · {poste.section}</div>
+        </div>
+        <div className="flex items-center gap-3">
+          {noteGlobale != null && (
+            <div className="text-right">
+              <div className="text-xs text-gray-400">Moyenne</div>
+              <div className="text-xl font-bold text-iip-blue">{noteGlobale}<span className="text-sm font-normal text-gray-400">/5</span></div>
+            </div>
+          )}
+          <button onClick={async () => { await sauvegarder(); onSaved(); }}
+            className="bg-iip-blue text-white text-sm px-4 py-2 rounded-lg font-medium hover:opacity-90 flex items-center gap-1.5 disabled:opacity-50"
+            disabled={saving}>
+            {saved ? <><IconCheck size={15} /> Sauvegardé</> : saving ? 'Sauvegarde…' : <><IconCheck size={15} /> Terminer</>}
+          </button>
+          <button onClick={onClose} className="text-gray-400 hover:text-gray-700 ml-1"><IconX size={20} /></button>
+        </div>
+      </div>
+
+      <div className="flex-1 overflow-auto bg-gray-50" onClick={e => e.stopPropagation()}>
+        <div className="max-w-3xl mx-auto px-4 py-5 space-y-5">
+
+          {Object.entries(parAxe).map(([axe, { couleur, questions }]) => (
+            <div key={axe} className="bg-white border border-gray-200 rounded-xl overflow-hidden shadow-sm">
+              <div className="px-4 py-2.5 text-sm font-semibold text-white" style={{ background: couleur }}>
+                {axe}
+              </div>
+              <div className="divide-y divide-gray-100">
+                {questions.map(({ q, i }) => (
+                  <div key={i} className="px-4 py-3">
+                    <div className="text-sm text-gray-800 font-medium mb-2">{q}</div>
+
+                    {/* Likert */}
+                    <div className="flex gap-1.5 mb-2 flex-wrap">
+                      {LIKERT.map(({ val, label, color }) => (
+                        <button key={val} onClick={() => majReponse(i, 'note', reponses[i]?.note === val ? 0 : val)}
+                          title={label}
+                          className={`flex items-center gap-1 text-xs px-2.5 py-1 rounded-full border transition font-medium ${
+                            reponses[i]?.note === val
+                              ? 'text-white border-transparent shadow-sm'
+                              : 'bg-white border-gray-200 text-gray-400 hover:border-gray-300'
+                          }`}
+                          style={reponses[i]?.note === val ? { background: color, borderColor: color } : {}}>
+                          <span className="font-bold">{val}</span>
+                          <span className="hidden sm:inline">{label}</span>
+                        </button>
+                      ))}
+                    </div>
+
+                    {/* Note */}
+                    <textarea
+                      value={reponses[i]?.commentaire || ''}
+                      onChange={e => majReponse(i, 'commentaire', e.target.value)}
+                      placeholder="Notes sur la réponse…"
+                      rows={2}
+                      className="w-full text-sm border border-gray-200 rounded-lg px-3 py-1.5 resize-none text-gray-600 placeholder-gray-300 focus:outline-none focus:border-iip-turquoise"
+                    />
+                  </div>
+                ))}
+              </div>
+            </div>
+          ))}
+
+          {/* Bilan global */}
+          <div className="bg-white border border-gray-200 rounded-xl p-4 shadow-sm">
+            <div className="text-sm font-semibold text-iip-blue mb-2">Bilan global de l'entretien</div>
+            <textarea
+              value={commentaireGlobal}
+              onChange={e => setCommentaireGlobal(e.target.value)}
+              placeholder="Impression générale, points forts, réserves, recommandation…"
+              rows={4}
+              className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 resize-none focus:outline-none focus:border-iip-turquoise"
+            />
+            <div className="flex justify-between items-center mt-3">
+              <div className="text-xs text-gray-400">
+                {notees.length} question{notees.length > 1 ? 's' : ''} évaluée{notees.length > 1 ? 's' : ''} sur {toutesQuestions.length}
+              </div>
+              <button onClick={sauvegarder} disabled={saving}
+                className="text-sm bg-iip-blue text-white px-4 py-1.5 rounded-lg hover:opacity-90 disabled:opacity-50 flex items-center gap-1.5">
+                {saved ? <><IconCheck size={14} /> Sauvegardé</> : <><IconCheck size={14} /> Sauvegarder</>}
+              </button>
+            </div>
+          </div>
+        </div>
       </div>
     </div>
   );
