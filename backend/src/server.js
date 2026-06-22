@@ -2227,6 +2227,69 @@ try {
   console.log('[migration] Tables recrutement v2 créées');
 } catch(e) { console.error('[migration] recrutement v2 :', e.message); }
 
+// ── Recrutement : grille de questions d'entretien éditable ────────────────────
+try {
+  db.exec(`CREATE TABLE IF NOT EXISTS recrutement_grille_axe (
+    id       INTEGER PRIMARY KEY AUTOINCREMENT,
+    libelle  TEXT NOT NULL,
+    couleur  TEXT NOT NULL DEFAULT '#1B2B4B',
+    ordre    INTEGER NOT NULL DEFAULT 0
+  );
+  CREATE TABLE IF NOT EXISTS recrutement_grille_question (
+    id      INTEGER PRIMARY KEY AUTOINCREMENT,
+    axe_id  INTEGER NOT NULL REFERENCES recrutement_grille_axe(id) ON DELETE CASCADE,
+    libelle TEXT NOT NULL,
+    ordre   INTEGER NOT NULL DEFAULT 0
+  );
+  CREATE INDEX IF NOT EXISTS idx_rgrille_axe ON recrutement_grille_question(axe_id);
+  `);
+
+  // Insérer les données initiales IIP si la table est vide
+  const nbAxes = db.prepare('SELECT COUNT(*) as n FROM recrutement_grille_axe').get().n;
+  if (nbAxes === 0) {
+    const insAxe = db.prepare('INSERT INTO recrutement_grille_axe (libelle, couleur, ordre) VALUES (?, ?, ?)');
+    const insQ   = db.prepare('INSERT INTO recrutement_grille_question (axe_id, libelle, ordre) VALUES (?, ?, ?)');
+    const grille = [
+      { libelle: 'Axe 1 — Connaissance de la formation et du contexte', couleur: '#0369a1', questions: [
+        "Quelles sont, selon vous, les différences les plus marquantes entre le BIH (ancienne formation) et le BES AeSI (nouvelle formation) ?",
+        "Que savez-vous du cadre légal de cette nouvelle formation ?",
+        "Quelle sera la position du futur AeSI dans un service de soins en hôpital par exemple ?",
+        "Quel est le positionnement de l'EA par rapport à l'enseignement supérieur de type court ?",
+      ]},
+      { libelle: 'Axe 2 — Expérience professionnelle et clinique', couleur: '#7c3aed', questions: [
+        "Décrivez votre parcours professionnel dans le secteur des soins infirmiers (ou autre si vous êtes d'une autre formation).",
+        "Avez-vous une expérience d'encadrement de stagiaires ou d'étudiants en milieu clinique ?",
+        "Dans quels services ou spécialités avez-vous exercé ? Pendant combien d'années ?",
+        "Quels cours avez-vous déjà enseignés à l'IRF ? Sur quelle base juridique (titre requis / suffisant) ? Combien de temps ?",
+      ]},
+      { libelle: 'Axe 3 — Compétences pédagogiques', couleur: '#15803d', questions: [
+        "Comment organiseriez-vous vos nouveaux cours pour satisfaire un public de l'enseignement pour adultes ?",
+        "Avez-vous déjà donné cours à des groupes de 50 à 100 étudiants ?",
+        "Comment gérez-vous l'hétérogénéité d'un groupe (niveaux différents, adultes en reconversion, etc.) ?",
+        "Qu'est-ce qui selon vous différencie l'enseignement supérieur pour adultes et l'enseignement obligatoire au niveau de la pédagogie à mettre en place ?",
+        "Quelle est votre approche de l'évaluation formative vs certificative ?",
+        "Quelles seraient vos idées pour travailler la pratique réflexive avec les étudiants avant, pendant et après un stage ?",
+      ]},
+      { libelle: 'Axe 4 — Contraintes pratiques et administratives', couleur: '#b45309', questions: [
+        "Quel volume horaire hebdomadaire êtes-vous en mesure d'assumer (heures/semaine) ?",
+        "Avez-vous des contraintes de jours ou d'horaires (activité clinique en parallèle, etc.) ?",
+        "Connaissez-vous les attendus de l'IIP quant au travail invisible (jury, suivi de TFE, encadrement divers etc.) ?",
+        "Pour les encadrants de stage : pouvez-vous vous déplacer dans les milieux de stage partenaires ?",
+        "Êtes-vous flexible dans la mesure où l'organisation des cours en enseignement pour adulte ne se fait pas toujours sur une base fixe annuelle ?",
+      ]},
+    ];
+    const tx = db.transaction(() => {
+      grille.forEach((axe, ai) => {
+        const { lastInsertRowid: axeId } = insAxe.run(axe.libelle, axe.couleur, ai);
+        axe.questions.forEach((q, qi) => insQ.run(axeId, q, qi));
+      });
+    });
+    tx();
+    console.log('[migration] Grille IIP initiale insérée (4 axes, 19 questions)');
+  }
+  console.log('[migration] Table recrutement_grille créée');
+} catch(e) { console.error('[migration] recrutement_grille :', e.message); }
+
 // ── Recrutement : ajout reponses_json sur candidature v2 ─────────────────────
 try {
   const cols = db.prepare('PRAGMA table_info(recrutement_candidature)').all().map(c => c.name);

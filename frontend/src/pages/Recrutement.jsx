@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import {
-  IconBriefcase, IconUserPlus, IconArrowLeft, IconTrash,
+  IconBriefcase, IconUserPlus, IconArrowLeft, IconTrash, IconPlus,
   IconFileCv, IconExternalLink, IconUpload, IconSparkles,
   IconCheck, IconX, IconUsersGroup, IconDownload, IconClipboardText,
 } from '@tabler/icons-react';
@@ -23,10 +23,12 @@ const STATUT = {
 
 export default function Recrutement() {
   const [postes, setPostes]     = useState([]);
-  const [poste, setPoste]       = useState(null); // poste sélectionné
+  const [poste, setPoste]       = useState(null);
   const [loading, setLoading]   = useState(true);
   const [err, setErr]           = useState('');
-  const [filtre, setFiltre]     = useState(''); // filtre section
+  const [filtre, setFiltre]     = useState('');
+  const [vue, setVue]           = useState('postes'); // 'postes' | 'grille'
+  const [grille, setGrille]     = useState(null);
   const annee = getAnnee();
 
   const charger = () => {
@@ -34,8 +36,9 @@ export default function Recrutement() {
     af(`/postes?annee=${encodeURIComponent(annee)}`)
       .then(setPostes).catch(e => setErr(e.message)).finally(() => setLoading(false));
   };
+  const chargerGrille = () => af('/grille').then(setGrille).catch(() => {});
 
-  useEffect(() => { charger(); }, []);
+  useEffect(() => { charger(); chargerGrille(); }, []);
 
   const sections = [...new Set(postes.map(p => p.section).filter(Boolean))].sort();
   const postesFiltres = filtre ? postes.filter(p => p.section === filtre) : postes;
@@ -50,7 +53,7 @@ export default function Recrutement() {
         ]}]}
       />
       <div className="ml-16 p-4 md:p-6">
-        <FichePoste poste={poste} annee={annee} onBack={() => { setPoste(null); charger(); }} />
+        <FichePoste poste={poste} annee={annee} onBack={() => { setPoste(null); charger(); }} grille={grille} />
       </div>
     </div>
   );
@@ -62,6 +65,10 @@ export default function Recrutement() {
         icon={IconBriefcase} titre="Recrutement"
         sousTitre={loading ? '…' : `${postes.length} cours à pourvoir`}
         sections={[
+          { label: 'Vue', items: [
+            { key: 'postes', label: 'Cours à pourvoir', icon: IconBriefcase,     actif: vue === 'postes', onClick: () => setVue('postes') },
+            { key: 'grille', label: 'Grille entretien', icon: IconClipboardText, actif: vue === 'grille', onClick: () => setVue('grille') },
+          ]},
           { label: 'Section', items: [
             { key: 'all', label: 'Toutes', icon: IconBriefcase, actif: filtre === '', onClick: () => setFiltre('') },
             ...sections.map(s => ({
@@ -71,6 +78,12 @@ export default function Recrutement() {
         ]}
       />
       <div className="ml-16 p-4 md:p-6">
+
+        {vue === 'grille' && (
+          <EditeurGrille grille={grille} onSaved={chargerGrille} />
+        )}
+
+        {vue === 'postes' && (<>
         <div className="flex items-center justify-between mb-6">
           <h1 className="text-2xl font-title text-iip-gold">
             Cours à pourvoir <span className="text-base font-normal text-gray-400">({annee})</span>
@@ -127,13 +140,14 @@ export default function Recrutement() {
             </div>
           </div>
         ))}
+      </>)}
       </div>
     </div>
   );
 }
 
 /* ══════════════════════ FICHE POSTE ══════════════════════ */
-function FichePoste({ poste, annee, onBack }) {
+function FichePoste({ poste, annee, onBack, grille }) {
   const [candidats, setCandidats]       = useState(poste.candidats || []);
   const [ajout, setAjout]               = useState(false);
   const [genAnnonce, setGenAnnonce]     = useState(false);
@@ -223,7 +237,7 @@ function FichePoste({ poste, annee, onBack }) {
         ))}
       </div>
 
-      {onglet === 'grille' && <GrilleEntretien poste={poste} annee={annee} qIA={qIA} setQIA={setQIA} />}
+      {onglet === 'grille' && <GrilleEntretien poste={poste} annee={annee} qIA={qIA} setQIA={setQIA} grille={grille} />}
 
         {onglet === 'candidats' && (<>
       {/* Candidats */}
@@ -264,6 +278,7 @@ function FichePoste({ poste, annee, onBack }) {
           poste={poste}
           annee={annee}
           qIA={qIA}
+          grille={grille}
           onClose={() => setEntretienCand(null)}
           onSaved={() => { setEntretienCand(null); recharger(); }}
         />
@@ -643,7 +658,8 @@ const GRILLE_IIP = [
   },
 ];
 
-function GrilleEntretien({ poste, annee, qIA, setQIA }) {
+function GrilleEntretien({ poste, annee, qIA, setQIA, grille }) {
+  const grilleActive = grille || GRILLE_IIP; // fallback sur la grille statique si pas encore chargée
   const [loading, setLoading] = useState(false);
   const [err, setErr]         = useState('');
 
@@ -694,7 +710,7 @@ Réponds en JSON strict sans backticks : {"questions":["question 1","question 2"
     </style></head><body>
     <h1>Grille d'entretien — ${poste.nom_cours || poste.ue_nom}</h1>
     <div class="meta">UE ${poste.ue_num} · Section ${poste.section} · ${annee}</div>
-    ${GRILLE_IIP.map(axe => `<h2 style="background:${axe.couleur}">${axe.axe}</h2><ul>${axe.questions.map(q => `<li>${q}</li>`).join('')}</ul>`).join('')}
+    ${grilleActive.map(axe => `<h2 style="background:${axe.couleur}">${axe.axe || axe.libelle}</h2><ul>${(axe.questions || []).map(q => `<li>${q.libelle || q}</li>`).join('')}</ul>`).join('')}
     ${qIA.length > 0 ? `<h2 style="background:#1B2B4B">Axe 5 — Questions spécifiques au cours</h2><ul>${qIA.map(q => `<li>${q}</li>`).join('')}</ul>` : ''}
     </body></html>`;
     const w = window.open('', '_blank');
@@ -719,7 +735,7 @@ Réponds en JSON strict sans backticks : {"questions":["question 1","question 2"
       {err && <div className="text-xs text-red-600 bg-red-50 rounded px-3 py-2 mb-3">{err}</div>}
 
       <div className="space-y-3">
-        {GRILLE_IIP.map((axe, i) => (
+        {grilleActive.map((axe, i) => (
           <div key={i} className="border border-gray-200 rounded-xl overflow-hidden">
             <div className="px-4 py-2.5 text-sm font-semibold text-white" style={{ background: axe.couleur }}>
               {axe.axe}
@@ -772,10 +788,10 @@ const LIKERT = [
   { val: 5, label: 'Excellent',     color: '#0ea5e9' },
 ];
 
-function EntretienModal({ candidature, poste, annee, qIA, onClose, onSaved }) {
-  // Construire la liste complète des questions (grille IIP + axe 5 IA)
+function EntretienModal({ candidature, poste, annee, qIA, grille, onClose, onSaved }) {
+  const grilleActive = grille || GRILLE_IIP;
   const toutesQuestions = [
-    ...GRILLE_IIP.flatMap(axe => axe.questions.map(q => ({ axe: axe.axe, q, couleur: axe.couleur }))),
+    ...grilleActive.flatMap(axe => (axe.questions || []).map(q => ({ axe: axe.axe || axe.libelle, q: q.libelle || q, couleur: axe.couleur }))),
     ...qIA.map(q => ({ axe: 'Axe 5 — Questions spécifiques au cours', q, couleur: '#1B2B4B' })),
   ];
 
@@ -914,6 +930,111 @@ function EntretienModal({ candidature, poste, annee, qIA, onClose, onSaved }) {
             </div>
           </div>
         </div>
+      </div>
+    </div>
+  );
+}
+
+/* ══════════════════════ ÉDITEUR DE GRILLE ══════════════════════ */
+const COULEURS_AXES = ['#0369a1','#7c3aed','#15803d','#b45309','#dc2626','#0891b2','#4f46e5','#b45309'];
+
+function EditeurGrille({ grille, onSaved }) {
+  const [axes, setAxes]   = useState(null);
+  const [saving, setSaving] = useState(false);
+  const [saved, setSaved]   = useState(false);
+  const [err, setErr]       = useState('');
+
+  useEffect(() => {
+    if (grille) setAxes(grille.map(a => ({
+      ...a,
+      questions: (a.questions || []).map(q => ({ ...q })),
+    })));
+  }, [grille]);
+
+  if (!axes) return <div className="text-gray-400 py-8">Chargement de la grille…</div>;
+
+  const majAxe = (i, champ, val) => setAxes(ax => ax.map((a, j) => j === i ? { ...a, [champ]: val } : a));
+  const majQ   = (ai, qi, val) => setAxes(ax => ax.map((a, j) => j !== ai ? a : {
+    ...a, questions: a.questions.map((q, k) => k === qi ? { ...q, libelle: val } : q),
+  }));
+  const ajouterQ  = (ai) => setAxes(ax => ax.map((a, j) => j !== ai ? a : { ...a, questions: [...a.questions, { libelle: '', ordre: a.questions.length }] }));
+  const retirerQ  = (ai, qi) => setAxes(ax => ax.map((a, j) => j !== ai ? a : { ...a, questions: a.questions.filter((_, k) => k !== qi) }));
+  const ajouterAxe = () => setAxes(ax => [...ax, { libelle: 'Nouvel axe', couleur: COULEURS_AXES[ax.length % COULEURS_AXES.length], questions: [] }]);
+  const retirerAxe = (i) => { if (!confirm('Supprimer cet axe et toutes ses questions ?')) return; setAxes(ax => ax.filter((_, j) => j !== i)); };
+
+  const enregistrer = async () => {
+    setSaving(true); setErr('');
+    try {
+      await af('/grille', { method: 'PUT', body: JSON.stringify(axes) });
+      setSaved(true); setTimeout(() => setSaved(false), 2000);
+      onSaved();
+    } catch (e) { setErr(e.message); } finally { setSaving(false); }
+  };
+
+  return (
+    <div className="max-w-3xl">
+      <div className="flex items-center justify-between mb-5">
+        <div>
+          <h1 className="text-2xl font-title text-iip-gold">Grille d'entretien</h1>
+          <p className="text-sm text-gray-400 mt-1">Modifiez les axes et questions — appliqués à tous les entretiens.</p>
+        </div>
+        <div className="flex items-center gap-2">
+          {saved && <span className="text-sm text-green-600 flex items-center gap-1"><IconCheck size={15} /> Enregistré</span>}
+          <Btn variant="primary" icon={IconCheck} onClick={enregistrer} disabled={saving}>
+            {saving ? 'Enregistrement…' : 'Enregistrer'}
+          </Btn>
+        </div>
+      </div>
+
+      {err && <div className="text-sm text-red-600 bg-red-50 rounded px-3 py-2 mb-4">{err}</div>}
+
+      <div className="space-y-4">
+        {axes.map((axe, ai) => (
+          <div key={ai} className="border border-gray-200 rounded-xl overflow-hidden">
+            {/* En-tête axe */}
+            <div className="flex items-center gap-2 px-3 py-2" style={{ background: axe.couleur }}>
+              <input
+                value={axe.libelle}
+                onChange={e => majAxe(ai, 'libelle', e.target.value)}
+                className="flex-1 text-sm font-semibold text-white bg-transparent border-b border-white/30 focus:outline-none focus:border-white placeholder-white/50"
+                placeholder="Intitulé de l'axe…"
+              />
+              <input type="color" value={axe.couleur} onChange={e => majAxe(ai, 'couleur', e.target.value)}
+                className="w-7 h-7 rounded cursor-pointer border-0 bg-transparent" title="Couleur" />
+              <button onClick={() => retirerAxe(ai)} className="text-white/60 hover:text-white ml-1" title="Supprimer l'axe">
+                <IconX size={16} />
+              </button>
+            </div>
+
+            {/* Questions */}
+            <div className="divide-y divide-gray-50 px-3 py-2 space-y-1.5">
+              {axe.questions.map((q, qi) => (
+                <div key={qi} className="flex items-start gap-2 pt-1.5">
+                  <span className="text-xs text-gray-300 w-5 flex-shrink-0 mt-2">{qi + 1}.</span>
+                  <textarea
+                    value={q.libelle}
+                    onChange={e => majQ(ai, qi, e.target.value)}
+                    rows={2}
+                    className="flex-1 text-sm border border-gray-200 rounded-lg px-2 py-1.5 resize-none focus:outline-none focus:border-iip-turquoise"
+                    placeholder="Texte de la question…"
+                  />
+                  <button onClick={() => retirerQ(ai, qi)} className="text-gray-200 hover:text-red-400 flex-shrink-0 mt-1.5">
+                    <IconX size={15} />
+                  </button>
+                </div>
+              ))}
+              <button onClick={() => ajouterQ(ai)}
+                className="text-xs text-gray-400 hover:text-iip-blue flex items-center gap-1 pt-1.5 pb-0.5">
+                <IconPlus size={13} /> Ajouter une question
+              </button>
+            </div>
+          </div>
+        ))}
+
+        <button onClick={ajouterAxe}
+          className="w-full border-2 border-dashed border-gray-200 rounded-xl py-3 text-sm text-gray-400 hover:border-iip-turquoise hover:text-iip-blue flex items-center justify-center gap-1.5 transition">
+          <IconPlus size={16} /> Ajouter un axe
+        </button>
       </div>
     </div>
   );

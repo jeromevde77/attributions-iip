@@ -229,6 +229,39 @@ r.delete('/candidatures/:id', (req, res) => {
 });
 
 // ═══════════════════════════════════════════════════════════════════════════════
+// GRILLE D'ENTRETIEN ÉDITABLE
+// ═══════════════════════════════════════════════════════════════════════════════
+
+// GET /api/recrutement/grille — retourne tous les axes et leurs questions
+r.get('/grille', (req, res) => {
+  const axes = db.prepare('SELECT * FROM recrutement_grille_axe ORDER BY ordre, id').all();
+  const questions = db.prepare('SELECT * FROM recrutement_grille_question ORDER BY axe_id, ordre, id').all();
+  res.json(axes.map(a => ({
+    ...a,
+    questions: questions.filter(q => q.axe_id === a.id),
+  })));
+});
+
+// PUT /api/recrutement/grille — remplace toute la grille (envoi du tableau complet)
+r.put('/grille', (req, res) => {
+  const axes = req.body;
+  if (!Array.isArray(axes)) return res.status(400).json({ error: 'Format invalide' });
+  const tx = db.transaction(() => {
+    db.prepare('DELETE FROM recrutement_grille_axe').run(); // CASCADE supprime les questions
+    const insAxe = db.prepare('INSERT INTO recrutement_grille_axe (libelle, couleur, ordre) VALUES (?, ?, ?)');
+    const insQ   = db.prepare('INSERT INTO recrutement_grille_question (axe_id, libelle, ordre) VALUES (?, ?, ?)');
+    axes.forEach((axe, ai) => {
+      const { lastInsertRowid: axeId } = insAxe.run(axe.libelle || 'Axe', axe.couleur || '#1B2B4B', ai);
+      (axe.questions || []).forEach((q, qi) => {
+        if (q.libelle?.trim()) insQ.run(axeId, q.libelle.trim(), qi);
+      });
+    });
+  });
+  tx();
+  res.json({ ok: true });
+});
+
+// ═══════════════════════════════════════════════════════════════════════════════
 // CONTEXTE IA
 // ═══════════════════════════════════════════════════════════════════════════════
 r.get('/contexte', (req, res) => {
