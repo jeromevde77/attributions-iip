@@ -2227,6 +2227,32 @@ try {
   console.log('[migration] Tables recrutement v2 créées');
 } catch(e) { console.error('[migration] recrutement v2 :', e.message); }
 
+// ── Recrutement : champ fonction sur candidat + table fonctions ───────────────
+try {
+  const cols = db.prepare('PRAGMA table_info(recrutement_candidat)').all().map(c => c.name);
+  if (!cols.includes('fonction')) {
+    db.exec("ALTER TABLE recrutement_candidat ADD COLUMN fonction TEXT");
+    console.log('[migration] colonne fonction ajoutée sur recrutement_candidat');
+  }
+  db.exec(`CREATE TABLE IF NOT EXISTS recrutement_fonction (
+    id      INTEGER PRIMARY KEY AUTOINCREMENT,
+    libelle TEXT NOT NULL UNIQUE,
+    ordre   INTEGER NOT NULL DEFAULT 0
+  );`);
+  // Fonctions initiales
+  const nbF = db.prepare('SELECT COUNT(*) as n FROM recrutement_fonction').get().n;
+  if (nbF === 0) {
+    const ins = db.prepare('INSERT OR IGNORE INTO recrutement_fonction (libelle, ordre) VALUES (?, ?)');
+    [
+      'Médecin', 'Infirmier·ère', 'Aide-soignant·e', 'Kinésithérapeute',
+      'Psychomotricien·ne', 'Opticien·ne', 'Technicien·ne en imagerie médicale',
+      'AESS Mathématiques', 'AESS Sciences', 'AESS Langues', 'AESS Éducation physique',
+      'Ergothérapeute', 'Logopède', 'Assistant·e social·e', 'Autre',
+    ].forEach((l, i) => ins.run(l, i));
+    console.log('[migration] Fonctions initiales insérées');
+  }
+} catch(e) { console.error('[migration] recrutement_fonction :', e.message); }
+
 // ── Recrutement : grille de questions d'entretien éditable ────────────────────
 try {
   db.exec(`CREATE TABLE IF NOT EXISTS recrutement_grille_axe (

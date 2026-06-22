@@ -3,6 +3,7 @@ import {
   IconBriefcase, IconUserPlus, IconArrowLeft, IconTrash, IconPlus,
   IconFileCv, IconExternalLink, IconUpload, IconSparkles,
   IconCheck, IconX, IconUsersGroup, IconDownload, IconClipboardText,
+  IconLayoutColumns,
 } from '@tabler/icons-react';
 import { Btn, RailLateral } from '../components/ui.jsx';
 import { getAnnee } from '../lib/api.js';
@@ -30,17 +31,15 @@ export default function Recrutement() {
   const [vue, setVue]           = useState('postes');
   const [grille, setGrille]     = useState(null);
   const [candidats, setCandidats] = useState([]);
+  const [fonctions, setFonctions] = useState([]);
   const annee = getAnnee();
 
-  const charger = () => {
-    setLoading(true);
-    af(`/postes?annee=${encodeURIComponent(annee)}`)
-      .then(setPostes).catch(e => setErr(e.message)).finally(() => setLoading(false));
-  };
+  const charger          = () => { setLoading(true); af(`/postes?annee=${encodeURIComponent(annee)}`).then(setPostes).catch(e => setErr(e.message)).finally(() => setLoading(false)); };
   const chargerGrille    = () => af('/grille').then(setGrille).catch(() => {});
   const chargerCandidats = () => af('/candidats').then(setCandidats).catch(() => {});
+  const chargerFonctions = () => af('/fonctions').then(setFonctions).catch(() => {});
 
-  useEffect(() => { charger(); chargerGrille(); chargerCandidats(); }, []);
+  useEffect(() => { charger(); chargerGrille(); chargerCandidats(); chargerFonctions(); }, []);
 
   const sections = [...new Set(postes.map(p => p.section).filter(Boolean))].sort();
   const postesFiltres = filtre ? postes.filter(p => p.section === filtre) : postes;
@@ -70,6 +69,7 @@ export default function Recrutement() {
           { label: 'Vue', items: [
             { key: 'postes',    label: 'Cours à pourvoir',    icon: IconBriefcase,     actif: vue === 'postes',    onClick: () => setVue('postes') },
             { key: 'candidats', label: `Candidats (${candidats.length})`, icon: IconUsersGroup, actif: vue === 'candidats', onClick: () => setVue('candidats') },
+            { key: 'parallele', label: 'Vue parallèle',       icon: IconLayoutColumns, actif: vue === 'parallele', onClick: () => setVue('parallele') },
             { key: 'grille',    label: 'Grille entretien',    icon: IconClipboardText, actif: vue === 'grille',    onClick: () => setVue('grille') },
           ]},
           { label: 'Section', items: [
@@ -82,13 +82,9 @@ export default function Recrutement() {
       />
       <div className="ml-16 p-4 md:p-6">
 
-        {vue === 'grille' && (
-          <EditeurGrille grille={grille} onSaved={chargerGrille} />
-        )}
-
-        {vue === 'candidats' && (
-          <VueCandidatsGlobal candidats={candidats} onRecharger={chargerCandidats} />
-        )}
+        {vue === 'grille' && <EditeurGrille grille={grille} onSaved={chargerGrille} />}
+        {vue === 'candidats' && <VueCandidatsGlobal candidats={candidats} fonctions={fonctions} onRecharger={() => { chargerCandidats(); chargerFonctions(); }} />}
+        {vue === 'parallele' && <VueParallele postes={postes} candidats={candidats} fonctions={fonctions} annee={annee} onRecharger={() => { charger(); chargerCandidats(); }} />}
 
         {vue === 'postes' && (<>
         <div className="flex items-center justify-between mb-6">
@@ -942,8 +938,197 @@ function EntretienModal({ candidature, poste, annee, qIA, grille, onClose, onSav
   );
 }
 
+/* ══════════════════════ VUE PARALLÈLE (drag & drop) ══════════════════════ */
+function VueParallele({ postes, candidats, fonctions, annee, onRecharger }) {
+  const [showTous, setShowTous]     = useState(false); // toggle À désigner / tous
+  const [filtreFn, setFiltreFn]     = useState('');    // filtre fonction candidat
+  const [filtreSection, setFiltreSection] = useState('');
+  const [dragId, setDragId]         = useState(null);  // id candidat en cours de drag
+  const [dropTarget, setDropTarget] = useState(null);  // poste cible en survol
+  const [feedback, setFeedback]     = useState('');    // message confirmation
+
+  const sections = [...new Set(postes.map(p => p.section).filter(Boolean))].sort();
+
+  // Candidats filtrés par fonction
+  const candidatsFiltres = filtreFn
+    ? candidats.filter(c => c.fonction === filtreFn)
+    : candidats;
+
+  // Postes filtrés (tous ou seulement sans candidat)
+  const postesFiltres = (filtreSection ? postes.filter(p => p.section === filtreSection) : postes)
+    .filter(p => showTous || p.nb_candidats === 0);
+
+  // Glisser un candidat sur un poste
+  const onDrop = async (poste) => {
+    if (!dragId) return;
+    setDropTarget(null);
+    const cand = candidats.find(c => c.id === dragId);
+    if (!cand) return;
+    try {
+      await af('/candidats', {
+        method: 'POST',
+        body: JSON.stringify({
+          nom: cand.nom, email: cand.email, telephone: cand.telephone,
+          cv_url: cand.cv_url, notes: cand.notes,
+          annee, ue_num: poste.ue_num, code_cours: poste.code_cours, section: poste.section,
+        }),
+      });
+      setFeedback(`${cand.nom} rattaché à ${poste.nom_cours || poste.ue_nom}`);
+      setTimeout(() => setFeedback(''), 3000);
+      onRecharger();
+    } catch (e) {
+      if (e.message.includes('déjà rattaché') || e.message.includes('UNIQUE')) {
+        setFeedback(`${cand.nom} est déjà candidat pour ce cours`);
+        setTimeout(() => setFeedback(''), 3000);
+      } else { alert(e.message); }
+    }
+    setDragId(null);
+  };
+
+  return (
+    <div className="h-full">
+      {/* Barre de filtres */}
+      <div className="flex items-center gap-3 mb-4 flex-wrap">
+        <h1 className="text-xl font-title text-iip-gold mr-2">Vue parallèle</h1>
+
+        <label className="flex items-center gap-1.5 text-sm text-gray-600 cursor-pointer select-none">
+          <input type="checkbox" checked={showTous} onChange={e => setShowTous(e.target.checked)}
+            className="w-4 h-4 accent-iip-turquoise" />
+          Afficher tous les cours
+        </label>
+
+        <select value={filtreSection} onChange={e => setFiltreSection(e.target.value)}
+          className="text-sm border border-gray-200 rounded px-2 py-1.5 h-8">
+          <option value="">Toutes sections</option>
+          {sections.map(s => <option key={s} value={s}>{s}</option>)}
+        </select>
+
+        <select value={filtreFn} onChange={e => setFiltreFn(e.target.value)}
+          className="text-sm border border-gray-200 rounded px-2 py-1.5 h-8">
+          <option value="">Toutes fonctions</option>
+          {(fonctions || []).map(fn => <option key={fn.id} value={fn.libelle}>{fn.libelle}</option>)}
+        </select>
+
+        <span className="text-xs text-gray-400 ml-auto">
+          {postesFiltres.length} cours · {candidatsFiltres.length} candidat{candidatsFiltres.length > 1 ? 's' : ''}
+        </span>
+      </div>
+
+      {feedback && (
+        <div className="text-sm bg-green-50 border border-green-200 text-green-700 rounded-lg px-3 py-2 mb-3 flex items-center gap-2">
+          <IconCheck size={15} /> {feedback}
+        </div>
+      )}
+
+      <div className="grid grid-cols-2 gap-4 h-full" style={{ height: 'calc(100vh - 220px)' }}>
+
+        {/* ── Colonne gauche : Cours à pourvoir ── */}
+        <div className="flex flex-col">
+          <div className="text-xs font-semibold text-gray-400 uppercase tracking-widest mb-2">
+            Cours à pourvoir ({postesFiltres.length})
+          </div>
+          <div className="flex-1 overflow-auto space-y-1.5 pr-1">
+            {postesFiltres.length === 0 && (
+              <div className="text-sm text-gray-300 text-center py-12">Aucun cours{showTous ? '' : ' sans candidat'}.</div>
+            )}
+            {postesFiltres.map((p, i) => {
+              const isTarget = dropTarget === `${p.ue_num}-${p.code_cours}-${p.section}`;
+              return (
+                <div key={i}
+                  onDragOver={e => { e.preventDefault(); setDropTarget(`${p.ue_num}-${p.code_cours}-${p.section}`); }}
+                  onDragLeave={() => setDropTarget(null)}
+                  onDrop={() => onDrop(p)}
+                  className={`border rounded-lg px-3 py-2.5 transition ${
+                    isTarget
+                      ? 'border-iip-turquoise bg-iip-turquoise/10 shadow-md scale-[1.01]'
+                      : 'border-gray-200 bg-white hover:border-gray-300'
+                  }`}>
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="min-w-0">
+                      <div className="text-sm font-semibold text-iip-blue flex items-center gap-1.5 flex-wrap">
+                        <span className="text-xs text-gray-400 font-normal">UE {p.ue_num}</span>
+                        <span className="truncate">{p.nom_cours || p.ue_nom}</span>
+                        {p.contrat_mdp && (
+                          <span className="text-[10px] font-bold px-1.5 py-0.5 rounded text-white flex-shrink-0"
+                            style={{ background: p.contrat_mdp === 'HELB' ? '#8B5CF6' : '#1B2B4B' }}>{p.contrat_mdp}</span>
+                        )}
+                      </div>
+                      <div className="text-xs text-gray-400 mt-0.5">
+                        {p.section}{p.ue_quad ? ` · ${p.ue_quad}` : ''}{p.ue_per_cours ? ` · ${p.ue_per_cours} pér.` : ''}
+                      </div>
+                    </div>
+                    <div className="flex-shrink-0 text-right">
+                      <div className="text-base font-bold text-iip-blue">{p.nb_candidats}</div>
+                      <div className="text-[9px] text-gray-400">cand.</div>
+                    </div>
+                  </div>
+                  {isTarget && dragId && (
+                    <div className="mt-2 text-xs text-iip-turquoise font-medium text-center animate-pulse">
+                      ↓ Déposer ici pour rattacher
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        </div>
+
+        {/* ── Colonne droite : Candidats ── */}
+        <div className="flex flex-col">
+          <div className="text-xs font-semibold text-gray-400 uppercase tracking-widest mb-2">
+            Candidats ({candidatsFiltres.length}) — glisser vers un cours
+          </div>
+          <div className="flex-1 overflow-auto space-y-1.5 pl-1">
+            {candidatsFiltres.length === 0 && (
+              <div className="text-sm text-gray-300 text-center py-12">Aucun candidat{filtreFn ? ` avec la fonction "${filtreFn}"` : ''}.</div>
+            )}
+            {candidatsFiltres.map(c => (
+              <div key={c.id}
+                draggable
+                onDragStart={() => setDragId(c.id)}
+                onDragEnd={() => { setDragId(null); setDropTarget(null); }}
+                className={`border rounded-lg px-3 py-2.5 cursor-grab active:cursor-grabbing select-none transition ${
+                  dragId === c.id
+                    ? 'border-iip-blue bg-iip-blue/5 opacity-70 shadow-lg'
+                    : 'border-gray-200 bg-white hover:border-iip-blue/40 hover:shadow-sm'
+                }`}>
+                <div className="flex items-center gap-2">
+                  <div className="flex flex-col items-center justify-center text-gray-200 flex-shrink-0">
+                    <span className="text-lg leading-none">⠿</span>
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <div className="text-sm font-semibold text-iip-blue">{c.nom}</div>
+                    <div className="flex items-center gap-2 mt-0.5 flex-wrap">
+                      {c.fonction && (
+                        <span className="text-[10px] bg-iip-blue/10 text-iip-blue px-1.5 py-0.5 rounded font-medium">
+                          {c.fonction}
+                        </span>
+                      )}
+                      <span className="text-xs text-gray-400">{c.email || '—'}</span>
+                    </div>
+                    {c.candidatures?.length > 0 && (
+                      <div className="text-[10px] text-gray-400 mt-0.5">
+                        {c.candidatures.length} candidature{c.candidatures.length > 1 ? 's' : ''}
+                      </div>
+                    )}
+                  </div>
+                  {c.documents?.length > 0 && (
+                    <span className="text-xs text-gray-300 flex items-center gap-0.5 flex-shrink-0">
+                      <IconFileCv size={12} /> {c.documents.length}
+                    </span>
+                  )}
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 /* ══════════════════════ VUE CANDIDATS GLOBALE ══════════════════════ */
-function VueCandidatsGlobal({ candidats, onRecharger }) {
+function VueCandidatsGlobal({ candidats, fonctions, onRecharger }) {
   const [fiche, setFiche]   = useState(null); // candidat sélectionné
   const [search, setSearch] = useState('');
   const [nouveau, setNouveau] = useState(false);
@@ -1010,6 +1195,7 @@ function VueCandidatsGlobal({ candidats, onRecharger }) {
       {fiche && (
         <FicheCandidat
           candidat={fiche}
+          fonctions={fonctions}
           onClose={() => setFiche(null)}
           onSaved={() => { setFiche(null); onRecharger(); }}
         />
@@ -1026,8 +1212,9 @@ function VueCandidatsGlobal({ candidats, onRecharger }) {
 }
 
 /* ── Fiche candidat (modale d'édition) ── */
-function FicheCandidat({ candidat, onClose, onSaved }) {
-  const [f, setF]             = useState({ nom: candidat.nom, email: candidat.email || '', telephone: candidat.telephone || '', cv_url: candidat.cv_url || '', notes: candidat.notes || '' });
+function FicheCandidat({ candidat, fonctions, onClose, onSaved }) {
+  const [f, setF] = useState({ nom: candidat.nom, email: candidat.email || '', telephone: candidat.telephone || '', cv_url: candidat.cv_url || '', notes: candidat.notes || '', fonction: candidat.fonction || '' });
+  const [nouvelleF, setNouvelleF] = useState('');
   const [docs, setDocs]       = useState(candidat.documents || []);
   const [busy, setBusy]       = useState(false);
   const [uploading, setUploading] = useState(false);
@@ -1073,6 +1260,34 @@ function FicheCandidat({ candidat, onClose, onSaved }) {
     setVisionneur({ url: URL.createObjectURL(blob), nom, mime: blob.type });
   };
 
+  if (visionneur) return (
+    <div className="fixed inset-0 bg-black/70 z-[60] flex flex-col"
+      onClick={() => { URL.revokeObjectURL(visionneur.url); setVisionneur(null); }}>
+      <div className="flex items-center justify-between px-4 py-2 bg-white flex-shrink-0"
+        onClick={e => e.stopPropagation()}>
+        <span className="text-sm font-medium text-iip-blue truncate">{visionneur.nom}</span>
+        <button onClick={() => { URL.revokeObjectURL(visionneur.url); setVisionneur(null); }}
+          className="text-gray-400 hover:text-gray-700 ml-3"><IconX size={20} /></button>
+      </div>
+      <div className="flex-1 overflow-hidden" onClick={e => e.stopPropagation()}>
+        {visionneur.mime && visionneur.mime.startsWith('image/') && (
+          <div className="h-full flex items-center justify-center p-4">
+            <img src={visionneur.url} alt={visionneur.nom} className="max-h-full max-w-full object-contain rounded shadow-lg" />
+          </div>
+        )}
+        {visionneur.mime === 'application/pdf' && (
+          <iframe src={visionneur.url} title={visionneur.nom} className="w-full h-full border-none" />
+        )}
+        {visionneur.mime && !visionneur.mime.startsWith('image/') && visionneur.mime !== 'application/pdf' && (
+          <div className="h-full flex flex-col items-center justify-center text-white gap-3">
+            <IconFileCv size={40} className="opacity-40" />
+            <div className="text-sm opacity-60">Ce format ne peut pas \u00eatre pr\u00e9visualis\u00e9</div>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+
   return (
     <div className="fixed inset-0 bg-black/40 z-50 flex items-start justify-center p-4 pt-12 overflow-auto" onClick={onClose}>
       <div className="bg-white rounded-xl w-full max-w-lg shadow-xl" onClick={e => e.stopPropagation()}>
@@ -1107,7 +1322,24 @@ function FicheCandidat({ candidat, onClose, onSaved }) {
                 className="w-full text-sm border border-gray-300 rounded px-2 py-1.5 h-9" />
             </div>
             <div className="col-span-2">
-              <div className="text-xs text-gray-500 mb-1">Lien CV (Drive…)</div>
+              <div className="text-xs text-gray-500 mb-1">Fonction / profil</div>
+              <div className="flex gap-2">
+                <select value={f.fonction} onChange={e => setF({ ...f, fonction: e.target.value })}
+                  className="flex-1 text-sm border border-gray-300 rounded px-2 py-1.5 h-9">
+                  <option value="">— choisir —</option>
+                  {(fonctions || []).map(fn => <option key={fn.id} value={fn.libelle}>{fn.libelle}</option>)}
+                </select>
+                <input value={nouvelleF} onChange={e => setNouvelleF(e.target.value)}
+                  placeholder="Autre…" className="w-28 text-sm border border-gray-300 rounded px-2 py-1.5 h-9" />
+                {nouvelleF.trim() && (
+                  <button onClick={async () => {
+                    await af('/fonctions', { method: 'POST', body: JSON.stringify({ libelle: nouvelleF.trim() }) });
+                    setF({ ...f, fonction: nouvelleF.trim() });
+                    setNouvelleF('');
+                  }} className="text-xs bg-iip-blue text-white px-2 py-1 rounded h-9">+ Ajouter</button>
+                )}
+              </div>
+            </div>
               <input value={f.cv_url} onChange={e => setF({ ...f, cv_url: e.target.value })}
                 className="w-full text-sm border border-gray-300 rounded px-2 py-1.5 h-9" />
             </div>
@@ -1173,36 +1405,12 @@ function FicheCandidat({ candidat, onClose, onSaved }) {
           <Btn variant="primary" icon={IconCheck} onClick={enregistrer} disabled={busy}>
             {busy ? 'Enregistrement…' : 'Enregistrer'}
           </Btn>
-        </div>
 
-        {/* Visionneuse */}
-        {visionneur && (
-          <div className="fixed inset-0 bg-black/70 z-[60] flex flex-col" onClick={() => { URL.revokeObjectURL(visionneur.url); setVisionneur(null); }}>
-            <div className="flex items-center justify-between px-4 py-2 bg-white flex-shrink-0" onClick={e => e.stopPropagation()}>
-              <span className="text-sm font-medium text-iip-blue truncate">{visionneur.nom}</span>
-              <button onClick={() => { URL.revokeObjectURL(visionneur.url); setVisionneur(null); }} className="text-gray-400 hover:text-gray-700 ml-3"><IconX size={20} /></button>
-            </div>
-            <div className="flex-1 overflow-hidden" onClick={e => e.stopPropagation()}>
-              {visionneur.mime?.startsWith('image/') ? (
-                <div className="h-full flex items-center justify-center p-4">
-                  <img src={visionneur.url} alt={visionneur.nom} className="max-h-full max-w-full object-contain rounded shadow-lg" />
-                </div>
-              ) : visionneur.mime === 'application/pdf' ? (
-                <iframe src={visionneur.url} title={visionneur.nom} className="w-full h-full border-none" />
-              ) : (
-                <div className="h-full flex flex-col items-center justify-center text-white gap-3">
-                  <IconFileCv size={40} className="opacity-40" />
-                  <div className="text-sm opacity-60">Ce format ne peut pas être prévisualisé</div>
-                </div>
-              )}
-            </div>
-          </div>
-        )}
+        
       </div>
     </div>
   );
 }
-
 /* ── Nouveau candidat sans poste ── */
 function ModalNouveauCandidat({ onClose, onSaved }) {
   const [f, setF]   = useState({ nom: '', email: '', telephone: '', cv_url: '', notes: '' });

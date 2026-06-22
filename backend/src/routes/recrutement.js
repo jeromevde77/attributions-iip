@@ -164,13 +164,34 @@ r.get('/candidats', (req, res) => {
   })));
 });
 
+r.get('/fonctions', (req, res) => {
+  res.json(db.prepare('SELECT * FROM recrutement_fonction ORDER BY ordre, libelle').all());
+});
+r.post('/fonctions', (req, res) => {
+  const { libelle } = req.body;
+  if (!libelle?.trim()) return res.status(400).json({ error: 'Libellé requis' });
+  try {
+    const info = db.prepare('INSERT INTO recrutement_fonction (libelle, ordre) VALUES (?, (SELECT COALESCE(MAX(ordre),0)+1 FROM recrutement_fonction))').run(libelle.trim());
+    res.json({ id: info.lastInsertRowid, libelle: libelle.trim() });
+  } catch(e) {
+    if (e.message.includes('UNIQUE')) return res.status(409).json({ error: 'Cette fonction existe déjà' });
+    throw e;
+  }
+});
+r.delete('/fonctions/:id', (req, res) => {
+  db.prepare('DELETE FROM recrutement_fonction WHERE id = ?').run(req.params.id);
+  res.json({ ok: true });
+});
+
 r.patch('/candidats/:id', (req, res) => {
-  const { nom, email, telephone, cv_url, notes } = req.body;
+  const { nom, email, telephone, cv_url, notes, fonction } = req.body;
   const c = db.prepare('SELECT id FROM recrutement_candidat WHERE id = ?').get(req.params.id);
   if (!c) return res.status(404).json({ error: 'Candidat introuvable' });
   db.prepare(`UPDATE recrutement_candidat SET
-    nom = COALESCE(?, nom), email = ?, telephone = ?, cv_url = ?, notes = ?
-    WHERE id = ?`).run(nom ?? null, email ?? null, telephone ?? null, cv_url ?? null, notes ?? null, c.id);
+    nom = COALESCE(?, nom), email = ?, telephone = ?,
+    cv_url = ?, notes = ?, fonction = ?
+    WHERE id = ?`).run(nom ?? null, email ?? null, telephone ?? null,
+      cv_url ?? null, notes ?? null, fonction ?? null, c.id);
   res.json({ ok: true });
 });
 
