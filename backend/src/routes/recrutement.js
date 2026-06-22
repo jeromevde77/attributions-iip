@@ -5,7 +5,7 @@
  */
 import { Router } from 'express';
 import db from '../db/index.js';
-import { authRequired } from '../middleware/auth.js';
+import { authRequired, roleRequired } from '../middleware/auth.js';
 import multer from 'multer';
 import { mkdirSync, existsSync, unlinkSync } from 'fs';
 import { join } from 'path';
@@ -30,6 +30,7 @@ const upload = multer({ storage: uploadStorage, limits: { fileSize: 20 * 1024 * 
 
 const r = Router();
 r.use(authRequired);
+r.use(roleRequired('admin')); // Module recrutement : admin uniquement
 
 // ═══════════════════════ POSTES ═══════════════════════
 

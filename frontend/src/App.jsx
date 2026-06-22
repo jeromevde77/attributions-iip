@@ -78,6 +78,12 @@ function BuildBadge() {
   );
 }
 
+function AdminOnly({ children }) {
+  const u = getUser();
+  if (u?.role !== 'admin') return <Navigate to="/" replace />;
+  return children;
+}
+
 function ProtectedLayout({ children }) {
   const navigate = useNavigate();
   const [menuOpen, setMenuOpen] = useState(false);
@@ -300,7 +306,7 @@ export default function App() {
       <Route path="/"             element={<Navigate to="/attributions" replace />} />
       <Route path="/attributions" element={<ProtectedLayout><Attributions /></ProtectedLayout>} />
       <Route path="/professeurs"  element={<ProtectedLayout><Professeurs /></ProtectedLayout>} />
-      <Route path="/recrutement"   element={<ProtectedLayout><Recrutement /></ProtectedLayout>} />
+      <Route path="/recrutement"   element={<ProtectedLayout><AdminOnly><Recrutement /></AdminOnly></ProtectedLayout>} />
       <Route path="/dcpp/:profId" element={<ProtectedLayout><DCPP /></ProtectedLayout>} />
       <Route path="/listes" element={
         <ProtectedLayout>

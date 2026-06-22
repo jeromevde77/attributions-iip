@@ -4,7 +4,7 @@ import {
   IconFileCv, IconExternalLink, IconUpload, IconStar, IconDeviceFloppy,
   IconCheck, IconX, IconUsersGroup, IconClipboardText, IconSparkles, IconDownload,
 } from '@tabler/icons-react';
-import { PageHeader, Btn } from '../components/ui.jsx';
+import { Btn, RailLateral } from '../components/ui.jsx';
 import { getAnnee } from '../lib/api.js';
 
 const tok = () => localStorage.getItem('token');
@@ -25,8 +25,8 @@ const STATUT_CAND = {
 export default function Recrutement() {
   const [postes, setPostes]       = useState([]);
   const [candidats, setCandidats] = useState([]);
-  const [posteId, setPosteId]     = useState(null);   // null = vue liste
-  const [vue, setVue]             = useState('postes'); // 'postes' | 'candidats'
+  const [posteId, setPosteId]     = useState(null);
+  const [vue, setVue]             = useState('postes');
   const [err, setErr]             = useState('');
   const annee = getAnnee();
 
@@ -35,29 +35,56 @@ export default function Recrutement() {
 
   useEffect(() => { chargerPostes(); chargerCandidats(); }, []);
 
-  if (posteId) return <DetailPoste id={posteId} onBack={() => { setPosteId(null); chargerPostes(); }}
-                                   candidats={candidats} rechargerCandidats={chargerCandidats} annee={annee} />;
+  if (posteId) return (
+    <div className="relative bg-slate-50" style={{ minHeight: 'calc(100vh - 64px)' }}>
+      <RailLateral icon={IconBriefcase} titre="Recrutement" sousTitre="Détail du poste"
+        sections={[{
+          label: 'Navigation', items: [
+            { key: 'back', label: 'Retour aux postes', icon: IconArrowLeft,
+              actif: false, onClick: () => { setPosteId(null); chargerPostes(); } },
+          ]
+        }]}
+      />
+      <div className="ml-16 p-4 md:p-6">
+        <DetailPoste id={posteId} onBack={() => { setPosteId(null); chargerPostes(); }}
+                     candidats={candidats} rechargerCandidats={chargerCandidats} annee={annee} />
+      </div>
+    </div>
+  );
+
+  const nbOuverts  = postes.filter(p => p.statut === 'ouvert').length;
+  const nbCandidats = candidats.length;
 
   return (
-    <div className="max-w-6xl mx-auto px-4 py-6">
-      <PageHeader icon={IconBriefcase} titre="Recrutement"
-        sous="Postes à pourvoir, candidats, grilles d'entretien et évaluations" />
+    <div className="relative bg-slate-50" style={{ minHeight: 'calc(100vh - 64px)' }}>
+      <RailLateral
+        icon={IconBriefcase}
+        titre="Recrutement"
+        sousTitre={`${nbOuverts} poste${nbOuverts > 1 ? 's' : ''} ouvert${nbOuverts > 1 ? 's' : ''}`}
+        sections={[
+          { label: 'Vue', items: [
+            { key: 'postes',    label: `Postes (${postes.length})`,       icon: IconBriefcase,  actif: vue === 'postes',    onClick: () => setVue('postes') },
+            { key: 'candidats', label: `Candidats (${nbCandidats})`,      icon: IconUsersGroup, actif: vue === 'candidats', onClick: () => setVue('candidats') },
+          ]},
+          { label: 'Statuts', items: [
+            { key: 'ouverts',  label: `${nbOuverts} ouvert${nbOuverts > 1 ? 's' : ''}`,
+              icon: IconBriefcase, actif: false, onClick: () => setVue('postes') },
+          ]},
+        ]}
+      />
+      <div className="ml-16 p-4 md:p-6">
+        <div className="flex items-center justify-between mb-6">
+          <h1 className="text-2xl font-title text-iip-gold">
+            Recrutement <span className="text-base font-normal text-gray-400">({annee})</span>
+          </h1>
+        </div>
 
-      {err && <div className="text-sm text-red-600 bg-red-50 border border-red-200 rounded px-3 py-2 mb-4">{err}</div>}
+        {err && <div className="text-sm text-red-600 bg-red-50 border border-red-200 rounded px-3 py-2 mb-4">{err}</div>}
 
-      <div className="flex gap-1 mb-5 border-b border-gray-200">
-        {[['postes', 'Postes', IconBriefcase], ['candidats', 'Candidats', IconUsersGroup]].map(([v, lbl, Icon]) => (
-          <button key={v} onClick={() => setVue(v)}
-            className={`px-4 py-2 text-sm font-medium border-b-2 -mb-px flex items-center gap-1.5 ${
-              vue === v ? 'border-iip-turquoise text-iip-blue' : 'border-transparent text-gray-500 hover:text-gray-700'}`}>
-            <Icon size={16} /> {lbl}
-          </button>
-        ))}
+        {vue === 'postes'
+          ? <VuePostes postes={postes} recharger={chargerPostes} onOuvrir={setPosteId} annee={annee} />
+          : <VueCandidats candidats={candidats} recharger={chargerCandidats} />}
       </div>
-
-      {vue === 'postes'
-        ? <VuePostes postes={postes} recharger={chargerPostes} onOuvrir={setPosteId} annee={annee} />
-        : <VueCandidats candidats={candidats} recharger={chargerCandidats} />}
     </div>
   );
 }
@@ -393,21 +420,16 @@ function VueCandidats({ candidats, recharger }) {
 function DetailPoste({ id, onBack, candidats, rechargerCandidats, annee }) {
   const [poste, setPoste]   = useState(null);
   const [err, setErr]       = useState('');
-  const [onglet, setOnglet] = useState('candidats'); // 'candidats' | 'questions'
-  const [evalCand, setEvalCand] = useState(null); // candidature en cours d'évaluation
+  const [onglet, setOnglet] = useState('candidats');
+  const [evalCand, setEvalCand] = useState(null);
 
   const charger = () => af(`/postes/${id}`).then(setPoste).catch(e => setErr(e.message));
   useEffect(() => { charger(); }, [id]);
 
   if (err && !poste) return (
-    <div className="max-w-5xl mx-auto px-4 py-6">
-      <button onClick={onBack} className="text-sm text-gray-500 hover:text-iip-blue flex items-center gap-1 mb-4">
-        <IconArrowLeft size={16} /> Retour aux postes
-      </button>
-      <div className="text-sm text-red-600 bg-red-50 border border-red-200 rounded px-3 py-2">{err}</div>
-    </div>
+    <div className="text-sm text-red-600 bg-red-50 border border-red-200 rounded px-3 py-2">{err}</div>
   );
-  if (!poste) return <div className="max-w-5xl mx-auto px-4 py-6 text-gray-400">Chargement…</div>;
+  if (!poste) return <div className="text-gray-400 py-6">Chargement…</div>;
 
   const classement = [...(poste.candidatures || [])].sort((a, b) => {
     if (a.note_globale == null && b.note_globale == null) return 0;
@@ -417,18 +439,14 @@ function DetailPoste({ id, onBack, candidats, rechargerCandidats, annee }) {
   });
 
   return (
-    <div className="max-w-5xl mx-auto px-4 py-6">
-      <button onClick={onBack} className="text-sm text-gray-500 hover:text-iip-blue flex items-center gap-1 mb-3">
-        <IconArrowLeft size={16} /> Retour aux postes
-      </button>
-
+    <div>
       <div className="flex items-start justify-between mb-4">
         <div>
-          <h1 className="text-2xl font-bold text-iip-blue flex items-center gap-2">
+          <h1 className="text-2xl font-title text-iip-gold flex items-center gap-2">
             {poste.intitule}
             {poste.contrat && <span className="text-xs font-bold px-2 py-0.5 rounded text-white" style={{ background: poste.contrat === 'HELB' ? '#8B5CF6' : BLEU }}>{poste.contrat}</span>}
           </h1>
-          <div className="text-sm text-gray-500 mt-1">{[poste.section, poste.ue_num].filter(Boolean).join(' · ')}</div>
+          <div className="text-sm text-gray-500 mt-1">{[poste.section, poste.ue_num ? `UE ${poste.ue_num}` : null, poste.cours_nom].filter(Boolean).join(' · ')}</div>
           {poste.description && <p className="text-sm text-gray-600 mt-2 max-w-2xl">{poste.description}</p>}
         </div>
         <div className="flex items-center gap-2">
@@ -461,7 +479,6 @@ function DetailPoste({ id, onBack, candidats, rechargerCandidats, annee }) {
     </div>
   );
 }
-
 /* ── Bouton + modale de génération d'annonce de recrutement ── */
 function BoutonAnnonce({ poste, annee }) {
   const [open, setOpen]       = useState(false);
