@@ -2189,6 +2189,13 @@ try {
     cree_le     TEXT DEFAULT (datetime('now'))
   );`);
 
+  // Migration : si l'ancienne recrutement_candidature existe avec poste_id, la renommer
+  const cols = db.prepare("PRAGMA table_info(recrutement_candidature)").all().map(c => c.name);
+  if (cols.includes('poste_id') && !cols.includes('annee_scolaire')) {
+    db.exec("ALTER TABLE recrutement_candidature RENAME TO recrutement_candidature_old;");
+    console.log('[migration] recrutement_candidature ancienne renommée en _old');
+  }
+
   // Table candidature v2 : liée directement à l'attribution (annee+ue+cours+section)
   db.exec(`CREATE TABLE IF NOT EXISTS recrutement_candidature (
     id              INTEGER PRIMARY KEY AUTOINCREMENT,
