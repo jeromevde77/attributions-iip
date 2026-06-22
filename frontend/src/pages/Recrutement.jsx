@@ -68,6 +68,49 @@ function VuePostes({ postes, recharger, onOuvrir, annee }) {
   const [f, setF] = useState({ intitule: '', section: '', contrat: '', ue_num: '', cours_nom: '',
                                 description: '', fonction: '', charge_periodes: '', prise_de_fonction: '' });
 
+  // Données cascadantes
+  const [sections, setSections]   = useState([]);
+  const [ues, setUes]             = useState([]);
+  const [coursUE, setCoursUE]     = useState([]);
+  const [loadingUE, setLoadingUE] = useState(false);
+
+  useEffect(() => {
+    af('/suggestions/contexte?annee=' + encodeURIComponent(annee))
+      .catch(() => null);
+    // Charger les sections via l'API ref
+    fetch('/api/ref/sections', { headers: { Authorization: `Bearer ${tok()}` } })
+      .then(r => r.json()).then(d => setSections(Array.isArray(d) ? d : [])).catch(() => {});
+  }, []);
+
+  // Quand section change → charger les UE
+  useEffect(() => {
+    if (!f.section) { setUes([]); setCoursUE([]); return; }
+    setLoadingUE(true);
+    fetch(`/api/ref/ue?section=${encodeURIComponent(f.section)}&annee=${encodeURIComponent(annee)}`,
+      { headers: { Authorization: `Bearer ${tok()}` } })
+      .then(r => r.json())
+      .then(d => setUes(Array.isArray(d) ? d : []))
+      .catch(() => setUes([]))
+      .finally(() => setLoadingUE(false));
+  }, [f.section]);
+
+  // Quand UE change → pré-remplir cours_nom + charge
+  useEffect(() => {
+    if (!f.ue_num) { setCoursUE([]); return; }
+    fetch(`/api/ref/ue/${f.ue_num}?annee=${encodeURIComponent(annee)}`,
+      { headers: { Authorization: `Bearer ${tok()}` } })
+      .then(r => r.json())
+      .then(ue => {
+        if (!ue || ue.error) return;
+        setCoursUE(ue.cours || []);
+        setF(prev => ({
+          ...prev,
+          cours_nom: prev.cours_nom || ue.ue_nom || '',
+          charge_periodes: prev.charge_periodes || (ue.ue_tot_prf ? String(ue.ue_tot_prf) : ''),
+        }));
+      }).catch(() => {});
+  }, [f.ue_num]);
+
   const creer = async () => {
     if (!f.intitule.trim()) return;
     await af('/postes', { method: 'POST', body: JSON.stringify({ ...f, annee_scolaire: annee }) });
@@ -85,8 +128,22 @@ function VuePostes({ postes, recharger, onOuvrir, annee }) {
       {creation && (
         <div className="border border-iip-turquoise/40 rounded-lg p-4 mb-4 bg-iip-turquoise/5 space-y-3">
           <div className="grid grid-cols-2 gap-3">
-            <Champ label="Intitulé du poste *" value={f.intitule} onChange={v => setF({ ...f, intitule: v })} placeholder="ex: Professeur de radiothérapie" />
-            <Champ label="Section" value={f.section} onChange={v => setF({ ...f, section: v })} placeholder="ex: Imagerie médicale" />
+            {/* Intitulé */}
+            <div className="col-span-2">
+              <Champ label="Intitulé du poste *" value={f.intitule} onChange={v => setF({ ...f, intitule: v })} placeholder="ex: Professeur de radiothérapie" />
+            </div>
+
+            {/* Section → liste déroulante */}
+            <div>
+              <div className="text-xs text-gray-500 mb-1">Section</div>
+              <select value={f.section} onChange={e => setF({ ...f, section: e.target.value, ue_num: '', cours_nom: '', charge_periodes: '' })}
+                className="w-full text-sm border border-gray-300 rounded px-2 py-1.5 h-9">
+                <option value="">— choisir —</option>
+                {sections.map(s => <option key={s.code} value={s.code}>{s.code}{s.libelle ? ` — ${s.libelle}` : ''}</option>)}
+              </select>
+            </div>
+
+            {/* Contrat */}
             <div>
               <div className="text-xs text-gray-500 mb-1">Contrat</div>
               <select value={f.contrat} onChange={e => setF({ ...f, contrat: e.target.value })}
@@ -94,6 +151,19 @@ function VuePostes({ postes, recharger, onOuvrir, annee }) {
                 <option value="">—</option><option value="IIP">IIP</option><option value="HELB">HELB</option>
               </select>
             </div>
+
+            {/* UE → liste déroulante alimentée par la section */}
+            <div>
+              <div className="text-xs text-gray-500 mb-1">UE {loadingUE && <span className="text-gray-400">…</span>}</div>
+              <select value={f.ue_num} onChange={e => setF({ ...f, ue_num: e.target.value, cours_nom: '', charge_periodes: '' })}
+                disabled={!f.section || ues.length === 0}
+                className="w-full text-sm border border-gray-300 rounded px-2 py-1.5 h-9 disabled:bg-gray-50 disabled:text-gray-400">
+                <option value="">— choisir une UE —</option>
+                {ues.map(u => <option key={u.ue_num} value={u.ue_num}>UE {u.ue_num} — {u.ue_nom}</option>)}
+              </select>
+            </div>
+
+            {/* Fonction */}
             <div>
               <div className="text-xs text-gray-500 mb-1">Fonction</div>
               <select value={f.fonction} onChange={e => setF({ ...f, fonction: e.target.value })}
@@ -103,11 +173,33 @@ function VuePostes({ postes, recharger, onOuvrir, annee }) {
                 <option value="Chargé de cours">Chargé de cours</option>
               </select>
             </div>
-            <Champ label="UE n°" value={f.ue_num} onChange={v => setF({ ...f, ue_num: v })} placeholder="ex: 253" />
-            <Champ label="Cours (nom complet)" value={f.cours_nom} onChange={v => setF({ ...f, cours_nom: v })} placeholder="ex: Radiothérapie" />
-            <Champ label="Charge (périodes)" value={f.charge_periodes} onChange={v => setF({ ...f, charge_periodes: v })} placeholder="ex: 80" />
+
+            {/* Cours → liste déroulante si UE choisie, sinon texte libre */}
+            <div>
+              <div className="text-xs text-gray-500 mb-1">Cours (nom complet)</div>
+              {coursUE.length > 0
+                ? <select value={f.cours_nom} onChange={e => setF({ ...f, cours_nom: e.target.value })}
+                    className="w-full text-sm border border-gray-300 rounded px-2 py-1.5 h-9">
+                    <option value="">— choisir un cours —</option>
+                    {coursUE.map(c => <option key={c.cours_code} value={c.cours_nom}>{c.cours_nom} ({c.ct_pp})</option>)}
+                  </select>
+                : <input value={f.cours_nom} onChange={e => setF({ ...f, cours_nom: e.target.value })}
+                    placeholder="ex: Radiothérapie"
+                    className="w-full text-sm border border-gray-300 rounded px-2 py-1.5 h-9" />}
+            </div>
+
+            {/* Charge — pré-remplie depuis ue_tot_prf, modifiable */}
+            <div>
+              <div className="text-xs text-gray-500 mb-1">Charge (périodes){f.ue_num && f.charge_periodes ? <span className="text-iip-turquoise ml-1">← UE</span> : null}</div>
+              <input type="number" value={f.charge_periodes} onChange={e => setF({ ...f, charge_periodes: e.target.value })}
+                placeholder="ex: 80"
+                className="w-full text-sm border border-gray-300 rounded px-2 py-1.5 h-9" />
+            </div>
+
+            {/* Prise de fonction */}
             <Champ label="Prise de fonction" value={f.prise_de_fonction} onChange={v => setF({ ...f, prise_de_fonction: v })} placeholder="ex: Septembre 2026" />
           </div>
+
           <div>
             <div className="text-xs text-gray-500 mb-1">Description / profil recherché</div>
             <textarea value={f.description} onChange={e => setF({ ...f, description: e.target.value })}
@@ -129,11 +221,11 @@ function VuePostes({ postes, recharger, onOuvrir, annee }) {
                 <div>
                   <div className="font-semibold text-iip-blue flex items-center gap-2">
                     {p.intitule}
-                    {p.contrat && <span className="text-[10px] font-bold px-1.5 py-0.5 rounded text-white" style={{ background: p.contrat === 'HELB' ? '#8B5CF6' : BLEU }}>{p.contrat}</span>}
+                    {p.contrat && <span className="text-[10px] font-bold px-1.5 py-0.5 rounded text-white" style={{ background: p.contrat === 'HELB' ? '#8B5CF6' : '#1B2B4B' }}>{p.contrat}</span>}
                     {p.statut === 'cloture' && <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-gray-200 text-gray-600">Clôturé</span>}
                   </div>
                   <div className="text-xs text-gray-500 mt-0.5">
-                    {[p.section, p.ue_num].filter(Boolean).join(' · ') || '—'}
+                    {[p.section, p.ue_num ? `UE ${p.ue_num}` : null, p.cours_nom].filter(Boolean).join(' · ') || '—'}
                   </div>
                 </div>
                 <div className="text-right">
