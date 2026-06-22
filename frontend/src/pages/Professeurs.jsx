@@ -1273,7 +1273,7 @@ export default function Professeurs() {
           Membres du personnel <span className="text-base font-normal text-gray-400">({filtered.length})</span>
         </h1>
         <div className="flex gap-2 items-center flex-wrap">
-          {getUser()?.role === 'admin' && (
+          {(getUser()?.role === 'admin' || getUser()?.acces_recrutement) && (
             <button onClick={() => navigate('/recrutement')}
               className="flex items-center gap-1.5 text-sm border border-iip-blue text-iip-blue hover:bg-iip-blue hover:text-white px-3 py-1.5 h-9 rounded-lg font-medium transition">
               <IconBriefcase size={16} /> Recrutement

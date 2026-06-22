@@ -2227,6 +2227,15 @@ try {
   console.log('[migration] Tables recrutement v2 créées');
 } catch(e) { console.error('[migration] recrutement v2 :', e.message); }
 
+// ── Recrutement : colonne acces_recrutement sur utilisateur ───────────────────
+try {
+  const cols = db.prepare('PRAGMA table_info(utilisateur)').all().map(c => c.name);
+  if (!cols.includes('acces_recrutement')) {
+    db.exec('ALTER TABLE utilisateur ADD COLUMN acces_recrutement INTEGER NOT NULL DEFAULT 0');
+    console.log('[migration] colonne acces_recrutement ajoutée sur utilisateur');
+  }
+} catch(e) { console.error('[migration] acces_recrutement :', e.message); }
+
 // ── Recrutement : ajout colonnes fonction / charge / prise_de_fonction ────────
 try {
   const cols = db.prepare("PRAGMA table_info(recrutement_poste)").all().map(c => c.name);

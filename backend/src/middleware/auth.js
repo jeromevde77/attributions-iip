@@ -59,7 +59,8 @@ export function canAccessSection(user, section) {
 
 export function signToken(user) {
   return jwt.sign(
-    { id: user.id, email: user.email, role: user.role, nom: user.nom_complet },
+    { id: user.id, email: user.email, role: user.role, nom: user.nom_complet,
+      acces_recrutement: user.acces_recrutement ? 1 : 0 },
     JWT_SECRET,
     { expiresIn: '30d' }
   );

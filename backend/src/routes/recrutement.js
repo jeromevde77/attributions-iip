@@ -48,9 +48,19 @@ const upload = multer({
   }
 });
 
+// Accès recrutement : admins + utilisateurs avec acces_recrutement = 1
+function recrutementAcces(req, res, next) {
+  const u = req.user;
+  if (!u) return res.status(401).json({ error: 'Non authentifié' });
+  if (u.role === 'admin') return next();
+  const row = db.prepare('SELECT acces_recrutement FROM utilisateur WHERE id = ?').get(u.id);
+  if (row?.acces_recrutement) return next();
+  return res.status(403).json({ error: 'Accès non autorisé' });
+}
+
 const r = Router();
 r.use(authRequired);
-r.use(roleRequired('admin'));
+r.use(recrutementAcces);
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // POSTES À POURVOIR
