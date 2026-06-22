@@ -121,17 +121,24 @@ const ROLES_LUCIE = [
   ['coordination', 'Coordination'],
   ['admin', 'Administrateur'],
 ];
+// Modules accessibles par flag (extensible)
+const MODULES_ACCES = [
+  { key: 'acces_recrutement', label: 'Recrutement', desc: 'Accès au module recrutement (postes à pourvoir, candidats, documents)' },
+  // Ajouter ici les futurs modules
+];
+
 function AccesLuciePanel({ profId, detail }) {
   const af = (url, opts = {}) => fetch(url, {
     ...opts,
     headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${localStorage.getItem('token')}`, ...(opts.headers || {}) },
   }).then(async r => { const j = await r.json().catch(() => ({})); if (!r.ok) throw new Error(j.error || 'Erreur'); return j; });
 
-  const [account, setAccount]   = useState(undefined); // undefined = chargement, null = aucun
+  const [account, setAccount]   = useState(undefined);
   const [sectionsDispo, setSectionsDispo] = useState([]);
   const [role, setRole]         = useState('editeur');
   const [sections, setSections] = useState([]);
-  const [pwd, setPwd]           = useState(null);       // mot de passe à afficher une seule fois
+  const [modules, setModules]   = useState({}); // { acces_recrutement: bool, ... }
+  const [pwd, setPwd]           = useState(null);
   const [busy, setBusy]         = useState(false);
   const [err, setErr]           = useState('');
 
@@ -143,7 +150,14 @@ function AccesLuciePanel({ profId, detail }) {
     af('/api/users').then(list => {
       const a = (Array.isArray(list) ? list : []).find(u => u.professeur_id === profId) || null;
       setAccount(a);
-      if (a) { setRole(a.role); setSections(a.sections || []); }
+      if (a) {
+        setRole(a.role);
+        setSections(a.sections || []);
+        // Charger les flags de modules
+        const m = {};
+        for (const mod of MODULES_ACCES) m[mod.key] = !!a[mod.key];
+        setModules(m);
+      }
     }).catch(e => { setErr(e.message); setAccount(null); });
   }
   useEffect(() => {
@@ -174,6 +188,13 @@ function AccesLuciePanel({ profId, detail }) {
   async function changerRole(nv) {
     setRole(nv);
     await patch({ role: nv, sections: nv === 'coordination' ? sections : [] });
+  }
+  async function toggleModule(key) {
+    const nv = !modules[key];
+    setModules(m => ({ ...m, [key]: nv }));
+    // Convertir la clé en nom du flag acces (acces_recrutement → recrutement)
+    const flag = key.replace('acces_', '');
+    await patch({ acces: { [flag]: nv } });
   }
   async function nouveauMdp() {
     const p = genPwd();
@@ -261,6 +282,23 @@ function AccesLuciePanel({ profId, detail }) {
                 </div>
               </div>
             )}
+            {/* ── Accès aux modules ── */}
+            <div>
+              <div className="text-xs text-gray-500 mb-1.5 font-medium">Accès aux modules</div>
+              <div className="space-y-1.5">
+                {MODULES_ACCES.map(mod => (
+                  <label key={mod.key} className="flex items-center gap-2.5 cursor-pointer group">
+                    <input type="checkbox" checked={!!modules[mod.key]} disabled={busy}
+                      onChange={() => toggleModule(mod.key)}
+                      className="w-4 h-4 accent-iip-turquoise" />
+                    <div>
+                      <span className="text-sm text-gray-700 group-hover:text-iip-blue">{mod.label}</span>
+                      <span className="text-xs text-gray-400 ml-1.5">{mod.desc}</span>
+                    </div>
+                  </label>
+                ))}
+              </div>
+            </div>
             <div className="flex flex-wrap gap-2 pt-1">
               <button onClick={nouveauMdp} disabled={busy} className="inline-flex items-center gap-1.5 text-sm border border-gray-300 text-gray-700 px-3 py-1.5 h-9 rounded-lg hover:bg-gray-50 disabled:opacity-40">
                 <IconKey size={15} /> Nouveau mot de passe

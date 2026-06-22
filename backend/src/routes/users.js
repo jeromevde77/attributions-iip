@@ -24,7 +24,8 @@ function setSections(userId, sections) {
 
 r.get('/', authRequired, roleRequired('admin'), (req, res) => {
   const users = db.prepare(`
-    SELECT id, email, nom_complet, role, actif, professeur_id, created_at, last_login_at
+    SELECT id, email, nom_complet, role, actif, professeur_id, created_at, last_login_at,
+           acces_recrutement
     FROM utilisateur ORDER BY nom_complet
   `).all();
   // Joindre les sections pour les coordinations
@@ -53,7 +54,7 @@ r.post('/', authRequired, roleRequired('admin'), (req, res) => {
 });
 
 r.patch('/:id', authRequired, roleRequired('admin'), (req, res) => {
-  const { nom_complet, role, actif, password, sections, professeur_id } = req.body || {};
+  const { nom_complet, role, actif, password, sections, professeur_id, acces } = req.body || {};
   const updates = [];
   const params = { id: req.params.id };
   if (nom_complet !== undefined) { updates.push('nom_complet = @nom_complet'); params.nom_complet = nom_complet; }
@@ -66,6 +67,13 @@ r.patch('/:id', authRequired, roleRequired('admin'), (req, res) => {
   if (password) {
     updates.push('password_hash = @hash');
     params.hash = bcrypt.hashSync(password, 10);
+  }
+  // Accès modulaires (objet { recrutement: true/false, ... })
+  if (acces !== undefined) {
+    if (acces.recrutement !== undefined) {
+      updates.push('acces_recrutement = @acces_recrutement');
+      params.acces_recrutement = acces.recrutement ? 1 : 0;
+    }
   }
   if (updates.length) {
     db.prepare(`UPDATE utilisateur SET ${updates.join(', ')} WHERE id = @id`).run(params);
