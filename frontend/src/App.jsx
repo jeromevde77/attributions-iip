@@ -29,6 +29,7 @@ import Dashboard from './pages/Dashboard.jsx';
 import Attributions from './pages/Attributions.jsx';
 import Professeurs from './pages/Professeurs.jsx';
 import DCPP from './pages/DCPP.jsx';
+import Recrutement from './pages/Recrutement.jsx';
 import { lazy, Suspense } from 'react';
 const Listes     = lazy(() => import('./pages/Listes.jsx'));
 const Editeur    = lazy(() => import('./pages/Editeur.jsx'));
@@ -299,6 +300,7 @@ export default function App() {
       <Route path="/"             element={<Navigate to="/attributions" replace />} />
       <Route path="/attributions" element={<ProtectedLayout><Attributions /></ProtectedLayout>} />
       <Route path="/professeurs"  element={<ProtectedLayout><Professeurs /></ProtectedLayout>} />
+      <Route path="/recrutement"   element={<ProtectedLayout><Recrutement /></ProtectedLayout>} />
       <Route path="/dcpp/:profId" element={<ProtectedLayout><DCPP /></ProtectedLayout>} />
       <Route path="/listes" element={
         <ProtectedLayout>
