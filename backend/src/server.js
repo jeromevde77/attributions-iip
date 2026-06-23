@@ -203,6 +203,19 @@ try {
     CREATE INDEX IF NOT EXISTS idx_us_user ON utilisateur_section(utilisateur_id);
   `);
 
+  // 5c. Permissions granulaires (section/UE/professeur)
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS utilisateur_permission (
+      id              INTEGER PRIMARY KEY AUTOINCREMENT,
+      utilisateur_id  INTEGER NOT NULL REFERENCES utilisateur(id) ON DELETE CASCADE,
+      ressource_type  TEXT NOT NULL,
+      ressource_id    TEXT NOT NULL,
+      niveau          TEXT NOT NULL DEFAULT 'lecture',
+      UNIQUE(utilisateur_id, ressource_type, ressource_id)
+    );
+    CREATE INDEX IF NOT EXISTS idx_uperm_user ON utilisateur_permission(utilisateur_id);
+  `);
+
   // 5c. Lien compte ↔ professeur (panneau « Accès Lucie » depuis la fiche Membre du personnel)
   //     Pas de contrainte UNIQUE (interdit en ALTER ADD COLUMN sous SQLite) ; unicité gérée applicativement.
   try {

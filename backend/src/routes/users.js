@@ -102,4 +102,42 @@ r.delete('/:id', authRequired, roleRequired('admin'), (req, res) => {
   res.json({ ok: true });
 });
 
+// ─── Permissions granulaires ─────────────────────────────────────────────────
+
+// GET /:id/permissions — retourne toutes les permissions d'un utilisateur
+r.get('/:id/permissions', authRequired, roleRequired('admin'), (req, res) => {
+  const perms = db.prepare(
+    'SELECT * FROM utilisateur_permission WHERE utilisateur_id = ? ORDER BY ressource_type, ressource_id'
+  ).all(req.params.id);
+  res.json(perms);
+});
+
+// PUT /:id/permissions — remplace toutes les permissions
+r.put('/:id/permissions', authRequired, roleRequired('admin'), (req, res) => {
+  const { permissions } = req.body; // [{ ressource_type, ressource_id, niveau }]
+  if (!Array.isArray(permissions)) return res.status(400).json({ error: 'Format invalide' });
+  const tx = db.transaction(() => {
+    db.prepare('DELETE FROM utilisateur_permission WHERE utilisateur_id = ?').run(req.params.id);
+    const ins = db.prepare(
+      'INSERT INTO utilisateur_permission (utilisateur_id, ressource_type, ressource_id, niveau) VALUES (?, ?, ?, ?)'
+    );
+    for (const p of permissions) {
+      if (p.ressource_type && p.ressource_id && p.niveau) {
+        ins.run(req.params.id, p.ressource_type, p.ressource_id, p.niveau);
+      }
+    }
+  });
+  tx();
+  res.json({ ok: true });
+});
+
+// Également retourner les permissions dans GET /:id
+r.get('/:id', authRequired, roleRequired('admin'), (req, res) => {
+  const u = db.prepare('SELECT id, email, nom_complet, role, actif, professeur_id, acces_recrutement FROM utilisateur WHERE id = ?').get(req.params.id);
+  if (!u) return res.status(404).json({ error: 'Utilisateur introuvable' });
+  u.sections     = sectionsOf(u.id);
+  u.permissions  = db.prepare('SELECT * FROM utilisateur_permission WHERE utilisateur_id = ? ORDER BY ressource_type, ressource_id').all(u.id);
+  res.json(u);
+});
+
 export default r;

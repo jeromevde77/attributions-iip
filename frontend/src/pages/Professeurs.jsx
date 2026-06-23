@@ -114,6 +114,179 @@ function FonctionsPanel({ missions }) {
   );
 }
 
+// ─── Panneau de permissions granulaires ──────────────────────────────────────
+function PermissionsPanel({ userId, permissions, sectionsDispo, annee, onSaved, af }) {
+  const [perms, setPerms]           = useState(permissions);
+  const [expanded, setExpanded]     = useState({}); // { 'TIM': true, 'TIM-253': true }
+  const [uesParSection, setUesParSection] = useState({});
+  const [profsParSection, setProfsParSection] = useState({});
+  const [loading, setLoading]       = useState({});
+  const [saving, setSaving]         = useState(false);
+  const [saved, setSaved]           = useState(false);
+
+  // Helpers
+  const hasPerm = (type, id) => perms.find(p => p.ressource_type === type && p.ressource_id === String(id));
+  const niveauPerm = (type, id) => hasPerm(type, id)?.niveau || null;
+
+  const setPerm = (type, id, niveau) => {
+    const idStr = String(id);
+    if (niveau === null) {
+      setPerms(prev => prev.filter(p => !(p.ressource_type === type && p.ressource_id === idStr)));
+    } else {
+      setPerms(prev => {
+        const sans = prev.filter(p => !(p.ressource_type === type && p.ressource_id === idStr));
+        return [...sans, { ressource_type: type, ressource_id: idStr, niveau }];
+      });
+    }
+  };
+
+  // Charger les UE d'une section à la demande
+  const chargerUEs = async (section) => {
+    if (uesParSection[section]) return;
+    setLoading(l => ({ ...l, [section]: true }));
+    try {
+      const tok = localStorage.getItem('token');
+      const res = await fetch(`/api/ref/ue?section=${encodeURIComponent(section)}&annee=${encodeURIComponent(annee)}`,
+        { headers: { Authorization: `Bearer ${tok}` } });
+      const ues = await res.json();
+      setUesParSection(prev => ({ ...prev, [section]: Array.isArray(ues) ? ues : [] }));
+    } catch {}
+    finally { setLoading(l => ({ ...l, [section]: false })); }
+  };
+
+  // Charger les profs d'une section à la demande
+  const chargerProfs = async (section) => {
+    if (profsParSection[section]) return;
+    setLoading(l => ({ ...l, [`profs-${section}`]: true }));
+    try {
+      const tok = localStorage.getItem('token');
+      const res = await fetch(`/api/ref/professeurs?annee=${encodeURIComponent(annee)}`,
+        { headers: { Authorization: `Bearer ${tok}` } });
+      const tous = await res.json();
+      const filtres = (Array.isArray(tous) ? tous : []).filter(p =>
+        p.sections_annee && p.sections_annee.split(',').map(s => s.trim()).includes(section)
+      );
+      setProfsParSection(prev => ({ ...prev, [section]: filtres }));
+    } catch {}
+    finally { setLoading(l => ({ ...l, [`profs-${section}`]: false })); }
+  };
+
+  const toggleExpand = async (key, type, id) => {
+    const nv = !expanded[key];
+    setExpanded(e => ({ ...e, [key]: nv }));
+    if (nv) {
+      if (type === 'section-ues') await chargerUEs(id);
+      if (type === 'section-profs') await chargerProfs(id);
+    }
+  };
+
+  const sauvegarder = async () => {
+    setSaving(true);
+    try {
+      await af(`/api/users/${userId}/permissions`, { method: 'PUT', body: JSON.stringify({ permissions: perms }) });
+      onSaved(perms);
+      setSaved(true); setTimeout(() => setSaved(false), 2000);
+    } catch (e) { alert(e.message); } finally { setSaving(false); }
+  };
+
+  const NiveauToggle = ({ type, id }) => {
+    const n = niveauPerm(type, id);
+    return (
+      <div className="flex items-center gap-1 ml-auto flex-shrink-0">
+        <button onClick={() => setPerm(type, id, n === 'lecture' ? null : 'lecture')}
+          className={`text-[10px] px-1.5 py-0.5 rounded border transition ${
+            n === 'lecture' ? 'bg-iip-blue text-white border-iip-blue' : 'border-gray-300 text-gray-400 hover:border-iip-blue'
+          }`}>
+          Lecture
+        </button>
+        <button onClick={() => setPerm(type, id, n === 'modification' ? null : 'modification')}
+          className={`text-[10px] px-1.5 py-0.5 rounded border transition ${
+            n === 'modification' ? 'bg-iip-turquoise text-white border-iip-turquoise' : 'border-gray-300 text-gray-400 hover:border-iip-turquoise'
+          }`}>
+          Modif.
+        </button>
+      </div>
+    );
+  };
+
+  return (
+    <div className="mt-2 border border-gray-200 rounded-lg overflow-hidden text-xs">
+      {/* En-tête */}
+      <div className="px-3 py-2 bg-gray-50 border-b border-gray-200 flex items-center justify-between">
+        <span className="text-gray-500 font-medium">
+          Cliquez sur une section pour voir les UE et professeurs
+        </span>
+        <button onClick={sauvegarder} disabled={saving}
+          className="text-[10px] bg-iip-blue text-white px-2.5 py-1 rounded hover:opacity-90 disabled:opacity-50 flex items-center gap-1">
+          {saved ? '✓ Sauvegardé' : saving ? 'Sauvegarde…' : '✓ Sauvegarder'}
+        </button>
+      </div>
+
+      <div className="divide-y divide-gray-100">
+        {sectionsDispo.map(s => {
+          const secKey = `sec-${s.code}`;
+          const uesOpen = expanded[`${s.code}-ues`];
+          const profsOpen = expanded[`${s.code}-profs`];
+          const ues = uesParSection[s.code] || [];
+          const profs = profsParSection[s.code] || [];
+
+          return (
+            <div key={s.code}>
+              {/* Ligne section */}
+              <div className="flex items-center gap-2 px-3 py-2 hover:bg-gray-50">
+                <span className="font-semibold text-iip-blue w-20 flex-shrink-0">{s.code}</span>
+                {s.libelle && <span className="text-gray-500 truncate flex-1">{s.libelle}</span>}
+                <NiveauToggle type="section" id={s.code} />
+                <button onClick={() => toggleExpand(`${s.code}-ues`, 'section-ues', s.code)}
+                  className="text-gray-400 hover:text-iip-blue ml-1 flex-shrink-0" title="Voir les UE">
+                  {loading[s.code] ? '…' : uesOpen ? '▾ UE' : '▸ UE'}
+                </button>
+                <button onClick={() => toggleExpand(`${s.code}-profs`, 'section-profs', s.code)}
+                  className="text-gray-400 hover:text-iip-blue flex-shrink-0" title="Voir les profs">
+                  {loading[`profs-${s.code}`] ? '…' : profsOpen ? '▾ Profs' : '▸ Profs'}
+                </button>
+              </div>
+
+              {/* UE de la section */}
+              {uesOpen && ues.map(u => (
+                <div key={u.ue_num} className="flex items-center gap-2 px-3 py-1.5 bg-blue-50/40 border-t border-gray-100">
+                  <span className="w-4 flex-shrink-0" />
+                  <span className="text-[10px] text-gray-400 w-12 flex-shrink-0">UE {u.ue_num}</span>
+                  <span className="text-gray-600 truncate flex-1">{u.ue_nom}</span>
+                  <NiveauToggle type="ue" id={u.ue_num} />
+                </div>
+              ))}
+              {uesOpen && ues.length === 0 && !loading[s.code] && (
+                <div className="px-10 py-1.5 text-gray-400 bg-blue-50/40 border-t border-gray-100">Aucune UE trouvée.</div>
+              )}
+
+              {/* Professeurs de la section */}
+              {profsOpen && profs.map(p => (
+                <div key={p.id} className="flex items-center gap-2 px-3 py-1.5 bg-purple-50/30 border-t border-gray-100">
+                  <span className="w-4 flex-shrink-0" />
+                  <span className="text-gray-600 truncate flex-1">{p.nom} {p.prenom}</span>
+                  <NiveauToggle type="professeur" id={p.id} />
+                </div>
+              ))}
+              {profsOpen && profs.length === 0 && !loading[`profs-${s.code}`] && (
+                <div className="px-10 py-1.5 text-gray-400 bg-purple-50/30 border-t border-gray-100">Aucun professeur trouvé.</div>
+              )}
+            </div>
+          );
+        })}
+      </div>
+
+      {perms.length > 0 && (
+        <div className="px-3 py-2 bg-gray-50 border-t border-gray-200 text-gray-500">
+          {perms.length} permission{perms.length > 1 ? 's' : ''} définie{perms.length > 1 ? 's' : ''} ·{' '}
+          {perms.filter(p => p.niveau === 'modification').length} modification ·{' '}
+          {perms.filter(p => p.niveau === 'lecture').length} lecture seule
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ─── Panneau « Accès Lucie » (admin) : lie un compte utilisateur à un·e membre ───
 const ROLES_LUCIE = [
   ['consultation', 'Consultation'],
@@ -137,7 +310,9 @@ function AccesLuciePanel({ profId, detail }) {
   const [sectionsDispo, setSectionsDispo] = useState([]);
   const [role, setRole]         = useState('editeur');
   const [sections, setSections] = useState([]);
-  const [modules, setModules]   = useState({}); // { acces_recrutement: bool, ... }
+  const [modules, setModules]   = useState({});
+  const [permissions, setPermissions] = useState([]); // [{ressource_type, ressource_id, niveau}]
+  const [showPerms, setShowPerms] = useState(false);
   const [pwd, setPwd]           = useState(null);
   const [busy, setBusy]         = useState(false);
   const [err, setErr]           = useState('');
@@ -153,10 +328,13 @@ function AccesLuciePanel({ profId, detail }) {
       if (a) {
         setRole(a.role);
         setSections(a.sections || []);
-        // Charger les flags de modules
         const m = {};
         for (const mod of MODULES_ACCES) m[mod.key] = !!a[mod.key];
         setModules(m);
+        // Charger les permissions granulaires
+        af(`/api/users/${a.id}/permissions`)
+          .then(p => setPermissions(Array.isArray(p) ? p : []))
+          .catch(() => {});
       }
     }).catch(e => { setErr(e.message); setAccount(null); });
   }
@@ -298,6 +476,24 @@ function AccesLuciePanel({ profId, detail }) {
                   </label>
                 ))}
               </div>
+            </div>
+            {/* ── Permissions granulaires ── */}
+            <div>
+              <button onClick={() => setShowPerms(v => !v)}
+                className="w-full text-left text-xs font-medium text-gray-600 flex items-center justify-between py-1">
+                <span>Permissions détaillées (sections, UE, professeurs)</span>
+                <span className="text-gray-400">{showPerms ? '▲' : '▼'} {permissions.length > 0 ? `${permissions.length} réglée${permissions.length > 1 ? 's' : ''}` : ''}</span>
+              </button>
+              {showPerms && (
+                <PermissionsPanel
+                  userId={account.id}
+                  permissions={permissions}
+                  sectionsDispo={sectionsDispo}
+                  annee={new URLSearchParams(window.location.search).get('annee') || localStorage.getItem('annee_active') || '2026-2027'}
+                  onSaved={(nv) => { setPermissions(nv); }}
+                  af={af}
+                />
+              )}
             </div>
             <div className="flex flex-wrap gap-2 pt-1">
               <button onClick={nouveauMdp} disabled={busy} className="inline-flex items-center gap-1.5 text-sm border border-gray-300 text-gray-700 px-3 py-1.5 h-9 rounded-lg hover:bg-gray-50 disabled:opacity-40">

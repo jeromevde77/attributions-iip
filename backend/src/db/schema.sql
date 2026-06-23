@@ -375,6 +375,19 @@ CREATE TABLE IF NOT EXISTS utilisateur_section (
 );
 CREATE INDEX IF NOT EXISTS idx_us_user ON utilisateur_section(utilisateur_id);
 
+-- Permissions granulaires par ressource (section/UE/professeur)
+-- niveau : 'lecture' | 'modification'
+-- ressource_type : 'section' | 'ue' | 'professeur'
+CREATE TABLE IF NOT EXISTS utilisateur_permission (
+    id              INTEGER PRIMARY KEY AUTOINCREMENT,
+    utilisateur_id  INTEGER NOT NULL REFERENCES utilisateur(id) ON DELETE CASCADE,
+    ressource_type  TEXT NOT NULL,
+    ressource_id    TEXT NOT NULL,
+    niveau          TEXT NOT NULL DEFAULT 'lecture',
+    UNIQUE(utilisateur_id, ressource_type, ressource_id)
+);
+CREATE INDEX IF NOT EXISTS idx_uperm_user ON utilisateur_permission(utilisateur_id);
+
 -- ----------------------------------------------------------------------------
 -- 10. Vues utiles (= équivalents des Tableaux de pilotage Excel)
 -- ----------------------------------------------------------------------------
