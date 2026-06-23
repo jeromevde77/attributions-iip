@@ -1162,14 +1162,151 @@ function VueParallele({ postes, candidats, fonctions, annee, onRecharger }) {
 
 /* ══════════════════════ VUE CANDIDATS GLOBALE ══════════════════════ */
 function VueCandidatsGlobal({ candidats, fonctions, grille, onRecharger }) {
-  const [fiche, setFiche]   = useState(null); // candidat sélectionné
+  const [fiche, setFiche]   = useState(null);
   const [search, setSearch] = useState('');
   const [nouveau, setNouveau] = useState(false);
 
   const filtres = search
-    ? candidats.filter(c => c.nom.toLowerCase().includes(search.toLowerCase())
+    ? candidats.filter(c => `${c.prenom||''} ${c.nom||''}`.toLowerCase().includes(search.toLowerCase())
         || (c.email || '').toLowerCase().includes(search.toLowerCase()))
     : candidats;
+
+  const BLEU = '#1B2B4B', TURQ = '#00AACC';
+  const LIKERT_LABELS = ['','Peu structurée','Partiellement','Structurée','Bien structurée','Très structurée'];
+  const LIKERT_COLORS = ['','#ef4444','#f97316','#eab308','#22c55e','#0ea5e9'];
+  const grilleActive = grille || GRILLE_IIP;
+  const toutesQs = grilleActive.flatMap(axe =>
+    (axe.questions||[]).map(q => ({ axe: axe.axe||axe.libelle, q: q.libelle||q, couleur: axe.couleur }))
+  );
+
+  const genererRapportPDF = () => {
+    const liste = filtres.filter(c =>
+      c.entretien_note || c.entretien_commentaire ||
+      c.candidatures?.some(ca => ca.note_globale || ca.commentaire || Object.keys(ca.reponses_json||{}).length > 0)
+    );
+    if (liste.length === 0 && !confirm('Aucun entretien enregistré. Générer quand même la liste des candidats ?')) return;
+    const tous = liste.length > 0 ? liste : filtres;
+
+    const blockQ = (rep) => toutesQs.map((item, i) => {
+      const r = rep[i] || {};
+      if (r.disabled || (!r.note && !r.commentaire)) return '';
+      const lbl = LIKERT_LABELS[r.note] || '';
+      const col = LIKERT_COLORS[r.note] || '#6b7280';
+      return `<tr>
+        <td style="padding:2px 5px;color:#6b7280;font-size:8pt;border-bottom:1px solid #f1f5f9;width:17%">${item.axe.replace(/Axe \d+ — /,'')}</td>
+        <td style="padding:2px 5px;font-size:8.5pt;border-bottom:1px solid #f1f5f9">${item.q}</td>
+        <td style="padding:2px 5px;text-align:center;white-space:nowrap;border-bottom:1px solid #f1f5f9;width:17%">${r.note?`<span style="background:${col};color:white;padding:1px 6px;border-radius:10px;font-size:8pt;font-weight:700">${r.note} — ${lbl}</span>`:'—'}</td>
+        <td style="padding:2px 5px;font-size:8pt;color:#374151;border-bottom:1px solid #f1f5f9;width:22%">${r.commentaire||''}</td>
+      </tr>`;
+    }).join('');
+
+    const headerQ = `<table style="width:100%;border-collapse:collapse;font-size:8.5pt;margin-bottom:4px"><thead><tr style="background:#f1f5f9">
+      <th style="padding:3px 5px;text-align:left;color:#374151">Axe</th>
+      <th style="padding:3px 5px;text-align:left;color:#374151">Question</th>
+      <th style="padding:3px 5px;text-align:center;color:#374151">Réponse</th>
+      <th style="padding:3px 5px;text-align:left;color:#374151">Notes</th>
+    </tr></thead><tbody>`;
+
+    const candidatHtml = c => {
+      const nom = [c.prenom, c.nom].filter(Boolean).join(' ') || '—';
+      const stLabel = [...new Set((c.candidatures||[]).map(ca => STATUT[ca.statut]?.label||ca.statut))].join(', ') || 'À voir';
+
+      // Coordonnées + profil
+      const coords = `<div style="display:grid;grid-template-columns:1fr 1fr;gap:3px 12px;font-size:9pt;margin-bottom:6px;padding-bottom:6px;border-bottom:1px solid #f1f5f9">
+        ${c.email?`<div><b>E-mail :</b> ${c.email}</div>`:''}
+        ${c.telephone?`<div><b>Tél. :</b> ${c.telephone}</div>`:''}
+        ${c.fonction?`<div><b>Fonction :</b> ${c.fonction}</div>`:''}
+        ${c.notes?`<div style="grid-column:1/-1"><b>Profil :</b> <em>${c.notes}</em></div>`:''}
+      </div>`;
+
+      // Cours envisagés avec statut + note
+      const coursBlock = (c.candidatures||[]).length ? `
+        <div style="margin-bottom:8px">
+          <div style="font-size:8pt;font-weight:700;color:${BLEU};text-transform:uppercase;letter-spacing:1px;margin-bottom:3px">Cours envisagés</div>
+          <table style="width:100%;border-collapse:collapse;font-size:8.5pt">
+            <thead><tr style="background:#f1f5f9">
+              <th style="padding:2px 5px;text-align:left">Cours</th>
+              <th style="padding:2px 5px;text-align:left;width:12%">Section</th>
+              <th style="padding:2px 5px;text-align:center;width:14%">Statut</th>
+              <th style="padding:2px 5px;text-align:right;width:10%">Note /5</th>
+            </tr></thead>
+            <tbody>${(c.candidatures||[]).map((ca,i)=>{
+              const st = STATUT[ca.statut]||STATUT.a_voir;
+              return `<tr style="background:${i%2===0?'white':'#f8fafc'}">
+                <td style="padding:2px 5px">${ca.cours_nom||ca.ue_nom||`UE ${ca.ue_num}`}</td>
+                <td style="padding:2px 5px;color:#6b7280">${ca.section||''}</td>
+                <td style="padding:2px 5px;text-align:center"><span style="background:${st.bg};color:${st.color};padding:1px 5px;border-radius:10px;font-size:7.5pt;font-weight:600">${st.label}</span></td>
+                <td style="padding:2px 5px;text-align:right;font-weight:700">${ca.note_globale!=null?ca.note_globale:'—'}</td>
+              </tr>`;
+            }).join('')}</tbody>
+          </table>
+        </div>` : '';
+
+      // Entretien exploratoire (libre)
+      const repLibre = c.entretien_reponses || {};
+      const hasLibre = c.entretien_note || c.entretien_commentaire || Object.values(repLibre).some(r=>r&&(r.note>0||r.commentaire));
+      const entretienLibre = hasLibre ? (() => {
+        const nc = c.entretien_note; const col = nc>=4?'#15803d':nc>=3?'#d97706':'#b91c1c';
+        const rows = blockQ(repLibre);
+        return `<div style="margin-bottom:8px">
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px">
+            <div style="font-size:8pt;font-weight:700;color:${BLEU};text-transform:uppercase;letter-spacing:1px">Entretien exploratoire</div>
+            ${nc!=null?`<span style="background:${col};color:white;padding:1px 10px;border-radius:12px;font-size:9pt;font-weight:700">Moyenne : ${nc}/5</span>`:''}
+          </div>
+          ${rows?headerQ+rows+`</tbody></table>`:''}
+          ${c.entretien_commentaire?`<div style="background:#f8fafc;border-left:3px solid ${TURQ};padding:4px 8px;font-size:8.5pt;margin-top:4px"><b>Bilan :</b> ${c.entretien_commentaire}</div>`:''}
+        </div>`;
+      })() : '';
+
+      // Entretiens par cours
+      const entretiensCours = (c.candidatures||[]).filter(ca=>ca.note_globale||ca.commentaire||Object.keys(ca.reponses_json||{}).length).map(ca=>{
+        const nc = ca.note_globale; const col = nc>=4?'#15803d':nc>=3?'#d97706':'#b91c1c';
+        const rows = blockQ(ca.reponses_json||{});
+        return `<div style="margin-bottom:6px;background:#f8fafc;border-radius:4px;padding:5px 8px">
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:3px">
+            <div style="font-size:8.5pt;font-weight:700;color:#374151">Entretien — ${ca.cours_nom||ca.ue_nom||`UE ${ca.ue_num}`} <span style="font-weight:400;color:#6b7280">${ca.section||''}</span></div>
+            ${nc!=null?`<span style="background:${col};color:white;padding:1px 8px;border-radius:10px;font-size:8.5pt;font-weight:700">${nc}/5</span>`:''}
+          </div>
+          ${rows?`<table style="width:100%;border-collapse:collapse;font-size:8pt"><thead><tr style="background:#e8edf5">
+            <th style="padding:2px 5px;text-align:left">Axe</th><th style="padding:2px 5px;text-align:left">Question</th>
+            <th style="padding:2px 5px;text-align:center">Réponse</th><th style="padding:2px 5px;text-align:left">Notes</th>
+          </tr></thead><tbody>${rows}</tbody></table>`:''}
+          ${ca.commentaire?`<div style="margin-top:3px;font-size:8pt;color:#374151"><b>Bilan :</b> ${ca.commentaire}</div>`:''}
+        </div>`;
+      }).join('');
+
+      return `<div style="page-break-inside:avoid;margin-bottom:8mm;border:1px solid #e2e8f0;border-radius:6px;overflow:hidden">
+        <div style="background:${BLEU};color:white;padding:6px 10px;display:flex;align-items:center;justify-content:space-between">
+          <div>
+            <span style="font-size:11.5pt;font-weight:700">${nom}</span>
+            ${c.fonction?`<span style="font-size:9pt;opacity:.8;margin-left:10px">${c.fonction}</span>`:''}
+          </div>
+          <span style="font-size:8pt;opacity:.8">${stLabel}</span>
+        </div>
+        <div style="padding:8px 10px">${coords}${coursBlock}${entretienLibre}${entretiensCours}</div>
+      </div>`;
+    };
+
+    const html = `<!DOCTYPE html><html lang="fr"><head><meta charset="utf-8">
+<title>Rapport entretiens</title>
+<style>*{box-sizing:border-box;margin:0;padding:0;-webkit-print-color-adjust:exact;print-color-adjust:exact}body{font-family:Arial,sans-serif;color:#1a1a2e;font-size:9pt}@media print{@page{size:A4;margin:12mm}}</style>
+</head><body><div style="padding:5mm">
+<div style="border-bottom:3px solid ${TURQ};padding-bottom:5px;margin-bottom:7mm;display:flex;justify-content:space-between;align-items:flex-end">
+  <div>
+    <div style="font-size:7pt;letter-spacing:3px;text-transform:uppercase;color:${TURQ};font-weight:700">Institut Ilya Prigogine · Recrutement</div>
+    <div style="font-size:16pt;color:${BLEU};font-weight:700;margin-top:2px">Rapport d'entretiens</div>
+    <div style="font-size:9pt;color:#555">${tous.length} candidat${tous.length>1?'s':''} · ${new Date().toLocaleDateString('fr-BE',{day:'2-digit',month:'long',year:'numeric'})}</div>
+  </div>
+  <div style="text-align:right;font-size:8pt;color:#999">Confidentiel — usage interne</div>
+</div>
+${tous.map(candidatHtml).join('')}
+</div></body></html>`;
+
+    const w = window.open('', '_blank');
+    if (!w) { alert('Autorisez les pop-ups pour imprimer.'); return; }
+    w.document.write(html); w.document.close();
+    setTimeout(() => { w.focus(); w.print(); }, 500);
+  };
 
   return (
     <div className="max-w-3xl">
@@ -1177,9 +1314,15 @@ function VueCandidatsGlobal({ candidats, fonctions, grille, onRecharger }) {
         <h1 className="text-2xl font-title text-iip-gold">
           Candidats <span className="text-base font-normal text-gray-400">({candidats.length})</span>
         </h1>
-        <Btn variant="primary" icon={IconUserPlus} onClick={() => setNouveau(true)}>
-          Nouveau candidat
-        </Btn>
+        <div className="flex items-center gap-2">
+          <button onClick={genererRapportPDF}
+            className="text-sm border border-gray-300 text-gray-600 hover:bg-gray-50 px-3 py-1.5 rounded-lg flex items-center gap-1.5">
+            🖨 Rapport PDF
+          </button>
+          <Btn variant="primary" icon={IconUserPlus} onClick={() => setNouveau(true)}>
+            Nouveau candidat
+          </Btn>
+        </div>
       </div>
 
       {/* Recherche */}
