@@ -68,6 +68,72 @@ r.get('/ue/:num', authRequired, (req, res) => {
   res.json({ ...ue, cours });
 });
 
+// ─── Heures contact étudiant : Section → UE → Cours ──────────────────────────
+r.get('/heures-contact', authRequired, (req, res) => {
+  const { annee, section } = req.query;
+  const anneeVal = annee || '2025-2026';
+
+  let sql = `
+    SELECT
+      c.section,
+      c.ue_num,
+      u.ue_nom,
+      u.ue_niv       AS bloc,
+      u.ue_quad      AS quadrimestre,
+      u.ects,
+      u.ue_per_etudiants AS ue_per_etudiants,
+      c.cours_code,
+      c.cours_nom,
+      c.ct_pp,
+      c.cours_per,
+      c.heures,
+      ROUND(COALESCE(c.heures, 0) * 1.2, 0) AS periodes_contact
+    FROM cours c
+    LEFT JOIN ue u ON u.ue_num = c.ue_num AND u.annee_scolaire = c.annee_scolaire
+    WHERE c.annee_scolaire = ?
+  `;
+  const params = [anneeVal];
+  if (section) { sql += ' AND c.section = ?'; params.push(section); }
+  sql += ' ORDER BY c.section, c.ue_num, c.cours_code';
+
+  const rows = db.prepare(sql).all(...params);
+
+  // Grouper : Section → UE → Cours
+  const grouped = {};
+  for (const r of rows) {
+    const sec = r.section || '—';
+    if (!grouped[sec]) grouped[sec] = { section: sec, ues: {}, total_heures: 0, total_periodes: 0 };
+    const ueKey = r.ue_num;
+    if (!grouped[sec].ues[ueKey]) {
+      grouped[sec].ues[ueKey] = {
+        ue_num: r.ue_num, ue_nom: r.ue_nom, bloc: r.bloc,
+        quadrimestre: r.quadrimestre, ects: r.ects,
+        ue_per_etudiants: r.ue_per_etudiants,
+        cours: [], total_heures_ue: 0, total_periodes_ue: 0,
+      };
+    }
+    const h = r.heures || 0;
+    const p = r.periodes_contact || 0;
+    grouped[sec].ues[ueKey].cours.push({
+      cours_code: r.cours_code, cours_nom: r.cours_nom,
+      ct_pp: r.ct_pp, cours_per: r.cours_per,
+      heures: h, periodes_contact: p,
+    });
+    grouped[sec].ues[ueKey].total_heures_ue += h;
+    grouped[sec].ues[ueKey].total_periodes_ue += p;
+    grouped[sec].total_heures += h;
+    grouped[sec].total_periodes += p;
+  }
+
+  // Convertir en tableau trié
+  const result = Object.values(grouped).sort((a, b) => a.section.localeCompare(b.section)).map(s => ({
+    ...s,
+    ues: Object.values(s.ues).sort((a, b) => (a.ue_num || 0) - (b.ue_num || 0)),
+  }));
+
+  res.json(result);
+});
+
 r.get('/cours', authRequired, (req, res) => {
   const { ue_num, section, annee } = req.query;
   const anneeVal = annee || '2025-2026';

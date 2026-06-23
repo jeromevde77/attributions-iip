@@ -216,6 +216,17 @@ const ENTITES = {
     }),
     filtres: ['section'],
   },
+  'heures-contact': {
+    label: 'Heures contact', groupe: 'rapport', icon: '🕐', tabler: 'IconClock',
+    heuresContact: true, // rendu personnalisé
+    cols: [],
+    fetch: (annee, filtres) => {
+      let url = `/api/ref/heures-contact?annee=${encodeURIComponent(annee)}`;
+      if (filtres.section) url += `&section=${encodeURIComponent(filtres.section)}`;
+      return authFetch(url);
+    },
+    filtres: ['section'],
+  },
   'grille-section': {
     label: 'Grille de section', groupe: 'rapport', icon: '📐', tabler: 'IconLayoutGrid',
     grille: true,
@@ -1272,8 +1283,15 @@ export default function Listes() {
           </div>
         )}
 
+        {/* Heures contact — rendu arborescent Section → UE → Cours */}
+        {rows !== null && def.heuresContact && (
+          <div className="px-5 py-3">
+            <HeuresContactView sections={rows} annee={annee} />
+          </div>
+        )}
+
         {/* Tableau de données */}
-        {rows !== null && !estRapport && (
+        {rows !== null && !estRapport && !def.heuresContact && (
           <div className="px-5 py-3">
             <div className="text-sm text-slate-600 mb-2">
               <b>{rows.length}</b> résultat{rows.length > 1 ? 's' : ''} · {def.label} · {annee}
@@ -1431,3 +1449,156 @@ export default function Listes() {
 
 
 // build final 2.22.1 — 1781701639
+
+/* ══════════════════════ HEURES CONTACT VIEW ══════════════════════ */
+function HeuresContactView({ sections, annee }) {
+  const [expanded, setExpanded] = useState(() => {
+    // Déplier toutes les sections par défaut
+    return Object.fromEntries((sections || []).map(s => [s.section, true]));
+  });
+  const toggle = (k) => setExpanded(e => ({ ...e, [k]: !e[k] }));
+
+  const imprimer = () => {
+    const html = `<!DOCTYPE html><html><head><meta charset="utf-8">
+    <style>
+      body{font-family:Arial,sans-serif;font-size:10px;color:#222;margin:0;padding:10mm}
+      h1{color:#1B2B4B;font-size:14px;border-bottom:2px solid #00AACC;padding-bottom:4px;margin-bottom:8px}
+      h2{color:#1B2B4B;font-size:11px;margin:10px 0 4px;padding:3px 8px;background:#e8edf5;border-radius:3px}
+      h3{color:#555;font-size:10px;margin:6px 0 2px 12px}
+      table{width:100%;border-collapse:collapse;margin-bottom:6px}
+      th{background:#1B2B4B;color:white;padding:3px 6px;text-align:left;font-size:9px}
+      td{padding:2px 6px;border-bottom:1px solid #eee;font-size:9px}
+      tr:nth-child(even) td{background:#f9f9f9}
+      .total{font-weight:bold;background:#e8edf5!important}
+      .section-total{font-weight:bold;color:#1B2B4B;margin:4px 0 8px 0;font-size:10px}
+      @media print{@page{size:A4;margin:10mm}}
+    </style></head><body>
+    <h1>Heures contact étudiant — ${annee}</h1>
+    ${(sections || []).map(s => `
+      <h2>${s.section} — Total : ${s.total_heures}h (${s.total_periodes} pér.)</h2>
+      ${s.ues.map(u => `
+        <h3>UE ${u.ue_num} — ${u.ue_nom}${u.bloc ? ` [${u.bloc}]` : ''}${u.quadrimestre ? ` · ${u.quadrimestre}` : ''}${u.ects ? ` · ${u.ects} ECTS` : ''}</h3>
+        <table>
+          <thead><tr><th>Code</th><th>Cours</th><th>Type</th><th>Pér. prof</th><th>Heures</th><th>Pér. contact</th></tr></thead>
+          <tbody>
+            ${u.cours.map(c => `<tr>
+              <td>${c.cours_code || ''}</td><td>${c.cours_nom || ''}</td>
+              <td>${c.ct_pp || ''}</td><td>${c.cours_per ?? ''}</td>
+              <td>${c.heures ?? ''}</td><td>${c.periodes_contact ?? ''}</td>
+            </tr>`).join('')}
+            <tr class="total"><td colspan="4">Total UE ${u.ue_num}</td>
+              <td>${u.total_heures_ue}</td><td>${u.total_periodes_ue}</td></tr>
+          </tbody>
+        </table>
+      `).join('')}
+    `).join('')}
+    </body></html>`;
+    const w = window.open('', '_blank');
+    w.document.write(html); w.document.close();
+    setTimeout(() => { w.focus(); w.print(); }, 300);
+  };
+
+  if (!sections || sections.length === 0) {
+    return <div className="text-sm text-gray-400 text-center py-12">Aucune donnée.</div>;
+  }
+
+  // Totaux globaux
+  const totalH = sections.reduce((s, x) => s + x.total_heures, 0);
+  const totalP = sections.reduce((s, x) => s + x.total_periodes, 0);
+
+  return (
+    <div>
+      {/* En-tête + bouton imprimer */}
+      <div className="flex items-center justify-between mb-4">
+        <div>
+          <div className="text-sm font-semibold text-iip-blue">
+            Heures contact étudiant — {annee}
+          </div>
+          <div className="text-xs text-gray-400 mt-0.5">
+            {sections.length} section{sections.length > 1 ? 's' : ''} · total {totalH}h · {totalP} périodes contact
+          </div>
+        </div>
+        <button onClick={imprimer}
+          className="text-sm border border-iip-blue text-iip-blue hover:bg-slate-100 px-3 py-1.5 rounded-lg flex items-center gap-1.5">
+          🖨 Imprimer / PDF
+        </button>
+      </div>
+
+      <div className="space-y-4">
+        {sections.map(s => (
+          <div key={s.section} className="border border-gray-200 rounded-xl overflow-hidden">
+            {/* En-tête section */}
+            <button onClick={() => toggle(s.section)}
+              className="w-full flex items-center justify-between px-4 py-2.5 bg-iip-blue text-white hover:opacity-90 transition">
+              <span className="font-semibold">{s.section}</span>
+              <div className="flex items-center gap-4 text-sm">
+                <span className="opacity-80">{s.ues.length} UE</span>
+                <span className="font-bold">{s.total_heures}h · {s.total_periodes} pér.</span>
+                <span>{expanded[s.section] ? '▲' : '▼'}</span>
+              </div>
+            </button>
+
+            {expanded[s.section] && (
+              <div className="divide-y divide-gray-100">
+                {s.ues.map(u => (
+                  <div key={u.ue_num} className="px-4 py-3">
+                    {/* En-tête UE */}
+                    <div className="flex items-center gap-3 mb-2">
+                      <span className="text-xs font-bold text-iip-blue bg-iip-blue/10 px-2 py-0.5 rounded">UE {u.ue_num}</span>
+                      <span className="font-semibold text-gray-800 flex-1">{u.ue_nom}</span>
+                      <div className="flex items-center gap-2 text-xs text-gray-500 flex-shrink-0">
+                        {u.bloc && <span className="bg-gray-100 rounded px-1.5 py-0.5">{u.bloc}</span>}
+                        {u.quadrimestre && <span className="bg-gray-100 rounded px-1.5 py-0.5">{u.quadrimestre}</span>}
+                        {u.ects > 0 && <span className="bg-gray-100 rounded px-1.5 py-0.5">{u.ects} ECTS</span>}
+                        <span className="font-semibold text-iip-blue">{u.total_heures_ue}h · {u.total_periodes_ue} pér.</span>
+                      </div>
+                    </div>
+
+                    {/* Tableau des cours */}
+                    <table className="w-full text-xs border-collapse">
+                      <thead>
+                        <tr className="bg-gray-50">
+                          <th className="text-left px-2 py-1.5 text-gray-500 font-medium border-b border-gray-200">Cours</th>
+                          <th className="text-center px-2 py-1.5 text-gray-500 font-medium border-b border-gray-200 w-16">Type</th>
+                          <th className="text-right px-2 py-1.5 text-gray-500 font-medium border-b border-gray-200 w-20">Pér. prof</th>
+                          <th className="text-right px-2 py-1.5 text-gray-500 font-medium border-b border-gray-200 w-16">Heures</th>
+                          <th className="text-right px-2 py-1.5 text-gray-500 font-medium border-b border-gray-200 w-24">Pér. contact</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {u.cours.map((c, i) => (
+                          <tr key={i} className={i % 2 === 0 ? '' : 'bg-gray-50/50'}>
+                            <td className="px-2 py-1.5 text-gray-700">
+                              <span className="text-gray-400 mr-1.5 font-mono">{c.cours_code}</span>
+                              {c.cours_nom}
+                            </td>
+                            <td className="px-2 py-1.5 text-center">
+                              {c.ct_pp && (
+                                <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded ${
+                                  c.ct_pp === 'CT' ? 'bg-blue-100 text-blue-700' : 'bg-green-100 text-green-700'
+                                }`}>{c.ct_pp}</span>
+                              )}
+                            </td>
+                            <td className="px-2 py-1.5 text-right text-gray-600">{c.cours_per ?? '—'}</td>
+                            <td className="px-2 py-1.5 text-right font-medium text-gray-800">{c.heures != null ? `${c.heures}h` : '—'}</td>
+                            <td className="px-2 py-1.5 text-right text-iip-blue font-semibold">{c.periodes_contact ?? '—'}</td>
+                          </tr>
+                        ))}
+                        {/* Total UE */}
+                        <tr className="bg-iip-blue/5 font-semibold">
+                          <td colSpan={3} className="px-2 py-1.5 text-gray-600 text-right">Total UE {u.ue_num}</td>
+                          <td className="px-2 py-1.5 text-right text-gray-800">{u.total_heures_ue}h</td>
+                          <td className="px-2 py-1.5 text-right text-iip-blue">{u.total_periodes_ue}</td>
+                        </tr>
+                      </tbody>
+                    </table>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
