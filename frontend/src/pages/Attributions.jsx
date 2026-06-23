@@ -745,6 +745,21 @@ export default function Attributions() {
       }
       await api.updateAttribution(id, payload);
       setData(prev=>prev.map(r=>r.id===id?{...r,...payload,...recompute(r,payload)}:r));
+
+      // Rafraîchir l'analyse autonomie si périodes ou autonomie ont changé
+      if (field === 'periodes_attribuees' || field === 'autonomie_attribuee' || field === 'heures') {
+        const tok = localStorage.getItem('token');
+        const row = data.find(r => r.id === id);
+        const sectionsARefreshir = [...new Set(data.map(r => r.section).filter(Boolean))];
+        Promise.all(sectionsARefreshir.map(sec =>
+          fetch(`/api/attributions/autonomie-ue?section=${encodeURIComponent(sec)}&annee=${encodeURIComponent(getAnnee())}`,
+            { headers: { Authorization: `Bearer ${tok}` } }).then(r => r.json()).catch(() => ({}))
+        )).then(results => {
+          const merged = {};
+          for (const m of results) Object.assign(merged, m || {});
+          setAutAnalyse(merged);
+        });
+      }
       // Si on a changé le prof, recharger les verrous/alertes de nomination (cadenas)
       if (field === 'professeur_id') {
         const tok = localStorage.getItem('token');
