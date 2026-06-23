@@ -398,8 +398,16 @@ r.patch('/ue/:num/organiser-groupes', authRequired, roleRequired('admin', 'edite
 
     for (const c of cours) {
       const codeCours = c.code_cours;
-      const m = Math.min(100, Math.max(1, parseInt(c.nb_groupes) || 1));
-      const cible = m === 1 ? ['Ts'] : Array.from({ length: m }, (_, i) => lettre(i));
+      const mode = c.mode || 'ts'; // 'ts' | 'split' | 'groupes'
+      const m = mode === 'ts' ? 1 : Math.min(100, Math.max(2, parseInt(c.nb_groupes) || 2));
+
+      // split = plusieurs profs sur les mêmes étudiants (code=null, split_groupe='O')
+      // groupes = étudiants répartis (code=A/B/C, split_groupe='N')
+      const cible = mode === 'ts'
+        ? [{ code: 'Ts', split: 'N' }]
+        : mode === 'split'
+          ? Array.from({ length: m }, () => ({ code: 'Ts', split: 'O' }))
+          : Array.from({ length: m }, (_, i) => ({ code: lettre(i), split: 'N' }));
       const dedouble = m > 1 ? 'O' : 'N';
 
       // Lignes modèles = celles de l'organisation SOURCE pour ce cours
@@ -411,29 +419,27 @@ r.patch('/ue/:num/organiser-groupes', authRequired, roleRequired('admin', 'edite
       if (modeles.length === 0) continue;
 
       if (creer_orga_2) {
-        // Créer de nouvelles lignes dans l'orga cible (profs à désigner)
         for (let i = 0; i < cible.length; i++) {
           db.prepare(`
             INSERT INTO attribution (${copyList}, num_organisation, code, num_groupe, nb_groupes, split_groupe, professeur_id)
             SELECT ${copyList}, ?, ?, ?, ?, ?, ?
             FROM attribution WHERE id=?
-          `).run(orgCible, cible[i], m === 1 ? 1 : i + 1, m, dedouble, aDesId, modeles[0].id);
+          `).run(orgCible, cible[i].code, m === 1 ? 1 : i + 1, m, cible[i].split, aDesId, modeles[0].id);
           crees++;
         }
       } else {
-        // Modifier l'orga courante : réutiliser les lignes, créer/supprimer le surplus
         for (let i = 0; i < cible.length; i++) {
           const numG = m === 1 ? 1 : i + 1;
           if (i < modeles.length) {
             db.prepare(`UPDATE attribution SET code=?, num_groupe=?, nb_groupes=?, split_groupe=? WHERE id=?`)
-              .run(cible[i], numG, m, dedouble, modeles[i].id);
+              .run(cible[i].code, numG, m, cible[i].split, modeles[i].id);
             maj++;
           } else {
             db.prepare(`
               INSERT INTO attribution (${copyList}, num_organisation, code, num_groupe, nb_groupes, split_groupe, professeur_id)
               SELECT ${copyList}, ?, ?, ?, ?, ?, ?
               FROM attribution WHERE id=?
-            `).run(orgSource, cible[i], numG, m, dedouble, aDesId, modeles[0].id);
+            `).run(orgSource, cible[i].code, numG, m, cible[i].split, aDesId, modeles[0].id);
             crees++;
           }
         }
