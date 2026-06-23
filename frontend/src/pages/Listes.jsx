@@ -217,7 +217,7 @@ const ENTITES = {
     filtres: ['section'],
   },
   'heures-contact': {
-    label: 'Heures contact', groupe: 'rapport', icon: '🕐', tabler: 'IconClock',
+    label: 'Grille de cours', groupe: 'rapport', icon: '🕐', tabler: 'IconClock',
     heuresContact: true, // rendu personnalisé
     cols: [],
     fetch: (annee, filtres) => {
@@ -1283,7 +1283,7 @@ export default function Listes() {
           </div>
         )}
 
-        {/* Heures contact — rendu arborescent Section → UE → Cours */}
+        {/* Grille de cours — rendu arborescent Section → UE → Cours */}
         {rows !== null && def.heuresContact && (
           <div className="px-5 py-3">
             <HeuresContactView sections={rows} annee={annee} />
@@ -1452,154 +1452,100 @@ export default function Listes() {
 
 /* ══════════════════════ HEURES CONTACT VIEW ══════════════════════ */
 function HeuresContactView({ sections, annee }) {
-  const [expanded, setExpanded] = useState(() => {
-    // Déplier toutes les sections par défaut
-    return Object.fromEntries((sections || []).map(s => [s.section, true]));
-  });
+  const [expanded, setExpanded] = useState(() =>
+    Object.fromEntries((sections || []).map(s => [s.section, true]))
+  );
   const toggle = (k) => setExpanded(e => ({ ...e, [k]: !e[k] }));
 
+  const BLEU = '#1B2B4B', TURQ = '#00AACC', GRIS = '#F4F6FA';
+  const BLOCS_COULEUR = { BA1: '#f97316', BA2: '#3b82f6', BA3: '#1e3a8a', BA4: '#a855f7' };
+
   const imprimer = () => {
-    const BLOCS_COULEUR = { BA1: '#f97316', BA2: '#60a5fa', BA3: '#1e3a8a', BA4: '#a855f7' };
     const html = `<!DOCTYPE html><html lang="fr"><head><meta charset="utf-8">
-<title>Heures contact — ${annee}</title>
+<title>Grille de cours — ${annee}</title>
 <style>
-  * { box-sizing: border-box; margin: 0; padding: 0; }
-  body { font-family: Arial, Helvetica, sans-serif; font-size: 9.5pt; color: #1a1a2e; background: white; }
+  *{box-sizing:border-box;margin:0;padding:0;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+  body{font-family:Arial,Helvetica,sans-serif;color:#1a1a2e;font-size:9.5pt;background:white}
+  @media print{@page{size:A4 portrait;margin:12mm 12mm 14mm}tr{page-break-inside:avoid}thead{display:table-header-group}.section-block{page-break-before:auto}}
+</style></head><body>
+<div style="padding:4mm">
 
-  /* ── Page header ── */
-  .page-header { display: flex; align-items: center; justify-content: space-between;
-    padding: 6mm 0 4mm; border-bottom: 3px solid #1B2B4B; margin-bottom: 5mm; }
-  .page-header h1 { font-size: 14pt; color: #1B2B4B; font-weight: bold; }
-  .page-header .meta { font-size: 8pt; color: #6b7280; text-align: right; }
-
-  /* ── Section header ── */
-  .section-header { background: #1B2B4B; color: white; padding: 4px 8px;
-    font-size: 10.5pt; font-weight: bold; margin: 6mm 0 3mm;
-    border-radius: 3px; display: flex; justify-content: space-between; }
-  .section-header span { font-weight: normal; font-size: 9pt; opacity: .85; }
-
-  /* ── UE block ── */
-  .ue-block { margin-bottom: 5mm; page-break-inside: avoid; }
-  .ue-header { display: flex; align-items: baseline; gap: 6px;
-    background: #e8edf5; border-left: 4px solid #00AACC;
-    padding: 3px 6px; margin-bottom: 1mm; }
-  .ue-num { font-weight: bold; color: #1B2B4B; font-size: 9pt; white-space: nowrap; }
-  .ue-nom { color: #1B2B4B; font-size: 9pt; flex: 1; }
-  .ue-badges { display: flex; gap: 4px; flex-shrink: 0; }
-  .badge { font-size: 7.5pt; font-weight: bold; padding: 1px 5px;
-    border-radius: 2px; color: white; }
-  .badge-quad { background: #6b7280; }
-  .badge-ects { background: #00AACC; }
-
-  /* ── Tableau ── */
-  table { width: 100%; border-collapse: collapse; table-layout: fixed; }
-  colgroup col:nth-child(1) { width: 10%; }  /* Code */
-  colgroup col:nth-child(2) { width: 44%; }  /* Cours */
-  colgroup col:nth-child(3) { width: 7%; }   /* Type */
-  colgroup col:nth-child(4) { width: 12%; }  /* Pér. prof */
-  colgroup col:nth-child(5) { width: 12%; }  /* Heures */
-  colgroup col:nth-child(6) { width: 15%; }  /* Pér. contact */
-
-  thead tr { background: #1B2B4B; }
-  thead th { color: white; padding: 2px 5px; font-size: 8.5pt;
-    font-weight: bold; text-align: left; }
-  thead th:nth-child(n+4) { text-align: right; }
-
-  tbody td { padding: 2px 5px; font-size: 8.5pt;
-    border-bottom: 1px solid #e5e7eb; vertical-align: top; }
-  tbody td:nth-child(n+4) { text-align: right; }
-  tbody tr:nth-child(even) td { background: #f8fafc; }
-
-  .type-ct { color: #1d4ed8; font-weight: bold; }
-  .type-pp { color: #15803d; font-weight: bold; }
-  .zero { color: #d1d5db; }
-
-  /* Ligne total UE */
-  tr.total-ue td { background: #dbeafe !important; font-weight: bold;
-    color: #1B2B4B; border-top: 1.5px solid #93c5fd; border-bottom: 2px solid #93c5fd; }
-
-  /* ── Footer de section ── */
-  .section-total { text-align: right; font-size: 8.5pt; color: #6b7280;
-    padding: 1mm 0 3mm; border-top: 1px solid #d1d5db; }
-
-  /* ── Grand total ── */
-  .grand-total { margin-top: 6mm; padding: 3mm 6px;
-    background: #1B2B4B; color: white; border-radius: 3px;
-    display: flex; justify-content: space-between; font-size: 9.5pt; }
-
-  @media print {
-    @page { size: A4 portrait; margin: 12mm 12mm 14mm; }
-    .page-header { position: running(header); }
-    .section-header { break-before: auto; }
-    .ue-block { page-break-inside: avoid; }
-  }
-</style>
-</head><body>
-
-<div class="page-header">
-  <div>
-    <h1>Heures contact étudiant</h1>
-    <div style="font-size:9pt;color:#6b7280;margin-top:2px">Année scolaire ${annee}</div>
-  </div>
-  <div class="meta">
-    Institut Ilya Prigogine<br>
-    Imprimé le ${new Date().toLocaleDateString('fr-BE', { day: '2-digit', month: 'long', year: 'numeric' })}
-  </div>
-</div>
-
-${(sections || []).map(s => `
-<div class="section-header">
-  <span>${s.section}</span>
-  <span>${s.ues.length} UE · ${s.total_heures}h contact · ${s.total_periodes} pér.</span>
-</div>
-
-${s.ues.map(u => {
-  const couleurBloc = BLOCS_COULEUR[u.bloc] || '#6b7280';
-  const hasCours = u.cours.some(c => (c.heures || 0) > 0 || (c.cours_per || 0) > 0);
-  return `<div class="ue-block">
-  <div class="ue-header">
-    <div class="ue-num">UE ${u.ue_num}</div>
-    <div class="ue-nom">${u.ue_nom || ''}</div>
-    <div class="ue-badges">
-      ${u.bloc ? `<span class="badge" style="background:${couleurBloc}">${u.bloc}</span>` : ''}
-      ${u.quadrimestre ? `<span class="badge badge-quad">${u.quadrimestre}</span>` : ''}
-      ${u.ects ? `<span class="badge badge-ects">${u.ects} ECTS</span>` : ''}
+  <div style="border-bottom:3px solid ${TURQ};padding-bottom:7px;margin-bottom:8px;display:flex;align-items:center;justify-content:space-between">
+    <div>
+      <div style="font-size:7.5pt;letter-spacing:3px;text-transform:uppercase;color:${TURQ};font-weight:700">Institut Ilya Prigogine · Enseignement pour adultes</div>
+      <div style="font-size:17pt;color:${BLEU};margin-top:2px;font-weight:700">Grille de cours</div>
+      <div style="font-size:9pt;color:#555;margin-top:1px">Année académique ${annee}</div>
+    </div>
+    <div style="text-align:right;font-size:8pt;color:#999">
+      Document horaire<br>
+      ${new Date().toLocaleDateString('fr-BE',{day:'2-digit',month:'long',year:'numeric'})}
     </div>
   </div>
-  <table>
-    <colgroup><col/><col/><col/><col/><col/><col/></colgroup>
-    <thead><tr>
-      <th>Code</th><th>Cours</th><th>Type</th>
-      <th style="text-align:right">Pér. prof</th>
-      <th style="text-align:right">Heures</th>
-      <th style="text-align:right">Pér. contact</th>
-    </tr></thead>
-    <tbody>
-      ${u.cours.map((c, i) => `<tr>
-        <td style="font-family:monospace;color:#6b7280">${c.cours_code || ''}</td>
-        <td>${c.cours_nom || ''}</td>
-        <td class="${c.ct_pp === 'CT' ? 'type-ct' : c.ct_pp === 'PP' ? 'type-pp' : ''}">${c.ct_pp || ''}</td>
-        <td class="${!c.cours_per ? 'zero' : ''}">${c.cours_per ?? '—'}</td>
-        <td class="${!c.heures ? 'zero' : ''}">${c.heures != null ? c.heures + 'h' : '—'}</td>
-        <td class="${!c.periodes_contact ? 'zero' : ''}">${c.periodes_contact ?? '—'}</td>
-      </tr>`).join('')}
-      ${hasCours ? `<tr class="total-ue">
-        <td colspan="4" style="text-align:right">Total UE ${u.ue_num}</td>
-        <td>${u.total_heures_ue}h</td>
-        <td>${u.total_periodes_ue} pér.</td>
-      </tr>` : ''}
-    </tbody>
-  </table>
-</div>`;
-}).join('')}
+
+${(sections||[]).map(s => `
+  <div class="section-block" style="margin-bottom:10px">
+    <div style="background:${BLEU};color:white;font-size:11pt;font-weight:700;padding:5px 10px;border-radius:4px 4px 0 0;display:flex;justify-content:space-between">
+      <span>${s.section}</span>
+      <span style="font-weight:400;font-size:9pt;opacity:.85">${s.ues.length} UE · ${s.total_heures}h</span>
+    </div>
+
+    ${s.ues.map(u => {
+      const coulBloc = BLOCS_COULEUR[u.bloc] || '#6b7280';
+      return `<div style="margin-bottom:6px;page-break-inside:avoid">
+      <div style="background:#e8edf5;border-left:4px solid ${TURQ};padding:3px 8px;display:flex;align-items:baseline;gap:8px">
+        <span style="font-weight:700;color:${BLEU};font-size:9pt;white-space:nowrap">UE ${u.ue_num}</span>
+        <span style="color:${BLEU};font-size:9pt;flex:1">${u.ue_nom||''}</span>
+        ${u.bloc?`<span style="background:${coulBloc};color:white;font-size:7.5pt;font-weight:700;padding:1px 5px;border-radius:2px">${u.bloc}</span>`:''}
+        ${u.quadrimestre?`<span style="background:#6b7280;color:white;font-size:7.5pt;font-weight:700;padding:1px 5px;border-radius:2px">${u.quadrimestre}</span>`:''}
+        ${u.ects?`<span style="background:${TURQ};color:white;font-size:7.5pt;font-weight:700;padding:1px 5px;border-radius:2px">${u.ects} ECTS</span>`:''}
+      </div>
+      <table style="width:100%;border-collapse:collapse;font-size:8.5pt;table-layout:fixed">
+        <colgroup>
+          <col style="width:11%">
+          <col style="width:57%">
+          <col style="width:8%">
+          <col style="width:12%">
+          <col style="width:12%">
+        </colgroup>
+        <thead>
+          <tr style="background:#163A6B;color:white">
+            <th style="padding:3px 6px;text-align:left">Code</th>
+            <th style="padding:3px 6px;text-align:left">Cours</th>
+            <th style="padding:3px 6px;text-align:center">Type</th>
+            <th style="padding:3px 6px;text-align:right;color:#93c5fd;font-weight:700">Hrs cours</th>
+            <th style="padding:3px 6px;text-align:right">Pér. prof</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${u.cours.map((c,i)=>`<tr style="background:${i%2===0?'white':GRIS}">
+            <td style="padding:3px 6px;font-family:monospace;color:#6b7280;font-size:8pt">${c.cours_code||''}</td>
+            <td style="padding:3px 6px;color:#1a1a2e">${c.cours_nom||''}</td>
+            <td style="padding:3px 6px;text-align:center;font-weight:700;color:${c.ct_pp==='CT'?'#1d4ed8':c.ct_pp==='PP'?'#15803d':'#6b7280'}">${c.ct_pp||''}</td>
+            <td style="padding:3px 6px;text-align:right;font-weight:700;color:${BLEU}">${c.heures!=null?c.heures+'h':'—'}</td>
+            <td style="padding:3px 6px;text-align:right;color:#555">${c.cours_per??'—'}</td>
+          </tr>`).join('')}
+          <tr style="background:${BLEU};color:white">
+            <td colspan="3" style="padding:4px 6px;text-align:right;font-weight:700">Total UE ${u.ue_num}</td>
+            <td style="padding:4px 6px;text-align:right;font-weight:700">${u.total_heures_ue}h</td>
+            <td style="padding:4px 6px;text-align:right;opacity:.8"></td>
+          </tr>
+        </tbody>
+      </table>
+    </div>`;
+    }).join('')}
+
+    <div style="text-align:right;font-size:8pt;color:#6b7280;padding:2px 4px 4px;border-top:1px solid #d1d5db">
+      Total ${s.section} : ${s.total_heures}h
+    </div>
+  </div>
 `).join('')}
 
-<div class="grand-total">
-  <span>Total général — ${sections.length} section${sections.length > 1 ? 's' : ''}</span>
-  <span>${sections.reduce((a, s) => a + s.total_heures, 0)}h contact · ${sections.reduce((a, s) => a + s.total_periodes, 0)} périodes</span>
-</div>
+  <div style="background:${BLEU};color:white;padding:5px 10px;border-radius:3px;display:flex;justify-content:space-between;font-size:9.5pt;margin-top:4px">
+    <span>Total général — ${sections.length} section${sections.length>1?'s':''}</span>
+    <span style="font-weight:700">${sections.reduce((a,s)=>a+s.total_heures,0)}h</span>
+  </div>
 
-</body></html>`;
+</div></body></html>`;
 
     const w = window.open('', '_blank');
     if (!w) { alert('Autorisez les pop-ups pour imprimer.'); return; }
@@ -1608,24 +1554,18 @@ ${s.ues.map(u => {
     setTimeout(() => { w.focus(); w.print(); }, 400);
   };
 
-  if (!sections || sections.length === 0) {
+  if (!sections || sections.length === 0)
     return <div className="text-sm text-gray-400 text-center py-12">Aucune donnée.</div>;
-  }
 
-  // Totaux globaux
   const totalH = sections.reduce((s, x) => s + x.total_heures, 0);
-  const totalP = sections.reduce((s, x) => s + x.total_periodes, 0);
 
   return (
     <div>
-      {/* En-tête + bouton imprimer */}
       <div className="flex items-center justify-between mb-4">
         <div>
-          <div className="text-sm font-semibold text-iip-blue">
-            Heures contact étudiant — {annee}
-          </div>
+          <div className="text-sm font-semibold text-iip-blue">Grille de cours — {annee}</div>
           <div className="text-xs text-gray-400 mt-0.5">
-            {sections.length} section{sections.length > 1 ? 's' : ''} · total {totalH}h · {totalP} périodes contact
+            {sections.length} section{sections.length > 1 ? 's' : ''} · {totalH}h
           </div>
         </div>
         <button onClick={imprimer}
@@ -1637,13 +1577,12 @@ ${s.ues.map(u => {
       <div className="space-y-4">
         {sections.map(s => (
           <div key={s.section} className="border border-gray-200 rounded-xl overflow-hidden">
-            {/* En-tête section */}
             <button onClick={() => toggle(s.section)}
               className="w-full flex items-center justify-between px-4 py-2.5 bg-iip-blue text-white hover:opacity-90 transition">
               <span className="font-semibold">{s.section}</span>
               <div className="flex items-center gap-4 text-sm">
                 <span className="opacity-80">{s.ues.length} UE</span>
-                <span className="font-bold">{s.total_heures}h · {s.total_periodes} pér.</span>
+                <span className="font-bold">{s.total_heures}h</span>
                 <span>{expanded[s.section] ? '▲' : '▼'}</span>
               </div>
             </button>
@@ -1652,34 +1591,31 @@ ${s.ues.map(u => {
               <div className="divide-y divide-gray-100">
                 {s.ues.map(u => (
                   <div key={u.ue_num} className="px-4 py-3">
-                    {/* En-tête UE */}
                     <div className="flex items-center gap-3 mb-2">
                       <span className="text-xs font-bold text-iip-blue bg-iip-blue/10 px-2 py-0.5 rounded">UE {u.ue_num}</span>
                       <span className="font-semibold text-gray-800 flex-1">{u.ue_nom}</span>
-                      <div className="flex items-center gap-2 text-xs text-gray-500 flex-shrink-0">
+                      <div className="flex items-center gap-2 text-xs flex-shrink-0">
                         {u.bloc && <span className="bg-gray-100 rounded px-1.5 py-0.5">{u.bloc}</span>}
                         {u.quadrimestre && <span className="bg-gray-100 rounded px-1.5 py-0.5">{u.quadrimestre}</span>}
                         {u.ects > 0 && <span className="bg-gray-100 rounded px-1.5 py-0.5">{u.ects} ECTS</span>}
-                        <span className="font-semibold text-iip-blue">{u.total_heures_ue}h · {u.total_periodes_ue} pér.</span>
+                        <span className="font-semibold text-iip-blue">{u.total_heures_ue}h</span>
                       </div>
                     </div>
 
-                    {/* Tableau des cours */}
                     <table className="w-full text-xs border-collapse">
                       <thead>
                         <tr className="bg-gray-50">
                           <th className="text-left px-2 py-1.5 text-gray-500 font-medium border-b border-gray-200">Cours</th>
-                          <th className="text-center px-2 py-1.5 text-gray-500 font-medium border-b border-gray-200 w-16">Type</th>
+                          <th className="text-center px-2 py-1.5 text-gray-500 font-medium border-b border-gray-200 w-14">Type</th>
+                          <th className="text-right px-2 py-1.5 font-bold text-iip-blue border-b border-gray-200 w-20">Hrs cours</th>
                           <th className="text-right px-2 py-1.5 text-gray-500 font-medium border-b border-gray-200 w-20">Pér. prof</th>
-                          <th className="text-right px-2 py-1.5 text-gray-500 font-medium border-b border-gray-200 w-16">Heures</th>
-                          <th className="text-right px-2 py-1.5 text-gray-500 font-medium border-b border-gray-200 w-24">Pér. contact</th>
                         </tr>
                       </thead>
                       <tbody>
                         {u.cours.map((c, i) => (
                           <tr key={i} className={i % 2 === 0 ? '' : 'bg-gray-50/50'}>
                             <td className="px-2 py-1.5 text-gray-700">
-                              <span className="text-gray-400 mr-1.5 font-mono">{c.cours_code}</span>
+                              <span className="text-gray-400 mr-1.5 font-mono text-[10px]">{c.cours_code}</span>
                               {c.cours_nom}
                             </td>
                             <td className="px-2 py-1.5 text-center">
@@ -1689,16 +1625,16 @@ ${s.ues.map(u => {
                                 }`}>{c.ct_pp}</span>
                               )}
                             </td>
-                            <td className="px-2 py-1.5 text-right text-gray-600">{c.cours_per ?? '—'}</td>
-                            <td className="px-2 py-1.5 text-right font-medium text-gray-800">{c.heures != null ? `${c.heures}h` : '—'}</td>
-                            <td className="px-2 py-1.5 text-right text-iip-blue font-semibold">{c.periodes_contact ?? '—'}</td>
+                            <td className="px-2 py-1.5 text-right font-bold text-iip-blue">
+                              {c.heures != null ? `${c.heures}h` : '—'}
+                            </td>
+                            <td className="px-2 py-1.5 text-right text-gray-500">{c.cours_per ?? '—'}</td>
                           </tr>
                         ))}
-                        {/* Total UE */}
                         <tr className="bg-iip-blue/5 font-semibold">
-                          <td colSpan={3} className="px-2 py-1.5 text-gray-600 text-right">Total UE {u.ue_num}</td>
-                          <td className="px-2 py-1.5 text-right text-gray-800">{u.total_heures_ue}h</td>
-                          <td className="px-2 py-1.5 text-right text-iip-blue">{u.total_periodes_ue}</td>
+                          <td colSpan={2} className="px-2 py-1.5 text-gray-600 text-right">Total UE {u.ue_num}</td>
+                          <td className="px-2 py-1.5 text-right text-iip-blue">{u.total_heures_ue}h</td>
+                          <td></td>
                         </tr>
                       </tbody>
                     </table>
