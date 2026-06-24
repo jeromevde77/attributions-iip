@@ -209,6 +209,7 @@ r.patch('/candidats/:id', (req, res) => {
       cv_url ?? null, notes ?? null, fonction ?? null,
       niveau_etude ?? null, titre_peda ?? null, diplome ?? null, diplome_autre ?? null,
       docs_remis != null ? JSON.stringify(docs_remis) : null,
+      qualifications != null ? JSON.stringify(qualifications) : null,
       entretien_reponses != null ? JSON.stringify(entretien_reponses) : null,
       entretien_note ?? null, entretien_commentaire ?? null,
       reflexif_niveau ?? null, reflexif_commentaire ?? null,
