@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useMemo } from 'react';
 import {
   IconBriefcase, IconUserPlus, IconArrowLeft, IconTrash, IconPlus,
   IconFileCv, IconExternalLink, IconUpload, IconSparkles,
@@ -363,9 +363,17 @@ function FichePoste({ poste, annee, onBack, grille }) {
         <h2 className="text-lg font-semibold text-iip-blue flex items-center gap-2">
           <IconUsersGroup size={20} /> Candidats ({candidats.length})
         </h2>
-        <Btn variant="primary" icon={IconUserPlus} onClick={() => setAjout(true)}>
-          Ajouter un candidat
-        </Btn>
+        <div className="flex items-center gap-2">
+          {candidats.length > 0 && (
+            <button onClick={() => genererComparatif(candidats, poste, grille)}
+              className="text-xs border border-gray-300 text-gray-500 hover:bg-gray-50 rounded px-2.5 py-1.5 flex items-center gap-1.5">
+              🖨 Comparatif PDF
+            </button>
+          )}
+          <Btn variant="primary" icon={IconUserPlus} onClick={() => setAjout(true)}>
+            Ajouter un candidat
+          </Btn>
+        </div>
       </div>
 
       {candidats.length === 0 && !ajout && (
@@ -758,6 +766,22 @@ const LIKERT_REFLEXIF = [
   { val: 5, label: 'Transformatif',  desc: "Change de posture, apprend et se transforme",         color: '#0ea5e9' },
 ];
 
+// ── Tirage aléatoire de N questions dans un pool ─────────────────────────────
+function tirerQuestions(axe) {
+  const pool = axe.questions || [];
+  const nb   = axe.nb_questions_tirees || 2;
+  if (pool.length <= nb) return pool.map(q => ({ ...q }));
+  const shuffled = [...pool].sort(() => Math.random() - 0.5);
+  return shuffled.slice(0, nb);
+}
+
+function grilleAvecTirage(grilleActive) {
+  return (grilleActive || []).map(axe => ({
+    ...axe,
+    questions: tirerQuestions(axe),
+  }));
+}
+
 const GRILLE_IIP = [
   {
     axe: 'Axe 1 — Connaissance de la formation et du contexte',
@@ -934,7 +958,7 @@ const LIKERT = [
 ];
 
 function EntretienModal({ candidature, poste, annee, qIA, grille, onClose, onSaved }) {
-  const grilleActive = grille || GRILLE_IIP;
+  const grilleActive = useMemo(() => grilleAvecTirage(grille || GRILLE_IIP), []);
   const toutesQuestions = [
     ...grilleActive.flatMap(axe => (axe.questions || []).map(q => ({ axe: axe.axe || axe.libelle, q: q.libelle || q, couleur: axe.couleur }))),
     ...qIA.map(q => ({ axe: 'Axe 5 — Questions spécifiques au cours', q, couleur: '#1B2B4B' })),
@@ -1320,6 +1344,222 @@ function VueParallele({ postes, candidats, fonctions, annee, onRecharger }) {
   );
 }
 
+/* ══════════════════════ PDF COMPARATIF ══════════════════════ */
+function genererComparatif(candidats, poste, grille) {
+  const BLEU = '#1B2B4B', TURQ = '#00AACC';
+  const LIKERT_LABELS = ['','Peu structurée','Partiellement','Structurée','Bien structurée','Très structurée'];
+  const grilleActive = grille || GRILLE_IIP;
+  const toutesQs = grilleActive.flatMap(axe =>
+    (axe.questions||[]).map(q => ({ axe: axe.axe||axe.libelle, q: q.libelle||q, couleur: axe.couleur }))
+  );
+  const nomPoste = poste?.nom_cours || poste?.ue_nom || `UE ${poste?.ue_num}`;
+
+  // Tableau récapitulatif
+  const recap = candidats.map(c => {
+    const nom = [c.prenom, c.nom].filter(Boolean).join(' ') || '—';
+    const st = STATUT[c.statut] || STATUT.a_voir;
+    const noteQ = c.note_globale;
+    const noteL = c.entretien_note;
+    const noteAff = noteQ ?? noteL ?? null;
+    const col = noteAff>=4?'#15803d':noteAff>=3?'#d97706':noteAff!=null?'#b91c1c':'#9ca3af';
+    const refl = c.reflexif_niveau || c.reflexif_niveau_libre;
+    const REFL = ['','Descriptif','Analytique','Réflexif','Critique','Transformatif'];
+    return { nom, st, noteAff, col, refl, REFL };
+  });
+
+  const tableRecap = `
+    <table style="width:100%;border-collapse:collapse;font-size:9pt;margin-bottom:8mm">
+      <thead><tr style="background:${BLEU};color:white">
+        <th style="padding:5px 8px;text-align:left">Candidat</th>
+        <th style="padding:5px 8px;text-align:center">Statut</th>
+        <th style="padding:5px 8px;text-align:right">Note /5</th>
+        <th style="padding:5px 8px;text-align:center">Réflexivité</th>
+      </tr></thead>
+      <tbody>${recap.map((r,i) => `<tr style="background:${i%2===0?'white':'#f8fafc'}">
+        <td style="padding:4px 8px;font-weight:600">${r.nom}</td>
+        <td style="padding:4px 8px;text-align:center"><span style="background:${r.st.bg};color:${r.st.color};padding:1px 7px;border-radius:10px;font-size:8pt;font-weight:600">${r.st.label}</span></td>
+        <td style="padding:4px 8px;text-align:right;font-size:11pt;font-weight:700;color:${r.col}">${r.noteAff!=null?r.noteAff+'/5':'—'}</td>
+        <td style="padding:4px 8px;text-align:center;font-size:8.5pt">${r.refl?r.REFL[r.refl]:'—'}</td>
+      </tr>`).join('')}</tbody>
+    </table>`;
+
+  // Fiche par candidat (compacte)
+  const fiches = candidats.map(c => {
+    const nom = [c.prenom, c.nom].filter(Boolean).join(' ') || '—';
+    const st = STATUT[c.statut] || STATUT.a_voir;
+    const rep = c.reponses_json || {};
+    const rows = toutesQs.map((item,i) => {
+      const r = rep[i]||{};
+      if (!r.note && !r.commentaire) return '';
+      const lbl = LIKERT_LABELS[r.note]||'';
+      const lcol = ['','#ef4444','#f97316','#eab308','#22c55e','#0ea5e9'][r.note]||'#6b7280';
+      return `<tr><td style="padding:2px 5px;color:#6b7280;font-size:8pt;border-bottom:1px solid #f1f5f9;width:18%">${item.axe.replace(/Axe \d+ — /,'')}</td>
+        <td style="padding:2px 5px;font-size:8pt;border-bottom:1px solid #f1f5f9">${item.q}</td>
+        <td style="padding:2px 5px;text-align:center;border-bottom:1px solid #f1f5f9;width:15%">${r.note?`<span style="background:${lcol};color:white;padding:1px 5px;border-radius:8px;font-size:7.5pt;font-weight:700">${r.note} — ${lbl}</span>`:'—'}</td>
+        <td style="padding:2px 5px;font-size:8pt;border-bottom:1px solid #f1f5f9;width:22%">${r.commentaire||''}</td></tr>`;
+    }).join('');
+    const nc = c.note_globale; const col = nc>=4?'#15803d':nc>=3?'#d97706':nc!=null?'#b91c1c':'#9ca3af';
+    return `<div style="page-break-before:always;margin-bottom:6mm">
+      <div style="background:${BLEU};color:white;padding:5px 10px;border-radius:4px;display:flex;justify-content:space-between;align-items:center;margin-bottom:4px">
+        <span style="font-size:11pt;font-weight:700">${nom}</span>
+        <div style="display:flex;align-items:center;gap:10px">
+          <span style="background:${st.bg};color:${st.color};padding:1px 8px;border-radius:10px;font-size:8pt;font-weight:700;border:1px solid">${st.label}</span>
+          ${nc!=null?`<span style="background:${col};color:white;padding:2px 10px;border-radius:12px;font-size:10pt;font-weight:700">${nc}/5</span>`:''}
+        </div>
+      </div>
+      ${rows?`<table style="width:100%;border-collapse:collapse;font-size:8.5pt"><thead><tr style="background:#e8edf5"><th style="padding:3px 5px;text-align:left">Axe</th><th style="padding:3px 5px;text-align:left">Question posée</th><th style="padding:3px 5px;text-align:center">Réponse</th><th style="padding:3px 5px;text-align:left">Notes</th></tr></thead><tbody>${rows}</tbody></table>`:'<p style="color:#9ca3af;font-size:8.5pt;padding:4px">Aucune évaluation enregistrée.</p>'}
+      ${c.commentaire?`<div style="background:#f8fafc;border-left:3px solid ${TURQ};padding:4px 8px;font-size:8.5pt;margin-top:4px"><b>Bilan :</b> ${c.commentaire}</div>`:''}
+    </div>`;
+  }).join('');
+
+  const html = `<!DOCTYPE html><html lang="fr"><head><meta charset="utf-8"><title>Comparatif — ${nomPoste}</title>
+  <style>*{box-sizing:border-box;margin:0;padding:0;-webkit-print-color-adjust:exact;print-color-adjust:exact}body{font-family:Arial,sans-serif;color:#1a1a2e;font-size:9pt}@media print{@page{size:A4;margin:12mm}}</style>
+  </head><body><div style="padding:6mm">
+
+  <div style="border-bottom:3px solid ${TURQ};padding-bottom:5px;margin-bottom:6mm;display:flex;justify-content:space-between;align-items:flex-end">
+    <div>
+      <div style="font-size:7pt;letter-spacing:3px;text-transform:uppercase;color:${TURQ};font-weight:700">Institut Ilya Prigogine · Recrutement comparatif</div>
+      <div style="font-size:16pt;color:${BLEU};font-weight:700">${nomPoste}</div>
+      <div style="font-size:9pt;color:#555">${candidats.length} candidat${candidats.length>1?'s':''} · ${poste?.section||''} · ${new Date().toLocaleDateString('fr-BE',{day:'2-digit',month:'long',year:'numeric'})}</div>
+    </div>
+    <div style="text-align:right;font-size:8pt;color:#999">Confidentiel — usage interne</div>
+  </div>
+
+  <h2 style="color:${BLEU};font-size:11pt;margin-bottom:4mm">Tableau récapitulatif</h2>
+  ${tableRecap}
+
+  ${fiches}
+
+  </div></body></html>`;
+
+  const w = window.open('','_blank');
+  if (!w) { alert('Autorisez les pop-ups.'); return; }
+  w.document.write(html); w.document.close();
+  setTimeout(()=>{ w.focus(); w.print(); }, 500);
+}
+
+/* ══════════════════════ PDF FICHE INDIVIDUELLE ══════════════════════ */
+function genererFicheIndividuelle(candidat, grille) {
+  const BLEU = '#1B2B4B', TURQ = '#00AACC';
+  const LIKERT_LABELS = ['','Peu structurée','Partiellement','Structurée','Bien structurée','Très structurée'];
+  const LIKERT_COLORS = ['','#ef4444','#f97316','#eab308','#22c55e','#0ea5e9'];
+  const REFL_LABELS   = ['','Descriptif','Analytique','Réflexif','Critique','Transformatif'];
+  const REFL_COLORS   = ['','#ef4444','#f97316','#eab308','#22c55e','#0ea5e9'];
+  const grilleActive  = grille || GRILLE_IIP;
+  const nom = [candidat.prenom, candidat.nom].filter(Boolean).join(' ') || '—';
+
+  // Questions de la grille (avec libellés)
+  const toutesQs = grilleActive.flatMap(axe =>
+    (axe.questions||[]).map(q => ({ axe: axe.axe||axe.libelle, q: q.libelle||q, couleur: axe.couleur }))
+  );
+
+  // Qualifications
+  const qualsHtml = (candidat.qualifications||[]).length ? `
+    <ul style="margin:3px 0 0 14px;padding:0;font-size:8.5pt">
+      ${(candidat.qualifications||[]).map(q => {
+        const niv = NIVEAUX_ETUDE.find(n=>n.val===q.niveau);
+        const dip = Object.values(DIPLOMES_FWB).flat().find(d=>d.val===q.diplome);
+        const tit = TITRES_PEDA.find(t=>t.val===q.titre_peda);
+        return `<li>${[niv?.label, dip?.label||q.diplome_autre, tit?.label].filter(Boolean).join(' · ')}</li>`;
+      }).join('')}
+    </ul>` : '<span style="color:#9ca3af;font-size:8.5pt">Non renseigné</span>';
+
+  // Documents remis
+  const docsHtml = Object.entries(candidat.docs_remis||{}).filter(([,v])=>v).map(([k]) => {
+    const d = DOCS_REMIS_LIST.find(x=>x.key===k);
+    return d ? `<span style="background:#dcfce7;color:#15803d;border:1px solid #86efac;padding:1px 7px;border-radius:10px;font-size:8pt;font-weight:600;margin-right:3px">${d.emoji} ${d.label}</span>` : '';
+  }).join('');
+
+  // Entretien libre
+  const repL = candidat.entretien_reponses || {};
+  const hasLibre = candidat.entretien_note || candidat.entretien_commentaire || Object.values(repL).some(r=>r&&r.note>0);
+  const entretienLibreHtml = hasLibre ? (() => {
+    const nc = candidat.entretien_note;
+    const col = nc>=4?'#15803d':nc>=3?'#d97706':'#b91c1c';
+    const rows = toutesQs.map((item,i) => {
+      const r = repL[i]||{};
+      if (r.disabled||(!r.note&&!r.commentaire)) return '';
+      const lbl = LIKERT_LABELS[r.note]||'';
+      const lcol = LIKERT_COLORS[r.note]||'#6b7280';
+      return `<tr><td style="padding:2px 5px;color:#6b7280;font-size:8pt;border-bottom:1px solid #f1f5f9;width:18%">${item.axe.replace(/Axe \d+ — /,'')}</td>
+        <td style="padding:2px 5px;font-size:8.5pt;border-bottom:1px solid #f1f5f9">${item.q}</td>
+        <td style="padding:2px 5px;text-align:center;border-bottom:1px solid #f1f5f9;width:17%">${r.note?`<span style="background:${lcol};color:white;padding:1px 6px;border-radius:10px;font-size:8pt;font-weight:700">${r.note} — ${lbl}</span>`:'—'}</td>
+        <td style="padding:2px 5px;font-size:8pt;color:#374151;border-bottom:1px solid #f1f5f9;width:20%">${r.commentaire||''}</td></tr>`;
+    }).join('');
+    return `<div style="margin-bottom:8px">
+      <div style="display:flex;align-items:center;justify-content:space-between;background:#e8edf5;padding:4px 8px;border-left:4px solid ${TURQ}">
+        <b style="color:${BLEU};font-size:9pt">Entretien exploratoire</b>
+        ${nc!=null?`<span style="background:${col};color:white;padding:2px 10px;border-radius:12px;font-size:9pt;font-weight:700">Moyenne : ${nc}/5</span>`:''}
+      </div>
+      ${rows?`<table style="width:100%;border-collapse:collapse;font-size:8.5pt"><thead><tr style="background:#f1f5f9">
+        <th style="padding:3px 5px;text-align:left">Axe</th><th style="padding:3px 5px;text-align:left">Question</th>
+        <th style="padding:3px 5px;text-align:center">Réponse</th><th style="padding:3px 5px;text-align:left">Notes</th>
+      </tr></thead><tbody>${rows}</tbody></table>`:''}
+      ${candidat.entretien_commentaire?`<div style="background:#f8fafc;border-left:3px solid ${TURQ};padding:4px 8px;font-size:8.5pt;margin-top:4px"><b>Bilan :</b> ${candidat.entretien_commentaire}</div>`:''}
+      ${candidat.reflexif_niveau?(() => { const r=LIKERT_REFLEXIF.find(x=>x.val===candidat.reflexif_niveau); return r?`<div style="margin-top:4px;display:flex;align-items:center;gap:8px"><span style="background:${r.color};color:white;padding:2px 10px;border-radius:10px;font-size:8.5pt;font-weight:700">Réflexivité : ${r.val} — ${r.label}</span><span style="font-size:8pt;color:#374151;font-style:italic">${r.desc}</span></div>`:'' })():''}
+      ${candidat.reflexif_commentaire?`<div style="font-size:8pt;color:#374151;margin-top:2px"><b>Observations :</b> ${candidat.reflexif_commentaire}</div>`:''}
+    </div>`;
+  })() : '';
+
+  // Entretiens par cours
+  const entretiensCoursHtml = (candidat.candidatures||[]).filter(ca=>ca.note_globale||ca.commentaire).map(ca => {
+    const st = STATUT[ca.statut]||STATUT.a_voir;
+    const nc = ca.note_globale; const col = nc>=4?'#15803d':nc>=3?'#d97706':'#b91c1c';
+    const rep = ca.reponses_json||{};
+    const rows = toutesQs.map((item,i)=>{ const r=rep[i]||{}; if(!r.note&&!r.commentaire) return ''; const lbl=LIKERT_LABELS[r.note]||''; const lcol=LIKERT_COLORS[r.note]||'#6b7280'; return `<tr><td style="padding:2px 5px;color:#6b7280;font-size:8pt;border-bottom:1px solid #f1f5f9">${item.axe.replace(/Axe \d+ — /,'')}</td><td style="padding:2px 5px;font-size:8.5pt;border-bottom:1px solid #f1f5f9">${item.q}</td><td style="padding:2px 5px;text-align:center;border-bottom:1px solid #f1f5f9">${r.note?`<span style="background:${lcol};color:white;padding:1px 6px;border-radius:10px;font-size:8pt;font-weight:700">${r.note} — ${lbl}</span>`:'—'}</td><td style="padding:2px 5px;font-size:8pt;border-bottom:1px solid #f1f5f9">${r.commentaire||''}</td></tr>`; }).join('');
+    return `<div style="margin-bottom:6px;border:1px solid #e2e8f0;border-radius:4px;overflow:hidden">
+      <div style="display:flex;justify-content:space-between;align-items:center;background:#f8fafc;padding:4px 8px;border-bottom:1px solid #e2e8f0">
+        <b style="font-size:8.5pt;color:${BLEU}">${ca.cours_nom||ca.ue_nom||`UE ${ca.ue_num}`} <span style="font-weight:400;color:#6b7280">${ca.section||''}</span></b>
+        <span style="background:${st.bg};color:${st.color};padding:1px 7px;border-radius:10px;font-size:8pt;font-weight:600">${st.label}</span>
+        ${nc!=null?`<span style="background:${col};color:white;padding:1px 8px;border-radius:10px;font-size:8.5pt;font-weight:700">${nc}/5</span>`:''}
+      </div>
+      ${rows?`<table style="width:100%;border-collapse:collapse;font-size:8pt"><thead><tr style="background:#e8edf5"><th style="padding:2px 5px;text-align:left">Axe</th><th style="padding:2px 5px;text-align:left">Question</th><th style="padding:2px 5px;text-align:center">Réponse</th><th style="padding:2px 5px;text-align:left">Notes</th></tr></thead><tbody>${rows}</tbody></table>`:''}
+      ${ca.commentaire?`<div style="padding:4px 8px;font-size:8pt"><b>Bilan :</b> ${ca.commentaire}</div>`:''}
+    </div>`;
+  }).join('');
+
+  const html = `<!DOCTYPE html><html lang="fr"><head><meta charset="utf-8"><title>Fiche — ${nom}</title>
+  <style>*{box-sizing:border-box;margin:0;padding:0;-webkit-print-color-adjust:exact;print-color-adjust:exact}body{font-family:Arial,sans-serif;color:#1a1a2e;font-size:9pt}@media print{@page{size:A4;margin:12mm}}</style>
+  </head><body><div style="padding:6mm">
+
+  <div style="border-bottom:3px solid ${TURQ};padding-bottom:5px;margin-bottom:6mm;display:flex;justify-content:space-between;align-items:flex-end">
+    <div>
+      <div style="font-size:7pt;letter-spacing:3px;text-transform:uppercase;color:${TURQ};font-weight:700">Institut Ilya Prigogine · Recrutement</div>
+      <div style="font-size:17pt;color:${BLEU};font-weight:700">${nom}</div>
+      ${candidat.fonction?`<div style="font-size:9.5pt;color:#555;margin-top:1px">${candidat.fonction}</div>`:''}
+    </div>
+    <div style="text-align:right;font-size:8pt;color:#999">Confidentiel<br>${new Date().toLocaleDateString('fr-BE',{day:'2-digit',month:'long',year:'numeric'})}</div>
+  </div>
+
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:3px 14px;font-size:9pt;margin-bottom:6px;padding-bottom:6px;border-bottom:1px solid #f1f5f9">
+    ${candidat.email?`<div><b>E-mail :</b> ${candidat.email}</div>`:''}
+    ${candidat.telephone?`<div><b>Tél. :</b> ${candidat.telephone}</div>`:''}
+  </div>
+
+  <div style="margin-bottom:6px">
+    <div style="font-size:8pt;font-weight:700;color:${BLEU};text-transform:uppercase;letter-spacing:1px;margin-bottom:2px">Titres & Diplômes</div>
+    ${qualsHtml}
+  </div>
+
+  ${docsHtml?`<div style="margin-bottom:6px">${docsHtml}</div>`:''}
+  ${candidat.notes?`<div style="margin-bottom:8px;font-size:8.5pt;background:#f8fafc;padding:4px 8px;border-radius:3px"><b>Profil :</b> ${candidat.notes}</div>`:''}
+
+  <div style="margin-bottom:6px">
+    <div style="font-size:8pt;font-weight:700;color:${BLEU};text-transform:uppercase;letter-spacing:1px;margin-bottom:3px">Cours envisagés</div>
+    ${(candidat.candidatures||[]).length?`<table style="width:100%;border-collapse:collapse;font-size:8.5pt"><thead><tr style="background:#f1f5f9"><th style="padding:2px 6px;text-align:left">Cours</th><th style="padding:2px 6px;text-align:left">Section</th><th style="padding:2px 6px;text-align:center">Statut</th><th style="padding:2px 6px;text-align:right">Note</th></tr></thead><tbody>${(candidat.candidatures||[]).map((ca,i)=>{const st=STATUT[ca.statut]||STATUT.a_voir;return `<tr style="background:${i%2===0?'white':'#f8fafc'}"><td style="padding:2px 6px">${ca.cours_nom||ca.ue_nom||`UE ${ca.ue_num}`}</td><td style="padding:2px 6px;color:#6b7280">${ca.section||''}</td><td style="padding:2px 6px;text-align:center"><span style="background:${st.bg};color:${st.color};padding:1px 6px;border-radius:10px;font-size:8pt;font-weight:600">${st.label}</span></td><td style="padding:2px 6px;text-align:right;font-weight:700">${ca.note_globale!=null?ca.note_globale+'/5':'—'}</td></tr>`;}).join('')}</tbody></table>` : '<span style="color:#9ca3af;font-size:8.5pt">Aucune candidature</span>'}
+  </div>
+
+  ${entretienLibreHtml}
+  ${entretiensCoursHtml}
+
+  </div></body></html>`;
+
+  const w = window.open('','_blank');
+  if (!w) { alert('Autorisez les pop-ups pour imprimer.'); return; }
+  w.document.write(html); w.document.close();
+  setTimeout(()=>{ w.focus(); w.print(); }, 500);
+}
+
 /* ══════════════════════ VUE CANDIDATS GLOBALE ══════════════════════ */
 function VueCandidatsGlobal({ candidats, fonctions, grille, onRecharger }) {
   const [fiche, setFiche]   = useState(null);
@@ -1334,7 +1574,7 @@ function VueCandidatsGlobal({ candidats, fonctions, grille, onRecharger }) {
   const BLEU = '#1B2B4B', TURQ = '#00AACC';
   const LIKERT_LABELS = ['','Peu structurée','Partiellement','Structurée','Bien structurée','Très structurée'];
   const LIKERT_COLORS = ['','#ef4444','#f97316','#eab308','#22c55e','#0ea5e9'];
-  const grilleActive = grille || GRILLE_IIP;
+  const grilleActive = useMemo(() => grilleAvecTirage(grille || GRILLE_IIP), []);
   const toutesQs = grilleActive.flatMap(axe =>
     (axe.questions||[]).map(q => ({ axe: axe.axe||axe.libelle, q: q.libelle||q, couleur: axe.couleur }))
   );
@@ -1714,6 +1954,11 @@ function FicheCandidat({ candidat, fonctions, grille, onClose, onSaved }) {
         <div className="px-5 py-4 border-b border-gray-100 flex items-center justify-between sticky top-0 bg-white rounded-t-xl">
           <h3 className="text-lg font-bold text-iip-blue">Fiche candidat</h3>
           <div className="flex items-center gap-2">
+            <button onClick={() => genererFicheIndividuelle(candidat, grille)}
+              title="Imprimer la fiche synthèse"
+              className="text-xs border border-gray-300 text-gray-500 hover:bg-gray-50 rounded px-2.5 py-1.5 flex items-center gap-1.5">
+              🖨 PDF
+            </button>
             <button onClick={() => setEntretienLibre(true)}
               title="Mener un entretien sans cours attaché"
               className="text-xs border border-iip-turquoise text-iip-blue hover:bg-iip-turquoise/10 rounded px-2.5 py-1.5 flex items-center gap-1.5 font-medium">
@@ -2306,7 +2551,7 @@ function EditeurGrille({ grille, onSaved }) {
 
 /* ══════════════════════ ENTRETIEN LIBRE (sans cours attaché) ══════════════════════ */
 function EntretienLibre({ candidat, grille, onClose, onSaved }) {
-  const grilleActive = grille || GRILLE_IIP;
+  const grilleActive = useMemo(() => grilleAvecTirage(grille || GRILLE_IIP), []);
   const qIA = []; // pas d'axe IA sans cours ciblé
 
   const toutesQuestions = grilleActive.flatMap(axe =>

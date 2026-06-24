@@ -517,6 +517,7 @@ r.get('/grille', (req, res) => {
   const questions = db.prepare('SELECT * FROM recrutement_grille_question ORDER BY axe_id, ordre, id').all();
   res.json(axes.map(a => ({
     ...a,
+    nb_questions_tirees: a.nb_questions_tirees || 2,
     questions: questions.filter(q => q.axe_id === a.id),
   })));
 });
@@ -527,10 +528,13 @@ r.put('/grille', (req, res) => {
   if (!Array.isArray(axes)) return res.status(400).json({ error: 'Format invalide' });
   const tx = db.transaction(() => {
     db.prepare('DELETE FROM recrutement_grille_axe').run(); // CASCADE supprime les questions
-    const insAxe = db.prepare('INSERT INTO recrutement_grille_axe (libelle, couleur, ordre) VALUES (?, ?, ?)');
+    const insAxe = db.prepare('INSERT INTO recrutement_grille_axe (libelle, couleur, ordre, nb_questions_tirees, type_axe) VALUES (?, ?, ?, ?, ?)');
     const insQ   = db.prepare('INSERT INTO recrutement_grille_question (axe_id, libelle, ordre) VALUES (?, ?, ?)');
     axes.forEach((axe, ai) => {
-      const { lastInsertRowid: axeId } = insAxe.run(axe.libelle || 'Axe', axe.couleur || '#1B2B4B', ai);
+      const { lastInsertRowid: axeId } = insAxe.run(
+        axe.libelle || 'Axe', axe.couleur || '#1B2B4B', ai,
+        axe.nb_questions_tirees || 2, axe.type_axe || null
+      );
       (axe.questions || []).forEach((q, qi) => {
         if (q.libelle?.trim()) insQ.run(axeId, q.libelle.trim(), qi);
       });

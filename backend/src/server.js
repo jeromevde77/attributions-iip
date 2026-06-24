@@ -2341,10 +2341,12 @@ try {
 // ── Recrutement : grille de questions d'entretien éditable ────────────────────
 try {
   db.exec(`CREATE TABLE IF NOT EXISTS recrutement_grille_axe (
-    id       INTEGER PRIMARY KEY AUTOINCREMENT,
-    libelle  TEXT NOT NULL,
-    couleur  TEXT NOT NULL DEFAULT '#1B2B4B',
-    ordre    INTEGER NOT NULL DEFAULT 0
+    id                  INTEGER PRIMARY KEY AUTOINCREMENT,
+    libelle             TEXT NOT NULL,
+    couleur             TEXT NOT NULL DEFAULT '#1B2B4B',
+    ordre               INTEGER NOT NULL DEFAULT 0,
+    nb_questions_tirees INTEGER NOT NULL DEFAULT 2,
+    type_axe            TEXT
   );
   CREATE TABLE IF NOT EXISTS recrutement_grille_question (
     id      INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -2358,47 +2360,120 @@ try {
   // Insérer les données initiales IIP si la table est vide
   const nbAxes = db.prepare('SELECT COUNT(*) as n FROM recrutement_grille_axe').get().n;
   if (nbAxes === 0) {
-    const insAxe = db.prepare('INSERT INTO recrutement_grille_axe (libelle, couleur, ordre) VALUES (?, ?, ?)');
+    const insAxe = db.prepare('INSERT INTO recrutement_grille_axe (libelle, couleur, ordre, nb_questions_tirees, type_axe) VALUES (?, ?, ?, ?, ?)');
     const insQ   = db.prepare('INSERT INTO recrutement_grille_question (axe_id, libelle, ordre) VALUES (?, ?, ?)');
     const grille = [
-      { libelle: 'Axe 1 — Connaissance de la formation et du contexte', couleur: '#0369a1', questions: [
-        "Quelles sont, selon vous, les différences les plus marquantes entre le BIH (ancienne formation) et le BES AeSI (nouvelle formation) ?",
-        "Que savez-vous du cadre légal de cette nouvelle formation ?",
-        "Quelle sera la position du futur AeSI dans un service de soins en hôpital par exemple ?",
-        "Quel est le positionnement de l'EA par rapport à l'enseignement supérieur de type court ?",
-      ]},
-      { libelle: 'Axe 2 — Expérience professionnelle et clinique', couleur: '#7c3aed', questions: [
-        "Décrivez votre parcours professionnel dans le secteur des soins infirmiers (ou autre si vous êtes d'une autre formation).",
-        "Avez-vous une expérience d'encadrement de stagiaires ou d'étudiants en milieu clinique ?",
-        "Dans quels services ou spécialités avez-vous exercé ? Pendant combien d'années ?",
-        "Quels cours avez-vous déjà enseignés à l'IRF ? Sur quelle base juridique (titre requis / suffisant) ? Combien de temps ?",
-      ]},
-      { libelle: 'Axe 3 — Compétences pédagogiques', couleur: '#15803d', questions: [
-        "Comment organiseriez-vous vos nouveaux cours pour satisfaire un public de l'enseignement pour adultes ?",
-        "Avez-vous déjà donné cours à des groupes de 50 à 100 étudiants ?",
-        "Comment gérez-vous l'hétérogénéité d'un groupe (niveaux différents, adultes en reconversion, etc.) ?",
-        "Qu'est-ce qui selon vous différencie l'enseignement supérieur pour adultes et l'enseignement obligatoire au niveau de la pédagogie à mettre en place ?",
-        "Quelle est votre approche de l'évaluation formative vs certificative ?",
-        "Quelles seraient vos idées pour travailler la pratique réflexive avec les étudiants avant, pendant et après un stage ?",
-      ]},
-      { libelle: 'Axe 4 — Contraintes pratiques et administratives', couleur: '#b45309', questions: [
-        "Quel volume horaire hebdomadaire êtes-vous en mesure d'assumer (heures/semaine) ?",
-        "Avez-vous des contraintes de jours ou d'horaires (activité clinique en parallèle, etc.) ?",
-        "Connaissez-vous les attendus de l'IIP quant au travail invisible (jury, suivi de TFE, encadrement divers etc.) ?",
-        "Pour les encadrants de stage : pouvez-vous vous déplacer dans les milieux de stage partenaires ?",
-        "Êtes-vous flexible dans la mesure où l'organisation des cours en enseignement pour adulte ne se fait pas toujours sur une base fixe annuelle ?",
-      ]},
-      { libelle: 'Axe 5 — Capacité réflexive et posture enseignante', couleur: '#0d9488', questions: [
-        "Décrivez une situation professionnelle difficile que vous avez vécue. Qu'en avez-vous appris ?",
-        "Comment adaptez-vous votre pratique lorsque vous constatez qu'un groupe d'étudiants ne suit pas ou ne comprend pas ?",
-        "Quelle est, selon vous, la différence entre transmettre des connaissances et accompagner des apprentissages ?",
-        "Comment envisagez-vous votre propre développement professionnel en tant qu'enseignant·e ?",
-        "Face à un étudiant qui remet en question votre enseignement ou votre expertise, comment réagissez-vous ?",
-      ]},
+      {
+        libelle: 'Axe 1 — Connaissance du contexte IIP et de l\'enseignement pour adultes',
+        couleur: '#0369a1', nb: 2, type: 'contexte',
+        questions: [
+          "Que savez-vous de l'enseignement de promotion sociale et de sa différence avec l'enseignement supérieur ordinaire ?",
+          "Selon vous, quelles sont les caractéristiques spécifiques d'un public adulte en reprise d'études ?",
+          "Quel est le positionnement de l'Institut Ilya Prigogine dans le paysage de l'enseignement supérieur en FWB ?",
+          "Que savez-vous du cadre décrétuel qui régit nos formations (décret du 16 avril 1991) ?",
+          "En quoi le rapport entre un enseignant et un étudiant adulte diffère-t-il de ce qu'on observe dans l'enseignement secondaire ?",
+          "Quelle vision avez-vous du rôle de l'enseignant dans un établissement de promotion sociale par rapport à l'institution elle-même ?",
+        ]
+      },
+      {
+        libelle: 'Axe 2 — Expertise professionnelle et clinique',
+        couleur: '#7c3aed', nb: 2, type: 'expertise',
+        questions: [
+          "Décrivez votre parcours professionnel et les compétences que vous y avez développées en lien avec le cours proposé.",
+          "Dans quels contextes cliniques ou professionnels avez-vous exercé, et pendant combien de temps ?",
+          "Avez-vous une expérience d'encadrement de stagiaires, d'étudiants ou de collègues juniors ? Décrivez-la.",
+          "Quel est, selon vous, le lien entre votre pratique professionnelle actuelle et le cours que vous pourriez enseigner ?",
+          "Comment vous tenez-vous informé·e des évolutions de votre domaine professionnel ? Donnez un exemple récent.",
+          "Quelle est votre expérience en matière de rédaction professionnelle, de protocoles ou de documentation clinique ?",
+          "Avez-vous déjà participé à des projets de recherche, des publications ou des formations continues dans votre domaine ?",
+        ]
+      },
+      {
+        libelle: 'Axe 3 — Compétences pédagogiques et andragogie',
+        couleur: '#15803d', nb: 2, type: 'pedagogie',
+        questions: [
+          "Comment concevez-vous la différence entre enseigner à des adultes (andragogie) et enseigner à des jeunes (pédagogie) ?",
+          "Comment organiseriez-vous concrètement un cours de 3h pour un groupe de 40 adultes en reprise d'études ?",
+          "Quelle est votre approche de l'évaluation formative par rapport à l'évaluation certificative ? Donnez un exemple.",
+          "Comment gérez-vous l'hétérogénéité d'un groupe : niveaux différents, expériences variées, âges mêlés ?",
+          "Selon vous, quelle place doit avoir le numérique dans l'enseignement supérieur pour adultes aujourd'hui ?",
+          "Comment favoriseriez-vous la participation active d'adultes qui ont peur de 'ne plus être à niveau' ?",
+          "Comment articulez-vous théorie et pratique dans votre vision de l'enseignement ?",
+          "Quelle approche utiliseriez-vous pour préparer des étudiants à un stage ou à une situation professionnelle complexe ?",
+        ]
+      },
+      {
+        libelle: 'Axe 4 — Posture d\'écoute, communication et relation pédagogique',
+        couleur: '#0891b2', nb: 2, type: 'ecoute',
+        questions: [
+          "Comment détectez-vous qu'un étudiant est en difficulté ? Quelle est votre démarche ensuite ?",
+          "Comment gérez-vous un étudiant qui conteste votre expertise ou votre méthode devant le groupe ?",
+          "Décrivez comment vous établissez une relation de confiance avec un groupe que vous rencontrez pour la première fois.",
+          "Que faites-vous lorsque vous percevez une tension ou un conflit au sein d'un groupe d'étudiants ?",
+          "Comment expliquez-vous un concept complexe à quelqu'un qui ne comprend pas après une première explication ?",
+          "Quelle importance accordez-vous au feedback des étudiants sur votre enseignement ? Comment le recueillez-vous ?",
+          "Comment adaptez-vous votre communication selon le profil et les besoins de votre interlocuteur ?",
+        ]
+      },
+      {
+        libelle: 'Axe 5 — Dimension psychologique, gestion de soi et résilience',
+        couleur: '#dc2626', nb: 2, type: 'psycho',
+        questions: [
+          "Quel est votre mode de fonctionnement sous pression ou face à une charge de travail imprévue ?",
+          "Comment gérez-vous l'incertitude : un cours à préparer en urgence, un programme modifié en dernière minute ?",
+          "Avez-vous déjà vécu un échec professionnel ou pédagogique significatif ? Comment l'avez-vous traversé et qu'en avez-vous retiré ?",
+          "Qu'est-ce qui, selon vous, vous rendrait vulnérable dans ce rôle d'enseignant·e ? Comment vous en prémunissez-vous ?",
+          "Comment maintenez-vous votre motivation et votre énergie sur la durée, notamment dans un contexte de travail partiel à côté d'une activité principale ?",
+          "Comment réagissez-vous lorsque vos valeurs professionnelles entrent en tension avec les contraintes institutionnelles ?",
+          "Quelle est votre rapport à l'autorité, à la hiérarchie et aux règles institutionnelles dans un établissement scolaire ?",
+        ]
+      },
+      {
+        libelle: 'Axe 6 — Question situationnelle (SI : que feriez-vous si…)',
+        couleur: '#ea580c', nb: 2, type: 'situationnel',
+        questions: [
+          "Un étudiant adulte s'effondre émotionnellement en classe après avoir évoqué une situation personnelle difficile. Que faites-vous ?",
+          "Vous vous rendez compte, au milieu de votre cours, que le groupe n'a pas du tout le niveau prérequis pour comprendre la matière. Quelle est votre réaction immédiate ?",
+          "Un étudiant vous accuse publiquement d'avoir été injuste dans une notation. Quelle est votre démarche ?",
+          "Vous devez remplacer au pied levé un collègue sur un cours que vous ne maîtrisez pas parfaitement. Comment procédez-vous ?",
+          "Deux étudiants ont manifestement copié l'un sur l'autre lors d'un travail. Comment gérez-vous cette situation ?",
+          "Un étudiant très avancé monopolise les échanges et démotive le reste du groupe. Que faites-vous ?",
+          "Vous réalisez en cours d'année que votre méthode d'évaluation est inadaptée au groupe. Que faites-vous ?",
+          "Un étudiant handicapé ou en situation de vulnérabilité réclame des aménagements que vous ne savez pas comment mettre en œuvre. Quelle est votre démarche ?",
+        ]
+      },
+      {
+        libelle: 'Axe 7 — Question comportementale (STAR : décrivez une situation vécue)',
+        couleur: '#7e22ce', nb: 2, type: 'comportemental',
+        questions: [
+          "Décrivez une situation où vous avez dû adapter votre communication pour vous faire comprendre d'un public très hétérogène.",
+          "Racontez une expérience où vous avez fait face à une résistance forte de la part d'un apprenant ou d'un groupe. Qu'avez-vous fait ?",
+          "Donnez un exemple d'une situation où vous avez commis une erreur professionnelle ou pédagogique. Comment l'avez-vous gérée ?",
+          "Décrivez une situation où vous avez dû prendre une décision difficile sous pression, avec peu d'informations. Quel a été votre processus ?",
+          "Racontez une expérience où vous avez travaillé en équipe avec des collègues aux approches ou valeurs très différentes des vôtres.",
+          "Donnez un exemple d'une situation dans laquelle vous avez dû innover ou improviser face à un imprévu dans un contexte professionnel ou d'enseignement.",
+          "Décrivez une situation où vous avez accompagné quelqu'un (étudiant, collègue, patient) vers une évolution ou une prise de conscience significative.",
+          "Racontez un moment où vous avez reçu un feedback difficile à accepter sur votre travail. Comment l'avez-vous intégré ?",
+        ]
+      },
+      {
+        libelle: 'Axe 8 — Réflexivité, développement professionnel et posture critique',
+        couleur: '#0d9488', nb: 2, type: 'reflexif',
+        questions: [
+          "Qu'est-ce qui, dans votre parcours, vous a le plus transformé en tant que professionnel·le ? Pourquoi ?",
+          "Comment envisagez-vous votre propre développement en tant qu'enseignant·e ? Quelles compétences souhaitez-vous développer ?",
+          "Quelle est, selon vous, la différence entre un bon praticien et un bon enseignant ?",
+          "Que pensez-vous apporter à vos étudiants que les livres ou les cours en ligne ne peuvent pas donner ?",
+          "Comment définiriez-vous votre propre style d'enseignement, et sur quoi repose-t-il ?",
+          "Quelle est votre conception de l'erreur dans le processus d'apprentissage, tant pour vous que pour vos étudiants ?",
+          "Si vous deviez vous définir en trois mots en tant qu'enseignant·e, lesquels choisiriez-vous et pourquoi ?",
+          "Qu'est-ce qui vous rendrait fier·ère de votre passage à l'IIP dans 5 ans ?",
+        ]
+      },
     ];
     const tx = db.transaction(() => {
       grille.forEach((axe, ai) => {
-        const { lastInsertRowid: axeId } = insAxe.run(axe.libelle, axe.couleur, ai);
+        const { lastInsertRowid: axeId } = insAxe.run(axe.libelle, axe.couleur, ai, axe.nb || 2, axe.type || null);
         axe.questions.forEach((q, qi) => insQ.run(axeId, q, qi));
       });
     });
@@ -2407,6 +2482,13 @@ try {
   }
 
   // Ajouter l'axe 5 si la grille existe déjà sans lui
+  // Ajouter nb_questions_tirees si absent
+  try {
+    const colsAxe = db.prepare('PRAGMA table_info(recrutement_grille_axe)').all().map(c=>c.name);
+    if (!colsAxe.includes('nb_questions_tirees')) db.exec('ALTER TABLE recrutement_grille_axe ADD COLUMN nb_questions_tirees INTEGER NOT NULL DEFAULT 2');
+    if (!colsAxe.includes('type_axe')) db.exec('ALTER TABLE recrutement_grille_axe ADD COLUMN type_axe TEXT');
+  } catch(e) {}
+
   const aAxe5 = db.prepare("SELECT id FROM recrutement_grille_axe WHERE libelle LIKE '%Capacité réflexive%'").get();
   if (!aAxe5) {
     const maxOrdre = db.prepare('SELECT MAX(ordre) as m FROM recrutement_grille_axe').get().m || 4;
