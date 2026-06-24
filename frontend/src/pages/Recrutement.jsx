@@ -1160,11 +1160,9 @@ function VueParallele({ postes, candidats, fonctions, annee, onRecharger }) {
     const cand = candidats.find(c => c.id === dragId);
     if (!cand) return;
     try {
-      await af('/candidats', {
+      await af(`/candidats/${cand.id}/candidatures`, {
         method: 'POST',
         body: JSON.stringify({
-          nom: cand.nom, email: cand.email, telephone: cand.telephone,
-          cv_url: cand.cv_url, notes: cand.notes,
           annee, ue_num: poste.ue_num, code_cours: poste.code_cours, section: poste.section,
         }),
       });
@@ -1172,7 +1170,7 @@ function VueParallele({ postes, candidats, fonctions, annee, onRecharger }) {
       setTimeout(() => setFeedback(''), 3000);
       onRecharger();
     } catch (e) {
-      if (e.message.includes('déjà rattaché') || e.message.includes('UNIQUE')) {
+      if (e.message.includes('déjà rattaché') || e.message.includes('UNIQUE') || e.message.includes('409')) {
         setFeedback(`${cand.prenom ? cand.prenom + ' ' : ''}${cand.nom} est déjà candidat pour ce cours`);
         setTimeout(() => setFeedback(''), 3000);
       } else { alert(e.message); }
@@ -1969,10 +1967,7 @@ function FicheCandidat({ candidat, fonctions, grille, onClose, onSaved }) {
                   if (!codeCours && cours.length !== 0) return;
                   setAjoutBusy(true);
                   try {
-                    await af('/candidats', { method: 'POST', body: JSON.stringify({
-                      nom: f.nom || candidat.nom,
-                      prenom: f.prenom || candidat.prenom,
-                      email: f.email || candidat.email,
+                    await af(`/candidats/${candidat.id}/candidatures`, { method: 'POST', body: JSON.stringify({
                       annee: annee,
                       ue_num: selUE,
                       code_cours: codeCours,
@@ -1981,7 +1976,7 @@ function FicheCandidat({ candidat, fonctions, grille, onClose, onSaved }) {
                     setSelSection(''); setSelUE(''); setSelCours('');
                     rechargerCandidatures();
                   } catch (e) {
-                    if (e.message.includes('UNIQUE') || e.message.includes('déjà')) {
+                    if (e.message.includes('UNIQUE') || e.message.includes('déjà') || e.message.includes('409')) {
                       alert('Ce candidat est déjà associé à ce cours.');
                     } else { alert(e.message); }
                   } finally { setAjoutBusy(false); }
@@ -2008,113 +2003,134 @@ function FicheCandidat({ candidat, fonctions, grille, onClose, onSaved }) {
           onClose={() => setAjoutQual(false)}
           onAjouter={(q) => {
             setF(prev => ({ ...prev, qualifications: [...(prev.qualifications || []), q] }));
-            setAjoutQual(false);
           }}
+          onFermer={() => setAjoutQual(false)}
         />
       )}
     </>
   );
 }
-/* ── Modal ajout titre/diplôme ── */
-function ModalAjoutQualification({ onClose, onAjouter }) {
-  const [niveau, setNiveau]         = useState('');
-  const [diplome, setDiplome]       = useState('');
-  const [diplomeAutre, setDiplomeAutre] = useState('');
-  const [titrePeda, setTitrePeda]   = useState('');
-  const [err, setErr]               = useState('');
+/* ── Modal ajout titre/diplôme — interface linéaire ── */
+function ModalAjoutQualification({ onClose, onAjouter, onFermer }) {
+  // Chaque ligne = { niveau, diplome, diplome_autre, titre_peda }
+  const [lignes, setLignes] = useState([{ niveau: '', diplome: '', diplome_autre: '', titre_peda: '' }]);
+
+  const majLigne = (i, champ, val) => setLignes(l => l.map((x, j) => j === i ? { ...x, [champ]: val, ...(champ === 'niveau' ? { diplome: '', diplome_autre: '' } : {}) } : x));
+  const ajouterLigne = () => setLignes(l => [...l, { niveau: '', diplome: '', diplome_autre: '', titre_peda: '' }]);
+  const retirerLigne = (i) => setLignes(l => l.filter((_, j) => j !== i));
 
   const valider = () => {
-    if (!niveau && !titrePeda) { setErr('Choisissez au moins un niveau d\'étude ou un titre pédagogique.'); return; }
-    onAjouter({ niveau, diplome, diplome_autre: diplomeAutre, titre_peda: titrePeda });
+    const valides = lignes.filter(l => l.niveau || l.titre_peda);
+    if (!valides.length) { alert("Complétez au moins un titre ou un niveau d'étude."); return; }
+    valides.forEach(q => onAjouter(q));
+    (onFermer || onClose)();
   };
-
-  const dipListe = DIPLOMES_FWB[niveau] || [];
 
   return (
     <div className="fixed inset-0 bg-black/50 z-[70] flex items-center justify-center p-4"
       onClick={onClose}>
-      <div className="bg-white rounded-xl shadow-2xl w-full max-w-lg"
+      <div className="bg-white rounded-xl shadow-2xl w-full max-w-2xl max-h-[90vh] flex flex-col"
         onClick={e => e.stopPropagation()}>
 
-        <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100">
-          <h3 className="text-base font-bold text-iip-blue">Ajouter un titre ou un diplôme</h3>
+        <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100 flex-shrink-0">
+          <div>
+            <h3 className="text-base font-bold text-iip-blue">Titres et diplômes</h3>
+            <p className="text-xs text-gray-400 mt-0.5">Ajoutez une ligne par titre ou diplôme. Encodez directement depuis le CV.</p>
+          </div>
           <button onClick={onClose} className="text-gray-400 hover:text-gray-600"><IconX size={18} /></button>
         </div>
 
-        <div className="px-5 py-4 space-y-4">
-          {err && <div className="text-xs text-red-600 bg-red-50 rounded px-3 py-2">{err}</div>}
+        <div className="overflow-auto flex-1 px-5 py-4 space-y-3">
+          {lignes.map((l, i) => {
+            const dipListe = DIPLOMES_FWB[l.niveau] || [];
+            return (
+              <div key={i} className="border border-gray-200 rounded-lg p-3 bg-gray-50/50">
+                <div className="flex items-center justify-between mb-2">
+                  <div className="text-xs font-semibold text-gray-500">Titre {i + 1}</div>
+                  {lignes.length > 1 && (
+                    <button onClick={() => retirerLigne(i)} className="text-gray-300 hover:text-red-400">
+                      <IconX size={14} />
+                    </button>
+                  )}
+                </div>
 
-          {/* Niveau d'étude */}
-          <div>
-            <div className="text-xs font-semibold text-gray-600 mb-1.5">Niveau d'étude (Cadre Francophone des Certifications)</div>
-            <div className="grid grid-cols-2 gap-1.5">
-              {NIVEAUX_ETUDE.map(n => (
-                <button key={n.val} type="button" onClick={() => { setNiveau(niveau === n.val ? '' : n.val); setDiplome(''); setDiplomeAutre(''); }}
-                  className={`text-left text-xs px-3 py-2 rounded-lg border-2 transition ${
-                    niveau === n.val
-                      ? 'bg-iip-blue text-white border-iip-blue font-semibold'
-                      : 'border-gray-200 text-gray-600 hover:border-iip-blue/40'
-                  }`}>
-                  {n.label}
-                </button>
-              ))}
-            </div>
-          </div>
+                {/* Ligne 1 : Niveau d'étude (pills horizontales) */}
+                <div className="mb-2">
+                  <div className="text-[10px] text-gray-400 mb-1 uppercase tracking-wide">Niveau (CFC)</div>
+                  <div className="flex flex-wrap gap-1">
+                    {NIVEAUX_ETUDE.map(n => (
+                      <button key={n.val} type="button"
+                        onClick={() => majLigne(i, 'niveau', l.niveau === n.val ? '' : n.val)}
+                        className={`text-[11px] px-2.5 py-1 rounded-full border transition ${
+                          l.niveau === n.val
+                            ? 'bg-iip-blue text-white border-iip-blue font-semibold'
+                            : 'border-gray-300 text-gray-600 hover:border-iip-blue/50 bg-white'
+                        }`}>
+                        {n.label.split('—')[0].trim()}
+                      </button>
+                    ))}
+                  </div>
+                </div>
 
-          {/* Diplôme lié au niveau */}
-          {niveau && (
-            <div>
-              <div className="text-xs font-semibold text-gray-600 mb-1.5">Diplôme (FWB)</div>
-              {dipListe.length > 0 ? (
-                <select value={diplome} onChange={e => { setDiplome(e.target.value); setDiplomeAutre(''); }}
-                  className="w-full text-sm border border-gray-300 rounded-lg px-3 py-2 h-9">
-                  <option value="">— choisir dans la liste —</option>
-                  {dipListe.map(d => <option key={d.val} value={d.val}>{d.label}</option>)}
-                </select>
-              ) : null}
-              {(!diplome || dipListe.length === 0) && (
-                <input value={diplomeAutre} onChange={e => setDiplomeAutre(e.target.value)}
-                  placeholder={dipListe.length ? 'Ou préciser un diplôme non listé…' : 'Préciser le diplôme…'}
-                  className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 h-9 mt-1.5" />
-              )}
-            </div>
-          )}
+                {/* Ligne 2 : Diplôme (select + champ libre) */}
+                {l.niveau && (
+                  <div className="mb-2 flex gap-2 items-start">
+                    <div className="flex-1">
+                      <div className="text-[10px] text-gray-400 mb-1 uppercase tracking-wide">Diplôme</div>
+                      {dipListe.length > 0 ? (
+                        <select value={l.diplome} onChange={e => majLigne(i, 'diplome', e.target.value)}
+                          className="w-full text-xs border border-gray-300 rounded px-2 py-1.5 h-8">
+                          <option value="">— choisir —</option>
+                          {dipListe.map(d => <option key={d.val} value={d.val}>{d.label}</option>)}
+                          <option value="__autre__">Autre (préciser ci-dessous)</option>
+                        </select>
+                      ) : null}
+                      {(!l.diplome || l.diplome === '__autre__' || dipListe.length === 0) && (
+                        <input value={l.diplome_autre} onChange={e => majLigne(i, 'diplome_autre', e.target.value)}
+                          placeholder="Préciser le diplôme…"
+                          className="w-full text-xs border border-gray-200 rounded px-2 py-1.5 h-8 mt-1" />
+                      )}
+                    </div>
+                  </div>
+                )}
 
-          {/* Titre pédagogique — indépendant */}
-          <div>
-            <div className="text-xs font-semibold text-gray-600 mb-1.5">Titre pédagogique</div>
-            <div className="flex flex-wrap gap-1.5">
-              {TITRES_PEDA.map(t => (
-                <button key={t.val} type="button"
-                  onClick={() => setTitrePeda(titrePeda === t.val ? '' : t.val)}
-                  className={`text-xs px-3 py-1.5 rounded-full border-2 transition ${
-                    titrePeda === t.val
-                      ? 'bg-iip-turquoise text-white border-iip-turquoise font-semibold'
-                      : 'border-gray-200 text-gray-600 hover:border-iip-turquoise/50'
-                  }`}>
-                  {t.label}
-                </button>
-              ))}
-            </div>
-          </div>
+                {/* Ligne 3 : Titre pédagogique (pills) */}
+                <div>
+                  <div className="text-[10px] text-gray-400 mb-1 uppercase tracking-wide">Titre pédagogique (optionnel)</div>
+                  <div className="flex flex-wrap gap-1">
+                    {TITRES_PEDA.map(t => (
+                      <button key={t.val} type="button"
+                        onClick={() => majLigne(i, 'titre_peda', l.titre_peda === t.val ? '' : t.val)}
+                        className={`text-[11px] px-2.5 py-1 rounded-full border transition ${
+                          l.titre_peda === t.val
+                            ? 'bg-iip-turquoise text-white border-iip-turquoise font-semibold'
+                            : 'border-gray-300 text-gray-600 hover:border-iip-turquoise/50 bg-white'
+                        }`}>
+                        {t.label.split('—')[0].trim()}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            );
+          })}
 
-          {/* Aperçu */}
-          {(niveau || titrePeda) && (
-            <div className="bg-gray-50 rounded-lg px-3 py-2 text-xs text-gray-600 border border-gray-200">
-              <span className="font-semibold text-iip-blue">Aperçu : </span>
-              {NIVEAUX_ETUDE.find(n => n.val === niveau)?.label}
-              {(diplome && Object.values(DIPLOMES_FWB).flat().find(d => d.val === diplome)) && (
-                <span className="text-gray-500"> · {Object.values(DIPLOMES_FWB).flat().find(d => d.val === diplome)?.label}</span>
-              )}
-              {diplomeAutre && <span className="text-gray-500 italic"> · {diplomeAutre}</span>}
-              {titrePeda && <span className="text-iip-turquoise font-medium"> · {TITRES_PEDA.find(t => t.val === titrePeda)?.label}</span>}
-            </div>
-          )}
+          <button onClick={ajouterLigne}
+            className="w-full border-2 border-dashed border-gray-200 rounded-lg py-2 text-xs text-gray-400 hover:border-iip-blue hover:text-iip-blue flex items-center justify-center gap-1.5 transition">
+            <IconPlus size={13} /> Ajouter un autre titre ou diplôme
+          </button>
         </div>
 
-        <div className="px-5 py-3 border-t border-gray-100 flex justify-end gap-2">
-          <Btn variant="ghost" onClick={onClose}>Annuler</Btn>
-          <Btn variant="primary" icon={IconCheck} onClick={valider}>Ajouter</Btn>
+        <div className="px-5 py-3 border-t border-gray-100 flex justify-between items-center flex-shrink-0">
+          <div className="text-xs text-gray-400">
+            {lignes.filter(l => l.niveau || l.titre_peda).length} titre{lignes.filter(l => l.niveau || l.titre_peda).length > 1 ? 's' : ''} complété{lignes.filter(l => l.niveau || l.titre_peda).length > 1 ? 's' : ''}
+          </div>
+          <div className="flex gap-2">
+            <Btn variant="ghost" onClick={onClose}>Annuler</Btn>
+            <Btn variant="primary" icon={IconCheck} onClick={valider}>
+              Enregistrer ({lignes.filter(l => l.niveau || l.titre_peda).length})
+            </Btn>
+          </div>
         </div>
       </div>
     </div>

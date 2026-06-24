@@ -222,6 +222,24 @@ r.delete('/candidats/:id', (req, res) => {
   res.json({ ok: true });
 });
 
+// POST /candidats/:id/candidatures — ajoute une candidature à un candidat existant
+r.post('/candidats/:id/candidatures', (req, res) => {
+  const { annee, ue_num, code_cours, section } = req.body;
+  const c = db.prepare('SELECT id FROM recrutement_candidat WHERE id = ?').get(req.params.id);
+  if (!c) return res.status(404).json({ error: 'Candidat introuvable' });
+  if (!annee || !ue_num || !section) return res.status(400).json({ error: 'annee, ue_num et section requis' });
+  try {
+    const info = db.prepare(`INSERT INTO recrutement_candidature
+      (candidat_id, annee_scolaire, ue_num, code_cours, section, statut)
+      VALUES (?, ?, ?, ?, ?, 'a_voir')`
+    ).run(c.id, annee, ue_num, code_cours || null, section);
+    res.json({ id: info.lastInsertRowid });
+  } catch(e) {
+    if (e.message.includes('UNIQUE')) return res.status(409).json({ error: 'Ce candidat est déjà rattaché à ce cours' });
+    throw e;
+  }
+});
+
 r.post('/candidats', (req, res) => {
   const { nom, prenom, email, telephone, cv_url, notes, annee, ue_num, code_cours, section } = req.body;
   if (!nom) return res.status(400).json({ error: 'Nom requis' });
