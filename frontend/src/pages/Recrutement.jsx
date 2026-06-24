@@ -750,6 +750,14 @@ function CarteCandidatPoste({ candidature: c, onChange, onEntretien }) {
 
 /* ══════════════════════ GRILLE D'ENTRETIEN ══════════════════════ */
 
+const LIKERT_REFLEXIF = [
+  { val: 1, label: 'Descriptif',     desc: "Décrit les faits sans analyse",                       color: '#ef4444' },
+  { val: 2, label: 'Analytique',     desc: "Identifie les causes et conséquences",                color: '#f97316' },
+  { val: 3, label: 'Réflexif',       desc: "Questionne ses pratiques et ses représentations",     color: '#eab308' },
+  { val: 4, label: 'Critique',       desc: "Remet en question les présupposés, prise de recul",   color: '#22c55e' },
+  { val: 5, label: 'Transformatif',  desc: "Change de posture, apprend et se transforme",         color: '#0ea5e9' },
+];
+
 const GRILLE_IIP = [
   {
     axe: 'Axe 1 — Connaissance de la formation et du contexte',
@@ -943,6 +951,8 @@ function EntretienModal({ candidature, poste, annee, qIA, grille, onClose, onSav
 
   const [reponses, setReponses] = useState(initReponses);
   const [commentaireGlobal, setCommentaireGlobal] = useState(candidature.commentaire || '');
+  const [reflexifNiveau, setReflexifNiveau]       = useState(candidature.reflexif_niveau || 0);
+  const [reflexifCommentaire, setReflexifCommentaire] = useState(candidature.reflexif_commentaire || '');
   const [saving, setSaving]     = useState(false);
   const [saved, setSaved]       = useState(false);
 
@@ -967,6 +977,8 @@ function EntretienModal({ candidature, poste, annee, qIA, grille, onClose, onSav
           reponses_json: reponses,
           commentaire: commentaireGlobal,
           note_globale: noteGlobale,
+          reflexif_niveau: reflexifNiveau || null,
+          reflexif_commentaire: reflexifCommentaire || null,
           statut: candidature.statut === 'a_voir' ? 'entretien' : candidature.statut,
         }),
       });
@@ -1067,9 +1079,44 @@ function EntretienModal({ candidature, poste, annee, qIA, grille, onClose, onSav
               value={commentaireGlobal}
               onChange={e => setCommentaireGlobal(e.target.value)}
               placeholder="Impression générale, points forts, réserves, recommandation…"
-              rows={4}
+              rows={3}
               className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 resize-none focus:outline-none focus:border-iip-turquoise"
             />
+          </div>
+
+          {/* Appréciation réflexive */}
+          <div className="bg-teal-50 border border-teal-200 rounded-xl p-4 shadow-sm">
+            <div className="flex items-center gap-2 mb-3">
+              <div className="text-sm font-semibold text-teal-800">Appréciation du niveau réflexif</div>
+              <div className="text-xs text-teal-600">Évaluation globale de la posture réflexive du candidat</div>
+            </div>
+            <div className="flex flex-wrap gap-2 mb-3">
+              {LIKERT_REFLEXIF.map(({ val, label, desc, color }) => (
+                <button key={val} type="button"
+                  onClick={() => setReflexifNiveau(reflexifNiveau === val ? 0 : val)}
+                  title={desc}
+                  className={`flex flex-col items-center px-3 py-2 rounded-lg border-2 transition text-left ${
+                    reflexifNiveau === val
+                      ? 'text-white shadow-md scale-105'
+                      : 'bg-white border-gray-200 text-gray-500 hover:border-gray-300'
+                  }`}
+                  style={reflexifNiveau === val ? { background: color, borderColor: color } : {}}>
+                  <span className="font-bold text-sm">{val} — {label}</span>
+                  <span className={`text-[10px] mt-0.5 leading-tight ${reflexifNiveau === val ? 'text-white/80' : 'text-gray-400'}`}>
+                    {desc}
+                  </span>
+                </button>
+              ))}
+            </div>
+            {reflexifNiveau > 0 && (
+              <textarea
+                value={reflexifCommentaire}
+                onChange={e => setReflexifCommentaire(e.target.value)}
+                placeholder="Observations sur la posture réflexive : exemples concrets, nuances…"
+                rows={2}
+                className="w-full text-sm border border-teal-200 rounded-lg px-3 py-1.5 resize-none focus:outline-none focus:border-teal-400 bg-white"
+              />
+            )}
             <div className="flex justify-between items-center mt-3">
               <div className="text-xs text-gray-400">
                 {notees.length} question{notees.length > 1 ? 's' : ''} évaluée{notees.length > 1 ? 's' : ''} sur {toutesQuestions.length}
@@ -1370,6 +1417,8 @@ function VueCandidatsGlobal({ candidats, fonctions, grille, onRecharger }) {
           </div>
           ${rows?headerQ+rows+`</tbody></table>`:''}
           ${c.entretien_commentaire?`<div style="background:#f8fafc;border-left:3px solid ${TURQ};padding:4px 8px;font-size:8.5pt;margin-top:4px"><b>Bilan :</b> ${c.entretien_commentaire}</div>`:''}
+          ${c.reflexif_niveau?(() => { const r=LIKERT_REFLEXIF.find(x=>x.val===c.reflexif_niveau); return r?`<div style="margin-top:5px;display:flex;align-items:center;gap:8px"><span style="background:${r.color};color:white;padding:2px 10px;border-radius:10px;font-size:8.5pt;font-weight:700">Réflexivité : ${r.val} — ${r.label}</span><span style="font-size:8pt;color:#374151;font-style:italic">${r.desc}</span></div>`:''; })():''}
+          ${c.reflexif_commentaire?`<div style="font-size:8pt;color:#374151;margin-top:2px"><b>Observations :</b> ${c.reflexif_commentaire}</div>`:''}
         </div>`;
       })() : '';
 
@@ -1603,11 +1652,13 @@ function FicheCandidat({ candidat, fonctions, grille, onClose, onSaved }) {
       candidat={candidat}
       grille={grille}
       onClose={() => setEntretienLibre(false)}
-      onSaved={async (reponses, note, commentaire) => {
+      onSaved={async (reponses, note, commentaire, rn, rc) => {
         await af(`/candidats/${candidat.id}`, { method: 'PATCH', body: JSON.stringify({
           entretien_reponses: reponses,
           entretien_note: note,
           entretien_commentaire: commentaire,
+          reflexif_niveau: rn,
+          reflexif_commentaire: rc,
         })});
         setEntretienLibre(false);
         onSaved();
@@ -2136,6 +2187,8 @@ function EntretienLibre({ candidat, grille, onClose, onSaved }) {
 
   const [reponses, setReponses]             = useState(initReponses);
   const [commentaireGlobal, setCommentaireGlobal] = useState(candidat.entretien_commentaire || '');
+  const [reflexifNiveau, setReflexifNiveau]       = useState(candidat.reflexif_niveau || 0);
+  const [reflexifCommentaire, setReflexifCommentaire] = useState(candidat.reflexif_commentaire || '');
   const [saving, setSaving]                 = useState(false);
   const [saved, setSaved]                   = useState(false);
 
@@ -2152,7 +2205,7 @@ function EntretienLibre({ candidat, grille, onClose, onSaved }) {
   const sauvegarder = async () => {
     setSaving(true);
     try {
-      await onSaved(reponses, noteGlobale, commentaireGlobal);
+      await onSaved(reponses, noteGlobale, commentaireGlobal, reflexifNiveau || null, reflexifCommentaire || null);
       setSaved(true); setTimeout(() => setSaved(false), 2000);
     } finally { setSaving(false); }
   };
@@ -2236,8 +2289,34 @@ function EntretienLibre({ candidat, grille, onClose, onSaved }) {
           <div className="bg-white border border-gray-200 rounded-xl p-4 shadow-sm">
             <div className="text-sm font-semibold text-iip-blue mb-2">Bilan global</div>
             <textarea value={commentaireGlobal} onChange={e => setCommentaireGlobal(e.target.value)}
-              placeholder="Impression générale, points forts, réserves, recommandation…" rows={4}
+              placeholder="Impression générale, points forts, réserves, recommandation…" rows={3}
               className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 resize-none focus:outline-none focus:border-iip-turquoise" />
+          </div>
+
+          <div className="bg-teal-50 border border-teal-200 rounded-xl p-4 shadow-sm">
+            <div className="flex items-center gap-2 mb-3">
+              <div className="text-sm font-semibold text-teal-800">Appréciation du niveau réflexif</div>
+              <div className="text-xs text-teal-600 hidden sm:block">Évaluation globale de la posture réflexive</div>
+            </div>
+            <div className="flex flex-wrap gap-2 mb-3">
+              {LIKERT_REFLEXIF.map(({ val, label, desc, color }) => (
+                <button key={val} type="button"
+                  onClick={() => setReflexifNiveau(reflexifNiveau === val ? 0 : val)}
+                  title={desc}
+                  className={`flex flex-col items-start px-3 py-2 rounded-lg border-2 transition ${
+                    reflexifNiveau === val ? 'text-white shadow-md scale-105' : 'bg-white border-gray-200 text-gray-500 hover:border-gray-300'
+                  }`}
+                  style={reflexifNiveau === val ? { background: color, borderColor: color } : {}}>
+                  <span className="font-bold text-sm">{val} — {label}</span>
+                  <span className={`text-[10px] mt-0.5 leading-tight ${reflexifNiveau === val ? 'text-white/80' : 'text-gray-400'}`}>{desc}</span>
+                </button>
+              ))}
+            </div>
+            {reflexifNiveau > 0 && (
+              <textarea value={reflexifCommentaire} onChange={e => setReflexifCommentaire(e.target.value)}
+                placeholder="Observations : exemples concrets, nuances, points d'attention…" rows={2}
+                className="w-full text-sm border border-teal-200 rounded-lg px-3 py-1.5 resize-none focus:outline-none focus:border-teal-400 bg-white" />
+            )}
             <div className="flex justify-between items-center mt-3">
               <div className="text-xs text-gray-400">
                 {notees.length} question{notees.length > 1 ? 's' : ''} évaluée{notees.length > 1 ? 's' : ''} sur {toutesQuestions.length}

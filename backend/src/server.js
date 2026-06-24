@@ -2388,6 +2388,13 @@ try {
         "Pour les encadrants de stage : pouvez-vous vous déplacer dans les milieux de stage partenaires ?",
         "Êtes-vous flexible dans la mesure où l'organisation des cours en enseignement pour adulte ne se fait pas toujours sur une base fixe annuelle ?",
       ]},
+      { libelle: 'Axe 5 — Capacité réflexive et posture enseignante', couleur: '#0d9488', questions: [
+        "Décrivez une situation professionnelle difficile que vous avez vécue. Qu'en avez-vous appris ?",
+        "Comment adaptez-vous votre pratique lorsque vous constatez qu'un groupe d'étudiants ne suit pas ou ne comprend pas ?",
+        "Quelle est, selon vous, la différence entre transmettre des connaissances et accompagner des apprentissages ?",
+        "Comment envisagez-vous votre propre développement professionnel en tant qu'enseignant·e ?",
+        "Face à un étudiant qui remet en question votre enseignement ou votre expertise, comment réagissez-vous ?",
+      ]},
     ];
     const tx = db.transaction(() => {
       grille.forEach((axe, ai) => {
@@ -2396,7 +2403,25 @@ try {
       });
     });
     tx();
-    console.log('[migration] Grille IIP initiale insérée (4 axes, 19 questions)');
+    console.log('[migration] Grille IIP initiale insérée (5 axes, 24 questions)');
+  }
+
+  // Ajouter l'axe 5 si la grille existe déjà sans lui
+  const aAxe5 = db.prepare("SELECT id FROM recrutement_grille_axe WHERE libelle LIKE '%Capacité réflexive%'").get();
+  if (!aAxe5) {
+    const maxOrdre = db.prepare('SELECT MAX(ordre) as m FROM recrutement_grille_axe').get().m || 4;
+    const { lastInsertRowid: axeId } = db.prepare(
+      'INSERT INTO recrutement_grille_axe (libelle, couleur, ordre) VALUES (?, ?, ?)'
+    ).run('Axe 5 — Capacité réflexive et posture enseignante', '#0d9488', maxOrdre + 1);
+    const insQ = db.prepare('INSERT INTO recrutement_grille_question (axe_id, libelle, ordre) VALUES (?, ?, ?)');
+    [
+      "Décrivez une situation professionnelle difficile que vous avez vécue. Qu'en avez-vous appris ?",
+      "Comment adaptez-vous votre pratique lorsque vous constatez qu'un groupe d'étudiants ne suit pas ou ne comprend pas ?",
+      "Quelle est, selon vous, la différence entre transmettre des connaissances et accompagner des apprentissages ?",
+      "Comment envisagez-vous votre propre développement professionnel en tant qu'enseignant·e ?",
+      "Face à un étudiant qui remet en question votre enseignement ou votre expertise, comment réagissez-vous ?",
+    ].forEach((q, qi) => insQ.run(axeId, q, qi));
+    console.log('[migration] Axe 5 Réflexivité ajouté à la grille existante');
   }
   console.log('[migration] Table recrutement_grille créée');
 } catch(e) { console.error('[migration] recrutement_grille :', e.message); }
@@ -2409,7 +2434,16 @@ try {
   if (!cols.includes('titre_peda'))    db.exec("ALTER TABLE recrutement_candidat ADD COLUMN titre_peda TEXT");
   if (!cols.includes('diplome'))       db.exec("ALTER TABLE recrutement_candidat ADD COLUMN diplome TEXT");
   if (!cols.includes('diplome_autre')) db.exec("ALTER TABLE recrutement_candidat ADD COLUMN diplome_autre TEXT");
+  if (!cols.includes('reflexif_niveau'))      db.exec("ALTER TABLE recrutement_candidat ADD COLUMN reflexif_niveau INTEGER");
+  if (!cols.includes('reflexif_commentaire')) db.exec("ALTER TABLE recrutement_candidat ADD COLUMN reflexif_commentaire TEXT");
 } catch(e) { console.error('[migration] niveau_etude/titre_peda/diplome :', e.message); }
+
+// ── Réflexivité sur candidature ───────────────────────────────────────────────
+try {
+  const colsCand = db.prepare('PRAGMA table_info(recrutement_candidature)').all().map(c => c.name);
+  if (!colsCand.includes('reflexif_niveau'))      db.exec("ALTER TABLE recrutement_candidature ADD COLUMN reflexif_niveau INTEGER");
+  if (!colsCand.includes('reflexif_commentaire')) db.exec("ALTER TABLE recrutement_candidature ADD COLUMN reflexif_commentaire TEXT");
+} catch(e) { console.error('[migration] reflexif candidature :', e.message); }
 
 // ── Recrutement : ajout reponses_json sur candidature v2 ─────────────────────
 try {

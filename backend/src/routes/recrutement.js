@@ -156,7 +156,7 @@ r.get('/candidats', (req, res) => {
     ).all(c.id),
     candidatures: db.prepare(`
       SELECT rc.id, rc.annee_scolaire, rc.ue_num, rc.code_cours, rc.section, rc.statut,
-             rc.note_globale, rc.commentaire,
+             rc.note_globale, rc.commentaire, rc.reflexif_niveau, rc.reflexif_commentaire,
              u.ue_nom, cr.cours_nom
       FROM recrutement_candidature rc
       LEFT JOIN ue u ON u.ue_num = rc.ue_num AND u.annee_scolaire = rc.annee_scolaire
@@ -189,7 +189,8 @@ r.delete('/fonctions/:id', (req, res) => {
 r.patch('/candidats/:id', (req, res) => {
   const { nom, prenom, email, telephone, cv_url, notes, fonction,
           niveau_etude, titre_peda, diplome, diplome_autre, docs_remis,
-          entretien_reponses, entretien_note, entretien_commentaire } = req.body;
+          entretien_reponses, entretien_note, entretien_commentaire,
+          reflexif_niveau, reflexif_commentaire } = req.body;
   const c = db.prepare('SELECT id FROM recrutement_candidat WHERE id = ?').get(req.params.id);
   if (!c) return res.status(404).json({ error: 'Candidat introuvable' });
   db.prepare(`UPDATE recrutement_candidat SET
@@ -198,7 +199,9 @@ r.patch('/candidats/:id', (req, res) => {
     niveau_etude = ?, titre_peda = ?, diplome = ?, diplome_autre = ?, docs_remis = COALESCE(?, docs_remis),
     entretien_reponses = COALESCE(?, entretien_reponses),
     entretien_note = COALESCE(?, entretien_note),
-    entretien_commentaire = COALESCE(?, entretien_commentaire)
+    entretien_commentaire = COALESCE(?, entretien_commentaire),
+    reflexif_niveau = COALESCE(?, reflexif_niveau),
+    reflexif_commentaire = COALESCE(?, reflexif_commentaire)
     WHERE id = ?`).run(
       nom ?? null, prenom ?? null, email ?? null, telephone ?? null,
       cv_url ?? null, notes ?? null, fonction ?? null,
@@ -206,6 +209,7 @@ r.patch('/candidats/:id', (req, res) => {
       docs_remis != null ? JSON.stringify(docs_remis) : null,
       entretien_reponses != null ? JSON.stringify(entretien_reponses) : null,
       entretien_note ?? null, entretien_commentaire ?? null,
+      reflexif_niveau ?? null, reflexif_commentaire ?? null,
       c.id);
   res.json({ ok: true });
 });
@@ -284,16 +288,19 @@ r.delete('/documents/:id', (req, res) => {
 // CANDIDATURES
 // ═══════════════════════════════════════════════════════════════════════════════
 r.patch('/candidatures/:id', (req, res) => {
-  const { statut, commentaire, note_globale, reponses_json } = req.body;
+  const { statut, commentaire, note_globale, reponses_json, reflexif_niveau, reflexif_commentaire } = req.body;
   db.prepare(`UPDATE recrutement_candidature SET
     statut = COALESCE(?, statut),
     commentaire = ?,
     note_globale = ?,
     reponses_json = COALESCE(?, reponses_json),
+    reflexif_niveau = COALESCE(?, reflexif_niveau),
+    reflexif_commentaire = COALESCE(?, reflexif_commentaire),
     modifie_le = datetime('now')
     WHERE id = ?`
   ).run(statut || null, commentaire ?? null, note_globale ?? null,
         reponses_json != null ? JSON.stringify(reponses_json) : null,
+        reflexif_niveau ?? null, reflexif_commentaire ?? null,
         req.params.id);
   res.json({ ok: true });
 });
