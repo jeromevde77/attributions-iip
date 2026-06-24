@@ -115,8 +115,11 @@ export function RailLateral({ icon: HeaderIcon, titre, sousTitre, extra, section
                   className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg text-[13px] mb-0.5 transition-colors duration-150
                     ${it.actif
                       ? 'bg-iip-turquoise text-white font-semibold'
-                      : 'text-white/75 hover:bg-white/10 hover:text-white'}`}>
-                  {Ic && <Ic size={18} stroke={1.8} className="flex-shrink-0" />}
+                      : it.couleur
+                        ? 'text-white font-medium hover:opacity-90'
+                        : 'text-white/75 hover:bg-white/10 hover:text-white'}`}
+                  style={!it.actif && it.couleur ? { background: it.couleur + '33', color: it.couleur } : {}}>
+                  {Ic && <Ic size={18} stroke={1.8} className="flex-shrink-0" style={!it.actif && it.couleur ? { color: it.couleur } : {}} />}
                   <span className={`text-left leading-tight ${reveal}`}>{it.label}</span>
                 </button>
               );

@@ -1501,7 +1501,7 @@ export default function Professeurs() {
             { key: 'ch-sa',  label: 'Sans charge',    icon: IconX,     actif: fCharge === 'sans', onClick: () => setFCharge('sans') },
           ]},
           ...((getUser()?.role === 'admin' || getUser()?.acces_recrutement) ? [{ label: 'Module', items: [
-            { key: 'nav-recrutement', label: 'Recrutement', icon: IconBriefcase, actif: false, onClick: () => navigate('/recrutement') },
+            { key: 'nav-recrutement', label: 'Recrutement', icon: IconBriefcase, couleur: '#16a34a', actif: false, onClick: () => navigate('/recrutement') },
           ]}] : []),
         ]}
       />
