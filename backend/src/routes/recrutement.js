@@ -119,7 +119,13 @@ r.get('/postes/:ue_num/:code_cours/:section', (req, res) => {
   ).all(ue_num);
 
   const candidats = db.prepare(`
-    SELECT rc.*, c.nom, c.prenom, c.email, c.telephone, c.cv_url, c.notes
+    SELECT rc.*,
+           c.nom AS nom, c.prenom AS prenom,
+           c.email AS email, c.telephone AS telephone,
+           c.cv_url AS cv_url, c.notes AS notes,
+           c.fonction AS fonction, c.qualifications AS qualifications,
+           c.docs_remis AS docs_remis,
+           c.entretien_note AS entretien_note_libre
     FROM recrutement_candidature rc
     JOIN recrutement_candidat c ON c.id = rc.candidat_id
     WHERE rc.annee_scolaire = ? AND rc.ue_num = ? AND rc.code_cours = ? AND rc.section = ?
@@ -158,13 +164,16 @@ r.get('/candidats', (req, res) => {
     candidatures: db.prepare(`
       SELECT rc.id, rc.annee_scolaire, rc.ue_num, rc.code_cours, rc.section, rc.statut,
              rc.note_globale, rc.commentaire, rc.reflexif_niveau, rc.reflexif_commentaire,
-             u.ue_nom, cr.cours_nom
+             u.ue_nom, cr.cours_nom, rc.reponses_json
       FROM recrutement_candidature rc
       LEFT JOIN ue u ON u.ue_num = rc.ue_num AND u.annee_scolaire = rc.annee_scolaire
       LEFT JOIN cours cr ON cr.cours_code = rc.code_cours AND cr.annee_scolaire = rc.annee_scolaire
       WHERE rc.candidat_id = ?
       ORDER BY rc.cree_le DESC
-    `).all(c.id),
+    `).all(c.id).map(ca => ({
+      ...ca,
+      reponses_json: ca.reponses_json ? (() => { try { return JSON.parse(ca.reponses_json); } catch { return {}; } })() : {},
+    })),
   })));
 });
 
@@ -195,9 +204,13 @@ r.patch('/candidats/:id', (req, res) => {
   const c = db.prepare('SELECT id FROM recrutement_candidat WHERE id = ?').get(req.params.id);
   if (!c) return res.status(404).json({ error: 'Candidat introuvable' });
   db.prepare(`UPDATE recrutement_candidat SET
-    nom = COALESCE(?, nom), prenom = ?, email = ?, telephone = ?,
-    cv_url = ?, notes = ?, fonction = ?,
-    niveau_etude = ?, titre_peda = ?, diplome = ?, diplome_autre = ?, docs_remis = COALESCE(?, docs_remis),
+    nom = COALESCE(NULLIF(?, ''), nom),
+    prenom = COALESCE(NULLIF(?, ''), prenom),
+    email = NULLIF(?, ''), telephone = NULLIF(?, ''),
+    cv_url = NULLIF(?, ''), notes = NULLIF(?, ''), fonction = NULLIF(?, ''),
+    niveau_etude = NULLIF(?, ''), titre_peda = NULLIF(?, ''),
+    diplome = NULLIF(?, ''), diplome_autre = NULLIF(?, ''),
+    docs_remis = COALESCE(?, docs_remis),
     qualifications = COALESCE(?, qualifications),
     entretien_reponses = COALESCE(?, entretien_reponses),
     entretien_note = COALESCE(?, entretien_note),
