@@ -1555,8 +1555,9 @@ ${tous.map(candidatHtml).join('')}
 /* ── Fiche candidat (modale d'édition) ── */
 function FicheCandidat({ candidat, fonctions, grille, onClose, onSaved }) {
   const annee = getAnnee();
-  const [f, setF] = useState({ nom: candidat.nom || '', prenom: candidat.prenom || '', email: candidat.email || '', telephone: candidat.telephone || '', cv_url: candidat.cv_url || '', notes: candidat.notes || '', fonction: candidat.fonction || '', niveau_etude: candidat.niveau_etude || '', titre_peda: candidat.titre_peda || '', diplome: candidat.diplome || '', diplome_autre: candidat.diplome_autre || '', docs_remis: candidat.docs_remis || {} });
+  const [f, setF] = useState({ nom: candidat.nom || '', prenom: candidat.prenom || '', email: candidat.email || '', telephone: candidat.telephone || '', cv_url: candidat.cv_url || '', notes: candidat.notes || '', fonction: candidat.fonction || '', niveau_etude: candidat.niveau_etude || '', titre_peda: candidat.titre_peda || '', diplome: candidat.diplome || '', diplome_autre: candidat.diplome_autre || '', docs_remis: candidat.docs_remis || {}, qualifications: candidat.qualifications || [] });
   const [nouvelleF, setNouvelleF]   = useState('');
+  const [ajoutQual, setAjoutQual]   = useState(false);
   const [docs, setDocs]             = useState(candidat.documents || []);
   const [candidatures, setCandidatures] = useState(candidat.candidatures || []);
   const [busy, setBusy]             = useState(false);
@@ -1707,6 +1708,7 @@ function FicheCandidat({ candidat, fonctions, grille, onClose, onSaved }) {
   );
 
   return (
+    <>
     <div className="fixed inset-0 bg-black/40 z-50 flex items-start justify-center p-4 pt-12 overflow-auto" onClick={onClose}>
       <div className="bg-white rounded-xl w-full max-w-2xl shadow-xl" onClick={e => e.stopPropagation()}>
 
@@ -1804,39 +1806,40 @@ function FicheCandidat({ candidat, fonctions, grille, onClose, onSaved }) {
             </div>
 
             {/* ── Qualifications ── */}
-            <div>
-              <div className="text-xs text-gray-500 mb-1">Niveau d'étude (CFC)</div>
-              <select value={f.niveau_etude} onChange={e => { setF({ ...f, niveau_etude: e.target.value, diplome: '' }); }}
-                className="w-full text-sm border border-gray-300 rounded px-2 py-1.5 h-9">
-                <option value="">— choisir —</option>
-                {NIVEAUX_ETUDE.map(n => <option key={n.val} value={n.val}>{n.label}</option>)}
-              </select>
-            </div>
-            <div>
-              <div className="text-xs text-gray-500 mb-1">Titre pédagogique</div>
-              <select value={f.titre_peda} onChange={e => setF({ ...f, titre_peda: e.target.value })}
-                className="w-full text-sm border border-gray-300 rounded px-2 py-1.5 h-9">
-                <option value="">— choisir —</option>
-                {TITRES_PEDA.map(t => <option key={t.val} value={t.val}>{t.label}</option>)}
-              </select>
-            </div>
             <div className="col-span-2">
-              <div className="text-xs text-gray-500 mb-1">Diplôme (FWB)</div>
-              <div className="flex gap-2">
-                <select value={f.diplome} onChange={e => setF({ ...f, diplome: e.target.value })}
-                  disabled={!f.niveau_etude || !DIPLOMES_FWB[f.niveau_etude]}
-                  className="flex-1 text-sm border border-gray-300 rounded px-2 py-1.5 h-9 disabled:bg-gray-100 disabled:text-gray-400">
-                  <option value="">{f.niveau_etude ? '— choisir —' : '← Choisir d\'abord le niveau'}</option>
-                  {(DIPLOMES_FWB[f.niveau_etude] || []).map(d => <option key={d.val} value={d.val}>{d.label}</option>)}
-                </select>
+              <div className="flex items-center justify-between mb-2">
+                <div className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Titres &amp; Diplômes ({f.qualifications.length})</div>
+                <button type="button" onClick={() => setAjoutQual(true)}
+                  className="text-xs bg-iip-blue text-white px-2.5 py-1 rounded-lg flex items-center gap-1 hover:opacity-90">
+                  <IconPlus size={11} /> Ajouter un titre ou un diplôme
+                </button>
               </div>
-              {f.diplome === '' && f.niveau_etude && (
-                <div className="mt-1.5">
-                  <input value={f.diplome_autre} onChange={e => setF({ ...f, diplome_autre: e.target.value })}
-                    placeholder="Diplôme non listé — préciser ici…"
-                    className="w-full text-sm border border-gray-200 rounded px-2 py-1.5 h-9 text-gray-600" />
-                </div>
+
+              {f.qualifications.length === 0 && (
+                <div className="text-xs text-gray-400 italic py-2">Aucun titre ou diplôme renseigné.</div>
               )}
+
+              <div className="space-y-1.5">
+                {f.qualifications.map((q, i) => {
+                  const niv = NIVEAUX_ETUDE.find(n => n.val === q.niveau);
+                  const dip = Object.values(DIPLOMES_FWB).flat().find(d => d.val === q.diplome);
+                  const tit = TITRES_PEDA.find(t => t.val === q.titre_peda);
+                  return (
+                    <div key={i} className="flex items-start gap-2 bg-gray-50 border border-gray-200 rounded-lg px-3 py-2">
+                      <div className="flex-1 min-w-0 space-y-0.5">
+                        {niv && <div className="text-xs font-semibold text-iip-blue">{niv.label}</div>}
+                        {dip && <div className="text-xs text-gray-700">{dip.label}</div>}
+                        {!dip && q.diplome_autre && <div className="text-xs text-gray-700 italic">{q.diplome_autre}</div>}
+                        {tit && <div className="text-xs text-iip-turquoise font-medium">{tit.label}</div>}
+                      </div>
+                      <button type="button" onClick={() => setF({ ...f, qualifications: f.qualifications.filter((_, j) => j !== i) })}
+                        className="text-gray-300 hover:text-red-400 flex-shrink-0 mt-0.5">
+                        <IconX size={13} />
+                      </button>
+                    </div>
+                  );
+                })}
+              </div>
             </div>
 
             <div className="col-span-2">
@@ -1999,8 +2002,125 @@ function FicheCandidat({ candidat, fonctions, grille, onClose, onSaved }) {
         </div>
       </div>
     </div>
+
+      {ajoutQual && (
+        <ModalAjoutQualification
+          onClose={() => setAjoutQual(false)}
+          onAjouter={(q) => {
+            setF(prev => ({ ...prev, qualifications: [...(prev.qualifications || []), q] }));
+            setAjoutQual(false);
+          }}
+        />
+      )}
+    </>
   );
 }
+/* ── Modal ajout titre/diplôme ── */
+function ModalAjoutQualification({ onClose, onAjouter }) {
+  const [niveau, setNiveau]         = useState('');
+  const [diplome, setDiplome]       = useState('');
+  const [diplomeAutre, setDiplomeAutre] = useState('');
+  const [titrePeda, setTitrePeda]   = useState('');
+  const [err, setErr]               = useState('');
+
+  const valider = () => {
+    if (!niveau && !titrePeda) { setErr('Choisissez au moins un niveau d\'étude ou un titre pédagogique.'); return; }
+    onAjouter({ niveau, diplome, diplome_autre: diplomeAutre, titre_peda: titrePeda });
+  };
+
+  const dipListe = DIPLOMES_FWB[niveau] || [];
+
+  return (
+    <div className="fixed inset-0 bg-black/50 z-[70] flex items-center justify-center p-4"
+      onClick={onClose}>
+      <div className="bg-white rounded-xl shadow-2xl w-full max-w-lg"
+        onClick={e => e.stopPropagation()}>
+
+        <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100">
+          <h3 className="text-base font-bold text-iip-blue">Ajouter un titre ou un diplôme</h3>
+          <button onClick={onClose} className="text-gray-400 hover:text-gray-600"><IconX size={18} /></button>
+        </div>
+
+        <div className="px-5 py-4 space-y-4">
+          {err && <div className="text-xs text-red-600 bg-red-50 rounded px-3 py-2">{err}</div>}
+
+          {/* Niveau d'étude */}
+          <div>
+            <div className="text-xs font-semibold text-gray-600 mb-1.5">Niveau d'étude (Cadre Francophone des Certifications)</div>
+            <div className="grid grid-cols-2 gap-1.5">
+              {NIVEAUX_ETUDE.map(n => (
+                <button key={n.val} type="button" onClick={() => { setNiveau(niveau === n.val ? '' : n.val); setDiplome(''); setDiplomeAutre(''); }}
+                  className={`text-left text-xs px-3 py-2 rounded-lg border-2 transition ${
+                    niveau === n.val
+                      ? 'bg-iip-blue text-white border-iip-blue font-semibold'
+                      : 'border-gray-200 text-gray-600 hover:border-iip-blue/40'
+                  }`}>
+                  {n.label}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Diplôme lié au niveau */}
+          {niveau && (
+            <div>
+              <div className="text-xs font-semibold text-gray-600 mb-1.5">Diplôme (FWB)</div>
+              {dipListe.length > 0 ? (
+                <select value={diplome} onChange={e => { setDiplome(e.target.value); setDiplomeAutre(''); }}
+                  className="w-full text-sm border border-gray-300 rounded-lg px-3 py-2 h-9">
+                  <option value="">— choisir dans la liste —</option>
+                  {dipListe.map(d => <option key={d.val} value={d.val}>{d.label}</option>)}
+                </select>
+              ) : null}
+              {(!diplome || dipListe.length === 0) && (
+                <input value={diplomeAutre} onChange={e => setDiplomeAutre(e.target.value)}
+                  placeholder={dipListe.length ? 'Ou préciser un diplôme non listé…' : 'Préciser le diplôme…'}
+                  className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 h-9 mt-1.5" />
+              )}
+            </div>
+          )}
+
+          {/* Titre pédagogique — indépendant */}
+          <div>
+            <div className="text-xs font-semibold text-gray-600 mb-1.5">Titre pédagogique</div>
+            <div className="flex flex-wrap gap-1.5">
+              {TITRES_PEDA.map(t => (
+                <button key={t.val} type="button"
+                  onClick={() => setTitrePeda(titrePeda === t.val ? '' : t.val)}
+                  className={`text-xs px-3 py-1.5 rounded-full border-2 transition ${
+                    titrePeda === t.val
+                      ? 'bg-iip-turquoise text-white border-iip-turquoise font-semibold'
+                      : 'border-gray-200 text-gray-600 hover:border-iip-turquoise/50'
+                  }`}>
+                  {t.label}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Aperçu */}
+          {(niveau || titrePeda) && (
+            <div className="bg-gray-50 rounded-lg px-3 py-2 text-xs text-gray-600 border border-gray-200">
+              <span className="font-semibold text-iip-blue">Aperçu : </span>
+              {NIVEAUX_ETUDE.find(n => n.val === niveau)?.label}
+              {(diplome && Object.values(DIPLOMES_FWB).flat().find(d => d.val === diplome)) && (
+                <span className="text-gray-500"> · {Object.values(DIPLOMES_FWB).flat().find(d => d.val === diplome)?.label}</span>
+              )}
+              {diplomeAutre && <span className="text-gray-500 italic"> · {diplomeAutre}</span>}
+              {titrePeda && <span className="text-iip-turquoise font-medium"> · {TITRES_PEDA.find(t => t.val === titrePeda)?.label}</span>}
+            </div>
+          )}
+        </div>
+
+        <div className="px-5 py-3 border-t border-gray-100 flex justify-end gap-2">
+          <Btn variant="ghost" onClick={onClose}>Annuler</Btn>
+          <Btn variant="primary" icon={IconCheck} onClick={valider}>Ajouter</Btn>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 /* ── Nouveau candidat sans poste ── */
 function ModalNouveauCandidat({ onClose, onSaved }) {
   const [f, setF]   = useState({ nom: '', prenom: '', email: '', telephone: '', cv_url: '', notes: '' });

@@ -2435,6 +2435,7 @@ try {
   if (!cols.includes('diplome'))       db.exec("ALTER TABLE recrutement_candidat ADD COLUMN diplome TEXT");
   if (!cols.includes('diplome_autre')) db.exec("ALTER TABLE recrutement_candidat ADD COLUMN diplome_autre TEXT");
   if (!cols.includes('reflexif_niveau'))      db.exec("ALTER TABLE recrutement_candidat ADD COLUMN reflexif_niveau INTEGER");
+  if (!cols.includes('qualifications'))       db.exec("ALTER TABLE recrutement_candidat ADD COLUMN qualifications TEXT DEFAULT '[]'");
   if (!cols.includes('reflexif_commentaire')) db.exec("ALTER TABLE recrutement_candidat ADD COLUMN reflexif_commentaire TEXT");
 } catch(e) { console.error('[migration] niveau_etude/titre_peda/diplome :', e.message); }
 

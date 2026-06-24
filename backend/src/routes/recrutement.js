@@ -150,6 +150,7 @@ r.get('/candidats', (req, res) => {
   res.json(candidats.map(c => ({
     ...c,
     docs_remis: c.docs_remis ? (() => { try { return JSON.parse(c.docs_remis); } catch { return {}; } })() : {},
+    qualifications: c.qualifications ? (() => { try { return JSON.parse(c.qualifications); } catch { return []; } })() : [],
     entretien_reponses: c.entretien_reponses ? (() => { try { return JSON.parse(c.entretien_reponses); } catch { return {}; } })() : {},
     documents: db.prepare(
       'SELECT id, type, nom_original, taille, cree_le FROM recrutement_document WHERE candidat_id = ? ORDER BY cree_le DESC'
@@ -188,7 +189,7 @@ r.delete('/fonctions/:id', (req, res) => {
 
 r.patch('/candidats/:id', (req, res) => {
   const { nom, prenom, email, telephone, cv_url, notes, fonction,
-          niveau_etude, titre_peda, diplome, diplome_autre, docs_remis,
+          niveau_etude, titre_peda, diplome, diplome_autre, docs_remis, qualifications,
           entretien_reponses, entretien_note, entretien_commentaire,
           reflexif_niveau, reflexif_commentaire } = req.body;
   const c = db.prepare('SELECT id FROM recrutement_candidat WHERE id = ?').get(req.params.id);
@@ -197,6 +198,7 @@ r.patch('/candidats/:id', (req, res) => {
     nom = COALESCE(?, nom), prenom = ?, email = ?, telephone = ?,
     cv_url = ?, notes = ?, fonction = ?,
     niveau_etude = ?, titre_peda = ?, diplome = ?, diplome_autre = ?, docs_remis = COALESCE(?, docs_remis),
+    qualifications = COALESCE(?, qualifications),
     entretien_reponses = COALESCE(?, entretien_reponses),
     entretien_note = COALESCE(?, entretien_note),
     entretien_commentaire = COALESCE(?, entretien_commentaire),
