@@ -909,6 +909,7 @@ export default function Configuration() {
     { key: 'statistiques', label: 'Statistiques', icon: IconChartBar },
     { key: 'changelog', label: 'Nouveautés', icon: IconSparkles },
     { key: 'editeur',   label: 'Éditeur',     icon: IconEdit },
+    { key: 'recrutement', label: 'Recrutement', icon: IconSettings },
   ];
   return (
     <div className="relative bg-slate-50" style={{ minHeight: 'calc(100vh - 64px)' }}>
@@ -956,6 +957,9 @@ export default function Configuration() {
           <Editeur />
         </Suspense>
       )}
+
+      {/* ── Onglet Recrutement ── */}
+      {tab === 'recrutement' && <ConfigRecrutement />}
 
       {/* ── Onglet Système ── */}
       {tab === 'systeme' && (loading ? <div className="p-8 text-center text-gray-400">Chargement…</div> : <div className="max-w-3xl space-y-6">
@@ -1607,6 +1611,78 @@ function OngletStatistiques() {
 
       {/* ── Section PNCC ── */}
       <PnccSection annee={annee} />
+    </div>
+  );
+}
+
+/* ── Config Recrutement : mot d'accueil éditable ── */
+function ConfigRecrutement() {
+  const [intro, setIntro]   = useState('');
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving]   = useState(false);
+  const [saved, setSaved]     = useState(false);
+  const [err, setErr]         = useState('');
+  const tok = () => localStorage.getItem('token');
+
+  useEffect(() => {
+    fetch('/api/config/entretien_intro', { headers: { Authorization: `Bearer ${tok()}` } })
+      .then(r => r.json()).then(d => setIntro(d.valeur || '')).catch(() => setErr('Impossible de charger'))
+      .finally(() => setLoading(false));
+  }, []);
+
+  const sauvegarder = async () => {
+    setSaving(true); setErr('');
+    try {
+      const r = await fetch('/api/config/entretien_intro', {
+        method: 'PUT',
+        headers: { Authorization: `Bearer ${tok()}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ valeur: intro }),
+      });
+      if (!r.ok) throw new Error('Erreur serveur');
+      setSaved(true); setTimeout(() => setSaved(false), 2000);
+    } catch (e) { setErr(e.message); } finally { setSaving(false); }
+  };
+
+  return (
+    <div className="max-w-3xl">
+      <div className="flex items-center justify-between mb-4">
+        <div>
+          <h2 className="text-lg font-semibold text-iip-blue">Introduction d'entretien</h2>
+          <p className="text-xs text-gray-400 mt-0.5">
+            Texte lu au candidat en début d'entretien. Affiché dans le guide d'entretien.
+          </p>
+        </div>
+        <button onClick={sauvegarder} disabled={saving || loading}
+          className={`text-sm px-4 py-2 rounded-lg font-medium flex items-center gap-1.5 ${
+            saved ? 'bg-green-600 text-white' : 'bg-iip-blue text-white hover:opacity-90'
+          } disabled:opacity-50`}>
+          {saved ? '✓ Sauvegardé' : saving ? 'Sauvegarde…' : '✓ Enregistrer'}
+        </button>
+      </div>
+
+      {err && <div className="text-sm text-red-600 bg-red-50 rounded px-3 py-2 mb-3">{err}</div>}
+
+      {loading ? (
+        <div className="text-sm text-gray-400">Chargement…</div>
+      ) : (
+        <div className="border border-gray-200 rounded-xl overflow-hidden">
+          <div className="px-4 py-2 bg-iip-blue/5 border-b border-gray-200 text-xs text-gray-500">
+            Rédigez votre introduction. Elle sera affichée telle quelle dans le guide d'entretien.
+            Les sauts de ligne sont conservés.
+          </div>
+          <textarea
+            value={intro}
+            onChange={e => setIntro(e.target.value)}
+            rows={14}
+            className="w-full text-sm px-4 py-3 resize-none focus:outline-none focus:ring-1 focus:ring-iip-turquoise font-mono"
+            placeholder="Bonjour et merci d'être venu·e…"
+          />
+          <div className="px-4 py-2 bg-gray-50 border-t border-gray-200 text-xs text-gray-400 flex justify-between">
+            <span>{intro.length} caractères</span>
+            <span>~{Math.round(intro.split(' ').length / 130)} min de lecture à voix haute</span>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

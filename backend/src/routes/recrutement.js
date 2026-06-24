@@ -157,6 +157,7 @@ r.get('/candidats', (req, res) => {
     ...c,
     docs_remis: c.docs_remis ? (() => { try { return JSON.parse(c.docs_remis); } catch { return {}; } })() : {},
     qualifications: c.qualifications ? (() => { try { return JSON.parse(c.qualifications); } catch { return []; } })() : [],
+    reflexif_niveaux: c.reflexif_niveau ? (() => { try { const v = JSON.parse(c.reflexif_niveau); return Array.isArray(v) ? v : [v]; } catch { return [c.reflexif_niveau]; } })() : [],
     disponibilites: c.disponibilites ? (() => { try { return JSON.parse(c.disponibilites); } catch { return {}; } })() : {},
     entretien_reponses: c.entretien_reponses ? (() => { try { return JSON.parse(c.entretien_reponses); } catch { return {}; } })() : {},
     documents: db.prepare(
@@ -228,7 +229,8 @@ r.patch('/candidats/:id', (req, res) => {
       disponibilites != null ? JSON.stringify(disponibilites) : null,
       entretien_reponses != null ? JSON.stringify(entretien_reponses) : null,
       entretien_note ?? null, entretien_commentaire ?? null,
-      reflexif_niveau ?? null, reflexif_commentaire ?? null,
+      reflexif_niveau != null ? JSON.stringify(Array.isArray(reflexif_niveau) ? reflexif_niveau : [reflexif_niveau].filter(Boolean)) : null,
+      reflexif_commentaire ?? null,
       c.id);
   res.json({ ok: true });
 });
@@ -337,7 +339,8 @@ r.patch('/candidatures/:id', (req, res) => {
     WHERE id = ?`
   ).run(statut || null, commentaire ?? null, note_globale ?? null,
         reponses_json != null ? JSON.stringify(reponses_json) : null,
-        reflexif_niveau ?? null, reflexif_commentaire ?? null,
+        reflexif_niveau != null ? JSON.stringify(Array.isArray(reflexif_niveau) ? reflexif_niveau : [reflexif_niveau].filter(Boolean)) : null,
+        reflexif_commentaire ?? null,
         req.params.id);
   res.json({ ok: true });
 });

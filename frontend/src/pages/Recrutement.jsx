@@ -975,7 +975,7 @@ function EntretienModal({ candidature, poste, annee, qIA, grille, onClose, onSav
 
   const [reponses, setReponses] = useState(initReponses);
   const [commentaireGlobal, setCommentaireGlobal] = useState(candidature.commentaire || '');
-  const [reflexifNiveau, setReflexifNiveau]       = useState(candidature.reflexif_niveau || 0);
+  const [reflexifNiveaux, setReflexifNiveaux] = useState(() => { const v = candidature.reflexif_niveau; if (!v) return []; try { const p = JSON.parse(v); return Array.isArray(p) ? p : [p].filter(Boolean); } catch { return v ? [v] : []; } });
   const [reflexifCommentaire, setReflexifCommentaire] = useState(candidature.reflexif_commentaire || '');
   const [saving, setSaving]     = useState(false);
   const [saved, setSaved]       = useState(false);
@@ -1001,7 +1001,7 @@ function EntretienModal({ candidature, poste, annee, qIA, grille, onClose, onSav
           reponses_json: reponses,
           commentaire: commentaireGlobal,
           note_globale: noteGlobale,
-          reflexif_niveau: reflexifNiveau || null,
+          reflexif_niveau: reflexifNiveaux.length ? reflexifNiveaux : null,
           reflexif_commentaire: reflexifCommentaire || null,
           statut: candidature.statut === 'a_voir' ? 'entretien' : candidature.statut,
         }),
@@ -1117,22 +1117,22 @@ function EntretienModal({ candidature, poste, annee, qIA, grille, onClose, onSav
             <div className="flex flex-wrap gap-2 mb-3">
               {LIKERT_REFLEXIF.map(({ val, label, desc, color }) => (
                 <button key={val} type="button"
-                  onClick={() => setReflexifNiveau(reflexifNiveau === val ? 0 : val)}
+                  onClick={() => setReflexifNiveaux(prev => prev.includes(val) ? prev.filter(x=>x!==val) : [...prev, val])}
                   title={desc}
                   className={`flex flex-col items-center px-3 py-2 rounded-lg border-2 transition text-left ${
-                    reflexifNiveau === val
-                      ? 'text-white shadow-md scale-105'
+                    reflexifNiveaux.includes(val)
+                      ? 'text-white shadow-md'
                       : 'bg-white border-gray-200 text-gray-500 hover:border-gray-300'
                   }`}
-                  style={reflexifNiveau === val ? { background: color, borderColor: color } : {}}>
+                  style={reflexifNiveaux.includes(val) ? { background: color, borderColor: color } : {}}>
                   <span className="font-bold text-sm">{val} — {label}</span>
-                  <span className={`text-[10px] mt-0.5 leading-tight ${reflexifNiveau === val ? 'text-white/80' : 'text-gray-400'}`}>
+                  <span className={`text-[10px] mt-0.5 leading-tight ${reflexifNiveaux.includes(val) ? 'text-white/80' : 'text-gray-400'}`}>
                     {desc}
                   </span>
                 </button>
               ))}
             </div>
-            {reflexifNiveau > 0 && (
+            {reflexifNiveaux.length > 0 && (
               <textarea
                 value={reflexifCommentaire}
                 onChange={e => setReflexifCommentaire(e.target.value)}
@@ -1673,7 +1673,7 @@ function VueCandidatsGlobal({ candidats, fonctions, grille, onRecharger }) {
           </div>
           ${rows?headerQ+rows+`</tbody></table>`:''}
           ${c.entretien_commentaire?`<div style="background:#f8fafc;border-left:3px solid ${TURQ};padding:4px 8px;font-size:8.5pt;margin-top:4px"><b>Bilan :</b> ${c.entretien_commentaire}</div>`:''}
-          ${c.reflexif_niveau?(() => { const r=LIKERT_REFLEXIF.find(x=>x.val===c.reflexif_niveau); return r?`<div style="margin-top:5px;display:flex;align-items:center;gap:8px"><span style="background:${r.color};color:white;padding:2px 10px;border-radius:10px;font-size:8.5pt;font-weight:700">Réflexivité : ${r.val} — ${r.label}</span><span style="font-size:8pt;color:#374151;font-style:italic">${r.desc}</span></div>`:''; })():''}
+          ${(()=>{const niveaux=(c.reflexif_niveaux||[]).length?c.reflexif_niveaux:c.reflexif_niveau?[c.reflexif_niveau]:[];return niveaux.length?`<div style="margin-top:4px;display:flex;flex-wrap:wrap;gap:4px">${niveaux.map(v=>{const r=LIKERT_REFLEXIF.find(x=>x.val===v);return r?`<span style="background:${r.color};color:white;padding:2px 10px;border-radius:10px;font-size:8.5pt;font-weight:700">${r.val} — ${r.label}</span>`:'';}).join('')}</div>`:'';})()}
           ${c.reflexif_commentaire?`<div style="font-size:8pt;color:#374151;margin-top:2px"><b>Observations :</b> ${c.reflexif_commentaire}</div>`:''}
         </div>`;
       })() : '';
@@ -2617,13 +2617,19 @@ function EntretienLibre({ candidat, grille, onClose, onSaved }) {
 
   const [reponses, setReponses] = useState(initReponses);
   const [commentaireGlobal, setCommentaireGlobal] = useState(candidat.entretien_commentaire || '');
-  const [reflexifNiveau, setReflexifNiveau] = useState(candidat.reflexif_niveau || 0);
+  const [reflexifNiveaux, setReflexifNiveaux] = useState(() => { const v = candidat.reflexif_niveaux || candidat.reflexif_niveau; if (!v) return []; if (Array.isArray(v)) return v; try { const p = JSON.parse(v); return Array.isArray(p) ? p : [p].filter(Boolean); } catch { return v ? [v] : []; } });
   const [reflexifCommentaire, setReflexifCommentaire] = useState(candidat.reflexif_commentaire || '');
   const [dispo, setDispo] = useState(candidat.disponibilites || {});
-  const [divers, setDivers] = useState('');
+  const [divers, setDivers]     = useState('');
+  const [introTexte, setIntroTexte] = useState('');
   const [saving, setSaving] = useState(false);
   const [saved, setSaved]   = useState(false);
-  const [section, setSection] = useState('intro'); // 'intro' | 'q-fixe' | ax0..axN | 'admin' | 'bilan'
+  const [section, setSection] = useState('intro');
+
+  useEffect(() => {
+    fetch('/api/config/entretien_intro', { headers: { Authorization: `Bearer ${tok()}` } })
+      .then(r => r.ok ? r.json() : null).then(d => d && setIntroTexte(d.valeur)).catch(() => {});
+  }, []);
 
   const notees = Object.values(reponses).filter(r => r.note > 0 && !r.disabled);
   const noteGlobale = notees.length > 0
@@ -2638,7 +2644,7 @@ function EntretienLibre({ candidat, grille, onClose, onSaved }) {
   const sauvegarder = async () => {
     setSaving(true);
     try {
-      await onSaved(reponses, noteGlobale, commentaireGlobal, reflexifNiveau || null, reflexifCommentaire || null, dispo, divers);
+      await onSaved(reponses, noteGlobale, commentaireGlobal, reflexifNiveaux.length ? reflexifNiveaux : null, reflexifCommentaire || null, dispo, divers);
       setSaved(true); setTimeout(() => setSaved(false), 2000);
     } finally { setSaving(false); }
   };
@@ -2703,13 +2709,16 @@ function EntretienLibre({ candidat, grille, onClose, onSaved }) {
           {section === 'intro' && (
             <div className="bg-white border border-gray-200 rounded-xl p-5 shadow-sm">
               <h2 className="text-base font-bold text-iip-blue mb-4">Introduction — à lire au candidat</h2>
-              <div className="text-sm text-gray-700 leading-relaxed space-y-3 bg-iip-blue/5 border-l-4 border-iip-blue rounded-r-lg p-4">
-                <p>Bonjour et merci d'être venu·e. Je suis <strong>Jérôme Vanden Eynde</strong>, directeur de l'Institut Ilya Prigogine.</p>
-                <p>L'Institut Ilya Prigogine est un établissement d'<strong>enseignement de promotion sociale</strong> situé à Bruxelles. Nous proposons des formations de niveau secondaire et supérieur à destination d'un <strong>public adulte</strong> — des personnes en reconversion, en reprise d'études, ou en perfectionnement professionnel. Nos sections couvrent les soins infirmiers, la santé, le paramédical et plusieurs autres filières.</p>
-                <p>L'entretien que nous allons mener durera environ <strong>30 minutes</strong>. Je vais vous poser plusieurs questions organisées autour de votre parcours, vos compétences, votre approche pédagogique et votre rapport à l'enseignement. Il n'y a pas de bonne ou de mauvaise réponse — ce qui m'intéresse, c'est votre façon de penser et de réfléchir.</p>
-                <p>Nous commencerons par une <strong>présentation de votre parcours en environ une minute</strong>. Avez-vous des questions avant de commencer ?</p>
+              {introTexte ? (
+                <div className="text-sm text-gray-700 leading-relaxed bg-iip-blue/5 border-l-4 border-iip-blue rounded-r-lg p-4 whitespace-pre-wrap">
+                  {introTexte}
+                </div>
+              ) : (
+                <div className="text-sm text-gray-400 italic p-4">Chargement du texte d'introduction…</div>
+              )}
+              <div className="mt-3 text-xs text-gray-400 italic flex items-center justify-between">
+                <span>Ce texte est confidentiel. Pour le modifier : Config. → Recrutement.</span>
               </div>
-              <div className="mt-3 text-xs text-gray-400 italic">Cette introduction est à lire ou à adapter selon votre style. Elle est confidentielle.</div>
             </div>
           )}
 
@@ -2835,20 +2844,20 @@ function EntretienLibre({ candidat, grille, onClose, onSaved }) {
                 <div className="grid grid-cols-1 gap-2">
                   {LIKERT_REFLEXIF.map(({ val, label, desc, color }) => (
                     <button key={val} type="button"
-                      onClick={() => setReflexifNiveau(reflexifNiveau === val ? 0 : val)}
+                      onClick={() => setReflexifNiveaux(prev => prev.includes(val) ? prev.filter(x=>x!==val) : [...prev, val])}
                       className={`flex items-center gap-3 px-4 py-2.5 rounded-lg border-2 text-left transition ${
-                        reflexifNiveau === val ? 'text-white shadow-md' : 'bg-white border-gray-200 text-gray-600 hover:border-gray-300'
+                        reflexifNiveaux.includes(val) ? 'text-white shadow-md' : 'bg-white border-gray-200 text-gray-600 hover:border-gray-300'
                       }`}
-                      style={reflexifNiveau === val ? { background: color, borderColor: color } : {}}>
-                      <span className={`font-bold text-lg w-6 flex-shrink-0 ${reflexifNiveau === val ? 'text-white' : 'text-gray-400'}`}>{val}</span>
+                      style={reflexifNiveaux.includes(val) ? { background: color, borderColor: color } : {}}>
+                      <span className={`font-bold text-lg w-6 flex-shrink-0 ${reflexifNiveaux.includes(val) ? 'text-white' : 'text-gray-400'}`}>{val}</span>
                       <div>
                         <div className="font-semibold text-sm">{label}</div>
-                        <div className={`text-xs ${reflexifNiveau === val ? 'text-white/80' : 'text-gray-400'}`}>{desc}</div>
+                        <div className={`text-xs ${reflexifNiveaux.includes(val) ? 'text-white/80' : 'text-gray-400'}`}>{desc}</div>
                       </div>
                     </button>
                   ))}
                 </div>
-                {reflexifNiveau > 0 && (
+                {reflexifNiveaux.length > 0 && (
                   <textarea value={reflexifCommentaire} onChange={e => setReflexifCommentaire(e.target.value)}
                     placeholder="Observations : exemples concrets, nuances…" rows={2}
                     className="w-full text-sm border border-teal-200 rounded-lg px-3 py-1.5 resize-none focus:outline-none focus:border-teal-400 bg-white mt-3" />
