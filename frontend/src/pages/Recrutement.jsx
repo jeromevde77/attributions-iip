@@ -1464,6 +1464,23 @@ function genererFicheIndividuelle(candidat, grille) {
       }).join('')}
     </ul>` : '<span style="color:#9ca3af;font-size:8.5pt">Non renseigné</span>';
 
+
+  // Disponibilités
+  const jours = ['Lun','Mar','Mer','Jeu','Ven','Sam'];
+  const creneaux = [{key:'matin',label:'8h–12h'},{key:'midi',label:'12h–17h'},{key:'soir',label:'17h–22h'}];
+  const dispo = candidat.disponibilites || {};
+  const hasDispo = jours.some(j => creneaux.some(cr => dispo[`${j}_${cr.key}`]));
+  const dispoHtml = hasDispo ? `<div style="margin-bottom:6px">
+    <div style="font-size:8pt;font-weight:700;color:${BLEU};text-transform:uppercase;letter-spacing:1px;margin-bottom:3px">Disponibilités</div>
+    <table style="border-collapse:collapse;font-size:8pt"><thead><tr>
+      <th style="width:52px"></th>${jours.map(j=>`<th style="text-align:center;padding:1px 4px;color:#374151;font-weight:600">${j}</th>`).join('')}
+    </tr></thead><tbody>${creneaux.map(cr=>`<tr>
+      <td style="text-align:right;padding:1px 6px 1px 0;color:#6b7280;white-space:nowrap">${cr.label}</td>
+      ${jours.map(j=>`<td style="text-align:center;padding:1px 4px"><span style="display:inline-block;width:20px;height:16px;border-radius:3px;background:${dispo[j+'_'+cr.key]?BLEU:'#f3f4f6'};color:${dispo[j+'_'+cr.key]?'white':'transparent'};font-size:9pt;line-height:16px;text-align:center">${dispo[j+'_'+cr.key]?'✓':''}</span></td>`).join('')}
+    </tr>`).join('')}</tbody></table>
+    ${dispo._remarque?`<div style="margin-top:3px;font-size:8pt;color:#374151;font-style:italic">${dispo._remarque}</div>`:''}
+  </div>` : '';
+
   // Documents remis
   const docsHtml = Object.entries(candidat.docs_remis||{}).filter(([,v])=>v).map(([k]) => {
     const d = DOCS_REMIS_LIST.find(x=>x.key===k);
@@ -1542,6 +1559,7 @@ function genererFicheIndividuelle(candidat, grille) {
   </div>
 
   ${docsHtml?`<div style="margin-bottom:6px">${docsHtml}</div>`:''}
+  ${dispoHtml}
   ${candidat.notes?`<div style="margin-bottom:8px;font-size:8.5pt;background:#f8fafc;padding:4px 8px;border-radius:3px"><b>Profil :</b> ${candidat.notes}</div>`:''}
 
   <div style="margin-bottom:6px">
@@ -1793,7 +1811,7 @@ ${tous.map(candidatHtml).join('')}
 /* ── Fiche candidat (modale d'édition) ── */
 function FicheCandidat({ candidat, fonctions, grille, onClose, onSaved }) {
   const annee = getAnnee();
-  const [f, setF] = useState({ nom: candidat.nom || '', prenom: candidat.prenom || '', email: candidat.email || '', telephone: candidat.telephone || '', cv_url: candidat.cv_url || '', notes: candidat.notes || '', fonction: candidat.fonction || '', niveau_etude: candidat.niveau_etude || '', titre_peda: candidat.titre_peda || '', diplome: candidat.diplome || '', diplome_autre: candidat.diplome_autre || '', docs_remis: candidat.docs_remis || {}, qualifications: candidat.qualifications || [] });
+  const [f, setF] = useState({ nom: candidat.nom || '', prenom: candidat.prenom || '', email: candidat.email || '', telephone: candidat.telephone || '', cv_url: candidat.cv_url || '', notes: candidat.notes || '', fonction: candidat.fonction || '', niveau_etude: candidat.niveau_etude || '', titre_peda: candidat.titre_peda || '', diplome: candidat.diplome || '', diplome_autre: candidat.diplome_autre || '', docs_remis: candidat.docs_remis || {}, qualifications: candidat.qualifications || [], disponibilites: candidat.disponibilites || {} });
   const [nouvelleF, setNouvelleF]   = useState('');
   const [ajoutQual, setAjoutQual]   = useState(false);
   const [docs, setDocs]             = useState(candidat.documents || []);
@@ -2021,6 +2039,15 @@ function FicheCandidat({ candidat, fonctions, grille, onClose, onSaved }) {
               <div className="text-xs text-gray-500 mb-1">Lien CV (Drive…)</div>
               <input value={f.cv_url} onChange={e => setF({ ...f, cv_url: e.target.value })}
                 className="w-full text-sm border border-gray-300 rounded px-2 py-1.5 h-9" />
+            </div>
+
+            {/* ── Disponibilités ── */}
+            <div className="col-span-2">
+              <div className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">Disponibilités</div>
+              <Semainier
+                value={f.disponibilites}
+                onChange={dispo => setF({ ...f, disponibilites: dispo })}
+              />
             </div>
 
             {/* ── Documents remis ── */}
@@ -2255,6 +2282,70 @@ function FicheCandidat({ candidat, fonctions, grille, onClose, onSaved }) {
     </>
   );
 }
+/* ── Semainier de disponibilités ── */
+const JOURS    = ['Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam'];
+const CRENEAUX = [
+  { key: 'matin',   label: '8h–12h'  },
+  { key: 'midi',    label: '12h–17h' },
+  { key: 'soir',    label: '17h–22h' },
+];
+
+function Semainier({ value = {}, onChange }) {
+  const toggle = (jour, creneau) => {
+    const k = `${jour}_${creneau}`;
+    onChange({ ...value, [k]: !value[k] });
+  };
+
+  return (
+    <div>
+      <div className="overflow-x-auto">
+        <table className="w-full text-xs border-collapse">
+          <thead>
+            <tr>
+              <th className="w-20 text-left text-gray-400 font-normal pb-1" />
+              {JOURS.map(j => (
+                <th key={j} className="text-center text-gray-500 font-semibold pb-1 w-12">{j}</th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {CRENEAUX.map(cr => (
+              <tr key={cr.key}>
+                <td className="text-gray-500 pr-2 py-0.5 text-right font-medium">{cr.label}</td>
+                {JOURS.map(j => {
+                  const checked = !!value[`${j}_${cr.key}`];
+                  return (
+                    <td key={j} className="text-center py-0.5 px-0.5">
+                      <button
+                        type="button"
+                        onClick={() => toggle(j, cr.key)}
+                        className={`w-10 h-7 rounded border-2 transition text-[10px] font-bold ${
+                          checked
+                            ? 'bg-iip-blue text-white border-iip-blue'
+                            : 'bg-white text-gray-300 border-gray-200 hover:border-iip-blue/50'
+                        }`}>
+                        {checked ? '✓' : ''}
+                      </button>
+                    </td>
+                  );
+                })}
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+      <div className="mt-2">
+        <input
+          value={value._remarque || ''}
+          onChange={e => onChange({ ...value, _remarque: e.target.value })}
+          placeholder="Remarque ou contrainte particulière (ex : disponible uniquement en Q1, déplacement limité…)"
+          className="w-full text-xs border border-gray-200 rounded px-2.5 py-1.5 text-gray-600 placeholder-gray-400"
+        />
+      </div>
+    </div>
+  );
+}
+
 /* ── Modal ajout titre/diplôme — interface linéaire ── */
 function ModalAjoutQualification({ onClose, onAjouter, onFermer }) {
   // Chaque ligne = { niveau, diplome, diplome_autre, titre_peda }

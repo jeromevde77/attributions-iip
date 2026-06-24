@@ -2373,6 +2373,8 @@ try {
           "Que savez-vous du cadre décrétuel qui régit nos formations (décret du 16 avril 1991) ?",
           "En quoi le rapport entre un enseignant et un étudiant adulte diffère-t-il de ce qu'on observe dans l'enseignement secondaire ?",
           "Quelle vision avez-vous du rôle de l'enseignant dans un établissement de promotion sociale par rapport à l'institution elle-même ?",
+        "Qu'est-ce qui vous motive à rejoindre l'équipe de l'Institut Ilya Prigogine ? Qu'espérez-vous y apporter, et qu'espérez-vous en retirer ?",
+        "Pourquoi l'enseignement pour adultes plutôt qu'un autre type d'enseignement ou qu'une activité professionnelle classique ?",
         ]
       },
       {
@@ -2518,6 +2520,7 @@ try {
   if (!cols.includes('diplome_autre')) db.exec("ALTER TABLE recrutement_candidat ADD COLUMN diplome_autre TEXT");
   if (!cols.includes('reflexif_niveau'))      db.exec("ALTER TABLE recrutement_candidat ADD COLUMN reflexif_niveau INTEGER");
   if (!cols.includes('qualifications'))       db.exec("ALTER TABLE recrutement_candidat ADD COLUMN qualifications TEXT DEFAULT '[]'");
+  if (!cols.includes('disponibilites'))       db.exec("ALTER TABLE recrutement_candidat ADD COLUMN disponibilites TEXT DEFAULT '{}'");
   if (!cols.includes('reflexif_commentaire')) db.exec("ALTER TABLE recrutement_candidat ADD COLUMN reflexif_commentaire TEXT");
 } catch(e) { console.error('[migration] niveau_etude/titre_peda/diplome :', e.message); }
 
