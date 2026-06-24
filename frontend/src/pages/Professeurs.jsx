@@ -4,7 +4,7 @@ import { api, getAnnee, getUser, nomDoc } from '../lib/api.js';
 import ProfFicheModal from './ProfFicheModal.jsx';
 import PreviewModal from '../components/PreviewModal.jsx';
 import CoursEditModal from '../components/CoursEditModal.jsx';
-import { IconMail, IconMapPin, IconFileText, IconEdit, IconDownload, IconRefresh, IconX, IconPrinter, IconPlus, IconTrash, IconKey, IconLock, IconCheck, IconBriefcase, IconChevronDown, IconChevronRight, IconUsers, IconSchool } from '@tabler/icons-react';
+import { IconMail, IconMapPin, IconFileText, IconEdit, IconDownload, IconRefresh, IconX, IconPrinter, IconPlus, IconTrash, IconKey, IconLock, IconCheck, IconBriefcase, IconChevronDown, IconChevronRight, IconUsers, IconSchool, IconUserPlus, IconBuilding, IconBuildingBank, IconFileDescription } from '@tabler/icons-react';
 import { RailLateral } from '../components/ui.jsx';
 
 const EMPTY = {
@@ -1482,23 +1482,27 @@ export default function Professeurs() {
         sousTitre={`${filtered.length} membre${filtered.length > 1 ? 's' : ''}`}
         extra={canEdit && (
           <button onClick={() => setEditProf({ ...EMPTY })}
+            title="Nouveau membre du personnel"
             className="w-full flex items-center gap-2 bg-iip-turquoise hover:opacity-90 text-white text-[13px] font-medium px-3 py-2 rounded-lg transition">
-            <IconPlus size={16} className="flex-shrink-0" />
-            <span className="whitespace-nowrap opacity-0 group-hover/rail:opacity-100 transition-opacity duration-150">Nouveau prof.</span>
+            <IconUserPlus size={16} className="flex-shrink-0" />
+            <span className="whitespace-nowrap opacity-0 group-hover/rail:opacity-100 transition-opacity duration-150">Nouveau membre</span>
           </button>
         )}
         sections={[
           { label: 'Contrat', items: [
-            { key: 'c-',     label: 'Tous contrats', icon: IconUsers,     actif: fContrat === '',      onClick: () => setFContrat('') },
-            { key: 'c-IIP',  label: 'IIP seul',      icon: IconBriefcase, actif: fContrat === 'IIP',   onClick: () => setFContrat('IIP') },
-            { key: 'c-HELB', label: 'HELB seul',     icon: IconBriefcase, actif: fContrat === 'HELB',  onClick: () => setFContrat('HELB') },
-            { key: 'c-mix',  label: 'IIP + HELB',    icon: IconBriefcase, actif: fContrat === 'mixte', onClick: () => setFContrat('mixte') },
+            { key: 'c-',     label: 'Tous contrats',  icon: IconUsers,        actif: fContrat === '',      onClick: () => setFContrat('') },
+            { key: 'c-IIP',  label: 'IIP seul',       icon: IconBuilding,     actif: fContrat === 'IIP',   onClick: () => setFContrat('IIP') },
+            { key: 'c-HELB', label: 'HELB seul',      icon: IconBuildingBank, actif: fContrat === 'HELB',  onClick: () => setFContrat('HELB') },
+            { key: 'c-mix',  label: 'IIP + HELB',     icon: IconFileDescription, actif: fContrat === 'mixte', onClick: () => setFContrat('mixte') },
           ]},
           { label: 'Charge', items: [
             { key: 'ch-',    label: 'Toutes',         icon: IconUsers, actif: fCharge === '',     onClick: () => setFCharge('') },
             { key: 'ch-av',  label: 'Avec charge',    icon: IconCheck, actif: fCharge === 'avec', onClick: () => setFCharge('avec') },
             { key: 'ch-sa',  label: 'Sans charge',    icon: IconX,     actif: fCharge === 'sans', onClick: () => setFCharge('sans') },
           ]},
+          ...((getUser()?.role === 'admin' || getUser()?.acces_recrutement) ? [{ label: 'Module', items: [
+            { key: 'nav-recrutement', label: 'Recrutement', icon: IconBriefcase, actif: false, onClick: () => navigate('/recrutement') },
+          ]}] : []),
         ]}
       />
       <div className="ml-16 p-4 md:p-6">

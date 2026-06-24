@@ -3,7 +3,7 @@ import {
   IconBriefcase, IconUserPlus, IconArrowLeft, IconTrash, IconPlus,
   IconFileCv, IconExternalLink, IconUpload, IconSparkles,
   IconCheck, IconX, IconUsersGroup, IconDownload, IconClipboardText,
-  IconLayoutColumns,
+  IconLayoutColumns, IconChevronRight, IconSettings,
 } from '@tabler/icons-react';
 import { Btn, RailLateral } from '../components/ui.jsx';
 import { getAnnee } from '../lib/api.js';
@@ -143,7 +143,7 @@ export default function Recrutement() {
   const [loading, setLoading]   = useState(true);
   const [err, setErr]           = useState('');
   const [filtre, setFiltre]     = useState('');
-  const [vue, setVue]           = useState('postes');
+  const [vue, setVue]           = useState('candidats');
   const [grille, setGrille]     = useState(null);
   const [candidats, setCandidats] = useState([]);
   const [fonctions, setFonctions] = useState([]);
@@ -179,11 +179,11 @@ export default function Recrutement() {
     <div className="relative bg-slate-50" style={{ minHeight: 'calc(100vh - 64px)' }}>
       <RailLateral
         icon={IconBriefcase} titre="Recrutement"
-        sousTitre={loading ? '…' : `${postes.length} cours à pourvoir`}
+        sousTitre={loading ? '…' : `${candidats.length} candidat${candidats.length > 1 ? 's' : ''}`}
         sections={[
           { label: 'Vue', items: [
-            { key: 'postes',    label: 'Cours à pourvoir',    icon: IconBriefcase,     actif: vue === 'postes',    onClick: () => setVue('postes') },
             { key: 'candidats', label: `Candidats (${candidats.length})`, icon: IconUsersGroup, actif: vue === 'candidats', onClick: () => setVue('candidats') },
+            { key: 'postes',    label: 'Cours à pourvoir',    icon: IconBriefcase,     actif: vue === 'postes',    onClick: () => setVue('postes') },
             { key: 'parallele', label: 'Vue parallèle',       icon: IconLayoutColumns, actif: vue === 'parallele', onClick: () => setVue('parallele') },
             { key: 'grille',    label: 'Grille entretien',    icon: IconClipboardText, actif: vue === 'grille',    onClick: () => setVue('grille') },
           ]},
@@ -1761,36 +1761,60 @@ ${tous.map(candidatHtml).join('')}
         </div>
       )}
 
-      <div className="grid gap-2">
-        {filtres.map(c => (
-          <button key={c.id} onClick={() => setFiche(c)}
-            className="text-left border border-gray-200 bg-white rounded-lg px-4 py-3 hover:border-iip-turquoise hover:shadow-sm transition flex items-center justify-between gap-3">
-            <div className="min-w-0">
-              <div className="font-semibold text-iip-blue">{c.prenom ? `${c.prenom} ${c.nom}` : c.nom}</div>
-              <div className="text-xs text-gray-400 mt-0.5">
-                {[c.email, c.telephone].filter(Boolean).join(' · ') || '—'}
+      {/* Liste style membres du personnel */}
+      <div className="bg-white border border-gray-200 rounded-xl overflow-hidden">
+        {filtres.length === 0 && (
+          <div className="text-sm text-gray-400 text-center py-10">Aucun candidat.</div>
+        )}
+        {filtres.map((c, idx) => {
+          const entretienNote = c.entretien_note;
+          const noteColor = entretienNote >= 4 ? '#15803d' : entretienNote >= 3 ? '#d97706' : '#b91c1c';
+          const docs = Object.values(c.docs_remis || {}).filter(Boolean).length;
+          return (
+            <button key={c.id} onClick={() => setFiche(c)}
+              className={`w-full text-left flex items-center gap-3 px-4 py-3 hover:bg-gray-50 transition ${idx > 0 ? 'border-t border-gray-100' : ''}`}>
+              {/* Avatar initiales */}
+              <div className="w-9 h-9 rounded-full bg-iip-blue/10 flex items-center justify-center flex-shrink-0 text-xs font-bold text-iip-blue">
+                {(c.prenom?.[0] || '').toUpperCase()}{(c.nom?.[0] || '').toUpperCase()}
               </div>
-              {c.candidatures?.length > 0 && (
-                <div className="flex flex-wrap gap-1 mt-1.5">
-                  {c.candidatures.map((ca, i) => (
-                    <span key={i} className="text-[10px] px-1.5 py-0.5 rounded-full font-medium"
-                      style={{ background: STATUT[ca.statut]?.bg || '#f3f4f6', color: STATUT[ca.statut]?.color || '#6b7280' }}>
-                      {ca.cours_nom || ca.ue_nom || `UE ${ca.ue_num}`} · {STATUT[ca.statut]?.label || ca.statut}
-                    </span>
-                  ))}
+              {/* Infos principales */}
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center gap-2">
+                  <span className="font-semibold text-gray-900 text-sm">
+                    {c.prenom ? `${c.prenom} ${c.nom}` : c.nom}
+                  </span>
+                  {c.candidatures?.map((ca, i) => {
+                    const st = STATUT[ca.statut] || STATUT.a_voir;
+                    return (
+                      <span key={i} className="text-[10px] px-2 py-0.5 rounded-full font-semibold flex-shrink-0"
+                        style={{ background: st.bg, color: st.color }}>
+                        {st.label}
+                      </span>
+                    );
+                  })}
                 </div>
-              )}
-            </div>
-            <div className="flex items-center gap-2 flex-shrink-0 text-gray-300">
-              {c.documents?.length > 0 && (
-                <span className="text-xs text-gray-400 flex items-center gap-0.5">
-                  <IconFileCv size={13} /> {c.documents.length}
-                </span>
-              )}
-              <span className="text-xs">→</span>
-            </div>
-          </button>
-        ))}
+                <div className="text-xs text-gray-400 truncate mt-0.5">
+                  {c.candidatures?.map(ca => ca.cours_nom || ca.ue_nom || `UE ${ca.ue_num}`).join(', ') || '—'}
+                </div>
+              </div>
+              {/* Méta droite */}
+              <div className="flex items-center gap-3 flex-shrink-0">
+                {docs > 0 && (
+                  <span className="text-[10px] text-gray-400 flex items-center gap-0.5">
+                    <IconFileCv size={12} /> {docs}
+                  </span>
+                )}
+                {entretienNote != null && (
+                  <span className="text-xs font-bold px-2 py-0.5 rounded-full text-white"
+                    style={{ background: noteColor }}>
+                    {entretienNote}/5
+                  </span>
+                )}
+                <IconChevronRight size={14} className="text-gray-300" />
+              </div>
+            </button>
+          );
+        })}
       </div>
 
       {fiche && (

@@ -1878,6 +1878,11 @@ export default function Attributions() {
               <button onClick={()=>setViewMode('ue')} title="Par section" className={`p-2 rounded-lg ${viewMode==='ue'?'bg-iip-blue text-white':'text-gray-500 hover:bg-gray-100'}`}><IconFolder size={18}/></button>
               <button onClick={()=>setViewMode('flat')} title="Vue complète" className={`p-2 rounded-lg ${viewMode==='flat'?'bg-iip-blue text-white':'text-gray-500 hover:bg-gray-100'}`}><IconClipboardText size={18}/></button>
               <button onClick={togglePanneau} title="Filtres" className="p-2 rounded-lg text-gray-500 hover:bg-gray-100"><IconFilter size={18}/></button>
+              <button onClick={()=>{ const next = unite==='heures'?'periodes':'heures'; setUniteLocal(next); setUniteGlobal(next); window.dispatchEvent(new Event('unite-change')); }}
+                title={unite==='heures' ? 'Afficher en périodes' : 'Afficher en heures'}
+                className={`p-2 rounded-lg ${unite==='heures'?'bg-iip-turquoise/20 text-iip-turquoise':'text-gray-500 hover:bg-gray-100'}`}>
+                <IconClock size={18}/>
+              </button>
               <button onClick={()=>setShowForm(true)} title="Nouvelle attribution" className="p-2 rounded-lg text-iip-blue hover:bg-gray-100"><IconPlus size={18}/></button>
             </div>
           )}
