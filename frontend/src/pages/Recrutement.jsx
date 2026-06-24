@@ -126,6 +126,17 @@ const DIPLOMES_FWB = {
 };
 
 
+const DOCS_REMIS_LIST = [
+  { key: 'cv',            label: 'CV',                                    emoji: '📄' },
+  { key: 'lettre',        label: 'Lettre de motivation',                  emoji: '✉️'  },
+  { key: 'diplomes',      label: 'Copie du/des diplôme(s)',               emoji: '🎓' },
+  { key: 'titre_peda',    label: 'Titre pédagogique (AESI/AESS/CAP…)',    emoji: '📋' },
+  { key: 'casier',        label: 'Extrait de casier judiciaire (mod. 2)', emoji: '⚖️'  },
+  { key: 'anciennete',    label: "Attestation d'ancienneté barémique",   emoji: '📅' },
+  { key: 'declaration',   label: 'Déclaration de candidature signée',     emoji: '✍️'  },
+];
+
+
 export default function Recrutement() {
   const [postes, setPostes]     = useState([]);
   const [poste, setPoste]       = useState(null);
@@ -1387,7 +1398,7 @@ function VueCandidatsGlobal({ candidats, fonctions, grille, onRecharger }) {
           </div>
           <span style="font-size:8pt;opacity:.8">${stLabel}</span>
         </div>
-        <div style="padding:8px 10px">${coords}${coursBlock}${entretienLibre}${entretiensCours}</div>
+        <div style="padding:8px 10px">${coords}${docsRemisBlock}${coursBlock}${entretienLibre}${entretiensCours}</div>
       </div>`;
     };
 
@@ -1495,7 +1506,7 @@ ${tous.map(candidatHtml).join('')}
 /* ── Fiche candidat (modale d'édition) ── */
 function FicheCandidat({ candidat, fonctions, grille, onClose, onSaved }) {
   const annee = getAnnee();
-  const [f, setF] = useState({ nom: candidat.nom || '', prenom: candidat.prenom || '', email: candidat.email || '', telephone: candidat.telephone || '', cv_url: candidat.cv_url || '', notes: candidat.notes || '', fonction: candidat.fonction || '', niveau_etude: candidat.niveau_etude || '', titre_peda: candidat.titre_peda || '', diplome: candidat.diplome || '', diplome_autre: candidat.diplome_autre || '' });
+  const [f, setF] = useState({ nom: candidat.nom || '', prenom: candidat.prenom || '', email: candidat.email || '', telephone: candidat.telephone || '', cv_url: candidat.cv_url || '', notes: candidat.notes || '', fonction: candidat.fonction || '', niveau_etude: candidat.niveau_etude || '', titre_peda: candidat.titre_peda || '', diplome: candidat.diplome || '', diplome_autre: candidat.diplome_autre || '', docs_remis: candidat.docs_remis || {} });
   const [nouvelleF, setNouvelleF]   = useState('');
   const [docs, setDocs]             = useState(candidat.documents || []);
   const [candidatures, setCandidatures] = useState(candidat.candidatures || []);
@@ -1714,6 +1725,31 @@ function FicheCandidat({ candidat, fonctions, grille, onClose, onSaved }) {
               <div className="text-xs text-gray-500 mb-1">Lien CV (Drive…)</div>
               <input value={f.cv_url} onChange={e => setF({ ...f, cv_url: e.target.value })}
                 className="w-full text-sm border border-gray-300 rounded px-2 py-1.5 h-9" />
+            </div>
+
+            {/* ── Documents remis ── */}
+            <div className="col-span-2">
+              <div className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">Documents remis</div>
+              <div className="grid grid-cols-2 gap-1.5">
+                {DOCS_REMIS_LIST.map(doc => {
+                  const checked = !!f.docs_remis?.[doc.key];
+                  return (
+                    <label key={doc.key}
+                      className={`flex items-center gap-2 px-3 py-2 rounded-lg border cursor-pointer transition select-none ${
+                        checked
+                          ? 'bg-green-50 border-green-300 text-green-800'
+                          : 'bg-gray-50 border-gray-200 text-gray-500 hover:border-gray-300'
+                      }`}>
+                      <input type="checkbox" checked={checked}
+                        onChange={e => setF({ ...f, docs_remis: { ...f.docs_remis, [doc.key]: e.target.checked } })}
+                        className="w-4 h-4 accent-green-600 flex-shrink-0" />
+                      <span className="text-base leading-none flex-shrink-0">{doc.emoji}</span>
+                      <span className="text-xs font-medium leading-tight">{doc.label}</span>
+                      {checked && <span className="ml-auto text-green-500 text-xs flex-shrink-0">✓</span>}
+                    </label>
+                  );
+                })}
+              </div>
             </div>
 
             {/* ── Qualifications ── */}

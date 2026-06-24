@@ -149,6 +149,7 @@ r.get('/candidats', (req, res) => {
   const candidats = db.prepare('SELECT * FROM recrutement_candidat ORDER BY nom, prenom').all();
   res.json(candidats.map(c => ({
     ...c,
+    docs_remis: c.docs_remis ? (() => { try { return JSON.parse(c.docs_remis); } catch { return {}; } })() : {},
     entretien_reponses: c.entretien_reponses ? (() => { try { return JSON.parse(c.entretien_reponses); } catch { return {}; } })() : {},
     documents: db.prepare(
       'SELECT id, type, nom_original, taille, cree_le FROM recrutement_document WHERE candidat_id = ? ORDER BY cree_le DESC'
@@ -187,14 +188,14 @@ r.delete('/fonctions/:id', (req, res) => {
 
 r.patch('/candidats/:id', (req, res) => {
   const { nom, prenom, email, telephone, cv_url, notes, fonction,
-          niveau_etude, titre_peda, diplome, diplome_autre,
+          niveau_etude, titre_peda, diplome, diplome_autre, docs_remis,
           entretien_reponses, entretien_note, entretien_commentaire } = req.body;
   const c = db.prepare('SELECT id FROM recrutement_candidat WHERE id = ?').get(req.params.id);
   if (!c) return res.status(404).json({ error: 'Candidat introuvable' });
   db.prepare(`UPDATE recrutement_candidat SET
     nom = COALESCE(?, nom), prenom = ?, email = ?, telephone = ?,
     cv_url = ?, notes = ?, fonction = ?,
-    niveau_etude = ?, titre_peda = ?, diplome = ?, diplome_autre = ?,
+    niveau_etude = ?, titre_peda = ?, diplome = ?, diplome_autre = ?, docs_remis = COALESCE(?, docs_remis),
     entretien_reponses = COALESCE(?, entretien_reponses),
     entretien_note = COALESCE(?, entretien_note),
     entretien_commentaire = COALESCE(?, entretien_commentaire)
@@ -202,6 +203,7 @@ r.patch('/candidats/:id', (req, res) => {
       nom ?? null, prenom ?? null, email ?? null, telephone ?? null,
       cv_url ?? null, notes ?? null, fonction ?? null,
       niveau_etude ?? null, titre_peda ?? null, diplome ?? null, diplome_autre ?? null,
+      docs_remis != null ? JSON.stringify(docs_remis) : null,
       entretien_reponses != null ? JSON.stringify(entretien_reponses) : null,
       entretien_note ?? null, entretien_commentaire ?? null,
       c.id);

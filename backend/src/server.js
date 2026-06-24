@@ -2405,6 +2405,7 @@ try {
 try {
   const cols = db.prepare('PRAGMA table_info(recrutement_candidat)').all().map(c => c.name);
   if (!cols.includes('niveau_etude'))  db.exec("ALTER TABLE recrutement_candidat ADD COLUMN niveau_etude TEXT");
+  if (!cols.includes('docs_remis'))    db.exec("ALTER TABLE recrutement_candidat ADD COLUMN docs_remis TEXT DEFAULT '{}'");
   if (!cols.includes('titre_peda'))    db.exec("ALTER TABLE recrutement_candidat ADD COLUMN titre_peda TEXT");
   if (!cols.includes('diplome'))       db.exec("ALTER TABLE recrutement_candidat ADD COLUMN diplome TEXT");
   if (!cols.includes('diplome_autre')) db.exec("ALTER TABLE recrutement_candidat ADD COLUMN diplome_autre TEXT");
