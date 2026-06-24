@@ -71,7 +71,7 @@ r.get('/postes', (req, res) => {
   if (!annee) return res.status(400).json({ error: 'annee requise' });
 
   const aDesignerIds = db.prepare(
-    "SELECT id FROM professeur WHERE UPPER(nom) LIKE '%SIGN%'"
+    "SELECT id FROM professeur WHERE UPPER(nom) LIKE '%SIGN%' OR UPPER(prenom) LIKE '%SIGN%' OR UPPER(COALESCE(nom,'') || ' ' || COALESCE(prenom,'')) LIKE '%DESIGN%'"
   ).all().map(p => p.id);
 
   const placeholders = aDesignerIds.length
