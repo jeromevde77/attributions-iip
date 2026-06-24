@@ -2627,6 +2627,7 @@ function EntretienLibre({ candidat, grille, onClose, onSaved }) {
   const [dispo, setDispo] = useState(candidat.disponibilites || {});
   const [divers, setDivers]     = useState('');
   const [introTexte, setIntroTexte] = useState('');
+  const [conclusionTexte, setConclusionTexte] = useState('');
   const [saving, setSaving] = useState(false);
   const [saved, setSaved]   = useState(false);
   const [section, setSection] = useState('intro');
@@ -2634,6 +2635,8 @@ function EntretienLibre({ candidat, grille, onClose, onSaved }) {
   useEffect(() => {
     fetch('/api/config/entretien_intro', { headers: { Authorization: `Bearer ${tok()}` } })
       .then(r => r.ok ? r.json() : null).then(d => d && setIntroTexte(d.valeur)).catch(() => {});
+    fetch('/api/config/entretien_conclusion', { headers: { Authorization: `Bearer ${tok()}` } })
+      .then(r => r.ok ? r.json() : null).then(d => d && setConclusionTexte(d.valeur)).catch(() => {});
   }, []);
 
   const notees = Object.values(reponses).filter(r => r.note > 0 && !r.disabled);
@@ -2842,6 +2845,18 @@ function EntretienLibre({ candidat, grille, onClose, onSaved }) {
           {/* ── Bilan & Appréciation globale ── */}
           {section === 'bilan' && (
             <div className="space-y-4">
+
+              {/* Mot de conclusion */}
+              {conclusionTexte && (
+                <div className="bg-white border border-gray-200 rounded-xl p-5 shadow-sm">
+                  <h2 className="text-base font-bold text-iip-blue mb-4">Mot de fin — à lire au candidat</h2>
+                  <div className="text-sm text-gray-700 leading-relaxed bg-iip-blue/5 border-l-4 border-iip-blue rounded-r-lg p-4 whitespace-pre-wrap">
+                    {conclusionTexte}
+                  </div>
+                  <div className="mt-2 text-xs text-gray-400 italic">Pour modifier ce texte : Config. → Recrutement.</div>
+                </div>
+              )}
+
               <div className="bg-white border border-gray-200 rounded-xl p-4 shadow-sm">
                 <div className="text-sm font-semibold text-iip-blue mb-2">Bilan global de l'entretien</div>
                 <textarea value={commentaireGlobal} onChange={e => setCommentaireGlobal(e.target.value)}

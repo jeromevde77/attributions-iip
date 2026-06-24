@@ -14,8 +14,15 @@ r.get('/', authRequired, roleRequired('admin'), (req, res) => {
 
 // GET /api/config/:cle — lecture publique (pour charger l'intro dans l'entretien)
 r.get('/:cle', authRequired, (req, res) => {
+  const DEFAULTS = {
+    entretien_intro: `Bonjour et merci d'être venu·e. Je suis Jérôme Vanden Eynde, directeur de l'Institut Ilya Prigogine.\n\nL'Institut Ilya Prigogine est un établissement d'enseignement de promotion sociale situé à Bruxelles. Nous proposons des formations de niveau secondaire et supérieur à destination d'un public adulte — des personnes en reconversion, en reprise d'études, ou en perfectionnement professionnel. Nos sections couvrent les soins infirmiers, la santé, le paramédical et plusieurs autres filières.\n\nL'entretien que nous allons mener durera environ 30 minutes. Il n'y a pas de bonne ou de mauvaise réponse — ce qui m'intéresse, c'est votre façon de penser et de réfléchir.\n\nNous commencerons par une présentation de votre parcours en environ une minute. Avez-vous des questions avant de commencer ?`,
+    entretien_conclusion: `Nous arrivons à la fin de notre entretien. Merci pour le temps que vous nous avez consacré et pour la qualité de vos réponses.\n\nVoici la suite de la procédure : nous allons examiner l'ensemble des candidatures reçues et délibérer en équipe de direction. Nous vous recontacterons dans un délai de deux à trois semaines.\n\nSi vous êtes retenu·e, nous vous proposerons un contrat et vous inviterons à une rencontre avec votre futur responsable pédagogique. Si votre candidature n'est pas retenue cette fois-ci, nous conservons votre dossier pour de futures opportunités.\n\nAvez-vous des questions sur la suite ou sur notre établissement ?`,
+  };
   const row = db.prepare('SELECT valeur FROM lucie_config WHERE cle = ?').get(req.params.cle);
-  if (!row) return res.status(404).json({ error: 'Clé introuvable' });
+  if (!row) {
+    if (DEFAULTS[req.params.cle]) return res.json({ valeur: DEFAULTS[req.params.cle] });
+    return res.status(404).json({ error: 'Clé introuvable' });
+  }
   res.json({ valeur: row.valeur });
 });
 
