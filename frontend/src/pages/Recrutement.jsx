@@ -1809,36 +1809,41 @@ ${tous.map(candidatHtml).join('')}
 }
 
 /* ── Fiche candidat (modale d'édition) ── */
+
+/* ── Fiche candidat (modale d'édition) — 4 cadres ── */
 function FicheCandidat({ candidat, fonctions, grille, onClose, onSaved }) {
   const annee = getAnnee();
-  const [f, setF] = useState({ nom: candidat.nom || '', prenom: candidat.prenom || '', email: candidat.email || '', telephone: candidat.telephone || '', cv_url: candidat.cv_url || '', notes: candidat.notes || '', fonction: candidat.fonction || '', niveau_etude: candidat.niveau_etude || '', titre_peda: candidat.titre_peda || '', diplome: candidat.diplome || '', diplome_autre: candidat.diplome_autre || '', docs_remis: candidat.docs_remis || {}, qualifications: candidat.qualifications || [], disponibilites: candidat.disponibilites || {} });
-  const [nouvelleF, setNouvelleF]   = useState('');
-  const [ajoutQual, setAjoutQual]   = useState(false);
-  const [docs, setDocs]             = useState(candidat.documents || []);
+  const [f, setF] = useState({
+    nom: candidat.nom || '', prenom: candidat.prenom || '',
+    email: candidat.email || '', telephone: candidat.telephone || '',
+    docs_remis: candidat.docs_remis || {},
+    qualifications: candidat.qualifications || [],
+    disponibilites: candidat.disponibilites || {},
+  });
+  const [docs, setDocs]         = useState(candidat.documents || []);
   const [candidatures, setCandidatures] = useState(candidat.candidatures || []);
-  const [busy, setBusy]             = useState(false);
-  const [uploading, setUploading]   = useState(false);
-  const [visionneur, setVisionneur] = useState(null);
-
-  // Sélecteur cascadant section → UE → cours
-  const [sections, setSections]     = useState([]);
-  const [selSection, setSelSection] = useState('');
-  const [ues, setUes]               = useState([]);
-  const [selUE, setSelUE]           = useState('');
-  const [cours, setCours]           = useState([]);
-  const [selCours, setSelCours]     = useState('');
-  const [loadingUE, setLoadingUE]   = useState(false);
-  const [ajoutBusy, setAjoutBusy]   = useState(false);
+  const [busy, setBusy]         = useState(false);
+  const [uploading, setUploading] = useState(false);
+  const [ajoutQual, setAjoutQual] = useState(false);
   const [entretienLibre, setEntretienLibre] = useState(false);
-  const [entretienCand, setEntretienCand] = useState(null);
+  const [entretienCand, setEntretienCand]   = useState(null);
+  const [visionneur, setVisionneur]         = useState(null);
 
-  // Charger les sections au montage
+  // Sélecteur cascadant cours envisagés
+  const [sections, setSections] = useState([]);
+  const [selSection, setSelSection] = useState('');
+  const [ues, setUes] = useState([]);
+  const [selUE, setSelUE] = useState('');
+  const [cours, setCours] = useState([]);
+  const [selCours, setSelCours] = useState('');
+  const [loadingUE, setLoadingUE] = useState(false);
+  const [ajoutBusy, setAjoutBusy] = useState(false);
+
   useEffect(() => {
     fetch('/api/ref/sections', { headers: { Authorization: `Bearer ${tok()}` } })
       .then(r => r.json()).then(d => setSections(Array.isArray(d) ? d : [])).catch(() => {});
   }, []);
 
-  // Section → UE
   useEffect(() => {
     if (!selSection) { setUes([]); setSelUE(''); setCours([]); return; }
     setLoadingUE(true);
@@ -1848,13 +1853,11 @@ function FicheCandidat({ candidat, fonctions, grille, onClose, onSaved }) {
       .catch(() => setUes([])).finally(() => setLoadingUE(false));
   }, [selSection]);
 
-  // UE → cours
   useEffect(() => {
     if (!selUE) { setCours([]); setSelCours(''); return; }
     fetch(`/api/ref/ue/${selUE}?annee=${encodeURIComponent(annee)}`,
       { headers: { Authorization: `Bearer ${tok()}` } })
-      .then(r => r.json())
-      .then(ue => { setCours(ue.cours || []); setSelCours(''); })
+      .then(r => r.json()).then(ue => { setCours(ue.cours || []); setSelCours(''); })
       .catch(() => {});
   }, [selUE]);
 
@@ -1866,10 +1869,8 @@ function FicheCandidat({ candidat, fonctions, grille, onClose, onSaved }) {
 
   const enregistrer = async () => {
     setBusy(true);
-    try {
-      await af(`/candidats/${candidat.id}`, { method: 'PATCH', body: JSON.stringify(f) });
-      onSaved();
-    } catch (e) { alert(e.message); } finally { setBusy(false); }
+    try { await af(`/candidats/${candidat.id}`, { method: 'PATCH', body: JSON.stringify(f) }); onSaved(); }
+    catch (e) { alert(e.message); } finally { setBusy(false); }
   };
 
   const supprimerCandidat = async () => {
@@ -1881,12 +1882,9 @@ function FicheCandidat({ candidat, fonctions, grille, onClose, onSaved }) {
   const ajouterDoc = async (type, file) => {
     setUploading(true);
     try {
-      const fd = new FormData();
-      fd.append('fichier', file);
-      await fetch(`/api/recrutement/candidats/${candidat.id}/documents?type=${type}`, {
-        method: 'POST', headers: { Authorization: `Bearer ${tok()}` }, body: fd,
-      });
-      // Recharger les docs
+      const fd = new FormData(); fd.append('fichier', file);
+      await fetch(`/api/recrutement/candidats/${candidat.id}/documents?type=${type}`,
+        { method: 'POST', headers: { Authorization: `Bearer ${tok()}` }, body: fd });
       const updated = await af('/candidats');
       const me = updated.find(c => c.id === candidat.id);
       if (me) setDocs(me.documents || []);
@@ -1904,37 +1902,7 @@ function FicheCandidat({ candidat, fonctions, grille, onClose, onSaved }) {
     setVisionneur({ url: URL.createObjectURL(blob), nom, mime: blob.type });
   };
 
-  if (entretienLibre) return (
-    <EntretienLibre
-      candidat={candidat}
-      grille={grille}
-      onClose={() => setEntretienLibre(false)}
-      onSaved={async (reponses, note, commentaire, rn, rc) => {
-        await af(`/candidats/${candidat.id}`, { method: 'PATCH', body: JSON.stringify({
-          entretien_reponses: reponses,
-          entretien_note: note,
-          entretien_commentaire: commentaire,
-          reflexif_niveau: rn,
-          reflexif_commentaire: rc,
-        })});
-        setEntretienLibre(false);
-        onSaved();
-      }}
-    />
-  );
-
-  if (entretienCand) return (
-    <EntretienModal
-      candidature={entretienCand}
-      poste={{ nom_cours: entretienCand.cours_nom || entretienCand.ue_nom, ue_num: entretienCand.ue_num, section: entretienCand.section, nom_cours: entretienCand.cours_nom }}
-      annee={annee}
-      qIA={[]}
-      grille={grille}
-      onClose={() => setEntretienCand(null)}
-      onSaved={() => { setEntretienCand(null); rechargerCandidatures(); }}
-    />
-  );
-
+  // Early returns
   if (visionneur) return (
     <div className="fixed inset-0 bg-black/70 z-[60] flex flex-col"
       onClick={() => { URL.revokeObjectURL(visionneur.url); setVisionneur(null); }}>
@@ -1953,32 +1921,51 @@ function FicheCandidat({ candidat, fonctions, grille, onClose, onSaved }) {
         {visionneur.mime === 'application/pdf' && (
           <iframe src={visionneur.url} title={visionneur.nom} className="w-full h-full border-none" />
         )}
-        {visionneur.mime && !visionneur.mime.startsWith('image/') && visionneur.mime !== 'application/pdf' && (
-          <div className="h-full flex flex-col items-center justify-center text-white gap-3">
-            <IconFileCv size={40} className="opacity-40" />
-            <div className="text-sm opacity-60">Ce format ne peut pas \u00eatre pr\u00e9visualis\u00e9</div>
-          </div>
-        )}
       </div>
     </div>
   );
 
+  if (entretienLibre) return (
+    <EntretienLibre
+      candidat={candidat}
+      grille={grille}
+      onClose={() => setEntretienLibre(false)}
+      onSaved={async (reponses, note, commentaire, rn, rc, dispo, dispoRemarque) => {
+        await af(`/candidats/${candidat.id}`, { method: 'PATCH', body: JSON.stringify({
+          entretien_reponses: reponses, entretien_note: note, entretien_commentaire: commentaire,
+          reflexif_niveau: rn, reflexif_commentaire: rc,
+          disponibilites: { ...dispo, _remarque: dispoRemarque },
+        })});
+        setEntretienLibre(false); onSaved();
+      }}
+    />
+  );
+
+  if (entretienCand) return (
+    <EntretienModal
+      candidature={entretienCand}
+      poste={{ nom_cours: entretienCand.cours_nom||entretienCand.ue_nom, ue_num: entretienCand.ue_num, section: entretienCand.section }}
+      annee={annee} qIA={[]} grille={grille}
+      onClose={() => setEntretienCand(null)}
+      onSaved={() => { setEntretienCand(null); rechargerCandidatures(); }}
+    />
+  );
+
   return (
     <>
-    <div className="fixed inset-0 bg-black/40 z-50 flex items-start justify-center p-4 pt-12 overflow-auto" onClick={onClose}>
+    <div className="fixed inset-0 bg-black/40 z-50 flex items-start justify-center p-4 pt-8 overflow-auto" onClick={onClose}>
       <div className="bg-white rounded-xl w-full max-w-2xl shadow-xl" onClick={e => e.stopPropagation()}>
 
         {/* En-tête */}
-        <div className="px-5 py-4 border-b border-gray-100 flex items-center justify-between sticky top-0 bg-white rounded-t-xl">
+        <div className="flex items-center justify-between px-5 py-3 border-b border-gray-100 sticky top-0 bg-white rounded-t-xl z-10">
           <h3 className="text-lg font-bold text-iip-blue">Fiche candidat</h3>
           <div className="flex items-center gap-2">
             <button onClick={() => genererFicheIndividuelle(candidat, grille)}
-              title="Imprimer la fiche synthèse"
               className="text-xs border border-gray-300 text-gray-500 hover:bg-gray-50 rounded px-2.5 py-1.5 flex items-center gap-1.5">
               🖨 PDF
             </button>
             <button onClick={() => setEntretienLibre(true)}
-              title="Mener un entretien sans cours attaché"
+              title="Mener l'entretien"
               className="text-xs border border-iip-turquoise text-iip-blue hover:bg-iip-turquoise/10 rounded px-2.5 py-1.5 flex items-center gap-1.5 font-medium">
               <IconClipboardText size={14} /> Entretien
               {candidat.entretien_note && (
@@ -1987,178 +1974,135 @@ function FicheCandidat({ candidat, fonctions, grille, onClose, onSaved }) {
                 </span>
               )}
             </button>
-            <button onClick={supprimerCandidat} className="text-gray-300 hover:text-red-500 p-1" title="Supprimer le candidat">
-              <IconTrash size={17} />
-            </button>
+            <button onClick={supprimerCandidat} className="text-gray-300 hover:text-red-500 p-1"><IconTrash size={17} /></button>
             <button onClick={onClose} className="text-gray-400 hover:text-gray-700"><IconX size={20} /></button>
           </div>
         </div>
 
-        <div className="p-5 space-y-4">
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <div className="text-xs text-gray-500 mb-1">Prénom</div>
-              <input value={f.prenom} onChange={e => setF({ ...f, prenom: e.target.value })}
-                className="w-full text-sm border border-gray-300 rounded px-2 py-1.5 h-9" />
-            </div>
-            <div>
-              <div className="text-xs text-gray-500 mb-1">Nom *</div>
-              <input value={f.nom} onChange={e => setF({ ...f, nom: e.target.value })}
-                className="w-full text-sm border border-gray-300 rounded px-2 py-1.5 h-9" />
-            </div>
-            <div>
-              <div className="text-xs text-gray-500 mb-1">E-mail</div>
-              <input value={f.email} onChange={e => setF({ ...f, email: e.target.value })}
-                className="w-full text-sm border border-gray-300 rounded px-2 py-1.5 h-9" />
-            </div>
-            <div>
-              <div className="text-xs text-gray-500 mb-1">Téléphone</div>
-              <input value={f.telephone} onChange={e => setF({ ...f, telephone: e.target.value })}
-                className="w-full text-sm border border-gray-300 rounded px-2 py-1.5 h-9" />
-            </div>
-            <div className="col-span-2">
-              <div className="text-xs text-gray-500 mb-1">Fonction / profil</div>
-              <div className="flex gap-2">
-                <select value={f.fonction} onChange={e => setF({ ...f, fonction: e.target.value })}
-                  className="flex-1 text-sm border border-gray-300 rounded px-2 py-1.5 h-9">
-                  <option value="">— choisir —</option>
-                  {(fonctions || []).map(fn => <option key={fn.id} value={fn.libelle}>{fn.libelle}</option>)}
-                </select>
-                <input value={nouvelleF} onChange={e => setNouvelleF(e.target.value)}
-                  placeholder="Autre…" className="w-28 text-sm border border-gray-300 rounded px-2 py-1.5 h-9" />
-                {nouvelleF.trim() && (
-                  <button onClick={async () => {
-                    await af('/fonctions', { method: 'POST', body: JSON.stringify({ libelle: nouvelleF.trim() }) });
-                    setF({ ...f, fonction: nouvelleF.trim() });
-                    setNouvelleF('');
-                  }} className="text-xs bg-iip-blue text-white px-2 py-1 rounded h-9">+ Ajouter</button>
-                )}
+        <div className="p-5 space-y-5">
+
+          {/* ── Cadre 1 : Coordonnées ── */}
+          <div className="border border-gray-200 rounded-xl p-4">
+            <div className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-3">Coordonnées</div>
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <div className="text-xs text-gray-500 mb-1">Prénom</div>
+                <input value={f.prenom} onChange={e => setF({ ...f, prenom: e.target.value })}
+                  className="w-full text-sm border border-gray-300 rounded px-2 py-1.5 h-9" />
+              </div>
+              <div>
+                <div className="text-xs text-gray-500 mb-1">Nom *</div>
+                <input value={f.nom} onChange={e => setF({ ...f, nom: e.target.value })}
+                  className="w-full text-sm border border-gray-300 rounded px-2 py-1.5 h-9" />
+              </div>
+              <div>
+                <div className="text-xs text-gray-500 mb-1">E-mail</div>
+                <input value={f.email} onChange={e => setF({ ...f, email: e.target.value })}
+                  className="w-full text-sm border border-gray-300 rounded px-2 py-1.5 h-9" />
+              </div>
+              <div>
+                <div className="text-xs text-gray-500 mb-1">Téléphone</div>
+                <input value={f.telephone} onChange={e => setF({ ...f, telephone: e.target.value })}
+                  className="w-full text-sm border border-gray-300 rounded px-2 py-1.5 h-9" />
               </div>
             </div>
-            <div className="col-span-2">
-              <div className="text-xs text-gray-500 mb-1">Lien CV (Drive…)</div>
-              <input value={f.cv_url} onChange={e => setF({ ...f, cv_url: e.target.value })}
-                className="w-full text-sm border border-gray-300 rounded px-2 py-1.5 h-9" />
+          </div>
+
+          {/* ── Cadre 2 : Documents remis ── */}
+          <div className="border border-gray-200 rounded-xl p-4">
+            <div className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-3">Documents remis</div>
+            <div className="grid grid-cols-2 gap-1.5 mb-3">
+              {DOCS_REMIS_LIST.map(doc => {
+                const checked = !!f.docs_remis?.[doc.key];
+                return (
+                  <label key={doc.key}
+                    className={`flex items-center gap-2 px-3 py-2 rounded-lg border cursor-pointer transition select-none ${
+                      checked ? 'bg-green-50 border-green-300 text-green-800' : 'bg-gray-50 border-gray-200 text-gray-500 hover:border-gray-300'
+                    }`}>
+                    <input type="checkbox" checked={checked}
+                      onChange={e => setF({ ...f, docs_remis: { ...f.docs_remis, [doc.key]: e.target.checked } })}
+                      className="w-4 h-4 accent-green-600 flex-shrink-0" />
+                    <span className="text-base leading-none flex-shrink-0">{doc.emoji}</span>
+                    <span className="text-xs font-medium leading-tight">{doc.label}</span>
+                    {checked && <span className="ml-auto text-green-500 text-xs flex-shrink-0">✓</span>}
+                  </label>
+                );
+              })}
             </div>
-
-            {/* ── Disponibilités ── */}
-            <div className="col-span-2">
-              <div className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">Disponibilités</div>
-              <Semainier
-                value={f.disponibilites}
-                onChange={dispo => setF({ ...f, disponibilites: dispo })}
-              />
-            </div>
-
-            {/* ── Documents remis ── */}
-            <div className="col-span-2">
-              <div className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">Documents remis</div>
-              <div className="grid grid-cols-2 gap-1.5">
-                {DOCS_REMIS_LIST.map(doc => {
-                  const checked = !!f.docs_remis?.[doc.key];
-                  return (
-                    <label key={doc.key}
-                      className={`flex items-center gap-2 px-3 py-2 rounded-lg border cursor-pointer transition select-none ${
-                        checked
-                          ? 'bg-green-50 border-green-300 text-green-800'
-                          : 'bg-gray-50 border-gray-200 text-gray-500 hover:border-gray-300'
-                      }`}>
-                      <input type="checkbox" checked={checked}
-                        onChange={e => setF({ ...f, docs_remis: { ...f.docs_remis, [doc.key]: e.target.checked } })}
-                        className="w-4 h-4 accent-green-600 flex-shrink-0" />
-                      <span className="text-base leading-none flex-shrink-0">{doc.emoji}</span>
-                      <span className="text-xs font-medium leading-tight">{doc.label}</span>
-                      {checked && <span className="ml-auto text-green-500 text-xs flex-shrink-0">✓</span>}
-                    </label>
-                  );
-                })}
-              </div>
-            </div>
-
-            {/* ── Qualifications ── */}
-            <div className="col-span-2">
-              <div className="flex items-center justify-between mb-2">
-                <div className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Titres &amp; Diplômes ({f.qualifications.length})</div>
-                <button type="button" onClick={() => setAjoutQual(true)}
-                  className="text-xs bg-iip-blue text-white px-2.5 py-1 rounded-lg flex items-center gap-1 hover:opacity-90">
-                  <IconPlus size={11} /> Ajouter un titre ou un diplôme
-                </button>
-              </div>
-
-              {f.qualifications.length === 0 && (
-                <div className="text-xs text-gray-400 italic py-2">Aucun titre ou diplôme renseigné.</div>
-              )}
-
-              <div className="space-y-1.5">
-                {f.qualifications.map((q, i) => {
-                  const niv = NIVEAUX_ETUDE.find(n => n.val === q.niveau);
-                  const dip = Object.values(DIPLOMES_FWB).flat().find(d => d.val === q.diplome);
-                  const tit = TITRES_PEDA.find(t => t.val === q.titre_peda);
-                  return (
-                    <div key={i} className="flex items-start gap-2 bg-gray-50 border border-gray-200 rounded-lg px-3 py-2">
-                      <div className="flex-1 min-w-0 space-y-0.5">
-                        {niv && <div className="text-xs font-semibold text-iip-blue">{niv.label}</div>}
-                        {dip && <div className="text-xs text-gray-700">{dip.label}</div>}
-                        {!dip && q.diplome_autre && <div className="text-xs text-gray-700 italic">{q.diplome_autre}</div>}
-                        {tit && <div className="text-xs text-iip-turquoise font-medium">{tit.label}</div>}
-                      </div>
-                      <button type="button" onClick={() => setF({ ...f, qualifications: f.qualifications.filter((_, j) => j !== i) })}
-                        className="text-gray-300 hover:text-red-400 flex-shrink-0 mt-0.5">
-                        <IconX size={13} />
+            {/* Zone de dépôt */}
+            <div className="border-t border-gray-100 pt-3">
+              <div className="text-xs text-gray-400 font-medium mb-2">Fichiers déposés ({docs.length})</div>
+              {docs.length > 0 && (
+                <div className="space-y-1 mb-2">
+                  {docs.map(d => (
+                    <div key={d.id} className="flex items-center gap-2 text-xs bg-gray-50 border border-gray-100 rounded px-2 py-1.5">
+                      <IconFileCv size={13} className="text-iip-blue flex-shrink-0" />
+                      <span className="text-gray-400 w-20 flex-shrink-0">{TYPES_DOC[d.type]?.label || d.type}</span>
+                      <button onClick={() => ouvrirDoc(d.id, d.nom_original)}
+                        className="text-iip-blue hover:underline truncate flex-1 text-left">{d.nom_original}</button>
+                      <button onClick={() => supprimerDoc(d.id)} className="text-gray-200 hover:text-red-400 flex-shrink-0">
+                        <IconTrash size={12} />
                       </button>
                     </div>
-                  );
-                })}
+                  ))}
+                </div>
+              )}
+              <div className="flex flex-wrap gap-2">
+                {Object.entries(TYPES_DOC).map(([type, { label, accept }]) => (
+                  <label key={type} className="cursor-pointer text-[11px] border border-dashed border-gray-300 rounded px-2 py-1 hover:border-iip-turquoise flex items-center gap-1 text-gray-500">
+                    <IconUpload size={11} /> {label}
+                    <input type="file" accept={accept} className="hidden" onChange={e => {
+                      const file = e.target.files?.[0]; if (file) { ajouterDoc(type, file); e.target.value = ''; }
+                    }} />
+                  </label>
+                ))}
+                {uploading && <span className="text-[11px] text-iip-blue animate-pulse">Envoi…</span>}
               </div>
-            </div>
-
-            <div className="col-span-2">
-              <div className="text-xs text-gray-500 mb-1">Notes / profil</div>
-              <textarea value={f.notes} onChange={e => setF({ ...f, notes: e.target.value })} rows={3}
-                className="w-full text-sm border border-gray-300 rounded px-2 py-1.5 resize-none" />
             </div>
           </div>
 
-          {/* Documents */}
-          <div>
-            <div className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">Documents ({docs.length})</div>
-            {docs.length > 0 && (
-              <div className="space-y-1 mb-2">
-                {docs.map(d => (
-                  <div key={d.id} className="flex items-center gap-2 text-xs bg-gray-50 border border-gray-100 rounded px-2 py-1.5">
-                    <IconFileCv size={13} className="text-iip-blue flex-shrink-0" />
-                    <span className="text-gray-400 w-20 flex-shrink-0">{TYPES_DOC[d.type]?.label || d.type}</span>
-                    <button onClick={() => ouvrirDoc(d.id, d.nom_original)}
-                      className="text-iip-blue hover:underline truncate flex-1 text-left">{d.nom_original}</button>
-                    <button onClick={() => supprimerDoc(d.id)} className="text-gray-300 hover:text-red-400 flex-shrink-0">
-                      <IconTrash size={12} />
+          {/* ── Cadre 3 : Diplômes et titres ── */}
+          <div className="border border-gray-200 rounded-xl p-4">
+            <div className="flex items-center justify-between mb-3">
+              <div className="text-xs font-bold text-gray-400 uppercase tracking-widest">Diplômes &amp; Titres</div>
+              <button type="button" onClick={() => setAjoutQual(true)}
+                className="text-xs bg-iip-blue text-white px-2.5 py-1 rounded-lg flex items-center gap-1 hover:opacity-90">
+                <IconPlus size={11} /> Ajouter
+              </button>
+            </div>
+            {f.qualifications.length === 0 && (
+              <div className="text-xs text-gray-400 italic">Aucun titre ou diplôme renseigné.</div>
+            )}
+            <div className="space-y-1.5">
+              {f.qualifications.map((q, i) => {
+                const niv = NIVEAUX_ETUDE.find(n => n.val === q.niveau);
+                const dip = Object.values(DIPLOMES_FWB).flat().find(d => d.val === q.diplome);
+                const tit = TITRES_PEDA.find(t => t.val === q.titre_peda);
+                return (
+                  <div key={i} className="flex items-start gap-2 bg-gray-50 border border-gray-200 rounded-lg px-3 py-2">
+                    <div className="flex-1 min-w-0 space-y-0.5">
+                      {niv && <div className="text-xs font-semibold text-iip-blue">{niv.label}</div>}
+                      {dip && <div className="text-xs text-gray-700">{dip.label}</div>}
+                      {!dip && q.diplome_autre && <div className="text-xs text-gray-700 italic">{q.diplome_autre}</div>}
+                      {tit && <div className="text-xs text-iip-turquoise font-medium">{tit.label}</div>}
+                    </div>
+                    <button type="button" onClick={() => setF({ ...f, qualifications: f.qualifications.filter((_, j) => j !== i) })}
+                      className="text-gray-300 hover:text-red-400 flex-shrink-0 mt-0.5">
+                      <IconX size={13} />
                     </button>
                   </div>
-                ))}
-              </div>
-            )}
-            <div className="flex flex-wrap gap-2">
-              {Object.entries(TYPES_DOC).map(([type, { label, accept }]) => (
-                <label key={type} className="cursor-pointer text-[11px] border border-dashed border-gray-300 rounded px-2 py-1 hover:border-iip-turquoise flex items-center gap-1 text-gray-500">
-                  <IconUpload size={11} /> {label}
-                  <input type="file" accept={accept} className="hidden" onChange={e => {
-                    const file = e.target.files?.[0]; if (file) { ajouterDoc(type, file); e.target.value = ''; }
-                  }} />
-                </label>
-              ))}
-              {uploading && <span className="text-[11px] text-iip-blue animate-pulse">Envoi…</span>}
+                );
+              })}
             </div>
           </div>
 
-          {/* Cours envisagés */}
-          <div>
-            <div className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">
+          {/* ── Cadre 4 : Cours envisagés ── */}
+          <div className="border border-gray-200 rounded-xl p-4">
+            <div className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-3">
               Cours envisagés ({candidatures.length})
             </div>
-
-            {/* Liste des candidatures existantes */}
             {candidatures.length > 0 && (
-              <div className="space-y-1 mb-3">
+              <div className="space-y-1.5 mb-3">
                 {candidatures.map((ca, i) => {
                   const st = STATUT[ca.statut] || STATUT.a_voir;
                   return (
@@ -2179,7 +2123,7 @@ function FicheCandidat({ candidat, fonctions, grille, onClose, onSaved }) {
                           <IconClipboardText size={12} /> Lancer l'entretien
                         </button>
                         <button onClick={async () => {
-                          if (!confirm('Retirer ce cours de la liste ?')) return;
+                          if (!confirm('Retirer ce cours ?')) return;
                           await af(`/candidatures/${ca.id}`, { method: 'DELETE' });
                           rechargerCandidatures();
                         }} className="text-xs text-gray-400 hover:text-red-500 flex items-center gap-1">
@@ -2191,12 +2135,10 @@ function FicheCandidat({ candidat, fonctions, grille, onClose, onSaved }) {
                 })}
               </div>
             )}
-
-            {/* Sélecteur cascadant : section → UE → cours */}
+            {/* Sélecteur */}
             <div className="border border-dashed border-gray-300 rounded-lg p-3 space-y-2 bg-gray-50/50">
               <div className="text-[10px] font-semibold text-gray-400 uppercase tracking-wide">Ajouter un cours</div>
               <div className="grid grid-cols-2 gap-2">
-                {/* Section */}
                 <div>
                   <div className="text-xs text-gray-500 mb-0.5">Section</div>
                   <select value={selSection} onChange={e => { setSelSection(e.target.value); setSelUE(''); setSelCours(''); }}
@@ -2205,8 +2147,6 @@ function FicheCandidat({ candidat, fonctions, grille, onClose, onSaved }) {
                     {sections.map(s => <option key={s.code} value={s.code}>{s.code}{s.libelle ? ` — ${s.libelle}` : ''}</option>)}
                   </select>
                 </div>
-
-                {/* UE */}
                 <div>
                   <div className="text-xs text-gray-500 mb-0.5">UE {loadingUE && <span className="text-gray-400">…</span>}</div>
                   <select value={selUE} onChange={e => { setSelUE(e.target.value); setSelCours(''); }}
@@ -2216,8 +2156,6 @@ function FicheCandidat({ candidat, fonctions, grille, onClose, onSaved }) {
                     {ues.map(u => <option key={u.ue_num} value={u.ue_num}>UE {u.ue_num} — {u.ue_nom}</option>)}
                   </select>
                 </div>
-
-                {/* Cours (si UE a plusieurs cours) */}
                 {cours.length > 1 && (
                   <div className="col-span-2">
                     <div className="text-xs text-gray-500 mb-0.5">Cours</div>
@@ -2229,36 +2167,69 @@ function FicheCandidat({ candidat, fonctions, grille, onClose, onSaved }) {
                   </div>
                 )}
               </div>
-
-              {/* Bouton ajouter */}
               <button
                 disabled={!selUE || (cours.length > 1 && !selCours) || ajoutBusy}
                 onClick={async () => {
                   if (!selUE) return;
                   const codeCours = selCours || (cours.length === 1 ? cours[0].cours_code : '');
-                  if (!codeCours && cours.length !== 0) return;
                   setAjoutBusy(true);
                   try {
                     await af(`/candidats/${candidat.id}/candidatures`, { method: 'POST', body: JSON.stringify({
-                      annee: annee,
-                      ue_num: selUE,
-                      code_cours: codeCours,
-                      section: selSection,
+                      annee, ue_num: selUE, code_cours: codeCours, section: selSection,
                     })});
                     setSelSection(''); setSelUE(''); setSelCours('');
                     rechargerCandidatures();
                   } catch (e) {
-                    if (e.message.includes('UNIQUE') || e.message.includes('déjà') || e.message.includes('409')) {
-                      alert('Ce candidat est déjà associé à ce cours.');
-                    } else { alert(e.message); }
+                    if (e.message.includes('409') || e.message.includes('déjà')) alert('Ce candidat est déjà associé à ce cours.');
+                    else alert(e.message);
                   } finally { setAjoutBusy(false); }
                 }}
                 className="w-full text-xs bg-iip-blue text-white rounded px-3 py-1.5 hover:opacity-90 disabled:opacity-40 flex items-center justify-center gap-1.5">
-                <IconPlus size={12} />
-                {ajoutBusy ? 'Ajout…' : 'Rattacher ce cours'}
+                <IconPlus size={12} /> {ajoutBusy ? 'Ajout…' : 'Rattacher ce cours'}
               </button>
             </div>
           </div>
+
+          {/* ── Disponibilités (résumé en bas) ── */}
+          {(() => {
+            const dispo = candidat.disponibilites || {};
+            const jours = ['Lun','Mar','Mer','Jeu','Ven','Sam'];
+            const cr = [{key:'matin',l:'8–12'},{key:'midi',l:'12–17'},{key:'soir',l:'17–22'}];
+            const hasIndisp = jours.some(j => cr.some(c => dispo[`${j}_${c.key}`]));
+            if (!hasIndisp && !dispo._remarque) return null;
+            return (
+              <div className="border border-orange-200 bg-orange-50/40 rounded-xl p-4">
+                <div className="text-xs font-bold text-orange-600 uppercase tracking-widest mb-2">Indisponibilités</div>
+                <div className="overflow-x-auto">
+                  <table className="text-xs border-collapse">
+                    <thead><tr>
+                      <th className="w-16 text-right pr-2 text-gray-400 font-normal" />
+                      {jours.map(j => <th key={j} className="text-center px-1.5 text-gray-500 font-semibold pb-1 w-10">{j}</th>)}
+                    </tr></thead>
+                    <tbody>
+                      {cr.map(cren => (
+                        <tr key={cren.key}>
+                          <td className="text-right pr-2 text-gray-500 py-0.5 font-medium">{cren.l}</td>
+                          {jours.map(j => {
+                            const indisp = !!dispo[`${j}_${cren.key}`];
+                            return (
+                              <td key={j} className="text-center py-0.5 px-0.5">
+                                <span className={`inline-block w-9 h-6 rounded text-[10px] font-bold leading-6 ${
+                                  indisp ? 'bg-orange-400 text-white' : 'bg-gray-100 text-gray-300'
+                                }`}>{indisp ? '✗' : ''}</span>
+                              </td>
+                            );
+                          })}
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+                {dispo._remarque && <div className="text-xs text-orange-700 mt-1.5 italic">{dispo._remarque}</div>}
+              </div>
+            );
+          })()}
+
         </div>
 
         <div className="px-5 py-3 border-t border-gray-100 flex justify-end gap-2 bg-white rounded-b-xl">
@@ -2273,58 +2244,49 @@ function FicheCandidat({ candidat, fonctions, grille, onClose, onSaved }) {
       {ajoutQual && (
         <ModalAjoutQualification
           onClose={() => setAjoutQual(false)}
-          onAjouter={(q) => {
-            setF(prev => ({ ...prev, qualifications: [...(prev.qualifications || []), q] }));
-          }}
+          onAjouter={(q) => { setF(prev => ({ ...prev, qualifications: [...(prev.qualifications || []), q] })); }}
           onFermer={() => setAjoutQual(false)}
         />
       )}
     </>
   );
 }
-/* ── Semainier de disponibilités ── */
-const JOURS    = ['Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam'];
-const CRENEAUX = [
-  { key: 'matin',   label: '8h–12h'  },
-  { key: 'midi',    label: '12h–17h' },
-  { key: 'soir',    label: '17h–22h' },
+
+/* ── Semainier d'indisponibilités ── */
+const JOURS_SEM = ['Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam'];
+const CRENEAUX_SEM = [
+  { key: 'matin', label: '8h–12h' },
+  { key: 'midi',  label: '12h–17h' },
+  { key: 'soir',  label: '17h–22h' },
 ];
 
-function Semainier({ value = {}, onChange }) {
+function SemainierIndisp({ value = {}, onChange }) {
   const toggle = (jour, creneau) => {
     const k = `${jour}_${creneau}`;
     onChange({ ...value, [k]: !value[k] });
   };
-
   return (
     <div>
+      <p className="text-xs text-gray-500 mb-2 italic">Cochez les créneaux où le candidat n'est <strong>pas disponible</strong>.</p>
       <div className="overflow-x-auto">
-        <table className="w-full text-xs border-collapse">
-          <thead>
-            <tr>
-              <th className="w-20 text-left text-gray-400 font-normal pb-1" />
-              {JOURS.map(j => (
-                <th key={j} className="text-center text-gray-500 font-semibold pb-1 w-12">{j}</th>
-              ))}
-            </tr>
-          </thead>
+        <table className="text-xs border-collapse">
+          <thead><tr>
+            <th className="w-20 text-right pr-3 text-gray-400 font-normal pb-1" />
+            {JOURS_SEM.map(j => <th key={j} className="text-center px-1.5 text-gray-500 font-semibold pb-1 w-12">{j}</th>)}
+          </tr></thead>
           <tbody>
-            {CRENEAUX.map(cr => (
+            {CRENEAUX_SEM.map(cr => (
               <tr key={cr.key}>
-                <td className="text-gray-500 pr-2 py-0.5 text-right font-medium">{cr.label}</td>
-                {JOURS.map(j => {
-                  const checked = !!value[`${j}_${cr.key}`];
+                <td className="text-right pr-3 text-gray-500 py-1 font-medium whitespace-nowrap">{cr.label}</td>
+                {JOURS_SEM.map(j => {
+                  const indisp = !!value[`${j}_${cr.key}`];
                   return (
-                    <td key={j} className="text-center py-0.5 px-0.5">
-                      <button
-                        type="button"
-                        onClick={() => toggle(j, cr.key)}
-                        className={`w-10 h-7 rounded border-2 transition text-[10px] font-bold ${
-                          checked
-                            ? 'bg-iip-blue text-white border-iip-blue'
-                            : 'bg-white text-gray-300 border-gray-200 hover:border-iip-blue/50'
+                    <td key={j} className="text-center py-1 px-1">
+                      <button type="button" onClick={() => toggle(j, cr.key)}
+                        className={`w-10 h-7 rounded border-2 transition text-[11px] font-bold ${
+                          indisp ? 'bg-orange-400 text-white border-orange-400' : 'bg-white text-gray-200 border-gray-200 hover:border-orange-300'
                         }`}>
-                        {checked ? '✓' : ''}
+                        {indisp ? '✗' : ''}
                       </button>
                     </td>
                   );
@@ -2334,19 +2296,14 @@ function Semainier({ value = {}, onChange }) {
           </tbody>
         </table>
       </div>
-      <div className="mt-2">
-        <input
-          value={value._remarque || ''}
-          onChange={e => onChange({ ...value, _remarque: e.target.value })}
-          placeholder="Remarque ou contrainte particulière (ex : disponible uniquement en Q1, déplacement limité…)"
-          className="w-full text-xs border border-gray-200 rounded px-2.5 py-1.5 text-gray-600 placeholder-gray-400"
-        />
-      </div>
+      <input value={value._remarque || ''} onChange={e => onChange({ ...value, _remarque: e.target.value })}
+        placeholder="Contrainte particulière (ex : disponible uniquement en Q1, déplacement limité…)"
+        className="w-full text-xs border border-gray-200 rounded px-2.5 py-1.5 text-gray-600 placeholder-gray-400 mt-2" />
     </div>
   );
 }
 
-/* ── Modal ajout titre/diplôme — interface linéaire ── */
+
 function ModalAjoutQualification({ onClose, onAjouter, onFermer }) {
   // Chaque ligne = { niveau, diplome, diplome_autre, titre_peda }
   const [lignes, setLignes] = useState([{ niveau: '', diplome: '', diplome_autre: '', titre_peda: '' }]);
@@ -2475,6 +2432,7 @@ function ModalAjoutQualification({ onClose, onAjouter, onFermer }) {
 
 /* ── Nouveau candidat sans poste ── */
 function ModalNouveauCandidat({ onClose, onSaved }) {
+
   const [f, setF]   = useState({ nom: '', prenom: '', email: '', telephone: '', cv_url: '', notes: '' });
   const [busy, setBusy] = useState(false);
   const soumettre = async () => {
@@ -2509,6 +2467,7 @@ function ModalNouveauCandidat({ onClose, onSaved }) {
 }
 
 /* ══════════════════════ ÉDITEUR DE GRILLE ══════════════════════ */
+
 const COULEURS_AXES = ['#0369a1','#7c3aed','#15803d','#b45309','#dc2626','#0891b2','#4f46e5','#b45309'];
 
 function EditeurGrille({ grille, onSaved }) {
@@ -2641,28 +2600,30 @@ function EditeurGrille({ grille, onSaved }) {
 }
 
 /* ══════════════════════ ENTRETIEN LIBRE (sans cours attaché) ══════════════════════ */
+
+/* ══════════════════════ ENTRETIEN LIBRE — GUIDE D'ENTRETIEN ══════════════════════ */
 function EntretienLibre({ candidat, grille, onClose, onSaved }) {
   const grilleActive = useMemo(() => grilleAvecTirage(grille || GRILLE_IIP), []);
-  const qIA = []; // pas d'axe IA sans cours ciblé
 
-  const toutesQuestions = grilleActive.flatMap(axe =>
+  const toutesQs = grilleActive.flatMap(axe =>
     (axe.questions || []).map(q => ({ axe: axe.axe || axe.libelle, q: q.libelle || q, couleur: axe.couleur }))
   );
 
-  const initReponses = () => {
+  const initReponses = () => toutesQs.reduce((acc, _, i) => {
     const saved = candidat.entretien_reponses || {};
-    return toutesQuestions.reduce((acc, _, i) => {
-      acc[i] = { note: saved[i]?.note ?? 0, commentaire: saved[i]?.commentaire ?? '', disabled: saved[i]?.disabled ?? false };
-      return acc;
-    }, {});
-  };
+    acc[i] = { note: saved[i]?.note ?? 0, commentaire: saved[i]?.commentaire ?? '', disabled: saved[i]?.disabled ?? false };
+    return acc;
+  }, {});
 
-  const [reponses, setReponses]             = useState(initReponses);
+  const [reponses, setReponses] = useState(initReponses);
   const [commentaireGlobal, setCommentaireGlobal] = useState(candidat.entretien_commentaire || '');
-  const [reflexifNiveau, setReflexifNiveau]       = useState(candidat.reflexif_niveau || 0);
+  const [reflexifNiveau, setReflexifNiveau] = useState(candidat.reflexif_niveau || 0);
   const [reflexifCommentaire, setReflexifCommentaire] = useState(candidat.reflexif_commentaire || '');
-  const [saving, setSaving]                 = useState(false);
-  const [saved, setSaved]                   = useState(false);
+  const [dispo, setDispo] = useState(candidat.disponibilites || {});
+  const [divers, setDivers] = useState('');
+  const [saving, setSaving] = useState(false);
+  const [saved, setSaved]   = useState(false);
+  const [section, setSection] = useState('intro'); // 'intro' | 'q-fixe' | ax0..axN | 'admin' | 'bilan'
 
   const notees = Object.values(reponses).filter(r => r.note > 0 && !r.disabled);
   const noteGlobale = notees.length > 0
@@ -2677,26 +2638,32 @@ function EntretienLibre({ candidat, grille, onClose, onSaved }) {
   const sauvegarder = async () => {
     setSaving(true);
     try {
-      await onSaved(reponses, noteGlobale, commentaireGlobal, reflexifNiveau || null, reflexifCommentaire || null);
+      await onSaved(reponses, noteGlobale, commentaireGlobal, reflexifNiveau || null, reflexifCommentaire || null, dispo, divers);
       setSaved(true); setTimeout(() => setSaved(false), 2000);
     } finally { setSaving(false); }
   };
 
-  const parAxe = toutesQuestions.reduce((acc, { axe, q, couleur }, i) => {
+  const parAxe = toutesQs.reduce((acc, { axe, q, couleur }, i) => {
     if (!acc[axe]) acc[axe] = { couleur, questions: [] };
     acc[axe].questions.push({ q, i });
     return acc;
   }, {});
-
+  const axeKeys = Object.keys(parAxe);
   const nomComplet = [candidat.prenom, candidat.nom].filter(Boolean).join(' ');
+
+  // Navigation entre sections
+  const sections = ['intro', 'q-fixe', ...axeKeys, 'admin', 'bilan'];
+  const idxCur = sections.indexOf(section);
+  const prev = () => idxCur > 0 && setSection(sections[idxCur - 1]);
+  const next = () => idxCur < sections.length - 1 && setSection(sections[idxCur + 1]);
 
   return (
     <div className="fixed inset-0 bg-black/50 z-50 flex flex-col" onClick={onClose}>
       <div className="flex items-center justify-between px-5 py-3 bg-white border-b border-gray-200 flex-shrink-0"
         onClick={e => e.stopPropagation()}>
         <div>
-          <h3 className="text-base font-bold text-iip-blue">Entretien — {nomComplet}</h3>
-          <div className="text-xs text-gray-400">Entretien exploratoire (sans cours attaché)</div>
+          <h3 className="text-base font-bold text-iip-blue">Guide d'entretien — {nomComplet}</h3>
+          <div className="text-xs text-gray-400">Entretien exploratoire · 30 min</div>
         </div>
         <div className="flex items-center gap-3">
           {noteGlobale != null && (
@@ -2710,180 +2677,226 @@ function EntretienLibre({ candidat, grille, onClose, onSaved }) {
             className="bg-iip-blue text-white text-sm px-4 py-2 rounded-lg font-medium hover:opacity-90 flex items-center gap-1.5 disabled:opacity-50">
             {saved ? <><IconCheck size={15} /> Sauvegardé</> : saving ? 'Sauvegarde…' : <><IconCheck size={15} /> Terminer</>}
           </button>
-          <button onClick={onClose} className="text-gray-400 hover:text-gray-700 ml-1"><IconX size={20} /></button>
+          <button onClick={onClose} className="text-gray-400 hover:text-gray-700"><IconX size={20} /></button>
         </div>
+      </div>
+
+      {/* Barre de navigation */}
+      <div className="bg-gray-50 border-b border-gray-200 px-5 py-2 flex items-center gap-1 overflow-x-auto flex-shrink-0"
+        onClick={e => e.stopPropagation()}>
+        {sections.map((s, i) => {
+          const labels = { intro: '📋 Intro', 'q-fixe': '1️⃣ Questions fixes', admin: '🗓 Administratif', bilan: '⭐ Bilan' };
+          const label = labels[s] || `Axe ${axeKeys.indexOf(s) + 1}`;
+          return (
+            <button key={s} onClick={() => setSection(s)}
+              className={`text-xs px-3 py-1.5 rounded-full whitespace-nowrap transition ${
+                section === s ? 'bg-iip-blue text-white font-semibold' : 'bg-white text-gray-500 border border-gray-200 hover:border-iip-blue/50'
+              }`}>{label}</button>
+          );
+        })}
       </div>
 
       <div className="flex-1 overflow-auto bg-gray-50" onClick={e => e.stopPropagation()}>
-        <div className="max-w-3xl mx-auto px-4 py-5 space-y-5">
-          {Object.entries(parAxe).map(([axe, { couleur, questions }]) => (
-            <div key={axe} className="bg-white border border-gray-200 rounded-xl overflow-hidden shadow-sm">
-              <div className="px-4 py-2.5 text-sm font-semibold text-white" style={{ background: couleur }}>{axe}</div>
-              <div className="divide-y divide-gray-100">
-                {questions.map(({ q, i }) => {
-                  const disabled = !!reponses[i]?.disabled;
-                  return (
-                    <div key={i} className={`px-4 py-3 transition ${disabled ? 'opacity-40' : ''}`}>
-                      <div className="flex items-start justify-between gap-2 mb-2">
-                        <div className="text-sm text-gray-800 font-medium flex-1">{q}</div>
-                        <button onClick={() => toggleDisabled(i)}
-                          className={`text-[10px] px-2 py-0.5 rounded border flex-shrink-0 mt-0.5 transition ${
-                            disabled ? 'border-gray-300 text-gray-400 bg-gray-50' : 'border-gray-200 text-gray-300 hover:border-orange-300 hover:text-orange-400'
-                          }`}>
-                          {disabled ? '+ Réactiver' : '✕ Non posée'}
-                        </button>
-                      </div>
-                      {!disabled && (<>
-                        <div className="flex gap-1.5 mb-2 flex-wrap">
-                          {LIKERT.map(({ val, label, color }) => (
-                            <button key={val} onClick={() => majReponse(i, 'note', reponses[i]?.note === val ? 0 : val)}
-                              title={label}
-                              className={`flex items-center gap-1 text-xs px-2.5 py-1 rounded-full border transition font-medium ${
-                                reponses[i]?.note === val ? 'text-white border-transparent shadow-sm' : 'bg-white border-gray-200 text-gray-400 hover:border-gray-300'
-                              }`}
-                              style={reponses[i]?.note === val ? { background: color, borderColor: color } : {}}>
-                              <span className="font-bold">{val}</span>
-                              <span className="hidden sm:inline">{label}</span>
-                            </button>
-                          ))}
-                        </div>
-                        <textarea value={reponses[i]?.commentaire || ''} onChange={e => majReponse(i, 'commentaire', e.target.value)}
-                          placeholder="Notes sur la réponse…" rows={2}
-                          className="w-full text-sm border border-gray-200 rounded-lg px-3 py-1.5 resize-none text-gray-600 placeholder-gray-300 focus:outline-none focus:border-iip-turquoise" />
-                      </>)}
-                    </div>
-                  );
-                })}
+        <div className="max-w-3xl mx-auto px-4 py-5 space-y-4">
+
+          {/* ── Introduction ── */}
+          {section === 'intro' && (
+            <div className="bg-white border border-gray-200 rounded-xl p-5 shadow-sm">
+              <h2 className="text-base font-bold text-iip-blue mb-4">Introduction — à lire au candidat</h2>
+              <div className="text-sm text-gray-700 leading-relaxed space-y-3 bg-iip-blue/5 border-l-4 border-iip-blue rounded-r-lg p-4">
+                <p>Bonjour et merci d'être venu·e. Je suis <strong>Jérôme Vanden Eynde</strong>, directeur de l'Institut Ilya Prigogine.</p>
+                <p>L'Institut Ilya Prigogine est un établissement d'<strong>enseignement de promotion sociale</strong> situé à Bruxelles. Nous proposons des formations de niveau secondaire et supérieur à destination d'un <strong>public adulte</strong> — des personnes en reconversion, en reprise d'études, ou en perfectionnement professionnel. Nos sections couvrent les soins infirmiers, la santé, le paramédical et plusieurs autres filières.</p>
+                <p>L'entretien que nous allons mener durera environ <strong>30 minutes</strong>. Je vais vous poser plusieurs questions organisées autour de votre parcours, vos compétences, votre approche pédagogique et votre rapport à l'enseignement. Il n'y a pas de bonne ou de mauvaise réponse — ce qui m'intéresse, c'est votre façon de penser et de réfléchir.</p>
+                <p>Nous commencerons par une <strong>présentation de votre parcours en environ une minute</strong>. Avez-vous des questions avant de commencer ?</p>
               </div>
+              <div className="mt-3 text-xs text-gray-400 italic">Cette introduction est à lire ou à adapter selon votre style. Elle est confidentielle.</div>
             </div>
-          ))}
-
-          <div className="bg-white border border-gray-200 rounded-xl p-4 shadow-sm">
-            <div className="text-sm font-semibold text-iip-blue mb-2">Bilan global</div>
-            <textarea value={commentaireGlobal} onChange={e => setCommentaireGlobal(e.target.value)}
-              placeholder="Impression générale, points forts, réserves, recommandation…" rows={3}
-              className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 resize-none focus:outline-none focus:border-iip-turquoise" />
-          </div>
-
-          <div className="bg-teal-50 border border-teal-200 rounded-xl p-4 shadow-sm">
-            <div className="flex items-center gap-2 mb-3">
-              <div className="text-sm font-semibold text-teal-800">Appréciation du niveau réflexif</div>
-              <div className="text-xs text-teal-600 hidden sm:block">Évaluation globale de la posture réflexive</div>
-            </div>
-            <div className="flex flex-wrap gap-2 mb-3">
-              {LIKERT_REFLEXIF.map(({ val, label, desc, color }) => (
-                <button key={val} type="button"
-                  onClick={() => setReflexifNiveau(reflexifNiveau === val ? 0 : val)}
-                  title={desc}
-                  className={`flex flex-col items-start px-3 py-2 rounded-lg border-2 transition ${
-                    reflexifNiveau === val ? 'text-white shadow-md scale-105' : 'bg-white border-gray-200 text-gray-500 hover:border-gray-300'
-                  }`}
-                  style={reflexifNiveau === val ? { background: color, borderColor: color } : {}}>
-                  <span className="font-bold text-sm">{val} — {label}</span>
-                  <span className={`text-[10px] mt-0.5 leading-tight ${reflexifNiveau === val ? 'text-white/80' : 'text-gray-400'}`}>{desc}</span>
-                </button>
-              ))}
-            </div>
-            {reflexifNiveau > 0 && (
-              <textarea value={reflexifCommentaire} onChange={e => setReflexifCommentaire(e.target.value)}
-                placeholder="Observations : exemples concrets, nuances, points d'attention…" rows={2}
-                className="w-full text-sm border border-teal-200 rounded-lg px-3 py-1.5 resize-none focus:outline-none focus:border-teal-400 bg-white" />
-            )}
-            <div className="flex justify-between items-center mt-3">
-              <div className="text-xs text-gray-400">
-                {notees.length} question{notees.length > 1 ? 's' : ''} évaluée{notees.length > 1 ? 's' : ''} sur {toutesQuestions.length}
-              </div>
-              <button onClick={sauvegarder} disabled={saving}
-                className="text-sm bg-iip-blue text-white px-4 py-1.5 rounded-lg hover:opacity-90 disabled:opacity-50 flex items-center gap-1.5">
-                <IconCheck size={14} /> Sauvegarder
-              </button>
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-function ModalAnnonce({ poste, annee, onClose }) {
-  const [annonce, setAnnonce] = useState('');
-  const [loading, setLoading] = useState(true);
-  const [copie, setCopie]     = useState(false);
-  const [err, setErr]         = useState('');
-  const [dlBusy, setDlBusy]   = useState(false);
-
-  useEffect(() => { generer(); }, []);
-
-  const generer = async () => {
-    setLoading(true); setErr('');
-    try {
-      const ctx = await af(`/contexte?annee=${encodeURIComponent(annee)}&ue_num=${poste.ue_num}&section=${encodeURIComponent(poste.section)}`);
-      const lignesAA = (ctx.aa || []).map(a => `- L'étudiant sera capable ${a.description}`).join('\n');
-      const lignesCours = (ctx.cours || []).map(c => c.cours_nom).join(', ');
-
-      const resp = await fetch('https://api.anthropic.com/v1/messages', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ model: 'claude-sonnet-4-6', max_tokens: 800,
-          messages: [{ role: 'user', content:
-            `Rédige une annonce de recrutement pour l'Institut Ilya Prigogine (IIP), enseignement de promotion sociale, Bruxelles, réseau FELSI.
-
-Poste : ${poste.nom_cours || poste.ue_nom} — Section ${poste.section} — Contrat ${poste.contrat_mdp || 'IIP'}
-UE ${poste.ue_num}${ctx.ue ? ` — ${ctx.ue.ects || '?'} ECTS — ${ctx.ue.ue_quad || ''}` : ''}
-Charge : ${poste.ue_per_cours || '?'} périodes cours${poste.ue_aut ? ` + ${poste.ue_aut} autonomie` : ''}
-${lignesCours ? `Cours : ${lignesCours}` : ''}
-${lignesAA ? `\nAcquis d'apprentissage :\n${lignesAA}` : ''}
-
-Structure : 1.Contexte IIP 2.Mission 3.Profil recherché 4.Ce que nous offrons 5.Postuler (service.rh@institut-prigogine.be, 6 jours ouvrables).
-Ton professionnel et inclusif. Environ 280 mots.`
-          }]}),
-      });
-      const data = await resp.json();
-      setAnnonce((data.content || []).map(b => b.text || '').join('').trim());
-    } catch (e) { setErr(e.message); } finally { setLoading(false); }
-  };
-
-  const copier = () => { navigator.clipboard.writeText(annonce); setCopie(true); setTimeout(() => setCopie(false), 2000); };
-
-  return (
-    <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4" onClick={onClose}>
-      <div className="bg-white rounded-xl max-w-2xl w-full max-h-[90vh] overflow-auto" onClick={e => e.stopPropagation()}>
-        <div className="px-5 py-4 border-b border-gray-100 flex items-center justify-between sticky top-0 bg-white">
-          <div>
-            <h3 className="text-lg font-bold text-iip-blue">Annonce de recrutement</h3>
-            <div className="text-xs text-gray-500">{poste.nom_cours || poste.ue_nom}</div>
-          </div>
-          <button onClick={onClose}><IconX size={20} className="text-gray-400" /></button>
-        </div>
-        <div className="p-5">
-          {loading && <div className="flex items-center gap-2 text-sm text-gray-400 py-8 justify-center">
-            <span className="animate-spin w-4 h-4 border-2 border-iip-blue border-t-transparent rounded-full" />
-            Génération…
-          </div>}
-          {err && <div className="text-sm text-red-600 bg-red-50 rounded px-3 py-2">{err}</div>}
-          {annonce && (
-            <>
-              <div className="text-sm text-gray-700 whitespace-pre-wrap leading-relaxed bg-gray-50 rounded-lg p-4 border border-gray-100">
-                {annonce}
-              </div>
-              <div className="flex gap-2 mt-4 justify-end">
-                <Btn variant="ghost" icon={IconCheck} onClick={copier}>{copie ? 'Copié !' : 'Copier'}</Btn>
-                <Btn variant="secondary" icon={IconSparkles} onClick={generer}>Regénérer</Btn>
-              </div>
-            </>
           )}
+
+          {/* ── Questions fixes ── */}
+          {section === 'q-fixe' && (
+            <div className="space-y-4">
+              <div className="bg-white border border-gray-200 rounded-xl overflow-hidden shadow-sm">
+                <div className="px-4 py-2.5 text-sm font-semibold text-white" style={{ background: '#1B2B4B' }}>
+                  Questions fixes — posées à tous les candidats
+                </div>
+                <div className="divide-y divide-gray-100 px-4 py-3 space-y-4">
+                  <div>
+                    <div className="text-xs text-iip-blue font-bold uppercase tracking-wide mb-1">Q1 — Présentation (1 minute)</div>
+                    <div className="text-sm text-gray-800 font-medium mb-2">« Pouvez-vous vous présenter en une minute ? Parcours, expérience principale, et ce qui vous a amené ici aujourd'hui. »</div>
+                    <div className="text-xs text-gray-400 italic">Question ouverte — écoute active, prise de notes.</div>
+                  </div>
+                  <div className="pt-3">
+                    <div className="text-xs text-iip-blue font-bold uppercase tracking-wide mb-1">Q2 — Motivation</div>
+                    <div className="text-sm text-gray-800 font-medium mb-2">« Qu'est-ce qui vous motive à rejoindre l'équipe de l'Institut Ilya Prigogine ? Qu'espérez-vous y apporter, et qu'espérez-vous en retirer ? »</div>
+                    <textarea placeholder="Notes sur la réponse…" rows={2}
+                      onChange={e => majReponse(-1, 'q1_motiv', e.target.value)}
+                      className="w-full text-sm border border-gray-200 rounded-lg px-3 py-1.5 resize-none focus:outline-none focus:border-iip-turquoise" />
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* ── Axes de la grille ── */}
+          {axeKeys.includes(section) && (() => {
+            const { couleur, questions } = parAxe[section];
+            return (
+              <div className="bg-white border border-gray-200 rounded-xl overflow-hidden shadow-sm">
+                <div className="px-4 py-2.5 text-sm font-semibold text-white" style={{ background: couleur }}>{section}</div>
+                <div className="divide-y divide-gray-100">
+                  {questions.map(({ q, i }) => {
+                    const disabled = !!reponses[i]?.disabled;
+                    return (
+                      <div key={i} className={`px-4 py-3 transition ${disabled ? 'opacity-40' : ''}`}>
+                        <div className="flex items-start justify-between gap-2 mb-2">
+                          <div className="text-sm text-gray-800 font-medium flex-1">{q}</div>
+                          <button onClick={() => toggleDisabled(i)}
+                            className={`text-[10px] px-2 py-0.5 rounded border flex-shrink-0 mt-0.5 transition ${
+                              disabled ? 'border-gray-300 text-gray-400 bg-gray-50' : 'border-gray-200 text-gray-300 hover:border-orange-300 hover:text-orange-400'
+                            }`}>
+                            {disabled ? '+ Réactiver' : '✕ Non posée'}
+                          </button>
+                        </div>
+                        {!disabled && (<>
+                          <div className="flex gap-1.5 mb-2 flex-wrap">
+                            {LIKERT.map(({ val, label, color }) => (
+                              <button key={val} onClick={() => majReponse(i, 'note', reponses[i]?.note === val ? 0 : val)}
+                                title={label}
+                                className={`flex items-center gap-1 text-xs px-2.5 py-1 rounded-full border transition font-medium ${
+                                  reponses[i]?.note === val ? 'text-white border-transparent shadow-sm' : 'bg-white border-gray-200 text-gray-400 hover:border-gray-300'
+                                }`}
+                                style={reponses[i]?.note === val ? { background: color, borderColor: color } : {}}>
+                                <span className="font-bold">{val}</span>
+                                <span className="hidden sm:inline">{label}</span>
+                              </button>
+                            ))}
+                          </div>
+                          <textarea value={reponses[i]?.commentaire || ''} onChange={e => majReponse(i, 'commentaire', e.target.value)}
+                            placeholder="Notes sur la réponse…" rows={2}
+                            className="w-full text-sm border border-gray-200 rounded-lg px-3 py-1.5 resize-none text-gray-600 placeholder-gray-300 focus:outline-none focus:border-iip-turquoise" />
+                        </>)}
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            );
+          })()}
+
+          {/* ── Administratif ── */}
+          {section === 'admin' && (
+            <div className="space-y-4">
+              <div className="bg-white border border-gray-200 rounded-xl overflow-hidden shadow-sm">
+                <div className="px-4 py-2.5 text-sm font-semibold text-white" style={{ background: '#b45309' }}>
+                  Questions administratives
+                </div>
+                <div className="px-4 py-3 space-y-3 text-sm text-gray-700">
+                  <div className="bg-amber-50 rounded-lg px-3 py-2 text-xs text-amber-800 font-medium">
+                    Questions à poser systématiquement en fin d'entretien
+                  </div>
+                  <ul className="space-y-1.5 text-sm">
+                    <li className="flex gap-2"><span className="text-amber-500">→</span>Quel volume horaire hebdomadaire êtes-vous en mesure d'assumer ?</li>
+                    <li className="flex gap-2"><span className="text-amber-500">→</span>Connaissez-vous les attendus de l'IIP quant au travail invisible (jury, TFE, encadrement) ?</li>
+                    <li className="flex gap-2"><span className="text-amber-500">→</span>Pour les encadrants de stage : pouvez-vous vous déplacer dans les milieux partenaires ?</li>
+                    <li className="flex gap-2"><span className="text-amber-500">→</span>Avez-vous des contraintes spécifiques de jours ou d'horaires ?</li>
+                  </ul>
+                </div>
+              </div>
+
+              <div className="bg-white border border-gray-200 rounded-xl p-4 shadow-sm">
+                <div className="text-sm font-semibold text-iip-blue mb-3">Indisponibilités</div>
+                <SemainierIndisp value={dispo} onChange={setDispo} />
+              </div>
+
+              <div className="bg-white border border-gray-200 rounded-xl p-4 shadow-sm">
+                <div className="text-sm font-semibold text-iip-blue mb-2">Divers / autres remarques</div>
+                <textarea value={divers} onChange={e => setDivers(e.target.value)}
+                  placeholder="Tout autre élément pertinent noté pendant l'entretien…" rows={3}
+                  className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 resize-none focus:outline-none focus:border-iip-turquoise" />
+              </div>
+            </div>
+          )}
+
+          {/* ── Bilan & Appréciation globale ── */}
+          {section === 'bilan' && (
+            <div className="space-y-4">
+              <div className="bg-white border border-gray-200 rounded-xl p-4 shadow-sm">
+                <div className="text-sm font-semibold text-iip-blue mb-2">Bilan global de l'entretien</div>
+                <textarea value={commentaireGlobal} onChange={e => setCommentaireGlobal(e.target.value)}
+                  placeholder="Impression générale, points forts, réserves, recommandation finale…" rows={4}
+                  className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 resize-none focus:outline-none focus:border-iip-turquoise" />
+              </div>
+
+              <div className="bg-teal-50 border border-teal-200 rounded-xl p-4 shadow-sm">
+                <div className="flex items-center gap-2 mb-3">
+                  <div className="text-sm font-semibold text-teal-800">Appréciation du niveau réflexif</div>
+                </div>
+                <div className="grid grid-cols-1 gap-2">
+                  {LIKERT_REFLEXIF.map(({ val, label, desc, color }) => (
+                    <button key={val} type="button"
+                      onClick={() => setReflexifNiveau(reflexifNiveau === val ? 0 : val)}
+                      className={`flex items-center gap-3 px-4 py-2.5 rounded-lg border-2 text-left transition ${
+                        reflexifNiveau === val ? 'text-white shadow-md' : 'bg-white border-gray-200 text-gray-600 hover:border-gray-300'
+                      }`}
+                      style={reflexifNiveau === val ? { background: color, borderColor: color } : {}}>
+                      <span className={`font-bold text-lg w-6 flex-shrink-0 ${reflexifNiveau === val ? 'text-white' : 'text-gray-400'}`}>{val}</span>
+                      <div>
+                        <div className="font-semibold text-sm">{label}</div>
+                        <div className={`text-xs ${reflexifNiveau === val ? 'text-white/80' : 'text-gray-400'}`}>{desc}</div>
+                      </div>
+                    </button>
+                  ))}
+                </div>
+                {reflexifNiveau > 0 && (
+                  <textarea value={reflexifCommentaire} onChange={e => setReflexifCommentaire(e.target.value)}
+                    placeholder="Observations : exemples concrets, nuances…" rows={2}
+                    className="w-full text-sm border border-teal-200 rounded-lg px-3 py-1.5 resize-none focus:outline-none focus:border-teal-400 bg-white mt-3" />
+                )}
+
+                {/* Synthèse notes */}
+                {noteGlobale != null && (
+                  <div className="mt-3 pt-3 border-t border-teal-200 flex items-center justify-between">
+                    <div className="text-xs text-teal-700">
+                      {notees.length} question{notees.length > 1 ? 's' : ''} évaluée{notees.length > 1 ? 's' : ''} sur {toutesQs.length}
+                    </div>
+                    <div className="flex items-center gap-3">
+                      <div className="text-right">
+                        <div className="text-xs text-teal-600">Moyenne générale</div>
+                        <div className="text-2xl font-bold text-iip-blue">{noteGlobale}<span className="text-sm font-normal text-gray-400">/5</span></div>
+                      </div>
+                      <button onClick={sauvegarder} disabled={saving}
+                        className="text-sm bg-iip-blue text-white px-5 py-2 rounded-lg hover:opacity-90 disabled:opacity-50 flex items-center gap-1.5">
+                        <IconCheck size={14} /> Sauvegarder
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+
+          {/* Navigation bas de page */}
+          <div className="flex justify-between pt-2">
+            <button onClick={prev} disabled={idxCur === 0}
+              className="text-sm text-gray-500 hover:text-iip-blue disabled:opacity-30 flex items-center gap-1">
+              ← Précédent
+            </button>
+            {idxCur < sections.length - 1 ? (
+              <button onClick={next}
+                className="text-sm bg-iip-blue text-white px-4 py-1.5 rounded-lg hover:opacity-90 flex items-center gap-1">
+                Suivant →
+              </button>
+            ) : (
+              <button onClick={sauvegarder} disabled={saving}
+                className="text-sm bg-green-600 text-white px-4 py-1.5 rounded-lg hover:opacity-90 disabled:opacity-50 flex items-center gap-1.5">
+                <IconCheck size={14} /> Terminer &amp; Sauvegarder
+              </button>
+            )}
+          </div>
         </div>
       </div>
     </div>
   );
 }
 
-function Champ({ label, value, onChange, placeholder }) {
-  return (
-    <div>
-      <div className="text-xs text-gray-500 mb-1">{label}</div>
-      <input value={value} onChange={e => onChange(e.target.value)} placeholder={placeholder}
-        className="w-full text-sm border border-gray-300 rounded px-2 py-1.5 h-9" />
-    </div>
-  );
-}
