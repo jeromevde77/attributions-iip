@@ -950,11 +950,11 @@ Réponds en JSON strict sans backticks : {"questions":["question 1","question 2"
 
 /* ══════════════════════ MODAL ENTRETIEN ══════════════════════ */
 const LIKERT = [
-  { val: 1, label: 'Peu structurée',       color: '#ef4444' },
-  { val: 2, label: 'Partiellement',         color: '#f97316' },
-  { val: 3, label: 'Structurée',            color: '#eab308' },
-  { val: 4, label: 'Bien structurée',       color: '#22c55e' },
-  { val: 5, label: 'Très structurée',       color: '#0ea5e9' },
+  { val: 1, label: 'Superficielle',  desc: 'Réponse vague, générale, sans ancrage réel',                      color: '#ef4444' },
+  { val: 2, label: 'Partielle',      desc: 'Quelques éléments pertinents, mais incomplets',                   color: '#f97316' },
+  { val: 3, label: 'Adéquate',       desc: 'Répond à la question, compréhension correcte',                    color: '#eab308' },
+  { val: 4, label: 'Élaborée',       desc: 'Nuancée, exemples concrets, prise de recul visible',              color: '#22c55e' },
+  { val: 5, label: 'Excellente',     desc: 'Réflexivité, profondeur, lien théorie-pratique maîtrisé',         color: '#0ea5e9' },
 ];
 
 function EntretienModal({ candidature, poste, annee, qIA, grille, onClose, onSaved }) {
@@ -1066,7 +1066,7 @@ function EntretienModal({ candidature, poste, annee, qIA, grille, onClose, onSav
 
                     {!disabled && (<>
                     {/* Likert */}
-                    <div className="flex gap-1.5 mb-2 flex-wrap">
+                    <div className="flex gap-1.5 mb-1 flex-wrap">
                       {LIKERT.map(({ val, label, color }) => (
                         <button key={val} onClick={() => majReponse(i, 'note', reponses[i]?.note === val ? 0 : val)}
                           title={label}
@@ -1081,6 +1081,11 @@ function EntretienModal({ candidature, poste, annee, qIA, grille, onClose, onSav
                         </button>
                       ))}
                     </div>
+                    {reponses[i]?.note > 0 && (
+                      <div className="text-[10px] text-gray-500 italic mb-2 pl-1">
+                        {LIKERT.find(l => l.val === reponses[i].note)?.desc}
+                      </div>
+                    )}
                     <textarea
                       value={reponses[i]?.commentaire || ''}
                       onChange={e => majReponse(i, 'commentaire', e.target.value)}
@@ -2768,19 +2773,26 @@ function EntretienLibre({ candidat, grille, onClose, onSaved }) {
                           </button>
                         </div>
                         {!disabled && (<>
-                          <div className="flex gap-1.5 mb-2 flex-wrap">
-                            {LIKERT.map(({ val, label, color }) => (
-                              <button key={val} onClick={() => majReponse(i, 'note', reponses[i]?.note === val ? 0 : val)}
-                                title={label}
-                                className={`flex items-center gap-1 text-xs px-2.5 py-1 rounded-full border transition font-medium ${
-                                  reponses[i]?.note === val ? 'text-white border-transparent shadow-sm' : 'bg-white border-gray-200 text-gray-400 hover:border-gray-300'
-                                }`}
-                                style={reponses[i]?.note === val ? { background: color, borderColor: color } : {}}>
-                                <span className="font-bold">{val}</span>
-                                <span className="hidden sm:inline">{label}</span>
-                              </button>
-                            ))}
-                          </div>
+                    <div className="flex gap-1.5 mb-1 flex-wrap">
+                      {LIKERT.map(({ val, label, color }) => (
+                        <button key={val} onClick={() => majReponse(i, 'note', reponses[i]?.note === val ? 0 : val)}
+                          title={label}
+                          className={`flex items-center gap-1 text-xs px-2.5 py-1 rounded-full border transition font-medium ${
+                            reponses[i]?.note === val
+                              ? 'text-white border-transparent shadow-sm'
+                              : 'bg-white border-gray-200 text-gray-400 hover:border-gray-300'
+                          }`}
+                          style={reponses[i]?.note === val ? { background: color, borderColor: color } : {}}>
+                          <span className="font-bold">{val}</span>
+                          <span className="hidden sm:inline">{label}</span>
+                        </button>
+                      ))}
+                    </div>
+                    {reponses[i]?.note > 0 && (
+                      <div className="text-[10px] text-gray-500 italic mb-2 pl-1">
+                        {LIKERT.find(l => l.val === reponses[i].note)?.desc}
+                      </div>
+                    )}
                           <textarea value={reponses[i]?.commentaire || ''} onChange={e => majReponse(i, 'commentaire', e.target.value)}
                             placeholder="Notes sur la réponse…" rows={2}
                             className="w-full text-sm border border-gray-200 rounded-lg px-3 py-1.5 resize-none text-gray-600 placeholder-gray-300 focus:outline-none focus:border-iip-turquoise" />
