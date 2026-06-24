@@ -22,6 +22,110 @@ const STATUT = {
   ecarte:    { label: 'Écarté',    color: '#b91c1c', bg: '#fee2e2' },
 };
 
+
+
+// ── Référentiels FWB ──────────────────────────────────────────────────────────
+const NIVEAUX_ETUDE = [
+  { val: 'CESS',     label: "CESS — Certificat d'enseignement secondaire supérieur (CFC 4)" },
+  { val: 'BES',      label: "Brevet de l'enseignement secondaire supérieur — section infirmière (CFC 5)" },
+  { val: 'BES_PLUS', label: "Brevet de l'enseignement supérieur (CFC 5+)" },
+  { val: 'BAC',      label: "Bachelier (CFC 6)" },
+  { val: 'MASTER',   label: "Master (CFC 7)" },
+  { val: 'DOCTORAT', label: "Doctorat (CFC 8)" },
+];
+
+const TITRES_PEDA = [
+  { val: 'AESI',   label: "AESI — Agrégé·e de l'enseignement secondaire inférieur" },
+  { val: 'AESS',   label: "AESS — Agrégé·e de l'enseignement secondaire supérieur" },
+  { val: 'CAP',    label: "CAP — Certificat d'aptitude pédagogique" },
+  { val: 'CAPAES', label: "CAPAES — Certificat d'aptitude pédagogique pour l'enseignement supérieur" },
+  { val: 'AUCUN',  label: "Aucun titre pédagogique" },
+];
+
+const DIPLOMES_FWB = {
+  CESS: [
+    { val: 'CESS_GEN',  label: "CESS — Humanités générales" },
+    { val: 'CESS_TECH', label: "CESS — Humanités techniques et de transition" },
+    { val: 'CESS_PROF', label: "CESS — Humanités techniques et de qualification / professionnelles" },
+    { val: 'CESS_ART',  label: "CESS — Humanités artistiques" },
+    { val: 'CESS_JURY', label: "CESS — Jury de la Fédération Wallonie-Bruxelles" },
+  ],
+  BES: [
+    { val: 'BES_INF_HOS',  label: "Brevet d'infirmier·ère hospitalier·ère" },
+    { val: 'BES_INF_COM',  label: "Brevet d'infirmier·ère en santé communautaire" },
+    { val: 'BES_INF_PEDIA',label: "Brevet d'infirmier·ère pédiatrique" },
+    { val: 'BES_AIDE_ACC', label: "Brevet d'aide-accoucheur·se" },
+  ],
+  BES_PLUS: [
+    { val: 'BREV_SUP', label: "Brevet d'enseignement supérieur" },
+  ],
+  BAC: [
+    { val: 'BAC_INF',        label: "Bachelier en soins infirmiers" },
+    { val: 'BAC_SAGE_F',     label: "Bachelier en sciences et pratiques de la naissance (sage-femme)" },
+    { val: 'BAC_KINE',       label: "Bachelier en kinésithérapie" },
+    { val: 'BAC_LOGO',       label: "Bachelier en logopédie" },
+    { val: 'BAC_ERGO',       label: "Bachelier en ergothérapie" },
+    { val: 'BAC_DIETET',     label: "Bachelier en diététique" },
+    { val: 'BAC_PODOL',      label: "Bachelier en podologie-podiatrie" },
+    { val: 'BAC_AUDIO',      label: "Bachelier en audiologie" },
+    { val: 'BAC_OPTIC',      label: "Bachelier en optique et optométrie" },
+    { val: 'BAC_ORTHO',      label: "Bachelier en orthoptie" },
+    { val: 'BAC_IMAG',       label: "Bachelier en technologie des soins d'imagerie médicale" },
+    { val: 'BAC_ANEST',      label: "Bachelier en anesthésie et soins intensifs" },
+    { val: 'BAC_PSYCH_MOT',  label: "Bachelier en psychomotricité" },
+    { val: 'BAC_AIDE_PHARM', label: "Bachelier en assistance pharmaceutique" },
+    { val: 'BAC_LABO',       label: "Bachelier en technologie de laboratoire médical" },
+    { val: 'BAC_ORTHO_PR',   label: "Bachelier en orthopédie et prothèse" },
+    { val: 'BAC_EDUC_SP',    label: "Bachelier en éducation spécialisée" },
+    { val: 'BAC_AS',         label: "Bachelier en travail social / assistant·e social·e" },
+    { val: 'BAC_PSYCHO',     label: "Bachelier en psychologie" },
+    { val: 'BAC_BIO',        label: "Bachelier en biologie" },
+    { val: 'BAC_CHIM',       label: "Bachelier en chimie" },
+    { val: 'BAC_INFO',       label: "Bachelier en informatique" },
+    { val: 'BAC_ING',        label: "Bachelier en ingénierie industrielle" },
+    { val: 'BAC_ENS_PRIM',   label: "Bachelier — Instituteur·rice primaire" },
+    { val: 'BAC_ENS_MAT',    label: "Bachelier — Instituteur·rice maternel·le" },
+    { val: 'BAC_ENS_SEC',    label: "Bachelier — Enseignant du secondaire inférieur (AESI)" },
+    { val: 'BAC_DROIT',      label: "Bachelier en droit" },
+    { val: 'BAC_GEST',       label: "Bachelier en gestion" },
+    { val: 'BAC_MED_1',      label: "Bachelier en médecine (1er cycle BAMA)" },
+    { val: 'BAC_PHARM_1',    label: "Bachelier en pharmacie (1er cycle)" },
+  ],
+  MASTER: [
+    { val: 'MAST_MED',       label: "Master en médecine (Docteur en médecine)" },
+    { val: 'MAST_PHARM',     label: "Master en sciences pharmaceutiques" },
+    { val: 'MAST_DENT',      label: "Master en médecine dentaire" },
+    { val: 'MAST_KINE',      label: "Master en kinésithérapie" },
+    { val: 'MAST_SANTE_PUB', label: "Master en sciences de la santé publique" },
+    { val: 'MAST_PSYCH',     label: "Master en psychologie" },
+    { val: 'MAST_NEUROSCI',  label: "Master en neurosciences" },
+    { val: 'MAST_BIOMED',    label: "Master en sciences biomédicales" },
+    { val: 'MAST_BIO',       label: "Master en biochimie et biologie moléculaire" },
+    { val: 'MAST_MOTRIC',    label: "Master en sciences de la motricité" },
+    { val: 'MAST_LOGO',      label: "Master en logopédie (université)" },
+    { val: 'MAST_SS',        label: "Master en sciences sociales et du travail" },
+    { val: 'MAST_EDUC',      label: "Master en sciences de l'éducation" },
+    { val: 'MAST_CRIM',      label: "Master en criminologie" },
+    { val: 'MAST_SOCIO',     label: "Master en sociologie" },
+    { val: 'MAST_AESS',      label: "Master — AESS (Agrégé enseignement secondaire supérieur)" },
+    { val: 'MAST_INFO',      label: "Master en sciences informatiques" },
+    { val: 'MAST_ING',       label: "Master ingénieur civil / industriel" },
+    { val: 'MAST_CHIM',      label: "Master en chimie" },
+    { val: 'MAST_DROIT',     label: "Master en droit" },
+    { val: 'MAST_GEST',      label: "Master en sciences de gestion" },
+    { val: 'MAST_COMM',      label: "Master en information et communication" },
+  ],
+  DOCTORAT: [
+    { val: 'DOC_MED',   label: "Doctorat en sciences médicales" },
+    { val: 'DOC_PHARM', label: "Doctorat en sciences pharmaceutiques" },
+    { val: 'DOC_PSYCH', label: "Doctorat en psychologie" },
+    { val: 'DOC_EDUC',  label: "Doctorat en sciences de l'éducation" },
+    { val: 'DOC_SCI',   label: "Doctorat en sciences" },
+    { val: 'DOC_AUTRE', label: "Autre doctorat" },
+  ],
+};
+
+
 export default function Recrutement() {
   const [postes, setPostes]     = useState([]);
   const [poste, setPoste]       = useState(null);
@@ -1391,7 +1495,7 @@ ${tous.map(candidatHtml).join('')}
 /* ── Fiche candidat (modale d'édition) ── */
 function FicheCandidat({ candidat, fonctions, grille, onClose, onSaved }) {
   const annee = getAnnee();
-  const [f, setF] = useState({ nom: candidat.nom || '', prenom: candidat.prenom || '', email: candidat.email || '', telephone: candidat.telephone || '', cv_url: candidat.cv_url || '', notes: candidat.notes || '', fonction: candidat.fonction || '' });
+  const [f, setF] = useState({ nom: candidat.nom || '', prenom: candidat.prenom || '', email: candidat.email || '', telephone: candidat.telephone || '', cv_url: candidat.cv_url || '', notes: candidat.notes || '', fonction: candidat.fonction || '', niveau_etude: candidat.niveau_etude || '', titre_peda: candidat.titre_peda || '', diplome: candidat.diplome || '', diplome_autre: candidat.diplome_autre || '' });
   const [nouvelleF, setNouvelleF]   = useState('');
   const [docs, setDocs]             = useState(candidat.documents || []);
   const [candidatures, setCandidatures] = useState(candidat.candidatures || []);
@@ -1611,6 +1715,43 @@ function FicheCandidat({ candidat, fonctions, grille, onClose, onSaved }) {
               <input value={f.cv_url} onChange={e => setF({ ...f, cv_url: e.target.value })}
                 className="w-full text-sm border border-gray-300 rounded px-2 py-1.5 h-9" />
             </div>
+
+            {/* ── Qualifications ── */}
+            <div>
+              <div className="text-xs text-gray-500 mb-1">Niveau d'étude (CFC)</div>
+              <select value={f.niveau_etude} onChange={e => { setF({ ...f, niveau_etude: e.target.value, diplome: '' }); }}
+                className="w-full text-sm border border-gray-300 rounded px-2 py-1.5 h-9">
+                <option value="">— choisir —</option>
+                {NIVEAUX_ETUDE.map(n => <option key={n.val} value={n.val}>{n.label}</option>)}
+              </select>
+            </div>
+            <div>
+              <div className="text-xs text-gray-500 mb-1">Titre pédagogique</div>
+              <select value={f.titre_peda} onChange={e => setF({ ...f, titre_peda: e.target.value })}
+                className="w-full text-sm border border-gray-300 rounded px-2 py-1.5 h-9">
+                <option value="">— choisir —</option>
+                {TITRES_PEDA.map(t => <option key={t.val} value={t.val}>{t.label}</option>)}
+              </select>
+            </div>
+            <div className="col-span-2">
+              <div className="text-xs text-gray-500 mb-1">Diplôme (FWB)</div>
+              <div className="flex gap-2">
+                <select value={f.diplome} onChange={e => setF({ ...f, diplome: e.target.value })}
+                  disabled={!f.niveau_etude || !DIPLOMES_FWB[f.niveau_etude]}
+                  className="flex-1 text-sm border border-gray-300 rounded px-2 py-1.5 h-9 disabled:bg-gray-100 disabled:text-gray-400">
+                  <option value="">{f.niveau_etude ? '— choisir —' : '← Choisir d\'abord le niveau'}</option>
+                  {(DIPLOMES_FWB[f.niveau_etude] || []).map(d => <option key={d.val} value={d.val}>{d.label}</option>)}
+                </select>
+              </div>
+              {f.diplome === '' && f.niveau_etude && (
+                <div className="mt-1.5">
+                  <input value={f.diplome_autre} onChange={e => setF({ ...f, diplome_autre: e.target.value })}
+                    placeholder="Diplôme non listé — préciser ici…"
+                    className="w-full text-sm border border-gray-200 rounded px-2 py-1.5 h-9 text-gray-600" />
+                </div>
+              )}
+            </div>
+
             <div className="col-span-2">
               <div className="text-xs text-gray-500 mb-1">Notes / profil</div>
               <textarea value={f.notes} onChange={e => setF({ ...f, notes: e.target.value })} rows={3}

@@ -187,18 +187,21 @@ r.delete('/fonctions/:id', (req, res) => {
 
 r.patch('/candidats/:id', (req, res) => {
   const { nom, prenom, email, telephone, cv_url, notes, fonction,
+          niveau_etude, titre_peda, diplome, diplome_autre,
           entretien_reponses, entretien_note, entretien_commentaire } = req.body;
   const c = db.prepare('SELECT id FROM recrutement_candidat WHERE id = ?').get(req.params.id);
   if (!c) return res.status(404).json({ error: 'Candidat introuvable' });
   db.prepare(`UPDATE recrutement_candidat SET
     nom = COALESCE(?, nom), prenom = ?, email = ?, telephone = ?,
     cv_url = ?, notes = ?, fonction = ?,
+    niveau_etude = ?, titre_peda = ?, diplome = ?, diplome_autre = ?,
     entretien_reponses = COALESCE(?, entretien_reponses),
     entretien_note = COALESCE(?, entretien_note),
     entretien_commentaire = COALESCE(?, entretien_commentaire)
     WHERE id = ?`).run(
       nom ?? null, prenom ?? null, email ?? null, telephone ?? null,
       cv_url ?? null, notes ?? null, fonction ?? null,
+      niveau_etude ?? null, titre_peda ?? null, diplome ?? null, diplome_autre ?? null,
       entretien_reponses != null ? JSON.stringify(entretien_reponses) : null,
       entretien_note ?? null, entretien_commentaire ?? null,
       c.id);

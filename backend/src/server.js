@@ -2401,6 +2401,15 @@ try {
   console.log('[migration] Table recrutement_grille créée');
 } catch(e) { console.error('[migration] recrutement_grille :', e.message); }
 
+// ── Recrutement : niveau d'étude, titre pédagogique, diplôme ─────────────────
+try {
+  const cols = db.prepare('PRAGMA table_info(recrutement_candidat)').all().map(c => c.name);
+  if (!cols.includes('niveau_etude'))  db.exec("ALTER TABLE recrutement_candidat ADD COLUMN niveau_etude TEXT");
+  if (!cols.includes('titre_peda'))    db.exec("ALTER TABLE recrutement_candidat ADD COLUMN titre_peda TEXT");
+  if (!cols.includes('diplome'))       db.exec("ALTER TABLE recrutement_candidat ADD COLUMN diplome TEXT");
+  if (!cols.includes('diplome_autre')) db.exec("ALTER TABLE recrutement_candidat ADD COLUMN diplome_autre TEXT");
+} catch(e) { console.error('[migration] niveau_etude/titre_peda/diplome :', e.message); }
+
 // ── Recrutement : ajout reponses_json sur candidature v2 ─────────────────────
 try {
   const cols = db.prepare('PRAGMA table_info(recrutement_candidature)').all().map(c => c.name);
