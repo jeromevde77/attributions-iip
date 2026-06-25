@@ -668,7 +668,7 @@ function DetailModal({ profId, onClose, onEdit, onFiche }) {
                 {printMenu && (
                   <>
                     <div className="fixed inset-0 z-40" onClick={() => setPrintMenu(false)}/>
-                    <div className="absolute z-50 top-full left-0 mt-1 bg-white border border-gray-200 rounded-lg shadow-xl py-1 w-full">
+                    <div className="absolute z-50 bottom-full left-0 mb-1 bg-white border border-gray-200 rounded-lg shadow-xl py-1 w-full">
                       {[['Global','IIP + HELB',null],['IIP','Contrat IIP','IIP'],['HELB','Contrat HELB','HELB']].map(([lbl,sub,filtre]) => (
                         <button key={lbl} onClick={() => { onFiche && onFiche(profId, filtre); setPrintMenu(false); }}
                           className="w-full text-left px-3 py-2 hover:bg-gray-50 text-xs flex items-center gap-2">
