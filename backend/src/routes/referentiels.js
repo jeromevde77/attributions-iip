@@ -759,7 +759,7 @@ r.get('/professeurs', authRequired, (req, res) => {
     FROM attribution a WHERE a.professeur_id = p.id AND a.annee_scolaire = '${anneeActive}') AS total_per_annee`;
 
   const base = `SELECT p.id, p.nom, p.prenom, p.statut, p.adresse_mail, p.commune,
-      p.code_postal, p.capaes, p.anciennete_25_26_po, p.type_personnel,
+      p.code_postal, p.capaes, p.anciennete_25_26_po, p.type_personnel, p.date_engagement,
       v.nom_prenom, v.total_per_iip, v.total_hrs_helb, v.prestations,
       ${subTotalAnnee},
       (SELECT GROUP_CONCAT(DISTINCT pm.fonction)
