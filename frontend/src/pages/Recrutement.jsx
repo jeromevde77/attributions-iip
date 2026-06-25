@@ -2218,8 +2218,18 @@ function FicheCandidat({ candidat, fonctions, grille, onClose, onSaved }) {
                           </div>
                           <div className="text-xs text-gray-400">{ca.section} · {ca.annee_scolaire}</div>
                         </div>
-                        <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full flex-shrink-0"
-                          style={{ color: st.color, background: st.bg }}>{st.label}</span>
+                        <select
+                          value={ca.statut || 'a_voir'}
+                          onChange={async e => {
+                            await af(`/candidatures/${ca.id}`, { method: 'PATCH', body: JSON.stringify({ statut: e.target.value }) });
+                            rechargerCandidatures();
+                          }}
+                          className="text-xs border border-gray-200 rounded px-2 py-1 h-7 flex-shrink-0"
+                          style={{ color: (STATUT[ca.statut]||STATUT.a_voir).color }}>
+                          {Object.entries(STATUT).map(([k, v]) => (
+                            <option key={k} value={k}>{v.label}</option>
+                          ))}
+                        </select>
                       </div>
                       <div className="flex items-center gap-2">
                         <button onClick={() => setEntretienCand(ca)}
