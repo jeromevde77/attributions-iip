@@ -2317,6 +2317,16 @@ try {
   }
 } catch(e) { console.error('[migration] entretien candidat :', e.message); }
 
+
+  // ── Migration date_engagement sur professeur ──────────────────────────────
+  try {
+    const colsProf = db.prepare('PRAGMA table_info(professeur)').all().map(c => c.name);
+    if (!colsProf.includes('date_engagement')) {
+      db.exec('ALTER TABLE professeur ADD COLUMN date_engagement TEXT');
+      console.log('[migration] date_engagement ajouté sur professeur');
+    }
+  } catch(e) { console.error('[migration] date_engagement:', e.message); }
+
 // ── Recrutement : séparation nom/prenom sur recrutement_candidat ──────────────
 try {
   const cols = db.prepare('PRAGMA table_info(recrutement_candidat)').all().map(c => c.name);

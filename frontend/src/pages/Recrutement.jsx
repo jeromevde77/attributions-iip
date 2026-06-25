@@ -16,6 +16,7 @@ const af = (url, opts = {}) =>
   }).then(async r => { const j = await r.json().catch(() => ({})); if (!r.ok) throw new Error(j.error || 'Erreur'); return j; });
 
 const STATUT = {
+  engage:    { label: 'Engagé', color: '#15803d', bg: '#dcfce7' },
   a_voir:    { label: 'À voir',    color: '#6b7280', bg: '#f3f4f6' },
   entretien: { label: 'Entretien', color: '#0369a1', bg: '#e0f2fe' },
   retenu:    { label: 'Retenu',    color: '#15803d', bg: '#dcfce7' },
@@ -2057,12 +2058,26 @@ function FicheCandidat({ candidat, fonctions, grille, onClose, onSaved }) {
               title="Mener l'entretien"
               className="text-xs border border-white/30 bg-iip-turquoise text-white hover:opacity-90 rounded px-2.5 py-1.5 flex items-center gap-1.5 font-medium">
               <IconClipboardText size={14} /> Entretien
-              {candidat.entretien_note && (
-                <span className="bg-iip-turquoise/20 text-iip-blue rounded-full px-1.5 font-bold">
-                  {candidat.entretien_note}/5
-                </span>
-              )}
             </button>
+            {candidat.candidatures?.some(ca => ca.statut === 'retenu') && (
+              <button onClick={async () => {
+                  if (!confirm(`Engager ${candidat.prenom||''} ${candidat.nom} ? Cela créera sa fiche prof et attribuera les cours "Retenu".`)) return;
+                  try {
+                    const r = await af(`/candidats/${candidat.id}/engager`, { method: 'POST', body: JSON.stringify({ annee: getAnnee() }) });
+                    alert(`✅ ${r.prenom} ${r.nom} engagé·e — ${r.nb_attributions} attribution(s) mise(s) à jour.`);
+                    onSaved();
+                  } catch(e) { alert('Erreur : ' + e.message); }
+                }}
+                title="Engager ce candidat"
+                className="text-xs bg-green-600 text-white hover:opacity-90 rounded px-2.5 py-1.5 flex items-center gap-1.5 font-medium">
+                ✅ Engager
+              </button>
+            )}
+            {candidat.entretien_note && (
+              <span className="bg-iip-turquoise/20 text-white/80 rounded-full px-1.5 font-bold text-xs">
+                {candidat.entretien_note}/5
+              </span>
+            )}
             <button onClick={supprimerCandidat} className="text-white/40 hover:text-red-300 p-1"><IconTrash size={17} /></button>
             <button onClick={onClose} className="text-gray-400 hover:text-gray-700"><IconX size={20} /></button>
           </div>

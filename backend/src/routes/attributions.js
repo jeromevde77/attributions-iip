@@ -330,7 +330,7 @@ r.get('/rapport-attributions', authRequired, (req, res) => {
     SELECT DISTINCT
       a.id, a.ue_num, a.code_cours,
       a.num_groupe, a.code AS groupe_code, a.num_organisation,
-      a.professeur_id, p.nom AS prof_nom, p.prenom AS prof_prenom,
+      a.professeur_id, p.nom AS prof_nom, p.prenom AS prof_prenom, p.date_engagement,
       a.periodes_attribuees, a.autonomie_attribuee,
       a.activite_id, at.libelle AS activite_nom, at.ordre AS activite_ordre,
       a.type_cours, a.contrat_mdp, a.helb_nature

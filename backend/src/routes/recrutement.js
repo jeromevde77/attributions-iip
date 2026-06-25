@@ -563,3 +563,84 @@ r.get('/contexte', (req, res) => {
 });
 
 export default r;
+
+// ── POST /candidats/:id/engager ───────────────────────────────────────────────
+// Crée un professeur depuis le candidat, attribue les cours "retenu", badge NEW
+r.post('/candidats/:id/engager', authRequired, roleRequired('admin', 'editeur'), (req, res) => {
+  const candidat = db.prepare('SELECT * FROM recrutement_candidat WHERE id = ?').get(req.params.id);
+  if (!candidat) return res.status(404).json({ error: 'Candidat introuvable' });
+
+  const candidatures = db.prepare(
+    "SELECT * FROM recrutement_candidature WHERE candidat_id = ? AND statut = 'retenu'"
+  ).all(req.params.id);
+
+  if (candidatures.length === 0)
+    return res.status(400).json({ error: 'Aucune candidature avec statut "Retenu" pour ce candidat' });
+
+  const tx = db.transaction(() => {
+    const today = new Date().toISOString().split('T')[0];
+    const nom    = (candidat.nom || '').toUpperCase().trim();
+    const prenom = (candidat.prenom || '').trim();
+    const email  = candidat.email ||
+      `${prenom.toLowerCase().replace(/\s+/g,'.')}.${nom.toLowerCase().replace(/\s+/g,'.')}@institut-prigogine.be`;
+
+    // 1. Créer ou retrouver le professeur
+    let prof = db.prepare('SELECT id FROM professeur WHERE nom = ? AND prenom = ?').get(nom, prenom);
+    if (!prof) {
+      const r2 = db.prepare(`
+        INSERT INTO professeur (nom, prenom, adresse_mail, date_engagement)
+        VALUES (?, ?, ?, ?)
+      `).run(nom, prenom, email, today);
+      prof = { id: r2.lastInsertRowid };
+    } else {
+      db.prepare('UPDATE professeur SET date_engagement = ?, adresse_mail = COALESCE(adresse_mail, ?) WHERE id = ?')
+        .run(today, email, prof.id);
+    }
+
+    // 2. Trouver le prof À DÉSIGNER
+    const aDesigner = db.prepare(
+      "SELECT id FROM professeur WHERE UPPER(nom || ' ' || prenom) LIKE '%SIGN%' LIMIT 1"
+    ).get();
+
+    // 3. Pour chaque candidature retenue, remplacer À DÉSIGNER → nouveau prof
+    const annee = req.body?.annee || candidatures[0]?.annee_scolaire;
+    let nbAttrib = 0;
+    for (const ca of candidatures) {
+      // Chercher les attributions À DÉSIGNER sur ce cours/UE/section
+      let attribs = [];
+      if (ca.code_cours) {
+        attribs = db.prepare(`
+          SELECT a.id FROM attribution a
+          WHERE a.annee_scolaire = ? AND a.section = ? AND a.code_cours = ?
+          AND a.professeur_id = ?
+        `).all(ca.annee_scolaire, ca.section, ca.code_cours, aDesigner?.id);
+      }
+      if (attribs.length === 0 && ca.ue_num) {
+        attribs = db.prepare(`
+          SELECT a.id FROM attribution a
+          WHERE a.annee_scolaire = ? AND a.section = ? AND a.ue_num = ?
+          AND a.professeur_id = ?
+        `).all(ca.annee_scolaire, ca.section, ca.ue_num, aDesigner?.id);
+      }
+      for (const a of attribs) {
+        db.prepare('UPDATE attribution SET professeur_id = ? WHERE id = ?').run(prof.id, a.id);
+        nbAttrib++;
+      }
+      // Mettre à jour le statut de la candidature
+      db.prepare("UPDATE recrutement_candidature SET statut = 'engage' WHERE id = ?").run(ca.id);
+    }
+
+    // 4. Marquer le candidat comme engagé
+    db.prepare("UPDATE recrutement_candidat SET notes = COALESCE(notes,'') || ' [ENGAGÉ le " + today + "]' WHERE id = ?")
+      .run(candidat.id);
+
+    return { prof_id: prof.id, nb_attributions: nbAttrib, nom, prenom, date_engagement: today };
+  });
+
+  try {
+    const result = tx();
+    res.json({ ok: true, ...result });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
