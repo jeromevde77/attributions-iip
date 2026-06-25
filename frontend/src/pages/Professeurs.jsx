@@ -706,71 +706,78 @@ function DetailModal({ profId, onClose, onEdit, onFiche }) {
                 <div>
                   {detail.attributions?.length === 0
                     ? <div className="text-sm text-gray-400 text-center py-12">Aucune attribution pour cette année.</div>
-                    : (
-                    <table className="w-full text-sm">
-                      <thead>
-                        <tr className="border-b border-gray-200">
-                          <th className="text-left pb-2 text-xs text-gray-400 font-medium">Section</th>
-                          <th className="text-left pb-2 text-xs text-gray-400 font-medium">UE</th>
-                          <th className="text-left pb-2 text-xs text-gray-400 font-medium">Cours</th>
-                          <th className="text-left pb-2 text-xs text-gray-400 font-medium">Activité</th>
-                          <th className="text-center pb-2 text-xs text-gray-400 font-medium">Type</th>
-                          <th className="text-center pb-2 text-xs text-gray-400 font-medium">Gr.</th>
-                          <th className="text-right pb-2 text-xs text-gray-400 font-medium">Pér.</th>
-                          <th></th>
-                        </tr>
-                      </thead>
-                      <tbody className="divide-y divide-gray-50">
-                        {detail.attributions?.flatMap(a => {
-                          const btnActions = (
-                            <div className="flex items-center gap-0.5">
-                              {a.code_cours && (
-                                <button title="Éditer" onClick={() => setEditCours({ section: a.section, code_cours: a.code_cours })}
-                                  className="text-iip-gold hover:text-iip-amber p-1 rounded"><IconEdit size={13}/></button>
-                              )}
-                              <button title="Désattribuer" onClick={async () => {
-                                  if (!confirm('Retirer cette attribution ?')) return;
-                                  const tok = localStorage.getItem('token');
-                                  const res = await fetch(`/api/attributions/${a.id}/desattribuer`, { method: 'PATCH', headers: { Authorization: `Bearer ${tok}` } });
-                                  if (res.ok) setDetail(d => ({ ...d, attributions: d.attributions.filter(x => x.id !== a.id) }));
-                                }}
-                                className="text-orange-400 hover:text-orange-600 p-1 rounded"><IconRefresh size={13}/></button>
-                            </div>
-                          );
-                          const rows = [];
-                          if (a.periodes_attribuees > 0 || a.autonomie_attribuee === 0) {
-                            rows.push(
-                              <tr key={`${a.id}-per`} className="hover:bg-gray-50/80 group">
+                    : (() => {
+                      // Regrouper par (section, ue_num, code_cours) et sommer
+                      const grouped = [];
+                      const map = {};
+                      for (const a of (detail.attributions || [])) {
+                        const key = `${a.section}||${a.ue_num}||${a.code_cours || ''}`;
+                        if (!map[key]) {
+                          map[key] = {
+                            ...a,
+                            periodes_total: (a.periodes_attribuees || 0) + (a.autonomie_attribuee || 0),
+                            nb_groupes: 1,
+                            ids: [a.id],
+                          };
+                          grouped.push(map[key]);
+                        } else {
+                          map[key].periodes_total += (a.periodes_attribuees || 0) + (a.autonomie_attribuee || 0);
+                          map[key].nb_groupes += 1;
+                          map[key].ids.push(a.id);
+                        }
+                      }
+                      return (
+                        <table className="w-full text-sm">
+                          <thead>
+                            <tr className="border-b border-gray-200">
+                              <th className="text-left pb-2 text-xs text-gray-400 font-medium">Section</th>
+                              <th className="text-left pb-2 text-xs text-gray-400 font-medium">UE</th>
+                              <th className="text-left pb-2 text-xs text-gray-400 font-medium">Cours</th>
+                              <th className="text-left pb-2 text-xs text-gray-400 font-medium">Activité</th>
+                              <th className="text-center pb-2 text-xs text-gray-400 font-medium">Type</th>
+                              <th className="text-center pb-2 text-xs text-gray-400 font-medium">Gr.</th>
+                              <th className="text-right pb-2 text-xs text-gray-400 font-medium">Total pér.</th>
+                              <th></th>
+                            </tr>
+                          </thead>
+                          <tbody className="divide-y divide-gray-50">
+                            {grouped.map((a, idx) => (
+                              <tr key={idx} className="hover:bg-gray-50/80 group">
                                 <td className="py-2 text-xs font-medium text-gray-600">{a.section}</td>
                                 <td className="py-2 font-mono text-xs text-gray-400">{a.ue_num}</td>
-                                <td className="py-2 text-xs max-w-[200px] truncate">{a.nom_cours}</td>
+                                <td className="py-2 text-xs max-w-[200px] truncate" title={a.nom_cours}>{a.nom_cours}</td>
                                 <td className="py-2 text-xs text-gray-400">{a.activite_nom || '—'}</td>
                                 <td className="py-2 text-center">{badge(a.type_cours)}</td>
-                                <td className="py-2 text-center text-xs text-gray-500">{a.code || '—'}</td>
-                                <td className="py-2 text-right font-semibold text-sm">{a.periodes_attribuees}</td>
-                                <td className="py-2 opacity-0 group-hover:opacity-100 transition-opacity">{a.autonomie_attribuee === 0 && btnActions}</td>
+                                <td className="py-2 text-center text-xs text-gray-500">
+                                  {a.nb_groupes > 1
+                                    ? <span className="bg-gray-100 text-gray-600 rounded px-1.5 py-0.5 font-semibold">{a.nb_groupes}</span>
+                                    : a.code || '—'}
+                                </td>
+                                <td className="py-2 text-right font-bold text-sm">{a.periodes_total}</td>
+                                <td className="py-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                                  <div className="flex items-center gap-0.5">
+                                    {a.code_cours && (
+                                      <button title="Éditer" onClick={() => setEditCours({ section: a.section, code_cours: a.code_cours })}
+                                        className="text-iip-gold hover:text-iip-amber p-1 rounded"><IconEdit size={13}/></button>
+                                    )}
+                                    <button title="Désattribuer tous les groupes" onClick={async () => {
+                                        if (!confirm(`Retirer toutes les attributions de ${a.nom_cours} (${a.nb_groupes} groupe${a.nb_groupes>1?'s':''})?`)) return;
+                                        const tok = localStorage.getItem('token');
+                                        for (const id of a.ids) {
+                                          await fetch(`/api/attributions/${id}/desattribuer`, { method: 'PATCH', headers: { Authorization: `Bearer ${tok}` } });
+                                        }
+                                        setDetail(d => ({ ...d, attributions: d.attributions.filter(x => !a.ids.includes(x.id)) }));
+                                      }}
+                                      className="text-orange-400 hover:text-orange-600 p-1 rounded"><IconRefresh size={13}/></button>
+                                  </div>
+                                </td>
                               </tr>
-                            );
-                          }
-                          if (a.autonomie_attribuee > 0) {
-                            rows.push(
-                              <tr key={`${a.id}-aut`} className="hover:bg-amber-50/50 group bg-amber-50/20">
-                                <td className="py-1.5 text-gray-300 text-xs pl-4">↳</td>
-                                <td className="py-1.5 font-mono text-xs text-gray-300">{a.ue_num}</td>
-                                <td className="py-1.5 text-xs text-gray-400 truncate max-w-[200px]">{a.nom_cours}</td>
-                                <td className="py-1.5 text-xs text-amber-500 italic">{a.activite_nom ? `Aut. — ${a.activite_nom}` : 'Autonomie'}</td>
-                                <td className="py-1.5 text-center">{badge(a.type_cours)}</td>
-                                <td className="py-1.5 text-center text-xs text-gray-300">{a.code || '—'}</td>
-                                <td className="py-1.5 text-right font-semibold text-sm text-amber-600">{a.autonomie_attribuee}</td>
-                                <td className="py-1.5 opacity-0 group-hover:opacity-100 transition-opacity">{btnActions}</td>
-                              </tr>
-                            );
-                          }
-                          return rows;
-                        })}
-                      </tbody>
-                    </table>
-                  )}
+                            ))}
+                          </tbody>
+                        </table>
+                      );
+                    })()
+                  }
                   {editCours && (
                     <CoursEditModal
                       section={editCours.section}
