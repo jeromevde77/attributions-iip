@@ -745,7 +745,10 @@ function DetailModal({ profId, onClose, onEdit, onFiche }) {
                               <tr key={idx} className="hover:bg-gray-50/80 group">
                                 <td className="py-2 text-xs font-medium text-gray-600">{a.section}</td>
                                 <td className="py-2 font-mono text-xs text-gray-400">{a.ue_num}</td>
-                                <td className="py-2 text-xs max-w-[200px] truncate" title={a.nom_cours}>{a.nom_cours}</td>
+                                <td className="py-2 text-xs max-w-[220px] truncate" title={a.nom_cours}>
+                                  {a.code_cours && <span className="font-mono text-gray-400 mr-1.5">{a.code_cours}</span>}
+                                  {a.nom_cours}
+                                </td>
                                 <td className="py-2 text-xs text-gray-400">{a.activite_nom || '—'}</td>
                                 <td className="py-2 text-center">{badge(a.type_cours)}</td>
                                 <td className="py-2 text-center text-xs text-gray-500">
