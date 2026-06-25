@@ -513,10 +513,16 @@ function AccesLuciePanel({ profId, detail }) {
 
 function DetailModal({ profId, onClose, onEdit, onFiche }) {
   const [detail, setDetail] = useState(null);
+  const [onglet, setOnglet] = useState('attributions');
   const navigate = useNavigate();
   const u = getUser();
-  const [editCours, setEditCours] = useState(null); // { section, code_cours }
+  const [editCours, setEditCours] = useState(null);
   const [printMenu, setPrintMenu] = useState(false);
+  const [showContratModal, setShowContratModal] = useState(false);
+  const [dateContrat, setDateContrat] = useState(new Date().toISOString().split('T')[0]);
+  const [representant, setRepresentant] = useState('Charles Sohet, Directeur a.i.');
+  const [generatingContrat, setGeneratingContrat] = useState(false);
+
   useEffect(() => {
     api.professeur(profId, getAnnee()).then(setDetail).catch(e => alert(e.message));
   }, [profId]);
@@ -528,11 +534,6 @@ function DetailModal({ profId, onClose, onEdit, onFiche }) {
     } catch (e) { alert('Erreur : ' + e.message); }
   }
 
-  const [showContratModal, setShowContratModal] = useState(false);
-  const [dateContrat, setDateContrat]           = useState(new Date().toISOString().split('T')[0]);
-  const [representant, setRepresentant]         = useState('Charles Sohet, Directeur a.i.');
-  const [generatingContrat, setGeneratingContrat] = useState(false);
-
   async function genererContrat() {
     setGeneratingContrat(true);
     try {
@@ -543,12 +544,10 @@ function DetailModal({ profId, onClose, onEdit, onFiche }) {
       });
       if (!res.ok) throw new Error((await res.json()).error || 'Erreur serveur');
       const blob = await res.blob();
-      const url  = URL.createObjectURL(blob);
+      const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
-      a.href = url;
-      a.download = `Contrat_${detail.nom}_${detail.prenom}_${dateContrat}.docx`;
-      a.click();
-      URL.revokeObjectURL(url);
+      a.href = url; a.download = `Contrat_${detail.nom}_${detail.prenom}_${dateContrat}.docx`;
+      a.click(); URL.revokeObjectURL(url);
       setShowContratModal(false);
     } catch (e) { alert('Erreur : ' + e.message); }
     finally { setGeneratingContrat(false); }
@@ -560,227 +559,319 @@ function DetailModal({ profId, onClose, onEdit, onFiche }) {
     </div>
   );
 
+  const initiales = [(detail.prenom||'')[0], (detail.nom||'')[0]].filter(Boolean).join('').toUpperCase();
+  const totalIIP  = (detail.tot_per_annee ?? 0) + (detail.tot_aut_annee ?? 0);
+
+  const badge = tc => tc === 'CT'
+    ? <span className="badge badge-ct">CT</span>
+    : tc === 'PP' ? <span className="badge badge-pp">PP</span> : null;
+
+  const ONGLETS = [
+    { key: 'attributions', label: `Attributions (${detail.attributions?.length || 0})` },
+    ...(u?.role === 'admin' ? [{ key: 'acces', label: 'Accès Lucie' }] : []),
+    { key: 'actions', label: 'Documents' },
+  ];
+
   return (
-    <div className="fixed inset-0 bg-black/40 flex items-center justify-center p-4 z-30"
+    <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-30"
       onClick={e => e.target === e.currentTarget && onClose()}>
-      <div className="bg-white rounded-xl shadow-2xl max-w-5xl w-full max-h-[90vh] flex flex-col">
-        {/* Header */}
-        <div className="flex items-start justify-between px-6 py-4 border-b border-gray-100">
-          <div>
-            <h2 className="text-xl font-title text-iip-gold">{detail.nom_prenom}</h2>
-            <div className="flex items-center gap-3 mt-1 text-sm text-gray-500 flex-wrap">
-              {detail.adresse_mail && <span className="inline-flex items-center gap-1"><IconMail size={13}/> {detail.adresse_mail}</span>}
-              {detail.statut && <span className="badge badge-iip">{detail.statut}</span>}
-              {detail.capaes === 'x' && <span className="text-xs bg-green-100 text-green-700 px-2 py-0.5 rounded">CAPAES</span>}
-              {detail.commune && <span className="inline-flex items-center gap-1"><IconMapPin size={13}/> {detail.code_postal} {detail.commune}</span>}
-            </div>
-          </div>
-          <div className="flex gap-2 flex-shrink-0 flex-wrap justify-end">
-            <div className="relative">
-              <button onClick={() => setPrintMenu(v => !v)}
-                className="flex items-center gap-1.5 bg-gray-100 hover:bg-gray-200 text-gray-700 text-sm px-3 py-1.5 h-9 rounded" title="Fiche d'attributions">
-                <IconPrinter size={15} />
-                Fiche
-                <IconChevronDown size={12} />
-              </button>
-              {printMenu && (
-                <>
-                  <div className="fixed inset-0 z-40" onClick={() => setPrintMenu(false)} />
-                  <div className="absolute z-50 top-full right-0 mt-1 bg-white border border-gray-200 rounded-lg shadow-xl py-1.5 h-9 px-1.5 w-40 flex flex-col gap-1">
-                    <button onClick={() => { onFiche && onFiche(profId, null); setPrintMenu(false); }}
-                      className="text-left px-2 py-1.5 h-9 rounded hover:bg-gray-50 text-sm flex items-center gap-2">
-                      <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-gray-700 text-white">Global</span>
-                      <span className="text-gray-600 text-xs">IIP + HELB</span>
-                    </button>
-                    <button onClick={() => { onFiche && onFiche(profId, 'IIP'); setPrintMenu(false); }}
-                      className="text-left px-2 py-1.5 h-9 rounded hover:bg-gray-50 text-sm flex items-center gap-2">
-                      <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-iip-turquoise/10 text-iip-blue">IIP</span>
-                      <span className="text-gray-600 text-xs">Contrat IIP</span>
-                    </button>
-                    <button onClick={() => { onFiche && onFiche(profId, 'HELB'); setPrintMenu(false); }}
-                      className="text-left px-2 py-1.5 h-9 rounded hover:bg-gray-50 text-sm flex items-center gap-2">
-                      <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-purple-100 text-purple-700">HELB</span>
-                      <span className="text-gray-600 text-xs">Contrat HELB</span>
-                    </button>
-                  </div>
-                </>
-              )}
-            </div>
-            {u?.role === 'admin' && (
-              <button onClick={() => setShowContratModal(true)}
-                className="bg-green-700 hover:opacity-90 text-white text-sm px-3 py-1.5 h-9 rounded">
-                <span className="inline-flex items-center gap-1.5"><IconFileText size={15}/>Contrat</span>
-              </button>
-            )}
-            {u?.role === 'admin' && (
-              <button onClick={nouvelEA12}
-                className="bg-iip-mauve hover:opacity-90 text-white text-sm px-3 py-1.5 h-9 rounded">
-                + Nouvel EA12
-              </button>
-            )}
-            <button onClick={() => navigate(`/dcpp/${profId}`)}
-              className="bg-iip-turquoise hover:opacity-90 text-white text-sm px-3 py-1.5 h-9 rounded">
-              <span className="inline-flex items-center gap-1.5"><IconSchool size={15}/>DCPP</span>
-            </button>
-            <button onClick={() => onEdit(detail)}
-              className="bg-iip-gold hover:bg-iip-amber text-white text-sm px-3 py-1.5 h-9 rounded">
-              <span className="inline-flex items-center gap-1.5"><IconEdit size={15}/>Modifier</span>
-            </button>
-            <button onClick={onClose} className="text-gray-400 hover:text-red-500 text-2xl leading-none ml-2">×</button>
-          </div>
-        </div>
+      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-6xl max-h-[92vh] flex flex-col overflow-hidden">
 
-        {/* Modale génération contrat */}
-        {showContratModal && (
-          <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-            <div className="bg-white rounded-xl shadow-2xl w-full max-w-md p-6">
-              <h3 className="text-lg font-title text-iip-gold mb-4 flex items-center gap-2"><IconFileText size={18}/>Générer le contrat de travail</h3>
-              <p className="text-sm text-gray-600 mb-4">
-                Contrat CDD — Enseignement pour adultes<br />
-                <strong>{detail.nom_prenom}</strong>
-              </p>
-              <div className="space-y-4">
-                <label className="block">
-                  <div className="text-xs font-semibold text-gray-600 mb-1">Date de signature du contrat</div>
-                  <input type="date" value={dateContrat} onChange={e => setDateContrat(e.target.value)}
-                    className="w-full border border-gray-300 rounded px-3 py-2 text-sm" />
-                  {dateContrat && (
-                    <p className="text-xs text-gray-500 mt-1">
-                      Apparaîtra dans le contrat : <em>{['dimanche','lundi','mardi','mercredi','jeudi','vendredi','samedi'][new Date(dateContrat+'T12:00').getDay()]} {new Date(dateContrat+'T12:00').toLocaleDateString('fr-BE',{day:'2-digit',month:'long',year:'numeric'})}</em>
-                    </p>
-                  )}
-                </label>
-                <label className="block">
-                  <div className="text-xs font-semibold text-gray-600 mb-1">Représentant(e) du PO</div>
-                  <input value={representant} onChange={e => setRepresentant(e.target.value)}
-                    className="w-full border border-gray-300 rounded px-3 py-2 text-sm" />
-                </label>
-              </div>
-              <div className="flex gap-3 mt-6">
-                <button onClick={() => setShowContratModal(false)}
-                  className="flex-1 border border-gray-300 text-gray-600 py-2 rounded text-sm">
-                  Annuler
-                </button>
-                <button onClick={genererContrat} disabled={generatingContrat || !dateContrat}
-                  className="flex-1 bg-green-700 hover:opacity-90 disabled:opacity-40 text-white py-2 rounded text-sm font-semibold">
-                  {generatingContrat ? 'Génération…' : <span className="inline-flex items-center gap-1.5"><IconDownload size={15}/>Télécharger le .docx</span>}
-                </button>
+        {/* ── Barre de titre ── */}
+        <div className="flex items-center justify-between px-6 py-3 bg-iip-blue rounded-t-2xl flex-shrink-0">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-full bg-white/20 flex items-center justify-center text-white font-bold text-sm flex-shrink-0">
+              {initiales}
+            </div>
+            <div>
+              <div className="text-white font-bold text-lg leading-tight">{detail.nom_prenom}</div>
+              <div className="text-white/70 text-xs flex items-center gap-3">
+                {detail.adresse_mail && <span className="flex items-center gap-1"><IconMail size={11}/>{detail.adresse_mail}</span>}
+                {detail.commune && <span className="flex items-center gap-1"><IconMapPin size={11}/>{detail.code_postal} {detail.commune}</span>}
+                {detail.capaes === 'x' && <span className="bg-green-400/30 text-green-200 text-[10px] px-1.5 rounded">CAPAES</span>}
+                {detail.statut && <span className="bg-white/20 text-white/90 text-[10px] px-1.5 rounded">{detail.statut}</span>}
               </div>
             </div>
           </div>
-        )}
-
-        {/* KPIs */}
-        <div className="grid grid-cols-3 gap-3 px-6 py-3 border-b border-gray-100">
-          <div className="bg-iip-gold/10 rounded p-2.5 text-center">
-            <div className="text-xs text-gray-600">Total IIP (per. + aut.)</div>
-            <div className="font-bold text-lg text-iip-gold">{(detail.tot_per_annee ?? 0) + (detail.tot_aut_annee ?? 0)} per.</div>
-          </div>
-          <div className="bg-iip-mauve/10 rounded p-2.5 text-center">
-            <div className="text-xs text-gray-600">Total HELB</div>
-            <div className="font-bold text-lg text-iip-mauve">{detail.total_hrs_helb ?? 0} hrs</div>
-          </div>
-          <div className="bg-gray-50 rounded p-2.5 text-center">
-            <div className="text-xs text-gray-600">Ancienneté PO</div>
-            <div className="font-bold text-lg">{detail.anciennete_25_26_po ?? 0}</div>
-          </div>
+          <button onClick={onClose} className="text-white/60 hover:text-white ml-4"><IconX size={20}/></button>
         </div>
 
-        {/* Attributions */}
-        <div className="flex-1 overflow-auto px-6 py-3">
-          <FonctionsPanel missions={detail.missions} />
-          {u?.role === 'admin' && <AccesLuciePanel profId={profId} detail={detail} />}
-          <h3 className="font-semibold text-sm mb-2 text-gray-700">
-            Attributions ({detail.attributions?.length || 0})
-          </h3>
-          <table className="grid-excel-soft w-full text-sm">
-            <thead><tr>
-              <th className="text-left">Section</th>
-              <th className="text-left">UE</th>
-              <th className="text-left">Cours</th>
-              <th className="text-left">Activité</th>
-              <th>Type</th>
-              <th>Gr.</th>
-              <th className="text-right">Per.</th>
-              <th></th>
-            </tr></thead>
-            <tbody>
-              {detail.attributions?.length === 0 && (
-                <tr><td colSpan="8" className="text-center text-gray-400 py-4">Aucune attribution</td></tr>
+        {/* ── Layout 2 colonnes ── */}
+        <div className="flex flex-1 min-h-0">
+
+          {/* ── Colonne gauche — identité + KPIs + actions ── */}
+          <div className="w-64 flex-shrink-0 border-r border-gray-100 flex flex-col bg-gray-50/50 overflow-auto">
+
+            {/* KPIs */}
+            <div className="p-4 space-y-2 border-b border-gray-100">
+              <div className="bg-white rounded-xl border border-gray-200 px-4 py-3 text-center">
+                <div className="text-xs text-gray-500 mb-0.5">Périodes IIP</div>
+                <div className="text-2xl font-bold text-iip-blue">{totalIIP}</div>
+                <div className="text-[10px] text-gray-400">per. + aut.</div>
+              </div>
+              <div className="grid grid-cols-2 gap-2">
+                <div className="bg-white rounded-xl border border-gray-200 px-3 py-2 text-center">
+                  <div className="text-[10px] text-gray-400">HELB</div>
+                  <div className="text-base font-bold text-purple-600">{detail.total_hrs_helb ?? 0}h</div>
+                </div>
+                <div className="bg-white rounded-xl border border-gray-200 px-3 py-2 text-center">
+                  <div className="text-[10px] text-gray-400">Anc. PO</div>
+                  <div className="text-base font-bold text-gray-700">{detail.anciennete_25_26_po ?? 0}</div>
+                </div>
+              </div>
+            </div>
+
+            {/* Fonctions & missions */}
+            {detail.missions?.length > 0 && (
+              <div className="p-4 border-b border-gray-100">
+                <div className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-2">Fonctions</div>
+                <div className="space-y-1.5">
+                  {detail.missions.map((m, i) => (
+                    <div key={i} className="text-xs">
+                      <div className="font-medium text-gray-700">{m.fonction}</div>
+                      {m.section && <span className="text-[10px] bg-gray-100 text-gray-500 px-1.5 py-0.5 rounded mt-0.5 inline-block">{m.section}</span>}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Actions */}
+            <div className="p-4 space-y-2 border-b border-gray-100">
+              <div className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-2">Actions</div>
+              <button onClick={() => onEdit(detail)}
+                className="w-full flex items-center gap-2 text-xs bg-iip-gold/10 hover:bg-iip-gold/20 text-iip-gold border border-iip-gold/30 rounded-lg px-3 py-2 font-medium transition">
+                <IconEdit size={14}/> Modifier la fiche
+              </button>
+              <button onClick={() => navigate(`/dcpp/${profId}`)}
+                className="w-full flex items-center gap-2 text-xs bg-iip-turquoise/10 hover:bg-iip-turquoise/20 text-iip-blue border border-iip-turquoise/30 rounded-lg px-3 py-2 font-medium transition">
+                <IconSchool size={14}/> DCPP
+              </button>
+              {u?.role === 'admin' && (
+                <button onClick={nouvelEA12}
+                  className="w-full flex items-center gap-2 text-xs bg-purple-50 hover:bg-purple-100 text-purple-700 border border-purple-200 rounded-lg px-3 py-2 font-medium transition">
+                  <IconPlus size={14}/> Nouvel EA12
+                </button>
               )}
-              {detail.attributions?.flatMap(a => {
-                const badge = tc => tc === 'CT'
-                  ? <span className="badge badge-ct">CT</span>
-                  : tc === 'PP' ? <span className="badge badge-pp">PP</span> : null;
-                const btnActions = (
+              {u?.role === 'admin' && (
+                <button onClick={() => setShowContratModal(true)}
+                  className="w-full flex items-center gap-2 text-xs bg-green-50 hover:bg-green-100 text-green-700 border border-green-200 rounded-lg px-3 py-2 font-medium transition">
+                  <IconFileText size={14}/> Générer contrat
+                </button>
+              )}
+              {/* Fiches PDF */}
+              <div className="relative">
+                <button onClick={() => setPrintMenu(v => !v)}
+                  className="w-full flex items-center gap-2 text-xs bg-white hover:bg-gray-50 text-gray-600 border border-gray-200 rounded-lg px-3 py-2 font-medium transition">
+                  <IconPrinter size={14}/> Fiche PDF <IconChevronDown size={12} className="ml-auto"/>
+                </button>
+                {printMenu && (
                   <>
-                    {a.code_cours && (
-                      <button title="Éditer ce cours"
-                        onClick={() => setEditCours({ section: a.section, code_cours: a.code_cours })}
-                        className="text-iip-gold hover:text-iip-amber text-xs px-1"><IconEdit size={14}/></button>
-                    )}
-                    <button title="Désattribuer → À DÉSIGNER"
-                      onClick={async () => {
-                        if (!confirm('Retirer cette attribution et la passer à "À DÉSIGNER" ?')) return;
-                        const tok = localStorage.getItem('token');
-                        const res = await fetch(`/api/attributions/${a.id}/desattribuer`, {
-                          method: 'PATCH', headers: { Authorization: `Bearer ${tok}` }
-                        });
-                        if (res.ok) setDetail(d => ({ ...d, attributions: d.attributions.filter(x => x.id !== a.id) }));
-                      }}
-                      className="text-orange-400 hover:text-orange-600 text-xs px-1"><IconRefresh size={14}/></button>
+                    <div className="fixed inset-0 z-40" onClick={() => setPrintMenu(false)}/>
+                    <div className="absolute z-50 top-full left-0 mt-1 bg-white border border-gray-200 rounded-lg shadow-xl py-1 w-full">
+                      {[['Global','IIP + HELB',null],['IIP','Contrat IIP','IIP'],['HELB','Contrat HELB','HELB']].map(([lbl,sub,filtre]) => (
+                        <button key={lbl} onClick={() => { onFiche && onFiche(profId, filtre); setPrintMenu(false); }}
+                          className="w-full text-left px-3 py-2 hover:bg-gray-50 text-xs flex items-center gap-2">
+                          <span className="font-bold w-10">{lbl}</span>
+                          <span className="text-gray-400">{sub}</span>
+                        </button>
+                      ))}
+                    </div>
                   </>
-                );
-                const rows = [];
-                // Ligne cours (si périodes > 0 ou pas d'autonomie du tout)
-                if (a.periodes_attribuees > 0 || a.autonomie_attribuee === 0) {
-                  rows.push(
-                    <tr key={`${a.id}-per`} className="hover:bg-iip-gold/5">
-                      <td>{a.section}</td>
-                      <td className="font-mono text-xs">{a.ue_num}</td>
-                      <td className="text-xs truncate max-w-[180px]">{a.nom_cours}</td>
-                      <td className="text-xs text-gray-500">{a.activite_nom || '—'}</td>
-                      <td className="text-center">{badge(a.type_cours)}</td>
-                      <td className="text-center text-xs">{a.code || '—'}</td>
-                      <td className="num">{a.periodes_attribuees}</td>
-                      <td className="text-center whitespace-nowrap">
-                        {a.autonomie_attribuee === 0 && btnActions}
-                      </td>
-                    </tr>
-                  );
-                }
-                // Ligne autonomie séparée (si > 0)
-                if (a.autonomie_attribuee > 0) {
-                  rows.push(
-                    <tr key={`${a.id}-aut`} className="bg-amber-50/40 hover:bg-amber-50">
-                      <td className="text-gray-300 text-xs pl-3">↳</td>
-                      <td className="font-mono text-xs text-gray-400">{a.ue_num}</td>
-                      <td className="text-xs text-gray-400 truncate max-w-[180px]">{a.nom_cours}</td>
-                      <td className="text-xs text-amber-600 italic">{a.activite_nom ? `Autonomie — ${a.activite_nom}` : 'Autonomie'}</td>
-                      <td className="text-center">{badge(a.type_cours)}</td>
-                      <td className="text-center text-xs text-gray-400">{a.code || '—'}</td>
-                      <td className="num text-amber-700 font-semibold">{a.autonomie_attribuee}</td>
-                      <td className="text-center whitespace-nowrap">{btnActions}</td>
-                    </tr>
-                  );
-                }
-                return rows;
-              })}
-            </tbody>
-          </table>
-          {editCours && (
-            <CoursEditModal
-              section={editCours.section}
-              codeCours={editCours.code_cours}
-              onClose={() => setEditCours(null)}
-              onChanged={() => { setEditCours(null); api.professeur(profId, getAnnee()).then(setDetail).catch(() => {}); }}
-            />
-          )}
+                )}
+              </div>
+            </div>
+          </div>
+
+          {/* ── Colonne droite — onglets ── */}
+          <div className="flex-1 flex flex-col min-w-0">
+            {/* Onglets */}
+            <div className="flex border-b border-gray-100 px-4 flex-shrink-0 bg-white">
+              {ONGLETS.map(o => (
+                <button key={o.key} onClick={() => setOnglet(o.key)}
+                  className={`px-4 py-3 text-sm font-medium border-b-2 transition -mb-px ${
+                    onglet === o.key
+                      ? 'border-iip-turquoise text-iip-blue'
+                      : 'border-transparent text-gray-400 hover:text-gray-600'
+                  }`}>
+                  {o.label}
+                </button>
+              ))}
+            </div>
+
+            <div className="flex-1 overflow-auto p-4">
+
+              {/* ── Attributions ── */}
+              {onglet === 'attributions' && (
+                <div>
+                  {detail.attributions?.length === 0
+                    ? <div className="text-sm text-gray-400 text-center py-12">Aucune attribution pour cette année.</div>
+                    : (
+                    <table className="w-full text-sm">
+                      <thead>
+                        <tr className="border-b border-gray-200">
+                          <th className="text-left pb-2 text-xs text-gray-400 font-medium">Section</th>
+                          <th className="text-left pb-2 text-xs text-gray-400 font-medium">UE</th>
+                          <th className="text-left pb-2 text-xs text-gray-400 font-medium">Cours</th>
+                          <th className="text-left pb-2 text-xs text-gray-400 font-medium">Activité</th>
+                          <th className="text-center pb-2 text-xs text-gray-400 font-medium">Type</th>
+                          <th className="text-center pb-2 text-xs text-gray-400 font-medium">Gr.</th>
+                          <th className="text-right pb-2 text-xs text-gray-400 font-medium">Pér.</th>
+                          <th></th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-gray-50">
+                        {detail.attributions?.flatMap(a => {
+                          const btnActions = (
+                            <div className="flex items-center gap-0.5">
+                              {a.code_cours && (
+                                <button title="Éditer" onClick={() => setEditCours({ section: a.section, code_cours: a.code_cours })}
+                                  className="text-iip-gold hover:text-iip-amber p-1 rounded"><IconEdit size={13}/></button>
+                              )}
+                              <button title="Désattribuer" onClick={async () => {
+                                  if (!confirm('Retirer cette attribution ?')) return;
+                                  const tok = localStorage.getItem('token');
+                                  const res = await fetch(`/api/attributions/${a.id}/desattribuer`, { method: 'PATCH', headers: { Authorization: `Bearer ${tok}` } });
+                                  if (res.ok) setDetail(d => ({ ...d, attributions: d.attributions.filter(x => x.id !== a.id) }));
+                                }}
+                                className="text-orange-400 hover:text-orange-600 p-1 rounded"><IconRefresh size={13}/></button>
+                            </div>
+                          );
+                          const rows = [];
+                          if (a.periodes_attribuees > 0 || a.autonomie_attribuee === 0) {
+                            rows.push(
+                              <tr key={`${a.id}-per`} className="hover:bg-gray-50/80 group">
+                                <td className="py-2 text-xs font-medium text-gray-600">{a.section}</td>
+                                <td className="py-2 font-mono text-xs text-gray-400">{a.ue_num}</td>
+                                <td className="py-2 text-xs max-w-[200px] truncate">{a.nom_cours}</td>
+                                <td className="py-2 text-xs text-gray-400">{a.activite_nom || '—'}</td>
+                                <td className="py-2 text-center">{badge(a.type_cours)}</td>
+                                <td className="py-2 text-center text-xs text-gray-500">{a.code || '—'}</td>
+                                <td className="py-2 text-right font-semibold text-sm">{a.periodes_attribuees}</td>
+                                <td className="py-2 opacity-0 group-hover:opacity-100 transition-opacity">{a.autonomie_attribuee === 0 && btnActions}</td>
+                              </tr>
+                            );
+                          }
+                          if (a.autonomie_attribuee > 0) {
+                            rows.push(
+                              <tr key={`${a.id}-aut`} className="hover:bg-amber-50/50 group bg-amber-50/20">
+                                <td className="py-1.5 text-gray-300 text-xs pl-4">↳</td>
+                                <td className="py-1.5 font-mono text-xs text-gray-300">{a.ue_num}</td>
+                                <td className="py-1.5 text-xs text-gray-400 truncate max-w-[200px]">{a.nom_cours}</td>
+                                <td className="py-1.5 text-xs text-amber-500 italic">{a.activite_nom ? `Aut. — ${a.activite_nom}` : 'Autonomie'}</td>
+                                <td className="py-1.5 text-center">{badge(a.type_cours)}</td>
+                                <td className="py-1.5 text-center text-xs text-gray-300">{a.code || '—'}</td>
+                                <td className="py-1.5 text-right font-semibold text-sm text-amber-600">{a.autonomie_attribuee}</td>
+                                <td className="py-1.5 opacity-0 group-hover:opacity-100 transition-opacity">{btnActions}</td>
+                              </tr>
+                            );
+                          }
+                          return rows;
+                        })}
+                      </tbody>
+                    </table>
+                  )}
+                  {editCours && (
+                    <CoursEditModal
+                      section={editCours.section}
+                      codeCours={editCours.code_cours}
+                      onClose={() => setEditCours(null)}
+                      onChanged={() => { setEditCours(null); api.professeur(profId, getAnnee()).then(setDetail).catch(() => {}); }}
+                    />
+                  )}
+                </div>
+              )}
+
+              {/* ── Accès Lucie ── */}
+              {onglet === 'acces' && u?.role === 'admin' && (
+                <AccesLuciePanel profId={profId} detail={detail} />
+              )}
+
+              {/* ── Documents ── */}
+              {onglet === 'actions' && (
+                <div className="space-y-4">
+                  <div className="text-sm text-gray-500">Documents générables pour {detail.nom_prenom}</div>
+                  <div className="grid grid-cols-2 gap-3">
+                    {u?.role === 'admin' && (
+                      <button onClick={() => setShowContratModal(true)}
+                        className="flex items-center gap-3 p-4 border-2 border-dashed border-green-200 hover:border-green-400 rounded-xl text-left transition">
+                        <IconFileText size={24} className="text-green-600 flex-shrink-0"/>
+                        <div>
+                          <div className="text-sm font-semibold text-gray-700">Contrat de travail</div>
+                          <div className="text-xs text-gray-400">CDD — Enseignement pour adultes</div>
+                        </div>
+                      </button>
+                    )}
+                    {[['Global','IIP + HELB',null],['IIP','Contrat IIP','IIP'],['HELB','Contrat HELB','HELB']].map(([lbl,sub,filtre]) => (
+                      <button key={lbl} onClick={() => onFiche && onFiche(profId, filtre)}
+                        className="flex items-center gap-3 p-4 border-2 border-dashed border-gray-200 hover:border-iip-turquoise rounded-xl text-left transition">
+                        <IconPrinter size={24} className="text-iip-blue flex-shrink-0"/>
+                        <div>
+                          <div className="text-sm font-semibold text-gray-700">Fiche {lbl}</div>
+                          <div className="text-xs text-gray-400">{sub}</div>
+                        </div>
+                      </button>
+                    ))}
+                    {u?.role === 'admin' && (
+                      <button onClick={nouvelEA12}
+                        className="flex items-center gap-3 p-4 border-2 border-dashed border-purple-200 hover:border-purple-400 rounded-xl text-left transition">
+                        <IconPlus size={24} className="text-purple-600 flex-shrink-0"/>
+                        <div>
+                          <div className="text-sm font-semibold text-gray-700">Nouvel EA12</div>
+                          <div className="text-xs text-gray-400">Fiche de nomination</div>
+                        </div>
+                      </button>
+                    )}
+                  </div>
+                </div>
+              )}
+
+            </div>
+          </div>
         </div>
       </div>
+
+      {/* ── Modale contrat ── */}
+      {showContratModal && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-xl shadow-2xl w-full max-w-md p-6">
+            <h3 className="text-lg font-title text-iip-gold mb-4 flex items-center gap-2">
+              <IconFileText size={18}/> Générer le contrat de travail
+            </h3>
+            <p className="text-sm text-gray-600 mb-4">Contrat CDD — <strong>{detail.nom_prenom}</strong></p>
+            <div className="space-y-4">
+              <label className="block">
+                <div className="text-xs font-semibold text-gray-600 mb-1">Date de signature</div>
+                <input type="date" value={dateContrat} onChange={e => setDateContrat(e.target.value)}
+                  className="w-full border border-gray-300 rounded px-3 py-2 text-sm"/>
+                {dateContrat && (
+                  <p className="text-xs text-gray-400 mt-1">
+                    {['dimanche','lundi','mardi','mercredi','jeudi','vendredi','samedi'][new Date(dateContrat+'T12:00').getDay()]} {new Date(dateContrat+'T12:00').toLocaleDateString('fr-BE',{day:'2-digit',month:'long',year:'numeric'})}
+                  </p>
+                )}
+              </label>
+              <label className="block">
+                <div className="text-xs font-semibold text-gray-600 mb-1">Représentant·e du PO</div>
+                <input value={representant} onChange={e => setRepresentant(e.target.value)}
+                  className="w-full border border-gray-300 rounded px-3 py-2 text-sm"/>
+              </label>
+            </div>
+            <div className="flex gap-3 mt-6">
+              <button onClick={() => setShowContratModal(false)}
+                className="flex-1 border border-gray-300 text-gray-600 py-2 rounded text-sm">Annuler</button>
+              <button onClick={genererContrat} disabled={generatingContrat || !dateContrat}
+                className="flex-1 bg-green-700 hover:opacity-90 disabled:opacity-40 text-white py-2 rounded text-sm font-semibold">
+                {generatingContrat ? 'Génération…' : <span className="inline-flex items-center gap-1.5"><IconDownload size={15}/>Télécharger .docx</span>}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
+
+
 
 export default function Professeurs() {
   const navigate = useNavigate();
