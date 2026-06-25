@@ -2622,6 +2622,8 @@ app.use('/api/sequence',        sequenceRoutes);
 app.use('/api/dcpp',            dcppRoutes);
 app.use('/api/recrutement',     recrutementRoutes);
 app.use('/api/aa',              aaRoutes);
+app.use('/api/config',          (await import('./routes/config.js')).default);
+app.use('/api/analyse-cv',      (await import('./routes/analyseCv.js')).default);
 
 // Route logo IIP
 import { createRequire as _cr } from 'module';

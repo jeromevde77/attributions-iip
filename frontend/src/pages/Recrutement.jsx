@@ -2505,59 +2505,20 @@ function ModalAjoutQualification({ onClose, onAjouter, onFermer }) {
 /* ══════════════════════ ANALYSE CV PAR LUCIE ══════════════════════ */
 
 async function analyserCvAvecLucie(pdfBase64) {
-  const DIPLOMES_PLAT = Object.values(DIPLOMES_FWB).flat();
-  const systemPrompt = `Tu es un assistant RH de l'Institut Ilya Prigogine (enseignement supérieur pour adultes, Bruxelles).
-Tu analyses des CV de candidats enseignants et retournes UNIQUEMENT un objet JSON valide, sans markdown, sans explication.
-
-Structure JSON attendue :
-{
-  "prenom": "string ou null",
-  "nom": "string ou null",
-  "email": "string ou null",
-  "telephone": "string ou null",
-  "notes": "string — résumé du profil en 2-3 phrases",
-  "qualifications": [
-    {
-      "niveau": "CESS|BES|BES_PLUS|BAC|MASTER|DOCTORAT ou null",
-      "diplome": "code parmi la liste ou null",
-      "diplome_autre": "intitulé exact si pas dans la liste ou null",
-      "titre_peda": "AESI|AESS|CAP|CAPAES|AUCUN ou null"
-    }
-  ],
-  "fonction": "string décrivant la fonction/spécialité principale ou null"
-}
-
-Codes diplômes disponibles : ${DIPLOMES_PLAT.map(d => d.val + ':' + d.label).join(' | ')}
-Titres pédagogiques : AESI, AESS, CAP, CAPAES
-Niveaux : CESS=4, BES=infirmier brevet, BES_PLUS=brevet sup, BAC=bachelier, MASTER=master, DOCTORAT
-
-Si une information n'est pas trouvée, mets null. Pour les diplômes, essaie de faire correspondre au code le plus précis.`;
-
-  const response = await fetch('https://api.anthropic.com/v1/messages', {
+  const tok = localStorage.getItem('token');
+  const response = await fetch('/api/analyse-cv', {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      model: 'claude-sonnet-4-6',
-      max_tokens: 1000,
-      system: systemPrompt,
-      messages: [{
-        role: 'user',
-        content: [{
-          type: 'document',
-          source: { type: 'base64', media_type: 'application/pdf', data: pdfBase64 },
-        }, {
-          type: 'text',
-          text: 'Analyse ce CV et retourne le JSON demandé.',
-        }],
-      }],
-    }),
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${tok}`,
+    },
+    body: JSON.stringify({ pdf_base64: pdfBase64, media_type: 'application/pdf' }),
   });
-
-  if (!response.ok) throw new Error('Erreur API Anthropic');
-  const data = await response.json();
-  const text = data.content?.find(b => b.type === 'text')?.text || '';
-  const clean = text.replace(/```json|```/g, '').trim();
-  return JSON.parse(clean);
+  if (!response.ok) {
+    const err = await response.json().catch(() => ({}));
+    throw new Error(err.error || 'Erreur serveur');
+  }
+  return response.json();
 }
 
 function ModalAnalyseCv({ onClose, onResultat, candidatExistant = null }) {
@@ -2626,25 +2587,34 @@ function ModalAnalyseCv({ onClose, onResultat, candidatExistant = null }) {
           {/* Zone d'upload */}
           {!apercu && (
             <div>
-              <label className={`flex flex-col items-center justify-center gap-3 p-8 border-2 border-dashed rounded-xl cursor-pointer transition ${
-                fichier ? 'border-iip-turquoise bg-iip-turquoise/5' : 'border-gray-300 hover:border-iip-blue/50 bg-gray-50'
-              }`}>
-                <input type="file" accept="application/pdf" className="hidden"
+              <div
+                onDragOver={e => { e.preventDefault(); e.stopPropagation(); }}
+                onDrop={e => {
+                  e.preventDefault(); e.stopPropagation();
+                  const file = e.dataTransfer.files?.[0];
+                  if (file && file.type === 'application/pdf') {
+                    setFichier(file); setAnalyse(null); setApercu(null);
+                  }
+                }}
+                className={`relative flex flex-col items-center justify-center gap-3 p-8 border-2 border-dashed rounded-xl transition ${
+                  fichier ? 'border-iip-turquoise bg-iip-turquoise/5' : 'border-gray-300 hover:border-iip-blue/50 bg-gray-50'
+                }`}>
+                <input type="file" accept="application/pdf" className="absolute inset-0 opacity-0 cursor-pointer w-full h-full"
                   onChange={e => { setFichier(e.target.files?.[0] || null); setAnalyse(null); setApercu(null); }} />
                 {fichier ? (
                   <>
                     <div className="text-3xl">📄</div>
                     <div className="text-sm font-semibold text-iip-blue">{fichier.name}</div>
-                    <div className="text-xs text-gray-400">{(fichier.size / 1024).toFixed(0)} Ko — cliquer pour changer</div>
+                    <div className="text-xs text-gray-400">{(fichier.size / 1024).toFixed(0)} Ko — cliquer ou glisser pour changer</div>
                   </>
                 ) : (
                   <>
                     <div className="text-4xl">📎</div>
-                    <div className="text-sm text-gray-500">Glisser un CV (PDF) ou cliquer pour sélectionner</div>
+                    <div className="text-sm text-gray-500 font-medium">Glisser un CV ici ou cliquer pour sélectionner</div>
                     <div className="text-xs text-gray-400">Format PDF uniquement</div>
                   </>
                 )}
-              </label>
+              </div>
 
               {err && <div className="text-xs text-red-600 bg-red-50 rounded px-3 py-2 mt-2">{err}</div>}
 
