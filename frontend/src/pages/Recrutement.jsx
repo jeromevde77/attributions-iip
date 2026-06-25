@@ -294,30 +294,39 @@ function FichePoste({ poste, annee, onBack, grille }) {
 
   return (
     <div className="max-w-4xl">
-      {/* En-tête du cours */}
-      <div className="bg-white border border-gray-200 rounded-xl p-5 mb-5">
-        <div className="flex items-start justify-between gap-4">
-          <div>
-            <h1 className="text-2xl font-title text-iip-gold">{poste.nom_cours || poste.ue_nom}</h1>
-            <div className="text-sm text-gray-500 mt-1 flex items-center gap-3 flex-wrap">
-              <span className="font-medium text-iip-blue">UE {poste.ue_num}</span>
+      {/* En-tête marine */}
+      <div className="bg-iip-blue rounded-xl px-5 py-4 mb-5 flex items-center justify-between gap-4">
+        <div className="flex items-center gap-3 min-w-0">
+          <div className="w-10 h-10 rounded-full bg-white/20 flex items-center justify-center flex-shrink-0">
+            <IconBriefcase size={20} className="text-white" />
+          </div>
+          <div className="min-w-0">
+            <h1 className="text-lg font-bold text-white truncate">{poste.nom_cours || poste.ue_nom}</h1>
+            <div className="text-white/60 text-xs flex items-center gap-2 mt-0.5 flex-wrap">
+              <span className="font-medium text-white/80">UE {poste.ue_num}</span>
               <span>{poste.section}</span>
               {poste.contrat_mdp && (
-                <span className="text-[10px] font-bold px-2 py-0.5 rounded text-white"
-                  style={{ background: poste.contrat_mdp === 'HELB' ? '#8B5CF6' : '#1B2B4B' }}>
+                <span className="bg-white/20 text-white/90 text-[10px] font-bold px-2 py-0.5 rounded">
                   {poste.contrat_mdp}
+                </span>
+              )}
+              {candidats.length > 0 && (
+                <span className="bg-white/20 text-white/90 text-[10px] px-2 py-0.5 rounded">
+                  {candidats.length} candidat{candidats.length > 1 ? 's' : ''}
                 </span>
               )}
             </div>
           </div>
-          <Btn variant="secondary" icon={IconSparkles} onClick={() => setGenAnnonce(true)}>
-            Générer l'annonce
-          </Btn>
         </div>
+        <button onClick={onBack}
+          className="text-white/60 hover:text-white flex-shrink-0 flex items-center gap-1 text-xs border border-white/20 rounded-lg px-3 py-1.5 hover:bg-white/10 transition">
+          ← Retour
+        </button>
+      </div>
 
-        {/* Méta-données */}
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mt-4">
-          {[
+      {/* Méta-données */}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mt-0 mb-4">
+        {[
             ['Quadrimestre', poste.ue_quad || ue.ue_quad],
             ['Charge cours', poste.ue_per_cours != null ? `${poste.ue_per_cours} pér.` : null],
             ['Autonomie', poste.ue_aut ? `${poste.ue_aut} pér.` : null],
@@ -327,12 +336,12 @@ function FichePoste({ poste, annee, onBack, grille }) {
             ['Type', poste.type_cours],
             ['Référent', ue.et_ref],
           ].filter(([, v]) => v).map(([label, val]) => (
-            <div key={label} className="bg-gray-50 rounded-lg px-3 py-2">
-              <div className="text-[10px] text-gray-400 uppercase tracking-wide">{label}</div>
-              <div className="text-sm font-medium text-gray-800 mt-0.5">{val}</div>
-            </div>
-          ))}
-        </div>
+          <div key={label} className="bg-gray-50 rounded-lg px-3 py-2">
+            <div className="text-[10px] text-gray-400 uppercase tracking-wide">{label}</div>
+            <div className="text-sm font-medium text-gray-800 mt-0.5">{val}</div>
+          </div>
+        ))}
+      </div>
 
         {/* Acquis d'apprentissage */}
         {aa.length > 0 && (
@@ -350,7 +359,6 @@ function FichePoste({ poste, annee, onBack, grille }) {
             </ul>
           </div>
         )}
-      </div>
 
       {/* Onglets */}
       <div className="flex gap-1 border-b border-gray-200 mb-4">
@@ -2013,9 +2021,26 @@ function FicheCandidat({ candidat, fonctions, grille, onClose, onSaved }) {
     <div className="fixed inset-0 bg-black/40 z-50 flex items-start justify-center p-4 pt-8 overflow-auto" onClick={onClose}>
       <div className="bg-white rounded-xl w-full max-w-2xl shadow-xl" onClick={e => e.stopPropagation()}>
 
-        {/* En-tête */}
-        <div className="flex items-center justify-between px-5 py-3 border-b border-gray-100 sticky top-0 bg-white rounded-t-xl z-10">
-          <h3 className="text-lg font-bold text-iip-blue">Fiche candidat</h3>
+        {/* En-tête marine */}
+        <div className="flex items-center justify-between px-4 py-3 bg-iip-blue rounded-t-xl sticky top-0 z-10 flex-shrink-0">
+          <div className="flex items-center gap-3 min-w-0">
+            <div className="w-9 h-9 rounded-full bg-white/20 flex items-center justify-center text-white font-bold text-sm flex-shrink-0">
+              {((f.prenom||candidat.prenom||'')[0]||'').toUpperCase()}{((f.nom||candidat.nom||'')[0]||'').toUpperCase()}
+            </div>
+            <div className="min-w-0">
+              <div className="text-white font-bold text-sm truncate">
+                {[f.prenom||candidat.prenom, f.nom||candidat.nom].filter(Boolean).join(' ') || 'Nouveau candidat'}
+              </div>
+              <div className="text-white/60 text-xs flex items-center gap-2 mt-0.5">
+                {(f.email||candidat.email) && <span>{f.email||candidat.email}</span>}
+                {candidat.entretien_note && (
+                  <span className="bg-white/20 text-white rounded-full px-2 py-0.5 font-bold text-[10px]">
+                    {candidat.entretien_note}/5
+                  </span>
+                )}
+              </div>
+            </div>
+          </div>
           <div className="flex items-center gap-2">
             <button onClick={() => genererFicheIndividuelle(candidat, grille)}
               className="text-xs border border-gray-300 text-gray-500 hover:bg-gray-50 rounded px-2.5 py-1.5 flex items-center gap-1.5">
@@ -3025,11 +3050,23 @@ function EntretienLibre({ candidat, grille, onClose, onSaved }) {
 
   return (
     <div className="fixed inset-0 bg-black/50 z-50 flex flex-col" onClick={onClose}>
-      <div className="flex items-center justify-between px-5 py-3 bg-white border-b border-gray-200 flex-shrink-0"
+      <div className="flex items-center justify-between px-4 py-3 bg-iip-blue flex-shrink-0"
         onClick={e => e.stopPropagation()}>
-        <div>
-          <h3 className="text-base font-bold text-iip-blue">Guide d'entretien — {nomComplet}</h3>
-          <div className="text-xs text-gray-400">Entretien exploratoire · 30 min</div>
+        <div className="flex items-center gap-3 min-w-0">
+          <div className="w-9 h-9 rounded-full bg-white/20 flex items-center justify-center text-white font-bold text-sm flex-shrink-0">
+            {(nomComplet||'').split(' ').map(p=>p[0]||'').slice(0,2).join('').toUpperCase()}
+          </div>
+          <div className="min-w-0">
+            <div className="text-white font-bold text-sm">{nomComplet}</div>
+            <div className="text-white/60 text-xs mt-0.5 flex items-center gap-2">
+              <span>Guide d'entretien · 30 min</span>
+              {noteGlobale != null && (
+                <span className="bg-white/20 text-white rounded-full px-2 py-0.5 font-bold text-[10px]">
+                  moy. {noteGlobale}/5
+                </span>
+              )}
+            </div>
+          </div>
         </div>
         <div className="flex items-center gap-3">
           {noteGlobale != null && (
