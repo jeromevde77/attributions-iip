@@ -278,7 +278,7 @@ function ProtectedLayout({ children }) {
 
           {/* User info + version */}
           <div className="flex items-center gap-3 text-sm flex-shrink-0">
-            {import.meta.env.VITE_DEMO_MODE && (
+            {import.meta.env.VITE_DEMO_MODE === 'true' && (
               <span className="bg-orange-500 text-white font-bold px-2.5 py-0.5 rounded-md text-[11px] tracking-widest uppercase animate-pulse">
                 DÉMO
               </span>
@@ -330,7 +330,7 @@ function ProtectedLayout({ children }) {
 
 export default // ── Auto-login démo ───────────────────────────────────────────────────────────
 async function checkDemoLogin() {
-  if (!import.meta.env.VITE_DEMO_MODE) return;
+  if (import.meta.env.VITE_DEMO_MODE !== 'true') return;
   const stored = localStorage.getItem('token');
   if (stored) return;
   try {
