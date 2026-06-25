@@ -1464,6 +1464,15 @@ export default function Professeurs() {
 
   const charge = (p) => Number(p.total_per_annee) || 0;
 
+  function isNew(p) {
+    if (!p.date_engagement) return false;
+    return (Date.now() - new Date(p.date_engagement).getTime()) < 30 * 24 * 3600 * 1000;
+  }
+
+  function isDesigner(p) {
+    return `${p.nom||''} ${p.prenom||''}`.toUpperCase().includes('SIGN');
+  }
+
   const filtered = useMemo(() => {
     let arr = [...profs];
     // Filtrage par recherche
