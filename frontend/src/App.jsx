@@ -278,6 +278,11 @@ function ProtectedLayout({ children }) {
 
           {/* User info + version */}
           <div className="flex items-center gap-3 text-sm flex-shrink-0">
+            {import.meta.env.VITE_DEMO_MODE && (
+              <span className="bg-orange-500 text-white font-bold px-2.5 py-0.5 rounded-md text-[11px] tracking-widest uppercase animate-pulse">
+                DÉMO
+              </span>
+            )}
             <span
               className={`relative bg-iip-blue text-white font-semibold px-2 py-0.5 rounded-md text-[11px] tracking-wide hidden md:inline ${versionIsNew ? 'version-badge-new' : ''}`}
               title={versionIsNew ? 'Nouvelle version déployée\u00a0!' : `Version ${versionNum}`}>
@@ -323,7 +328,23 @@ function ProtectedLayout({ children }) {
   );
 }
 
-export default function App() {
+export default // ── Auto-login démo ───────────────────────────────────────────────────────────
+async function checkDemoLogin() {
+  if (!import.meta.env.VITE_DEMO_MODE) return;
+  const stored = localStorage.getItem('token');
+  if (stored) return;
+  try {
+    const r = await fetch('/api/auth/demo-login', { method: 'POST', headers: { 'Content-Type': 'application/json' } });
+    if (r.ok) {
+      const d = await r.json();
+      localStorage.setItem('token', d.token);
+      localStorage.setItem('user', JSON.stringify(d.user));
+    }
+  } catch (e) {}
+}
+checkDemoLogin();
+
+function App() {
   return (
     <ErrorBoundary>
       <Routes>

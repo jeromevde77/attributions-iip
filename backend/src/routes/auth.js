@@ -1,9 +1,26 @@
 import { Router } from 'express';
 import bcrypt from 'bcryptjs';
+import jwt from 'jsonwebtoken';
 import db from '../db/index.js';
 import { signToken, authRequired } from '../middleware/auth.js';
 
 const r = Router();
+
+// ── Route demo-login (DEMO_MODE uniquement) ───────────────────────────────────
+r.post('/demo-login', (req, res) => {
+  if (process.env.DEMO_MODE !== 'true')
+    return res.status(403).json({ error: 'Mode démo non activé' });
+
+  const secret = process.env.JWT_SECRET || 'change-me';
+  const token = jwt.sign(
+    { id: 9999, email: 'demo@lucie-app.be', role: 'admin', nom: 'Visiteur Démo', is_demo: true },
+    secret, { expiresIn: '24h' }
+  );
+  res.json({
+    token,
+    user: { id: 9999, email: 'demo@lucie-app.be', role: 'admin', nom: 'Visiteur Démo', is_demo: true },
+  });
+});
 
 r.post('/login', (req, res) => {
   const { email, password } = req.body || {};

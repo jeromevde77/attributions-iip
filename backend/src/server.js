@@ -1,4 +1,5 @@
 import 'dotenv/config';
+import { demoWriteGuard } from './middleware/demo.js';
 import express from 'express';
 import cors from 'cors';
 import morgan from 'morgan';
@@ -2591,6 +2592,9 @@ try {
 const app = express();
 
 app.use(helmet());
+// ── Guard écriture en mode DEMO ──────────────────────────────────────────────
+app.use((req, res, next) => demoWriteGuard(req, res, next));
+
 app.use(cors({ origin: process.env.CORS_ORIGIN || true, credentials: true }));
 app.use(express.json({ limit: '5mb' }));
 app.use(morgan('tiny'));

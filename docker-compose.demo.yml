@@ -1,0 +1,45 @@
+# =================================================================
+# docker-compose DÉMO — instance publique sans authentification
+# Port 10802 (HTTP), données fictives, reset chaque nuit
+# Lancer : docker compose -f docker-compose.demo.yml up -d
+# =================================================================
+
+services:
+  backend-demo:
+    image: ghcr.io/jeromevde77/attributions-backend:demo
+    pull_policy: always
+    container_name: attributions-backend-demo
+    restart: unless-stopped
+    security_opt:
+      - seccomp:unconfined
+    environment:
+      NODE_ENV: production
+      PORT: 3001
+      JWT_SECRET: demo-secret-not-sensitive
+      DB_PATH: /app/data/demo.db
+      CORS_ORIGIN: "*"
+      DEMO_MODE: "true"
+    volumes:
+      - ./backend/data-demo:/app/data
+    expose:
+      - "3001"
+    networks:
+      - demo-net
+
+  frontend-demo:
+    image: ghcr.io/jeromevde77/attributions-frontend:demo
+    pull_policy: always
+    container_name: attributions-frontend-demo
+    restart: unless-stopped
+    depends_on:
+      - backend-demo
+    ports:
+      - "10802:80"
+    volumes:
+      - ./nginx-demo.conf:/etc/nginx/conf.d/default.conf:ro
+    networks:
+      - demo-net
+
+networks:
+  demo-net:
+    driver: bridge
