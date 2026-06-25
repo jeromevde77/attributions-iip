@@ -1584,7 +1584,7 @@ export default function Professeurs() {
         extra={canEdit && (
           <button onClick={() => setEditProf({ ...EMPTY })}
             title="Nouveau membre du personnel"
-            className="w-full flex items-center gap-2 bg-iip-turquoise hover:opacity-90 text-white text-[13px] font-medium px-3 py-2 rounded-lg transition">
+            className="w-full flex items-center gap-2 bg-green-600 hover:opacity-90 text-white text-[13px] font-medium px-3 py-2 rounded-lg transition">
             <IconUserPlus size={16} className="flex-shrink-0" />
             <span className="whitespace-nowrap opacity-0 group-hover/rail:opacity-100 transition-opacity duration-150">Nouveau membre</span>
           </button>

@@ -190,7 +190,7 @@ export default function Recrutement() {
             { key: 'grille',    label: 'Grille entretien',    icon: IconClipboardText, actif: vue === 'grille',    onClick: () => setVue('grille') },
           ]},
           { label: 'Actions', items: [
-            { key: 'nouveau',   label: 'Nouveau candidat',    icon: IconUserPlus,      actif: false, couleur: '#00AACC', onClick: () => setNouveauGlobal(true) },
+            { key: 'nouveau',   label: 'Nouveau candidat',    icon: IconUserPlus,      actif: false, couleur: '#16a34a', onClick: () => setNouveauGlobal(true) },
             { key: 'rapport',   label: 'Rapport PDF',         icon: IconFileText,      actif: false, onClick: () => setRapportPDF(true) },
           ]},
           { label: 'Section', items: [
