@@ -1,9 +1,9 @@
-import { useEffect, useState, useMemo } from 'react';
+import { useEffect, useState, useMemo, useRef } from 'react';
 import {
   IconBriefcase, IconUserPlus, IconArrowLeft, IconTrash, IconPlus,
   IconFileCv, IconExternalLink, IconUpload, IconSparkles,
   IconCheck, IconX, IconUsersGroup, IconDownload, IconClipboardText,
-  IconLayoutColumns, IconChevronRight, IconSettings,
+  IconLayoutColumns, IconChevronRight, IconSettings, IconFileText,
 } from '@tabler/icons-react';
 import { Btn, RailLateral } from '../components/ui.jsx';
 import { getAnnee } from '../lib/api.js';
@@ -144,6 +144,8 @@ export default function Recrutement() {
   const [err, setErr]           = useState('');
   const [filtre, setFiltre]     = useState('');
   const [vue, setVue]           = useState('candidats');
+  const [nouveauGlobal, setNouveauGlobal] = useState(false);
+  const [rapportPDF, setRapportPDF]       = useState(false);
   const [grille, setGrille]     = useState(null);
   const [candidats, setCandidats] = useState([]);
   const [fonctions, setFonctions] = useState([]);
@@ -187,6 +189,10 @@ export default function Recrutement() {
             { key: 'parallele', label: 'Vue parallèle',       icon: IconLayoutColumns, actif: vue === 'parallele', onClick: () => setVue('parallele') },
             { key: 'grille',    label: 'Grille entretien',    icon: IconClipboardText, actif: vue === 'grille',    onClick: () => setVue('grille') },
           ]},
+          { label: 'Actions', items: [
+            { key: 'nouveau',   label: 'Nouveau candidat',    icon: IconUserPlus,      actif: false, couleur: '#00AACC', onClick: () => setNouveauGlobal(true) },
+            { key: 'rapport',   label: 'Rapport PDF',         icon: IconFileText,      actif: false, onClick: () => setRapportPDF(true) },
+          ]},
           { label: 'Section', items: [
             { key: 'all', label: 'Toutes', icon: IconBriefcase, actif: filtre === '', onClick: () => setFiltre('') },
             ...sections.map(s => ({
@@ -198,7 +204,12 @@ export default function Recrutement() {
       <div className="ml-16 p-4 md:p-6">
 
         {vue === 'grille' && <EditeurGrille grille={grille} onSaved={chargerGrille} />}
-        {vue === 'candidats' && <VueCandidatsGlobal candidats={candidats} fonctions={fonctions} grille={grille} onRecharger={() => { chargerCandidats(); chargerFonctions(); }} />}
+        {vue === 'candidats' && <VueCandidatsGlobal
+          candidats={candidats} fonctions={fonctions} grille={grille}
+          onRecharger={() => { chargerCandidats(); chargerFonctions(); }}
+          nouveauOpen={nouveauGlobal} onNouveauClose={() => setNouveauGlobal(false)}
+          rapportOpen={rapportPDF}   onRapportClose={() => setRapportPDF(false)}
+        />}
         {vue === 'parallele' && <VueParallele postes={postes} candidats={candidats} fonctions={fonctions} annee={annee} onRecharger={() => { charger(); chargerCandidats(); }} />}
 
         {vue === 'postes' && (<>
@@ -1584,10 +1595,12 @@ function genererFicheIndividuelle(candidat, grille) {
 }
 
 /* ══════════════════════ VUE CANDIDATS GLOBALE ══════════════════════ */
-function VueCandidatsGlobal({ candidats, fonctions, grille, onRecharger }) {
+function VueCandidatsGlobal({ candidats, fonctions, grille, onRecharger,
+  nouveauOpen, onNouveauClose, rapportOpen, onRapportClose }) {
   const [fiche, setFiche]   = useState(null);
   const [search, setSearch] = useState('');
   const [nouveau, setNouveau] = useState(false);
+  const rapportRef = useRef(null);
 
   const filtres = search
     ? candidats.filter(c => `${c.prenom||''} ${c.nom||''}`.toLowerCase().includes(search.toLowerCase())
@@ -1595,7 +1608,7 @@ function VueCandidatsGlobal({ candidats, fonctions, grille, onRecharger }) {
     : candidats;
 
   const BLEU = '#1B2B4B', TURQ = '#00AACC';
-  const LIKERT_LABELS = ['','Peu structurée','Partiellement','Structurée','Bien structurée','Très structurée'];
+  const LIKERT_LABELS = ['','Superficielle','Partielle','Adéquate','Élaborée','Excellente'];
   const LIKERT_COLORS = ['','#ef4444','#f97316','#eab308','#22c55e','#0ea5e9'];
   const grilleActive = useMemo(() => grilleAvecTirage(grille || GRILLE_IIP), []);
   const toutesQs = grilleActive.flatMap(axe =>
@@ -1733,27 +1746,25 @@ ${tous.map(candidatHtml).join('')}
     setTimeout(() => { w.focus(); w.print(); }, 500);
   };
 
+  // Synchroniser avec les actions du rail
+  useEffect(() => { if (nouveauOpen) setNouveau(true); }, [nouveauOpen]);
+  useEffect(() => {
+    if (rapportOpen) {
+      genererRapportPDF();
+      onRapportClose?.();
+    }
+  }, [rapportOpen]);
+
   return (
     <div className="max-w-3xl">
-      <div className="flex items-center justify-between mb-5">
-        <h1 className="text-2xl font-title text-iip-gold">
+      <div className="flex items-center justify-between mb-4 gap-3">
+        <h1 className="text-2xl font-title text-iip-gold whitespace-nowrap">
           Candidats <span className="text-base font-normal text-gray-400">({candidats.length})</span>
         </h1>
-        <div className="flex items-center gap-2">
-          <button onClick={genererRapportPDF}
-            className="text-sm border border-gray-300 text-gray-600 hover:bg-gray-50 px-3 py-1.5 rounded-lg flex items-center gap-1.5">
-            🖨 Rapport PDF
-          </button>
-          <Btn variant="primary" icon={IconUserPlus} onClick={() => setNouveau(true)}>
-            Nouveau candidat
-          </Btn>
-        </div>
+        <input value={search} onChange={e => setSearch(e.target.value)}
+          placeholder="Rechercher…"
+          className="flex-1 max-w-xs text-sm border border-gray-300 rounded-lg px-3 py-1.5 focus:outline-none focus:border-iip-turquoise" />
       </div>
-
-      {/* Recherche */}
-      <input value={search} onChange={e => setSearch(e.target.value)}
-        placeholder="Rechercher par nom ou e-mail…"
-        className="w-full text-sm border border-gray-300 rounded-lg px-3 py-2 mb-4 focus:outline-none focus:border-iip-turquoise" />
 
       {filtres.length === 0 && (
         <div className="text-sm text-gray-400 text-center py-12">
@@ -1829,8 +1840,8 @@ ${tous.map(candidatHtml).join('')}
 
       {nouveau && (
         <ModalNouveauCandidat
-          onClose={() => setNouveau(false)}
-          onSaved={() => { setNouveau(false); onRecharger(); }}
+          onClose={() => { setNouveau(false); onNouveauClose?.(); }}
+          onSaved={() => { setNouveau(false); onNouveauClose?.(); onRecharger(); }}
         />
       )}
     </div>
