@@ -900,6 +900,7 @@ export default function Professeurs() {
   const [selection, setSelection] = useState(new Set());
   const [printing, setPrinting] = useState(false);
   const [printSelMenu, setPrintSelMenu] = useState(false);
+  const [zipMenu, setZipMenu] = useState(false);
   const [ficheHtml, setFicheHtml] = useState(null);
   const [ficheMenu, setFicheMenu] = useState(null);
 
@@ -1411,6 +1412,44 @@ export default function Professeurs() {
     finally { setPrinting(false); setPrintSelMenu(false); }
   }
 
+  async function exporterZip(type) {
+    if (selection.size === 0) return;
+    setPrinting(true);
+    try {
+      const JSZip = (await import('jszip')).default;
+      const zip = new JSZip();
+      const annee = getAnnee() || '';
+      for (const profId of selection) {
+        let html;
+        if (type === 'HELB') html = await genererFicheAttributions(profId, 'HELB', true);
+        else if (type === 'GLOBAL') html = await genererFicheAttributions(profId, null, true);
+        else html = await genererFicheAttributions(profId, 'IIP', true);
+        if (!html) continue;
+        const prof = profs.find(p => p.id === profId);
+        const nom = [prof?.nom, prof?.prenom].filter(Boolean).join('_').replace(/\s+/g,'_') || `prof_${profId}`;
+        // Ouvrir dans un iframe caché et capturer en blob PDF
+        const iframe = document.createElement('iframe');
+        iframe.style.cssText = 'position:fixed;left:-9999px;top:0;width:210mm;height:297mm;';
+        document.body.appendChild(iframe);
+        iframe.contentDocument.open();
+        iframe.contentDocument.write(html);
+        iframe.contentDocument.close();
+        await new Promise(r => setTimeout(r, 300));
+        // Utiliser l'API print-to-blob si dispo, sinon stocker le HTML
+        zip.file(`Fiche_${type}_${nom}_${annee}.html`, html);
+        document.body.removeChild(iframe);
+      }
+      const blob = await zip.generateAsync({ type: 'blob' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `Fiches_${type}_${annee}_${selection.size}profs.zip`;
+      a.click();
+      URL.revokeObjectURL(url);
+    } catch (e) { alert('Erreur ZIP : ' + e.message); }
+    finally { setPrinting(false); setPrintSelMenu(false); }
+  }
+
   async function imprimerAttributions() {
     if (selection.size === 0) return;
     setPrinting(true);
@@ -1648,29 +1687,58 @@ export default function Professeurs() {
               className="text-xs text-gray-500 hover:text-gray-700 underline">Réinitialiser</button>
           )}
           {selection.size > 0 && (
-            <div className="relative">
-              <button onClick={() => setPrintSelMenu(v => !v)} disabled={printing}
-                className="bg-iip-mauve hover:opacity-90 disabled:opacity-50 text-white text-sm px-3 py-1.5 h-9 rounded font-medium inline-flex items-center gap-1.5">
-                <IconPrinter size={15}/>{printing ? 'Préparation…' : `Imprimer (${selection.size})`}
-                <IconChevronDown size={12} />
-              </button>
-              {printSelMenu && (
-                <>
-                  <div className="fixed inset-0 z-40" onClick={() => setPrintSelMenu(false)} />
-                  <div className="absolute z-50 top-full right-0 mt-1 bg-white border border-gray-200 rounded-lg shadow-xl py-1.5 h-9 px-1.5 w-44 flex flex-col gap-1">
-                    <div className="text-[10px] text-gray-400 uppercase px-2 pt-0.5 pb-1">Type de fiche</div>
-                    <button onClick={() => imprimerSelectionFiches('GLOBAL')} className="text-left px-2 py-1.5 h-9 rounded hover:bg-gray-50 text-sm flex items-center gap-2">
-                      <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-gray-700 text-white">Global</span><span className="text-gray-600 text-xs">IIP + HELB</span>
-                    </button>
-                    <button onClick={() => imprimerSelectionFiches('IIP')} className="text-left px-2 py-1.5 h-9 rounded hover:bg-gray-50 text-sm flex items-center gap-2">
-                      <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-iip-turquoise/10 text-iip-blue">IIP</span><span className="text-gray-600 text-xs">Contrat IIP</span>
-                    </button>
-                    <button onClick={() => imprimerSelectionFiches('HELB')} className="text-left px-2 py-1.5 h-9 rounded hover:bg-gray-50 text-sm flex items-center gap-2">
-                      <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-purple-100 text-purple-700">HELB</span><span className="text-gray-600 text-xs">Contrat HELB</span>
-                    </button>
-                  </div>
-                </>
-              )}
+            <div className="flex items-center gap-2">
+              {/* Imprimer — un seul PDF combiné */}
+              <div className="relative">
+                <button onClick={() => setPrintSelMenu(v => !v)} disabled={printing}
+                  className="bg-iip-mauve hover:opacity-90 disabled:opacity-50 text-white text-sm px-3 py-1.5 h-9 rounded font-medium inline-flex items-center gap-1.5">
+                  <IconPrinter size={15}/>{printing ? 'Préparation…' : `Imprimer (${selection.size})`}
+                  <IconChevronDown size={12} />
+                </button>
+                {printSelMenu && (
+                  <>
+                    <div className="fixed inset-0 z-40" onClick={() => setPrintSelMenu(false)} />
+                    <div className="absolute z-50 top-full right-0 mt-1 bg-white border border-gray-200 rounded-lg shadow-xl py-1.5 px-1.5 w-44 flex flex-col gap-1">
+                      <div className="text-[10px] text-gray-400 uppercase px-2 pt-0.5 pb-1">PDF combiné</div>
+                      <button onClick={() => imprimerSelectionFiches('GLOBAL')} className="text-left px-2 py-1.5 rounded hover:bg-gray-50 text-sm flex items-center gap-2">
+                        <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-gray-700 text-white">Global</span><span className="text-gray-600 text-xs">IIP + HELB</span>
+                      </button>
+                      <button onClick={() => imprimerSelectionFiches('IIP')} className="text-left px-2 py-1.5 rounded hover:bg-gray-50 text-sm flex items-center gap-2">
+                        <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-iip-turquoise/10 text-iip-blue">IIP</span><span className="text-gray-600 text-xs">Contrat IIP</span>
+                      </button>
+                      <button onClick={() => imprimerSelectionFiches('HELB')} className="text-left px-2 py-1.5 rounded hover:bg-gray-50 text-sm flex items-center gap-2">
+                        <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-purple-100 text-purple-700">HELB</span><span className="text-gray-600 text-xs">Contrat HELB</span>
+                      </button>
+                    </div>
+                  </>
+                )}
+              </div>
+
+              {/* ZIP — un fichier HTML par prof */}
+              <div className="relative">
+                <button onClick={() => setZipMenu(v => !v)} disabled={printing}
+                  className="bg-green-700 hover:opacity-90 disabled:opacity-50 text-white text-sm px-3 py-1.5 h-9 rounded font-medium inline-flex items-center gap-1.5">
+                  <IconDownload size={15}/> ZIP ({selection.size})
+                  <IconChevronDown size={12} />
+                </button>
+                {zipMenu && (
+                  <>
+                    <div className="fixed inset-0 z-40" onClick={() => setZipMenu(false)} />
+                    <div className="absolute z-50 top-full right-0 mt-1 bg-white border border-gray-200 rounded-lg shadow-xl py-1.5 px-1.5 w-48 flex flex-col gap-1">
+                      <div className="text-[10px] text-gray-400 uppercase px-2 pt-0.5 pb-1">1 fichier par prof</div>
+                      <button onClick={() => exporterZip('GLOBAL')} className="text-left px-2 py-1.5 rounded hover:bg-gray-50 text-sm flex items-center gap-2">
+                        <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-gray-700 text-white">Global</span><span className="text-gray-600 text-xs">IIP + HELB</span>
+                      </button>
+                      <button onClick={() => exporterZip('IIP')} className="text-left px-2 py-1.5 rounded hover:bg-gray-50 text-sm flex items-center gap-2">
+                        <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-iip-turquoise/10 text-iip-blue">IIP</span><span className="text-gray-600 text-xs">Contrat IIP</span>
+                      </button>
+                      <button onClick={() => exporterZip('HELB')} className="text-left px-2 py-1.5 rounded hover:bg-gray-50 text-sm flex items-center gap-2">
+                        <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-purple-100 text-purple-700">HELB</span><span className="text-gray-600 text-xs">Contrat HELB</span>
+                      </button>
+                    </div>
+                  </>
+                )}
+              </div>
             </div>
           )}
         </div>
