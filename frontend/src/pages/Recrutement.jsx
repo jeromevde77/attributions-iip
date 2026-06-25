@@ -2019,7 +2019,7 @@ function FicheCandidat({ candidat, fonctions, grille, onClose, onSaved }) {
   return (
     <>
     <div className="fixed inset-0 bg-black/40 z-50 flex items-start justify-center p-4 pt-8 overflow-auto" onClick={onClose}>
-      <div className="bg-white rounded-xl w-full max-w-2xl shadow-xl" onClick={e => e.stopPropagation()}>
+      <div className="bg-white rounded-xl w-full max-w-2xl shadow-xl overflow-hidden" onClick={e => e.stopPropagation()}>
 
         {/* En-tête marine */}
         <div className="flex items-center justify-between px-4 py-3 bg-iip-blue rounded-t-xl sticky top-0 z-10 flex-shrink-0">
@@ -2043,7 +2043,7 @@ function FicheCandidat({ candidat, fonctions, grille, onClose, onSaved }) {
           </div>
           <div className="flex items-center gap-2">
             <button onClick={() => genererFicheIndividuelle(candidat, grille)}
-              className="text-xs border border-gray-300 text-gray-500 hover:bg-gray-50 rounded px-2.5 py-1.5 flex items-center gap-1.5">
+              className="text-xs border border-white/30 text-white hover:bg-white/20 rounded px-2.5 py-1.5 flex items-center gap-1.5">
               🖨 PDF
             </button>
             {docs.some(d => d.type === 'cv') && (
@@ -2055,7 +2055,7 @@ function FicheCandidat({ candidat, fonctions, grille, onClose, onSaved }) {
             )}
             <button onClick={() => setEntretienLibre(true)}
               title="Mener l'entretien"
-              className="text-xs border border-iip-turquoise text-iip-blue hover:bg-iip-turquoise/10 rounded px-2.5 py-1.5 flex items-center gap-1.5 font-medium">
+              className="text-xs border border-white/30 bg-iip-turquoise text-white hover:opacity-90 rounded px-2.5 py-1.5 flex items-center gap-1.5 font-medium">
               <IconClipboardText size={14} /> Entretien
               {candidat.entretien_note && (
                 <span className="bg-iip-turquoise/20 text-iip-blue rounded-full px-1.5 font-bold">
@@ -2063,7 +2063,7 @@ function FicheCandidat({ candidat, fonctions, grille, onClose, onSaved }) {
                 </span>
               )}
             </button>
-            <button onClick={supprimerCandidat} className="text-gray-300 hover:text-red-500 p-1"><IconTrash size={17} /></button>
+            <button onClick={supprimerCandidat} className="text-white/40 hover:text-red-300 p-1"><IconTrash size={17} /></button>
             <button onClick={onClose} className="text-gray-400 hover:text-gray-700"><IconX size={20} /></button>
           </div>
         </div>
