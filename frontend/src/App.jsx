@@ -328,23 +328,7 @@ function ProtectedLayout({ children }) {
   );
 }
 
-export default // ── Auto-login démo ───────────────────────────────────────────────────────────
-async function checkDemoLogin() {
-  if (import.meta.env.VITE_DEMO_MODE !== 'true') return;
-  const stored = localStorage.getItem('token');
-  if (stored) return;
-  try {
-    const r = await fetch('/api/auth/demo-login', { method: 'POST', headers: { 'Content-Type': 'application/json' } });
-    if (r.ok) {
-      const d = await r.json();
-      localStorage.setItem('token', d.token);
-      localStorage.setItem('user', JSON.stringify(d.user));
-    }
-  } catch (e) {}
-}
-checkDemoLogin();
-
-function App() {
+export default function App() {
   return (
     <ErrorBoundary>
       <Routes>
