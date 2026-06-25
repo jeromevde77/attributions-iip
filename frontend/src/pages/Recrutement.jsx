@@ -2218,30 +2218,40 @@ function FicheCandidat({ candidat, fonctions, grille, onClose, onSaved }) {
                           </div>
                           <div className="text-xs text-gray-400">{ca.section} · {ca.annee_scolaire}</div>
                         </div>
-                        <select
-                          value={ca.statut || 'a_voir'}
-                          onChange={async e => {
-                            const nouvelleValeur = e.target.value;
-                            if (nouvelleValeur === 'engage') {
-                              if (!confirm(`Engager ${candidat.prenom||''} ${candidat.nom} sur ce cours ? Cela créera sa fiche prof et attribuera le cours.`)) return;
-                              try {
-                                // D'abord passer en retenu pour que la route /engager le trouve
-                                await af(`/candidatures/${ca.id}`, { method: 'PATCH', body: JSON.stringify({ statut: 'retenu' }) });
-                                const r = await af(`/candidats/${candidat.id}/engager`, { method: 'POST', body: JSON.stringify({ annee: getAnnee() }) });
-                                alert(`✅ ${r.prenom} ${r.nom} engagé·e — ${r.nb_attributions} attribution(s) mise(s) à jour.`);
-                                onSaved();
-                              } catch(e) { alert('Erreur : ' + e.message); }
-                              return;
-                            }
-                            await af(`/candidatures/${ca.id}`, { method: 'PATCH', body: JSON.stringify({ statut: nouvelleValeur }) });
-                            rechargerCandidatures();
-                          }}
-                          className="text-xs border border-gray-200 rounded px-2 py-1 h-7 flex-shrink-0"
-                          style={{ color: (STATUT[ca.statut]||STATUT.a_voir).color }}>
-                          {Object.entries(STATUT).map(([k, v]) => (
-                            <option key={k} value={k}>{v.label}</option>
-                          ))}
-                        </select>
+                        <div className="flex items-center gap-2 flex-shrink-0">
+                          <select
+                            value={ca.statut || 'a_voir'}
+                            onChange={async e => {
+                              await af(`/candidatures/${ca.id}`, { method: 'PATCH', body: JSON.stringify({ statut: e.target.value }) });
+                              rechargerCandidatures();
+                            }}
+                            className="text-xs border border-gray-200 rounded px-2 py-1 h-7"
+                            style={{ color: (STATUT[ca.statut]||STATUT.a_voir).color }}>
+                            {Object.entries(STATUT).filter(([k]) => k !== 'engage').map(([k, v]) => (
+                              <option key={k} value={k}>{v.label}</option>
+                            ))}
+                          </select>
+                          {ca.statut !== 'engage' && (
+                            <button
+                              onClick={async () => {
+                                if (!confirm(`Engager ${candidat.prenom||''} ${candidat.nom} sur "${ca.cours_nom || ca.ue_nom || `UE ${ca.ue_num}`}" ?`)) return;
+                                try {
+                                  await af(`/candidatures/${ca.id}`, { method: 'PATCH', body: JSON.stringify({ statut: 'retenu' }) });
+                                  const r = await af(`/candidats/${candidat.id}/engager`, { method: 'POST', body: JSON.stringify({ annee: getAnnee() }) });
+                                  alert(`✅ ${r.prenom} ${r.nom} engagé·e — ${r.nb_attributions} attribution(s) mise(s) à jour.`);
+                                  onSaved();
+                                } catch(e) { alert('Erreur : ' + e.message); }
+                              }}
+                              className="text-xs bg-green-600 text-white hover:opacity-90 rounded px-2.5 py-1 h-7 flex items-center gap-1 font-medium flex-shrink-0">
+                              ✅ Engager
+                            </button>
+                          )}
+                          {ca.statut === 'engage' && (
+                            <span className="text-xs bg-green-100 text-green-700 border border-green-300 rounded-full px-2.5 py-0.5 font-semibold flex-shrink-0">
+                              ✓ Engagé
+                            </span>
+                          )}
+                        </div>
                       </div>
                       <div className="flex items-center gap-2">
                         <button onClick={() => setEntretienCand(ca)}
