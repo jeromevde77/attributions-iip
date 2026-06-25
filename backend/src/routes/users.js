@@ -40,6 +40,16 @@ r.post('/', authRequired, roleRequired('admin'), (req, res) => {
   if (!email || !password) return res.status(400).json({ error: 'Email et mot de passe requis' });
   if (!ROLES.includes(role)) return res.status(400).json({ error: 'Rôle invalide' });
   try {
+    // Si un compte existe déjà avec cet email, le lier au prof plutôt que créer
+    const existing = db.prepare('SELECT id FROM utilisateur WHERE email = ?').get(email);
+    if (existing) {
+      if (professeur_id) {
+        db.prepare('UPDATE utilisateur SET professeur_id = ?, role = ?, actif = 1 WHERE id = ?')
+          .run(professeur_id, role, existing.id);
+        if (role === 'coordination') setSections(existing.id, sections);
+      }
+      return res.status(200).json({ id: existing.id, linked: true });
+    }
     const hash = bcrypt.hashSync(password, 10);
     const result = db.prepare(`
       INSERT INTO utilisateur (email, password_hash, nom_complet, role, actif, professeur_id)
