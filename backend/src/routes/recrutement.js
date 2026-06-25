@@ -604,29 +604,38 @@ r.post('/candidats/:id/engager', authRequired, roleRequired('admin', 'editeur'),
 
     // 3. Pour chaque candidature retenue, remplacer À DÉSIGNER → nouveau prof
     const annee = req.body?.annee || candidatures[0]?.annee_scolaire;
+
+    // ... pour chaque candidature, chercher les attributions sur l'année ACTIVE (pas celle de la candidature)
     let nbAttrib = 0;
     for (const ca of candidatures) {
-      // Chercher les attributions À DÉSIGNER sur ce cours/UE/section
+      // Chercher sur l'année active en priorité, sinon sur l'année de la candidature
       let attribs = [];
       if (ca.code_cours) {
         attribs = db.prepare(`
           SELECT a.id FROM attribution a
           WHERE a.annee_scolaire = ? AND a.section = ? AND a.code_cours = ?
           AND a.professeur_id = ?
-        `).all(ca.annee_scolaire, ca.section, ca.code_cours, aDesigner?.id);
+        `).all(annee, ca.section, ca.code_cours, aDesigner?.id);
+        // Fallback sur l'année de la candidature si rien trouvé
+        if (attribs.length === 0 && ca.annee_scolaire !== annee) {
+          attribs = db.prepare(`
+            SELECT a.id FROM attribution a
+            WHERE a.annee_scolaire = ? AND a.section = ? AND a.code_cours = ?
+            AND a.professeur_id = ?
+          `).all(ca.annee_scolaire, ca.section, ca.code_cours, aDesigner?.id);
+        }
       }
       if (attribs.length === 0 && ca.ue_num) {
         attribs = db.prepare(`
           SELECT a.id FROM attribution a
           WHERE a.annee_scolaire = ? AND a.section = ? AND a.ue_num = ?
           AND a.professeur_id = ?
-        `).all(ca.annee_scolaire, ca.section, ca.ue_num, aDesigner?.id);
+        `).all(annee, ca.section, ca.ue_num, aDesigner?.id);
       }
       for (const a of attribs) {
         db.prepare('UPDATE attribution SET professeur_id = ? WHERE id = ?').run(prof.id, a.id);
         nbAttrib++;
       }
-      // Mettre à jour le statut de la candidature
       db.prepare("UPDATE recrutement_candidature SET statut = 'engage' WHERE id = ?").run(ca.id);
     }
 
