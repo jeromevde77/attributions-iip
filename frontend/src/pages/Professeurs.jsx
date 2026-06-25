@@ -923,8 +923,9 @@ function DossiersRH({ profId, profNom }) {
     setLoading(true);
     try {
       const r = await fetch(`/api/dossiers-rh/${profId}`, { headers: { Authorization: `Bearer ${tok()}` } });
-      setDossiers(await r.json());
-    } catch(e) {} finally { setLoading(false); }
+      const d = await r.json();
+      setDossiers(Array.isArray(d) ? d : []);
+    } catch(e) { setDossiers([]); } finally { setLoading(false); }
   };
 
   useEffect(() => { charger(); }, [profId]);
