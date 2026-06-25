@@ -568,7 +568,10 @@ function DetailModal({ profId, onClose, onEdit, onFiche }) {
 
   const ONGLETS = [
     { key: 'attributions', label: `Attributions (${detail.attributions?.length || 0})` },
-    ...(u?.role === 'admin' ? [{ key: 'acces', label: 'Accès Lucie' }] : []),
+    ...(u?.role === 'admin' ? [
+      { key: 'acces',    label: 'Accès Lucie' },
+      { key: 'dossiers', label: '🔒 Dossiers RH' },
+    ] : []),
     { key: 'actions', label: 'Documents' },
   ];
 
@@ -797,6 +800,11 @@ function DetailModal({ profId, onClose, onEdit, onFiche }) {
                 <AccesLuciePanel profId={profId} detail={detail} />
               )}
 
+              {/* ── Dossiers RH ── */}
+              {onglet === 'dossiers' && u?.role === 'admin' && (
+                <DossiersRH profId={profId} profNom={detail.nom_prenom} />
+              )}
+
               {/* ── Documents ── */}
               {onglet === 'actions' && (
                 <div className="space-y-4">
@@ -882,6 +890,270 @@ function DetailModal({ profId, onClose, onEdit, onFiche }) {
 }
 
 
+
+/* ══════════════════════ DOSSIERS RH ══════════════════════ */
+const MOTIFS_FIN = [
+  { val: 'fin_cdd',       label: 'Fin de CDD' },
+  { val: 'demission',     label: 'Démission' },
+  { val: 'licenciement',  label: 'Licenciement' },
+  { val: 'retraite',      label: 'Départ à la retraite' },
+  { val: 'mutation',      label: 'Mutation' },
+  { val: 'autre',         label: 'Autre' },
+];
+
+const ETAPES_DISC = [
+  { val: 'ouverture',   label: 'Ouverture du dossier',   color: '#6b7280' },
+  { val: 'convocation', label: 'Convocation',             color: '#d97706' },
+  { val: 'audition',    label: 'Audition',                color: '#7c3aed' },
+  { val: 'decision',    label: 'Décision',                color: '#b91c1c' },
+  { val: 'appel',       label: 'Recours / Appel',         color: '#0369a1' },
+  { val: 'cloture',     label: 'Clôture',                 color: '#15803d' },
+];
+
+function DossiersRH({ profId, profNom }) {
+  const [dossiers, setDossiers] = useState([]);
+  const [loading, setLoading]   = useState(true);
+  const [nouveauType, setNouveauType] = useState(null); // 'fin_contrat' | 'disciplinaire'
+  const [form, setForm]         = useState({ motif: '', notes: '', date_ouverture: new Date().toISOString().split('T')[0] });
+  const [etapeForm, setEtapeForm] = useState(null); // { dossier_id, type_etape, date, auteur, notes }
+  const [saving, setSaving]     = useState(false);
+  const tok = () => localStorage.getItem('token');
+
+  const charger = async () => {
+    setLoading(true);
+    try {
+      const r = await fetch(`/api/dossiers-rh/${profId}`, { headers: { Authorization: `Bearer ${tok()}` } });
+      setDossiers(await r.json());
+    } catch(e) {} finally { setLoading(false); }
+  };
+
+  useEffect(() => { charger(); }, [profId]);
+
+  const creerDossier = async () => {
+    setSaving(true);
+    try {
+      await fetch(`/api/dossiers-rh/${profId}`, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${tok()}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ type: nouveauType, ...form }),
+      });
+      setNouveauType(null);
+      setForm({ motif: '', notes: '', date_ouverture: new Date().toISOString().split('T')[0] });
+      charger();
+    } finally { setSaving(false); }
+  };
+
+  const ajouterEtape = async () => {
+    if (!etapeForm) return;
+    setSaving(true);
+    try {
+      await fetch(`/api/dossiers-rh/dossier/${etapeForm.dossier_id}/etapes`, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${tok()}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify(etapeForm),
+      });
+      setEtapeForm(null);
+      charger();
+    } finally { setSaving(false); }
+  };
+
+  const supprimerDossier = async (id) => {
+    if (!confirm('Supprimer définitivement ce dossier ?')) return;
+    await fetch(`/api/dossiers-rh/dossier/${id}`, { method: 'DELETE', headers: { Authorization: `Bearer ${tok()}` } });
+    charger();
+  };
+
+  const supprimerEtape = async (id) => {
+    await fetch(`/api/dossiers-rh/etape/${id}`, { method: 'DELETE', headers: { Authorization: `Bearer ${tok()}` } });
+    charger();
+  };
+
+  return (
+    <div className="space-y-4">
+      {/* En-tête confidentiel */}
+      <div className="flex items-center justify-between">
+        <div className="text-xs text-gray-400 flex items-center gap-1.5">
+          <span>🔒</span> Confidentiel — visible uniquement par les administrateurs
+        </div>
+        <div className="flex gap-2">
+          <button onClick={() => setNouveauType('fin_contrat')}
+            className="text-xs bg-red-600 text-white px-3 py-1.5 rounded-lg font-medium hover:opacity-90 flex items-center gap-1.5">
+            📋 Fin de contrat
+          </button>
+          <button onClick={() => setNouveauType('disciplinaire')}
+            className="text-xs bg-orange-600 text-white px-3 py-1.5 rounded-lg font-medium hover:opacity-90 flex items-center gap-1.5">
+            ⚠️ Dossier disciplinaire
+          </button>
+        </div>
+      </div>
+
+      {/* Formulaire nouveau dossier */}
+      {nouveauType && (
+        <div className="border-2 border-dashed border-gray-300 rounded-xl p-4 bg-gray-50">
+          <div className="text-sm font-semibold text-gray-700 mb-3">
+            {nouveauType === 'fin_contrat' ? '📋 Nouveau dossier fin de contrat' : '⚠️ Ouverture dossier disciplinaire'} — {profNom}
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <div className="text-xs text-gray-500 mb-1">Date d'ouverture</div>
+              <input type="date" value={form.date_ouverture}
+                onChange={e => setForm(f => ({ ...f, date_ouverture: e.target.value }))}
+                className="w-full text-sm border border-gray-300 rounded px-2 py-1.5" />
+            </div>
+            {nouveauType === 'fin_contrat' && (
+              <div>
+                <div className="text-xs text-gray-500 mb-1">Motif</div>
+                <select value={form.motif} onChange={e => setForm(f => ({ ...f, motif: e.target.value }))}
+                  className="w-full text-sm border border-gray-300 rounded px-2 py-1.5">
+                  <option value="">— choisir —</option>
+                  {MOTIFS_FIN.map(m => <option key={m.val} value={m.val}>{m.label}</option>)}
+                </select>
+              </div>
+            )}
+            <div className="col-span-2">
+              <div className="text-xs text-gray-500 mb-1">Notes internes</div>
+              <textarea value={form.notes} onChange={e => setForm(f => ({ ...f, notes: e.target.value }))}
+                rows={3} placeholder="Contexte, circonstances, remarques…"
+                className="w-full text-sm border border-gray-300 rounded px-2 py-1.5 resize-none" />
+            </div>
+          </div>
+          <div className="flex justify-end gap-2 mt-3">
+            <button onClick={() => setNouveauType(null)} className="text-sm text-gray-500 px-3 py-1.5">Annuler</button>
+            <button onClick={creerDossier} disabled={saving}
+              className="text-sm bg-iip-blue text-white px-4 py-1.5 rounded-lg hover:opacity-90 disabled:opacity-50">
+              {saving ? 'Création…' : 'Ouvrir le dossier'}
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Liste des dossiers */}
+      {loading ? <div className="text-sm text-gray-400">Chargement…</div> :
+       dossiers.length === 0 ? (
+        <div className="text-sm text-gray-400 text-center py-8 border border-dashed border-gray-200 rounded-xl">
+          Aucun dossier RH pour ce membre.
+        </div>
+      ) : (
+        <div className="space-y-4">
+          {dossiers.map(d => {
+            const isFinContrat = d.type === 'fin_contrat';
+            const motif = MOTIFS_FIN.find(m => m.val === d.motif);
+            const isClos = d.statut === 'clos';
+            return (
+              <div key={d.id} className={`border-2 rounded-xl overflow-hidden ${isClos ? 'border-gray-200 opacity-75' : isFinContrat ? 'border-red-200' : 'border-orange-200'}`}>
+                {/* En-tête dossier */}
+                <div className={`flex items-center justify-between px-4 py-3 ${isFinContrat ? 'bg-red-50' : 'bg-orange-50'}`}>
+                  <div className="flex items-center gap-3">
+                    <span className="text-lg">{isFinContrat ? '📋' : '⚠️'}</span>
+                    <div>
+                      <div className="text-sm font-bold text-gray-800">
+                        {isFinContrat ? 'Fin de contrat' : 'Dossier disciplinaire'}
+                        {isClos && <span className="ml-2 text-xs bg-gray-200 text-gray-600 px-2 py-0.5 rounded-full">Clos</span>}
+                      </div>
+                      <div className="text-xs text-gray-500 flex items-center gap-2">
+                        <span>Ouvert le {new Date(d.date_ouverture).toLocaleDateString('fr-BE')}</span>
+                        {motif && <span className="bg-red-100 text-red-700 px-1.5 rounded">{motif.label}</span>}
+                        {d.date_cloture && <span>· Clos le {new Date(d.date_cloture).toLocaleDateString('fr-BE')}</span>}
+                      </div>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    {!isFinContrat && !isClos && (
+                      <button onClick={() => setEtapeForm({ dossier_id: d.id, type_etape: '', date_etape: new Date().toISOString().split('T')[0], auteur: '', notes: '' })}
+                        className="text-xs bg-orange-600 text-white px-2.5 py-1 rounded hover:opacity-90">
+                        + Étape
+                      </button>
+                    )}
+                    <button onClick={() => supprimerDossier(d.id)} className="text-gray-300 hover:text-red-500 p-1">
+                      <IconTrash size={14} />
+                    </button>
+                  </div>
+                </div>
+
+                {/* Notes */}
+                {d.notes && (
+                  <div className="px-4 py-2 bg-white border-t border-gray-100 text-xs text-gray-600 italic">
+                    {d.notes}
+                  </div>
+                )}
+
+                {/* Étapes (disciplinaire) */}
+                {!isFinContrat && d.etapes?.length > 0 && (
+                  <div className="border-t border-gray-100">
+                    {d.etapes.map((e, idx) => {
+                      const etape = ETAPES_DISC.find(x => x.val === e.type_etape);
+                      return (
+                        <div key={e.id} className="flex items-start gap-3 px-4 py-2.5 border-b border-gray-50 last:border-0 bg-white hover:bg-gray-50 group">
+                          <div className="flex-shrink-0 w-2 h-2 rounded-full mt-1.5" style={{ background: etape?.color || '#9ca3af' }} />
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center gap-2">
+                              <span className="text-xs font-semibold text-gray-700">{etape?.label || e.type_etape}</span>
+                              <span className="text-xs text-gray-400">{e.date_etape ? new Date(e.date_etape).toLocaleDateString('fr-BE') : ''}</span>
+                              {e.auteur && <span className="text-xs text-gray-400">— {e.auteur}</span>}
+                            </div>
+                            {e.notes && <div className="text-xs text-gray-500 mt-0.5 italic">{e.notes}</div>}
+                          </div>
+                          <button onClick={() => supprimerEtape(e.id)}
+                            className="opacity-0 group-hover:opacity-100 text-gray-300 hover:text-red-400 flex-shrink-0">
+                            <IconX size={12} />
+                          </button>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+
+                {/* Formulaire ajout étape */}
+                {etapeForm?.dossier_id === d.id && (
+                  <div className="border-t border-orange-200 bg-orange-50/50 px-4 py-3 space-y-2">
+                    <div className="grid grid-cols-2 gap-2">
+                      <div>
+                        <div className="text-xs text-gray-500 mb-1">Type d'étape</div>
+                        <select value={etapeForm.type_etape}
+                          onChange={e => setEtapeForm(f => ({ ...f, type_etape: e.target.value }))}
+                          className="w-full text-xs border border-gray-300 rounded px-2 py-1.5">
+                          <option value="">— choisir —</option>
+                          {ETAPES_DISC.map(e => <option key={e.val} value={e.val}>{e.label}</option>)}
+                        </select>
+                      </div>
+                      <div>
+                        <div className="text-xs text-gray-500 mb-1">Date</div>
+                        <input type="date" value={etapeForm.date_etape}
+                          onChange={e => setEtapeForm(f => ({ ...f, date_etape: e.target.value }))}
+                          className="w-full text-xs border border-gray-300 rounded px-2 py-1.5" />
+                      </div>
+                      <div>
+                        <div className="text-xs text-gray-500 mb-1">Auteur / Décideur</div>
+                        <input value={etapeForm.auteur || ''}
+                          onChange={e => setEtapeForm(f => ({ ...f, auteur: e.target.value }))}
+                          placeholder="Nom, fonction"
+                          className="w-full text-xs border border-gray-300 rounded px-2 py-1.5" />
+                      </div>
+                      <div>
+                        <div className="text-xs text-gray-500 mb-1">Notes</div>
+                        <input value={etapeForm.notes || ''}
+                          onChange={e => setEtapeForm(f => ({ ...f, notes: e.target.value }))}
+                          placeholder="Résumé, décision…"
+                          className="w-full text-xs border border-gray-300 rounded px-2 py-1.5" />
+                      </div>
+                    </div>
+                    <div className="flex justify-end gap-2">
+                      <button onClick={() => setEtapeForm(null)} className="text-xs text-gray-500 px-3 py-1">Annuler</button>
+                      <button onClick={ajouterEtape} disabled={!etapeForm.type_etape || saving}
+                        className="text-xs bg-iip-blue text-white px-3 py-1.5 rounded hover:opacity-90 disabled:opacity-50">
+                        {saving ? 'Ajout…' : 'Ajouter l\'étape'}
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+}
 
 export default function Professeurs() {
   const navigate = useNavigate();

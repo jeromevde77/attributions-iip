@@ -2328,6 +2328,38 @@ try {
     }
   } catch(e) { console.error('[migration] date_engagement:', e.message); }
 
+
+  // ── Table dossier_rh ──────────────────────────────────────────────────────────
+  try {
+    db.exec(`CREATE TABLE IF NOT EXISTS dossier_rh (
+      id           INTEGER PRIMARY KEY AUTOINCREMENT,
+      professeur_id INTEGER NOT NULL,
+      type         TEXT NOT NULL CHECK(type IN ('fin_contrat','disciplinaire')),
+      statut       TEXT NOT NULL DEFAULT 'ouvert',
+      date_ouverture TEXT NOT NULL,
+      date_cloture TEXT,
+      motif        TEXT,
+      notes        TEXT,
+      confidentiel INTEGER NOT NULL DEFAULT 1,
+      cree_par     TEXT,
+      cree_le      TEXT DEFAULT CURRENT_TIMESTAMP,
+      modifie_le   TEXT DEFAULT CURRENT_TIMESTAMP,
+      FOREIGN KEY (professeur_id) REFERENCES professeur(id)
+    );`);
+    db.exec(`CREATE TABLE IF NOT EXISTS dossier_rh_etape (
+      id           INTEGER PRIMARY KEY AUTOINCREMENT,
+      dossier_id   INTEGER NOT NULL,
+      type_etape   TEXT NOT NULL,
+      date_etape   TEXT,
+      auteur       TEXT,
+      notes        TEXT,
+      document_url TEXT,
+      cree_le      TEXT DEFAULT CURRENT_TIMESTAMP,
+      FOREIGN KEY (dossier_id) REFERENCES dossier_rh(id) ON DELETE CASCADE
+    );`);
+    console.log('[migration] Tables dossier_rh créées');
+  } catch(e) { console.error('[migration] dossier_rh:', e.message); }
+
 // ── Recrutement : séparation nom/prenom sur recrutement_candidat ──────────────
 try {
   const cols = db.prepare('PRAGMA table_info(recrutement_candidat)').all().map(c => c.name);
@@ -2638,6 +2670,7 @@ app.use('/api/recrutement',     recrutementRoutes);
 app.use('/api/aa',              aaRoutes);
 app.use('/api/config',          (await import('./routes/config.js')).default);
 app.use('/api/analyse-cv',      (await import('./routes/analyseCv.js')).default);
+app.use('/api/dossiers-rh',     (await import('./routes/dossiersRh.js')).default);
 
 // Route logo IIP
 import { createRequire as _cr } from 'module';
