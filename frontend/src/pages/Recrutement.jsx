@@ -1902,6 +1902,23 @@ function FicheCandidat({ candidat, fonctions, grille, onClose, onSaved }) {
     catch (e) { alert(e.message); } finally { setBusy(false); }
   };
 
+  const [analyseCv, setAnalyseCv] = useState(false);
+
+  const appliquerAnalyseSurFiche = (apercu) => {
+    setF(prev => ({
+      ...prev,
+      prenom:         apercu.prenom      || prev.prenom,
+      nom:            apercu.nom         || prev.nom,
+      email:          apercu.email       || prev.email,
+      telephone:      apercu.telephone   || prev.telephone,
+      notes:          apercu.notes       || prev.notes,
+      fonction:       apercu.fonction    || prev.fonction,
+      qualifications: apercu.qualifications?.length
+        ? [...(prev.qualifications || []), ...apercu.qualifications]
+        : prev.qualifications,
+    }));
+  };
+
   const supprimerCandidat = async () => {
     if (!confirm(`Supprimer définitivement ${candidat.nom} et tous ses documents/candidatures ?`)) return;
     await af(`/candidats/${candidat.id}`, { method: 'DELETE' });
@@ -1993,6 +2010,13 @@ function FicheCandidat({ candidat, fonctions, grille, onClose, onSaved }) {
               className="text-xs border border-gray-300 text-gray-500 hover:bg-gray-50 rounded px-2.5 py-1.5 flex items-center gap-1.5">
               🖨 PDF
             </button>
+            {docs.some(d => d.type === 'cv') && (
+              <button onClick={() => setAnalyseCv(true)}
+                title="Analyser le CV avec Lucie"
+                className="text-xs border border-iip-blue/40 bg-iip-blue/5 text-iip-blue hover:bg-iip-blue/10 rounded px-2.5 py-1.5 flex items-center gap-1.5 font-medium">
+                🤖 Analyser CV
+              </button>
+            )}
             <button onClick={() => setEntretienLibre(true)}
               title="Mener l'entretien"
               className="text-xs border border-iip-turquoise text-iip-blue hover:bg-iip-turquoise/10 rounded px-2.5 py-1.5 flex items-center gap-1.5 font-medium">
@@ -2277,6 +2301,13 @@ function FicheCandidat({ candidat, fonctions, grille, onClose, onSaved }) {
           onFermer={() => setAjoutQual(false)}
         />
       )}
+      {analyseCv && (
+        <ModalAnalyseCv
+          onClose={() => setAnalyseCv(false)}
+          candidatExistant={candidat}
+          onResultat={(apercu) => { appliquerAnalyseSurFiche(apercu); setAnalyseCv(false); }}
+        />
+      )}
     </>
   );
 }
@@ -2460,40 +2491,356 @@ function ModalAjoutQualification({ onClose, onAjouter, onFermer }) {
 }
 
 /* ── Nouveau candidat sans poste ── */
-function ModalNouveauCandidat({ onClose, onSaved }) {
+/* ══════════════════════ ANALYSE CV PAR LUCIE ══════════════════════ */
 
-  const [f, setF]   = useState({ nom: '', prenom: '', email: '', telephone: '', cv_url: '', notes: '' });
-  const [busy, setBusy] = useState(false);
-  const soumettre = async () => {
-    if (!f.nom.trim()) return;
-    setBusy(true);
-    try { await af('/candidats', { method: 'POST', body: JSON.stringify(f) }); onSaved(); }
-    catch (e) { alert(e.message); } finally { setBusy(false); }
+async function analyserCvAvecLucie(pdfBase64) {
+  const DIPLOMES_PLAT = Object.values(DIPLOMES_FWB).flat();
+  const systemPrompt = `Tu es un assistant RH de l'Institut Ilya Prigogine (enseignement supérieur pour adultes, Bruxelles).
+Tu analyses des CV de candidats enseignants et retournes UNIQUEMENT un objet JSON valide, sans markdown, sans explication.
+
+Structure JSON attendue :
+{
+  "prenom": "string ou null",
+  "nom": "string ou null",
+  "email": "string ou null",
+  "telephone": "string ou null",
+  "notes": "string — résumé du profil en 2-3 phrases",
+  "qualifications": [
+    {
+      "niveau": "CESS|BES|BES_PLUS|BAC|MASTER|DOCTORAT ou null",
+      "diplome": "code parmi la liste ou null",
+      "diplome_autre": "intitulé exact si pas dans la liste ou null",
+      "titre_peda": "AESI|AESS|CAP|CAPAES|AUCUN ou null"
+    }
+  ],
+  "fonction": "string décrivant la fonction/spécialité principale ou null"
+}
+
+Codes diplômes disponibles : ${DIPLOMES_PLAT.map(d => d.val + ':' + d.label).join(' | ')}
+Titres pédagogiques : AESI, AESS, CAP, CAPAES
+Niveaux : CESS=4, BES=infirmier brevet, BES_PLUS=brevet sup, BAC=bachelier, MASTER=master, DOCTORAT
+
+Si une information n'est pas trouvée, mets null. Pour les diplômes, essaie de faire correspondre au code le plus précis.`;
+
+  const response = await fetch('https://api.anthropic.com/v1/messages', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      model: 'claude-sonnet-4-6',
+      max_tokens: 1000,
+      system: systemPrompt,
+      messages: [{
+        role: 'user',
+        content: [{
+          type: 'document',
+          source: { type: 'base64', media_type: 'application/pdf', data: pdfBase64 },
+        }, {
+          type: 'text',
+          text: 'Analyse ce CV et retourne le JSON demandé.',
+        }],
+      }],
+    }),
+  });
+
+  if (!response.ok) throw new Error('Erreur API Anthropic');
+  const data = await response.json();
+  const text = data.content?.find(b => b.type === 'text')?.text || '';
+  const clean = text.replace(/```json|```/g, '').trim();
+  return JSON.parse(clean);
+}
+
+function ModalAnalyseCv({ onClose, onResultat, candidatExistant = null }) {
+  const [fichier, setFichier]   = useState(null);
+  const [analyse, setAnalyse]   = useState(null); // résultat JSON
+  const [loading, setLoading]   = useState(false);
+  const [err, setErr]           = useState('');
+  // Champs éditables de la prévisualisation
+  const [apercu, setApercu]     = useState(null);
+
+  const lireFichier = (file) => new Promise((res, rej) => {
+    const r = new FileReader();
+    r.onload = () => res(r.result.split(',')[1]);
+    r.onerror = rej;
+    r.readAsDataURL(file);
+  });
+
+  const analyser = async () => {
+    if (!fichier) return;
+    setLoading(true); setErr('');
+    try {
+      const b64 = await lireFichier(fichier);
+      const res = await analyserCvAvecLucie(b64);
+      setAnalyse(res);
+      // Pré-remplir aperçu en fusionnant avec candidat existant
+      setApercu({
+        prenom:      res.prenom      || candidatExistant?.prenom      || '',
+        nom:         res.nom         || candidatExistant?.nom          || '',
+        email:       res.email       || candidatExistant?.email        || '',
+        telephone:   res.telephone   || candidatExistant?.telephone    || '',
+        notes:       res.notes       || candidatExistant?.notes        || '',
+        fonction:    res.fonction    || candidatExistant?.fonction     || '',
+        qualifications: res.qualifications?.filter(q => q.niveau || q.titre_peda) || [],
+        _fichier: fichier,
+      });
+    } catch (e) {
+      setErr('Impossible d\'analyser ce CV : ' + e.message);
+    } finally { setLoading(false); }
   };
+
+  const confirmer = () => {
+    if (!apercu) return;
+    onResultat(apercu, fichier);
+    onClose();
+  };
+
   return (
-    <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4" onClick={onClose}>
-      <div className="bg-white rounded-xl w-full max-w-md shadow-xl p-5 space-y-3" onClick={e => e.stopPropagation()}>
-        <h3 className="text-lg font-bold text-iip-blue mb-1">Nouveau candidat</h3>
-        <div className="grid grid-cols-2 gap-3">
-          <div><div className="text-xs text-gray-500 mb-1">Prénom</div>
-            <input value={f.prenom} onChange={e => setF({ ...f, prenom: e.target.value })} className="w-full text-sm border border-gray-300 rounded px-2 py-1.5 h-9" /></div>
-          <div><div className="text-xs text-gray-500 mb-1">Nom *</div>
-            <input value={f.nom} onChange={e => setF({ ...f, nom: e.target.value })} className="w-full text-sm border border-gray-300 rounded px-2 py-1.5 h-9" /></div>
-          <div><div className="text-xs text-gray-500 mb-1">E-mail</div>
-            <input value={f.email} onChange={e => setF({ ...f, email: e.target.value })} className="w-full text-sm border border-gray-300 rounded px-2 py-1.5 h-9" /></div>
-          <div><div className="text-xs text-gray-500 mb-1">Téléphone</div>
-            <input value={f.telephone} onChange={e => setF({ ...f, telephone: e.target.value })} className="w-full text-sm border border-gray-300 rounded px-2 py-1.5 h-9" /></div>
-          <div className="col-span-2"><div className="text-xs text-gray-500 mb-1">Notes</div>
-            <textarea value={f.notes} onChange={e => setF({ ...f, notes: e.target.value })} rows={2} className="w-full text-sm border border-gray-300 rounded px-2 py-1.5 resize-none" /></div>
+    <div className="fixed inset-0 bg-black/50 z-[60] flex items-center justify-center p-4" onClick={onClose}>
+      <div className="bg-white rounded-xl shadow-2xl w-full max-w-2xl max-h-[90vh] flex flex-col"
+        onClick={e => e.stopPropagation()}>
+
+        <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100">
+          <div>
+            <h3 className="text-base font-bold text-iip-blue flex items-center gap-2">
+              🤖 Analyser un CV avec Lucie
+            </h3>
+            <p className="text-xs text-gray-400 mt-0.5">
+              Lucie lit le PDF et pré-remplit la fiche candidat. Tu valides avant d'enregistrer.
+            </p>
+          </div>
+          <button onClick={onClose} className="text-gray-400 hover:text-gray-600"><IconX size={18}/></button>
         </div>
-        <div className="flex justify-end gap-2 pt-1">
+
+        <div className="flex-1 overflow-auto px-5 py-4 space-y-4">
+
+          {/* Zone d'upload */}
+          {!apercu && (
+            <div>
+              <label className={`flex flex-col items-center justify-center gap-3 p-8 border-2 border-dashed rounded-xl cursor-pointer transition ${
+                fichier ? 'border-iip-turquoise bg-iip-turquoise/5' : 'border-gray-300 hover:border-iip-blue/50 bg-gray-50'
+              }`}>
+                <input type="file" accept="application/pdf" className="hidden"
+                  onChange={e => { setFichier(e.target.files?.[0] || null); setAnalyse(null); setApercu(null); }} />
+                {fichier ? (
+                  <>
+                    <div className="text-3xl">📄</div>
+                    <div className="text-sm font-semibold text-iip-blue">{fichier.name}</div>
+                    <div className="text-xs text-gray-400">{(fichier.size / 1024).toFixed(0)} Ko — cliquer pour changer</div>
+                  </>
+                ) : (
+                  <>
+                    <div className="text-4xl">📎</div>
+                    <div className="text-sm text-gray-500">Glisser un CV (PDF) ou cliquer pour sélectionner</div>
+                    <div className="text-xs text-gray-400">Format PDF uniquement</div>
+                  </>
+                )}
+              </label>
+
+              {err && <div className="text-xs text-red-600 bg-red-50 rounded px-3 py-2 mt-2">{err}</div>}
+
+              <button onClick={analyser} disabled={!fichier || loading}
+                className="mt-3 w-full flex items-center justify-center gap-2 bg-iip-blue text-white py-2.5 rounded-xl font-medium text-sm hover:opacity-90 disabled:opacity-40 transition">
+                {loading ? (
+                  <><span className="animate-spin">⏳</span> Lucie analyse le CV…</>
+                ) : (
+                  <>🤖 Analyser avec Lucie</>
+                )}
+              </button>
+              {loading && (
+                <div className="text-xs text-center text-gray-400 mt-2 animate-pulse">
+                  Extraction des informations en cours… (10-20 secondes)
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Prévisualisation et validation */}
+          {apercu && (
+            <div className="space-y-4">
+              <div className="flex items-center gap-2 bg-green-50 border border-green-200 rounded-lg px-3 py-2">
+                <span className="text-green-600">✓</span>
+                <span className="text-sm text-green-700 font-medium">CV analysé — vérifiez et corrigez si besoin</span>
+                <button onClick={() => { setApercu(null); setAnalyse(null); }}
+                  className="ml-auto text-xs text-gray-400 hover:text-gray-600">Recommencer</button>
+              </div>
+
+              {/* Coordonnées */}
+              <div className="border border-gray-200 rounded-xl p-4">
+                <div className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-3">Coordonnées</div>
+                <div className="grid grid-cols-2 gap-3">
+                  {[['prenom','Prénom'],['nom','Nom'],['email','E-mail'],['telephone','Téléphone']].map(([k,l]) => (
+                    <div key={k}>
+                      <div className="text-xs text-gray-500 mb-1">{l}</div>
+                      <input value={apercu[k] || ''} onChange={e => setApercu(a => ({ ...a, [k]: e.target.value }))}
+                        className="w-full text-sm border border-gray-300 rounded px-2 py-1.5 h-9" />
+                    </div>
+                  ))}
+                  <div className="col-span-2">
+                    <div className="text-xs text-gray-500 mb-1">Fonction / spécialité</div>
+                    <input value={apercu.fonction || ''} onChange={e => setApercu(a => ({ ...a, fonction: e.target.value }))}
+                      className="w-full text-sm border border-gray-300 rounded px-2 py-1.5 h-9" />
+                  </div>
+                  <div className="col-span-2">
+                    <div className="text-xs text-gray-500 mb-1">Profil (résumé Lucie)</div>
+                    <textarea value={apercu.notes || ''} onChange={e => setApercu(a => ({ ...a, notes: e.target.value }))}
+                      rows={3} className="w-full text-sm border border-gray-300 rounded px-2 py-1.5 resize-none" />
+                  </div>
+                </div>
+              </div>
+
+              {/* Diplômes détectés */}
+              <div className="border border-gray-200 rounded-xl p-4">
+                <div className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-3">
+                  Diplômes & Titres détectés ({apercu.qualifications?.length || 0})
+                </div>
+                {apercu.qualifications?.length === 0 && (
+                  <div className="text-xs text-gray-400 italic">Aucun diplôme détecté automatiquement.</div>
+                )}
+                <div className="space-y-2">
+                  {apercu.qualifications?.map((q, i) => {
+                    const niv = NIVEAUX_ETUDE.find(n => n.val === q.niveau);
+                    const dip = Object.values(DIPLOMES_FWB).flat().find(d => d.val === q.diplome);
+                    const tit = TITRES_PEDA.find(t => t.val === q.titre_peda);
+                    return (
+                      <div key={i} className="flex items-start gap-2 bg-gray-50 border border-gray-200 rounded-lg px-3 py-2">
+                        <div className="flex-1 min-w-0 space-y-0.5">
+                          {niv && <div className="text-xs font-semibold text-iip-blue">{niv.label}</div>}
+                          {dip && <div className="text-xs text-gray-700">{dip.label}</div>}
+                          {!dip && q.diplome_autre && <div className="text-xs text-gray-500 italic">{q.diplome_autre}</div>}
+                          {tit && <div className="text-xs text-iip-turquoise font-medium">{tit.label}</div>}
+                        </div>
+                        <button type="button" onClick={() => setApercu(a => ({ ...a, qualifications: a.qualifications.filter((_, j) => j !== i) }))}
+                          className="text-gray-300 hover:text-red-400 flex-shrink-0 mt-0.5"><IconX size={13}/></button>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
+
+        <div className="px-5 py-3 border-t border-gray-100 flex justify-end gap-2 flex-shrink-0">
           <Btn variant="ghost" onClick={onClose}>Annuler</Btn>
-          <Btn variant="primary" icon={IconCheck} onClick={soumettre} disabled={busy}>Créer</Btn>
+          {apercu && (
+            <Btn variant="primary" icon={IconCheck} onClick={confirmer}>
+              Utiliser ces informations
+            </Btn>
+          )}
         </div>
       </div>
     </div>
   );
 }
+
+function ModalNouveauCandidat({ onClose, onSaved }) {
+  const [f, setF]       = useState({ nom: '', prenom: '', email: '', telephone: '', notes: '', fonction: '', qualifications: [] });
+  const [busy, setBusy] = useState(false);
+  const [analyseCv, setAnalyseCv] = useState(false);
+  const [cvFile, setCvFile] = useState(null);
+
+  const appliquerAnalyse = (apercu, fichier) => {
+    setF(prev => ({
+      ...prev,
+      prenom:         apercu.prenom      || prev.prenom,
+      nom:            apercu.nom         || prev.nom,
+      email:          apercu.email       || prev.email,
+      telephone:      apercu.telephone   || prev.telephone,
+      notes:          apercu.notes       || prev.notes,
+      fonction:       apercu.fonction    || prev.fonction,
+      qualifications: apercu.qualifications?.length ? apercu.qualifications : prev.qualifications,
+    }));
+    setCvFile(fichier);
+  };
+
+  const soumettre = async () => {
+    if (!f.nom.trim()) return;
+    setBusy(true);
+    try {
+      const res = await af('/candidats', { method: 'POST', body: JSON.stringify(f) });
+      // Uploader le CV si fourni
+      if (cvFile && res?.id) {
+        const fd = new FormData();
+        fd.append('fichier', cvFile);
+        await fetch(`/api/recrutement/candidats/${res.id}/documents?type=cv`, {
+          method: 'POST',
+          headers: { Authorization: `Bearer ${localStorage.getItem('token')}` },
+          body: fd,
+        });
+      }
+      onSaved();
+    } catch (e) { alert(e.message); } finally { setBusy(false); }
+  };
+
+  return (
+    <>
+    <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4" onClick={onClose}>
+      <div className="bg-white rounded-xl w-full max-w-md shadow-xl" onClick={e => e.stopPropagation()}>
+        <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100">
+          <h3 className="text-base font-bold text-iip-blue">Nouveau candidat</h3>
+          <button onClick={onClose} className="text-gray-400 hover:text-gray-600"><IconX size={18}/></button>
+        </div>
+        <div className="p-5 space-y-4">
+          {/* Bouton analyse CV */}
+          <button onClick={() => setAnalyseCv(true)}
+            className="w-full flex items-center gap-3 p-3 bg-iip-blue/5 border-2 border-dashed border-iip-blue/30 hover:border-iip-blue/60 rounded-xl transition text-left">
+            <span className="text-2xl">🤖</span>
+            <div>
+              <div className="text-sm font-semibold text-iip-blue">Analyser un CV avec Lucie</div>
+              <div className="text-xs text-gray-400">Pré-remplissage automatique depuis un PDF</div>
+            </div>
+            {cvFile && <span className="ml-auto text-xs text-green-600 font-medium">✓ CV chargé</span>}
+          </button>
+
+          <div className="grid grid-cols-2 gap-3">
+            {[['prenom','Prénom'],['nom','Nom *'],['email','E-mail'],['telephone','Téléphone']].map(([k,l]) => (
+              <div key={k}>
+                <div className="text-xs text-gray-500 mb-1">{l}</div>
+                <input value={f[k]||''} onChange={e => setF({ ...f, [k]: e.target.value })}
+                  className="w-full text-sm border border-gray-300 rounded px-2 py-1.5 h-9" />
+              </div>
+            ))}
+            <div className="col-span-2">
+              <div className="text-xs text-gray-500 mb-1">Notes</div>
+              <textarea value={f.notes} onChange={e => setF({ ...f, notes: e.target.value })}
+                rows={2} className="w-full text-sm border border-gray-300 rounded px-2 py-1.5 resize-none" />
+            </div>
+          </div>
+
+          {/* Qualifications si remplies par analyse */}
+          {f.qualifications?.length > 0 && (
+            <div className="border border-gray-200 rounded-lg p-3">
+              <div className="text-xs text-gray-400 mb-2">Diplômes détectés</div>
+              {f.qualifications.map((q, i) => {
+                const niv = NIVEAUX_ETUDE.find(n => n.val === q.niveau);
+                const dip = Object.values(DIPLOMES_FWB).flat().find(d => d.val === q.diplome);
+                const tit = TITRES_PEDA.find(t => t.val === q.titre_peda);
+                return (
+                  <div key={i} className="text-xs text-gray-600 py-0.5">
+                    {[niv?.label, dip?.label||q.diplome_autre, tit?.label].filter(Boolean).join(' · ')}
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+        <div className="px-5 py-3 border-t border-gray-100 flex justify-end gap-2">
+          <Btn variant="ghost" onClick={onClose}>Annuler</Btn>
+          <Btn variant="primary" icon={IconCheck} onClick={soumettre} disabled={busy || !f.nom.trim()}>
+            {busy ? 'Création…' : 'Créer'}
+          </Btn>
+        </div>
+      </div>
+    </div>
+    {analyseCv && (
+      <ModalAnalyseCv
+        onClose={() => setAnalyseCv(false)}
+        onResultat={appliquerAnalyse}
+      />
+    )}
+    </>
+  );
+}
+
 
 /* ══════════════════════ ÉDITEUR DE GRILLE ══════════════════════ */
 
