@@ -571,11 +571,11 @@ r.post('/candidats/:id/engager', authRequired, roleRequired('admin', 'editeur'),
   if (!candidat) return res.status(404).json({ error: 'Candidat introuvable' });
 
   const candidatures = db.prepare(
-    "SELECT * FROM recrutement_candidature WHERE candidat_id = ? AND statut = 'retenu'"
+    "SELECT * FROM recrutement_candidature WHERE candidat_id = ? AND statut IN ('retenu','engage')"
   ).all(req.params.id);
 
   if (candidatures.length === 0)
-    return res.status(400).json({ error: 'Aucune candidature avec statut "Retenu" pour ce candidat' });
+    return res.status(400).json({ error: 'Aucune candidature avec statut "Retenu" ou "Engagé" pour ce candidat. Passez d\'abord au moins un cours en "Retenu".' });
 
   const tx = db.transaction(() => {
     const today = new Date().toISOString().split('T')[0];

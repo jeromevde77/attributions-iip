@@ -2236,7 +2236,10 @@ function FicheCandidat({ candidat, fonctions, grille, onClose, onSaved }) {
                               onClick={async () => {
                                 if (!confirm(`Engager ${candidat.prenom||''} ${candidat.nom} sur "${ca.cours_nom || ca.ue_nom || `UE ${ca.ue_num}`}" ?`)) return;
                                 try {
-                                  await af(`/candidatures/${ca.id}`, { method: 'PATCH', body: JSON.stringify({ statut: 'retenu' }) });
+                                  // Passer en retenu seulement si pas déjà engagé
+                                  if (ca.statut !== 'engage' && ca.statut !== 'retenu') {
+                                    await af(`/candidatures/${ca.id}`, { method: 'PATCH', body: JSON.stringify({ statut: 'retenu' }) });
+                                  }
                                   const r = await af(`/candidats/${candidat.id}/engager`, { method: 'POST', body: JSON.stringify({ annee: getAnnee() }) });
                                   alert(`✅ ${r.prenom} ${r.nom} engagé·e — ${r.nb_attributions} attribution(s) mise(s) à jour.`);
                                   onSaved();
