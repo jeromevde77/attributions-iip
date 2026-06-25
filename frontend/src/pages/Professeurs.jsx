@@ -1498,6 +1498,11 @@ export default function Professeurs() {
 
     if (sortBy.key) {
       arr = [...arr].sort((a, b) => {
+        // Nouveaux toujours en premier
+        const newA = isNew(a), newB = isNew(b);
+        if (newA && !newB) return -1;
+        if (!newA && newB) return 1;
+
         const va = a[sortBy.key], vb = b[sortBy.key];
         if (va == null && vb == null) return 0;
         if (va == null) return 1; if (vb == null) return -1;
@@ -1538,15 +1543,35 @@ export default function Professeurs() {
   }
 
   function renderRow(p) {
+    const designer = isDesigner(p);
+    const nouveau  = isNew(p);
     return (
-      <tr key={p.id} className={p.statut === 'EXP' ? 'bg-slate-100/60 hover:bg-slate-200/60' : 'hover:bg-gray-50'}>
+      <tr key={p.id} className={
+        designer ? 'bg-orange-50/40 hover:bg-orange-50' :
+        nouveau  ? 'bg-green-50 hover:bg-green-100/70' :
+        p.statut === 'EXP' ? 'bg-slate-100/60 hover:bg-slate-200/60' :
+        'hover:bg-gray-50'
+      }>
         <td className="text-center">
           <input type="checkbox" checked={selection.has(p.id)} onChange={() => toggleSelect(p.id)} />
         </td>
         <td className="font-medium">
-          <button onClick={() => setDetailId(p.id)} className="hover:text-iip-gold hover:underline text-left">
-            {p.nom_prenom}
-          </button>
+          {designer ? (
+            <span className="inline-flex items-center gap-2">
+              <span className="bg-orange-100 text-orange-700 border border-orange-300 rounded-full px-3 py-0.5 text-xs font-bold">
+                À désigner
+              </span>
+            </span>
+          ) : (
+            <button onClick={() => setDetailId(p.id)} className="hover:text-iip-gold hover:underline text-left flex items-center gap-2">
+              {p.nom_prenom}
+              {nouveau && (
+                <span className="bg-green-600 text-white text-[9px] font-bold px-1.5 py-0.5 rounded-full uppercase tracking-wide flex-shrink-0">
+                  NEW
+                </span>
+              )}
+            </button>
+          )}
         </td>
         <td>
           <div className="flex items-center gap-1 flex-wrap">
