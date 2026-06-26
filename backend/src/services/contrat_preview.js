@@ -90,10 +90,10 @@ export function genererTemplate() {
     </div>
   </div>
 
-  <div class="article">
-    <div class="article-titre">Article 1 — Emploi(s) vacant(s)</div>
+    <div class="article">
+    <div class="article-titre">Article 1 — Emploi(s)</div>
     <div class="article-corps">
-      <p>Le membre du personnel est engagé dans un emploi / des emplois vacant(s) au sens de l'article 3 §1er, §1er bis et §1er ter du Décret du 1er février 1993 comportant :</p>
+      <p>{{texte_art1}}</p>
       <div style="margin: 2mm 0 2mm 4mm;">{{cours_liste}}<div class="cours-total">Total : {{total_periodes}} périodes</div></div>
       <p>{{phrase_etp}}</p>
     </div>
@@ -169,13 +169,17 @@ export function genererApercu({ etab, prof, attributions, annee, date_contrat, r
   const adresseProf = [prof.adresse_rue, prof.code_postal, prof.commune].filter(Boolean).join(', ') || '—';
   const adresseEtab = [etab.adresse, etab.cp, etab.ville].filter(Boolean).join(' ') || 'Bruxelles';
 
+  // Détecter si c'est un remplacement (au moins un cours avec titulaire en congé)
+  const estRemplacement = attributions.some(a => a.titulaire_en_conge);
+
   const coursListeHtml = attributions.map(a => {
     const per = (a.periodes_attribuees||0) + (a.autonomie_attribuee||0);
+    const vacant = a.titulaire_en_conge ? ` <span style="font-size:8pt;color:#888;font-style:italic">(titulaire en congé : ${a.titulaire_en_conge.trim()})</span>` : '';
     return `<div class="cours-ligne">
       <span class="cours-section">${a.section||''}</span>
       <span class="cours-sep">–</span>
       <span class="cours-code">${a.code_cours||''}</span>
-      <span class="cours-nom">${a.cours_nom||a.ue_nom||''}</span>
+      <span class="cours-nom">${a.cours_nom||a.ue_nom||''}${vacant}</span>
       <span class="cours-per">(${per} période${per>1?'s':''})</span>
     </div>`;
   }).join('');
@@ -198,6 +202,9 @@ export function genererApercu({ etab, prof, attributions, annee, date_contrat, r
     '{{total_periodes}}': String(total),
     '{{etp}}':            String(etp),
     '{{phrase_etp}}':     phraseETP,
+    '{{texte_art1}}':     estRemplacement
+      ? "Le membre du personnel est engagé dans un emploi / des emplois <strong>vacant(s)</strong> au sens de l'article 3 §1er, §1er bis et §1er ter du Décret du 1er février 1993, en remplacement d'un titulaire en congé, comportant :"
+      : "Le membre du personnel est engagé dans un emploi / des emplois au sens de l'article 3 §1er, §1er bis et §1er ter du Décret du 1er février 1993 comportant :",
   };
 
   // Utiliser le template custom ou le défaut

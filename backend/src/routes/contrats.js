@@ -16,7 +16,13 @@ r.post('/apercu', authRequired, roleRequired('admin', 'editeur'), async (req, re
     const etab  = db.prepare('SELECT * FROM etablissement LIMIT 1').get() || {};
     const attributions = db.prepare(`
       SELECT a.periodes_attribuees, a.autonomie_attribuee, a.section, a.code_cours,
-             u.ue_nom, c.cours_nom, c.ct_pp, a.type_cours
+             u.ue_nom, c.cours_nom, c.ct_pp, a.type_cours,
+             a.en_conge,
+             (SELECT p2.nom || ' ' || p2.prenom FROM attribution a2
+              JOIN professeur p2 ON p2.id = a2.professeur_id
+              WHERE a2.code_cours = a.code_cours AND a2.section = a.section
+              AND a2.annee_scolaire = a.annee_scolaire AND a2.en_conge = 1
+              LIMIT 1) AS titulaire_en_conge
       FROM attribution a
       LEFT JOIN ue u ON u.ue_num = a.ue_num
       LEFT JOIN cours c ON c.cours_code = a.code_cours AND c.annee_scolaire = a.annee_scolaire
