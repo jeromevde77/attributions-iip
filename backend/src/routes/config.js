@@ -42,4 +42,13 @@ r.get('/contrat_template_defaut', authRequired, roleRequired('admin'), async (re
   res.json({ valeur: genererTemplate() });
 });
 
+// Override GET pour contrat_template — retourne le template par défaut si absent
+r.get('/contrat_template', authRequired, async (req, res) => {
+  const row = db.prepare("SELECT valeur FROM lucie_config WHERE cle = 'contrat_template'").get();
+  if (row) return res.json({ valeur: row.valeur });
+  // Pas encore en DB → retourner le défaut
+  const { genererTemplate } = await import('../services/contrat_preview.js');
+  res.json({ valeur: genererTemplate() });
+});
+
 export default r;
