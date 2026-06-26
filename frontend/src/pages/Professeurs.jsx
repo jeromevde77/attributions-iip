@@ -289,10 +289,9 @@ function PermissionsPanel({ userId, permissions, sectionsDispo, annee, onSaved, 
 
 // ─── Panneau « Accès Lucie » (admin) : lie un compte utilisateur à un·e membre ───
 const ROLES_LUCIE = [
-  ['consultation', 'Consultation'],
-  ['editeur', 'Éditeur'],
-  ['coordination', 'Coordination'],
-  ['admin', 'Administrateur'],
+  ['consultation', 'Consultation — lecture uniquement'],
+  ['editeur', 'Éditeur — peut modifier'],
+  ['admin', 'Administrateur — accès complet'],
 ];
 // Modules accessibles par flag (extensible)
 const MODULES_ACCES = [
@@ -399,30 +398,46 @@ function AccesLuciePanel({ profId, detail }) {
 
   const ModuleRow = ({ m }) => {
     const p = perms[m.key] || { lire: false, ecrire: false, voir_tout: false };
-    const hasVoirTout = ['attributions', 'personnel'].includes(m.key);
+    const hasScope = ['attributions', 'personnel'].includes(m.key);
+    const sectionsModule = perms[`${m.key}_sections`] || [];
+    const toggleSec = (code) => setPerms(prev => ({
+      ...prev,
+      [`${m.key}_sections`]: (prev[`${m.key}_sections`] || []).includes(code)
+        ? (prev[`${m.key}_sections`] || []).filter(x => x !== code)
+        : [...(prev[`${m.key}_sections`] || []), code],
+    }));
     return (
-      <div className={`flex items-center gap-2 px-3 py-2 rounded-lg border ${p.lire || p.ecrire ? 'bg-iip-blue/5 border-iip-blue/20' : 'bg-gray-50 border-gray-100'}`}>
-        <span className="text-base w-5 flex-shrink-0">{m.icon}</span>
-        <div className="flex-1 min-w-0">
-          <div className="text-xs font-semibold text-gray-700">{m.label}</div>
-          <div className="text-[10px] text-gray-400">{m.desc}</div>
+      <div className={`rounded-lg border ${p.lire || p.ecrire ? 'bg-iip-blue/5 border-iip-blue/20' : 'bg-gray-50 border-gray-100'}`}>
+        <div className="flex items-center gap-2 px-3 py-2">
+          <span className="text-base w-5 flex-shrink-0">{m.icon}</span>
+          <div className="flex-1 min-w-0">
+            <div className="text-xs font-semibold text-gray-700">{m.label}</div>
+          </div>
+          <div className="flex items-center gap-1.5 flex-shrink-0">
+            <button onClick={() => togglePerm(m.key, 'lire')}
+              className={`text-[10px] px-2 py-0.5 rounded border font-medium transition ${p.lire ? 'bg-iip-blue text-white border-iip-blue' : 'border-gray-300 text-gray-400 hover:border-iip-blue'}`}>
+              Lecture</button>
+            <button onClick={() => togglePerm(m.key, 'ecrire')}
+              className={`text-[10px] px-2 py-0.5 rounded border font-medium transition ${p.ecrire ? 'bg-iip-turquoise text-white border-iip-turquoise' : 'border-gray-300 text-gray-400 hover:border-iip-turquoise'}`}>
+              Écriture</button>
+            {hasScope && (
+              <button onClick={() => togglePerm(m.key, 'voir_tout')}
+                className={`text-[10px] px-2 py-0.5 rounded border font-medium transition ${p.voir_tout ? 'bg-amber-500 text-white border-amber-500' : 'border-gray-300 text-gray-400 hover:border-amber-400'}`}
+                title="Tout voir = toutes sections">Tout</button>
+            )}
+          </div>
         </div>
-        <div className="flex items-center gap-1.5 flex-shrink-0">
-          <button onClick={() => togglePerm(m.key, 'lire')}
-            className={`text-[10px] px-2 py-0.5 rounded border font-medium transition ${
-              p.lire ? 'bg-iip-blue text-white border-iip-blue' : 'border-gray-300 text-gray-400 hover:border-iip-blue'
-            }`}>Lecture</button>
-          <button onClick={() => togglePerm(m.key, 'ecrire')}
-            className={`text-[10px] px-2 py-0.5 rounded border font-medium transition ${
-              p.ecrire ? 'bg-iip-turquoise text-white border-iip-turquoise' : 'border-gray-300 text-gray-400 hover:border-iip-turquoise'
-            }`}>Écriture</button>
-          {hasVoirTout && (
-            <button onClick={() => togglePerm(m.key, 'voir_tout')}
-              className={`text-[10px] px-2 py-0.5 rounded border font-medium transition ${
-                p.voir_tout ? 'bg-amber-500 text-white border-amber-500' : 'border-gray-300 text-gray-400 hover:border-amber-400'
-              }`} title="Voir toutes les sections (sinon : ses sections seulement)">Tout voir</button>
-          )}
-        </div>
+        {hasScope && (p.lire || p.ecrire) && !p.voir_tout && (
+          <div className="px-3 pb-2 pt-0 flex flex-wrap gap-1">
+            {sectionsDispo.map(s => (
+              <button key={s.code} type="button" onClick={() => toggleSec(s.code)}
+                className={`text-[10px] px-1.5 py-0.5 rounded-full border transition ${
+                  sectionsModule.includes(s.code) ? 'bg-iip-blue text-white border-iip-blue' : 'border-gray-200 text-gray-400 hover:border-iip-blue'
+                }`}>{s.code}</button>
+            ))}
+            {sectionsModule.length === 0 && <span className="text-[10px] text-orange-500 italic">⚠ Aucune section — accès bloqué</span>}
+          </div>
+        )}
       </div>
     );
   };
@@ -470,21 +485,7 @@ function AccesLuciePanel({ profId, detail }) {
         </div>
       </div>
 
-      {/* Sections (pour coordination) */}
-      {role === 'coordination' && (
-        <div>
-          <div className="text-xs text-gray-500 mb-1">Sections autorisées</div>
-          <div className="flex flex-wrap gap-1.5">
-            {sectionsDispo.map(s => (
-              <button key={s.code} type="button"
-                onClick={() => setSections(prev => prev.includes(s.code) ? prev.filter(x => x !== s.code) : [...prev, s.code])}
-                className={`text-xs px-2 py-0.5 rounded-full border ${sections.includes(s.code) ? 'bg-iip-turquoise/15 border-iip-turquoise text-iip-blue' : 'border-gray-300 text-gray-500'}`}>
-                {s.code}
-              </button>
-            ))}
-          </div>
-        </div>
-      )}
+
 
       {/* Permissions modules */}
       <div>

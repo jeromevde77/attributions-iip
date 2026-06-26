@@ -5,7 +5,12 @@ import { authRequired, roleRequired } from '../middleware/auth.js';
 
 const r = Router();
 
-const ROLES = ['admin', 'editeur', 'coordination', 'consultation'];
+const ROLES = ['admin', 'editeur', 'consultation', 'coordination']; // coordination = legacy alias d'editeur
+
+// Normalise le rôle : coordination → editeur
+function normaliserRole(role) {
+  return role === 'coordination' ? 'editeur' : role;
+}
 
 // Helper : récupère les sections d'un utilisateur
 function sectionsOf(userId) {
@@ -31,6 +36,7 @@ r.get('/', authRequired, roleRequired('admin'), (req, res) => {
   // Joindre les sections pour les coordinations
   for (const u of users) {
     u.sections = u.role === 'coordination' ? sectionsOf(u.id) : [];
+    u.role = normaliserRole(u.role); // coordination → editeur
   }
   res.json(users);
 });
@@ -38,6 +44,7 @@ r.get('/', authRequired, roleRequired('admin'), (req, res) => {
 r.post('/', authRequired, roleRequired('admin'), (req, res) => {
   const { email, password, nom_complet, role, sections, professeur_id } = req.body || {};
   if (!email || !password) return res.status(400).json({ error: 'Email et mot de passe requis' });
+  const roleNorm = normaliserRole(role);
   if (!ROLES.includes(role)) return res.status(400).json({ error: 'Rôle invalide' });
   try {
     // Si un compte existe déjà avec cet email, le lier au prof plutôt que créer
@@ -45,7 +52,7 @@ r.post('/', authRequired, roleRequired('admin'), (req, res) => {
     if (existing) {
       if (professeur_id) {
         db.prepare('UPDATE utilisateur SET professeur_id = ?, role = ?, actif = 1 WHERE id = ?')
-          .run(professeur_id, role, existing.id);
+          .run(professeur_id, roleNorm, existing.id);
         if (role === 'coordination') setSections(existing.id, sections);
       }
       return res.status(200).json({ id: existing.id, linked: true });
@@ -70,8 +77,9 @@ r.patch('/:id', authRequired, roleRequired('admin'), (req, res) => {
   if (nom_complet !== undefined) { updates.push('nom_complet = @nom_complet'); params.nom_complet = nom_complet; }
   if (professeur_id !== undefined) { updates.push('professeur_id = @professeur_id'); params.professeur_id = professeur_id || null; }
   if (role !== undefined) {
-    if (!ROLES.includes(role)) return res.status(400).json({ error: 'Rôle invalide' });
-    updates.push('role = @role'); params.role = role;
+    const roleNorm = normaliserRole(role);
+    if (!ROLES.includes(roleNorm)) return res.status(400).json({ error: 'Rôle invalide' });
+    updates.push('role = @role'); params.role = roleNorm;
   }
   if (actif !== undefined) { updates.push('actif = @actif'); params.actif = actif ? 1 : 0; }
   if (password) {
