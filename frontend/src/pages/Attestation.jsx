@@ -182,6 +182,25 @@ function remplaceVars(template, vars) {
 /* ── Composant principal ─────────────────────────────────────────────────────── */
 export default function Attestation() {
   const tok = () => localStorage.getItem('token');
+  const af  = (url) => fetch(url, { headers: { Authorization:`Bearer ${tok()}` } }).then(r => r.json());
+
+  const [sectionsDispo, setSectionsDispo] = useState([]);
+  const [etabConfig, setEtabConfig]       = useState(null);
+
+  useEffect(() => {
+    af('/api/config/attestation_sections').then(d => {
+      try { setSectionsDispo(JSON.parse(d.valeur)); } catch { setSectionsDispo([]); }
+    });
+    af('/api/config/attestation_etab').then(d => {
+      try {
+        const e = JSON.parse(d.valeur);
+        setEtabConfig(e);
+        setEtab(e);
+        setForm(f => ({ ...f, directeur: e.directeur || 'SOHET Charles' }));
+        setAnnee(localStorage.getItem('annee_active') || '2025/2026');
+      } catch {}
+    });
+  }, []);
 
   const [form, setForm] = useState({
     nom: '', prenom: '', genre: 'F',
@@ -211,8 +230,8 @@ export default function Attestation() {
   const set = (k, v) => setForm(f => ({ ...f, [k]: v }));
 
   const selectionnerSection = (code) => {
-    const s = SECTIONS_DIPLOME.find(s => s.code === code);
-    if (s && code !== 'AUTRE') {
+    const s = sectionsDispo.find(s => s.code === code);
+    if (s) {
       setForm(f => ({
         ...f, section_key: code,
         intitule_diplome: s.diplome,
@@ -308,7 +327,8 @@ export default function Attestation() {
           <F label="Section" full>
             <select value={form.section_key} onChange={e => selectionnerSection(e.target.value)}
               className="w-full border border-gray-300 rounded px-2.5 py-1.5 text-sm h-9 bg-white">
-              {SECTIONS_DIPLOME.map(s => <option key={s.code} value={s.code}>{s.section}</option>)}
+              {sectionsDispo.map(s => <option key={s.code} value={s.code}>{s.section}</option>)}
+              <option value="AUTRE">Autre (saisie manuelle)</option>
             </select>
           </F>
           {form.section_key === 'AUTRE' && <>

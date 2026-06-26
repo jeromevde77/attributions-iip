@@ -1,6 +1,6 @@
 import { useEffect, useState, lazy, Suspense } from 'react';
 import { api, getAnnee } from '../lib/api.js';
-import { IconAdjustments, IconBooks, IconBuilding, IconCalendar, IconChartBar, IconCheck, IconChevronRight, IconDownload, IconFileText, IconHistory, IconLink, IconScale, IconSettings, IconSparkles, IconUserShield, IconUsers, IconX, IconGavel, IconPlus, IconTrash, IconGripVertical, IconEdit } from '@tabler/icons-react';
+import { IconAdjustments, IconAward, IconBooks, IconBuilding, IconCalendar, IconChartBar, IconCheck, IconChevronRight, IconDownload, IconFileText, IconHistory, IconLink, IconScale, IconSettings, IconSparkles, IconUserShield, IconUsers, IconX, IconGavel, IconPlus, IconTrash, IconGripVertical, IconEdit } from '@tabler/icons-react';
 import { PageHeader, RailLateral } from '../components/ui.jsx';
 const Editeur = lazy(() => import('./Editeur.jsx'));
 
@@ -901,7 +901,127 @@ function ConfigContrat() {
   );
 }
 
+/* ── Config Attestation ── */
+function ConfigAttestation() {
+  const tok = () => localStorage.getItem('token');
+  const af  = (url, opts={}) => fetch(url, { ...opts, headers: { 'Content-Type':'application/json', Authorization:`Bearer ${tok()}`, ...(opts.headers||{}) } }).then(async r => { const j=await r.json().catch(()=>({})); if(!r.ok) throw new Error(j.error||'Erreur'); return j; });
+
+  const [etab, setEtab]           = useState(null);
+  const [sections, setSections]   = useState([]);
+  const [saved, setSaved]         = useState('');
+  const [onglet, setOnglet]       = useState('etab');
+
+  useEffect(() => {
+    af('/api/config/attestation_etab').then(d => { try { setEtab(JSON.parse(d.valeur)); } catch { setEtab({}); } });
+    af('/api/config/attestation_sections').then(d => { try { setSections(JSON.parse(d.valeur)); } catch { setSections([]); } });
+  }, []);
+
+  const sauvegarderEtab = async () => {
+    await af('/api/config/attestation_etab', { method: 'PUT', body: JSON.stringify({ valeur: JSON.stringify(etab) }) });
+    setSaved('etab'); setTimeout(() => setSaved(''), 2000);
+  };
+
+  const sauvegarderSections = async () => {
+    await af('/api/config/attestation_sections', { method: 'PUT', body: JSON.stringify({ valeur: JSON.stringify(sections) }) });
+    setSaved('sections'); setTimeout(() => setSaved(''), 2000);
+  };
+
+  const ajouterSection = () => setSections(s => [...s, { code: '', section: '', diplome: '', periodes: 0, ects: 0 }]);
+  const supprimerSection = (i) => setSections(s => s.filter((_, j) => j !== i));
+  const majSection = (i, k, v) => setSections(s => s.map((x, j) => j === i ? { ...x, [k]: k==='periodes'||k==='ects' ? Number(v) : v } : x));
+
+  if (!etab) return <div className="p-8 text-center text-gray-400">Chargement…</div>;
+
+  const ONGLETS_LOC = [
+    { key: 'etab', label: 'Établissement' },
+    { key: 'sections', label: 'Sections & Diplômes' },
+  ];
+
+  return (
+    <div className="max-w-4xl space-y-4">
+      <h2 className="text-lg font-bold text-iip-blue">Configuration des attestations</h2>
+
+      <div className="flex gap-1 border-b border-gray-200 mb-4">
+        {ONGLETS_LOC.map(o => (
+          <button key={o.key} onClick={() => setOnglet(o.key)}
+            className={`px-4 py-2 text-sm font-medium border-b-2 -mb-px ${onglet===o.key ? 'border-iip-turquoise text-iip-blue' : 'border-transparent text-gray-400 hover:text-gray-600'}`}>
+            {o.label}
+          </button>
+        ))}
+      </div>
+
+      {/* ── Établissement ── */}
+      {onglet === 'etab' && (
+        <div className="space-y-3">
+          <div className="grid grid-cols-2 gap-3">
+            {[
+              ['nom',        "Nom de l'établissement"],
+              ['adresse',    'Adresse complète'],
+              ['matricule',  'N° matricule'],
+              ['fase',       'N° FASE'],
+              ['ville',      'Ville'],
+              ['directeur',  'Directeur (Nom Prénom)'],
+              ['tel',        'Téléphone'],
+              ['site',       'Site web'],
+            ].map(([k, label]) => (
+              <div key={k} className={k === 'adresse' ? 'col-span-2' : ''}>
+                <div className="text-xs text-gray-500 mb-1">{label}</div>
+                <input value={etab[k]||''} onChange={e => setEtab(et => ({ ...et, [k]: e.target.value }))}
+                  className="w-full border border-gray-300 rounded px-2.5 py-1.5 text-sm h-9" />
+              </div>
+            ))}
+          </div>
+          <button onClick={sauvegarderEtab}
+            className={`px-4 py-2 rounded-lg text-sm font-semibold ${saved==='etab' ? 'bg-green-600 text-white' : 'bg-iip-blue text-white hover:opacity-90'}`}>
+            {saved==='etab' ? '✓ Sauvegardé' : '✓ Sauvegarder'}
+          </button>
+        </div>
+      )}
+
+      {/* ── Sections & Diplômes ── */}
+      {onglet === 'sections' && (
+        <div className="space-y-3">
+          <div className="text-xs text-gray-500 mb-2">Chaque section correspond à un diplôme délivrable. Renseignez le code Gouvernement exact.</div>
+          {sections.map((s, i) => (
+            <div key={i} className="bg-white border border-gray-200 rounded-xl p-4 space-y-2">
+              <div className="grid grid-cols-2 gap-2">
+                {[
+                  ['section',  'Intitulé section (majuscules)'],
+                  ['diplome',  'Intitulé diplôme (majuscules)'],
+                  ['code',     'Code Gouvernement (ex: 914300S34D3)'],
+                  ['periodes', 'Total périodes'],
+                  ['ects',     'Total ECTS'],
+                ].map(([k, label]) => (
+                  <div key={k}>
+                    <div className="text-xs text-gray-500 mb-0.5">{label}</div>
+                    <input value={s[k]||''} onChange={e => majSection(i, k, e.target.value)}
+                      className="w-full border border-gray-300 rounded px-2 py-1 text-xs h-8" />
+                  </div>
+                ))}
+              </div>
+              <button onClick={() => supprimerSection(i)} className="text-xs text-red-400 hover:text-red-600 flex items-center gap-1">
+                <IconTrash size={12}/> Supprimer
+              </button>
+            </div>
+          ))}
+          <div className="flex gap-2">
+            <button onClick={ajouterSection}
+              className="flex items-center gap-1.5 text-sm bg-green-600 text-white px-3 py-1.5 rounded-lg hover:opacity-90">
+              <IconPlus size={14}/> Ajouter une section
+            </button>
+            <button onClick={sauvegarderSections}
+              className={`px-4 py-1.5 rounded-lg text-sm font-semibold ${saved==='sections' ? 'bg-green-600 text-white' : 'bg-iip-blue text-white hover:opacity-90'}`}>
+              {saved==='sections' ? '✓ Sauvegardé' : '✓ Sauvegarder'}
+            </button>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 export default function Configuration() {
+
   const [tab, setTab] = useState('users');
   const [historiqueActif, setHistoriqueActif] = useState(false);
   const [changelog, setChangelog] = useState({ byDay: {}, commits: [] });
@@ -1029,6 +1149,7 @@ export default function Configuration() {
     { key: 'editeur',   label: 'Éditeur',     icon: IconEdit },
     { key: 'recrutement', label: 'Recrutement', icon: IconSettings },
     { key: 'contrat', label: 'Contrat', icon: IconFileText },
+    { key: 'attestation', label: 'Attestation', icon: IconAward },
   ];
   return (
     <div className="relative bg-slate-50" style={{ minHeight: 'calc(100vh - 64px)' }}>
@@ -1082,6 +1203,9 @@ export default function Configuration() {
 
       {/* ── Onglet Contrat ── */}
       {tab === 'contrat' && <ConfigContrat />}
+
+      {/* ── Onglet Attestation ── */}
+      {tab === 'attestation' && <ConfigAttestation />}
 
       {/* ── Onglet Système ── */}
       {tab === 'systeme' && (loading ? <div className="p-8 text-center text-gray-400">Chargement…</div> : <div className="max-w-3xl space-y-6">
