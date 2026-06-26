@@ -63,7 +63,7 @@ export function genererTemplateAttestation() {
 
   <!-- Bandeau marine -->
   <div class="bandeau">
-    <img src="{{logo_iip}}" style="height:18mm;width:auto;filter:brightness(0) invert(1);" alt="Institut Ilya Prigogine" />
+    <div class="bandeau-gauche">INSTITUT<br>ILYA PRIGOGINE</div>
     <div class="bandeau-droite">PÔLE ACADÉMIQUE<br>DE BRUXELLES</div>
   </div>
 
@@ -120,6 +120,11 @@ export function genererTemplateAttestation() {
       </div>
     </div>
 
+  </div>
+
+  <!-- Logo avant pied de page -->
+  <div style="padding: 4pt 20mm 0 20mm; display: flex; align-items: center;">
+    <img src="{{logo_iip}}" style="height:14mm;width:auto;opacity:0.85;" alt="Institut Ilya Prigogine" />
   </div>
 
   <!-- Pied de page doré -->
