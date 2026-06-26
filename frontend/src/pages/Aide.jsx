@@ -331,7 +331,9 @@ export function BoutonAide({ page }) {
 /* ── Page Aide principale ───────────────────────────────────────────────────── */
 export default function Aide() {
   const [search, setSearch]     = useState('');
-  const [ouverts, setOuverts]   = useState({ navigation: true });
+  const [ouverts, setOuverts]   = useState(() =>
+    Object.fromEntries(SECTIONS_AIDE.map(s => [s.id, true]))
+  );
   const [actif, setActif]       = useState('navigation');
 
   const toggle = id => setOuverts(prev => ({ ...prev, [id]: !prev[id] }));

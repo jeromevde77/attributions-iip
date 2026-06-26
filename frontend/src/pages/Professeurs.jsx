@@ -1951,13 +1951,6 @@ export default function Professeurs() {
             )}
           </div>
         </td>
-        <td className="text-xs text-gray-600">{p.adresse_mail || '—'}</td>
-        <td className="text-xs text-gray-600">{p.commune || '—'}</td>
-        <td className="text-center">
-          {p.capaes === 'x'
-            ? <span className="text-green-600 text-xs font-semibold">✓</span>
-            : <span className="text-gray-300 text-xs">—</span>}
-        </td>
         <td className="num">{Number(p.total_per_annee ?? p.total_per_iip ?? 0).toLocaleString('fr-BE')}</td>
         <td className="num">{Number(p.total_hrs_helb || 0).toLocaleString('fr-BE')}</td>
         <td className="num">{p.anciennete_25_26_po || 0}</td>
@@ -2145,9 +2138,6 @@ export default function Professeurs() {
                 </th>
                 <Th k="nom_prenom">Nom et prénom</Th>
                 <Th k="statut">Statut</Th>
-                <Th k="adresse_mail">Email</Th>
-                <Th k="commune">Commune</Th>
-                <th className="text-center">CAPAES</th>
                 <Th k="total_per_annee" num>Total année</Th>
                 <Th k="total_hrs_helb" num>HELB (hrs)</Th>
                 <Th k="anciennete_25_26_po" num>Anc. PO</Th>
