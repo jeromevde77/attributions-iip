@@ -64,7 +64,7 @@ export function genererTemplate() {
     <div class="header-left">
       <div class="etab-nom">{{nom_etab}}</div>
       <div class="etab-sub">{{adresse_etab}}</div>
-      <div class="etab-sub">FELSI · Enseignement de promotion sociale</div>
+      <div class="etab-sub">FELSI · Enseignement pour adultes</div>
     </div>
     <div class="header-right">
       <div class="annee">Année académique {{annee}}</div>

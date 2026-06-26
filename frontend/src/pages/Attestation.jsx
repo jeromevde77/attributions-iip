@@ -99,7 +99,7 @@ export function genererTemplateAttestation() {
 
     <!-- Filet doré institutionnel -->
     <div class="filet-or">
-      <span>Communauté française de Belgique &nbsp;·&nbsp; Enseignement de promotion sociale &nbsp;·&nbsp; Année académique {{annee}}</span>
+      <span>Communauté française de Belgique &nbsp;·&nbsp; Enseignement pour adultes &nbsp;·&nbsp; Année académique {{annee}}</span>
     </div>
 
     <!-- Établissement -->
