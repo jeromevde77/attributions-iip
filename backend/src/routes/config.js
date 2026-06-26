@@ -12,7 +12,21 @@ r.get('/', authRequired, roleRequired('admin'), (req, res) => {
   res.json(result);
 });
 
-// GET /api/config/:cle — lecture publique (pour charger l'intro dans l'entretien)
+// GET /api/config/contrat_template_defaut — AVANT /:cle pour éviter interception
+r.get('/contrat_template_defaut', authRequired, roleRequired('admin'), async (req, res) => {
+  const { genererTemplate } = await import('../services/contrat_preview.js');
+  res.json({ valeur: genererTemplate() });
+});
+
+// GET /api/config/contrat_template — AVANT /:cle, retourne le défaut si absent en DB
+r.get('/contrat_template', authRequired, async (req, res) => {
+  const row = db.prepare("SELECT valeur FROM lucie_config WHERE cle = 'contrat_template'").get();
+  if (row) return res.json({ valeur: row.valeur });
+  const { genererTemplate } = await import('../services/contrat_preview.js');
+  res.json({ valeur: genererTemplate() });
+});
+
+// GET /api/config/:cle — lecture (routes spécifiques ci-dessus ont priorité)
 r.get('/:cle', authRequired, (req, res) => {
   const DEFAULTS = {
     contrat_template: null, // sera chargé depuis contrat_preview.js si absent
@@ -34,21 +48,6 @@ r.put('/:cle', authRequired, roleRequired('admin'), (req, res) => {
   db.prepare('INSERT OR REPLACE INTO lucie_config (cle, valeur, description) VALUES (?, ?, COALESCE((SELECT description FROM lucie_config WHERE cle = ?), ?))')
     .run(req.params.cle, valeur, req.params.cle, '');
   res.json({ ok: true });
-});
-
-// GET /api/config/contrat_template_defaut — retourne le template HTML par défaut
-r.get('/contrat_template_defaut', authRequired, roleRequired('admin'), async (req, res) => {
-  const { genererTemplate } = await import('../services/contrat_preview.js');
-  res.json({ valeur: genererTemplate() });
-});
-
-// Override GET pour contrat_template — retourne le template par défaut si absent
-r.get('/contrat_template', authRequired, async (req, res) => {
-  const row = db.prepare("SELECT valeur FROM lucie_config WHERE cle = 'contrat_template'").get();
-  if (row) return res.json({ valeur: row.valeur });
-  // Pas encore en DB → retourner le défaut
-  const { genererTemplate } = await import('../services/contrat_preview.js');
-  res.json({ valeur: genererTemplate() });
 });
 
 export default r;
