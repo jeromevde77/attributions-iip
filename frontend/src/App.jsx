@@ -44,6 +44,8 @@ import EA12Editor from './pages/EA12Editor.jsx';
 import Referentiels from './pages/Referentiels.jsx';
 import Pilotage from './pages/Pilotage.jsx';
 import Planification from './pages/Planification.jsx';
+import Aide from './pages/Aide.jsx';
+import { BoutonAide } from './pages/Aide.jsx';
 
 /* eslint-disable no-undef */
 const BUILD_DATE_STR = typeof __BUILD_DATE__ !== 'undefined' ? __BUILD_DATE__ : new Date().toISOString();
@@ -181,6 +183,7 @@ function ProtectedLayout({ children }) {
         ['/pilotage',     'Pilotage', IconChartBar],
         ['/planification','Planification', IconCalendarStats],
       ];
+  nav.push(['/aide', 'Aide', IconHelp]);
   if (u?.role === 'admin') nav.push(['/configuration', 'Config.', IconSettings]);
 
   return (
