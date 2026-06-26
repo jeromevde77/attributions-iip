@@ -593,7 +593,7 @@ function DetailModal({ profId, onClose, onEdit, onFiche }) {
       const res = await fetch('/api/contrats/apercu', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${localStorage.getItem('token')}` },
-        body: JSON.stringify({ prof_id: profId, date_contrat: dateContrat, representant }),
+        body: JSON.stringify({ prof_id: profId, date_contrat: dateContrat, representant, annee: getAnnee() }),
       });
       if (!res.ok) throw new Error((await res.json()).error || 'Erreur serveur');
       const { html, nom } = await res.json();
