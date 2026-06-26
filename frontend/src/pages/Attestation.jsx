@@ -56,12 +56,39 @@ export function genererTemplateAttestation() {
   .sig-droite .nom-dir { font-weight: bold; margin-top: 1mm; }
 
   /* ── Pied de page doré ── */
+  /* ── Filigrane ── */
+  .page { position: relative; }
+  .filigrane {
+    position: absolute; inset: 0; pointer-events: none; z-index: 0;
+    overflow: hidden;
+  }
+  .filigrane svg { width: 100%; height: 100%; }
+  .corps, .bandeau, .footer, .logo-bloc {
+    position: relative; z-index: 1;
+  }
   .footer { flex-shrink: 0; padding: 4pt 20mm; border-top: 0.5pt solid #C9A84C; font-size: 7pt; color: #888; text-align: center; line-height: 1.5; }
 </style>
 </head><body>
 <div class="page">
 
   <!-- Bandeau marine -->
+  <div class="filigrane" aria-hidden="true">
+    <svg xmlns="http://www.w3.org/2000/svg" width="100%" height="100%">
+      <defs>
+        <pattern id="wm" x="0" y="0" width="220" height="140" patternUnits="userSpaceOnUse" patternTransform="rotate(-35)">
+          <text x="10" y="50" font-family="Arial, sans-serif" font-size="13"
+            fill="#1B2B4B" fill-opacity="0.045" font-weight="bold" letter-spacing="3">
+            ATTESTATION PROVISOIRE
+          </text>
+          <text x="30" y="80" font-family="Arial, sans-serif" font-size="9"
+            fill="#C9A84C" fill-opacity="0.06" font-weight="bold" letter-spacing="2">
+            INSTITUT ILYA PRIGOGINE
+          </text>
+        </pattern>
+      </defs>
+      <rect width="100%" height="100%" fill="url(#wm)" />
+    </svg>
+  </div>
   <div class="bandeau">
     <div class="bandeau-gauche">INSTITUT<br>ILYA PRIGOGINE</div>
     <div class="bandeau-droite">PÔLE ACADÉMIQUE<br>DE BRUXELLES</div>
