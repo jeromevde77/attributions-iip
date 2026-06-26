@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { IconSearch, IconX, IconChevronRight, IconChevronDown, IconQuestionMark } from '@tabler/icons-react';
+import { IconSearch, IconX, IconChevronRight, IconChevronDown, IconHelpCircle } from '@tabler/icons-react';
 
 /* ── Illustrations SVG schématiques ────────────────────────────────────────── */
 
@@ -299,7 +299,7 @@ export function BoutonAide({ page }) {
       <button onClick={() => setOuvert(v => !v)}
         className="w-7 h-7 rounded-full bg-gray-100 hover:bg-iip-turquoise/20 flex items-center justify-center text-gray-500 hover:text-iip-blue transition"
         title={`Aide — ${aide.titre}`}>
-        <IconQuestionMark size={16} />
+        <IconHelpCircle size={16} />
       </button>
       {ouvert && (
         <>

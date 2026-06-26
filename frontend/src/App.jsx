@@ -183,7 +183,7 @@ function ProtectedLayout({ children }) {
         ['/pilotage',     'Pilotage', IconChartBar],
         ['/planification','Planification', IconCalendarStats],
       ];
-  nav.push(['/aide', 'Aide', IconQuestionMark]);
+  nav.push(['/aide', 'Aide', IconHelpCircle]);
   if (u?.role === 'admin') nav.push(['/configuration', 'Config.', IconSettings]);
 
   return (
