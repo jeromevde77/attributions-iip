@@ -584,7 +584,26 @@ function DetailModal({ profId, onClose, onEdit, onFiche }) {
     } catch (e) { alert('Erreur : ' + e.message); }
   }
 
+  const [aperçuContrat, setAperçuContrat] = useState(null); // { html, nom }
+
   async function genererContrat() {
+    setGeneratingContrat(true);
+    try {
+      // 1. Obtenir la prévisualisation HTML
+      const res = await fetch('/api/contrats/apercu', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${localStorage.getItem('token')}` },
+        body: JSON.stringify({ prof_id: profId, date_contrat: dateContrat, representant }),
+      });
+      if (!res.ok) throw new Error((await res.json()).error || 'Erreur serveur');
+      const { html, nom } = await res.json();
+      setAperçuContrat({ html, nom });
+      setShowContratModal(false);
+    } catch (e) { alert('Erreur : ' + e.message); }
+    finally { setGeneratingContrat(false); }
+  }
+
+  async function telechargerDocx() {
     setGeneratingContrat(true);
     try {
       const res = await fetch('/api/contrats/generer', {
@@ -598,7 +617,6 @@ function DetailModal({ profId, onClose, onEdit, onFiche }) {
       const a = document.createElement('a');
       a.href = url; a.download = `Contrat_${detail.nom}_${detail.prenom}_${dateContrat}.docx`;
       a.click(); URL.revokeObjectURL(url);
-      setShowContratModal(false);
     } catch (e) { alert('Erreur : ' + e.message); }
     finally { setGeneratingContrat(false); }
   }
@@ -899,7 +917,21 @@ function DetailModal({ profId, onClose, onEdit, onFiche }) {
         </div>
       </div>
 
-      {/* ── Modale contrat ── */}
+      {aperçuContrat && (
+        <PreviewModal
+          html={aperçuContrat.html}
+          titre={`Contrat — ${detail.nom_prenom}`}
+          sousTitre={`CDD · ${getAnnee()}`}
+          nomFichier={aperçuContrat.nom}
+          onClose={() => setAperçuContrat(null)}
+          actionExtra={
+            <button onClick={telechargerDocx} disabled={generatingContrat}
+              className="flex items-center gap-1.5 px-3 py-1.5 bg-green-600 text-white rounded-lg text-xs font-medium hover:opacity-90 disabled:opacity-40">
+              <IconDownload size={13}/> {generatingContrat ? '…' : 'Télécharger .docx'}
+            </button>
+          }
+        />
+      )}
       {showContratModal && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
           <div className="bg-white rounded-xl shadow-2xl w-full max-w-md p-6">

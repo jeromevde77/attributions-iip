@@ -9,7 +9,7 @@ import { IconPrinter, IconX, IconDownload } from '@tabler/icons-react';
  * @param {string} [nomFichier] - Nom suggéré pour l'enregistrement.
  * @param {function} onClose
  */
-export default function PreviewModal({ html, titre = 'Document', sousTitre, nomFichier, onClose }) {
+export default function PreviewModal({ html, titre = 'Document', sousTitre, nomFichier, onClose, actionExtra }) {
   const iframeRef = useRef(null);
   const [pret, setPret] = useState(false);
 
@@ -55,6 +55,7 @@ export default function PreviewModal({ html, titre = 'Document', sousTitre, nomF
               className="flex items-center gap-1.5 px-3 py-1.5 bg-iip-turquoise text-white rounded-lg text-xs font-medium hover:opacity-90 disabled:opacity-40">
               <IconPrinter size={13} /> Imprimer / PDF
             </button>
+            {actionExtra}
             <button onClick={onClose}
               className="text-white/60 hover:text-white p-1.5 rounded-lg hover:bg-white/10">
               <IconX size={16} />

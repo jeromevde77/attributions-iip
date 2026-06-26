@@ -2,8 +2,36 @@ import { Router } from 'express';
 import db from '../db/index.js';
 import { authRequired, roleRequired } from '../middleware/auth.js';
 import { genererContrat } from '../services/contrat_fill.js';
+import { genererApercu } from '../services/contrat_preview.js';
 
 const r = Router();
+
+// ── GET /apercu — prévisualisation HTML ───────────────────────────────────────
+r.post('/apercu', authRequired, roleRequired('admin', 'editeur'), async (req, res) => {
+  try {
+    const { prof_id, date_contrat, annee, representant } = req.body;
+    const anneeActive = annee || db.prepare("SELECT code FROM annee_scolaire WHERE active=1").get()?.code || '';
+    const prof  = db.prepare('SELECT * FROM professeur WHERE id = ?').get(prof_id);
+    if (!prof) return res.status(404).json({ error: 'Professeur introuvable' });
+    const etab  = db.prepare('SELECT * FROM etablissement LIMIT 1').get() || {};
+    const attributions = db.prepare(`
+      SELECT a.periodes_attribuees, a.autonomie_attribuee, a.section, a.code_cours,
+             u.ue_nom, c.cours_nom, c.ct_pp, a.type_cours
+      FROM attribution a
+      LEFT JOIN ue u ON u.ue_num = a.ue_num
+      LEFT JOIN cours c ON c.cours_code = a.code_cours AND c.annee_scolaire = a.annee_scolaire
+      WHERE a.professeur_id = ? AND a.annee_scolaire = ?
+      AND (a.type_cours IS NULL OR a.type_cours != 'Z')
+      ORDER BY a.section, a.code_cours
+    `).all(prof_id, anneeActive);
+
+    const html = genererApercu({ etab, prof, attributions, annee: anneeActive, date_contrat, representant });
+    res.json({ html, nom: `Contrat_${prof.nom}_${prof.prenom}_${date_contrat||''}` });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
 
 r.post('/generer', authRequired, roleRequired('admin', 'editeur'), async (req, res) => {
   const { prof_id, date_contrat, annee, representant } = req.body;
