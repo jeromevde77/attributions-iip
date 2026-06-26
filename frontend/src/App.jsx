@@ -367,6 +367,7 @@ export default function App() {
       <Route path="/ea12/:id"      element={<ProtectedLayout><EA12Editor /></ProtectedLayout>} />
       <Route path="/pilotage"       element={<ProtectedLayout><Pilotage /></ProtectedLayout>} />
       <Route path="/planification"  element={<ProtectedLayout><Planification /></ProtectedLayout>} />
+      <Route path="/aide"           element={<ProtectedLayout><Aide /></ProtectedLayout>} />
       <Route path="/utilisateurs" element={<ProtectedLayout><Users /></ProtectedLayout>} />
       <Route path="/annees"         element={<ProtectedLayout><Annees /></ProtectedLayout>} />
       <Route path="/configuration"  element={<ProtectedLayout><Configuration /></ProtectedLayout>} />
