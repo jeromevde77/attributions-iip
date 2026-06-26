@@ -257,6 +257,75 @@ const ENTITES = {
     ),
     filtres: ['section', 'ue_num'],
   },
+
+  etudiants_ue: {
+    label: 'Étudiants par UE', groupe: 'data', icon: '🎓', tabler: 'IconSchool',
+    cols: [
+      { key: 'ue_num',               label: 'N° UE',              defaut: true  },
+      { key: 'ue_nom',               label: 'Nom UE',             defaut: true  },
+      { key: '_sectionsLabel',       label: 'Section(s)',          defaut: true  },
+      { key: 'ue_niv',               label: 'Bloc',               defaut: true  },
+      { key: 'ue_quad',              label: 'Quadri',             defaut: true  },
+      { key: 'ue_per_etudiants',     label: 'Pér. étudiant (DP)', defaut: true  },
+      { key: 'periodes_contact_etudiant', label: 'Pér. contact',  defaut: false },
+      { key: 'heures_reelles_etudiants',  label: 'Heures réelles',defaut: false },
+      { key: 'ects',                 label: 'ECTS',               defaut: true  },
+      { key: 'et_ref',               label: 'Référent',           defaut: false },
+    ],
+    fetch: (annee, filtres) => authFetch(`/api/ref/structure?annee=${encodeURIComponent(annee)}`).then(d => {
+      const map = new Map();
+      for (const sg of (Array.isArray(d) ? d : [])) {
+        for (const ue of (sg.ues || [])) {
+          if (!map.has(ue.ue_num)) map.set(ue.ue_num, { ...ue, _sections: new Set() });
+          if (sg.section && sg.section !== '(sans section)') map.get(ue.ue_num)._sections.add(sg.section);
+        }
+      }
+      let rows = [...map.values()].map(ue => ({ ...ue, _sectionsLabel: ue._sections.size ? [...ue._sections].sort().join(', ') : '—' }));
+      if (filtres.section) rows = rows.filter(u => u._sections.has(filtres.section));
+      return rows.sort((a, b) => (a.ue_num||0) - (b.ue_num||0));
+    }),
+    filtres: ['section'],
+  },
+  encadrement_tfe: {
+    label: 'Encadrement TFE', groupe: 'data', icon: '📝', tabler: 'IconFileText',
+    cols: [
+      { key: 'professeur',           label: 'Professeur',         defaut: true  },
+      { key: 'section',              label: 'Section',            defaut: true  },
+      { key: 'ue_num',               label: 'N° UE',              defaut: true  },
+      { key: 'ue_nom',               label: 'Nom UE',             defaut: true  },
+      { key: 'coordination_encadrement', label: 'Type',           defaut: true  },
+      { key: 'periodes_attribuees',  label: 'Périodes',           defaut: true  },
+    ],
+    fetch: (annee, filtres) => {
+      let url = `/api/attributions?annee=${encodeURIComponent(annee)}`;
+      if (filtres.section) url += `&section=${encodeURIComponent(filtres.section)}`;
+      return authFetch(url).then(d => d.filter(r =>
+        r.coordination_encadrement && ['TFE','TFEN','TFEB'].some(t => (r.coordination_encadrement||'').includes(t))
+      ).map(r => ({ ...r, professeur: r.professeur || r.prof_nom })));
+    },
+    filtres: ['section'],
+  },
+  encadrement_stage: {
+    label: 'Encadrement stage', groupe: 'data', icon: '🏥', tabler: 'IconStethoscope',
+    cols: [
+      { key: 'professeur',           label: 'Professeur',         defaut: true  },
+      { key: 'section',              label: 'Section',            defaut: true  },
+      { key: 'ue_num',               label: 'N° UE',              defaut: true  },
+      { key: 'ue_nom',               label: 'Nom UE',             defaut: true  },
+      { key: 'coordination_encadrement', label: 'Type',           defaut: true  },
+      { key: 'nom_cours',            label: 'Cours',              defaut: true  },
+      { key: 'periodes_attribuees',  label: 'Périodes',           defaut: true  },
+      { key: 'total_attribue_professeur', label: 'Total',         defaut: false },
+    ],
+    fetch: (annee, filtres) => {
+      let url = `/api/attributions?annee=${encodeURIComponent(annee)}`;
+      if (filtres.section) url += `&section=${encodeURIComponent(filtres.section)}`;
+      return authFetch(url).then(d => d.filter(r =>
+        r.coordination_encadrement && ['ES','ST','STAGE'].some(t => (r.coordination_encadrement||'').includes(t))
+      ).map(r => ({ ...r, professeur: r.professeur || r.prof_nom })));
+    },
+    filtres: ['section'],
+  },
   'rapport-etp': {
     label: 'Rapport ETP', groupe: 'rapport', icon: '🎓', tabler: 'IconCertificate',
     rapport: true,
@@ -1322,19 +1391,29 @@ export default function Listes() {
                 </tbody>
               </table>
             </div>
-            {/* Colonnes (repliable sous le tableau) */}
+            {/* Colonnes — badges cliquables */}
             {def.cols.length > 0 && (
-              <details className="mt-3 text-sm">
-                <summary className="cursor-pointer text-slate-500 hover:text-slate-700">Colonnes affichées</summary>
-                <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1">
+              <div className="mt-3 pt-3 border-t border-gray-100">
+                <div className="flex items-center gap-2 mb-2">
+                  <span className="text-xs font-bold text-gray-400 uppercase tracking-widest">Colonnes</span>
+                  <button onClick={() => setColsActives(new Set(def.cols.map(c => c.key)))}
+                    className="text-[10px] text-iip-turquoise hover:underline">Tout</button>
+                  <button onClick={() => setColsActives(new Set(def.cols.filter(c => c.defaut).map(c => c.key)))}
+                    className="text-[10px] text-gray-400 hover:underline">Par défaut</button>
+                </div>
+                <div className="flex flex-wrap gap-1.5">
                   {def.cols.map(c => (
-                    <label key={c.key} className="flex items-center gap-1.5 cursor-pointer">
-                      <input type="checkbox" checked={colsActives.has(c.key)} onChange={() => toggleCol(c.key)} />
-                      <span className={colsActives.has(c.key) ? 'text-slate-800' : 'text-slate-400'}>{c.label}</span>
-                    </label>
+                    <button key={c.key} onClick={() => toggleCol(c.key)}
+                      className={`text-xs px-2.5 py-1 rounded-full border font-medium transition ${
+                        colsActives.has(c.key)
+                          ? 'bg-iip-blue text-white border-iip-blue'
+                          : 'border-gray-300 text-gray-400 hover:border-iip-blue hover:text-iip-blue'
+                      }`}>
+                      {c.label}
+                    </button>
                   ))}
                 </div>
-              </details>
+              </div>
             )}
           </div>
         )}
