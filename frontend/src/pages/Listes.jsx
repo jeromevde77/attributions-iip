@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { api, getAnnee, nomDoc } from '../lib/api.js';
 import PreviewModal from '../components/PreviewModal.jsx';
 import { RailLateral } from '../components/ui.jsx';
@@ -350,6 +351,7 @@ const LOGO_IIP = 'data:image/jpeg;base64,/9j/4AAQSkZJRgABAgAAZABkAAD/7AARRHVja3k
 
 // ─── Composant principal ─────────────────────────────────────────────────────
 export default function Listes() {
+  const navigate = useNavigate();
   const annee = getAnnee() || '2026-2027';
   const [entite, setEntite] = useState('profs');
   const [colsActives, setColsActives] = useState(() => new Set(ENTITES['profs'].cols.filter(c => c.defaut).map(c => c.key)));
@@ -1185,7 +1187,12 @@ export default function Listes() {
       <RailLateral
         icon={IconFileExport}
         titre="Listes & rapports"
-        sections={ordreGroupes.map(grp => ({
+        sections={[
+          { label: 'Documents', items: [
+            { key: 'attestation', label: 'Attestation réussite', icon: IconFileText, actif: false,
+              couleur: '#16a34a', onClick: () => navigate('/attestation') },
+          ]},
+          ...ordreGroupes.map(grp => ({
           label: GROUPES_LABEL[grp],
           items: Object.entries(ENTITES)
             .filter(([, e]) => (e.groupe || 'data') === grp)
@@ -1193,7 +1200,7 @@ export default function Listes() {
               key: k, label: e.label, icon: TABLER[e.tabler] || IconFileText,
               actif: entite === k, onClick: () => changerEntite(k),
             })),
-        })).filter(s => s.items.length > 0)}
+        })).filter(s => s.items.length > 0)]}
       />
 
       {/* ── Colonne droite : filtres + contenu ── */}

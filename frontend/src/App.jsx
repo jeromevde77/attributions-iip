@@ -45,6 +45,7 @@ import Referentiels from './pages/Referentiels.jsx';
 import Pilotage from './pages/Pilotage.jsx';
 import Planification from './pages/Planification.jsx';
 import Aide from './pages/Aide.jsx';
+import Attestation from './pages/Attestation.jsx';
 import { BoutonAide } from './pages/Aide.jsx';
 
 /* eslint-disable no-undef */
@@ -368,6 +369,7 @@ export default function App() {
       <Route path="/pilotage"       element={<ProtectedLayout><Pilotage /></ProtectedLayout>} />
       <Route path="/planification"  element={<ProtectedLayout><Planification /></ProtectedLayout>} />
       <Route path="/aide"           element={<ProtectedLayout><Aide /></ProtectedLayout>} />
+      <Route path="/attestation"   element={<ProtectedLayout><Attestation /></ProtectedLayout>} />
       <Route path="/utilisateurs" element={<ProtectedLayout><Users /></ProtectedLayout>} />
       <Route path="/annees"         element={<ProtectedLayout><Annees /></ProtectedLayout>} />
       <Route path="/configuration"  element={<ProtectedLayout><Configuration /></ProtectedLayout>} />
