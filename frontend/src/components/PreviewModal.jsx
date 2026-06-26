@@ -1,25 +1,23 @@
 import { useRef, useState } from 'react';
-import { IconPrinter, IconX } from '@tabler/icons-react';
+import { IconPrinter, IconX, IconDownload } from '@tabler/icons-react';
 
 /**
  * Modale d'aperçu d'un document HTML avant impression / sauvegarde PDF.
- * @param {string} html    - Document HTML complet.
- * @param {string} [titre] - Titre affiché dans l'en-tête de la modale.
- * @param {string} [nomFichier] - Nom suggéré pour l'enregistrement (sans extension).
+ * @param {string} html        - Document HTML complet.
+ * @param {string} [titre]     - Nom du prof ou titre principal (barre marine).
+ * @param {string} [sousTitre] - Type de document (ex: "Fiche IIP · 2026-2027").
+ * @param {string} [nomFichier] - Nom suggéré pour l'enregistrement.
  * @param {function} onClose
  */
-export default function PreviewModal({ html, titre = 'Aperçu du document', nomFichier, onClose }) {
+export default function PreviewModal({ html, titre = 'Document', sousTitre, nomFichier, onClose }) {
   const iframeRef = useRef(null);
   const [pret, setPret] = useState(false);
 
   function imprimer() {
     const iframe = iframeRef.current;
     if (!iframe || !iframe.contentWindow) return;
-    // Injecter le titre dans le document pour que le PDF soit bien nommé
     if (nomFichier) {
-      try {
-        iframe.contentDocument.title = nomFichier;
-      } catch(e) {}
+      try { iframe.contentDocument.title = nomFichier; } catch(e) {}
     }
     try {
       iframe.contentWindow.focus();
@@ -29,35 +27,47 @@ export default function PreviewModal({ html, titre = 'Aperçu du document', nomF
     }
   }
 
+  // Extraire initiales depuis le titre (ex: "BAGAYOKO Daouda" → "DB")
+  const initiales = titre.split(/\s+/).map(w => w[0] || '').slice(0, 2).join('').toUpperCase();
+
   return (
-    <div className="fixed inset-0 bg-black/60 z-50 flex flex-col items-center p-3 sm:p-6"
+    <div className="fixed inset-0 bg-black/60 z-50 flex flex-col items-center p-2 sm:p-4"
          onClick={e => e.target === e.currentTarget && onClose()}>
-      <div className="bg-white rounded-xl shadow-2xl w-full max-w-4xl flex flex-col overflow-hidden"
-           style={{ height: '92vh' }}>
-        <div className="flex items-center justify-between px-4 py-2.5 border-b border-gray-200 bg-gray-50">
-          <div>
-            <h3 className="font-semibold text-gray-700 text-sm">{titre}</h3>
-            {nomFichier && <div className="text-xs text-gray-400 font-mono">{nomFichier}</div>}
+      <div className="bg-white rounded-xl shadow-2xl w-full max-w-5xl flex flex-col overflow-hidden"
+           style={{ height: '95vh' }}>
+
+        {/* ── Barre marine ── */}
+        <div className="flex items-center justify-between px-4 py-2.5 bg-[#1B2B4B] flex-shrink-0">
+          <div className="flex items-center gap-3 min-w-0">
+            <div className="w-8 h-8 rounded-full bg-white/20 flex items-center justify-center text-white font-bold text-xs flex-shrink-0">
+              {initiales}
+            </div>
+            <div className="min-w-0">
+              <div className="text-white font-bold text-sm truncate">{titre}</div>
+              {sousTitre && <div className="text-white/60 text-xs">{sousTitre}</div>}
+            </div>
           </div>
-          <div className="flex items-center gap-2">
-            <span className="text-[11px] text-amber-600 hidden sm:inline" title="Safari ne force pas toujours l'orientation : choisissez Paysage dans la fenêtre d'impression">
-              ⊞ Pensez à choisir « Paysage »
+          <div className="flex items-center gap-2 flex-shrink-0">
+            <span className="text-[10px] text-amber-300 hidden sm:inline opacity-75">
+              ⊞ Choisir « Paysage » à l'impression
             </span>
             <button onClick={imprimer} disabled={!pret}
-              className="px-4 py-1.5 h-9 bg-iip-mauve text-white rounded-lg text-sm font-medium hover:opacity-90 disabled:opacity-40">
-              <IconPrinter size={14} className="inline align-[-2px] mr-1" />Imprimer / Enregistrer en PDF
+              className="flex items-center gap-1.5 px-3 py-1.5 bg-iip-turquoise text-white rounded-lg text-xs font-medium hover:opacity-90 disabled:opacity-40">
+              <IconPrinter size={13} /> Imprimer / PDF
             </button>
             <button onClick={onClose}
-              className="px-3 py-1.5 h-9 text-gray-500 hover:text-gray-700 text-sm">
-              <IconX size={14} className="inline align-[-2px] mr-1" />Fermer
+              className="text-white/60 hover:text-white p-1.5 rounded-lg hover:bg-white/10">
+              <IconX size={16} />
             </button>
           </div>
         </div>
+
+        {/* ── iframe ── */}
         <iframe
           ref={iframeRef}
           srcDoc={html}
           onLoad={() => setPret(true)}
-          title={nomFichier || 'Aperçu'}
+          title={nomFichier || titre}
           className="flex-1 w-full border-0 bg-gray-100"
         />
       </div>

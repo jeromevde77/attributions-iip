@@ -1395,7 +1395,7 @@ export default function Professeurs() {
       </div>
       </body></html>`;
     if (returnOnly) return html;
-    setFicheHtml({ html, nom: nomDoc('Fiche_HELB', prof.nom, prof.prenom, annee) });
+    setFicheHtml({ html, nom: nomDoc('Fiche_HELB', prof.nom, prof.prenom, annee), titre: `${prof.prenom || ''} ${prof.nom || ''}`.trim(), sousTitre: `Fiche HELB · ${annee}` });
   }
 
   // Fiche globale : bloc IIP (périodes) + bloc HELB (heures) + rectangle récap combiné
@@ -1514,7 +1514,7 @@ export default function Professeurs() {
       </div>
       </body></html>`;
     if (returnOnly) return html;
-    setFicheHtml({ html, nom: nomDoc('Fiche_globale', prof.nom, prof.prenom, annee) });
+    setFicheHtml({ html, nom: nomDoc('Fiche_globale', prof.nom, prof.prenom, annee), titre: `${prof.prenom || ''} ${prof.nom || ''}`.trim(), sousTitre: `Fiche globale · ${annee}` });
   }
 
   async function genererFicheAttributions(profId, contratFiltre = null, returnOnly = false) {
@@ -1668,7 +1668,7 @@ export default function Professeurs() {
       </body></html>`;
 
     if (returnOnly) return html;
-    setFicheHtml({ html, nom: nomDoc('Fiche_attr', prof.nom, prof.prenom, annee) });
+    setFicheHtml({ html, nom: nomDoc('Fiche_attr', prof.nom, prof.prenom, annee), titre: `${prof.prenom || ''} ${prof.nom || ''}`.trim(), sousTitre: `Fiche attributions IIP · ${annee}` });
   }
   const canEdit = me?.role === 'admin' || me?.role === 'editeur';
 
@@ -2149,7 +2149,7 @@ export default function Professeurs() {
         <ProfFicheModal prof={editProf} onClose={() => setEditProf(null)}
           onSaved={() => { setEditProf(null); load(); }} />
       )}
-      {ficheHtml && <PreviewModal html={ficheHtml.html||ficheHtml} titre="Fiche d'attributions" nomFichier={ficheHtml.nom} onClose={() => setFicheHtml(null)} />}
+      {ficheHtml && <PreviewModal html={ficheHtml.html||ficheHtml} titre={ficheHtml.titre || "Fiche d'attributions"} sousTitre={ficheHtml.sousTitre} nomFichier={ficheHtml.nom} onClose={() => setFicheHtml(null)} />}
       </div>
     </div>
   );
