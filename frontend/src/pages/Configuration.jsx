@@ -1,6 +1,6 @@
 import { useEffect, useState, lazy, Suspense } from 'react';
 import { api, getAnnee } from '../lib/api.js';
-import { IconAdjustments, IconBooks, IconBuilding, IconCalendar, IconChartBar, IconCheck, IconChevronRight, IconDownload, IconHistory, IconLink, IconScale, IconSettings, IconSparkles, IconUserShield, IconUsers, IconX, IconGavel, IconPlus, IconTrash, IconGripVertical, IconEdit } from '@tabler/icons-react';
+import { IconAdjustments, IconBooks, IconBuilding, IconCalendar, IconChartBar, IconCheck, IconChevronRight, IconDownload, IconFileText, IconHistory, IconLink, IconScale, IconSettings, IconSparkles, IconUserShield, IconUsers, IconX, IconGavel, IconPlus, IconTrash, IconGripVertical, IconEdit } from '@tabler/icons-react';
 import { PageHeader, RailLateral } from '../components/ui.jsx';
 const Editeur = lazy(() => import('./Editeur.jsx'));
 
@@ -783,6 +783,124 @@ function GestionPrerequis() {
   );
 }
 
+
+/* ── Config Contrat : éditeur HTML du template ── */
+function ConfigContrat() {
+  const [template, setTemplate] = useState('');
+  const [loading, setLoading]   = useState(true);
+  const [saving, setSaving]     = useState(false);
+  const [saved, setSaved]       = useState(false);
+  const [preview, setPreview]   = useState(false);
+
+  const VARS = [
+    { v: '{{nom_prof}}',      desc: 'Nom complet du membre' },
+    { v: '{{prenom_prof}}',   desc: 'Prénom' },
+    { v: '{{nom_etab}}',      desc: "Nom de l'établissement" },
+    { v: '{{representant}}',  desc: 'Représentant du PO' },
+    { v: '{{annee}}',         desc: 'Année scolaire (ex: 2026-2027)' },
+    { v: '{{date_contrat}}',  desc: 'Date de signature (longue)' },
+    { v: '{{adresse_prof}}',  desc: 'Adresse du membre' },
+    { v: '{{niss}}',          desc: 'NISS du membre' },
+    { v: '{{cours_liste}}',   desc: 'Bloc HTML des cours attribués' },
+    { v: '{{total_periodes}}',desc: 'Total périodes' },
+    { v: '{{etp}}',           desc: 'ETP calculé' },
+    { v: '{{phrase_etp}}',    desc: 'Phrase temps plein / incomplet' },
+    { v: '{{adresse_etab}}',  desc: 'Adresse de l'établissement' },
+  ];
+
+  const tok = () => localStorage.getItem('token');
+
+  useEffect(() => {
+    fetch('/api/config/contrat_template', { headers: { Authorization: `Bearer ${tok()}` } })
+      .then(r => r.json())
+      .then(d => { setTemplate(d.valeur || ''); setLoading(false); })
+      .catch(() => setLoading(false));
+  }, []);
+
+  async function sauvegarder() {
+    setSaving(true);
+    try {
+      await fetch('/api/config/contrat_template', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${tok()}` },
+        body: JSON.stringify({ valeur: template }),
+      });
+      setSaved(true); setTimeout(() => setSaved(false), 2000);
+    } catch (e) { alert('Erreur : ' + e.message); }
+    finally { setSaving(false); }
+  }
+
+  async function reinitialiser() {
+    if (!confirm('Réinitialiser au template par défaut ? Vos modifications seront perdues.')) return;
+    try {
+      const r = await fetch('/api/config/contrat_template_defaut', { headers: { Authorization: `Bearer ${tok()}` } });
+      const d = await r.json();
+      setTemplate(d.valeur || '');
+    } catch (e) { alert('Erreur : ' + e.message); }
+  }
+
+  const inserer = (v) => {
+    const ta = document.getElementById('contrat-editor');
+    if (!ta) return;
+    const s = ta.selectionStart, e = ta.selectionEnd;
+    setTemplate(prev => prev.slice(0, s) + v + prev.slice(e));
+    setTimeout(() => { ta.selectionStart = ta.selectionEnd = s + v.length; ta.focus(); }, 0);
+  };
+
+  if (loading) return <div className="p-8 text-center text-gray-400">Chargement…</div>;
+
+  return (
+    <div className="max-w-7xl space-y-4">
+      <div className="flex items-center justify-between">
+        <div>
+          <h2 className="text-lg font-bold text-iip-blue">Template du contrat de travail</h2>
+          <p className="text-xs text-gray-500 mt-0.5">Éditez le HTML du contrat. Utilisez les variables <code className="bg-gray-100 px-1 rounded">{"{{variable}}"}</code> pour les données dynamiques.</p>
+        </div>
+        <div className="flex items-center gap-2">
+          <button onClick={reinitialiser} className="text-xs border border-gray-300 text-gray-500 hover:bg-gray-50 px-3 py-1.5 rounded-lg">↺ Réinitialiser</button>
+          <button onClick={() => setPreview(v => !v)} className={`text-xs px-3 py-1.5 rounded-lg border ${preview ? 'bg-iip-blue text-white border-iip-blue' : 'border-gray-300 text-gray-600 hover:bg-gray-50'}`}>
+            {preview ? '⊞ Éditeur' : '👁 Prévisualiser'}
+          </button>
+          <button onClick={sauvegarder} disabled={saving}
+            className={`text-xs px-4 py-1.5 rounded-lg font-semibold ${saved ? 'bg-green-600 text-white' : 'bg-iip-blue text-white hover:opacity-90'} disabled:opacity-40`}>
+            {saved ? '✓ Sauvegardé' : saving ? 'Sauvegarde…' : '✓ Sauvegarder'}
+          </button>
+        </div>
+      </div>
+
+      {/* Variables disponibles */}
+      <div className="bg-amber-50 border border-amber-200 rounded-xl p-3">
+        <div className="text-xs font-bold text-amber-700 mb-2">Variables disponibles — cliquez pour insérer</div>
+        <div className="flex flex-wrap gap-1.5">
+          {VARS.map(({ v, desc }) => (
+            <button key={v} onClick={() => inserer(v)} title={desc}
+              className="text-xs font-mono bg-white border border-amber-300 text-amber-800 hover:bg-amber-100 px-2 py-0.5 rounded transition">
+              {v}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* Éditeur / Prévisualisation */}
+      {preview ? (
+        <div className="bg-white border border-gray-200 rounded-xl overflow-hidden" style={{ height: '70vh' }}>
+          <iframe srcDoc={template} className="w-full h-full border-0" title="Aperçu contrat" />
+        </div>
+      ) : (
+        <textarea
+          id="contrat-editor"
+          value={template}
+          onChange={e => setTemplate(e.target.value)}
+          spellCheck={false}
+          className="w-full font-mono text-xs bg-gray-950 text-green-300 rounded-xl p-4 border border-gray-800 focus:outline-none focus:border-iip-turquoise resize-none"
+          style={{ height: '70vh', lineHeight: '1.6', tabSize: 2 }}
+          placeholder="Le template HTML du contrat s'affiche ici…"
+        />
+      )}
+    </div>
+  );
+}
+
 export default function Configuration() {
   const [tab, setTab] = useState('users');
   const [historiqueActif, setHistoriqueActif] = useState(false);
@@ -910,6 +1028,7 @@ export default function Configuration() {
     { key: 'changelog', label: 'Nouveautés', icon: IconSparkles },
     { key: 'editeur',   label: 'Éditeur',     icon: IconEdit },
     { key: 'recrutement', label: 'Recrutement', icon: IconSettings },
+    { key: 'contrat', label: 'Contrat', icon: IconFileText },
   ];
   return (
     <div className="relative bg-slate-50" style={{ minHeight: 'calc(100vh - 64px)' }}>
@@ -960,6 +1079,9 @@ export default function Configuration() {
 
       {/* ── Onglet Recrutement ── */}
       {tab === 'recrutement' && <ConfigRecrutement />}
+
+      {/* ── Onglet Contrat ── */}
+      {tab === 'contrat' && <ConfigContrat />}
 
       {/* ── Onglet Système ── */}
       {tab === 'systeme' && (loading ? <div className="p-8 text-center text-gray-400">Chargement…</div> : <div className="max-w-3xl space-y-6">

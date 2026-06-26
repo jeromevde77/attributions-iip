@@ -25,7 +25,9 @@ r.post('/apercu', authRequired, roleRequired('admin', 'editeur'), async (req, re
       ORDER BY a.section, a.code_cours
     `).all(prof_id, anneeActive);
 
-    const html = genererApercu({ etab, prof, attributions, annee: anneeActive, date_contrat, representant });
+    const html = genererApercu({ etab, prof, attributions, annee: anneeActive, date_contrat, representant,
+      templateHtml: db.prepare("SELECT valeur FROM lucie_config WHERE cle = 'contrat_template'").get()?.valeur || null,
+    });
     res.json({ html, nom: `Contrat_${prof.nom}_${prof.prenom}_${date_contrat||''}` });
   } catch (e) {
     res.status(500).json({ error: e.message });
