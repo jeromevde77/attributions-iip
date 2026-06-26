@@ -10,68 +10,124 @@ export function genererTemplateAttestation() {
 <title>Attestation provisoire</title>
 <style>
   * { box-sizing: border-box; margin: 0; padding: 0; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
-  body { font-family: Arial, sans-serif; font-size: 10pt; color: #1a1a1a; background: white; }
-  @media print { @page { size: A4 portrait; margin: 15mm 20mm; } }
-  .page { max-width: 170mm; margin: 0 auto; padding: 6mm 0; min-height: 257mm; display: flex; flex-direction: column; }
-  .header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 8mm; }
-  .logo-placeholder { width: 35mm; height: 16mm; display: flex; align-items: center; justify-content: center; font-size: 7pt; color: #999; border: 0.5pt solid #ddd; border-radius: 2pt; text-align: center; padding: 2mm; }
-  .logo-pole { font-size: 8pt; font-weight: bold; text-align: center; line-height: 1.4; color: #1a1a1a; letter-spacing: 0.5pt; }
-  .institutionnel { text-align: center; margin-bottom: 7mm; }
-  .institutionnel p { font-size: 10pt; font-weight: bold; letter-spacing: 0.5pt; margin-bottom: 2mm; }
-  .etab-bloc { margin-bottom: 7mm; }
-  .etab-bloc .etab-nom { font-weight: bold; }
-  .etab-bloc p { font-size: 9pt; line-height: 1.5; }
-  .encadre { border: 1pt solid #1a1a1a; padding: 3.5mm 8mm; text-align: center; margin-bottom: 7mm; }
-  .encadre p { font-size: 10pt; font-weight: bold; }
-  .corps { flex: 1; }
-  .corps p { font-size: 10pt; line-height: 1.75; margin-bottom: 1.5mm; }
-  .ue-bloc { margin: 3mm 0 3mm 6mm; }
-  .ue-ligne { font-size: 9.5pt; line-height: 1.5; display: flex; gap: 4mm; }
-  .ue-code { font-weight: bold; min-width: 12mm; }
-  .signatures { margin-top: 8mm; display: flex; justify-content: space-between; }
-  .sig-droite { text-align: center; }
-  .sig-droite .lieu-date { margin-bottom: 10mm; font-size: 9.5pt; }
-  .footer { margin-top: auto; padding-top: 3mm; border-top: 0.5pt solid #ccc; font-size: 7pt; color: #444; text-align: center; line-height: 1.4; }
+  body { font-family: Arial, sans-serif; font-size: 9.5pt; color: #1a1a1a; background: white; }
+  @media print { @page { size: A4 portrait; margin: 0; } body { margin: 0; } }
+  .page { width: 210mm; min-height: 297mm; margin: 0 auto; display: flex; flex-direction: column; }
+
+  /* ── Bandeau marine ── */
+  .bandeau { background: #1B2B4B; padding: 10px 20px; display: flex; justify-content: space-between; align-items: center; flex-shrink: 0; }
+  .bandeau-gauche { color: white; font-size: 9pt; font-weight: bold; letter-spacing: 0.5pt; line-height: 1.4; }
+  .bandeau-droite { color: rgba(255,255,255,0.65); font-size: 7.5pt; text-align: right; letter-spacing: 0.5pt; line-height: 1.5; }
+
+  /* ── Corps ── */
+  .corps { flex: 1; padding: 14mm 20mm 8mm 20mm; display: flex; flex-direction: column; }
+
+  /* ── Filet doré institutionnel ── */
+  .filet-or { border-top: 1pt solid #C9A84C; border-bottom: 1pt solid #C9A84C; padding: 3pt 0; margin-bottom: 8mm; text-align: center; }
+  .filet-or span { font-size: 7.5pt; color: #888; letter-spacing: 0.8pt; text-transform: uppercase; }
+
+  /* ── Établissement ── */
+  .etab { font-size: 8pt; color: #444; line-height: 1.6; margin-bottom: 7mm; }
+  .etab strong { color: #1a1a1a; font-size: 8.5pt; }
+
+  /* ── Encadré attestation (bordure dorée) ── */
+  .encadre { border: 1pt solid #C9A84C; padding: 4pt 0; text-align: center; margin-bottom: 8mm; }
+  .encadre span { font-size: 10pt; font-weight: bold; letter-spacing: 0.5pt; }
+
+  /* ── Texte courant ── */
+  .texte p { font-size: 9.5pt; line-height: 1.75; margin-bottom: 3pt; }
+
+  /* ── Carte étudiant ── */
+  .carte-etudiant { background: #f0f4ff; border-left: 3pt solid #C9A84C; padding: 6pt 10pt; margin: 5mm 0; border-radius: 0 3pt 3pt 0; }
+  .carte-etudiant .nom { font-size: 11pt; font-weight: bold; color: #1B2B4B; }
+  .carte-etudiant .naissance { font-size: 8.5pt; color: #555; margin-top: 2pt; }
+
+  /* ── UE bloc ── */
+  .ue-bloc { margin: 2mm 0 3mm 6mm; }
+  .ue-bloc .ue-ligne { font-size: 9pt; line-height: 1.6; }
+
+  /* ── Signatures ── */
+  .signatures { display: flex; justify-content: space-between; align-items: flex-end; margin-top: 10mm; padding-top: 6mm; border-top: 0.5pt solid #e0e0e0; }
+  .sig-gauche { font-size: 9pt; color: #666; }
+  .sig-droite { text-align: right; font-size: 9.5pt; }
+  .sig-droite .lieu-date { margin-bottom: 14mm; color: #333; }
+  .sig-droite .nom-dir { font-weight: bold; margin-top: 1mm; }
+
+  /* ── Pied de page doré ── */
+  .footer { flex-shrink: 0; padding: 4pt 20mm; border-top: 0.5pt solid #C9A84C; font-size: 7pt; color: #888; text-align: center; line-height: 1.5; }
 </style>
-</head><body><div class="page">
-  <div class="header">
-    <div class="logo-placeholder">LOGO<br>Institut Ilya Prigogine</div>
-    <div class="logo-pole"><span>PÔLE</span><br><span>ACADÉMIQUE</span><br><span>DE BRUXELLES</span></div>
+</head><body>
+<div class="page">
+
+  <!-- Bandeau marine -->
+  <div class="bandeau">
+    <div class="bandeau-gauche">INSTITUT<br>ILYA PRIGOGINE</div>
+    <div class="bandeau-droite">PÔLE ACADÉMIQUE<br>DE BRUXELLES</div>
   </div>
-  <div class="institutionnel">
-    <p>COMMUNAUTE FRANCAISE DE BELGIQUE</p>
-    <p>ENSEIGNEMENT DE PROMOTION SOCIALE</p>
-    <p>ANNEE ACADEMIQUE : {{annee}}</p>
-  </div>
-  <div class="etab-bloc">
-    <p class="etab-nom">{{nom_etab}}</p>
-    <p>Adresse : {{adresse_etab}}</p>
-    <p>Numéro de matricule : {{matricule_etab}}</p>
-    <p>Numéro FASE : {{fase_etab}}</p>
-  </div>
-  <div class="encadre"><p>Attestation provisoire</p></div>
+
+  <!-- Corps principal -->
   <div class="corps">
-    <p>Je soussigné, {{directeur}} Directeur de l'établissement, certifie que</p>
-    <p><strong>{{nom_etudiant}} {{prenom_etudiant}}({{genre}})</strong><br>
-    Né·e à <strong>{{lieu_naissance}}</strong>, le <strong>{{date_naissance}}</strong>,</p>
-    <p>a obtenu ce jour le <strong>DIPLÔME DE {{intitule_diplome}}</strong></p>
-    <p>Avec la mention <strong>{{mention}}</strong></p>
-    <p>à l'issue de la section <strong>{{intitule_section}}</strong></p>
-    <p>approuvée par le Gouvernement sous le numéro de code : <strong>{{code_section}}</strong></p>
-    <p>Ladite section comporte {{total_periodes}} périodes / {{total_ects}} ECTS.</p>
-    {{bloc_ue_det}}
-    {{bloc_ue_int}}
-    <p>Le diplôme de l'intéressé·e est actuellement soumis à la signature de l'autorité compétente.</p>
-  </div>
-  <div class="signatures">
-    <div><p>Sceau de l'établissement</p></div>
-    <div class="sig-droite">
-      <p class="lieu-date">Fait à {{ville_etab}},<br>le {{date_deliberation}}</p>
-      <p>Le Directeur,<br><strong>{{directeur}}</strong></p>
+
+    <!-- Filet doré institutionnel -->
+    <div class="filet-or">
+      <span>Communauté française de Belgique &nbsp;·&nbsp; Enseignement de promotion sociale &nbsp;·&nbsp; Année académique {{annee}}</span>
     </div>
+
+    <!-- Établissement -->
+    <div class="etab">
+      <strong>{{nom_etab}}</strong><br>
+      Adresse : {{adresse_etab}}<br>
+      Numéro de matricule : {{matricule_etab}} &nbsp;·&nbsp; Numéro FASE : {{fase_etab}}
+    </div>
+
+    <!-- Encadré attestation -->
+    <div class="encadre">
+      <span>Attestation provisoire</span>
+    </div>
+
+    <!-- Corps texte -->
+    <div class="texte">
+      <p>Je soussigné, {{directeur}} Directeur de l'établissement, certifie que</p>
+    </div>
+
+    <!-- Carte étudiant -->
+    <div class="carte-etudiant">
+      <div class="nom">{{nom_etudiant}} {{prenom_etudiant}} ({{genre}})</div>
+      <div class="naissance">Né·e à <strong>{{lieu_naissance}}</strong>, le <strong>{{date_naissance}}</strong></div>
+    </div>
+
+    <!-- Suite texte -->
+    <div class="texte">
+      <p>a obtenu ce jour le <strong>DIPLÔME DE {{intitule_diplome}}</strong></p>
+      <p>Avec la mention <strong>{{mention}}</strong></p>
+      <p>à l'issue de la section <strong>{{intitule_section}}</strong></p>
+      <p>approuvée par le Gouvernement sous le numéro de code : <strong>{{code_section}}</strong></p>
+      <p>Ladite section comporte {{total_periodes}} périodes / {{total_ects}} ECTS.</p>
+      {{bloc_ue_det}}
+      {{bloc_ue_int}}
+      <p style="font-style:italic;color:#555;margin-top:3mm;">Le diplôme de l'intéressé·e est actuellement soumis à la signature de l'autorité compétente.</p>
+    </div>
+
+    <!-- Signatures -->
+    <div class="signatures">
+      <div class="sig-gauche">Sceau de l'établissement</div>
+      <div class="sig-droite">
+        <div class="lieu-date">Fait à {{ville_etab}},<br>le {{date_deliberation}}</div>
+        <div>Le Directeur,</div>
+        <div class="nom-dir">{{directeur}}</div>
+      </div>
+    </div>
+
   </div>
-  <div class="footer">Institut Supérieur de Promotion Sociale Libre Ilya Prigogine • PO Asbl Ilya Prigogine • Matricule N° {{matricule_etab}} • Fase {{fase_etab}}<br>{{adresse_etab}} • T. {{tel_etab}} • {{site_etab}}</div>
-</div></body></html>`;
+
+  <!-- Pied de page doré -->
+  <div class="footer">
+    Institut Supérieur de Promotion Sociale Libre Ilya Prigogine &nbsp;·&nbsp; PO Asbl Ilya Prigogine &nbsp;·&nbsp; Matricule N° {{matricule_etab}} &nbsp;·&nbsp; Fase {{fase_etab}}<br>
+    {{adresse_etab}} &nbsp;·&nbsp; T. {{tel_etab}} &nbsp;·&nbsp; {{site_etab}}
+  </div>
+
+</div>
+</body></html>`;
 }
 
 function remplaceVars(template, vars) {
