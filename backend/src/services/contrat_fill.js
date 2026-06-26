@@ -70,7 +70,16 @@ function art(num, paragraphs) {
 
 // ─── Export ───────────────────────────────────────────────────────────────────
 export async function genererContrat({ etab, prof, attributions, annee, date_contrat, representant }) {
-  const total = attributions.reduce((s,a) => s + (a.periodes_attribuees||0) + (a.autonomie_attribuee||0), 0);
+  // Calcul ETP selon règle : CT=800°, PP=1000° par ETP
+  let totalCT = 0, totalPP = 0;
+  for (const a of attributions) {
+    const per = (a.periodes_attribuees||0) + (a.autonomie_attribuee||0);
+    if ((a.ct_pp || a.type_cours || '') === 'PP') totalPP += per;
+    else totalCT += per; // CT ou inconnu → 800°
+  }
+  const total = totalCT + totalPP;
+  const etp   = Math.round((totalCT / 800 + totalPP / 1000) * 100) / 100;
+  const estETP = etp >= 1;
   const rep   = representant
     || (etab.gest_prenom || etab.gest_nom ? `${etab.gest_prenom || ''} ${etab.gest_nom || ''}`.trim() + (etab.gest_qualite ? `, ${etab.gest_qualite}` : '') : null)
     || 'Charles Sohet, Directeur a.i.';
@@ -139,11 +148,10 @@ export async function genererContrat({ etab, prof, attributions, annee, date_con
           sp(),
           // Phrase ETP ou incomplète
           (() => {
-            const ETP = 800; // 1 ETP = 800 périodes dans l'enseignement pour adultes
-            if (total >= ETP) {
+            if (estETP) {
               return pp([tr('Ces emplois constituent un temps plein pour l\u2019année académique '), tr(annee || '', { bold: true }), tr('.')]);
             } else {
-              return pp([tr('Ces emplois constituent des prestations incomplètes pour l\u2019année académique '), tr(annee || '', { bold: true }), tr('.')]);
+              return pp([tr('Ces emplois constituent des prestations incomplètes ('), tr(`${etp} ETP`, { bold: true }), tr(') pour l\u2019année académique '), tr(annee || '', { bold: true }), tr('.')]);
             }
           })(),
         ]),

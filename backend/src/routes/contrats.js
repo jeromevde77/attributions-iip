@@ -18,7 +18,7 @@ r.post('/generer', authRequired, roleRequired('admin', 'editeur'), async (req, r
   // Récupérer les attributions du prof pour l'année
   const attributions = db.prepare(`
     SELECT a.ue_num, a.code_cours, a.section, a.periodes_attribuees, a.autonomie_attribuee,
-           u.ue_nom, c.cours_nom, c.ct_pp
+           u.ue_nom, c.cours_nom, c.ct_pp, a.type_cours
     FROM attribution a
     LEFT JOIN ue   u ON u.ue_num    = a.ue_num    AND u.annee_scolaire = a.annee_scolaire
     LEFT JOIN cours c ON c.cours_code = a.code_cours AND c.annee_scolaire = a.annee_scolaire
