@@ -595,7 +595,7 @@ export default function Attributions() {
       const ueMap = secMap.get(sec);
       const org = r.num_organisation || 1;
       const ueKey = (r.ue_num ?? 0) + '/org' + org;
-      if (!ueMap.has(ueKey)) ueMap.set(ueKey, { ue_num: r.ue_num, ue_nom: r.ue_nom, bloc: r.bloc, ue_et_ref: r.ue_et_ref, ue_tc: r.ue_tc, ue_quad: r.quadri_pour_tous_prevu, num_organisation: org, coursMap: new Map(), rows: [] });
+      if (!ueMap.has(ueKey)) ueMap.set(ueKey, { ue_num: r.ue_num, ue_nom: r.ue_nom, bloc: r.bloc, ue_et_ref: r.ue_et_ref, ue_tc: r.ue_tc, ue_quad: r.quadri_pour_tous_prevu, quadri_org: r.quadrimestre_attribue || null, num_organisation: org, coursMap: new Map(), rows: [] });
       const ueGroup = ueMap.get(ueKey);
       ueGroup.rows.push(r);
       const coursKey = r.code_cours || '?';
@@ -632,8 +632,18 @@ export default function Attributions() {
   }
   async function changeQuadri(ue, sec, org, q) {
     setQuadriMenu(null);
-    try { await api.updateUE(ue.ue_num, { ue_quad: q || null }); load(); }
-    catch (e) { alert(e.message); }
+    try {
+      const tok = localStorage.getItem('token');
+      await fetch(`/api/attributions/organisation/quadrimestre`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${tok}` },
+        body: JSON.stringify({
+          ue_num: ue.ue_num, section: sec, num_organisation: org,
+          annee_scolaire: annee, quadrimestre: q || null,
+        }),
+      });
+      load();
+    } catch (e) { alert(e.message); }
   }
   async function reouvrirUE(ue, sec) {
     if (!confirm(`Réouvrir l'UE ${ue.ue_num} dans ${sec} ? Une nouvelle organisation sera créée avec le numéro suivant.`)) return;
@@ -1592,9 +1602,12 @@ export default function Attributions() {
               {isHelb && <span className="text-xs text-pink-600 font-bold px-1.5 py-0.5 rounded bg-pink-100">HELB</span>}
               <span className="relative inline-block" onClick={e=>e.stopPropagation()}>
                 <button onClick={()=>setQuadriMenu(quadriMenu===key?null:key)}
-                  title="Quadrimestre de l'UE (cliquer pour modifier)"
-                  className={`text-xs px-1.5 py-0.5 rounded font-semibold cursor-pointer hover:ring-1 hover:ring-gray-300 ${quadriStyle(ue.ue_quad)}`}>
-                  {ue.ue_quad || '— Q'}
+                  title="Quadrimestre de cette organisation (cliquer pour modifier)"
+                  className={`text-xs px-1.5 py-0.5 rounded font-semibold cursor-pointer hover:ring-1 hover:ring-gray-300 ${quadriStyle(ue.quadri_org || ue.ue_quad)}`}>
+                  {ue.quadri_org || ue.ue_quad || '— Q'}
+                  {ue.quadri_org && ue.quadri_org !== ue.ue_quad && (
+                    <span className="ml-0.5 text-[9px] opacity-60">*</span>
+                  )}
                 </button>
                 {quadriMenu===key && (
                   <div className="absolute left-0 top-full mt-1 z-40 bg-white border border-gray-200 rounded-lg shadow-xl py-1 w-28">
