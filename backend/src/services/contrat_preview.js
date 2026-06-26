@@ -86,7 +86,7 @@ export function genererTemplate() {
     <div class="partie-box">
       <div class="partie-label">Le membre du personnel</div>
       <div class="partie-nom">{{nom_prof}}</div>
-      <div class="partie-detail">{{adresse_prof}}<br>{{niss}}</div>
+      <div class="partie-detail">{{adresse_prof}}<br>{{niss}}<br>{{date_naissance}}{{matricule}}</div>
     </div>
   </div>
 
@@ -199,6 +199,8 @@ export function genererApercu({ etab, prof, attributions, annee, date_contrat, r
     '{{adresse_prof}}':   adresseProf,
     '{{adresse_etab}}':   adresseEtab,
     '{{niss}}':           prof.niss ? `NISS : ${prof.niss}` : '',
+    '{{date_naissance}}': prof.date_naissance ? `Né·e le ${dateLongue(prof.date_naissance)}<br>` : '',
+    '{{matricule}}':      prof.matricule ? `Matricule : ${prof.matricule}` : '',
     '{{cours_liste}}':    coursListeHtml,
     '{{total_periodes}}': String(total),
     '{{etp}}':            String(etp),
