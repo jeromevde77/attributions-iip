@@ -805,7 +805,7 @@ function ConfigContrat() {
     { v: '{{total_periodes}}',desc: 'Total périodes' },
     { v: '{{etp}}',           desc: 'ETP calculé' },
     { v: '{{phrase_etp}}',    desc: 'Phrase temps plein / incomplet' },
-    { v: '{{adresse_etab}}',  desc: 'Adresse de l'établissement' },
+    { v: '{{adresse_etab}}',  desc: "Adresse de l'établissement" },
   ];
 
   const tok = () => localStorage.getItem('token');
