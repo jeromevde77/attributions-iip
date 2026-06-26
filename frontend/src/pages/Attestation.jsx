@@ -14,118 +14,129 @@ export function genererTemplateAttestation() {
   * { box-sizing: border-box; margin: 0; padding: 0; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
   body { font-family: Arial, sans-serif; font-size: 9.5pt; color: #1a1a1a; background: white; }
   @media print { @page { size: A4 portrait; margin: 0; } body { margin: 0; } }
-  .page { width: 210mm; min-height: 297mm; margin: 0 auto; display: flex; flex-direction: column; }
 
-  /* ── Bandeau marine ── */
-  .bandeau { background: #1B2B4B; padding: 10px 20px; display: flex; justify-content: space-between; align-items: center; flex-shrink: 0; }
+  .page {
+    width: 210mm; height: 297mm;
+    margin: 0 auto;
+    display: flex; flex-direction: column;
+    position: relative; overflow: hidden;
+  }
+
+  /* Filigrane */
+  .filigrane { position: absolute; inset: 0; pointer-events: none; z-index: 0; overflow: hidden; }
+  .filigrane svg { width: 100%; height: 100%; }
+
+  /* Bandeau marine */
+  .bandeau {
+    background: #1B2B4B; padding: 8px 18mm;
+    display: flex; justify-content: space-between; align-items: center;
+    flex-shrink: 0; position: relative; z-index: 1;
+  }
   .bandeau-gauche { color: white; font-size: 9pt; font-weight: bold; letter-spacing: 0.5pt; line-height: 1.4; }
   .bandeau-droite { color: rgba(255,255,255,0.65); font-size: 7.5pt; text-align: right; letter-spacing: 0.5pt; line-height: 1.5; }
 
-  /* ── Corps ── */
-  .corps { flex: 1; padding: 14mm 20mm 8mm 20mm; display: flex; flex-direction: column; }
+  /* Corps */
+  .corps { flex: 1; padding: 7mm 18mm 4mm 18mm; display: flex; flex-direction: column; position: relative; z-index: 1; }
 
-  /* ── Filet doré institutionnel ── */
-  .filet-or { border-top: 1pt solid #C9A84C; border-bottom: 1pt solid #C9A84C; padding: 3pt 0; margin-bottom: 8mm; text-align: center; }
-  .filet-or span { font-size: 7.5pt; color: #888; letter-spacing: 0.8pt; text-transform: uppercase; }
+  /* Filet doré institutionnel */
+  .filet-or { border-top: 1pt solid #C9A84C; border-bottom: 1pt solid #C9A84C; padding: 2.5pt 0; margin-bottom: 5mm; text-align: center; }
+  .filet-or span { font-size: 7pt; color: #888; letter-spacing: 0.8pt; text-transform: uppercase; }
 
-  /* ── Établissement ── */
-  .etab { font-size: 8pt; color: #444; line-height: 1.6; margin-bottom: 7mm; }
+  /* Établissement */
+  .etab { font-size: 8pt; color: #444; line-height: 1.5; margin-bottom: 5mm; }
   .etab strong { color: #1a1a1a; font-size: 8.5pt; }
 
-  /* ── Encadré attestation (bordure dorée) ── */
-  .encadre { border: 1pt solid #C9A84C; padding: 4pt 0; text-align: center; margin-bottom: 8mm; }
+  /* Encadré attestation */
+  .encadre { border: 1pt solid #C9A84C; padding: 3.5pt 0; text-align: center; margin-bottom: 5mm; }
   .encadre span { font-size: 10pt; font-weight: bold; letter-spacing: 0.5pt; }
 
-  /* ── Texte courant ── */
-  .texte p { font-size: 9.5pt; line-height: 1.75; margin-bottom: 3pt; }
+  /* Texte courant */
+  .texte p { font-size: 9.5pt; line-height: 1.65; margin-bottom: 2pt; }
 
-  /* ── Carte étudiant ── */
-  .carte-etudiant { background: #f0f4ff; border-left: 3pt solid #C9A84C; padding: 6pt 10pt; margin: 5mm 0; border-radius: 0 3pt 3pt 0; }
+  /* Carte étudiant */
+  .carte-etudiant {
+    background: #f0f4ff; border-left: 3pt solid #C9A84C;
+    padding: 5pt 10pt; margin: 4mm 0;
+    border-radius: 0 3pt 3pt 0;
+  }
   .carte-etudiant .nom { font-size: 11pt; font-weight: bold; color: #1B2B4B; }
-  .carte-etudiant .naissance { font-size: 8.5pt; color: #555; margin-top: 2pt; }
+  .carte-etudiant .naissance { font-size: 8.5pt; color: #555; margin-top: 1.5pt; }
 
-  /* ── UE bloc ── */
-  .ue-bloc { margin: 2mm 0 3mm 6mm; }
-  .ue-bloc .ue-ligne { font-size: 9pt; line-height: 1.6; }
+  /* UE */
+  .ue-titre { font-size: 9.5pt; line-height: 1.65; margin-bottom: 1pt; margin-top: 2pt; }
+  .ue-bloc { margin: 0 0 3pt 6mm; }
+  .ue-bloc div { font-size: 9pt; line-height: 1.55; }
 
-  /* ── Signatures ── */
-  .signatures { display: flex; justify-content: space-between; align-items: flex-end; margin-top: 10mm; padding-top: 6mm; border-top: 0.5pt solid #e0e0e0; }
-  .sig-gauche { font-size: 9pt; color: #666; }
+  /* Signatures */
+  .signatures {
+    display: flex; justify-content: space-between; align-items: flex-start;
+    margin-top: auto; padding-top: 5mm;
+    border-top: 0.5pt solid #e0e0e0;
+  }
+  .sig-gauche { font-size: 9pt; color: #666; padding-top: 14mm; }
   .sig-droite { text-align: right; font-size: 9.5pt; }
-  .sig-droite .lieu-date { margin-bottom: 14mm; color: #333; }
+  .sig-droite .lieu-date { margin-bottom: 12mm; color: #333; line-height: 1.5; }
   .sig-droite .nom-dir { font-weight: bold; margin-top: 1mm; }
 
-  /* ── Pied de page doré ── */
-  /* ── Filigrane ── */
-  .page { position: relative; }
-  .filigrane {
-    position: absolute; inset: 0; pointer-events: none; z-index: 0;
-    overflow: hidden;
-  }
-  .filigrane svg { width: 100%; height: 100%; }
-  .corps, .bandeau, .footer, .logo-bloc {
+  /* Logo + pied de page */
+  .footer-bloc {
+    flex-shrink: 0; padding: 0 18mm 4pt 18mm;
     position: relative; z-index: 1;
   }
-  .footer { flex-shrink: 0; padding: 4pt 20mm; border-top: 0.5pt solid #C9A84C; font-size: 7pt; color: #888; text-align: center; line-height: 1.5; }
+  .footer-logo { height: 12mm; width: auto; opacity: 0.9; display: block; margin-bottom: 3mm; }
+  .footer-texte {
+    border-top: 0.5pt solid #C9A84C; padding-top: 3mm;
+    font-size: 6.5pt; color: #888; text-align: center; line-height: 1.5;
+  }
 </style>
 </head><body>
 <div class="page">
 
-  <!-- Bandeau marine -->
+  <!-- Filigrane -->
   <div class="filigrane" aria-hidden="true">
     <svg xmlns="http://www.w3.org/2000/svg" width="100%" height="100%">
       <defs>
         <pattern id="wm" x="0" y="0" width="220" height="140" patternUnits="userSpaceOnUse" patternTransform="rotate(-35)">
-          <text x="10" y="50" font-family="Arial, sans-serif" font-size="13"
-            fill="#1B2B4B" fill-opacity="0.045" font-weight="bold" letter-spacing="3">
-            ATTESTATION PROVISOIRE
-          </text>
-          <text x="30" y="80" font-family="Arial, sans-serif" font-size="9"
-            fill="#C9A84C" fill-opacity="0.06" font-weight="bold" letter-spacing="2">
-            INSTITUT ILYA PRIGOGINE
-          </text>
+          <text x="10" y="50" font-family="Arial,sans-serif" font-size="13"
+            fill="#1B2B4B" fill-opacity="0.045" font-weight="bold" letter-spacing="3">ATTESTATION PROVISOIRE</text>
+          <text x="30" y="80" font-family="Arial,sans-serif" font-size="9"
+            fill="#C9A84C" fill-opacity="0.06" font-weight="bold" letter-spacing="2">INSTITUT ILYA PRIGOGINE</text>
         </pattern>
       </defs>
       <rect width="100%" height="100%" fill="url(#wm)" />
     </svg>
   </div>
+
+  <!-- Bandeau marine -->
   <div class="bandeau">
     <div class="bandeau-gauche">INSTITUT<br>ILYA PRIGOGINE</div>
     <div class="bandeau-droite">PÔLE ACADÉMIQUE<br>DE BRUXELLES</div>
   </div>
 
-  <!-- Corps principal -->
+  <!-- Corps -->
   <div class="corps">
 
-    <!-- Filet doré institutionnel -->
     <div class="filet-or">
       <span>Communauté française de Belgique &nbsp;·&nbsp; Enseignement pour adultes &nbsp;·&nbsp; Année académique {{annee}}</span>
     </div>
 
-    <!-- Établissement -->
     <div class="etab">
       <strong>{{nom_etab}}</strong><br>
       Adresse : {{adresse_etab}}<br>
       Numéro de matricule : {{matricule_etab}} &nbsp;·&nbsp; Numéro FASE : {{fase_etab}}
     </div>
 
-    <!-- Encadré attestation -->
-    <div class="encadre">
-      <span>Attestation provisoire</span>
-    </div>
+    <div class="encadre"><span>Attestation provisoire</span></div>
 
-    <!-- Corps texte -->
     <div class="texte">
       <p>Je soussigné, {{directeur}} Directeur de l'établissement, certifie que</p>
     </div>
 
-    <!-- Carte étudiant -->
     <div class="carte-etudiant">
       <div class="nom">{{nom_etudiant}} {{prenom_etudiant}} ({{genre}})</div>
       <div class="naissance">Né·e à <strong>{{lieu_naissance}}</strong>, le <strong>{{date_naissance}}</strong></div>
     </div>
 
-    <!-- Suite texte -->
     <div class="texte">
       <p>a obtenu ce jour le <strong>DIPLÔME DE {{intitule_diplome}}</strong></p>
       <p>Avec la mention <strong>{{mention}}</strong></p>
@@ -149,10 +160,10 @@ export function genererTemplateAttestation() {
 
   </div>
 
-  <!-- Logo + filet doré + pied de page avec 3mm de chaque côté du filet -->
-  <div style="padding: 0 20mm 4pt 20mm; position: relative; z-index: 1; flex-shrink: 0;">
-    <img src="{{logo_iip}}" style="height:14mm;width:auto;opacity:0.85;display:block;margin-bottom:3mm;" alt="Institut Ilya Prigogine" />
-    <div style="border-top:0.5pt solid #C9A84C; padding-top:3mm; font-size:7pt; color:#888; text-align:center; line-height:1.5;">
+  <!-- Logo + pied de page -->
+  <div class="footer-bloc">
+    <img src="{{logo_iip}}" class="footer-logo" alt="Institut Ilya Prigogine" />
+    <div class="footer-texte">
       Institut Supérieur de Promotion Sociale Libre Ilya Prigogine &nbsp;·&nbsp; PO Asbl Ilya Prigogine &nbsp;·&nbsp; Matricule N° {{matricule_etab}} &nbsp;·&nbsp; Fase {{fase_etab}}<br>
       {{adresse_etab}} &nbsp;·&nbsp; T. {{tel_etab}} &nbsp;·&nbsp; {{site_etab}}
     </div>
