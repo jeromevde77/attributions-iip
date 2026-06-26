@@ -1970,7 +1970,7 @@ export default function Professeurs() {
             {ficheMenu === p.id && (
               <>
                 <div className="fixed inset-0 z-40" onClick={() => setFicheMenu(null)} />
-                <div className="absolute z-50 top-full right-0 mt-1 bg-white border border-gray-200 rounded-lg shadow-xl py-1.5 h-9 px-1.5 w-40 flex flex-col gap-1" onClick={e => e.stopPropagation()}>
+                <div className="absolute z-50 bottom-full right-0 mb-1 bg-white border border-gray-200 rounded-lg shadow-xl py-1.5 px-1.5 w-40 flex flex-col gap-1" onClick={e => e.stopPropagation()}>
                   <button onClick={() => { genererFicheAttributions(p.id, null); setFicheMenu(null); }}
                     className="text-left px-2 py-1.5 h-9 rounded hover:bg-gray-50 text-sm flex items-center gap-2">
                     <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-gray-700 text-white">Global</span>
