@@ -6,7 +6,7 @@ import { genererContrat } from '../services/contrat_fill.js';
 const r = Router();
 
 r.post('/generer', authRequired, roleRequired('admin', 'editeur'), async (req, res) => {
-  const { prof_id, date_contrat, annee } = req.body;
+  const { prof_id, date_contrat, annee, representant } = req.body;
   if (!prof_id) return res.status(400).json({ error: 'prof_id requis' });
 
   const prof = db.prepare('SELECT * FROM professeur WHERE id = ?').get(prof_id);
@@ -34,6 +34,7 @@ r.post('/generer', authRequired, roleRequired('admin', 'editeur'), async (req, r
       attributions,
       annee: anneeActive,
       date_contrat: date_contrat || new Date().toISOString().split('T')[0],
+      representant,
     });
 
     const fn = `Contrat_${prof.nom}_${prof.prenom}_${date_contrat || 'draft'}.docx`

@@ -69,9 +69,11 @@ function art(num, paragraphs) {
 }
 
 // ─── Export ───────────────────────────────────────────────────────────────────
-export async function genererContrat({ etab, prof, attributions, annee, date_contrat }) {
+export async function genererContrat({ etab, prof, attributions, annee, date_contrat, representant }) {
   const total = attributions.reduce((s,a) => s + (a.periodes_attribuees||0) + (a.autonomie_attribuee||0), 0);
-  const rep   = `${etab.gest_prenom || 'Charles'} ${etab.gest_nom || 'Sohet'}, ${etab.gest_qualite || 'Directeur a.i.'}`;
+  const rep   = representant
+    || (etab.gest_prenom || etab.gest_nom ? `${etab.gest_prenom || ''} ${etab.gest_nom || ''}`.trim() + (etab.gest_qualite ? `, ${etab.gest_qualite}` : '') : null)
+    || 'Charles Sohet, Directeur a.i.';
 
   const doc = new Document({
     styles: { default: { document: { run: { font: 'Arial', size: 22 } } } },
@@ -118,36 +120,32 @@ export async function genererContrat({ etab, prof, attributions, annee, date_con
         ...art(1, [
           pp([tr('Le membre du personnel est engagé dans un emploi\u00a0/ des emplois vacant(s) au sens de l\u2019article 3 § 1er, § 1er bis et § 1er ter du Décret du 1er février 1993 comportant\u00a0:')]),
           sp(),
-          // Tableau des attributions
-          new Table({
-            width: { size: 9638, type: WidthType.DXA },
-            columnWidths: [800, 700, 2700, 500, 2200, 700, 700, 638],
-            rows: [
-              new TableRow({ tableHeader: true, children: [
-                cellH('Section'), cellH('N° UE'), cellH('Nom de l\u2019UE'), cellH('Type'),
-                cellH('Cours'), cellH('Pér.'), cellH('Aut.'), cellH('Total'),
-              ]}),
-              ...(attributions.length ? attributions.map(a => new TableRow({ children: [
-                cell(a.section || ''),
-                cell(String(a.ue_num || '')),
-                cell(a.ue_nom  || ''),
-                cell(a.ct_pp   || ''),
-                cell(a.cours_nom || ''),
-                cell(String(a.periodes_attribuees || 0), { align: AlignmentType.CENTER }),
-                cell(String(a.autonomie_attribuee || 0), { align: AlignmentType.CENTER }),
-                cell(tr(String((a.periodes_attribuees||0)+(a.autonomie_attribuee||0)), { bold: true }), { align: AlignmentType.CENTER }),
-              ]})) : [new TableRow({ children: [
-                new TableCell({ borders: BLS, columnSpan: 8, children: [new Paragraph({ children: [tr('Voir document EA12 joint au présent contrat.', { italics: true })], spacing: { after: 0 } })] }),
-              ]})]),
-              // Ligne total
-              new TableRow({ children: [
-                new TableCell({ borders: BDRS, columnSpan: 7, children: [new Paragraph({ children: [tr('TOTAL PÉRIODES', { bold: true })], alignment: AlignmentType.RIGHT, spacing: { after: 0 } })] }),
-                cell(tr(String(total), { bold: true, size: 22 })),
-              ]}),
-            ],
-          }),
+          // Lignes de cours (sans tableau)
+          ...(attributions.length ? [
+            ...attributions.map(a => {
+              const per = (a.periodes_attribuees||0) + (a.autonomie_attribuee||0);
+              return pp([
+                tr(`${a.section || ''}\u00a0\u2013\u00a0`, { bold: true }),
+                tr(`${a.code_cours || ''} ${a.cours_nom || ''}`),
+                tr(`\u00a0(${per} période${per > 1 ? 's' : ''})`),
+              ]);
+            }),
+            sp(),
+            pp([
+              tr('Total\u00a0: '),
+              tr(`${total} période${total > 1 ? 's' : ''}`, { bold: true }),
+            ]),
+          ] : [pp([tr('Voir document EA12 joint au présent contrat.', { italics: true })])]),
           sp(),
-          pp([tr('Ces emplois constituent des prestations incomplètes pour l\u2019année académique '), tr(annee || '', { bold: true }), tr('.')]),
+          // Phrase ETP ou incomplète
+          (() => {
+            const ETP = 800; // 1 ETP = 800 périodes dans l'enseignement pour adultes
+            if (total >= ETP) {
+              return pp([tr('Ces emplois constituent un temps plein pour l\u2019année académique '), tr(annee || '', { bold: true }), tr('.')]);
+            } else {
+              return pp([tr('Ces emplois constituent des prestations incomplètes pour l\u2019année académique '), tr(annee || '', { bold: true }), tr('.')]);
+            }
+          })(),
         ]),
 
         // ── Article 2 ──────────────────────────────────────────────────────
