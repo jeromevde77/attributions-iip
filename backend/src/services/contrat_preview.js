@@ -23,8 +23,8 @@ export function genererTemplate() {
 <style>
   * { box-sizing: border-box; margin: 0; padding: 0; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
   body { font-family: Arial, sans-serif; font-size: 9pt; color: #1a1a2e; background: white; }
-  @media print { @page { size: A4 portrait; margin: 15mm 18mm; } }
-  .page { max-width: 170mm; margin: 0 auto; padding: 12mm 0; }
+  @media print { @page { size: A4 portrait; margin: 10mm 18mm 15mm 18mm; } body { margin: 0; } }
+  .page { max-width: 170mm; margin: 0 auto; padding: 4mm 0; }
   .header { border-bottom: 2.5pt solid #1F3864; margin-bottom: 6mm; padding-bottom: 4mm; display: flex; justify-content: space-between; align-items: flex-end; }
   .header-left .etab-nom { font-size: 11pt; font-weight: bold; color: #1F3864; }
   .header-left .etab-sub { font-size: 8pt; color: #555; margin-top: 1mm; }
