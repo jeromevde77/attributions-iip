@@ -149,15 +149,13 @@ export function genererTemplateAttestation() {
 
   </div>
 
-  <!-- Logo avant pied de page -->
-  <div style="padding: 4pt 20mm 0 20mm; display: flex; align-items: center;">
-    <img src="{{logo_iip}}" style="height:14mm;width:auto;opacity:0.85;" alt="Institut Ilya Prigogine" />
-  </div>
-
-  <!-- Pied de page doré -->
-  <div class="footer">
-    Institut Supérieur de Promotion Sociale Libre Ilya Prigogine &nbsp;·&nbsp; PO Asbl Ilya Prigogine &nbsp;·&nbsp; Matricule N° {{matricule_etab}} &nbsp;·&nbsp; Fase {{fase_etab}}<br>
-    {{adresse_etab}} &nbsp;·&nbsp; T. {{tel_etab}} &nbsp;·&nbsp; {{site_etab}}
+  <!-- Logo + filet doré + pied de page avec 3mm de chaque côté du filet -->
+  <div style="padding: 0 20mm 4pt 20mm; position: relative; z-index: 1; flex-shrink: 0;">
+    <img src="{{logo_iip}}" style="height:14mm;width:auto;opacity:0.85;display:block;margin-bottom:3mm;" alt="Institut Ilya Prigogine" />
+    <div style="border-top:0.5pt solid #C9A84C; padding-top:3mm; font-size:7pt; color:#888; text-align:center; line-height:1.5;">
+      Institut Supérieur de Promotion Sociale Libre Ilya Prigogine &nbsp;·&nbsp; PO Asbl Ilya Prigogine &nbsp;·&nbsp; Matricule N° {{matricule_etab}} &nbsp;·&nbsp; Fase {{fase_etab}}<br>
+      {{adresse_etab}} &nbsp;·&nbsp; T. {{tel_etab}} &nbsp;·&nbsp; {{site_etab}}
+    </div>
   </div>
 
 </div>
