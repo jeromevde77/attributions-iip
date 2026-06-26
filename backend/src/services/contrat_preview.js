@@ -169,7 +169,8 @@ export function genererApercu({ etab, prof, attributions, annee, date_contrat, r
   const adresseProf = [prof.adresse_rue, prof.code_postal, prof.commune].filter(Boolean).join(', ') || '—';
   const adresseEtab = [etab.adresse, etab.cp, etab.ville].filter(Boolean).join(' ') || 'Bruxelles';
 
-  // Détecter si c'est un remplacement (au moins un cours avec titulaire en congé)
+  // Emploi vacant = le prof est titulaire du poste (pas un remplacement)
+  // Emploi non vacant = il remplace un titulaire en congé (titulaire_en_conge != null)
   const estRemplacement = attributions.some(a => a.titulaire_en_conge);
 
   const coursListeHtml = attributions.map(a => {
@@ -203,8 +204,8 @@ export function genererApercu({ etab, prof, attributions, annee, date_contrat, r
     '{{etp}}':            String(etp),
     '{{phrase_etp}}':     phraseETP,
     '{{texte_art1}}':     estRemplacement
-      ? "Le membre du personnel est engagé dans un emploi / des emplois <strong>vacant(s)</strong> au sens de l'article 3 §1er, §1er bis et §1er ter du Décret du 1er février 1993, en remplacement d'un titulaire en congé, comportant :"
-      : "Le membre du personnel est engagé dans un emploi / des emplois au sens de l'article 3 §1er, §1er bis et §1er ter du Décret du 1er février 1993 comportant :",
+      ? "Le membre du personnel est engagé dans un emploi / des emplois <strong>non vacant(s)</strong> au sens de l'article 3 §1er bis et §1er ter du Décret du 1er février 1993, en remplacement d'un titulaire en congé, comportant :"
+      : "Le membre du personnel est engagé dans un emploi / des emplois <strong>vacant(s)</strong> au sens de l'article 3 §1er du Décret du 1er février 1993 comportant :",
   };
 
   // Utiliser le template custom ou le défaut
