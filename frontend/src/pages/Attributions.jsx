@@ -639,7 +639,7 @@ export default function Attributions() {
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${tok}` },
         body: JSON.stringify({
           ue_num: ue.ue_num, section: sec, num_organisation: org,
-          annee_scolaire: annee, quadrimestre: q || null,
+          annee_scolaire: getAnnee(), quadrimestre: q || null,
         }),
       });
       load();
