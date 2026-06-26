@@ -22,7 +22,7 @@ import WelcomeV3 from './WelcomeV3.jsx';
 import {
   IconClipboardList, IconUsers, IconFileExport, IconChecklist,
   IconChartBar, IconCalendarStats, IconEdit, IconSettings, IconLogout, IconMenu2, IconX,
-  IconHome, IconBell,
+  IconHome, IconBell, IconHelpCircle,
 } from '@tabler/icons-react';
 
 import Login from './pages/Login.jsx';
