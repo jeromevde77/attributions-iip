@@ -296,9 +296,17 @@ const ROLES_LUCIE = [
 ];
 // Modules accessibles par flag (extensible)
 const MODULES_ACCES = [
-  { key: 'acces_recrutement', label: 'Recrutement', desc: 'Accès au module recrutement (postes à pourvoir, candidats, documents)' },
-  // Ajouter ici les futurs modules
+  { key: 'attributions', label: 'Attributions',   icon: '📋', desc: 'Voir et/ou modifier les attributions' },
+  { key: 'personnel',    label: 'Personnel',       icon: '👥', desc: 'Voir et/ou modifier les fiches membres' },
+  { key: 'pilotage',     label: 'Pilotage',        icon: '📊', desc: 'Accès au pilotage de la dotation' },
+  { key: 'listes',       label: 'Listes',          icon: '📄', desc: 'Accès aux listes et documents' },
+  { key: 'procedures',   label: 'Procédures',      icon: '📑', desc: 'Accès aux procédures' },
+  { key: 'planification',label: 'Planification',   icon: '📅', desc: 'Accès à la planification' },
+  { key: 'recrutement',  label: 'Recrutement',     icon: '💼', desc: 'Accès au module recrutement' },
 ];
+
+// permissions_json stocke : { attributions: {lire, ecrire, voir_tout}, personnel: {lire, ecrire}, ..., recrutement: {lire, ecrire} }
+const PERM_DEFAUT = () => Object.fromEntries(MODULES_ACCES.map(m => [m.key, { lire: false, ecrire: false, voir_tout: false }]));
 
 function AccesLuciePanel({ profId, detail }) {
   const af = (url, opts = {}) => fetch(url, {
@@ -310,11 +318,12 @@ function AccesLuciePanel({ profId, detail }) {
   const [sectionsDispo, setSectionsDispo] = useState([]);
   const [role, setRole]         = useState('editeur');
   const [sections, setSections] = useState([]);
-  const [modules, setModules]   = useState({});
-  const [permissions, setPermissions] = useState([]); // [{ressource_type, ressource_id, niveau}]
-  const [showPerms, setShowPerms] = useState(false);
+  const [perms, setPerms]       = useState(PERM_DEFAUT());
+  const [granulaires, setGranulaires] = useState([]);
+  const [showGranulaire, setShowGranulaire] = useState(false);
   const [pwd, setPwd]           = useState(null);
   const [busy, setBusy]         = useState(false);
+  const [saved, setSaved]       = useState(false);
   const [err, setErr]           = useState('');
 
   const norm = s => (s || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
@@ -328,52 +337,52 @@ function AccesLuciePanel({ profId, detail }) {
       if (a) {
         setRole(a.role);
         setSections(a.sections || []);
-        const m = {};
-        for (const mod of MODULES_ACCES) m[mod.key] = !!a[mod.key];
-        setModules(m);
-        // Charger les permissions granulaires
+        // Lire permissions_json
+        const pj = a.permissions_json ? (() => { try { return JSON.parse(a.permissions_json); } catch { return {}; } })() : {};
+        const merged = { ...PERM_DEFAUT() };
+        for (const k of Object.keys(merged)) {
+          if (pj[k]) merged[k] = { ...merged[k], ...pj[k] };
+        }
+        // Compat ancienne colonne acces_recrutement
+        if (a.acces_recrutement && !merged.recrutement.lire) merged.recrutement.lire = true;
+        setPerms(merged);
         af(`/api/users/${a.id}/permissions`)
-          .then(p => setPermissions(Array.isArray(p) ? p : []))
+          .then(p => setGranulaires(Array.isArray(p) ? p : []))
           .catch(() => {});
       }
     }).catch(e => { setErr(e.message); setAccount(null); });
   }
+
   useEffect(() => {
     charger();
     af('/api/ref/sections').then(d => setSectionsDispo(Array.isArray(d) ? d : [])).catch(() => {});
   }, [profId]);
 
-  const toggleSection = code => setSections(s => s.includes(code) ? s.filter(x => x !== code) : [...s, code]);
-
   async function creer() {
     setErr(''); setBusy(true);
     try {
-      if (role === 'coordination' && sections.length === 0) throw new Error('Une coordination doit avoir au moins une section.');
       const p = genPwd();
       await af('/api/users', { method: 'POST', body: JSON.stringify({
         email: emailSuggere, password: p, nom_complet: detail.nom_prenom, role, professeur_id: profId,
         sections: role === 'coordination' ? sections : [],
+        permissions_json: JSON.stringify(perms),
       }) });
       setPwd(p); charger();
     } catch (e) { setErr(e.message); } finally { setBusy(false); }
   }
 
-  async function patch(body) {
+  async function sauvegarder() {
     setErr(''); setBusy(true);
-    try { await af(`/api/users/${account.id}`, { method: 'PATCH', body: JSON.stringify(body) }); charger(); }
-    catch (e) { setErr(e.message); } finally { setBusy(false); }
+    try {
+      await af(`/api/users/${account.id}`, { method: 'PATCH', body: JSON.stringify({
+        role, sections: role === 'coordination' ? sections : [],
+        permissions_json: JSON.stringify(perms),
+        acces_recrutement: perms.recrutement?.lire ? 1 : 0, // compat
+      }) });
+      setSaved(true); setTimeout(() => setSaved(false), 2000);
+    } catch (e) { setErr(e.message); } finally { setBusy(false); }
   }
-  async function changerRole(nv) {
-    setRole(nv);
-    await patch({ role: nv, sections: nv === 'coordination' ? sections : [] });
-  }
-  async function toggleModule(key) {
-    const nv = !modules[key];
-    setModules(m => ({ ...m, [key]: nv }));
-    // Convertir la clé en nom du flag acces (acces_recrutement → recrutement)
-    const flag = key.replace('acces_', '');
-    await patch({ acces: { [flag]: nv } });
-  }
+
   async function nouveauMdp() {
     const p = genPwd();
     setErr(''); setBusy(true);
@@ -381,131 +390,171 @@ function AccesLuciePanel({ profId, detail }) {
     catch (e) { setErr(e.message); } finally { setBusy(false); }
   }
 
+  const togglePerm = (mod, champ) => {
+    setPerms(prev => ({
+      ...prev,
+      [mod]: { ...prev[mod], [champ]: !prev[mod][champ] },
+    }));
+  };
+
+  const ModuleRow = ({ m }) => {
+    const p = perms[m.key] || { lire: false, ecrire: false, voir_tout: false };
+    const hasVoirTout = ['attributions', 'personnel'].includes(m.key);
+    return (
+      <div className={`flex items-center gap-2 px-3 py-2 rounded-lg border ${p.lire || p.ecrire ? 'bg-iip-blue/5 border-iip-blue/20' : 'bg-gray-50 border-gray-100'}`}>
+        <span className="text-base w-5 flex-shrink-0">{m.icon}</span>
+        <div className="flex-1 min-w-0">
+          <div className="text-xs font-semibold text-gray-700">{m.label}</div>
+          <div className="text-[10px] text-gray-400">{m.desc}</div>
+        </div>
+        <div className="flex items-center gap-1.5 flex-shrink-0">
+          <button onClick={() => togglePerm(m.key, 'lire')}
+            className={`text-[10px] px-2 py-0.5 rounded border font-medium transition ${
+              p.lire ? 'bg-iip-blue text-white border-iip-blue' : 'border-gray-300 text-gray-400 hover:border-iip-blue'
+            }`}>Lecture</button>
+          <button onClick={() => togglePerm(m.key, 'ecrire')}
+            className={`text-[10px] px-2 py-0.5 rounded border font-medium transition ${
+              p.ecrire ? 'bg-iip-turquoise text-white border-iip-turquoise' : 'border-gray-300 text-gray-400 hover:border-iip-turquoise'
+            }`}>Écriture</button>
+          {hasVoirTout && (
+            <button onClick={() => togglePerm(m.key, 'voir_tout')}
+              className={`text-[10px] px-2 py-0.5 rounded border font-medium transition ${
+                p.voir_tout ? 'bg-amber-500 text-white border-amber-500' : 'border-gray-300 text-gray-400 hover:border-amber-400'
+              }`} title="Voir toutes les sections (sinon : ses sections seulement)">Tout voir</button>
+          )}
+        </div>
+      </div>
+    );
+  };
+
+  const FormCreer = (
+    <>
+      <div className="text-xs text-gray-500">Aucun compte Lucie lié à ce membre.</div>
+      <div className="grid grid-cols-2 gap-3">
+        <div>
+          <div className="text-xs text-gray-500 mb-1">E-mail (suggéré)</div>
+          <div className="text-sm border border-gray-200 rounded px-2 py-1.5 bg-gray-50 text-gray-600 truncate">{emailSuggere}</div>
+        </div>
+        <div>
+          <div className="text-xs text-gray-500 mb-1">Rôle</div>
+          <select value={role} onChange={e => setRole(e.target.value)} className="w-full border border-gray-300 rounded px-2 py-1.5 text-sm bg-white">
+            {ROLES_LUCIE.map(([v, l]) => <option key={v} value={v}>{l}</option>)}
+          </select>
+        </div>
+      </div>
+      <div>
+        <div className="text-xs text-gray-500 mb-2 font-medium">Permissions</div>
+        <div className="space-y-1.5">
+          {MODULES_ACCES.map(m => <ModuleRow key={m.key} m={m} />)}
+        </div>
+      </div>
+      <button onClick={creer} disabled={busy}
+        className="w-full flex items-center justify-center gap-1.5 bg-green-600 text-white text-sm px-3 py-2 rounded-lg disabled:opacity-40 hover:opacity-90">
+        <IconPlus size={15} /> Créer l'accès &amp; générer le mot de passe
+      </button>
+    </>
+  );
+
+  const FormEditer = account && (
+    <>
+      <div className="grid grid-cols-2 gap-3">
+        <div>
+          <div className="text-xs text-gray-500 mb-1">E-mail</div>
+          <div className="text-sm border border-gray-200 rounded px-2 py-1.5 bg-gray-50 text-gray-700 truncate">{account.email}</div>
+        </div>
+        <div>
+          <div className="text-xs text-gray-500 mb-1">Rôle</div>
+          <select value={role} onChange={e => setRole(e.target.value)} disabled={busy} className="w-full border border-gray-300 rounded px-2 py-1.5 text-sm bg-white">
+            {ROLES_LUCIE.map(([v, l]) => <option key={v} value={v}>{l}</option>)}
+          </select>
+        </div>
+      </div>
+
+      {/* Sections (pour coordination) */}
+      {role === 'coordination' && (
+        <div>
+          <div className="text-xs text-gray-500 mb-1">Sections autorisées</div>
+          <div className="flex flex-wrap gap-1.5">
+            {sectionsDispo.map(s => (
+              <button key={s.code} type="button"
+                onClick={() => setSections(prev => prev.includes(s.code) ? prev.filter(x => x !== s.code) : [...prev, s.code])}
+                className={`text-xs px-2 py-0.5 rounded-full border ${sections.includes(s.code) ? 'bg-iip-turquoise/15 border-iip-turquoise text-iip-blue' : 'border-gray-300 text-gray-500'}`}>
+                {s.code}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Permissions modules */}
+      <div>
+        <div className="text-xs text-gray-500 mb-2 font-medium">Permissions par module</div>
+        <div className="space-y-1.5">
+          {MODULES_ACCES.map(m => <ModuleRow key={m.key} m={m} />)}
+        </div>
+        <div className="mt-2 text-[10px] text-gray-400 italic">
+          "Tout voir" = accès à toutes les sections (sinon : sections autorisées seulement)
+        </div>
+      </div>
+
+      {/* Permissions granulaires section/UE */}
+      <div>
+        <button onClick={() => setShowGranulaire(v => !v)}
+          className="w-full text-left text-xs font-medium text-gray-600 flex items-center justify-between py-1 border-t border-gray-100 pt-2">
+          <span>Restrictions granulaires (sections, UE, professeurs)</span>
+          <span className="text-gray-400">{showGranulaire ? '▲' : '▼'} {granulaires.length > 0 ? `${granulaires.length} règle${granulaires.length > 1 ? 's' : ''}` : ''}</span>
+        </button>
+        {showGranulaire && (
+          <PermissionsPanel
+            userId={account.id}
+            permissions={granulaires}
+            sectionsDispo={sectionsDispo}
+            annee={localStorage.getItem('annee_active') || '2026-2027'}
+            onSaved={nv => setGranulaires(nv)}
+            af={af}
+          />
+        )}
+      </div>
+
+      <div className="flex items-center gap-2 pt-1 flex-wrap">
+        <button onClick={sauvegarder} disabled={busy}
+          className={`flex-1 flex items-center justify-center gap-1.5 text-sm px-3 py-2 rounded-lg font-medium ${saved ? 'bg-green-600 text-white' : 'bg-iip-blue text-white hover:opacity-90'} disabled:opacity-40`}>
+          {saved ? '✓ Sauvegardé' : busy ? 'Sauvegarde…' : '✓ Sauvegarder'}
+        </button>
+        <button onClick={nouveauMdp} disabled={busy} className="flex items-center gap-1.5 text-sm border border-gray-300 text-gray-700 px-3 py-2 rounded-lg hover:bg-gray-50 disabled:opacity-40">
+          <IconKey size={14} /> Nouveau mot de passe
+        </button>
+        <button onClick={() => { if (confirm('Désactiver ce compte ?')) af(`/api/users/${account.id}`, { method: 'PATCH', body: JSON.stringify({ actif: 0 }) }).then(charger).catch(e => setErr(e.message)); }}
+          className="flex items-center gap-1.5 text-sm border border-red-300 text-red-600 px-3 py-2 rounded-lg hover:bg-red-50">
+          <IconX size={14} /> {account.actif ? 'Désactiver' : 'Réactiver'}
+        </button>
+      </div>
+    </>
+  );
+
   return (
-    <div className="mb-4 border border-iip-turquoise/40 rounded-lg overflow-hidden">
-      <div className="flex items-center gap-2 px-4 py-2 bg-iip-turquoise/5 border-b border-iip-turquoise/20">
+    <div className="border border-iip-turquoise/40 rounded-xl overflow-hidden">
+      <div className="flex items-center gap-2 px-4 py-2.5 bg-iip-turquoise/5 border-b border-iip-turquoise/20">
         <IconLock size={16} className="text-iip-turquoise" />
         <span className="text-sm font-semibold text-iip-blue">Accès Lucie</span>
-        {account && <span className={`ml-auto text-xs px-2 py-0.5 rounded-full ${account.actif ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500'}`}>{account.actif ? 'Actif' : 'Désactivé'}</span>}
+        {account && (
+          <span className={`ml-auto text-xs px-2 py-0.5 rounded-full font-semibold ${account.actif ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500'}`}>
+            {account.actif ? 'Actif' : 'Désactivé'}
+          </span>
+        )}
       </div>
       <div className="p-4 space-y-3">
-        {err && <div className="text-xs text-red-600 bg-red-50 border border-red-200 rounded px-2 py-1.5 h-9">{err}</div>}
+        {err && <div className="text-xs text-red-600 bg-red-50 border border-red-200 rounded px-3 py-2">{err}</div>}
         {pwd && (
-          <div className="text-sm bg-amber-50 border border-amber-300 rounded px-3 py-2">
-            <div className="font-semibold text-amber-800 inline-flex items-center gap-1.5"><IconKey size={15} /> Mot de passe (à noter maintenant, non récupérable ensuite)</div>
-            <div className="mt-1 font-mono text-base bg-white border border-amber-200 rounded px-2 py-1 inline-block select-all">{pwd}</div>
-            <button onClick={() => setPwd(null)} className="ml-2 text-xs text-amber-700 hover:underline">masquer</button>
+          <div className="bg-amber-50 border border-amber-300 rounded px-3 py-2">
+            <div className="text-xs font-semibold text-amber-800 flex items-center gap-1.5 mb-1"><IconKey size={14} /> Mot de passe — à noter maintenant</div>
+            <div className="font-mono text-base bg-white border border-amber-200 rounded px-2 py-1 inline-block select-all mr-2">{pwd}</div>
+            <button onClick={() => setPwd(null)} className="text-xs text-amber-700 hover:underline">masquer</button>
           </div>
         )}
-
         {account === undefined && <div className="text-xs text-gray-400">Chargement…</div>}
-
-        {account === null && (
-          <>
-            <div className="text-xs text-gray-500">Aucun compte Lucie lié à ce membre.</div>
-            <div className="grid grid-cols-2 gap-3">
-              <div>
-                <div className="text-xs text-gray-500 mb-1">E-mail (suggéré)</div>
-                <div className="text-sm border border-gray-200 rounded px-2 py-1.5 h-9 bg-gray-50 text-gray-600 truncate" title={emailSuggere}>{emailSuggere}</div>
-              </div>
-              <div>
-                <div className="text-xs text-gray-500 mb-1">Rôle</div>
-                <select value={role} onChange={e => setRole(e.target.value)} className="w-full border border-gray-300 rounded px-2 py-1.5 h-9 text-sm bg-white">
-                  {ROLES_LUCIE.map(([v, l]) => <option key={v} value={v}>{l}</option>)}
-                </select>
-              </div>
-            </div>
-            {role === 'coordination' && (
-              <div>
-                <div className="text-xs text-gray-500 mb-1">Sections autorisées</div>
-                <div className="flex flex-wrap gap-1.5">
-                  {sectionsDispo.map(s => (
-                    <button key={s.code} onClick={() => toggleSection(s.code)} type="button"
-                      className={`text-xs px-2 py-0.5 rounded-full border ${sections.includes(s.code) ? 'bg-iip-turquoise/15 border-iip-turquoise text-iip-blue' : 'border-gray-300 text-gray-500'}`}>{s.code}</button>
-                  ))}
-                </div>
-              </div>
-            )}
-            <button onClick={creer} disabled={busy}
-              className="inline-flex items-center gap-1.5 bg-iip-blue text-white text-sm px-3 py-1.5 h-9 rounded-lg disabled:opacity-40 hover:opacity-90">
-              <IconPlus size={15} /> Créer l'accès &amp; générer le mot de passe
-            </button>
-          </>
-        )}
-
-        {account && (
-          <>
-            <div className="grid grid-cols-2 gap-3">
-              <div>
-                <div className="text-xs text-gray-500 mb-1">E-mail</div>
-                <div className="text-sm border border-gray-200 rounded px-2 py-1.5 h-9 bg-gray-50 text-gray-700 truncate" title={account.email}>{account.email}</div>
-              </div>
-              <div>
-                <div className="text-xs text-gray-500 mb-1">Rôle</div>
-                <select value={role} onChange={e => changerRole(e.target.value)} disabled={busy}
-                  className="w-full border border-gray-300 rounded px-2 py-1.5 h-9 text-sm bg-white">
-                  {ROLES_LUCIE.map(([v, l]) => <option key={v} value={v}>{l}</option>)}
-                </select>
-              </div>
-            </div>
-            {role === 'coordination' && (
-              <div>
-                <div className="text-xs text-gray-500 mb-1">Sections autorisées</div>
-                <div className="flex flex-wrap gap-1.5">
-                  {sectionsDispo.map(s => (
-                    <button key={s.code} type="button" disabled={busy}
-                      onClick={() => { const nv = sections.includes(s.code) ? sections.filter(x => x !== s.code) : [...sections, s.code]; setSections(nv); patch({ sections: nv }); }}
-                      className={`text-xs px-2 py-0.5 rounded-full border ${sections.includes(s.code) ? 'bg-iip-turquoise/15 border-iip-turquoise text-iip-blue' : 'border-gray-300 text-gray-500'}`}>{s.code}</button>
-                  ))}
-                </div>
-              </div>
-            )}
-            {/* ── Accès aux modules ── */}
-            <div>
-              <div className="text-xs text-gray-500 mb-1.5 font-medium">Accès aux modules</div>
-              <div className="space-y-1.5">
-                {MODULES_ACCES.map(mod => (
-                  <label key={mod.key} className="flex items-center gap-2.5 cursor-pointer group">
-                    <input type="checkbox" checked={!!modules[mod.key]} disabled={busy}
-                      onChange={() => toggleModule(mod.key)}
-                      className="w-4 h-4 accent-iip-turquoise" />
-                    <div>
-                      <span className="text-sm text-gray-700 group-hover:text-iip-blue">{mod.label}</span>
-                      <span className="text-xs text-gray-400 ml-1.5">{mod.desc}</span>
-                    </div>
-                  </label>
-                ))}
-              </div>
-            </div>
-            {/* ── Permissions granulaires ── */}
-            <div>
-              <button onClick={() => setShowPerms(v => !v)}
-                className="w-full text-left text-xs font-medium text-gray-600 flex items-center justify-between py-1">
-                <span>Permissions détaillées (sections, UE, professeurs)</span>
-                <span className="text-gray-400">{showPerms ? '▲' : '▼'} {permissions.length > 0 ? `${permissions.length} réglée${permissions.length > 1 ? 's' : ''}` : ''}</span>
-              </button>
-              {showPerms && (
-                <PermissionsPanel
-                  userId={account.id}
-                  permissions={permissions}
-                  sectionsDispo={sectionsDispo}
-                  annee={new URLSearchParams(window.location.search).get('annee') || localStorage.getItem('annee_active') || '2026-2027'}
-                  onSaved={(nv) => { setPermissions(nv); }}
-                  af={af}
-                />
-              )}
-            </div>
-            <div className="flex flex-wrap gap-2 pt-1">
-              <button onClick={nouveauMdp} disabled={busy} className="inline-flex items-center gap-1.5 text-sm border border-gray-300 text-gray-700 px-3 py-1.5 h-9 rounded-lg hover:bg-gray-50 disabled:opacity-40">
-                <IconKey size={15} /> Nouveau mot de passe
-              </button>
-              <button onClick={() => patch({ actif: !account.actif })} disabled={busy}
-                className={`inline-flex items-center gap-1.5 text-sm px-3 py-1.5 rounded-lg disabled:opacity-40 ${account.actif ? 'border border-iip-danger text-iip-danger hover:bg-red-50' : 'border border-green-500 text-green-700 hover:bg-green-50'}`}>
-                {account.actif ? <><IconX size={15} /> Désactiver</> : <><IconCheck size={15} /> Réactiver</>}
-              </button>
-            </div>
-          </>
-        )}
+        {account === null && FormCreer}
+        {account && FormEditer}
       </div>
     </div>
   );

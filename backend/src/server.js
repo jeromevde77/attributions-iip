@@ -2319,7 +2319,17 @@ try {
 } catch(e) { console.error('[migration] entretien candidat :', e.message); }
 
 
-  // ── Migration date_engagement sur professeur ──────────────────────────────
+  
+  // ── Migration permissions_json sur utilisateur ────────────────────────────
+  try {
+    const colsU = db.prepare('PRAGMA table_info(utilisateur)').all().map(c => c.name);
+    if (!colsU.includes('permissions_json')) {
+      db.exec('ALTER TABLE utilisateur ADD COLUMN permissions_json TEXT');
+      console.log('[migration] permissions_json ajouté sur utilisateur');
+    }
+  } catch(e) { console.error('[migration] permissions_json:', e.message); }
+
+// ── Migration date_engagement sur professeur ──────────────────────────────
   try {
     const colsProf = db.prepare('PRAGMA table_info(professeur)').all().map(c => c.name);
     if (!colsProf.includes('date_engagement')) {
