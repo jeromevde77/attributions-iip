@@ -163,7 +163,7 @@ export function genererApercu({ etab, prof, attributions, annee, date_contrat, r
 
   const rep = representant
     || (etab.gest_prenom || etab.gest_nom ? `${etab.gest_prenom||''} ${etab.gest_nom||''}`.trim() + (etab.gest_qualite ? `, ${etab.gest_qualite}` : '') : null)
-    || 'Charles Sohet, Directeur a.i.';
+    || 'Charles Sohet, Directeur';
 
   const nomProf    = `${prof.prenom||''} ${prof.nom||''}`.trim();
   const adresseProf = [prof.adresse_rue, prof.code_postal, prof.commune].filter(Boolean).join(', ') || '—';

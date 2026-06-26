@@ -82,7 +82,7 @@ export async function genererContrat({ etab, prof, attributions, annee, date_con
   const estETP = etp >= 1;
   const rep   = representant
     || (etab.gest_prenom || etab.gest_nom ? `${etab.gest_prenom || ''} ${etab.gest_nom || ''}`.trim() + (etab.gest_qualite ? `, ${etab.gest_qualite}` : '') : null)
-    || 'Charles Sohet, Directeur a.i.';
+    || 'Charles Sohet, Directeur';
 
   const doc = new Document({
     styles: { default: { document: { run: { font: 'Arial', size: 22 } } } },

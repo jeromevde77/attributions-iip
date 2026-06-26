@@ -570,7 +570,7 @@ function DetailModal({ profId, onClose, onEdit, onFiche }) {
   const [printMenu, setPrintMenu] = useState(false);
   const [showContratModal, setShowContratModal] = useState(false);
   const [dateContrat, setDateContrat] = useState(new Date().toISOString().split('T')[0]);
-  const [representant, setRepresentant] = useState('Charles Sohet, Directeur a.i.');
+  const [representant, setRepresentant] = useState('Charles Sohet, Directeur');
   const [generatingContrat, setGeneratingContrat] = useState(false);
 
   useEffect(() => {
