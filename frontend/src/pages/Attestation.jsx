@@ -191,10 +191,7 @@ export function genererTemplateAttestation() {
   <!-- Logo + pied de page -->
   <div class="footer-bloc">
     <img src="{{logo_iip}}" class="footer-logo" alt="Institut Ilya Prigogine" />
-    <div class="footer-texte">
-      Institut Supérieur de Promotion Sociale Libre Ilya Prigogine &nbsp;·&nbsp; PO Asbl Ilya Prigogine &nbsp;·&nbsp; Matricule N° {{matricule_etab}} &nbsp;·&nbsp; Fase {{fase_etab}}<br>
-      {{adresse_etab}} &nbsp;·&nbsp; T. {{tel_etab}} &nbsp;·&nbsp; {{site_etab}}
-    </div>
+    <div class="footer-texte">{{pied_page}}</div>
   </div>
 
 </div>

@@ -1,5 +1,6 @@
 import { Router } from 'express';
 import db from '../db/index.js';
+import { piedDocument, enteteLogoActif } from './parametres.js';
 import { authRequired, roleRequired } from '../middleware/auth.js';
 
 const r = Router();
@@ -62,18 +63,27 @@ r.get('/attestation_etab_defaut', authRequired, roleRequired('admin'), (req, res
 });
 
 r.get('/attestation_etab', authRequired, (req, res) => {
+  // Enrichir avec les vraies données de la table etablissement
+  let etabDB = {};
+  try { etabDB = db.prepare('SELECT * FROM etablissement WHERE id = 1').get() || {}; } catch {}
+  const pied = piedDocument();
+
   const row = db.prepare("SELECT valeur FROM lucie_config WHERE cle = 'attestation_etab'").get();
-  if (row) return res.json({ valeur: row.valeur });
-  res.json({ valeur: JSON.stringify({
-    nom:        'INSTITUT ILYA PRIGOGINE',
-    adresse:    'Campus Erasme, Bât. P, route de Lennik 808 - 1070 Anderlecht',
-    matricule:  '2.132.070',
-    fase:       '292',
-    ville:      'Bruxelles',
-    tel:        '+ 32 (0)2 560 29 59',
-    site:       'www.institut-prigogine.be',
-    directeur:  'SOHET Charles',
-  }) });
+  let saved = {};
+  if (row) { try { saved = JSON.parse(row.valeur); } catch {} }
+
+  const merged = {
+    nom:        saved.nom       || etabDB.etab_nom || 'INSTITUT ILYA PRIGOGINE',
+    adresse:    saved.adresse   || etabDB.adresse  || 'Campus Erasme, Bât. P, route de Lennik 808 - 1070 Bruxelles',
+    matricule:  saved.matricule || etabDB.num_ecot || '2.132.070',
+    fase:       saved.fase      || etabDB.num_fase || '292',
+    ville:      saved.ville     || (etabDB.adresse ? 'Bruxelles' : 'Bruxelles'),
+    tel:        saved.tel       || etabDB.gest_tel || '+ 32 (0)2 560 29 59',
+    site:       saved.site      || etabDB.site_web || 'www.institut-prigogine.be',
+    directeur:  saved.directeur || etabDB.gest_nom || 'SOHET Charles',
+    pied_page:  pied,
+  };
+  res.json({ valeur: JSON.stringify(merged) });
 });
 
 // GET /api/config/:cle — lecture (routes spécifiques ci-dessus ont priorité)
