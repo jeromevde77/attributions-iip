@@ -12,7 +12,7 @@ export function genererTemplateAttestation() {
 <title>Attestation provisoire</title>
 <style>
   * { box-sizing: border-box; margin: 0; padding: 0; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
-  body { font-family: Arial, sans-serif; font-size: 9.5pt; color: #1a1a1a; background: white; }
+  body { font-family: Arial, sans-serif; font-size: 9pt; color: #1a1a1a; background: white; }
   @media print { @page { size: A4 portrait; margin: 0; } body { margin: 0; } }
 
   .page {
@@ -40,15 +40,15 @@ export function genererTemplateAttestation() {
 
   /* Filet doré institutionnel */
   .filet-or { border-top: 1pt solid #C9A84C; border-bottom: 1pt solid #C9A84C; padding: 2.5pt 0; margin-bottom: 4mm; text-align: center; }
-  .filet-or span { font-size: 7pt; color: #888; letter-spacing: 0.8pt; text-transform: uppercase; }
+  .filet-or span { font-size: 9pt; color: #888; letter-spacing: 0.8pt; text-transform: uppercase; }
 
   /* Établissement */
-  .etab { font-size: 8pt; color: #444; line-height: 1.45; margin-bottom: 4mm; }
-  .etab strong { color: #1a1a1a; font-size: 8.5pt; }
+  .etab { font-size: 9pt; color: #444; line-height: 1.45; margin-bottom: 4mm; }
+  .etab strong { color: #1a1a1a; }
 
   /* Encadré attestation */
   .encadre { border: 1pt solid #C9A84C; padding: 2.5pt 0; text-align: center; margin-bottom: 4mm; }
-  .encadre span { font-size: 10pt; font-weight: bold; letter-spacing: 0.5pt; }
+  .encadre span { font-size: 9pt; font-weight: bold; letter-spacing: 0.5pt; }
 
   /* Texte courant */
   .texte p { font-size: 9pt; line-height: 1.55; margin-bottom: 1.5pt; }
@@ -59,11 +59,11 @@ export function genererTemplateAttestation() {
     padding: 4pt 8pt; margin: 3mm 0;
     border-radius: 0 3pt 3pt 0;
   }
-  .carte-etudiant .nom { font-size: 11pt; font-weight: bold; color: #1B2B4B; }
-  .carte-etudiant .naissance { font-size: 8.5pt; color: #555; margin-top: 1.5pt; }
+  .carte-etudiant .nom { font-size: 9pt; font-weight: bold; color: #1B2B4B; }
+  .carte-etudiant .naissance { font-size: 9pt; color: #555; margin-top: 1.5pt; }
 
   /* UE */
-  .ue-titre { font-size: 9.5pt; line-height: 1.65; margin-bottom: 1pt; margin-top: 2pt; }
+  .ue-titre { font-size: 9pt; line-height: 1.65; margin-bottom: 1pt; margin-top: 2pt; }
   .ue-bloc { margin: 0 0 3pt 6mm; }
   .ue-bloc div { font-size: 9pt; line-height: 1.55; }
 
@@ -73,19 +73,19 @@ export function genererTemplateAttestation() {
     grid-template-columns: 1fr 1fr 1fr;
     gap: 0 4mm;
     padding-top: 3mm;
-    border-top: 0.5pt solid #e0e0e0;
     flex-shrink: 0;
   }
-  .sig-bloc { text-align: center; font-size: 8.5pt; line-height: 1.5; }
-  .sig-bloc .sig-role { color: #555; font-size: 8pt; margin-bottom: 10mm; }
+  .sig-bloc { text-align: center; font-size: 9pt; line-height: 1.5; display: flex; flex-direction: column; }
+  .sig-bloc .sig-role { color: #555; font-size: 9pt; flex: 1; display: flex; align-items: flex-end; justify-content: center; padding-bottom: 10mm; }
   .sig-bloc .sig-nom { font-weight: bold; color: #1B2B4B; border-top: 0.5pt solid #aaa; padding-top: 1.5mm; display: inline-block; min-width: 30mm; }
   .sig-directeur {
     grid-column: 1 / -1;
-    text-align: center; font-size: 8.5pt;
+    text-align: center; font-size: 9pt;
     margin-top: 3mm; padding-top: 3mm;
     border-top: 0.5pt dashed #ddd;
+    display: flex; flex-direction: column;
   }
-  .sig-directeur .sig-role { color: #555; font-size: 8pt; margin-bottom: 10mm; }
+  .sig-directeur .sig-role { color: #555; font-size: 9pt; flex: 1; display: flex; align-items: flex-end; justify-content: center; padding-bottom: 10mm; }
   .sig-directeur .sig-nom { font-weight: bold; color: #1B2B4B; border-top: 0.5pt solid #aaa; padding-top: 1.5mm; display: inline-block; min-width: 50mm; }
 
   /* Logo + pied de page */
@@ -159,7 +159,7 @@ export function genererTemplateAttestation() {
     </div>
 
     <!-- Date et lieu -->
-    <p style="font-size:8.5pt;color:#444;text-align:right;margin-top:3mm;margin-bottom:1mm;">
+    <p style="font-size:9pt;color:#444;text-align:right;margin-top:3mm;margin-bottom:1mm;">
       Fait à {{ville_etab}}, le {{date_deliberation}}
     </p>
 
