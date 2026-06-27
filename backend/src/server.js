@@ -2320,6 +2320,31 @@ try {
 
 
   
+
+  // ── Migration intitulé TIM dans attestation_sections ─────────────────────
+  try {
+    const row = db.prepare("SELECT valeur FROM lucie_config WHERE cle = 'attestation_sections'").get();
+    if (row && row.valeur.includes('IMAGERIE MEDICALE ET RADIOLOGIE')) {
+      const corrected = row.valeur
+        .replace(/BACHELIER EN IMAGERIE MEDICALE ET RADIOLOGIE/g, 'BACHELIER TECHNOLOGUE EN IMAGERIE MÉDICALE')
+        .replace(/BACHELIER EN IMAGERIE MEDICALE(?! ET)/g, 'BACHELIER TECHNOLOGUE EN IMAGERIE MÉDICALE');
+      db.prepare("UPDATE lucie_config SET valeur = ? WHERE cle = 'attestation_sections'").run(corrected);
+      console.log('[migration] intitulé TIM corrigé dans attestation_sections');
+    }
+    // Corriger ville Anderlecht → Bruxelles dans attestation_etab
+    const etabRow = db.prepare("SELECT valeur FROM lucie_config WHERE cle = 'attestation_etab'").get();
+    if (etabRow) {
+      try {
+        const etab = JSON.parse(etabRow.valeur);
+        if (etab.ville === 'Anderlecht') {
+          etab.ville = 'Bruxelles';
+          db.prepare("UPDATE lucie_config SET valeur = ? WHERE cle = 'attestation_etab'").run(JSON.stringify(etab));
+          console.log('[migration] ville attestation_etab corrigée: Anderlecht → Bruxelles');
+        }
+      } catch(e) {}
+    }
+  } catch(e) { console.error('[migration] attestation_sections:', e.message); }
+
   // ── Migration permissions_json sur utilisateur ────────────────────────────
   try {
     const colsU = db.prepare('PRAGMA table_info(utilisateur)').all().map(c => c.name);

@@ -16,10 +16,13 @@ export function genererTemplateAttestation() {
   @media print { @page { size: A4 portrait; margin: 0; } body { margin: 0; } }
 
   .page {
-    width: 210mm; height: 297mm;
+    width: 210mm; min-height: 297mm;
     margin: 0 auto;
     display: flex; flex-direction: column;
-    position: relative; overflow: hidden;
+    position: relative;
+  }
+  @media print {
+    .page { height: 297mm; overflow: hidden; }
   }
 
   /* Filigrane */
@@ -36,7 +39,7 @@ export function genererTemplateAttestation() {
   .bandeau-droite { color: rgba(255,255,255,0.65); font-size: 7.5pt; text-align: right; letter-spacing: 0.5pt; line-height: 1.5; }
 
   /* Corps */
-  .corps { flex: 1; padding: 5mm 18mm 3mm 18mm; display: flex; flex-direction: column; position: relative; z-index: 1; }
+  .corps { flex: 1; padding: 5mm 18mm 3mm 18mm; display: flex; flex-direction: column; justify-content: space-between; position: relative; z-index: 1; }
 
   /* Filet doré institutionnel */
   .filet-or { border-top: 1pt solid #C9A84C; border-bottom: 1pt solid #C9A84C; padding: 2.5pt 0; margin-bottom: 4mm; text-align: center; }
@@ -72,7 +75,6 @@ export function genererTemplateAttestation() {
     display: grid;
     grid-template-columns: 1fr 1fr 1fr;
     gap: 0 4mm;
-    margin-top: auto;
     padding-top: 3mm;
     border-top: 0.5pt solid #e0e0e0;
     flex-shrink: 0;

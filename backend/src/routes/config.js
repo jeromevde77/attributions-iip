@@ -33,7 +33,7 @@ r.get('/attestation_sections_defaut', authRequired, roleRequired('admin'), (req,
     { code: '914300S34D3', section: 'BACHELIER EN OPTOMETRIE',         diplome: 'BACHELIER EN OPTOMETRIE',         periodes: 2550, ects: 180 },
     { code: '914300S33D3', section: 'BACHELIER EN SOINS INFIRMIERS',   diplome: 'BACHELIER EN SOINS INFIRMIERS',   periodes: 2880, ects: 180 },
     { code: '914300S35D3', section: 'BACHELIER EN PSYCHOMOTRICITE',    diplome: 'BACHELIER EN PSYCHOMOTRICITE',    periodes: 2550, ects: 180 },
-    { code: '914300S36D3', section: 'BACHELIER EN IMAGERIE MEDICALE',  diplome: 'BACHELIER EN IMAGERIE MEDICALE ET RADIOLOGIE', periodes: 2760, ects: 180 },
+    { code: '914300S36D3', section: 'BACHELIER TECHNOLOGUE EN IMAGERIE MÉDICALE',  diplome: 'BACHELIER TECHNOLOGUE EN IMAGERIE MÉDICALE', periodes: 2760, ects: 180 },
   ]) });
 });
 
@@ -44,7 +44,7 @@ r.get('/attestation_sections', authRequired, (req, res) => {
     { code: '914300S34D3', section: 'BACHELIER EN OPTOMETRIE',         diplome: 'BACHELIER EN OPTOMETRIE',         periodes: 2550, ects: 180 },
     { code: '914300S33D3', section: 'BACHELIER EN SOINS INFIRMIERS',   diplome: 'BACHELIER EN SOINS INFIRMIERS',   periodes: 2880, ects: 180 },
     { code: '914300S35D3', section: 'BACHELIER EN PSYCHOMOTRICITE',    diplome: 'BACHELIER EN PSYCHOMOTRICITE',    periodes: 2550, ects: 180 },
-    { code: '914300S36D3', section: 'BACHELIER EN IMAGERIE MEDICALE',  diplome: 'BACHELIER EN IMAGERIE MEDICALE ET RADIOLOGIE', periodes: 2760, ects: 180 },
+    { code: '914300S36D3', section: 'BACHELIER TECHNOLOGUE EN IMAGERIE MÉDICALE',  diplome: 'BACHELIER TECHNOLOGUE EN IMAGERIE MÉDICALE', periodes: 2760, ects: 180 },
   ]) });
 });
 
@@ -54,7 +54,7 @@ r.get('/attestation_etab_defaut', authRequired, roleRequired('admin'), (req, res
     adresse:    'Campus Erasme, Bât. P, route de Lennik 808 - 1070 Anderlecht',
     matricule:  '2.132.070',
     fase:       '292',
-    ville:      'Anderlecht',
+    ville:      'Bruxelles',
     tel:        '+ 32 (0)2 560 29 59',
     site:       'www.institut-prigogine.be',
     directeur:  'SOHET Charles',
@@ -69,7 +69,7 @@ r.get('/attestation_etab', authRequired, (req, res) => {
     adresse:    'Campus Erasme, Bât. P, route de Lennik 808 - 1070 Anderlecht',
     matricule:  '2.132.070',
     fase:       '292',
-    ville:      'Anderlecht',
+    ville:      'Bruxelles',
     tel:        '+ 32 (0)2 560 29 59',
     site:       'www.institut-prigogine.be',
     directeur:  'SOHET Charles',
