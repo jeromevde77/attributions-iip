@@ -36,27 +36,27 @@ export function genererTemplateAttestation() {
   .bandeau-droite { color: rgba(255,255,255,0.65); font-size: 7.5pt; text-align: right; letter-spacing: 0.5pt; line-height: 1.5; }
 
   /* Corps */
-  .corps { flex: 1; padding: 7mm 18mm 4mm 18mm; display: flex; flex-direction: column; position: relative; z-index: 1; }
+  .corps { flex: 1; padding: 5mm 18mm 3mm 18mm; display: flex; flex-direction: column; position: relative; z-index: 1; }
 
   /* Filet doré institutionnel */
-  .filet-or { border-top: 1pt solid #C9A84C; border-bottom: 1pt solid #C9A84C; padding: 2.5pt 0; margin-bottom: 5mm; text-align: center; }
+  .filet-or { border-top: 1pt solid #C9A84C; border-bottom: 1pt solid #C9A84C; padding: 2.5pt 0; margin-bottom: 4mm; text-align: center; }
   .filet-or span { font-size: 7pt; color: #888; letter-spacing: 0.8pt; text-transform: uppercase; }
 
   /* Établissement */
-  .etab { font-size: 8pt; color: #444; line-height: 1.5; margin-bottom: 5mm; }
+  .etab { font-size: 8pt; color: #444; line-height: 1.45; margin-bottom: 4mm; }
   .etab strong { color: #1a1a1a; font-size: 8.5pt; }
 
   /* Encadré attestation */
-  .encadre { border: 1pt solid #C9A84C; padding: 3.5pt 0; text-align: center; margin-bottom: 5mm; }
+  .encadre { border: 1pt solid #C9A84C; padding: 2.5pt 0; text-align: center; margin-bottom: 4mm; }
   .encadre span { font-size: 10pt; font-weight: bold; letter-spacing: 0.5pt; }
 
   /* Texte courant */
-  .texte p { font-size: 9.5pt; line-height: 1.65; margin-bottom: 2pt; }
+  .texte p { font-size: 9pt; line-height: 1.55; margin-bottom: 1.5pt; }
 
   /* Carte étudiant */
   .carte-etudiant {
     background: #f0f4ff; border-left: 3pt solid #C9A84C;
-    padding: 5pt 10pt; margin: 4mm 0;
+    padding: 4pt 8pt; margin: 3mm 0;
     border-radius: 0 3pt 3pt 0;
   }
   .carte-etudiant .nom { font-size: 11pt; font-weight: bold; color: #1B2B4B; }
@@ -67,26 +67,37 @@ export function genererTemplateAttestation() {
   .ue-bloc { margin: 0 0 3pt 6mm; }
   .ue-bloc div { font-size: 9pt; line-height: 1.55; }
 
-  /* Signatures */
+  /* Signatures — 3 colonnes */
   .signatures {
-    display: flex; justify-content: space-between; align-items: flex-start;
-    margin-top: auto; padding-top: 5mm;
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    gap: 0 4mm;
+    margin-top: auto;
+    padding-top: 3mm;
     border-top: 0.5pt solid #e0e0e0;
+    flex-shrink: 0;
   }
-  .sig-gauche { font-size: 9pt; color: #666; padding-top: 14mm; }
-  .sig-droite { text-align: right; font-size: 9.5pt; }
-  .sig-droite .lieu-date { margin-bottom: 12mm; color: #333; line-height: 1.5; }
-  .sig-droite .nom-dir { font-weight: bold; margin-top: 1mm; }
+  .sig-bloc { text-align: center; font-size: 8.5pt; line-height: 1.5; }
+  .sig-bloc .sig-role { color: #555; font-size: 8pt; margin-bottom: 10mm; }
+  .sig-bloc .sig-nom { font-weight: bold; color: #1B2B4B; border-top: 0.5pt solid #aaa; padding-top: 1.5mm; display: inline-block; min-width: 30mm; }
+  .sig-directeur {
+    grid-column: 1 / -1;
+    text-align: center; font-size: 8.5pt;
+    margin-top: 3mm; padding-top: 3mm;
+    border-top: 0.5pt dashed #ddd;
+  }
+  .sig-directeur .sig-role { color: #555; font-size: 8pt; margin-bottom: 10mm; }
+  .sig-directeur .sig-nom { font-weight: bold; color: #1B2B4B; border-top: 0.5pt solid #aaa; padding-top: 1.5mm; display: inline-block; min-width: 50mm; }
 
   /* Logo + pied de page */
   .footer-bloc {
-    flex-shrink: 0; padding: 0 18mm 4pt 18mm;
+    flex-shrink: 0; padding: 0 18mm 3pt 18mm;
     position: relative; z-index: 1;
   }
-  .footer-logo { height: 12mm; width: auto; opacity: 0.9; display: block; margin-bottom: 3mm; }
+  .footer-logo { height: 10mm; width: auto; opacity: 0.9; display: block; margin-bottom: 2.5mm; }
   .footer-texte {
-    border-top: 0.5pt solid #C9A84C; padding-top: 3mm;
-    font-size: 6.5pt; color: #888; text-align: center; line-height: 1.5;
+    border-top: 0.5pt solid #C9A84C; padding-top: 2.5mm;
+    font-size: 6pt; color: #888; text-align: center; line-height: 1.4;
   }
 </style>
 </head><body>
@@ -148,13 +159,28 @@ export function genererTemplateAttestation() {
       <p style="font-style:italic;color:#555;margin-top:3mm;">Le diplôme de l'intéressé·e est actuellement soumis à la signature de l'autorité compétente.</p>
     </div>
 
-    <!-- Signatures -->
+    <!-- Date et lieu -->
+    <p style="font-size:8.5pt;color:#444;text-align:right;margin-top:3mm;margin-bottom:1mm;">
+      Fait à {{ville_etab}}, le {{date_deliberation}}
+    </p>
+
+    <!-- Signatures — 3 colonnes + directeur centré -->
     <div class="signatures">
-      <div class="sig-gauche">Sceau de l'établissement</div>
-      <div class="sig-droite">
-        <div class="lieu-date">Fait à {{ville_etab}},<br>le {{date_deliberation}}</div>
-        <div>Le Directeur,</div>
-        <div class="nom-dir">{{directeur}}</div>
+      <div class="sig-bloc">
+        <div class="sig-role">La Présidente du Jury,</div>
+        <div class="sig-nom">Marie Lambert</div>
+      </div>
+      <div class="sig-bloc">
+        <div class="sig-role">La Directrice du département de la santé, HELB,</div>
+        <div class="sig-nom">Catherine Romanus</div>
+      </div>
+      <div class="sig-bloc">
+        <div class="sig-role">Sceau de l'établissement</div>
+        <div style="height:10mm;"></div>
+      </div>
+      <div class="sig-directeur">
+        <div class="sig-role">Le Directeur de l'Institut Ilya Prigogine,</div>
+        <div class="sig-nom">{{directeur}}</div>
       </div>
     </div>
 
