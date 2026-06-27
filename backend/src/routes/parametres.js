@@ -82,9 +82,13 @@ r.put('/bulk', authRequired, roleRequired('admin'), (req, res) => {
   const updates = req.body;
   if (typeof updates !== 'object' || Array.isArray(updates))
     return res.status(400).json({ error: 'body doit être un objet { cle: valeur }' });
+  const upsert = db.prepare(`
+    INSERT INTO parametre (cle, valeur) VALUES (?, ?)
+    ON CONFLICT(cle) DO UPDATE SET valeur = excluded.valeur
+  `);
   const update = db.transaction(() => {
     for (const [cle, valeur] of Object.entries(updates)) {
-      db.prepare('UPDATE parametre SET valeur = ? WHERE cle = ?').run(String(valeur), cle);
+      upsert.run(cle, String(valeur));
     }
   });
   update();
