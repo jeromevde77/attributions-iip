@@ -16,13 +16,10 @@ export function genererTemplateAttestation() {
   @media print { @page { size: A4 portrait; margin: 0; } body { margin: 0; } }
 
   .page {
-    width: 210mm; min-height: 297mm;
+    width: 210mm; height: 297mm;
     margin: 0 auto;
     display: flex; flex-direction: column;
-    position: relative;
-  }
-  @media print {
-    .page { height: 297mm; overflow: hidden; }
+    position: relative; overflow: hidden;
   }
 
   /* Filigrane */
@@ -337,6 +334,12 @@ export default function Attestation() {
       '{{tel_etab}}':         etab.tel || '',
       '{{site_etab}}':        etab.site || '',
       '{{logo_iip}}':         LOGO_IIP,
+      '{{pied_page}}':        (() => {
+        // Construire le pied de page depuis etab (même logique que piedDocument backend)
+        const l1 = [etab.nom, etab.po ? 'PO ' + etab.po : null, etab.num_entreprise ? 'N° entreprise ' + etab.num_entreprise : null].filter(Boolean).join(' &nbsp;•&nbsp; ');
+        const l2 = [etab.fase ? 'Fase ' + etab.fase : null, etab.adresse, etab.tel ? 'T. ' + etab.tel : null, etab.email, etab.site].filter(Boolean).join(' &nbsp;•&nbsp; ');
+        return etab.pied_page || [l1, l2].filter(Boolean).join('<br>') || '';
+      })(),
     });
   };
 
