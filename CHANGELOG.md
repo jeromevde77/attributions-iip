@@ -1,5 +1,10 @@
 # Changelog
 
+## v3.9.28 — 29 juin 2026
+
+### Attestations — signature complète (fichier fourni)
+- Remplacement par la signature complète fournie par la direction (boucle supérieure entière, fond transparent)
+
 ## v3.9.27 — 29 juin 2026
 
 ### Attestations — sceau officiel (fichier fourni)
