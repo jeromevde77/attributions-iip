@@ -1,5 +1,10 @@
 # Changelog
 
+## v3.10.8 — 29 juin 2026
+
+### Disciplinaire — délai de convocation
+- L'indication du délai (8 jours ouvrables / date d'audition au plus tôt) ne s'affiche que pour le renvoi définitif ; pour les autres sanctions, mention « aucun délai minimum imposé »
+
 ## v3.10.7 — 29 juin 2026
 
 ### Disciplinaire — assistant pas à pas

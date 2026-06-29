@@ -376,7 +376,8 @@ export default function Disciplinaire() {
           <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
             <div><label className={lab}>Envoi de la convocation</label><input type="date" className={champ} value={dateEnvoi} onChange={e => setDateEnvoi(e.target.value)} /></div>
             <div><label className={lab}>Date d'audition</label><input type="date" className={champ} value={dateAudition} onChange={e => setDateAudition(e.target.value)} />
-              {dateAuditionMin && <p className="text-[11px] text-gray-500 mt-1">Au plus tôt : <strong>{fmtLong(dateAuditionMin)}</strong></p>}
+              {estRenvoiDef && dateAuditionMin && <p className="text-[11px] text-gray-500 mt-1">Au plus tôt : <strong>{fmtLong(dateAuditionMin)}</strong> (8 j ouvrables)</p>}
+              {!estRenvoiDef && <p className="text-[11px] text-gray-400 mt-1">Aucun délai minimum imposé pour cette sanction.</p>}
               {estRenvoiDef && delaiOk === false && <p className="text-[11px] text-red-600 mt-1">⚠ Délai de 8 jours ouvrables non respecté.</p>}
               {estRenvoiDef && delaiOk === true && <p className="text-[11px] text-green-600 mt-1">✓ Délai respecté.</p>}</div>
             <div><label className={lab}>Heure</label><input className={champ} value={heureAudition} onChange={e => setHeureAudition(e.target.value)} placeholder="ex : 14h00" /></div>
