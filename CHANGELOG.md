@@ -1,5 +1,10 @@
 # Changelog
 
+## v3.9.8 — 29 juin 2026
+
+### Attestations — import UE 264 (épreuve intégrée)
+- Note UE 264 (Total /20) importée pour 26 étudiants TIM BA1 ; mention recalculée automatiquement (2/3 déterminantes + 1/3 UE 264)
+
 ## v3.9.7 — 29 juin 2026
 
 ### Attestations — import dates de naissance + genre
