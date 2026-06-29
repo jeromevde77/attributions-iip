@@ -1,5 +1,10 @@
 # Changelog
 
+## v3.9.22 — 29 juin 2026
+
+### Attestations — signature agrandie
+- Signature du directeur agrandie (~+50%, 23 mm) et chevauchant légèrement la fonction et le nom pour un rendu plus naturel
+
 ## v3.9.21 — 29 juin 2026
 
 ### Attestations — zone de signatures revue
