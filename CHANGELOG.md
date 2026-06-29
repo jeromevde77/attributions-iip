@@ -1,5 +1,10 @@
 # Changelog
 
+## v3.9.27 — 29 juin 2026
+
+### Attestations — sceau officiel (fichier fourni)
+- Intégration du sceau doré exact fourni par la direction (fond transparent), en bas à droite
+
 ## v3.9.26 — 29 juin 2026
 
 ### Attestations — sceau avec logo officiel doré
