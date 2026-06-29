@@ -1,5 +1,10 @@
 # Changelog
 
+## v3.9.20 — 29 juin 2026
+
+### Attestations — signature directeur (version nette)
+- Signature de Charles Sohet régénérée en haute résolution depuis le vecteur (fond transparent, tracé net)
+
 ## v3.9.19 — 29 juin 2026
 
 ### Attestations — signature du directeur
