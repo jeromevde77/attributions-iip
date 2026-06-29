@@ -314,6 +314,7 @@ export default function Attestation() {
   const [filtreUe, setFiltreUe]           = useState('');
   const [filtrePresence, setFiltrePresence] = useState('');
   const [tri, setTri]                     = useState('nom');
+  const [selection, setSelection]         = useState(new Set());
   const [dirty, setDirty]                 = useState(false);
   const [enregOk, setEnregOk]             = useState(false);
   const chargementFait = useRef(false);
@@ -419,7 +420,8 @@ export default function Attestation() {
   };
 
   const genererBatch = () => {
-    const valides = lignesAffichees.filter(l => l.nom && l.section_code && Number(l._scores?.['264']) >= 10);
+    const base = selection.size ? lignesAffichees.filter(l => selection.has(l.id)) : lignesAffichees;
+    const valides = base.filter(l => l.nom && l.section_code && Number(l._scores?.['264']) >= 10);
     if (valides.length === 0) { alert('Aucun étudiant éligible : une note UE 264 ≥ 10 (réussie) est requise pour générer une attestation de réussite.'); return; }
     setGenerating(true);
     try {
@@ -481,7 +483,8 @@ export default function Attestation() {
     const cols = ['Matricule', 'Nom', 'Prénom', 'Genre', 'Date naissance', 'Section',
       ...UES_DET_TIM.map(u => `UE${u.ue} /20`), 'UE264 /20', 'Moyenne %', 'Mention'];
     const esc = (v) => { const t = v == null ? '' : String(v); return /[";\n]/.test(t) ? `"${t.replace(/"/g, '""')}"` : t; };
-    const rows = lignesAffichees.filter(l => l.nom).map(l => {
+    const base = selection.size ? lignesAffichees.filter(l => selection.has(l.id)) : lignesAffichees;
+    const rows = base.filter(l => l.nom).map(l => {
       const sc = l._scores || {};
       return [
         l.matricule || String(l.id ?? '').replace('tim_', ''), l.nom, l.prenom, l.genre, l.date_naissance, l.section_code,
@@ -496,6 +499,11 @@ export default function Attestation() {
     telecharger(blob, `Liste_resultats_TIM_${annee.replace('/', '-')}.csv`);
     } catch (e) { alert('Erreur export liste : ' + e.message); }
   };
+
+  const toggleSel = (id) => setSelection(s => { const n = new Set(s); n.has(id) ? n.delete(id) : n.add(id); return n; });
+  const idsAffiches = lignesAffichees.filter(l => l.nom).map(l => l.id);
+  const tousSel = idsAffiches.length > 0 && idsAffiches.every(id => selection.has(id));
+  const toggleTous = () => setSelection(s => { if (idsAffiches.every(id => s.has(id)) && idsAffiches.length) { const n = new Set(s); idsAffiches.forEach(id => n.delete(id)); return n; } return new Set([...s, ...idsAffiches]); });
 
   return (
     <div className="space-y-4">
@@ -564,7 +572,7 @@ export default function Attestation() {
           <button onClick={() => { setQ(''); setFiltreUe(''); setFiltrePresence(''); setTri('nom'); }}
             className="text-xs text-gray-400 hover:text-iip-blue underline">réinitialiser</button>
         )}
-        <span className="ml-auto text-xs text-gray-500">{lignesAffichees.filter(l => l.nom).length} affiché(s) / {lignes.filter(l => l.nom).length}</span>
+        <span className="ml-auto text-xs text-gray-500">{selection.size > 0 ? selection.size + ' sélectionné(s) · ' : ''}{lignesAffichees.filter(l => l.nom).length} affiché(s) / {lignes.filter(l => l.nom).length}</span>
       </div>
 
       {/* Tableau */}
@@ -573,6 +581,7 @@ export default function Attestation() {
           <table className="w-full text-xs">
             <thead>
               <tr className="bg-gray-50 border-b border-gray-200">
+                <th className="px-2 py-2 w-8 text-center"><input type="checkbox" checked={tousSel} onChange={toggleTous} title="Tout sélectionner (affichés)" /></th>
                 {COLS.map(c => (
                   <th key={c.key} className={`text-left px-2 py-2 font-semibold text-gray-500 ${c.w}`}>{c.label}</th>
                 ))}
@@ -593,6 +602,7 @@ export default function Attestation() {
                 const sc = l._scores || {};
                 return (
                 <tr key={l.id} className={idx % 2 === 0 ? 'bg-white hover:bg-gray-50' : 'bg-gray-50/50 hover:bg-gray-100'}>
+                  <td className="px-2 py-1 text-center"><input type="checkbox" checked={selection.has(l.id)} onChange={() => toggleSel(l.id)} /></td>
                   {COLS.map(c => (
                     <td key={c.key} className={`px-2 py-1 ${c.w}`}>
                       <Cell value={l[c.key]} onChange={v => majLigne(l.id, c.key, v)} options={c.options} placeholder={c.placeholder} />

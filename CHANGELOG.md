@@ -1,5 +1,12 @@
 # Changelog
 
+## v3.9.33 — 29 juin 2026
+
+### Attestations — sélection multiple
+- Case à cocher par étudiant + « tout sélectionner »
+- « Exporter la liste » et « Générer les attestations » agissent sur la sélection si au moins une ligne est cochée (sinon sur tout l'affiché)
+- Compteur de sélection
+
 ## v3.9.32 — 29 juin 2026
 
 ### Attestations — génération PDF fidèle (moteur navigateur)
