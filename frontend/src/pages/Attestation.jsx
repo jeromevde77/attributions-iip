@@ -264,12 +264,14 @@ function deriveLigne(l, per = PER_DEFAUT) {
   for (const u of UES_DET_TIM) { if (scores[u.ue] !== undefined) pct[u.ue] = parseFloat(scores[u.ue]) * 5; }
   const sInt = scores['264'] !== undefined ? parseFloat(scores['264']) * 5 : undefined;
   const has = Object.keys(pct).length > 0 || sInt !== undefined;
+  const complet = UES_DET_TIM.every(u => scores[u.ue] !== undefined) && scores['264'] !== undefined;
   const calc = calculerMention(pct, sInt, per);
+  const valide = complet && calc.pct >= 50;          // mention SEULEMENT si toutes les UE notées ET >= 50
   const detLines = UES_DET_TIM.filter(u => scores[u.ue] !== undefined)
     .map(u => `UE ${u.ue} — ${u.nom} : ${scores[u.ue]}/20`).join('\n');
   const intLine = scores['264'] !== undefined ? `UE 264 — ${UE_INT_TIM.nom} : ${scores['264']}/20` : '';
-  return { ...l, _scores: scores, mention: has ? calc.mention : l.mention,
-           ue_determinantes: detLines, ue_integree: intLine, _calcPct: has ? calc.pct : 0 };
+  return { ...l, _scores: scores, mention: valide ? calc.mention : '',
+           ue_determinantes: detLines, ue_integree: intLine, _calcPct: has ? calc.pct : 0, _complet: complet };
 }
 function mentionColorClass(pct) {
   return pct >= 70 ? 'text-green-700 bg-green-50' : pct >= 50 ? 'text-amber-700 bg-amber-50' : 'text-red-700 bg-red-50';
@@ -422,8 +424,8 @@ export default function Attestation() {
 
   const genererBatch = () => {
     const base = selection.size ? lignesAffichees.filter(l => selection.has(l.id)) : lignesAffichees;
-    const valides = base.filter(l => l.nom && l.section_code && Number(l._scores?.['264']) >= 10);
-    if (valides.length === 0) { alert('Aucun étudiant éligible : une note UE 264 ≥ 10 (réussie) est requise pour générer une attestation de réussite.'); return; }
+    const valides = base.filter(l => l.nom && l.section_code && l.mention);
+    if (valides.length === 0) { alert('Aucun étudiant éligible : une mention valide (toutes les UE notées et résultat ≥ 50%) est requise.'); return; }
     setGenerating(true);
     try {
       // Rendu fidèle : on imprime via le moteur du navigateur (identique à l'aperçu)
@@ -515,6 +517,57 @@ export default function Attestation() {
   const tousSel = idsAffiches.length > 0 && idsAffiches.every(id => selection.has(id));
   const toggleTous = () => setSelection(s => { if (idsAffiches.every(id => s.has(id)) && idsAffiches.length) { const n = new Set(s); idsAffiches.forEach(id => n.delete(id)); return n; } return new Set([...s, ...idsAffiches]); });
 
+  const NB_COLS = 1 + COLS.length + UES_DET_TIM.length + 3;
+  const renderRow = (l, idx) => {
+    const sc = l._scores || {};
+    return (
+      <tr key={l.id} className={idx % 2 === 0 ? 'bg-white hover:bg-gray-50' : 'bg-gray-50/50 hover:bg-gray-100'}>
+        <td className="px-2 py-1 text-center"><input type="checkbox" checked={selection.has(l.id)} onChange={() => toggleSel(l.id)} /></td>
+        {COLS.map(c => (
+          <td key={c.key} className={`px-2 py-1 ${c.w}`}>
+            <Cell value={l[c.key]} onChange={v => majLigne(l.id, c.key, v)} options={c.options} placeholder={c.placeholder} />
+          </td>
+        ))}
+        {UES_DET_TIM.map(u => (
+          <td key={u.ue} className="px-1 py-1 text-center">
+            <input type="number" min="0" max="20" step="0.5" value={sc[u.ue] ?? ''}
+              onChange={e => majScore(l.id, u.ue, e.target.value)}
+              className="w-12 border border-gray-200 rounded px-1 py-0.5 text-xs text-center focus:border-iip-turquoise focus:outline-none" />
+          </td>
+        ))}
+        <td className="px-1 py-1 text-center">
+          <input type="number" min="0" max="20" step="0.5" value={sc['264'] ?? ''}
+            onChange={e => majScore(l.id, '264', e.target.value)}
+            className="w-12 border border-amber-300 rounded px-1 py-0.5 text-xs text-center focus:border-amber-500 focus:outline-none" />
+        </td>
+        <td className="px-2 py-1 text-center">
+          {l.mention
+            ? <span className={`text-[11px] font-bold px-2 py-0.5 rounded whitespace-nowrap ${mentionColorClass(l._calcPct)}`}>{l._calcPct}% — {l.mention}</span>
+            : l._complet
+              ? <span className="text-[11px] font-bold px-2 py-0.5 rounded whitespace-nowrap text-red-700 bg-red-50">{l._calcPct}% — Échec</span>
+              : <span className="text-gray-300" title="UE manquantes">—</span>}
+        </td>
+        <td className="px-2 py-1">
+          <div className="flex items-center gap-1">
+            <button onClick={() => l.nom && l.section_code && l.mention && setPreview({ html: genererHtml(l), nom: `Attestation_${l.nom}_${l.prenom}` })}
+              title="Prévisualiser (mention requise : toutes les UE notées et ≥ 50%)" disabled={!l.nom || !l.section_code || !l.mention}
+              className="text-iip-turquoise hover:opacity-70 disabled:opacity-30 p-0.5">
+              <IconEye size={14}/>
+            </button>
+            <button onClick={() => dupliquerLigne(l.id)} title="Dupliquer"
+              className="text-gray-400 hover:text-iip-blue p-0.5">
+              <IconCopy size={14}/>
+            </button>
+            <button onClick={() => supprimerLigne(l.id)} title="Supprimer"
+              className="text-gray-300 hover:text-red-500 p-0.5">
+              <IconTrash size={14}/>
+            </button>
+          </div>
+        </td>
+      </tr>
+    );
+  };
+
   return (
     <div className="space-y-4">
       {/* En-tête */}
@@ -601,52 +654,19 @@ export default function Attestation() {
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-100">
-              {lignesAffichees.map((l, idx) => {
-                const sc = l._scores || {};
-                return (
-                <tr key={l.id} className={idx % 2 === 0 ? 'bg-white hover:bg-gray-50' : 'bg-gray-50/50 hover:bg-gray-100'}>
-                  <td className="px-2 py-1 text-center"><input type="checkbox" checked={selection.has(l.id)} onChange={() => toggleSel(l.id)} /></td>
-                  {COLS.map(c => (
-                    <td key={c.key} className={`px-2 py-1 ${c.w}`}>
-                      <Cell value={l[c.key]} onChange={v => majLigne(l.id, c.key, v)} options={c.options} placeholder={c.placeholder} />
-                    </td>
-                  ))}
-                  {UES_DET_TIM.map(u => (
-                    <td key={u.ue} className="px-1 py-1 text-center">
-                      <input type="number" min="0" max="20" step="0.5" value={sc[u.ue] ?? ''}
-                        onChange={e => majScore(l.id, u.ue, e.target.value)}
-                        className="w-12 border border-gray-200 rounded px-1 py-0.5 text-xs text-center focus:border-iip-turquoise focus:outline-none" />
-                    </td>
-                  ))}
-                  <td className="px-1 py-1 text-center">
-                    <input type="number" min="0" max="20" step="0.5" value={sc['264'] ?? ''}
-                      onChange={e => majScore(l.id, '264', e.target.value)}
-                      className="w-12 border border-amber-300 rounded px-1 py-0.5 text-xs text-center focus:border-amber-500 focus:outline-none" />
-                  </td>
-                  <td className="px-2 py-1 text-center">
-                    {l._calcPct > 0
-                      ? <span className={`text-[11px] font-bold px-2 py-0.5 rounded whitespace-nowrap ${mentionColorClass(l._calcPct)}`}>{l._calcPct}% — {l.mention}</span>
-                      : <span className="text-gray-300">—</span>}
-                  </td>
-                  <td className="px-2 py-1">
-                    <div className="flex items-center gap-1">
-                      <button onClick={() => l.nom && l.section_code && Number(l._scores?.['264']) >= 10 && setPreview({ html: genererHtml(l), nom: `Attestation_${l.nom}_${l.prenom}` })}
-                        title="Prévisualiser (note UE 264 ≥ 10 requise)" disabled={!l.nom || !l.section_code || !(Number(l._scores?.['264']) >= 10)}
-                        className="text-iip-turquoise hover:opacity-70 disabled:opacity-30 p-0.5">
-                        <IconEye size={14}/>
-                      </button>
-                      <button onClick={() => dupliquerLigne(l.id)} title="Dupliquer"
-                        className="text-gray-400 hover:text-iip-blue p-0.5">
-                        <IconCopy size={14}/>
-                      </button>
-                      <button onClick={() => supprimerLigne(l.id)} title="Supprimer"
-                        className="text-gray-300 hover:text-red-500 p-0.5">
-                        <IconTrash size={14}/>
-                      </button>
-                    </div>
-                  </td>
-                </tr>
-              );})}
+              {(() => {
+                const complets = lignesAffichees.filter(l => l.nom && l._complet);
+                const autres   = lignesAffichees.filter(l => !(l.nom && l._complet));
+                const sec = (titre, n, cls) => (
+                  <tr key={'sec-' + titre}><td colSpan={NB_COLS} className={'px-3 py-1.5 text-[11px] font-bold uppercase tracking-wide ' + cls}>{titre} — {n}</td></tr>
+                );
+                return (<>
+                  {complets.length > 0 && sec('Dossiers complets (toutes les UE notées)', complets.length, 'bg-green-50 text-green-700')}
+                  {complets.map((l, i) => renderRow(l, i))}
+                  {autres.length > 0 && sec('Dossiers incomplets (UE manquantes)', autres.length, 'bg-amber-50 text-amber-700')}
+                  {autres.map((l, i) => renderRow(l, i))}
+                </>);
+              })()}
             </tbody>
           </table>
         </div>

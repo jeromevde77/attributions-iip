@@ -1,5 +1,12 @@
 # Changelog
 
+## v3.9.35 — 29 juin 2026
+
+### Attestations — sections complet/incomplet & règle de mention
+- Tableau scindé en deux : « Dossiers complets » (toutes les UE notées) puis « Dossiers incomplets » (UE manquantes)
+- Mention attribuée uniquement si toutes les UE sont notées ET résultat ≥ 50 % ; sinon « Échec » (complet < 50) ou « — » (incomplet)
+- Génération/prévisualisation d'attestation réservée aux mentions valides
+
 ## v3.9.34 — 29 juin 2026
 
 ### Attestations — tri par colonnes
