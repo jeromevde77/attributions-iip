@@ -1,5 +1,13 @@
 # Changelog
 
+## v3.10.7 — 29 juin 2026
+
+### Disciplinaire — assistant pas à pas
+- Outil transformé en assistant guidé en 5 étapes (Faits → Qualification → Convocation → Audition → Décision) avec barre d'étapes et navigation Précédent/Suivant
+- Questions oui/non d'aide à la procédure (faits établis, récidive, faute grave, présence/assistance, audition contradictoire, PV signé / refus constaté, avis du CdE)
+- Recommandation de sanction selon les réponses ; panneau de conformité procédurale (vert/rouge) avant notification
+- PV adapté (mention du refus de signature si Non), décision visant l'avis du CdE pour le renvoi définitif
+
 ## v3.10.6 — 29 juin 2026
 
 ### Disciplinaire — déplacé dans Procédures

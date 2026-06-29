@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { IconGavel, IconScale, IconMail, IconClipboardText, IconGavel as IconDecision, IconPaperclip, IconTrash, IconDownload, IconPlus } from '@tabler/icons-react';
+import { IconGavel, IconScale, IconMail, IconClipboardText, IconGavel as IconDecision, IconPaperclip, IconTrash, IconDownload, IconPlus, IconChevronLeft, IconChevronRight } from '@tabler/icons-react';
 import PreviewModal from '../components/PreviewModal.jsx';
 
 function addJoursOuvrables(date, n) {
@@ -67,11 +67,34 @@ function docHTML(titreDoc, corps) {
 </div></body></html>`;
 }
 
+function Q({ text, ref, value, onChange }) {
+  return (
+    <div className="flex items-center justify-between gap-3 py-1.5 border-b border-gray-100 last:border-0">
+      <span className="text-sm text-gray-700">{text}{ref && <span className="text-xs text-gray-400 ml-1">({ref})</span>}</span>
+      <div className="flex gap-1 flex-shrink-0">
+        {['oui', 'non'].map(v => (
+          <button key={v} type="button" onClick={() => onChange(value === v ? '' : v)}
+            className={`text-xs px-3 py-1 rounded border ${value === v ? (v === 'oui' ? 'bg-green-600 text-white border-green-600' : 'bg-red-500 text-white border-red-500') : 'bg-white text-gray-500 border-gray-300 hover:bg-gray-50'}`}>
+            {v === 'oui' ? 'Oui' : 'Non'}
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+}
+const Check = ({ ok, label }) => (
+  <div className="flex items-center gap-2 text-sm py-0.5">
+    <span className={ok ? 'text-green-600' : 'text-red-500'}>{ok ? '✓' : '✗'}</span>
+    <span className={ok ? 'text-gray-700' : 'text-red-600'}>{label}</span>
+  </div>
+);
+
 export default function Disciplinaire() {
   const tok = () => localStorage.getItem('token');
   const auth = { Authorization: `Bearer ${tok()}` };
   const af = (url) => fetch(url, { headers: auth }).then(r => r.json());
 
+  const [step, setStep] = useState(1);
   const [annee, setAn] = useState('2026-2027');
   const [nom, setNom] = useState(''); const [prenom, setPrenom] = useState('');
   const [section, setSection] = useState(''); const [adresse, setAdresse] = useState('');
@@ -88,6 +111,12 @@ export default function Disciplinaire() {
   const [declarations, setDeclarations] = useState('');
   const [dateDecision, setDateDecision] = useState('');
   const [motivation, setMotivation] = useState('');
+  // Questions oui/non (aide pas à pas)
+  const [qEtablis, setQEtablis] = useState(''); const [qRecidive, setQRecidive] = useState('');
+  const [qGrave, setQGrave] = useState(''); const [qPresente, setQPresente] = useState('');
+  const [qAssiste, setQAssiste] = useState(''); const [qContradictoire, setQContradictoire] = useState('');
+  const [qPvSigne, setQPvSigne] = useState(''); const [qRefusConstate, setQRefusConstate] = useState('');
+  const [qAvisDemande, setQAvisDemande] = useState(''); const [qAvisRecu, setQAvisRecu] = useState('');
   const [preview, setPreview] = useState(null);
 
   const [caseId, setCaseId] = useState(null);
@@ -103,6 +132,8 @@ export default function Disciplinaire() {
   const sa = SANCTIONS.find(s => s.key === sanction) || {};
   const etu = `${prenom} ${nom.toUpperCase()}`.trim() || '[ÉTUDIANT·E]';
   const baseLeg = tf.fraude ? a.fraude : a.discipline;
+  const cap = (s) => s ? s.charAt(0).toUpperCase() + s.slice(1) : s;
+  const nl = (s) => (s || '…').replace(/\n/g, '<br>');
   const estAcademique = ['fraude_sanction', 'annulation'].includes(sanction);
   const recoursTxt = estAcademique ? a.recoursAcad
     : (sanction === 'renvoi_def' ? a.recoursExclusion
@@ -112,22 +143,20 @@ export default function Disciplinaire() {
   const refConv = r2627 ? "l'article 115 quater du RDE" : "l'article 96 du ROI";
   const refAudi = r2627 ? "l'article 115 ter du RDE" : "l'article 96 du ROI";
   const refDossier = r2627 ? "l'article 115 sexies du RDE" : "l'article 96 du ROI";
-  const cap = (s) => s ? s.charAt(0).toUpperCase() + s.slice(1) : s;
-  const nl = (s) => (s || '…').replace(/\n/g, '<br>');
+  const estRenvoiDef = sanction === 'renvoi_def';
 
-  const payload = { annee, nom, prenom, section, adresse, typeFait, dateFaits, rapporteur, description, sanction, dateEnvoi, dateAudition, heureAudition, lieuAudition, presents, declarations, dateDecision, motivation };
+  const payload = { step, annee, nom, prenom, section, adresse, typeFait, dateFaits, rapporteur, description, sanction, dateEnvoi, dateAudition, heureAudition, lieuAudition, presents, declarations, dateDecision, motivation, qEtablis, qRecidive, qGrave, qPresente, qAssiste, qContradictoire, qPvSigne, qRefusConstate, qAvisDemande, qAvisRecu };
   const payloadStr = JSON.stringify(payload);
 
   const chargerDossiers = () => af('/api/disciplinaire/cases').then(d => setDossiers(Array.isArray(d) ? d : [])).catch(() => {});
   const chargerFichiers = (id) => af(`/api/disciplinaire/cases/${id}`).then(d => setFichiers(d.fichiers || [])).catch(() => {});
   useEffect(() => { chargerDossiers(); }, []);
-
   useEffect(() => { caseRef.current = caseId; }, [caseId]);
 
   useEffect(() => {
     if (skipSave.current) { skipSave.current = false; return; }
     if (lectureSeule) return;
-    if (!caseRef.current && !nom && !description) return;     // ne pas créer de dossier vide
+    if (!caseRef.current && !nom && !description) return;
     clearTimeout(saveTimer.current);
     saveTimer.current = setTimeout(async () => {
       try {
@@ -144,23 +173,25 @@ export default function Disciplinaire() {
 
   const nouveauDossier = () => {
     skipSave.current = true;
-    setCaseId(null); caseRef.current = null; setFichiers([]);
+    setCaseId(null); caseRef.current = null; setFichiers([]); setStep(1);
     setNom(''); setPrenom(''); setSection(''); setAdresse(''); setTypeFait('fraude_examen');
     setDateFaits(''); setRapporteur(''); setDescription(''); setSanction('rappel');
     setDateEnvoi(''); setDateAudition(''); setHeureAudition(''); setPresents(''); setDeclarations(''); setDateDecision(''); setMotivation('');
+    setQEtablis(''); setQRecidive(''); setQGrave(''); setQPresente(''); setQAssiste(''); setQContradictoire(''); setQPvSigne(''); setQRefusConstate(''); setQAvisDemande(''); setQAvisRecu('');
   };
 
   const ouvrirDossier = async (id) => {
     if (!id) return;
-    const d = await af(`/api/disciplinaire/cases/${id}`);
-    const p = d.payload || {};
+    const d = await af(`/api/disciplinaire/cases/${id}`); const p = d.payload || {};
     skipSave.current = true;
-    setCaseId(d.id); caseRef.current = d.id;
+    setCaseId(d.id); caseRef.current = d.id; setStep(p.step || 1);
     setAn(p.annee || '2026-2027'); setNom(p.nom || ''); setPrenom(p.prenom || ''); setSection(p.section || ''); setAdresse(p.adresse || '');
     setTypeFait(p.typeFait || 'fraude_examen'); setDateFaits(p.dateFaits || ''); setRapporteur(p.rapporteur || ''); setDescription(p.description || '');
     setSanction(p.sanction || 'rappel'); setDateEnvoi(p.dateEnvoi || ''); setDateAudition(p.dateAudition || ''); setHeureAudition(p.heureAudition || '');
     setLieuAudition(p.lieuAudition || "le secrétariat de l'Institut Ilya Prigogine"); setPresents(p.presents || ''); setDeclarations(p.declarations || '');
     setDateDecision(p.dateDecision || ''); setMotivation(p.motivation || '');
+    setQEtablis(p.qEtablis || ''); setQRecidive(p.qRecidive || ''); setQGrave(p.qGrave || ''); setQPresente(p.qPresente || ''); setQAssiste(p.qAssiste || '');
+    setQContradictoire(p.qContradictoire || ''); setQPvSigne(p.qPvSigne || ''); setQRefusConstate(p.qRefusConstate || ''); setQAvisDemande(p.qAvisDemande || ''); setQAvisRecu(p.qAvisRecu || '');
     setFichiers(d.fichiers || []);
   };
 
@@ -169,24 +200,16 @@ export default function Disciplinaire() {
     await fetch(`/api/disciplinaire/cases/${caseId}`, { method: 'DELETE', headers: auth });
     nouveauDossier(); chargerDossiers();
   };
-
   const uploadFichier = async (file) => {
     if (!file) return;
-    if (!caseRef.current) { alert('Commencez par saisir le dossier (il sera enregistré automatiquement), puis ajoutez les pièces.'); return; }
+    if (!caseRef.current) { alert('Renseignez d\\'abord les faits (le dossier s\\'enregistre tout seul), puis ajoutez les pièces.'); return; }
     const fd = new FormData(); fd.append('fichier', file); fd.append('categorie', catUp);
     const res = await fetch(`/api/disciplinaire/cases/${caseRef.current}/fichiers`, { method: 'POST', headers: auth, body: fd });
-    if (res.ok) chargerFichiers(caseRef.current);
-    else if (res.status === 403) setLectureSeule(true);
-    else alert('Échec de l’envoi du fichier.');
+    if (res.ok) chargerFichiers(caseRef.current); else if (res.status === 403) setLectureSeule(true); else alert('Échec de l\\'envoi.');
   };
-  const supprimerFichier = async (fid) => {
-    if (!confirm('Supprimer cette pièce ?')) return;
-    await fetch(`/api/disciplinaire/fichiers/${fid}`, { method: 'DELETE', headers: auth });
-    chargerFichiers(caseRef.current);
-  };
+  const supprimerFichier = async (fid) => { if (!confirm('Supprimer cette pièce ?')) return; await fetch(`/api/disciplinaire/fichiers/${fid}`, { method: 'DELETE', headers: auth }); chargerFichiers(caseRef.current); };
   const telechargerFichier = async (fid, nomf) => {
-    const res = await fetch(`/api/disciplinaire/fichiers/${fid}/download`, { headers: auth });
-    if (!res.ok) return;
+    const res = await fetch(`/api/disciplinaire/fichiers/${fid}/download`, { headers: auth }); if (!res.ok) return;
     const blob = await res.blob(); const url = URL.createObjectURL(blob);
     const el = document.createElement('a'); el.href = url; el.download = nomf; document.body.appendChild(el); el.click();
     setTimeout(() => { try { document.body.removeChild(el); } catch {} URL.revokeObjectURL(url); }, 1000);
@@ -195,18 +218,34 @@ export default function Disciplinaire() {
   const dateAuditionMin = dateEnvoi ? addJoursOuvrables(dateEnvoi, DELAI_CONVOC_JO) : null;
   const delaiOk = (dateEnvoi && dateAudition) ? (new Date(dateAudition) >= addJoursOuvrables(dateEnvoi, DELAI_CONVOC_JO)) : null;
 
+  const recommandation = () => {
+    if (qGrave === 'oui') return `Faute grave (Art. 117) : sanctions pouvant aller jusqu'au renvoi définitif. Pour un renvoi définitif, l'avis du Conseil des Études est requis.`;
+    if (tf.fraude) return qRecidive === 'oui'
+      ? `Fraude en récidive : le Conseil des Études ou le Jury peut refuser dès la première session (Art. 75).`
+      : `Fraude : ajournement (1re session) ou refus (2e session) pour l'UE concernée (Art. 75) ; décision motivée du CdE/Jury.`;
+    return `Manquement disciplinaire : sanction proportionnée (du rappel à l'ordre au renvoi), prononcée après audition.`;
+  };
+
+  // Conformité procédurale
+  const conformite = [
+    { ok: !!(dateEnvoi && dateAudition), label: 'Convocation et audition datées' },
+    { ok: !estRenvoiDef || delaiOk === true, label: 'Délai ≥ 8 jours ouvrables (renvoi définitif)' },
+    { ok: qPresente !== '', label: 'Audition tenue (présence ou défaut acté)' },
+    { ok: qPvSigne === 'oui' || qRefusConstate === 'oui', label: 'PV signé, ou refus constaté par deux membres' },
+    { ok: !estRenvoiDef || qAvisRecu === 'oui', label: 'Avis du Conseil des Études (renvoi définitif)' },
+    { ok: !!motivation, label: 'Décision motivée' },
+  ];
+  const conformiteOk = conformite.every(c => c.ok);
+
   const analyse = () => {
     const L = [];
     L.push(`Cadre applicable : ${a.reg}.`);
     L.push(`Qualification : ${(tf.label || '').toLowerCase()} — base réglementaire : ${baseLeg}.`);
     L.push(`Procédure (${a.procedure}) : examen individuel, sanction motivée et proportionnée ; audition préalable obligatoire ; assistance par la personne de son choix.`);
     if (tf.fraude) L.push(`Fraude/plagiat (${a.fraude}) : audition séparée des parties puis audition contradictoire ; décision du Conseil des Études ou du Jury d'Épreuve intégrée, formellement motivée.`);
-    L.push(`PV d'audition signé par l'étudiant·e ; le refus de signature est constaté par deux membres du personnel (sans empêcher la poursuite).`);
-    L.push(`L'étudiant·e peut consulter le dossier sans déplacement de pièces et demander un délai de réponse (≤ 5 jours ouvrables).`);
     L.push(`Sanction envisagée : ${sa.label} — prononcée par ${sa.autorite}.`);
-    if (sanction === 'renvoi_def') L.push(`Renvoi définitif : avis du Conseil des Études rendu dans les 8 jours (consultatif), versé au dossier ; écartement provisoire possible (≤ 15 jours ouvrables) pendant la procédure.`);
-    L.push(`Convocation : recommandé/AR, déposé au moins ${DELAI_CONVOC_JO} jours ouvrables avant l'audition (renvoi définitif) ; mentionne faits, sanction envisagée, droit d'être assisté·e, consultation du dossier.`);
-    L.push(`Notification : pli recommandé/AR, motivée (${a.notif}), avec mention du droit de recours et de ses modalités.`);
+    if (estRenvoiDef) L.push(`Renvoi définitif : avis du Conseil des Études rendu dans les 8 jours (consultatif), versé au dossier ; écartement provisoire possible (≤ 15 jours ouvrables).`);
+    L.push(`Notification : pli recommandé/AR, motivée (${a.notif}), avec mention du droit de recours.`);
     L.push(`Voies de recours : ${recoursTxt}.`);
     return L;
   };
@@ -219,7 +258,7 @@ export default function Disciplinaire() {
     <p>Dans le cadre de l'application du ${a.reg}, et plus particulièrement de ${baseLeg}, la Direction a été informée des faits suivants vous concernant :</p>
     <div class="bloc-faits"><strong>Faits reprochés — constatés le ${fmtLong(dateFaits)}${rapporteur ? `, rapportés par ${rapporteur}` : ''} :</strong><br>${nl(description)}</div>
     <p>Ces faits sont susceptibles de constituer ${(tf.label || '').toLowerCase()} au sens de ${baseLeg}${tf.fraude ? ` (${a.fraude})` : ''}, et pourraient donner lieu à la sanction suivante : <strong>${sa.label}</strong>, prononcée par ${sa.autorite}.</p>
-    <p>Conformément à ${refProc}, et en particulier à ${refConv}, vous êtes <strong>convoqué·e à une audition</strong> qui se tiendra le <strong>${fmtLong(dateAudition)}${heureAudition ? ` à ${heureAudition}` : ''}</strong>, à ${lieuAudition}.${sanction === 'renvoi_def' ? ` La présente convocation s'inscrit dans la mise en œuvre d'une procédure d'exclusion définitive ; conformément au règlement, elle vous est adressée au moins huit jours ouvrables avant l'audition.` : ''}</p>
+    <p>Conformément à ${refProc}, et en particulier à ${refConv}, vous êtes <strong>convoqué·e à une audition</strong> qui se tiendra le <strong>${fmtLong(dateAudition)}${heureAudition ? ` à ${heureAudition}` : ''}</strong>, à ${lieuAudition}.${estRenvoiDef ? ` La présente convocation s'inscrit dans la mise en œuvre d'une procédure d'exclusion définitive ; conformément au règlement, elle vous est adressée au moins huit jours ouvrables avant l'audition.` : ''}</p>
     <p>En application de ${refAudi}, vous avez le droit d'être entendu·e et de <strong>vous faire assister de la personne de votre choix</strong>, ainsi que de faire entendre toute personne utile à votre défense.</p>
     <p>Conformément à ${refDossier}, vous pouvez <strong>consulter votre dossier disciplinaire</strong>, sans déplacement de pièces, en présence de la Direction ou de son délégué, et <strong>demander un délai</strong> pour répondre aux faits reprochés ; fixé de commun accord, ce délai ne dépasse pas cinq jours ouvrables.</p>
     <p>À défaut de comparution, la procédure suivra son cours.</p>
@@ -236,7 +275,7 @@ export default function Disciplinaire() {
     ${tf.fraude ? `<p>Conformément à ${a.fraude}, les parties ont été entendues séparément, puis il a été procédé à une audition contradictoire.</p>` : ''}
     <p><strong>Déclarations et observations de l'étudiant·e :</strong></p>
     <p>${nl(declarations)}</p>
-    <p>La Direction (ou son délégué) est assistée d'un membre du personnel pour la rédaction du présent procès-verbal, établi séance tenante. En cas de refus de signature de l'étudiant·e, celui-ci est constaté par deux membres du personnel et n'empêche pas la poursuite de la procédure.</p>
+    <p>La Direction (ou son délégué) est assistée d'un membre du personnel pour la rédaction du présent procès-verbal, établi séance tenante.${qPvSigne === 'non' ? ` Le refus de signature de l'étudiant·e est constaté par deux membres du personnel et n'empêche pas la poursuite de la procédure.` : ''}</p>
     <div class="sig"><table><tr>
       <td style="width:50%">La Direction (ou son délégué),<br><br>__________________</td>
       <td>L'étudiant·e,<br><br>__________________</td></tr></table></div>`);
@@ -251,9 +290,10 @@ export default function Disciplinaire() {
     <p><strong>Vu</strong> les faits constatés le ${fmtLong(dateFaits)}${rapporteur ? `, rapportés par ${rapporteur}` : ''} :</p>
     <div class="bloc-faits">${nl(description)}</div>
     <p><strong>Vu</strong> la convocation adressée à l'étudiant·e et son audition tenue le ${fmtLong(dateAudition)} ;</p>
+    ${estRenvoiDef ? `<p><strong>Vu</strong> l'avis du Conseil des Études ;</p>` : ''}
     <p><strong>Considérant</strong> ${nl(motivation || "les éléments du dossier et la gravité des faits, appréciée au regard de l'atteinte au bon fonctionnement de l'établissement")} ;</p>
     <p>${cap(sa.autorite)} décide d'appliquer la sanction suivante : <strong>${sa.label}</strong>.</p>
-    ${sanction === 'renvoi_def' ? `<p>Cette décision a été prise après avis du Conseil des Études, versé au dossier disciplinaire.</p>` : ''}
+    ${estRenvoiDef ? `<p>Cette décision a été prise après avis du Conseil des Études, versé au dossier disciplinaire.</p>` : ''}
     <p>La présente décision est formellement motivée et vous est notifiée par pli recommandé (ou contre accusé de réception), conformément à ${a.notif}.</p>
     <p><strong>Voies de recours :</strong> ${recoursTxt}.</p>
     <div class="sig"><p>Pour la Direction,<br><strong>${ETAB.directeur}</strong>, Directeur</p></div>`);
@@ -262,84 +302,141 @@ export default function Disciplinaire() {
   const champ = "w-full border border-gray-300 rounded px-2 py-1.5 text-sm focus:border-iip-turquoise focus:outline-none";
   const lab = "block text-xs font-semibold text-gray-500 mb-1";
   const ko = (t) => t ? Math.round(t / 1024) + ' Ko' : '';
+  const btnDoc = "flex items-center gap-1.5 bg-iip-blue text-white text-sm px-4 py-2 rounded-lg hover:opacity-90";
+  const STEPS = ['Faits', 'Qualification', 'Convocation', 'Audition', 'Décision'];
 
   return (
-    <div className="p-6 max-w-5xl mx-auto space-y-5">
+    <div className="space-y-4">
       <div className="flex items-center gap-3 flex-wrap">
-        <IconGavel size={26} className="text-iip-blue" />
-        <div>
-          <h1 className="text-2xl font-title text-iip-blue">Disciplinaire étudiant</h1>
-          <p className="text-sm text-gray-500">Aide à la décision · convocation, PV, décision · dossier archivé</p>
-        </div>
         <div className="ml-auto flex items-center gap-2">
           {lectureSeule ? <span className="text-xs text-gray-500">🔒 Lecture seule</span> : enreg && <span className="text-xs text-green-600">✓ Enregistré</span>}
-          <select value={caseId || ''} onChange={e => ouvrirDossier(e.target.value)} className={champ + ' w-56'}>
+          <select value={caseId || ''} onChange={e => ouvrirDossier(e.target.value)} className={champ + ' w-52'}>
             <option value="">— Dossiers —</option>
             {dossiers.map(d => <option key={d.id} value={d.id}>{d.etudiant || 'Sans nom'} · {new Date(d.modifie_le).toLocaleDateString('fr-BE')}</option>)}
           </select>
           <button onClick={nouveauDossier} className="flex items-center gap-1 bg-green-600 text-white text-sm px-3 py-1.5 rounded-lg hover:opacity-90"><IconPlus size={15} /> Nouveau</button>
           {caseId && <button onClick={supprimerDossier} className="text-gray-300 hover:text-red-500 p-1"><IconTrash size={16} /></button>}
-          <select value={annee} onChange={e => setAn(e.target.value)} className={champ + ' w-44'}>
-            {ANNEES.map(y => <option key={y.code} value={y.code}>{y.label}</option>)}
-          </select>
+          <select value={annee} onChange={e => setAn(e.target.value)} className={champ + ' w-44'}>{ANNEES.map(y => <option key={y.code} value={y.code}>{y.label}</option>)}</select>
         </div>
       </div>
 
-      <div className="bg-white border border-gray-200 rounded-xl p-4 grid grid-cols-1 md:grid-cols-3 gap-3">
-        <div><label className={lab}>Nom</label><input className={champ} value={nom} onChange={e => setNom(e.target.value)} /></div>
-        <div><label className={lab}>Prénom</label><input className={champ} value={prenom} onChange={e => setPrenom(e.target.value)} /></div>
-        <div><label className={lab}>Section</label><input className={champ} value={section} onChange={e => setSection(e.target.value)} /></div>
-        <div className="md:col-span-3"><label className={lab}>Adresse de l'étudiant·e (pour le courrier)</label><input className={champ} value={adresse} onChange={e => setAdresse(e.target.value)} /></div>
-        <div><label className={lab}>Type de fait</label><select className={champ} value={typeFait} onChange={e => setTypeFait(e.target.value)}>{TYPES_FAIT.map(t => <option key={t.key} value={t.key}>{t.label}</option>)}</select></div>
-        <div><label className={lab}>Date des faits</label><input type="date" className={champ} value={dateFaits} onChange={e => setDateFaits(e.target.value)} /></div>
-        <div><label className={lab}>Rapporté par</label><input className={champ} value={rapporteur} onChange={e => setRapporteur(e.target.value)} /></div>
-        <div className="md:col-span-3"><label className={lab}>Description des faits</label><textarea rows={3} className={champ} value={description} onChange={e => setDescription(e.target.value)} /></div>
-        <div className="md:col-span-3"><label className={lab}>Sanction envisagée</label><select className={champ} value={sanction} onChange={e => setSanction(e.target.value)}>{SANCTIONS.map(s => <option key={s.key} value={s.key}>{s.label}</option>)}</select></div>
+      {/* Barre d'étapes */}
+      <div className="flex items-center gap-2 flex-wrap">
+        {STEPS.map((t, i) => (
+          <button key={t} onClick={() => setStep(i + 1)}
+            className={`text-xs px-3 py-1.5 rounded-full border ${step === i + 1 ? 'bg-iip-blue text-white border-iip-blue' : 'bg-white text-gray-500 border-gray-300 hover:bg-gray-50'}`}>
+            {i + 1}. {t}
+          </button>
+        ))}
       </div>
 
-      <div className="bg-iip-blue/5 border border-iip-blue/20 rounded-xl p-4">
-        <div className="flex items-center gap-2 text-iip-blue font-semibold text-sm mb-2"><IconScale size={16} /> Analyse RDE/ROI — aide à la décision</div>
-        <ul className="text-sm text-gray-700 list-disc pl-5 space-y-1">{analyse().map((l, i) => <li key={i}>{l}</li>)}</ul>
-      </div>
-
-      {/* 1. Convocation */}
-      <div className="bg-white border border-gray-200 rounded-xl p-4">
-        <div className="text-xs font-bold text-iip-blue uppercase tracking-wide mb-3">1. Convocation à l'audition</div>
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
-          <div><label className={lab}>Envoi de la convocation</label><input type="date" className={champ} value={dateEnvoi} onChange={e => setDateEnvoi(e.target.value)} /></div>
-          <div><label className={lab}>Date d'audition</label><input type="date" className={champ} value={dateAudition} onChange={e => setDateAudition(e.target.value)} />
-            {dateAuditionMin && <p className="text-[11px] text-gray-500 mt-1">Au plus tôt : <strong>{fmtLong(dateAuditionMin)}</strong></p>}
-            {delaiOk === false && <p className="text-[11px] text-red-600 mt-1">⚠ Délai de 8 jours ouvrables non respecté.</p>}
-            {delaiOk === true && <p className="text-[11px] text-green-600 mt-1">✓ Délai respecté.</p>}</div>
-          <div><label className={lab}>Heure</label><input className={champ} value={heureAudition} onChange={e => setHeureAudition(e.target.value)} placeholder="ex : 14h00" /></div>
-          <div><label className={lab}>Lieu de l'audition</label><input className={champ} value={lieuAudition} onChange={e => setLieuAudition(e.target.value)} /></div>
+      {/* ÉTAPE 1 — Faits */}
+      {step === 1 && (
+        <div className="bg-white border border-gray-200 rounded-xl p-4 space-y-3">
+          <div className="text-sm font-bold text-iip-blue">Étape 1 — Les faits</div>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+            <div><label className={lab}>Nom</label><input className={champ} value={nom} onChange={e => setNom(e.target.value)} /></div>
+            <div><label className={lab}>Prénom</label><input className={champ} value={prenom} onChange={e => setPrenom(e.target.value)} /></div>
+            <div><label className={lab}>Section</label><input className={champ} value={section} onChange={e => setSection(e.target.value)} /></div>
+            <div className="md:col-span-3"><label className={lab}>Adresse (pour le courrier)</label><input className={champ} value={adresse} onChange={e => setAdresse(e.target.value)} /></div>
+            <div><label className={lab}>Type de fait</label><select className={champ} value={typeFait} onChange={e => setTypeFait(e.target.value)}>{TYPES_FAIT.map(t => <option key={t.key} value={t.key}>{t.label}</option>)}</select></div>
+            <div><label className={lab}>Date des faits</label><input type="date" className={champ} value={dateFaits} onChange={e => setDateFaits(e.target.value)} /></div>
+            <div><label className={lab}>Rapporté par</label><input className={champ} value={rapporteur} onChange={e => setRapporteur(e.target.value)} /></div>
+            <div className="md:col-span-3"><label className={lab}>Description des faits</label><textarea rows={3} className={champ} value={description} onChange={e => setDescription(e.target.value)} /></div>
+          </div>
+          <div className="border-t border-gray-100 pt-2">
+            <Q text="Les faits sont-ils établis et documentés (preuves, témoignages) ?" value={qEtablis} onChange={setQEtablis} />
+            <Q text="S'agit-il d'une récidive (faits déjà sanctionnés) ?" value={qRecidive} onChange={setQRecidive} />
+          </div>
         </div>
-        <button onClick={() => ouvrir('Convocation à audition', genConvocation())} className="mt-3 flex items-center gap-1.5 bg-iip-blue text-white text-sm px-4 py-2 rounded-lg hover:opacity-90"><IconMail size={16} /> Générer la convocation</button>
-      </div>
+      )}
 
-      {/* 2. Audition */}
-      <div className="bg-white border border-gray-200 rounded-xl p-4">
-        <div className="text-xs font-bold text-iip-blue uppercase tracking-wide mb-3">2. Audition</div>
-        <div className="grid grid-cols-1 gap-3">
-          <div><label className={lab}>Présents à l'audition</label><input className={champ} value={presents} onChange={e => setPresents(e.target.value)} /></div>
-          <div><label className={lab}>Déclarations / observations de l'étudiant·e (PV)</label><textarea rows={2} className={champ} value={declarations} onChange={e => setDeclarations(e.target.value)} /></div>
+      {/* ÉTAPE 2 — Qualification */}
+      {step === 2 && (
+        <div className="space-y-3">
+          <div className="bg-white border border-gray-200 rounded-xl p-4">
+            <div className="text-sm font-bold text-iip-blue mb-2">Étape 2 — Qualification &amp; gravité</div>
+            <Q text="Le fait constitue-t-il une faute grave (violence, menaces, arme, racket, faux…) ?" ref={r2627 ? 'Art. 117' : 'Art. 96'} value={qGrave} onChange={setQGrave} />
+            <Q text="S'agit-il d'une fraude / d'un plagiat ?" ref={r2627 ? 'Art. 72-75' : 'Art. 54-55'} value={tf.fraude ? 'oui' : qGrave === '' ? '' : 'non'} onChange={() => {}} />
+            <div className="mt-3"><label className={lab}>Sanction envisagée</label>
+              <select className={champ} value={sanction} onChange={e => setSanction(e.target.value)}>{SANCTIONS.map(s => <option key={s.key} value={s.key}>{s.label}</option>)}</select></div>
+            <div className="mt-3 text-sm bg-amber-50 border border-amber-200 rounded p-3 text-amber-900"><strong>Recommandation :</strong> {recommandation()}</div>
+          </div>
+          <div className="bg-iip-blue/5 border border-iip-blue/20 rounded-xl p-4">
+            <div className="flex items-center gap-2 text-iip-blue font-semibold text-sm mb-2"><IconScale size={16} /> Analyse RDE/ROI</div>
+            <ul className="text-sm text-gray-700 list-disc pl-5 space-y-1">{analyse().map((l, i) => <li key={i}>{l}</li>)}</ul>
+          </div>
         </div>
-        <button onClick={() => ouvrir("PV d'audition", genPV())} className="mt-3 flex items-center gap-1.5 bg-iip-blue text-white text-sm px-4 py-2 rounded-lg hover:opacity-90"><IconClipboardText size={16} /> Générer le PV d'audition</button>
-      </div>
+      )}
 
-      {/* 3. Décision */}
-      <div className="bg-white border border-gray-200 rounded-xl p-4">
-        <div className="text-xs font-bold text-iip-blue uppercase tracking-wide mb-3">3. Décision</div>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-          <div><label className={lab}>Date de la décision</label><input type="date" className={champ} value={dateDecision} onChange={e => setDateDecision(e.target.value)} /></div>
-          <div className="md:col-span-2"><label className={lab}>Motivation de la décision</label><textarea rows={2} className={champ} value={motivation} onChange={e => setMotivation(e.target.value)} /></div>
+      {/* ÉTAPE 3 — Convocation */}
+      {step === 3 && (
+        <div className="bg-white border border-gray-200 rounded-xl p-4 space-y-3">
+          <div className="text-sm font-bold text-iip-blue">Étape 3 — Convocation à l'audition</div>
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
+            <div><label className={lab}>Envoi de la convocation</label><input type="date" className={champ} value={dateEnvoi} onChange={e => setDateEnvoi(e.target.value)} /></div>
+            <div><label className={lab}>Date d'audition</label><input type="date" className={champ} value={dateAudition} onChange={e => setDateAudition(e.target.value)} />
+              {dateAuditionMin && <p className="text-[11px] text-gray-500 mt-1">Au plus tôt : <strong>{fmtLong(dateAuditionMin)}</strong></p>}
+              {estRenvoiDef && delaiOk === false && <p className="text-[11px] text-red-600 mt-1">⚠ Délai de 8 jours ouvrables non respecté.</p>}
+              {estRenvoiDef && delaiOk === true && <p className="text-[11px] text-green-600 mt-1">✓ Délai respecté.</p>}</div>
+            <div><label className={lab}>Heure</label><input className={champ} value={heureAudition} onChange={e => setHeureAudition(e.target.value)} placeholder="ex : 14h00" /></div>
+            <div><label className={lab}>Lieu</label><input className={champ} value={lieuAudition} onChange={e => setLieuAudition(e.target.value)} /></div>
+          </div>
+          <div className="text-xs text-gray-500">La convocation rappellera automatiquement : recommandé/AR, faits, sanction envisagée, droit d'être assisté·e, consultation du dossier et délai de réponse{estRenvoiDef ? ', et le délai de 8 jours ouvrables (exclusion définitive)' : ''}.</div>
+          <button onClick={() => ouvrir('Convocation à audition', genConvocation())} className={btnDoc}><IconMail size={16} /> Générer la convocation</button>
         </div>
-        <button onClick={() => ouvrir('Décision disciplinaire', genDecision())} className="mt-3 flex items-center gap-1.5 bg-iip-blue text-white text-sm px-4 py-2 rounded-lg hover:opacity-90"><IconDecision size={16} /> Générer la décision</button>
+      )}
+
+      {/* ÉTAPE 4 — Audition */}
+      {step === 4 && (
+        <div className="bg-white border border-gray-200 rounded-xl p-4 space-y-3">
+          <div className="text-sm font-bold text-iip-blue">Étape 4 — Audition</div>
+          <Q text="L'étudiant·e s'est-il/elle présenté·e à l'audition ?" value={qPresente} onChange={setQPresente} />
+          <Q text="S'est-il/elle fait assister ?" value={qAssiste} onChange={setQAssiste} />
+          {tf.fraude && <Q text="L'audition contradictoire a-t-elle été tenue (après audition séparée) ?" ref="Art. 72-75 / 54-55" value={qContradictoire} onChange={setQContradictoire} />}
+          <Q text="Le procès-verbal a-t-il été signé par l'étudiant·e ?" value={qPvSigne} onChange={setQPvSigne} />
+          {qPvSigne === 'non' && <Q text="Le refus de signature a-t-il été constaté par deux membres du personnel ?" value={qRefusConstate} onChange={setQRefusConstate} />}
+          <div className="grid grid-cols-1 gap-3 pt-1">
+            <div><label className={lab}>Personnes présentes</label><input className={champ} value={presents} onChange={e => setPresents(e.target.value)} /></div>
+            <div><label className={lab}>Déclarations / observations de l'étudiant·e</label><textarea rows={3} className={champ} value={declarations} onChange={e => setDeclarations(e.target.value)} /></div>
+          </div>
+          <button onClick={() => ouvrir("PV d'audition", genPV())} className={btnDoc}><IconClipboardText size={16} /> Générer le PV d'audition</button>
+        </div>
+      )}
+
+      {/* ÉTAPE 5 — Décision */}
+      {step === 5 && (
+        <div className="space-y-3">
+          <div className="bg-white border border-gray-200 rounded-xl p-4 space-y-3">
+            <div className="text-sm font-bold text-iip-blue">Étape 5 — Décision</div>
+            {estRenvoiDef && <>
+              <Q text="L'avis du Conseil des Études a-t-il été demandé ?" ref={r2627 ? 'Art. 115 septies' : 'Art. 96'} value={qAvisDemande} onChange={setQAvisDemande} />
+              <Q text="L'avis du Conseil des Études a-t-il été rendu (sous 8 jours) ?" value={qAvisRecu} onChange={setQAvisRecu} />
+            </>}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+              <div><label className={lab}>Date de la décision</label><input type="date" className={champ} value={dateDecision} onChange={e => setDateDecision(e.target.value)} /></div>
+              <div className="md:col-span-2"><label className={lab}>Motivation de la décision</label><textarea rows={3} className={champ} value={motivation} onChange={e => setMotivation(e.target.value)} /></div>
+            </div>
+            <button onClick={() => ouvrir('Décision disciplinaire', genDecision())} className={btnDoc}><IconDecision size={16} /> Générer la décision</button>
+          </div>
+          <div className={`border rounded-xl p-4 ${conformiteOk ? 'bg-green-50 border-green-200' : 'bg-red-50 border-red-200'}`}>
+            <div className="font-semibold text-sm mb-2">{conformiteOk ? '✓ Conformité procédurale' : '⚠ Points à vérifier avant de notifier'}</div>
+            {conformite.map((c, i) => <Check key={i} ok={c.ok} label={c.label} />)}
+          </div>
+        </div>
+      )}
+
+      {/* Navigation étapes */}
+      <div className="flex items-center justify-between">
+        <button onClick={() => setStep(s => Math.max(1, s - 1))} disabled={step === 1} className="flex items-center gap-1 text-sm px-3 py-1.5 rounded-lg border border-gray-300 text-gray-600 disabled:opacity-40 hover:bg-gray-50"><IconChevronLeft size={16} /> Précédent</button>
+        <span className="text-xs text-gray-400">Étape {step} / {STEPS.length}</span>
+        <button onClick={() => setStep(s => Math.min(STEPS.length, s + 1))} disabled={step === STEPS.length} className="flex items-center gap-1 text-sm px-3 py-1.5 rounded-lg border border-gray-300 text-gray-600 disabled:opacity-40 hover:bg-gray-50">Suivant <IconChevronRight size={16} /></button>
       </div>
 
+      {/* Pièces jointes */}
       <div className="bg-white border border-gray-200 rounded-xl p-4">
         <div className="flex items-center gap-2 font-semibold text-sm text-gray-700 mb-3"><IconPaperclip size={16} /> Pièces jointes du dossier (courriers reçus, preuves, réponses…)</div>
-        {!caseId && <p className="text-xs text-gray-400 mb-2">Saisissez d'abord le dossier (enregistré automatiquement), puis ajoutez les pièces.</p>}
+        {!caseId && <p className="text-xs text-gray-400 mb-2">Renseignez d'abord les faits (enregistrement automatique), puis ajoutez les pièces.</p>}
         <div className="flex items-center gap-2 flex-wrap mb-3">
           <select value={catUp} onChange={e => setCatUp(e.target.value)} className={champ + ' w-52'}>{CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)}</select>
           <input type="file" disabled={!caseId} onChange={e => { uploadFichier(e.target.files[0]); e.target.value = ''; }} className="text-xs" />
