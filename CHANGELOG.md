@@ -1,5 +1,12 @@
 # Changelog
 
+## v3.9.6 — 29 juin 2026
+
+### Attestations — saisie des notes en tableau
+- Saisie des résultats UE repensée en tableau : 1 ligne par étudiant, colonnes propriétés + 1 colonne par UE déterminante (note /20) + UE 264
+- Notes saisies sur /20 (conversion ×5 automatique pour le calcul de mention en %)
+- Mention calculée et affichée automatiquement par ligne ; suppression de l'ancien panneau en cartes
+
 ## v3.9.5 — 29 juin 2026
 
 ### Attestations — promotion TIM BA1 2025-2026
