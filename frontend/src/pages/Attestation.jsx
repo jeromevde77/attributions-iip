@@ -446,6 +446,28 @@ export default function Attestation() {
     return arr;
   }, [lignes, q, filtreUe, filtrePresence, tri]);
 
+  const exporterListe = () => {
+    const cols = ['Matricule', 'Nom', 'Prénom', 'Genre', 'Date naissance', 'Section',
+      ...UES_DET_TIM.map(u => `UE${u.ue} /20`), 'UE264 /20', 'Moyenne %', 'Mention'];
+    const esc = (v) => { const t = v == null ? '' : String(v); return /[";\n]/.test(t) ? `"${t.replace(/"/g, '""')}"` : t; };
+    const rows = lignesAffichees.filter(l => l.nom).map(l => {
+      const sc = l._scores || {};
+      return [
+        (l.id || '').replace('tim_', ''), l.nom, l.prenom, l.genre, l.date_naissance, l.section_code,
+        ...UES_DET_TIM.map(u => sc[u.ue] ?? ''),
+        sc['264'] ?? '',
+        l._calcPct > 0 ? l._calcPct : '',
+        l._calcPct > 0 ? l.mention : '',
+      ].map(esc).join(';');
+    });
+    const csv = '\ufeff' + [cols.join(';'), ...rows].join('\r\n');
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url; a.download = `Liste_resultats_TIM_${annee.replace('/', '-')}.csv`; a.click();
+    URL.revokeObjectURL(url);
+  };
+
   return (
     <div className="space-y-4">
       {/* En-tête */}
@@ -473,6 +495,10 @@ export default function Attestation() {
           <button onClick={sauver} title="Enregistrer la liste"
             className="flex items-center gap-1.5 bg-iip-turquoise text-white text-sm px-3 py-1.5 rounded-lg hover:opacity-90">
             💾 Enregistrer
+          </button>
+          <button onClick={exporterListe} title="Exporter la liste affichée (CSV)"
+            className="flex items-center gap-1.5 bg-white border border-gray-300 text-gray-700 text-sm px-3 py-1.5 rounded-lg hover:bg-gray-50">
+            <IconDownload size={15}/> Exporter la liste
           </button>
           <button onClick={genererBatch} disabled={generating}
             className="flex items-center gap-1.5 bg-iip-blue text-white text-sm px-4 py-1.5 rounded-lg hover:opacity-90 disabled:opacity-40 font-medium">

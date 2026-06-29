@@ -1,5 +1,10 @@
 # Changelog
 
+## v3.9.11 — 29 juin 2026
+
+### Attestations — export de la liste
+- Nouveau bouton « Exporter la liste » : génère un CSV (ouvrable dans Excel) des étudiants actuellement affichés (filtres et tri appliqués), avec matricule, identité, notes /20 par UE, moyenne % et mention — pour vérification par le secrétariat/coordination avant génération des attestations
+
 ## v3.9.10 — 29 juin 2026
 
 ### Attestations — document épuré
