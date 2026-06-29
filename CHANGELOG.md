@@ -1,5 +1,10 @@
 # Changelog
 
+## v3.9.25 — 29 juin 2026
+
+### Attestations — sceau doré
+- Sceau officiel doré (logo + double cercle + adresse/Fase) intégré en bas à droite, légèrement pivoté (effet tampon)
+
 ## v3.9.24 — 29 juin 2026
 
 ### Attestations — signature non rognée
