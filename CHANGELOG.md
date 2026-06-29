@@ -1,5 +1,12 @@
 # Changelog
 
+## v3.9.5 — 29 juin 2026
+
+### Attestations — promotion TIM BA1 2025-2026
+- Cohorte du module Attestation remplacée par les 101 étudiants TIM BA1 (matricule année courante, redoublants résolus)
+- UE déterminantes alignées sur le programme BA1 : 251, 252, 253, 256, 259, 263 — total 900 périodes (+ UE 264 épreuve intégrée, pondération 1/3)
+- Notes de délibération converties de /20 en % (×5) ; UE 264 à encoder en délibération
+
 ## v3.0 — 20 mai 2026
 
 ### Gestion de la structure académique (nouveau module « Référentiels »)
