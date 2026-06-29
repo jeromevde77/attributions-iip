@@ -1,5 +1,10 @@
 # Changelog
 
+## v3.9.19 — 29 juin 2026
+
+### Attestations — signature du directeur
+- Signature de Charles Sohet (fond transparent) intégrée au-dessus de la ligne dorée du bloc directeur
+
 ## v3.9.18 — 29 juin 2026
 
 ### Attestations — équilibrage vertical
