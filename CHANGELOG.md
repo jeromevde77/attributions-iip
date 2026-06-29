@@ -1,5 +1,12 @@
 # Changelog
 
+## v3.9.7 — 29 juin 2026
+
+### Attestations — import dates de naissance + genre
+- Date de naissance et genre importés depuis l'onglet Coordonnées du suivi TIM (jointure Nom+Prénom) : 90/101 étudiants
+- Genre déduit de la civilité (Madame/Monsieur)
+- Lieu de naissance non disponible (colonne LieuNais vide dans la source) ; 11 étudiants absents du fichier de coordonnées — à compléter manuellement
+
 ## v3.9.6 — 29 juin 2026
 
 ### Attestations — saisie des notes en tableau
