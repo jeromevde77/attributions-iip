@@ -1,5 +1,10 @@
 # Changelog
 
+## v3.9.10 — 29 juin 2026
+
+### Attestations — document épuré
+- L'attestation n'affiche plus le détail des notes d'UE (ni déterminantes ni épreuve intégrée) ; seule la mention est indiquée
+
 ## v3.9.9 — 29 juin 2026
 
 ### Attestations — persistance + filtres

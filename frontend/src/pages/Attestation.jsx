@@ -358,12 +358,6 @@ export default function Attestation() {
 
   const genererHtml = (l) => {
     const sec = sectionsDispo.find(s => s.code === l.section_code) || {};
-    const blocDet = l.ue_determinantes ? `<p><strong>UE déterminante(s) :</strong></p><div class="ue-bloc">${
-      l.ue_determinantes.split('\n').filter(Boolean).map(u => `<div class="ue-ligne">${u}</div>`).join('')
-    }</div>` : '';
-    const blocInt = l.ue_integree ? `<p><strong>UE intégrée :</strong></p><div class="ue-bloc">${
-      l.ue_integree.split('\n').filter(Boolean).map(u => `<div class="ue-ligne">${u}</div>`).join('')
-    }</div>` : '';
     return remplaceVars(genererTemplateAttestation(), {
       '{{nom_etudiant}}':     l.nom.toUpperCase(),
       '{{prenom_etudiant}}':  l.prenom,
@@ -377,8 +371,8 @@ export default function Attestation() {
       '{{total_periodes}}':   String(sec.periodes || ''),
       '{{total_ects}}':       String(sec.ects || ''),
       '{{date_deliberation}}':l.date_deliberation,
-      '{{bloc_ue_det}}':      blocDet,
-      '{{bloc_ue_int}}':      blocInt,
+      '{{bloc_ue_det}}':      '',
+      '{{bloc_ue_int}}':      '',
       '{{annee}}':            annee,
       '{{directeur}}':        etab.directeur || 'SOHET Charles',
       '{{nom_etab}}':         etab.nom || 'INSTITUT ILYA PRIGOGINE',
