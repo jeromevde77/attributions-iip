@@ -1,5 +1,11 @@
 # Changelog
 
+## v3.9.32 — 29 juin 2026
+
+### Attestations — génération PDF fidèle (moteur navigateur)
+- Abandon de html2canvas : « Générer les attestations » ouvre l'impression du navigateur sur une page regroupant toutes les attestations éligibles (un saut de page chacune) → PDF pixel-fidèle à l'aperçu, sans décalage
+- Réservé aux UE 264 ≥ 10 ; impression individuelle toujours possible via l'aperçu (œil)
+
 ## v3.9.31 — 29 juin 2026
 
 ### Attestations — cadres dorés serrés (fix rendu PDF)

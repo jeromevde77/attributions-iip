@@ -418,22 +418,28 @@ export default function Attestation() {
     });
   };
 
-  const genererBatch = async () => {
+  const genererBatch = () => {
     const valides = lignesAffichees.filter(l => l.nom && l.section_code && Number(l._scores?.['264']) >= 10);
     if (valides.length === 0) { alert('Aucun étudiant éligible : une note UE 264 ≥ 10 (réussie) est requise pour générer une attestation de réussite.'); return; }
     setGenerating(true);
     try {
-      const JSZip = (await import('jszip')).default;
-      const { jsPDF } = await import('jspdf');
-      const html2canvas = (await import('html2canvas')).default;
-      const zip = new JSZip();
-      for (const l of valides) {
-        const blob = await htmlVersPdfBlob(genererHtml(l), jsPDF, html2canvas);
-        zip.file(`Attestation_${l.nom}_${l.prenom}.pdf`, blob);
-      }
-      const zipBlob = await zip.generateAsync({ type: 'blob' });
-      telecharger(zipBlob, `Attestations_${annee.replace('/', '-')}.zip`);
-    } catch (e) { alert('Erreur génération PDF : ' + e.message); }
+      // Rendu fidèle : on imprime via le moteur du navigateur (identique à l'aperçu)
+      const docs = valides.map(genererHtml);
+      const style = (docs[0].match(/<style>([\s\S]*?)<\/style>/) || [, ''])[1];
+      const bodies = docs.map(d => (d.match(/<body>([\s\S]*?)<\/body>/) || [, ''])[1]);
+      const combined = '<!DOCTYPE html><html lang="fr"><head><meta charset="utf-8"><title>Attestations ' + annee + '</title><style>' + style +
+        '\n@media print{ .page{ page-break-after: always; } .page:last-child{ page-break-after: auto; } }</style></head><body>' +
+        bodies.join('\n') + '</body></html>';
+      const iframe = document.createElement('iframe');
+      iframe.style.cssText = 'position:fixed;right:0;bottom:0;width:0;height:0;border:0;';
+      document.body.appendChild(iframe);
+      const idoc = iframe.contentWindow.document;
+      idoc.open(); idoc.write(combined); idoc.close();
+      setTimeout(() => {
+        try { iframe.contentWindow.focus(); iframe.contentWindow.print(); } catch (e) { alert('Erreur impression : ' + e.message); }
+        setTimeout(() => { try { document.body.removeChild(iframe); } catch {} }, 120000);
+      }, 500);
+    } catch (e) { alert('Erreur génération : ' + e.message); }
     finally { setGenerating(false); }
   };
 
@@ -529,7 +535,7 @@ export default function Attestation() {
           </button>
           <button onClick={genererBatch} disabled={generating}
             className="flex items-center gap-1.5 bg-iip-blue text-white text-sm px-4 py-1.5 rounded-lg hover:opacity-90 disabled:opacity-40 font-medium">
-            <IconDownload size={15}/> {generating ? 'Génération PDF…' : 'Générer les attestations (PDF)'}
+            <IconDownload size={15}/> {generating ? 'Préparation…' : 'Générer les attestations (PDF)'}
           </button>
         </div>
       </div>
