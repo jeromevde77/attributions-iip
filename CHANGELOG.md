@@ -1,5 +1,10 @@
 # Changelog
 
+## v3.9.26 — 29 juin 2026
+
+### Attestations — sceau avec logo officiel doré
+- Sceau refait avec le vrai logo de l'Institut recoloré en doré au centre (identique au modèle fourni), texte démarrant par « Enseignement supérieur… »
+
 ## v3.9.25 — 29 juin 2026
 
 ### Attestations — sceau doré
