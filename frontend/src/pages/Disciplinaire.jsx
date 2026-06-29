@@ -67,10 +67,10 @@ function docHTML(titreDoc, corps) {
 </div></body></html>`;
 }
 
-function Q({ text, ref, value, onChange }) {
+function Q({ text, art, value, onChange }) {
   return (
     <div className="flex items-center justify-between gap-3 py-1.5 border-b border-gray-100 last:border-0">
-      <span className="text-sm text-gray-700">{text}{ref && <span className="text-xs text-gray-400 ml-1">({ref})</span>}</span>
+      <span className="text-sm text-gray-700">{text}{art && <span className="text-xs text-gray-400 ml-1">({art})</span>}</span>
       <div className="flex gap-1 flex-shrink-0">
         {['oui', 'non'].map(v => (
           <button key={v} type="button" onClick={() => onChange(value === v ? '' : v)}
@@ -356,8 +356,8 @@ export default function Disciplinaire() {
         <div className="space-y-3">
           <div className="bg-white border border-gray-200 rounded-xl p-4">
             <div className="text-sm font-bold text-iip-blue mb-2">Étape 2 — Qualification &amp; gravité</div>
-            <Q text="Le fait constitue-t-il une faute grave (violence, menaces, arme, racket, faux…) ?" ref={r2627 ? 'Art. 117' : 'Art. 96'} value={qGrave} onChange={setQGrave} />
-            <Q text="S'agit-il d'une fraude / d'un plagiat ?" ref={r2627 ? 'Art. 72-75' : 'Art. 54-55'} value={tf.fraude ? 'oui' : qGrave === '' ? '' : 'non'} onChange={() => {}} />
+            <Q text="Le fait constitue-t-il une faute grave (violence, menaces, arme, racket, faux…) ?" art={r2627 ? 'Art. 117' : 'Art. 96'} value={qGrave} onChange={setQGrave} />
+            <Q text="S'agit-il d'une fraude / d'un plagiat ?" art={r2627 ? 'Art. 72-75' : 'Art. 54-55'} value={tf.fraude ? 'oui' : qGrave === '' ? '' : 'non'} onChange={() => {}} />
             <div className="mt-3"><label className={lab}>Sanction envisagée</label>
               <select className={champ} value={sanction} onChange={e => setSanction(e.target.value)}>{SANCTIONS.map(s => <option key={s.key} value={s.key}>{s.label}</option>)}</select></div>
             <div className="mt-3 text-sm bg-amber-50 border border-amber-200 rounded p-3 text-amber-900"><strong>Recommandation :</strong> {recommandation()}</div>
@@ -394,7 +394,7 @@ export default function Disciplinaire() {
           <div className="text-sm font-bold text-iip-blue">Étape 4 — Audition</div>
           <Q text="L'étudiant·e s'est-il/elle présenté·e à l'audition ?" value={qPresente} onChange={setQPresente} />
           <Q text="S'est-il/elle fait assister ?" value={qAssiste} onChange={setQAssiste} />
-          {tf.fraude && <Q text="L'audition contradictoire a-t-elle été tenue (après audition séparée) ?" ref="Art. 72-75 / 54-55" value={qContradictoire} onChange={setQContradictoire} />}
+          {tf.fraude && <Q text="L'audition contradictoire a-t-elle été tenue (après audition séparée) ?" art="Art. 72-75 / 54-55" value={qContradictoire} onChange={setQContradictoire} />}
           <Q text="Le procès-verbal a-t-il été signé par l'étudiant·e ?" value={qPvSigne} onChange={setQPvSigne} />
           {qPvSigne === 'non' && <Q text="Le refus de signature a-t-il été constaté par deux membres du personnel ?" value={qRefusConstate} onChange={setQRefusConstate} />}
           <div className="grid grid-cols-1 gap-3 pt-1">
@@ -411,7 +411,7 @@ export default function Disciplinaire() {
           <div className="bg-white border border-gray-200 rounded-xl p-4 space-y-3">
             <div className="text-sm font-bold text-iip-blue">Étape 5 — Décision</div>
             {estRenvoiDef && <>
-              <Q text="L'avis du Conseil des Études a-t-il été demandé ?" ref={r2627 ? 'Art. 115 septies' : 'Art. 96'} value={qAvisDemande} onChange={setQAvisDemande} />
+              <Q text="L'avis du Conseil des Études a-t-il été demandé ?" art={r2627 ? 'Art. 115 septies' : 'Art. 96'} value={qAvisDemande} onChange={setQAvisDemande} />
               <Q text="L'avis du Conseil des Études a-t-il été rendu (sous 8 jours) ?" value={qAvisRecu} onChange={setQAvisRecu} />
             </>}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3">

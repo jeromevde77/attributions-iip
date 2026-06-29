@@ -1,5 +1,10 @@
 # Changelog
 
+## v3.10.10 — 29 juin 2026
+
+### Correctif Disciplinaire (erreur d'exécution)
+- Le composant de question utilisait `ref` comme nom de prop (réservé par React) → erreur #290 au chargement. Renommé en `art`. Le module s'affiche de nouveau.
+
 ## v3.10.9 — 29 juin 2026
 
 ### Correctif build
