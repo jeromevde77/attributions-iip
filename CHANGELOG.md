@@ -1,5 +1,13 @@
 # Changelog
 
+## v3.10.1 — 29 juin 2026
+
+### Disciplinaire étudiant — archivage & pièces jointes (develop)
+- Dossiers disciplinaires archivés (type 'disciplinaire' dans procedure_archive), auto-sauvegarde à chaque modification
+- Sélecteur de dossiers + bouton « Nouveau » + suppression
+- Pièces jointes multiples par dossier (courriers reçus, preuves, réponses…) : upload, catégorie, téléchargement, suppression — stockées sur le NAS
+- Écriture réservée (admin ou permission Listes), comme les attestations
+
 ## v3.10.0 — 29 juin 2026
 
 ### Nouveau module — Disciplinaire étudiant (develop)
