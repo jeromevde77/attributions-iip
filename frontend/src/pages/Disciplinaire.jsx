@@ -202,10 +202,10 @@ export default function Disciplinaire() {
   };
   const uploadFichier = async (file) => {
     if (!file) return;
-    if (!caseRef.current) { alert('Renseignez d\\'abord les faits (le dossier s\\'enregistre tout seul), puis ajoutez les pièces.'); return; }
+    if (!caseRef.current) { alert('Renseignez d’abord les faits (le dossier s’enregistre tout seul), puis ajoutez les pièces.'); return; }
     const fd = new FormData(); fd.append('fichier', file); fd.append('categorie', catUp);
     const res = await fetch(`/api/disciplinaire/cases/${caseRef.current}/fichiers`, { method: 'POST', headers: auth, body: fd });
-    if (res.ok) chargerFichiers(caseRef.current); else if (res.status === 403) setLectureSeule(true); else alert('Échec de l\\'envoi.');
+    if (res.ok) chargerFichiers(caseRef.current); else if (res.status === 403) setLectureSeule(true); else alert('Échec de l’envoi.');
   };
   const supprimerFichier = async (fid) => { if (!confirm('Supprimer cette pièce ?')) return; await fetch(`/api/disciplinaire/fichiers/${fid}`, { method: 'DELETE', headers: auth }); chargerFichiers(caseRef.current); };
   const telechargerFichier = async (fid, nomf) => {

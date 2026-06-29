@@ -1,5 +1,10 @@
 # Changelog
 
+## v3.10.9 — 29 juin 2026
+
+### Correctif build
+- Correction d'une apostrophe mal échappée dans le module Disciplinaire qui faisait échouer le build (la prod restait bloquée à la version précédente). Validation esbuild ajoutée au process.
+
 ## v3.10.8 — 29 juin 2026
 
 ### Disciplinaire — délai de convocation
