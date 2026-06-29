@@ -101,6 +101,24 @@ r.get('/:cle', authRequired, (req, res) => {
   res.json({ valeur: row.valeur });
 });
 
+// PUT /api/config/attestation_lignes — écriture liste attestations (admin OU permission Listes:écrire)
+r.put('/attestation_lignes', authRequired, (req, res) => {
+  const { valeur } = req.body;
+  if (valeur == null) return res.status(400).json({ error: 'valeur requise' });
+  let autorise = req.user.role === 'admin';
+  if (!autorise) {
+    try {
+      const row = db.prepare('SELECT permissions_json FROM utilisateur WHERE id = ?').get(req.user.id);
+      const pj = row && row.permissions_json ? JSON.parse(row.permissions_json) : {};
+      autorise = !!(pj.listes && pj.listes.ecrire);
+    } catch { autorise = false; }
+  }
+  if (!autorise) return res.status(403).json({ error: "Écriture réservée (permission Listes requise)" });
+  db.prepare('INSERT OR REPLACE INTO lucie_config (cle, valeur, description) VALUES (?, ?, COALESCE((SELECT description FROM lucie_config WHERE cle = ?), ?))')
+    .run('attestation_lignes', valeur, 'attestation_lignes', '');
+  res.json({ ok: true });
+});
+
 // PUT /api/config/:cle — mise à jour (admin seulement)
 r.put('/:cle', authRequired, roleRequired('admin'), (req, res) => {
   const { valeur } = req.body;

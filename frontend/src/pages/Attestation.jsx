@@ -321,6 +321,7 @@ export default function Attestation() {
   const [dirty, setDirty]                 = useState(false);
   const [enregOk, setEnregOk]             = useState(false);
   const chargementFait = useRef(false);
+  const [lectureSeule, setLectureSeule]   = useState(false);
   const saveTimer = useRef(null);
   const [uePer, setUePer] = useState(PER_DEFAUT);
 
@@ -359,16 +360,17 @@ export default function Attestation() {
         body: JSON.stringify({ valeur: JSON.stringify(lignes) }),
       });
       if (res.ok) { setDirty(false); setEnregOk(true); setTimeout(() => setEnregOk(false), 2000); }
+      else if (res.status === 403) { setLectureSeule(true); }
     } catch {}
   }, [lignes]);
 
   useEffect(() => {
-    if (!chargementFait.current) return;
+    if (!chargementFait.current || lectureSeule) return;
     setDirty(true); setEnregOk(false);
     clearTimeout(saveTimer.current);
     saveTimer.current = setTimeout(() => { sauver(); }, 1500);
     return () => clearTimeout(saveTimer.current);
-  }, [lignes, sauver]);
+  }, [lignes, sauver, lectureSeule]);
 
   useEffect(() => {
     setLignes(ls => ls.map(l => deriveLigne(l, uePer)));
@@ -594,12 +596,16 @@ export default function Attestation() {
             className="flex items-center gap-1.5 bg-amber-500 text-white text-sm px-3 py-1.5 rounded-lg hover:opacity-90">
             📥 Importer TIM BA1 (101 étudiants)
           </button>
-          {enregOk && <span className="text-xs text-green-600 font-medium">✓ Enregistré</span>}
-          {dirty && !enregOk && <span className="text-xs text-amber-600">● non enregistré</span>}
-          <button onClick={sauver} title="Enregistrer la liste"
-            className="flex items-center gap-1.5 bg-iip-turquoise text-white text-sm px-3 py-1.5 rounded-lg hover:opacity-90">
-            💾 Enregistrer
-          </button>
+          {lectureSeule
+            ? <span className="text-xs text-gray-500" title="Droits insuffisants : demandez la permission Listes (écriture)">🔒 Lecture seule</span>
+            : <>
+                {enregOk && <span className="text-xs text-green-600 font-medium">✓ Enregistré</span>}
+                {dirty && !enregOk && <span className="text-xs text-amber-600">● non enregistré</span>}
+                <button onClick={sauver} title="Enregistrer la liste"
+                  className="flex items-center gap-1.5 bg-iip-turquoise text-white text-sm px-3 py-1.5 rounded-lg hover:opacity-90">
+                  💾 Enregistrer
+                </button>
+              </>}
           <button onClick={exporterListe} title="Exporter la liste affichée (CSV)"
             className="flex items-center gap-1.5 bg-white border border-gray-300 text-gray-700 text-sm px-3 py-1.5 rounded-lg hover:bg-gray-50">
             <IconDownload size={15}/> Exporter la liste

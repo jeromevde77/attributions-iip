@@ -1,5 +1,12 @@
 # Changelog
 
+## v3.9.36 — 29 juin 2026
+
+### Attestations — droits d'accès
+- Lecture (voir / imprimer / exporter) : ouverte à tout utilisateur connecté
+- Écriture (encodage et enregistrement de la liste) : réservée aux administrateurs et aux utilisateurs ayant la permission « Listes : écrire »
+- Interface en mode « 🔒 Lecture seule » si l'utilisateur n'a pas le droit d'écrire (pas d'autosave)
+
 ## v3.9.35 — 29 juin 2026
 
 ### Attestations — sections complet/incomplet & règle de mention
