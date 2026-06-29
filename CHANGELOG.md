@@ -1,5 +1,10 @@
 # Changelog
 
+## v3.10.6 — 29 juin 2026
+
+### Disciplinaire — déplacé dans Procédures
+- Le module Disciplinaire devient un onglet « Disciplinaire (beta) » dans la page Procédures (à côté de Recours et Fraude) ; retiré du menu principal
+
 ## v3.10.5 — 29 juin 2026
 
 ### Disciplinaire — convocation plus explicite

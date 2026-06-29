@@ -2,9 +2,10 @@ import { useState, useEffect, useRef, useCallback } from 'react';
 import { getAnnee } from '../lib/api.js';
 import PreviewModal from '../components/PreviewModal.jsx';
 import { PageHeader, RailLateral } from '../components/ui.jsx';
+import Disciplinaire from './Disciplinaire.jsx';
 import {
   IconChecklist, IconScale, IconShieldExclamation, IconClipboardList,
-  IconFolder, IconCheck, IconX, IconArrowBackUp,
+  IconFolder, IconCheck, IconX, IconArrowBackUp, IconGavel,
   IconBan, IconAlertTriangle, IconClock, IconCircleCheck, IconRefresh, IconFileText, IconPrinter, IconPencil,
 } from '@tabler/icons-react';
 
@@ -1769,6 +1770,7 @@ export default function Procedures() {
   const outils = [
     { id: 'recours',  label: 'Recours',  icon: IconScale },
     { id: 'fraude',   label: 'Fraude',   icon: IconShieldExclamation },
+    { id: 'disciplinaire', label: 'Disciplinaire (beta)', icon: IconGavel },
     { id: 'examens',  label: 'Examens',  icon: IconClipboardList },
     { id: 'archives', label: 'Archives', icon: IconFolder },
   ];
@@ -1819,6 +1821,7 @@ export default function Procedures() {
             <OutilFraude initialPayload={preRemplir?.type === 'fraude' ? preRemplir.payload : null} onPayloadConsumed={() => setPreRemplir(null)} />
           </>
         )}
+        {outil === 'disciplinaire' && (<Disciplinaire />)}
         {outil === 'examens' && (
           <div className="text-center text-gray-400 p-12">
             <IconClipboardList size={44} stroke={1.5} className="mx-auto mb-3 text-gray-300" />
