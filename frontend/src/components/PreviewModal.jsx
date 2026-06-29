@@ -9,7 +9,7 @@ import { IconPrinter, IconX, IconDownload } from '@tabler/icons-react';
  * @param {string} [nomFichier] - Nom suggéré pour l'enregistrement.
  * @param {function} onClose
  */
-export default function PreviewModal({ html, titre = 'Document', sousTitre, nomFichier, onClose, actionExtra }) {
+export default function PreviewModal({ html, titre = 'Document', sousTitre, nomFichier, onClose, actionExtra, astuceImpression = "⊞ Choisir « Paysage » à l'impression" }) {
   const iframeRef = useRef(null);
   const [pret, setPret] = useState(false);
 
@@ -48,9 +48,9 @@ export default function PreviewModal({ html, titre = 'Document', sousTitre, nomF
             </div>
           </div>
           <div className="flex items-center gap-2 flex-shrink-0">
-            <span className="text-[10px] text-amber-300 hidden sm:inline opacity-75">
-              ⊞ Choisir « Paysage » à l'impression
-            </span>
+            {astuceImpression && <span className="text-[10px] text-amber-300 hidden sm:inline opacity-75">
+              {astuceImpression}
+            </span>}
             <button onClick={imprimer} disabled={!pret}
               className="flex items-center gap-1.5 px-3 py-1.5 bg-iip-turquoise text-white rounded-lg text-xs font-medium hover:opacity-90 disabled:opacity-40">
               <IconPrinter size={13} /> Imprimer / PDF

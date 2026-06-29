@@ -48,8 +48,8 @@ function docHTML(titreDoc, corps) {
 <style>
   * { box-sizing: border-box; margin: 0; padding: 0; }
   body { font-family: Arial, sans-serif; font-size: 11pt; color: #1a1a1a; line-height: 1.5; }
-  @media print { @page { size: A4; margin: 18mm; } }
-  .doc { padding: 6mm 0; }
+  .doc { max-width: 180mm; margin: 0 auto; padding: 12mm 16mm; }
+  @media print { @page { size: A4 portrait; margin: 18mm; } .doc { max-width: none; margin: 0; padding: 0; } }
   .entete { border-bottom: 2pt solid #1B2B4B; padding-bottom: 6pt; margin-bottom: 12pt; }
   .entete .nom { font-size: 15pt; font-weight: bold; color: #1B2B4B; }
   .entete .coord { font-size: 8.5pt; color: #555; margin-top: 2pt; }
@@ -457,7 +457,7 @@ export default function Disciplinaire() {
         )}
       </div>
 
-      {preview && <PreviewModal html={preview.html} titre={preview.titre} sousTitre={preview.sousTitre} onClose={() => setPreview(null)} />}
+      {preview && <PreviewModal html={preview.html} titre={preview.titre} sousTitre={preview.sousTitre} astuceImpression="" onClose={() => setPreview(null)} />}
     </div>
   );
 }

@@ -1,5 +1,11 @@
 # Changelog
 
+## v3.10.11 — 29 juin 2026
+
+### Disciplinaire — mise en page des documents
+- Marges latérales et largeur de page ajoutées à l'aperçu des documents (convocation/PV/décision) ; marges d'impression inchangées (A4 portrait, 18 mm)
+- Astuce « Paysage » de l'aperçu rendue paramétrable et retirée pour ces courriers portrait
+
 ## v3.10.10 — 29 juin 2026
 
 ### Correctif Disciplinaire (erreur d'exécution)
