@@ -1,5 +1,10 @@
 # Changelog
 
+## v3.10.5 — 29 juin 2026
+
+### Disciplinaire — convocation plus explicite
+- La convocation cite désormais les articles précis : procédure (Art. 115 bis-novies / Art. 96 ROI), convocation (Art. 115 quater), droit d'être entendu et assisté (Art. 115 ter), consultation du dossier et délai de réponse (Art. 115 sexies), + Art. 72-75 en cas de fraude, et le délai de 8 jours ouvrables pour l'exclusion définitive
+
 ## v3.10.4 — 29 juin 2026
 
 ### Disciplinaire — formulaire séquencé

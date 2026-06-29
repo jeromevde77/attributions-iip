@@ -107,6 +107,11 @@ export default function Disciplinaire() {
   const recoursTxt = estAcademique ? a.recoursAcad
     : (sanction === 'renvoi_def' ? a.recoursExclusion
       : "les mesures d'ordre et sanctions légères ne font pas l'objet d'un recours formel ; les voies de droit commun demeurent ouvertes");
+  const r2627 = annee === '2026-2027';
+  const refProc = a.procedure;
+  const refConv = r2627 ? "l'article 115 quater du RDE" : "l'article 96 du ROI";
+  const refAudi = r2627 ? "l'article 115 ter du RDE" : "l'article 96 du ROI";
+  const refDossier = r2627 ? "l'article 115 sexies du RDE" : "l'article 96 du ROI";
   const cap = (s) => s ? s.charAt(0).toUpperCase() + s.slice(1) : s;
   const nl = (s) => (s || '…').replace(/\n/g, '<br>');
 
@@ -213,10 +218,10 @@ export default function Disciplinaire() {
     <p>${prenom ? `Cher·ère ${prenom},` : 'Madame, Monsieur,'}</p>
     <p>Dans le cadre de l'application du ${a.reg}, et plus particulièrement de ${baseLeg}, la Direction a été informée des faits suivants vous concernant :</p>
     <div class="bloc-faits"><strong>Faits reprochés — constatés le ${fmtLong(dateFaits)}${rapporteur ? `, rapportés par ${rapporteur}` : ''} :</strong><br>${nl(description)}</div>
-    <p>Ces faits sont susceptibles de constituer ${(tf.label || '').toLowerCase()} au sens de ${baseLeg}, et pourraient donner lieu à la sanction suivante : <strong>${sa.label}</strong>, prononcée par ${sa.autorite}.</p>
-    <p>Vous êtes convoqué·e à une <strong>audition</strong> qui se tiendra le <strong>${fmtLong(dateAudition)}${heureAudition ? ` à ${heureAudition}` : ''}</strong>, à ${lieuAudition}.</p>
-    <p>Lors de cette audition, vous pouvez <strong>vous faire assister de la personne de votre choix</strong> et faire entendre toute personne utile. Vous pouvez également <strong>consulter votre dossier disciplinaire</strong>, sans déplacement de pièces, en présence de la Direction ou de son délégué.</p>
-    <p>Vous pouvez demander un délai pour répondre aux faits reprochés ; fixé de commun accord avec la Direction ou son délégué, il ne dépasse pas cinq jours ouvrables.</p>
+    <p>Ces faits sont susceptibles de constituer ${(tf.label || '').toLowerCase()} au sens de ${baseLeg}${tf.fraude ? ` (${a.fraude})` : ''}, et pourraient donner lieu à la sanction suivante : <strong>${sa.label}</strong>, prononcée par ${sa.autorite}.</p>
+    <p>Conformément à ${refProc}, et en particulier à ${refConv}, vous êtes <strong>convoqué·e à une audition</strong> qui se tiendra le <strong>${fmtLong(dateAudition)}${heureAudition ? ` à ${heureAudition}` : ''}</strong>, à ${lieuAudition}.${sanction === 'renvoi_def' ? ` La présente convocation s'inscrit dans la mise en œuvre d'une procédure d'exclusion définitive ; conformément au règlement, elle vous est adressée au moins huit jours ouvrables avant l'audition.` : ''}</p>
+    <p>En application de ${refAudi}, vous avez le droit d'être entendu·e et de <strong>vous faire assister de la personne de votre choix</strong>, ainsi que de faire entendre toute personne utile à votre défense.</p>
+    <p>Conformément à ${refDossier}, vous pouvez <strong>consulter votre dossier disciplinaire</strong>, sans déplacement de pièces, en présence de la Direction ou de son délégué, et <strong>demander un délai</strong> pour répondre aux faits reprochés ; fixé de commun accord, ce délai ne dépasse pas cinq jours ouvrables.</p>
     <p>À défaut de comparution, la procédure suivra son cours.</p>
     <p>Veuillez agréer, ${prenom ? `cher·ère ${prenom}` : 'Madame, Monsieur'}, l'expression de mes salutations distinguées.</p>
     <div class="sig"><p>Pour la Direction,<br><strong>${ETAB.directeur}</strong>, Directeur</p></div>`);
