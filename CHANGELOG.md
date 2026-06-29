@@ -1,5 +1,10 @@
 # Changelog
 
+## v3.9.29 — 29 juin 2026
+
+### Attestations — centrage des cadres dorés
+- Texte des bandes dorées (« Communauté française… » et « Attestation provisoire ») centré verticalement (corrige le décalage vers le haut au rendu PDF)
+
 ## v3.9.28 — 29 juin 2026
 
 ### Attestations — signature complète (fichier fourni)
