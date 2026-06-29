@@ -1,5 +1,10 @@
 # Changelog
 
+## v3.9.31 — 29 juin 2026
+
+### Attestations — cadres dorés serrés (fix rendu PDF)
+- Cadres dorés resserrés (line-height 1 + padding symétrique) pour un centrage stable identique entre l'aperçu et le PDF généré
+
 ## v3.9.30 — 29 juin 2026
 
 ### Attestations — alignement cadres dorés (ajustement)
