@@ -16,7 +16,7 @@ export function genererTemplateAttestation() {
   @media print { @page { size: A4 portrait; margin: 0; } body { margin: 0; } }
 
   .page {
-    width: 210mm; height: 297mm;
+    width: 210mm; height: 296mm;
     margin: 0 auto;
     display: flex; flex-direction: column;
     position: relative; overflow: hidden;
@@ -36,11 +36,11 @@ export function genererTemplateAttestation() {
   .bandeau-droite { color: rgba(255,255,255,0.65); font-size: 7.5pt; text-align: right; letter-spacing: 0.5pt; line-height: 1.5; }
 
   /* Corps */
-  .corps { flex: 1; padding: 5mm 18mm 3mm 18mm; display: flex; flex-direction: column; justify-content: space-between; position: relative; z-index: 1; }
+  .corps { flex: 1; padding: 4mm 18mm 2mm 18mm; display: flex; flex-direction: column; justify-content: space-between; position: relative; z-index: 1; }
 
   /* Filet doré institutionnel */
   .filet-or { border-top: 1pt solid #C9A84C; border-bottom: 1pt solid #C9A84C; padding: 2.5pt 0; margin-bottom: 4mm; text-align: center; }
-  .filet-or span { font-size: 9pt; color: #888; letter-spacing: 0.8pt; text-transform: uppercase; }
+  .filet-or span { font-size: 7.3pt; color: #888; letter-spacing: 0.2pt; text-transform: uppercase; white-space: nowrap; }
 
   /* Établissement */
   .etab { font-size: 9pt; color: #444; line-height: 1.45; margin-bottom: 4mm; }
@@ -72,21 +72,21 @@ export function genererTemplateAttestation() {
     display: grid;
     grid-template-columns: 1fr 1fr 1fr;
     gap: 0 4mm;
-    padding-top: 3mm;
+    padding-top: 2mm;
     flex-shrink: 0;
   }
   .sig-bloc { text-align: center; font-size: 9pt; line-height: 1.5; display: flex; flex-direction: column; }
-  .sig-bloc .sig-role { color: #555; font-size: 9pt; flex: 1; display: flex; align-items: flex-end; justify-content: center; padding-bottom: 10mm; }
-  .sig-bloc .sig-nom { font-weight: bold; color: #1B2B4B; border-top: 0.5pt solid #aaa; padding-top: 1.5mm; display: inline-block; min-width: 30mm; }
+  .sig-bloc .sig-role { color: #555; font-size: 9pt; flex: 1; display: flex; align-items: flex-end; justify-content: center; padding-bottom: 7mm; }
+  .sig-bloc .sig-nom { font-weight: bold; color: #1B2B4B; border-top: 0.5pt solid #888; padding-top: 1.5mm; display: inline-block; width: 40mm; }
   .sig-directeur {
     grid-column: 1 / -1;
     text-align: center; font-size: 9pt;
-    margin-top: 3mm; padding-top: 3mm;
+    margin-top: 2mm; padding-top: 2mm;
     border-top: 0.5pt dashed #ddd;
     display: flex; flex-direction: column;
   }
-  .sig-directeur .sig-role { color: #555; font-size: 9pt; flex: 1; display: flex; align-items: flex-end; justify-content: center; padding-bottom: 10mm; }
-  .sig-directeur .sig-nom { font-weight: bold; color: #1B2B4B; border-top: 0.5pt solid #aaa; padding-top: 1.5mm; display: inline-block; min-width: 50mm; }
+  .sig-directeur .sig-role { color: #555; font-size: 9pt; flex: 1; display: flex; align-items: flex-end; justify-content: center; padding-bottom: 7mm; }
+  .sig-directeur .sig-nom { font-weight: bold; color: #1B2B4B; border-top: 0.5pt solid #888; padding-top: 1.5mm; display: inline-block; width: 40mm; }
 
   /* Logo + pied de page */
   .footer-bloc {
@@ -139,7 +139,7 @@ export function genererTemplateAttestation() {
     <div class="encadre"><span>Attestation provisoire</span></div>
 
     <div class="texte">
-      <p>Je soussigné, {{directeur}} Directeur de l'établissement, certifie que</p>
+      <p>Je soussigné, {{directeur}}, Directeur de l'établissement, certifie que</p>
     </div>
 
     <div class="carte-etudiant">
@@ -149,10 +149,10 @@ export function genererTemplateAttestation() {
 
     <div class="texte">
       <p>a obtenu ce jour le <strong>DIPLÔME DE {{intitule_diplome}}</strong></p>
-      <p>Avec la mention <strong>{{mention}}</strong></p>
+      <p>avec la mention <strong>{{mention}}</strong></p>
       <p>à l'issue de la section <strong>{{intitule_section}}</strong></p>
       <p>approuvée par le Gouvernement sous le numéro de code : <strong>{{code_section}}</strong></p>
-      <p>Ladite section comporte {{total_periodes}} périodes / {{total_ects}} ECTS.</p>
+      <p>ladite section comporte {{total_periodes}} périodes / {{total_ects}} ECTS.</p>
       {{bloc_ue_det}}
       {{bloc_ue_int}}
       <p style="font-style:italic;color:#555;margin-top:3mm;">Le diplôme de l'intéressé·e est actuellement soumis à la signature de l'autorité compétente.</p>
@@ -193,6 +193,16 @@ export function genererTemplateAttestation() {
 
 </div>
 </body></html>`;
+}
+
+function telecharger(blob, nom) {
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = nom;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  setTimeout(() => URL.revokeObjectURL(url), 1500);
 }
 
 function remplaceVars(template, vars) {
@@ -391,7 +401,7 @@ export default function Attestation() {
       '{{bloc_ue_det}}':      '',
       '{{bloc_ue_int}}':      '',
       '{{annee}}':            annee,
-      '{{directeur}}':        etab.directeur || 'SOHET Charles',
+      '{{directeur}}':        etab.directeur || 'Charles Sohet',
       '{{nom_etab}}':         etab.nom || 'INSTITUT ILYA PRIGOGINE',
       '{{adresse_etab}}':     etab.adresse || '',
       '{{matricule_etab}}':   etab.matricule || '',
@@ -410,8 +420,8 @@ export default function Attestation() {
   };
 
   const genererBatch = async () => {
-    const valides = lignes.filter(l => l.nom && l.section_code);
-    if (valides.length === 0) { alert('Aucune ligne valide (nom + section requis)'); return; }
+    const valides = lignesAffichees.filter(l => l.nom && l.section_code && Number(l._scores?.['264']) >= 10);
+    if (valides.length === 0) { alert('Aucun étudiant éligible : une note UE 264 ≥ 10 (réussie) est requise pour générer une attestation de réussite.'); return; }
     setGenerating(true);
     try {
       const JSZip = (await import('jszip')).default;
@@ -421,10 +431,7 @@ export default function Attestation() {
         zip.file(`Attestation_${l.nom}_${l.prenom}.html`, html);
       }
       const blob = await zip.generateAsync({ type: 'blob' });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url; a.download = `Attestations_${annee.replace('/', '-')}.zip`; a.click();
-      URL.revokeObjectURL(url);
+      telecharger(blob, `Attestations_${annee.replace('/', '-')}.zip`);
     } catch (e) { alert('Erreur : ' + e.message); }
     finally { setGenerating(false); }
   };
@@ -479,10 +486,7 @@ export default function Attestation() {
     });
     const csv = '\ufeff' + [cols.join(';'), ...rows].join('\r\n');
     const blob = new Blob([csv], { type: 'text/csv;charset=utf-8' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url; a.download = `Liste_resultats_TIM_${annee.replace('/', '-')}.csv`; a.click();
-    URL.revokeObjectURL(url);
+    telecharger(blob, `Liste_resultats_TIM_${annee.replace('/', '-')}.csv`);
   };
 
   return (
@@ -601,8 +605,8 @@ export default function Attestation() {
                   </td>
                   <td className="px-2 py-1">
                     <div className="flex items-center gap-1">
-                      <button onClick={() => l.nom && l.section_code && setPreview({ html: genererHtml(l), nom: `Attestation_${l.nom}_${l.prenom}` })}
-                        title="Prévisualiser" disabled={!l.nom || !l.section_code}
+                      <button onClick={() => l.nom && l.section_code && Number(l._scores?.['264']) >= 10 && setPreview({ html: genererHtml(l), nom: `Attestation_${l.nom}_${l.prenom}` })}
+                        title="Prévisualiser (note UE 264 ≥ 10 requise)" disabled={!l.nom || !l.section_code || !(Number(l._scores?.['264']) >= 10)}
                         className="text-iip-turquoise hover:opacity-70 disabled:opacity-30 p-0.5">
                         <IconEye size={14}/>
                       </button>

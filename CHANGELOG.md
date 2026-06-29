@@ -1,5 +1,16 @@
 # Changelog
 
+## v3.9.13 — 29 juin 2026
+
+### Attestations — corrections mise en page & règles
+- Export liste/attestations : téléchargement corrigé (compatibilité navigateurs)
+- Bandeau « Communauté française … Année académique » forcé sur une seule ligne
+- Texte du corps : ponctuation/majuscules harmonisées (phrase continue, minuscules de continuité)
+- Impression : marges/espacements ajustés pour tenir sur une seule page A4 (sans réduire à 99%)
+- Signatures : barres uniformisées (40 mm) et raccourcies, identiques pour tous les signataires
+- Directeur affiché « Charles Sohet » (prénom nom, comme les autres signataires)
+- Génération/prévisualisation d'attestation réservée aux étudiants ayant une note UE 264 ≥ 10 (réussie)
+
 ## v3.9.12 — 29 juin 2026
 
 ### Attestations — pondération cours + autonomie
