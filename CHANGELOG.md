@@ -1,5 +1,11 @@
 # Changelog
 
+## v3.9.12 — 29 juin 2026
+
+### Attestations — pondération cours + autonomie
+- La pondération des UE déterminantes utilise désormais les périodes cours + autonomie (ue_per_etudiants + ue_aut) lues dans le référentiel, au lieu des seules périodes de cours
+- Périodes chargées dynamiquement via /api/referentiels/ue ; mentions recalculées automatiquement
+
 ## v3.9.11 — 29 juin 2026
 
 ### Attestations — export de la liste

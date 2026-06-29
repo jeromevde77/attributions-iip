@@ -214,19 +214,22 @@ const UES_DET_TIM = [
   { ue: '263', nom: 'Enseignement clinique : Activités professionnelles',            periodes: 600 },
 ];
 const UE_INT_TIM = { ue: '264', nom: "Épreuve intégrée", periodes: 120 };
-const TOTAL_PERIODES_DET = UES_DET_TIM.reduce((s, u) => s + u.periodes, 0); // 900
+const TOTAL_PERIODES_DET = UES_DET_TIM.reduce((s, u) => s + u.periodes, 0); // 900 (cours seuls, fallback)
+// Périodes par défaut (cours seuls) ; remplacées au runtime par cours+autonomie depuis /api/referentiels/ue
+const PER_DEFAUT = Object.fromEntries([...UES_DET_TIM, UE_INT_TIM].map(u => [u.ue, u.periodes]));
 
-function calculerMention(scoresDet, scoreInt) {
+function calculerMention(scoresDet, scoreInt, per = PER_DEFAUT) {
   // scoresDet : { '252': pct, '253': pct, ... }  (pourcentage 0-100)
   // scoreInt  : pct (pourcentage 0-100)
-  const totalPeriodes = TOTAL_PERIODES_DET;
+  // per : périodes pondérantes par UE (cours + autonomie), issues du référentiel
   let sommePonderee = 0;
   let totalPoids = 0;
   for (const u of UES_DET_TIM) {
     const s = parseFloat(scoresDet[u.ue]);
     if (!isNaN(s)) {
-      sommePonderee += s * u.periodes;
-      totalPoids += u.periodes;
+      const p = per[u.ue] ?? u.periodes;
+      sommePonderee += s * p;
+      totalPoids += p;
     }
   }
   const moyDet = totalPoids > 0 ? sommePonderee / totalPoids : 0;
@@ -241,14 +244,14 @@ function calculerMention(scoresDet, scoreInt) {
   return { pct: Math.round(finale * 10)/10, mention: 'Échec' };
 }
 
-function deriveLigne(l) {
+function deriveLigne(l, per = PER_DEFAUT) {
   const scores = { ...(l._scores || {}) };
   Object.keys(scores).forEach(k => { if (scores[k] === '' || scores[k] == null) delete scores[k]; });
   const pct = {};
   for (const u of UES_DET_TIM) { if (scores[u.ue] !== undefined) pct[u.ue] = parseFloat(scores[u.ue]) * 5; }
   const sInt = scores['264'] !== undefined ? parseFloat(scores['264']) * 5 : undefined;
   const has = Object.keys(pct).length > 0 || sInt !== undefined;
-  const calc = calculerMention(pct, sInt);
+  const calc = calculerMention(pct, sInt, per);
   const detLines = UES_DET_TIM.filter(u => scores[u.ue] !== undefined)
     .map(u => `UE ${u.ue} — ${u.nom} : ${scores[u.ue]}/20`).join('\n');
   const intLine = scores['264'] !== undefined ? `UE 264 — ${UE_INT_TIM.nom} : ${scores['264']}/20` : '';
@@ -302,6 +305,7 @@ export default function Attestation() {
   const [enregOk, setEnregOk]             = useState(false);
   const chargementFait = useRef(false);
   const saveTimer = useRef(null);
+  const [uePer, setUePer] = useState(PER_DEFAUT);
 
   useEffect(() => {
     af('/api/config/attestation_sections').then(d => {
@@ -316,9 +320,18 @@ export default function Attestation() {
     af('/api/config/attestation_lignes').then(d => {
       try {
         const arr = JSON.parse(d.valeur);
-        if (Array.isArray(arr) && arr.length) setLignes(arr.map(deriveLigne));
+        if (Array.isArray(arr) && arr.length) setLignes(arr.map(l => deriveLigne(l, uePer)));
       } catch {}
     }).finally(() => { chargementFait.current = true; });
+    af('/api/referentiels/ue').then(rows => {
+      if (!Array.isArray(rows)) return;
+      const m = { ...PER_DEFAUT };
+      for (const r of rows) {
+        const n = String(r.ue_num);
+        if (PER_DEFAUT[n] !== undefined) m[n] = (Number(r.ue_per_etudiants) || 0) + (Number(r.ue_aut) || 0);
+      }
+      setUePer(m);
+    });
     const a = localStorage.getItem('annee_active');
     if (a) setAnnee(a.replace('-', '/'));
   }, []);
@@ -327,7 +340,7 @@ export default function Attestation() {
     setLignes(ls => ls.map(l => l.id === id ? { ...l, [k]: v } : l));
   }, []);
   const majScore = useCallback((id, ue, v) => {
-    setLignes(ls => ls.map(l => l.id === id ? deriveLigne({ ...l, _scores: { ...(l._scores || {}), [ue]: v } }) : l));
+    setLignes(ls => ls.map(l => l.id === id ? deriveLigne({ ...l, _scores: { ...(l._scores || {}), [ue]: v } }, uePer) : l));
   }, []);
 
   const sauver = useCallback(async () => {
@@ -348,6 +361,10 @@ export default function Attestation() {
     saveTimer.current = setTimeout(() => { sauver(); }, 1500);
     return () => clearTimeout(saveTimer.current);
   }, [lignes, sauver]);
+
+  useEffect(() => {
+    setLignes(ls => ls.map(l => deriveLigne(l, uePer)));
+  }, [uePer]);
 
   const supprimerLigne = (id) => setLignes(ls => ls.filter(l => l.id !== id));
   const dupliquerLigne = (id) => {
@@ -485,7 +502,7 @@ export default function Attestation() {
           </button>
           <button onClick={() => {
             if (lignes.some(l => l.nom) && !confirm('Remplacer les lignes existantes par les étudiants TIM BA1 2025-2026 ?')) return;
-            setLignes(ETUDIANTS_TIM_BA1.map(e => deriveLigne({ ...LIGNE_VIDE(), ...e, id: Date.now() + Math.random() })));
+            setLignes(ETUDIANTS_TIM_BA1.map(e => deriveLigne({ ...LIGNE_VIDE(), ...e, id: Date.now() + Math.random() }, uePer)));
           }}
             className="flex items-center gap-1.5 bg-amber-500 text-white text-sm px-3 py-1.5 rounded-lg hover:opacity-90">
             📥 Importer TIM BA1 (101 étudiants)
@@ -545,7 +562,7 @@ export default function Attestation() {
                 ))}
                 {UES_DET_TIM.map(u => (
                   <th key={u.ue} className="px-1 py-2 font-semibold text-gray-500 w-14 text-center" title={u.nom}>
-                    UE{u.ue}<br/><span className="text-[9px] text-gray-400 font-normal">/20 · {u.periodes}p</span>
+                    UE{u.ue}<br/><span className="text-[9px] text-gray-400 font-normal">/20 · {uePer[u.ue] ?? u.periodes}p</span>
                   </th>
                 ))}
                 <th className="px-1 py-2 font-semibold text-amber-600 w-14 text-center" title={UE_INT_TIM.nom}>
@@ -605,7 +622,7 @@ export default function Attestation() {
           </table>
         </div>
         <div className="px-4 py-2 bg-gray-50 border-t border-gray-200 text-[11px] text-gray-500">
-          Notes sur /20 — 6 UE déterminantes (total {TOTAL_PERIODES_DET} périodes, pondération 2/3) + UE 264 épreuve intégrée (1/3). La mention se calcule automatiquement.
+          Notes sur /20 — 6 UE déterminantes (total {UES_DET_TIM.reduce((a, u) => a + (uePer[u.ue] ?? u.periodes), 0)} périodes cours+autonomie, pondération 2/3) + UE 264 épreuve intégrée (1/3). Mention calculée automatiquement.
         </div>
       </div>
 
