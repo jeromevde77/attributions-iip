@@ -1,5 +1,11 @@
 # Changelog
 
+## v3.9.24 — 29 juin 2026
+
+### Attestations — signature non rognée
+- Suppression de la marge négative en haut qui rognait le sommet de la signature ; le tracé déborde désormais uniquement vers le bas (ligne + nom)
+- Signature ré-embarquée en meilleure résolution (820 px)
+
 ## v3.9.23 — 29 juin 2026
 
 ### Attestations — signature traversant le texte
