@@ -36,7 +36,7 @@ export function genererTemplateAttestation() {
   .bandeau-droite { color: rgba(255,255,255,0.65); font-size: 7.5pt; text-align: right; letter-spacing: 0.5pt; line-height: 1.5; }
 
   /* Corps */
-  .corps { flex: 1; padding: 4mm 18mm 2mm 18mm; display: flex; flex-direction: column; justify-content: flex-start; position: relative; z-index: 1; }
+  .corps { flex: 1; padding: 4mm 18mm 2mm 18mm; display: flex; flex-direction: column; justify-content: space-between; position: relative; z-index: 1; }
 
   /* Filet doré institutionnel */
   .filet-or { border-top: 1pt solid #C9A84C; border-bottom: 1pt solid #C9A84C; padding: 2.5pt 0; margin-bottom: 4mm; text-align: center; }
@@ -159,7 +159,7 @@ export function genererTemplateAttestation() {
     </div>
 
     <!-- Date et lieu -->
-    <p style="font-size:9pt;color:#444;text-align:right;margin-top:auto;margin-bottom:1mm;">
+    <p style="font-size:9pt;color:#444;text-align:right;margin-top:3mm;margin-bottom:1mm;">
       Fait à {{ville_etab}}, le {{date_deliberation}}
     </p>
 

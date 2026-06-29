@@ -1,5 +1,10 @@
 # Changelog
 
+## v3.9.18 — 29 juin 2026
+
+### Attestations — équilibrage vertical
+- Contenu réparti sur toute la hauteur de page (retour à une distribution équilibrée), pied de page maintenu remonté
+
 ## v3.9.17 — 29 juin 2026
 
 ### Attestations — pondération figée (cours + autonomie)
