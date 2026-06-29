@@ -69,26 +69,15 @@ export function genererTemplateAttestation() {
   .ue-bloc div { font-size: 9pt; line-height: 1.55; }
 
   /* Signatures — 3 colonnes */
-  .signatures {
-    display: grid;
-    grid-template-columns: 1fr 1fr 1fr;
-    gap: 0 4mm;
-    padding-top: 2mm;
-    flex-shrink: 0;
-  }
-  .sig-bloc { text-align: center; font-size: 9pt; line-height: 1.5; display: flex; flex-direction: column; align-items: center; }
-  .sig-bloc .sig-role { color: #555; font-size: 9pt; flex: 1; display: flex; align-items: flex-end; justify-content: center; padding-bottom: 12mm; }
-  .sig-bloc .sig-nom { font-weight: bold; color: #1B2B4B; border-top: 0.6pt solid #C9A84C; padding-top: 1.5mm; display: inline-block; width: 40mm; }
-  .sig-directeur {
-    grid-column: 1 / -1;
-    text-align: center; font-size: 9pt;
-    margin-top: 2mm; padding-top: 2mm;
-    border-top: 0.5pt dashed #ddd;
-    display: flex; flex-direction: column; align-items: center;
-  }
+  .signatures { padding-top: 2mm; flex-shrink: 0; font-size: 9pt; }
+  .sig-jury { text-align: center; color: #333; line-height: 1.6; margin: 0 0 9mm; padding: 0 8mm; }
+  .sig-jury strong { color: #1B2B4B; }
+  .sig-final { position: relative; min-height: 26mm; }
+  .sig-directeur { width: 60mm; margin: 0 auto; text-align: center; display: flex; flex-direction: column; align-items: center; }
   .sig-directeur .sig-role { color: #555; font-size: 9pt; padding-bottom: 1mm; }
   .sig-directeur .sig-image { display: block; height: 15mm; width: auto; margin: 0 auto -1.5mm; }
-  .sig-directeur .sig-nom { font-weight: bold; color: #1B2B4B; border-top: 0.6pt solid #C9A84C; padding-top: 1.5mm; display: inline-block; width: 40mm; }
+  .sig-directeur .sig-nom { font-weight: bold; color: #1B2B4B; border-top: 0.6pt solid #C9A84C; padding-top: 1.5mm; display: inline-block; width: 48mm; }
+  .sceau { position: absolute; right: 0; bottom: 0; width: 34mm; height: 22mm; border: 0.5pt dashed #bbb; border-radius: 2pt; display: flex; align-items: center; justify-content: center; text-align: center; color: #999; font-size: 7.5pt; padding: 2pt; }
 
   /* Logo + pied de page */
   .footer-bloc {
@@ -165,24 +154,16 @@ export function genererTemplateAttestation() {
       Fait à {{ville_etab}}, le {{date_deliberation}}
     </p>
 
-    <!-- Signatures — 3 colonnes + directeur centré -->
+    <!-- Signatures : jury (sans signature) + directeur centré + sceau -->
     <div class="signatures">
-      <div class="sig-bloc">
-        <div class="sig-role">La Présidente du Jury,</div>
-        <div class="sig-nom">Marie Lambert</div>
-      </div>
-      <div class="sig-bloc">
-        <div class="sig-role">La Directrice du département de la santé, HELB,</div>
-        <div class="sig-nom">Catherine Romanus</div>
-      </div>
-      <div class="sig-bloc">
-        <div class="sig-role">Sceau de l'établissement</div>
-        <div style="height:10mm;"></div>
-      </div>
-      <div class="sig-directeur">
-        <div class="sig-role">Le Directeur de l'Institut Ilya Prigogine,</div>
-        <img class="sig-image" src="{{signature_directeur}}" alt="Signature" />
-        <div class="sig-nom">{{directeur}}</div>
+      <p class="sig-jury">Pour la Présidente du Jury, <strong>Marie Lambert</strong>, et pour la Directrice du département de la Santé de la HELB, <strong>Catherine Romanus</strong>.</p>
+      <div class="sig-final">
+        <div class="sig-directeur">
+          <div class="sig-role">Le Directeur de l'Institut Ilya Prigogine,</div>
+          <img class="sig-image" src="{{signature_directeur}}" alt="Signature" />
+          <div class="sig-nom">{{directeur}}</div>
+        </div>
+        <div class="sceau">Sceau de l'établissement</div>
       </div>
     </div>
 

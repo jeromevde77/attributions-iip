@@ -1,5 +1,12 @@
 # Changelog
 
+## v3.9.21 — 29 juin 2026
+
+### Attestations — zone de signatures revue
+- La Présidente du Jury (Marie Lambert) et la Directrice HELB (Catherine Romanus) regroupées en une phrase (sans ligne de signature)
+- Charles Sohet, Directeur, centré dessous avec sa signature
+- Sceau de l'établissement placé en bas à droite
+
 ## v3.9.20 — 29 juin 2026
 
 ### Attestations — signature directeur (version nette)
