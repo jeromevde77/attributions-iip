@@ -195,6 +195,24 @@ export function genererTemplateAttestation() {
 </body></html>`;
 }
 
+async function htmlVersPdfBlob(html, jsPDF, html2canvas) {
+  const iframe = document.createElement('iframe');
+  iframe.style.cssText = 'position:fixed;left:-10000px;top:0;width:794px;height:1123px;border:0;';
+  document.body.appendChild(iframe);
+  try {
+    const doc = iframe.contentDocument || iframe.contentWindow.document;
+    doc.open(); doc.write(html); doc.close();
+    await new Promise(r => setTimeout(r, 400));
+    const cible = doc.querySelector('.page') || doc.body;
+    const canvas = await html2canvas(cible, { scale: 2, useCORS: true, backgroundColor: '#ffffff', windowWidth: 794, windowHeight: 1123 });
+    const pdf = new jsPDF({ unit: 'mm', format: 'a4', orientation: 'portrait' });
+    pdf.addImage(canvas.toDataURL('image/jpeg', 0.92), 'JPEG', 0, 0, 210, 297, undefined, 'FAST');
+    return pdf.output('blob');
+  } finally {
+    document.body.removeChild(iframe);
+  }
+}
+
 function telecharger(blob, nom) {
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
@@ -430,14 +448,16 @@ export default function Attestation() {
     setGenerating(true);
     try {
       const JSZip = (await import('jszip')).default;
+      const { jsPDF } = await import('jspdf');
+      const html2canvas = (await import('html2canvas')).default;
       const zip = new JSZip();
       for (const l of valides) {
-        const html = genererHtml(l);
-        zip.file(`Attestation_${l.nom}_${l.prenom}.html`, html);
+        const blob = await htmlVersPdfBlob(genererHtml(l), jsPDF, html2canvas);
+        zip.file(`Attestation_${l.nom}_${l.prenom}.pdf`, blob);
       }
-      const blob = await zip.generateAsync({ type: 'blob' });
-      telecharger(blob, `Attestations_${annee.replace('/', '-')}.zip`);
-    } catch (e) { alert('Erreur : ' + e.message); }
+      const zipBlob = await zip.generateAsync({ type: 'blob' });
+      telecharger(zipBlob, `Attestations_${annee.replace('/', '-')}.zip`);
+    } catch (e) { alert('Erreur génération PDF : ' + e.message); }
     finally { setGenerating(false); }
   };
 
@@ -533,7 +553,7 @@ export default function Attestation() {
           </button>
           <button onClick={genererBatch} disabled={generating}
             className="flex items-center gap-1.5 bg-iip-blue text-white text-sm px-4 py-1.5 rounded-lg hover:opacity-90 disabled:opacity-40 font-medium">
-            <IconDownload size={15}/> {generating ? 'Génération…' : 'Générer toutes les attestations (ZIP)'}
+            <IconDownload size={15}/> {generating ? 'Génération PDF…' : 'Générer les attestations (PDF)'}
           </button>
         </div>
       </div>

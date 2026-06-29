@@ -1,5 +1,11 @@
 # Changelog
 
+## v3.9.15 — 29 juin 2026
+
+### Attestations — génération en PDF
+- « Générer les attestations » produit désormais un ZIP de fichiers PDF A4 (un par étudiant) au lieu de HTML
+- Rendu via jsPDF + html2canvas (mise en page identique à l'aperçu) ; règle UE 264 ≥ 10 maintenue
+
 ## v3.9.14 — 29 juin 2026
 
 ### Attestations — autonomie, année, signatures, export
