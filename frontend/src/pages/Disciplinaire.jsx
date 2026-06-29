@@ -19,8 +19,8 @@ const ANNEES = [
   { code: '2026-2027', label: '2026-2027 · nouveau RDE' },
 ];
 const ART = {
-  '2025-2026': { reg: "Règlement d'Ordre Intérieur (ROI) 2024-2025", fraude: 'articles 54 et 55 du ROI', discipline: 'articles 94 à 96 du ROI', notif: "l'article 96 du ROI", recours: 'la procédure de recours prévue par le ROI' },
-  '2026-2027': { reg: "Règlement Général des Études et d'Ordre Intérieur (RDE) 2026-2027", fraude: 'articles 72 à 75 du RDE', discipline: 'articles 115 à 119 du RDE', notif: "l'article 119 du RDE", recours: 'les articles 87 à 91 du RDE (recours interne, puis externe)' },
+  '2025-2026': { reg: "Règlement d'Ordre Intérieur (ROI) 2024-2025", fraude: 'articles 54 et 55 du ROI', discipline: 'articles 94 à 96 du ROI', procedure: "l'article 96 du ROI", notif: "l'article 96 du ROI", recoursAcad: 'la procédure de recours prévue par le ROI' },
+  '2026-2027': { reg: "Règlement Général des Études et d'Ordre Intérieur (RDE) 2026-2027", fraude: 'articles 72 à 75 du RDE', discipline: 'articles 115 à 119 du RDE', procedure: 'les articles 115 bis à 115 novies du RDE', notif: 'les articles 115 novies et 119 du RDE', recoursAcad: "les articles 87 à 91 du RDE (recours interne, puis recours externe auprès de l'Administration)" },
 };
 const DELAI_CONVOC_JO = 8;
 const TYPES_FAIT = [
@@ -103,6 +103,8 @@ export default function Disciplinaire() {
   const sa = SANCTIONS.find(s => s.key === sanction) || {};
   const etu = `${prenom} ${nom.toUpperCase()}`.trim() || '[ÉTUDIANT·E]';
   const baseLeg = tf.fraude ? a.fraude : a.discipline;
+  const estAcademique = ['fraude_sanction', 'annulation'].includes(sanction);
+  const recoursTxt = estAcademique ? a.recoursAcad : 'les modalités de recours indiquées dans la présente notification, conformément aux dispositions applicables';
   const cap = (s) => s ? s.charAt(0).toUpperCase() + s.slice(1) : s;
   const nl = (s) => (s || '…').replace(/\n/g, '<br>');
 
@@ -190,13 +192,15 @@ export default function Disciplinaire() {
     const L = [];
     L.push(`Cadre applicable : ${a.reg}.`);
     L.push(`Qualification : ${(tf.label || '').toLowerCase()} — base réglementaire : ${baseLeg}.`);
-    if (tf.fraude) L.push(`Fraude/plagiat : audition séparée des parties puis audition contradictoire (${a.fraude}) ; décision du Conseil des Études ou du Jury d'Épreuve intégrée, formellement motivée.`);
-    else L.push(`Toute sanction disciplinaire requiert l'audition préalable de l'étudiant·e ; la sanction est proportionnée à la gravité et un même fait ne peut donner lieu qu'à une seule sanction.`);
+    L.push(`Procédure (${a.procedure}) : examen individuel, sanction motivée et proportionnée ; audition préalable obligatoire ; assistance par la personne de son choix.`);
+    if (tf.fraude) L.push(`Fraude/plagiat (${a.fraude}) : audition séparée des parties puis audition contradictoire ; décision du Conseil des Études ou du Jury d'Épreuve intégrée, formellement motivée.`);
+    L.push(`PV d'audition signé par l'étudiant·e ; le refus de signature est constaté par deux membres du personnel (sans empêcher la poursuite).`);
+    L.push(`L'étudiant·e peut consulter le dossier sans déplacement de pièces et demander un délai de réponse (≤ 5 jours ouvrables).`);
     L.push(`Sanction envisagée : ${sa.label} — prononcée par ${sa.autorite}.`);
-    if (sanction === 'renvoi_def') L.push(`Renvoi définitif : avis préalable obligatoire du Conseil des Études, versé au dossier disciplinaire consultable par l'étudiant·e.`);
-    L.push(`Convocation : recommandé (ou contre accusé de réception), déposé au moins ${DELAI_CONVOC_JO} jours ouvrables avant l'audition ; mentionne jour/heure/lieu, faits reprochés, sanction envisagée, droit d'être assisté·e et consultation du dossier.`);
-    L.push(`Notification de la décision : pli recommandé ou écrit contre accusé de réception (${a.notif}).`);
-    L.push(`Voies de recours : ${a.recours}.`);
+    if (sanction === 'renvoi_def') L.push(`Renvoi définitif : avis du Conseil des Études rendu dans les 8 jours (consultatif), versé au dossier ; écartement provisoire possible (≤ 15 jours ouvrables) pendant la procédure.`);
+    L.push(`Convocation : recommandé/AR, déposé au moins ${DELAI_CONVOC_JO} jours ouvrables avant l'audition (renvoi définitif) ; mentionne faits, sanction envisagée, droit d'être assisté·e, consultation du dossier.`);
+    L.push(`Notification : pli recommandé/AR, motivée (${a.notif}), avec mention du droit de recours et de ses modalités.`);
+    L.push(`Voies de recours : ${recoursTxt}.`);
     return L;
   };
 
@@ -209,7 +213,8 @@ export default function Disciplinaire() {
     <div class="bloc-faits"><strong>Faits reprochés — constatés le ${fmtLong(dateFaits)}${rapporteur ? `, rapportés par ${rapporteur}` : ''} :</strong><br>${nl(description)}</div>
     <p>Ces faits sont susceptibles de constituer ${(tf.label || '').toLowerCase()} au sens de ${baseLeg}, et pourraient donner lieu à la sanction suivante : <strong>${sa.label}</strong>, prononcée par ${sa.autorite}.</p>
     <p>Vous êtes convoqué·e à une <strong>audition</strong> qui se tiendra le <strong>${fmtLong(dateAudition)}${heureAudition ? ` à ${heureAudition}` : ''}</strong>, à ${lieuAudition}.</p>
-    <p>Lors de cette audition, vous pouvez <strong>vous faire assister de la personne de votre choix</strong> et faire entendre toute personne utile. Vous pouvez également <strong>consulter votre dossier disciplinaire</strong> au secrétariat, durant les heures d'ouverture.</p>
+    <p>Lors de cette audition, vous pouvez <strong>vous faire assister de la personne de votre choix</strong> et faire entendre toute personne utile. Vous pouvez également <strong>consulter votre dossier disciplinaire</strong>, sans déplacement de pièces, en présence de la Direction ou de son délégué.</p>
+    <p>Vous pouvez demander un délai pour répondre aux faits reprochés ; fixé de commun accord avec la Direction ou son délégué, il ne dépasse pas cinq jours ouvrables.</p>
     <p>À défaut de comparution, la procédure suivra son cours.</p>
     <p>Veuillez agréer, ${prenom ? `cher·ère ${prenom}` : 'Madame, Monsieur'}, l'expression de mes salutations distinguées.</p>
     <div class="sig"><p>Pour la Direction,<br><strong>${ETAB.directeur}</strong>, Directeur</p></div>`);
@@ -224,7 +229,7 @@ export default function Disciplinaire() {
     ${tf.fraude ? `<p>Conformément à ${a.fraude}, les parties ont été entendues séparément, puis il a été procédé à une audition contradictoire.</p>` : ''}
     <p><strong>Déclarations et observations de l'étudiant·e :</strong></p>
     <p>${nl(declarations)}</p>
-    <p>Le présent procès-verbal est établi séance tenante.</p>
+    <p>La Direction (ou son délégué) est assistée d'un membre du personnel pour la rédaction du présent procès-verbal, établi séance tenante. En cas de refus de signature de l'étudiant·e, celui-ci est constaté par deux membres du personnel et n'empêche pas la poursuite de la procédure.</p>
     <div class="sig"><table><tr>
       <td style="width:50%">La Direction (ou son délégué),<br><br>__________________</td>
       <td>L'étudiant·e,<br><br>__________________</td></tr></table></div>`);
@@ -235,6 +240,7 @@ export default function Disciplinaire() {
     <p style="margin-top:10pt"><strong>Objet : décision en matière disciplinaire — ENVOI RECOMMANDÉ</strong></p>
     <div class="titre">Décision motivée</div>
     <p><strong>Vu</strong> le ${a.reg}, et notamment ${baseLeg} ;</p>
+    <p><strong>Vu</strong> ${a.procedure}, relatifs à la procédure disciplinaire ;</p>
     <p><strong>Vu</strong> les faits constatés le ${fmtLong(dateFaits)}${rapporteur ? `, rapportés par ${rapporteur}` : ''} :</p>
     <div class="bloc-faits">${nl(description)}</div>
     <p><strong>Vu</strong> la convocation adressée à l'étudiant·e et son audition tenue le ${fmtLong(dateAudition)} ;</p>
@@ -242,7 +248,7 @@ export default function Disciplinaire() {
     <p>${cap(sa.autorite)} décide d'appliquer la sanction suivante : <strong>${sa.label}</strong>.</p>
     ${sanction === 'renvoi_def' ? `<p>Cette décision a été prise après avis du Conseil des Études, versé au dossier disciplinaire.</p>` : ''}
     <p>La présente décision est formellement motivée et vous est notifiée par pli recommandé (ou contre accusé de réception), conformément à ${a.notif}.</p>
-    <p><strong>Voies de recours :</strong> conformément à ${a.recours}.</p>
+    <p><strong>Voies de recours :</strong> ${recoursTxt}.</p>
     <div class="sig"><p>Pour la Direction,<br><strong>${ETAB.directeur}</strong>, Directeur</p></div>`);
 
   const ouvrir = (titre, html) => setPreview({ titre, html, sousTitre: `Disciplinaire · ${annee}` });

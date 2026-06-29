@@ -1,5 +1,12 @@
 # Changelog
 
+## v3.10.2 — 29 juin 2026
+
+### Disciplinaire — alignement sur les nouveaux articles du RDE
+- Référence aux articles 115 bis à 115 novies du RDE 2026-2027 (procédure disciplinaire) dans l'analyse et les documents
+- Garanties reflétées : PV signé + refus constaté par deux membres du personnel, consultation du dossier sans déplacement + délai de réponse (≤ 5 j ouvrables), avis du Conseil des Études sous 8 jours, écartement provisoire
+- Voies de recours différenciées : académique (Art. 87-91) pour les sanctions de fraude/refus d'UE ; mention générique pour le disciplinaire (autorité à fixer par le PO)
+
 ## v3.10.1 — 29 juin 2026
 
 ### Disciplinaire étudiant — archivage & pièces jointes (develop)
