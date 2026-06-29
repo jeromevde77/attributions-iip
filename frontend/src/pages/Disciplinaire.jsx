@@ -19,8 +19,8 @@ const ANNEES = [
   { code: '2026-2027', label: '2026-2027 · nouveau RDE' },
 ];
 const ART = {
-  '2025-2026': { reg: "Règlement d'Ordre Intérieur (ROI) 2024-2025", fraude: 'articles 54 et 55 du ROI', discipline: 'articles 94 à 96 du ROI', procedure: "l'article 96 du ROI", notif: "l'article 96 du ROI", recoursAcad: 'la procédure de recours prévue par le ROI' },
-  '2026-2027': { reg: "Règlement Général des Études et d'Ordre Intérieur (RDE) 2026-2027", fraude: 'articles 72 à 75 du RDE', discipline: 'articles 115 à 119 du RDE', procedure: 'les articles 115 bis à 115 novies du RDE', notif: 'les articles 115 novies et 119 du RDE', recoursAcad: "les articles 87 à 91 du RDE (recours interne, puis recours externe auprès de l'Administration)" },
+  '2025-2026': { reg: "Règlement d'Ordre Intérieur (ROI) 2024-2025", fraude: 'articles 54 et 55 du ROI', discipline: 'articles 94 à 96 du ROI', procedure: "l'article 96 du ROI", notif: "l'article 96 du ROI", recoursAcad: 'la procédure de recours prévue par le ROI', recoursExclusion: "un recours interne auprès du Pouvoir Organisateur, sans préjudice des voies de droit commun" },
+  '2026-2027': { reg: "Règlement Général des Études et d'Ordre Intérieur (RDE) 2026-2027", fraude: 'articles 72 à 75 du RDE', discipline: 'articles 115 à 119 du RDE', procedure: 'les articles 115 bis à 115 novies du RDE', notif: 'les articles 115 novies et 119 du RDE', recoursAcad: "les articles 87 à 91 du RDE (recours interne, puis recours externe auprès de l'Administration)", recoursExclusion: "l'article 119 bis du RDE : recours interne auprès du Pouvoir Organisateur, par lettre recommandée motivée, dans les dix jours ouvrables suivant la notification (non suspensif), sans préjudice des voies de droit commun (art. 119 ter)" },
 };
 const DELAI_CONVOC_JO = 8;
 const TYPES_FAIT = [
@@ -104,7 +104,9 @@ export default function Disciplinaire() {
   const etu = `${prenom} ${nom.toUpperCase()}`.trim() || '[ÉTUDIANT·E]';
   const baseLeg = tf.fraude ? a.fraude : a.discipline;
   const estAcademique = ['fraude_sanction', 'annulation'].includes(sanction);
-  const recoursTxt = estAcademique ? a.recoursAcad : 'les modalités de recours indiquées dans la présente notification, conformément aux dispositions applicables';
+  const recoursTxt = estAcademique ? a.recoursAcad
+    : (sanction === 'renvoi_def' ? a.recoursExclusion
+      : "les mesures d'ordre et sanctions légères ne font pas l'objet d'un recours formel ; les voies de droit commun demeurent ouvertes");
   const cap = (s) => s ? s.charAt(0).toUpperCase() + s.slice(1) : s;
   const nl = (s) => (s || '…').replace(/\n/g, '<br>');
 

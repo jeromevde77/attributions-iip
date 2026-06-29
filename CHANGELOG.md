@@ -1,5 +1,10 @@
 # Changelog
 
+## v3.10.3 — 29 juin 2026
+
+### Disciplinaire — voies de recours réelles (RDE 26-27)
+- Citation des articles définitifs : Art. 119 bis (recours interne auprès du PO, 10 j ouvrables) pour l'exclusion définitive ; Art. 87-91 pour les sanctions de fraude/refus d'UE ; mention adaptée pour les mesures d'ordre
+
 ## v3.10.2 — 29 juin 2026
 
 ### Disciplinaire — alignement sur les nouveaux articles du RDE
