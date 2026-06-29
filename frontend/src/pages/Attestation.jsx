@@ -41,7 +41,7 @@ export function genererTemplateAttestation() {
   .corps { flex: 1; padding: 4mm 18mm 2mm 18mm; display: flex; flex-direction: column; justify-content: space-between; position: relative; z-index: 1; }
 
   /* Filet doré institutionnel */
-  .filet-or { border-top: 1pt solid #C9A84C; border-bottom: 1pt solid #C9A84C; height: 18pt; display: flex; align-items: center; justify-content: center; margin-bottom: 4mm; }
+  .filet-or { border-top: 1pt solid #C9A84C; border-bottom: 1pt solid #C9A84C; height: 20pt; padding-top: 2.5pt; display: flex; align-items: center; justify-content: center; margin-bottom: 4mm; }
   .filet-or span { font-size: 7.3pt; color: #888; letter-spacing: 0.2pt; text-transform: uppercase; white-space: nowrap; }
 
   /* Établissement */
@@ -49,7 +49,7 @@ export function genererTemplateAttestation() {
   .etab strong { color: #1a1a1a; }
 
   /* Encadré attestation */
-  .encadre { border: 1pt solid #C9A84C; height: 20pt; display: flex; align-items: center; justify-content: center; margin-bottom: 4mm; }
+  .encadre { border: 1pt solid #C9A84C; height: 22pt; padding-top: 3pt; display: flex; align-items: center; justify-content: center; margin-bottom: 4mm; }
   .encadre span { font-size: 9pt; font-weight: bold; letter-spacing: 0.5pt; }
 
   /* Texte courant */

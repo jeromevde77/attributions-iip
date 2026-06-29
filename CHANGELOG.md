@@ -1,5 +1,10 @@
 # Changelog
 
+## v3.9.30 — 29 juin 2026
+
+### Attestations — alignement cadres dorés (ajustement)
+- Léger décalage vers le bas du texte des bandes dorées pour compenser le rendu html2canvas (centrage visuel)
+
 ## v3.9.29 — 29 juin 2026
 
 ### Attestations — centrage des cadres dorés
