@@ -1,5 +1,13 @@
 # Changelog
 
+## v3.10.0 — 29 juin 2026
+
+### Nouveau module — Disciplinaire étudiant (develop)
+- Assistant d'aide à la décision disciplinaire, année-dépendant (ROI 24-25 pour 2025-2026, nouveau RDE pour 2026-2027)
+- Analyse réglementaire automatique (qualification, articles applicables, autorité, délais)
+- Génération de 3 projets de documents : courrier de convocation (avec contrôle du délai de 8 jours ouvrables, droit d'être assisté, consultation du dossier), PV d'audition, décision motivée avec voies de recours
+- Aperçu + impression PDF (moteur navigateur)
+
 ## v3.9.36 — 29 juin 2026
 
 ### Attestations — droits d'accès

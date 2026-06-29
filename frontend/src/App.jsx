@@ -22,7 +22,7 @@ import WelcomeV3 from './WelcomeV3.jsx';
 import {
   IconClipboardList, IconUsers, IconFileExport, IconChecklist,
   IconChartBar, IconCalendarStats, IconEdit, IconSettings, IconLogout, IconMenu2, IconX,
-  IconHome, IconBell, IconHelpCircle,
+  IconHome, IconBell, IconHelpCircle, IconGavel,
 } from '@tabler/icons-react';
 
 import Login from './pages/Login.jsx';
@@ -46,6 +46,7 @@ import Pilotage from './pages/Pilotage.jsx';
 import Planification from './pages/Planification.jsx';
 import Aide from './pages/Aide.jsx';
 import Attestation from './pages/Attestation.jsx';
+import Disciplinaire from './pages/Disciplinaire.jsx';
 import { BoutonAide } from './pages/Aide.jsx';
 
 /* eslint-disable no-undef */
@@ -183,6 +184,7 @@ function ProtectedLayout({ children }) {
         ['/procedures',   'Procédures', IconChecklist],
         ['/pilotage',     'Pilotage', IconChartBar],
         ['/planification','Planification', IconCalendarStats],
+        ['/disciplinaire', 'Disciplinaire', IconGavel],
       ];
   nav.push(['/aide', '', IconHelpCircle]);
   if (u?.role === 'admin') nav.push(['/configuration', 'Config.', IconSettings]);
@@ -370,6 +372,7 @@ export default function App() {
       <Route path="/planification"  element={<ProtectedLayout><Planification /></ProtectedLayout>} />
       <Route path="/aide"           element={<ProtectedLayout><Aide /></ProtectedLayout>} />
       <Route path="/attestation"   element={<ProtectedLayout><Attestation /></ProtectedLayout>} />
+      <Route path="/disciplinaire" element={<ProtectedLayout><Disciplinaire /></ProtectedLayout>} />
       <Route path="/utilisateurs" element={<ProtectedLayout><Users /></ProtectedLayout>} />
       <Route path="/annees"         element={<ProtectedLayout><Annees /></ProtectedLayout>} />
       <Route path="/configuration"  element={<ProtectedLayout><Configuration /></ProtectedLayout>} />
