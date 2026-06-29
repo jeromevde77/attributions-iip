@@ -1,5 +1,11 @@
 # Changelog
 
+## v3.9.34 — 29 juin 2026
+
+### Attestations — tri par colonnes
+- Clic sur l'en-tête d'une colonne pour trier (flèche ↑/↓, A→Z ou Z→A) : nom, prénom, section, dates, chaque UE (par note), et la mention
+- Remplace l'ancien menu déroulant « Trier »
+
 ## v3.9.33 — 29 juin 2026
 
 ### Attestations — sélection multiple

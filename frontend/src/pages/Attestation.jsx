@@ -313,7 +313,8 @@ export default function Attestation() {
   const [q, setQ]                         = useState('');
   const [filtreUe, setFiltreUe]           = useState('');
   const [filtrePresence, setFiltrePresence] = useState('');
-  const [tri, setTri]                     = useState('nom');
+  const [sortCol, setSortCol]             = useState('nom');
+  const [sortDir, setSortDir]             = useState('asc');
   const [selection, setSelection]         = useState(new Set());
   const [dirty, setDirty]                 = useState(false);
   const [enregOk, setEnregOk]             = useState(false);
@@ -472,12 +473,19 @@ export default function Attestation() {
         return filtrePresence === 'avec' ? has : !has;
       });
     }
+    const valCol = (l, col) => {
+      if (col.startsWith('ue:')) { const v = l._scores ? l._scores[col.slice(3)] : undefined; return (v === '' || v == null) ? -1 : parseFloat(v); }
+      if (col === 'mention') return l._calcPct || 0;
+      return (l[col] ?? '').toString();
+    };
     const arr = [...r];
-    if (tri === 'nom') arr.sort((a, b) => (a.nom || '').localeCompare(b.nom || ''));
-    else if (tri === 'mention') arr.sort((a, b) => (b._calcPct || 0) - (a._calcPct || 0));
-    else if (tri === 'note' && filtreUe) arr.sort((a, b) => (parseFloat(b._scores?.[filtreUe]) || 0) - (parseFloat(a._scores?.[filtreUe]) || 0));
+    arr.sort((a, b) => {
+      const va = valCol(a, sortCol), vb = valCol(b, sortCol);
+      const c = (typeof va === 'number') ? va - vb : va.localeCompare(vb, 'fr', { sensitivity: 'base' });
+      return sortDir === 'asc' ? c : -c;
+    });
     return arr;
-  }, [lignes, q, filtreUe, filtrePresence, tri]);
+  }, [lignes, q, filtreUe, filtrePresence, sortCol, sortDir]);
 
   const exporterListe = () => { try {
     const cols = ['Matricule', 'Nom', 'Prénom', 'Genre', 'Date naissance', 'Section',
@@ -500,6 +508,8 @@ export default function Attestation() {
     } catch (e) { alert('Erreur export liste : ' + e.message); }
   };
 
+  const trier = (col) => { if (sortCol === col) setSortDir(d => d === 'asc' ? 'desc' : 'asc'); else { setSortCol(col); setSortDir('asc'); } };
+  const fleche = (col) => sortCol === col ? (sortDir === 'asc' ? ' ↑' : ' ↓') : '';
   const toggleSel = (id) => setSelection(s => { const n = new Set(s); n.has(id) ? n.delete(id) : n.add(id); return n; });
   const idsAffiches = lignesAffichees.filter(l => l.nom).map(l => l.id);
   const tousSel = idsAffiches.length > 0 && idsAffiches.every(id => selection.has(id));
@@ -561,15 +571,8 @@ export default function Attestation() {
           <option value="avec">avec note</option>
           <option value="sans">sans note</option>
         </select>
-        <span className="text-gray-300">·</span>
-        <label className="text-xs text-gray-500">Trier :</label>
-        <select value={tri} onChange={e => setTri(e.target.value)} className="border border-gray-200 rounded px-2 py-1 text-xs bg-white">
-          <option value="nom">Nom (A→Z)</option>
-          <option value="mention">Mention (décroissant)</option>
-          <option value="note">Note de l'UE sélectionnée</option>
-        </select>
-        {(q || filtreUe || filtrePresence || tri !== 'nom') && (
-          <button onClick={() => { setQ(''); setFiltreUe(''); setFiltrePresence(''); setTri('nom'); }}
+        {(q || filtreUe || filtrePresence || sortCol !== 'nom' || sortDir !== 'asc') && (
+          <button onClick={() => { setQ(''); setFiltreUe(''); setFiltrePresence(''); setSortCol('nom'); setSortDir('asc'); }}
             className="text-xs text-gray-400 hover:text-iip-blue underline">réinitialiser</button>
         )}
         <span className="ml-auto text-xs text-gray-500">{selection.size > 0 ? selection.size + ' sélectionné(s) · ' : ''}{lignesAffichees.filter(l => l.nom).length} affiché(s) / {lignes.filter(l => l.nom).length}</span>
@@ -583,17 +586,17 @@ export default function Attestation() {
               <tr className="bg-gray-50 border-b border-gray-200">
                 <th className="px-2 py-2 w-8 text-center"><input type="checkbox" checked={tousSel} onChange={toggleTous} title="Tout sélectionner (affichés)" /></th>
                 {COLS.map(c => (
-                  <th key={c.key} className={`text-left px-2 py-2 font-semibold text-gray-500 ${c.w}`}>{c.label}</th>
+                  <th key={c.key} onClick={() => trier(c.key)} className={`text-left px-2 py-2 font-semibold text-gray-500 cursor-pointer select-none hover:text-iip-blue ${c.w}`}>{c.label}{fleche(c.key)}</th>
                 ))}
                 {UES_DET_TIM.map(u => (
-                  <th key={u.ue} className="px-1 py-2 font-semibold text-gray-500 w-14 text-center" title={u.nom}>
-                    UE{u.ue}<br/><span className="text-[9px] text-gray-400 font-normal">/20 · {uePer[u.ue] ?? u.periodes}p</span>
+                  <th key={u.ue} onClick={() => trier('ue:' + u.ue)} className="px-1 py-2 font-semibold text-gray-500 w-14 text-center cursor-pointer select-none hover:text-iip-blue" title={u.nom}>
+                    UE{u.ue}{fleche('ue:' + u.ue)}<br/><span className="text-[9px] text-gray-400 font-normal">/20 · {uePer[u.ue] ?? u.periodes}p</span>
                   </th>
                 ))}
-                <th className="px-1 py-2 font-semibold text-amber-600 w-14 text-center" title={UE_INT_TIM.nom}>
-                  UE264<br/><span className="text-[9px] text-amber-500 font-normal">/20 · 1/3</span>
+                <th onClick={() => trier('ue:264')} className="px-1 py-2 font-semibold text-amber-600 w-14 text-center cursor-pointer select-none hover:text-amber-700" title={UE_INT_TIM.nom}>
+                  UE264{fleche('ue:264')}<br/><span className="text-[9px] text-amber-500 font-normal">/20 · 1/3</span>
                 </th>
-                <th className="px-2 py-2 font-semibold text-gray-500 w-32 text-center">Mention (auto)</th>
+                <th onClick={() => trier('mention')} className="px-2 py-2 font-semibold text-gray-500 w-32 text-center cursor-pointer select-none hover:text-iip-blue">Mention (auto){fleche('mention')}</th>
                 <th className="px-2 py-2 text-gray-500 w-20">Actions</th>
               </tr>
             </thead>
