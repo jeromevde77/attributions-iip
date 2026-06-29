@@ -1,5 +1,12 @@
 # Changelog
 
+## v3.9.16 — 29 juin 2026
+
+### Attestations — fix export & mise en page PDF
+- Export liste : correction du bug (id numérique) ; matricule désormais fiable (champ dédié)
+- Mise en page : flux naturel (fin des grands espaces irréguliers), date + signatures poussées en bas, pied de page remonté (8 mm de marge inférieure)
+- « Né·e à … » : plus de virgule orpheline quand le lieu de naissance est absent
+
 ## v3.9.15 — 29 juin 2026
 
 ### Attestations — génération en PDF
