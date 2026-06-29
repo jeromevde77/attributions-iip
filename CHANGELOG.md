@@ -1,5 +1,12 @@
 # Changelog
 
+## v3.9.9 — 29 juin 2026
+
+### Attestations — persistance + filtres
+- La liste (étudiants, notes, mentions) est désormais sauvegardée en base : rechargement automatique à l'ouverture, autosave après chaque modification + bouton « Enregistrer » manuel
+- Barre de filtres/tri : recherche par nom, filtre par UE (avec/sans note encodée), tri par nom, mention ou note de l'UE sélectionnée
+- Compteur « affichés / total »
+
 ## v3.9.8 — 29 juin 2026
 
 ### Attestations — import UE 264 (épreuve intégrée)
