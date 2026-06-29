@@ -1,5 +1,10 @@
 # Changelog
 
+## v3.9.23 — 29 juin 2026
+
+### Attestations — signature traversant le texte
+- Signature agrandie (30 mm) et descendue sur la ligne dorée et le nom, pour un rendu manuscrit authentique (tracé complet visible)
+
 ## v3.9.22 — 29 juin 2026
 
 ### Attestations — signature agrandie

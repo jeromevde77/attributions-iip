@@ -73,9 +73,9 @@ export function genererTemplateAttestation() {
   .sig-jury { text-align: center; color: #333; line-height: 1.6; margin: 0 0 9mm; padding: 0 8mm; }
   .sig-jury strong { color: #1B2B4B; }
   .sig-final { position: relative; min-height: 26mm; }
-  .sig-directeur { width: 60mm; margin: 0 auto; text-align: center; display: flex; flex-direction: column; align-items: center; }
+  .sig-directeur { width: 70mm; margin: 0 auto; text-align: center; display: flex; flex-direction: column; align-items: center; overflow: visible; }
   .sig-directeur .sig-role { color: #555; font-size: 9pt; padding-bottom: 1mm; }
-  .sig-directeur .sig-image { display: block; height: 23mm; width: auto; margin: -5mm auto -4mm; position: relative; z-index: 2; }
+  .sig-directeur .sig-image { display: block; height: 30mm; width: auto; margin: -7mm auto -11mm; position: relative; z-index: 2; pointer-events: none; }
   .sig-directeur .sig-nom { font-weight: bold; color: #1B2B4B; border-top: 0.6pt solid #C9A84C; padding-top: 1.5mm; display: inline-block; width: 48mm; }
   .sceau { position: absolute; right: 0; bottom: 0; width: 34mm; height: 22mm; border: 0.5pt dashed #bbb; border-radius: 2pt; display: flex; align-items: center; justify-content: center; text-align: center; color: #999; font-size: 7.5pt; padding: 2pt; }
 
