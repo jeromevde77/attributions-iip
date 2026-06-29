@@ -1,5 +1,11 @@
 # Changelog
 
+## v3.9.17 — 29 juin 2026
+
+### Attestations — pondération figée (cours + autonomie)
+- Périodes pondérantes fixées aux totaux confirmés : UE 251/252/253/259 = 80, UE 256 = 60, UE 263 = 600 (total déterminantes 980)
+- Retrait du chargement depuis le référentiel qui renvoyait l'autonomie à 0 (écrasait avec les périodes de cours seules)
+
 ## v3.9.16 — 29 juin 2026
 
 ### Attestations — fix export & mise en page PDF

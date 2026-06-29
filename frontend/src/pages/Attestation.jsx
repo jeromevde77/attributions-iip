@@ -233,15 +233,16 @@ const MENTIONS = ['Satisfaction', 'Distinction', 'Grande distinction'];
 
 /* ── UE déterminantes TIM + calcul mention ───────────────────────────────── */
 const UES_DET_TIM = [
-  { ue: '251', nom: 'Techniques professionnelles spécialisées en imagerie médicale', periodes: 64  },
-  { ue: '252', nom: 'Radioprotection',                                               periodes: 64  },
-  { ue: '253', nom: 'Radiothérapie',                                                 periodes: 64  },
-  { ue: '256', nom: 'Sciences biomédicales spécialisées',                            periodes: 48  },
-  { ue: '259', nom: 'Méthodologie de la recherche',                                  periodes: 60  },
+  // Périodes = cours + autonomie (totaux confirmés ; total déterminantes = 980)
+  { ue: '251', nom: 'Techniques professionnelles spécialisées en imagerie médicale', periodes: 80  },
+  { ue: '252', nom: 'Radioprotection',                                               periodes: 80  },
+  { ue: '253', nom: 'Radiothérapie',                                                 periodes: 80  },
+  { ue: '256', nom: 'Sciences biomédicales spécialisées',                            periodes: 60  },
+  { ue: '259', nom: 'Méthodologie de la recherche',                                  periodes: 80  },
   { ue: '263', nom: 'Enseignement clinique : Activités professionnelles',            periodes: 600 },
 ];
 const UE_INT_TIM = { ue: '264', nom: "Épreuve intégrée", periodes: 120 };
-const TOTAL_PERIODES_DET = UES_DET_TIM.reduce((s, u) => s + u.periodes, 0); // 900 (cours seuls, fallback)
+const TOTAL_PERIODES_DET = UES_DET_TIM.reduce((s, u) => s + u.periodes, 0); // 980 (cours + autonomie)
 // Périodes par défaut (cours seuls) ; remplacées au runtime par cours+autonomie depuis /api/referentiels/ue
 const PER_DEFAUT = Object.fromEntries([...UES_DET_TIM, UE_INT_TIM].map(u => [u.ue, u.periodes]));
 
@@ -384,20 +385,6 @@ export default function Attestation() {
     setLignes(ls => ls.map(l => deriveLigne(l, uePer)));
   }, [uePer]);
 
-  useEffect(() => {
-    if (!annee) return;
-    af('/api/referentiels/ue?annee=' + encodeURIComponent(annee.replace('/', '-'))).then(rows => {
-      if (!Array.isArray(rows)) return;
-      const m = { ...PER_DEFAUT };
-      for (const r of rows) {
-        const n = String(r.ue_num);
-        if (PER_DEFAUT[n] === undefined) continue;
-        const val = (Number(r.ue_per_etudiants) || 0) + (Number(r.ue_aut) || 0);
-        if (val > (m[n] || 0)) m[n] = val; // total cours+autonomie (lignes UE dupliquées)
-      }
-      setUePer(m);
-    });
-  }, [annee]);
 
   const supprimerLigne = (id) => setLignes(ls => ls.filter(l => l.id !== id));
   const dupliquerLigne = (id) => {
