@@ -75,18 +75,18 @@ export function genererTemplateAttestation() {
     padding-top: 2mm;
     flex-shrink: 0;
   }
-  .sig-bloc { text-align: center; font-size: 9pt; line-height: 1.5; display: flex; flex-direction: column; }
-  .sig-bloc .sig-role { color: #555; font-size: 9pt; flex: 1; display: flex; align-items: flex-end; justify-content: center; padding-bottom: 7mm; }
-  .sig-bloc .sig-nom { font-weight: bold; color: #1B2B4B; border-top: 0.5pt solid #888; padding-top: 1.5mm; display: inline-block; width: 40mm; }
+  .sig-bloc { text-align: center; font-size: 9pt; line-height: 1.5; display: flex; flex-direction: column; align-items: center; }
+  .sig-bloc .sig-role { color: #555; font-size: 9pt; flex: 1; display: flex; align-items: flex-end; justify-content: center; padding-bottom: 12mm; }
+  .sig-bloc .sig-nom { font-weight: bold; color: #1B2B4B; border-top: 0.6pt solid #C9A84C; padding-top: 1.5mm; display: inline-block; width: 40mm; }
   .sig-directeur {
     grid-column: 1 / -1;
     text-align: center; font-size: 9pt;
     margin-top: 2mm; padding-top: 2mm;
     border-top: 0.5pt dashed #ddd;
-    display: flex; flex-direction: column;
+    display: flex; flex-direction: column; align-items: center;
   }
-  .sig-directeur .sig-role { color: #555; font-size: 9pt; flex: 1; display: flex; align-items: flex-end; justify-content: center; padding-bottom: 7mm; }
-  .sig-directeur .sig-nom { font-weight: bold; color: #1B2B4B; border-top: 0.5pt solid #888; padding-top: 1.5mm; display: inline-block; width: 40mm; }
+  .sig-directeur .sig-role { color: #555; font-size: 9pt; flex: 1; display: flex; align-items: flex-end; justify-content: center; padding-bottom: 12mm; }
+  .sig-directeur .sig-nom { font-weight: bold; color: #1B2B4B; border-top: 0.6pt solid #C9A84C; padding-top: 1.5mm; display: inline-block; width: 40mm; }
 
   /* Logo + pied de page */
   .footer-bloc {
@@ -198,11 +198,10 @@ export function genererTemplateAttestation() {
 function telecharger(blob, nom) {
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
-  a.href = url; a.download = nom;
+  a.href = url; a.download = nom; a.rel = 'noopener'; a.style.display = 'none';
   document.body.appendChild(a);
   a.click();
-  document.body.removeChild(a);
-  setTimeout(() => URL.revokeObjectURL(url), 1500);
+  setTimeout(() => { try { document.body.removeChild(a); } catch {} URL.revokeObjectURL(url); }, 1500);
 }
 
 function remplaceVars(template, vars) {
@@ -333,15 +332,6 @@ export default function Attestation() {
         if (Array.isArray(arr) && arr.length) setLignes(arr.map(l => deriveLigne(l, uePer)));
       } catch {}
     }).finally(() => { chargementFait.current = true; });
-    af('/api/referentiels/ue').then(rows => {
-      if (!Array.isArray(rows)) return;
-      const m = { ...PER_DEFAUT };
-      for (const r of rows) {
-        const n = String(r.ue_num);
-        if (PER_DEFAUT[n] !== undefined) m[n] = (Number(r.ue_per_etudiants) || 0) + (Number(r.ue_aut) || 0);
-      }
-      setUePer(m);
-    });
     const a = localStorage.getItem('annee_active');
     if (a) setAnnee(a.replace('-', '/'));
   }, []);
@@ -375,6 +365,21 @@ export default function Attestation() {
   useEffect(() => {
     setLignes(ls => ls.map(l => deriveLigne(l, uePer)));
   }, [uePer]);
+
+  useEffect(() => {
+    if (!annee) return;
+    af('/api/referentiels/ue?annee=' + encodeURIComponent(annee.replace('/', '-'))).then(rows => {
+      if (!Array.isArray(rows)) return;
+      const m = { ...PER_DEFAUT };
+      for (const r of rows) {
+        const n = String(r.ue_num);
+        if (PER_DEFAUT[n] === undefined) continue;
+        const val = (Number(r.ue_per_etudiants) || 0) + (Number(r.ue_aut) || 0);
+        if (val > (m[n] || 0)) m[n] = val; // total cours+autonomie (lignes UE dupliquées)
+      }
+      setUePer(m);
+    });
+  }, [annee]);
 
   const supprimerLigne = (id) => setLignes(ls => ls.filter(l => l.id !== id));
   const dupliquerLigne = (id) => {
@@ -470,7 +475,7 @@ export default function Attestation() {
     return arr;
   }, [lignes, q, filtreUe, filtrePresence, tri]);
 
-  const exporterListe = () => {
+  const exporterListe = () => { try {
     const cols = ['Matricule', 'Nom', 'Prénom', 'Genre', 'Date naissance', 'Section',
       ...UES_DET_TIM.map(u => `UE${u.ue} /20`), 'UE264 /20', 'Moyenne %', 'Mention'];
     const esc = (v) => { const t = v == null ? '' : String(v); return /[";\n]/.test(t) ? `"${t.replace(/"/g, '""')}"` : t; };
@@ -487,6 +492,7 @@ export default function Attestation() {
     const csv = '\ufeff' + [cols.join(';'), ...rows].join('\r\n');
     const blob = new Blob([csv], { type: 'text/csv;charset=utf-8' });
     telecharger(blob, `Liste_resultats_TIM_${annee.replace('/', '-')}.csv`);
+    } catch (e) { alert('Erreur export liste : ' + e.message); }
   };
 
   return (
@@ -496,7 +502,11 @@ export default function Attestation() {
         <div>
           <h1 className="text-2xl font-title text-iip-gold">Attestations de réussite</h1>
           <p className="text-sm text-gray-500 mt-0.5">
-            Année : <strong>{annee}</strong> · {lignes.filter(l => l.nom && l.section_code).length} attestation(s) prête(s)
+            Année :{' '}
+            <input value={annee}
+              onChange={e => { setAnnee(e.target.value); localStorage.setItem('annee_active', e.target.value.replace('/', '-')); }}
+              className="font-bold text-iip-blue border-b border-gray-300 bg-transparent w-20 focus:outline-none focus:border-iip-turquoise" />
+            {' '}· {lignes.filter(l => l.nom && l.section_code).length} attestation(s) prête(s)
           </p>
         </div>
         <div className="flex items-center gap-2">

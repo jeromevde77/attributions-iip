@@ -1,5 +1,13 @@
 # Changelog
 
+## v3.9.14 — 29 juin 2026
+
+### Attestations — autonomie, année, signatures, export
+- Pondération : correction du chargement de l'autonomie (lignes UE dupliquées ; on garde le total cours+autonomie, ex. UE252/253 = 80)
+- Référentiel chargé selon l'année active ; année désormais éditable dans l'en-tête
+- Signatures : directeur centré en bas, +5 mm d'espace pour signer, fine ligne dorée sous chaque nom
+- Export liste : téléchargement fiabilisé (+ message d'erreur explicite si échec)
+
 ## v3.9.13 — 29 juin 2026
 
 ### Attestations — corrections mise en page & règles
