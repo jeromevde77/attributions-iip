@@ -297,24 +297,39 @@ export default function Disciplinaire() {
         <ul className="text-sm text-gray-700 list-disc pl-5 space-y-1">{analyse().map((l, i) => <li key={i}>{l}</li>)}</ul>
       </div>
 
-      <div className="bg-white border border-gray-200 rounded-xl p-4 grid grid-cols-1 md:grid-cols-4 gap-3">
-        <div><label className={lab}>Envoi de la convocation</label><input type="date" className={champ} value={dateEnvoi} onChange={e => setDateEnvoi(e.target.value)} /></div>
-        <div><label className={lab}>Date d'audition</label><input type="date" className={champ} value={dateAudition} onChange={e => setDateAudition(e.target.value)} />
-          {dateAuditionMin && <p className="text-[11px] text-gray-500 mt-1">Au plus tôt : <strong>{fmtLong(dateAuditionMin)}</strong></p>}
-          {delaiOk === false && <p className="text-[11px] text-red-600 mt-1">⚠ Délai de 8 jours ouvrables non respecté.</p>}
-          {delaiOk === true && <p className="text-[11px] text-green-600 mt-1">✓ Délai respecté.</p>}</div>
-        <div><label className={lab}>Heure</label><input className={champ} value={heureAudition} onChange={e => setHeureAudition(e.target.value)} placeholder="ex : 14h00" /></div>
-        <div><label className={lab}>Lieu de l'audition</label><input className={champ} value={lieuAudition} onChange={e => setLieuAudition(e.target.value)} /></div>
-        <div className="md:col-span-2"><label className={lab}>Présents à l'audition</label><input className={champ} value={presents} onChange={e => setPresents(e.target.value)} /></div>
-        <div className="md:col-span-2"><label className={lab}>Date de la décision</label><input type="date" className={champ} value={dateDecision} onChange={e => setDateDecision(e.target.value)} /></div>
-        <div className="md:col-span-4"><label className={lab}>Déclarations / observations de l'étudiant·e (PV)</label><textarea rows={2} className={champ} value={declarations} onChange={e => setDeclarations(e.target.value)} /></div>
-        <div className="md:col-span-4"><label className={lab}>Motivation de la décision</label><textarea rows={2} className={champ} value={motivation} onChange={e => setMotivation(e.target.value)} /></div>
+      {/* 1. Convocation */}
+      <div className="bg-white border border-gray-200 rounded-xl p-4">
+        <div className="text-xs font-bold text-iip-blue uppercase tracking-wide mb-3">1. Convocation à l'audition</div>
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
+          <div><label className={lab}>Envoi de la convocation</label><input type="date" className={champ} value={dateEnvoi} onChange={e => setDateEnvoi(e.target.value)} /></div>
+          <div><label className={lab}>Date d'audition</label><input type="date" className={champ} value={dateAudition} onChange={e => setDateAudition(e.target.value)} />
+            {dateAuditionMin && <p className="text-[11px] text-gray-500 mt-1">Au plus tôt : <strong>{fmtLong(dateAuditionMin)}</strong></p>}
+            {delaiOk === false && <p className="text-[11px] text-red-600 mt-1">⚠ Délai de 8 jours ouvrables non respecté.</p>}
+            {delaiOk === true && <p className="text-[11px] text-green-600 mt-1">✓ Délai respecté.</p>}</div>
+          <div><label className={lab}>Heure</label><input className={champ} value={heureAudition} onChange={e => setHeureAudition(e.target.value)} placeholder="ex : 14h00" /></div>
+          <div><label className={lab}>Lieu de l'audition</label><input className={champ} value={lieuAudition} onChange={e => setLieuAudition(e.target.value)} /></div>
+        </div>
+        <button onClick={() => ouvrir('Convocation à audition', genConvocation())} className="mt-3 flex items-center gap-1.5 bg-iip-blue text-white text-sm px-4 py-2 rounded-lg hover:opacity-90"><IconMail size={16} /> Générer la convocation</button>
       </div>
 
-      <div className="flex flex-wrap gap-3">
-        <button onClick={() => ouvrir('Convocation à audition', genConvocation())} className="flex items-center gap-1.5 bg-iip-blue text-white text-sm px-4 py-2 rounded-lg hover:opacity-90"><IconMail size={16} /> Convocation</button>
-        <button onClick={() => ouvrir("PV d'audition", genPV())} className="flex items-center gap-1.5 bg-iip-blue text-white text-sm px-4 py-2 rounded-lg hover:opacity-90"><IconClipboardText size={16} /> PV d'audition</button>
-        <button onClick={() => ouvrir('Décision disciplinaire', genDecision())} className="flex items-center gap-1.5 bg-iip-blue text-white text-sm px-4 py-2 rounded-lg hover:opacity-90"><IconDecision size={16} /> Décision</button>
+      {/* 2. Audition */}
+      <div className="bg-white border border-gray-200 rounded-xl p-4">
+        <div className="text-xs font-bold text-iip-blue uppercase tracking-wide mb-3">2. Audition</div>
+        <div className="grid grid-cols-1 gap-3">
+          <div><label className={lab}>Présents à l'audition</label><input className={champ} value={presents} onChange={e => setPresents(e.target.value)} /></div>
+          <div><label className={lab}>Déclarations / observations de l'étudiant·e (PV)</label><textarea rows={2} className={champ} value={declarations} onChange={e => setDeclarations(e.target.value)} /></div>
+        </div>
+        <button onClick={() => ouvrir("PV d'audition", genPV())} className="mt-3 flex items-center gap-1.5 bg-iip-blue text-white text-sm px-4 py-2 rounded-lg hover:opacity-90"><IconClipboardText size={16} /> Générer le PV d'audition</button>
+      </div>
+
+      {/* 3. Décision */}
+      <div className="bg-white border border-gray-200 rounded-xl p-4">
+        <div className="text-xs font-bold text-iip-blue uppercase tracking-wide mb-3">3. Décision</div>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+          <div><label className={lab}>Date de la décision</label><input type="date" className={champ} value={dateDecision} onChange={e => setDateDecision(e.target.value)} /></div>
+          <div className="md:col-span-2"><label className={lab}>Motivation de la décision</label><textarea rows={2} className={champ} value={motivation} onChange={e => setMotivation(e.target.value)} /></div>
+        </div>
+        <button onClick={() => ouvrir('Décision disciplinaire', genDecision())} className="mt-3 flex items-center gap-1.5 bg-iip-blue text-white text-sm px-4 py-2 rounded-lg hover:opacity-90"><IconDecision size={16} /> Générer la décision</button>
       </div>
 
       <div className="bg-white border border-gray-200 rounded-xl p-4">

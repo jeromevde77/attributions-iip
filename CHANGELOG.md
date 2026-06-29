@@ -1,5 +1,10 @@
 # Changelog
 
+## v3.10.4 — 29 juin 2026
+
+### Disciplinaire — formulaire séquencé
+- Réorganisation en 3 étapes dans l'ordre de la procédure : 1) Convocation (dates/lieu + bouton), 2) Audition (présents/déclarations + PV), 3) Décision (date/motivation + décision). Chaque document se génère sous ses propres champs.
+
 ## v3.10.3 — 29 juin 2026
 
 ### Disciplinaire — voies de recours réelles (RDE 26-27)
