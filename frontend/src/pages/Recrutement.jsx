@@ -1030,6 +1030,16 @@ function EntretienModal({ candidature, poste, annee, qIA, grille, onClose, onSav
     } finally { setSaving(false); }
   };
 
+  // Sauvegarde automatique (debounce) dès qu'une réponse / un commentaire est complété
+  const autoTimer = useRef(null);
+  const premierAuto = useRef(true);
+  useEffect(() => {
+    if (premierAuto.current) { premierAuto.current = false; return; }
+    clearTimeout(autoTimer.current);
+    autoTimer.current = setTimeout(() => { sauvegarder(); }, 1000);
+    return () => clearTimeout(autoTimer.current);
+  }, [reponses, commentaireGlobal, reflexifCommentaire, JSON.stringify(reflexifNiveaux)]);
+
   // Grouper les questions par axe pour l'affichage
   const parAxe = toutesQuestions.reduce((acc, { axe, q, couleur }, i) => {
     if (!acc[axe]) acc[axe] = { couleur, questions: [] };

@@ -1,5 +1,10 @@
 # Changelog
 
+## v3.10.14 — 29 juin 2026
+
+### Recrutement — entretien auto-sauvegardé
+- Le module d'entretien (questions fixes : notes Likert + commentaires) s'enregistre automatiquement (debounce ~1 s) à chaque saisie ; le bouton « Terminer » reste pour clôturer
+
 ## v3.10.13 — 29 juin 2026
 
 ### Recours — année du document
