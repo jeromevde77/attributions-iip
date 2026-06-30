@@ -312,8 +312,8 @@ export default function Attributions() {
   };
 
   // Piocher un candidat du recrutement et l'attribuer à CE groupe/slot (devient recruté + MDP)
-  const ouvrirRecrut = (row) => {
-    setRecrutMenu({ rowId: row.id });
+  const ouvrirRecrut = (row, pos) => {
+    setRecrutMenu({ rowId: row.id, row, top: pos?.top || 80, right: pos?.right || 20 });
     setRecrutCands(null);
     fetch(`/api/recrutement/postes/${row.ue_num}/${encodeURIComponent(row.code_cours)}/${encodeURIComponent(row.section)}?annee=${encodeURIComponent(getAnnee())}`,
       { headers: { Authorization: `Bearer ${localStorage.getItem('token')}` } })
@@ -1227,31 +1227,11 @@ export default function Attributions() {
                 {badge === 'EXT+DOT' && <span className="text-[9px] px-1 py-0 rounded font-bold bg-purple-100 text-purple-700 border border-purple-300 shrink-0" title="Partiellement EXT, partiellement DOT">EXT+DOT</span>}
                 <div className="flex-1 min-w-0">{select}</div>
                 {(!row.professeur || /désigner|designer/i.test(row.professeur || '')) && (
-                  <button onClick={e=>{e.stopPropagation(); recrutMenu?.rowId===row.id ? setRecrutMenu(null) : ouvrirRecrut(row);}} title="Piocher un candidat du recrutement (devient recruté et lié à ce groupe)" className="shrink-0 text-iip-turquoise hover:text-iip-blue"><IconBriefcase size={14}/></button>
+                  <button onClick={e=>{e.stopPropagation(); if(recrutMenu?.rowId===row.id){setRecrutMenu(null);}else{const r=e.currentTarget.getBoundingClientRect(); ouvrirRecrut(row, {top:r.bottom+4, right:window.innerWidth-r.right});}}} title="Piocher un candidat du recrutement (devient recruté et lié à ce groupe)" className="shrink-0 text-iip-turquoise hover:text-iip-blue"><IconBriefcase size={14}/></button>
                 )}
                 <button onClick={e=>{e.stopPropagation(); toggleConge(row);}} title={row.en_conge ? 'En congé — cliquer pour réactiver' : 'Mettre en congé (crée une ligne de remplacement)'} className={`shrink-0 text-[10px] font-bold px-1 py-0.5 rounded border ${row.en_conge ? 'bg-transparent text-red-600 border-red-500' : 'bg-gray-50 text-gray-400 border-gray-200 hover:border-red-400 hover:text-red-500'}`}>C</button>
               </div>
-              {recrutMenu?.rowId===row.id && (
-                <div className="absolute z-50 mt-1 right-0 bg-white border border-gray-200 rounded-lg shadow-xl w-64 max-h-72 overflow-auto" onClick={e=>e.stopPropagation()}>
-                  <div className="px-3 py-1.5 text-xs font-semibold text-gray-400 border-b flex items-center justify-between">
-                    <span>Candidats — {row.code_cours}</span>
-                    <button onClick={()=>setRecrutMenu(null)} className="text-gray-300 hover:text-gray-500">×</button>
-                  </div>
-                  {recrutCands===null && <div className="px-3 py-2 text-xs text-gray-400">Chargement…</div>}
-                  {recrutCands && recrutCands.length===0 && (
-                    <div className="px-3 py-2 text-xs text-gray-400">Aucun candidat pour ce cours.
-                      <button onClick={()=>{setRecrutMenu(null); window.location.assign('/recrutement');}} className="text-iip-turquoise underline ml-1">Recrutement</button>
-                    </div>
-                  )}
-                  {recrutCands && recrutCands.map(cd => (
-                    <button key={cd.id} onClick={()=>assignerCandidat(row, cd.id)}
-                      className="w-full text-left px-3 py-1.5 text-sm hover:bg-green-50 flex items-center justify-between text-green-700">
-                      <span className="truncate">{cd.prenom} {cd.nom}</span>
-                      <span className="text-[10px] text-gray-400 flex-shrink-0 ml-2">{cd.statut||''}</span>
-                    </button>
-                  ))}
-                </div>
-              )}
+
               {!verrous[row.id] && alertesCours[row.id] && <div className="text-[10px] text-amber-600 leading-tight mt-0.5">⚠ définitif : {alertesCours[row.id].definitif}</div>}
             </td>;
           }
@@ -2420,6 +2400,28 @@ export default function Attributions() {
               </div>
             ))}
           </div>
+        </div>
+      )}
+      {recrutMenu && (
+        <div className="fixed z-50 bg-white border border-gray-200 rounded-lg shadow-xl w-64 max-h-72 overflow-auto"
+          style={{top: recrutMenu.top, right: recrutMenu.right}} onClick={e=>e.stopPropagation()}>
+          <div className="px-3 py-1.5 text-xs font-semibold text-gray-400 border-b flex items-center justify-between">
+            <span>Candidats — {recrutMenu.row?.code_cours}</span>
+            <button onClick={()=>setRecrutMenu(null)} className="text-gray-300 hover:text-gray-500">×</button>
+          </div>
+          {recrutCands===null && <div className="px-3 py-2 text-xs text-gray-400">Chargement…</div>}
+          {recrutCands && recrutCands.length===0 && (
+            <div className="px-3 py-2 text-xs text-gray-400">Aucun candidat encodé pour ce cours dans le recrutement.
+              <button onClick={()=>{setRecrutMenu(null); window.location.assign('/recrutement');}} className="text-iip-turquoise underline ml-1">Ouvrir le recrutement</button>
+            </div>
+          )}
+          {recrutCands && recrutCands.map(cd => (
+            <button key={cd.id} onClick={()=>assignerCandidat(recrutMenu.row, cd.id)}
+              className="w-full text-left px-3 py-1.5 text-sm hover:bg-green-50 flex items-center justify-between text-green-700">
+              <span className="truncate">{cd.prenom} {cd.nom}</span>
+              <span className="text-[10px] text-gray-400 flex-shrink-0 ml-2">{cd.statut||''}</span>
+            </button>
+          ))}
         </div>
       )}
     </div>
