@@ -1272,10 +1272,10 @@ function VueParallele({ postes, candidats, fonctions, annee, onRecharger }) {
         </div>
       )}
 
-      <div className="grid grid-cols-2 gap-4 h-full" style={{ height: 'calc(100vh - 220px)' }}>
+      <div className="grid grid-cols-2 gap-4 overflow-hidden" style={{ height: 'calc(100vh - 200px)' }}>
 
         {/* ── Colonne gauche : Cours à pourvoir ── */}
-        <div className="flex flex-col">
+        <div className="flex flex-col min-h-0">
           <div className="text-xs font-semibold text-gray-400 uppercase tracking-widest mb-2">
             Cours à pourvoir ({postesFiltres.length})
           </div>
@@ -1290,7 +1290,7 @@ function VueParallele({ postes, candidats, fonctions, annee, onRecharger }) {
                   onDragOver={e => { e.preventDefault(); setDropTarget(`${p.ue_num}-${p.code_cours}-${p.section}`); }}
                   onDragLeave={() => setDropTarget(null)}
                   onDrop={() => onDrop(p)}
-                  className={`border rounded-lg px-3 py-2.5 transition ${
+                  className={`border rounded-lg px-3 py-1.5 transition ${
                     isTarget
                       ? 'border-iip-turquoise bg-iip-turquoise/10 shadow-md scale-[1.01]'
                       : 'border-gray-200 bg-white hover:border-gray-300'
@@ -1326,7 +1326,7 @@ function VueParallele({ postes, candidats, fonctions, annee, onRecharger }) {
         </div>
 
         {/* ── Colonne droite : Candidats ── */}
-        <div className="flex flex-col">
+        <div className="flex flex-col min-h-0">
           <div className="text-xs font-semibold text-gray-400 uppercase tracking-widest mb-2">
             Candidats ({candidatsFiltres.length}) — glisser vers un cours
           </div>
@@ -1339,7 +1339,7 @@ function VueParallele({ postes, candidats, fonctions, annee, onRecharger }) {
                 draggable
                 onDragStart={() => setDragId(c.id)}
                 onDragEnd={() => { setDragId(null); setDropTarget(null); }}
-                className={`border rounded-lg px-3 py-2.5 cursor-grab active:cursor-grabbing select-none transition ${
+                className={`border rounded-lg px-3 py-1.5 cursor-grab active:cursor-grabbing select-none transition ${
                   dragId === c.id
                     ? 'border-iip-blue bg-iip-blue/5 opacity-70 shadow-lg'
                     : 'border-gray-200 bg-white hover:border-iip-blue/40 hover:shadow-sm'

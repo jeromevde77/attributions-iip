@@ -1,5 +1,11 @@
 # Changelog
 
+## v3.10.18 — 29 juin 2026
+
+### Recrutement — vue parallèle
+- Défilement indépendant de chaque colonne (la colonne sous le curseur scrolle, l'autre reste fixe) — correction du min-height des colonnes
+- Cartes (cours et candidats) compactées pour gagner de la place
+
 ## v3.10.17 — 29 juin 2026
 
 ### Disciplinaire — pied de page & signature
