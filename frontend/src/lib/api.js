@@ -54,6 +54,29 @@ export const api = {
   logout() { clearToken(); window.location.href = '/login'; },
   me() { return request('/auth/me'); },
 
+  // "Voir comme" (admin) : aperçu en lecture seule d'un autre profil
+  profilsAcces() { return request('/auth/profils-acces'); },
+  impersonate(user_id) {
+    return request('/auth/impersonate', { method: 'POST', body: { user_id } })
+      .then(r => {
+        if (!localStorage.getItem('token_admin')) {
+          localStorage.setItem('token_admin', getToken() || '');
+          localStorage.setItem('user_admin', localStorage.getItem('user') || '');
+        }
+        setToken(r.token);
+        localStorage.setItem('user', JSON.stringify(r.user));
+        return r;
+      });
+  },
+  stopPreview() {
+    const t = localStorage.getItem('token_admin');
+    const u = localStorage.getItem('user_admin');
+    if (t) setToken(t);
+    if (u) localStorage.setItem('user', u);
+    localStorage.removeItem('token_admin');
+    localStorage.removeItem('user_admin');
+  },
+
   // référentiels — structure et CRUD
   refStructure() { return request(withAnnee('/ref/structure')); },
   grilleSection(section) { return request(`/ref/grille-section?section=${encodeURIComponent(section)}&annee=${encodeURIComponent(getAnnee())}`); },

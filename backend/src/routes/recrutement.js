@@ -391,7 +391,18 @@ r.post('/candidatures/:id/attribuer', async (req, res) => {
 
     // Chercher une attribution À désigner pour ce cours/section et la mettre à jour
     let attrMaj = false;
-    if (aDesignerIds.length) {
+    // Cas "par groupe / slot précis" : un attribution_id ciblé est fourni (depuis la grille Attributions)
+    const ciblageId = req.body?.attribution_id;
+    if (ciblageId) {
+      const cible = db.prepare(
+        'SELECT id FROM attribution WHERE id = ? AND section = ? AND ue_num = ? AND code_cours = ? AND annee_scolaire = ?'
+      ).get(ciblageId, cand.section, cand.ue_num, cand.code_cours, cand.annee_scolaire);
+      if (cible) {
+        db.prepare('UPDATE attribution SET professeur_id = ? WHERE id = ?').run(prof.id, cible.id);
+        attrMaj = true;
+      }
+    }
+    if (!attrMaj && aDesignerIds.length) {
       const placeholders = aDesignerIds.map(() => '?').join(',');
       const attrExist = db.prepare(`
         SELECT id FROM attribution

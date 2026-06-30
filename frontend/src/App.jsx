@@ -90,6 +90,58 @@ function AdminOrRH({ children }) {
   return children;
 }
 
+function PreviewBanner() {
+  const u = getUser();
+  if (!u?.preview) return null;
+  return (
+    <div className="bg-amber-500 text-white text-sm px-4 py-1.5 flex items-center justify-center gap-3 sticky top-0 z-[60]">
+      <span>Aperçu — vous voyez Lucie comme <strong>{u.nom || u.email}</strong> ({u.role}), en lecture seule.</span>
+      <button onClick={() => { api.stopPreview(); window.location.href = '/'; }}
+        className="bg-white/20 hover:bg-white/30 rounded px-2 py-0.5 font-medium">Revenir à mon compte</button>
+    </div>
+  );
+}
+
+function VoirCommePicker() {
+  const [open, setOpen] = useState(false);
+  const [profils, setProfils] = useState([]);
+  const [err, setErr] = useState('');
+  const u = getUser();
+  if (u?.role !== 'admin' || u?.preview) {
+    return <span className="text-gray-700 font-medium text-sm">{u?.nom || u?.email}</span>;
+  }
+  const ouvrir = () => {
+    setOpen(o => !o);
+    if (!profils.length) api.profilsAcces().then(d => setProfils(Array.isArray(d) ? d : [])).catch(e => setErr(e.message));
+  };
+  const voir = (id) => { api.impersonate(id).then(() => { window.location.href = '/'; }).catch(e => alert(e.message)); };
+  return (
+    <div className="relative">
+      <button onClick={ouvrir} title="Voir Lucie comme un autre profil"
+        className="text-gray-700 font-medium text-sm hover:text-iip-blue flex items-center gap-1">
+        {u?.nom || u?.email} <span className="text-[10px] text-gray-400">▾</span>
+      </button>
+      {open && (
+        <div className="absolute right-0 mt-1 w-64 bg-white border border-gray-200 rounded-lg shadow-xl z-50 max-h-80 overflow-auto">
+          <div className="px-3 py-2 text-xs text-gray-500 border-b flex items-center justify-between">
+            <span>Voir comme…</span>
+            <button onClick={() => setOpen(false)} className="text-gray-300 hover:text-gray-500">×</button>
+          </div>
+          {err && <div className="px-3 py-2 text-xs text-red-600">{err}</div>}
+          {profils.filter(p => p.id !== u?.id).map(p => (
+            <button key={p.id} onClick={() => voir(p.id)}
+              className="w-full text-left px-3 py-1.5 text-sm hover:bg-iip-turquoise/10 flex items-center justify-between">
+              <span className="truncate">{p.nom_complet || p.email}</span>
+              <span className="text-[10px] text-gray-400 flex-shrink-0 ml-2">{p.role}</span>
+            </button>
+          ))}
+          {!profils.length && !err && <div className="px-3 py-2 text-xs text-gray-400">Chargement…</div>}
+        </div>
+      )}
+    </div>
+  );
+}
+
 function ProtectedLayout({ children }) {
   const navigate = useNavigate();
   const [menuOpen, setMenuOpen] = useState(false);
@@ -190,6 +242,7 @@ function ProtectedLayout({ children }) {
 
   return (
     <div className="min-h-screen flex flex-col">
+      <PreviewBanner />
       {showWelcome && (
         <WelcomeV3 onClose={() => {
           setShowWelcome(false);
@@ -300,7 +353,7 @@ function ProtectedLayout({ children }) {
               )}
             </span>
             <div className="flex flex-col items-end leading-tight">
-              <span className="text-gray-700 font-medium text-sm">{u?.nom || u?.email}</span>
+              <VoirCommePicker />
               <span className="text-xs text-iip-turquoise font-semibold">{u?.role}</span>
               <button onClick={() => { api.logout(); navigate('/login'); }}
                 className="flex items-center gap-1 text-xs text-gray-400 hover:text-iip-danger transition mt-0.5">

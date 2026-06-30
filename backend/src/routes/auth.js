@@ -2,7 +2,7 @@ import { Router } from 'express';
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import db from '../db/index.js';
-import { signToken, authRequired } from '../middleware/auth.js';
+import { signToken, authRequired, roleRequired, peutValiderAttributions, signPreviewToken } from '../middleware/auth.js';
 
 const r = Router();
 
@@ -34,11 +34,34 @@ r.post('/login', (req, res) => {
 
   db.prepare('UPDATE utilisateur SET last_login_at = CURRENT_TIMESTAMP WHERE id = ?').run(user.id);
   const token = signToken(user);
-  res.json({ token, user: { id: user.id, email: user.email, role: user.role, nom: user.nom_complet } });
+  res.json({ token, user: { id: user.id, email: user.email, role: user.role, nom: user.nom_complet,
+    acces_recrutement: user.acces_recrutement ? 1 : 0, peut_valider: peutValiderAttributions(user) } });
 });
 
 r.get('/me', authRequired, (req, res) => {
   res.json({ user: req.user });
+});
+
+// Liste des comptes ayant un accès Lucie (admin uniquement) — pour le mode "voir comme"
+r.get('/profils-acces', authRequired, roleRequired('admin'), (req, res) => {
+  const rows = db.prepare(
+    "SELECT id, email, nom_complet, role FROM utilisateur WHERE actif = 1 ORDER BY nom_complet"
+  ).all();
+  res.json(rows);
+});
+
+// "Voir comme" : génère un token aperçu (lecture seule) pour un autre profil (admin uniquement)
+r.post('/impersonate', authRequired, roleRequired('admin'), (req, res) => {
+  const { user_id } = req.body || {};
+  const target = db.prepare('SELECT * FROM utilisateur WHERE id = ? AND actif = 1').get(user_id);
+  if (!target) return res.status(404).json({ error: 'Profil introuvable ou inactif' });
+  const token = signPreviewToken(target, { id: req.user.id, nom: req.user.nom });
+  res.json({ token, user: {
+    id: target.id, email: target.email, role: target.role, nom: target.nom_complet,
+    acces_recrutement: target.acces_recrutement ? 1 : 0,
+    peut_valider: peutValiderAttributions(target),
+    preview: true, imp_by_nom: req.user.nom,
+  } });
 });
 
 export default r;
