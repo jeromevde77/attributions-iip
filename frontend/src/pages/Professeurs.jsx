@@ -425,6 +425,11 @@ function AccesLuciePanel({ profId, detail }) {
                 className={`text-[10px] px-2 py-0.5 rounded border font-medium transition ${p.voir_tout ? 'bg-amber-500 text-white border-amber-500' : 'border-gray-300 text-gray-400 hover:border-amber-400'}`}
                 title="Tout voir = toutes sections">Tout</button>
             )}
+            {m.key === 'attributions' && (
+              <button onClick={() => togglePerm(m.key, 'valider')}
+                className={`text-[10px] px-2 py-0.5 rounded border font-medium transition ${p.valider ? 'bg-green-600 text-white border-green-600' : 'border-gray-300 text-gray-400 hover:border-green-500'}`}
+                title="Peut valider les attributions encodées par les coordinations (direction / direction adjointe)">Valider</button>
+            )}
           </div>
         </div>
         {hasScope && (p.lire || p.ecrire) && !p.voir_tout && (

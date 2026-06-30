@@ -57,10 +57,20 @@ export function canAccessSection(user, section) {
   return allowed.includes(section);
 }
 
+export function peutValiderAttributions(user) {
+  if (!user) return 0;
+  if (user.role === 'admin') return 1;
+  try {
+    const pj = user.permissions_json ? JSON.parse(user.permissions_json) : {};
+    return pj?.attributions?.valider ? 1 : 0;
+  } catch { return 0; }
+}
+
 export function signToken(user) {
   return jwt.sign(
     { id: user.id, email: user.email, role: user.role, nom: user.nom_complet,
-      acces_recrutement: user.acces_recrutement ? 1 : 0 },
+      acces_recrutement: user.acces_recrutement ? 1 : 0,
+      peut_valider: peutValiderAttributions(user) },
     JWT_SECRET,
     { expiresIn: '30d' }
   );

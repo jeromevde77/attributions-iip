@@ -640,6 +640,12 @@ r.post('/', authRequired, roleRequired('admin', 'editeur', 'coordination'), (req
     annee_scolaire: a.annee_scolaire ?? '2025-2026',
     uid: req.user.id
   });
+  // Validation : une attribution encodée par une coordination doit être validée par la direction
+  if (req.user.role === 'coordination') {
+    db.prepare("UPDATE attribution SET valide = 0, valide_par = NULL, valide_le = NULL WHERE id = ?").run(result.lastInsertRowid);
+  } else {
+    db.prepare("UPDATE attribution SET valide = 1, valide_par = ?, valide_le = datetime('now','localtime') WHERE id = ?").run(req.user.id, result.lastInsertRowid);
+  }
   db.prepare(`INSERT INTO modification_log (attribution_id, utilisateur_id, action) VALUES (?,?,?)`).run(
     result.lastInsertRowid, req.user.id, 'create'
   );
@@ -678,6 +684,10 @@ r.patch('/:id', authRequired, roleRequired('admin', 'editeur', 'coordination'), 
   }
   if (!updates.length) return res.status(400).json({ error: 'Aucun champ à modifier' });
   updates.push('updated_by = @uid');
+  // Une modification par une coordination repasse l'attribution en "à valider"
+  if (req.user.role === 'coordination') {
+    updates.push('valide = 0', 'valide_par = NULL', 'valide_le = NULL');
+  }
 
   // Snapshot AVANT modification
   saveSnapshot(Number(req.params.id), 'update', req.user);
@@ -689,6 +699,24 @@ r.patch('/:id', authRequired, roleRequired('admin', 'editeur', 'coordination'), 
     req.params.id, req.user.id, 'update'
   );
   res.json({ ok: true });
+});
+
+// Valider / dévalider une attribution (direction + drapeau peut_valider uniquement)
+r.patch('/:id/valider', authRequired, (req, res) => {
+  if (req.user.role !== 'admin' && !req.user.peut_valider) {
+    return res.status(403).json({ error: 'Seule la direction (ou la direction adjointe) peut valider une attribution.' });
+  }
+  const existing = db.prepare('SELECT id FROM attribution WHERE id = ?').get(req.params.id);
+  if (!existing) return res.status(404).json({ error: 'Attribution introuvable' });
+  const valide = req.body?.valide ? 1 : 0;
+  if (valide) {
+    db.prepare("UPDATE attribution SET valide = 1, valide_par = ?, valide_le = datetime('now','localtime') WHERE id = ?")
+      .run(req.user.id, req.params.id);
+  } else {
+    db.prepare("UPDATE attribution SET valide = 0, valide_par = NULL, valide_le = NULL WHERE id = ?")
+      .run(req.params.id);
+  }
+  res.json({ ok: true, valide });
 });
 
 // Modifier le statut d'un professeur depuis la grille d'attributions

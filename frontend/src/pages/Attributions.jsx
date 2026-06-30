@@ -168,6 +168,7 @@ import CoursFormModal from '../components/CoursFormModal.jsx';
 // ---------------------------------------------------------------------------
 const DEFAULT_COLS = [
   { key: '__select', label: '', width: 36 },
+  { key: '__valide', label: 'Val.', width: 42 },
   { key: '__conformite', label: '✓', width: 38,
     render: (_, row) => {
       const { cours_conforme: ok, cours_total_attribue: tot, cours_per: per, cours_multiple_attendu: mult } = row;
@@ -295,6 +296,18 @@ export default function Attributions() {
 
   const me = JSON.parse(localStorage.getItem('user') || 'null');
   const isAdmin = me?.role === 'admin';
+  const isValidateur = me?.role === 'admin' || !!me?.peut_valider;
+  const saveValide = async (id, valide) => {
+    try {
+      const res = await fetch(`/api/attributions/${id}/valider`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${localStorage.getItem('token')}` },
+        body: JSON.stringify({ valide: valide ? 1 : 0 }),
+      });
+      if (!res.ok) { const j = await res.json().catch(() => ({})); alert(j.error || 'Erreur de validation'); return; }
+      load();
+    } catch (e) { alert(e.message); }
+  };
 
   async function genererRapport(section, tcFilter) {
     const annee = getAnnee();
@@ -1131,7 +1144,8 @@ export default function Attributions() {
     const colSet = cols || COLS;
     const isHelb = row.contrat_mdp === 'HELB';
     const isZ = row.is_z === true;
-    const rowBg = isZ ? 'text-gray-500 italic' : selected.has(row.id) ? 'bg-yellow-50/60' : (row.en_conge ? 'opacity-50 bg-gray-50' : '');
+    const aValider = !isZ && (row.valide === 0 || row.valide === '0' || row.valide === false);
+    const rowBg = isZ ? 'text-gray-500 italic' : selected.has(row.id) ? 'bg-yellow-50/60' : (row.en_conge ? 'opacity-50 bg-gray-50' : (aValider ? 'bg-orange-50' : ''));
     // Ligne Z : synthétique (activités 7.3), non éditable, sans prof ni charge.
     if (isZ) {
       return (
@@ -1152,12 +1166,21 @@ export default function Attributions() {
       );
     }
     return (
-      <tr key={row.id} className={rowBg}>
+      <tr key={row.id} className={rowBg} style={aValider ? { boxShadow: 'inset 4px 0 0 #f59e0b' } : undefined}>
         {colSet.map(c => {
           const _textCols = ['nom_cours','ue_nom','activite_nom','professeur_id','section','code_cours']; const sty = { width:c.width, minWidth:c.width, maxWidth:c.width, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap', textAlign: c.num ? 'right' : _textCols.includes(c.key) ? 'left' : 'center' };
           const click = c.rowClickable ? ()=>setEditRow(row) : undefined;
           const cClass = c.rowClickable ? 'cursor-pointer hover:bg-iip-gold/5' : '';
           if (c.key==='__select') return <td key={c.key} className="text-center" style={sty}><input type="checkbox" checked={selected.has(row.id)} onChange={()=>toggleSelect(row.id)} className="cursor-pointer"/></td>;
+          if (c.key==='__valide') {
+            const ok = !!row.valide && row.valide !== '0';
+            return <td key={c.key} className="text-center" style={sty}>
+              <input type="checkbox" checked={ok} disabled={!isValidateur}
+                onChange={()=>saveValide(row.id, !ok)}
+                title={isValidateur ? (ok ? 'Validé — cliquer pour invalider' : 'À valider — cliquer pour valider') : (ok ? 'Validé par la direction' : 'En attente de validation par la direction')}
+                className={isValidateur ? 'cursor-pointer accent-green-600' : 'cursor-not-allowed accent-orange-500'}/>
+            </td>;
+          }
           if (c.key==='__actions') {
             return <td key={c.key} className="text-center" style={sty}>
               <button onClick={()=>deleteRow(row.id)} className="text-red-500 hover:text-red-700" title="Supprimer"><IconTrash size={15}/></button>

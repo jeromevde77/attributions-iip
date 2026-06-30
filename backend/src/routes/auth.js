@@ -2,7 +2,7 @@ import { Router } from 'express';
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import db from '../db/index.js';
-import { signToken, authRequired } from '../middleware/auth.js';
+import { signToken, authRequired, peutValiderAttributions } from '../middleware/auth.js';
 
 const r = Router();
 
@@ -34,7 +34,8 @@ r.post('/login', (req, res) => {
 
   db.prepare('UPDATE utilisateur SET last_login_at = CURRENT_TIMESTAMP WHERE id = ?').run(user.id);
   const token = signToken(user);
-  res.json({ token, user: { id: user.id, email: user.email, role: user.role, nom: user.nom_complet } });
+  res.json({ token, user: { id: user.id, email: user.email, role: user.role, nom: user.nom_complet,
+    acces_recrutement: user.acces_recrutement ? 1 : 0, peut_valider: peutValiderAttributions(user) } });
 });
 
 r.get('/me', authRequired, (req, res) => {

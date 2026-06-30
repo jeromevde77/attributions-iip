@@ -277,7 +277,10 @@ CREATE TABLE IF NOT EXISTS attribution (
     created_at      DATETIME DEFAULT CURRENT_TIMESTAMP,
     updated_at      DATETIME DEFAULT CURRENT_TIMESTAMP,
     created_by      INTEGER REFERENCES utilisateur(id),
-    updated_by      INTEGER REFERENCES utilisateur(id)
+    updated_by      INTEGER REFERENCES utilisateur(id),
+    valide          INTEGER NOT NULL DEFAULT 1,   -- 0 = encodée par coordination, à valider
+    valide_par      INTEGER REFERENCES utilisateur(id),
+    valide_le       TEXT
 );
 
 CREATE INDEX IF NOT EXISTS idx_attr_section   ON attribution(section);
@@ -397,6 +400,9 @@ DROP VIEW IF EXISTS v_attribution_complete;
 CREATE VIEW v_attribution_complete AS
 SELECT
     a.id,
+    a.valide,
+    a.valide_par,
+    a.valide_le,
     a.section,
     a.etablissement_referent,
     a.contrat_mdp,

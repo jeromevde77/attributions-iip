@@ -2639,6 +2639,14 @@ try {
   }
 } catch(e) { console.error('[migration] acces_recrutement :', e.message); }
 
+// ── Validation des attributions : colonnes valide / valide_par / valide_le ────
+try {
+  const cols = db.prepare('PRAGMA table_info(attribution)').all().map(c => c.name);
+  if (!cols.includes('valide'))     db.exec("ALTER TABLE attribution ADD COLUMN valide INTEGER NOT NULL DEFAULT 1");
+  if (!cols.includes('valide_par')) db.exec("ALTER TABLE attribution ADD COLUMN valide_par INTEGER");
+  if (!cols.includes('valide_le'))  db.exec("ALTER TABLE attribution ADD COLUMN valide_le TEXT");
+} catch(e) { console.error('[migration] valide attribution :', e.message); }
+
 // ── Recrutement : ajout colonnes fonction / charge / prise_de_fonction ────────
 try {
   const cols = db.prepare("PRAGMA table_info(recrutement_poste)").all().map(c => c.name);
