@@ -263,6 +263,17 @@ try {
   if (contratRow) db.prepare(`UPDATE document_template SET slug = 'contrat-cdd' WHERE id = ?`).run(contratRow.id);
   const sectionRow = db.prepare(`SELECT id FROM document_template WHERE nom = 'Synthèse de section' AND slug IS NULL`).get();
   if (sectionRow) db.prepare(`UPDATE document_template SET slug = 'synthese-section' WHERE id = ?`).run(sectionRow.id);
+  // Migration : rattacher le slug 'pv-recours-25-26' au modèle importé (nom type 'PV_recours_25_26')
+  try {
+    const already = db.prepare("SELECT 1 FROM document_template WHERE slug = 'pv-recours-25-26'").get();
+    if (!already) {
+      const rec = db.prepare("SELECT id, nom FROM document_template WHERE slug IS NULL AND lower(replace(replace(nom,' ',''),'_','')) LIKE 'pvrecours2526%'").get();
+      if (rec) {
+        db.prepare("UPDATE document_template SET slug = 'pv-recours-25-26' WHERE id = ?").run(rec.id);
+        console.log(`[migration] slug pv-recours-25-26 associé au modèle "${rec.nom}"`);
+      }
+    }
+  } catch (e) { console.error('[migration] pv-recours-25-26:', e.message); }
 
 
   // ── Prof "À DÉSIGNER" — placeholder pour les postes non pourvus ─────────────

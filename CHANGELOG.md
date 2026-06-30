@@ -1,5 +1,10 @@
 # Changelog
 
+## v3.10.12 — 29 juin 2026
+
+### Recours 2025-2026 — bon modèle
+- Le modèle « PV_recours_25_26 » créé dans l'éditeur n'avait pas de slug système, donc la génération des recours 25-26 retombait sur le modèle générique. Migration ajoutée pour lui rattacher le slug 'pv-recours-25-26'.
+
 ## v3.10.11 — 29 juin 2026
 
 ### Disciplinaire — mise en page des documents
