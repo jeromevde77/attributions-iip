@@ -10,6 +10,10 @@ export function authRequired(req, res, next) {
   }
   try {
     req.user = jwt.verify(auth.slice(7), JWT_SECRET);
+    // Mode aperçu ("voir comme") : token en lecture seule
+    if (req.user.preview && req.method !== 'GET') {
+      return res.status(403).json({ error: 'Mode aperçu (voir comme) — lecture seule. Revenez à votre compte pour modifier.' });
+    }
     next();
   } catch (e) {
     return res.status(401).json({ error: 'Token invalide ou expiré' });
@@ -73,5 +77,16 @@ export function signToken(user) {
       peut_valider: peutValiderAttributions(user) },
     JWT_SECRET,
     { expiresIn: '30d' }
+  );
+}
+
+export function signPreviewToken(target, admin) {
+  return jwt.sign(
+    { id: target.id, email: target.email, role: target.role, nom: target.nom_complet,
+      acces_recrutement: target.acces_recrutement ? 1 : 0,
+      peut_valider: peutValiderAttributions(target),
+      preview: true, imp_by: admin?.id || null, imp_by_nom: admin?.nom || null },
+    JWT_SECRET,
+    { expiresIn: '2h' }
   );
 }
