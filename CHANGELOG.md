@@ -1,5 +1,10 @@
 # Changelog
 
+## v3.10.16 — 29 juin 2026
+
+### Build
+- Re-déploiement propre (build unique) suite à deux builds concurrents — inclut les corrections recrutement (champ Q1, sauvegarde Q2, auto-save du guide d'entretien)
+
 ## v3.10.15 — 29 juin 2026
 
 ### Recrutement — questions fixes (guide d'entretien)
