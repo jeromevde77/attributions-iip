@@ -607,7 +607,7 @@ export default function Attributions() {
       if (!secMap.has(sec)) secMap.set(sec, new Map());
       const ueMap = secMap.get(sec);
       const org = r.num_organisation || 1;
-      const ueKey = (r.ue_num ?? 0) + '/org' + org;
+      const ueKey = (r.ue_num ?? 0) + (viewMode === 'coord' ? '' : '/org' + org);
       if (!ueMap.has(ueKey)) ueMap.set(ueKey, { ue_num: r.ue_num, ue_nom: r.ue_nom, bloc: r.bloc, ue_et_ref: r.ue_et_ref, ue_tc: r.ue_tc, ue_quad: r.quadri_pour_tous_prevu, quadri_org: r.quadrimestre_attribue || null, num_organisation: org, coursMap: new Map(), rows: [] });
       const ueGroup = ueMap.get(ueKey);
       ueGroup.rows.push(r);
@@ -631,7 +631,7 @@ export default function Attributions() {
       result.push({ section: sec, ues, rows: allRows });
     }
     return result.sort((a,b) => a.section.localeCompare(b.section,'fr',{numeric:true}));
-  }, [sortedData]);
+  }, [sortedData, viewMode]);
 
   // Clés ouvertes : "sec:TIM", "ue:TIM/250/1", "cours:TIM/250/1/CHEM101"
   function toggle(key) { setOpenUEs(s=>{const x=new Set(s); x.has(key)?x.delete(key):x.add(key); return x;}); }
@@ -1620,7 +1620,7 @@ export default function Attributions() {
             <span className="font-semibold text-iip-gold text-sm whitespace-nowrap">UE {ue.ue_num}</span>
             <span className="flex items-center gap-1 flex-wrap">
               {isTC && <span className="text-xs bg-iip-turquoise/5 text-iip-blue border border-iip-turquoise px-1.5 py-0.5 rounded font-bold" title="Unité du tronc commun">TC</span>}
-              {org > 1 && <span className="text-xs bg-amber-100 text-amber-800 px-1.5 py-0.5 rounded font-semibold">Org. {org}</span>}
+              {org > 1 && viewMode!=='coord' && <span className="text-xs bg-amber-100 text-amber-800 px-1.5 py-0.5 rounded font-semibold">Org. {org}</span>}
               {ue.bloc && <span className="text-xs bg-iip-gold/10 text-iip-gold px-1.5 py-0.5 rounded">{ue.bloc}</span>}
               {isHelb && <span className="text-xs text-pink-600 font-bold px-1.5 py-0.5 rounded bg-pink-100">HELB</span>}
               <span className="relative inline-block" onClick={e=>e.stopPropagation()}>
@@ -1675,9 +1675,11 @@ export default function Attributions() {
                   <IconUsersGroup size={14}/>Groupes
           </button>
           {/* Bouton Réouvrir : crée une nouvelle organisation */}
+          {viewMode!=='coord' && (
           <button onClick={(e)=>{e.stopPropagation(); reouvrirUE(ue, sec);}}
                   title="Réouvrir cette UE (nouvelle organisation)"
                   className="flex-shrink-0 ml-2 w-7 h-7 flex items-center justify-center rounded-full bg-iip-mauve/10 hover:bg-iip-mauve hover:text-white text-iip-mauve transition" style={{fontSize:'0.9rem'}}>⧉</button>
+          )}
           {/* Bouton + : ajouter une ligne / un cours */}
           <button onClick={(e)=>{e.stopPropagation(); if(addMenuUE?.key===key){setAddMenuUE(null);}else{const r=e.currentTarget.getBoundingClientRect();setMenuPos({top:r.bottom+4,right:window.innerWidth-r.right});setAddMenuUE({key,ue,sec,org});setCoursManquants([]);fetch(`/api/attributions/cours-manquants?annee=${encodeURIComponent(getAnnee())}&ue_num=${ue.ue_num}&section=${encodeURIComponent(sec)}`,{headers:{Authorization:`Bearer ${localStorage.getItem('token')}`}}).then(r=>r.json()).then(d=>setCoursManquants(Array.isArray(d)?d:[])).catch(()=>{});}}}
                   title="Ajouter une attribution"
@@ -1854,8 +1856,9 @@ export default function Attributions() {
                 <div className="flex flex-col gap-1">
                   <button onClick={()=>setViewMode('ue')} className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-[13px] font-medium transition ${viewMode==='ue'?'bg-iip-blue text-white':'text-gray-600 hover:bg-gray-100'}`}><IconFolder size={16}/>Par section</button>
                   <button onClick={()=>setViewMode('flat')} className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-[13px] font-medium transition ${viewMode==='flat'?'bg-iip-blue text-white':'text-gray-600 hover:bg-gray-100'}`}><IconClipboardText size={16}/>Vue complète</button>
+                  <button onClick={()=>setViewMode('coord')} title="Vue simplifiée : UE et cours regroupés, sans organisation" className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-[13px] font-medium transition ${viewMode==='coord'?'bg-iip-blue text-white':'text-gray-600 hover:bg-gray-100'}`}><IconUsersGroup size={16}/>Coordination</button>
                 </div>
-                {viewMode==='ue' && <div className="flex gap-3 mt-1.5 text-xs px-1">
+                {viewMode!=='flat' && <div className="flex gap-3 mt-1.5 text-xs px-1">
                   <button onClick={expandAll} className="text-gray-500 hover:text-iip-turquoise">Tout déplier</button>
                   <button onClick={collapseAll} className="text-gray-500 hover:text-iip-turquoise">Tout replier</button>
                 </div>}
@@ -1927,7 +1930,7 @@ export default function Attributions() {
         <main className="flex-1 min-w-0">
 
       {/* VUE PAR SECTION/UE/COURS — tableau unique continu */}
-      {viewMode==='ue' && <div className="hidden md:block">
+      {viewMode!=='flat' && <div className="hidden md:block">
         {loading ? <div className="p-8 text-center text-gray-400">Chargement…</div>
          : sectionGroups.length===0 ? <div className="p-8 text-center text-gray-400 bg-white rounded-lg border">Aucune attribution</div>
          : <div className="bg-white rounded-lg border border-gray-200 overflow-hidden">
