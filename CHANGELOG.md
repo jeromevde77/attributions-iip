@@ -1,5 +1,11 @@
 # Changelog
 
+## v3.10.17 — 29 juin 2026
+
+### Disciplinaire — pied de page & signature
+- Pied de page identique aux attestations de réussite : logo IIP en bas à gauche + pied configuré (Config → attestation), sur les 3 documents (convocation, PV, décision)
+- Signature « Le Directeur, Charles Sohet » (au lieu de « Pour la Direction »)
+
 ## v3.10.16 — 29 juin 2026
 
 ### Build
