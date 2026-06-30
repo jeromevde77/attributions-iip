@@ -8,6 +8,22 @@ import {
 import { Btn, RailLateral } from '../components/ui.jsx';
 import { getAnnee } from '../lib/api.js';
 
+// Champ texte simple (évite le ReferenceError: Champ non importé)
+function Champ({ label, value, onChange, placeholder, hint, className = '' }) {
+  return (
+    <label className={`block ${className}`}>
+      <div className="text-xs text-gray-600 mb-0.5">{label}</div>
+      <input
+        value={value ?? ''}
+        onChange={e => onChange(e.target.value)}
+        placeholder={placeholder}
+        className="w-full border border-gray-300 rounded px-3 py-1.5 h-9 text-sm"
+      />
+      {hint && <div className="text-[11px] text-gray-400 mt-0.5">{hint}</div>}
+    </label>
+  );
+}
+
 const tok = () => localStorage.getItem('token');
 const af = (url, opts = {}) =>
   fetch('/api/recrutement' + url, {
