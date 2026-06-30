@@ -1,5 +1,12 @@
 # Changelog
 
+## v3.10.15 — 29 juin 2026
+
+### Recrutement — questions fixes (guide d'entretien)
+- Ajout d'un champ de notes sous la question 1 (Présentation), qui manquait
+- La question 2 (Motivation) est désormais correctement reliée et sauvegardée (le champ ne persistait pas)
+- Sauvegarde automatique du guide d'entretien sans fermer la fenêtre (restauration des notes à l'ouverture)
+
 ## v3.10.14 — 29 juin 2026
 
 ### Recrutement — entretien auto-sauvegardé

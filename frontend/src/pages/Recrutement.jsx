@@ -2006,6 +2006,13 @@ function FicheCandidat({ candidat, fonctions, grille, onClose, onSaved }) {
       candidat={candidat}
       grille={grille}
       onClose={() => setEntretienLibre(false)}
+      onAutoSave={async (reponses, note, commentaire, rn, rc, dispo, dispoRemarque) => {
+        await af(`/candidats/${candidat.id}`, { method: 'PATCH', body: JSON.stringify({
+          entretien_reponses: reponses, entretien_note: note, entretien_commentaire: commentaire,
+          reflexif_niveau: rn, reflexif_commentaire: rc,
+          disponibilites: { ...dispo, _remarque: dispoRemarque },
+        })});
+      }}
       onSaved={async (reponses, note, commentaire, rn, rc, dispo, dispoRemarque) => {
         await af(`/candidats/${candidat.id}`, { method: 'PATCH', body: JSON.stringify({
           entretien_reponses: reponses, entretien_note: note, entretien_commentaire: commentaire,
@@ -3044,18 +3051,23 @@ function EditeurGrille({ grille, onSaved }) {
 /* ══════════════════════ ENTRETIEN LIBRE (sans cours attaché) ══════════════════════ */
 
 /* ══════════════════════ ENTRETIEN LIBRE — GUIDE D'ENTRETIEN ══════════════════════ */
-function EntretienLibre({ candidat, grille, onClose, onSaved }) {
+function EntretienLibre({ candidat, grille, onClose, onSaved, onAutoSave }) {
   const grilleActive = useMemo(() => grilleAvecTirage(grille || GRILLE_IIP), []);
 
   const toutesQs = grilleActive.flatMap(axe =>
     (axe.questions || []).map(q => ({ axe: axe.axe || axe.libelle, q: q.libelle || q, couleur: axe.couleur }))
   );
 
-  const initReponses = () => toutesQs.reduce((acc, _, i) => {
+  const initReponses = () => {
     const saved = candidat.entretien_reponses || {};
-    acc[i] = { note: saved[i]?.note ?? 0, commentaire: saved[i]?.commentaire ?? '', disabled: saved[i]?.disabled ?? false };
+    const acc = toutesQs.reduce((a, _, i) => {
+      a[i] = { note: saved[i]?.note ?? 0, commentaire: saved[i]?.commentaire ?? '', disabled: saved[i]?.disabled ?? false };
+      return a;
+    }, {});
+    acc['qf_presentation'] = { commentaire: saved['qf_presentation']?.commentaire ?? '' };
+    acc['qf_motivation']   = { commentaire: saved['qf_motivation']?.commentaire ?? '' };
     return acc;
-  }, {});
+  };
 
   const [reponses, setReponses] = useState(initReponses);
   const [commentaireGlobal, setCommentaireGlobal] = useState(candidat.entretien_commentaire || '');
@@ -3093,6 +3105,20 @@ function EntretienLibre({ candidat, grille, onClose, onSaved }) {
       setSaved(true); setTimeout(() => setSaved(false), 2000);
     } finally { setSaving(false); }
   };
+
+  // Sauvegarde automatique (sans fermer la fenêtre)
+  const autoTimer = useRef(null);
+  const premierAuto = useRef(true);
+  useEffect(() => {
+    if (premierAuto.current) { premierAuto.current = false; return; }
+    if (!onAutoSave) return;
+    clearTimeout(autoTimer.current);
+    autoTimer.current = setTimeout(() => {
+      onAutoSave(reponses, noteGlobale, commentaireGlobal, reflexifNiveaux.length ? reflexifNiveaux : null, reflexifCommentaire || null, dispo, divers)
+        .then(() => { setSaved(true); setTimeout(() => setSaved(false), 1500); }).catch(() => {});
+    }, 1000);
+    return () => clearTimeout(autoTimer.current);
+  }, [reponses, commentaireGlobal, reflexifCommentaire, divers, JSON.stringify(reflexifNiveaux), JSON.stringify(dispo)]);
 
   const parAxe = toutesQs.reduce((acc, { axe, q, couleur }, i) => {
     if (!acc[axe]) acc[axe] = { couleur, questions: [] };
@@ -3190,13 +3216,18 @@ function EntretienLibre({ candidat, grille, onClose, onSaved }) {
                   <div>
                     <div className="text-xs text-iip-blue font-bold uppercase tracking-wide mb-1">Q1 — Présentation (1 minute)</div>
                     <div className="text-sm text-gray-800 font-medium mb-2">« Pouvez-vous vous présenter en une minute ? Parcours, expérience principale, et ce qui vous a amené ici aujourd'hui. »</div>
-                    <div className="text-xs text-gray-400 italic">Question ouverte — écoute active, prise de notes.</div>
+                    <div className="text-xs text-gray-400 italic mb-2">Question ouverte — écoute active, prise de notes.</div>
+                    <textarea placeholder="Notes sur la réponse…" rows={2}
+                      value={reponses['qf_presentation']?.commentaire || ''}
+                      onChange={e => majReponse('qf_presentation', 'commentaire', e.target.value)}
+                      className="w-full text-sm border border-gray-200 rounded-lg px-3 py-1.5 resize-none focus:outline-none focus:border-iip-turquoise" />
                   </div>
                   <div className="pt-3">
                     <div className="text-xs text-iip-blue font-bold uppercase tracking-wide mb-1">Q2 — Motivation</div>
                     <div className="text-sm text-gray-800 font-medium mb-2">« Qu'est-ce qui vous motive à rejoindre l'équipe de l'Institut Ilya Prigogine ? Qu'espérez-vous y apporter, et qu'espérez-vous en retirer ? »</div>
                     <textarea placeholder="Notes sur la réponse…" rows={2}
-                      onChange={e => majReponse(-1, 'q1_motiv', e.target.value)}
+                      value={reponses['qf_motivation']?.commentaire || ''}
+                      onChange={e => majReponse('qf_motivation', 'commentaire', e.target.value)}
                       className="w-full text-sm border border-gray-200 rounded-lg px-3 py-1.5 resize-none focus:outline-none focus:border-iip-turquoise" />
                   </div>
                 </div>
