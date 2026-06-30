@@ -286,6 +286,7 @@ r.post('/pv-recours', authRequired, (req, res) => {
   // Pour le modèle 25-26 : uniformiser la taille de police des contenus générés (10pt comme le texte du modèle)
   const wrap10 = (html) => is2526 && html ? `<div style="font-size:10pt">${html}</div>` : html;
   let resultat = genererDepuisTemplate(slugRecours, {
+    'sys.annee':         annee || '',
     'pv.type_decision':  typeDecision,
     'pv.etudiant':       etudiant || '',
     'pv.ue_ref':         ueRef,
@@ -304,6 +305,7 @@ r.post('/pv-recours', authRequired, (req, res) => {
   // Repli sur le modèle standard si le modèle 25-26 n'existe pas (sécurité)
   if (!resultat && slugRecours !== 'pv-recours') {
     resultat = genererDepuisTemplate('pv-recours', {
+      'sys.annee':         annee || '',
       'pv.type_decision':  typeDecision,
       'pv.etudiant':       etudiant || '',
       'pv.ue_ref':         ueRef,

@@ -1,5 +1,10 @@
 # Changelog
 
+## v3.10.13 — 29 juin 2026
+
+### Recours — année du document
+- {{sys.annee}} dans les modèles de recours est rempli avec l'année du recours (et non l'année active)
+
 ## v3.10.12 — 29 juin 2026
 
 ### Recours 2025-2026 — bon modèle
