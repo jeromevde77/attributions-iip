@@ -6,7 +6,7 @@ import OrganisationUEModal from '../components/OrganisationUEModal.jsx';
 import OrganiserGroupesModal from '../components/OrganiserGroupesModal.jsx';
 import Doc23Modal from '../components/Doc23Modal.jsx';
 import * as XLSX from 'xlsx';
-import { IconClipboardText, IconTrash, IconLock, IconLockOpen, IconRefresh, IconCalendar, IconFileText, IconEraser, IconWand, IconX, IconSettings, IconFolder, IconPlus, IconFileImport, IconFileSpreadsheet, IconUsersGroup, IconScissors, IconClock, IconChevronLeft, IconChevronRight, IconFilter } from '@tabler/icons-react';
+import { IconClipboardText, IconTrash, IconLock, IconLockOpen, IconRefresh, IconCalendar, IconFileText, IconEraser, IconWand, IconX, IconSettings, IconFolder, IconPlus, IconFileImport, IconFileSpreadsheet, IconUsersGroup, IconScissors, IconClock, IconChevronLeft, IconChevronRight, IconFilter, IconBriefcase } from '@tabler/icons-react';
 
 // ─── Modale : copier les attributions d'une section d'une année vers une autre ─
 function CopierSectionModal({ sections, anneeActive, isAdmin, onClose, onCopied }) {
@@ -259,6 +259,8 @@ export default function Attributions() {
   const [addMenuUE, setAddMenuUE] = useState(null);   // {ue, sec} : menu + ouvert pour cette UE
   const [coursManquants, setCoursManquants] = useState([]); // cours du DP sans ligne (pour l'UE du menu ouvert)
   const [menuPos, setMenuPos] = useState({ top: 0, right: 0 }); // position fixe du menu
+  const [recrutMenu, setRecrutMenu] = useState(null); // { rowId } — menu pioche candidat recrutement
+  const [recrutCands, setRecrutCands] = useState(null);
   const [eptModal, setEptModal] = useState(null);
   const [orgModal, setOrgModal] = useState(null);
   const [doc23Modal, setDoc23Modal] = useState(null);
@@ -305,6 +307,29 @@ export default function Attributions() {
         body: JSON.stringify({ valide: valide ? 1 : 0 }),
       });
       if (!res.ok) { const j = await res.json().catch(() => ({})); alert(j.error || 'Erreur de validation'); return; }
+      load();
+    } catch (e) { alert(e.message); }
+  };
+
+  // Piocher un candidat du recrutement et l'attribuer à CE groupe/slot (devient recruté + MDP)
+  const ouvrirRecrut = (row) => {
+    setRecrutMenu({ rowId: row.id });
+    setRecrutCands(null);
+    fetch(`/api/recrutement/postes/${row.ue_num}/${encodeURIComponent(row.code_cours)}/${encodeURIComponent(row.section)}?annee=${encodeURIComponent(getAnnee())}`,
+      { headers: { Authorization: `Bearer ${localStorage.getItem('token')}` } })
+      .then(r => r.json())
+      .then(d => setRecrutCands(Array.isArray(d?.candidats) ? d.candidats : []))
+      .catch(() => setRecrutCands([]));
+  };
+  const assignerCandidat = async (row, candidatureId) => {
+    try {
+      const res = await fetch(`/api/recrutement/candidatures/${candidatureId}/attribuer`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${localStorage.getItem('token')}` },
+        body: JSON.stringify({ attribution_id: row.id }),
+      });
+      if (!res.ok) { const j = await res.json().catch(() => ({})); alert(j.error || 'Erreur'); return; }
+      setRecrutMenu(null);
       load();
     } catch (e) { alert(e.message); }
   };
@@ -1191,7 +1216,7 @@ export default function Attributions() {
           if (c.key === 'professeur_id') {
             const badge = extDot[row.id];
             const select = <select key={`prof-${row.id}-${row.professeur_id??''}`} defaultValue={row.professeur_id??''} onClick={e=>e.stopPropagation()} className="bg-transparent border-0 outline-none w-full text-sm cursor-pointer focus:bg-yellow-50" onChange={e=>{const nid=e.target.value?Number(e.target.value):null;if(nid!==row.professeur_id)saveCell(row.id,'professeur_id',nid);}}><option value="">— Aucun —</option>{professeurs.map(p=><option key={p.id} value={p.id}>{p.nom_prenom}</option>)}</select>;
-            return <td key={c.key} style={sty}>
+            return <td key={c.key} className="relative" style={sty}>
               <div className="flex items-center gap-1">
                 {verrous[row.id] && <span title={`Nomination définitive — ${verrous[row.id].periodes_nommees||''} pér. ${verrous[row.id].type_charge||''} · code FWB ${verrous[row.id].code_fwb||''} (attribution verrouillée)`} className="shrink-0 text-iip-blue"><IconLock size={13}/></span>}
                 {!verrous[row.id] && alertesCours[row.id] && <span title={`⚠ ${alertesCours[row.id].definitif} est engagé(e) à titre définitif sur ce cours (${alertesCours[row.id].periodes_nommees||''} pér. ${alertesCours[row.id].type_charge||''}, FWB ${alertesCours[row.id].code_fwb||''})`} className="shrink-0 cursor-help text-amber-600"><IconLockOpen size={13}/></span>}
@@ -1201,8 +1226,32 @@ export default function Attributions() {
                 {badge === 'DOT' && <span className="text-[9px] px-1 py-0 rounded font-bold bg-orange-100 text-orange-700 border border-orange-300 shrink-0" title="Dépasse le plafond → dotation organique">DOT</span>}
                 {badge === 'EXT+DOT' && <span className="text-[9px] px-1 py-0 rounded font-bold bg-purple-100 text-purple-700 border border-purple-300 shrink-0" title="Partiellement EXT, partiellement DOT">EXT+DOT</span>}
                 <div className="flex-1 min-w-0">{select}</div>
+                {(!row.professeur || /désigner|designer/i.test(row.professeur || '')) && (
+                  <button onClick={e=>{e.stopPropagation(); recrutMenu?.rowId===row.id ? setRecrutMenu(null) : ouvrirRecrut(row);}} title="Piocher un candidat du recrutement (devient recruté et lié à ce groupe)" className="shrink-0 text-iip-turquoise hover:text-iip-blue"><IconBriefcase size={14}/></button>
+                )}
                 <button onClick={e=>{e.stopPropagation(); toggleConge(row);}} title={row.en_conge ? 'En congé — cliquer pour réactiver' : 'Mettre en congé (crée une ligne de remplacement)'} className={`shrink-0 text-[10px] font-bold px-1 py-0.5 rounded border ${row.en_conge ? 'bg-transparent text-red-600 border-red-500' : 'bg-gray-50 text-gray-400 border-gray-200 hover:border-red-400 hover:text-red-500'}`}>C</button>
               </div>
+              {recrutMenu?.rowId===row.id && (
+                <div className="absolute z-50 mt-1 right-0 bg-white border border-gray-200 rounded-lg shadow-xl w-64 max-h-72 overflow-auto" onClick={e=>e.stopPropagation()}>
+                  <div className="px-3 py-1.5 text-xs font-semibold text-gray-400 border-b flex items-center justify-between">
+                    <span>Candidats — {row.code_cours}</span>
+                    <button onClick={()=>setRecrutMenu(null)} className="text-gray-300 hover:text-gray-500">×</button>
+                  </div>
+                  {recrutCands===null && <div className="px-3 py-2 text-xs text-gray-400">Chargement…</div>}
+                  {recrutCands && recrutCands.length===0 && (
+                    <div className="px-3 py-2 text-xs text-gray-400">Aucun candidat pour ce cours.
+                      <button onClick={()=>{setRecrutMenu(null); window.location.assign('/recrutement');}} className="text-iip-turquoise underline ml-1">Recrutement</button>
+                    </div>
+                  )}
+                  {recrutCands && recrutCands.map(cd => (
+                    <button key={cd.id} onClick={()=>assignerCandidat(row, cd.id)}
+                      className="w-full text-left px-3 py-1.5 text-sm hover:bg-green-50 flex items-center justify-between text-green-700">
+                      <span className="truncate">{cd.prenom} {cd.nom}</span>
+                      <span className="text-[10px] text-gray-400 flex-shrink-0 ml-2">{cd.statut||''}</span>
+                    </button>
+                  ))}
+                </div>
+              )}
               {!verrous[row.id] && alertesCours[row.id] && <div className="text-[10px] text-amber-600 leading-tight mt-0.5">⚠ définitif : {alertesCours[row.id].definitif}</div>}
             </td>;
           }
