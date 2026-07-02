@@ -86,6 +86,18 @@ r.get('/attestation_etab', authRequired, (req, res) => {
   res.json({ valeur: JSON.stringify(merged) });
 });
 
+// ── Diplôme : modèle éditable (avant /:cle) ─────────────────────────────────
+r.get('/diplome_template_defaut', authRequired, roleRequired('admin'), async (req, res) => {
+  const { genererTemplateDiplome } = await import('../services/diplome_template.js');
+  res.json({ valeur: genererTemplateDiplome() });
+});
+r.get('/diplome_template', authRequired, async (req, res) => {
+  const row = db.prepare("SELECT valeur FROM lucie_config WHERE cle = 'diplome_template'").get();
+  if (row) return res.json({ valeur: row.valeur });
+  const { genererTemplateDiplome } = await import('../services/diplome_template.js');
+  res.json({ valeur: genererTemplateDiplome() });
+});
+
 // GET /api/config/:cle — lecture (routes spécifiques ci-dessus ont priorité)
 r.get('/:cle', authRequired, (req, res) => {
   const DEFAULTS = {
