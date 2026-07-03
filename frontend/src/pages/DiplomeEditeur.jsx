@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { IconDeviceFloppy, IconEye, IconRefresh } from '@tabler/icons-react';
+import { IconDeviceFloppy, IconEye, IconRefresh, IconPhoto, IconX } from '@tabler/icons-react';
 
 const tok = () => localStorage.getItem('token');
 const af = (url, opts = {}) => fetch(url, {
@@ -52,6 +52,7 @@ export default function DiplomeEditeur({ assets = {} }) {
   const [saved, setSaved] = useState(false);
   const [err, setErr] = useState('');
   const [busy, setBusy] = useState(false);
+  const [logoHelb, setLogoHelb] = useState('');
 
   const me = JSON.parse(localStorage.getItem('user') || 'null');
   const peutEcrire = me?.role === 'admin';
@@ -60,16 +61,37 @@ export default function DiplomeEditeur({ assets = {} }) {
     Promise.all([
       af('/api/config/diplome_template').then(d => d.valeur).catch(() => ''),
       af('/api/config/attestation_etab').then(d => { try { return JSON.parse(d.valeur); } catch { return {}; } }).catch(() => ({})),
-    ]).then(([tpl, e]) => { setHtml(tpl); setInitial(tpl); setEtab(e); }).finally(() => setLoading(false));
+      af('/api/config/diplome_logo_helb').then(d => d.valeur).catch(() => ''),
+    ]).then(([tpl, e, helb]) => { setHtml(tpl); setInitial(tpl); setEtab(e); setLogoHelb(helb || ''); }).finally(() => setLoading(false));
   }, []);
 
   const dirty = html !== initial;
 
   const apercu = () => {
-    const rendu = remplaceVars(html, VARS_DEMO(etab, assets));
+    const rendu = remplaceVars(html, VARS_DEMO(etab, { ...assets, logo_helb: logoHelb }));
     const w = window.open('', '_blank');
     if (!w) { alert('Autorisez les pop-ups pour voir l’aperçu.'); return; }
     w.document.open(); w.document.write(rendu); w.document.close();
+  };
+
+  const importerHelb = (file) => {
+    if (!file) return;
+    if (!/^image\//.test(file.type)) { setErr('Veuillez sélectionner un fichier image (PNG de préférence).'); return; }
+    const reader = new FileReader();
+    reader.onload = async () => {
+      const dataUri = String(reader.result || '');
+      setLogoHelb(dataUri);
+      setErr('');
+      try {
+        await af('/api/config/diplome_logo_helb', { method: 'PUT', body: JSON.stringify({ valeur: dataUri }) });
+        setSaved(true); setTimeout(() => setSaved(false), 2500);
+      } catch (e) { setErr(e.message); }
+    };
+    reader.readAsDataURL(file);
+  };
+  const retirerHelb = async () => {
+    setLogoHelb('');
+    try { await af('/api/config/diplome_logo_helb', { method: 'PUT', body: JSON.stringify({ valeur: '' }) }); } catch (e) { setErr(e.message); }
   };
 
   const enregistrer = async () => {
@@ -104,6 +126,22 @@ export default function DiplomeEditeur({ assets = {} }) {
       {err && <div className="text-sm text-red-600 bg-red-50 border border-red-200 rounded-lg px-3 py-2">{err}</div>}
       {saved && <div className="text-sm text-green-700 bg-green-50 border border-green-200 rounded-lg px-3 py-2">Modèle enregistré.</div>}
       {!peutEcrire && <div className="text-xs text-gray-500 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">Lecture seule — seule la direction (admin) peut modifier le modèle.</div>}
+
+      {peutEcrire && (
+        <div className="flex items-center gap-3 bg-white border border-gray-200 rounded-lg px-3 py-2">
+          <span className="text-sm text-gray-600 flex items-center gap-1.5"><IconPhoto size={16}/> Logo HELB (co-diplomation) :</span>
+          {logoHelb
+            ? <span className="flex items-center gap-2">
+                <img src={logoHelb} alt="Logo HELB" className="h-8 w-auto border border-gray-100 rounded bg-white" />
+                <button onClick={retirerHelb} className="text-gray-400 hover:text-red-500" title="Retirer"><IconX size={15}/></button>
+              </span>
+            : <span className="text-xs text-gray-400 italic">aucun logo importé</span>}
+          <label className="ml-auto text-sm px-3 py-1.5 rounded-lg border border-gray-300 text-iip-blue hover:bg-gray-50 cursor-pointer">
+            Importer une image…
+            <input type="file" accept="image/*" className="hidden" onChange={e => { importerHelb(e.target.files?.[0]); e.target.value=''; }} />
+          </label>
+        </div>
+      )}
 
       <textarea
         value={html}
