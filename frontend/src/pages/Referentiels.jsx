@@ -498,8 +498,11 @@ function UEModal({ ue, sections, onClose, onSaved }) {
 
           {/* ── 4. DÉTAILS ── */}
           <div className={sep}>Détails</div>
-          <label className="block">
-            <textarea value={form.ue_det} onChange={e => set('ue_det', e.target.value)} rows="2" className={inp} />
+          <label className="flex items-center gap-2 cursor-pointer py-1">
+            <input type="checkbox" checked={form.ue_det === 'x'}
+              onChange={e => set('ue_det', e.target.checked ? 'x' : '')}
+              className="w-4 h-4 accent-iip-blue" />
+            <span className="text-sm text-gray-700">UE déterminante <span className="text-gray-400">(comptée dans le calcul de mention du diplôme)</span></span>
           </label>
 
           <div className="flex justify-end gap-2 pt-2 border-t">
