@@ -17,7 +17,7 @@ function analyseAutonomieUE(ue_num, section, annee, ueRow, numOrg = null) {
   if (!ue) return null;
 
   // Scoping optionnel par organisation (pour les UE ayant plusieurs organisations)
-  const orgClause = numOrg != null ? ' AND num_organisation = ?' : '';
+  const orgClause = numOrg != null ? ' AND COALESCE(NULLIF(num_organisation,0),1) = ?' : '';
   const orgP = numOrg != null ? [numOrg] : [];
 
   const ueAut = ue.ue_aut || 0;

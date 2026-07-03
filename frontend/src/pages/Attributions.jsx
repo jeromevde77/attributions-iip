@@ -1582,7 +1582,7 @@ export default function Attributions() {
             : <>
                 {(() => {
                   // Badge "multiple du DP" : ×N si net, sinon ratio en orange (non conforme)
-                  const ctrlUE = autAnalyse[viewMode === 'coord' ? String(cg.ue_num) : cg.ue_num + '/' + (cg.num_organisation || 1)];
+                  const ctrlUE = autAnalyse[viewMode === 'coord' ? String(cg.ue_num) : cg.ue_num + '/' + (cg.num_organisation || 1)] || autAnalyse[String(cg.ue_num)];
                   const cc = ctrlUE?.cours?.find(x => x.code_cours === cg.code_cours);
                   if (!cc || !cc.dp) return null;
                   if (cc.est_multiple) {
@@ -1673,8 +1673,8 @@ export default function Attributions() {
             </span>
             <span className="flex items-center gap-2 min-w-0">
               <span className="text-sm text-gray-600 truncate" title={ue.ue_nom}>{ue.ue_nom || 'UE sans nom'}</span>
-              {autAnalyse[viewMode === 'coord' ? String(ue.ue_num) : ue.ue_num + '/' + (ue.num_organisation || 1)] && (() => {
-                const a = autAnalyse[viewMode === 'coord' ? String(ue.ue_num) : ue.ue_num + '/' + (ue.num_organisation || 1)];
+              {(autAnalyse[viewMode === 'coord' ? String(ue.ue_num) : ue.ue_num + '/' + (ue.num_organisation || 1)] || autAnalyse[String(ue.ue_num)]) && (() => {
+                const a = autAnalyse[viewMode === 'coord' ? String(ue.ue_num) : ue.ue_num + '/' + (ue.num_organisation || 1)] || autAnalyse[String(ue.ue_num)];
                 if (a.ok) {
                   return <span className="text-[10px] px-1.5 py-0.5 rounded bg-green-100 text-green-700 font-medium flex-shrink-0" title={`Autonomie ${a.aut_attribuee} dans l'intervalle [${a.min} ; ${a.max}]`}>✓ aut.</span>;
                 }
@@ -1766,7 +1766,7 @@ export default function Attributions() {
         {open && (
           <div className={activeUE === key ? (isHelb ? 'bg-pink-50/60' : 'bg-iip-gold/5') : (isHelb ? 'bg-pink-50/40' : 'bg-gray-50/50')}>
             {(() => {
-              const ctrl = autAnalyse[viewMode === 'coord' ? String(ue.ue_num) : ue.ue_num + '/' + (ue.num_organisation || 1)];
+              const ctrl = autAnalyse[viewMode === 'coord' ? String(ue.ue_num) : ue.ue_num + '/' + (ue.num_organisation || 1)] || autAnalyse[String(ue.ue_num)];
               if (!ctrl || !ctrl.message) return null;
               const styles = {
                 ok:          'bg-green-50 border-green-200 text-green-800',
