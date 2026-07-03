@@ -12,17 +12,21 @@ const r = Router();
 // Borne MIN = ue_aut (DP)
 // Borne MAX = ue_aut + 20% des périodes de cours AJOUTÉES par les dédoublements
 // Cas spécial : si TOUS les cours sont dédoublés ×N → autonomie attendue = ue_aut × N (obligatoire)
-function analyseAutonomieUE(ue_num, section, annee, ueRow) {
+function analyseAutonomieUE(ue_num, section, annee, ueRow, numOrg = null) {
   const ue = ueRow || db.prepare('SELECT ue_per_cours, ue_aut FROM ue WHERE ue_num = ? AND annee_scolaire = ?').get(ue_num, annee);
   if (!ue) return null;
+
+  // Scoping optionnel par organisation (pour les UE ayant plusieurs organisations)
+  const orgClause = numOrg != null ? ' AND num_organisation = ?' : '';
+  const orgP = numOrg != null ? [numOrg] : [];
 
   const ueAut = ue.ue_aut || 0;
   const perCoursDP = ue.ue_per_cours || 0; // périodes de cours prévues au DP (hors autonomie)
 
   // Cours de l'UE (hors Z) avec leurs périodes DP
   const cours = db.prepare(
-    "SELECT cours_code, cours_per FROM cours WHERE ue_num = ? AND section = ? AND annee_scolaire = ? AND (ct_pp IS NULL OR ct_pp != 'Z')"
-  ).all(ue_num, section, annee);
+    "SELECT cours_code, cours_per FROM cours WHERE ue_num = ? AND section = ? AND annee_scolaire = ? AND (ct_pp IS NULL OR ct_pp != 'Z')" + orgClause
+  ).all(ue_num, section, annee, ...orgP);
 
   // Périodes de cours réellement attribuées (somme des lignes, hors autonomie, hors EPT/Z)
   const perOuvertes = db.prepare(`
@@ -30,13 +34,13 @@ function analyseAutonomieUE(ue_num, section, annee, ueRow) {
     FROM attribution
     WHERE ue_num = ? AND section = ? AND annee_scolaire = ? AND contrat_mdp = 'IIP'
       AND (coordination_encadrement IS NULL OR coordination_encadrement NOT IN ('91','92','93','94','95','96','97','98','99'))
-      AND (type_cours IS NULL OR type_cours != 'Z')
-  `).get(ue_num, section, annee)?.total || 0;
+      AND (type_cours IS NULL OR type_cours != 'Z')` + orgClause + `
+  `).get(ue_num, section, annee, ...orgP)?.total || 0;
 
   // Autonomie déjà attribuée
   const autAttribuee = db.prepare(
-    "SELECT COALESCE(SUM(autonomie_attribuee), 0) AS total FROM attribution WHERE ue_num = ? AND section = ? AND annee_scolaire = ? AND contrat_mdp = 'IIP'"
-  ).get(ue_num, section, annee)?.total || 0;
+    "SELECT COALESCE(SUM(autonomie_attribuee), 0) AS total FROM attribution WHERE ue_num = ? AND section = ? AND annee_scolaire = ? AND contrat_mdp = 'IIP'" + orgClause
+  ).get(ue_num, section, annee, ...orgP)?.total || 0;
 
   // Périodes de cours ajoutées par dédoublement = ouvertes − DP
   const perAjoutees = Math.max(0, perOuvertes - perCoursDP);
@@ -63,8 +67,8 @@ function analyseAutonomieUE(ue_num, section, annee, ueRow) {
 
   // Détail par cours : multiple du DP atteint
   const attribParCours = db.prepare(
-    "SELECT code_cours, COALESCE(SUM(periodes_attribuees),0) AS per FROM attribution WHERE ue_num = ? AND section = ? AND annee_scolaire = ? GROUP BY code_cours"
-  ).all(ue_num, section, annee);
+    "SELECT code_cours, COALESCE(SUM(periodes_attribuees),0) AS per FROM attribution WHERE ue_num = ? AND section = ? AND annee_scolaire = ?" + orgClause + " GROUP BY code_cours"
+  ).all(ue_num, section, annee, ...orgP);
   const perParCours = {};
   for (const a of attribParCours) perParCours[a.code_cours] = a.per || 0;
   const coursDetail = cours.map(c => {
@@ -550,9 +554,18 @@ r.get('/autonomie-ue', authRequired, (req, res) => {
 
   const map = {};
   for (const ue of ues) {
-    const a = analyseAutonomieUE(ue.ue_num, section, annee, ue);
-    // N'afficher le badge que si l'UE a des cours ouverts (attribution en cours)
-    if (a && a.per_ouvertes > 0) map[ue.ue_num] = a;
+    // Agrégat toutes organisations confondues — utilisé par la vue coordination
+    const agg = analyseAutonomieUE(ue.ue_num, section, annee, ue);
+    if (agg && agg.per_ouvertes > 0) map[ue.ue_num] = agg;
+    // Analyse propre à chaque organisation — utilisée par les vues section / complète
+    const orgs = db.prepare(
+      'SELECT DISTINCT num_organisation FROM attribution WHERE ue_num = ? AND section = ? AND annee_scolaire = ?'
+    ).all(ue.ue_num, section, annee);
+    for (const row of orgs) {
+      const org = row.num_organisation || 1;
+      const a = analyseAutonomieUE(ue.ue_num, section, annee, ue, org);
+      if (a && a.per_ouvertes > 0) map[ue.ue_num + '/' + org] = a;
+    }
   }
   res.json(map);
 });
