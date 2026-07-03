@@ -436,11 +436,13 @@ export default function Attestation() {
 
   const genererHtmlDiplome = (l) => {
     const sec = sectionsDispo.find(s => s.code === l.section_code) || {};
+    const nomCap = (l.nom || '').charAt(0).toUpperCase() + (l.nom || '').slice(1).toLowerCase();
     return remplaceVars(tplDiplome || '', {
       '{{nom_etudiant}}':        l.nom.toUpperCase(),
       '{{prenom_etudiant}}':     l.prenom,
       '{{genre}}':               l.genre || '',
       '{{article_titulaire}}':   l.genre === 'M' ? 'Le' : 'La',
+      '{{titulaire_nom}}':       `${l.prenom || ''} ${nomCap}`.trim(),
       '{{lieu_naissance}}':      l.lieu_naissance || '',
       '{{date_naissance}}':      l.date_naissance || '',
       '{{registre_national}}':   l.registre_national || '',

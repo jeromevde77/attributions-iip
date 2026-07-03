@@ -29,8 +29,6 @@ export function genererTemplateDiplome() {
   .sig-col{text-align:center;flex:1;min-width:0;}
   .sig-col .role{margin-bottom:12mm;}
   .sig-col .nom{font-weight:700;color:#1B2B4B;border-top:1px solid #b9c2ce;padding-top:2px;}
-  .nom-cap{text-transform:lowercase;display:inline-block;}
-  .nom-cap::first-letter{text-transform:uppercase;}
   .gouv{flex:1;text-align:center;align-self:flex-start;}
   @page{size:A4 landscape;margin:0;}
   *{-webkit-print-color-adjust:exact;print-color-adjust:exact;}
@@ -88,7 +86,7 @@ export function genererTemplateDiplome() {
     <div class="gouv">Au nom du Gouvernement<br>de la Communauté française,<br>Pour le Ministre,</div>
     <div class="sig-col">
       <div class="role">{{article_titulaire}} titulaire,</div>
-      <div class="nom">{{prenom_etudiant}} <span class="nom-cap">{{nom_etudiant}}</span></div>
+      <div class="nom">{{titulaire_nom}}</div>
     </div>
   </div>
 </div>
