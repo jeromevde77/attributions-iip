@@ -50,6 +50,13 @@ r.get('/sections', authRequired, (req, res) => {
   res.json(rows);
 });
 
+// GET /ue-sections — valeurs distinctes de ue.section (noms courts du référentiel UE),
+// pour proposer une liste fermée lors de la liaison section d'attestation ↔ section UE.
+r.get('/ue-sections', authRequired, (req, res) => {
+  const rows = db.prepare("SELECT DISTINCT section FROM ue WHERE section IS NOT NULL AND TRIM(section) != '' ORDER BY section").all();
+  res.json(rows.map(x => x.section));
+});
+
 r.get('/ue', authRequired, (req, res) => {
   const { section, annee } = req.query;
   const anneeVal = annee || '2025-2026';

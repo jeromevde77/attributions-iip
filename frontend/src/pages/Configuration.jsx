@@ -908,12 +908,14 @@ function ConfigAttestation() {
 
   const [etab, setEtab]           = useState(null);
   const [sections, setSections]   = useState([]);
+  const [ueSections, setUeSections] = useState([]); // valeurs distinctes de ue.section (liste fermée)
   const [saved, setSaved]         = useState('');
   const [onglet, setOnglet]       = useState('etab');
 
   useEffect(() => {
     af('/api/config/attestation_etab').then(d => { try { setEtab(JSON.parse(d.valeur)); } catch { setEtab({}); } });
     af('/api/config/attestation_sections').then(d => { try { setSections(JSON.parse(d.valeur)); } catch { setSections([]); } });
+    af('/api/referentiels/ue-sections').then(d => setUeSections(Array.isArray(d) ? d : [])).catch(() => {});
   }, []);
 
   const sauvegarderEtab = async () => {
@@ -1000,8 +1002,17 @@ function ConfigAttestation() {
                 ].map(([k, label]) => (
                   <div key={k}>
                     <div className="text-xs text-gray-500 mb-0.5">{label}</div>
-                    <input value={s[k]||''} onChange={e => majSection(i, k, e.target.value)}
-                      className="w-full border border-gray-300 rounded px-2 py-1 text-xs h-8" />
+                    {k === 'ue_section' ? (
+                      <select value={s[k]||''} onChange={e => majSection(i, k, e.target.value)}
+                        className="w-full border border-gray-300 rounded px-2 py-1 text-xs h-8 bg-white">
+                        <option value="">— aucune —</option>
+                        {s[k] && !ueSections.includes(s[k]) && <option value={s[k]}>{s[k]} (hors liste)</option>}
+                        {ueSections.map(sec => <option key={sec} value={sec}>{sec}</option>)}
+                      </select>
+                    ) : (
+                      <input value={s[k]||''} onChange={e => majSection(i, k, e.target.value)}
+                        className="w-full border border-gray-300 rounded px-2 py-1 text-xs h-8" />
+                    )}
                   </div>
                 ))}
               </div>
