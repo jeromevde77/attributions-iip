@@ -13,7 +13,7 @@ export function genererTemplateDiplome() {
   *{box-sizing:border-box;}
   body{margin:0;font-family:"Segoe UI","Helvetica Neue",Arial,sans-serif;font-size:11.5px;line-height:1.5;color:#374151;}
   strong{color:#1B2B4B;font-weight:700;}
-  .page{width:297mm;height:210mm;padding:12mm 16mm 20mm;background:#fff;display:flex;flex-direction:column;}
+  .page{width:297mm;height:210mm;padding:12mm 16mm 20mm;background:#fff;display:flex;flex-direction:column;position:relative;}
   .head{display:flex;justify-content:space-between;align-items:center;}
   .logo-img{height:58px;width:auto;display:block;margin:0;}
   .cf{text-align:right;line-height:1.5;}
@@ -25,10 +25,10 @@ export function genererTemplateDiplome() {
   .exergue .filet{width:26mm;height:0;border-top:1px solid #1B2B4B;margin:1mm 0 1.5mm 0;}
   .exergue .mention{color:#374151;}
   .lieu-date{margin-top:4mm;}
-  .signatures{display:flex;justify-content:space-between;align-items:flex-start;gap:5mm;}
-  .sig-col{text-align:center;flex:1;min-width:0;display:flex;flex-direction:column;}
-  .sig-col .role{min-height:9mm;margin-bottom:12mm;}
-  .sig-col .nom{margin-top:auto;font-weight:700;color:#1B2B4B;border-top:1px solid #b9c2ce;padding-top:2px;}
+  .signatures{display:flex;justify-content:space-between;align-items:flex-start;gap:5mm;position:absolute;left:16mm;right:16mm;bottom:20mm;}
+  .sig-col{text-align:center;flex:1;min-width:0;}
+  .sig-col .role{min-height:9mm;margin-bottom:18mm;}
+  .sig-col .nom{font-weight:700;color:#1B2B4B;border-top:1px solid #b9c2ce;padding-top:2px;}
   .gouv{flex:1;text-align:center;align-self:flex-start;}
   @page{size:A4 landscape;margin:0;}
   *{-webkit-print-color-adjust:exact;print-color-adjust:exact;}

@@ -190,9 +190,30 @@ async function htmlVersPdfBlob(html, jsPDF, html2canvas, landscape = false) {
   try {
     const doc = iframe.contentDocument || iframe.contentWindow.document;
     doc.open(); doc.write(html); doc.close();
-    await new Promise(r => setTimeout(r, 400));
+    const win = iframe.contentWindow;
+    // Attente déterministe : chargement + polices + images + 2 frames. Un délai fixe
+    // laissait html2canvas capturer avant stabilisation en boucle (ZIP) → filet décalé.
+    await new Promise(res => {
+      let fini = false;
+      const finir = () => { if (!fini) { fini = true; res(); } };
+      const stabiliser = async () => {
+        try { if (doc.fonts && doc.fonts.ready) await doc.fonts.ready; } catch {}
+        await Promise.all(Array.from(doc.images || []).map(
+          img => img.complete ? null : new Promise(r => { img.onload = img.onerror = r; })));
+        const raf = win.requestAnimationFrame ? win.requestAnimationFrame.bind(win) : (cb => setTimeout(cb, 16));
+        raf(() => raf(finir));
+        setTimeout(finir, 1500); // filet de sécurité si un asset ne résout pas
+      };
+      if (doc.readyState === 'complete') stabiliser();
+      else win.addEventListener('load', stabiliser, { once: true });
+    });
     const cible = doc.querySelector('.page') || doc.body;
-    const canvas = await html2canvas(cible, { scale: 2, useCORS: true, backgroundColor: '#ffffff', windowWidth: w, windowHeight: h });
+    try { win.scrollTo(0, 0); } catch {}
+    const canvas = await html2canvas(cible, {
+      scale: 2, useCORS: true, backgroundColor: '#ffffff',
+      windowWidth: w, windowHeight: h, width: w, height: h,
+      scrollX: 0, scrollY: 0, x: 0, y: 0,
+    });
     const pdf = new jsPDF({ unit: 'mm', format: 'a4', orientation: landscape ? 'landscape' : 'portrait' });
     const pw = landscape ? 297 : 210, ph = landscape ? 210 : 297;
     pdf.addImage(canvas.toDataURL('image/jpeg', 0.92), 'JPEG', 0, 0, pw, ph, undefined, 'FAST');
@@ -234,17 +255,18 @@ const UE_INT_TIM = { ue: '264', nom: "Épreuve intégrée", periodes: 120 };
 const TOTAL_PERIODES_DET = UES_DET_TIM.reduce((s, u) => s + u.periodes, 0); // 980 (cours + autonomie)
 // Périodes par défaut (cours seuls) ; remplacées au runtime par cours+autonomie depuis /api/referentiels/ue
 const PER_DEFAUT = Object.fromEntries([...UES_DET_TIM, UE_INT_TIM].map(u => [u.ue, u.periodes]));
+// Config de mention (repli TIM tant que les flags/config ne sont pas chargés).
+// det : UE déterminantes {ue, nom, periodes}. intUe : n° de l'épreuve intégrée (ou null).
+const CFG_TIM = { det: UES_DET_TIM.map(u => ({ ue: u.ue, nom: u.nom, periodes: u.periodes })), intUe: '264', intNom: UE_INT_TIM.nom };
 
-function calculerMention(scoresDet, scoreInt, per = PER_DEFAUT) {
-  // scoresDet : { '252': pct, '253': pct, ... }  (pourcentage 0-100)
-  // scoreInt  : pct (pourcentage 0-100)
-  // per : périodes pondérantes par UE (cours + autonomie), issues du référentiel
+function calculerMention(scoresDet, scoreInt, cfg = CFG_TIM) {
+  // scoresDet : { ue: pct 0-100 } ; scoreInt : pct 0-100 ; cfg.det : {ue, periodes}
   let sommePonderee = 0;
   let totalPoids = 0;
-  for (const u of UES_DET_TIM) {
+  for (const u of cfg.det) {
     const s = parseFloat(scoresDet[u.ue]);
     if (!isNaN(s)) {
-      const p = per[u.ue] ?? u.periodes;
+      const p = u.periodes || 0;
       sommePonderee += s * p;
       totalPoids += p;
     }
@@ -261,19 +283,20 @@ function calculerMention(scoresDet, scoreInt, per = PER_DEFAUT) {
   return { pct: Math.round(finale * 10)/10, mention: 'Échec' };
 }
 
-function deriveLigne(l, per = PER_DEFAUT) {
+function deriveLigne(l, cfgBySec = null) {
+  const cfg = (cfgBySec && cfgBySec[l.section_code]) || CFG_TIM;
   const scores = { ...(l._scores || {}) };
   Object.keys(scores).forEach(k => { if (scores[k] === '' || scores[k] == null) delete scores[k]; });
   const pct = {};
-  for (const u of UES_DET_TIM) { if (scores[u.ue] !== undefined) pct[u.ue] = parseFloat(scores[u.ue]) * 5; }
-  const sInt = scores['264'] !== undefined ? parseFloat(scores['264']) * 5 : undefined;
+  for (const u of cfg.det) { if (scores[u.ue] !== undefined) pct[u.ue] = parseFloat(scores[u.ue]) * 5; }
+  const sInt = (cfg.intUe && scores[cfg.intUe] !== undefined) ? parseFloat(scores[cfg.intUe]) * 5 : undefined;
   const has = Object.keys(pct).length > 0 || sInt !== undefined;
-  const complet = UES_DET_TIM.every(u => scores[u.ue] !== undefined) && scores['264'] !== undefined;
-  const calc = calculerMention(pct, sInt, per);
+  const complet = cfg.det.length > 0 && cfg.det.every(u => scores[u.ue] !== undefined) && (!cfg.intUe || scores[cfg.intUe] !== undefined);
+  const calc = calculerMention(pct, sInt, cfg);
   const valide = complet && calc.pct >= 50;          // mention SEULEMENT si toutes les UE notées ET >= 50
-  const detLines = UES_DET_TIM.filter(u => scores[u.ue] !== undefined)
+  const detLines = cfg.det.filter(u => scores[u.ue] !== undefined)
     .map(u => `UE ${u.ue} — ${u.nom} : ${scores[u.ue]}/20`).join('\n');
-  const intLine = scores['264'] !== undefined ? `UE 264 — ${UE_INT_TIM.nom} : ${scores['264']}/20` : '';
+  const intLine = (cfg.intUe && scores[cfg.intUe] !== undefined) ? `UE ${cfg.intUe} — ${cfg.intNom} : ${scores[cfg.intUe]}/20` : '';
   return { ...l, _scores: scores, mention: valide ? calc.mention : '',
            ue_determinantes: detLines, ue_integree: intLine, _calcPct: has ? calc.pct : 0, _complet: complet };
 }
@@ -286,7 +309,7 @@ const ETUDIANTS_TIM_BA1 = [{"id": "tim_25-00157", "nom": "ABDELLAOUI", "prenom":
 const LIGNE_VIDE = () => ({
   id: Date.now() + Math.random(),
   nom: '', prenom: '', genre: 'F',
-  lieu_naissance: '', date_naissance: '',
+  lieu_naissance: '', date_naissance: '', registre_national: '',
   section_code: '', mention: 'Distinction',
   ue_determinantes: '', // ex: "UE 101 Anatomie — 15/20, UE 102 Soins — 17/20"
   ue_integree: '',      // ex: "UE 200 Projet intégré — 16/20"
@@ -328,7 +351,7 @@ export default function Attestation() {
   const chargementFait = useRef(false);
   const [lectureSeule, setLectureSeule]   = useState(false);
   const saveTimer = useRef(null);
-  const [uePer, setUePer] = useState(PER_DEFAUT);
+  const [cfgBySec, setCfgBySec] = useState({}); // { [section_code]: { det, intUe, intNom } }
   const [docType, setDocType]       = useState('attestation'); // 'attestation' | 'diplome'
   const [tplDiplome, setTplDiplome] = useState('');
   const [logoHelb, setLogoHelb]     = useState('');
@@ -348,19 +371,61 @@ export default function Attestation() {
     af('/api/config/attestation_lignes').then(d => {
       try {
         const arr = JSON.parse(d.valeur);
-        if (Array.isArray(arr) && arr.length) setLignes(arr.map(l => deriveLigne(l, uePer)));
+        if (Array.isArray(arr) && arr.length) setLignes(arr.map(l => deriveLigne(l, cfgBySec)));
       } catch {}
     }).finally(() => { chargementFait.current = true; });
     const a = localStorage.getItem('annee_active');
     if (a) setAnnee(a.replace('-', '/'));
   }, []);
 
+  // Clé stable des sections présentes (évite de recharger à chaque recalcul)
+  const sectionsKey = useMemo(
+    () => [...new Set(lignes.map(l => l.section_code).filter(Boolean))].sort().join(','),
+    [lignes]
+  );
+
+  // Config de mention active pour l'affichage (colonnes) = section majoritaire des lignes, repli TIM
+  const cfgActive = useMemo(() => {
+    const counts = {};
+    for (const l of lignes) if (l.section_code) counts[l.section_code] = (counts[l.section_code] || 0) + 1;
+    const top = Object.keys(counts).sort((a, b) => counts[b] - counts[a])[0];
+    return (top && cfgBySec[top]) || CFG_TIM;
+  }, [lignes, cfgBySec]);
+
+  // Charge, par section, ses UE déterminantes + épreuve intégrée (flags) via la liaison ue_section
+  useEffect(() => {
+    const codes = sectionsKey.split(',').filter(Boolean);
+    if (!codes.length || !sectionsDispo.length) return;
+    let annule = false;
+    (async () => {
+      const next = {};
+      for (const code of codes) {
+        if (cfgBySec[code]) continue;
+        const sec = sectionsDispo.find(s => s.code === code);
+        const ueSec = sec?.ue_section;
+        if (!ueSec) continue;
+        try {
+          const d = await af(`/api/attributions/ue-mention?section=${encodeURIComponent(ueSec)}&annee=${encodeURIComponent(annee.replace('/', '-'))}`);
+          if (d && Array.isArray(d.determinantes) && d.determinantes.length) {
+            next[code] = {
+              det: d.determinantes.map(u => ({ ue: String(u.ue_num), nom: u.ue_nom, periodes: u.periodes || 0 })),
+              intUe: d.integree ? String(d.integree.ue_num) : null,
+              intNom: (d.integree && d.integree.ue_nom) || 'Épreuve intégrée',
+            };
+          }
+        } catch {}
+      }
+      if (!annule && Object.keys(next).length) setCfgBySec(prev => ({ ...prev, ...next }));
+    })();
+    return () => { annule = true; };
+  }, [sectionsKey, sectionsDispo, annee]);
+
   const majLigne = useCallback((id, k, v) => {
     setLignes(ls => ls.map(l => l.id === id ? { ...l, [k]: v } : l));
   }, []);
   const majScore = useCallback((id, ue, v) => {
-    setLignes(ls => ls.map(l => l.id === id ? deriveLigne({ ...l, _scores: { ...(l._scores || {}), [ue]: v } }, uePer) : l));
-  }, []);
+    setLignes(ls => ls.map(l => l.id === id ? deriveLigne({ ...l, _scores: { ...(l._scores || {}), [ue]: v } }, cfgBySec) : l));
+  }, [cfgBySec]);
 
   const sauver = useCallback(async () => {
     try {
@@ -383,8 +448,8 @@ export default function Attestation() {
   }, [lignes, sauver, lectureSeule]);
 
   useEffect(() => {
-    setLignes(ls => ls.map(l => deriveLigne(l, uePer)));
-  }, [uePer]);
+    setLignes(ls => ls.map(l => deriveLigne(l, cfgBySec)));
+  }, [cfgBySec]);
 
 
   const supprimerLigne = (id) => setLignes(ls => ls.filter(l => l.id !== id));
@@ -436,24 +501,27 @@ export default function Attestation() {
 
   const genererHtmlDiplome = (l) => {
     const sec = sectionsDispo.find(s => s.code === l.section_code) || {};
+    const nomCap = (l.nom || '').charAt(0).toUpperCase() + (l.nom || '').slice(1).toLowerCase();
     return remplaceVars(tplDiplome || '', {
       '{{nom_etudiant}}':        l.nom.toUpperCase(),
       '{{prenom_etudiant}}':     l.prenom,
       '{{genre}}':               l.genre || '',
+      '{{article_titulaire}}':   l.genre === 'M' ? 'Le' : 'La',
+      '{{titulaire_nom}}':       `${l.prenom || ''} ${nomCap}`.trim(),
       '{{lieu_naissance}}':      l.lieu_naissance || '',
       '{{date_naissance}}':      l.date_naissance || '',
-      '{{registre_national}}':   '',
+      '{{registre_national}}':   l.registre_national || '',
       '{{intitule_section}}':    sec.section || '',
-      '{{grade_academique}}':    '',
+      '{{grade_academique}}':    sec.grade_academique || sec.section || '',
       '{{code_section}}':        sec.code || '',
-      '{{date_approbation}}':    '',
+      '{{date_approbation}}':    sec.date_approbation || '',
       '{{total_ects}}':          String(sec.ects || ''),
-      '{{duree_annees}}':        '',
-      '{{domaine}}':             '',
+      '{{duree_annees}}':        String(sec.duree_annees || ''),
+      '{{domaine}}':             sec.domaine || '',
       '{{mention}}':             l.mention || '',
       '{{annee}}':               annee,
       '{{date_deliberation}}':   l.date_deliberation || '',
-      '{{president_jury}}':      '',
+      '{{president_jury}}':      sec.president_jury || '',
       '{{directeur}}':           etab.directeur || 'Charles Sohet',
       '{{ville_etab}}':          etab.ville || '',
       '{{nom_etab}}':            etab.nom || 'INSTITUT ILYA PRIGOGINE',
@@ -498,6 +566,7 @@ export default function Attestation() {
       for (const l of valides) {
         const blob = await htmlVersPdfBlob(docHtml(l), jsPDF, html2canvas, docPaysage);
         zip.file(`${docNom(l)}.pdf`, blob);
+        await new Promise(r => setTimeout(r, 120)); // laisse le fil principal se libérer entre deux rendus
       }
       const out = await zip.generateAsync({ type: 'blob' });
       telecharger(out, `${docTitre}_${annee.replace('/', '-')}.zip`);
@@ -543,11 +612,12 @@ export default function Attestation() {
     { label: 'G.',              key: 'genre',            w: 'w-12', options: [{ value:'F', label:'F' },{ value:'M', label:'M' },{ value:'X', label:'X' }] },
     { label: 'Lieu de naissance', key: 'lieu_naissance', w: 'w-28' },
     { label: 'Date de naissance', key: 'date_naissance', w: 'w-32', placeholder: 'ex: 26 décembre 2002' },
+    { label: 'Registre national', key: 'registre_national', w: 'w-36', placeholder: 'ex: 98.03.12-123.45' },
     { label: 'Section *',       key: 'section_code',     w: 'w-52', options: optionsSections },
     { label: 'Date délibération', key: 'date_deliberation', w: 'w-36' },
   ];
 
-  const UE_KEYS = [...UES_DET_TIM.map(u => u.ue), '264'];
+  const UE_KEYS = [...cfgActive.det.map(u => u.ue), ...(cfgActive.intUe ? [cfgActive.intUe] : [])];
   const lignesAffichees = useMemo(() => {
     let r = lignes;
     const qq = q.trim().toLowerCase();
@@ -575,15 +645,15 @@ export default function Attestation() {
 
   const exporterListe = () => { try {
     const cols = ['Matricule', 'Nom', 'Prénom', 'Genre', 'Date naissance', 'Section',
-      ...UES_DET_TIM.map(u => `UE${u.ue} /20`), 'UE264 /20', 'Moyenne %', 'Mention'];
+      ...cfgActive.det.map(u => `UE${u.ue} /20`), ...(cfgActive.intUe ? [`UE${cfgActive.intUe} /20`] : []), 'Moyenne %', 'Mention'];
     const esc = (v) => { const t = v == null ? '' : String(v); return /[";\n]/.test(t) ? `"${t.replace(/"/g, '""')}"` : t; };
     const base = selection.size ? lignesAffichees.filter(l => selection.has(l.id)) : lignesAffichees;
     const rows = base.filter(l => l.nom).map(l => {
       const sc = l._scores || {};
       return [
         l.matricule || String(l.id ?? '').replace('tim_', ''), l.nom, l.prenom, l.genre, l.date_naissance, l.section_code,
-        ...UES_DET_TIM.map(u => sc[u.ue] ?? ''),
-        sc['264'] ?? '',
+        ...cfgActive.det.map(u => sc[u.ue] ?? ''),
+        ...(cfgActive.intUe ? [sc[cfgActive.intUe] ?? ''] : []),
         l._calcPct > 0 ? l._calcPct : '',
         l._calcPct > 0 ? l.mention : '',
       ].map(esc).join(';');
@@ -601,7 +671,7 @@ export default function Attestation() {
   const tousSel = idsAffiches.length > 0 && idsAffiches.every(id => selection.has(id));
   const toggleTous = () => setSelection(s => { if (idsAffiches.every(id => s.has(id)) && idsAffiches.length) { const n = new Set(s); idsAffiches.forEach(id => n.delete(id)); return n; } return new Set([...s, ...idsAffiches]); });
 
-  const NB_COLS = 1 + COLS.length + UES_DET_TIM.length + 3;
+  const NB_COLS = 1 + COLS.length + cfgActive.det.length + (cfgActive.intUe ? 1 : 0) + 2;
   const renderRow = (l, idx) => {
     const sc = l._scores || {};
     return (
@@ -612,18 +682,20 @@ export default function Attestation() {
             <Cell value={l[c.key]} onChange={v => majLigne(l.id, c.key, v)} options={c.options} placeholder={c.placeholder} />
           </td>
         ))}
-        {UES_DET_TIM.map(u => (
+        {cfgActive.det.map(u => (
           <td key={u.ue} className="px-1 py-1 text-center">
             <input type="number" min="0" max="20" step="0.5" value={sc[u.ue] ?? ''}
               onChange={e => majScore(l.id, u.ue, e.target.value)}
               className="w-12 border border-gray-200 rounded px-1 py-0.5 text-xs text-center focus:border-iip-turquoise focus:outline-none" />
           </td>
         ))}
+        {cfgActive.intUe && (
         <td className="px-1 py-1 text-center">
-          <input type="number" min="0" max="20" step="0.5" value={sc['264'] ?? ''}
-            onChange={e => majScore(l.id, '264', e.target.value)}
+          <input type="number" min="0" max="20" step="0.5" value={sc[cfgActive.intUe] ?? ''}
+            onChange={e => majScore(l.id, cfgActive.intUe, e.target.value)}
             className="w-12 border border-amber-300 rounded px-1 py-0.5 text-xs text-center focus:border-amber-500 focus:outline-none" />
         </td>
+        )}
         <td className="px-2 py-1 text-center">
           {l.mention
             ? <span className={`text-[11px] font-bold px-2 py-0.5 rounded whitespace-nowrap ${mentionColorClass(l._calcPct)}`}>{l._calcPct}% — {l.mention}</span>
@@ -694,7 +766,7 @@ export default function Attestation() {
           </button>
           <button onClick={() => {
             if (lignes.some(l => l.nom) && !confirm('Remplacer les lignes existantes par les étudiants TIM BA1 2025-2026 ?')) return;
-            setLignes(ETUDIANTS_TIM_BA1.map(e => deriveLigne({ ...LIGNE_VIDE(), ...e, id: Date.now() + Math.random() }, uePer)));
+            setLignes(ETUDIANTS_TIM_BA1.map(e => deriveLigne({ ...LIGNE_VIDE(), ...e, id: Date.now() + Math.random() }, cfgBySec)));
           }}
             className="flex items-center gap-1.5 bg-amber-500 text-white text-sm px-3 py-1.5 rounded-lg hover:opacity-90">
             📥 Importer TIM BA1 (101 étudiants)
@@ -766,14 +838,16 @@ export default function Attestation() {
                 {COLS.map(c => (
                   <th key={c.key} onClick={() => trier(c.key)} className={`text-left px-2 py-2 font-semibold text-gray-500 cursor-pointer select-none hover:text-iip-blue ${c.w}`}>{c.label}{fleche(c.key)}</th>
                 ))}
-                {UES_DET_TIM.map(u => (
+                {cfgActive.det.map(u => (
                   <th key={u.ue} onClick={() => trier('ue:' + u.ue)} className="px-1 py-2 font-semibold text-gray-500 w-14 text-center cursor-pointer select-none hover:text-iip-blue" title={u.nom}>
-                    UE{u.ue}{fleche('ue:' + u.ue)}<br/><span className="text-[9px] text-gray-400 font-normal">/20 · {uePer[u.ue] ?? u.periodes}p</span>
+                    UE{u.ue}{fleche('ue:' + u.ue)}<br/><span className="text-[9px] text-gray-400 font-normal">/20 · {u.periodes}p</span>
                   </th>
                 ))}
-                <th onClick={() => trier('ue:264')} className="px-1 py-2 font-semibold text-amber-600 w-14 text-center cursor-pointer select-none hover:text-amber-700" title={UE_INT_TIM.nom}>
-                  UE264{fleche('ue:264')}<br/><span className="text-[9px] text-amber-500 font-normal">/20 · 1/3</span>
+                {cfgActive.intUe && (
+                <th onClick={() => trier('ue:' + cfgActive.intUe)} className="px-1 py-2 font-semibold text-amber-600 w-14 text-center cursor-pointer select-none hover:text-amber-700" title={cfgActive.intNom}>
+                  UE{cfgActive.intUe}{fleche('ue:' + cfgActive.intUe)}<br/><span className="text-[9px] text-amber-500 font-normal">/20 · 1/3</span>
                 </th>
+                )}
                 <th onClick={() => trier('mention')} className="px-2 py-2 font-semibold text-gray-500 w-32 text-center cursor-pointer select-none hover:text-iip-blue">Mention (auto){fleche('mention')}</th>
                 <th className="px-2 py-2 text-gray-500 w-20">Actions</th>
               </tr>
@@ -796,7 +870,7 @@ export default function Attestation() {
           </table>
         </div>
         <div className="px-4 py-2 bg-gray-50 border-t border-gray-200 text-[11px] text-gray-500">
-          Notes sur /20 — 6 UE déterminantes (total {UES_DET_TIM.reduce((a, u) => a + (uePer[u.ue] ?? u.periodes), 0)} périodes cours+autonomie, pondération 2/3) + UE 264 épreuve intégrée (1/3). Mention calculée automatiquement.
+          Notes sur /20 — {cfgActive.det.length} UE déterminantes (total {cfgActive.det.reduce((a, u) => a + (u.periodes || 0), 0)} périodes cours+autonomie, pondération 2/3){cfgActive.intUe ? ` + UE ${cfgActive.intUe} épreuve intégrée (1/3)` : ''}. Mention calculée automatiquement.
         </div>
       </div>
 
