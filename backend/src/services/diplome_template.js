@@ -20,9 +20,9 @@ export function genererTemplateDiplome() {
   .middle{flex:1;display:flex;flex-direction:column;justify-content:center;}
   .domaine{margin-bottom:5mm;}
   .corps p{margin:0 0 2.5mm 0;}
-  .exergue{margin:4mm 0;}
-  .exergue .grade{font-size:16px;font-weight:700;color:#1B2B4B;line-height:1.25;}
-  .exergue .filet{width:26mm;height:0;border-top:2px solid #1B2B4B;margin:2mm 0 2mm 0;}
+  .exergue{margin:3mm 0;}
+  .exergue .grade{font-size:16px;font-weight:700;color:#1B2B4B;line-height:1.15;}
+  .exergue .filet{width:26mm;height:0;border-top:1px solid #1B2B4B;margin:1mm 0 1.5mm 0;}
   .exergue .mention{color:#374151;}
   .lieu-date{margin-top:4mm;}
   .signatures{display:flex;justify-content:space-between;align-items:flex-start;gap:5mm;}
