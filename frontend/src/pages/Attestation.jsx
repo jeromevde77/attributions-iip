@@ -190,7 +190,23 @@ async function htmlVersPdfBlob(html, jsPDF, html2canvas, landscape = false) {
   try {
     const doc = iframe.contentDocument || iframe.contentWindow.document;
     doc.open(); doc.write(html); doc.close();
-    await new Promise(r => setTimeout(r, 400));
+    const win = iframe.contentWindow;
+    // Attente déterministe : chargement + polices + images + 2 frames. Un délai fixe
+    // laissait html2canvas capturer avant stabilisation en boucle (ZIP) → filet décalé.
+    await new Promise(res => {
+      let fini = false;
+      const finir = () => { if (!fini) { fini = true; res(); } };
+      const stabiliser = async () => {
+        try { if (doc.fonts && doc.fonts.ready) await doc.fonts.ready; } catch {}
+        await Promise.all(Array.from(doc.images || []).map(
+          img => img.complete ? null : new Promise(r => { img.onload = img.onerror = r; })));
+        const raf = win.requestAnimationFrame ? win.requestAnimationFrame.bind(win) : (cb => setTimeout(cb, 16));
+        raf(() => raf(finir));
+        setTimeout(finir, 1500); // filet de sécurité si un asset ne résout pas
+      };
+      if (doc.readyState === 'complete') stabiliser();
+      else win.addEventListener('load', stabiliser, { once: true });
+    });
     const cible = doc.querySelector('.page') || doc.body;
     const canvas = await html2canvas(cible, { scale: 2, useCORS: true, backgroundColor: '#ffffff', windowWidth: w, windowHeight: h });
     const pdf = new jsPDF({ unit: 'mm', format: 'a4', orientation: landscape ? 'landscape' : 'portrait' });

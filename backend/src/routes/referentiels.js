@@ -287,7 +287,7 @@ r.post('/ue', authRequired, roleRequired('admin', 'editeur'), (req, res) => {
 r.patch('/ue/:num', authRequired, roleRequired('admin', 'editeur'), (req, res) => {
   const annee = req.body.annee_scolaire || req.query.annee || '2025-2026';
   const allowed = ['ue_nom','section','ue_niv','ue_niveau','ue_quad','ue_per_cours','ue_aut',
-                   'ue_code_fwb','et_ref','ects','ue_tc','ue_det','ue_per_etudiants','ue_tot_prf','ue_prerequise','ue_per_z','pot_code','nb_etudiants'];
+                   'ue_code_fwb','et_ref','ects','ue_tc','ue_det','is_epreuve_integree','ue_per_etudiants','ue_tot_prf','ue_prerequise','ue_per_z','pot_code','nb_etudiants'];
   const updates = []; const params = { num: req.params.num, annee };
   for (const k of allowed) if (k in req.body) { updates.push(`${k} = @${k}`); params[k] = req.body[k]; }
   if (!updates.length) return res.status(400).json({ error: 'Aucun champ à modifier' });

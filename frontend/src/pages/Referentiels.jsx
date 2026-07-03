@@ -344,7 +344,7 @@ function UEModal({ ue, sections, onClose, onSaved }) {
     ue_num: ue?.ue_num || '', ue_nom: ue?.ue_nom || '', section: ue?.section || (sections[0]?.code || ''),
     ue_niv: ue?.ue_niv || '', ue_niveau: ue?.ue_niveau || '', ue_quad: ue?.ue_quad || '',
     ue_per_cours: ue?.ue_per_cours || '', ue_aut: ue?.ue_aut || '', ue_code_fwb: ue?.ue_code_fwb || '',
-    et_ref: ue?.et_ref || '', ue_tc: ue?.ue_tc || '', ue_det: ue?.ue_det || '',
+    et_ref: ue?.et_ref || '', ue_tc: ue?.ue_tc || '', ue_det: ue?.ue_det || '', is_epreuve_integree: ue?.is_epreuve_integree ? 1 : 0,
     ue_per_etudiants: ue?.ue_per_etudiants || '', ue_tot_prf: ue?.ue_tot_prf || '',
     ects: ue?.ects || '', ue_prerequise: ue?.ue_prerequise || '', ue_per_z: ue?.ue_per_z || '',
     nb_etudiants: ue?.nb_etudiants ?? ''
@@ -503,6 +503,12 @@ function UEModal({ ue, sections, onClose, onSaved }) {
               onChange={e => set('ue_det', e.target.checked ? 'x' : '')}
               className="w-4 h-4 accent-iip-blue" />
             <span className="text-sm text-gray-700">UE déterminante <span className="text-gray-400">(comptée dans le calcul de mention du diplôme)</span></span>
+          </label>
+          <label className="flex items-center gap-2 cursor-pointer py-1">
+            <input type="checkbox" checked={form.is_epreuve_integree === 1}
+              onChange={e => set('is_epreuve_integree', e.target.checked ? 1 : 0)}
+              className="w-4 h-4 accent-iip-blue" />
+            <span className="text-sm text-gray-700">Épreuve intégrée de fin de section <span className="text-gray-400">(comptée dans le total de la mention)</span></span>
           </label>
 
           <div className="flex justify-end gap-2 pt-2 border-t">
