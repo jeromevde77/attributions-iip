@@ -286,7 +286,7 @@ const ETUDIANTS_TIM_BA1 = [{"id": "tim_25-00157", "nom": "ABDELLAOUI", "prenom":
 const LIGNE_VIDE = () => ({
   id: Date.now() + Math.random(),
   nom: '', prenom: '', genre: 'F',
-  lieu_naissance: '', date_naissance: '',
+  lieu_naissance: '', date_naissance: '', registre_national: '',
   section_code: '', mention: 'Distinction',
   ue_determinantes: '', // ex: "UE 101 Anatomie — 15/20, UE 102 Soins — 17/20"
   ue_integree: '',      // ex: "UE 200 Projet intégré — 16/20"
@@ -442,7 +442,7 @@ export default function Attestation() {
       '{{genre}}':               l.genre || '',
       '{{lieu_naissance}}':      l.lieu_naissance || '',
       '{{date_naissance}}':      l.date_naissance || '',
-      '{{registre_national}}':   '',
+      '{{registre_national}}':   l.registre_national || '',
       '{{intitule_section}}':    sec.section || '',
       '{{grade_academique}}':    sec.grade_academique || sec.section || '',
       '{{code_section}}':        sec.code || '',
@@ -543,6 +543,7 @@ export default function Attestation() {
     { label: 'G.',              key: 'genre',            w: 'w-12', options: [{ value:'F', label:'F' },{ value:'M', label:'M' },{ value:'X', label:'X' }] },
     { label: 'Lieu de naissance', key: 'lieu_naissance', w: 'w-28' },
     { label: 'Date de naissance', key: 'date_naissance', w: 'w-32', placeholder: 'ex: 26 décembre 2002' },
+    { label: 'Registre national', key: 'registre_national', w: 'w-36', placeholder: 'ex: 98.03.12-123.45' },
     { label: 'Section *',       key: 'section_code',     w: 'w-52', options: optionsSections },
     { label: 'Date délibération', key: 'date_deliberation', w: 'w-36' },
   ];
