@@ -18,7 +18,6 @@ export function genererTemplateDiplome() {
   .logo-img{height:58px;width:auto;display:block;margin:0;}
   .cf{text-align:right;line-height:1.5;}
   .middle{flex:1;display:flex;flex-direction:column;justify-content:center;}
-  .etab{margin-bottom:5mm;}
   .domaine{margin-bottom:5mm;}
   .corps p{margin:0 0 2.5mm 0;}
   .exergue{margin:4mm 0;}
@@ -45,12 +44,6 @@ export function genererTemplateDiplome() {
   </div>
 
   <div class="middle">
-    <div class="etab">
-      <strong>{{nom_etab}}</strong><br>
-      Adresse : {{adresse_etab}}<br>
-      Année académique : {{annee}}
-    </div>
-
     <div class="domaine">
       Domaine : {{domaine}}<br>
       <strong>Section : {{intitule_section}}</strong>
