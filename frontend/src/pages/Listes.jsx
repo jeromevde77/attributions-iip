@@ -994,8 +994,25 @@ export default function Listes() {
     const sectionsPresentes = [...new Set(ues.map(u => u.section).filter(Boolean))].sort((a,b)=>a.localeCompare(b,'fr'));
     const plusieursSections = sectionsPresentes.length > 1;
 
+    // Vue coordination : fusionne les organisations d'une même UE (par section + ue_num),
+    // concatène leurs cours et somme les totaux. Les coordinations voient ainsi tous les
+    // cours donnés, sans la mécanique des organisations.
+    const fusionnerParUe = (arr) => {
+      const m = new Map();
+      for (const u of arr) {
+        const k = (u.section || '') + '#' + u.ue_num;
+        if (!m.has(k)) m.set(k, { ...u, num_organisation: null, cours: [...(u.cours || [])], total_per: u.total_per || 0, total_aut: u.total_aut || 0 });
+        else { const e = m.get(k); e.cours.push(...(u.cours || [])); e.total_per += u.total_per || 0; e.total_aut += u.total_aut || 0; }
+      }
+      const out = [...m.values()];
+      out.forEach(u => u.cours.sort((a, b) => (a.code_cours || '').localeCompare(b.code_cours || '', 'fr', { numeric: true })));
+      return out;
+    };
+
     // Rendu des UE d'un ensemble donné, regroupées par organisation
     const renderUesParOrga = (uesEnsemble) => {
+      // Mode coordination fusionnée : une seule liste d'UE, sans en-têtes d'organisation
+      if (filtres.vue === 'fusion') return fusionnerParUe(uesEnsemble).map(renderUErap).join('');
       const orgas = [...new Set(uesEnsemble.map(u => u.num_organisation || 1))].sort((a,b) => a - b);
       const plusieursOrgas = orgas.length > 1;
       return orgas.map(org => {
@@ -1478,6 +1495,15 @@ export default function Listes() {
                   <option value="tc">TC uniquement</option>
                   <option value="hors">Hors TC</option>
                 </select>
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-gray-600 mb-1">Vue</label>
+                <select value={filtres.vue||''} onChange={e=>setFiltres(f=>({...f, vue:e.target.value}))}
+                  className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm">
+                  <option value="">Par organisation <span>— détail des dédoublements</span></option>
+                  <option value="fusion">Coordination (fusionnée) — organisations regroupées</option>
+                </select>
+                <p className="text-[11px] text-gray-400 mt-1">La vue coordination regroupe les organisations d'une UE : simplement les cours donnés, sans la mécanique de gestion.</p>
               </div>
               <div>
                 <label className="block text-xs font-medium text-gray-600 mb-1">Niveau</label>
