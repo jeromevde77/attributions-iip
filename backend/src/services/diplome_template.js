@@ -21,7 +21,7 @@ export function genererTemplateDiplome() {
   .domaine{margin-bottom:5mm;}
   .corps p{margin:0 0 2.5mm 0;}
   .exergue{margin:4mm 0;}
-  .exergue .grade{font-size:16px;font-weight:700;color:#1B2B4B;border-left:3px solid #1B2B4B;padding-left:5mm;line-height:1.25;}
+  .exergue .grade{font-size:16px;font-weight:700;color:#1B2B4B;line-height:1.25;}
   .exergue .filet{width:26mm;height:2px;background:#1B2B4B;margin:2mm 0 2mm 0;}
   .exergue .mention{color:#374151;}
   .lieu-date{margin-top:4mm;}
