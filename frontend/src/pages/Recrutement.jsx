@@ -2092,6 +2092,18 @@ function FicheCandidat({ candidat, fonctions, grille, onClose, onSaved }) {
               className="text-xs border border-white/30 bg-iip-turquoise text-white hover:opacity-90 rounded px-2.5 py-1.5 flex items-center gap-1.5 font-medium">
               <IconClipboardText size={14} /> Entretien
             </button>
+            <button onClick={async () => {
+                if (!confirm(`Recrutement global de ${candidat.prenom||''} ${candidat.nom} ?\n\nCela crée sa fiche prof en base SANS lui attribuer de cours. Vous pourrez ensuite le placer dans les cours via la grille Attributions.`)) return;
+                try {
+                  const r = await af(`/candidats/${candidat.id}/engager-global`, { method: 'POST' });
+                  alert(`✅ ${r.prenom} ${r.nom} ${r.cree ? 'ajouté·e' : 'déjà présent·e'} en base. Placez-le·la dans les cours via la grille Attributions.`);
+                  onSaved();
+                } catch(e) { alert('Erreur : ' + e.message); }
+              }}
+              title="Créer la fiche prof sans attribuer de cours"
+              className="text-xs border border-green-600/40 bg-green-50 text-green-700 hover:bg-green-100 rounded px-2.5 py-1.5 flex items-center gap-1.5 font-medium">
+              ➕ Recrutement global
+            </button>
             {candidat.candidatures?.some(ca => ca.statut === 'retenu') && (
               <button onClick={async () => {
                   if (!confirm(`Engager ${candidat.prenom||''} ${candidat.nom} ? Cela créera sa fiche prof et attribuera les cours "Retenu".`)) return;
