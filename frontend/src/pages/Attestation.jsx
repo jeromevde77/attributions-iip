@@ -181,18 +181,21 @@ export function genererTemplateAttestation() {
 </body></html>`;
 }
 
-async function htmlVersPdfBlob(html, jsPDF, html2canvas) {
+async function htmlVersPdfBlob(html, jsPDF, html2canvas, landscape = false) {
+  const w = landscape ? 1123 : 794;   // A4 @ 96dpi
+  const h = landscape ? 794 : 1123;
   const iframe = document.createElement('iframe');
-  iframe.style.cssText = 'position:fixed;left:-10000px;top:0;width:794px;height:1123px;border:0;';
+  iframe.style.cssText = `position:fixed;left:-10000px;top:0;width:${w}px;height:${h}px;border:0;`;
   document.body.appendChild(iframe);
   try {
     const doc = iframe.contentDocument || iframe.contentWindow.document;
     doc.open(); doc.write(html); doc.close();
     await new Promise(r => setTimeout(r, 400));
     const cible = doc.querySelector('.page') || doc.body;
-    const canvas = await html2canvas(cible, { scale: 2, useCORS: true, backgroundColor: '#ffffff', windowWidth: 794, windowHeight: 1123 });
-    const pdf = new jsPDF({ unit: 'mm', format: 'a4', orientation: 'portrait' });
-    pdf.addImage(canvas.toDataURL('image/jpeg', 0.92), 'JPEG', 0, 0, 210, 297, undefined, 'FAST');
+    const canvas = await html2canvas(cible, { scale: 2, useCORS: true, backgroundColor: '#ffffff', windowWidth: w, windowHeight: h });
+    const pdf = new jsPDF({ unit: 'mm', format: 'a4', orientation: landscape ? 'landscape' : 'portrait' });
+    const pw = landscape ? 297 : 210, ph = landscape ? 210 : 297;
+    pdf.addImage(canvas.toDataURL('image/jpeg', 0.92), 'JPEG', 0, 0, pw, ph, undefined, 'FAST');
     return pdf.output('blob');
   } finally {
     document.body.removeChild(iframe);
@@ -326,6 +329,9 @@ export default function Attestation() {
   const [lectureSeule, setLectureSeule]   = useState(false);
   const saveTimer = useRef(null);
   const [uePer, setUePer] = useState(PER_DEFAUT);
+  const [docType, setDocType]       = useState('attestation'); // 'attestation' | 'diplome'
+  const [tplDiplome, setTplDiplome] = useState('');
+  const [logoHelb, setLogoHelb]     = useState('');
 
   useEffect(() => {
     af('/api/config/attestation_sections').then(d => {
@@ -337,6 +343,8 @@ export default function Attestation() {
         setEtab(e);
       } catch {}
     });
+    af('/api/config/diplome_template').then(d => setTplDiplome(d.valeur || '')).catch(() => {});
+    af('/api/config/diplome_logo_helb').then(d => setLogoHelb(d.valeur || '')).catch(() => {});
     af('/api/config/attestation_lignes').then(d => {
       try {
         const arr = JSON.parse(d.valeur);
@@ -426,17 +434,89 @@ export default function Attestation() {
     });
   };
 
+  const genererHtmlDiplome = (l) => {
+    const sec = sectionsDispo.find(s => s.code === l.section_code) || {};
+    return remplaceVars(tplDiplome || '', {
+      '{{nom_etudiant}}':        l.nom.toUpperCase(),
+      '{{prenom_etudiant}}':     l.prenom,
+      '{{genre}}':               l.genre || '',
+      '{{lieu_naissance}}':      l.lieu_naissance || '',
+      '{{date_naissance}}':      l.date_naissance || '',
+      '{{registre_national}}':   '',
+      '{{intitule_section}}':    sec.section || '',
+      '{{grade_academique}}':    '',
+      '{{code_section}}':        sec.code || '',
+      '{{date_approbation}}':    '',
+      '{{total_ects}}':          String(sec.ects || ''),
+      '{{duree_annees}}':        '',
+      '{{domaine}}':             '',
+      '{{mention}}':             l.mention || '',
+      '{{annee}}':               annee,
+      '{{date_deliberation}}':   l.date_deliberation || '',
+      '{{president_jury}}':      '',
+      '{{directeur}}':           etab.directeur || 'Charles Sohet',
+      '{{ville_etab}}':          etab.ville || '',
+      '{{nom_etab}}':            etab.nom || 'INSTITUT ILYA PRIGOGINE',
+      '{{adresse_etab}}':        etab.adresse || '',
+      '{{matricule_etab}}':      etab.matricule || '',
+      '{{fase_etab}}':           etab.fase || '',
+      '{{logo_iip}}':            LOGO_IIP,
+      '{{logo_helb}}':           logoHelb || '',
+      '{{sceau}}':               '',
+      '{{signature_directeur}}': '',
+    });
+  };
+
+  // Aiguillage selon le type de document choisi (attestation | diplôme)
+  const docHtml    = (l) => (docType === 'diplome' ? genererHtmlDiplome(l) : genererHtml(l));
+  const docNom     = (l) => `${docType === 'diplome' ? 'Diplome' : 'Attestation'}_${l.nom}_${l.prenom}`;
+  const docTitre   = docType === 'diplome' ? 'Diplômes' : 'Attestations';
+  const docPaysage = docType === 'diplome';
+
+  const telechargerUn = async (l) => {
+    if (!(l.nom && l.section_code && l.mention)) return;
+    if (docType === 'diplome' && !tplDiplome) { alert('Modèle de diplôme non chargé.'); return; }
+    setGenerating(true);
+    try {
+      const [{ jsPDF }, h2c] = await Promise.all([import('jspdf'), import('html2canvas')]);
+      const blob = await htmlVersPdfBlob(docHtml(l), jsPDF, h2c.default, docPaysage);
+      telecharger(blob, `${docNom(l)}.pdf`);
+    } catch (e) { alert('Erreur PDF : ' + e.message); }
+    finally { setGenerating(false); }
+  };
+
+  const genererZip = async () => {
+    const base = selection.size ? lignesAffichees.filter(l => selection.has(l.id)) : lignesAffichees;
+    const valides = base.filter(l => l.nom && l.section_code && l.mention);
+    if (valides.length === 0) { alert('Aucun étudiant éligible : une mention valide (toutes les UE notées et ≥ 50%) est requise.'); return; }
+    if (docType === 'diplome' && !tplDiplome) { alert('Modèle de diplôme non chargé. Ouvrez l’onglet « Modèle de diplôme » et Enregistrez une fois.'); return; }
+    setGenerating(true);
+    try {
+      const [{ jsPDF }, h2c, JSZipMod] = await Promise.all([import('jspdf'), import('html2canvas'), import('jszip')]);
+      const html2canvas = h2c.default, JSZip = JSZipMod.default;
+      const zip = new JSZip();
+      for (const l of valides) {
+        const blob = await htmlVersPdfBlob(docHtml(l), jsPDF, html2canvas, docPaysage);
+        zip.file(`${docNom(l)}.pdf`, blob);
+      }
+      const out = await zip.generateAsync({ type: 'blob' });
+      telecharger(out, `${docTitre}_${annee.replace('/', '-')}.zip`);
+    } catch (e) { alert('Erreur ZIP : ' + e.message); }
+    finally { setGenerating(false); }
+  };
+
   const genererBatch = () => {
     const base = selection.size ? lignesAffichees.filter(l => selection.has(l.id)) : lignesAffichees;
     const valides = base.filter(l => l.nom && l.section_code && l.mention);
     if (valides.length === 0) { alert('Aucun étudiant éligible : une mention valide (toutes les UE notées et résultat ≥ 50%) est requise.'); return; }
+    if (docType === 'diplome' && !tplDiplome) { alert('Modèle de diplôme non chargé. Ouvrez l’onglet « Modèle de diplôme » et Enregistrez une fois.'); return; }
     setGenerating(true);
     try {
       // Rendu fidèle : on imprime via le moteur du navigateur (identique à l'aperçu)
-      const docs = valides.map(genererHtml);
+      const docs = valides.map(docHtml);
       const style = (docs[0].match(/<style>([\s\S]*?)<\/style>/) || [, ''])[1];
       const bodies = docs.map(d => (d.match(/<body>([\s\S]*?)<\/body>/) || [, ''])[1]);
-      const combined = '<!DOCTYPE html><html lang="fr"><head><meta charset="utf-8"><title>Attestations ' + annee + '</title><style>' + style +
+      const combined = '<!DOCTYPE html><html lang="fr"><head><meta charset="utf-8"><title>' + docTitre + ' ' + annee + '</title><style>' + style +
         '\n@media print{ .page{ page-break-after: always; } .page:last-child{ page-break-after: auto; } }</style></head><body>' +
         bodies.join('\n') + '</body></html>';
       const iframe = document.createElement('iframe');
@@ -553,10 +633,16 @@ export default function Attestation() {
         </td>
         <td className="px-2 py-1">
           <div className="flex items-center gap-1">
-            <button onClick={() => l.nom && l.section_code && l.mention && setPreview({ html: genererHtml(l), nom: `Attestation_${l.nom}_${l.prenom}` })}
+            <button onClick={() => l.nom && l.section_code && l.mention && setPreview({ html: docHtml(l), nom: docNom(l) })}
               title="Prévisualiser (mention requise : toutes les UE notées et ≥ 50%)" disabled={!l.nom || !l.section_code || !l.mention}
               className="text-iip-turquoise hover:opacity-70 disabled:opacity-30 p-0.5">
               <IconEye size={14}/>
+            </button>
+            <button onClick={() => telechargerUn(l)}
+              title={`Télécharger ce ${docType === 'diplome' ? 'diplôme' : 'attestation'} (PDF)`}
+              disabled={!l.nom || !l.section_code || !l.mention || generating}
+              className="text-iip-blue hover:opacity-70 disabled:opacity-30 p-0.5">
+              <IconDownload size={14}/>
             </button>
             <button onClick={() => dupliquerLigne(l.id)} title="Dupliquer"
               className="text-gray-400 hover:text-iip-blue p-0.5">
@@ -627,9 +713,25 @@ export default function Attestation() {
             className="flex items-center gap-1.5 bg-white border border-gray-300 text-gray-700 text-sm px-3 py-1.5 rounded-lg hover:bg-gray-50">
             <IconDownload size={15}/> Exporter la liste
           </button>
+          <div className="flex items-center gap-0.5 bg-gray-100 rounded-lg p-0.5">
+            <button onClick={() => setDocType('attestation')}
+              className={`px-2.5 py-1 text-xs font-medium rounded-md ${docType==='attestation' ? 'bg-white text-iip-blue shadow-sm' : 'text-gray-500 hover:text-iip-blue'}`}>
+              Attestation
+            </button>
+            <button onClick={() => setDocType('diplome')}
+              className={`px-2.5 py-1 text-xs font-medium rounded-md ${docType==='diplome' ? 'bg-white text-iip-blue shadow-sm' : 'text-gray-500 hover:text-iip-blue'}`}>
+              Diplôme
+            </button>
+          </div>
           <button onClick={genererBatch} disabled={generating}
+            title="Un seul PDF (tous les documents à la suite)"
             className="flex items-center gap-1.5 bg-iip-blue text-white text-sm px-4 py-1.5 rounded-lg hover:opacity-90 disabled:opacity-40 font-medium">
-            <IconDownload size={15}/> {generating ? 'Préparation…' : 'Générer les attestations (PDF)'}
+            <IconDownload size={15}/> {generating ? 'Préparation…' : 'PDF unique'}
+          </button>
+          <button onClick={genererZip} disabled={generating}
+            title="ZIP : un fichier PDF par étudiant"
+            className="flex items-center gap-1.5 bg-white border border-iip-blue text-iip-blue text-sm px-4 py-1.5 rounded-lg hover:bg-gray-50 disabled:opacity-40 font-medium">
+            📦 {generating ? 'Préparation…' : 'ZIP séparés'}
           </button>
         </div>
       </div>
