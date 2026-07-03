@@ -575,6 +575,54 @@ r.get('/contexte', (req, res) => {
 
 export default r;
 
+// ── POST /candidats/:id/engager-global ────────────────────────────────────────
+// Recrutement global : crée le professeur en base à partir du candidat, SANS
+// créer ni modifier aucune attribution. Sert à engager un prof "hors cours"
+// pour ensuite le placer manuellement dans les cours via la grille Attributions.
+r.post('/candidats/:id/engager-global', authRequired, roleRequired('admin', 'editeur'), (req, res) => {
+  const candidat = db.prepare('SELECT * FROM recrutement_candidat WHERE id = ?').get(req.params.id);
+  if (!candidat) return res.status(404).json({ error: 'Candidat introuvable' });
+
+  const tx = db.transaction(() => {
+    const today  = new Date().toISOString().split('T')[0];
+    const nom    = (candidat.nom || '').toUpperCase().trim();
+    const prenom = (candidat.prenom || '').trim();
+    if (!nom) throw new Error('Le candidat doit avoir un nom.');
+    const email  = candidat.email ||
+      `${prenom.toLowerCase().replace(/\s+/g,'.')}.${nom.toLowerCase().replace(/\s+/g,'.')}@institut-prigogine.be`;
+
+    // Créer ou retrouver le professeur (aucune attribution touchée)
+    let prof = db.prepare('SELECT id FROM professeur WHERE nom = ? AND prenom = ?').get(nom, prenom);
+    let cree = false;
+    if (!prof) {
+      const r2 = db.prepare(`
+        INSERT INTO professeur (nom, prenom, adresse_mail, date_engagement)
+        VALUES (?, ?, ?, ?)
+      `).run(nom, prenom, email, today);
+      prof = { id: r2.lastInsertRowid };
+      cree = true;
+    } else {
+      db.prepare('UPDATE professeur SET date_engagement = COALESCE(date_engagement, ?), adresse_mail = COALESCE(adresse_mail, ?) WHERE id = ?')
+        .run(today, email, prof.id);
+    }
+
+    // Marquer le candidat comme engagé (idempotent : n'ajoute pas deux fois le tag)
+    if (!String(candidat.notes || '').includes('[ENGAGÉ')) {
+      db.prepare("UPDATE recrutement_candidat SET notes = COALESCE(notes,'') || ' [ENGAGÉ (global) le " + today + "]' WHERE id = ?")
+        .run(candidat.id);
+    }
+
+    return { prof_id: prof.id, nom, prenom, date_engagement: today, cree };
+  });
+
+  try {
+    const result = tx();
+    res.json({ ok: true, ...result });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
 // ── POST /candidats/:id/engager ───────────────────────────────────────────────
 // Crée un professeur depuis le candidat, attribue les cours "retenu", badge NEW
 r.post('/candidats/:id/engager', authRequired, roleRequired('admin', 'editeur'), (req, res) => {
