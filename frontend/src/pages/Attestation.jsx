@@ -440,6 +440,7 @@ export default function Attestation() {
       '{{nom_etudiant}}':        l.nom.toUpperCase(),
       '{{prenom_etudiant}}':     l.prenom,
       '{{genre}}':               l.genre || '',
+      '{{article_titulaire}}':   l.genre === 'M' ? 'Le' : 'La',
       '{{lieu_naissance}}':      l.lieu_naissance || '',
       '{{date_naissance}}':      l.date_naissance || '',
       '{{registre_national}}':   l.registre_national || '',

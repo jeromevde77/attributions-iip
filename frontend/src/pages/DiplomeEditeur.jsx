@@ -26,6 +26,7 @@ const VARS_DEMO = (etab, assets) => ({
   '{{nom_etudiant}}': 'TCHAGNAOU',
   '{{prenom_etudiant}}': 'Ahamadou',
   '{{genre}}': 'M',
+  '{{article_titulaire}}': 'Le',
   '{{lieu_naissance}}': 'Bruxelles (Belgique)',
   '{{date_naissance}}': '12 mars 1998',
   '{{registre_national}}': '98.03.12-123.45',
