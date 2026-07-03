@@ -22,7 +22,7 @@ export function genererTemplateDiplome() {
   .corps p{margin:0 0 2.5mm 0;}
   .exergue{margin:4mm 0;}
   .exergue .grade{font-size:16px;font-weight:700;color:#1B2B4B;line-height:1.25;}
-  .exergue .filet{width:26mm;height:2px;background:#1B2B4B;margin:2mm 0 2mm 0;}
+  .exergue .filet{width:26mm;height:0;border-top:2px solid #1B2B4B;margin:2mm 0 2mm 0;}
   .exergue .mention{color:#374151;}
   .lieu-date{margin-top:4mm;}
   .signatures{display:flex;justify-content:space-between;align-items:flex-end;gap:5mm;}
@@ -31,6 +31,7 @@ export function genererTemplateDiplome() {
   .sig-col .nom{font-weight:700;color:#1B2B4B;border-top:1px solid #b9c2ce;padding-top:2px;}
   .gouv{flex:1;text-align:center;align-self:center;}
   @page{size:A4 landscape;margin:0;}
+  *{-webkit-print-color-adjust:exact;print-color-adjust:exact;}
   @media print{.page{width:297mm;height:210mm;}}
 </style></head><body>
 <div class="page">
