@@ -190,23 +190,7 @@ async function htmlVersPdfBlob(html, jsPDF, html2canvas, landscape = false) {
   try {
     const doc = iframe.contentDocument || iframe.contentWindow.document;
     doc.open(); doc.write(html); doc.close();
-    const win = iframe.contentWindow;
-    // Attente déterministe : chargement + polices + images + 2 frames. Un délai fixe
-    // laissait html2canvas capturer avant stabilisation en boucle (ZIP) → filet décalé.
-    await new Promise(res => {
-      let fini = false;
-      const finir = () => { if (!fini) { fini = true; res(); } };
-      const stabiliser = async () => {
-        try { if (doc.fonts && doc.fonts.ready) await doc.fonts.ready; } catch {}
-        await Promise.all(Array.from(doc.images || []).map(
-          img => img.complete ? null : new Promise(r => { img.onload = img.onerror = r; })));
-        const raf = win.requestAnimationFrame ? win.requestAnimationFrame.bind(win) : (cb => setTimeout(cb, 16));
-        raf(() => raf(finir));
-        setTimeout(finir, 1500); // filet de sécurité si un asset ne résout pas
-      };
-      if (doc.readyState === 'complete') stabiliser();
-      else win.addEventListener('load', stabiliser, { once: true });
-    });
+    await new Promise(r => setTimeout(r, 400));
     const cible = doc.querySelector('.page') || doc.body;
     const canvas = await html2canvas(cible, { scale: 2, useCORS: true, backgroundColor: '#ffffff', windowWidth: w, windowHeight: h });
     const pdf = new jsPDF({ unit: 'mm', format: 'a4', orientation: landscape ? 'landscape' : 'portrait' });
@@ -302,7 +286,7 @@ const ETUDIANTS_TIM_BA1 = [{"id": "tim_25-00157", "nom": "ABDELLAOUI", "prenom":
 const LIGNE_VIDE = () => ({
   id: Date.now() + Math.random(),
   nom: '', prenom: '', genre: 'F',
-  lieu_naissance: '', date_naissance: '', registre_national: '',
+  lieu_naissance: '', date_naissance: '',
   section_code: '', mention: 'Distinction',
   ue_determinantes: '', // ex: "UE 101 Anatomie — 15/20, UE 102 Soins — 17/20"
   ue_integree: '',      // ex: "UE 200 Projet intégré — 16/20"
@@ -452,27 +436,24 @@ export default function Attestation() {
 
   const genererHtmlDiplome = (l) => {
     const sec = sectionsDispo.find(s => s.code === l.section_code) || {};
-    const nomCap = (l.nom || '').charAt(0).toUpperCase() + (l.nom || '').slice(1).toLowerCase();
     return remplaceVars(tplDiplome || '', {
       '{{nom_etudiant}}':        l.nom.toUpperCase(),
       '{{prenom_etudiant}}':     l.prenom,
       '{{genre}}':               l.genre || '',
-      '{{article_titulaire}}':   l.genre === 'M' ? 'Le' : 'La',
-      '{{titulaire_nom}}':       `${l.prenom || ''} ${nomCap}`.trim(),
       '{{lieu_naissance}}':      l.lieu_naissance || '',
       '{{date_naissance}}':      l.date_naissance || '',
-      '{{registre_national}}':   l.registre_national || '',
+      '{{registre_national}}':   '',
       '{{intitule_section}}':    sec.section || '',
-      '{{grade_academique}}':    sec.grade_academique || sec.section || '',
+      '{{grade_academique}}':    '',
       '{{code_section}}':        sec.code || '',
-      '{{date_approbation}}':    sec.date_approbation || '',
+      '{{date_approbation}}':    '',
       '{{total_ects}}':          String(sec.ects || ''),
-      '{{duree_annees}}':        String(sec.duree_annees || ''),
-      '{{domaine}}':             sec.domaine || '',
+      '{{duree_annees}}':        '',
+      '{{domaine}}':             '',
       '{{mention}}':             l.mention || '',
       '{{annee}}':               annee,
       '{{date_deliberation}}':   l.date_deliberation || '',
-      '{{president_jury}}':      sec.president_jury || '',
+      '{{president_jury}}':      '',
       '{{directeur}}':           etab.directeur || 'Charles Sohet',
       '{{ville_etab}}':          etab.ville || '',
       '{{nom_etab}}':            etab.nom || 'INSTITUT ILYA PRIGOGINE',
@@ -562,7 +543,6 @@ export default function Attestation() {
     { label: 'G.',              key: 'genre',            w: 'w-12', options: [{ value:'F', label:'F' },{ value:'M', label:'M' },{ value:'X', label:'X' }] },
     { label: 'Lieu de naissance', key: 'lieu_naissance', w: 'w-28' },
     { label: 'Date de naissance', key: 'date_naissance', w: 'w-32', placeholder: 'ex: 26 décembre 2002' },
-    { label: 'Registre national', key: 'registre_national', w: 'w-36', placeholder: 'ex: 98.03.12-123.45' },
     { label: 'Section *',       key: 'section_code',     w: 'w-52', options: optionsSections },
     { label: 'Date délibération', key: 'date_deliberation', w: 'w-36' },
   ];

@@ -926,7 +926,7 @@ function ConfigAttestation() {
     setSaved('sections'); setTimeout(() => setSaved(''), 2000);
   };
 
-  const ajouterSection = () => setSections(s => [...s, { code: '', section: '', diplome: '', periodes: 0, ects: 0, domaine: '', grade_academique: '', date_approbation: '', duree_annees: '', president_jury: '' }]);
+  const ajouterSection = () => setSections(s => [...s, { code: '', section: '', diplome: '', periodes: 0, ects: 0 }]);
   const supprimerSection = (i) => setSections(s => s.filter((_, j) => j !== i));
   const majSection = (i, k, v) => setSections(s => s.map((x, j) => j === i ? { ...x, [k]: k==='periodes'||k==='ects' ? Number(v) : v } : x));
 
@@ -991,11 +991,6 @@ function ConfigAttestation() {
                   ['code',     'Code Gouvernement (ex: 914300S34D3)'],
                   ['periodes', 'Total périodes'],
                   ['ects',     'Total ECTS'],
-                  ['domaine',          'Domaine (ex: Sciences de la santé publique)'],
-                  ['grade_academique', 'Grade académique (vide = intitulé section)'],
-                  ['date_approbation', "Date d'approbation du dossier (ex: 5 juillet 2024)"],
-                  ['duree_annees',     'Durée (années)'],
-                  ['president_jury',   'Président·e du jury'],
                 ].map(([k, label]) => (
                   <div key={k}>
                     <div className="text-xs text-gray-500 mb-0.5">{label}</div>
