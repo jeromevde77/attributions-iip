@@ -49,7 +49,7 @@ export function genererTemplateDiplome() {
       <p>Vu le décret du 16 avril 1991 organisant l'Enseignement pour Adultes ;</p>
       <p>Vu le décret du 7 novembre 2013 définissant le paysage de l'enseignement supérieur et l'organisation académique des études ;</p>
       <p>Nous, Président·e et Membres du jury d'épreuve intégrée chargé de conférer le grade académique concerné, déclarons que</p>
-      <p><strong>{{nom_etudiant}} {{prenom_etudiant}}</strong> ({{genre}}), né·e à {{lieu_naissance}}, le {{date_naissance}} (n° de registre national {{registre_national}}),</p>
+      <p><strong>{{nom_etudiant}} {{prenom_etudiant}}</strong> ({{genre}}), né·e à {{lieu_naissance}}, le {{date_naissance}},</p>
       <p>a suivi les activités d'apprentissage correspondant au document de référence <strong>{{code_section}}</strong> pour la section <span style="text-transform:lowercase">{{intitule_section}}</span>, domaine de {{domaine}} approuvé le {{date_approbation}}, totalisant <strong>{{total_ects}} crédits</strong> et organisées sur une durée de {{duree_annees}} années au moins, et a obtenu, en l'année académique {{annee}}, le grade académique de :</p>
     </div>
 
