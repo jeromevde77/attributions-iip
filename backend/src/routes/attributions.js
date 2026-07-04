@@ -23,10 +23,12 @@ function analyseAutonomieUE(ue_num, section, annee, ueRow, numOrg = null) {
   const ueAut = ue.ue_aut || 0;
   const perCoursDP = ue.ue_per_cours || 0; // périodes de cours prévues au DP (hors autonomie)
 
-  // Cours de l'UE (hors Z) avec leurs périodes DP
+  // Cours de l'UE (hors Z) avec leurs périodes DP.
+  // Pas de filtre par organisation ici : le DP d'un cours est le même pour toutes les
+  // organisations, et la table `cours` ne porte pas de colonne num_organisation.
   const cours = db.prepare(
-    "SELECT cours_code, cours_per FROM cours WHERE ue_num = ? AND section = ? AND annee_scolaire = ? AND (ct_pp IS NULL OR ct_pp != 'Z')" + orgClause
-  ).all(ue_num, section, annee, ...orgP);
+    "SELECT cours_code, cours_per FROM cours WHERE ue_num = ? AND section = ? AND annee_scolaire = ? AND (ct_pp IS NULL OR ct_pp != 'Z')"
+  ).all(ue_num, section, annee);
 
   // Périodes de cours réellement attribuées (somme des lignes, hors autonomie, hors EPT/Z)
   const perOuvertes = db.prepare(`
