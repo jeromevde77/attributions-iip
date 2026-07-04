@@ -554,17 +554,22 @@ r.get('/autonomie-ue', authRequired, (req, res) => {
 
   const map = {};
   for (const ue of ues) {
-    // Agrégat toutes organisations confondues — utilisé par la vue coordination
-    const agg = analyseAutonomieUE(ue.ue_num, section, annee, ue);
-    if (agg && agg.per_ouvertes > 0) map[ue.ue_num] = agg;
-    // Analyse propre à chaque organisation — utilisée par les vues section / complète
-    const orgs = db.prepare(
-      'SELECT DISTINCT num_organisation FROM attribution WHERE ue_num = ? AND section = ? AND annee_scolaire = ?'
-    ).all(ue.ue_num, section, annee);
-    for (const row of orgs) {
-      const org = row.num_organisation || 1;
-      const a = analyseAutonomieUE(ue.ue_num, section, annee, ue, org);
-      if (a && a.per_ouvertes > 0) map[ue.ue_num + '/' + org] = a;
+    try {
+      // Agrégat toutes organisations confondues — utilisé par la vue coordination
+      const agg = analyseAutonomieUE(ue.ue_num, section, annee, ue);
+      if (agg && agg.per_ouvertes > 0) map[ue.ue_num] = agg;
+      // Analyse propre à chaque organisation — utilisée par les vues section / complète
+      const orgs = db.prepare(
+        'SELECT DISTINCT num_organisation FROM attribution WHERE ue_num = ? AND section = ? AND annee_scolaire = ?'
+      ).all(ue.ue_num, section, annee);
+      for (const row of orgs) {
+        const org = row.num_organisation || 1;
+        const a = analyseAutonomieUE(ue.ue_num, section, annee, ue, org);
+        if (a && a.per_ouvertes > 0) map[ue.ue_num + '/' + org] = a;
+      }
+    } catch (e) {
+      // UE avec donnée problématique : on la saute pour ne pas priver TOUTES les UE de badge
+      console.error('autonomie-ue: UE', ue.ue_num, 'ignorée —', e.message);
     }
   }
   res.json(map);
