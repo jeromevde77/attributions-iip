@@ -1565,7 +1565,7 @@ export default function Attributions() {
     return out;
   }
 
-  function renderCours(ueKey, cg) {
+  function renderCours(ueKey, cg, montrerHeader = true) {
     const key = 'cours:'+ueKey+'/'+cg.code_cours;
     const open = openUEs.has(key);
     const st = groupStats(cg.rows);
@@ -1609,7 +1609,7 @@ export default function Attributions() {
         {open && (
           <div className="overflow-auto max-h-[40vh] border-t border-gray-100 bg-white">
             <table className="grid-excel-soft" style={{tableLayout:'fixed'}}>
-              <thead><tr>
+              {montrerHeader && (<thead><tr>
                 {COLS_COURS.map(c => c.key==='__select'
                   ? <th key={c.key} style={{width:c.width,minWidth:c.width,maxWidth:c.width}}>
                       <input type="checkbox"
@@ -1623,7 +1623,7 @@ export default function Attributions() {
                         : c.label
                     }</ResizableHeader>
                 )}
-              </tr></thead>
+              </tr></thead>)}
               <tbody>{renderActiviteGroups(cg, key)}</tbody>
             </table>
           </div>
@@ -1792,7 +1792,7 @@ export default function Attributions() {
                 </div>
               );
             })()}
-            {ue.cours.map(cg => renderCours(ueKey, cg))}
+            {(() => { let vu = false; return ue.cours.map(cg => { const o = openUEs.has('cours:'+ueKey+'/'+cg.code_cours); const h = o && !vu; if (o) vu = true; return renderCours(ueKey, cg, h); }); })()}
           </div>
         )}
       </div>
