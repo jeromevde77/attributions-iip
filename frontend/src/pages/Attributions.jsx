@@ -235,6 +235,15 @@ export default function Attributions() {
   }, []);
   const [alertesCours, setAlertesCours] = useState({}); // { [attribution_id]: {definitif...} } cours avec un définitif
   const [autAnalyse, setAutAnalyse] = useState({}); // { [ue_num]: { ok, reste } }
+  // Récupère l'analyse d'une UE : par organisation, avec repli sur l'agrégat UNIQUEMENT
+  // si l'UE n'a qu'une seule organisation (sinon l'agrégat sommerait les deux → ×N faux).
+  const ctrlPourUE = (ueNum, org) => {
+    if (viewMode === 'coord') return autAnalyse[String(ueNum)];
+    const perOrg = autAnalyse[ueNum + '/' + (org || 1)];
+    if (perOrg) return perOrg;
+    const nbOrgs = Object.keys(autAnalyse).filter(k => k.startsWith(ueNum + '/')).length;
+    return nbOrgs <= 1 ? autAnalyse[String(ueNum)] : undefined;
+  };
   const [controle, setControle] = useState({}); // { [ue_num]: {etat, message, palier, plancher, plafond, cours:[...]} }
   const [filters, setFilters] = useState({ section:'', prof_id:'', contrat:'', type_cours:'', ue_num:'', q:'' });
   const [loading, setLoading] = useState(true);
@@ -1582,7 +1591,7 @@ export default function Attributions() {
             : <>
                 {(() => {
                   // Badge "multiple du DP" : ×N si net, sinon ratio en orange (non conforme)
-                  const ctrlUE = autAnalyse[viewMode === 'coord' ? String(cg.ue_num) : cg.ue_num + '/' + (cg.num_organisation || 1)];
+                  const ctrlUE = ctrlPourUE(cg.ue_num, cg.num_organisation);
                   const cc = ctrlUE?.cours?.find(x => x.code_cours === cg.code_cours);
                   if (!cc || !cc.dp) return null;
                   if (cc.est_multiple) {
@@ -1673,8 +1682,8 @@ export default function Attributions() {
             </span>
             <span className="flex items-center gap-2 min-w-0">
               <span className="text-sm text-gray-600 truncate" title={ue.ue_nom}>{ue.ue_nom || 'UE sans nom'}</span>
-              {(autAnalyse[viewMode === 'coord' ? String(ue.ue_num) : ue.ue_num + '/' + (ue.num_organisation || 1)]) && (() => {
-                const a = autAnalyse[viewMode === 'coord' ? String(ue.ue_num) : ue.ue_num + '/' + (ue.num_organisation || 1)];
+              {ctrlPourUE(ue.ue_num, ue.num_organisation) && (() => {
+                const a = ctrlPourUE(ue.ue_num, ue.num_organisation);
                 if (a.ok) {
                   return <span className="text-[10px] px-1.5 py-0.5 rounded bg-green-100 text-green-700 font-medium flex-shrink-0" title={`Autonomie ${a.aut_attribuee} dans l'intervalle [${a.min} ; ${a.max}]`}>✓ aut.</span>;
                 }
@@ -1766,7 +1775,7 @@ export default function Attributions() {
         {open && (
           <div className={activeUE === key ? (isHelb ? 'bg-pink-50/60' : 'bg-iip-gold/5') : (isHelb ? 'bg-pink-50/40' : 'bg-gray-50/50')}>
             {(() => {
-              const ctrl = autAnalyse[viewMode === 'coord' ? String(ue.ue_num) : ue.ue_num + '/' + (ue.num_organisation || 1)];
+              const ctrl = ctrlPourUE(ue.ue_num, ue.num_organisation);
               if (!ctrl || !ctrl.message) return null;
               const styles = {
                 ok:          'bg-green-50 border-green-200 text-green-800',
