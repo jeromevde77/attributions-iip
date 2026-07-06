@@ -55,11 +55,11 @@ export function genererTemplate() {
   .cours-per { color: #666; font-style: italic; white-space: nowrap; text-align: right; }
   .cours-total { font-weight: bold; margin-top: 1.5mm; padding-top: 1.5mm; border-top: 0.5pt solid #ccc; font-size: 9.5pt; }
   .signatures { display: grid; grid-template-columns: 1fr 1fr; gap: 8mm; margin-top: 8mm; padding-top: 4mm; border-top: 0.5pt solid #ccc; }
-  .sig-bloc .sig-titre { font-weight: bold; font-size: 9pt; margin-bottom: 6mm; }
-  .sig-bloc .sig-mention { font-style: italic; font-size: 8pt; color: #666; margin-bottom: 18mm; }
-  .sig-bloc .sig-img { height: 18mm; display: flex; align-items: flex-end; }
+  .sig-bloc .sig-titre { font-weight: bold; font-size: 9pt; margin-bottom: 3mm; }
+  .sig-bloc .sig-zone { height: 18mm; display: flex; align-items: flex-end; }
+  .sig-bloc .sig-mention { font-style: italic; font-size: 8pt; color: #666; }
   .sig-bloc .sig-img img { max-height: 18mm; max-width: 55mm; }
-  .sig-bloc .sig-nom { font-size: 9pt; border-top: 0.5pt solid #888; padding-top: 1mm; }
+  .sig-bloc .sig-nom { font-size: 9pt; border-top: 0.5pt solid #888; padding-top: 1mm; margin-top: 1mm; }
   .mention-date { font-size: 9pt; margin: 3mm 0; }
   .annexes-titre { font-weight: bold; font-size: 10pt; color: #1F3864; margin-bottom: 3mm; }
   ol.annexes { padding-left: 5mm; margin: 1mm 0; }
@@ -201,12 +201,12 @@ export function genererTemplate() {
   <div class="signatures">
     <div class="sig-bloc">
       <div class="sig-titre">Le travailleur·se,</div>
-      <div class="sig-mention">précédé de la mention « lu et approuvé »</div>
+      <div class="sig-zone"><span class="sig-mention">précédé de la mention « lu et approuvé »</span></div>
       <div class="sig-nom">{{nom_prof}}</div>
     </div>
     <div class="sig-bloc">
       <div class="sig-titre">Le représentant·e du Pouvoir organisateur,</div>
-      <div class="sig-img">{{signature_representant}}</div>
+      <div class="sig-zone sig-img">{{signature_representant}}</div>
       <div class="sig-nom">{{representant}}</div>
     </div>
   </div>

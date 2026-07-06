@@ -16,11 +16,11 @@ r.post('/apercu', authRequired, roleRequired('admin', 'editeur'), async (req, re
     const etab  = db.prepare('SELECT * FROM etablissement LIMIT 1').get() || {};
     const attributions = db.prepare(`
       SELECT a.section, a.code_cours,
-             SUM(a.periodes_attribuees) AS periodes_attribuees,
-             SUM(a.autonomie_attribuee) AS autonomie_attribuee,
-             MAX(u.ue_nom) AS ue_nom, MAX(c.cours_nom) AS cours_nom,
-             MAX(c.ct_pp) AS ct_pp, MAX(a.type_cours) AS type_cours,
-             MAX(a.en_conge) AS en_conge,
+             a.periodes_attribuees AS periodes_attribuees,
+             a.autonomie_attribuee AS autonomie_attribuee,
+             u.ue_nom AS ue_nom, c.cours_nom AS cours_nom,
+             c.ct_pp AS ct_pp, a.type_cours AS type_cours,
+             a.en_conge AS en_conge,
              (SELECT p2.nom || ' ' || p2.prenom FROM attribution a2
               JOIN professeur p2 ON p2.id = a2.professeur_id
               WHERE a2.code_cours = a.code_cours AND a2.section = a.section
@@ -31,7 +31,6 @@ r.post('/apercu', authRequired, roleRequired('admin', 'editeur'), async (req, re
       LEFT JOIN cours c ON c.cours_code = a.code_cours AND c.annee_scolaire = a.annee_scolaire
       WHERE a.professeur_id = ? AND a.annee_scolaire = ?
       AND (a.type_cours IS NULL OR a.type_cours != 'Z')
-      GROUP BY a.section, a.code_cours
       ORDER BY a.section, a.code_cours
     `).all(prof_id, anneeActive);
 
