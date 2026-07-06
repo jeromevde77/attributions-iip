@@ -1,16 +1,15 @@
 /**
  * contrat_pdf.js — Génère le contrat en PDF via Chrome headless (Puppeteer).
  *
- * Le pied de page est injecté nativement par Puppeteer (option footerTemplate
- * de page.pdf()), une fonctionnalité de Chrome DevTools Protocol conçue
- * exactement pour ça : elle est répétée de façon fiable sur CHAQUE page,
- * contrairement aux techniques CSS pures (position:fixed, tfoot) qui dépendent
- * du moteur d'impression du navigateur et peuvent se comporter différemment
- * selon le contexte (impression directe, impression depuis une iframe, etc.).
+ * Le pied de page est le vrai <tfoot> HTML déjà présent dans le document généré
+ * par contrat_preview.js (table CSS standard, display:table-footer-group).
+ * On laisse le moteur de rendu PDF de Chromium (Page.printToPDF, un vrai moteur
+ * de mise en page/pagination) le répéter nativement — plus prévisible que l'option
+ * footerTemplate de Puppeteer, qui rend dans un contexte à part avec des soucis
+ * d'unités/dimensionnement peu fiables (logo mal dimensionné, chevauchement avec
+ * le corps du texte).
  */
 import puppeteer from 'puppeteer';
-import { piedDocument } from '../routes/parametres.js';
-import { LOGO_IIP_JPEG } from './assets/logo_iip_jpeg.js';
 
 let browserPromise = null;
 
@@ -49,32 +48,21 @@ function getBrowser() {
 }
 
 /**
- * @param {string} htmlContrat - HTML complet généré par genererApercu() (contrat_preview.js).
+ * @param {string} htmlContrat - HTML complet généré par genererApercu() (contrat_preview.js),
+ *   avec son <tfoot> intact (pied de page).
  * @returns {Promise<Buffer>} Buffer PDF.
  */
 export async function genererContratPdf(htmlContrat) {
-  // On retire le <tfoot> du template : le pied de page est désormais fourni
-  // par Puppeteer (footerTemplate) pour garantir sa répétition sur chaque page.
-  const htmlSansTfoot = htmlContrat.replace(/<tfoot>[\s\S]*?<\/tfoot>/, '');
-
   const browser = await getBrowser();
   const page = await browser.newPage();
   try {
-    await page.setContent(htmlSansTfoot, { waitUntil: 'networkidle0' });
-
-    const footerTemplate = `
-      <div style="width:100%; font-family: Arial, Helvetica, sans-serif; font-size:8px; color:#888; padding:0 60px; box-sizing:border-box;">
-        <img src="${LOGO_IIP_JPEG}" style="height:26px; width:auto; display:block; margin-bottom:5px;" />
-        <div style="border-top:1px solid #C9A84C; padding-top:6px; text-align:center; line-height:1.4;">${piedDocument()}</div>
-      </div>`;
+    await page.setContent(htmlContrat, { waitUntil: 'networkidle0' });
 
     const pdfData = await page.pdf({
       format: 'A4',
       printBackground: true,
-      margin: { top: '12mm', right: '16mm', bottom: '40mm', left: '16mm' },
-      displayHeaderFooter: true,
-      headerTemplate: '<div></div>',
-      footerTemplate,
+      margin: { top: '12mm', right: '16mm', bottom: '12mm', left: '16mm' },
+      displayHeaderFooter: false,
     });
     // Puppeteer récent renvoie parfois un Uint8Array plutôt qu'un vrai Buffer Node —
     // sans cette conversion explicite, Express peut mal sérialiser le binaire (fichier corrompu).
