@@ -8,7 +8,7 @@
  * du moteur d'impression du navigateur et peuvent se comporter différemment
  * selon le contexte (impression directe, impression depuis une iframe, etc.).
  */
-import puppeteer from 'puppeteer-core';
+import puppeteer from 'puppeteer';
 import { piedDocument } from '../routes/parametres.js';
 import { LOGO_IIP_JPEG } from './assets/logo_iip_jpeg.js';
 
@@ -17,7 +17,6 @@ let browserPromise = null;
 function getBrowser() {
   if (!browserPromise) {
     browserPromise = puppeteer.launch({
-      executablePath: process.env.PUPPETEER_EXECUTABLE_PATH || '/usr/bin/chromium',
       headless: true,
       timeout: 120000, // le NAS peut être lent au premier démarrage de Chromium
       args: [
