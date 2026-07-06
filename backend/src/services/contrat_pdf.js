@@ -19,6 +19,7 @@ function getBrowser() {
     browserPromise = puppeteer.launch({
       executablePath: process.env.PUPPETEER_EXECUTABLE_PATH || '/usr/bin/chromium',
       headless: true,
+      timeout: 120000, // le NAS peut être lent au premier démarrage de Chromium
       args: [
         '--no-sandbox',
         '--disable-setuid-sandbox',
@@ -26,7 +27,22 @@ function getBrowser() {
         '--disable-gpu',
         '--disable-software-rasterizer',
         '--no-zygote',
-        '--single-process',
+        '--disable-background-networking',
+        '--disable-background-timer-throttling',
+        '--disable-backgrounding-occluded-windows',
+        '--disable-breakpad',
+        '--disable-component-update',
+        '--disable-default-apps',
+        '--disable-extensions',
+        '--disable-ipc-flooding-protection',
+        '--disable-renderer-backgrounding',
+        '--disable-sync',
+        '--metrics-recording-only',
+        '--mute-audio',
+        '--no-first-run',
+        '--safebrowsing-disable-auto-update',
+        '--password-store=basic',
+        '--use-mock-keychain',
       ],
     }).catch(err => { browserPromise = null; throw err; });
   }
