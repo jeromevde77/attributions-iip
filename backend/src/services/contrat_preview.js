@@ -27,6 +27,9 @@ export function genererTemplate() {
 <style>
   * { box-sizing: border-box; margin: 0; padding: 0; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
   body { font-family: Arial, sans-serif; font-size: 9pt; color: #1a1a2e; background: white; }
+  .page-table { width: 100%; border-collapse: collapse; }
+  .page-table > tfoot { display: table-footer-group; }
+  .page-table > tbody { display: table-row-group; }
   .page { max-width: 178mm; margin: 0 auto; padding: 0; }
   .header { border-bottom: 2.5pt solid #1F3864; margin-bottom: 6mm; padding-bottom: 4mm; display: flex; justify-content: space-between; align-items: flex-end; }
   .header-left .etab-nom { font-size: 11pt; font-weight: bold; color: #1F3864; }
@@ -67,15 +70,14 @@ export function genererTemplate() {
   .footer-iip .logo { height: 10mm; width: auto; opacity: 0.9; display: block; margin-bottom: 2.5mm; }
   .footer-iip .txt { border-top: 0.5pt solid #C9A84C; padding-top: 2.5mm; font-size: 6pt; color: #888; text-align: center; line-height: 1.4; }
 
-  /* Impression : pied de page répété sur chaque page (position fixe = ancré au bas de chaque page imprimée) */
+  /* Impression : le tfoot (voir HTML plus bas) se répète nativement sur chaque page dans tous les navigateurs */
   @media print {
-    @page { size: A4 portrait; margin: 12mm 16mm 24mm 16mm; }
+    @page { size: A4 portrait; margin: 12mm 16mm; }
     body { margin: 0; }
     .page-break { page-break-before: always; }
-    .footer-iip { position: fixed; bottom: 0; left: 0; right: 0; margin-top: 0; }
   }
 </style>
-</head><body><div class="page">
+</head><body><table class="page-table"><tbody><tr><td><div class="page">
 
   <div class="header">
     <div class="header-left">
@@ -235,11 +237,16 @@ export function genererTemplate() {
     <li>Le document intitulé « contenu des prestations ».</li>
   </ol>
 
+  </div></td></tr></tbody>
+  <tfoot><tr><td>
+  <div class="page">
   <div class="footer-iip">
     <img class="logo" src="{{logo_iip}}" alt="Institut Ilya Prigogine">
     <div class="txt">{{pied_page}}</div>
   </div>
-</div></body></html>`;
+  </div>
+  </td></tr></tfoot>
+</table></body></html>`;
 }
 
 /** Remplace les {{variables}} dans le template avec les données réelles */
