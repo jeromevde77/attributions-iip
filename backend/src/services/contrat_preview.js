@@ -61,11 +61,9 @@ export function genererTemplate() {
   .sig-bloc .sig-img img { max-height: 18mm; max-width: 55mm; }
   .sig-bloc .sig-nom { font-size: 9pt; border-top: 0.5pt solid #888; padding-top: 1mm; }
   .mention-date { font-size: 9pt; margin: 3mm 0; }
-  .footer-iip { margin-top: 8mm; }
-  .footer-iip .divider { border-top: 0.75pt solid #C9A84C; margin-bottom: 2.5mm; }
-  .footer-iip .row { display: flex; align-items: center; }
-  .footer-iip .logo { width: 26mm; flex-shrink: 0; }
-  .footer-iip .txt { flex: 1; text-align: center; font-size: 7pt; color: #1F3864; line-height: 1.6; padding-right: 26mm; }
+  .footer-iip { margin-top: 8mm; flex-shrink: 0; }
+  .footer-iip .logo { height: 10mm; width: auto; opacity: 0.9; display: block; margin-bottom: 2.5mm; }
+  .footer-iip .txt { border-top: 0.5pt solid #C9A84C; padding-top: 2.5mm; font-size: 6pt; color: #888; text-align: center; line-height: 1.4; }
 </style>
 </head><body><div class="page">
 
@@ -156,11 +154,8 @@ export function genererTemplate() {
   </div>
 
   <div class="footer-iip">
-    <div class="divider"></div>
-    <div class="row">
-      <img class="logo" src="{{logo_iip}}" alt="Institut Ilya Prigogine">
-      <div class="txt">{{pied_page}}</div>
-    </div>
+    <img class="logo" src="{{logo_iip}}" alt="Institut Ilya Prigogine">
+    <div class="txt">{{pied_page}}</div>
   </div>
 </div></body></html>`;
 }
