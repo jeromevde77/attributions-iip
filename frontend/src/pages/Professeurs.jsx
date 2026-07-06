@@ -626,6 +626,25 @@ function DetailModal({ profId, onClose, onEdit, onFiche }) {
     finally { setGeneratingContrat(false); }
   }
 
+  const [generatingPdf, setGeneratingPdf] = useState(false);
+  async function telechargerPdf() {
+    setGeneratingPdf(true);
+    try {
+      const res = await fetch('/api/contrats/pdf', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${localStorage.getItem('token')}` },
+        body: JSON.stringify({ prof_id: profId, date_contrat: dateContrat, representant, annee: getAnnee() }),
+      });
+      if (!res.ok) throw new Error((await res.json().catch(() => ({}))).error || 'Erreur serveur');
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url; a.download = `Contrat_${detail.nom}_${detail.prenom}_${dateContrat}.pdf`;
+      a.click(); URL.revokeObjectURL(url);
+    } catch (e) { alert('Erreur : ' + e.message); }
+    finally { setGeneratingPdf(false); }
+  }
+
   if (!detail) return (
     <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-30">
       <div className="bg-white rounded-xl p-8 text-gray-400">Chargement…</div>
@@ -930,10 +949,16 @@ function DetailModal({ profId, onClose, onEdit, onFiche }) {
           nomFichier={aperçuContrat.nom}
           onClose={() => setAperçuContrat(null)}
           actionExtra={
-            <button onClick={telechargerDocx} disabled={generatingContrat}
-              className="flex items-center gap-1.5 px-3 py-1.5 bg-green-600 text-white rounded-lg text-xs font-medium hover:opacity-90 disabled:opacity-40">
-              <IconDownload size={13}/> {generatingContrat ? '…' : 'Télécharger .docx'}
-            </button>
+            <>
+              <button onClick={telechargerPdf} disabled={generatingPdf}
+                className="flex items-center gap-1.5 px-3 py-1.5 bg-red-600 text-white rounded-lg text-xs font-medium hover:opacity-90 disabled:opacity-40">
+                <IconDownload size={13}/> {generatingPdf ? '…' : 'Télécharger PDF'}
+              </button>
+              <button onClick={telechargerDocx} disabled={generatingContrat}
+                className="flex items-center gap-1.5 px-3 py-1.5 bg-green-600 text-white rounded-lg text-xs font-medium hover:opacity-90 disabled:opacity-40">
+                <IconDownload size={13}/> {generatingContrat ? '…' : 'Télécharger .docx'}
+              </button>
+            </>
           }
         />
       )}

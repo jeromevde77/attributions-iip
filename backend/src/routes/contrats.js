@@ -3,36 +3,44 @@ import db from '../db/index.js';
 import { authRequired, roleRequired } from '../middleware/auth.js';
 import { genererContrat } from '../services/contrat_fill.js';
 import { genererApercu } from '../services/contrat_preview.js';
+import { genererContratPdf } from '../services/contrat_pdf.js';
 
 const r = Router();
+
+// ── Helper partagé : charge prof + établissement + attributions pour un contrat ──
+function chargerDonneesContrat(prof_id, annee) {
+  const anneeActive = annee || db.prepare("SELECT code FROM annee_scolaire WHERE active=1").get()?.code || '';
+  const prof  = db.prepare('SELECT * FROM professeur WHERE id = ?').get(prof_id);
+  if (!prof) return { prof: null };
+  const etab  = db.prepare('SELECT * FROM etablissement LIMIT 1').get() || {};
+  const attributions = db.prepare(`
+    SELECT a.section, a.code_cours,
+           a.periodes_attribuees AS periodes_attribuees,
+           a.autonomie_attribuee AS autonomie_attribuee,
+           u.ue_nom AS ue_nom, c.cours_nom AS cours_nom,
+           c.ct_pp AS ct_pp, a.type_cours AS type_cours,
+           a.en_conge AS en_conge,
+           (SELECT p2.nom || ' ' || p2.prenom FROM attribution a2
+            JOIN professeur p2 ON p2.id = a2.professeur_id
+            WHERE a2.code_cours = a.code_cours AND a2.section = a.section
+            AND a2.annee_scolaire = a.annee_scolaire AND a2.en_conge = 1
+            LIMIT 1) AS titulaire_en_conge
+    FROM attribution a
+    LEFT JOIN ue u ON u.ue_num = a.ue_num AND u.annee_scolaire = a.annee_scolaire
+    LEFT JOIN cours c ON c.cours_code = a.code_cours AND c.annee_scolaire = a.annee_scolaire
+    WHERE a.professeur_id = ? AND a.annee_scolaire = ?
+    AND (a.type_cours IS NULL OR a.type_cours != 'Z')
+    ORDER BY a.section, a.code_cours
+  `).all(prof_id, anneeActive);
+  return { anneeActive, prof, etab, attributions };
+}
 
 // ── GET /apercu — prévisualisation HTML ───────────────────────────────────────
 r.post('/apercu', authRequired, roleRequired('admin', 'editeur'), async (req, res) => {
   try {
     const { prof_id, date_contrat, annee, representant } = req.body;
-    const anneeActive = annee || db.prepare("SELECT code FROM annee_scolaire WHERE active=1").get()?.code || '';
-    const prof  = db.prepare('SELECT * FROM professeur WHERE id = ?').get(prof_id);
+    const { anneeActive, prof, etab, attributions } = chargerDonneesContrat(prof_id, annee);
     if (!prof) return res.status(404).json({ error: 'Professeur introuvable' });
-    const etab  = db.prepare('SELECT * FROM etablissement LIMIT 1').get() || {};
-    const attributions = db.prepare(`
-      SELECT a.section, a.code_cours,
-             a.periodes_attribuees AS periodes_attribuees,
-             a.autonomie_attribuee AS autonomie_attribuee,
-             u.ue_nom AS ue_nom, c.cours_nom AS cours_nom,
-             c.ct_pp AS ct_pp, a.type_cours AS type_cours,
-             a.en_conge AS en_conge,
-             (SELECT p2.nom || ' ' || p2.prenom FROM attribution a2
-              JOIN professeur p2 ON p2.id = a2.professeur_id
-              WHERE a2.code_cours = a.code_cours AND a2.section = a.section
-              AND a2.annee_scolaire = a.annee_scolaire AND a2.en_conge = 1
-              LIMIT 1) AS titulaire_en_conge
-      FROM attribution a
-      LEFT JOIN ue u ON u.ue_num = a.ue_num AND u.annee_scolaire = a.annee_scolaire
-      LEFT JOIN cours c ON c.cours_code = a.code_cours AND c.annee_scolaire = a.annee_scolaire
-      WHERE a.professeur_id = ? AND a.annee_scolaire = ?
-      AND (a.type_cours IS NULL OR a.type_cours != 'Z')
-      ORDER BY a.section, a.code_cours
-    `).all(prof_id, anneeActive);
 
     const html = genererApercu({ etab, prof, attributions, annee: anneeActive, date_contrat, representant,
       templateHtml: db.prepare("SELECT valeur FROM lucie_config WHERE cle = 'contrat_template'").get()?.valeur || null,
@@ -40,6 +48,28 @@ r.post('/apercu', authRequired, roleRequired('admin', 'editeur'), async (req, re
     res.json({ html, nom: `Contrat_${prof.nom}_${prof.prenom}_${date_contrat||''}` });
   } catch (e) {
     res.status(500).json({ error: e.message });
+  }
+});
+
+// ── POST /pdf — génère le PDF côté serveur (Chrome headless), pied de page fiable sur chaque page ──
+r.post('/pdf', authRequired, roleRequired('admin', 'editeur'), async (req, res) => {
+  try {
+    const { prof_id, date_contrat, annee, representant } = req.body;
+    const { anneeActive, prof, etab, attributions } = chargerDonneesContrat(prof_id, annee);
+    if (!prof) return res.status(404).json({ error: 'Professeur introuvable' });
+
+    const html = genererApercu({ etab, prof, attributions, annee: anneeActive, date_contrat, representant,
+      templateHtml: db.prepare("SELECT valeur FROM lucie_config WHERE cle = 'contrat_template'").get()?.valeur || null,
+    });
+    const pdfBuffer = await genererContratPdf(html);
+
+    const fn = `Contrat_${prof.nom}_${prof.prenom}_${date_contrat||''}.pdf`.replace(/[^a-zA-Z0-9_.-]/g, '_');
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader('Content-Disposition', `attachment; filename="${fn}"`);
+    res.send(pdfBuffer);
+  } catch (err) {
+    console.error('[contrats/pdf]', err);
+    res.status(500).json({ error: err.message });
   }
 });
 
