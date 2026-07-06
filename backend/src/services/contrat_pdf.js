@@ -71,7 +71,7 @@ export async function genererContratPdf(htmlContrat) {
     const pdfData = await page.pdf({
       format: 'A4',
       printBackground: true,
-      margin: { top: '12mm', right: '16mm', bottom: '32mm', left: '16mm' },
+      margin: { top: '12mm', right: '16mm', bottom: '40mm', left: '16mm' },
       displayHeaderFooter: true,
       headerTemplate: '<div></div>',
       footerTemplate,
