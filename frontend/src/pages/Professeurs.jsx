@@ -645,6 +645,38 @@ function DetailModal({ profId, onClose, onEdit, onFiche }) {
     finally { setGeneratingPdf(false); }
   }
 
+  // Un clic : génère le PDF (dates/représentant par défaut) et ouvre directement le
+  // dialogue d'impression du navigateur (choix PDF ou imprimante), sans étape intermédiaire.
+  const [imprimantEnCours, setImprimantEnCours] = useState(false);
+  async function imprimerContratDirect() {
+    setImprimantEnCours(true);
+    try {
+      const res = await fetch('/api/contrats/pdf', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${localStorage.getItem('token')}` },
+        body: JSON.stringify({
+          prof_id: profId,
+          date_contrat: new Date().toISOString().split('T')[0],
+          representant: 'Charles Sohet, Directeur',
+          annee: getAnnee(),
+        }),
+      });
+      if (!res.ok) throw new Error((await res.json().catch(() => ({}))).error || 'Erreur serveur');
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const iframe = document.createElement('iframe');
+      iframe.style.cssText = 'position:fixed;left:-9999px;top:0;width:1px;height:1px;border:0;';
+      iframe.src = url;
+      document.body.appendChild(iframe);
+      iframe.onload = () => {
+        try { iframe.contentWindow.focus(); iframe.contentWindow.print(); } catch (e) { console.error(e); }
+        // Nettoyage différé : laisser le temps au dialogue d'impression de s'ouvrir avec le PDF chargé.
+        setTimeout(() => { try { document.body.removeChild(iframe); } catch {} URL.revokeObjectURL(url); }, 60000);
+      };
+    } catch (e) { alert('Erreur : ' + e.message); }
+    finally { setImprimantEnCours(false); }
+  }
+
   if (!detail) return (
     <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-30">
       <div className="bg-white rounded-xl p-8 text-gray-400">Chargement…</div>
@@ -749,10 +781,16 @@ function DetailModal({ profId, onClose, onEdit, onFiche }) {
                 </button>
               )}
               {u?.role === 'admin' && (
-                <button onClick={() => setShowContratModal(true)}
-                  className="w-full flex items-center gap-2 text-xs bg-green-50 hover:bg-green-100 text-green-700 border border-green-200 rounded-lg px-3 py-2 font-medium transition">
-                  <IconFileText size={14}/> Générer contrat
-                </button>
+                <div className="space-y-1">
+                  <button onClick={imprimerContratDirect} disabled={imprimantEnCours}
+                    className="w-full flex items-center gap-2 text-xs bg-green-50 hover:bg-green-100 disabled:opacity-50 text-green-700 border border-green-200 rounded-lg px-3 py-2 font-medium transition">
+                    <IconPrinter size={14}/> {imprimantEnCours ? 'Préparation…' : 'Imprimer le contrat'}
+                  </button>
+                  <button onClick={() => setShowContratModal(true)}
+                    className="w-full text-[10px] text-gray-400 hover:text-gray-600 underline text-center">
+                    Options avancées (date, représentant, .docx…)
+                  </button>
+                </div>
               )}
               {/* Fiches PDF */}
               <div className="relative">
@@ -1835,6 +1873,44 @@ export default function Professeurs() {
     finally { setPrinting(false); setPrintSelMenu(false); }
   }
 
+  // Contrats PDF de la sélection : un vrai PDF par prof (serveur), regroupés dans un ZIP.
+  const [contratsZipEnCours, setContratsZipEnCours] = useState(false);
+  async function exporterContratsZip() {
+    if (selection.size === 0) return;
+    setContratsZipEnCours(true);
+    try {
+      const JSZip = (await import('jszip')).default;
+      const zip = new JSZip();
+      const annee = getAnnee() || '';
+      const dateContrat = new Date().toISOString().split('T')[0];
+      const tok = localStorage.getItem('token');
+      let erreurs = 0;
+      for (const profId of selection) {
+        const prof = profs.find(p => p.id === profId);
+        const nom = [prof?.nom, prof?.prenom].filter(Boolean).join('_').replace(/\s+/g, '_') || `prof_${profId}`;
+        try {
+          const res = await fetch('/api/contrats/pdf', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${tok}` },
+            body: JSON.stringify({ prof_id: profId, date_contrat: dateContrat, representant: 'Charles Sohet, Directeur', annee }),
+          });
+          if (!res.ok) { erreurs++; continue; }
+          const blob = await res.blob();
+          zip.file(`Contrat_${nom}_${dateContrat}.pdf`, blob);
+        } catch { erreurs++; }
+      }
+      const blob = await zip.generateAsync({ type: 'blob' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `Contrats_${dateContrat}_${selection.size}profs.zip`;
+      a.click();
+      URL.revokeObjectURL(url);
+      if (erreurs > 0) alert(`${erreurs} contrat(s) n'ont pas pu être générés (voir la console pour le détail).`);
+    } catch (e) { alert('Erreur : ' + e.message); }
+    finally { setContratsZipEnCours(false); }
+  }
+
   async function imprimerAttributions() {
     if (selection.size === 0) return;
     setPrinting(true);
@@ -2100,6 +2176,13 @@ export default function Professeurs() {
           )}
           {selection.size > 0 && (
             <div className="flex items-center gap-2">
+              {/* Contrats PDF — un vrai PDF par prof, en ZIP */}
+              {u?.role === 'admin' && (
+                <button onClick={exporterContratsZip} disabled={contratsZipEnCours}
+                  className="bg-green-700 hover:opacity-90 disabled:opacity-50 text-white text-sm px-3 py-1.5 h-9 rounded font-medium inline-flex items-center gap-1.5">
+                  <IconFileText size={15}/> {contratsZipEnCours ? 'Préparation…' : `Contrats PDF (${selection.size})`}
+                </button>
+              )}
               {/* Imprimer — un seul PDF combiné */}
               <div className="relative">
                 <button onClick={() => setPrintSelMenu(v => !v)} disabled={printing}
