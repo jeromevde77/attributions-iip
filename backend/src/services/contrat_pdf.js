@@ -63,15 +63,15 @@ export async function genererContratPdf(htmlContrat) {
     await page.setContent(htmlSansTfoot, { waitUntil: 'networkidle0' });
 
     const footerTemplate = `
-      <div style="width:100%; font-family: Arial, Helvetica, sans-serif; font-size:6pt; color:#888; padding:0 16mm; box-sizing:border-box;">
-        <img src="${LOGO_IIP_JPEG}" style="height:8mm; width:auto; display:block; margin-bottom:1.5mm;" />
-        <div style="border-top:0.5pt solid #C9A84C; padding-top:2mm; text-align:center; line-height:1.4;">${piedDocument()}</div>
+      <div style="width:100%; font-family: Arial, Helvetica, sans-serif; font-size:8px; color:#888; padding:0 60px; box-sizing:border-box;">
+        <img src="${LOGO_IIP_JPEG}" style="height:26px; width:auto; display:block; margin-bottom:5px;" />
+        <div style="border-top:1px solid #C9A84C; padding-top:6px; text-align:center; line-height:1.4;">${piedDocument()}</div>
       </div>`;
 
     const pdfData = await page.pdf({
       format: 'A4',
       printBackground: true,
-      margin: { top: '12mm', right: '16mm', bottom: '26mm', left: '16mm' },
+      margin: { top: '12mm', right: '16mm', bottom: '32mm', left: '16mm' },
       displayHeaderFooter: true,
       headerTemplate: '<div></div>',
       footerTemplate,
