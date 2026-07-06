@@ -26,6 +26,7 @@ function getBrowser() {
         '--disable-gpu',
         '--disable-software-rasterizer',
         '--no-zygote',
+        '--single-process',
       ],
     }).catch(err => { browserPromise = null; throw err; });
   }
