@@ -62,11 +62,13 @@ r.post('/pdf', authRequired, roleRequired('admin', 'editeur'), async (req, res) 
       templateHtml: db.prepare("SELECT valeur FROM lucie_config WHERE cle = 'contrat_template'").get()?.valeur || null,
     });
     const pdfBuffer = await genererContratPdf(html);
+    console.log('[contrats/pdf] buffer généré :', Buffer.isBuffer(pdfBuffer), pdfBuffer.length, 'octets');
 
     const fn = `Contrat_${prof.nom}_${prof.prenom}_${date_contrat||''}.pdf`.replace(/[^a-zA-Z0-9_.-]/g, '_');
     res.setHeader('Content-Type', 'application/pdf');
     res.setHeader('Content-Disposition', `attachment; filename="${fn}"`);
-    res.send(pdfBuffer);
+    res.setHeader('Content-Length', pdfBuffer.length);
+    res.end(pdfBuffer);
   } catch (err) {
     console.error('[contrats/pdf]', err);
     res.status(500).json({ error: err.message });

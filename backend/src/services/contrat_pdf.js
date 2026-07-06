@@ -70,7 +70,7 @@ export async function genererContratPdf(htmlContrat) {
         </div>
       </div>`;
 
-    const pdf = await page.pdf({
+    const pdfData = await page.pdf({
       format: 'A4',
       printBackground: true,
       margin: { top: '12mm', right: '16mm', bottom: '26mm', left: '16mm' },
@@ -78,7 +78,9 @@ export async function genererContratPdf(htmlContrat) {
       headerTemplate: '<div></div>',
       footerTemplate,
     });
-    return pdf;
+    // Puppeteer récent renvoie parfois un Uint8Array plutôt qu'un vrai Buffer Node —
+    // sans cette conversion explicite, Express peut mal sérialiser le binaire (fichier corrompu).
+    return Buffer.from(pdfData);
   } finally {
     await page.close();
   }
