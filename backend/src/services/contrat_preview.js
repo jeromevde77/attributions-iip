@@ -27,7 +27,7 @@ export function genererTemplate() {
 <style>
   * { box-sizing: border-box; margin: 0; padding: 0; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
   body { font-family: Arial, sans-serif; font-size: 9pt; color: #1a1a2e; background: white; }
-  @media print { @page { size: A4 portrait; margin: 12mm 16mm 12mm 16mm; } body { margin: 0; } }
+  @media print { @page { size: A4 portrait; margin: 12mm 16mm 12mm 16mm; } body { margin: 0; } .page-break { page-break-before: always; } }
   .page { max-width: 178mm; margin: 0 auto; padding: 0; }
   .header { border-bottom: 2.5pt solid #1F3864; margin-bottom: 6mm; padding-bottom: 4mm; display: flex; justify-content: space-between; align-items: flex-end; }
   .header-left .etab-nom { font-size: 11pt; font-weight: bold; color: #1F3864; }
@@ -61,6 +61,9 @@ export function genererTemplate() {
   .sig-bloc .sig-img img { max-height: 18mm; max-width: 55mm; }
   .sig-bloc .sig-nom { font-size: 9pt; border-top: 0.5pt solid #888; padding-top: 1mm; }
   .mention-date { font-size: 9pt; margin: 3mm 0; }
+  .annexes-titre { font-weight: bold; font-size: 10pt; color: #1F3864; margin-bottom: 3mm; }
+  ol.annexes { padding-left: 5mm; margin: 1mm 0; }
+  ol.annexes li { margin-bottom: 1.5mm; line-height: 1.4; font-size: 8.5pt; }
   .footer-iip { margin-top: 8mm; flex-shrink: 0; }
   .footer-iip .logo { height: 10mm; width: auto; opacity: 0.9; display: block; margin-bottom: 2.5mm; }
   .footer-iip .txt { border-top: 0.5pt solid #C9A84C; padding-top: 2.5mm; font-size: 6pt; color: #888; text-align: center; line-height: 1.4; }
@@ -87,17 +90,28 @@ export function genererTemplate() {
   <div class="parties">
     <div class="partie-box">
       <div class="partie-label">Le Pouvoir organisateur</div>
-      <div class="partie-nom">{{nom_etab}}</div>
-      <div class="partie-detail">Représenté par <b>{{representant}}</b><br>{{adresse_etab}}</div>
+      <div class="partie-nom">{{po_nom}}</div>
+      <div class="partie-detail">
+        pour l'{{nom_etab}} (en abrégé {{etab_abrev}})<br>
+        Siège social : {{adresse_etab}}<br>
+        Matricule FASE : {{num_fase}} · Matricule ETNIC : {{num_ecot}}<br>
+        Représenté par <b>{{representant}}</b>
+      </div>
     </div>
     <div class="partie-box">
       <div class="partie-label">Le membre du personnel</div>
       <div class="partie-nom">{{nom_prof}}</div>
-      <div class="partie-detail">{{adresse_prof}}<br>{{niss}}<br>{{date_naissance}}{{matricule}}</div>
+      <div class="partie-detail">
+        {{date_naissance}}<br>
+        Nationalité : {{nationalite}}<br>
+        {{niss}}<br>
+        {{matricule}}<br>
+        Domicilié·e : {{adresse_prof}}
+      </div>
     </div>
   </div>
 
-    <div class="article">
+  <div class="article">
     <div class="article-titre">Article 1 — Emploi(s)</div>
     <div class="article-corps">
       <p>{{texte_art1}}</p>
@@ -107,39 +121,83 @@ export function genererTemplate() {
   </div>
 
   <div class="article">
-    <div class="article-titre">Article 2 — Durée et prise de cours</div>
+    <div class="article-titre">Article 2 — Dispositions applicables</div>
     <div class="article-corps">
-      <p>Le présent contrat est conclu pour une durée déterminée correspondant à l'année scolaire <b>{{annee}}</b>.</p>
-      <p>Le contrat prend cours à la date de la première prestation effective du membre du personnel dans la fonction concernée.</p>
-    </div>
-  </div>
-
-  <div class="article">
-    <div class="article-titre">Article 3 — Rémunération</div>
-    <div class="article-corps">
-      <p>Le membre du personnel est rémunéré conformément aux barèmes applicables dans l'enseignement subventionné par la Communauté française de Belgique, en fonction de son ancienneté de service et de ses titres et qualifications.</p>
-    </div>
-  </div>
-
-  <div class="article">
-    <div class="article-titre">Article 4 — Dispositions applicables</div>
-    <div class="article-corps">
-      <p>Le présent contrat est régi par :</p>
+      <p>Le présent contrat d'engagement est conclu conformément :</p>
       <ul class="refs">
-        <li>le Décret du 1er février 1993 fixant le statut des membres du personnel subsidiés de l'enseignement libre subventionné ;</li>
-        <li>la législation en vigueur dans l'enseignement subventionné par la Communauté française.</li>
+        <li>au Décret du 1er février 1993 fixant le statut des membres du personnel subsidiés de l'enseignement libre subventionné,</li>
+        <li>à la législation en vigueur dans l'enseignement subventionné par la Communauté française.</li>
       </ul>
+      <p>Le Pouvoir organisateur, d'une part, et le membre du personnel, d'autre part, déclarent expressément que le présent contrat, les règles complémentaires éventuellement établies par les Commissions Paritaires compétentes et le règlement de travail constituent un tout indivisible.</p>
     </div>
   </div>
 
   <div class="article">
-    <div class="article-titre">Article 5 — Données personnelles</div>
+    <div class="article-titre">Article 3 — Caractère du réseau</div>
     <div class="article-corps">
-      <p>Les données personnelles du membre du personnel sont traitées conformément au Règlement (UE) 2016/679 (RGPD) et à la loi du 30 juillet 2018 relative à la protection des personnes physiques à l'égard des traitements de données à caractère personnel.</p>
+      <p>Conformément à l'article 3 § 5 du Décret du 1er février 1993, le Pouvoir organisateur déclare avoir opté pour le réseau libre non confessionnel et conformément à l'article 3 § 6 se déclare de caractère non confessionnel.</p>
     </div>
   </div>
 
-  <div class="mention-date">Ainsi établi en double exemplaire, à Bruxelles, le {{date_contrat}}.</div>
+  <div class="article">
+    <div class="article-titre">Article 4 — Projet éducatif et pédagogique</div>
+    <div class="article-corps">
+      <p>Conformément à l'article 21 du Décret du 1er février 1993, le membre du personnel s'engage à respecter les obligations qui découlent du caractère spécifique du projet éducatif et du projet pédagogique du pouvoir organisateur (voir annexe).</p>
+    </div>
+  </div>
+
+  <div class="article">
+    <div class="article-titre">Article 5 — Incompatibilités</div>
+    <div class="article-corps">
+      <p>Conformément aux articles 24 et 25 du 1er février 1993 est déclarée incompatible avec le caractère spécifique du projet éducatif et du projet pédagogique toute occupation qui serait de nature à leur nuire (voir annexe).</p>
+    </div>
+  </div>
+
+  <div class="article">
+    <div class="article-titre">Article 6 — Situation professionnelle</div>
+    <div class="article-corps">
+      <p>Le membre du personnel certifie que sa situation professionnelle correspond à celle décrite dans le document « fonctions actuelles » ci-annexé. Il s'engage à avertir le Pouvoir organisateur de toute modification affectant sa situation professionnelle, par écrit dans les trois jours ouvrables. Le Pouvoir organisateur ne peut en aucun cas être tenu responsable d'éventuelles nouvelles modalités de rémunération entraînées par la/les dite(s) modification(s), conformément au statut pécuniaire.</p>
+    </div>
+  </div>
+
+  <div class="article">
+    <div class="article-titre">Article 7 — Horaire et lieu de travail</div>
+    <div class="article-corps">
+      <p>Les prestations de travail sont fournies selon l'horaire ci-annexé. Le Pouvoir organisateur se réserve le droit de fixer et/ou de modifier l'horaire d'enseignement ou de travail en fonction des besoins et conformément au règlement de travail. De même, les lieux de cours ou de travail pourront être transférés si nécessaire. Le Pouvoir organisateur veillera à se concerter avec les intéressés préalablement à toute modification. Les mesures à prendre seront appliquées en fonction de l'intérêt tant de l'institution et des étudiants (élèves) que des membres du personnel.</p>
+    </div>
+  </div>
+
+  <div class="article">
+    <div class="article-titre">Article 8 — Rémunération</div>
+    <div class="article-corps">
+      <p>Sans préjudice de la responsabilité contractuelle du Pouvoir organisateur et des dispositions légales relatives au paiement de la rémunération, le montant de celle-ci est égal à la subvention-traitement afférente à l'emploi ou aux emplois exercé(s) par le membre du personnel, dont le(s) barème(s) est/sont déterminé(s) par la Communauté française.</p>
+      <p>Cette rémunération sera versée directement au membre du personnel par la Communauté française.</p>
+      <p>Toute modification de la subvention-traitement décidée par l'autorité publique à la hausse ou à la baisse lie les parties sans que le membre du personnel puisse faire valoir quelque droit que ce soit à l'égard du Pouvoir organisateur.</p>
+    </div>
+  </div>
+
+  <div class="article">
+    <div class="article-titre">Article 9 — Fin du contrat</div>
+    <div class="article-corps">
+      <p>Le présent contrat prend fin dans les conditions et selon les modalités définies par les articles 71 à 71nonies du Décret du 1er février 1993 fixant le statut des membres du personnel subsidiés de l'enseignement libre subventionné et/ou selon la législation en vigueur dans l'enseignement subventionné par la Communauté française.</p>
+    </div>
+  </div>
+
+  <div class="article">
+    <div class="article-titre">Article 10 — Charge de travail</div>
+    <div class="article-corps">
+      <p>Est annexé à ce contrat le document « contenu des prestations » qui décrit les attendus de l'établissement en termes de charge de travail pour les enseignants. Le membre du personnel accepte la charge de travail qui lui est confiée dans et en dehors de la classe, dans le respect du décret du 1er février 1993.</p>
+    </div>
+  </div>
+
+  <div class="article">
+    <div class="article-titre">Article 11 — Litiges</div>
+    <div class="article-corps">
+      <p>En cas de litige, seuls les tribunaux du lieu où s'exécute le présent contrat sont compétents.</p>
+    </div>
+  </div>
+
+  <div class="mention-date">Ainsi établi en double exemplaire, à Bruxelles, le {{date_contrat}}. Chaque partie reconnaissant avoir reçu le sien.</div>
   <div class="signatures">
     <div class="sig-bloc">
       <div class="sig-titre">Le travailleur·se,</div>
@@ -152,6 +210,23 @@ export function genererTemplate() {
       <div class="sig-nom">{{representant}}</div>
     </div>
   </div>
+
+  <div class="page-break"></div>
+  <div class="annexes-titre">Annexes : 12</div>
+  <ol class="annexes">
+    <li>un exemplaire du Statut (Décret du 1er février 1993) disponible sur le drive</li>
+    <li>un exemplaire du règlement de travail tel qu'approuvé conformément à la loi du 08-04-65</li>
+    <li>un exemplaire du projet éducatif du pouvoir organisateur (disponible sur le site)</li>
+    <li>un exemplaire du projet pédagogique et du projet d'établissement (disponible sur le site)</li>
+    <li>le document administratif précisant les fonctions actuelles du membre du personnel signataire du contrat de travail (document EA12)</li>
+    <li>l'horaire de travail applicable au membre du personnel (disponible en ligne via hyperplanning)</li>
+    <li>un règlement d'ordre intérieur (disponible en ligne)</li>
+    <li>un règlement des études (disponible en ligne)</li>
+    <li>un exemplaire des programmes et/ou des référentiels à utiliser (disponible sur le drive)</li>
+    <li>un document précisant l'endroit où le membre du personnel peut consulter les textes importants régissant l'enseignement en Communauté française (p. ex. décret « mission »)</li>
+    <li>un exemplaire des décisions éventuelles de la ou des commissions paritaires compétentes</li>
+    <li>Le document intitulé « contenu des prestations ».</li>
+  </ol>
 
   <div class="footer-iip">
     <img class="logo" src="{{logo_iip}}" alt="Institut Ilya Prigogine">
@@ -206,13 +281,20 @@ export function genererApercu({ etab, prof, attributions, annee, date_contrat, r
     '{{nom_prof}}':       nomProf,
     '{{prenom_prof}}':    prof.prenom || '',
     '{{nom_etab}}':       etab.etab_nom || 'Institut Ilya Prigogine',
+    '{{po_nom}}':         etab.po_nom || 'ASBL Ilya Prigogine',
+    '{{etab_abrev}}':     etab.etab_abrev || 'IIP',
+    '{{num_fase}}':       etab.num_fase || '',
+    '{{num_ecot}}':       etab.num_ecot || '',
     '{{representant}}':   rep,
     '{{annee}}':          annee || '',
     '{{date_contrat}}':   dateLongue(date_contrat),
     '{{adresse_prof}}':   adresseProf,
     '{{adresse_etab}}':   adresseEtab,
+    '{{nationalite}}':    prof.nationalite || '—',
     '{{niss}}':           prof.niss ? `NISS : ${prof.niss}` : '',
-    '{{date_naissance}}': prof.date_naissance ? `Né·e le ${dateLongue(prof.date_naissance)}<br>` : '',
+    '{{date_naissance}}': prof.date_naissance
+      ? `Né·e le ${dateLongue(prof.date_naissance)}${[prof.lieu_naissance_ville, prof.lieu_naissance_pays].filter(Boolean).length ? ' à ' + [prof.lieu_naissance_ville, prof.lieu_naissance_pays].filter(Boolean).join(', ') : ''}`
+      : '',
     '{{matricule}}':      prof.matricule ? `Matricule : ${prof.matricule}` : '',
     '{{cours_liste}}':    coursListeHtml,
     '{{logo_iip}}':       LOGO_IIP_JPEG,
