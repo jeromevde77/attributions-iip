@@ -27,7 +27,7 @@ r.post('/apercu', authRequired, roleRequired('admin', 'editeur'), async (req, re
               AND a2.annee_scolaire = a.annee_scolaire AND a2.en_conge = 1
               LIMIT 1) AS titulaire_en_conge
       FROM attribution a
-      LEFT JOIN ue u ON u.ue_num = a.ue_num
+      LEFT JOIN ue u ON u.ue_num = a.ue_num AND u.annee_scolaire = a.annee_scolaire
       LEFT JOIN cours c ON c.cours_code = a.code_cours AND c.annee_scolaire = a.annee_scolaire
       WHERE a.professeur_id = ? AND a.annee_scolaire = ?
       AND (a.type_cours IS NULL OR a.type_cours != 'Z')

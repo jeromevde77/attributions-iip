@@ -4,6 +4,9 @@
  * Si absent, utilise le template par défaut intégré.
  */
 
+import { LOGO_IIP_B64 } from './assets/logo_iip.js';
+import { SIGNATURE_SOHET } from './assets/signature_sohet.js';
+
 const JOURS_FR = ['dimanche','lundi','mardi','mercredi','jeudi','vendredi','samedi'];
 const MOIS_FR  = ['janvier','février','mars','avril','mai','juin',
                   'juillet','août','septembre','octobre','novembre','décembre'];
@@ -23,8 +26,8 @@ export function genererTemplate() {
 <style>
   * { box-sizing: border-box; margin: 0; padding: 0; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
   body { font-family: Arial, sans-serif; font-size: 9pt; color: #1a1a2e; background: white; }
-  @media print { @page { size: A4 portrait; margin: 10mm 18mm 15mm 18mm; } body { margin: 0; } }
-  .page { max-width: 170mm; margin: 0 auto; padding: 4mm 0; }
+  @media print { @page { size: A4 portrait; margin: 12mm 16mm 12mm 16mm; } body { margin: 0; } }
+  .page { max-width: 178mm; margin: 0 auto; padding: 0; }
   .header { border-bottom: 2.5pt solid #1F3864; margin-bottom: 6mm; padding-bottom: 4mm; display: flex; justify-content: space-between; align-items: flex-end; }
   .header-left .etab-nom { font-size: 11pt; font-weight: bold; color: #1F3864; }
   .header-left .etab-sub { font-size: 8pt; color: #555; margin-top: 1mm; }
@@ -44,19 +47,24 @@ export function genererTemplate() {
   .article-corps p { margin-bottom: 1.5mm; line-height: 1.45; }
   ul.refs { padding-left: 5mm; margin: 1mm 0; }
   ul.refs li { margin-bottom: 1mm; line-height: 1.4; }
-  .cours-ligne { display: flex; align-items: baseline; gap: 2mm; margin-bottom: 1mm; font-size: 9pt; }
-  .cours-section { font-weight: bold; color: #1F3864; min-width: 22mm; }
-  .cours-sep { color: #999; }
-  .cours-code { font-family: monospace; font-size: 8.5pt; color: #555; min-width: 12mm; }
-  .cours-nom { flex: 1; }
-  .cours-per { color: #666; font-style: italic; white-space: nowrap; }
+  .cours-ligne { display: grid; grid-template-columns: 44mm 1fr auto; column-gap: 3mm; align-items: start; margin-bottom: 1mm; font-size: 9pt; text-align: left; }
+  .cours-sc { font-weight: bold; color: #1F3864; text-align: left; }
+  .cours-sc .code { font-weight: normal; color: #555; font-family: monospace; font-size: 8.5pt; }
+  .cours-nom { text-align: left; }
+  .cours-per { color: #666; font-style: italic; white-space: nowrap; text-align: right; }
   .cours-total { font-weight: bold; margin-top: 1.5mm; padding-top: 1.5mm; border-top: 0.5pt solid #ccc; font-size: 9.5pt; }
   .signatures { display: grid; grid-template-columns: 1fr 1fr; gap: 8mm; margin-top: 8mm; padding-top: 4mm; border-top: 0.5pt solid #ccc; }
   .sig-bloc .sig-titre { font-weight: bold; font-size: 9pt; margin-bottom: 6mm; }
   .sig-bloc .sig-mention { font-style: italic; font-size: 8pt; color: #666; margin-bottom: 18mm; }
+  .sig-bloc .sig-img { height: 18mm; display: flex; align-items: flex-end; }
+  .sig-bloc .sig-img img { max-height: 18mm; max-width: 55mm; }
   .sig-bloc .sig-nom { font-size: 9pt; border-top: 0.5pt solid #888; padding-top: 1mm; }
   .mention-date { font-size: 9pt; margin: 3mm 0; }
-  .confidential { font-size: 7.5pt; color: #aaa; text-align: center; margin-top: 4mm; }
+  .footer-iip { margin-top: 8mm; }
+  .footer-iip .divider { border-top: 0.75pt solid #C9A84C; margin-bottom: 2.5mm; }
+  .footer-iip .row { display: flex; align-items: center; }
+  .footer-iip .logo { width: 26mm; flex-shrink: 0; }
+  .footer-iip .txt { flex: 1; text-align: center; font-size: 7pt; color: #1F3864; line-height: 1.6; padding-right: 26mm; }
 </style>
 </head><body><div class="page">
 
@@ -141,11 +149,18 @@ export function genererTemplate() {
     </div>
     <div class="sig-bloc">
       <div class="sig-titre">Le représentant·e du Pouvoir organisateur,</div>
-      <div class="sig-mention">&nbsp;</div>
+      <div class="sig-img">{{signature_representant}}</div>
       <div class="sig-nom">{{representant}}</div>
     </div>
   </div>
-  <div class="confidential">Document confidentiel — généré par Lucie · Institut Ilya Prigogine</div>
+
+  <div class="footer-iip">
+    <div class="divider"></div>
+    <div class="row">
+      <img class="logo" src="{{logo_iip}}" alt="Institut Ilya Prigogine">
+      <div class="txt">{{pied_page}}</div>
+    </div>
+  </div>
 </div></body></html>`;
 }
 
@@ -177,13 +192,22 @@ export function genererApercu({ etab, prof, attributions, annee, date_contrat, r
     const per = (a.periodes_attribuees||0) + (a.autonomie_attribuee||0);
     const vacant = a.titulaire_en_conge ? ` <span style="font-size:8pt;color:#888;font-style:italic">(titulaire en congé : ${a.titulaire_en_conge.trim()})</span>` : '';
     return `<div class="cours-ligne">
-      <span class="cours-section">${a.section||''}</span>
-      <span class="cours-sep">–</span>
-      <span class="cours-code">${a.code_cours||''}</span>
+      <span class="cours-sc">${a.section||''} <span class="code">${a.code_cours||''}</span></span>
       <span class="cours-nom">${a.cours_nom||a.ue_nom||''}${vacant}</span>
-      <span class="cours-per">(${per} période${per>1?'s':''})</span>
+      <span class="cours-per">${per} période${per>1?'s':''}</span>
     </div>`;
   }).join('');
+
+  // Pied de page style attestation (logo + filet doré + coordonnées)
+  const piedL1 = [etab.nom || 'Institut Ilya Prigogine',
+                  etab.po ? 'PO ' + etab.po : 'PO ASBL Ilya Prigogine',
+                  etab.num_entreprise ? 'N° entreprise ' + etab.num_entreprise : null]
+                 .filter(Boolean).join(' &nbsp;•&nbsp; ');
+  const piedL2 = [etab.fase ? 'Fase ' + etab.fase : null, adresseEtab,
+                  etab.tel ? 'T. ' + etab.tel : null, etab.email, etab.site]
+                 .filter(Boolean).join(' &nbsp;•&nbsp; ');
+  const piedPage = etab.pied_page || [piedL1, piedL2].filter(Boolean).join('<br>');
+  const signatureRep = /sohet/i.test(rep) ? `<img src="${SIGNATURE_SOHET}" alt="signature">` : '';
 
   const phraseETP = estETP
     ? `Ces emplois constituent un <strong>temps plein</strong> pour l'année académique <strong>${annee||''}</strong>.`
@@ -202,6 +226,9 @@ export function genererApercu({ etab, prof, attributions, annee, date_contrat, r
     '{{date_naissance}}': prof.date_naissance ? `Né·e le ${dateLongue(prof.date_naissance)}<br>` : '',
     '{{matricule}}':      prof.matricule ? `Matricule : ${prof.matricule}` : '',
     '{{cours_liste}}':    coursListeHtml,
+    '{{logo_iip}}':       LOGO_IIP_B64,
+    '{{signature_representant}}': signatureRep,
+    '{{pied_page}}':      piedPage,
     '{{total_periodes}}': String(total),
     '{{etp}}':            String(etp),
     '{{phrase_etp}}':     phraseETP,
