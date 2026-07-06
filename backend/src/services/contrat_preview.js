@@ -4,8 +4,9 @@
  * Si absent, utilise le template par défaut intégré.
  */
 
-import { LOGO_IIP_B64 } from './assets/logo_iip.js';
+import { LOGO_IIP_JPEG } from './assets/logo_iip_jpeg.js';
 import { SIGNATURE_SOHET } from './assets/signature_sohet.js';
+import { piedDocument } from '../routes/parametres.js';
 
 const JOURS_FR = ['dimanche','lundi','mardi','mercredi','jeudi','vendredi','samedi'];
 const MOIS_FR  = ['janvier','février','mars','avril','mai','juin',
@@ -198,15 +199,8 @@ export function genererApercu({ etab, prof, attributions, annee, date_contrat, r
     </div>`;
   }).join('');
 
-  // Pied de page style attestation (logo + filet doré + coordonnées)
-  const piedL1 = [etab.nom || 'Institut Ilya Prigogine',
-                  etab.po ? 'PO ' + etab.po : 'PO ASBL Ilya Prigogine',
-                  etab.num_entreprise ? 'N° entreprise ' + etab.num_entreprise : null]
-                 .filter(Boolean).join(' &nbsp;•&nbsp; ');
-  const piedL2 = [etab.fase ? 'Fase ' + etab.fase : null, adresseEtab,
-                  etab.tel ? 'T. ' + etab.tel : null, etab.email, etab.site]
-                 .filter(Boolean).join(' &nbsp;•&nbsp; ');
-  const piedPage = etab.pied_page || [piedL1, piedL2].filter(Boolean).join('<br>');
+  // Pied de page identique à celui de l'attestation (logo + filet doré + coordonnées)
+  const piedPage = piedDocument();
   const signatureRep = /sohet/i.test(rep) ? `<img src="${SIGNATURE_SOHET}" alt="signature">` : '';
 
   const phraseETP = estETP
@@ -216,7 +210,7 @@ export function genererApercu({ etab, prof, attributions, annee, date_contrat, r
   const vars = {
     '{{nom_prof}}':       nomProf,
     '{{prenom_prof}}':    prof.prenom || '',
-    '{{nom_etab}}':       etab.nom || 'Institut Ilya Prigogine',
+    '{{nom_etab}}':       etab.etab_nom || 'Institut Ilya Prigogine',
     '{{representant}}':   rep,
     '{{annee}}':          annee || '',
     '{{date_contrat}}':   dateLongue(date_contrat),
@@ -226,7 +220,7 @@ export function genererApercu({ etab, prof, attributions, annee, date_contrat, r
     '{{date_naissance}}': prof.date_naissance ? `Né·e le ${dateLongue(prof.date_naissance)}<br>` : '',
     '{{matricule}}':      prof.matricule ? `Matricule : ${prof.matricule}` : '',
     '{{cours_liste}}':    coursListeHtml,
-    '{{logo_iip}}':       LOGO_IIP_B64,
+    '{{logo_iip}}':       LOGO_IIP_JPEG,
     '{{signature_representant}}': signatureRep,
     '{{pied_page}}':      piedPage,
     '{{total_periodes}}': String(total),
