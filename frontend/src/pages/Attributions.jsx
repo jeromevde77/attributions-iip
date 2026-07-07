@@ -274,6 +274,7 @@ export default function Attributions() {
   const [orgModal, setOrgModal] = useState(null);
   const [doc23Modal, setDoc23Modal] = useState(null);
   const [quadriMenu, setQuadriMenu] = useState(null); // key de l'UE dont le menu quadri est ouvert
+  const [orgMenu, setOrgMenu] = useState(null); // key de l'UE dont le menu de renumérotation d'organisation est ouvert
   const [activeUE, setActiveUE] = useState(null);     // key de la dernière UE cliquée (encadrée)
   const [newCoursForm, setNewCoursForm] = useState(null); // préremplissage AttributionForm pour nouveau cours
   const [viewMode, setViewMode] = useState('ue');
@@ -689,6 +690,24 @@ export default function Attributions() {
           annee_scolaire: getAnnee(), quadrimestre: q || null,
         }),
       });
+      load();
+    } catch (e) { alert(e.message); }
+  }
+  async function renumeroterOrg(ue, sec, ancienOrg, nouvelOrg) {
+    setOrgMenu(null);
+    if (nouvelOrg === ancienOrg) return;
+    try {
+      const tok = localStorage.getItem('token');
+      const res = await fetch(`/api/attributions/organisation/renumeroter`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${tok}` },
+        body: JSON.stringify({
+          ue_num: ue.ue_num, section: sec, annee_scolaire: getAnnee(),
+          ancien_num_organisation: ancienOrg, nouveau_num_organisation: nouvelOrg,
+        }),
+      });
+      const d = await res.json();
+      if (!res.ok) throw new Error(d.error || 'Erreur serveur');
       load();
     } catch (e) { alert(e.message); }
   }
@@ -1658,7 +1677,23 @@ export default function Attributions() {
             <span className="font-semibold text-iip-gold text-sm whitespace-nowrap">UE {ue.ue_num}</span>
             <span className="flex items-center gap-1 flex-wrap">
               {isTC && <span className="text-xs bg-iip-turquoise/5 text-iip-blue border border-iip-turquoise px-1.5 py-0.5 rounded font-bold" title="Unité du tronc commun">TC</span>}
-              {org > 1 && viewMode!=='coord' && <span className="text-xs bg-amber-100 text-amber-800 px-1.5 py-0.5 rounded font-semibold">Org. {org}</span>}
+              {org > 1 && viewMode!=='coord' && (
+                <span className="relative inline-block" onClick={e=>e.stopPropagation()}>
+                  <button onClick={()=>setOrgMenu(orgMenu===key?null:key)}
+                    title="Numéro d'organisation de cette UE (cliquer pour renuméroter)"
+                    className="text-xs bg-amber-100 text-amber-800 px-1.5 py-0.5 rounded font-semibold cursor-pointer hover:ring-1 hover:ring-amber-300">
+                    Org. {org}
+                  </button>
+                  {orgMenu===key && (
+                    <div className="absolute left-0 top-full mt-1 z-40 bg-white border border-gray-200 rounded-lg shadow-xl py-1 w-32">
+                      {[1,2,3,4].filter(n=>n!==org).map(n => (
+                        <button key={n} onClick={()=>renumeroterOrg(ue, sec, org, n)}
+                          className="w-full text-left px-3 py-1 text-sm hover:bg-amber-50">Renommer en {n}</button>
+                      ))}
+                    </div>
+                  )}
+                </span>
+              )}
               {ue.bloc && <span className="text-xs bg-iip-gold/10 text-iip-gold px-1.5 py-0.5 rounded">{ue.bloc}</span>}
               {isHelb && <span className="text-xs text-pink-600 font-bold px-1.5 py-0.5 rounded bg-pink-100">HELB</span>}
               <span className="relative inline-block" onClick={e=>e.stopPropagation()}>
@@ -2258,6 +2293,7 @@ export default function Attributions() {
         </div>
       )}
       {quadriMenu && <div className="fixed inset-0 z-30" onClick={()=>setQuadriMenu(null)} />}
+      {orgMenu && <div className="fixed inset-0 z-30" onClick={()=>setOrgMenu(null)} />}
 
       {/* Modales */}
       {showForm && <AttributionForm onClose={()=>setShowForm(false)} onCreated={load}/>}

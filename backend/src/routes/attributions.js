@@ -1018,6 +1018,43 @@ r.patch('/organisation/quadrimestre', authRequired, roleRequired('admin', 'edite
   res.json({ ok: true, updated: result.changes, quadrimestre: q });
 });
 
+// ─── Renuméroter une organisation d'UE (ex: orga 3 → orga 2 après suppression de l'orga 2) ───
+// Comme pour le quadrimestre, le numéro d'organisation s'applique à toutes les
+// attributions de (UE, ancienne organisation, section) : on les bascule ensemble
+// vers le nouveau numéro, en un seul mouvement atomique.
+r.patch('/organisation/renumeroter', authRequired, roleRequired('admin', 'editeur', 'coordination'), (req, res) => {
+  const { ue_num, section, annee_scolaire, ancien_num_organisation, nouveau_num_organisation } = req.body || {};
+  if (!ue_num || !section || ancien_num_organisation == null || nouveau_num_organisation == null) {
+    return res.status(400).json({ error: 'ue_num, section, ancien_num_organisation et nouveau_num_organisation requis' });
+  }
+  if (!canAccessSection(req.user, section)) {
+    return res.status(403).json({ error: "Vous n'avez pas accès à cette section." });
+  }
+  const ancien = Number(ancien_num_organisation);
+  const nouveau = Number(nouveau_num_organisation);
+  if (!Number.isInteger(nouveau) || nouveau < 1) {
+    return res.status(400).json({ error: 'Numéro d\'organisation cible invalide.' });
+  }
+  const annee = annee_scolaire || '2025-2026';
+  if (ancien === nouveau) return res.json({ ok: true, updated: 0 });
+
+  // Refus si le nouveau numéro est déjà utilisé par une AUTRE organisation existante
+  // (on ne veut pas fusionner silencieusement deux organisations distinctes).
+  const collision = db.prepare(`
+    SELECT COUNT(*) AS n FROM attribution
+    WHERE ue_num = ? AND section = ? AND annee_scolaire = ? AND num_organisation = ?
+  `).get(ue_num, section, annee, nouveau);
+  if (collision.n > 0) {
+    return res.status(409).json({ error: `L'organisation ${nouveau} existe déjà pour cette UE — impossible de fusionner automatiquement. Supprimez-la ou choisissez un autre numéro.` });
+  }
+
+  const result = db.prepare(`
+    UPDATE attribution SET num_organisation = ?
+    WHERE ue_num = ? AND section = ? AND annee_scolaire = ? AND num_organisation = ?
+  `).run(nouveau, ue_num, section, annee, ancien);
+  res.json({ ok: true, updated: result.changes, num_organisation: nouveau });
+});
+
 // ─── Copier les attributions d'une section d'une année vers une autre ────────
 // Les professeurs et toutes les données métier sont conservés.
 // Si force=true, les attributions existantes en destination sont supprimées avant copie.
