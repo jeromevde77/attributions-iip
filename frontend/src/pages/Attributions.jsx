@@ -1685,10 +1685,12 @@ export default function Attributions() {
                     Org. {org}
                   </button>
                   {orgMenu===key && (
-                    <div className="absolute left-0 top-full mt-1 z-40 bg-white border border-gray-200 rounded-lg shadow-xl py-1 w-32">
+                    <div className="absolute left-0 bottom-full mb-1 z-40 bg-white border border-gray-200 rounded-lg shadow-xl py-1 w-32">
                       {[1,2,3,4].filter(n=>n!==org).map(n => (
                         <button key={n} onClick={()=>renumeroterOrg(ue, sec, org, n)}
-                          className="w-full text-left px-3 py-1 text-sm hover:bg-amber-50">Renommer en {n}</button>
+                          className="w-full flex items-center gap-1.5 text-left px-3 py-1 text-sm hover:bg-amber-50">
+                          <IconChevronRight size={12} className="text-amber-500 flex-shrink-0"/> Orga {n}
+                        </button>
                       ))}
                     </div>
                   )}
