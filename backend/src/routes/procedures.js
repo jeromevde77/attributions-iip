@@ -57,18 +57,14 @@ function addJoursCal(date, n) {
 
 function tableComposition(membres, annee) {
   if (!membres || !membres.length) return '';
-  return `<table style="width:100%;border-collapse:collapse;font-size:10pt;margin:8px 0">
-    <thead><tr style="background:#1F3864;color:white">
-      <th style="text-align:left;padding:5px 8px;border:1px solid #ccc">Membre</th>
-      <th style="padding:5px 8px;border:1px solid #ccc;text-align:left">Qualité</th>
-      <th style="padding:5px 8px;border:1px solid #ccc;text-align:center">Présent</th>
-    </tr></thead>
-    <tbody>${membres.map((m,i) => `<tr style="background:${i%2===0?'#f9f9f9':'white'}">
-      <td style="padding:4px 8px;border:1px solid #ccc;font-weight:bold">${m.nomComplet || m.prenom+' '+m.nom}</td>
-      <td style="padding:4px 8px;border:1px solid #ccc">${m.qualite || 'Membre du CDE'}</td>
-      <td style="padding:4px 8px;border:1px solid #ccc;text-align:center">✓</td>
-    </tr>`).join('')}</tbody>
-  </table>`;
+  const liste = membres.map(m => {
+    const nom = m.nomComplet || `${m.prenom||''} ${m.nom||''}`.trim();
+    const qualite = m.qualite || 'Membre du CDE';
+    return `<strong>${nom}</strong> (${qualite})`;
+  }).join(', ');
+  return `<div style="border:0.5pt solid #ccc;background:#fafafa;padding:8px 12px;margin:8px 0;font-size:10pt;line-height:1.7">
+    <span style="color:#1F3864;font-weight:bold">Composition du Conseil des études&nbsp;:</span> ${liste}.
+  </div>`;
 }
 
 // ─── Générer un PV depuis un template (slug) + données variables ──────────────
@@ -145,7 +141,7 @@ function wrapHtml(html, titre, pied) {
   @page{size:A4;margin:20mm 20mm 20mm 20mm}
   body{font-family:Arial,sans-serif;font-size:10pt;color:#1a1a2e;margin:0}
   img{background:#fff;-webkit-print-color-adjust:exact;print-color-adjust:exact;max-width:100%}
-  h2{font-size:14pt;margin-bottom:4px;color:#1F3864;text-align:center}
+  h2{font-size:12pt;margin-bottom:4px;color:#1F3864;text-align:center}
   h3{font-size:11pt;color:#1F3864;border-left:3pt solid #C9A84C;padding-left:8px;margin-top:16px;text-transform:uppercase;letter-spacing:0.5pt}
   p{margin:5px 0;line-height:1.5}table{width:100%;border-collapse:collapse;margin:8px 0}
   td,th{border:1px solid #ccc;padding:5px 8px;vertical-align:top}
