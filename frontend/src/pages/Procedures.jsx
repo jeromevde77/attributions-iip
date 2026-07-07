@@ -484,10 +484,13 @@ function OutilRecours({ initialPayload, onPayloadConsumed }) {
           date_publi: datePubli, date_recours: dateRecours,
           date_seance: dateSeance, date_envoi: dateDecisionInterne,
           commentaire_cde: (() => {
-            const parts = [];
-            justificationsChoisies.forEach(i => parts.push(justificationsDB[i]));
-            if (commentaireCDE.trim()) parts.push(commentaireCDE.trim());
-            return parts.join('\n\n');
+            const items = justificationsChoisies.size
+              ? Array.from(justificationsChoisies).map(i => justificationsDB[i])
+              : [];
+            let out = '';
+            if (items.length) out += '<ul class="justifs">' + items.map(t => `<li>${t}</li>`).join('') + '</ul>';
+            if (commentaireCDE.trim()) out += `<p>${commentaireCDE.trim().replace(/\n/g, '<br>')}</p>`;
+            return out;
           })(), q, verdict, annee,
         }),
       });
@@ -863,7 +866,28 @@ function OutilRecours({ initialPayload, onPayloadConsumed }) {
       </div>
 
       {previewHtml && (
-        <PreviewModal html={previewHtml} titre="PV de recours — Décision motivée" onClose={() => setPreviewHtml(null)} />
+        <PreviewModal html={previewHtml} titre="PV de recours — Décision motivée" onClose={() => setPreviewHtml(null)}
+          actionExtra={
+            <button onClick={async () => {
+                try {
+                  const res = await fetch('/api/procedures/html-to-pdf', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${localStorage.getItem('token')}` },
+                    body: JSON.stringify({ html: previewHtml, nom: `PV_Recours_${etudiant || ''}` }),
+                  });
+                  if (!res.ok) throw new Error((await res.json().catch(()=>({}))).error || 'Erreur serveur');
+                  const blob = await res.blob();
+                  const url = URL.createObjectURL(blob);
+                  const a = document.createElement('a');
+                  a.href = url; a.download = `PV_Recours_${etudiant || ''}.pdf`;
+                  a.click(); URL.revokeObjectURL(url);
+                } catch (e) { alert('Erreur : ' + e.message); }
+              }}
+              className="flex items-center gap-1.5 px-3 py-1.5 bg-red-600 text-white rounded-lg text-xs font-medium hover:opacity-90">
+              <IconFileText size={13}/> Télécharger PDF
+            </button>
+          }
+        />
       )}
     </div>
   );
@@ -1451,7 +1475,29 @@ function OutilFraude({ initialPayload, onPayloadConsumed }) {
       </div>
 
       {previewHtml && (
-        <PreviewModal html={previewHtml} titre="PV de fraude" onClose={() => setPreviewHtml(null)} />
+        <PreviewModal html={previewHtml} titre="PV de fraude" onClose={() => setPreviewHtml(null)}
+          actionExtra={
+            <button onClick={async () => {
+                try {
+                  const res = await fetch('/api/procedures/html-to-pdf', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${localStorage.getItem('token')}` },
+                    body: JSON.stringify({ html: previewHtml, nom: `PV_Fraude_${etudiant || ''}` }),
+                  });
+                  if (!res.ok) throw new Error((await res.json().catch(()=>({}))).error || 'Erreur serveur');
+                  const blob = await res.blob();
+                  const url = URL.createObjectURL(blob);
+                  const a = document.createElement('a');
+                  a.href = url; a.download = `PV_Fraude_${etudiant || ''}.pdf`;
+                  a.click(); URL.revokeObjectURL(url);
+                } catch (e) { alert('Erreur : ' + e.message); }
+              }}
+              className="flex items-center gap-1.5 px-3 py-1.5 bg-red-600 text-white rounded-lg text-xs font-medium hover:opacity-90">
+              <IconFileText size={13}/> Télécharger PDF
+            </button>
+          }
+        />
+
       )}
     </div>
   );

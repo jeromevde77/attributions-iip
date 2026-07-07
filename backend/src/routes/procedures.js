@@ -11,6 +11,8 @@ import multer from 'multer';
 import { mkdirSync, existsSync } from 'fs';
 import { join, resolve } from 'path';
 import { createHash } from 'crypto';
+import { LOGO_IIP_JPEG } from '../services/assets/logo_iip_jpeg.js';
+import { genererContratPdf as genererPdfDepuisHtml } from '../services/contrat_pdf.js';
 
 const DATA_DIR = process.env.DATA_DIR || '/app/data';
 
@@ -135,31 +137,37 @@ function genererDepuisTemplate(slug, vars) {
 
 function wrapHtml(html, titre, pied) {
   const footerHtml = pied
-    ? `<div class="doc-footer">${pied}</div>`
+    ? `<img class="logo" src="${LOGO_IIP_JPEG}" alt="Institut Ilya Prigogine"><div class="txt">${pied}</div>`
     : '';
   return `<!DOCTYPE html><html lang="fr"><head><meta charset="utf-8"><title>${titre}</title>
 <style>
-  @page{size:A4;margin:2.5cm 2.5cm 1cm 2.5cm}
-  body{font-family:Arial,sans-serif;font-size:10pt;color:#000;margin:0}
+  * { box-sizing: border-box; }
+  @page{size:A4;margin:20mm 20mm 20mm 20mm}
+  body{font-family:Arial,sans-serif;font-size:10pt;color:#1a1a2e;margin:0}
   img{background:#fff;-webkit-print-color-adjust:exact;print-color-adjust:exact;max-width:100%}
-  h2{font-size:14pt;margin-bottom:4px}h3{font-size:11pt;border-bottom:1px solid #ccc;padding-bottom:3px;margin-top:16px}
+  h2{font-size:14pt;margin-bottom:4px;color:#1F3864;text-align:center}
+  h3{font-size:11pt;color:#1F3864;border-left:3pt solid #C9A84C;padding-left:8px;margin-top:16px;text-transform:uppercase;letter-spacing:0.5pt}
   p{margin:5px 0;line-height:1.5}table{width:100%;border-collapse:collapse;margin:8px 0}
   td,th{border:1px solid #ccc;padding:5px 8px;vertical-align:top}
+  hr{border:none;border-top:1pt solid #C9A84C;margin:8px 0}
+  ul.justifs{padding-left:5mm;margin:2mm 0}
+  ul.justifs li{margin-bottom:1.8mm;line-height:1.5;text-align:justify}
   .page-break{break-after:page;page-break-after:always;height:0;border:0;margin:0}
-  /* Pied de page : 8pt, centré, collé en bas de page à l'impression */
-  .doc-footer{font-size:8pt;text-align:center;color:#333;line-height:1.35}
-  @media print {
-    .doc-footer{position:fixed;bottom:0;left:0;right:0;padding-top:4px;border-top:.5pt solid #999}
-  }
-  /* Aperçu écran : simuler une feuille A4 */
+  .page-table{width:100%;border-collapse:collapse}
+  .page-table>tfoot{display:table-footer-group}
+  .page-table td{border:none;padding:0}
+  .footer-iip{margin-top:8mm}
+  .footer-iip .logo{height:10mm;width:auto;opacity:.9;display:block;margin-bottom:2.5mm}
+  .footer-iip .txt{border-top:0.5pt solid #C9A84C;padding-top:2.5mm;font-size:6pt;color:#888;text-align:center;line-height:1.4}
   @media screen {
     html{background:#e5e5e5}
-    body{max-width:210mm;min-height:297mm;margin:16px auto;padding:2.5cm 2.5cm 1cm 2.5cm;
-         background:#fff;box-shadow:0 2px 14px rgba(0,0,0,.18);box-sizing:border-box}
-    .doc-footer{margin-top:24px;padding-top:6px;border-top:.5pt solid #999}
+    body{max-width:210mm;margin:16px auto;background:#fff;box-shadow:0 2px 14px rgba(0,0,0,.18)}
   }
 </style></head><body>
-${html}${footerHtml}</body></html>`;
+<table class="page-table"><tbody><tr><td>${html}</td></tr></tbody>
+<tfoot><tr><td><div class="footer-iip">${footerHtml}</div></td></tr></tfoot>
+</table>
+</body></html>`;
 }
 
 // Construit le pied de page à partir des coordonnées de l'établissement (paramétrable)
@@ -298,7 +306,7 @@ r.post('/pv-recours', authRequired, (req, res) => {
     'pv.composition':    wrap10(composition),
     'pv.corps':          wrap10(corps),
     'pv.commentaire':    commentaire_cde
-      ? wrap10(`<h3>OBSERVATIONS DU CONSEIL DES ÉTUDES</h3><p style="border:1px solid #ccc;padding:10px;background:#fafafa">${commentaire_cde.replace(/\n/g,'<br>')}</p>`)
+      ? wrap10(`<h3>OBSERVATIONS DU CONSEIL DES ÉTUDES</h3><div style="border:1px solid #ccc;padding:10px;background:#fafafa">${commentaire_cde}</div>`)
       : '',
     'pv.voies_recours':  wrap10(voiesRecours),
   });
@@ -317,7 +325,7 @@ r.post('/pv-recours', authRequired, (req, res) => {
       'pv.composition':    composition,
       'pv.corps':          corps,
       'pv.commentaire':    commentaire_cde
-        ? `<h3>OBSERVATIONS DU CONSEIL DES ÉTUDES</h3><p style="border:1px solid #ccc;padding:10px;background:#fafafa">${commentaire_cde.replace(/\n/g,'<br>')}</p>`
+        ? `<h3>OBSERVATIONS DU CONSEIL DES ÉTUDES</h3><div style="border:1px solid #ccc;padding:10px;background:#fafafa">${commentaire_cde}</div>`
         : '',
       'pv.voies_recours':  voiesRecours,
     });
@@ -589,6 +597,25 @@ r.post('/archives/:id/trace-pdf', authRequired, (req, res) => {
     pdf_genere_par = ?, pdf_genere_le = ?, pdf_sig_code = ?, modifie_le = datetime('now')
     WHERE id = ?`).run(genere_par, genere_le, sigCode, proc.id);
   res.json({ ok: true, sig_code: sigCode, genere_par, genere_le });
+});
+
+// ─── POST /procedures/html-to-pdf ─────────────────────────────────────────────
+// Convertit un HTML déjà généré (PV recours/fraude, avec son <tfoot>) en PDF fiable
+// via Chrome headless — même moteur que celui utilisé pour les contrats.
+r.post('/html-to-pdf', authRequired, async (req, res) => {
+  try {
+    const { html, nom } = req.body || {};
+    if (!html) return res.status(400).json({ error: 'html requis' });
+    const pdfBuffer = await genererPdfDepuisHtml(html);
+    const fn = (nom || 'document').replace(/[^a-zA-Z0-9_.-]/g, '_') + '.pdf';
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader('Content-Disposition', `attachment; filename="${fn}"`);
+    res.setHeader('Content-Length', pdfBuffer.length);
+    res.end(pdfBuffer);
+  } catch (err) {
+    console.error('[procedures/html-to-pdf]', err);
+    res.status(500).json({ error: err.message });
+  }
 });
 
 export default r;
