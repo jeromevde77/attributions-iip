@@ -1,4 +1,5 @@
 import { useEffect, useState, useMemo } from 'react';
+import { createPortal } from 'react-dom';
 import { api, getAnnee, nomDoc, getUnite, setUnite as setUniteGlobal, perToH, hToPer } from '../lib/api.js';
 import PreviewModal from '../components/PreviewModal.jsx';
 import EptModal from '../components/EptModal.jsx';
@@ -274,7 +275,9 @@ export default function Attributions() {
   const [orgModal, setOrgModal] = useState(null);
   const [doc23Modal, setDoc23Modal] = useState(null);
   const [quadriMenu, setQuadriMenu] = useState(null); // key de l'UE dont le menu quadri est ouvert
+  const [quadriMenuPos, setQuadriMenuPos] = useState({ top: 0, left: 0 });
   const [orgMenu, setOrgMenu] = useState(null); // key de l'UE dont le menu de renumérotation d'organisation est ouvert
+  const [orgMenuPos, setOrgMenuPos] = useState({ top: 0, left: 0 });
   const [activeUE, setActiveUE] = useState(null);     // key de la dernière UE cliquée (encadrée)
   const [newCoursForm, setNewCoursForm] = useState(null); // préremplissage AttributionForm pour nouveau cours
   const [viewMode, setViewMode] = useState('ue');
@@ -1679,27 +1682,36 @@ export default function Attributions() {
               {isTC && <span className="text-xs bg-iip-turquoise/5 text-iip-blue border border-iip-turquoise px-1.5 py-0.5 rounded font-bold" title="Unité du tronc commun">TC</span>}
               {org > 1 && viewMode!=='coord' && (
                 <span className="relative inline-block" onClick={e=>e.stopPropagation()}>
-                  <button onClick={()=>setOrgMenu(orgMenu===key?null:key)}
+                  <button onClick={(e)=>{
+                      const r = e.currentTarget.getBoundingClientRect();
+                      setOrgMenuPos({ top: r.top - 4, left: r.left });
+                      setOrgMenu(orgMenu===key?null:key);
+                    }}
                     title="Numéro d'organisation de cette UE (cliquer pour renuméroter)"
                     className="text-xs bg-amber-100 text-amber-800 px-1.5 py-0.5 rounded font-semibold cursor-pointer hover:ring-1 hover:ring-amber-300">
                     Org. {org}
                   </button>
-                  {orgMenu===key && (
-                    <div className="absolute left-0 bottom-full mb-1 z-40 bg-white border border-gray-200 rounded-lg shadow-xl py-1 w-32">
+                  {orgMenu===key && createPortal(
+                    <div style={{ position:'fixed', top: orgMenuPos.top, left: orgMenuPos.left, transform:'translateY(-100%)' }}
+                      className="z-[9999] bg-white border border-gray-200 rounded-lg shadow-xl py-1 w-32">
                       {[1,2,3,4].filter(n=>n!==org).map(n => (
                         <button key={n} onClick={()=>renumeroterOrg(ue, sec, org, n)}
                           className="w-full flex items-center gap-1.5 text-left px-3 py-1 text-sm hover:bg-amber-50">
                           <IconChevronRight size={12} className="text-amber-500 flex-shrink-0"/> Orga {n}
                         </button>
                       ))}
-                    </div>
+                    </div>, document.body
                   )}
                 </span>
               )}
               {ue.bloc && <span className="text-xs bg-iip-gold/10 text-iip-gold px-1.5 py-0.5 rounded">{ue.bloc}</span>}
               {isHelb && <span className="text-xs text-pink-600 font-bold px-1.5 py-0.5 rounded bg-pink-100">HELB</span>}
               <span className="relative inline-block" onClick={e=>e.stopPropagation()}>
-                <button onClick={()=>setQuadriMenu(quadriMenu===key?null:key)}
+                <button onClick={(e)=>{
+                    const r = e.currentTarget.getBoundingClientRect();
+                    setQuadriMenuPos({ top: r.top - 4, left: r.left });
+                    setQuadriMenu(quadriMenu===key?null:key);
+                  }}
                   title="Quadrimestre de cette organisation (cliquer pour modifier)"
                   className={`text-xs px-1.5 py-0.5 rounded font-semibold cursor-pointer hover:ring-1 hover:ring-gray-300 ${quadriStyle(ue.quadri_org || ue.ue_quad)}`}>
                   {ue.quadri_org || ue.ue_quad || '— Q'}
@@ -1707,13 +1719,14 @@ export default function Attributions() {
                     <span className="ml-0.5 text-[9px] opacity-60">*</span>
                   )}
                 </button>
-                {quadriMenu===key && (
-                  <div className="absolute left-0 top-full mt-1 z-40 bg-white border border-gray-200 rounded-lg shadow-xl py-1 w-28">
+                {quadriMenu===key && createPortal(
+                  <div style={{ position:'fixed', top: quadriMenuPos.top, left: quadriMenuPos.left, transform:'translateY(-100%)' }}
+                    className="z-[9999] bg-white border border-gray-200 rounded-lg shadow-xl py-1 w-28">
                     {[['','—'],['Q1','Q1'],['Q2','Q2'],['Q1/Q2','Q1/Q2']].map(([val,lbl])=>(
                       <button key={val} onClick={()=>changeQuadri(ue, sec, org, val)}
                         className="w-full text-left px-3 py-1 text-sm hover:bg-iip-gold/10">{lbl}</button>
                     ))}
-                  </div>
+                  </div>, document.body
                 )}
               </span>
             </span>
