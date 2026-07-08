@@ -189,13 +189,19 @@ ${btnPrint}
     </td>
   </tr>
   <tr>
-    <td colspan="2" style="background:#DEEAF6;text-align:center">
-      <b>N\u00b0 ECOT (10 derniers chiffres) :</b><br>
-      <div style="margin-top:2px">${boxes(etab.num_ecot, 10)}</div>
-    </td>
-    <td style="background:#DEEAF6;text-align:center">
-      <b>N\u00b0 FASE :</b><br>
-      <div style="margin-top:2px">${boxes(etab.num_fase, 5)}</div>
+    <td colspan="3" style="padding:0">
+      <table style="table-layout:fixed;width:100%">
+        <tr>
+          <td style="width:50%;background:#DEEAF6;text-align:center">
+            <b>N\u00b0 ECOT (10 derniers chiffres) :</b><br>
+            <div style="margin-top:2px">${boxes(etab.num_ecot, 10)}</div>
+          </td>
+          <td style="width:50%;background:#DEEAF6;text-align:center">
+            <b>N\u00b0 FASE :</b><br>
+            <div style="margin-top:2px">${boxes(etab.num_fase, 5)}</div>
+          </td>
+        </tr>
+      </table>
     </td>
   </tr>
   <tr>
