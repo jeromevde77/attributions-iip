@@ -101,14 +101,16 @@ export function buildEA12Html(data) {
                     .page { background: #fff; padding: 8mm; margin-bottom: 8mm; box-shadow: 0 2px 8px rgba(0,0,0,.2); } }
     @media print  { .no-print { display: none !important; } .page { margin: 0; padding: 0; } }
     table { border-collapse: collapse; width: 100%; }
-    td, th { border: 1px solid #555; padding: 2px 3px; vertical-align: top; font-size: 7.5pt; word-break: break-word; }
-    .hdr-dark  { background: #1F3864; color: #fff; font-weight: bold; text-align: center; font-size: 10pt; padding: 4px; }
-    .hdr-mid   { background: #D6DCE4; font-weight: bold; text-align: center; font-size: 8pt; padding: 3px; }
-    .hdr-attr  { background: #1F3864; color: #fff; font-weight: bold; text-align: center; font-size: 7pt; padding: 2px; }
+    td, th { border: 1px solid #555; padding: 2px 3px; vertical-align: top; font-size: 7.5pt; word-break: break-word; background: #DEEAF6; }
+    .nb td, .nb th, .attr-table td, .attr-table th, .sig-table td, .sig-table th { background: #fff; }
+    .hdr-mid.hdr-mid { background: #9CC2E5; }
+    .hdr-dark  { background: #2E74B5; color: #fff; font-weight: bold; text-align: center; font-size: 10pt; padding: 4px; }
+    .hdr-mid   { background: #9CC2E5; font-weight: bold; text-align: center; font-size: 8pt; padding: 3px; }
+    .hdr-attr  { background: #fff; color: #000; font-weight: bold; text-align: center; font-size: 7pt; padding: 2px; }
     .bold      { font-weight: bold; }
     .center    { text-align: center; }
     .box { display: inline-block; width: 13px; height: 15px; border: 1px solid #444;
-           text-align: center; line-height: 15px; margin: 0 1.5px; font-size: 8pt; }
+           text-align: center; line-height: 15px; margin: 0 1.5px; font-size: 8pt; background: #fff; }
     .chk { display: inline-flex; align-items: center; gap: 2px; margin: 1px 5px 1px 0;
            font-size: 7.5pt; white-space: nowrap; cursor: pointer; }
     .chk input { width: 11px; height: 11px; margin: 0; accent-color: #1F3864; }
@@ -370,7 +372,7 @@ ${btnPrint}
   </tr>
 </table>
 
-<table style="margin-bottom:4px;font-size:7pt">
+<table class="attr-table" style="margin-bottom:4px;font-size:7pt">
   <tr><td colspan="11" class="hdr-mid" style="font-size:8pt">Attributions</td></tr>
   <thead>
     <tr>
@@ -413,7 +415,7 @@ ${btnPrint}
   </tr>
 </table>
 
-<table style="margin-bottom:4px;font-size:7pt">
+<table class="attr-table" style="margin-bottom:4px;font-size:7pt">
   <tr><td colspan="5" class="hdr-mid">Origine de l\u2019\u00e9v\u00e9nement (OE)</td></tr>
   <tr><td colspan="5" style="font-size:6.5pt;padding:2px 4px">
     *Si vous avez coch\u00e9 \u00ab remplacement \u00bb dans le cadre \u00ab justification(s) \u00bb, indiquez les coordonn\u00e9es du/des MDP remplac\u00e9(s) :
@@ -421,7 +423,7 @@ ${btnPrint}
   ${oeRows}
 </table>
 
-<table style="margin-bottom:4px">
+<table class="sig-table" style="margin-bottom:4px">
   <tr>
     <td style="font-size:7pt;line-height:1.5;padding:4px">
       Le PO ou son d\u00e9l\u00e9gu\u00e9 demande l\u2019octroi ou l\u2019ajustement du traitement/de la subvention-traitement du MDP, sur la base du
@@ -435,7 +437,7 @@ ${btnPrint}
   </tr>
 </table>
 
-<table>
+<table class="sig-table">
   <tr><td colspan="2" class="hdr-mid">SIGNATURES OPTIONNELLES</td></tr>
   <tr>
     <td style="width:50%;vertical-align:top">
