@@ -192,11 +192,11 @@ ${btnPrint}
     <td colspan="3" style="padding:0">
       <table style="table-layout:fixed;width:100%">
         <tr>
-          <td style="width:50%;background:#DEEAF6;text-align:center">
+          <td style="width:50%;background:#DEEAF6;text-align:center;border:2px solid #000">
             <b>N\u00b0 ECOT (10 derniers chiffres) :</b><br>
             <div style="margin-top:2px">${boxes(etab.num_ecot, 10)}</div>
           </td>
-          <td style="width:50%;background:#DEEAF6;text-align:center">
+          <td style="width:50%;background:#DEEAF6;text-align:center;border:2px solid #000">
             <b>N\u00b0 FASE :</b><br>
             <div style="margin-top:2px">${boxes(etab.num_fase, 5)}</div>
           </td>
@@ -208,7 +208,7 @@ ${btnPrint}
     <td colspan="3" style="padding:0">
       <table style="table-layout:fixed;width:100%">
         <tr>
-          <td style="width:50%;vertical-align:top;padding:0">
+          <td style="width:50%;vertical-align:top;padding:0;border:2px solid #000">
             <table class="nb" style="width:100%">
               <tr><td style="width:35%;white-space:nowrap;font-size:7pt;background:#DEEAF6;border:1px solid #555"><b>Nom du PO</b></td><td style="font-size:7pt;background:#fff;border:1px solid #555">${etab.po_nom || ''}</td></tr>
               <tr><td style="white-space:nowrap;font-size:7pt;background:#DEEAF6;border:1px solid #555"><b>Nom de l\u2019\u00e9tablissement</b></td><td style="font-size:7pt;background:#fff;border:1px solid #555">${etab.etab_nom || ''}</td></tr>
@@ -218,7 +218,7 @@ ${btnPrint}
                 <td style="font-size:7pt;background:#fff;border:1px solid #555">ec ${etab.email_ec||'@ adm.cfwb.be'}<br>po ${etab.email_po||'@ adm.cfwb.be'}</td></tr>
             </table>
           </td>
-          <td style="width:50%;vertical-align:top;background:#DEEAF6;padding:0">
+          <td style="width:50%;vertical-align:top;background:#DEEAF6;padding:0;border:2px solid #000">
             <table style="width:100%;height:100%">
               <tr>
                 <td style="width:38%;vertical-align:middle;background:#DEEAF6;border:1px solid #555;padding:4px">
