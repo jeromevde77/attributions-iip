@@ -217,7 +217,7 @@ ${btnPrint}
       <span style="font-size:6.5pt">(une copie de chacun d\u2019eux doit \u00eatre en possession de la Direction de gestion)</span><br><br>
       1) ${data.titre1 || '&nbsp;'.repeat(40)}<br>
       2) ${data.titre2 || '&nbsp;'.repeat(40)}<br>
-      <label class="chk" style="margin-top:4px"><input type="checkbox"${data.derogation_titre ? ' checked' : ''}
+      <label class="chk" style="margin-top:4px"><input type="checkbox"${data.derogation_titre ? ' checked' : ''}>
         <span style="font-size:6.5pt">D\u00e9rogation de titre requis par l\u2019AR du 22/4/1969 telle que pr\u00e9vue par l\u2019alin\u00e9a 2 de art 17\u00a74 de la Loi du 7/7/1970.</span>
       </label>
     </td>
@@ -388,6 +388,29 @@ ${btnPrint}
     </tr>
   </thead>
   <tbody>${attrHtml}</tbody>
+</table>
+
+<table style="margin-bottom:4px;font-size:7pt">
+  <tr>
+    <td colspan="3" class="hdr-mid">Attributions actuelles</td>
+    <td colspan="3" class="hdr-mid">Attributions du PS12 pr\u00e9c\u00e9dent : ${dateFr(data.date_ps12_precedent)}</td>
+  </tr>
+  <tr>
+    <th class="hdr-attr">Classification</th>
+    <th class="hdr-attr">TC / TL</th>
+    <th class="hdr-attr">P\u00e9riodes</th>
+    <th class="hdr-attr">Classification</th>
+    <th class="hdr-attr">TC / TL</th>
+    <th class="hdr-attr">P\u00e9riodes</th>
+  </tr>
+  <tr>
+    <td>&nbsp;${data.classif_actuelle||''}</td>
+    <td class="center">${data.tctl_actuel||''}</td>
+    <td class="center">${data.periodes_actuelles||''}</td>
+    <td>&nbsp;${data.classif_precedente||''}</td>
+    <td class="center">${data.tctl_precedent||''}</td>
+    <td class="center">${data.periodes_precedentes||''}</td>
+  </tr>
 </table>
 
 <table style="margin-bottom:4px;font-size:7pt">
