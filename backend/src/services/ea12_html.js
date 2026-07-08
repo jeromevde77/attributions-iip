@@ -26,7 +26,7 @@ function anneeBoxes(annee) {
   const m = String(annee || '').match(/(\d{4})[-/](\d{4})/);
   const y1 = m ? m[1].slice(-2) : '__';
   const y2 = m ? m[2].slice(-2) : '__';
-  const grp = (deux) => `<table class="boxgrid" style="display:inline-table"><tr><td>2</td><td>0</td><td>${deux[0]||''}</td><td>${deux[1]||''}</td></tr></table>`;
+  const grp = (deux) => `<table class="boxgrid nodiv" style="display:inline-table"><tr><td>2</td><td>0</td><td>${deux[0]||''}</td><td>${deux[1]||''}</td></tr></table>`;
   return `${grp(y1)}&nbsp;/&nbsp;${grp(y2)}`;
 }
 
@@ -117,6 +117,7 @@ export function buildEA12Html(data) {
                   font-size: 8pt; font-weight: bold; background: #fff; }
     .boxgrid td:first-child { border-left: none; }
     .boxgrid td:last-child { border-right: none; }
+    .boxgrid.nodiv td { border: none; }
     .chk { display: inline-flex; align-items: center; gap: 3px; margin: 1px 5px 1px 0;
            font-size: 7.5pt; white-space: nowrap; cursor: pointer; }
     .chk input { -webkit-appearance: none; appearance: none; width: 9px; height: 9px; margin: 0;
@@ -168,8 +169,7 @@ ${btnPrint}
       <div style="white-space:nowrap;display:flex;align-items:center;gap:5px;margin-top:4px">
         <b style="text-decoration:underline">Document n\u00b0</b> ${boxes(data.doc_num, 2)}
       </div>
-      <div style="font-size:6pt;margin-top:4px">Dernier Doc12 transmis le :</div>
-      <div style="font-size:7pt;white-space:nowrap">${dateFr(data.dernier_doc12)}</div>
+      <div style="font-size:6pt;margin-top:4px">Dernier Doc12 transmis le :<br>${dateFr(data.dernier_doc12)}</div>
     </td>
   </tr>
 </table>
