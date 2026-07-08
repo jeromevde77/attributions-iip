@@ -114,7 +114,7 @@ export function buildEA12Html(data) {
     .boxgrid { display: inline-table; border-collapse: collapse; width: auto; border: 1.5px solid #000; vertical-align: middle; }
     .boxgrid td { border: 1px solid #000; border-top: none; border-bottom: none; padding: 0;
                   width: 11px; height: 13px; min-width: 11px; text-align: center; vertical-align: middle;
-                  font-size: 8pt; font-weight: bold; background: #fff; }
+                  font-size: 8pt; font-weight: bold; background: transparent; }
     .boxgrid td:first-child { border-left: none; }
     .boxgrid td:last-child { border-right: none; }
     .boxgrid.nodiv td { border: none; }
@@ -162,7 +162,7 @@ ${btnPrint}
       <b>Administration g\u00e9n\u00e9rale de l\u2019Enseignement</b><br>
       Direction g\u00e9n\u00e9rale des Personnels de l\u2019Enseignement
     </td>
-    <td style="width:28%;padding:3px;vertical-align:top;font-size:7pt">
+    <td style="width:28%;padding:3px;vertical-align:top;font-size:7pt;background:#fff">
       <div style="white-space:nowrap;display:flex;align-items:center;gap:5px">
         <b style="text-decoration:underline">Ann\u00e9e acad\u00e9mique</b> ${anneeBoxes(data.annee)}
       </div>
@@ -189,8 +189,14 @@ ${btnPrint}
     </td>
   </tr>
   <tr>
-    <td colspan="2"><b>N\u00b0 ECOT (10 derniers chiffres) :</b> ${boxes(etab.num_ecot, 10)}</td>
-    <td><b>N\u00b0 FASE :</b> ${boxes(etab.num_fase, 6)}</td>
+    <td colspan="2" style="background:#DEEAF6;text-align:center">
+      <b>N\u00b0 ECOT (10 derniers chiffres) :</b><br>
+      <div style="margin-top:2px">${boxes(etab.num_ecot, 10)}</div>
+    </td>
+    <td style="background:#DEEAF6;text-align:center">
+      <b>N\u00b0 FASE :</b><br>
+      <div style="margin-top:2px">${boxes(etab.num_fase, 5)}</div>
+    </td>
   </tr>
   <tr>
     <td style="vertical-align:top;padding:0">
@@ -380,7 +386,7 @@ ${btnPrint}
 <table style="margin-bottom:4px">
   <tr>
     <td style="width:55%"><b>N\u00b0 ECOT (10 derniers chiffres) :</b> ${boxes(etab.num_ecot,10)}</td>
-    <td style="width:45%"><b>N\u00b0 FASE :</b> ${boxes(etab.num_fase,6)}</td>
+    <td style="width:45%"><b>N\u00b0 FASE :</b> ${boxes(etab.num_fase,5)}</td>
   </tr>
 </table>
 
