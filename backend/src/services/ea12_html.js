@@ -161,10 +161,13 @@ ${btnPrint}
       <b>Administration g\u00e9n\u00e9rale de l\u2019Enseignement</b><br>
       Direction g\u00e9n\u00e9rale des Personnels de l\u2019Enseignement
     </td>
-    <td style="width:28%;border:1px solid #555;padding:3px;vertical-align:top;font-size:7pt">
-      <div style="white-space:nowrap"><b style="text-decoration:underline">Ann\u00e9e acad\u00e9mique</b></div>
-      <div style="white-space:nowrap;margin:3px 0">${anneeBoxes(data.annee)}</div>
-      <div style="white-space:nowrap;margin-top:4px"><b style="text-decoration:underline">Document n\u00b0</b> ${boxes(data.doc_num, 2)}</div>
+    <td style="width:28%;padding:3px;vertical-align:top;font-size:7pt">
+      <div style="white-space:nowrap;display:flex;align-items:center;gap:5px">
+        <b style="text-decoration:underline">Ann\u00e9e acad\u00e9mique</b> ${anneeBoxes(data.annee)}
+      </div>
+      <div style="white-space:nowrap;display:flex;align-items:center;gap:5px;margin-top:4px">
+        <b style="text-decoration:underline">Document n\u00b0</b> ${boxes(data.doc_num, 2)}
+      </div>
       <div style="font-size:6pt;margin-top:4px">Dernier Doc12 transmis le :</div>
       <div style="font-size:7pt;white-space:nowrap">${dateFr(data.dernier_doc12)}</div>
     </td>
