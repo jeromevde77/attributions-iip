@@ -181,9 +181,9 @@ ${btnPrint}
 <table style="margin-bottom:3px">
   <tr><td colspan="3" class="hdr-mid">Identification de l\u2019\u00e9tablissement</td></tr>
   <tr>
-    <td style="width:34%"><b>Niveau : ENSEIGNEMENT POUR ADULTES (20)</b></td>
-    <td style="width:25%">${chk(isWBE)} <b>Organis\u00e9 WBE (33)</b></td>
-    <td style="width:41%">
+    <td style="width:34%;background:#fff;text-align:center;vertical-align:middle"><b>Niveau : ENSEIGNEMENT POUR ADULTES (20)</b></td>
+    <td style="width:25%;background:#fff;text-align:center;vertical-align:middle">${chk(isWBE)} <b>Organis\u00e9 WBE (33)</b></td>
+    <td style="width:41%;background:#fff;text-align:center;vertical-align:middle">
       ${chk(isSubv)} <b>Subventionn\u00e9 par la FWB (22)</b><br>
       ${chk(isOfficiel)} Officiel &nbsp; ${chk(isLibre)} Libre
     </td>
