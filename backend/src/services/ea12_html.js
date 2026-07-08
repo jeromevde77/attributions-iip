@@ -26,8 +26,8 @@ function anneeBoxes(annee) {
   const m = String(annee || '').match(/(\d{4})[-/](\d{4})/);
   const y1 = m ? m[1].slice(-2) : '__';
   const y2 = m ? m[2].slice(-2) : '__';
-  const grp = (chars) => `<table class="boxgrid" style="display:inline-table"><tr>${chars.split('').map(c => `<td>${c||''}</td>`).join('')}</tr></table>`;
-  return `20${grp(y1)}&nbsp;/&nbsp;20${grp(y2)}`;
+  const grp = (deux) => `<table class="boxgrid" style="display:inline-table"><tr><td>2</td><td>0</td><td>${deux[0]||''}</td><td>${deux[1]||''}</td></tr></table>`;
+  return `${grp(y1)}&nbsp;/&nbsp;${grp(y2)}`;
 }
 
 function chk(checked, label) {
@@ -111,10 +111,10 @@ export function buildEA12Html(data) {
     .center    { text-align: center; }
     .box { display: inline-block; width: 13px; height: 15px; border: 1px solid #444;
            text-align: center; line-height: 15px; margin: 0 1.5px; font-size: 8pt; background: #fff; }
-    .boxgrid { display: inline-table; border-collapse: collapse; width: auto; border: 1.75px solid #000; vertical-align: middle; }
+    .boxgrid { display: inline-table; border-collapse: collapse; width: auto; border: 2px solid #000; vertical-align: middle; }
     .boxgrid td { border: 1px solid #000; border-top: none; border-bottom: none; padding: 0;
-                  width: 13px; height: 15px; min-width: 13px; text-align: center; vertical-align: middle;
-                  font-size: 8pt; background: #fff; }
+                  width: 19px; height: 25px; min-width: 19px; text-align: center; vertical-align: middle;
+                  font-size: 12pt; font-weight: bold; background: #fff; }
     .boxgrid td:first-child { border-left: none; }
     .boxgrid td:last-child { border-right: none; }
     .chk { display: inline-flex; align-items: center; gap: 3px; margin: 1px 5px 1px 0;
@@ -156,16 +156,16 @@ export function buildEA12Html(data) {
 ${btnPrint}
 <table class="nb" style="margin-bottom:3px">
   <tr>
-    <td style="width:30%;vertical-align:middle;padding-right:4px">${logoHtml}</td>
-    <td style="width:42%;vertical-align:top;font-size:7.5pt;line-height:1.5">
+    <td style="width:27%;vertical-align:middle;padding-right:4px">${logoHtml}</td>
+    <td style="width:41%;vertical-align:top;font-size:7.5pt;line-height:1.5">
       <b>Administration g\u00e9n\u00e9rale de l\u2019Enseignement</b><br>
       Direction g\u00e9n\u00e9rale des Personnels de l\u2019Enseignement
     </td>
-    <td style="width:28%;border:1px solid #555;padding:3px;vertical-align:top;font-size:7pt">
-      <div style="white-space:nowrap"><b>Ann\u00e9e acad\u00e9mique</b></div>
-      <div style="white-space:nowrap;margin-bottom:2px">${anneeBoxes(data.annee)}</div>
-      <div style="white-space:nowrap"><b>Document n\u00b0</b> ${boxes(data.doc_num, 2)}</div>
-      <div style="font-size:6pt;margin-top:2px">Dernier Doc12 transmis le :</div>
+    <td style="width:32%;border:1px solid #555;padding:4px;vertical-align:top;font-size:7pt">
+      <div style="white-space:nowrap"><b style="text-decoration:underline">Ann\u00e9e acad\u00e9mique</b></div>
+      <div style="white-space:nowrap;margin:3px 0">${anneeBoxes(data.annee)}</div>
+      <div style="white-space:nowrap;margin-top:4px"><b style="text-decoration:underline">Document n\u00b0</b> ${boxes(data.doc_num, 2)}</div>
+      <div style="font-size:6pt;margin-top:4px">Dernier Doc12 transmis le :</div>
       <div style="font-size:7pt;white-space:nowrap">${dateFr(data.dernier_doc12)}</div>
     </td>
   </tr>
