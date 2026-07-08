@@ -103,8 +103,8 @@ export function buildEA12Html(data) {
     table { border-collapse: collapse; width: 100%; }
     td, th { border: 1px solid #555; padding: 2px 3px; vertical-align: top; font-size: 7.5pt; word-break: break-word; }
     .hdr-dark  { background: #1F3864; color: #fff; font-weight: bold; text-align: center; font-size: 10pt; padding: 4px; }
-    .hdr-mid   { background: #fff; font-weight: bold; text-align: center; font-size: 8pt; padding: 3px; border-bottom: 1px solid #555; }
-    .hdr-attr  { background: #fff; color: #000; font-weight: bold; text-align: center; font-size: 7pt; padding: 2px; }
+    .hdr-mid   { background: #D6DCE4; font-weight: bold; text-align: center; font-size: 8pt; padding: 3px; }
+    .hdr-attr  { background: #1F3864; color: #fff; font-weight: bold; text-align: center; font-size: 7pt; padding: 2px; }
     .bold      { font-weight: bold; }
     .center    { text-align: center; }
     .box { display: inline-block; width: 13px; height: 15px; border: 1px solid #444;
@@ -269,7 +269,7 @@ ${btnPrint}
   </tr>
   <tr>
     <!-- Barre verticale "Mouvement" -->
-    <td style="width:12px;background:#fff;text-align:center;vertical-align:middle;padding:2px;border-right:none">
+    <td style="width:12px;background:#D6DCE4;text-align:center;vertical-align:middle;padding:2px;border-right:none">
       <div style="writing-mode:vertical-lr;transform:rotate(180deg);font-weight:bold;font-size:7pt;white-space:nowrap">Mouvement</div>
     </td>
     <td style="width:calc(55% - 12px);vertical-align:top;border-left:none">
