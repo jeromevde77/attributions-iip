@@ -218,15 +218,23 @@ ${btnPrint}
                 <td style="font-size:7pt;background:#fff;border:1px solid #555">ec ${etab.email_ec||'@ adm.cfwb.be'}<br>po ${etab.email_po||'@ adm.cfwb.be'}</td></tr>
             </table>
           </td>
-          <td style="width:50%;vertical-align:top;background:#DEEAF6;padding:3px">
-            <b>Gestionnaire du dossier</b>
-            <i style="font-size:6.5pt">(joignable facilement par l\u2019Administration)</i>
-            <table class="nb" style="margin-top:2px;width:100%">
-              <tr><td style="width:30%;white-space:nowrap;background:#DEEAF6;border:1px solid #555">Nom :</td><td style="background:#fff;border:1px solid #555">${etab.gest_nom || ''}</td></tr>
-              <tr><td style="white-space:nowrap;background:#DEEAF6;border:1px solid #555">Pr\u00e9nom :</td><td style="background:#fff;border:1px solid #555">${etab.gest_prenom || ''}</td></tr>
-              <tr><td style="white-space:nowrap;background:#DEEAF6;border:1px solid #555">Qualit\u00e9 :</td><td style="background:#fff;border:1px solid #555">${etab.gest_qualite || ''}</td></tr>
-              <tr><td style="white-space:nowrap;background:#DEEAF6;border:1px solid #555">T\u00e9l. direct :</td><td style="background:#fff;border:1px solid #555">${etab.gest_tel || ''}</td></tr>
-              <tr><td style="white-space:nowrap;background:#DEEAF6;border:1px solid #555">E-mail :</td><td style="background:#fff;border:1px solid #555">${etab.gest_email || ''}</td></tr>
+          <td style="width:50%;vertical-align:top;background:#DEEAF6;padding:0">
+            <table style="width:100%;height:100%">
+              <tr>
+                <td style="width:38%;vertical-align:middle;background:#DEEAF6;border:1px solid #555;padding:4px">
+                  <b>Gestionnaire du dossier</b>
+                  <div style="font-size:6.5pt;font-style:italic;margin-top:2px">(joignable facilement par l\u2019Administration)</div>
+                </td>
+                <td style="width:62%;vertical-align:top;background:#fff;padding:0">
+                  <table style="width:100%">
+                    <tr><td style="border:1px solid #555;background:#fff"><b>Nom :</b> ${etab.gest_nom || ''}</td></tr>
+                    <tr><td style="border:1px solid #555;background:#fff"><b>Pr\u00e9nom :</b> ${etab.gest_prenom || ''}</td></tr>
+                    <tr><td style="border:1px solid #555;background:#fff"><b>Qualit\u00e9 :</b> ${etab.gest_qualite || ''}</td></tr>
+                    <tr><td style="border:1px solid #555;background:#fff"><b>T\u00e9l. direct :</b> ${etab.gest_tel || ''}</td></tr>
+                    <tr><td style="border:1px solid #555;background:#fff"><b>E-mail :</b> ${etab.gest_email || ''}</td></tr>
+                  </table>
+                </td>
+              </tr>
             </table>
           </td>
         </tr>
