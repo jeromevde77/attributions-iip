@@ -19,15 +19,15 @@ try {
 function boxes(val, count) {
   const chars = String(val || '').replace(/\s/g, '').split('').slice(0, count);
   while (chars.length < count) chars.push('');
-  return chars.map(c => `<span class="box">${c}</span>`).join('');
+  return `<table class="boxgrid"><tr>${chars.map(c => `<td>${c}</td>`).join('')}</tr></table>`;
 }
 
 function anneeBoxes(annee) {
   const m = String(annee || '').match(/(\d{4})[-/](\d{4})/);
   const y1 = m ? m[1].slice(-2) : '__';
   const y2 = m ? m[2].slice(-2) : '__';
-  const b = c => `<span class="box">${c || ''}</span>`;
-  return `20${b(y1[0])}${b(y1[1])}&nbsp;/&nbsp;20${b(y2[0])}${b(y2[1])}`;
+  const grp = (chars) => `<table class="boxgrid" style="display:inline-table"><tr>${chars.split('').map(c => `<td>${c||''}</td>`).join('')}</tr></table>`;
+  return `20${grp(y1)}&nbsp;/&nbsp;20${grp(y2)}`;
 }
 
 function chk(checked, label) {
@@ -111,9 +111,18 @@ export function buildEA12Html(data) {
     .center    { text-align: center; }
     .box { display: inline-block; width: 13px; height: 15px; border: 1px solid #444;
            text-align: center; line-height: 15px; margin: 0 1.5px; font-size: 8pt; background: #fff; }
-    .chk { display: inline-flex; align-items: center; gap: 2px; margin: 1px 5px 1px 0;
+    .boxgrid { display: inline-table; border-collapse: collapse; width: auto; border: 1.75px solid #000; vertical-align: middle; }
+    .boxgrid td { border: 1px solid #000; border-top: none; border-bottom: none; padding: 0;
+                  width: 13px; height: 15px; min-width: 13px; text-align: center; vertical-align: middle;
+                  font-size: 8pt; background: #fff; }
+    .boxgrid td:first-child { border-left: none; }
+    .boxgrid td:last-child { border-right: none; }
+    .chk { display: inline-flex; align-items: center; gap: 3px; margin: 1px 5px 1px 0;
            font-size: 7.5pt; white-space: nowrap; cursor: pointer; }
-    .chk input { width: 11px; height: 11px; margin: 0; accent-color: #1F3864; }
+    .chk input { -webkit-appearance: none; appearance: none; width: 9px; height: 9px; margin: 0;
+                 border: 1.75px solid #000; background: #fff; position: relative; flex-shrink: 0; }
+    .chk input:checked { background: #fff; }
+    .chk input:checked::after { content: ''; position: absolute; left: 0.5px; top: 0.5px; right: 0.5px; bottom: 0.5px; background: #000; }
     .chk-col { display: flex; flex-direction: column; gap: 2px; }
     .nb { border: none; }
     .nb td, .nb th { border: none; padding: 1px 3px; }
