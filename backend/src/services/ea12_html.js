@@ -111,10 +111,10 @@ export function buildEA12Html(data) {
     .center    { text-align: center; }
     .box { display: inline-block; width: 13px; height: 15px; border: 1px solid #444;
            text-align: center; line-height: 15px; margin: 0 1.5px; font-size: 8pt; background: #fff; }
-    .boxgrid { display: inline-table; border-collapse: collapse; width: auto; border: 2px solid #000; vertical-align: middle; }
+    .boxgrid { display: inline-table; border-collapse: collapse; width: auto; border: 1.5px solid #000; vertical-align: middle; }
     .boxgrid td { border: 1px solid #000; border-top: none; border-bottom: none; padding: 0;
-                  width: 19px; height: 25px; min-width: 19px; text-align: center; vertical-align: middle;
-                  font-size: 12pt; font-weight: bold; background: #fff; }
+                  width: 11px; height: 13px; min-width: 11px; text-align: center; vertical-align: middle;
+                  font-size: 8pt; font-weight: bold; background: #fff; }
     .boxgrid td:first-child { border-left: none; }
     .boxgrid td:last-child { border-right: none; }
     .chk { display: inline-flex; align-items: center; gap: 3px; margin: 1px 5px 1px 0;
@@ -156,12 +156,12 @@ export function buildEA12Html(data) {
 ${btnPrint}
 <table class="nb" style="margin-bottom:3px">
   <tr>
-    <td style="width:27%;vertical-align:middle;padding-right:4px">${logoHtml}</td>
-    <td style="width:41%;vertical-align:top;font-size:7.5pt;line-height:1.5">
+    <td style="width:30%;vertical-align:middle;padding-right:4px">${logoHtml}</td>
+    <td style="width:42%;vertical-align:top;font-size:7.5pt;line-height:1.5">
       <b>Administration g\u00e9n\u00e9rale de l\u2019Enseignement</b><br>
       Direction g\u00e9n\u00e9rale des Personnels de l\u2019Enseignement
     </td>
-    <td style="width:32%;border:1px solid #555;padding:4px;vertical-align:top;font-size:7pt">
+    <td style="width:28%;border:1px solid #555;padding:3px;vertical-align:top;font-size:7pt">
       <div style="white-space:nowrap"><b style="text-decoration:underline">Ann\u00e9e acad\u00e9mique</b></div>
       <div style="white-space:nowrap;margin:3px 0">${anneeBoxes(data.annee)}</div>
       <div style="white-space:nowrap;margin-top:4px"><b style="text-decoration:underline">Document n\u00b0</b> ${boxes(data.doc_num, 2)}</div>
