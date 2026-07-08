@@ -193,25 +193,25 @@ ${btnPrint}
     <td><b>N\u00b0 FASE :</b> ${boxes(etab.num_fase, 6)}</td>
   </tr>
   <tr>
-    <td style="vertical-align:top">
+    <td style="vertical-align:top;padding:0">
       <table class="nb">
-        <tr><td style="white-space:nowrap;font-size:7pt"><b>Nom du PO</b></td><td style="font-size:7pt">${etab.po_nom || ''}</td></tr>
-        <tr><td style="white-space:nowrap;font-size:7pt"><b>Nom de l\u2019\u00e9tablissement</b></td><td style="font-size:7pt">${etab.etab_nom || ''}</td></tr>
-        <tr><td style="white-space:nowrap;font-size:7pt;vertical-align:top"><b>Adresse compl\u00e8te</b></td>
-            <td style="font-size:7pt;max-width:55mm;word-break:break-word">${(etab.adresse||'').replace(/,/g,',<br>')}</td></tr>
-        <tr><td style="white-space:nowrap;font-size:7pt;vertical-align:top"><b>E-mails officiels</b></td>
-          <td style="font-size:7pt">ec ${etab.email_ec||'@ adm.cfwb.be'}<br>po ${etab.email_po||'@ adm.cfwb.be'}</td></tr>
+        <tr><td style="white-space:nowrap;font-size:7pt;background:#DEEAF6"><b>Nom du PO</b></td><td style="font-size:7pt;background:#fff">${etab.po_nom || ''}</td></tr>
+        <tr><td style="white-space:nowrap;font-size:7pt;background:#DEEAF6"><b>Nom de l\u2019\u00e9tablissement</b></td><td style="font-size:7pt;background:#fff">${etab.etab_nom || ''}</td></tr>
+        <tr><td style="white-space:nowrap;font-size:7pt;vertical-align:top;background:#DEEAF6"><b>Adresse compl\u00e8te</b></td>
+            <td style="font-size:7pt;max-width:55mm;word-break:break-word;background:#fff">${(etab.adresse||'').replace(/,/g,',<br>')}</td></tr>
+        <tr><td style="white-space:nowrap;font-size:7pt;vertical-align:top;background:#DEEAF6"><b>E-mails officiels</b></td>
+          <td style="font-size:7pt;background:#fff">ec ${etab.email_ec||'@ adm.cfwb.be'}<br>po ${etab.email_po||'@ adm.cfwb.be'}</td></tr>
       </table>
     </td>
-    <td colspan="2" style="vertical-align:top">
+    <td colspan="2" style="vertical-align:top;background:#DEEAF6;padding:3px">
       <b>Gestionnaire du dossier</b>
       <i style="font-size:6.5pt">(joignable facilement par l\u2019Administration)</i>
       <table class="nb" style="margin-top:2px">
-        <tr><td style="white-space:nowrap">Nom :</td><td>${etab.gest_nom || ''}</td></tr>
-        <tr><td style="white-space:nowrap">Pr\u00e9nom :</td><td>${etab.gest_prenom || ''}</td></tr>
-        <tr><td style="white-space:nowrap">Qualit\u00e9 :</td><td>${etab.gest_qualite || ''}</td></tr>
-        <tr><td style="white-space:nowrap">T\u00e9l. direct :</td><td>${etab.gest_tel || ''}</td></tr>
-        <tr><td style="white-space:nowrap">E-mail :</td><td>${etab.gest_email || ''}</td></tr>
+        <tr><td style="white-space:nowrap;background:#DEEAF6">Nom :</td><td style="background:#fff">${etab.gest_nom || ''}</td></tr>
+        <tr><td style="white-space:nowrap;background:#DEEAF6">Pr\u00e9nom :</td><td style="background:#fff">${etab.gest_prenom || ''}</td></tr>
+        <tr><td style="white-space:nowrap;background:#DEEAF6">Qualit\u00e9 :</td><td style="background:#fff">${etab.gest_qualite || ''}</td></tr>
+        <tr><td style="white-space:nowrap;background:#DEEAF6">T\u00e9l. direct :</td><td style="background:#fff">${etab.gest_tel || ''}</td></tr>
+        <tr><td style="white-space:nowrap;background:#DEEAF6">E-mail :</td><td style="background:#fff">${etab.gest_email || ''}</td></tr>
       </table>
     </td>
   </tr>
