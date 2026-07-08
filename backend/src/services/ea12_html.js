@@ -101,35 +101,98 @@ export function buildEA12Html(data) {
                     .page { background: #fff; padding: 8mm; margin-bottom: 8mm; box-shadow: 0 2px 8px rgba(0,0,0,.2); } }
     @media print  { .no-print { display: none !important; } .page { margin: 0; padding: 0; } }
     table { border-collapse: collapse; width: 100%; }
-    td, th { border: 1px solid #555; padding: 2px 3px; vertical-align: top; font-size: 7.5pt; word-break: break-word; background: #DEEAF6; }
-    .nb td, .nb th, .attr-table td, .attr-table th, .sig-table td, .sig-table th { background: #fff; }
-    .hdr-mid.hdr-mid { background: #9CC2E5; }
-    .hdr-dark  { background: #2E74B5; color: #fff; font-weight: bold; text-align: center; font-size: 10pt; padding: 4px; }
-    .hdr-mid   { background: #9CC2E5; font-weight: bold; text-align: center; font-size: 8pt; padding: 3px; }
-    .hdr-attr  { background: #fff; color: #000; font-weight: bold; text-align: center; font-size: 7pt; padding: 2px; }
+    .p2 td, .p2 th { border: 1px solid #555; padding: 2px 3px; vertical-align: top; font-size: 7.5pt; word-break: break-word; background: #DEEAF6; }
+    .p2 .nb td, .p2 .nb th, .p2 .attr-table td, .p2 .attr-table th, .p2 .sig-table td, .p2 .sig-table th { background: #fff; }
+    .p2 .hdr-mid.hdr-mid { background: #9CC2E5; }
+    .p2 .hdr-dark  { background: #2E74B5; color: #fff; font-weight: bold; text-align: center; font-size: 10pt; padding: 4px; }
+    .p2 .hdr-mid   { background: #9CC2E5; font-weight: bold; text-align: center; font-size: 8pt; padding: 3px; }
+    .p2 .hdr-attr  { background: #fff; color: #000; font-weight: bold; text-align: center; font-size: 7pt; padding: 2px; }
     .bold      { font-weight: bold; }
     .center    { text-align: center; }
-    .box { display: inline-block; width: 13px; height: 15px; border: 1px solid #444;
+    .p2 .box { display: inline-block; width: 13px; height: 15px; border: 1px solid #444;
            text-align: center; line-height: 15px; margin: 0 1.5px; font-size: 8pt; background: #fff; }
-    .boxgrid { display: inline-table; border-collapse: collapse; width: auto; border: 1.5px solid #000; vertical-align: middle; }
-    .boxgrid td { border: 1px solid #000; border-top: none; border-bottom: none; padding: 0;
+    .p2 .boxgrid { display: inline-table; border-collapse: collapse; width: auto; border: 1.5px solid #000; vertical-align: middle; }
+    .p2 .boxgrid td { border: 1px solid #000; border-top: none; border-bottom: none; padding: 0;
                   width: 11px; height: 13px; min-width: 11px; text-align: center; vertical-align: middle;
                   font-size: 8pt; font-weight: bold; background: transparent; }
-    .boxgrid td:first-child { border-left: none; }
-    .boxgrid td:last-child { border-right: none; }
-    .boxgrid.nodiv td { border: none; }
-    .chk { display: inline-flex; align-items: center; gap: 3px; margin: 1px 5px 1px 0;
+    .p2 .boxgrid td:first-child { border-left: none; }
+    .p2 .boxgrid td:last-child { border-right: none; }
+    .p2 .boxgrid.nodiv td { border: none; }
+    .p2 .chk { display: inline-flex; align-items: center; gap: 3px; margin: 1px 5px 1px 0;
            font-size: 7.5pt; white-space: nowrap; cursor: pointer; }
-    .chk input { -webkit-appearance: none; appearance: none; width: 9px; height: 9px; margin: 0;
+    .p2 .chk input { -webkit-appearance: none; appearance: none; width: 9px; height: 9px; margin: 0;
                  border: 1.75px solid #000; background: #fff; position: relative; flex-shrink: 0; }
-    .chk input:checked { background: #fff; }
-    .chk input:checked::after { content: ''; position: absolute; left: 0.5px; top: 0.5px; right: 0.5px; bottom: 0.5px; background: #000; }
-    .chk-col { display: flex; flex-direction: column; gap: 2px; }
-    .nb { border: none; }
-    .nb td, .nb th { border: none; padding: 1px 3px; }
+    .p2 .chk input:checked { background: #fff; }
+    .p2 .chk input:checked::after { content: ''; position: absolute; left: 0.5px; top: 0.5px; right: 0.5px; bottom: 0.5px; background: #000; }
+    .p2 .chk-col { display: flex; flex-direction: column; gap: 2px; }
+    .p2 .nb { border: none; }
+    .p2 .nb td, .p2 .nb th { border: none; padding: 1px 3px; }
     .page-break { break-after: page; page-break-after: always; }
-    .sig-area { min-height: 25mm; }
-    input[type=text] { border: none; border-bottom: 1px solid #555;
+    .p2 .sig-area { min-height: 25mm; }
+
+    /* ── Page 1 : styles par bloc (maquettes validées) ── */
+    .bloc-sep { height: 3mm; }
+.k0 .boxgrid { display:inline-table; border-collapse:collapse; border:1.5px solid #000; vertical-align:middle; width:auto; }
+.k0 .boxgrid td { border:none; border-right:1px solid #000; width:15px; height:24px; min-width:15px;
+                  padding:0; text-align:center; vertical-align:middle; font-size:10pt; font-weight:bold; background:#fff; }
+.k0 .boxgrid td:last-child { border-right:none; }
+.k0 .boxgrid.nodiv td { border:none; }
+.k1 table { border-collapse: collapse; width: 100%; }
+.k1 td { padding: 3px 5px; vertical-align: top; }
+.k1 .hdr { background:#9CC2E5; font-weight:bold; text-align:center; font-size:8pt; padding:3px; border:1.5px solid #000; }
+.k1 .cellwhite { background:#fff; text-align:center; vertical-align:middle;
+               border-left:1.5px solid #000; border-right:0.5px solid #555; border-bottom:1.5px solid #000; }
+.k1 .cellwhite.last { border-right:1.5px solid #000; }
+.k1 .cellblue { background:#DEEAF6; text-align:center;
+              border-left:1.5px solid #000; border-right:0.5px solid #555; border-bottom:1.5px solid #000; }
+.k1 .cellblue.last { border-right:1.5px solid #000; }
+.k1 .boxgrid { display:inline-table; border-collapse:collapse; border:1.5px solid #000; vertical-align:middle; width:auto; }
+.k1 .boxgrid td { border:none; border-right:1px solid #000; width:13px; height:15px; min-width:13px;
+                padding:0; text-align:center; vertical-align:middle; font-size:8pt; font-weight:bold; background:transparent; }
+.k1 .boxgrid td:last-child { border-right:none; }
+.k1 .chk { display:inline-flex; align-items:center; gap:3px; margin-right:6px; }
+.k1 .chk .sq { width:9px; height:9px; border:1.75px solid #000; display:inline-block; }
+.k1 .chk .sq.on { background:#000; }
+.k1 /* Bloc PO + Gestionnaire : UNE seule table à 4 colonnes, .k1 5 lignes partagées -> alignement garanti */
+  .infoblock { border:1.5px solid #000; }
+.k1 .infoblock td { border:0.75px solid #555; font-size:7pt; }
+.k1 .infoblock td.lbl { background:#DEEAF6; font-weight:bold; white-space:nowrap; }
+.k1 .infoblock td.val { background:#fff; }
+.k1 .infoblock td.gestlbl { background:#DEEAF6; vertical-align:middle; text-align:left; }
+.k2 table { border-collapse: collapse; width: 100%; }
+.k2 td { padding: 4px 6px; vertical-align: top; }
+.k2 .hdr { background:#9CC2E5; font-weight:bold; text-align:center; font-size:9pt; padding:4px; border:1.5px solid #000; }
+.k2 .subhdr { background:#DEEAF6; font-weight:bold; text-align:center; font-size:8pt; }
+.k2 .boxgrid { display:inline-table; border-collapse:collapse; border:1.5px solid #000; vertical-align:middle; width:auto; }
+.k2 .boxgrid td { border:none; border-right:1px solid #000; width:16px; height:18px; min-width:16px;
+                padding:0; text-align:center; vertical-align:middle; font-size:9pt; font-weight:bold; background:transparent; }
+.k2 .boxgrid td:last-child { border-right:none; }
+.k2 .chk { display:flex; align-items:center; gap:5px; margin:3px 0; }
+.k2 .chk .sq { width:9px; height:9px; border:1.75px solid #000; display:inline-block; flex-shrink:0; }
+.k2 .mdp { border:1.5px solid #000; }
+.k2 .mdp td { border:0.75px solid #555; }
+.k2 .matricule-cell { background:#DEEAF6; text-align:center; }
+.k3 table { border-collapse: collapse; width: 100%; }
+.k3 td { padding: 3px 6px; vertical-align: top; }
+.k3 .b3 { border:1.5px solid #000; }
+.k3 .b3 td { border:0.75px solid #555; }
+.k3 .hdrmid { background:#9CC2E5; font-weight:bold; text-align:center; font-size:8pt; padding:3px; }
+.k3 .chk { display:inline-flex; align-items:center; gap:4px; margin-right:8px; }
+.k3 .chk .sq { width:9px; height:9px; border:1.75px solid #000; display:inline-block; flex-shrink:0; }
+.k3 .chk .sq.on { background:#000; }
+.k4 table { border-collapse: collapse; width: 100%; }
+.k4 td { padding: 3px 6px; vertical-align: top; }
+.k4 .b4 { border:1.5px solid #000; table-layout:fixed; }
+.k4 .b4 td { border:0.75px solid #555; }
+.k4 .hdrmid { background:#9CC2E5; font-weight:bold; text-align:center; font-size:8pt; padding:3px; }
+.k4 .subhdr { background:#DEEAF6; font-weight:bold; font-size:7.5pt; text-align:center; }
+.k4 .chk { display:flex; align-items:center; gap:4px; margin:2px 0; }
+.k4 .chk .sq { width:9px; height:9px; border:1.75px solid #000; display:inline-block; flex-shrink:0; }
+.k4 .chk .sq.on { background:#000; }
+.k4 .vlabel { background:#DEEAF6; text-align:center; vertical-align:middle; padding:2px 0; }
+.k4 .vlabel div { writing-mode:vertical-lr; transform:rotate(180deg); font-weight:bold; font-size:7pt; white-space:nowrap; margin:0 auto; }
+
+    .p2 input[type=text] { border: none; border-bottom: 1px solid #555;
                        font-size: 7pt; font-family: Arial; width: 95%; background: transparent; }
   `;
 
@@ -145,220 +208,300 @@ export function buildEA12Html(data) {
       </button>
     </div>`;
 
-  // ── PAGE 1 ─────────────────────────────────────────────────────────────────
-  const logoHtml = LOGO_FWB
-    ? `<img src="${LOGO_FWB}" style="height:13mm;width:auto;display:block;max-width:100%;object-fit:contain" alt="Logo FWB">`
-    : `<b style="font-size:9pt">F\u00e9d\u00e9ration Wallonie-Bruxelles</b>`;
-
-  const statuts = ['T','TPr','St','D','ACS','APE','PTP'];
+  // ── PAGE 1 (structure validée bloc par bloc sur maquettes, juillet 2026) ────
+  const y = String(data.annee || '').match(/(\d{4})[-/](\d{4})/);
+  const y1 = y ? y[1].slice(-2) : '  ';
+  const y2 = y ? y[2].slice(-2) : '  ';
+  const anneeGrp = (yy) => `<table class="boxgrid" style="display:inline-table"><tr><td>2</td><td>0</td><td>${yy[0]||''}</td><td>${yy[1]||''}</td></tr></table>`;
+  const grille = (val, n) => {
+    const chars = String(val || '').replace(/\s/g, '').split('').slice(0, n);
+    while (chars.length < n) chars.push('');
+    return `<table class="boxgrid"><tr>${chars.map(c => `<td>${c}</td>`).join('')}</tr></table>`;
+  };
 
   const page1 = `
 <div class="page">
 ${btnPrint}
-<table class="nb" style="margin-bottom:3px">
+<div class="k0">
+<table style="border:none;border-collapse:collapse;width:100%">
   <tr>
-    <td style="width:30%;vertical-align:middle;padding-right:4px">${logoHtml}</td>
-    <td style="width:42%;vertical-align:top;font-size:7.5pt;line-height:1.5">
-      <b>Administration g\u00e9n\u00e9rale de l\u2019Enseignement</b><br>
-      Direction g\u00e9n\u00e9rale des Personnels de l\u2019Enseignement
+    <td style="border:none;width:68%;vertical-align:top;padding:0">
+      <img src="${LOGO_FWB}" style="height:9.5mm;width:auto;display:block" alt="Fédération Wallonie-Bruxelles">
+      <div style="margin-top:3mm;font-size:8pt;line-height:1.5">
+        <b>Administration générale de l'Enseignement</b><br>
+        Direction générale des Personnels de l'Enseignement
+      </div>
     </td>
-    <td style="width:28%;padding:3px;vertical-align:top;font-size:7pt;background:#fff">
+    <td style="border:none;width:32%;vertical-align:top;padding:0;font-size:7.5pt">
       <div style="white-space:nowrap;display:flex;align-items:center;gap:5px">
-        <b style="text-decoration:underline">Ann\u00e9e acad\u00e9mique</b> ${anneeBoxes(data.annee)}
+        <b style="text-decoration:underline">Année<br>académique</b>
+        ${anneeGrp(y1)}
+        /
+        ${anneeGrp(y2)}
       </div>
       <div style="white-space:nowrap;display:flex;align-items:center;gap:5px;margin-top:4px">
-        <b style="text-decoration:underline">Document n\u00b0</b> ${boxes(data.doc_num, 2)}
+        <b style="text-decoration:underline">Document n°</b>
+        ${grille(data.doc_num, 2)}
       </div>
-      <div style="font-size:6pt;margin-top:4px">Dernier Doc12 transmis le :<br>${dateFr(data.dernier_doc12)}</div>
+      <div style="font-size:6.5pt;margin-top:4px;white-space:nowrap"><b>Dernier Doc12 transmis le :</b> ${dateFr(data.dernier_doc12)}</div>
+    </td>
+  </tr>
+</table>
+<div style="margin-top:3mm;border:2.5px solid #000;background:#2E74B5;color:#fff;text-align:center;padding:4px;font-size:11pt">
+  <b>EA12</b> <span style="font-size:9pt">- Enseignement pour Adultes -</span> <b style="font-size:10.5pt">SUPERIEUR</b> <span style="font-size:9pt">– Demande de mise en liquidation</span>
+</div>
+</div>
+<div class="bloc-sep"></div>
+<div class="k1">
+<table style="margin-bottom:0">
+  <tr><td colspan="3" class="hdr">Identification de l'établissement</td></tr>
+  <tr>
+    <td class="cellwhite" style="width:34%"><b>Niveau : ENSEIGNEMENT POUR ADULTES (20)</b></td>
+    <td class="cellwhite" style="width:25%"><span class="chk"><span class="sq${isWBE ? " on" : ""}"></span></span> <b>Organisé WBE (33)</b></td>
+    <td class="cellwhite last" style="width:41%">
+      <span class="chk"><span class="sq${isSubv ? " on" : ""}"></span></span> <b>Subventionné par la FWB (22)</b><br>
+      <span class="chk"><span class="sq${isOfficiel ? " on" : ""}"></span></span> Officiel &nbsp;
+      <span class="chk"><span class="sq${isLibre ? " on" : ""}"></span></span> Libre
     </td>
   </tr>
 </table>
 
-<table style="margin-bottom:3px">
-  <tr><td class="hdr-dark">EA12 \u2013 Enseignement pour Adultes \u2013 SUP\u00c9RIEUR \u2013 Demande de mise en liquidation</td></tr>
-</table>
-
-<table style="margin-bottom:3px">
-  <tr><td colspan="3" class="hdr-mid">Identification de l\u2019\u00e9tablissement</td></tr>
+<table style="margin-bottom:0">
   <tr>
-    <td style="width:34%;background:#fff;text-align:center;vertical-align:middle"><b>Niveau : ENSEIGNEMENT POUR ADULTES (20)</b></td>
-    <td style="width:25%;background:#fff;text-align:center;vertical-align:middle">${chk(isWBE)} <b>Organis\u00e9 WBE (33)</b></td>
-    <td style="width:41%;background:#fff;text-align:center;vertical-align:middle">
-      ${chk(isSubv)} <b>Subventionn\u00e9 par la FWB (22)</b><br>
-      ${chk(isOfficiel)} Officiel &nbsp; ${chk(isLibre)} Libre
+    <td class="cellblue" style="width:50%">
+      <b>N° ECOT (10 derniers chiffres) :</b><br>
+      <div style="margin-top:3px">${grille(etab.num_ecot, 10)}</div>
     </td>
-  </tr>
-  <tr>
-    <td colspan="3" style="padding:0">
-      <table style="table-layout:fixed;width:100%">
-        <tr>
-          <td style="width:50%;background:#DEEAF6;text-align:center;border:1.5px solid #000">
-            <b>N\u00b0 ECOT (10 derniers chiffres) :</b><br>
-            <div style="margin-top:2px">${boxes(etab.num_ecot, 10)}</div>
-          </td>
-          <td style="width:50%;background:#DEEAF6;text-align:center;border:1.5px solid #000">
-            <b>N\u00b0 FASE :</b><br>
-            <div style="margin-top:2px">${boxes(etab.num_fase, 5)}</div>
-          </td>
-        </tr>
-      </table>
-    </td>
-  </tr>
-  <tr>
-    <td colspan="3" style="padding:0">
-      <table style="table-layout:fixed;width:100%">
-        <tr>
-          <td style="width:50%;vertical-align:top;padding:0">
-            <table class="nb" style="width:100%;border-collapse:collapse;border:1.5px solid #000">
-              <tr><td style="width:35%;white-space:nowrap;font-size:7pt;background:#DEEAF6;border:1px solid #555"><b>Nom du PO</b></td><td style="font-size:7pt;background:#fff;border:1px solid #555">${etab.po_nom || ''}</td></tr>
-              <tr><td style="white-space:nowrap;font-size:7pt;background:#DEEAF6;border:1px solid #555"><b>Nom de l\u2019\u00e9tablissement</b></td><td style="font-size:7pt;background:#fff;border:1px solid #555">${etab.etab_nom || ''}</td></tr>
-              <tr><td style="white-space:nowrap;font-size:7pt;vertical-align:top;background:#DEEAF6;border:1px solid #555"><b>Adresse compl\u00e8te</b></td>
-                  <td style="font-size:7pt;max-width:55mm;word-break:break-word;background:#fff;border:1px solid #555">${(etab.adresse||'').replace(/,/g,',<br>')}</td></tr>
-              <tr><td style="white-space:nowrap;font-size:7pt;vertical-align:top;background:#DEEAF6;border:1px solid #555"><b>E-mails officiels</b></td>
-                <td style="font-size:7pt;background:#fff;border:1px solid #555">ec ${etab.email_ec||'@ adm.cfwb.be'}<br>po ${etab.email_po||'@ adm.cfwb.be'}</td></tr>
-            </table>
-          </td>
-          <td style="width:50%;vertical-align:top;background:#DEEAF6;padding:0">
-            <table style="width:100%;height:100%;border-collapse:collapse;border:1.5px solid #000">
-              <tr>
-                <td style="width:38%;vertical-align:middle;background:#DEEAF6;border:1px solid #555;padding:4px">
-                  <b>Gestionnaire du dossier</b>
-                  <div style="font-size:6.5pt;font-style:italic;margin-top:2px">(joignable facilement par l\u2019Administration)</div>
-                </td>
-                <td style="width:62%;vertical-align:top;background:#fff;padding:0">
-                  <table style="width:100%;border-collapse:collapse">
-                    <tr><td style="border:1px solid #555;background:#fff"><b>Nom :</b> ${etab.gest_nom || ''}</td></tr>
-                    <tr><td style="border:1px solid #555;background:#fff"><b>Pr\u00e9nom :</b> ${etab.gest_prenom || ''}</td></tr>
-                    <tr><td style="border:1px solid #555;background:#fff"><b>Qualit\u00e9 :</b> ${etab.gest_qualite || ''}</td></tr>
-                    <tr><td style="border:1px solid #555;background:#fff"><b>T\u00e9l. direct :</b> ${etab.gest_tel || ''}</td></tr>
-                    <tr><td style="border:1px solid #555;background:#fff"><b>E-mail :</b> ${etab.gest_email || ''}</td></tr>
-                  </table>
-                </td>
-              </tr>
-            </table>
-          </td>
-        </tr>
-      </table>
+    <td class="cellblue last" style="width:50%">
+      <b>N° FASE :</b><br>
+      <div style="margin-top:3px">${grille(etab.num_fase, 5)}</div>
     </td>
   </tr>
 </table>
 
-<table style="margin-bottom:3px">
-  <tr><td colspan="3" class="hdr-mid">Identification du membre du personnel (MDP)</td></tr>
+<table class="infoblock" style="margin-bottom:2mm">
   <tr>
-    <td style="width:28%;vertical-align:top">
-      <b>Matricule enseignant</b><br>
-      <div style="margin:4px 0">${boxes(data.matricule, 11)}</div>
-      <br><b>NOM :</b> ${data.prof_nom || ''}<br>
-      <b>Pr\u00e9nom :</b> ${data.prof_prenom || ''}
-    </td>
-    <td style="width:48%;vertical-align:top">
-      <b>Titres de capacit\u00e9s</b>
-      <span style="font-size:6.5pt">(une copie de chacun d\u2019eux doit \u00eatre en possession de la Direction de gestion)</span><br><br>
-      1) ${data.titre1 || '&nbsp;'.repeat(40)}<br>
-      2) ${data.titre2 || '&nbsp;'.repeat(40)}<br>
-      <label class="chk" style="margin-top:4px"><input type="checkbox"${data.derogation_titre ? ' checked' : ''}>
-        <span style="font-size:6.5pt">D\u00e9rogation de titre requis par l\u2019AR du 22/4/1969 telle que pr\u00e9vue par l\u2019alin\u00e9a 2 de art 17\u00a74 de la Loi du 7/7/1970.</span>
-      </label>
-    </td>
-    <td style="width:24%;vertical-align:top">
-      <b>Statut</b><br>
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:3px;margin-top:4px">
-        ${chk(statut==='T','T')} ${chk(statut==='ACS','ACS')}
-        ${chk(statut==='TPr','TPr')} ${chk(statut==='APE','APE')}
-        ${chk(statut==='St','St')} ${chk(statut==='PTP','PTP')}
-        ${chk(statut==='D','D')}
+    <td class="lbl" style="width:17%">Nom du PO</td>
+    <td class="val" style="width:33%">${etab.po_nom || ''}</td>
+    <td class="gestlbl" rowspan="5" style="width:19%"><b>Gestionnaire du dossier</b><div style="font-size:6.5pt;font-style:italic;margin-top:2px;font-weight:normal">(joignable facilement par l'Administration)</div></td>
+    <td class="val" style="width:31%;border-left:1.5px solid #000">Nom : ${etab.gest_nom || ''}</td>
+  </tr>
+  <tr>
+    <td class="lbl">Nom de l'établissement</td>
+    <td class="val">${etab.etab_nom || ''}</td>
+    <td class="val" style="border-left:1.5px solid #000">Prénom : ${etab.gest_prenom || ''}</td>
+  </tr>
+  <tr>
+    <td class="lbl" style="vertical-align:top">Adresse complète</td>
+    <td class="val" style="vertical-align:top">${(etab.adresse || '').replace(/,\s*/g, ',<br>')}</td>
+    <td class="val" style="border-left:1.5px solid #000">Qualité : ${etab.gest_qualite || ''}</td>
+  </tr>
+  <tr>
+    <td class="lbl" rowspan="2" style="vertical-align:top">E-mails officiels</td>
+    <td class="val">ec ${etab.email_ec || '@ adm.cfwb.be'}</td>
+    <td class="val" style="border-left:1.5px solid #000">Tél. direct : ${etab.gest_tel || ''}</td>
+  </tr>
+  <tr>
+    <td class="val">po ${etab.email_po || '@ adm.cfwb.be'}</td>
+    <td class="val" style="border-left:1.5px solid #000">E-mail : ${etab.gest_email || ''}</td>
+  </tr>
+</table>
+</div>
+<div class="bloc-sep"></div>
+<div class="k2">
+<table class="mdp">
+  <tr><td colspan="3" class="hdr">Identification du membre du personnel (MDP)</td></tr>
+  <tr>
+    <td rowspan="2" class="matricule-cell" style="width:28%">
+      <b style="font-size:8.5pt">Matricule enseignant</b>
+      <div style="margin:8px 0">
+        ${grille(data.matricule, 11)}</div>
+      <div style="text-align:left;margin-top:14px">
+        <b>NOM :</b> ${data.prof_nom || ''}<br><br>
+        <b>Prénom :</b> ${data.prof_prenom || ''}
       </div>
     </td>
+    <td class="subhdr" style="width:46%">
+      Titres de capacités
+      <div style="font-weight:normal;font-size:6.5pt;margin-top:2px">(une copie de chacun d'eux doit être en possession de la Direction de gestion)</div>
+    </td>
+    <td class="subhdr" style="width:26%">Statut</td>
+  </tr>
+  <tr>
+    <td style="background:#fff">
+      1) ${data.titre1 || ''}<br><br>
+      2) ${data.titre2 || ''}<br><br>
+      <span class="chk"><span class="sq${data.derogation_titre ? " on" : ""}"></span> <span>Dérogation de titre requis par l'AR du 22/4/1969 telle que prévue par l'alinéa 2 de art 17§4 de la Loi du 7/7/1970.</span></span>
+    </td>
+    <td style="background:linear-gradient(#555,#555) 50% 0/1px 100% no-repeat, #fff">
+      <div style="display:flex;align-items:stretch;height:100%">
+        <div style="flex:1;padding-right:8px">
+          <div class="chk"><span class="sq${statut === "T" ? " on" : ""}"></span> T</div>
+          <div class="chk"><span class="sq${statut === "TPr" ? " on" : ""}"></span> TPr</div>
+          <div class="chk"><span class="sq${statut === "St" ? " on" : ""}"></span> St</div>
+          <div class="chk"><span class="sq${statut === "D" ? " on" : ""}"></span> D</div>
+        </div>
+        <div style="flex:1;padding-left:8px">
+          <div class="chk"><span class="sq${statut === "ACS" ? " on" : ""}"></span> ACS</div>
+          <div class="chk"><span class="sq${statut === "APE" ? " on" : ""}"></span> APE</div>
+          <div class="chk"><span class="sq${statut === "PTP" ? " on" : ""}"></span> PTP</div>
+        </div>
+      </div>
+    </td>
   </tr>
 </table>
-
-<table style="margin-bottom:3px">
+</div>
+<div class="bloc-sep"></div>
+<div class="k3">
+<table class="b3">
   <tr>
-    <td style="width:50%;vertical-align:top">
-      <b>Cumul</b><br>
-      ${chk(data.pas_cumul, 'Pas de cumul interne')}<br>
-      <b>Prestations dans cet \u00e9tablissement :</b><br>
-      ${chk(data.prest_sec,'Secondaire')}
-      ${chk(data.prest_sup ?? true,'Sup\u00e9rieur')}
-      ${chk(data.prest_exp,'Expert')}
-      ${chk(false,'ACS/APE/PTP')}<br>
-      <b>Prestations dans un autre \u00e9tablissement :</b><br>
-      ${chk(false,'Cumul interne A2 (enseignement organis\u00e9 ou subventionn\u00e9 par la FWB)')}
+    <td class="hdrmid" style="width:50%">Cumul</td>
+    <td class="hdrmid" style="width:50%">Transmission tardive du document par la faute du MDP</td>
+  </tr>
+  <tr>
+    <td style="background:#fff">
+      <span class="chk"><span class="sq${data.pas_cumul ? " on" : ""}"></span></span> <b>Pas de cumul interne</b>
     </td>
-    <td style="width:50%;vertical-align:top">
-      <b>Transmission tardive du document par la faute du MDP</b><br>
-      ${chk(false,'En application de la Circulaire 6930 du 10/01/2019 \u00ab FICHES FISCALES \u00bb')}<br><br>
+    <td rowspan="2" style="background:#fff;vertical-align:top">
+      <span class="chk"><span class="sq${data.transmission_tardive ? " on" : ""}"></span></span> En application de la Circulaire 6930 du 10/01/2019 : <i>« FICHES FISCALES : Déclarations du paiement des arriérés - Responsabilités et incidences fiscales »</i>
+    </td>
+  </tr>
+  <tr>
+    <td style="background:#fff">
+      <b>Prestations dans cet établissement</b> :<br>
+      <span class="chk"><span class="sq${data.prest_sec ? " on" : ""}"></span></span> Secondaire
+      <span class="chk"><span class="sq${(data.prest_sup ?? true) ? " on" : ""}"></span></span> Supérieur
+      <span class="chk"><span class="sq${data.prest_exp ? " on" : ""}"></span></span> Expert
+      <span class="chk"><span class="sq"></span></span> ACS/APE/PTP
+    </td>
+  </tr>
+  <tr>
+    <td style="background:#fff">
+      <b>Prestations dans un autre établissement</b> :<br>
+      <span class="chk"><span class="sq"></span></span> <b>Cumul interne A2</b> (enseignement organisé ou subventionné par la FWB)
+    </td>
+    <td style="background:#fff">
       <b>Nombre de jours de fonctionnement/semaine :</b>
-      ${chk(data.jours==4,'4')}
-      ${chk(data.jours==5,'5')}
-      ${chk(data.jours==6,'6')}
+      <span class="chk"><span class="sq${data.jours == 4 ? " on" : ""}"></span></span> 4
+      <span class="chk"><span class="sq${data.jours == 5 ? " on" : ""}"></span></span> 5
+      <span class="chk"><span class="sq${data.jours == 6 ? " on" : ""}"></span></span> 6
     </td>
   </tr>
 </table>
+</div>
+<div class="bloc-sep"></div>
+<div class="k4">
+<table class="b4">
+  <colgroup>
+    <col style="width:0.55cm">
+    <col style="width:26%">
+    <col style="width:19%">
+    <col style="width:22%">
+    <col style="width:28%">
+  </colgroup>
 
-<table style="margin-bottom:3px">
-  <tr><td colspan="3" class="hdr-mid">\u00c9v\u00e9nement</td></tr>
+  <!-- Ligne 1 : titre -->
+  <tr><td colspan="5" class="hdrmid">Événement</td></tr>
+
+  <!-- Ligne 2 : date (bleu) + semaines (blanc), sans séparateur -->
   <tr>
-    <td colspan="2" style="width:55%"><b>Date de l\u2019\u00e9v\u00e9nement <i>(JJ/MM/AAAA)</i> :</b> ${dateFr(data.date_evenement)}</td>
-    <td style="width:45%"><b>Semaines de fonctionnement :</b> ${data.semaines || ''}</td>
-  </tr>
-  <tr>
-    <td colspan="2" style="width:55%;font-size:7.5pt;padding:1px 3px"><b>Type d\u2019\u00e9v\u00e9nement</b></td>
-    <td style="width:45%;font-size:7.5pt;padding:1px 3px"><b>Justification(s)</b></td>
-  </tr>
-  <tr>
-    <!-- Barre verticale "Mouvement" -->
-    <td style="width:12px;background:#D6DCE4;text-align:center;vertical-align:middle;padding:2px;border-right:none">
-      <div style="writing-mode:vertical-lr;transform:rotate(180deg);font-weight:bold;font-size:7pt;white-space:nowrap">Mouvement</div>
+    <td colspan="3" style="background:#DEEAF6;border-right:none">
+      <b>Date de l'événement <i>(JJ/MM/AAAA)</i> :</b> &nbsp; ${dateFr(data.date_evenement)}
     </td>
-    <td style="width:calc(55% - 12px);vertical-align:top;border-left:none">
-      <div class="chk-col">
-        ${MOUVEMENTS.map(t => chk(typeEv===t, t)).join('')}
-      </div>
-      <div style="border-top:1px solid #ccc;margin:2px 0;padding-top:2px">
-        <div class="chk-col">
-          ${MOUVEMENTS2.slice(0,-1).map(t => chk(typeEv===t, t)).join('')}
-          ${chk(typeEv===MOUVEMENTS2[MOUVEMENTS2.length-1], MOUVEMENTS2[MOUVEMENTS2.length-1])}
-          <input type="text" style="margin-left:14px;width:75%">
+    <td colspan="2" style="background:#fff;border-left:none">
+      <b>Semaines de fonctionnement :</b> <span style="display:inline-block;border:1px solid #2E74B5;background:#fff;min-width:36px;padding:1px 4px;text-align:center">${data.semaines || ''}</span>
+    </td>
+  </tr>
+
+  <!-- Ligne 3 : en-têtes -->
+  <tr>
+    <td colspan="3" class="subhdr">Type d'événement</td>
+    <td colspan="2" class="subhdr">Justification(s)</td>
+  </tr>
+
+  <!-- Ligne 4 : Mouvement (vertical) + listes -->
+  <tr>
+    <td class="vlabel"><div>Mouvement</div></td>
+    <td colspan="2" style="background:#fff">
+      <div style="display:flex;gap:8px">
+        <div style="flex:1">
+          <div class="chk"><span class="sq${typeEv === "Entrée en fonction" ? " on" : ""}"></span> Entrée en fonction</div>
+          <div class="chk"><span class="sq${typeEv === "Rentrée en fonction" ? " on" : ""}"></span> Rentrée en fonction</div>
+          <div class="chk"><span class="sq${typeEv === "Maintien d'attributions" ? " on" : ""}"></span> Maintien d'attributions</div>
+          <div class="chk"><span class="sq${typeEv === "Augmentation d'attributions" ? " on" : ""}"></span> Augmentation d'attributions</div>
+          <div class="chk"><span class="sq${typeEv === "Prolongation d'attributions" ? " on" : ""}"></span> Prolongation d'attributions</div>
+          <div class="chk"><span class="sq${typeEv === "Réduction d'attributions" ? " on" : ""}"></span> Réduction d'attributions</div>
+          <div class="chk"><span class="sq${typeEv === "Fin de fonctions (dernier jour presté)" ? " on" : ""}"></span> Fin de fonctions (dernier jour presté)</div>
+        </div>
+        <div style="flex:1">
+          <div class="chk"><span class="sq${typeEv === "Nomination ou engagement à titre définitif" ? " on" : ""}"></span> Nomination ou engagement à titre définitif</div>
+          <div class="chk"><span class="sq${typeEv === "Extension nomination/engagement à titre définitif" ? " on" : ""}"></span> Extension nomination/engagement à titre définitif</div>
+          <div class="chk"><span class="sq${typeEv === "Passerelle / Changement d'affectation / Mutation" ? " on" : ""}"></span> Passerelle / Changement d'affectation / Mutation</div>
+          <div class="chk"><span class="sq${typeEv === "Autres" ? " on" : ""}"></span> Autres (à préciser) :</div>
+          <div style="border-bottom:1px dotted #555;margin-left:14px;min-height:9px"></div>
+          <div style="border-bottom:1px dotted #555;margin-left:14px;min-height:9px;margin-top:4px"></div>
         </div>
       </div>
     </td>
-    <td style="width:45%;vertical-align:top">
-      <div class="chk-col">
-        ${JUSTIFS.slice(0,-1).map(j => chk((data.justifs||[]).includes(j), j)).join('')}
-        ${chk((data.justifs||[]).includes(JUSTIFS[JUSTIFS.length-1]), JUSTIFS[JUSTIFS.length-1])}
-        ${(data.justifs||[]).includes('Autres') && data.justif_autres ? `<div style="margin-left:14px;font-style:italic;font-size:7pt">${data.justif_autres}</div>` : ''}
-        <input type="text" style="margin-left:14px;width:75%">
-      </div>
-      <div style="border-top:1px solid #ccc;margin:4px 0 2px">
-        <b>Absence</b>
-        <div class="chk-col" style="margin-top:2px">
-          ${chk(data.type_absence==="Absence d\u2019un jour","Absence d\u2019un jour")}
-          ${chk(data.type_absence==="D\u00e9but absence de plus d\u20191 jour","D\u00e9but absence de plus d\u20191 jour")}
-          ${chk(data.type_absence==="Reprise apr\u00e8s absence de plus d\u20191 jour","Reprise apr\u00e8s absence de plus d\u20191 jour")}
+    <td colspan="2" style="background:#fff">
+      <div style="display:flex;gap:8px">
+        <div style="flex:1">
+          <div class="chk"><span class="sq${(data.justifs || []).includes("Création d'emploi") ? " on" : ""}"></span> Création d'emploi</div>
+          <div class="chk"><span class="sq${(data.justifs || []).includes("Remplacement") ? " on" : ""}"></span> Remplacement <span style="background:#0000d0;color:#fff;font-size:6.5pt;padding:0 2px">*Voir encadré à la page 2</span></div>
+          <div class="chk"><span class="sq${(data.justifs || []).includes("Changement d'affectation") ? " on" : ""}"></span> Changement d'affectation</div>
+          <div class="chk"><span class="sq${(data.justifs || []).includes("Modification d'organisation interne") ? " on" : ""}"></span> Modification d'organisation interne</div>
+          <div class="chk"><span class="sq${(data.justifs || []).includes("Congé / Absence / Disponibilité") ? " on" : ""}"></span> Congé / Absence / Disponibilité</div>
+          <div class="chk"><span class="sq${(data.justifs || []).includes("Perte partielle de charge") ? " on" : ""}"></span> Perte partielle de charge</div>
+          <div class="chk"><span class="sq${(data.justifs || []).includes("DPPR") ? " on" : ""}"></span> DPPR</div>
         </div>
-        <div style="font-size:7pt;margin-top:2px">
-          Motif de l\u2019absence (Pr\u00e9cisez : intitul\u00e9 CAD + Code DI)<br>
-          <span style="display:inline-block;width:100%;border-bottom:1px solid #555;min-height:10px">${data.motif_absence||''}</span><br>
-          Date de d\u00e9but : ${data.date_debut_absence||'__ / __ / 20__'} &nbsp; Date de fin : ${data.date_fin_absence||'__ / __ / 20__'}
+        <div style="flex:1">
+          <div class="chk"><span class="sq${(data.justifs || []).includes("Suppression d'emploi") ? " on" : ""}"></span> Suppression d'emploi</div>
+          <div class="chk"><span class="sq${(data.justifs || []).includes("Fin de remplacement") ? " on" : ""}"></span> Fin de remplacement</div>
+          <div class="chk"><span class="sq${(data.justifs || []).includes("Démission") ? " on" : ""}"></span> Démission</div>
+          <div class="chk"><span class="sq${(data.justifs || []).includes("Mise à la retraite") ? " on" : ""}"></span> Mise à la retraite</div>
+          <div class="chk"><span class="sq${(data.justifs || []).includes("Décès") ? " on" : ""}"></span> Décès</div>
+          <div class="chk"><span class="sq${(data.justifs || []).includes("Autres") ? " on" : ""}"></span> Autres (à préciser) :</div>
+          <div style="border-bottom:1px dotted #555;margin-left:14px;min-height:9px"></div>
+          <div style="border-bottom:1px dotted #555;margin-left:14px;min-height:9px;margin-top:4px"></div>
         </div>
       </div>
+    </td>
+  </tr>
+
+  <!-- Ligne 5 : Absence (vertical) + cases + motif + dates -->
+  <tr>
+    <td class="vlabel"><div>Absence</div></td>
+    <td style="background:#fff">
+      <div class="chk"><span class="sq${data.type_absence === "Absence d'un jour" ? " on" : ""}"></span> Absence d'un jour</div>
+      <div class="chk"><span class="sq${data.type_absence === "Début absence de plus d'1 jour" ? " on" : ""}"></span> Début absence de plus d'1 jour</div>
+      <div class="chk"><span class="sq${data.type_absence === "Reprise après absence de plus d'1 jour" ? " on" : ""}"></span> Reprise après absence de plus d'1 jour</div>
+    </td>
+    <td colspan="2" style="background:#fff;border-right:none">
+      <b><span style="background:#DEEAF6">Motif de l'absence</span> (Précisez : intitulé CAD + Code DI)</b>
+      <div style="border-bottom:1px dotted #555;min-height:10px;margin-top:6px">${data.motif_absence || ''}</div>
+      <div style="border-bottom:1px dotted #555;min-height:10px;margin-top:6px"></div>
+    </td>
+    <td style="background:#fff;border-left:none">
+      <b><span style="background:#DEEAF6">Date de début</span></b> <i>(JJ/MM/AAAA)</i> : ${dateFr(data.date_debut_absence)}<br><br>
+      <b><span style="background:#DEEAF6">Date de fin</span></b> <i>(JJ/MM/AAAA)</i> : &nbsp;&nbsp; ${dateFr(data.date_fin_absence)}
     </td>
   </tr>
 </table>
-
-<table>
+</div>
+<div class="bloc-sep"></div>
+<div class="k5">
+<table style="border:1.5px solid #000;border-collapse:collapse;width:100%">
   <tr>
-    <td>
-      <b>Situation ancienne-nouvelle / Observations / Remarques compl\u00e9mentaires \u00e9ventuelles :</b>
-      <div style="min-height:12mm;padding:2px">${data.observations || '&nbsp;'}</div>
+    <td style="background:#fff;padding:4px 6px;border:none;font-size:7.5pt">
+      <b style="text-decoration:underline">Situation ancienne-nouvelle / Observations / Remarques compl\u00e9mentaires \u00e9ventuelles :</b>
+      <div style="min-height:14mm">${data.observations || ''}</div>
     </td>
   </tr>
 </table>
-
-<div style="margin-top:4px;text-align:center;font-size:6pt;color:#555">
-  Annexe 1 bis PS \u2014 A envoyer \u00e0 la Direction de gestion \u2014 Page 1 | 2
+</div>
+<div style="margin-top:3mm;display:flex;justify-content:space-between;font-size:6.5pt;letter-spacing:2px">
+  <span><b>A n n e x e &nbsp; 1 b i s &nbsp; P S</b> &nbsp; - &nbsp; <i style="letter-spacing:normal">A envoyer \u00e0 la Direction de gestion</i></span>
+  <span style="letter-spacing:normal">P a g e &nbsp; 1 | 2</span>
 </div>
 </div>`;
 
@@ -401,7 +544,7 @@ ${btnPrint}
   }).join('');
 
   const page2 = `
-<div class="page">
+<div class="page p2">
 
 <table style="margin-bottom:4px">
   <tr>
