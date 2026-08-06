@@ -9,6 +9,7 @@ import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 import db from './db/index.js';
+import { migrerEcheancier } from './db/migrations_echeancier.js';
 import authRoutes from './routes/auth.js';
 import attrRoutes from './routes/attributions.js';
 import refRoutes  from './routes/referentiels.js';
@@ -2655,6 +2656,9 @@ try {
   if (!cols.includes('prise_de_fonction')) db.exec("ALTER TABLE recrutement_poste ADD COLUMN prise_de_fonction TEXT");
   if (!cols.includes('cours_nom'))         db.exec("ALTER TABLE recrutement_poste ADD COLUMN cours_nom TEXT");
 } catch(e) { console.error('[migration] recrutement colonnes :', e.message); }
+
+// ── Lucie V3++ : échéancier, dossier administratif, communication ──
+try { migrerEcheancier(db); } catch (e) { console.error('[migration] echeancier :', e.message); }
 
 // Recréer les VIEW à chaque démarrage pour qu'elles soient à jour
 // quand le schéma évolue (sans nécessiter un init-db complet).
