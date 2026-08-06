@@ -1,6 +1,6 @@
 import { useEffect, useState, lazy, Suspense } from 'react';
 import { api, getAnnee } from '../lib/api.js';
-import { IconAdjustments, IconAward, IconBooks, IconBuilding, IconCalendar, IconChartBar, IconCheck, IconChevronRight, IconDownload, IconFileText, IconHistory, IconLink, IconScale, IconSettings, IconSparkles, IconUserShield, IconUsers, IconX, IconGavel, IconPlus, IconTrash, IconGripVertical, IconEdit } from '@tabler/icons-react';
+import { IconAdjustments, IconAward, IconBooks, IconBuilding, IconCalendar, IconCalendarEvent, IconChartBar, IconCheck, IconChevronRight, IconDownload, IconFileText, IconHistory, IconLink, IconScale, IconSettings, IconSparkles, IconUserShield, IconUsers, IconX, IconGavel, IconPlus, IconTrash, IconGripVertical, IconEdit } from '@tabler/icons-react';
 import { PageHeader, RailLateral } from '../components/ui.jsx';
 const Editeur = lazy(() => import('./Editeur.jsx'));
 
@@ -435,6 +435,7 @@ function RegenererDonneesDev() {
 }
 import Users from './Users.jsx';
 import Annees from './Annees.jsx';
+import DatesUE from '../components/DatesUE.jsx';
 import Referentiels from './Referentiels.jsx';
 import ParametresEtablissement from './ParametresEtablissement.jsx';
 
@@ -1050,6 +1051,7 @@ export default function Configuration() {
   const [restoreFile, setRestoreFile] = useState(null);
   const [restoring, setRestoring] = useState(false);
   const [env, setEnv] = useState(null);
+  const [anneeActive, setAnneeActive] = useState('');
 
   useEffect(() => {
     api.historiqueConfig().then(r => {
@@ -1057,6 +1059,12 @@ export default function Configuration() {
     }).catch(() => {}).finally(() => setLoading(false));
     api.changelog().then(r => setChangelog(r)).catch(() => {});
     fetch('/api/info').then(r => r.json()).then(d => setEnv(d.environnement)).catch(() => {});
+    // Année active : nécessaire au paramétrage annuel (dates des UE)
+    fetch('/api/annees', { credentials: 'include' }).then(r => r.json())
+      .then(list => {
+        const a = (Array.isArray(list) ? list : []).find(x => x.active) || list?.[0];
+        if (a?.code) setAnneeActive(a.code);
+      }).catch(() => {});
   }, []);
 
   async function toggleHistorique(val) {
@@ -1151,22 +1159,37 @@ export default function Configuration() {
   }
 
 
-  const CONF_TABS = [
-    { key: 'referentiels', label: 'Référentiels', icon: IconBooks },
-    { key: 'annees', label: 'Années', icon: IconCalendar },
-    { key: 'etablissement', label: 'Établissement', icon: IconBuilding },
-    { key: 'personnel', label: 'Personnel', icon: IconUsers },
-    { key: 'users', label: 'Utilisateurs', icon: IconUserShield },
-    { key: 'systeme', label: 'Historique & Sauvegarde', icon: IconHistory },
-    { key: 'parametres', label: 'Paramètres', icon: IconAdjustments },
-    { key: 'prerequis', label: 'Prérequis UE', icon: IconLink },
-    { key: 'procedures', label: 'Procédures', icon: IconGavel },
-    { key: 'statistiques', label: 'Statistiques', icon: IconChartBar },
-    { key: 'changelog', label: 'Nouveautés', icon: IconSparkles },
-    { key: 'editeur',   label: 'Éditeur',     icon: IconEdit },
-    { key: 'recrutement', label: 'Recrutement', icon: IconSettings },
-    { key: 'contrat', label: 'Contrat', icon: IconFileText },
-    { key: 'attestation', label: 'Attestation', icon: IconAward },
+  // Trois niveaux de données distincts :
+  //  · Référentiel légal — la bibliothèque, quasi figée, administrateur seul
+  //  · Paramétrage annuel — ce qui se rejoue chaque rentrée
+  //  · Établissement / Système / Modèles — le reste
+  const CONF_GROUPES = [
+    { label: 'Référentiel légal', items: [
+      { key: 'referentiels', label: 'Référentiels', icon: IconBooks },
+      { key: 'prerequis', label: 'Prérequis UE', icon: IconLink },
+      { key: 'procedures', label: 'Procédures', icon: IconGavel },
+    ]},
+    { label: 'Paramétrage annuel', items: [
+      { key: 'annees', label: 'Années', icon: IconCalendar },
+      { key: 'dates-ue', label: 'Dates des UE', icon: IconCalendarEvent },
+    ]},
+    { label: 'Établissement', items: [
+      { key: 'etablissement', label: 'Établissement', icon: IconBuilding },
+      { key: 'personnel', label: 'Personnel', icon: IconUsers },
+      { key: 'users', label: 'Utilisateurs', icon: IconUserShield },
+    ]},
+    { label: 'Modèles de documents', items: [
+      { key: 'editeur', label: 'Éditeur', icon: IconEdit },
+      { key: 'contrat', label: 'Contrat', icon: IconFileText },
+      { key: 'attestation', label: 'Attestation', icon: IconAward },
+      { key: 'recrutement', label: 'Recrutement', icon: IconSettings },
+    ]},
+    { label: 'Système', items: [
+      { key: 'parametres', label: 'Paramètres', icon: IconAdjustments },
+      { key: 'systeme', label: 'Historique & Sauvegarde', icon: IconHistory },
+      { key: 'statistiques', label: 'Statistiques', icon: IconChartBar },
+      { key: 'changelog', label: 'Nouveautés', icon: IconSparkles },
+    ]},
   ];
   return (
     <div className="relative bg-slate-50" style={{ minHeight: 'calc(100vh - 64px)' }}>
@@ -1174,7 +1197,11 @@ export default function Configuration() {
         icon={IconSettings}
         titre="Configuration"
         sousTitre="Administration"
-        sections={[{ items: CONF_TABS.map(t => ({ key: t.key, label: t.label, icon: t.icon, actif: tab === t.key, onClick: () => setTab(t.key) })) }]}
+        sections={CONF_GROUPES.map(g => ({
+          label: g.label,
+          items: g.items.map(t => ({ key: t.key, label: t.label, icon: t.icon,
+            actif: tab === t.key, onClick: () => setTab(t.key) })),
+        }))}
       />
       <div className="ml-16 px-3 md:px-6 py-4 space-y-6">
         <PageHeader icon={IconSettings} titre="Configuration"
@@ -1185,6 +1212,9 @@ export default function Configuration() {
 
       {/* ── Onglet Années ── */}
       {tab === 'annees' && <Annees embedded />}
+
+      {/* ── Onglet Dates des UE (paramétrage annuel) ── */}
+      {tab === 'dates-ue' && <DatesUE annee={anneeActive} />}
 
       {/* ── Onglet Établissement ── */}
       {tab === 'etablissement' && <ParametresEtablissement />}
