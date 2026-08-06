@@ -26,6 +26,7 @@ export function migrerEcheancier(db) {
       rappels_defaut      TEXT DEFAULT '[30,7,1]',   -- JSON : jours avant échéance
       base_legale         TEXT,             -- 'Circ. 9760 IV.1.3', 'D. 16/04/1991 art. 123ter'...
       lien_interne        TEXT,             -- route Lucie à ouvrir (ex: '/ea12')
+      filtre_source       TEXT,             -- restreint les sources visées (ex: 'epreuve_integree')
       actif               INTEGER NOT NULL DEFAULT 1,
       cree_le             TEXT DEFAULT (datetime('now'))
     );
@@ -297,6 +298,15 @@ export function migrerEcheancier(db) {
     console.log('[migration] Table evenement_etablissement créée');
   } catch (e) { console.error('[migration] evenement_etablissement :', e.message); }
 
+  // Colonne ajoutée après la première version de la migration
+  try {
+    const cols = db.prepare("PRAGMA table_info(echeance_type)").all().map(c => c.name);
+    if (!cols.includes('filtre_source')) {
+      db.exec("ALTER TABLE echeance_type ADD COLUMN filtre_source TEXT");
+      console.log('[migration] echeance_type.filtre_source ajoutée');
+    }
+  } catch (e) { console.error('[migration] filtre_source :', e.message); }
+
   // ═══ Colonnes ajoutées à l'existant : traçabilité GEDI ══════════════════
   try {
     const cols = db.prepare("PRAGMA table_info(document_archive)").all().map(c => c.name);
@@ -487,7 +497,7 @@ const ECHEANCE_TYPES = [
     description:"Le chef d'établissement peut refuser l'inscription d'un élève qui ne s'est pas inscrit au moins un mois avant le début de l'épreuve intégrée.",
     zone:'ue', categorie:'pedagogique', regle_date:'rel:ue_debut-1m',
     responsable_defaut:'secretariat', rappels_defaut:'[15,5]',
-    base_legale:'RGE art. 32' },
+    base_legale:'RGE art. 32', filtre_source:'epreuve_integree' },
 
   // ── F. Établissement (Zone 4) ──
   { code:'rentree_scolaire', libelle:"Rentrée scolaire / académique",
@@ -549,9 +559,9 @@ function seedEcheanceTypes(db) {
     const ins = db.prepare(`
       INSERT INTO echeance_type
         (code, libelle, description, zone, categorie, regle_date,
-         responsable_defaut, rappels_defaut, base_legale, lien_interne)
+         responsable_defaut, rappels_defaut, base_legale, lien_interne, filtre_source)
       VALUES (@code, @libelle, @description, @zone, @categorie, @regle_date,
-              @responsable_defaut, @rappels_defaut, @base_legale, @lien_interne)
+              @responsable_defaut, @rappels_defaut, @base_legale, @lien_interne, @filtre_source)
       ON CONFLICT(code) DO NOTHING
     `);
     let n = 0;
@@ -562,6 +572,7 @@ function seedEcheanceTypes(db) {
         responsable_defaut: t.responsable_defaut || null,
         rappels_defaut: t.rappels_defaut || '[30,7,1]',
         base_legale: t.base_legale || null, lien_interne: t.lien_interne || null,
+        filtre_source: t.filtre_source || null,
       });
       if (r.changes) n++;
     }

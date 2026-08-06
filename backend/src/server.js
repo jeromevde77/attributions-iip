@@ -10,6 +10,7 @@ import { fileURLToPath } from 'node:url';
 
 import db from './db/index.js';
 import { migrerEcheancier } from './db/migrations_echeancier.js';
+import { demarrerMoteur } from './services/echeancier.js';
 import authRoutes from './routes/auth.js';
 import attrRoutes from './routes/attributions.js';
 import refRoutes  from './routes/referentiels.js';
@@ -2754,6 +2755,9 @@ app.use((err, req, res, next) => {
   console.error('[ERR]', err);
   res.status(err.status || 500).json({ error: err.message || 'Erreur serveur' });
 });
+
+// ── Moteur de l'échéancier : premier passage 20 s après le démarrage, puis /6 h
+try { demarrerMoteur(db); } catch (e) { console.error('[echeancier] démarrage :', e.message); }
 
 const PORT = process.env.PORT || 3001;
 app.listen(PORT, () => console.log(`🚀 Backend Attributions IIP sur http://localhost:${PORT}`));
