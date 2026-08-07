@@ -391,14 +391,16 @@ r.get('/feed', authRequired, (req, res) => {
       items.push({
         id: `notif-${n.id}`,
         source_id: n.id,
-        type: 'recrutement',
+        // Le type conditionne l'icône et la couleur dans la cloche : les rappels
+        // de l'échéancier ne doivent pas s'afficher comme du recrutement.
+        type: n.type === 'echeance_rappel' ? 'echeance' : 'recrutement',
         action: 'info',
         titre: n.titre,
         detail: null,
         auteur: n.cree_par,
         date: n.cree_le,
         lue,
-        lien: n.lien || '/recrutement',
+        lien: n.lien || (n.type === 'echeance_rappel' ? '/echeancier' : '/recrutement'),
         corps: n.corps,
       });
     }
