@@ -17,6 +17,8 @@ function peutGenererContrat(u) {
   return u?.role === 'admin' || u?.role === 'editeur';
 }
 
+import { DossierAdmin, Absences, Entretiens } from '../components/DossierPersonnel.jsx';
+
 const EMPTY = {
   nom: '', prenom: '', adresse_mail: '', mail_prive: '',
   statut: '', adresse_rue: '', code_postal: '', commune: '',
@@ -702,6 +704,9 @@ function DetailModal({ profId, onClose, onEdit, onFiche }) {
 
   const ONGLETS = [
     { key: 'attributions', label: `Attributions (${detail.attributions?.length || 0})` },
+    { key: 'dossier_admin', label: 'Dossier admin.' },
+    { key: 'absences',      label: 'Absences' },
+    { key: 'entretiens',    label: 'Entretiens' },
     ...(u?.role === 'admin' ? [
       { key: 'acces',    label: 'Accès Lucie' },
       { key: 'dossiers', label: '🔒 Dossiers RH' },
@@ -936,6 +941,19 @@ function DetailModal({ profId, onClose, onEdit, onFiche }) {
               )}
 
               {/* ── Accès Lucie ── */}
+              {onglet === 'dossier_admin' && (
+                <DossierAdmin profId={profId} peutEcrire={peutGenererContrat(u)} />
+              )}
+
+              {onglet === 'absences' && (
+                <Absences profId={profId} peutEcrire={peutGenererContrat(u)} />
+              )}
+
+              {onglet === 'entretiens' && (
+                <Entretiens profId={profId} peutEcrire={peutGenererContrat(u)}
+                            estAdmin={u?.role === 'admin'} />
+              )}
+
               {onglet === 'acces' && u?.role === 'admin' && (
                 <AccesLuciePanel profId={profId} detail={detail} />
               )}
