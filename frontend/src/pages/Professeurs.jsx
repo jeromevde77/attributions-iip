@@ -7,16 +7,6 @@ import CoursEditModal from '../components/CoursEditModal.jsx';
 import { IconMail, IconMapPin, IconFileText, IconEdit, IconDownload, IconRefresh, IconX, IconPrinter, IconPlus, IconTrash, IconKey, IconLock, IconCheck, IconBriefcase, IconChevronDown, IconChevronRight, IconUsers, IconSchool, IconUserPlus, IconBuilding, IconBuildingBank, IconFileDescription } from '@tabler/icons-react';
 import { RailLateral } from '../components/ui.jsx';
 
-/**
- * Droit de générer un contrat de travail.
- * Doit rester aligné sur les routes backend /api/contrats/*, qui autorisent
- * roleRequired('admin', 'editeur') : le directeur adjoint (éditeur) gère les
- * contrats. Toute modification ici doit être répercutée côté serveur.
- */
-function peutGenererContrat(u) {
-  return u?.role === 'admin' || u?.role === 'editeur';
-}
-
 const EMPTY = {
   nom: '', prenom: '', adresse_mail: '', mail_prive: '',
   statut: '', adresse_rue: '', code_postal: '', commune: '',
@@ -790,7 +780,7 @@ function DetailModal({ profId, onClose, onEdit, onFiche }) {
                   <IconPlus size={14}/> Nouvel EA12
                 </button>
               )}
-              {peutGenererContrat(u) && (
+              {u?.role === 'admin' && (
                 <div className="space-y-1">
                   <button onClick={imprimerContratDirect} disabled={imprimantEnCours}
                     className="w-full flex items-center gap-2 text-xs bg-green-50 hover:bg-green-100 disabled:opacity-50 text-green-700 border border-green-200 rounded-lg px-3 py-2 font-medium transition">
@@ -950,7 +940,7 @@ function DetailModal({ profId, onClose, onEdit, onFiche }) {
                 <div className="space-y-4">
                   <div className="text-sm text-gray-500">Documents générables pour {detail.nom_prenom}</div>
                   <div className="grid grid-cols-2 gap-3">
-                    {peutGenererContrat(u) && (
+                    {u?.role === 'admin' && (
                       <button onClick={() => setShowContratModal(true)}
                         className="flex items-center gap-3 p-4 border-2 border-dashed border-green-200 hover:border-green-400 rounded-xl text-left transition">
                         <IconFileText size={24} className="text-green-600 flex-shrink-0"/>
@@ -2235,7 +2225,7 @@ export default function Professeurs() {
           {selection.size > 0 && (
             <div className="flex items-center gap-2">
               {/* Contrats PDF — un vrai PDF par prof, en ZIP */}
-              {peutGenererContrat(u) && (
+              {u?.role === 'admin' && (
                 <button onClick={exporterContratsZip} disabled={contratsZipEnCours}
                   className="bg-green-700 hover:opacity-90 disabled:opacity-50 text-white text-sm px-3 py-1.5 h-9 rounded font-medium inline-flex items-center gap-1.5">
                   <IconFileText size={15}/> {contratsZipEnCours ? 'Préparation…' : `Contrats PDF (${selection.size})`}
