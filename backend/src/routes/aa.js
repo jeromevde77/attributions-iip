@@ -4,7 +4,7 @@
  */
 import { Router } from 'express';
 import db from '../db/index.js';
-import { authRequired } from '../middleware/auth.js';
+import { authRequired, roleRequired } from '../middleware/auth.js';
 
 const r = Router();
 r.use(authRequired);
@@ -20,6 +20,33 @@ r.get('/', (req, res) => {
   res.json(db.prepare(sql).all(...args));
 });
 
+// ── Acquis d'une UE + cours disponibles pour le rattachement ────────────────
+// GET /api/aa/ue/246?annee=2026-2027
+r.get('/ue/:ueNum', (req, res) => {
+  const ueNum = Number(req.params.ueNum);
+  const annee = req.query.annee
+    || db.prepare("SELECT code FROM annee_scolaire WHERE active = 1 LIMIT 1").get()?.code;
+
+  const acquis = db.prepare(`
+    SELECT a.*, c.cours_nom
+      FROM aa a
+      LEFT JOIN cours c ON c.cours_code = a.cours_code AND c.annee_scolaire = ?
+     WHERE a.ue_num = ?
+     ORDER BY a.aa_num, a.aa_code
+  `).all(annee, ueNum);
+
+  const cours = db.prepare(`
+    SELECT cours_code, cours_nom, ct_pp, cours_per
+      FROM cours WHERE ue_num = ? AND annee_scolaire = ?
+     ORDER BY cours_code
+  `).all(ueNum, annee);
+
+  res.json({
+    ue_num: ueNum, annee, acquis, cours,
+    non_rattaches: acquis.filter(a => !a.cours_code).length,
+  });
+});
+
 // ── Détail d'un AA ───────────────────────────────────────────────────────────
 r.get('/:code', (req, res) => {
   const aa = db.prepare('SELECT * FROM aa WHERE aa_code = ?').get(req.params.code);
@@ -28,7 +55,7 @@ r.get('/:code', (req, res) => {
 });
 
 // ── Créer un AA ──────────────────────────────────────────────────────────────
-r.post('/', (req, res) => {
+r.post('/', roleRequired('admin'), (req, res) => {
   const { aa_code, aa_num, ue_num, cours_code, description } = req.body;
   if (!aa_code || !ue_num || !description) return res.status(400).json({ error: 'aa_code, ue_num et description requis' });
   try {
@@ -42,17 +69,37 @@ r.post('/', (req, res) => {
 });
 
 // ── Modifier un AA ───────────────────────────────────────────────────────────
-r.patch('/:code', (req, res) => {
-  const { description, cours_code } = req.body;
-  const existing = db.prepare('SELECT aa_code FROM aa WHERE aa_code = ?').get(req.params.code);
+// Le rattachement d'un acquis à un cours est du travail pédagogique courant
+// (admin ou éditeur) ; la modification du libellé touche au référentiel légal
+// issu du dossier pédagogique et reste réservée à l'administrateur.
+r.patch('/:code', roleRequired('admin', 'editeur'), (req, res) => {
+  const existing = db.prepare('SELECT * FROM aa WHERE aa_code = ?').get(req.params.code);
   if (!existing) return res.status(404).json({ error: 'AA introuvable' });
-  db.prepare('UPDATE aa SET description = COALESCE(?, description), cours_code = ? WHERE aa_code = ?')
-    .run(description ?? null, cours_code ?? null, req.params.code);
-  res.json({ ok: true });
+
+  const champs = [], vals = [];
+  // cours_code : seule l'absence de la clé laisse la valeur inchangée ;
+  // une valeur nulle explicite détache l'acquis du cours.
+  if ('cours_code' in req.body) {
+    champs.push('cours_code = ?');
+    vals.push(req.body.cours_code || null);
+  }
+  if ('description' in req.body) {
+    if (req.user.role !== 'admin') {
+      return res.status(403).json({ error: "Le libellé d'un acquis provient du dossier pédagogique : modification réservée à l'administrateur" });
+    }
+    if (!req.body.description) return res.status(400).json({ error: 'description vide' });
+    champs.push('description = ?');
+    vals.push(req.body.description);
+  }
+  if (!champs.length) return res.status(400).json({ error: 'rien à modifier' });
+
+  vals.push(req.params.code);
+  db.prepare(`UPDATE aa SET ${champs.join(', ')} WHERE aa_code = ?`).run(...vals);
+  res.json(db.prepare('SELECT * FROM aa WHERE aa_code = ?').get(req.params.code));
 });
 
 // ── Supprimer un AA ──────────────────────────────────────────────────────────
-r.delete('/:code', (req, res) => {
+r.delete('/:code', roleRequired('admin'), (req, res) => {
   db.prepare('DELETE FROM aa WHERE aa_code = ?').run(req.params.code);
   res.json({ ok: true });
 });

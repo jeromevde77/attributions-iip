@@ -4,6 +4,7 @@ import CoursFormModal from '../components/CoursFormModal.jsx';
 import GrilleSectionModal from '../components/GrilleSectionModal.jsx';
 import ImportUEAssistant from '../components/ImportUEAssistant.jsx';
 import { IconX, IconPencil, IconTrash, IconPlus, IconCheck, IconLink, IconChevronRight, IconTarget, IconUpload, IconFileText, IconAlertTriangle } from '@tabler/icons-react';
+import AcquisUE from '../components/AcquisUE.jsx';
 
 // ─── Import Dossier Pédagogique FWB ───────────────────────────────────────────
 function DPImportModal({ annee, sections, onClose, onSaved }) {
@@ -323,6 +324,14 @@ function SectionModal({ section, onClose, onSaved }) {
                 className="w-full border border-gray-300 rounded px-3 py-1.5 h-9 text-sm" /></label>
           </div>
           {error && <div className="bg-red-50 text-red-700 text-sm rounded p-2">{error}</div>}
+          {/* ── 5. ACQUIS D'APPRENTISSAGE ── */}
+          {!isNew && form.ue_num && (
+            <>
+              <div className={sep}>Acquis d'apprentissage</div>
+              <AcquisUE ueNum={form.ue_num} annee={ue?.annee_scolaire} estAdmin={isAdmin} />
+            </>
+          )}
+
           <div className="flex justify-end gap-2 pt-2 border-t">
             <button type="button" onClick={onClose} className="px-4 py-2 text-sm text-gray-600">Annuler</button>
             <button type="submit" disabled={saving} className="bg-iip-gold hover:bg-iip-amber disabled:opacity-40 text-white text-sm px-5 py-2 rounded font-medium">
