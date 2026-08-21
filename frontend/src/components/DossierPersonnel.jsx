@@ -1,9 +1,9 @@
 import { useEffect, useState } from 'react';
 import {
-import { authHeaders } from '../lib/api.js';
   IconFileCheck, IconAlertTriangle, IconCheck, IconPlus, IconTrash,
   IconStethoscope, IconMessage, IconLock, IconX, IconCalendarPlus,
 } from '@tabler/icons-react';
+import { authHeaders } from '../lib/api.js';
 
 const fr = (iso) => iso ? iso.slice(0, 10).split('-').reverse().join('/') : '—';
 
