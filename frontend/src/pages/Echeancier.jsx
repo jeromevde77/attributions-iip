@@ -4,6 +4,7 @@ import {
   IconScale, IconChevronRight, IconFilter, IconX, IconBooks, IconPlayerPlay,
 } from '@tabler/icons-react';
 import { PageHeader, Tabs, Btn, KpiCard, RailLateral } from '../components/ui.jsx';
+import { authHeaders } from '../lib/api.js';
 
 const MOIS = ['janvier','février','mars','avril','mai','juin',
               'juillet','août','septembre','octobre','novembre','décembre'];
@@ -55,14 +56,22 @@ export default function Echeancier() {
       if (filtres.statut) p.set('statut', filtres.statut);
       if (filtres.responsable) p.set('responsable', filtres.responsable);
       if (filtres.mien) p.set('mien', '1');
-      const rep = await fetch(`/api/echeancier?${p}`, { credentials: 'include' });
-      setData(await rep.json());
+      const rep = await fetch(`/api/echeancier?${p}`, { headers: authHeaders() });
+      const j = await rep.json();
+      if (!rep.ok) { setMessage({ type: 'err', texte: j.error || `Erreur ${rep.status}` }); return; }
+      setData(j);
     } finally { setChargement(false); }
   }
 
   async function chargerTypes() {
-    const rep = await fetch('/api/echeancier/types', { credentials: 'include' });
-    setTypes(await rep.json());
+    const rep = await fetch('/api/echeancier/types', { headers: authHeaders() });
+    const j = await rep.json();
+    if (!rep.ok || !Array.isArray(j)) {
+      setMessage({ type: 'err', texte: j?.error || `Référentiel indisponible (${rep.status})` });
+      setTypes([]);
+      return;
+    }
+    setTypes(j);
   }
 
   useEffect(() => { charger(); /* eslint-disable-next-line */ }, [filtres]);
@@ -75,8 +84,7 @@ export default function Echeancier() {
   async function basculer(e) {
     const nouveau = e.statut === 'fait' ? 'a_faire' : 'fait';
     const rep = await fetch(`/api/echeancier/${e.id}`, {
-      method: 'PATCH', credentials: 'include',
-      headers: { 'Content-Type': 'application/json' },
+      method: 'PATCH', headers: authHeaders(),
       body: JSON.stringify({ statut: nouveau }),
     });
     if (!rep.ok) {
@@ -90,8 +98,7 @@ export default function Echeancier() {
   async function regenerer() {
     setMessage({ type: 'ok', texte: 'Régénération en cours…' });
     const rep = await fetch('/api/echeancier/instancier', {
-      method: 'POST', credentials: 'include',
-      headers: { 'Content-Type': 'application/json' }, body: '{}',
+      method: 'POST', headers: authHeaders(), body: '{}',
     });
     const j = await rep.json();
     setMessage(rep.ok

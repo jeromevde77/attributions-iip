@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import {
+import { authHeaders } from '../lib/api.js';
   IconFileCheck, IconAlertTriangle, IconCheck, IconPlus, IconTrash,
   IconStethoscope, IconMessage, IconLock, IconX, IconCalendarPlus,
 } from '@tabler/icons-react';
@@ -40,7 +41,7 @@ export function DossierAdmin({ profId, peutEcrire }) {
   const [enCours, setEnCours] = useState(null);
 
   async function charger() {
-    const rep = await fetch(`/api/dossier/${profId}/pieces`, { credentials: 'include' });
+    const rep = await fetch(`/api/dossier/${profId}/pieces`, { headers: authHeaders() });
     setData(await rep.json());
   }
   useEffect(() => { charger(); /* eslint-disable-next-line */ }, [profId]);
@@ -49,8 +50,7 @@ export function DossierAdmin({ profId, peutEcrire }) {
     setEnCours(code);
     try {
       await fetch(`/api/dossier/${profId}/pieces/${code}`, {
-        method: 'PUT', credentials: 'include',
-        headers: { 'Content-Type': 'application/json' },
+        method: 'PUT', headers: authHeaders(),
         body: JSON.stringify(corps),
       });
       await charger();
@@ -164,15 +164,14 @@ export function Absences({ profId, peutEcrire }) {
   const [form, setForm] = useState(null);
 
   async function charger() {
-    const rep = await fetch(`/api/dossier/${profId}/absences`, { credentials: 'include' });
+    const rep = await fetch(`/api/dossier/${profId}/absences`, { headers: authHeaders() });
     setData(await rep.json());
   }
   useEffect(() => { charger(); /* eslint-disable-next-line */ }, [profId]);
 
   async function creer() {
     const rep = await fetch(`/api/dossier/${profId}/absences`, {
-      method: 'POST', credentials: 'include',
-      headers: { 'Content-Type': 'application/json' },
+      method: 'POST', headers: authHeaders(),
       body: JSON.stringify(form),
     });
     if (!rep.ok) { alert((await rep.json()).error || 'échec'); return; }
@@ -181,14 +180,13 @@ export function Absences({ profId, peutEcrire }) {
 
   async function supprimer(id) {
     if (!confirm('Supprimer cette absence ?')) return;
-    await fetch(`/api/dossier/absences/${id}`, { method: 'DELETE', credentials: 'include' });
+    await fetch(`/api/dossier/absences/${id}`, { method: 'DELETE', headers: authHeaders() });
     await charger();
   }
 
   async function basculer(a, champ) {
     await fetch(`/api/dossier/absences/${a.id}`, {
-      method: 'PATCH', credentials: 'include',
-      headers: { 'Content-Type': 'application/json' },
+      method: 'PATCH', headers: authHeaders(),
       body: JSON.stringify({ [champ]: a[champ] ? 0 : 1 }),
     });
     await charger();
@@ -314,15 +312,14 @@ export function Entretiens({ profId, peutEcrire, estAdmin }) {
   const [ouvert, setOuvert] = useState(null);
 
   async function charger() {
-    const rep = await fetch(`/api/dossier/${profId}/entretiens`, { credentials: 'include' });
+    const rep = await fetch(`/api/dossier/${profId}/entretiens`, { headers: authHeaders() });
     setData(await rep.json());
   }
   useEffect(() => { charger(); /* eslint-disable-next-line */ }, [profId]);
 
   async function creer() {
     const rep = await fetch(`/api/dossier/${profId}/entretiens`, {
-      method: 'POST', credentials: 'include',
-      headers: { 'Content-Type': 'application/json' },
+      method: 'POST', headers: authHeaders(),
       body: JSON.stringify(form),
     });
     if (!rep.ok) { alert((await rep.json()).error || 'échec'); return; }

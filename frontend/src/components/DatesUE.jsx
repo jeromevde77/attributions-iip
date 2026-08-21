@@ -4,6 +4,7 @@ import {
   IconAlertTriangle, IconCheck, IconEye, IconRefresh, IconX,
 } from '@tabler/icons-react';
 import { Btn, KpiCard } from './ui.jsx';
+import { authHeaders } from '../lib/api.js';
 
 /**
  * Paramétrage annuel — Dates réelles des unités d'enseignement.
@@ -30,7 +31,7 @@ export default function DatesUE({ annee }) {
       const p = new URLSearchParams({ annee });
       if (section) p.set('section', section);
       if (filtreSansDates) p.set('sansDates', '1');
-      const rep = await fetch(`/api/annuel/dates-ue?${p}`, { credentials: 'include' });
+      const rep = await fetch(`/api/annuel/dates-ue?${p}`, { headers: authHeaders() });
       setData(await rep.json());
       setModifs({});
       setSelection(new Set());
@@ -87,16 +88,14 @@ export default function DatesUE({ annee }) {
     try {
       const charge = Object.entries(modifs).map(([id, v]) => ({ id: Number(id), ...v }));
       const rep = await fetch('/api/annuel/dates-ue', {
-        method: 'PUT', credentials: 'include',
-        headers: { 'Content-Type': 'application/json' },
+        method: 'PUT', headers: authHeaders(),
         body: JSON.stringify({ lignes: charge }),
       });
       const j = await rep.json();
       if (!rep.ok) throw new Error(j.error || 'échec');
       // Régénérer les échéances liées aux UE
       await fetch('/api/annuel/echeancier/instancier', {
-        method: 'POST', credentials: 'include',
-        headers: { 'Content-Type': 'application/json' },
+        method: 'POST', headers: authHeaders(),
         body: JSON.stringify({ annee }),
       });
       setMessage({
@@ -113,8 +112,7 @@ export default function DatesUE({ annee }) {
   async function reprendreAnneePrecedente() {
     if (!confirm("Pré-remplir les dates manquantes à partir de l'année précédente, décalées de 52 semaines ?\n\nLes organisations déjà datées ne seront pas modifiées. Les dates obtenues sont à vérifier.")) return;
     const rep = await fetch('/api/annuel/dates-ue/reprendre', {
-      method: 'POST', credentials: 'include',
-      headers: { 'Content-Type': 'application/json' },
+      method: 'POST', headers: authHeaders(),
       body: JSON.stringify({ annee, ecraser: false }),
     });
     const j = await rep.json();
@@ -123,7 +121,7 @@ export default function DatesUE({ annee }) {
   }
 
   async function voirJalons(id) {
-    const rep = await fetch(`/api/annuel/dates-ue/${id}/jalons`, { credentials: 'include' });
+    const rep = await fetch(`/api/annuel/dates-ue/${id}/jalons`, { headers: authHeaders() });
     setJalonsPour(await rep.json());
   }
 

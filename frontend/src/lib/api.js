@@ -37,6 +37,20 @@ async function request(path, { method = 'GET', body, headers = {} } = {}) {
   return data;
 }
 
+/**
+ * En-têtes d'authentification pour les appels fetch directs.
+ * Lucie authentifie par jeton Bearer conservé dans le localStorage : un appel
+ * fetch sans cet en-tête reçoit un 401 et non les données attendues.
+ */
+export function authHeaders(extra = {}) {
+  const t = getToken();
+  return {
+    'Content-Type': 'application/json',
+    ...(t ? { Authorization: `Bearer ${t}` } : {}),
+    ...extra,
+  };
+}
+
 // Ajoute ?annee=... à une URL (ou l'injecte parmi les autres params)
 function withAnnee(path, extra = {}) {
   const annee = getAnnee();

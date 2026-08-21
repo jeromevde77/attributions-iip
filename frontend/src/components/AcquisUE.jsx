@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { IconTargetArrow, IconLink, IconUnlink, IconAlertTriangle } from '@tabler/icons-react';
+import { authHeaders } from '../lib/api.js';
 
 /**
  * Acquis d'apprentissage d'une UE.
@@ -17,7 +18,7 @@ export default function AcquisUE({ ueNum, annee, estAdmin }) {
   async function charger() {
     try {
       const p = annee ? `?annee=${encodeURIComponent(annee)}` : '';
-      const rep = await fetch(`/api/aa/ue/${ueNum}${p}`, { credentials: 'include' });
+      const rep = await fetch(`/api/aa/ue/${ueNum}${p}`, { headers: authHeaders() });
       if (!rep.ok) throw new Error('chargement impossible');
       setData(await rep.json());
     } catch (e) { setErreur(e.message); }
@@ -28,8 +29,7 @@ export default function AcquisUE({ ueNum, annee, estAdmin }) {
     setEnCours(aaCode);
     try {
       const rep = await fetch(`/api/aa/${encodeURIComponent(aaCode)}`, {
-        method: 'PATCH', credentials: 'include',
-        headers: { 'Content-Type': 'application/json' },
+        method: 'PATCH', headers: authHeaders(),
         body: JSON.stringify({ cours_code: coursCode || null }),
       });
       if (!rep.ok) { setErreur((await rep.json()).error || 'échec'); return; }

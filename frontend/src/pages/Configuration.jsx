@@ -438,6 +438,7 @@ import Annees from './Annees.jsx';
 import DatesUE from '../components/DatesUE.jsx';
 import Referentiels from './Referentiels.jsx';
 import ParametresEtablissement from './ParametresEtablissement.jsx';
+import { authHeaders } from '../lib/api.js';
 
 function Toggle({ label, description, checked, onChange, disabled }) {
   return (
@@ -1060,7 +1061,7 @@ export default function Configuration() {
     api.changelog().then(r => setChangelog(r)).catch(() => {});
     fetch('/api/info').then(r => r.json()).then(d => setEnv(d.environnement)).catch(() => {});
     // Année active : nécessaire au paramétrage annuel (dates des UE)
-    fetch('/api/annees', { credentials: 'include' }).then(r => r.json())
+    fetch('/api/annees', { headers: authHeaders() }).then(r => r.json())
       .then(list => {
         const a = (Array.isArray(list) ? list : []).find(x => x.active) || list?.[0];
         if (a?.code) setAnneeActive(a.code);
