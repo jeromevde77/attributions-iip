@@ -5,6 +5,7 @@ import {
 } from '@tabler/icons-react';
 import { Btn, KpiCard } from './ui.jsx';
 import { authHeaders } from '../lib/api.js';
+import PlanificateurUE from './PlanificateurUE.jsx';
 
 /**
  * Paramétrage annuel — Dates réelles des unités d'enseignement.
@@ -20,6 +21,7 @@ export default function DatesUE({ annee }) {
   // Mode d'affichage : chaque établissement a sa logique de lecture — par
   // section (l'usage IIP), par numéro d'UE, par quadrimestre ou par date.
   const [affichage, setAffichage] = useState('section');
+  const [vue, setVue] = useState('tableau');   // 'tableau' | 'timeline'
   const [filtreSansDates, setFiltreSansDates] = useState(false);
   const [modifs, setModifs] = useState({});          // { [id]: {date_debut, date_fin, nb_semaines} }
   const [selection, setSelection] = useState(new Set());
@@ -222,6 +224,19 @@ export default function DatesUE({ annee }) {
           </select>
         </div>
         <div>
+          <label className="block text-[11px] font-semibold text-slate-500 uppercase tracking-wide mb-1">Vue</label>
+          <div className="flex rounded-lg border border-slate-300 overflow-hidden">
+            {[['tableau', 'Tableau'], ['timeline', 'Ligne du temps']].map(([v, t]) => (
+              <button key={v} onClick={() => setVue(v)}
+                className={`px-3 py-1.5 text-sm ${vue === v
+                  ? 'bg-iip-blue text-white font-semibold'
+                  : 'bg-white text-slate-600 hover:bg-slate-50'}`}>
+                {t}
+              </button>
+            ))}
+          </div>
+        </div>
+        <div>
           <label className="block text-[11px] font-semibold text-slate-500 uppercase tracking-wide mb-1">Affichage</label>
           <select value={affichage} onChange={e => setAffichage(e.target.value)}
                   className="border border-slate-300 rounded-lg px-3 py-1.5 text-sm">
@@ -259,7 +274,10 @@ export default function DatesUE({ annee }) {
         </div>
       </div>
 
-      {/* Tableau */}
+      {/* Tableau ou ligne du temps : deux vues de la même donnée */}
+      {vue === 'timeline' ? (
+        <PlanificateurUE items={lignesAffichees} annee={annee} val={val} editer={editer} modifs={modifs} />
+      ) : (
       <div className="bg-white border border-slate-200 rounded-xl overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
@@ -364,6 +382,7 @@ export default function DatesUE({ annee }) {
           </table>
         </div>
       </div>
+      )}
 
       {/* Aperçu des jalons */}
       {jalonsPour && (
