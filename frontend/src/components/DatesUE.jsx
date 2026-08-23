@@ -17,6 +17,9 @@ export default function DatesUE({ annee }) {
   const [data, setData] = useState(null);
   const [chargement, setChargement] = useState(true);
   const [section, setSection] = useState('');
+  // Mode d'affichage : chaque établissement a sa logique de lecture — par
+  // section (l'usage IIP), par numéro d'UE, par quadrimestre ou par date.
+  const [affichage, setAffichage] = useState('section');
   const [filtreSansDates, setFiltreSansDates] = useState(false);
   const [modifs, setModifs] = useState({});          // { [id]: {date_debut, date_fin, nb_semaines} }
   const [selection, setSelection] = useState(new Set());
@@ -125,6 +128,33 @@ export default function DatesUE({ annee }) {
     setJalonsPour(await rep.json());
   }
 
+  // Lignes ordonnées selon le mode choisi, avec en-têtes de groupe éventuels
+  const lignesAffichees = useMemo(() => {
+    const copie = [...lignes];
+    const cmp = {
+      section:  (a, b) => (a.section || '').localeCompare(b.section || '') || (a.ue_num - b.ue_num) || ((a.num_organisation || 1) - (b.num_organisation || 1)),
+      ue:       (a, b) => (a.ue_num - b.ue_num) || ((a.num_organisation || 1) - (b.num_organisation || 1)),
+      quadri:   (a, b) => (a.ue_quad || '').localeCompare(b.ue_quad || '') || (a.ue_num - b.ue_num),
+      debut:    (a, b) => (a.date_debut || '9999').localeCompare(b.date_debut || '9999') || (a.ue_num - b.ue_num),
+    }[affichage] || ((a, b) => a.ue_num - b.ue_num);
+    copie.sort(cmp);
+
+    const cleGroupe = {
+      section: l => l.section || 'Sans section',
+      quadri:  l => l.ue_quad ? `Quadrimestre ${l.ue_quad}` : 'Sans quadrimestre',
+    }[affichage];
+    if (!cleGroupe) return copie.map(l => ({ type: 'ligne', l }));
+
+    const out = [];
+    let derniere = null;
+    for (const l of copie) {
+      const g = cleGroupe(l);
+      if (g !== derniere) { out.push({ type: 'groupe', libelle: g }); derniere = g; }
+      out.push({ type: 'ligne', l });
+    }
+    return out;
+  }, [lignes, affichage]);
+
   const incoherentes = useMemo(() => lignes.filter(l => {
     const d = val(l, 'date_debut'), f = val(l, 'date_fin');
     return d && f && f < d;
@@ -191,6 +221,16 @@ export default function DatesUE({ annee }) {
             {(data?.sections || []).map(s => <option key={s} value={s}>{s}</option>)}
           </select>
         </div>
+        <div>
+          <label className="block text-[11px] font-semibold text-slate-500 uppercase tracking-wide mb-1">Affichage</label>
+          <select value={affichage} onChange={e => setAffichage(e.target.value)}
+                  className="border border-slate-300 rounded-lg px-3 py-1.5 text-sm">
+            <option value="section">Par section</option>
+            <option value="ue">Par n° d'UE</option>
+            <option value="quadri">Par quadrimestre</option>
+            <option value="debut">Par date de début</option>
+          </select>
+        </div>
         <label className="flex items-center gap-2 text-sm text-slate-700 pb-1.5">
           <input type="checkbox" checked={filtreSansDates}
                  onChange={e => setFiltreSansDates(e.target.checked)} />
@@ -249,7 +289,17 @@ export default function DatesUE({ annee }) {
                   Aucune organisation d'UE pour ces critères.
                 </td></tr>
               )}
-              {lignes.map(l => {
+              {lignesAffichees.map((item, idx) => {
+                if (item.type === 'groupe') {
+                  return (
+                    <tr key={`g-${idx}`} className="bg-slate-50/80">
+                      <td colSpan={9} className="px-3 py-1.5 text-[11px] font-bold uppercase tracking-wide text-slate-500 border-y border-slate-200">
+                        {item.libelle}
+                      </td>
+                    </tr>
+                  );
+                }
+                const l = item.l;
                 const d = val(l, 'date_debut'), f = val(l, 'date_fin');
                 const modifiee = !!modifs[l.id];
                 const incoherente = d && f && f < d;
