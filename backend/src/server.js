@@ -10,11 +10,13 @@ import { fileURLToPath } from 'node:url';
 
 import db from './db/index.js';
 import { migrerEcheancier } from './db/migrations_echeancier.js';
+import { migrerBesoinsOffres } from './db/migrations_besoins.js';
 import { demarrerMoteur } from './services/echeancier.js';
 import annuelRoutes from './routes/annuel.js';
 import echeancierRoutes from './routes/echeancier.js';
 import dossierAdminRoutes from './routes/dossierAdmin.js';
 import listesRoutes from './routes/listes.js';
+import besoinsRoutes from './routes/besoins.js';
 import authRoutes from './routes/auth.js';
 import attrRoutes from './routes/attributions.js';
 import refRoutes  from './routes/referentiels.js';
@@ -2664,6 +2666,7 @@ try {
 
 // ── Lucie V3++ : échéancier, dossier administratif, communication ──
 try { migrerEcheancier(db); } catch (e) { console.error('[migration] echeancier :', e.message); }
+try { migrerBesoinsOffres(db); } catch (e) { console.error('[migration] besoins :', e.message); }
 
 // Recréer les VIEW à chaque démarrage pour qu'elles soient à jour
 // quand le schéma évolue (sans nécessiter un init-db complet).
@@ -2720,6 +2723,7 @@ app.use('/api/annuel',       annuelRoutes);
 app.use('/api/echeancier',   echeancierRoutes);
 app.use('/api/dossier',      dossierAdminRoutes);
 app.use('/api/listes',       listesRoutes);
+app.use('/api/besoins',      besoinsRoutes);
 app.use('/api/historique',   historiqueRoutes);
 app.use('/api/etablissement', etablissementRoutes);
 app.use('/api/ea12',          ea12Routes);
