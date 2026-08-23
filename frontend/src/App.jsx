@@ -48,6 +48,7 @@ import Aide from './pages/Aide.jsx';
 import Attestation from './pages/Attestation.jsx';
 import Disciplinaire from './pages/Disciplinaire.jsx';
 import Echeancier from './pages/Echeancier.jsx';
+import Besoins from './pages/Besoins.jsx';
 import { BoutonAide } from './pages/Aide.jsx';
 
 /* eslint-disable no-undef */
@@ -423,6 +424,7 @@ export default function App() {
       <Route path="/ea12"          element={<ProtectedLayout><EA12List /></ProtectedLayout>} />
       <Route path="/ea12/:id"      element={<ProtectedLayout><EA12Editor /></ProtectedLayout>} />
       <Route path="/echeancier"     element={<ProtectedLayout><Echeancier /></ProtectedLayout>} />
+      <Route path="/besoins"        element={<ProtectedLayout><Besoins /></ProtectedLayout>} />
       <Route path="/pilotage"       element={<ProtectedLayout><Pilotage /></ProtectedLayout>} />
       <Route path="/planification"  element={<ProtectedLayout><Planification /></ProtectedLayout>} />
       <Route path="/aide"           element={<ProtectedLayout><Aide /></ProtectedLayout>} />
