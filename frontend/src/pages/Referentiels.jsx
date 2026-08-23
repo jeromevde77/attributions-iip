@@ -2,6 +2,7 @@ import { useEffect, useState, Fragment } from 'react';
 import { api, getAnnee, getUser } from '../lib/api.js';
 import CoursFormModal from '../components/CoursFormModal.jsx';
 import GrilleSectionModal from '../components/GrilleSectionModal.jsx';
+import CompositionSection from '../components/CompositionSection.jsx';
 import ImportUEAssistant from '../components/ImportUEAssistant.jsx';
 import { IconX, IconPencil, IconTrash, IconPlus, IconCheck, IconLink, IconChevronRight, IconTarget, IconUpload, IconFileText, IconAlertTriangle } from '@tabler/icons-react';
 import AcquisUE from '../components/AcquisUE.jsx';
@@ -244,7 +245,7 @@ function EffectifsImportModal({ annee, onClose, onSaved }) {
   );
 }
 
-function SectionModal({ section, onClose, onSaved }) {
+function SectionModal({ section, onClose, onSaved, annee, isAdmin }) {
   const isNew = !section?._edit;
   const [form, setForm] = useState({
     code: section?.code || '',
@@ -324,12 +325,15 @@ function SectionModal({ section, onClose, onSaved }) {
                 className="w-full border border-gray-300 rounded px-3 py-1.5 h-9 text-sm" /></label>
           </div>
           {error && <div className="bg-red-50 text-red-700 text-sm rounded p-2">{error}</div>}
-          {/* ── 5. ACQUIS D'APPRENTISSAGE ── */}
-          {!isNew && form.ue_num && (
-            <>
-              <div className={sep}>Acquis d'apprentissage</div>
-              <AcquisUE ueNum={form.ue_num} annee={ue?.annee_scolaire} estAdmin={isAdmin} />
-            </>
+
+
+          {!isNew && section?.code && (
+            <div className="pt-3 mt-1 border-t">
+              <div className="text-[11px] font-semibold text-gray-500 uppercase tracking-wide mb-2">
+                Composition — UE du programme ({annee})
+              </div>
+              <CompositionSection sectionCode={section.code} annee={annee} estAdmin={isAdmin} />
+            </div>
           )}
 
           <div className="flex justify-end gap-2 pt-2 border-t">
@@ -520,6 +524,15 @@ function UEModal({ ue, sections, onClose, onSaved }) {
             <span className="text-sm text-gray-700">Épreuve intégrée de fin de section <span className="text-gray-400">(comptée dans le total de la mention)</span></span>
           </label>
 
+          {!isNew && form.ue_num && (
+            <div className="pt-3 mt-1 border-t">
+              <div className="text-[11px] font-semibold text-gray-500 uppercase tracking-wide mb-2">
+                Acquis d'apprentissage
+              </div>
+              <AcquisUE ueNum={form.ue_num} annee={ue?.annee_scolaire} estAdmin={isAdmin} />
+            </div>
+          )}
+
           <div className="flex justify-end gap-2 pt-2 border-t">
             <button type="button" onClick={onClose} className="px-4 py-2 text-sm text-gray-600">Annuler</button>
             <button type="submit" disabled={saving} className="bg-iip-blue hover:bg-iip-blue-dark disabled:opacity-40 text-white text-sm px-5 py-2 rounded font-medium">
@@ -610,6 +623,7 @@ function CatalogueUEModal({ section, onClose, onDone }) {
 }
 
 export default function Referentiels({ embedded = false }) {
+  const isAdmin = getUser()?.role === 'admin';
   const [structure, setStructure] = useState([]);
   const [sections, setSections] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -1054,7 +1068,7 @@ export default function Referentiels({ embedded = false }) {
           onClose={() => setCatalogueOpen(null)}
           onDone={(r) => { setCatalogueOpen(null); load(); if (r?.copiee) alert('UE copiée dans l\'année courante et rattachée à la section.'); }} />
       )}
-      {sectionModal && <SectionModal section={sectionModal} onClose={() => setSectionModal(null)} onSaved={() => { setSectionModal(null); load(); }} />}
+      {sectionModal && <SectionModal section={sectionModal} annee={annee} isAdmin={isAdmin} onClose={() => setSectionModal(null)} onSaved={() => { setSectionModal(null); load(); }} />}
       {importOpen && (
         <ImportUEAssistant
           source={(annees.find(a => a.code !== annee && a.code === '2025-2026') || annees.find(a => a.code !== annee))?.code}
