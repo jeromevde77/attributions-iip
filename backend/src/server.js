@@ -11,6 +11,7 @@ import { fileURLToPath } from 'node:url';
 import db from './db/index.js';
 import { migrerEcheancier } from './db/migrations_echeancier.js';
 import { migrerBesoinsOffres } from './db/migrations_besoins.js';
+import { migrerJournalPersonnel } from './db/migrations_journal.js';
 import { demarrerMoteur } from './services/echeancier.js';
 import annuelRoutes from './routes/annuel.js';
 import echeancierRoutes from './routes/echeancier.js';
@@ -2668,6 +2669,7 @@ try {
 // ── Lucie V3++ : échéancier, dossier administratif, communication ──
 try { migrerEcheancier(db); } catch (e) { console.error('[migration] echeancier :', e.message); }
 try { migrerBesoinsOffres(db); } catch (e) { console.error('[migration] besoins :', e.message); }
+try { migrerJournalPersonnel(db); } catch (e) { console.error('[migration] journal :', e.message); }
 
 // Recréer les VIEW à chaque démarrage pour qu'elles soient à jour
 // quand le schéma évolue (sans nécessiter un init-db complet).

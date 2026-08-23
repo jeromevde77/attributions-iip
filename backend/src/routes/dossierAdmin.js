@@ -290,6 +290,104 @@ r.delete('/entretiens/:id', authRequired, roleRequired('admin'), (req, res) => {
   res.json({ ok: true });
 });
 
+// ═══ JOURNAL DU DOSSIER ═════════════════════════════════════════════════════
+
+/**
+ * GET /:profId/journal — le fil chronologique complet : remarques libres +
+ * événements dérivés des tables existantes (jamais recopiés). Une remarque
+ * confidentielle n'est lisible que par un administrateur ou son auteur.
+ */
+r.get('/:profId/journal', authRequired, (req, res) => {
+  const profId = Number(req.params.profId);
+  const estAdmin = req.user.role === 'admin';
+  const items = [];
+
+  // Remarques libres
+  for (const n of db.prepare(
+    'SELECT * FROM journal_personnel WHERE professeur_id = ? ORDER BY cree_le DESC'
+  ).all(profId)) {
+    const lisible = !n.confidentiel || estAdmin || n.auteur_user_id === req.user.id;
+    items.push({
+      genre: 'remarque', id: n.id, date: n.cree_le,
+      contenu: lisible ? n.contenu : null, masque: !lisible,
+      confidentiel: !!n.confidentiel, auteur: n.auteur,
+      supprimable: estAdmin,
+    });
+  }
+
+  // Entretiens (contenu déjà protégé par sa propre règle)
+  for (const e of db.prepare(
+    'SELECT * FROM entretien_personnel WHERE professeur_id = ?'
+  ).all(profId)) {
+    items.push({
+      genre: 'entretien', id: e.id, date: e.date_tenue || e.date_prevue,
+      contenu: `Entretien ${e.type}${e.date_tenue ? ' tenu' : ' prévu'}${e.mene_par ? ' — ' + e.mene_par : ''}`,
+      confidentiel: !!e.confidentiel, auteur: e.cree_par,
+    });
+  }
+
+  // Absences
+  for (const a of db.prepare(
+    'SELECT * FROM absence_personnel WHERE professeur_id = ?'
+  ).all(profId)) {
+    items.push({
+      genre: 'absence', id: a.id, date: a.date_debut,
+      contenu: `Absence (${a.type})${a.date_fin ? ' du ' + a.date_debut + ' au ' + a.date_fin : ''}`,
+      auteur: a.cree_par,
+    });
+  }
+
+  // Pièces du dossier (réception et transmission)
+  for (const p of db.prepare(
+    'SELECT * FROM piece_dossier WHERE professeur_id = ?'
+  ).all(profId)) {
+    const type = db.prepare('SELECT libelle FROM piece_type WHERE code = ?').get(p.code_piece);
+    if (p.date_reception) items.push({
+      genre: 'piece', date: p.date_reception,
+      contenu: `Pièce reçue : ${type?.libelle || p.code_piece}`,
+    });
+    if (p.date_transmission) items.push({
+      genre: 'piece', date: p.date_transmission,
+      contenu: `Pièce transmise (GEDI) : ${type?.libelle || p.code_piece}`,
+    });
+  }
+
+  // Engagement
+  const prof = db.prepare('SELECT date_engagement FROM professeur WHERE id = ?').get(profId);
+  if (prof?.date_engagement) {
+    items.push({ genre: 'engagement', date: prof.date_engagement,
+                 contenu: 'Entrée en fonction' });
+  }
+
+  items.sort((a, b) => String(b.date || '').localeCompare(String(a.date || '')));
+  res.json({ items });
+});
+
+/** Ajouter une remarque (admin et éditeur). Inaltérable après création. */
+r.post('/:profId/journal', authRequired, peutEcrire, (req, res) => {
+  const profId = Number(req.params.profId);
+  const { contenu, confidentiel } = req.body;
+  if (!contenu || !String(contenu).trim()) {
+    return res.status(400).json({ error: 'contenu requis' });
+  }
+  if (!db.prepare('SELECT 1 FROM professeur WHERE id = ?').get(profId)) {
+    return res.status(404).json({ error: 'membre du personnel introuvable' });
+  }
+  const info = db.prepare(`
+    INSERT INTO journal_personnel (professeur_id, contenu, confidentiel, auteur, auteur_user_id)
+    VALUES (?,?,?,?,?)
+  `).run(profId, String(contenu).trim(), confidentiel ? 1 : 0,
+         req.user.nom || req.user.email || `#${req.user.id}`, req.user.id);
+  res.json(db.prepare('SELECT * FROM journal_personnel WHERE id = ?')
+             .get(Number(info.lastInsertRowid)));
+});
+
+/** Suppression : administrateur seul — les remarques ne se modifient pas. */
+r.delete('/journal/:id', authRequired, roleRequired('admin'), (req, res) => {
+  db.prepare('DELETE FROM journal_personnel WHERE id = ?').run(Number(req.params.id));
+  res.json({ ok: true });
+});
+
 // ═══ VUE D'ENSEMBLE — complétude de tous les dossiers ═══════════════════════
 
 r.get('/completude', authRequired, (req, res) => {

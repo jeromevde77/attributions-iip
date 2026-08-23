@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import {
   IconFileCheck, IconAlertTriangle, IconCheck, IconPlus, IconTrash,
   IconStethoscope, IconMessage, IconLock, IconX, IconCalendarPlus,
+  IconNotes, IconFileImport, IconLogin, IconTrash as IconCorbeille,
 } from '@tabler/icons-react';
 import { authHeaders } from '../lib/api.js';
 
@@ -426,6 +427,131 @@ export function Entretiens({ profId, peutEcrire, estAdmin }) {
           </div>
         );
       })}
+    </div>
+  );
+}
+
+
+// ═══ JOURNAL DU DOSSIER ═════════════════════════════════════════════════════
+
+const GENRES = {
+  remarque:   { icone: IconNotes,       libelle: 'Remarque' },
+  entretien:  { icone: IconMessage,     libelle: 'Entretien' },
+  absence:    { icone: IconStethoscope, libelle: 'Absence' },
+  piece:      { icone: IconFileImport,  libelle: 'Pièce' },
+  engagement: { icone: IconLogin,       libelle: 'Engagement' },
+};
+
+/**
+ * Fil chronologique du dossier : remarques libres (inaltérables) + événements
+ * dérivés des autres onglets, jamais recopiés. Une remarque confidentielle
+ * n'est lisible que par un administrateur ou son auteur.
+ */
+export function Journal({ profId, peutEcrire, estAdmin }) {
+  const [items, setItems] = useState(null);
+  const [texte, setTexte] = useState('');
+  const [confidentiel, setConfidentiel] = useState(false);
+  const [envoi, setEnvoi] = useState(false);
+
+  async function charger() {
+    const rep = await fetch(`/api/dossier/${profId}/journal`, { headers: authHeaders() });
+    const j = await rep.json();
+    setItems(Array.isArray(j.items) ? j.items : []);
+  }
+  useEffect(() => { charger(); /* eslint-disable-next-line */ }, [profId]);
+
+  async function ajouter() {
+    if (!texte.trim()) return;
+    setEnvoi(true);
+    try {
+      const rep = await fetch(`/api/dossier/${profId}/journal`, {
+        method: 'POST', headers: authHeaders(),
+        body: JSON.stringify({ contenu: texte.trim(), confidentiel: confidentiel ? 1 : 0 }),
+      });
+      if (rep.ok) { setTexte(''); setConfidentiel(false); await charger(); }
+    } finally { setEnvoi(false); }
+  }
+
+  async function supprimer(id) {
+    if (!confirm('Supprimer définitivement cette remarque ?')) return;
+    await fetch(`/api/dossier/journal/${id}`, { method: 'DELETE', headers: authHeaders() });
+    await charger();
+  }
+
+  if (!items) return <div className="p-6 text-sm text-slate-400">Chargement…</div>;
+
+  return (
+    <div className="p-5 space-y-4">
+      <div className="flex items-center gap-2">
+        <IconNotes size={18} className="text-iip-turquoise" />
+        <span className="font-semibold text-iip-blue">Journal du dossier</span>
+      </div>
+
+      {peutEcrire && (
+        <div className="border border-slate-200 rounded-xl p-3 bg-slate-50/60 space-y-2">
+          <textarea rows={2} value={texte} onChange={e => setTexte(e.target.value)}
+            placeholder="Noter une remarque datée… (inaltérable après enregistrement)"
+            className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm bg-white" />
+          <div className="flex items-center justify-between gap-3 flex-wrap">
+            <label className="flex items-center gap-2 text-[12px] text-slate-700">
+              <input type="checkbox" checked={confidentiel}
+                     onChange={e => setConfidentiel(e.target.checked)} />
+              <IconLock size={13} className="text-slate-400" />
+              Confidentielle (lisible par la direction et vous seul)
+            </label>
+            <button onClick={ajouter} disabled={envoi || !texte.trim()}
+              className="text-sm px-3 py-1.5 rounded-lg bg-iip-blue text-white font-semibold disabled:opacity-40">
+              Ajouter au journal
+            </button>
+          </div>
+        </div>
+      )}
+
+      {!items.length && (
+        <div className="text-sm text-slate-500 py-6 text-center border border-dashed border-slate-200 rounded-xl">
+          Le journal est vide.
+        </div>
+      )}
+
+      <div className="relative pl-5">
+        <div className="absolute left-[7px] top-1 bottom-1 w-px bg-slate-200" />
+        {items.map((it, i) => {
+          const g = GENRES[it.genre] || GENRES.remarque;
+          const Icone = g.icone;
+          return (
+            <div key={`${it.genre}-${it.id ?? i}`} className="relative pb-4 last:pb-0">
+              <div className="absolute -left-5 top-0.5 w-[15px] h-[15px] rounded-full bg-white border-2 border-iip-turquoise" />
+              <div className="flex items-start gap-2">
+                <Icone size={15} className="text-slate-400 mt-0.5 flex-none" />
+                <div className="min-w-0 flex-1">
+                  <div className="text-[11px] text-slate-400">
+                    {String(it.date || '').slice(0, 10).split('-').reverse().join('/')}
+                    {it.auteur ? ` · ${it.auteur}` : ''}
+                    {it.confidentiel && <IconLock size={11} className="inline ml-1 align-[-1px]" />}
+                  </div>
+                  <div className={`text-[13px] ${it.genre === 'remarque' ? 'text-slate-800' : 'text-slate-600'}`}>
+                    {it.masque
+                      ? <span className="italic text-slate-400">Remarque confidentielle</span>
+                      : it.contenu}
+                  </div>
+                </div>
+                {it.genre === 'remarque' && it.supprimable && !it.masque && (
+                  <button onClick={() => supprimer(it.id)}
+                    className="text-slate-300 hover:text-red-600 flex-none" title="Supprimer (admin)">
+                    <IconCorbeille size={14} />
+                  </button>
+                )}
+              </div>
+            </div>
+          );
+        })}
+      </div>
+
+      <p className="text-[11px] text-slate-400 border-t border-slate-100 pt-3">
+        Les remarques sont des données personnelles : le membre du personnel peut
+        exercer un droit de consultation de son dossier. La mention confidentielle
+        restreint la lecture dans Lucie, pas ce droit légal.
+      </p>
     </div>
   );
 }

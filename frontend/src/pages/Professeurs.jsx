@@ -17,7 +17,7 @@ function peutGenererContrat(u) {
   return u?.role === 'admin' || u?.role === 'editeur';
 }
 
-import { DossierAdmin, Absences, Entretiens } from '../components/DossierPersonnel.jsx';
+import { DossierAdmin, Absences, Entretiens, Journal } from '../components/DossierPersonnel.jsx';
 
 const EMPTY = {
   nom: '', prenom: '', adresse_mail: '', mail_prive: '',
@@ -707,6 +707,7 @@ function DetailModal({ profId, onClose, onEdit, onFiche }) {
     { key: 'dossier_admin', label: 'Dossier admin.' },
     { key: 'absences',      label: 'Absences' },
     { key: 'entretiens',    label: 'Entretiens' },
+    { key: 'journal',       label: 'Journal' },
     ...(u?.role === 'admin' ? [
       { key: 'acces',    label: 'Accès Lucie' },
       { key: 'dossiers', label: '🔒 Dossiers RH' },
@@ -952,6 +953,11 @@ function DetailModal({ profId, onClose, onEdit, onFiche }) {
               {onglet === 'entretiens' && (
                 <Entretiens profId={profId} peutEcrire={peutGenererContrat(u)}
                             estAdmin={u?.role === 'admin'} />
+              )}
+
+              {onglet === 'journal' && (
+                <Journal profId={profId} peutEcrire={peutGenererContrat(u)}
+                         estAdmin={u?.role === 'admin'} />
               )}
 
               {onglet === 'acces' && u?.role === 'admin' && (
