@@ -19,6 +19,7 @@ import dossierAdminRoutes from './routes/dossierAdmin.js';
 import listesRoutes from './routes/listes.js';
 import besoinsRoutes from './routes/besoins.js';
 import compositionRoutes from './routes/composition.js';
+import classementRoutes, { migrerClassement } from './routes/classement.js';
 import authRoutes from './routes/auth.js';
 import attrRoutes from './routes/attributions.js';
 import refRoutes  from './routes/referentiels.js';
@@ -2670,6 +2671,7 @@ try {
 try { migrerEcheancier(db); } catch (e) { console.error('[migration] echeancier :', e.message); }
 try { migrerBesoinsOffres(db); } catch (e) { console.error('[migration] besoins :', e.message); }
 try { migrerJournalPersonnel(db); } catch (e) { console.error('[migration] journal :', e.message); }
+try { migrerClassement(db); } catch (e) { console.error('[migration] classement :', e.message); }
 
 // Recréer les VIEW à chaque démarrage pour qu'elles soient à jour
 // quand le schéma évolue (sans nécessiter un init-db complet).
@@ -2728,6 +2730,7 @@ app.use('/api/dossier',      dossierAdminRoutes);
 app.use('/api/listes',       listesRoutes);
 app.use('/api/besoins',      besoinsRoutes);
 app.use('/api/composition',  compositionRoutes);
+app.use('/api/classement',   classementRoutes);
 app.use('/api/historique',   historiqueRoutes);
 app.use('/api/etablissement', etablissementRoutes);
 app.use('/api/ea12',          ea12Routes);

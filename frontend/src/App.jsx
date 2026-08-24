@@ -50,6 +50,7 @@ import Disciplinaire from './pages/Disciplinaire.jsx';
 import Echeancier from './pages/Echeancier.jsx';
 import Besoins from './pages/Besoins.jsx';
 import Organisation from './pages/Organisation.jsx';
+import Classement from './pages/Classement.jsx';
 import { AxeAccueil, AxeEtudiants, AxeCommunication } from './pages/Axes.jsx';
 import { BoutonAide } from './pages/Aide.jsx';
 
@@ -430,6 +431,7 @@ export default function App() {
       <Route path="/ea12/:id"      element={<ProtectedLayout><EA12Editor /></ProtectedLayout>} />
       <Route path="/echeancier"     element={<ProtectedLayout><Echeancier /></ProtectedLayout>} /> {/* conservé : liens des rappels */}
       <Route path="/besoins"        element={<ProtectedLayout><Besoins /></ProtectedLayout>} />
+      <Route path="/classement"     element={<ProtectedLayout><Classement /></ProtectedLayout>} />
       <Route path="/pilotage"       element={<ProtectedLayout><Pilotage /></ProtectedLayout>} />
       <Route path="/planification"  element={<ProtectedLayout><Organisation ongletInitial="planification" /></ProtectedLayout>} />
       <Route path="/aide"           element={<ProtectedLayout><Aide /></ProtectedLayout>} />

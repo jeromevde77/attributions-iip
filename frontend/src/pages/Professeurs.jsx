@@ -2215,6 +2215,9 @@ export default function Professeurs() {
             { key: 'nav-besoins', label: 'Besoins & offres', icon: IconTargetArrow, couleur: '#00AACC', actif: false, onClick: () => navigate('/besoins') },
             { key: 'nav-recrutement', label: 'Recrutement', icon: IconBriefcase, couleur: '#16a34a', actif: false, onClick: () => navigate('/recrutement') },
           ]}] : []),
+          ...(getUser()?.role === 'admin' ? [{ label: 'Carrière', items: [
+            { key: 'nav-classement', label: 'Classement & prioritaires', icon: IconFileDescription, couleur: '#1B2B4B', actif: false, onClick: () => navigate('/classement') },
+          ]}] : []),
         ]}
       />
       <div className="ml-16 p-4 md:p-6">
