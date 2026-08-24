@@ -5,12 +5,7 @@ import { authRequired, roleRequired } from '../middleware/auth.js';
 
 const r = Router();
 
-const ROLES = ['admin', 'editeur', 'consultation', 'coordination']; // coordination = legacy alias d'editeur
-
-// Normalise le rôle : coordination → editeur
-function normaliserRole(role) {
-  return role === 'coordination' ? 'editeur' : role;
-}
+const ROLES = ['admin', 'editeur', 'consultation', 'coordination'];
 
 // Helper : récupère les sections d'un utilisateur
 function sectionsOf(userId) {
@@ -35,16 +30,15 @@ r.get('/', authRequired, roleRequired('admin'), (req, res) => {
   `).all();
   // Joindre les sections pour les coordinations
   for (const u of users) {
-    u.sections = u.role === 'coordination' ? sectionsOf(u.id) : [];
-    u.role = normaliserRole(u.role); // coordination → editeur
-  }
+    u.sections = sectionsOf(u.id); // toujours, pour que l'UI affiche le périmètre réel
+    }
   res.json(users);
 });
 
 r.post('/', authRequired, roleRequired('admin'), (req, res) => {
   const { email, password, nom_complet, role, sections, professeur_id } = req.body || {};
   if (!email || !password) return res.status(400).json({ error: 'Email et mot de passe requis' });
-  const roleNorm = normaliserRole(role);
+  const roleNorm = role;
   if (!ROLES.includes(role)) return res.status(400).json({ error: 'Rôle invalide' });
   try {
     // Si un compte existe déjà avec cet email, le lier au prof plutôt que créer
@@ -77,7 +71,7 @@ r.patch('/:id', authRequired, roleRequired('admin'), (req, res) => {
   if (nom_complet !== undefined) { updates.push('nom_complet = @nom_complet'); params.nom_complet = nom_complet; }
   if (professeur_id !== undefined) { updates.push('professeur_id = @professeur_id'); params.professeur_id = professeur_id || null; }
   if (role !== undefined) {
-    const roleNorm = normaliserRole(role);
+    const roleNorm = role;
     if (!ROLES.includes(roleNorm)) return res.status(400).json({ error: 'Rôle invalide' });
     updates.push('role = @role'); params.role = roleNorm;
   }

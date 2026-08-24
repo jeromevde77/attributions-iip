@@ -32,14 +32,20 @@ export function roleRequired(...roles) {
 
 /**
  * Retourne la liste des codes de sections autorisés pour un utilisateur.
- * - admin / editeur : null (= toutes les sections, pas de restriction)
- * - coordination : tableau des sections autorisées (peut être vide)
+ * - admin : null (accès illimité)
+ * - tous les autres rôles : filtré par utilisateur_section SI des sections
+ *   y sont configurées, sinon null (accès à toutes les sections).
+ *
+ * Cette règle est role-agnostique : qu'un utilisateur soit stocké comme
+ * 'editeur' ou 'coordination' n'a pas d'importance — seule la présence
+ * de lignes dans utilisateur_section détermine le périmètre.
  */
 export function getUserSections(user) {
   if (!user) return [];
-  if (user.role === 'admin' || user.role === 'editeur') return null; // pas de restriction
+  if (user.role === 'admin') return null; // admin : toujours sans restriction
   const rows = db.prepare('SELECT section_code FROM utilisateur_section WHERE utilisateur_id = ?').all(user.id);
-  return rows.map(r => r.section_code);
+  if (rows.length === 0) return null; // pas de sections configurées → accès à tout
+  return rows.map(r => r.section_code); // sections configurées → filtrage appliqué
 }
 
 /**
