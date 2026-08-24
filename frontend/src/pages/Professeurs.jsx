@@ -660,10 +660,11 @@ function DetailModal({ profId, onClose, onEdit, onFiche }) {
   // Un clic : génère le PDF (dates/représentant par défaut) et ouvre directement le
   // dialogue d'impression du navigateur (choix PDF ou imprimante), sans étape intermédiaire.
   const [imprimantEnCours, setImprimantEnCours] = useState(false);
-  async function imprimerContratDirect() {
+  const [contratApercu, setContratApercu] = useState(null);
+  async function ouvrirContratApercu() {
     setImprimantEnCours(true);
     try {
-      const res = await fetch('/api/contrats/pdf', {
+      const res = await fetch('/api/contrats/apercu', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${localStorage.getItem('token')}` },
         body: JSON.stringify({
@@ -674,17 +675,8 @@ function DetailModal({ profId, onClose, onEdit, onFiche }) {
         }),
       });
       if (!res.ok) throw new Error((await res.json().catch(() => ({}))).error || 'Erreur serveur');
-      const blob = await res.blob();
-      const url = URL.createObjectURL(blob);
-      const iframe = document.createElement('iframe');
-      iframe.style.cssText = 'position:fixed;left:-9999px;top:0;width:1px;height:1px;border:0;';
-      iframe.src = url;
-      document.body.appendChild(iframe);
-      iframe.onload = () => {
-        try { iframe.contentWindow.focus(); iframe.contentWindow.print(); } catch (e) { console.error(e); }
-        // Nettoyage différé : laisser le temps au dialogue d'impression de s'ouvrir avec le PDF chargé.
-        setTimeout(() => { try { document.body.removeChild(iframe); } catch {} URL.revokeObjectURL(url); }, 60000);
-      };
+      const j = await res.json();
+      setContratApercu({ html: j.html, nom: j.nom });
     } catch (e) { alert('Erreur : ' + e.message); }
     finally { setImprimantEnCours(false); }
   }
@@ -798,7 +790,7 @@ function DetailModal({ profId, onClose, onEdit, onFiche }) {
               )}
               {peutGenererContrat(u) && (
                 <div className="space-y-1">
-                  <button onClick={imprimerContratDirect} disabled={imprimantEnCours}
+                  <button onClick={ouvrirContratApercu} disabled={imprimantEnCours}
                     className="w-full flex items-center gap-2 text-xs bg-green-50 hover:bg-green-100 disabled:opacity-50 text-green-700 border border-green-200 rounded-lg px-3 py-2 font-medium transition">
                     <IconPrinter size={14}/> {imprimantEnCours ? 'Préparation…' : 'Imprimer le contrat'}
                   </button>
@@ -2372,6 +2364,8 @@ export default function Professeurs() {
         <ProfFicheModal prof={editProf} onClose={() => setEditProf(null)}
           onSaved={() => { setEditProf(null); load(); }} />
       )}
+      {contratApercu && <PreviewModal html={contratApercu.html} titre="Contrat" nomFichier={contratApercu.nom} astuceImpression="Portrait A4 conseillé" onClose={() => setContratApercu(null)} />
+      }
       {ficheHtml && <PreviewModal html={ficheHtml.html||ficheHtml} titre={ficheHtml.titre || "Fiche d'attributions"} sousTitre={ficheHtml.sousTitre} nomFichier={ficheHtml.nom} onClose={() => setFicheHtml(null)} />}
       </div>
     </div>
