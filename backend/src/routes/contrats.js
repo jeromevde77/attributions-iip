@@ -43,7 +43,7 @@ r.post('/apercu', authRequired, roleRequired('admin', 'editeur'), async (req, re
     if (!prof) return res.status(404).json({ error: 'Professeur introuvable' });
 
     const html = genererApercu({ etab, prof, attributions, annee: anneeActive, date_contrat, representant,
-      templateHtml: db.prepare("SELECT valeur FROM lucie_config WHERE cle = 'contrat_template'").get()?.valeur || null,
+      templateHtml: (() => { try { return db.prepare("SELECT valeur FROM lucie_config WHERE cle = 'contrat_template'").get()?.valeur || null; } catch { return null; } })(),
     });
     res.json({ html, nom: `Contrat_${prof.nom}_${prof.prenom}_${date_contrat||''}` });
   } catch (e) {
@@ -59,7 +59,7 @@ r.post('/pdf', authRequired, roleRequired('admin', 'editeur'), async (req, res) 
     if (!prof) return res.status(404).json({ error: 'Professeur introuvable' });
 
     const html = genererApercu({ etab, prof, attributions, annee: anneeActive, date_contrat, representant,
-      templateHtml: db.prepare("SELECT valeur FROM lucie_config WHERE cle = 'contrat_template'").get()?.valeur || null,
+      templateHtml: (() => { try { return db.prepare("SELECT valeur FROM lucie_config WHERE cle = 'contrat_template'").get()?.valeur || null; } catch { return null; } })(),
     });
     const pdfBuffer = await genererContratPdf(html);
     console.log('[contrats/pdf] buffer généré :', Buffer.isBuffer(pdfBuffer), pdfBuffer.length, 'octets');

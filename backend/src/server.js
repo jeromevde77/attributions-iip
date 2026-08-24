@@ -2672,6 +2672,14 @@ try { migrerEcheancier(db); } catch (e) { console.error('[migration] echeancier 
 try { migrerBesoinsOffres(db); } catch (e) { console.error('[migration] besoins :', e.message); }
 try { migrerJournalPersonnel(db); } catch (e) { console.error('[migration] journal :', e.message); }
 try { migrerClassement(db); } catch (e) { console.error('[migration] classement :', e.message); }
+// lucie_config : table de configuration clé/valeur — présente en prod depuis l'origine
+// mais jamais créée par migration (omission). On la garantit ici.
+try {
+  db.exec(`CREATE TABLE IF NOT EXISTS lucie_config (
+    cle    TEXT PRIMARY KEY,
+    valeur TEXT
+  )`);
+} catch (e) { console.error('[migration] lucie_config :', e.message); }
 
 // Recréer les VIEW à chaque démarrage pour qu'elles soient à jour
 // quand le schéma évolue (sans nécessiter un init-db complet).
