@@ -390,6 +390,12 @@ try {
       ];
       for (const [libelle, portee, ordre] of seedFt) insFt.run(libelle, portee, ordre);
       console.log('[migration] fonction_type seedée (' + seedFt.length + ' fonctions)');
+  // Ajout de types de coordination manquants (idempotent — INSERT OR IGNORE)
+  try {
+    const insFt2 = db.prepare('INSERT OR IGNORE INTO fonction_type (libelle, portee, ordre) VALUES (?, ?, ?)');
+    insFt2.run('Référent métier', 'section', 15);
+    console.log('[migration] fonction_type complétée');
+  } catch (e) { console.error('[migration] fonction_type complément:', e.message); }
     }
   } catch (e) { console.error('[migration] seed fonction_type:', e.message); }
 
