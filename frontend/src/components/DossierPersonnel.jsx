@@ -307,6 +307,45 @@ export function Absences({ profId, peutEcrire }) {
 
 // ═══ ENTRETIENS ═════════════════════════════════════════════════════════════
 
+// Formulaire inline de complétion/modification d'un entretien
+function EntretienForm({ entretien: e, onSave, onClose }) {
+  const [dat, setDat] = useState(e.date_tenue || new Date().toISOString().slice(0,10));
+  const [notes, setNotes] = useState(e.compte_rendu_html || '');
+  const [lieu, setLieu] = useState(e.lieu || '');
+
+  return (
+    <div className="space-y-3">
+      <div className="grid grid-cols-2 gap-3">
+        <label className="text-xs">
+          <span className="block font-semibold text-slate-500 uppercase tracking-wide mb-1">Date tenue</span>
+          <input type="date" value={dat} onChange={e => setDat(e.target.value)}
+            className="w-full border border-slate-300 rounded-lg px-2 py-1.5 text-sm" />
+        </label>
+        <label className="text-xs">
+          <span className="block font-semibold text-slate-500 uppercase tracking-wide mb-1">Lieu</span>
+          <input value={lieu} onChange={e => setLieu(e.target.value)}
+            placeholder="bureau, salle…"
+            className="w-full border border-slate-300 rounded-lg px-2 py-1.5 text-sm" />
+        </label>
+      </div>
+      <label className="text-xs block">
+        <span className="block font-semibold text-slate-500 uppercase tracking-wide mb-1">Notes et compte rendu</span>
+        <textarea rows={4} value={notes} onChange={e => setNotes(e.target.value)}
+          placeholder="Points abordés, décisions, suites à donner…"
+          className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm" />
+      </label>
+      <div className="flex gap-2">
+        <button onClick={() => onSave({ date_tenue: dat || null, lieu: lieu || null, compte_rendu_html: notes || null })}
+          className="text-sm px-3 py-1.5 rounded-lg bg-iip-blue text-white font-semibold">
+          Enregistrer
+        </button>
+        <button onClick={onClose}
+          className="text-sm px-3 py-1.5 rounded-lg border border-slate-300">Annuler</button>
+      </div>
+    </div>
+  );
+}
+
 export function Entretiens({ profId, peutEcrire, estAdmin }) {
   const [data, setData] = useState(null);
   const [form, setForm] = useState(null);
@@ -325,6 +364,15 @@ export function Entretiens({ profId, peutEcrire, estAdmin }) {
     });
     if (!rep.ok) { alert((await rep.json()).error || 'échec'); return; }
     setForm(null); await charger();
+  }
+
+  async function majEntretien(id, champs) {
+    const rep = await fetch(`/api/dossier/entretiens/${id}`, {
+      method: 'PATCH', headers: authHeaders(),
+      body: JSON.stringify(champs),
+    });
+    if (!rep.ok) { alert((await rep.json()).error || 'échec'); return; }
+    setOuvert(null); await charger();
   }
 
   if (!data) return <div className="p-6 text-sm text-slate-400">Chargement…</div>;
@@ -408,20 +456,31 @@ export function Entretiens({ profId, peutEcrire, estAdmin }) {
                 ? 'bg-emerald-100 text-emerald-800' : 'bg-amber-100 text-amber-900'}`}>
                 {e.date_tenue ? 'Tenu' : 'Prévu'}
               </span>
-              {(e.compte_rendu_html || e.masque) && (
+              {(e.compte_rendu_html || e.masque) && !e.masque && (
                 <button onClick={() => setOuvert(ouvert === e.id ? null : e.id)}
                   className="text-[12px] text-iip-turquoise font-semibold">
                   {ouvert === e.id ? 'Masquer' : 'Compte rendu'}
                 </button>
               )}
+              {peutEcrire && (
+                <button onClick={() => setOuvert(ouvert === e.id ? null : e.id)}
+                  className="text-[12px] px-2.5 py-1 rounded-lg border border-slate-300 text-slate-600 hover:border-iip-turquoise hover:text-iip-turquoise">
+                  {ouvert === e.id ? 'Fermer' : e.date_tenue ? 'Modifier' : 'Compléter'}
+                </button>
+              )}
             </div>
             {ouvert === e.id && (
-              <div className="mt-3 pt-3 border-t border-slate-100 text-sm text-slate-700">
-                {e.masque
-                  ? <span className="text-slate-400 italic flex items-center gap-1.5">
-                      <IconLock size={14} /> Entretien confidentiel — réservé à la direction
-                    </span>
-                  : <div dangerouslySetInnerHTML={{ __html: e.compte_rendu_html || '' }} />}
+              <div className="mt-3 pt-3 border-t border-slate-100 space-y-3">
+                {e.masque ? (
+                  <span className="text-slate-400 italic flex items-center gap-1.5 text-sm">
+                    <IconLock size={14} /> Entretien confidentiel — réservé à la direction
+                  </span>
+                ) : peutEcrire ? (
+                  <EntretienForm entretien={e} onSave={champs => majEntretien(e.id, champs)} onClose={() => setOuvert(null)} />
+                ) : (
+                  <div className="text-sm text-slate-700"
+                    dangerouslySetInnerHTML={{ __html: e.compte_rendu_html || '<em>Aucun compte rendu.</em>' }} />
+                )}
               </div>
             )}
           </div>
