@@ -702,7 +702,7 @@ function DetailModal({ profId, onClose, onEdit, onFiche }) {
     { key: 'journal',       label: 'Journal' },
     ...(u?.role === 'admin' ? [
       { key: 'acces',    label: 'Accès Lucie' },
-      { key: 'dossiers', label: '🔒 Dossiers RH' },
+      { key: 'dossiers', label: '🔒 Disciplinaire' },
     ] : []),
     { key: 'actions', label: 'Documents' },
   ];
@@ -771,56 +771,12 @@ function DetailModal({ profId, onClose, onEdit, onFiche }) {
               </div>
             )}
 
-            {/* Actions */}
-            <div className="p-4 space-y-2 border-b border-gray-100">
-              <div className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-2">Actions</div>
+            {/* Actions — panneau simplifié : identité uniquement, les documents dans l'onglet Documents */}
+            <div className="p-4 border-b border-gray-100">
               <button onClick={() => onEdit(detail)}
-                className="w-full flex items-center gap-2 text-xs bg-iip-gold/10 hover:bg-iip-gold/20 text-iip-gold border border-iip-gold/30 rounded-lg px-3 py-2 font-medium transition">
+                className="w-full flex items-center gap-2 text-xs bg-slate-50 hover:bg-slate-100 text-iip-blue border border-slate-200 rounded-lg px-3 py-2 font-medium transition">
                 <IconEdit size={14}/> Modifier la fiche
               </button>
-              <button onClick={() => navigate(`/dcpp/${profId}`)}
-                className="w-full flex items-center gap-2 text-xs bg-iip-turquoise/10 hover:bg-iip-turquoise/20 text-iip-blue border border-iip-turquoise/30 rounded-lg px-3 py-2 font-medium transition">
-                <IconSchool size={14}/> DCPP
-              </button>
-              {u?.role === 'admin' && (
-                <button onClick={nouvelEA12}
-                  className="w-full flex items-center gap-2 text-xs bg-purple-50 hover:bg-purple-100 text-purple-700 border border-purple-200 rounded-lg px-3 py-2 font-medium transition">
-                  <IconPlus size={14}/> Nouvel EA12
-                </button>
-              )}
-              {peutGenererContrat(u) && (
-                <div className="space-y-1">
-                  <button onClick={ouvrirContratApercu} disabled={imprimantEnCours}
-                    className="w-full flex items-center gap-2 text-xs bg-green-50 hover:bg-green-100 disabled:opacity-50 text-green-700 border border-green-200 rounded-lg px-3 py-2 font-medium transition">
-                    <IconPrinter size={14}/> {imprimantEnCours ? 'Préparation…' : 'Imprimer le contrat'}
-                  </button>
-                  <button onClick={() => setShowContratModal(true)}
-                    className="w-full text-[10px] text-gray-400 hover:text-gray-600 underline text-center">
-                    Options avancées (date, représentant, .docx…)
-                  </button>
-                </div>
-              )}
-              {/* Fiches PDF */}
-              <div className="relative">
-                <button onClick={() => setPrintMenu(v => !v)}
-                  className="w-full flex items-center gap-2 text-xs bg-white hover:bg-gray-50 text-gray-600 border border-gray-200 rounded-lg px-3 py-2 font-medium transition">
-                  <IconPrinter size={14}/> Fiche PDF <IconChevronDown size={12} className="ml-auto"/>
-                </button>
-                {printMenu && (
-                  <>
-                    <div className="fixed inset-0 z-40" onClick={() => setPrintMenu(false)}/>
-                    <div className="absolute z-50 bottom-full left-0 mb-1 bg-white border border-gray-200 rounded-lg shadow-xl py-1 w-full">
-                      {[['Global','IIP + HELB',null],['IIP','Contrat IIP','IIP'],['HELB','Contrat HELB','HELB']].map(([lbl,sub,filtre]) => (
-                        <button key={lbl} onClick={() => { onFiche && onFiche(profId, filtre); setPrintMenu(false); }}
-                          className="w-full text-left px-3 py-2 hover:bg-gray-50 text-xs flex items-center gap-2">
-                          <span className="font-bold w-10">{lbl}</span>
-                          <span className="text-gray-400">{sub}</span>
-                        </button>
-                      ))}
-                    </div>
-                  </>
-                )}
-              </div>
             </div>
           </div>
 
@@ -947,6 +903,19 @@ function DetailModal({ profId, onClose, onEdit, onFiche }) {
                             estAdmin={u?.role === 'admin'} />
               )}
 
+              {onglet === 'pdcp' && (
+                <div className="p-6 space-y-3">
+                  <div className="flex items-center gap-2">
+                    <span className="font-semibold text-iip-blue">Plan de développement des compétences professionnelles</span>
+                  </div>
+                  <div className="border-2 border-dashed border-slate-200 rounded-xl p-8 text-center text-sm text-slate-500">
+                    <div className="font-semibold text-slate-600 mb-1">Module PDCP</div>
+                    La maquette de ce module a été conçue (auto-analyse, observation en classe, plan de développement).
+                    Il sera intégré ici dans un prochain cycle de développement.
+                  </div>
+                </div>
+              )}
+
               {onglet === 'journal' && (
                 <Journal profId={profId} peutEcrire={peutGenererContrat(u)}
                          estAdmin={u?.role === 'admin'} />
@@ -956,7 +925,7 @@ function DetailModal({ profId, onClose, onEdit, onFiche }) {
                 <AccesLuciePanel profId={profId} detail={detail} />
               )}
 
-              {/* ── Dossiers RH ── */}
+              {/* ── Disciplinaire ── */}
               {onglet === 'dossiers' && u?.role === 'admin' && (
                 <DossiersRH profId={profId} profNom={detail.nom_prenom} />
               )}
