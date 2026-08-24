@@ -10,6 +10,20 @@
 import { Router } from 'express';
 import db from '../db/index.js';
 import { authRequired, roleRequired, getUserSections } from '../middleware/auth.js';
+import { documentOffre, sujetOffre } from '../services/offreDocument.js';
+import { envoyerEmail } from '../services/mailer.js';
+
+// Traçabilité des envois d'offres : la publication est un acte administratif,
+// son envoi aussi.
+try {
+  db.exec(`CREATE TABLE IF NOT EXISTS offre_envoi (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    poste_id INTEGER NOT NULL,
+    destinataires TEXT NOT NULL,
+    envoye_le TEXT DEFAULT (datetime('now')),
+    envoye_par TEXT
+  )`);
+} catch (e) { console.error('[migration] offre_envoi :', e.message); }
 
 const r = Router();
 const peutEcrire = roleRequired('admin', 'editeur');
@@ -245,6 +259,60 @@ r.post('/offre/:id/publier', authRequired, peutEcrire, (req, res) => {
 });
 
 // ═══ RÉFÉRENTIEL DES TITRES (légal → administrateur) ════════════════════════
+
+// ── Document d'offre mis en page (aperçu, impression, corps du mail) ────────
+function documentPour(id) {
+  const o = detailOffre(id);          // assembleur existant : offre + acquis + titres
+  if (!o) return null;
+  const etab = {
+    nom: 'Institut Ilya Prigogine',
+    mail: process.env.SMTP_FROM?.match(/<(.+)>/)?.[1] || 'direction@institut-prigogine.be',
+  };
+  const titres = (o.titres || []).map(t =>
+    `${t.libelle}${t.portee === 'requis' ? ' (titre requis)' : t.portee === 'suffisant' ? ' (titre suffisant)' : ''}`);
+  const acquis = (o.acquis || []).map(a => a.description);
+  return { o, html: documentOffre(o, titres, acquis, etab), sujet: sujetOffre(o, etab) };
+}
+
+r.get('/offre/:id/document', authRequired, (req, res) => {
+  const doc = documentPour(Number(req.params.id));
+  if (!doc) return res.status(404).json({ error: 'offre introuvable' });
+  res.json({ html: doc.html, sujet: doc.sujet });
+});
+
+// ── Envoi de l'offre par e-mail ─────────────────────────────────────────────
+r.post('/offre/:id/envoyer', authRequired, peutEcrire, async (req, res) => {
+  const doc = documentPour(Number(req.params.id));
+  if (!doc) return res.status(404).json({ error: 'offre introuvable' });
+
+  const brut = String(req.body.destinataires || '');
+  const destinataires = brut.split(/[,;\s]+/).filter(d => /^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(d));
+  if (!destinataires.length) {
+    return res.status(400).json({ error: 'aucune adresse e-mail valide' });
+  }
+
+  const modeDev = !process.env.SMTP_HOST;
+  try {
+    await envoyerEmail({ to: destinataires, subject: doc.sujet, html: doc.html });
+  } catch (e) {
+    return res.status(502).json({ error: `envoi impossible : ${e.message}` });
+  }
+
+  db.prepare('INSERT INTO offre_envoi (poste_id, destinataires, envoye_par) VALUES (?,?,?)')
+    .run(Number(req.params.id), destinataires.join(', '),
+         req.user.nom || req.user.email || `#${req.user.id}`);
+
+  res.json({ ok: true, destinataires, mode: modeDev ? 'dev' : 'smtp',
+             avertissement: modeDev
+               ? 'SMTP non configuré sur ce serveur : l\'envoi est journalisé en console, aucun e-mail réel n\'est parti.'
+               : null });
+});
+
+r.get('/offre/:id/envois', authRequired, (req, res) => {
+  res.json(db.prepare(
+    'SELECT * FROM offre_envoi WHERE poste_id = ? ORDER BY envoye_le DESC'
+  ).all(Number(req.params.id)));
+});
 
 r.get('/titres', authRequired, (req, res) => {
   res.json(db.prepare(`

@@ -2,9 +2,10 @@ import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   IconTargetArrow, IconBriefcase, IconAlertTriangle, IconCheck, IconX,
-  IconSend, IconRefresh, IconChevronRight, IconSchool, IconCertificate,
+  IconSend, IconEye, IconMailForward, IconRefresh, IconChevronRight, IconSchool, IconCertificate,
 } from '@tabler/icons-react';
 import { authHeaders } from '../lib/api.js';
+import PreviewModal from '../components/PreviewModal.jsx';
 
 const fr = (iso) => iso ? iso.slice(0, 10).split('-').reverse().join('/') : '—';
 
@@ -48,6 +49,27 @@ export default function Besoins({ annee: anneeProp }) {
   const [onglet, setOnglet] = useState('besoins');
   const [data, setData] = useState(null);
   const [offres, setOffres] = useState([]);
+  const [apercu, setApercu] = useState(null);        // { html, titre }
+  const [envoi, setEnvoi] = useState(null);          // { offre, destinataires, message? }
+
+  async function ouvrirApercu(o) {
+    const rep = await fetch(`/api/besoins/offre/${o.id}/document`, { headers: authHeaders() });
+    const j = await rep.json();
+    if (rep.ok) setApercu({ html: j.html, titre: j.sujet });
+  }
+
+  async function envoyerOffre() {
+    if (!envoi) return;
+    const rep = await fetch(`/api/besoins/offre/${envoi.offre.id}/envoyer`, {
+      method: 'POST', headers: authHeaders(),
+      body: JSON.stringify({ destinataires: envoi.destinataires }),
+    });
+    const j = await rep.json();
+    if (!rep.ok) { setEnvoi(e => ({ ...e, erreur: j.error })); return; }
+    setEnvoi(e => ({ ...e, fait: true, mode: j.mode, avertissement: j.avertissement,
+                     nb: j.destinataires.length }));
+  }
+
   const [section, setSection] = useState('');
   const [chargement, setChargement] = useState(true);
   const [message, setMessage] = useState(null);
@@ -258,6 +280,16 @@ export default function Besoins({ annee: anneeProp }) {
                     </button>
                   </div>
                   <span className={`px-2 py-0.5 rounded-full text-[11px] font-bold ${s.classe}`}>{s.label}</span>
+                  <button onClick={() => ouvrirApercu(o)}
+                    className="text-[12px] px-2.5 py-1.5 rounded-lg border border-slate-300 flex items-center gap-1">
+                    <IconEye size={14} /> Aperçu
+                  </button>
+                  {o.statut === 'publiee' && (
+                    <button onClick={() => setEnvoi({ offre: o, destinataires: '' })}
+                      className="text-[12px] px-2.5 py-1.5 rounded-lg border border-slate-300 flex items-center gap-1">
+                      <IconMailForward size={14} /> Envoyer
+                    </button>
+                  )}
                   {o.statut === 'brouillon' && (
                     <button onClick={() => publier(o.id)}
                       className="text-[12px] px-2.5 py-1.5 rounded-lg bg-iip-turquoise text-white font-semibold flex items-center gap-1.5">
@@ -433,6 +465,60 @@ export default function Besoins({ annee: anneeProp }) {
             )}
           </div>
         </Modale>
+      )}
+
+      {apercu && (
+        <PreviewModal html={apercu.html} titre="Offre d'emploi"
+          sousTitre={apercu.titre} nomFichier="offre_emploi"
+          astuceImpression="Portrait conseillé"
+          onClose={() => setApercu(null)} />
+      )}
+
+      {envoi && (
+        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4"
+             onClick={() => setEnvoi(null)}>
+          <div className="bg-white rounded-2xl shadow-xl w-full max-w-lg p-5 space-y-3"
+               onClick={e => e.stopPropagation()}>
+            <div className="font-semibold text-iip-blue">
+              Envoyer l'offre — {envoi.offre.intitule || envoi.offre.code_cours}
+            </div>
+            {envoi.fait ? (
+              <>
+                <div className={`px-3 py-2.5 rounded-lg text-sm ${envoi.mode === 'smtp'
+                  ? 'bg-emerald-50 text-emerald-800 border border-emerald-200'
+                  : 'bg-amber-50 text-amber-800 border border-amber-200'}`}>
+                  {envoi.mode === 'smtp'
+                    ? `Offre envoyée à ${envoi.nb} destinataire(s). L'envoi est tracé dans Lucie.`
+                    : envoi.avertissement}
+                </div>
+                <div className="flex justify-end">
+                  <button onClick={() => setEnvoi(null)}
+                    className="text-sm px-3 py-1.5 rounded-lg bg-iip-blue text-white font-semibold">Fermer</button>
+                </div>
+              </>
+            ) : (
+              <>
+                <p className="text-[12.5px] text-slate-500">
+                  Le document mis en page part tel que l'aperçu le montre. Adresses
+                  séparées par des virgules ou des retours à la ligne.
+                </p>
+                <textarea rows={3} value={envoi.destinataires} autoFocus
+                  onChange={e => setEnvoi(v => ({ ...v, destinataires: e.target.value }))}
+                  placeholder="forem@exemple.be, federation@exemple.be…"
+                  className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm" />
+                {envoi.erreur && <div className="text-[12.5px] text-red-700">{envoi.erreur}</div>}
+                <div className="flex justify-end gap-2">
+                  <button onClick={() => setEnvoi(null)}
+                    className="text-sm px-3 py-1.5 rounded-lg border border-slate-300">Annuler</button>
+                  <button onClick={envoyerOffre} disabled={!envoi.destinataires.trim()}
+                    className="text-sm px-3 py-1.5 rounded-lg bg-iip-blue text-white font-semibold disabled:opacity-40 flex items-center gap-1.5">
+                    <IconMailForward size={15} /> Envoyer
+                  </button>
+                </div>
+              </>
+            )}
+          </div>
+        </div>
       )}
     </div>
   );
