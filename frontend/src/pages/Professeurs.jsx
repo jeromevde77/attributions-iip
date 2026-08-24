@@ -18,6 +18,7 @@ function peutGenererContrat(u) {
 }
 
 import { DossierAdmin, Absences, Entretiens, Journal } from '../components/DossierPersonnel.jsx';
+import CalculateurAnciennete from '../components/CalculateurAnciennete.jsx';
 
 const EMPTY = {
   nom: '', prenom: '', adresse_mail: '', mail_prive: '',
@@ -901,6 +902,13 @@ function DetailModal({ profId, onClose, onEdit, onFiche }) {
               {onglet === 'entretiens' && (
                 <Entretiens profId={profId} peutEcrire={peutGenererContrat(u)}
                             estAdmin={u?.role === 'admin'} />
+              )}
+
+              {onglet === 'anciennete' && (
+                <CalculateurAnciennete profId={profId}
+                  estAdmin={u?.role === 'admin'}
+                  peutEcrire={peutGenererContrat(u)}
+                  annee={getAnnee()} />
               )}
 
               {onglet === 'pdcp' && (

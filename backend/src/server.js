@@ -20,6 +20,7 @@ import listesRoutes from './routes/listes.js';
 import besoinsRoutes from './routes/besoins.js';
 import compositionRoutes from './routes/composition.js';
 import classementRoutes, { migrerClassement } from './routes/classement.js';
+import ancienneteServiceRoutes, { migrerAncienneteService } from './routes/ancienneteService.js';
 import authRoutes from './routes/auth.js';
 import attrRoutes from './routes/attributions.js';
 import refRoutes  from './routes/referentiels.js';
@@ -2678,6 +2679,7 @@ try { migrerEcheancier(db); } catch (e) { console.error('[migration] echeancier 
 try { migrerBesoinsOffres(db); } catch (e) { console.error('[migration] besoins :', e.message); }
 try { migrerJournalPersonnel(db); } catch (e) { console.error('[migration] journal :', e.message); }
 try { migrerClassement(db); } catch (e) { console.error('[migration] classement :', e.message); }
+try { migrerAncienneteService(db); } catch (e) { console.error('[migration] anciennete_service :', e.message); }
 // lucie_config : table de configuration clé/valeur — présente en prod depuis l'origine
 // mais jamais créée par migration (omission). On la garantit ici.
 try {
@@ -2745,6 +2747,7 @@ app.use('/api/listes',       listesRoutes);
 app.use('/api/besoins',      besoinsRoutes);
 app.use('/api/composition',  compositionRoutes);
 app.use('/api/classement',   classementRoutes);
+app.use('/api/anciennete-service', ancienneteServiceRoutes);
 app.use('/api/historique',   historiqueRoutes);
 app.use('/api/etablissement', etablissementRoutes);
 app.use('/api/ea12',          ea12Routes);
