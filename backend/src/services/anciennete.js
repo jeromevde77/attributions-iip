@@ -45,9 +45,10 @@ export function joursParCours(periodes, typeCours) {
  * @returns {number}
  */
 export function etpCours(periodes, typeCours) {
-  // Le seuil de 40 périodes s'applique aussi à l'ETP PO (art. 29ter) :
-  // un cours < 40 p ne contribue ni à l'ancienneté cours, ni à l'ETP PO.
-  if (!periodes || periodes < 40) return 0;
+  // Pour le PO : on additionne TOUS les ETPs sans condition préalable —
+  // même une petite charge (< 40 p) contribue à l'ancienneté PO.
+  // La règle des 40 périodes s'applique uniquement à l'ancienneté par cours.
+  if (!periodes || periodes <= 0) return 0;
   return periodes / chargeComplete(typeCours);
 }
 
