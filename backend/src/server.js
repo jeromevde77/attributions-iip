@@ -1714,6 +1714,23 @@ try {
     if (p25) db.prepare("INSERT OR IGNORE INTO dotation_civile (annee_civile, dotation_organique) VALUES (2025, ?)").run(p25.valeur_num);
     if (p26) db.prepare("INSERT OR IGNORE INTO dotation_civile (annee_civile, dotation_organique) VALUES (2026, ?)").run(p26.valeur_num);
 
+    // Auto-créer les années civiles qui couvrent l'année scolaire active :
+    // une année scolaire X-Y couvre les années civiles X et Y.
+    // Sans ligne en base, Pilotage ne propose pas l'année → invisible pour l'utilisateur.
+    try {
+      const anneeActiveRow = db.prepare("SELECT code FROM annee_scolaire WHERE active = 1").get();
+      if (anneeActiveRow) {
+        const parts = String(anneeActiveRow.code).split('-');
+        if (parts.length === 2) {
+          const [a1, a2] = [parseInt(parts[0]), parseInt(parts[1])];
+          const ins = db.prepare('INSERT OR IGNORE INTO dotation_civile (annee_civile) VALUES (?)');
+          if (a1 > 2000) ins.run(a1);
+          if (a2 > 2000 && a2 !== a1) ins.run(a2);
+          console.log(`[migration] dotation_civile : années civiles ${a1} et ${a2} garanties`);
+        }
+      }
+    } catch (e) { console.error('[migration] dotation_civile auto:', e.message); }
+
     // Seeder enveloppes initiales (QUAL=150, CF=200→300, INCL=50)
     const seedEnv = [
       ['QUAL', 'Coordinateur Qualité',              2025, 150],
