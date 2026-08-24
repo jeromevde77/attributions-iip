@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import {
-  IconCalendarEvent, IconDeviceFloppy, IconCopy, IconHistory,
+  IconCalendarEvent, IconDeviceFloppy, IconCopy, IconHistory, IconPlus,
   IconAlertTriangle, IconCheck, IconEye, IconRefresh, IconX,
 } from '@tabler/icons-react';
 import { Btn, KpiCard } from './ui.jsx';
@@ -114,6 +114,17 @@ export default function DatesUE({ annee }) {
     } finally { setEnregistrement(false); }
   }
 
+  async function initialiserDepuisAttributions() {
+    if (!window.confirm('Créer une organisation pour chaque UE attribuée en ' + annee + ' ?\nElles apparaîtront sans dates pour être placées sur la ligne du temps.')) return;
+    const rep = await fetch('/api/annuel/dates-ue/initialiser', {
+      method: 'POST', headers: authHeaders(),
+      body: JSON.stringify({ annee }),
+    });
+    const j = await rep.json();
+    if (rep.ok) { setMessage(j.message || 'Initialisé'); await charger(); }
+    else alert(j.error || 'Erreur');
+  }
+
   async function reprendreAnneePrecedente() {
     if (!confirm("Pré-remplir les dates manquantes à partir de l'année précédente, décalées de 52 semaines ?\n\nLes organisations déjà datées ne seront pas modifiées. Les dates obtenues sont à vérifier.")) return;
     const rep = await fetch('/api/annuel/dates-ue/reprendre', {
@@ -178,6 +189,9 @@ export default function DatesUE({ annee }) {
           </p>
         </div>
         <div className="flex gap-2">
+          <Btn variant="secondary" icon={IconPlus} onClick={initialiserDepuisAttributions}>
+            Initialiser depuis les attributions
+          </Btn>
           <Btn variant="secondary" icon={IconHistory} onClick={reprendreAnneePrecedente}>
             Reprendre l'an dernier
           </Btn>

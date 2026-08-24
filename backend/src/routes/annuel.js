@@ -92,6 +92,46 @@ r.put('/dates-ue', authRequired, roleRequired('admin', 'editeur'), (req, res) =>
   res.json({ ok: true, modifiees, erreurs });
 });
 
+// ── POST /annuel/dates-ue/initialiser ────────────────────────────────────────
+// Crée une ligne dans organisation_ue pour chaque UE attribuée cette année
+// qui n'en a pas encore. Elles apparaissent en « Sans dates » — l'utilisateur
+// pose ensuite les dates via le planificateur. C'est le chaînon entre les
+// attributions et l'échéancier.
+r.post('/dates-ue/initialiser', authRequired, roleRequired('admin', 'editeur'), (req, res) => {
+  const { annee } = req.body;
+  if (!annee) return res.status(400).json({ error: 'annee requise' });
+
+  // Toutes les UE avec attributions cette année
+  const attribuees = db.prepare(`
+    SELECT DISTINCT ue_num, section
+    FROM attribution
+    WHERE annee_scolaire = ?
+    ORDER BY section, ue_num
+  `).all(annee);
+
+  const exists = db.prepare(`
+    SELECT 1 FROM organisation_ue
+    WHERE annee_scolaire = ? AND ue_num = ? AND section = ? AND num_organisation = 1
+  `);
+  const ins = db.prepare(`
+    INSERT INTO organisation_ue (ue_num, section, annee_scolaire, num_organisation)
+    VALUES (?, ?, ?, 1)
+  `);
+
+  let creees = 0;
+  for (const a of attribuees) {
+    if (!exists.get(annee, a.ue_num, a.section)) {
+      ins.run(a.ue_num, a.section, annee);
+      creees++;
+    }
+  }
+
+  res.json({ ok: true, creees, total: attribuees.length,
+    message: creees > 0
+      ? `${creees} organisation(s) créée(s) sans dates — placez-les sur la ligne du temps.`
+      : 'Toutes les UE ont déjà une organisation.' });
+});
+
 // ── POST /annuel/dates-ue/reprendre ─────────────────────────────────────────
 // Pré-remplit les dates manquantes depuis l'année précédente, décalées d'un an
 // (au jour de semaine équivalent : décalage de 364 jours = 52 semaines pile).
