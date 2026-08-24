@@ -1040,6 +1040,8 @@ function DetailModal({ profId, onClose, onEdit, onFiche }) {
       )}
     </div>
   );
+
+      {contratApercu && <PreviewModal html={contratApercu.html} titre="Contrat" nomFichier={contratApercu.nom} astuceImpression="Portrait A4 conseillé" onClose={() => setContratApercu(null)} />}
 }
 
 
@@ -2341,8 +2343,6 @@ export default function Professeurs() {
         <ProfFicheModal prof={editProf} onClose={() => setEditProf(null)}
           onSaved={() => { setEditProf(null); load(); }} />
       )}
-      {contratApercu && <PreviewModal html={contratApercu.html} titre="Contrat" nomFichier={contratApercu.nom} astuceImpression="Portrait A4 conseillé" onClose={() => setContratApercu(null)} />
-      }
       {ficheHtml && <PreviewModal html={ficheHtml.html||ficheHtml} titre={ficheHtml.titre || "Fiche d'attributions"} sousTitre={ficheHtml.sousTitre} nomFichier={ficheHtml.nom} onClose={() => setFicheHtml(null)} />}
       </div>
     </div>
