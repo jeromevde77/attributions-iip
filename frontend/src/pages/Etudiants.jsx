@@ -1,7 +1,7 @@
 import { useEffect, useState, useMemo } from 'react';
 import {
   IconSearch, IconUser, IconChevronRight, IconPlus, IconCheck,
-  IconX, IconPrinter, IconAlertTriangle, IconClock,
+  IconX, IconPrinter, IconAlertTriangle, IconClock, IconUpload,
 } from '@tabler/icons-react';
 import { authHeaders, getAnnee } from '../lib/api.js';
 
@@ -197,6 +197,31 @@ export default function Etudiants() {
   const [sections, setSections] = useState([]);
   const [selId, setSelId] = useState(null);
   const [chargement, setChargement] = useState(false);
+  const [importing, setImporting] = useState(false);
+  const [msgImport, setMsgImport] = useState(null);
+
+  async function importerExcel(fichier) {
+    if (!fichier || !annee) return;
+    setImporting(true); setMsgImport(null);
+    const fd = new FormData();
+    fd.append('fichier', fichier);
+    fd.append('annee', annee);
+    try {
+      const rep = await fetch('/api/etudiants/import-excel', {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${localStorage.getItem('token')}` },
+        body: fd,
+      });
+      const j = await rep.json();
+      if (rep.ok) {
+        setMsgImport({ type: 'ok', texte: `${j.etudiants} étudiants · ${j.inscriptions_creees} inscriptions importées pour ${j.annee}` });
+        await charger();
+      } else {
+        setMsgImport({ type: 'err', texte: j.error || 'Erreur' });
+      }
+    } catch(e) { setMsgImport({ type: 'err', texte: e.message }); }
+    finally { setImporting(false); }
+  }
 
   async function charger() {
     if (!annee) return;
@@ -235,6 +260,14 @@ export default function Etudiants() {
         </div>
       </div>
 
+      {msgImport && (
+        <div className={`px-4 py-2.5 rounded-lg text-sm flex items-center justify-between ${msgImport.type==='ok'
+          ? 'bg-emerald-50 text-emerald-800 border border-emerald-200'
+          : 'bg-red-50 text-red-800 border border-red-200'}`}>
+          <span>{msgImport.texte}</span>
+          <button onClick={() => setMsgImport(null)} className="ml-3 opacity-60">✕</button>
+        </div>
+      )}
       <div className="flex gap-3 flex-wrap">
         <div className="relative flex-1 min-w-[200px]">
           <IconSearch size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
@@ -242,6 +275,13 @@ export default function Etudiants() {
             placeholder="Nom, prénom ou identifiant…"
             className="w-full border border-slate-300 rounded-lg pl-9 pr-3 py-2 text-sm" />
         </div>
+        <label className={`flex items-center gap-2 px-3 py-2 text-sm border rounded-lg cursor-pointer
+          ${importing ? 'opacity-50 pointer-events-none' : 'border-iip-turquoise text-iip-turquoise hover:bg-iip-turquoise/5'}`}>
+          <IconUpload size={15} />
+          {importing ? 'Import en cours…' : 'Importer depuis eCampus (.xls)'}
+          <input type="file" accept=".xls,.xlsx" className="hidden"
+            onChange={e => e.target.files[0] && importerExcel(e.target.files[0])} />
+        </label>
         <select value={section} onChange={e => setSection(e.target.value)}
           className="border border-slate-300 rounded-lg px-3 py-2 text-sm">
           <option value="">Toutes les sections</option>
