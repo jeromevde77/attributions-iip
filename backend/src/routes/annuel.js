@@ -101,27 +101,28 @@ r.post('/dates-ue/initialiser', authRequired, roleRequired('admin', 'editeur'), 
   const { annee } = req.body;
   if (!annee) return res.status(400).json({ error: 'annee requise' });
 
-  // Toutes les UE avec attributions cette année
+  // Toutes les UE avec attributions cette année — en respectant chaque
+  // num_organisation présent (une UE peut être organisée plusieurs fois)
   const attribuees = db.prepare(`
-    SELECT DISTINCT ue_num, section
+    SELECT DISTINCT ue_num, section, COALESCE(num_organisation, 1) AS num_organisation
     FROM attribution
     WHERE annee_scolaire = ?
-    ORDER BY section, ue_num
+    ORDER BY section, ue_num, num_organisation
   `).all(annee);
 
   const exists = db.prepare(`
     SELECT 1 FROM organisation_ue
-    WHERE annee_scolaire = ? AND ue_num = ? AND section = ? AND num_organisation = 1
+    WHERE annee_scolaire = ? AND ue_num = ? AND section = ? AND num_organisation = ?
   `);
   const ins = db.prepare(`
     INSERT INTO organisation_ue (ue_num, section, annee_scolaire, num_organisation)
-    VALUES (?, ?, ?, 1)
+    VALUES (?, ?, ?, ?)
   `);
 
   let creees = 0;
   for (const a of attribuees) {
-    if (!exists.get(annee, a.ue_num, a.section)) {
-      ins.run(a.ue_num, a.section, annee);
+    if (!exists.get(annee, a.ue_num, a.section, a.num_organisation)) {
+      ins.run(a.ue_num, a.section, annee, a.num_organisation);
       creees++;
     }
   }
