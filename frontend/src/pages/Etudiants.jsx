@@ -300,7 +300,7 @@ export default function Etudiants() {
   }
 
   useEffect(() => {
-    fetch('/api/referentiels/sections', { headers: authHeaders() })
+    fetch('/api/ref/sections', { headers: authHeaders() })
       .then(r => r.json()).then(l => { if (Array.isArray(l)) setSections(l); }).catch(() => {});
   }, []);
 
