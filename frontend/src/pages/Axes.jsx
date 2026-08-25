@@ -1,6 +1,7 @@
 import { Suspense, lazy } from 'react';
 import Axe from '../components/Axe.jsx';
 import Accueil from './Accueil.jsx';
+import Etudiants from './Etudiants.jsx';
 import Echeancier from './Echeancier.jsx';
 
 const Listes = lazy(() => import('./Listes.jsx'));
@@ -34,6 +35,8 @@ export function AxeEtudiants() {
       titre="Étudiants"
       question="« Où en est cet étudiant ? »"
       onglets={[
+        { key: 'pae', label: 'PAE & inscriptions', sansMarge: true,
+          rendu: <Etudiants /> },
         { key: 'recours', label: 'Recours', sansMarge: true,
           rendu: <Suspense fallback={<Attente />}><Procedures /></Suspense> },
         { key: 'admission', label: 'Admission & inscription', futur: true,
