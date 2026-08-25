@@ -153,9 +153,9 @@ r.get('/:id/pae', authRequired, (req, res) => {
   const pae = [];
   for (const ue of organisees) {
     const prerequis = db.prepare(`
-      SELECT p.ue_num_requis, u.ue_nom
+      SELECT p.prerequis_num AS ue_num_requis, u.ue_nom
       FROM ue_prerequis p
-      LEFT JOIN ue u ON u.ue_num = p.ue_num_requis AND u.annee_scolaire = ?
+      LEFT JOIN ue u ON u.ue_num = p.prerequis_num AND u.annee_scolaire = ?
       WHERE p.ue_num = ?
     `).all(annee, ue.ue_num);
 

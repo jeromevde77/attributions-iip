@@ -27,10 +27,14 @@ function FicheEtudiant({ id, annee, onClose }) {
     if (rep.ok) setData(await rep.json());
   }
   async function chargerPAE() {
-    const rep = await fetch(
-      `/api/etudiants/${id}/pae?annee=${annee}&annee_precedente=${anneePrecedente}`,
-      { headers: authHeaders() });
-    if (rep.ok) setPae(await rep.json());
+    try {
+      const rep = await fetch(
+        `/api/etudiants/${id}/pae?annee=${annee}&annee_precedente=${anneePrecedente}`,
+        { headers: authHeaders() });
+      const j = await rep.json();
+      if (rep.ok) setPae(j);
+      else setPae({ erreur: j.error || 'Erreur serveur' });
+    } catch(e) { setPae({ erreur: e.message }); }
   }
   useEffect(() => { charger(); /* eslint-disable-next-line */ }, [id]);
 
@@ -123,6 +127,8 @@ function FicheEtudiant({ id, annee, onClose }) {
             <div>
               {!pae ? (
                 <div className="text-center py-8 text-slate-400 text-sm">Chargement du PAE…</div>
+              ) : pae.erreur ? (
+                <div className="text-center py-8 text-red-600 text-sm border border-red-200 bg-red-50 rounded-xl">{pae.erreur}</div>
               ) : (
                 <>
                   <div className="flex items-center justify-between mb-4">
