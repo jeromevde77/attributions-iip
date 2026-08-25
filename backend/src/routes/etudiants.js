@@ -3,10 +3,7 @@
 // ─────────────────────────────────────────────────────────────────────────────
 
 import { Router } from 'express';
-import multer from 'multer';
-import ExcelJS from 'exceljs';
 
-const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 10*1024*1024 } });
 import db from '../db/index.js';
 import { authRequired, roleRequired } from '../middleware/auth.js';
 
@@ -213,79 +210,15 @@ r.post('/', authRequired, roleRequired('admin', 'editeur'), (req, res) => {
 });
 
 // ── Import depuis le fichier eCampus Excel ───────────────────────────────────
-// Accepte le fichier "Listing_etudiants_XXXXXXXX.xls(x)" d'eCampus.
+// Le frontend lit le fichier XLS/XLSX avec SheetJS et envoie les données en JSON.
 // La colonne Code_UE contient directement le ue_num Lucie.
-r.post('/import-excel', authRequired, roleRequired('admin', 'editeur'),
-  upload.single('fichier'), async (req, res) => {
-  if (!req.file) return res.status(400).json({ error: 'fichier requis' });
-  const annee = req.body.annee;
-  if (!annee) return res.status(400).json({ error: 'annee requise' });
+r.post('/import-excel', authRequired, roleRequired('admin', 'editeur'), async (req, res) => {
+  const { annee, etudiants: etudiantsData, inscriptions: inscriptionsData } = req.body;
+  if (!annee || !Array.isArray(etudiantsData)) {
+    return res.status(400).json({ error: 'annee et etudiants requis' });
+  }
 
   try {
-    const wb = new ExcelJS.Workbook();
-    await wb.xlsx.load(req.file.buffer);
-
-    // Chercher le 3e onglet (Inscriptions) ou celui qui contient 'Inscriptions'
-    let ws = wb.worksheets[2] || wb.worksheets.find(s => s.name.includes('Inscription'));
-    if (!ws && wb.worksheets.length > 0) ws = wb.worksheets[0];
-    if (!ws) return res.status(400).json({ error: 'Onglet Inscriptions introuvable' });
-
-    // Lire l'en-tête pour trouver les colonnes
-    const headers = [];
-    ws.getRow(1).eachCell(cell => headers.push(String(cell.value || '').trim()));
-    
-    const col = name => headers.indexOf(name);
-    const iId    = col('Id_Etud');
-    const iNom   = col('NomEtud');
-    const iPren  = col('PréEtud');
-    const iEmail = col('EmailEcole');
-    const iDdn   = col('StrDatNais');
-    const iNat   = col('N°National');
-    const iGsm   = col('GSMEtud');
-    const iAdr   = col('AdrN°Bte');
-    const iLoc   = col('Localité');
-    const iCp    = col('CP');
-    const iTitre = col('TitreMrMme');
-    const iCode  = col('Code_UE');
-    const iCog   = col('COG');
-    const iEmailP= col('Email Perso');
-
-    if (iId < 0 || iCode < 0) {
-      return res.status(400).json({ error: 'Colonnes Id_Etud ou Code_UE introuvables — vérifiez que c\'est bien le fichier eCampus (3e onglet)' });
-    }
-
-    const val = (row, i) => i >= 0 ? String(row.getCell(i+1).value ?? '').trim() : '';
-
-    // Collecter étudiants et inscriptions
-    const etudiantsMap = new Map();
-    const inscriptions = [];
-
-    ws.eachRow((row, rowNum) => {
-      if (rowNum === 1) return;
-      const idEcampus = val(row, iId);
-      const codeUE = parseInt(val(row, iCode));
-      if (!idEcampus || isNaN(codeUE)) return;
-
-      if (!etudiantsMap.has(idEcampus)) {
-        etudiantsMap.set(idEcampus, {
-          id_ecampus: idEcampus,
-          nom: val(row, iNom),
-          prenom: val(row, iPren),
-          email_ecole: val(row, iEmail),
-          email_perso: val(row, iEmailP),
-          date_naissance: val(row, iDdn),
-          num_national: val(row, iNat),
-          gsm: val(row, iGsm),
-          adresse: val(row, iAdr),
-          localite: val(row, iLoc),
-          cp: val(row, iCp),
-          titre: val(row, iTitre),
-        });
-      }
-      inscriptions.push({ id_ecampus: idEcampus, ue_num: codeUE, groupe: val(row, iCog) });
-    });
-
-    // Insérer en transaction
     const insEtud = db.prepare(`
       INSERT INTO etudiant (id_ecampus,nom,prenom,email_ecole,email_perso,
         date_naissance,num_national,gsm,adresse,localite,cp,titre)
@@ -299,27 +232,30 @@ r.post('/import-excel', authRequired, roleRequired('admin', 'editeur'),
       SELECT id,?,?,? FROM etudiant WHERE id_ecampus=? LIMIT 1
     `);
 
-    let etudiants_crees = 0, inscriptions_creees = 0;
+    let etudiants_crees=0, inscriptions_creees=0;
     const tx = db.transaction(() => {
-      for (const e of etudiantsMap.values()) {
-        const r = insEtud.run(e.id_ecampus,e.nom,e.prenom,e.email_ecole,e.email_perso,
-          e.date_naissance,e.num_national,e.gsm,e.adresse,e.localite,e.cp,e.titre);
+      for (const e of etudiantsData) {
+        const r = insEtud.run(e.id_ecampus||null, e.nom||'', e.prenom||'',
+          e.email_ecole||null, e.email_perso||null, e.date_naissance||null,
+          e.num_national||null, e.gsm||null, e.adresse||null,
+          e.localite||null, e.cp||null, e.titre||null);
         if (r.changes) etudiants_crees++;
       }
-      for (const i of inscriptions) {
-        const r = insInsc.run(annee, i.ue_num, i.groupe, i.id_ecampus);
+      for (const i of inscriptionsData) {
+        if (!i.ue_num || isNaN(Number(i.ue_num))) continue;
+        const r = insInsc.run(annee, Number(i.ue_num), i.groupe||null, i.id_ecampus);
         if (r.changes) inscriptions_creees++;
       }
     });
     tx();
 
-    res.json({ ok: true, etudiants: etudiantsMap.size, etudiants_crees,
-               inscriptions: inscriptions.length, inscriptions_creees, annee });
-
-  } catch (e) {
-    console.error('Import Excel étudiants :', e);
-    res.status(500).json({ error: 'Erreur de lecture du fichier : ' + e.message });
+    res.json({ ok:true, etudiants: etudiantsData.length, etudiants_crees,
+               inscriptions: inscriptionsData.length, inscriptions_creees, annee });
+  } catch(e) {
+    console.error('Import étudiants:', e);
+    res.status(500).json({ error: e.message });
   }
 });
+
 
 export default r;

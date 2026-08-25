@@ -203,14 +203,56 @@ export default function Etudiants() {
   async function importerExcel(fichier) {
     if (!fichier || !annee) return;
     setImporting(true); setMsgImport(null);
-    const fd = new FormData();
-    fd.append('fichier', fichier);
-    fd.append('annee', annee);
     try {
+      // Lecture côté client avec SheetJS — gère .xls et .xlsx
+      const XLSX = await import('xlsx');
+      const buffer = await fichier.arrayBuffer();
+      const wb = XLSX.read(buffer, { type: 'array' });
+
+      // 3e onglet ou celui qui contient 'Inscription'
+      const wsName = wb.SheetNames[2] ||
+                     wb.SheetNames.find(n => n.includes('Inscription')) ||
+                     wb.SheetNames[0];
+      if (!wsName) throw new Error('Onglet introuvable dans le fichier');
+      const ws = wb.Sheets[wsName];
+      const rows = XLSX.utils.sheet_to_json(ws, { defval: '' });
+
+      if (!rows.length) throw new Error('Le fichier semble vide');
+      if (!('Id_Etud' in rows[0]) || !('Code_UE' in rows[0])) {
+        throw new Error('Colonnes Id_Etud ou Code_UE introuvables — vérifiez que c\'est le bon fichier eCampus');
+      }
+
+      // Dédupliquer les étudiants
+      const etudiants = [];
+      const vus = new Set();
+      for (const r of rows) {
+        if (vus.has(r.Id_Etud)) continue;
+        vus.add(r.Id_Etud);
+        etudiants.push({
+          id_ecampus: String(r.Id_Etud||'').trim(),
+          nom: String(r.NomEtud||'').trim(),
+          prenom: String(r['PréEtud']||'').trim(),
+          email_ecole: String(r.EmailEcole||'').trim(),
+          email_perso: String(r['Email Perso']||'').trim(),
+          date_naissance: String(r.StrDatNais||'').trim(),
+          num_national: String(r['N°National']||'').trim(),
+          gsm: String(r.GSMEtud||'').trim(),
+          adresse: String(r['AdrN°Bte']||'').trim(),
+          localite: String(r['Localité']||'').trim(),
+          cp: String(r.CP||'').trim(),
+          titre: String(r.TitreMrMme||'').trim(),
+        });
+      }
+
+      const inscriptions = rows
+        .filter(r => r.Id_Etud && r.Code_UE && !isNaN(Number(r.Code_UE)))
+        .map(r => ({ id_ecampus: String(r.Id_Etud).trim(), ue_num: Number(r.Code_UE), groupe: String(r.COG||'').trim() }));
+
+      // Envoyer au backend
       const rep = await fetch('/api/etudiants/import-excel', {
         method: 'POST',
-        headers: { Authorization: `Bearer ${localStorage.getItem('token')}` },
-        body: fd,
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${localStorage.getItem('token')}` },
+        body: JSON.stringify({ annee, etudiants, inscriptions }),
       });
       const j = await rep.json();
       if (rep.ok) {
