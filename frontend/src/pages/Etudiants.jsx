@@ -22,8 +22,9 @@ function FicheEtudiant({ id, annee, onClose }) {
     return `${a1-1}-${a2-1}`;
   }, [annee]);
 
+  // Les résultats s'encodent sur l'année écoulée ; le PAE se calcule pour l'année active.
   async function charger() {
-    const rep = await fetch(`/api/etudiants/${id}?annee=${annee}`, { headers: authHeaders() });
+    const rep = await fetch(`/api/etudiants/${id}?annee=${anneePrecedente}`, { headers: authHeaders() });
     if (rep.ok) setData(await rep.json());
   }
   async function chargerPAE() {
@@ -60,7 +61,7 @@ function FicheEtudiant({ id, annee, onClose }) {
 
         {/* Onglets */}
         <div className="flex border-b border-slate-200 px-6">
-          {[['inscriptions', `Inscriptions ${annee} (${data.inscriptions?.length || 0})`],
+          {[['inscriptions', `Résultats ${anneePrecedente} (${data.inscriptions?.length || 0})`],
             ['pae', `PAE ${annee}`]].map(([k, l]) => (
             <button key={k} onClick={() => { setOnglet(k); if (k==='pae' && !pae) chargerPAE(); }}
               className={`px-4 py-3 text-sm font-medium border-b-2 -mb-px ${onglet===k
@@ -76,11 +77,11 @@ function FicheEtudiant({ id, annee, onClose }) {
           {onglet === 'inscriptions' && (
             <div>
               <p className="text-[12px] text-slate-500 mb-3">
-                Encodez les résultats — ils servent à calculer le PAE de l'année suivante.
+                Résultats de l'année écoulée — ils déterminent les UE accessibles dans le PAE.
               </p>
               {!data.inscriptions?.length ? (
                 <div className="text-center py-8 text-slate-400 text-sm border-2 border-dashed rounded-xl">
-                  Aucune inscription pour {annee}
+                  Aucune inscription pour {anneePrecedente}
                 </div>
               ) : (
                 <table className="w-full text-sm">
@@ -202,6 +203,21 @@ export default function Etudiants() {
 
   async function importerExcel(fichier) {
     if (!fichier || !annee) return;
+    // Détecter l'année depuis le nom du fichier (ex. "20252026" → 2025-2026),
+    // sinon proposer l'année précédant l'année active (le listing est celui de l'année écoulée)
+    const m = fichier.name.match(/(20\d{2})[-_]?(20\d{2})/);
+    let anneeDetectee;
+    if (m) anneeDetectee = m[1] + '-' + m[2];
+    else {
+      const [a1, a2] = annee.split('-').map(Number);
+      anneeDetectee = (a1-1) + '-' + (a2-1);
+    }
+    const anneeImport = window.prompt(
+      'Année scolaire des inscriptions de ce fichier ?', anneeDetectee);
+    if (!anneeImport || !/^20\d{2}-20\d{2}$/.test(anneeImport.trim())) {
+      if (anneeImport !== null) alert('Format attendu : 2025-2026');
+      return;
+    }
     setImporting(true); setMsgImport(null);
     try {
       // Lecture côté client avec SheetJS — gère .xls et .xlsx
@@ -252,7 +268,7 @@ export default function Etudiants() {
       const rep = await fetch('/api/etudiants/import-excel', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${localStorage.getItem('token')}` },
-        body: JSON.stringify({ annee, etudiants, inscriptions }),
+        body: JSON.stringify({ annee: anneeImport.trim(), etudiants, inscriptions }),
       });
       const j = await rep.json();
       if (rep.ok) {
