@@ -53,19 +53,21 @@ export function migrerEtudiants(dbx) {
 
 // ── Liste des étudiants ───────────────────────────────────────────────────────
 r.get('/', authRequired, (req, res) => {
-  const { annee, section, q } = req.query;
-  if (!annee) return res.status(400).json({ error: 'annee requise' });
+  const { section, q } = req.query;
 
+  // Tous les étudiants actifs, avec leurs inscriptions toutes années confondues.
+  // La section affichée vient des UE de leurs inscriptions (dernière année connue).
   let sql = `
-    SELECT DISTINCT e.id, e.nom, e.prenom, e.email_ecole, e.id_ecampus,
+    SELECT e.id, e.nom, e.prenom, e.email_ecole, e.id_ecampus,
            GROUP_CONCAT(DISTINCT u.section) AS sections,
-           COUNT(DISTINCT i.ue_num) AS nb_ue
+           COUNT(DISTINCT i.ue_num) AS nb_ue,
+           MAX(i.annee_scolaire) AS derniere_annee
     FROM etudiant e
-    JOIN etudiant_inscription i ON i.etudiant_id = e.id AND i.annee_scolaire = ?
-    LEFT JOIN ue u ON u.ue_num = i.ue_num AND u.annee_scolaire = ?
+    JOIN etudiant_inscription i ON i.etudiant_id = e.id
+    LEFT JOIN ue u ON u.ue_num = i.ue_num AND u.annee_scolaire = i.annee_scolaire
     WHERE e.actif = 1
   `;
-  const params = [annee, annee];
+  const params = [];
 
   if (section) { sql += ` AND u.section = ?`; params.push(section); }
   if (q) {
@@ -83,17 +85,14 @@ r.get('/:id', authRequired, (req, res) => {
   const etudiant = db.prepare('SELECT * FROM etudiant WHERE id = ?').get(Number(req.params.id));
   if (!etudiant) return res.status(404).json({ error: 'étudiant introuvable' });
 
-  const annee = req.query.annee;
-  let inscriptions = [];
-  if (annee) {
-    inscriptions = db.prepare(`
-      SELECT i.*, u.ue_nom, u.ue_niv, u.ue_quad, u.section
-      FROM etudiant_inscription i
-      LEFT JOIN ue u ON u.ue_num = i.ue_num AND u.annee_scolaire = ?
-      WHERE i.etudiant_id = ? AND i.annee_scolaire = ?
-      ORDER BY u.section, i.ue_num
-    `).all(annee, etudiant.id, annee);
-  }
+  // Toutes les inscriptions, toutes années — le front groupe par année.
+  const inscriptions = db.prepare(`
+    SELECT i.*, u.ue_nom, u.ue_niv, u.ue_quad, u.section
+    FROM etudiant_inscription i
+    LEFT JOIN ue u ON u.ue_num = i.ue_num AND u.annee_scolaire = i.annee_scolaire
+    WHERE i.etudiant_id = ?
+    ORDER BY i.annee_scolaire DESC, u.section, i.ue_num
+  `).all(etudiant.id);
 
   res.json({ ...etudiant, inscriptions });
 });

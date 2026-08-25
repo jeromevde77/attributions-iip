@@ -22,9 +22,8 @@ function FicheEtudiant({ id, annee, onClose }) {
     return `${a1-1}-${a2-1}`;
   }, [annee]);
 
-  // Les résultats s'encodent sur l'année écoulée ; le PAE se calcule pour l'année active.
   async function charger() {
-    const rep = await fetch(`/api/etudiants/${id}?annee=${anneePrecedente}`, { headers: authHeaders() });
+    const rep = await fetch(`/api/etudiants/${id}`, { headers: authHeaders() });
     if (rep.ok) setData(await rep.json());
   }
   async function chargerPAE() {
@@ -61,7 +60,7 @@ function FicheEtudiant({ id, annee, onClose }) {
 
         {/* Onglets */}
         <div className="flex border-b border-slate-200 px-6">
-          {[['inscriptions', `Résultats ${anneePrecedente} (${data.inscriptions?.length || 0})`],
+          {[['inscriptions', `Parcours & résultats (${data.inscriptions?.length || 0})`],
             ['pae', `PAE ${annee}`]].map(([k, l]) => (
             <button key={k} onClick={() => { setOnglet(k); if (k==='pae' && !pae) chargerPAE(); }}
               className={`px-4 py-3 text-sm font-medium border-b-2 -mb-px ${onglet===k
@@ -77,44 +76,44 @@ function FicheEtudiant({ id, annee, onClose }) {
           {onglet === 'inscriptions' && (
             <div>
               <p className="text-[12px] text-slate-500 mb-3">
-                Résultats de l'année écoulée — ils déterminent les UE accessibles dans le PAE.
+                Tout le parcours, année par année. Les résultats déterminent les UE accessibles dans le PAE de l'année suivante.
               </p>
               {!data.inscriptions?.length ? (
                 <div className="text-center py-8 text-slate-400 text-sm border-2 border-dashed rounded-xl">
-                  Aucune inscription pour {anneePrecedente}
+                  Aucune inscription — importez le listing eCampus.
                 </div>
               ) : (
-                <table className="w-full text-sm">
-                  <thead>
-                    <tr className="text-[10.5px] uppercase tracking-wide text-slate-400 border-b">
-                      <th className="py-2 text-left">UE</th>
-                      <th className="py-2 text-left w-20">Section</th>
-                      <th className="py-2 text-left w-28">Résultat</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {data.inscriptions.map(i => (
-                      <tr key={i.id} className="border-b border-slate-100 last:border-0 hover:bg-slate-50/60">
-                        <td className="py-2">
-                          <span className="font-medium text-iip-blue">{i.ue_num}</span>
-                          <span className="text-slate-600 ml-1.5 text-[12.5px]">{i.ue_nom}</span>
-                        </td>
-                        <td className="py-2 text-[11px] text-slate-400">{i.section}</td>
-                        <td className="py-2">
-                          <select value={i.resultat || ''}
-                            onChange={e => setResultat(i.id, e.target.value || null)}
-                            className={`text-[11.5px] px-2 py-1 rounded-lg border border-slate-200 ${
-                              i.resultat === 'reussi' ? 'bg-emerald-50 text-emerald-800' :
-                              i.resultat === 'ajourne' ? 'bg-amber-50 text-amber-800' :
-                              i.resultat === 'absent' ? 'bg-red-50 text-red-800' : ''}`}>
-                            <option value="">— non encodé</option>
-                            {RESULTATS.map(r => <option key={r.val} value={r.val}>{r.label}</option>)}
-                          </select>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
+                [...new Set(data.inscriptions.map(i => i.annee_scolaire))].map(a => (
+                  <div key={a} className="mb-5">
+                    <div className="text-[12px] font-bold text-iip-blue uppercase tracking-wide mb-2 pb-1 border-b border-slate-200">
+                      {a}
+                    </div>
+                    <table className="w-full text-sm">
+                      <tbody>
+                        {data.inscriptions.filter(i => i.annee_scolaire === a).map(i => (
+                          <tr key={i.id} className="border-b border-slate-100 last:border-0 hover:bg-slate-50/60">
+                            <td className="py-2">
+                              <span className="font-medium text-iip-blue">{i.ue_num}</span>
+                              <span className="text-slate-600 ml-1.5 text-[12.5px]">{i.ue_nom}</span>
+                            </td>
+                            <td className="py-2 text-[11px] text-slate-400 w-20">{i.section}</td>
+                            <td className="py-2 w-32">
+                              <select value={i.resultat || ''}
+                                onChange={e => setResultat(i.id, e.target.value || null)}
+                                className={`text-[11.5px] px-2 py-1 rounded-lg border border-slate-200 ${
+                                  i.resultat === 'reussi' ? 'bg-emerald-50 text-emerald-800' :
+                                  i.resultat === 'ajourne' ? 'bg-amber-50 text-amber-800' :
+                                  i.resultat === 'absent' ? 'bg-red-50 text-red-800' : ''}`}>
+                                <option value="">— non encodé</option>
+                                {RESULTATS.map(r => <option key={r.val} value={r.val}>{r.label}</option>)}
+                              </select>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                ))
               )}
             </div>
           )}
@@ -285,7 +284,7 @@ export default function Etudiants() {
     if (!annee) return;
     setChargement(true);
     try {
-      const params = new URLSearchParams({ annee });
+      const params = new URLSearchParams();
       if (section) params.set('section', section);
       if (recherche) params.set('q', recherche);
       const rep = await fetch(`/api/etudiants?${params}`, { headers: authHeaders() });
@@ -314,7 +313,7 @@ export default function Etudiants() {
       <div className="flex items-center justify-between flex-wrap gap-3">
         <div>
           <h2 className="text-xl font-semibold text-iip-blue">Étudiants</h2>
-          <p className="text-sm text-slate-500">{filtres.length} étudiant(s) — {annee}</p>
+          <p className="text-sm text-slate-500">{filtres.length} étudiant(s)</p>
         </div>
       </div>
 
