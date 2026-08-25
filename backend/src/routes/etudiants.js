@@ -139,15 +139,27 @@ r.get('/:id/pae', authRequired, (req, res) => {
     `).all(profId).map(r => r.ue_num)
   );
 
-  // UEs organisées cette année
-  const organisees = db.prepare(`
-    SELECT o.ue_num, o.section, o.num_organisation, o.date_debut, o.date_fin,
-           u.ue_nom, u.ue_niv, u.ue_quad
-    FROM organisation_ue o
-    LEFT JOIN ue u ON u.ue_num = o.ue_num AND u.annee_scolaire = ?
-    WHERE o.annee_scolaire = ?
-    ORDER BY u.section, o.ue_num
-  `).all(annee, annee);
+  // Sections de l'étudiant — déduites de ses inscriptions passées
+  const sectionsEtudiant = db.prepare(`
+    SELECT DISTINCT u.section
+    FROM etudiant_inscription i
+    JOIN ue u ON u.ue_num = i.ue_num AND u.annee_scolaire = i.annee_scolaire
+    WHERE i.etudiant_id = ? AND u.section IS NOT NULL
+  `).all(profId).map(r => r.section);
+
+  // UEs organisées cette année — uniquement dans les sections de l'étudiant
+  let organisees = [];
+  if (sectionsEtudiant.length) {
+    const placeholders = sectionsEtudiant.map(() => '?').join(',');
+    organisees = db.prepare(`
+      SELECT o.ue_num, o.section, o.num_organisation, o.date_debut, o.date_fin,
+             u.ue_nom, u.ue_niv, u.ue_quad
+      FROM organisation_ue o
+      LEFT JOIN ue u ON u.ue_num = o.ue_num AND u.annee_scolaire = ?
+      WHERE o.annee_scolaire = ? AND o.section IN (${placeholders})
+      ORDER BY u.section, o.ue_num
+    `).all(annee, annee, ...sectionsEtudiant);
+  }
 
   // Pour chaque UE organisée, vérifier les prérequis
   const pae = [];
@@ -176,6 +188,7 @@ r.get('/:id/pae', authRequired, (req, res) => {
     etudiant,
     annee,
     annee_precedente: anneePrecedente,
+    sections: sectionsEtudiant,
     pae,
     accessibles: pae.filter(u => u.accessible).length,
     reference: 'PAE — Plan Annuel de l\'Étudiant. Basé sur les prérequis de la section et les UE organisées.'
