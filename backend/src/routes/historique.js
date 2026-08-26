@@ -106,7 +106,14 @@ r.post('/rollback/:snapshotId', authRequired, roleRequired('admin'), (req, res) 
   if (!snap) return res.status(404).json({ error: 'Snapshot introuvable' });
 
   const data = JSON.parse(snap.snapshot);
-  if (data._deleted) return res.status(400).json({ error: 'Impossible de restaurer une attribution supprimée' });
+  // Un snapshot de suppression contient l'intégralité de la ligne : il est
+  // pris AVANT le DELETE. Seuls les snapshots dégradés (_deleted sans données)
+  // sont irrécupérables.
+  if (data._deleted && Object.keys(data).length <= 2) {
+    return res.status(400).json({
+      error: "Ce snapshot ne contient pas les données de l'attribution : restauration impossible.",
+    });
+  }
 
   const allowed = [
     'section','etablissement_referent','contrat_mdp','organisation','ue_num',
@@ -122,9 +129,20 @@ r.post('/rollback/:snapshotId', authRequired, roleRequired('admin'), (req, res) 
   for (const k of allowed) params[k] = data[k] ?? null;
 
   const existing = db.prepare('SELECT id FROM attribution WHERE id = ?').get(snap.attribution_id);
-  if (!existing) return res.status(404).json({ error: 'Attribution introuvable (peut-être supprimée)' });
 
-  db.prepare(`UPDATE attribution SET ${sets} WHERE id = @id`).run(params);
+  if (existing) {
+    db.prepare(`UPDATE attribution SET ${sets} WHERE id = @id`).run(params);
+  } else {
+    // L'attribution a été supprimée : on la recrée à l'identique, en
+    // conservant son identifiant d'origine s'il est encore libre, de sorte
+    // que l'historique et les références (planning) restent cohérents.
+    const colonnes = ['id', ...allowed];
+    const valeurs = { ...params, id: snap.attribution_id };
+    db.prepare(`
+      INSERT INTO attribution (${colonnes.join(', ')})
+      VALUES (${colonnes.map(k => '@' + k).join(', ')})
+    `).run(valeurs);
+  }
 
   // Logger le rollback lui-même
   db.prepare(`
