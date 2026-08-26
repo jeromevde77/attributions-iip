@@ -652,16 +652,10 @@ function FicheEtudiant({ id, annee, onClose }) {
                         {pae.accessibles} UE accessibles · basé sur les résultats {pae.annee_precedente}
                       </div>
                     </div>
-                    <div className="flex gap-2">
-                      <button onClick={ouvrirFicheInscription}
-                        className="flex items-center gap-1.5 px-3 py-1.5 text-sm bg-iip-blue text-white font-semibold rounded-lg">
-                        <IconFileText size={14} /> Fiche d'inscription / reçu
-                      </button>
-                      <button onClick={() => window.print()}
-                        className="flex items-center gap-1.5 px-3 py-1.5 text-sm border border-slate-300 rounded-lg">
-                        <IconPrinter size={14} /> Imprimer
-                      </button>
-                    </div>
+                    <button onClick={ouvrirFicheInscription}
+                      className="flex items-center gap-1.5 px-3 py-1.5 text-sm bg-iip-blue text-white font-semibold rounded-lg">
+                      <IconFileText size={14} /> Fiche d'inscription / reçu
+                    </button>
                   </div>
 
                   <table className="w-full text-sm">

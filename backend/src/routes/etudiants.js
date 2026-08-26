@@ -587,6 +587,8 @@ r.put('/:id/pieces/:type', authRequired, roleRequired('admin', 'editeur'), (req,
 });
 
 // ── Fiche d'inscription / reçu (HTML imprimable, contenu circulaire 9764) ────
+// Structure : acquis antérieurs EN HAUT (réussites + VA), puis les UE de
+// l'inscription de l'année avec mentions réglementaires et sous réserve.
 r.get('/:id/fiche-inscription', authRequired, (req, res) => {
   const etudId = Number(req.params.id);
   const annee = req.query.annee;
@@ -602,6 +604,33 @@ r.get('/:id/fiche-inscription', authRequired, (req, res) => {
     } catch { return 'Institut Ilya Prigogine'; }
   })();
 
+  // 1. Acquis antérieurs : réussites encodées + VA complètes
+  const reussites = db.prepare(`
+    SELECT i.annee_scolaire, i.ue_num, i.points, u.ue_nom, 'reussi' AS kind
+    FROM etudiant_inscription i
+    LEFT JOIN ue u ON u.ue_num = i.ue_num AND u.annee_scolaire = i.annee_scolaire
+    WHERE i.etudiant_id = ? AND i.annee_scolaire < ? AND i.resultat = 'reussi'
+  `).all(etudId, annee);
+  const vasAcq = db.prepare(`
+    SELECT v.annee_scolaire, v.ue_num, v.pourcentage AS points, u.ue_nom, 'va' AS kind
+    FROM etudiant_valorisation v
+    LEFT JOIN ue u ON u.ue_num = v.ue_num AND u.annee_scolaire = v.annee_scolaire
+    WHERE v.etudiant_id = ? AND v.type = 'complete'
+  `).all(etudId);
+  const acquisRows = [...reussites, ...vasAcq].sort((a, b) =>
+    String(a.annee_scolaire || '').localeCompare(String(b.annee_scolaire || '')) || a.ue_num - b.ue_num);
+  const acquisSet = new Set(acquisRows.map(a => a.ue_num));
+
+  // Historique complet exigé : ajournés / absents antérieurs
+  const autres = db.prepare(`
+    SELECT i.annee_scolaire, i.ue_num, i.resultat, u.ue_nom
+    FROM etudiant_inscription i
+    LEFT JOIN ue u ON u.ue_num = i.ue_num AND u.annee_scolaire = i.annee_scolaire
+    WHERE i.etudiant_id = ? AND i.annee_scolaire < ? AND i.resultat IN ('ajourne','absent')
+    ORDER BY i.annee_scolaire, i.ue_num
+  `).all(etudId, annee);
+
+  // 2. UE de l'inscription de l'année
   const inscriptions = db.prepare(`
     SELECT i.*, u.ue_nom, u.section
     FROM etudiant_inscription i
@@ -610,37 +639,48 @@ r.get('/:id/fiche-inscription', authRequired, (req, res) => {
     ORDER BY u.section, i.ue_num
   `).all(etudId, annee);
 
-  // Historique des études antérieures dans l'établissement (exigence circulaire)
-  const historique = db.prepare(`
-    SELECT i.annee_scolaire, i.ue_num, i.resultat, u.ue_nom
-    FROM etudiant_inscription i
-    LEFT JOIN ue u ON u.ue_num = i.ue_num AND u.annee_scolaire = i.annee_scolaire
-    WHERE i.etudiant_id = ? AND i.annee_scolaire < ?
-    ORDER BY i.annee_scolaire DESC, i.ue_num
-  `).all(etudId, annee);
+  // Sous réserve : prérequis non acquis mais inscrits la même année
+  const prereqs = db.prepare('SELECT ue_num, prerequis_num FROM ue_prerequis').all();
+  const prereqDe = {};
+  for (const p of prereqs) (prereqDe[p.ue_num] = prereqDe[p.ue_num] || []).push(p.prerequis_num);
+  const inscritesAnnee = new Set(inscriptions.map(i => i.ue_num));
+  const sousReserveDe = ueNum => {
+    const manquants = (prereqDe[ueNum] || []).filter(p => !acquisSet.has(p));
+    return manquants.length && manquants.every(p => inscritesAnnee.has(p)) ? manquants : null;
+  };
 
   const esc = s => String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;');
-  const resLabel = { reussi: 'Réussi', ajourne: 'Ajourné', absent: 'Absent' };
 
-  const lignes = inscriptions.map(i => `
+  const lignesAcquis = acquisRows.map(a => `
+    <tr>
+      <td>${esc(a.annee_scolaire || '—')}</td>
+      <td>${a.ue_num}</td>
+      <td>${esc(a.ue_nom || '')}</td>
+      <td>${a.kind === 'va' ? '<b>Valorisation des acquis</b>' : 'Réussite'}</td>
+      <td style="text-align:right">${a.points != null ? a.points + ' %' : '—'}</td>
+    </tr>`).join('');
+
+  const lignesAutres = autres.map(h => `
+    <tr>
+      <td>${esc(h.annee_scolaire)}</td><td>${h.ue_num}</td>
+      <td>${esc(h.ue_nom || '')}</td>
+      <td colspan="2">${h.resultat === 'ajourne' ? 'Ajourné' : 'Absent'}</td>
+    </tr>`).join('');
+
+  const lignesInsc = inscriptions.map(i => {
+    const sr = sousReserveDe(i.ue_num);
+    return `
     <tr>
       <td>${i.ue_num}</td>
-      <td>${esc(i.ue_nom || '')}${i.codiplomation_ch ? ' <b>(CH)</b>' : ''}</td>
+      <td>${esc(i.ue_nom || '')}${i.codiplomation_ch ? ' <b>(CH)</b>' : ''}${sr ? ' <i>(sous réserve de la réussite de l\u2019UE ' + sr.join(', ') + ')</i>' : ''}</td>
       <td>${esc(i.section || '')}</td>
       <td>${esc(i.date_inscription || '')}</td>
       <td>${i.admission_type === 'titre' ? 'Titre' : i.admission_type === 'test' ? 'Test' : '—'}</td>
       <td>${i.dispense_complete ? 'Dispense complète' : '—'}</td>
       <td style="text-align:right">${i.di_specifique != null ? Number(i.di_specifique).toFixed(2) + ' €' : '—'}</td>
       <td style="text-align:right">${i.ects != null ? i.ects : '—'}</td>
-    </tr>`).join('');
-
-  const lignesHisto = historique.map(h => `
-    <tr>
-      <td>${esc(h.annee_scolaire)}</td>
-      <td>${h.ue_num}</td>
-      <td>${esc(h.ue_nom || '')}</td>
-      <td>${resLabel[h.resultat] || '—'}</td>
-    </tr>`).join('');
+    </tr>`;
+  }).join('');
 
   const html = `<!DOCTYPE html><html lang="fr"><head><meta charset="utf-8">
 <title>Fiche d'inscription — ${esc(e.nom)} ${esc(e.prenom)}</title>
@@ -667,21 +707,21 @@ r.get('/:id/fiche-inscription', authRequired, (req, res) => {
   ${e.email_ecole ? ' · ' + esc(e.email_ecole) : ''}
 </div>
 
+${acquisRows.length || autres.length ? `
+<h2>Parcours antérieur au sein de l'établissement</h2>
+<table>
+  <thead><tr><th>Année</th><th>UE</th><th>Intitulé</th><th>Mode d'acquisition</th><th>Points</th></tr></thead>
+  <tbody>${lignesAcquis}${lignesAutres}</tbody>
+</table>` : ''}
+
 <h2>Unités d'enseignement — inscription ${esc(annee)}</h2>
 <table>
   <thead><tr>
     <th>UE</th><th>Intitulé</th><th>Section</th><th>Date d'inscription</th>
     <th>Admission</th><th>Valorisation</th><th>DI spécifique</th><th>ECTS</th>
   </tr></thead>
-  <tbody>${lignes || '<tr><td colspan="8" style="text-align:center;color:#94a3b8">Aucune UE inscrite pour cette année</td></tr>'}</tbody>
+  <tbody>${lignesInsc || '<tr><td colspan="8" style="text-align:center;color:#94a3b8">Aucune UE inscrite pour cette année — encodez les inscriptions dans la grille de parcours</td></tr>'}</tbody>
 </table>
-
-${historique.length ? `
-<h2>Historique des études antérieures au sein de l'établissement</h2>
-<table>
-  <thead><tr><th>Année</th><th>UE</th><th>Intitulé</th><th>Résultat</th></tr></thead>
-  <tbody>${lignesHisto}</tbody>
-</table>` : ''}
 
 <div class="sig">
   <div>Signature de l'apprenant</div>
@@ -689,6 +729,7 @@ ${historique.length ? `
 </div>
 <div class="footer">
   Mention « CH » : UE suivie dans le cadre d'un programme d'études en codiplômation.
+  « Sous réserve » : l'accès effectif dépend de la réussite de l'UE prérequise organisée la même année.
   Document imprimé le ${new Date().toLocaleDateString('fr-BE')} — ${esc(etab)}.
 </div>
 </body></html>`;
