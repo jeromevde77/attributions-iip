@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
-import { IconAlertTriangle, IconCopy } from '@tabler/icons-react';
+import { IconAlertTriangle, IconCopy, IconListCheck } from '@tabler/icons-react';
 import SchemaCapitalisation from '../components/SchemaCapitalisation.jsx';
+import Assistant from '../components/Assistant.jsx';
 import { authHeaders } from '../lib/api.js';
 
 /**
@@ -15,6 +16,7 @@ export default function StructureSection({ annee }) {
   const [section, setSection] = useState('');
   const [data, setData] = useState(null);
   const [message, setMessage] = useState(null);
+  const [assistantOuvert, setAssistantOuvert] = useState(false);
 
   useEffect(() => {
     fetch('/api/ref/sections', { headers: authHeaders() })
@@ -91,7 +93,16 @@ export default function StructureSection({ annee }) {
           className="flex items-center gap-1.5 px-3 py-2 text-sm border border-slate-300 rounded-lg text-slate-600 hover:bg-slate-50">
           <IconCopy size={15} /> Reprendre l'an dernier
         </button>
+        <button onClick={() => setAssistantOuvert(o => !o)}
+          className="flex items-center gap-1.5 px-3 py-2 text-sm border border-iip-turquoise text-iip-turquoise rounded-lg hover:bg-iip-turquoise/5">
+          <IconListCheck size={15} /> {assistantOuvert ? "Masquer l'assistant" : 'Mise en route de la section'}
+        </button>
       </div>
+
+      {assistantOuvert && section && annee && (
+        <Assistant cle="section" params={{ section, annee }}
+          onFerme={() => setAssistantOuvert(false)} />
+      )}
 
       {data?.alertes?.length > 0 && (
         <div className="border border-amber-200 bg-amber-50 rounded-xl px-4 py-3">

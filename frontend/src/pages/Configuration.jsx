@@ -1,4 +1,5 @@
 import { useEffect, useState, lazy, Suspense } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { api, getAnnee } from '../lib/api.js';
 import { IconAdjustments, IconAward, IconBooks, IconBuilding, IconCalendar, IconCalendarEvent, IconChartBar, IconCheck, IconChevronRight, IconDownload, IconFileText, IconHistory, IconLink, IconScale, IconSettings, IconSparkles, IconUserShield, IconUsers, IconX, IconGavel, IconPlus, IconTrash, IconGripVertical, IconEdit } from '@tabler/icons-react';
 import { PageHeader, RailLateral } from '../components/ui.jsx';
@@ -1041,7 +1042,10 @@ function ConfigAttestation() {
 
 export default function Configuration() {
 
-  const [tab, setTab] = useState('users');
+  // L'onglet peut être imposé par l'URL (?onglet=...) — utilisé par les
+  // assistants de mise en route pour envoyer vers le bon écran.
+  const [paramsUrl] = useSearchParams();
+  const [tab, setTab] = useState(paramsUrl.get('onglet') || 'users');
   const [historiqueActif, setHistoriqueActif] = useState(false);
   const [changelog, setChangelog] = useState({ byDay: {}, commits: [] });
   const [loading, setLoading] = useState(true);

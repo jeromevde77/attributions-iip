@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import Axe from '../components/Axe.jsx';
 import Attributions from './Attributions.jsx';
 import Planification from './Planification.jsx';
@@ -16,6 +17,8 @@ import { authHeaders } from '../lib/api.js';
  * renvoie désormais.
  */
 export default function Organisation({ ongletInitial }) {
+  const [params] = useSearchParams();
+  const ongletDemande = params.get('onglet') || ongletInitial;
   const [annee, setAnnee] = useState('');
   useEffect(() => {
     fetch('/api/annees', { headers: authHeaders() })
@@ -31,7 +34,7 @@ export default function Organisation({ ongletInitial }) {
     <Axe
       titre="Organisation"
       question="« Qu'organise-t-on cette année ? »"
-      ongletInitial={ongletInitial}
+      ongletInitial={ongletDemande}
       onglets={[
         { key: 'attributions', label: 'Attributions', sansMarge: true,
           rendu: <Attributions /> },
