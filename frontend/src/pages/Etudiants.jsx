@@ -1,9 +1,61 @@
 import { useEffect, useState, useMemo } from 'react';
 import {
   IconSearch, IconUser, IconChevronRight, IconPlus, IconCheck,
-  IconX, IconPrinter, IconAlertTriangle, IconClock, IconUpload,
+  IconX, IconPrinter, IconAlertTriangle, IconClock, IconUpload, IconFileText, IconFolder,
 } from '@tabler/icons-react';
 import { authHeaders, getAnnee } from '../lib/api.js';
+import PreviewModal from '../components/PreviewModal.jsx';
+
+const STATUTS_PIECE = [
+  { val: 'manquant', label: 'Manquant', cls: 'bg-red-50 text-red-700 border-red-200' },
+  { val: 'recu',     label: 'Reçu',     cls: 'bg-emerald-50 text-emerald-700 border-emerald-200' },
+  { val: 'na',       label: 'N/A',      cls: 'bg-slate-100 text-slate-500 border-slate-200' },
+];
+
+function DossierApprenant({ etudId }) {
+  const [pieces, setPieces] = useState(null);
+
+  async function charger() {
+    const rep = await fetch(`/api/etudiants/${etudId}/pieces`, { headers: authHeaders() });
+    if (rep.ok) setPieces(await rep.json());
+  }
+  useEffect(() => { charger(); /* eslint-disable-next-line */ }, [etudId]);
+
+  async function setStatut(type, statut) {
+    await fetch(`/api/etudiants/${etudId}/pieces/${type}`, {
+      method: 'PUT', headers: authHeaders(), body: JSON.stringify({ statut }),
+    });
+    await charger();
+  }
+
+  if (!pieces) return <div className="py-6 text-sm text-slate-400">Chargement…</div>;
+  const recues = pieces.filter(p => p.statut !== 'manquant').length;
+
+  return (
+    <div>
+      <p className="text-[12px] text-slate-500 mb-3">
+        Dossier individuel de l'apprenant — {recues}/{pieces.length} pièces traitées
+        <span className="text-slate-400"> · circulaire n° 9764 du 13/07/2026</span>
+      </p>
+      <div className="space-y-2">
+        {pieces.map(p => (
+          <div key={p.type} className="flex items-center justify-between gap-3 border border-slate-200 rounded-xl px-4 py-2.5">
+            <div className="text-[13px] text-slate-700">{p.libelle}</div>
+            <div className="flex gap-1 flex-none">
+              {STATUTS_PIECE.map(s => (
+                <button key={s.val} onClick={() => setStatut(p.type, s.val)}
+                  className={`text-[11px] px-2 py-1 rounded-lg border transition ${
+                    p.statut === s.val ? s.cls + ' font-semibold' : 'border-transparent text-slate-400 hover:bg-slate-50'}`}>
+                  {s.label}
+                </button>
+              ))}
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
 
 const RESULTATS = [
   { val: 'reussi',  label: 'Réussi',  cls: 'bg-emerald-100 text-emerald-800' },
@@ -16,6 +68,14 @@ function FicheEtudiant({ id, annee, onClose }) {
   const [data, setData] = useState(null);
   const [pae, setPae] = useState(null);
   const [onglet, setOnglet] = useState('inscriptions');
+  const [ficheInscription, setFicheInscription] = useState(null);
+
+  async function ouvrirFicheInscription() {
+    const rep = await fetch(`/api/etudiants/${id}/fiche-inscription?annee=${annee}`, { headers: authHeaders() });
+    const j = await rep.json();
+    if (rep.ok) setFicheInscription(j);
+    else alert(j.error || 'Erreur');
+  }
   const anneePrecedente = useMemo(() => {
     if (!annee) return null;
     const [a1, a2] = annee.split('-').map(Number);
@@ -65,7 +125,8 @@ function FicheEtudiant({ id, annee, onClose }) {
         {/* Onglets */}
         <div className="flex border-b border-slate-200 px-6">
           {[['inscriptions', `Parcours & résultats (${data.inscriptions?.length || 0})`],
-            ['pae', `PAE ${annee}`]].map(([k, l]) => (
+            ['pae', `PAE ${annee}`],
+            ['dossier', 'Dossier']].map(([k, l]) => (
             <button key={k} onClick={() => { setOnglet(k); if (k==='pae' && !pae) chargerPAE(); }}
               className={`px-4 py-3 text-sm font-medium border-b-2 -mb-px ${onglet===k
                 ? 'border-iip-turquoise text-iip-blue font-semibold'
@@ -123,6 +184,8 @@ function FicheEtudiant({ id, annee, onClose }) {
           )}
 
           {/* PAE */}
+          {onglet === 'dossier' && <DossierApprenant etudId={id} />}
+
           {onglet === 'pae' && (
             <div>
               {!pae ? (
@@ -138,10 +201,16 @@ function FicheEtudiant({ id, annee, onClose }) {
                         {pae.accessibles} UE accessibles · basé sur les résultats {pae.annee_precedente}
                       </div>
                     </div>
-                    <button onClick={() => window.print()}
-                      className="flex items-center gap-1.5 px-3 py-1.5 text-sm border border-slate-300 rounded-lg">
-                      <IconPrinter size={14} /> Imprimer
-                    </button>
+                    <div className="flex gap-2">
+                      <button onClick={ouvrirFicheInscription}
+                        className="flex items-center gap-1.5 px-3 py-1.5 text-sm bg-iip-blue text-white font-semibold rounded-lg">
+                        <IconFileText size={14} /> Fiche d'inscription / reçu
+                      </button>
+                      <button onClick={() => window.print()}
+                        className="flex items-center gap-1.5 px-3 py-1.5 text-sm border border-slate-300 rounded-lg">
+                        <IconPrinter size={14} /> Imprimer
+                      </button>
+                    </div>
                   </div>
 
                   <table className="w-full text-sm">
@@ -169,8 +238,8 @@ function FicheEtudiant({ id, annee, onClose }) {
                                 : <span className="flex items-center gap-1 text-[11px] text-red-700"><IconAlertTriangle size={12} /> Manquants</span>}
                           </td>
                           <td className="py-2">
-                            {u.deja_reussie
-                              ? <span className="text-[11px] text-slate-400">Déjà réussie</span>
+                            {u.reinscriptible_ce
+                              ? <span className="text-[11px] text-amber-700 flex items-center gap-1"><IconAlertTriangle size={12} /> Réussie — réinscription sur décision CE</span>
                               : u.accessible
                                 ? <span className="text-[11px] font-semibold text-emerald-700 flex items-center gap-1"><IconCheck size={12} /> Accessible</span>
                                 : <span className="text-[11px] text-red-600 flex items-center gap-1"><IconClock size={12} /> Prérequis manquants</span>}
@@ -190,6 +259,10 @@ function FicheEtudiant({ id, annee, onClose }) {
           )}
         </div>
       </div>
+
+      {ficheInscription && <PreviewModal html={ficheInscription.html} titre="Fiche d'inscription / reçu"
+        nomFichier={ficheInscription.nom} astuceImpression="Portrait A4"
+        onClose={() => setFicheInscription(null)} />}
     </div>
   );
 }

@@ -48,8 +48,39 @@ export function migrerEtudiants(dbx) {
       ON etudiant_inscription(etudiant_id, annee_scolaire);
     `);
     console.log('[migration] Tables etudiant + etudiant_inscription créées');
+
+    // Pièces du dossier individuel de l'apprenant (circulaire n° 9764 du 13/07/2026)
+    dbx.exec(`
+    CREATE TABLE IF NOT EXISTS etudiant_piece (
+      id           INTEGER PRIMARY KEY AUTOINCREMENT,
+      etudiant_id  INTEGER NOT NULL REFERENCES etudiant(id) ON DELETE CASCADE,
+      type_piece   TEXT NOT NULL,
+      statut       TEXT NOT NULL DEFAULT 'manquant',   -- manquant | recu | na
+      commentaire  TEXT,
+      maj_le       TEXT DEFAULT (datetime('now')),
+      UNIQUE(etudiant_id, type_piece)
+    );`);
+
+    // Colonnes réglementaires sur l'inscription (fiche d'inscription/reçu)
+    const addCol = (t, def) => { try { dbx.exec('ALTER TABLE ' + t + ' ADD COLUMN ' + def); } catch {} };
+    addCol('etudiant_inscription', "date_inscription TEXT");
+    addCol('etudiant_inscription', "admission_type TEXT"); // 'titre' | 'test' | null
+    addCol('etudiant_inscription', "dispense_complete INTEGER NOT NULL DEFAULT 0");
+    addCol('etudiant_inscription', "codiplomation_ch INTEGER NOT NULL DEFAULT 0");
+    addCol('etudiant_inscription', "di_specifique REAL");
+    addCol('etudiant_inscription', "ects REAL");
+    console.log('[migration] etudiant_piece + colonnes fiche inscription');
   } catch (e) { console.error('[migration] etudiants :', e.message); }
 }
+
+// Les 5 pièces réglementaires (circulaire dossiers apprenants EA)
+export const PIECES_APPRENANT = [
+  { type: 'identite',          libelle: "Copie du document d'identité" },
+  { type: 'titre_cpr',         libelle: 'Titre correspondant aux capacités préalables requises (ou valorisation des acquis)' },
+  { type: 'fiche_inscription', libelle: "Fiche d'inscription / reçu" },
+  { type: 'decision_ce',       libelle: 'Décision favorable du Conseil des études (réinscription UE déjà réussie)' },
+  { type: 'exoneration_di',    libelle: "Documents d'exonération du droit d'inscription" },
+];
 
 // ── Liste des étudiants ───────────────────────────────────────────────────────
 r.get('/', authRequired, (req, res) => {
@@ -181,6 +212,9 @@ r.get('/:id/pae', authRequired, (req, res) => {
       deja_reussie,
       deja_suivie: dejaSuivies.has(ue.ue_num),
       accessible: prerequis_ok && !deja_reussie,
+      // Circulaire 9764 : la réinscription dans une UE déjà réussie est possible
+      // avec décision favorable du Conseil des études (pièce au dossier).
+      reinscriptible_ce: prerequis_ok && deja_reussie,
     });
   }
 
@@ -193,6 +227,148 @@ r.get('/:id/pae', authRequired, (req, res) => {
     accessibles: pae.filter(u => u.accessible).length,
     reference: 'PAE — Plan Annuel de l\'Étudiant. Basé sur les prérequis de la section et les UE organisées.'
   });
+});
+
+// ── Dossier individuel : les 5 pièces réglementaires ─────────────────────────
+r.get('/:id/pieces', authRequired, (req, res) => {
+  const etudId = Number(req.params.id);
+  const existantes = db.prepare(
+    'SELECT type_piece, statut, commentaire, maj_le FROM etudiant_piece WHERE etudiant_id = ?'
+  ).all(etudId);
+  const map = Object.fromEntries(existantes.map(p => [p.type_piece, p]));
+  res.json(PIECES_APPRENANT.map(p => ({
+    ...p,
+    statut: map[p.type]?.statut || 'manquant',
+    commentaire: map[p.type]?.commentaire || null,
+    maj_le: map[p.type]?.maj_le || null,
+  })));
+});
+
+r.put('/:id/pieces/:type', authRequired, roleRequired('admin', 'editeur'), (req, res) => {
+  const { statut, commentaire } = req.body;
+  if (!['manquant', 'recu', 'na'].includes(statut)) {
+    return res.status(400).json({ error: 'statut invalide (manquant|recu|na)' });
+  }
+  if (!PIECES_APPRENANT.some(p => p.type === req.params.type)) {
+    return res.status(400).json({ error: 'type de pièce inconnu' });
+  }
+  db.prepare(`
+    INSERT INTO etudiant_piece (etudiant_id, type_piece, statut, commentaire, maj_le)
+    VALUES (?,?,?,?, datetime('now'))
+    ON CONFLICT(etudiant_id, type_piece) DO UPDATE SET
+      statut = excluded.statut, commentaire = excluded.commentaire, maj_le = datetime('now')
+  `).run(Number(req.params.id), req.params.type, statut, commentaire || null);
+  res.json({ ok: true });
+});
+
+// ── Fiche d'inscription / reçu (HTML imprimable, contenu circulaire 9764) ────
+r.get('/:id/fiche-inscription', authRequired, (req, res) => {
+  const etudId = Number(req.params.id);
+  const annee = req.query.annee;
+  if (!annee) return res.status(400).json({ error: 'annee requise' });
+
+  const e = db.prepare('SELECT * FROM etudiant WHERE id = ?').get(etudId);
+  if (!e) return res.status(404).json({ error: 'étudiant introuvable' });
+
+  const etab = (() => {
+    try {
+      return db.prepare("SELECT valeur FROM lucie_config WHERE cle = 'etablissement_nom'").get()?.valeur
+        || 'Institut Ilya Prigogine';
+    } catch { return 'Institut Ilya Prigogine'; }
+  })();
+
+  const inscriptions = db.prepare(`
+    SELECT i.*, u.ue_nom, u.section
+    FROM etudiant_inscription i
+    LEFT JOIN ue u ON u.ue_num = i.ue_num AND u.annee_scolaire = i.annee_scolaire
+    WHERE i.etudiant_id = ? AND i.annee_scolaire = ?
+    ORDER BY u.section, i.ue_num
+  `).all(etudId, annee);
+
+  // Historique des études antérieures dans l'établissement (exigence circulaire)
+  const historique = db.prepare(`
+    SELECT i.annee_scolaire, i.ue_num, i.resultat, u.ue_nom
+    FROM etudiant_inscription i
+    LEFT JOIN ue u ON u.ue_num = i.ue_num AND u.annee_scolaire = i.annee_scolaire
+    WHERE i.etudiant_id = ? AND i.annee_scolaire < ?
+    ORDER BY i.annee_scolaire DESC, i.ue_num
+  `).all(etudId, annee);
+
+  const esc = s => String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;');
+  const resLabel = { reussi: 'Réussi', ajourne: 'Ajourné', absent: 'Absent' };
+
+  const lignes = inscriptions.map(i => `
+    <tr>
+      <td>${i.ue_num}</td>
+      <td>${esc(i.ue_nom || '')}${i.codiplomation_ch ? ' <b>(CH)</b>' : ''}</td>
+      <td>${esc(i.section || '')}</td>
+      <td>${esc(i.date_inscription || '')}</td>
+      <td>${i.admission_type === 'titre' ? 'Titre' : i.admission_type === 'test' ? 'Test' : '—'}</td>
+      <td>${i.dispense_complete ? 'Dispense complète' : '—'}</td>
+      <td style="text-align:right">${i.di_specifique != null ? Number(i.di_specifique).toFixed(2) + ' €' : '—'}</td>
+      <td style="text-align:right">${i.ects != null ? i.ects : '—'}</td>
+    </tr>`).join('');
+
+  const lignesHisto = historique.map(h => `
+    <tr>
+      <td>${esc(h.annee_scolaire)}</td>
+      <td>${h.ue_num}</td>
+      <td>${esc(h.ue_nom || '')}</td>
+      <td>${resLabel[h.resultat] || '—'}</td>
+    </tr>`).join('');
+
+  const html = `<!DOCTYPE html><html lang="fr"><head><meta charset="utf-8">
+<title>Fiche d'inscription — ${esc(e.nom)} ${esc(e.prenom)}</title>
+<style>
+  body { font-family: 'Segoe UI', Arial, sans-serif; font-size: 12px; color: #1B2B4B; margin: 32px; }
+  h1 { font-size: 17px; margin: 0 0 2px; } h2 { font-size: 13px; margin: 18px 0 6px; }
+  .etab { font-size: 13px; font-weight: 600; }
+  .meta { color: #556; margin-bottom: 14px; }
+  table { border-collapse: collapse; width: 100%; margin-bottom: 10px; }
+  th, td { border: 1px solid #cbd5e1; padding: 4px 7px; text-align: left; }
+  th { background: #f1f5f9; font-size: 10.5px; text-transform: uppercase; letter-spacing: .4px; }
+  .sig { margin-top: 34px; display: flex; gap: 60px; }
+  .sig div { flex: 1; border-top: 1px solid #94a3b8; padding-top: 5px; font-size: 11px; }
+  .footer { margin-top: 22px; font-size: 10px; color: #64748b; }
+  @media print { body { margin: 12mm; } }
+</style></head><body>
+<div class="etab">${esc(etab)} — Enseignement pour Adultes</div>
+<h1>Fiche d'inscription / reçu — ${esc(annee)}</h1>
+<div class="meta">
+  ${esc(e.titre || '')} <b>${esc(e.nom)} ${esc(e.prenom)}</b>
+  ${e.date_naissance ? ' · né(e) le ' + esc(e.date_naissance) : ''}
+  ${e.num_national ? ' · RN ' + esc(e.num_national) : ''}<br>
+  ${esc([e.adresse, e.cp, e.localite].filter(Boolean).join(', '))}
+  ${e.email_ecole ? ' · ' + esc(e.email_ecole) : ''}
+</div>
+
+<h2>Unités d'enseignement — inscription ${esc(annee)}</h2>
+<table>
+  <thead><tr>
+    <th>UE</th><th>Intitulé</th><th>Section</th><th>Date d'inscription</th>
+    <th>Admission</th><th>Valorisation</th><th>DI spécifique</th><th>ECTS</th>
+  </tr></thead>
+  <tbody>${lignes || '<tr><td colspan="8" style="text-align:center;color:#94a3b8">Aucune UE inscrite pour cette année</td></tr>'}</tbody>
+</table>
+
+${historique.length ? `
+<h2>Historique des études antérieures au sein de l'établissement</h2>
+<table>
+  <thead><tr><th>Année</th><th>UE</th><th>Intitulé</th><th>Résultat</th></tr></thead>
+  <tbody>${lignesHisto}</tbody>
+</table>` : ''}
+
+<div class="sig">
+  <div>Signature de l'apprenant</div>
+  <div>Pour l'établissement</div>
+</div>
+<div class="footer">
+  Mention « CH » : UE suivie dans le cadre d'un programme d'études en codiplômation.
+  Document imprimé le ${new Date().toLocaleDateString('fr-BE')} — ${esc(etab)}.
+</div>
+</body></html>`;
+
+  res.json({ html, nom: 'fiche_inscription_' + (e.nom || 'etudiant') + '_' + annee + '.html' });
 });
 
 // ── Ajouter un étudiant manuellement ─────────────────────────────────────────
