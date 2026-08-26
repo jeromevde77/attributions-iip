@@ -614,6 +614,105 @@ r.post('/import-resultats', authRequired, roleRequired('admin', 'editeur'), (req
   res.json({ ok: true, maj, inconnus: [...new Set(inconnus)].slice(0, 20) });
 });
 
+// ── Schéma de capitalisation : graphe des UE et de leurs prérequis ───────────
+// Généré depuis ue_prerequis — fonctionne pour toutes les sections sans
+// dessin manuel. Les UE sont réparties en couches (profondeur = plus long
+// chemin depuis une UE sans prérequis) et colorées selon l'état de l'étudiant.
+r.get('/:id/capitalisation', authRequired, (req, res) => {
+  const etudId = Number(req.params.id);
+  const annee = req.query.annee;
+  if (!annee) return res.status(400).json({ error: 'annee requise' });
+  const e = db.prepare('SELECT id FROM etudiant WHERE id = ?').get(etudId);
+  if (!e) return res.status(404).json({ error: 'étudiant introuvable' });
+
+  const { sections } = sectionsDeLEtudiant(etudId, req.query.section);
+  if (!sections.length) return res.json({ nodes: [], edges: [], sections: [] });
+
+  const anneeRef = db.prepare('SELECT code FROM annee_scolaire WHERE active = 1').get()?.code || annee;
+  const ph = sections.map(() => '?').join(',');
+
+  const ues = db.prepare(`
+    SELECT ue_num, MIN(ue_nom) AS ue_nom, MIN(ue_niv) AS ue_niv, MIN(section) AS section
+    FROM ue WHERE annee_scolaire = ? AND section IN (${ph})
+    GROUP BY ue_num
+  `).all(anneeRef, ...sections);
+  if (!ues.length) return res.json({ nodes: [], edges: [], sections });
+  const ueSet = new Set(ues.map(u => u.ue_num));
+
+  // Arêtes limitées aux UE de la ou des sections retenues
+  const edges = db.prepare('SELECT ue_num, prerequis_num FROM ue_prerequis').all()
+    .filter(p => ueSet.has(p.ue_num) && ueSet.has(p.prerequis_num))
+    .map(p => ({ from: p.prerequis_num, to: p.ue_num }));
+  const prereqDe = {};
+  for (const eg of edges) (prereqDe[eg.to] = prereqDe[eg.to] || []).push(eg.from);
+
+  // État de l'étudiant
+  const acquis = new Set([
+    ...db.prepare("SELECT DISTINCT ue_num FROM etudiant_inscription WHERE etudiant_id = ? AND resultat = 'reussi'").all(etudId).map(r => r.ue_num),
+    ...db.prepare("SELECT DISTINCT ue_num FROM etudiant_valorisation WHERE etudiant_id = ? AND type = 'complete'").all(etudId).map(r => r.ue_num),
+  ]);
+  const inscrites = new Set(
+    db.prepare('SELECT ue_num FROM etudiant_inscription WHERE etudiant_id = ? AND annee_scolaire = ?')
+      .all(etudId, annee).map(r => r.ue_num));
+  const organisees = new Set(
+    db.prepare(`SELECT DISTINCT ue_num FROM organisation_ue WHERE annee_scolaire = ? AND section IN (${ph})`)
+      .all(annee, ...sections).map(r => r.ue_num));
+
+  const niv = {};
+  for (const u of ues) niv[u.ue_num] = (u.ue_niv || '').toUpperCase();
+
+  // Proposition : point fixe intra-niveau, sur les UE organisées non acquises
+  const proposees = new Set();
+  const sousReserve = new Set();
+  let stable = false;
+  while (!stable) {
+    stable = true;
+    for (const u of ues) {
+      const n = u.ue_num;
+      if (acquis.has(n) || proposees.has(n) || !organisees.has(n)) continue;
+      const manquants = (prereqDe[n] || []).filter(p => !acquis.has(p));
+      if (manquants.every(p => proposees.has(p) && niv[p] === niv[n])) {
+        proposees.add(n);
+        if (manquants.length) sousReserve.add(n);
+        stable = false;
+      }
+    }
+  }
+
+  // Couches : profondeur = plus long chemin depuis une UE sans prérequis
+  const profondeur = {};
+  const calcul = (n, vus = new Set()) => {
+    if (profondeur[n] !== undefined) return profondeur[n];
+    if (vus.has(n)) return 0;                      // garde-fou anti-cycle
+    vus.add(n);
+    const ps = prereqDe[n] || [];
+    const d = ps.length ? 1 + Math.max(...ps.map(p => calcul(p, vus))) : 0;
+    profondeur[n] = d;
+    return d;
+  };
+  for (const u of ues) calcul(u.ue_num);
+
+  const nodes = ues.map(u => {
+    const n = u.ue_num;
+    const statut = acquis.has(n) ? 'acquise'
+      : sousReserve.has(n) ? 'sous_reserve'
+      : proposees.has(n) ? 'accessible'
+      : 'bloquee';
+    return {
+      ue_num: n,
+      ue_nom: u.ue_nom,
+      ue_niv: u.ue_niv,
+      couche: profondeur[n] || 0,
+      statut,
+      inscrite: inscrites.has(n),
+      organisee: organisees.has(n),
+      prereq_manquants: (prereqDe[n] || []).filter(p => !acquis.has(p)),
+    };
+  }).sort((a, b) => a.couche - b.couche || a.ue_num - b.ue_num);
+
+  res.json({ nodes, edges, sections, annee });
+});
+
 // ── Grille de parcours : UE (lignes, BA1→BA3) × années (colonnes) ────────────
 r.get('/:id/grille', authRequired, (req, res) => {
   const etudId = Number(req.params.id);

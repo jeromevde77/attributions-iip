@@ -12,6 +12,134 @@ const STATUTS_PIECE = [
   { val: 'na',       label: 'N/A',      cls: 'bg-slate-100 text-slate-500 border-slate-200' },
 ];
 
+// ── Schéma de capitalisation : arbre des UE et de leurs prérequis ────────────
+const COULEURS_CAP = {
+  acquise:      { fill: '#D1FAE5', stroke: '#10B981', text: '#065F46', label: 'Acquise' },
+  accessible:   { fill: '#DBEAFE', stroke: '#2563EB', text: '#1E3A8A', label: 'Accessible' },
+  sous_reserve: { fill: '#E0F2FE', stroke: '#0EA5E9', text: '#075985', label: 'Sous réserve' },
+  bloquee:      { fill: '#F1F5F9', stroke: '#CBD5E1', text: '#94A3B8', label: 'Pas encore accessible' },
+};
+
+function SchemaCapitalisation({ etudId, annee }) {
+  const [data, setData] = useState(null);
+  const [ouvert, setOuvert] = useState(true);
+
+  useEffect(() => {
+    let vivant = true;
+    fetch(`/api/etudiants/${etudId}/capitalisation?annee=${annee}`, { headers: authHeaders() })
+      .then(r => r.ok ? r.json() : null)
+      .then(j => { if (vivant) setData(j || { nodes: [], edges: [] }); })
+      .catch(() => { if (vivant) setData({ nodes: [], edges: [] }); });
+    return () => { vivant = false; };
+  }, [etudId, annee]);
+
+  const layout = useMemo(() => {
+    if (!data?.nodes?.length) return null;
+    const L = 116, H = 40, GX = 52, GY = 9, PAD = 6;
+    const couches = {};
+    for (const n of data.nodes) (couches[n.couche] = couches[n.couche] || []).push(n);
+    const nums = Object.keys(couches).map(Number).sort((a, b) => a - b);
+    const pos = {};
+    let hauteurMax = 0;
+    nums.forEach((cn, ci) => {
+      couches[cn].forEach((n, ri) => {
+        pos[n.ue_num] = { x: PAD + ci * (L + GX), y: PAD + ri * (H + GY) };
+      });
+      hauteurMax = Math.max(hauteurMax, couches[cn].length);
+    });
+    return {
+      pos, L, H,
+      largeur: PAD * 2 + nums.length * (L + GX) - GX,
+      hauteur: PAD * 2 + hauteurMax * (H + GY) - GY,
+    };
+  }, [data]);
+
+  if (!data) return <div className="py-4 text-[12px] text-slate-400">Chargement du schéma…</div>;
+  if (!data.nodes.length) return null;
+
+  const compte = s => data.nodes.filter(n => n.statut === s).length;
+
+  return (
+    <div className="mb-4 border border-slate-200 rounded-xl overflow-hidden">
+      <button onClick={() => setOuvert(o => !o)}
+        className="w-full flex items-center justify-between px-3 py-2 bg-slate-50 hover:bg-slate-100 transition">
+        <span className="text-[12px] font-semibold text-iip-blue">
+          Schéma de capitalisation
+          <span className="ml-2 font-normal text-slate-500">
+            {compte('acquise')} acquise(s) · {compte('accessible') + compte('sous_reserve')} accessible(s) · {compte('bloquee')} à venir
+          </span>
+        </span>
+        <span className="text-[11px] text-slate-400">{ouvert ? 'Masquer' : 'Afficher'}</span>
+      </button>
+
+      {ouvert && layout && (
+        <>
+          <div className="overflow-x-auto bg-white" style={{ maxHeight: 340 }}>
+            <svg width={layout.largeur} height={layout.hauteur}
+              viewBox={`0 0 ${layout.largeur} ${layout.hauteur}`} style={{ display: 'block' }}>
+              <defs>
+                <marker id="fl" markerWidth="7" markerHeight="7" refX="6" refY="2.5"
+                  orient="auto" markerUnits="strokeWidth">
+                  <path d="M0,0 L0,5 L6,2.5 z" fill="#94A3B8" />
+                </marker>
+              </defs>
+
+              {data.edges.map((eg, i) => {
+                const a = layout.pos[eg.from], b = layout.pos[eg.to];
+                if (!a || !b) return null;
+                const x1 = a.x + layout.L, y1 = a.y + layout.H / 2;
+                const x2 = b.x - 7,        y2 = b.y + layout.H / 2;
+                const dx = Math.max(24, (x2 - x1) / 2);
+                return (
+                  <path key={i} d={`M${x1},${y1} C${x1 + dx},${y1} ${x2 - dx},${y2} ${x2},${y2}`}
+                    fill="none" stroke="#CBD5E1" strokeWidth="1.4" markerEnd="url(#fl)" />
+                );
+              })}
+
+              {data.nodes.map(n => {
+                const p = layout.pos[n.ue_num];
+                if (!p) return null;
+                const co = COULEURS_CAP[n.statut] || COULEURS_CAP.bloquee;
+                const nom = (n.ue_nom || '').length > 24 ? (n.ue_nom || '').slice(0, 23) + '…' : (n.ue_nom || '');
+                return (
+                  <g key={n.ue_num}>
+                    <title>{`UE ${n.ue_num} — ${n.ue_nom || ''}\n${co.label}${n.inscrite ? ' · inscrite cette année' : ''}${n.prereq_manquants?.length ? '\nPrérequis manquants : ' + n.prereq_manquants.join(', ') : ''}`}</title>
+                    <rect x={p.x} y={p.y} width={layout.L} height={layout.H} rx="7"
+                      fill={co.fill} stroke={co.stroke} strokeWidth={n.inscrite ? 2 : 1.2}
+                      strokeDasharray={n.statut === 'sous_reserve' ? '4 3' : undefined} />
+                    <text x={p.x + 8} y={p.y + 16} fontSize="11.5" fontWeight="700" fill={co.text}>
+                      {n.ue_num}
+                    </text>
+                    <text x={p.x + 8} y={p.y + 29} fontSize="8.5" fill={co.text} opacity="0.85">
+                      {nom}
+                    </text>
+                    {n.inscrite && (
+                      <circle cx={p.x + layout.L - 8} cy={p.y + 8} r="3.2" fill={co.stroke} />
+                    )}
+                  </g>
+                );
+              })}
+            </svg>
+          </div>
+
+          <div className="flex flex-wrap items-center gap-3 px-3 py-2 bg-slate-50 border-t border-slate-200 text-[10.5px] text-slate-500">
+            {Object.entries(COULEURS_CAP).map(([k, co]) => (
+              <span key={k} className="flex items-center gap-1.5">
+                <span className="inline-block w-3 h-3 rounded-sm border"
+                  style={{ background: co.fill, borderColor: co.stroke }} />
+                {co.label}
+              </span>
+            ))}
+            <span className="flex items-center gap-1.5">
+              <span className="inline-block w-2 h-2 rounded-full bg-slate-500" /> inscrite cette année
+            </span>
+          </div>
+        </>
+      )}
+    </div>
+  );
+}
+
 // ── Grille de parcours : UE × années ─────────────────────────────────────────
 const KINDS_CELLULE = [
   { val: 'inscrit', label: 'Inscrit',  short: 'Ins.', cls: 'bg-sky-50 text-sky-700 border-sky-200' },
@@ -748,6 +876,8 @@ function FicheEtudiant({ id, annee, onClose }) {
                       </button>
                     </div>
                   </div>
+
+                  <SchemaCapitalisation etudId={id} annee={pae.annee} />
 
                   {!retenues.length ? (
                     <div className="text-center py-8 text-slate-400 text-sm border-2 border-dashed rounded-xl">
