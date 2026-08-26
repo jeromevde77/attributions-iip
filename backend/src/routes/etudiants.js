@@ -121,6 +121,28 @@ export const PIECES_APPRENANT = [
   { type: 'exoneration_di',    libelle: "Documents d'exonération du droit d'inscription" },
 ];
 
+// Sections d'un étudiant, pondérées par le nombre d'UE inscrites.
+// Certaines UE sont partagées entre sections : une seule UE commune ne doit
+// pas faire entrer tout le catalogue d'une autre section. On ne retient donc
+// que la (ou les) section(s) dominante(s).
+function sectionsDeLEtudiant(etudId, forcee) {
+  if (forcee) return { sections: [forcee], scores: [] };
+  const scores = db.prepare(`
+    SELECT u.section, COUNT(DISTINCT i.ue_num) AS n
+    FROM etudiant_inscription i
+    JOIN ue u ON u.ue_num = i.ue_num AND u.annee_scolaire = i.annee_scolaire
+    WHERE i.etudiant_id = ? AND u.section IS NOT NULL
+    GROUP BY u.section
+    ORDER BY n DESC
+  `).all(etudId);
+  if (!scores.length) return { sections: [], scores };
+  const max = scores[0].n;
+  // Seuil : une section n'est retenue que si elle couvre au moins 60 % des UE
+  // de la section dominante (une UE partagée isolée reste sous le seuil).
+  const sections = scores.filter(s => s.n >= Math.max(2, max * 0.6)).map(s => s.section);
+  return { sections: sections.length ? sections : [scores[0].section], scores };
+}
+
 // ── Liste des étudiants ───────────────────────────────────────────────────────
 r.get('/', authRequired, (req, res) => {
   const { section, q } = req.query;
@@ -327,25 +349,32 @@ r.get('/:id/pae', authRequired, (req, res) => {
   //  secrétariat encode explicitement l'historique.)
   const reussies = new Set([...reussiesExplicites, ...vaCompletes]);
 
-  // Sections de l'étudiant — déduites de ses inscriptions passées
-  const sectionsEtudiant = db.prepare(`
-    SELECT DISTINCT u.section
-    FROM etudiant_inscription i
-    JOIN ue u ON u.ue_num = i.ue_num AND u.annee_scolaire = i.annee_scolaire
-    WHERE i.etudiant_id = ? AND u.section IS NOT NULL
-  `).all(profId).map(r => r.section);
+  // Sections de l'étudiant (dominantes) — override possible via ?section=
+  const { sections: sectionsEtudiant, scores: sectionsScores } =
+    sectionsDeLEtudiant(profId, req.query.section);
 
-  // UEs organisées cette année — uniquement dans les sections de l'étudiant
+  // UEs organisées cette année dans ces sections — UNE ligne par UE
+  // (une UE peut avoir plusieurs organisations : on ne la propose qu'une fois)
   let organisees = [];
   if (sectionsEtudiant.length) {
     const placeholders = sectionsEtudiant.map(() => '?').join(',');
     organisees = db.prepare(`
-      SELECT o.ue_num, o.section, o.num_organisation, o.date_debut, o.date_fin,
-             u.ue_nom, u.ue_niv, u.ue_quad
+      SELECT o.ue_num,
+             MIN(o.section) AS section,
+             MIN(o.num_organisation) AS num_organisation,
+             MIN(o.date_debut) AS date_debut,
+             MAX(o.date_fin) AS date_fin,
+             MIN(u.ue_nom) AS ue_nom,
+             MIN(u.ue_niv) AS ue_niv,
+             MIN(u.ue_quad) AS ue_quad
       FROM organisation_ue o
       LEFT JOIN ue u ON u.ue_num = o.ue_num AND u.annee_scolaire = ?
+                    AND u.section = o.section
       WHERE o.annee_scolaire = ? AND o.section IN (${placeholders})
-      ORDER BY u.section, o.ue_num
+      GROUP BY o.ue_num
+      ORDER BY
+        CASE UPPER(COALESCE(MIN(u.ue_niv),'')) WHEN 'BA1' THEN 1 WHEN 'BA2' THEN 2 WHEN 'BA3' THEN 3 ELSE 4 END,
+        o.ue_num
     `).all(annee, annee, ...sectionsEtudiant);
   }
 
@@ -417,6 +446,7 @@ r.get('/:id/pae', authRequired, (req, res) => {
     annee,
     annee_precedente: anneePrecedente,
     sections: sectionsEtudiant,
+    sections_scores: sectionsScores,
     pae,
     proposition: pae.filter(u => u.propose).map(u => u.ue_num),
     accessibles: pae.filter(u => u.accessible).length,
@@ -487,11 +517,7 @@ r.post('/:id/pae-auto', authRequired, roleRequired('admin', 'editeur'), (req, re
   ]);
 
   // Sections de l'étudiant
-  const sections = db.prepare(`
-    SELECT DISTINCT u.section FROM etudiant_inscription i
-    JOIN ue u ON u.ue_num = i.ue_num AND u.annee_scolaire = i.annee_scolaire
-    WHERE i.etudiant_id = ? AND u.section IS NOT NULL
-  `).all(etudId).map(r => r.section);
+  const { sections } = sectionsDeLEtudiant(etudId, req.body.section);
   if (!sections.length) return res.status(400).json({ error: 'sections de l\'étudiant inconnues' });
 
   // UE organisées cette année dans ces sections, non acquises
@@ -594,13 +620,8 @@ r.get('/:id/grille', authRequired, (req, res) => {
   const e = db.prepare('SELECT * FROM etudiant WHERE id = ?').get(etudId);
   if (!e) return res.status(404).json({ error: 'étudiant introuvable' });
 
-  // Sections de l'étudiant (depuis ses inscriptions) — paramètre section prioritaire
-  let sections = req.query.section ? [req.query.section] :
-    db.prepare(`
-      SELECT DISTINCT u.section FROM etudiant_inscription i
-      JOIN ue u ON u.ue_num = i.ue_num AND u.annee_scolaire = i.annee_scolaire
-      WHERE i.etudiant_id = ? AND u.section IS NOT NULL
-    `).all(etudId).map(r => r.section);
+  // Sections de l'étudiant (dominantes) — paramètre ?section= prioritaire
+  const { sections, scores: sectionsScores } = sectionsDeLEtudiant(etudId, req.query.section);
 
   // Année active pour le référentiel UE
   const anneeActive = db.prepare('SELECT code FROM annee_scolaire WHERE active = 1').get()?.code;
@@ -673,7 +694,7 @@ r.get('/:id/grille', authRequired, (req, res) => {
 
   res.json({
     etudiant: { id: e.id, nom: e.nom, prenom: e.prenom },
-    sections, annees, anneeActive, detail: detailSet,
+    sections, sections_scores: sectionsScores, annees, anneeActive, detail: detailSet,
     ues: ues.map(u => ({
       ...u,
       prerequis: prereqDe[u.ue_num] || [],

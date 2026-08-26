@@ -520,6 +520,7 @@ function FicheEtudiant({ id, annee, onClose }) {
   const [selection, setSelection] = useState(null);      // Set des ue_num retenues
   const [catalogueOuvert, setCatalogueOuvert] = useState(false);
   const [enregistrement, setEnregistrement] = useState(false);
+  const [sectionForcee, setSectionForcee] = useState('');
 
   async function paeAuto() {
     if (!window.confirm('Inscrire automatiquement cet étudiant à toutes les UE accessibles en ' + annee + ' (y compris les inscriptions sous réserve) ?')) return;
@@ -590,7 +591,8 @@ function FicheEtudiant({ id, annee, onClose }) {
   async function chargerPAE() {
     try {
       const rep = await fetch(
-        `/api/etudiants/${id}/pae?annee=${annee}&annee_precedente=${anneePrecedente}`,
+        `/api/etudiants/${id}/pae?annee=${annee}&annee_precedente=${anneePrecedente}` +
+        (sectionForcee ? `&section=${encodeURIComponent(sectionForcee)}` : ''),
         { headers: authHeaders() });
       const j = await rep.json();
       if (rep.ok) {
@@ -601,6 +603,7 @@ function FicheEtudiant({ id, annee, onClose }) {
     } catch(e) { setPae({ erreur: e.message }); }
   }
   useEffect(() => { charger(); /* eslint-disable-next-line */ }, [id]);
+  useEffect(() => { if (onglet === 'pae') chargerPAE(); /* eslint-disable-next-line */ }, [sectionForcee]);
 
   async function setResultat(inscId, resultat) {
     await fetch(`/api/etudiants/inscription/${inscId}`, {
@@ -721,8 +724,17 @@ function FicheEtudiant({ id, annee, onClose }) {
                   <div className="flex items-start justify-between gap-3 mb-4 flex-wrap">
                     <div>
                       <div className="font-semibold text-iip-blue">Plan Annuel de l'Étudiant — {pae.annee}</div>
-                      <div className="text-[12px] text-slate-500 mt-0.5">
-                        {retenues.length} UE retenue(s) · proposition établie sur les acquis encodés
+                      <div className="text-[12px] text-slate-500 mt-0.5 flex items-center gap-2 flex-wrap">
+                        <span>{retenues.length} UE retenue(s) · section {(pae.sections || []).join(', ') || '—'}</span>
+                        {(pae.sections_scores || []).length > 1 && (
+                          <select value={sectionForcee} onChange={e => setSectionForcee(e.target.value)}
+                            className="border border-slate-300 rounded-lg px-1.5 py-0.5 text-[11.5px]">
+                            <option value="">Section détectée</option>
+                            {pae.sections_scores.map(s => (
+                              <option key={s.section} value={s.section}>{s.section} ({s.n} UE)</option>
+                            ))}
+                          </select>
+                        )}
                       </div>
                     </div>
                     <div className="flex gap-2">
