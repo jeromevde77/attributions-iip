@@ -150,6 +150,103 @@ r.get('/', authRequired, (req, res) => {
   res.json(db.prepare(sql).all(...params));
 });
 
+// ── Rapport croisé : étudiants × UE d'une section, pour une année ────────────
+r.get('/rapport', authRequired, (req, res) => {
+  const { section, annee } = req.query;
+  if (!section || !annee) return res.status(400).json({ error: 'section et annee requises' });
+
+  const anneeActive = db.prepare('SELECT code FROM annee_scolaire WHERE active = 1').get()?.code;
+
+  // UE de la section (référentiel de l'année demandée, sinon année active), BA1→BA3
+  let ues = db.prepare(`
+    SELECT DISTINCT ue_num, ue_nom, ue_niv FROM ue
+    WHERE annee_scolaire = ? AND section = ?
+    ORDER BY CASE UPPER(COALESCE(ue_niv,'')) WHEN 'BA1' THEN 1 WHEN 'BA2' THEN 2 WHEN 'BA3' THEN 3 ELSE 4 END, ue_num
+  `).all(annee, section);
+  if (!ues.length) ues = db.prepare(`
+    SELECT DISTINCT ue_num, ue_nom, ue_niv FROM ue
+    WHERE annee_scolaire = ? AND section = ?
+    ORDER BY CASE UPPER(COALESCE(ue_niv,'')) WHEN 'BA1' THEN 1 WHEN 'BA2' THEN 2 WHEN 'BA3' THEN 3 ELSE 4 END, ue_num
+  `).all(anneeActive, section);
+  const ueNums = new Set(ues.map(u => u.ue_num));
+
+  // Étudiants avec inscriptions ou VA cette année dans ces UE
+  const inscriptions = db.prepare(`
+    SELECT i.etudiant_id, i.ue_num, i.resultat, i.points, e.nom, e.prenom, e.id_ecampus
+    FROM etudiant_inscription i
+    JOIN etudiant e ON e.id = i.etudiant_id
+    WHERE i.annee_scolaire = ?
+  `).all(annee).filter(i => ueNums.has(i.ue_num));
+  const vas = db.prepare(`
+    SELECT v.etudiant_id, v.ue_num, v.pourcentage, e.nom, e.prenom, e.id_ecampus
+    FROM etudiant_valorisation v
+    JOIN etudiant e ON e.id = v.etudiant_id
+    WHERE v.annee_scolaire = ? AND v.type = 'complete'
+  `).all(annee).filter(v => ueNums.has(v.ue_num));
+
+  // Regrouper par étudiant
+  const etudiants = new Map();
+  const cle = r0 => r0.etudiant_id;
+  for (const i of inscriptions) {
+    if (!etudiants.has(cle(i))) etudiants.set(cle(i), { nom: i.nom, prenom: i.prenom, id_ecampus: i.id_ecampus, cells: {} });
+    const marque = i.resultat === 'reussi' ? 'C' : i.resultat === 'ajourne' ? 'R' : i.resultat === 'absent' ? 'A' : '•';
+    etudiants.get(cle(i)).cells[i.ue_num] = { m: marque, pts: i.points };
+  }
+  for (const v of vas) {
+    if (!etudiants.has(cle(v))) etudiants.set(cle(v), { nom: v.nom, prenom: v.prenom, id_ecampus: v.id_ecampus, cells: {} });
+    etudiants.get(cle(v)).cells[v.ue_num] = { m: 'VA', pts: v.pourcentage };
+  }
+  const lignes = [...etudiants.values()].sort((a, b) =>
+    (a.nom || '').localeCompare(b.nom || '') || (a.prenom || '').localeCompare(b.prenom || ''));
+
+  const esc = s => String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;');
+  const cellHtml = c0 => {
+    if (!c0) return '<td></td>';
+    const cls = c0.m === 'C' ? 'c' : c0.m === 'R' ? 'r' : c0.m === 'A' ? 'a' : c0.m === 'VA' ? 'va' : 'i';
+    const titre = c0.pts != null ? ' title="' + c0.pts + ' %"' : '';
+    return '<td class="' + cls + '"' + titre + '>' + c0.m + '</td>';
+  };
+
+  const enTetes = ues.map(u =>
+    '<th class="ue" title="' + esc(u.ue_nom || '') + '">' + u.ue_num + '<span class="niv">' + esc(u.ue_niv || '') + '</span></th>').join('');
+  const corps = lignes.map((l, i) => '<tr>' +
+    '<td class="num">' + (i + 1) + '</td>' +
+    '<td class="nom">' + esc(l.nom) + ' ' + esc(l.prenom) + '<span class="mat">' + esc(l.id_ecampus || '') + '</span></td>' +
+    ues.map(u => cellHtml(l.cells[u.ue_num])).join('') + '</tr>').join('');
+
+  const html = `<!DOCTYPE html><html lang="fr"><head><meta charset="utf-8">
+<title>Parcours ${esc(section)} — ${esc(annee)}</title>
+<style>
+  body { font-family: 'Segoe UI', Arial, sans-serif; font-size: 11px; color: #1B2B4B; margin: 24px; }
+  h1 { font-size: 16px; margin: 0 0 2px; }
+  .meta { color: #64748b; margin-bottom: 12px; font-size: 11px; }
+  table { border-collapse: collapse; width: 100%; }
+  th, td { border: 1px solid #cbd5e1; padding: 3px 5px; text-align: center; }
+  th { background: #f1f5f9; font-size: 10px; }
+  th.ue .niv { display: block; font-weight: normal; color: #94a3b8; font-size: 8.5px; }
+  td.num { color: #94a3b8; width: 24px; }
+  td.nom { text-align: left; white-space: nowrap; font-weight: 500; }
+  td.nom .mat { display: block; color: #94a3b8; font-weight: normal; font-size: 9px; }
+  td.c  { background: #d1fae5; color: #065f46; font-weight: 700; }
+  td.r  { background: #fee2e2; color: #991b1b; font-weight: 700; }
+  td.a  { background: #fef3c7; color: #92400e; font-weight: 700; }
+  td.va { background: #ede9fe; color: #5b21b6; font-weight: 700; }
+  td.i  { color: #64748b; }
+  .legende { margin-top: 10px; font-size: 10px; color: #64748b; }
+  @media print { body { margin: 8mm; } @page { size: landscape; } }
+</style></head><body>
+<h1>Parcours des étudiants — ${esc(section)}</h1>
+<div class="meta">Année académique ${esc(annee)} · ${lignes.length} étudiant(s) · ${ues.length} UE · imprimé le ${new Date().toLocaleDateString('fr-BE')}</div>
+<table>
+  <thead><tr><th></th><th style="text-align:left">Étudiant</th>${enTetes}</tr></thead>
+  <tbody>${corps || '<tr><td colspan="' + (ues.length + 2) + '" style="color:#94a3b8">Aucune donnée pour ces critères</td></tr>'}</tbody>
+</table>
+<div class="legende"><b>C</b> réussite · <b>R</b> refus · <b>A</b> absent · <b>VA</b> valorisation des acquis · <b>•</b> inscrit (non délibéré) · survolez une case pour les points</div>
+</body></html>`;
+
+  res.json({ html, nom: 'parcours_' + section + '_' + annee + '.html' });
+});
+
 // ── Fiche étudiant avec inscriptions ─────────────────────────────────────────
 r.get('/:id', authRequired, (req, res) => {
   const etudiant = db.prepare('SELECT * FROM etudiant WHERE id = ?').get(Number(req.params.id));

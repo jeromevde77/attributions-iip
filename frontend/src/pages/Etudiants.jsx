@@ -745,6 +745,22 @@ export default function Etudiants() {
   const [chargement, setChargement] = useState(false);
   const [importing, setImporting] = useState(false);
   const [msgImport, setMsgImport] = useState(null);
+  const [rapport, setRapport] = useState(null);
+
+  async function ouvrirRapport() {
+    if (!section) { alert('Choisissez d\'abord une section dans le filtre.'); return; }
+    const [a1, a2] = (annee || '').split('-').map(Number);
+    const anneeRapport = window.prompt('Année académique du rapport ?', (a1-1) + '-' + (a2-1));
+    if (!anneeRapport || !/^20\d{2}-20\d{2}$/.test(anneeRapport.trim())) {
+      if (anneeRapport !== null) alert('Format attendu : 2025-2026');
+      return;
+    }
+    const rep = await fetch(`/api/etudiants/rapport?section=${encodeURIComponent(section)}&annee=${anneeRapport.trim()}`,
+      { headers: authHeaders() });
+    const j = await rep.json();
+    if (rep.ok) setRapport(j);
+    else alert(j.error || 'Erreur');
+  }
 
   async function importerResultats(fichier) {
     if (!fichier || !annee) return;
@@ -960,6 +976,10 @@ export default function Etudiants() {
           <input type="file" accept=".xlsm,.xlsx" className="hidden"
             onChange={e => e.target.files[0] && importerResultats(e.target.files[0])} />
         </label>
+        <button onClick={ouvrirRapport}
+          className="flex items-center gap-2 px-3 py-2 text-sm border border-slate-300 rounded-lg text-slate-600 hover:bg-slate-50">
+          <IconPrinter size={15} /> Rapport
+        </button>
         <select value={section} onChange={e => setSection(e.target.value)}
           className="border border-slate-300 rounded-lg px-3 py-2 text-sm">
           <option value="">Toutes les sections</option>
@@ -1012,6 +1032,10 @@ export default function Etudiants() {
       {selId && (
         <FicheEtudiant id={selId} annee={annee} onClose={() => setSelId(null)} />
       )}
+
+      {rapport && <PreviewModal html={rapport.html} titre="Parcours des étudiants"
+        nomFichier={rapport.nom} astuceImpression="Paysage A4 conseillé"
+        onClose={() => setRapport(null)} />}
     </div>
   );
 }
