@@ -679,7 +679,8 @@ r.get('/:id/capitalisation', authRequired, (req, res) => {
     }
   }
 
-  // Couches : profondeur = plus long chemin depuis une UE sans prérequis
+  // Profondeur dans le graphe — ne sert plus qu'à ordonner les lignes
+  // À L'INTÉRIEUR d'une colonne (les colonnes, elles, sont les niveaux).
   const profondeur = {};
   const calcul = (n, vus = new Set()) => {
     if (profondeur[n] !== undefined) return profondeur[n];
@@ -692,6 +693,19 @@ r.get('/:id/capitalisation', authRequired, (req, res) => {
   };
   for (const u of ues) calcul(u.ue_num);
 
+  // ── Colonnes = niveaux d'études (BA1, BA2, BA3…), pas la profondeur ──
+  // L'épreuve intégrée n'a pas toujours de prérequis encodés : la classer
+  // par profondeur la ramenait en première colonne. Le niveau fait foi.
+  const rang = v => {
+    const m = /^BA(\d+)$/.exec((v || '').toUpperCase());
+    if (m) return Number(m[1]);
+    return v ? 900 : 999;               // niveaux non standard, puis sans niveau
+  };
+  const niveaux = [...new Set(ues.map(u => (u.ue_niv || '').toUpperCase()))]
+    .sort((a, b) => rang(a) - rang(b) || a.localeCompare(b));
+  const colonneDe = {};
+  niveaux.forEach((v, i) => { colonneDe[v] = i; });
+
   const nodes = ues.map(u => {
     const n = u.ue_num;
     const statut = acquis.has(n) ? 'acquise'
@@ -702,15 +716,19 @@ r.get('/:id/capitalisation', authRequired, (req, res) => {
       ue_num: n,
       ue_nom: u.ue_nom,
       ue_niv: u.ue_niv,
-      couche: profondeur[n] || 0,
+      couche: colonneDe[(u.ue_niv || '').toUpperCase()] || 0,
+      ordre: profondeur[n] || 0,
       statut,
       inscrite: inscrites.has(n),
       organisee: organisees.has(n),
       prereq_manquants: (prereqDe[n] || []).filter(p => !acquis.has(p)),
     };
-  }).sort((a, b) => a.couche - b.couche || a.ue_num - b.ue_num);
+  }).sort((a, b) => a.couche - b.couche || a.ordre - b.ordre || a.ue_num - b.ue_num);
 
-  res.json({ nodes, edges, sections, annee });
+  res.json({
+    nodes, edges, sections, annee,
+    colonnes: niveaux.map((v, i) => ({ index: i, label: v || '—' })),
+  });
 });
 
 // ── Grille de parcours : UE (lignes, BA1→BA3) × années (colonnes) ────────────

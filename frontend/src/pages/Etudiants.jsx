@@ -35,22 +35,29 @@ function SchemaCapitalisation({ etudId, annee }) {
 
   const layout = useMemo(() => {
     if (!data?.nodes?.length) return null;
-    const L = 116, H = 40, GX = 52, GY = 9, PAD = 6;
+    const L = 116, H = 40, GX = 52, GY = 9, PAD = 6, TETE = 22;
     const couches = {};
     for (const n of data.nodes) (couches[n.couche] = couches[n.couche] || []).push(n);
     const nums = Object.keys(couches).map(Number).sort((a, b) => a - b);
     const pos = {};
+    const entetes = [];
     let hauteurMax = 0;
     nums.forEach((cn, ci) => {
+      const x = PAD + ci * (L + GX);
+      entetes.push({
+        x, cn,
+        label: (data.colonnes || []).find(c0 => c0.index === cn)?.label
+               || couches[cn][0]?.ue_niv || '—',
+      });
       couches[cn].forEach((n, ri) => {
-        pos[n.ue_num] = { x: PAD + ci * (L + GX), y: PAD + ri * (H + GY) };
+        pos[n.ue_num] = { x, y: PAD + TETE + ri * (H + GY) };
       });
       hauteurMax = Math.max(hauteurMax, couches[cn].length);
     });
     return {
-      pos, L, H,
+      pos, L, H, TETE, PAD, entetes,
       largeur: PAD * 2 + nums.length * (L + GX) - GX,
-      hauteur: PAD * 2 + hauteurMax * (H + GY) - GY,
+      hauteur: PAD * 2 + TETE + hauteurMax * (H + GY) - GY,
     };
   }, [data]);
 
@@ -83,6 +90,14 @@ function SchemaCapitalisation({ etudId, annee }) {
                   <path d="M0,0 L0,5 L6,2.5 z" fill="#94A3B8" />
                 </marker>
               </defs>
+
+              {layout.entetes.map(e0 => (
+                <text key={'h' + e0.cn} x={e0.x + layout.L / 2} y={layout.PAD + 12}
+                  textAnchor="middle" fontSize="10" fontWeight="700"
+                  fill="#94A3B8" letterSpacing="0.6">
+                  {e0.label}
+                </text>
+              ))}
 
               {data.edges.map((eg, i) => {
                 const a = layout.pos[eg.from], b = layout.pos[eg.to];
