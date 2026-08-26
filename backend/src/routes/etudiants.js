@@ -217,6 +217,7 @@ r.get('/rapport', authRequired, (req, res) => {
   const html = `<!DOCTYPE html><html lang="fr"><head><meta charset="utf-8">
 <title>Parcours ${esc(section)} — ${esc(annee)}</title>
 <style>
+  * { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
   body { font-family: 'Segoe UI', Arial, sans-serif; font-size: 11px; color: #1B2B4B; margin: 24px; }
   h1 { font-size: 16px; margin: 0 0 2px; }
   .meta { color: #64748b; margin-bottom: 12px; font-size: 11px; }
