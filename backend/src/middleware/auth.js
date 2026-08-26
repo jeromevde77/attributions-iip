@@ -76,9 +76,18 @@ export function peutValiderAttributions(user) {
   } catch { return 0; }
 }
 
+// 'coordination' est un alias historique d''editeur'. Le contrôle des droits
+// (roleRequired) ne connaît que 'admin', 'editeur' et 'consultation' : sans
+// cette normalisation, un utilisateur resté en 'coordination' perdrait
+// silencieusement tout droit d'écriture. On normalise donc à la source, à la
+// fabrication du jeton, quel que soit ce que porte la base.
+export function normaliserRole(role) {
+  return role === 'coordination' ? 'editeur' : role;
+}
+
 export function signToken(user) {
   return jwt.sign(
-    { id: user.id, email: user.email, role: user.role, nom: user.nom_complet,
+    { id: user.id, email: user.email, role: normaliserRole(user.role), nom: user.nom_complet,
       acces_recrutement: user.acces_recrutement ? 1 : 0,
       peut_valider: peutValiderAttributions(user) },
     JWT_SECRET,
@@ -88,7 +97,7 @@ export function signToken(user) {
 
 export function signPreviewToken(target, admin) {
   return jwt.sign(
-    { id: target.id, email: target.email, role: target.role, nom: target.nom_complet,
+    { id: target.id, email: target.email, role: normaliserRole(target.role), nom: target.nom_complet,
       acces_recrutement: target.acces_recrutement ? 1 : 0,
       peut_valider: peutValiderAttributions(target),
       preview: true, imp_by: admin?.id || null, imp_by_nom: admin?.nom || null },

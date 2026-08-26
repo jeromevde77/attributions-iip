@@ -90,12 +90,18 @@ export function migrerBesoinsOffres(db) {
       db.exec('ALTER TABLE professeur ADD COLUMN est_a_designer INTEGER NOT NULL DEFAULT 0');
       console.log('[migration] professeur.est_a_designer ajoutée');
     }
-    // Renseigner le marqueur sur les fiches existantes
+    // Renseigner le marqueur sur les fiches existantes.
+    // Le motif doit rester STRICT : un LIKE '%SIGN%' marquerait à tort de
+    // vrais professeurs (Signorelli, Designori…). On ne vise que les fiches
+    // dont le nom EST le libellé d'attente, aux accents et tirets près.
     const maj = db.prepare(`
       UPDATE professeur SET est_a_designer = 1
        WHERE est_a_designer = 0
-         AND (UPPER(nom) LIKE '%SIGN%' OR UPPER(prenom) LIKE '%SIGN%'
-              OR UPPER(COALESCE(nom,'') || ' ' || COALESCE(prenom,'')) LIKE '%DESIGN%')
+         AND REPLACE(REPLACE(REPLACE(UPPER(TRIM(
+               COALESCE(nom,'') || ' ' || COALESCE(prenom,''))),
+               'À','A'), 'É','E'), '-', ' ')
+             IN ('A DESIGNER', 'A DESIGNER ', 'ADESIGNER',
+                 'A DETERMINER', 'A POURVOIR', 'NON ATTRIBUE', 'VACANT')
     `).run();
     if (maj.changes) console.log(`[migration] ${maj.changes} fiche(s) « à désigner » marquée(s)`);
   } catch (e) { console.error('[migration] est_a_designer :', e.message); }
