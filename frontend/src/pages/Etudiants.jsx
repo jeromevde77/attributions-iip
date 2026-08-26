@@ -727,6 +727,74 @@ export default function Etudiants() {
   const [importing, setImporting] = useState(false);
   const [msgImport, setMsgImport] = useState(null);
 
+  async function importerResultats(fichier) {
+    if (!fichier || !annee) return;
+    const [a1, a2] = annee.split('-').map(Number);
+    const anneeImport = window.prompt(
+      'Année scolaire des résultats de ce classeur ?', (a1-1) + '-' + (a2-1));
+    if (!anneeImport || !/^20\d{2}-20\d{2}$/.test(anneeImport.trim())) {
+      if (anneeImport !== null) alert('Format attendu : 2025-2026');
+      return;
+    }
+    setImporting(true); setMsgImport(null);
+    try {
+      const XLSX = await import('xlsx');
+      const wb = XLSX.read(await fichier.arrayBuffer(), { type: 'array' });
+
+      const resultats = [];
+      let ongletsLus = 0;
+      for (const nom of wb.SheetNames) {
+        if (!/^\d+$/.test(nom.trim())) continue;   // seuls les onglets numériques = ue_num
+        const ueNum = Number(nom.trim());
+        const M = XLSX.utils.sheet_to_json(wb.Sheets[nom], { header: 1, defval: null });
+        if (M.length < 13) continue;
+
+        // Ligne 8 (index 7) : libellés Note.s1 / Décision.s1 / Note.s2 / Décision.s2
+        const l8 = M[7] || [];
+        const iNs1 = l8.findIndex(v => v === 'Note.s1');
+        const iDs1 = l8.findIndex(v => v === 'Décision.s1');
+        const iNs2 = l8.findIndex(v => v === 'Note.s2');
+        const iDs2 = l8.findIndex(v => v === 'Décision.s2');
+        // Ligne 12 (index 11) : Matricule
+        const l12 = M[11] || [];
+        const iMat = l12.findIndex(v => v === 'Matricule');
+        if (iMat < 0 || (iDs2 < 0 && iDs1 < 0)) continue;
+        ongletsLus++;
+
+        for (let li = 12; li < M.length; li++) {
+          const row = M[li] || [];
+          const mat = row[iMat];
+          if (!mat) continue;
+          const ds2 = iDs2 >= 0 ? row[iDs2] : null;
+          const ds1 = iDs1 >= 0 ? row[iDs1] : null;
+          const dec = (ds2 || ds1 || '').toString().trim().toUpperCase();
+          let noteBrute = iNs2 >= 0 && row[iNs2] != null && !isNaN(Number(row[iNs2]))
+            ? Number(row[iNs2])
+            : (iNs1 >= 0 && row[iNs1] != null && !isNaN(Number(row[iNs1])) ? Number(row[iNs1]) : null);
+          // Notes sur 20 → % ; si déjà > 20, considérer que c'est un %
+          const points = noteBrute == null ? null : (noteBrute <= 20 ? Math.round(noteBrute * 5) : Math.round(noteBrute));
+          const resultat = dec === 'C' ? 'reussi' : (dec === 'R' || dec === 'AJ') ? 'ajourne' : null;
+          resultats.push({ id_ecampus: String(mat).trim(), ue_num: ueNum, resultat, points });
+        }
+      }
+
+      if (!resultats.length) throw new Error('Aucun résultat lisible — vérifiez que le classeur contient des onglets par UE (65, 66…)');
+
+      const rep = await fetch('/api/etudiants/import-resultats', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${localStorage.getItem('token')}` },
+        body: JSON.stringify({ annee: anneeImport.trim(), resultats }),
+      });
+      const j = await rep.json();
+      if (rep.ok) {
+        setMsgImport({ type: 'ok', texte: `${ongletsLus} UE lues · ${j.maj} résultats importés pour ${anneeImport.trim()}` +
+          (j.inconnus?.length ? ` · matricules inconnus : ${j.inconnus.join(', ')}` : '') });
+        await charger();
+      } else setMsgImport({ type: 'err', texte: j.error || 'Erreur' });
+    } catch(e) { setMsgImport({ type: 'err', texte: e.message }); }
+    finally { setImporting(false); }
+  }
+
   async function importerExcel(fichier) {
     if (!fichier || !annee) return;
     // Détecter l'année depuis le nom du fichier (ex. "20252026" → 2025-2026),
@@ -865,6 +933,13 @@ export default function Etudiants() {
           {importing ? 'Import en cours…' : 'Importer depuis eCampus (.xls)'}
           <input type="file" accept=".xls,.xlsx" className="hidden"
             onChange={e => e.target.files[0] && importerExcel(e.target.files[0])} />
+        </label>
+        <label className={`flex items-center gap-2 px-3 py-2 text-sm border rounded-lg cursor-pointer
+          ${importing ? 'opacity-50 pointer-events-none' : 'border-slate-300 text-slate-600 hover:bg-slate-50'}`}>
+          <IconUpload size={15} />
+          Importer les résultats (.xlsm)
+          <input type="file" accept=".xlsm,.xlsx" className="hidden"
+            onChange={e => e.target.files[0] && importerResultats(e.target.files[0])} />
         </label>
         <select value={section} onChange={e => setSection(e.target.value)}
           className="border border-slate-300 rounded-lg px-3 py-2 text-sm">

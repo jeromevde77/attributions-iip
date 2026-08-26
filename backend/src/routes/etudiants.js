@@ -291,6 +291,39 @@ r.get('/:id/pae', authRequired, (req, res) => {
   });
 });
 
+// ── Import des résultats depuis le classeur de suivi (.xlsm) ─────────────────
+// Le frontend lit les onglets par UE et envoie { annee, resultats: [...] }.
+r.post('/import-resultats', authRequired, roleRequired('admin', 'editeur'), (req, res) => {
+  const { annee, resultats } = req.body;
+  if (!annee || !Array.isArray(resultats)) {
+    return res.status(400).json({ error: 'annee et resultats requis' });
+  }
+
+  const findEtud = db.prepare('SELECT id FROM etudiant WHERE id_ecampus = ?');
+  const upsert = db.prepare(`
+    INSERT INTO etudiant_inscription (etudiant_id, annee_scolaire, ue_num, resultat, points)
+    VALUES (?,?,?,?,?)
+    ON CONFLICT(etudiant_id, annee_scolaire, ue_num) DO UPDATE SET
+      resultat = excluded.resultat,
+      points = COALESCE(excluded.points, points)
+  `);
+
+  let maj = 0, inconnus = [];
+  const tx = db.transaction(() => {
+    for (const r0 of resultats) {
+      const e = findEtud.get(String(r0.id_ecampus || '').trim());
+      if (!e) { inconnus.push(r0.id_ecampus); continue; }
+      const resultat = ['reussi','ajourne','absent'].includes(r0.resultat) ? r0.resultat : null;
+      const points = r0.points != null && !isNaN(Number(r0.points)) ? Number(r0.points) : null;
+      upsert.run(e.id, annee, Number(r0.ue_num), resultat, points);
+      maj++;
+    }
+  });
+  tx();
+
+  res.json({ ok: true, maj, inconnus: [...new Set(inconnus)].slice(0, 20) });
+});
+
 // ── Grille de parcours : UE (lignes, BA1→BA3) × années (colonnes) ────────────
 r.get('/:id/grille', authRequired, (req, res) => {
   const etudId = Number(req.params.id);
