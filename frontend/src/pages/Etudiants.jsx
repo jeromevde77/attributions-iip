@@ -132,12 +132,20 @@ function GrilleParcours({ etudId, peutEcrire }) {
                     return (
                       <td key={a} className="px-1.5 py-1.5 text-center">
                         <button
-                          onClick={() => peutEcrire && (
-                            verrou && !cl
-                              ? (window.confirm('UE verrouillée (prérequis non acquis : ' + u.prerequis.join(', ') + ').\nEncoder quand même avec dérogation ?')
-                                  && setPopover({ annee: a, ue_num: u.ue_num, verrou: true }))
-                              : setPopover({ annee: a, ue_num: u.ue_num, verrou: false })
-                          )}
+                          onClick={() => {
+                            if (!peutEcrire) return;
+                            if (!verrou || cl) { setPopover({ annee: a, ue_num: u.ue_num, verrou: false }); return; }
+                            // Prérequis manquants : sont-ils inscrits (ou mieux) la même année ?
+                            const acquisSet = new Set(data.ues.filter(x => x.acquise).map(x => x.ue_num));
+                            const manquants = u.prerequis.filter(p => !acquisSet.has(p));
+                            const memeAnnee = manquants.length > 0 && manquants.every(p => cell(a, p));
+                            if (memeAnnee) {
+                              // Inscription simultanée normale — sous réserve, pas de dérogation
+                              setPopover({ annee: a, ue_num: u.ue_num, verrou: false, sousReserve: manquants });
+                            } else if (window.confirm('UE verrouillée (prérequis non acquis : ' + u.prerequis.join(', ') + ').\nEncoder quand même avec dérogation ?')) {
+                              setPopover({ annee: a, ue_num: u.ue_num, verrou: true });
+                            }
+                          }}
                           className={`w-full min-h-[30px] text-[11.5px] font-medium rounded-lg border px-1 py-1 transition
                             ${kind ? kind.cls : 'border-transparent text-slate-300 hover:border-slate-200 hover:bg-slate-50'}
                             ${cl?.derogation ? 'ring-1 ring-amber-400' : ''}`}
@@ -148,6 +156,14 @@ function GrilleParcours({ etudId, peutEcrire }) {
                                : kind.short)
                             : '·'}
                           {aDetail(a, u.ue_num) && <span className="ml-0.5 align-super text-[8px]">●</span>}
+                          {(() => {
+                            if (!cl || cl.kind !== 'inscrit') return null;
+                            const acquisSet = new Set(data.ues.filter(x => x.acquise).map(x => x.ue_num));
+                            const manquants = u.prerequis.filter(p => !acquisSet.has(p));
+                            if (manquants.length && manquants.every(p => cell(a, p)))
+                              return <span className="ml-0.5 text-[9px]" title={'Sous réserve — réussite UE ' + manquants.join(', ') + ' requise en cours d\'année'}>⏳</span>;
+                            return null;
+                          })()}
                         </button>
                       </td>
                     );
@@ -169,6 +185,12 @@ function GrilleParcours({ etudId, peutEcrire }) {
             {popover.verrou && (
               <div className="text-[11px] text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-2 py-1 mb-2">
                 Dérogation — sera tracée comme telle
+              </div>
+            )}
+            {popover.sousReserve && (
+              <div className="text-[11px] text-sky-700 bg-sky-50 border border-sky-200 rounded-lg px-2 py-1 mb-2">
+                Inscription sous réserve — l'accès effectif dépend de la réussite de
+                l'UE {popover.sousReserve.join(', ')} en cours d'année (cas type : épreuve intégrée).
               </div>
             )}
             <input type="number" min="0" max="100" placeholder="Points % (optionnel)"
@@ -672,7 +694,9 @@ function FicheEtudiant({ id, annee, onClose }) {
                                   {u.va_complete ? 'Dispensée (VA complète)' : 'Réussie — réinscription sur décision CE'}</span>
                               : u.accessible
                                 ? <span className="text-[11px] font-semibold text-emerald-700 flex items-center gap-1"><IconCheck size={12} /> Accessible</span>
-                                : <span className="text-[11px] text-red-600 flex items-center gap-1"><IconClock size={12} /> Prérequis manquants</span>}
+                                : u.sous_reserve
+                                  ? <span className="text-[11px] text-sky-700 flex items-center gap-1"><IconClock size={12} /> Inscription sous réserve (réussite UE {u.prereq_manquants.join(', ')} en cours d'année)</span>
+                                  : <span className="text-[11px] text-red-600 flex items-center gap-1"><IconClock size={12} /> Prérequis manquants</span>}
                           </td>
                         </tr>
                       ))}

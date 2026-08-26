@@ -256,6 +256,14 @@ r.get('/:id/pae', authRequired, (req, res) => {
     const prerequis_ok = prerequis.every(p => reussies.has(p.ue_num_requis));
     const deja_reussie = reussies.has(ue.ue_num);
 
+    // Sous réserve : les prérequis manquants sont organisés la même année
+    // (cas type : épreuve intégrée — inscription simultanée, l'accès effectif
+    // dépend de la réussite du prérequis en cours d'année)
+    const prereqManquants = prerequis.filter(p => !reussies.has(p.ue_num_requis));
+    const organiseesSet = new Set(organisees.map(o => o.ue_num));
+    const sous_reserve = !prerequis_ok && prereqManquants.length > 0 &&
+      prereqManquants.every(p => organiseesSet.has(p.ue_num_requis));
+
     pae.push({
       ...ue,
       prerequis,
@@ -264,6 +272,8 @@ r.get('/:id/pae', authRequired, (req, res) => {
       va_complete: vaCompletes.has(ue.ue_num),
       deja_suivie: dejaSuivies.has(ue.ue_num),
       accessible: prerequis_ok && !deja_reussie,
+      sous_reserve: sous_reserve && !deja_reussie,
+      prereq_manquants: prereqManquants.map(p => p.ue_num_requis),
       // Circulaire 9764 : la réinscription dans une UE déjà réussie est possible
       // avec décision favorable du Conseil des études (pièce au dossier).
       reinscriptible_ce: prerequis_ok && deja_reussie,
