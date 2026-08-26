@@ -298,6 +298,14 @@ r.get('/:id/pae', authRequired, (req, res) => {
     `).all(profId).map(r => r.ue_num)
   );
 
+  // UEs déjà inscrites pour l'année du PAE (état courant)
+  const dejaInscritesAnnee = new Set(
+    db.prepare(`
+      SELECT ue_num FROM etudiant_inscription
+      WHERE etudiant_id = ? AND annee_scolaire = ?
+    `).all(profId, annee).map(r => r.ue_num)
+  );
+
   // UEs déjà suivies (toutes années confondues)
   const dejaSuivies = new Set(
     db.prepare(`
@@ -373,6 +381,7 @@ r.get('/:id/pae', authRequired, (req, res) => {
       deja_reussie,
       va_complete: vaCompletes.has(ue.ue_num),
       deja_suivie: dejaSuivies.has(ue.ue_num),
+      inscrite: dejaInscritesAnnee.has(ue.ue_num),
       accessible: prerequis_ok && !deja_reussie,
       sous_reserve: sous_reserve && !deja_reussie,
       prereq_manquants: prereqManquants.map(p => p.ue_num_requis),
@@ -382,15 +391,83 @@ r.get('/:id/pae', authRequired, (req, res) => {
     });
   }
 
+  // ── Proposition de PAE : point fixe intra-niveau (même règle que PAE auto) ──
+  // Les UE accessibles d'abord, puis celles débloquées par ces inscriptions
+  // à condition d'être du MÊME niveau (épreuve intégrée et ses déterminantes).
+  const nivParUe = {};
+  for (const u of pae) nivParUe[u.ue_num] = (u.ue_niv || '').toUpperCase();
+  const proposees = new Set();
+  let stableProp = false;
+  while (!stableProp) {
+    stableProp = true;
+    for (const u of pae) {
+      if (u.deja_reussie || proposees.has(u.ue_num)) continue;
+      const manquants = u.prereq_manquants || [];
+      const ok = manquants.every(p => proposees.has(p) && nivParUe[p] === nivParUe[u.ue_num]);
+      if (ok) { proposees.add(u.ue_num); stableProp = false; }
+    }
+  }
+  for (const u of pae) {
+    u.propose = proposees.has(u.ue_num);
+    u.propose_sous_reserve = u.propose && (u.prereq_manquants || []).length > 0;
+  }
+
   res.json({
     etudiant,
     annee,
     annee_precedente: anneePrecedente,
     sections: sectionsEtudiant,
     pae,
+    proposition: pae.filter(u => u.propose).map(u => u.ue_num),
     accessibles: pae.filter(u => u.accessible).length,
     reference: 'PAE — Plan Annuel de l\'Étudiant. Basé sur les prérequis de la section et les UE organisées.'
   });
+});
+
+// ── Valider le PAE : synchroniser les inscriptions de l'année ────────────────
+// Reçoit la liste retenue par le secrétariat. Insère les manquantes, retire
+// celles décochées qui n'ont PAS de résultat encodé (jamais destructif).
+r.post('/:id/pae-valider', authRequired, roleRequired('admin', 'editeur'), (req, res) => {
+  const etudId = Number(req.params.id);
+  const { annee, ue_nums, derogations } = req.body;
+  if (!annee || !Array.isArray(ue_nums)) {
+    return res.status(400).json({ error: 'annee et ue_nums requis' });
+  }
+  const e = db.prepare('SELECT id FROM etudiant WHERE id = ?').get(etudId);
+  if (!e) return res.status(404).json({ error: 'étudiant introuvable' });
+
+  const retenues = new Set(ue_nums.map(Number));
+  const derog = new Set((derogations || []).map(Number));
+  const dateInsc = new Date().toISOString().slice(0, 10);
+
+  const existantes = db.prepare(
+    'SELECT ue_num, resultat FROM etudiant_inscription WHERE etudiant_id = ? AND annee_scolaire = ?'
+  ).all(etudId, annee);
+
+  const ins = db.prepare(`
+    INSERT OR IGNORE INTO etudiant_inscription
+      (etudiant_id, annee_scolaire, ue_num, date_inscription, derogation)
+    VALUES (?,?,?,?,?)
+  `);
+  const del = db.prepare(`
+    DELETE FROM etudiant_inscription
+    WHERE etudiant_id = ? AND annee_scolaire = ? AND ue_num = ? AND resultat IS NULL
+  `);
+
+  let ajoutees = 0, retirees = 0;
+  const tx = db.transaction(() => {
+    for (const ue of retenues) {
+      if (ins.run(etudId, annee, ue, dateInsc, derog.has(ue) ? 1 : 0).changes) ajoutees++;
+    }
+    for (const ex of existantes) {
+      if (!retenues.has(ex.ue_num) && ex.resultat == null) {
+        if (del.run(etudId, annee, ex.ue_num).changes) retirees++;
+      }
+    }
+  });
+  tx();
+
+  res.json({ ok: true, annee, ajoutees, retirees, total: retenues.size });
 });
 
 // ── PAE auto : inscrire d'un clic tout ce que l'étudiant peut avoir ──────────

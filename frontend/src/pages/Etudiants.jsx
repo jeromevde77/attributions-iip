@@ -517,6 +517,9 @@ function FicheEtudiant({ id, annee, onClose }) {
   const [pae, setPae] = useState(null);
   const [onglet, setOnglet] = useState('grille');
   const [ficheInscription, setFicheInscription] = useState(null);
+  const [selection, setSelection] = useState(null);      // Set des ue_num retenues
+  const [catalogueOuvert, setCatalogueOuvert] = useState(false);
+  const [enregistrement, setEnregistrement] = useState(false);
 
   async function paeAuto() {
     if (!window.confirm('Inscrire automatiquement cet étudiant à toutes les UE accessibles en ' + annee + ' (y compris les inscriptions sous réserve) ?')) return;
@@ -529,6 +532,43 @@ function FicheEtudiant({ id, annee, onClose }) {
     alert(`${j.creees} inscription(s) créée(s) — ${j.inscrites.length} UE au PAE ${annee}` +
       (nbSR ? `\ndont ${nbSR} sous réserve : UE ${Object.keys(j.sous_reserve).join(', ')}` : ''));
     await chargerPAE(); await charger();
+  }
+
+  function basculerUE(u) {
+    setSelection(prev => {
+      const s = new Set(prev);
+      if (s.has(u.ue_num)) { s.delete(u.ue_num); return s; }
+      // Ajout d'une UE hors proposition dont les prérequis ne sont pas acquis
+      if (!u.propose && !u.accessible && !u.reinscriptible_ce) {
+        const msg = u.prereq_manquants?.length
+          ? 'Prérequis non acquis : UE ' + u.prereq_manquants.join(', ') + '.\nAjouter quand même (dérogation tracée) ?'
+          : 'Ajouter cette UE au PAE ?';
+        if (!window.confirm(msg)) return s;
+      }
+      s.add(u.ue_num);
+      return s;
+    });
+  }
+
+  async function enregistrerPAE() {
+    if (!selection) return;
+    setEnregistrement(true);
+    try {
+      const ue_nums = [...selection];
+      const derogations = pae.pae
+        .filter(u => selection.has(u.ue_num) && !u.propose && !u.accessible && !u.reinscriptible_ce)
+        .map(u => u.ue_num);
+      const rep = await fetch(`/api/etudiants/${id}/pae-valider`, {
+        method: 'POST', headers: authHeaders(),
+        body: JSON.stringify({ annee, ue_nums, derogations }),
+      });
+      const j = await rep.json();
+      if (!rep.ok) { alert(j.error || 'Erreur'); return; }
+      alert(`PAE enregistré — ${j.total} UE inscrites` +
+        (j.ajoutees ? `\n${j.ajoutees} ajoutée(s)` : '') +
+        (j.retirees ? `\n${j.retirees} retirée(s)` : ''));
+      await chargerPAE(); await charger();
+    } finally { setEnregistrement(false); }
   }
 
   async function ouvrirFicheInscription() {
@@ -553,7 +593,10 @@ function FicheEtudiant({ id, annee, onClose }) {
         `/api/etudiants/${id}/pae?annee=${annee}&annee_precedente=${anneePrecedente}`,
         { headers: authHeaders() });
       const j = await rep.json();
-      if (rep.ok) setPae(j);
+      if (rep.ok) {
+        setPae(j);
+        setSelection(new Set(j.pae.filter(u => u.propose || u.inscrite).map(u => u.ue_num)));
+      }
       else setPae({ erreur: j.error || 'Erreur serveur' });
     } catch(e) { setPae({ erreur: e.message }); }
   }
@@ -659,19 +702,33 @@ function FicheEtudiant({ id, annee, onClose }) {
                 <div className="text-center py-8 text-slate-400 text-sm">Chargement du PAE…</div>
               ) : pae.erreur ? (
                 <div className="text-center py-8 text-red-600 text-sm border border-red-200 bg-red-50 rounded-xl">{pae.erreur}</div>
-              ) : (
+              ) : (() => {
+                const sel = selection || new Set();
+                const retenues = pae.pae.filter(u => sel.has(u.ue_num));
+                const autres = pae.pae.filter(u => !sel.has(u.ue_num));
+                const ligneStatut = u =>
+                  u.reinscriptible_ce
+                    ? <span className="text-[11px] text-amber-700 flex items-center gap-1"><IconAlertTriangle size={12} />
+                        {u.va_complete ? 'Dispensée (VA complète)' : 'Déjà réussie — décision CE requise'}</span>
+                    : u.accessible
+                      ? <span className="text-[11px] font-semibold text-emerald-700 flex items-center gap-1"><IconCheck size={12} /> Accessible</span>
+                      : u.sous_reserve || u.propose_sous_reserve
+                        ? <span className="text-[11px] text-sky-700 flex items-center gap-1"><IconClock size={12} /> Sous réserve — réussite UE {(u.prereq_manquants || []).join(', ')}</span>
+                        : <span className="text-[11px] text-red-600 flex items-center gap-1"><IconAlertTriangle size={12} /> Prérequis manquants : {(u.prereq_manquants || []).join(', ')}</span>;
+
+                return (
                 <>
-                  <div className="flex items-center justify-between mb-4">
+                  <div className="flex items-start justify-between gap-3 mb-4 flex-wrap">
                     <div>
                       <div className="font-semibold text-iip-blue">Plan Annuel de l'Étudiant — {pae.annee}</div>
                       <div className="text-[12px] text-slate-500 mt-0.5">
-                        {pae.accessibles} UE accessibles · basé sur les résultats {pae.annee_precedente}
+                        {retenues.length} UE retenue(s) · proposition établie sur les acquis encodés
                       </div>
                     </div>
                     <div className="flex gap-2">
-                      <button onClick={paeAuto}
-                        className="flex items-center gap-1.5 px-3 py-1.5 text-sm bg-iip-turquoise text-white font-semibold rounded-lg">
-                        <IconCheck size={14} /> PAE auto
+                      <button onClick={enregistrerPAE} disabled={enregistrement}
+                        className="flex items-center gap-1.5 px-3 py-1.5 text-sm bg-iip-turquoise text-white font-semibold rounded-lg disabled:opacity-50">
+                        <IconCheck size={14} /> {enregistrement ? 'Enregistrement…' : 'Enregistrer le PAE'}
                       </button>
                       <button onClick={ouvrirFicheInscription}
                         className="flex items-center gap-1.5 px-3 py-1.5 text-sm bg-iip-blue text-white font-semibold rounded-lg">
@@ -680,51 +737,86 @@ function FicheEtudiant({ id, annee, onClose }) {
                     </div>
                   </div>
 
-                  <table className="w-full text-sm">
-                    <thead>
-                      <tr className="text-[10.5px] uppercase tracking-wide text-slate-400 border-b">
-                        <th className="py-2 text-left">UE</th>
-                        <th className="py-2 text-left w-20">Section</th>
-                        <th className="py-2 text-left w-24">Prérequis</th>
-                        <th className="py-2 text-left w-28">Statut</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {pae.pae.map((u, i) => (
-                        <tr key={i} className={`border-b border-slate-100 last:border-0 ${u.deja_reussie ? 'opacity-40' : ''}`}>
-                          <td className="py-2">
-                            <span className="font-medium text-iip-blue">{u.ue_num}</span>
-                            <span className="text-slate-600 ml-1.5 text-[12.5px]">{u.ue_nom}</span>
-                          </td>
-                          <td className="py-2 text-[11px] text-slate-400">{u.section}</td>
-                          <td className="py-2">
-                            {u.prerequis.length === 0
-                              ? <span className="text-[11px] text-slate-400">Aucun</span>
-                              : u.prerequis_ok
-                                ? <span className="flex items-center gap-1 text-[11px] text-emerald-700"><IconCheck size={12} /> OK</span>
-                                : <span className="flex items-center gap-1 text-[11px] text-red-700"><IconAlertTriangle size={12} /> Manquants</span>}
-                          </td>
-                          <td className="py-2">
-                            {u.reinscriptible_ce
-                              ? <span className="text-[11px] text-amber-700 flex items-center gap-1"><IconAlertTriangle size={12} />
-                                  {u.va_complete ? 'Dispensée (VA complète)' : 'Réussie — réinscription sur décision CE'}</span>
-                              : u.accessible
-                                ? <span className="text-[11px] font-semibold text-emerald-700 flex items-center gap-1"><IconCheck size={12} /> Accessible</span>
-                                : u.sous_reserve
-                                  ? <span className="text-[11px] text-sky-700 flex items-center gap-1"><IconClock size={12} /> Inscription sous réserve (réussite UE {u.prereq_manquants.join(', ')} en cours d'année)</span>
-                                  : <span className="text-[11px] text-red-600 flex items-center gap-1"><IconClock size={12} /> Prérequis manquants</span>}
-                          </td>
+                  {!retenues.length ? (
+                    <div className="text-center py-8 text-slate-400 text-sm border-2 border-dashed rounded-xl">
+                      Aucune UE retenue — utilisez « Ajouter une UE » ci-dessous.
+                    </div>
+                  ) : (
+                    <table className="w-full text-sm">
+                      <thead>
+                        <tr className="text-[10.5px] uppercase tracking-wide text-slate-400 border-b">
+                          <th className="py-2 w-8"></th>
+                          <th className="py-2 text-left">UE proposée</th>
+                          <th className="py-2 text-left w-20">Niv.</th>
+                          <th className="py-2 text-left w-64">Statut</th>
                         </tr>
-                      ))}
-                    </tbody>
-                  </table>
+                      </thead>
+                      <tbody>
+                        {retenues.map(u => (
+                          <tr key={u.ue_num} className="border-b border-slate-100 last:border-0 hover:bg-slate-50/60">
+                            <td className="py-2">
+                              <input type="checkbox" checked readOnly
+                                onClick={() => basculerUE(u)}
+                                className="cursor-pointer accent-[#00AACC]" />
+                            </td>
+                            <td className="py-2">
+                              <span className="font-medium text-iip-blue">{u.ue_num}</span>
+                              <span className="text-slate-600 ml-1.5 text-[12.5px]">{u.ue_nom}</span>
+                              {u.inscrite && <span className="ml-1.5 text-[9.5px] px-1 py-0.5 rounded bg-slate-100 text-slate-500">déjà inscrite</span>}
+                            </td>
+                            <td className="py-2 text-[11px] text-slate-400">{u.ue_niv || '—'}</td>
+                            <td className="py-2">{ligneStatut(u)}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  )}
+
+                  <button onClick={() => setCatalogueOuvert(o => !o)}
+                    className="mt-4 flex items-center gap-1.5 px-3 py-1.5 text-sm border border-slate-300 rounded-lg text-slate-600 hover:bg-slate-50">
+                    <IconPlus size={14} /> {catalogueOuvert ? 'Masquer les autres UE' : `Ajouter une UE (${autres.length} disponibles)`}
+                  </button>
+
+                  {catalogueOuvert && (
+                    <div className="mt-3 border border-slate-200 rounded-xl p-3 bg-slate-50/50">
+                      <p className="text-[11px] text-slate-500 mb-2">
+                        UE organisées en {pae.annee} dans la ou les sections de l'étudiant, hors proposition.
+                        Ajouter une UE dont les prérequis ne sont pas acquis demande une confirmation — la dérogation est tracée.
+                      </p>
+                      {!autres.length ? (
+                        <div className="text-[12px] text-slate-400 py-2 text-center">Toutes les UE organisées sont déjà retenues.</div>
+                      ) : (
+                        <table className="w-full text-sm">
+                          <tbody>
+                            {autres.map(u => (
+                              <tr key={u.ue_num} className="border-b border-slate-100 last:border-0">
+                                <td className="py-1.5 w-8">
+                                  <input type="checkbox" checked={false} readOnly
+                                    onClick={() => basculerUE(u)}
+                                    className="cursor-pointer accent-[#00AACC]" />
+                                </td>
+                                <td className="py-1.5">
+                                  <span className="font-medium text-iip-blue">{u.ue_num}</span>
+                                  <span className="text-slate-600 ml-1.5 text-[12.5px]">{u.ue_nom}</span>
+                                </td>
+                                <td className="py-1.5 text-[11px] text-slate-400 w-16">{u.ue_niv || '—'}</td>
+                                <td className="py-1.5 w-64">{ligneStatut(u)}</td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      )}
+                    </div>
+                  )}
 
                   <p className="text-[11px] text-slate-400 mt-4 border-t pt-3">
                     Le PAE est établi en accord avec l'étudiant et validé par la direction.
-                    Il peut être modifié en cours d'année sur demande motivée.
+                    « Enregistrer le PAE » inscrit les UE cochées ; décocher retire une inscription
+                    uniquement si aucun résultat n'y est encodé.
                   </p>
                 </>
-              )}
+                );
+              })()}
             </div>
           )}
         </div>
