@@ -12,6 +12,147 @@ const STATUTS_PIECE = [
   { val: 'na',       label: 'N/A',      cls: 'bg-slate-100 text-slate-500 border-slate-200' },
 ];
 
+// ── Grille de parcours : UE × années ─────────────────────────────────────────
+const KINDS_CELLULE = [
+  { val: 'inscrit', label: 'Inscrit',  short: 'Ins.', cls: 'bg-sky-50 text-sky-700 border-sky-200' },
+  { val: 'reussi',  label: 'Réussi',   short: null,   cls: 'bg-emerald-50 text-emerald-800 border-emerald-200' },
+  { val: 'va',      label: 'VA',       short: 'VA',   cls: 'bg-violet-50 text-violet-700 border-violet-200' },
+  { val: 'ajourne', label: 'Ajourné',  short: 'Aj.',  cls: 'bg-amber-50 text-amber-800 border-amber-200' },
+  { val: 'absent',  label: 'Absent',   short: 'Abs.', cls: 'bg-red-50 text-red-700 border-red-200' },
+];
+
+function GrilleParcours({ etudId, peutEcrire }) {
+  const [data, setData] = useState(null);
+  const [popover, setPopover] = useState(null); // { annee, ue_num, verrou }
+  const [pts, setPts] = useState('');
+
+  async function charger() {
+    const rep = await fetch(`/api/etudiants/${etudId}/grille`, { headers: authHeaders() });
+    if (rep.ok) setData(await rep.json());
+  }
+  useEffect(() => { charger(); /* eslint-disable-next-line */ }, [etudId]);
+
+  async function ecrire(kind, opts = {}) {
+    if (!popover) return;
+    const rep = await fetch(`/api/etudiants/${etudId}/grille`, {
+      method: 'PUT', headers: authHeaders(),
+      body: JSON.stringify({
+        annee: popover.annee, ue_num: popover.ue_num, kind,
+        points: opts.points, derogation: popover.verrou ? 1 : 0,
+      }),
+    });
+    if (!rep.ok) { const j = await rep.json().catch(() => ({})); alert(j.error || 'Erreur'); return; }
+    setPopover(null); setPts('');
+    await charger();
+  }
+
+  if (!data) return <div className="py-6 text-sm text-slate-400">Chargement…</div>;
+  if (!data.ues.length) return (
+    <div className="text-center py-8 text-slate-400 text-sm border-2 border-dashed rounded-xl">
+      Aucune UE trouvée pour la section de cet étudiant.
+    </div>
+  );
+
+  const cell = (annee, ueNum) => data.cellules?.[annee]?.[ueNum] || null;
+
+  return (
+    <div>
+      <p className="text-[12px] text-slate-500 mb-3">
+        Cliquez sur une case pour encoder. Une UE dont les prérequis ne sont pas acquis est
+        verrouillée <span className="text-slate-400">🔒</span> — l'encoder demande une dérogation (tracée).
+        Un halo <span className="inline-block w-3 h-3 rounded-sm bg-violet-100 border border-violet-300 align-middle"></span> suggère
+        une UE probablement acquise (inférence prérequis) à confirmer.
+      </p>
+
+      <div className="overflow-x-auto border border-slate-200 rounded-xl">
+        <table className="w-full text-sm border-collapse">
+          <thead>
+            <tr className="bg-slate-50 text-[10.5px] uppercase tracking-wide text-slate-500">
+              <th className="px-3 py-2 text-left sticky left-0 bg-slate-50 z-10 min-w-[260px]">UE</th>
+              <th className="px-2 py-2 text-left w-14">Niv.</th>
+              {data.annees.map(a => <th key={a} className="px-2 py-2 text-center min-w-[92px]">{a}</th>)}
+            </tr>
+          </thead>
+          <tbody>
+            {data.ues.map(u => {
+              const verrou = !u.deverrouillee && !u.acquise;
+              return (
+                <tr key={u.section + '-' + u.ue_num}
+                  className={`border-t border-slate-100 ${u.acquise ? 'bg-emerald-50/30' : ''}`}>
+                  <td className={`px-3 py-1.5 sticky left-0 bg-white z-10 ${u.acquise ? 'bg-emerald-50/60' : ''}`}>
+                    <span className="font-medium text-iip-blue">{u.ue_num}</span>
+                    <span className="text-slate-600 ml-1.5 text-[12px]">{u.ue_nom}</span>
+                    {verrou && <span className="ml-1.5 text-[11px]" title={'Prérequis : ' + u.prerequis.join(', ')}>🔒</span>}
+                    {u.suggeree && <span className="ml-1.5 text-[9.5px] px-1 py-0.5 rounded bg-violet-50 text-violet-600 border border-violet-200" title="Probablement acquise (inférence prérequis) — à confirmer">à confirmer</span>}
+                  </td>
+                  <td className="px-2 py-1.5 text-[11px] text-slate-400">{u.ue_niv || '—'}</td>
+                  {data.annees.map(a => {
+                    const cl = cell(a, u.ue_num);
+                    const kind = cl && KINDS_CELLULE.find(k => k.val === cl.kind);
+                    return (
+                      <td key={a} className="px-1.5 py-1.5 text-center">
+                        <button
+                          onClick={() => peutEcrire && (
+                            verrou && !cl
+                              ? (window.confirm('UE verrouillée (prérequis non acquis : ' + u.prerequis.join(', ') + ').\nEncoder quand même avec dérogation ?')
+                                  && setPopover({ annee: a, ue_num: u.ue_num, verrou: true }))
+                              : setPopover({ annee: a, ue_num: u.ue_num, verrou: false })
+                          )}
+                          className={`w-full min-h-[30px] text-[11.5px] font-medium rounded-lg border px-1 py-1 transition
+                            ${kind ? kind.cls : 'border-transparent text-slate-300 hover:border-slate-200 hover:bg-slate-50'}
+                            ${cl?.derogation ? 'ring-1 ring-amber-400' : ''}`}
+                          title={cl?.derogation ? 'Encodée avec dérogation' : ''}>
+                          {kind
+                            ? (kind.val === 'reussi' ? (cl.points != null ? cl.points + ' %' : '✓')
+                               : kind.val === 'va' ? (cl.points != null ? 'VA ' + cl.points + '%' : 'VA')
+                               : kind.short)
+                            : '·'}
+                        </button>
+                      </td>
+                    );
+                  })}
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
+
+      {popover && (
+        <div className="fixed inset-0 z-[60] bg-black/30 flex items-center justify-center p-4"
+          onClick={() => { setPopover(null); setPts(''); }}>
+          <div className="bg-white rounded-2xl shadow-2xl p-5 w-80" onClick={e => e.stopPropagation()}>
+            <div className="font-semibold text-iip-blue mb-1">
+              UE {popover.ue_num} — {popover.annee}
+            </div>
+            {popover.verrou && (
+              <div className="text-[11px] text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-2 py-1 mb-2">
+                Dérogation — sera tracée comme telle
+              </div>
+            )}
+            <input type="number" min="0" max="100" placeholder="Points % (optionnel)"
+              value={pts} onChange={e => setPts(e.target.value)}
+              className="w-full border border-slate-300 rounded-lg px-2 py-1.5 text-sm mb-3" />
+            <div className="grid grid-cols-2 gap-1.5">
+              {KINDS_CELLULE.map(k => (
+                <button key={k.val}
+                  onClick={() => ecrire(k.val, { points: pts !== '' ? Number(pts) : undefined })}
+                  className={`text-[12px] px-2 py-1.5 rounded-lg border font-medium ${k.cls}`}>
+                  {k.label}
+                </button>
+              ))}
+              <button onClick={() => ecrire('effacer')}
+                className="text-[12px] px-2 py-1.5 rounded-lg border border-slate-200 text-slate-500 col-span-2">
+                Effacer la case
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 const TYPES_VA = [
   { val: 'complete',  label: 'Dispense complète (UE)' },
   { val: 'partielle', label: 'Dispense partielle (AA ou cours)' },
@@ -243,7 +384,7 @@ const RESULTATS = [
 function FicheEtudiant({ id, annee, onClose }) {
   const [data, setData] = useState(null);
   const [pae, setPae] = useState(null);
-  const [onglet, setOnglet] = useState('inscriptions');
+  const [onglet, setOnglet] = useState('grille');
   const [ficheInscription, setFicheInscription] = useState(null);
 
   async function ouvrirFicheInscription() {
@@ -300,7 +441,8 @@ function FicheEtudiant({ id, annee, onClose }) {
 
         {/* Onglets */}
         <div className="flex border-b border-slate-200 px-6">
-          {[['inscriptions', `Parcours & résultats (${data.inscriptions?.length || 0})`],
+          {[['grille', 'Grille de parcours'],
+            ['inscriptions', `Détail (${data.inscriptions?.length || 0})`],
             ['pae', `PAE ${annee}`],
             ['va', 'Valorisation'],
             ['dossier', 'Dossier']].map(([k, l]) => (
@@ -361,6 +503,8 @@ function FicheEtudiant({ id, annee, onClose }) {
           )}
 
           {/* PAE */}
+          {onglet === 'grille' && <GrilleParcours etudId={id} peutEcrire={true} />}
+
           {onglet === 'va' && <Valorisations etudId={id} annee={annee} />}
 
           {onglet === 'dossier' && <DossierApprenant etudId={id} />}
@@ -419,7 +563,7 @@ function FicheEtudiant({ id, annee, onClose }) {
                           <td className="py-2">
                             {u.reinscriptible_ce
                               ? <span className="text-[11px] text-amber-700 flex items-center gap-1"><IconAlertTriangle size={12} />
-                                  {u.va_complete ? 'Dispensée (VA complète)' : u.reputee_acquise ? 'Réputée acquise (inférence prérequis) — réinscription sur décision CE' : 'Réussie — réinscription sur décision CE'}</span>
+                                  {u.va_complete ? 'Dispensée (VA complète)' : 'Réussie — réinscription sur décision CE'}</span>
                               : u.accessible
                                 ? <span className="text-[11px] font-semibold text-emerald-700 flex items-center gap-1"><IconCheck size={12} /> Accessible</span>
                                 : <span className="text-[11px] text-red-600 flex items-center gap-1"><IconClock size={12} /> Prérequis manquants</span>}

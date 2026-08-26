@@ -69,6 +69,7 @@ export function migrerEtudiants(dbx) {
     addCol('etudiant_inscription', "codiplomation_ch INTEGER NOT NULL DEFAULT 0");
     addCol('etudiant_inscription', "di_specifique REAL");
     addCol('etudiant_inscription', "ects REAL");
+    addCol('etudiant_inscription', "derogation INTEGER NOT NULL DEFAULT 0");
     console.log('[migration] etudiant_piece + colonnes fiche inscription');
 
     // Valorisation des acquis — AGCF 13-12-2024 (art. 3 partielle, art. 4 complète)
@@ -187,24 +188,6 @@ r.get('/:id/pae', authRequired, (req, res) => {
     `).all(profId).map(r => r.ue_num)
   );
 
-  // Inférence par le graphe des prérequis : être inscrit à une UE prouve
-  // la réussite de ses prérequis (condition d'accès), transitivement.
-  // Ex. inscrite en 251 (2025-2026) → 248, et les prérequis de 248, réputés acquis.
-  const tousPrereq = db.prepare('SELECT ue_num, prerequis_num FROM ue_prerequis').all();
-  const prereqDe = new Map();
-  for (const p of tousPrereq) {
-    if (!prereqDe.has(p.ue_num)) prereqDe.set(p.ue_num, []);
-    prereqDe.get(p.ue_num).push(p.prerequis_num);
-  }
-  const reputeesAcquises = new Set();
-  const pile = [...dejaSuivies];
-  while (pile.length) {
-    const ue = pile.pop();
-    for (const pr of (prereqDe.get(ue) || [])) {
-      if (!reputeesAcquises.has(pr)) { reputeesAcquises.add(pr); pile.push(pr); }
-    }
-  }
-
   // VA en dispense complète : l'UE est acquise (AGCF art. 4)
   const vaCompletes = new Set(
     db.prepare(`
@@ -213,8 +196,11 @@ r.get('/:id/pae', authRequired, (req, res) => {
     `).all(profId).map(r => r.ue_num)
   );
 
-  // Ensemble effectif des acquis : explicite ∪ inféré ∪ VA complète
-  const reussies = new Set([...reussiesExplicites, ...reputeesAcquises, ...vaCompletes]);
+  // Acquis = réussites explicites ∪ VA complètes.
+  // (L'inférence par prérequis n'est plus un acquis automatique : elle est
+  //  devenue une suggestion visuelle dans la grille de parcours, où le
+  //  secrétariat encode explicitement l'historique.)
+  const reussies = new Set([...reussiesExplicites, ...vaCompletes]);
 
   // Sections de l'étudiant — déduites de ses inscriptions passées
   const sectionsEtudiant = db.prepare(`
@@ -257,7 +243,6 @@ r.get('/:id/pae', authRequired, (req, res) => {
       prerequis_ok,
       deja_reussie,
       va_complete: vaCompletes.has(ue.ue_num),
-      reputee_acquise: !reussiesExplicites.has(ue.ue_num) && !vaCompletes.has(ue.ue_num) && reputeesAcquises.has(ue.ue_num),
       deja_suivie: dejaSuivies.has(ue.ue_num),
       accessible: prerequis_ok && !deja_reussie,
       // Circulaire 9764 : la réinscription dans une UE déjà réussie est possible
@@ -275,6 +260,145 @@ r.get('/:id/pae', authRequired, (req, res) => {
     accessibles: pae.filter(u => u.accessible).length,
     reference: 'PAE — Plan Annuel de l\'Étudiant. Basé sur les prérequis de la section et les UE organisées.'
   });
+});
+
+// ── Grille de parcours : UE (lignes, BA1→BA3) × années (colonnes) ────────────
+r.get('/:id/grille', authRequired, (req, res) => {
+  const etudId = Number(req.params.id);
+  const e = db.prepare('SELECT * FROM etudiant WHERE id = ?').get(etudId);
+  if (!e) return res.status(404).json({ error: 'étudiant introuvable' });
+
+  // Sections de l'étudiant (depuis ses inscriptions) — paramètre section prioritaire
+  let sections = req.query.section ? [req.query.section] :
+    db.prepare(`
+      SELECT DISTINCT u.section FROM etudiant_inscription i
+      JOIN ue u ON u.ue_num = i.ue_num AND u.annee_scolaire = i.annee_scolaire
+      WHERE i.etudiant_id = ? AND u.section IS NOT NULL
+    `).all(etudId).map(r => r.section);
+
+  // Année active pour le référentiel UE
+  const anneeActive = db.prepare('SELECT code FROM annee_scolaire WHERE active = 1').get()?.code;
+
+  // Les UE de la section (référentiel année active), triées BA1→BA3 puis numéro
+  let ues = [];
+  if (sections.length) {
+    const ph = sections.map(() => '?').join(',');
+    ues = db.prepare(`
+      SELECT DISTINCT ue_num, ue_nom, ue_niv, section FROM ue
+      WHERE annee_scolaire = ? AND section IN (${ph})
+      ORDER BY
+        CASE UPPER(COALESCE(ue_niv,'')) WHEN 'BA1' THEN 1 WHEN 'BA2' THEN 2 WHEN 'BA3' THEN 3 ELSE 4 END,
+        ue_num
+    `).all(anneeActive, ...sections);
+  }
+
+  // Prérequis par UE
+  const prereqs = db.prepare('SELECT ue_num, prerequis_num FROM ue_prerequis').all();
+  const prereqDe = {};
+  for (const p of prereqs) {
+    (prereqDe[p.ue_num] = prereqDe[p.ue_num] || []).push(p.prerequis_num);
+  }
+
+  // Cellules : inscriptions + VA complètes
+  const inscriptions = db.prepare(
+    'SELECT * FROM etudiant_inscription WHERE etudiant_id = ?').all(etudId);
+  const vas = db.prepare(
+    "SELECT * FROM etudiant_valorisation WHERE etudiant_id = ? AND type = 'complete'").all(etudId);
+
+  const cellules = {};
+  for (const i of inscriptions) {
+    (cellules[i.annee_scolaire] = cellules[i.annee_scolaire] || {})[i.ue_num] = {
+      kind: i.resultat || 'inscrit', points: i.points, derogation: !!i.derogation, id: i.id,
+    };
+  }
+  for (const v of vas) {
+    (cellules[v.annee_scolaire] = cellules[v.annee_scolaire] || {})[v.ue_num] = {
+      kind: 'va', points: v.pourcentage, derogation: false, vid: v.id,
+    };
+  }
+
+  // Années : celles des données + année active, triées
+  const annees = [...new Set([...Object.keys(cellules), anneeActive].filter(Boolean))].sort();
+
+  // Acquis explicites (réussite ou VA, toutes années)
+  const acquis = new Set();
+  for (const [, parUe] of Object.entries(cellules)) {
+    for (const [ueNum, cell] of Object.entries(parUe)) {
+      if (cell.kind === 'reussi' || cell.kind === 'va') acquis.add(Number(ueNum));
+    }
+  }
+
+  // Suggestion (inférence) : prérequis transitifs des UE inscrites — aide à l'encodage
+  const inscritesToutes = new Set(inscriptions.map(i => i.ue_num));
+  const suggerees = new Set();
+  const pile = [...inscritesToutes];
+  const prereqMap = new Map(Object.entries(prereqDe).map(([k, v]) => [Number(k), v]));
+  while (pile.length) {
+    const ue = pile.pop();
+    for (const pr of (prereqMap.get(ue) || [])) {
+      if (!suggerees.has(pr)) { suggerees.add(pr); pile.push(pr); }
+    }
+  }
+
+  res.json({
+    etudiant: { id: e.id, nom: e.nom, prenom: e.prenom },
+    sections, annees, anneeActive,
+    ues: ues.map(u => ({
+      ...u,
+      prerequis: prereqDe[u.ue_num] || [],
+      deverrouillee: (prereqDe[u.ue_num] || []).every(p => acquis.has(p)),
+      acquise: acquis.has(u.ue_num),
+      suggeree: suggerees.has(u.ue_num) && !acquis.has(u.ue_num),
+    })),
+    cellules,
+  });
+});
+
+// ── Écrire une cellule de la grille ──────────────────────────────────────────
+r.put('/:id/grille', authRequired, roleRequired('admin', 'editeur'), (req, res) => {
+  const etudId = Number(req.params.id);
+  const { annee, ue_num, kind, points, derogation } = req.body;
+  if (!annee || !ue_num || !kind) {
+    return res.status(400).json({ error: 'annee, ue_num et kind requis' });
+  }
+  const KINDS = ['inscrit', 'reussi', 'ajourne', 'absent', 'va', 'effacer'];
+  if (!KINDS.includes(kind)) return res.status(400).json({ error: 'kind invalide' });
+
+  const ueN = Number(ue_num);
+
+  // Toujours nettoyer les deux sources pour cette cellule
+  const delInsc = () => db.prepare(
+    'DELETE FROM etudiant_inscription WHERE etudiant_id=? AND annee_scolaire=? AND ue_num=?'
+  ).run(etudId, annee, ueN);
+  const delVa = () => db.prepare(
+    "DELETE FROM etudiant_valorisation WHERE etudiant_id=? AND annee_scolaire=? AND ue_num=? AND type='complete'"
+  ).run(etudId, annee, ueN);
+
+  if (kind === 'effacer') {
+    delInsc(); delVa();
+    return res.json({ ok: true });
+  }
+
+  if (kind === 'va') {
+    delInsc(); delVa();
+    db.prepare(`
+      INSERT INTO etudiant_valorisation
+        (etudiant_id, annee_scolaire, ue_num, type, pourcentage)
+      VALUES (?,?,?,'complete',?)
+    `).run(etudId, annee, ueN, points != null ? Number(points) : 50);
+    return res.json({ ok: true });
+  }
+
+  // inscrit / reussi / ajourne / absent → etudiant_inscription
+  delVa();
+  db.prepare(`
+    INSERT INTO etudiant_inscription (etudiant_id, annee_scolaire, ue_num, resultat, points, derogation)
+    VALUES (?,?,?,?,?,?)
+    ON CONFLICT(etudiant_id, annee_scolaire, ue_num) DO UPDATE SET
+      resultat = excluded.resultat, points = excluded.points, derogation = excluded.derogation
+  `).run(etudId, annee, ueN, kind === 'inscrit' ? null : kind,
+         points != null ? Number(points) : null, derogation ? 1 : 0);
+  res.json({ ok: true });
 });
 
 // ── Valorisation des acquis (VA/VAE) — AGCF 13-12-2024 ──────────────────────
