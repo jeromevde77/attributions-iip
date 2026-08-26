@@ -3,6 +3,7 @@ import Axe from '../components/Axe.jsx';
 import Attributions from './Attributions.jsx';
 import Planification from './Planification.jsx';
 import DatesUE from '../components/DatesUE.jsx';
+import StructureSection from './StructureSection.jsx';
 import { authHeaders } from '../lib/api.js';
 
 /**
@@ -37,6 +38,10 @@ export default function Organisation({ ongletInitial }) {
         { key: 'organisations', label: "Organisations d'UE",
           rendu: annee
             ? <DatesUE annee={annee} />
+            : <div className="text-sm text-slate-400 p-4">Chargement de l'année active…</div> },
+        { key: 'structure', label: 'Schéma de capitalisation', sansMarge: true,
+          rendu: annee
+            ? <StructureSection annee={annee} />
             : <div className="text-sm text-slate-400 p-4">Chargement de l'année active…</div> },
         { key: 'planification', label: 'Horaires & planification', sansMarge: true,
           rendu: <Planification /> },

@@ -6,6 +6,7 @@ import { Router } from 'express';
 
 import db from '../db/index.js';
 import { authRequired, roleRequired } from '../middleware/auth.js';
+import { construireGraphe, niveauxEffectifs } from './capitalisation.js';
 
 const r = Router();
 
@@ -614,10 +615,10 @@ r.post('/import-resultats', authRequired, roleRequired('admin', 'editeur'), (req
   res.json({ ok: true, maj, inconnus: [...new Set(inconnus)].slice(0, 20) });
 });
 
-// ── Schéma de capitalisation : graphe des UE et de leurs prérequis ───────────
-// Généré depuis ue_prerequis — fonctionne pour toutes les sections sans
-// dessin manuel. Les UE sont réparties en couches (profondeur = plus long
-// chemin depuis une UE sans prérequis) et colorées selon l'état de l'étudiant.
+// ── Schéma de capitalisation d'un étudiant ──────────────────────────────────
+// Le graphe (nœuds, arêtes, colonnes) est construit par le module
+// capitalisation, qui fait autorité sur l'année d'études de chaque UE.
+// On n'y superpose ici que l'état de l'étudiant.
 r.get('/:id/capitalisation', authRequired, (req, res) => {
   const etudId = Number(req.params.id);
   const annee = req.query.annee;
@@ -626,49 +627,33 @@ r.get('/:id/capitalisation', authRequired, (req, res) => {
   if (!e) return res.status(404).json({ error: 'étudiant introuvable' });
 
   const { sections } = sectionsDeLEtudiant(etudId, req.query.section);
-  if (!sections.length) return res.json({ nodes: [], edges: [], sections: [] });
+  if (!sections.length) return res.json({ nodes: [], edges: [], colonnes: [], sections: [] });
 
-  const anneeRef = db.prepare('SELECT code FROM annee_scolaire WHERE active = 1').get()?.code || annee;
-  const ph = sections.map(() => '?').join(',');
-
-  const ues = db.prepare(`
-    SELECT ue_num, MIN(ue_nom) AS ue_nom, MIN(ue_niv) AS ue_niv, MIN(section) AS section
-    FROM ue WHERE annee_scolaire = ? AND section IN (${ph})
-    GROUP BY ue_num
-  `).all(anneeRef, ...sections);
-  if (!ues.length) return res.json({ nodes: [], edges: [], sections });
-  const ueSet = new Set(ues.map(u => u.ue_num));
-
-  // Arêtes limitées aux UE de la ou des sections retenues
-  const edges = db.prepare('SELECT ue_num, prerequis_num FROM ue_prerequis').all()
-    .filter(p => ueSet.has(p.ue_num) && ueSet.has(p.prerequis_num))
-    .map(p => ({ from: p.prerequis_num, to: p.ue_num }));
-  const prereqDe = {};
-  for (const eg of edges) (prereqDe[eg.to] = prereqDe[eg.to] || []).push(eg.from);
-
-  // État de l'étudiant
   const acquis = new Set([
-    ...db.prepare("SELECT DISTINCT ue_num FROM etudiant_inscription WHERE etudiant_id = ? AND resultat = 'reussi'").all(etudId).map(r => r.ue_num),
-    ...db.prepare("SELECT DISTINCT ue_num FROM etudiant_valorisation WHERE etudiant_id = ? AND type = 'complete'").all(etudId).map(r => r.ue_num),
+    ...db.prepare("SELECT DISTINCT ue_num FROM etudiant_inscription WHERE etudiant_id = ? AND resultat = 'reussi'").all(etudId).map(r0 => r0.ue_num),
+    ...db.prepare("SELECT DISTINCT ue_num FROM etudiant_valorisation WHERE etudiant_id = ? AND type = 'complete'").all(etudId).map(r0 => r0.ue_num),
   ]);
   const inscrites = new Set(
     db.prepare('SELECT ue_num FROM etudiant_inscription WHERE etudiant_id = ? AND annee_scolaire = ?')
-      .all(etudId, annee).map(r => r.ue_num));
+      .all(etudId, annee).map(r0 => r0.ue_num));
+  const ph = sections.map(() => '?').join(',');
   const organisees = new Set(
     db.prepare(`SELECT DISTINCT ue_num FROM organisation_ue WHERE annee_scolaire = ? AND section IN (${ph})`)
-      .all(annee, ...sections).map(r => r.ue_num));
+      .all(annee, ...sections).map(r0 => r0.ue_num));
 
-  const niv = {};
-  for (const u of ues) niv[u.ue_num] = (u.ue_niv || '').toUpperCase();
+  // Graphe brut, pour disposer des prérequis et des niveaux effectifs
+  const base = construireGraphe({ sections, annee });
+  const prereqDe = Object.fromEntries(base.nodes.map(n => [n.ue_num, n.prerequis]));
+  const niv = niveauxEffectifs(sections, annee);
 
-  // Proposition : point fixe intra-niveau, sur les UE organisées non acquises
+  // Proposition : point fixe intra-niveau (même règle que le PAE)
   const proposees = new Set();
   const sousReserve = new Set();
   let stable = false;
   while (!stable) {
     stable = true;
-    for (const u of ues) {
-      const n = u.ue_num;
+    for (const n0 of base.nodes) {
+      const n = n0.ue_num;
       if (acquis.has(n) || proposees.has(n) || !organisees.has(n)) continue;
       const manquants = (prereqDe[n] || []).filter(p => !acquis.has(p));
       if (manquants.every(p => proposees.has(p) && niv[p] === niv[n])) {
@@ -679,56 +664,20 @@ r.get('/:id/capitalisation', authRequired, (req, res) => {
     }
   }
 
-  // Profondeur dans le graphe — ne sert plus qu'à ordonner les lignes
-  // À L'INTÉRIEUR d'une colonne (les colonnes, elles, sont les niveaux).
-  const profondeur = {};
-  const calcul = (n, vus = new Set()) => {
-    if (profondeur[n] !== undefined) return profondeur[n];
-    if (vus.has(n)) return 0;                      // garde-fou anti-cycle
-    vus.add(n);
-    const ps = prereqDe[n] || [];
-    const d = ps.length ? 1 + Math.max(...ps.map(p => calcul(p, vus))) : 0;
-    profondeur[n] = d;
-    return d;
-  };
-  for (const u of ues) calcul(u.ue_num);
-
-  // ── Colonnes = niveaux d'études (BA1, BA2, BA3…), pas la profondeur ──
-  // L'épreuve intégrée n'a pas toujours de prérequis encodés : la classer
-  // par profondeur la ramenait en première colonne. Le niveau fait foi.
-  const rang = v => {
-    const m = /^BA(\d+)$/.exec((v || '').toUpperCase());
-    if (m) return Number(m[1]);
-    return v ? 900 : 999;               // niveaux non standard, puis sans niveau
-  };
-  const niveaux = [...new Set(ues.map(u => (u.ue_niv || '').toUpperCase()))]
-    .sort((a, b) => rang(a) - rang(b) || a.localeCompare(b));
-  const colonneDe = {};
-  niveaux.forEach((v, i) => { colonneDe[v] = i; });
-
-  const nodes = ues.map(u => {
-    const n = u.ue_num;
-    const statut = acquis.has(n) ? 'acquise'
-      : sousReserve.has(n) ? 'sous_reserve'
-      : proposees.has(n) ? 'accessible'
-      : 'bloquee';
-    return {
-      ue_num: n,
-      ue_nom: u.ue_nom,
-      ue_niv: u.ue_niv,
-      couche: colonneDe[(u.ue_niv || '').toUpperCase()] || 0,
-      ordre: profondeur[n] || 0,
-      statut,
+  const g = construireGraphe({
+    sections, annee,
+    etat: n => ({
+      statut: acquis.has(n) ? 'acquise'
+        : sousReserve.has(n) ? 'sous_reserve'
+        : proposees.has(n) ? 'accessible'
+        : 'bloquee',
       inscrite: inscrites.has(n),
       organisee: organisees.has(n),
       prereq_manquants: (prereqDe[n] || []).filter(p => !acquis.has(p)),
-    };
-  }).sort((a, b) => a.couche - b.couche || a.ordre - b.ordre || a.ue_num - b.ue_num);
-
-  res.json({
-    nodes, edges, sections, annee,
-    colonnes: niveaux.map((v, i) => ({ index: i, label: v || '—' })),
+    }),
   });
+
+  res.json({ ...g, sections, annee });
 });
 
 // ── Grille de parcours : UE (lignes, BA1→BA3) × années (colonnes) ────────────
