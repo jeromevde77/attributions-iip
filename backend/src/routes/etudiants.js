@@ -10,6 +10,20 @@ import { construireGraphe, niveauxEffectifs } from './capitalisation.js';
 
 const r = Router();
 
+// Intitulé, niveau et section d'une UE, indépendamment de l'année.
+// Le référentiel est dupliqué par année scolaire ; cette vue en donne une
+// lecture pérenne : le millésime de l'année demandée s'il existe, sinon le
+// plus récent connu. Sans quoi les années antérieures au premier référentiel
+// affichent des UE sans nom.
+const UE_REF = `(
+  SELECT ue_num,
+         (SELECT ue_nom  FROM ue x WHERE x.ue_num = u0.ue_num AND x.ue_nom  IS NOT NULL ORDER BY x.annee_scolaire DESC LIMIT 1) AS ue_nom,
+         (SELECT ue_niv  FROM ue x WHERE x.ue_num = u0.ue_num AND x.ue_niv  IS NOT NULL ORDER BY x.annee_scolaire DESC LIMIT 1) AS ue_niv,
+         (SELECT section FROM ue x WHERE x.ue_num = u0.ue_num AND x.section IS NOT NULL ORDER BY x.annee_scolaire DESC LIMIT 1) AS section,
+         (SELECT ue_quad FROM ue x WHERE x.ue_num = u0.ue_num ORDER BY x.annee_scolaire DESC LIMIT 1) AS ue_quad
+  FROM ue u0 GROUP BY ue_num
+)`;
+
 export function migrerEtudiants(dbx) {
   try {
     dbx.exec(`
@@ -157,7 +171,7 @@ r.get('/', authRequired, (req, res) => {
            MAX(i.annee_scolaire) AS derniere_annee
     FROM etudiant e
     JOIN etudiant_inscription i ON i.etudiant_id = e.id
-    LEFT JOIN ue u ON u.ue_num = i.ue_num AND u.annee_scolaire = i.annee_scolaire
+    LEFT JOIN ${UE_REF} u ON u.ue_num = i.ue_num
     WHERE e.actif = 1
   `;
   const params = [];
@@ -265,7 +279,7 @@ r.get('/rapport', authRequired, (req, res) => {
   <thead><tr><th></th><th style="text-align:left">Étudiant</th>${enTetes}</tr></thead>
   <tbody>${corps || '<tr><td colspan="' + (ues.length + 2) + '" style="color:#94a3b8">Aucune donnée pour ces critères</td></tr>'}</tbody>
 </table>
-<div class="legende"><b>C</b> réussite · <b>R</b> refus · <b>A</b> absent · <b>VA</b> valorisation des acquis · <b>•</b> inscrit (non délibéré) · survolez une case pour les points</div>
+<div class="legende"><b>C</b> réussite · <b>R</b> refusé · <b>A</b> absent · <b>VA</b> valorisation des acquis · <b>•</b> inscrit (non délibéré) · survolez une case pour les points</div>
 </body></html>`;
 
   res.json({ html, nom: 'parcours_' + section + '_' + annee + '.html' });
@@ -280,7 +294,7 @@ r.get('/:id', authRequired, (req, res) => {
   const inscriptions = db.prepare(`
     SELECT i.*, u.ue_nom, u.ue_niv, u.ue_quad, u.section
     FROM etudiant_inscription i
-    LEFT JOIN ue u ON u.ue_num = i.ue_num AND u.annee_scolaire = i.annee_scolaire
+    LEFT JOIN ${UE_REF} u ON u.ue_num = i.ue_num
     WHERE i.etudiant_id = ?
     ORDER BY i.annee_scolaire DESC, u.section, i.ue_num
   `).all(etudiant.id);
@@ -885,7 +899,7 @@ r.get('/:id/valorisations', authRequired, (req, res) => {
   const rows = db.prepare(`
     SELECT v.*, u.ue_nom, u.section
     FROM etudiant_valorisation v
-    LEFT JOIN ue u ON u.ue_num = v.ue_num AND u.annee_scolaire = v.annee_scolaire
+    LEFT JOIN ${UE_REF} u ON u.ue_num = v.ue_num
     WHERE v.etudiant_id = ?
     ORDER BY v.annee_scolaire DESC, v.ue_num
   `).all(Number(req.params.id));
@@ -992,13 +1006,13 @@ r.get('/:id/fiche-inscription', authRequired, (req, res) => {
   const reussites = db.prepare(`
     SELECT i.annee_scolaire, i.ue_num, i.points, u.ue_nom, 'reussi' AS kind
     FROM etudiant_inscription i
-    LEFT JOIN ue u ON u.ue_num = i.ue_num AND u.annee_scolaire = i.annee_scolaire
+    LEFT JOIN ${UE_REF} u ON u.ue_num = i.ue_num
     WHERE i.etudiant_id = ? AND i.annee_scolaire < ? AND i.resultat = 'reussi'
   `).all(etudId, annee);
   const vasAcq = db.prepare(`
     SELECT v.annee_scolaire, v.ue_num, v.pourcentage AS points, u.ue_nom, 'va' AS kind
     FROM etudiant_valorisation v
-    LEFT JOIN ue u ON u.ue_num = v.ue_num AND u.annee_scolaire = v.annee_scolaire
+    LEFT JOIN ${UE_REF} u ON u.ue_num = v.ue_num
     WHERE v.etudiant_id = ? AND v.type = 'complete'
   `).all(etudId);
   const acquisRows = [...reussites, ...vasAcq].sort((a, b) =>
@@ -1009,7 +1023,7 @@ r.get('/:id/fiche-inscription', authRequired, (req, res) => {
   const autres = db.prepare(`
     SELECT i.annee_scolaire, i.ue_num, i.resultat, u.ue_nom
     FROM etudiant_inscription i
-    LEFT JOIN ue u ON u.ue_num = i.ue_num AND u.annee_scolaire = i.annee_scolaire
+    LEFT JOIN ${UE_REF} u ON u.ue_num = i.ue_num
     WHERE i.etudiant_id = ? AND i.annee_scolaire < ? AND i.resultat IN ('ajourne','absent')
     ORDER BY i.annee_scolaire, i.ue_num
   `).all(etudId, annee);
@@ -1018,7 +1032,7 @@ r.get('/:id/fiche-inscription', authRequired, (req, res) => {
   const inscriptions = db.prepare(`
     SELECT i.*, u.ue_nom, u.section
     FROM etudiant_inscription i
-    LEFT JOIN ue u ON u.ue_num = i.ue_num AND u.annee_scolaire = i.annee_scolaire
+    LEFT JOIN ${UE_REF} u ON u.ue_num = i.ue_num
     WHERE i.etudiant_id = ? AND i.annee_scolaire = ?
     ORDER BY u.section, i.ue_num
   `).all(etudId, annee);
@@ -1053,7 +1067,7 @@ r.get('/:id/fiche-inscription', authRequired, (req, res) => {
     <tr>
       <td>${esc(h.annee_scolaire)}</td><td>${h.ue_num}</td>
       <td>${esc(h.ue_nom || '')}</td>
-      <td colspan="2">${h.resultat === 'ajourne' ? 'Ajourné' : 'Absent'}</td>
+      <td colspan="2">${h.resultat === 'ajourne' ? 'Refusé' : 'Absent'}</td>
     </tr>`).join('');
 
   const lignesInsc = inscriptions.map(i => {

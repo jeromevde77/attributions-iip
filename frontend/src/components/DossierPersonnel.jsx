@@ -2,8 +2,7 @@ import { useEffect, useState } from 'react';
 import {
   IconFileCheck, IconAlertTriangle, IconCheck, IconPlus, IconTrash,
   IconStethoscope, IconMessage, IconLock, IconX, IconCalendarPlus,
-  IconNotes, IconFileImport, IconLogin, IconTrash as IconCorbeille,
-} from '@tabler/icons-react';
+  IconNotes, IconFileImport, IconLogin, IconTrash as IconCorbeille, IconAward } from '@tabler/icons-react';
 import { authHeaders } from '../lib/api.js';
 
 const fr = (iso) => iso ? iso.slice(0, 10).split('-').reverse().join('/') : '—';
@@ -499,7 +498,19 @@ const GENRES = {
   absence:    { icone: IconStethoscope, libelle: 'Absence' },
   piece:      { icone: IconFileImport,  libelle: 'Pièce' },
   engagement: { icone: IconLogin,       libelle: 'Engagement' },
+  nomination: { icone: IconAward,       libelle: 'Nomination' },
 };
+
+// Types d'entretien proposés à la planification (miroir du backend)
+const TYPES_RDV = [
+  ['suivi', 'Entretien de suivi'],
+  ['accueil', "Entretien d'accueil"],
+  ['visite_classe', 'Visite en classe'],
+  ['evaluation', 'Évaluation'],
+  ['recadrage', 'Recadrage'],
+  ['fin_fonction', 'Fin de fonction'],
+  ['autre', 'Autre'],
+];
 
 /**
  * Fil chronologique du dossier : remarques libres (inaltérables) + événements
@@ -511,6 +522,24 @@ export function Journal({ profId, peutEcrire, estAdmin }) {
   const [texte, setTexte] = useState('');
   const [confidentiel, setConfidentiel] = useState(false);
   const [envoi, setEnvoi] = useState(false);
+  const [rdv, setRdv] = useState(null);   // formulaire de rendez-vous
+
+  async function ajouterRdv() {
+    if (!rdv?.type || !rdv?.date_prevue) return;
+    setEnvoi(true);
+    try {
+      const rep = await fetch(`/api/dossier/${profId}/entretiens`, {
+        method: 'POST', headers: authHeaders(),
+        body: JSON.stringify({
+          type: rdv.type, date_prevue: rdv.date_prevue,
+          lieu: rdv.lieu || null, mene_par: rdv.mene_par || null,
+          confidentiel: rdv.confidentiel ? 1 : 0,
+        }),
+      });
+      if (rep.ok) { setRdv(null); await charger(); }
+      else { const j = await rep.json().catch(() => ({})); alert(j.error || 'Erreur'); }
+    } finally { setEnvoi(false); }
+  }
 
   async function charger() {
     const rep = await fetch(`/api/dossier/${profId}/journal`, { headers: authHeaders() });
@@ -541,10 +570,59 @@ export function Journal({ profId, peutEcrire, estAdmin }) {
 
   return (
     <div className="p-5 space-y-4">
-      <div className="flex items-center gap-2">
-        <IconNotes size={18} className="text-iip-turquoise" />
-        <span className="font-semibold text-iip-blue">Journal du dossier</span>
+      <div className="flex items-center justify-between gap-3 flex-wrap">
+        <div className="flex items-center gap-2">
+          <IconNotes size={18} className="text-iip-turquoise" />
+          <span className="font-semibold text-iip-blue">Journal &amp; entretiens</span>
+        </div>
+        {peutEcrire && (
+          <button onClick={() => setRdv(r => r ? null : { type: 'suivi', date_prevue: '' })}
+            className="flex items-center gap-1.5 text-[12.5px] px-3 py-1.5 rounded-lg border border-iip-turquoise text-iip-turquoise hover:bg-iip-turquoise/5">
+            <IconCalendarPlus size={14} /> {rdv ? 'Annuler le rendez-vous' : 'Planifier un rendez-vous'}
+          </button>
+        )}
       </div>
+
+      {rdv && peutEcrire && (
+        <div className="border border-iip-turquoise/40 rounded-xl p-3 bg-iip-turquoise/5 space-y-2">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+            <label className="text-xs">
+              <span className="block font-semibold text-slate-500 uppercase tracking-wide mb-1">Type</span>
+              <select value={rdv.type} onChange={e => setRdv(r => ({ ...r, type: e.target.value }))}
+                className="w-full border border-slate-300 rounded-lg px-2 py-1.5 text-sm bg-white">
+                {TYPES_RDV.map(([v, l]) => <option key={v} value={v}>{l}</option>)}
+              </select>
+            </label>
+            <label className="text-xs">
+              <span className="block font-semibold text-slate-500 uppercase tracking-wide mb-1">Date prévue</span>
+              <input type="date" value={rdv.date_prevue}
+                onChange={e => setRdv(r => ({ ...r, date_prevue: e.target.value }))}
+                className="w-full border border-slate-300 rounded-lg px-2 py-1.5 text-sm bg-white" />
+            </label>
+            <label className="text-xs">
+              <span className="block font-semibold text-slate-500 uppercase tracking-wide mb-1">Mené par</span>
+              <input value={rdv.mene_par || ''} onChange={e => setRdv(r => ({ ...r, mene_par: e.target.value }))}
+                className="w-full border border-slate-300 rounded-lg px-2 py-1.5 text-sm bg-white" />
+            </label>
+            <label className="text-xs">
+              <span className="block font-semibold text-slate-500 uppercase tracking-wide mb-1">Lieu</span>
+              <input value={rdv.lieu || ''} onChange={e => setRdv(r => ({ ...r, lieu: e.target.value }))}
+                className="w-full border border-slate-300 rounded-lg px-2 py-1.5 text-sm bg-white" />
+            </label>
+          </div>
+          <div className="flex items-center justify-between gap-3 flex-wrap">
+            <label className="flex items-center gap-2 text-[12px] text-slate-700">
+              <input type="checkbox" checked={!!rdv.confidentiel}
+                onChange={e => setRdv(r => ({ ...r, confidentiel: e.target.checked }))} />
+              <IconLock size={13} className="text-slate-400" /> Confidentiel
+            </label>
+            <button onClick={ajouterRdv} disabled={envoi || !rdv.date_prevue}
+              className="text-sm px-3 py-1.5 rounded-lg bg-iip-turquoise text-white font-semibold disabled:opacity-40">
+              Planifier
+            </button>
+          </div>
+        </div>
+      )}
 
       {peutEcrire && (
         <div className="border border-slate-200 rounded-xl p-3 bg-slate-50/60 space-y-2">
@@ -568,7 +646,7 @@ export function Journal({ profId, peutEcrire, estAdmin }) {
 
       {!items.length && (
         <div className="text-sm text-slate-500 py-6 text-center border border-dashed border-slate-200 rounded-xl">
-          Le journal est vide.
+          Aucun événement au dossier pour l'instant.
         </div>
       )}
 

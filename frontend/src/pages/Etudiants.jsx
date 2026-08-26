@@ -33,8 +33,8 @@ const KINDS_CELLULE = [
   { val: 'inscrit', label: 'Inscrit',  short: 'Ins.', cls: 'bg-sky-50 text-sky-700 border-sky-200' },
   { val: 'reussi',  label: 'Réussi',   short: null,   cls: 'bg-emerald-50 text-emerald-800 border-emerald-200' },
   { val: 'va',      label: 'VA',       short: 'VA',   cls: 'bg-violet-50 text-violet-700 border-violet-200' },
-  { val: 'ajourne', label: 'Ajourné',  short: 'Aj.',  cls: 'bg-amber-50 text-amber-800 border-amber-200' },
-  { val: 'absent',  label: 'Absent',   short: 'Abs.', cls: 'bg-red-50 text-red-700 border-red-200' },
+  { val: 'ajourne', label: 'Refusé',   short: 'Ref.', cls: 'bg-red-50 text-red-700 border-red-200' },
+  { val: 'absent',  label: 'Absent',   short: 'Abs.', cls: 'bg-slate-50 text-slate-600 border-slate-200' },
 ];
 
 function GrilleParcours({ etudId, peutEcrire }) {
@@ -250,35 +250,64 @@ function GrilleParcours({ etudId, peutEcrire }) {
 
             {detailOuvert && detail && (
               <div className="mt-3 max-h-72 overflow-y-auto space-y-3 border-t border-slate-100 pt-3">
-                {detail.cours.length > 0 && (
-                  <div>
-                    <div className="text-[10px] font-bold uppercase tracking-wide text-slate-400 mb-1.5">Cours</div>
-                    {detail.cours.map(co => {
-                      const n = detail.notes['cours:' + co.cours_code] || {};
-                      return (
-                        <div key={co.cours_code} className="flex items-center gap-2 py-1">
-                          <div className="flex-1 text-[11.5px] text-slate-600 truncate" title={co.cours_nom}>
-                            <b className="text-iip-blue">{co.cours_code}</b> {co.cours_nom}
-                          </div>
-                          <input type="number" min="0" max="100" placeholder="%"
-                            defaultValue={n.points ?? ''}
-                            onBlur={e => ecrireDetail('cours', co.cours_code,
-                              e.target.value !== '' ? Number(e.target.value) : null, n.va ? 1 : 0)}
-                            className="w-14 border border-slate-300 rounded-lg px-1.5 py-1 text-[11.5px] text-right" />
-                          <label className="flex items-center gap-1 text-[10.5px] text-violet-700">
-                            <input type="checkbox" checked={!!n.va}
-                              onChange={e => ecrireDetail('cours', co.cours_code, n.points ?? null, e.target.checked ? 1 : 0)} />
-                            VA
-                          </label>
+                {detail.cours.length > 0 && detail.cours.map(co => {
+                  const nCours = detail.notes['cours:' + co.cours_code] || {};
+                  const aasDuCours = detail.aas.filter(a => a.cours_code === co.cours_code);
+                  return (
+                    <div key={co.cours_code} className="border border-slate-200 rounded-lg overflow-hidden">
+                      <div className="flex items-center gap-2 px-2 py-1.5 bg-slate-50">
+                        <div className="flex-1 text-[11.5px] text-slate-700 truncate" title={co.cours_nom}>
+                          <b className="text-iip-blue">{co.cours_code}</b> {co.cours_nom}
                         </div>
-                      );
-                    })}
-                  </div>
-                )}
-                {detail.aas.length > 0 && (
+                        <input type="number" min="0" max="100" placeholder="%"
+                          defaultValue={nCours.points ?? ''}
+                          onBlur={e => ecrireDetail('cours', co.cours_code,
+                            e.target.value !== '' ? Number(e.target.value) : null, nCours.va ? 1 : 0)}
+                          className="w-14 border border-slate-300 rounded-lg px-1.5 py-1 text-[11.5px] text-right bg-white" />
+                        <label className="flex items-center gap-1 text-[10.5px] text-violet-700">
+                          <input type="checkbox" checked={!!nCours.va}
+                            onChange={e => ecrireDetail('cours', co.cours_code, nCours.points ?? null, e.target.checked ? 1 : 0)} />
+                          VA
+                        </label>
+                      </div>
+
+                      {aasDuCours.length > 0 && (
+                        <div className="pl-3 pr-2 py-1 space-y-0.5">
+                          {aasDuCours.map(aa => {
+                            const n = detail.notes['aa:' + aa.aa_code] || {};
+                            return (
+                              <div key={aa.aa_code} className="flex items-center gap-2 py-0.5">
+                                <span className="text-slate-300 text-[10px] flex-none">└</span>
+                                <div className="flex-1 text-[11px] text-slate-600 truncate"
+                                  title={aa.description || aa.aa_code}>
+                                  <b className="text-slate-500">{aa.aa_code}</b> {aa.description || ''}
+                                </div>
+                                <input type="number" min="0" max="100" placeholder="%"
+                                  defaultValue={n.points ?? ''}
+                                  onBlur={e => ecrireDetail('aa', aa.aa_code,
+                                    e.target.value !== '' ? Number(e.target.value) : null, n.va ? 1 : 0)}
+                                  className="w-14 border border-slate-200 rounded-lg px-1.5 py-0.5 text-[11px] text-right" />
+                                <label className="flex items-center gap-1 text-[10px] text-violet-700">
+                                  <input type="checkbox" checked={!!n.va}
+                                    onChange={e => ecrireDetail('aa', aa.aa_code, n.points ?? null, e.target.checked ? 1 : 0)} />
+                                  VA
+                                </label>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+
+                {/* AA non rattachés à un cours du référentiel */}
+                {detail.aas.filter(a => !detail.cours.some(co => co.cours_code === a.cours_code)).length > 0 && (
                   <div>
-                    <div className="text-[10px] font-bold uppercase tracking-wide text-slate-400 mb-1.5">Acquis d'apprentissage</div>
-                    {detail.aas.map(aa => {
+                    <div className="text-[10px] font-bold uppercase tracking-wide text-slate-400 mb-1.5">
+                      Acquis d'apprentissage sans cours rattaché
+                    </div>
+                    {detail.aas.filter(a => !detail.cours.some(co => co.cours_code === a.cours_code)).map(aa => {
                       const n = detail.notes['aa:' + aa.aa_code] || {};
                       return (
                         <div key={aa.aa_code} className="flex items-center gap-2 py-1">
@@ -300,6 +329,7 @@ function GrilleParcours({ etudId, peutEcrire }) {
                     })}
                   </div>
                 )}
+
                 {!detail.cours.length && !detail.aas.length && (
                   <div className="text-[11.5px] text-slate-400 text-center py-2">
                     Aucun cours ni AA au référentiel pour cette UE.
@@ -535,10 +565,12 @@ function DossierApprenant({ etudId }) {
   );
 }
 
+// Au niveau du parcours, la délibération tranche : réussi ou refusé.
+// (« Absent » reste distinct : l'étudiant ne s'est pas présenté.)
 const RESULTATS = [
-  { val: 'reussi',  label: 'Réussi',  cls: 'bg-emerald-100 text-emerald-800' },
-  { val: 'ajourne', label: 'Ajourné', cls: 'bg-amber-100 text-amber-800' },
-  { val: 'absent',  label: 'Absent',  cls: 'bg-red-100 text-red-800' },
+  { val: 'reussi',  label: 'Réussi', cls: 'bg-emerald-100 text-emerald-800' },
+  { val: 'ajourne', label: 'Refusé', cls: 'bg-red-100 text-red-800' },
+  { val: 'absent',  label: 'Absent', cls: 'bg-slate-100 text-slate-600' },
 ];
 
 // ── Fiche étudiant + PAE ──────────────────────────────────────────────────────

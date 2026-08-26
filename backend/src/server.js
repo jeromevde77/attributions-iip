@@ -461,6 +461,16 @@ try {
     );
     CREATE INDEX IF NOT EXISTS idx_nom_prof ON nomination_definitive(professeur_id);
     CREATE INDEX IF NOT EXISTS idx_nom_fwb  ON nomination_definitive(code_fwb);
+  `);
+  // Date de la nomination — alimente la chronologie du dossier personnel.
+  try {
+    const colsNom = db.prepare('PRAGMA table_info(nomination_definitive)').all().map(x => x.name);
+    if (!colsNom.includes('date_nomination')) {
+      db.exec('ALTER TABLE nomination_definitive ADD COLUMN date_nomination TEXT');
+      console.log('[migration] nomination_definitive.date_nomination ajoutée');
+    }
+  } catch (e) { console.error('[migration] date_nomination :', e.message); }
+  db.exec(`
 
     -- Remise au travail : quand l'UE/DP nommé n'est plus organisé, le prof est réaffecté
     CREATE TABLE IF NOT EXISTS remise_travail (

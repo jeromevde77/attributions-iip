@@ -352,6 +352,22 @@ r.get('/:profId/journal', authRequired, (req, res) => {
     });
   }
 
+  // Nominations définitives (celles qui portent une date)
+  try {
+    for (const n of db.prepare(`
+      SELECT n.*, u.ue_nom FROM nomination_definitive n
+      LEFT JOIN ue u ON u.ue_num = n.ue_num
+      WHERE n.professeur_id = ? AND n.actif = 1 AND n.date_nomination IS NOT NULL
+      GROUP BY n.id
+    `).all(profId)) {
+      const objet = n.cours_libre || n.ue_nom || (n.ue_num ? 'UE ' + n.ue_num : n.code_fwb);
+      items.push({
+        genre: 'nomination', id: n.id, date: n.date_nomination,
+        contenu: `Nomination définitive — ${objet}${n.periodes ? ' (' + n.periodes + ' pér.)' : ''}`,
+      });
+    }
+  } catch { /* colonne absente sur une base non migrée */ }
+
   // Engagement
   const prof = db.prepare('SELECT date_engagement FROM professeur WHERE id = ?').get(profId);
   if (prof?.date_engagement) {
