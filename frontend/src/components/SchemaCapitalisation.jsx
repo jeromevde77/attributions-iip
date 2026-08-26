@@ -40,21 +40,37 @@ export default function SchemaCapitalisation({
     for (const n of data.nodes) (couches[n.couche] = couches[n.couche] || []).push(n);
     const nums = Object.keys(couches).map(Number).sort((a, b) => a - b);
     const pos = {};
-    const entetes = [];
+    const colonnesX = {};
     let hauteurMax = 0;
     nums.forEach((cn, ci) => {
       const x = PAD + ci * (L + GX);
-      const colInfo = (data.colonnes || []).find(c0 => c0.index === cn);
-      entetes.push({
-        x, cn,
-        label: colInfo?.label || couches[cn][0]?.ue_niv || '—',
-        sousTitre: colInfo?.sous_titre || null,
-      });
+      colonnesX[cn] = x;
       couches[cn].forEach((n, ri) => { pos[n.ue_num] = { x, y: PAD + TETE + ri * (H + GY) }; });
       hauteurMax = Math.max(hauteurMax, couches[cn].length);
     });
+    // Un titre par année d'études, centré sur ses sous-colonnes
+    const groupes = (data.groupes && data.groupes.length)
+      ? data.groupes
+      : nums.map(cn => ({
+          label: (data.colonnes || []).find(c0 => c0.index === cn)?.label
+                 || couches[cn][0]?.ue_niv || '—',
+          debut: cn, fin: cn,
+        }));
+    const entetes = groupes
+      .filter(g => colonnesX[g.debut] !== undefined)
+      .map(g => {
+        const xd = colonnesX[g.debut];
+        const xf = colonnesX[g.fin] !== undefined ? colonnesX[g.fin] : xd;
+        return {
+          ...g, x: xd,
+          largeur: (xf - xd) + L,
+          centre: xd + ((xf - xd) + L) / 2,
+          sousTitre: g.sous_titre || null,
+        };
+      });
+
     return {
-      pos, L, H, TETE, PAD, entetes,
+      pos, L, H, TETE, PAD, entetes, groupes, colonnesX,
       largeur: PAD * 2 + nums.length * (L + GX) - GX,
       hauteur: PAD * 2 + TETE + hauteurMax * (H + GY) - GY,
     };
@@ -71,12 +87,13 @@ export default function SchemaCapitalisation({
 
   // Colonne visée par une abscisse : chaque colonne occupe sa largeur plus la
   // moitié des gouttières qui l'entourent.
+  // Le dépôt vise une ANNÉE D'ÉTUDES, pas une sous-colonne : à l'intérieur
+  // d'une année, la sous-colonne est déduite des prérequis, pas choisie.
   function colonneA(x) {
     if (!layout) return null;
     let meilleure = null, distance = Infinity;
     for (const e0 of layout.entetes) {
-      const centre = e0.x + layout.L / 2;
-      const d = Math.abs(x - centre);
+      const d = Math.abs(x - e0.centre);
       if (d < distance) { distance = d; meilleure = e0; }
     }
     return meilleure;
@@ -87,7 +104,7 @@ export default function SchemaCapitalisation({
     e.preventDefault();
     const r0 = svgRef.current?.getBoundingClientRect();
     setDrag({
-      ue_num: n.ue_num, couche: n.couche,
+      ue_num: n.ue_num, couche: n.couche, niveau: (n.ue_niv || '').toUpperCase(),
       ox: e.clientX, oy: e.clientY, dx: 0, dy: 0, bouge: false,
       rect: r0, cible: null,
     });
@@ -111,8 +128,8 @@ export default function SchemaCapitalisation({
       setSelection(s => (s === d.ue_num ? null : d.ue_num));
       return;
     }
-    if (!d.cible || d.cible.cn === d.couche) return;
-    if (d.cible.sousTitre) return;        // colonne de l'épreuve intégrée : non
+    if (!d.cible || d.cible.sousTitre) return;   // épreuve intégrée : pas de dépôt
+    if (d.cible.label === d.niveau) return;      // même année : rien à changer
     onNiveau(d.ue_num, d.cible.label);
   }
 
@@ -151,22 +168,27 @@ export default function SchemaCapitalisation({
                 </marker>
               </defs>
 
-              {drag?.cible && drag.bouge && drag.cible.cn !== drag.couche && !drag.cible.sousTitre && (
+              {drag?.cible && drag.bouge && !drag.cible.sousTitre
+                && drag.cible.label !== drag.niveau && (
                 <rect x={drag.cible.x - 8} y={layout.PAD} rx="8"
-                  width={layout.L + 16} height={layout.hauteur - layout.PAD * 2}
+                  width={drag.cible.largeur + 16} height={layout.hauteur - layout.PAD * 2}
                   fill="#00AACC" opacity="0.08" stroke="#00AACC" strokeWidth="1.2"
                   strokeDasharray="5 4" />
               )}
 
-              {layout.entetes.map(e0 => (
-                <g key={'h' + e0.cn}>
-                  <text x={e0.x + layout.L / 2} y={layout.PAD + (e0.sousTitre ? 8 : 12)}
+              {layout.entetes.map((e0, gi) => (
+                <g key={'h' + e0.debut}>
+                  {gi > 0 && (
+                    <line x1={e0.x - 26} y1={layout.PAD} x2={e0.x - 26} y2={layout.hauteur - layout.PAD}
+                      stroke="#E2E8F0" strokeWidth="1" />
+                  )}
+                  <text x={e0.centre} y={layout.PAD + (e0.sousTitre ? 8 : 12)}
                     textAnchor="middle" fontSize="10" fontWeight="700"
                     fill={e0.sousTitre ? '#C9A84C' : '#94A3B8'} letterSpacing="0.6">
                     {e0.label}
                   </text>
                   {e0.sousTitre && (
-                    <text x={e0.x + layout.L / 2} y={layout.PAD + 18}
+                    <text x={e0.centre} y={layout.PAD + 18}
                       textAnchor="middle" fontSize="7.5" fontWeight="600"
                       fill="#C9A84C" letterSpacing="0.4">
                       {e0.sousTitre.toUpperCase()}

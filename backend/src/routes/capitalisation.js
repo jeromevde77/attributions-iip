@@ -112,9 +112,45 @@ export function construireGraphe({ sections, annee, etat }) {
 
   const listeNiveaux = [...new Set(ues.filter(u => !estEI[u.ue_num]).map(u => niveaux[u.ue_num] || ''))]
     .sort((a, b) => rangNiveau(a) - rangNiveau(b) || a.localeCompare(b));
-  const colonneDe = {};
-  listeNiveaux.forEach((v, i) => { colonneDe[v] = i; });
-  const colonneEI = listeNiveaux.length;
+
+  // Une année d'études peut contenir des UE qui dépendent les unes des autres
+  // (l'épreuve intégrée et ses déterminantes, une chaîne de stages…). Plutôt
+  // que de les empiler dans une seule colonne, on découpe l'année en autant de
+  // sous-colonnes que la plus longue chaîne interne : la progression se lit.
+  const prereqIntra = {};
+  for (const eg of edges) {
+    if (estEI[eg.to] || estEI[eg.from]) continue;
+    if ((niveaux[eg.from] || '') === (niveaux[eg.to] || '')) {
+      (prereqIntra[eg.to] = prereqIntra[eg.to] || []).push(eg.from);
+    }
+  }
+  const profIntra = {};
+  const calculIntra = (n, vus = new Set()) => {
+    if (profIntra[n] !== undefined) return profIntra[n];
+    if (vus.has(n)) return 0;
+    vus.add(n);
+    const ps = prereqIntra[n] || [];
+    const d = ps.length ? 1 + Math.max(...ps.map(p => calculIntra(p, vus))) : 0;
+    profIntra[n] = d;
+    return d;
+  };
+  for (const u of ues) if (!estEI[u.ue_num]) calculIntra(u.ue_num);
+
+  // Largeur de chaque année = plus longue chaîne interne + 1
+  const largeurDe = {};
+  for (const v of listeNiveaux) {
+    largeurDe[v] = 1 + Math.max(0, ...ues
+      .filter(u => !estEI[u.ue_num] && (niveaux[u.ue_num] || '') === v)
+      .map(u => profIntra[u.ue_num] || 0));
+  }
+  const departDe = {};
+  let curseur = 0;
+  for (const v of listeNiveaux) { departDe[v] = curseur; curseur += largeurDe[v]; }
+  const colonneEI = curseur;
+
+  const colonneNoeud = n => estEI[n]
+    ? colonneEI
+    : (departDe[niveaux[n] || ''] || 0) + (profIntra[n] || 0);
 
   const nodes = ues.map(u => {
     const n = u.ue_num;
@@ -124,7 +160,7 @@ export function construireGraphe({ sections, annee, etat }) {
       ue_nom: u.ue_nom,
       ue_niv: niv,
       section: u.section,
-      couche: estEI[n] ? colonneEI : (colonneDe[niv] || 0),
+      couche: colonneNoeud(n),
       ordre: profondeur[n] || 0,
       epreuve_integree: estEI[n],
       prerequis: prereqDe[n] || [],
@@ -132,13 +168,24 @@ export function construireGraphe({ sections, annee, etat }) {
     };
   }).sort((a, b) => a.couche - b.couche || a.ordre - b.ordre || a.ue_num - b.ue_num);
 
-  const colonnes = listeNiveaux.map((v, i) => ({ index: i, label: v || '—' }));
+  // Une entrée par colonne (le libellé n'est porté que par la première de
+  // chaque année), plus la description des groupes pour le titre centré.
+  const colonnes = [];
+  const groupes = [];
+  for (const v of listeNiveaux) {
+    const debut = departDe[v], fin = debut + largeurDe[v] - 1;
+    groupes.push({ label: v || '—', debut, fin });
+    for (let i = debut; i <= fin; i++) {
+      colonnes.push({ index: i, label: i === debut ? (v || '—') : '', groupe: v || '—' });
+    }
+  }
   if (ilYADesEI) {
     const nivEI = [...new Set(ues.filter(u => estEI[u.ue_num]).map(u => niveaux[u.ue_num] || ''))]
       .sort((a, b) => rangNiveau(b) - rangNiveau(a))[0] || '';
     colonnes.push({ index: colonneEI, label: nivEI || '—', sous_titre: 'Épreuve intégrée' });
+    groupes.push({ label: nivEI || '—', debut: colonneEI, fin: colonneEI, sous_titre: 'Épreuve intégrée' });
   }
-  return { nodes, edges, colonnes };
+  return { nodes, edges, colonnes, groupes };
 }
 
 // ── Structure d'une section (sans étudiant) ─────────────────────────────────
