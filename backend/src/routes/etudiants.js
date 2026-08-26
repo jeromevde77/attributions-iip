@@ -355,12 +355,16 @@ r.get('/:id/pae', authRequired, (req, res) => {
     const deja_reussie = reussies.has(ue.ue_num);
 
     // Sous réserve : les prérequis manquants sont organisés la même année
-    // (cas type : épreuve intégrée — inscription simultanée, l'accès effectif
-    // dépend de la réussite du prérequis en cours d'année)
+    // ET du même niveau que l'UE (cas type : épreuve intégrée et ses
+    // déterminantes). Un prérequis manquant de niveau inférieur bloque.
     const prereqManquants = prerequis.filter(p => !reussies.has(p.ue_num_requis));
     const organiseesSet = new Set(organisees.map(o => o.ue_num));
+    const nivDeUe = (organisees.find(o => o.ue_num === ue.ue_num)?.ue_niv || ue.ue_niv || '').toUpperCase();
+    const nivMap = {};
+    for (const o of organisees) nivMap[o.ue_num] = (o.ue_niv || '').toUpperCase();
     const sous_reserve = !prerequis_ok && prereqManquants.length > 0 &&
-      prereqManquants.every(p => organiseesSet.has(p.ue_num_requis));
+      prereqManquants.every(p => organiseesSet.has(p.ue_num_requis) &&
+                                 nivMap[p.ue_num_requis] === nivDeUe);
 
     pae.push({
       ...ue,
@@ -425,7 +429,16 @@ r.post('/:id/pae-auto', authRequired, roleRequired('admin', 'editeur'), (req, re
   const prereqDe = {};
   for (const p of prereqs) (prereqDe[p.ue_num] = prereqDe[p.ue_num] || []).push(p.prerequis_num);
 
-  // Point fixe
+  // Niveaux (BA1/BA2/BA3) — le « sous réserve » ne vaut qu'ENTRE UE DU MÊME
+  // NIVEAU (épreuve intégrée et ses déterminantes). Une UE dont le prérequis
+  // manquant est d'un niveau inférieur n'est pas inscriptible : il faut
+  // d'abord réussir ce prérequis (cas UE de BA1 ratée → la suite attend).
+  const anneeRefNiv = db.prepare('SELECT code FROM annee_scolaire WHERE active = 1').get()?.code || annee;
+  const nivRows = db.prepare('SELECT DISTINCT ue_num, ue_niv FROM ue WHERE annee_scolaire = ?').all(anneeRefNiv);
+  const nivDe = {};
+  for (const n of nivRows) nivDe[n.ue_num] = (n.ue_niv || '').toUpperCase();
+
+  // Point fixe intra-niveau : la cascade inter-niveaux est bloquée
   const inscrites = new Set();
   const sousReserve = {};
   let stable = false;
@@ -434,7 +447,8 @@ r.post('/:id/pae-auto', authRequired, roleRequired('admin', 'editeur'), (req, re
     for (const ue of candidates) {
       if (inscrites.has(ue)) continue;
       const manquants = (prereqDe[ue] || []).filter(p => !acquis.has(p));
-      if (manquants.every(p => inscrites.has(p))) {
+      const ok = manquants.every(p => inscrites.has(p) && nivDe[p] === nivDe[ue]);
+      if (ok) {
         inscrites.add(ue);
         if (manquants.length) sousReserve[ue] = manquants;
         stable = false;
@@ -850,9 +864,14 @@ r.get('/:id/fiche-inscription', authRequired, (req, res) => {
   const prereqDe = {};
   for (const p of prereqs) (prereqDe[p.ue_num] = prereqDe[p.ue_num] || []).push(p.prerequis_num);
   const inscritesAnnee = new Set(inscriptions.map(i => i.ue_num));
+  const anneeRefNiv2 = db.prepare('SELECT code FROM annee_scolaire WHERE active = 1').get()?.code || annee;
+  const nivRows2 = db.prepare('SELECT DISTINCT ue_num, ue_niv FROM ue WHERE annee_scolaire = ?').all(anneeRefNiv2);
+  const nivDe2 = {};
+  for (const n of nivRows2) nivDe2[n.ue_num] = (n.ue_niv || '').toUpperCase();
   const sousReserveDe = ueNum => {
     const manquants = (prereqDe[ueNum] || []).filter(p => !acquisSet.has(p));
-    return manquants.length && manquants.every(p => inscritesAnnee.has(p)) ? manquants : null;
+    return manquants.length && manquants.every(p =>
+      inscritesAnnee.has(p) && nivDe2[p] === nivDe2[ueNum]) ? manquants : null;
   };
 
   const esc = s => String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;');

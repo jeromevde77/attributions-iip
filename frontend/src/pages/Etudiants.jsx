@@ -137,8 +137,10 @@ function GrilleParcours({ etudId, peutEcrire }) {
                             if (!verrou || cl) { setPopover({ annee: a, ue_num: u.ue_num, verrou: false }); return; }
                             // Prérequis manquants : sont-ils inscrits (ou mieux) la même année ?
                             const acquisSet = new Set(data.ues.filter(x => x.acquise).map(x => x.ue_num));
+                            const nivMap = Object.fromEntries(data.ues.map(x => [x.ue_num, (x.ue_niv || '').toUpperCase()]));
                             const manquants = u.prerequis.filter(p => !acquisSet.has(p));
-                            const memeAnnee = manquants.length > 0 && manquants.every(p => cell(a, p));
+                            const memeAnnee = manquants.length > 0 && manquants.every(p =>
+                              cell(a, p) && nivMap[p] === (u.ue_niv || '').toUpperCase());
                             if (memeAnnee) {
                               // Inscription simultanée normale — sous réserve, pas de dérogation
                               setPopover({ annee: a, ue_num: u.ue_num, verrou: false, sousReserve: manquants });
@@ -159,8 +161,9 @@ function GrilleParcours({ etudId, peutEcrire }) {
                           {(() => {
                             if (!cl || cl.kind !== 'inscrit') return null;
                             const acquisSet = new Set(data.ues.filter(x => x.acquise).map(x => x.ue_num));
+                            const nivMap = Object.fromEntries(data.ues.map(x => [x.ue_num, (x.ue_niv || '').toUpperCase()]));
                             const manquants = u.prerequis.filter(p => !acquisSet.has(p));
-                            if (manquants.length && manquants.every(p => cell(a, p)))
+                            if (manquants.length && manquants.every(p => cell(a, p) && nivMap[p] === (u.ue_niv || '').toUpperCase()))
                               return <span className="ml-0.5 text-[9px]" title={'Sous réserve — réussite UE ' + manquants.join(', ') + ' requise en cours d\'année'}>⏳</span>;
                             return null;
                           })()}
