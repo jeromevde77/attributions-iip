@@ -239,7 +239,8 @@ function FicheEtudiant({ id, annee, onClose }) {
                           </td>
                           <td className="py-2">
                             {u.reinscriptible_ce
-                              ? <span className="text-[11px] text-amber-700 flex items-center gap-1"><IconAlertTriangle size={12} /> Réussie — réinscription sur décision CE</span>
+                              ? <span className="text-[11px] text-amber-700 flex items-center gap-1"><IconAlertTriangle size={12} />
+                                  {u.reputee_acquise ? 'Réputée acquise (inférence prérequis) — réinscription sur décision CE' : 'Réussie — réinscription sur décision CE'}</span>
                               : u.accessible
                                 ? <span className="text-[11px] font-semibold text-emerald-700 flex items-center gap-1"><IconCheck size={12} /> Accessible</span>
                                 : <span className="text-[11px] text-red-600 flex items-center gap-1"><IconClock size={12} /> Prérequis manquants</span>}

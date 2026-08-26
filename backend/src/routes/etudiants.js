@@ -153,14 +153,12 @@ r.get('/:id/pae', authRequired, (req, res) => {
   const etudiant = db.prepare('SELECT * FROM etudiant WHERE id = ?').get(profId);
   if (!etudiant) return res.status(404).json({ error: 'étudiant introuvable' });
 
-  // UEs réussies l'année précédente
-  const reussies = new Set(
-    anneePrecedente
-      ? db.prepare(`
-          SELECT ue_num FROM etudiant_inscription
-          WHERE etudiant_id = ? AND annee_scolaire = ? AND resultat = 'reussi'
-        `).all(profId, anneePrecedente).map(r => r.ue_num)
-      : []
+  // UEs réussies explicitement (toutes années — un résultat encodé n'expire pas)
+  const reussiesExplicites = new Set(
+    db.prepare(`
+      SELECT DISTINCT ue_num FROM etudiant_inscription
+      WHERE etudiant_id = ? AND resultat = 'reussi'
+    `).all(profId).map(r => r.ue_num)
   );
 
   // UEs déjà suivies (toutes années confondues)
@@ -169,6 +167,27 @@ r.get('/:id/pae', authRequired, (req, res) => {
       SELECT DISTINCT ue_num FROM etudiant_inscription WHERE etudiant_id = ?
     `).all(profId).map(r => r.ue_num)
   );
+
+  // Inférence par le graphe des prérequis : être inscrit à une UE prouve
+  // la réussite de ses prérequis (condition d'accès), transitivement.
+  // Ex. inscrite en 251 (2025-2026) → 248, et les prérequis de 248, réputés acquis.
+  const tousPrereq = db.prepare('SELECT ue_num, prerequis_num FROM ue_prerequis').all();
+  const prereqDe = new Map();
+  for (const p of tousPrereq) {
+    if (!prereqDe.has(p.ue_num)) prereqDe.set(p.ue_num, []);
+    prereqDe.get(p.ue_num).push(p.prerequis_num);
+  }
+  const reputeesAcquises = new Set();
+  const pile = [...dejaSuivies];
+  while (pile.length) {
+    const ue = pile.pop();
+    for (const pr of (prereqDe.get(ue) || [])) {
+      if (!reputeesAcquises.has(pr)) { reputeesAcquises.add(pr); pile.push(pr); }
+    }
+  }
+
+  // Ensemble effectif des acquis : explicite ∪ inféré
+  const reussies = new Set([...reussiesExplicites, ...reputeesAcquises]);
 
   // Sections de l'étudiant — déduites de ses inscriptions passées
   const sectionsEtudiant = db.prepare(`
@@ -210,6 +229,7 @@ r.get('/:id/pae', authRequired, (req, res) => {
       prerequis,
       prerequis_ok,
       deja_reussie,
+      reputee_acquise: !reussiesExplicites.has(ue.ue_num) && reputeesAcquises.has(ue.ue_num),
       deja_suivie: dejaSuivies.has(ue.ue_num),
       accessible: prerequis_ok && !deja_reussie,
       // Circulaire 9764 : la réinscription dans une UE déjà réussie est possible
