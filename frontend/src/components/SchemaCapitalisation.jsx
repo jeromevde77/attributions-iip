@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useMemo, useRef, useState } from 'react';
 
 /**
  * Schéma de capitalisation — arbre des UE et de leurs prérequis.
@@ -30,6 +30,8 @@ export default function SchemaCapitalisation({
 }) {
   const [ouvert, setOuvert] = useState(!replie);
   const [selection, setSelection] = useState(null);   // UE cliquée (mode structure)
+  const [drag, setDrag] = useState(null);            // { ue_num, dx, dy, cible }
+  const svgRef = useRef(null);
 
   const layout = useMemo(() => {
     if (!data?.nodes?.length) return null;
@@ -65,6 +67,55 @@ export default function SchemaCapitalisation({
     </div>
   );
 
+  const deplacable = mode === 'structure' && !!onNiveau;
+
+  // Colonne visée par une abscisse : chaque colonne occupe sa largeur plus la
+  // moitié des gouttières qui l'entourent.
+  function colonneA(x) {
+    if (!layout) return null;
+    let meilleure = null, distance = Infinity;
+    for (const e0 of layout.entetes) {
+      const centre = e0.x + layout.L / 2;
+      const d = Math.abs(x - centre);
+      if (d < distance) { distance = d; meilleure = e0; }
+    }
+    return meilleure;
+  }
+
+  function pointerDown(e, n) {
+    if (!deplacable) return;
+    e.preventDefault();
+    const r0 = svgRef.current?.getBoundingClientRect();
+    setDrag({
+      ue_num: n.ue_num, couche: n.couche,
+      ox: e.clientX, oy: e.clientY, dx: 0, dy: 0, bouge: false,
+      rect: r0, cible: null,
+    });
+    e.currentTarget.setPointerCapture?.(e.pointerId);
+  }
+
+  function pointerMove(e) {
+    if (!drag) return;
+    const dx = e.clientX - drag.ox, dy = e.clientY - drag.oy;
+    const bouge = drag.bouge || Math.abs(dx) > 4 || Math.abs(dy) > 4;
+    const p = layout.pos[drag.ue_num];
+    const xSvg = (p?.x ?? 0) + layout.L / 2 + dx;
+    setDrag(d => d && ({ ...d, dx, dy, bouge, cible: bouge ? colonneA(xSvg) : null }));
+  }
+
+  function pointerUp() {
+    if (!drag) return;
+    const d = drag;
+    setDrag(null);
+    if (!d.bouge) {                       // simple clic : sélection
+      setSelection(s => (s === d.ue_num ? null : d.ue_num));
+      return;
+    }
+    if (!d.cible || d.cible.cn === d.couche) return;
+    if (d.cible.sousTitre) return;        // colonne de l'épreuve intégrée : non
+    onNiveau(d.ue_num, d.cible.label);
+  }
+
   const compte = s => data.nodes.filter(n => n.statut === s).length;
   const niveauxPossibles = [...new Set([
     ...(data.colonnes || []).map(c0 => c0.label).filter(l => /^BA\d+$/.test(l)),
@@ -89,14 +140,23 @@ export default function SchemaCapitalisation({
       {ouvert && layout && (
         <>
           <div className="overflow-auto bg-white" style={{ maxHeight: mode === 'structure' ? 520 : 340 }}>
-            <svg width={layout.largeur} height={layout.hauteur}
-              viewBox={`0 0 ${layout.largeur} ${layout.hauteur}`} style={{ display: 'block' }}>
+            <svg ref={svgRef} width={layout.largeur} height={layout.hauteur}
+              viewBox={`0 0 ${layout.largeur} ${layout.hauteur}`}
+              onPointerMove={pointerMove} onPointerUp={pointerUp} onPointerLeave={pointerUp}
+              style={{ display: 'block', touchAction: deplacable ? 'none' : 'auto' }}>
               <defs>
                 <marker id="fl-cap" markerWidth="7" markerHeight="7" refX="6" refY="2.5"
                   orient="auto" markerUnits="strokeWidth">
                   <path d="M0,0 L0,5 L6,2.5 z" fill="#94A3B8" />
                 </marker>
               </defs>
+
+              {drag?.cible && drag.bouge && drag.cible.cn !== drag.couche && !drag.cible.sousTitre && (
+                <rect x={drag.cible.x - 8} y={layout.PAD} rx="8"
+                  width={layout.L + 16} height={layout.hauteur - layout.PAD * 2}
+                  fill="#00AACC" opacity="0.08" stroke="#00AACC" strokeWidth="1.2"
+                  strokeDasharray="5 4" />
+              )}
 
               {layout.entetes.map(e0 => (
                 <g key={'h' + e0.cn}>
@@ -139,10 +199,13 @@ export default function SchemaCapitalisation({
                   : base;
                 const nom = (n.ue_nom || '').length > 24 ? (n.ue_nom || '').slice(0, 23) + '…' : (n.ue_nom || '');
                 const actif = selection === n.ue_num;
+                const enDeplacement = drag?.bouge && drag.ue_num === n.ue_num;
                 return (
                   <g key={n.ue_num}
-                    onClick={() => mode === 'structure' && onNiveau && setSelection(actif ? null : n.ue_num)}
-                    style={{ cursor: mode === 'structure' && onNiveau ? 'pointer' : 'default' }}>
+                    onPointerDown={e => pointerDown(e, n)}
+                    transform={enDeplacement ? `translate(${drag.dx},${drag.dy})` : undefined}
+                    opacity={enDeplacement ? 0.85 : 1}
+                    style={{ cursor: deplacable ? (enDeplacement ? 'grabbing' : 'grab') : 'default' }}>
                     <title>{`UE ${n.ue_num} — ${n.ue_nom || ''}${n.ue_niv ? ' · ' + n.ue_niv : ''}${
                       n.prerequis?.length ? '\nPrérequis : ' + n.prerequis.join(', ') : ''}${
                       n.prereq_manquants?.length ? '\nManquants : ' + n.prereq_manquants.join(', ') : ''}`}</title>
@@ -190,8 +253,10 @@ export default function SchemaCapitalisation({
                 </div>
               ) : (
                 <div className="text-[11px] text-slate-400">
-                  Cliquez sur une UE pour changer son année d'études. Une flèche ambre signale
-                  un prérequis placé après l'UE qui en dépend.
+                  Glissez une UE vers une autre colonne pour changer son année d'études,
+                  ou cliquez-la pour choisir dans une liste. Les prérequis, eux, viennent du
+                  dossier pédagogique et ne bougent pas. Une flèche ambre signale un prérequis
+                  placé après l'UE qui en dépend.
                 </div>
               )}
             </div>
