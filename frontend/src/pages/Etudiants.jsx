@@ -25,12 +25,44 @@ function GrilleParcours({ etudId, peutEcrire }) {
   const [data, setData] = useState(null);
   const [popover, setPopover] = useState(null); // { annee, ue_num, verrou }
   const [pts, setPts] = useState('');
+  const [anneesExtra, setAnneesExtra] = useState([]);
+  const [detail, setDetail] = useState(null);       // composantes + notes de la cellule ouverte
+  const [detailOuvert, setDetailOuvert] = useState(false);
+
+  function ajouterAnneeAnterieure() {
+    const toutes = [...anneesExtra, ...(data?.annees || [])].sort();
+    const premiere = toutes[0];
+    if (!premiere) return;
+    const [a1] = premiere.split('-').map(Number);
+    setAnneesExtra(prev => [...prev, (a1-1) + '-' + a1]);
+  }
 
   async function charger() {
     const rep = await fetch(`/api/etudiants/${etudId}/grille`, { headers: authHeaders() });
     if (rep.ok) setData(await rep.json());
   }
   useEffect(() => { charger(); /* eslint-disable-next-line */ }, [etudId]);
+
+  async function chargerDetail() {
+    if (!popover) return;
+    const rep = await fetch(
+      `/api/etudiants/${etudId}/grille/detail?annee=${popover.annee}&ue_num=${popover.ue_num}`,
+      { headers: authHeaders() });
+    if (rep.ok) { setDetail(await rep.json()); setDetailOuvert(true); }
+  }
+
+  async function ecrireDetail(type, code, points, va) {
+    await fetch(`/api/etudiants/${etudId}/grille/detail`, {
+      method: 'PUT', headers: authHeaders(),
+      body: JSON.stringify({ annee: popover.annee, ue_num: popover.ue_num, type, code, points, va }),
+    });
+    // Recharger silencieusement le détail et la grille (indicateur)
+    const rep = await fetch(
+      `/api/etudiants/${etudId}/grille/detail?annee=${popover.annee}&ue_num=${popover.ue_num}`,
+      { headers: authHeaders() });
+    if (rep.ok) setDetail(await rep.json());
+    charger();
+  }
 
   async function ecrire(kind, opts = {}) {
     if (!popover) return;
@@ -42,7 +74,7 @@ function GrilleParcours({ etudId, peutEcrire }) {
       }),
     });
     if (!rep.ok) { const j = await rep.json().catch(() => ({})); alert(j.error || 'Erreur'); return; }
-    setPopover(null); setPts('');
+    setPopover(null); setPts(''); setDetail(null); setDetailOuvert(false);
     await charger();
   }
 
@@ -54,15 +86,23 @@ function GrilleParcours({ etudId, peutEcrire }) {
   );
 
   const cell = (annee, ueNum) => data.cellules?.[annee]?.[ueNum] || null;
+  const anneesAffichees = [...new Set([...anneesExtra, ...data.annees])].sort();
+  const aDetail = (annee, ueNum) => (data.detail || []).includes(annee + ':' + ueNum);
 
   return (
     <div>
-      <p className="text-[12px] text-slate-500 mb-3">
+      <div className="flex items-start justify-between gap-3 mb-3">
+        <p className="text-[12px] text-slate-500 flex-1">
         Cliquez sur une case pour encoder. Une UE dont les prérequis ne sont pas acquis est
         verrouillée <span className="text-slate-400">🔒</span> — l'encoder demande une dérogation (tracée).
         Un halo <span className="inline-block w-3 h-3 rounded-sm bg-violet-100 border border-violet-300 align-middle"></span> suggère
         une UE probablement acquise (inférence prérequis) à confirmer.
-      </p>
+        </p>
+        <button onClick={ajouterAnneeAnterieure}
+          className="flex-none flex items-center gap-1.5 px-2.5 py-1.5 text-[12px] border border-slate-300 rounded-lg hover:bg-slate-50">
+          <IconPlus size={13} /> Année antérieure
+        </button>
+      </div>
 
       <div className="overflow-x-auto border border-slate-200 rounded-xl">
         <table className="w-full text-sm border-collapse">
@@ -70,7 +110,7 @@ function GrilleParcours({ etudId, peutEcrire }) {
             <tr className="bg-slate-50 text-[10.5px] uppercase tracking-wide text-slate-500">
               <th className="px-3 py-2 text-left sticky left-0 bg-slate-50 z-10 min-w-[260px]">UE</th>
               <th className="px-2 py-2 text-left w-14">Niv.</th>
-              {data.annees.map(a => <th key={a} className="px-2 py-2 text-center min-w-[92px]">{a}</th>)}
+              {anneesAffichees.map(a => <th key={a} className="px-2 py-2 text-center min-w-[92px]">{a}</th>)}
             </tr>
           </thead>
           <tbody>
@@ -86,7 +126,7 @@ function GrilleParcours({ etudId, peutEcrire }) {
                     {u.suggeree && <span className="ml-1.5 text-[9.5px] px-1 py-0.5 rounded bg-violet-50 text-violet-600 border border-violet-200" title="Probablement acquise (inférence prérequis) — à confirmer">à confirmer</span>}
                   </td>
                   <td className="px-2 py-1.5 text-[11px] text-slate-400">{u.ue_niv || '—'}</td>
-                  {data.annees.map(a => {
+                  {anneesAffichees.map(a => {
                     const cl = cell(a, u.ue_num);
                     const kind = cl && KINDS_CELLULE.find(k => k.val === cl.kind);
                     return (
@@ -107,6 +147,7 @@ function GrilleParcours({ etudId, peutEcrire }) {
                                : kind.val === 'va' ? (cl.points != null ? 'VA ' + cl.points + '%' : 'VA')
                                : kind.short)
                             : '·'}
+                          {aDetail(a, u.ue_num) && <span className="ml-0.5 align-super text-[8px]">●</span>}
                         </button>
                       </td>
                     );
@@ -120,7 +161,7 @@ function GrilleParcours({ etudId, peutEcrire }) {
 
       {popover && (
         <div className="fixed inset-0 z-[60] bg-black/30 flex items-center justify-center p-4"
-          onClick={() => { setPopover(null); setPts(''); }}>
+          onClick={() => { setPopover(null); setPts(''); setDetail(null); setDetailOuvert(false); }}>
           <div className="bg-white rounded-2xl shadow-2xl p-5 w-80" onClick={e => e.stopPropagation()}>
             <div className="font-semibold text-iip-blue mb-1">
               UE {popover.ue_num} — {popover.annee}
@@ -146,6 +187,71 @@ function GrilleParcours({ etudId, peutEcrire }) {
                 Effacer la case
               </button>
             </div>
+
+            <button onClick={() => detailOuvert ? setDetailOuvert(false) : chargerDetail()}
+              className="mt-3 w-full text-[12px] px-2 py-1.5 rounded-lg border border-iip-turquoise/40 text-iip-blue hover:bg-iip-turquoise/5">
+              {detailOuvert ? 'Masquer le détail' : 'Notes par cours & AA…'}
+            </button>
+
+            {detailOuvert && detail && (
+              <div className="mt-3 max-h-72 overflow-y-auto space-y-3 border-t border-slate-100 pt-3">
+                {detail.cours.length > 0 && (
+                  <div>
+                    <div className="text-[10px] font-bold uppercase tracking-wide text-slate-400 mb-1.5">Cours</div>
+                    {detail.cours.map(co => {
+                      const n = detail.notes['cours:' + co.cours_code] || {};
+                      return (
+                        <div key={co.cours_code} className="flex items-center gap-2 py-1">
+                          <div className="flex-1 text-[11.5px] text-slate-600 truncate" title={co.cours_nom}>
+                            <b className="text-iip-blue">{co.cours_code}</b> {co.cours_nom}
+                          </div>
+                          <input type="number" min="0" max="100" placeholder="%"
+                            defaultValue={n.points ?? ''}
+                            onBlur={e => ecrireDetail('cours', co.cours_code,
+                              e.target.value !== '' ? Number(e.target.value) : null, n.va ? 1 : 0)}
+                            className="w-14 border border-slate-300 rounded-lg px-1.5 py-1 text-[11.5px] text-right" />
+                          <label className="flex items-center gap-1 text-[10.5px] text-violet-700">
+                            <input type="checkbox" checked={!!n.va}
+                              onChange={e => ecrireDetail('cours', co.cours_code, n.points ?? null, e.target.checked ? 1 : 0)} />
+                            VA
+                          </label>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+                {detail.aas.length > 0 && (
+                  <div>
+                    <div className="text-[10px] font-bold uppercase tracking-wide text-slate-400 mb-1.5">Acquis d'apprentissage</div>
+                    {detail.aas.map(aa => {
+                      const n = detail.notes['aa:' + aa.aa_code] || {};
+                      return (
+                        <div key={aa.aa_code} className="flex items-center gap-2 py-1">
+                          <div className="flex-1 text-[11.5px] text-slate-600 truncate" title={aa.description || aa.aa_code}>
+                            <b className="text-iip-blue">{aa.aa_code}</b> {aa.description || ''}
+                          </div>
+                          <input type="number" min="0" max="100" placeholder="%"
+                            defaultValue={n.points ?? ''}
+                            onBlur={e => ecrireDetail('aa', aa.aa_code,
+                              e.target.value !== '' ? Number(e.target.value) : null, n.va ? 1 : 0)}
+                            className="w-14 border border-slate-300 rounded-lg px-1.5 py-1 text-[11.5px] text-right" />
+                          <label className="flex items-center gap-1 text-[10.5px] text-violet-700">
+                            <input type="checkbox" checked={!!n.va}
+                              onChange={e => ecrireDetail('aa', aa.aa_code, n.points ?? null, e.target.checked ? 1 : 0)} />
+                            VA
+                          </label>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+                {!detail.cours.length && !detail.aas.length && (
+                  <div className="text-[11.5px] text-slate-400 text-center py-2">
+                    Aucun cours ni AA au référentiel pour cette UE.
+                  </div>
+                )}
+              </div>
+            )}
           </div>
         </div>
       )}

@@ -90,6 +90,25 @@ export function migrerEtudiants(dbx) {
     CREATE INDEX IF NOT EXISTS idx_valo_etud ON etudiant_valorisation(etudiant_id);
     `);
     console.log('[migration] etudiant_valorisation créée');
+
+    // Notes détaillées par cours et par acquis d'apprentissage
+    dbx.exec(`
+    CREATE TABLE IF NOT EXISTS etudiant_note_detail (
+      id             INTEGER PRIMARY KEY AUTOINCREMENT,
+      etudiant_id    INTEGER NOT NULL REFERENCES etudiant(id) ON DELETE CASCADE,
+      annee_scolaire TEXT NOT NULL,
+      ue_num         INTEGER NOT NULL,
+      type           TEXT NOT NULL CHECK (type IN ('cours','aa')),
+      code           TEXT NOT NULL,
+      points         REAL,
+      va             INTEGER NOT NULL DEFAULT 0,
+      commentaire    TEXT,
+      UNIQUE(etudiant_id, annee_scolaire, ue_num, type, code)
+    );
+    CREATE INDEX IF NOT EXISTS idx_note_detail
+      ON etudiant_note_detail(etudiant_id, annee_scolaire, ue_num);
+    `);
+    console.log('[migration] etudiant_note_detail créée');
   } catch (e) { console.error('[migration] etudiants :', e.message); }
 }
 
@@ -340,9 +359,14 @@ r.get('/:id/grille', authRequired, (req, res) => {
     }
   }
 
+  // Cellules avec notes détaillées (pour l'indicateur visuel)
+  const detailSet = db.prepare(`
+    SELECT DISTINCT annee_scolaire, ue_num FROM etudiant_note_detail WHERE etudiant_id = ?
+  `).all(etudId).map(d => d.annee_scolaire + ':' + d.ue_num);
+
   res.json({
     etudiant: { id: e.id, nom: e.nom, prenom: e.prenom },
-    sections, annees, anneeActive,
+    sections, annees, anneeActive, detail: detailSet,
     ues: ues.map(u => ({
       ...u,
       prerequis: prereqDe[u.ue_num] || [],
@@ -398,6 +422,67 @@ r.put('/:id/grille', authRequired, roleRequired('admin', 'editeur'), (req, res) 
       resultat = excluded.resultat, points = excluded.points, derogation = excluded.derogation
   `).run(etudId, annee, ueN, kind === 'inscrit' ? null : kind,
          points != null ? Number(points) : null, derogation ? 1 : 0);
+  res.json({ ok: true });
+});
+
+// ── Détail des notes par cours et par AA (cellule UE × année) ────────────────
+r.get('/:id/grille/detail', authRequired, (req, res) => {
+  const etudId = Number(req.params.id);
+  const { annee, ue_num } = req.query;
+  if (!annee || !ue_num) return res.status(400).json({ error: 'annee et ue_num requis' });
+  const ueN = Number(ue_num);
+
+  const cours = db.prepare(`
+    SELECT cours_code, cours_nom FROM cours
+    WHERE ue_num = ? AND annee_scolaire = ? ORDER BY cours_code
+  `).all(ueN, annee);
+  // Fallback : si le référentiel de cette année-là n'existe pas, prendre l'année active
+  let coursFinal = cours;
+  if (!cours.length) {
+    const aAct = db.prepare('SELECT code FROM annee_scolaire WHERE active = 1').get()?.code;
+    coursFinal = db.prepare(`
+      SELECT cours_code, cours_nom FROM cours
+      WHERE ue_num = ? AND annee_scolaire = ? ORDER BY cours_code
+    `).all(ueN, aAct);
+  }
+  const aas = db.prepare(`
+    SELECT aa_code, aa_num, cours_code, description FROM aa
+    WHERE ue_num = ? ORDER BY aa_num
+  `).all(ueN);
+
+  const notes = db.prepare(`
+    SELECT type, code, points, va, commentaire FROM etudiant_note_detail
+    WHERE etudiant_id = ? AND annee_scolaire = ? AND ue_num = ?
+  `).all(etudId, annee, ueN);
+  const notesMap = {};
+  for (const n of notes) notesMap[n.type + ':' + n.code] = n;
+
+  res.json({ cours: coursFinal, aas, notes: notesMap });
+});
+
+r.put('/:id/grille/detail', authRequired, roleRequired('admin', 'editeur'), (req, res) => {
+  const etudId = Number(req.params.id);
+  const { annee, ue_num, type, code, points, va } = req.body;
+  if (!annee || !ue_num || !type || !code) {
+    return res.status(400).json({ error: 'annee, ue_num, type et code requis' });
+  }
+  if (!['cours', 'aa'].includes(type)) return res.status(400).json({ error: 'type invalide' });
+
+  const vide = (points == null || points === '') && !va;
+  if (vide) {
+    db.prepare(`
+      DELETE FROM etudiant_note_detail
+      WHERE etudiant_id=? AND annee_scolaire=? AND ue_num=? AND type=? AND code=?
+    `).run(etudId, annee, Number(ue_num), type, code);
+  } else {
+    db.prepare(`
+      INSERT INTO etudiant_note_detail (etudiant_id, annee_scolaire, ue_num, type, code, points, va)
+      VALUES (?,?,?,?,?,?,?)
+      ON CONFLICT(etudiant_id, annee_scolaire, ue_num, type, code) DO UPDATE SET
+        points = excluded.points, va = excluded.va
+    `).run(etudId, annee, Number(ue_num), type, code,
+           points != null && points !== '' ? Number(points) : (va ? 50 : null), va ? 1 : 0);
+  }
   res.json({ ok: true });
 });
 
