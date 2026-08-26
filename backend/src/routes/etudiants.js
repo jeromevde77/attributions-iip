@@ -70,6 +70,25 @@ export function migrerEtudiants(dbx) {
     addCol('etudiant_inscription', "di_specifique REAL");
     addCol('etudiant_inscription', "ects REAL");
     console.log('[migration] etudiant_piece + colonnes fiche inscription');
+
+    // Valorisation des acquis — AGCF 13-12-2024 (art. 3 partielle, art. 4 complète)
+    dbx.exec(`
+    CREATE TABLE IF NOT EXISTS etudiant_valorisation (
+      id             INTEGER PRIMARY KEY AUTOINCREMENT,
+      etudiant_id    INTEGER NOT NULL REFERENCES etudiant(id) ON DELETE CASCADE,
+      annee_scolaire TEXT NOT NULL,
+      ue_num         INTEGER NOT NULL,
+      type           TEXT NOT NULL CHECK (type IN ('complete','partielle','admission')),
+      cible          TEXT CHECK (cible IN ('aa','cours') OR cible IS NULL),
+      cible_detail   TEXT,          -- codes AA ou codes cours dispensés (séparés par virgule)
+      pourcentage    REAL,          -- note attribuée (pratique : 50 par défaut)
+      decision_ce_date TEXT,        -- date de la décision du Conseil des études
+      commentaire    TEXT,
+      cree_le        TEXT DEFAULT (datetime('now'))
+    );
+    CREATE INDEX IF NOT EXISTS idx_valo_etud ON etudiant_valorisation(etudiant_id);
+    `);
+    console.log('[migration] etudiant_valorisation créée');
   } catch (e) { console.error('[migration] etudiants :', e.message); }
 }
 
@@ -186,8 +205,16 @@ r.get('/:id/pae', authRequired, (req, res) => {
     }
   }
 
-  // Ensemble effectif des acquis : explicite ∪ inféré
-  const reussies = new Set([...reussiesExplicites, ...reputeesAcquises]);
+  // VA en dispense complète : l'UE est acquise (AGCF art. 4)
+  const vaCompletes = new Set(
+    db.prepare(`
+      SELECT DISTINCT ue_num FROM etudiant_valorisation
+      WHERE etudiant_id = ? AND type = 'complete'
+    `).all(profId).map(r => r.ue_num)
+  );
+
+  // Ensemble effectif des acquis : explicite ∪ inféré ∪ VA complète
+  const reussies = new Set([...reussiesExplicites, ...reputeesAcquises, ...vaCompletes]);
 
   // Sections de l'étudiant — déduites de ses inscriptions passées
   const sectionsEtudiant = db.prepare(`
@@ -229,7 +256,8 @@ r.get('/:id/pae', authRequired, (req, res) => {
       prerequis,
       prerequis_ok,
       deja_reussie,
-      reputee_acquise: !reussiesExplicites.has(ue.ue_num) && reputeesAcquises.has(ue.ue_num),
+      va_complete: vaCompletes.has(ue.ue_num),
+      reputee_acquise: !reussiesExplicites.has(ue.ue_num) && !vaCompletes.has(ue.ue_num) && reputeesAcquises.has(ue.ue_num),
       deja_suivie: dejaSuivies.has(ue.ue_num),
       accessible: prerequis_ok && !deja_reussie,
       // Circulaire 9764 : la réinscription dans une UE déjà réussie est possible
@@ -247,6 +275,64 @@ r.get('/:id/pae', authRequired, (req, res) => {
     accessibles: pae.filter(u => u.accessible).length,
     reference: 'PAE — Plan Annuel de l\'Étudiant. Basé sur les prérequis de la section et les UE organisées.'
   });
+});
+
+// ── Valorisation des acquis (VA/VAE) — AGCF 13-12-2024 ──────────────────────
+r.get('/:id/valorisations', authRequired, (req, res) => {
+  const rows = db.prepare(`
+    SELECT v.*, u.ue_nom, u.section
+    FROM etudiant_valorisation v
+    LEFT JOIN ue u ON u.ue_num = v.ue_num AND u.annee_scolaire = v.annee_scolaire
+    WHERE v.etudiant_id = ?
+    ORDER BY v.annee_scolaire DESC, v.ue_num
+  `).all(Number(req.params.id));
+  res.json(rows);
+});
+
+r.post('/:id/valorisations', authRequired, roleRequired('admin', 'editeur'), (req, res) => {
+  const { annee_scolaire, ue_num, type, cible, cible_detail, pourcentage,
+          decision_ce_date, commentaire } = req.body;
+  if (!annee_scolaire || !ue_num || !type) {
+    return res.status(400).json({ error: 'annee_scolaire, ue_num et type requis' });
+  }
+  if (!['complete','partielle','admission'].includes(type)) {
+    return res.status(400).json({ error: 'type invalide' });
+  }
+  if (type === 'partielle' && !['aa','cours'].includes(cible)) {
+    return res.status(400).json({ error: 'dispense partielle : cible aa ou cours requise' });
+  }
+  db.prepare(`
+    INSERT INTO etudiant_valorisation
+      (etudiant_id, annee_scolaire, ue_num, type, cible, cible_detail,
+       pourcentage, decision_ce_date, commentaire)
+    VALUES (?,?,?,?,?,?,?,?,?)
+  `).run(Number(req.params.id), annee_scolaire, Number(ue_num), type,
+         type === 'partielle' ? cible : null,
+         type === 'partielle' ? (cible_detail || null) : null,
+         pourcentage != null ? Number(pourcentage) : (type !== 'admission' ? 50 : null),
+         decision_ce_date || null, commentaire || null);
+  res.json({ ok: true });
+});
+
+r.delete('/valorisations/:vid', authRequired, roleRequired('admin'), (req, res) => {
+  db.prepare('DELETE FROM etudiant_valorisation WHERE id = ?').run(Number(req.params.vid));
+  res.json({ ok: true });
+});
+
+// Cibles disponibles pour une dispense partielle : les cours et AA d'une UE
+r.get('/ue/:ueNum/composantes', authRequired, (req, res) => {
+  const ueNum = Number(req.params.ueNum);
+  const annee = req.query.annee;
+  const cours = db.prepare(`
+    SELECT cours_code, cours_nom FROM cours
+    WHERE ue_num = ? ${annee ? 'AND annee_scolaire = ?' : ''}
+    ORDER BY cours_code
+  `).all(...(annee ? [ueNum, annee] : [ueNum]));
+  const aas = db.prepare(`
+    SELECT aa_code, aa_num, cours_code, description FROM aa
+    WHERE ue_num = ? ORDER BY aa_num
+  `).all(ueNum);
+  res.json({ cours, aas });
 });
 
 // ── Dossier individuel : les 5 pièces réglementaires ─────────────────────────

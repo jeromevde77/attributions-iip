@@ -1,7 +1,7 @@
 import { useEffect, useState, useMemo } from 'react';
 import {
   IconSearch, IconUser, IconChevronRight, IconPlus, IconCheck,
-  IconX, IconPrinter, IconAlertTriangle, IconClock, IconUpload, IconFileText, IconFolder,
+  IconX, IconPrinter, IconAlertTriangle, IconClock, IconUpload, IconFileText, IconFolder, IconTrash,
 } from '@tabler/icons-react';
 import { authHeaders, getAnnee } from '../lib/api.js';
 import PreviewModal from '../components/PreviewModal.jsx';
@@ -11,6 +11,182 @@ const STATUTS_PIECE = [
   { val: 'recu',     label: 'Reçu',     cls: 'bg-emerald-50 text-emerald-700 border-emerald-200' },
   { val: 'na',       label: 'N/A',      cls: 'bg-slate-100 text-slate-500 border-slate-200' },
 ];
+
+const TYPES_VA = [
+  { val: 'complete',  label: 'Dispense complète (UE)' },
+  { val: 'partielle', label: 'Dispense partielle (AA ou cours)' },
+  { val: 'admission', label: 'Admission (capacités préalables)' },
+];
+
+function Valorisations({ etudId, annee }) {
+  const [valos, setValos] = useState(null);
+  const [form, setForm] = useState(null);
+  const [composantes, setComposantes] = useState(null);
+  const [estAdmin] = useState(() => {
+    try { return JSON.parse(atob((localStorage.getItem('token')||'').split('.')[1]||''))?.role === 'admin'; }
+    catch { return false; }
+  });
+
+  async function charger() {
+    const rep = await fetch(`/api/etudiants/${etudId}/valorisations`, { headers: authHeaders() });
+    if (rep.ok) setValos(await rep.json());
+  }
+  useEffect(() => { charger(); /* eslint-disable-next-line */ }, [etudId]);
+
+  async function chargerComposantes(ueNum) {
+    if (!ueNum) { setComposantes(null); return; }
+    const rep = await fetch(`/api/etudiants/ue/${ueNum}/composantes?annee=${annee}`, { headers: authHeaders() });
+    if (rep.ok) setComposantes(await rep.json());
+  }
+
+  async function sauver() {
+    const rep = await fetch(`/api/etudiants/${etudId}/valorisations`, {
+      method: 'POST', headers: authHeaders(),
+      body: JSON.stringify({ ...form, annee_scolaire: annee }),
+    });
+    const j = await rep.json();
+    if (!rep.ok) { alert(j.error || 'Erreur'); return; }
+    setForm(null); setComposantes(null); await charger();
+  }
+
+  async function supprimer(vid) {
+    if (!confirm('Supprimer cette valorisation ?')) return;
+    await fetch(`/api/etudiants/valorisations/${vid}`, { method: 'DELETE', headers: authHeaders() });
+    await charger();
+  }
+
+  if (!valos) return <div className="py-6 text-sm text-slate-400">Chargement…</div>;
+
+  return (
+    <div>
+      <div className="flex items-center justify-between mb-3">
+        <p className="text-[12px] text-slate-500">
+          Valorisation des acquis — AGCF du 13-12-2024 · décisions du Conseil des études
+        </p>
+        <button onClick={() => setForm({ type: 'complete', ue_num: '', pourcentage: 50, cible: 'cours', cible_detail: '' })}
+          className="flex items-center gap-1.5 px-3 py-1.5 text-sm border border-slate-300 rounded-lg">
+          <IconPlus size={14} /> Ajouter une VA
+        </button>
+      </div>
+
+      {form && (
+        <div className="border border-slate-200 rounded-xl p-4 bg-slate-50/60 space-y-3 mb-4">
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+            <label className="text-xs col-span-2"><span className="block font-semibold text-slate-500 uppercase tracking-wide mb-1">Type</span>
+              <select value={form.type} onChange={e => setForm(f => ({ ...f, type: e.target.value }))}
+                className="w-full border border-slate-300 rounded-lg px-2 py-1.5 text-sm">
+                {TYPES_VA.map(t => <option key={t.val} value={t.val}>{t.label}</option>)}
+              </select></label>
+            <label className="text-xs"><span className="block font-semibold text-slate-500 uppercase tracking-wide mb-1">N° UE</span>
+              <input type="number" value={form.ue_num}
+                onChange={e => { setForm(f => ({ ...f, ue_num: e.target.value })); }}
+                onBlur={e => form.type === 'partielle' && chargerComposantes(e.target.value)}
+                className="w-full border border-slate-300 rounded-lg px-2 py-1.5 text-sm" /></label>
+            {form.type !== 'admission' && (
+              <label className="text-xs"><span className="block font-semibold text-slate-500 uppercase tracking-wide mb-1">%</span>
+                <input type="number" min="0" max="100" value={form.pourcentage}
+                  onChange={e => setForm(f => ({ ...f, pourcentage: e.target.value }))}
+                  className="w-full border border-slate-300 rounded-lg px-2 py-1.5 text-sm" /></label>
+            )}
+          </div>
+
+          {form.type === 'partielle' && (
+            <div className="space-y-2">
+              <div className="flex gap-3">
+                {['cours','aa'].map(cb => (
+                  <label key={cb} className="flex items-center gap-1.5 text-sm">
+                    <input type="radio" checked={form.cible === cb}
+                      onChange={() => { setForm(f => ({ ...f, cible: cb, cible_detail: '' })); chargerComposantes(form.ue_num); }} />
+                    {cb === 'cours' ? 'Par cours' : "Par acquis d'apprentissage"}
+                  </label>
+                ))}
+              </div>
+              {composantes && (
+                <div className="flex flex-wrap gap-1.5">
+                  {(form.cible === 'cours' ? composantes.cours : composantes.aas).map(item => {
+                    const code = form.cible === 'cours' ? item.cours_code : item.aa_code;
+                    const libelle = form.cible === 'cours' ? item.cours_nom : (item.description || item.aa_code);
+                    const sel = (form.cible_detail || '').split(',').filter(Boolean);
+                    const actif = sel.includes(code);
+                    return (
+                      <button key={code} type="button"
+                        onClick={() => {
+                          const next = actif ? sel.filter(s => s !== code) : [...sel, code];
+                          setForm(f => ({ ...f, cible_detail: next.join(',') }));
+                        }}
+                        className={`text-[11px] px-2 py-1 rounded-lg border ${actif
+                          ? 'bg-iip-blue text-white border-iip-blue'
+                          : 'border-slate-300 text-slate-600 hover:bg-slate-50'}`}
+                        title={libelle}>
+                        {code}
+                      </button>
+                    );
+                  })}
+                  {!((form.cible === 'cours' ? composantes.cours : composantes.aas).length) && (
+                    <span className="text-[11px] text-slate-400">Aucune composante trouvée pour cette UE</span>
+                  )}
+                </div>
+              )}
+            </div>
+          )}
+
+          <div className="grid grid-cols-2 gap-3">
+            <label className="text-xs"><span className="block font-semibold text-slate-500 uppercase tracking-wide mb-1">Date décision CE</span>
+              <input type="date" value={form.decision_ce_date || ''}
+                onChange={e => setForm(f => ({ ...f, decision_ce_date: e.target.value }))}
+                className="w-full border border-slate-300 rounded-lg px-2 py-1.5 text-sm" /></label>
+            <label className="text-xs"><span className="block font-semibold text-slate-500 uppercase tracking-wide mb-1">Commentaire</span>
+              <input value={form.commentaire || ''}
+                onChange={e => setForm(f => ({ ...f, commentaire: e.target.value }))}
+                className="w-full border border-slate-300 rounded-lg px-2 py-1.5 text-sm" /></label>
+          </div>
+
+          <div className="flex gap-2">
+            <button onClick={sauver} disabled={!form.ue_num || (form.type === 'partielle' && !form.cible_detail)}
+              className="text-sm px-3 py-1.5 rounded-lg bg-iip-blue text-white font-semibold disabled:opacity-40">
+              Enregistrer
+            </button>
+            <button onClick={() => { setForm(null); setComposantes(null); }}
+              className="text-sm px-3 py-1.5 rounded-lg border border-slate-300">Annuler</button>
+          </div>
+        </div>
+      )}
+
+      {!valos.length ? (
+        <div className="text-center py-8 text-slate-400 text-sm border-2 border-dashed rounded-xl">
+          Aucune valorisation enregistrée
+        </div>
+      ) : (
+        <div className="space-y-2">
+          {valos.map(v => (
+            <div key={v.id} className="flex items-center justify-between gap-3 border border-slate-200 rounded-xl px-4 py-2.5">
+              <div>
+                <span className="font-medium text-iip-blue">{v.ue_num}</span>
+                <span className="text-slate-600 ml-1.5 text-[12.5px]">{v.ue_nom}</span>
+                <div className="text-[11px] text-slate-400 mt-0.5">
+                  {TYPES_VA.find(t => t.val === v.type)?.label}
+                  {v.cible ? ` · ${v.cible === 'cours' ? 'cours' : 'AA'} : ${v.cible_detail}` : ''}
+                  {v.pourcentage != null ? ` · ${v.pourcentage} %` : ''}
+                  {v.decision_ce_date ? ` · CE du ${v.decision_ce_date}` : ''}
+                </div>
+              </div>
+              {estAdmin && (
+                <button onClick={() => supprimer(v.id)} className="text-slate-300 hover:text-red-500 flex-none">
+                  <IconTrash size={15} />
+                </button>
+              )}
+            </div>
+          ))}
+        </div>
+      )}
+      <p className="text-[10.5px] text-slate-400 mt-3">
+        Dispense complète : l'UE est acquise, l'apprenant n'est pas comptabilisé comme régulier pour cette UE (art. 4).
+        Dispense partielle : dispense d'activités d'enseignement, l'apprenant reste comptabilisé (art. 3).
+        Interdite pour les épreuves intégrées.
+      </p>
+    </div>
+  );
+}
 
 function DossierApprenant({ etudId }) {
   const [pieces, setPieces] = useState(null);
@@ -126,6 +302,7 @@ function FicheEtudiant({ id, annee, onClose }) {
         <div className="flex border-b border-slate-200 px-6">
           {[['inscriptions', `Parcours & résultats (${data.inscriptions?.length || 0})`],
             ['pae', `PAE ${annee}`],
+            ['va', 'Valorisation'],
             ['dossier', 'Dossier']].map(([k, l]) => (
             <button key={k} onClick={() => { setOnglet(k); if (k==='pae' && !pae) chargerPAE(); }}
               className={`px-4 py-3 text-sm font-medium border-b-2 -mb-px ${onglet===k
@@ -184,6 +361,8 @@ function FicheEtudiant({ id, annee, onClose }) {
           )}
 
           {/* PAE */}
+          {onglet === 'va' && <Valorisations etudId={id} annee={annee} />}
+
           {onglet === 'dossier' && <DossierApprenant etudId={id} />}
 
           {onglet === 'pae' && (
@@ -240,7 +419,7 @@ function FicheEtudiant({ id, annee, onClose }) {
                           <td className="py-2">
                             {u.reinscriptible_ce
                               ? <span className="text-[11px] text-amber-700 flex items-center gap-1"><IconAlertTriangle size={12} />
-                                  {u.reputee_acquise ? 'Réputée acquise (inférence prérequis) — réinscription sur décision CE' : 'Réussie — réinscription sur décision CE'}</span>
+                                  {u.va_complete ? 'Dispensée (VA complète)' : u.reputee_acquise ? 'Réputée acquise (inférence prérequis) — réinscription sur décision CE' : 'Réussie — réinscription sur décision CE'}</span>
                               : u.accessible
                                 ? <span className="text-[11px] font-semibold text-emerald-700 flex items-center gap-1"><IconCheck size={12} /> Accessible</span>
                                 : <span className="text-[11px] text-red-600 flex items-center gap-1"><IconClock size={12} /> Prérequis manquants</span>}
