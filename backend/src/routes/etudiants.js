@@ -291,6 +291,81 @@ r.get('/:id/pae', authRequired, (req, res) => {
   });
 });
 
+// ── PAE auto : inscrire d'un clic tout ce que l'étudiant peut avoir ──────────
+// Point fixe : accessibles directes, puis celles débloquées par ces
+// inscriptions (sous réserve — cas épreuve intégrée), jusqu'à stabilité.
+r.post('/:id/pae-auto', authRequired, roleRequired('admin', 'editeur'), (req, res) => {
+  const etudId = Number(req.params.id);
+  const annee = req.body.annee;
+  if (!annee) return res.status(400).json({ error: 'annee requise' });
+  const e = db.prepare('SELECT id FROM etudiant WHERE id = ?').get(etudId);
+  if (!e) return res.status(404).json({ error: 'étudiant introuvable' });
+
+  // Acquis : réussites encodées + VA complètes
+  const acquis = new Set([
+    ...db.prepare("SELECT DISTINCT ue_num FROM etudiant_inscription WHERE etudiant_id = ? AND resultat = 'reussi'").all(etudId).map(r => r.ue_num),
+    ...db.prepare("SELECT DISTINCT ue_num FROM etudiant_valorisation WHERE etudiant_id = ? AND type = 'complete'").all(etudId).map(r => r.ue_num),
+  ]);
+
+  // Sections de l'étudiant
+  const sections = db.prepare(`
+    SELECT DISTINCT u.section FROM etudiant_inscription i
+    JOIN ue u ON u.ue_num = i.ue_num AND u.annee_scolaire = i.annee_scolaire
+    WHERE i.etudiant_id = ? AND u.section IS NOT NULL
+  `).all(etudId).map(r => r.section);
+  if (!sections.length) return res.status(400).json({ error: 'sections de l\'étudiant inconnues' });
+
+  // UE organisées cette année dans ces sections, non acquises
+  const ph = sections.map(() => '?').join(',');
+  const candidates = db.prepare(`
+    SELECT DISTINCT o.ue_num FROM organisation_ue o
+    WHERE o.annee_scolaire = ? AND o.section IN (${ph})
+  `).all(annee, ...sections).map(r => r.ue_num).filter(u => !acquis.has(u));
+
+  // Prérequis
+  const prereqs = db.prepare('SELECT ue_num, prerequis_num FROM ue_prerequis').all();
+  const prereqDe = {};
+  for (const p of prereqs) (prereqDe[p.ue_num] = prereqDe[p.ue_num] || []).push(p.prerequis_num);
+
+  // Point fixe
+  const inscrites = new Set();
+  const sousReserve = {};
+  let stable = false;
+  while (!stable) {
+    stable = true;
+    for (const ue of candidates) {
+      if (inscrites.has(ue)) continue;
+      const manquants = (prereqDe[ue] || []).filter(p => !acquis.has(p));
+      if (manquants.every(p => inscrites.has(p))) {
+        inscrites.add(ue);
+        if (manquants.length) sousReserve[ue] = manquants;
+        stable = false;
+      }
+    }
+  }
+
+  // Insertion (sans écraser un éventuel résultat déjà encodé cette année)
+  const dateInsc = new Date().toISOString().slice(0, 10);
+  const ins = db.prepare(`
+    INSERT OR IGNORE INTO etudiant_inscription
+      (etudiant_id, annee_scolaire, ue_num, date_inscription)
+    VALUES (?,?,?,?)
+  `);
+  let creees = 0;
+  const tx = db.transaction(() => {
+    for (const ue of inscrites) {
+      if (ins.run(etudId, annee, ue, dateInsc).changes) creees++;
+    }
+  });
+  tx();
+
+  res.json({
+    ok: true, annee, creees,
+    inscrites: [...inscrites].sort((a, b) => a - b),
+    sous_reserve: Object.fromEntries(Object.entries(sousReserve)),
+  });
+});
+
 // ── Import des résultats depuis le classeur de suivi (.xlsm) ─────────────────
 // Le frontend lit les onglets par UE et envoie { annee, resultats: [...] }.
 r.post('/import-resultats', authRequired, roleRequired('admin', 'editeur'), (req, res) => {

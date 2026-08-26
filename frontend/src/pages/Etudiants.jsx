@@ -515,6 +515,19 @@ function FicheEtudiant({ id, annee, onClose }) {
   const [onglet, setOnglet] = useState('grille');
   const [ficheInscription, setFicheInscription] = useState(null);
 
+  async function paeAuto() {
+    if (!window.confirm('Inscrire automatiquement cet étudiant à toutes les UE accessibles en ' + annee + ' (y compris les inscriptions sous réserve) ?')) return;
+    const rep = await fetch(`/api/etudiants/${id}/pae-auto`, {
+      method: 'POST', headers: authHeaders(), body: JSON.stringify({ annee }),
+    });
+    const j = await rep.json();
+    if (!rep.ok) { alert(j.error || 'Erreur'); return; }
+    const nbSR = Object.keys(j.sous_reserve || {}).length;
+    alert(`${j.creees} inscription(s) créée(s) — ${j.inscrites.length} UE au PAE ${annee}` +
+      (nbSR ? `\ndont ${nbSR} sous réserve : UE ${Object.keys(j.sous_reserve).join(', ')}` : ''));
+    await chargerPAE(); await charger();
+  }
+
   async function ouvrirFicheInscription() {
     const rep = await fetch(`/api/etudiants/${id}/fiche-inscription?annee=${annee}`, { headers: authHeaders() });
     const j = await rep.json();
@@ -652,10 +665,16 @@ function FicheEtudiant({ id, annee, onClose }) {
                         {pae.accessibles} UE accessibles · basé sur les résultats {pae.annee_precedente}
                       </div>
                     </div>
-                    <button onClick={ouvrirFicheInscription}
-                      className="flex items-center gap-1.5 px-3 py-1.5 text-sm bg-iip-blue text-white font-semibold rounded-lg">
-                      <IconFileText size={14} /> Fiche d'inscription / reçu
-                    </button>
+                    <div className="flex gap-2">
+                      <button onClick={paeAuto}
+                        className="flex items-center gap-1.5 px-3 py-1.5 text-sm bg-iip-turquoise text-white font-semibold rounded-lg">
+                        <IconCheck size={14} /> PAE auto
+                      </button>
+                      <button onClick={ouvrirFicheInscription}
+                        className="flex items-center gap-1.5 px-3 py-1.5 text-sm bg-iip-blue text-white font-semibold rounded-lg">
+                        <IconFileText size={14} /> Fiche d'inscription / reçu
+                      </button>
+                    </div>
                   </div>
 
                   <table className="w-full text-sm">
