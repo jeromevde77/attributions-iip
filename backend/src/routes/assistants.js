@@ -27,6 +27,102 @@ const compte = (sql, ...p) => Number(un(sql, ...p)?.n || 0);
 // qui renvoie { fait, valeur, detail? }. Ajouter un assistant = ajouter une
 // entrée ici, le rendu et l'API sont communs.
 const ASSISTANTS = {
+  annee: {
+    titre: 'Ouvrir une année scolaire',
+    intro: "La rentrée apporte une circulaire, parfois un décret, et les échéances propres à l'établissement. Ce qui est réglementaire se reconduit ; le reste se reporte et s'ajuste.",
+    parametres: ['annee'],
+    etapes: [
+      {
+        cle: 'annee_creee',
+        titre: 'Créer l\u2019année scolaire',
+        aide: "L'année doit exister et, le moment venu, devenir l'année active.",
+        cible: '/configuration?onglet=annees',
+        verifier: ({ annee }) => {
+          const a = un('SELECT code, active FROM annee_scolaire WHERE code = ?', annee);
+          return {
+            fait: !!a,
+            valeur: a ? (a.active ? 'créée · active' : 'créée') : null,
+            detail: a && !a.active ? "L'année existe mais n'est pas encore l'année active." : null,
+          };
+        },
+      },
+      {
+        cle: 'veille',
+        titre: 'Veille réglementaire — décret et circulaire',
+        aide: "Nouveau décret ? Nouvelle circulaire de rentrée ? Si rien n'a changé, les échéances légales sont reconduites telles quelles.",
+        cible: '/organisation?onglet=rentree',
+        verifier: ({ annee }) => {
+          const total = compte('SELECT COUNT(*) AS n FROM echeance_type WHERE actif = 1');
+          if (!total) return { fait: false, valeur: null, detail: 'Aucun type d\u2019échéance au référentiel.' };
+          const revus = compte(
+            'SELECT COUNT(*) AS n FROM echeance_type WHERE actif = 1 AND revue_annee = ?', annee);
+          return {
+            fait: revus === total,
+            valeur: `${revus}/${total} confirmé(s)`,
+            detail: revus < total ? `${total - revus} type(s) d'échéance à confirmer pour cette année.` : null,
+          };
+        },
+      },
+      {
+        cle: 'echeances_legales',
+        titre: 'Instancier les échéances légales',
+        aide: 'Les dates issues des décrets et circulaires sont calculées pour l\u2019année.',
+        cible: '/echeancier',
+        verifier: ({ annee }) => {
+          const n = compte(
+            'SELECT COUNT(*) AS n FROM echeance WHERE annee_scolaire = ? AND genere_auto = 1', annee);
+          return { fait: n > 0, valeur: n ? `${n} échéance(s)` : null };
+        },
+      },
+      {
+        cle: 'evenements',
+        titre: 'Reporter les événements de l\u2019établissement',
+        aide: 'Portes ouvertes, délibérations, sorties, exercice d\u2019évacuation — repris de l\u2019an dernier, puis ajustés.',
+        cible: '/organisation?onglet=rentree',
+        verifier: ({ annee }) => {
+          const n = compte(
+            'SELECT COUNT(*) AS n FROM evenement_etablissement WHERE annee_scolaire = ?', annee);
+          return { fait: n > 0, valeur: n ? `${n} événement(s)` : null };
+        },
+      },
+      {
+        cle: 'referentiel',
+        titre: 'Reprendre le référentiel des UE',
+        aide: "Les UE de l'année : reprises de l'an dernier, puis amendées si le dossier pédagogique a évolué.",
+        cible: '/configuration?onglet=referentiels',
+        verifier: ({ annee }) => {
+          const n = compte('SELECT COUNT(DISTINCT ue_num) AS n FROM ue WHERE annee_scolaire = ?', annee);
+          return { fait: n > 0, valeur: n ? `${n} UE` : null };
+        },
+      },
+      {
+        cle: 'organisations',
+        titre: 'Créer les organisations d\u2019UE',
+        aide: 'Ce qui est organisé cette année, toutes sections confondues, avec leurs dates.',
+        cible: '/organisation?onglet=organisations',
+        verifier: ({ annee }) => {
+          const n = compte('SELECT COUNT(*) AS n FROM organisation_ue WHERE annee_scolaire = ?', annee);
+          const datees = compte(
+            'SELECT COUNT(*) AS n FROM organisation_ue WHERE annee_scolaire = ? AND date_debut IS NOT NULL', annee);
+          return {
+            fait: n > 0, valeur: n ? `${n} organisation(s)` : null,
+            detail: n && datees < n ? `${n - datees} sans dates — le comptage au 1/10 en dépend.` : null,
+          };
+        },
+      },
+      {
+        cle: 'attributions',
+        titre: 'Attribuer les charges',
+        aide: "L'écran Attributions — il alimente la dotation, les fiches du personnel et les contrats.",
+        cible: '/organisation?onglet=attributions',
+        verifier: ({ annee }) => {
+          const n = compte('SELECT COUNT(*) AS n FROM attribution WHERE annee_scolaire = ?', annee);
+          return { fait: n > 0, valeur: n ? `${n} attribution(s)` : null };
+        },
+      },
+    ],
+  },
+
   section: {
     titre: 'Mettre en route une section',
     intro: "Les étapes s'enchaînent : le référentiel d'abord, la structure ensuite, l'organisation de l'année pour finir.",
