@@ -73,7 +73,8 @@ export function construireGraphe({ sections, annee, etat }) {
   const anneeRef = db.prepare('SELECT code FROM annee_scolaire WHERE active = 1').get()?.code || annee;
 
   const ues = db.prepare(`
-    SELECT ue_num, MIN(ue_nom) AS ue_nom, MIN(section) AS section
+    SELECT ue_num, MIN(ue_nom) AS ue_nom, MIN(section) AS section,
+           MAX(COALESCE(is_epreuve_integree, 0)) AS is_epreuve_integree
     FROM ue WHERE annee_scolaire = ? AND section IN (${ph})
     GROUP BY ue_num
   `).all(anneeRef, ...sections);
@@ -102,11 +103,18 @@ export function construireGraphe({ sections, annee, etat }) {
   };
   for (const u of ues) calcul(u.ue_num);
 
-  // Colonnes = niveaux d'études
-  const listeNiveaux = [...new Set(ues.map(u => niveaux[u.ue_num] || ''))]
+  // Colonnes = niveaux d'études. L'épreuve intégrée est l'aboutissement du
+  // cursus : elle obtient une colonne à part, en fin de schéma, tout en
+  // restant rattachée à son année d'études (BA3 en général).
+  const estEI = {};
+  for (const u of ues) estEI[u.ue_num] = !!u.is_epreuve_integree;
+  const ilYADesEI = ues.some(u => u.is_epreuve_integree);
+
+  const listeNiveaux = [...new Set(ues.filter(u => !estEI[u.ue_num]).map(u => niveaux[u.ue_num] || ''))]
     .sort((a, b) => rangNiveau(a) - rangNiveau(b) || a.localeCompare(b));
   const colonneDe = {};
   listeNiveaux.forEach((v, i) => { colonneDe[v] = i; });
+  const colonneEI = listeNiveaux.length;
 
   const nodes = ues.map(u => {
     const n = u.ue_num;
@@ -116,17 +124,21 @@ export function construireGraphe({ sections, annee, etat }) {
       ue_nom: u.ue_nom,
       ue_niv: niv,
       section: u.section,
-      couche: colonneDe[niv] || 0,
+      couche: estEI[n] ? colonneEI : (colonneDe[niv] || 0),
       ordre: profondeur[n] || 0,
+      epreuve_integree: estEI[n],
       prerequis: prereqDe[n] || [],
       ...(etat ? etat(n) : { statut: 'structure' }),
     };
   }).sort((a, b) => a.couche - b.couche || a.ordre - b.ordre || a.ue_num - b.ue_num);
 
-  return {
-    nodes, edges,
-    colonnes: listeNiveaux.map((v, i) => ({ index: i, label: v || '—' })),
-  };
+  const colonnes = listeNiveaux.map((v, i) => ({ index: i, label: v || '—' }));
+  if (ilYADesEI) {
+    const nivEI = [...new Set(ues.filter(u => estEI[u.ue_num]).map(u => niveaux[u.ue_num] || ''))]
+      .sort((a, b) => rangNiveau(b) - rangNiveau(a))[0] || '';
+    colonnes.push({ index: colonneEI, label: nivEI || '—', sous_titre: 'Épreuve intégrée' });
+  }
+  return { nodes, edges, colonnes };
 }
 
 // ── Structure d'une section (sans étudiant) ─────────────────────────────────

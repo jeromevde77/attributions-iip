@@ -20,6 +20,11 @@ export const COULEURS_CAP = {
   structure:    { fill: '#F8FAFC', stroke: '#1B2B4B', text: '#1B2B4B', label: 'Unité d\u2019enseignement' },
 };
 
+// L'épreuve intégrée est l'aboutissement du cursus : liseré doré, quelle que
+// soit la situation de l'étudiant (la couleur de fond continue d'indiquer
+// l'état : acquise, accessible, bloquée…).
+export const OR = { fill: '#FBF3DC', stroke: '#C9A84C', text: '#7A5C12', label: 'Épreuve intégrée' };
+
 export default function SchemaCapitalisation({
   data, mode = 'etudiant', onNiveau = null, replie = false, titre = 'Schéma de capitalisation',
 }) {
@@ -37,10 +42,11 @@ export default function SchemaCapitalisation({
     let hauteurMax = 0;
     nums.forEach((cn, ci) => {
       const x = PAD + ci * (L + GX);
+      const colInfo = (data.colonnes || []).find(c0 => c0.index === cn);
       entetes.push({
         x, cn,
-        label: (data.colonnes || []).find(c0 => c0.index === cn)?.label
-               || couches[cn][0]?.ue_niv || '—',
+        label: colInfo?.label || couches[cn][0]?.ue_niv || '—',
+        sousTitre: colInfo?.sous_titre || null,
       });
       couches[cn].forEach((n, ri) => { pos[n.ue_num] = { x, y: PAD + TETE + ri * (H + GY) }; });
       hauteurMax = Math.max(hauteurMax, couches[cn].length);
@@ -93,10 +99,20 @@ export default function SchemaCapitalisation({
               </defs>
 
               {layout.entetes.map(e0 => (
-                <text key={'h' + e0.cn} x={e0.x + layout.L / 2} y={layout.PAD + 12}
-                  textAnchor="middle" fontSize="10" fontWeight="700" fill="#94A3B8" letterSpacing="0.6">
-                  {e0.label}
-                </text>
+                <g key={'h' + e0.cn}>
+                  <text x={e0.x + layout.L / 2} y={layout.PAD + (e0.sousTitre ? 8 : 12)}
+                    textAnchor="middle" fontSize="10" fontWeight="700"
+                    fill={e0.sousTitre ? '#C9A84C' : '#94A3B8'} letterSpacing="0.6">
+                    {e0.label}
+                  </text>
+                  {e0.sousTitre && (
+                    <text x={e0.x + layout.L / 2} y={layout.PAD + 18}
+                      textAnchor="middle" fontSize="7.5" fontWeight="600"
+                      fill="#C9A84C" letterSpacing="0.4">
+                      {e0.sousTitre.toUpperCase()}
+                    </text>
+                  )}
+                </g>
               ))}
 
               {data.edges.map((eg, i) => {
@@ -116,7 +132,11 @@ export default function SchemaCapitalisation({
               {data.nodes.map(n => {
                 const p = layout.pos[n.ue_num];
                 if (!p) return null;
-                const co = COULEURS_CAP[n.statut] || COULEURS_CAP.bloquee;
+                const base = COULEURS_CAP[n.statut] || COULEURS_CAP.bloquee;
+                const ei = !!n.epreuve_integree;
+                const co = ei
+                  ? { fill: mode === 'structure' ? OR.fill : base.fill, stroke: OR.stroke, text: ei && mode === 'structure' ? OR.text : base.text }
+                  : base;
                 const nom = (n.ue_nom || '').length > 24 ? (n.ue_nom || '').slice(0, 23) + '…' : (n.ue_nom || '');
                 const actif = selection === n.ue_num;
                 return (
@@ -128,8 +148,12 @@ export default function SchemaCapitalisation({
                       n.prereq_manquants?.length ? '\nManquants : ' + n.prereq_manquants.join(', ') : ''}`}</title>
                     <rect x={p.x} y={p.y} width={layout.L} height={layout.H} rx="7"
                       fill={co.fill} stroke={actif ? '#00AACC' : co.stroke}
-                      strokeWidth={actif ? 2.5 : (n.inscrite ? 2 : 1.2)}
+                      strokeWidth={actif ? 2.5 : (ei ? 2.2 : (n.inscrite ? 2 : 1.2))}
                       strokeDasharray={n.statut === 'sous_reserve' ? '4 3' : undefined} />
+                    {ei && (
+                      <text x={p.x + layout.L - 9} y={p.y + layout.H - 7} textAnchor="end"
+                        fontSize="10" fill={OR.stroke}>★</text>
+                    )}
                     <text x={p.x + 8} y={p.y + 16} fontSize="11.5" fontWeight="700" fill={co.text}>
                       {n.ue_num}
                     </text>
@@ -184,6 +208,10 @@ export default function SchemaCapitalisation({
               ))}
               <span className="flex items-center gap-1.5">
                 <span className="inline-block w-2 h-2 rounded-full bg-slate-500" /> inscrite cette année
+              </span>
+              <span className="flex items-center gap-1.5">
+                <span className="inline-block w-3 h-3 rounded-sm border-2" style={{ borderColor: OR.stroke }} />
+                épreuve intégrée
               </span>
             </div>
           )}
