@@ -153,17 +153,11 @@ function GrilleParcours({ etudId, peutEcrire }) {
   const [data, setData] = useState(null);
   const [popover, setPopover] = useState(null); // { annee, ue_num, verrou }
   const [pts, setPts] = useState('');
-  const [anneesExtra, setAnneesExtra] = useState([]);
+  const [nbHistorique, setNbHistorique] = useState(0);   // nb d'années antérieures révélées
   const [detail, setDetail] = useState(null);       // composantes + notes de la cellule ouverte
   const [detailOuvert, setDetailOuvert] = useState(false);
 
-  function ajouterAnneeAnterieure() {
-    const toutes = [...anneesExtra, ...(data?.annees || [])].sort();
-    const premiere = toutes[0];
-    if (!premiere) return;
-    const [a1] = premiere.split('-').map(Number);
-    setAnneesExtra(prev => [...prev, (a1-1) + '-' + a1]);
-  }
+
 
   async function charger() {
     const rep = await fetch(`/api/etudiants/${etudId}/grille`, { headers: authHeaders() });
@@ -214,7 +208,17 @@ function GrilleParcours({ etudId, peutEcrire }) {
   );
 
   const cell = (annee, ueNum) => data.cellules?.[annee]?.[ueNum] || null;
-  const anneesAffichees = [...new Set([...anneesExtra, ...data.annees])].sort();
+  // Les années antérieures existent toujours ; le bouton « les révèle.
+  // Le calcul part TOUJOURS des années réellement présentes en base, jamais
+  // d'une liste accumulée — impossible d'en perdre une au clic suivant.
+  const anneesBase = [...data.annees].sort();
+  const anneesAffichees = (() => {
+    if (!nbHistorique || !anneesBase.length) return anneesBase;
+    const [a1] = anneesBase[0].split('-').map(Number);
+    const avant = [];
+    for (let k = nbHistorique; k >= 1; k--) avant.push((a1 - k) + '-' + (a1 - k + 1));
+    return [...avant, ...anneesBase];
+  })();
   const aDetail = (annee, ueNum) => (data.detail || []).includes(annee + ':' + ueNum);
 
   return (
@@ -226,10 +230,20 @@ function GrilleParcours({ etudId, peutEcrire }) {
         Un halo <span className="inline-block w-3 h-3 rounded-sm bg-violet-100 border border-violet-300 align-middle"></span> suggère
         une UE probablement acquise (inférence prérequis) à confirmer.
         </p>
-        <button onClick={ajouterAnneeAnterieure}
-          className="flex-none flex items-center gap-1.5 px-2.5 py-1.5 text-[12px] border border-slate-300 rounded-lg hover:bg-slate-50">
-          <IconPlus size={13} /> Année antérieure
-        </button>
+        <div className="flex-none flex gap-1.5">
+          {nbHistorique > 0 && (
+            <button onClick={() => setNbHistorique(0)}
+              title="Masquer les années antérieures vides"
+              className="px-2.5 py-1.5 text-[12px] border border-slate-300 rounded-lg hover:bg-slate-50">
+              » Masquer
+            </button>
+          )}
+          <button onClick={() => setNbHistorique(n => (n === 0 ? 5 : n + 3))}
+            title="Afficher les années antérieures pour encoder l'historique"
+            className="px-2.5 py-1.5 text-[12px] border border-slate-300 rounded-lg hover:bg-slate-50">
+            « {nbHistorique === 0 ? 'Années antérieures' : 'Remonter encore'}
+          </button>
+        </div>
       </div>
 
       <div className="overflow-x-auto border border-slate-200 rounded-xl">
