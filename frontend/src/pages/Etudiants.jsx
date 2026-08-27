@@ -61,6 +61,23 @@ function GrilleParcours({ etudId, peutEcrire }) {
     if (rep.ok) { setDetail(await rep.json()); setDetailOuvert(true); }
   }
 
+  async function poserReport(cand) {
+    await fetch('/api/acquis/reports', {
+      method: 'PUT', headers: authHeaders(),
+      body: JSON.stringify({
+        etudiant_id: etudId, annee_scolaire: popover.annee, ue_num: popover.ue_num,
+        cours_code: cand.cours_code, note: cand.note, annee_origine: cand.annee_origine,
+      }),
+    });
+    await chargerDetail();
+  }
+
+  async function retirerReport(coursCode) {
+    await fetch(`/api/acquis/reports/${etudId}/${popover.ue_num}/${encodeURIComponent(coursCode)}?annee=${popover.annee}`,
+      { method: 'DELETE', headers: authHeaders() });
+    await chargerDetail();
+  }
+
   async function ecrireDetail(coursCode, aaCode, points, opts = {}) {
     const rep = await fetch(`/api/etudiants/${etudId}/grille/detail`, {
       method: 'PUT', headers: authHeaders(),
@@ -304,6 +321,32 @@ function GrilleParcours({ etudId, peutEcrire }) {
                   </div>
                 )}
 
+                {/* Reports de note proposés : cours validés dans une UE échouée */}
+                {(detail.candidats_report || []).length > 0 && (
+                  <div className="mb-3 border border-sky-200 bg-sky-50 rounded-xl px-3 py-2.5">
+                    <div className="text-[11.5px] font-semibold text-sky-900 mb-1.5">
+                      Report de note possible
+                    </div>
+                    <div className="space-y-1">
+                      {detail.candidats_report.map(cd => (
+                        <div key={cd.cours_code} className="flex items-center gap-2">
+                          <div className="flex-1 text-[11px] text-sky-900 truncate" title={cd.cours_nom}>
+                            <b>{cd.cours_code}</b> {cd.cours_nom}
+                            <span className="text-sky-700"> — {cd.note_affichee}/20 en {cd.annee_origine}</span>
+                          </div>
+                          <button onClick={() => poserReport(cd)}
+                            className="flex-none text-[11px] px-2 py-0.5 rounded-lg bg-sky-600 text-white font-semibold">
+                            Reporter
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                    <p className="text-[10px] text-sky-700 mt-1.5">
+                      Cours validés alors que l'UE n'était pas réussie. Le report relève du Conseil des études.
+                    </p>
+                  </div>
+                )}
+
                 <div className="max-h-72 overflow-y-auto space-y-2.5">
                   {(detail.structure || []).map(co => (
                     <div key={co.cours_code} className="border border-slate-200 rounded-lg overflow-hidden">
@@ -323,7 +366,26 @@ function GrilleParcours({ etudId, peutEcrire }) {
                         )}
                       </div>
 
-                      {!co.aas.length ? (
+                      {(detail.reports || []).some(r0 => r0.cours_code === co.cours_code) ? (
+                        (() => {
+                          const rn = detail.reports.find(r0 => r0.cours_code === co.cours_code);
+                          return (
+                            <div className="px-3 py-2 flex items-center gap-2 bg-sky-50/60">
+                              <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-sky-600 text-white flex-none">
+                                RN
+                              </span>
+                              <div className="flex-1 text-[11.5px] text-sky-900">
+                                Note reportée : <b>{Math.round(rn.note)}/20</b>
+                                {rn.annee_origine ? <span className="text-sky-700"> (validé en {rn.annee_origine})</span> : null}
+                              </div>
+                              <button onClick={() => retirerReport(co.cours_code)}
+                                className="flex-none text-[10.5px] px-2 py-0.5 rounded-lg border border-sky-300 text-sky-700 hover:bg-white">
+                                Retirer
+                              </button>
+                            </div>
+                          );
+                        })()
+                      ) : !co.aas.length ? (
                         <div className="px-3 py-2 text-[11px] text-slate-400">
                           Aucun acquis d\u2019apprentissage rattaché à ce cours.
                         </div>

@@ -7,7 +7,7 @@ import { Router } from 'express';
 import db from '../db/index.js';
 import { authRequired, roleRequired } from '../middleware/auth.js';
 import { construireGraphe, niveauxEffectifs } from './capitalisation.js';
-import { structureUE, calculerNoteUE } from './acquis.js';
+import { structureUE, calculerNoteUE, coursValidesAnterieurs } from './acquis.js';
 
 const r = Router();
 
@@ -864,9 +864,19 @@ r.get('/:id/grille/detail', authRequired, (req, res) => {
     notes[cc + '|' + brut] = { points: l.points, va: l.va, non_evalue: l.non_evalue };
   }
 
-  const calcul = calculerNoteUE(ueN, annee, notes);
+  const reportsActifs = db.prepare(`
+    SELECT cours_code, note, annee_origine FROM etudiant_report_note
+    WHERE etudiant_id = ? AND ue_num = ? AND annee_scolaire = ?
+  `).all(etudId, ueN, annee);
+  const reports = Object.fromEntries(reportsActifs.map(r0 => [r0.cours_code, r0.note]));
 
-  res.json({ structure, notes, calcul });
+  const dejaReportes = new Set(reportsActifs.map(r0 => r0.cours_code));
+  const candidats = coursValidesAnterieurs(etudId, ueN, annee)
+    .filter(c0 => !dejaReportes.has(c0.cours_code));
+
+  const calcul = calculerNoteUE(ueN, annee, notes, reports);
+
+  res.json({ structure, notes, calcul, reports: reportsActifs, candidats_report: candidats });
 });
 
 r.put('/:id/grille/detail', authRequired, roleRequired('admin', 'editeur'), (req, res) => {
@@ -914,7 +924,12 @@ r.put('/:id/grille/detail', authRequired, roleRequired('admin', 'editeur'), (req
     if (cc) notes[cc + '|' + brut] = { points: l.points, va: l.va, non_evalue: l.non_evalue };
   }
 
-  res.json({ ok: true, calcul: calculerNoteUE(ueN, annee, notes) });
+  const reports = Object.fromEntries(db.prepare(`
+    SELECT cours_code, note FROM etudiant_report_note
+    WHERE etudiant_id = ? AND ue_num = ? AND annee_scolaire = ?
+  `).all(etudId, ueN, annee).map(r0 => [r0.cours_code, r0.note]));
+
+  res.json({ ok: true, calcul: calculerNoteUE(ueN, annee, notes, reports) });
 });
 
 // ── Valorisation des acquis (VA/VAE) — AGCF 13-12-2024 ──────────────────────
