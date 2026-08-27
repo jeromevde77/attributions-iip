@@ -17,7 +17,6 @@ export default function PonderationsAA() {
   const [ueActive, setUeActive] = useState(null);
   const [structure, setStructure] = useState(null);
   const [brouillon, setBrouillon] = useState({});   // cours_code -> { aa_code: poids }
-  const [poidsCours, setPoidsCours] = useState({});  // cours_code -> poids
   const [message, setMessage] = useState(null);
 
   useEffect(() => {
@@ -42,13 +41,12 @@ export default function PonderationsAA() {
     if (!rep.ok) return;
     const j = await rep.json();
     setStructure(j);
-    const b = {}, pc = {};
+    const b = {};
     for (const co of j.cours) {
       b[co.cours_code] = {};
       for (const aa of co.aas) b[co.cours_code][aa.aa_code] = aa.poids ?? '';
-      pc[co.cours_code] = co.poids_cours ?? '';
     }
-    setBrouillon(b); setPoidsCours(pc);
+    setBrouillon(b);
   }
 
   function sommeDe(coursCode) {
@@ -66,23 +64,6 @@ export default function PonderationsAA() {
     const j = await rep.json();
     if (!rep.ok) { setMessage({ type: 'err', texte: j.error }); return; }
     setMessage({ type: 'ok', texte: `Pondérations du cours ${co.cours_code} enregistrées.` });
-    await ouvrirUE(ueActive); await chargerUes();
-  }
-
-  const sommeCours = () => Math.round(
-    Object.values(poidsCours).reduce((s, v) => s + (Number(v) || 0), 0) * 100) / 100;
-
-  async function enregistrerPoidsCours() {
-    const poids = Object.entries(poidsCours).map(([cours_code, p]) => ({
-      cours_code, poids: Number(p) || 0,
-    }));
-    const rep = await fetch('/api/acquis/ponderations-cours', {
-      method: 'PUT', headers: authHeaders(),
-      body: JSON.stringify({ ue_num: ueActive, poids }),
-    });
-    const j = await rep.json();
-    if (!rep.ok) { setMessage({ type: 'err', texte: j.error }); return; }
-    setMessage({ type: 'ok', texte: "Poids des cours enregistrés." });
     await ouvrirUE(ueActive); await chargerUes();
   }
 
@@ -163,40 +144,34 @@ export default function PonderationsAA() {
             <div className="text-sm text-slate-400 py-6">Chargement…</div>
           ) : (
             <div className="space-y-3">
-              {/* Poids de chaque cours dans l'UE — total 100 */}
+              {/* Poids de chaque cours dans l'UE — déduits des périodes */}
               <div className="border border-slate-200 rounded-xl overflow-hidden">
                 <div className="flex items-center justify-between gap-2 px-3 py-2 bg-iip-blue">
                   <span className="text-[12.5px] font-semibold text-white">
                     Poids des cours dans l'UE {ueActive}
                   </span>
-                  <span className={`text-[11px] font-semibold px-2 py-0.5 rounded-lg ${
-                    Math.abs(sommeCours() - 100) < 0.01
-                      ? 'bg-emerald-400/20 text-emerald-100'
-                      : 'bg-amber-400/20 text-amber-100'}`}>
-                    {sommeCours()} / 100
-                  </span>
+                  <span className="text-[10.5px] text-blue-200">déduits des périodes</span>
                 </div>
-                <div className="p-3 flex flex-wrap gap-2 items-end">
+                <div className="p-3 flex flex-wrap gap-3">
                   {structure.cours.map(co => (
-                    <label key={co.cours_code} className="text-[11px]">
-                      <span className="block text-slate-500 mb-0.5 truncate max-w-[150px]" title={co.cours_nom}>
+                    <div key={co.cours_code}
+                      className="px-2.5 py-1.5 rounded-lg bg-slate-50 border border-slate-200">
+                      <div className="text-[10.5px] text-slate-500 truncate max-w-[160px]" title={co.cours_nom}>
                         {co.cours_code}
-                      </span>
-                      <input type="number" min="0" max="100" step="0.5"
-                        value={poidsCours[co.cours_code] ?? ''}
-                        onChange={e => setPoidsCours(p => ({ ...p, [co.cours_code]: e.target.value }))}
-                        className="w-20 border border-slate-300 rounded-lg px-2 py-1 text-[12px] text-right" />
-                    </label>
+                      </div>
+                      <div className="text-[13px] font-bold text-iip-blue">
+                        {co.poids_cours_affiche != null ? co.poids_cours_affiche + ' %' : '—'}
+                        <span className="text-[10px] font-normal text-slate-400 ml-1.5">
+                          {co.periodes} pér.
+                        </span>
+                      </div>
+                    </div>
                   ))}
-                  <button onClick={enregistrerPoidsCours}
-                    disabled={Math.abs(sommeCours() - 100) > 0.01}
-                    className="ml-auto text-[11.5px] px-3 py-1.5 rounded-lg bg-iip-blue text-white font-semibold disabled:opacity-40">
-                    Enregistrer les poids
-                  </button>
                 </div>
                 <p className="px-3 pb-2 text-[10.5px] text-slate-400">
-                  Découle des périodes du dossier pédagogique, mais reste saisi : l'arrondi retenu
-                  n'est pas toujours celui d'un calcul.
+                  Poids = périodes du cours ÷ périodes de l'UE, autonomie exclue. Affiché arrondi
+                  à l'unité ; le calcul conserve les décimales. Si un poids manque, ce sont les
+                  périodes du référentiel des cours qu'il faut compléter.
                 </p>
               </div>
 
@@ -213,9 +188,9 @@ export default function PonderationsAA() {
                         </div>
                         <div className="text-[10.5px] text-slate-500">
                           {co.periodes} périodes · poids dans l'UE :{' '}
-                          {co.poids_cours != null
-                            ? <b className="text-slate-600">{co.poids_cours} %</b>
-                            : <span className="text-amber-600">non défini</span>}
+                          {co.poids_cours_affiche != null
+                            ? <b className="text-slate-600">{co.poids_cours_affiche} %</b>
+                            : <span className="text-amber-600">périodes manquantes</span>}
                         </div>
                       </div>
                       <span className={`text-[11px] font-semibold px-2 py-0.5 rounded-lg border flex-none ${

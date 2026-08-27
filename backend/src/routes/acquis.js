@@ -97,9 +97,16 @@ export function structureUE(ueNum, annee) {
   for (const p of db.prepare('SELECT cours_code, aa_code, poids FROM aa_ponderation WHERE ue_num = ?').all(ueNum)) {
     pond[p.cours_code + '|' + p.aa_code] = Number(p.poids);
   }
+  // Le poids d'un cours dans son UE se DÉDUIT de ses périodes, part
+  // d'autonomie exclue : poids = périodes du cours ÷ périodes de l'UE.
+  // Il n'est jamais saisi. Les décimales sont conservées pour le calcul ;
+  // seul l'affichage arrondit à l'unité.
+  const totalPeriodes = cours.reduce((s, x) => s + Number(x.cours_per || 0), 0);
   const poidsCours = {};
-  for (const p of db.prepare('SELECT cours_code, poids FROM cours_ponderation WHERE ue_num = ?').all(ueNum)) {
-    poidsCours[p.cours_code] = Number(p.poids);
+  for (const x of cours) {
+    poidsCours[x.cours_code] = totalPeriodes
+      ? (Number(x.cours_per || 0) / totalPeriodes) * 100
+      : null;
   }
 
   return cours.map(c => {
@@ -111,6 +118,8 @@ export function structureUE(ueNum, annee) {
       ...c,
       periodes: Number(c.cours_per || 0),
       poids_cours: poidsCours[c.cours_code] ?? null,
+      poids_cours_affiche: poidsCours[c.cours_code] != null
+        ? Math.round(poidsCours[c.cours_code]) : null,
       aas: siens,
       somme_poids: Math.round(somme * 100) / 100,
       complet: siens.length > 0 && Math.abs(somme - 100) < 0.01,
@@ -142,11 +151,13 @@ export function calculerNoteUE(ueNum, annee, notes) {
     }
   }
 
-  if (!maximum) return { sur20: null, pourcentage: null, evalues, attendus, complet: false };
-  const sur20 = Math.round((numerateur / maximum) * 20 * 10) / 10;
+  if (!maximum) return { sur20: null, sur20_exact: null, pourcentage: null, evalues, attendus, complet: false };
+  // Le calcul garde toutes ses décimales ; l'affichage arrondit à l'unité.
+  const exact = (numerateur / maximum) * 20;
   return {
-    sur20,
-    pourcentage: Math.round(sur20 * 5 * 10) / 10,
+    sur20: Math.round(exact),
+    sur20_exact: Math.round(exact * 1000) / 1000,
+    pourcentage: Math.round(exact * 5),
     evalues, attendus,
     complet: evalues === attendus && attendus > 0,
   };
@@ -163,14 +174,15 @@ export function calculerNoteCours(cours, notes) {
     num += Number(n.points) * a.poids;
     max += 20 * a.poids;
   }
-  if (!max) return { sur20: null, evalues };
-  return { sur20: Math.round((num / max) * 20 * 10) / 10, evalues };
+  if (!max) return { sur20: null, sur20_exact: null, evalues };
+  const exact = (num / max) * 20;
+  return { sur20: Math.round(exact), sur20_exact: Math.round(exact * 1000) / 1000, evalues };
 }
 
 // ── Structure d'évaluation d'une UE ─────────────────────────────────────────
 r.get('/ue/:ueNum/structure', authRequired, (req, res) => {
   const cours = structureUE(Number(req.params.ueNum), req.query.annee);
-  const sommeCours = cours.reduce((s, c) => s + (c.poids_cours || 0), 0);
+  const sommeCours = cours.reduce((s, c) => s + (c.poids_cours || 0), 0);   // 100 si les périodes sont renseignées
   res.json({
     ue_num: Number(req.params.ueNum),
     cours,
@@ -178,30 +190,6 @@ r.get('/ue/:ueNum/structure', authRequired, (req, res) => {
     poids_cours_complet: cours.length > 0 && Math.abs(sommeCours - 100) < 0.01,
     pret: cours.length > 0 && cours.every(c => c.complet) && Math.abs(sommeCours - 100) < 0.01,
   });
-});
-
-// ── Poids des cours dans l'UE (somme 100) ──────────────────────────────────
-r.put('/ponderations-cours', authRequired, roleRequired('admin', 'editeur'), (req, res) => {
-  const { ue_num, poids } = req.body;   // poids : [{ cours_code, poids }]
-  if (!ue_num || !Array.isArray(poids)) {
-    return res.status(400).json({ error: 'ue_num et poids requis' });
-  }
-  const somme = poids.reduce((s, p) => s + Number(p.poids || 0), 0);
-  if (poids.length && Math.abs(somme - 100) > 0.01) {
-    return res.status(400).json({
-      error: `La somme des poids des cours vaut ${Math.round(somme * 100) / 100} au lieu de 100.`,
-    });
-  }
-  const up = db.prepare(`
-    INSERT INTO cours_ponderation (ue_num, cours_code, poids, maj_le)
-    VALUES (?,?,?, datetime('now'))
-    ON CONFLICT(ue_num, cours_code) DO UPDATE SET
-      poids = excluded.poids, maj_le = datetime('now')
-  `);
-  db.transaction(() => {
-    for (const p of poids) up.run(Number(ue_num), p.cours_code, Number(p.poids || 0));
-  })();
-  res.json({ ok: true, somme: Math.round(somme * 100) / 100 });
 });
 
 // ── Enregistrer les pondérations d'un cours ─────────────────────────────────

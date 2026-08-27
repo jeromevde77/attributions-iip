@@ -281,7 +281,8 @@ function GrilleParcours({ etudId, peutEcrire }) {
                           <div className="text-[10px] uppercase tracking-wide text-slate-500 font-semibold">
                             Note calculée
                           </div>
-                          <div className="text-[19px] font-bold text-iip-blue leading-tight">
+                          <div className="text-[19px] font-bold text-iip-blue leading-tight"
+                            title={detail.calcul.sur20_exact != null ? `Valeur exacte : ${detail.calcul.sur20_exact}` : ''}>
                             {detail.calcul.sur20} / 20
                             <span className="text-[12px] font-normal text-slate-500 ml-2">
                               {detail.calcul.pourcentage} %
@@ -312,7 +313,7 @@ function GrilleParcours({ etudId, peutEcrire }) {
                         </div>
                         <span className="text-[10px] text-slate-400 flex-none"
                           title={`${co.periodes} périodes`}>
-                          {co.poids_cours != null ? co.poids_cours + ' %' : '— %'}
+                          {co.poids_cours_affiche != null ? co.poids_cours_affiche + ' %' : '— %'}
                         </span>
                         {!co.complet && (
                           <span className="text-[9.5px] px-1.5 py-0.5 rounded bg-amber-50 text-amber-700 border border-amber-200 flex-none"
