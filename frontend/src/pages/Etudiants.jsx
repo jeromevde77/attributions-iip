@@ -224,13 +224,19 @@ function GrilleParcours({ etudId, peutEcrire }) {
   // Un parcours se lit d'une année à la suivante : les colonnes doivent être
   // CONTINUES. Une année sans donnée reste affichée, vide — sans quoi la
   // grille saute des années et l'on croit à une interruption d'études.
+  // Fenêtre d'années : l'année active est toujours la dernière colonne, et
+  // quatre années au moins la précèdent — de quoi lire le parcours et encoder
+  // sans manipuler l'affichage. Les années portant des données restent
+  // visibles même au-delà de cette fenêtre.
+  const ANNEES_AVANT = 4;
   const anneesAffichees = (() => {
     if (!anneesBase.length) return anneesBase;
-    const debutBase = Number(anneesBase[0].split('-')[0]);
     const finBase   = Number(anneesBase[anneesBase.length - 1].split('-')[0]);
-    const debut = debutBase - (nbHistorique || 0);
+    const fin = Math.max(finBase, Number((data.anneeActive || '').split('-')[0] || 0));
+    const debutDonnees = Number(anneesBase[0].split('-')[0]);
+    const debut = Math.min(debutDonnees, fin - ANNEES_AVANT) - (nbHistorique || 0);
     const toutes = [];
-    for (let a = debut; a <= finBase; a++) toutes.push(a + '-' + (a + 1));
+    for (let a = debut; a <= fin; a++) toutes.push(a + '-' + (a + 1));
     return toutes;
   })();
   const aDetail = (annee, ueNum) => (data.detail || []).includes(annee + ':' + ueNum);
@@ -238,7 +244,7 @@ function GrilleParcours({ etudId, peutEcrire }) {
   return (
     <div>
       <div className="flex items-start justify-between gap-3 mb-3">
-        <p className="text-[12px] text-slate-500 flex-1">
+        <p className="text-[12px] text-slate-500 flex-1 max-w-3xl">
         Cliquez sur une case pour encoder. Une UE dont les prérequis ne sont pas acquis est
         verrouillée <span className="text-slate-400">🔒</span> — l'encoder demande une dérogation (tracée).
         Un halo <span className="inline-block w-3 h-3 rounded-sm bg-violet-100 border border-violet-300 align-middle"></span> suggère
@@ -271,7 +277,18 @@ function GrilleParcours({ etudId, peutEcrire }) {
             <tr className="bg-slate-50 text-[10.5px] uppercase tracking-wide text-slate-500">
               <th className="px-3 py-2 text-left sticky left-0 bg-slate-50 z-10 min-w-[260px]">UE</th>
               <th className="px-2 py-2 text-left w-14">Niv.</th>
-              {anneesAffichees.map(a => <th key={a} className="px-2 py-2 text-center min-w-[92px]">{a}</th>)}
+              {anneesAffichees.map((a, i) => {
+                const derniere = i === anneesAffichees.length - 1;
+                return (
+                  <th key={a}
+                    className={`px-2 py-2 text-center min-w-[92px] ${derniere
+                      ? 'sticky right-0 z-20 bg-iip-blue text-white shadow-[-6px_0_8px_-6px_rgba(0,0,0,0.18)]'
+                      : ''}`}>
+                    {a}
+                    {derniere && <span className="block text-[8.5px] font-normal text-blue-200">à venir</span>}
+                  </th>
+                );
+              })}
             </tr>
           </thead>
           <tbody>
@@ -287,11 +304,15 @@ function GrilleParcours({ etudId, peutEcrire }) {
                     {u.suggeree && <span className="ml-1.5 text-[9.5px] px-1 py-0.5 rounded bg-violet-50 text-violet-600 border border-violet-200" title="Probablement acquise (inférence prérequis) — à confirmer">à confirmer</span>}
                   </td>
                   <td className="px-2 py-1.5"><BadgeUeNiveau niveau={u.ue_niv} /></td>
-                  {anneesAffichees.map(a => {
+                  {anneesAffichees.map((a, iCol) => {
+                    const derniere = iCol === anneesAffichees.length - 1;
                     const cl = cell(a, u.ue_num);
                     const kind = cl && KINDS_CELLULE.find(k => k.val === cl.kind);
                     return (
-                      <td key={a} className="px-1.5 py-1.5 text-center">
+                      <td key={a}
+                        className={`px-1.5 py-1.5 text-center ${derniere
+                          ? 'sticky right-0 z-10 bg-white shadow-[-6px_0_8px_-6px_rgba(0,0,0,0.10)]'
+                          : ''}`}>
                         <button
                           onClick={() => {
                             if (!peutEcrire) return;
@@ -912,7 +933,7 @@ function FicheEtudiant({ id, annee, onClose }) {
 
   return (
     <div className="fixed inset-0 bg-black/40 flex items-start justify-center z-50 p-4 overflow-auto">
-      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-3xl mt-8">
+      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-[1400px] mt-8">
         {/* En-tête */}
         <div className="bg-iip-blue rounded-t-2xl px-6 py-5 flex items-start justify-between">
           <div>
