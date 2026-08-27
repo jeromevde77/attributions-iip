@@ -91,8 +91,15 @@ export default function RapportPAE({ anneeCourante, onClose }) {
     const j = await charger();
     if (!j) return;
     const esc = s => String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;');
+    // BA1 orange, BA2 bleu clair, BA3 bleu marine — convention de Lucie
+    const NIV_PALETTE = ['#F97316', '#60A5FA', '#1E3A8A', '#A855F7', '#EC4899'];
+    const coulNiv = niv => {
+      const m = /^BA(\d+)$/i.exec(String(niv || '').trim());
+      return m ? NIV_PALETTE[(Number(m[1]) - 1) % NIV_PALETTE.length] : '#94A3B8';
+    };
     const enTetes = j.colonnes.map(c =>
-      `<th title="${esc(c.libelle)}">${esc(c.code)}<span>${esc(c.ue_niv || '')}</span></th>`).join('');
+      `<th title="${esc(c.libelle)}">${esc(c.code)}` +
+      `<span style="color:${coulNiv(c.ue_niv)};font-weight:700">${esc(c.ue_niv || '')}</span></th>`).join('');
     const lignes = j.etudiants.map((e, i) => {
       const cells = j.colonnes.map(c => {
         const v = valeur(e, c, j);

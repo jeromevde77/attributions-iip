@@ -11,6 +11,35 @@ import RapportPAE from '../components/RapportPAE.jsx';
 
 // Niveau de l'étudiant : BA1/BA2 s'il ne suit qu'une année, « Diplômant »
 // s'il ne lui reste que la BA3, « Parcours » s'il en mélange plusieurs.
+// Couleurs des années d'études, communes à Lucie (cf. exports Attributions) :
+// BA1 orange, BA2 bleu clair, BA3 bleu marine, puis violet et rose au-delà.
+const NIV_PALETTE = ['#F97316', '#60A5FA', '#1E3A8A', '#A855F7', '#EC4899'];
+
+function couleurNiveau(niv) {
+  const m = /^BA(\d+)$/i.exec(String(niv || '').trim());
+  if (!m) return null;
+  return NIV_PALETTE[(Number(m[1]) - 1) % NIV_PALETTE.length];
+}
+
+// Pastille d'année d'études, sur fond plein pour rester lisible.
+function BadgeUeNiveau({ niveau }) {
+  const couleur = couleurNiveau(niveau);
+  if (!niveau) return <span className="text-[11px] text-slate-300">—</span>;
+  if (!couleur) {
+    return (
+      <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded border border-slate-200 text-slate-500">
+        {niveau}
+      </span>
+    );
+  }
+  return (
+    <span className="text-[10px] font-bold px-1.5 py-0.5 rounded text-white"
+      style={{ backgroundColor: couleur }}>
+      {niveau}
+    </span>
+  );
+}
+
 // En-tête de colonne triable : un clic trie, un second inverse le sens.
 function ThTri({ champ, tri, onTri, className = '', children }) {
   const actif = tri.champ === champ;
@@ -257,7 +286,7 @@ function GrilleParcours({ etudId, peutEcrire }) {
                     {verrou && <span className="ml-1.5 text-[11px]" title={'Prérequis : ' + u.prerequis.join(', ')}>🔒</span>}
                     {u.suggeree && <span className="ml-1.5 text-[9.5px] px-1 py-0.5 rounded bg-violet-50 text-violet-600 border border-violet-200" title="Probablement acquise (inférence prérequis) — à confirmer">à confirmer</span>}
                   </td>
-                  <td className="px-2 py-1.5 text-[11px] text-slate-400">{u.ue_niv || '—'}</td>
+                  <td className="px-2 py-1.5"><BadgeUeNiveau niveau={u.ue_niv} /></td>
                   {anneesAffichees.map(a => {
                     const cl = cell(a, u.ue_num);
                     const kind = cl && KINDS_CELLULE.find(k => k.val === cl.kind);
@@ -1055,7 +1084,7 @@ function FicheEtudiant({ id, annee, onClose }) {
                               {u.inscrite && <span className="ml-1.5 text-[9.5px] px-1 py-0.5 rounded bg-slate-100 text-slate-500">déjà inscrite</span>}
                             </td>
                             <td className="py-2">
-                              <BadgeNiveau niveau={u.ue_niv} libelle={u.ue_niv} />
+                              <BadgeUeNiveau niveau={u.ue_niv} />
                             </td>
                             <td className="py-2">{ligneStatut(u)}</td>
                           </tr>
@@ -1092,7 +1121,7 @@ function FicheEtudiant({ id, annee, onClose }) {
                                   <span className="text-slate-600 ml-1.5 text-[12.5px]">{u.ue_nom}</span>
                                 </td>
                                 <td className="py-1.5 w-16">
-                                  <BadgeNiveau niveau={u.ue_niv} libelle={u.ue_niv} />
+                                  <BadgeUeNiveau niveau={u.ue_niv} />
                                 </td>
                                 <td className="py-1.5 w-64">{ligneStatut(u)}</td>
                               </tr>

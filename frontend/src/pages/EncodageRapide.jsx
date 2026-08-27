@@ -16,6 +16,14 @@ import { authHeaders } from '../lib/api.js';
 
 const CYCLE = [null, 'reussi', 'ajourne'];
 
+// Couleurs des années d'études, communes à Lucie : BA1 orange, BA2 bleu clair,
+// BA3 bleu marine.
+const NIV_PALETTE = ['#F97316', '#60A5FA', '#1E3A8A', '#A855F7', '#EC4899'];
+const couleurNiveau = niv => {
+  const m = /^BA(\d+)$/i.exec(String(niv || '').trim());
+  return m ? NIV_PALETTE[(Number(m[1]) - 1) % NIV_PALETTE.length] : null;
+};
+
 const STYLE = {
   reussi:  'bg-emerald-100 text-emerald-800 border-emerald-300',
   ajourne: 'bg-red-100 text-red-700 border-red-300',
@@ -239,7 +247,10 @@ export default function EncodageRapide() {
                     title={`${u.ue_nom || ''} — cliquer pour marquer réussi sur la sélection`}
                     className="border-b border-slate-200 px-1 py-2 w-11 cursor-pointer hover:bg-slate-100">
                     <div className="text-[11.5px] font-bold text-iip-blue">{u.ue_num}</div>
-                    <div className="text-[8.5px] text-slate-400">{u.ue_niv || '—'}</div>
+                    <div className="text-[8.5px] font-semibold"
+                      style={{ color: couleurNiveau(u.ue_niv) || '#94A3B8' }}>
+                      {u.ue_niv || '—'}
+                    </div>
                   </th>
                 ))}
               </tr>
