@@ -605,6 +605,111 @@ r.post('/:id/pae-auto', authRequired, roleRequired('admin', 'editeur'), (req, re
   });
 });
 
+// ── Import du classeur de PAE (résultats par cours + PAE de l'année suivante)
+// Le frontend a déjà résolu la légende : il envoie des entrées normalisées.
+r.post('/import-pae', authRequired, roleRequired('admin', 'editeur'), (req, res) => {
+  const { annee_resultats, annee_pae, resultats, pae, commentaires } = req.body;
+  if (!annee_resultats || !Array.isArray(resultats)) {
+    return res.status(400).json({ error: 'annee_resultats et resultats requis' });
+  }
+
+  // cours_code → ue_num, depuis le référentiel (toutes années confondues)
+  const ueDeCours = {};
+  for (const x of db.prepare('SELECT DISTINCT cours_code, ue_num FROM cours WHERE cours_code IS NOT NULL').all()) {
+    ueDeCours[String(x.cours_code).trim()] = x.ue_num;
+  }
+
+  const trouver = db.prepare('SELECT id FROM etudiant WHERE id_ecampus = ?');
+  const insRes = db.prepare(`
+    INSERT INTO etudiant_resultat_cours
+      (etudiant_id, annee_scolaire, ue_num, cours_code, statut, note, faveur)
+    VALUES (?,?,?,?,?,?,?)
+    ON CONFLICT(etudiant_id, annee_scolaire, cours_code) DO UPDATE SET
+      statut = excluded.statut, note = excluded.note,
+      faveur = excluded.faveur, ue_num = excluded.ue_num
+  `);
+  const insInsc = db.prepare(`
+    INSERT OR IGNORE INTO etudiant_inscription
+      (etudiant_id, annee_scolaire, ue_num, date_inscription)
+    VALUES (?,?,?,?)
+  `);
+  const insCom = db.prepare(`
+    INSERT INTO etudiant_commentaire_ce (etudiant_id, annee_scolaire, texte, maj_le)
+    VALUES (?,?,?, datetime('now'))
+    ON CONFLICT(etudiant_id, annee_scolaire) DO UPDATE SET
+      texte = excluded.texte, maj_le = datetime('now')
+  `);
+
+  const inconnus = new Set(), coursInconnus = new Set();
+  let nRes = 0, nPae = 0, nCom = 0, nUE = 0;
+  const dateJour = new Date().toISOString().slice(0, 10);
+
+  // Réussite d'une UE : tous ses cours connus doivent être réussis, valorisés
+  // ou reportés. Un seul refus ou non-présenté suffit à la faire échouer.
+  const parEtudiantUE = {};
+
+  db.transaction(() => {
+    for (const l of resultats) {
+      const e = trouver.get(String(l.id_ecampus || '').trim());
+      if (!e) { inconnus.add(l.id_ecampus); continue; }
+      const cc = String(l.cours_code || '').trim();
+      const ue = ueDeCours[cc] ?? null;
+      if (ue == null) coursInconnus.add(cc);
+      insRes.run(e.id, annee_resultats, ue, cc, l.statut,
+                 l.note != null ? Number(l.note) : null, l.faveur ? 1 : 0);
+      nRes++;
+      if (ue != null) {
+        const cle = e.id + '|' + ue;
+        (parEtudiantUE[cle] = parEtudiantUE[cle] || []).push(l.statut);
+      }
+    }
+
+    // Inscription à l'UE pour l'année des résultats, avec son issue
+    for (const [cle, statuts] of Object.entries(parEtudiantUE)) {
+      const [eid, ue] = cle.split('|').map(Number);
+      const acquis = s => ['reussi', 'va', 'report'].includes(s);
+      const resultat = statuts.every(acquis) ? 'reussi'
+        : statuts.some(s => s === 'non_presente') && !statuts.some(s => s === 'refuse') ? 'absent'
+        : 'ajourne';
+      insInsc.run(eid, annee_resultats, ue, dateJour);
+      db.prepare(`
+        UPDATE etudiant_inscription SET resultat = ?
+        WHERE etudiant_id=? AND annee_scolaire=? AND ue_num=? AND resultat IS NULL
+      `).run(resultat, eid, annee_resultats, ue);
+      nUE++;
+    }
+
+    // PAE de l'année suivante : inscriptions non délibérées
+    if (annee_pae && Array.isArray(pae)) {
+      const vues = new Set();
+      for (const l of pae) {
+        const e = trouver.get(String(l.id_ecampus || '').trim());
+        if (!e) { inconnus.add(l.id_ecampus); continue; }
+        const ue = ueDeCours[String(l.cours_code || '').trim()];
+        if (ue == null) continue;
+        const cle = e.id + '|' + ue;
+        if (vues.has(cle)) continue;            // une inscription par UE
+        vues.add(cle);
+        if (insInsc.run(e.id, annee_pae, ue, dateJour).changes) nPae++;
+      }
+    }
+
+    for (const cm of (commentaires || [])) {
+      const e = trouver.get(String(cm.id_ecampus || '').trim());
+      if (!e || !cm.texte) continue;
+      insCom.run(e.id, annee_resultats, String(cm.texte).trim());
+      nCom++;
+    }
+  })();
+
+  res.json({
+    ok: true,
+    resultats_cours: nRes, ue_deduites: nUE, pae_creees: nPae, commentaires: nCom,
+    matricules_inconnus: [...inconnus].slice(0, 25),
+    cours_inconnus: [...coursInconnus].slice(0, 25),
+  });
+});
+
 // ── Import des résultats depuis le classeur de suivi (.xlsm) ─────────────────
 // Le frontend lit les onglets par UE et envoie { annee, resultats: [...] }.
 r.post('/import-resultats', authRequired, roleRequired('admin', 'editeur'), (req, res) => {

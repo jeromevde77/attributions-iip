@@ -6,6 +6,7 @@ import {
 import { authHeaders, getAnnee } from '../lib/api.js';
 import PreviewModal from '../components/PreviewModal.jsx';
 import SchemaCapitalisationVue from '../components/SchemaCapitalisation.jsx';
+import ImportPAE from '../components/ImportPAE.jsx';
 
 const STATUTS_PIECE = [
   { val: 'manquant', label: 'Manquant', cls: 'bg-red-50 text-red-700 border-red-200' },
@@ -1083,6 +1084,7 @@ export default function Etudiants() {
   const [importing, setImporting] = useState(false);
   const [msgImport, setMsgImport] = useState(null);
   const [rapport, setRapport] = useState(null);
+  const [importPAE, setImportPAE] = useState(false);
 
   async function ouvrirRapport() {
     if (!section) { alert('Choisissez d\'abord une section dans le filtre.'); return; }
@@ -1315,6 +1317,10 @@ export default function Etudiants() {
           <input type="file" accept=".xlsm,.xlsx" className="hidden"
             onChange={e => e.target.files[0] && importerResultats(e.target.files[0])} />
         </label>
+        <button onClick={() => setImportPAE(true)}
+          className="flex items-center gap-2 px-3 py-2 text-sm border border-iip-blue text-iip-blue rounded-lg hover:bg-iip-blue/5">
+          <IconUpload size={15} /> Importer le classeur PAE
+        </button>
         <button onClick={ouvrirRapport}
           className="flex items-center gap-2 px-3 py-2 text-sm border border-slate-300 rounded-lg text-slate-600 hover:bg-slate-50">
           <IconPrinter size={15} /> Rapport
@@ -1370,6 +1376,10 @@ export default function Etudiants() {
 
       {selId && (
         <FicheEtudiant id={selId} annee={annee} onClose={() => setSelId(null)} />
+      )}
+
+      {importPAE && (
+        <ImportPAE annee={annee} onClose={() => setImportPAE(false)} onImporte={charger} />
       )}
 
       {rapport && <PreviewModal html={rapport.html} titre="Parcours des étudiants"

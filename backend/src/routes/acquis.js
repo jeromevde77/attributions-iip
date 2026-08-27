@@ -41,6 +41,35 @@ export function migrerAA(dbx) {
     );
     CREATE INDEX IF NOT EXISTS idx_aa_pond_ue ON aa_ponderation(ue_num);
 
+    -- Résultat par COURS, tel que délibéré par le Conseil des études.
+    -- La faveur est une réussite accordée par le jury : elle se trace, car
+    -- elle ne s'accorde pas deux fois au même étudiant.
+    CREATE TABLE IF NOT EXISTS etudiant_resultat_cours (
+      id             INTEGER PRIMARY KEY AUTOINCREMENT,
+      etudiant_id    INTEGER NOT NULL,
+      annee_scolaire TEXT NOT NULL,
+      ue_num         INTEGER,
+      cours_code     TEXT NOT NULL,
+      statut         TEXT NOT NULL,        -- reussi | refuse | non_presente | va | vp
+      note           REAL,                 -- sur 20, quand elle est connue
+      faveur         INTEGER NOT NULL DEFAULT 0,
+      commentaire    TEXT,
+      cree_le        TEXT DEFAULT (datetime('now')),
+      UNIQUE(etudiant_id, annee_scolaire, cours_code)
+    );
+    CREATE INDEX IF NOT EXISTS idx_res_cours_etud
+      ON etudiant_resultat_cours(etudiant_id, annee_scolaire);
+
+    -- Commentaire du Conseil des études, par étudiant et par année.
+    CREATE TABLE IF NOT EXISTS etudiant_commentaire_ce (
+      id             INTEGER PRIMARY KEY AUTOINCREMENT,
+      etudiant_id    INTEGER NOT NULL,
+      annee_scolaire TEXT NOT NULL,
+      texte          TEXT,
+      maj_le         TEXT DEFAULT (datetime('now')),
+      UNIQUE(etudiant_id, annee_scolaire)
+    );
+
     CREATE TABLE IF NOT EXISTS etudiant_report_note (
       id             INTEGER PRIMARY KEY AUTOINCREMENT,
       etudiant_id    INTEGER NOT NULL,
