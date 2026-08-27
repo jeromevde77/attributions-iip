@@ -9,6 +9,20 @@ import SchemaCapitalisationVue from '../components/SchemaCapitalisation.jsx';
 import ImportPAE from '../components/ImportPAE.jsx';
 import PurgeResultats from '../components/PurgeResultats.jsx';
 
+// Niveau de l'étudiant : BA1/BA2 s'il ne suit qu'une année, « Diplômant »
+// s'il ne lui reste que la BA3, « Parcours » s'il en mélange plusieurs.
+function BadgeNiveau({ niveau, libelle, className = '' }) {
+  if (!libelle) return null;
+  const cls = niveau === 'MIXTE' ? 'bg-amber-50 text-amber-700 border-amber-200'
+    : niveau === 'BA3'          ? 'bg-violet-50 text-violet-700 border-violet-200'
+    : 'bg-sky-50 text-sky-700 border-sky-200';
+  return (
+    <span className={`text-[10px] font-semibold px-1.5 py-0.5 rounded border ${cls} ${className}`}>
+      {libelle}
+    </span>
+  );
+}
+
 const STATUTS_PIECE = [
   { val: 'manquant', label: 'Manquant', cls: 'bg-red-50 text-red-700 border-red-200' },
   { val: 'recu',     label: 'Reçu',     cls: 'bg-emerald-50 text-emerald-700 border-emerald-200' },
@@ -857,7 +871,14 @@ function FicheEtudiant({ id, annee, onClose }) {
         <div className="bg-iip-blue rounded-t-2xl px-6 py-5 flex items-start justify-between">
           <div>
             <div className="text-white font-bold text-xl">{data.nom} {data.prenom}</div>
-            <div className="text-blue-200 text-sm mt-0.5">{data.email_ecole} · {data.id_ecampus}</div>
+            <div className="text-blue-200 text-sm mt-0.5 flex items-center gap-2">
+              <span>{data.email_ecole} · {data.id_ecampus}</span>
+              {data.niveau?.libelle && (
+                <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded bg-white/15 text-white">
+                  {data.niveau.libelle}
+                </span>
+              )}
+            </div>
           </div>
           <button onClick={onClose} className="text-blue-200 hover:text-white">
             <IconX size={22} />
@@ -961,6 +982,9 @@ function FicheEtudiant({ id, annee, onClose }) {
                       <div className="font-semibold text-iip-blue">Plan Annuel de l'Étudiant — {pae.annee}</div>
                       <div className="text-[12px] text-slate-500 mt-0.5 flex items-center gap-2 flex-wrap">
                         <span>{retenues.length} UE retenue(s) · section {(pae.sections || []).join(', ') || '—'}</span>
+                        {pae.niveau?.libelle && (
+                          <BadgeNiveau niveau={pae.niveau.niveau} libelle={pae.niveau.libelle} />
+                        )}
                         {(pae.sections_scores || []).length > 1 && (
                           <select value={sectionForcee} onChange={e => setSectionForcee(e.target.value)}
                             className="border border-slate-300 rounded-lg px-1.5 py-0.5 text-[11.5px]">
@@ -1013,7 +1037,9 @@ function FicheEtudiant({ id, annee, onClose }) {
                               <span className="text-slate-600 ml-1.5 text-[12.5px]">{u.ue_nom}</span>
                               {u.inscrite && <span className="ml-1.5 text-[9.5px] px-1 py-0.5 rounded bg-slate-100 text-slate-500">déjà inscrite</span>}
                             </td>
-                            <td className="py-2 text-[11px] text-slate-400">{u.ue_niv || '—'}</td>
+                            <td className="py-2">
+                              <BadgeNiveau niveau={u.ue_niv} libelle={u.ue_niv} />
+                            </td>
                             <td className="py-2">{ligneStatut(u)}</td>
                           </tr>
                         ))}
@@ -1048,7 +1074,9 @@ function FicheEtudiant({ id, annee, onClose }) {
                                   <span className="font-medium text-iip-blue">{u.ue_num}</span>
                                   <span className="text-slate-600 ml-1.5 text-[12.5px]">{u.ue_nom}</span>
                                 </td>
-                                <td className="py-1.5 text-[11px] text-slate-400 w-16">{u.ue_niv || '—'}</td>
+                                <td className="py-1.5 w-16">
+                                  <BadgeNiveau niveau={u.ue_niv} libelle={u.ue_niv} />
+                                </td>
                                 <td className="py-1.5 w-64">{ligneStatut(u)}</td>
                               </tr>
                             ))}
@@ -1355,6 +1383,7 @@ export default function Etudiants() {
                 <th className="px-4 py-2.5 text-left">Étudiant</th>
                 <th className="px-4 py-2.5 text-left">Email</th>
                 <th className="px-4 py-2.5 text-left w-24">Sections</th>
+                <th className="px-4 py-2.5 text-left w-24">Niveau</th>
                 <th className="px-4 py-2.5 text-right w-16">UE</th>
                 <th className="px-4 py-2.5 w-10"></th>
               </tr>
@@ -1376,6 +1405,9 @@ export default function Etudiants() {
                   </td>
                   <td className="px-4 py-2.5 text-slate-500 text-[12.5px]">{e.email_ecole}</td>
                   <td className="px-4 py-2.5 text-[11.5px] text-slate-500">{e.sections}</td>
+                  <td className="px-4 py-2.5">
+                    <BadgeNiveau niveau={e.niveau} libelle={e.niveau_libelle} />
+                  </td>
                   <td className="px-4 py-2.5 text-right font-medium text-iip-blue">{e.nb_ue}</td>
                   <td className="px-4 py-2.5 text-slate-300"><IconChevronRight size={16} /></td>
                 </tr>

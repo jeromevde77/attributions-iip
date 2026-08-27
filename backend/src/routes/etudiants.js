@@ -25,6 +25,60 @@ const UE_REF = `(
   FROM ue u0 GROUP BY ue_num
 )`;
 
+/**
+ * Niveau d'un étudiant, déduit des UE à son programme.
+ *
+ *   toutes de BA1  → « BA1 »        (idem BA2)
+ *   toutes de BA3  → « Diplômant »  (il ne lui reste que l'année terminale)
+ *   mélangées      → « Parcours »   (il reprend des UE de plusieurs années)
+ *
+ * Le niveau retenu est celui de la section (ue_niveau_section), le même que
+ * dans le schéma de capitalisation — et non la valeur brute du référentiel.
+ */
+export function niveauEtudiant(etudId, annee) {
+  let lignes = db.prepare(`
+    SELECT DISTINCT ue_num FROM etudiant_inscription
+    WHERE etudiant_id = ? AND annee_scolaire = ?
+  `).all(etudId, annee);
+
+  // Sans programme pour l'année demandée, on se rabat sur la dernière connue
+  let anneeRetenue = annee;
+  if (!lignes.length) {
+    const derniere = db.prepare(`
+      SELECT MAX(annee_scolaire) AS a FROM etudiant_inscription WHERE etudiant_id = ?
+    `).get(etudId)?.a;
+    if (!derniere) return { niveau: null, libelle: null, detail: {} };
+    anneeRetenue = derniere;
+    lignes = db.prepare(`
+      SELECT DISTINCT ue_num FROM etudiant_inscription
+      WHERE etudiant_id = ? AND annee_scolaire = ?
+    `).all(etudId, derniere);
+  }
+  if (!lignes.length) return { niveau: null, libelle: null, detail: {} };
+
+  const { sections } = sectionsDeLEtudiant(etudId, null);
+  const niveaux = sections.length ? niveauxEffectifs(sections, anneeRetenue) : {};
+
+  const detail = {};
+  for (const l of lignes) {
+    const n = (niveaux[l.ue_num] || '').toUpperCase();
+    if (!n) continue;
+    detail[n] = (detail[n] || 0) + 1;
+  }
+  const presents = Object.keys(detail);
+  if (!presents.length) return { niveau: null, libelle: null, detail };
+
+  if (presents.length === 1) {
+    const seul = presents[0];
+    return {
+      niveau: seul,
+      libelle: seul === 'BA3' ? 'Diplômant' : seul,
+      detail, annee: anneeRetenue,
+    };
+  }
+  return { niveau: 'MIXTE', libelle: 'Parcours', detail, annee: anneeRetenue };
+}
+
 export function migrerEtudiants(dbx) {
   try {
     dbx.exec(`
@@ -185,7 +239,12 @@ r.get('/', authRequired, (req, res) => {
   }
   sql += ` GROUP BY e.id ORDER BY e.nom, e.prenom`;
 
-  res.json(db.prepare(sql).all(...params));
+  const anneeActive = db.prepare('SELECT code FROM annee_scolaire WHERE active = 1').get()?.code;
+  const rows = db.prepare(sql).all(...params);
+  res.json(rows.map(r0 => {
+    const n = niveauEtudiant(r0.id, anneeActive);
+    return { ...r0, niveau: n.niveau, niveau_libelle: n.libelle };
+  }));
 });
 
 // ── Rapport croisé : étudiants × UE d'une section, pour une année ────────────
@@ -449,7 +508,8 @@ r.get('/:id', authRequired, (req, res) => {
     ORDER BY i.annee_scolaire DESC, u.section, i.ue_num
   `).all(etudiant.id);
 
-  res.json({ ...etudiant, inscriptions });
+  const anneeAct = db.prepare('SELECT code FROM annee_scolaire WHERE active = 1').get()?.code;
+  res.json({ ...etudiant, inscriptions, niveau: niveauEtudiant(etudiant.id, anneeAct) });
 });
 
 // ── Encoder un résultat ───────────────────────────────────────────────────────
@@ -606,12 +666,18 @@ r.get('/:id/pae', authRequired, (req, res) => {
     u.propose_sous_reserve = u.propose && (u.prereq_manquants || []).length > 0;
   }
 
+  // Niveau de rattachement de chaque UE, tel que défini pour la section
+  const nivEffectifs = sectionsEtudiant.length
+    ? niveauxEffectifs(sectionsEtudiant, annee) : {};
+  for (const u of pae) u.ue_niv = nivEffectifs[u.ue_num] || u.ue_niv || null;
+
   res.json({
     etudiant,
     annee,
     annee_precedente: anneePrecedente,
     sections: sectionsEtudiant,
     sections_scores: sectionsScores,
+    niveau: niveauEtudiant(profId, annee),
     pae,
     proposition: pae.filter(u => u.propose).map(u => u.ue_num),
     accessibles: pae.filter(u => u.accessible).length,
