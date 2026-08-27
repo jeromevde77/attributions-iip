@@ -11,6 +11,23 @@ import PurgeResultats from '../components/PurgeResultats.jsx';
 
 // Niveau de l'étudiant : BA1/BA2 s'il ne suit qu'une année, « Diplômant »
 // s'il ne lui reste que la BA3, « Parcours » s'il en mélange plusieurs.
+// En-tête de colonne triable : un clic trie, un second inverse le sens.
+function ThTri({ champ, tri, onTri, className = '', children }) {
+  const actif = tri.champ === champ;
+  return (
+    <th onClick={() => onTri(champ)}
+      className={`px-4 py-2.5 cursor-pointer select-none hover:bg-slate-100 transition ${className}`}
+      title="Trier sur cette colonne">
+      <span className="inline-flex items-center gap-1">
+        {children}
+        <span className={`text-[9px] leading-none ${actif ? 'text-iip-turquoise' : 'text-slate-300'}`}>
+          {actif ? (tri.sens === 1 ? '▲' : '▼') : '▲'}
+        </span>
+      </span>
+    </th>
+  );
+}
+
 function BadgeNiveau({ niveau, libelle, className = '' }) {
   if (!libelle) return null;
   const cls = niveau === 'MIXTE' ? 'bg-amber-50 text-amber-700 border-amber-200'
@@ -1120,6 +1137,11 @@ export default function Etudiants() {
   const [rapport, setRapport] = useState(null);
   const [importPAE, setImportPAE] = useState(false);
   const [purge, setPurge] = useState(false);
+  const [tri, setTri] = useState({ champ: 'nom', sens: 1 });
+
+  function trierPar(champ) {
+    setTri(t => t.champ === champ ? { champ, sens: -t.sens } : { champ, sens: 1 });
+  }
 
   async function ouvrirRapport() {
     if (!section) { alert('Choisissez d\'abord une section dans le filtre.'); return; }
@@ -1307,12 +1329,31 @@ export default function Etudiants() {
   useEffect(() => { charger(); /* eslint-disable-next-line */ }, [annee, section]);
 
   const filtres = useMemo(() => {
-    if (!recherche) return etudiants;
     const q = recherche.toLowerCase();
-    return etudiants.filter(e =>
-      e.nom?.toLowerCase().includes(q) || e.prenom?.toLowerCase().includes(q) ||
-      e.id_ecampus?.toLowerCase().includes(q));
-  }, [etudiants, recherche]);
+    const base = recherche
+      ? etudiants.filter(e =>
+          e.nom?.toLowerCase().includes(q) || e.prenom?.toLowerCase().includes(q) ||
+          e.id_ecampus?.toLowerCase().includes(q))
+      : [...etudiants];
+
+    // Tri par colonne. Les valeurs absentes se rangent toujours en fin de
+    // liste, quel que soit le sens : elles n'apprennent rien.
+    const cle = {
+      nom:     e => `${e.nom || ''} ${e.prenom || ''}`.trim().toLowerCase(),
+      email:   e => (e.email_ecole || '').toLowerCase(),
+      section: e => (e.sections || '').toLowerCase(),
+      niveau:  e => ({ BA1: 1, BA2: 2, BA3: 3, MIXTE: 4 }[e.niveau] ?? 9),
+      nb_ue:   e => Number(e.nb_ue || 0),
+    }[tri.champ] || (e => e.nom || '');
+
+    return base.sort((a, b) => {
+      const va = cle(a), vb = cle(b);
+      const va_vide = va === '' || va == null, vb_vide = vb === '' || vb == null;
+      if (va_vide !== vb_vide) return va_vide ? 1 : -1;
+      if (typeof va === 'number' && typeof vb === 'number') return (va - vb) * tri.sens;
+      return String(va).localeCompare(String(vb), 'fr') * tri.sens;
+    });
+  }, [etudiants, recherche, tri]);
 
   return (
     <div className="p-5 space-y-4 max-w-5xl">
@@ -1380,11 +1421,11 @@ export default function Etudiants() {
           <table className="w-full text-sm">
             <thead>
               <tr className="bg-slate-50 border-b border-slate-200 text-[10.5px] uppercase tracking-wide text-slate-500">
-                <th className="px-4 py-2.5 text-left">Étudiant</th>
-                <th className="px-4 py-2.5 text-left">Email</th>
-                <th className="px-4 py-2.5 text-left w-24">Sections</th>
-                <th className="px-4 py-2.5 text-left w-24">Niveau</th>
-                <th className="px-4 py-2.5 text-right w-16">UE</th>
+                <ThTri champ="nom"     tri={tri} onTri={trierPar} className="text-left">Étudiant</ThTri>
+                <ThTri champ="email"   tri={tri} onTri={trierPar} className="text-left">Email</ThTri>
+                <ThTri champ="section" tri={tri} onTri={trierPar} className="text-left w-24">Sections</ThTri>
+                <ThTri champ="niveau"  tri={tri} onTri={trierPar} className="text-left w-24">Niveau</ThTri>
+                <ThTri champ="nb_ue"   tri={tri} onTri={trierPar} className="text-right w-16">UE</ThTri>
                 <th className="px-4 py-2.5 w-10"></th>
               </tr>
             </thead>
