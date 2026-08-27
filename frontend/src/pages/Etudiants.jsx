@@ -913,7 +913,10 @@ function FicheEtudiant({ id, annee, onClose }) {
       const j = await rep.json();
       if (rep.ok) {
         setPae(j);
-        setSelection(new Set(j.pae.filter(u => u.propose || u.inscrite).map(u => u.ue_num)));
+        // Une UE déjà acquise n'entre pas dans la proposition, même si une
+        // inscription subsiste : la réinscrire suppose une décision expresse.
+        setSelection(new Set(
+          j.pae.filter(u => (u.propose || u.inscrite) && !u.deja_reussie).map(u => u.ue_num)));
       }
       else setPae({ erreur: j.error || 'Erreur serveur' });
     } catch(e) { setPae({ erreur: e.message }); }
@@ -1031,11 +1034,15 @@ function FicheEtudiant({ id, annee, onClose }) {
               ) : (() => {
                 const sel = selection || new Set();
                 const retenues = pae.pae.filter(u => sel.has(u.ue_num));
-                const autres = pae.pae.filter(u => !sel.has(u.ue_num));
+                const acquises = pae.pae.filter(u => !sel.has(u.ue_num) && u.deja_reussie);
+                const autres   = pae.pae.filter(u => !sel.has(u.ue_num) && !u.deja_reussie);
+                // Inscriptions résiduelles sur des UE déjà acquises : vestiges
+                // d'un PAE calculé avant l'encodage des résultats.
+                const residuelles = acquises.filter(u => u.inscrite);
                 const ligneStatut = u =>
                   u.reinscriptible_ce
                     ? <span className="text-[11px] text-amber-700 flex items-center gap-1"><IconAlertTriangle size={12} />
-                        {u.va_complete ? 'Dispensée (VA complète)' : 'Déjà réussie — décision CE requise'}</span>
+                        {u.va_complete ? 'Dispensée (VA complète)' : 'Réinscription — décision du Conseil des études'}</span>
                     : u.accessible
                       ? <span className="text-[11px] font-semibold text-emerald-700 flex items-center gap-1"><IconCheck size={12} /> Accessible</span>
                       : u.sous_reserve || u.propose_sous_reserve
@@ -1075,6 +1082,22 @@ function FicheEtudiant({ id, annee, onClose }) {
                     </div>
                   </div>
 
+                  {residuelles.length > 0 && (
+                    <div className="mb-3 px-3 py-2.5 rounded-xl bg-amber-50 border border-amber-200">
+                      <div className="flex items-start gap-2">
+                        <IconAlertTriangle size={15} className="text-amber-600 mt-0.5 flex-none" />
+                        <div className="flex-1 text-[12px] text-amber-900">
+                          <b>{residuelles.length} UE déjà réussie(s)</b> portent encore une inscription
+                          en {pae.annee} — vestige d'un programme calculé avant l'encodage des résultats.
+                          Elles ne sont plus proposées ; enregistrer le PAE les retirera.
+                          <div className="text-[11px] text-amber-700 mt-0.5">
+                            UE {residuelles.map(u => u.ue_num).join(', ')}
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
                   <SchemaCapitalisation etudId={id} annee={pae.annee} />
 
                   {!retenues.length ? (
@@ -1112,6 +1135,31 @@ function FicheEtudiant({ id, annee, onClose }) {
                         ))}
                       </tbody>
                     </table>
+                  )}
+
+                  {acquises.length > 0 && (
+                    <details className="mt-4 border border-emerald-200 bg-emerald-50/40 rounded-xl">
+                      <summary className="px-3 py-2 text-[12.5px] font-semibold text-emerald-900 cursor-pointer">
+                        {acquises.length} UE déjà acquise(s)
+                        <span className="font-normal text-emerald-700"> — hors programme</span>
+                      </summary>
+                      <div className="px-3 pb-2.5">
+                        <p className="text-[11px] text-emerald-800 mb-1.5">
+                          Réussies ou valorisées lors d'une année antérieure. Une réinscription
+                          reste possible, mais suppose une décision favorable du Conseil des études.
+                        </p>
+                        <div className="flex flex-wrap gap-1.5">
+                          {acquises.map(u => (
+                            <button key={u.ue_num} onClick={() => basculerUE(u)}
+                              title={`${u.ue_nom || ''} — cliquer pour réinscrire`}
+                              className="text-[11px] px-2 py-0.5 rounded-lg border border-emerald-300 bg-white text-emerald-800 hover:bg-emerald-100">
+                              {u.ue_num}
+                              {u.va_complete ? ' · VA' : ''}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                    </details>
                   )}
 
                   <button onClick={() => setCatalogueOuvert(o => !o)}
