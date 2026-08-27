@@ -475,7 +475,7 @@ r.get('/:id/pae', authRequired, (req, res) => {
 // celles décochées qui n'ont PAS de résultat encodé (jamais destructif).
 r.post('/:id/pae-valider', authRequired, roleRequired('admin', 'editeur'), (req, res) => {
   const etudId = Number(req.params.id);
-  const { annee, ue_nums, derogations } = req.body;
+  const { annee, ue_nums, derogations, forcer } = req.body;
   if (!annee || !Array.isArray(ue_nums)) {
     return res.status(400).json({ error: 'annee et ue_nums requis' });
   }
@@ -495,25 +495,33 @@ r.post('/:id/pae-valider', authRequired, roleRequired('admin', 'editeur'), (req,
       (etudiant_id, annee_scolaire, ue_num, date_inscription, derogation)
     VALUES (?,?,?,?,?)
   `);
-  const del = db.prepare(`
-    DELETE FROM etudiant_inscription
-    WHERE etudiant_id = ? AND annee_scolaire = ? AND ue_num = ? AND resultat IS NULL
-  `);
+  // Par défaut, une inscription portant un résultat n'est jamais retirée
+  // silencieusement. Avec « forcer », elle l'est — et ses notes avec elle.
+  const del = forcer
+    ? db.prepare('DELETE FROM etudiant_inscription WHERE etudiant_id = ? AND annee_scolaire = ? AND ue_num = ?')
+    : db.prepare(`
+        DELETE FROM etudiant_inscription
+        WHERE etudiant_id = ? AND annee_scolaire = ? AND ue_num = ? AND resultat IS NULL
+      `);
 
-  let ajoutees = 0, retirees = 0;
+  let ajoutees = 0, retirees = 0, conservees = 0;
   const tx = db.transaction(() => {
     for (const ue of retenues) {
       if (ins.run(etudId, annee, ue, dateInsc, derog.has(ue) ? 1 : 0).changes) ajoutees++;
     }
     for (const ex of existantes) {
-      if (!retenues.has(ex.ue_num) && ex.resultat == null) {
-        if (del.run(etudId, annee, ex.ue_num).changes) retirees++;
+      if (retenues.has(ex.ue_num)) continue;
+      if (ex.resultat != null && !forcer) { conservees++; continue; }
+      if (del.run(etudId, annee, ex.ue_num).changes) {
+        retirees++;
+        db.prepare('DELETE FROM etudiant_note_detail WHERE etudiant_id=? AND annee_scolaire=? AND ue_num=?')
+          .run(etudId, annee, ex.ue_num);
       }
     }
   });
   tx();
 
-  res.json({ ok: true, annee, ajoutees, retirees, total: retenues.size });
+  res.json({ ok: true, annee, ajoutees, retirees, conservees, total: retenues.size });
 });
 
 // ── PAE auto : inscrire d'un clic tout ce que l'étudiant peut avoir ──────────
@@ -695,6 +703,50 @@ r.get('/:id/capitalisation', authRequired, (req, res) => {
   res.json({ ...g, sections, annee });
 });
 
+// ── Purge d'une année pour un étudiant ──────────────────────────────────────
+// Deux portées : « resultats » vide les notes en gardant les inscriptions,
+// « tout » supprime les inscriptions de l'année et ce qui s'y rattache.
+r.delete('/:id/annee/:annee', authRequired, roleRequired('admin', 'editeur'), (req, res) => {
+  const etudId = Number(req.params.id);
+  const annee = req.params.annee;
+  const portee = req.query.portee === 'tout' ? 'tout' : 'resultats';
+
+  const e = db.prepare('SELECT id FROM etudiant WHERE id = ?').get(etudId);
+  if (!e) return res.status(404).json({ error: 'étudiant introuvable' });
+
+  const avant = db.prepare(
+    'SELECT COUNT(*) AS n FROM etudiant_inscription WHERE etudiant_id=? AND annee_scolaire=?'
+  ).get(etudId, annee).n;
+
+  let notes = 0, inscriptions = 0, valorisations = 0;
+  db.transaction(() => {
+    notes = db.prepare(
+      'DELETE FROM etudiant_note_detail WHERE etudiant_id=? AND annee_scolaire=?'
+    ).run(etudId, annee).changes;
+
+    try {
+      db.prepare('DELETE FROM etudiant_report_note WHERE etudiant_id=? AND annee_scolaire=?')
+        .run(etudId, annee);
+    } catch { /* table absente */ }
+
+    if (portee === 'tout') {
+      inscriptions = db.prepare(
+        'DELETE FROM etudiant_inscription WHERE etudiant_id=? AND annee_scolaire=?'
+      ).run(etudId, annee).changes;
+      valorisations = db.prepare(
+        'DELETE FROM etudiant_valorisation WHERE etudiant_id=? AND annee_scolaire=?'
+      ).run(etudId, annee).changes;
+    } else {
+      db.prepare(`
+        UPDATE etudiant_inscription SET resultat = NULL, points = NULL
+        WHERE etudiant_id=? AND annee_scolaire=?
+      `).run(etudId, annee);
+    }
+  })();
+
+  res.json({ ok: true, annee, portee, avant, inscriptions, notes, valorisations });
+});
+
 // ── Grille de parcours : UE (lignes, BA1→BA3) × années (colonnes) ────────────
 r.get('/:id/grille', authRequired, (req, res) => {
   const etudId = Number(req.params.id);
@@ -794,7 +846,8 @@ r.put('/:id/grille', authRequired, roleRequired('admin', 'editeur'), (req, res) 
   if (!annee || !ue_num || !kind) {
     return res.status(400).json({ error: 'annee, ue_num et kind requis' });
   }
-  const KINDS = ['inscrit', 'reussi', 'ajourne', 'absent', 'va', 'effacer'];
+  const KINDS = ['inscrit', 'reussi', 'ajourne', 'absent', 'va',
+                 'effacer_resultat', 'effacer'];
   if (!KINDS.includes(kind)) return res.status(400).json({ error: 'kind invalide' });
 
   const ueN = Number(ue_num);
@@ -807,8 +860,28 @@ r.put('/:id/grille', authRequired, roleRequired('admin', 'editeur'), (req, res) 
     "DELETE FROM etudiant_valorisation WHERE etudiant_id=? AND annee_scolaire=? AND ue_num=? AND type='complete'"
   ).run(etudId, annee, ueN);
 
+  // Effacer le seul résultat : l'inscription demeure, ses notes disparaissent.
+  if (kind === 'effacer_resultat') {
+    db.prepare(`
+      UPDATE etudiant_inscription SET resultat = NULL, points = NULL
+      WHERE etudiant_id=? AND annee_scolaire=? AND ue_num=?
+    `).run(etudId, annee, ueN);
+    db.prepare(`
+      DELETE FROM etudiant_note_detail
+      WHERE etudiant_id=? AND annee_scolaire=? AND ue_num=?
+    `).run(etudId, annee, ueN);
+    return res.json({ ok: true });
+  }
+
+  // Supprimer l'inscription : la ligne et tout ce qui s'y rattache.
   if (kind === 'effacer') {
     delInsc(); delVa();
+    db.prepare('DELETE FROM etudiant_note_detail WHERE etudiant_id=? AND annee_scolaire=? AND ue_num=?')
+      .run(etudId, annee, ueN);
+    try {
+      db.prepare('DELETE FROM etudiant_report_note WHERE etudiant_id=? AND annee_scolaire=? AND ue_num=?')
+        .run(etudId, annee, ueN);
+    } catch { /* table absente sur une base non migrée */ }
     return res.json({ ok: true });
   }
 

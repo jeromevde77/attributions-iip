@@ -104,6 +104,35 @@ function GrilleParcours({ etudId, peutEcrire }) {
   }
 
 
+  async function purgerAnnee() {
+    const annees = (data?.annees || []);
+    const saisie = window.prompt(
+      'Année à purger ?\nAnnées présentes : ' + annees.join(', '),
+      annees[annees.length - 1] || '');
+    if (!saisie || !/^20\d{2}-20\d{2}$/.test(saisie.trim())) {
+      if (saisie !== null) alert('Format attendu : 2025-2026');
+      return;
+    }
+    const an = saisie.trim();
+    const tout = window.confirm(
+      `Purge de ${an}\n\nOK = supprimer les inscriptions ET les résultats\n` +
+      `Annuler = ne vider que les résultats, en gardant les inscriptions`);
+    const portee = tout ? 'tout' : 'resultats';
+    if (!window.confirm(
+      portee === 'tout'
+        ? `Confirmer la suppression des inscriptions de ${an} et de tout ce qui s'y rattache ?`
+        : `Confirmer l'effacement des résultats de ${an} ? Les inscriptions sont conservées.`)) return;
+
+    const rep = await fetch(`/api/etudiants/${etudId}/annee/${an}?portee=${portee}`,
+      { method: 'DELETE', headers: authHeaders() });
+    const j = await rep.json();
+    if (!rep.ok) { alert(j.error || 'Erreur'); return; }
+    alert(`Purge de ${an} — ${j.avant} inscription(s) concernée(s)` +
+      (portee === 'tout' ? `\n${j.inscriptions} supprimée(s), ${j.valorisations} valorisation(s)` : '\nrésultats effacés') +
+      `\n${j.notes} note(s) d'acquis supprimée(s)`);
+    await charger();
+  }
+
   async function ecrire(kind, opts = {}) {
     if (!popover) return;
     const rep = await fetch(`/api/etudiants/${etudId}/grille`, {
@@ -156,6 +185,11 @@ function GrilleParcours({ etudId, peutEcrire }) {
               » Masquer
             </button>
           )}
+          <button onClick={purgerAnnee}
+            title="Effacer les résultats ou les inscriptions d'une année"
+            className="px-2.5 py-1.5 text-[12px] border border-red-200 text-red-600 rounded-lg hover:bg-red-50">
+            Purger une année
+          </button>
           <button onClick={() => setNbHistorique(n => (n === 0 ? 5 : n + 3))}
             title="Afficher les années antérieures pour encoder l'historique"
             className="px-2.5 py-1.5 text-[12px] border border-slate-300 rounded-lg hover:bg-slate-50">
@@ -267,9 +301,18 @@ function GrilleParcours({ etudId, peutEcrire }) {
                   {k.label}
                 </button>
               ))}
-              <button onClick={() => ecrire('effacer')}
-                className="text-[12px] px-2 py-1.5 rounded-lg border border-slate-200 text-slate-500 col-span-2">
-                Effacer la case
+              <button onClick={() => ecrire('effacer_resultat')}
+                title="L'inscription demeure ; sa note et ses acquis sont effacés"
+                className="text-[12px] px-2 py-1.5 rounded-lg border border-slate-200 text-slate-600">
+                Effacer le résultat
+              </button>
+              <button onClick={() => {
+                  if (window.confirm("Supprimer l'inscription à cette UE pour cette année ?\nSes notes, valorisations et reports seront également supprimés."))
+                    ecrire('effacer');
+                }}
+                title="Supprime l'inscription et tout ce qui s'y rattache"
+                className="text-[12px] px-2 py-1.5 rounded-lg border border-red-200 text-red-600 hover:bg-red-50">
+                Supprimer l'inscription
               </button>
             </div>
 
@@ -729,9 +772,30 @@ function FicheEtudiant({ id, annee, onClose }) {
       });
       const j = await rep.json();
       if (!rep.ok) { alert(j.error || 'Erreur'); return; }
+
+      // Les inscriptions portant un résultat ne sont jamais retirées d'office
+      if (j.conservees) {
+        const forcer = window.confirm(
+          `${j.conservees} inscription(s) décochée(s) portent un résultat encodé et ont été conservées.\n\n` +
+          `Les supprimer quand même, avec leurs notes ?`);
+        if (forcer) {
+          const rep2 = await fetch(`/api/etudiants/${id}/pae-valider`, {
+            method: 'POST', headers: authHeaders(),
+            body: JSON.stringify({ annee, ue_nums, derogations, forcer: true }),
+          });
+          const j2 = await rep2.json();
+          if (rep2.ok) {
+            alert(`PAE enregistré — ${j2.total} UE inscrites\n${j2.retirees} retirée(s)`);
+            await chargerPAE(); await charger();
+            return;
+          }
+        }
+      }
+
       alert(`PAE enregistré — ${j.total} UE inscrites` +
         (j.ajoutees ? `\n${j.ajoutees} ajoutée(s)` : '') +
-        (j.retirees ? `\n${j.retirees} retirée(s)` : ''));
+        (j.retirees ? `\n${j.retirees} retirée(s)` : '') +
+        (j.conservees ? `\n${j.conservees} conservée(s) car elles portent un résultat` : ''));
       await chargerPAE(); await charger();
     } finally { setEnregistrement(false); }
   }
