@@ -196,8 +196,8 @@ function GrilleParcours({ etudId, peutEcrire }) {
                             ${cl?.derogation ? 'ring-1 ring-amber-400' : ''}`}
                           title={cl?.derogation ? 'Encodée avec dérogation' : ''}>
                           {kind
-                            ? (kind.val === 'reussi' ? (cl.points != null ? cl.points + ' %' : '✓')
-                               : kind.val === 'va' ? (cl.points != null ? 'VA ' + cl.points + '%' : 'VA')
+                            ? (kind.val === 'reussi' ? (cl.points != null ? cl.points + '/20' : '✓')
+                               : kind.val === 'va' ? (cl.points != null ? 'VA ' + cl.points : 'VA')
                                : kind.short)
                             : '·'}
                           {aDetail(a, u.ue_num) && <span className="ml-0.5 align-super text-[8px]">●</span>}
@@ -239,7 +239,7 @@ function GrilleParcours({ etudId, peutEcrire }) {
                 l'UE {popover.sousReserve.join(', ')} en cours d'année (cas type : épreuve intégrée).
               </div>
             )}
-            <input type="number" min="0" max="100" placeholder="Points % (optionnel)"
+            <input type="number" min="0" max="20" step="0.1" placeholder="Note /20 (optionnel)"
               value={pts} onChange={e => setPts(e.target.value)}
               className="w-full border border-slate-300 rounded-lg px-2 py-1.5 text-sm mb-3" />
             <div className="grid grid-cols-2 gap-1.5">
@@ -268,12 +268,12 @@ function GrilleParcours({ etudId, peutEcrire }) {
                   <div className={`rounded-xl px-3 py-2.5 mb-3 border ${
                     detail.calcul.pourcentage == null
                       ? 'bg-slate-50 border-slate-200'
-                      : detail.calcul.pourcentage >= 50
+                      : detail.calcul.sur20 >= 10
                         ? 'bg-emerald-50 border-emerald-200'
                         : 'bg-red-50 border-red-200'}`}>
-                    {detail.calcul.pourcentage == null ? (
+                    {detail.calcul.sur20 == null ? (
                       <div className="text-[11.5px] text-slate-500">
-                        Aucun acquis coté — ou pondérations non encodées pour cette UE.
+                        Aucun acquis coté, ou pondérations non encodées pour cette UE.
                       </div>
                     ) : (
                       <div className="flex items-center justify-between gap-3">
@@ -293,7 +293,8 @@ function GrilleParcours({ etudId, peutEcrire }) {
                           </div>
                         </div>
                         <button
-                          onClick={() => ecrire('reussi', { points: detail.calcul.pourcentage })}
+                          onClick={() => ecrire(detail.calcul.sur20 >= 10 ? 'reussi' : 'ajourne',
+                            { points: detail.calcul.sur20 })}
                           className="flex-none text-[11.5px] px-2.5 py-1.5 rounded-lg bg-iip-blue text-white font-semibold">
                           Reporter sur l\u2019UE
                         </button>
@@ -309,7 +310,10 @@ function GrilleParcours({ etudId, peutEcrire }) {
                         <div className="flex-1 text-[11.5px] text-slate-700 truncate" title={co.cours_nom}>
                           <b className="text-iip-blue">{co.cours_code}</b> {co.cours_nom}
                         </div>
-                        <span className="text-[10px] text-slate-400 flex-none">{co.periodes} pér.</span>
+                        <span className="text-[10px] text-slate-400 flex-none"
+                          title={`${co.periodes} périodes`}>
+                          {co.poids_cours != null ? co.poids_cours + ' %' : '— %'}
+                        </span>
                         {!co.complet && (
                           <span className="text-[9.5px] px-1.5 py-0.5 rounded bg-amber-50 text-amber-700 border border-amber-200 flex-none"
                             title={`Somme des pondérations : ${co.somme_poids} au lieu de 100`}>
@@ -337,7 +341,7 @@ function GrilleParcours({ etudId, peutEcrire }) {
                                   title="Pondération dans ce cours">
                                   {aa.poids != null ? aa.poids + '%' : '—'}
                                 </span>
-                                <input type="number" min="0" max="100" placeholder="%"
+                                <input type="number" min="0" max="20" step="0.1" placeholder="/20"
                                   defaultValue={n.points ?? ''}
                                   disabled={!!n.non_evalue}
                                   onBlur={e => ecrireDetail(co.cours_code, aa.aa_code,
@@ -1012,8 +1016,10 @@ export default function Etudiants() {
           let noteBrute = iNs2 >= 0 && row[iNs2] != null && !isNaN(Number(row[iNs2]))
             ? Number(row[iNs2])
             : (iNs1 >= 0 && row[iNs1] != null && !isNaN(Number(row[iNs1])) ? Number(row[iNs1]) : null);
-          // Notes sur 20 → % ; si déjà > 20, considérer que c'est un %
-          const points = noteBrute == null ? null : (noteBrute <= 20 ? Math.round(noteBrute * 5) : Math.round(noteBrute));
+          // Les notes du classeur sont sur 20 — l'échelle retenue dans Lucie.
+          // Une valeur au-delà de 20 est un pourcentage : on la ramène sur 20.
+          const points = noteBrute == null ? null
+            : Math.round((noteBrute <= 20 ? noteBrute : noteBrute / 5) * 10) / 10;
           const resultat = dec === 'C' ? 'reussi' : (dec === 'R' || dec === 'AJ') ? 'ajourne' : null;
           resultats.push({ id_ecampus: String(mat).trim(), ue_num: ueNum, resultat, points });
         }

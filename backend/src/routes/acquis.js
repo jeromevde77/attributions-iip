@@ -40,6 +40,15 @@ export function migrerAA(dbx) {
       UNIQUE(cours_code, aa_code)
     );
     CREATE INDEX IF NOT EXISTS idx_aa_pond_ue ON aa_ponderation(ue_num);
+
+    CREATE TABLE IF NOT EXISTS cours_ponderation (
+      id          INTEGER PRIMARY KEY AUTOINCREMENT,
+      ue_num      INTEGER NOT NULL,
+      cours_code  TEXT NOT NULL,
+      poids       REAL NOT NULL DEFAULT 0,
+      maj_le      TEXT DEFAULT (datetime('now')),
+      UNIQUE(ue_num, cours_code)
+    );
     `);
 
     // La note d'un AA se rattache au cours dans lequel il est évalué.
@@ -56,18 +65,10 @@ export function migrerAA(dbx) {
   } catch (e) { console.error('[migration] aa :', e.message); }
 }
 
-// Périodes d'un cours, autonomie exclue — le poids du cours dans l'UE.
-function periodesCours(coursCode, annee) {
-  const row = db.prepare(`
-    SELECT cours_per FROM cours
-    WHERE cours_code = ? AND annee_scolaire = ?
-  `).get(coursCode, annee)
-    || db.prepare(`
-    SELECT cours_per FROM cours WHERE cours_code = ?
-    ORDER BY annee_scolaire DESC LIMIT 1
-  `).get(coursCode);
-  return Number(row?.cours_per || 0);
-}
+// Le poids d'un cours dans son UE est un pourcentage explicite : les poids
+// des cours d'une UE totalisent 100. Il découle des périodes du dossier
+// pédagogique, mais reste saisi — l'arrondi retenu par le Conseil des études
+// n'est pas toujours celui d'un calcul (42 / 31 / 27, par exemple).
 
 /**
  * Structure d'évaluation d'une UE : ses cours, leurs AA, les pondérations et
@@ -96,6 +97,10 @@ export function structureUE(ueNum, annee) {
   for (const p of db.prepare('SELECT cours_code, aa_code, poids FROM aa_ponderation WHERE ue_num = ?').all(ueNum)) {
     pond[p.cours_code + '|' + p.aa_code] = Number(p.poids);
   }
+  const poidsCours = {};
+  for (const p of db.prepare('SELECT cours_code, poids FROM cours_ponderation WHERE ue_num = ?').all(ueNum)) {
+    poidsCours[p.cours_code] = Number(p.poids);
+  }
 
   return cours.map(c => {
     const siens = aas.filter(a => a.cours_code === c.cours_code).map(a => ({
@@ -105,6 +110,7 @@ export function structureUE(ueNum, annee) {
     return {
       ...c,
       periodes: Number(c.cours_per || 0),
+      poids_cours: poidsCours[c.cours_code] ?? null,
       aas: siens,
       somme_poids: Math.round(somme * 100) / 100,
       complet: siens.length > 0 && Math.abs(somme - 100) < 0.01,
@@ -122,39 +128,80 @@ export function calculerNoteUE(ueNum, annee, notes) {
   let evalues = 0, attendus = 0;
 
   for (const c of structure) {
+    const pc = c.poids_cours;
+    if (!pc) continue;                              // poids du cours non encodé
     for (const a of c.aas) {
-      const poids = a.poids;
-      if (!poids || !c.periodes) continue;          // pondération ou périodes absentes
+      if (!a.poids) continue;                       // pondération de l'AA non encodée
       attendus++;
       const n = notes[c.cours_code + '|' + a.aa_code];
       if (!n || n.non_evalue || n.points == null || n.points === '') continue;
       evalues++;
-      const facteur = poids * c.periodes;
+      const facteur = a.poids * pc;                 // pondération dans le cours × poids du cours
       numerateur += Number(n.points) * facteur;
-      maximum    += 100 * facteur;
+      maximum    += 20 * facteur;                   // les acquis sont cotés sur 20
     }
   }
 
-  if (!maximum) return { pourcentage: null, sur20: null, evalues, attendus, complet: false };
-  const pct = Math.round((numerateur / maximum) * 1000) / 10;
+  if (!maximum) return { sur20: null, pourcentage: null, evalues, attendus, complet: false };
+  const sur20 = Math.round((numerateur / maximum) * 20 * 10) / 10;
   return {
-    pourcentage: pct,
-    sur20: Math.round((pct / 5) * 10) / 10,
+    sur20,
+    pourcentage: Math.round(sur20 * 5 * 10) / 10,
     evalues, attendus,
     complet: evalues === attendus && attendus > 0,
   };
 }
 
+// Note d'un cours pour un étudiant — utile à l'affichage et aux dispenses.
+export function calculerNoteCours(cours, notes) {
+  let num = 0, max = 0, evalues = 0;
+  for (const a of cours.aas) {
+    if (!a.poids) continue;
+    const n = notes[cours.cours_code + '|' + a.aa_code];
+    if (!n || n.non_evalue || n.points == null || n.points === '') continue;
+    evalues++;
+    num += Number(n.points) * a.poids;
+    max += 20 * a.poids;
+  }
+  if (!max) return { sur20: null, evalues };
+  return { sur20: Math.round((num / max) * 20 * 10) / 10, evalues };
+}
+
 // ── Structure d'évaluation d'une UE ─────────────────────────────────────────
 r.get('/ue/:ueNum/structure', authRequired, (req, res) => {
   const cours = structureUE(Number(req.params.ueNum), req.query.annee);
-  const totalPeriodes = cours.reduce((s, c) => s + c.periodes, 0);
+  const sommeCours = cours.reduce((s, c) => s + (c.poids_cours || 0), 0);
   res.json({
     ue_num: Number(req.params.ueNum),
     cours,
-    total_periodes: totalPeriodes,
-    pret: cours.length > 0 && cours.every(c => c.complet) && totalPeriodes > 0,
+    somme_poids_cours: Math.round(sommeCours * 100) / 100,
+    poids_cours_complet: cours.length > 0 && Math.abs(sommeCours - 100) < 0.01,
+    pret: cours.length > 0 && cours.every(c => c.complet) && Math.abs(sommeCours - 100) < 0.01,
   });
+});
+
+// ── Poids des cours dans l'UE (somme 100) ──────────────────────────────────
+r.put('/ponderations-cours', authRequired, roleRequired('admin', 'editeur'), (req, res) => {
+  const { ue_num, poids } = req.body;   // poids : [{ cours_code, poids }]
+  if (!ue_num || !Array.isArray(poids)) {
+    return res.status(400).json({ error: 'ue_num et poids requis' });
+  }
+  const somme = poids.reduce((s, p) => s + Number(p.poids || 0), 0);
+  if (poids.length && Math.abs(somme - 100) > 0.01) {
+    return res.status(400).json({
+      error: `La somme des poids des cours vaut ${Math.round(somme * 100) / 100} au lieu de 100.`,
+    });
+  }
+  const up = db.prepare(`
+    INSERT INTO cours_ponderation (ue_num, cours_code, poids, maj_le)
+    VALUES (?,?,?, datetime('now'))
+    ON CONFLICT(ue_num, cours_code) DO UPDATE SET
+      poids = excluded.poids, maj_le = datetime('now')
+  `);
+  db.transaction(() => {
+    for (const p of poids) up.run(Number(ue_num), p.cours_code, Number(p.poids || 0));
+  })();
+  res.json({ ok: true, somme: Math.round(somme * 100) / 100 });
 });
 
 // ── Enregistrer les pondérations d'un cours ─────────────────────────────────
@@ -225,12 +272,14 @@ r.get('/sections/:section/ues', authRequired, (req, res) => {
   res.json(ues.map(u => {
     const st = structureUE(u.ue_num, annee);
     const nbAA = st.reduce((s, c) => s + c.aas.length, 0);
+    const sommeC = st.reduce((s, c) => s + (c.poids_cours || 0), 0);
     return {
       ...u,
       nb_cours: st.length,
       nb_aa: nbAA,
-      pret: st.length > 0 && st.every(c => c.complet),
+      pret: st.length > 0 && st.every(c => c.complet) && Math.abs(sommeC - 100) < 0.01,
       cours_incomplets: st.filter(c => !c.complet).map(c => c.cours_code),
+      somme_poids_cours: Math.round(sommeC * 100) / 100,
     };
   }));
 });
