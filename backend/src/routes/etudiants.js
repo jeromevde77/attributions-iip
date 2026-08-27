@@ -286,6 +286,155 @@ r.get('/rapport', authRequired, (req, res) => {
   res.json({ html, nom: 'parcours_' + section + '_' + annee + '.html' });
 });
 
+// ── Périmètre disponible pour la purge : UE et cours d'une section ──────────
+r.get('/purge/perimetre', authRequired, (req, res) => {
+  const { section, annee } = req.query;
+  const anneeRef = db.prepare('SELECT code FROM annee_scolaire WHERE active = 1').get()?.code || annee;
+
+  const annees = db.prepare(
+    'SELECT DISTINCT annee_scolaire FROM etudiant_inscription ORDER BY annee_scolaire DESC'
+  ).all().map(r0 => r0.annee_scolaire);
+
+  let ues = [], cours = [];
+  if (section) {
+    ues = db.prepare(`
+      SELECT DISTINCT ue_num, MIN(ue_nom) AS ue_nom FROM ue
+      WHERE section = ? AND annee_scolaire IN (?, ?)
+      GROUP BY ue_num ORDER BY ue_num
+    `).all(section, annee || anneeRef, anneeRef);
+    if (ues.length) {
+      cours = db.prepare(`
+        SELECT DISTINCT cours_code, MIN(cours_nom) AS cours_nom, ue_num FROM cours
+        WHERE ue_num IN (${ues.map(u => u.ue_num).join(',')})
+        GROUP BY cours_code ORDER BY cours_code
+      `).all();
+    }
+  }
+  res.json({ annees, ues, cours });
+});
+
+// ── Étudiants concernés, pour une sélection fine ───────────────────────────
+r.get('/purge/etudiants', authRequired, (req, res) => {
+  const { annee, section, ue_num } = req.query;
+  if (!annee) return res.status(400).json({ error: 'annee requise' });
+
+  let ues = null;
+  if (ue_num) ues = [Number(ue_num)];
+  else if (section) {
+    const anneeRef = db.prepare('SELECT code FROM annee_scolaire WHERE active = 1').get()?.code || annee;
+    ues = db.prepare(`
+      SELECT DISTINCT ue_num FROM ue WHERE section = ? AND annee_scolaire IN (?, ?)
+    `).all(section, annee, anneeRef).map(r0 => r0.ue_num);
+  }
+
+  const clause = ues && ues.length ? `AND i.ue_num IN (${ues.join(',')})` : '';
+  const rows = db.prepare(`
+    SELECT e.id, e.nom, e.prenom, e.id_ecampus,
+           COUNT(DISTINCT i.ue_num) AS nb_ue,
+           SUM(CASE WHEN i.resultat IS NOT NULL THEN 1 ELSE 0 END) AS nb_resultats
+    FROM etudiant e
+    JOIN etudiant_inscription i ON i.etudiant_id = e.id AND i.annee_scolaire = ?
+    WHERE 1=1 ${clause}
+    GROUP BY e.id ORDER BY e.nom, e.prenom
+  `).all(annee);
+  res.json(rows);
+});
+
+// ── Purge sélective : section, UE ou cours, sur tout ou partie des étudiants
+// Appelée d'abord en simulation pour annoncer ce qui sera touché, puis pour
+// de bon. Rien n'est supprimé sans que le compte ait été montré.
+r.post('/purge', authRequired, roleRequired('admin', 'editeur'), (req, res) => {
+  const {
+    annee, section, ue_num, cours_code,
+    etudiant_ids,                 // null ou [] = tous les étudiants concernés
+    portee = 'resultats',         // resultats | inscriptions
+    simulation = true,
+  } = req.body;
+
+  if (!annee) return res.status(400).json({ error: 'annee requise' });
+
+  // UE visées : une seule, ou toutes celles de la section, ou aucune limite
+  let ues = null;
+  if (ue_num) ues = [Number(ue_num)];
+  else if (section) {
+    const anneeRef = db.prepare('SELECT code FROM annee_scolaire WHERE active = 1').get()?.code || annee;
+    ues = db.prepare(`
+      SELECT DISTINCT ue_num FROM ue WHERE section = ? AND annee_scolaire IN (?, ?)
+    `).all(section, annee, anneeRef).map(r0 => r0.ue_num);
+    if (!ues.length) return res.json({ ok: true, simulation, rien: true, message: 'Aucune UE pour cette section.' });
+  }
+
+  // Cours visé : restreint aux résultats de cours et aux notes d'acquis
+  const cc = cours_code ? String(cours_code).trim() : null;
+  if (cc && !ues) {
+    const ue = db.prepare('SELECT ue_num FROM cours WHERE cours_code = ? LIMIT 1').get(cc)?.ue_num;
+    if (ue != null) ues = [ue];
+  }
+
+  const etudiants = Array.isArray(etudiant_ids) && etudiant_ids.length
+    ? etudiant_ids.map(Number) : null;
+
+  // Construction des clauses communes
+  const cond = (colUe = 'ue_num', colEtud = 'etudiant_id') => {
+    const parts = ['annee_scolaire = @annee'];
+    const p = { annee };
+    if (ues) { parts.push(`${colUe} IN (${ues.join(',')})`); }
+    if (etudiants) { parts.push(`${colEtud} IN (${etudiants.join(',')})`); }
+    return { where: parts.join(' AND '), p };
+  };
+
+  const compter = (table, extra = '') => {
+    const { where, p } = cond();
+    try {
+      return db.prepare(`SELECT COUNT(*) AS n FROM ${table} WHERE ${where}${extra}`).get(p).n;
+    } catch { return 0; }
+  };
+
+  const clauseCours = cc ? ` AND cours_code = '${cc.replace(/'/g, "''")}'` : '';
+
+  const compte = {
+    resultats_cours: compter('etudiant_resultat_cours', clauseCours),
+    notes_aa: compter('etudiant_note_detail', clauseCours),
+    reports: compter('etudiant_report_note', clauseCours),
+    // Les inscriptions et valorisations sont à la maille de l'UE : un filtre
+    // par cours ne les concerne pas.
+    inscriptions: cc ? 0 : compter('etudiant_inscription'),
+    inscriptions_avec_resultat: cc ? 0 : compter('etudiant_inscription', ' AND resultat IS NOT NULL'),
+    valorisations: cc ? 0 : compter('etudiant_valorisation'),
+  };
+
+  if (simulation) {
+    return res.json({
+      ok: true, simulation: true, annee, section: section || null,
+      ue_num: ue_num || null, cours_code: cc, portee,
+      etudiants: etudiants ? etudiants.length : 'tous',
+      compte,
+    });
+  }
+
+  const supprime = {};
+  db.transaction(() => {
+    const { where, p } = cond();
+    const exec = (sql) => { try { return db.prepare(sql).run(p).changes; } catch { return 0; } };
+
+    supprime.resultats_cours = exec(`DELETE FROM etudiant_resultat_cours WHERE ${where}${clauseCours}`);
+    supprime.notes_aa       = exec(`DELETE FROM etudiant_note_detail   WHERE ${where}${clauseCours}`);
+    supprime.reports        = exec(`DELETE FROM etudiant_report_note   WHERE ${where}${clauseCours}`);
+
+    if (!cc) {
+      if (portee === 'inscriptions') {
+        supprime.inscriptions  = exec(`DELETE FROM etudiant_inscription   WHERE ${where}`);
+        supprime.valorisations = exec(`DELETE FROM etudiant_valorisation  WHERE ${where}`);
+      } else {
+        supprime.inscriptions_videes = exec(
+          `UPDATE etudiant_inscription SET resultat = NULL, points = NULL WHERE ${where}`);
+      }
+    }
+  })();
+
+  res.json({ ok: true, simulation: false, annee, portee, supprime });
+});
+
 // ── Fiche étudiant avec inscriptions ─────────────────────────────────────────
 r.get('/:id', authRequired, (req, res) => {
   const etudiant = db.prepare('SELECT * FROM etudiant WHERE id = ?').get(Number(req.params.id));

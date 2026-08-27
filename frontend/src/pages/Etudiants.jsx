@@ -7,6 +7,7 @@ import { authHeaders, getAnnee } from '../lib/api.js';
 import PreviewModal from '../components/PreviewModal.jsx';
 import SchemaCapitalisationVue from '../components/SchemaCapitalisation.jsx';
 import ImportPAE from '../components/ImportPAE.jsx';
+import PurgeResultats from '../components/PurgeResultats.jsx';
 
 const STATUTS_PIECE = [
   { val: 'manquant', label: 'Manquant', cls: 'bg-red-50 text-red-700 border-red-200' },
@@ -1085,6 +1086,7 @@ export default function Etudiants() {
   const [msgImport, setMsgImport] = useState(null);
   const [rapport, setRapport] = useState(null);
   const [importPAE, setImportPAE] = useState(false);
+  const [purge, setPurge] = useState(false);
 
   async function ouvrirRapport() {
     if (!section) { alert('Choisissez d\'abord une section dans le filtre.'); return; }
@@ -1325,6 +1327,10 @@ export default function Etudiants() {
           className="flex items-center gap-2 px-3 py-2 text-sm border border-slate-300 rounded-lg text-slate-600 hover:bg-slate-50">
           <IconPrinter size={15} /> Rapport
         </button>
+        <button onClick={() => setPurge(true)}
+          className="flex items-center gap-2 px-3 py-2 text-sm border border-red-200 text-red-600 rounded-lg hover:bg-red-50">
+          <IconTrash size={15} /> Vider des résultats
+        </button>
         <select value={section} onChange={e => setSection(e.target.value)}
           className="border border-slate-300 rounded-lg px-3 py-2 text-sm">
           <option value="">Toutes les sections</option>
@@ -1376,6 +1382,10 @@ export default function Etudiants() {
 
       {selId && (
         <FicheEtudiant id={selId} annee={annee} onClose={() => setSelId(null)} />
+      )}
+
+      {purge && (
+        <PurgeResultats anneeCourante={annee} onClose={() => setPurge(false)} onPurge={charger} />
       )}
 
       {importPAE && (
