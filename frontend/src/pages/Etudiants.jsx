@@ -1,13 +1,13 @@
 import { useEffect, useState, useMemo } from 'react';
 import {
   IconSearch, IconUser, IconChevronRight, IconPlus, IconCheck,
-  IconX, IconPrinter, IconAlertTriangle, IconClock, IconUpload, IconFileText, IconFolder, IconTrash,
-} from '@tabler/icons-react';
+  IconX, IconPrinter, IconAlertTriangle, IconClock, IconUpload, IconFileText, IconFolder, IconTrash, IconTable} from '@tabler/icons-react';
 import { authHeaders, getAnnee } from '../lib/api.js';
 import PreviewModal from '../components/PreviewModal.jsx';
 import SchemaCapitalisationVue from '../components/SchemaCapitalisation.jsx';
 import ImportPAE from '../components/ImportPAE.jsx';
 import PurgeResultats from '../components/PurgeResultats.jsx';
+import RapportPAE from '../components/RapportPAE.jsx';
 
 // Niveau de l'étudiant : BA1/BA2 s'il ne suit qu'une année, « Diplômant »
 // s'il ne lui reste que la BA3, « Parcours » s'il en mélange plusieurs.
@@ -1137,6 +1137,7 @@ export default function Etudiants() {
   const [rapport, setRapport] = useState(null);
   const [importPAE, setImportPAE] = useState(false);
   const [purge, setPurge] = useState(false);
+  const [rapportPAE, setRapportPAE] = useState(false);
   const [tri, setTri] = useState({ champ: 'nom', sens: 1 });
 
   function trierPar(champ) {
@@ -1401,6 +1402,10 @@ export default function Etudiants() {
           className="flex items-center gap-2 px-3 py-2 text-sm border border-slate-300 rounded-lg text-slate-600 hover:bg-slate-50">
           <IconPrinter size={15} /> Rapport
         </button>
+        <button onClick={() => setRapportPAE(true)}
+          className="flex items-center gap-2 px-3 py-2 text-sm border border-slate-300 rounded-lg text-slate-600 hover:bg-slate-50">
+          <IconTable size={15} /> Rapport PAE
+        </button>
         <button onClick={() => setPurge(true)}
           className="flex items-center gap-2 px-3 py-2 text-sm border border-red-200 text-red-600 rounded-lg hover:bg-red-50">
           <IconTrash size={15} /> Vider des résultats
@@ -1460,6 +1465,10 @@ export default function Etudiants() {
 
       {selId && (
         <FicheEtudiant id={selId} annee={annee} onClose={() => setSelId(null)} />
+      )}
+
+      {rapportPAE && (
+        <RapportPAE anneeCourante={annee} onClose={() => setRapportPAE(false)} />
       )}
 
       {purge && (

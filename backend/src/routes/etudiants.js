@@ -345,6 +345,116 @@ r.get('/rapport', authRequired, (req, res) => {
   res.json({ html, nom: 'parcours_' + section + '_' + annee + '.html' });
 });
 
+// ── Rapport de PAE : données pour l'aperçu et pour l'export Excel ──────────
+// Un seul jeu de données sert les deux sorties, pour qu'elles ne divergent pas.
+r.get('/rapport-pae', authRequired, (req, res) => {
+  const { section, annee, niveau, ue_num, granularite = 'ue' } = req.query;
+  if (!section || !annee) return res.status(400).json({ error: 'section et annee requises' });
+
+  const anneeRef = db.prepare('SELECT code FROM annee_scolaire WHERE active = 1').get()?.code || annee;
+  const niveaux = niveauxEffectifs([section], annee);
+
+  let ues = db.prepare(`
+    SELECT DISTINCT ue_num, MIN(ue_nom) AS ue_nom FROM ue
+    WHERE section = ? AND annee_scolaire IN (?, ?)
+    GROUP BY ue_num
+  `).all(section, annee, anneeRef);
+
+  if (ue_num) ues = ues.filter(u => u.ue_num === Number(ue_num));
+  else if (niveau) ues = ues.filter(u => (niveaux[u.ue_num] || '') === String(niveau).toUpperCase());
+  if (!ues.length) return res.json({ ues: [], colonnes: [], etudiants: [] });
+
+  const rang = v => { const m = /^BA(\d+)$/.exec((v || '').toUpperCase()); return m ? Number(m[1]) : 9; };
+  ues.sort((a, b) => rang(niveaux[a.ue_num]) - rang(niveaux[b.ue_num]) || a.ue_num - b.ue_num);
+  for (const u of ues) u.ue_niv = niveaux[u.ue_num] || null;
+  const listeUe = ues.map(u => u.ue_num).join(',');
+
+  // Colonnes : les UE, ou les cours qui les composent
+  let colonnes;
+  if (granularite === 'cours') {
+    const cours = db.prepare(`
+      SELECT DISTINCT cours_code, MIN(cours_nom) AS cours_nom, ue_num FROM cours
+      WHERE ue_num IN (${listeUe}) AND cours_code IS NOT NULL
+      GROUP BY cours_code
+    `).all();
+    colonnes = ues.flatMap(u => {
+      const siens = cours.filter(c0 => c0.ue_num === u.ue_num)
+        .sort((a, b) => String(a.cours_code).localeCompare(String(b.cours_code), 'fr', { numeric: true }));
+      // Une UE sans cours au référentiel garde une colonne à son numéro
+      return siens.length
+        ? siens.map(c0 => ({ code: String(c0.cours_code), libelle: c0.cours_nom || '', ue_num: u.ue_num, ue_niv: u.ue_niv }))
+        : [{ code: String(u.ue_num), libelle: u.ue_nom || '', ue_num: u.ue_num, ue_niv: u.ue_niv }];
+    });
+  } else {
+    colonnes = ues.map(u => ({
+      code: String(u.ue_num), libelle: u.ue_nom || '', ue_num: u.ue_num, ue_niv: u.ue_niv,
+    }));
+  }
+
+  const etudiants = db.prepare(`
+    SELECT DISTINCT e.id, e.nom, e.prenom, e.id_ecampus, e.email_ecole
+    FROM etudiant e
+    JOIN etudiant_inscription i ON i.etudiant_id = e.id
+    WHERE e.actif = 1 AND i.ue_num IN (${listeUe})
+    ORDER BY e.nom, e.prenom
+  `).all();
+  if (!etudiants.length) return res.json({ ues, colonnes, etudiants: [] });
+
+  const ids = etudiants.map(e => e.id).join(',');
+
+  // Toutes les inscriptions, pour connaître l'année de validation
+  const insc = db.prepare(`
+    SELECT etudiant_id, ue_num, annee_scolaire, resultat FROM etudiant_inscription
+    WHERE etudiant_id IN (${ids}) AND ue_num IN (${listeUe})
+  `).all();
+  const vas = db.prepare(`
+    SELECT etudiant_id, ue_num, annee_scolaire FROM etudiant_valorisation
+    WHERE etudiant_id IN (${ids}) AND ue_num IN (${listeUe}) AND type = 'complete'
+  `).all();
+  let resCours = [];
+  try {
+    resCours = db.prepare(`
+      SELECT etudiant_id, cours_code, annee_scolaire, statut, faveur
+      FROM etudiant_resultat_cours WHERE etudiant_id IN (${ids})
+    `).all();
+  } catch { /* table absente */ }
+
+  const parEtud = {};
+  for (const e of etudiants) parEtud[e.id] = { ue: {}, cours: {}, courant: {} };
+
+  for (const i of insc) {
+    const p = parEtud[i.etudiant_id]; if (!p) continue;
+    if (i.annee_scolaire === annee) p.courant[i.ue_num] = i.resultat || 'inscrit';
+    if (i.resultat === 'reussi') {
+      const prec = p.ue[i.ue_num];
+      if (!prec || i.annee_scolaire < prec.annee) {
+        p.ue[i.ue_num] = { annee: i.annee_scolaire, mode: 'reussi' };   // première validation
+      }
+    }
+  }
+  for (const v of vas) {
+    const p = parEtud[v.etudiant_id]; if (!p) continue;
+    if (!p.ue[v.ue_num]) p.ue[v.ue_num] = { annee: v.annee_scolaire, mode: 'va' };
+  }
+  for (const rc of resCours) {
+    const p = parEtud[rc.etudiant_id]; if (!p) continue;
+    const prec = p.cours[rc.cours_code];
+    if (!prec || rc.annee_scolaire > prec.annee) {
+      p.cours[rc.cours_code] = { annee: rc.annee_scolaire, statut: rc.statut, faveur: rc.faveur };
+    }
+  }
+
+  const niv = e => {
+    const n = niveauEtudiant(e.id, annee);
+    return n.libelle || null;
+  };
+
+  res.json({
+    section, annee, granularite, ues, colonnes,
+    etudiants: etudiants.map(e => ({ ...e, niveau: niv(e), ...parEtud[e.id] })),
+  });
+});
+
 // ── Matrice d'encodage rapide : étudiants × UE, pour une année ──────────────
 // L'année est portée par l'écran, pas par la cellule : on encode une année
 // entière d'un coup. Les acquis des AUTRES années sont tout de même renvoyés,
