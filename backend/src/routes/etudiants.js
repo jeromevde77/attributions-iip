@@ -345,6 +345,112 @@ r.get('/rapport', authRequired, (req, res) => {
   res.json({ html, nom: 'parcours_' + section + '_' + annee + '.html' });
 });
 
+// ── Matrice d'encodage rapide : étudiants × UE, pour une année ──────────────
+// L'année est portée par l'écran, pas par la cellule : on encode une année
+// entière d'un coup. Les acquis des AUTRES années sont tout de même renvoyés,
+// pour que l'on voie d'un coup d'œil ce qui est déjà fait et quand.
+r.get('/matrice', authRequired, (req, res) => {
+  const { annee, section } = req.query;
+  if (!annee || !section) return res.status(400).json({ error: 'annee et section requises' });
+
+  const anneeRef = db.prepare('SELECT code FROM annee_scolaire WHERE active = 1').get()?.code || annee;
+
+  const ues = db.prepare(`
+    SELECT DISTINCT ue_num, MIN(ue_nom) AS ue_nom FROM ue
+    WHERE section = ? AND annee_scolaire IN (?, ?)
+    GROUP BY ue_num
+  `).all(section, annee, anneeRef);
+  if (!ues.length) return res.json({ ues: [], etudiants: [] });
+
+  const niveaux = niveauxEffectifs([section], annee);
+  const rang = v => { const m = /^BA(\d+)$/.exec((v || '').toUpperCase()); return m ? Number(m[1]) : 9; };
+  ues.sort((a, b) => rang(niveaux[a.ue_num]) - rang(niveaux[b.ue_num]) || a.ue_num - b.ue_num);
+  for (const u of ues) u.ue_niv = niveaux[u.ue_num] || null;
+
+  const listeUe = ues.map(u => u.ue_num).join(',');
+
+  // Étudiants : ceux qui ont une inscription dans la section, toutes années
+  const etudiants = db.prepare(`
+    SELECT DISTINCT e.id, e.nom, e.prenom, e.id_ecampus
+    FROM etudiant e
+    JOIN etudiant_inscription i ON i.etudiant_id = e.id
+    WHERE e.actif = 1 AND i.ue_num IN (${listeUe})
+    ORDER BY e.nom, e.prenom
+  `).all();
+  if (!etudiants.length) return res.json({ ues, etudiants: [] });
+
+  const ids = etudiants.map(e => e.id).join(',');
+
+  const inscriptions = db.prepare(`
+    SELECT etudiant_id, ue_num, annee_scolaire, resultat, points
+    FROM etudiant_inscription
+    WHERE etudiant_id IN (${ids}) AND ue_num IN (${listeUe})
+  `).all();
+  const vas = db.prepare(`
+    SELECT etudiant_id, ue_num, annee_scolaire FROM etudiant_valorisation
+    WHERE etudiant_id IN (${ids}) AND ue_num IN (${listeUe}) AND type = 'complete'
+  `).all();
+
+  const parEtud = {};
+  for (const e of etudiants) parEtud[e.id] = { cellules: {}, anterieurs: {} };
+
+  for (const i of inscriptions) {
+    const p = parEtud[i.etudiant_id];
+    if (!p) continue;
+    if (i.annee_scolaire === annee) {
+      p.cellules[i.ue_num] = { resultat: i.resultat, points: i.points };
+    } else if (i.resultat) {
+      const prec = p.anterieurs[i.ue_num];
+      // On retient l'acquis le plus favorable, sinon la trace la plus récente
+      if (!prec || (i.resultat === 'reussi' && prec.resultat !== 'reussi')
+          || (i.resultat === prec.resultat && i.annee_scolaire > prec.annee)) {
+        p.anterieurs[i.ue_num] = { annee: i.annee_scolaire, resultat: i.resultat };
+      }
+    }
+  }
+  for (const v of vas) {
+    const p = parEtud[v.etudiant_id];
+    if (!p) continue;
+    if (v.annee_scolaire !== annee) {
+      p.anterieurs[v.ue_num] = { annee: v.annee_scolaire, resultat: 'va' };
+    }
+  }
+
+  res.json({
+    annee, section, ues,
+    etudiants: etudiants.map(e => ({ ...e, ...parEtud[e.id] })),
+  });
+});
+
+// ── Enregistrement par lots depuis la matrice ──────────────────────────────
+// Marquer un résultat vaut inscription : la ligne est créée si besoin.
+// Effacer un résultat vide la case sans supprimer l'inscription.
+r.post('/matrice', authRequired, roleRequired('admin', 'editeur'), (req, res) => {
+  const { annee, changements } = req.body;
+  if (!annee || !Array.isArray(changements)) {
+    return res.status(400).json({ error: 'annee et changements requis' });
+  }
+  const RES = ['reussi', 'ajourne', 'absent'];
+  const dateJour = new Date().toISOString().slice(0, 10);
+
+  const ins = db.prepare(`
+    INSERT INTO etudiant_inscription (etudiant_id, annee_scolaire, ue_num, resultat, date_inscription)
+    VALUES (?,?,?,?,?)
+    ON CONFLICT(etudiant_id, annee_scolaire, ue_num) DO UPDATE SET resultat = excluded.resultat
+  `);
+
+  let n = 0;
+  db.transaction(() => {
+    for (const ch of changements) {
+      const r0 = ch.resultat && RES.includes(ch.resultat) ? ch.resultat : null;
+      ins.run(Number(ch.etudiant_id), annee, Number(ch.ue_num), r0, dateJour);
+      n++;
+    }
+  })();
+
+  res.json({ ok: true, enregistres: n });
+});
+
 // ── Périmètre disponible pour la purge : UE et cours d'une section ──────────
 r.get('/purge/perimetre', authRequired, (req, res) => {
   const { section, annee } = req.query;
