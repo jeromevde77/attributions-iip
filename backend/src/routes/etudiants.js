@@ -7,6 +7,7 @@ import { Router } from 'express';
 import db from '../db/index.js';
 import { authRequired, roleRequired } from '../middleware/auth.js';
 import { construireGraphe, niveauxEffectifs } from './capitalisation.js';
+import { structureUE, calculerNoteUE } from './acquis.js';
 
 const r = Router();
 
@@ -833,65 +834,87 @@ r.put('/:id/grille', authRequired, roleRequired('admin', 'editeur'), (req, res) 
   res.json({ ok: true });
 });
 
-// ── Détail des notes par cours et par AA (cellule UE × année) ────────────────
+// ── Détail des notes par AA (cellule UE × année) ─────────────────────────────
+// La note de l'UE se calcule à partir des acquis d'apprentissage : chacun pèse
+// par sa pondération dans son cours et par les périodes de ce cours. Un AA
+// présent dans deux cours y est coté séparément.
 r.get('/:id/grille/detail', authRequired, (req, res) => {
   const etudId = Number(req.params.id);
   const { annee, ue_num } = req.query;
   if (!annee || !ue_num) return res.status(400).json({ error: 'annee et ue_num requis' });
   const ueN = Number(ue_num);
 
-  const cours = db.prepare(`
-    SELECT cours_code, cours_nom FROM cours
-    WHERE ue_num = ? AND annee_scolaire = ? ORDER BY cours_code
-  `).all(ueN, annee);
-  // Fallback : si le référentiel de cette année-là n'existe pas, prendre l'année active
-  let coursFinal = cours;
-  if (!cours.length) {
-    const aAct = db.prepare('SELECT code FROM annee_scolaire WHERE active = 1').get()?.code;
-    coursFinal = db.prepare(`
-      SELECT cours_code, cours_nom FROM cours
-      WHERE ue_num = ? AND annee_scolaire = ? ORDER BY cours_code
-    `).all(ueN, aAct);
-  }
-  const aas = db.prepare(`
-    SELECT aa_code, aa_num, cours_code, description FROM aa
-    WHERE ue_num = ? ORDER BY aa_num
-  `).all(ueN);
+  const structure = structureUE(ueN, annee);
 
-  const notes = db.prepare(`
-    SELECT type, code, points, va, commentaire FROM etudiant_note_detail
+  const lignes = db.prepare(`
+    SELECT type, code, cours_code, points, va, non_evalue
+    FROM etudiant_note_detail
     WHERE etudiant_id = ? AND annee_scolaire = ? AND ue_num = ?
   `).all(etudId, annee, ueN);
-  const notesMap = {};
-  for (const n of notes) notesMap[n.type + ':' + n.code] = n;
 
-  res.json({ cours: coursFinal, aas, notes: notesMap });
+  // Clé de note d'AA : cours|aa ; les anciennes lignes sans cours_code sont
+  // rattachées au premier cours qui contient cet AA.
+  const notes = {};
+  for (const l of lignes) {
+    if (l.type !== 'aa') continue;
+    const brut = String(l.code).includes('|') ? String(l.code).split('|')[1] : l.code;
+    const cc = l.cours_code
+      || structure.find(c => c.aas.some(a => a.aa_code === brut))?.cours_code;
+    if (!cc) continue;
+    notes[cc + '|' + brut] = { points: l.points, va: l.va, non_evalue: l.non_evalue };
+  }
+
+  const calcul = calculerNoteUE(ueN, annee, notes);
+
+  res.json({ structure, notes, calcul });
 });
 
 r.put('/:id/grille/detail', authRequired, roleRequired('admin', 'editeur'), (req, res) => {
   const etudId = Number(req.params.id);
-  const { annee, ue_num, type, code, points, va } = req.body;
-  if (!annee || !ue_num || !type || !code) {
-    return res.status(400).json({ error: 'annee, ue_num, type et code requis' });
+  const { annee, ue_num, cours_code, code, points, va, non_evalue } = req.body;
+  if (!annee || !ue_num || !code || !cours_code) {
+    return res.status(400).json({ error: 'annee, ue_num, cours_code et code requis' });
   }
-  if (!['cours', 'aa'].includes(type)) return res.status(400).json({ error: 'type invalide' });
+  const ueN = Number(ue_num);
 
-  const vide = (points == null || points === '') && !va;
-  if (vide) {
+  // La clé unique historique porte sur (type, code) : un même AA présent dans
+  // deux cours entrerait en collision. On la lève en préfixant le code par le
+  // cours, tout en conservant cours_code dans sa colonne pour la lecture.
+  const cleUnique = cours_code + '|' + code;
+  const rienASauver = (points == null || points === '') && !va && !non_evalue;
+
+  if (rienASauver) {
     db.prepare(`
       DELETE FROM etudiant_note_detail
-      WHERE etudiant_id=? AND annee_scolaire=? AND ue_num=? AND type=? AND code=?
-    `).run(etudId, annee, Number(ue_num), type, code);
+      WHERE etudiant_id=? AND annee_scolaire=? AND ue_num=? AND type='aa' AND code=?
+    `).run(etudId, annee, ueN, cleUnique);
   } else {
     db.prepare(`
-      INSERT INTO etudiant_note_detail (etudiant_id, annee_scolaire, ue_num, type, code, points, va)
-      VALUES (?,?,?,?,?,?,?)
+      INSERT INTO etudiant_note_detail
+        (etudiant_id, annee_scolaire, ue_num, type, code, cours_code, points, va, non_evalue)
+      VALUES (?,?,?, 'aa', ?,?,?,?,?)
       ON CONFLICT(etudiant_id, annee_scolaire, ue_num, type, code) DO UPDATE SET
-        points = excluded.points, va = excluded.va
-    `).run(etudId, annee, Number(ue_num), type, code,
-           points != null && points !== '' ? Number(points) : (va ? 50 : null), va ? 1 : 0);
+        points = excluded.points, va = excluded.va,
+        non_evalue = excluded.non_evalue, cours_code = excluded.cours_code
+    `).run(etudId, annee, ueN, cleUnique, cours_code,
+           points != null && points !== '' ? Number(points) : (va ? 50 : null),
+           va ? 1 : 0, non_evalue ? 1 : 0);
   }
-  res.json({ ok: true });
+
+  // Recalcul immédiat, pour que l'écran affiche la note à jour
+  const structure = structureUE(ueN, annee);
+  const notes = {};
+  for (const l of db.prepare(`
+    SELECT code, cours_code, points, va, non_evalue FROM etudiant_note_detail
+    WHERE etudiant_id=? AND annee_scolaire=? AND ue_num=? AND type='aa'
+  `).all(etudId, annee, ueN)) {
+    const brut = String(l.code).includes('|') ? String(l.code).split('|')[1] : l.code;
+    const cc = l.cours_code
+      || structure.find(c => c.aas.some(a => a.aa_code === brut))?.cours_code;
+    if (cc) notes[cc + '|' + brut] = { points: l.points, va: l.va, non_evalue: l.non_evalue };
+  }
+
+  res.json({ ok: true, calcul: calculerNoteUE(ueN, annee, notes) });
 });
 
 // ── Valorisation des acquis (VA/VAE) — AGCF 13-12-2024 ──────────────────────

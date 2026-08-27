@@ -61,18 +61,31 @@ function GrilleParcours({ etudId, peutEcrire }) {
     if (rep.ok) { setDetail(await rep.json()); setDetailOuvert(true); }
   }
 
-  async function ecrireDetail(type, code, points, va) {
-    await fetch(`/api/etudiants/${etudId}/grille/detail`, {
+  async function ecrireDetail(coursCode, aaCode, points, opts = {}) {
+    const rep = await fetch(`/api/etudiants/${etudId}/grille/detail`, {
       method: 'PUT', headers: authHeaders(),
-      body: JSON.stringify({ annee: popover.annee, ue_num: popover.ue_num, type, code, points, va }),
+      body: JSON.stringify({
+        annee: popover.annee, ue_num: popover.ue_num,
+        cours_code: coursCode, code: aaCode, points,
+        va: opts.va ? 1 : 0, non_evalue: opts.non_evalue ? 1 : 0,
+      }),
     });
-    // Recharger silencieusement le détail et la grille (indicateur)
-    const rep = await fetch(
-      `/api/etudiants/${etudId}/grille/detail?annee=${popover.annee}&ue_num=${popover.ue_num}`,
-      { headers: authHeaders() });
-    if (rep.ok) setDetail(await rep.json());
-    charger();
+    if (rep.ok) {
+      const j = await rep.json();
+      setDetail(d => d && ({
+        ...d,
+        calcul: j.calcul,
+        notes: {
+          ...d.notes,
+          [coursCode + '|' + aaCode]: {
+            points, va: opts.va ? 1 : 0, non_evalue: opts.non_evalue ? 1 : 0,
+          },
+        },
+      }));
+      charger();
+    }
   }
+
 
   async function ecrire(kind, opts = {}) {
     if (!popover) return;
@@ -249,48 +262,94 @@ function GrilleParcours({ etudId, peutEcrire }) {
             </button>
 
             {detailOuvert && detail && (
-              <div className="mt-3 max-h-72 overflow-y-auto space-y-3 border-t border-slate-100 pt-3">
-                {detail.cours.length > 0 && detail.cours.map(co => {
-                  const nCours = detail.notes['cours:' + co.cours_code] || {};
-                  const aasDuCours = detail.aas.filter(a => a.cours_code === co.cours_code);
-                  return (
+              <div className="mt-3 border-t border-slate-100 pt-3">
+                {/* Note calculée depuis les acquis d'apprentissage */}
+                {detail.calcul && (
+                  <div className={`rounded-xl px-3 py-2.5 mb-3 border ${
+                    detail.calcul.pourcentage == null
+                      ? 'bg-slate-50 border-slate-200'
+                      : detail.calcul.pourcentage >= 50
+                        ? 'bg-emerald-50 border-emerald-200'
+                        : 'bg-red-50 border-red-200'}`}>
+                    {detail.calcul.pourcentage == null ? (
+                      <div className="text-[11.5px] text-slate-500">
+                        Aucun acquis coté — ou pondérations non encodées pour cette UE.
+                      </div>
+                    ) : (
+                      <div className="flex items-center justify-between gap-3">
+                        <div>
+                          <div className="text-[10px] uppercase tracking-wide text-slate-500 font-semibold">
+                            Note calculée
+                          </div>
+                          <div className="text-[19px] font-bold text-iip-blue leading-tight">
+                            {detail.calcul.sur20} / 20
+                            <span className="text-[12px] font-normal text-slate-500 ml-2">
+                              {detail.calcul.pourcentage} %
+                            </span>
+                          </div>
+                          <div className="text-[10.5px] text-slate-500">
+                            {detail.calcul.evalues}/{detail.calcul.attendus} acquis cotés
+                            {!detail.calcul.complet ? " — calcul partiel" : ''}
+                          </div>
+                        </div>
+                        <button
+                          onClick={() => ecrire('reussi', { points: detail.calcul.pourcentage })}
+                          className="flex-none text-[11.5px] px-2.5 py-1.5 rounded-lg bg-iip-blue text-white font-semibold">
+                          Reporter sur l\u2019UE
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                <div className="max-h-72 overflow-y-auto space-y-2.5">
+                  {(detail.structure || []).map(co => (
                     <div key={co.cours_code} className="border border-slate-200 rounded-lg overflow-hidden">
                       <div className="flex items-center gap-2 px-2 py-1.5 bg-slate-50">
                         <div className="flex-1 text-[11.5px] text-slate-700 truncate" title={co.cours_nom}>
                           <b className="text-iip-blue">{co.cours_code}</b> {co.cours_nom}
                         </div>
-                        <input type="number" min="0" max="100" placeholder="%"
-                          defaultValue={nCours.points ?? ''}
-                          onBlur={e => ecrireDetail('cours', co.cours_code,
-                            e.target.value !== '' ? Number(e.target.value) : null, nCours.va ? 1 : 0)}
-                          className="w-14 border border-slate-300 rounded-lg px-1.5 py-1 text-[11.5px] text-right bg-white" />
-                        <label className="flex items-center gap-1 text-[10.5px] text-violet-700">
-                          <input type="checkbox" checked={!!nCours.va}
-                            onChange={e => ecrireDetail('cours', co.cours_code, nCours.points ?? null, e.target.checked ? 1 : 0)} />
-                          VA
-                        </label>
+                        <span className="text-[10px] text-slate-400 flex-none">{co.periodes} pér.</span>
+                        {!co.complet && (
+                          <span className="text-[9.5px] px-1.5 py-0.5 rounded bg-amber-50 text-amber-700 border border-amber-200 flex-none"
+                            title={`Somme des pondérations : ${co.somme_poids} au lieu de 100`}>
+                            pondérations {co.somme_poids}
+                          </span>
+                        )}
                       </div>
 
-                      {aasDuCours.length > 0 && (
-                        <div className="pl-3 pr-2 py-1 space-y-0.5">
-                          {aasDuCours.map(aa => {
-                            const n = detail.notes['aa:' + aa.aa_code] || {};
+                      {!co.aas.length ? (
+                        <div className="px-3 py-2 text-[11px] text-slate-400">
+                          Aucun acquis d\u2019apprentissage rattaché à ce cours.
+                        </div>
+                      ) : (
+                        <div className="px-2 py-1 space-y-0.5">
+                          {co.aas.map(aa => {
+                            const cle = co.cours_code + '|' + aa.aa_code;
+                            const n = detail.notes[cle] || {};
                             return (
-                              <div key={aa.aa_code} className="flex items-center gap-2 py-0.5">
-                                <span className="text-slate-300 text-[10px] flex-none">└</span>
+                              <div key={cle} className="flex items-center gap-2 py-0.5">
                                 <div className="flex-1 text-[11px] text-slate-600 truncate"
                                   title={aa.description || aa.aa_code}>
                                   <b className="text-slate-500">{aa.aa_code}</b> {aa.description || ''}
                                 </div>
+                                <span className="text-[10px] text-slate-400 flex-none w-9 text-right"
+                                  title="Pondération dans ce cours">
+                                  {aa.poids != null ? aa.poids + '%' : '—'}
+                                </span>
                                 <input type="number" min="0" max="100" placeholder="%"
                                   defaultValue={n.points ?? ''}
-                                  onBlur={e => ecrireDetail('aa', aa.aa_code,
-                                    e.target.value !== '' ? Number(e.target.value) : null, n.va ? 1 : 0)}
-                                  className="w-14 border border-slate-200 rounded-lg px-1.5 py-0.5 text-[11px] text-right" />
-                                <label className="flex items-center gap-1 text-[10px] text-violet-700">
-                                  <input type="checkbox" checked={!!n.va}
-                                    onChange={e => ecrireDetail('aa', aa.aa_code, n.points ?? null, e.target.checked ? 1 : 0)} />
-                                  VA
+                                  disabled={!!n.non_evalue}
+                                  onBlur={e => ecrireDetail(co.cours_code, aa.aa_code,
+                                    e.target.value !== '' ? Number(e.target.value) : null,
+                                    { va: n.va, non_evalue: n.non_evalue })}
+                                  className="w-14 border border-slate-200 rounded-lg px-1.5 py-0.5 text-[11px] text-right disabled:bg-slate-100" />
+                                <label className="flex items-center gap-1 text-[10px] text-slate-500 flex-none"
+                                  title="Dispensé : cet acquis sort du calcul, sans pénaliser l\u2019étudiant">
+                                  <input type="checkbox" checked={!!n.non_evalue}
+                                    onChange={e => ecrireDetail(co.cours_code, aa.aa_code,
+                                      n.points ?? null, { va: n.va, non_evalue: e.target.checked })} />
+                                  disp.
                                 </label>
                               </div>
                             );
@@ -298,43 +357,19 @@ function GrilleParcours({ etudId, peutEcrire }) {
                         </div>
                       )}
                     </div>
-                  );
-                })}
+                  ))}
 
-                {/* AA non rattachés à un cours du référentiel */}
-                {detail.aas.filter(a => !detail.cours.some(co => co.cours_code === a.cours_code)).length > 0 && (
-                  <div>
-                    <div className="text-[10px] font-bold uppercase tracking-wide text-slate-400 mb-1.5">
-                      Acquis d'apprentissage sans cours rattaché
+                  {!(detail.structure || []).length && (
+                    <div className="text-[11.5px] text-slate-400 text-center py-2">
+                      Aucun cours au référentiel pour cette UE.
                     </div>
-                    {detail.aas.filter(a => !detail.cours.some(co => co.cours_code === a.cours_code)).map(aa => {
-                      const n = detail.notes['aa:' + aa.aa_code] || {};
-                      return (
-                        <div key={aa.aa_code} className="flex items-center gap-2 py-1">
-                          <div className="flex-1 text-[11.5px] text-slate-600 truncate" title={aa.description || aa.aa_code}>
-                            <b className="text-iip-blue">{aa.aa_code}</b> {aa.description || ''}
-                          </div>
-                          <input type="number" min="0" max="100" placeholder="%"
-                            defaultValue={n.points ?? ''}
-                            onBlur={e => ecrireDetail('aa', aa.aa_code,
-                              e.target.value !== '' ? Number(e.target.value) : null, n.va ? 1 : 0)}
-                            className="w-14 border border-slate-300 rounded-lg px-1.5 py-1 text-[11.5px] text-right" />
-                          <label className="flex items-center gap-1 text-[10.5px] text-violet-700">
-                            <input type="checkbox" checked={!!n.va}
-                              onChange={e => ecrireDetail('aa', aa.aa_code, n.points ?? null, e.target.checked ? 1 : 0)} />
-                            VA
-                          </label>
-                        </div>
-                      );
-                    })}
-                  </div>
-                )}
+                  )}
+                </div>
 
-                {!detail.cours.length && !detail.aas.length && (
-                  <div className="text-[11.5px] text-slate-400 text-center py-2">
-                    Aucun cours ni AA au référentiel pour cette UE.
-                  </div>
-                )}
+                <p className="text-[10px] text-slate-400 mt-2">
+                  Chaque acquis pèse par sa pondération dans son cours et par les périodes de ce
+                  cours. Un acquis dispensé sort du calcul sans compter comme un zéro.
+                </p>
               </div>
             )}
           </div>
