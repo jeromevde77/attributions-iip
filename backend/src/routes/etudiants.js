@@ -818,7 +818,9 @@ r.put('/:id/grille', authRequired, roleRequired('admin', 'editeur'), (req, res) 
       INSERT INTO etudiant_valorisation
         (etudiant_id, annee_scolaire, ue_num, type, pourcentage)
       VALUES (?,?,?,'complete',?)
-    `).run(etudId, annee, ueN, points != null ? Number(points) : 50);
+    `).run(etudId, annee, ueN, points != null ? Number(points) : 10);
+    // 10/20 : équivalent de la note de 50 % conseillée par la circulaire 9447
+    // pour une valorisation, exprimée dans l'échelle sur 20 de l'établissement.
     return res.json({ ok: true });
   }
 
@@ -907,7 +909,7 @@ r.put('/:id/grille/detail', authRequired, roleRequired('admin', 'editeur'), (req
         points = excluded.points, va = excluded.va,
         non_evalue = excluded.non_evalue, cours_code = excluded.cours_code
     `).run(etudId, annee, ueN, cleUnique, cours_code,
-           points != null && points !== '' ? Number(points) : (va ? 50 : null),
+           points != null && points !== '' ? Number(points) : (va ? 10 : null),
            va ? 1 : 0, non_evalue ? 1 : 0);
   }
 
