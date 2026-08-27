@@ -161,12 +161,17 @@ function GrilleParcours({ etudId, peutEcrire }) {
   // Le calcul part TOUJOURS des années réellement présentes en base, jamais
   // d'une liste accumulée — impossible d'en perdre une au clic suivant.
   const anneesBase = [...data.annees].sort();
+  // Un parcours se lit d'une année à la suivante : les colonnes doivent être
+  // CONTINUES. Une année sans donnée reste affichée, vide — sans quoi la
+  // grille saute des années et l'on croit à une interruption d'études.
   const anneesAffichees = (() => {
-    if (!nbHistorique || !anneesBase.length) return anneesBase;
-    const [a1] = anneesBase[0].split('-').map(Number);
-    const avant = [];
-    for (let k = nbHistorique; k >= 1; k--) avant.push((a1 - k) + '-' + (a1 - k + 1));
-    return [...avant, ...anneesBase];
+    if (!anneesBase.length) return anneesBase;
+    const debutBase = Number(anneesBase[0].split('-')[0]);
+    const finBase   = Number(anneesBase[anneesBase.length - 1].split('-')[0]);
+    const debut = debutBase - (nbHistorique || 0);
+    const toutes = [];
+    for (let a = debut; a <= finBase; a++) toutes.push(a + '-' + (a + 1));
+    return toutes;
   })();
   const aDetail = (annee, ueNum) => (data.detail || []).includes(annee + ':' + ueNum);
 
