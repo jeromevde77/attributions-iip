@@ -67,7 +67,7 @@ export default function ImportHistorique({ onClose, onImporte }) {
         }
 
         // Résultats — un onglet par UE, nommé par son numéro
-        const resultats = [];
+        const resultats = [], notesCours = [], notesAA = [];
         let ues = 0;
         for (const nomOnglet of wb.SheetNames) {
           if (!/^\d+$/.test(nomOnglet.trim())) continue;
@@ -79,6 +79,22 @@ export default function ImportHistorique({ onClose, onImporte }) {
           const iMat = l12.indexOf('Matricule');
           if (iMat < 0 || (iDs1 < 0 && iDs2 < 0)) continue;
           ues++;
+
+          // Notes fines. Le libellé « 65.1 » coiffe aussi chaque bloc d'acquis :
+          // les notes FINALES de cours sont celles situées entre le dernier
+          // acquis de la session et la colonne Faveur. Même règle aux deux
+          // sessions, la seconde primant quand elle est renseignée.
+          const bornes = (s) => {
+            const aa = [], co = [];
+            const fav = l8.indexOf(`Faveur.s${s}`);
+            l8.forEach((v, i) => { if (new RegExp(`^AA\\d+\\.\\d+\\.S${s}$`).test(v)) aa.push(i); });
+            if (fav < 0 || !aa.length) return null;
+            const dernierAA = aa[aa.length - 1];
+            l8.forEach((v, i) => { if (/^\d+\.\d+$/.test(v) && i > dernierAA && i < fav) co.push(i); });
+            return { aa, co, fav };
+          };
+          const b2 = bornes(2), b1 = bornes(1);
+
           for (let li = 12; li < M.length; li++) {
             const row = M[li] || [];
             const mat = net(row[iMat]);
@@ -90,14 +106,37 @@ export default function ImportHistorique({ onClose, onImporte }) {
             const note = brute == null ? null
               : Math.round((Number(brute) <= 20 ? Number(brute) : Number(brute) / 5) * 10) / 10;
             const resultat = D === 'C' ? 'reussi' : (D === 'R' || D === 'AJ') ? 'ajourne' : null;
+            const ueNum = Number(nomOnglet.trim());
+
+            // Notes par cours et par acquis — seconde session, sinon première
+            for (const b of [b2, b1]) {
+              if (!b) continue;
+              for (const i of b.co) {
+                const v = row[i];
+                if (v == null || v === '' || isNaN(Number(v))) continue;
+                const code = net(l8[i]);
+                if (notesCours.some(x => x.id_ecampus === mat && x.cours_code === code)) continue;
+                notesCours.push({ id_ecampus: mat, ue_num: ueNum, cours_code: code,
+                                  note: Math.round(Number(v) * 10) / 10 });
+              }
+              for (const i of b.aa) {
+                const v = row[i];
+                if (v == null || v === '' || isNaN(Number(v))) continue;
+                const code = net(l8[i]).replace(/\.S\d$/, '');
+                if (notesAA.some(x => x.id_ecampus === mat && x.aa_code === code)) continue;
+                notesAA.push({ id_ecampus: mat, ue_num: ueNum, aa_code: code,
+                               note: Math.round(Number(v) * 10) / 10 });
+              }
+            }
+
             if (!resultat && note == null) continue;
-            resultats.push({ id_ecampus: mat, ue_num: Number(nomOnglet.trim()), resultat, points: note });
+            resultats.push({ id_ecampus: mat, ue_num: ueNum, resultat, points: note });
           }
         }
 
         lus.push({
           nom: f.name, annee: anneeDepuisNom(f.name), section: sectionDepuisNom(f.name),
-          ues, coordonnees, resultats,
+          ues, coordonnees, resultats, notesCours, notesAA,
           avecCoord: !!ongletCoord,
         });
       }
@@ -178,6 +217,8 @@ export default function ImportHistorique({ onClose, onImporte }) {
                     <div className="text-[11px] text-slate-500 mt-0.5 ml-6">
                       {f.section || 'section indéterminée'} · {f.ues} UE ·
                       {' '}{f.resultats.length} résultats ·
+                      {' '}{f.notesCours.length} notes de cours ·
+                      {' '}{f.notesAA.length} notes d'acquis ·
                       {' '}{f.avecCoord ? `${f.coordonnees.length} fiches signalétiques`
                                         : <span className="text-amber-700">sans onglet Coordonnées</span>}
                     </div>
@@ -196,7 +237,9 @@ export default function ImportHistorique({ onClose, onImporte }) {
                       {' '}{rapport.methodes.matricule} par matricule,
                       {' '}{rapport.methodes.identite} par identité</li>
                     <li><b>{rapport.total.crees}</b> dossier(s) à créer</li>
-                    <li><b>{rapport.total.resultats}</b> résultat(s) à enregistrer</li>
+                    <li><b>{rapport.total.resultats}</b> résultat(s) d'UE à enregistrer</li>
+                    <li><b>{rapport.total.notes_cours}</b> note(s) de cours ·
+                      <b> {rapport.total.notes_aa}</b> note(s) d'acquis d'apprentissage</li>
                     {rapport.total.sans_correspondance > 0 && (
                       <li className="text-amber-800">{rapport.total.sans_correspondance} résultat(s)
                         sans étudiant identifiable — ignorés</li>
@@ -242,7 +285,8 @@ export default function ImportHistorique({ onClose, onImporte }) {
                   <div key={f.nom} className="px-3 py-2 text-[11.5px]">
                     <div className="text-slate-800">{f.nom} <span className="text-slate-400">· {f.annee}</span></div>
                     <div className="text-slate-500">
-                      {f.rapproches} rapproché(s), {f.crees} créé(s), {f.resultats} résultat(s)
+                      {f.rapproches} rapproché(s), {f.crees} créé(s), {f.resultats} résultat(s),
+                      {f.notes_cours} note(s) de cours, {f.notes_aa} d'acquis
                       {f.sans_correspondance > 0 && ` · ${f.sans_correspondance} ignoré(s)`}
                     </div>
                   </div>

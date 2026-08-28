@@ -115,7 +115,8 @@ r.post('/', authRequired, roleRequired('admin', 'editeur'), (req, res) => {
 
   const rapport = {
     simulation, fichiers: [],
-    total: { rapproches: 0, crees: 0, resultats: 0, sans_correspondance: 0 },
+    total: { rapproches: 0, crees: 0, resultats: 0, sans_correspondance: 0,
+             notes_cours: 0, notes_aa: 0 },
     methodes: { numero_national: 0, matricule: 0, identite: 0, cree: 0 },
     doublons_pressentis: [],
   };
@@ -145,13 +146,34 @@ r.post('/', authRequired, roleRequired('admin', 'editeur'), (req, res) => {
       points = COALESCE(excluded.points, etudiant_inscription.points)
   `);
 
+  // Note d'un cours. Le seuil de 10/20 sert de statut par défaut : la
+  // délibération peut en décider autrement, et se corrige ensuite à la main.
+  const insCours = db.prepare(`
+    INSERT INTO etudiant_resultat_cours
+      (etudiant_id, annee_scolaire, ue_num, cours_code, statut, note)
+    VALUES (?,?,?,?,?,?)
+    ON CONFLICT(etudiant_id, annee_scolaire, cours_code) DO UPDATE SET
+      note = excluded.note, statut = excluded.statut, ue_num = excluded.ue_num
+  `);
+
+  // Note d'un acquis. La clé de la table préfixe le code par le cours,
+  // un même acquis pouvant être coté dans deux cours distincts.
+  const coursDeAA = db.prepare('SELECT cours_code FROM aa WHERE aa_code = ? LIMIT 1');
+  const insAA = db.prepare(`
+    INSERT INTO etudiant_note_detail
+      (etudiant_id, annee_scolaire, ue_num, type, code, cours_code, points)
+    VALUES (?,?,?, 'aa', ?,?,?)
+    ON CONFLICT(etudiant_id, annee_scolaire, ue_num, type, code) DO UPDATE SET
+      points = excluded.points, cours_code = excluded.cours_code
+  `);
+
   const executer = () => {
     for (const f of fichiers) {
       const detail = {
         nom: f.nom, annee: f.annee, section: f.section || null,
         etudiants: (f.coordonnees || []).length,
         rapproches: 0, crees: 0, resultats: 0, sans_correspondance: 0,
-        inconnus: [],
+        notes_cours: 0, notes_aa: 0, inconnus: [],
       };
 
       // Résolution des personnes du fichier
@@ -211,11 +233,36 @@ r.post('/', authRequired, roleRequired('admin', 'editeur'), (req, res) => {
         detail.resultats++;
       }
 
+      // Notes de cours
+      for (const n of (f.notesCours || [])) {
+        const id = parMatricule[String(n.id_ecampus || '').trim()];
+        if (!id || id < 0) { if (simulation && id === -1) detail.notes_cours++; continue; }
+        if (!simulation) {
+          insCours.run(id, f.annee, Number(n.ue_num), n.cours_code,
+            Number(n.note) >= 10 ? 'reussi' : 'refuse', Number(n.note));
+        }
+        detail.notes_cours++;
+      }
+
+      // Notes d'acquis
+      for (const n of (f.notesAA || [])) {
+        const id = parMatricule[String(n.id_ecampus || '').trim()];
+        if (!id || id < 0) { if (simulation && id === -1) detail.notes_aa++; continue; }
+        if (!simulation) {
+          const cc = coursDeAA.get(n.aa_code)?.cours_code || null;
+          insAA.run(id, f.annee, Number(n.ue_num),
+            (cc ? cc + '|' : '') + n.aa_code, cc, Number(n.note));
+        }
+        detail.notes_aa++;
+      }
+
       rapport.fichiers.push(detail);
       rapport.total.rapproches += detail.rapproches;
       rapport.total.crees += detail.crees;
       rapport.total.resultats += detail.resultats;
       rapport.total.sans_correspondance += detail.sans_correspondance;
+      rapport.total.notes_cours += detail.notes_cours;
+      rapport.total.notes_aa += detail.notes_aa;
     }
   };
 
