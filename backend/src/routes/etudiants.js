@@ -713,6 +713,165 @@ r.get('/synthese', authRequired, (req, res) => {
   });
 });
 
+// ── Rapport de PAE au format Excel ─────────────────────────────────────────
+// Construit côté serveur avec ExcelJS, seul à savoir mettre en forme les
+// cellules. La disposition reste celle du classeur de la coordination —
+// intitulés en ligne 1, codes en ligne 2 — pour rester réimportable.
+r.post('/rapport-pae/excel', authRequired, async (req, res) => {
+  const { section, annee, colonnes, etudiants, taux, options = {} } = req.body;
+  if (!section || !annee || !Array.isArray(colonnes) || !Array.isArray(etudiants)) {
+    return res.status(400).json({ error: 'données du rapport requises' });
+  }
+
+  const ExcelJS = (await import('exceljs')).default;
+  const wb = new ExcelJS.Workbook();
+  wb.creator = 'Lucie — Institut Ilya Prigogine';
+  wb.created = new Date();
+
+  const MARINE = 'FF1B2B4B', TURQ = 'FF00AACC';
+  const NIV = { BA1: 'FFF97316', BA2: 'FF60A5FA', BA3: 'FF1E3A8A' };
+  const teinte = {
+    ok:   { fill: 'FFD1FAE5', police: 'FF065F46' },
+    ko:   { fill: 'FFFEE2E2', police: 'FF991B1B' },
+    va:   { fill: 'FFEDE9FE', police: 'FF5B21B6' },
+    ins:  { fill: 'FFE0F2FE', police: 'FF075985' },
+    abs:  { fill: 'FFF1F5F9', police: 'FF64748B' },
+  };
+  const classe = v => {
+    if (!v) return null;
+    const b = String(v).replace('*', '');
+    if (/^\d\d-\d\d$/.test(b) || b === 'C' || b === '✓' || /^\d+([.,]\d+)?$/.test(b)) return 'ok';
+    if (b.startsWith('VA')) return 'va';
+    if (b === 'R') return 'ko';
+    if (b === 'A') return 'abs';
+    if (b === 'x') return 'ins';
+    return null;
+  };
+
+  const ws = wb.addWorksheet('TOUS', {
+    views: [{ state: 'frozen', xSplit: 5, ySplit: 2 }],
+    pageSetup: { orientation: 'landscape', fitToPage: true, fitToWidth: 1, fitToHeight: 0 },
+  });
+
+  const tetesFixes = ['Id_Etud', 'Email Perso', 'EmailEcole', 'NomEtud', 'PréEtud',
+                      '', 'inscription', 'Classe', 'Niveau'];
+  const synth = options.synthese ? ['Acquis', 'ECTS', 'Situation'] : [];
+
+  // Ligne 1 — intitulés ; ligne 2 — codes, dans la forme attendue à la relecture
+  ws.addRow([...tetesFixes.map(() => ''), ...colonnes.map(c0 => c0.libelle || ''), ...synth.map(() => '')]);
+  ws.addRow([...tetesFixes, ...colonnes.map(c0 => c0.code),
+             ...synth, "Commentaire(s) du Conseil des Etudes"]);
+
+  const l1 = ws.getRow(1), l2 = ws.getRow(2);
+  l1.height = 46; l2.height = 20;
+  l1.eachCell({ includeEmpty: true }, (cell, i) => {
+    if (i <= tetesFixes.length) return;
+    cell.alignment = { vertical: 'bottom', horizontal: 'left', wrapText: true, textRotation: 60 };
+    cell.font = { size: 7.5, color: { argb: 'FF64748B' } };
+  });
+  l2.eachCell({ includeEmpty: true }, (cell, i) => {
+    const col = colonnes[i - tetesFixes.length - 1];
+    const couleur = col ? (NIV[(col.ue_niv || '').toUpperCase()] || 'FF94A3B8') : MARINE;
+    cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: couleur } };
+    cell.font = { bold: true, size: 9, color: { argb: 'FFFFFFFF' } };
+    cell.alignment = { horizontal: 'center', vertical: 'middle' };
+    cell.border = { bottom: { style: 'medium', color: { argb: MARINE } } };
+  });
+
+  // Étudiants
+  for (const e of etudiants) {
+    const cells = colonnes.map(c0 => e.valeurs[c0.code] ?? '');
+    const s = options.synthese
+      ? [`${e.acquises}/${e.total_ue}`, e.ects_total ? `${e.ects}/${e.ects_total}` : e.ects,
+         e.diplomable ? 'diplômable' : (e.echecs ? `${e.echecs} échec(s)` : '')]
+      : [];
+    const r0 = ws.addRow([
+      e.id_ecampus || '', '', e.email_ecole || '', e.nom || '', e.prenom || '',
+      '', '', '', e.niveau || '', ...cells, ...s, '',
+    ]);
+    r0.height = 17;
+    r0.eachCell({ includeEmpty: true }, (cell, i) => {
+      cell.border = { top: { style: 'hair', color: { argb: 'FFE2E8F0' } },
+                      bottom: { style: 'hair', color: { argb: 'FFE2E8F0' } } };
+      if (i <= 5) { cell.font = { size: 9.5 }; return; }
+      cell.alignment = { horizontal: 'center' };
+      cell.font = { size: 9 };
+      const idx = i - tetesFixes.length - 1;
+      if (idx >= 0 && idx < colonnes.length) {
+        const t = teinte[classe(cell.value)];
+        if (t) {
+          cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: t.fill } };
+          cell.font = { size: 9, bold: true, color: { argb: t.police } };
+        }
+        if (String(cell.value || '').includes('*')) cell.font = { ...cell.font, italic: true };
+      } else if (idx >= colonnes.length) {
+        cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFF8FAFC' } };
+      }
+    });
+  }
+
+  // Taux de réussite par UE
+  if (options.tauxUE && taux) {
+    const r0 = ws.addRow(['', '', '', 'Taux de réussite', '', '', '', '', '',
+      ...colonnes.map(c0 => (taux[c0.code] == null ? '' : taux[c0.code] / 100)), ...synth.map(() => '')]);
+    r0.height = 19;
+    r0.eachCell({ includeEmpty: true }, (cell, i) => {
+      cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFF1F5F9' } };
+      cell.font = { bold: true, size: 9, color: { argb: 'FF475569' } };
+      cell.border = { top: { style: 'medium', color: { argb: MARINE } } };
+      const idx = i - tetesFixes.length - 1;
+      if (idx >= 0 && idx < colonnes.length && typeof cell.value === 'number') {
+        cell.numFmt = '0 %';
+        cell.alignment = { horizontal: 'center' };
+        cell.font = { bold: true, size: 9,
+          color: { argb: cell.value >= 0.75 ? 'FF047857' : cell.value >= 0.5 ? 'FF92400E' : 'FFB91C1C' } };
+      }
+    });
+  }
+
+  // Largeurs posées colonne par colonne : affecter ws.columns après avoir
+  // ajouté des lignes désaligne le tableau dans ExcelJS.
+  const largeurs = [11, 20, 28, 20, 15, 5, 10, 8, 11,
+    ...colonnes.map(() => 7), ...synth.map(() => 12), 46];
+  largeurs.forEach((w, i) => { ws.getColumn(i + 1).width = w; });
+  ws.autoFilter = {
+    from: { row: 2, column: 1 },
+    to: { row: ws.rowCount, column: tetesFixes.length + colonnes.length + synth.length },
+  };
+
+  // Second onglet : ce que le tableau montre, et la légende
+  const info = wb.addWorksheet('Informations');
+  info.getColumn(1).width = 26;
+  info.getColumn(2).width = 74;
+  const lignes = [
+    ['Section', section],
+    ['Année', annee],
+    ['Contenu des cases', options.libelleContenu || ''],
+    ['Colonnes', options.granularite === 'cours' ? 'Une par cours' : 'Une par UE'],
+    ['Étudiants retenus', options.libelleFiltre || 'Tous'],
+    ['Édité le', new Date().toLocaleString('fr-BE')],
+    ['', ''],
+    ['Légende', 'C ou une année : acquise · VA : valorisation · R : refusé · A : absent · x : inscrit, non délibéré'],
+    ['', 'Une valeur en italique suivie d\u2019un astérisque est reprise de l\u2019unité d\u2019enseignement, faute de résultat encodé par cours.'],
+    ['', 'Les couleurs d\u2019en-tête suivent l\u2019année d\u2019études : BA1 orange, BA2 bleu clair, BA3 bleu marine.'],
+    ['', ''],
+    ['Réimport', 'Ce classeur garde la forme attendue par « Importer le classeur PAE » : il peut être complété à la main puis relu par Lucie.'],
+  ];
+  for (const [a, b] of lignes) {
+    const r0 = info.addRow([a, b]);
+    r0.getCell(1).font = { bold: true, size: 10, color: { argb: MARINE } };
+    r0.getCell(2).font = { size: 10 };
+    r0.getCell(2).alignment = { wrapText: true, vertical: 'top' };
+  }
+  info.getRow(1).getCell(1).font = { bold: true, size: 12, color: { argb: MARINE } };
+
+  const buffer = await wb.xlsx.writeBuffer();
+  const nom = `PAE_${section}_${annee}.xlsx`.replace(/[^\w.\-]/g, '_');
+  res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+  res.setHeader('Content-Disposition', `attachment; filename="${nom}"`);
+  res.send(Buffer.from(buffer));
+});
+
 // ── Matrice d'encodage rapide : étudiants × UE, pour une année ──────────────
 // L'année est portée par l'écran, pas par la cellule : on encode une année
 // entière d'un coup. Les acquis des AUTRES années sont tout de même renvoyés,

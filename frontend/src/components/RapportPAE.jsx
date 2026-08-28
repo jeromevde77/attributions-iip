@@ -237,34 +237,47 @@ ${j.granularite === 'cours' && !cotesCours ? `
   async function exporterExcel() {
     const j = await charger();
     if (!j) return;
-    const XLSX = await import('xlsx');
 
-    // Forme du classeur de la coordination : intitulés en ligne 1, codes en
-    // ligne 2, un étudiant par ligne — donc relisible par l'écran d'import.
-    const l1 = ['', '', '', '', '', '', '', '', '', ...j.colonnes.map(c => c.libelle)];
-    const l2 = ['Id_Etud', 'Email Perso', 'EmailEcole', 'NomEtud', 'PréEtud', '', 'inscription',
-                'Classe', 'Niveau', ...j.colonnes.map(c => c.code), 'Commentaire(s) du Conseil des Etudes'];
     const retenus = j.etudiants.filter(e =>
       filtre === 'echec' ? e.echecs > 0
       : filtre === 'diplomables' ? e.diplomable
       : true);
-    const lignes = retenus.map(e => ([
-      e.id_ecampus || '', '', e.email_ecole || '', e.nom || '', e.prenom || '',
-      '', '', '', e.niveau || '',
-      ...j.colonnes.map(c => valeur(e, c, j)), '',
-    ]));
+    if (!retenus.length) { setErreur('Aucun étudiant ne correspond au filtre.'); return; }
 
-    const ws = XLSX.utils.aoa_to_sheet([l1, l2, ...lignes]);
-    ws['!cols'] = [
-      { wch: 11 }, { wch: 22 }, { wch: 28 }, { wch: 20 }, { wch: 16 },
-      { wch: 6 }, { wch: 10 }, { wch: 8 }, { wch: 11 },
-      ...j.colonnes.map(() => ({ wch: 7 })), { wch: 45 },
-    ];
-    ws['!freeze'] = { xSplit: 5, ySplit: 2 };
-
-    const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, 'TOUS');
-    XLSX.writeFile(wb, `PAE_${j.section}_${j.annee}.xlsx`);
+    // La mise en forme se fait côté serveur : seule ExcelJS sait colorer les
+    // cellules, la bibliothèque du navigateur ne produit que des valeurs.
+    setEnCours(true);
+    try {
+      const rep = await fetch('/api/etudiants/rapport-pae/excel', {
+        method: 'POST', headers: authHeaders(),
+        body: JSON.stringify({
+          section: j.section, annee: j.annee, colonnes: j.colonnes, taux: j.taux,
+          etudiants: retenus.map(e => ({
+            id_ecampus: e.id_ecampus, nom: e.nom, prenom: e.prenom,
+            email_ecole: e.email_ecole, niveau: e.niveau,
+            acquises: e.acquises, total_ue: e.total_ue,
+            ects: e.ects, ects_total: e.ects_total,
+            diplomable: e.diplomable, echecs: e.echecs,
+            valeurs: Object.fromEntries(j.colonnes.map(c0 => [c0.code, valeur(e, c0, j)])),
+          })),
+          options: {
+            granularite: j.granularite, synthese, tauxUE,
+            libelleContenu: contenu === 'annee' ? 'Année de validation'
+              : contenu === 'note' ? 'Note sur 20' : "État de l'année",
+            libelleFiltre: filtre === 'echec' ? 'Avec au moins un échec'
+              : filtre === 'diplomables' ? 'Diplômables' : 'Tous',
+          },
+        }),
+      });
+      if (!rep.ok) { setErreur('Erreur à la génération du classeur.'); return; }
+      const blob = await rep.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `PAE_${j.section}_${j.annee}.xlsx`.replace(/[^\w.\-]/g, '_');
+      document.body.appendChild(a); a.click(); a.remove();
+      URL.revokeObjectURL(url);
+    } finally { setEnCours(false); }
   }
 
   return (
