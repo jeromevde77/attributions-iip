@@ -95,11 +95,11 @@ function SchemaCapitalisation({ etudId, annee }) {
 
 // ── Grille de parcours : UE × années ─────────────────────────────────────────
 const KINDS_CELLULE = [
-  { val: 'inscrit', label: 'Inscrit',  short: 'Ins.', cls: 'bg-sky-50 text-sky-700 border-sky-200' },
-  { val: 'reussi',  label: 'Réussi',   short: null,   cls: 'bg-emerald-50 text-emerald-800 border-emerald-200' },
-  { val: 'va',      label: 'VA',       short: 'VA',   cls: 'bg-violet-50 text-violet-700 border-violet-200' },
-  { val: 'ajourne', label: 'Refusé',   short: 'Ref.', cls: 'bg-red-50 text-red-700 border-red-200' },
-  { val: 'absent',  label: 'Absent',   short: 'Abs.', cls: 'bg-slate-50 text-slate-600 border-slate-200' },
+  { val: 'inscrit', label: 'Inscrit',  short: '·',  cls: 'bg-sky-50 text-sky-700 border-sky-200' },
+  { val: 'reussi',  label: 'Réussi',   short: '✓',  cls: 'bg-emerald-50 text-emerald-800 border-emerald-200' },
+  { val: 'va',      label: 'VA',       short: 'VA', cls: 'bg-violet-50 text-violet-700 border-violet-200' },
+  { val: 'ajourne', label: 'Refusé',   short: '✕',  cls: 'bg-red-50 text-red-700 border-red-200' },
+  { val: 'absent',  label: 'Absent',   short: '–',  cls: 'bg-slate-50 text-slate-600 border-slate-200' },
 ];
 
 function GrilleParcours({ etudId, peutEcrire }) {

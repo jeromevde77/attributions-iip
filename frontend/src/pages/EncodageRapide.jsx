@@ -24,12 +24,24 @@ const couleurNiveau = niv => {
   return m ? NIV_PALETTE[(Number(m[1]) - 1) % NIV_PALETTE.length] : null;
 };
 
+// L'année encodée est pleine et vive ; les acquis des autres années sont
+// dans la même teinte, plus douce, avec leur millésime — le parcours se lit
+// alors sans quitter l'écran.
 const STYLE = {
   reussi:  'bg-emerald-100 text-emerald-800 border-emerald-300',
   ajourne: 'bg-red-100 text-red-700 border-red-300',
   absent:  'bg-slate-100 text-slate-500 border-slate-300',
 };
-const SIGLE = { reussi: 'C', ajourne: 'R', absent: 'A' };
+const STYLE_ANTERIEUR = {
+  reussi:  'bg-emerald-50/70 text-emerald-600 border-emerald-200',
+  ajourne: 'bg-red-50/60 text-red-500 border-red-200',
+  absent:  'bg-slate-50 text-slate-400 border-slate-200',
+  va:      'bg-violet-50/70 text-violet-600 border-violet-200',
+};
+const SIGLE = { reussi: '✓', ajourne: '✕', absent: '–', va: 'VA' };
+
+// « 2024-2025 » → « 24-25 »
+const millesime = a => (a || '').slice(2, 4) + '-' + (a || '').slice(7, 9);
 
 export default function EncodageRapide() {
   const [sections, setSections] = useState([]);
@@ -245,7 +257,7 @@ export default function EncodageRapide() {
                 {data.ues.map(u => (
                   <th key={u.ue_num} onClick={() => appliquerColonne(u.ue_num)}
                     title={`${u.ue_nom || ''} — cliquer pour marquer réussi sur la sélection`}
-                    className="border-b border-slate-200 px-1 py-2 w-11 cursor-pointer hover:bg-slate-100">
+                    className="border-b border-slate-200 px-1 py-2 w-14 cursor-pointer hover:bg-slate-100">
                     <div className="text-[11.5px] font-bold text-iip-blue">{u.ue_num}</div>
                     <div className="text-[8.5px] font-semibold"
                       style={{ color: couleurNiveau(u.ue_niv) || '#94A3B8' }}>
@@ -279,17 +291,26 @@ export default function EncodageRapide() {
                     return (
                       <td key={u.ue_num} className="border-b border-slate-100 p-0.5 text-center">
                         <button onClick={() => cycler(e.id, u.ue_num)}
-                          title={ant ? `Déjà ${ant.resultat === 'va' ? 'valorisée' : ant.resultat === 'reussi' ? 'réussie' : 'refusée'} en ${ant.annee}` : ''}
-                          className={`w-10 h-8 rounded-md border text-[12px] font-bold transition
-                            ${val ? STYLE[val] : 'border-transparent text-slate-300 hover:border-slate-200 hover:bg-slate-50'}`}>
-                          {val ? SIGLE[val] : (
-                            ant ? (
-                              <span className="text-[8.5px] font-normal text-slate-400 leading-none block">
-                                {ant.resultat === 'reussi' ? '✓' : ant.resultat === 'va' ? 'VA' : '·'}
-                                <span className="block">{ant.annee.slice(2, 4)}-{ant.annee.slice(7, 9)}</span>
-                              </span>
-                            ) : '·'
-                          )}
+                          title={val
+                            ? `${val === 'reussi' ? 'Réussi' : val === 'ajourne' ? 'Refusé' : 'Absent'} en ${annee}`
+                            : ant
+                              ? `${ant.resultat === 'va' ? 'Valorisée' : ant.resultat === 'reussi' ? 'Réussie' : 'Refusée'} en ${ant.annee}`
+                              : 'Cliquer pour encoder'}
+                          className={`w-12 h-9 rounded-md border transition leading-none
+                            ${val ? STYLE[val]
+                                  : ant ? STYLE_ANTERIEUR[ant.resultat] || STYLE_ANTERIEUR.absent
+                                        : 'border-transparent text-slate-300 hover:border-slate-200 hover:bg-slate-50'}`}>
+                          {val ? (
+                            <span className="block">
+                              <span className="block text-[13px] font-bold">{SIGLE[val]}</span>
+                              <span className="block text-[7.5px] font-medium opacity-70">{millesime(annee)}</span>
+                            </span>
+                          ) : ant ? (
+                            <span className="block">
+                              <span className="block text-[12px] font-semibold">{SIGLE[ant.resultat] || '·'}</span>
+                              <span className="block text-[7.5px] opacity-80">{millesime(ant.annee)}</span>
+                            </span>
+                          ) : '·'}
                         </button>
                       </td>
                     );
@@ -302,7 +323,9 @@ export default function EncodageRapide() {
       )}
 
       <p className="text-[11px] text-slate-400">
-        <b>C</b> réussi · <b>R</b> refusé · en gris, l'acquis d'une autre année avec son millésime.
+        <b className="text-emerald-700">✓</b> réussi · <b className="text-red-600">✕</b> refusé ·
+        <b className="text-violet-600"> VA</b> valorisation — chaque case porte son millésime.
+        Les acquis d'une autre année s'affichent dans la même couleur, en plus doux.
         Cliquer un numéro d'UE marque la colonne comme réussie pour les étudiants sélectionnés,
         ou pour tous ceux affichés si aucune sélection n'est faite.
       </p>
