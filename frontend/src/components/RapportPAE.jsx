@@ -11,7 +11,7 @@ import { authHeaders } from '../lib/api.js';
  */
 export default function RapportPAE({ anneeCourante, onClose }) {
   const [sections, setSections] = useState([]);
-  const [section, setSection] = useState('');
+  const [choisies, setChoisies] = useState([]);   // sections retenues
   const [annee, setAnnee] = useState(anneeCourante || '');
   const [annees, setAnnees] = useState([]);
 
@@ -34,7 +34,7 @@ export default function RapportPAE({ anneeCourante, onClose }) {
   useEffect(() => {
     fetch('/api/ref/sections', { headers: authHeaders() })
       .then(r => r.json()).then(l => {
-        if (Array.isArray(l)) { setSections(l); if (l.length && !section) setSection(l[0].code); }
+        if (Array.isArray(l)) { setSections(l); if (l.length) setChoisies([l[0].code]); }
       }).catch(() => {});
     fetch('/api/etudiants/purge/perimetre', { headers: authHeaders() })
       .then(r => r.json()).then(j => {
@@ -44,29 +44,36 @@ export default function RapportPAE({ anneeCourante, onClose }) {
     // eslint-disable-next-line
   }, []);
 
+  // La liste des UE ne sert qu'au choix « une seule UE », qui suppose une
+  // section unique.
   useEffect(() => {
-    if (!section) return;
-    fetch(`/api/etudiants/purge/perimetre?section=${encodeURIComponent(section)}&annee=${annee}`,
+    if (choisies.length !== 1) { setUes([]); return; }
+    fetch(`/api/etudiants/purge/perimetre?section=${encodeURIComponent(choisies[0])}&annee=${annee}`,
       { headers: authHeaders() })
       .then(r => r.json()).then(j => setUes(j?.ues || [])).catch(() => {});
-  }, [section, annee]);
+  }, [choisies, annee]);
 
-  function url() {
-    const p = new URLSearchParams({ section, annee, granularite });
+  function url(sect) {
+    const p = new URLSearchParams({ section: sect, annee, granularite });
     if (etendue === 'niveau') p.set('niveau', niveau);
     if (etendue === 'ue' && ueNum) p.set('ue_num', ueNum);
     return `/api/etudiants/rapport-pae?${p}`;
   }
 
-  async function charger() {
-    if (!section || !annee) { setErreur('Choisissez une section et une année.'); return null; }
+  // Un jeu de données par section : les rapports restent séparés.
+  async function chargerToutes() {
+    if (!choisies.length || !annee) { setErreur('Choisissez au moins une section et une année.'); return null; }
     setErreur(null); setEnCours(true);
     try {
-      const rep = await fetch(url(), { headers: authHeaders() });
-      const j = await rep.json();
-      if (!rep.ok) { setErreur(j.error || 'Erreur'); return null; }
-      if (!j.etudiants?.length) { setErreur('Aucun étudiant pour ce périmètre.'); return null; }
-      return j;
+      const jeux = [];
+      for (const sect of choisies) {
+        const rep = await fetch(url(sect), { headers: authHeaders() });
+        const j = await rep.json();
+        if (!rep.ok) { setErreur(j.error || 'Erreur'); return null; }
+        if (j.etudiants?.length) jeux.push(j);
+      }
+      if (!jeux.length) { setErreur('Aucun étudiant pour ce périmètre.'); return null; }
+      return jeux;
     } finally { setEnCours(false); }
   }
 
@@ -120,8 +127,14 @@ export default function RapportPAE({ anneeCourante, onClose }) {
   }
 
   async function voirApercu() {
-    const j = await charger();
-    if (!j) return;
+    const jeux = await chargerToutes();
+    if (!jeux) return;
+    const documents = jeux.map(j => ({ section: j.section, ...construireHtml(j) })).filter(Boolean);
+    if (documents.length) setApercu(documents);
+  }
+
+  // Un document autonome par section — imprimable séparément.
+  function construireHtml(j) {
     const esc = s => String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;');
     // BA1 orange, BA2 bleu clair, BA3 bleu marine — convention de Lucie
     const NIV_PALETTE = ['#F97316', '#60A5FA', '#1E3A8A', '#A855F7', '#EC4899'];
@@ -145,7 +158,7 @@ export default function RapportPAE({ anneeCourante, onClose }) {
       filtre === 'echec' ? e.echecs > 0
       : filtre === 'diplomables' ? e.diplomable
       : true);
-    if (!retenus.length) { setErreur('Aucun étudiant ne correspond au filtre.'); return; }
+    if (!retenus.length) return null;
 
     const lignes = retenus.map((e, i) => {
       const cells = j.colonnes.map(c => {
@@ -231,52 +244,70 @@ ${j.granularite === 'cours' && !cotesCours ? `
   ${tauxUE ? "La dernière ligne donne le taux de réussite de chaque UE parmi les étudiants qui l'ont suivie." : ''}
 </div></body></html>`;
 
-    setApercu({ html, nom: `pae_${j.section}_${j.annee}.html` });
+    return { html, nom: `pae_${j.section}_${j.annee}.html` };
   }
 
   async function exporterExcel() {
-    const j = await charger();
-    if (!j) return;
-
-    const retenus = j.etudiants.filter(e =>
-      filtre === 'echec' ? e.echecs > 0
-      : filtre === 'diplomables' ? e.diplomable
-      : true);
-    if (!retenus.length) { setErreur('Aucun étudiant ne correspond au filtre.'); return; }
-
-    // La mise en forme se fait côté serveur : seule ExcelJS sait colorer les
-    // cellules, la bibliothèque du navigateur ne produit que des valeurs.
+    const jeux = await chargerToutes();
+    if (!jeux) return;
     setEnCours(true);
     try {
-      const rep = await fetch('/api/etudiants/rapport-pae/excel', {
-        method: 'POST', headers: authHeaders(),
-        body: JSON.stringify({
-          section: j.section, annee: j.annee, colonnes: j.colonnes, taux: j.taux,
-          etudiants: retenus.map(e => ({
-            id_ecampus: e.id_ecampus, nom: e.nom, prenom: e.prenom,
-            email_ecole: e.email_ecole, niveau: e.niveau,
-            acquises: e.acquises, total_ue: e.total_ue,
-            ects: e.ects, ects_total: e.ects_total,
-            diplomable: e.diplomable, echecs: e.echecs,
-            valeurs: Object.fromEntries(j.colonnes.map(c0 => [c0.code, valeur(e, c0, j)])),
-          })),
-          options: {
-            granularite: j.granularite, synthese, tauxUE,
-            libelleContenu: contenu === 'annee' ? 'Année de validation'
-              : contenu === 'note' ? 'Note sur 20' : "État de l'année",
-            libelleFiltre: filtre === 'echec' ? 'Avec au moins un échec'
-              : filtre === 'diplomables' ? 'Diplômables' : 'Tous',
-          },
-        }),
-      });
-      if (!rep.ok) { setErreur('Erreur à la génération du classeur.'); return; }
-      const blob = await rep.blob();
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = `PAE_${j.section}_${j.annee}.xlsx`.replace(/[^\w.\-]/g, '_');
-      document.body.appendChild(a); a.click(); a.remove();
-      URL.revokeObjectURL(url);
+      const fichiers = [];
+      for (const j of jeux) {
+        const retenus = j.etudiants.filter(e =>
+          filtre === 'echec' ? e.echecs > 0
+          : filtre === 'diplomables' ? e.diplomable
+          : true);
+        if (!retenus.length) continue;
+
+        const rep = await fetch('/api/etudiants/rapport-pae/excel', {
+          method: 'POST', headers: authHeaders(),
+          body: JSON.stringify({
+            section: j.section, annee: j.annee, colonnes: j.colonnes, taux: j.taux,
+            etudiants: retenus.map(e => ({
+              id_ecampus: e.id_ecampus, nom: e.nom, prenom: e.prenom,
+              email_ecole: e.email_ecole, niveau: e.niveau,
+              acquises: e.acquises, total_ue: e.total_ue,
+              ects: e.ects, ects_total: e.ects_total,
+              diplomable: e.diplomable, echecs: e.echecs,
+              valeurs: Object.fromEntries(j.colonnes.map(c0 => [c0.code, valeur(e, c0, j)])),
+            })),
+            options: {
+              granularite: j.granularite, synthese, tauxUE,
+              libelleContenu: contenu === 'annee' ? 'Année de validation'
+                : contenu === 'note' ? 'Note sur 20' : "État de l'année",
+              libelleFiltre: filtre === 'echec' ? 'Avec au moins un échec'
+                : filtre === 'diplomables' ? 'Diplômables' : 'Tous',
+            },
+          }),
+        });
+        if (!rep.ok) { setErreur(`Erreur à la génération pour ${j.section}.`); return; }
+        fichiers.push({
+          nom: `PAE_${j.section}_${j.annee}.xlsx`.replace(/[^\w.\-]/g, '_'),
+          blob: await rep.blob(),
+        });
+      }
+      if (!fichiers.length) { setErreur('Aucun étudiant ne correspond au filtre.'); return; }
+
+      const telecharger = (blob, nom) => {
+        const u = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = u; a.download = nom;
+        document.body.appendChild(a); a.click(); a.remove();
+        URL.revokeObjectURL(u);
+      };
+
+      if (fichiers.length === 1) {
+        telecharger(fichiers[0].blob, fichiers[0].nom);
+      } else {
+        // Plusieurs sections : une archive, pour un seul téléchargement et
+        // des classeurs qui restent distincts.
+        const JSZip = (await import('jszip')).default;
+        const zip = new JSZip();
+        for (const f of fichiers) zip.file(f.nom, f.blob);
+        telecharger(await zip.generateAsync({ type: 'blob' }),
+          `PAE_${annee}_${fichiers.length}_sections.zip`);
+      }
     } finally { setEnCours(false); }
   }
 
@@ -303,13 +334,29 @@ ${j.granularite === 'cours' && !cotesCours ? `
             )}
 
             <div className="grid grid-cols-2 gap-3">
-              <label className="text-xs">
-                <span className="block font-semibold text-slate-500 uppercase tracking-wide mb-1">Section</span>
-                <select value={section} onChange={e => setSection(e.target.value)}
-                  className="w-full border border-slate-300 rounded-lg px-2 py-1.5 text-sm">
-                  {sections.map(s => <option key={s.code} value={s.code}>{s.libelle || s.code}</option>)}
-                </select>
-              </label>
+              <div className="text-xs">
+                <div className="flex items-center justify-between mb-1">
+                  <span className="font-semibold text-slate-500 uppercase tracking-wide">
+                    Sections ({choisies.length})
+                  </span>
+                  <div className="flex gap-1.5">
+                    <button onClick={() => setChoisies(sections.map(s => s.code))}
+                      className="text-[10.5px] px-1.5 py-0.5 border border-slate-300 rounded">Toutes</button>
+                    <button onClick={() => setChoisies([])}
+                      className="text-[10.5px] px-1.5 py-0.5 border border-slate-300 rounded">Aucune</button>
+                  </div>
+                </div>
+                <div className="border border-slate-300 rounded-lg max-h-28 overflow-y-auto divide-y divide-slate-100">
+                  {sections.map(s => (
+                    <label key={s.code} className="flex items-center gap-2 px-2 py-1 hover:bg-slate-50 cursor-pointer">
+                      <input type="checkbox" checked={choisies.includes(s.code)}
+                        onChange={e => setChoisies(cs => e.target.checked
+                          ? [...cs, s.code] : cs.filter(x => x !== s.code))} />
+                      <span className="text-[12px] text-slate-700">{s.libelle || s.code}</span>
+                    </label>
+                  ))}
+                </div>
+              </div>
               <label className="text-xs">
                 <span className="block font-semibold text-slate-500 uppercase tracking-wide mb-1">Année</span>
                 <select value={annee} onChange={e => setAnnee(e.target.value)}
@@ -323,8 +370,11 @@ ${j.granularite === 'cours' && !cotesCours ? `
               <div className="text-[11px] font-semibold text-slate-500 uppercase tracking-wide mb-1.5">Étendue</div>
               <div className="flex gap-3 flex-wrap mb-2">
                 {[['toutes', 'Toutes les UE'], ['niveau', 'Par année d\u2019études'], ['ue', 'Une seule UE']].map(([v, l]) => (
-                  <label key={v} className="flex items-center gap-1.5 text-[12.5px]">
-                    <input type="radio" checked={etendue === v} onChange={() => setEtendue(v)} /> {l}
+                  <label key={v}
+                    className={`flex items-center gap-1.5 text-[12.5px] ${v === 'ue' && choisies.length !== 1 ? 'opacity-40' : ''}`}
+                    title={v === 'ue' && choisies.length !== 1 ? 'Choisissez une seule section' : ''}>
+                    <input type="radio" checked={etendue === v} onChange={() => setEtendue(v)}
+                      disabled={v === 'ue' && choisies.length !== 1} /> {l}
                   </label>
                 ))}
               </div>
@@ -406,6 +456,14 @@ ${j.granularite === 'cours' && !cotesCours ? `
               </div>
             )}
 
+            {choisies.length > 1 && (
+              <div className="px-3 py-2 rounded-lg bg-slate-50 border border-slate-200 text-[11.5px] text-slate-700">
+                {choisies.length} sections retenues : un document par section. L'aperçu les présente
+                l'une après l'autre, chacune imprimable séparément ; l'export réunit les classeurs
+                dans une archive.
+              </div>
+            )}
+
             <div className="px-3 py-2 rounded-lg bg-sky-50 border border-sky-200 text-[11.5px] text-sky-900">
               Le classeur exporté reprend la forme de celui de la coordination : il peut être
               complété à la main, puis réimporté par « Importer le classeur PAE ». Choisissez
@@ -430,18 +488,31 @@ ${j.granularite === 'cours' && !cotesCours ? `
       </div>
 
       {apercu && (
-        <PreviewLite html={apercu.html} nom={apercu.nom} onClose={() => setApercu(null)} />
+        <PreviewLite documents={apercu} onClose={() => setApercu(null)} />
       )}
     </>
   );
 }
 
-// Aperçu plein écran, imprimable
-function PreviewLite({ html, nom, onClose }) {
+// Aperçu plein écran, imprimable. Une section à la fois : imprimer donne
+// alors un PDF par section, ce qui est le but.
+function PreviewLite({ documents, onClose }) {
+  const [i, setI] = useState(0);
+  const doc = documents[i];
+  if (!doc) return null;
   return (
     <div className="fixed inset-0 bg-black/60 z-[60] flex flex-col p-4">
-      <div className="flex items-center justify-between mb-2">
-        <span className="text-white text-[12.5px]">{nom}</span>
+      <div className="flex items-center justify-between mb-2 gap-3 flex-wrap">
+        <div className="flex items-center gap-2 flex-wrap">
+          {documents.length > 1 && documents.map((d, j) => (
+            <button key={d.section} onClick={() => setI(j)}
+              className={`text-[12px] px-2.5 py-1 rounded-lg ${j === i
+                ? 'bg-white text-iip-blue font-semibold' : 'bg-white/15 text-white/80 hover:bg-white/25'}`}>
+              {d.section}
+            </button>
+          ))}
+          <span className="text-white/60 text-[11.5px]">{doc.nom}</span>
+        </div>
         <div className="flex gap-2">
           <button onClick={() => {
               const f = document.getElementById('apercu-pae');
@@ -453,9 +524,13 @@ function PreviewLite({ html, nom, onClose }) {
           <button onClick={onClose} className="text-white/80 hover:text-white"><IconX size={20} /></button>
         </div>
       </div>
-      <iframe id="apercu-pae" title="Aperçu" srcDoc={html}
+      <iframe id="apercu-pae" key={doc.section} title="Aperçu" srcDoc={doc.html}
         className="flex-1 bg-white rounded-xl" />
-      <div className="text-white/60 text-[11px] mt-1.5">Paysage A4 conseillé.</div>
+      <div className="text-white/60 text-[11px] mt-1.5">
+        Paysage A4 conseillé.{documents.length > 1
+          ? ` Section ${i + 1} sur ${documents.length} — imprimez-les séparément pour obtenir un PDF par section.`
+          : ''}
+      </div>
     </div>
   );
 }
