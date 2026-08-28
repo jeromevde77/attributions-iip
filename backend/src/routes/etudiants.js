@@ -2002,10 +2002,14 @@ r.get('/:id/fiche-inscription', authRequired, (req, res) => {
   const lignesInsc = inscriptions.map(i => {
     const sr = sousReserveDe(i.ue_num);
     const d = parUe[i.ue_num];
+    // Réinscription à une UE déjà acquise : la circulaire l'admet sur décision
+    // du Conseil des études, mais c'est le plus souvent le vestige d'un
+    // programme calculé avant l'encodage des résultats. On le signale.
+    const dejaAcquise = acquisRows.find(a => a.ue_num === i.ue_num);
     return `
     <tr>
       <td>${i.ue_num}</td>
-      <td>${esc(i.ue_nom || '')}${i.codiplomation_ch ? ' <b>(CH)</b>' : ''}${sr ? ' <i>(sous réserve de la réussite de l\u2019UE ' + sr.join(', ') + ')</i>' : ''}</td>
+      <td>${esc(i.ue_nom || '')}${i.codiplomation_ch ? ' <b>(CH)</b>' : ''}${sr ? ' <i>(sous réserve de la réussite de l\u2019UE ' + sr.join(', ') + ')</i>' : ''}${dejaAcquise ? ' <b style="color:#B45309">— déjà acquise en ' + esc(dejaAcquise.annee_scolaire || '') + '</b>' : ''}</td>
       <td>${esc(i.section || '')}</td>
       <td>${esc(i.date_inscription || '')}</td>
       <td>${i.admission_type === 'titre' ? 'Titre' : i.admission_type === 'test' ? 'Test' : '—'}</td>
@@ -2050,6 +2054,8 @@ r.get('/:id/fiche-inscription', authRequired, (req, res) => {
   th, td { border: 1px solid #cbd5e1; padding: 4px 7px; text-align: left; }
   th { background: #f1f5f9; font-size: 10.5px; text-transform: uppercase; letter-spacing: .4px; }
   tr.tot td { background: #f8fafc; font-size: 11px; }
+  .alerte { background: #FEF3C7; border: 1px solid #FCD34D; color: #92400E;
+            padding: 7px 10px; border-radius: 6px; font-size: 11px; margin: 10px 0; }
   .sig { margin-top: 34px; display: flex; gap: 60px; }
   .sig div { flex: 1; border-top: 1px solid #94a3b8; padding-top: 5px; font-size: 11px; }
   .footer { margin-top: 22px; font-size: 10px; color: #64748b; }
@@ -2071,6 +2077,15 @@ ${acquisRows.length || autres.length ? `
   <thead><tr><th>Année</th><th>UE</th><th>Intitulé</th><th>Mode d'acquisition</th><th>Note</th></tr></thead>
   <tbody>${lignesAcquis}${lignesAutres}</tbody>
 </table>` : ''}
+
+${(() => {
+  const dejaVues = inscriptions.filter(i => acquisRows.some(a => a.ue_num === i.ue_num));
+  return dejaVues.length ? `<div class="alerte">
+    <b>${dejaVues.length} unité(s) d'enseignement déjà acquise(s)</b> figurent à cette inscription
+    (UE ${dejaVues.map(i => i.ue_num).join(', ')}). Une réinscription suppose une décision favorable
+    du Conseil des études ; à défaut, retirez-les depuis l'onglet PAE avant de remettre ce document.
+  </div>` : '';
+})()}
 
 <h2>Unités d'enseignement — inscription ${esc(annee)}</h2>
 <table>
