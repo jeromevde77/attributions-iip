@@ -601,6 +601,82 @@ r.get('/rapport-pae', authRequired, (req, res) => {
   });
 });
 
+// ── Synthèse par année : étudiants × années scolaires ──────────────────────
+// Vue de cohorte. Chaque case résume une année — UE tentées, réussies,
+// refusées — plutôt que d'en détailler les UE : le détail est à un clic, dans
+// la vue de délibération. C'est ce qui la garde lisible sur cinq ou six
+// colonnes là où une matrice complète en compterait cinquante.
+r.get('/synthese', authRequired, (req, res) => {
+  const { section } = req.query;
+  if (!section) return res.status(400).json({ error: 'section requise' });
+
+  const anneeRef = db.prepare('SELECT code FROM annee_scolaire WHERE active = 1').get()?.code;
+  const ues = db.prepare(`
+    SELECT DISTINCT ue_num FROM ue WHERE section = ?
+  `).all(section).map(u => u.ue_num);
+  if (!ues.length) return res.json({ annees: [], etudiants: [] });
+  const listeUe = ues.join(',');
+
+  const etudiants = db.prepare(`
+    SELECT DISTINCT e.id, e.nom, e.prenom, e.id_ecampus
+    FROM etudiant e
+    JOIN etudiant_inscription i ON i.etudiant_id = e.id
+    WHERE e.actif = 1 AND i.ue_num IN (${listeUe})
+    ORDER BY e.nom, e.prenom
+  `).all();
+  if (!etudiants.length) return res.json({ annees: [], etudiants: [] });
+
+  const ids = etudiants.map(e => e.id).join(',');
+  const lignes = db.prepare(`
+    SELECT etudiant_id, annee_scolaire, resultat, points
+    FROM etudiant_inscription
+    WHERE etudiant_id IN (${ids}) AND ue_num IN (${listeUe})
+  `).all();
+  let vas = [];
+  try {
+    vas = db.prepare(`
+      SELECT etudiant_id, annee_scolaire FROM etudiant_valorisation
+      WHERE etudiant_id IN (${ids}) AND ue_num IN (${listeUe}) AND type = 'complete'
+    `).all();
+  } catch { /* table absente */ }
+
+  const annees = [...new Set([...lignes.map(l => l.annee_scolaire), anneeRef].filter(Boolean))].sort();
+
+  const par = {};
+  for (const e of etudiants) par[e.id] = {};
+  const case0 = () => ({ tentees: 0, reussies: 0, refusees: 0, absentes: 0, en_cours: 0, va: 0, somme: 0, notees: 0 });
+
+  for (const l of lignes) {
+    const p = par[l.etudiant_id]; if (!p) continue;
+    const k = (p[l.annee_scolaire] = p[l.annee_scolaire] || case0());
+    k.tentees++;
+    if (l.resultat === 'reussi') k.reussies++;
+    else if (l.resultat === 'ajourne') k.refusees++;
+    else if (l.resultat === 'absent') k.absentes++;
+    else k.en_cours++;
+    if (l.points != null) { k.somme += Number(l.points); k.notees++; }
+  }
+  for (const v of vas) {
+    const p = par[v.etudiant_id]; if (!p) continue;
+    const k = (p[v.annee_scolaire] = p[v.annee_scolaire] || case0());
+    k.va++; k.tentees++; k.reussies++;
+  }
+
+  res.json({
+    section, annee_active: anneeRef, annees,
+    etudiants: etudiants.map(e => {
+      const cases = par[e.id];
+      for (const k of Object.values(cases)) {
+        k.moyenne = k.notees ? Math.round((k.somme / k.notees) * 10) / 10 : null;
+        delete k.somme; delete k.notees;
+      }
+      const total = Object.values(cases).reduce((s, k) => s + k.tentees, 0);
+      const acquis = Object.values(cases).reduce((s, k) => s + k.reussies, 0);
+      return { ...e, cases, total, acquis };
+    }),
+  });
+});
+
 // ── Matrice d'encodage rapide : étudiants × UE, pour une année ──────────────
 // L'année est portée par l'écran, pas par la cellule : on encode une année
 // entière d'un coup. Les acquis des AUTRES années sont tout de même renvoyés,

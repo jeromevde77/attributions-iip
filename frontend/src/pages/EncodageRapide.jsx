@@ -56,6 +56,8 @@ export default function EncodageRapide() {
   const [choisis, setChoisis] = useState(new Set());
   const [niveauLot, setNiveauLot] = useState('');
   const [etat, setEtat] = useState('pret');         // pret | enregistrement | enregistre
+  const [vue, setVue] = useState('ue');            // ue | annee
+  const [synthese, setSynthese] = useState(null);
 
   const enAttente = useRef(new Map());
   const minuteur = useRef(null);
@@ -93,6 +95,15 @@ export default function EncodageRapide() {
     setChoisis(new Set());
   }
   useEffect(() => { charger(); /* eslint-disable-next-line */ }, [section, annee]);
+
+  async function chargerSynthese() {
+    if (!section) return;
+    setSynthese(null);
+    const rep = await fetch(`/api/etudiants/synthese?section=${encodeURIComponent(section)}`,
+      { headers: authHeaders() });
+    setSynthese(rep.ok ? await rep.json() : { annees: [], etudiants: [] });
+  }
+  useEffect(() => { if (vue === 'annee') chargerSynthese(); /* eslint-disable-next-line */ }, [vue, section]);
 
   // Enregistrement au fil de l'eau, par lots
   function planifier(etudId, ueNum, resultat) {
@@ -198,14 +209,25 @@ export default function EncodageRapide() {
       </div>
 
       <div className="flex gap-2 flex-wrap items-center">
-        <select value={annee} onChange={e => setAnnee(e.target.value)}
-          className="border border-slate-300 rounded-lg px-2 py-1.5 text-sm font-semibold text-iip-blue">
-          {annees.map(a => <option key={a} value={a}>{a}</option>)}
-        </select>
+        {vue === 'ue' && (
+          <select value={annee} onChange={e => setAnnee(e.target.value)}
+            className="border border-slate-300 rounded-lg px-2 py-1.5 text-sm font-semibold text-iip-blue">
+            {annees.map(a => <option key={a} value={a}>{a}</option>)}
+          </select>
+        )}
         <select value={section} onChange={e => setSection(e.target.value)}
           className="border border-slate-300 rounded-lg px-2 py-1.5 text-sm">
           {sections.map(s => <option key={s.code} value={s.code}>{s.libelle || s.code}</option>)}
         </select>
+        <div className="flex rounded-lg border border-slate-300 overflow-hidden">
+          {[['ue', 'Par UE'], ['annee', 'Par année']].map(([v, l]) => (
+            <button key={v} onClick={() => setVue(v)}
+              className={`px-3 py-1.5 text-[12.5px] ${vue === v
+                ? 'bg-iip-blue text-white font-semibold' : 'text-slate-600 hover:bg-slate-50'}`}>
+              {l}
+            </button>
+          ))}
+        </div>
         <div className="relative">
           <IconSearch size={14} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400" />
           <input value={recherche} onChange={e => setRecherche(e.target.value)}
@@ -214,8 +236,8 @@ export default function EncodageRapide() {
         </div>
       </div>
 
-      {/* Actions groupées */}
-      <div className="flex items-center gap-2 flex-wrap px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl">
+      {/* Actions groupées — délibération seulement */}
+      <div className={`${vue === 'ue' ? 'flex' : 'hidden'} items-center gap-2 flex-wrap px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl`}>
         <span className="text-[12px] text-slate-600">
           {choisis.size ? <b>{choisis.size} étudiant(s) sélectionné(s)</b> : `Les ${filtres.length} étudiants affichés`}
         </span>
@@ -243,7 +265,10 @@ export default function EncodageRapide() {
         )}
       </div>
 
-      {!data ? (
+      {vue === 'annee' ? (
+        <SyntheseAnnees synthese={synthese} recherche={recherche}
+          onOuvrir={(an) => { setAnnee(an); setVue('ue'); }} />
+      ) : !data ? (
         <div className="py-10 text-center text-sm text-slate-400">Chargement…</div>
       ) : !data.etudiants.length ? (
         <div className="py-10 text-center text-sm text-slate-400 border-2 border-dashed rounded-xl">
@@ -331,7 +356,7 @@ export default function EncodageRapide() {
         </div>
       )}
 
-      <p className="text-[11px] text-slate-400">
+      <p className={`text-[11px] text-slate-400 ${vue === 'ue' ? '' : 'hidden'}`}>
         La case porte la <b>note sur 20</b> lorsqu'elle est connue, sinon le symbole :
         <b className="text-emerald-700"> ✓</b> réussi · <b className="text-red-600">✕</b> refusé ·
         <b className="text-violet-600"> VA</b> valorisation — chaque case porte son millésime.
@@ -340,5 +365,118 @@ export default function EncodageRapide() {
         ou pour tous ceux affichés si aucune sélection n'est faite.
       </p>
     </div>
+  );
+}
+
+
+// ── Vue par année scolaire : une case résume une année ──────────────────────
+// Le détail des UE n'y figure pas — il est à un clic, dans la vue de
+// délibération. C'est ce renoncement qui rend la cohorte lisible.
+function SyntheseAnnees({ synthese, recherche, onOuvrir }) {
+  if (!synthese) return <div className="py-10 text-center text-sm text-slate-400">Chargement…</div>;
+  if (!synthese.etudiants?.length) {
+    return (
+      <div className="py-10 text-center text-sm text-slate-400 border-2 border-dashed rounded-xl">
+        Aucun étudiant pour cette section.
+      </div>
+    );
+  }
+
+  const q = (recherche || '').toLowerCase();
+  const lignes = q
+    ? synthese.etudiants.filter(e =>
+        (e.nom || '').toLowerCase().includes(q) ||
+        (e.prenom || '').toLowerCase().includes(q) ||
+        (e.id_ecampus || '').toLowerCase().includes(q))
+    : synthese.etudiants;
+
+  // Du rouge au vert selon la proportion d'UE acquises
+  const teinte = (r, t) => {
+    if (!t) return { bg: 'transparent', fg: '#CBD5E1', bd: 'transparent' };
+    const p = r / t;
+    if (p >= 0.999) return { bg: '#D1FAE5', fg: '#065F46', bd: '#6EE7B7' };
+    if (p >= 0.75)  return { bg: '#ECFDF5', fg: '#047857', bd: '#A7F3D0' };
+    if (p >= 0.5)   return { bg: '#FEF9C3', fg: '#854D0E', bd: '#FDE68A' };
+    if (p > 0)      return { bg: '#FFEDD5', fg: '#9A3412', bd: '#FED7AA' };
+    return { bg: '#FEE2E2', fg: '#991B1B', bd: '#FCA5A5' };
+  };
+
+  return (
+    <>
+      <div className="border border-slate-200 rounded-xl overflow-auto" style={{ maxHeight: '68vh' }}>
+        <table className="text-sm border-collapse w-full">
+          <thead className="sticky top-0 z-20">
+            <tr className="bg-slate-50">
+              <th className="sticky left-0 z-30 bg-slate-50 border-b border-r border-slate-200 px-3 py-2 text-left min-w-[210px]">
+                <span className="text-[10.5px] uppercase tracking-wide text-slate-500">Étudiant</span>
+              </th>
+              {synthese.annees.map(a => (
+                <th key={a} className="border-b border-slate-200 px-2 py-2 min-w-[86px]">
+                  <div className="text-[11.5px] font-bold text-iip-blue">{a}</div>
+                  {a === synthese.annee_active && (
+                    <div className="text-[8px] text-iip-turquoise font-semibold">EN COURS</div>
+                  )}
+                </th>
+              ))}
+              <th className="border-b border-l border-slate-200 px-2 py-2 w-20">
+                <span className="text-[10.5px] uppercase tracking-wide text-slate-500">Acquis</span>
+              </th>
+            </tr>
+          </thead>
+          <tbody>
+            {lignes.map(e => (
+              <tr key={e.id} className="hover:bg-slate-50/60">
+                <td className="sticky left-0 z-10 bg-white border-r border-b border-slate-100 px-3 py-1.5">
+                  <div className="text-[12.5px] text-slate-800 truncate max-w-[200px]">
+                    {e.nom} {e.prenom}
+                  </div>
+                  <div className="text-[10px] text-slate-400">{e.id_ecampus}</div>
+                </td>
+
+                {synthese.annees.map(a => {
+                  const k = e.cases[a];
+                  if (!k) return <td key={a} className="border-b border-slate-100 text-center text-slate-200">·</td>;
+                  const t = teinte(k.reussies, k.tentees);
+                  const detail = [
+                    `${k.tentees} UE au programme`,
+                    k.reussies ? `${k.reussies} réussie(s)` : null,
+                    k.refusees ? `${k.refusees} refusée(s)` : null,
+                    k.absentes ? `${k.absentes} absence(s)` : null,
+                    k.en_cours ? `${k.en_cours} non délibérée(s)` : null,
+                    k.va ? `${k.va} valorisation(s)` : null,
+                    k.moyenne != null ? `moyenne ${k.moyenne}/20` : null,
+                  ].filter(Boolean).join(' · ');
+                  return (
+                    <td key={a} className="border-b border-slate-100 p-1 text-center">
+                      <button onClick={() => onOuvrir(a)} title={`${a} — ${detail}`}
+                        className="w-full rounded-md border py-1 leading-none transition hover:brightness-95"
+                        style={{ background: t.bg, color: t.fg, borderColor: t.bd }}>
+                        <span className="block text-[13px] font-bold">
+                          {k.reussies}/{k.tentees}
+                        </span>
+                        <span className="block text-[8px] opacity-80">
+                          {k.en_cours ? `${k.en_cours} en cours` : k.moyenne != null ? `${k.moyenne}/20` : '\u00a0'}
+                        </span>
+                      </button>
+                    </td>
+                  );
+                })}
+
+                <td className="border-b border-l border-slate-100 px-2 py-1.5 text-center">
+                  <span className="text-[12.5px] font-bold text-iip-blue">{e.acquis}</span>
+                  <span className="text-[10px] text-slate-400">/{e.total}</span>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+
+      <p className="text-[11px] text-slate-400 mt-2">
+        Chaque case donne les <b>UE réussies sur les UE au programme</b> de l'année, et sa couleur
+        en traduit la proportion. Le détail apparaît au survol ; un clic ouvre l'année dans la vue
+        de délibération.
+      </p>
+    </>
   );
 }
