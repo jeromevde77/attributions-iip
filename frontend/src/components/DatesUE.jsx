@@ -46,6 +46,7 @@ export default function DatesUE({ annee }) {
   useEffect(() => { if (annee) charger(); /* eslint-disable-next-line */ }, [annee, section, filtreSansDates]);
 
   const lignes = data?.lignes || [];
+  const [filtreIncoherentes, setFiltreIncoherentes] = useState(false);
   const nbModifs = Object.keys(modifs).length;
 
   // Valeur affichée : modification en cours si elle existe, sinon valeur en base
@@ -143,7 +144,12 @@ export default function DatesUE({ annee }) {
 
   // Lignes ordonnées selon le mode choisi, avec en-têtes de groupe éventuels
   const lignesAffichees = useMemo(() => {
-    const copie = [...lignes];
+    const copie = filtreIncoherentes
+      ? lignes.filter(l => {
+          const d = val(l, 'date_debut'), f = val(l, 'date_fin');
+          return d && f && f < d;
+        })
+      : [...lignes];
     const cmp = {
       section:  (a, b) => (a.section || '').localeCompare(b.section || '') || (a.ue_num - b.ue_num) || ((a.num_organisation || 1) - (b.num_organisation || 1)),
       ue:       (a, b) => (a.ue_num - b.ue_num) || ((a.num_organisation || 1) - (b.num_organisation || 1)),
@@ -166,12 +172,16 @@ export default function DatesUE({ annee }) {
       out.push({ type: 'ligne', l });
     }
     return out;
-  }, [lignes, affichage]);
+  }, [lignes, affichage, filtreIncoherentes, modifs]);
 
-  const incoherentes = useMemo(() => lignes.filter(l => {
+  // Une organisation est incohérente lorsque sa date de fin précède son début.
+  // On retient les lignes elles-mêmes : annoncer un nombre sans dire lesquelles
+  // oblige à parcourir tout le tableau pour les retrouver.
+  const lignesIncoherentes = useMemo(() => lignes.filter(l => {
     const d = val(l, 'date_debut'), f = val(l, 'date_fin');
     return d && f && f < d;
-  }).length, [lignes, modifs]);
+  }), [lignes, modifs]);
+  const incoherentes = lignesIncoherentes.length;
 
   const fr = (iso) => iso ? iso.split('-').reverse().join('/') : '—';
 
@@ -223,9 +233,36 @@ export default function DatesUE({ annee }) {
         <KpiCard label="Datées" valeur={data?.datees ?? '—'} ton="good" />
         <KpiCard label="Sans dates" valeur={data?.manquantes ?? '—'}
                  ton={data?.manquantes ? 'bad' : 'neutral'} />
-        <KpiCard label="Incohérentes" valeur={incoherentes}
-                 ton={incoherentes ? 'bad' : 'neutral'} />
+        <div onClick={() => incoherentes && setFiltreIncoherentes(v => !v)}
+          className={incoherentes ? 'cursor-pointer' : ''}
+          title={incoherentes ? 'Cliquer pour n\u2019afficher que ces organisations' : ''}>
+          <KpiCard label={filtreIncoherentes ? 'Incohérentes (filtre actif)' : 'Incohérentes'}
+                   valeur={incoherentes} ton={incoherentes ? 'bad' : 'neutral'} />
+        </div>
       </div>
+
+      {incoherentes > 0 && (
+        <div className="px-4 py-3 rounded-xl bg-red-50 border border-red-200">
+          <div className="text-[12.5px] font-semibold text-red-900 mb-1">
+            {incoherentes === 1 ? 'Une organisation a ses dates inversées'
+                                : `${incoherentes} organisations ont leurs dates inversées`}
+          </div>
+          <div className="text-[11.5px] text-red-800 space-y-0.5">
+            {lignesIncoherentes.slice(0, 8).map((l, i) => (
+              <div key={i}>
+                <b>UE {l.ue_num}</b> {l.ue_nom ? '— ' + l.ue_nom : ''} :
+                début le {fr(val(l, 'date_debut'))}, fin le {fr(val(l, 'date_fin'))}
+                {l.num_organisation ? ` (organisation ${l.num_organisation})` : ''}
+              </div>
+            ))}
+            {incoherentes > 8 && <div>… et {incoherentes - 8} autre(s)</div>}
+          </div>
+          <div className="text-[11px] text-red-700 mt-1.5">
+            La date de fin précède celle de début. Ces dates commandent les comptages
+            au premier dixième : corrigez-les avant la transmission.
+          </div>
+        </div>
+      )}
 
       {/* Filtres et saisie groupée */}
       <div className="bg-white border border-slate-200 rounded-xl p-3 flex flex-wrap items-end gap-3">
