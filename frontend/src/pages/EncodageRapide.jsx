@@ -51,6 +51,7 @@ export default function EncodageRapide() {
 
   const [data, setData] = useState(null);
   const [cellules, setCellules] = useState({});     // "etud|ue" -> resultat
+  const [notes, setNotes] = useState({});          // "etud|ue" -> note sur 20
   const [recherche, setRecherche] = useState('');
   const [choisis, setChoisis] = useState(new Set());
   const [niveauLot, setNiveauLot] = useState('');
@@ -81,13 +82,14 @@ export default function EncodageRapide() {
     if (!rep.ok) { setData({ ues: [], etudiants: [] }); return; }
     const j = await rep.json();
     setData(j);
-    const c = {};
+    const c = {}, n = {};
     for (const e of j.etudiants) {
       for (const [ue, v] of Object.entries(e.cellules || {})) {
         if (v.resultat) c[e.id + '|' + ue] = v.resultat;
+        if (v.points != null) n[e.id + '|' + ue] = v.points;
       }
     }
-    setCellules(c);
+    setCellules(c); setNotes(n);
     setChoisis(new Set());
   }
   useEffect(() => { charger(); /* eslint-disable-next-line */ }, [section, annee]);
@@ -117,6 +119,8 @@ export default function EncodageRapide() {
       if (resultat) n[cle] = resultat; else delete n[cle];
       return n;
     });
+    // Vider une case efface aussi sa note : elle ne survivrait à rien.
+    if (!resultat) setNotes(n => { const m = { ...n }; delete m[cle]; return m; });
     planifier(etudId, ueNum, resultat);
   }
 
@@ -293,6 +297,7 @@ export default function EncodageRapide() {
                         <button onClick={() => cycler(e.id, u.ue_num)}
                           title={val
                             ? `${val === 'reussi' ? 'Réussi' : val === 'ajourne' ? 'Refusé' : 'Absent'} en ${annee}`
+                              + (notes[cle] != null ? ` — ${notes[cle]}/20` : '')
                             : ant
                               ? `${ant.resultat === 'va' ? 'Valorisée' : ant.resultat === 'reussi' ? 'Réussie' : 'Refusée'} en ${ant.annee}`
                               : 'Cliquer pour encoder'}
@@ -302,12 +307,16 @@ export default function EncodageRapide() {
                                         : 'border-transparent text-slate-300 hover:border-slate-200 hover:bg-slate-50'}`}>
                           {val ? (
                             <span className="block">
-                              <span className="block text-[13px] font-bold">{SIGLE[val]}</span>
+                              <span className="block text-[13px] font-bold">
+                                {notes[cle] != null ? notes[cle] : SIGLE[val]}
+                              </span>
                               <span className="block text-[7.5px] font-medium opacity-70">{millesime(annee)}</span>
                             </span>
                           ) : ant ? (
                             <span className="block">
-                              <span className="block text-[12px] font-semibold">{SIGLE[ant.resultat] || '·'}</span>
+                              <span className="block text-[12px] font-semibold">
+                                {ant.points != null ? ant.points : (SIGLE[ant.resultat] || '·')}
+                              </span>
                               <span className="block text-[7.5px] opacity-80">{millesime(ant.annee)}</span>
                             </span>
                           ) : '·'}
@@ -323,7 +332,8 @@ export default function EncodageRapide() {
       )}
 
       <p className="text-[11px] text-slate-400">
-        <b className="text-emerald-700">✓</b> réussi · <b className="text-red-600">✕</b> refusé ·
+        La case porte la <b>note sur 20</b> lorsqu'elle est connue, sinon le symbole :
+        <b className="text-emerald-700"> ✓</b> réussi · <b className="text-red-600">✕</b> refusé ·
         <b className="text-violet-600"> VA</b> valorisation — chaque case porte son millésime.
         Les acquis d'une autre année s'affichent dans la même couleur, en plus doux.
         Cliquer un numéro d'UE marque la colonne comme réussie pour les étudiants sélectionnés,

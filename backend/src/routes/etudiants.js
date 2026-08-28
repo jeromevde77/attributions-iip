@@ -660,7 +660,7 @@ r.get('/matrice', authRequired, (req, res) => {
       // On retient l'acquis le plus favorable, sinon la trace la plus récente
       if (!prec || (i.resultat === 'reussi' && prec.resultat !== 'reussi')
           || (i.resultat === prec.resultat && i.annee_scolaire > prec.annee)) {
-        p.anterieurs[i.ue_num] = { annee: i.annee_scolaire, resultat: i.resultat };
+        p.anterieurs[i.ue_num] = { annee: i.annee_scolaire, resultat: i.resultat, points: i.points };
       }
     }
   }
