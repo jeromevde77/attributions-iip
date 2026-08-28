@@ -10,6 +10,7 @@ import PurgeResultats from '../components/PurgeResultats.jsx';
 import RapportPAE from '../components/RapportPAE.jsx';
 import ImportListe from '../components/ImportListe.jsx';
 import DroitInscription from '../components/DroitInscription.jsx';
+import ImportHistorique from '../components/ImportHistorique.jsx';
 
 // Niveau de l'étudiant : BA1/BA2 s'il ne suit qu'une année, « Diplômant »
 // s'il ne lui reste que la BA3, « Parcours » s'il en mélange plusieurs.
@@ -1242,6 +1243,7 @@ export default function Etudiants() {
   const [purge, setPurge] = useState(false);
   const [rapportPAE, setRapportPAE] = useState(false);
   const [importListe, setImportListe] = useState(false);
+  const [importHisto, setImportHisto] = useState(false);
   const [tri, setTri] = useState({ champ: 'nom', sens: 1 });
 
   function trierPar(champ) {
@@ -1498,6 +1500,10 @@ export default function Etudiants() {
           <input type="file" accept=".xlsm,.xlsx" className="hidden"
             onChange={e => e.target.files[0] && importerResultats(e.target.files[0])} />
         </label>
+        <button onClick={() => setImportHisto(true)}
+          className="flex items-center gap-2 px-3 py-2 text-sm border border-iip-blue text-iip-blue rounded-lg hover:bg-iip-blue/5">
+          <IconUpload size={15} /> Reconstruire l'historique
+        </button>
         <button onClick={() => setImportListe(true)}
           className="flex items-center gap-2 px-3 py-2 text-sm border border-iip-turquoise text-iip-turquoise rounded-lg hover:bg-iip-turquoise/5">
           <IconUpload size={15} /> Importer une liste eCampus
@@ -1573,6 +1579,10 @@ export default function Etudiants() {
 
       {selId && (
         <FicheEtudiant id={selId} annee={annee} onClose={() => setSelId(null)} />
+      )}
+
+      {importHisto && (
+        <ImportHistorique onClose={() => setImportHisto(false)} onImporte={charger} />
       )}
 
       {importListe && (

@@ -27,6 +27,7 @@ import assistantsRoutes from './routes/assistants.js';
 import rentreeRoutes, { migrerRentree } from './routes/rentree.js';
 import acquisRoutes, { migrerAA } from './routes/acquis.js';
 import droitInscriptionRoutes, { migrerDroitInscription } from './routes/droitInscription.js';
+import importHistoriqueRoutes, { migrerHistorique } from './routes/importHistorique.js';
 import authRoutes from './routes/auth.js';
 import attrRoutes from './routes/attributions.js';
 import refRoutes  from './routes/referentiels.js';
@@ -2718,6 +2719,7 @@ try { migrerCapitalisation(db); } catch (e) { console.error('[migration] capital
 try { migrerRentree(db); } catch (e) { console.error('[migration] rentree :', e.message); }
 try { migrerAA(db); } catch (e) { console.error('[migration] aa :', e.message); }
 try { migrerDroitInscription(db); } catch (e) { console.error('[migration] droit inscription :', e.message); }
+try { migrerHistorique(db); } catch (e) { console.error('[migration] historique :', e.message); }
 // lucie_config : table de configuration clé/valeur — présente en prod depuis l'origine
 // mais jamais créée par migration (omission). On la garantit ici.
 try {
@@ -2792,6 +2794,7 @@ app.use('/api/assistants', assistantsRoutes);
 app.use('/api/rentree', rentreeRoutes);
 app.use('/api/acquis', acquisRoutes);
 app.use('/api/droit-inscription', droitInscriptionRoutes);
+app.use('/api/import-historique', importHistoriqueRoutes);
 app.use('/api/historique',   historiqueRoutes);
 app.use('/api/etablissement', etablissementRoutes);
 app.use('/api/ea12',          ea12Routes);
