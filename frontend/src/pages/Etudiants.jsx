@@ -305,6 +305,12 @@ function GrilleParcours({ etudId, peutEcrire }) {
                     <span className="text-slate-600 ml-1.5 text-[12px]">{u.ue_nom}</span>
                     {verrou && <span className="ml-1.5 text-[11px]" title={'Prérequis : ' + u.prerequis.join(', ')}>🔒</span>}
                     {u.suggeree && <span className="ml-1.5 text-[9.5px] px-1 py-0.5 rounded bg-violet-50 text-violet-600 border border-violet-200" title="Probablement acquise (inférence prérequis) — à confirmer">à confirmer</span>}
+                    {u.hors_referentiel && (
+                      <span className="ml-1.5 text-[9.5px] px-1 py-0.5 rounded bg-amber-50 text-amber-700 border border-amber-200"
+                        title="Inscription à une UE absente du référentiel de la section">
+                        hors référentiel
+                      </span>
+                    )}
                   </td>
                   <td className="px-2 py-1.5"><BadgeUeNiveau niveau={u.ue_niv} /></td>
                   {anneesAffichees.map((a, iCol) => {
@@ -801,13 +807,6 @@ function DossierApprenant({ etudId }) {
   );
 }
 
-// Au niveau du parcours, la délibération tranche : réussi ou refusé.
-// (« Absent » reste distinct : l'étudiant ne s'est pas présenté.)
-const RESULTATS = [
-  { val: 'reussi',  label: 'Réussi', cls: 'bg-emerald-100 text-emerald-800' },
-  { val: 'ajourne', label: 'Refusé', cls: 'bg-red-100 text-red-800' },
-  { val: 'absent',  label: 'Absent', cls: 'bg-slate-100 text-slate-600' },
-];
 
 // ── Fiche étudiant + PAE ──────────────────────────────────────────────────────
 function FicheEtudiant({ id, annee, onClose }) {
@@ -927,13 +926,7 @@ function FicheEtudiant({ id, annee, onClose }) {
   useEffect(() => { charger(); /* eslint-disable-next-line */ }, [id]);
   useEffect(() => { if (onglet === 'pae') chargerPAE(); /* eslint-disable-next-line */ }, [sectionForcee]);
 
-  async function setResultat(inscId, resultat) {
-    await fetch(`/api/etudiants/inscription/${inscId}`, {
-      method: 'PATCH', headers: authHeaders(),
-      body: JSON.stringify({ resultat }),
-    });
-    await charger();
-  }
+
 
   if (!data) return <div className="p-6 text-slate-400 text-sm">Chargement…</div>;
 
@@ -960,8 +953,7 @@ function FicheEtudiant({ id, annee, onClose }) {
 
         {/* Onglets */}
         <div className="flex border-b border-slate-200 px-6">
-          {[['grille', 'Grille de parcours'],
-            ['inscriptions', `Détail (${data.inscriptions?.length || 0})`],
+          {[['grille', `Grille de parcours (${data.inscriptions?.length || 0})`],
             ['pae', `PAE ${annee}`],
             ['va', 'Valorisation'],
             ['di', "Droit d'inscription"],
@@ -977,52 +969,6 @@ function FicheEtudiant({ id, annee, onClose }) {
 
         <div className="p-6">
           {/* Inscriptions + résultats */}
-          {onglet === 'inscriptions' && (
-            <div>
-              <p className="text-[12px] text-slate-500 mb-3">
-                Tout le parcours, année par année. Les résultats déterminent les UE accessibles dans le PAE de l'année suivante.
-              </p>
-              {!data.inscriptions?.length ? (
-                <div className="text-center py-8 text-slate-400 text-sm border-2 border-dashed rounded-xl">
-                  Aucune inscription — importez le listing eCampus.
-                </div>
-              ) : (
-                [...new Set(data.inscriptions.map(i => i.annee_scolaire))].map(a => (
-                  <div key={a} className="mb-5">
-                    <div className="text-[12px] font-bold text-iip-blue uppercase tracking-wide mb-2 pb-1 border-b border-slate-200">
-                      {a}
-                    </div>
-                    <table className="w-full text-sm">
-                      <tbody>
-                        {data.inscriptions.filter(i => i.annee_scolaire === a).map(i => (
-                          <tr key={i.id} className="border-b border-slate-100 last:border-0 hover:bg-slate-50/60">
-                            <td className="py-2">
-                              <span className="font-medium text-iip-blue">{i.ue_num}</span>
-                              <span className="text-slate-600 ml-1.5 text-[12.5px]">{i.ue_nom}</span>
-                            </td>
-                            <td className="py-2 text-[11px] text-slate-400 w-20">{i.section}</td>
-                            <td className="py-2 w-32">
-                              <select value={i.resultat || ''}
-                                onChange={e => setResultat(i.id, e.target.value || null)}
-                                className={`text-[11.5px] px-2 py-1 rounded-lg border border-slate-200 ${
-                                  i.resultat === 'reussi' ? 'bg-emerald-50 text-emerald-800' :
-                                  i.resultat === 'ajourne' ? 'bg-amber-50 text-amber-800' :
-                                  i.resultat === 'absent' ? 'bg-red-50 text-red-800' : ''}`}>
-                                <option value="">— non encodé</option>
-                                {RESULTATS.map(r => <option key={r.val} value={r.val}>{r.label}</option>)}
-                              </select>
-                            </td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
-                ))
-              )}
-            </div>
-          )}
-
-          {/* PAE */}
           {onglet === 'grille' && <GrilleParcours etudId={id} peutEcrire={true} />}
 
           {onglet === 'va' && <Valorisations etudId={id} annee={annee} />}

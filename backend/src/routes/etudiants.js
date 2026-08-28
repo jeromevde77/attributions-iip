@@ -1566,6 +1566,21 @@ r.get('/:id/grille', authRequired, (req, res) => {
     `).all(anneeActive, ...sections);
   }
 
+  // Une UE à laquelle l'étudiant est inscrit mais qui ne figure pas au
+  // référentiel de sa section — autre section, ou millésime disparu — doit
+  // tout de même apparaître : sans quoi elle serait invisible.
+  const connues = new Set(ues.map(u => u.ue_num));
+  const orphelines = db.prepare(`
+    SELECT DISTINCT i.ue_num,
+           (SELECT ue_nom  FROM ue x WHERE x.ue_num = i.ue_num ORDER BY x.annee_scolaire DESC LIMIT 1) AS ue_nom,
+           (SELECT ue_niv  FROM ue x WHERE x.ue_num = i.ue_num ORDER BY x.annee_scolaire DESC LIMIT 1) AS ue_niv,
+           (SELECT section FROM ue x WHERE x.ue_num = i.ue_num ORDER BY x.annee_scolaire DESC LIMIT 1) AS section
+    FROM etudiant_inscription i WHERE i.etudiant_id = ?
+  `).all(etudId).filter(u => !connues.has(u.ue_num));
+  for (const o of orphelines) {
+    ues.push({ ...o, ue_nom: o.ue_nom || `UE ${o.ue_num}`, hors_referentiel: true });
+  }
+
   // Prérequis par UE
   const prereqs = db.prepare('SELECT ue_num, prerequis_num FROM ue_prerequis').all();
   const prereqDe = {};
@@ -1625,6 +1640,7 @@ r.get('/:id/grille', authRequired, (req, res) => {
     ues: ues.map(u => ({
       ...u,
       prerequis: prereqDe[u.ue_num] || [],
+      hors_referentiel: !!u.hors_referentiel,
       deverrouillee: (prereqDe[u.ue_num] || []).every(p => acquis.has(p)),
       acquise: acquis.has(u.ue_num),
       suggeree: suggerees.has(u.ue_num) && !acquis.has(u.ue_num),
