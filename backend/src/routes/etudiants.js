@@ -552,7 +552,7 @@ r.get('/rapport-pae', authRequired, (req, res) => {
 
   // Toutes les inscriptions, pour connaître l'année de validation
   const insc = db.prepare(`
-    SELECT etudiant_id, ue_num, annee_scolaire, resultat FROM etudiant_inscription
+    SELECT etudiant_id, ue_num, annee_scolaire, resultat, points FROM etudiant_inscription
     WHERE etudiant_id IN (${ids}) AND ue_num IN (${listeUe})
   `).all();
   const vas = db.prepare(`
