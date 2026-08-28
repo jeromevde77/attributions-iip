@@ -118,11 +118,11 @@ export default function Users({ embedded = false }) {
   }
 
   if (me?.role !== 'admin') {
-    return <div className="p-6 max-w-3xl mx-auto text-center text-gray-500">Accès réservé aux administrateurs.</div>;
+    return <div className="p-6 max-w-none mx-auto text-center text-gray-500">Accès réservé aux administrateurs.</div>;
   }
 
   return (
-    <div className={embedded ? '' : 'p-6 max-w-5xl mx-auto'}>
+    <div className={embedded ? '' : 'p-6 max-w-none mx-auto'}>
       <div className="flex items-center justify-between mb-4">
         {!embedded && <h1 className="text-2xl font-title text-iip-gold">Utilisateurs</h1>}
         <button onClick={() => setShowForm(true)} className={`bg-iip-gold hover:bg-iip-amber text-white text-sm px-4 py-1.5 rounded font-medium inline-flex items-center gap-1.5 ${embedded ? 'ml-auto' : ''}`}>

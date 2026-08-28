@@ -128,7 +128,7 @@ export default function Accueil() {
         ]}
       />
 
-      <div className="ml-16 p-4 md:p-8 max-w-3xl">
+      <div className="ml-16 p-4 md:p-8">
 
         {/* Bonjour */}
         <div className="mb-8">
@@ -181,7 +181,7 @@ export default function Accueil() {
           {groupes.map(([groupe, gItems]) => (
             <div key={groupe}>
               <div className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-2">{groupe}</div>
-              <div className="space-y-2">
+              <div className="grid grid-cols-1 lg:grid-cols-2 2xl:grid-cols-3 gap-2 items-start">
                 {gItems.map(item => {
                   const cfg = getConfig(item.type, item.action);
                   const Icon = cfg.icon;

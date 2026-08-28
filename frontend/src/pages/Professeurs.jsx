@@ -4,8 +4,21 @@ import { api, getAnnee, getUser, nomDoc } from '../lib/api.js';
 import ProfFicheModal from './ProfFicheModal.jsx';
 import PreviewModal from '../components/PreviewModal.jsx';
 import CoursEditModal from '../components/CoursEditModal.jsx';
-import { IconMail, IconMapPin, IconFileText, IconEdit, IconDownload, IconRefresh, IconX, IconPrinter, IconPlus, IconTrash, IconKey, IconLock, IconCheck, IconBriefcase, IconChevronDown, IconChevronRight, IconUsers, IconSchool, IconUserPlus, IconBuilding, IconBuildingBank, IconFileDescription } from '@tabler/icons-react';
+import { IconMail, IconMapPin, IconFileText, IconEdit, IconDownload, IconRefresh, IconX, IconPrinter, IconPlus, IconTrash, IconKey, IconLock, IconCheck, IconBriefcase, IconTargetArrow, IconChevronDown, IconChevronRight, IconUsers, IconSchool, IconUserPlus, IconBuilding, IconBuildingBank, IconFileDescription } from '@tabler/icons-react';
 import { RailLateral } from '../components/ui.jsx';
+
+/**
+ * Droit de générer un contrat de travail.
+ * Doit rester aligné sur les routes backend /api/contrats/*, qui autorisent
+ * roleRequired('admin', 'editeur') : le directeur adjoint (éditeur) gère les
+ * contrats. Toute modification ici doit être répercutée côté serveur.
+ */
+function peutGenererContrat(u) {
+  return u?.role === 'admin' || u?.role === 'editeur';
+}
+
+import { DossierAdmin, Absences, Entretiens, Journal } from '../components/DossierPersonnel.jsx';
+import CalculateurAnciennete from '../components/CalculateurAnciennete.jsx';
 
 const EMPTY = {
   nom: '', prenom: '', adresse_mail: '', mail_prive: '',
@@ -648,10 +661,11 @@ function DetailModal({ profId, onClose, onEdit, onFiche }) {
   // Un clic : génère le PDF (dates/représentant par défaut) et ouvre directement le
   // dialogue d'impression du navigateur (choix PDF ou imprimante), sans étape intermédiaire.
   const [imprimantEnCours, setImprimantEnCours] = useState(false);
-  async function imprimerContratDirect() {
+  const [contratApercu, setContratApercu] = useState(null);
+  async function ouvrirContratApercu() {
     setImprimantEnCours(true);
     try {
-      const res = await fetch('/api/contrats/pdf', {
+      const res = await fetch('/api/contrats/apercu', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${localStorage.getItem('token')}` },
         body: JSON.stringify({
@@ -662,17 +676,8 @@ function DetailModal({ profId, onClose, onEdit, onFiche }) {
         }),
       });
       if (!res.ok) throw new Error((await res.json().catch(() => ({}))).error || 'Erreur serveur');
-      const blob = await res.blob();
-      const url = URL.createObjectURL(blob);
-      const iframe = document.createElement('iframe');
-      iframe.style.cssText = 'position:fixed;left:-9999px;top:0;width:1px;height:1px;border:0;';
-      iframe.src = url;
-      document.body.appendChild(iframe);
-      iframe.onload = () => {
-        try { iframe.contentWindow.focus(); iframe.contentWindow.print(); } catch (e) { console.error(e); }
-        // Nettoyage différé : laisser le temps au dialogue d'impression de s'ouvrir avec le PDF chargé.
-        setTimeout(() => { try { document.body.removeChild(iframe); } catch {} URL.revokeObjectURL(url); }, 60000);
-      };
+      const j = await res.json();
+      setContratApercu({ html: j.html, nom: j.nom });
     } catch (e) { alert('Erreur : ' + e.message); }
     finally { setImprimantEnCours(false); }
   }
@@ -686,17 +691,42 @@ function DetailModal({ profId, onClose, onEdit, onFiche }) {
   const initiales = [(detail.prenom||'')[0], (detail.nom||'')[0]].filter(Boolean).join('').toUpperCase();
   const totalIIP  = (detail.tot_per_annee ?? 0) + (detail.tot_aut_annee ?? 0);
 
+  // Une période vaut 50 minutes : la conversion en heures aide à se figurer
+  // la charge réelle, et à la comparer aux heures HELB.
+  const enHeures = per => Math.round((per || 0) * (50 / 60) * 10) / 10;
+
+  // ETP selon la formule IIP : périodes CT ÷ 800 + périodes PP ÷ 1000,
+  // autonomie comprise. La charge HELB s'y ajoute telle que calculée.
+  const heuresHELB = detail.total_hrs_helb ?? 0;
+  const etpTotal = (() => {
+    const attrs = (detail.attributions || []).filter(a => (a.contrat_mdp || 'IIP') !== 'HELB');
+    let ct = 0, pp = 0;
+    for (const a of attrs) {
+      const total = (a.per || 0) + (a.aut || 0);
+      if (a.type_cours === 'CT') ct += total; else pp += total;
+    }
+    const etpIIP = ct / 800 + pp / 1000;
+    const etpHELB = detail.charge_helb ?? 0;
+    return Math.round((etpIIP + etpHELB) * 10000) / 10000;
+  })();
+
   const badge = tc => tc === 'CT'
     ? <span className="badge badge-ct">CT</span>
     : tc === 'PP' ? <span className="badge badge-pp">PP</span> : null;
 
+  // Journal et entretiens ne font qu'un : une chronologie où l'on ajoute des
+  // rendez-vous et où les événements (absence, nomination, pièces) viennent
+  // se ranger d'eux-mêmes. Les documents quittent les onglets pour la colonne
+  // de gauche, sous forme d'icônes.
   const ONGLETS = [
     { key: 'attributions', label: `Attributions (${detail.attributions?.length || 0})` },
+    { key: 'dossier_admin', label: 'Dossier admin.' },
+    { key: 'absences',      label: 'Absences' },
+    { key: 'journal',       label: 'Journal & entretiens' },
     ...(u?.role === 'admin' ? [
       { key: 'acces',    label: 'Accès Lucie' },
-      { key: 'dossiers', label: '🔒 Dossiers RH' },
+      { key: 'dossiers', label: '🔒 Disciplinaire' },
     ] : []),
-    { key: 'actions', label: 'Documents' },
   ];
 
   return (
@@ -729,22 +759,32 @@ function DetailModal({ profId, onClose, onEdit, onFiche }) {
           {/* ── Colonne gauche — identité + KPIs + actions ── */}
           <div className="w-64 flex-shrink-0 border-r border-gray-100 flex flex-col bg-gray-50/50 overflow-auto">
 
-            {/* KPIs */}
+            {/* Charge — du plus synthétique au plus détaillé, l'un sous l'autre */}
             <div className="p-4 space-y-2 border-b border-gray-100">
               <div className="bg-white rounded-xl border border-gray-200 px-4 py-3 text-center">
-                <div className="text-xs text-gray-500 mb-0.5">Périodes IIP</div>
-                <div className="text-2xl font-bold text-iip-blue">{totalIIP}</div>
-                <div className="text-[10px] text-gray-400">per. + aut.</div>
+                <div className="text-xs text-gray-500 mb-0.5">Charge totale</div>
+                <div className="text-2xl font-bold text-iip-turquoise">{etpTotal.toFixed(4)}</div>
+                <div className="text-[10px] text-gray-400">ETP{heuresHELB > 0 ? ' — IIP + HELB' : ''}</div>
               </div>
-              <div className="grid grid-cols-2 gap-2">
-                <div className="bg-white rounded-xl border border-gray-200 px-3 py-2 text-center">
-                  <div className="text-[10px] text-gray-400">HELB</div>
-                  <div className="text-base font-bold text-purple-600">{detail.total_hrs_helb ?? 0}h</div>
+
+              <div className="bg-white rounded-xl border border-gray-200 px-4 py-2.5 text-center">
+                <div className="text-[11px] text-gray-500 mb-0.5">Périodes IIP</div>
+                <div className="text-xl font-bold text-iip-blue">{totalIIP}</div>
+                <div className="text-[10px] text-gray-400">
+                  per. + aut. · {enHeures(totalIIP)} h
                 </div>
-                <div className="bg-white rounded-xl border border-gray-200 px-3 py-2 text-center">
-                  <div className="text-[10px] text-gray-400">Anc. PO</div>
-                  <div className="text-base font-bold text-gray-700">{detail.anciennete_25_26_po ?? 0}</div>
+              </div>
+
+              {heuresHELB > 0 && (
+                <div className="bg-white rounded-xl border border-gray-200 px-4 py-2.5 text-center">
+                  <div className="text-[11px] text-gray-500 mb-0.5">Heures HELB</div>
+                  <div className="text-xl font-bold text-purple-600">{heuresHELB} h</div>
                 </div>
+              )}
+
+              <div className="bg-white rounded-xl border border-gray-200 px-3 py-2 text-center">
+                <div className="text-[10px] text-gray-400">Ancienneté PO</div>
+                <div className="text-base font-bold text-gray-700">{detail.anciennete_25_26_po ?? 0}</div>
               </div>
             </div>
 
@@ -763,55 +803,40 @@ function DetailModal({ profId, onClose, onEdit, onFiche }) {
               </div>
             )}
 
-            {/* Actions */}
-            <div className="p-4 space-y-2 border-b border-gray-100">
-              <div className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-2">Actions</div>
+            {/* Actions et documents — à portée de main, sans quitter l'onglet courant */}
+            <div className="p-4 border-b border-gray-100 space-y-3">
               <button onClick={() => onEdit(detail)}
-                className="w-full flex items-center gap-2 text-xs bg-iip-gold/10 hover:bg-iip-gold/20 text-iip-gold border border-iip-gold/30 rounded-lg px-3 py-2 font-medium transition">
+                className="w-full flex items-center gap-2 text-xs bg-slate-50 hover:bg-slate-100 text-iip-blue border border-slate-200 rounded-lg px-3 py-2 font-medium transition">
                 <IconEdit size={14}/> Modifier la fiche
               </button>
-              <button onClick={() => navigate(`/dcpp/${profId}`)}
-                className="w-full flex items-center gap-2 text-xs bg-iip-turquoise/10 hover:bg-iip-turquoise/20 text-iip-blue border border-iip-turquoise/30 rounded-lg px-3 py-2 font-medium transition">
-                <IconSchool size={14}/> DCPP
-              </button>
-              {u?.role === 'admin' && (
-                <button onClick={nouvelEA12}
-                  className="w-full flex items-center gap-2 text-xs bg-purple-50 hover:bg-purple-100 text-purple-700 border border-purple-200 rounded-lg px-3 py-2 font-medium transition">
-                  <IconPlus size={14}/> Nouvel EA12
-                </button>
-              )}
-              {u?.role === 'admin' && (
-                <div className="space-y-1">
-                  <button onClick={imprimerContratDirect} disabled={imprimantEnCours}
-                    className="w-full flex items-center gap-2 text-xs bg-green-50 hover:bg-green-100 disabled:opacity-50 text-green-700 border border-green-200 rounded-lg px-3 py-2 font-medium transition">
-                    <IconPrinter size={14}/> {imprimantEnCours ? 'Préparation…' : 'Imprimer le contrat'}
-                  </button>
-                  <button onClick={() => setShowContratModal(true)}
-                    className="w-full text-[10px] text-gray-400 hover:text-gray-600 underline text-center">
-                    Options avancées (date, représentant, .docx…)
-                  </button>
+
+              <div>
+                <div className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-2">Documents</div>
+                <div className="grid grid-cols-4 gap-1.5">
+                  {peutGenererContrat(u) && (
+                    <button onClick={() => setShowContratModal(true)} title="Contrat de travail (CDD)"
+                      className="flex flex-col items-center gap-1 py-2 rounded-lg border border-gray-200 bg-white hover:border-green-400 hover:bg-green-50/50 transition">
+                      <IconFileText size={17} className="text-green-600"/>
+                      <span className="text-[9px] text-gray-500 leading-none">Contrat</span>
+                    </button>
+                  )}
+                  {[['Global', 'Fiche globale — IIP + HELB', null],
+                    ['IIP', 'Fiche IIP', 'IIP'],
+                    ['HELB', 'Fiche HELB', 'HELB']].map(([lbl, titre, filtre]) => (
+                    <button key={lbl} onClick={() => onFiche && onFiche(profId, filtre)} title={titre}
+                      className="flex flex-col items-center gap-1 py-2 rounded-lg border border-gray-200 bg-white hover:border-iip-turquoise hover:bg-iip-turquoise/5 transition">
+                      <IconPrinter size={17} className="text-iip-blue"/>
+                      <span className="text-[9px] text-gray-500 leading-none">{lbl}</span>
+                    </button>
+                  ))}
+                  {u?.role === 'admin' && (
+                    <button onClick={nouvelEA12} title="Nouvel EA12 — fiche de nomination"
+                      className="flex flex-col items-center gap-1 py-2 rounded-lg border border-gray-200 bg-white hover:border-purple-400 hover:bg-purple-50/50 transition">
+                      <IconPlus size={17} className="text-purple-600"/>
+                      <span className="text-[9px] text-gray-500 leading-none">EA12</span>
+                    </button>
+                  )}
                 </div>
-              )}
-              {/* Fiches PDF */}
-              <div className="relative">
-                <button onClick={() => setPrintMenu(v => !v)}
-                  className="w-full flex items-center gap-2 text-xs bg-white hover:bg-gray-50 text-gray-600 border border-gray-200 rounded-lg px-3 py-2 font-medium transition">
-                  <IconPrinter size={14}/> Fiche PDF <IconChevronDown size={12} className="ml-auto"/>
-                </button>
-                {printMenu && (
-                  <>
-                    <div className="fixed inset-0 z-40" onClick={() => setPrintMenu(false)}/>
-                    <div className="absolute z-50 bottom-full left-0 mb-1 bg-white border border-gray-200 rounded-lg shadow-xl py-1 w-full">
-                      {[['Global','IIP + HELB',null],['IIP','Contrat IIP','IIP'],['HELB','Contrat HELB','HELB']].map(([lbl,sub,filtre]) => (
-                        <button key={lbl} onClick={() => { onFiche && onFiche(profId, filtre); setPrintMenu(false); }}
-                          className="w-full text-left px-3 py-2 hover:bg-gray-50 text-xs flex items-center gap-2">
-                          <span className="font-bold w-10">{lbl}</span>
-                          <span className="text-gray-400">{sub}</span>
-                        </button>
-                      ))}
-                    </div>
-                  </>
-                )}
               </div>
             </div>
           </div>
@@ -870,6 +895,7 @@ function DetailModal({ profId, onClose, onEdit, onFiche }) {
                               <th className="text-center pb-2 text-xs text-gray-400 font-medium">Type</th>
                               <th className="text-center pb-2 text-xs text-gray-400 font-medium">Gr.</th>
                               <th className="text-right pb-2 text-xs text-gray-400 font-medium">Total pér.</th>
+                              <th className="text-right pb-2 text-xs text-gray-400 font-medium">Heures</th>
                               <th></th>
                             </tr>
                           </thead>
@@ -890,6 +916,7 @@ function DetailModal({ profId, onClose, onEdit, onFiche }) {
                                     : a.code || '—'}
                                 </td>
                                 <td className="py-2 text-right font-bold text-sm">{a.periodes_total}</td>
+                                <td className="py-2 text-right text-xs text-gray-500">{enHeures(a.periodes_total)} h</td>
                                 <td className="py-2 opacity-0 group-hover:opacity-100 transition-opacity">
                                   <div className="flex items-center gap-0.5">
                                     {a.code_cours && (
@@ -926,53 +953,48 @@ function DetailModal({ profId, onClose, onEdit, onFiche }) {
               )}
 
               {/* ── Accès Lucie ── */}
+              {onglet === 'dossier_admin' && (
+                <DossierAdmin profId={profId} peutEcrire={peutGenererContrat(u)} />
+              )}
+
+              {onglet === 'absences' && (
+                <Absences profId={profId} peutEcrire={peutGenererContrat(u)} />
+              )}
+
+              {onglet === 'anciennete' && (
+                <CalculateurAnciennete profId={profId}
+                  estAdmin={u?.role === 'admin'}
+                  peutEcrire={peutGenererContrat(u)}
+                  annee={getAnnee()} />
+              )}
+
+              {onglet === 'pdcp' && (
+                <div className="p-6 space-y-3">
+                  <div className="flex items-center gap-2">
+                    <span className="font-semibold text-iip-blue">Plan de développement des compétences professionnelles</span>
+                  </div>
+                  <div className="border-2 border-dashed border-slate-200 rounded-xl p-8 text-center text-sm text-slate-500">
+                    <div className="font-semibold text-slate-600 mb-1">Module PDCP</div>
+                    La maquette de ce module a été conçue (auto-analyse, observation en classe, plan de développement).
+                    Il sera intégré ici dans un prochain cycle de développement.
+                  </div>
+                </div>
+              )}
+
+              {onglet === 'journal' && (
+                <Journal profId={profId} peutEcrire={peutGenererContrat(u)}
+                         estAdmin={u?.role === 'admin'} />
+              )}
+
               {onglet === 'acces' && u?.role === 'admin' && (
                 <AccesLuciePanel profId={profId} detail={detail} />
               )}
 
-              {/* ── Dossiers RH ── */}
+              {/* ── Disciplinaire ── */}
               {onglet === 'dossiers' && u?.role === 'admin' && (
                 <DossiersRH profId={profId} profNom={detail.nom_prenom} />
               )}
 
-              {/* ── Documents ── */}
-              {onglet === 'actions' && (
-                <div className="space-y-4">
-                  <div className="text-sm text-gray-500">Documents générables pour {detail.nom_prenom}</div>
-                  <div className="grid grid-cols-2 gap-3">
-                    {u?.role === 'admin' && (
-                      <button onClick={() => setShowContratModal(true)}
-                        className="flex items-center gap-3 p-4 border-2 border-dashed border-green-200 hover:border-green-400 rounded-xl text-left transition">
-                        <IconFileText size={24} className="text-green-600 flex-shrink-0"/>
-                        <div>
-                          <div className="text-sm font-semibold text-gray-700">Contrat de travail</div>
-                          <div className="text-xs text-gray-400">CDD — Enseignement pour adultes</div>
-                        </div>
-                      </button>
-                    )}
-                    {[['Global','IIP + HELB',null],['IIP','Contrat IIP','IIP'],['HELB','Contrat HELB','HELB']].map(([lbl,sub,filtre]) => (
-                      <button key={lbl} onClick={() => onFiche && onFiche(profId, filtre)}
-                        className="flex items-center gap-3 p-4 border-2 border-dashed border-gray-200 hover:border-iip-turquoise rounded-xl text-left transition">
-                        <IconPrinter size={24} className="text-iip-blue flex-shrink-0"/>
-                        <div>
-                          <div className="text-sm font-semibold text-gray-700">Fiche {lbl}</div>
-                          <div className="text-xs text-gray-400">{sub}</div>
-                        </div>
-                      </button>
-                    ))}
-                    {u?.role === 'admin' && (
-                      <button onClick={nouvelEA12}
-                        className="flex items-center gap-3 p-4 border-2 border-dashed border-purple-200 hover:border-purple-400 rounded-xl text-left transition">
-                        <IconPlus size={24} className="text-purple-600 flex-shrink-0"/>
-                        <div>
-                          <div className="text-sm font-semibold text-gray-700">Nouvel EA12</div>
-                          <div className="text-xs text-gray-400">Fiche de nomination</div>
-                        </div>
-                      </button>
-                    )}
-                  </div>
-                </div>
-              )}
 
             </div>
           </div>
@@ -1037,6 +1059,8 @@ function DetailModal({ profId, onClose, onEdit, onFiche }) {
       )}
     </div>
   );
+
+      {contratApercu && <PreviewModal html={contratApercu.html} titre="Contrat" nomFichier={contratApercu.nom} astuceImpression="Portrait A4 conseillé" onClose={() => setContratApercu(null)} />}
 }
 
 
@@ -2176,8 +2200,13 @@ export default function Professeurs() {
             { key: 'ch-av',  label: 'Avec charge',    icon: IconCheck, actif: fCharge === 'avec', onClick: () => setFCharge('avec') },
             { key: 'ch-sa',  label: 'Sans charge',    icon: IconX,     actif: fCharge === 'sans', onClick: () => setFCharge('sans') },
           ]},
-          ...((getUser()?.role === 'admin' || getUser()?.acces_recrutement) ? [{ label: 'Module', items: [
+          ...((getUser()?.role === 'admin' || getUser()?.acces_recrutement) ? [{ label: 'Engagement', items: [
+            // Ordre logique : le besoin précède l'offre, qui précède le recrutement.
+            { key: 'nav-besoins', label: 'Besoins & offres', icon: IconTargetArrow, couleur: '#00AACC', actif: false, onClick: () => navigate('/besoins') },
             { key: 'nav-recrutement', label: 'Recrutement', icon: IconBriefcase, couleur: '#16a34a', actif: false, onClick: () => navigate('/recrutement') },
+          ]}] : []),
+          ...(getUser()?.role === 'admin' ? [{ label: 'Carrière', items: [
+            { key: 'nav-classement', label: 'Classement & prioritaires', icon: IconFileDescription, couleur: '#1B2B4B', actif: false, onClick: () => navigate('/classement') },
           ]}] : []),
         ]}
       />
@@ -2225,7 +2254,7 @@ export default function Professeurs() {
           {selection.size > 0 && (
             <div className="flex items-center gap-2">
               {/* Contrats PDF — un vrai PDF par prof, en ZIP */}
-              {u?.role === 'admin' && (
+              {peutGenererContrat(u) && (
                 <button onClick={exporterContratsZip} disabled={contratsZipEnCours}
                   className="bg-green-700 hover:opacity-90 disabled:opacity-50 text-white text-sm px-3 py-1.5 h-9 rounded font-medium inline-flex items-center gap-1.5">
                   <IconFileText size={15}/> {contratsZipEnCours ? 'Préparation…' : `Contrats PDF (${selection.size})`}

@@ -96,6 +96,37 @@ function parseDP(xmlStr) {
   const detAcquis    = extractSection(/ACQUIS D.APPRENTISSAGE/i, /PROGRAMME/i);
   const detProgramme = extractSection(/^PROGRAMME$/i,            /CONSTITUTION DES GROUPES|CHARGE.S. DE COURS/i);
 
+  // ── ACQUIS D'APPRENTISSAGE : découpage du bloc en acquis individuels ──
+  // Structure FWB habituelle :
+  //   « Pour atteindre le seuil de réussite, l'étudiant sera capable de : »
+  //   puis un acquis par paragraphe (les puces Word ne laissent pas de trace
+  //   dans le texte extrait, chaque puce devient donc une ligne),
+  //   puis « Pour la détermination du degré de maîtrise… » qui clôt la liste.
+  const decouperAcquis = (bloc) => {
+    if (!bloc) return [];
+    const lignes = bloc.split('\n').map(l => l.trim()).filter(Boolean);
+    const out = [];
+    let commence = false;
+    for (const l of lignes) {
+      // Fin de la liste : critères de maîtrise, ou section suivante
+      if (/degr[ée] de ma[îi]trise|pour la d[ée]termination/i.test(l)) break;
+      // Amorce : une ligne d'introduction se terminant par « : »
+      if (!commence) {
+        if (/:\s*$/.test(l)) { commence = true; continue; }
+        // Certains dossiers listent directement, sans phrase d'introduction
+        if (/^[-•–]|^\d+[.)]\s/.test(l)) commence = true;
+        else continue;
+      }
+      // Nettoyer les marqueurs de liste résiduels
+      const t = l.replace(/^[-•–]\s*/, '').replace(/^\d+[.)]\s*/, '').trim();
+      // Écarter les fragments trop courts (titres, numéros de page)
+      if (t.length < 15) continue;
+      out.push(t);
+    }
+    return out.map((description, i) => ({ num: i + 1, description }));
+  };
+  const acquis = decouperAcquis(detAcquis);
+
   // COURS (tableau 7.1)
   // inHoraire se déclenche sur la ligne d'en-tête "7.1. Dénomination des cours"
   const cours = [];
@@ -131,6 +162,7 @@ function parseDP(xmlStr) {
       ].filter(Boolean).join('\n\n'),
     },
     cours,
+    acquis,
   };
 }
 

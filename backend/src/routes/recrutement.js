@@ -9,6 +9,7 @@ import multer from 'multer';
 import { mkdirSync, existsSync, unlinkSync } from 'fs';
 import { join } from 'path';
 import { envoyerEmail, templateNotif } from '../services/mailer.js';
+import { ouvrirParcoursPersonnel } from '../services/parcoursPersonnel.js';
 
 const DATA_DIR = process.env.DATA_DIR || '/app/data';
 
@@ -440,6 +441,11 @@ r.post('/candidatures/:id/attribuer', async (req, res) => {
     db.prepare("UPDATE recrutement_candidature SET statut = 'retenu', modifie_le = datetime('now') WHERE id = ?")
       .run(cand.id);
 
+    // 4. Ouvrir le parcours administratif : checklist des pièces attendues et
+    //    échéances d'entrée en fonction (dossier J+5, autorisation de cumul J+30).
+    try { ouvrirParcoursPersonnel(db, prof.id, { anneeScolaire: cand.annee_scolaire }); }
+    catch (e) { console.error('[attribuer] parcours :', e.message); }
+
     return prof.id;
   });
 
@@ -612,6 +618,10 @@ r.post('/candidats/:id/engager-global', authRequired, roleRequired('admin', 'edi
         .run(candidat.id);
     }
 
+    // Ouvrir le parcours administratif (checklist des pièces + échéances)
+    try { ouvrirParcoursPersonnel(db, prof.id, { dateEngagement: today }); }
+    catch (e) { console.error('[engager] parcours :', e.message); }
+
     return { prof_id: prof.id, nom, prenom, date_engagement: today, cree };
   });
 
@@ -701,6 +711,10 @@ r.post('/candidats/:id/engager', authRequired, roleRequired('admin', 'editeur'),
     // 4. Marquer le candidat comme engagé
     db.prepare("UPDATE recrutement_candidat SET notes = COALESCE(notes,'') || ' [ENGAGÉ le " + today + "]' WHERE id = ?")
       .run(candidat.id);
+
+    // Ouvrir le parcours administratif (checklist des pièces + échéances)
+    try { ouvrirParcoursPersonnel(db, prof.id, { dateEngagement: today, anneeScolaire: annee }); }
+    catch (e) { console.error('[engager-multi] parcours :', e.message); }
 
     return { prof_id: prof.id, nb_attributions: nbAttrib, nom, prenom, date_engagement: today };
   });

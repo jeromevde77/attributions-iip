@@ -61,6 +61,37 @@ const ENTITES = {
     fetch: (annee, filtres) => api.professeurs(true),
     filtres: [],
   },
+  profs_section: {
+    label: 'Professeurs par section', groupe: 'data', icon: '🧑‍🏫', tabler: 'IconUsersGroup',
+    cols: [
+      { key: 'section',        label: 'Section',   defaut: true  },
+      { key: 'nom',            label: 'Nom',       defaut: true  },
+      { key: 'prenom',         label: 'Prénom',    defaut: true  },
+      { key: 'statut',         label: 'Statut',    defaut: true  },
+      { key: 'nb_ue',          label: 'UE',        defaut: true  },
+      { key: 'nb_cours',       label: 'Cours',     defaut: true  },
+      { key: 'total_periodes', label: 'Périodes',  defaut: true  },
+      { key: 'adresse_mail',   label: 'E-mail IIP', defaut: false },
+      { key: 'matricule',      label: 'Matricule', defaut: false },
+      { key: 'cours',          label: 'Cours donnés', defaut: false },
+    ],
+    // Un professeur donnant plusieurs cours dans une même section n'apparaît
+    // qu'une fois ; le détail de ses cours peut être déplié en colonnes.
+    fetch: (annee, filtres) => {
+      let url = `/api/listes/professeurs?annee=${encodeURIComponent(annee)}&par_section=1`;
+      url += `&cours=${filtres.detail_cours || 'colonne'}`;
+      for (const k of ['section', 'ue_num', 'statut']) {
+        if (filtres[k]) url += `&${k}=${encodeURIComponent(filtres[k])}`;
+      }
+      return authFetch(url).then(d => {
+        const rows = d.lignes || [];
+        rows._colonnesCours = d.colonnes_cours || 0;
+        return rows;
+      });
+    },
+    filtres: ['section', 'ue_num', 'statut', 'detail_cours'],
+    colonnesDynamiques: 'cours_',
+  },
   ues: {
     label: 'Unités d\'enseignement', groupe: 'data', icon: '📚', tabler: 'IconBooks',
     cols: [
@@ -1172,7 +1203,13 @@ export default function Listes() {
     XLSX.writeFile(wb, `Attributions_${d.section}_${annee}.xlsx`);
   }
 
-  const colsVisibles = def.cols.filter(c => colsActives.has(c.key));
+  // Colonnes générées à la volée : autant que le professeur le plus chargé
+  const colsDyn = (def.colonnesDynamiques && rows?._colonnesCours)
+    ? Array.from({ length: rows._colonnesCours }, (_, i) => ({
+        key: `${def.colonnesDynamiques}${i + 1}`, label: `Cours ${i + 1}`, defaut: true,
+      }))
+    : [];
+  const colsVisibles = [...def.cols.filter(c => colsActives.has(c.key)), ...colsDyn];
   const nomFichier = `lucie_${entite}_${annee}`;
 
   // Injecte l'orientation choisie + le titre du document dans le HTML du rapport
@@ -1267,6 +1304,28 @@ export default function Listes() {
                 : <input type="number" value={filtres.ue_num || ''} onChange={e => setFiltres(f => ({ ...f, ue_num: e.target.value }))}
                     placeholder="ex: 95" className="border border-slate-300 rounded-lg px-2.5 py-1.5 h-9 text-sm w-24" />
               }
+            </label>
+          )}
+          {def.filtres.includes('statut') && (
+            <label className="flex items-center gap-2">
+              <span className="text-xs text-slate-500">Statut</span>
+              <select value={filtres.statut || ''} onChange={e => setFiltres(f => ({ ...f, statut: e.target.value }))}
+                className="border border-slate-300 rounded-lg px-2.5 py-1.5 h-9 text-sm bg-white">
+                <option value="">— Tous —</option>
+                <option value="MDP">MDP</option><option value="EXP">Expert</option><option value="CC">CC</option>
+              </select>
+            </label>
+          )}
+          {def.filtres.includes('detail_cours') && (
+            <label className="flex items-center gap-2">
+              <span className="text-xs text-slate-500">Cours donnés</span>
+              <select value={filtres.detail_cours || 'colonne'}
+                onChange={e => setFiltres(f => ({ ...f, detail_cours: e.target.value }))}
+                className="border border-slate-300 rounded-lg px-2.5 py-1.5 h-9 text-sm bg-white">
+                <option value="aucun">Ne pas afficher</option>
+                <option value="colonne">Dans une colonne</option>
+                <option value="colonnes">Une colonne par cours</option>
+              </select>
             </label>
           )}
           {def.filtres.includes('niveau') && (

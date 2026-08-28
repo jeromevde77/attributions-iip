@@ -1,7 +1,8 @@
 import { useState, useEffect, useMemo, useRef, Fragment } from 'react';
 import { api, getAnnee } from '../lib/api.js';
-import { IconChartBar, IconHome, IconUsers, IconSettings, IconChevronRight, IconChevronDown, IconPrinter, IconRotateClockwise, IconCheck, IconX, IconTrash } from '@tabler/icons-react';
+import { IconChartBar, IconHome, IconUsers, IconSettings, IconChevronRight, IconChevronDown, IconPrinter, IconRotateClockwise, IconCheck, IconX, IconTrash, IconCash } from '@tabler/icons-react';
 import { PageHeader, Tabs, RailLateral } from '../components/ui.jsx';
+import Budget from './Budget.jsx';
 import {
   BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer,
   Legend, CartesianGrid, ReferenceLine,
@@ -67,7 +68,7 @@ function ExtDotPanel({ annee }) {
   return (
     <div>
       <div className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">Répartition EXT / DOT</div>
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+      <div className="grid grid-cols-1 md:grid-cols-3 2xl:grid-cols-4 gap-3">
         {pots.map(([pot, v]) => {
           const pct = v.plafond > 0 ? Math.min(100, Math.round(v.consomme / v.plafond * 100)) : 0;
           const depasse = v.dot > 0;
@@ -1345,6 +1346,7 @@ export default function Pilotage() {
           { key: 'synthese', label: 'Dotation',      icon: IconHome,     actif: tab === 'synthese', onClick: () => setTab('synthese') },
           { key: 'etp',      label: 'ETP',           icon: IconUsers,    actif: tab === 'etp',      onClick: () => setTab('etp') },
           { key: 'dotation', label: 'Comparaison',   icon: IconChartBar, actif: tab === 'dotation', onClick: () => setTab('dotation') },
+          { key: 'budget',   label: 'Budget',        icon: IconCash,     actif: tab === 'budget',   onClick: () => setTab('budget') },
           { key: 'config',   label: 'Configuration', icon: IconSettings, actif: tab === 'config',   onClick: () => setTab('config') },
         ] }]}
       />
@@ -1353,7 +1355,9 @@ export default function Pilotage() {
         <PageHeader icon={IconChartBar} titre="Pilotage des dotations"
           sous={`Année civile ${selYear} · Enveloppes extérieures · Comparaison pluriannuelle`} />
 
-        {loading ? (
+        {tab === 'budget' ? (
+          <Budget />
+        ) : loading ? (
           <div className="text-gray-400 py-12 text-center">Chargement…</div>
         ) : civil.length === 0 ? (
           <div className="bg-amber-50 border border-amber-200 rounded-xl p-6 text-sm text-amber-700">

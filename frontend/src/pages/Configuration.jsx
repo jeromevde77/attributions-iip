@@ -1,6 +1,7 @@
 import { useEffect, useState, lazy, Suspense } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { api, getAnnee } from '../lib/api.js';
-import { IconAdjustments, IconAward, IconBooks, IconBuilding, IconCalendar, IconChartBar, IconCheck, IconChevronRight, IconDownload, IconFileText, IconHistory, IconLink, IconScale, IconSettings, IconSparkles, IconUserShield, IconUsers, IconX, IconGavel, IconPlus, IconTrash, IconGripVertical, IconEdit } from '@tabler/icons-react';
+import { IconAdjustments, IconAward, IconBooks, IconBuilding, IconCalendar, IconCalendarEvent, IconChartBar, IconCheck, IconChevronRight, IconDownload, IconFileText, IconHistory, IconLink, IconScale, IconSettings, IconSparkles, IconUserShield, IconUsers, IconX, IconGavel, IconPlus, IconTrash, IconGripVertical, IconEdit } from '@tabler/icons-react';
 import { PageHeader, RailLateral } from '../components/ui.jsx';
 const Editeur = lazy(() => import('./Editeur.jsx'));
 
@@ -108,7 +109,7 @@ function GestionPersonnel() {
   const sectionLabel = section === ETAB ? "Tout l'établissement" : section;
 
   return (
-    <div className="max-w-6xl">
+    <div className="max-w-none">
       <div className="flex items-center justify-between mb-4 flex-wrap gap-3">
         <div>
           <h3 className="font-semibold text-gray-800 text-lg">Personnel &amp; fonctions</h3>
@@ -435,8 +436,12 @@ function RegenererDonneesDev() {
 }
 import Users from './Users.jsx';
 import Annees from './Annees.jsx';
+import DatesUE from '../components/DatesUE.jsx';
 import Referentiels from './Referentiels.jsx';
+import PonderationsAA from './PonderationsAA.jsx';
+import SchemaCapitalisation from '../components/SchemaCapitalisation.jsx';
 import ParametresEtablissement from './ParametresEtablissement.jsx';
+import { authHeaders } from '../lib/api.js';
 
 function Toggle({ label, description, checked, onChange, disabled }) {
   return (
@@ -638,6 +643,9 @@ function GestionParametres() {
 
 // ─── Gestion des prérequis UE ─────────────────────────────────────────────────
 function GestionPrerequis() {
+  const [vue, setVue]             = useState('schema');   // schema | liste
+  const [graphe, setGraphe]       = useState(null);
+  const [msgLien, setMsgLien]     = useState(null);
   const [sections, setSections]   = useState([]);
   const [section, setSection]     = useState('');
   const [ues, setUes]             = useState([]);
@@ -650,6 +658,48 @@ function GestionPrerequis() {
   useEffect(() => {
     authFetch('/api/ref/sections').then(d => setSections(Array.isArray(d) ? d : []));
   }, []);
+
+  // Le schéma s'appuie sur la même construction que celle d'Organisation, mais
+  // c'est ICI que les liens se modifient : ils relèvent du référentiel et non
+  // de l'année scolaire.
+  async function chargerGraphe() {
+    if (!section) return;
+    const annee = getAnnee();
+    const rep = await fetch(
+      `/api/capitalisation/structure?section=${encodeURIComponent(section)}&annee=${annee}`,
+      { headers: authHeaders() });
+    setGraphe(rep.ok ? await rep.json() : { nodes: [], edges: [] });
+  }
+  useEffect(() => { if (vue === 'schema') chargerGraphe(); /* eslint-disable-next-line */ }, [section, vue]);
+
+  async function creerLien(prerequisNum, ueNum) {
+    const rep = await fetch('/api/prerequis/ue', {
+      method: 'POST', headers: authHeaders(),
+      body: JSON.stringify({ ue_num: ueNum, prerequis_num: prerequisNum, section }),
+    });
+    const j = await rep.json();
+    if (!rep.ok) { setMsgLien({ type: 'err', texte: j.error }); return; }
+    setMsgLien({ type: j.created ? 'ok' : 'err',
+      texte: j.created ? `L'UE ${prerequisNum} conditionne désormais l'UE ${ueNum}.`
+                       : 'Ce lien existait déjà.' });
+    await chargerGraphe(); rechargerListe();
+  }
+
+  async function supprimerLien(prerequisNum, ueNum) {
+    if (!window.confirm(`Supprimer ce prérequis ? L'UE ${prerequisNum} ne conditionnera plus l'UE ${ueNum}, pour toutes les années.`)) return;
+    const rep = await fetch(`/api/prerequis/ue?ue_num=${ueNum}&prerequis_num=${prerequisNum}`,
+      { method: 'DELETE', headers: authHeaders() });
+    const j = await rep.json();
+    if (!rep.ok) { setMsgLien({ type: 'err', texte: j.error }); return; }
+    setMsgLien({ type: 'ok', texte: 'Lien supprimé.' });
+    await chargerGraphe(); rechargerListe();
+  }
+
+  function rechargerListe() {
+    if (!section) return;
+    authFetch(`/api/prerequis/ue?section=${encodeURIComponent(section)}`)
+      .then(p => setPrereqs(Array.isArray(p) ? p : []));
+  }
 
   useEffect(() => {
     if (!section) return;
@@ -697,17 +747,51 @@ function GestionPrerequis() {
   }
 
   return (
-    <div className="max-w-3xl space-y-4">
-      <div className="flex items-center gap-3">
+    <div className={`space-y-4 ${vue === 'schema' ? 'max-w-none' : 'max-w-3xl'}`}>
+      <div className="flex items-center gap-3 flex-wrap">
         <select value={section} onChange={e => setSection(e.target.value)}
           className="border border-gray-300 rounded px-3 py-1.5 h-9 text-sm bg-white">
           <option value="">— Choisir une section —</option>
           {sections.map(s => <option key={s.code} value={s.code}>{s.code}</option>)}
         </select>
+        <div className="flex rounded-lg border border-gray-300 overflow-hidden h-9">
+          {[['schema', 'Schéma'], ['liste', 'Liste']].map(([v, l]) => (
+            <button key={v} onClick={() => setVue(v)}
+              className={`px-3 text-[12.5px] ${vue === v
+                ? 'bg-iip-blue text-white font-semibold' : 'text-slate-600 hover:bg-slate-50'}`}>
+              {l}
+            </button>
+          ))}
+        </div>
         {section && <span className="text-xs text-gray-400">{prereqs.length} prérequis définis</span>}
       </div>
 
-      {section && (
+      <div className="px-3 py-2 rounded-lg bg-amber-50 border border-amber-200 text-[11.5px] text-amber-900">
+        Les prérequis constituent la bibliothèque : ils viennent du dossier pédagogique et
+        valent pour <b>toutes les années</b>. Les modifier fait bouger les grilles de parcours
+        et les PAE déjà établis. Réservé aux administrateurs.
+      </div>
+
+      {msgLien && (
+        <div className={`px-3 py-2 rounded-lg text-[12.5px] flex items-center justify-between ${
+          msgLien.type === 'ok' ? 'bg-emerald-50 text-emerald-800 border border-emerald-200'
+                                : 'bg-red-50 text-red-800 border border-red-200'}`}>
+          <span>{msgLien.texte}</span>
+          <button onClick={() => setMsgLien(null)} className="ml-3 opacity-60">✕</button>
+        </div>
+      )}
+
+      {section && vue === 'schema' && (
+        <SchemaCapitalisation
+          data={graphe}
+          mode="structure"
+          onLien={creerLien}
+          onSupprimerLien={supprimerLien}
+          titre={`Prérequis — ${section}`}
+        />
+      )}
+
+      {section && vue === 'liste' && (
         <>
           {/* Ajouter un prérequis */}
           <div className="bg-white rounded-lg border border-gray-200 px-5 py-4 space-y-3">
@@ -850,7 +934,7 @@ function ConfigContrat() {
   if (loading) return <div className="p-8 text-center text-gray-400">Chargement…</div>;
 
   return (
-    <div className="max-w-7xl space-y-4">
+    <div className="max-w-none space-y-4">
       <div className="flex items-center justify-between">
         <div>
           <h2 className="text-lg font-bold text-iip-blue">Template du contrat de travail</h2>
@@ -940,7 +1024,7 @@ function ConfigAttestation() {
   ];
 
   return (
-    <div className="max-w-4xl space-y-4">
+    <div className="max-w-none space-y-4">
       <h2 className="text-lg font-bold text-iip-blue">Configuration des attestations</h2>
 
       <div className="flex gap-1 border-b border-gray-200 mb-4">
@@ -1039,7 +1123,10 @@ function ConfigAttestation() {
 
 export default function Configuration() {
 
-  const [tab, setTab] = useState('users');
+  // L'onglet peut être imposé par l'URL (?onglet=...) — utilisé par les
+  // assistants de mise en route pour envoyer vers le bon écran.
+  const [paramsUrl] = useSearchParams();
+  const [tab, setTab] = useState(paramsUrl.get('onglet') || 'users');
   const [historiqueActif, setHistoriqueActif] = useState(false);
   const [changelog, setChangelog] = useState({ byDay: {}, commits: [] });
   const [loading, setLoading] = useState(true);
@@ -1050,6 +1137,7 @@ export default function Configuration() {
   const [restoreFile, setRestoreFile] = useState(null);
   const [restoring, setRestoring] = useState(false);
   const [env, setEnv] = useState(null);
+  const [anneeActive, setAnneeActive] = useState('');
 
   useEffect(() => {
     api.historiqueConfig().then(r => {
@@ -1057,6 +1145,12 @@ export default function Configuration() {
     }).catch(() => {}).finally(() => setLoading(false));
     api.changelog().then(r => setChangelog(r)).catch(() => {});
     fetch('/api/info').then(r => r.json()).then(d => setEnv(d.environnement)).catch(() => {});
+    // Année active : nécessaire au paramétrage annuel (dates des UE)
+    fetch('/api/annees', { headers: authHeaders() }).then(r => r.json())
+      .then(list => {
+        const a = (Array.isArray(list) ? list : []).find(x => x.active) || list?.[0];
+        if (a?.code) setAnneeActive(a.code);
+      }).catch(() => {});
   }, []);
 
   async function toggleHistorique(val) {
@@ -1151,22 +1245,38 @@ export default function Configuration() {
   }
 
 
-  const CONF_TABS = [
-    { key: 'referentiels', label: 'Référentiels', icon: IconBooks },
-    { key: 'annees', label: 'Années', icon: IconCalendar },
-    { key: 'etablissement', label: 'Établissement', icon: IconBuilding },
-    { key: 'personnel', label: 'Personnel', icon: IconUsers },
-    { key: 'users', label: 'Utilisateurs', icon: IconUserShield },
-    { key: 'systeme', label: 'Historique & Sauvegarde', icon: IconHistory },
-    { key: 'parametres', label: 'Paramètres', icon: IconAdjustments },
-    { key: 'prerequis', label: 'Prérequis UE', icon: IconLink },
-    { key: 'procedures', label: 'Procédures', icon: IconGavel },
-    { key: 'statistiques', label: 'Statistiques', icon: IconChartBar },
-    { key: 'changelog', label: 'Nouveautés', icon: IconSparkles },
-    { key: 'editeur',   label: 'Éditeur',     icon: IconEdit },
-    { key: 'recrutement', label: 'Recrutement', icon: IconSettings },
-    { key: 'contrat', label: 'Contrat', icon: IconFileText },
-    { key: 'attestation', label: 'Attestation', icon: IconAward },
+  // Trois niveaux de données distincts :
+  //  · Référentiel légal — la bibliothèque, quasi figée, administrateur seul
+  //  · Paramétrage annuel — ce qui se rejoue chaque rentrée
+  //  · Établissement / Système / Modèles — le reste
+  const CONF_GROUPES = [
+    { label: 'Référentiel légal', items: [
+      { key: 'referentiels', label: 'Référentiels', icon: IconBooks },
+      { key: 'prerequis', label: 'Prérequis UE', icon: IconLink },
+      { key: 'ponderations', label: 'Pondération des AA', icon: IconScale },
+      { key: 'procedures', label: 'Procédures', icon: IconGavel },
+    ]},
+    { label: 'Paramétrage annuel', items: [
+      { key: 'annees', label: 'Années', icon: IconCalendar },
+      { key: 'dates-ue', label: 'Dates des UE', icon: IconCalendarEvent },
+    ]},
+    { label: 'Établissement', items: [
+      { key: 'etablissement', label: 'Établissement', icon: IconBuilding },
+      { key: 'personnel', label: 'Personnel', icon: IconUsers },
+      { key: 'users', label: 'Utilisateurs', icon: IconUserShield },
+    ]},
+    { label: 'Modèles de documents', items: [
+      { key: 'editeur', label: 'Éditeur', icon: IconEdit },
+      { key: 'contrat', label: 'Contrat', icon: IconFileText },
+      { key: 'attestation', label: 'Attestation', icon: IconAward },
+      { key: 'recrutement', label: 'Recrutement', icon: IconSettings },
+    ]},
+    { label: 'Système', items: [
+      { key: 'parametres', label: 'Paramètres', icon: IconAdjustments },
+      { key: 'systeme', label: 'Historique & Sauvegarde', icon: IconHistory },
+      { key: 'statistiques', label: 'Statistiques', icon: IconChartBar },
+      { key: 'changelog', label: 'Nouveautés', icon: IconSparkles },
+    ]},
   ];
   return (
     <div className="relative bg-slate-50" style={{ minHeight: 'calc(100vh - 64px)' }}>
@@ -1174,7 +1284,11 @@ export default function Configuration() {
         icon={IconSettings}
         titre="Configuration"
         sousTitre="Administration"
-        sections={[{ items: CONF_TABS.map(t => ({ key: t.key, label: t.label, icon: t.icon, actif: tab === t.key, onClick: () => setTab(t.key) })) }]}
+        sections={CONF_GROUPES.map(g => ({
+          label: g.label,
+          items: g.items.map(t => ({ key: t.key, label: t.label, icon: t.icon,
+            actif: tab === t.key, onClick: () => setTab(t.key) })),
+        }))}
       />
       <div className="ml-16 px-3 md:px-6 py-4 space-y-6">
         <PageHeader icon={IconSettings} titre="Configuration"
@@ -1185,6 +1299,9 @@ export default function Configuration() {
 
       {/* ── Onglet Années ── */}
       {tab === 'annees' && <Annees embedded />}
+
+      {/* ── Onglet Dates des UE (paramétrage annuel) ── */}
+      {tab === 'dates-ue' && <DatesUE annee={anneeActive} />}
 
       {/* ── Onglet Établissement ── */}
       {tab === 'etablissement' && <ParametresEtablissement />}
@@ -1197,13 +1314,14 @@ export default function Configuration() {
 
       {/* ── Onglet Prérequis ── */}
       {tab === 'prerequis' && <GestionPrerequis />}
+      {tab === 'ponderations' && <PonderationsAA />}
 
       {/* ── Onglet Utilisateurs ── */}
-      {tab === 'users' && <div className="max-w-5xl"><Users embedded /></div>}
+      {tab === 'users' && <div className="max-w-none"><Users embedded /></div>}
 
       {/* ── Onglet Nouveautés ── */}
       {tab === 'changelog' && (
-        <div className="max-w-3xl bg-white rounded-lg border border-gray-200 p-5">
+        <div className="max-w-none bg-white rounded-lg border border-gray-200 p-5">
           <ChangelogView data={changelog} />
         </div>
       )}
@@ -1225,7 +1343,7 @@ export default function Configuration() {
       {tab === 'attestation' && <ConfigAttestation />}
 
       {/* ── Onglet Système ── */}
-      {tab === 'systeme' && (loading ? <div className="p-8 text-center text-gray-400">Chargement…</div> : <div className="max-w-3xl space-y-6">
+      {tab === 'systeme' && (loading ? <div className="p-8 text-center text-gray-400">Chargement…</div> : <div className="max-w-none space-y-6">
 
       {/* ── Historique des modifications ── */}
       <section className="bg-white rounded-lg border border-gray-200 overflow-hidden">
@@ -1574,7 +1692,7 @@ function OngletProcedures() {
   if (loading) return <div className="p-8 text-gray-400">Chargement…</div>;
 
   return (
-    <div className="max-w-3xl bg-white rounded-lg border border-gray-200 p-5 space-y-4">
+    <div className="max-w-none bg-white rounded-lg border border-gray-200 p-5 space-y-4">
       <div>
         <h2 className="font-semibold text-gray-800 text-base flex items-center gap-2">
           <IconGavel size={17} className="text-iip-turquoise" />
@@ -1725,7 +1843,7 @@ function OngletStatistiques() {
   }
 
   return (
-    <div className="max-w-4xl space-y-4">
+    <div className="max-w-none space-y-4">
       {/* En-tête */}
       <div className="bg-white rounded-lg border border-gray-200 p-5">
         <h2 className="font-semibold text-gray-800 text-base flex items-center gap-2 mb-1">
@@ -1945,7 +2063,7 @@ function ConfigRecrutement() {
   );
 
   return (
-    <div className="max-w-3xl">
+    <div className="max-w-none">
       <Bloc
         label="Introduction d'entretien"
         desc="Texte lu au candidat en début d'entretien — établissement, qui vous êtes, déroulement."

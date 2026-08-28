@@ -1853,7 +1853,7 @@ r.post('/import-dp', authRequired, roleRequired('admin', 'editeur'), async (req,
 
     // Parse
     const parsed = await parseDossierPedagogique(buffer);
-    const { ue: ueData, cours: coursData } = parsed;
+    const { ue: ueData, cours: coursData, acquis: acquisData = [] } = parsed;
 
     if (!ueData.ue_code_fwb) return res.status(422).json({
       error: 'Code FWB introuvable dans le document',
@@ -1952,7 +1952,29 @@ r.post('/import-dp', authRequired, roleRequired('admin', 'editeur'), async (req,
       coursCrees.push({ code, nom: c.nom });
     }
 
-    res.json({ ok: true, action, ue_num: ueNum, annee, cours_crees: coursCrees, cours_existants: coursExistants, parsed: { ue: ueData, cours: coursData } });
+    // ── Acquis d'apprentissage extraits du dossier ──────────────────────────
+    // Les acquis appartiennent au référentiel légal : on ne les écrase pas
+    // silencieusement. Ceux déjà rattachés à un cours conservent ce lien.
+    let aaCrees = 0, aaExistants = 0;
+    try {
+      const dejaLa = db.prepare('SELECT aa_code, cours_code FROM aa WHERE ue_num = ?').all(ueNum);
+      const parCode = new Map(dejaLa.map(a => [a.aa_code, a]));
+      const insAA = db.prepare(`
+        INSERT INTO aa (aa_code, aa_num, ue_num, cours_code, description)
+        VALUES (?,?,?,?,?)
+        ON CONFLICT(aa_code) DO UPDATE SET description = excluded.description
+      `);
+      for (const a of acquisData) {
+        const code = `AA${ueNum}.${a.num}`;
+        if (parCode.has(code)) aaExistants++; else aaCrees++;
+        insAA.run(code, a.num, ueNum, parCode.get(code)?.cours_code || null, a.description);
+      }
+    } catch (e) { console.error('[import-dp] acquis :', e.message); }
+
+    res.json({ ok: true, action, ue_num: ueNum, annee,
+               cours_crees: coursCrees, cours_existants: coursExistants,
+               aa_crees: aaCrees, aa_mis_a_jour: aaExistants,
+               parsed: { ue: ueData, cours: coursData, acquis: acquisData } });
   } catch (err) {
     console.error('[import-dp]', err);
     res.status(500).json({ error: err.message });

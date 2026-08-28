@@ -47,6 +47,11 @@ import Planification from './pages/Planification.jsx';
 import Aide from './pages/Aide.jsx';
 import Attestation from './pages/Attestation.jsx';
 import Disciplinaire from './pages/Disciplinaire.jsx';
+import Echeancier from './pages/Echeancier.jsx';
+import Besoins from './pages/Besoins.jsx';
+import Organisation from './pages/Organisation.jsx';
+import Classement from './pages/Classement.jsx';
+import { AxeAccueil, AxeEtudiants, AxeCommunication } from './pages/Axes.jsx';
 import { BoutonAide } from './pages/Aide.jsx';
 
 /* eslint-disable no-undef */
@@ -223,19 +228,20 @@ function ProtectedLayout({ children }) {
 
   const isCoordination = u?.role === 'coordination';
 
+  // Structure en 7 axes (maquette validée) : chaque entrée répond à une
+  // question de l'utilisateur ; les rôles taillent le bandeau.
   const nav = isCoordination
     ? [
         ['/accueil',      'Accueil',      IconHome],
-        ['/attributions', 'Attributions', IconClipboardList]
+        ['/organisation', 'Organisation', IconClipboardList],
       ]
     : [
-        ['/accueil',      'Accueil',      IconHome],
-        ['/attributions', 'Attributions', IconClipboardList],
-        ['/professeurs',  'Personnel', IconUsers],
-        ['/listes',       'Listes', IconFileExport],
-        ['/procedures',   'Procédures', IconChecklist],
-        ['/pilotage',     'Pilotage', IconChartBar],
-        ['/planification','Planification', IconCalendarStats],
+        ['/accueil',      'Accueil',       IconHome],
+        ['/etudiants',    'Étudiants',     IconChecklist],
+        ['/professeurs',  'Personnel',     IconUsers],
+        ['/organisation', 'Organisation',  IconClipboardList],
+        ['/communication','Communication', IconFileExport],
+        ['/pilotage',     'Pilotage',      IconChartBar],
       ];
   nav.push(['/aide', '', IconHelpCircle]);
   if (u?.role === 'admin') nav.push(['/configuration', 'Config.', IconSettings]);
@@ -392,9 +398,12 @@ export default function App() {
       <Routes>
       <Route path="/login" element={<Login />} />
       <Route path="/"             element={<Navigate to="/accueil" replace />} />
-      <Route path="/attributions" element={<ProtectedLayout><Attributions /></ProtectedLayout>} />
+      <Route path="/attributions" element={<Navigate to="/organisation" replace />} />
       <Route path="/professeurs"  element={<ProtectedLayout><Professeurs /></ProtectedLayout>} />
-      <Route path="/accueil"      element={<ProtectedLayout><Accueil /></ProtectedLayout>} />
+      <Route path="/accueil"      element={<ProtectedLayout><AxeAccueil /></ProtectedLayout>} />
+      <Route path="/organisation" element={<ProtectedLayout><Organisation /></ProtectedLayout>} />
+      <Route path="/etudiants"    element={<ProtectedLayout><AxeEtudiants /></ProtectedLayout>} />
+      <Route path="/communication" element={<ProtectedLayout><AxeCommunication /></ProtectedLayout>} />
       <Route path="/recrutement"   element={<ProtectedLayout><AdminOrRH><Recrutement /></AdminOrRH></ProtectedLayout>} />
       <Route path="/dcpp/:profId" element={<ProtectedLayout><DCPP /></ProtectedLayout>} />
       <Route path="/listes" element={
@@ -420,8 +429,11 @@ export default function App() {
       } />
       <Route path="/ea12"          element={<ProtectedLayout><EA12List /></ProtectedLayout>} />
       <Route path="/ea12/:id"      element={<ProtectedLayout><EA12Editor /></ProtectedLayout>} />
+      <Route path="/echeancier"     element={<ProtectedLayout><Echeancier /></ProtectedLayout>} /> {/* conservé : liens des rappels */}
+      <Route path="/besoins"        element={<ProtectedLayout><Besoins /></ProtectedLayout>} />
+      <Route path="/classement"     element={<ProtectedLayout><Classement /></ProtectedLayout>} />
       <Route path="/pilotage"       element={<ProtectedLayout><Pilotage /></ProtectedLayout>} />
-      <Route path="/planification"  element={<ProtectedLayout><Planification /></ProtectedLayout>} />
+      <Route path="/planification"  element={<ProtectedLayout><Organisation ongletInitial="planification" /></ProtectedLayout>} />
       <Route path="/aide"           element={<ProtectedLayout><Aide /></ProtectedLayout>} />
       <Route path="/attestation"   element={<ProtectedLayout><Attestation /></ProtectedLayout>} />
       <Route path="/disciplinaire" element={<ProtectedLayout><Disciplinaire /></ProtectedLayout>} />

@@ -382,7 +382,7 @@ export default function Aide() {
           </div>
         </div>
 
-        <div className="max-w-3xl mx-auto px-6 py-6 space-y-6">
+        <div className="max-w-[1100px] mx-auto px-6 py-6 space-y-6">
           {filtrees.length === 0 && (
             <div className="text-center py-12 text-gray-400">
               <div className="text-4xl mb-2">🔍</div>

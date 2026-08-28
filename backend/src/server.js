@@ -9,6 +9,26 @@ import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 import db from './db/index.js';
+import { migrerEcheancier } from './db/migrations_echeancier.js';
+import { migrerBesoinsOffres } from './db/migrations_besoins.js';
+import { migrerJournalPersonnel } from './db/migrations_journal.js';
+import { demarrerMoteur } from './services/echeancier.js';
+import annuelRoutes from './routes/annuel.js';
+import echeancierRoutes from './routes/echeancier.js';
+import dossierAdminRoutes from './routes/dossierAdmin.js';
+import listesRoutes from './routes/listes.js';
+import besoinsRoutes from './routes/besoins.js';
+import compositionRoutes from './routes/composition.js';
+import classementRoutes, { migrerClassement } from './routes/classement.js';
+import ancienneteServiceRoutes, { migrerAncienneteService } from './routes/ancienneteService.js';
+import etudiantsRoutes, { migrerEtudiants } from './routes/etudiants.js';
+import capitalisationRoutes, { migrerCapitalisation } from './routes/capitalisation.js';
+import assistantsRoutes from './routes/assistants.js';
+import rentreeRoutes, { migrerRentree } from './routes/rentree.js';
+import acquisRoutes, { migrerAA } from './routes/acquis.js';
+import droitInscriptionRoutes, { migrerDroitInscription } from './routes/droitInscription.js';
+import importHistoriqueRoutes, { migrerHistorique } from './routes/importHistorique.js';
+import budgetRoutes, { migrerBudget } from './routes/budget.js';
 import authRoutes from './routes/auth.js';
 import attrRoutes from './routes/attributions.js';
 import refRoutes  from './routes/referentiels.js';
@@ -379,6 +399,12 @@ try {
       ];
       for (const [libelle, portee, ordre] of seedFt) insFt.run(libelle, portee, ordre);
       console.log('[migration] fonction_type seedée (' + seedFt.length + ' fonctions)');
+  // Ajout de types de coordination manquants (idempotent — INSERT OR IGNORE)
+  try {
+    const insFt2 = db.prepare('INSERT OR IGNORE INTO fonction_type (libelle, portee, ordre) VALUES (?, ?, ?)');
+    insFt2.run('Référent métier', 'section', 15);
+    console.log('[migration] fonction_type complétée');
+  } catch (e) { console.error('[migration] fonction_type complément:', e.message); }
     }
   } catch (e) { console.error('[migration] seed fonction_type:', e.message); }
 
@@ -439,6 +465,16 @@ try {
     );
     CREATE INDEX IF NOT EXISTS idx_nom_prof ON nomination_definitive(professeur_id);
     CREATE INDEX IF NOT EXISTS idx_nom_fwb  ON nomination_definitive(code_fwb);
+  `);
+  // Date de la nomination — alimente la chronologie du dossier personnel.
+  try {
+    const colsNom = db.prepare('PRAGMA table_info(nomination_definitive)').all().map(x => x.name);
+    if (!colsNom.includes('date_nomination')) {
+      db.exec('ALTER TABLE nomination_definitive ADD COLUMN date_nomination TEXT');
+      console.log('[migration] nomination_definitive.date_nomination ajoutée');
+    }
+  } catch (e) { console.error('[migration] date_nomination :', e.message); }
+  db.exec(`
 
     -- Remise au travail : quand l'UE/DP nommé n'est plus organisé, le prof est réaffecté
     CREATE TABLE IF NOT EXISTS remise_travail (
@@ -1696,6 +1732,23 @@ try {
     if (p25) db.prepare("INSERT OR IGNORE INTO dotation_civile (annee_civile, dotation_organique) VALUES (2025, ?)").run(p25.valeur_num);
     if (p26) db.prepare("INSERT OR IGNORE INTO dotation_civile (annee_civile, dotation_organique) VALUES (2026, ?)").run(p26.valeur_num);
 
+    // Auto-créer les années civiles qui couvrent l'année scolaire active :
+    // une année scolaire X-Y couvre les années civiles X et Y.
+    // Sans ligne en base, Pilotage ne propose pas l'année → invisible pour l'utilisateur.
+    try {
+      const anneeActiveRow = db.prepare("SELECT code FROM annee_scolaire WHERE active = 1").get();
+      if (anneeActiveRow) {
+        const parts = String(anneeActiveRow.code).split('-');
+        if (parts.length === 2) {
+          const [a1, a2] = [parseInt(parts[0]), parseInt(parts[1])];
+          const ins = db.prepare('INSERT OR IGNORE INTO dotation_civile (annee_civile) VALUES (?)');
+          if (a1 > 2000) ins.run(a1);
+          if (a2 > 2000 && a2 !== a1) ins.run(a2);
+          console.log(`[migration] dotation_civile : années civiles ${a1} et ${a2} garanties`);
+        }
+      }
+    } catch (e) { console.error('[migration] dotation_civile auto:', e.message); }
+
     // Seeder enveloppes initiales (QUAL=150, CF=200→300, INCL=50)
     const seedEnv = [
       ['QUAL', 'Coordinateur Qualité',              2025, 150],
@@ -2656,6 +2709,28 @@ try {
   if (!cols.includes('cours_nom'))         db.exec("ALTER TABLE recrutement_poste ADD COLUMN cours_nom TEXT");
 } catch(e) { console.error('[migration] recrutement colonnes :', e.message); }
 
+// ── Lucie V3++ : échéancier, dossier administratif, communication ──
+try { migrerEcheancier(db); } catch (e) { console.error('[migration] echeancier :', e.message); }
+try { migrerBesoinsOffres(db); } catch (e) { console.error('[migration] besoins :', e.message); }
+try { migrerJournalPersonnel(db); } catch (e) { console.error('[migration] journal :', e.message); }
+try { migrerClassement(db); } catch (e) { console.error('[migration] classement :', e.message); }
+try { migrerAncienneteService(db); } catch (e) { console.error('[migration] anciennete_service :', e.message); }
+try { migrerEtudiants(db); } catch (e) { console.error('[migration] etudiants :', e.message); }
+try { migrerCapitalisation(db); } catch (e) { console.error('[migration] capitalisation :', e.message); }
+try { migrerRentree(db); } catch (e) { console.error('[migration] rentree :', e.message); }
+try { migrerAA(db); } catch (e) { console.error('[migration] aa :', e.message); }
+try { migrerDroitInscription(db); } catch (e) { console.error('[migration] droit inscription :', e.message); }
+try { migrerHistorique(db); } catch (e) { console.error('[migration] historique :', e.message); }
+try { migrerBudget(db); } catch (e) { console.error('[migration] budget :', e.message); }
+// lucie_config : table de configuration clé/valeur — présente en prod depuis l'origine
+// mais jamais créée par migration (omission). On la garantit ici.
+try {
+  db.exec(`CREATE TABLE IF NOT EXISTS lucie_config (
+    cle    TEXT PRIMARY KEY,
+    valeur TEXT
+  )`);
+} catch (e) { console.error('[migration] lucie_config :', e.message); }
+
 // Recréer les VIEW à chaque démarrage pour qu'elles soient à jour
 // quand le schéma évolue (sans nécessiter un init-db complet).
 try {
@@ -2707,6 +2782,22 @@ app.use('/api/planning',     planningRoutes);
 app.use('/api/users',        usersRoutes);
 app.use('/api/admin',        adminRoutes);
 app.use('/api/annees',       anneesRoutes);
+app.use('/api/annuel',       annuelRoutes);
+app.use('/api/echeancier',   echeancierRoutes);
+app.use('/api/dossier',      dossierAdminRoutes);
+app.use('/api/listes',       listesRoutes);
+app.use('/api/besoins',      besoinsRoutes);
+app.use('/api/composition',  compositionRoutes);
+app.use('/api/classement',   classementRoutes);
+app.use('/api/anciennete-service', ancienneteServiceRoutes);
+app.use('/api/etudiants', etudiantsRoutes);
+app.use('/api/capitalisation', capitalisationRoutes);
+app.use('/api/assistants', assistantsRoutes);
+app.use('/api/rentree', rentreeRoutes);
+app.use('/api/acquis', acquisRoutes);
+app.use('/api/droit-inscription', droitInscriptionRoutes);
+app.use('/api/import-historique', importHistoriqueRoutes);
+app.use('/api/budget', budgetRoutes);
 app.use('/api/historique',   historiqueRoutes);
 app.use('/api/etablissement', etablissementRoutes);
 app.use('/api/ea12',          ea12Routes);
@@ -2750,6 +2841,9 @@ app.use((err, req, res, next) => {
   console.error('[ERR]', err);
   res.status(err.status || 500).json({ error: err.message || 'Erreur serveur' });
 });
+
+// ── Moteur de l'échéancier : premier passage 20 s après le démarrage, puis /6 h
+try { demarrerMoteur(db); } catch (e) { console.error('[echeancier] démarrage :', e.message); }
 
 const PORT = process.env.PORT || 3001;
 app.listen(PORT, () => console.log(`🚀 Backend Attributions IIP sur http://localhost:${PORT}`));

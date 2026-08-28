@@ -106,7 +106,14 @@ r.post('/rollback/:snapshotId', authRequired, roleRequired('admin'), (req, res) 
   if (!snap) return res.status(404).json({ error: 'Snapshot introuvable' });
 
   const data = JSON.parse(snap.snapshot);
-  if (data._deleted) return res.status(400).json({ error: 'Impossible de restaurer une attribution supprimée' });
+  // Un snapshot de suppression contient l'intégralité de la ligne : il est
+  // pris AVANT le DELETE. Seuls les snapshots dégradés (_deleted sans données)
+  // sont irrécupérables.
+  if (data._deleted && Object.keys(data).length <= 2) {
+    return res.status(400).json({
+      error: "Ce snapshot ne contient pas les données de l'attribution : restauration impossible.",
+    });
+  }
 
   const allowed = [
     'section','etablissement_referent','contrat_mdp','organisation','ue_num',
@@ -122,9 +129,20 @@ r.post('/rollback/:snapshotId', authRequired, roleRequired('admin'), (req, res) 
   for (const k of allowed) params[k] = data[k] ?? null;
 
   const existing = db.prepare('SELECT id FROM attribution WHERE id = ?').get(snap.attribution_id);
-  if (!existing) return res.status(404).json({ error: 'Attribution introuvable (peut-être supprimée)' });
 
-  db.prepare(`UPDATE attribution SET ${sets} WHERE id = @id`).run(params);
+  if (existing) {
+    db.prepare(`UPDATE attribution SET ${sets} WHERE id = @id`).run(params);
+  } else {
+    // L'attribution a été supprimée : on la recrée à l'identique, en
+    // conservant son identifiant d'origine s'il est encore libre, de sorte
+    // que l'historique et les références (planning) restent cohérents.
+    const colonnes = ['id', ...allowed];
+    const valeurs = { ...params, id: snap.attribution_id };
+    db.prepare(`
+      INSERT INTO attribution (${colonnes.join(', ')})
+      VALUES (${colonnes.map(k => '@' + k).join(', ')})
+    `).run(valeurs);
+  }
 
   // Logger le rollback lui-même
   db.prepare(`
@@ -391,14 +409,16 @@ r.get('/feed', authRequired, (req, res) => {
       items.push({
         id: `notif-${n.id}`,
         source_id: n.id,
-        type: 'recrutement',
+        // Le type conditionne l'icône et la couleur dans la cloche : les rappels
+        // de l'échéancier ne doivent pas s'afficher comme du recrutement.
+        type: n.type === 'echeance_rappel' ? 'echeance' : 'recrutement',
         action: 'info',
         titre: n.titre,
         detail: null,
         auteur: n.cree_par,
         date: n.cree_le,
         lue,
-        lien: n.lien || '/recrutement',
+        lien: n.lien || (n.type === 'echeance_rappel' ? '/echeancier' : '/recrutement'),
         corps: n.corps,
       });
     }

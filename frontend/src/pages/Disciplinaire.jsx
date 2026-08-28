@@ -349,7 +349,7 @@ export default function Disciplinaire() {
       {step === 1 && (
         <div className="bg-white border border-gray-200 rounded-xl p-4 space-y-3">
           <div className="text-sm font-bold text-iip-blue">Étape 1 — Les faits</div>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+          <div className="grid grid-cols-1 md:grid-cols-3 2xl:grid-cols-4 gap-3">
             <div><label className={lab}>Nom</label><input className={champ} value={nom} onChange={e => setNom(e.target.value)} /></div>
             <div><label className={lab}>Prénom</label><input className={champ} value={prenom} onChange={e => setPrenom(e.target.value)} /></div>
             <div><label className={lab}>Section</label><input className={champ} value={section} onChange={e => setSection(e.target.value)} /></div>

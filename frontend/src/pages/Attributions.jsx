@@ -6,8 +6,9 @@ import EptModal from '../components/EptModal.jsx';
 import OrganisationUEModal from '../components/OrganisationUEModal.jsx';
 import OrganiserGroupesModal from '../components/OrganiserGroupesModal.jsx';
 import Doc23Modal from '../components/Doc23Modal.jsx';
+import AnnulationPanel from '../components/AnnulationPanel.jsx';
 import * as XLSX from 'xlsx';
-import { IconClipboardText, IconTrash, IconLock, IconLockOpen, IconRefresh, IconCalendar, IconFileText, IconEraser, IconWand, IconX, IconSettings, IconFolder, IconPlus, IconFileImport, IconFileSpreadsheet, IconUsersGroup, IconScissors, IconClock, IconChevronLeft, IconChevronRight, IconFilter, IconBriefcase } from '@tabler/icons-react';
+import { IconClipboardText, IconTrash, IconLock, IconLockOpen, IconRefresh, IconCalendar, IconFileText, IconEraser, IconWand, IconX, IconSettings, IconFolder, IconPlus, IconFileImport, IconFileSpreadsheet, IconUsersGroup, IconScissors, IconClock, IconChevronLeft, IconChevronRight, IconFilter, IconBriefcase, IconArrowBackUp } from '@tabler/icons-react';
 
 // ─── Modale : copier les attributions d'une section d'une année vers une autre ─
 function CopierSectionModal({ sections, anneeActive, isAdmin, onClose, onCopied }) {
@@ -249,6 +250,7 @@ export default function Attributions() {
   const [filters, setFilters] = useState({ section:'', prof_id:'', contrat:'', type_cours:'', ue_num:'', q:'' });
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
+  const [showAnnulation, setShowAnnulation] = useState(false);
   const [showBulkCreate, setShowBulkCreate] = useState(false);
   const [showCopierSection, setShowCopierSection] = useState(false);
   const [rapportHtml, setRapportHtml] = useState(null); // { html, nom }
@@ -1983,6 +1985,8 @@ export default function Attributions() {
                 <div className="flex flex-col gap-1.5">
                   <button onClick={()=>{ const next = unite==='heures'?'periodes':'heures'; setUniteLocal(next); setUniteGlobal(next); window.dispatchEvent(new Event('unite-change')); }} title="Basculer périodes / heures" className="flex items-center gap-2 bg-white border border-slate-300 text-iip-blue hover:bg-slate-50 text-[13px] font-medium px-3 py-2 rounded-lg"><IconClock size={16}/>{unite==='heures' ? 'Heures' : 'Périodes'}</button>
                   <button onClick={()=>setShowForm(true)} className="flex items-center gap-2 bg-iip-blue hover:bg-iip-blue-dark text-white text-[13px] font-medium px-3 py-2 rounded-lg"><IconPlus size={16}/>Nouveau</button>
+                  <button onClick={()=>setShowAnnulation(true)} title="Annuler une modification récente"
+                    className="flex items-center gap-2 border border-gray-300 text-gray-600 hover:bg-gray-50 text-[13px] font-medium px-3 py-2 rounded-lg"><IconArrowBackUp size={16}/>Annuler</button>
                   <button onClick={()=>setShowCopierSection(true)} className="flex items-center gap-2 bg-white border border-slate-300 text-iip-blue hover:bg-slate-50 text-[13px] font-medium px-3 py-2 rounded-lg"><IconClipboardText size={16}/>Copier section</button>
                   <button onClick={()=>api.exportExcel()} className="flex items-center gap-2 bg-white border border-slate-300 text-iip-blue hover:bg-slate-50 text-[13px] font-medium px-3 py-2 rounded-lg"><IconFileImport size={16}/>Export</button>
                   {isAdmin && <>
@@ -2011,6 +2015,8 @@ export default function Attributions() {
                 <IconClock size={18}/>
               </button>
               <button onClick={()=>setShowForm(true)} title="Nouvelle attribution" className="p-2 rounded-lg text-iip-blue hover:bg-gray-100"><IconPlus size={18}/></button>
+              <button onClick={()=>setShowAnnulation(true)} title="Annuler une modification"
+                className="p-2 rounded-lg text-gray-500 hover:bg-gray-100"><IconArrowBackUp size={18}/></button>
             </div>
           )}
         </aside>
@@ -2312,6 +2318,9 @@ export default function Attributions() {
 
       {/* Modales */}
       {showForm && <AttributionForm onClose={()=>setShowForm(false)} onCreated={load}/>}
+      {showAnnulation && (
+        <AnnulationPanel annee={getAnnee()} onClose={()=>setShowAnnulation(false)} onRestaure={load} />
+      )}
       {newCoursForm && <CoursFormModal cours={{}} ueNum={newCoursForm.ue_num} section={newCoursForm.section}
         onClose={()=>setNewCoursForm(null)}
         onSaved={(code)=>{ const sec=newCoursForm.section; setNewCoursForm(null); load(); setEditRow({section: sec, code_cours: code}); }}/>}
