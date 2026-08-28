@@ -1057,18 +1057,20 @@ r.get('/:id/pae', authRequired, (req, res) => {
   // ne subsiste que les déterminantes, présentées la même année.
   const carteUE = sectionsEtudiant.length
     ? db.prepare(`
-        SELECT DISTINCT ue_num,
-               MAX(CASE WHEN LOWER(COALESCE(ue_det,'')) = 'x' THEN 1 ELSE 0 END) AS determinante,
-               MAX(COALESCE(is_epreuve_integree, 0)) AS epreuve
+        SELECT DISTINCT ue_num, MAX(COALESCE(is_epreuve_integree, 0)) AS epreuve
         FROM ue WHERE section IN (${sectionsEtudiant.map(() => '?').join(',')})
         GROUP BY ue_num
       `).all(...sectionsEtudiant)
     : [];
-  const estEpreuve = {}, estDeterminante = {};
-  for (const u of carteUE) {
-    estEpreuve[u.ue_num] = !!u.epreuve;
-    estDeterminante[u.ue_num] = !!u.determinante;
-  }
+  const estEpreuve = {};
+  for (const u of carteUE) estEpreuve[u.ue_num] = !!u.epreuve;
+
+  // Année d'études de chaque UE, au sens de la section
+  const nivCarte = sectionsEtudiant.length ? niveauxEffectifs(sectionsEtudiant, annee) : {};
+  const rangDe = v => {
+    const m = /^BA(\d+)$/.exec(String(v || '').toUpperCase());
+    return m ? Number(m[1]) : 9;
+  };
 
   // Graphe complet des prérequis, pour le contrôle transitif
   const prereqTous = {};
@@ -1147,14 +1149,18 @@ r.get('/:id/pae', authRequired, (req, res) => {
     // le reste est acquis, ou s'il ne reste que les UE déterminantes, elles
     // aussi au programme de l'année. Toute autre inscription relève de la
     // dérogation, ajoutée à la main.
-    let epreuveEtat = null;
+    let epreuveEtat = null, epreuveRestantes = null;
     if (estEpreuve[ue.ue_num]) {
-      const autres = carteUE.filter(x => x.ue_num !== ue.ue_num).map(x => x.ue_num);
-      const nonAcquises = autres.filter(n => !reussies.has(n));
-      if (!nonAcquises.length) epreuveEtat = 'ouverte';
-      else if (nonAcquises.every(n => estDeterminante[n] && dejaInscritesAnnee.has(n)))
-        epreuveEtat = 'sous_reserve';
-      else epreuveEtat = 'fermee';
+      // L'épreuve ne s'ouvre que si TOUTES les UE des années inférieures sont
+      // acquises. À défaut, elle ne se propose pas — elle s'ajoute à la main,
+      // sur décision du Conseil des études.
+      const rangEpreuve = rangDe(nivCarte[ue.ue_num]);
+      epreuveRestantes = carteUE
+        .filter(x => x.ue_num !== ue.ue_num
+                  && rangDe(nivCarte[x.ue_num]) < rangEpreuve
+                  && !reussies.has(x.ue_num))
+        .map(x => x.ue_num).sort((a, b) => a - b);
+      epreuveEtat = epreuveRestantes.length ? 'fermee' : 'ouverte';
     }
 
     pae.push({
@@ -1163,10 +1169,7 @@ r.get('/:id/pae', authRequired, (req, res) => {
       prerequis_ok,
       epreuve_integree: !!estEpreuve[ue.ue_num],
       epreuve_etat: epreuveEtat,
-      epreuve_restantes: estEpreuve[ue.ue_num]
-        ? carteUE.filter(x => x.ue_num !== ue.ue_num && !reussies.has(x.ue_num))
-            .map(x => x.ue_num).sort((a, b) => a - b)
-        : null,
+      epreuve_restantes: epreuveRestantes,
       deja_reussie,
       va_complete: vaCompletes.has(ue.ue_num),
       deja_suivie: dejaSuivies.has(ue.ue_num),
@@ -1174,9 +1177,7 @@ r.get('/:id/pae', authRequired, (req, res) => {
       accessible: estEpreuve[ue.ue_num]
         ? (epreuveEtat === 'ouverte' && !deja_reussie)
         : (prerequis_ok && !deja_reussie),
-      sous_reserve: estEpreuve[ue.ue_num]
-        ? (epreuveEtat === 'sous_reserve' && !deja_reussie)
-        : (sous_reserve && !deja_reussie),
+      sous_reserve: estEpreuve[ue.ue_num] ? false : (sous_reserve && !deja_reussie),
       prereq_manquants: prereqManquants.map(p => p.ue_num_requis),
       prereq_chaine: chaineManquante,
       // Circulaire 9764 : la réinscription dans une UE déjà réussie est possible
@@ -1199,9 +1200,7 @@ r.get('/:id/pae', authRequired, (req, res) => {
       // L'épreuve intégrée ne suit pas le jeu des prérequis : elle relève de
       // sa propre règle, déjà tranchée plus haut.
       if (u.epreuve_integree) {
-        if (u.epreuve_etat === 'ouverte' || u.epreuve_etat === 'sous_reserve') {
-          proposees.add(u.ue_num); stableProp = false;
-        }
+        if (u.epreuve_etat === 'ouverte') { proposees.add(u.ue_num); stableProp = false; }
         continue;
       }
       const manquants = u.prereq_manquants || [];
@@ -2086,28 +2085,34 @@ r.get('/:id/fiche-inscription', authRequired, (req, res) => {
   // Carte des UE de la section : déterminantes et épreuve intégrée
   const carteFiche = sectionsEtud.length
     ? db.prepare(`
-        SELECT DISTINCT ue_num,
-               MAX(CASE WHEN LOWER(COALESCE(ue_det,'')) = 'x' THEN 1 ELSE 0 END) AS determinante,
-               MAX(COALESCE(is_epreuve_integree, 0)) AS epreuve
+        SELECT DISTINCT ue_num, MAX(COALESCE(is_epreuve_integree, 0)) AS epreuve
         FROM ue WHERE section IN (${sectionsEtud.map(() => '?').join(',')})
         GROUP BY ue_num
       `).all(...sectionsEtud)
     : [];
-  const epreuveF = {}, determF = {};
-  for (const u of carteFiche) { epreuveF[u.ue_num] = !!u.epreuve; determF[u.ue_num] = !!u.determinante; }
+  const epreuveF = {};
+  for (const u of carteFiche) epreuveF[u.ue_num] = !!u.epreuve;
+  const rangF = v => {
+    const m = /^BA(\d+)$/.exec(String(v || '').toUpperCase());
+    return m ? Number(m[1]) : 9;
+  };
 
   const situationDe = ueNum => {
     // L'épreuve intégrée sanctionne la section : elle ne s'ouvre que si tout
     // le reste est acquis, ou s'il ne subsiste que les UE déterminantes,
     // présentées la même année.
     if (epreuveF[ueNum]) {
+      // Elle ne s'ouvre que si toutes les UE des années inférieures sont
+      // acquises. Sinon, seule une décision du Conseil des études la justifie.
+      const rangE = rangF(nivDe2[ueNum]);
       const restantes = carteFiche
-        .filter(x => x.ue_num !== ueNum && !acquisSet.has(x.ue_num))
+        .filter(x => x.ue_num !== ueNum
+                  && rangF(nivDe2[x.ue_num]) < rangE
+                  && !acquisSet.has(x.ue_num))
         .map(x => x.ue_num).sort((a, b) => a - b);
-      if (!restantes.length) return { etat: 'ok' };
-      if (restantes.every(n => determF[n] && inscritesAnnee.has(n)))
-        return { etat: 'sous_reserve', chaine: restantes };
-      return { etat: 'impossible', chaine: restantes, epreuve: true };
+      return restantes.length
+        ? { etat: 'impossible', chaine: restantes, epreuve: true }
+        : { etat: 'ok' };
     }
     const chaine = chaineDe(ueNum);
     if (!chaine.length) return { etat: 'ok' };
@@ -2156,7 +2161,7 @@ r.get('/:id/fiche-inscription', authRequired, (req, res) => {
       <td>${i.ue_num}</td>
       <td>${esc(i.ue_nom || '')}${i.codiplomation_ch ? ' <b>(CH)</b>' : ''}${sr ? ' <i>(sous réserve de la réussite de l\u2019UE ' + sr.join(', ') + ')</i>' : ''}${dejaAcquise ? ' <b style="color:#B45309">— déjà acquise en ' + esc(dejaAcquise.annee_scolaire || '') + '</b>' : ''}${sit.etat === 'impossible'
         ? (sit.epreuve
-            ? ' <b style="color:#B91C1C">— épreuve intégrée : ' + sit.chaine.length + ' unité(s) restent à acquérir</b>'
+            ? ' <b style="color:#B91C1C">— épreuve intégrée : ' + sit.chaine.length + ' unité(s) des années antérieures non acquise(s)</b>'
             : ' <b style="color:#B91C1C">— exige la réussite de l\u2019UE ' + sit.chaine.join(', ') + '</b>')
         : ''}</td>
       <td>${esc(i.section || '')}</td>
@@ -2241,8 +2246,8 @@ ${(() => {
           ? 'UE ' + x.i.ue_num + ' — épreuve intégrée, ' + x.s.chaine.length + ' unité(s) non acquise(s)'
           : 'UE ' + x.i.ue_num + ' exige ' + x.s.chaine.join(', ')).join(' · ')}.
       Une inscription conditionnelle ne vaut qu'entre unités d'une même année d'études, inscrites
-      ensemble ; l'épreuve intégrée, elle, ne s'ouvre que si tout le reste est acquis, ou s'il ne
-      subsiste que les unités déterminantes, présentées la même année. Retirez-les depuis l'onglet PAE avant de remettre ce document — elles gonflent
+      ensemble ; l'épreuve intégrée, elle, ne s'ouvre que si toutes les unités des années
+      antérieures sont acquises — à défaut, seule une décision du Conseil des études la justifie. Retirez-les depuis l'onglet PAE avant de remettre ce document — elles gonflent
       également le droit d'inscription.
     </div>`;
   }

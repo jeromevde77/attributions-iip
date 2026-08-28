@@ -1016,7 +1016,7 @@ function FicheEtudiant({ id, annee, onClose }) {
                         : u.epreuve_integree
                           ? <span className="text-[11px] text-red-600 flex items-center gap-1"
                               title={'Restent à acquérir : UE ' + (u.epreuve_restantes || []).join(', ')}>
-                              <IconAlertTriangle size={12} /> Épreuve intégrée — {(u.epreuve_restantes || []).length} UE non acquise(s)
+                              <IconAlertTriangle size={12} /> Épreuve intégrée — {(u.epreuve_restantes || []).length} UE des années antérieures non acquise(s)
                             </span>
                           : <span className="text-[11px] text-red-600 flex items-center gap-1"
                               title={u.prereq_chaine?.length ? 'Chaîne complète : UE ' + u.prereq_chaine.join(', ') : ''}>
