@@ -165,8 +165,15 @@ export default function RapportPAE({ anneeCourante, onClose }) {
         const v = valeur(e, c, j);
         const repris = v.endsWith('*');
         const b = repris ? v.slice(0, -1) : v;
-        const base = /^\d\d-\d\d$/.test(b) || b === 'C' || b === '✓' || /^\d+([.,]\d+)?$/.test(b) ? 'ok'
-          : b.startsWith('VA') ? 'va' : b === 'R' ? 'ko' : b === 'x' ? 'ins' : '';
+        // Une note se juge au seuil de 10/20 : la colorer en vert du seul fait
+        // qu'elle existe reviendrait à présenter un échec comme une réussite.
+        let base = '';
+        if (/^\d+([.,]\d+)?$/.test(b)) base = Number(b.replace(',', '.')) >= 10 ? 'ok' : 'ko';
+        else if (/^\d\d-\d\d$/.test(b) || b === 'C' || b === '✓') base = 'ok';
+        else if (b.startsWith('VA')) base = 'va';
+        else if (b === 'R') base = 'ko';
+        else if (b === 'A') base = 'abs';
+        else if (b === 'x') base = 'ins';
         const cls = base + (repris ? ' repris' : '');
         return `<td class="${cls}">${esc(v)}</td>`;
       }).join('');
@@ -209,6 +216,7 @@ export default function RapportPAE({ anneeCourante, onClose }) {
   td.va  { background: #ede9fe; color: #5b21b6; font-weight: 700; }
   td.ko  { background: #fee2e2; color: #991b1b; font-weight: 700; }
   td.ins { background: #e0f2fe; color: #075985; }
+  td.abs { background: #f1f5f9; color: #64748b; }
   td.repris { opacity: .55; font-style: italic; }
   th.long { min-width: 74px; }
   th .lib { display: block; font-weight: normal; color: #64748b; font-size: 7.5px;

@@ -740,7 +740,9 @@ r.post('/rapport-pae/excel', authRequired, async (req, res) => {
   const classe = v => {
     if (!v) return null;
     const b = String(v).replace('*', '');
-    if (/^\d\d-\d\d$/.test(b) || b === 'C' || b === '✓' || /^\d+([.,]\d+)?$/.test(b)) return 'ok';
+    // Une note se juge au seuil de 10/20 — sans quoi un 7 s'afficherait en vert.
+    if (/^\d+([.,]\d+)?$/.test(b)) return Number(b.replace(',', '.')) >= 10 ? 'ok' : 'ko';
+    if (/^\d\d-\d\d$/.test(b) || b === 'C' || b === '✓') return 'ok';
     if (b.startsWith('VA')) return 'va';
     if (b === 'R') return 'ko';
     if (b === 'A') return 'abs';
