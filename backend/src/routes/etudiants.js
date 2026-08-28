@@ -1052,6 +1052,24 @@ r.get('/:id/pae', authRequired, (req, res) => {
   const { sections: sectionsEtudiant, scores: sectionsScores } =
     sectionsDeLEtudiant(profId, req.query.section);
 
+  // Carte des UE de la ou des sections : déterminantes et épreuve intégrée.
+  // L'épreuve ne se présente qu'une fois tout le reste acquis — ou lorsqu'il
+  // ne subsiste que les déterminantes, présentées la même année.
+  const carteUE = sectionsEtudiant.length
+    ? db.prepare(`
+        SELECT DISTINCT ue_num,
+               MAX(CASE WHEN LOWER(COALESCE(ue_det,'')) = 'x' THEN 1 ELSE 0 END) AS determinante,
+               MAX(COALESCE(is_epreuve_integree, 0)) AS epreuve
+        FROM ue WHERE section IN (${sectionsEtudiant.map(() => '?').join(',')})
+        GROUP BY ue_num
+      `).all(...sectionsEtudiant)
+    : [];
+  const estEpreuve = {}, estDeterminante = {};
+  for (const u of carteUE) {
+    estEpreuve[u.ue_num] = !!u.epreuve;
+    estDeterminante[u.ue_num] = !!u.determinante;
+  }
+
   // Graphe complet des prérequis, pour le contrôle transitif
   const prereqTous = {};
   for (const p of db.prepare('SELECT ue_num, prerequis_num FROM ue_prerequis').all()) {
@@ -1125,16 +1143,40 @@ r.get('/:id/pae', authRequired, (req, res) => {
       prereqManquants.every(p => organiseesSet.has(p.ue_num_requis) &&
                                  nivMap[p.ue_num_requis] === nivDeUe);
 
+    // L'épreuve intégrée sanctionne la section : elle ne s'ouvre que si tout
+    // le reste est acquis, ou s'il ne reste que les UE déterminantes, elles
+    // aussi au programme de l'année. Toute autre inscription relève de la
+    // dérogation, ajoutée à la main.
+    let epreuveEtat = null;
+    if (estEpreuve[ue.ue_num]) {
+      const autres = carteUE.filter(x => x.ue_num !== ue.ue_num).map(x => x.ue_num);
+      const nonAcquises = autres.filter(n => !reussies.has(n));
+      if (!nonAcquises.length) epreuveEtat = 'ouverte';
+      else if (nonAcquises.every(n => estDeterminante[n] && dejaInscritesAnnee.has(n)))
+        epreuveEtat = 'sous_reserve';
+      else epreuveEtat = 'fermee';
+    }
+
     pae.push({
       ...ue,
       prerequis,
       prerequis_ok,
+      epreuve_integree: !!estEpreuve[ue.ue_num],
+      epreuve_etat: epreuveEtat,
+      epreuve_restantes: estEpreuve[ue.ue_num]
+        ? carteUE.filter(x => x.ue_num !== ue.ue_num && !reussies.has(x.ue_num))
+            .map(x => x.ue_num).sort((a, b) => a - b)
+        : null,
       deja_reussie,
       va_complete: vaCompletes.has(ue.ue_num),
       deja_suivie: dejaSuivies.has(ue.ue_num),
       inscrite: dejaInscritesAnnee.has(ue.ue_num),
-      accessible: prerequis_ok && !deja_reussie,
-      sous_reserve: sous_reserve && !deja_reussie,
+      accessible: estEpreuve[ue.ue_num]
+        ? (epreuveEtat === 'ouverte' && !deja_reussie)
+        : (prerequis_ok && !deja_reussie),
+      sous_reserve: estEpreuve[ue.ue_num]
+        ? (epreuveEtat === 'sous_reserve' && !deja_reussie)
+        : (sous_reserve && !deja_reussie),
       prereq_manquants: prereqManquants.map(p => p.ue_num_requis),
       prereq_chaine: chaineManquante,
       // Circulaire 9764 : la réinscription dans une UE déjà réussie est possible
@@ -1154,6 +1196,14 @@ r.get('/:id/pae', authRequired, (req, res) => {
     stableProp = true;
     for (const u of pae) {
       if (u.deja_reussie || proposees.has(u.ue_num)) continue;
+      // L'épreuve intégrée ne suit pas le jeu des prérequis : elle relève de
+      // sa propre règle, déjà tranchée plus haut.
+      if (u.epreuve_integree) {
+        if (u.epreuve_etat === 'ouverte' || u.epreuve_etat === 'sous_reserve') {
+          proposees.add(u.ue_num); stableProp = false;
+        }
+        continue;
+      }
       const manquants = u.prereq_manquants || [];
       const ok = manquants.every(p => proposees.has(p) && nivParUe[p] === nivParUe[u.ue_num]);
       if (ok) { proposees.add(u.ue_num); stableProp = false; }
@@ -2033,7 +2083,32 @@ r.get('/:id/fiche-inscription', authRequired, (req, res) => {
   // Le « sous réserve » ne vaut qu'entre UE de MÊME NIVEAU inscrites la même
   // année — l'épreuve intégrée et ses déterminantes. Un prérequis d'une année
   // antérieure non acquis rend l'inscription impossible, non conditionnelle.
+  // Carte des UE de la section : déterminantes et épreuve intégrée
+  const carteFiche = sectionsEtud.length
+    ? db.prepare(`
+        SELECT DISTINCT ue_num,
+               MAX(CASE WHEN LOWER(COALESCE(ue_det,'')) = 'x' THEN 1 ELSE 0 END) AS determinante,
+               MAX(COALESCE(is_epreuve_integree, 0)) AS epreuve
+        FROM ue WHERE section IN (${sectionsEtud.map(() => '?').join(',')})
+        GROUP BY ue_num
+      `).all(...sectionsEtud)
+    : [];
+  const epreuveF = {}, determF = {};
+  for (const u of carteFiche) { epreuveF[u.ue_num] = !!u.epreuve; determF[u.ue_num] = !!u.determinante; }
+
   const situationDe = ueNum => {
+    // L'épreuve intégrée sanctionne la section : elle ne s'ouvre que si tout
+    // le reste est acquis, ou s'il ne subsiste que les UE déterminantes,
+    // présentées la même année.
+    if (epreuveF[ueNum]) {
+      const restantes = carteFiche
+        .filter(x => x.ue_num !== ueNum && !acquisSet.has(x.ue_num))
+        .map(x => x.ue_num).sort((a, b) => a - b);
+      if (!restantes.length) return { etat: 'ok' };
+      if (restantes.every(n => determF[n] && inscritesAnnee.has(n)))
+        return { etat: 'sous_reserve', chaine: restantes };
+      return { etat: 'impossible', chaine: restantes, epreuve: true };
+    }
     const chaine = chaineDe(ueNum);
     if (!chaine.length) return { etat: 'ok' };
     const niv = (nivDe2[ueNum] || '').toUpperCase();
@@ -2079,7 +2154,11 @@ r.get('/:id/fiche-inscription', authRequired, (req, res) => {
     return `
     <tr>
       <td>${i.ue_num}</td>
-      <td>${esc(i.ue_nom || '')}${i.codiplomation_ch ? ' <b>(CH)</b>' : ''}${sr ? ' <i>(sous réserve de la réussite de l\u2019UE ' + sr.join(', ') + ')</i>' : ''}${dejaAcquise ? ' <b style="color:#B45309">— déjà acquise en ' + esc(dejaAcquise.annee_scolaire || '') + '</b>' : ''}${sit.etat === 'impossible' ? ' <b style="color:#B91C1C">— exige la réussite de l\u2019UE ' + sit.chaine.join(', ') + '</b>' : ''}</td>
+      <td>${esc(i.ue_nom || '')}${i.codiplomation_ch ? ' <b>(CH)</b>' : ''}${sr ? ' <i>(sous réserve de la réussite de l\u2019UE ' + sr.join(', ') + ')</i>' : ''}${dejaAcquise ? ' <b style="color:#B45309">— déjà acquise en ' + esc(dejaAcquise.annee_scolaire || '') + '</b>' : ''}${sit.etat === 'impossible'
+        ? (sit.epreuve
+            ? ' <b style="color:#B91C1C">— épreuve intégrée : ' + sit.chaine.length + ' unité(s) restent à acquérir</b>'
+            : ' <b style="color:#B91C1C">— exige la réussite de l\u2019UE ' + sit.chaine.join(', ') + '</b>')
+        : ''}</td>
       <td>${esc(i.section || '')}</td>
       <td>${esc(i.date_inscription || '')}</td>
       <td>${i.admission_type === 'titre' ? 'Titre' : i.admission_type === 'test' ? 'Test' : '—'}</td>
@@ -2158,9 +2237,12 @@ ${(() => {
   if (impossibles.length) {
     html += `<div class="alerte grave">
       <b>${impossibles.length} inscription(s) impossible(s)</b> : les prérequis ne sont pas acquis.
-      ${impossibles.map(x => 'UE ' + x.i.ue_num + ' exige ' + x.s.chaine.join(', ')).join(' · ')}.
+      ${impossibles.map(x => x.s.epreuve
+          ? 'UE ' + x.i.ue_num + ' — épreuve intégrée, ' + x.s.chaine.length + ' unité(s) non acquise(s)'
+          : 'UE ' + x.i.ue_num + ' exige ' + x.s.chaine.join(', ')).join(' · ')}.
       Une inscription conditionnelle ne vaut qu'entre unités d'une même année d'études, inscrites
-      ensemble. Retirez-les depuis l'onglet PAE avant de remettre ce document — elles gonflent
+      ensemble ; l'épreuve intégrée, elle, ne s'ouvre que si tout le reste est acquis, ou s'il ne
+      subsiste que les unités déterminantes, présentées la même année. Retirez-les depuis l'onglet PAE avant de remettre ce document — elles gonflent
       également le droit d'inscription.
     </div>`;
   }
