@@ -8,6 +8,7 @@ import db from '../db/index.js';
 import { authRequired, roleRequired } from '../middleware/auth.js';
 import { construireGraphe, niveauxEffectifs } from './capitalisation.js';
 import { structureUE, calculerNoteUE, coursValidesAnterieurs } from './acquis.js';
+import { calculerDI, calculerDIS } from './droitInscription.js';
 
 const r = Router();
 
@@ -1879,6 +1880,11 @@ r.get('/:id/fiche-inscription', authRequired, (req, res) => {
     </tr>`;
   }).join('');
 
+  // Droit d'inscription, calculé sur le programme de l'année
+  const di = calculerDI(etudId, annee);
+  const dis = calculerDIS(etudId, annee);
+  const eur = n => (Number(n) || 0).toFixed(2).replace('.', ',') + ' €';
+
   const html = `<!DOCTYPE html><html lang="fr"><head><meta charset="utf-8">
 <title>Fiche d'inscription — ${esc(e.nom)} ${esc(e.prenom)}</title>
 <style>
@@ -1919,6 +1925,21 @@ ${acquisRows.length || autres.length ? `
   </tr></thead>
   <tbody>${lignesInsc || '<tr><td colspan="8" style="text-align:center;color:#94a3b8">Aucune UE inscrite pour cette année — encodez les inscriptions dans la grille de parcours</td></tr>'}</tbody>
 </table>
+
+${di ? `
+<h2>Droit d'inscription</h2>
+<table>
+  <thead><tr><th>Forfait</th><th>Secondaire</th><th>Supérieur</th><th>Total constaté</th><th>Dû</th></tr></thead>
+  <tbody><tr>
+    <td>${eur(di.forfait)}</td>
+    <td>${di.retenues.secondaire} pér. — ${eur(di.montant_secondaire)}</td>
+    <td>${di.retenues.superieur} pér. — ${eur(di.montant_superieur)}</td>
+    <td><b>${eur(di.montant_arrondi)}</b></td>
+    <td><b>${di.exonere ? '0,00 € (exonéré)' : eur(di.montant_arrondi)}</b></td>
+  </tr></tbody>
+</table>
+${dis && dis.soumis ? `<div style="font-size:11px">Droit d'inscription spécifique : <b>${eur(dis.montant_du)}</b></div>` : ''}
+` : ''}
 
 <div class="sig">
   <div>Signature de l'apprenant</div>

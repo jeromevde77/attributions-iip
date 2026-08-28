@@ -9,6 +9,7 @@ import ImportPAE from '../components/ImportPAE.jsx';
 import PurgeResultats from '../components/PurgeResultats.jsx';
 import RapportPAE from '../components/RapportPAE.jsx';
 import ImportListe from '../components/ImportListe.jsx';
+import DroitInscription from '../components/DroitInscription.jsx';
 
 // Niveau de l'étudiant : BA1/BA2 s'il ne suit qu'une année, « Diplômant »
 // s'il ne lui reste que la BA3, « Parcours » s'il en mélange plusieurs.
@@ -962,6 +963,7 @@ function FicheEtudiant({ id, annee, onClose }) {
             ['inscriptions', `Détail (${data.inscriptions?.length || 0})`],
             ['pae', `PAE ${annee}`],
             ['va', 'Valorisation'],
+            ['di', "Droit d'inscription"],
             ['dossier', 'Dossier']].map(([k, l]) => (
             <button key={k} onClick={() => { setOnglet(k); if (k==='pae' && !pae) chargerPAE(); }}
               className={`px-4 py-3 text-sm font-medium border-b-2 -mb-px ${onglet===k
@@ -1023,6 +1025,8 @@ function FicheEtudiant({ id, annee, onClose }) {
           {onglet === 'grille' && <GrilleParcours etudId={id} peutEcrire={true} />}
 
           {onglet === 'va' && <Valorisations etudId={id} annee={annee} />}
+
+          {onglet === 'di' && <DroitInscription etudId={id} annee={annee} />}
 
           {onglet === 'dossier' && <DossierApprenant etudId={id} />}
 
