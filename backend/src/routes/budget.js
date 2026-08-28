@@ -284,6 +284,50 @@ r.delete('/depense/:id', authRequired, roleRequired('admin', 'editeur'), (req, r
   res.json({ ok: true });
 });
 
+// ── Import du canevas budgétaire ───────────────────────────────────────────
+// Le canevas ne porte pas de colonne « section » : celle-ci se lit dans le
+// préfixe du détail — « TIM - Prix pour les étudiants ». Les lignes sans
+// préfixe reconnaissable atterrissent dans un fourre-tout à répartir.
+r.post('/import', authRequired, roleRequired('admin', 'editeur'), (req, res) => {
+  const { annee, lignes, remplacer } = req.body;
+  if (!annee || !Array.isArray(lignes)) {
+    return res.status(400).json({ error: 'annee et lignes requises' });
+  }
+
+  const autorisees = sectionsAutorisees(req.user);
+  const refusees = new Set();
+
+  const ins = db.prepare(`
+    INSERT INTO budget_ligne (annee_civile, section, compte_ref, details, a_charge,
+      prix_unitaire, quantite, taux_tva, remarque, statut, cree_par)
+    VALUES (?,?,?,?,?,?,?,?,?, 'prevu', ?)
+  `);
+
+  let n = 0, supprimees = 0;
+  db.transaction(() => {
+    if (remplacer) {
+      const sections = [...new Set(lignes.map(l => l.section).filter(Boolean))]
+        .filter(s => !autorisees || autorisees.includes(s));
+      for (const s of sections) {
+        supprimees += db.prepare(
+          'DELETE FROM budget_ligne WHERE annee_civile = ? AND section = ?'
+        ).run(Number(annee), s).changes;
+      }
+    }
+    for (const l of lignes) {
+      const section = l.section || 'À répartir';
+      if (autorisees && !autorisees.includes(section)) { refusees.add(section); continue; }
+      ins.run(Number(annee), section, l.compte_ref || null, l.details || '',
+              l.a_charge || 'IIP', Number(l.prix_unitaire || 0), Number(l.quantite || 1),
+              l.taux_tva != null ? Number(l.taux_tva) : 0.21, l.remarque || null,
+              req.user?.email || null);
+      n++;
+    }
+  })();
+
+  res.json({ ok: true, annee, importees: n, supprimees, refusees: [...refusees] });
+});
+
 // ── Reprendre le budget de l'année précédente ──────────────────────────────
 r.post('/reprendre', authRequired, roleRequired('admin', 'editeur'), (req, res) => {
   const { annee, annee_source, section } = req.body;
@@ -311,7 +355,12 @@ r.post('/reprendre', authRequired, roleRequired('admin', 'editeur'), (req, res) 
       n++;
     }
   })();
-  res.json({ ok: true, reprises: n });
+  res.json({
+    ok: true, reprises: n, source_vide: src.length === 0,
+    message: src.length === 0
+      ? `Aucune prévision n'existe en ${annee_source} pour ${section} : rien à reprendre.`
+      : `${n} ligne(s) reprise(s) de ${annee_source}.`,
+  });
 });
 
 export default r;

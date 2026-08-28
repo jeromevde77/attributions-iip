@@ -99,32 +99,94 @@ export default function Budget() {
     });
     const j = await rep.json();
     if (!rep.ok) { setMessage({ type: 'err', texte: j.error }); return; }
-    setMessage({ type: 'ok', texte: `${j.reprises} ligne(s) reprise(s) de ${annee - 1}` });
+    setMessage({ type: j.source_vide ? 'err' : 'ok', texte: j.message });
     await charger();
   }
 
-  // Import du référentiel des comptes depuis l'onglet « Données » du canevas
-  async function importerComptes(fichier) {
+  // Import du canevas : le référentiel des comptes, et les prévisions elles-mêmes
+  async function importerCanevas(fichier) {
     try {
       const XLSX = await import('xlsx');
       const wb = XLSX.read(await fichier.arrayBuffer(), { type: 'array' });
-      const nom = wb.SheetNames.find(n => /donn/i.test(n)) || wb.SheetNames[0];
-      const lignes = XLSX.utils.sheet_to_json(wb.Sheets[nom], { defval: null });
-      const liste = lignes.filter(l => l['Référence']).map(l => ({
-        reference: String(l['Référence']).trim(),
-        libelle: String(l['Libellé'] || '').trim(),
-        bilan: l['Bilan'] || null, type: l['Type'] || null,
-        tva_defaut: l['TVA'] != null ? Number(l['TVA']) : null,
-      }));
-      if (!liste.length) throw new Error('Aucun compte trouvé — attendu : colonnes Référence et Libellé.');
-      const rep = await fetch('/api/budget/comptes', {
-        method: 'PUT', headers: authHeaders(), body: JSON.stringify({ comptes: liste }),
-      });
-      const j = await rep.json();
-      if (!rep.ok) { setMessage({ type: 'err', texte: j.error }); return; }
-      setMessage({ type: 'ok', texte: `${j.comptes} compte(s) enregistré(s)` });
-      const c = await fetch('/api/budget/comptes', { headers: authHeaders() }).then(r => r.json());
-      setComptes(Array.isArray(c) ? c : []);
+      const rapport = [];
+
+      // Onglet « Données » — les comptes généraux
+      const ongletD = wb.SheetNames.find(n => /donn/i.test(n));
+      if (ongletD) {
+        const liste = XLSX.utils.sheet_to_json(wb.Sheets[ongletD], { defval: null })
+          .filter(l => l['Référence'])
+          .map(l => ({
+            reference: String(l['Référence']).trim(),
+            libelle: String(l['Libellé'] || '').trim(),
+            bilan: l['Bilan'] || null, type: l['Type'] || null,
+            tva_defaut: l['TVA'] != null ? Number(l['TVA']) : null,
+          }));
+        if (liste.length) {
+          const rep = await fetch('/api/budget/comptes', {
+            method: 'PUT', headers: authHeaders(), body: JSON.stringify({ comptes: liste }),
+          });
+          const j = await rep.json();
+          if (rep.ok) rapport.push(`${j.comptes} compte(s)`);
+        }
+      }
+
+      // Onglet « Budget » — les prévisions. Les en-têtes sont en ligne 5.
+      const ongletB = wb.SheetNames.find(n => /budget/i.test(n));
+      if (ongletB) {
+        const M = XLSX.utils.sheet_to_json(wb.Sheets[ongletB], { header: 1, defval: null });
+        const iEnt = M.findIndex(r0 => (r0 || []).some(v => /Compte g[ée]n[ée]ral/i.test(String(v || ''))));
+        if (iEnt >= 0) {
+          const ent = (M[iEnt] || []).map(v => String(v || '').trim());
+          const col = re => ent.findIndex(v => re.test(v));
+          const iC = col(/Compte g[ée]n[ée]ral/i), iD = col(/D[ée]tails/i),
+                iA = col(/charge|profit/i), iPU = col(/Prix unitaire/i),
+                iQ = col(/Quantit/i), iT = col(/Taux TVA/i);
+
+          const prev = [];
+          for (let li = iEnt + 1; li < M.length; li++) {
+            const row = M[li] || [];
+            const details = String(row[iD] ?? '').trim();
+            const compte = String(row[iC] ?? '').trim();
+            if (!details || !compte) continue;
+            // « 612410 Achat mobilier… » → référence = premier mot
+            const ref = compte.split(/\s+/)[0];
+            // « TIM - Prix pour les étudiants » → section = préfixe
+            const sec = details.includes(' - ') ? details.split(' - ')[0].trim() : null;
+            prev.push({
+              section: sec && sec.length <= 24 ? sec : null,
+              compte_ref: /^[0-9A-Za-z.]+$/.test(ref) ? ref : null,
+              details: sec ? details.slice(details.indexOf(' - ') + 3).trim() : details,
+              a_charge: String(row[iA] ?? 'IIP').trim() || 'IIP',
+              prix_unitaire: Number(row[iPU] || 0),
+              quantite: Number(row[iQ] || 1),
+              taux_tva: row[iT] != null && row[iT] !== '' ? Number(row[iT]) : 0.21,
+            });
+          }
+
+          if (prev.length) {
+            const sansSection = prev.filter(p => !p.section).length;
+            if (!window.confirm(
+              `${prev.length} prévision(s) trouvée(s) dans le canevas.\n` +
+              (sansSection ? `${sansSection} sans section identifiable iront dans « À répartir ».\n` : '') +
+              `\nLes importer pour l'année ${annee} ? Les prévisions existantes des sections concernées seront remplacées.`
+            )) return;
+            const rep = await fetch('/api/budget/import', {
+              method: 'POST', headers: authHeaders(),
+              body: JSON.stringify({ annee, lignes: prev, remplacer: true }),
+            });
+            const j = await rep.json();
+            if (!rep.ok) { setMessage({ type: 'err', texte: j.error }); return; }
+            rapport.push(`${j.importees} prévision(s)`);
+            if (j.refusees?.length) rapport.push(`refusées hors périmètre : ${j.refusees.join(', ')}`);
+          }
+        }
+      }
+
+      if (!rapport.length) throw new Error("Aucun onglet « Budget » ni « Données » reconnu dans ce fichier.");
+      setMessage({ type: 'ok', texte: 'Import terminé — ' + rapport.join(' · ') });
+      const cpt = await fetch('/api/budget/comptes', { headers: authHeaders() }).then(r => r.json());
+      setComptes(Array.isArray(cpt) ? cpt : []);
+      await charger();
     } catch (e) { setMessage({ type: 'err', texte: e.message }); }
   }
 
@@ -144,9 +206,9 @@ export default function Budget() {
           </p>
         </div>
         <label className={`flex items-center gap-2 px-3 py-1.5 text-[12.5px] border border-slate-300 rounded-lg cursor-pointer hover:bg-slate-50`}>
-          <IconUpload size={14} /> Importer les comptes du canevas
+          <IconUpload size={14} /> Importer le canevas ({annee})
           <input type="file" accept=".xlsx,.xlsm" className="hidden"
-            onChange={e => e.target.files[0] && importerComptes(e.target.files[0])} />
+            onChange={e => e.target.files[0] && importerCanevas(e.target.files[0])} />
         </label>
       </div>
 
