@@ -142,6 +142,18 @@ export function migrerEtudiants(dbx) {
     addCol('etudiant_inscription', "derogation INTEGER NOT NULL DEFAULT 0");
     console.log('[migration] etudiant_piece + colonnes fiche inscription');
 
+    // Correspondance entre les codes d'UE d'eCampus (TINFO, PDPS, 901…) et les
+    // numéros d'UE de Lucie. Établie une fois, elle vaut pour tous les imports
+    // suivants — la liste d'eCampus ne porte pas le ue_num.
+    dbx.exec(`
+    CREATE TABLE IF NOT EXISTS ue_code_externe (
+      id       INTEGER PRIMARY KEY AUTOINCREMENT,
+      code     TEXT NOT NULL UNIQUE,
+      ue_num   INTEGER NOT NULL,
+      libelle  TEXT,
+      maj_le   TEXT DEFAULT (datetime('now'))
+    );`);
+
     // Valorisation des acquis — AGCF 13-12-2024 (art. 3 partielle, art. 4 complète)
     dbx.exec(`
     CREATE TABLE IF NOT EXISTS etudiant_valorisation (
@@ -343,6 +355,139 @@ r.get('/rapport', authRequired, (req, res) => {
 </body></html>`;
 
   res.json({ html, nom: 'parcours_' + section + '_' + annee + '.html' });
+});
+
+// ── Codes d'UE externes : correspondance avec les numéros de Lucie ─────────
+// eCampus désigne les UE par un code court (TINFO, PDPS, 901). La liste ne
+// porte pas le ue_num : on rapproche donc les intitulés, une fois pour toutes.
+const sansAccent = s => String(s || '')
+  .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+  .toLowerCase()
+  .replace(/[’']/g, "'")
+  .replace(/^[a-zàéèêç\s]+\s*:\s*/i, '')     // « Psychomotricité : … »
+  .replace(/[^a-z0-9]+/g, ' ')
+  .trim();
+
+function ressemblance(a, b) {
+  const A = sansAccent(a), B = sansAccent(b);
+  if (!A || !B) return 0;
+  if (A === B) return 1;
+  if (A.startsWith(B) || B.startsWith(A)) return 0.92;
+  const motsA = new Set(A.split(' ').filter(m => m.length > 3));
+  const motsB = new Set(B.split(' ').filter(m => m.length > 3));
+  if (!motsA.size || !motsB.size) return 0;
+  let communs = 0;
+  for (const m of motsA) if (motsB.has(m)) communs++;
+  return communs / Math.max(motsA.size, motsB.size);
+}
+
+r.post('/codes-externes/resoudre', authRequired, (req, res) => {
+  const { codes, section } = req.body;
+  if (!Array.isArray(codes)) return res.status(400).json({ error: 'codes requis' });
+
+  const anneeRef = db.prepare('SELECT code FROM annee_scolaire WHERE active = 1').get()?.code;
+  const ues = db.prepare(`
+    SELECT DISTINCT ue_num, MIN(ue_nom) AS ue_nom, MIN(section) AS section FROM ue
+    ${section ? 'WHERE section = ?' : ''}
+    GROUP BY ue_num ORDER BY ue_num
+  `).all(...(section ? [section] : []));
+
+  const memorises = {};
+  for (const m of db.prepare('SELECT code, ue_num FROM ue_code_externe').all()) {
+    memorises[m.code] = m.ue_num;
+  }
+
+  const resultats = codes.map(({ code, libelle }) => {
+    const cd = String(code || '').trim();
+    if (memorises[cd] != null) {
+      const u = ues.find(x => x.ue_num === memorises[cd]);
+      return { code: cd, libelle, ue_num: memorises[cd], ue_nom: u?.ue_nom || null,
+               origine: 'memorise', score: 1 };
+    }
+    let meilleur = null, score = 0;
+    for (const u of ues) {
+      const s = ressemblance(libelle, u.ue_nom);
+      if (s > score) { score = s; meilleur = u; }
+    }
+    return score >= 0.6
+      ? { code: cd, libelle, ue_num: meilleur.ue_num, ue_nom: meilleur.ue_nom,
+          origine: 'suggere', score: Math.round(score * 100) / 100 }
+      : { code: cd, libelle, ue_num: null, ue_nom: null, origine: null, score: 0 };
+  });
+
+  res.json({ resultats, ues });
+});
+
+r.put('/codes-externes', authRequired, roleRequired('admin', 'editeur'), (req, res) => {
+  const { correspondances } = req.body;
+  if (!Array.isArray(correspondances)) return res.status(400).json({ error: 'correspondances requises' });
+  const up = db.prepare(`
+    INSERT INTO ue_code_externe (code, ue_num, libelle, maj_le)
+    VALUES (?,?,?, datetime('now'))
+    ON CONFLICT(code) DO UPDATE SET ue_num = excluded.ue_num, maj_le = datetime('now')
+  `);
+  let n = 0;
+  db.transaction(() => {
+    for (const m of correspondances) {
+      if (!m.code || m.ue_num == null) continue;
+      up.run(String(m.code).trim(), Number(m.ue_num), m.libelle || null); n++;
+    }
+  })();
+  res.json({ ok: true, enregistrees: n });
+});
+
+// ── Import d'une liste eCampus : signalétique, inscriptions et groupes ─────
+r.post('/import-liste', authRequired, roleRequired('admin', 'editeur'), (req, res) => {
+  const { annee, etudiants, inscriptions } = req.body;
+  if (!annee || !Array.isArray(etudiants)) {
+    return res.status(400).json({ error: 'annee et etudiants requis' });
+  }
+
+  const upEtud = db.prepare(`
+    INSERT INTO etudiant (id_ecampus, nom, prenom, email_ecole, email_perso,
+      date_naissance, num_national, gsm, adresse, localite, cp, titre)
+    VALUES (?,?,?,?,?,?,?,?,?,?,?,?)
+    ON CONFLICT(id_ecampus) DO UPDATE SET
+      nom = excluded.nom, prenom = excluded.prenom,
+      email_ecole   = COALESCE(excluded.email_ecole,   etudiant.email_ecole),
+      email_perso   = COALESCE(excluded.email_perso,   etudiant.email_perso),
+      date_naissance= COALESCE(excluded.date_naissance,etudiant.date_naissance),
+      num_national  = COALESCE(excluded.num_national,  etudiant.num_national),
+      gsm           = COALESCE(excluded.gsm,           etudiant.gsm),
+      adresse       = COALESCE(excluded.adresse,       etudiant.adresse),
+      localite      = COALESCE(excluded.localite,      etudiant.localite),
+      cp            = COALESCE(excluded.cp,            etudiant.cp),
+      titre         = COALESCE(excluded.titre,         etudiant.titre)
+  `);
+  const trouver = db.prepare('SELECT id FROM etudiant WHERE id_ecampus = ?');
+  const upInsc = db.prepare(`
+    INSERT INTO etudiant_inscription (etudiant_id, annee_scolaire, ue_num, groupe, date_inscription)
+    VALUES (?,?,?,?,?)
+    ON CONFLICT(etudiant_id, annee_scolaire, ue_num) DO UPDATE SET
+      groupe = COALESCE(excluded.groupe, etudiant_inscription.groupe)
+  `);
+
+  const dateJour = new Date().toISOString().slice(0, 10);
+  let nEtud = 0, nInsc = 0, sansCode = 0;
+
+  db.transaction(() => {
+    for (const e of etudiants) {
+      upEtud.run(String(e.id_ecampus || '').trim(), e.nom || '', e.prenom || '',
+        e.email_ecole || null, e.email_perso || null, e.date_naissance || null,
+        e.num_national || null, e.gsm || null, e.adresse || null,
+        e.localite || null, e.cp || null, e.titre || null);
+      nEtud++;
+    }
+    for (const i of (inscriptions || [])) {
+      if (i.ue_num == null) { sansCode++; continue; }
+      const e = trouver.get(String(i.id_ecampus || '').trim());
+      if (!e) { sansCode++; continue; }
+      upInsc.run(e.id, annee, Number(i.ue_num), i.groupe || null, dateJour);
+      nInsc++;
+    }
+  })();
+
+  res.json({ ok: true, annee, etudiants: nEtud, inscriptions: nInsc, ignorees: sansCode });
 });
 
 // ── Rapport de PAE : données pour l'aperçu et pour l'export Excel ──────────

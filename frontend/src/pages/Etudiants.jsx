@@ -8,6 +8,7 @@ import SchemaCapitalisationVue from '../components/SchemaCapitalisation.jsx';
 import ImportPAE from '../components/ImportPAE.jsx';
 import PurgeResultats from '../components/PurgeResultats.jsx';
 import RapportPAE from '../components/RapportPAE.jsx';
+import ImportListe from '../components/ImportListe.jsx';
 
 // Niveau de l'étudiant : BA1/BA2 s'il ne suit qu'une année, « Diplômant »
 // s'il ne lui reste que la BA3, « Parcours » s'il en mélange plusieurs.
@@ -1236,6 +1237,7 @@ export default function Etudiants() {
   const [importPAE, setImportPAE] = useState(false);
   const [purge, setPurge] = useState(false);
   const [rapportPAE, setRapportPAE] = useState(false);
+  const [importListe, setImportListe] = useState(false);
   const [tri, setTri] = useState({ champ: 'nom', sens: 1 });
 
   function trierPar(champ) {
@@ -1492,6 +1494,10 @@ export default function Etudiants() {
           <input type="file" accept=".xlsm,.xlsx" className="hidden"
             onChange={e => e.target.files[0] && importerResultats(e.target.files[0])} />
         </label>
+        <button onClick={() => setImportListe(true)}
+          className="flex items-center gap-2 px-3 py-2 text-sm border border-iip-turquoise text-iip-turquoise rounded-lg hover:bg-iip-turquoise/5">
+          <IconUpload size={15} /> Importer une liste eCampus
+        </button>
         <button onClick={() => setImportPAE(true)}
           className="flex items-center gap-2 px-3 py-2 text-sm border border-iip-blue text-iip-blue rounded-lg hover:bg-iip-blue/5">
           <IconUpload size={15} /> Importer le classeur PAE
@@ -1563,6 +1569,10 @@ export default function Etudiants() {
 
       {selId && (
         <FicheEtudiant id={selId} annee={annee} onClose={() => setSelId(null)} />
+      )}
+
+      {importListe && (
+        <ImportListe annee={annee} onClose={() => setImportListe(false)} onImporte={charger} />
       )}
 
       {rapportPAE && (
