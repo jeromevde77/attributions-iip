@@ -1983,7 +1983,7 @@ r.get('/:id/fiche-inscription', authRequired, (req, res) => {
       <td>${a.ue_num}</td>
       <td>${esc(a.ue_nom || '')}</td>
       <td>${a.kind === 'va' ? '<b>Valorisation des acquis</b>' : 'Réussite'}</td>
-      <td style="text-align:right">${a.points != null ? a.points + ' %' : '—'}</td>
+      <td style="text-align:right">${a.points != null ? a.points + ' / 20' : '—'}</td>
     </tr>`).join('');
 
   const lignesAutres = autres.map(h => `
@@ -1993,8 +1993,15 @@ r.get('/:id/fiche-inscription', authRequired, (req, res) => {
       <td colspan="2">${h.resultat === 'ajourne' ? 'Refusé' : 'Absent'}</td>
     </tr>`).join('');
 
+  // Droit d'inscription, calculé sur le programme de l'année
+  const di = calculerDI(etudId, annee);
+  const dis = calculerDIS(etudId, annee);
+  const eur = n => (Number(n) || 0).toFixed(2).replace('.', ',') + ' €';
+  const parUe = Object.fromEntries((di?.detail || []).map(d => [d.ue_num, d]));
+
   const lignesInsc = inscriptions.map(i => {
     const sr = sousReserveDe(i.ue_num);
+    const d = parUe[i.ue_num];
     return `
     <tr>
       <td>${i.ue_num}</td>
@@ -2002,16 +2009,35 @@ r.get('/:id/fiche-inscription', authRequired, (req, res) => {
       <td>${esc(i.section || '')}</td>
       <td>${esc(i.date_inscription || '')}</td>
       <td>${i.admission_type === 'titre' ? 'Titre' : i.admission_type === 'test' ? 'Test' : '—'}</td>
-      <td>${i.dispense_complete ? 'Dispense complète' : '—'}</td>
-      <td style="text-align:right">${i.di_specifique != null ? Number(i.di_specifique).toFixed(2) + ' €' : '—'}</td>
+      <td>${d?.dispensee ? 'Dispense complète' : (i.dispense_complete ? 'Dispense complète' : '—')}</td>
+      <td style="text-align:right">${d ? d.periodes_brutes : '—'}</td>
+      <td style="text-align:right">${d && !d.dispensee ? eur(d.montant) : '—'}</td>
       <td style="text-align:right">${i.ects != null ? i.ects : '—'}</td>
     </tr>`;
   }).join('');
 
-  // Droit d'inscription, calculé sur le programme de l'année
-  const di = calculerDI(etudId, annee);
-  const dis = calculerDIS(etudId, annee);
-  const eur = n => (Number(n) || 0).toFixed(2).replace('.', ',') + ' €';
+  // Pied du tableau : forfait, puis total
+  const piedDI = di && di.detail.length ? `
+    <tr class="tot">
+      <td colspan="6" style="text-align:right">Forfait annuel</td>
+      <td style="text-align:right">—</td>
+      <td style="text-align:right">${eur(di.forfait)}</td><td></td>
+    </tr>
+    <tr class="tot">
+      <td colspan="6" style="text-align:right"><b>Droit d'inscription — total</b></td>
+      <td style="text-align:right"><b>${di.periodes.total}</b></td>
+      <td style="text-align:right"><b>${di.exonere ? '0,00 € (exonéré)' : eur(di.montant_arrondi)}</b></td>
+      <td></td>
+    </tr>
+    ${di.plafond_atteint ? `<tr><td colspan="9" style="font-size:10px;color:#64748b">
+      Plafond de ${di.bareme.plafond_periodes} périodes atteint : ${di.retenues.secondaire + di.retenues.superieur}
+      période(s) facturée(s) sur ${di.periodes.total}, le secondaire étant compté en premier.</td></tr>` : ''}
+    ${di.exonere ? `<tr><td colspan="9" style="font-size:10px;color:#065f46">
+      Exonération du droit d'inscription${di.motif ? ' — motif enregistré' : ''}.</td></tr>` : ''}
+    ${dis && dis.soumis ? `<tr class="tot"><td colspan="6" style="text-align:right">
+      Droit d'inscription spécifique (${dis.periodes_hebdo} pér./sem.)</td>
+      <td></td><td style="text-align:right"><b>${eur(dis.montant_du)}</b></td><td></td></tr>` : ''}
+  ` : '';
 
   const html = `<!DOCTYPE html><html lang="fr"><head><meta charset="utf-8">
 <title>Fiche d'inscription — ${esc(e.nom)} ${esc(e.prenom)}</title>
@@ -2023,6 +2049,7 @@ r.get('/:id/fiche-inscription', authRequired, (req, res) => {
   table { border-collapse: collapse; width: 100%; margin-bottom: 10px; }
   th, td { border: 1px solid #cbd5e1; padding: 4px 7px; text-align: left; }
   th { background: #f1f5f9; font-size: 10.5px; text-transform: uppercase; letter-spacing: .4px; }
+  tr.tot td { background: #f8fafc; font-size: 11px; }
   .sig { margin-top: 34px; display: flex; gap: 60px; }
   .sig div { flex: 1; border-top: 1px solid #94a3b8; padding-top: 5px; font-size: 11px; }
   .footer { margin-top: 22px; font-size: 10px; color: #64748b; }
@@ -2041,7 +2068,7 @@ r.get('/:id/fiche-inscription', authRequired, (req, res) => {
 ${acquisRows.length || autres.length ? `
 <h2>Parcours antérieur au sein de l'établissement</h2>
 <table>
-  <thead><tr><th>Année</th><th>UE</th><th>Intitulé</th><th>Mode d'acquisition</th><th>Points</th></tr></thead>
+  <thead><tr><th>Année</th><th>UE</th><th>Intitulé</th><th>Mode d'acquisition</th><th>Note</th></tr></thead>
   <tbody>${lignesAcquis}${lignesAutres}</tbody>
 </table>` : ''}
 
@@ -2049,25 +2076,10 @@ ${acquisRows.length || autres.length ? `
 <table>
   <thead><tr>
     <th>UE</th><th>Intitulé</th><th>Section</th><th>Date d'inscription</th>
-    <th>Admission</th><th>Valorisation</th><th>DI spécifique</th><th>ECTS</th>
+    <th>Admission</th><th>Valorisation</th><th>Périodes</th><th>Droit d'inscription</th><th>ECTS</th>
   </tr></thead>
-  <tbody>${lignesInsc || '<tr><td colspan="8" style="text-align:center;color:#94a3b8">Aucune UE inscrite pour cette année — encodez les inscriptions dans la grille de parcours</td></tr>'}</tbody>
+  <tbody>${lignesInsc ? lignesInsc + piedDI : '<tr><td colspan="9" style="text-align:center;color:#94a3b8">Aucune UE inscrite pour cette année — encodez les inscriptions dans la grille de parcours</td></tr>'}</tbody>
 </table>
-
-${di ? `
-<h2>Droit d'inscription</h2>
-<table>
-  <thead><tr><th>Forfait</th><th>Secondaire</th><th>Supérieur</th><th>Total constaté</th><th>Dû</th></tr></thead>
-  <tbody><tr>
-    <td>${eur(di.forfait)}</td>
-    <td>${di.retenues.secondaire} pér. — ${eur(di.montant_secondaire)}</td>
-    <td>${di.retenues.superieur} pér. — ${eur(di.montant_superieur)}</td>
-    <td><b>${eur(di.montant_arrondi)}</b></td>
-    <td><b>${di.exonere ? '0,00 € (exonéré)' : eur(di.montant_arrondi)}</b></td>
-  </tr></tbody>
-</table>
-${dis && dis.soumis ? `<div style="font-size:11px">Droit d'inscription spécifique : <b>${eur(dis.montant_du)}</b></div>` : ''}
-` : ''}
 
 <div class="sig">
   <div>Signature de l'apprenant</div>

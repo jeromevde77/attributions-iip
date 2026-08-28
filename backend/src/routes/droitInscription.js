@@ -115,7 +115,7 @@ export function calculerDI(etudId, annee) {
   // récent (sous-requête non corrélée).
   const lignes = db.prepare(`
     SELECT i.ue_num, i.dispense_complete, i.annee_scolaire,
-           (SELECT ue_per_cours FROM ue x
+           (SELECT ue_per_etudiants FROM ue x
              WHERE x.ue_num = i.ue_num AND x.annee_scolaire = i.annee_scolaire) AS per_annee,
            (SELECT ue_niveau FROM ue x
              WHERE x.ue_num = i.ue_num AND x.annee_scolaire = i.annee_scolaire) AS niv_annee
@@ -125,7 +125,7 @@ export function calculerDI(etudId, annee) {
   `).all(etudId, annee);
 
   const recent = db.prepare(`
-    SELECT ue_per_cours AS periodes, ue_niveau AS niveau, ue_nom
+    SELECT ue_per_etudiants AS periodes, ue_niveau AS niveau, ue_nom
     FROM ue WHERE ue_num = ? ORDER BY annee_scolaire DESC LIMIT 1
   `);
 
@@ -155,6 +155,22 @@ export function calculerDI(etudId, annee) {
   // Plafond global, les périodes du secondaire comptées en premier (ex. 5.1)
   const secRetenues = Math.min(perSec, b.plafond_periodes);
   const supRetenues = Math.max(0, Math.min(perSup, b.plafond_periodes - secRetenues));
+
+  // Répartition du plafond ligne à ligne, pour que la fiche remise à
+  // l'étudiant porte un montant en regard de chaque UE.
+  let resteSec = secRetenues, resteSup = supRetenues;
+  for (const d of detail.filter(x => x.niveau === 'secondaire')) {
+    d.periodes_facturees = Math.min(d.periodes, resteSec);
+    resteSec -= d.periodes_facturees;
+    d.tarif = b.tarif_secondaire;
+    d.montant = Math.round(d.periodes_facturees * b.tarif_secondaire * 100) / 100;
+  }
+  for (const d of detail.filter(x => x.niveau === 'superieur')) {
+    d.periodes_facturees = Math.min(d.periodes, resteSup);
+    resteSup -= d.periodes_facturees;
+    d.tarif = b.tarif_superieur;
+    d.montant = Math.round(d.periodes_facturees * b.tarif_superieur * 100) / 100;
+  }
 
   const montantSec = secRetenues * b.tarif_secondaire;
   const montantSup = supRetenues * b.tarif_superieur;

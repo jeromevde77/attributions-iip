@@ -130,6 +130,7 @@ export default function DroitInscription({ etudId, annee, peutEcrire = true }) {
                       <th className="py-1 text-left">UE</th>
                       <th className="py-1 text-left w-24">Niveau</th>
                       <th className="py-1 text-right w-20">Périodes</th>
+                      <th className="py-1 text-right w-24">Montant</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -147,7 +148,11 @@ export default function DroitInscription({ etudId, annee, peutEcrire = true }) {
                           {d.dispensee
                             ? <span className="text-slate-400 line-through">{d.periodes_brutes}</span>
                             : d.periodes}
+                          {!d.dispensee && d.periodes_facturees != null && d.periodes_facturees < d.periodes && (
+                            <span className="block text-[9.5px] text-sky-700">{d.periodes_facturees} facturée(s)</span>
+                          )}
                         </td>
+                        <td className="py-1 text-right">{d.dispensee ? '—' : eur(d.montant)}</td>
                       </tr>
                     ))}
                   </tbody>
