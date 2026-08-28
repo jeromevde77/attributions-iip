@@ -2004,14 +2004,44 @@ r.get('/:id/fiche-inscription', authRequired, (req, res) => {
   const prereqDe = {};
   for (const p of prereqs) (prereqDe[p.ue_num] = prereqDe[p.ue_num] || []).push(p.prerequis_num);
   const inscritesAnnee = new Set(inscriptions.map(i => i.ue_num));
+
+  // Niveau effectif : celui défini pour la section, comme dans le schéma de
+  // capitalisation — non la valeur brute du référentiel.
+  const sectionsEtud = [...new Set(inscriptions.map(i => i.section).filter(Boolean))];
+  const nivDe2 = sectionsEtud.length ? niveauxEffectifs(sectionsEtud, annee) : {};
   const anneeRefNiv2 = db.prepare('SELECT code FROM annee_scolaire WHERE active = 1').get()?.code || annee;
-  const nivRows2 = db.prepare('SELECT DISTINCT ue_num, ue_niv FROM ue WHERE annee_scolaire = ?').all(anneeRefNiv2);
-  const nivDe2 = {};
-  for (const n of nivRows2) nivDe2[n.ue_num] = (n.ue_niv || '').toUpperCase();
-  const sousReserveDe = ueNum => {
-    const manquants = (prereqDe[ueNum] || []).filter(p => !acquisSet.has(p));
-    return manquants.length && manquants.every(p =>
-      inscritesAnnee.has(p) && nivDe2[p] === nivDe2[ueNum]) ? manquants : null;
+  for (const n of db.prepare('SELECT DISTINCT ue_num, ue_niv FROM ue WHERE annee_scolaire = ?').all(anneeRefNiv2)) {
+    if (!nivDe2[n.ue_num]) nivDe2[n.ue_num] = (n.ue_niv || '').toUpperCase();
+  }
+
+  // Chaîne COMPLÈTE des prérequis manquants d'une UE — l'exigence est
+  // transitive : la 256 exige la 255, laquelle exige la 254.
+  const chaineDe = ueNum => {
+    const m = new Set(), vus = new Set(), pile = [ueNum];
+    while (pile.length) {
+      const n = pile.pop();
+      if (vus.has(n)) continue;
+      vus.add(n);
+      for (const p of (prereqDe[n] || [])) {
+        if (acquisSet.has(p)) continue;
+        m.add(p); pile.push(p);
+      }
+    }
+    return [...m].sort((a, b) => a - b);
+  };
+
+  // Le « sous réserve » ne vaut qu'entre UE de MÊME NIVEAU inscrites la même
+  // année — l'épreuve intégrée et ses déterminantes. Un prérequis d'une année
+  // antérieure non acquis rend l'inscription impossible, non conditionnelle.
+  const situationDe = ueNum => {
+    const chaine = chaineDe(ueNum);
+    if (!chaine.length) return { etat: 'ok' };
+    const niv = (nivDe2[ueNum] || '').toUpperCase();
+    const conditionnelle = chaine.every(p =>
+      inscritesAnnee.has(p) && (nivDe2[p] || '').toUpperCase() === niv);
+    return conditionnelle
+      ? { etat: 'sous_reserve', chaine }
+      : { etat: 'impossible', chaine };
   };
 
   const esc = s => String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;');
@@ -2039,7 +2069,8 @@ r.get('/:id/fiche-inscription', authRequired, (req, res) => {
   const parUe = Object.fromEntries((di?.detail || []).map(d => [d.ue_num, d]));
 
   const lignesInsc = inscriptions.map(i => {
-    const sr = sousReserveDe(i.ue_num);
+    const sit = situationDe(i.ue_num);
+    const sr = sit.etat === 'sous_reserve' ? sit.chaine : null;
     const d = parUe[i.ue_num];
     // Réinscription à une UE déjà acquise : la circulaire l'admet sur décision
     // du Conseil des études, mais c'est le plus souvent le vestige d'un
@@ -2048,7 +2079,7 @@ r.get('/:id/fiche-inscription', authRequired, (req, res) => {
     return `
     <tr>
       <td>${i.ue_num}</td>
-      <td>${esc(i.ue_nom || '')}${i.codiplomation_ch ? ' <b>(CH)</b>' : ''}${sr ? ' <i>(sous réserve de la réussite de l\u2019UE ' + sr.join(', ') + ')</i>' : ''}${dejaAcquise ? ' <b style="color:#B45309">— déjà acquise en ' + esc(dejaAcquise.annee_scolaire || '') + '</b>' : ''}</td>
+      <td>${esc(i.ue_nom || '')}${i.codiplomation_ch ? ' <b>(CH)</b>' : ''}${sr ? ' <i>(sous réserve de la réussite de l\u2019UE ' + sr.join(', ') + ')</i>' : ''}${dejaAcquise ? ' <b style="color:#B45309">— déjà acquise en ' + esc(dejaAcquise.annee_scolaire || '') + '</b>' : ''}${sit.etat === 'impossible' ? ' <b style="color:#B91C1C">— exige la réussite de l\u2019UE ' + sit.chaine.join(', ') + '</b>' : ''}</td>
       <td>${esc(i.section || '')}</td>
       <td>${esc(i.date_inscription || '')}</td>
       <td>${i.admission_type === 'titre' ? 'Titre' : i.admission_type === 'test' ? 'Test' : '—'}</td>
@@ -2095,6 +2126,7 @@ r.get('/:id/fiche-inscription', authRequired, (req, res) => {
   tr.tot td { background: #f8fafc; font-size: 11px; }
   .alerte { background: #FEF3C7; border: 1px solid #FCD34D; color: #92400E;
             padding: 7px 10px; border-radius: 6px; font-size: 11px; margin: 10px 0; }
+  .alerte.grave { background: #FEE2E2; border-color: #FCA5A5; color: #991B1B; }
   .sig { margin-top: 34px; display: flex; gap: 60px; }
   .sig div { flex: 1; border-top: 1px solid #94a3b8; padding-top: 5px; font-size: 11px; }
   .footer { margin-top: 22px; font-size: 10px; color: #64748b; }
@@ -2119,11 +2151,27 @@ ${acquisRows.length || autres.length ? `
 
 ${(() => {
   const dejaVues = inscriptions.filter(i => acquisRows.some(a => a.ue_num === i.ue_num));
-  return dejaVues.length ? `<div class="alerte">
-    <b>${dejaVues.length} unité(s) d'enseignement déjà acquise(s)</b> figurent à cette inscription
-    (UE ${dejaVues.map(i => i.ue_num).join(', ')}). Une réinscription suppose une décision favorable
-    du Conseil des études ; à défaut, retirez-les depuis l'onglet PAE avant de remettre ce document.
-  </div>` : '';
+  const impossibles = inscriptions
+    .map(i => ({ i, s: situationDe(i.ue_num) }))
+    .filter(x => x.s.etat === 'impossible');
+  let html = '';
+  if (impossibles.length) {
+    html += `<div class="alerte grave">
+      <b>${impossibles.length} inscription(s) impossible(s)</b> : les prérequis ne sont pas acquis.
+      ${impossibles.map(x => 'UE ' + x.i.ue_num + ' exige ' + x.s.chaine.join(', ')).join(' · ')}.
+      Une inscription conditionnelle ne vaut qu'entre unités d'une même année d'études, inscrites
+      ensemble. Retirez-les depuis l'onglet PAE avant de remettre ce document — elles gonflent
+      également le droit d'inscription.
+    </div>`;
+  }
+  if (dejaVues.length) {
+    html += `<div class="alerte">
+      <b>${dejaVues.length} unité(s) d'enseignement déjà acquise(s)</b> figurent à cette inscription
+      (UE ${dejaVues.map(i => i.ue_num).join(', ')}). Une réinscription suppose une décision favorable
+      du Conseil des études.
+    </div>`;
+  }
+  return html;
 })()}
 
 <h2>Unités d'enseignement — inscription ${esc(annee)}</h2>
