@@ -20,8 +20,12 @@ export default function RapportPAE({ anneeCourante, onClose }) {
   const [ueNum, setUeNum] = useState('');
   const [ues, setUes] = useState([]);
 
-  const [contenu, setContenu] = useState('annee');    // annee | etat
+  const [contenu, setContenu] = useState('annee');    // annee | etat | note
   const [granularite, setGranularite] = useState('ue');
+  const [intitules, setIntitules] = useState(false);   // en-têtes détaillés
+  const [synthese, setSynthese] = useState(true);      // colonnes acquis / ECTS
+  const [tauxUE, setTauxUE] = useState(true);          // ligne de réussite par UE
+  const [filtre, setFiltre] = useState('tous');        // tous | echec | diplomables
 
   const [apercu, setApercu] = useState(null);
   const [enCours, setEnCours] = useState(false);
@@ -68,6 +72,16 @@ export default function RapportPAE({ anneeCourante, onClose }) {
 
   // Valeur d'une cellule : l'année de validation, ou l'état de l'année courante
   function valeur(e, col, j) {
+    if (contenu === 'note') {
+      if (j.granularite === 'cours') {
+        const c0 = e.cours[col.code];
+        return c0 && c0.note != null ? String(c0.note) : (c0 ? '' : '');
+      }
+      const a = e.ue[col.ue_num];
+      if (a && a.points != null) return String(a.points);
+      const p = e.points_courant?.[col.ue_num];
+      return p != null ? String(p) : (a ? (a.mode === 'va' ? 'VA' : '✓') : '');
+    }
     if (j.granularite === 'cours') {
       const c = e.cours[col.code];
       if (!c) return contenu === 'annee' ? '' : '';
@@ -98,18 +112,46 @@ export default function RapportPAE({ anneeCourante, onClose }) {
       return m ? NIV_PALETTE[(Number(m[1]) - 1) % NIV_PALETTE.length] : '#94A3B8';
     };
     const enTetes = j.colonnes.map(c =>
-      `<th title="${esc(c.libelle)}">${esc(c.code)}` +
-      `<span style="color:${coulNiv(c.ue_niv)};font-weight:700">${esc(c.ue_niv || '')}</span></th>`).join('');
-    const lignes = j.etudiants.map((e, i) => {
+      `<th title="${esc(c.libelle)}" class="${intitules ? 'long' : ''}">${esc(c.code)}` +
+      `<span style="color:${coulNiv(c.ue_niv)};font-weight:700">${esc(c.ue_niv || '')}</span>` +
+      (intitules ? `<span class="lib">${esc((c.libelle || '').slice(0, 42))}</span>` : '') +
+      `</th>`).join('')
+      + (synthese
+          ? '<th class="s">Acquis</th><th class="s">ECTS</th><th class="s">Situation</th>'
+          : '');
+    const retenus = j.etudiants.filter(e =>
+      filtre === 'echec' ? e.echecs > 0
+      : filtre === 'diplomables' ? e.diplomable
+      : true);
+    if (!retenus.length) { setErreur('Aucun étudiant ne correspond au filtre.'); return; }
+
+    const lignes = retenus.map((e, i) => {
       const cells = j.colonnes.map(c => {
         const v = valeur(e, c, j);
         const cls = /^\d\d-\d\d$/.test(v) || v === 'C' ? 'ok'
           : v.startsWith('VA') ? 'va' : v === 'R' ? 'ko' : v === 'x' ? 'ins' : '';
         return `<td class="${cls}">${esc(v)}</td>`;
       }).join('');
+      const synth = synthese
+        ? `<td class="s">${e.acquises}/${e.total_ue}</td>`
+          + `<td class="s">${e.ects}${e.ects_total ? '/' + e.ects_total : ''}</td>`
+          + `<td class="s">${e.diplomable ? '<b>diplômable</b>' : (e.echecs ? e.echecs + ' échec(s)' : '')}</td>`
+        : '';
       return `<tr><td class="num">${i + 1}</td><td class="nom">${esc(e.nom)} ${esc(e.prenom)}`
-        + `<span class="mat">${esc(e.id_ecampus || '')}${e.niveau ? ' · ' + esc(e.niveau) : ''}</span></td>${cells}</tr>`;
+        + `<span class="mat">${esc(e.id_ecampus || '')}${e.niveau ? ' · ' + esc(e.niveau) : ''}</span></td>${cells}${synth}</tr>`;
     }).join('');
+
+    // Ligne de taux de réussite : elle désigne les UE qui font barrage
+    const ligneTaux = tauxUE
+      ? `<tr class="taux"><td></td><td class="nom">Taux de réussite</td>` +
+        j.colonnes.map(c0 => {
+          const t = j.taux?.[c0.code];
+          const cls = t == null ? '' : t >= 75 ? 'ok' : t >= 50 ? '' : 'ko';
+          return `<td class="${cls}">${t == null ? '' : t + '%'}</td>`;
+        }).join('') +
+        (synthese ? '<td class="s"></td><td class="s"></td><td class="s"></td>' : '') +
+        `</tr>`
+      : '';
 
     const html = `<!DOCTYPE html><html lang="fr"><head><meta charset="utf-8">
 <title>PAE ${esc(j.section)} — ${esc(j.annee)}</title>
@@ -129,18 +171,28 @@ export default function RapportPAE({ anneeCourante, onClose }) {
   td.va  { background: #ede9fe; color: #5b21b6; font-weight: 700; }
   td.ko  { background: #fee2e2; color: #991b1b; font-weight: 700; }
   td.ins { background: #e0f2fe; color: #075985; }
+  th.long { min-width: 74px; }
+  th .lib { display: block; font-weight: normal; color: #64748b; font-size: 7.5px;
+            line-height: 1.15; margin-top: 2px; }
+  td.s, th.s { background: #f8fafc; font-size: 10px; }
+  tr.taux td { background: #f1f5f9; font-weight: 700; font-size: 10px; color: #475569; }
+  tr.taux td.ok { color: #047857; }
+  tr.taux td.ko { color: #b91c1c; }
   .legende { margin-top: 10px; font-size: 10px; color: #64748b; }
   @media print { body { margin: 8mm; } @page { size: landscape; } }
 </style></head><body>
 <h1>Plan annuel — ${esc(j.section)}</h1>
-<div class="meta">${esc(j.annee)} · ${j.etudiants.length} étudiant(s) · ${j.colonnes.length} colonne(s)
+<div class="meta">${esc(j.annee)} · ${retenus.length} étudiant(s) · ${j.colonnes.length} colonne(s)
   · ${contenu === 'annee' ? "année de validation" : "état de l'année"} · imprimé le ${new Date().toLocaleDateString('fr-BE')}</div>
 <table><thead><tr><th></th><th style="text-align:left">Étudiant</th>${enTetes}</tr></thead>
-<tbody>${lignes}</tbody></table>
+<tbody>${lignes}${ligneTaux}</tbody></table>
 <div class="legende">
   ${contenu === 'annee'
     ? "Chaque case porte l'année de la première validation. <b>VA</b> valorisation · <b>R</b> refusé · <b>x</b> inscrit, non délibéré."
-    : "<b>C</b> acquise · <b>VA</b> valorisation · <b>R</b> refusé · <b>A</b> absent · <b>x</b> inscrit, non délibéré."}
+    : contenu === 'note'
+      ? "Chaque case porte la note sur 20 lorsqu'elle est connue. <b>VA</b> valorisation · <b>✓</b> acquise sans note."
+      : "<b>C</b> acquise · <b>VA</b> valorisation · <b>R</b> refusé · <b>A</b> absent · <b>x</b> inscrit, non délibéré."}
+  ${tauxUE ? "La dernière ligne donne le taux de réussite de chaque UE parmi les étudiants qui l'ont suivie." : ''}
 </div></body></html>`;
 
     setApercu({ html, nom: `pae_${j.section}_${j.annee}.html` });
@@ -156,7 +208,11 @@ export default function RapportPAE({ anneeCourante, onClose }) {
     const l1 = ['', '', '', '', '', '', '', '', '', ...j.colonnes.map(c => c.libelle)];
     const l2 = ['Id_Etud', 'Email Perso', 'EmailEcole', 'NomEtud', 'PréEtud', '', 'inscription',
                 'Classe', 'Niveau', ...j.colonnes.map(c => c.code), 'Commentaire(s) du Conseil des Etudes'];
-    const lignes = j.etudiants.map(e => ([
+    const retenus = j.etudiants.filter(e =>
+      filtre === 'echec' ? e.echecs > 0
+      : filtre === 'diplomables' ? e.diplomable
+      : true);
+    const lignes = retenus.map(e => ([
       e.id_ecampus || '', '', e.email_ecole || '', e.nom || '', e.prenom || '',
       '', '', '', e.niveau || '',
       ...j.colonnes.map(c => valeur(e, c, j)), '',
@@ -241,7 +297,8 @@ export default function RapportPAE({ anneeCourante, onClose }) {
             <div className="grid grid-cols-2 gap-4">
               <div>
                 <div className="text-[11px] font-semibold text-slate-500 uppercase tracking-wide mb-1.5">Contenu des cases</div>
-                {[['annee', "Année de validation"], ['etat', "État de l'année choisie"]].map(([v, l]) => (
+                {[['annee', "Année de validation"], ['etat', "État de l'année choisie"],
+                  ['note', 'Note sur 20']].map(([v, l]) => (
                   <label key={v} className="flex items-center gap-1.5 text-[12.5px] mb-1">
                     <input type="radio" checked={contenu === v} onChange={() => setContenu(v)} /> {l}
                   </label>
@@ -254,6 +311,41 @@ export default function RapportPAE({ anneeCourante, onClose }) {
                     <input type="radio" checked={granularite === v} onChange={() => setGranularite(v)} /> {l}
                   </label>
                 ))}
+              </div>
+            </div>
+
+            <div>
+              <div className="text-[11px] font-semibold text-slate-500 uppercase tracking-wide mb-1.5">
+                Enrichissements
+              </div>
+              <div className="grid grid-cols-2 gap-x-4 gap-y-1">
+                <label className="flex items-start gap-2 text-[12.5px]">
+                  <input type="checkbox" checked={intitules} onChange={e => setIntitules(e.target.checked)} className="mt-0.5" />
+                  <span>Intitulés en en-tête
+                    <span className="block text-[10.5px] text-slate-500">Sous le code, pour un document remis au jury</span>
+                  </span>
+                </label>
+                <label className="flex items-start gap-2 text-[12.5px]">
+                  <input type="checkbox" checked={synthese} onChange={e => setSynthese(e.target.checked)} className="mt-0.5" />
+                  <span>Synthèse par étudiant
+                    <span className="block text-[10.5px] text-slate-500">UE acquises, ECTS cumulés, situation</span>
+                  </span>
+                </label>
+                <label className="flex items-start gap-2 text-[12.5px]">
+                  <input type="checkbox" checked={tauxUE} onChange={e => setTauxUE(e.target.checked)} className="mt-0.5" />
+                  <span>Taux de réussite par UE
+                    <span className="block text-[10.5px] text-slate-500">En pied de tableau — désigne les UE qui font barrage</span>
+                  </span>
+                </label>
+                <label className="text-[12.5px]">
+                  <span className="block mb-1">Étudiants retenus</span>
+                  <select value={filtre} onChange={e => setFiltre(e.target.value)}
+                    className="w-full border border-slate-300 rounded-lg px-2 py-1 text-[12px]">
+                    <option value="tous">Tous</option>
+                    <option value="echec">Avec au moins un échec</option>
+                    <option value="diplomables">Diplômables — reste l'épreuve intégrée</option>
+                  </select>
+                </label>
               </div>
             </div>
 

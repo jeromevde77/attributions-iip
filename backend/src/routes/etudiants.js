@@ -501,7 +501,9 @@ r.get('/rapport-pae', authRequired, (req, res) => {
   const niveaux = niveauxEffectifs([section], annee);
 
   let ues = db.prepare(`
-    SELECT DISTINCT ue_num, MIN(ue_nom) AS ue_nom FROM ue
+    SELECT DISTINCT ue_num, MIN(ue_nom) AS ue_nom, MAX(COALESCE(ects,0)) AS ects,
+           MAX(COALESCE(is_epreuve_integree,0)) AS is_epreuve_integree
+    FROM ue
     WHERE section = ? AND annee_scolaire IN (?, ?)
     GROUP BY ue_num
   `).all(section, annee, anneeRef);
@@ -560,21 +562,24 @@ r.get('/rapport-pae', authRequired, (req, res) => {
   let resCours = [];
   try {
     resCours = db.prepare(`
-      SELECT etudiant_id, cours_code, annee_scolaire, statut, faveur
+      SELECT etudiant_id, cours_code, annee_scolaire, statut, faveur, note
       FROM etudiant_resultat_cours WHERE etudiant_id IN (${ids})
     `).all();
   } catch { /* table absente */ }
 
   const parEtud = {};
-  for (const e of etudiants) parEtud[e.id] = { ue: {}, cours: {}, courant: {} };
+  for (const e of etudiants) parEtud[e.id] = { ue: {}, cours: {}, courant: {}, points_courant: {} };
 
   for (const i of insc) {
     const p = parEtud[i.etudiant_id]; if (!p) continue;
-    if (i.annee_scolaire === annee) p.courant[i.ue_num] = i.resultat || 'inscrit';
+    if (i.annee_scolaire === annee) {
+      p.courant[i.ue_num] = i.resultat || 'inscrit';
+      if (i.points != null) (p.points_courant = p.points_courant || {})[i.ue_num] = i.points;
+    }
     if (i.resultat === 'reussi') {
       const prec = p.ue[i.ue_num];
       if (!prec || i.annee_scolaire < prec.annee) {
-        p.ue[i.ue_num] = { annee: i.annee_scolaire, mode: 'reussi' };   // première validation
+        p.ue[i.ue_num] = { annee: i.annee_scolaire, mode: 'reussi', points: i.points };
       }
     }
   }
@@ -586,18 +591,49 @@ r.get('/rapport-pae', authRequired, (req, res) => {
     const p = parEtud[rc.etudiant_id]; if (!p) continue;
     const prec = p.cours[rc.cours_code];
     if (!prec || rc.annee_scolaire > prec.annee) {
-      p.cours[rc.cours_code] = { annee: rc.annee_scolaire, statut: rc.statut, faveur: rc.faveur };
+      p.cours[rc.cours_code] = { annee: rc.annee_scolaire, statut: rc.statut,
+                                 faveur: rc.faveur, note: rc.note };
     }
   }
 
-  const niv = e => {
-    const n = niveauEtudiant(e.id, annee);
-    return n.libelle || null;
-  };
+  const ectsDe = Object.fromEntries(ues.map(u => [u.ue_num, Number(u.ects || 0)]));
+  const epreuves = ues.filter(u => u.is_epreuve_integree).map(u => u.ue_num);
+
+  const lignes = etudiants.map(e => {
+    const p = parEtud[e.id];
+    const acquises = Object.keys(p.ue).map(Number);
+    const ects = acquises.reduce((s, n) => s + (ectsDe[n] || 0), 0);
+    // Diplômable : tout est acquis sauf l'épreuve intégrée
+    const restantes = ues.filter(u => !p.ue[u.ue_num]).map(u => u.ue_num);
+    const diplomable = epreuves.length > 0
+      && restantes.length > 0
+      && restantes.every(n => epreuves.includes(n));
+    const echecs = Object.values(p.courant).filter(r0 => r0 === 'ajourne').length;
+    return {
+      ...e, niveau: niveauEtudiant(e.id, annee).libelle || null, ...p,
+      acquises: acquises.length, total_ue: ues.length,
+      ects, ects_total: ues.reduce((s, u) => s + Number(u.ects || 0), 0),
+      diplomable, echecs,
+    };
+  });
+
+  // Taux de réussite par colonne — désigne les UE qui font barrage
+  const taux = {};
+  for (const col of colonnes) {
+    let acquis = 0, concernes = 0;
+    for (const e of lignes) {
+      const a = e.ue[col.ue_num];
+      const c0 = e.courant[col.ue_num];
+      if (!a && !c0) continue;
+      concernes++;
+      if (a) acquis++;
+    }
+    taux[col.code] = concernes ? Math.round((acquis / concernes) * 100) : null;
+  }
 
   res.json({
-    section, annee, granularite, ues, colonnes,
-    etudiants: etudiants.map(e => ({ ...e, niveau: niv(e), ...parEtud[e.id] })),
+    section, annee, granularite, ues, colonnes, taux,
+    etudiants: lignes,
   });
 });
 
