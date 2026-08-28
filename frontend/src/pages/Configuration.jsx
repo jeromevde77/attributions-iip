@@ -109,7 +109,7 @@ function GestionPersonnel() {
   const sectionLabel = section === ETAB ? "Tout l'établissement" : section;
 
   return (
-    <div className="max-w-6xl">
+    <div className="max-w-none">
       <div className="flex items-center justify-between mb-4 flex-wrap gap-3">
         <div>
           <h3 className="font-semibold text-gray-800 text-lg">Personnel &amp; fonctions</h3>
@@ -747,7 +747,7 @@ function GestionPrerequis() {
   }
 
   return (
-    <div className={`space-y-4 ${vue === 'schema' ? 'max-w-6xl' : 'max-w-3xl'}`}>
+    <div className={`space-y-4 ${vue === 'schema' ? 'max-w-none' : 'max-w-3xl'}`}>
       <div className="flex items-center gap-3 flex-wrap">
         <select value={section} onChange={e => setSection(e.target.value)}
           className="border border-gray-300 rounded px-3 py-1.5 h-9 text-sm bg-white">
@@ -934,7 +934,7 @@ function ConfigContrat() {
   if (loading) return <div className="p-8 text-center text-gray-400">Chargement…</div>;
 
   return (
-    <div className="max-w-7xl space-y-4">
+    <div className="max-w-none space-y-4">
       <div className="flex items-center justify-between">
         <div>
           <h2 className="text-lg font-bold text-iip-blue">Template du contrat de travail</h2>
@@ -1024,7 +1024,7 @@ function ConfigAttestation() {
   ];
 
   return (
-    <div className="max-w-4xl space-y-4">
+    <div className="max-w-none space-y-4">
       <h2 className="text-lg font-bold text-iip-blue">Configuration des attestations</h2>
 
       <div className="flex gap-1 border-b border-gray-200 mb-4">
@@ -1317,11 +1317,11 @@ export default function Configuration() {
       {tab === 'ponderations' && <PonderationsAA />}
 
       {/* ── Onglet Utilisateurs ── */}
-      {tab === 'users' && <div className="max-w-5xl"><Users embedded /></div>}
+      {tab === 'users' && <div className="max-w-none"><Users embedded /></div>}
 
       {/* ── Onglet Nouveautés ── */}
       {tab === 'changelog' && (
-        <div className="max-w-3xl bg-white rounded-lg border border-gray-200 p-5">
+        <div className="max-w-none bg-white rounded-lg border border-gray-200 p-5">
           <ChangelogView data={changelog} />
         </div>
       )}
@@ -1343,7 +1343,7 @@ export default function Configuration() {
       {tab === 'attestation' && <ConfigAttestation />}
 
       {/* ── Onglet Système ── */}
-      {tab === 'systeme' && (loading ? <div className="p-8 text-center text-gray-400">Chargement…</div> : <div className="max-w-3xl space-y-6">
+      {tab === 'systeme' && (loading ? <div className="p-8 text-center text-gray-400">Chargement…</div> : <div className="max-w-none space-y-6">
 
       {/* ── Historique des modifications ── */}
       <section className="bg-white rounded-lg border border-gray-200 overflow-hidden">
@@ -1692,7 +1692,7 @@ function OngletProcedures() {
   if (loading) return <div className="p-8 text-gray-400">Chargement…</div>;
 
   return (
-    <div className="max-w-3xl bg-white rounded-lg border border-gray-200 p-5 space-y-4">
+    <div className="max-w-none bg-white rounded-lg border border-gray-200 p-5 space-y-4">
       <div>
         <h2 className="font-semibold text-gray-800 text-base flex items-center gap-2">
           <IconGavel size={17} className="text-iip-turquoise" />
@@ -1843,7 +1843,7 @@ function OngletStatistiques() {
   }
 
   return (
-    <div className="max-w-4xl space-y-4">
+    <div className="max-w-none space-y-4">
       {/* En-tête */}
       <div className="bg-white rounded-lg border border-gray-200 p-5">
         <h2 className="font-semibold text-gray-800 text-base flex items-center gap-2 mb-1">
@@ -2063,7 +2063,7 @@ function ConfigRecrutement() {
   );
 
   return (
-    <div className="max-w-3xl">
+    <div className="max-w-none">
       <Bloc
         label="Introduction d'entretien"
         desc="Texte lu au candidat en début d'entretien — établissement, qui vous êtes, déroulement."

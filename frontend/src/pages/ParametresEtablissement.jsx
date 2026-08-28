@@ -52,7 +52,7 @@ export default function ParametresEtablissement() {
   if (loading) return <div className="p-8 text-center text-gray-400">Chargement…</div>;
 
   return (
-    <div className="max-w-3xl space-y-6">
+    <div className="max-w-[1100px] space-y-6">
       <div>
         <h2 className="font-semibold text-iip-gold">Paramètres de l'établissement</h2>
         <p className="text-sm text-gray-500 mt-1">
@@ -131,7 +131,7 @@ export default function ParametresEtablissement() {
           Gestionnaire du dossier
           <span className="font-normal normal-case text-gray-400"> · personne joignable par l'Administration</span>
         </div>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+        <div className="grid grid-cols-1 md:grid-cols-3 2xl:grid-cols-4 gap-3">
           <Champ label="Nom" value={f.gest_nom} onChange={v => set('gest_nom', v)} />
           <Champ label="Prénom" value={f.gest_prenom} onChange={v => set('gest_prenom', v)} />
           <Champ label="Qualité" value={f.gest_qualite} onChange={v => set('gest_qualite', v)} />

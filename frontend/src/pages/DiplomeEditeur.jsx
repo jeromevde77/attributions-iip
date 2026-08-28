@@ -155,7 +155,7 @@ export default function DiplomeEditeur({ assets = {} }) {
 
       <details className="text-xs text-gray-500">
         <summary className="cursor-pointer text-iip-blue">Champs disponibles</summary>
-        <div className="mt-1 grid grid-cols-2 md:grid-cols-3 gap-x-4 gap-y-0.5 font-mono">
+        <div className="mt-1 grid grid-cols-2 md:grid-cols-3 2xl:grid-cols-4 gap-x-4 gap-y-0.5 font-mono">
           {['{{nom_etudiant}}','{{prenom_etudiant}}','{{genre}}','{{lieu_naissance}}','{{date_naissance}}','{{registre_national}}','{{intitule_section}}','{{grade_academique}}','{{code_section}}','{{date_approbation}}','{{total_ects}}','{{duree_annees}}','{{domaine}}','{{mention}}','{{annee}}','{{date_deliberation}}','{{president_jury}}','{{directeur}}','{{ville_etab}}','{{nom_etab}}','{{adresse_etab}}','{{matricule_etab}}','{{fase_etab}}','{{logo_iip}}','{{logo_helb}}','{{sceau}}','{{signature_directeur}}'].map(v => <span key={v}>{v}</span>)}
         </div>
       </details>

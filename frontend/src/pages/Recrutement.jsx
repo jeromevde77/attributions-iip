@@ -310,7 +310,7 @@ function FichePoste({ poste, annee, onBack, grille }) {
   const aa = poste.aa || [];
 
   return (
-    <div className="max-w-4xl">
+    <div className="max-w-none">
       {/* En-tête marine */}
       <div className="bg-iip-blue rounded-xl px-5 py-4 mb-5 flex items-center justify-between gap-4">
         <div className="flex items-center gap-3 min-w-0">
@@ -924,7 +924,7 @@ Réponds en JSON strict sans backticks : {"questions":["question 1","question 2"
   };
 
   return (
-    <div className="max-w-3xl">
+    <div className="max-w-none">
       <div className="flex items-center justify-between mb-4 gap-3 flex-wrap">
         <p className="text-sm text-gray-500">
           Grille commune IIP (4 axes fixes) + questions spécifiques générées selon les acquis d'apprentissage du cours.
@@ -1088,7 +1088,7 @@ function EntretienModal({ candidature, poste, annee, qIA, grille, onClose, onSav
       </div>
 
       <div className="flex-1 overflow-auto bg-gray-50" onClick={e => e.stopPropagation()}>
-        <div className="max-w-3xl mx-auto px-4 py-5 space-y-5">
+        <div className="max-w-none mx-auto px-4 py-5 space-y-5">
 
           {Object.entries(parAxe).map(([axe, { couleur, questions }]) => (
             <div key={axe} className="bg-white border border-gray-200 rounded-xl overflow-hidden shadow-sm">
@@ -1791,7 +1791,7 @@ ${tous.map(candidatHtml).join('')}
   }, [rapportOpen]);
 
   return (
-    <div className="max-w-3xl">
+    <div className="max-w-none">
       <div className="flex items-center justify-between mb-4 gap-3">
         <h1 className="text-2xl font-title text-iip-gold whitespace-nowrap">
           Candidats <span className="text-base font-normal text-gray-400">({candidats.length})</span>
@@ -2997,7 +2997,7 @@ function EditeurGrille({ grille, onSaved }) {
   };
 
   return (
-    <div className="max-w-3xl">
+    <div className="max-w-none">
       <div className="flex items-center justify-between mb-5">
         <div>
           <h1 className="text-2xl font-title text-iip-gold">Grille d'entretien</h1>
@@ -3214,7 +3214,7 @@ function EntretienLibre({ candidat, grille, onClose, onSaved, onAutoSave }) {
       </div>
 
       <div className="flex-1 overflow-auto bg-gray-50" onClick={e => e.stopPropagation()}>
-        <div className="max-w-3xl mx-auto px-4 py-5 space-y-4">
+        <div className="max-w-none mx-auto px-4 py-5 space-y-4">
 
           {/* ── Introduction ── */}
           {section === 'intro' && (

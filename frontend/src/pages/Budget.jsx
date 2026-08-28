@@ -197,7 +197,7 @@ export default function Budget() {
   }, [anneeCivile]);
 
   return (
-    <div className="p-5 space-y-4 max-w-6xl">
+    <div className="p-5 space-y-4 max-w-none">
       <div className="flex items-start justify-between gap-3 flex-wrap">
         <div>
           <h2 className="text-xl font-semibold text-iip-blue">Gestion budgétaire</h2>

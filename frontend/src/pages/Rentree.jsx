@@ -90,7 +90,7 @@ export default function Rentree({ annee }) {
   }
 
   return (
-    <div className="p-5 space-y-4 max-w-5xl">
+    <div className="p-5 space-y-4 max-w-none">
       <div>
         <h2 className="text-xl font-semibold text-iip-blue">Rentrée {annee}</h2>
         <p className="text-sm text-slate-500">

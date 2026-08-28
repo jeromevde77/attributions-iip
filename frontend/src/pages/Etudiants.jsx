@@ -247,7 +247,7 @@ function GrilleParcours({ etudId, peutEcrire }) {
   return (
     <div>
       <div className="flex items-start justify-between gap-3 mb-3">
-        <p className="text-[12px] text-slate-500 flex-1 max-w-3xl">
+        <p className="text-[12px] text-slate-500 flex-1 max-w-none">
         Cliquez sur une case pour encoder. Une UE dont les prérequis ne sont pas acquis est
         verrouillée <span className="text-slate-400">🔒</span> — l'encoder demande une dérogation (tracée).
         Un halo <span className="inline-block w-3 h-3 rounded-sm bg-violet-100 border border-violet-300 align-middle"></span> suggère
@@ -1452,7 +1452,7 @@ export default function Etudiants() {
   }, [etudiants, recherche, tri]);
 
   return (
-    <div className="p-5 space-y-4 max-w-5xl">
+    <div className="p-5 space-y-4 max-w-none">
       <div className="flex items-center justify-between flex-wrap gap-3">
         <div>
           <h2 className="text-xl font-semibold text-iip-blue">Étudiants</h2>

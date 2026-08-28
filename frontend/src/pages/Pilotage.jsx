@@ -68,7 +68,7 @@ function ExtDotPanel({ annee }) {
   return (
     <div>
       <div className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">Répartition EXT / DOT</div>
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+      <div className="grid grid-cols-1 md:grid-cols-3 2xl:grid-cols-4 gap-3">
         {pots.map(([pot, v]) => {
           const pct = v.plafond > 0 ? Math.min(100, Math.round(v.consomme / v.plafond * 100)) : 0;
           const depasse = v.dot > 0;

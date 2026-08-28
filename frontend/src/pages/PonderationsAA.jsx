@@ -78,7 +78,7 @@ export default function PonderationsAA() {
   }
 
   return (
-    <div className="p-5 space-y-4 max-w-6xl">
+    <div className="p-5 space-y-4 max-w-none">
       <div>
         <h2 className="text-xl font-semibold text-iip-blue">Pondération des acquis d'apprentissage</h2>
         <p className="text-sm text-slate-500">

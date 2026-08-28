@@ -674,7 +674,7 @@ export default function Referentiels({ embedded = false }) {
   if (loading) return <div className="p-8 text-center text-gray-400">Chargement…</div>;
 
   return (
-    <div className={embedded ? 'space-y-4' : 'p-4 md:p-6 max-w-5xl mx-auto space-y-4'}>
+    <div className={embedded ? 'space-y-4' : 'p-4 md:p-6 max-w-none mx-auto space-y-4'}>
       <div className="flex items-center justify-between flex-wrap gap-2">
         {!embedded && <h1 className="text-2xl font-title text-iip-gold">Référentiels <span className="text-base font-normal text-gray-400">· {annee}</span></h1>}
         {embedded && <div className="text-sm text-gray-500">Structure académique · {annee}</div>}
@@ -1250,7 +1250,7 @@ function GestionActivites({ sections = [] }) {
   }
 
   return (
-    <div className="space-y-4 max-w-3xl">
+    <div className="space-y-4 max-w-none">
       {/* Formulaire ajout */}
       <div className="bg-white rounded-lg border border-gray-200 px-5 py-4">
         <p className="text-sm font-medium text-gray-700 mb-3">Ajouter une activité</p>
