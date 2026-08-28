@@ -439,6 +439,7 @@ import Annees from './Annees.jsx';
 import DatesUE from '../components/DatesUE.jsx';
 import Referentiels from './Referentiels.jsx';
 import PonderationsAA from './PonderationsAA.jsx';
+import SchemaCapitalisation from '../components/SchemaCapitalisation.jsx';
 import ParametresEtablissement from './ParametresEtablissement.jsx';
 import { authHeaders } from '../lib/api.js';
 
@@ -642,6 +643,9 @@ function GestionParametres() {
 
 // ─── Gestion des prérequis UE ─────────────────────────────────────────────────
 function GestionPrerequis() {
+  const [vue, setVue]             = useState('schema');   // schema | liste
+  const [graphe, setGraphe]       = useState(null);
+  const [msgLien, setMsgLien]     = useState(null);
   const [sections, setSections]   = useState([]);
   const [section, setSection]     = useState('');
   const [ues, setUes]             = useState([]);
@@ -654,6 +658,48 @@ function GestionPrerequis() {
   useEffect(() => {
     authFetch('/api/ref/sections').then(d => setSections(Array.isArray(d) ? d : []));
   }, []);
+
+  // Le schéma s'appuie sur la même construction que celle d'Organisation, mais
+  // c'est ICI que les liens se modifient : ils relèvent du référentiel et non
+  // de l'année scolaire.
+  async function chargerGraphe() {
+    if (!section) return;
+    const annee = getAnnee();
+    const rep = await fetch(
+      `/api/capitalisation/structure?section=${encodeURIComponent(section)}&annee=${annee}`,
+      { headers: authHeaders() });
+    setGraphe(rep.ok ? await rep.json() : { nodes: [], edges: [] });
+  }
+  useEffect(() => { if (vue === 'schema') chargerGraphe(); /* eslint-disable-next-line */ }, [section, vue]);
+
+  async function creerLien(prerequisNum, ueNum) {
+    const rep = await fetch('/api/prerequis/ue', {
+      method: 'POST', headers: authHeaders(),
+      body: JSON.stringify({ ue_num: ueNum, prerequis_num: prerequisNum, section }),
+    });
+    const j = await rep.json();
+    if (!rep.ok) { setMsgLien({ type: 'err', texte: j.error }); return; }
+    setMsgLien({ type: j.created ? 'ok' : 'err',
+      texte: j.created ? `L'UE ${prerequisNum} conditionne désormais l'UE ${ueNum}.`
+                       : 'Ce lien existait déjà.' });
+    await chargerGraphe(); rechargerListe();
+  }
+
+  async function supprimerLien(prerequisNum, ueNum) {
+    if (!window.confirm(`Supprimer ce prérequis ? L'UE ${prerequisNum} ne conditionnera plus l'UE ${ueNum}, pour toutes les années.`)) return;
+    const rep = await fetch(`/api/prerequis/ue?ue_num=${ueNum}&prerequis_num=${prerequisNum}`,
+      { method: 'DELETE', headers: authHeaders() });
+    const j = await rep.json();
+    if (!rep.ok) { setMsgLien({ type: 'err', texte: j.error }); return; }
+    setMsgLien({ type: 'ok', texte: 'Lien supprimé.' });
+    await chargerGraphe(); rechargerListe();
+  }
+
+  function rechargerListe() {
+    if (!section) return;
+    authFetch(`/api/prerequis/ue?section=${encodeURIComponent(section)}`)
+      .then(p => setPrereqs(Array.isArray(p) ? p : []));
+  }
 
   useEffect(() => {
     if (!section) return;
@@ -701,17 +747,51 @@ function GestionPrerequis() {
   }
 
   return (
-    <div className="max-w-3xl space-y-4">
-      <div className="flex items-center gap-3">
+    <div className={`space-y-4 ${vue === 'schema' ? 'max-w-6xl' : 'max-w-3xl'}`}>
+      <div className="flex items-center gap-3 flex-wrap">
         <select value={section} onChange={e => setSection(e.target.value)}
           className="border border-gray-300 rounded px-3 py-1.5 h-9 text-sm bg-white">
           <option value="">— Choisir une section —</option>
           {sections.map(s => <option key={s.code} value={s.code}>{s.code}</option>)}
         </select>
+        <div className="flex rounded-lg border border-gray-300 overflow-hidden h-9">
+          {[['schema', 'Schéma'], ['liste', 'Liste']].map(([v, l]) => (
+            <button key={v} onClick={() => setVue(v)}
+              className={`px-3 text-[12.5px] ${vue === v
+                ? 'bg-iip-blue text-white font-semibold' : 'text-slate-600 hover:bg-slate-50'}`}>
+              {l}
+            </button>
+          ))}
+        </div>
         {section && <span className="text-xs text-gray-400">{prereqs.length} prérequis définis</span>}
       </div>
 
-      {section && (
+      <div className="px-3 py-2 rounded-lg bg-amber-50 border border-amber-200 text-[11.5px] text-amber-900">
+        Les prérequis constituent la bibliothèque : ils viennent du dossier pédagogique et
+        valent pour <b>toutes les années</b>. Les modifier fait bouger les grilles de parcours
+        et les PAE déjà établis. Réservé aux administrateurs.
+      </div>
+
+      {msgLien && (
+        <div className={`px-3 py-2 rounded-lg text-[12.5px] flex items-center justify-between ${
+          msgLien.type === 'ok' ? 'bg-emerald-50 text-emerald-800 border border-emerald-200'
+                                : 'bg-red-50 text-red-800 border border-red-200'}`}>
+          <span>{msgLien.texte}</span>
+          <button onClick={() => setMsgLien(null)} className="ml-3 opacity-60">✕</button>
+        </div>
+      )}
+
+      {section && vue === 'schema' && (
+        <SchemaCapitalisation
+          data={graphe}
+          mode="structure"
+          onLien={creerLien}
+          onSupprimerLien={supprimerLien}
+          titre={`Prérequis — ${section}`}
+        />
+      )}
+
+      {section && vue === 'liste' && (
         <>
           {/* Ajouter un prérequis */}
           <div className="bg-white rounded-lg border border-gray-200 px-5 py-4 space-y-3">

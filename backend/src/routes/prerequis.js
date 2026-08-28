@@ -21,7 +21,9 @@ r.get('/ue', authRequired, (req, res) => {
 });
 
 // POST /prerequis/ue — ajouter un prérequis
-r.post('/ue', authRequired, roleRequired('admin', 'editeur'), (req, res) => {
+// Le graphe des prérequis est du référentiel : sa modification est réservée
+// aux administrateurs, un éditeur ne pouvant l'altérer par inadvertance.
+r.post('/ue', authRequired, roleRequired('admin'), (req, res) => {
   const { ue_num, prerequis_num, section, annee_scolaire } = req.body;
   if (!ue_num || !prerequis_num) return res.status(400).json({ error: 'ue_num et prerequis_num requis' });
   if (ue_num === prerequis_num) return res.status(400).json({ error: 'Une UE ne peut pas être son propre prérequis' });
@@ -59,7 +61,7 @@ r.post('/ue', authRequired, roleRequired('admin', 'editeur'), (req, res) => {
 });
 
 // DELETE /prerequis/ue/:id
-r.delete('/ue/:id', authRequired, roleRequired('admin', 'editeur'), (req, res) => {
+r.delete('/ue/:id', authRequired, roleRequired('admin'), (req, res) => {
   const row = db.prepare('SELECT id FROM ue_prerequis WHERE id = ?').get(req.params.id);
   if (!row) return res.status(404).json({ error: 'Prérequis introuvable' });
   db.prepare('DELETE FROM ue_prerequis WHERE id = ?').run(row.id);
@@ -68,7 +70,7 @@ r.delete('/ue/:id', authRequired, roleRequired('admin', 'editeur'), (req, res) =
 
 // DELETE /prerequis/ue — suppression par paire, le schéma ne connaissant
 // que les deux extrémités du lien
-r.delete('/ue', authRequired, roleRequired('admin', 'editeur'), (req, res) => {
+r.delete('/ue', authRequired, roleRequired('admin'), (req, res) => {
   const ue = Number(req.query.ue_num), pre = Number(req.query.prerequis_num);
   if (!ue || !pre) return res.status(400).json({ error: 'ue_num et prerequis_num requis' });
   const info = db.prepare(
