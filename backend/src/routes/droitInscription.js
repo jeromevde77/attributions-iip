@@ -109,20 +109,25 @@ export function calculerDI(etudId, annee) {
   if (!e) return null;
 
   // UE inscrites, avec leurs périodes et leur niveau d'enseignement
+  // SQLite ne résout pas une référence à la requête externe dans le ORDER BY
+  // d'une sous-requête : on prend donc d'abord la valeur de l'année exacte
+  // (corrélation dans le WHERE, admise), puis à défaut le millésime le plus
+  // récent (sous-requête non corrélée).
   const lignes = db.prepare(`
-    SELECT i.ue_num, i.dispense_complete,
-           (SELECT ue_per_cours FROM ue x WHERE x.ue_num = i.ue_num
-             ORDER BY CASE WHEN x.annee_scolaire = i.annee_scolaire THEN 0 ELSE 1 END,
-                      x.annee_scolaire DESC LIMIT 1) AS periodes,
-           (SELECT ue_niveau FROM ue x WHERE x.ue_num = i.ue_num
-             ORDER BY CASE WHEN x.annee_scolaire = i.annee_scolaire THEN 0 ELSE 1 END,
-                      x.annee_scolaire DESC LIMIT 1) AS niveau,
-           (SELECT ue_nom FROM ue x WHERE x.ue_num = i.ue_num
-             ORDER BY x.annee_scolaire DESC LIMIT 1) AS ue_nom
+    SELECT i.ue_num, i.dispense_complete, i.annee_scolaire,
+           (SELECT ue_per_cours FROM ue x
+             WHERE x.ue_num = i.ue_num AND x.annee_scolaire = i.annee_scolaire) AS per_annee,
+           (SELECT ue_niveau FROM ue x
+             WHERE x.ue_num = i.ue_num AND x.annee_scolaire = i.annee_scolaire) AS niv_annee
     FROM etudiant_inscription i
     WHERE i.etudiant_id = ? AND i.annee_scolaire = ?
     ORDER BY i.ue_num
   `).all(etudId, annee);
+
+  const recent = db.prepare(`
+    SELECT ue_per_cours AS periodes, ue_niveau AS niveau, ue_nom
+    FROM ue WHERE ue_num = ? ORDER BY annee_scolaire DESC LIMIT 1
+  `);
 
   // Les UE valorisées en dispense complète ne donnent lieu à aucun droit
   const vaCompletes = new Set(
@@ -130,12 +135,15 @@ export function calculerDI(etudId, annee) {
       .all(etudId).map(v => v.ue_num));
 
   const detail = lignes.map(l => {
+    const r0 = recent.get(l.ue_num) || {};
+    const periodes = l.per_annee != null ? Number(l.per_annee) : Number(r0.periodes || 0);
+    const niveau = l.niv_annee || r0.niveau || '';
     const dispensee = !!l.dispense_complete || vaCompletes.has(l.ue_num);
-    const sup = String(l.niveau || '').toUpperCase().startsWith('SUP');
+    const sup = String(niveau).toUpperCase().startsWith('SUP');
     return {
-      ue_num: l.ue_num, ue_nom: l.ue_nom,
-      periodes: dispensee ? 0 : Number(l.periodes || 0),
-      periodes_brutes: Number(l.periodes || 0),
+      ue_num: l.ue_num, ue_nom: r0.ue_nom || null,
+      periodes: dispensee ? 0 : periodes,
+      periodes_brutes: periodes,
       niveau: sup ? 'superieur' : 'secondaire',
       dispensee,
     };
