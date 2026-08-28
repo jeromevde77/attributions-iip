@@ -71,24 +71,42 @@ export default function RapportPAE({ anneeCourante, onClose }) {
   }
 
   // Valeur d'une cellule : l'année de validation, ou l'état de l'année courante
+  // Valeur d'une case. En colonnes par cours, à défaut de résultat encodé à
+  // cette maille, on retombe sur celui de l'UE — signalé comme tel : sans quoi
+  // le tableau serait muet tant que les classeurs ne sont pas importés.
   function valeur(e, col, j) {
+    const parCours = j.granularite === 'cours';
+    const aCours = parCours && e.cours && e.cours[col.code];
+
     if (contenu === 'note') {
-      if (j.granularite === 'cours') {
-        const c0 = e.cours[col.code];
-        return c0 && c0.note != null ? String(c0.note) : (c0 ? '' : '');
+      if (parCours) {
+        if (aCours) return aCours.note != null ? String(aCours.note) : '';
+        const a = e.ue[col.ue_num];
+        if (a && a.points != null) return String(a.points) + '*';
+        return a ? (a.mode === 'va' ? 'VA' : '✓*') : '';
       }
       const a = e.ue[col.ue_num];
       if (a && a.points != null) return String(a.points);
       const p = e.points_courant?.[col.ue_num];
       return p != null ? String(p) : (a ? (a.mode === 'va' ? 'VA' : '✓') : '');
     }
-    if (j.granularite === 'cours') {
-      const c = e.cours[col.code];
-      if (!c) return contenu === 'annee' ? '' : '';
-      const sigle = { reussi: 'C', refuse: 'R', non_presente: 'np', va: 'VA', vp: 'VP', report: 'RN' }[c.statut] || '';
-      if (contenu === 'annee') return c.statut === 'reussi' || c.statut === 'va'
-        ? c.annee.slice(2, 4) + '-' + c.annee.slice(7, 9) : sigle;
-      return sigle + (c.faveur ? ' (F)' : '');
+    if (parCours) {
+      if (aCours) {
+        const sigle = { reussi: 'C', refuse: 'R', non_presente: 'np', va: 'VA', vp: 'VP', report: 'RN' }[aCours.statut] || '';
+        if (contenu === 'annee') return aCours.statut === 'reussi' || aCours.statut === 'va'
+          ? aCours.annee.slice(2, 4) + '-' + aCours.annee.slice(7, 9) : sigle;
+        return sigle + (aCours.faveur ? ' (F)' : '');
+      }
+      // Repli sur l'UE, marqué d'un astérisque
+      const a = e.ue[col.ue_num];
+      if (contenu === 'annee') {
+        if (a) return (a.mode === 'va' ? 'VA ' : '') + a.annee.slice(2, 4) + '-' + a.annee.slice(7, 9) + '*';
+        const c0 = e.courant[col.ue_num];
+        return c0 === 'ajourne' ? 'R*' : c0 ? 'x*' : '';
+      }
+      if (a) return (a.mode === 'va' ? 'VA' : 'C') + '*';
+      const c0 = e.courant[col.ue_num];
+      return c0 === 'ajourne' ? 'R*' : c0 === 'absent' ? 'A*' : c0 ? 'x*' : '';
     }
     const acquis = e.ue[col.ue_num];
     if (contenu === 'annee') {
@@ -128,8 +146,11 @@ export default function RapportPAE({ anneeCourante, onClose }) {
     const lignes = retenus.map((e, i) => {
       const cells = j.colonnes.map(c => {
         const v = valeur(e, c, j);
-        const cls = /^\d\d-\d\d$/.test(v) || v === 'C' ? 'ok'
-          : v.startsWith('VA') ? 'va' : v === 'R' ? 'ko' : v === 'x' ? 'ins' : '';
+        const repris = v.endsWith('*');
+        const b = repris ? v.slice(0, -1) : v;
+        const base = /^\d\d-\d\d$/.test(b) || b === 'C' || b === '✓' || /^\d+([.,]\d+)?$/.test(b) ? 'ok'
+          : b.startsWith('VA') ? 'va' : b === 'R' ? 'ko' : b === 'x' ? 'ins' : '';
+        const cls = base + (repris ? ' repris' : '');
         return `<td class="${cls}">${esc(v)}</td>`;
       }).join('');
       const synth = synthese
@@ -171,6 +192,7 @@ export default function RapportPAE({ anneeCourante, onClose }) {
   td.va  { background: #ede9fe; color: #5b21b6; font-weight: 700; }
   td.ko  { background: #fee2e2; color: #991b1b; font-weight: 700; }
   td.ins { background: #e0f2fe; color: #075985; }
+  td.repris { opacity: .55; font-style: italic; }
   th.long { min-width: 74px; }
   th .lib { display: block; font-weight: normal; color: #64748b; font-size: 7.5px;
             line-height: 1.15; margin-top: 2px; }
@@ -192,6 +214,7 @@ export default function RapportPAE({ anneeCourante, onClose }) {
     : contenu === 'note'
       ? "Chaque case porte la note sur 20 lorsqu'elle est connue. <b>VA</b> valorisation · <b>✓</b> acquise sans note."
       : "<b>C</b> acquise · <b>VA</b> valorisation · <b>R</b> refusé · <b>A</b> absent · <b>x</b> inscrit, non délibéré."}
+  ${granularite === 'cours' ? "Un <b>astérisque</b> signale une valeur reprise de l'unité d'enseignement, faute de résultat encodé au niveau du cours." : ''}
   ${tauxUE ? "La dernière ligne donne le taux de réussite de chaque UE parmi les étudiants qui l'ont suivie." : ''}
 </div></body></html>`;
 
