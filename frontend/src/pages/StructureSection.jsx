@@ -51,6 +51,33 @@ export default function StructureSection({ annee }) {
     await charger();
   }
 
+  // Les prérequis viennent du dossier pédagogique : ils valent pour la section,
+  // sans millésime — d'où l'absence d'année dans ces deux appels.
+  async function creerLien(prerequisNum, ueNum) {
+    const rep = await fetch('/api/prerequis/ue', {
+      method: 'POST', headers: authHeaders(),
+      body: JSON.stringify({ ue_num: ueNum, prerequis_num: prerequisNum, section }),
+    });
+    const j = await rep.json();
+    if (!rep.ok) { setMessage({ type: 'err', texte: j.error }); return; }
+    setMessage({ type: j.created ? 'ok' : 'err',
+      texte: j.created
+        ? `L'UE ${prerequisNum} conditionne désormais l'UE ${ueNum}.`
+        : `Ce lien existait déjà.` });
+    await charger();
+  }
+
+  async function supprimerLien(prerequisNum, ueNum) {
+    if (!window.confirm(`Supprimer le prérequis : l'UE ${prerequisNum} ne conditionnera plus l'UE ${ueNum} ?`)) return;
+    const rep = await fetch(
+      `/api/prerequis/ue?ue_num=${ueNum}&prerequis_num=${prerequisNum}`,
+      { method: 'DELETE', headers: authHeaders() });
+    const j = await rep.json();
+    if (!rep.ok) { setMessage({ type: 'err', texte: j.error }); return; }
+    setMessage({ type: 'ok', texte: `Lien supprimé.` });
+    await charger();
+  }
+
   async function reprendreAnDernier() {
     const [a1, a2] = annee.split('-').map(Number);
     const source = `${a1 - 1}-${a2 - 1}`;
@@ -121,11 +148,14 @@ export default function StructureSection({ annee }) {
         data={data}
         mode="structure"
         onNiveau={changerNiveau}
+        onLien={creerLien}
+        onSupprimerLien={supprimerLien}
         titre={`Structure — ${section}`}
       />
 
       <p className="text-[11px] text-slate-400 border-t pt-3">
-        Les liens de prérequis viennent du référentiel des UE et ne se modifient pas ici.
+        Les prérequis se modifient dans le schéma : « Modifier les prérequis », puis tirez
+        d'une UE vers celle qu'elle conditionne. Un lien qui formerait un cycle est refusé.
         L'année d'études, elle, est propre à la section et à l'année scolaire : la changer
         met à jour ce schéma, la grille de parcours et la proposition de PAE des étudiants.
       </p>

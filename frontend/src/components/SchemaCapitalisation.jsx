@@ -27,10 +27,13 @@ export const OR = { fill: '#FBF3DC', stroke: '#C9A84C', text: '#7A5C12', label: 
 
 export default function SchemaCapitalisation({
   data, mode = 'etudiant', onNiveau = null, replie = false, titre = 'Schéma de capitalisation',
+  onLien = null, onSupprimerLien = null,
 }) {
   const [ouvert, setOuvert] = useState(!replie);
   const [selection, setSelection] = useState(null);   // UE cliquée (mode structure)
   const [drag, setDrag] = useState(null);            // { ue_num, dx, dy, cible }
+  const [modeLien, setModeLien] = useState(false);   // tirer des liens de prérequis
+  const [lien, setLien] = useState(null);            // { depuis, x, y, cible }
   const svgRef = useRef(null);
 
   const layout = useMemo(() => {
@@ -83,7 +86,7 @@ export default function SchemaCapitalisation({
     </div>
   );
 
-  const deplacable = mode === 'structure' && !!onNiveau;
+  const deplacable = mode === 'structure' && !!onNiveau && !modeLien;
 
   // Colonne visée par une abscisse : chaque colonne occupe sa largeur plus la
   // moitié des gouttières qui l'entourent.
@@ -97,6 +100,44 @@ export default function SchemaCapitalisation({
       if (d < distance) { distance = d; meilleure = e0; }
     }
     return meilleure;
+  }
+
+  // ── Tirage d'un lien de prérequis ──
+  // On tire DEPUIS l'UE prérequise VERS celle qu'elle conditionne, dans le sens
+  // de lecture des flèches.
+  function svgXY(e) {
+    const r0 = svgRef.current?.getBoundingClientRect();
+    return r0 ? { x: e.clientX - r0.left, y: e.clientY - r0.top } : { x: 0, y: 0 };
+  }
+
+  function lienDown(e, n) {
+    e.preventDefault(); e.stopPropagation();
+    const p = svgXY(e);
+    setLien({ depuis: n.ue_num, x: p.x, y: p.y, cible: null });
+    e.currentTarget.setPointerCapture?.(e.pointerId);
+  }
+
+  function lienMove(e) {
+    if (!lien) return;
+    const p = svgXY(e);
+    // L'UE survolée devient la cible
+    let cible = null;
+    for (const n of data.nodes) {
+      const q = layout.pos[n.ue_num];
+      if (!q) continue;
+      if (p.x >= q.x && p.x <= q.x + layout.L && p.y >= q.y && p.y <= q.y + layout.H) {
+        cible = n.ue_num; break;
+      }
+    }
+    setLien(l => l && ({ ...l, x: p.x, y: p.y, cible }));
+  }
+
+  function lienUp() {
+    if (!lien) return;
+    const { depuis, cible } = lien;
+    setLien(null);
+    if (!cible || cible === depuis) return;
+    onLien && onLien(depuis, cible);
   }
 
   function pointerDown(e, n) {
@@ -159,7 +200,9 @@ export default function SchemaCapitalisation({
           <div className="overflow-auto bg-white" style={{ maxHeight: mode === 'structure' ? 520 : 340 }}>
             <svg ref={svgRef} width={layout.largeur} height={layout.hauteur}
               viewBox={`0 0 ${layout.largeur} ${layout.hauteur}`}
-              onPointerMove={pointerMove} onPointerUp={pointerUp} onPointerLeave={pointerUp}
+              onPointerMove={e => { pointerMove(e); lienMove(e); }}
+              onPointerUp={e => { pointerUp(e); lienUp(e); }}
+              onPointerLeave={e => { pointerUp(e); lienUp(e); }}
               style={{ display: 'block', touchAction: deplacable ? 'none' : 'auto' }}>
               <defs>
                 <marker id="fl-cap" markerWidth="7" markerHeight="7" refX="6" refY="2.5"
@@ -204,12 +247,31 @@ export default function SchemaCapitalisation({
                 const x2 = b.x - 7,        y2 = b.y + layout.H / 2;
                 const dx = Math.max(24, (x2 - x1) / 2);
                 const enArriere = x2 < x1;   // prérequis placé après : incohérence
+                const d = `M${x1},${y1} C${x1 + dx},${y1} ${x2 - dx},${y2} ${x2},${y2}`;
                 return (
-                  <path key={i} d={`M${x1},${y1} C${x1 + dx},${y1} ${x2 - dx},${y2} ${x2},${y2}`}
-                    fill="none" stroke={enArriere ? '#F59E0B' : '#CBD5E1'}
-                    strokeWidth={enArriere ? 1.8 : 1.4} markerEnd="url(#fl-cap)" />
+                  <g key={i}>
+                    <path d={d} fill="none" stroke={enArriere ? '#F59E0B' : '#CBD5E1'}
+                      strokeWidth={enArriere ? 1.8 : 1.4} markerEnd="url(#fl-cap)" />
+                    {modeLien && onSupprimerLien && (
+                      <path d={d} fill="none" stroke="transparent" strokeWidth="12"
+                        style={{ cursor: 'pointer' }}
+                        onClick={() => onSupprimerLien(eg.from, eg.to)}>
+                        <title>{`UE ${eg.from} conditionne l\u2019UE ${eg.to} — cliquer pour supprimer ce lien`}</title>
+                      </path>
+                    )}
+                  </g>
                 );
               })}
+
+              {lien && (() => {
+                const a = layout.pos[lien.depuis];
+                if (!a) return null;
+                return (
+                  <path d={`M${a.x + layout.L},${a.y + layout.H / 2} L${lien.x},${lien.y}`}
+                    fill="none" stroke={lien.cible ? '#00AACC' : '#94A3B8'}
+                    strokeWidth="2" strokeDasharray="5 4" markerEnd="url(#fl-cap)" />
+                );
+              })()}
 
               {data.nodes.map(n => {
                 const p = layout.pos[n.ue_num];
@@ -246,13 +308,38 @@ export default function SchemaCapitalisation({
                       {nom}
                     </text>
                     {n.inscrite && <circle cx={p.x + layout.L - 8} cy={p.y + 8} r="3.2" fill={co.stroke} />}
+                    {modeLien && onLien && (
+                      <circle cx={p.x + layout.L} cy={p.y + layout.H / 2} r="5.5"
+                        fill={lien?.cible === n.ue_num ? '#00AACC' : '#FFFFFF'}
+                        stroke="#00AACC" strokeWidth="1.6"
+                        style={{ cursor: 'crosshair' }}
+                        onPointerDown={e => lienDown(e, n)}>
+                        <title>Tirer depuis cette UE vers celle qu'elle conditionne</title>
+                      </circle>
+                    )}
                   </g>
                 );
               })}
             </svg>
           </div>
 
-          {mode === 'structure' && onNiveau && (
+          {mode === 'structure' && onLien && (
+            <div className="px-3 py-2 border-t border-slate-200 bg-white flex items-center gap-3 flex-wrap">
+              <button onClick={() => { setModeLien(m => !m); setSelection(null); }}
+                className={`text-[12px] px-3 py-1.5 rounded-lg border font-medium transition ${modeLien
+                  ? 'bg-iip-turquoise text-white border-iip-turquoise'
+                  : 'border-slate-300 text-slate-600 hover:bg-slate-50'}`}>
+                {modeLien ? 'Terminer les liens' : 'Modifier les prérequis'}
+              </button>
+              <span className="text-[11px] text-slate-500 flex-1">
+                {modeLien
+                  ? "Tirez depuis la pastille droite d'une UE vers celle qu'elle conditionne. Cliquez un trait pour le supprimer. Les déplacements d'année sont suspendus."
+                  : "Les prérequis viennent du dossier pédagogique ; ils ne changent pas d'une année à l'autre."}
+              </span>
+            </div>
+          )}
+
+          {mode === 'structure' && onNiveau && !modeLien && (
             <div className="px-3 py-2 border-t border-slate-200 bg-white">
               {selection ? (
                 <div className="flex items-center gap-2 flex-wrap">
