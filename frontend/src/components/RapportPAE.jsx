@@ -137,6 +137,10 @@ export default function RapportPAE({ anneeCourante, onClose }) {
       + (synthese
           ? '<th class="s">Acquis</th><th class="s">ECTS</th><th class="s">Situation</th>'
           : '');
+    // Combien de valeurs proviennent réellement de la maille du cours ?
+    const cotesCours = j.granularite === 'cours'
+      ? j.etudiants.reduce((s, e) => s + Object.keys(e.cours || {}).length, 0) : null;
+
     const retenus = j.etudiants.filter(e =>
       filtre === 'echec' ? e.echecs > 0
       : filtre === 'diplomables' ? e.diplomable
@@ -200,10 +204,19 @@ export default function RapportPAE({ anneeCourante, onClose }) {
   tr.taux td { background: #f1f5f9; font-weight: 700; font-size: 10px; color: #475569; }
   tr.taux td.ok { color: #047857; }
   tr.taux td.ko { color: #b91c1c; }
+  .alerte { background: #FEF3C7; border: 1px solid #FCD34D; color: #92400E;
+            padding: 7px 10px; border-radius: 6px; font-size: 11px; margin-bottom: 10px; }
   .legende { margin-top: 10px; font-size: 10px; color: #64748b; }
   @media print { body { margin: 8mm; } @page { size: landscape; } }
 </style></head><body>
 <h1>Plan annuel — ${esc(j.section)}</h1>
+${j.granularite === 'cours' && !cotesCours ? `
+<div class="alerte">
+  <b>Aucun résultat n'est encodé au niveau des cours pour cette section.</b>
+  Les cases reprennent donc la décision de l'unité d'enseignement, à l'identique pour tous
+  ses cours — ce tableau n'apporte rien de plus que la vue par UE tant que les classeurs de
+  suivi n'ont pas été importés (« Reconstruire l'historique »).
+</div>` : ''}
 <div class="meta">${esc(j.annee)} · ${retenus.length} étudiant(s) · ${j.colonnes.length} colonne(s)
   · ${contenu === 'annee' ? "année de validation" : "état de l'année"} · imprimé le ${new Date().toLocaleDateString('fr-BE')}</div>
 <table><thead><tr><th></th><th style="text-align:left">Étudiant</th>${enTetes}</tr></thead>
@@ -371,6 +384,14 @@ export default function RapportPAE({ anneeCourante, onClose }) {
                 </label>
               </div>
             </div>
+
+            {granularite === 'cours' && (
+              <div className="px-3 py-2 rounded-lg bg-amber-50 border border-amber-200 text-[11.5px] text-amber-900">
+                Les colonnes par cours ne portent de valeurs propres que si des résultats ont été
+                encodés à cette maille — par « Reconstruire l'historique » ou « Importer le classeur
+                PAE ». À défaut, chaque cours reprend la décision de son UE, en estompé.
+              </div>
+            )}
 
             <div className="px-3 py-2 rounded-lg bg-sky-50 border border-sky-200 text-[11.5px] text-sky-900">
               Le classeur exporté reprend la forme de celui de la coordination : il peut être
