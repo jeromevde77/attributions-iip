@@ -1052,6 +1052,12 @@ r.get('/:id/pae', authRequired, (req, res) => {
   const { sections: sectionsEtudiant, scores: sectionsScores } =
     sectionsDeLEtudiant(profId, req.query.section);
 
+  // Graphe complet des prérequis, pour le contrôle transitif
+  const prereqTous = {};
+  for (const p of db.prepare('SELECT ue_num, prerequis_num FROM ue_prerequis').all()) {
+    (prereqTous[p.ue_num] = prereqTous[p.ue_num] || []).push(p.prerequis_num);
+  }
+
   // UEs organisées cette année dans ces sections — UNE ligne par UE
   // (une UE peut avoir plusieurs organisations : on ne la propose qu'une fois)
   let organisees = [];
@@ -1090,6 +1096,23 @@ r.get('/:id/pae', authRequired, (req, res) => {
     const prerequis_ok = prerequis.every(p => reussies.has(p.ue_num_requis));
     const deja_reussie = reussies.has(ue.ue_num);
 
+    // Chaîne COMPLÈTE des prérequis manquants. S'inscrire à la 256 suppose la
+    // 255, laquelle suppose la 254 : ne contrôler que le lien direct laissait
+    // passer une inscription impossible.
+    const chaineManquante = (() => {
+      const manquants = new Set(), vus = new Set(), pile = [ue.ue_num];
+      while (pile.length) {
+        const n = pile.pop();
+        if (vus.has(n)) continue;
+        vus.add(n);
+        for (const p of (prereqTous[n] || [])) {
+          if (reussies.has(p)) continue;
+          manquants.add(p); pile.push(p);
+        }
+      }
+      return [...manquants].sort((a, b) => a - b);
+    })();
+
     // Sous réserve : les prérequis manquants sont organisés la même année
     // ET du même niveau que l'UE (cas type : épreuve intégrée et ses
     // déterminantes). Un prérequis manquant de niveau inférieur bloque.
@@ -1113,6 +1136,7 @@ r.get('/:id/pae', authRequired, (req, res) => {
       accessible: prerequis_ok && !deja_reussie,
       sous_reserve: sous_reserve && !deja_reussie,
       prereq_manquants: prereqManquants.map(p => p.ue_num_requis),
+      prereq_chaine: chaineManquante,
       // Circulaire 9764 : la réinscription dans une UE déjà réussie est possible
       // avec décision favorable du Conseil des études (pièce au dossier).
       reinscriptible_ce: prerequis_ok && deja_reussie,
@@ -1641,6 +1665,21 @@ r.get('/:id/grille', authRequired, (req, res) => {
       ...u,
       prerequis: prereqDe[u.ue_num] || [],
       hors_referentiel: !!u.hors_referentiel,
+      // Verrou TRANSITIF : la chaîne entière doit être acquise. Exiger la 255
+      // pour la 256 ne suffit pas si la 255 exige elle-même la 254.
+      prereq_chaine: (() => {
+        const m = new Set(), vus = new Set(), pile = [u.ue_num];
+        while (pile.length) {
+          const n = pile.pop();
+          if (vus.has(n)) continue;
+          vus.add(n);
+          for (const p of (prereqDe[n] || [])) {
+            if (acquis.has(p)) continue;
+            m.add(p); pile.push(p);
+          }
+        }
+        return [...m].sort((a, b) => a - b);
+      })(),
       deverrouillee: (prereqDe[u.ue_num] || []).every(p => acquis.has(p)),
       acquise: acquis.has(u.ue_num),
       suggeree: suggerees.has(u.ue_num) && !acquis.has(u.ue_num),

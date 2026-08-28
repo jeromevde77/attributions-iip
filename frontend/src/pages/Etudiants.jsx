@@ -303,7 +303,8 @@ function GrilleParcours({ etudId, peutEcrire }) {
                   <td className={`px-3 py-1.5 sticky left-0 bg-white z-10 ${u.acquise ? 'bg-emerald-50/60' : ''}`}>
                     <span className="font-medium text-iip-blue">{u.ue_num}</span>
                     <span className="text-slate-600 ml-1.5 text-[12px]">{u.ue_nom}</span>
-                    {verrou && <span className="ml-1.5 text-[11px]" title={'Prérequis : ' + u.prerequis.join(', ')}>🔒</span>}
+                    {verrou && <span className="ml-1.5 text-[11px]"
+                      title={'Exige : UE ' + ((u.prereq_chaine?.length ? u.prereq_chaine : u.prerequis) || []).join(', ')}>🔒</span>}
                     {u.suggeree && <span className="ml-1.5 text-[9.5px] px-1 py-0.5 rounded bg-violet-50 text-violet-600 border border-violet-200" title="Probablement acquise (inférence prérequis) — à confirmer">à confirmer</span>}
                     {u.hors_referentiel && (
                       <span className="ml-1.5 text-[9.5px] px-1 py-0.5 rounded bg-amber-50 text-amber-700 border border-amber-200"
@@ -335,7 +336,11 @@ function GrilleParcours({ etudId, peutEcrire }) {
                             if (memeAnnee) {
                               // Inscription simultanée normale — sous réserve, pas de dérogation
                               setPopover({ annee: a, ue_num: u.ue_num, verrou: false, sousReserve: manquants });
-                            } else if (window.confirm('UE verrouillée (prérequis non acquis : ' + u.prerequis.join(', ') + ').\nEncoder quand même avec dérogation ?')) {
+                            } else if (window.confirm(
+                                'UE verrouillée — exige la réussite de : UE '
+                                + ((u.prereq_chaine?.length ? u.prereq_chaine : u.prerequis) || []).join(', ')
+                                + '.\n\nL\'exigence est transitive : une UE prérequise a elle-même ses prérequis.'
+                                + '\n\nEncoder quand même avec dérogation ?')) {
                               setPopover({ annee: a, ue_num: u.ue_num, verrou: true });
                             }
                           }}
@@ -838,8 +843,11 @@ function FicheEtudiant({ id, annee, onClose }) {
       if (s.has(u.ue_num)) { s.delete(u.ue_num); return s; }
       // Ajout d'une UE hors proposition dont les prérequis ne sont pas acquis
       if (!u.propose && !u.accessible && !u.reinscriptible_ce) {
-        const msg = u.prereq_manquants?.length
-          ? 'Prérequis non acquis : UE ' + u.prereq_manquants.join(', ') + '.\nAjouter quand même (dérogation tracée) ?'
+        const chaine = u.prereq_chaine?.length ? u.prereq_chaine : (u.prereq_manquants || []);
+        const msg = chaine.length
+          ? `Cette UE exige la réussite de : UE ${chaine.join(', ')}.\n\n`
+            + `L'exigence est transitive — une UE prérequise a elle-même ses propres prérequis.\n\n`
+            + `Ajouter quand même ? La dérogation sera tracée.`
           : 'Ajouter cette UE au PAE ?';
         if (!window.confirm(msg)) return s;
       }
@@ -915,10 +923,12 @@ function FicheEtudiant({ id, annee, onClose }) {
       const j = await rep.json();
       if (rep.ok) {
         setPae(j);
-        // Une UE déjà acquise n'entre pas dans la proposition, même si une
-        // inscription subsiste : la réinscrire suppose une décision expresse.
-        setSelection(new Set(
-          j.pae.filter(u => (u.propose || u.inscrite) && !u.deja_reussie).map(u => u.ue_num)));
+        // Une inscription existante n'est reconduite que si elle TIENT :
+        // ni déjà acquise, ni bloquée par des prérequis manquants. Sans quoi
+        // un programme calculé par erreur se perpétuerait d'année en année.
+        setSelection(new Set(j.pae.filter(u =>
+          !u.deja_reussie && (u.propose || (u.inscrite && (u.accessible || u.sous_reserve)))
+        ).map(u => u.ue_num)));
       }
       else setPae({ erreur: j.error || 'Erreur serveur' });
     } catch(e) { setPae({ erreur: e.message }); }
@@ -991,6 +1001,10 @@ function FicheEtudiant({ id, annee, onClose }) {
                 // Inscriptions résiduelles sur des UE déjà acquises : vestiges
                 // d'un PAE calculé avant l'encodage des résultats.
                 const residuelles = acquises.filter(u => u.inscrite);
+                // Inscriptions maintenues alors que la chaîne des prérequis
+                // n'est pas satisfaite : elles ne sont pas reconduites.
+                const bloquees = pae.pae.filter(u =>
+                  u.inscrite && !u.deja_reussie && !u.accessible && !u.sous_reserve);
                 const ligneStatut = u =>
                   u.reinscriptible_ce
                     ? <span className="text-[11px] text-amber-700 flex items-center gap-1"><IconAlertTriangle size={12} />
@@ -999,7 +1013,10 @@ function FicheEtudiant({ id, annee, onClose }) {
                       ? <span className="text-[11px] font-semibold text-emerald-700 flex items-center gap-1"><IconCheck size={12} /> Accessible</span>
                       : u.sous_reserve || u.propose_sous_reserve
                         ? <span className="text-[11px] text-sky-700 flex items-center gap-1"><IconClock size={12} /> Sous réserve — réussite UE {(u.prereq_manquants || []).join(', ')}</span>
-                        : <span className="text-[11px] text-red-600 flex items-center gap-1"><IconAlertTriangle size={12} /> Prérequis manquants : {(u.prereq_manquants || []).join(', ')}</span>;
+                        : <span className="text-[11px] text-red-600 flex items-center gap-1"
+                            title={u.prereq_chaine?.length ? 'Chaîne complète : UE ' + u.prereq_chaine.join(', ') : ''}>
+                            <IconAlertTriangle size={12} /> Exige {(u.prereq_chaine || u.prereq_manquants || []).join(', ')}
+                          </span>;
 
                 return (
                 <>
@@ -1033,6 +1050,27 @@ function FicheEtudiant({ id, annee, onClose }) {
                       </button>
                     </div>
                   </div>
+
+                  {bloquees.length > 0 && (
+                    <div className="mb-3 px-3 py-2.5 rounded-xl bg-red-50 border border-red-200">
+                      <div className="flex items-start gap-2">
+                        <IconAlertTriangle size={15} className="text-red-600 mt-0.5 flex-none" />
+                        <div className="flex-1 text-[12px] text-red-900">
+                          <b>{bloquees.length} inscription(s) impossible(s)</b> en {pae.annee} :
+                          les prérequis ne sont pas acquis. Elles ne sont pas reconduites ;
+                          enregistrer le PAE les retirera.
+                          <ul className="mt-1 space-y-0.5 text-[11px] text-red-800">
+                            {bloquees.slice(0, 8).map(u => (
+                              <li key={u.ue_num}>
+                                UE {u.ue_num} — exige {(u.prereq_chaine || u.prereq_manquants || []).join(', ') || '—'}
+                              </li>
+                            ))}
+                            {bloquees.length > 8 && <li>… et {bloquees.length - 8} autre(s)</li>}
+                          </ul>
+                        </div>
+                      </div>
+                    </div>
+                  )}
 
                   {residuelles.length > 0 && (
                     <div className="mb-3 px-3 py-2.5 rounded-xl bg-amber-50 border border-amber-200">
