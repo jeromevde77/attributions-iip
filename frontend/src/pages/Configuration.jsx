@@ -440,6 +440,7 @@ import DatesUE from '../components/DatesUE.jsx';
 import Referentiels from './Referentiels.jsx';
 import PonderationsAA from './PonderationsAA.jsx';
 import SchemaCapitalisation from '../components/SchemaCapitalisation.jsx';
+import Demandes from './Demandes.jsx';
 import ParametresEtablissement from './ParametresEtablissement.jsx';
 import { authHeaders } from '../lib/api.js';
 
@@ -1254,6 +1255,7 @@ export default function Configuration() {
       { key: 'referentiels', label: 'Référentiels', icon: IconBooks },
       { key: 'prerequis', label: 'Prérequis UE', icon: IconLink },
       { key: 'ponderations', label: 'Pondération des AA', icon: IconScale },
+      { key: 'demandes', label: 'Demandes à valider', icon: IconCheck },
       { key: 'procedures', label: 'Procédures', icon: IconGavel },
     ]},
     { label: 'Paramétrage annuel', items: [
@@ -1315,6 +1317,7 @@ export default function Configuration() {
       {/* ── Onglet Prérequis ── */}
       {tab === 'prerequis' && <GestionPrerequis />}
       {tab === 'ponderations' && <PonderationsAA />}
+      {tab === 'demandes' && <Demandes />}
 
       {/* ── Onglet Utilisateurs ── */}
       {tab === 'users' && <div className="max-w-none"><Users embedded /></div>}

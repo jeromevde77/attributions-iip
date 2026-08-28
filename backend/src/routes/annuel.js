@@ -9,6 +9,7 @@
 import { Router } from 'express';
 import db from '../db/index.js';
 import { authRequired, roleRequired } from '../middleware/auth.js';
+import { exigeValidation, sectionAutorisee, deposerDemande } from './demandes.js';
 import { calculerDates, chargerPeriodesConges, anneeDebutDe, diffJours }
   from '../services/echeancier_dates.js';
 import { instancier, recalculerStatuts } from '../services/echeancier.js';
@@ -53,9 +54,42 @@ r.get('/dates-ue', authRequired, (req, res) => {
 
 // ── PUT /annuel/dates-ue ────────────────────────────────────────────────────
 // Enregistrement groupé : [{ id, date_debut, date_fin, nb_semaines }, …]
-r.put('/dates-ue', authRequired, roleRequired('admin', 'editeur'), (req, res) => {
+r.put('/dates-ue', authRequired, roleRequired('admin', 'editeur', 'coordination'), (req, res) => {
   const { lignes } = req.body;
   if (!Array.isArray(lignes)) return res.status(400).json({ error: 'lignes requises' });
+
+  // Un coordinateur propose : sa saisie devient une demande, et la donnée
+  // officielle ne bouge pas tant que la direction n'a pas tranché.
+  if (exigeValidation(req.user)) {
+    let deposees = 0, refusees = 0;
+    for (const l of lignes) {
+      const id = Number(l.id);
+      if (!id) continue;
+      const actuel = db.prepare(`
+        SELECT o.id, o.date_debut, o.date_fin, o.ue_num, o.annee_scolaire,
+               (SELECT section FROM ue u WHERE u.ue_num = o.ue_num ORDER BY u.annee_scolaire DESC LIMIT 1) AS section,
+               (SELECT ue_nom FROM ue u WHERE u.ue_num = o.ue_num ORDER BY u.annee_scolaire DESC LIMIT 1) AS ue_nom
+        FROM organisation_ue o WHERE o.id = ?
+      `).get(id);
+      if (!actuel) continue;
+      if (!sectionAutorisee(req.user, actuel.section)) { refusees++; continue; }
+      deposerDemande({
+        type: 'date_ue', operation: 'modifier', cible_id: id,
+        section: actuel.section, annee_scolaire: actuel.annee_scolaire,
+        libelle: `Dates de l'UE ${actuel.ue_num}${actuel.ue_nom ? ' — ' + actuel.ue_nom : ''}`,
+        avant: { date_debut: actuel.date_debut, date_fin: actuel.date_fin },
+        apres: { date_debut: l.date_debut || null, date_fin: l.date_fin || null },
+        user: req.user,
+      });
+      deposees++;
+    }
+    return res.json({
+      ok: true, en_attente: true, modifiees: 0, deposees, refusees,
+      message: `${deposees} modification(s) transmise(s) pour validation`
+             + (refusees ? ` — ${refusees} hors de votre périmètre.` : '.')
+             + ` Les dates ne changeront qu'après accord de la direction.`,
+    });
+  }
 
   const maj = db.prepare(`
     UPDATE organisation_ue

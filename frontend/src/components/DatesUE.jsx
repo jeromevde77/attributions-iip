@@ -99,6 +99,16 @@ export default function DatesUE({ annee }) {
       });
       const j = await rep.json();
       if (!rep.ok) throw new Error(j.error || 'échec');
+
+      // Un coordinateur ne modifie pas directement : sa saisie devient une
+      // demande. Rien n'ayant bougé, l'échéancier n'a pas à être régénéré.
+      if (j.en_attente) {
+        setMessage({ type: 'ok', texte: j.message });
+        setModifs({});
+        await charger();
+        return;
+      }
+
       // Régénérer les échéances liées aux UE
       await fetch('/api/annuel/echeancier/instancier', {
         method: 'POST', headers: authHeaders(),
