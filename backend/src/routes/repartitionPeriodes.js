@@ -139,43 +139,50 @@ r.get('/', authRequired, (req, res) => {
   // Les attributions HELB sont ÉCARTÉES : elles ne se décomptent pas de la
   // dotation de l'établissement, les inclure gonflerait la déclaration.
   const attrib = db.prepare(`
-    SELECT ue_num, code_cours,
+    SELECT ue_num, COALESCE(num_organisation, 1) AS num_organisation, code_cours,
            ROUND(SUM(COALESCE(periodes_attribuees, 0)), 1) AS periodes,
            ROUND(SUM(COALESCE(autonomie_attribuee, 0)), 1) AS autonomie
     FROM attribution
     WHERE annee_scolaire = ? AND ue_num IN (${listeUe.join(',')})
       AND COALESCE(contrat_mdp, 'IIP') = 'IIP'
-    GROUP BY ue_num, code_cours
+    GROUP BY ue_num, num_organisation, code_cours
   `).all(annee);
 
   // Ce qui relève de la HELB, gardé de côté pour l'afficher sans le compter :
   // le voir rassure sur le fait qu'il n'a pas été oublié, mais égaré.
   const helb = db.prepare(`
-    SELECT ue_num, ROUND(SUM(COALESCE(periodes_attribuees, 0)
-                          + COALESCE(autonomie_attribuee, 0)), 1) AS periodes
+    SELECT ue_num, COALESCE(num_organisation, 1) AS num_organisation,
+           ROUND(SUM(COALESCE(periodes_attribuees, 0)
+                   + COALESCE(autonomie_attribuee, 0)), 1) AS periodes
     FROM attribution
     WHERE annee_scolaire = ? AND ue_num IN (${listeUe.join(',')})
       AND contrat_mdp = 'HELB'
-    GROUP BY ue_num
+    GROUP BY ue_num, num_organisation
   `).all(annee);
-  const helbDe = Object.fromEntries(helb.map(h => [h.ue_num, h.periodes]));
+  const helbDe = Object.fromEntries(
+    helb.map(h => [`${h.ue_num}|${h.num_organisation}`, h.periodes]));
   const attribDe = {};
-  for (const a of attrib) attribDe[`${a.ue_num}|${a.code_cours || ''}`] = a;
+  // Une UE organisée deux fois a deux jeux d'attributions : grouper sur la seule
+  // UE donnait le total complet à CHAQUE organisation, et le tableau multipliait.
+  for (const a of attrib) {
+    attribDe[`${a.ue_num}|${a.num_organisation}|${a.code_cours || ''}`] = a;
+  }
 
   // Total réellement attribué par UE, indépendamment du code de cours. Il sert
   // de garde-fou : une attribution sans code d'activité, ou portant un code
   // absent du référentiel, ne figurerait dans aucune ligne du tableau et ses
   // périodes disparaîtraient de la déclaration.
   const totalAttribueUe = Object.fromEntries(db.prepare(`
-    SELECT ue_num, ROUND(SUM(COALESCE(periodes_attribuees, 0)), 1) AS periodes,
-                   ROUND(SUM(COALESCE(autonomie_attribuee, 0)), 1) AS autonomie,
-                   ROUND(SUM(COALESCE(total_attribue_professeur, 0)), 1) AS total_pilotage,
-                   MAX(COALESCE(quadrimestre_attribue, '')) AS quadri
+    SELECT ue_num, COALESCE(num_organisation, 1) AS num_organisation,
+           ROUND(SUM(COALESCE(periodes_attribuees, 0)), 1) AS periodes,
+           ROUND(SUM(COALESCE(autonomie_attribuee, 0)), 1) AS autonomie,
+           ROUND(SUM(COALESCE(total_attribue_professeur, 0)), 1) AS total_pilotage,
+           MAX(COALESCE(quadrimestre_attribue, '')) AS quadri
     FROM attribution
     WHERE annee_scolaire = ? AND ue_num IN (${listeUe.join(',')})
       AND COALESCE(contrat_mdp, 'IIP') = 'IIP'
-    GROUP BY ue_num
-  `).all(annee).map(x => [x.ue_num, x]));
+    GROUP BY ue_num, num_organisation
+  `).all(annee).map(x => [`${x.ue_num}|${x.num_organisation}`, x]));
 
   // Répartitions déjà saisies
   const saisies = {};
@@ -215,12 +222,12 @@ r.get('/', authRequired, (req, res) => {
     };
 
     for (const c of coursRef.filter(x => x.ue_num === o.ue_num)) {
-      const a = attribDe[`${o.ue_num}|${c.cours_code}`] || {};
+      const a = attribDe[`${o.ue_num}|${o.num_organisation || 1}|${c.cours_code}`] || {};
       ajouter(c.cours_code, c.cours_nom, 'cours', c.cours_per, a.periodes, c.type_cours);
     }
 
     // L'autonomie, hors des cas généraux, sur sa propre ligne
-    const t = totalAttribueUe[o.ue_num] || {};
+    const t = totalAttribueUe[`${o.ue_num}|${o.num_organisation || 1}`] || {};
     const autonomieAttribuee = Number(t.autonomie || 0);
     if (o.ue_autonomie || autonomieAttribuee) {
       ajouter(null, 'Autonomie', 'autonomie', o.ue_autonomie, autonomieAttribuee, null);
@@ -249,7 +256,7 @@ r.get('/', authRequired, (req, res) => {
       quadri_simulation: t.quadri || o.ue_quad || null,
       total_pilotage: arrondi(Number(t.total_pilotage || 0)),
       quadrimestre: t.quadri || o.ue_quad || null,
-      periodes_helb: helbDe[o.ue_num] || 0,
+      periodes_helb: helbDe[`${o.ue_num}|${o.num_organisation || 1}`] || 0,
       lignes,
       totaux: {
         prevu_total: somme('prevu_total'), reel_total: somme('reel_total'),
