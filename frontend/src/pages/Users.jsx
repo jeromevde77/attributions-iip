@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { getUser } from '../lib/api.js';
 import { IconPlus, IconKey, IconTrash, IconAlertTriangle } from '@tabler/icons-react';
-import { MODULES_ACCES, PLAFOND_ROLE, droitEffectif, LIBELLE_DROIT } from '../lib/modules.js';
+import { MODULES_ACCES, PLAFOND_ROLE, droitEffectif, LIBELLE_DROIT, estDirection} from '../lib/modules.js';
 
 const ROLE_LABEL = {
   admin: 'Administrateur',
@@ -129,7 +129,7 @@ export default function Users({ embedded = false }) {
   // administrateurs techniques, prestataire extérieur.
   const comptesSansFiche = (users || []).filter(u => !u.professeur_id);
 
-  if (me?.role !== 'admin') {
+  if (!estDirection(me)) {
     return <div className="p-6 max-w-none mx-auto text-center text-gray-500">Accès réservé aux administrateurs.</div>;
   }
 

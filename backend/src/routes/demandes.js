@@ -141,7 +141,7 @@ r.get('/', authRequired, (req, res) => {
 
 // ── Décision ───────────────────────────────────────────────────────────────
 // Réservée aux administrateurs : c'est le sens même du circuit.
-r.post('/:id/valider', authRequired, roleRequired('admin'), (req, res) => {
+r.post('/:id/valider', authRequired, roleRequired('admin', 'directeur', 'directeur_adjoint'), (req, res) => {
   const d = db.prepare('SELECT * FROM demande_modification WHERE id = ?').get(Number(req.params.id));
   if (!d) return res.status(404).json({ error: 'demande introuvable' });
   if (d.statut !== 'en_attente') return res.status(400).json({ error: 'Demande déjà tranchée' });
@@ -164,7 +164,7 @@ r.post('/:id/valider', authRequired, roleRequired('admin'), (req, res) => {
   res.json({ ok: true, message: resultat });
 });
 
-r.post('/:id/refuser', authRequired, roleRequired('admin'), (req, res) => {
+r.post('/:id/refuser', authRequired, roleRequired('admin', 'directeur', 'directeur_adjoint'), (req, res) => {
   const d = db.prepare('SELECT * FROM demande_modification WHERE id = ?').get(Number(req.params.id));
   if (!d) return res.status(404).json({ error: 'demande introuvable' });
   if (d.statut !== 'en_attente') return res.status(400).json({ error: 'Demande déjà tranchée' });

@@ -1,4 +1,5 @@
 import { useEffect, useState, useMemo } from 'react';
+import { estDirection } from '../lib/modules.js';
 import { createPortal } from 'react-dom';
 import { api, getAnnee, nomDoc, getUnite, setUnite as setUniteGlobal, perToH, hToPer } from '../lib/api.js';
 import PreviewModal from '../components/PreviewModal.jsx';
@@ -312,8 +313,8 @@ export default function Attributions() {
   const COLS_COURS = useMemo(() => COLS.filter(c => !c.flatOnly && !c.coursOnly && (!c.helbOnly || hasHelb)), [COLS, hasHelb]);
 
   const me = JSON.parse(localStorage.getItem('user') || 'null');
-  const isAdmin = me?.role === 'admin';
-  const isValidateur = me?.role === 'admin' || !!me?.peut_valider;
+  const isAdmin = estDirection(me);
+  const isValidateur = estDirection(me) || !!me?.peut_valider;
   const saveValide = async (id, valide) => {
     try {
       const res = await fetch(`/api/attributions/${id}/valider`, {

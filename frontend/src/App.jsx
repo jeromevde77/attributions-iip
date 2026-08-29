@@ -1,4 +1,5 @@
 import { useState, useEffect, Component } from 'react';
+import { estDirection } from './lib/modules.js';
 
 // Error boundary : affiche l'erreur au lieu d'une page blanche
 class ErrorBoundary extends Component {
@@ -91,7 +92,7 @@ function BuildBadge() {
 
 function AdminOrRH({ children }) {
   const u = getUser();
-  if (u?.role !== 'admin' && !u?.acces_recrutement) return <Navigate to="/" replace />;
+  if (!estDirection(u) && !u?.acces_recrutement) return <Navigate to="/" replace />;
   return children;
 }
 
@@ -112,7 +113,7 @@ function VoirCommePicker() {
   const [profils, setProfils] = useState([]);
   const [err, setErr] = useState('');
   const u = getUser();
-  if (u?.role !== 'admin' || u?.preview) {
+  if (!estDirection(u) || u?.preview) {
     return <span className="text-gray-700 font-medium text-sm">{u?.nom || u?.email}</span>;
   }
   const ouvrir = () => {
@@ -259,7 +260,7 @@ function ProtectedLayout({ children }) {
         ['/pilotage',     'Pilotage',      IconChartBar],
       ];
   nav.push(['/aide', '', IconHelpCircle]);
-  if (u?.role === 'admin') nav.push(['/configuration', 'Config.', IconSettings]);
+  if (estDirection(u)) nav.push(['/configuration', 'Config.', IconSettings]);
 
   return (
     <div className="min-h-screen flex flex-col">

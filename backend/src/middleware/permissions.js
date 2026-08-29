@@ -7,11 +7,13 @@
 //
 // Cinq rôles, chacun avec un sens propre :
 //
-//   direction     — décide de tout, tranche les demandes de validation
-//   secretariat   — lit partout, produit les documents (centre d'impression)
-//   coordination  — encode pour ses sections, MAIS tout passe en validation
-//   professeur    — ses propres données et ses attributions, rien d'autre
-//   consultation  — lecture seule
+//   directeur          — décide de tout, tranche les demandes de validation
+//   directeur_adjoint  — mêmes droits, même pouvoir de validation
+//   admin              — compte technique, sans fiche : prestataire extérieur
+//   secretariat        — lit partout, ÉCRIT sur les étudiants, produit les documents
+//   coordination       — encode pour ses sections, sous validation d'un directeur
+//   professeur         — ses propres données et ses attributions, rien d'autre
+//   consultation       — lecture seule
 //
 // Le rôle pose un plancher et un plafond ; les cases affinent à l'intérieur.
 // Une case ne peut jamais accorder plus que le rôle ne le permet.
@@ -29,8 +31,10 @@ const PLAFOND = {
 
   secretariat: {
     lire: () => true,
-    // Le secrétariat lit partout et produit les documents, mais n'encode pas.
-    ecrire: m => (['communication', 'listes', 'procedures'].includes(m) ? 'direct' : false),
+    // Le secrétariat encode les étudiants — c'est son métier, et cela
+    // n'engage que de la donnée administrative — et produit les documents.
+    ecrire: m => (['etudiants', 'communication', 'listes', 'procedures'].includes(m)
+      ? 'direct' : false),
   },
 
   coordination: {
@@ -49,8 +53,19 @@ const PLAFOND = {
   consultation: { lire: () => true, ecrire: () => false },
 };
 
-// 'editeur' est l'ancien nom du secrétariat, en écriture complète.
+// La direction et son adjoint ont les mêmes droits : ce sont deux personnes,
+// non deux niveaux. La distinction sert à savoir QUI a tranché.
+PLAFOND.directeur = PLAFOND.admin;
+PLAFOND.directeur_adjoint = PLAFOND.admin;
+
+// 'editeur' est l'ancien nom, conservé le temps que les comptes migrent.
 PLAFOND.editeur = { lire: () => true, ecrire: () => 'direct' };
+
+/** Qui peut trancher une demande de validation. */
+export const ROLES_VALIDATION = ['admin', 'directeur', 'directeur_adjoint'];
+export function peutValider(user) {
+  return ROLES_VALIDATION.includes(user?.role);
+}
 
 function permissions(user) {
   try {

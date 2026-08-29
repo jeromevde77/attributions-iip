@@ -28,19 +28,26 @@ export const MODULES_ACCES = [
 ];
 
 export const ROLES_LUCIE = [
-  ['consultation', 'Consultation — lecture seule'],
-  ['professeur',   'Professeur — ses attributions et ses données'],
-  ['coordination', 'Coordination — encode, sous validation de la direction'],
-  ['secretariat',  'Secrétariat — lit partout, produit les documents'],
-  ['admin',        'Direction — accès complet et validation des demandes'],
+  ['consultation',      'Consultation — lecture seule'],
+  ['professeur',        'Professeur — ses attributions et ses données'],
+  ['coordination',      'Coordination — encode, la direction valide'],
+  ['secretariat',       'Secrétariat — écrit sur les étudiants et les documents'],
+  ['directeur_adjoint', 'Directeur adjoint — accès complet, valide les demandes'],
+  ['directeur',         'Directeur — accès complet, valide les demandes'],
+  ['admin',             'Administrateur technique — compte sans fiche'],
 ];
 
 // Ce que chaque rôle permet AU MIEUX. Repris du serveur, qui reste seul juge :
 // l'écran s'en sert pour ne pas laisser cocher une case qui serait refusée.
 export const PLAFOND_ROLE = {
-  admin:        () => 'ecrit',
-  editeur:      () => 'ecrit',
-  secretariat:  m => (['communication', 'listes', 'procedures'].includes(m) ? 'ecrit' : 'lit'),
+  directeur:         () => 'ecrit',
+  directeur_adjoint: () => 'ecrit',
+  admin:             () => 'ecrit',
+  editeur:           () => 'ecrit',
+  // Le secrétariat encode les étudiants : c'est son métier, et cela n'engage
+  // que de la donnée administrative.
+  secretariat:  m => (['etudiants', 'communication', 'listes', 'procedures'].includes(m)
+    ? 'ecrit' : 'lit'),
   coordination: m => (m === 'recrutement' ? 'rien' : 'validation'),
   professeur:   m => (['attributions', 'personnel', 'planification'].includes(m) ? 'lit' : 'rien'),
   consultation: () => 'lit',
@@ -73,3 +80,10 @@ export const LIBELLE_DROIT = {
   lit:        { texte: 'lit',        cls: 'bg-sky-100 text-sky-800' },
   rien:       { texte: '—',          cls: 'text-slate-300' },
 };
+
+
+// Directeur, directeur adjoint et administrateur technique ont les mêmes
+// droits. Comparer à la seule chaîne 'admin' écartait la direction des écrans
+// qui lui sont pourtant destinés.
+export const ROLES_DIRECTION = ['admin', 'directeur', 'directeur_adjoint'];
+export const estDirection = u => ROLES_DIRECTION.includes(u?.role);

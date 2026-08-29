@@ -28,6 +28,7 @@ export function roleRequired(...roles) {
 
     // 'secretariat' est le nom actuel de ce que les routes appellent encore
     // 'editeur' : même niveau d'écriture, sans les référentiels.
+    if (NIVEAU_DIRECTION.includes(role) && (roles.includes('admin') || roles.includes('editeur'))) return next();
     if (role === 'secretariat' && roles.includes('editeur')) return next();
 
     // Un coordinateur n'écrit jamais directement : ses modifications passent
@@ -57,7 +58,7 @@ export function roleRequired(...roles) {
  */
 export function getUserSections(user) {
   if (!user) return [];
-  if (user.role === 'admin') return null; // admin : toujours sans restriction
+  if (NIVEAU_DIRECTION.includes(user.role)) return null;   // direction : sans restriction
   const rows = db.prepare('SELECT section_code FROM utilisateur_section WHERE utilisateur_id = ?').all(user.id);
   if (rows.length === 0) return null; // pas de sections configurées → accès à tout
   return rows.map(r => r.section_code); // sections configurées → filtrage appliqué
@@ -97,7 +98,12 @@ export function peutValiderAttributions(user) {
 // circuit de validation de se déclencher. Les rôles sont désormais distincts
 // et gérés par le module des permissions ; seul le nom historique 'editeur'
 // reste toléré, comme synonyme de secrétariat en écriture.
-const ROLES_CONNUS = ['admin', 'secretariat', 'editeur', 'coordination', 'professeur', 'consultation'];
+const ROLES_CONNUS = ['admin', 'directeur', 'directeur_adjoint', 'secretariat',
+                      'editeur', 'coordination', 'professeur', 'consultation'];
+
+// Directeur et directeur adjoint ont les droits d'un administrateur : la
+// distinction sert à savoir qui a tranché, non à hiérarchiser.
+const NIVEAU_DIRECTION = ['admin', 'directeur', 'directeur_adjoint'];
 
 export function normaliserRole(role) {
   return ROLES_CONNUS.includes(role) ? role : 'consultation';

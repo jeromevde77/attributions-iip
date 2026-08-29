@@ -36,11 +36,14 @@ export function migrerProfilsAcces(dbx) {
       }])));
 
     const defauts = [
-      ['Direction', 'admin', "Tout, y compris les référentiels et la validation des demandes", perm('tous', true)],
-      ['Secrétariat', 'secretariat', "Lecture partout, écriture dans le centre d'impression",
+      ['Directeur', 'directeur', "Tout, y compris les référentiels et la validation des demandes", perm('tous', true)],
+      ['Directeur adjoint', 'directeur_adjoint', "Mêmes droits que le directeur, même pouvoir de validation", perm('tous', true)],
+      ['Administrateur technique', 'admin', "Compte sans fiche : prestataire extérieur", perm('tous', true)],
+      ['Secrétariat', 'secretariat',
+       "Lecture partout, écriture sur les étudiants et le centre d'impression",
        perm('tous', false)],
       ['Coordination', 'coordination',
-       "Encode pour ses sections ; ses modifications passent en validation",
+       "Encode pour ses sections ; ses modifications sont validées par la direction",
        perm(['etudiants', 'attributions', 'organisation', 'planification', 'budget',
              'communication', 'listes', 'pilotage'], true)],
       ['Professeur', 'professeur', "Ses propres attributions et ses données",

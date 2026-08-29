@@ -601,9 +601,13 @@ function Valorisations({ etudId, annee }) {
   const [valos, setValos] = useState(null);
   const [form, setForm] = useState(null);
   const [composantes, setComposantes] = useState(null);
+  // Directeur, directeur adjoint et administrateur technique ont les mêmes
+  // droits ici : comparer à la seule chaîne 'admin' en écartait la direction.
   const [estAdmin] = useState(() => {
-    try { return JSON.parse(atob((localStorage.getItem('token')||'').split('.')[1]||''))?.role === 'admin'; }
-    catch { return false; }
+    try {
+      const jeton = JSON.parse(atob((localStorage.getItem('token') || '').split('.')[1] || ''));
+      return ['admin', 'directeur', 'directeur_adjoint'].includes(jeton?.role);
+    } catch { return false; }
   });
 
   async function charger() {

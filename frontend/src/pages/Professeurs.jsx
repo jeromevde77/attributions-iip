@@ -5,7 +5,7 @@ import ProfFicheModal from './ProfFicheModal.jsx';
 import PreviewModal from '../components/PreviewModal.jsx';
 import CoursEditModal from '../components/CoursEditModal.jsx';
 import { IconMail, IconMapPin, IconFileText, IconEdit, IconDownload, IconRefresh, IconX, IconPrinter, IconPlus, IconTrash, IconKey, IconLock, IconCheck, IconBriefcase, IconTargetArrow, IconChevronDown, IconChevronRight, IconUsers, IconSchool, IconUserPlus, IconBuilding, IconBuildingBank, IconFileDescription } from '@tabler/icons-react';
-import { MODULES_ACCES, ROLES_LUCIE, PLAFOND_ROLE } from '../lib/modules.js';
+import { MODULES_ACCES, ROLES_LUCIE, PLAFOND_ROLE, estDirection} from '../lib/modules.js';
 import { RailLateral } from '../components/ui.jsx';
 
 /**
@@ -15,7 +15,7 @@ import { RailLateral } from '../components/ui.jsx';
  * contrats. Toute modification ici doit être répercutée côté serveur.
  */
 function peutGenererContrat(u) {
-  return u?.role === 'admin' || u?.role === 'editeur';
+  return estDirection(u) || ['editeur', 'secretariat'].includes(u?.role);
 }
 
 import { DossierAdmin, Absences, Entretiens, Journal } from '../components/DossierPersonnel.jsx';
@@ -797,7 +797,7 @@ function DetailModal({ profId, onClose, onEdit, onFiche }) {
     { key: 'dossier_admin', label: 'Dossier admin.' },
     { key: 'absences',      label: 'Absences' },
     { key: 'journal',       label: 'Journal & entretiens' },
-    ...(u?.role === 'admin' ? [
+    ...(estDirection(u) ? [
       { key: 'acces',    label: 'Accès Lucie' },
       { key: 'dossiers', label: '🔒 Disciplinaire' },
     ] : []),
