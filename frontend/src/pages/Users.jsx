@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { getUser } from '../lib/api.js';
 import { IconPlus, IconKey, IconTrash, IconAlertTriangle } from '@tabler/icons-react';
-import { MODULES_ACCES, droitEffectif, LIBELLE_DROIT } from '../lib/modules.js';
+import { MODULES_ACCES, PLAFOND_ROLE, droitEffectif, LIBELLE_DROIT } from '../lib/modules.js';
 
 const ROLE_LABEL = {
   admin: 'Administrateur',
