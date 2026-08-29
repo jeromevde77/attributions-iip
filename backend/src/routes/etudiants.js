@@ -5,6 +5,7 @@
 import { Router } from 'express';
 
 import db from '../db/index.js';
+import { anneeDeTravail } from '../helpers/annee.js';
 import { authRequired, roleRequired } from '../middleware/auth.js';
 import { construireGraphe, niveauxEffectifs } from './capitalisation.js';
 import { structureUE, calculerNoteUE, coursValidesAnterieurs } from './acquis.js';
@@ -252,7 +253,7 @@ r.get('/', authRequired, (req, res) => {
   }
   sql += ` GROUP BY e.id ORDER BY e.nom, e.prenom`;
 
-  const anneeActive = db.prepare('SELECT code FROM annee_scolaire WHERE active = 1').get()?.code;
+  const anneeActive = anneeDeTravail(req);
   const rows = db.prepare(sql).all(...params);
   res.json(rows.map(r0 => {
     const n = niveauEtudiant(r0.id, anneeActive);
@@ -265,7 +266,7 @@ r.get('/rapport', authRequired, (req, res) => {
   const { section, annee } = req.query;
   if (!section || !annee) return res.status(400).json({ error: 'section et annee requises' });
 
-  const anneeActive = db.prepare('SELECT code FROM annee_scolaire WHERE active = 1').get()?.code;
+  const anneeActive = anneeDeTravail(req);
 
   // UE de la section (référentiel de l'année demandée, sinon année active), BA1→BA3
   let ues = db.prepare(`
@@ -386,7 +387,7 @@ r.post('/codes-externes/resoudre', authRequired, (req, res) => {
   const { codes, section } = req.body;
   if (!Array.isArray(codes)) return res.status(400).json({ error: 'codes requis' });
 
-  const anneeRef = db.prepare('SELECT code FROM annee_scolaire WHERE active = 1').get()?.code;
+  const anneeRef = anneeDeTravail(req);
   const ues = db.prepare(`
     SELECT DISTINCT ue_num, MIN(ue_nom) AS ue_nom, MIN(section) AS section FROM ue
     ${section ? 'WHERE section = ?' : ''}
@@ -497,7 +498,7 @@ r.get('/rapport-pae', authRequired, (req, res) => {
   const { section, annee, niveau, ue_num, granularite = 'ue' } = req.query;
   if (!section || !annee) return res.status(400).json({ error: 'section et annee requises' });
 
-  const anneeRef = db.prepare('SELECT code FROM annee_scolaire WHERE active = 1').get()?.code || annee;
+  const anneeRef = anneeDeTravail(req) || annee;
   const niveaux = niveauxEffectifs([section], annee);
 
   let ues = db.prepare(`
@@ -646,7 +647,7 @@ r.get('/synthese', authRequired, (req, res) => {
   const { section } = req.query;
   if (!section) return res.status(400).json({ error: 'section requise' });
 
-  const anneeRef = db.prepare('SELECT code FROM annee_scolaire WHERE active = 1').get()?.code;
+  const anneeRef = anneeDeTravail(req);
   const ues = db.prepare(`
     SELECT DISTINCT ue_num FROM ue WHERE section = ?
   `).all(section).map(u => u.ue_num);
@@ -882,7 +883,7 @@ r.get('/matrice', authRequired, (req, res) => {
   const { annee, section } = req.query;
   if (!annee || !section) return res.status(400).json({ error: 'annee et section requises' });
 
-  const anneeRef = db.prepare('SELECT code FROM annee_scolaire WHERE active = 1').get()?.code || annee;
+  const anneeRef = anneeDeTravail(req) || annee;
 
   const ues = db.prepare(`
     SELECT DISTINCT ue_num, MIN(ue_nom) AS ue_nom FROM ue
@@ -983,7 +984,7 @@ r.post('/matrice', authRequired, roleRequired('admin', 'editeur'), (req, res) =>
 // ── Périmètre disponible pour la purge : UE et cours d'une section ──────────
 r.get('/purge/perimetre', authRequired, (req, res) => {
   const { section, annee } = req.query;
-  const anneeRef = db.prepare('SELECT code FROM annee_scolaire WHERE active = 1').get()?.code || annee;
+  const anneeRef = anneeDeTravail(req) || annee;
 
   const annees = db.prepare(
     'SELECT DISTINCT annee_scolaire FROM etudiant_inscription ORDER BY annee_scolaire DESC'
@@ -1015,7 +1016,7 @@ r.get('/purge/etudiants', authRequired, (req, res) => {
   let ues = null;
   if (ue_num) ues = [Number(ue_num)];
   else if (section) {
-    const anneeRef = db.prepare('SELECT code FROM annee_scolaire WHERE active = 1').get()?.code || annee;
+    const anneeRef = anneeDeTravail(req) || annee;
     ues = db.prepare(`
       SELECT DISTINCT ue_num FROM ue WHERE section = ? AND annee_scolaire IN (?, ?)
     `).all(section, annee, anneeRef).map(r0 => r0.ue_num);
@@ -1051,7 +1052,7 @@ r.post('/purge', authRequired, roleRequired('admin', 'editeur'), (req, res) => {
   let ues = null;
   if (ue_num) ues = [Number(ue_num)];
   else if (section) {
-    const anneeRef = db.prepare('SELECT code FROM annee_scolaire WHERE active = 1').get()?.code || annee;
+    const anneeRef = anneeDeTravail(req) || annee;
     ues = db.prepare(`
       SELECT DISTINCT ue_num FROM ue WHERE section = ? AND annee_scolaire IN (?, ?)
     `).all(section, annee, anneeRef).map(r0 => r0.ue_num);
@@ -1143,7 +1144,7 @@ r.get('/:id', authRequired, (req, res) => {
     ORDER BY i.annee_scolaire DESC, u.section, i.ue_num
   `).all(etudiant.id);
 
-  const anneeAct = db.prepare('SELECT code FROM annee_scolaire WHERE active = 1').get()?.code;
+  const anneeAct = anneeDeTravail(req);
   res.json({ ...etudiant, inscriptions, niveau: niveauEtudiant(etudiant.id, anneeAct) });
 });
 
@@ -1483,7 +1484,7 @@ r.post('/:id/pae-auto', authRequired, roleRequired('admin', 'editeur'), (req, re
   // NIVEAU (épreuve intégrée et ses déterminantes). Une UE dont le prérequis
   // manquant est d'un niveau inférieur n'est pas inscriptible : il faut
   // d'abord réussir ce prérequis (cas UE de BA1 ratée → la suite attend).
-  const anneeRefNiv = db.prepare('SELECT code FROM annee_scolaire WHERE active = 1').get()?.code || annee;
+  const anneeRefNiv = anneeDeTravail(req) || annee;
   const nivRows = db.prepare('SELECT DISTINCT ue_num, ue_niv FROM ue WHERE annee_scolaire = ?').all(anneeRefNiv);
   const nivDe = {};
   for (const n of nivRows) nivDe[n.ue_num] = (n.ue_niv || '').toUpperCase();
@@ -1785,7 +1786,7 @@ r.get('/:id/grille', authRequired, (req, res) => {
   const { sections, scores: sectionsScores } = sectionsDeLEtudiant(etudId, req.query.section);
 
   // Année active pour le référentiel UE
-  const anneeActive = db.prepare('SELECT code FROM annee_scolaire WHERE active = 1').get()?.code;
+  const anneeActive = anneeDeTravail(req);
 
   // Les UE de la section (référentiel année active), triées BA1→BA3 puis numéro
   let ues = [];
@@ -2219,7 +2220,7 @@ r.get('/:id/fiche-inscription', authRequired, (req, res) => {
   // capitalisation — non la valeur brute du référentiel.
   const sectionsEtud = [...new Set(inscriptions.map(i => i.section).filter(Boolean))];
   const nivDe2 = sectionsEtud.length ? niveauxEffectifs(sectionsEtud, annee) : {};
-  const anneeRefNiv2 = db.prepare('SELECT code FROM annee_scolaire WHERE active = 1').get()?.code || annee;
+  const anneeRefNiv2 = anneeDeTravail(req) || annee;
   for (const n of db.prepare('SELECT DISTINCT ue_num, ue_niv FROM ue WHERE annee_scolaire = ?').all(anneeRefNiv2)) {
     if (!nivDe2[n.ue_num]) nivDe2[n.ue_num] = (n.ue_niv || '').toUpperCase();
   }

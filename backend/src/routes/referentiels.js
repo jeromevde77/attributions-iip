@@ -1,5 +1,6 @@
 import { Router } from 'express';
 import db from '../db/index.js';
+import { anneeDeTravail } from '../helpers/annee.js';
 import { authRequired, roleRequired, getUserSections } from '../middleware/auth.js';
 import { parseDossierPedagogique } from '../parseDossierPedagogique.js';
 
@@ -794,7 +795,7 @@ r.get('/professeurs/:id', authRequired, (req, res) => {
   // Fusion : la table complète d'abord, la vue complète les totaux
   const p = { ...vue, ...base, nom_prenom: vue.nom_prenom || `${base.nom} ${base.prenom}` };
   const annee = req.query.annee
-    || db.prepare("SELECT code FROM annee_scolaire WHERE active = 1 LIMIT 1").get()?.code
+    || anneeDeTravail(req)
     || db.prepare("SELECT annee_scolaire FROM attribution WHERE professeur_id = ? ORDER BY annee_scolaire DESC LIMIT 1").get(req.params.id)?.annee_scolaire;
 
   const attrs = db.prepare(`
@@ -1499,7 +1500,7 @@ r.put('/personnel-etablissement/:id/sections', authRequired, roleRequired('admin
 // et la liste des sections où il intervient.
 r.get('/membres-cde', authRequired, (req, res) => {
   const annee = req.query.annee
-    || db.prepare("SELECT code FROM annee_scolaire WHERE active = 1 LIMIT 1").get()?.code;
+    || anneeDeTravail(req);
   const rows = db.prepare(`
     SELECT pm.professeur_id, pm.fonction, pm.section_code,
            ft.portee, ft.ordre,
@@ -1572,7 +1573,7 @@ r.get('/fonctions', authRequired, (req, res) => {
 r.get('/personnel-matrice', authRequired, (req, res) => {
   const section = req.query.section || '__ETAB__';
   const annee = req.query.annee
-    || db.prepare("SELECT code FROM annee_scolaire WHERE active = 1 LIMIT 1").get()?.code;
+    || anneeDeTravail(req);
   const estEtab = section === '__ETAB__';
   // Fonctions pertinentes : transversales pour __ETAB__, sinon fonctions "section"
   const fonctions = db.prepare('SELECT id, libelle, portee, ordre FROM fonction_type WHERE portee = ? ORDER BY ordre, libelle')
@@ -1637,7 +1638,7 @@ r.get('/personnel-missions', authRequired, (req, res) => {
 r.get('/grille-section', authRequired, (req, res) => {
   const section = req.query.section;
   const annee = req.query.annee
-    || db.prepare("SELECT code FROM annee_scolaire WHERE active = 1 LIMIT 1").get()?.code;
+    || anneeDeTravail(req);
   if (!section) return res.status(400).json({ error: 'section requise' });
 
   // UE rattachées à la section (via ue_section si présent, sinon ue.section)
@@ -1861,7 +1862,7 @@ r.post('/import-dp', authRequired, roleRequired('admin', 'editeur'), async (req,
     });
 
     const annee = req.query.annee
-      || db.prepare("SELECT code FROM annee_scolaire WHERE active = 1 LIMIT 1").get()?.code
+      || anneeDeTravail(req)
       || '2026-2027';
 
     // Normaliser le code FWB (supprimer espaces pour comparaison)

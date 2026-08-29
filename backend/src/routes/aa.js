@@ -4,6 +4,7 @@
  */
 import { Router } from 'express';
 import db from '../db/index.js';
+import { anneeDeTravail } from '../helpers/annee.js';
 import { authRequired, roleRequired } from '../middleware/auth.js';
 
 const r = Router();
@@ -25,7 +26,7 @@ r.get('/', (req, res) => {
 r.get('/ue/:ueNum', (req, res) => {
   const ueNum = Number(req.params.ueNum);
   const annee = req.query.annee
-    || db.prepare("SELECT code FROM annee_scolaire WHERE active = 1 LIMIT 1").get()?.code;
+    || anneeDeTravail(req);
 
   const acquis = db.prepare(`
     SELECT a.*, c.cours_nom

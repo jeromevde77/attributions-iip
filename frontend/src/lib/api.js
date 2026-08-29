@@ -17,6 +17,7 @@ export function setAnnee(a) { localStorage.setItem('annee_active', a); }
 
 async function request(path, { method = 'GET', body, headers = {} } = {}) {
   const t = getToken();
+  headers = { 'X-Annee': getAnnee(), ...headers };
   const opts = {
     method,
     headers: { 'Content-Type': 'application/json', ...(t ? { Authorization: `Bearer ${t}` } : {}), ...headers }
@@ -47,6 +48,9 @@ export function authHeaders(extra = {}) {
   return {
     'Content-Type': 'application/json',
     ...(t ? { Authorization: `Bearer ${t}` } : {}),
+    // L'année choisie accompagne CHAQUE requête : sans elle, le serveur
+    // retombait sur annee_scolaire.active, et les deux divergeaient.
+    'X-Annee': getAnnee(),
     ...extra,
   };
 }

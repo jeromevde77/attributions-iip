@@ -2775,6 +2775,17 @@ app.get('/api/info', (req, res) => {
   });
 });
 
+// ── Année de travail ────────────────────────────────────────────────────────
+// L'année choisie par l'utilisateur accompagne chaque requête. Le repli sur
+// annee_scolaire.active ne vaut que pour les appels qui ne la portent pas :
+// deux sources de vérité concurrentes provoquaient des écarts permanents entre
+// ce qu'affichait l'écran et ce que calculait le serveur.
+app.use((req, res, next) => {
+  const entete = req.get('X-Annee');
+  req.annee = /^20\d{2}-20\d{2}$/.test(entete || '') ? entete : null;
+  next();
+});
+
 app.use('/api/auth',         authRoutes);
 app.use('/api/attributions', attrRoutes);
 app.use('/api/ref',          refRoutes);

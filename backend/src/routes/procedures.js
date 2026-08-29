@@ -5,6 +5,7 @@
 */
 import { Router } from 'express';
 import db from '../db/index.js';
+import { anneeDeTravail, anneeActiveEnBase } from '../helpers/annee.js';
 import { authRequired } from '../middleware/auth.js';
 import { getParam, getParamNum, piedDocument } from './parametres.js';
 import multer from 'multer';
@@ -107,7 +108,7 @@ function genererDepuisTemplate(slug, vars) {
 
   const allVars = {
     'sys.date':     now.toLocaleDateString('fr-BE', { weekday:'long', day:'2-digit', month:'long', year:'numeric' }),
-    'sys.annee':    db.prepare(`SELECT code FROM annee_scolaire WHERE active = 1`).get()?.code || '2026-2027',
+    'sys.annee':    anneeActiveEnBase() || '2026-2027',
     'etab.etab_nom': etab.etab_nom || 'Institut Ilya Prigogine',
     ...directeurVars,
     ...dirAdjointVars,

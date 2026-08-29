@@ -13,6 +13,7 @@
 
 import { Router } from 'express';
 import db from '../db/index.js';
+import { anneeDeTravail, anneeActiveEnBase } from '../helpers/annee.js';
 import { authRequired, roleRequired } from '../middleware/auth.js';
 
 const r = Router();
@@ -42,7 +43,7 @@ export function niveauxEffectifs(sections, annee) {
   const map = {};
   if (!sections?.length) return map;
   const ph = sections.map(() => '?').join(',');
-  const anneeRef = db.prepare('SELECT code FROM annee_scolaire WHERE active = 1').get()?.code || annee;
+  const anneeRef = anneeActiveEnBase() || annee;
 
   for (const u of db.prepare(`
     SELECT ue_num, MIN(ue_niv) AS ue_niv FROM ue
@@ -70,7 +71,7 @@ export function rangNiveau(v) {
 // colonnes (niveaux). `etat` permet d'y superposer la situation d'un étudiant.
 export function construireGraphe({ sections, annee, etat }) {
   const ph = sections.map(() => '?').join(',');
-  const anneeRef = db.prepare('SELECT code FROM annee_scolaire WHERE active = 1').get()?.code || annee;
+  const anneeRef = anneeActiveEnBase() || annee;
 
   const ues = db.prepare(`
     SELECT ue_num, MIN(ue_nom) AS ue_nom, MIN(section) AS section,
