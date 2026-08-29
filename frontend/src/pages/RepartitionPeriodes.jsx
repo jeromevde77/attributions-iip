@@ -65,13 +65,15 @@ export default function RepartitionPeriodes() {
   function editer(u, l, champ, valeur) {
     const k = cle(u, l);
     setModifs(m => {
-      const ligne = { ...(m[k] || {}), [champ]: valeur === '' ? null : Number(valeur) };
+      const saisi = valeur === '' ? null : Math.round(Number(valeur));
+      const ligne = { ...(m[k] || {}), [champ]: saisi };
       // Le complément se déduit : ce qui n'est pas sur une année civile est
       // sur l'autre, tant que l'utilisateur ne le contredit pas.
       const total = champ.startsWith('prevu') ? l.prevu_total : l.reel_total;
       const autre = champ.endsWith('c1') ? champ.replace('c1', 'c2') : champ.replace('c2', 'c1');
       if (total && (m[k] || {})[autre] === undefined) {
-        ligne[autre] = Math.round((total - (Number(valeur) || 0)) * 100) / 100;
+        // Le complément reste entier lui aussi, et la somme retombe juste.
+        ligne[autre] = Math.round(total) - (saisi || 0);
       }
       return { ...m, [k]: ligne };
     });
@@ -84,12 +86,12 @@ export default function RepartitionPeriodes() {
       const copie = { ...m };
       for (const l of u.lignes) {
         const k = cle(u, l);
-        const p1 = Math.round((l.prevu_total || 0) * u.part_dates * 100) / 100;
-        const r1 = Math.round((l.reel_total || 0) * u.part_dates * 100) / 100;
+        const p1 = Math.round((l.prevu_total || 0) * u.part_dates);
+        const r1 = Math.round((l.reel_total || 0) * u.part_dates);
         copie[k] = {
           ...(copie[k] || {}),
-          prevu_c1: p1, prevu_c2: Math.round(((l.prevu_total || 0) - p1) * 100) / 100,
-          reel_c1: r1, reel_c2: Math.round(((l.reel_total || 0) - r1) * 100) / 100,
+          prevu_c1: p1, prevu_c2: Math.round(l.prevu_total || 0) - p1,
+          reel_c1: r1, reel_c2: Math.round(l.reel_total || 0) - r1,
         };
       }
       return copie;
@@ -296,7 +298,7 @@ function UeBloc({ u, val, editer, cle, modifs, onAppliquerDates }) {
     const modifie = modifs[cle(u, l)]?.[nom] !== undefined;
     return (
       <td className={`px-1 py-1 text-center ${teinte || ''}`}>
-        <input type="number" step="0.5" min="0"
+        <input type="number" step="1" min="0"
           value={val(u, l, nom) ?? ''}
           onChange={e => editer(u, l, nom, e.target.value)}
           className={`w-16 border rounded px-1 py-0.5 text-[12px] text-right

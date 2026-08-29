@@ -170,15 +170,18 @@ r.get('/', authRequired, (req, res) => {
       // l'organisation entièrement dans une seule année civile, proposer 40-60
       // serait proposer une erreur : on suit alors les dates.
       const cleProposee = (part != null && (part >= 0.999 || part <= 0.001)) ? part : PART_C1;
-      const propPrevuC1 = arrondi((prevuTotal || 0) * cleProposee);
-      const propReelC1 = arrondi((reelTotal || 0) * cleProposee);
+      // Des périodes ne se comptent pas en fractions : la répartition est
+      // entière. On arrondit la première année civile et on déduit la seconde,
+      // pour que la somme retombe exactement sur le total.
+      const propPrevuC1 = Math.round((prevuTotal || 0) * cleProposee);
+      const propReelC1 = Math.round((reelTotal || 0) * cleProposee);
       lignes.push({
         cours_code, libelle, nature, type_cours: typeCours || null,
         prevu_total: arrondi(prevuTotal), reel_total: arrondi(reelTotal),
         prevu_c1: s?.prevu_c1 ?? propPrevuC1,
-        prevu_c2: s?.prevu_c2 ?? arrondi((prevuTotal || 0) - propPrevuC1),
+        prevu_c2: s?.prevu_c2 ?? Math.round((prevuTotal || 0) - propPrevuC1),
         reel_c1: s?.reel_c1 ?? propReelC1,
-        reel_c2: s?.reel_c2 ?? arrondi((reelTotal || 0) - propReelC1),
+        reel_c2: s?.reel_c2 ?? Math.round((reelTotal || 0) - propReelC1),
         saisi: !!s,
         remarque: s?.remarque || null,
         part_dates: part,
@@ -317,10 +320,11 @@ r.put('/', authRequired, roleRequired('admin', 'editeur', 'secretariat'), (req, 
     for (const l of lignes) {
       up.run(annee, Number(l.ue_num), Number(l.num_organisation || 1),
              l.cours_code || null, l.nature || 'cours',
-             l.prevu_c1 != null ? Number(l.prevu_c1) : null,
-             l.prevu_c2 != null ? Number(l.prevu_c2) : null,
-             l.reel_c1 != null ? Number(l.reel_c1) : null,
-             l.reel_c2 != null ? Number(l.reel_c2) : null,
+             // Entiers : une demi-période ne se déclare pas.
+             l.prevu_c1 != null ? Math.round(Number(l.prevu_c1)) : null,
+             l.prevu_c2 != null ? Math.round(Number(l.prevu_c2)) : null,
+             l.reel_c1 != null ? Math.round(Number(l.reel_c1)) : null,
+             l.reel_c2 != null ? Math.round(Number(l.reel_c2)) : null,
              l.remarque || null);
       n++;
     }
