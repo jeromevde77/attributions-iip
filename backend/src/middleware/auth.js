@@ -23,10 +23,25 @@ export function authRequired(req, res, next) {
 export function roleRequired(...roles) {
   return (req, res, next) => {
     if (!req.user) return res.status(401).json({ error: 'Non authentifié' });
-    if (!roles.includes(req.user.role)) {
-      return res.status(403).json({ error: 'Permissions insuffisantes' });
+    const role = req.user.role;
+    if (roles.includes(role)) return next();
+
+    // 'secretariat' est le nom actuel de ce que les routes appellent encore
+    // 'editeur' : même niveau d'écriture, sans les référentiels.
+    if (role === 'secretariat' && roles.includes('editeur')) return next();
+
+    // Un coordinateur n'écrit jamais directement : ses modifications passent
+    // par une demande. Les écrans qui savent la déposer le font eux-mêmes ;
+    // les autres doivent le dire clairement plutôt que d'opposer un refus sec.
+    if (role === 'coordination' && (roles.includes('editeur') || roles.includes('admin'))) {
+      return res.status(403).json({
+        error: "Cet écran ne sait pas encore transmettre vos modifications pour validation. "
+             + "Signalez-le à la direction, qui les encodera.",
+        validation_requise: true,
+      });
     }
-    next();
+
+    return res.status(403).json({ error: 'Permissions insuffisantes' });
   };
 }
 
@@ -76,19 +91,23 @@ export function peutValiderAttributions(user) {
   } catch { return 0; }
 }
 
-// 'coordination' est un alias historique d''editeur'. Le contrôle des droits
-// (roleRequired) ne connaît que 'admin', 'editeur' et 'consultation' : sans
-// cette normalisation, un utilisateur resté en 'coordination' perdrait
-// silencieusement tout droit d'écriture. On normalise donc à la source, à la
-// fabrication du jeton, quel que soit ce que porte la base.
+// 'coordination' était converti en 'editeur' à la fabrication du jeton, du
+// temps où le contrôle des droits ne connaissait que trois rôles. Ce repli
+// donnait à un coordinateur les pleins pouvoirs d'écriture et empêchait tout
+// circuit de validation de se déclencher. Les rôles sont désormais distincts
+// et gérés par le module des permissions ; seul le nom historique 'editeur'
+// reste toléré, comme synonyme de secrétariat en écriture.
+const ROLES_CONNUS = ['admin', 'secretariat', 'editeur', 'coordination', 'professeur', 'consultation'];
+
 export function normaliserRole(role) {
-  return role === 'coordination' ? 'editeur' : role;
+  return ROLES_CONNUS.includes(role) ? role : 'consultation';
 }
 
 export function signToken(user) {
   return jwt.sign(
     { id: user.id, email: user.email, role: normaliserRole(user.role), nom: user.nom_complet,
       acces_recrutement: user.acces_recrutement ? 1 : 0,
+      permissions_json: user.permissions_json || null,
       peut_valider: peutValiderAttributions(user) },
     JWT_SECRET,
     { expiresIn: '30d' }

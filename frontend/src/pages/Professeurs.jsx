@@ -301,19 +301,40 @@ function PermissionsPanel({ userId, permissions, sectionsDispo, annee, onSaved, 
 }
 
 // ─── Panneau « Accès Lucie » (admin) : lie un compte utilisateur à un·e membre ───
+// Cinq rôles, chacun avec un sens propre. Le rôle pose le plafond ; les cases
+// affinent à l'intérieur, sans jamais pouvoir accorder davantage.
 const ROLES_LUCIE = [
-  ['consultation', 'Consultation — lecture uniquement'],
-  ['editeur', 'Éditeur — peut modifier'],
-  ['admin', 'Administrateur — accès complet'],
+  ['consultation', 'Consultation — lecture seule'],
+  ['professeur',   'Professeur — ses attributions et ses données'],
+  ['coordination', 'Coordination — encode, sous validation de la direction'],
+  ['secretariat',  "Secrétariat — lit partout, produit les documents"],
+  ['admin',        'Direction — accès complet et validation des demandes'],
 ];
+
+// Ce que chaque rôle permet au mieux, repris du serveur pour que l'écran ne
+// laisse pas cocher une case qui serait refusée à l'usage.
+const PLAFOND_ROLE = {
+  admin:        () => 'écrit',
+  secretariat:  m => (['communication', 'listes', 'procedures'].includes(m) ? 'écrit' : 'lit'),
+  coordination: m => (m === 'recrutement' ? '—' : 'validation'),
+  professeur:   m => (['attributions', 'personnel', 'planification'].includes(m) ? 'lit' : '—'),
+  consultation: () => 'lit',
+  editeur:      () => 'écrit',
+};
 // Modules accessibles par flag (extensible)
+// Les modules suivent les axes de Lucie. « Voir tout » lève le cloisonnement
+// par sections : sans cette case, la personne ne voit que les siennes.
 const MODULES_ACCES = [
-  { key: 'attributions', label: 'Attributions',   icon: '📋', desc: 'Voir et/ou modifier les attributions' },
+  { key: 'etudiants',    label: 'Étudiants',       icon: '🎓', desc: 'Parcours, PAE, résultats, dossiers' },
+  { key: 'attributions', label: 'Attributions',    icon: '📋', desc: 'Voir et/ou modifier les attributions' },
   { key: 'personnel',    label: 'Personnel',       icon: '👥', desc: 'Voir et/ou modifier les fiches membres' },
-  { key: 'pilotage',     label: 'Pilotage',        icon: '📊', desc: 'Accès au pilotage de la dotation' },
+  { key: 'organisation', label: 'Organisation',    icon: '🗂️', desc: "Dates d'UE, structure des sections, rentrée" },
+  { key: 'planification',label: 'Horaires',        icon: '📅', desc: 'Groupes, horaires et planification' },
+  { key: 'communication',label: 'Communication',   icon: '✉️', desc: 'Listes, courriers, documents produits' },
   { key: 'listes',       label: 'Listes',          icon: '📄', desc: 'Accès aux listes et documents' },
   { key: 'procedures',   label: 'Procédures',      icon: '📑', desc: 'Accès aux procédures' },
-  { key: 'planification',label: 'Planification',   icon: '📅', desc: 'Accès à la planification' },
+  { key: 'pilotage',     label: 'Pilotage',        icon: '📊', desc: 'Dotation, statistiques' },
+  { key: 'budget',       label: 'Budget',          icon: '💶', desc: 'Prévisions et dépenses de la section' },
   { key: 'recrutement',  label: 'Recrutement',     icon: '💼', desc: 'Accès au module recrutement' },
 ];
 
@@ -328,6 +349,23 @@ function AccesLuciePanel({ profId, detail }) {
 
   const [account, setAccount]   = useState(undefined);
   const [sectionsDispo, setSectionsDispo] = useState([]);
+  const [profils, setProfils] = useState([]);
+
+  // Appliquer un profil : il pose le rôle et remplit les cases, puis on
+  // retouche librement. Aucun héritage — ce qui est coché fait foi.
+  function appliquerProfil(p) {
+    if (!window.confirm(
+      `Appliquer le profil « ${p.nom} » ?\n\n${p.description || ''}\n\n`
+      + `Les cases actuelles seront remplacées. Le périmètre par sections reste inchangé.`)) return;
+    setRole(p.role);
+    setPerms(() => {
+      const base = PERM_DEFAUT();
+      for (const [m, v] of Object.entries(p.permissions || {})) {
+        if (base[m]) base[m] = { ...base[m], ...v };
+      }
+      return base;
+    });
+  }
   const [role, setRole]         = useState('editeur');
   const [sections, setSections] = useState([]);
   const [perms, setPerms]       = useState(PERM_DEFAUT());
@@ -368,6 +406,7 @@ function AccesLuciePanel({ profId, detail }) {
   useEffect(() => {
     charger();
     af('/api/ref/sections').then(d => setSectionsDispo(Array.isArray(d) ? d : [])).catch(() => {});
+    af('/api/profils-acces').then(d => setProfils(Array.isArray(d) ? d : [])).catch(() => {});
   }, [profId]);
 
   async function creer() {
@@ -475,6 +514,25 @@ function AccesLuciePanel({ profId, detail }) {
           </select>
         </div>
       </div>
+      {profils.length > 0 && (
+        <div className="border border-slate-200 rounded-lg p-2.5 bg-slate-50">
+          <div className="text-xs text-gray-500 mb-1.5">Appliquer un profil</div>
+          <div className="flex flex-wrap gap-1.5">
+            {profils.map(p => (
+              <button key={p.id} type="button" disabled={busy} title={p.description || ''}
+                onClick={() => appliquerProfil(p)}
+                className="text-[11.5px] px-2.5 py-1 rounded-lg border border-slate-300 bg-white hover:bg-iip-turquoise/10 hover:border-iip-turquoise">
+                {p.nom}
+              </button>
+            ))}
+          </div>
+          <p className="text-[10.5px] text-slate-500 mt-1.5">
+            Un profil est un modèle : il remplit les cases une fois, et ce qui est coché
+            ci-dessous reste la vérité. Le périmètre par sections n'est pas touché.
+          </p>
+        </div>
+      )}
+
       <div>
         <div className="text-xs text-gray-500 mb-2 font-medium">Permissions</div>
         <div className="space-y-1.5">

@@ -31,6 +31,7 @@ import importHistoriqueRoutes, { migrerHistorique } from './routes/importHistori
 import budgetRoutes, { migrerBudget } from './routes/budget.js';
 import demandesRoutes, { migrerDemandes } from './routes/demandes.js';
 import sauvegardesRoutes, { migrerSauvegardes, demarrerPlanificateur } from './routes/sauvegardes.js';
+import profilsAccesRoutes, { migrerProfilsAcces } from './routes/profilsAcces.js';
 import authRoutes from './routes/auth.js';
 import attrRoutes from './routes/attributions.js';
 import refRoutes  from './routes/referentiels.js';
@@ -2726,6 +2727,7 @@ try { migrerHistorique(db); } catch (e) { console.error('[migration] historique 
 try { migrerBudget(db); } catch (e) { console.error('[migration] budget :', e.message); }
 try { migrerDemandes(db); } catch (e) { console.error('[migration] demandes :', e.message); }
 try { migrerSauvegardes(db); } catch (e) { console.error('[migration] sauvegardes :', e.message); }
+try { migrerProfilsAcces(db); } catch (e) { console.error('[migration] profils accès :', e.message); }
 // lucie_config : table de configuration clé/valeur — présente en prod depuis l'origine
 // mais jamais créée par migration (omission). On la garantit ici.
 try {
@@ -2815,6 +2817,7 @@ app.use('/api/import-historique', importHistoriqueRoutes);
 app.use('/api/budget', budgetRoutes);
 app.use('/api/demandes', demandesRoutes);
 app.use('/api/sauvegardes', sauvegardesRoutes);
+app.use('/api/profils-acces', profilsAccesRoutes);
 app.use('/api/historique',   historiqueRoutes);
 app.use('/api/etablissement', etablissementRoutes);
 app.use('/api/ea12',          ea12Routes);
