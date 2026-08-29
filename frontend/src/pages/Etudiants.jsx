@@ -1013,6 +1013,12 @@ function FicheEtudiant({ id, annee, onClose }) {
                       ? <span className="text-[11px] font-semibold text-emerald-700 flex items-center gap-1"><IconCheck size={12} /> Accessible</span>
                       : u.sous_reserve || u.propose_sous_reserve
                         ? <span className="text-[11px] text-sky-700 flex items-center gap-1"><IconClock size={12} /> Sous réserve — réussite UE {(u.prereq_manquants || []).join(', ')}</span>
+                        : u.avertissements?.length
+                          ? <span className="text-[11px] text-amber-700 flex items-center gap-1"
+                              title={u.avertissements.map(a => `UE ${a.ue_num}${a.motif ? ' — ' + a.motif : ''}`).join('\n')}>
+                              <IconAlertTriangle size={12} />
+                              Recommandé après {u.avertissements.map(a => a.ue_num).join(', ')}
+                            </span>
                         : u.epreuve_integree
                           ? <span className="text-[11px] text-red-600 flex items-center gap-1"
                               title={'Restent à acquérir : UE ' + (u.epreuve_restantes || []).join(', ')}>

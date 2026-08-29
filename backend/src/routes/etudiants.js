@@ -1266,9 +1266,18 @@ r.get('/:id/pae', authRequired, (req, res) => {
   };
 
   // Graphe complet des prérequis, pour le contrôle transitif
-  const prereqTous = {};
-  for (const p of db.prepare('SELECT ue_num, prerequis_num FROM ue_prerequis').all()) {
-    (prereqTous[p.ue_num] = prereqTous[p.ue_num] || []).push(p.prerequis_num);
+  // Deux natures : le prérequis LÉGAL bloque, l'INTERNE avertit seulement.
+  // Les mêler priverait un étudiant d'une UE qu'il a le droit de suivre.
+  const prereqTous = {}, prereqInternes = {};
+  for (const p of db.prepare(
+    "SELECT ue_num, prerequis_num, COALESCE(type,'legal') AS type, motif FROM ue_prerequis"
+  ).all()) {
+    if (p.type === 'interne') {
+      (prereqInternes[p.ue_num] = prereqInternes[p.ue_num] || []).push(
+        { ue: p.prerequis_num, motif: p.motif });
+    } else {
+      (prereqTous[p.ue_num] = prereqTous[p.ue_num] || []).push(p.prerequis_num);
+    }
   }
 
   // UEs organisées cette année dans ces sections — UNE ligne par UE
@@ -1373,6 +1382,11 @@ r.get('/:id/pae', authRequired, (req, res) => {
       sous_reserve: estEpreuve[ue.ue_num] ? false : (sous_reserve && !deja_reussie),
       prereq_manquants: prereqManquants.map(p => p.ue_num_requis),
       prereq_chaine: chaineManquante,
+      // Recommandations non satisfaites : l'UE reste accessible, mais l'écran
+      // le signale pour que la décision soit prise en connaissance de cause.
+      avertissements: (prereqInternes[ue.ue_num] || [])
+        .filter(x => !reussies.has(x.ue))
+        .map(x => ({ ue_num: x.ue, motif: x.motif })),
       // Circulaire 9764 : la réinscription dans une UE déjà réussie est possible
       // avec décision favorable du Conseil des études (pièce au dossier).
       reinscriptible_ce: prerequis_ok && deja_reussie,

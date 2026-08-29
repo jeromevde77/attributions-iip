@@ -674,10 +674,18 @@ function GestionPrerequis() {
   }
   useEffect(() => { if (vue === 'schema') chargerGraphe(); /* eslint-disable-next-line */ }, [section, vue]);
 
-  async function creerLien(prerequisNum, ueNum) {
+  async function creerLien(prerequisNum, ueNum, nature = 'legal') {
+    let motif = null;
+    if (nature === 'interne') {
+      motif = window.prompt(
+        "Motif de cette règle interne — il apparaîtra en info-bulle sur le trait :",
+        `Les professeurs estiment la réussite de l'UE ${prerequisNum} nécessaire.`);
+      if (motif === null) return;
+    }
     const rep = await fetch('/api/prerequis/ue', {
       method: 'POST', headers: authHeaders(),
-      body: JSON.stringify({ ue_num: ueNum, prerequis_num: prerequisNum, section }),
+      body: JSON.stringify({ ue_num: ueNum, prerequis_num: prerequisNum, section,
+                             type: nature, motif }),
     });
     const j = await rep.json();
     if (!rep.ok) { setMsgLien({ type: 'err', texte: j.error }); return; }

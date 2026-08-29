@@ -892,6 +892,22 @@ try {
     CREATE INDEX IF NOT EXISTS idx_ueprereq_pre ON ue_prerequis(prerequis_num);
   `);
 
+  // Deux natures de prérequis. Le LÉGAL vient du dossier pédagogique et
+  // s'impose. L'INTERNE est une règle de l'établissement, fondée sur des motifs
+  // pédagogiques — la 261 n'exige légalement rien, mais les professeurs
+  // estiment qu'un étudiant qui n'a pas fait la 254 serait dangereux en stage.
+  // Il avertit sans interdire : l'étudiant qui insiste peut passer outre.
+  try {
+    const colonnes = db.prepare('PRAGMA table_info(ue_prerequis)').all().map(x => x.name);
+    if (!colonnes.includes('type')) {
+      db.exec("ALTER TABLE ue_prerequis ADD COLUMN type TEXT NOT NULL DEFAULT 'legal'");
+      console.log('[migration] ue_prerequis.type ajoutée');
+    }
+    if (!colonnes.includes('motif')) {
+      db.exec('ALTER TABLE ue_prerequis ADD COLUMN motif TEXT');
+    }
+  } catch (e) { console.error('[migration] ue_prerequis.type :', e.message); }
+
   // Flag épreuve intégrée sur la table UE
   const _colsUE = db.prepare('PRAGMA table_info(ue)').all();
   if (!_colsUE.find(c => c.name === 'is_epreuve_integree')) {

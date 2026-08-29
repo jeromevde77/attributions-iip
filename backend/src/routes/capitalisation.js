@@ -84,12 +84,17 @@ export function construireGraphe({ sections, annee, etat }) {
   const ueSet = new Set(ues.map(u => u.ue_num));
   const niveaux = niveauxEffectifs(sections, annee);
 
-  const edges = db.prepare('SELECT ue_num, prerequis_num FROM ue_prerequis').all()
+  const edges = db.prepare("SELECT ue_num, prerequis_num, COALESCE(type,'legal') AS type, motif FROM ue_prerequis").all()
     .filter(p => ueSet.has(p.ue_num) && ueSet.has(p.prerequis_num))
-    .map(p => ({ from: p.prerequis_num, to: p.ue_num }));
+    .map(p => ({ from: p.prerequis_num, to: p.ue_num, type: p.type, motif: p.motif }));
 
+  // Le calcul des verrous ne retient que les prérequis légaux ; les internes
+  // sont dessinés et signalés, mais n'empêchent rien.
   const prereqDe = {};
-  for (const eg of edges) (prereqDe[eg.to] = prereqDe[eg.to] || []).push(eg.from);
+  for (const eg of edges) {
+    if (eg.type !== 'legal') continue;
+    (prereqDe[eg.to] = prereqDe[eg.to] || []).push(eg.from);
+  }
 
   // Profondeur dans le graphe — ordonne les lignes à l'intérieur d'une colonne
   const profondeur = {};

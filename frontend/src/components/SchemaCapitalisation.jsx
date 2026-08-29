@@ -34,6 +34,7 @@ export default function SchemaCapitalisation({
   const [drag, setDrag] = useState(null);            // { ue_num, dx, dy, cible }
   const [modeLien, setModeLien] = useState(false);   // tirer des liens de prérequis
   const [lien, setLien] = useState(null);            // { depuis, x, y, cible }
+  const [natureLien, setNatureLien] = useState('legal');   // legal | interne
   const svgRef = useRef(null);
 
   const layout = useMemo(() => {
@@ -137,7 +138,7 @@ export default function SchemaCapitalisation({
     const { depuis, cible } = lien;
     setLien(null);
     if (!cible || cible === depuis) return;
-    onLien && onLien(depuis, cible);
+    onLien && onLien(depuis, cible, natureLien);
   }
 
   function pointerDown(e, n) {
@@ -248,10 +249,28 @@ export default function SchemaCapitalisation({
                 const dx = Math.max(24, (x2 - x1) / 2);
                 const enArriere = x2 < x1;   // prérequis placé après : incohérence
                 const d = `M${x1},${y1} C${x1 + dx},${y1} ${x2 - dx},${y2} ${x2},${y2}`;
+
+                // Trois lectures dans un seul trait : gris au sein d'une même
+                // année, bleu d'une année à l'autre, pointillé quand le
+                // prérequis relève d'une règle interne et non du dossier
+                // pédagogique. L'ambre reste réservé aux incohérences.
+                const nDe = n => (data.nodes.find(x => x.ue_num === n)?.niveau || '').toUpperCase();
+                const memeAnnee = nDe(eg.from) && nDe(eg.from) === nDe(eg.to);
+                const interne = eg.type === 'interne';
+                const couleur = enArriere ? '#F59E0B' : memeAnnee ? '#94A3B8' : '#3B82F6';
+                const titre = (interne ? 'Prérequis interne — ' : 'Prérequis du dossier pédagogique — ')
+                  + `l'UE ${eg.from} conditionne l'UE ${eg.to}`
+                  + (memeAnnee ? ' (même année)' : '')
+                  + (eg.motif ? ` · ${eg.motif}` : '');
+
                 return (
                   <g key={i}>
-                    <path d={d} fill="none" stroke={enArriere ? '#F59E0B' : '#CBD5E1'}
-                      strokeWidth={enArriere ? 1.8 : 1.4} markerEnd="url(#fl-cap)" />
+                    <path d={d} fill="none" stroke={couleur}
+                      strokeWidth={enArriere ? 1.8 : interne ? 1.6 : 1.4}
+                      strokeDasharray={interne ? '5 4' : undefined}
+                      markerEnd="url(#fl-cap)">
+                      <title>{titre}</title>
+                    </path>
                     {modeLien && onSupprimerLien && (
                       <path d={d} fill="none" stroke="transparent" strokeWidth="12"
                         style={{ cursor: 'pointer' }}
@@ -331,10 +350,25 @@ export default function SchemaCapitalisation({
                   : 'border-slate-300 text-slate-600 hover:bg-slate-50'}`}>
                 {modeLien ? 'Terminer les liens' : 'Modifier les prérequis'}
               </button>
+
+              {modeLien && (
+                <div className="flex rounded-lg border border-slate-300 overflow-hidden">
+                  {[['legal', 'Dossier pédagogique'], ['interne', 'Règle interne']].map(([v, l]) => (
+                    <button key={v} onClick={() => setNatureLien(v)}
+                      title={v === 'interne'
+                        ? "Fondé sur des motifs pédagogiques : avertit l'étudiant sans lui interdire l'UE"
+                        : "Imposé par le dossier pédagogique : bloque tant qu'il n'est pas acquis"}
+                      className={`px-2.5 py-1 text-[11.5px] ${natureLien === v
+                        ? 'bg-iip-blue text-white font-semibold' : 'text-slate-600 hover:bg-slate-50'}`}>
+                      {l}
+                    </button>
+                  ))}
+                </div>
+              )}
               <span className="text-[11px] text-slate-500 flex-1">
                 {modeLien
-                  ? "Tirez depuis la pastille droite d'une UE vers celle qu'elle conditionne. Cliquez un trait pour le supprimer. Les déplacements d'année sont suspendus."
-                  : "Les prérequis viennent du dossier pédagogique ; ils ne changent pas d'une année à l'autre."}
+                  ? "Tirez depuis la pastille droite d'une UE vers celle qu'elle conditionne. Cliquez un trait pour le supprimer."
+                  : "Trait gris : même année. Bleu : d'une année à l'autre. Pointillé : règle interne, qui avertit sans interdire."}
               </span>
             </div>
           )}
