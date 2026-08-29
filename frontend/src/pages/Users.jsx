@@ -110,9 +110,13 @@ export default function Users({ embedded = false }) {
   }
 
   async function deleteUser(u) {
-    if (!confirm(`Supprimer ${u.email} ?`)) return;
+    if (!confirm(
+      `Retirer l'accès de ${u.email} ?\n\n`
+      + `Si ce compte a signé des attributions ou des modifications, il sera désactivé `
+      + `plutôt que supprimé : son nom doit rester lisible dans l'historique.`)) return;
     try {
-      await authFetch(`/api/users/${u.id}`, { method: 'DELETE' });
+      const j = await authFetch(`/api/users/${u.id}`, { method: 'DELETE' });
+      if (j?.message) alert(j.message);
       load();
     } catch (e) { alert(e.message); }
   }
