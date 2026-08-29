@@ -3,6 +3,7 @@ import {
   IconDatabase, IconDownload, IconTrash, IconAlertTriangle, IconCheck, IconClock,
 } from '@tabler/icons-react';
 import { authHeaders } from '../lib/api.js';
+import { TableauEntete, Th, Badge } from '../components/ui.jsx';
 
 /**
  * Sauvegardes de la base.
@@ -162,16 +163,14 @@ export default function Sauvegardes() {
           </div>
         ) : (
           <table className="w-full text-sm">
-            <thead>
-              <tr className="text-[10px] uppercase tracking-wide text-slate-500 border-b border-slate-200">
-                <th className="px-4 py-2 text-left">Date</th>
-                <th className="px-3 py-2 text-left w-36">Déclencheur</th>
-                <th className="px-3 py-2 text-right w-24">Taille</th>
-                <th className="px-3 py-2 text-left w-28">Intégrité</th>
-                <th className="px-3 py-2 text-left">Contenu</th>
-                <th className="px-3 py-2 w-24"></th>
-              </tr>
-            </thead>
+            <TableauEntete>
+              <Th>Date</Th>
+              <Th largeur="w-36">Déclencheur</Th>
+              <Th align="droite" largeur="w-24">Taille</Th>
+              <Th largeur="w-28">Intégrité</Th>
+              <Th>Contenu</Th>
+              <Th largeur="w-24" />
+            </TableauEntete>
             <tbody>
               {data.sauvegardes.map(s => (
                 <tr key={s.id} className={`border-b border-slate-100 ${s.erreur ? 'bg-red-50/50' : 'hover:bg-slate-50/60'}`}>
@@ -187,7 +186,7 @@ export default function Sauvegardes() {
                   <td className="px-3 py-2 text-right text-[12px]">{octets(s.taille)}</td>
                   <td className="px-3 py-2">
                     {s.erreur ? (
-                      <span className="text-[11.5px] text-red-700">échec</span>
+                      <Badge ton="danger">échec</Badge>
                     ) : s.integrite === 'ok' ? (
                       <span className="text-[11.5px] text-emerald-700 flex items-center gap-1">
                         <IconCheck size={13} /> ok

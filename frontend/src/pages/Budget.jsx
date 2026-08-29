@@ -3,6 +3,7 @@ import {
   IconPlus, IconTrash, IconUpload, IconCopy, IconAlertTriangle, IconCash,
 } from '@tabler/icons-react';
 import { authHeaders } from '../lib/api.js';
+import { Tableau, TableauEntete, Th } from '../components/ui.jsx';
 
 /**
  * Gestion budgétaire — par année CIVILE et par section.
@@ -287,20 +288,17 @@ export default function Budget() {
               Aucune prévision pour {section} en {annee}.
             </div>
           ) : (
-            <div className="border border-slate-200 rounded-xl overflow-x-auto">
-              <table className="w-full text-sm">
-                <thead>
-                  <tr className="bg-slate-50 text-[10px] uppercase tracking-wide text-slate-500 border-b border-slate-200">
-                    <th className="px-3 py-2 text-left">Compte</th>
-                    <th className="px-3 py-2 text-left">Prévision</th>
-                    <th className="px-2 py-2 text-right w-24">P.U. HTVA</th>
-                    <th className="px-2 py-2 text-right w-14">Qté</th>
-                    <th className="px-2 py-2 text-right w-28">Total HTVA</th>
-                    <th className="px-2 py-2 text-right w-24">Engagé</th>
-                    <th className="px-2 py-2 text-right w-24">Solde</th>
-                    <th className="px-2 py-2 w-20"></th>
-                  </tr>
-                </thead>
+            <Tableau>
+                <TableauEntete>
+                  <Th>Compte</Th>
+                  <Th>Prévision</Th>
+                  <Th align="droite" largeur="w-24">P.U. HTVA</Th>
+                  <Th align="droite" largeur="w-14">Qté</Th>
+                  <Th align="droite" largeur="w-28">Total HTVA</Th>
+                  <Th align="droite" largeur="w-24">Engagé</Th>
+                  <Th align="droite" largeur="w-24">Solde</Th>
+                  <Th largeur="w-20" />
+                </TableauEntete>
                 <tbody>
                   {data.lignes.map(l => (
                     <LigneBudget key={l.id} l={l} depenses={data.depenses.filter(d => d.ligne_id === l.id)}
@@ -311,8 +309,7 @@ export default function Budget() {
                       onSupprimerDepense={supprimerDepense} />
                   ))}
                 </tbody>
-              </table>
-            </div>
+            </Tableau>
           )}
 
           {data.hors_prevision?.length > 0 && (

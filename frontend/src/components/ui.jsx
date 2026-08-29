@@ -130,3 +130,126 @@ export function RailLateral({ icon: HeaderIcon, titre, sousTitre, extra, section
     </aside>
   );
 }
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Tableaux — bibliothèque partagée
+//
+// Le style est celui mis au point pour la répartition des périodes : aplats,
+// gris pour les valeurs de référence, marine pour ce qui compte, en-têtes en
+// petites capitales espacées. L'écrire une fois évite que trente-sept tableaux
+// dérivent chacun de leur côté.
+//
+// Chaque composant accepte className pour les particularités locales — badges,
+// teintes de ligne, colonnes figées — sans qu'il faille sortir de la famille.
+// ─────────────────────────────────────────────────────────────────────────────
+
+/** Cadre du tableau : bordure, arrondi, défilement horizontal. */
+export function Tableau({ children, className = '', dense = false }) {
+  return (
+    <div className={`border border-slate-200 rounded-xl overflow-x-auto bg-white ${className}`}>
+      <table className={`w-full ${dense ? 'text-[12px]' : 'text-sm'}`}>{children}</table>
+    </div>
+  );
+}
+
+/** En-tête : petites capitales grises sur fond clair. */
+export function TableauEntete({ children, className = '' }) {
+  return (
+    <thead>
+      <tr className={`bg-slate-50 border-b border-slate-200 text-[10px] uppercase
+                      tracking-wide text-slate-500 ${className}`}>
+        {children}
+      </tr>
+    </thead>
+  );
+}
+
+/**
+ * Cellule d'en-tête.
+ * @param {'gauche'|'centre'|'droite'} align
+ */
+export function Th({ children, align = 'gauche', largeur, className = '', ...props }) {
+  const a = align === 'droite' ? 'text-right' : align === 'centre' ? 'text-center' : 'text-left';
+  return (
+    <th className={`px-3 py-2 font-medium ${a} ${largeur || ''} ${className}`} {...props}>
+      {children}
+    </th>
+  );
+}
+
+/**
+ * Cellule ordinaire.
+ * @param {'normal'|'secondaire'|'fort'} ton  gris clair, gris, ou marine appuyé
+ */
+export function Td({ children, align = 'gauche', ton = 'normal', className = '', ...props }) {
+  const a = align === 'droite' ? 'text-right' : align === 'centre' ? 'text-center' : 'text-left';
+  const t = ton === 'secondaire' ? 'text-[11.5px] text-slate-500'
+    : ton === 'fort' ? 'text-[12.5px] font-semibold text-iip-blue'
+    : 'text-[12.5px] text-slate-800';
+  return <td className={`px-3 py-1.5 ${a} ${t} ${className}`} {...props}>{children}</td>;
+}
+
+/** Ligne ordinaire, avec son survol et son filet. */
+export function Tr({ children, actif = false, className = '', ...props }) {
+  return (
+    <tr className={`border-b border-slate-100 ${actif ? 'bg-iip-blue/5' : 'hover:bg-slate-50/60'}
+                    ${className}`} {...props}>
+      {children}
+    </tr>
+  );
+}
+
+/** Ligne de regroupement — section, catégorie — repliable le cas échéant. */
+export function TrGroupe({ children, className = '', ...props }) {
+  return (
+    <tr className={`bg-iip-blue/5 border-y border-iip-blue/20 ${className}`} {...props}>
+      {children}
+    </tr>
+  );
+}
+
+/** Ligne de total : fond neutre, valeurs appuyées. */
+export function TrTotal({ children, className = '', ...props }) {
+  return (
+    <tr className={`bg-slate-50 border-t-2 border-slate-300 font-semibold ${className}`} {...props}>
+      {children}
+    </tr>
+  );
+}
+
+/** Message d'absence de données, occupant toute la largeur. */
+export function TableauVide({ colonnes, children }) {
+  return (
+    <tr>
+      <td colSpan={colonnes} className="px-4 py-8 text-center text-[12.5px] text-slate-400">
+        {children}
+      </td>
+    </tr>
+  );
+}
+
+const TEINTES_BADGE = {
+  neutre:  'bg-slate-100 text-slate-600',
+  info:    'bg-sky-100 text-sky-800',
+  succes:  'bg-emerald-100 text-emerald-800',
+  alerte:  'bg-amber-100 text-amber-800',
+  danger:  'bg-red-100 text-red-700',
+  accent:  'bg-violet-100 text-violet-700',
+};
+
+/** Badge de tableau : discret, sans bordure, aux teintes de l'application. */
+export function Badge({ children, ton = 'neutre', className = '', ...props }) {
+  return (
+    <span className={`text-[10px] px-1.5 py-0.5 rounded ${TEINTES_BADGE[ton] || TEINTES_BADGE.neutre}
+                      ${className}`} {...props}>
+      {children}
+    </span>
+  );
+}
+
+/** Valeur numérique secondaire, en gris — un rapport, un rappel, une unité. */
+export function Mention({ children, ton = 'neutre', className = '' }) {
+  const t = ton === 'danger' ? 'text-red-600 font-semibold'
+    : ton === 'alerte' ? 'text-amber-700' : 'text-slate-400';
+  return <span className={`ml-1 text-[10px] ${t} ${className}`}>{children}</span>;
+}
