@@ -151,78 +151,6 @@ export default function Users({ embedded = false }) {
 
       {error && <div className="bg-red-50 text-red-700 text-sm rounded p-3 mb-3">{error}</div>}
 
-      {loading ? <p>Chargement…</p> : (
-        <div className="bg-white rounded-lg border border-gray-200 overflow-auto">
-          <table className="grid-excel-soft">
-            <thead>
-              <tr>
-                <th>Nom</th><th>Email</th><th>Rôle</th><th>Périmètre</th><th>Actif</th><th>Créé le</th><th>Dernière connexion</th><th>Actions</th>
-              </tr>
-            </thead>
-            <tbody>
-              {!comptesSansFiche.length && (
-                <tr>
-                  <td colSpan={8} className="px-4 py-6 text-center text-[12.5px] text-slate-400">
-                    Aucun compte sans fiche. Tous les accès sont rattachés à un membre du personnel.
-                  </td>
-                </tr>
-              )}
-              {comptesSansFiche.map(u => (
-                <tr key={u.id}>
-                  <td className="font-medium">{u.nom_complet}</td>
-                  <td className="text-xs">{u.email}</td>
-                  {/* Les accès se règlent dans la fiche de la personne, seul
-                      endroit qui fasse autorité. Ne restent modifiables ici que
-                      les comptes ADMINISTRATEURS non rattachés à un membre du
-                      personnel — un prestataire extérieur, par exemple. */}
-                  <td>
-                    {!u.professeur_id ? (
-                      <select value={u.role} onChange={e => changeRole(u, e.target.value)}
-                              disabled={u.id === me.id}
-                              className="border border-gray-200 rounded px-2 py-1 text-xs">
-                        {Object.entries(ROLE_LABEL).map(([k,l]) => <option key={k} value={k}>{l}</option>)}
-                      </select>
-                    ) : (
-                      <span className="text-xs text-slate-600">{ROLE_LABEL[u.role] || u.role}</span>
-                    )}
-                  </td>
-                  <td className="text-xs">
-                    {!u.professeur_id ? (
-                      <button onClick={() => setEditingSections({ userId: u.id, nom: u.nom_complet, sections: [...(u.sections || [])] })}
-                              className="text-iip-gold hover:underline">
-                        {u.sections?.length ? u.sections.join(', ') : <span className="text-gray-400">— toutes —</span>}
-                      </button>
-                    ) : u.sections?.length ? (
-                      <span className="text-slate-600">{u.sections.join(', ')}</span>
-                    ) : <span className="text-gray-300">— toutes —</span>}
-                  </td>
-                  <td>
-                    <button onClick={() => toggleActif(u)} disabled={u.id === me.id}
-                            className={u.actif ? 'badge badge-pp' : 'badge badge-incomplete'}>
-                      {u.actif ? 'Actif' : 'Désactivé'}
-                    </button>
-                  </td>
-                  <td className="text-xs text-gray-500">{u.created_at?.slice(0,10)}</td>
-                  <td className="text-xs text-gray-500">{u.last_login_at ? u.last_login_at.slice(0,16).replace('T', ' ') : '—'}</td>
-                  <td className="text-xs">
-                    {u.professeur_id && (
-                      <span className="text-[11px] text-slate-400 italic mr-2"
-                        title="Les accès de cette personne se règlent depuis sa fiche, onglet Accès Lucie">
-                        via sa fiche
-                      </span>
-                    )}
-
-                    <button onClick={() => resetPassword(u)} className="text-iip-orange hover:underline inline-flex items-center gap-1"><IconKey size={14} /> MDP</button>
-                    {u.id !== me.id && <>
-                      {' · '}<button onClick={() => deleteUser(u)} className="text-red-500 hover:underline"><IconTrash size={15} /></button>
-                    </>}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      )}
 
       {showForm && (
         <div className="fixed inset-0 bg-black/40 flex items-center justify-center p-4 z-30" onClick={() => setShowForm(false)}>
@@ -280,6 +208,10 @@ export default function Users({ embedded = false }) {
         </div>
       )}
       <MatriceAcces users={users} sectionsDispo={allSections}
+        moiId={me?.id}
+        onBasculerActif={toggleActif}
+        onMotDePasse={resetPassword}
+        onRetirer={deleteUser}
         onModifie={async (id, champs) => {
           try {
             await authFetch(`/api/users/${id}`, { method: 'PATCH', body: JSON.stringify(champs) });
@@ -318,7 +250,7 @@ export default function Users({ embedded = false }) {
 // personnel. Chaque case se modifie d'un clic — le droit tourne entre les
 // valeurs que le rôle autorise — et la modification rejoint la fiche de la
 // personne, puisque c'est la même donnée.
-function MatriceAcces({ users, sectionsDispo, onModifie }) {
+function MatriceAcces({ users, sectionsDispo, onModifie, onBasculerActif, onMotDePasse, onRetirer, moiId }) {
   const [enCours, setEnCours] = useState(null);       // "id|module" en cours d'écriture
   const [perimetreOuvert, setPerimetreOuvert] = useState(null);
 
@@ -362,7 +294,9 @@ function MatriceAcces({ users, sectionsDispo, onModifie }) {
         <div className="text-[12.5px] text-slate-800 truncate max-w-[180px]">
           {u.nom_complet || u.email}
         </div>
-        <div className="text-[10px] text-slate-400">{u.role}</div>
+        <div className="text-[10px] text-slate-400 truncate max-w-[180px]" title={u.email}>
+          {u.role} · {u.email}
+        </div>
       </td>
 
       {/* Périmètre, modifiable en regard du nom */}
@@ -408,6 +342,15 @@ function MatriceAcces({ users, sectionsDispo, onModifie }) {
         )}
       </td>
 
+      <td className="border-b border-slate-100 px-2 py-1.5 text-center">
+        <button onClick={() => onBasculerActif(u)} disabled={u.id === moiId}
+          className={`text-[10px] px-1.5 py-0.5 rounded ${u.actif
+            ? 'bg-emerald-100 text-emerald-800' : 'bg-slate-100 text-slate-500'}`}
+          title={u.id === moiId ? 'Votre propre compte' : 'Activer ou désactiver'}>
+          {u.actif ? 'actif' : 'inactif'}
+        </button>
+      </td>
+
       {MODULES_ACCES.map(m => {
         const droit = droitEffectif(u, m.key);
         const d = LIBELLE_DROIT[droit] || LIBELLE_DROIT.rien;
@@ -427,6 +370,20 @@ function MatriceAcces({ users, sectionsDispo, onModifie }) {
           </td>
         );
       })}
+
+      <td className="border-b border-l border-slate-100 px-2 py-1.5 whitespace-nowrap text-right">
+        <button onClick={() => onMotDePasse(u)} title="Réinitialiser le mot de passe"
+          className="text-[10.5px] text-iip-blue hover:underline mr-2">MDP</button>
+        {u.id !== moiId && (
+          <button onClick={() => onRetirer(u)} title="Retirer l'accès"
+            className="text-slate-300 hover:text-red-500 align-middle">
+            <IconTrash size={13} />
+          </button>
+        )}
+        <div className="text-[9.5px] text-slate-400">
+          {u.last_login_at ? u.last_login_at.slice(0, 10) : 'jamais connecté'}
+        </div>
+      </td>
     </tr>
   );
 
@@ -452,12 +409,18 @@ function MatriceAcces({ users, sectionsDispo, onModifie }) {
                 <th className="border-b border-slate-200 px-2 py-2 w-28">
                   <span className="text-[10px] uppercase tracking-wide text-slate-500">Périmètre</span>
                 </th>
+                <th className="border-b border-slate-200 px-2 py-2 w-16">
+                  <span className="text-[10px] uppercase tracking-wide text-slate-500">État</span>
+                </th>
                 {MODULES_ACCES.map(m => (
                   <th key={m.key} className="border-b border-slate-200 px-1 py-2 w-20" title={m.desc}>
                     <div className="text-[10px]">{m.icon}</div>
                     <div className="text-[9px] text-slate-500 leading-tight">{m.label}</div>
                   </th>
                 ))}
+                <th className="border-b border-l border-slate-200 px-2 py-2 w-24">
+                  <span className="text-[10px] uppercase tracking-wide text-slate-500">Compte</span>
+                </th>
               </tr>
             </thead>
             <tbody>
@@ -465,7 +428,7 @@ function MatriceAcces({ users, sectionsDispo, onModifie }) {
 
               {techniques.length > 0 && personnel.length > 0 && (
                 <tr>
-                  <td colSpan={2 + MODULES_ACCES.length}
+                  <td colSpan={4 + MODULES_ACCES.length}
                     className="bg-slate-100 border-y border-slate-300 px-3 py-1 text-[10px] uppercase tracking-wide text-slate-500 font-semibold">
                     Membres du personnel — leurs accès se règlent aussi depuis leur fiche
                   </td>
