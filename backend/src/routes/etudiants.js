@@ -6,7 +6,7 @@ import { Router } from 'express';
 
 import db from '../db/index.js';
 import { anneeDeTravail } from '../helpers/annee.js';
-import { authRequired, roleRequired } from '../middleware/auth.js';
+import { authRequired, roleRequired, getUserSections } from '../middleware/auth.js';
 import { construireGraphe, niveauxEffectifs } from './capitalisation.js';
 import { structureUE, calculerNoteUE, coursValidesAnterieurs } from './acquis.js';
 import { calculerDI, calculerDIS } from './droitInscription.js';
@@ -209,6 +209,20 @@ export const PIECES_APPRENANT = [
 // Certaines UE sont partagées entre sections : une seule UE commune ne doit
 // pas faire entrer tout le catalogue d'une autre section. On ne retient donc
 // que la (ou les) section(s) dominante(s).
+/**
+ * Périmètre de l'utilisateur. Sans cloisonnement, un coordinateur voyait les
+ * étudiants de tout l'établissement — le panneau d'accès affichait ses
+ * sections sans que rien ne les fasse respecter.
+ */
+function perimetre(req) {
+  return getUserSections(req.user);      // null = toutes
+}
+
+function sectionAutoriseeReq(req, section) {
+  const p = perimetre(req);
+  return p === null ? true : (section ? p.includes(section) : false);
+}
+
 function sectionsDeLEtudiant(etudId, forcee) {
   if (forcee) return { sections: [forcee], scores: [] };
   const scores = db.prepare(`
@@ -230,6 +244,10 @@ function sectionsDeLEtudiant(etudId, forcee) {
 // ── Liste des étudiants ───────────────────────────────────────────────────────
 r.get('/', authRequired, (req, res) => {
   const { section, q } = req.query;
+  const autorisees = perimetre(req);
+  if (section && !sectionAutoriseeReq(req, section)) {
+    return res.status(403).json({ error: 'Section hors de votre périmètre' });
+  }
 
   // Tous les étudiants actifs, avec leurs inscriptions toutes années confondues.
   // La section affichée vient des UE de leurs inscriptions (dernière année connue).
@@ -246,6 +264,11 @@ r.get('/', authRequired, (req, res) => {
   const params = [];
 
   if (section) { sql += ` AND u.section = ?`; params.push(section); }
+  else if (autorisees) {
+    // Hors filtre explicite, la liste se borne au périmètre de la personne.
+    sql += ` AND u.section IN (${autorisees.map(() => '?').join(',') || "''"})`;
+    params.push(...autorisees);
+  }
   if (q) {
     sql += ` AND (e.nom LIKE ? OR e.prenom LIKE ? OR e.id_ecampus LIKE ?)`;
     const like = `%${q}%`;
@@ -1145,6 +1168,14 @@ r.get('/:id', authRequired, (req, res) => {
   `).all(etudiant.id);
 
   const anneeAct = anneeDeTravail(req);
+  // Un étudiant hors périmètre ne doit pas être consultable par son seul
+  // identifiant : masquer la liste sans protéger la fiche ne protège rien.
+  const { sections: secEtud } = sectionsDeLEtudiant(etudiant.id, null);
+  const autoriseesFiche = perimetre(req);
+  if (autoriseesFiche && secEtud.length && !secEtud.some(s => autoriseesFiche.includes(s))) {
+    return res.status(403).json({ error: 'Cet étudiant est hors de votre périmètre' });
+  }
+
   res.json({ ...etudiant, inscriptions, niveau: niveauEtudiant(etudiant.id, anneeAct) });
 });
 

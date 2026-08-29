@@ -353,6 +353,21 @@ function AccesLuciePanel({ profId, detail }) {
 
   // Appliquer un profil : il pose le rôle et remplit les cases, puis on
   // retouche librement. Aucun héritage — ce qui est coché fait foi.
+  // Choisir un rôle coche d'emblée les cases du profil de référence qui lui
+  // correspond : on part d'un ensemble cohérent, quitte à retoucher ensuite.
+  function changerRole(nouveau) {
+    setRole(nouveau);
+    const profil = profils.find(p => p.systeme && p.role === nouveau);
+    if (!profil) return;
+    setPerms(() => {
+      const base = PERM_DEFAUT();
+      for (const [m, v] of Object.entries(profil.permissions || {})) {
+        if (base[m]) base[m] = { ...base[m], ...v };
+      }
+      return base;
+    });
+  }
+
   function appliquerProfil(p) {
     if (!window.confirm(
       `Appliquer le profil « ${p.nom} » ?\n\n${p.description || ''}\n\n`
@@ -484,17 +499,8 @@ function AccesLuciePanel({ profId, detail }) {
             )}
           </div>
         </div>
-        {hasScope && (p.lire || p.ecrire) && !p.voir_tout && (
-          <div className="px-3 pb-2 pt-0 flex flex-wrap gap-1">
-            {sectionsDispo.map(s => (
-              <button key={s.code} type="button" onClick={() => toggleSec(s.code)}
-                className={`text-[10px] px-1.5 py-0.5 rounded-full border transition ${
-                  sectionsModule.includes(s.code) ? 'bg-iip-blue text-white border-iip-blue' : 'border-gray-200 text-gray-400 hover:border-iip-blue'
-                }`}>{s.code}</button>
-            ))}
-            {sectionsModule.length === 0 && <span className="text-[10px] text-orange-500 italic">⚠ Aucune section — accès bloqué</span>}
-          </div>
-        )}
+        {/* Le périmètre est commun à tous les modules : il se règle une fois,
+            en tête du panneau, plutôt que module par module. */}
       </div>
     );
   };
@@ -509,7 +515,7 @@ function AccesLuciePanel({ profId, detail }) {
         </div>
         <div>
           <div className="text-xs text-gray-500 mb-1">Rôle</div>
-          <select value={role} onChange={e => setRole(e.target.value)} className="w-full border border-gray-300 rounded px-2 py-1.5 text-sm bg-white">
+          <select value={role} onChange={e => changerRole(e.target.value)} className="w-full border border-gray-300 rounded px-2 py-1.5 text-sm bg-white">
             {ROLES_LUCIE.map(([v, l]) => <option key={v} value={v}>{l}</option>)}
           </select>
         </div>
@@ -533,6 +539,38 @@ function AccesLuciePanel({ profId, detail }) {
         </div>
       )}
 
+      <div className="border border-slate-200 rounded-lg p-2.5">
+        <div className="flex items-center justify-between mb-1.5">
+          <span className="text-xs text-gray-500 font-medium">Périmètre</span>
+          <label className="flex items-center gap-1.5 text-[11.5px] text-slate-600">
+            <input type="checkbox" checked={sections.length === 0}
+              onChange={e => setSections(e.target.checked ? [] : sectionsDispo.map(s => s.code))} />
+            Toutes les sections
+          </label>
+        </div>
+        {sections.length > 0 && (
+          <div className="flex flex-wrap gap-1">
+            {sectionsDispo.map(s => (
+              <button key={s.code} type="button"
+                onClick={() => setSections(v => v.includes(s.code)
+                  ? v.filter(x => x !== s.code) : [...v, s.code])}
+                className={`text-[11px] px-2 py-0.5 rounded-full border transition ${
+                  sections.includes(s.code)
+                    ? 'bg-iip-blue text-white border-iip-blue'
+                    : 'border-gray-200 text-gray-400 hover:border-iip-blue'}`}>
+                {s.code}
+              </button>
+            ))}
+          </div>
+        )}
+        <p className="text-[10.5px] text-slate-500 mt-1.5">
+          {sections.length === 0
+            ? "Cette personne voit toutes les sections."
+            : `Elle ne voit que : ${sections.join(', ') || '— aucune, l\u2019accès serait bloqué'}.`}
+          {' '}Le périmètre vaut pour tous les modules à la fois.
+        </p>
+      </div>
+
       <div>
         <div className="text-xs text-gray-500 mb-2 font-medium">Permissions</div>
         <div className="space-y-1.5">
@@ -555,7 +593,7 @@ function AccesLuciePanel({ profId, detail }) {
         </div>
         <div>
           <div className="text-xs text-gray-500 mb-1">Rôle</div>
-          <select value={role} onChange={e => setRole(e.target.value)} disabled={busy} className="w-full border border-gray-300 rounded px-2 py-1.5 text-sm bg-white">
+          <select value={role} onChange={e => changerRole(e.target.value)} disabled={busy} className="w-full border border-gray-300 rounded px-2 py-1.5 text-sm bg-white">
             {ROLES_LUCIE.map(([v, l]) => <option key={v} value={v}>{l}</option>)}
           </select>
         </div>

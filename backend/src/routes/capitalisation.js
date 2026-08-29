@@ -14,7 +14,7 @@
 import { Router } from 'express';
 import db from '../db/index.js';
 import { anneeDeTravail, anneeActiveEnBase } from '../helpers/annee.js';
-import { authRequired, roleRequired } from '../middleware/auth.js';
+import { authRequired, roleRequired, getUserSections} from '../middleware/auth.js';
 
 const r = Router();
 
@@ -191,6 +191,11 @@ export function construireGraphe({ sections, annee, etat }) {
 
 // ── Structure d'une section (sans étudiant) ─────────────────────────────────
 r.get('/structure', authRequired, (req, res) => {
+  // La structure d'une section ne se consulte que dans son périmètre.
+  const perim = getUserSections(req.user);
+  if (perim && req.query.section && !perim.includes(req.query.section)) {
+    return res.status(403).json({ error: 'Section hors de votre périmètre' });
+  }
   const { section, annee } = req.query;
   if (!section || !annee) return res.status(400).json({ error: 'section et annee requises' });
 

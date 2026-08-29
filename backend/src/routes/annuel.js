@@ -8,7 +8,7 @@
 
 import { Router } from 'express';
 import db from '../db/index.js';
-import { authRequired, roleRequired } from '../middleware/auth.js';
+import { authRequired, roleRequired, getUserSections} from '../middleware/auth.js';
 import { exigeValidation, sectionAutorisee, deposerDemande } from './demandes.js';
 import { calculerDates, chargerPeriodesConges, anneeDebutDe, diffJours }
   from '../services/echeancier_dates.js';
@@ -20,6 +20,8 @@ const r = Router();
 // Toutes les organisations d'UE de l'année, avec leurs dates et l'état de
 // complétude. Sert à la saisie groupée.
 r.get('/dates-ue', authRequired, (req, res) => {
+  // Un coordinateur ne voit que les organisations de ses sections.
+  const perim = getUserSections(req.user);
   const { annee, section, sansDates } = req.query;
   if (!annee) return res.status(400).json({ error: 'annee requise' });
 
@@ -36,7 +38,15 @@ r.get('/dates-ue', authRequired, (req, res) => {
                   AND (u.section = o.section OR u.section IS NULL)
     WHERE o.annee_scolaire = ?`;
 
-  if (section) { sql += ' AND o.section = ?'; params.push(section); }
+  if (section) {
+    if (perim && !perim.includes(section)) {
+      return res.status(403).json({ error: 'Section hors de votre périmètre' });
+    }
+    sql += ' AND o.section = ?'; params.push(section);
+  } else if (perim) {
+    sql += ` AND o.section IN (${perim.map(() => '?').join(',') || "''"})`;
+    params.push(...perim);
+  }
   if (sansDates === '1') sql += ' AND (o.date_debut IS NULL OR o.date_fin IS NULL)';
   sql += ' ORDER BY o.section, o.ue_num, o.num_organisation';
 
