@@ -5,6 +5,7 @@ import ProfFicheModal from './ProfFicheModal.jsx';
 import PreviewModal from '../components/PreviewModal.jsx';
 import CoursEditModal from '../components/CoursEditModal.jsx';
 import { IconMail, IconMapPin, IconFileText, IconEdit, IconDownload, IconRefresh, IconX, IconPrinter, IconPlus, IconTrash, IconKey, IconLock, IconCheck, IconBriefcase, IconTargetArrow, IconChevronDown, IconChevronRight, IconUsers, IconSchool, IconUserPlus, IconBuilding, IconBuildingBank, IconFileDescription } from '@tabler/icons-react';
+import { MODULES_ACCES, ROLES_LUCIE, PLAFOND_ROLE } from '../lib/modules.js';
 import { RailLateral } from '../components/ui.jsx';
 
 /**
@@ -301,42 +302,6 @@ function PermissionsPanel({ userId, permissions, sectionsDispo, annee, onSaved, 
 }
 
 // ─── Panneau « Accès Lucie » (admin) : lie un compte utilisateur à un·e membre ───
-// Cinq rôles, chacun avec un sens propre. Le rôle pose le plafond ; les cases
-// affinent à l'intérieur, sans jamais pouvoir accorder davantage.
-const ROLES_LUCIE = [
-  ['consultation', 'Consultation — lecture seule'],
-  ['professeur',   'Professeur — ses attributions et ses données'],
-  ['coordination', 'Coordination — encode, sous validation de la direction'],
-  ['secretariat',  "Secrétariat — lit partout, produit les documents"],
-  ['admin',        'Direction — accès complet et validation des demandes'],
-];
-
-// Ce que chaque rôle permet au mieux, repris du serveur pour que l'écran ne
-// laisse pas cocher une case qui serait refusée à l'usage.
-const PLAFOND_ROLE = {
-  admin:        () => 'écrit',
-  secretariat:  m => (['communication', 'listes', 'procedures'].includes(m) ? 'écrit' : 'lit'),
-  coordination: m => (m === 'recrutement' ? '—' : 'validation'),
-  professeur:   m => (['attributions', 'personnel', 'planification'].includes(m) ? 'lit' : '—'),
-  consultation: () => 'lit',
-  editeur:      () => 'écrit',
-};
-// Modules accessibles par flag (extensible)
-// Les modules suivent les axes de Lucie. « Voir tout » lève le cloisonnement
-// par sections : sans cette case, la personne ne voit que les siennes.
-const MODULES_ACCES = [
-  { key: 'etudiants',    label: 'Étudiants',       icon: '🎓', desc: 'Parcours, PAE, résultats, dossiers' },
-  { key: 'attributions', label: 'Attributions',    icon: '📋', desc: 'Voir et/ou modifier les attributions' },
-  { key: 'personnel',    label: 'Personnel',       icon: '👥', desc: 'Voir et/ou modifier les fiches membres' },
-  { key: 'organisation', label: 'Organisation',    icon: '🗂️', desc: "Dates d'UE, structure des sections, rentrée" },
-  { key: 'planification',label: 'Horaires',        icon: '📅', desc: 'Groupes, horaires et planification' },
-  { key: 'communication',label: 'Communication',   icon: '✉️', desc: 'Listes, courriers, documents produits' },
-  { key: 'listes',       label: 'Listes',          icon: '📄', desc: 'Accès aux listes et documents' },
-  { key: 'procedures',   label: 'Procédures',      icon: '📑', desc: 'Accès aux procédures' },
-  { key: 'pilotage',     label: 'Pilotage',        icon: '📊', desc: 'Dotation, statistiques' },
-  { key: 'budget',       label: 'Budget',          icon: '💶', desc: 'Prévisions et dépenses de la section' },
-  { key: 'recrutement',  label: 'Recrutement',     icon: '💼', desc: 'Accès au module recrutement' },
-];
 
 // permissions_json stocke : { attributions: {lire, ecrire, voir_tout}, personnel: {lire, ecrire}, ..., recrutement: {lire, ecrire} }
 const PERM_DEFAUT = () => Object.fromEntries(MODULES_ACCES.map(m => [m.key, { lire: false, ecrire: false, voir_tout: false }]));

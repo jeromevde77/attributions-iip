@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { getUser } from '../lib/api.js';
 import { IconPlus, IconKey, IconTrash, IconAlertTriangle } from '@tabler/icons-react';
+import { MODULES_ACCES, droitEffectif, LIBELLE_DROIT } from '../lib/modules.js';
 
 const ROLE_LABEL = {
   admin: 'Administrateur',
@@ -262,6 +263,8 @@ export default function Users({ embedded = false }) {
           </div>
         </div>
       )}
+      <MatriceAcces users={users} />
+
       {editingSections && (
         <div className="fixed inset-0 bg-black/40 flex items-center justify-center p-4 z-30" onClick={() => setEditingSections(null)}>
           <div className="bg-white rounded-xl shadow-2xl max-w-md w-full p-6" onClick={e => e.stopPropagation()}>
@@ -285,5 +288,89 @@ export default function Users({ embedded = false }) {
       )}
     </div>
     </>
+  );
+}
+
+// ── Récapitulatif des accès ────────────────────────────────────────────────
+// Les droits se donnent dans les fiches, une personne à la fois ; on n'en avait
+// donc aucune vue d'ensemble. Ce tableau la donne, en lecture seule.
+function MatriceAcces({ users }) {
+  const [ouvert, setOuvert] = useState(true);
+  const actifs = (users || []).filter(u => u.actif);
+
+  if (!actifs.length) return null;
+
+  return (
+    <div className="px-4 pb-4">
+      <div className="border border-slate-200 rounded-xl overflow-hidden">
+        <button onClick={() => setOuvert(o => !o)}
+          className="w-full flex items-center justify-between px-4 py-2.5 bg-slate-50 border-b border-slate-200 hover:bg-slate-100">
+          <span className="text-[13px] font-semibold text-iip-blue">
+            Récapitulatif des accès — {actifs.length} compte(s) actif(s)
+          </span>
+          <span className="text-[11px] text-slate-500">{ouvert ? 'masquer' : 'afficher'}</span>
+        </button>
+
+        {ouvert && (
+          <>
+            <div className="overflow-x-auto">
+              <table className="text-sm border-collapse w-full">
+                <thead>
+                  <tr className="bg-white">
+                    <th className="sticky left-0 bg-white border-b border-r border-slate-200 px-3 py-2 text-left min-w-[190px]">
+                      <span className="text-[10px] uppercase tracking-wide text-slate-500">Personne</span>
+                    </th>
+                    <th className="border-b border-slate-200 px-2 py-2 w-28">
+                      <span className="text-[10px] uppercase tracking-wide text-slate-500">Périmètre</span>
+                    </th>
+                    {MODULES_ACCES.map(m => (
+                      <th key={m.key} className="border-b border-slate-200 px-1 py-2 w-20" title={m.desc}>
+                        <div className="text-[10px] text-slate-600">{m.icon}</div>
+                        <div className="text-[9px] text-slate-500 leading-tight">{m.label}</div>
+                      </th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {actifs.map(u => (
+                    <tr key={u.id} className="hover:bg-slate-50/60">
+                      <td className="sticky left-0 bg-white border-r border-b border-slate-100 px-3 py-1.5">
+                        <div className="text-[12.5px] text-slate-800 truncate max-w-[180px]">
+                          {u.nom_complet || u.email}
+                        </div>
+                        <div className="text-[10px] text-slate-400">
+                          {u.role}{!u.professeur_id ? ' · sans fiche' : ''}
+                        </div>
+                      </td>
+                      <td className="border-b border-slate-100 px-2 py-1.5 text-[10.5px] text-slate-600">
+                        {u.sections?.length ? u.sections.join(', ') : <span className="text-slate-400">toutes</span>}
+                      </td>
+                      {MODULES_ACCES.map(m => {
+                        const d = LIBELLE_DROIT[droitEffectif(u, m.key)] || LIBELLE_DROIT.rien;
+                        return (
+                          <td key={m.key} className="border-b border-slate-100 px-1 py-1.5 text-center">
+                            <span className={`text-[9.5px] px-1.5 py-0.5 rounded ${d.cls}`}>{d.texte}</span>
+                          </td>
+                        );
+                      })}
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+
+            <div className="px-4 py-2 border-t border-slate-200 bg-slate-50 flex flex-wrap gap-3 text-[10.5px] text-slate-600">
+              <span><span className="px-1.5 py-0.5 rounded bg-emerald-100 text-emerald-800">écrit</span> modifie directement</span>
+              <span><span className="px-1.5 py-0.5 rounded bg-amber-100 text-amber-800">validation</span> encode, la direction tranche</span>
+              <span><span className="px-1.5 py-0.5 rounded bg-sky-100 text-sky-800">lit</span> consultation seule</span>
+              <span className="text-slate-400">— aucun accès</span>
+              <span className="flex-1 text-right italic">
+                Lecture seule : les droits se règlent dans la fiche de chaque personne.
+              </span>
+            </div>
+          </>
+        )}
+      </div>
+    </div>
   );
 }
