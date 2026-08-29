@@ -5,6 +5,7 @@ import {
 import { authHeaders, getAnnee } from '../lib/api.js';
 import PreviewModal from '../components/PreviewModal.jsx';
 import SchemaCapitalisationVue from '../components/SchemaCapitalisation.jsx';
+import Amenagements from '../components/Amenagements.jsx';
 import ImportPAE from '../components/ImportPAE.jsx';
 import PurgeResultats from '../components/PurgeResultats.jsx';
 import RapportPAE from '../components/RapportPAE.jsx';
@@ -988,6 +989,7 @@ function FicheEtudiant({ id, annee, onClose }) {
             ['pae', `PAE ${annee}`],
             ['va', 'Valorisation'],
             ['di', "Droit d'inscription"],
+            ['amenagements', 'Aménagements'],
             ['dossier', 'Dossier']].map(([k, l]) => (
             <button key={k} onClick={() => { setOnglet(k); if (k==='pae' && !pae) chargerPAE(); }}
               className={`px-4 py-3 text-sm font-medium border-b-2 -mb-px ${onglet===k
@@ -1007,6 +1009,12 @@ function FicheEtudiant({ id, annee, onClose }) {
           {onglet === 'di' && <DroitInscription etudId={id} annee={annee} />}
 
           {onglet === 'dossier' && <DossierApprenant etudId={id} />}
+
+          {onglet === 'amenagements' && (
+            <div className="p-5">
+              <Amenagements etudId={id} annee={annee} />
+            </div>
+          )}
 
           {onglet === 'pae' && (
             <div>
