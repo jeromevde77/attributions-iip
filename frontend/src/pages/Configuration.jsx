@@ -441,6 +441,7 @@ import Referentiels from './Referentiels.jsx';
 import PonderationsAA from './PonderationsAA.jsx';
 import SchemaCapitalisation from '../components/SchemaCapitalisation.jsx';
 import Demandes from './Demandes.jsx';
+import Sauvegardes from './Sauvegardes.jsx';
 import ParametresEtablissement from './ParametresEtablissement.jsx';
 import { authHeaders } from '../lib/api.js';
 
@@ -1256,6 +1257,7 @@ export default function Configuration() {
       { key: 'prerequis', label: 'Prérequis UE', icon: IconLink },
       { key: 'ponderations', label: 'Pondération des AA', icon: IconScale },
       { key: 'demandes', label: 'Demandes à valider', icon: IconCheck },
+      { key: 'sauvegardes', label: 'Sauvegardes', icon: IconDownload },
       { key: 'procedures', label: 'Procédures', icon: IconGavel },
     ]},
     { label: 'Paramétrage annuel', items: [
@@ -1318,6 +1320,7 @@ export default function Configuration() {
       {tab === 'prerequis' && <GestionPrerequis />}
       {tab === 'ponderations' && <PonderationsAA />}
       {tab === 'demandes' && <Demandes />}
+      {tab === 'sauvegardes' && <Sauvegardes />}
 
       {/* ── Onglet Utilisateurs ── */}
       {tab === 'users' && <div className="max-w-none"><Users embedded /></div>}
