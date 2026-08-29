@@ -278,6 +278,12 @@ function UeBloc({ u, val, editer, cle, modifs, onAppliquerDates }) {
           <span className="ml-2 text-[10.5px] font-normal text-slate-500">
             {fr(u.date_debut)} → {fr(u.date_fin)}
           </span>
+          {u.periodes_helb > 0 && (
+            <span className="ml-2 text-[10px] px-1.5 py-0.5 rounded bg-slate-200 text-slate-600"
+              title="Ces périodes relèvent de la HELB : elles ne se décomptent pas de votre dotation et n'entrent pas dans la répartition.">
+              {u.periodes_helb} pér. HELB, hors dotation
+            </span>
+          )}
           {u.part_dates != null && (
             <button onClick={onAppliquerDates}
               title="Répartir selon les dates réelles de l'organisation"

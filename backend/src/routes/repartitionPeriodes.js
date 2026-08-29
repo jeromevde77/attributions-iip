@@ -114,15 +114,30 @@ r.get('/', authRequired, (req, res) => {
     GROUP BY ue_num, cours_code
   `).all();
 
-  // Périodes réellement attribuées, par cours — ce sont elles qu'on répartit
+  // Périodes réellement attribuées, par cours — ce sont elles qu'on répartit.
+  // Les attributions HELB sont ÉCARTÉES : elles ne se décomptent pas de la
+  // dotation de l'établissement, les inclure gonflerait la déclaration.
   const attrib = db.prepare(`
     SELECT ue_num, code_cours,
            ROUND(SUM(COALESCE(periodes_attribuees, 0)), 1) AS periodes,
            ROUND(SUM(COALESCE(autonomie_attribuee, 0)), 1) AS autonomie
     FROM attribution
     WHERE annee_scolaire = ? AND ue_num IN (${listeUe.join(',')})
+      AND COALESCE(contrat_mdp, 'IIP') = 'IIP'
     GROUP BY ue_num, code_cours
   `).all(annee);
+
+  // Ce qui relève de la HELB, gardé de côté pour l'afficher sans le compter :
+  // le voir rassure sur le fait qu'il n'a pas été oublié, mais égaré.
+  const helb = db.prepare(`
+    SELECT ue_num, ROUND(SUM(COALESCE(periodes_attribuees, 0)
+                          + COALESCE(autonomie_attribuee, 0)), 1) AS periodes
+    FROM attribution
+    WHERE annee_scolaire = ? AND ue_num IN (${listeUe.join(',')})
+      AND contrat_mdp = 'HELB'
+    GROUP BY ue_num
+  `).all(annee);
+  const helbDe = Object.fromEntries(helb.map(h => [h.ue_num, h.periodes]));
   const attribDe = {};
   for (const a of attrib) attribDe[`${a.ue_num}|${a.code_cours || ''}`] = a;
 
@@ -177,6 +192,7 @@ r.get('/', authRequired, (req, res) => {
     return {
       ...o,
       part_dates: part,
+      periodes_helb: helbDe[o.ue_num] || 0,
       lignes,
       totaux: {
         prevu_total: somme('prevu_total'), reel_total: somme('reel_total'),
