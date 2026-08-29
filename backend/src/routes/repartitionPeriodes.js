@@ -287,11 +287,15 @@ r.get('/', authRequired, (req, res) => {
   for (const u of ues) {
     for (const l of u.lignes) {
       const sommePrevu = arrondi((l.prevu_c1 || 0) + (l.prevu_c2 || 0));
+      // Celui-ci vaut dès le départ : la circulaire est explicite, la somme des
+      // colonnes 16 et 17 doit atteindre la colonne 15 du document 8bis.
       if (l.prevu_total && Math.abs(sommePrevu - l.prevu_total) > 0.01) {
         anomalies.push({
           ue_num: u.ue_num, cours: l.cours_code || l.libelle,
+          niveau: 'attention',
           message: `Prévu réparti ${sommePrevu} au lieu de ${l.prevu_total} — la somme des `
-                 + `colonnes 16 et 17 doit atteindre le dossier pédagogique.`,
+                 + `colonnes 16 et 17 doit atteindre le dossier pédagogique, quelle que soit `
+                 + `la manière dont vous la ventilez entre les deux années civiles.`,
         });
       }
       // La colonne 18 compte les DÉDOUBLEMENTS : sans dédoublement on organise
@@ -304,19 +308,24 @@ r.get('/', authRequired, (req, res) => {
       // raison d'être entier. Le signaler alors n'apprenait rien.
       if (!l.saisi) continue;
 
-      for (const [p, r0, col] of [[l.prevu_c1, l.reel_c1, '18'], [l.prevu_c2, l.reel_c2, '19']]) {
-        if (!p || !r0) continue;
-        const q = r0 / p;
+      // Le contrôle porte sur le TOTAL de l'année scolaire, non colonne par
+      // colonne : la ventilation entre les deux années civiles est libre, on
+      // peut porter toutes les périodes sur l'une ou sur l'autre. Comparer
+      // colonne à colonne ne tiendrait que si les deux suivaient la même clé,
+      // ce qui n'a aucune raison d'être le cas.
+      const prevuAnnee = arrondi((l.prevu_c1 || 0) + (l.prevu_c2 || 0));
+      const reelAnnee = arrondi((l.reel_c1 || 0) + (l.reel_c2 || 0));
+      if (prevuAnnee > 0 && reelAnnee > 0) {
+        const q = reelAnnee / prevuAnnee;
         if (Math.abs(q - Math.round(q)) > 0.01) {
           anomalies.push({
             ue_num: u.ue_num, cours: l.cours_code || l.libelle,
             niveau: 'attention',
-            message: `Colonne ${col} : ${r0} période(s) organisées pour ${p} prévue(s), `
-                   + `soit un rapport de ${Math.round(q * 100) / 100}. Cette colonne compte les `
-                   + `dédoublements : le rapport vaut 1 sans dédoublement, 2 avec deux groupes, `
-                   + `et ainsi de suite. Une valeur intermédiaire signale une erreur de saisie, `
-                   + `ou une suppression de dédoublement — que la circulaire n'admet qu'au `
-                   + `cinquième dixième.`,
+            message: `Sur l'année : ${reelAnnee} période(s) organisées pour ${prevuAnnee} `
+                   + `prévue(s), soit un rapport de ${Math.round(q * 100) / 100}. Ce rapport `
+                   + `compte les dédoublements — 1 sans dédoublement, 2 avec deux groupes. Une `
+                   + `valeur intermédiaire signale une erreur, ou une suppression de `
+                   + `dédoublement, que la circulaire n'admet qu'au cinquième dixième.`,
           });
         }
       }
