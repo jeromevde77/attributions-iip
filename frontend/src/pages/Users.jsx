@@ -122,6 +122,11 @@ export default function Users({ embedded = false }) {
     } catch (e) { alert(e.message); }
   }
 
+  // Un compte rattaché à un membre du personnel se règle depuis sa fiche.
+  // Ne restent ici que les comptes qui n'ont pas de fiche où aller :
+  // administrateurs techniques, prestataire extérieur.
+  const comptesSansFiche = (users || []).filter(u => !u.professeur_id);
+
   if (me?.role !== 'admin') {
     return <div className="p-6 max-w-none mx-auto text-center text-gray-500">Accès réservé aux administrateurs.</div>;
   }
@@ -130,17 +135,17 @@ export default function Users({ embedded = false }) {
     <>
       <div className="px-4 pt-4">
         <div className="px-3 py-2 rounded-lg bg-sky-50 border border-sky-200 text-[12px] text-sky-900">
-          Cette page est une <b>vue d'ensemble</b>. Les accès d'un membre du personnel se règlent
-          depuis sa fiche, onglet « Accès Lucie » — seul endroit qui fasse autorité. Ne restent
-          modifiables ici que les comptes non rattachés à une personne, comme celui d'un
-          prestataire extérieur.
+          La liste ci-dessous ne contient que les comptes <b>sans fiche de personnel</b> :
+          administrateurs techniques, prestataire extérieur. Les accès d'un membre du personnel
+          se règlent depuis sa fiche, onglet « Accès Lucie ». Le récapitulatif plus bas montre
+          l'ensemble des droits accordés, en lecture.
         </div>
       </div>
     <div className={embedded ? '' : 'p-6 max-w-none mx-auto'}>
       <div className="flex items-center justify-between mb-4">
-        {!embedded && <h1 className="text-2xl font-title text-iip-gold">Utilisateurs</h1>}
+        {!embedded && <h1 className="text-2xl font-title text-iip-gold">Comptes sans fiche de personnel</h1>}
         <button onClick={() => setShowForm(true)} className={`bg-iip-gold hover:bg-iip-amber text-white text-sm px-4 py-1.5 rounded font-medium inline-flex items-center gap-1.5 ${embedded ? 'ml-auto' : ''}`}>
-          <IconPlus size={16} /> Nouvel utilisateur
+          <IconPlus size={16} /> Compte sans fiche
         </button>
       </div>
 
@@ -155,7 +160,14 @@ export default function Users({ embedded = false }) {
               </tr>
             </thead>
             <tbody>
-              {users.map(u => (
+              {!comptesSansFiche.length && (
+                <tr>
+                  <td colSpan={8} className="px-4 py-6 text-center text-[12.5px] text-slate-400">
+                    Aucun compte sans fiche. Tous les accès sont rattachés à un membre du personnel.
+                  </td>
+                </tr>
+              )}
+              {comptesSansFiche.map(u => (
                 <tr key={u.id}>
                   <td className="font-medium">{u.nom_complet}</td>
                   <td className="text-xs">{u.email}</td>
@@ -215,7 +227,11 @@ export default function Users({ embedded = false }) {
       {showForm && (
         <div className="fixed inset-0 bg-black/40 flex items-center justify-center p-4 z-30" onClick={() => setShowForm(false)}>
           <div className="bg-white rounded-xl shadow-2xl max-w-md w-full p-6" onClick={e => e.stopPropagation()}>
-            <h2 className="text-xl font-title text-iip-gold mb-4">Nouvel utilisateur</h2>
+            <h2 className="text-xl font-title text-iip-gold mb-1">Compte sans fiche de personnel</h2>
+            <p className="text-[12px] text-slate-500 mb-4">
+              Pour un administrateur technique ou un prestataire extérieur. Pour un membre du
+              personnel, créez l'accès depuis sa fiche.
+            </p>
             <div className="space-y-3">
               <div>
                 <label className="block text-xs text-gray-600 mb-0.5">Nom complet</label>
