@@ -698,16 +698,20 @@ function DetailModal({ profId, onClose, onEdit, onFiche }) {
   // ETP selon la formule IIP : périodes CT ÷ 800 + périodes PP ÷ 1000,
   // autonomie comprise. La charge HELB s'y ajoute telle que calculée.
   const heuresHELB = detail.total_hrs_helb ?? 0;
+  // L'ETP vient du serveur, qui l'a calculé sur l'année demandée. Le refaire
+  // ici donnait un second chiffre, divergent dès que la liste d'attributions
+  // n'était pas celle des totaux — et nul quand elle revenait vide.
   const etpTotal = (() => {
+    if (detail.etp_annee != null) {
+      return Math.round(((detail.etp_annee || 0) + (detail.charge_helb ?? 0)) * 10000) / 10000;
+    }
     const attrs = (detail.attributions || []).filter(a => (a.contrat_mdp || 'IIP') !== 'HELB');
     let ct = 0, pp = 0;
     for (const a of attrs) {
       const total = (a.per || 0) + (a.aut || 0);
-      if (a.type_cours === 'CT') ct += total; else pp += total;
+      if (a.type_cours === 'PP') pp += total; else ct += total;   // type inconnu → CT, comme au serveur
     }
-    const etpIIP = ct / 800 + pp / 1000;
-    const etpHELB = detail.charge_helb ?? 0;
-    return Math.round((etpIIP + etpHELB) * 10000) / 10000;
+    return Math.round((ct / 800 + pp / 1000 + (detail.charge_helb ?? 0)) * 10000) / 10000;
   })();
 
   const badge = tc => tc === 'CT'
