@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo, useRef, Fragment } from 'react';
-import { api, getAnnee } from '../lib/api.js';
+import { api, getAnnee, getUser} from '../lib/api.js';
 import { IconChartBar, IconHome, IconUsers, IconSettings, IconChevronRight, IconChevronDown, IconPrinter, IconRotateClockwise, IconCheck, IconX, IconTrash, IconCash, IconCalendar} from '@tabler/icons-react';
 import { PageHeader, Tabs, RailLateral } from '../components/ui.jsx';
 import Budget from './Budget.jsx';
@@ -1354,7 +1354,11 @@ export default function Pilotage() {
           { key: 'etp',      label: 'ETP',           icon: IconUsers,    actif: tab === 'etp',      onClick: () => setTab('etp') },
           { key: 'dotation', label: 'Comparaison',   icon: IconChartBar, actif: tab === 'dotation', onClick: () => setTab('dotation') },
           { key: 'budget',   label: 'Budget',        icon: IconCash,     actif: tab === 'budget',   onClick: () => setTab('budget') },
-          { key: 'repartition', label: 'Répartition des périodes', icon: IconCalendar, actif: tab === 'repartition', onClick: () => setTab('repartition') },
+          // La répartition entre années civiles relève de la direction : inutile
+          // de la proposer à qui ne pourra pas l'ouvrir.
+          ...(getUser()?.role === 'coordination' ? [] : [
+            { key: 'repartition', label: 'Répartition des périodes', icon: IconCalendar, actif: tab === 'repartition', onClick: () => setTab('repartition') },
+          ]),
           { key: 'config',   label: 'Configuration', icon: IconSettings, actif: tab === 'config',   onClick: () => setTab('config') },
         ] }]}
       />

@@ -10,7 +10,7 @@
 // avec le reste de l'application, tenue en aplats et en traits.
 import {
   IconSchool, IconClipboardList, IconUsers, IconFolders, IconCalendar,
-  IconMail, IconFileText, IconGavel, IconChartBar, IconCoin, IconBriefcase,
+  IconMail, IconFileText, IconGavel, IconChartBar, IconCalendarStats, IconCoin, IconBriefcase,
 } from '@tabler/icons-react';
 
 export const MODULES_ACCES = [
@@ -22,7 +22,8 @@ export const MODULES_ACCES = [
   { key: 'communication',label: 'Communication', Icone: IconMail,          desc: 'Listes, courriers, documents produits' },
   { key: 'listes',       label: 'Listes',        Icone: IconFileText,      desc: 'Accès aux listes et documents' },
   { key: 'procedures',   label: 'Procédures',    Icone: IconGavel,         desc: 'Accès aux procédures' },
-  { key: 'pilotage',     label: 'Pilotage',      Icone: IconChartBar,      desc: 'Dotation, statistiques' },
+  { key: 'pilotage',     label: 'Pilotage',      Icone: IconChartBar,      desc: 'Dotation et statistiques de ses sections' },
+  { key: 'repartition',  label: 'Répartition',   Icone: IconCalendarStats, desc: 'Périodes entre années civiles — document 2' },
   { key: 'budget',       label: 'Budget',        Icone: IconCoin,          desc: 'Prévisions et dépenses de la section' },
   { key: 'recrutement',  label: 'Recrutement',   Icone: IconBriefcase,     desc: 'Accès au module recrutement' },
 ];
@@ -48,7 +49,8 @@ export const PLAFOND_ROLE = {
   // que de la donnée administrative.
   secretariat:  m => (['etudiants', 'communication', 'listes', 'procedures'].includes(m)
     ? 'ecrit' : 'lit'),
-  coordination: m => (m === 'recrutement' ? 'rien' : 'validation'),
+  // La répartition entre années civiles engage l'établissement entier.
+  coordination: m => (['recrutement', 'repartition'].includes(m) ? 'rien' : 'validation'),
   professeur:   m => (['attributions', 'personnel', 'planification'].includes(m) ? 'lit' : 'rien'),
   consultation: () => 'lit',
 };

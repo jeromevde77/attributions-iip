@@ -76,6 +76,14 @@ function partReelleC1(dateDebut, dateFin, a1) {
 
 // ── Lignes de répartition d'une année académique ───────────────────────────
 r.get('/', authRequired, (req, res) => {
+  // La répartition entre années civiles engage l'établissement entier : elle
+  // relève de la direction, non d'une coordination.
+  if (req.user?.role === 'coordination') {
+    return res.status(403).json({
+      error: "La répartition de la dotation relève de la direction. Votre section reste "
+           + "consultable dans les autres vues du pilotage.",
+    });
+  }
   const annee = req.query.annee;
   const section = req.query.section;
   if (!annee) return res.status(400).json({ error: 'annee requise' });

@@ -91,6 +91,24 @@ const APPLICATEURS = {
     return 'Dates mises à jour.';
   },
 
+  budget_ligne: (d) => {
+    const a = JSON.parse(d.apres);
+    if (d.operation === 'creer') {
+      const champs = Object.keys(a);
+      db.prepare(`INSERT INTO budget_ligne (${champs.join(',')})
+                  VALUES (${champs.map(() => '?').join(',')})`).run(...champs.map(k => a[k]));
+      return 'Prévision budgétaire créée.';
+    }
+    if (d.operation === 'supprimer') {
+      db.prepare('DELETE FROM budget_ligne WHERE id = ?').run(Number(d.cible_id));
+      return 'Prévision supprimée.';
+    }
+    const champs = Object.keys(a).filter(k => k !== 'id');
+    db.prepare(`UPDATE budget_ligne SET ${champs.map(k => k + ' = ?').join(', ')} WHERE id = ?`)
+      .run(...champs.map(k => a[k]), Number(d.cible_id));
+    return 'Prévision mise à jour.';
+  },
+
   attribution: (d) => {
     const a = JSON.parse(d.apres);
     if (d.operation === 'supprimer') {

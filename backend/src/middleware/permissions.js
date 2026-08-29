@@ -21,7 +21,8 @@
 
 export const MODULES = [
   'etudiants', 'attributions', 'personnel', 'organisation', 'planification',
-  'communication', 'listes', 'procedures', 'pilotage', 'budget', 'recrutement',
+  'communication', 'listes', 'procedures', 'pilotage', 'repartition', 'budget',
+  'recrutement',
 ];
 
 // Ce que chaque rôle autorise AU MIEUX, avant affinage par les cases.
@@ -38,9 +39,12 @@ const PLAFOND = {
   },
 
   coordination: {
-    lire: () => true,
+    // La répartition de la dotation entre années civiles engage l'établissement
+    // entier : elle relève de la direction. Le pilotage, lui, reste consultable
+    // — mais borné aux sections du coordinateur, ce que les routes appliquent.
+    lire: m => !['repartition', 'recrutement'].includes(m),
     // Tout ce qu'un coordinateur encode passe par la direction.
-    ecrire: m => (['recrutement'].includes(m) ? false : 'demande'),
+    ecrire: m => (['recrutement', 'repartition'].includes(m) ? false : 'demande'),
   },
 
   professeur: {
