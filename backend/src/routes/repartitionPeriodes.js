@@ -1,0 +1,311 @@
+// ─────────────────────────────────────────────────────────────────────────────
+// Lucie — Répartition des périodes entre années civiles
+//
+// La dotation est CIVILE, l'enseignement est ACADÉMIQUE : une année scolaire
+// se déclare donc sur deux années civiles. Le document 2 le traduit par quatre
+// colonnes, par activité d'enseignement :
+//
+//   col. 16 / 17 — périodes PRÉVUES, 1re et 2e année civile
+//                  leur somme atteint la colonne 15 (dossier pédagogique)
+//                  lorsque la branche est entièrement organisée sur l'année
+//   col. 18 / 19 — périodes RÉELLEMENT organisées, dédoublements compris
+//                  ce sont elles qui se décomptent de la dotation organique
+//
+// La règle des 40-60 est une commodité d'usage, non une norme : elle sert de
+// proposition, et s'ajuste. Une UE du premier quadrimestre dont l'examen tombe
+// en janvier doit porter quelques périodes sur la seconde année civile, faute
+// de quoi l'UE serait réputée fermée alors qu'elle ne l'est pas.
+//
+// L'autonomie fait l'objet d'une ligne distincte au sein de chaque UE :
+// l'arrêté du 22/11/2002 la range hors des cas généraux.
+// ─────────────────────────────────────────────────────────────────────────────
+
+import { Router } from 'express';
+import db from '../db/index.js';
+import { authRequired, roleRequired, getUserSections } from '../middleware/auth.js';
+
+const r = Router();
+
+// Clé de répartition par défaut, ajustable ligne à ligne
+const PART_C1 = 0.4;
+
+export function migrerRepartition(dbx) {
+  try {
+    dbx.exec(`
+    CREATE TABLE IF NOT EXISTS repartition_periodes (
+      id              INTEGER PRIMARY KEY AUTOINCREMENT,
+      annee_scolaire  TEXT NOT NULL,
+      ue_num          INTEGER NOT NULL,
+      num_organisation INTEGER NOT NULL DEFAULT 1,
+      cours_code      TEXT,                       -- NULL pour la ligne d'autonomie
+      nature          TEXT NOT NULL DEFAULT 'cours',   -- cours | autonomie
+      prevu_c1        REAL, prevu_c2 REAL,        -- colonnes 16 et 17
+      reel_c1         REAL, reel_c2 REAL,         -- colonnes 18 et 19
+      remarque        TEXT,
+      maj_le          TEXT DEFAULT (datetime('now')),
+      UNIQUE(annee_scolaire, ue_num, num_organisation, cours_code, nature)
+    );
+    CREATE INDEX IF NOT EXISTS idx_repartition
+      ON repartition_periodes(annee_scolaire, ue_num);
+    `);
+    console.log('[migration] repartition_periodes créée');
+  } catch (e) { console.error('[migration] répartition :', e.message); }
+}
+
+const arrondi = n => Math.round((Number(n) || 0) * 100) / 100;
+const anneesCiviles = (annee) => {
+  const a1 = Number(String(annee).slice(0, 4));
+  return [a1, a1 + 1];
+};
+
+/**
+ * Part revenant à la première année civile d'après les dates réelles.
+ * Sert d'indication : la proposition retenue reste la clé 40-60, mais l'écart
+ * entre les deux se voit, et c'est souvent lui qui appelle un ajustement.
+ */
+function partReelleC1(dateDebut, dateFin, a1) {
+  if (!dateDebut || !dateFin) return null;
+  const d = new Date(dateDebut + 'T00:00:00Z'), f = new Date(dateFin + 'T00:00:00Z');
+  if (isNaN(d) || isNaN(f) || f <= d) return null;
+  const bascule = new Date(Date.UTC(a1, 11, 31, 23, 59, 59));
+  if (f <= bascule) return 1;
+  if (d >= bascule) return 0;
+  return Math.max(0, Math.min(1, (bascule - d) / (f - d)));
+}
+
+// ── Lignes de répartition d'une année académique ───────────────────────────
+r.get('/', authRequired, (req, res) => {
+  const annee = req.query.annee;
+  const section = req.query.section;
+  if (!annee) return res.status(400).json({ error: 'annee requise' });
+
+  const perim = getUserSections(req.user);
+  if (section && perim && !perim.includes(section)) {
+    return res.status(403).json({ error: 'Section hors de votre périmètre' });
+  }
+  const [a1, a2] = anneesCiviles(annee);
+
+  // Organisations de l'année, avec leurs dates
+  const clauses = ['o.annee_scolaire = ?'];
+  const params = [annee];
+  if (section) { clauses.push('o.section = ?'); params.push(section); }
+  else if (perim) {
+    clauses.push(`o.section IN (${perim.map(() => '?').join(',') || "''"})`);
+    params.push(...perim);
+  }
+
+  const orgs = db.prepare(`
+    SELECT o.id, o.ue_num, o.section, o.num_organisation, o.date_debut, o.date_fin,
+           (SELECT ue_nom FROM ue u WHERE u.ue_num = o.ue_num ORDER BY u.annee_scolaire DESC LIMIT 1) AS ue_nom,
+           (SELECT ue_aut FROM ue u WHERE u.ue_num = o.ue_num ORDER BY u.annee_scolaire DESC LIMIT 1) AS ue_autonomie
+    FROM organisation_ue o
+    WHERE ${clauses.join(' AND ')}
+    ORDER BY o.section, o.ue_num, o.num_organisation
+  `).all(...params);
+  if (!orgs.length) return res.json({ annee, annees_civiles: [a1, a2], ues: [], synthese: null });
+
+  const listeUe = [...new Set(orgs.map(o => o.ue_num))];
+
+  // Cours du référentiel, avec leurs périodes du dossier pédagogique
+  const coursRef = db.prepare(`
+    SELECT ue_num, cours_code, MIN(cours_nom) AS cours_nom, MAX(cours_per) AS cours_per,
+           MAX(ct_pp) AS type_cours
+    FROM cours WHERE ue_num IN (${listeUe.join(',')}) AND cours_code IS NOT NULL
+    GROUP BY ue_num, cours_code
+  `).all();
+
+  // Périodes réellement attribuées, par cours — ce sont elles qu'on répartit
+  const attrib = db.prepare(`
+    SELECT ue_num, code_cours,
+           ROUND(SUM(COALESCE(periodes_attribuees, 0)), 1) AS periodes,
+           ROUND(SUM(COALESCE(autonomie_attribuee, 0)), 1) AS autonomie
+    FROM attribution
+    WHERE annee_scolaire = ? AND ue_num IN (${listeUe.join(',')})
+    GROUP BY ue_num, code_cours
+  `).all(annee);
+  const attribDe = {};
+  for (const a of attrib) attribDe[`${a.ue_num}|${a.code_cours || ''}`] = a;
+
+  // Répartitions déjà saisies
+  const saisies = {};
+  for (const s of db.prepare(
+    'SELECT * FROM repartition_periodes WHERE annee_scolaire = ?'
+  ).all(annee)) {
+    saisies[`${s.ue_num}|${s.num_organisation}|${s.cours_code || ''}|${s.nature}`] = s;
+  }
+
+  const ues = orgs.map(o => {
+    const part = partReelleC1(o.date_debut, o.date_fin, a1);
+    const lignes = [];
+
+    const ajouter = (cours_code, libelle, nature, prevuTotal, reelTotal, typeCours) => {
+      const cle = `${o.ue_num}|${o.num_organisation}|${cours_code || ''}|${nature}`;
+      const s = saisies[cle];
+      // Proposition : la clé 40-60 par défaut. Mais lorsque les dates placent
+      // l'organisation entièrement dans une seule année civile, proposer 40-60
+      // serait proposer une erreur : on suit alors les dates.
+      const cleProposee = (part != null && (part >= 0.999 || part <= 0.001)) ? part : PART_C1;
+      const propPrevuC1 = arrondi((prevuTotal || 0) * cleProposee);
+      const propReelC1 = arrondi((reelTotal || 0) * cleProposee);
+      lignes.push({
+        cours_code, libelle, nature, type_cours: typeCours || null,
+        prevu_total: arrondi(prevuTotal), reel_total: arrondi(reelTotal),
+        prevu_c1: s?.prevu_c1 ?? propPrevuC1,
+        prevu_c2: s?.prevu_c2 ?? arrondi((prevuTotal || 0) - propPrevuC1),
+        reel_c1: s?.reel_c1 ?? propReelC1,
+        reel_c2: s?.reel_c2 ?? arrondi((reelTotal || 0) - propReelC1),
+        saisi: !!s,
+        remarque: s?.remarque || null,
+        part_dates: part,
+      });
+    };
+
+    for (const c of coursRef.filter(x => x.ue_num === o.ue_num)) {
+      const a = attribDe[`${o.ue_num}|${c.cours_code}`] || {};
+      ajouter(c.cours_code, c.cours_nom, 'cours', c.cours_per, a.periodes, c.type_cours);
+    }
+
+    // L'autonomie, hors des cas généraux, sur sa propre ligne
+    const autonomieAttribuee = Object.entries(attribDe)
+      .filter(([k]) => k.startsWith(`${o.ue_num}|`))
+      .reduce((s, [, a]) => s + Number(a.autonomie || 0), 0);
+    if (o.ue_autonomie || autonomieAttribuee) {
+      ajouter(null, 'Autonomie', 'autonomie', o.ue_autonomie, autonomieAttribuee, null);
+    }
+
+    const somme = (champ) => arrondi(lignes.reduce((s, l) => s + Number(l[champ] || 0), 0));
+    return {
+      ...o,
+      part_dates: part,
+      lignes,
+      totaux: {
+        prevu_total: somme('prevu_total'), reel_total: somme('reel_total'),
+        prevu_c1: somme('prevu_c1'), prevu_c2: somme('prevu_c2'),
+        reel_c1: somme('reel_c1'), reel_c2: somme('reel_c2'),
+      },
+    };
+  });
+
+  // Contrôles réglementaires
+  const anomalies = [];
+
+  // La clé 40-60 est une commodité. Quand les dates de l'organisation tiennent
+  // entièrement dans une seule année civile, elle est manifestement fausse : la
+  // circulaire prescrit alors zéro dans l'autre colonne. On le dit plutôt que
+  // de proposer 40-60 en silence.
+  for (const u of ues) {
+    if (u.part_dates == null) continue;
+    const entierementC1 = u.part_dates >= 0.999;
+    const entierementC2 = u.part_dates <= 0.001;
+    if (!entierementC1 && !entierementC2) continue;
+    const aTort = u.lignes.some(l => (entierementC1 ? l.prevu_c2 : l.prevu_c1) > 0.01
+                                  || (entierementC1 ? l.reel_c2 : l.reel_c1) > 0.01);
+    if (aTort) {
+      anomalies.push({
+        ue_num: u.ue_num, cours: 'toute l\'unité',
+        niveau: 'attention',
+        message: `L'organisation se tient entièrement ${entierementC1 ? 'sur ' + a1 : 'sur ' + a2}`
+               + ` (${u.date_debut} → ${u.date_fin}), mais des périodes figurent sur l'autre année`
+               + ` civile. Ce n'est justifié que si des périodes y sont réellement organisées —`
+               + ` une séance ou une épreuve surveillée, par exemple.`,
+      });
+    }
+  }
+  for (const u of ues) {
+    for (const l of u.lignes) {
+      const sommePrevu = arrondi((l.prevu_c1 || 0) + (l.prevu_c2 || 0));
+      if (l.prevu_total && Math.abs(sommePrevu - l.prevu_total) > 0.01) {
+        anomalies.push({
+          ue_num: u.ue_num, cours: l.cours_code || l.libelle,
+          message: `Prévu réparti ${sommePrevu} au lieu de ${l.prevu_total} — la somme des `
+                 + `colonnes 16 et 17 doit atteindre le dossier pédagogique.`,
+        });
+      }
+      // Le réel est un multiple entier du prévu, sauf suppression de
+      // dédoublement ou regroupement, admis au seul cinquième dixième.
+      for (const [p, r0, col] of [[l.prevu_c1, l.reel_c1, '18'], [l.prevu_c2, l.reel_c2, '19']]) {
+        if (!p || !r0) continue;
+        const q = r0 / p;
+        if (Math.abs(q - Math.round(q)) > 0.01) {
+          anomalies.push({
+            ue_num: u.ue_num, cours: l.cours_code || l.libelle,
+            message: `Colonne ${col} : ${r0} n'est pas un multiple entier de ${p}. `
+                   + `La circulaire ne l'admet qu'en cas de suppression de dédoublement `
+                   + `ou de regroupement, au cinquième dixième.`,
+          });
+        }
+      }
+    }
+  }
+
+  const totalGeneral = (champ) => arrondi(ues.reduce((s, u) => s + u.totaux[champ], 0));
+
+  res.json({
+    annee, annees_civiles: [a1, a2], ues, anomalies,
+    synthese: {
+      prevu_c1: totalGeneral('prevu_c1'), prevu_c2: totalGeneral('prevu_c2'),
+      reel_c1: totalGeneral('reel_c1'), reel_c2: totalGeneral('reel_c2'),
+      reel_total: totalGeneral('reel_total'),
+    },
+  });
+});
+
+// ── Enregistrement ──────────────────────────────────────────────────────────
+r.put('/', authRequired, roleRequired('admin', 'editeur', 'secretariat'), (req, res) => {
+  const { annee, lignes } = req.body;
+  if (!annee || !Array.isArray(lignes)) {
+    return res.status(400).json({ error: 'annee et lignes requises' });
+  }
+  const up = db.prepare(`
+    INSERT INTO repartition_periodes
+      (annee_scolaire, ue_num, num_organisation, cours_code, nature,
+       prevu_c1, prevu_c2, reel_c1, reel_c2, remarque, maj_le)
+    VALUES (?,?,?,?,?,?,?,?,?,?, datetime('now'))
+    ON CONFLICT(annee_scolaire, ue_num, num_organisation, cours_code, nature) DO UPDATE SET
+      prevu_c1 = excluded.prevu_c1, prevu_c2 = excluded.prevu_c2,
+      reel_c1 = excluded.reel_c1, reel_c2 = excluded.reel_c2,
+      remarque = excluded.remarque, maj_le = datetime('now')
+  `);
+  let n = 0;
+  db.transaction(() => {
+    for (const l of lignes) {
+      up.run(annee, Number(l.ue_num), Number(l.num_organisation || 1),
+             l.cours_code || null, l.nature || 'cours',
+             l.prevu_c1 != null ? Number(l.prevu_c1) : null,
+             l.prevu_c2 != null ? Number(l.prevu_c2) : null,
+             l.reel_c1 != null ? Number(l.reel_c1) : null,
+             l.reel_c2 != null ? Number(l.reel_c2) : null,
+             l.remarque || null);
+      n++;
+    }
+  })();
+  res.json({ ok: true, enregistrees: n });
+});
+
+// ── Dotation d'une année CIVILE ─────────────────────────────────────────────
+// Elle additionne la seconde moitié de l'année académique précédente et la
+// première de l'année en cours — c'est ce que la Fédération intègre en avril.
+r.get('/annee-civile/:annee', authRequired, (req, res) => {
+  const civile = Number(req.params.annee);
+  if (!civile) return res.status(400).json({ error: 'année civile invalide' });
+
+  const precedente = `${civile - 1}-${civile}`;
+  const courante = `${civile}-${civile + 1}`;
+
+  const somme = (anneeScolaire, champ) => db.prepare(`
+    SELECT ROUND(SUM(COALESCE(${champ}, 0)), 1) AS total
+    FROM repartition_periodes WHERE annee_scolaire = ?
+  `).get(anneeScolaire)?.total || 0;
+
+  const janvierJuin = somme(precedente, 'reel_c2');
+  const septembreDecembre = somme(courante, 'reel_c1');
+
+  res.json({
+    annee_civile: civile,
+    janvier_juin: { annee_scolaire: precedente, periodes: janvierJuin },
+    septembre_decembre: { annee_scolaire: courante, periodes: septembreDecembre },
+    total: arrondi(janvierJuin + septembreDecembre),
+  });
+});
+
+export default r;

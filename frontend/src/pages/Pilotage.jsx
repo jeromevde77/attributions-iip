@@ -1,8 +1,9 @@
 import { useState, useEffect, useMemo, useRef, Fragment } from 'react';
 import { api, getAnnee } from '../lib/api.js';
-import { IconChartBar, IconHome, IconUsers, IconSettings, IconChevronRight, IconChevronDown, IconPrinter, IconRotateClockwise, IconCheck, IconX, IconTrash, IconCash } from '@tabler/icons-react';
+import { IconChartBar, IconHome, IconUsers, IconSettings, IconChevronRight, IconChevronDown, IconPrinter, IconRotateClockwise, IconCheck, IconX, IconTrash, IconCash, IconCalendar} from '@tabler/icons-react';
 import { PageHeader, Tabs, RailLateral } from '../components/ui.jsx';
 import Budget from './Budget.jsx';
+import RepartitionPeriodes from './RepartitionPeriodes.jsx';
 import {
   BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer,
   Legend, CartesianGrid, ReferenceLine,
@@ -508,7 +509,13 @@ export default function Pilotage() {
     api.pilotageCivil()
       .then(d => {
         setCivil(d);
-        if (d.length && !selYear) setSelYear(d[d.length - 1].annee_civile); // dernière année par défaut
+        // L'année civile en cours par défaut : c'est celle sur laquelle on
+        // travaille, et non la dernière encodée, qui peut être une prévision.
+        if (d.length && !selYear) {
+          const courante = new Date().getFullYear();
+          const trouvee = d.find(y => y.annee_civile === courante);
+          setSelYear(trouvee ? trouvee.annee_civile : d[d.length - 1].annee_civile);
+        }
       })
       .catch(console.error)
       .finally(() => setLoading(false));
@@ -1347,6 +1354,7 @@ export default function Pilotage() {
           { key: 'etp',      label: 'ETP',           icon: IconUsers,    actif: tab === 'etp',      onClick: () => setTab('etp') },
           { key: 'dotation', label: 'Comparaison',   icon: IconChartBar, actif: tab === 'dotation', onClick: () => setTab('dotation') },
           { key: 'budget',   label: 'Budget',        icon: IconCash,     actif: tab === 'budget',   onClick: () => setTab('budget') },
+          { key: 'repartition', label: 'Répartition des périodes', icon: IconCalendar, actif: tab === 'repartition', onClick: () => setTab('repartition') },
           { key: 'config',   label: 'Configuration', icon: IconSettings, actif: tab === 'config',   onClick: () => setTab('config') },
         ] }]}
       />
@@ -1355,7 +1363,9 @@ export default function Pilotage() {
         <PageHeader icon={IconChartBar} titre="Pilotage des dotations"
           sous={`Année civile ${selYear} · Enveloppes extérieures · Comparaison pluriannuelle`} />
 
-        {tab === 'budget' ? (
+        {tab === 'repartition' ? (
+          <RepartitionPeriodes />
+        ) : tab === 'budget' ? (
           <Budget />
         ) : loading ? (
           <div className="text-gray-400 py-12 text-center">Chargement…</div>
