@@ -13,6 +13,9 @@ services:
       - seccomp:unconfined
     environment:
       NODE_ENV: development
+      # Le conteneur vit en UTC par défaut : les horodatages des sauvegardes et
+      # des journaux s'en trouvaient décalés de deux heures.
+      TZ: Europe/Brussels
       JWT_SECRET: ${JWT_SECRET_DEV:-lucie-dev-secret-change-me}
       PORT: 3000
     volumes:

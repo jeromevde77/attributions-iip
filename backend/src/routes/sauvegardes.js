@@ -77,7 +77,13 @@ function config() {
   };
 }
 
-const horodatage = () => new Date().toISOString().slice(0, 16).replace(/[-:T]/g, '').replace(/(\d{8})(\d{4})/, '$1_$2');
+// Heure LOCALE dans le nom du fichier : le conteneur vit en UTC, et un fichier
+// nommé 0650 alors qu'il est 8h50 se retrouve mal à l'usage.
+const horodatage = () => {
+  const d = new Date();
+  const p = n => String(n).padStart(2, '0');
+  return `${d.getFullYear()}${p(d.getMonth() + 1)}${p(d.getDate())}_${p(d.getHours())}${p(d.getMinutes())}`;
+};
 
 /**
  * Produit une sauvegarde cohérente, la contrôle, puis l'enregistre.
@@ -109,6 +115,13 @@ export async function executerSauvegarde(declencheur = 'manuel', auteur = null) 
         catch { comptes[t] = null; }
       }
     } finally { copie.close(); }
+
+    // Ouvrir la copie pour la vérifier crée des fichiers annexes -wal et -shm.
+    // Ils sont vides et régénérables, mais seraient synchronisés pour rien vers
+    // le nuage et brouilleraient la lecture du dossier.
+    for (const suffixe of ['-wal', '-shm']) {
+      try { if (fs.existsSync(cible + suffixe)) fs.unlinkSync(cible + suffixe); } catch {}
+    }
 
     const info = db.prepare(`
       INSERT INTO sauvegarde (fichier, taille, declencheur, integrite, comptes, duree_ms, auteur)
@@ -159,7 +172,9 @@ function purger() {
 
   for (const s of toutes) {
     if (garder.has(s.id)) continue;
-    try { fs.unlinkSync(path.join(DOSSIER, s.fichier)); } catch {}
+    for (const suffixe of ['', '-wal', '-shm']) {
+      try { fs.unlinkSync(path.join(DOSSIER, s.fichier + suffixe)); } catch {}
+    }
     db.prepare('DELETE FROM sauvegarde WHERE id = ?').run(s.id);
   }
 }
@@ -245,7 +260,9 @@ r.get('/:id/telecharger', authRequired, roleRequired('admin'), (req, res) => {
 r.delete('/:id', authRequired, roleRequired('admin'), (req, res) => {
   const s = db.prepare('SELECT * FROM sauvegarde WHERE id = ?').get(Number(req.params.id));
   if (!s) return res.status(404).json({ error: 'sauvegarde introuvable' });
-  try { fs.unlinkSync(path.join(DOSSIER, s.fichier)); } catch {}
+  for (const suffixe of ['', '-wal', '-shm']) {
+    try { fs.unlinkSync(path.join(DOSSIER, s.fichier + suffixe)); } catch {}
+  }
   db.prepare('DELETE FROM sauvegarde WHERE id = ?').run(s.id);
   res.json({ ok: true });
 });
