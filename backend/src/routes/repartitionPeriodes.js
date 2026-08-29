@@ -151,6 +151,21 @@ r.get('/', authRequired, (req, res) => {
   const attribDe = {};
   for (const a of attrib) attribDe[`${a.ue_num}|${a.code_cours || ''}`] = a;
 
+  // Total réellement attribué par UE, indépendamment du code de cours. Il sert
+  // de garde-fou : une attribution sans code d'activité, ou portant un code
+  // absent du référentiel, ne figurerait dans aucune ligne du tableau et ses
+  // périodes disparaîtraient de la déclaration.
+  const totalAttribueUe = Object.fromEntries(db.prepare(`
+    SELECT ue_num, ROUND(SUM(COALESCE(periodes_attribuees, 0)), 1) AS periodes,
+                   ROUND(SUM(COALESCE(autonomie_attribuee, 0)), 1) AS autonomie,
+                   ROUND(SUM(COALESCE(total_attribue_professeur, 0)), 1) AS total_pilotage,
+                   MAX(COALESCE(quadrimestre_attribue, '')) AS quadri
+    FROM attribution
+    WHERE annee_scolaire = ? AND ue_num IN (${listeUe.join(',')})
+      AND COALESCE(contrat_mdp, 'IIP') = 'IIP'
+    GROUP BY ue_num
+  `).all(annee).map(x => [x.ue_num, x]));
+
   // Répartitions déjà saisies
   const saisies = {};
   for (const s of db.prepare(
@@ -194,17 +209,31 @@ r.get('/', authRequired, (req, res) => {
     }
 
     // L'autonomie, hors des cas généraux, sur sa propre ligne
-    const autonomieAttribuee = Object.entries(attribDe)
-      .filter(([k]) => k.startsWith(`${o.ue_num}|`))
-      .reduce((s, [, a]) => s + Number(a.autonomie || 0), 0);
+    const t = totalAttribueUe[o.ue_num] || {};
+    const autonomieAttribuee = Number(t.autonomie || 0);
     if (o.ue_autonomie || autonomieAttribuee) {
       ajouter(null, 'Autonomie', 'autonomie', o.ue_autonomie, autonomieAttribuee, null);
     }
 
+    // Ce qui reste attribué sans avoir trouvé d'activité : plutôt que de le
+    // perdre, on lui donne sa ligne. Un total déclaré inférieur au total
+    // attribué serait une sous-déclaration pure et simple.
+    const repriseCours = lignes.filter(l => l.nature === 'cours')
+      .reduce((s, l) => s + Number(l.reel_total || 0), 0);
+    const orphelines = arrondi(Number(t.periodes || 0) - repriseCours);
+    if (orphelines > 0.05) {
+      ajouter('—', 'Périodes sans activité identifiée', 'cours', 0, orphelines, null);
+    }
+
     const somme = (champ) => arrondi(lignes.reduce((s, l) => s + Number(l[champ] || 0), 0));
+    const attribueUe = arrondi(Number(t.periodes || 0) + Number(t.autonomie || 0));
+
     return {
       ...o,
       part_dates: part,
+      attribue_ue: attribueUe,
+      total_pilotage: arrondi(Number(t.total_pilotage || 0)),
+      quadrimestre: t.quadri || o.ue_quad || null,
       periodes_helb: helbDe[o.ue_num] || 0,
       lignes,
       totaux: {
@@ -267,6 +296,32 @@ r.get('/', authRequired, (req, res) => {
     }
   }
 
+  // Le réel réparti doit égaler ce qui est attribué : c'est LE contrôle qui
+  // compte, puisqu'un écart signifie qu'on déclare autre chose que ce qu'on
+  // organise réellement.
+  for (const u of ues) {
+    const reparti = arrondi(u.totaux.reel_c1 + u.totaux.reel_c2);
+    if (Math.abs(reparti - u.attribue_ue) > 0.05) {
+      anomalies.push({
+        ue_num: u.ue_num, cours: 'bouclage',
+        niveau: 'grave',
+        message: `${reparti} période(s) réparties pour ${u.attribue_ue} attribuée(s) — `
+               + `écart de ${arrondi(reparti - u.attribue_ue)}. La déclaration ne correspondrait `
+               + `pas à ce qui est organisé.`,
+      });
+    }
+    // Écart entre la somme des deux colonnes et le total consolidé de Pilotage
+    if (u.total_pilotage && Math.abs(u.attribue_ue - u.total_pilotage) > 0.05) {
+      anomalies.push({
+        ue_num: u.ue_num, cours: 'cohérence',
+        niveau: 'attention',
+        message: `Périodes + autonomie donnent ${u.attribue_ue}, alors que le total consolidé `
+               + `utilisé par Pilotage vaut ${u.total_pilotage}. Ces deux valeurs devraient `
+               + `coïncider.`,
+      });
+    }
+  }
+
   const totalGeneral = (champ, filtre = () => true) =>
     arrondi(ues.filter(filtre).reduce((s, u) => s + u.totaux[champ], 0));
 
@@ -287,6 +342,18 @@ r.get('/', authRequired, (req, res) => {
   res.json({
     annee, annees_civiles: [a1, a2], ues, anomalies,
     enveloppes,
+    // Bouclage général, affiché en tête : la somme de ce qui est réparti doit
+    // égaler la somme de ce qui est attribué.
+    controle: (() => {
+      const attribue = arrondi(ues.reduce((s, u) => s + (u.attribue_ue || 0), 0));
+      const reparti = arrondi(ues.reduce((s, u) => s + u.totaux.reel_c1 + u.totaux.reel_c2, 0));
+      const pilotage = arrondi(ues.reduce((s, u) => s + (u.total_pilotage || 0), 0));
+      return {
+        attribue, reparti, pilotage,
+        ecart: arrondi(reparti - attribue),
+        boucle: Math.abs(reparti - attribue) <= 0.05,
+      };
+    })(),
     synthese: {
       // La synthèse porte sur la DOTATION ORGANIQUE seule : les enveloppes
       // fermées ont leur propre compte, plus bas.

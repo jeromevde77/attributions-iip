@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { IconAlertTriangle, IconDeviceFloppy, IconCalculator } from '@tabler/icons-react';
+import { IconAlertTriangle, IconDeviceFloppy, IconCalculator, IconCheck} from '@tabler/icons-react';
 import { authHeaders, getAnnee } from '../lib/api.js';
 
 /**
@@ -236,16 +236,40 @@ export default function RepartitionPeriodes() {
         </div>
       )}
 
+      {/* Bouclage : ce qui est réparti doit égaler ce qui est attribué. */}
+      {data?.controle && (
+        <div className={`px-4 py-2.5 rounded-xl border text-[12.5px] flex items-center gap-3 flex-wrap ${
+          data.controle.boucle
+            ? 'bg-emerald-50 border-emerald-200 text-emerald-900'
+            : 'bg-red-50 border-red-300 text-red-900'}`}>
+          {data.controle.boucle
+            ? <IconCheck size={16} className="flex-none" />
+            : <IconAlertTriangle size={16} className="flex-none" />}
+          <span>
+            <b>{nb(data.controle.reparti)}</b> période(s) réparties pour
+            {' '}<b>{nb(data.controle.attribue)}</b> attribuée(s)
+            {data.controle.boucle
+              ? ' — la déclaration correspond à ce qui est organisé.'
+              : ` — écart de ${nb(data.controle.ecart)}, à résorber avant de déclarer.`}
+          </span>
+          <span className="text-[11px] opacity-70 ml-auto">
+            Pilotage consolide {nb(data.controle.pilotage)} pér. sur les mêmes UE
+          </span>
+        </div>
+      )}
+
       {data?.anomalies?.length > 0 && (
         <div className="px-4 py-3 rounded-xl bg-amber-50 border border-amber-200">
           <div className="flex items-center gap-1.5 text-[12.5px] font-semibold text-amber-900 mb-1.5">
             <IconAlertTriangle size={15} /> {data.anomalies.length} contrôle(s) à examiner
           </div>
           <ul className="text-[11.5px] text-amber-900 space-y-0.5">
-            {data.anomalies.slice(0, 10).map((a, i) => (
-              <li key={i}><b>UE {a.ue_num}</b> · {a.cours} — {a.message}</li>
+            {data.anomalies.slice(0, 12).map((a, i) => (
+              <li key={i} className={a.niveau === 'grave' ? 'text-red-800 font-medium' : ''}>
+                <b>UE {a.ue_num}</b> · {a.cours} — {a.message}
+              </li>
             ))}
-            {data.anomalies.length > 10 && <li>… et {data.anomalies.length - 10} autre(s)</li>}
+            {data.anomalies.length > 12 && <li>… et {data.anomalies.length - 12} autre(s)</li>}
           </ul>
         </div>
       )}
