@@ -708,7 +708,12 @@ function DetailModal({ profId, onClose, onEdit, onFiche }) {
     const attrs = (detail.attributions || []).filter(a => (a.contrat_mdp || 'IIP') !== 'HELB');
     let ct = 0, pp = 0;
     for (const a of attrs) {
-      const total = (a.per || 0) + (a.aut || 0);
+      // Deux routes alimentent cette fiche et ne nomment pas ces champs de la
+      // même façon : l'une abrège en per/aut, l'autre garde les noms de la
+      // table. Lire un seul jeu donnait un ETP nul sur des charges réelles.
+      const per = a.per ?? a.periodes_attribuees ?? 0;
+      const aut = a.aut ?? a.autonomie_attribuee ?? 0;
+      const total = Number(per) + Number(aut);
       if (a.type_cours === 'PP') pp += total; else ct += total;   // type inconnu → CT, comme au serveur
     }
     return Math.round((ct / 800 + pp / 1000 + (detail.charge_helb ?? 0)) * 10000) / 10000;
