@@ -433,7 +433,18 @@ function UeBloc({ u, val, editer, cle, modifs, onAppliquerDates }) {
         </td>
         <td></td>
         <td className="px-2 py-1.5 text-right text-[11.5px] text-slate-500">{u.totaux.prevu_total}</td>
-        <td className="px-2 py-1.5 text-right text-[11.5px] text-slate-500">{u.totaux.reel_total}</td>
+        <td className="px-2 py-1.5 text-right text-[11.5px] text-slate-500">
+          {u.totaux.reel_total}
+          {u.totaux.prevu_total > 0 && u.totaux.reel_total > 0 && (() => {
+            const q = u.totaux.reel_total / u.totaux.prevu_total;
+            const entier = Math.abs(q - Math.round(q)) < 0.01;
+            return (
+              <span className={`ml-1 text-[10px] ${entier ? 'text-slate-400' : 'text-red-600 font-semibold'}`}>
+                (×{entier ? Math.round(q) : (Math.round(q * 100) / 100).toString().replace('.', ',')})
+              </span>
+            );
+          })()}
+        </td>
         <td className="px-2 py-1.5 text-center text-[11.5px] font-semibold border-l border-slate-200">{u.totaux.prevu_c1}</td>
         <td className="px-2 py-1.5 text-center text-[11.5px] font-semibold">{u.totaux.prevu_c2}</td>
         <td className="px-2 py-1.5 text-center text-[11.5px] font-semibold border-l border-slate-200">{u.totaux.reel_c1}</td>
@@ -456,7 +467,23 @@ function UeBloc({ u, val, editer, cle, modifs, onAppliquerDates }) {
           </td>
           <td colSpan={3}></td>
           <td className="px-2 py-1 text-right text-[11.5px] text-slate-500">{l.prevu_total || '—'}</td>
-          <td className="px-2 py-1 text-right text-[11.5px] text-slate-600">{l.reel_total || '—'}</td>
+          <td className="px-2 py-1 text-right text-[11.5px] text-slate-600">
+            {l.reel_total || '—'}
+            {/* Le multiple par rapport au prévu : c'est le nombre de groupes.
+                Une valeur non entière saute alors aux yeux. */}
+            {l.prevu_total > 0 && l.reel_total > 0 && (() => {
+              const q = l.reel_total / l.prevu_total;
+              const entier = Math.abs(q - Math.round(q)) < 0.01;
+              return (
+                <span className={`ml-1 text-[10px] ${entier ? 'text-slate-400' : 'text-red-600 font-semibold'}`}
+                  title={entier
+                    ? `${Math.round(q)} groupe(s) — le réel vaut ${Math.round(q)} fois le prévu`
+                    : `Rapport de ${Math.round(q * 100) / 100} : aucun dédoublement ne donne cette valeur`}>
+                  (×{entier ? Math.round(q) : (Math.round(q * 100) / 100).toString().replace('.', ',')})
+                </span>
+              );
+            })()}
+          </td>
           {champ(l, 'prevu_c1', 'border-l border-slate-200')}
           {champ(l, 'prevu_c2')}
           {champ(l, 'reel_c1', 'border-l border-slate-200 bg-iip-blue/5', true)}
