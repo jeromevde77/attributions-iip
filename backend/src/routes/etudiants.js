@@ -2349,6 +2349,13 @@ r.get('/:id/fiche-inscription', authRequired, (req, res) => {
       <td colspan="2">${h.resultat === 'ajourne' ? 'Refusé' : 'Absent'}</td>
     </tr>`).join('');
 
+  // Dates d'organisation : l'étudiant doit savoir quand son UE commence et se
+  // termine — ces dates commandent aussi son délai de paiement.
+  const datesOrg = Object.fromEntries(db.prepare(`
+    SELECT ue_num, MIN(date_debut) AS date_debut, MAX(date_fin) AS date_fin
+    FROM organisation_ue WHERE annee_scolaire = ? GROUP BY ue_num
+  `).all(annee).map(o => [o.ue_num, o]));
+
   // Droit d'inscription, calculé sur le programme de l'année
   const di = calculerDI(etudId, annee);
   const dis = calculerDIS(etudId, annee);
@@ -2375,7 +2382,13 @@ r.get('/:id/fiche-inscription', authRequired, (req, res) => {
       <td>${esc(i.date_inscription || '')}</td>
       <td>${i.admission_type === 'titre' ? 'Titre' : i.admission_type === 'test' ? 'Test' : '—'}</td>
       <td>${d?.dispensee ? 'Dispense complète' : (i.dispense_complete ? 'Dispense complète' : '—')}</td>
-      <td style="text-align:right">${d ? d.periodes_brutes : '—'}</td>
+      <td style="text-align:center;white-space:nowrap">${(() => {
+        const o = datesOrg[i.ue_num];
+        if (!o?.date_debut && !o?.date_fin) return '—';
+        const j = v => v ? String(v).slice(0, 10).split('-').reverse().join('/') : '…';
+        return `${j(o.date_debut)}<br><span style="color:#94a3b8">→ ${j(o.date_fin)}</span>`;
+      })()}</td>
+      <td style="text-align:right">${d ? d.periodes_brutes : '—'}${d?.porte_forfait ? ' <span style="color:#C9A84C" title="Cette UE porte le forfait annuel">◆</span>' : ''}</td>
       <td style="text-align:right">${d && !d.dispensee ? eur(d.montant) : '—'}</td>
       <td style="text-align:right">${i.ects != null ? i.ects : '—'}</td>
     </tr>`;
@@ -2384,22 +2397,22 @@ r.get('/:id/fiche-inscription', authRequired, (req, res) => {
   // Pied du tableau : forfait, puis total
   const piedDI = di && di.detail.length ? `
     <tr class="tot">
-      <td colspan="6" style="text-align:right">Forfait annuel</td>
+      <td colspan="7" style="text-align:right">Forfait annuel${di.ue_forfait ? ` — porté par l'UE ${di.ue_forfait} ◆` : ''}</td>
       <td style="text-align:right">—</td>
       <td style="text-align:right">${eur(di.forfait)}</td><td></td>
     </tr>
     <tr class="tot">
-      <td colspan="6" style="text-align:right"><b>Droit d'inscription — total</b></td>
+      <td colspan="7" style="text-align:right"><b>Droit d'inscription — total</b></td>
       <td style="text-align:right"><b>${di.periodes.total}</b></td>
       <td style="text-align:right"><b>${di.exonere ? '0,00 € (exonéré)' : eur(di.montant_arrondi)}</b></td>
       <td></td>
     </tr>
-    ${di.plafond_atteint ? `<tr><td colspan="9" style="font-size:10px;color:#64748b">
+    ${di.plafond_atteint ? `<tr><td colspan="10" style="font-size:10px;color:#64748b">
       Plafond de ${di.bareme.plafond_periodes} périodes atteint : ${di.retenues.secondaire + di.retenues.superieur}
       période(s) facturée(s) sur ${di.periodes.total}, le secondaire étant compté en premier.</td></tr>` : ''}
-    ${di.exonere ? `<tr><td colspan="9" style="font-size:10px;color:#065f46">
+    ${di.exonere ? `<tr><td colspan="10" style="font-size:10px;color:#065f46">
       Exonération du droit d'inscription${di.motif ? ' — motif enregistré' : ''}.</td></tr>` : ''}
-    ${dis && dis.soumis ? `<tr class="tot"><td colspan="6" style="text-align:right">
+    ${dis && dis.soumis ? `<tr class="tot"><td colspan="7" style="text-align:right">
       Droit d'inscription spécifique (${dis.periodes_hebdo} pér./sem.)</td>
       <td></td><td style="text-align:right"><b>${eur(dis.montant_du)}</b></td><td></td></tr>` : ''}
   ` : '';
@@ -2472,9 +2485,9 @@ ${(() => {
 <table>
   <thead><tr>
     <th>UE</th><th>Intitulé</th><th>Section</th><th>Date d'inscription</th>
-    <th>Admission</th><th>Valorisation</th><th>Périodes</th><th>Droit d'inscription</th><th>ECTS</th>
+    <th>Admission</th><th>Valorisation</th><th>Dates</th><th>Périodes</th><th>Droit d'inscription</th><th>ECTS</th>
   </tr></thead>
-  <tbody>${lignesInsc ? lignesInsc + piedDI : '<tr><td colspan="9" style="text-align:center;color:#94a3b8">Aucune UE inscrite pour cette année — encodez les inscriptions dans la grille de parcours</td></tr>'}</tbody>
+  <tbody>${lignesInsc ? lignesInsc + piedDI : '<tr><td colspan="10" style="text-align:center;color:#94a3b8">Aucune UE inscrite pour cette année — encodez les inscriptions dans la grille de parcours</td></tr>'}</tbody>
 </table>
 
 <div class="sig">

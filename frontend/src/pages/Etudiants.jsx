@@ -908,6 +908,17 @@ function FicheEtudiant({ id, annee, onClose }) {
     if (rep.ok) setFicheInscription(j);
     else alert(j.error || 'Erreur');
   }
+
+  // Les frais de scolarité relèvent de l'établissement, non de la Fédération :
+  // ils font l'objet d'un document distinct de la fiche d'inscription.
+  async function ouvrirFraisScolarite() {
+    const rep = await fetch(`/api/frais-scolarite/etudiant/${id}/document?annee=${annee}`,
+      { headers: authHeaders() });
+    if (!rep.ok) { alert('Erreur à la génération du document'); return; }
+    const j = await rep.json();
+    setRapport({ html: j.html, titre: j.titre });
+  }
+
   const anneePrecedente = useMemo(() => {
     if (!annee) return null;
     const [a1, a2] = annee.split('-').map(Number);
@@ -1062,6 +1073,11 @@ function FicheEtudiant({ id, annee, onClose }) {
                       <button onClick={ouvrirFicheInscription}
                         className="flex items-center gap-1.5 px-3 py-1.5 text-sm bg-iip-blue text-white font-semibold rounded-lg">
                         <IconFileText size={14} /> Fiche d'inscription / reçu
+                      </button>
+                      <button onClick={ouvrirFraisScolarite}
+                        title="Frais de scolarité et acompte — document distinct, l'administration n'en connaît pas"
+                        className="flex items-center gap-1.5 px-3 py-1.5 text-sm border border-iip-blue text-iip-blue font-semibold rounded-lg hover:bg-iip-blue/5">
+                        <IconFileText size={14} /> Frais de scolarité
                       </button>
                     </div>
                   </div>
