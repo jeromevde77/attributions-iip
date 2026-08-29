@@ -101,17 +101,23 @@ r.get('/', authRequired, (req, res) => {
   // pas — et masquerait un dépassement d'enveloppe.
   const orgs = db.prepare(`
     SELECT o.id, o.ue_num, o.section, o.num_organisation, o.date_debut, o.date_fin,
-           (SELECT ue_nom FROM ue u WHERE u.ue_num = o.ue_num ORDER BY u.annee_scolaire DESC LIMIT 1) AS ue_nom,
-           (SELECT ue_aut FROM ue u WHERE u.ue_num = o.ue_num ORDER BY u.annee_scolaire DESC LIMIT 1) AS ue_autonomie,
-           (SELECT ue_niv FROM ue u WHERE u.ue_num = o.ue_num ORDER BY u.annee_scolaire DESC LIMIT 1) AS ue_niv,
-           (SELECT ue_quad FROM ue u WHERE u.ue_num = o.ue_num ORDER BY u.annee_scolaire DESC LIMIT 1) AS ue_quad,
-           (SELECT COALESCE(u.pot_code,
-                     CASE WHEN u.ue_code_fwb LIKE '980302%' THEN 'QUAL'
-                          WHEN u.ue_code_fwb LIKE '980301%' THEN 'CF'
-                          WHEN u.ue_code_fwb LIKE '980303%' THEN 'INCL'
-                          ELSE 'organique' END)
-              FROM ue u WHERE u.ue_num = o.ue_num ORDER BY u.annee_scolaire DESC LIMIT 1) AS pot
+           COALESCE(uex.ue_nom, uany.ue_nom) AS ue_nom,
+           COALESCE(uex.ue_aut, uany.ue_aut) AS ue_autonomie,
+           COALESCE(uex.ue_niv, uany.ue_niv) AS ue_niv,
+           COALESCE(uex.ue_quad, uany.ue_quad) AS ue_quad,
+           COALESCE(uex.pot_code, uany.pot_code,
+             CASE WHEN COALESCE(uex.ue_code_fwb, uany.ue_code_fwb) LIKE '980302%' THEN 'QUAL'
+                  WHEN COALESCE(uex.ue_code_fwb, uany.ue_code_fwb) LIKE '980301%' THEN 'CF'
+                  WHEN COALESCE(uex.ue_code_fwb, uany.ue_code_fwb) LIKE '980303%' THEN 'INCL'
+                  ELSE 'organique' END) AS pot
     FROM organisation_ue o
+    -- Le référentiel de l'ANNÉE et de la SECTION de l'organisation ; à défaut,
+    -- n'importe quelle occurrence de l'UE, pour ne pas perdre la ligne.
+    LEFT JOIN ue uex  ON uex.ue_num = o.ue_num
+                     AND uex.annee_scolaire = o.annee_scolaire
+                     AND uex.section = o.section
+    LEFT JOIN ue uany ON uany.rowid = (SELECT rowid FROM ue u2 WHERE u2.ue_num = o.ue_num
+                                        ORDER BY u2.annee_scolaire DESC LIMIT 1)
     WHERE ${clauses.join(' AND ')}
     ORDER BY o.section, o.ue_num, o.num_organisation
   `).all(...params);
@@ -128,12 +134,40 @@ r.get('/', authRequired, (req, res) => {
   } catch { /* le schéma de capitalisation peut manquer : on gardera ue_niv */ }
 
   // Cours du référentiel, avec leurs périodes du dossier pédagogique
+  // Le référentiel des cours porte une ANNÉE et une SECTION. Ne filtrer ni
+  // l'une ni l'autre faisait retenir, par MAX, la plus grande valeur toutes
+  // années et sections confondues : « Hygiène professionnelle » affichait 64
+  // périodes là où le dossier de la section en prévoit 20.
   const coursRef = db.prepare(`
-    SELECT ue_num, cours_code, MIN(cours_nom) AS cours_nom, MAX(cours_per) AS cours_per,
-           MAX(ct_pp) AS type_cours
-    FROM cours WHERE ue_num IN (${listeUe.join(',')}) AND cours_code IS NOT NULL
-    GROUP BY ue_num, cours_code
-  `).all();
+    SELECT ue_num, section, cours_code, cours_nom, cours_per, ct_pp AS type_cours
+    FROM cours
+    WHERE ue_num IN (${listeUe.join(',')}) AND cours_code IS NOT NULL
+      AND annee_scolaire = ?
+  `).all(annee);
+
+  // Repli sur l'année précédente pour les UE dont le référentiel n'a pas
+  // encore été repris : mieux vaut une valeur datée qu'aucune.
+  const anneePrec = (() => {
+    const a = Number(String(annee).slice(0, 4));
+    return `${a - 1}-${a}`;
+  })();
+  const coursPrec = db.prepare(`
+    SELECT ue_num, section, cours_code, cours_nom, cours_per, ct_pp AS type_cours
+    FROM cours
+    WHERE ue_num IN (${listeUe.join(',')}) AND cours_code IS NOT NULL
+      AND annee_scolaire = ?
+  `).all(anneePrec);
+
+  const coursDe = (ueNum, sectionUe) => {
+    const memeSection = c0 => !c0.section || !sectionUe || c0.section === sectionUe;
+    let liste = coursRef.filter(c0 => c0.ue_num === ueNum && memeSection(c0));
+    if (!liste.length) liste = coursRef.filter(c0 => c0.ue_num === ueNum);
+    if (!liste.length) liste = coursPrec.filter(c0 => c0.ue_num === ueNum && memeSection(c0));
+    if (!liste.length) liste = coursPrec.filter(c0 => c0.ue_num === ueNum);
+    // Un même code ne doit apparaître qu'une fois
+    const vus = new Set();
+    return liste.filter(c0 => !vus.has(c0.cours_code) && vus.add(c0.cours_code));
+  };
 
   // Périodes réellement attribuées, par cours — ce sont elles qu'on répartit.
   // Les attributions HELB sont ÉCARTÉES : elles ne se décomptent pas de la
@@ -221,7 +255,7 @@ r.get('/', authRequired, (req, res) => {
       });
     };
 
-    for (const c of coursRef.filter(x => x.ue_num === o.ue_num)) {
+    for (const c of coursDe(o.ue_num, o.section)) {
       const a = attribDe[`${o.ue_num}|${o.num_organisation || 1}|${c.cours_code}`] || {};
       ajouter(c.cours_code, c.cours_nom, 'cours', c.cours_per, a.periodes, c.type_cours);
     }
