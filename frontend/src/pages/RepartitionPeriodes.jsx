@@ -189,13 +189,48 @@ export default function RepartitionPeriodes() {
               </div>
             </div>
             <div className="border-l border-slate-200 pl-4">
-              <div className="text-[10px] uppercase tracking-wide text-slate-500 font-semibold">Total civil</div>
+              <div className="text-[10px] uppercase tracking-wide text-slate-500 font-semibold">
+                Dotation organique
+              </div>
               <div className="text-[22px] font-bold text-iip-turquoise">{nb(civile.total)} pér.</div>
               <div className="text-[10.5px] text-slate-500">
                 intégré par la Fédération en avril
               </div>
             </div>
           </div>
+
+          {/* Enveloppes fermées : elles ne se confondent pas avec l'organique,
+              et leur dépassement retombe sur lui. */}
+          {civile.enveloppes?.length > 0 && (
+            <div className="px-4 pb-3 -mt-1">
+              <div className="text-[10px] uppercase tracking-wide text-slate-500 font-semibold mb-1.5">
+                Enveloppes fermées — financées à part
+              </div>
+              <div className="flex flex-wrap gap-2">
+                {civile.enveloppes.map(e => (
+                  <div key={e.code}
+                    className={`px-3 py-1.5 rounded-lg border text-[11.5px] ${e.depasse
+                      ? 'bg-red-50 border-red-300 text-red-800'
+                      : 'bg-slate-50 border-slate-200 text-slate-700'}`}>
+                    <b>{e.label}</b> · {nb(e.consomme)} pér.
+                    {e.illimite ? <span className="text-slate-400"> · sans plafond</span>
+                      : e.disponible != null && (
+                        <span> / {nb(e.disponible)}
+                          {e.depasse
+                            ? <b> — dépassement de {nb(-e.solde)}</b>
+                            : <span className="text-slate-500"> · solde {nb(e.solde)}</span>}
+                        </span>
+                      )}
+                  </div>
+                ))}
+              </div>
+              {civile.avertissement && (
+                <div className="mt-2 text-[11.5px] text-red-800 flex items-center gap-1.5">
+                  <IconAlertTriangle size={14} /> {civile.avertissement}
+                </div>
+              )}
+            </div>
+          )}
         </div>
       )}
 
@@ -278,6 +313,12 @@ function UeBloc({ u, val, editer, cle, modifs, onAppliquerDates }) {
           <span className="ml-2 text-[10.5px] font-normal text-slate-500">
             {fr(u.date_debut)} → {fr(u.date_fin)}
           </span>
+          {u.pot && u.pot !== 'organique' && (
+            <span className="ml-2 text-[10px] px-1.5 py-0.5 rounded bg-violet-100 text-violet-800"
+              title="Cette UE est financée par une enveloppe fermée, non par la dotation organique.">
+              {u.pot}
+            </span>
+          )}
           {u.periodes_helb > 0 && (
             <span className="ml-2 text-[10px] px-1.5 py-0.5 rounded bg-slate-200 text-slate-600"
               title="Ces périodes relèvent de la HELB : elles ne se décomptent pas de votre dotation et n'entrent pas dans la répartition.">

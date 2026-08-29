@@ -94,10 +94,20 @@ r.get('/', authRequired, (req, res) => {
     params.push(...perim);
   }
 
+  // Le pot de financement suit l'UE : conseiller qualité, congé-formation et
+  // inclusion sont des ENVELOPPES FERMÉES, distinctes de la dotation organique.
+  // Les confondre ferait porter à la dotation des périodes qu'elle ne finance
+  // pas — et masquerait un dépassement d'enveloppe.
   const orgs = db.prepare(`
     SELECT o.id, o.ue_num, o.section, o.num_organisation, o.date_debut, o.date_fin,
            (SELECT ue_nom FROM ue u WHERE u.ue_num = o.ue_num ORDER BY u.annee_scolaire DESC LIMIT 1) AS ue_nom,
-           (SELECT ue_aut FROM ue u WHERE u.ue_num = o.ue_num ORDER BY u.annee_scolaire DESC LIMIT 1) AS ue_autonomie
+           (SELECT ue_aut FROM ue u WHERE u.ue_num = o.ue_num ORDER BY u.annee_scolaire DESC LIMIT 1) AS ue_autonomie,
+           (SELECT COALESCE(u.pot_code,
+                     CASE WHEN u.ue_code_fwb LIKE '980302%' THEN 'QUAL'
+                          WHEN u.ue_code_fwb LIKE '980301%' THEN 'CF'
+                          WHEN u.ue_code_fwb LIKE '980303%' THEN 'INCL'
+                          ELSE 'organique' END)
+              FROM ue u WHERE u.ue_num = o.ue_num ORDER BY u.annee_scolaire DESC LIMIT 1) AS pot
     FROM organisation_ue o
     WHERE ${clauses.join(' AND ')}
     ORDER BY o.section, o.ue_num, o.num_organisation
@@ -254,14 +264,34 @@ r.get('/', authRequired, (req, res) => {
     }
   }
 
-  const totalGeneral = (champ) => arrondi(ues.reduce((s, u) => s + u.totaux[champ], 0));
+  const totalGeneral = (champ, filtre = () => true) =>
+    arrondi(ues.filter(filtre).reduce((s, u) => s + u.totaux[champ], 0));
+
+  const organique = u => (u.pot || 'organique') === 'organique';
+
+  // Ce que consomme chaque enveloppe, pour vérifier qu'elle est respectée
+  const parPot = {};
+  for (const u of ues) {
+    const p = u.pot || 'organique';
+    const k = (parPot[p] = parPot[p] || { pot: p, reel_c1: 0, reel_c2: 0, ues: 0 });
+    k.reel_c1 += u.totaux.reel_c1; k.reel_c2 += u.totaux.reel_c2; k.ues++;
+  }
+  const enveloppes = Object.values(parPot).map(k => ({
+    ...k, reel_c1: arrondi(k.reel_c1), reel_c2: arrondi(k.reel_c2),
+    total: arrondi(k.reel_c1 + k.reel_c2),
+  })).sort((a, b) => (a.pot === 'organique' ? -1 : b.pot === 'organique' ? 1 : a.pot.localeCompare(b.pot)));
 
   res.json({
     annee, annees_civiles: [a1, a2], ues, anomalies,
+    enveloppes,
     synthese: {
-      prevu_c1: totalGeneral('prevu_c1'), prevu_c2: totalGeneral('prevu_c2'),
-      reel_c1: totalGeneral('reel_c1'), reel_c2: totalGeneral('reel_c2'),
-      reel_total: totalGeneral('reel_total'),
+      // La synthèse porte sur la DOTATION ORGANIQUE seule : les enveloppes
+      // fermées ont leur propre compte, plus bas.
+      prevu_c1: totalGeneral('prevu_c1', organique), prevu_c2: totalGeneral('prevu_c2', organique),
+      reel_c1: totalGeneral('reel_c1', organique), reel_c2: totalGeneral('reel_c2', organique),
+      reel_total: totalGeneral('reel_total', organique),
+      hors_organique: arrondi(enveloppes.filter(e => e.pot !== 'organique')
+        .reduce((s, e) => s + e.total, 0)),
     },
   });
 });
@@ -308,19 +338,67 @@ r.get('/annee-civile/:annee', authRequired, (req, res) => {
   const precedente = `${civile - 1}-${civile}`;
   const courante = `${civile}-${civile + 1}`;
 
+  // Seules les UE de la dotation ORGANIQUE entrent dans ce total : les
+  // enveloppes fermées — conseiller qualité, congé-formation, inclusion — sont
+  // financées à part et ont leur propre plafond.
+  const POT_UE = `COALESCE(u.pot_code,
+    CASE WHEN u.ue_code_fwb LIKE '980302%' THEN 'QUAL'
+         WHEN u.ue_code_fwb LIKE '980301%' THEN 'CF'
+         WHEN u.ue_code_fwb LIKE '980303%' THEN 'INCL'
+         ELSE 'organique' END)`;
+
   const somme = (anneeScolaire, champ) => db.prepare(`
-    SELECT ROUND(SUM(COALESCE(${champ}, 0)), 1) AS total
-    FROM repartition_periodes WHERE annee_scolaire = ?
+    SELECT ROUND(SUM(COALESCE(rp.${champ}, 0)), 1) AS total
+    FROM repartition_periodes rp
+    WHERE rp.annee_scolaire = ?
+      AND COALESCE((SELECT ${POT_UE} FROM ue u WHERE u.ue_num = rp.ue_num
+                    ORDER BY u.annee_scolaire DESC LIMIT 1), 'organique') = 'organique'
   `).get(anneeScolaire)?.total || 0;
+
+  const sommePot = (anneeScolaire, champ) => db.prepare(`
+    SELECT COALESCE((SELECT ${POT_UE} FROM ue u WHERE u.ue_num = rp.ue_num
+                     ORDER BY u.annee_scolaire DESC LIMIT 1), 'organique') AS pot,
+           ROUND(SUM(COALESCE(rp.${champ}, 0)), 1) AS total
+    FROM repartition_periodes rp WHERE rp.annee_scolaire = ?
+    GROUP BY pot
+  `).all(anneeScolaire);
 
   const janvierJuin = somme(precedente, 'reel_c2');
   const septembreDecembre = somme(courante, 'reel_c1');
+
+  // Consommation des enveloppes fermées sur la même année civile, et
+  // comparaison avec le pot disponible : c'est le dépassement qu'on veut voir.
+  const parPot = {};
+  for (const [an, champ] of [[precedente, 'reel_c2'], [courante, 'reel_c1']]) {
+    for (const l of sommePot(an, champ)) {
+      if (l.pot === 'organique') continue;
+      parPot[l.pot] = arrondi((parPot[l.pot] || 0) + Number(l.total || 0));
+    }
+  }
+  const pots = db.prepare(
+    'SELECT code, label, periodes_b, illimite FROM enveloppe_externe WHERE annee_civile = ?'
+  ).all(civile);
+
+  const enveloppes = Object.entries(parPot).map(([code, consomme]) => {
+    const e = pots.find(p => p.code === code);
+    const disponible = e?.illimite ? null : (e?.periodes_b ?? null);
+    return {
+      code, label: e?.label || code, consomme, disponible,
+      illimite: !!e?.illimite,
+      depasse: disponible != null && consomme > disponible,
+      solde: disponible != null ? arrondi(disponible - consomme) : null,
+    };
+  }).sort((a, b) => a.code.localeCompare(b.code));
 
   res.json({
     annee_civile: civile,
     janvier_juin: { annee_scolaire: precedente, periodes: janvierJuin },
     septembre_decembre: { annee_scolaire: courante, periodes: septembreDecembre },
     total: arrondi(janvierJuin + septembreDecembre),
+    enveloppes,
+    avertissement: enveloppes.some(e => e.depasse)
+      ? "Une enveloppe est dépassée : le surplus retombe sur la dotation organique."
+      : null,
   });
 });
 
