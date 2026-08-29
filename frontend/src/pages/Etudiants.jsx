@@ -914,9 +914,15 @@ function FicheEtudiant({ id, annee, onClose }) {
   async function ouvrirFraisScolarite() {
     const rep = await fetch(`/api/frais-scolarite/etudiant/${id}/document?annee=${annee}`,
       { headers: authHeaders() });
-    if (!rep.ok) { alert('Erreur à la génération du document'); return; }
+    if (!rep.ok) {
+      const j = await rep.json().catch(() => ({}));
+      alert(j.error || 'Erreur à la génération du document.');
+      return;
+    }
     const j = await rep.json();
-    setRapport({ html: j.html, titre: j.titre });
+    // Le même aperçu que la fiche d'inscription : setRapport appartient à un
+    // autre composant, l'appeler ici ne produisait rien.
+    setFicheInscription({ html: j.html, titre: j.titre });
   }
 
   const anneePrecedente = useMemo(() => {
@@ -1235,7 +1241,8 @@ function FicheEtudiant({ id, annee, onClose }) {
         </div>
       </div>
 
-      {ficheInscription && <PreviewModal html={ficheInscription.html} titre="Fiche d'inscription / reçu"
+      {ficheInscription && <PreviewModal html={ficheInscription.html}
+        titre={ficheInscription.titre || "Fiche d'inscription / reçu"}
         nomFichier={ficheInscription.nom} astuceImpression="Portrait A4"
         onClose={() => setFicheInscription(null)} />}
     </div>

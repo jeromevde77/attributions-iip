@@ -265,7 +265,8 @@ export default function Users({ embedded = false }) {
 // personnel. Chaque case se modifie d'un clic — le droit tourne entre les
 // valeurs que le rôle autorise — et la modification rejoint la fiche de la
 // personne, puisque c'est la même donnée.
-function MatriceAcces({ users, sectionsDispo, profils, onModifie, onBasculerActif, onMotDePasse, onRetirer, moiId }) {
+function MatriceAcces({ users, sectionsDispo, profils, onModifie, onProfil,
+                       onBasculerActif, onMotDePasse, onRetirer, moiId }) {
   // Un profil est appliqué si le rôle correspond ET que les cases sont
   // identiques : sans quoi la personne a dérivé, et on l'affiche comme telle.
   function profilCourant(u) {
