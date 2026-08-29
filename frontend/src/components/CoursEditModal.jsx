@@ -1,4 +1,5 @@
 import { useEffect, useState, useMemo } from 'react';
+import { estDirection } from '../lib/modules.js';
 import { IconPlus, IconTarget, IconTrash } from '@tabler/icons-react';
 import { api } from '../lib/api.js';
 
@@ -209,7 +210,7 @@ export default function CoursEditModal({ section, codeCours, onClose, onChanged 
 
   const visibleRows = rows.filter(r => !r._deleted);
   const me = JSON.parse(localStorage.getItem('user') || 'null');
-  const canEdit = me?.role === 'admin' || me?.role === 'editeur';
+  const canEdit = estDirection(me) || ['editeur', 'secretariat'].includes(me?.role);
   const hasHelb = visibleRows.some(r => r.contrat_mdp === 'HELB');
   async function creerActivite(libelle, portee) {
     // portee: 'cours' | 'section' | 'global'

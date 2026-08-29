@@ -903,7 +903,7 @@ function DetailModal({ profId, onClose, onEdit, onFiche }) {
                       <span className="text-[9px] text-gray-500 leading-none">{lbl}</span>
                     </button>
                   ))}
-                  {u?.role === 'admin' && (
+                  {estDirection(u) && (
                     <button onClick={nouvelEA12} title="Nouvel EA12 — fiche de nomination"
                       className="flex flex-col items-center gap-1 py-2 rounded-lg border border-gray-200 bg-white hover:border-purple-400 hover:bg-purple-50/50 transition">
                       <IconPlus size={17} className="text-purple-600"/>
@@ -1037,7 +1037,7 @@ function DetailModal({ profId, onClose, onEdit, onFiche }) {
 
               {onglet === 'anciennete' && (
                 <CalculateurAnciennete profId={profId}
-                  estAdmin={u?.role === 'admin'}
+                  estAdmin={estDirection(u)}
                   peutEcrire={peutGenererContrat(u)}
                   annee={getAnnee()} />
               )}
@@ -1057,15 +1057,15 @@ function DetailModal({ profId, onClose, onEdit, onFiche }) {
 
               {onglet === 'journal' && (
                 <Journal profId={profId} peutEcrire={peutGenererContrat(u)}
-                         estAdmin={u?.role === 'admin'} />
+                         estAdmin={estDirection(u)} />
               )}
 
-              {onglet === 'acces' && u?.role === 'admin' && (
+              {onglet === 'acces' && estDirection(u) && (
                 <AccesLuciePanel profId={profId} detail={detail} />
               )}
 
               {/* ── Disciplinaire ── */}
-              {onglet === 'dossiers' && u?.role === 'admin' && (
+              {onglet === 'dossiers' && estDirection(u) && (
                 <DossiersRH profId={profId} profNom={detail.nom_prenom} />
               )}
 
@@ -1917,7 +1917,7 @@ export default function Professeurs() {
     if (returnOnly) return html;
     setFicheHtml({ html, nom: nomDoc('Fiche_attr', prof.nom, prof.prenom, annee), titre: `${prof.prenom || ''} ${prof.nom || ''}`.trim(), sousTitre: `Fiche attributions IIP · ${annee}` });
   }
-  const canEdit = me?.role === 'admin' || me?.role === 'editeur';
+  const canEdit = estDirection(me) || ['editeur', 'secretariat'].includes(me?.role);
 
   async function load() {
     setLoading(true);
@@ -2274,12 +2274,12 @@ export default function Professeurs() {
             { key: 'ch-av',  label: 'Avec charge',    icon: IconCheck, actif: fCharge === 'avec', onClick: () => setFCharge('avec') },
             { key: 'ch-sa',  label: 'Sans charge',    icon: IconX,     actif: fCharge === 'sans', onClick: () => setFCharge('sans') },
           ]},
-          ...((getUser()?.role === 'admin' || getUser()?.acces_recrutement) ? [{ label: 'Engagement', items: [
+          ...((estDirection(getUser()) || getUser()?.acces_recrutement) ? [{ label: 'Engagement', items: [
             // Ordre logique : le besoin précède l'offre, qui précède le recrutement.
             { key: 'nav-besoins', label: 'Besoins & offres', icon: IconTargetArrow, couleur: '#00AACC', actif: false, onClick: () => navigate('/besoins') },
             { key: 'nav-recrutement', label: 'Recrutement', icon: IconBriefcase, couleur: '#16a34a', actif: false, onClick: () => navigate('/recrutement') },
           ]}] : []),
-          ...(getUser()?.role === 'admin' ? [{ label: 'Carrière', items: [
+          ...(estDirection(getUser()) ? [{ label: 'Carrière', items: [
             { key: 'nav-classement', label: 'Classement & prioritaires', icon: IconFileDescription, couleur: '#1B2B4B', actif: false, onClick: () => navigate('/classement') },
           ]}] : []),
         ]}
