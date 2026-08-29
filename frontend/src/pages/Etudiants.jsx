@@ -461,14 +461,12 @@ function GrilleParcours({ etudId, peutEcrire }) {
                           </div>
                         </div>
                         <button
-                          onClick={() => {
-                            // « Aucune cote n'est attribuée à l'étudiant qui n'a pas atteint
-                            // un ou plusieurs acquis » : sous le seuil, on reporte la
-                            // décision, jamais le nombre.
-                            const reussi = detail.calcul.sur20 >= 10;
-                            ecrire(reussi ? 'reussi' : 'ajourne',
-                              reussi ? { points: detail.calcul.sur20 } : { points: null });
-                          }}
+                          onClick={() => ecrire(
+                            detail.calcul.sur20 >= 10 ? 'reussi' : 'ajourne',
+                            // La cote est conservée même sous le seuil : elle sert à la
+                            // seconde session et à un éventuel recours. Elle n'est
+                            // simplement pas communiquée à l'étudiant.
+                            { points: detail.calcul.sur20 })}
                           className="flex-none text-[11.5px] px-2.5 py-1.5 rounded-lg bg-iip-blue text-white font-semibold">
                           Reporter sur l\u2019UE
                         </button>

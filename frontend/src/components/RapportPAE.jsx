@@ -173,6 +173,7 @@ export default function RapportPAE({ anneeCourante, onClose }) {
         else if (b.startsWith('VA')) base = 'va';
         else if (b === 'R') base = 'ko';
         else if (b === 'A') base = 'abs';
+        else if (b === 'NA') base = 'ko';   // cote non communiquée : seuil non atteint
         else if (b === 'x') base = 'ins';
         const cls = base + (repris ? ' repris' : '');
         return `<td class="${cls}">${esc(v)}</td>`;

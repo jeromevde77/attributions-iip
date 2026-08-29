@@ -607,7 +607,14 @@ r.get('/rapport-pae', authRequired, (req, res) => {
     const p = parEtud[i.etudiant_id]; if (!p) continue;
     if (i.annee_scolaire === annee) {
       p.courant[i.ue_num] = i.resultat || 'inscrit';
-      if (i.points != null) (p.points_courant = p.points_courant || {})[i.ue_num] = i.points;
+      // La cote reste en base, mais elle ne se COMMUNIQUE pas lorsque le seuil
+      // de réussite n'est pas atteint : les documents portent « NA ». La
+      // transmettre ici reviendrait à la faire figurer sur un rapport remis à
+      // l'étudiant.
+      if (i.points != null) {
+        (p.points_courant = p.points_courant || {})[i.ue_num] =
+          ['reussi', 'va'].includes(i.resultat) ? i.points : 'NA';
+      }
     }
     if (i.resultat === 'reussi') {
       const prec = p.ue[i.ue_num];
@@ -780,6 +787,7 @@ r.post('/rapport-pae/excel', authRequired, async (req, res) => {
     if (b.startsWith('VA')) return 'va';
     if (b === 'R') return 'ko';
     if (b === 'A') return 'abs';
+    if (b === 'NA') return 'ko';   // cote non communiquée : seuil non atteint
     if (b === 'x') return 'ins';
     return null;
   };
@@ -1199,22 +1207,16 @@ r.patch('/inscription/:id', authRequired, roleRequired('admin', 'editeur'), (req
     return res.status(400).json({ error: 'resultat invalide' });
   }
 
-  // « Aucune cote n'est attribuée à l'étudiant qui n'a pas atteint un ou
-  // plusieurs acquis d'apprentissage » : la règle s'applique ici, quelle que
-  // soit la voie par laquelle le résultat arrive.
-  const sansCote = ['ajourne', 'refuse', 'absent'].includes(resultat);
-  const cote = sansCote ? null : (points ?? null);
-
+  // La cote est CONSERVÉE quel que soit le résultat : l'établissement doit la
+  // connaître — pour la seconde session, pour un recours, pour la délibération.
+  // Ce que la circulaire écarte, c'est sa COMMUNICATION : lorsque le seuil
+  // n'est pas atteint, les documents remis à l'étudiant portent « NA » et non
+  // un nombre. L'effacer aurait fait perdre une information nécessaire.
   db.prepare(`
     UPDATE etudiant_inscription SET resultat = ?, mention = ?, points = ? WHERE id = ?
-  `).run(resultat ?? null, mention ?? null, cote, Number(req.params.id));
+  `).run(resultat ?? null, mention ?? null, points ?? null, Number(req.params.id));
 
-  res.json({
-    ok: true,
-    cote_effacee: sansCote && points != null
-      ? "Aucune cote n'est attribuée lorsque le seuil de réussite n'est pas atteint."
-      : null,
-  });
+  res.json({ ok: true });
 });
 
 // ── Générer le PAE pour une année ─────────────────────────────────────────────
