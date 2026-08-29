@@ -17,6 +17,11 @@ services:
       PORT: 3000
     volumes:
       - data-dev:/app/data
+      # Sauvegardes déposées hors du volume Docker, dans un dossier du NAS :
+      # une copie enfermée dans le volume disparaîtrait avec lui, donc en même
+      # temps que la base qu'elle protège. C'est aussi ce dossier que la
+      # synchronisation vers le nuage doit surveiller.
+      - /volume1/docker/backups-dev:/app/data/backups
     networks:
       lucie-dev:
         aliases:
