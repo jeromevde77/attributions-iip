@@ -19,7 +19,6 @@ class ErrorBoundary extends Component {
 }
 import { Routes, Route, Navigate, NavLink, useNavigate } from 'react-router-dom';
 import { isAuthenticated, getUser, api, getAnnee, setAnnee } from './lib/api.js';
-import WelcomeV3 from './WelcomeV3.jsx';
 import {
   IconClipboardList, IconUsers, IconFileExport, IconChecklist,
   IconChartBar, IconCalendarStats, IconEdit, IconSettings, IconLogout, IconMenu2, IconX,
@@ -156,7 +155,6 @@ function ProtectedLayout({ children }) {
   const [env, setEnv] = useState(null);
   const [versionIsNew, setVersionIsNew] = useState(false);
   const [nbNotifs, setNbNotifs] = useState(0);
-  const [showWelcome, setShowWelcome] = useState(false);
 
   // Polling notifications non lues (toutes les 60s)
   useEffect(() => {
@@ -171,14 +169,6 @@ function ProtectedLayout({ children }) {
     chargerNotifs();
     const timer = setInterval(chargerNotifs, 60000);
     return () => clearInterval(timer);
-  }, []);
-  useEffect(() => {
-    try {
-      const majeure = parseInt(String(versionNum).split('.')[0], 10);
-      if (majeure >= 3 && localStorage.getItem('welcome_v3_vu') !== '1') {
-        setShowWelcome(true);
-      }
-    } catch { /* localStorage indisponible */ }
   }, []);
 
   // Détection d'une nouvelle version : compare la version courante à la dernière
@@ -265,12 +255,6 @@ function ProtectedLayout({ children }) {
   return (
     <div className="min-h-screen flex flex-col">
       <PreviewBanner />
-      {showWelcome && (
-        <WelcomeV3 onClose={() => {
-          setShowWelcome(false);
-          try { localStorage.setItem('welcome_v3_vu', '1'); } catch { /* ignore */ }
-        }} />
-      )}
       {env === 'dev' && (
         <div style={{
           background: 'repeating-linear-gradient(45deg, #f59e0b, #f59e0b 12px, #d97706 12px, #d97706 24px)',
