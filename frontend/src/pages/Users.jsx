@@ -126,6 +126,15 @@ export default function Users({ embedded = false }) {
   }
 
   return (
+    <>
+      <div className="px-4 pt-4">
+        <div className="px-3 py-2 rounded-lg bg-sky-50 border border-sky-200 text-[12px] text-sky-900">
+          Cette page est une <b>vue d'ensemble</b>. Les accès d'un membre du personnel se règlent
+          depuis sa fiche, onglet « Accès Lucie » — seul endroit qui fasse autorité. Ne restent
+          modifiables ici que les comptes non rattachés à une personne, comme celui d'un
+          prestataire extérieur.
+        </div>
+      </div>
     <div className={embedded ? '' : 'p-6 max-w-none mx-auto'}>
       <div className="flex items-center justify-between mb-4">
         {!embedded && <h1 className="text-2xl font-title text-iip-gold">Utilisateurs</h1>}
@@ -149,19 +158,29 @@ export default function Users({ embedded = false }) {
                 <tr key={u.id}>
                   <td className="font-medium">{u.nom_complet}</td>
                   <td className="text-xs">{u.email}</td>
+                  {/* Les accès se règlent dans la fiche de la personne, seul
+                      endroit qui fasse autorité. Ne restent modifiables ici que
+                      les comptes ADMINISTRATEURS non rattachés à un membre du
+                      personnel — un prestataire extérieur, par exemple. */}
                   <td>
-                    <select value={u.role} onChange={e => changeRole(u, e.target.value)}
-                            disabled={u.id === me.id}
-                            className="border border-gray-200 rounded px-2 py-1 text-xs">
-                      {Object.entries(ROLE_LABEL).map(([k,l]) => <option key={k} value={k}>{l}</option>)}
-                    </select>
+                    {!u.professeur_id ? (
+                      <select value={u.role} onChange={e => changeRole(u, e.target.value)}
+                              disabled={u.id === me.id}
+                              className="border border-gray-200 rounded px-2 py-1 text-xs">
+                        {Object.entries(ROLE_LABEL).map(([k,l]) => <option key={k} value={k}>{l}</option>)}
+                      </select>
+                    ) : (
+                      <span className="text-xs text-slate-600">{ROLE_LABEL[u.role] || u.role}</span>
+                    )}
                   </td>
                   <td className="text-xs">
-                    {u.role === 'coordination' ? (
+                    {!u.professeur_id ? (
                       <button onClick={() => setEditingSections({ userId: u.id, nom: u.nom_complet, sections: [...(u.sections || [])] })}
                               className="text-iip-gold hover:underline">
-                        {u.sections?.length ? u.sections.join(', ') : <span className="text-orange-500 inline-flex items-center gap-1"><IconAlertTriangle size={13} /> aucune</span>}
+                        {u.sections?.length ? u.sections.join(', ') : <span className="text-gray-400">— toutes —</span>}
                       </button>
+                    ) : u.sections?.length ? (
+                      <span className="text-slate-600">{u.sections.join(', ')}</span>
                     ) : <span className="text-gray-300">— toutes —</span>}
                   </td>
                   <td>
@@ -173,6 +192,13 @@ export default function Users({ embedded = false }) {
                   <td className="text-xs text-gray-500">{u.created_at?.slice(0,10)}</td>
                   <td className="text-xs text-gray-500">{u.last_login_at ? u.last_login_at.slice(0,16).replace('T', ' ') : '—'}</td>
                   <td className="text-xs">
+                    {u.professeur_id && (
+                      <span className="text-[11px] text-slate-400 italic mr-2"
+                        title="Les accès de cette personne se règlent depuis sa fiche, onglet Accès Lucie">
+                        via sa fiche
+                      </span>
+                    )}
+
                     <button onClick={() => resetPassword(u)} className="text-iip-orange hover:underline inline-flex items-center gap-1"><IconKey size={14} /> MDP</button>
                     {u.id !== me.id && <>
                       {' · '}<button onClick={() => deleteUser(u)} className="text-red-500 hover:underline"><IconTrash size={15} /></button>
@@ -258,5 +284,6 @@ export default function Users({ embedded = false }) {
         </div>
       )}
     </div>
+    </>
   );
 }

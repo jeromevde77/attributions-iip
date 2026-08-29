@@ -430,7 +430,9 @@ function AccesLuciePanel({ profId, detail }) {
       const p = genPwd();
       await af('/api/users', { method: 'POST', body: JSON.stringify({
         email: emailSuggere, password: p, nom_complet: detail.nom_prenom, role, professeur_id: profId,
-        sections: role === 'coordination' ? sections : [],
+        // Le périmètre vaut pour tous les rôles, non plus pour la seule
+        // coordination : un secrétariat de section, cela existe.
+        sections,
         permissions_json: JSON.stringify(perms),
       }) });
       setPwd(p); charger();
@@ -441,7 +443,9 @@ function AccesLuciePanel({ profId, detail }) {
     setErr(''); setBusy(true);
     try {
       await af(`/api/users/${account.id}`, { method: 'PATCH', body: JSON.stringify({
-        role, sections: role === 'coordination' ? sections : [],
+        role, // Le périmètre vaut pour tous les rôles, non plus pour la seule
+        // coordination : un secrétariat de section, cela existe.
+        sections,
         permissions_json: JSON.stringify(perms),
         acces_recrutement: perms.recrutement?.lire ? 1 : 0, // compat
       }) });
