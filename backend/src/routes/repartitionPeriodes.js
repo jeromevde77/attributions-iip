@@ -294,17 +294,29 @@ r.get('/', authRequired, (req, res) => {
                  + `colonnes 16 et 17 doit atteindre le dossier pédagogique.`,
         });
       }
-      // Le réel est un multiple entier du prévu, sauf suppression de
-      // dédoublement ou regroupement, admis au seul cinquième dixième.
+      // La colonne 18 compte les DÉDOUBLEMENTS : sans dédoublement on organise
+      // exactement le prévu (multiple 1), avec deux groupes on organise le
+      // double. Un rapport non entier n'a donc pas de sens.
+      //
+      // Ce contrôle ne vaut QUE sur des valeurs déclarées. Sur les propositions
+      // automatiques, il compare 40 % du dossier pédagogique à 40 % des
+      // périodes attribuées — deux totaux différents dont le rapport n'a aucune
+      // raison d'être entier. Le signaler alors n'apprenait rien.
+      if (!l.saisi) continue;
+
       for (const [p, r0, col] of [[l.prevu_c1, l.reel_c1, '18'], [l.prevu_c2, l.reel_c2, '19']]) {
         if (!p || !r0) continue;
         const q = r0 / p;
         if (Math.abs(q - Math.round(q)) > 0.01) {
           anomalies.push({
             ue_num: u.ue_num, cours: l.cours_code || l.libelle,
-            message: `Colonne ${col} : ${r0} n'est pas un multiple entier de ${p}. `
-                   + `La circulaire ne l'admet qu'en cas de suppression de dédoublement `
-                   + `ou de regroupement, au cinquième dixième.`,
+            niveau: 'attention',
+            message: `Colonne ${col} : ${r0} période(s) organisées pour ${p} prévue(s), `
+                   + `soit un rapport de ${Math.round(q * 100) / 100}. Cette colonne compte les `
+                   + `dédoublements : le rapport vaut 1 sans dédoublement, 2 avec deux groupes, `
+                   + `et ainsi de suite. Une valeur intermédiaire signale une erreur de saisie, `
+                   + `ou une suppression de dédoublement — que la circulaire n'admet qu'au `
+                   + `cinquième dixième.`,
           });
         }
       }

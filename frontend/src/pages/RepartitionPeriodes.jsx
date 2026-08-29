@@ -358,15 +358,37 @@ export default function RepartitionPeriodes() {
 
 function UeBloc({ u, val, editer, cle, modifs, onAppliquerDates }) {
   const fr = d => d ? String(d).slice(0, 10).split('-').reverse().join('/') : '—';
-  const champ = (l, nom, teinte) => {
+  const champ = (l, nom, teinte, montrerGroupes) => {
     const modifie = modifs[cle(u, l)]?.[nom] !== undefined;
+    const valeur = val(u, l, nom);
+
+    // Rapport entre le réel et le prévu : c'est le nombre de groupes. Le
+    // montrer rend la règle des multiples entiers lisible d'un coup d'œil.
+    let groupes = null;
+    if (montrerGroupes) {
+      const prevu = val(u, l, nom.replace('reel', 'prevu'));
+      if (prevu > 0 && valeur > 0) {
+        const q = valeur / prevu;
+        groupes = { q: Math.round(q * 100) / 100, entier: Math.abs(q - Math.round(q)) <= 0.01 };
+      }
+    }
+
     return (
       <td className={`px-1 py-1 text-center ${teinte || ''}`}>
         <input type="number" step="1" min="0"
-          value={val(u, l, nom) ?? ''}
+          value={valeur ?? ''}
           onChange={e => editer(u, l, nom, e.target.value)}
           className={`w-16 border rounded px-1 py-0.5 text-[12px] text-right
             ${modifie ? 'border-amber-400 bg-amber-50' : 'border-slate-200'}`} />
+        {groupes && (
+          <div className={`text-[9px] leading-tight mt-0.5 ${
+            groupes.entier ? 'text-slate-400' : 'text-amber-700 font-semibold'}`}
+            title={groupes.entier
+              ? `${groupes.q} groupe(s) — le réel est un multiple entier du prévu`
+              : `Rapport de ${groupes.q} : cette colonne compte les dédoublements, le rapport devrait être entier`}>
+            ×{groupes.q}
+          </div>
+        )}
       </td>
     );
   };
@@ -437,8 +459,8 @@ function UeBloc({ u, val, editer, cle, modifs, onAppliquerDates }) {
           <td className="px-2 py-1 text-right text-[11.5px] text-slate-600">{l.reel_total || '—'}</td>
           {champ(l, 'prevu_c1', 'border-l border-slate-200')}
           {champ(l, 'prevu_c2')}
-          {champ(l, 'reel_c1', 'border-l border-slate-200 bg-iip-blue/5')}
-          {champ(l, 'reel_c2', 'bg-iip-blue/5')}
+          {champ(l, 'reel_c1', 'border-l border-slate-200 bg-iip-blue/5', true)}
+          {champ(l, 'reel_c2', 'bg-iip-blue/5', true)}
         </tr>
       ))}
     </>
