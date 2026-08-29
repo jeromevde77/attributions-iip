@@ -279,7 +279,13 @@ export default function Users({ embedded = false }) {
           </div>
         </div>
       )}
-      <MatriceAcces users={users} />
+      <MatriceAcces users={users} sectionsDispo={allSections}
+        onModifie={async (id, champs) => {
+          try {
+            await authFetch(`/api/users/${id}`, { method: 'PATCH', body: JSON.stringify(champs) });
+            load();
+          } catch (e) { alert(e.message); }
+        }} />
 
       {editingSections && (
         <div className="fixed inset-0 bg-black/40 flex items-center justify-center p-4 z-30" onClick={() => setEditingSections(null)}>
@@ -307,85 +313,179 @@ export default function Users({ embedded = false }) {
   );
 }
 
-// ── Récapitulatif des accès ────────────────────────────────────────────────
-// Les droits se donnent dans les fiches, une personne à la fois ; on n'en avait
-// donc aucune vue d'ensemble. Ce tableau la donne, en lecture seule.
-function MatriceAcces({ users }) {
-  const [ouvert, setOuvert] = useState(true);
-  const actifs = (users || []).filter(u => u.actif);
+// ── Tableau des accès ──────────────────────────────────────────────────────
+// Un seul tableau : les comptes techniques d'abord, puis les membres du
+// personnel. Chaque case se modifie d'un clic — le droit tourne entre les
+// valeurs que le rôle autorise — et la modification rejoint la fiche de la
+// personne, puisque c'est la même donnée.
+function MatriceAcces({ users, sectionsDispo, onModifie }) {
+  const [enCours, setEnCours] = useState(null);       // "id|module" en cours d'écriture
+  const [perimetreOuvert, setPerimetreOuvert] = useState(null);
 
+  const actifs = (users || []).filter(u => u.actif);
+  const techniques = actifs.filter(u => !u.professeur_id);
+  const personnel = actifs.filter(u => u.professeur_id);
   if (!actifs.length) return null;
+
+  // Le rôle fixe le plafond ; on ne propose que ce qu'il autorise.
+  function cycle(u, module) {
+    const plafond = (PLAFOND_ROLE[u.role] || PLAFOND_ROLE.consultation)(module);
+    if (plafond === 'rien') return null;
+    const suite = plafond === 'lit' ? ['rien', 'lit'] : ['rien', 'lit', plafond];
+    const actuel = droitEffectif(u, module);
+    return suite[(suite.indexOf(actuel) + 1) % suite.length];
+  }
+
+  async function basculer(u, module) {
+    const suivant = cycle(u, module);
+    if (!suivant) return;
+    setEnCours(`${u.id}|${module}`);
+    try {
+      let perms = {};
+      try {
+        perms = u.permissions_json
+          ? (typeof u.permissions_json === 'string' ? JSON.parse(u.permissions_json) : u.permissions_json)
+          : {};
+      } catch { /* illisible : on repart de zéro pour ce module */ }
+
+      perms[module] = suivant === 'rien' ? { lire: false, ecrire: false }
+        : suivant === 'lit' ? { lire: true, ecrire: false }
+        : { lire: true, ecrire: true };
+
+      await onModifie(u.id, { permissions_json: JSON.stringify(perms) });
+    } finally { setEnCours(null); }
+  }
+
+  const Ligne = ({ u }) => (
+    <tr className="hover:bg-slate-50/60">
+      <td className="sticky left-0 bg-white border-r border-b border-slate-100 px-3 py-1.5">
+        <div className="text-[12.5px] text-slate-800 truncate max-w-[180px]">
+          {u.nom_complet || u.email}
+        </div>
+        <div className="text-[10px] text-slate-400">{u.role}</div>
+      </td>
+
+      {/* Périmètre, modifiable en regard du nom */}
+      <td className="border-b border-slate-100 px-2 py-1.5 relative">
+        <button onClick={() => setPerimetreOuvert(perimetreOuvert === u.id ? null : u.id)}
+          className="text-[10.5px] text-left hover:text-iip-blue underline decoration-dotted">
+          {u.sections?.length
+            ? u.sections.join(', ')
+            : <span className="text-slate-400">toutes</span>}
+        </button>
+
+        {perimetreOuvert === u.id && (
+          <div className="absolute z-30 left-2 top-9 bg-white border border-slate-300 rounded-lg shadow-lg p-2 w-56">
+            <div className="text-[10px] uppercase tracking-wide text-slate-500 mb-1.5">Sections</div>
+            <label className="flex items-center gap-1.5 text-[11.5px] mb-1.5">
+              <input type="checkbox" checked={!u.sections?.length}
+                onChange={() => onModifie(u.id, { sections: [] })} />
+              Toutes les sections
+            </label>
+            <div className="flex flex-wrap gap-1">
+              {(sectionsDispo || []).map(s => {
+                const dedans = (u.sections || []).includes(s.code);
+                return (
+                  <button key={s.code}
+                    onClick={() => onModifie(u.id, {
+                      sections: dedans
+                        ? (u.sections || []).filter(x => x !== s.code)
+                        : [...(u.sections || []), s.code],
+                    })}
+                    className={`text-[10.5px] px-1.5 py-0.5 rounded-full border ${
+                      dedans ? 'bg-iip-blue text-white border-iip-blue'
+                             : 'border-slate-200 text-slate-400 hover:border-iip-blue'}`}>
+                    {s.code}
+                  </button>
+                );
+              })}
+            </div>
+            <button onClick={() => setPerimetreOuvert(null)}
+              className="mt-2 w-full text-[11px] py-1 rounded border border-slate-300 text-slate-600">
+              Fermer
+            </button>
+          </div>
+        )}
+      </td>
+
+      {MODULES_ACCES.map(m => {
+        const droit = droitEffectif(u, m.key);
+        const d = LIBELLE_DROIT[droit] || LIBELLE_DROIT.rien;
+        const modifiable = !!cycle(u, m.key);
+        const occupe = enCours === `${u.id}|${m.key}`;
+        return (
+          <td key={m.key} className="border-b border-slate-100 px-1 py-1.5 text-center">
+            <button onClick={() => modifiable && basculer(u, m.key)}
+              disabled={!modifiable || occupe}
+              title={modifiable
+                ? `${m.label} — cliquer pour changer`
+                : `${m.label} — le rôle ${u.role} ne le permet pas`}
+              className={`text-[9.5px] px-1.5 py-0.5 rounded transition ${d.cls} ${
+                modifiable ? 'hover:ring-2 hover:ring-iip-turquoise/40 cursor-pointer' : 'cursor-default'}`}>
+              {occupe ? '…' : d.texte}
+            </button>
+          </td>
+        );
+      })}
+    </tr>
+  );
 
   return (
     <div className="px-4 pb-4">
-      <div className="border border-slate-200 rounded-xl overflow-hidden">
-        <button onClick={() => setOuvert(o => !o)}
-          className="w-full flex items-center justify-between px-4 py-2.5 bg-slate-50 border-b border-slate-200 hover:bg-slate-100">
+      <div className="border border-slate-200 rounded-xl overflow-visible">
+        <div className="px-4 py-2.5 bg-slate-50 border-b border-slate-200">
           <span className="text-[13px] font-semibold text-iip-blue">
-            Récapitulatif des accès — {actifs.length} compte(s) actif(s)
+            Accès — {actifs.length} compte(s) actif(s)
           </span>
-          <span className="text-[11px] text-slate-500">{ouvert ? 'masquer' : 'afficher'}</span>
-        </button>
+          <span className="text-[11px] text-slate-500 ml-2">
+            cliquez une case pour changer le droit, ou le périmètre en regard du nom
+          </span>
+        </div>
 
-        {ouvert && (
-          <>
-            <div className="overflow-x-auto">
-              <table className="text-sm border-collapse w-full">
-                <thead>
-                  <tr className="bg-white">
-                    <th className="sticky left-0 bg-white border-b border-r border-slate-200 px-3 py-2 text-left min-w-[190px]">
-                      <span className="text-[10px] uppercase tracking-wide text-slate-500">Personne</span>
-                    </th>
-                    <th className="border-b border-slate-200 px-2 py-2 w-28">
-                      <span className="text-[10px] uppercase tracking-wide text-slate-500">Périmètre</span>
-                    </th>
-                    {MODULES_ACCES.map(m => (
-                      <th key={m.key} className="border-b border-slate-200 px-1 py-2 w-20" title={m.desc}>
-                        <div className="text-[10px] text-slate-600">{m.icon}</div>
-                        <div className="text-[9px] text-slate-500 leading-tight">{m.label}</div>
-                      </th>
-                    ))}
-                  </tr>
-                </thead>
-                <tbody>
-                  {actifs.map(u => (
-                    <tr key={u.id} className="hover:bg-slate-50/60">
-                      <td className="sticky left-0 bg-white border-r border-b border-slate-100 px-3 py-1.5">
-                        <div className="text-[12.5px] text-slate-800 truncate max-w-[180px]">
-                          {u.nom_complet || u.email}
-                        </div>
-                        <div className="text-[10px] text-slate-400">
-                          {u.role}{!u.professeur_id ? ' · sans fiche' : ''}
-                        </div>
-                      </td>
-                      <td className="border-b border-slate-100 px-2 py-1.5 text-[10.5px] text-slate-600">
-                        {u.sections?.length ? u.sections.join(', ') : <span className="text-slate-400">toutes</span>}
-                      </td>
-                      {MODULES_ACCES.map(m => {
-                        const d = LIBELLE_DROIT[droitEffectif(u, m.key)] || LIBELLE_DROIT.rien;
-                        return (
-                          <td key={m.key} className="border-b border-slate-100 px-1 py-1.5 text-center">
-                            <span className={`text-[9.5px] px-1.5 py-0.5 rounded ${d.cls}`}>{d.texte}</span>
-                          </td>
-                        );
-                      })}
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
+        <div className="overflow-x-auto">
+          <table className="text-sm border-collapse w-full">
+            <thead>
+              <tr className="bg-white">
+                <th className="sticky left-0 bg-white border-b border-r border-slate-200 px-3 py-2 text-left min-w-[190px]">
+                  <span className="text-[10px] uppercase tracking-wide text-slate-500">Personne</span>
+                </th>
+                <th className="border-b border-slate-200 px-2 py-2 w-28">
+                  <span className="text-[10px] uppercase tracking-wide text-slate-500">Périmètre</span>
+                </th>
+                {MODULES_ACCES.map(m => (
+                  <th key={m.key} className="border-b border-slate-200 px-1 py-2 w-20" title={m.desc}>
+                    <div className="text-[10px]">{m.icon}</div>
+                    <div className="text-[9px] text-slate-500 leading-tight">{m.label}</div>
+                  </th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {techniques.map(u => <Ligne key={u.id} u={u} />)}
 
-            <div className="px-4 py-2 border-t border-slate-200 bg-slate-50 flex flex-wrap gap-3 text-[10.5px] text-slate-600">
-              <span><span className="px-1.5 py-0.5 rounded bg-emerald-100 text-emerald-800">écrit</span> modifie directement</span>
-              <span><span className="px-1.5 py-0.5 rounded bg-amber-100 text-amber-800">validation</span> encode, la direction tranche</span>
-              <span><span className="px-1.5 py-0.5 rounded bg-sky-100 text-sky-800">lit</span> consultation seule</span>
-              <span className="text-slate-400">— aucun accès</span>
-              <span className="flex-1 text-right italic">
-                Lecture seule : les droits se règlent dans la fiche de chaque personne.
-              </span>
-            </div>
-          </>
-        )}
+              {techniques.length > 0 && personnel.length > 0 && (
+                <tr>
+                  <td colSpan={2 + MODULES_ACCES.length}
+                    className="bg-slate-100 border-y border-slate-300 px-3 py-1 text-[10px] uppercase tracking-wide text-slate-500 font-semibold">
+                    Membres du personnel — leurs accès se règlent aussi depuis leur fiche
+                  </td>
+                </tr>
+              )}
+
+              {personnel.map(u => <Ligne key={u.id} u={u} />)}
+            </tbody>
+          </table>
+        </div>
+
+        <div className="px-4 py-2 border-t border-slate-200 bg-slate-50 flex flex-wrap gap-3 text-[10.5px] text-slate-600">
+          <span><span className="px-1.5 py-0.5 rounded bg-emerald-100 text-emerald-800">écrit</span> modifie directement</span>
+          <span><span className="px-1.5 py-0.5 rounded bg-amber-100 text-amber-800">validation</span> encode, la direction tranche</span>
+          <span><span className="px-1.5 py-0.5 rounded bg-sky-100 text-sky-800">lit</span> consultation seule</span>
+          <span className="text-slate-400">— aucun accès</span>
+          <span className="flex-1 text-right italic">
+            Une case grisée signale un droit que le rôle interdit : changez le rôle pour l'ouvrir.
+          </span>
+        </div>
       </div>
     </div>
   );
