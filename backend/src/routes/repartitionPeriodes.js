@@ -23,6 +23,7 @@
 import { Router } from 'express';
 import db from '../db/index.js';
 import { authRequired, roleRequired, getUserSections } from '../middleware/auth.js';
+import { niveauxEffectifs } from './capitalisation.js';
 
 const r = Router();
 
@@ -102,6 +103,8 @@ r.get('/', authRequired, (req, res) => {
     SELECT o.id, o.ue_num, o.section, o.num_organisation, o.date_debut, o.date_fin,
            (SELECT ue_nom FROM ue u WHERE u.ue_num = o.ue_num ORDER BY u.annee_scolaire DESC LIMIT 1) AS ue_nom,
            (SELECT ue_aut FROM ue u WHERE u.ue_num = o.ue_num ORDER BY u.annee_scolaire DESC LIMIT 1) AS ue_autonomie,
+           (SELECT ue_niv FROM ue u WHERE u.ue_num = o.ue_num ORDER BY u.annee_scolaire DESC LIMIT 1) AS ue_niv,
+           (SELECT ue_quad FROM ue u WHERE u.ue_num = o.ue_num ORDER BY u.annee_scolaire DESC LIMIT 1) AS ue_quad,
            (SELECT COALESCE(u.pot_code,
                      CASE WHEN u.ue_code_fwb LIKE '980302%' THEN 'QUAL'
                           WHEN u.ue_code_fwb LIKE '980301%' THEN 'CF'
@@ -115,6 +118,14 @@ r.get('/', authRequired, (req, res) => {
   if (!orgs.length) return res.json({ annee, annees_civiles: [a1, a2], ues: [], synthese: null });
 
   const listeUe = [...new Set(orgs.map(o => o.ue_num))];
+
+  // Année d'études au sens de la SECTION : c'est celle qui fait foi, le
+  // référentiel pouvant porter une valeur générique pour une UE partagée.
+  const sectionsVues = [...new Set(orgs.map(o => o.section).filter(Boolean))];
+  let nivEffectif = {};
+  try {
+    nivEffectif = sectionsVues.length ? niveauxEffectifs(sectionsVues, annee) : {};
+  } catch { /* le schéma de capitalisation peut manquer : on gardera ue_niv */ }
 
   // Cours du référentiel, avec leurs périodes du dossier pédagogique
   const coursRef = db.prepare(`
@@ -232,6 +243,10 @@ r.get('/', authRequired, (req, res) => {
       ...o,
       part_dates: part,
       attribue_ue: attribueUe,
+      niveau: nivEffectif[o.ue_num] || o.ue_niv || null,
+      // Quadrimestre de rattachement retenu par la simulation de Pilotage :
+      // celui de l'attribution s'il est précisé, sinon celui du référentiel.
+      quadri_simulation: t.quadri || o.ue_quad || null,
       total_pilotage: arrondi(Number(t.total_pilotage || 0)),
       quadrimestre: t.quadri || o.ue_quad || null,
       periodes_helb: helbDe[o.ue_num] || 0,
@@ -341,6 +356,35 @@ r.get('/', authRequired, (req, res) => {
 
   res.json({
     annee, annees_civiles: [a1, a2], ues, anomalies,
+    // Sous-totaux par section : la déclaration se prépare section par section,
+    // et c'est à ce niveau que les écarts se repèrent le plus vite.
+    sections: (() => {
+      const par = {};
+      for (const u of ues) {
+        const s = u.section || '(sans section)';
+        const k = (par[s] = par[s] || {
+          section: s, ues: 0,
+          prevu_total: 0, reel_total: 0,
+          prevu_c1: 0, prevu_c2: 0, reel_c1: 0, reel_c2: 0,
+          attribue: 0, hors_organique: 0,
+        });
+        k.ues++;
+        for (const champ of ['prevu_total', 'reel_total', 'prevu_c1', 'prevu_c2', 'reel_c1', 'reel_c2']) {
+          k[champ] += u.totaux[champ];
+        }
+        k.attribue += u.attribue_ue || 0;
+        if ((u.pot || 'organique') !== 'organique') k.hors_organique += u.totaux.reel_c1 + u.totaux.reel_c2;
+      }
+      return Object.values(par).map(k => {
+        const arr = {};
+        for (const [cle, v] of Object.entries(k)) {
+          arr[cle] = typeof v === 'number' ? arrondi(v) : v;
+        }
+        arr.boucle = Math.abs((arr.reel_c1 + arr.reel_c2) - arr.attribue) <= 0.05;
+        return arr;
+      }).sort((a, b) => a.section.localeCompare(b.section));
+    })(),
+
     enveloppes,
     // Bouclage général, affiché en tête : la somme de ce qui est réparti doit
     // égaler la somme de ce qui est attribué.

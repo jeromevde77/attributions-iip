@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { Fragment, useEffect, useState } from 'react';
 import { IconAlertTriangle, IconDeviceFloppy, IconCalculator, IconCheck} from '@tabler/icons-react';
 import { authHeaders, getAnnee } from '../lib/api.js';
 
@@ -27,6 +27,7 @@ export default function RepartitionPeriodes() {
   const [message, setMessage] = useState(null);
   const [enCours, setEnCours] = useState(false);
   const [civile, setCivile] = useState(null);
+  const [deployees, setDeployees] = useState({});   // sections dépliées
 
   useEffect(() => {
     fetch('/api/ref/sections', { headers: authHeaders() })
@@ -286,6 +287,8 @@ export default function RepartitionPeriodes() {
             <thead>
               <tr className="bg-slate-50 border-b border-slate-200 text-[10px] uppercase tracking-wide text-slate-500">
                 <th className="px-3 py-2 text-left min-w-[240px]">Activité d'enseignement</th>
+                <th className="px-2 py-2 text-center w-16">Année</th>
+                <th className="px-2 py-2 text-center w-20">Quadri.</th>
                 <th className="px-2 py-2 text-center w-32">Dates</th>
                 <th className="px-2 py-2 text-right w-20">Dossier</th>
                 <th className="px-2 py-2 text-right w-20">Attribué</th>
@@ -296,11 +299,48 @@ export default function RepartitionPeriodes() {
               </tr>
             </thead>
             <tbody>
-              {data.ues.map(u => (
-                <UeBloc key={`${u.ue_num}-${u.num_organisation}`} u={u}
-                  val={val} editer={editer} modifs={modifs} cle={cle}
-                  onAppliquerDates={() => appliquerDates(u)} />
-              ))}
+              {(data.sections || []).map(s => {
+                const ouverte = deployees[s.section] !== false;
+                const uesSection = data.ues.filter(u => (u.section || '(sans section)') === s.section);
+                return (
+                  <Fragment key={s.section}>
+                    <tr className="bg-iip-blue/5 border-y border-iip-blue/20">
+                      <td className="px-3 py-2" colSpan={4}>
+                        <button onClick={() => setDeployees(d => ({ ...d, [s.section]: !ouverte }))}
+                          className="flex items-center gap-1.5 text-[12.5px] font-semibold text-iip-blue">
+                          <span className="text-slate-400 w-3 inline-block">{ouverte ? '−' : '+'}</span>
+                          {s.section}
+                          <span className="font-normal text-[11px] text-slate-500">
+                            {s.ues} organisation(s) · {nb(s.attribue)} pér. attribuées
+                          </span>
+                          {!s.boucle && (
+                            <span className="text-[10px] px-1.5 py-0.5 rounded bg-red-100 text-red-700 font-normal">
+                              écart de bouclage
+                            </span>
+                          )}
+                          {s.hors_organique > 0 && (
+                            <span className="text-[10px] px-1.5 py-0.5 rounded bg-violet-100 text-violet-700 font-normal">
+                              dont {nb(s.hors_organique)} hors dotation
+                            </span>
+                          )}
+                        </button>
+                      </td>
+                      <td className="px-2 py-2 text-right text-[11.5px] text-slate-500">{nb(s.prevu_total)}</td>
+                      <td className="px-2 py-2 text-right text-[11.5px] text-slate-600">{nb(s.reel_total)}</td>
+                      <td className="px-2 py-2 text-center text-[12px] font-semibold text-iip-blue border-l border-slate-200">{nb(s.prevu_c1)}</td>
+                      <td className="px-2 py-2 text-center text-[12px] font-semibold text-iip-blue">{nb(s.prevu_c2)}</td>
+                      <td className="px-2 py-2 text-center text-[12px] font-semibold text-iip-blue border-l border-slate-200">{nb(s.reel_c1)}</td>
+                      <td className="px-2 py-2 text-center text-[12px] font-semibold text-iip-blue">{nb(s.reel_c2)}</td>
+                    </tr>
+
+                    {ouverte && uesSection.map(u => (
+                      <UeBloc key={`${u.ue_num}-${u.num_organisation}`} u={u}
+                        val={val} editer={editer} modifs={modifs} cle={cle}
+                        onAppliquerDates={() => appliquerDates(u)} />
+                    ))}
+                  </Fragment>
+                );
+              })}
             </tbody>
           </table>
         </div>
@@ -334,7 +374,7 @@ function UeBloc({ u, val, editer, cle, modifs, onAppliquerDates }) {
   return (
     <>
       <tr className="bg-slate-50/80 border-y border-slate-200">
-        <td className="px-3 py-1.5 text-[12px] font-semibold text-iip-blue" colSpan={2}>
+        <td className="px-3 py-1.5 text-[12px] font-semibold text-iip-blue">
           UE {u.ue_num}{u.num_organisation > 1 ? ` · org. ${u.num_organisation}` : ''} — {u.ue_nom}
           <span className="ml-2 text-[10.5px] font-normal text-slate-500">
             {fr(u.date_debut)} → {fr(u.date_fin)}
@@ -359,6 +399,17 @@ function UeBloc({ u, val, editer, cle, modifs, onAppliquerDates }) {
             </button>
           )}
         </td>
+        <td className="px-2 py-1.5 text-center">
+          {u.niveau && (
+            <span className="text-[10px] px-1.5 py-0.5 rounded bg-slate-100 text-slate-600">
+              {u.niveau}
+            </span>
+          )}
+        </td>
+        <td className="px-2 py-1.5 text-center text-[11px] text-slate-500">
+          {u.quadri_simulation || '—'}
+        </td>
+        <td></td>
         <td className="px-2 py-1.5 text-right text-[11.5px] text-slate-500">{u.totaux.prevu_total}</td>
         <td className="px-2 py-1.5 text-right text-[11.5px] text-slate-500">{u.totaux.reel_total}</td>
         <td className="px-2 py-1.5 text-center text-[11.5px] font-semibold border-l border-slate-200">{u.totaux.prevu_c1}</td>
@@ -381,7 +432,7 @@ function UeBloc({ u, val, editer, cle, modifs, onAppliquerDates }) {
               </>
             )}
           </td>
-          <td></td>
+          <td colSpan={3}></td>
           <td className="px-2 py-1 text-right text-[11.5px] text-slate-500">{l.prevu_total || '—'}</td>
           <td className="px-2 py-1 text-right text-[11.5px] text-slate-600">{l.reel_total || '—'}</td>
           {champ(l, 'prevu_c1', 'border-l border-slate-200')}
