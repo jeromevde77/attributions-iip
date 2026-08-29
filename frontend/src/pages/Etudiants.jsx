@@ -1,4 +1,4 @@
-import { useEffect, useState, useMemo } from 'react';
+import {Fragment, useEffect, useState, useMemo } from 'react';
 import {
   IconSearch, IconUser, IconChevronRight, IconPlus, IconCheck,
   IconX, IconPrinter, IconAlertTriangle, IconClock, IconUpload, IconFileText, IconFolder, IconTrash, IconTable} from '@tabler/icons-react';
@@ -1286,6 +1286,22 @@ export default function Etudiants() {
   const [importHisto, setImportHisto] = useState(false);
   const [tri, setTri] = useState({ champ: 'nom', sens: 1 });
 
+  // Volets par section, comme dans la répartition des périodes : la liste se
+  // parcourt section par section, et un étudiant inscrit dans plusieurs
+  // sections apparaît sous chacune.
+  const [sectionsDeployees, setSectionsDeployees] = useState({});
+  const parSection = useMemo(() => {
+    const par = new Map();
+    for (const e of filtres) {
+      const secs = (e.sections || '').split(',').map(s => s.trim()).filter(Boolean);
+      for (const s of (secs.length ? secs : ['(sans section)'])) {
+        if (!par.has(s)) par.set(s, []);
+        par.get(s).push(e);
+      }
+    }
+    return [...par.entries()].sort((a, b) => a[0].localeCompare(b[0]));
+  }, [filtres]);
+
   function trierPar(champ) {
     setTri(t => t.champ === champ ? { champ, sens: -t.sens } : { champ, sens: 1 });
   }
@@ -1591,7 +1607,25 @@ export default function Etudiants() {
               </tr>
             </thead>
             <tbody>
-              {filtres.map(e => (
+              {parSection.map(([sec, liste]) => {
+                const ouverte = sectionsDeployees[sec] !== false;
+                return (
+                  <Fragment key={sec}>
+                    {parSection.length > 1 && (
+                      <tr className="bg-iip-blue/5 border-y border-iip-blue/20">
+                        <td colSpan={6} className="px-4 py-2">
+                          <button onClick={() => setSectionsDeployees(d => ({ ...d, [sec]: !ouverte }))}
+                            className="flex items-center gap-1.5 text-[12.5px] font-semibold text-iip-blue">
+                            <span className="text-slate-400 w-3 inline-block">{ouverte ? '−' : '+'}</span>
+                            {sec}
+                            <span className="font-normal text-[11px] text-slate-500">
+                              {liste.length} étudiant(s)
+                            </span>
+                          </button>
+                        </td>
+                      </tr>
+                    )}
+                    {ouverte && liste.map(e => (
                 <tr key={e.id} onClick={() => setSelId(e.id)}
                   className="border-b border-slate-100 last:border-0 hover:bg-slate-50/60 cursor-pointer">
                   <td className="px-4 py-2.5">
@@ -1613,7 +1647,10 @@ export default function Etudiants() {
                   <td className="px-4 py-2.5 text-right font-medium text-iip-blue">{e.nb_ue}</td>
                   <td className="px-4 py-2.5 text-slate-300"><IconChevronRight size={16} /></td>
                 </tr>
-              ))}
+                    ))}
+                  </Fragment>
+                );
+              })}
             </tbody>
           </table>
         </div>
