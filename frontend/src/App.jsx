@@ -207,10 +207,22 @@ function ProtectedLayout({ children }) {
       if (liste && liste.length > 0) {
         const courante = getAnnee();
         const existe = liste.some(a => a.code === courante);
+        const active = (liste.find(a => a.active) || liste[0]).code;
+
+        // L'année mémorisée n'existe plus : on bascule sans discuter.
         if (!existe) {
-          const cible = (liste.find(a => a.active) || liste[0]).code;
-          setAnnee(cible);
-          setAnneeActive(cible);
+          setAnnee(active); setAnneeActive(active);
+          return;
+        }
+
+        // L'année mémorisée existe mais n'est plus l'année active, et
+        // l'utilisateur ne l'a pas choisie lui-même : on s'aligne sur le
+        // serveur. Sans cela, un navigateur restait indéfiniment sur l'année
+        // précédente après la bascule de rentrée, tous les écrans avec lui.
+        const choixExplicite = localStorage.getItem('annee_choisie');
+        if (courante !== active && choixExplicite !== courante) {
+          setAnnee(active); setAnneeActive(active);
+          window.location.reload();
         }
       }
     }).catch(() => {});
@@ -220,6 +232,9 @@ function ProtectedLayout({ children }) {
   function changeAnnee(code) {
     setAnnee(code);
     setAnneeActive(code);
+    // Un choix délibéré : il tient jusqu'à ce que l'utilisateur en fasse un
+    // autre, même si l'année active du serveur change entre-temps.
+    localStorage.setItem('annee_choisie', code);
     window.location.reload(); // recharge toutes les données
   }
 
