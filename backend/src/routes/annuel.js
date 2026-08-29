@@ -101,11 +101,7 @@ r.put('/dates-ue', authRequired, roleRequired('admin', 'editeur', 'coordination'
     });
   }
 
-  const maj = db.prepare(`
-    UPDATE organisation_ue
-       SET date_debut = ?, date_fin = ?, nb_semaines = ?
-     WHERE id = ?
-  `);
+  const lire = db.prepare('SELECT date_debut, date_fin, nb_semaines FROM organisation_ue WHERE id = ?');
 
   const erreurs = [];
   let modifiees = 0;
@@ -114,18 +110,41 @@ r.put('/dates-ue', authRequired, roleRequired('admin', 'editeur', 'coordination'
     for (const l of items) {
       const id = Number(l.id);
       if (!id) continue;
-      const d = l.date_debut || null;
-      const f = l.date_fin || null;
+      const actuel = lire.get(id);
+      if (!actuel) continue;
+
+      // Un champ ABSENT du message n'est pas un champ vidé. Écrire
+      // « l.date_debut || null » effaçait la date que l'on n'avait pas
+      // touchée : modifier la fin seule supprimait le début, et
+      // réciproquement.
+      const present = (champ) => Object.prototype.hasOwnProperty.call(l, champ);
+      const valeur = (champ) => {
+        if (!present(champ)) return actuel[champ];          // inchangé
+        const v = l[champ];
+        return v === '' || v === undefined ? null : v;      // vidé volontairement
+      };
+
+      const d = valeur('date_debut');
+      const f = valeur('date_fin');
+
       // Cohérence : la fin ne peut précéder le début
       if (d && f && f < d) {
         erreurs.push({ id, message: 'la date de fin précède la date de début' });
         continue;
       }
-      // nb_semaines : recalculé si absent
-      let sem = l.nb_semaines != null && l.nb_semaines !== ''
-        ? Number(l.nb_semaines) : null;
-      if (sem == null && d && f) sem = Math.max(1, Math.round(diffJours(d, f) / 7));
-      const info = maj.run(d, f, sem, id);
+
+      let sem;
+      if (present('nb_semaines') && l.nb_semaines !== '' && l.nb_semaines != null) {
+        sem = Number(l.nb_semaines);
+      } else if (d && f) {
+        sem = Math.max(1, Math.round(diffJours(d, f) / 7));
+      } else {
+        sem = actuel.nb_semaines;
+      }
+
+      const info = db.prepare(`
+        UPDATE organisation_ue SET date_debut = ?, date_fin = ?, nb_semaines = ? WHERE id = ?
+      `).run(d, f, sem, id);
       modifiees += info.changes;
     }
   });
