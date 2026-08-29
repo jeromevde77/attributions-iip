@@ -110,7 +110,11 @@ export function migrerEtudiants(dbx) {
       ue_num         INTEGER NOT NULL,
       groupe         TEXT,
       statut         TEXT DEFAULT 'inscrit',
-      resultat       TEXT,        -- 'reussi' | 'ajourne' | 'absent' | null
+      resultat       TEXT,
+        -- Les TROIS décisions de première session, distinguées par la circulaire
+        -- sanction des études : 'reussi', 'ajourne' — qui ouvre une seconde
+        -- session sur des acquis précis — et 'refuse', qui ne l'ouvre pas.
+        -- 'absent' et NULL complètent le tableau.
       mention        TEXT,        -- A, B, C, D, E
       points         REAL,
       cree_le        TEXT DEFAULT (datetime('now')),
@@ -323,7 +327,12 @@ r.get('/rapport', authRequired, (req, res) => {
   const cle = r0 => r0.etudiant_id;
   for (const i of inscriptions) {
     if (!etudiants.has(cle(i))) etudiants.set(cle(i), { nom: i.nom, prenom: i.prenom, id_ecampus: i.id_ecampus, cells: {} });
-    const marque = i.resultat === 'reussi' ? 'C' : i.resultat === 'ajourne' ? 'R' : i.resultat === 'absent' ? 'A' : '•';
+    // « R » désignait aussi bien l'ajournement que le refus, deux décisions que
+    // la circulaire distingue. L'ajournement prend « Aj ».
+    const marque = i.resultat === 'reussi' ? 'C'
+      : i.resultat === 'ajourne' ? 'Aj'
+      : i.resultat === 'refuse' ? 'R'
+      : i.resultat === 'absent' ? 'A' : '•';
     etudiants.get(cle(i)).cells[i.ue_num] = { m: marque, pts: i.points };
   }
   for (const v of vas) {
@@ -632,7 +641,8 @@ r.get('/rapport-pae', authRequired, (req, res) => {
     const diplomable = epreuves.length > 0
       && restantes.length > 0
       && restantes.every(n => epreuves.includes(n));
-    const echecs = Object.values(p.courant).filter(r0 => r0 === 'ajourne').length;
+    const echecs = Object.values(p.courant)
+      .filter(r0 => r0 === 'ajourne' || r0 === 'refuse').length;
     return {
       ...e, niveau: niveauEtudiant(e.id, annee).libelle || null, ...p,
       acquises: acquises.length, total_ue: ues.length,
@@ -1182,14 +1192,29 @@ r.get('/:id', authRequired, (req, res) => {
 // ── Encoder un résultat ───────────────────────────────────────────────────────
 r.patch('/inscription/:id', authRequired, roleRequired('admin', 'editeur'), (req, res) => {
   const { resultat, mention, points } = req.body;
-  const RESULTATS = ['reussi', 'ajourne', 'absent', null];
+  // Les trois décisions de première session, plus l'absence. « refuse » manquait :
+  // le serveur aurait rejeté une décision que la circulaire prévoit.
+  const RESULTATS = ['reussi', 'ajourne', 'refuse', 'absent', null];
   if (resultat !== undefined && !RESULTATS.includes(resultat)) {
     return res.status(400).json({ error: 'resultat invalide' });
   }
+
+  // « Aucune cote n'est attribuée à l'étudiant qui n'a pas atteint un ou
+  // plusieurs acquis d'apprentissage » : la règle s'applique ici, quelle que
+  // soit la voie par laquelle le résultat arrive.
+  const sansCote = ['ajourne', 'refuse', 'absent'].includes(resultat);
+  const cote = sansCote ? null : (points ?? null);
+
   db.prepare(`
     UPDATE etudiant_inscription SET resultat = ?, mention = ?, points = ? WHERE id = ?
-  `).run(resultat ?? null, mention ?? null, points ?? null, Number(req.params.id));
-  res.json({ ok: true });
+  `).run(resultat ?? null, mention ?? null, cote, Number(req.params.id));
+
+  res.json({
+    ok: true,
+    cote_effacee: sansCote && points != null
+      ? "Aucune cote n'est attribuée lorsque le seuil de réussite n'est pas atteint."
+      : null,
+  });
 });
 
 // ── Générer le PAE pour une année ─────────────────────────────────────────────

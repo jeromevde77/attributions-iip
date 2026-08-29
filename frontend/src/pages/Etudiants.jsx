@@ -99,7 +99,11 @@ const KINDS_CELLULE = [
   { val: 'inscrit', label: 'Inscrit',  short: '·',  cls: 'bg-sky-50 text-sky-700 border-sky-200' },
   { val: 'reussi',  label: 'Réussi',   short: '✓',  cls: 'bg-emerald-50 text-emerald-800 border-emerald-200' },
   { val: 'va',      label: 'VA',       short: 'VA', cls: 'bg-violet-50 text-violet-700 border-violet-200' },
-  { val: 'ajourne', label: 'Refusé',   short: '✕',  cls: 'bg-red-50 text-red-700 border-red-200' },
+  // La circulaire distingue l'AJOURNEMENT, qui ouvre une seconde session sur
+  // des acquis précis, du REFUS, qui ne l'ouvre pas. Les confondre sous un même
+  // libellé privait le Conseil des études d'une de ses trois décisions.
+  { val: 'ajourne', label: 'Ajourné',  short: 'Aj', cls: 'bg-amber-50 text-amber-800 border-amber-200' },
+  { val: 'refuse',  label: 'Refusé',   short: '✕',  cls: 'bg-red-50 text-red-700 border-red-200' },
   { val: 'absent',  label: 'Absent',   short: '–',  cls: 'bg-slate-50 text-slate-600 border-slate-200' },
 ];
 
@@ -457,8 +461,14 @@ function GrilleParcours({ etudId, peutEcrire }) {
                           </div>
                         </div>
                         <button
-                          onClick={() => ecrire(detail.calcul.sur20 >= 10 ? 'reussi' : 'ajourne',
-                            { points: detail.calcul.sur20 })}
+                          onClick={() => {
+                            // « Aucune cote n'est attribuée à l'étudiant qui n'a pas atteint
+                            // un ou plusieurs acquis » : sous le seuil, on reporte la
+                            // décision, jamais le nombre.
+                            const reussi = detail.calcul.sur20 >= 10;
+                            ecrire(reussi ? 'reussi' : 'ajourne',
+                              reussi ? { points: detail.calcul.sur20 } : { points: null });
+                          }}
                           className="flex-none text-[11.5px] px-2.5 py-1.5 rounded-lg bg-iip-blue text-white font-semibold">
                           Reporter sur l\u2019UE
                         </button>
@@ -1343,7 +1353,9 @@ export default function Etudiants() {
           // Une valeur au-delà de 20 est un pourcentage : on la ramène sur 20.
           const points = noteBrute == null ? null
             : Math.round((noteBrute <= 20 ? noteBrute : noteBrute / 5) * 10) / 10;
-          const resultat = dec === 'C' ? 'reussi' : (dec === 'R' || dec === 'AJ') ? 'ajourne' : null;
+          const resultat = dec === 'C' ? 'reussi'
+            : dec === 'AJ' ? 'ajourne'
+            : dec === 'R' ? 'refuse' : null;
           resultats.push({ id_ecampus: String(mat).trim(), ue_num: ueNum, resultat, points });
         }
       }
