@@ -6,18 +6,25 @@
 // par diverger — un module ajouté d'un côté, oublié de l'autre.
 // ─────────────────────────────────────────────────────────────────────────────
 
+// Icônes Tabler, monochromes : les émojis coloraient le tableau et juraient
+// avec le reste de l'application, tenue en aplats et en traits.
+import {
+  IconSchool, IconClipboardList, IconUsers, IconFolders, IconCalendar,
+  IconMail, IconFileText, IconGavel, IconChartBar, IconCoin, IconBriefcase,
+} from '@tabler/icons-react';
+
 export const MODULES_ACCES = [
-  { key: 'etudiants',    label: 'Étudiants',     icon: '🎓', desc: 'Parcours, PAE, résultats, dossiers' },
-  { key: 'attributions', label: 'Attributions',  icon: '📋', desc: 'Voir et/ou modifier les attributions' },
-  { key: 'personnel',    label: 'Personnel',     icon: '👥', desc: 'Voir et/ou modifier les fiches membres' },
-  { key: 'organisation', label: 'Organisation',  icon: '🗂️', desc: "Dates d'UE, structure des sections, rentrée" },
-  { key: 'planification',label: 'Horaires',      icon: '📅', desc: 'Groupes, horaires et planification' },
-  { key: 'communication',label: 'Communication', icon: '✉️', desc: 'Listes, courriers, documents produits' },
-  { key: 'listes',       label: 'Listes',        icon: '📄', desc: 'Accès aux listes et documents' },
-  { key: 'procedures',   label: 'Procédures',    icon: '📑', desc: 'Accès aux procédures' },
-  { key: 'pilotage',     label: 'Pilotage',      icon: '📊', desc: 'Dotation, statistiques' },
-  { key: 'budget',       label: 'Budget',        icon: '💶', desc: 'Prévisions et dépenses de la section' },
-  { key: 'recrutement',  label: 'Recrutement',   icon: '💼', desc: 'Accès au module recrutement' },
+  { key: 'etudiants',    label: 'Étudiants',     Icone: IconSchool,        desc: 'Parcours, PAE, résultats, dossiers' },
+  { key: 'attributions', label: 'Attributions',  Icone: IconClipboardList, desc: 'Voir et/ou modifier les attributions' },
+  { key: 'personnel',    label: 'Personnel',     Icone: IconUsers,         desc: 'Voir et/ou modifier les fiches membres' },
+  { key: 'organisation', label: 'Organisation',  Icone: IconFolders,       desc: "Dates d'UE, structure des sections, rentrée" },
+  { key: 'planification',label: 'Horaires',      Icone: IconCalendar,      desc: 'Groupes, horaires et planification' },
+  { key: 'communication',label: 'Communication', Icone: IconMail,          desc: 'Listes, courriers, documents produits' },
+  { key: 'listes',       label: 'Listes',        Icone: IconFileText,      desc: 'Accès aux listes et documents' },
+  { key: 'procedures',   label: 'Procédures',    Icone: IconGavel,         desc: 'Accès aux procédures' },
+  { key: 'pilotage',     label: 'Pilotage',      Icone: IconChartBar,      desc: 'Dotation, statistiques' },
+  { key: 'budget',       label: 'Budget',        Icone: IconCoin,          desc: 'Prévisions et dépenses de la section' },
+  { key: 'recrutement',  label: 'Recrutement',   Icone: IconBriefcase,     desc: 'Accès au module recrutement' },
 ];
 
 export const ROLES_LUCIE = [

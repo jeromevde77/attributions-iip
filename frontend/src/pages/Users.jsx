@@ -29,6 +29,7 @@ export default function Users({ embedded = false }) {
   const me = getUser();
   const [users, setUsers] = useState([]);
   const [allSections, setAllSections] = useState([]);
+  const [profils, setProfils] = useState([]);
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
   const [form, setForm] = useState({ email: '', nom_complet: '', role: 'editeur', password: '', sections: [] });
@@ -38,11 +39,12 @@ export default function Users({ embedded = false }) {
   async function load() {
     setLoading(true);
     try {
-      const [u, s] = await Promise.all([
+      const [u, s, p] = await Promise.all([
         authFetch('/api/users'),
-        authFetch('/api/ref/sections')
+        authFetch('/api/ref/sections'),
+        authFetch('/api/profils-acces'),
       ]);
-      setUsers(u); setAllSections(s);
+      setUsers(u); setAllSections(s); setProfils(Array.isArray(p) ? p : []);
     }
     catch (e) { setError(e.message); }
     finally { setLoading(false); }
@@ -132,19 +134,18 @@ export default function Users({ embedded = false }) {
   }
 
   return (
-    <>
-      <div className="px-4 pt-4">
-        <div className="px-3 py-2 rounded-lg bg-sky-50 border border-sky-200 text-[12px] text-sky-900">
-          La liste ci-dessous ne contient que les comptes <b>sans fiche de personnel</b> :
-          administrateurs techniques, prestataire extérieur. Les accès d'un membre du personnel
-          se règlent depuis sa fiche, onglet « Accès Lucie ». Le récapitulatif plus bas montre
-          l'ensemble des droits accordés, en lecture.
+    <div className={embedded ? 'p-4 space-y-4' : 'p-6 space-y-4'}>
+      <div className="flex items-start justify-between gap-4 flex-wrap">
+        <div className="flex-1 min-w-[320px]">
+          {!embedded && <h1 className="text-2xl font-title text-iip-gold mb-2">Accès à Lucie</h1>}
+          <div className="px-3 py-2 rounded-lg bg-sky-50 border border-sky-200 text-[12px] text-sky-900">
+            Les accès d'un membre du personnel se règlent depuis sa fiche, onglet « Accès Lucie »,
+            ou directement dans le tableau ci-dessous. Le bouton ne sert qu'aux comptes sans
+            fiche : administrateur technique, prestataire extérieur.
+          </div>
         </div>
-      </div>
-    <div className={embedded ? '' : 'p-6 max-w-none mx-auto'}>
-      <div className="flex items-center justify-between mb-4">
-        {!embedded && <h1 className="text-2xl font-title text-iip-gold">Comptes sans fiche de personnel</h1>}
-        <button onClick={() => setShowForm(true)} className={`bg-iip-gold hover:bg-iip-amber text-white text-sm px-4 py-1.5 rounded font-medium inline-flex items-center gap-1.5 ${embedded ? 'ml-auto' : ''}`}>
+        <button onClick={() => setShowForm(true)}
+          className="flex-none bg-iip-gold hover:bg-iip-amber text-white text-sm px-4 py-2 rounded-lg font-medium inline-flex items-center gap-1.5">
           <IconPlus size={16} /> Compte sans fiche
         </button>
       </div>
@@ -207,8 +208,23 @@ export default function Users({ embedded = false }) {
           </div>
         </div>
       )}
-      <MatriceAcces users={users} sectionsDispo={allSections}
+      <MatriceAcces users={users} sectionsDispo={allSections} profils={profils}
         moiId={me?.id}
+        onProfil={async (u, profilId) => {
+          if (!profilId) return;
+          const p = profils.find(x => String(x.id) === String(profilId));
+          if (!p) return;
+          if (!window.confirm(
+            `Appliquer le profil « ${p.nom} » à ${u.nom_complet || u.email} ?\n\n`
+            + `${p.description || ''}\n\nLe périmètre par sections reste inchangé.`)) return;
+          try {
+            await authFetch(`/api/users/${u.id}`, {
+              method: 'PATCH',
+              body: JSON.stringify({ role: p.role, permissions_json: JSON.stringify(p.permissions || {}) }),
+            });
+            load();
+          } catch (e) { alert(e.message); }
+        }}
         onBasculerActif={toggleActif}
         onMotDePasse={resetPassword}
         onRetirer={deleteUser}
@@ -241,7 +257,6 @@ export default function Users({ embedded = false }) {
         </div>
       )}
     </div>
-    </>
   );
 }
 
@@ -250,7 +265,28 @@ export default function Users({ embedded = false }) {
 // personnel. Chaque case se modifie d'un clic — le droit tourne entre les
 // valeurs que le rôle autorise — et la modification rejoint la fiche de la
 // personne, puisque c'est la même donnée.
-function MatriceAcces({ users, sectionsDispo, onModifie, onBasculerActif, onMotDePasse, onRetirer, moiId }) {
+function MatriceAcces({ users, sectionsDispo, profils, onModifie, onBasculerActif, onMotDePasse, onRetirer, moiId }) {
+  // Un profil est appliqué si le rôle correspond ET que les cases sont
+  // identiques : sans quoi la personne a dérivé, et on l'affiche comme telle.
+  function profilCourant(u) {
+    const candidats = (profils || []).filter(p => p.role === u.role);
+    let permsU = {};
+    try {
+      permsU = u.permissions_json
+        ? (typeof u.permissions_json === 'string' ? JSON.parse(u.permissions_json) : u.permissions_json)
+        : {};
+    } catch { /* illisible */ }
+    for (const p of candidats) {
+      const memes = MODULES_ACCES.every(m => {
+        const a = p.permissions?.[m.key] || {};
+        const b = permsU[m.key] || {};
+        return !!a.lire === !!b.lire && !!a.ecrire === !!b.ecrire;
+      });
+      if (memes) return String(p.id);
+    }
+    return '';
+  }
+
   const [enCours, setEnCours] = useState(null);       // "id|module" en cours d'écriture
   const [perimetreOuvert, setPerimetreOuvert] = useState(null);
 
@@ -297,6 +333,17 @@ function MatriceAcces({ users, sectionsDispo, onModifie, onBasculerActif, onMotD
         <div className="text-[10px] text-slate-400 truncate max-w-[180px]" title={u.email}>
           {u.role} · {u.email}
         </div>
+      </td>
+
+      {/* Profil : il pose le rôle et les cases d'un coup. Croisé avec le
+          périmètre de la colonne suivante, il donne « coordination sur TIM ». */}
+      <td className="border-b border-slate-100 px-2 py-1.5">
+        <select value={profilCourant(u)} disabled={u.id === moiId}
+          onChange={e => onProfil(u, e.target.value)}
+          className="w-full border border-slate-200 rounded px-1.5 py-1 text-[11px] bg-white">
+          <option value="">— personnalisé —</option>
+          {(profils || []).map(p => <option key={p.id} value={p.id}>{p.nom}</option>)}
+        </select>
       </td>
 
       {/* Périmètre, modifiable en regard du nom */}
@@ -406,6 +453,9 @@ function MatriceAcces({ users, sectionsDispo, onModifie, onBasculerActif, onMotD
                 <th className="sticky left-0 bg-white border-b border-r border-slate-200 px-3 py-2 text-left min-w-[190px]">
                   <span className="text-[10px] uppercase tracking-wide text-slate-500">Personne</span>
                 </th>
+                <th className="border-b border-slate-200 px-2 py-2 w-36">
+                  <span className="text-[10px] uppercase tracking-wide text-slate-500">Profil</span>
+                </th>
                 <th className="border-b border-slate-200 px-2 py-2 w-28">
                   <span className="text-[10px] uppercase tracking-wide text-slate-500">Périmètre</span>
                 </th>
@@ -414,7 +464,7 @@ function MatriceAcces({ users, sectionsDispo, onModifie, onBasculerActif, onMotD
                 </th>
                 {MODULES_ACCES.map(m => (
                   <th key={m.key} className="border-b border-slate-200 px-1 py-2 w-20" title={m.desc}>
-                    <div className="text-[10px]">{m.icon}</div>
+                    <div className="flex justify-center text-slate-400"><m.Icone size={14} stroke={1.6} /></div>
                     <div className="text-[9px] text-slate-500 leading-tight">{m.label}</div>
                   </th>
                 ))}
@@ -428,7 +478,7 @@ function MatriceAcces({ users, sectionsDispo, onModifie, onBasculerActif, onMotD
 
               {techniques.length > 0 && personnel.length > 0 && (
                 <tr>
-                  <td colSpan={4 + MODULES_ACCES.length}
+                  <td colSpan={5 + MODULES_ACCES.length}
                     className="bg-slate-100 border-y border-slate-300 px-3 py-1 text-[10px] uppercase tracking-wide text-slate-500 font-semibold">
                     Membres du personnel — leurs accès se règlent aussi depuis leur fiche
                   </td>

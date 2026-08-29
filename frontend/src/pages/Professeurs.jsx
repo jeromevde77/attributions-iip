@@ -445,7 +445,7 @@ function AccesLuciePanel({ profId, detail }) {
     return (
       <div className={`rounded-lg border ${p.lire || p.ecrire ? 'bg-iip-blue/5 border-iip-blue/20' : 'bg-gray-50 border-gray-100'}`}>
         <div className="flex items-center gap-2 px-3 py-2">
-          <span className="text-base w-5 flex-shrink-0">{m.icon}</span>
+          <span className="text-base w-5 flex-shrink-0"><m.Icone size={14} stroke={1.6} className="text-slate-400" /></span>
           <div className="flex-1 min-w-0">
             <div className="text-xs font-semibold text-gray-700">{m.label}</div>
           </div>
