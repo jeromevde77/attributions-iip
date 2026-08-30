@@ -19,6 +19,7 @@
 
 import { Router } from 'express';
 import db from '../db/index.js';
+import { piedDocument } from './parametres.js';
 import { authRequired, roleRequired } from '../middleware/auth.js';
 import { calculerDI, calculerDIS } from './droitInscription.js';
 
@@ -248,6 +249,18 @@ r.get('/etudiant/:id/document', authRequired, (req, res) => {
   .note { font-size: 10.5px; color: #64748b; margin-top: 4px; }
   .sig { margin-top: 30px; display: flex; gap: 60px; }
   .sig div { flex: 1; border-top: 1px solid #94a3b8; padding-top: 4px; font-size: 10.5px; color: #64748b; }
+
+  /* La marge basse réserve la hauteur du pied : sans elle, le texte passerait
+     dessous en fin de page. */
+  @page { margin-bottom: 28mm; }
+
+  /* Pied de page commun, ancré en bas de CHAQUE page — dernière comprise.
+     Un pied placé dans le flux, ou en table-footer-group, flotte au milieu
+     d'une dernière page à moitié vide. */
+  .pied-lucie { position: fixed; bottom: 0; left: 0; right: 0; height: 22mm;
+                padding-top: 2mm; border-top: 0.5pt solid #C9A84C; text-align: center; }
+  .pied-lucie .txt { font-size: 6pt; color: #888; line-height: 1.35; }
+  @media screen { .pied-lucie { position: static; height: auto; margin-top: 12mm; } }
 </style></head><body>
 
 <h1>${esc(etab.etab_nom || 'Institut Ilya Prigogine')} — Frais de scolarité</h1>
@@ -330,6 +343,8 @@ ${f.paiements.length ? `
   Règlement des études, titre V, articles 16 à 20 · document établi le
   ${new Date().toLocaleDateString('fr-BE')}
 </div>
+
+<div class="pied-lucie"><div class="txt">${piedDocument()}</div></div>
 </body></html>`;
 
   res.json({ html, titre: `Frais de scolarité — ${e.nom} ${e.prenom}` });

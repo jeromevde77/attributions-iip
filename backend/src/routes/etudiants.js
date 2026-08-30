@@ -5,6 +5,7 @@
 import { Router } from 'express';
 
 import db from '../db/index.js';
+import { piedDocument } from './parametres.js';
 import { anneeDeTravail } from '../helpers/annee.js';
 import { authRequired, roleRequired, getUserSections } from '../middleware/auth.js';
 import { construireGraphe, niveauxEffectifs } from './capitalisation.js';
@@ -378,6 +379,18 @@ r.get('/rapport', authRequired, (req, res) => {
   td.i  { color: #64748b; }
   .legende { margin-top: 10px; font-size: 10px; color: #64748b; }
   @media print { body { margin: 8mm; } @page { size: landscape; } }
+
+  /* La marge basse réserve la hauteur du pied : sans elle, le texte passerait
+     dessous en fin de page. */
+  @page { margin-bottom: 28mm; }
+
+  /* Pied de page commun, ancré en bas de CHAQUE page — dernière comprise.
+     Un pied placé dans le flux, ou en table-footer-group, flotte au milieu
+     d'une dernière page à moitié vide. */
+  .pied-lucie { position: fixed; bottom: 0; left: 0; right: 0; height: 22mm;
+                padding-top: 2mm; border-top: 0.5pt solid #C9A84C; text-align: center; }
+  .pied-lucie .txt { font-size: 6pt; color: #888; line-height: 1.35; }
+  @media screen { .pied-lucie { position: static; height: auto; margin-top: 12mm; } }
 </style></head><body>
 <h1>Parcours des étudiants — ${esc(section)}</h1>
 <div class="meta">Année académique ${esc(annee)} · ${lignes.length} étudiant(s) · ${ues.length} UE · imprimé le ${new Date().toLocaleDateString('fr-BE')}</div>
@@ -386,6 +399,8 @@ r.get('/rapport', authRequired, (req, res) => {
   <tbody>${corps || '<tr><td colspan="' + (ues.length + 2) + '" style="color:#94a3b8">Aucune donnée pour ces critères</td></tr>'}</tbody>
 </table>
 <div class="legende"><b>C</b> réussite · <b>R</b> refusé · <b>A</b> absent · <b>VA</b> valorisation des acquis · <b>•</b> inscrit (non délibéré) · survolez une case pour les points</div>
+
+<div class="pied-lucie"><div class="txt">${piedDocument()}</div></div>
 </body></html>`;
 
   res.json({ html, nom: 'parcours_' + section + '_' + annee + '.html' });
@@ -2462,6 +2477,18 @@ r.get('/:id/fiche-inscription', authRequired, (req, res) => {
   .sig div { flex: 1; border-top: 1px solid #94a3b8; padding-top: 5px; font-size: 11px; }
   .footer { margin-top: 22px; font-size: 10px; color: #64748b; }
   @media print { body { margin: 12mm; } }
+
+  /* La marge basse réserve la hauteur du pied : sans elle, le texte passerait
+     dessous en fin de page. */
+  @page { margin-bottom: 28mm; }
+
+  /* Pied de page commun, ancré en bas de CHAQUE page — dernière comprise.
+     Un pied placé dans le flux, ou en table-footer-group, flotte au milieu
+     d'une dernière page à moitié vide. */
+  .pied-lucie { position: fixed; bottom: 0; left: 0; right: 0; height: 22mm;
+                padding-top: 2mm; border-top: 0.5pt solid #C9A84C; text-align: center; }
+  .pied-lucie .txt { font-size: 6pt; color: #888; line-height: 1.35; }
+  @media screen { .pied-lucie { position: static; height: auto; margin-top: 12mm; } }
 </style></head><body>
 <div class="etab">${esc(etab)} — Enseignement pour Adultes</div>
 <h1>Fiche d'inscription / reçu — ${esc(annee)}</h1>
@@ -2526,6 +2553,8 @@ ${(() => {
   « Sous réserve » : l'accès effectif dépend de la réussite de l'UE prérequise organisée la même année.
   Document imprimé le ${new Date().toLocaleDateString('fr-BE')} — ${esc(etab)}.
 </div>
+
+<div class="pied-lucie"><div class="txt">${piedDocument()}</div></div>
 </body></html>`;
 
   res.json({ html, nom: 'fiche_inscription_' + (e.nom || 'etudiant') + '_' + annee + '.html' });

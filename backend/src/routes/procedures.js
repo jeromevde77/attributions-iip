@@ -139,7 +139,8 @@ function wrapHtml(html, titre, pied) {
   return `<!DOCTYPE html><html lang="fr"><head><meta charset="utf-8"><title>${titre}</title>
 <style>
   * { box-sizing: border-box; }
-  @page{size:A4;margin:20mm 20mm 20mm 20mm}
+  /* La marge basse réserve la place du pied fixe. */
+  @page{size:A4;margin:20mm 20mm 28mm 20mm}
   body{font-family:Arial,sans-serif;font-size:10pt;color:#1a1a2e;margin:0}
   img{background:#fff;-webkit-print-color-adjust:exact;print-color-adjust:exact;max-width:100%}
   h2{font-size:12pt;margin-bottom:4px;color:#1F3864;text-align:center}
@@ -150,20 +151,24 @@ function wrapHtml(html, titre, pied) {
   ul.justifs{padding-left:5mm;margin:2mm 0}
   ul.justifs li{margin-bottom:1.8mm;line-height:1.5;text-align:justify}
   .page-break{break-after:page;page-break-after:always;height:0;border:0;margin:0}
-  .page-table{width:100%;border-collapse:collapse}
-  .page-table>tfoot{display:table-footer-group}
-  .page-table td{border:none;padding:0}
-  .footer-iip{margin-top:8mm}
-  .footer-iip .logo{height:10mm;width:auto;opacity:.9;display:block;margin-bottom:2.5mm}
-  .footer-iip .txt{border-top:0.5pt solid #C9A84C;padding-top:2.5mm;font-size:6pt;color:#888;text-align:center;line-height:1.4}
+
+  /* Le pied était posé en « table-footer-group » : répété sur chaque page, mais
+     placé juste après le contenu — sur une dernière page à moitié vide, il
+     flottait au milieu. La position fixe le répète ET l'ancre en bas. */
+  .footer-iip{
+    position:fixed; bottom:0; left:0; right:0; height:22mm;
+    padding-top:2mm; text-align:center;
+  }
+  .footer-iip .logo{height:8mm;width:auto;opacity:.9;display:block;margin:0 auto 1.5mm}
+  .footer-iip .txt{border-top:0.5pt solid #C9A84C;padding-top:2mm;font-size:6pt;color:#888;text-align:center;line-height:1.35}
   @media screen {
     html{background:#e5e5e5}
-    body{max-width:210mm;margin:16px auto;background:#fff;box-shadow:0 2px 14px rgba(0,0,0,.18)}
+    body{max-width:210mm;margin:16px auto;padding:20mm;background:#fff;box-shadow:0 2px 14px rgba(0,0,0,.18)}
+    .footer-iip{position:static;height:auto;margin-top:10mm}
   }
 </style></head><body>
-<table class="page-table"><tbody><tr><td>${html}</td></tr></tbody>
-<tfoot><tr><td><div class="footer-iip">${footerHtml}</div></td></tr></tfoot>
-</table>
+${html}
+<div class="footer-iip">${footerHtml}</div>
 </body></html>`;
 }
 
