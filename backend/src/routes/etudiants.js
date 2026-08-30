@@ -2290,9 +2290,10 @@ r.get('/:id/fiche-inscription', authRequired, (req, res) => {
 
   // 2. UE de l'inscription de l'année
   const inscriptions = db.prepare(`
-    -- Les ECTS viennent du référentiel : la colonne figurait sur la fiche
-    -- mais n'était jamais alimentée, faute d'être sélectionnée ici.
-    SELECT i.*, u.ue_nom, u.section, COALESCE(i.ects, u.ects) AS ects
+    -- Les ECTS viennent du RÉFÉRENTIEL : etudiant_inscription n'en porte pas.
+    -- La colonne figurait sur la fiche sans être alimentée, faute d'être
+    -- sélectionnée ici.
+    SELECT i.*, u.ue_nom, u.section, u.ects AS ects
     FROM etudiant_inscription i
     LEFT JOIN ${UE_REF} u ON u.ue_num = i.ue_num
     WHERE i.etudiant_id = ? AND i.annee_scolaire = ?
