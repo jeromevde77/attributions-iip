@@ -24,7 +24,11 @@ const UE_REF = `(
          (SELECT ue_nom  FROM ue x WHERE x.ue_num = u0.ue_num AND x.ue_nom  IS NOT NULL ORDER BY x.annee_scolaire DESC LIMIT 1) AS ue_nom,
          (SELECT ue_niv  FROM ue x WHERE x.ue_num = u0.ue_num AND x.ue_niv  IS NOT NULL ORDER BY x.annee_scolaire DESC LIMIT 1) AS ue_niv,
          (SELECT section FROM ue x WHERE x.ue_num = u0.ue_num AND x.section IS NOT NULL ORDER BY x.annee_scolaire DESC LIMIT 1) AS section,
-         (SELECT ue_quad FROM ue x WHERE x.ue_num = u0.ue_num ORDER BY x.annee_scolaire DESC LIMIT 1) AS ue_quad
+         (SELECT ue_quad FROM ue x WHERE x.ue_num = u0.ue_num ORDER BY x.annee_scolaire DESC LIMIT 1) AS ue_quad,
+         -- Les crédits manquaient à cette sous-requête : la fiche affichait
+         -- donc un tiret sur chaque ligne, et les demander faisait échouer la
+         -- requête entière.
+         (SELECT ects FROM ue x WHERE x.ue_num = u0.ue_num AND x.ects IS NOT NULL ORDER BY x.annee_scolaire DESC LIMIT 1) AS ects
   FROM ue u0 GROUP BY ue_num
 )`;
 
