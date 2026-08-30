@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { estDirection } from '../lib/modules.js';
 import { IconDeviceFloppy, IconEye, IconRefresh, IconPhoto, IconX } from '@tabler/icons-react';
 
 const tok = () => localStorage.getItem('token');
@@ -57,7 +58,7 @@ export default function DiplomeEditeur({ assets = {} }) {
   const [logoHelb, setLogoHelb] = useState('');
 
   const me = JSON.parse(localStorage.getItem('user') || 'null');
-  const peutEcrire = me?.role === 'admin';
+  const peutEcrire = estDirection(me);
 
   useEffect(() => {
     Promise.all([

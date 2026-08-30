@@ -5,6 +5,7 @@ import ProfFicheModal from './ProfFicheModal.jsx';
 import PreviewModal from '../components/PreviewModal.jsx';
 import CoursEditModal from '../components/CoursEditModal.jsx';
 import { IconMail, IconMapPin, IconFileText, IconEdit, IconDownload, IconRefresh, IconX, IconPrinter, IconPlus, IconTrash, IconKey, IconLock, IconCheck, IconBriefcase, IconTargetArrow, IconChevronDown, IconChevronRight, IconUsers, IconSchool, IconUserPlus, IconBuilding, IconBuildingBank, IconFileDescription } from '@tabler/icons-react';
+import { MODULES_ACCES, ROLES_LUCIE, PLAFOND_ROLE, estDirection} from '../lib/modules.js';
 import { RailLateral } from '../components/ui.jsx';
 
 /**
@@ -14,7 +15,7 @@ import { RailLateral } from '../components/ui.jsx';
  * contrats. Toute modification ici doit être répercutée côté serveur.
  */
 function peutGenererContrat(u) {
-  return u?.role === 'admin' || u?.role === 'editeur';
+  return estDirection(u) || ['editeur', 'secretariat'].includes(u?.role);
 }
 
 import { DossierAdmin, Absences, Entretiens, Journal } from '../components/DossierPersonnel.jsx';
@@ -301,21 +302,6 @@ function PermissionsPanel({ userId, permissions, sectionsDispo, annee, onSaved, 
 }
 
 // ─── Panneau « Accès Lucie » (admin) : lie un compte utilisateur à un·e membre ───
-const ROLES_LUCIE = [
-  ['consultation', 'Consultation — lecture uniquement'],
-  ['editeur', 'Éditeur — peut modifier'],
-  ['admin', 'Administrateur — accès complet'],
-];
-// Modules accessibles par flag (extensible)
-const MODULES_ACCES = [
-  { key: 'attributions', label: 'Attributions',   icon: '📋', desc: 'Voir et/ou modifier les attributions' },
-  { key: 'personnel',    label: 'Personnel',       icon: '👥', desc: 'Voir et/ou modifier les fiches membres' },
-  { key: 'pilotage',     label: 'Pilotage',        icon: '📊', desc: 'Accès au pilotage de la dotation' },
-  { key: 'listes',       label: 'Listes',          icon: '📄', desc: 'Accès aux listes et documents' },
-  { key: 'procedures',   label: 'Procédures',      icon: '📑', desc: 'Accès aux procédures' },
-  { key: 'planification',label: 'Planification',   icon: '📅', desc: 'Accès à la planification' },
-  { key: 'recrutement',  label: 'Recrutement',     icon: '💼', desc: 'Accès au module recrutement' },
-];
 
 // permissions_json stocke : { attributions: {lire, ecrire, voir_tout}, personnel: {lire, ecrire}, ..., recrutement: {lire, ecrire} }
 const PERM_DEFAUT = () => Object.fromEntries(MODULES_ACCES.map(m => [m.key, { lire: false, ecrire: false, voir_tout: false }]));
@@ -328,6 +314,38 @@ function AccesLuciePanel({ profId, detail }) {
 
   const [account, setAccount]   = useState(undefined);
   const [sectionsDispo, setSectionsDispo] = useState([]);
+  const [profils, setProfils] = useState([]);
+
+  // Appliquer un profil : il pose le rôle et remplit les cases, puis on
+  // retouche librement. Aucun héritage — ce qui est coché fait foi.
+  // Choisir un rôle coche d'emblée les cases du profil de référence qui lui
+  // correspond : on part d'un ensemble cohérent, quitte à retoucher ensuite.
+  function changerRole(nouveau) {
+    setRole(nouveau);
+    const profil = profils.find(p => p.systeme && p.role === nouveau);
+    if (!profil) return;
+    setPerms(() => {
+      const base = PERM_DEFAUT();
+      for (const [m, v] of Object.entries(profil.permissions || {})) {
+        if (base[m]) base[m] = { ...base[m], ...v };
+      }
+      return base;
+    });
+  }
+
+  function appliquerProfil(p) {
+    if (!window.confirm(
+      `Appliquer le profil « ${p.nom} » ?\n\n${p.description || ''}\n\n`
+      + `Les cases actuelles seront remplacées. Le périmètre par sections reste inchangé.`)) return;
+    setRole(p.role);
+    setPerms(() => {
+      const base = PERM_DEFAUT();
+      for (const [m, v] of Object.entries(p.permissions || {})) {
+        if (base[m]) base[m] = { ...base[m], ...v };
+      }
+      return base;
+    });
+  }
   const [role, setRole]         = useState('editeur');
   const [sections, setSections] = useState([]);
   const [perms, setPerms]       = useState(PERM_DEFAUT());
@@ -368,6 +386,7 @@ function AccesLuciePanel({ profId, detail }) {
   useEffect(() => {
     charger();
     af('/api/ref/sections').then(d => setSectionsDispo(Array.isArray(d) ? d : [])).catch(() => {});
+    af('/api/profils-acces').then(d => setProfils(Array.isArray(d) ? d : [])).catch(() => {});
   }, [profId]);
 
   async function creer() {
@@ -376,7 +395,9 @@ function AccesLuciePanel({ profId, detail }) {
       const p = genPwd();
       await af('/api/users', { method: 'POST', body: JSON.stringify({
         email: emailSuggere, password: p, nom_complet: detail.nom_prenom, role, professeur_id: profId,
-        sections: role === 'coordination' ? sections : [],
+        // Le périmètre vaut pour tous les rôles, non plus pour la seule
+        // coordination : un secrétariat de section, cela existe.
+        sections,
         permissions_json: JSON.stringify(perms),
       }) });
       setPwd(p); charger();
@@ -387,7 +408,9 @@ function AccesLuciePanel({ profId, detail }) {
     setErr(''); setBusy(true);
     try {
       await af(`/api/users/${account.id}`, { method: 'PATCH', body: JSON.stringify({
-        role, sections: role === 'coordination' ? sections : [],
+        role, // Le périmètre vaut pour tous les rôles, non plus pour la seule
+        // coordination : un secrétariat de section, cela existe.
+        sections,
         permissions_json: JSON.stringify(perms),
         acces_recrutement: perms.recrutement?.lire ? 1 : 0, // compat
       }) });
@@ -422,7 +445,7 @@ function AccesLuciePanel({ profId, detail }) {
     return (
       <div className={`rounded-lg border ${p.lire || p.ecrire ? 'bg-iip-blue/5 border-iip-blue/20' : 'bg-gray-50 border-gray-100'}`}>
         <div className="flex items-center gap-2 px-3 py-2">
-          <span className="text-base w-5 flex-shrink-0">{m.icon}</span>
+          <span className="text-base w-5 flex-shrink-0"><m.Icone size={14} stroke={1.6} className="text-slate-400" /></span>
           <div className="flex-1 min-w-0">
             <div className="text-xs font-semibold text-gray-700">{m.label}</div>
           </div>
@@ -445,17 +468,8 @@ function AccesLuciePanel({ profId, detail }) {
             )}
           </div>
         </div>
-        {hasScope && (p.lire || p.ecrire) && !p.voir_tout && (
-          <div className="px-3 pb-2 pt-0 flex flex-wrap gap-1">
-            {sectionsDispo.map(s => (
-              <button key={s.code} type="button" onClick={() => toggleSec(s.code)}
-                className={`text-[10px] px-1.5 py-0.5 rounded-full border transition ${
-                  sectionsModule.includes(s.code) ? 'bg-iip-blue text-white border-iip-blue' : 'border-gray-200 text-gray-400 hover:border-iip-blue'
-                }`}>{s.code}</button>
-            ))}
-            {sectionsModule.length === 0 && <span className="text-[10px] text-orange-500 italic">⚠ Aucune section — accès bloqué</span>}
-          </div>
-        )}
+        {/* Le périmètre est commun à tous les modules : il se règle une fois,
+            en tête du panneau, plutôt que module par module. */}
       </div>
     );
   };
@@ -470,11 +484,62 @@ function AccesLuciePanel({ profId, detail }) {
         </div>
         <div>
           <div className="text-xs text-gray-500 mb-1">Rôle</div>
-          <select value={role} onChange={e => setRole(e.target.value)} className="w-full border border-gray-300 rounded px-2 py-1.5 text-sm bg-white">
+          <select value={role} onChange={e => changerRole(e.target.value)} className="w-full border border-gray-300 rounded px-2 py-1.5 text-sm bg-white">
             {ROLES_LUCIE.map(([v, l]) => <option key={v} value={v}>{l}</option>)}
           </select>
         </div>
       </div>
+      {profils.length > 0 && (
+        <div className="border border-slate-200 rounded-lg p-2.5 bg-slate-50">
+          <div className="text-xs text-gray-500 mb-1.5">Appliquer un profil</div>
+          <div className="flex flex-wrap gap-1.5">
+            {profils.map(p => (
+              <button key={p.id} type="button" disabled={busy} title={p.description || ''}
+                onClick={() => appliquerProfil(p)}
+                className="text-[11.5px] px-2.5 py-1 rounded-lg border border-slate-300 bg-white hover:bg-iip-turquoise/10 hover:border-iip-turquoise">
+                {p.nom}
+              </button>
+            ))}
+          </div>
+          <p className="text-[10.5px] text-slate-500 mt-1.5">
+            Un profil est un modèle : il remplit les cases une fois, et ce qui est coché
+            ci-dessous reste la vérité. Le périmètre par sections n'est pas touché.
+          </p>
+        </div>
+      )}
+
+      <div className="border border-slate-200 rounded-lg p-2.5">
+        <div className="flex items-center justify-between mb-1.5">
+          <span className="text-xs text-gray-500 font-medium">Périmètre</span>
+          <label className="flex items-center gap-1.5 text-[11.5px] text-slate-600">
+            <input type="checkbox" checked={sections.length === 0}
+              onChange={e => setSections(e.target.checked ? [] : sectionsDispo.map(s => s.code))} />
+            Toutes les sections
+          </label>
+        </div>
+        {sections.length > 0 && (
+          <div className="flex flex-wrap gap-1">
+            {sectionsDispo.map(s => (
+              <button key={s.code} type="button"
+                onClick={() => setSections(v => v.includes(s.code)
+                  ? v.filter(x => x !== s.code) : [...v, s.code])}
+                className={`text-[11px] px-2 py-0.5 rounded-full border transition ${
+                  sections.includes(s.code)
+                    ? 'bg-iip-blue text-white border-iip-blue'
+                    : 'border-gray-200 text-gray-400 hover:border-iip-blue'}`}>
+                {s.code}
+              </button>
+            ))}
+          </div>
+        )}
+        <p className="text-[10.5px] text-slate-500 mt-1.5">
+          {sections.length === 0
+            ? "Cette personne voit toutes les sections."
+            : `Elle ne voit que : ${sections.join(', ') || '— aucune, l\u2019accès serait bloqué'}.`}
+          {' '}Le périmètre vaut pour tous les modules à la fois.
+        </p>
+      </div>
+
       <div>
         <div className="text-xs text-gray-500 mb-2 font-medium">Permissions</div>
         <div className="space-y-1.5">
@@ -497,7 +562,7 @@ function AccesLuciePanel({ profId, detail }) {
         </div>
         <div>
           <div className="text-xs text-gray-500 mb-1">Rôle</div>
-          <select value={role} onChange={e => setRole(e.target.value)} disabled={busy} className="w-full border border-gray-300 rounded px-2 py-1.5 text-sm bg-white">
+          <select value={role} onChange={e => changerRole(e.target.value)} disabled={busy} className="w-full border border-gray-300 rounded px-2 py-1.5 text-sm bg-white">
             {ROLES_LUCIE.map(([v, l]) => <option key={v} value={v}>{l}</option>)}
           </select>
         </div>
@@ -698,16 +763,25 @@ function DetailModal({ profId, onClose, onEdit, onFiche }) {
   // ETP selon la formule IIP : périodes CT ÷ 800 + périodes PP ÷ 1000,
   // autonomie comprise. La charge HELB s'y ajoute telle que calculée.
   const heuresHELB = detail.total_hrs_helb ?? 0;
+  // L'ETP vient du serveur, qui l'a calculé sur l'année demandée. Le refaire
+  // ici donnait un second chiffre, divergent dès que la liste d'attributions
+  // n'était pas celle des totaux — et nul quand elle revenait vide.
   const etpTotal = (() => {
+    if (detail.etp_annee != null) {
+      return Math.round(((detail.etp_annee || 0) + (detail.charge_helb ?? 0)) * 10000) / 10000;
+    }
     const attrs = (detail.attributions || []).filter(a => (a.contrat_mdp || 'IIP') !== 'HELB');
     let ct = 0, pp = 0;
     for (const a of attrs) {
-      const total = (a.per || 0) + (a.aut || 0);
-      if (a.type_cours === 'CT') ct += total; else pp += total;
+      // Deux routes alimentent cette fiche et ne nomment pas ces champs de la
+      // même façon : l'une abrège en per/aut, l'autre garde les noms de la
+      // table. Lire un seul jeu donnait un ETP nul sur des charges réelles.
+      const per = a.per ?? a.periodes_attribuees ?? 0;
+      const aut = a.aut ?? a.autonomie_attribuee ?? 0;
+      const total = Number(per) + Number(aut);
+      if (a.type_cours === 'PP') pp += total; else ct += total;   // type inconnu → CT, comme au serveur
     }
-    const etpIIP = ct / 800 + pp / 1000;
-    const etpHELB = detail.charge_helb ?? 0;
-    return Math.round((etpIIP + etpHELB) * 10000) / 10000;
+    return Math.round((ct / 800 + pp / 1000 + (detail.charge_helb ?? 0)) * 10000) / 10000;
   })();
 
   const badge = tc => tc === 'CT'
@@ -723,7 +797,7 @@ function DetailModal({ profId, onClose, onEdit, onFiche }) {
     { key: 'dossier_admin', label: 'Dossier admin.' },
     { key: 'absences',      label: 'Absences' },
     { key: 'journal',       label: 'Journal & entretiens' },
-    ...(u?.role === 'admin' ? [
+    ...(estDirection(u) ? [
       { key: 'acces',    label: 'Accès Lucie' },
       { key: 'dossiers', label: '🔒 Disciplinaire' },
     ] : []),
@@ -829,7 +903,7 @@ function DetailModal({ profId, onClose, onEdit, onFiche }) {
                       <span className="text-[9px] text-gray-500 leading-none">{lbl}</span>
                     </button>
                   ))}
-                  {u?.role === 'admin' && (
+                  {estDirection(u) && (
                     <button onClick={nouvelEA12} title="Nouvel EA12 — fiche de nomination"
                       className="flex flex-col items-center gap-1 py-2 rounded-lg border border-gray-200 bg-white hover:border-purple-400 hover:bg-purple-50/50 transition">
                       <IconPlus size={17} className="text-purple-600"/>
@@ -963,7 +1037,7 @@ function DetailModal({ profId, onClose, onEdit, onFiche }) {
 
               {onglet === 'anciennete' && (
                 <CalculateurAnciennete profId={profId}
-                  estAdmin={u?.role === 'admin'}
+                  estAdmin={estDirection(u)}
                   peutEcrire={peutGenererContrat(u)}
                   annee={getAnnee()} />
               )}
@@ -983,15 +1057,15 @@ function DetailModal({ profId, onClose, onEdit, onFiche }) {
 
               {onglet === 'journal' && (
                 <Journal profId={profId} peutEcrire={peutGenererContrat(u)}
-                         estAdmin={u?.role === 'admin'} />
+                         estAdmin={estDirection(u)} />
               )}
 
-              {onglet === 'acces' && u?.role === 'admin' && (
+              {onglet === 'acces' && estDirection(u) && (
                 <AccesLuciePanel profId={profId} detail={detail} />
               )}
 
               {/* ── Disciplinaire ── */}
-              {onglet === 'dossiers' && u?.role === 'admin' && (
+              {onglet === 'dossiers' && estDirection(u) && (
                 <DossiersRH profId={profId} profNom={detail.nom_prenom} />
               )}
 
@@ -1843,7 +1917,7 @@ export default function Professeurs() {
     if (returnOnly) return html;
     setFicheHtml({ html, nom: nomDoc('Fiche_attr', prof.nom, prof.prenom, annee), titre: `${prof.prenom || ''} ${prof.nom || ''}`.trim(), sousTitre: `Fiche attributions IIP · ${annee}` });
   }
-  const canEdit = me?.role === 'admin' || me?.role === 'editeur';
+  const canEdit = estDirection(me) || ['editeur', 'secretariat'].includes(me?.role);
 
   async function load() {
     setLoading(true);
@@ -2200,12 +2274,12 @@ export default function Professeurs() {
             { key: 'ch-av',  label: 'Avec charge',    icon: IconCheck, actif: fCharge === 'avec', onClick: () => setFCharge('avec') },
             { key: 'ch-sa',  label: 'Sans charge',    icon: IconX,     actif: fCharge === 'sans', onClick: () => setFCharge('sans') },
           ]},
-          ...((getUser()?.role === 'admin' || getUser()?.acces_recrutement) ? [{ label: 'Engagement', items: [
+          ...((estDirection(getUser()) || getUser()?.acces_recrutement) ? [{ label: 'Engagement', items: [
             // Ordre logique : le besoin précède l'offre, qui précède le recrutement.
             { key: 'nav-besoins', label: 'Besoins & offres', icon: IconTargetArrow, couleur: '#00AACC', actif: false, onClick: () => navigate('/besoins') },
             { key: 'nav-recrutement', label: 'Recrutement', icon: IconBriefcase, couleur: '#16a34a', actif: false, onClick: () => navigate('/recrutement') },
           ]}] : []),
-          ...(getUser()?.role === 'admin' ? [{ label: 'Carrière', items: [
+          ...(estDirection(getUser()) ? [{ label: 'Carrière', items: [
             { key: 'nav-classement', label: 'Classement & prioritaires', icon: IconFileDescription, couleur: '#1B2B4B', actif: false, onClick: () => navigate('/classement') },
           ]}] : []),
         ]}

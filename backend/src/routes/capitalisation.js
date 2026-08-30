@@ -13,7 +13,8 @@
 
 import { Router } from 'express';
 import db from '../db/index.js';
-import { authRequired, roleRequired } from '../middleware/auth.js';
+import { anneeDeTravail, anneeActiveEnBase } from '../helpers/annee.js';
+import { authRequired, roleRequired, getUserSections} from '../middleware/auth.js';
 
 const r = Router();
 
@@ -42,7 +43,7 @@ export function niveauxEffectifs(sections, annee) {
   const map = {};
   if (!sections?.length) return map;
   const ph = sections.map(() => '?').join(',');
-  const anneeRef = db.prepare('SELECT code FROM annee_scolaire WHERE active = 1').get()?.code || annee;
+  const anneeRef = anneeActiveEnBase() || annee;
 
   for (const u of db.prepare(`
     SELECT ue_num, MIN(ue_niv) AS ue_niv FROM ue
@@ -70,7 +71,7 @@ export function rangNiveau(v) {
 // colonnes (niveaux). `etat` permet d'y superposer la situation d'un étudiant.
 export function construireGraphe({ sections, annee, etat }) {
   const ph = sections.map(() => '?').join(',');
-  const anneeRef = db.prepare('SELECT code FROM annee_scolaire WHERE active = 1').get()?.code || annee;
+  const anneeRef = anneeActiveEnBase() || annee;
 
   const ues = db.prepare(`
     SELECT ue_num, MIN(ue_nom) AS ue_nom, MIN(section) AS section,
@@ -83,12 +84,17 @@ export function construireGraphe({ sections, annee, etat }) {
   const ueSet = new Set(ues.map(u => u.ue_num));
   const niveaux = niveauxEffectifs(sections, annee);
 
-  const edges = db.prepare('SELECT ue_num, prerequis_num FROM ue_prerequis').all()
+  const edges = db.prepare("SELECT ue_num, prerequis_num, COALESCE(type,'legal') AS type, motif FROM ue_prerequis").all()
     .filter(p => ueSet.has(p.ue_num) && ueSet.has(p.prerequis_num))
-    .map(p => ({ from: p.prerequis_num, to: p.ue_num }));
+    .map(p => ({ from: p.prerequis_num, to: p.ue_num, type: p.type, motif: p.motif }));
 
+  // Le calcul des verrous ne retient que les prérequis légaux ; les internes
+  // sont dessinés et signalés, mais n'empêchent rien.
   const prereqDe = {};
-  for (const eg of edges) (prereqDe[eg.to] = prereqDe[eg.to] || []).push(eg.from);
+  for (const eg of edges) {
+    if (eg.type !== 'legal') continue;
+    (prereqDe[eg.to] = prereqDe[eg.to] || []).push(eg.from);
+  }
 
   // Profondeur dans le graphe — ordonne les lignes à l'intérieur d'une colonne
   const profondeur = {};
@@ -190,6 +196,11 @@ export function construireGraphe({ sections, annee, etat }) {
 
 // ── Structure d'une section (sans étudiant) ─────────────────────────────────
 r.get('/structure', authRequired, (req, res) => {
+  // La structure d'une section ne se consulte que dans son périmètre.
+  const perim = getUserSections(req.user);
+  if (perim && req.query.section && !perim.includes(req.query.section)) {
+    return res.status(403).json({ error: 'Section hors de votre périmètre' });
+  }
   const { section, annee } = req.query;
   if (!section || !annee) return res.status(400).json({ error: 'section et annee requises' });
 

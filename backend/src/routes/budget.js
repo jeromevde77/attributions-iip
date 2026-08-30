@@ -15,6 +15,7 @@
 import { Router } from 'express';
 import db from '../db/index.js';
 import { authRequired, roleRequired, getUserSections } from '../middleware/auth.js';
+import { exigeValidation, deposerDemande } from './demandes.js';
 
 const r = Router();
 
@@ -87,7 +88,7 @@ r.get('/comptes', authRequired, (req, res) => {
   ).all());
 });
 
-r.put('/comptes', authRequired, roleRequired('admin'), (req, res) => {
+r.put('/comptes', authRequired, roleRequired('admin', 'directeur', 'directeur_adjoint'), (req, res) => {
   const { comptes } = req.body;
   if (!Array.isArray(comptes)) return res.status(400).json({ error: 'comptes requis' });
   const up = db.prepare(`
@@ -206,7 +207,7 @@ r.get('/synthese', authRequired, (req, res) => {
 });
 
 // ── Lignes de prévision ────────────────────────────────────────────────────
-r.post('/ligne', authRequired, roleRequired('admin', 'editeur'), (req, res) => {
+r.post('/ligne', authRequired, roleRequired('admin', 'directeur', 'directeur_adjoint', 'editeur', 'secretariat', 'coordination'), (req, res) => {
   const l = req.body;
   if (!l.annee_civile || !l.section || !l.details) {
     return res.status(400).json({ error: 'annee_civile, section et details requis' });
@@ -214,6 +215,26 @@ r.post('/ligne', authRequired, roleRequired('admin', 'editeur'), (req, res) => {
   if (!peutEcrire(req.user, l.section)) {
     return res.status(403).json({ error: 'Section hors de votre périmètre' });
   }
+  // La coordination encode pour sa section, mais sa saisie passe par la
+  // direction : c'est la règle posée pour tous ses écrans.
+  if (exigeValidation(req.user)) {
+    return res.json(deposerDemande({
+      type: 'budget_ligne', operation: 'creer', cible_id: null,
+      section: l.section, annee_scolaire: String(l.annee_civile),
+      libelle: `Prévision budgétaire — ${l.details}`,
+      avant: null,
+      apres: {
+        annee_civile: Number(l.annee_civile), section: l.section,
+        compte_ref: l.compte_ref || null, details: l.details,
+        a_charge: l.a_charge || 'IIP', prix_unitaire: Number(l.prix_unitaire || 0),
+        quantite: Number(l.quantite || 1),
+        taux_tva: l.taux_tva != null ? Number(l.taux_tva) : 0.21,
+        remarque: l.remarque || null, statut: 'prevu',
+      },
+      user: req.user,
+    }));
+  }
+
   const info = db.prepare(`
     INSERT INTO budget_ligne (annee_civile, section, compte_ref, details, a_charge,
       prix_unitaire, quantite, taux_tva, remarque, statut, cree_par)
@@ -225,7 +246,7 @@ r.post('/ligne', authRequired, roleRequired('admin', 'editeur'), (req, res) => {
   res.json({ ok: true, id: Number(info.lastInsertRowid) });
 });
 
-r.put('/ligne/:id', authRequired, roleRequired('admin', 'editeur'), (req, res) => {
+r.put('/ligne/:id', authRequired, roleRequired('admin', 'directeur', 'directeur_adjoint', 'editeur', 'secretariat', 'coordination'), (req, res) => {
   const ligne = db.prepare('SELECT section FROM budget_ligne WHERE id = ?').get(Number(req.params.id));
   if (!ligne) return res.status(404).json({ error: 'ligne introuvable' });
   if (!peutEcrire(req.user, ligne.section)) {
@@ -244,7 +265,7 @@ r.put('/ligne/:id', authRequired, roleRequired('admin', 'editeur'), (req, res) =
   res.json({ ok: true });
 });
 
-r.delete('/ligne/:id', authRequired, roleRequired('admin', 'editeur'), (req, res) => {
+r.delete('/ligne/:id', authRequired, roleRequired('admin', 'directeur', 'directeur_adjoint', 'editeur', 'secretariat', 'coordination'), (req, res) => {
   const ligne = db.prepare('SELECT section FROM budget_ligne WHERE id = ?').get(Number(req.params.id));
   if (!ligne) return res.status(404).json({ error: 'ligne introuvable' });
   if (!peutEcrire(req.user, ligne.section)) {
@@ -255,7 +276,7 @@ r.delete('/ligne/:id', authRequired, roleRequired('admin', 'editeur'), (req, res
 });
 
 // ── Dépenses ───────────────────────────────────────────────────────────────
-r.post('/depense', authRequired, roleRequired('admin', 'editeur'), (req, res) => {
+r.post('/depense', authRequired, roleRequired('admin', 'directeur', 'directeur_adjoint', 'editeur', 'secretariat', 'coordination'), (req, res) => {
   const d = req.body;
   if (!d.annee_civile || !d.section || !d.libelle) {
     return res.status(400).json({ error: 'annee_civile, section et libelle requis' });
@@ -274,7 +295,7 @@ r.post('/depense', authRequired, roleRequired('admin', 'editeur'), (req, res) =>
   res.json({ ok: true, id: Number(info.lastInsertRowid) });
 });
 
-r.delete('/depense/:id', authRequired, roleRequired('admin', 'editeur'), (req, res) => {
+r.delete('/depense/:id', authRequired, roleRequired('admin', 'directeur', 'directeur_adjoint', 'editeur', 'secretariat', 'coordination'), (req, res) => {
   const d = db.prepare('SELECT section FROM budget_depense WHERE id = ?').get(Number(req.params.id));
   if (!d) return res.status(404).json({ error: 'dépense introuvable' });
   if (!peutEcrire(req.user, d.section)) {
@@ -288,7 +309,7 @@ r.delete('/depense/:id', authRequired, roleRequired('admin', 'editeur'), (req, r
 // Le canevas ne porte pas de colonne « section » : celle-ci se lit dans le
 // préfixe du détail — « TIM - Prix pour les étudiants ». Les lignes sans
 // préfixe reconnaissable atterrissent dans un fourre-tout à répartir.
-r.post('/import', authRequired, roleRequired('admin', 'editeur'), (req, res) => {
+r.post('/import', authRequired, roleRequired('admin', 'directeur', 'directeur_adjoint', 'editeur', 'secretariat', 'coordination'), (req, res) => {
   const { annee, lignes, remplacer } = req.body;
   if (!annee || !Array.isArray(lignes)) {
     return res.status(400).json({ error: 'annee et lignes requises' });
@@ -329,7 +350,7 @@ r.post('/import', authRequired, roleRequired('admin', 'editeur'), (req, res) => 
 });
 
 // ── Reprendre le budget de l'année précédente ──────────────────────────────
-r.post('/reprendre', authRequired, roleRequired('admin', 'editeur'), (req, res) => {
+r.post('/reprendre', authRequired, roleRequired('admin', 'directeur', 'directeur_adjoint', 'editeur', 'secretariat', 'coordination'), (req, res) => {
   const { annee, annee_source, section } = req.body;
   if (!annee || !annee_source || !section) {
     return res.status(400).json({ error: 'annee, annee_source et section requises' });

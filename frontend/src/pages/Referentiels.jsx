@@ -1,4 +1,5 @@
 import { useEffect, useState, Fragment } from 'react';
+import { estDirection } from '../lib/modules.js';
 import { api, getAnnee, getUser } from '../lib/api.js';
 import CoursFormModal from '../components/CoursFormModal.jsx';
 import GrilleSectionModal from '../components/GrilleSectionModal.jsx';
@@ -352,7 +353,7 @@ function SectionModal({ section, onClose, onSaved, annee, isAdmin }) {
 function UEModal({ ue, sections, onClose, onSaved }) {
   const isNew = !ue?._edit;
   const me = getUser?.();
-  const isAdmin = me?.role === 'admin';
+  const isAdmin = estDirection(me);
   const [form, setForm] = useState({
     ue_num: ue?.ue_num || '', ue_nom: ue?.ue_nom || '', section: ue?.section || (sections[0]?.code || ''),
     ue_niv: ue?.ue_niv || '', ue_niveau: ue?.ue_niveau || '', ue_quad: ue?.ue_quad || '',
@@ -623,7 +624,7 @@ function CatalogueUEModal({ section, onClose, onDone }) {
 }
 
 export default function Referentiels({ embedded = false }) {
-  const isAdmin = getUser()?.role === 'admin';
+  const isAdmin = estDirection(getUser());
   const [structure, setStructure] = useState([]);
   const [sections, setSections] = useState([]);
   const [loading, setLoading] = useState(true);

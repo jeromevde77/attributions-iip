@@ -29,6 +29,14 @@ import acquisRoutes, { migrerAA } from './routes/acquis.js';
 import droitInscriptionRoutes, { migrerDroitInscription } from './routes/droitInscription.js';
 import importHistoriqueRoutes, { migrerHistorique } from './routes/importHistorique.js';
 import budgetRoutes, { migrerBudget } from './routes/budget.js';
+import demandesRoutes, { migrerDemandes } from './routes/demandes.js';
+import sauvegardesRoutes, { migrerSauvegardes, demarrerPlanificateur } from './routes/sauvegardes.js';
+import profilsAccesRoutes, { migrerProfilsAcces } from './routes/profilsAcces.js';
+import { migrerPlafonds } from './middleware/permissions.js';
+import fraisScolariteRoutes, { migrerFraisScolarite } from './routes/fraisScolarite.js';
+import repartitionRoutes, { migrerRepartition } from './routes/repartitionPeriodes.js';
+import amenagementsRoutes, { migrerAmenagements } from './routes/amenagements.js';
+import stagesRoutes, { migrerStages } from './routes/stages.js';
 import authRoutes from './routes/auth.js';
 import attrRoutes from './routes/attributions.js';
 import refRoutes  from './routes/referentiels.js';
@@ -888,6 +896,22 @@ try {
     CREATE INDEX IF NOT EXISTS idx_ueprereq_ue  ON ue_prerequis(ue_num);
     CREATE INDEX IF NOT EXISTS idx_ueprereq_pre ON ue_prerequis(prerequis_num);
   `);
+
+  // Deux natures de prérequis. Le LÉGAL vient du dossier pédagogique et
+  // s'impose. L'INTERNE est une règle de l'établissement, fondée sur des motifs
+  // pédagogiques — la 261 n'exige légalement rien, mais les professeurs
+  // estiment qu'un étudiant qui n'a pas fait la 254 serait dangereux en stage.
+  // Il avertit sans interdire : l'étudiant qui insiste peut passer outre.
+  try {
+    const colonnes = db.prepare('PRAGMA table_info(ue_prerequis)').all().map(x => x.name);
+    if (!colonnes.includes('type')) {
+      db.exec("ALTER TABLE ue_prerequis ADD COLUMN type TEXT NOT NULL DEFAULT 'legal'");
+      console.log('[migration] ue_prerequis.type ajoutée');
+    }
+    if (!colonnes.includes('motif')) {
+      db.exec('ALTER TABLE ue_prerequis ADD COLUMN motif TEXT');
+    }
+  } catch (e) { console.error('[migration] ue_prerequis.type :', e.message); }
 
   // Flag épreuve intégrée sur la table UE
   const _colsUE = db.prepare('PRAGMA table_info(ue)').all();
@@ -2722,6 +2746,14 @@ try { migrerAA(db); } catch (e) { console.error('[migration] aa :', e.message); 
 try { migrerDroitInscription(db); } catch (e) { console.error('[migration] droit inscription :', e.message); }
 try { migrerHistorique(db); } catch (e) { console.error('[migration] historique :', e.message); }
 try { migrerBudget(db); } catch (e) { console.error('[migration] budget :', e.message); }
+try { migrerDemandes(db); } catch (e) { console.error('[migration] demandes :', e.message); }
+try { migrerSauvegardes(db); } catch (e) { console.error('[migration] sauvegardes :', e.message); }
+try { migrerPlafonds(db); } catch (e) { console.error('[migration] plafonds :', e.message); }
+try { migrerProfilsAcces(db); } catch (e) { console.error('[migration] profils accès :', e.message); }
+try { migrerFraisScolarite(db); } catch (e) { console.error('[migration] frais scolarité :', e.message); }
+try { migrerRepartition(db); } catch (e) { console.error('[migration] répartition :', e.message); }
+try { migrerAmenagements(db); } catch (e) { console.error('[migration] aménagements :', e.message); }
+try { migrerStages(db); } catch (e) { console.error('[migration] stages :', e.message); }
 // lucie_config : table de configuration clé/valeur — présente en prod depuis l'origine
 // mais jamais créée par migration (omission). On la garantit ici.
 try {
@@ -2773,6 +2805,17 @@ app.get('/api/info', (req, res) => {
   });
 });
 
+// ── Année de travail ────────────────────────────────────────────────────────
+// L'année choisie par l'utilisateur accompagne chaque requête. Le repli sur
+// annee_scolaire.active ne vaut que pour les appels qui ne la portent pas :
+// deux sources de vérité concurrentes provoquaient des écarts permanents entre
+// ce qu'affichait l'écran et ce que calculait le serveur.
+app.use((req, res, next) => {
+  const entete = req.get('X-Annee');
+  req.annee = /^20\d{2}-20\d{2}$/.test(entete || '') ? entete : null;
+  next();
+});
+
 app.use('/api/auth',         authRoutes);
 app.use('/api/attributions', attrRoutes);
 app.use('/api/ref',          refRoutes);
@@ -2798,6 +2841,13 @@ app.use('/api/acquis', acquisRoutes);
 app.use('/api/droit-inscription', droitInscriptionRoutes);
 app.use('/api/import-historique', importHistoriqueRoutes);
 app.use('/api/budget', budgetRoutes);
+app.use('/api/demandes', demandesRoutes);
+app.use('/api/sauvegardes', sauvegardesRoutes);
+app.use('/api/profils-acces', profilsAccesRoutes);
+app.use('/api/frais-scolarite', fraisScolariteRoutes);
+app.use('/api/repartition', repartitionRoutes);
+app.use('/api/amenagements', amenagementsRoutes);
+app.use('/api/stages', stagesRoutes);
 app.use('/api/historique',   historiqueRoutes);
 app.use('/api/etablissement', etablissementRoutes);
 app.use('/api/ea12',          ea12Routes);
@@ -2846,4 +2896,7 @@ app.use((err, req, res, next) => {
 try { demarrerMoteur(db); } catch (e) { console.error('[echeancier] démarrage :', e.message); }
 
 const PORT = process.env.PORT || 3001;
+// ── Sauvegardes : réveil au quart d'heure, une par jour à l'heure convenue
+try { demarrerPlanificateur(); } catch (e) { console.error('[sauvegarde] planificateur :', e.message); }
+
 app.listen(PORT, () => console.log(`🚀 Backend Attributions IIP sur http://localhost:${PORT}`));

@@ -1,10 +1,12 @@
-import { useEffect, useState, useMemo } from 'react';
+import {Fragment, useEffect, useState, useMemo } from 'react';
 import {
   IconSearch, IconUser, IconChevronRight, IconPlus, IconCheck,
   IconX, IconPrinter, IconAlertTriangle, IconClock, IconUpload, IconFileText, IconFolder, IconTrash, IconTable} from '@tabler/icons-react';
 import { authHeaders, getAnnee } from '../lib/api.js';
 import PreviewModal from '../components/PreviewModal.jsx';
 import SchemaCapitalisationVue from '../components/SchemaCapitalisation.jsx';
+import Amenagements from '../components/Amenagements.jsx';
+import Stages from '../components/Stages.jsx';
 import ImportPAE from '../components/ImportPAE.jsx';
 import PurgeResultats from '../components/PurgeResultats.jsx';
 import RapportPAE from '../components/RapportPAE.jsx';
@@ -98,7 +100,11 @@ const KINDS_CELLULE = [
   { val: 'inscrit', label: 'Inscrit',  short: '·',  cls: 'bg-sky-50 text-sky-700 border-sky-200' },
   { val: 'reussi',  label: 'Réussi',   short: '✓',  cls: 'bg-emerald-50 text-emerald-800 border-emerald-200' },
   { val: 'va',      label: 'VA',       short: 'VA', cls: 'bg-violet-50 text-violet-700 border-violet-200' },
-  { val: 'ajourne', label: 'Refusé',   short: '✕',  cls: 'bg-red-50 text-red-700 border-red-200' },
+  // La circulaire distingue l'AJOURNEMENT, qui ouvre une seconde session sur
+  // des acquis précis, du REFUS, qui ne l'ouvre pas. Les confondre sous un même
+  // libellé privait le Conseil des études d'une de ses trois décisions.
+  { val: 'ajourne', label: 'Ajourné',  short: 'Aj', cls: 'bg-amber-50 text-amber-800 border-amber-200' },
+  { val: 'refuse',  label: 'Refusé',   short: '✕',  cls: 'bg-red-50 text-red-700 border-red-200' },
   { val: 'absent',  label: 'Absent',   short: '–',  cls: 'bg-slate-50 text-slate-600 border-slate-200' },
 ];
 
@@ -456,7 +462,11 @@ function GrilleParcours({ etudId, peutEcrire }) {
                           </div>
                         </div>
                         <button
-                          onClick={() => ecrire(detail.calcul.sur20 >= 10 ? 'reussi' : 'ajourne',
+                          onClick={() => ecrire(
+                            detail.calcul.sur20 >= 10 ? 'reussi' : 'ajourne',
+                            // La cote est conservée même sous le seuil : elle sert à la
+                            // seconde session et à un éventuel recours. Elle n'est
+                            // simplement pas communiquée à l'étudiant.
                             { points: detail.calcul.sur20 })}
                           className="flex-none text-[11.5px] px-2.5 py-1.5 rounded-lg bg-iip-blue text-white font-semibold">
                           Reporter sur l\u2019UE
@@ -601,9 +611,13 @@ function Valorisations({ etudId, annee }) {
   const [valos, setValos] = useState(null);
   const [form, setForm] = useState(null);
   const [composantes, setComposantes] = useState(null);
+  // Directeur, directeur adjoint et administrateur technique ont les mêmes
+  // droits ici : comparer à la seule chaîne 'admin' en écartait la direction.
   const [estAdmin] = useState(() => {
-    try { return JSON.parse(atob((localStorage.getItem('token')||'').split('.')[1]||''))?.role === 'admin'; }
-    catch { return false; }
+    try {
+      const jeton = JSON.parse(atob((localStorage.getItem('token') || '').split('.')[1] || ''));
+      return ['admin', 'directeur', 'directeur_adjoint'].includes(jeton?.role);
+    } catch { return false; }
   });
 
   async function charger() {
@@ -904,6 +918,23 @@ function FicheEtudiant({ id, annee, onClose }) {
     if (rep.ok) setFicheInscription(j);
     else alert(j.error || 'Erreur');
   }
+
+  // Les frais de scolarité relèvent de l'établissement, non de la Fédération :
+  // ils font l'objet d'un document distinct de la fiche d'inscription.
+  async function ouvrirFraisScolarite() {
+    const rep = await fetch(`/api/frais-scolarite/etudiant/${id}/document?annee=${annee}`,
+      { headers: authHeaders() });
+    if (!rep.ok) {
+      const j = await rep.json().catch(() => ({}));
+      alert(j.error || 'Erreur à la génération du document.');
+      return;
+    }
+    const j = await rep.json();
+    // Le même aperçu que la fiche d'inscription : setRapport appartient à un
+    // autre composant, l'appeler ici ne produisait rien.
+    setFicheInscription({ html: j.html, titre: j.titre });
+  }
+
   const anneePrecedente = useMemo(() => {
     if (!annee) return null;
     const [a1, a2] = annee.split('-').map(Number);
@@ -967,6 +998,8 @@ function FicheEtudiant({ id, annee, onClose }) {
             ['pae', `PAE ${annee}`],
             ['va', 'Valorisation'],
             ['di', "Droit d'inscription"],
+            ['stages', 'Stages'],
+            ['amenagements', 'Aménagements'],
             ['dossier', 'Dossier']].map(([k, l]) => (
             <button key={k} onClick={() => { setOnglet(k); if (k==='pae' && !pae) chargerPAE(); }}
               className={`px-4 py-3 text-sm font-medium border-b-2 -mb-px ${onglet===k
@@ -986,6 +1019,18 @@ function FicheEtudiant({ id, annee, onClose }) {
           {onglet === 'di' && <DroitInscription etudId={id} annee={annee} />}
 
           {onglet === 'dossier' && <DossierApprenant etudId={id} />}
+
+          {onglet === 'stages' && (
+            <div className="p-5">
+              <Stages etudId={id} annee={annee} />
+            </div>
+          )}
+
+          {onglet === 'amenagements' && (
+            <div className="p-5">
+              <Amenagements etudId={id} annee={annee} />
+            </div>
+          )}
 
           {onglet === 'pae' && (
             <div>
@@ -1013,6 +1058,12 @@ function FicheEtudiant({ id, annee, onClose }) {
                       ? <span className="text-[11px] font-semibold text-emerald-700 flex items-center gap-1"><IconCheck size={12} /> Accessible</span>
                       : u.sous_reserve || u.propose_sous_reserve
                         ? <span className="text-[11px] text-sky-700 flex items-center gap-1"><IconClock size={12} /> Sous réserve — réussite UE {(u.prereq_manquants || []).join(', ')}</span>
+                        : u.avertissements?.length
+                          ? <span className="text-[11px] text-amber-700 flex items-center gap-1"
+                              title={u.avertissements.map(a => `UE ${a.ue_num}${a.motif ? ' — ' + a.motif : ''}`).join('\n')}>
+                              <IconAlertTriangle size={12} />
+                              Recommandé après {u.avertissements.map(a => a.ue_num).join(', ')}
+                            </span>
                         : u.epreuve_integree
                           ? <span className="text-[11px] text-red-600 flex items-center gap-1"
                               title={'Restent à acquérir : UE ' + (u.epreuve_restantes || []).join(', ')}>
@@ -1052,6 +1103,11 @@ function FicheEtudiant({ id, annee, onClose }) {
                       <button onClick={ouvrirFicheInscription}
                         className="flex items-center gap-1.5 px-3 py-1.5 text-sm bg-iip-blue text-white font-semibold rounded-lg">
                         <IconFileText size={14} /> Fiche d'inscription / reçu
+                      </button>
+                      <button onClick={ouvrirFraisScolarite}
+                        title="Frais de scolarité et acompte — document distinct, l'administration n'en connaît pas"
+                        className="flex items-center gap-1.5 px-3 py-1.5 text-sm border border-iip-blue text-iip-blue font-semibold rounded-lg hover:bg-iip-blue/5">
+                        <IconFileText size={14} /> Frais de scolarité
                       </button>
                     </div>
                   </div>
@@ -1209,7 +1265,8 @@ function FicheEtudiant({ id, annee, onClose }) {
         </div>
       </div>
 
-      {ficheInscription && <PreviewModal html={ficheInscription.html} titre="Fiche d'inscription / reçu"
+      {ficheInscription && <PreviewModal html={ficheInscription.html}
+        titre={ficheInscription.titre || "Fiche d'inscription / reçu"}
         nomFichier={ficheInscription.nom} astuceImpression="Portrait A4"
         onClose={() => setFicheInscription(null)} />}
     </div>
@@ -1234,6 +1291,7 @@ export default function Etudiants() {
   const [importListe, setImportListe] = useState(false);
   const [importHisto, setImportHisto] = useState(false);
   const [tri, setTri] = useState({ champ: 'nom', sens: 1 });
+
 
   function trierPar(champ) {
     setTri(t => t.champ === champ ? { champ, sens: -t.sens } : { champ, sens: 1 });
@@ -1302,7 +1360,9 @@ export default function Etudiants() {
           // Une valeur au-delà de 20 est un pourcentage : on la ramène sur 20.
           const points = noteBrute == null ? null
             : Math.round((noteBrute <= 20 ? noteBrute : noteBrute / 5) * 10) / 10;
-          const resultat = dec === 'C' ? 'reussi' : (dec === 'R' || dec === 'AJ') ? 'ajourne' : null;
+          const resultat = dec === 'C' ? 'reussi'
+            : dec === 'AJ' ? 'ajourne'
+            : dec === 'R' ? 'refuse' : null;
           resultats.push({ id_ecampus: String(mat).trim(), ue_num: ueNum, resultat, points });
         }
       }
@@ -1451,6 +1511,22 @@ export default function Etudiants() {
     });
   }, [etudiants, recherche, tri]);
 
+  // Volets par section, comme dans la répartition des périodes : la liste se
+  // parcourt section par section, et un étudiant inscrit dans plusieurs
+  // sections apparaît sous chacune.
+  const [sectionsDeployees, setSectionsDeployees] = useState({});
+  const parSection = useMemo(() => {
+    const par = new Map();
+    for (const e of filtres) {
+      const secs = (e.sections || '').split(',').map(s => s.trim()).filter(Boolean);
+      for (const s of (secs.length ? secs : ['(sans section)'])) {
+        if (!par.has(s)) par.set(s, []);
+        par.get(s).push(e);
+      }
+    }
+    return [...par.entries()].sort((a, b) => a[0].localeCompare(b[0]));
+  }, [filtres]);
+
   return (
     <div className="p-5 space-y-4 max-w-none">
       <div className="flex items-center justify-between flex-wrap gap-3">
@@ -1538,7 +1614,25 @@ export default function Etudiants() {
               </tr>
             </thead>
             <tbody>
-              {filtres.map(e => (
+              {parSection.map(([sec, liste]) => {
+                const ouverte = sectionsDeployees[sec] !== false;
+                return (
+                  <Fragment key={sec}>
+                    {parSection.length > 1 && (
+                      <tr className="bg-iip-blue/5 border-y border-iip-blue/20">
+                        <td colSpan={6} className="px-4 py-2">
+                          <button onClick={() => setSectionsDeployees(d => ({ ...d, [sec]: !ouverte }))}
+                            className="flex items-center gap-1.5 text-[12.5px] font-semibold text-iip-blue">
+                            <span className="text-slate-400 w-3 inline-block">{ouverte ? '−' : '+'}</span>
+                            {sec}
+                            <span className="font-normal text-[11px] text-slate-500">
+                              {liste.length} étudiant(s)
+                            </span>
+                          </button>
+                        </td>
+                      </tr>
+                    )}
+                    {ouverte && liste.map(e => (
                 <tr key={e.id} onClick={() => setSelId(e.id)}
                   className="border-b border-slate-100 last:border-0 hover:bg-slate-50/60 cursor-pointer">
                   <td className="px-4 py-2.5">
@@ -1560,7 +1654,10 @@ export default function Etudiants() {
                   <td className="px-4 py-2.5 text-right font-medium text-iip-blue">{e.nb_ue}</td>
                   <td className="px-4 py-2.5 text-slate-300"><IconChevronRight size={16} /></td>
                 </tr>
-              ))}
+                    ))}
+                  </Fragment>
+                );
+              })}
             </tbody>
           </table>
         </div>

@@ -16,29 +16,55 @@ import { authHeaders } from '../lib/api.js';
 
 const MS_JOUR = 86400000;
 
+// Numéro de semaine ISO 8601 : la semaine 1 est celle qui contient le premier
+// jeudi de l'année — c'est la convention des horaires scolaires.
+function numeroSemaine(date) {
+  const d = new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate()));
+  d.setUTCDate(d.getUTCDate() + 4 - ((d.getUTCDay() + 6) % 7 + 1));
+  const jan1 = new Date(Date.UTC(d.getUTCFullYear(), 0, 1));
+  return Math.ceil((((d - jan1) / MS_JOUR) + 1) / 7);
+}
+
 export default function PlanificateurUE({ items, annee, val, editer, modifs }) {
   const [selection, setSelection] = useState(null);   // id de l'organisation
   const [jalons, setJalons] = useState(null);
   const pisteRef = useRef(null);
 
   // Bornes de l'année académique : du 1er septembre au 10 juillet
-  const { debut, totalJours, moisSegments } = useMemo(() => {
+  const { debut, totalJours, moisSegments, elargie } = useMemo(() => {
     const a1 = Number(String(annee || '').slice(0, 4)) || new Date().getFullYear();
-    const debut = new Date(Date.UTC(a1, 8, 1));            // 1er septembre
-    const fin = new Date(Date.UTC(a1 + 1, 6, 10));         // 10 juillet
+    let debut = new Date(Date.UTC(a1, 8, 1));              // 1er septembre
+    let fin = new Date(Date.UTC(a1 + 1, 6, 10));           // 10 juillet
+
+    // Une date hors de cette fenêtre était rabattue sur le bord : les deux
+    // extrémités se confondaient et le rectangle disparaissait sans rien dire.
+    // On élargit donc la fenêtre à ce que portent réellement les données.
+    let elargie = false;
+    for (const it of (items || [])) {
+      if (it.type !== 'ligne') continue;
+      for (const champ of ['date_debut', 'date_fin']) {
+        const v = val(it.l, champ);
+        if (!v) continue;
+        const d = new Date(v + 'T00:00:00Z');
+        if (isNaN(d)) continue;
+        if (d < debut) { debut = new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), 1)); elargie = true; }
+        if (d > fin)   { fin = new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth() + 1, 0)); elargie = true; }
+      }
+    }
     const totalJours = Math.round((fin - debut) / MS_JOUR);
-    const noms = ['Sept', 'Oct', 'Nov', 'Déc', 'Jan', 'Fév', 'Mars', 'Avr', 'Mai', 'Juin', 'Juil'];
+    const NOMS = ['Jan', 'Fév', 'Mars', 'Avr', 'Mai', 'Juin', 'Juil', 'Août',
+                  'Sept', 'Oct', 'Nov', 'Déc'];
     const moisSegments = [];
     let curseur = new Date(debut);
-    for (let i = 0; i < 11; i++) {
+    while (curseur < fin) {
       const prochain = new Date(Date.UTC(curseur.getUTCFullYear(), curseur.getUTCMonth() + 1, 1));
       const borne = prochain > fin ? fin : prochain;
       const jours = Math.round((borne - curseur) / MS_JOUR);
-      if (jours > 0) moisSegments.push({ nom: noms[i], jours });
+      if (jours > 0) moisSegments.push({ nom: NOMS[curseur.getUTCMonth()], jours });
       curseur = prochain;
     }
-    return { debut, totalJours, moisSegments };
-  }, [annee]);
+    return { debut, totalJours, moisSegments, elargie };
+  }, [annee, items, val]);
 
   const versJours = iso => {
     if (!iso) return null;
@@ -50,6 +76,37 @@ export default function PlanificateurUE({ items, annee, val, editer, modifs }) {
     return d.toISOString().slice(0, 10);
   };
   const frDate = iso => iso ? iso.slice(0, 10).split('-').reverse().join('/') : '—';
+
+  // Congés et fermetures, tirés des événements d'établissement : les placer sur
+  // la ligne du temps évite de faire démarrer une UE pendant les vacances.
+  const [conges, setConges] = useState([]);
+  useEffect(() => {
+    if (!annee) return;
+    let vivant = true;
+    fetch(`/api/rentree/evenements?annee=${annee}`, { headers: authHeaders() })
+      .then(r => r.ok ? r.json() : [])
+      .then(l => {
+        if (!vivant || !Array.isArray(l)) return;
+        setConges(l.filter(e => /cong|vacance|fermet|férié|ferie/i.test(
+          `${e.type || ''} ${e.titre || ''}`)));
+      })
+      .catch(() => {});
+    return () => { vivant = false; };
+  }, [annee]);
+
+  // Semaines : bornes du lundi, et numéro ISO
+  const semaines = useMemo(() => {
+    const out = [];
+    const d = new Date(debut);
+    // Reculer jusqu'au lundi qui précède ou coïncide
+    d.setUTCDate(d.getUTCDate() - ((d.getUTCDay() + 6) % 7));
+    while ((d - debut) / MS_JOUR < totalJours) {
+      const offset = Math.round((d - debut) / MS_JOUR);
+      out.push({ offset, numero: numeroSemaine(d) });
+      d.setUTCDate(d.getUTCDate() + 7);
+    }
+    return out;
+  }, [debut, totalJours]);
 
   // Jalons de l'organisation sélectionnée (dates enregistrées, logique serveur)
   useEffect(() => {
@@ -126,6 +183,27 @@ export default function PlanificateurUE({ items, annee, val, editer, modifs }) {
             ))}
           </div>
 
+          {/* Numéros de semaine, sous les mois */}
+          <div className="flex border-b border-slate-200 bg-white relative" style={{ height: 16 }}>
+            <div className="w-[210px] flex-none border-r border-slate-200" />
+            <div className="flex-1 relative">
+              {semaines.map((s, i) => (
+                <span key={i}
+                  style={{ left: `${s.offset / totalJours * 100}%` }}
+                  className="absolute top-0 text-[8.5px] text-slate-400 border-l border-slate-100 pl-0.5 h-4 leading-4">
+                  {s.numero}
+                </span>
+              ))}
+            </div>
+          </div>
+
+          {elargie && (
+            <div className="px-3 py-1 bg-amber-50 border-b border-amber-200 text-[10.5px] text-amber-800">
+              Des dates sortent de l'année académique : la ligne du temps a été élargie pour les
+              montrer. Vérifiez qu'il ne s'agit pas d'une erreur de saisie.
+            </div>
+          )}
+
           {items.map((item, idx) => {
             if (item.type === 'groupe') {
               return (
@@ -152,6 +230,18 @@ export default function PlanificateurUE({ items, annee, val, editer, modifs }) {
                 </div>
                 <div className="relative flex-1" data-piste
                   style={{ background: 'repeating-linear-gradient(90deg, transparent, transparent calc(100%/43 - 1px), #F5F7FA calc(100%/43 - 1px), #F5F7FA calc(100%/43))' }}>
+                  {/* Congés en arrière-plan : une UE ne devrait pas démarrer là. */}
+                  {conges.map((ev, k) => {
+                    const cd = versJours(ev.date_debut);
+                    const cf = versJours(ev.date_fin || ev.date_debut);
+                    if (cd == null || cf == null || cf <= cd) return null;
+                    return (
+                      <div key={`c-${k}`} title={ev.titre || 'Congé'}
+                        style={{ left: `${cd / totalJours * 100}%`,
+                                 width: `${(cf - cd) / totalJours * 100}%` }}
+                        className="absolute inset-y-0 bg-slate-300/35 pointer-events-none" />
+                    );
+                  })}
                   {pose ? (
                     <div
                       onPointerDown={e => e.target.dataset.poignee ? demarrer(e, l, 'etirer') : demarrer(e, l, 'deplacer')}

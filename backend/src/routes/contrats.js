@@ -1,5 +1,6 @@
 import { Router } from 'express';
 import db from '../db/index.js';
+import { anneeDeTravail } from '../helpers/annee.js';
 import { authRequired, roleRequired } from '../middleware/auth.js';
 import { genererContrat } from '../services/contrat_fill.js';
 import { genererApercu } from '../services/contrat_preview.js';
@@ -84,7 +85,7 @@ r.post('/generer', authRequired, roleRequired('admin', 'editeur'), async (req, r
   if (!prof) return res.status(404).json({ error: 'Professeur introuvable' });
 
   const etab = db.prepare('SELECT * FROM etablissement WHERE id = 1').get() || {};
-  const anneeActive = annee || db.prepare(`SELECT code FROM annee_scolaire WHERE active = 1 LIMIT 1`).get()?.code || '2026-2027';
+  const anneeActive = annee || anneeDeTravail(req) || '2026-2027';
 
   // Récupérer les attributions du prof pour l'année
   const attributions = db.prepare(`

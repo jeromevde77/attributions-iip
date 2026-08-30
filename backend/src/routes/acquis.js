@@ -23,6 +23,7 @@
 
 import { Router } from 'express';
 import db from '../db/index.js';
+import { anneeDeTravail, anneeActiveEnBase } from '../helpers/annee.js';
 import { authRequired, roleRequired } from '../middleware/auth.js';
 
 const r = Router();
@@ -118,7 +119,7 @@ export function migrerAA(dbx) {
  */
 export function structureUE(ueNum, annee) {
   const anneeRef = annee
-    || db.prepare('SELECT code FROM annee_scolaire WHERE active = 1').get()?.code;
+    || anneeActiveEnBase();
 
   let cours = db.prepare(`
     SELECT cours_code, cours_nom, cours_per FROM cours
@@ -402,7 +403,7 @@ r.post('/ponderations/repartir', authRequired, roleRequired('admin', 'editeur'),
 // ── UE d'une section, avec l'état de leur paramétrage ───────────────────────
 r.get('/sections/:section/ues', authRequired, (req, res) => {
   const annee = req.query.annee
-    || db.prepare('SELECT code FROM annee_scolaire WHERE active = 1').get()?.code;
+    || anneeDeTravail(req);
 
   const ues = db.prepare(`
     SELECT DISTINCT ue_num, MIN(ue_nom) AS ue_nom, MIN(ue_niv) AS ue_niv

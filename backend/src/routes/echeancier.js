@@ -21,7 +21,7 @@ const SELECT_BASE = `
          e.genere_auto, e.responsable_user_id, e.responsable_role,
          t.code, t.libelle, t.description, t.zone, t.categorie,
          t.base_legale, t.lien_interne, t.rappels_defaut,
-         u.nom AS responsable_nom
+         u.nom_complet AS responsable_nom
     FROM echeance e
     JOIN echeance_type t ON t.id = e.type_id
     LEFT JOIN utilisateur u ON u.id = e.responsable_user_id
@@ -39,7 +39,7 @@ r.get('/', authRequired, (req, res) => {
   if (zone)   { sql += ' AND t.zone = ?';   p.push(zone); }
   if (statut) { sql += ' AND e.statut = ?'; p.push(statut); }
   if (responsable) {
-    sql += ' AND (e.responsable_role = ? OR u.nom = ?)';
+    sql += ' AND (e.responsable_role = ? OR u.nom_complet = ?)';
     p.push(responsable, responsable);
   }
   if (mien === '1') {
@@ -72,10 +72,10 @@ r.get('/', authRequired, (req, res) => {
   `).all(annee);
 
   const responsables = db.prepare(`
-    SELECT COALESCE(u.nom, e.responsable_role) AS nom, COUNT(*) n,
+    SELECT COALESCE(u.nom_complet, e.responsable_role) AS nom, COUNT(*) n,
            SUM(CASE WHEN e.statut='en_retard' THEN 1 ELSE 0 END) retard
       FROM echeance e LEFT JOIN utilisateur u ON u.id = e.responsable_user_id
-     WHERE e.annee_scolaire = ? AND COALESCE(u.nom, e.responsable_role) IS NOT NULL
+     WHERE e.annee_scolaire = ? AND COALESCE(u.nom_complet, e.responsable_role) IS NOT NULL
      GROUP BY nom ORDER BY n DESC
   `).all(annee);
 

@@ -1,5 +1,6 @@
 import { Router } from 'express';
 import db from '../db/index.js';
+import { anneeDeTravail } from '../helpers/annee.js';
 import { authRequired, roleRequired, getUserSections } from '../middleware/auth.js';
 import { parseDossierPedagogique } from '../parseDossierPedagogique.js';
 
@@ -790,11 +791,15 @@ r.get('/professeurs/:id', authRequired, (req, res) => {
   const base = db.prepare('SELECT * FROM professeur WHERE id = ?').get(req.params.id);
   if (!base) return res.status(404).json({ error: 'Professeur introuvable' });
   // Vue pour les totaux/calculs (nom_prenom, total_per_iip, etc.)
+  // La vue v_professeur_total additionne TOUTES les années : s'en servir pour
+  // la charge affichée mêlait 2025-2026 et 2026-2027. On ne lui demande donc
+  // que le signalétique, et les totaux se recalculent sur la seule année
+  // demandée, plus bas.
   const vue = db.prepare('SELECT * FROM v_professeur_total WHERE id = ?').get(req.params.id) || {};
   // Fusion : la table complète d'abord, la vue complète les totaux
   const p = { ...vue, ...base, nom_prenom: vue.nom_prenom || `${base.nom} ${base.prenom}` };
   const annee = req.query.annee
-    || db.prepare("SELECT code FROM annee_scolaire WHERE active = 1 LIMIT 1").get()?.code
+    || anneeDeTravail(req)
     || db.prepare("SELECT annee_scolaire FROM attribution WHERE professeur_id = ? ORDER BY annee_scolaire DESC LIMIT 1").get(req.params.id)?.annee_scolaire;
 
   const attrs = db.prepare(`
@@ -854,7 +859,9 @@ r.get('/professeurs/:id', authRequired, (req, res) => {
     else if (a.type_cours === 'PP') etp_pp += total;
     else etp_ct += total; // fallback CT si type inconnu
   }
-  const etp_annee = Math.round((etp_ct / 800 + etp_pp / 1000) * 100) / 100;
+  // Quatre décimales : la fiche les affiche, et arrondir à deux faisait perdre
+  // près d'un pour cent sur une charge partielle.
+  const etp_annee = Math.round((etp_ct / 800 + etp_pp / 1000) * 10000) / 10000;
 
   // Missions de la personne (depuis personnel_mission) pour l'année concernée
   // Regroupées par fonction, avec la liste des sections (et le marqueur établissement)
@@ -880,6 +887,17 @@ r.get('/professeurs/:id', authRequired, (req, res) => {
     fonction: missions.map(m => m.fonction).join(', '),
     missions,
   } : null;
+
+  // Totaux de l'ANNÉE demandée, qui remplacent ceux de la vue
+  const totauxAnnee = db.prepare(`
+    SELECT
+      COALESCE(SUM(CASE WHEN contrat_mdp = 'IIP'  THEN total_attribue_professeur ELSE 0 END), 0) AS total_per_iip,
+      COALESCE(SUM(CASE WHEN contrat_mdp = 'HELB' THEN charge_en_heures          ELSE 0 END), 0) AS total_hrs_helb
+    FROM attribution WHERE professeur_id = ? AND annee_scolaire = ?
+  `).get(req.params.id, annee) || {};
+  p.total_per_iip  = Math.round((totauxAnnee.total_per_iip  || 0) * 10) / 10;
+  p.total_hrs_helb = Math.round((totauxAnnee.total_hrs_helb || 0) * 10) / 10;
+  p.prestations = p.total_per_iip >= 800 ? 'complètes' : 'incomplètes';
 
   res.json({ ...p, attributions: attrs, titres, charges, anciennete, annee,
     admin, missions,
@@ -1499,7 +1517,7 @@ r.put('/personnel-etablissement/:id/sections', authRequired, roleRequired('admin
 // et la liste des sections où il intervient.
 r.get('/membres-cde', authRequired, (req, res) => {
   const annee = req.query.annee
-    || db.prepare("SELECT code FROM annee_scolaire WHERE active = 1 LIMIT 1").get()?.code;
+    || anneeDeTravail(req);
   const rows = db.prepare(`
     SELECT pm.professeur_id, pm.fonction, pm.section_code,
            ft.portee, ft.ordre,
@@ -1572,7 +1590,7 @@ r.get('/fonctions', authRequired, (req, res) => {
 r.get('/personnel-matrice', authRequired, (req, res) => {
   const section = req.query.section || '__ETAB__';
   const annee = req.query.annee
-    || db.prepare("SELECT code FROM annee_scolaire WHERE active = 1 LIMIT 1").get()?.code;
+    || anneeDeTravail(req);
   const estEtab = section === '__ETAB__';
   // Fonctions pertinentes : transversales pour __ETAB__, sinon fonctions "section"
   const fonctions = db.prepare('SELECT id, libelle, portee, ordre FROM fonction_type WHERE portee = ? ORDER BY ordre, libelle')
@@ -1637,7 +1655,7 @@ r.get('/personnel-missions', authRequired, (req, res) => {
 r.get('/grille-section', authRequired, (req, res) => {
   const section = req.query.section;
   const annee = req.query.annee
-    || db.prepare("SELECT code FROM annee_scolaire WHERE active = 1 LIMIT 1").get()?.code;
+    || anneeDeTravail(req);
   if (!section) return res.status(400).json({ error: 'section requise' });
 
   // UE rattachées à la section (via ue_section si présent, sinon ue.section)
@@ -1861,7 +1879,7 @@ r.post('/import-dp', authRequired, roleRequired('admin', 'editeur'), async (req,
     });
 
     const annee = req.query.annee
-      || db.prepare("SELECT code FROM annee_scolaire WHERE active = 1 LIMIT 1").get()?.code
+      || anneeDeTravail(req)
       || '2026-2027';
 
     // Normaliser le code FWB (supprimer espaces pour comparaison)

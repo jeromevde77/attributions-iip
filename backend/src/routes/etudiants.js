@@ -5,7 +5,9 @@
 import { Router } from 'express';
 
 import db from '../db/index.js';
-import { authRequired, roleRequired } from '../middleware/auth.js';
+import { piedDocument } from './parametres.js';
+import { anneeDeTravail } from '../helpers/annee.js';
+import { authRequired, roleRequired, getUserSections } from '../middleware/auth.js';
 import { construireGraphe, niveauxEffectifs } from './capitalisation.js';
 import { structureUE, calculerNoteUE, coursValidesAnterieurs } from './acquis.js';
 import { calculerDI, calculerDIS } from './droitInscription.js';
@@ -22,7 +24,11 @@ const UE_REF = `(
          (SELECT ue_nom  FROM ue x WHERE x.ue_num = u0.ue_num AND x.ue_nom  IS NOT NULL ORDER BY x.annee_scolaire DESC LIMIT 1) AS ue_nom,
          (SELECT ue_niv  FROM ue x WHERE x.ue_num = u0.ue_num AND x.ue_niv  IS NOT NULL ORDER BY x.annee_scolaire DESC LIMIT 1) AS ue_niv,
          (SELECT section FROM ue x WHERE x.ue_num = u0.ue_num AND x.section IS NOT NULL ORDER BY x.annee_scolaire DESC LIMIT 1) AS section,
-         (SELECT ue_quad FROM ue x WHERE x.ue_num = u0.ue_num ORDER BY x.annee_scolaire DESC LIMIT 1) AS ue_quad
+         (SELECT ue_quad FROM ue x WHERE x.ue_num = u0.ue_num ORDER BY x.annee_scolaire DESC LIMIT 1) AS ue_quad,
+         -- Les crédits manquaient à cette sous-requête : la fiche affichait
+         -- donc un tiret sur chaque ligne, et les demander faisait échouer la
+         -- requête entière.
+         (SELECT ects FROM ue x WHERE x.ue_num = u0.ue_num AND x.ects IS NOT NULL ORDER BY x.annee_scolaire DESC LIMIT 1) AS ects
   FROM ue u0 GROUP BY ue_num
 )`;
 
@@ -109,7 +115,11 @@ export function migrerEtudiants(dbx) {
       ue_num         INTEGER NOT NULL,
       groupe         TEXT,
       statut         TEXT DEFAULT 'inscrit',
-      resultat       TEXT,        -- 'reussi' | 'ajourne' | 'absent' | null
+      resultat       TEXT,
+        -- Les TROIS décisions de première session, distinguées par la circulaire
+        -- sanction des études : 'reussi', 'ajourne' — qui ouvre une seconde
+        -- session sur des acquis précis — et 'refuse', qui ne l'ouvre pas.
+        -- 'absent' et NULL complètent le tableau.
       mention        TEXT,        -- A, B, C, D, E
       points         REAL,
       cree_le        TEXT DEFAULT (datetime('now')),
@@ -208,6 +218,20 @@ export const PIECES_APPRENANT = [
 // Certaines UE sont partagées entre sections : une seule UE commune ne doit
 // pas faire entrer tout le catalogue d'une autre section. On ne retient donc
 // que la (ou les) section(s) dominante(s).
+/**
+ * Périmètre de l'utilisateur. Sans cloisonnement, un coordinateur voyait les
+ * étudiants de tout l'établissement — le panneau d'accès affichait ses
+ * sections sans que rien ne les fasse respecter.
+ */
+function perimetre(req) {
+  return getUserSections(req.user);      // null = toutes
+}
+
+function sectionAutoriseeReq(req, section) {
+  const p = perimetre(req);
+  return p === null ? true : (section ? p.includes(section) : false);
+}
+
 function sectionsDeLEtudiant(etudId, forcee) {
   if (forcee) return { sections: [forcee], scores: [] };
   const scores = db.prepare(`
@@ -229,6 +253,10 @@ function sectionsDeLEtudiant(etudId, forcee) {
 // ── Liste des étudiants ───────────────────────────────────────────────────────
 r.get('/', authRequired, (req, res) => {
   const { section, q } = req.query;
+  const autorisees = perimetre(req);
+  if (section && !sectionAutoriseeReq(req, section)) {
+    return res.status(403).json({ error: 'Section hors de votre périmètre' });
+  }
 
   // Tous les étudiants actifs, avec leurs inscriptions toutes années confondues.
   // La section affichée vient des UE de leurs inscriptions (dernière année connue).
@@ -245,6 +273,11 @@ r.get('/', authRequired, (req, res) => {
   const params = [];
 
   if (section) { sql += ` AND u.section = ?`; params.push(section); }
+  else if (autorisees) {
+    // Hors filtre explicite, la liste se borne au périmètre de la personne.
+    sql += ` AND u.section IN (${autorisees.map(() => '?').join(',') || "''"})`;
+    params.push(...autorisees);
+  }
   if (q) {
     sql += ` AND (e.nom LIKE ? OR e.prenom LIKE ? OR e.id_ecampus LIKE ?)`;
     const like = `%${q}%`;
@@ -252,7 +285,7 @@ r.get('/', authRequired, (req, res) => {
   }
   sql += ` GROUP BY e.id ORDER BY e.nom, e.prenom`;
 
-  const anneeActive = db.prepare('SELECT code FROM annee_scolaire WHERE active = 1').get()?.code;
+  const anneeActive = anneeDeTravail(req);
   const rows = db.prepare(sql).all(...params);
   res.json(rows.map(r0 => {
     const n = niveauEtudiant(r0.id, anneeActive);
@@ -265,7 +298,7 @@ r.get('/rapport', authRequired, (req, res) => {
   const { section, annee } = req.query;
   if (!section || !annee) return res.status(400).json({ error: 'section et annee requises' });
 
-  const anneeActive = db.prepare('SELECT code FROM annee_scolaire WHERE active = 1').get()?.code;
+  const anneeActive = anneeDeTravail(req);
 
   // UE de la section (référentiel de l'année demandée, sinon année active), BA1→BA3
   let ues = db.prepare(`
@@ -299,7 +332,12 @@ r.get('/rapport', authRequired, (req, res) => {
   const cle = r0 => r0.etudiant_id;
   for (const i of inscriptions) {
     if (!etudiants.has(cle(i))) etudiants.set(cle(i), { nom: i.nom, prenom: i.prenom, id_ecampus: i.id_ecampus, cells: {} });
-    const marque = i.resultat === 'reussi' ? 'C' : i.resultat === 'ajourne' ? 'R' : i.resultat === 'absent' ? 'A' : '•';
+    // « R » désignait aussi bien l'ajournement que le refus, deux décisions que
+    // la circulaire distingue. L'ajournement prend « Aj ».
+    const marque = i.resultat === 'reussi' ? 'C'
+      : i.resultat === 'ajourne' ? 'Aj'
+      : i.resultat === 'refuse' ? 'R'
+      : i.resultat === 'absent' ? 'A' : '•';
     etudiants.get(cle(i)).cells[i.ue_num] = { m: marque, pts: i.points };
   }
   for (const v of vas) {
@@ -345,6 +383,20 @@ r.get('/rapport', authRequired, (req, res) => {
   td.i  { color: #64748b; }
   .legende { margin-top: 10px; font-size: 10px; color: #64748b; }
   @media print { body { margin: 8mm; } @page { size: landscape; } }
+
+  /* Deux protections plutôt qu'une : la marge de @page, que certains
+     navigateurs ignorent lorsqu'ils impriment depuis un cadre, ET une réserve
+     dans le corps même. Sans la seconde, le pied se superposait au texte. */
+  @page { size: A4 portrait; margin: 14mm 14mm 26mm 14mm; }
+  @media print { body { padding-bottom: 24mm; } }
+
+  /* Pied de page commun, ancré en bas de CHAQUE page — dernière comprise.
+     Un pied placé dans le flux, ou en table-footer-group, flotte au milieu
+     d'une dernière page à moitié vide. */
+  .pied-lucie { position: fixed; bottom: 0; left: 0; right: 0; height: 22mm;
+                padding-top: 2mm; border-top: 0.5pt solid #C9A84C; text-align: center; }
+  .pied-lucie .txt { font-size: 6pt; color: #888; line-height: 1.35; }
+  @media screen { .pied-lucie { position: static; height: auto; margin-top: 12mm; } }
 </style></head><body>
 <h1>Parcours des étudiants — ${esc(section)}</h1>
 <div class="meta">Année académique ${esc(annee)} · ${lignes.length} étudiant(s) · ${ues.length} UE · imprimé le ${new Date().toLocaleDateString('fr-BE')}</div>
@@ -353,6 +405,8 @@ r.get('/rapport', authRequired, (req, res) => {
   <tbody>${corps || '<tr><td colspan="' + (ues.length + 2) + '" style="color:#94a3b8">Aucune donnée pour ces critères</td></tr>'}</tbody>
 </table>
 <div class="legende"><b>C</b> réussite · <b>R</b> refusé · <b>A</b> absent · <b>VA</b> valorisation des acquis · <b>•</b> inscrit (non délibéré) · survolez une case pour les points</div>
+
+<div class="pied-lucie"><div class="txt">${piedDocument()}</div></div>
 </body></html>`;
 
   res.json({ html, nom: 'parcours_' + section + '_' + annee + '.html' });
@@ -386,7 +440,7 @@ r.post('/codes-externes/resoudre', authRequired, (req, res) => {
   const { codes, section } = req.body;
   if (!Array.isArray(codes)) return res.status(400).json({ error: 'codes requis' });
 
-  const anneeRef = db.prepare('SELECT code FROM annee_scolaire WHERE active = 1').get()?.code;
+  const anneeRef = anneeDeTravail(req);
   const ues = db.prepare(`
     SELECT DISTINCT ue_num, MIN(ue_nom) AS ue_nom, MIN(section) AS section FROM ue
     ${section ? 'WHERE section = ?' : ''}
@@ -497,7 +551,7 @@ r.get('/rapport-pae', authRequired, (req, res) => {
   const { section, annee, niveau, ue_num, granularite = 'ue' } = req.query;
   if (!section || !annee) return res.status(400).json({ error: 'section et annee requises' });
 
-  const anneeRef = db.prepare('SELECT code FROM annee_scolaire WHERE active = 1').get()?.code || annee;
+  const anneeRef = anneeDeTravail(req) || annee;
   const niveaux = niveauxEffectifs([section], annee);
 
   let ues = db.prepare(`
@@ -574,7 +628,14 @@ r.get('/rapport-pae', authRequired, (req, res) => {
     const p = parEtud[i.etudiant_id]; if (!p) continue;
     if (i.annee_scolaire === annee) {
       p.courant[i.ue_num] = i.resultat || 'inscrit';
-      if (i.points != null) (p.points_courant = p.points_courant || {})[i.ue_num] = i.points;
+      // La cote reste en base, mais elle ne se COMMUNIQUE pas lorsque le seuil
+      // de réussite n'est pas atteint : les documents portent « NA ». La
+      // transmettre ici reviendrait à la faire figurer sur un rapport remis à
+      // l'étudiant.
+      if (i.points != null) {
+        (p.points_courant = p.points_courant || {})[i.ue_num] =
+          ['reussi', 'va'].includes(i.resultat) ? i.points : 'NA';
+      }
     }
     if (i.resultat === 'reussi') {
       const prec = p.ue[i.ue_num];
@@ -608,7 +669,8 @@ r.get('/rapport-pae', authRequired, (req, res) => {
     const diplomable = epreuves.length > 0
       && restantes.length > 0
       && restantes.every(n => epreuves.includes(n));
-    const echecs = Object.values(p.courant).filter(r0 => r0 === 'ajourne').length;
+    const echecs = Object.values(p.courant)
+      .filter(r0 => r0 === 'ajourne' || r0 === 'refuse').length;
     return {
       ...e, niveau: niveauEtudiant(e.id, annee).libelle || null, ...p,
       acquises: acquises.length, total_ue: ues.length,
@@ -646,7 +708,7 @@ r.get('/synthese', authRequired, (req, res) => {
   const { section } = req.query;
   if (!section) return res.status(400).json({ error: 'section requise' });
 
-  const anneeRef = db.prepare('SELECT code FROM annee_scolaire WHERE active = 1').get()?.code;
+  const anneeRef = anneeDeTravail(req);
   const ues = db.prepare(`
     SELECT DISTINCT ue_num FROM ue WHERE section = ?
   `).all(section).map(u => u.ue_num);
@@ -746,6 +808,7 @@ r.post('/rapport-pae/excel', authRequired, async (req, res) => {
     if (b.startsWith('VA')) return 'va';
     if (b === 'R') return 'ko';
     if (b === 'A') return 'abs';
+    if (b === 'NA') return 'ko';   // cote non communiquée : seuil non atteint
     if (b === 'x') return 'ins';
     return null;
   };
@@ -882,7 +945,7 @@ r.get('/matrice', authRequired, (req, res) => {
   const { annee, section } = req.query;
   if (!annee || !section) return res.status(400).json({ error: 'annee et section requises' });
 
-  const anneeRef = db.prepare('SELECT code FROM annee_scolaire WHERE active = 1').get()?.code || annee;
+  const anneeRef = anneeDeTravail(req) || annee;
 
   const ues = db.prepare(`
     SELECT DISTINCT ue_num, MIN(ue_nom) AS ue_nom FROM ue
@@ -983,7 +1046,7 @@ r.post('/matrice', authRequired, roleRequired('admin', 'editeur'), (req, res) =>
 // ── Périmètre disponible pour la purge : UE et cours d'une section ──────────
 r.get('/purge/perimetre', authRequired, (req, res) => {
   const { section, annee } = req.query;
-  const anneeRef = db.prepare('SELECT code FROM annee_scolaire WHERE active = 1').get()?.code || annee;
+  const anneeRef = anneeDeTravail(req) || annee;
 
   const annees = db.prepare(
     'SELECT DISTINCT annee_scolaire FROM etudiant_inscription ORDER BY annee_scolaire DESC'
@@ -1015,7 +1078,7 @@ r.get('/purge/etudiants', authRequired, (req, res) => {
   let ues = null;
   if (ue_num) ues = [Number(ue_num)];
   else if (section) {
-    const anneeRef = db.prepare('SELECT code FROM annee_scolaire WHERE active = 1').get()?.code || annee;
+    const anneeRef = anneeDeTravail(req) || annee;
     ues = db.prepare(`
       SELECT DISTINCT ue_num FROM ue WHERE section = ? AND annee_scolaire IN (?, ?)
     `).all(section, annee, anneeRef).map(r0 => r0.ue_num);
@@ -1051,7 +1114,7 @@ r.post('/purge', authRequired, roleRequired('admin', 'editeur'), (req, res) => {
   let ues = null;
   if (ue_num) ues = [Number(ue_num)];
   else if (section) {
-    const anneeRef = db.prepare('SELECT code FROM annee_scolaire WHERE active = 1').get()?.code || annee;
+    const anneeRef = anneeDeTravail(req) || annee;
     ues = db.prepare(`
       SELECT DISTINCT ue_num FROM ue WHERE section = ? AND annee_scolaire IN (?, ?)
     `).all(section, annee, anneeRef).map(r0 => r0.ue_num);
@@ -1143,20 +1206,37 @@ r.get('/:id', authRequired, (req, res) => {
     ORDER BY i.annee_scolaire DESC, u.section, i.ue_num
   `).all(etudiant.id);
 
-  const anneeAct = db.prepare('SELECT code FROM annee_scolaire WHERE active = 1').get()?.code;
+  const anneeAct = anneeDeTravail(req);
+  // Un étudiant hors périmètre ne doit pas être consultable par son seul
+  // identifiant : masquer la liste sans protéger la fiche ne protège rien.
+  const { sections: secEtud } = sectionsDeLEtudiant(etudiant.id, null);
+  const autoriseesFiche = perimetre(req);
+  if (autoriseesFiche && secEtud.length && !secEtud.some(s => autoriseesFiche.includes(s))) {
+    return res.status(403).json({ error: 'Cet étudiant est hors de votre périmètre' });
+  }
+
   res.json({ ...etudiant, inscriptions, niveau: niveauEtudiant(etudiant.id, anneeAct) });
 });
 
 // ── Encoder un résultat ───────────────────────────────────────────────────────
 r.patch('/inscription/:id', authRequired, roleRequired('admin', 'editeur'), (req, res) => {
   const { resultat, mention, points } = req.body;
-  const RESULTATS = ['reussi', 'ajourne', 'absent', null];
+  // Les trois décisions de première session, plus l'absence. « refuse » manquait :
+  // le serveur aurait rejeté une décision que la circulaire prévoit.
+  const RESULTATS = ['reussi', 'ajourne', 'refuse', 'absent', null];
   if (resultat !== undefined && !RESULTATS.includes(resultat)) {
     return res.status(400).json({ error: 'resultat invalide' });
   }
+
+  // La cote est CONSERVÉE quel que soit le résultat : l'établissement doit la
+  // connaître — pour la seconde session, pour un recours, pour la délibération.
+  // Ce que la circulaire écarte, c'est sa COMMUNICATION : lorsque le seuil
+  // n'est pas atteint, les documents remis à l'étudiant portent « NA » et non
+  // un nombre. L'effacer aurait fait perdre une information nécessaire.
   db.prepare(`
     UPDATE etudiant_inscription SET resultat = ?, mention = ?, points = ? WHERE id = ?
   `).run(resultat ?? null, mention ?? null, points ?? null, Number(req.params.id));
+
   res.json({ ok: true });
 });
 
@@ -1234,9 +1314,18 @@ r.get('/:id/pae', authRequired, (req, res) => {
   };
 
   // Graphe complet des prérequis, pour le contrôle transitif
-  const prereqTous = {};
-  for (const p of db.prepare('SELECT ue_num, prerequis_num FROM ue_prerequis').all()) {
-    (prereqTous[p.ue_num] = prereqTous[p.ue_num] || []).push(p.prerequis_num);
+  // Deux natures : le prérequis LÉGAL bloque, l'INTERNE avertit seulement.
+  // Les mêler priverait un étudiant d'une UE qu'il a le droit de suivre.
+  const prereqTous = {}, prereqInternes = {};
+  for (const p of db.prepare(
+    "SELECT ue_num, prerequis_num, COALESCE(type,'legal') AS type, motif FROM ue_prerequis"
+  ).all()) {
+    if (p.type === 'interne') {
+      (prereqInternes[p.ue_num] = prereqInternes[p.ue_num] || []).push(
+        { ue: p.prerequis_num, motif: p.motif });
+    } else {
+      (prereqTous[p.ue_num] = prereqTous[p.ue_num] || []).push(p.prerequis_num);
+    }
   }
 
   // UEs organisées cette année dans ces sections — UNE ligne par UE
@@ -1341,6 +1430,11 @@ r.get('/:id/pae', authRequired, (req, res) => {
       sous_reserve: estEpreuve[ue.ue_num] ? false : (sous_reserve && !deja_reussie),
       prereq_manquants: prereqManquants.map(p => p.ue_num_requis),
       prereq_chaine: chaineManquante,
+      // Recommandations non satisfaites : l'UE reste accessible, mais l'écran
+      // le signale pour que la décision soit prise en connaissance de cause.
+      avertissements: (prereqInternes[ue.ue_num] || [])
+        .filter(x => !reussies.has(x.ue))
+        .map(x => ({ ue_num: x.ue, motif: x.motif })),
       // Circulaire 9764 : la réinscription dans une UE déjà réussie est possible
       // avec décision favorable du Conseil des études (pièce au dossier).
       reinscriptible_ce: prerequis_ok && deja_reussie,
@@ -1483,7 +1577,7 @@ r.post('/:id/pae-auto', authRequired, roleRequired('admin', 'editeur'), (req, re
   // NIVEAU (épreuve intégrée et ses déterminantes). Une UE dont le prérequis
   // manquant est d'un niveau inférieur n'est pas inscriptible : il faut
   // d'abord réussir ce prérequis (cas UE de BA1 ratée → la suite attend).
-  const anneeRefNiv = db.prepare('SELECT code FROM annee_scolaire WHERE active = 1').get()?.code || annee;
+  const anneeRefNiv = anneeDeTravail(req) || annee;
   const nivRows = db.prepare('SELECT DISTINCT ue_num, ue_niv FROM ue WHERE annee_scolaire = ?').all(anneeRefNiv);
   const nivDe = {};
   for (const n of nivRows) nivDe[n.ue_num] = (n.ue_niv || '').toUpperCase();
@@ -1785,7 +1879,7 @@ r.get('/:id/grille', authRequired, (req, res) => {
   const { sections, scores: sectionsScores } = sectionsDeLEtudiant(etudId, req.query.section);
 
   // Année active pour le référentiel UE
-  const anneeActive = db.prepare('SELECT code FROM annee_scolaire WHERE active = 1').get()?.code;
+  const anneeActive = anneeDeTravail(req);
 
   // Les UE de la section (référentiel année active), triées BA1→BA3 puis numéro
   let ues = [];
@@ -2202,7 +2296,10 @@ r.get('/:id/fiche-inscription', authRequired, (req, res) => {
 
   // 2. UE de l'inscription de l'année
   const inscriptions = db.prepare(`
-    SELECT i.*, u.ue_nom, u.section
+    -- Les ECTS viennent du RÉFÉRENTIEL : etudiant_inscription n'en porte pas.
+    -- La colonne figurait sur la fiche sans être alimentée, faute d'être
+    -- sélectionnée ici.
+    SELECT i.*, u.ue_nom, u.section, u.ects AS ects
     FROM etudiant_inscription i
     LEFT JOIN ${UE_REF} u ON u.ue_num = i.ue_num
     WHERE i.etudiant_id = ? AND i.annee_scolaire = ?
@@ -2219,7 +2316,7 @@ r.get('/:id/fiche-inscription', authRequired, (req, res) => {
   // capitalisation — non la valeur brute du référentiel.
   const sectionsEtud = [...new Set(inscriptions.map(i => i.section).filter(Boolean))];
   const nivDe2 = sectionsEtud.length ? niveauxEffectifs(sectionsEtud, annee) : {};
-  const anneeRefNiv2 = db.prepare('SELECT code FROM annee_scolaire WHERE active = 1').get()?.code || annee;
+  const anneeRefNiv2 = anneeDeTravail(req) || annee;
   for (const n of db.prepare('SELECT DISTINCT ue_num, ue_niv FROM ue WHERE annee_scolaire = ?').all(anneeRefNiv2)) {
     if (!nivDe2[n.ue_num]) nivDe2[n.ue_num] = (n.ue_niv || '').toUpperCase();
   }
@@ -2293,7 +2390,7 @@ r.get('/:id/fiche-inscription', authRequired, (req, res) => {
       <td>${a.ue_num}</td>
       <td>${esc(a.ue_nom || '')}</td>
       <td>${a.kind === 'va' ? '<b>Valorisation des acquis</b>' : 'Réussite'}</td>
-      <td style="text-align:right">${a.points != null ? a.points + ' / 20' : '—'}</td>
+      <td style="text-align:right;white-space:nowrap">${a.points != null ? a.points + ' / 20' : '—'}</td>
     </tr>`).join('');
 
   const lignesAutres = autres.map(h => `
@@ -2302,6 +2399,13 @@ r.get('/:id/fiche-inscription', authRequired, (req, res) => {
       <td>${esc(h.ue_nom || '')}</td>
       <td colspan="2">${h.resultat === 'ajourne' ? 'Refusé' : 'Absent'}</td>
     </tr>`).join('');
+
+  // Dates d'organisation : l'étudiant doit savoir quand son UE commence et se
+  // termine — ces dates commandent aussi son délai de paiement.
+  const datesOrg = Object.fromEntries(db.prepare(`
+    SELECT ue_num, MIN(date_debut) AS date_debut, MAX(date_fin) AS date_fin
+    FROM organisation_ue WHERE annee_scolaire = ? GROUP BY ue_num
+  `).all(annee).map(o => [o.ue_num, o]));
 
   // Droit d'inscription, calculé sur le programme de l'année
   const di = calculerDI(etudId, annee);
@@ -2329,8 +2433,14 @@ r.get('/:id/fiche-inscription', authRequired, (req, res) => {
       <td>${esc(i.date_inscription || '')}</td>
       <td>${i.admission_type === 'titre' ? 'Titre' : i.admission_type === 'test' ? 'Test' : '—'}</td>
       <td>${d?.dispensee ? 'Dispense complète' : (i.dispense_complete ? 'Dispense complète' : '—')}</td>
-      <td style="text-align:right">${d ? d.periodes_brutes : '—'}</td>
-      <td style="text-align:right">${d && !d.dispensee ? eur(d.montant) : '—'}</td>
+      <td style="text-align:center;white-space:nowrap">${(() => {
+        const o = datesOrg[i.ue_num];
+        if (!o?.date_debut && !o?.date_fin) return '—';
+        const j = v => v ? String(v).slice(0, 10).split('-').reverse().join('/') : '…';
+        return `${j(o.date_debut)}<br><span style="color:#94a3b8">→ ${j(o.date_fin)}</span>`;
+      })()}</td>
+      <td style="text-align:right;white-space:nowrap">${d ? d.periodes_brutes : '—'}${d?.porte_forfait ? ' <span style="color:#C9A84C" title="Cette UE porte le forfait annuel">◆</span>' : ''}</td>
+      <td style="text-align:right;white-space:nowrap">${d && !d.dispensee ? eur(d.montant) : '—'}</td>
       <td style="text-align:right">${i.ects != null ? i.ects : '—'}</td>
     </tr>`;
   }).join('');
@@ -2338,22 +2448,25 @@ r.get('/:id/fiche-inscription', authRequired, (req, res) => {
   // Pied du tableau : forfait, puis total
   const piedDI = di && di.detail.length ? `
     <tr class="tot">
-      <td colspan="6" style="text-align:right">Forfait annuel</td>
+      <td colspan="7" style="text-align:right">Forfait annuel${di.ue_forfait ? ` — porté par l'UE ${di.ue_forfait} ◆` : ''}</td>
       <td style="text-align:right">—</td>
       <td style="text-align:right">${eur(di.forfait)}</td><td></td>
     </tr>
     <tr class="tot">
-      <td colspan="6" style="text-align:right"><b>Droit d'inscription — total</b></td>
+      <td colspan="7" style="text-align:right"><b>Droit d'inscription — total</b></td>
       <td style="text-align:right"><b>${di.periodes.total}</b></td>
       <td style="text-align:right"><b>${di.exonere ? '0,00 € (exonéré)' : eur(di.montant_arrondi)}</b></td>
-      <td></td>
-    </tr>
-    ${di.plafond_atteint ? `<tr><td colspan="9" style="font-size:10px;color:#64748b">
+      <td style="text-align:right"><b>${(() => {
+        // Le total des crédits : c'est le chiffre que l'étudiant retient.
+        const t = inscriptions.reduce((s, x) => s + (Number(x.ects) || 0), 0);
+        return t || '—';
+      })()}</b></td></tr>
+    ${di.plafond_atteint ? `<tr><td colspan="10" style="font-size:10px;color:#64748b">
       Plafond de ${di.bareme.plafond_periodes} périodes atteint : ${di.retenues.secondaire + di.retenues.superieur}
       période(s) facturée(s) sur ${di.periodes.total}, le secondaire étant compté en premier.</td></tr>` : ''}
-    ${di.exonere ? `<tr><td colspan="9" style="font-size:10px;color:#065f46">
+    ${di.exonere ? `<tr><td colspan="10" style="font-size:10px;color:#065f46">
       Exonération du droit d'inscription${di.motif ? ' — motif enregistré' : ''}.</td></tr>` : ''}
-    ${dis && dis.soumis ? `<tr class="tot"><td colspan="6" style="text-align:right">
+    ${dis && dis.soumis ? `<tr class="tot"><td colspan="7" style="text-align:right">
       Droit d'inscription spécifique (${dis.periodes_hebdo} pér./sem.)</td>
       <td></td><td style="text-align:right"><b>${eur(dis.montant_du)}</b></td><td></td></tr>` : ''}
   ` : '';
@@ -2374,8 +2487,49 @@ r.get('/:id/fiche-inscription', authRequired, (req, res) => {
   .alerte.grave { background: #FEE2E2; border-color: #FCA5A5; color: #991B1B; }
   .sig { margin-top: 34px; display: flex; gap: 60px; }
   .sig div { flex: 1; border-top: 1px solid #94a3b8; padding-top: 5px; font-size: 11px; }
+  .engagement { margin-top: 20px; padding: 10px 12px; border: 1px solid #cbd5e1;
+                border-radius: 6px; background: #f8fafc; font-size: 10.5px; line-height: 1.5; }
+  .engagement p { margin: 0 0 6px; }
+  .engagement p:last-child { margin-bottom: 0; }
+  .engagement .rgpd { font-size: 9.5px; color: #475569; border-top: 1px solid #cbd5e1;
+                      padding-top: 6px; }
+  .sig .mention { display: block; font-size: 9px; color: #94a3b8; font-style: italic; }
+  /* Sans largeurs explicites, le navigateur donnait autant de place aux
+     colonnes vides qu'aux intitulés, qui s'écrasaient sur six lignes. */
+  table.ues { table-layout: fixed; }
+  table.ues th:nth-child(1), table.ues td:nth-child(1) { width: 6%; }
+  table.ues th:nth-child(2), table.ues td:nth-child(2) { width: 30%; }
+  table.ues th:nth-child(3), table.ues td:nth-child(3) { width: 8%; }
+  table.ues th:nth-child(4), table.ues td:nth-child(4) { width: 10%; }
+  table.ues th:nth-child(5), table.ues td:nth-child(5) { width: 8%; }
+  table.ues th:nth-child(6), table.ues td:nth-child(6) { width: 8%; }
+  table.ues th:nth-child(7), table.ues td:nth-child(7) { width: 11%; }
+  table.ues th:nth-child(8), table.ues td:nth-child(8) { width: 7%; }
+  table.ues th:nth-child(9), table.ues td:nth-child(9) { width: 8%; }
+  table.ues th:nth-child(10), table.ues td:nth-child(10) { width: 4%; }
+  table.ues td { word-wrap: break-word; }
+
+  /* « 10 / 20 » se cassait en deux lignes. */
+  .nowrap, td.num { white-space: nowrap; }
+
+  /* Un bloc de signature coupé en deux pages n'a aucune valeur. */
+  .engagement, .sig { break-inside: avoid; page-break-inside: avoid; }
+  .engagement { break-before: auto; }
+
   .footer { margin-top: 22px; font-size: 10px; color: #64748b; }
   @media print { body { margin: 12mm; } }
+
+  /* La marge basse réserve la hauteur du pied : sans elle, le texte passerait
+     dessous en fin de page. */
+  @page { margin-bottom: 28mm; }
+
+  /* Pied de page commun, ancré en bas de CHAQUE page — dernière comprise.
+     Un pied placé dans le flux, ou en table-footer-group, flotte au milieu
+     d'une dernière page à moitié vide. */
+  .pied-lucie { position: fixed; bottom: 0; left: 0; right: 0; height: 22mm;
+                padding-top: 2mm; border-top: 0.5pt solid #C9A84C; text-align: center; }
+  .pied-lucie .txt { font-size: 6pt; color: #888; line-height: 1.35; }
+  @media screen { .pied-lucie { position: static; height: auto; margin-top: 12mm; } }
 </style></head><body>
 <div class="etab">${esc(etab)} — Enseignement pour Adultes</div>
 <h1>Fiche d'inscription / reçu — ${esc(annee)}</h1>
@@ -2423,16 +2577,44 @@ ${(() => {
 })()}
 
 <h2>Unités d'enseignement — inscription ${esc(annee)}</h2>
-<table>
+<table class="ues">
   <thead><tr>
     <th>UE</th><th>Intitulé</th><th>Section</th><th>Date d'inscription</th>
-    <th>Admission</th><th>Valorisation</th><th>Périodes</th><th>Droit d'inscription</th><th>ECTS</th>
+    <th>Admission</th><th>Valorisation</th><th>Dates</th><th>Périodes</th><th>Droit d'inscription</th><th>ECTS</th>
   </tr></thead>
-  <tbody>${lignesInsc ? lignesInsc + piedDI : '<tr><td colspan="9" style="text-align:center;color:#94a3b8">Aucune UE inscrite pour cette année — encodez les inscriptions dans la grille de parcours</td></tr>'}</tbody>
+  <tbody>${lignesInsc ? lignesInsc + piedDI : '<tr><td colspan="10" style="text-align:center;color:#94a3b8">Aucune UE inscrite pour cette année — encodez les inscriptions dans la grille de parcours</td></tr>'}</tbody>
 </table>
 
+<!-- Engagement de l'étudiant. L'article 39 du règlement des études n'admet
+     comme signature qu'un tracé manuscrit ou un procédé électronique
+     authentifié : le document doit être signé, non approuvé par courriel. -->
+<div class="engagement">
+  <p>
+    Je soussigné(e) <b>${esc([e.titre, e.prenom, e.nom].filter(Boolean).join(' '))}</b>
+    confirme mon inscription aux <b>${inscriptions.length}</b> unité(s) d'enseignement
+    reprises ci-dessus, et signe pour chacune d'elles.
+  </p>
+  <p>
+    Je reconnais avoir pris connaissance du règlement des études et du règlement d'ordre
+    intérieur, et m'engage à les respecter, ainsi qu'à m'acquitter du droit d'inscription
+    dans les délais prévus.
+  </p>
+  <p class="rgpd">
+    <b>Protection des données.</b> Conformément au Règlement général sur la protection des
+    données, les informations recueillies servent uniquement à la gestion du dossier
+    administratif, à des fins pédagogiques et statistiques, et à leur transmission à la
+    Fédération Wallonie-Bruxelles dans le cadre du financement de l'enseignement. Elles ne
+    sont communiquées à aucun tiers, hormis la Fédération dans le cadre de ses missions
+    légales. Vous pouvez accéder aux données vous concernant et en demander la correction
+    auprès du secrétariat. <i>Règlement des études, article 108.</i>
+  </p>
+</div>
+
 <div class="sig">
-  <div>Signature de l'apprenant</div>
+  <div>
+    Signature de l'apprenant
+    <span class="mention">précédée de la mention « lu et approuvé »</span>
+  </div>
   <div>Pour l'établissement</div>
 </div>
 <div class="footer">
@@ -2440,6 +2622,8 @@ ${(() => {
   « Sous réserve » : l'accès effectif dépend de la réussite de l'UE prérequise organisée la même année.
   Document imprimé le ${new Date().toLocaleDateString('fr-BE')} — ${esc(etab)}.
 </div>
+
+<div class="pied-lucie"><div class="txt">${piedDocument()}</div></div>
 </body></html>`;
 
   res.json({ html, nom: 'fiche_inscription_' + (e.nom || 'etudiant') + '_' + annee + '.html' });

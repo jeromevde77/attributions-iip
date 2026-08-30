@@ -113,6 +113,13 @@ export function calculerDI(etudId, annee) {
   // d'une sous-requête : on prend donc d'abord la valeur de l'année exacte
   // (corrélation dans le WHERE, admise), puis à défaut le millésime le plus
   // récent (sous-requête non corrélée).
+  // Dates d'organisation, pour désigner l'UE qui portera le forfait.
+  const orgs = db.prepare(`
+    SELECT ue_num, MIN(date_debut) AS date_debut, MAX(date_fin) AS date_fin
+    FROM organisation_ue WHERE annee_scolaire = ? GROUP BY ue_num
+  `).all(annee);
+  const datesUe = Object.fromEntries(orgs.map(o => [o.ue_num, o]));
+
   const lignes = db.prepare(`
     SELECT i.ue_num, i.dispense_complete, i.annee_scolaire,
            (SELECT ue_per_etudiants FROM ue x
@@ -148,6 +155,34 @@ export function calculerDI(etudId, annee) {
       dispensee,
     };
   });
+
+  // Le forfait ne se répartit pas : la circulaire 9731 (§ 4.1) le fait porter
+  // par l'UE dont le PREMIER DIXIÈME est le plus proche du début de l'année, et
+  // en cas d'égalité par celle qui se termine en premier. Ce n'est donc pas
+  // « la première UE du PAE » au sens de l'ordre d'encodage.
+  const premierDixieme = (ue) => {
+    const o = datesUe[ue];
+    if (!o?.date_debut || !o?.date_fin) return null;
+    const d = new Date(o.date_debut + 'T00:00:00Z'), f = new Date(o.date_fin + 'T00:00:00Z');
+    if (isNaN(d) || isNaN(f) || f < d) return null;
+    return new Date(d.getTime() + (f - d) / 10);
+  };
+
+  const candidats = detail.filter(d => !d.dispensee).map(d => ({
+    ue_num: d.ue_num,
+    dixieme: premierDixieme(d.ue_num),
+    fin: datesUe[d.ue_num]?.date_fin || null,
+  }));
+
+  const avecDates = candidats.filter(c0 => c0.dixieme);
+  avecDates.sort((a, b) => (a.dixieme - b.dixieme)
+    || String(a.fin || '9999').localeCompare(String(b.fin || '9999'))
+    || (a.ue_num - b.ue_num));
+
+  const ueForfait = avecDates.length ? avecDates[0].ue_num
+    : (candidats.length ? candidats.map(c0 => c0.ue_num).sort((a, b) => a - b)[0] : null);
+
+  for (const d of detail) d.porte_forfait = d.ue_num === ueForfait;
 
   const perSec = detail.filter(d => d.niveau === 'secondaire').reduce((s, d) => s + d.periodes, 0);
   const perSup = detail.filter(d => d.niveau === 'superieur').reduce((s, d) => s + d.periodes, 0);
@@ -185,6 +220,8 @@ export function calculerDI(etudId, annee) {
   return {
     annee, bareme: b,
     detail,
+    ue_forfait: ueForfait,
+    forfait_sans_dates: ueForfait != null && !avecDates.length,
     periodes: { secondaire: perSec, superieur: perSup, total: perSec + perSup },
     retenues: { secondaire: secRetenues, superieur: supRetenues },
     plafond_atteint: (perSec + perSup) > b.plafond_periodes,

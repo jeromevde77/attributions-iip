@@ -24,14 +24,18 @@ r.get('/ue', authRequired, (req, res) => {
 // Le graphe des prérequis est du référentiel : sa modification est réservée
 // aux administrateurs, un éditeur ne pouvant l'altérer par inadvertance.
 r.post('/ue', authRequired, roleRequired('admin'), (req, res) => {
-  const { ue_num, prerequis_num, section, annee_scolaire } = req.body;
+  const { ue_num, prerequis_num, section, annee_scolaire , type, motif } = req.body;
   if (!ue_num || !prerequis_num) return res.status(400).json({ error: 'ue_num et prerequis_num requis' });
   if (ue_num === prerequis_num) return res.status(400).json({ error: 'Une UE ne peut pas être son propre prérequis' });
 
   // Détection de cycle : si l'UE candidate au rôle de prérequis dépend déjà,
   // directement ou non, de celle qu'on veut conditionner, le lien rendrait les
   // deux UE inaccessibles à jamais.
-  const liens = db.prepare('SELECT ue_num, prerequis_num FROM ue_prerequis').all();
+  // Seuls les liens LÉGAUX peuvent former un cycle bloquant : un lien interne
+  // avertit sans interdire, il ne rend donc jamais une UE inaccessible.
+  const liens = db.prepare(
+    "SELECT ue_num, prerequis_num FROM ue_prerequis WHERE COALESCE(type,'legal') = 'legal'"
+  ).all();
   const parents = {};
   for (const l of liens) (parents[l.ue_num] = parents[l.ue_num] || []).push(l.prerequis_num);
   const remonte = (depart) => {
@@ -52,11 +56,12 @@ r.post('/ue', authRequired, roleRequired('admin'), (req, res) => {
   }
 
   try {
+    const nature = type === 'interne' ? 'interne' : 'legal';
     const info = db.prepare(`
-      INSERT OR IGNORE INTO ue_prerequis (ue_num, prerequis_num, section, annee_scolaire)
-      VALUES (?,?,?,?)
-    `).run(ue_num, prerequis_num, section || null, annee_scolaire || null);
-    res.json({ ok: true, created: info.changes > 0 });
+      INSERT OR IGNORE INTO ue_prerequis (ue_num, prerequis_num, section, annee_scolaire, type, motif)
+      VALUES (?,?,?,?,?,?)
+    `).run(ue_num, prerequis_num, section || null, annee_scolaire || null, nature, motif || null);
+    res.json({ ok: true, created: info.changes > 0, type: nature });
   } catch(e) { res.status(500).json({ error: e.message }); }
 });
 

@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { estDirection } from '../lib/modules.js';
 import { IconCheck, IconX } from '@tabler/icons-react';
 import { api, getUser } from '../lib/api.js';
 
@@ -14,7 +15,7 @@ import { api, getUser } from '../lib/api.js';
 export default function CoursFormModal({ cours, ueNum, section, onClose, onSaved }) {
   const isNew   = !cours?._edit;
   const me      = getUser?.();
-  const isAdmin = me?.role === 'admin';
+  const isAdmin = estDirection(me);
 
   const [form, setForm] = useState({
     cours_code:         cours?.cours_code         || '',

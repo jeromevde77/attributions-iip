@@ -1,4 +1,5 @@
 import { useState, useEffect, Component } from 'react';
+import { estDirection } from './lib/modules.js';
 
 // Error boundary : affiche l'erreur au lieu d'une page blanche
 class ErrorBoundary extends Component {
@@ -18,7 +19,6 @@ class ErrorBoundary extends Component {
 }
 import { Routes, Route, Navigate, NavLink, useNavigate } from 'react-router-dom';
 import { isAuthenticated, getUser, api, getAnnee, setAnnee } from './lib/api.js';
-import WelcomeV3 from './WelcomeV3.jsx';
 import {
   IconClipboardList, IconUsers, IconFileExport, IconChecklist,
   IconChartBar, IconCalendarStats, IconEdit, IconSettings, IconLogout, IconMenu2, IconX,
@@ -91,7 +91,7 @@ function BuildBadge() {
 
 function AdminOrRH({ children }) {
   const u = getUser();
-  if (u?.role !== 'admin' && !u?.acces_recrutement) return <Navigate to="/" replace />;
+  if (!estDirection(u) && !u?.acces_recrutement) return <Navigate to="/" replace />;
   return children;
 }
 
@@ -112,7 +112,7 @@ function VoirCommePicker() {
   const [profils, setProfils] = useState([]);
   const [err, setErr] = useState('');
   const u = getUser();
-  if (u?.role !== 'admin' || u?.preview) {
+  if (!estDirection(u) || u?.preview) {
     return <span className="text-gray-700 font-medium text-sm">{u?.nom || u?.email}</span>;
   }
   const ouvrir = () => {
@@ -155,7 +155,6 @@ function ProtectedLayout({ children }) {
   const [env, setEnv] = useState(null);
   const [versionIsNew, setVersionIsNew] = useState(false);
   const [nbNotifs, setNbNotifs] = useState(0);
-  const [showWelcome, setShowWelcome] = useState(false);
 
   // Polling notifications non lues (toutes les 60s)
   useEffect(() => {
@@ -170,14 +169,6 @@ function ProtectedLayout({ children }) {
     chargerNotifs();
     const timer = setInterval(chargerNotifs, 60000);
     return () => clearInterval(timer);
-  }, []);
-  useEffect(() => {
-    try {
-      const majeure = parseInt(String(versionNum).split('.')[0], 10);
-      if (majeure >= 3 && localStorage.getItem('welcome_v3_vu') !== '1') {
-        setShowWelcome(true);
-      }
-    } catch { /* localStorage indisponible */ }
   }, []);
 
   // Détection d'une nouvelle version : compare la version courante à la dernière
@@ -207,10 +198,22 @@ function ProtectedLayout({ children }) {
       if (liste && liste.length > 0) {
         const courante = getAnnee();
         const existe = liste.some(a => a.code === courante);
+        const active = (liste.find(a => a.active) || liste[0]).code;
+
+        // L'année mémorisée n'existe plus : on bascule sans discuter.
         if (!existe) {
-          const cible = (liste.find(a => a.active) || liste[0]).code;
-          setAnnee(cible);
-          setAnneeActive(cible);
+          setAnnee(active); setAnneeActive(active);
+          return;
+        }
+
+        // L'année mémorisée existe mais n'est plus l'année active, et
+        // l'utilisateur ne l'a pas choisie lui-même : on s'aligne sur le
+        // serveur. Sans cela, un navigateur restait indéfiniment sur l'année
+        // précédente après la bascule de rentrée, tous les écrans avec lui.
+        const choixExplicite = localStorage.getItem('annee_choisie');
+        if (courante !== active && choixExplicite !== courante) {
+          setAnnee(active); setAnneeActive(active);
+          window.location.reload();
         }
       }
     }).catch(() => {});
@@ -220,6 +223,9 @@ function ProtectedLayout({ children }) {
   function changeAnnee(code) {
     setAnnee(code);
     setAnneeActive(code);
+    // Un choix délibéré : il tient jusqu'à ce que l'utilisateur en fasse un
+    // autre, même si l'année active du serveur change entre-temps.
+    localStorage.setItem('annee_choisie', code);
     window.location.reload(); // recharge toutes les données
   }
 
@@ -244,17 +250,11 @@ function ProtectedLayout({ children }) {
         ['/pilotage',     'Pilotage',      IconChartBar],
       ];
   nav.push(['/aide', '', IconHelpCircle]);
-  if (u?.role === 'admin') nav.push(['/configuration', 'Config.', IconSettings]);
+  if (estDirection(u)) nav.push(['/configuration', 'Config.', IconSettings]);
 
   return (
     <div className="min-h-screen flex flex-col">
       <PreviewBanner />
-      {showWelcome && (
-        <WelcomeV3 onClose={() => {
-          setShowWelcome(false);
-          try { localStorage.setItem('welcome_v3_vu', '1'); } catch { /* ignore */ }
-        }} />
-      )}
       {env === 'dev' && (
         <div style={{
           background: 'repeating-linear-gradient(45deg, #f59e0b, #f59e0b 12px, #d97706 12px, #d97706 24px)',

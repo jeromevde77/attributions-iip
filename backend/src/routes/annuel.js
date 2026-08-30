@@ -8,7 +8,8 @@
 
 import { Router } from 'express';
 import db from '../db/index.js';
-import { authRequired, roleRequired } from '../middleware/auth.js';
+import { authRequired, roleRequired, getUserSections} from '../middleware/auth.js';
+import { exigeValidation, sectionAutorisee, deposerDemande } from './demandes.js';
 import { calculerDates, chargerPeriodesConges, anneeDebutDe, diffJours }
   from '../services/echeancier_dates.js';
 import { instancier, recalculerStatuts } from '../services/echeancier.js';
@@ -19,6 +20,8 @@ const r = Router();
 // Toutes les organisations d'UE de l'année, avec leurs dates et l'état de
 // complétude. Sert à la saisie groupée.
 r.get('/dates-ue', authRequired, (req, res) => {
+  // Un coordinateur ne voit que les organisations de ses sections.
+  const perim = getUserSections(req.user);
   const { annee, section, sansDates } = req.query;
   if (!annee) return res.status(400).json({ error: 'annee requise' });
 
@@ -35,7 +38,15 @@ r.get('/dates-ue', authRequired, (req, res) => {
                   AND (u.section = o.section OR u.section IS NULL)
     WHERE o.annee_scolaire = ?`;
 
-  if (section) { sql += ' AND o.section = ?'; params.push(section); }
+  if (section) {
+    if (perim && !perim.includes(section)) {
+      return res.status(403).json({ error: 'Section hors de votre périmètre' });
+    }
+    sql += ' AND o.section = ?'; params.push(section);
+  } else if (perim) {
+    sql += ` AND o.section IN (${perim.map(() => '?').join(',') || "''"})`;
+    params.push(...perim);
+  }
   if (sansDates === '1') sql += ' AND (o.date_debut IS NULL OR o.date_fin IS NULL)';
   sql += ' ORDER BY o.section, o.ue_num, o.num_organisation';
 
@@ -53,15 +64,44 @@ r.get('/dates-ue', authRequired, (req, res) => {
 
 // ── PUT /annuel/dates-ue ────────────────────────────────────────────────────
 // Enregistrement groupé : [{ id, date_debut, date_fin, nb_semaines }, …]
-r.put('/dates-ue', authRequired, roleRequired('admin', 'editeur'), (req, res) => {
+r.put('/dates-ue', authRequired, roleRequired('admin', 'editeur', 'coordination'), (req, res) => {
   const { lignes } = req.body;
   if (!Array.isArray(lignes)) return res.status(400).json({ error: 'lignes requises' });
 
-  const maj = db.prepare(`
-    UPDATE organisation_ue
-       SET date_debut = ?, date_fin = ?, nb_semaines = ?
-     WHERE id = ?
-  `);
+  // Un coordinateur propose : sa saisie devient une demande, et la donnée
+  // officielle ne bouge pas tant que la direction n'a pas tranché.
+  if (exigeValidation(req.user)) {
+    let deposees = 0, refusees = 0;
+    for (const l of lignes) {
+      const id = Number(l.id);
+      if (!id) continue;
+      const actuel = db.prepare(`
+        SELECT o.id, o.date_debut, o.date_fin, o.ue_num, o.annee_scolaire,
+               (SELECT section FROM ue u WHERE u.ue_num = o.ue_num ORDER BY u.annee_scolaire DESC LIMIT 1) AS section,
+               (SELECT ue_nom FROM ue u WHERE u.ue_num = o.ue_num ORDER BY u.annee_scolaire DESC LIMIT 1) AS ue_nom
+        FROM organisation_ue o WHERE o.id = ?
+      `).get(id);
+      if (!actuel) continue;
+      if (!sectionAutorisee(req.user, actuel.section)) { refusees++; continue; }
+      deposerDemande({
+        type: 'date_ue', operation: 'modifier', cible_id: id,
+        section: actuel.section, annee_scolaire: actuel.annee_scolaire,
+        libelle: `Dates de l'UE ${actuel.ue_num}${actuel.ue_nom ? ' — ' + actuel.ue_nom : ''}`,
+        avant: { date_debut: actuel.date_debut, date_fin: actuel.date_fin },
+        apres: { date_debut: l.date_debut || null, date_fin: l.date_fin || null },
+        user: req.user,
+      });
+      deposees++;
+    }
+    return res.json({
+      ok: true, en_attente: true, modifiees: 0, deposees, refusees,
+      message: `${deposees} modification(s) transmise(s) pour validation`
+             + (refusees ? ` — ${refusees} hors de votre périmètre.` : '.')
+             + ` Les dates ne changeront qu'après accord de la direction.`,
+    });
+  }
+
+  const lire = db.prepare('SELECT date_debut, date_fin, nb_semaines FROM organisation_ue WHERE id = ?');
 
   const erreurs = [];
   let modifiees = 0;
@@ -70,18 +110,41 @@ r.put('/dates-ue', authRequired, roleRequired('admin', 'editeur'), (req, res) =>
     for (const l of items) {
       const id = Number(l.id);
       if (!id) continue;
-      const d = l.date_debut || null;
-      const f = l.date_fin || null;
+      const actuel = lire.get(id);
+      if (!actuel) continue;
+
+      // Un champ ABSENT du message n'est pas un champ vidé. Écrire
+      // « l.date_debut || null » effaçait la date que l'on n'avait pas
+      // touchée : modifier la fin seule supprimait le début, et
+      // réciproquement.
+      const present = (champ) => Object.prototype.hasOwnProperty.call(l, champ);
+      const valeur = (champ) => {
+        if (!present(champ)) return actuel[champ];          // inchangé
+        const v = l[champ];
+        return v === '' || v === undefined ? null : v;      // vidé volontairement
+      };
+
+      const d = valeur('date_debut');
+      const f = valeur('date_fin');
+
       // Cohérence : la fin ne peut précéder le début
       if (d && f && f < d) {
         erreurs.push({ id, message: 'la date de fin précède la date de début' });
         continue;
       }
-      // nb_semaines : recalculé si absent
-      let sem = l.nb_semaines != null && l.nb_semaines !== ''
-        ? Number(l.nb_semaines) : null;
-      if (sem == null && d && f) sem = Math.max(1, Math.round(diffJours(d, f) / 7));
-      const info = maj.run(d, f, sem, id);
+
+      let sem;
+      if (present('nb_semaines') && l.nb_semaines !== '' && l.nb_semaines != null) {
+        sem = Number(l.nb_semaines);
+      } else if (d && f) {
+        sem = Math.max(1, Math.round(diffJours(d, f) / 7));
+      } else {
+        sem = actuel.nb_semaines;
+      }
+
+      const info = db.prepare(`
+        UPDATE organisation_ue SET date_debut = ?, date_fin = ?, nb_semaines = ? WHERE id = ?
+      `).run(d, f, sem, id);
       modifiees += info.changes;
     }
   });

@@ -114,13 +114,58 @@ r.patch('/:id', authRequired, roleRequired('admin'), (req, res) => {
   res.json({ ok: true });
 });
 
+// Supprimer un compte échouait sur une contrainte de clé étrangère : les
+// attributions et leur historique conservent qui les a créées, modifiées et
+// validées. La base a raison de refuser — effacer l'utilisateur détruirait la
+// traçabilité de décisions qui engagent l'établissement.
+//
+// On DÉSACTIVE donc : le compte ne peut plus se connecter, ses sections sont
+// retirées, mais son nom reste lisible dans l'historique. La suppression n'est
+// possible que pour un compte qui n'a jamais rien signé.
 r.delete('/:id', authRequired, roleRequired('admin'), (req, res) => {
-  if (Number(req.params.id) === req.user.id) {
+  const id = Number(req.params.id);
+  if (id === req.user.id) {
     return res.status(400).json({ error: 'Impossible de supprimer son propre compte' });
   }
-  db.prepare('DELETE FROM utilisateur_section WHERE utilisateur_id = ?').run(req.params.id);
-  db.prepare('DELETE FROM utilisateur WHERE id = ?').run(req.params.id);
-  res.json({ ok: true });
+  const u = db.prepare('SELECT * FROM utilisateur WHERE id = ?').get(id);
+  if (!u) return res.status(404).json({ error: 'compte introuvable' });
+
+  const traces = (() => {
+    let n = 0;
+    for (const [table, colonnes] of [
+      ['attribution', ['created_by', 'updated_by', 'valide_par']],
+      ['modification_log', ['utilisateur_id']],
+    ]) {
+      for (const col of colonnes) {
+        try {
+          n += db.prepare(`SELECT COUNT(*) n FROM ${table} WHERE ${col} = ?`).get(id).n;
+        } catch { /* table ou colonne absente */ }
+      }
+    }
+    return n;
+  })();
+
+  db.prepare('DELETE FROM utilisateur_section WHERE utilisateur_id = ?').run(id);
+
+  if (traces > 0) {
+    db.prepare("UPDATE utilisateur SET actif = 0 WHERE id = ?").run(id);
+    return res.json({
+      ok: true, desactive: true, traces,
+      message: `Ce compte a signé ${traces} enregistrement(s) : il est désactivé plutôt `
+             + `que supprimé, pour que l'historique reste lisible. Il ne peut plus se connecter.`,
+    });
+  }
+
+  try {
+    db.prepare('DELETE FROM utilisateur WHERE id = ?').run(id);
+    res.json({ ok: true, supprime: true });
+  } catch (e) {
+    db.prepare("UPDATE utilisateur SET actif = 0 WHERE id = ?").run(id);
+    res.json({
+      ok: true, desactive: true,
+      message: "Ce compte est référencé ailleurs : il a été désactivé plutôt que supprimé.",
+    });
+  }
 });
 
 // ─── Permissions granulaires ─────────────────────────────────────────────────

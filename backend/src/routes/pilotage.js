@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import db from '../db/index.js';
-import { authRequired, roleRequired } from '../middleware/auth.js';
+import { authRequired, roleRequired, getUserSections} from '../middleware/auth.js';
 
 const r = Router();
 
@@ -101,6 +101,25 @@ function usagePot(usageDB, y, potKey) {
 }
 
 // ── Routes existantes (par année scolaire) ───────────────────────────────────
+/**
+ * Périmètre de l'utilisateur, ajouté au filtre d'année.
+ *
+ * Le pilotage n'était pas cloisonné : un coordinateur y voyait la dotation de
+ * tout l'établissement. Il doit pouvoir suivre SES sections, pas les autres.
+ */
+function perimetreSection(req, alias = '') {
+  const s = getUserSections(req.user);
+  if (s === null) return { clause: '', params: {} };
+  if (!s.length) return { clause: ` AND 1 = 0`, params: {} };
+  const col = alias ? `${alias}.section` : 'section';
+  const params = {};
+  s.forEach((sec, i) => { params[`perim${i}`] = sec; });
+  return {
+    clause: ` AND ${col} IN (${s.map((_, i) => '@perim' + i).join(',')})`,
+    params,
+  };
+}
+
 function anneeFilter(req) {
   const annee = req.query.annee || '2025-2026';
   return { where: 'annee_scolaire = @annee', params: { annee } };
@@ -108,6 +127,7 @@ function anneeFilter(req) {
 
 r.get('/section-niveau', authRequired, (req, res) => {
   const { where, params } = anneeFilter(req);
+  const perim = perimetreSection(req);
   res.json(db.prepare(`
     SELECT section, bloc,
       SUM(total_attribue_professeur) AS periodes_att,
@@ -116,25 +136,27 @@ r.get('/section-niveau', authRequired, (req, res) => {
       SUM(cout_dotation)   AS per_b,
       SUM(cout_dotation_q1) AS sd,
       SUM(cout_dotation_q2) AS jj
-    FROM v_attribution_complete WHERE ${where}
+    FROM v_attribution_complete WHERE ${where}${perim.clause}
     GROUP BY section, bloc ORDER BY section, bloc
-  `).all(params));
+  `).all({ ...params, ...perim.params }));
 });
 
 r.get('/section-statut', authRequired, (req, res) => {
   const { where, params } = anneeFilter(req);
+  const perim = perimetreSection(req);
   res.json(db.prepare(`
     SELECT section,
       SUM(CASE WHEN contrat='CC'  THEN total_attribue_professeur ELSE 0 END) AS cc,
       SUM(CASE WHEN contrat='EXP' THEN total_attribue_professeur ELSE 0 END) AS exp,
       SUM(total_attribue_professeur) AS total
-    FROM v_attribution_complete WHERE ${where}
+    FROM v_attribution_complete WHERE ${where}${perim.clause}
     GROUP BY section ORDER BY section
-  `).all(params));
+  `).all({ ...params, ...perim.params }));
 });
 
 r.get('/section-detail', authRequired, (req, res) => {
   const { where, params } = anneeFilter(req);
+  const perim = perimetreSection(req);
   res.json(db.prepare(`
     SELECT section, bloc,
       SUM(total_attribue_professeur) AS periodes_att,
@@ -146,9 +168,9 @@ r.get('/section-detail', authRequired, (req, res) => {
       SUM(CASE WHEN contrat_mdp='HELB' THEN total_attribue_professeur ELSE 0 END) AS helb,
       (SUM(CASE WHEN contrat_mdp='HELB' AND type_cours='CT' THEN total_attribue_professeur ELSE 0 END)/800.0
        + SUM(CASE WHEN contrat_mdp='HELB' AND type_cours='PP' THEN total_attribue_professeur ELSE 0 END)/1000.0) AS etp_helb
-    FROM v_attribution_complete WHERE ${where}
+    FROM v_attribution_complete WHERE ${where}${perim.clause}
     GROUP BY section, bloc ORDER BY section, bloc
-  `).all(params));
+  `).all({ ...params, ...perim.params }));
 });
 
 r.get('/totaux', authRequired, (req, res) => {

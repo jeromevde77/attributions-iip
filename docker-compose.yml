@@ -21,6 +21,9 @@ services:
       - seccomp:unconfined
     environment:
       NODE_ENV: production
+      # Le conteneur vit en UTC par défaut : les horodatages des sauvegardes et
+      # des journaux s'en trouvaient décalés de deux heures.
+      TZ: Europe/Brussels
       PORT: 3001
       JWT_SECRET: ${JWT_SECRET:-change-me-jwt-secret-please}
       DB_PATH: /app/data/attributions.db
