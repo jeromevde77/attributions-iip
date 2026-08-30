@@ -1284,21 +1284,6 @@ export default function Etudiants() {
   const [importHisto, setImportHisto] = useState(false);
   const [tri, setTri] = useState({ champ: 'nom', sens: 1 });
 
-  // Volets par section, comme dans la répartition des périodes : la liste se
-  // parcourt section par section, et un étudiant inscrit dans plusieurs
-  // sections apparaît sous chacune.
-  const [sectionsDeployees, setSectionsDeployees] = useState({});
-  const parSection = useMemo(() => {
-    const par = new Map();
-    for (const e of filtres) {
-      const secs = (e.sections || '').split(',').map(s => s.trim()).filter(Boolean);
-      for (const s of (secs.length ? secs : ['(sans section)'])) {
-        if (!par.has(s)) par.set(s, []);
-        par.get(s).push(e);
-      }
-    }
-    return [...par.entries()].sort((a, b) => a[0].localeCompare(b[0]));
-  }, [filtres]);
 
   function trierPar(champ) {
     setTri(t => t.champ === champ ? { champ, sens: -t.sens } : { champ, sens: 1 });
@@ -1517,6 +1502,22 @@ export default function Etudiants() {
       return String(va).localeCompare(String(vb), 'fr') * tri.sens;
     });
   }, [etudiants, recherche, tri]);
+
+  // Volets par section, comme dans la répartition des périodes : la liste se
+  // parcourt section par section, et un étudiant inscrit dans plusieurs
+  // sections apparaît sous chacune.
+  const [sectionsDeployees, setSectionsDeployees] = useState({});
+  const parSection = useMemo(() => {
+    const par = new Map();
+    for (const e of filtres) {
+      const secs = (e.sections || '').split(',').map(s => s.trim()).filter(Boolean);
+      for (const s of (secs.length ? secs : ['(sans section)'])) {
+        if (!par.has(s)) par.set(s, []);
+        par.get(s).push(e);
+      }
+    }
+    return [...par.entries()].sort((a, b) => a[0].localeCompare(b[0]));
+  }, [filtres]);
 
   return (
     <div className="p-5 space-y-4 max-w-none">
