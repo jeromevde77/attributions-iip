@@ -2290,7 +2290,9 @@ r.get('/:id/fiche-inscription', authRequired, (req, res) => {
 
   // 2. UE de l'inscription de l'année
   const inscriptions = db.prepare(`
-    SELECT i.*, u.ue_nom, u.section
+    -- Les ECTS viennent du référentiel : la colonne figurait sur la fiche
+    -- mais n'était jamais alimentée, faute d'être sélectionnée ici.
+    SELECT i.*, u.ue_nom, u.section, COALESCE(i.ects, u.ects) AS ects
     FROM etudiant_inscription i
     LEFT JOIN ${UE_REF} u ON u.ue_num = i.ue_num
     WHERE i.etudiant_id = ? AND i.annee_scolaire = ?
@@ -2447,8 +2449,11 @@ r.get('/:id/fiche-inscription', authRequired, (req, res) => {
       <td colspan="7" style="text-align:right"><b>Droit d'inscription — total</b></td>
       <td style="text-align:right"><b>${di.periodes.total}</b></td>
       <td style="text-align:right"><b>${di.exonere ? '0,00 € (exonéré)' : eur(di.montant_arrondi)}</b></td>
-      <td></td>
-    </tr>
+      <td style="text-align:right"><b>${(() => {
+        // Le total des crédits : c'est le chiffre que l'étudiant retient.
+        const t = inscriptions.reduce((s, x) => s + (Number(x.ects) || 0), 0);
+        return t || '—';
+      })()}</b></td></tr>
     ${di.plafond_atteint ? `<tr><td colspan="10" style="font-size:10px;color:#64748b">
       Plafond de ${di.bareme.plafond_periodes} périodes atteint : ${di.retenues.secondaire + di.retenues.superieur}
       période(s) facturée(s) sur ${di.periodes.total}, le secondaire étant compté en premier.</td></tr>` : ''}
