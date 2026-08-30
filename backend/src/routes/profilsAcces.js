@@ -77,28 +77,6 @@ r.post('/', authRequired, roleRequired('admin'), (req, res) => {
   }
 });
 
-r.put('/:id', authRequired, roleRequired('admin'), (req, res) => {
-  const p = db.prepare('SELECT * FROM profil_acces WHERE id = ?').get(Number(req.params.id));
-  if (!p) return res.status(404).json({ error: 'profil introuvable' });
-  const { nom, role, description, permissions } = req.body || {};
-  db.prepare(`
-    UPDATE profil_acces SET nom = ?, role = ?, description = ?, permissions_json = ?,
-      maj_le = datetime('now') WHERE id = ?
-  `).run(nom || p.nom, role || p.role, description ?? p.description,
-         JSON.stringify(permissions || {}), p.id);
-  res.json({ ok: true, avertissement: p.systeme
-    ? "Ce profil de référence est modifié : les fiches déjà établies ne changent pas, "
-    + "il faudra le réappliquer là où c'est voulu." : null });
-});
-
-r.delete('/:id', authRequired, roleRequired('admin'), (req, res) => {
-  const p = db.prepare('SELECT * FROM profil_acces WHERE id = ?').get(Number(req.params.id));
-  if (!p) return res.status(404).json({ error: 'profil introuvable' });
-  if (p.systeme) return res.status(400).json({ error: 'Un profil de référence ne se supprime pas' });
-  db.prepare('DELETE FROM profil_acces WHERE id = ?').run(p.id);
-  res.json({ ok: true });
-});
-
 // ── Plafonds par rôle ───────────────────────────────────────────────────────
 // Ce qu'un rôle autorise AU MIEUX, module par module. Les cases d'une fiche
 // affinent à l'intérieur, sans jamais pouvoir accorder davantage. Réservé à la
@@ -140,5 +118,27 @@ r.put('/plafonds', authRequired, roleRequired('admin', 'directeur', 'directeur_a
         : null,
     });
   });
+
+r.put('/:id', authRequired, roleRequired('admin'), (req, res) => {
+  const p = db.prepare('SELECT * FROM profil_acces WHERE id = ?').get(Number(req.params.id));
+  if (!p) return res.status(404).json({ error: 'profil introuvable' });
+  const { nom, role, description, permissions } = req.body || {};
+  db.prepare(`
+    UPDATE profil_acces SET nom = ?, role = ?, description = ?, permissions_json = ?,
+      maj_le = datetime('now') WHERE id = ?
+  `).run(nom || p.nom, role || p.role, description ?? p.description,
+         JSON.stringify(permissions || {}), p.id);
+  res.json({ ok: true, avertissement: p.systeme
+    ? "Ce profil de référence est modifié : les fiches déjà établies ne changent pas, "
+    + "il faudra le réappliquer là où c'est voulu." : null });
+});
+
+r.delete('/:id', authRequired, roleRequired('admin'), (req, res) => {
+  const p = db.prepare('SELECT * FROM profil_acces WHERE id = ?').get(Number(req.params.id));
+  if (!p) return res.status(404).json({ error: 'profil introuvable' });
+  if (p.systeme) return res.status(400).json({ error: 'Un profil de référence ne se supprime pas' });
+  db.prepare('DELETE FROM profil_acces WHERE id = ?').run(p.id);
+  res.json({ ok: true });
+});
 
 export default r;
