@@ -1,3 +1,4 @@
+import db from '../db/index.js';
 // ─────────────────────────────────────────────────────────────────────────────
 // Lucie — Permissions par module
 //
@@ -26,49 +27,72 @@ export const MODULES = [
 ];
 
 // Ce que chaque rôle autorise AU MIEUX, avant affinage par les cases.
-// 'demande' signifie : l'écriture est acceptée mais passe en validation.
-const PLAFOND = {
-  admin: { lire: () => true, ecrire: () => 'direct' },
-
-  secretariat: {
-    lire: () => true,
-    // Le secrétariat encode les étudiants — c'est son métier, et cela
-    // n'engage que de la donnée administrative — et produit les documents.
-    ecrire: m => (['etudiants', 'communication', 'listes', 'procedures'].includes(m)
-      ? 'direct' : false),
-  },
-
-  coordination: {
-    // La répartition de la dotation entre années civiles engage l'établissement
-    // entier : elle relève de la direction. Le pilotage, lui, reste consultable
-    // — mais borné aux sections du coordinateur, ce que les routes appliquent.
-    lire: m => !['repartition', 'recrutement'].includes(m),
-    // Tout ce qu'un coordinateur encode passe par la direction.
-    ecrire: m => (['recrutement', 'repartition'].includes(m) ? false : 'demande'),
-  },
-
-  professeur: {
-    // Ses propres données, et rien d'autre : le cloisonnement à sa personne
-    // est appliqué par les routes elles-mêmes, pas ici.
-    lire: m => ['attributions', 'personnel', 'planification'].includes(m),
-    ecrire: () => false,
-  },
-
-  consultation: { lire: () => true, ecrire: () => false },
+//
+// Ces plafonds étaient codés en dur : chaque changement d'avis sur ce qu'un
+// secrétariat ou une coordination peut faire demandait une intervention sur le
+// code. Ils vivent maintenant en base, modifiables par la direction depuis
+// Configuration → Rôles.
+//
+// Les valeurs ci-dessous ne servent plus qu'à AMORCER la table à la première
+// exécution, et de repli si elle devenait illisible.
+const PLAFOND_INITIAL = {
+  admin:             () => 'ecrit',
+  directeur:         () => 'ecrit',
+  directeur_adjoint: () => 'ecrit',
+  editeur:           () => 'ecrit',
+  secretariat:  m => (['etudiants', 'communication', 'listes', 'procedures'].includes(m)
+    ? 'ecrit' : 'lit'),
+  coordination: m => (['recrutement', 'repartition'].includes(m) ? 'rien' : 'validation'),
+  professeur:   m => (['attributions', 'personnel', 'planification'].includes(m) ? 'lit' : 'rien'),
+  consultation: () => 'lit',
 };
 
-// La direction et son adjoint ont les mêmes droits : ce sont deux personnes,
-// non deux niveaux. La distinction sert à savoir QUI a tranché.
-PLAFOND.directeur = PLAFOND.admin;
-PLAFOND.directeur_adjoint = PLAFOND.admin;
+export const ROLES = Object.keys(PLAFOND_INITIAL);
+export const NIVEAUX = ['rien', 'lit', 'ecrit', 'validation'];
 
-// 'editeur' est l'ancien nom, conservé le temps que les comptes migrent.
-PLAFOND.editeur = { lire: () => true, ecrire: () => 'direct' };
+export function migrerPlafonds(dbx) {
+  try {
+    dbx.exec(`
+    CREATE TABLE IF NOT EXISTS role_plafond (
+      role    TEXT NOT NULL,
+      module  TEXT NOT NULL,
+      niveau  TEXT NOT NULL DEFAULT 'rien',   -- rien | lit | ecrit | validation
+      maj_le  TEXT DEFAULT (datetime('now')),
+      PRIMARY KEY (role, module)
+    );`);
+    const ins = dbx.prepare(
+      'INSERT OR IGNORE INTO role_plafond (role, module, niveau) VALUES (?,?,?)');
+    let n = 0;
+    for (const [role, fn] of Object.entries(PLAFOND_INITIAL)) {
+      for (const m of MODULES) { ins.run(role, m, fn(m)); n++; }
+    }
+    console.log(`[migration] role_plafond : ${n} combinaison(s) vérifiée(s)`);
+  } catch (e) { console.error('[migration] plafonds :', e.message); }
+}
 
-/** Qui peut trancher une demande de validation. */
-export const ROLES_VALIDATION = ['admin', 'directeur', 'directeur_adjoint'];
-export function peutValider(user) {
-  return ROLES_VALIDATION.includes(user?.role);
+// Cache : la table est lue à chaque requête sinon, pour une donnée qui change
+// quelques fois par an. Il s'invalide dès qu'un plafond est modifié.
+let cachePlafonds = null;
+export function invaliderPlafonds() { cachePlafonds = null; }
+
+function plafonds() {
+  if (cachePlafonds) return cachePlafonds;
+  try {
+    const rows = db.prepare('SELECT role, module, niveau FROM role_plafond').all();
+    if (!rows.length) return null;
+    const par = {};
+    for (const r0 of rows) (par[r0.role] = par[r0.role] || {})[r0.module] = r0.niveau;
+    cachePlafonds = par;
+    return par;
+  } catch { return null; }
+}
+
+/** Niveau maximal de ce rôle sur ce module : 'rien' | 'lit' | 'ecrit' | 'validation'. */
+function plafondDe(role, module) {
+  const table = plafonds();
+  if (table && table[role] && table[role][module]) return table[role][module];
+  const fn = PLAFOND_INITIAL[role] || PLAFOND_INITIAL.consultation;
+  return fn(module);
 }
 
 function permissions(user) {
@@ -86,10 +110,10 @@ function permissions(user) {
  */
 export function peut(user, module, action = 'lire') {
   if (!user) return false;
-  const plafond = PLAFOND[user.role] || PLAFOND.consultation;
+  const niveau = plafondDe(user.role, module);
+  if (niveau === 'rien') return false;
 
   if (action === 'lire') {
-    if (!plafond.lire(module)) return false;
     // Sans cases enregistrées, le rôle fait foi : ne rien cocher ne doit pas
     // revenir à tout fermer, sous peine de bloquer les comptes existants.
     const p = permissions(user)[module];
@@ -97,11 +121,10 @@ export function peut(user, module, action = 'lire') {
     return p.lire !== false || p.ecrire === true;
   }
 
-  const max = plafond.ecrire(module);
-  if (!max) return false;
+  if (niveau === 'lit') return false;
   const p = permissions(user)[module];
   if (p && p.ecrire === false) return false;      // case explicitement retirée
-  return max;
+  return niveau === 'validation' ? 'demande' : 'direct';
 }
 
 /**
@@ -121,6 +144,12 @@ export function exigePermission(module, action = 'lire') {
     if (action === 'ecrire') req.ecriture = droit;
     next();
   };
+}
+
+/** Qui peut trancher une demande de validation. */
+export const ROLES_VALIDATION = ['admin', 'directeur', 'directeur_adjoint'];
+export function peutValider(user) {
+  return ROLES_VALIDATION.includes(user?.role);
 }
 
 /** Vue d'ensemble des droits, pour que l'interface n'affiche que l'utile. */

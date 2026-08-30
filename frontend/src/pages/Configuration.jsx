@@ -442,6 +442,7 @@ import PonderationsAA from './PonderationsAA.jsx';
 import SchemaCapitalisation from '../components/SchemaCapitalisation.jsx';
 import Demandes from './Demandes.jsx';
 import Sauvegardes from './Sauvegardes.jsx';
+import RolesPlafonds from './RolesPlafonds.jsx';
 import ParametresEtablissement from './ParametresEtablissement.jsx';
 import { authHeaders } from '../lib/api.js';
 
@@ -1276,6 +1277,7 @@ export default function Configuration() {
       { key: 'etablissement', label: 'Établissement', icon: IconBuilding },
       { key: 'personnel', label: 'Personnel', icon: IconUsers },
       { key: 'users', label: 'Utilisateurs', icon: IconUserShield },
+      { key: 'roles', label: 'Rôles', icon: IconUserShield },
     ]},
     { label: 'Modèles de documents', items: [
       { key: 'editeur', label: 'Éditeur', icon: IconEdit },
@@ -1332,6 +1334,7 @@ export default function Configuration() {
 
       {/* ── Onglet Utilisateurs ── */}
       {tab === 'users' && <div className="max-w-none"><Users embedded /></div>}
+      {tab === 'roles' && <RolesPlafonds />}
 
       {/* ── Onglet Nouveautés ── */}
       {tab === 'changelog' && (

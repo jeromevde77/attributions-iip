@@ -12,7 +12,7 @@
 import { Router } from 'express';
 import db from '../db/index.js';
 import { authRequired, roleRequired } from '../middleware/auth.js';
-import { MODULES } from '../middleware/permissions.js';
+import { MODULES, ROLES, NIVEAUX, invaliderPlafonds } from '../middleware/permissions.js';
 
 const r = Router();
 
@@ -98,5 +98,47 @@ r.delete('/:id', authRequired, roleRequired('admin'), (req, res) => {
   db.prepare('DELETE FROM profil_acces WHERE id = ?').run(p.id);
   res.json({ ok: true });
 });
+
+// ── Plafonds par rôle ───────────────────────────────────────────────────────
+// Ce qu'un rôle autorise AU MIEUX, module par module. Les cases d'une fiche
+// affinent à l'intérieur, sans jamais pouvoir accorder davantage. Réservé à la
+// direction : c'est la charpente du cloisonnement.
+r.get('/plafonds', authRequired, (req, res) => {
+  const lignes = db.prepare('SELECT role, module, niveau FROM role_plafond').all();
+  const par = {};
+  for (const l of lignes) (par[l.role] = par[l.role] || {})[l.module] = l.niveau;
+  res.json({ roles: ROLES, modules: MODULES, niveaux: NIVEAUX, plafonds: par });
+});
+
+r.put('/plafonds', authRequired, roleRequired('admin', 'directeur', 'directeur_adjoint'),
+  (req, res) => {
+    const { role, module, niveau } = req.body || {};
+    if (!ROLES.includes(role)) return res.status(400).json({ error: 'rôle inconnu' });
+    if (!MODULES.includes(module)) return res.status(400).json({ error: 'module inconnu' });
+    if (!NIVEAUX.includes(niveau)) return res.status(400).json({ error: 'niveau inconnu' });
+
+    // Un garde-fou demeure : la direction ne peut pas se fermer la porte, et
+    // l'on ne saurait plus rien réparer si elle le faisait par mégarde.
+    if (['admin', 'directeur', 'directeur_adjoint'].includes(role) && niveau !== 'ecrit') {
+      return res.status(400).json({
+        error: "La direction conserve l'écriture sur tous les modules : c'est elle qui "
+             + "répare les erreurs de paramétrage.",
+      });
+    }
+
+    db.prepare(`
+      INSERT INTO role_plafond (role, module, niveau, maj_le) VALUES (?,?,?, datetime('now'))
+      ON CONFLICT(role, module) DO UPDATE SET niveau = excluded.niveau, maj_le = datetime('now')
+    `).run(role, module, niveau);
+
+    invaliderPlafonds();
+    res.json({
+      ok: true,
+      avertissement: niveau === 'validation'
+        ? "Les écrans qui ne savent pas encore transmettre une demande refuseront la saisie "
+        + "avec un message explicite."
+        : null,
+    });
+  });
 
 export default r;

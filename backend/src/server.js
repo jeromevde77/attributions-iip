@@ -32,6 +32,7 @@ import budgetRoutes, { migrerBudget } from './routes/budget.js';
 import demandesRoutes, { migrerDemandes } from './routes/demandes.js';
 import sauvegardesRoutes, { migrerSauvegardes, demarrerPlanificateur } from './routes/sauvegardes.js';
 import profilsAccesRoutes, { migrerProfilsAcces } from './routes/profilsAcces.js';
+import { migrerPlafonds } from './middleware/permissions.js';
 import fraisScolariteRoutes, { migrerFraisScolarite } from './routes/fraisScolarite.js';
 import repartitionRoutes, { migrerRepartition } from './routes/repartitionPeriodes.js';
 import amenagementsRoutes, { migrerAmenagements } from './routes/amenagements.js';
@@ -2746,6 +2747,7 @@ try { migrerHistorique(db); } catch (e) { console.error('[migration] historique 
 try { migrerBudget(db); } catch (e) { console.error('[migration] budget :', e.message); }
 try { migrerDemandes(db); } catch (e) { console.error('[migration] demandes :', e.message); }
 try { migrerSauvegardes(db); } catch (e) { console.error('[migration] sauvegardes :', e.message); }
+try { migrerPlafonds(db); } catch (e) { console.error('[migration] plafonds :', e.message); }
 try { migrerProfilsAcces(db); } catch (e) { console.error('[migration] profils accès :', e.message); }
 try { migrerFraisScolarite(db); } catch (e) { console.error('[migration] frais scolarité :', e.message); }
 try { migrerRepartition(db); } catch (e) { console.error('[migration] répartition :', e.message); }
