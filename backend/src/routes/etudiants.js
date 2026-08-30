@@ -384,9 +384,11 @@ r.get('/rapport', authRequired, (req, res) => {
   .legende { margin-top: 10px; font-size: 10px; color: #64748b; }
   @media print { body { margin: 8mm; } @page { size: landscape; } }
 
-  /* La marge basse réserve la hauteur du pied : sans elle, le texte passerait
-     dessous en fin de page. */
-  @page { margin-bottom: 28mm; }
+  /* Deux protections plutôt qu'une : la marge de @page, que certains
+     navigateurs ignorent lorsqu'ils impriment depuis un cadre, ET une réserve
+     dans le corps même. Sans la seconde, le pied se superposait au texte. */
+  @page { size: A4 portrait; margin: 14mm 14mm 26mm 14mm; }
+  @media print { body { padding-bottom: 24mm; } }
 
   /* Pied de page commun, ancré en bas de CHAQUE page — dernière comprise.
      Un pied placé dans le flux, ou en table-footer-group, flotte au milieu
@@ -2388,7 +2390,7 @@ r.get('/:id/fiche-inscription', authRequired, (req, res) => {
       <td>${a.ue_num}</td>
       <td>${esc(a.ue_nom || '')}</td>
       <td>${a.kind === 'va' ? '<b>Valorisation des acquis</b>' : 'Réussite'}</td>
-      <td style="text-align:right">${a.points != null ? a.points + ' / 20' : '—'}</td>
+      <td style="text-align:right;white-space:nowrap">${a.points != null ? a.points + ' / 20' : '—'}</td>
     </tr>`).join('');
 
   const lignesAutres = autres.map(h => `
@@ -2437,8 +2439,8 @@ r.get('/:id/fiche-inscription', authRequired, (req, res) => {
         const j = v => v ? String(v).slice(0, 10).split('-').reverse().join('/') : '…';
         return `${j(o.date_debut)}<br><span style="color:#94a3b8">→ ${j(o.date_fin)}</span>`;
       })()}</td>
-      <td style="text-align:right">${d ? d.periodes_brutes : '—'}${d?.porte_forfait ? ' <span style="color:#C9A84C" title="Cette UE porte le forfait annuel">◆</span>' : ''}</td>
-      <td style="text-align:right">${d && !d.dispensee ? eur(d.montant) : '—'}</td>
+      <td style="text-align:right;white-space:nowrap">${d ? d.periodes_brutes : '—'}${d?.porte_forfait ? ' <span style="color:#C9A84C" title="Cette UE porte le forfait annuel">◆</span>' : ''}</td>
+      <td style="text-align:right;white-space:nowrap">${d && !d.dispensee ? eur(d.montant) : '—'}</td>
       <td style="text-align:right">${i.ects != null ? i.ects : '—'}</td>
     </tr>`;
   }).join('');
@@ -2492,6 +2494,28 @@ r.get('/:id/fiche-inscription', authRequired, (req, res) => {
   .engagement .rgpd { font-size: 9.5px; color: #475569; border-top: 1px solid #cbd5e1;
                       padding-top: 6px; }
   .sig .mention { display: block; font-size: 9px; color: #94a3b8; font-style: italic; }
+  /* Sans largeurs explicites, le navigateur donnait autant de place aux
+     colonnes vides qu'aux intitulés, qui s'écrasaient sur six lignes. */
+  table.ues { table-layout: fixed; }
+  table.ues th:nth-child(1), table.ues td:nth-child(1) { width: 6%; }
+  table.ues th:nth-child(2), table.ues td:nth-child(2) { width: 30%; }
+  table.ues th:nth-child(3), table.ues td:nth-child(3) { width: 8%; }
+  table.ues th:nth-child(4), table.ues td:nth-child(4) { width: 10%; }
+  table.ues th:nth-child(5), table.ues td:nth-child(5) { width: 8%; }
+  table.ues th:nth-child(6), table.ues td:nth-child(6) { width: 8%; }
+  table.ues th:nth-child(7), table.ues td:nth-child(7) { width: 11%; }
+  table.ues th:nth-child(8), table.ues td:nth-child(8) { width: 7%; }
+  table.ues th:nth-child(9), table.ues td:nth-child(9) { width: 8%; }
+  table.ues th:nth-child(10), table.ues td:nth-child(10) { width: 4%; }
+  table.ues td { word-wrap: break-word; }
+
+  /* « 10 / 20 » se cassait en deux lignes. */
+  .nowrap, td.num { white-space: nowrap; }
+
+  /* Un bloc de signature coupé en deux pages n'a aucune valeur. */
+  .engagement, .sig { break-inside: avoid; page-break-inside: avoid; }
+  .engagement { break-before: auto; }
+
   .footer { margin-top: 22px; font-size: 10px; color: #64748b; }
   @media print { body { margin: 12mm; } }
 
@@ -2553,7 +2577,7 @@ ${(() => {
 })()}
 
 <h2>Unités d'enseignement — inscription ${esc(annee)}</h2>
-<table>
+<table class="ues">
   <thead><tr>
     <th>UE</th><th>Intitulé</th><th>Section</th><th>Date d'inscription</th>
     <th>Admission</th><th>Valorisation</th><th>Dates</th><th>Périodes</th><th>Droit d'inscription</th><th>ECTS</th>
