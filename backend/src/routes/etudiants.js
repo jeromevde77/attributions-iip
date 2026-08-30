@@ -2485,6 +2485,13 @@ r.get('/:id/fiche-inscription', authRequired, (req, res) => {
   .alerte.grave { background: #FEE2E2; border-color: #FCA5A5; color: #991B1B; }
   .sig { margin-top: 34px; display: flex; gap: 60px; }
   .sig div { flex: 1; border-top: 1px solid #94a3b8; padding-top: 5px; font-size: 11px; }
+  .engagement { margin-top: 20px; padding: 10px 12px; border: 1px solid #cbd5e1;
+                border-radius: 6px; background: #f8fafc; font-size: 10.5px; line-height: 1.5; }
+  .engagement p { margin: 0 0 6px; }
+  .engagement p:last-child { margin-bottom: 0; }
+  .engagement .rgpd { font-size: 9.5px; color: #475569; border-top: 1px solid #cbd5e1;
+                      padding-top: 6px; }
+  .sig .mention { display: block; font-size: 9px; color: #94a3b8; font-style: italic; }
   .footer { margin-top: 22px; font-size: 10px; color: #64748b; }
   @media print { body { margin: 12mm; } }
 
@@ -2554,8 +2561,36 @@ ${(() => {
   <tbody>${lignesInsc ? lignesInsc + piedDI : '<tr><td colspan="10" style="text-align:center;color:#94a3b8">Aucune UE inscrite pour cette année — encodez les inscriptions dans la grille de parcours</td></tr>'}</tbody>
 </table>
 
+<!-- Engagement de l'étudiant. L'article 39 du règlement des études n'admet
+     comme signature qu'un tracé manuscrit ou un procédé électronique
+     authentifié : le document doit être signé, non approuvé par courriel. -->
+<div class="engagement">
+  <p>
+    Je soussigné(e) <b>${esc([e.titre, e.prenom, e.nom].filter(Boolean).join(' '))}</b>
+    confirme mon inscription aux <b>${inscriptions.length}</b> unité(s) d'enseignement
+    reprises ci-dessus, et signe pour chacune d'elles.
+  </p>
+  <p>
+    Je reconnais avoir pris connaissance du règlement des études et du règlement d'ordre
+    intérieur, et m'engage à les respecter, ainsi qu'à m'acquitter du droit d'inscription
+    dans les délais prévus.
+  </p>
+  <p class="rgpd">
+    <b>Protection des données.</b> Conformément au Règlement général sur la protection des
+    données, les informations recueillies servent uniquement à la gestion du dossier
+    administratif, à des fins pédagogiques et statistiques, et à leur transmission à la
+    Fédération Wallonie-Bruxelles dans le cadre du financement de l'enseignement. Elles ne
+    sont communiquées à aucun tiers, hormis la Fédération dans le cadre de ses missions
+    légales. Vous pouvez accéder aux données vous concernant et en demander la correction
+    auprès du secrétariat. <i>Règlement des études, article 108.</i>
+  </p>
+</div>
+
 <div class="sig">
-  <div>Signature de l'apprenant</div>
+  <div>
+    Signature de l'apprenant
+    <span class="mention">précédée de la mention « lu et approuvé »</span>
+  </div>
   <div>Pour l'établissement</div>
 </div>
 <div class="footer">
