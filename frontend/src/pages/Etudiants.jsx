@@ -314,8 +314,14 @@ function GrilleParcours({ etudId, peutEcrire }) {
                     {u.suggeree && <span className="ml-1.5 text-[9.5px] px-1 py-0.5 rounded bg-violet-50 text-violet-600 border border-violet-200" title="Probablement acquise (inférence prérequis) — à confirmer">à confirmer</span>}
                     {u.hors_referentiel && (
                       <span className="ml-1.5 text-[9.5px] px-1 py-0.5 rounded bg-amber-50 text-amber-700 border border-amber-200"
-                        title="Inscription à une UE absente du référentiel de la section">
-                        hors référentiel
+                        title="Cette unité appartient à une autre section, ou sa section est inconnue">
+                        autre section
+                      </span>
+                    )}
+                    {u.hors_millesime && (
+                      <span className="ml-1.5 text-[9.5px] px-1 py-0.5 rounded bg-slate-100 text-slate-500"
+                        title="Unité de la section, absente du programme de l'année en cours">
+                        hors programme {annee}
                       </span>
                     )}
                   </td>
@@ -1282,6 +1288,7 @@ export default function Etudiants() {
   const [sections, setSections] = useState([]);
   const [selId, setSelId] = useState(null);
   const [chargement, setChargement] = useState(false);
+  const [erreurListe, setErreurListe] = useState(null);
   const [importing, setImporting] = useState(false);
   const [msgImport, setMsgImport] = useState(null);
   const [rapport, setRapport] = useState(null);
@@ -1473,7 +1480,20 @@ export default function Etudiants() {
       if (recherche) params.set('q', recherche);
       const rep = await fetch(`/api/etudiants?${params}`, { headers: authHeaders() });
       const j = await rep.json();
-      if (rep.ok) setEtudiants(Array.isArray(j) ? j : []);
+      if (rep.ok) {
+        setEtudiants(Array.isArray(j) ? j : []);
+        setErreurListe(null);
+      } else {
+        // Une liste vide et un refus se ressemblaient à l'écran : l'erreur
+        // était avalée, et l'on cherchait un problème de données là où le
+        // serveur échouait.
+        setEtudiants([]);
+        setErreurListe(j?.error
+          || `Le serveur a répondu ${rep.status}. La liste n'a pas pu être chargée.`);
+      }
+    } catch (e) {
+      setEtudiants([]);
+      setErreurListe(e.message);
     } finally { setChargement(false); }
   }
 
@@ -1595,6 +1615,13 @@ export default function Etudiants() {
           {sections.map(s => <option key={s.code} value={s.code}>{s.libelle}</option>)}
         </select>
       </div>
+
+      {erreurListe && (
+        <div className="px-4 py-3 rounded-xl bg-red-50 border border-red-200 text-[12.5px]
+                        text-red-800 mb-3">
+          <b>La liste n'a pas pu être chargée.</b> {erreurListe}
+        </div>
+      )}
 
       {!filtres.length ? (
         <div className="text-center py-16 border-2 border-dashed border-slate-200 rounded-xl text-slate-500 text-sm">

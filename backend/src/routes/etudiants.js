@@ -234,14 +234,52 @@ function sectionAutoriseeReq(req, section) {
 
 function sectionsDeLEtudiant(etudId, forcee) {
   if (forcee) return { sections: [forcee], scores: [] };
-  const scores = db.prepare(`
-    SELECT u.section, COUNT(DISTINCT i.ue_num) AS n
-    FROM etudiant_inscription i
-    JOIN ue u ON u.ue_num = i.ue_num AND u.annee_scolaire = i.annee_scolaire
-    WHERE i.etudiant_id = ? AND u.section IS NOT NULL
-    GROUP BY u.section
-    ORDER BY n DESC
-  `).all(etudId);
+  // La section d'une UE ne dépend pas de l'année : joindre sur l'année de
+  // l'inscription excluait tout ce que le référentiel ne couvre pas. Sur la
+  // base de production, qui ne remonte qu'à 2025-2026, 306 étudiants sur 576
+  // se retrouvaient sans section — et donc sans PAE possible.
+  //
+  // On prend la section connue pour cette UE, la plus récente d'abord, comme
+  // le fait UE_REF ailleurs dans ce fichier.
+  // Une jointure plutôt qu'une sous-requête corrélée : SQLite ne fait pas
+  // remonter l'alias « i » à l'intérieur d'une table dérivée, et la requête
+  // échouait à chaque appel — donc la liste entière.
+  //
+  // La préférence pour l'année de l'inscription se traduit ici par un tri sur
+  // la table jointe, et DISTINCT garde une seule section par UE.
+  // Deux requêtes simples plutôt qu'une corrélée : SQLite n'accepte pas de
+  // référence à un alias extérieur depuis une sous-requête placée dans une
+  // table dérivée, ni depuis son ORDER BY. La règle de préférence — l'année de
+  // l'inscription d'abord, la plus récente ensuite — se calcule donc ici.
+  const inscriptions = db.prepare(
+    'SELECT DISTINCT ue_num, annee_scolaire FROM etudiant_inscription WHERE etudiant_id = ?'
+  ).all(etudId);
+
+  const sectionsParUe = {};
+  if (inscriptions.length) {
+    const nums = [...new Set(inscriptions.map(x => x.ue_num))];
+    for (const l of db.prepare(`
+      SELECT ue_num, annee_scolaire, section FROM ue
+      WHERE ue_num IN (${nums.map(() => '?').join(',')}) AND section IS NOT NULL
+    `).all(...nums)) {
+      (sectionsParUe[l.ue_num] = sectionsParUe[l.ue_num] || []).push(l);
+    }
+  }
+
+  const parSection = {};
+  for (const ins of inscriptions) {
+    const candidats = sectionsParUe[ins.ue_num] || [];
+    if (!candidats.length) continue;
+    const exact = candidats.find(x => x.annee_scolaire === ins.annee_scolaire);
+    const retenue = exact
+      || [...candidats].sort((a, b) =>
+           String(b.annee_scolaire).localeCompare(String(a.annee_scolaire)))[0];
+    (parSection[retenue.section] = parSection[retenue.section] || new Set()).add(ins.ue_num);
+  }
+
+  const scores = Object.entries(parSection)
+    .map(([section, ues]) => ({ section, n: ues.size }))
+    .sort((a, b) => b.n - a.n);
   if (!scores.length) return { sections: [], scores };
   const max = scores[0].n;
   // Seuil : une section n'est retenue que si elle couvre au moins 60 % des UE
@@ -1906,7 +1944,18 @@ r.get('/:id/grille', authRequired, (req, res) => {
     FROM etudiant_inscription i WHERE i.etudiant_id = ?
   `).all(etudId).filter(u => !connues.has(u.ue_num));
   for (const o of orphelines) {
-    ues.push({ ...o, ue_nom: o.ue_nom || `UE ${o.ue_num}`, hors_referentiel: true });
+    // « Hors référentiel » ne doit désigner que ce qui l'est vraiment : une UE
+    // d'une AUTRE section, ou dont la section est inconnue. Une unité de la
+    // section de l'étudiant, simplement absente du millésime actif ou écartée
+    // parce que sa section n'a pas atteint le seuil de dominance, appartient
+    // bien à son programme — l'afficher comme étrangère induisait en erreur.
+    const memeSection = o.section && sections.includes(o.section);
+    ues.push({
+      ...o,
+      ue_nom: o.ue_nom || `UE ${o.ue_num}`,
+      hors_referentiel: !memeSection,
+      hors_millesime: memeSection,
+    });
   }
 
   // Prérequis par UE
@@ -1969,6 +2018,7 @@ r.get('/:id/grille', authRequired, (req, res) => {
       ...u,
       prerequis: prereqDe[u.ue_num] || [],
       hors_referentiel: !!u.hors_referentiel,
+      hors_millesime: !!u.hors_millesime,
       // Verrou TRANSITIF : la chaîne entière doit être acquise. Exiger la 255
       // pour la 256 ne suffit pas si la 255 exige elle-même la 254.
       prereq_chaine: (() => {

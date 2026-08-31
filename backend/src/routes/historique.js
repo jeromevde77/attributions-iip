@@ -5,6 +5,7 @@ import { resolve, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import db from '../db/index.js';
 import { authRequired, roleRequired } from '../middleware/auth.js';
+import { peut } from '../middleware/permissions.js';
 
 const r = Router();
 const __dirname = dirname(fileURLToPath(import.meta.url));
@@ -445,6 +446,54 @@ r.get('/feed', authRequired, (req, res) => {
       });
     }
   } catch(e) { console.error('[feed] changelog:', e.message); }
+
+  // ── Anniversaires des membres du personnel ────────────────────────────────
+  // La veille et le jour même : la veille pour avoir le temps d'y penser, le
+  // jour même pour ne pas l'oublier.
+  //
+  // Réservé à qui a accès au module Personnel : une date de naissance est une
+  // donnée personnelle, et tous les comptes n'ont pas à la connaître.
+  try {
+    if (peut(u, 'personnel', 'lire')) {
+      const aujourdhui = new Date();
+      const demain = new Date(aujourdhui.getTime() + 86400000);
+      const mmjj = d => String(d.getMonth() + 1).padStart(2, '0') + '-'
+                      + String(d.getDate()).padStart(2, '0');
+
+      const fetes = db.prepare(`
+        SELECT id, nom, prenom, date_naissance,
+               strftime('%m-%d', date_naissance) AS jour
+        FROM professeur
+        WHERE date_naissance IS NOT NULL AND date_naissance <> ''
+          AND strftime('%m-%d', date_naissance) IN (?, ?)
+      `).all(mmjj(aujourdhui), mmjj(demain));
+
+      for (const p of fetes) {
+        const cestAujourdhui = p.jour === mmjj(aujourdhui);
+        const age = (() => {
+          const n = new Date(p.date_naissance + 'T00:00:00Z');
+          if (isNaN(n)) return null;
+          const ref = cestAujourdhui ? aujourdhui : demain;
+          return ref.getFullYear() - n.getUTCFullYear();
+        })();
+
+        items.push({
+          id: `anniv-${p.id}-${cestAujourdhui ? 'j' : 'v'}`,
+          type: 'anniversaire',
+          action: cestAujourdhui ? 'aujourdhui' : 'demain',
+          titre: cestAujourdhui
+            ? `Anniversaire de ${p.prenom || ''} ${p.nom}`.trim()
+            : `Demain, anniversaire de ${p.prenom || ''} ${p.nom}`.trim(),
+          corps: age ? `${age} ans` : null,
+          auteur: 'Lucie',
+          // Daté du jour concerné, pour que le tri le place au bon endroit.
+          date: (cestAujourdhui ? aujourdhui : demain).toISOString(),
+          lue: false,
+          lien: `/personnel?prof=${p.id}`,
+        });
+      }
+    }
+  } catch (e) { console.error('[feed] anniversaires :', e.message); }
 
   // Trier par date décroissante
   items.sort((a, b) => new Date(b.date) - new Date(a.date));
