@@ -1944,7 +1944,18 @@ r.get('/:id/grille', authRequired, (req, res) => {
     FROM etudiant_inscription i WHERE i.etudiant_id = ?
   `).all(etudId).filter(u => !connues.has(u.ue_num));
   for (const o of orphelines) {
-    ues.push({ ...o, ue_nom: o.ue_nom || `UE ${o.ue_num}`, hors_referentiel: true });
+    // « Hors référentiel » ne doit désigner que ce qui l'est vraiment : une UE
+    // d'une AUTRE section, ou dont la section est inconnue. Une unité de la
+    // section de l'étudiant, simplement absente du millésime actif ou écartée
+    // parce que sa section n'a pas atteint le seuil de dominance, appartient
+    // bien à son programme — l'afficher comme étrangère induisait en erreur.
+    const memeSection = o.section && sections.includes(o.section);
+    ues.push({
+      ...o,
+      ue_nom: o.ue_nom || `UE ${o.ue_num}`,
+      hors_referentiel: !memeSection,
+      hors_millesime: memeSection,
+    });
   }
 
   // Prérequis par UE
@@ -2007,6 +2018,7 @@ r.get('/:id/grille', authRequired, (req, res) => {
       ...u,
       prerequis: prereqDe[u.ue_num] || [],
       hors_referentiel: !!u.hors_referentiel,
+      hors_millesime: !!u.hors_millesime,
       // Verrou TRANSITIF : la chaîne entière doit être acquise. Exiger la 255
       // pour la 256 ne suffit pas si la 255 exige elle-même la 254.
       prereq_chaine: (() => {
