@@ -234,12 +234,27 @@ function sectionAutoriseeReq(req, section) {
 
 function sectionsDeLEtudiant(etudId, forcee) {
   if (forcee) return { sections: [forcee], scores: [] };
+  // La section d'une UE ne dépend pas de l'année : joindre sur l'année de
+  // l'inscription excluait tout ce que le référentiel ne couvre pas. Sur la
+  // base de production, qui ne remonte qu'à 2025-2026, 306 étudiants sur 576
+  // se retrouvaient sans section — et donc sans PAE possible.
+  //
+  // On prend la section connue pour cette UE, la plus récente d'abord, comme
+  // le fait UE_REF ailleurs dans ce fichier.
   const scores = db.prepare(`
-    SELECT u.section, COUNT(DISTINCT i.ue_num) AS n
-    FROM etudiant_inscription i
-    JOIN ue u ON u.ue_num = i.ue_num AND u.annee_scolaire = i.annee_scolaire
-    WHERE i.etudiant_id = ? AND u.section IS NOT NULL
-    GROUP BY u.section
+    SELECT sec AS section, COUNT(DISTINCT ue_num) AS n
+    FROM (
+      SELECT i.ue_num,
+             (SELECT u.section FROM ue u
+               WHERE u.ue_num = i.ue_num AND u.section IS NOT NULL
+               ORDER BY CASE WHEN u.annee_scolaire = i.annee_scolaire THEN 0 ELSE 1 END,
+                        u.annee_scolaire DESC
+               LIMIT 1) AS sec
+      FROM etudiant_inscription i
+      WHERE i.etudiant_id = ?
+    )
+    WHERE sec IS NOT NULL
+    GROUP BY sec
     ORDER BY n DESC
   `).all(etudId);
   if (!scores.length) return { sections: [], scores };
