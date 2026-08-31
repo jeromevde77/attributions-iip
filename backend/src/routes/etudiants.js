@@ -241,20 +241,25 @@ function sectionsDeLEtudiant(etudId, forcee) {
   //
   // On prend la section connue pour cette UE, la plus récente d'abord, comme
   // le fait UE_REF ailleurs dans ce fichier.
+  // Une jointure plutôt qu'une sous-requête corrélée : SQLite ne fait pas
+  // remonter l'alias « i » à l'intérieur d'une table dérivée, et la requête
+  // échouait à chaque appel — donc la liste entière.
+  //
+  // La préférence pour l'année de l'inscription se traduit ici par un tri sur
+  // la table jointe, et DISTINCT garde une seule section par UE.
   const scores = db.prepare(`
-    SELECT sec AS section, COUNT(DISTINCT ue_num) AS n
-    FROM (
+    SELECT section, COUNT(DISTINCT ue_num) AS n FROM (
       SELECT i.ue_num,
-             (SELECT u.section FROM ue u
-               WHERE u.ue_num = i.ue_num AND u.section IS NOT NULL
-               ORDER BY CASE WHEN u.annee_scolaire = i.annee_scolaire THEN 0 ELSE 1 END,
-                        u.annee_scolaire DESC
-               LIMIT 1) AS sec
+             (SELECT u2.section FROM ue u2
+               WHERE u2.ue_num = i.ue_num AND u2.section IS NOT NULL
+               ORDER BY (u2.annee_scolaire = i.annee_scolaire) DESC,
+                        u2.annee_scolaire DESC
+               LIMIT 1) AS section
       FROM etudiant_inscription i
       WHERE i.etudiant_id = ?
-    )
-    WHERE sec IS NOT NULL
-    GROUP BY sec
+    ) t
+    WHERE section IS NOT NULL
+    GROUP BY section
     ORDER BY n DESC
   `).all(etudId);
   if (!scores.length) return { sections: [], scores };

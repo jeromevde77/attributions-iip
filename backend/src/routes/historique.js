@@ -465,7 +465,6 @@ r.get('/feed', authRequired, (req, res) => {
                strftime('%m-%d', date_naissance) AS jour
         FROM professeur
         WHERE date_naissance IS NOT NULL AND date_naissance <> ''
-          AND actif = 1
           AND strftime('%m-%d', date_naissance) IN (?, ?)
       `).all(mmjj(aujourdhui), mmjj(demain));
 
