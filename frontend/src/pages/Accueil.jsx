@@ -4,8 +4,7 @@ import { api, getAnnee, getUser } from '../lib/api.js';
 import { RailLateral } from '../components/ui.jsx';
 import {
   IconHome, IconBell, IconActivity, IconCheck, IconChevronRight,
-  IconUserPlus, IconClipboardList, IconSettings, IconRefresh,
-} from '@tabler/icons-react';
+  IconUserPlus, IconClipboardList, IconSettings, IconRefresh, IconCake} from '@tabler/icons-react';
 
 const tok = () => localStorage.getItem('token');
 
@@ -21,6 +20,12 @@ const TYPE_CONFIG = {
   },
   systeme: {
     info: { label: 'Lucie',       color: '#1B2B4B', bg: '#e8edf5', icon: IconSettings },
+  },
+  anniversaire: {
+    // La veille en teinte sourde, le jour même en ambre : l'un prépare,
+    // l'autre appelle.
+    demain:     { label: 'Demain',      color: '#92400e', bg: '#fef3c7', icon: IconCake },
+    aujourdhui: { label: "Aujourd'hui", color: '#b45309', bg: '#fde68a', icon: IconCake },
   },
 };
 
