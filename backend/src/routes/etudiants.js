@@ -247,21 +247,39 @@ function sectionsDeLEtudiant(etudId, forcee) {
   //
   // La préférence pour l'année de l'inscription se traduit ici par un tri sur
   // la table jointe, et DISTINCT garde une seule section par UE.
-  const scores = db.prepare(`
-    SELECT section, COUNT(DISTINCT ue_num) AS n FROM (
-      SELECT i.ue_num,
-             (SELECT u2.section FROM ue u2
-               WHERE u2.ue_num = i.ue_num AND u2.section IS NOT NULL
-               ORDER BY (u2.annee_scolaire = i.annee_scolaire) DESC,
-                        u2.annee_scolaire DESC
-               LIMIT 1) AS section
-      FROM etudiant_inscription i
-      WHERE i.etudiant_id = ?
-    ) t
-    WHERE section IS NOT NULL
-    GROUP BY section
-    ORDER BY n DESC
-  `).all(etudId);
+  // Deux requêtes simples plutôt qu'une corrélée : SQLite n'accepte pas de
+  // référence à un alias extérieur depuis une sous-requête placée dans une
+  // table dérivée, ni depuis son ORDER BY. La règle de préférence — l'année de
+  // l'inscription d'abord, la plus récente ensuite — se calcule donc ici.
+  const inscriptions = db.prepare(
+    'SELECT DISTINCT ue_num, annee_scolaire FROM etudiant_inscription WHERE etudiant_id = ?'
+  ).all(etudId);
+
+  const sectionsParUe = {};
+  if (inscriptions.length) {
+    const nums = [...new Set(inscriptions.map(x => x.ue_num))];
+    for (const l of db.prepare(`
+      SELECT ue_num, annee_scolaire, section FROM ue
+      WHERE ue_num IN (${nums.map(() => '?').join(',')}) AND section IS NOT NULL
+    `).all(...nums)) {
+      (sectionsParUe[l.ue_num] = sectionsParUe[l.ue_num] || []).push(l);
+    }
+  }
+
+  const parSection = {};
+  for (const ins of inscriptions) {
+    const candidats = sectionsParUe[ins.ue_num] || [];
+    if (!candidats.length) continue;
+    const exact = candidats.find(x => x.annee_scolaire === ins.annee_scolaire);
+    const retenue = exact
+      || [...candidats].sort((a, b) =>
+           String(b.annee_scolaire).localeCompare(String(a.annee_scolaire)))[0];
+    (parSection[retenue.section] = parSection[retenue.section] || new Set()).add(ins.ue_num);
+  }
+
+  const scores = Object.entries(parSection)
+    .map(([section, ues]) => ({ section, n: ues.size }))
+    .sort((a, b) => b.n - a.n);
   if (!scores.length) return { sections: [], scores };
   const max = scores[0].n;
   // Seuil : une section n'est retenue que si elle couvre au moins 60 % des UE
