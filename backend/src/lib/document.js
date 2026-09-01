@@ -77,11 +77,16 @@ export function envelopperDocument({ html, titre, orientation = 'portrait',
      dessous à la fin de chaque page. */
   @page {
     size: A4 ${orientation === 'paysage' ? 'landscape' : 'portrait'};
-    margin: 18mm 18mm ${avecPied ? HAUTEUR_PIED_MM + 6 : 18}mm 18mm;
+    /* Marge basse réduite : le pied est ancré au bas de la ZONE DE CONTENU,
+       une marge généreuse le repoussait vers le haut et laissait un grand
+       blanc sous lui. La place du pied est réservée par le padding du body. */
+    margin: 18mm 18mm ${avecPied ? 8 : 18}mm 18mm;
   }
 
   body { font-family: Arial, Helvetica, sans-serif; font-size: 10pt;
          color: #1a1a2e; margin: 0; }
+  /* La place du pied se réserve ici, faute de quoi le texte passerait dessous. */
+  @media print { body { padding-bottom: ${avecPied ? HAUTEUR_PIED_MM + 4 : 0}mm; } }
   img { max-width: 100%; background: #fff; }
   h1 { font-size: 15pt; color: #1B2B4B; margin: 0 0 2mm; }
   h2 { font-size: 12pt; color: #1B2B4B; margin: 6mm 0 2mm;

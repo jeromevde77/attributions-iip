@@ -427,8 +427,8 @@ r.get('/rapport', authRequired, (req, res) => {
   /* Deux protections plutôt qu'une : la marge de @page, que certains
      navigateurs ignorent lorsqu'ils impriment depuis un cadre, ET une réserve
      dans le corps même. Sans la seconde, le pied se superposait au texte. */
-  @page { size: A4 portrait; margin: 14mm 14mm 26mm 14mm; }
-  @media print { body { padding-bottom: 24mm; } }
+  @page { size: A4 portrait; margin: 14mm 14mm 8mm 14mm; }
+  @media print { body { padding-bottom: 26mm; } }
 
   /* Pied de page commun, ancré en bas de CHAQUE page — dernière comprise.
      Un pied placé dans le flux, ou en table-footer-group, flotte au milieu

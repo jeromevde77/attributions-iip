@@ -154,8 +154,12 @@ function envelopper(corps, titre = 'Attestations de réussite') {
   /* Une attestation tient sur UNE page : les corps sont resserrés et les
      interlignes calculés pour qu'une unité à six acquis et quatre activités
      ne déborde pas. */
-  @page { size: A4 portrait; margin: 12mm 15mm 22mm 15mm; }
-  @media print { body { padding-bottom: 18mm; } }
+  /* Le pied est ancré au bas de la ZONE DE CONTENU : une marge basse
+     généreuse le repoussait à 22 mm du bord, d'où le blanc sous lui. La marge
+     est réduite, et la place du pied réservée par un padding pour que le texte
+     ne passe pas dessous. */
+  @page { size: A4 portrait; margin: 12mm 15mm 8mm 15mm; }
+  @media print { body { padding-bottom: 20mm; } }
 
   body { font-family: 'Segoe UI', Arial, Helvetica, sans-serif; font-size: 9pt;
          color: #1B2B4B; margin: 0; line-height: 1.35; }

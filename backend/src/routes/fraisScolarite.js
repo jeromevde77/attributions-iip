@@ -254,7 +254,8 @@ r.get('/etudiant/:id/document', authRequired, (req, res) => {
 
   /* La marge basse réserve la hauteur du pied : sans elle, le texte passerait
      dessous en fin de page. */
-  @page { margin-bottom: 28mm; }
+  @page { margin-bottom: 8mm; }
+  @media print { body { padding-bottom: 26mm; } }
 
   /* Pied de page commun, ancré en bas de CHAQUE page — dernière comprise.
      Un pied placé dans le flux, ou en table-footer-group, flotte au milieu
