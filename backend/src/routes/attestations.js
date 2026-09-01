@@ -133,6 +133,96 @@ function unitesReussies(etudId, annee) {
   });
 }
 
+/**
+ * Enveloppe commune des attestations : mêmes styles, que le document porte une
+ * pièce ou cinquante. Elle sert aussi aux pièces séparées d'une archive, pour
+ * que chacune reste imprimable seule.
+ */
+function envelopper(corps, titre = 'Attestations de réussite') {
+  return `<!DOCTYPE html><html lang="fr"><head><meta charset="utf-8">
+<title>${esc(titre)}</title>
+<style>
+  * { box-sizing: border-box; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+
+  /* Une attestation tient sur UNE page : les corps sont resserrés et les
+     interlignes calculés pour qu'une unité à six acquis et quatre activités
+     ne déborde pas. */
+  @page { size: A4 portrait; margin: 12mm 15mm 22mm 15mm; }
+  @media print { body { padding-bottom: 18mm; } }
+
+  body { font-family: 'Segoe UI', Arial, Helvetica, sans-serif; font-size: 9pt;
+         color: #1B2B4B; margin: 0; line-height: 1.35; }
+
+  .attestation { break-inside: avoid; }
+  .saut { break-after: page; page-break-after: always; height: 0; }
+
+  /* Bandeau marine et filet doré, comme les autres documents de la maison. */
+  .bandeau { background: #1B2B4B; color: #fff; padding: 4mm 6mm; text-align: center;
+             border-bottom: 1.5mm solid #C9A84C; }
+  .bandeau .cf { font-size: 7.5pt; letter-spacing: .6pt; opacity: .85; }
+  .bandeau .epa { font-size: 9.5pt; font-weight: 600; letter-spacing: .4pt; margin-top: 0.8mm; }
+  .bandeau .annee { font-size: 8pt; margin-top: 1.2mm; opacity: .9; }
+
+  .etab { display: flex; justify-content: space-between; gap: 6mm;
+          padding: 3mm 0 2.5mm; border-bottom: 0.4pt solid #cbd5e1; font-size: 8pt;
+          color: #475569; }
+  .etab .nom { font-weight: 600; color: #1B2B4B; font-size: 9pt; }
+  .etab .ident { text-align: right; white-space: nowrap; }
+
+  h1 { font-size: 10.5pt; text-align: center; margin: 5mm 0 1mm; font-weight: 600;
+       letter-spacing: .3pt; color: #1B2B4B; }
+  h2 { font-size: 12pt; text-align: center; margin: 0 0 1.5mm; font-weight: 700;
+       color: #1B2B4B; }
+  .filet { width: 40mm; height: 0.8mm; background: #C9A84C; margin: 0 auto 4mm; }
+
+  /* Caractéristiques de l'unité, en deux colonnes pour gagner de la hauteur. */
+  .carac { display: grid; grid-template-columns: 1fr 1fr; gap: 1mm 6mm;
+           background: #f8fafc; border: 0.4pt solid #e2e8f0; border-radius: 1.5mm;
+           padding: 2.5mm 3.5mm; font-size: 8.5pt; margin-bottom: 4mm; }
+  .carac .large { grid-column: 1 / -1; }
+  .carac b { color: #1B2B4B; }
+
+  .corps { text-align: justify; margin: 2.5mm 0; font-size: 9pt; }
+  .indente { margin-left: 8mm; }
+
+  /* La personne, en évidence sans excès. */
+  .etudiant { background: #eff6ff; border-left: 1mm solid #1B2B4B;
+              padding: 2.5mm 3.5mm; margin: 3mm 0; font-size: 9.5pt; }
+  .etudiant .nom { font-weight: 700; font-size: 10.5pt; }
+  .etudiant .naissance { font-size: 8.5pt; color: #475569; margin-top: 0.8mm; }
+
+  .activites { margin: 1.5mm 0 3mm 8mm; font-size: 8.5pt; }
+  ul.acquis { margin: 1.5mm 0 3mm 8mm; padding-left: 4mm; font-size: 8.5pt; }
+  ul.acquis li { margin: 0.5mm 0; }
+
+  .resultat { text-align: center; background: #f8fafc; border: 0.4pt solid #e2e8f0;
+              border-radius: 1.5mm; padding: 2.5mm; margin: 3mm 0; font-size: 9pt; }
+  .resultat .pct { font-size: 13pt; font-weight: 700; color: #1B2B4B; }
+
+  .manque { color: #b45309; font-style: italic; }
+
+  table.signatures { width: 100%; border-collapse: collapse; margin-top: 5mm; font-size: 8pt; }
+  table.signatures td { border: 0.4pt solid #94a3b8; padding: 1.5mm 2.5mm;
+                        vertical-align: top; width: 33.33%; }
+  table.signatures tr.hauteur td { height: 16mm; }
+  table.signatures .role { color: #475569; font-size: 7.5pt; }
+
+  .pied-lucie { position: fixed; bottom: 0; left: 0; right: 0; height: 16mm;
+                padding-top: 1.5mm; border-top: 0.4pt solid #C9A84C; text-align: center; }
+  .pied-lucie .txt { font-size: 5.5pt; color: #94a3b8; line-height: 1.3; }
+
+  @media screen {
+    html { background: #e5e5e5; }
+    body { max-width: 210mm; margin: 16px auto; padding: 12mm 15mm; background: #fff;
+           box-shadow: 0 2px 14px rgba(0,0,0,.18); }
+    .pied-lucie { position: static; height: auto; margin-top: 8mm; }
+  }
+</style></head><body>
+${corps}
+<div class="pied-lucie"><div class="txt">${piedDocument()}</div></div>
+</body></html>`;
+}
+
 r.get('/etudiant/:id', authRequired, (req, res) => {
   const annee = req.query.annee;
   if (!annee) return res.status(400).json({ error: 'annee requise' });
@@ -261,88 +351,7 @@ r.get('/etudiant/:id/document', authRequired, (req, res) => {
   const pages = unites.map(u => pageAttestation(e, u, annee, etab))
     .join('<div class="saut"></div>');
 
-  const html = `<!DOCTYPE html><html lang="fr"><head><meta charset="utf-8">
-<title>Attestations — ${esc(e.nom)} ${esc(e.prenom)}</title>
-<style>
-  * { box-sizing: border-box; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
-
-  /* Une attestation tient sur UNE page : les corps sont resserrés et les
-     interlignes calculés pour qu'une unité à six acquis et quatre activités
-     ne déborde pas. */
-  @page { size: A4 portrait; margin: 12mm 15mm 22mm 15mm; }
-  @media print { body { padding-bottom: 18mm; } }
-
-  body { font-family: 'Segoe UI', Arial, Helvetica, sans-serif; font-size: 9pt;
-         color: #1B2B4B; margin: 0; line-height: 1.35; }
-
-  .attestation { break-inside: avoid; }
-  .saut { break-after: page; page-break-after: always; height: 0; }
-
-  /* Bandeau marine et filet doré, comme les autres documents de la maison. */
-  .bandeau { background: #1B2B4B; color: #fff; padding: 4mm 6mm; text-align: center;
-             border-bottom: 1.5mm solid #C9A84C; }
-  .bandeau .cf { font-size: 7.5pt; letter-spacing: .6pt; opacity: .85; }
-  .bandeau .epa { font-size: 9.5pt; font-weight: 600; letter-spacing: .4pt; margin-top: 0.8mm; }
-  .bandeau .annee { font-size: 8pt; margin-top: 1.2mm; opacity: .9; }
-
-  .etab { display: flex; justify-content: space-between; gap: 6mm;
-          padding: 3mm 0 2.5mm; border-bottom: 0.4pt solid #cbd5e1; font-size: 8pt;
-          color: #475569; }
-  .etab .nom { font-weight: 600; color: #1B2B4B; font-size: 9pt; }
-  .etab .ident { text-align: right; white-space: nowrap; }
-
-  h1 { font-size: 10.5pt; text-align: center; margin: 5mm 0 1mm; font-weight: 600;
-       letter-spacing: .3pt; color: #1B2B4B; }
-  h2 { font-size: 12pt; text-align: center; margin: 0 0 1.5mm; font-weight: 700;
-       color: #1B2B4B; }
-  .filet { width: 40mm; height: 0.8mm; background: #C9A84C; margin: 0 auto 4mm; }
-
-  /* Caractéristiques de l'unité, en deux colonnes pour gagner de la hauteur. */
-  .carac { display: grid; grid-template-columns: 1fr 1fr; gap: 1mm 6mm;
-           background: #f8fafc; border: 0.4pt solid #e2e8f0; border-radius: 1.5mm;
-           padding: 2.5mm 3.5mm; font-size: 8.5pt; margin-bottom: 4mm; }
-  .carac .large { grid-column: 1 / -1; }
-  .carac b { color: #1B2B4B; }
-
-  .corps { text-align: justify; margin: 2.5mm 0; font-size: 9pt; }
-  .indente { margin-left: 8mm; }
-
-  /* La personne, en évidence sans excès. */
-  .etudiant { background: #eff6ff; border-left: 1mm solid #1B2B4B;
-              padding: 2.5mm 3.5mm; margin: 3mm 0; font-size: 9.5pt; }
-  .etudiant .nom { font-weight: 700; font-size: 10.5pt; }
-  .etudiant .naissance { font-size: 8.5pt; color: #475569; margin-top: 0.8mm; }
-
-  .activites { margin: 1.5mm 0 3mm 8mm; font-size: 8.5pt; }
-  ul.acquis { margin: 1.5mm 0 3mm 8mm; padding-left: 4mm; font-size: 8.5pt; }
-  ul.acquis li { margin: 0.5mm 0; }
-
-  .resultat { text-align: center; background: #f8fafc; border: 0.4pt solid #e2e8f0;
-              border-radius: 1.5mm; padding: 2.5mm; margin: 3mm 0; font-size: 9pt; }
-  .resultat .pct { font-size: 13pt; font-weight: 700; color: #1B2B4B; }
-
-  .manque { color: #b45309; font-style: italic; }
-
-  table.signatures { width: 100%; border-collapse: collapse; margin-top: 5mm; font-size: 8pt; }
-  table.signatures td { border: 0.4pt solid #94a3b8; padding: 1.5mm 2.5mm;
-                        vertical-align: top; width: 33.33%; }
-  table.signatures tr.hauteur td { height: 16mm; }
-  table.signatures .role { color: #475569; font-size: 7.5pt; }
-
-  .pied-lucie { position: fixed; bottom: 0; left: 0; right: 0; height: 16mm;
-                padding-top: 1.5mm; border-top: 0.4pt solid #C9A84C; text-align: center; }
-  .pied-lucie .txt { font-size: 5.5pt; color: #94a3b8; line-height: 1.3; }
-
-  @media screen {
-    html { background: #e5e5e5; }
-    body { max-width: 210mm; margin: 16px auto; padding: 12mm 15mm; background: #fff;
-           box-shadow: 0 2px 14px rgba(0,0,0,.18); }
-    .pied-lucie { position: static; height: auto; margin-top: 8mm; }
-  }
-</style></head><body>
-${pages}
-<div class="pied-lucie"><div class="txt">${piedDocument()}</div></div>
-</body></html>`;
+  const html = envelopper(pages, `Attestations — ${e.nom} ${e.prenom}`);
 
   res.json({
     html,
@@ -350,6 +359,126 @@ ${pages}
     unites: unites.length,
     manques: unites.filter(u => u.manques.length)
       .map(u => ({ ue_num: u.ue_num, manques: u.manques })),
+  });
+});
+
+// ── Sélection pour une génération groupée ───────────────────────────────────
+// On croise librement années, sections, unités et étudiants. Chaque couple
+// « étudiant × unité réussie » donne une attestation : ce sont des pièces
+// distinctes, et c'est à cette maille que la sélection se raisonne.
+r.get('/candidats', authRequired, (req, res) => {
+  const annees = (req.query.annees || '').split(',').filter(Boolean);
+  const sections = (req.query.sections || '').split(',').filter(Boolean);
+  const ues = (req.query.ues || '').split(',').filter(Boolean).map(Number);
+  const etudiants = (req.query.etudiants || '').split(',').filter(Boolean).map(Number);
+
+  if (!annees.length) return res.status(400).json({ error: 'au moins une année requise' });
+
+  const perim = getUserSections(req.user);
+
+  const clauses = [`i.resultat = 'reussi'`,
+                   `i.annee_scolaire IN (${annees.map(() => '?').join(',')})`];
+  const params = [...annees];
+
+  if (ues.length) {
+    clauses.push(`i.ue_num IN (${ues.map(() => '?').join(',')})`);
+    params.push(...ues);
+  }
+  if (etudiants.length) {
+    clauses.push(`i.etudiant_id IN (${etudiants.map(() => '?').join(',')})`);
+    params.push(...etudiants);
+  }
+
+  const lignes = db.prepare(`
+    SELECT i.etudiant_id, i.ue_num, i.annee_scolaire, i.points,
+           e.nom, e.prenom, e.id_ecampus,
+           (SELECT ue_nom FROM ue u WHERE u.ue_num = i.ue_num
+             ORDER BY (u.annee_scolaire = i.annee_scolaire) DESC, u.annee_scolaire DESC
+             LIMIT 1) AS ue_nom,
+           (SELECT section FROM ue u WHERE u.ue_num = i.ue_num AND u.section IS NOT NULL
+             ORDER BY (u.annee_scolaire = i.annee_scolaire) DESC, u.annee_scolaire DESC
+             LIMIT 1) AS section
+    FROM etudiant_inscription i
+    JOIN etudiant e ON e.id = i.etudiant_id
+    WHERE ${clauses.join(' AND ')}
+    ORDER BY e.nom, e.prenom, i.annee_scolaire, i.ue_num
+  `).all(...params);
+
+  // Le filtre par section s'applique après coup : la section vient d'une
+  // sous-requête, elle n'est pas disponible dans la clause WHERE.
+  const retenues = lignes.filter(l => {
+    if (perim && l.section && !perim.includes(l.section)) return false;
+    if (sections.length && !sections.includes(l.section)) return false;
+    return true;
+  });
+
+  res.json({
+    candidats: retenues,
+    total: retenues.length,
+    etudiants: new Set(retenues.map(l => l.etudiant_id)).size,
+  });
+});
+
+// ── Génération groupée ──────────────────────────────────────────────────────
+r.post('/lot', authRequired, (req, res) => {
+  const { paires, separes } = req.body || {};
+  if (!Array.isArray(paires) || !paires.length) {
+    return res.status(400).json({ error: 'aucune attestation demandée' });
+  }
+  if (paires.length > 500) {
+    return res.status(400).json({
+      error: `${paires.length} attestations demandées. Au-delà de 500, le navigateur ne suit `
+           + `plus : restreignez la sélection, par section ou par année.`,
+    });
+  }
+
+  const etab = db.prepare('SELECT * FROM etablissement LIMIT 1').get() || {};
+  const cacheEtud = {};
+  const cacheUnites = {};
+
+  const documents = [];
+  const manquants = [];
+
+  for (const p of paires) {
+    const etudId = Number(p.etudiant_id);
+    const e = cacheEtud[etudId]
+      || (cacheEtud[etudId] = db.prepare('SELECT * FROM etudiant WHERE id = ?').get(etudId));
+    if (!e) continue;
+
+    const cle = `${etudId}|${p.annee_scolaire}`;
+    const unites = cacheUnites[cle]
+      || (cacheUnites[cle] = unitesReussies(etudId, p.annee_scolaire));
+    const u = unites.find(x => x.ue_num === Number(p.ue_num));
+    if (!u) continue;
+
+    if (u.manques.length) manquants.push({ etudiant: `${e.nom} ${e.prenom}`, ue_num: u.ue_num, manques: u.manques });
+
+    // Nom de fichier demandé : nom_prénom, numéro d'UE, année académique.
+    const propre = s => String(s || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+      .replace(/[^A-Za-z0-9]+/g, '_').replace(/^_|_$/g, '');
+    documents.push({
+      nom_fichier: `${propre(e.nom)}_${propre(e.prenom)}_UE${u.ue_num}_${p.annee_scolaire}.html`,
+      etudiant: `${e.nom} ${e.prenom}`,
+      ue_num: u.ue_num,
+      annee: p.annee_scolaire,
+      corps: pageAttestation(e, u, p.annee_scolaire, etab),
+    });
+  }
+
+  if (!documents.length) {
+    return res.status(404).json({ error: 'Aucune attestation n\'a pu être produite.' });
+  }
+
+  res.json({
+    documents: separes ? documents : undefined,
+    // En un seul document, les attestations s'enchaînent, chacune sur sa page.
+    html: separes ? undefined : envelopper(
+      documents.map(d => d.corps).join('<div class="saut"></div>')),
+    // Chaque pièce séparée porte la même enveloppe, pour rester imprimable seule.
+    enveloppe: separes ? envelopper('__CORPS__') : undefined,
+    total: documents.length,
+    manquants: manquants.slice(0, 40),
+    nb_manquants: manquants.length,
   });
 });
 
