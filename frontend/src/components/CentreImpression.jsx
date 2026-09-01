@@ -372,15 +372,44 @@ export default function CentreImpression({ onClose, documentInitial = null,
               </div>
             </div>
 
-            <div className="flex items-center gap-3 flex-wrap">
-              <button onClick={() => toutCocher(!tousCoches)}
-                className="flex items-center gap-1.5 text-[12.5px] text-iip-blue font-semibold">
-                {tousCoches ? <IconSquareCheck size={16} /> : <IconSquare size={16} />}
-                {tousCoches ? 'Tout décocher' : 'Tout cocher'}
-              </button>
-              <span className="text-[13px] font-semibold text-iip-blue">
-                {retenus.length} sélectionné(s) sur {destinataires.total}
-              </span>
+            {/* Compte et boutons AU-DESSUS de la liste, et collés en haut : avec
+                cent étudiants cochés, il fallait redescendre chercher le bouton. */}
+            <div className="sticky top-0 z-10 bg-white pt-1 pb-2 -mx-1 px-1
+                            border-b border-slate-100 space-y-2">
+              <div className="flex items-center justify-between gap-3 flex-wrap">
+                <div className="flex items-center gap-3">
+                  <button onClick={() => toutCocher(!tousCoches)}
+                    className="flex items-center gap-1.5 text-[12.5px] text-iip-blue font-semibold">
+                    {tousCoches ? <IconSquareCheck size={16} /> : <IconSquare size={16} />}
+                    {tousCoches ? 'Tout décocher' : 'Tout cocher'}
+                  </button>
+                  <span className="text-[13px] font-semibold text-iip-blue">
+                    {retenus.length} sélectionné(s) sur {destinataires.total}
+                  </span>
+                </div>
+
+                <div className="flex gap-2 flex-wrap">
+                  {pdfPossible && (
+                    <button onClick={() => produire('pdf')} disabled={enCours || !retenus.length}
+                      className="flex items-center gap-1.5 px-3.5 py-1.5 text-sm bg-iip-blue
+                                 text-white font-semibold rounded-lg disabled:opacity-40">
+                      <IconFileTypePdf size={15} /> PDF
+                    </button>
+                  )}
+                  <button onClick={() => produire('html')} disabled={enCours || !retenus.length}
+                    className="flex items-center gap-1.5 px-3.5 py-1.5 text-sm border
+                               border-iip-blue text-iip-blue font-semibold rounded-lg
+                               disabled:opacity-40">
+                    <IconPrinter size={15} /> Imprimer
+                  </button>
+                  <button onClick={() => produire('zip')} disabled={enCours || !retenus.length}
+                    className="flex items-center gap-1.5 px-3.5 py-1.5 text-sm border
+                               border-slate-300 text-slate-600 font-semibold rounded-lg
+                               disabled:opacity-40">
+                    <IconFileZip size={15} /> Pièces séparées
+                  </button>
+                </div>
+              </div>
             </div>
 
             {!affiches.length ? (
@@ -390,7 +419,7 @@ export default function CentreImpression({ onClose, documentInitial = null,
               </div>
             ) : (
               <>
-                <div className="max-h-56 overflow-y-auto border border-slate-200 rounded-xl
+                <div className="max-h-72 overflow-y-auto border border-slate-200 rounded-xl
                                 divide-y divide-slate-100">
                   {affiches.slice(0, 400).map(d => {
                     const coche = coches.has(cle(d));
@@ -413,32 +442,9 @@ export default function CentreImpression({ onClose, documentInitial = null,
                   })}
                   {affiches.length > 400 && (
                     <p className="text-[11px] text-slate-400 mt-1">
-                      200 premières lignes affichées ; la production portera sur les {retenus.length}.
+                      400 premières lignes affichées ; la production portera sur les {retenus.length}.
                     </p>
                   )}
-                </div>
-
-                {/* 4 — la forme */}
-                <div className="flex gap-2 flex-wrap">
-                  {pdfPossible && (
-                    <button onClick={() => produire('pdf')} disabled={enCours || !retenus.length}
-                      className="flex items-center gap-1.5 px-4 py-2 text-sm bg-iip-blue
-                                 text-white font-semibold rounded-lg disabled:opacity-40">
-                      <IconFileTypePdf size={15} /> PDF
-                    </button>
-                  )}
-                  <button onClick={() => produire('html')} disabled={enCours || !retenus.length}
-                    className="flex items-center gap-1.5 px-4 py-2 text-sm border
-                               border-iip-blue text-iip-blue font-semibold rounded-lg
-                               disabled:opacity-40">
-                    <IconPrinter size={15} /> Imprimer
-                  </button>
-                  <button onClick={() => produire('zip')} disabled={enCours || !retenus.length}
-                    className="flex items-center gap-1.5 px-4 py-2 text-sm border
-                               border-slate-300 text-slate-600 font-semibold rounded-lg
-                               disabled:opacity-40">
-                    <IconFileZip size={15} /> Pièces séparées
-                  </button>
                 </div>
 
                 {!pdfPossible && (
