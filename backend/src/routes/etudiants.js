@@ -2680,6 +2680,111 @@ ${(() => {
 });
 
 // ── Ajouter un étudiant manuellement ─────────────────────────────────────────
+// ── Modification du signalétique ────────────────────────────────────────────
+// Rien ne permettait de corriger une adresse ou d'ajouter un lieu de naissance :
+// on pouvait créer un étudiant, jamais le rectifier.
+const CHAMPS_ETUDIANT = ['id_ecampus', 'nom', 'prenom', 'titre', 'date_naissance',
+  'lieu_naissance', 'num_national', 'email_ecole', 'email_perso', 'gsm',
+  'adresse', 'cp', 'localite', 'actif'];
+
+r.patch('/:id', authRequired, roleRequired('admin', 'directeur', 'directeur_adjoint',
+        'editeur', 'secretariat'), (req, res) => {
+  const etudId = Number(req.params.id);
+  const avant = db.prepare('SELECT * FROM etudiant WHERE id = ?').get(etudId);
+  if (!avant) return res.status(404).json({ error: 'étudiant introuvable' });
+
+  const presents = CHAMPS_ETUDIANT.filter(k => k in (req.body || {}));
+  if (!presents.length) return res.json({ ok: true, inchange: true });
+
+  // Le numéro national identifie la personne : un doublon rendrait tout
+  // rapprochement d'historique impossible.
+  if (presents.includes('num_national') && req.body.num_national) {
+    const norm = String(req.body.num_national).replace(/[^0-9]/g, '');
+    const autre = db.prepare(`
+      SELECT id, nom, prenom FROM etudiant
+      WHERE id <> ? AND REPLACE(REPLACE(REPLACE(COALESCE(num_national,''),'.',''),'-',''),' ','') = ?
+    `).get(etudId, norm);
+    if (autre) {
+      return res.status(400).json({
+        error: `Ce numéro national est déjà celui de ${autre.nom} ${autre.prenom}. `
+             + `Deux dossiers ne peuvent pas le partager.`,
+      });
+    }
+  }
+
+  db.prepare(`UPDATE etudiant SET ${presents.map(k => `${k} = ?`).join(', ')} WHERE id = ?`)
+    .run(...presents.map(k => req.body[k] ?? null), etudId);
+
+  res.json({ ok: true, modifies: presents });
+});
+
+// ── Complément de dossier par numéro national ───────────────────────────────
+// Les listes officielles portent des données que Lucie n'a pas — lieu de
+// naissance, adresse à jour. Le rapprochement se fait sur le numéro national,
+// seul identifiant stable : eCampus réattribue les matricules chaque rentrée.
+r.post('/completer', authRequired, roleRequired('admin', 'directeur', 'directeur_adjoint',
+       'editeur', 'secretariat'), (req, res) => {
+  const { lignes, simulation } = req.body || {};
+  if (!Array.isArray(lignes)) return res.status(400).json({ error: 'lignes requises' });
+
+  const norm = v => String(v || '').replace(/[^0-9]/g, '');
+  const parRN = {};
+  for (const e of db.prepare('SELECT id, nom, prenom, num_national FROM etudiant').all()) {
+    const n = norm(e.num_national);
+    if (n) parRN[n] = e;
+  }
+
+  const COMPLETABLES = ['lieu_naissance', 'date_naissance', 'adresse', 'cp', 'localite',
+                        'gsm', 'email_perso', 'email_ecole', 'titre', 'id_ecampus'];
+
+  const rapport = { retrouves: 0, inconnus: [], modifications: [], champs: {} };
+
+  const appliquer = db.transaction(() => {
+    for (const l of lignes) {
+      const n = norm(l.num_national);
+      if (!n) continue;
+      const e = parRN[n];
+      if (!e) { rapport.inconnus.push({ num_national: l.num_national, nom: l.nom }); continue; }
+      rapport.retrouves++;
+
+      const actuel = db.prepare('SELECT * FROM etudiant WHERE id = ?').get(e.id);
+      const maj = {};
+      for (const k of COMPLETABLES) {
+        const v = l[k];
+        if (v == null || String(v).trim() === '') continue;
+        // On COMPLÈTE : une valeur déjà présente n'est pas écrasée, sauf
+        // demande explicite. Une liste importée n'est pas plus fiable que ce
+        // qu'un secrétariat a corrigé à la main.
+        if (actuel[k] != null && String(actuel[k]).trim() !== '' && !l.__ecraser) continue;
+        maj[k] = String(v).trim();
+        rapport.champs[k] = (rapport.champs[k] || 0) + 1;
+      }
+      if (!Object.keys(maj).length) continue;
+
+      rapport.modifications.push({
+        id: e.id, nom: actuel.nom, prenom: actuel.prenom, champs: Object.keys(maj),
+      });
+      if (!simulation) {
+        db.prepare(`UPDATE etudiant SET ${Object.keys(maj).map(k => `${k} = ?`).join(', ')}
+                    WHERE id = ?`).run(...Object.values(maj), e.id);
+      }
+    }
+    if (simulation) throw new Error('SIMULATION');
+  });
+
+  try { appliquer(); } catch (e) {
+    if (e.message !== 'SIMULATION') return res.status(500).json({ error: e.message });
+  }
+
+  res.json({
+    ok: true, simulation: !!simulation,
+    lignes_lues: lignes.length,
+    ...rapport,
+    inconnus: rapport.inconnus.slice(0, 30),
+    nb_inconnus: rapport.inconnus.length,
+  });
+});
+
 r.post('/', authRequired, roleRequired('admin', 'editeur'), (req, res) => {
   const { nom, prenom, annee, ue_nums, ...rest } = req.body;
   if (!nom || !prenom) return res.status(400).json({ error: 'nom et prenom requis' });

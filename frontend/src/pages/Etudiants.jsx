@@ -7,6 +7,7 @@ import PreviewModal from '../components/PreviewModal.jsx';
 import SchemaCapitalisationVue from '../components/SchemaCapitalisation.jsx';
 import Amenagements from '../components/Amenagements.jsx';
 import Stages from '../components/Stages.jsx';
+import IdentiteEtudiant, { ComplementDossiers } from '../components/IdentiteEtudiant.jsx';
 import ImportPAE from '../components/ImportPAE.jsx';
 import PurgeResultats from '../components/PurgeResultats.jsx';
 import RapportPAE from '../components/RapportPAE.jsx';
@@ -1018,6 +1019,7 @@ function FicheEtudiant({ id, annee, onClose }) {
         {/* Onglets */}
         <div className="flex border-b border-slate-200 px-6">
           {[['grille', `Grille de parcours (${data.inscriptions?.length || 0})`],
+            ['identite', 'Identité'],
             ['pae', `PAE ${annee}`],
             ['va', 'Valorisation'],
             ['di', "Droit d'inscription"],
@@ -1042,6 +1044,12 @@ function FicheEtudiant({ id, annee, onClose }) {
           {onglet === 'di' && <DroitInscription etudId={id} annee={annee} />}
 
           {onglet === 'dossier' && <DossierApprenant etudId={id} />}
+
+          {onglet === 'identite' && (
+            <div className="p-5">
+              <IdentiteEtudiant etudId={id} onModifie={charger} />
+            </div>
+          )}
 
           {onglet === 'stages' && (
             <div className="p-5">
@@ -1319,6 +1327,7 @@ export default function Etudiants() {
   const [rapportPAE, setRapportPAE] = useState(false);
   const [importListe, setImportListe] = useState(false);
   const [importHisto, setImportHisto] = useState(false);
+  const [complement, setComplement] = useState(false);
   const [tri, setTri] = useState({ champ: 'nom', sens: 1 });
 
 
@@ -1611,6 +1620,11 @@ export default function Etudiants() {
           className="flex items-center gap-2 px-3 py-2 text-sm border border-iip-blue text-iip-blue rounded-lg hover:bg-iip-blue/5">
           <IconUpload size={15} /> Reconstruire l'historique
         </button>
+        <button onClick={() => setComplement(true)}
+          title="Compléter adresses, lieux de naissance et coordonnées, par numéro national"
+          className="flex items-center gap-2 px-3 py-2 text-sm border border-slate-300 text-slate-600 rounded-lg hover:bg-slate-50">
+          <IconUpload size={15} /> Compléter les dossiers
+        </button>
         <button onClick={() => setImportListe(true)}
           className="flex items-center gap-2 px-3 py-2 text-sm border border-iip-turquoise text-iip-turquoise rounded-lg hover:bg-iip-turquoise/5">
           <IconUpload size={15} /> Importer une liste eCampus
@@ -1714,6 +1728,22 @@ export default function Etudiants() {
 
       {selId && (
         <FicheEtudiant id={selId} annee={annee} onClose={() => setSelId(null)} />
+      )}
+
+      {complement && (
+        <div className="fixed inset-0 bg-black/40 flex items-start justify-center z-50 p-4"
+          onClick={e => e.target === e.currentTarget && setComplement(false)}>
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-3xl mt-12 p-5
+                          max-h-[85vh] overflow-y-auto">
+            <div className="flex items-center justify-between mb-3">
+              <span className="text-[15px] font-semibold text-iip-blue">
+                Compléter les dossiers
+              </span>
+              <button onClick={() => setComplement(false)} className="text-slate-400">✕</button>
+            </div>
+            <ComplementDossiers onTermine={charger} />
+          </div>
+        </div>
       )}
 
       {importHisto && (
