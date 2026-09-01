@@ -13,6 +13,9 @@
 import db from '../db/index.js';
 
 /**
+ * Le centre d'impression des ÉTUDIANTS : le contrat de travail n'y figure pas,
+ * il relève du personnel et a son propre écran.
+ *
  * Chaque document déclare :
  *  - cle          identifiant stable
  *  - libelle      ce que l'utilisateur lit
@@ -64,18 +67,8 @@ export const DOCUMENTS = [
     parametres: ['annee'],
     nomFichier: 'Frais_{nom}_{prenom}_{annee}',
     roles: ['admin', 'directeur', 'directeur_adjoint', 'editeur', 'secretariat'],
-  },
-  {
-    cle: 'contrat',
-    libelle: 'Contrat de travail',
-    description: 'Contrat du membre du personnel, selon le modèle paramétré.',
-    portee: 'professeur', lot: false, groupe: 'Personnel',
-    route: { methode: 'POST', chemin: '/api/contrats/apercu' },
-    routePdf: { methode: 'POST', chemin: '/api/contrats/pdf' },
-    parametres: ['annee', 'professeur'],
-    nomFichier: 'Contrat_{nom}_{prenom}_{annee}',
-    roles: ['admin', 'directeur', 'directeur_adjoint', 'editeur'],
-  },
+  }
+
 ];
 
 /** Le catalogue taillé au périmètre de la personne. */

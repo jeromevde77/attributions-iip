@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import {
-  IconPrinter, IconFileZip, IconFileTypePdf, IconSearch, IconX, IconAlertTriangle,
+  IconAlertTriangle, IconFileTypePdf, IconFileZip, IconPrinter, IconSearch, IconSquare, IconSquareCheck, IconX,
 } from '@tabler/icons-react';
 import { authHeaders } from '../lib/api.js';
 import { Tableau, TableauEntete, Th, Td, Tr } from './ui.jsx';
@@ -28,7 +28,9 @@ export default function CentreImpression({ onClose, documentInitial = null,
   const [ue, setUe] = useState('');
 
   const [destinataires, setDestinataires] = useState(null);
-  const [exclus, setExclus] = useState(new Set());
+  // Sélection EXPLICITE plutôt qu'exclusion : on voit ce qu'on va produire,
+  // et « tout décocher puis cocher trois personnes » devient possible.
+  const [coches, setCoches] = useState(new Set());
   const [recherche, setRecherche] = useState('');
   const [enCours, setEnCours] = useState(false);
   const [message, setMessage] = useState(null);
@@ -69,7 +71,7 @@ export default function CentreImpression({ onClose, documentInitial = null,
   }, [section, doc]);
 
   // Changer de document invalide la sélection précédente.
-  useEffect(() => { setDestinataires(null); setExclus(new Set()); }, [docCle]);
+  useEffect(() => { setDestinataires(null); setCoches(new Set()); }, [docCle]);
 
   async function chercher() {
     if (!annee) { setMessage({ type: 'err', texte: 'Choisissez une année.' }); return; }
@@ -83,21 +85,42 @@ export default function CentreImpression({ onClose, documentInitial = null,
       const j = await rep.json();
       if (!rep.ok) { setMessage({ type: 'err', texte: j.error }); return; }
       setDestinataires(j);
-      setExclus(new Set());
+      setCoches(new Set(j.destinataires.map(cle)));
     } finally { setEnCours(false); }
   }
 
   const cle = d => `${d.etudiant_id || d.professeur_id}|${d.ue_num ?? ''}|${d.annee_scolaire ?? ''}`;
 
-  const retenus = useMemo(() => {
+  // Ce que la recherche laisse voir…
+  const affiches = useMemo(() => {
     if (!destinataires) return [];
     const q = recherche.trim().toLowerCase();
-    return destinataires.destinataires.filter(d => {
-      if (exclus.has(cle(d))) return false;
-      if (!q) return true;
-      return `${d.nom} ${d.prenom} ${d.ue_num ?? ''}`.toLowerCase().includes(q);
-    });
-  }, [destinataires, exclus, recherche]);
+    if (!q) return destinataires.destinataires;
+    return destinataires.destinataires.filter(d =>
+      `${d.nom} ${d.prenom} ${d.ue_num ?? ''}`.toLowerCase().includes(q));
+  }, [destinataires, recherche]);
+
+  // …et ce qui sera réellement produit. La recherche ne décoche rien : on peut
+  // chercher « Dupont », le cocher, puis chercher autre chose sans le perdre.
+  const retenus = useMemo(
+    () => (destinataires?.destinataires || []).filter(d => coches.has(cle(d))),
+    [destinataires, coches]);
+
+  const basculer = d => setCoches(s => {
+    const n = new Set(s); const k = cle(d);
+    n.has(k) ? n.delete(k) : n.add(k);
+    return n;
+  });
+
+  // « Tout cocher » ne porte que sur ce qui est AFFICHÉ : après une recherche,
+  // il doit cocher le résultat, non la liste entière.
+  const toutCocher = valeur => setCoches(s => {
+    const n = new Set(s);
+    for (const d of affiches) valeur ? n.add(cle(d)) : n.delete(cle(d));
+    return n;
+  });
+
+  const tousCoches = affiches.length > 0 && affiches.every(d => coches.has(cle(d)));
 
   /**
    * La production passe par la route du document lui-même : le centre ne
@@ -335,40 +358,46 @@ export default function CentreImpression({ onClose, documentInitial = null,
               </div>
             </div>
 
-            {!retenus.length ? (
+            <div className="flex items-center gap-3 flex-wrap">
+              <button onClick={() => toutCocher(!tousCoches)}
+                className="flex items-center gap-1.5 text-[12.5px] text-iip-blue font-semibold">
+                {tousCoches ? <IconSquareCheck size={16} /> : <IconSquare size={16} />}
+                {tousCoches ? 'Tout décocher' : 'Tout cocher'}
+              </button>
+              <span className="text-[13px] font-semibold text-iip-blue">
+                {retenus.length} sélectionné(s) sur {destinataires.total}
+              </span>
+            </div>
+
+            {!affiches.length ? (
               <div className="py-6 text-center text-[12.5px] text-slate-400
                               border-2 border-dashed rounded-xl">
                 Personne ne correspond à cette sélection.
               </div>
             ) : (
               <>
-                <div className="max-h-56 overflow-y-auto">
-                  <Tableau dense>
-                    <TableauEntete>
-                      <Th>Nom</Th>
-                      {destinataires.maille === 'etudiant_ue' && <Th largeur="w-16">UE</Th>}
-                      <Th largeur="w-24">Année</Th>
-                      <Th largeur="w-12" />
-                    </TableauEntete>
-                    <tbody>
-                      {retenus.slice(0, 200).map(d => (
-                        <Tr key={cle(d)}>
-                          <Td>{d.nom} {d.prenom}</Td>
-                          {destinataires.maille === 'etudiant_ue' && (
-                            <Td ton="secondaire">{d.ue_num}</Td>
-                          )}
-                          <Td ton="secondaire">{d.annee_scolaire || annee}</Td>
-                          <Td align="droite">
-                            <button onClick={() => setExclus(s => new Set([...s, cle(d)]))}
-                              title="Retirer" className="text-slate-300 hover:text-red-500">
-                              <IconX size={13} />
-                            </button>
-                          </Td>
-                        </Tr>
-                      ))}
-                    </tbody>
-                  </Tableau>
-                  {retenus.length > 200 && (
+                <div className="max-h-56 overflow-y-auto border border-slate-200 rounded-xl
+                                divide-y divide-slate-100">
+                  {affiches.slice(0, 400).map(d => {
+                    const coche = coches.has(cle(d));
+                    return (
+                      <label key={cle(d)}
+                        className={`flex items-center gap-3 px-3 py-1.5 cursor-pointer
+                                    text-[12.5px] ${coche ? 'bg-iip-blue/5' : 'hover:bg-slate-50'}`}>
+                        <input type="checkbox" checked={coche} onChange={() => basculer(d)} />
+                        <span className="flex-1 min-w-0 truncate">
+                          <b>{d.nom}</b> {d.prenom}
+                        </span>
+                        {destinataires.maille === 'etudiant_ue' && d.ue_num != null && (
+                          <span className="text-slate-500 flex-none">UE {d.ue_num}</span>
+                        )}
+                        <span className="text-slate-400 flex-none">
+                          {d.annee_scolaire || annee}
+                        </span>
+                      </label>
+                    );
+                  })}
+                  {affiches.length > 400 && (
                     <p className="text-[11px] text-slate-400 mt-1">
                       200 premières lignes affichées ; la production portera sur les {retenus.length}.
                     </p>
@@ -378,19 +407,19 @@ export default function CentreImpression({ onClose, documentInitial = null,
                 {/* 4 — la forme */}
                 <div className="flex gap-2 flex-wrap">
                   {pdfPossible && (
-                    <button onClick={() => produire('pdf')} disabled={enCours}
+                    <button onClick={() => produire('pdf')} disabled={enCours || !retenus.length}
                       className="flex items-center gap-1.5 px-4 py-2 text-sm bg-iip-blue
                                  text-white font-semibold rounded-lg disabled:opacity-40">
                       <IconFileTypePdf size={15} /> PDF
                     </button>
                   )}
-                  <button onClick={() => produire('html')} disabled={enCours}
+                  <button onClick={() => produire('html')} disabled={enCours || !retenus.length}
                     className="flex items-center gap-1.5 px-4 py-2 text-sm border
                                border-iip-blue text-iip-blue font-semibold rounded-lg
                                disabled:opacity-40">
                     <IconPrinter size={15} /> Imprimer
                   </button>
-                  <button onClick={() => produire('zip')} disabled={enCours}
+                  <button onClick={() => produire('zip')} disabled={enCours || !retenus.length}
                     className="flex items-center gap-1.5 px-4 py-2 text-sm border
                                border-slate-300 text-slate-600 font-semibold rounded-lg
                                disabled:opacity-40">

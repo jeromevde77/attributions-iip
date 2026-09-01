@@ -1,7 +1,8 @@
 import {Fragment, useEffect, useState, useMemo } from 'react';
+import { RailLateral } from '../components/ui.jsx';
 import {
-  IconSearch, IconUser, IconChevronRight, IconPlus, IconCheck,
-  IconX, IconPrinter, IconAlertTriangle, IconClock, IconUpload, IconFileText, IconFolder, IconTrash, IconTable} from '@tabler/icons-react';
+  IconAlertTriangle, IconCheck, IconChecklist, IconChevronRight, IconClock, IconFileText, IconFolder, IconPlus, IconPrinter, IconSearch, IconTable, IconTrash, IconUpload, IconUser, IconX,
+} from '@tabler/icons-react';
 import { authHeaders, getAnnee } from '../lib/api.js';
 import PreviewModal from '../components/PreviewModal.jsx';
 import SchemaCapitalisationVue from '../components/SchemaCapitalisation.jsx';
@@ -1595,8 +1596,40 @@ export default function Etudiants() {
     return [...par.entries()].sort((a, b) => a[0].localeCompare(b[0]));
   }, [filtres]);
 
+  // Le rail marine des autres pages de Lucie, plutôt que des boutons alignés
+  // ou des menus déroulants : replié en 64 px, déployé au survol.
+  const RAIL = [
+    { label: 'Documents', items: [
+      { key: 'impression', label: "Centre d'impression", icon: IconPrinter,
+        onClick: () => setCentreImpression(true) },
+      { key: 'rapport', label: 'Rapport de la liste', icon: IconPrinter,
+        onClick: ouvrirRapport },
+      { key: 'rapport-pae', label: 'Rapport PAE', icon: IconTable,
+        onClick: () => setRapportPAE(true) },
+    ] },
+    { label: 'Importer', items: [
+      { key: 'liste', label: 'Liste eCampus', icon: IconUpload,
+        onClick: () => setImportListe(true) },
+      { key: 'pae', label: 'Classeur PAE', icon: IconUpload,
+        onClick: () => setImportPAE(true) },
+      { key: 'complement', label: 'Compléter les dossiers', icon: IconUpload,
+        onClick: () => setComplement(true) },
+      { key: 'histo', label: "Reconstruire l'historique", icon: IconUpload,
+        onClick: () => setImportHisto(true) },
+      { key: 'comparer', label: 'Comparer un classeur', icon: IconUpload,
+        onClick: () => setComparaison(true) },
+    ] },
+    { label: 'Entretien', items: [
+      { key: 'purge', label: 'Vider des résultats', icon: IconTrash,
+        couleur: '#C0392B', onClick: () => setPurge(true) },
+    ] },
+  ];
+
   return (
-    <div className="p-5 space-y-4 max-w-none">
+    <div className="relative bg-slate-50" style={{ minHeight: 'calc(100vh - 64px)' }}>
+      <RailLateral icon={IconChecklist} titre="Étudiants"
+        sousTitre={`${filtres.length} étudiant(s)`} sections={RAIL} />
+    <div className="ml-16 p-5 space-y-4 max-w-none">
       <div className="flex items-center justify-between flex-wrap gap-3">
         <div>
           <h2 className="text-xl font-semibold text-iip-blue">Étudiants</h2>
@@ -1619,57 +1652,6 @@ export default function Etudiants() {
             placeholder="Nom, prénom ou identifiant…"
             className="w-full border border-slate-300 rounded-lg pl-9 pr-3 py-2 text-sm" />
         </div>
-        {/* Neuf boutons alignés ne se distinguaient plus les uns des autres :
-            ils se rangent derrière deux menus, avec une aide par entrée. */}
-        <MenuActions libelle="Importer" Icone={IconUpload} ton="turquoise"
-          titre="Listes, résultats, PAE, compléments de dossier"
-          items={[
-            { separateur: true, titre: 'Étudiants' },
-            { libelle: 'Importer une liste eCampus', Icone: IconUpload,
-              aide: 'Crée ou met à jour les étudiants et leurs inscriptions',
-              onClick: () => setImportListe(true) },
-            { libelle: 'Compléter les dossiers', Icone: IconUpload,
-              aide: 'Adresses, lieux de naissance, nationalité — par numéro national',
-              onClick: () => setComplement(true) },
-            { separateur: true, titre: 'Résultats et PAE' },
-            { libelle: 'Importer le classeur PAE', Icone: IconUpload,
-              aide: 'Programme annuel de l\u2019étudiant',
-              onClick: () => setImportPAE(true) },
-            { fichier: true, libelle: 'Importer les résultats', Icone: IconUpload,
-              aide: 'Classeur .xlsm ou .xlsx de délibération',
-              accept: '.xlsm,.xlsx', desactive: importing,
-              onFichier: f => importerResultats(f) },
-            { libelle: "Reconstruire l'historique", Icone: IconUpload,
-              aide: 'Réimporte les années antérieures',
-              onClick: () => setImportHisto(true) },
-            { separateur: true, titre: 'Contrôle' },
-            { libelle: 'Comparer un classeur', Icone: IconUpload,
-              aide: 'Confronte un classeur à la base, sans rien écrire',
-              onClick: () => setComparaison(true) },
-          ]} />
-
-        <MenuActions libelle="Imprimer" Icone={IconPrinter} ton="bleu"
-          titre="Attestations, fiches, rapports"
-          items={[
-            { libelle: "Centre d'impression", Icone: IconPrinter,
-              aide: "Attestations, fiches, frais, annexe 2 — un ou plusieurs étudiants",
-              onClick: () => setCentreImpression(true) },
-            { separateur: true, titre: 'Rapports' },
-            { libelle: 'Rapport de la liste', Icone: IconPrinter,
-              aide: 'Les étudiants affichés, tels que filtrés',
-              onClick: ouvrirRapport },
-            { libelle: 'Rapport PAE', Icone: IconTable,
-              aide: 'Tableau des programmes annuels',
-              onClick: () => setRapportPAE(true) },
-          ]} />
-
-        <MenuActions libelle="Entretien" Icone={IconTrash} ton="danger"
-          items={[
-            { libelle: 'Vider des résultats', Icone: IconTrash, danger: true,
-              aide: 'Supprime des résultats après confirmation',
-              onClick: () => setPurge(true) },
-          ]} />
-
         <select value={section} onChange={e => setSection(e.target.value)}
           className="border border-slate-300 rounded-lg px-3 py-2 text-sm">
           <option value="">Toutes les sections</option>
@@ -1800,6 +1782,7 @@ export default function Etudiants() {
       {rapport && <PreviewModal html={rapport.html} titre="Parcours des étudiants"
         nomFichier={rapport.nom} astuceImpression="Paysage A4 conseillé"
         onClose={() => setRapport(null)} />}
+    </div>
     </div>
   );
 }
