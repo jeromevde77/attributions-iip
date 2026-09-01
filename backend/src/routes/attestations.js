@@ -15,7 +15,7 @@
 
 import { Router } from 'express';
 import db from '../db/index.js';
-import { authRequired } from '../middleware/auth.js';
+import { authRequired, getUserSections } from '../middleware/auth.js';
 import { piedDocument } from './parametres.js';
 
 const r = Router();
