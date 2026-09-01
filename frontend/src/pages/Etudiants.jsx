@@ -941,6 +941,23 @@ function FicheEtudiant({ id, annee, onClose }) {
     setFicheInscription({ html: j.html, titre: j.titre });
   }
 
+  // Une attestation PAR UNITÉ réussie : ce sont des pièces distinctes, remises
+  // séparément, chacune sur sa page.
+  async function ouvrirAttestations() {
+    const rep = await fetch(`/api/attestations/etudiant/${id}/document?annee=${annee}`,
+      { headers: authHeaders() });
+    const j = await rep.json().catch(() => ({}));
+    if (!rep.ok) { alert(j.error || 'Erreur à la génération.'); return; }
+    if (j.manques?.length) {
+      alert(
+        `${j.unites} attestation(s) produite(s), mais des mentions obligatoires manquent :\n\n`
+        + j.manques.map(m => `UE ${m.ue_num} — ${m.manques.join(', ')}`).join('\n')
+        + `\n\nCes mentions se complètent dans le référentiel des UE.`);
+    }
+    setFicheInscription({ html: j.html, titre: `Attestations de réussite — ${annee}`, nom: j.nom });
+  }
+
+
   const anneePrecedente = useMemo(() => {
     if (!annee) return null;
     const [a1, a2] = annee.split('-').map(Number);
@@ -1109,6 +1126,11 @@ function FicheEtudiant({ id, annee, onClose }) {
                       <button onClick={ouvrirFicheInscription}
                         className="flex items-center gap-1.5 px-3 py-1.5 text-sm bg-iip-blue text-white font-semibold rounded-lg">
                         <IconFileText size={14} /> Fiche d'inscription / reçu
+                      </button>
+                      <button onClick={ouvrirAttestations}
+                        title="Une attestation par unité d'enseignement réussie"
+                        className="flex items-center gap-1.5 px-3 py-1.5 text-sm border border-iip-blue text-iip-blue font-semibold rounded-lg hover:bg-iip-blue/5">
+                        <IconFileText size={14} /> Attestations de réussite
                       </button>
                       <button onClick={ouvrirFraisScolarite}
                         title="Frais de scolarité et acompte — document distinct, l'administration n'en connaît pas"
