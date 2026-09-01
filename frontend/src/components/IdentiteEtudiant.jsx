@@ -130,77 +130,128 @@ export default function IdentiteEtudiant({ etudId, onModifie }) {
  * ne sont pas écrasées : une liste importée n'est pas plus fiable que ce qu'un
  * secrétariat a corrigé à la main.
  */
+// Champs que l'import peut compléter, avec les en-têtes qu'on rencontre le
+// plus souvent. La proposition n'est qu'un point de départ : la correspondance
+// se corrige colonne par colonne, faute de quoi le moindre intitulé inattendu
+// rendrait le classeur illisible.
+const CHAMPS_IMPORT = [
+  { k: 'num_national',   l: 'Numéro national', requis: true,
+    motifs: ['national', 'niss', 'registre'] },
+  { k: 'nom',            l: 'Nom',             motifs: ['nometud', 'nom'] },
+  { k: 'prenom',         l: 'Prénom',          motifs: ['preetud', 'prenom'] },
+  { k: 'titre',          l: 'Titre',           motifs: ['titremrmme', 'titre', 'civilite'] },
+  { k: 'lieu_naissance', l: 'Lieu de naissance', motifs: ['lieunais', 'lieudenaissance'] },
+  { k: 'date_naissance', l: 'Date de naissance', motifs: ['datnais', 'datenaissance', 'ddn'] },
+  { k: 'adresse',        l: 'Adresse',         motifs: ['adrnbte', 'adresse', 'rue'] },
+  { k: 'cp',             l: 'Code postal',     motifs: ['cp', 'codepostal'] },
+  { k: 'localite',       l: 'Localité',        motifs: ['localite', 'commune', 'ville'] },
+  { k: 'gsm',            l: 'Téléphone',       motifs: ['gsmetud', 'gsm', 'teletud', 'telephone'] },
+  { k: 'email_perso',    l: 'Courriel personnel', motifs: ['emailperso', 'mailperso'] },
+  { k: 'email_ecole',    l: 'Courriel école',  motifs: ['emailecole', 'mailecole'] },
+  { k: 'id_ecampus',     l: 'Matricule',       motifs: ['idetud', 'matricule', 'idecampus'] },
+];
+
+/** Une date arrive tantôt en objet, tantôt en texte, tantôt en numéro Excel. */
+function versDate(v) {
+  if (v == null || v === '') return null;
+  if (v instanceof Date) return v.toISOString().slice(0, 10);
+  if (typeof v === 'number' && v > 20000 && v < 60000) {
+    // Numéro de série Excel, compté depuis le 30 décembre 1899.
+    return new Date(Date.UTC(1899, 11, 30) + v * 86400000).toISOString().slice(0, 10);
+  }
+  const s = String(v).trim();
+  const m = /^(\d{1,2})[/.-](\d{1,2})[/.-](\d{2,4})$/.exec(s);
+  if (m) {
+    const a = m[3].length === 2 ? (Number(m[3]) > 30 ? '19' : '20') + m[3] : m[3];
+    return `${a}-${m[2].padStart(2, '0')}-${m[1].padStart(2, '0')}`;
+  }
+  return s.slice(0, 10);
+}
+
 export function ComplementDossiers({ onTermine }) {
+  const [entetes, setEntetes] = useState(null);     // colonnes du classeur
+  const [brut, setBrut] = useState(null);           // lignes telles que lues
+  const [corresp, setCorresp] = useState({});       // champ Lucie → en-tête
   const [rapport, setRapport] = useState(null);
-  const [lignes, setLignes] = useState(null);
   const [ecraser, setEcraser] = useState(false);
   const [enCours, setEnCours] = useState(false);
   const [erreur, setErreur] = useState(null);
 
   async function lire(fichier) {
-    setErreur(null); setRapport(null);
+    setErreur(null); setRapport(null); setEntetes(null); setBrut(null);
     try {
       const XLSX = await import('xlsx');
-      const wb = XLSX.read(await fichier.arrayBuffer(), { type: 'array' });
-      const feuille = wb.Sheets[wb.SheetNames[0]];
-      const brut = XLSX.utils.sheet_to_json(feuille, { defval: null });
-      if (!brut.length) throw new Error('Le classeur est vide.');
+      const wb = XLSX.read(await fichier.arrayBuffer(), { type: 'array', cellDates: true });
+      const lignes = XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]], { defval: null });
+      if (!lignes.length) throw new Error('Ce classeur ne contient aucune ligne.');
 
-      // Correspondance souple des en-têtes : les listes officielles ne les
-      // nomment pas toutes de la même façon.
-      const cle = (obj, ...motifs) => {
-        for (const k of Object.keys(obj)) {
-          const n = k.toLowerCase().replace(/[^a-z]/g, '');
-          if (motifs.some(m => n.includes(m))) return obj[k];
+      const cols = Object.keys(lignes[0]);
+      setEntetes(cols);
+      setBrut(lignes);
+
+      // Proposition : on cherche l'en-tête dont le nom, réduit à ses lettres,
+      // contient l'un des motifs connus. Le premier motif prime, ce qui évite
+      // que « Email Ecole » soit pris pour le courriel personnel.
+      // Les accents se TRANSPOSENT, ils ne se suppriment pas : « PréEtud »
+      // devenait « pretud » et « Localité » « localit », si bien que les deux
+      // colonnes échappaient à la reconnaissance.
+      const reduire = s => String(s)
+        .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+        .toLowerCase().replace(/[^a-z]/g, '');
+
+      const propose = {};
+      for (const ch of CHAMPS_IMPORT) {
+        for (const motif of ch.motifs) {
+          const trouve = cols.find(col => {
+            const n = reduire(col);
+            return n === motif || n.startsWith(motif);
+          }) || cols.find(col => reduire(col).includes(motif));
+          if (trouve && !Object.values(propose).includes(trouve)) {
+            propose[ch.k] = trouve;
+            break;
+          }
         }
-        return null;
-      };
-
-      const l = brut.map(r => ({
-        num_national: cle(r, 'national', 'niss', 'registre'),
-        nom: cle(r, 'nom'),
-        lieu_naissance: cle(r, 'lieunaissance', 'lieudenaissance', 'nea'),
-        date_naissance: (() => {
-          const v = cle(r, 'datenaissance', 'datedenaissance', 'ddn');
-          if (!v) return null;
-          if (v instanceof Date) return v.toISOString().slice(0, 10);
-          const s = String(v).trim();
-          const m = /^(\d{1,2})[/-](\d{1,2})[/-](\d{4})$/.exec(s);
-          return m ? `${m[3]}-${m[2].padStart(2, '0')}-${m[1].padStart(2, '0')}` : s.slice(0, 10);
-        })(),
-        adresse: cle(r, 'adresse', 'rue'),
-        cp: cle(r, 'codepostal', 'cp'),
-        localite: cle(r, 'localite', 'commune', 'ville'),
-        gsm: cle(r, 'gsm', 'telephone', 'tel', 'portable'),
-        email_perso: cle(r, 'emailperso', 'mailperso', 'courrielperso'),
-        titre: cle(r, 'titre', 'civilite', 'sexe'),
-        id_ecampus: cle(r, 'matricule', 'idetud', 'idecampus'),
-      })).filter(x => x.num_national);
-
-      if (!l.length) {
-        throw new Error("Aucun numéro national trouvé. La colonne doit s'intituler "
-          + "« Numéro national », « NISS » ou « Registre national ».");
       }
-      setLignes(l);
-      await envoyer(l, true);
+      setCorresp(propose);
     } catch (e) { setErreur(e.message); }
   }
 
-  async function envoyer(l, simulation) {
-    setEnCours(true);
+  function construire() {
+    const colRN = corresp.num_national;
+    if (!colRN) throw new Error("Indiquez la colonne du numéro national : c'est elle qui "
+      + "rapproche les dossiers.");
+    return brut.map(r => {
+      const l = { num_national: r[colRN] };
+      for (const ch of CHAMPS_IMPORT) {
+        if (ch.k === 'num_national') continue;
+        const col = corresp[ch.k];
+        if (!col) continue;
+        const v = r[col];
+        if (v == null || String(v).trim() === '') continue;
+        l[ch.k] = ch.k === 'date_naissance' ? versDate(v) : String(v).trim();
+      }
+      return l;
+    }).filter(x => x.num_national);
+  }
+
+  async function envoyer(simulation) {
+    setEnCours(true); setErreur(null);
     try {
+      const lignes = construire();
+      if (!lignes.length) throw new Error('Aucune ligne ne porte de numéro national.');
       const rep = await fetch('/api/etudiants/completer', {
         method: 'POST', headers: authHeaders(),
         body: JSON.stringify({
-          lignes: l.map(x => (ecraser ? { ...x, __ecraser: true } : x)),
+          lignes: lignes.map(x => (ecraser ? { ...x, __ecraser: true } : x)),
           simulation,
         }),
       });
       const j = await rep.json();
       if (!rep.ok) { setErreur(j.error); return; }
       setRapport(j);
-      if (!simulation) { onTermine && onTermine(); }
-    } finally { setEnCours(false); }
+      if (!simulation) onTermine && onTermine();
+    } catch (e) { setErreur(e.message); }
+    finally { setEnCours(false); }
   }
 
   return (
@@ -215,21 +266,77 @@ export function ComplementDossiers({ onTermine }) {
       <label className="inline-flex items-center gap-2 px-3 py-2 text-[12.5px] border
                         border-slate-300 rounded-lg cursor-pointer hover:bg-slate-50">
         <IconUpload size={15} /> Choisir un classeur
-        <input type="file" accept=".xlsx,.xlsm,.csv" className="hidden"
+        <input type="file" accept=".xls,.xlsx,.xlsm,.csv" className="hidden"
           onChange={ev => ev.target.files[0] && lire(ev.target.files[0])} />
-      </label>
-
-      <label className="flex items-center gap-2 text-[12.5px] text-slate-600">
-        <input type="checkbox" checked={ecraser} onChange={ev => setEcraser(ev.target.checked)} />
-        Écraser les valeurs déjà présentes
-        <span className="text-[11px] text-slate-400">
-          — par défaut, seuls les champs vides sont complétés
-        </span>
       </label>
 
       {erreur && (
         <div className="px-3 py-2 rounded-lg bg-red-50 border border-red-200 text-[12.5px] text-red-800">
           {erreur}
+        </div>
+      )}
+
+      {/* Correspondance des colonnes — corrigeable, car aucun jeu d'en-têtes
+          ne se répète d'une liste à l'autre. */}
+      {entetes && (
+        <div className="border border-slate-200 rounded-xl p-4 space-y-3">
+          <div>
+            <span className="text-[13px] font-semibold text-iip-blue">Correspondance des colonnes</span>
+            <p className="text-[11.5px] text-slate-500">
+              {brut.length} ligne(s), {entetes.length} colonne(s). Vérifiez les correspondances
+              proposées et corrigez celles qui ne conviennent pas.
+            </p>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+            {CHAMPS_IMPORT.map(ch => (
+              <label key={ch.k} className="flex items-center gap-2 text-[12px]">
+                <span className={`w-40 flex-none ${ch.requis ? 'font-semibold text-iip-blue' : 'text-slate-600'}`}>
+                  {ch.l}{ch.requis && ' *'}
+                </span>
+                <select value={corresp[ch.k] || ''}
+                  onChange={ev => setCorresp(m => ({ ...m, [ch.k]: ev.target.value || undefined }))}
+                  className={`flex-1 border rounded-lg px-2 py-1 text-[12px]
+                    ${ch.requis && !corresp[ch.k] ? 'border-red-300 bg-red-50' : 'border-slate-300'}`}>
+                  <option value="">— ne pas importer —</option>
+                  {entetes.map(col => <option key={col} value={col}>{col}</option>)}
+                </select>
+              </label>
+            ))}
+          </div>
+
+          {/* Un aperçu vaut mieux qu'une promesse : on montre ce qui sera lu. */}
+          {corresp.num_national && (
+            <div className="text-[11.5px] text-slate-600 bg-slate-50 rounded-lg p-2.5">
+              <b>Première ligne telle qu'elle sera lue :</b>
+              <div className="mt-1 space-y-0.5">
+                {CHAMPS_IMPORT.filter(ch => corresp[ch.k]).map(ch => {
+                  const v = brut[0][corresp[ch.k]];
+                  const lu = ch.k === 'date_naissance' ? versDate(v) : (v ?? '—');
+                  return (
+                    <div key={ch.k}>
+                      <span className="text-slate-500">{ch.l} :</span>{' '}
+                      <b>{String(lu ?? '—')}</b>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
+          <label className="flex items-center gap-2 text-[12.5px] text-slate-600">
+            <input type="checkbox" checked={ecraser} onChange={ev => setEcraser(ev.target.checked)} />
+            Écraser les valeurs déjà présentes
+            <span className="text-[11px] text-slate-400">
+              — par défaut, seuls les champs vides sont complétés
+            </span>
+          </label>
+
+          <button onClick={() => envoyer(true)} disabled={enCours || !corresp.num_national}
+            className="px-4 py-2 text-sm bg-iip-blue text-white font-semibold rounded-lg
+                       disabled:opacity-40">
+            {enCours ? 'Analyse…' : 'Simuler'}
+          </button>
         </div>
       )}
 
@@ -269,12 +376,11 @@ export function ComplementDossiers({ onTermine }) {
           )}
 
           {rapport.simulation ? (
-            <button onClick={() => envoyer(lignes, false)}
+            <button onClick={() => envoyer(false)}
               disabled={enCours || !rapport.modifications.length}
               className="flex items-center gap-1.5 px-4 py-2 text-sm bg-iip-blue text-white
                          font-semibold rounded-lg disabled:opacity-40">
-              <IconCheck size={15} />
-              Appliquer à {rapport.modifications.length} dossier(s)
+              <IconCheck size={15} /> Appliquer à {rapport.modifications.length} dossier(s)
             </button>
           ) : (
             <div className="px-3 py-2 rounded-lg bg-emerald-50 border border-emerald-200
