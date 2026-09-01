@@ -236,14 +236,11 @@ function envelopper(corps, titre = 'Attestations de réussite') {
   table.signatures tr.hauteur td { height: 16mm; }
   table.signatures .role { color: #475569; font-size: 7.5pt; }
   ${piedStyles(16)}
-                padding-top: 1.5mm; border-top: 0.4pt solid #C9A84C; text-align: center; }
-  .pied-lucie .txt { font-size: 5.5pt; color: #94a3b8; line-height: 1.3; }
 
   @media screen {
     html { background: #e5e5e5; }
     body { max-width: 210mm; margin: 16px auto; padding: 12mm 15mm; background: #fff;
            box-shadow: 0 2px 14px rgba(0,0,0,.18); }
-    .pied-lucie { position: static; height: auto; margin-top: 8mm; }
   }
 </style></head><body>
 ${corps}

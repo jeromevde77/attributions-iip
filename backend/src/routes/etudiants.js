@@ -434,9 +434,6 @@ r.get('/rapport', authRequired, (req, res) => {
      Un pied placé dans le flux, ou en table-footer-group, flotte au milieu
      d'une dernière page à moitié vide. */
   ${piedStyles(22)}
-                padding-top: 2mm; border-top: 0.5pt solid #C9A84C; text-align: center; }
-  .pied-lucie .txt { font-size: 6pt; color: #888; line-height: 1.35; }
-  @media screen { .pied-lucie { position: static; height: auto; margin-top: 12mm; } }
 </style></head><body>
 <h1>Parcours des étudiants — ${esc(section)}</h1>
 <div class="meta">Année académique ${esc(annee)} · ${lignes.length} étudiant(s) · ${ues.length} UE · imprimé le ${new Date().toLocaleDateString('fr-BE')}</div>
@@ -2667,10 +2664,7 @@ r.get('/:id/fiche-inscription', authRequired, (req, res) => {
   /* Pied de page commun, ancré en bas de CHAQUE page — dernière comprise.
      Un pied placé dans le flux, ou en table-footer-group, flotte au milieu
      d'une dernière page à moitié vide. */
-  .pied-lucie { position: fixed; bottom: 0; left: 0; right: 0; height: 22mm;
-                padding-top: 2mm; border-top: 0.5pt solid #C9A84C; text-align: center; }
-  .pied-lucie .txt { font-size: 6pt; color: #888; line-height: 1.35; }
-  @media screen { .pied-lucie { position: static; height: auto; margin-top: 12mm; } }
+  ${piedStyles(22)}
 </style></head><body>
 <div class="etab">${esc(etab)} — Enseignement pour Adultes</div>
 <h1>Fiche d'inscription / reçu — ${esc(annee)}</h1>

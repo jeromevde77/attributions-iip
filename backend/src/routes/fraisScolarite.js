@@ -260,9 +260,6 @@ r.get('/etudiant/:id/document', authRequired, (req, res) => {
      Un pied placé dans le flux, ou en table-footer-group, flotte au milieu
      d'une dernière page à moitié vide. */
   ${piedStyles(22)}
-                padding-top: 2mm; border-top: 0.5pt solid #C9A84C; text-align: center; }
-  .pied-lucie .txt { font-size: 6pt; color: #888; line-height: 1.35; }
-  @media screen { .pied-lucie { position: static; height: auto; margin-top: 12mm; } }
 </style></head><body>
 
 <h1>${esc(etab.etab_nom || 'Institut Ilya Prigogine')} — Frais de scolarité</h1>
