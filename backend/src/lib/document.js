@@ -17,8 +17,51 @@
 
 import { piedDocument } from '../routes/parametres.js';
 
-// Hauteur réservée au pied : logo, filet et deux lignes de coordonnées.
-const HAUTEUR_PIED_MM = 22;
+// ── RÈGLE UNIQUE DU PIED DE PAGE ─────────────────────────────────────────────
+// Une seule réserve, pour TOUS les documents, comme le pied d'un Word : les
+// derniers millimètres de chaque page lui appartiennent, le texte n'y descend
+// jamais. Chaque document définissait auparavant ses propres valeurs, si bien
+// qu'une correction n'en atteignait qu'un à la fois.
+//
+// BANDE_PIED_MM  hauteur totale réservée, du bord bas de la page
+// MARGE_SOUS_PIED_MM  ce qui sépare le pied du bord de la feuille
+
+export const BANDE_PIED_MM = 24;        // ~2,4 cm : logo, filet, deux lignes
+export const MARGE_SOUS_PIED_MM = 8;    // le pied ne colle pas au bord
+
+// Hauteur du bloc lui-même, une fois retirée la marge sous lui.
+const HAUTEUR_PIED_MM = BANDE_PIED_MM - MARGE_SOUS_PIED_MM;
+
+/**
+ * Les règles de page communes à TOUT document imprimé par Lucie.
+ *
+ * À appeler dans le <style> de n'importe quel document : il hérite alors de la
+ * même réserve de pied, sans avoir à recalculer marges et paddings.
+ *
+ * @param {object} [o]
+ * @param {number} [o.haut]   marge haute, en mm
+ * @param {number} [o.cote]   marges latérales, en mm
+ * @param {string} [o.orientation]
+ * @param {boolean}[o.avecPied]
+ */
+export function reglesDePage({ haut = 18, cote = 18,
+                               orientation = 'portrait', avecPied = true } = {}) {
+  return `
+  @page {
+    size: A4 ${orientation === 'paysage' ? 'landscape' : 'portrait'};
+    /* Marge basse FAIBLE : le pied est ancré au bas de la zone de contenu, une
+       marge généreuse le repousserait vers le haut de la feuille. */
+    margin: ${haut}mm ${cote}mm ${avecPied ? MARGE_SOUS_PIED_MM : haut}mm ${cote}mm;
+  }
+  /* La bande du pied est INTERDITE au texte : c'est ce padding qui l'y empêche,
+     la marge de @page ne servant qu'à écarter le pied du bord. */
+  @media print {
+    body { padding-bottom: ${avecPied ? HAUTEUR_PIED_MM + 2 : 0}mm; }
+  }
+  @media screen {
+    body { padding-bottom: 0; }
+  }`;
+}
 
 /**
  * @param {object}  o
@@ -73,20 +116,11 @@ export function envelopperDocument({ html, titre, orientation = 'portrait',
 <style>
   * { box-sizing: border-box; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
 
-  /* La marge basse réserve la place du pied : sans elle, le texte passerait
-     dessous à la fin de chaque page. */
-  @page {
-    size: A4 ${orientation === 'paysage' ? 'landscape' : 'portrait'};
-    /* Marge basse réduite : le pied est ancré au bas de la ZONE DE CONTENU,
-       une marge généreuse le repoussait vers le haut et laissait un grand
-       blanc sous lui. La place du pied est réservée par le padding du body. */
-    margin: 18mm 18mm ${avecPied ? 8 : 18}mm 18mm;
-  }
+  ${reglesDePage({ haut: 18, cote: 18, orientation, avecPied })}
 
   body { font-family: Arial, Helvetica, sans-serif; font-size: 10pt;
          color: #1a1a2e; margin: 0; }
   /* La place du pied se réserve ici, faute de quoi le texte passerait dessous. */
-  @media print { body { padding-bottom: ${avecPied ? HAUTEUR_PIED_MM + 4 : 0}mm; } }
   img { max-width: 100%; background: #fff; }
   h1 { font-size: 15pt; color: #1B2B4B; margin: 0 0 2mm; }
   h2 { font-size: 12pt; color: #1B2B4B; margin: 6mm 0 2mm;

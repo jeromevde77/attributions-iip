@@ -4,7 +4,7 @@
 
 import { Router } from 'express';
 import { LOGO_IIP_JPEG } from '../services/assets/logo_iip_jpeg.js';
-import { piedBalisage, piedStyles } from '../lib/document.js';
+import { piedBalisage, piedStyles, reglesDePage } from '../lib/document.js';
 
 import db from '../db/index.js';
 import { piedDocument } from './parametres.js';
@@ -427,13 +427,12 @@ r.get('/rapport', authRequired, (req, res) => {
   /* Deux protections plutôt qu'une : la marge de @page, que certains
      navigateurs ignorent lorsqu'ils impriment depuis un cadre, ET une réserve
      dans le corps même. Sans la seconde, le pied se superposait au texte. */
-  @page { size: A4 portrait; margin: 14mm 14mm 8mm 14mm; }
-  @media print { body { padding-bottom: 26mm; } }
+  ${reglesDePage({ haut: 14, cote: 14 })}
 
   /* Pied de page commun, ancré en bas de CHAQUE page — dernière comprise.
      Un pied placé dans le flux, ou en table-footer-group, flotte au milieu
      d'une dernière page à moitié vide. */
-  ${piedStyles(22)}
+  ${piedStyles()}
 </style></head><body>
 <h1>Parcours des étudiants — ${esc(section)}</h1>
 <div class="meta">Année académique ${esc(annee)} · ${lignes.length} étudiant(s) · ${ues.length} UE · imprimé le ${new Date().toLocaleDateString('fr-BE')}</div>
@@ -2729,12 +2728,12 @@ r.get('/:id/fiche-inscription', authRequired, (req, res) => {
 
   /* La marge basse réserve la hauteur du pied : sans elle, le texte passerait
      dessous en fin de page. */
-  @page { margin-bottom: 28mm; }
+  ${reglesDePage({ haut: 14, cote: 14 })}
 
   /* Pied de page commun, ancré en bas de CHAQUE page — dernière comprise.
      Un pied placé dans le flux, ou en table-footer-group, flotte au milieu
      d'une dernière page à moitié vide. */
-  ${piedStyles(22)}
+  ${piedStyles()}
 </style></head><body>
 <div class="etab">${esc(etab)} — Enseignement pour Adultes</div>
 <h1>Fiche d'inscription / reçu — ${esc(annee)}</h1>

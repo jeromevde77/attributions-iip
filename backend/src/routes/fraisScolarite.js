@@ -19,7 +19,7 @@
 
 import { Router } from 'express';
 import { LOGO_IIP_JPEG } from '../services/assets/logo_iip_jpeg.js';
-import { piedBalisage, piedStyles } from '../lib/document.js';
+import { piedBalisage, piedStyles, reglesDePage } from '../lib/document.js';
 import db from '../db/index.js';
 import { piedDocument } from './parametres.js';
 import { authRequired, roleRequired } from '../middleware/auth.js';
@@ -254,13 +254,12 @@ r.get('/etudiant/:id/document', authRequired, (req, res) => {
 
   /* La marge basse réserve la hauteur du pied : sans elle, le texte passerait
      dessous en fin de page. */
-  @page { margin-bottom: 8mm; }
-  @media print { body { padding-bottom: 26mm; } }
+  ${reglesDePage({ haut: 14, cote: 14 })}
 
   /* Pied de page commun, ancré en bas de CHAQUE page — dernière comprise.
      Un pied placé dans le flux, ou en table-footer-group, flotte au milieu
      d'une dernière page à moitié vide. */
-  ${piedStyles(22)}
+  ${piedStyles()}
 </style></head><body>
 
 <h1>${esc(etab.etab_nom || 'Institut Ilya Prigogine')} — Frais de scolarité</h1>

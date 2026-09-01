@@ -15,7 +15,7 @@
 
 import { Router } from 'express';
 import { LOGO_IIP_JPEG } from '../services/assets/logo_iip_jpeg.js';
-import { piedBalisage, piedStyles } from '../lib/document.js';
+import { piedBalisage, piedStyles, reglesDePage } from '../lib/document.js';
 import db from '../db/index.js';
 import { authRequired, getUserSections } from '../middleware/auth.js';
 import { capacitePdf, rendrePdf } from '../services/pdf.js';
@@ -158,8 +158,7 @@ function envelopper(corps, titre = 'Attestations de réussite') {
      généreuse le repoussait à 22 mm du bord, d'où le blanc sous lui. La marge
      est réduite, et la place du pied réservée par un padding pour que le texte
      ne passe pas dessous. */
-  @page { size: A4 portrait; margin: 12mm 15mm 8mm 15mm; }
-  @media print { body { padding-bottom: 20mm; } }
+  ${reglesDePage({ haut: 12, cote: 15 })}
 
   body { font-family: 'Segoe UI', Arial, Helvetica, sans-serif; font-size: 9pt;
          color: #1B2B4B; margin: 0; line-height: 1.35; }
@@ -239,7 +238,7 @@ function envelopper(corps, titre = 'Attestations de réussite') {
                         vertical-align: top; width: 33.33%; }
   table.signatures tr.hauteur td { height: 16mm; }
   table.signatures .role { color: #475569; font-size: 7.5pt; }
-  ${piedStyles(16)}
+  ${piedStyles()}
 
   @media screen {
     html { background: #e5e5e5; }
