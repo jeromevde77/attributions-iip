@@ -9,6 +9,7 @@ import Amenagements from '../components/Amenagements.jsx';
 import Stages from '../components/Stages.jsx';
 import IdentiteEtudiant, { ComplementDossiers } from '../components/IdentiteEtudiant.jsx';
 import AttestationsLot from '../components/AttestationsLot.jsx';
+import ComparaisonClasseur from '../components/ComparaisonClasseur.jsx';
 import ImportPAE from '../components/ImportPAE.jsx';
 import PurgeResultats from '../components/PurgeResultats.jsx';
 import RapportPAE from '../components/RapportPAE.jsx';
@@ -1330,6 +1331,7 @@ export default function Etudiants() {
   const [importHisto, setImportHisto] = useState(false);
   const [complement, setComplement] = useState(false);
   const [lotAttestations, setLotAttestations] = useState(false);
+  const [comparaison, setComparaison] = useState(false);
   const [tri, setTri] = useState({ champ: 'nom', sens: 1 });
 
 
@@ -1622,6 +1624,11 @@ export default function Etudiants() {
           className="flex items-center gap-2 px-3 py-2 text-sm border border-iip-blue text-iip-blue rounded-lg hover:bg-iip-blue/5">
           <IconUpload size={15} /> Reconstruire l'historique
         </button>
+        <button onClick={() => setComparaison(true)}
+          title="Comparer un classeur de coordination avec la base, sans rien écrire"
+          className="flex items-center gap-2 px-3 py-2 text-sm border border-slate-300 text-slate-600 rounded-lg hover:bg-slate-50">
+          <IconUpload size={15} /> Comparer un classeur
+        </button>
         <button onClick={() => setLotAttestations(true)}
           title="Attestations de réussite — par étudiant, par unité, par section"
           className="flex items-center gap-2 px-3 py-2 text-sm border border-iip-blue text-iip-blue rounded-lg hover:bg-iip-blue/5">
@@ -1736,6 +1743,8 @@ export default function Etudiants() {
       {selId && (
         <FicheEtudiant id={selId} annee={annee} onClose={() => setSelId(null)} />
       )}
+
+      {comparaison && <ComparaisonClasseur onClose={() => setComparaison(false)} />}
 
       {lotAttestations && <AttestationsLot onClose={() => setLotAttestations(false)} />}
 
