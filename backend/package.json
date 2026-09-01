@@ -25,10 +25,12 @@
     "morgan": "^1.10.0",
     "multer": "^2.2.0",
     "node-html-parser": "^7.1.0",
-    "nodemailer": "^9.0.1",
-    "puppeteer": "^23.0.0"
+    "nodemailer": "^9.0.1"
   },
   "engines": {
     "node": ">=20"
+  },
+  "optionalDependencies": {
+    "puppeteer": "^23.0.0"
   }
 }

@@ -19,6 +19,7 @@ import { authRequired, getUserSections } from '../middleware/auth.js';
 import { SIGNATURE_SOHET, SCEAU_IIP } from '../services/assets/signature_sohet.js';
 import { LOGO_IIP_JPEG } from '../services/assets/logo_iip_jpeg.js';
 import { envelopperDocument } from '../lib/document.js';
+import { capacitePdf, rendrePdf } from '../services/pdf.js';
 import { piedDocument } from './parametres.js';
 
 const r = Router();
@@ -513,6 +514,35 @@ r.post('/lot', authRequired, (req, res) => {
     manquants: manquants.slice(0, 40),
     nb_manquants: manquants.length,
   });
+});
+
+// ── Rendu PDF ───────────────────────────────────────────────────────────────
+// Là où Chromium est présent, le PDF supprime le titre, le lieu d'impression
+// et la numérotation que le navigateur ajoute de lui-même, et ne numérote
+// qu'au-delà d'une page. Ailleurs, l'interface s'en tient à l'impression HTML.
+r.post('/pdf', authRequired, async (req, res) => {
+  const cap = await capacitePdf();
+  if (!cap.disponible) {
+    return res.status(503).json({
+      error: "Ce serveur ne sait pas produire de PDF. L'impression depuis le "
+           + "navigateur reste disponible.",
+      capacite_absente: 'pdf', detail: cap.raison,
+    });
+  }
+  const { html, nom } = req.body || {};
+  if (!html) return res.status(400).json({ error: 'document requis' });
+
+  try {
+    const pdf = await rendrePdf(html, { pagination: 'si-plusieurs' });
+    const fichier = String(nom || 'attestations').replace(/[^A-Za-z0-9_.-]/g, '_');
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader('Content-Disposition', `attachment; filename="${fichier}.pdf"`);
+    res.setHeader('Content-Length', pdf.length);
+    res.end(pdf);
+  } catch (e) {
+    console.error('[attestations/pdf]', e);
+    res.status(500).json({ error: e.message });
+  }
 });
 
 export default r;

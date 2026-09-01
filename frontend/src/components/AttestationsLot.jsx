@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import {
-  IconPrinter, IconFileZip, IconAlertTriangle, IconSearch, IconX,
+  IconPrinter, IconFileZip, IconFileTypePdf, IconAlertTriangle, IconSearch, IconX,
 } from '@tabler/icons-react';
 import { authHeaders } from '../lib/api.js';
 import { Tableau, TableauEntete, Th, Td, Tr, Badge } from './ui.jsx';
@@ -31,6 +31,7 @@ export default function AttestationsLot({ onClose }) {
   const [exclus, setExclus] = useState(new Set());
   const [enCours, setEnCours] = useState(false);
   const [message, setMessage] = useState(null);
+  const [pdfPossible, setPdfPossible] = useState(false);
 
   useEffect(() => {
     fetch('/api/annees', { headers: authHeaders() })
@@ -45,6 +46,10 @@ export default function AttestationsLot({ onClose }) {
       }).catch(() => {});
     fetch('/api/ref/sections', { headers: authHeaders() })
       .then(r => r.json()).then(l => { if (Array.isArray(l)) setSections(l); }).catch(() => {});
+    // Le bouton PDF n'apparaît que si le serveur sait le produire : Chromium
+    // n'est pas installé partout, et un bouton qui échoue ne vaut rien.
+    fetch('/api/parametres/capacites', { headers: authHeaders() })
+      .then(r => r.json()).then(j => setPdfPossible(!!j.pdf)).catch(() => {});
   }, []);
 
   // Les unités proposées suivent les sections retenues.
@@ -80,7 +85,7 @@ export default function AttestationsLot({ onClose }) {
     });
   }, [candidats, exclus, recherche]);
 
-  async function produire(separes) {
+  async function produire(separes, format = 'html') {
     if (!retenus.length) return;
     setEnCours(true); setMessage(null);
     try {
@@ -90,7 +95,7 @@ export default function AttestationsLot({ onClose }) {
           paires: retenus.map(c => ({
             etudiant_id: c.etudiant_id, ue_num: c.ue_num, annee_scolaire: c.annee_scolaire,
           })),
-          separes,
+          separes: separes && format !== 'pdf',
         }),
       });
       const j = await rep.json();
@@ -104,7 +109,23 @@ export default function AttestationsLot({ onClose }) {
         });
       }
 
-      if (separes) {
+      if (format === 'pdf') {
+        const rep2 = await fetch('/api/attestations/pdf', {
+          method: 'POST', headers: authHeaders(),
+          body: JSON.stringify({ html: j.html, nom: `attestations_${selAnnees.join('_')}` }),
+        });
+        if (!rep2.ok) {
+          const e = await rep2.json().catch(() => ({}));
+          setMessage({ type: 'err', texte: e.error || 'Le PDF n\'a pas pu être produit.' });
+          return;
+        }
+        const blob = await rep2.blob();
+        const a = document.createElement('a');
+        a.href = URL.createObjectURL(blob);
+        a.download = `attestations_${selAnnees.join('_')}_${j.total}.pdf`;
+        document.body.appendChild(a); a.click(); a.remove();
+        URL.revokeObjectURL(a.href);
+      } else if (separes) {
         const JSZip = (await import('jszip')).default;
         const zip = new JSZip();
         for (const d of j.documents) {
@@ -256,10 +277,17 @@ export default function AttestationsLot({ onClose }) {
                 </div>
 
                 <div className="flex gap-2 flex-wrap">
+                  {pdfPossible && (
+                    <button onClick={() => produire(false, 'pdf')} disabled={enCours}
+                      className="flex items-center gap-1.5 px-4 py-2 text-sm bg-iip-blue
+                                 text-white font-semibold rounded-lg disabled:opacity-40">
+                      <IconFileTypePdf size={15} /> Télécharger en PDF
+                    </button>
+                  )}
                   <button onClick={() => produire(false)} disabled={enCours}
-                    className="flex items-center gap-1.5 px-4 py-2 text-sm bg-iip-blue text-white
-                               font-semibold rounded-lg disabled:opacity-40">
-                    <IconPrinter size={15} /> Un seul document
+                    className="flex items-center gap-1.5 px-4 py-2 text-sm border border-iip-blue
+                               text-iip-blue font-semibold rounded-lg disabled:opacity-40">
+                    <IconPrinter size={15} /> Imprimer
                   </button>
                   <button onClick={() => produire(true)} disabled={enCours}
                     className="flex items-center gap-1.5 px-4 py-2 text-sm border border-iip-blue
