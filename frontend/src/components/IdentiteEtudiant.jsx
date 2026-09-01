@@ -151,22 +151,53 @@ const CHAMPS_IMPORT = [
   { k: 'id_ecampus',     l: 'Matricule',       motifs: ['idetud', 'matricule', 'idecampus'] },
 ];
 
-/** Une date arrive tantôt en objet, tantôt en texte, tantôt en numéro Excel. */
+// Les mois écrits en toutes lettres : les listes eCampus datent ainsi
+// (« 5 mars 2005 »), et c'est la forme la plus courante dans les exports.
+const MOIS = {
+  janvier: 1, fevrier: 2, mars: 3, avril: 4, mai: 5, juin: 6, juillet: 7,
+  aout: 8, septembre: 9, octobre: 10, novembre: 11, decembre: 12,
+  jan: 1, fev: 2, mar: 3, avr: 4, jui: 6, juil: 7, sep: 9, oct: 10, nov: 11, dec: 12,
+};
+
+/**
+ * Une date arrive sous quatre formes : objet, numéro de série Excel, texte
+ * numérique, ou texte en toutes lettres. La dernière échappait à l'analyse, et
+ * aucune date n'était importée.
+ */
 function versDate(v) {
   if (v == null || v === '') return null;
-  if (v instanceof Date) return v.toISOString().slice(0, 10);
+  if (v instanceof Date && !isNaN(v)) return v.toISOString().slice(0, 10);
+
+  // Numéro de série Excel, compté depuis le 30 décembre 1899.
   if (typeof v === 'number' && v > 20000 && v < 60000) {
-    // Numéro de série Excel, compté depuis le 30 décembre 1899.
     return new Date(Date.UTC(1899, 11, 30) + v * 86400000).toISOString().slice(0, 10);
   }
+
   const s = String(v).trim();
-  const m = /^(\d{1,2})[/.-](\d{1,2})[/.-](\d{2,4})$/.exec(s);
-  if (m) {
-    const a = m[3].length === 2 ? (Number(m[3]) > 30 ? '19' : '20') + m[3] : m[3];
-    return `${a}-${m[2].padStart(2, '0')}-${m[1].padStart(2, '0')}`;
+
+  // Déjà au format ISO
+  if (/^\d{4}-\d{2}-\d{2}/.test(s)) return s.slice(0, 10);
+
+  // 5/3/2005, 05-03-2005, 5.3.05
+  const num = /^(\d{1,2})[/.\- ](\d{1,2})[/.\- ](\d{2,4})$/.exec(s);
+  if (num) {
+    const a = num[3].length === 2 ? (Number(num[3]) > 30 ? '19' : '20') + num[3] : num[3];
+    return `${a}-${num[2].padStart(2, '0')}-${num[1].padStart(2, '0')}`;
   }
-  return s.slice(0, 10);
+
+  // « 5 mars 2005 », « 1er septembre 1987 »
+  const lettres = /^(\d{1,2})\s*(?:er)?\s+([a-zéûôùî]+)\s+(\d{4})$/i.exec(s);
+  if (lettres) {
+    const mois = MOIS[lettres[2].toLowerCase()
+      .normalize('NFD').replace(/[\u0300-\u036f]/g, '')];
+    if (mois) {
+      return `${lettres[3]}-${String(mois).padStart(2, '0')}-${lettres[1].padStart(2, '0')}`;
+    }
+  }
+
+  return null;   // illisible : mieux vaut rien qu'une date fausse
 }
+
 
 export function ComplementDossiers({ onTermine }) {
   const [entetes, setEntetes] = useState(null);     // colonnes du classeur
@@ -176,6 +207,7 @@ export function ComplementDossiers({ onTermine }) {
   const [ecraser, setEcraser] = useState(false);
   const [enCours, setEnCours] = useState(false);
   const [erreur, setErreur] = useState(null);
+  const [avertissement, setAvertissement] = useState(null);
 
   async function lire(fichier) {
     setErreur(null); setRapport(null); setEntetes(null); setBrut(null);
@@ -217,10 +249,13 @@ export function ComplementDossiers({ onTermine }) {
   }
 
   function construire() {
+    // Les dates qu'on n'a pas su lire : les taire reviendrait à laisser croire
+    // qu'elles ont été importées.
+    const illisibles = [];
     const colRN = corresp.num_national;
     if (!colRN) throw new Error("Indiquez la colonne du numéro national : c'est elle qui "
       + "rapproche les dossiers.");
-    return brut.map(r => {
+    const lignes = brut.map(r => {
       const l = { num_national: r[colRN] };
       for (const ch of CHAMPS_IMPORT) {
         if (ch.k === 'num_national') continue;
@@ -228,10 +263,22 @@ export function ComplementDossiers({ onTermine }) {
         if (!col) continue;
         const v = r[col];
         if (v == null || String(v).trim() === '') continue;
-        l[ch.k] = ch.k === 'date_naissance' ? versDate(v) : String(v).trim();
+        if (ch.k === 'date_naissance') {
+          const d = versDate(v);
+          if (d) l[ch.k] = d; else illisibles.push(String(v));
+        } else {
+          l[ch.k] = String(v).trim();
+        }
       }
       return l;
     }).filter(x => x.num_national);
+
+    if (illisibles.length) {
+      setAvertissement(`${illisibles.length} date(s) de naissance illisible(s) — elles ne seront `
+        + `pas importées. Exemples : ${[...new Set(illisibles)].slice(0, 3).join(', ')}.`);
+    } else setAvertissement(null);
+
+    return lignes;
   }
 
   async function envoyer(simulation) {
@@ -269,6 +316,12 @@ export function ComplementDossiers({ onTermine }) {
         <input type="file" accept=".xls,.xlsx,.xlsm,.csv" className="hidden"
           onChange={ev => ev.target.files[0] && lire(ev.target.files[0])} />
       </label>
+
+      {avertissement && (
+        <div className="px-3 py-2 rounded-lg bg-amber-50 border border-amber-200 text-[12.5px] text-amber-900">
+          {avertissement}
+        </div>
+      )}
 
       {erreur && (
         <div className="px-3 py-2 rounded-lg bg-red-50 border border-red-200 text-[12.5px] text-red-800">
