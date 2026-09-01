@@ -392,12 +392,14 @@ r.get('/candidats', authRequired, (req, res) => {
   const lignes = db.prepare(`
     SELECT i.etudiant_id, i.ue_num, i.annee_scolaire, i.points,
            e.nom, e.prenom, e.id_ecampus,
+           -- SQLite n'admet pas de référence à l'alias externe « i » dans le
+           -- ORDER BY d'une sous-requête : on prend simplement le millésime le
+           -- plus récent, l'intitulé et la section d'une unité ne variant pas
+           -- d'une année à l'autre.
            (SELECT ue_nom FROM ue u WHERE u.ue_num = i.ue_num
-             ORDER BY (u.annee_scolaire = i.annee_scolaire) DESC, u.annee_scolaire DESC
-             LIMIT 1) AS ue_nom,
+             ORDER BY u.annee_scolaire DESC LIMIT 1) AS ue_nom,
            (SELECT section FROM ue u WHERE u.ue_num = i.ue_num AND u.section IS NOT NULL
-             ORDER BY (u.annee_scolaire = i.annee_scolaire) DESC, u.annee_scolaire DESC
-             LIMIT 1) AS section
+             ORDER BY u.annee_scolaire DESC LIMIT 1) AS section
     FROM etudiant_inscription i
     JOIN etudiant e ON e.id = i.etudiant_id
     WHERE ${clauses.join(' AND ')}
