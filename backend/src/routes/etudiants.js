@@ -1052,6 +1052,95 @@ r.get('/matrice', authRequired, (req, res) => {
   });
 });
 
+// ── Encodage direct des notes ──────────────────────────────────────────────
+// La matrice ne retient que le résultat ; ici on saisit la NOTE, dont le
+// résultat se déduit. L'année est choisie librement, pour rattraper un
+// millésime antérieur sans changer d'écran.
+r.get('/encodage-direct', authRequired, (req, res) => {
+  const { annee, section, ue_num } = req.query;
+  if (!annee || !section) return res.status(400).json({ error: 'annee et section requises' });
+
+  const perim = getUserSections(req.user);
+  if (perim && !perim.includes(section)) {
+    return res.status(403).json({ error: 'section hors de votre périmètre' });
+  }
+
+  // Les UE de la section pour l'année, telles que le référentiel les décrit.
+  const ues = db.prepare(`
+    SELECT DISTINCT ue_num, ue_nom, ue_niv, ects
+    FROM ue WHERE section = ? AND annee_scolaire = ?
+    ORDER BY ue_niv, ue_num
+  `).all(section, annee);
+
+  // Les étudiants inscrits dans la section cette année-là. On part des
+  // inscriptions réelles, le rattachement par section n'étant pas fiable.
+  const filtreUe = ue_num ? 'AND i.ue_num = ?' : '';
+  const params = [section, annee, annee];
+  if (ue_num) params.push(Number(ue_num));
+
+  const etudiants = db.prepare(`
+    SELECT DISTINCT e.id, e.nom, e.prenom, e.id_ecampus
+    FROM etudiant e
+    JOIN etudiant_inscription i ON i.etudiant_id = e.id
+    WHERE i.ue_num IN (SELECT ue_num FROM ue WHERE section = ? AND annee_scolaire = ?)
+      AND i.annee_scolaire = ? ${filtreUe}
+    ORDER BY e.nom, e.prenom
+  `).all(...params);
+
+  // Ce qui est déjà encodé, pour ne pas faire ressaisir.
+  const existant = {};
+  for (const l of db.prepare(`
+    SELECT etudiant_id, ue_num, resultat, points FROM etudiant_inscription
+    WHERE annee_scolaire = ?
+      AND ue_num IN (SELECT ue_num FROM ue WHERE section = ? AND annee_scolaire = ?)
+  `).all(annee, section, annee)) {
+    existant[`${l.etudiant_id}|${l.ue_num}`] = { resultat: l.resultat, points: l.points };
+  }
+
+  res.json({ ues, etudiants, existant });
+});
+
+r.post('/encodage-direct', authRequired,
+       roleRequired('admin', 'directeur', 'directeur_adjoint', 'editeur', 'secretariat'), (req, res) => {
+  const { annee, entrees } = req.body || {};
+  if (!annee || !Array.isArray(entrees)) {
+    return res.status(400).json({ error: 'annee et entrees requises' });
+  }
+
+  const dateJour = new Date().toISOString().slice(0, 10);
+  const ins = db.prepare(`
+    INSERT INTO etudiant_inscription
+      (etudiant_id, annee_scolaire, ue_num, resultat, points, date_inscription)
+    VALUES (?,?,?,?,?,?)
+    ON CONFLICT(etudiant_id, annee_scolaire, ue_num) DO UPDATE SET
+      resultat = excluded.resultat, points = excluded.points
+  `);
+
+  let n = 0;
+  const refuses = [];
+  db.transaction(() => {
+    for (const e of entrees) {
+      let points = null;
+      if (e.points != null && e.points !== '') {
+        points = Number(String(e.points).replace(',', '.'));
+        if (!Number.isFinite(points) || points < 0 || points > 20) {
+          refuses.push({ etudiant_id: e.etudiant_id, ue_num: e.ue_num, valeur: e.points });
+          continue;
+        }
+      }
+      // Le résultat suit la note quand il n'est pas imposé : le seuil de
+      // réussite est de 10 sur 20 (RDE, art. 44).
+      const resultat = e.resultat
+        || (points == null ? null : (points >= 10 ? 'reussi' : 'ajourne'));
+
+      ins.run(Number(e.etudiant_id), annee, Number(e.ue_num), resultat, points, dateJour);
+      n++;
+    }
+  })();
+
+  res.json({ ok: true, enregistres: n, refuses, nb_refuses: refuses.length });
+});
+
 // ── Enregistrement par lots depuis la matrice ──────────────────────────────
 // Marquer un résultat vaut inscription : la ligne est créée si besoin.
 // Effacer un résultat vide la case sans supprimer l'inscription.
