@@ -9,6 +9,7 @@ import Amenagements from '../components/Amenagements.jsx';
 import Stages from '../components/Stages.jsx';
 import IdentiteEtudiant, { ComplementDossiers } from '../components/IdentiteEtudiant.jsx';
 import AttestationsLot from '../components/AttestationsLot.jsx';
+import Annexe2 from '../components/Annexe2.jsx';
 import ComparaisonClasseur from '../components/ComparaisonClasseur.jsx';
 import ImportPAE from '../components/ImportPAE.jsx';
 import PurgeResultats from '../components/PurgeResultats.jsx';
@@ -117,6 +118,7 @@ function GrilleParcours({ etudId, peutEcrire }) {
   const [pts, setPts] = useState('');
   const [nbHistorique, setNbHistorique] = useState(0);   // nb d'années antérieures révélées
   const [detail, setDetail] = useState(null);       // composantes + notes de la cellule ouverte
+  const [annexe2, setAnnexe2] = useState(false);
   const [detailOuvert, setDetailOuvert] = useState(false);
 
 
@@ -1047,6 +1049,10 @@ function FicheEtudiant({ id, annee, onClose }) {
 
           {onglet === 'dossier' && <DossierApprenant etudId={id} />}
 
+          {annexe2 && (
+            <Annexe2 etudId={id} annee={annee} onClose={() => setAnnexe2(false)} />
+          )}
+
           {onglet === 'identite' && (
             <div className="p-5">
               <IdentiteEtudiant etudId={id} onModifie={charger} />
@@ -1141,6 +1147,11 @@ function FicheEtudiant({ id, annee, onClose }) {
                         title="Une attestation par unité d'enseignement réussie"
                         className="flex items-center gap-1.5 px-3 py-1.5 text-sm border border-iip-blue text-iip-blue font-semibold rounded-lg hover:bg-iip-blue/5">
                         <IconFileText size={14} /> Attestations de réussite
+                      </button>
+                      <button onClick={() => setAnnexe2(true)}
+                        title="Annexe 2 — attestation du progrès des études (Office des Étrangers)"
+                        className="flex items-center gap-1.5 px-3 py-1.5 text-sm border border-iip-blue text-iip-blue font-semibold rounded-lg hover:bg-iip-blue/5">
+                        <IconFileText size={14} /> Progrès des études (annexe 2)
                       </button>
                       <button onClick={ouvrirFraisScolarite}
                         title="Frais de scolarité et acompte — document distinct, l'administration n'en connaît pas"

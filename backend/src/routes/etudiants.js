@@ -2773,8 +2773,8 @@ ${(() => {
 // Rien ne permettait de corriger une adresse ou d'ajouter un lieu de naissance :
 // on pouvait créer un étudiant, jamais le rectifier.
 const CHAMPS_ETUDIANT = ['id_ecampus', 'nom', 'prenom', 'titre', 'date_naissance',
-  'lieu_naissance', 'num_national', 'email_ecole', 'email_perso', 'gsm',
-  'adresse', 'cp', 'localite', 'actif'];
+  'lieu_naissance', 'nationalite', 'num_national', 'email_ecole', 'email_perso',
+  'gsm', 'adresse', 'cp', 'localite', 'actif'];
 
 r.patch('/:id', authRequired, roleRequired('admin', 'directeur', 'directeur_adjoint',
         'editeur', 'secretariat'), (req, res) => {
@@ -2823,8 +2823,9 @@ r.post('/completer', authRequired, roleRequired('admin', 'directeur', 'directeur
     if (n) parRN[n] = e;
   }
 
-  const COMPLETABLES = ['lieu_naissance', 'date_naissance', 'adresse', 'cp', 'localite',
-                        'gsm', 'email_perso', 'email_ecole', 'titre', 'id_ecampus'];
+  const COMPLETABLES = ['lieu_naissance', 'nationalite', 'date_naissance', 'adresse',
+                        'cp', 'localite', 'gsm', 'email_perso', 'email_ecole',
+                        'titre', 'id_ecampus'];
 
   const rapport = { retrouves: 0, inconnus: [], modifications: [], champs: {} };
 
