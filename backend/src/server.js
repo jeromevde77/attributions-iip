@@ -37,6 +37,10 @@ import fraisScolariteRoutes, { migrerFraisScolarite } from './routes/fraisScolar
 import repartitionRoutes, { migrerRepartition } from './routes/repartitionPeriodes.js';
 import amenagementsRoutes, { migrerAmenagements } from './routes/amenagements.js';
 import stagesRoutes, { migrerStages } from './routes/stages.js';
+import attestationsRoutes, { migrerAttestations } from './routes/attestations.js';
+import annexe2Routes from './routes/annexe2.js';
+import impressionRoutes from './routes/impression.js';
+import importSurMesureRoutes from './routes/importSurMesure.js';
 import authRoutes from './routes/auth.js';
 import attrRoutes from './routes/attributions.js';
 import refRoutes  from './routes/referentiels.js';
@@ -2754,6 +2758,7 @@ try { migrerFraisScolarite(db); } catch (e) { console.error('[migration] frais s
 try { migrerRepartition(db); } catch (e) { console.error('[migration] répartition :', e.message); }
 try { migrerAmenagements(db); } catch (e) { console.error('[migration] aménagements :', e.message); }
 try { migrerStages(db); } catch (e) { console.error('[migration] stages :', e.message); }
+try { migrerAttestations(db); } catch (e) { console.error('[migration] attestations :', e.message); }
 // lucie_config : table de configuration clé/valeur — présente en prod depuis l'origine
 // mais jamais créée par migration (omission). On la garantit ici.
 try {
@@ -2848,6 +2853,10 @@ app.use('/api/frais-scolarite', fraisScolariteRoutes);
 app.use('/api/repartition', repartitionRoutes);
 app.use('/api/amenagements', amenagementsRoutes);
 app.use('/api/stages', stagesRoutes);
+app.use('/api/attestations', attestationsRoutes);
+app.use('/api/annexe2', annexe2Routes);
+app.use('/api/impression', impressionRoutes);
+app.use('/api/import-sur-mesure', importSurMesureRoutes);
 app.use('/api/historique',   historiqueRoutes);
 app.use('/api/etablissement', etablissementRoutes);
 app.use('/api/ea12',          ea12Routes);

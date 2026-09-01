@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { IconSearch, IconCheck, IconDeviceFloppy } from '@tabler/icons-react';
+import { IconSearch, IconCheck, IconDeviceFloppy, IconPencil } from '@tabler/icons-react';
 import { authHeaders } from '../lib/api.js';
+import EncodageDirect from '../components/EncodageDirect.jsx';
 
 /**
  * Encodage rapide des résultats — étudiants en lignes, UE en colonnes.
@@ -44,6 +45,7 @@ const SIGLE = { reussi: '✓', ajourne: '✕', absent: '–', va: 'VA' };
 const millesime = a => (a || '').slice(2, 4) + '-' + (a || '').slice(7, 9);
 
 export default function EncodageRapide() {
+  const [encodageDirect, setEncodageDirect] = useState(false);
   const [sections, setSections] = useState([]);
   const [section, setSection] = useState('');
   const [annees, setAnnees] = useState([]);
@@ -200,6 +202,12 @@ export default function EncodageRapide() {
             découle du résultat.
           </p>
         </div>
+        <button onClick={() => setEncodageDirect(true)}
+          title="Saisir directement les notes sur 20, pour l'année de votre choix"
+          className="flex items-center gap-2 px-3 py-2 text-sm border border-iip-blue
+                     text-iip-blue rounded-lg hover:bg-iip-blue/5 font-semibold">
+          <IconPencil size={15} /> Encodage direct
+        </button>
         <div className="text-[12px] flex items-center gap-1.5 text-slate-400">
           <IconDeviceFloppy size={14} />
           {etat === 'enregistrement' ? 'Enregistrement…'
@@ -364,6 +372,11 @@ export default function EncodageRapide() {
         Cliquer un numéro d'UE marque la colonne comme réussie pour les étudiants sélectionnés,
         ou pour tous ceux affichés si aucune sélection n'est faite.
       </p>
+    {encodageDirect && (
+        <EncodageDirect onClose={() => setEncodageDirect(false)}
+          anneeDefaut={annee} sectionDefaut={section} />
+      )}
+
     </div>
   );
 }

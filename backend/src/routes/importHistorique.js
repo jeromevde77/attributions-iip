@@ -330,4 +330,109 @@ r.post('/fusionner', authRequired, roleRequired('admin'), (req, res) => {
   res.json({ ok: true, garde: g, supprime: s, inscriptions });
 });
 
+// ── Comparaison classeur ↔ base, sans rien écrire ───────────────────────────
+// Avant d'importer quoi que ce soit, on montre les écarts. Un import qui écrase
+// silencieusement vaut moins qu'un tableau qu'on peut lire et contester.
+r.post('/comparer', authRequired, roleRequired('admin', 'directeur',
+       'directeur_adjoint', 'editeur', 'secretariat'), (req, res) => {
+  const { annee, lignes } = req.body || {};
+  if (!annee || !Array.isArray(lignes)) {
+    return res.status(400).json({ error: 'année et lignes requises' });
+  }
+
+  const cle = s => String(s || '').trim().toLowerCase();
+  const clePer = s => cle(s).normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+    .replace(/[^a-z]/g, '');
+
+  // Index des étudiants : courriel école d'abord, nom+prénom en repli.
+  const parMail = {}, parNom = {};
+  for (const e of db.prepare('SELECT id, nom, prenom, email_ecole FROM etudiant').all()) {
+    if (e.email_ecole) parMail[cle(e.email_ecole)] = e;
+    (parNom[clePer(e.nom) + '|' + clePer(e.prenom)] ||= []).push(e);
+  }
+
+  const rapport = {
+    inconnus: [], ambigus: [],
+    identiques: 0, absents: [], divergents: [], nouveaux: [],
+    parUE: {},
+  };
+
+  for (const l of lignes) {
+    let e = l.email ? parMail[cle(l.email)] : null;
+    if (!e) {
+      const h = parNom[clePer(l.nom) + '|' + clePer(l.prenom)] || [];
+      if (h.length === 1) e = h[0];
+      else if (h.length > 1) { rapport.ambigus.push({ nom: l.nom, prenom: l.prenom, n: h.length }); continue; }
+    }
+    if (!e) { rapport.inconnus.push({ nom: l.nom, prenom: l.prenom, email: l.email }); continue; }
+
+    for (const cel of (l.cellules || [])) {
+      const ueNum = Number(cel.ue_num);
+      const compte = (k) => { (rapport.parUE[ueNum] ||= { identiques: 0, divergents: 0, nouveaux: 0, absents: 0 })[k]++; };
+
+      // Ce que la base sait déjà, à la maille de l'activité si elle existe
+      const detail = cel.code
+        ? db.prepare(`SELECT points, va, non_evalue FROM etudiant_note_detail
+                      WHERE etudiant_id=? AND annee_scolaire=? AND ue_num=? AND code=?`)
+            .get(e.id, annee, ueNum, cel.code)
+        : null;
+      const insc = db.prepare(`SELECT resultat, points FROM etudiant_inscription
+                               WHERE etudiant_id=? AND annee_scolaire=? AND ue_num=?`)
+        .get(e.id, annee, ueNum);
+
+      const ligne = {
+        etudiant: `${e.nom} ${e.prenom}`, etudiant_id: e.id,
+        ue_num: ueNum, code: cel.code,
+        classeur: cel.brut,
+        classeur_note: cel.points ?? null,
+        base: detail ? (detail.points ?? (detail.va ? 'VA' : (detail.non_evalue ? 'np' : '—')))
+                     : (insc ? (insc.points ?? insc.resultat) : null),
+      };
+
+      if (ligne.base == null) { rapport.nouveaux.push(ligne); compte('nouveaux'); continue; }
+
+      const a = cel.points != null ? Number(cel.points) : null;
+      const b = detail?.points != null ? Number(detail.points) : null;
+      if (a != null && b != null) {
+        if (Math.abs(a - b) < 0.01) { rapport.identiques++; compte('identiques'); }
+        else { rapport.divergents.push(ligne); compte('divergents'); }
+      } else if (a == null && b == null) { rapport.identiques++; compte('identiques'); }
+      else { rapport.divergents.push(ligne); compte('divergents'); }
+    }
+  }
+
+  // Ce que la base porte et que le classeur ignore : l'écart inverse, celui
+  // qu'on oublie toujours de regarder.
+  const idsVus = new Set(rapport.divergents.concat(rapport.nouveaux).map(x => x.etudiant_id));
+  for (const id of idsVus) {
+    const enBase = db.prepare(`SELECT ue_num, code, points FROM etudiant_note_detail
+                               WHERE etudiant_id=? AND annee_scolaire=?`).all(id, annee);
+    const auClasseur = new Set(
+      (lignes.find(l => parMail[cle(l.email)]?.id === id)?.cellules || [])
+        .map(c => `${c.ue_num}|${c.code}`));
+    for (const b of enBase) {
+      if (!auClasseur.has(`${b.ue_num}|${b.code}`)) {
+        rapport.absents.push({ etudiant_id: id, ue_num: b.ue_num, code: b.code, base: b.points });
+      }
+    }
+  }
+
+  res.json({
+    annee,
+    lignes_lues: lignes.length,
+    identiques: rapport.identiques,
+    nb_divergents: rapport.divergents.length,
+    nb_nouveaux: rapport.nouveaux.length,
+    nb_absents: rapport.absents.length,
+    nb_inconnus: rapport.inconnus.length,
+    nb_ambigus: rapport.ambigus.length,
+    divergents: rapport.divergents.slice(0, 300),
+    nouveaux: rapport.nouveaux.slice(0, 300),
+    absents: rapport.absents.slice(0, 100),
+    inconnus: rapport.inconnus.slice(0, 50),
+    ambigus: rapport.ambigus.slice(0, 30),
+    parUE: rapport.parUE,
+  });
+});
+
 export default r;

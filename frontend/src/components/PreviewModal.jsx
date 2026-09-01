@@ -14,17 +14,40 @@ export default function PreviewModal({ html, titre = 'Document', sousTitre, nomF
   const [pret, setPret] = useState(false);
 
   function imprimer() {
-    const iframe = iframeRef.current;
-    if (!iframe || !iframe.contentWindow) return;
-    if (nomFichier) {
-      try { iframe.contentDocument.title = nomFichier; } catch(e) {}
+    // Safari imprime le document PARENT lorsqu'on lui demande d'imprimer un
+    // cadre alimenté par srcDoc : on obtenait une capture de l'écran, fenêtre
+    // d'aperçu comprise. Une fenêtre dédiée porte le document seul, et
+    // l'impression y est fidèle sur tous les navigateurs.
+    const w = window.open('', '_blank');
+    if (!w) {
+      // Fenêtre bloquée : on retombe sur le cadre, imparfait mais fonctionnel
+      // sur les navigateurs qui le gèrent.
+      const iframe = iframeRef.current;
+      if (!iframe?.contentWindow) return;
+      try {
+        if (nomFichier) iframe.contentDocument.title = nomFichier;
+        iframe.contentWindow.focus();
+        iframe.contentWindow.print();
+      } catch (e) { console.error('[preview] impression échouée :', e); }
+      return;
     }
-    try {
-      iframe.contentWindow.focus();
-      iframe.contentWindow.print();
-    } catch (e) {
-      console.error('[preview] impression échouée :', e);
-    }
+
+    w.document.open();
+    w.document.write(html);
+    w.document.close();
+    try { w.document.title = nomFichier || titre; } catch { /* sans conséquence */ }
+
+    // Le document peut être prêt avant ou après la pose du gestionnaire selon
+    // le navigateur : on couvre les deux, en n'imprimant qu'une fois.
+    let lance = false;
+    const lancer = () => {
+      if (lance) return;
+      lance = true;
+      w.focus();
+      w.print();
+    };
+    w.onload = lancer;
+    setTimeout(lancer, 400);
   }
 
   // Extraire initiales depuis le titre (ex: "BAGAYOKO Daouda" → "DB")

@@ -72,6 +72,19 @@ r.post('/pdf', authRequired, roleRequired('admin', 'editeur'), async (req, res) 
     res.end(pdfBuffer);
   } catch (err) {
     console.error('[contrats/pdf]', err);
+    // Sur un serveur sans Chromium, l'utilisateur recevait une 500 muette et
+    // le contrat devenait inaccessible. On le dit, et on renvoie vers
+    // l'aperçu, qui s'imprime depuis le navigateur sans rien installer.
+    const { capacitePdf } = await import('../services/pdf.js');
+    const cap = await capacitePdf();
+    if (!cap.disponible) {
+      return res.status(503).json({
+        error: "Ce serveur ne sait pas produire de PDF. Utilisez l'aperçu, "
+             + "puis l'impression du navigateur.",
+        capacite_absente: 'pdf',
+        detail: cap.raison,
+      });
+    }
     res.status(500).json({ error: err.message });
   }
 });

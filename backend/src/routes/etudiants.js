@@ -3,6 +3,8 @@
 // ─────────────────────────────────────────────────────────────────────────────
 
 import { Router } from 'express';
+import { LOGO_IIP_JPEG } from '../services/assets/logo_iip_jpeg.js';
+import { piedBalisage, piedStyles, reglesDePage } from '../lib/document.js';
 
 import db from '../db/index.js';
 import { piedDocument } from './parametres.js';
@@ -420,21 +422,17 @@ r.get('/rapport', authRequired, (req, res) => {
   td.va { background: #ede9fe; color: #5b21b6; font-weight: 700; }
   td.i  { color: #64748b; }
   .legende { margin-top: 10px; font-size: 10px; color: #64748b; }
-  @media print { body { margin: 8mm; } @page { size: landscape; } }
+  @media print { body { margin: 8mm 8mm 0; } @page { size: landscape; } }
 
   /* Deux protections plutôt qu'une : la marge de @page, que certains
      navigateurs ignorent lorsqu'ils impriment depuis un cadre, ET une réserve
      dans le corps même. Sans la seconde, le pied se superposait au texte. */
-  @page { size: A4 portrait; margin: 14mm 14mm 26mm 14mm; }
-  @media print { body { padding-bottom: 24mm; } }
+  ${reglesDePage({ haut: 14, cote: 14 })}
 
   /* Pied de page commun, ancré en bas de CHAQUE page — dernière comprise.
      Un pied placé dans le flux, ou en table-footer-group, flotte au milieu
      d'une dernière page à moitié vide. */
-  .pied-lucie { position: fixed; bottom: 0; left: 0; right: 0; height: 22mm;
-                padding-top: 2mm; border-top: 0.5pt solid #C9A84C; text-align: center; }
-  .pied-lucie .txt { font-size: 6pt; color: #888; line-height: 1.35; }
-  @media screen { .pied-lucie { position: static; height: auto; margin-top: 12mm; } }
+  ${piedStyles()}
 </style></head><body>
 <h1>Parcours des étudiants — ${esc(section)}</h1>
 <div class="meta">Année académique ${esc(annee)} · ${lignes.length} étudiant(s) · ${ues.length} UE · imprimé le ${new Date().toLocaleDateString('fr-BE')}</div>
@@ -444,7 +442,7 @@ r.get('/rapport', authRequired, (req, res) => {
 </table>
 <div class="legende"><b>C</b> réussite · <b>R</b> refusé · <b>A</b> absent · <b>VA</b> valorisation des acquis · <b>•</b> inscrit (non délibéré) · survolez une case pour les points</div>
 
-<div class="pied-lucie"><div class="txt">${piedDocument()}</div></div>
+${piedBalisage(LOGO_IIP_JPEG)}
 </body></html>`;
 
   res.json({ html, nom: 'parcours_' + section + '_' + annee + '.html' });
@@ -1050,6 +1048,95 @@ r.get('/matrice', authRequired, (req, res) => {
     annee, section, ues,
     etudiants: etudiants.map(e => ({ ...e, ...parEtud[e.id] })),
   });
+});
+
+// ── Encodage direct des notes ──────────────────────────────────────────────
+// La matrice ne retient que le résultat ; ici on saisit la NOTE, dont le
+// résultat se déduit. L'année est choisie librement, pour rattraper un
+// millésime antérieur sans changer d'écran.
+r.get('/encodage-direct', authRequired, (req, res) => {
+  const { annee, section, ue_num } = req.query;
+  if (!annee || !section) return res.status(400).json({ error: 'annee et section requises' });
+
+  const perim = getUserSections(req.user);
+  if (perim && !perim.includes(section)) {
+    return res.status(403).json({ error: 'section hors de votre périmètre' });
+  }
+
+  // Les UE de la section pour l'année, telles que le référentiel les décrit.
+  const ues = db.prepare(`
+    SELECT DISTINCT ue_num, ue_nom, ue_niv, ects
+    FROM ue WHERE section = ? AND annee_scolaire = ?
+    ORDER BY ue_niv, ue_num
+  `).all(section, annee);
+
+  // Les étudiants inscrits dans la section cette année-là. On part des
+  // inscriptions réelles, le rattachement par section n'étant pas fiable.
+  const filtreUe = ue_num ? 'AND i.ue_num = ?' : '';
+  const params = [section, annee, annee];
+  if (ue_num) params.push(Number(ue_num));
+
+  const etudiants = db.prepare(`
+    SELECT DISTINCT e.id, e.nom, e.prenom, e.id_ecampus
+    FROM etudiant e
+    JOIN etudiant_inscription i ON i.etudiant_id = e.id
+    WHERE i.ue_num IN (SELECT ue_num FROM ue WHERE section = ? AND annee_scolaire = ?)
+      AND i.annee_scolaire = ? ${filtreUe}
+    ORDER BY e.nom, e.prenom
+  `).all(...params);
+
+  // Ce qui est déjà encodé, pour ne pas faire ressaisir.
+  const existant = {};
+  for (const l of db.prepare(`
+    SELECT etudiant_id, ue_num, resultat, points FROM etudiant_inscription
+    WHERE annee_scolaire = ?
+      AND ue_num IN (SELECT ue_num FROM ue WHERE section = ? AND annee_scolaire = ?)
+  `).all(annee, section, annee)) {
+    existant[`${l.etudiant_id}|${l.ue_num}`] = { resultat: l.resultat, points: l.points };
+  }
+
+  res.json({ ues, etudiants, existant });
+});
+
+r.post('/encodage-direct', authRequired,
+       roleRequired('admin', 'directeur', 'directeur_adjoint', 'editeur', 'secretariat'), (req, res) => {
+  const { annee, entrees } = req.body || {};
+  if (!annee || !Array.isArray(entrees)) {
+    return res.status(400).json({ error: 'annee et entrees requises' });
+  }
+
+  const dateJour = new Date().toISOString().slice(0, 10);
+  const ins = db.prepare(`
+    INSERT INTO etudiant_inscription
+      (etudiant_id, annee_scolaire, ue_num, resultat, points, date_inscription)
+    VALUES (?,?,?,?,?,?)
+    ON CONFLICT(etudiant_id, annee_scolaire, ue_num) DO UPDATE SET
+      resultat = excluded.resultat, points = excluded.points
+  `);
+
+  let n = 0;
+  const refuses = [];
+  db.transaction(() => {
+    for (const e of entrees) {
+      let points = null;
+      if (e.points != null && e.points !== '') {
+        points = Number(String(e.points).replace(',', '.'));
+        if (!Number.isFinite(points) || points < 0 || points > 20) {
+          refuses.push({ etudiant_id: e.etudiant_id, ue_num: e.ue_num, valeur: e.points });
+          continue;
+        }
+      }
+      // Le résultat suit la note quand il n'est pas imposé : le seuil de
+      // réussite est de 10 sur 20 (RDE, art. 44).
+      const resultat = e.resultat
+        || (points == null ? null : (points >= 10 ? 'reussi' : 'ajourne'));
+
+      ins.run(Number(e.etudiant_id), annee, Number(e.ue_num), resultat, points, dateJour);
+      n++;
+    }
+  })();
+
+  res.json({ ok: true, enregistres: n, refuses, nb_refuses: refuses.length });
 });
 
 // ── Enregistrement par lots depuis la matrice ──────────────────────────────
@@ -2434,21 +2521,47 @@ r.get('/:id/fiche-inscription', authRequired, (req, res) => {
 
   const esc = s => String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;');
 
-  const lignesAcquis = acquisRows.map(a => `
-    <tr>
-      <td>${esc(a.annee_scolaire || '—')}</td>
-      <td>${a.ue_num}</td>
-      <td>${esc(a.ue_nom || '')}</td>
-      <td>${a.kind === 'va' ? '<b>Valorisation des acquis</b>' : 'Réussite'}</td>
-      <td style="text-align:right;white-space:nowrap">${a.points != null ? a.points + ' / 20' : '—'}</td>
-    </tr>`).join('');
+  // Le parcours antérieur se lit par ANNÉE ACADÉMIQUE : c'est ainsi qu'on
+  // raisonne un cursus. Auparavant les acquis formaient un bloc et les ajournés
+  // un second, si bien que la même année revenait à deux endroits du tableau.
+  const parcoursAnterieur = (() => {
+    const tout = [
+      ...acquisRows.map(a => ({
+        annee: a.annee_scolaire || '—', ue_num: a.ue_num, ue_nom: a.ue_nom,
+        mode: a.kind === 'va' ? '<b>Valorisation des acquis</b>' : 'Réussite',
+        points: a.points, acquis: true,
+      })),
+      ...autres.map(h => ({
+        annee: h.annee_scolaire || '—', ue_num: h.ue_num, ue_nom: h.ue_nom,
+        // Le libellé d'origine : ajourné = refusé, tout autre cas = absent.
+        mode: h.resultat === 'ajourne' ? 'Refusé' : 'Absent',
+        points: null, acquis: false,
+      })),
+    ];
 
-  const lignesAutres = autres.map(h => `
+    // Millésime décroissant : le plus récent d'abord, c'est ce qu'on consulte.
+    const annees = [...new Set(tout.map(x => x.annee))]
+      .sort((a, b) => String(b).localeCompare(String(a)));
+
+    return annees.map(an => {
+      const lignes = tout.filter(x => x.annee === an)
+        .sort((a, b) => a.ue_num - b.ue_num);
+      const nbAcquis = lignes.filter(x => x.acquis).length;
+      return `
+    <tr class="annee-groupe">
+      <td colspan="4"><b>${esc(an)}</b>
+        <span style="color:#64748b;font-weight:400"> — ${lignes.length} unité(s),
+        ${nbAcquis} acquise(s)</span></td>
+    </tr>` + lignes.map(x => `
     <tr>
-      <td>${esc(h.annee_scolaire)}</td><td>${h.ue_num}</td>
-      <td>${esc(h.ue_nom || '')}</td>
-      <td colspan="2">${h.resultat === 'ajourne' ? 'Refusé' : 'Absent'}</td>
+      <td>${x.ue_num}</td>
+      <td>${esc(x.ue_nom || '')}</td>
+      <td>${x.mode}</td>
+      <td style="text-align:right;white-space:nowrap">${
+        x.points != null ? x.points + ' / 20' : '—'}</td>
     </tr>`).join('');
+    }).join('');
+  })();
 
   // Dates d'organisation : l'étudiant doit savoir quand son UE commence et se
   // termine — ces dates commandent aussi son délai de paiement.
@@ -2463,6 +2576,11 @@ r.get('/:id/fiche-inscription', authRequired, (req, res) => {
   const eur = n => (Number(n) || 0).toFixed(2).replace('.', ',') + ' €';
   const parUe = Object.fromEntries((di?.detail || []).map(d => [d.ue_num, d]));
 
+  // Deux lignes par UE : l'intitulé sur toute la largeur, les valeurs dessous.
+  // Dix colonnes sur une seule ligne écrasaient l'intitulé, qui est pourtant ce
+  // que l'étudiant lit en premier. La légende reste écrite UNE fois en tête :
+  // la répéter à chaque UE aurait triplé la hauteur du tableau pour une
+  // information constante.
   const lignesInsc = inscriptions.map(i => {
     const sit = situationDe(i.ue_num);
     const sr = sit.etat === 'sous_reserve' ? sit.chaine : null;
@@ -2471,25 +2589,38 @@ r.get('/:id/fiche-inscription', authRequired, (req, res) => {
     // du Conseil des études, mais c'est le plus souvent le vestige d'un
     // programme calculé avant l'encodage des résultats. On le signale.
     const dejaAcquise = acquisRows.find(a => a.ue_num === i.ue_num);
+
+    const alerte = sit.etat === 'impossible'
+      ? (sit.epreuve
+          ? ' <b style="color:#B91C1C">— épreuve intégrée : ' + sit.chaine.length
+            + ' unité(s) des années antérieures non acquise(s)</b>'
+          : ' <b style="color:#B91C1C">— exige la réussite de l\u2019UE ' + sit.chaine.join(', ') + '</b>')
+      : '';
+
+    const dates = (() => {
+      const o = datesOrg[i.ue_num];
+      if (!o?.date_debut && !o?.date_fin) return ['—', ''];
+      const j = v => v ? String(v).slice(0, 10).split('-').reverse().join('/') : '…';
+      return [j(o.date_debut), j(o.date_fin)];
+    })();
+
     return `
-    <tr>
-      <td>${i.ue_num}</td>
-      <td>${esc(i.ue_nom || '')}${i.codiplomation_ch ? ' <b>(CH)</b>' : ''}${sr ? ' <i>(sous réserve de la réussite de l\u2019UE ' + sr.join(', ') + ')</i>' : ''}${dejaAcquise ? ' <b style="color:#B45309">— déjà acquise en ' + esc(dejaAcquise.annee_scolaire || '') + '</b>' : ''}${sit.etat === 'impossible'
-        ? (sit.epreuve
-            ? ' <b style="color:#B91C1C">— épreuve intégrée : ' + sit.chaine.length + ' unité(s) des années antérieures non acquise(s)</b>'
-            : ' <b style="color:#B91C1C">— exige la réussite de l\u2019UE ' + sit.chaine.join(', ') + '</b>')
-        : ''}</td>
-      <td>${esc(i.section || '')}</td>
+    <tr class="ue-titre">
+      <td colspan="7">
+        <span class="ue-num">${i.ue_num}</span>
+        <b>${esc(i.ue_nom || '')}</b>${i.codiplomation_ch ? ' <b>(CH)</b>' : ''}${
+        sr ? ' <i>(sous réserve de la réussite de l\u2019UE ' + sr.join(', ') + ')</i>' : ''}${
+        dejaAcquise ? ' <b style="color:#B45309">— déjà acquise en '
+          + esc(dejaAcquise.annee_scolaire || '') + '</b>' : ''}${alerte}
+      </td>
+    </tr>
+    <tr class="ue-valeurs">
       <td>${esc(i.date_inscription || '')}</td>
       <td>${i.admission_type === 'titre' ? 'Titre' : i.admission_type === 'test' ? 'Test' : '—'}</td>
       <td>${d?.dispensee ? 'Dispense complète' : (i.dispense_complete ? 'Dispense complète' : '—')}</td>
-      <td style="text-align:center;white-space:nowrap">${(() => {
-        const o = datesOrg[i.ue_num];
-        if (!o?.date_debut && !o?.date_fin) return '—';
-        const j = v => v ? String(v).slice(0, 10).split('-').reverse().join('/') : '…';
-        return `${j(o.date_debut)}<br><span style="color:#94a3b8">→ ${j(o.date_fin)}</span>`;
-      })()}</td>
-      <td style="text-align:right;white-space:nowrap">${d ? d.periodes_brutes : '—'}${d?.porte_forfait ? ' <span style="color:#C9A84C" title="Cette UE porte le forfait annuel">◆</span>' : ''}</td>
+      <td style="text-align:center;white-space:nowrap">${dates[0]}${dates[1] ? ' <span style="color:#94a3b8">→ ' + dates[1] + '</span>' : ''}</td>
+      <td style="text-align:right;white-space:nowrap">${d ? d.periodes_brutes : '—'}${
+        d?.porte_forfait ? ' <span style="color:#C9A84C" title="Cette UE porte le forfait annuel">◆</span>' : ''}</td>
       <td style="text-align:right;white-space:nowrap">${d && !d.dispensee ? eur(d.montant) : '—'}</td>
       <td style="text-align:right">${i.ects != null ? i.ects : '—'}</td>
     </tr>`;
@@ -2498,12 +2629,12 @@ r.get('/:id/fiche-inscription', authRequired, (req, res) => {
   // Pied du tableau : forfait, puis total
   const piedDI = di && di.detail.length ? `
     <tr class="tot">
-      <td colspan="7" style="text-align:right">Forfait annuel${di.ue_forfait ? ` — porté par l'UE ${di.ue_forfait} ◆` : ''}</td>
+      <td colspan="4" style="text-align:right">Forfait annuel${di.ue_forfait ? ` — porté par l'UE ${di.ue_forfait} ◆` : ''}</td>
       <td style="text-align:right">—</td>
       <td style="text-align:right">${eur(di.forfait)}</td><td></td>
     </tr>
     <tr class="tot">
-      <td colspan="7" style="text-align:right"><b>Droit d'inscription — total</b></td>
+      <td colspan="4" style="text-align:right"><b>Droit d'inscription — total</b></td>
       <td style="text-align:right"><b>${di.periodes.total}</b></td>
       <td style="text-align:right"><b>${di.exonere ? '0,00 € (exonéré)' : eur(di.montant_arrondi)}</b></td>
       <td style="text-align:right"><b>${(() => {
@@ -2511,14 +2642,14 @@ r.get('/:id/fiche-inscription', authRequired, (req, res) => {
         const t = inscriptions.reduce((s, x) => s + (Number(x.ects) || 0), 0);
         return t || '—';
       })()}</b></td></tr>
-    ${di.plafond_atteint ? `<tr><td colspan="10" style="font-size:10px;color:#64748b">
+    ${di.plafond_atteint ? `<tr><td colspan="7" style="font-size:10px;color:#64748b">
       Plafond de ${di.bareme.plafond_periodes} périodes atteint : ${di.retenues.secondaire + di.retenues.superieur}
       période(s) facturée(s) sur ${di.periodes.total}, le secondaire étant compté en premier.</td></tr>` : ''}
-    ${di.exonere ? `<tr><td colspan="10" style="font-size:10px;color:#065f46">
+    ${di.exonere ? `<tr><td colspan="7" style="font-size:10px;color:#065f46">
       Exonération du droit d'inscription${di.motif ? ' — motif enregistré' : ''}.</td></tr>` : ''}
-    ${dis && dis.soumis ? `<tr class="tot"><td colspan="7" style="text-align:right">
+    ${dis && dis.soumis ? `<tr class="tot"><td colspan="5" style="text-align:right">
       Droit d'inscription spécifique (${dis.periodes_hebdo} pér./sem.)</td>
-      <td></td><td style="text-align:right"><b>${eur(dis.montant_du)}</b></td><td></td></tr>` : ''}
+      <td style="text-align:right"><b>${eur(dis.montant_du)}</b></td><td></td></tr>` : ''}
   ` : '';
 
   const html = `<!DOCTYPE html><html lang="fr"><head><meta charset="utf-8">
@@ -2547,17 +2678,43 @@ r.get('/:id/fiche-inscription', authRequired, (req, res) => {
   /* Sans largeurs explicites, le navigateur donnait autant de place aux
      colonnes vides qu'aux intitulés, qui s'écrasaient sur six lignes. */
   table.ues { table-layout: fixed; }
-  table.ues th:nth-child(1), table.ues td:nth-child(1) { width: 6%; }
-  table.ues th:nth-child(2), table.ues td:nth-child(2) { width: 30%; }
-  table.ues th:nth-child(3), table.ues td:nth-child(3) { width: 8%; }
-  table.ues th:nth-child(4), table.ues td:nth-child(4) { width: 10%; }
-  table.ues th:nth-child(5), table.ues td:nth-child(5) { width: 8%; }
-  table.ues th:nth-child(6), table.ues td:nth-child(6) { width: 8%; }
-  table.ues th:nth-child(7), table.ues td:nth-child(7) { width: 11%; }
-  table.ues th:nth-child(8), table.ues td:nth-child(8) { width: 7%; }
-  table.ues th:nth-child(9), table.ues td:nth-child(9) { width: 8%; }
-  table.ues th:nth-child(10), table.ues td:nth-child(10) { width: 4%; }
+  /* Sept colonnes désormais : l'intitulé occupe sa propre ligne au-dessus. */
+  table.ues th:nth-child(1), table.ues td:nth-child(1) { width: 15%; }
+  table.ues th:nth-child(2), table.ues td:nth-child(2) { width: 12%; }
+  table.ues th:nth-child(3), table.ues td:nth-child(3) { width: 17%; }
+  table.ues th:nth-child(4), table.ues td:nth-child(4) { width: 22%; }
+  table.ues th:nth-child(5), table.ues td:nth-child(5) { width: 11%; }
+  table.ues th:nth-child(6), table.ues td:nth-child(6) { width: 15%; }
+  table.ues th:nth-child(7), table.ues td:nth-child(7) { width: 8%; }
   table.ues td { word-wrap: break-word; }
+
+  /* Deux niveaux de ligne : l'intitulé porte le filet supérieur, les valeurs
+     s'y rattachent sans se séparer d'elles à la pagination. */
+  table.ues tr.ue-titre td {
+    border-top: 0.6pt solid #94a3b8; border-bottom: 0;
+    padding-top: 1.8mm; padding-bottom: 0.4mm; font-size: 9pt;
+  }
+  table.ues tr.ue-titre .ue-num {
+    display: inline-block; min-width: 9mm; margin-right: 1.5mm;
+    padding: 0.2mm 1.2mm; border-radius: 1mm;
+    background: #1B2B4B; color: #fff; font-size: 7.5pt; text-align: center;
+  }
+  table.ues tr.ue-valeurs td {
+    border-top: 0; padding-top: 0.4mm; padding-bottom: 1.8mm;
+    font-size: 8.5pt; color: #334155;
+  }
+  /* Le couple intitulé + valeurs ne doit pas se scinder d'une page à l'autre. */
+  table.ues tr.ue-titre { break-after: avoid; page-break-after: avoid; }
+  table.ues tr.ue-valeurs { break-before: avoid; page-break-before: avoid; }
+
+  .section-insc { margin: 0 0 2mm; font-size: 9pt; color: #334155; }
+
+  /* Le rang d'année ouvre chaque groupe du parcours antérieur. */
+  tr.annee-groupe td {
+    background: #f1f5f9; border-top: 0.6pt solid #94a3b8;
+    padding-top: 1.4mm; padding-bottom: 1.4mm; font-size: 9pt;
+  }
+  tr.annee-groupe { break-after: avoid; page-break-after: avoid; }
 
   /* « 10 / 20 » se cassait en deux lignes. */
   .nowrap, td.num { white-space: nowrap; }
@@ -2567,19 +2724,18 @@ r.get('/:id/fiche-inscription', authRequired, (req, res) => {
   .engagement { break-before: auto; }
 
   .footer { margin-top: 22px; font-size: 10px; color: #64748b; }
-  @media print { body { margin: 12mm; } }
+  /* Marge basse à zéro : elle s'ajouterait au flux et pousserait une page
+     blanche. La réserve du pied est déjà faite par @page. */
+  @media print { body { margin: 12mm 12mm 0; } }
 
   /* La marge basse réserve la hauteur du pied : sans elle, le texte passerait
      dessous en fin de page. */
-  @page { margin-bottom: 28mm; }
+  ${reglesDePage({ haut: 14, cote: 14 })}
 
   /* Pied de page commun, ancré en bas de CHAQUE page — dernière comprise.
      Un pied placé dans le flux, ou en table-footer-group, flotte au milieu
      d'une dernière page à moitié vide. */
-  .pied-lucie { position: fixed; bottom: 0; left: 0; right: 0; height: 22mm;
-                padding-top: 2mm; border-top: 0.5pt solid #C9A84C; text-align: center; }
-  .pied-lucie .txt { font-size: 6pt; color: #888; line-height: 1.35; }
-  @media screen { .pied-lucie { position: static; height: auto; margin-top: 12mm; } }
+  ${piedStyles()}
 </style></head><body>
 <div class="etab">${esc(etab)} — Enseignement pour Adultes</div>
 <h1>Fiche d'inscription / reçu — ${esc(annee)}</h1>
@@ -2594,8 +2750,9 @@ r.get('/:id/fiche-inscription', authRequired, (req, res) => {
 ${acquisRows.length || autres.length ? `
 <h2>Parcours antérieur au sein de l'établissement</h2>
 <table>
-  <thead><tr><th>Année</th><th>UE</th><th>Intitulé</th><th>Mode d'acquisition</th><th>Note</th></tr></thead>
-  <tbody>${lignesAcquis}${lignesAutres}</tbody>
+  <thead><tr><th>UE</th><th>Intitulé</th><th>Mode d'acquisition</th>
+    <th style="text-align:right">Note</th></tr></thead>
+  <tbody>${parcoursAnterieur}</tbody>
 </table>` : ''}
 
 ${(() => {
@@ -2627,12 +2784,22 @@ ${(() => {
 })()}
 
 <h2>Unités d'enseignement — inscription ${esc(annee)}</h2>
+${(() => {
+  // La section appartient à l'en-tête : on inscrit DANS une section, elle ne
+  // varie pas d'une ligne à l'autre. Sauf pour l'étudiant inscrit dans
+  // plusieurs, cas qui existe et qu'il faut alors énoncer.
+  const secs = [...new Set(inscriptions.map(i => i.section).filter(Boolean))];
+  if (!secs.length) return '';
+  return `<p class="section-insc">${secs.length > 1 ? 'Sections' : 'Section'} :
+    <b>${secs.map(esc).join(' · ')}</b></p>`;
+})()}
 <table class="ues">
   <thead><tr>
-    <th>UE</th><th>Intitulé</th><th>Section</th><th>Date d'inscription</th>
-    <th>Admission</th><th>Valorisation</th><th>Dates</th><th>Périodes</th><th>Droit d'inscription</th><th>ECTS</th>
+    <th>Date d'inscription</th><th>Admission</th><th>Valorisation</th>
+    <th style="text-align:center">Dates</th><th style="text-align:right">Périodes</th>
+    <th style="text-align:right">Droit d'inscription</th><th style="text-align:right">ECTS</th>
   </tr></thead>
-  <tbody>${lignesInsc ? lignesInsc + piedDI : '<tr><td colspan="10" style="text-align:center;color:#94a3b8">Aucune UE inscrite pour cette année — encodez les inscriptions dans la grille de parcours</td></tr>'}</tbody>
+  <tbody>${lignesInsc ? lignesInsc + piedDI : '<tr><td colspan="7" style="text-align:center;color:#94a3b8">Aucune UE inscrite pour cette année — encodez les inscriptions dans la grille de parcours</td></tr>'}</tbody>
 </table>
 
 <!-- Engagement de l'étudiant. L'article 39 du règlement des études n'admet
@@ -2673,13 +2840,119 @@ ${(() => {
   Document imprimé le ${new Date().toLocaleDateString('fr-BE')} — ${esc(etab)}.
 </div>
 
-<div class="pied-lucie"><div class="txt">${piedDocument()}</div></div>
+${piedBalisage(LOGO_IIP_JPEG)}
 </body></html>`;
 
   res.json({ html, nom: 'fiche_inscription_' + (e.nom || 'etudiant') + '_' + annee + '.html' });
 });
 
 // ── Ajouter un étudiant manuellement ─────────────────────────────────────────
+// ── Modification du signalétique ────────────────────────────────────────────
+// Rien ne permettait de corriger une adresse ou d'ajouter un lieu de naissance :
+// on pouvait créer un étudiant, jamais le rectifier.
+const CHAMPS_ETUDIANT = ['id_ecampus', 'nom', 'prenom', 'titre', 'date_naissance',
+  'lieu_naissance', 'nationalite', 'num_national', 'email_ecole', 'email_perso',
+  'gsm', 'adresse', 'cp', 'localite', 'actif'];
+
+r.patch('/:id', authRequired, roleRequired('admin', 'directeur', 'directeur_adjoint',
+        'editeur', 'secretariat'), (req, res) => {
+  const etudId = Number(req.params.id);
+  const avant = db.prepare('SELECT * FROM etudiant WHERE id = ?').get(etudId);
+  if (!avant) return res.status(404).json({ error: 'étudiant introuvable' });
+
+  const presents = CHAMPS_ETUDIANT.filter(k => k in (req.body || {}));
+  if (!presents.length) return res.json({ ok: true, inchange: true });
+
+  // Le numéro national identifie la personne : un doublon rendrait tout
+  // rapprochement d'historique impossible.
+  if (presents.includes('num_national') && req.body.num_national) {
+    const norm = String(req.body.num_national).replace(/[^0-9]/g, '');
+    const autre = db.prepare(`
+      SELECT id, nom, prenom FROM etudiant
+      WHERE id <> ? AND REPLACE(REPLACE(REPLACE(COALESCE(num_national,''),'.',''),'-',''),' ','') = ?
+    `).get(etudId, norm);
+    if (autre) {
+      return res.status(400).json({
+        error: `Ce numéro national est déjà celui de ${autre.nom} ${autre.prenom}. `
+             + `Deux dossiers ne peuvent pas le partager.`,
+      });
+    }
+  }
+
+  db.prepare(`UPDATE etudiant SET ${presents.map(k => `${k} = ?`).join(', ')} WHERE id = ?`)
+    .run(...presents.map(k => req.body[k] ?? null), etudId);
+
+  res.json({ ok: true, modifies: presents });
+});
+
+// ── Complément de dossier par numéro national ───────────────────────────────
+// Les listes officielles portent des données que Lucie n'a pas — lieu de
+// naissance, adresse à jour. Le rapprochement se fait sur le numéro national,
+// seul identifiant stable : eCampus réattribue les matricules chaque rentrée.
+r.post('/completer', authRequired, roleRequired('admin', 'directeur', 'directeur_adjoint',
+       'editeur', 'secretariat'), (req, res) => {
+  const { lignes, simulation } = req.body || {};
+  if (!Array.isArray(lignes)) return res.status(400).json({ error: 'lignes requises' });
+
+  const norm = v => String(v || '').replace(/[^0-9]/g, '');
+  const parRN = {};
+  for (const e of db.prepare('SELECT id, nom, prenom, num_national FROM etudiant').all()) {
+    const n = norm(e.num_national);
+    if (n) parRN[n] = e;
+  }
+
+  const COMPLETABLES = ['lieu_naissance', 'nationalite', 'date_naissance', 'adresse',
+                        'cp', 'localite', 'gsm', 'email_perso', 'email_ecole',
+                        'titre', 'id_ecampus'];
+
+  const rapport = { retrouves: 0, inconnus: [], modifications: [], champs: {} };
+
+  const appliquer = db.transaction(() => {
+    for (const l of lignes) {
+      const n = norm(l.num_national);
+      if (!n) continue;
+      const e = parRN[n];
+      if (!e) { rapport.inconnus.push({ num_national: l.num_national, nom: l.nom }); continue; }
+      rapport.retrouves++;
+
+      const actuel = db.prepare('SELECT * FROM etudiant WHERE id = ?').get(e.id);
+      const maj = {};
+      for (const k of COMPLETABLES) {
+        const v = l[k];
+        if (v == null || String(v).trim() === '') continue;
+        // On COMPLÈTE : une valeur déjà présente n'est pas écrasée, sauf
+        // demande explicite. Une liste importée n'est pas plus fiable que ce
+        // qu'un secrétariat a corrigé à la main.
+        if (actuel[k] != null && String(actuel[k]).trim() !== '' && !l.__ecraser) continue;
+        maj[k] = String(v).trim();
+        rapport.champs[k] = (rapport.champs[k] || 0) + 1;
+      }
+      if (!Object.keys(maj).length) continue;
+
+      rapport.modifications.push({
+        id: e.id, nom: actuel.nom, prenom: actuel.prenom, champs: Object.keys(maj),
+      });
+      if (!simulation) {
+        db.prepare(`UPDATE etudiant SET ${Object.keys(maj).map(k => `${k} = ?`).join(', ')}
+                    WHERE id = ?`).run(...Object.values(maj), e.id);
+      }
+    }
+    if (simulation) throw new Error('SIMULATION');
+  });
+
+  try { appliquer(); } catch (e) {
+    if (e.message !== 'SIMULATION') return res.status(500).json({ error: e.message });
+  }
+
+  res.json({
+    ok: true, simulation: !!simulation,
+    lignes_lues: lignes.length,
+    ...rapport,
+    inconnus: rapport.inconnus.slice(0, 30),
+    nb_inconnus: rapport.inconnus.length,
+  });
+});
+
 r.post('/', authRequired, roleRequired('admin', 'editeur'), (req, res) => {
   const { nom, prenom, annee, ue_nums, ...rest } = req.body;
   if (!nom || !prenom) return res.status(400).json({ error: 'nom et prenom requis' });

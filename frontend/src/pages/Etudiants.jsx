@@ -1,12 +1,19 @@
-import {Fragment, useEffect, useState, useMemo } from 'react';
+import { Fragment, useCallback, useEffect, useMemo, useState } from 'react';
+import { RailLateral } from '../components/ui.jsx';
 import {
-  IconSearch, IconUser, IconChevronRight, IconPlus, IconCheck,
-  IconX, IconPrinter, IconAlertTriangle, IconClock, IconUpload, IconFileText, IconFolder, IconTrash, IconTable} from '@tabler/icons-react';
+  IconAlertTriangle, IconCheck, IconChecklist, IconChevronRight, IconClock, IconFileText, IconFolder, IconPlus, IconPrinter, IconSearch, IconTable, IconTrash, IconUpload, IconUser, IconX,
+} from '@tabler/icons-react';
 import { authHeaders, getAnnee } from '../lib/api.js';
 import PreviewModal from '../components/PreviewModal.jsx';
 import SchemaCapitalisationVue from '../components/SchemaCapitalisation.jsx';
 import Amenagements from '../components/Amenagements.jsx';
 import Stages from '../components/Stages.jsx';
+import IdentiteEtudiant, { ComplementDossiers } from '../components/IdentiteEtudiant.jsx';
+import CentreImpression from '../components/CentreImpression.jsx';
+import ImportSurMesure from '../components/ImportSurMesure.jsx';
+import Annexe2 from '../components/Annexe2.jsx';
+import MenuActions from '../components/MenuActions.jsx';
+import ComparaisonClasseur from '../components/ComparaisonClasseur.jsx';
 import ImportPAE from '../components/ImportPAE.jsx';
 import PurgeResultats from '../components/PurgeResultats.jsx';
 import RapportPAE from '../components/RapportPAE.jsx';
@@ -835,6 +842,7 @@ function DossierApprenant({ etudId }) {
 
 // ── Fiche étudiant + PAE ──────────────────────────────────────────────────────
 function FicheEtudiant({ id, annee, onClose }) {
+  const [annexe2, setAnnexe2] = useState(false);
   const [data, setData] = useState(null);
   const [pae, setPae] = useState(null);
   const [onglet, setOnglet] = useState('grille');
@@ -941,6 +949,23 @@ function FicheEtudiant({ id, annee, onClose }) {
     setFicheInscription({ html: j.html, titre: j.titre });
   }
 
+  // Une attestation PAR UNITÉ réussie : ce sont des pièces distinctes, remises
+  // séparément, chacune sur sa page.
+  async function ouvrirAttestations() {
+    const rep = await fetch(`/api/attestations/etudiant/${id}/document?annee=${annee}`,
+      { headers: authHeaders() });
+    const j = await rep.json().catch(() => ({}));
+    if (!rep.ok) { alert(j.error || 'Erreur à la génération.'); return; }
+    if (j.manques?.length) {
+      alert(
+        `${j.unites} attestation(s) produite(s), mais des mentions obligatoires manquent :\n\n`
+        + j.manques.map(m => `UE ${m.ue_num} — ${m.manques.join(', ')}`).join('\n')
+        + `\n\nCes mentions se complètent dans le référentiel des UE.`);
+    }
+    setFicheInscription({ html: j.html, titre: `Attestations de réussite — ${annee}`, nom: j.nom });
+  }
+
+
   const anneePrecedente = useMemo(() => {
     if (!annee) return null;
     const [a1, a2] = annee.split('-').map(Number);
@@ -1001,6 +1026,7 @@ function FicheEtudiant({ id, annee, onClose }) {
         {/* Onglets */}
         <div className="flex border-b border-slate-200 px-6">
           {[['grille', `Grille de parcours (${data.inscriptions?.length || 0})`],
+            ['identite', 'Identité'],
             ['pae', `PAE ${annee}`],
             ['va', 'Valorisation'],
             ['di', "Droit d'inscription"],
@@ -1025,6 +1051,16 @@ function FicheEtudiant({ id, annee, onClose }) {
           {onglet === 'di' && <DroitInscription etudId={id} annee={annee} />}
 
           {onglet === 'dossier' && <DossierApprenant etudId={id} />}
+
+          {annexe2 && (
+            <Annexe2 etudId={id} annee={annee} onClose={() => setAnnexe2(false)} />
+          )}
+
+          {onglet === 'identite' && (
+            <div className="p-5">
+              <IdentiteEtudiant etudId={id} onModifie={charger} />
+            </div>
+          )}
 
           {onglet === 'stages' && (
             <div className="p-5">
@@ -1106,15 +1142,26 @@ function FicheEtudiant({ id, annee, onClose }) {
                         className="flex items-center gap-1.5 px-3 py-1.5 text-sm bg-iip-turquoise text-white font-semibold rounded-lg disabled:opacity-50">
                         <IconCheck size={14} /> {enregistrement ? 'Enregistrement…' : 'Enregistrer le PAE'}
                       </button>
-                      <button onClick={ouvrirFicheInscription}
-                        className="flex items-center gap-1.5 px-3 py-1.5 text-sm bg-iip-blue text-white font-semibold rounded-lg">
-                        <IconFileText size={14} /> Fiche d'inscription / reçu
-                      </button>
-                      <button onClick={ouvrirFraisScolarite}
-                        title="Frais de scolarité et acompte — document distinct, l'administration n'en connaît pas"
-                        className="flex items-center gap-1.5 px-3 py-1.5 text-sm border border-iip-blue text-iip-blue font-semibold rounded-lg hover:bg-iip-blue/5">
-                        <IconFileText size={14} /> Frais de scolarité
-                      </button>
+                      {/* Quatre documents alignés : ils se rangent derrière une
+                          seule entrée, l'enregistrement du PAE restant seul en
+                          évidence puisque c'est l'action courante. */}
+                      <MenuActions libelle="Documents" Icone={IconFileText} ton="bleu"
+                        titre="Documents de cet étudiant"
+                        items={[
+                          { libelle: "Fiche d'inscription / reçu", Icone: IconFileText,
+                            aide: 'PAE, droits d\u2019inscription et engagement signé',
+                            onClick: ouvrirFicheInscription },
+                          { libelle: 'Attestations de réussite', Icone: IconFileText,
+                            aide: "Une par unité d'enseignement réussie",
+                            onClick: ouvrirAttestations },
+                          { libelle: 'Frais de scolarité', Icone: IconFileText,
+                            aide: "Document distinct : l'administration n'en connaît pas",
+                            onClick: ouvrirFraisScolarite },
+                          { separateur: true, titre: 'Administrations' },
+                          { libelle: 'Progrès des études (annexe 2)', Icone: IconFileText,
+                            aide: "Office des Étrangers — réclame la nationalité",
+                            onClick: () => setAnnexe2(true) },
+                        ]} />
                     </div>
                   </div>
 
@@ -1297,6 +1344,10 @@ export default function Etudiants() {
   const [rapportPAE, setRapportPAE] = useState(false);
   const [importListe, setImportListe] = useState(false);
   const [importHisto, setImportHisto] = useState(false);
+  const [complement, setComplement] = useState(false);
+  const [centreImpression, setCentreImpression] = useState(false);
+  const [comparaison, setComparaison] = useState(false);
+  const [importSurMesure, setImportSurMesure] = useState(false);
   const [tri, setTri] = useState({ champ: 'nom', sens: 1 });
 
 
@@ -1547,8 +1598,71 @@ export default function Etudiants() {
     return [...par.entries()].sort((a, b) => a[0].localeCompare(b[0]));
   }, [filtres]);
 
+  // Le rail marine des autres pages de Lucie, plutôt que des boutons alignés
+  // ou des menus déroulants : replié en 64 px, déployé au survol.
+  // Sélection GÉNÉRALE des étudiants, non liée à l'impression : le rail pourra
+  // en faire d'autres usages. Elle SURVIT aux changements de filtre et de
+  // section — sans quoi on la perdrait au premier changement et l'outil
+  // deviendrait agaçant.
+  const [selEtudiants, setSelEtudiants] = useState(new Set());
+
+  const basculerSelection = useCallback(id => setSelEtudiants(s => {
+    const n = new Set(s);
+    n.has(id) ? n.delete(id) : n.add(id);
+    return n;
+  }), []);
+
+  // « Tout cocher » ne porte que sur ce qui est AFFICHÉ : après un filtre, il
+  // doit cocher le résultat du filtre, non la base entière.
+  // Mémoïsé : cette boucle tournait à chaque rendu, donc à chaque case cochée.
+  const tousAffichesCoches = useMemo(
+    () => filtres.length > 0 && filtres.every(e => selEtudiants.has(e.id)),
+    [filtres, selEtudiants]);
+  const cocherAffiches = valeur => setSelEtudiants(s => {
+    const n = new Set(s);
+    for (const e of filtres) valeur ? n.add(e.id) : n.delete(e.id);
+    return n;
+  });
+
+  const RAIL = [
+    { label: 'Documents', items: [
+      { key: 'impression',
+        label: selEtudiants.size
+          ? `Imprimer ${selEtudiants.size} sélectionné(s)`
+          : "Centre d'impression",
+        icon: IconPrinter,
+        couleur: selEtudiants.size ? '#00AACC' : undefined,
+        onClick: () => setCentreImpression(true) },
+      { key: 'rapport', label: 'Rapport de la liste', icon: IconPrinter,
+        onClick: ouvrirRapport },
+      { key: 'rapport-pae', label: 'Rapport PAE', icon: IconTable,
+        onClick: () => setRapportPAE(true) },
+    ] },
+    { label: 'Importer', items: [
+      { key: 'liste', label: 'Liste eCampus', icon: IconUpload,
+        onClick: () => setImportListe(true) },
+      { key: 'pae', label: 'Classeur PAE', icon: IconUpload,
+        onClick: () => setImportPAE(true) },
+      { key: 'complement', label: 'Compléter les dossiers', icon: IconUpload,
+        onClick: () => setComplement(true) },
+      { key: 'histo', label: "Reconstruire l'historique", icon: IconUpload,
+        onClick: () => setImportHisto(true) },
+      { key: 'comparer', label: 'Comparer un classeur', icon: IconUpload,
+        onClick: () => setComparaison(true) },
+      { key: 'sur-mesure', label: 'Importateur sur mesure', icon: IconUpload,
+        onClick: () => setImportSurMesure(true) },
+    ] },
+    { label: 'Entretien', items: [
+      { key: 'purge', label: 'Vider des résultats', icon: IconTrash,
+        couleur: '#C0392B', onClick: () => setPurge(true) },
+    ] },
+  ];
+
   return (
-    <div className="p-5 space-y-4 max-w-none">
+    <div className="relative bg-slate-50" style={{ minHeight: 'calc(100vh - 64px)' }}>
+      <RailLateral icon={IconChecklist} titre="Étudiants"
+        sousTitre={`${filtres.length} étudiant(s)`} sections={RAIL} />
+    <div className="ml-16 p-5 space-y-4 max-w-none">
       <div className="flex items-center justify-between flex-wrap gap-3">
         <div>
           <h2 className="text-xl font-semibold text-iip-blue">Étudiants</h2>
@@ -1571,44 +1685,6 @@ export default function Etudiants() {
             placeholder="Nom, prénom ou identifiant…"
             className="w-full border border-slate-300 rounded-lg pl-9 pr-3 py-2 text-sm" />
         </div>
-        <label className={`flex items-center gap-2 px-3 py-2 text-sm border rounded-lg cursor-pointer
-          ${importing ? 'opacity-50 pointer-events-none' : 'border-iip-turquoise text-iip-turquoise hover:bg-iip-turquoise/5'}`}>
-          <IconUpload size={15} />
-          {importing ? 'Import en cours…' : 'Importer depuis eCampus (.xls)'}
-          <input type="file" accept=".xls,.xlsx" className="hidden"
-            onChange={e => e.target.files[0] && importerExcel(e.target.files[0])} />
-        </label>
-        <label className={`flex items-center gap-2 px-3 py-2 text-sm border rounded-lg cursor-pointer
-          ${importing ? 'opacity-50 pointer-events-none' : 'border-slate-300 text-slate-600 hover:bg-slate-50'}`}>
-          <IconUpload size={15} />
-          Importer les résultats (.xlsm)
-          <input type="file" accept=".xlsm,.xlsx" className="hidden"
-            onChange={e => e.target.files[0] && importerResultats(e.target.files[0])} />
-        </label>
-        <button onClick={() => setImportHisto(true)}
-          className="flex items-center gap-2 px-3 py-2 text-sm border border-iip-blue text-iip-blue rounded-lg hover:bg-iip-blue/5">
-          <IconUpload size={15} /> Reconstruire l'historique
-        </button>
-        <button onClick={() => setImportListe(true)}
-          className="flex items-center gap-2 px-3 py-2 text-sm border border-iip-turquoise text-iip-turquoise rounded-lg hover:bg-iip-turquoise/5">
-          <IconUpload size={15} /> Importer une liste eCampus
-        </button>
-        <button onClick={() => setImportPAE(true)}
-          className="flex items-center gap-2 px-3 py-2 text-sm border border-iip-blue text-iip-blue rounded-lg hover:bg-iip-blue/5">
-          <IconUpload size={15} /> Importer le classeur PAE
-        </button>
-        <button onClick={ouvrirRapport}
-          className="flex items-center gap-2 px-3 py-2 text-sm border border-slate-300 rounded-lg text-slate-600 hover:bg-slate-50">
-          <IconPrinter size={15} /> Rapport
-        </button>
-        <button onClick={() => setRapportPAE(true)}
-          className="flex items-center gap-2 px-3 py-2 text-sm border border-slate-300 rounded-lg text-slate-600 hover:bg-slate-50">
-          <IconTable size={15} /> Rapport PAE
-        </button>
-        <button onClick={() => setPurge(true)}
-          className="flex items-center gap-2 px-3 py-2 text-sm border border-red-200 text-red-600 rounded-lg hover:bg-red-50">
-          <IconTrash size={15} /> Vider des résultats
-        </button>
         <select value={section} onChange={e => setSection(e.target.value)}
           className="border border-slate-300 rounded-lg px-3 py-2 text-sm">
           <option value="">Toutes les sections</option>
@@ -1623,6 +1699,28 @@ export default function Etudiants() {
         </div>
       )}
 
+      {/* La sélection doit se voir : sinon on l'oublie, et on s'étonne
+          d'imprimer douze pièces au lieu de toute la liste. */}
+      {selEtudiants.size > 0 && (
+        <div className="sticky top-2 z-10 flex items-center justify-between gap-3 flex-wrap
+                        px-4 py-2 rounded-xl bg-iip-turquoise/10 border border-iip-turquoise/30">
+          <span className="text-[13px] font-semibold text-iip-blue">
+            {selEtudiants.size} étudiant(s) sélectionné(s)
+          </span>
+          <div className="flex gap-2">
+            <button onClick={() => setCentreImpression(true)}
+              className="flex items-center gap-1.5 px-3 py-1.5 text-sm bg-iip-blue text-white
+                         font-semibold rounded-lg">
+              <IconPrinter size={14} /> Imprimer
+            </button>
+            <button onClick={() => setSelEtudiants(new Set())}
+              className="px-3 py-1.5 text-sm border border-slate-300 text-slate-600 rounded-lg">
+              Vider
+            </button>
+          </div>
+        </div>
+      )}
+
       {!filtres.length ? (
         <div className="text-center py-16 border-2 border-dashed border-slate-200 rounded-xl text-slate-500 text-sm">
           {chargement ? 'Chargement…' : 'Aucun étudiant — importez les données depuis eCampus.'}
@@ -1632,6 +1730,12 @@ export default function Etudiants() {
           <table className="w-full text-sm">
             <thead>
               <tr className="bg-slate-50 border-b border-slate-200 text-[10.5px] uppercase tracking-wide text-slate-500">
+                <th className="px-3 py-2.5 w-10">
+                  <input type="checkbox" checked={tousAffichesCoches}
+                    onChange={() => cocherAffiches(!tousAffichesCoches)}
+                    title="Cocher les étudiants affichés"
+                    onClick={e => e.stopPropagation()} />
+                </th>
                 <ThTri champ="nom"     tri={tri} onTri={trierPar} className="text-left">Étudiant</ThTri>
                 <ThTri champ="email"   tri={tri} onTri={trierPar} className="text-left">Email</ThTri>
                 <ThTri champ="section" tri={tri} onTri={trierPar} className="text-left w-24">Sections</ThTri>
@@ -1647,7 +1751,7 @@ export default function Etudiants() {
                   <Fragment key={sec}>
                     {parSection.length > 1 && (
                       <tr className="bg-iip-blue/5 border-y border-iip-blue/20">
-                        <td colSpan={6} className="px-4 py-2">
+                        <td colSpan={7} className="px-4 py-2">
                           <button onClick={() => setSectionsDeployees(d => ({ ...d, [sec]: !ouverte }))}
                             className="flex items-center gap-1.5 text-[12.5px] font-semibold text-iip-blue">
                             <span className="text-slate-400 w-3 inline-block">{ouverte ? '−' : '+'}</span>
@@ -1661,7 +1765,12 @@ export default function Etudiants() {
                     )}
                     {ouverte && liste.map(e => (
                 <tr key={e.id} onClick={() => setSelId(e.id)}
-                  className="border-b border-slate-100 last:border-0 hover:bg-slate-50/60 cursor-pointer">
+                  className={`border-b border-slate-100 last:border-0 cursor-pointer
+                    ${selEtudiants.has(e.id) ? 'bg-iip-turquoise/5' : 'hover:bg-slate-50/60'}`}>
+                  <td className="px-3 py-2.5" onClick={ev => ev.stopPropagation()}>
+                    <input type="checkbox" checked={selEtudiants.has(e.id)}
+                      onChange={() => basculerSelection(e.id)} />
+                  </td>
                   <td className="px-4 py-2.5">
                     <div className="flex items-center gap-2">
                       <div className="w-8 h-8 rounded-full bg-iip-blue/10 text-iip-blue flex items-center justify-center text-[11px] font-bold flex-none">
@@ -1694,6 +1803,33 @@ export default function Etudiants() {
         <FicheEtudiant id={selId} annee={annee} onClose={() => setSelId(null)} />
       )}
 
+      {comparaison && <ComparaisonClasseur onClose={() => setComparaison(false)} />}
+
+      {importSurMesure && (
+        <ImportSurMesure onClose={() => setImportSurMesure(false)} onTermine={charger} />
+      )}
+
+      {centreImpression && (
+        <CentreImpression annee={annee} preselection={[...selEtudiants]}
+          onClose={() => setCentreImpression(false)} />
+      )}
+
+      {complement && (
+        <div className="fixed inset-0 bg-black/40 flex items-start justify-center z-50 p-4"
+          onClick={e => e.target === e.currentTarget && setComplement(false)}>
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-3xl mt-12 p-5
+                          max-h-[85vh] overflow-y-auto">
+            <div className="flex items-center justify-between mb-3">
+              <span className="text-[15px] font-semibold text-iip-blue">
+                Compléter les dossiers
+              </span>
+              <button onClick={() => setComplement(false)} className="text-slate-400">✕</button>
+            </div>
+            <ComplementDossiers onTermine={charger} />
+          </div>
+        </div>
+      )}
+
       {importHisto && (
         <ImportHistorique onClose={() => setImportHisto(false)} onImporte={charger} />
       )}
@@ -1717,6 +1853,7 @@ export default function Etudiants() {
       {rapport && <PreviewModal html={rapport.html} titre="Parcours des étudiants"
         nomFichier={rapport.nom} astuceImpression="Paysage A4 conseillé"
         onClose={() => setRapport(null)} />}
+    </div>
     </div>
   );
 }

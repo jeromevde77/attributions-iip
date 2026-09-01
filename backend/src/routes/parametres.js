@@ -5,6 +5,7 @@
 import { Router } from 'express';
 import db from '../db/index.js';
 import { authRequired, roleRequired } from '../middleware/auth.js';
+import { capacitePdf } from '../services/pdf.js';
 
 const r = Router();
 
@@ -56,6 +57,13 @@ r.get('/', authRequired, (req, res) => {
     grouped[g].push(p);
   }
   res.json(grouped);
+});
+
+// L'interface n'affiche le bouton PDF que si le serveur sait le produire :
+// mieux vaut pas de bouton qu'un bouton qui échoue.
+r.get('/capacites', authRequired, async (req, res) => {
+  const pdf = await capacitePdf();
+  res.json({ pdf: pdf.disponible, pdf_raison: pdf.raison });
 });
 
 // GET /parametres/:cle
