@@ -10,6 +10,7 @@ import Stages from '../components/Stages.jsx';
 import IdentiteEtudiant, { ComplementDossiers } from '../components/IdentiteEtudiant.jsx';
 import CentreImpression from '../components/CentreImpression.jsx';
 import Annexe2 from '../components/Annexe2.jsx';
+import MenuActions from '../components/MenuActions.jsx';
 import ComparaisonClasseur from '../components/ComparaisonClasseur.jsx';
 import ImportPAE from '../components/ImportPAE.jsx';
 import PurgeResultats from '../components/PurgeResultats.jsx';
@@ -1139,25 +1140,26 @@ function FicheEtudiant({ id, annee, onClose }) {
                         className="flex items-center gap-1.5 px-3 py-1.5 text-sm bg-iip-turquoise text-white font-semibold rounded-lg disabled:opacity-50">
                         <IconCheck size={14} /> {enregistrement ? 'Enregistrement…' : 'Enregistrer le PAE'}
                       </button>
-                      <button onClick={ouvrirFicheInscription}
-                        className="flex items-center gap-1.5 px-3 py-1.5 text-sm bg-iip-blue text-white font-semibold rounded-lg">
-                        <IconFileText size={14} /> Fiche d'inscription / reçu
-                      </button>
-                      <button onClick={ouvrirAttestations}
-                        title="Une attestation par unité d'enseignement réussie"
-                        className="flex items-center gap-1.5 px-3 py-1.5 text-sm border border-iip-blue text-iip-blue font-semibold rounded-lg hover:bg-iip-blue/5">
-                        <IconFileText size={14} /> Attestations de réussite
-                      </button>
-                      <button onClick={() => setAnnexe2(true)}
-                        title="Annexe 2 — attestation du progrès des études (Office des Étrangers)"
-                        className="flex items-center gap-1.5 px-3 py-1.5 text-sm border border-iip-blue text-iip-blue font-semibold rounded-lg hover:bg-iip-blue/5">
-                        <IconFileText size={14} /> Progrès des études (annexe 2)
-                      </button>
-                      <button onClick={ouvrirFraisScolarite}
-                        title="Frais de scolarité et acompte — document distinct, l'administration n'en connaît pas"
-                        className="flex items-center gap-1.5 px-3 py-1.5 text-sm border border-iip-blue text-iip-blue font-semibold rounded-lg hover:bg-iip-blue/5">
-                        <IconFileText size={14} /> Frais de scolarité
-                      </button>
+                      {/* Quatre documents alignés : ils se rangent derrière une
+                          seule entrée, l'enregistrement du PAE restant seul en
+                          évidence puisque c'est l'action courante. */}
+                      <MenuActions libelle="Documents" Icone={IconFileText} ton="bleu"
+                        titre="Documents de cet étudiant"
+                        items={[
+                          { libelle: "Fiche d'inscription / reçu", Icone: IconFileText,
+                            aide: 'PAE, droits d\u2019inscription et engagement signé',
+                            onClick: ouvrirFicheInscription },
+                          { libelle: 'Attestations de réussite', Icone: IconFileText,
+                            aide: "Une par unité d'enseignement réussie",
+                            onClick: ouvrirAttestations },
+                          { libelle: 'Frais de scolarité', Icone: IconFileText,
+                            aide: "Document distinct : l'administration n'en connaît pas",
+                            onClick: ouvrirFraisScolarite },
+                          { separateur: true, titre: 'Administrations' },
+                          { libelle: 'Progrès des études (annexe 2)', Icone: IconFileText,
+                            aide: "Office des Étrangers — réclame la nationalité",
+                            onClick: () => setAnnexe2(true) },
+                        ]} />
                     </div>
                   </div>
 
@@ -1617,59 +1619,57 @@ export default function Etudiants() {
             placeholder="Nom, prénom ou identifiant…"
             className="w-full border border-slate-300 rounded-lg pl-9 pr-3 py-2 text-sm" />
         </div>
-        <label className={`flex items-center gap-2 px-3 py-2 text-sm border rounded-lg cursor-pointer
-          ${importing ? 'opacity-50 pointer-events-none' : 'border-iip-turquoise text-iip-turquoise hover:bg-iip-turquoise/5'}`}>
-          <IconUpload size={15} />
-          {importing ? 'Import en cours…' : 'Importer depuis eCampus (.xls)'}
-          <input type="file" accept=".xls,.xlsx" className="hidden"
-            onChange={e => e.target.files[0] && importerExcel(e.target.files[0])} />
-        </label>
-        <label className={`flex items-center gap-2 px-3 py-2 text-sm border rounded-lg cursor-pointer
-          ${importing ? 'opacity-50 pointer-events-none' : 'border-slate-300 text-slate-600 hover:bg-slate-50'}`}>
-          <IconUpload size={15} />
-          Importer les résultats (.xlsm)
-          <input type="file" accept=".xlsm,.xlsx" className="hidden"
-            onChange={e => e.target.files[0] && importerResultats(e.target.files[0])} />
-        </label>
-        <button onClick={() => setImportHisto(true)}
-          className="flex items-center gap-2 px-3 py-2 text-sm border border-iip-blue text-iip-blue rounded-lg hover:bg-iip-blue/5">
-          <IconUpload size={15} /> Reconstruire l'historique
-        </button>
-        <button onClick={() => setComparaison(true)}
-          title="Comparer un classeur de coordination avec la base, sans rien écrire"
-          className="flex items-center gap-2 px-3 py-2 text-sm border border-slate-300 text-slate-600 rounded-lg hover:bg-slate-50">
-          <IconUpload size={15} /> Comparer un classeur
-        </button>
-        <button onClick={() => setCentreImpression(true)}
-          title="Attestations, fiches d'inscription, frais, annexe 2 — un ou plusieurs étudiants"
-          className="flex items-center gap-2 px-3 py-2 text-sm border border-iip-blue text-iip-blue rounded-lg hover:bg-iip-blue/5">
-          <IconPrinter size={15} /> Centre d'impression
-        </button>
-        <button onClick={() => setComplement(true)}
-          title="Compléter adresses, lieux de naissance et coordonnées, par numéro national"
-          className="flex items-center gap-2 px-3 py-2 text-sm border border-slate-300 text-slate-600 rounded-lg hover:bg-slate-50">
-          <IconUpload size={15} /> Compléter les dossiers
-        </button>
-        <button onClick={() => setImportListe(true)}
-          className="flex items-center gap-2 px-3 py-2 text-sm border border-iip-turquoise text-iip-turquoise rounded-lg hover:bg-iip-turquoise/5">
-          <IconUpload size={15} /> Importer une liste eCampus
-        </button>
-        <button onClick={() => setImportPAE(true)}
-          className="flex items-center gap-2 px-3 py-2 text-sm border border-iip-blue text-iip-blue rounded-lg hover:bg-iip-blue/5">
-          <IconUpload size={15} /> Importer le classeur PAE
-        </button>
-        <button onClick={ouvrirRapport}
-          className="flex items-center gap-2 px-3 py-2 text-sm border border-slate-300 rounded-lg text-slate-600 hover:bg-slate-50">
-          <IconPrinter size={15} /> Rapport
-        </button>
-        <button onClick={() => setRapportPAE(true)}
-          className="flex items-center gap-2 px-3 py-2 text-sm border border-slate-300 rounded-lg text-slate-600 hover:bg-slate-50">
-          <IconTable size={15} /> Rapport PAE
-        </button>
-        <button onClick={() => setPurge(true)}
-          className="flex items-center gap-2 px-3 py-2 text-sm border border-red-200 text-red-600 rounded-lg hover:bg-red-50">
-          <IconTrash size={15} /> Vider des résultats
-        </button>
+        {/* Neuf boutons alignés ne se distinguaient plus les uns des autres :
+            ils se rangent derrière deux menus, avec une aide par entrée. */}
+        <MenuActions libelle="Importer" Icone={IconUpload} ton="turquoise"
+          titre="Listes, résultats, PAE, compléments de dossier"
+          items={[
+            { separateur: true, titre: 'Étudiants' },
+            { libelle: 'Importer une liste eCampus', Icone: IconUpload,
+              aide: 'Crée ou met à jour les étudiants et leurs inscriptions',
+              onClick: () => setImportListe(true) },
+            { libelle: 'Compléter les dossiers', Icone: IconUpload,
+              aide: 'Adresses, lieux de naissance, nationalité — par numéro national',
+              onClick: () => setComplement(true) },
+            { separateur: true, titre: 'Résultats et PAE' },
+            { libelle: 'Importer le classeur PAE', Icone: IconUpload,
+              aide: 'Programme annuel de l\u2019étudiant',
+              onClick: () => setImportPAE(true) },
+            { fichier: true, libelle: 'Importer les résultats', Icone: IconUpload,
+              aide: 'Classeur .xlsm ou .xlsx de délibération',
+              accept: '.xlsm,.xlsx', desactive: importing,
+              onFichier: f => importerResultats(f) },
+            { libelle: "Reconstruire l'historique", Icone: IconUpload,
+              aide: 'Réimporte les années antérieures',
+              onClick: () => setImportHisto(true) },
+            { separateur: true, titre: 'Contrôle' },
+            { libelle: 'Comparer un classeur', Icone: IconUpload,
+              aide: 'Confronte un classeur à la base, sans rien écrire',
+              onClick: () => setComparaison(true) },
+          ]} />
+
+        <MenuActions libelle="Imprimer" Icone={IconPrinter} ton="bleu"
+          titre="Attestations, fiches, rapports"
+          items={[
+            { libelle: "Centre d'impression", Icone: IconPrinter,
+              aide: "Attestations, fiches, frais, annexe 2 — un ou plusieurs étudiants",
+              onClick: () => setCentreImpression(true) },
+            { separateur: true, titre: 'Rapports' },
+            { libelle: 'Rapport de la liste', Icone: IconPrinter,
+              aide: 'Les étudiants affichés, tels que filtrés',
+              onClick: ouvrirRapport },
+            { libelle: 'Rapport PAE', Icone: IconTable,
+              aide: 'Tableau des programmes annuels',
+              onClick: () => setRapportPAE(true) },
+          ]} />
+
+        <MenuActions libelle="Entretien" Icone={IconTrash} ton="danger"
+          items={[
+            { libelle: 'Vider des résultats', Icone: IconTrash, danger: true,
+              aide: 'Supprime des résultats après confirmation',
+              onClick: () => setPurge(true) },
+          ]} />
+
         <select value={section} onChange={e => setSection(e.target.value)}
           className="border border-slate-300 rounded-lg px-3 py-2 text-sm">
           <option value="">Toutes les sections</option>
