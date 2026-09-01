@@ -161,11 +161,14 @@ function envelopper(corps, titre = 'Attestations de réussite') {
   .saut { break-after: page; page-break-after: always; height: 0; }
 
   /* Bandeau marine et filet doré, comme les autres documents de la maison. */
-  .bandeau { background: #1B2B4B; color: #fff; padding: 4mm 6mm; text-align: center;
-             border-bottom: 1.5mm solid #C9A84C; }
-  .bandeau .cf { font-size: 7.5pt; letter-spacing: .6pt; opacity: .85; }
-  .bandeau .epa { font-size: 9.5pt; font-weight: 600; letter-spacing: .4pt; margin-top: 0.8mm; }
-  .bandeau .annee { font-size: 8pt; margin-top: 1.2mm; opacity: .9; }
+  /* Mention encadrée de deux filets dorés, plutôt qu'en réserve sur marine :
+     c'est la présentation des attestations de réussite. */
+  .entete { text-align: center; padding: 3.5mm 6mm;
+    border-top: 0.9mm solid #C9A84C; border-bottom: 0.9mm solid #C9A84C; }
+  .entete .cf { font-size: 8pt; letter-spacing: .7pt; color: #1B2B4B; font-weight: 600; }
+  .entete .epa { font-size: 10.5pt; font-weight: 700; letter-spacing: .5pt;
+    color: #1B2B4B; margin-top: 1mm; }
+  .entete .annee { font-size: 8.5pt; margin-top: 1.2mm; color: #475569; }
 
   .etab { display: flex; justify-content: space-between; gap: 6mm;
           padding: 3mm 0 2.5mm; border-bottom: 0.4pt solid #cbd5e1; font-size: 8pt;
@@ -205,18 +208,18 @@ function envelopper(corps, titre = 'Attestations de réussite') {
 
   .manque { color: #b45309; font-style: italic; }
 
-  .cloture{display:grid;grid-template-columns:1fr auto auto;
+  .cloture{display:grid;grid-template-columns:auto 1fr auto;
     grid-template-rows:auto auto;column-gap:14mm;align-items:end;
     margin-top:14mm;page-break-inside:avoid}
-  .cloture .lieu{grid-column:1;grid-row:2;font-size:8.5pt;color:#334;
-    text-align:left;padding-bottom:1mm}
+  .cloture .lieu{grid-column:2;grid-row:2;font-size:8.5pt;color:#334;
+    text-align:center;padding-bottom:1mm}
   /* Les deux images occupent la même ligne et la même hauteur, calées sur
      leur bas : c'est ce qui les met au même niveau quelles que soient
      leurs proportions. */
   .cloture .sceau,
   .cloture .paraphe{grid-row:1;height:22mm;background-repeat:no-repeat;
     background-position:center bottom;background-size:contain}
-  .cloture .sceau{grid-column:2;width:22mm;opacity:.92}
+  .cloture .sceau{grid-column:1;width:22mm;opacity:.92}
   .cloture .paraphe{grid-column:3;width:46mm}
   .cloture .legende{grid-column:3;grid-row:2;text-align:center;
     border-top:.4pt solid #94a3b8;padding-top:1mm;width:46mm}
@@ -270,7 +273,7 @@ function pageAttestation(e, u, annee, etab) {
 
   return `
 <div class="attestation">
-  <div class="bandeau">
+  <div class="entete">
     <div class="cf">COMMUNAUTÉ FRANÇAISE DE BELGIQUE</div>
     <div class="epa">ENSEIGNEMENT POUR ADULTES</div>
     <div class="annee">Année académique ${esc(annee.replace('-', '/'))}</div>
@@ -344,7 +347,7 @@ function pageAttestation(e, u, annee, etab) {
     <div class="lieu">Fait à ${esc(etab.localite || 'Anderlecht')},
       le ${frDate(new Date().toISOString())}</div>
     <div class="legende">
-      <div class="qualite">Le Directeur</div>
+      <div class="qualite">Pour le Conseil des études,<br>le Directeur</div>
       <div class="nom">${esc(etab.directeur_nom || 'Charles SOHET')}</div>
     </div>
   </div>
