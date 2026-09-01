@@ -1598,9 +1598,35 @@ export default function Etudiants() {
 
   // Le rail marine des autres pages de Lucie, plutôt que des boutons alignés
   // ou des menus déroulants : replié en 64 px, déployé au survol.
+  // Sélection GÉNÉRALE des étudiants, non liée à l'impression : le rail pourra
+  // en faire d'autres usages. Elle SURVIT aux changements de filtre et de
+  // section — sans quoi on la perdrait au premier changement et l'outil
+  // deviendrait agaçant.
+  const [selEtudiants, setSelEtudiants] = useState(new Set());
+
+  const basculerSelection = id => setSelEtudiants(s => {
+    const n = new Set(s);
+    n.has(id) ? n.delete(id) : n.add(id);
+    return n;
+  });
+
+  // « Tout cocher » ne porte que sur ce qui est AFFICHÉ : après un filtre, il
+  // doit cocher le résultat du filtre, non la base entière.
+  const tousAffichesCoches = filtres.length > 0 && filtres.every(e => selEtudiants.has(e.id));
+  const cocherAffiches = valeur => setSelEtudiants(s => {
+    const n = new Set(s);
+    for (const e of filtres) valeur ? n.add(e.id) : n.delete(e.id);
+    return n;
+  });
+
   const RAIL = [
     { label: 'Documents', items: [
-      { key: 'impression', label: "Centre d'impression", icon: IconPrinter,
+      { key: 'impression',
+        label: selEtudiants.size
+          ? `Imprimer ${selEtudiants.size} sélectionné(s)`
+          : "Centre d'impression",
+        icon: IconPrinter,
+        couleur: selEtudiants.size ? '#00AACC' : undefined,
         onClick: () => setCentreImpression(true) },
       { key: 'rapport', label: 'Rapport de la liste', icon: IconPrinter,
         onClick: ouvrirRapport },
@@ -1666,6 +1692,28 @@ export default function Etudiants() {
         </div>
       )}
 
+      {/* La sélection doit se voir : sinon on l'oublie, et on s'étonne
+          d'imprimer douze pièces au lieu de toute la liste. */}
+      {selEtudiants.size > 0 && (
+        <div className="sticky top-2 z-10 flex items-center justify-between gap-3 flex-wrap
+                        px-4 py-2 rounded-xl bg-iip-turquoise/10 border border-iip-turquoise/30">
+          <span className="text-[13px] font-semibold text-iip-blue">
+            {selEtudiants.size} étudiant(s) sélectionné(s)
+          </span>
+          <div className="flex gap-2">
+            <button onClick={() => setCentreImpression(true)}
+              className="flex items-center gap-1.5 px-3 py-1.5 text-sm bg-iip-blue text-white
+                         font-semibold rounded-lg">
+              <IconPrinter size={14} /> Imprimer
+            </button>
+            <button onClick={() => setSelEtudiants(new Set())}
+              className="px-3 py-1.5 text-sm border border-slate-300 text-slate-600 rounded-lg">
+              Vider
+            </button>
+          </div>
+        </div>
+      )}
+
       {!filtres.length ? (
         <div className="text-center py-16 border-2 border-dashed border-slate-200 rounded-xl text-slate-500 text-sm">
           {chargement ? 'Chargement…' : 'Aucun étudiant — importez les données depuis eCampus.'}
@@ -1675,6 +1723,12 @@ export default function Etudiants() {
           <table className="w-full text-sm">
             <thead>
               <tr className="bg-slate-50 border-b border-slate-200 text-[10.5px] uppercase tracking-wide text-slate-500">
+                <th className="px-3 py-2.5 w-10">
+                  <input type="checkbox" checked={tousAffichesCoches}
+                    onChange={() => cocherAffiches(!tousAffichesCoches)}
+                    title="Cocher les étudiants affichés"
+                    onClick={e => e.stopPropagation()} />
+                </th>
                 <ThTri champ="nom"     tri={tri} onTri={trierPar} className="text-left">Étudiant</ThTri>
                 <ThTri champ="email"   tri={tri} onTri={trierPar} className="text-left">Email</ThTri>
                 <ThTri champ="section" tri={tri} onTri={trierPar} className="text-left w-24">Sections</ThTri>
@@ -1690,7 +1744,7 @@ export default function Etudiants() {
                   <Fragment key={sec}>
                     {parSection.length > 1 && (
                       <tr className="bg-iip-blue/5 border-y border-iip-blue/20">
-                        <td colSpan={6} className="px-4 py-2">
+                        <td colSpan={7} className="px-4 py-2">
                           <button onClick={() => setSectionsDeployees(d => ({ ...d, [sec]: !ouverte }))}
                             className="flex items-center gap-1.5 text-[12.5px] font-semibold text-iip-blue">
                             <span className="text-slate-400 w-3 inline-block">{ouverte ? '−' : '+'}</span>
@@ -1704,7 +1758,12 @@ export default function Etudiants() {
                     )}
                     {ouverte && liste.map(e => (
                 <tr key={e.id} onClick={() => setSelId(e.id)}
-                  className="border-b border-slate-100 last:border-0 hover:bg-slate-50/60 cursor-pointer">
+                  className={`border-b border-slate-100 last:border-0 cursor-pointer
+                    ${selEtudiants.has(e.id) ? 'bg-iip-turquoise/5' : 'hover:bg-slate-50/60'}`}>
+                  <td className="px-3 py-2.5" onClick={ev => ev.stopPropagation()}>
+                    <input type="checkbox" checked={selEtudiants.has(e.id)}
+                      onChange={() => basculerSelection(e.id)} />
+                  </td>
                   <td className="px-4 py-2.5">
                     <div className="flex items-center gap-2">
                       <div className="w-8 h-8 rounded-full bg-iip-blue/10 text-iip-blue flex items-center justify-center text-[11px] font-bold flex-none">
@@ -1740,7 +1799,8 @@ export default function Etudiants() {
       {comparaison && <ComparaisonClasseur onClose={() => setComparaison(false)} />}
 
       {centreImpression && (
-        <CentreImpression annee={annee} onClose={() => setCentreImpression(false)} />
+        <CentreImpression annee={annee} preselection={[...selEtudiants]}
+          onClose={() => setCentreImpression(false)} />
       )}
 
       {complement && (

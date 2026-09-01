@@ -14,7 +14,7 @@ import { Tableau, TableauEntete, Th, Td, Tr } from './ui.jsx';
  * serveur sait en produire.
  */
 export default function CentreImpression({ onClose, documentInitial = null,
-                                           anneeInitiale = null }) {
+                                           anneeInitiale = null, preselection = []}) {
   const [catalogue, setCatalogue] = useState(null);
   const [pdfPossible, setPdfPossible] = useState(false);
   const [docCle, setDocCle] = useState(documentInitial);
@@ -85,7 +85,13 @@ export default function CentreImpression({ onClose, documentInitial = null,
       const j = await rep.json();
       if (!rep.ok) { setMessage({ type: 'err', texte: j.error }); return; }
       setDestinataires(j);
-      setCoches(new Set(j.destinataires.map(cle)));
+      // Si la liste a transmis une sélection, on ne coche QUE ceux-là : c'est
+      // le geste de l'utilisateur, il prime sur le « tout coché » par défaut.
+      const pre = new Set(preselection.map(Number));
+      setCoches(new Set(
+        j.destinataires
+          .filter(d => !pre.size || pre.has(Number(d.etudiant_id)))
+          .map(cle)));
     } finally { setEnCours(false); }
   }
 
@@ -285,6 +291,14 @@ export default function CentreImpression({ onClose, documentInitial = null,
           </div>
           <button onClick={onClose} className="text-slate-400"><IconX size={18} /></button>
         </div>
+
+        {preselection.length > 0 && (
+          <div className="px-3 py-2 rounded-lg bg-iip-turquoise/10 border
+                          border-iip-turquoise/30 text-[12.5px] text-iip-blue">
+            {preselection.length} étudiant(s) viennent de la liste. Choisissez le document,
+            puis cherchez : ils seront cochés, les autres non.
+          </div>
+        )}
 
         {message && (
           <div className={`px-3 py-2 rounded-lg text-[12.5px] ${
