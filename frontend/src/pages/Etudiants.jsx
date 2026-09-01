@@ -118,7 +118,6 @@ function GrilleParcours({ etudId, peutEcrire }) {
   const [pts, setPts] = useState('');
   const [nbHistorique, setNbHistorique] = useState(0);   // nb d'années antérieures révélées
   const [detail, setDetail] = useState(null);       // composantes + notes de la cellule ouverte
-  const [annexe2, setAnnexe2] = useState(false);
   const [detailOuvert, setDetailOuvert] = useState(false);
 
 
@@ -840,6 +839,7 @@ function DossierApprenant({ etudId }) {
 
 // ── Fiche étudiant + PAE ──────────────────────────────────────────────────────
 function FicheEtudiant({ id, annee, onClose }) {
+  const [annexe2, setAnnexe2] = useState(false);
   const [data, setData] = useState(null);
   const [pae, setPae] = useState(null);
   const [onglet, setOnglet] = useState('grille');
