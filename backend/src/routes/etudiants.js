@@ -2522,21 +2522,47 @@ r.get('/:id/fiche-inscription', authRequired, (req, res) => {
 
   const esc = s => String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;');
 
-  const lignesAcquis = acquisRows.map(a => `
-    <tr>
-      <td>${esc(a.annee_scolaire || '—')}</td>
-      <td>${a.ue_num}</td>
-      <td>${esc(a.ue_nom || '')}</td>
-      <td>${a.kind === 'va' ? '<b>Valorisation des acquis</b>' : 'Réussite'}</td>
-      <td style="text-align:right;white-space:nowrap">${a.points != null ? a.points + ' / 20' : '—'}</td>
-    </tr>`).join('');
+  // Le parcours antérieur se lit par ANNÉE ACADÉMIQUE : c'est ainsi qu'on
+  // raisonne un cursus. Auparavant les acquis formaient un bloc et les ajournés
+  // un second, si bien que la même année revenait à deux endroits du tableau.
+  const parcoursAnterieur = (() => {
+    const tout = [
+      ...acquisRows.map(a => ({
+        annee: a.annee_scolaire || '—', ue_num: a.ue_num, ue_nom: a.ue_nom,
+        mode: a.kind === 'va' ? '<b>Valorisation des acquis</b>' : 'Réussite',
+        points: a.points, acquis: true,
+      })),
+      ...autres.map(h => ({
+        annee: h.annee_scolaire || '—', ue_num: h.ue_num, ue_nom: h.ue_nom,
+        // Le libellé d'origine : ajourné = refusé, tout autre cas = absent.
+        mode: h.resultat === 'ajourne' ? 'Refusé' : 'Absent',
+        points: null, acquis: false,
+      })),
+    ];
 
-  const lignesAutres = autres.map(h => `
+    // Millésime décroissant : le plus récent d'abord, c'est ce qu'on consulte.
+    const annees = [...new Set(tout.map(x => x.annee))]
+      .sort((a, b) => String(b).localeCompare(String(a)));
+
+    return annees.map(an => {
+      const lignes = tout.filter(x => x.annee === an)
+        .sort((a, b) => a.ue_num - b.ue_num);
+      const nbAcquis = lignes.filter(x => x.acquis).length;
+      return `
+    <tr class="annee-groupe">
+      <td colspan="4"><b>${esc(an)}</b>
+        <span style="color:#64748b;font-weight:400"> — ${lignes.length} unité(s),
+        ${nbAcquis} acquise(s)</span></td>
+    </tr>` + lignes.map(x => `
     <tr>
-      <td>${esc(h.annee_scolaire)}</td><td>${h.ue_num}</td>
-      <td>${esc(h.ue_nom || '')}</td>
-      <td colspan="2">${h.resultat === 'ajourne' ? 'Refusé' : 'Absent'}</td>
+      <td>${x.ue_num}</td>
+      <td>${esc(x.ue_nom || '')}</td>
+      <td>${x.mode}</td>
+      <td style="text-align:right;white-space:nowrap">${
+        x.points != null ? x.points + ' / 20' : '—'}</td>
     </tr>`).join('');
+    }).join('');
+  })();
 
   // Dates d'organisation : l'étudiant doit savoir quand son UE commence et se
   // termine — ces dates commandent aussi son délai de paiement.
@@ -2684,6 +2710,13 @@ r.get('/:id/fiche-inscription', authRequired, (req, res) => {
 
   .section-insc { margin: 0 0 2mm; font-size: 9pt; color: #334155; }
 
+  /* Le rang d'année ouvre chaque groupe du parcours antérieur. */
+  tr.annee-groupe td {
+    background: #f1f5f9; border-top: 0.6pt solid #94a3b8;
+    padding-top: 1.4mm; padding-bottom: 1.4mm; font-size: 9pt;
+  }
+  tr.annee-groupe { break-after: avoid; page-break-after: avoid; }
+
   /* « 10 / 20 » se cassait en deux lignes. */
   .nowrap, td.num { white-space: nowrap; }
 
@@ -2716,8 +2749,9 @@ r.get('/:id/fiche-inscription', authRequired, (req, res) => {
 ${acquisRows.length || autres.length ? `
 <h2>Parcours antérieur au sein de l'établissement</h2>
 <table>
-  <thead><tr><th>Année</th><th>UE</th><th>Intitulé</th><th>Mode d'acquisition</th><th>Note</th></tr></thead>
-  <tbody>${lignesAcquis}${lignesAutres}</tbody>
+  <thead><tr><th>UE</th><th>Intitulé</th><th>Mode d'acquisition</th>
+    <th style="text-align:right">Note</th></tr></thead>
+  <tbody>${parcoursAnterieur}</tbody>
 </table>` : ''}
 
 ${(() => {
