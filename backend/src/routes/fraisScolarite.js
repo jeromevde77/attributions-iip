@@ -18,6 +18,8 @@
 // ─────────────────────────────────────────────────────────────────────────────
 
 import { Router } from 'express';
+import { LOGO_IIP_JPEG } from '../services/assets/logo_iip_jpeg.js';
+import { piedBalisage, piedStyles } from '../lib/document.js';
 import db from '../db/index.js';
 import { piedDocument } from './parametres.js';
 import { authRequired, roleRequired } from '../middleware/auth.js';
@@ -257,7 +259,7 @@ r.get('/etudiant/:id/document', authRequired, (req, res) => {
   /* Pied de page commun, ancré en bas de CHAQUE page — dernière comprise.
      Un pied placé dans le flux, ou en table-footer-group, flotte au milieu
      d'une dernière page à moitié vide. */
-  .pied-lucie { position: fixed; bottom: 0; left: 0; right: 0; height: 22mm;
+  ${piedStyles(22)}
                 padding-top: 2mm; border-top: 0.5pt solid #C9A84C; text-align: center; }
   .pied-lucie .txt { font-size: 6pt; color: #888; line-height: 1.35; }
   @media screen { .pied-lucie { position: static; height: auto; margin-top: 12mm; } }
@@ -344,7 +346,7 @@ ${f.paiements.length ? `
   ${new Date().toLocaleDateString('fr-BE')}
 </div>
 
-<div class="pied-lucie"><div class="txt">${piedDocument()}</div></div>
+${piedBalisage(LOGO_IIP_JPEG)}
 </body></html>`;
 
   res.json({ html, titre: `Frais de scolarité — ${e.nom} ${e.prenom}` });

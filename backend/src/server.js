@@ -39,6 +39,7 @@ import amenagementsRoutes, { migrerAmenagements } from './routes/amenagements.js
 import stagesRoutes, { migrerStages } from './routes/stages.js';
 import attestationsRoutes, { migrerAttestations } from './routes/attestations.js';
 import annexe2Routes from './routes/annexe2.js';
+import impressionRoutes from './routes/impression.js';
 import authRoutes from './routes/auth.js';
 import attrRoutes from './routes/attributions.js';
 import refRoutes  from './routes/referentiels.js';
@@ -2853,6 +2854,7 @@ app.use('/api/amenagements', amenagementsRoutes);
 app.use('/api/stages', stagesRoutes);
 app.use('/api/attestations', attestationsRoutes);
 app.use('/api/annexe2', annexe2Routes);
+app.use('/api/impression', impressionRoutes);
 app.use('/api/historique',   historiqueRoutes);
 app.use('/api/etablissement', etablissementRoutes);
 app.use('/api/ea12',          ea12Routes);

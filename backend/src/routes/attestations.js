@@ -14,6 +14,8 @@
 // ─────────────────────────────────────────────────────────────────────────────
 
 import { Router } from 'express';
+import { LOGO_IIP_JPEG } from '../services/assets/logo_iip_jpeg.js';
+import { piedBalisage, piedStyles } from '../lib/document.js';
 import db from '../db/index.js';
 import { authRequired, getUserSections } from '../middleware/auth.js';
 import { capacitePdf, rendrePdf } from '../services/pdf.js';
@@ -233,8 +235,7 @@ function envelopper(corps, titre = 'Attestations de réussite') {
                         vertical-align: top; width: 33.33%; }
   table.signatures tr.hauteur td { height: 16mm; }
   table.signatures .role { color: #475569; font-size: 7.5pt; }
-
-  .pied-lucie { position: fixed; bottom: 0; left: 0; right: 0; height: 16mm;
+  ${piedStyles(16)}
                 padding-top: 1.5mm; border-top: 0.4pt solid #C9A84C; text-align: center; }
   .pied-lucie .txt { font-size: 5.5pt; color: #94a3b8; line-height: 1.3; }
 
@@ -246,7 +247,7 @@ function envelopper(corps, titre = 'Attestations de réussite') {
   }
 </style></head><body>
 ${corps}
-<div class="pied-lucie"><div class="txt">${piedDocument()}</div></div>
+${piedBalisage(LOGO_IIP_JPEG)}
 </body></html>`;
 }
 

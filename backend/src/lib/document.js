@@ -29,16 +29,44 @@ const HAUTEUR_PIED_MM = 22;
  * @param {string} [o.logo]        logo encodé, pour les documents qui en portent un
  * @param {boolean}[o.avecPied]    false pour le diplôme, qui a sa propre forme
  */
+/**
+ * Le pied de page, en morceau réutilisable.
+ *
+ * Trois documents recopiaient chacun le leur : une correction n'en atteignait
+ * qu'un seul à la fois, ce qui nous a coûté plusieurs allers-retours. Ils
+ * partagent désormais ce balisage et ces styles, tout en gardant leurs propres
+ * marges de page.
+ *
+ * Le logo est AU-DESSUS du filet doré et calé à GAUCHE : il sort donc du bloc
+ * bordé, qui ne porte plus que le texte.
+ */
+export function piedBalisage(logo = null) {
+  return `<div class="pied-lucie">`
+    + (logo ? `<img class="pied-logo" src="${logo}" alt="">` : '')
+    + `<div class="pied-filet"><div class="pied-txt">${piedDocument()}</div></div>`
+    + `</div>`;
+}
+
+export function piedStyles(hauteur = HAUTEUR_PIED_MM) {
+  return `
+  .pied-lucie { position: fixed; bottom: 0; left: 0; right: 0;
+                height: ${hauteur}mm; }
+  .pied-lucie .pied-logo { height: ${Math.max(5, hauteur - 10)}mm; width: auto;
+                           display: block; margin: 0 0 1.2mm; opacity: .9; }
+  .pied-lucie .pied-filet { border-top: 0.5pt solid #C9A84C; padding-top: 1.5mm;
+                            text-align: center; }
+  .pied-lucie .pied-txt { font-size: 6pt; color: #888; line-height: 1.3; }
+  @media screen {
+    .pied-lucie { position: static; height: auto; margin-top: 10mm; }
+  }`;
+}
+
 export function envelopperDocument({ html, titre, orientation = 'portrait',
                                      styles = '', logo = null, avecPied = true }) {
   const pied = avecPied ? piedDocument() : '';
   const esc = s => String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;');
 
-  const piedHtml = avecPied && pied ? `
-    <div class="pied-lucie">
-      ${logo ? `<img class="pied-logo" src="${logo}" alt="">` : ''}
-      <div class="pied-txt">${pied}</div>
-    </div>` : '';
+  const piedHtml = avecPied && pied ? piedBalisage(logo) : '';
 
   return `<!DOCTYPE html><html lang="fr"><head><meta charset="utf-8">
 <title>${esc(titre)}</title>
@@ -69,17 +97,7 @@ export function envelopperDocument({ html, titre, orientation = 'portrait',
   tr, td, th { break-inside: avoid; page-break-inside: avoid; }
 
   /* Le pied, ancré en bas de CHAQUE page — dernière comprise. */
-  .pied-lucie {
-    position: fixed;
-    bottom: 0; left: 0; right: 0;
-    height: ${HAUTEUR_PIED_MM}mm;
-    padding-top: 2mm;
-    border-top: 0.5pt solid #C9A84C;
-    text-align: center;
-  }
-  .pied-lucie .pied-logo { height: 8mm; width: auto; display: block;
-                           margin: 0 auto 1.5mm; opacity: .9; }
-  .pied-lucie .pied-txt { font-size: 6pt; color: #888; line-height: 1.35; }
+  ${piedStyles(HAUTEUR_PIED_MM)}
 
   /* À l'écran, la position fixe collerait le pied au bas de la fenêtre, non
      de la page : on le laisse suivre le flux tant qu'on n'imprime pas. */
@@ -88,7 +106,6 @@ export function envelopperDocument({ html, titre, orientation = 'portrait',
     body { max-width: ${orientation === 'paysage' ? '297mm' : '210mm'};
            margin: 16px auto; padding: 18mm; background: #fff;
            box-shadow: 0 2px 14px rgba(0,0,0,.18); }
-    .pied-lucie { position: static; margin-top: 10mm; height: auto; }
   }
 
 ${styles}
