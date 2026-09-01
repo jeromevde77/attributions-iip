@@ -145,7 +145,7 @@ function envelopper(corps, titre = 'Attestations de réussite') {
   return `<!DOCTYPE html><html lang="fr"><head><meta charset="utf-8">
 <title>${esc(titre)}</title>
 <style>
-:root{--sceau:url(${SCEAU_IIP});--paraphe:url(${SIGNATURE_SOHET})}
+:root{--sceau:url("${SCEAU_IIP}");--paraphe:url("${SIGNATURE_SOHET}")}
   * { box-sizing: border-box; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
 
   /* Une attestation tient sur UNE page : les corps sont resserrés et les
@@ -219,8 +219,10 @@ function envelopper(corps, titre = 'Attestations de réussite') {
   .cloture .sceau,
   .cloture .paraphe{grid-row:1;height:22mm;background-repeat:no-repeat;
     background-position:center bottom;background-size:contain}
-  .cloture .sceau{grid-column:1;width:22mm;opacity:.92}
-  .cloture .paraphe{grid-column:3;width:46mm}
+  .cloture .sceau{grid-column:1;width:22mm;opacity:.92;
+    background-image:var(--sceau)}
+  .cloture .paraphe{grid-column:3;width:46mm;
+    background-image:var(--paraphe)}
   .cloture .legende{grid-column:3;grid-row:2;text-align:center;
     border-top:.4pt solid #94a3b8;padding-top:1mm;width:46mm}
   .cloture .qualite{font-size:8.5pt;color:#334}
