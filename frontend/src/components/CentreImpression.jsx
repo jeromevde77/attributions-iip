@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { memo, useCallback, useEffect, useMemo, useState } from 'react';
 import {
   IconAlertTriangle, IconFileTypePdf, IconFileZip, IconPrinter, IconSearch, IconSquare, IconSquareCheck, IconX,
 } from '@tabler/icons-react';
@@ -88,6 +88,9 @@ export default function CentreImpression({ onClose, documentInitial = null,
       // Si la liste a transmis une sélection, on ne coche QUE ceux-là : c'est
       // le geste de l'utilisateur, il prime sur le « tout coché » par défaut.
       const pre = new Set(preselection.map(Number));
+      // La clé se calcule une seule fois : la recalculer à chaque rendu de
+      // chaque ligne coûtait plus cher que tout le reste.
+      for (const d of j.destinataires) d._k = cle(d);
       setCoches(new Set(
         j.destinataires
           .filter(d => !pre.size || pre.has(Number(d.etudiant_id)))
@@ -109,24 +112,29 @@ export default function CentreImpression({ onClose, documentInitial = null,
   // …et ce qui sera réellement produit. La recherche ne décoche rien : on peut
   // chercher « Dupont », le cocher, puis chercher autre chose sans le perdre.
   const retenus = useMemo(
-    () => (destinataires?.destinataires || []).filter(d => coches.has(cle(d))),
+    () => (destinataires?.destinataires || []).filter(d => coches.has(d._k)),
     [destinataires, coches]);
 
-  const basculer = d => setCoches(s => {
-    const n = new Set(s); const k = cle(d);
-    n.has(k) ? n.delete(k) : n.add(k);
+  // useCallback : sans identité stable, chaque rendu donnerait une NOUVELLE
+  // fonction à 400 lignes et annulerait la mémoïsation.
+  const basculer = useCallback(d => setCoches(s => {
+    const n = new Set(s);
+    n.has(d._k) ? n.delete(d._k) : n.add(d._k);
     return n;
-  });
+  }), []);
 
   // « Tout cocher » ne porte que sur ce qui est AFFICHÉ : après une recherche,
   // il doit cocher le résultat, non la liste entière.
   const toutCocher = valeur => setCoches(s => {
     const n = new Set(s);
-    for (const d of affiches) valeur ? n.add(cle(d)) : n.delete(cle(d));
+    for (const d of affiches) valeur ? n.add(d._k) : n.delete(d._k);
     return n;
   });
 
-  const tousCoches = affiches.length > 0 && affiches.every(d => coches.has(cle(d)));
+  // Mémoïsé : cette boucle tournait à CHAQUE rendu, donc à chaque case cochée.
+  const tousCoches = useMemo(
+    () => affiches.length > 0 && affiches.every(d => coches.has(d._k)),
+    [affiches, coches]);
 
   /**
    * La production passe par la route du document lui-même : le centre ne
@@ -421,25 +429,11 @@ export default function CentreImpression({ onClose, documentInitial = null,
               <>
                 <div className="max-h-72 overflow-y-auto border border-slate-200 rounded-xl
                                 divide-y divide-slate-100">
-                  {affiches.slice(0, 400).map(d => {
-                    const coche = coches.has(cle(d));
-                    return (
-                      <label key={cle(d)}
-                        className={`flex items-center gap-3 px-3 py-1.5 cursor-pointer
-                                    text-[12.5px] ${coche ? 'bg-iip-blue/5' : 'hover:bg-slate-50'}`}>
-                        <input type="checkbox" checked={coche} onChange={() => basculer(d)} />
-                        <span className="flex-1 min-w-0 truncate">
-                          <b>{d.nom}</b> {d.prenom}
-                        </span>
-                        {destinataires.maille === 'etudiant_ue' && d.ue_num != null && (
-                          <span className="text-slate-500 flex-none">UE {d.ue_num}</span>
-                        )}
-                        <span className="text-slate-400 flex-none">
-                          {d.annee_scolaire || annee}
-                        </span>
-                      </label>
-                    );
-                  })}
+                  {affiches.slice(0, 400).map(d => (
+                    <Ligne key={d._k} d={d} coche={coches.has(d._k)}
+                      avecUE={destinataires.maille === 'etudiant_ue'}
+                      annee={annee} onBasculer={basculer} />
+                  ))}
                   {affiches.length > 400 && (
                     <p className="text-[11px] text-slate-400 mt-1">
                       400 premières lignes affichées ; la production portera sur les {retenus.length}.
@@ -479,3 +473,24 @@ function Choix({ libelle, valeur, onChange, options, vide, obligatoire }) {
     </label>
   );
 }
+
+/**
+ * Une ligne de la liste, mémoïsée.
+ *
+ * Sans cela, cocher une case redessinait les quatre cents lignes : le
+ * navigateur ne repeignait qu'une fois le travail terminé, d'où la lenteur et
+ * l'impression qu'il fallait cliquer dans la fenêtre pour voir la liste.
+ */
+const Ligne = memo(function Ligne({ d, coche, avecUE, annee, onBasculer }) {
+  return (
+    <label className={`flex items-center gap-3 px-3 py-1.5 cursor-pointer text-[12.5px]
+                       ${coche ? 'bg-iip-blue/5' : 'hover:bg-slate-50'}`}>
+      <input type="checkbox" checked={coche} onChange={() => onBasculer(d)} />
+      <span className="flex-1 min-w-0 truncate"><b>{d.nom}</b> {d.prenom}</span>
+      {avecUE && d.ue_num != null && (
+        <span className="text-slate-500 flex-none">UE {d.ue_num}</span>
+      )}
+      <span className="text-slate-400 flex-none">{d.annee_scolaire || annee}</span>
+    </label>
+  );
+});

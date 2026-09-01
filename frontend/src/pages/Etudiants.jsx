@@ -1,4 +1,4 @@
-import {Fragment, useEffect, useState, useMemo } from 'react';
+import { Fragment, useCallback, useEffect, useMemo, useState } from 'react';
 import { RailLateral } from '../components/ui.jsx';
 import {
   IconAlertTriangle, IconCheck, IconChecklist, IconChevronRight, IconClock, IconFileText, IconFolder, IconPlus, IconPrinter, IconSearch, IconTable, IconTrash, IconUpload, IconUser, IconX,
@@ -1604,15 +1604,18 @@ export default function Etudiants() {
   // deviendrait agaçant.
   const [selEtudiants, setSelEtudiants] = useState(new Set());
 
-  const basculerSelection = id => setSelEtudiants(s => {
+  const basculerSelection = useCallback(id => setSelEtudiants(s => {
     const n = new Set(s);
     n.has(id) ? n.delete(id) : n.add(id);
     return n;
-  });
+  }), []);
 
   // « Tout cocher » ne porte que sur ce qui est AFFICHÉ : après un filtre, il
   // doit cocher le résultat du filtre, non la base entière.
-  const tousAffichesCoches = filtres.length > 0 && filtres.every(e => selEtudiants.has(e.id));
+  // Mémoïsé : cette boucle tournait à chaque rendu, donc à chaque case cochée.
+  const tousAffichesCoches = useMemo(
+    () => filtres.length > 0 && filtres.every(e => selEtudiants.has(e.id)),
+    [filtres, selEtudiants]);
   const cocherAffiches = valeur => setSelEtudiants(s => {
     const n = new Set(s);
     for (const e of filtres) valeur ? n.add(e.id) : n.delete(e.id);
