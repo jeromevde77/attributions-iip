@@ -123,7 +123,10 @@ r.get('/etudiant/:id', authRequired, (req, res) => {
 
 // ── Document ────────────────────────────────────────────────────────────────
 function pageAttestation(e, u, annee, etab) {
-  const genre = (e.titre || '').toLowerCase().startsWith('mme') ? 'F' : 'H';
+  // Le titre s'écrit tantôt « Mme », tantôt « Madame » : chercher la seule
+  // abréviation produisait une attestation au masculin pour une étudiante.
+  const genre = /^(mme|madame|mlle|mademoiselle|m\.?me)\b/i.test((e.titre || '').trim())
+    ? 'F' : 'H';
   const accord = genre === 'F' ? 'elle maîtrise' : 'il maîtrise';
 
   const activites = u.activites.length
