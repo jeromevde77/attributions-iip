@@ -49,18 +49,13 @@ export function reglesDePage({ haut = 18, cote = 18,
   return `
   @page {
     size: A4 ${orientation === 'paysage' ? 'landscape' : 'portrait'};
-    /* Marge basse FAIBLE : le pied est ancré au bas de la zone de contenu, une
-       marge généreuse le repousserait vers le haut de la feuille. */
-    margin: ${haut}mm ${cote}mm ${avecPied ? MARGE_SOUS_PIED_MM : haut}mm ${cote}mm;
+    /* La marge basse EST la réserve du pied. Elle n'ajoute rien au flux, à la
+       différence d'un padding : c'est ce qui empêche une page blanche
+       surnuméraire quand le contenu finit près du bas. */
+    margin: ${haut}mm ${cote}mm ${avecPied ? BANDE_PIED_MM : haut}mm ${cote}mm;
   }
-  /* La bande du pied est INTERDITE au texte : c'est ce padding qui l'y empêche,
-     la marge de @page ne servant qu'à écarter le pied du bord. */
-  @media print {
-    body { padding-bottom: ${avecPied ? HAUTEUR_PIED_MM + 2 : 0}mm; }
-  }
-  @media screen {
-    body { padding-bottom: 0; }
-  }`;
+  /* Aucun padding de réserve : il ferait partie du flux et déborderait. */
+  body { padding-bottom: 0; }`;
 }
 
 /**
@@ -92,7 +87,10 @@ export function piedBalisage(logo = null) {
 
 export function piedStyles(hauteur = HAUTEUR_PIED_MM) {
   return `
-  .pied-lucie { position: fixed; bottom: 0; left: 0; right: 0;
+  /* Le pied descend DANS la marge basse : « bottom: 0 » l'arrêterait au bas de
+     la zone de contenu, soit à ${BANDE_PIED_MM}mm du bord, d'où le blanc dessous. */
+  .pied-lucie { position: fixed; left: 0; right: 0;
+                bottom: -${BANDE_PIED_MM - MARGE_SOUS_PIED_MM}mm;
                 height: ${hauteur}mm; }
   .pied-lucie .pied-logo { height: ${Math.max(5, hauteur - 10)}mm; width: auto;
                            display: block; margin: 0 0 1.2mm; opacity: .9; }

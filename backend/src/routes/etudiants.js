@@ -422,7 +422,7 @@ r.get('/rapport', authRequired, (req, res) => {
   td.va { background: #ede9fe; color: #5b21b6; font-weight: 700; }
   td.i  { color: #64748b; }
   .legende { margin-top: 10px; font-size: 10px; color: #64748b; }
-  @media print { body { margin: 8mm; } @page { size: landscape; } }
+  @media print { body { margin: 8mm 8mm 0; } @page { size: landscape; } }
 
   /* Deux protections plutôt qu'une : la marge de @page, que certains
      navigateurs ignorent lorsqu'ils impriment depuis un cadre, ET une réserve
@@ -2724,7 +2724,9 @@ r.get('/:id/fiche-inscription', authRequired, (req, res) => {
   .engagement { break-before: auto; }
 
   .footer { margin-top: 22px; font-size: 10px; color: #64748b; }
-  @media print { body { margin: 12mm; } }
+  /* Marge basse à zéro : elle s'ajouterait au flux et pousserait une page
+     blanche. La réserve du pied est déjà faite par @page. */
+  @media print { body { margin: 12mm 12mm 0; } }
 
   /* La marge basse réserve la hauteur du pied : sans elle, le texte passerait
      dessous en fin de page. */
