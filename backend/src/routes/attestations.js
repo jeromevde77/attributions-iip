@@ -151,8 +151,11 @@ function envelopper(corps) {
     html: corps,
     titre: '',
     logo: LOGO_IIP_JPEG,
+    // L'attestation est dessinée pour tenir sur une page à ces marges ;
+    // les 18 mm par défaut la faisaient déborder sur une seconde.
+    margeHaut: 12, margeCote: 15,
     styles: `
-:root{--sceau:url("\${SCEAU_IIP}");--paraphe:url("\${SIGNATURE_SOHET}")}
+:root{--sceau:url("${SCEAU_IIP}");--paraphe:url("${SIGNATURE_SOHET}")}
   * { box-sizing: border-box; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
 
   /* Une attestation tient sur UNE page : les corps sont resserrés et les
@@ -215,7 +218,7 @@ function envelopper(corps) {
 
   .cloture{display:grid;grid-template-columns:auto 1fr auto;
     grid-template-rows:auto auto;column-gap:14mm;align-items:end;
-    margin-top:14mm;page-break-inside:avoid}
+    margin-top:8mm;page-break-inside:avoid}
   .cloture .lieu{grid-column:2;grid-row:2;font-size:8.5pt;color:#334;
     text-align:center;padding-bottom:1mm}
   /* Les deux images occupent la même ligne et la même hauteur, calées sur
