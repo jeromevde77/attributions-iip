@@ -139,34 +139,38 @@ function pageAttestation(e, u, annee, etab) {
 
   return `
 <div class="attestation">
-  <div class="entete">
-    <div><b>COMMUNAUTÉ FRANÇAISE DE BELGIQUE</b></div>
-    <div><b>ENSEIGNEMENT DE PROMOTION SOCIALE</b></div>
-    <div class="annee"><b>ANNÉE ACADÉMIQUE : ${esc(annee.replace('-', '/'))}</b></div>
+  <div class="bandeau">
+    <div class="cf">COMMUNAUTÉ FRANÇAISE DE BELGIQUE</div>
+    <div class="epa">ENSEIGNEMENT POUR ADULTES</div>
+    <div class="annee">Année académique ${esc(annee.replace('-', '/'))}</div>
   </div>
 
   <div class="etab">
-    <div><b>${esc(etab.etab_nom || 'INSTITUT ILYA PRIGOGINE')}</b></div>
-    <div>Adresse : ${esc(etab.adresse || '')}</div>
+    <div>
+      <div class="nom">${esc(etab.etab_nom || 'Institut Ilya Prigogine')}</div>
+      <div>${esc(etab.adresse || '')}</div>
+    </div>
     <div class="ident">
-      Numéro de matricule : ${esc(etab.num_matricule || '2.132.070')}<br>
-      Numéro FASE : ${esc(etab.num_fase || '292')}
+      Matricule ${esc(etab.num_matricule || '2.132.070')}<br>
+      FASE ${esc(etab.num_fase || '292')}
     </div>
   </div>
 
-  <h1>ATTESTATION DE RÉUSSITE DE L'UNITÉ D'ENSEIGNEMENT</h1>
+  <h1>ATTESTATION DE RÉUSSITE D'UNITÉ D'ENSEIGNEMENT</h1>
   <h2>${esc((u.ue_nom || '').toUpperCase())}</h2>
+  <div class="filet"></div>
 
   <div class="carac">
     <div>${esc(u.type_enseignement)}</div>
-    ${u.domaine ? `<div>Domaine : ${esc(u.domaine)}</div>`
-                : '<div class="manque">Domaine : à compléter au référentiel</div>'}
-    <div>Unité d'enseignement approuvée par le Gouvernement sous le numéro de code :
+    <div>${u.domaine ? 'Domaine : ' + esc(u.domaine)
+                     : '<span class="manque">Domaine à compléter</span>'}</div>
+    <div class="large">Code approuvé par le Gouvernement :
       ${u.code_fwb ? `<b>${esc(u.code_fwb)}</b>`
                    : '<span class="manque">à compléter au référentiel</span>'}</div>
-    <div>Cette unité d'enseignement représente
-      ${u.ects ? `<b>${u.ects}</b> E.C.T.S.`
-               : '<span class="manque">— ECTS à compléter</span>'}</div>
+    <div>${u.ects ? `<b>${u.ects}</b> E.C.T.S.`
+                  : '<span class="manque">ECTS à compléter</span>'}</div>
+    <div>${u.periodes ? `<b>${u.periodes}</b> périodes`
+                      : '<span class="manque">périodes à compléter</span>'}</div>
   </div>
 
   <p class="corps">
@@ -176,9 +180,11 @@ function pageAttestation(e, u, annee, etab) {
   </p>
 
   <div class="etudiant">
-    <b>${esc((e.nom || '').toUpperCase())} ${esc(e.prenom || '')} (${genre})</b><br>
-    Né${genre === 'F' ? 'e' : ''} à ${esc(e.lieu_naissance) || '………'},
-    le ${frDate(e.date_naissance)},
+    <div class="nom">${esc((e.nom || '').toUpperCase())} ${esc(e.prenom || '')}</div>
+    <div class="naissance">
+      Né${genre === 'F' ? 'e' : ''} à ${esc(e.lieu_naissance) || '………'},
+      le ${frDate(e.date_naissance)}
+    </div>
   </div>
 
   <p class="corps indente">
@@ -192,19 +198,25 @@ function pageAttestation(e, u, annee, etab) {
     d'enseignement, soit :</p>
   ${acquis}
 
-  <p class="corps">
-    Le Conseil des études lui délivre la présente attestation pour laquelle
+  <div class="resultat">
+    Le Conseil des études lui délivre la présente attestation, pour laquelle
     ${genre === 'F' ? 'elle obtient' : 'il obtient'}
-    <b>${u.pourcentage != null ? u.pourcentage : '………'}</b> pour cent du total des points.
-  </p>
+    <span class="pct">${u.pourcentage != null ? u.pourcentage + ' %' : '………'}</span>
+    du total des points.
+  </div>
 
   <table class="signatures">
     <tr>
-      <td>Le Conseil des études,</td>
-      <td>Sceau de l'établissement</td>
-      <td>Fait à ${esc(etab.localite || 'Anderlecht')}, le ${frDate(new Date().toISOString())}</td>
+      <td><span class="role">Le Conseil des études</span></td>
+      <td><span class="role">Sceau de l'établissement</span></td>
+      <td><span class="role">Fait à ${esc(etab.localite || 'Anderlecht')},
+          le ${frDate(new Date().toISOString())}</span></td>
     </tr>
-    <tr class="hauteur"><td></td><td></td><td>Le Directeur, ${esc(etab.directeur_nom || 'SOHET Charles')}</td></tr>
+    <tr class="hauteur">
+      <td></td><td></td>
+      <td style="vertical-align:bottom">Le Directeur,<br>
+        <b>${esc(etab.directeur_nom || 'SOHET Charles')}</b></td>
+    </tr>
   </table>
 </div>`;
 }
@@ -233,39 +245,79 @@ r.get('/etudiant/:id/document', authRequired, (req, res) => {
 <title>Attestations — ${esc(e.nom)} ${esc(e.prenom)}</title>
 <style>
   * { box-sizing: border-box; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
-  @page { size: A4 portrait; margin: 16mm 18mm 26mm 18mm; }
-  @media print { body { padding-bottom: 22mm; } }
-  body { font-family: 'Times New Roman', Times, serif; font-size: 11.5pt; color: #000;
-         margin: 0; line-height: 1.45; }
+
+  /* Une attestation tient sur UNE page : les corps sont resserrés et les
+     interlignes calculés pour qu'une unité à six acquis et quatre activités
+     ne déborde pas. */
+  @page { size: A4 portrait; margin: 12mm 15mm 22mm 15mm; }
+  @media print { body { padding-bottom: 18mm; } }
+
+  body { font-family: 'Segoe UI', Arial, Helvetica, sans-serif; font-size: 9pt;
+         color: #1B2B4B; margin: 0; line-height: 1.35; }
+
   .attestation { break-inside: avoid; }
   .saut { break-after: page; page-break-after: always; height: 0; }
-  .entete { text-align: center; font-size: 11pt; margin-bottom: 6mm; }
-  .entete .annee { margin-top: 3mm; }
-  .etab { margin-bottom: 6mm; font-size: 11pt; }
-  .etab .ident { margin-left: 10mm; margin-top: 1.5mm; }
-  h1 { font-size: 12.5pt; text-align: center; margin: 6mm 0 2mm; font-weight: bold; }
-  h2 { font-size: 13pt; text-align: center; margin: 0 0 4mm; font-weight: bold; }
-  .carac { margin-bottom: 5mm; }
-  .carac div { margin: 1mm 0; }
-  .corps { text-align: justify; margin: 3mm 0; }
-  .indente { margin-left: 14mm; }
-  .etudiant { margin: 4mm 0; }
-  .activites { margin: 2mm 0 4mm 14mm; }
-  ul.acquis { margin: 2mm 0 4mm 14mm; padding-left: 5mm; }
-  ul.acquis li { margin: 0.8mm 0; }
+
+  /* Bandeau marine et filet doré, comme les autres documents de la maison. */
+  .bandeau { background: #1B2B4B; color: #fff; padding: 4mm 6mm; text-align: center;
+             border-bottom: 1.5mm solid #C9A84C; }
+  .bandeau .cf { font-size: 7.5pt; letter-spacing: .6pt; opacity: .85; }
+  .bandeau .epa { font-size: 9.5pt; font-weight: 600; letter-spacing: .4pt; margin-top: 0.8mm; }
+  .bandeau .annee { font-size: 8pt; margin-top: 1.2mm; opacity: .9; }
+
+  .etab { display: flex; justify-content: space-between; gap: 6mm;
+          padding: 3mm 0 2.5mm; border-bottom: 0.4pt solid #cbd5e1; font-size: 8pt;
+          color: #475569; }
+  .etab .nom { font-weight: 600; color: #1B2B4B; font-size: 9pt; }
+  .etab .ident { text-align: right; white-space: nowrap; }
+
+  h1 { font-size: 10.5pt; text-align: center; margin: 5mm 0 1mm; font-weight: 600;
+       letter-spacing: .3pt; color: #1B2B4B; }
+  h2 { font-size: 12pt; text-align: center; margin: 0 0 1.5mm; font-weight: 700;
+       color: #1B2B4B; }
+  .filet { width: 40mm; height: 0.8mm; background: #C9A84C; margin: 0 auto 4mm; }
+
+  /* Caractéristiques de l'unité, en deux colonnes pour gagner de la hauteur. */
+  .carac { display: grid; grid-template-columns: 1fr 1fr; gap: 1mm 6mm;
+           background: #f8fafc; border: 0.4pt solid #e2e8f0; border-radius: 1.5mm;
+           padding: 2.5mm 3.5mm; font-size: 8.5pt; margin-bottom: 4mm; }
+  .carac .large { grid-column: 1 / -1; }
+  .carac b { color: #1B2B4B; }
+
+  .corps { text-align: justify; margin: 2.5mm 0; font-size: 9pt; }
+  .indente { margin-left: 8mm; }
+
+  /* La personne, en évidence sans excès. */
+  .etudiant { background: #eff6ff; border-left: 1mm solid #1B2B4B;
+              padding: 2.5mm 3.5mm; margin: 3mm 0; font-size: 9.5pt; }
+  .etudiant .nom { font-weight: 700; font-size: 10.5pt; }
+  .etudiant .naissance { font-size: 8.5pt; color: #475569; margin-top: 0.8mm; }
+
+  .activites { margin: 1.5mm 0 3mm 8mm; font-size: 8.5pt; }
+  ul.acquis { margin: 1.5mm 0 3mm 8mm; padding-left: 4mm; font-size: 8.5pt; }
+  ul.acquis li { margin: 0.5mm 0; }
+
+  .resultat { text-align: center; background: #f8fafc; border: 0.4pt solid #e2e8f0;
+              border-radius: 1.5mm; padding: 2.5mm; margin: 3mm 0; font-size: 9pt; }
+  .resultat .pct { font-size: 13pt; font-weight: 700; color: #1B2B4B; }
+
   .manque { color: #b45309; font-style: italic; }
-  table.signatures { width: 100%; border-collapse: collapse; margin-top: 10mm; font-size: 10.5pt; }
-  table.signatures td { border: 0.5pt solid #000; padding: 2mm 3mm; vertical-align: top;
-                        width: 33.33%; }
-  table.signatures tr.hauteur td { height: 22mm; }
-  .pied-lucie { position: fixed; bottom: 0; left: 0; right: 0; height: 20mm;
-                padding-top: 2mm; border-top: 0.5pt solid #C9A84C; text-align: center; }
-  .pied-lucie .txt { font-size: 6pt; color: #888; line-height: 1.35; }
+
+  table.signatures { width: 100%; border-collapse: collapse; margin-top: 5mm; font-size: 8pt; }
+  table.signatures td { border: 0.4pt solid #94a3b8; padding: 1.5mm 2.5mm;
+                        vertical-align: top; width: 33.33%; }
+  table.signatures tr.hauteur td { height: 16mm; }
+  table.signatures .role { color: #475569; font-size: 7.5pt; }
+
+  .pied-lucie { position: fixed; bottom: 0; left: 0; right: 0; height: 16mm;
+                padding-top: 1.5mm; border-top: 0.4pt solid #C9A84C; text-align: center; }
+  .pied-lucie .txt { font-size: 5.5pt; color: #94a3b8; line-height: 1.3; }
+
   @media screen {
     html { background: #e5e5e5; }
-    body { max-width: 210mm; margin: 16px auto; padding: 18mm; background: #fff;
+    body { max-width: 210mm; margin: 16px auto; padding: 12mm 15mm; background: #fff;
            box-shadow: 0 2px 14px rgba(0,0,0,.18); }
-    .pied-lucie { position: static; height: auto; margin-top: 10mm; }
+    .pied-lucie { position: static; height: auto; margin-top: 8mm; }
   }
 </style></head><body>
 ${pages}
