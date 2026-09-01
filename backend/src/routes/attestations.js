@@ -16,10 +16,8 @@
 import { Router } from 'express';
 import db from '../db/index.js';
 import { authRequired, getUserSections } from '../middleware/auth.js';
-import { SIGNATURE_SOHET, SCEAU_IIP } from '../services/assets/signature_sohet.js';
-import { LOGO_IIP_JPEG } from '../services/assets/logo_iip_jpeg.js';
-import { envelopperDocument } from '../lib/document.js';
 import { capacitePdf, rendrePdf } from '../services/pdf.js';
+import { SIGNATURE_SOHET, SCEAU_IIP } from '../services/assets/signature_sohet.js';
 import { piedDocument } from './parametres.js';
 
 const r = Router();
@@ -142,25 +140,20 @@ function unitesReussies(etudId, annee) {
  * pièce ou cinquante. Elle sert aussi aux pièces séparées d'une archive, pour
  * que chacune reste imprimable seule.
  */
-/**
- * Enveloppe des attestations : celle de tous les documents Lucie, avec le pied
- * à logo. Le titre reste vide, car les navigateurs l'impriment en haut de page.
- */
-function envelopper(corps) {
-  return envelopperDocument({
-    html: corps,
-    titre: '',
-    logo: LOGO_IIP_JPEG,
-    // L'attestation est dessinée pour tenir sur une page à ces marges ;
-    // les 18 mm par défaut la faisaient déborder sur une seconde.
-    margeHaut: 12, margeCote: 15,
-    styles: `
+function envelopper(corps, titre = 'Attestations de réussite') {
+  // Les images sont posées UNE fois par document, en variables CSS. Répétées
+  // par page, un lot de cinq cents attestations pèserait plus de 300 Mo.
+  return `<!DOCTYPE html><html lang="fr"><head><meta charset="utf-8">
+<title>${esc(titre)}</title>
+<style>
 :root{--sceau:url("${SCEAU_IIP}");--paraphe:url("${SIGNATURE_SOHET}")}
   * { box-sizing: border-box; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
 
   /* Une attestation tient sur UNE page : les corps sont resserrés et les
      interlignes calculés pour qu'une unité à six acquis et quatre activités
      ne déborde pas. */
+  @page { size: A4 portrait; margin: 12mm 15mm 22mm 15mm; }
+  @media print { body { padding-bottom: 18mm; } }
 
   body { font-family: 'Segoe UI', Arial, Helvetica, sans-serif; font-size: 9pt;
          color: #1B2B4B; margin: 0; line-height: 1.35; }
@@ -218,7 +211,7 @@ function envelopper(corps) {
 
   .cloture{display:grid;grid-template-columns:auto 1fr auto;
     grid-template-rows:auto auto;column-gap:14mm;align-items:end;
-    margin-top:8mm;page-break-inside:avoid}
+    margin-top:14mm;page-break-inside:avoid}
   .cloture .lieu{grid-column:2;grid-row:2;font-size:8.5pt;color:#334;
     text-align:center;padding-bottom:1mm}
   /* Les deux images occupent la même ligne et la même hauteur, calées sur
@@ -241,13 +234,20 @@ function envelopper(corps) {
   table.signatures tr.hauteur td { height: 16mm; }
   table.signatures .role { color: #475569; font-size: 7.5pt; }
 
+  .pied-lucie { position: fixed; bottom: 0; left: 0; right: 0; height: 16mm;
+                padding-top: 1.5mm; border-top: 0.4pt solid #C9A84C; text-align: center; }
+  .pied-lucie .txt { font-size: 5.5pt; color: #94a3b8; line-height: 1.3; }
+
   @media screen {
     html { background: #e5e5e5; }
     body { max-width: 210mm; margin: 16px auto; padding: 12mm 15mm; background: #fff;
            box-shadow: 0 2px 14px rgba(0,0,0,.18); }
+    .pied-lucie { position: static; height: auto; margin-top: 8mm; }
   }
-`,
-  });
+</style></head><body>
+${corps}
+<div class="pied-lucie"><div class="txt">${piedDocument()}</div></div>
+</body></html>`;
 }
 
 r.get('/etudiant/:id', authRequired, (req, res) => {
@@ -377,7 +377,7 @@ r.get('/etudiant/:id/document', authRequired, (req, res) => {
   const pages = unites.map(u => pageAttestation(e, u, annee, etab))
     .join('<div class="saut"></div>');
 
-  const html = envelopper(pages);
+  const html = envelopper(pages, `Attestations — ${e.nom} ${e.prenom}`);
 
   res.json({
     html,
@@ -519,10 +519,9 @@ r.post('/lot', authRequired, (req, res) => {
   });
 });
 
-// ── Rendu PDF ───────────────────────────────────────────────────────────────
-// Là où Chromium est présent, le PDF supprime le titre, le lieu d'impression
-// et la numérotation que le navigateur ajoute de lui-même, et ne numérote
-// qu'au-delà d'une page. Ailleurs, l'interface s'en tient à l'impression HTML.
+// ── Rendu PDF, si le serveur en est capable ─────────────────────────────────
+// N'intervient pas dans la mise en page : reçoit le document déjà produit et
+// le rend tel quel, sans les en-têtes que le navigateur ajouterait.
 r.post('/pdf', authRequired, async (req, res) => {
   const cap = await capacitePdf();
   if (!cap.disponible) {
@@ -536,7 +535,12 @@ r.post('/pdf', authRequired, async (req, res) => {
   if (!html) return res.status(400).json({ error: 'document requis' });
 
   try {
-    const pdf = await rendrePdf(html, { pagination: 'si-plusieurs' });
+    // Marges reprises de l'enveloppe des attestations, pour que le PDF rende
+    // exactement ce que l'impression rend.
+    const pdf = await rendrePdf(html, {
+      marges: { top: '12mm', right: '15mm', bottom: '22mm', left: '15mm' },
+      pagination: 'si-plusieurs',
+    });
     const fichier = String(nom || 'attestations').replace(/[^A-Za-z0-9_.-]/g, '_');
     res.setHeader('Content-Type', 'application/pdf');
     res.setHeader('Content-Disposition', `attachment; filename="${fichier}.pdf"`);

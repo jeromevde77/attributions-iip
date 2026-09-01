@@ -30,8 +30,7 @@ const HAUTEUR_PIED_MM = 22;
  * @param {boolean}[o.avecPied]    false pour le diplôme, qui a sa propre forme
  */
 export function envelopperDocument({ html, titre, orientation = 'portrait',
-                                     styles = '', logo = null, avecPied = true,
-                                     margeHaut = 18, margeCote = 18 }) {
+                                     styles = '', logo = null, avecPied = true }) {
   const pied = avecPied ? piedDocument() : '';
   const esc = s => String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;');
 
@@ -50,9 +49,7 @@ export function envelopperDocument({ html, titre, orientation = 'portrait',
      dessous à la fin de chaque page. */
   @page {
     size: A4 ${orientation === 'paysage' ? 'landscape' : 'portrait'};
-    /* Les marges sont réglables : l'attestation de réussite tient sur une page
-       à 12/15 mm, et débordait à 18. */
-    margin: ${margeHaut}mm ${margeCote}mm ${avecPied ? HAUTEUR_PIED_MM + 6 : margeHaut}mm ${margeCote}mm;
+    margin: 18mm 18mm ${avecPied ? HAUTEUR_PIED_MM + 6 : 18}mm 18mm;
   }
 
   body { font-family: Arial, Helvetica, sans-serif; font-size: 10pt;
@@ -89,7 +86,7 @@ export function envelopperDocument({ html, titre, orientation = 'portrait',
   @media screen {
     html { background: #e5e5e5; }
     body { max-width: ${orientation === 'paysage' ? '297mm' : '210mm'};
-           margin: 16px auto; padding: ${margeHaut}mm ${margeCote}mm; background: #fff;
+           margin: 16px auto; padding: 18mm; background: #fff;
            box-shadow: 0 2px 14px rgba(0,0,0,.18); }
     .pied-lucie { position: static; margin-top: 10mm; height: auto; }
   }
