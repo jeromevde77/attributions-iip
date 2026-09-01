@@ -16,6 +16,7 @@
 import { Router } from 'express';
 import db from '../db/index.js';
 import { authRequired, getUserSections } from '../middleware/auth.js';
+import { SIGNATURE_SOHET, SCEAU_IIP } from '../services/assets/signature_sohet.js';
 import { piedDocument } from './parametres.js';
 
 const r = Router();
@@ -139,9 +140,12 @@ function unitesReussies(etudId, annee) {
  * que chacune reste imprimable seule.
  */
 function envelopper(corps, titre = 'Attestations de réussite') {
+  // Les images sont posées UNE fois par document, en variables CSS. Répétées
+  // par page, un lot de cinq cents attestations pèserait plus de 300 Mo.
   return `<!DOCTYPE html><html lang="fr"><head><meta charset="utf-8">
 <title>${esc(titre)}</title>
 <style>
+:root{--sceau:url(${SCEAU_IIP});--paraphe:url(${SIGNATURE_SOHET})}
   * { box-sizing: border-box; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
 
   /* Une attestation tient sur UNE page : les corps sont resserrés et les
@@ -201,7 +205,17 @@ function envelopper(corps, titre = 'Attestations de réussite') {
 
   .manque { color: #b45309; font-style: italic; }
 
-  table.signatures { width: 100%; border-collapse: collapse; margin-top: 5mm; font-size: 8pt; }
+  table.cloture{display:flex;align-items:flex-end;justify-content:space-between;
+  margin-top:14mm;page-break-inside:avoid}
+.cloture .lieu{font-size:8.5pt;color:#334;align-self:flex-end;padding-bottom:2mm}
+.cloture .sceau{width:26mm;height:26mm;opacity:.92;
+  background:var(--sceau) center/contain no-repeat}
+.cloture .signature{text-align:center;min-width:52mm}
+.cloture .signature .paraphe{height:17mm;margin-bottom:-3mm;
+  background:var(--paraphe) center/contain no-repeat}
+.cloture .qualite{font-size:8.5pt;color:#334}
+.cloture .nom{font-size:9.5pt;font-weight:700;color:#1B2B4B;letter-spacing:.3px}
+.signatures { width: 100%; border-collapse: collapse; margin-top: 5mm; font-size: 8pt; }
   table.signatures td { border: 0.4pt solid #94a3b8; padding: 1.5mm 2.5mm;
                         vertical-align: top; width: 33.33%; }
   table.signatures tr.hauteur td { height: 16mm; }
@@ -315,19 +329,18 @@ function pageAttestation(e, u, annee, etab) {
     du total des points.
   </div>
 
-  <table class="signatures">
-    <tr>
-      <td><span class="role">Le Conseil des études</span></td>
-      <td><span class="role">Sceau de l'établissement</span></td>
-      <td><span class="role">Fait à ${esc(etab.localite || 'Anderlecht')},
-          le ${frDate(new Date().toISOString())}</span></td>
-    </tr>
-    <tr class="hauteur">
-      <td></td><td></td>
-      <td style="vertical-align:bottom">Le Directeur,<br>
-        <b>${esc(etab.directeur_nom || 'SOHET Charles')}</b></td>
-    </tr>
-  </table>
+  <!-- Sceau et signature. Le tableau à trois cases (conseil des études,
+       sceau, direction) est remplacé par les pièces réelles. -->
+  <div class="cloture">
+    <div class="lieu">Fait à ${esc(etab.localite || 'Anderlecht')},
+      le ${frDate(new Date().toISOString())}</div>
+    <div class="sceau"></div>
+    <div class="signature">
+      <div class="paraphe"></div>
+      <div class="qualite">Le Directeur</div>
+      <div class="nom">${esc(etab.directeur_nom || 'Charles SOHET')}</div>
+    </div>
+  </div>
 </div>`;
 }
 
@@ -427,10 +440,19 @@ r.post('/lot', authRequired, (req, res) => {
   if (!Array.isArray(paires) || !paires.length) {
     return res.status(400).json({ error: 'aucune attestation demandée' });
   }
-  if (paires.length > 500) {
+  // En un seul document, les images du sceau et de la signature ne sont posées
+  // qu'une fois. En pièces séparées, CHACUNE les porte pour rester imprimable
+  // seule — d'où un plafond plus bas : cinq cents pièces feraient 300 Mo dans
+  // le navigateur.
+  const plafond = separes ? 120 : 500;
+  if (paires.length > plafond) {
     return res.status(400).json({
-      error: `${paires.length} attestations demandées. Au-delà de 500, le navigateur ne suit `
-           + `plus : restreignez la sélection, par section ou par année.`,
+      error: `${paires.length} attestations demandées, maximum ${plafond} `
+           + (separes
+              ? `en pièces séparées : chacune porte le sceau et la signature, et `
+              + `le navigateur ne suivrait pas. Restreignez la sélection, ou `
+              + `choisissez le document unique qui accepte 500 attestations.`
+              : `: restreignez la sélection, par section ou par année.`),
     });
   }
 
