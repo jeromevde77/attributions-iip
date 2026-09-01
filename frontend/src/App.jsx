@@ -18,6 +18,7 @@ class ErrorBoundary extends Component {
   }
 }
 import { Routes, Route, Navigate, NavLink, useNavigate } from 'react-router-dom';
+import VoletLateral from './components/VoletLateral.jsx';
 import { isAuthenticated, getUser, api, getAnnee, setAnnee } from './lib/api.js';
 import {
   IconClipboardList, IconUsers, IconFileExport, IconChecklist,
@@ -150,6 +151,11 @@ function VoirCommePicker() {
 function ProtectedLayout({ children }) {
   const navigate = useNavigate();
   const [menuOpen, setMenuOpen] = useState(false);
+  // Le volet replié est une préférence durable : sur un portable, 210 px pris
+  // à la largeur se paient sur les tableaux.
+  const [voletReplie, setVoletReplie] = useState(() => {
+    try { return localStorage.getItem('volet_replie') === '1'; } catch { return false; }
+  });
   const [annees, setAnnees] = useState([]);
   const [anneeActive, setAnneeActive] = useState(getAnnee());
   const [env, setEnv] = useState(null);
@@ -236,21 +242,32 @@ function ProtectedLayout({ children }) {
 
   // Structure en 7 axes (maquette validée) : chaque entrée répond à une
   // question de l'utilisateur ; les rôles taillent le bandeau.
-  const nav = isCoordination
+  // Sept axes en ligne se lisaient mal : ils se rangent en trois familles.
+  // Les rôles taillent le volet, comme ils taillaient le bandeau.
+  const familles = isCoordination
     ? [
-        ['/accueil',      'Accueil',      IconHome],
-        ['/organisation', 'Organisation', IconClipboardList],
+        { titre: '', entrees: [
+          ['/accueil',      'Accueil',      IconHome],
+          ['/organisation', 'Organisation', IconClipboardList],
+        ] },
       ]
     : [
-        ['/accueil',      'Accueil',       IconHome],
-        ['/etudiants',    'Étudiants',     IconChecklist],
-        ['/professeurs',  'Personnel',     IconUsers],
-        ['/organisation', 'Organisation',  IconClipboardList],
-        ['/communication','Communication', IconFileExport],
-        ['/pilotage',     'Pilotage',      IconChartBar],
+        { titre: 'Suivi', entrees: [
+          ['/accueil',     'Accueil',   IconHome],
+          ['/etudiants',   'Étudiants', IconChecklist],
+          ['/professeurs', 'Personnel', IconUsers],
+        ] },
+        { titre: 'Gestion', entrees: [
+          ['/organisation',  'Organisation',  IconClipboardList],
+          ['/communication', 'Communication', IconFileExport],
+          ['/pilotage',      'Pilotage',      IconChartBar],
+        ] },
       ];
-  nav.push(['/aide', '', IconHelpCircle]);
-  if (estDirection(u)) nav.push(['/configuration', 'Config.', IconSettings]);
+
+  const bas = { titre: '', entrees: [] };
+  if (estDirection(u)) bas.entrees.push(['/configuration', 'Configuration', IconSettings]);
+  bas.entrees.push(['/aide', 'Aide', IconHelpCircle]);
+  familles.push(bas);
 
   return (
     <div className="min-h-screen flex flex-col">
@@ -265,128 +282,55 @@ function ProtectedLayout({ children }) {
           ⚠ ENVIRONNEMENT DE DÉVELOPPEMENT — DONNÉES FICTIVES ⚠
         </div>
       )}
-      <header className="bg-white border-b border-iip-gold/30 px-3 md:px-6 py-3 sticky top-0 z-20 shadow-sm">
-        <div className="flex items-center justify-between gap-3">
-          {/* Burger mobile */}
-          <button
-            onClick={() => setMenuOpen(o => !o)}
-            className="md:hidden text-gray-700 hover:text-iip-turquoise p-1"
-            aria-label="Menu">
-            {menuOpen ? <IconX size={24} /> : <IconMenu2 size={24} />}
-          </button>
+      {/* Deux colonnes : la NAVIGATION à gauche, le CONTEXTE de travail en haut.
+          L'année active et la recherche restent accessibles en permanence. */}
+      <div className="flex-1 flex min-h-0">
+        <VoletLateral
+          familles={familles} replie={voletReplie}
+          onReplier={() => {
+            const v = !voletReplie;
+            setVoletReplie(v);
+            try { localStorage.setItem('volet_replie', v ? '1' : '0'); } catch {}
+          }}
+          u={u} nbNotifs={nbNotifs} versionNum={versionNum} versionIsNew={versionIsNew}
+          onDeconnexion={() => { api.logout(); navigate('/login'); }}
+          ouvertMobile={menuOpen} onFermerMobile={() => setMenuOpen(false)}
+        />
 
-          <div className="flex-none">
-            <svg width="90" height="28" viewBox="0 0 140 44" xmlns="http://www.w3.org/2000/svg">
-              {/* Symbole L compact */}
-              <g stroke="#1B2B4B" strokeOpacity=".06" fill="none" strokeWidth="1.2" strokeLinecap="round">
-                <line x1="5" y1="14" x2="12" y2="6"/><line x1="5" y1="14" x2="16" y2="23"/>
-                <line x1="12" y1="6" x2="23" y2="8"/><line x1="16" y1="23" x2="23" y2="8"/>
-                <line x1="16" y1="23" x2="23" y2="32"/><line x1="23" y1="8" x2="36" y2="14"/>
-                <line x1="36" y1="14" x2="42" y2="32"/>
-              </g>
-              <g stroke="#00AACC" strokeOpacity=".35" fill="none" strokeWidth="1.2" strokeLinecap="round">
-                <line x1="5" y1="14" x2="16" y2="23"/><line x1="12" y1="6" x2="23" y2="8"/>
-                <line x1="16" y1="23" x2="23" y2="32"/><line x1="23" y1="8" x2="36" y2="14"/>
-                <line x1="23" y1="32" x2="42" y2="32"/>
-              </g>
-              <g stroke="#00AACC" strokeOpacity=".85" fill="none" strokeWidth="2.2" strokeLinecap="round">
-                <line x1="12" y1="6" x2="12" y2="32"/>
-                <line x1="12" y1="32" x2="42" y2="32"/>
-              </g>
-              <circle cx="5"  cy="14" r="1.8" fill="#1B2B4B" fillOpacity=".1"/>
-              <circle cx="23" cy="8"  r="1.8" fill="#1B2B4B" fillOpacity=".12"/>
-              <circle cx="36" cy="14" r="1.6" fill="#1B2B4B" fillOpacity=".08"/>
-              <circle cx="16" cy="23" r="1.8" fill="#00AACC" fillOpacity=".5"/>
-              <circle cx="12" cy="6"  r="3.2" fill="#00AACC"/>
-              <circle cx="12" cy="32" r="3.6" fill="#00AACC"/>
-              <circle cx="42" cy="32" r="3.2" fill="#00AACC"/>
-              <circle cx="12" cy="6"  r="1.4" fill="white" fillOpacity=".7"/>
-              <circle cx="12" cy="32" r="1.6" fill="white" fillOpacity=".65"/>
-              <circle cx="42" cy="32" r="1.4" fill="white" fillOpacity=".7"/>
-              {/* Texte "Lucie" */}
-              <text x="52" y="30"
-                fontFamily="'Segoe UI','Helvetica Neue',Arial,sans-serif"
-                fontSize="22" fontWeight="700" letterSpacing="-0.5"
-                fill="#1B2B4B">Lucie</text>
-            </svg>
-          </div>
+        <div className="flex-1 flex flex-col min-w-0">
+          <header className="bg-white border-b border-iip-gold/30 px-3 md:px-5 py-2.5
+                             sticky top-0 z-20">
+            <div className="flex items-center justify-between gap-3">
+              <div className="flex items-center gap-3">
+                <button onClick={() => setMenuOpen(o => !o)}
+                  className="md:hidden text-gray-700 hover:text-iip-turquoise p-1"
+                  aria-label="Menu">
+                  {menuOpen ? <IconX size={22} /> : <IconMenu2 size={22} />}
+                </button>
 
-          {/* Sélecteur d'année */}
-          <select value={anneeActive} onChange={e => changeAnnee(e.target.value)}
-            className="border border-iip-blue/30 rounded-lg px-2.5 py-1.5 h-9 text-sm font-semibold text-iip-blue bg-white focus:outline-none focus:ring-2 focus:ring-iip-turquoise/40 cursor-pointer">
-            {annees.map(a => <option key={a.code} value={a.code}>{a.code}</option>)}
-            {annees.length === 0 && <option value={anneeActive}>{anneeActive}</option>}
-          </select>
-          {/* Nav desktop */}
-          <nav className="hidden md:flex gap-0.5 flex-1 ml-3">
-            {nav.map(([to, lbl, Icon]) => (
-              <NavLink key={to} to={to} end={to === '/'} className={({ isActive }) =>
-                `flex items-center gap-2 px-3 py-2 rounded-lg text-sm transition-colors duration-150 ${
-                  isActive
-                    ? 'bg-iip-turquoise/10 text-iip-blue font-semibold'
-                    : 'text-gray-600 hover:text-iip-blue hover:bg-gray-100'
-                }`
-              }>
-                <span className="relative flex-shrink-0">
-                  {Icon && <Icon size={17} stroke={1.8} />}
-                  {to === '/accueil' && nbNotifs > 0 && (
-                    <span className="absolute -top-1.5 -right-1.5 w-3.5 h-3.5 bg-red-500 rounded-full text-[8px] text-white flex items-center justify-center font-bold">
-                      {nbNotifs > 9 ? '9+' : nbNotifs}
-                    </span>
-                  )}
-                </span>
-                <span>{lbl}</span>
-              </NavLink>
-            ))}
-          </nav>
+                <select value={anneeActive} onChange={e => changeAnnee(e.target.value)}
+                  className="border border-iip-blue/30 rounded-lg px-2.5 py-1.5 h-9 text-sm
+                             font-semibold text-iip-blue bg-white focus:outline-none
+                             focus:ring-2 focus:ring-iip-turquoise/40 cursor-pointer">
+                  {annees.map(a => <option key={a.code} value={a.code}>{a.code}</option>)}
+                  {annees.length === 0 && <option value={anneeActive}>{anneeActive}</option>}
+                </select>
+              </div>
 
-          {/* User info + version */}
-          <div className="flex items-center gap-3 text-sm flex-shrink-0">
-            {import.meta.env.VITE_DEMO_MODE === 'true' && (
-              <span className="bg-orange-500 text-white font-bold px-2.5 py-0.5 rounded-md text-[11px] tracking-widest uppercase animate-pulse">
-                DÉMO
-              </span>
-            )}
-            <span
-              className={`relative bg-iip-blue text-white font-semibold px-2 py-0.5 rounded-md text-[11px] tracking-wide hidden md:inline ${versionIsNew ? 'version-badge-new' : ''}`}
-              title={versionIsNew ? 'Nouvelle version déployée\u00a0!' : `Version ${versionNum}`}>
-              v{versionNum}
-              {versionIsNew && (
-                <span className="absolute -top-1 -right-1 flex h-2.5 w-2.5">
-                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-iip-turquoise opacity-75"></span>
-                  <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-iip-turquoise"></span>
-                </span>
-              )}
-            </span>
-            <div className="flex flex-col items-end leading-tight">
-              <VoirCommePicker />
-              <span className="text-xs text-iip-turquoise font-semibold">{u?.role}</span>
-              <button onClick={() => { api.logout(); navigate('/login'); }}
-                className="flex items-center gap-1 text-xs text-gray-400 hover:text-iip-danger transition mt-0.5">
-                <IconLogout size={13} /> Déconnexion
-              </button>
+              <div className="flex items-center gap-3 text-sm flex-shrink-0">
+                {import.meta.env.VITE_DEMO_MODE === 'true' && (
+                  <span className="bg-orange-500 text-white font-bold px-2.5 py-0.5 rounded-md
+                                   text-[11px] tracking-widest uppercase animate-pulse">
+                    DÉMO
+                  </span>
+                )}
+                <VoirCommePicker />
+              </div>
             </div>
-          </div>
+          </header>
+          <main className="flex-1">{children}</main>
         </div>
-
-        {/* Menu mobile déroulant */}
-        {menuOpen && (
-          <nav className="md:hidden mt-3 pb-2 border-t border-gray-100 pt-2 flex flex-col gap-1">
-            <div className="text-xs text-gray-500 px-3 py-1">{u?.nom || u?.email} · <span className="text-iip-turquoise">{u?.role}</span></div>
-            {nav.map(([to, lbl, Icon]) => (
-              <NavLink key={to} to={to} end={to === '/'} onClick={() => setMenuOpen(false)} className={({ isActive }) =>
-                `flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm font-medium ${
-                  isActive ? 'bg-iip-turquoise/10 text-iip-blue' : 'text-gray-700 hover:bg-gray-100'
-                }`
-              }>
-                {Icon && <Icon size={18} stroke={1.8} />}
-                <span>{lbl}</span>
-              </NavLink>
-            ))}
-          </nav>
-        )}
-      </header>
-      <main className="flex-1">{children}</main>
+      </div>
       <BuildBadge />
     </div>
   );
