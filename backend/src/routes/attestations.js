@@ -37,6 +37,18 @@ export function migrerAttestations(dbx) {
     if (!colsUe.includes('type_enseignement')) {
       dbx.exec("ALTER TABLE ue ADD COLUMN type_enseignement TEXT");
     }
+
+    // Le domaine et le type d'enseignement relèvent d'abord de la SECTION :
+    // « Sciences de la santé publique » vaut pour toutes ses unités. Les porter
+    // uniquement sur l'UE obligerait à les ressaisir dix-neuf fois.
+    const colsSection = dbx.prepare('PRAGMA table_info(section)').all().map(c => c.name);
+    if (!colsSection.includes('domaine')) {
+      dbx.exec('ALTER TABLE section ADD COLUMN domaine TEXT');
+      console.log('[migration] section.domaine ajoutée');
+    }
+    if (!colsSection.includes('type_enseignement')) {
+      dbx.exec('ALTER TABLE section ADD COLUMN type_enseignement TEXT');
+    }
   } catch (e) { console.error('[migration] attestations :', e.message); }
 }
 
@@ -65,6 +77,12 @@ function unitesReussies(etudId, annee) {
       ORDER BY (annee_scolaire = ?) DESC, annee_scolaire DESC LIMIT 1
     `).get(i.ue_num, i.annee_scolaire) || {};
 
+    // Domaine et type d'enseignement : ceux de l'UE s'ils sont renseignés,
+    // sinon ceux de sa section.
+    const sec = ue.section
+      ? db.prepare('SELECT domaine, type_enseignement FROM section WHERE code = ?').get(ue.section)
+      : null;
+
     const cours = db.prepare(`
       SELECT cours_nom, cours_per FROM cours
       WHERE ue_num = ? AND cours_code IS NOT NULL
@@ -90,6 +108,7 @@ function unitesReussies(etudId, annee) {
     const manques = [];
     if (!ue.ue_code_fwb) manques.push("le numéro de code approuvé par le Gouvernement");
     if (!ue.ects) manques.push("le nombre d'ECTS");
+    if (!(ue.domaine || sec?.domaine)) manques.push("le domaine d'études");
     if (!totalPeriodes) manques.push("le total des périodes");
     if (!activites.length) manques.push("la répartition par activité d'enseignement");
     if (i.points == null) manques.push("le pourcentage obtenu");
@@ -99,8 +118,9 @@ function unitesReussies(etudId, annee) {
       ue_nom: ue.ue_nom || `UE ${i.ue_num}`,
       code_fwb: ue.ue_code_fwb || null,
       ects: ue.ects || null,
-      domaine: ue.domaine || null,
-      type_enseignement: ue.type_enseignement || 'Enseignement supérieur de type court',
+      domaine: ue.domaine || sec?.domaine || null,
+      type_enseignement: ue.type_enseignement || sec?.type_enseignement
+        || 'Enseignement supérieur de type court',
       section: ue.section || null,
       periodes: totalPeriodes || null,
       activites,

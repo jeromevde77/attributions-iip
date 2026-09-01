@@ -590,7 +590,10 @@ r.post('/sections', authRequired, roleRequired('admin', 'editeur'), (req, res) =
 });
 
 r.patch('/sections/:code', authRequired, roleRequired('admin', 'editeur'), (req, res) => {
-  const allowed = ['libelle', 'niveau', 'type_horaire', 'responsable', 'code_fwb'];
+  // Le domaine et le type d'enseignement figurent sur les attestations de
+  // réussite : ils relèvent de la section, non de chaque unité.
+  const allowed = ['libelle', 'niveau', 'type_horaire', 'responsable', 'code_fwb',
+                   'domaine', 'type_enseignement'];
   const updates = []; const params = { code: req.params.code };
   for (const k of allowed) if (k in req.body) { updates.push(`${k} = @${k}`); params[k] = req.body[k] || null; }
   if (!updates.length) return res.status(400).json({ error: 'Aucun champ à modifier' });

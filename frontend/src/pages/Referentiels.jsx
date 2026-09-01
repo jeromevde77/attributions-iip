@@ -253,7 +253,9 @@ function SectionModal({ section, onClose, onSaved, annee, isAdmin }) {
     libelle: section?.libelle || '',
     niveau: section?.niveau || '',
     responsable: section?.responsable || '',
-    code_fwb: section?.code_fwb || ''
+    code_fwb: section?.code_fwb || '',
+    domaine: section?.domaine || '',
+    type_enseignement: section?.type_enseignement || ''
   });
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
@@ -269,7 +271,10 @@ function SectionModal({ section, onClose, onSaved, annee, isAdmin }) {
         libelle: form.libelle.trim() || form.code.trim(),
         niveau: form.niveau || null,
         responsable: form.responsable.trim() || null,
-        code_fwb: form.code_fwb.trim() || null
+        code_fwb: form.code_fwb.trim() || null,
+        // Ces deux mentions figurent sur les attestations de réussite.
+        domaine: form.domaine.trim() || null,
+        type_enseignement: form.type_enseignement.trim() || null
       };
       if (isNew) {
         await api.createSection({ code: form.code.trim(), ...payload });
@@ -302,6 +307,28 @@ function SectionModal({ section, onClose, onSaved, annee, isAdmin }) {
               <input value={form.code_fwb} onChange={e => set('code_fwb', e.target.value)}
                 className="w-full border border-gray-300 rounded px-3 py-1.5 h-9 text-sm" /></label>
           </div>
+
+          {/* Ces deux mentions figurent sur les attestations de réussite de
+              chaque unité : les porter sur la section évite de les ressaisir. */}
+          <div className="grid grid-cols-2 gap-3">
+            <label className="block">
+              <div className="text-xs text-gray-600 mb-0.5">Domaine d'études</div>
+              <input value={form.domaine} onChange={e => set('domaine', e.target.value)}
+                placeholder="Sciences de la santé publique"
+                className="w-full border border-gray-300 rounded px-3 py-1.5 h-9 text-sm" />
+            </label>
+            <label className="block">
+              <div className="text-xs text-gray-600 mb-0.5">Type d'enseignement</div>
+              <input value={form.type_enseignement}
+                onChange={e => set('type_enseignement', e.target.value)}
+                placeholder="Enseignement supérieur de type court"
+                className="w-full border border-gray-300 rounded px-3 py-1.5 h-9 text-sm" />
+            </label>
+          </div>
+          <p className="text-[11px] text-slate-500 -mt-1">
+            Ces mentions figurent sur les attestations de réussite de chaque unité de la
+            section. Une unité peut les redéfinir si elle fait exception.
+          </p>
           {!isNew && form.code.trim() && form.code.trim() !== section.code && (
             <div className="text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded px-2 py-1.5 h-9">
               ⚠️ Renommer « {section.code} » → « {form.code.trim()} » mettra à jour toutes les attributions, cours, UE et rattachements liés.
