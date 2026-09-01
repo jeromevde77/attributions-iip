@@ -2551,6 +2551,11 @@ r.get('/:id/fiche-inscription', authRequired, (req, res) => {
   const eur = n => (Number(n) || 0).toFixed(2).replace('.', ',') + ' €';
   const parUe = Object.fromEntries((di?.detail || []).map(d => [d.ue_num, d]));
 
+  // Deux lignes par UE : l'intitulé sur toute la largeur, les valeurs dessous.
+  // Dix colonnes sur une seule ligne écrasaient l'intitulé, qui est pourtant ce
+  // que l'étudiant lit en premier. La légende reste écrite UNE fois en tête :
+  // la répéter à chaque UE aurait triplé la hauteur du tableau pour une
+  // information constante.
   const lignesInsc = inscriptions.map(i => {
     const sit = situationDe(i.ue_num);
     const sr = sit.etat === 'sous_reserve' ? sit.chaine : null;
@@ -2559,25 +2564,38 @@ r.get('/:id/fiche-inscription', authRequired, (req, res) => {
     // du Conseil des études, mais c'est le plus souvent le vestige d'un
     // programme calculé avant l'encodage des résultats. On le signale.
     const dejaAcquise = acquisRows.find(a => a.ue_num === i.ue_num);
+
+    const alerte = sit.etat === 'impossible'
+      ? (sit.epreuve
+          ? ' <b style="color:#B91C1C">— épreuve intégrée : ' + sit.chaine.length
+            + ' unité(s) des années antérieures non acquise(s)</b>'
+          : ' <b style="color:#B91C1C">— exige la réussite de l\u2019UE ' + sit.chaine.join(', ') + '</b>')
+      : '';
+
+    const dates = (() => {
+      const o = datesOrg[i.ue_num];
+      if (!o?.date_debut && !o?.date_fin) return ['—', ''];
+      const j = v => v ? String(v).slice(0, 10).split('-').reverse().join('/') : '…';
+      return [j(o.date_debut), j(o.date_fin)];
+    })();
+
     return `
-    <tr>
-      <td>${i.ue_num}</td>
-      <td>${esc(i.ue_nom || '')}${i.codiplomation_ch ? ' <b>(CH)</b>' : ''}${sr ? ' <i>(sous réserve de la réussite de l\u2019UE ' + sr.join(', ') + ')</i>' : ''}${dejaAcquise ? ' <b style="color:#B45309">— déjà acquise en ' + esc(dejaAcquise.annee_scolaire || '') + '</b>' : ''}${sit.etat === 'impossible'
-        ? (sit.epreuve
-            ? ' <b style="color:#B91C1C">— épreuve intégrée : ' + sit.chaine.length + ' unité(s) des années antérieures non acquise(s)</b>'
-            : ' <b style="color:#B91C1C">— exige la réussite de l\u2019UE ' + sit.chaine.join(', ') + '</b>')
-        : ''}</td>
-      <td>${esc(i.section || '')}</td>
+    <tr class="ue-titre">
+      <td colspan="7">
+        <span class="ue-num">${i.ue_num}</span>
+        <b>${esc(i.ue_nom || '')}</b>${i.codiplomation_ch ? ' <b>(CH)</b>' : ''}${
+        sr ? ' <i>(sous réserve de la réussite de l\u2019UE ' + sr.join(', ') + ')</i>' : ''}${
+        dejaAcquise ? ' <b style="color:#B45309">— déjà acquise en '
+          + esc(dejaAcquise.annee_scolaire || '') + '</b>' : ''}${alerte}
+      </td>
+    </tr>
+    <tr class="ue-valeurs">
       <td>${esc(i.date_inscription || '')}</td>
       <td>${i.admission_type === 'titre' ? 'Titre' : i.admission_type === 'test' ? 'Test' : '—'}</td>
       <td>${d?.dispensee ? 'Dispense complète' : (i.dispense_complete ? 'Dispense complète' : '—')}</td>
-      <td style="text-align:center;white-space:nowrap">${(() => {
-        const o = datesOrg[i.ue_num];
-        if (!o?.date_debut && !o?.date_fin) return '—';
-        const j = v => v ? String(v).slice(0, 10).split('-').reverse().join('/') : '…';
-        return `${j(o.date_debut)}<br><span style="color:#94a3b8">→ ${j(o.date_fin)}</span>`;
-      })()}</td>
-      <td style="text-align:right;white-space:nowrap">${d ? d.periodes_brutes : '—'}${d?.porte_forfait ? ' <span style="color:#C9A84C" title="Cette UE porte le forfait annuel">◆</span>' : ''}</td>
+      <td style="text-align:center;white-space:nowrap">${dates[0]}${dates[1] ? ' <span style="color:#94a3b8">→ ' + dates[1] + '</span>' : ''}</td>
+      <td style="text-align:right;white-space:nowrap">${d ? d.periodes_brutes : '—'}${
+        d?.porte_forfait ? ' <span style="color:#C9A84C" title="Cette UE porte le forfait annuel">◆</span>' : ''}</td>
       <td style="text-align:right;white-space:nowrap">${d && !d.dispensee ? eur(d.montant) : '—'}</td>
       <td style="text-align:right">${i.ects != null ? i.ects : '—'}</td>
     </tr>`;
@@ -2586,12 +2604,12 @@ r.get('/:id/fiche-inscription', authRequired, (req, res) => {
   // Pied du tableau : forfait, puis total
   const piedDI = di && di.detail.length ? `
     <tr class="tot">
-      <td colspan="7" style="text-align:right">Forfait annuel${di.ue_forfait ? ` — porté par l'UE ${di.ue_forfait} ◆` : ''}</td>
+      <td colspan="4" style="text-align:right">Forfait annuel${di.ue_forfait ? ` — porté par l'UE ${di.ue_forfait} ◆` : ''}</td>
       <td style="text-align:right">—</td>
       <td style="text-align:right">${eur(di.forfait)}</td><td></td>
     </tr>
     <tr class="tot">
-      <td colspan="7" style="text-align:right"><b>Droit d'inscription — total</b></td>
+      <td colspan="4" style="text-align:right"><b>Droit d'inscription — total</b></td>
       <td style="text-align:right"><b>${di.periodes.total}</b></td>
       <td style="text-align:right"><b>${di.exonere ? '0,00 € (exonéré)' : eur(di.montant_arrondi)}</b></td>
       <td style="text-align:right"><b>${(() => {
@@ -2599,14 +2617,14 @@ r.get('/:id/fiche-inscription', authRequired, (req, res) => {
         const t = inscriptions.reduce((s, x) => s + (Number(x.ects) || 0), 0);
         return t || '—';
       })()}</b></td></tr>
-    ${di.plafond_atteint ? `<tr><td colspan="10" style="font-size:10px;color:#64748b">
+    ${di.plafond_atteint ? `<tr><td colspan="7" style="font-size:10px;color:#64748b">
       Plafond de ${di.bareme.plafond_periodes} périodes atteint : ${di.retenues.secondaire + di.retenues.superieur}
       période(s) facturée(s) sur ${di.periodes.total}, le secondaire étant compté en premier.</td></tr>` : ''}
-    ${di.exonere ? `<tr><td colspan="10" style="font-size:10px;color:#065f46">
+    ${di.exonere ? `<tr><td colspan="7" style="font-size:10px;color:#065f46">
       Exonération du droit d'inscription${di.motif ? ' — motif enregistré' : ''}.</td></tr>` : ''}
-    ${dis && dis.soumis ? `<tr class="tot"><td colspan="7" style="text-align:right">
+    ${dis && dis.soumis ? `<tr class="tot"><td colspan="5" style="text-align:right">
       Droit d'inscription spécifique (${dis.periodes_hebdo} pér./sem.)</td>
-      <td></td><td style="text-align:right"><b>${eur(dis.montant_du)}</b></td><td></td></tr>` : ''}
+      <td style="text-align:right"><b>${eur(dis.montant_du)}</b></td><td></td></tr>` : ''}
   ` : '';
 
   const html = `<!DOCTYPE html><html lang="fr"><head><meta charset="utf-8">
@@ -2635,17 +2653,36 @@ r.get('/:id/fiche-inscription', authRequired, (req, res) => {
   /* Sans largeurs explicites, le navigateur donnait autant de place aux
      colonnes vides qu'aux intitulés, qui s'écrasaient sur six lignes. */
   table.ues { table-layout: fixed; }
-  table.ues th:nth-child(1), table.ues td:nth-child(1) { width: 6%; }
-  table.ues th:nth-child(2), table.ues td:nth-child(2) { width: 30%; }
-  table.ues th:nth-child(3), table.ues td:nth-child(3) { width: 8%; }
-  table.ues th:nth-child(4), table.ues td:nth-child(4) { width: 10%; }
-  table.ues th:nth-child(5), table.ues td:nth-child(5) { width: 8%; }
-  table.ues th:nth-child(6), table.ues td:nth-child(6) { width: 8%; }
-  table.ues th:nth-child(7), table.ues td:nth-child(7) { width: 11%; }
-  table.ues th:nth-child(8), table.ues td:nth-child(8) { width: 7%; }
-  table.ues th:nth-child(9), table.ues td:nth-child(9) { width: 8%; }
-  table.ues th:nth-child(10), table.ues td:nth-child(10) { width: 4%; }
+  /* Sept colonnes désormais : l'intitulé occupe sa propre ligne au-dessus. */
+  table.ues th:nth-child(1), table.ues td:nth-child(1) { width: 15%; }
+  table.ues th:nth-child(2), table.ues td:nth-child(2) { width: 12%; }
+  table.ues th:nth-child(3), table.ues td:nth-child(3) { width: 17%; }
+  table.ues th:nth-child(4), table.ues td:nth-child(4) { width: 22%; }
+  table.ues th:nth-child(5), table.ues td:nth-child(5) { width: 11%; }
+  table.ues th:nth-child(6), table.ues td:nth-child(6) { width: 15%; }
+  table.ues th:nth-child(7), table.ues td:nth-child(7) { width: 8%; }
   table.ues td { word-wrap: break-word; }
+
+  /* Deux niveaux de ligne : l'intitulé porte le filet supérieur, les valeurs
+     s'y rattachent sans se séparer d'elles à la pagination. */
+  table.ues tr.ue-titre td {
+    border-top: 0.6pt solid #94a3b8; border-bottom: 0;
+    padding-top: 1.8mm; padding-bottom: 0.4mm; font-size: 9pt;
+  }
+  table.ues tr.ue-titre .ue-num {
+    display: inline-block; min-width: 9mm; margin-right: 1.5mm;
+    padding: 0.2mm 1.2mm; border-radius: 1mm;
+    background: #1B2B4B; color: #fff; font-size: 7.5pt; text-align: center;
+  }
+  table.ues tr.ue-valeurs td {
+    border-top: 0; padding-top: 0.4mm; padding-bottom: 1.8mm;
+    font-size: 8.5pt; color: #334155;
+  }
+  /* Le couple intitulé + valeurs ne doit pas se scinder d'une page à l'autre. */
+  table.ues tr.ue-titre { break-after: avoid; page-break-after: avoid; }
+  table.ues tr.ue-valeurs { break-before: avoid; page-break-before: avoid; }
+
+  .section-insc { margin: 0 0 2mm; font-size: 9pt; color: #334155; }
 
   /* « 10 / 20 » se cassait en deux lignes. */
   .nowrap, td.num { white-space: nowrap; }
@@ -2712,12 +2749,22 @@ ${(() => {
 })()}
 
 <h2>Unités d'enseignement — inscription ${esc(annee)}</h2>
+${(() => {
+  // La section appartient à l'en-tête : on inscrit DANS une section, elle ne
+  // varie pas d'une ligne à l'autre. Sauf pour l'étudiant inscrit dans
+  // plusieurs, cas qui existe et qu'il faut alors énoncer.
+  const secs = [...new Set(inscriptions.map(i => i.section).filter(Boolean))];
+  if (!secs.length) return '';
+  return `<p class="section-insc">${secs.length > 1 ? 'Sections' : 'Section'} :
+    <b>${secs.map(esc).join(' · ')}</b></p>`;
+})()}
 <table class="ues">
   <thead><tr>
-    <th>UE</th><th>Intitulé</th><th>Section</th><th>Date d'inscription</th>
-    <th>Admission</th><th>Valorisation</th><th>Dates</th><th>Périodes</th><th>Droit d'inscription</th><th>ECTS</th>
+    <th>Date d'inscription</th><th>Admission</th><th>Valorisation</th>
+    <th style="text-align:center">Dates</th><th style="text-align:right">Périodes</th>
+    <th style="text-align:right">Droit d'inscription</th><th style="text-align:right">ECTS</th>
   </tr></thead>
-  <tbody>${lignesInsc ? lignesInsc + piedDI : '<tr><td colspan="10" style="text-align:center;color:#94a3b8">Aucune UE inscrite pour cette année — encodez les inscriptions dans la grille de parcours</td></tr>'}</tbody>
+  <tbody>${lignesInsc ? lignesInsc + piedDI : '<tr><td colspan="7" style="text-align:center;color:#94a3b8">Aucune UE inscrite pour cette année — encodez les inscriptions dans la grille de parcours</td></tr>'}</tbody>
 </table>
 
 <!-- Engagement de l'étudiant. L'article 39 du règlement des études n'admet
