@@ -33,6 +33,10 @@ export default function CentreImpression({ onClose, documentInitial = null,
   const [coches, setCoches] = useState(new Set());
   const [recherche, setRecherche] = useState('');
   const [enCours, setEnCours] = useState(false);
+  // La date portée par le document. Le jour même par défaut, mais une
+  // attestation se signe souvent à une date décidée — délibération, courrier —
+  // et non le jour où on l'imprime.
+  const [dateDoc, setDateDoc] = useState(() => new Date().toISOString().slice(0, 10));
   const [message, setMessage] = useState(null);
 
   const doc = catalogue?.find(d => d.cle === docCle) || null;
@@ -154,6 +158,7 @@ export default function CentreImpression({ onClose, documentInitial = null,
               annee_scolaire: d.annee_scolaire,
             })),
             separes: forme === 'zip',
+            date_document: dateDoc,
           }),
         });
         const j = await rep.json();
@@ -396,7 +401,14 @@ export default function CentreImpression({ onClose, documentInitial = null,
                   </span>
                 </div>
 
-                <div className="flex gap-2 flex-wrap">
+                <div className="flex gap-2 flex-wrap items-center">
+                  <label className="flex items-center gap-1.5 text-[12px] text-slate-600 mr-1">
+                    <span className="whitespace-nowrap">Date du document</span>
+                    <input type="date" value={dateDoc}
+                      onChange={e => setDateDoc(e.target.value)}
+                      title="Date portée par le document, et non celle de l'impression"
+                      className="border border-slate-300 rounded-lg px-2 py-1 text-[12px]" />
+                  </label>
                   {pdfPossible && (
                     <button onClick={() => produire('pdf')} disabled={enCours || !retenus.length}
                       className="flex items-center gap-1.5 px-3.5 py-1.5 text-sm bg-iip-blue

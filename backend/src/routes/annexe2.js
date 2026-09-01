@@ -141,7 +141,7 @@ r.get('/donnees/:etudiantId', authRequired, (req, res) => {
 // ── Le document ─────────────────────────────────────────────────────────────
 r.post('/document', authRequired, roleRequired('admin', 'directeur',
        'directeur_adjoint', 'editeur', 'secretariat'), (req, res) => {
-  const { etudiant_id, annee, motif, avis } = req.body || {};
+  const { etudiant_id, annee, motif, avis, date_document } = req.body || {};
   const e = db.prepare('SELECT * FROM etudiant WHERE id = ?').get(etudiant_id);
   if (!e) return res.status(404).json({ error: 'étudiant introuvable' });
 
@@ -203,7 +203,7 @@ r.post('/document', authRequired, roleRequired('admin', 'directeur',
      ${champ(avis || 'Néant')}</p>
 
   <p>Fait à <b>${esc(etab.localite || 'Anderlecht')}</b>, le
-     <b>${frDate(new Date().toISOString())}</b></p>
+     <b>${frDate(date_document || new Date().toISOString())}</b></p>
 
   <div class="sig">
     <div class="lib">Signature du représentant ou de la représentante
