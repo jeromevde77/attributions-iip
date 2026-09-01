@@ -205,17 +205,24 @@ function envelopper(corps, titre = 'Attestations de réussite') {
 
   .manque { color: #b45309; font-style: italic; }
 
-  table.cloture{display:flex;align-items:flex-end;justify-content:space-between;
-  margin-top:14mm;page-break-inside:avoid}
-.cloture .lieu{font-size:8.5pt;color:#334;align-self:flex-end;padding-bottom:2mm}
-.cloture .sceau{width:26mm;height:26mm;opacity:.92;
-  background:var(--sceau) center/contain no-repeat}
-.cloture .signature{text-align:center;min-width:52mm}
-.cloture .signature .paraphe{height:17mm;margin-bottom:-3mm;
-  background:var(--paraphe) center/contain no-repeat}
-.cloture .qualite{font-size:8.5pt;color:#334}
-.cloture .nom{font-size:9.5pt;font-weight:700;color:#1B2B4B;letter-spacing:.3px}
-.signatures { width: 100%; border-collapse: collapse; margin-top: 5mm; font-size: 8pt; }
+  .cloture{display:grid;grid-template-columns:1fr auto auto;
+    grid-template-rows:auto auto;column-gap:14mm;align-items:end;
+    margin-top:14mm;page-break-inside:avoid}
+  .cloture .lieu{grid-column:1;grid-row:2;font-size:8.5pt;color:#334;
+    text-align:left;padding-bottom:1mm}
+  /* Les deux images occupent la même ligne et la même hauteur, calées sur
+     leur bas : c'est ce qui les met au même niveau quelles que soient
+     leurs proportions. */
+  .cloture .sceau,
+  .cloture .paraphe{grid-row:1;height:22mm;background-repeat:no-repeat;
+    background-position:center bottom;background-size:contain}
+  .cloture .sceau{grid-column:2;width:22mm;opacity:.92}
+  .cloture .paraphe{grid-column:3;width:46mm}
+  .cloture .legende{grid-column:3;grid-row:2;text-align:center;
+    border-top:.4pt solid #94a3b8;padding-top:1mm;width:46mm}
+  .cloture .qualite{font-size:8.5pt;color:#334}
+  .cloture .nom{font-size:9.5pt;font-weight:700;color:#1B2B4B;letter-spacing:.3px}
+  .signatures { width: 100%; border-collapse: collapse; margin-top: 5mm; font-size: 8pt; }
   table.signatures td { border: 0.4pt solid #94a3b8; padding: 1.5mm 2.5mm;
                         vertical-align: top; width: 33.33%; }
   table.signatures tr.hauteur td { height: 16mm; }
@@ -332,11 +339,11 @@ function pageAttestation(e, u, annee, etab) {
   <!-- Sceau et signature. Le tableau à trois cases (conseil des études,
        sceau, direction) est remplacé par les pièces réelles. -->
   <div class="cloture">
+    <div class="sceau"></div>
+    <div class="paraphe"></div>
     <div class="lieu">Fait à ${esc(etab.localite || 'Anderlecht')},
       le ${frDate(new Date().toISOString())}</div>
-    <div class="sceau"></div>
-    <div class="signature">
-      <div class="paraphe"></div>
+    <div class="legende">
       <div class="qualite">Le Directeur</div>
       <div class="nom">${esc(etab.directeur_nom || 'Charles SOHET')}</div>
     </div>
