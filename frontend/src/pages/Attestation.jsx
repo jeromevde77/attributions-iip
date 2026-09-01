@@ -588,15 +588,20 @@ export default function Attestation() {
       const combined = '<!DOCTYPE html><html lang="fr"><head><meta charset="utf-8"><title>' + docTitre + ' ' + annee + '</title><style>' + style +
         '\n@media print{ .page{ page-break-after: always; } .page:last-child{ page-break-after: auto; } }</style></head><body>' +
         bodies.join('\n') + '</body></html>';
-      const iframe = document.createElement('iframe');
-      iframe.style.cssText = 'position:fixed;right:0;bottom:0;width:0;height:0;border:0;';
-      document.body.appendChild(iframe);
-      const idoc = iframe.contentWindow.document;
-      idoc.open(); idoc.write(combined); idoc.close();
-      setTimeout(() => {
-        try { iframe.contentWindow.focus(); iframe.contentWindow.print(); } catch (e) { alert('Erreur impression : ' + e.message); }
-        setTimeout(() => { try { document.body.removeChild(iframe); } catch {} }, 120000);
-      }, 500);
+      // Un cadre caché fait imprimer à Safari le document parent : on obtenait
+      // une capture de l'écran plutôt que les attestations. Une fenêtre dédiée
+      // porte le document seul.
+      const w = window.open('', '_blank');
+      if (!w) {
+        alert("La fenêtre d'impression a été bloquée. Autorisez les fenêtres "
+            + "surgissantes pour ce site, puis réessayez.");
+        return;
+      }
+      w.document.open(); w.document.write(combined); w.document.close();
+      let lance = false;
+      const lancer = () => { if (lance) return; lance = true; w.focus(); w.print(); };
+      w.onload = lancer;
+      setTimeout(lancer, 400);
     } catch (e) { alert('Erreur génération : ' + e.message); }
     finally { setGenerating(false); }
   };
