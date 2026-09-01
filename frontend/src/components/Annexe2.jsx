@@ -14,6 +14,7 @@ export default function Annexe2({ etudId, annee, onClose }) {
   const [donnees, setDonnees] = useState(null);
   const [motif, setMotif] = useState('');
   const [avis, setAvis] = useState('Néant');
+  const [dateDoc, setDateDoc] = useState(() => new Date().toISOString().slice(0, 10));
   const [enCours, setEnCours] = useState(false);
   const [erreur, setErreur] = useState(null);
 
@@ -32,7 +33,8 @@ export default function Annexe2({ etudId, annee, onClose }) {
     try {
       const rep = await fetch('/api/annexe2/document', {
         method: 'POST', headers: authHeaders(),
-        body: JSON.stringify({ etudiant_id: etudId, annee, motif, avis }),
+        body: JSON.stringify({ etudiant_id: etudId, annee, motif, avis,
+                               date_document: dateDoc }),
       });
       const j = await rep.json();
       if (!rep.ok) { setErreur(j.error); return; }
@@ -122,7 +124,15 @@ export default function Annexe2({ etudId, annee, onClose }) {
             className="w-full border border-slate-300 rounded-lg px-2 py-1.5 text-sm" />
         </label>
 
-        <button onClick={produire} disabled={enCours || !donnees}
+        <label className="block text-xs">
+          <span className="block font-semibold text-slate-500 uppercase tracking-wide mb-1">
+            Date du document
+          </span>
+          <input type="date" value={dateDoc} onChange={e => setDateDoc(e.target.value)}
+            className="border border-slate-300 rounded-lg px-2 py-1.5 text-sm" />
+        </label>
+
+                <button onClick={produire} disabled={enCours || !donnees}
           className="flex items-center gap-1.5 px-4 py-2 text-sm bg-iip-blue text-white
                      font-semibold rounded-lg disabled:opacity-40">
           <IconPrinter size={15} /> {enCours ? 'Génération…' : 'Produire le document'}

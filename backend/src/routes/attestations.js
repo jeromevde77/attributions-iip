@@ -260,7 +260,12 @@ r.get('/etudiant/:id', authRequired, (req, res) => {
 });
 
 // ── Document ────────────────────────────────────────────────────────────────
-function pageAttestation(e, u, annee, etab) {
+/**
+ * @param {string} [dateDoc] date portée par le document, au format ISO. Par
+ *   défaut le jour même — mais une attestation se signe souvent à une date
+ *   décidée (délibération, courrier), non le jour où on l'imprime.
+ */
+function pageAttestation(e, u, annee, etab, dateDoc = null) {
   // Le titre s'écrit tantôt « Mme », tantôt « Madame » : chercher la seule
   // abréviation produisait une attestation au masculin pour une étudiante.
   const genre = /^(mme|madame|mlle|mademoiselle|m\.?me)\b/i.test((e.titre || '').trim())
@@ -349,7 +354,7 @@ function pageAttestation(e, u, annee, etab) {
     <div class="sceau"></div>
     <div class="paraphe"></div>
     <div class="lieu">Fait à ${esc(etab.localite || 'Anderlecht')},
-      le ${frDate(new Date().toISOString())}</div>
+      le ${frDate(dateDoc || new Date().toISOString())}</div>
     <div class="legende">
       <div class="qualite">Pour le Conseil des études,<br>le Directeur</div>
       <div class="nom">${esc(etab.directeur_nom || 'Charles SOHET')}</div>
@@ -375,7 +380,7 @@ r.get('/etudiant/:id/document', authRequired, (req, res) => {
 
   // Une attestation par unité, chacune sur sa propre page : ce sont des pièces
   // distinctes, remises séparément.
-  const pages = unites.map(u => pageAttestation(e, u, annee, etab))
+  const pages = unites.map(u => pageAttestation(e, u, annee, etab, req.query.date_document))
     .join('<div class="saut"></div>');
 
   const html = envelopper(pages, `Attestations — ${e.nom} ${e.prenom}`);
@@ -450,7 +455,7 @@ r.get('/candidats', authRequired, (req, res) => {
 
 // ── Génération groupée ──────────────────────────────────────────────────────
 r.post('/lot', authRequired, (req, res) => {
-  const { paires, separes } = req.body || {};
+  const { paires, separes, date_document } = req.body || {};
   if (!Array.isArray(paires) || !paires.length) {
     return res.status(400).json({ error: 'aucune attestation demandée' });
   }
@@ -499,7 +504,7 @@ r.post('/lot', authRequired, (req, res) => {
       etudiant: `${e.nom} ${e.prenom}`,
       ue_num: u.ue_num,
       annee: p.annee_scolaire,
-      corps: pageAttestation(e, u, p.annee_scolaire, etab),
+      corps: pageAttestation(e, u, p.annee_scolaire, etab, date_document),
     });
   }
 
