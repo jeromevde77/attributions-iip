@@ -623,6 +623,10 @@ const TYPES_VA = [
 function Valorisations({ etudId, annee }) {
   const [valos, setValos] = useState(null);
   const [form, setForm] = useState(null);
+  // Le seuil de report. Le RDE fixe la réussite à 10/20 (art. 78) et ne
+  // mentionne pas de seuil propre au report : celui-ci relève donc d'une règle
+  // interne, et reste modifiable au cas par cas.
+  const [seuilReport, setSeuilReport] = useState(12);
   const [composantes, setComposantes] = useState(null);
   // Directeur, directeur adjoint et administrateur technique ont les mêmes
   // droits ici : comparer à la seule chaîne 'admin' en écartait la direction.
@@ -652,6 +656,28 @@ function Valorisations({ etudId, annee }) {
     });
     const j = await rep.json();
     if (!rep.ok) { alert(j.error || 'Erreur'); return; }
+
+    // Les notes par cours vont dans etudiant_report_note, table prévue pour
+    // cela : la valorisation dit QUELS cours sont dispensés, le report dit
+    // AVEC QUELLE NOTE.
+    const notes = form.notes || {};
+    for (const [cours_code, note] of Object.entries(notes)) {
+      if (note === '' || note == null) continue;
+      const r = await fetch('/api/acquis/reports', {
+        method: 'PUT', headers: authHeaders(),
+        body: JSON.stringify({
+          etudiant_id: etudId, annee_scolaire: annee, ue_num: Number(form.ue_num),
+          cours_code, note: Number(note),
+          annee_origine: form.annee_origine || null,
+          decision_ce: form.decision_ce || null,
+        }),
+      });
+      if (!r.ok) {
+        const e = await r.json().catch(() => ({}));
+        alert(`Note du cours ${cours_code} non enregistrée : ${e.error || 'erreur'}`);
+        return;
+      }
+    }
     setForm(null); setComposantes(null); await charger();
   }
 
@@ -708,28 +734,83 @@ function Valorisations({ etudId, annee }) {
                 ))}
               </div>
               {composantes && (
-                <div className="flex flex-wrap gap-1.5">
-                  {(form.cible === 'cours' ? composantes.cours : composantes.aas).map(item => {
-                    const code = form.cible === 'cours' ? item.cours_code : item.aa_code;
-                    const libelle = form.cible === 'cours' ? item.cours_nom : (item.description || item.aa_code);
-                    const sel = (form.cible_detail || '').split(',').filter(Boolean);
-                    const actif = sel.includes(code);
-                    return (
-                      <button key={code} type="button"
-                        onClick={() => {
-                          const next = actif ? sel.filter(s => s !== code) : [...sel, code];
-                          setForm(f => ({ ...f, cible_detail: next.join(',') }));
-                        }}
-                        className={`text-[11px] px-2 py-1 rounded-lg border ${actif
-                          ? 'bg-iip-blue text-white border-iip-blue'
-                          : 'border-slate-300 text-slate-600 hover:bg-slate-50'}`}
-                        title={libelle}>
-                        {code}
-                      </button>
-                    );
-                  })}
-                  {!((form.cible === 'cours' ? composantes.cours : composantes.aas).length) && (
-                    <span className="text-[11px] text-slate-400">Aucune composante trouvée pour cette UE</span>
+                <div className="border border-slate-200 rounded-xl overflow-hidden">
+                  <div className="flex items-center justify-between px-3 py-1.5 bg-slate-50
+                                  border-b border-slate-200">
+                    <span className="text-[11px] uppercase tracking-wide text-slate-500
+                                     font-semibold">
+                      {form.cible === 'cours' ? 'Cours de l\u2019UE' : "Acquis d\u2019apprentissage"}
+                    </span>
+                    <label className="flex items-center gap-1.5 text-[11px] text-slate-500">
+                      Seuil de report
+                      <input type="number" min="0" max="20" step="0.5" value={seuilReport}
+                        onChange={e => setSeuilReport(Number(e.target.value))}
+                        className="w-14 border border-slate-300 rounded px-1.5 py-0.5 text-[11px]" />
+                      /20
+                    </label>
+                  </div>
+
+                  <div className="max-h-56 overflow-y-auto divide-y divide-slate-100">
+                    {(form.cible === 'cours' ? composantes.cours : composantes.aas).map(item => {
+                      const code = form.cible === 'cours' ? item.cours_code : item.aa_code;
+                      const libelle = form.cible === 'cours'
+                        ? item.cours_nom : (item.description || item.aa_code);
+                      const sel = (form.cible_detail || '').split(',').filter(Boolean);
+                      const actif = sel.includes(code);
+                      const note = form.notes?.[code] ?? '';
+                      // Sous le seuil, le report n'a pas lieu d'être : on le
+                      // signale sans l'interdire, la décision revient au CDE.
+                      const sousSeuil = note !== '' && Number(note) < seuilReport;
+                      return (
+                        <div key={code}
+                          className={`flex items-center gap-2 px-3 py-1.5 text-[12px]
+                                      ${actif ? 'bg-iip-blue/5' : ''}`}>
+                          <input type="checkbox" checked={actif}
+                            onChange={() => {
+                              const next = actif ? sel.filter(s => s !== code) : [...sel, code];
+                              setForm(f => ({ ...f, cible_detail: next.join(',') }));
+                            }} />
+                          <span className="w-20 flex-none font-mono text-[11px] text-slate-500">
+                            {code}
+                          </span>
+                          <span className="flex-1 min-w-0 truncate" title={libelle}>{libelle}</span>
+                          <input type="number" min="0" max="20" step="0.5" value={note}
+                            placeholder="—"
+                            onChange={e => {
+                              const v = e.target.value;
+                              setForm(f => {
+                                const notes = { ...(f.notes || {}) };
+                                if (v === '') delete notes[code]; else notes[code] = v;
+                                // Saisir une note vaut sélection : sans cela on
+                                // encoderait un point sans dispenser le cours.
+                                const s = (f.cible_detail || '').split(',').filter(Boolean);
+                                const detail = v !== '' && !s.includes(code)
+                                  ? [...s, code].join(',') : f.cible_detail;
+                                return { ...f, notes, cible_detail: detail };
+                              });
+                            }}
+                            className={`w-16 flex-none border rounded px-1.5 py-0.5 text-[12px]
+                                        text-right ${sousSeuil
+                                          ? 'border-amber-400 bg-amber-50' : 'border-slate-300'}`}
+                            title={sousSeuil
+                              ? `Sous le seuil de ${seuilReport}/20`
+                              : 'Note reportée pour ce cours'} />
+                          <span className="text-[10px] text-slate-400 flex-none w-6">/20</span>
+                        </div>
+                      );
+                    })}
+                  </div>
+
+                  {Object.keys(form.notes || {}).length > 0 && (
+                    <div className="px-3 py-1.5 bg-slate-50 border-t border-slate-200
+                                    text-[11px] text-slate-600">
+                      {Object.keys(form.notes).length} note(s) à reporter
+                      {Object.values(form.notes).some(n => Number(n) < seuilReport) && (
+                        <span className="text-amber-700 font-semibold">
+                          {' '}· dont certaines sous le seuil de {seuilReport}/20
+                        </span>
+                      )}
+                    </div>
                   )}
                 </div>
               )}
