@@ -2,10 +2,14 @@ import { Router } from 'express';
 import bcrypt from 'bcryptjs';
 import db from '../db/index.js';
 import { authRequired, roleRequired } from '../middleware/auth.js';
+import { ROLES } from '../middleware/permissions.js';
 
 const r = Router();
 
-const ROLES = ['admin', 'editeur', 'consultation', 'coordination'];
+// La liste des rôles vient du SYSTÈME DE PERMISSIONS, elle n'est plus recopiée
+// ici : cette copie n'en connaissait que quatre sur huit, et refusait
+// « Rôle invalide » pour directeur, directeur_adjoint, secretariat et
+// professeur, pourtant définis et utilisés partout ailleurs.
 
 // Helper : récupère les sections d'un utilisateur
 function sectionsOf(userId) {
