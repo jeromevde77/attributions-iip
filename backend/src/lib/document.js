@@ -97,8 +97,14 @@ export function piedStyles(hauteur = HAUTEUR_PIED_MM) {
   .pied-lucie .pied-filet { border-top: 0.5pt solid #C9A84C; padding-top: 1.5mm;
                             text-align: center; }
   .pied-lucie .pied-txt { font-size: 6pt; color: #888; line-height: 1.3; }
+  /* À l'écran, la position fixe collerait le pied au bas de la FENÊTRE, non de
+     la page. On simule donc la feuille : hauteur d'une A4 et pied repoussé en
+     bas par « margin-top: auto ». L'aperçu montre alors ce que donnera
+     l'impression, au lieu d'un pied collé sous le texte. */
   @media screen {
-    .pied-lucie { position: static; height: auto; margin-top: 10mm; }
+    body { min-height: 297mm; display: flex; flex-direction: column; }
+    body > .pied-lucie { position: static; height: auto; margin-top: auto;
+                         padding-top: 10mm; }
   }`;
 }
 
@@ -141,8 +147,10 @@ export function envelopperDocument({ html, titre, orientation = 'portrait',
      de la page : on le laisse suivre le flux tant qu'on n'imprime pas. */
   @media screen {
     html { background: #e5e5e5; }
+    /* Le padding suit les marges réglées, sinon l'aperçu ne correspond pas au
+       document imprimé. */
     body { max-width: ${orientation === 'paysage' ? '297mm' : '210mm'};
-           margin: 16px auto; padding: 18mm; background: #fff;
+           margin: 16px auto; padding: ${margeHaut}mm ${margeCote}mm 0; background: #fff;
            box-shadow: 0 2px 14px rgba(0,0,0,.18); }
   }
 
