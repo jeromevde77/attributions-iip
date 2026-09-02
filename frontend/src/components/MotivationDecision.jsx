@@ -25,15 +25,18 @@ export default function MotivationDecision({ etudId, annee, onClose }) {
   const [message, setMessage] = useState(null);
 
   useEffect(() => {
-    fetch(`/api/etudiants/${etudId}/pae?annee=${encodeURIComponent(annee)}`,
+    fetch(`/api/acquis/echecs/${etudId}?annee=${encodeURIComponent(annee)}`,
       { headers: authHeaders() })
-      .then(r => r.json())
+      .then(async r => {
+        if (!r.ok) throw new Error((await r.json().catch(() => ({}))).error || r.status);
+        return r.json();
+      })
       .then(j => {
-        const enEchec = (j?.inscriptions || j || [])
-          .filter(i => i.resultat === 'refuse' || i.resultat === 'ajourne');
-        setUes(enEchec);
-        if (enEchec.length === 1) setUeNum(enEchec[0].ue_num);
-      }).catch(() => setUes([]));
+        setUes(j.unites || []);
+        // Une seule unité en échec : on ouvre directement, sans choix inutile.
+        if (j.unites?.length === 1) setUeNum(j.unites[0].ue_num);
+      })
+      .catch(e => { setUes([]); setMessage({ type: 'err', texte: String(e.message) }); });
   }, [etudId, annee]);
 
   useEffect(() => {
@@ -48,6 +51,34 @@ export default function MotivationDecision({ etudId, annee, onClose }) {
         setMotifs(Object.fromEntries(j.acquis.map(a => [a.aa_code, a.motif || ''])));
       }).catch(e => setMessage({ type: 'err', texte: e.message }));
   }, [etudId, ueNum, annee]);
+
+  /**
+   * La route renvoie du JSON, non une page : l'ouvrir directement affichait du
+   * code. On récupère le HTML et on l'imprime dans une fenêtre dédiée — Safari
+   * imprime le document parent si l'on passe par un cadre.
+   */
+  async function produireDocument() {
+    setEnCours(true); setMessage(null);
+    try {
+      const rep = await fetch(
+        `/api/acquis/motivation/${etudId}/${ueNum}/document`
+        + `?annee=${encodeURIComponent(annee)}`, { headers: authHeaders() });
+      const j = await rep.json();
+      if (!rep.ok) { setMessage({ type: 'err', texte: j.error }); return; }
+      const w = window.open('', '_blank');
+      if (!w) {
+        setMessage({ type: 'err', texte: 'Fenêtre bloquée. Autorisez les fenêtres surgissantes.' });
+        return;
+      }
+      w.document.open(); w.document.write(j.html); w.document.close();
+      let lance = false;
+      const lancer = () => { if (lance) return; lance = true; w.focus(); w.print(); };
+      w.onload = lancer;
+      setTimeout(lancer, 500);
+    } catch (e) {
+      setMessage({ type: 'err', texte: e.message });
+    } finally { setEnCours(false); }
+  }
 
   async function enregistrer() {
     setEnCours(true); setMessage(null);
@@ -220,10 +251,7 @@ export default function MotivationDecision({ etudId, annee, onClose }) {
             <IconDeviceFloppy size={15} />
             {enCours ? 'Enregistrement…' : 'Enregistrer les motivations'}
           </button>
-          <button
-            onClick={() => window.open(
-              `/api/acquis/motivation/${etudId}/${ueNum}/document`
-              + `?annee=${encodeURIComponent(annee)}`, '_blank')}
+          <button onClick={produireDocument}
             disabled={!nonMaitrises.length || sansMotif > 0}
             title={sansMotif > 0
               ? 'Motivez chaque acquis avant de produire le document'

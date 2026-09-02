@@ -400,6 +400,26 @@ r.put('/motivation', authRequired, roleRequired('admin', 'directeur',
   res.json({ ok: true, enregistres: Object.keys(motifs).length });
 });
 
+// ── Les unités en échec d'un étudiant ──────────────────────────────────────
+// Route dédiée : la route /pae ne remonte pas les résultats, et deviner sa
+// structure m'a déjà valu une erreur.
+r.get('/echecs/:etudId', authRequired, (req, res) => {
+  const annee = req.query.annee;
+  if (!annee) return res.status(400).json({ error: 'annee requise' });
+
+  const lignes = db.prepare(`
+    SELECT i.ue_num, i.resultat,
+           (SELECT ue_nom FROM ue u WHERE u.ue_num = i.ue_num AND u.ue_nom IS NOT NULL
+             ORDER BY u.annee_scolaire DESC LIMIT 1) AS ue_nom
+    FROM etudiant_inscription i
+    WHERE i.etudiant_id = ? AND i.annee_scolaire = ?
+      AND i.resultat IN ('refuse', 'ajourne')
+    ORDER BY i.ue_num
+  `).all(Number(req.params.etudId), annee);
+
+  res.json({ annee, unites: lignes });
+});
+
 // ── Le document réglementaire ──────────────────────────────────────────────
 // Annexe 8 (ajournement) ou 9 (refus), selon la décision encodée. La forme est
 // imposée par la circulaire : on la suit, sans habillage.
