@@ -47,7 +47,7 @@ r.get('/valeurs/:parametre', authRequired, (req, res) => {
  * même requête, autant ne pas la refaire au moment de produire.
  */
 r.get('/destinataires', authRequired, (req, res) => {
-  const { document, annee, section, ue } = req.query;
+  const { document, annee, section, ue, ues } = req.query;
   const doc = documentParCle(document);
   if (!doc) return res.status(400).json({ error: 'document inconnu' });
 
@@ -63,7 +63,13 @@ r.get('/destinataires', authRequired, (req, res) => {
     const clauses = ['i.annee_scolaire = ?'];
     const params = [annee];
     if (parUE) clauses.push("i.resultat = 'reussi'");
-    if (ue) { clauses.push('i.ue_num = ?'); params.push(Number(ue)); }
+    // Plusieurs unités possibles : « ues » l'emporte, « ue » reste accepté
+    // pour ne pas casser les appels existants.
+    const listeUe = (ues || ue || '').split(',').map(Number).filter(Boolean);
+    if (listeUe.length) {
+      clauses.push(`i.ue_num IN (${listeUe.map(() => '?').join(',')})`);
+      params.push(...listeUe);
+    }
 
     const lignes = db.prepare(`
       SELECT DISTINCT e.id AS etudiant_id, e.nom, e.prenom,

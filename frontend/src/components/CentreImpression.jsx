@@ -25,7 +25,9 @@ export default function CentreImpression({ onClose, documentInitial = null,
 
   const [annee, setAnnee] = useState(anneeInitiale || '');
   const [section, setSection] = useState('');
-  const [ue, setUe] = useState('');
+  // Plusieurs unités à la fois : neuf cents attestations d'un coup sont
+  // ingérables, et une seule unité est souvent trop peu.
+  const [uesChoisies, setUesChoisies] = useState(new Set());
 
   const [destinataires, setDestinataires] = useState(null);
   // Sélection EXPLICITE plutôt qu'exclusion : on voit ce qu'on va produire,
@@ -33,6 +35,14 @@ export default function CentreImpression({ onClose, documentInitial = null,
   const [coches, setCoches] = useState(new Set());
   const [recherche, setRecherche] = useState('');
   const [enCours, setEnCours] = useState(false);
+  // Le temps d'un lot dépend du serveur : plutôt que d'inventer une estimation,
+  // on MESURE le premier et on s'en sert pour annoncer les suivants.
+  const [travail, setTravail] = useState(null);   // { total, debut, estime }
+
+  const cadenceMs = () => {
+    const v = Number(localStorage.getItem('impression_ms_par_piece'));
+    return Number.isFinite(v) && v > 0 ? v : null;
+  };
   // La date portée par le document. Le jour même par défaut, mais une
   // attestation se signe souvent à une date décidée — délibération, courrier —
   // et non le jour où on l'imprime.
@@ -83,7 +93,7 @@ export default function CentreImpression({ onClose, documentInitial = null,
     try {
       const qs = new URLSearchParams({ document: docCle, annee });
       if (section) qs.set('section', section);
-      if (ue) qs.set('ue', ue);
+      if (uesChoisies.size) qs.set('ues', [...uesChoisies].join(','));
       const rep = await fetch(`/api/impression/destinataires?${qs}`,
         { headers: authHeaders() });
       const j = await rep.json();
@@ -99,7 +109,19 @@ export default function CentreImpression({ onClose, documentInitial = null,
         j.destinataires
           .filter(d => !pre.size || pre.has(Number(d.etudiant_id)))
           .map(cle)));
-    } finally { setEnCours(false); }
+    } finally {
+      setEnCours(false);
+      setTravail(t => {
+        if (t?.total) {
+          const ms = (Date.now() - t.debut) / t.total;
+          // Moyenne glissante : une mesure isolée peut être trompeuse.
+          const ancien = cadenceMs();
+          localStorage.setItem('impression_ms_par_piece',
+            String(ancien ? Math.round((ancien * 2 + ms) / 3) : Math.round(ms)));
+        }
+        return null;
+      });
+    }
   }
 
   const cle = d => `${d.etudiant_id || d.professeur_id}|${d.ue_num ?? ''}|${d.annee_scolaire ?? ''}`;
@@ -146,6 +168,13 @@ export default function CentreImpression({ onClose, documentInitial = null,
    * source des régressions passées.
    */
   async function produire(forme) {
+    const total = retenus.length;
+    const cad = cadenceMs();
+    setTravail({
+      total,
+      debut: Date.now(),
+      estime: cad ? Math.round((total * cad) / 1000) : null,
+    });
     if (!retenus.length) return;
     setEnCours(true); setMessage(null);
     try {
@@ -313,6 +342,24 @@ export default function CentreImpression({ onClose, documentInitial = null,
           </div>
         )}
 
+        {travail && (
+          <div className="px-3 py-2.5 rounded-lg bg-iip-blue/5 border border-iip-blue/30
+                          text-[12.5px] text-iip-blue">
+            <div className="font-semibold">
+              Votre demande est en cours de traitement.
+            </div>
+            <div className="text-slate-600 mt-0.5">
+              {travail.total} document(s).{' '}
+              {travail.estime
+                ? `Environ ${travail.estime < 60
+                    ? travail.estime + ' seconde(s)'
+                    : Math.round(travail.estime / 60) + ' minute(s)'}, d'après vos lots précédents.`
+                : "La durée dépend du serveur ; le premier lot servira de repère."}
+              {travail.total > 200 && ' Ne fermez pas cette fenêtre.'}
+            </div>
+          </div>
+        )}
+
         {message && (
           <div className={`px-3 py-2 rounded-lg text-[12.5px] ${
             message.type === 'err' ? 'bg-red-50 border border-red-200 text-red-800'
@@ -355,10 +402,41 @@ export default function CentreImpression({ onClose, documentInitial = null,
               <Choix libelle="Section" valeur={section} onChange={setSection}
                 options={sections} vide="Toutes" />
             )}
-            {doc.parametres?.includes('ue') && (
-              <Choix libelle="Unité" valeur={ue} onChange={setUe}
-                options={ues.map(u => ({ valeur: u.valeur, libelle: `${u.valeur} — ${u.libelle}` }))}
-                vide="Toutes" />
+            {doc.parametres?.includes('ue') && ues.length > 0 && (
+              <div className="text-xs w-full">
+                <div className="flex items-center justify-between mb-1">
+                  <span className="font-semibold text-slate-500 uppercase tracking-wide">
+                    Unités {uesChoisies.size ? `(${uesChoisies.size})` : '— toutes'}
+                  </span>
+                  <button onClick={() => setUesChoisies(s =>
+                    s.size === ues.length ? new Set() : new Set(ues.map(u => u.valeur)))}
+                    className="text-[11.5px] text-iip-blue font-semibold">
+                    {uesChoisies.size === ues.length ? 'Tout décocher' : 'Tout cocher'}
+                  </button>
+                </div>
+                <div className="border border-slate-300 rounded-lg max-h-36 overflow-y-auto
+                                divide-y divide-slate-100">
+                  {ues.map(u => (
+                    <label key={u.valeur}
+                      className={`flex items-center gap-2 px-2 py-1 cursor-pointer text-[12px]
+                        ${uesChoisies.has(u.valeur) ? 'bg-iip-blue/5' : 'hover:bg-slate-50'}`}>
+                      <input type="checkbox" checked={uesChoisies.has(u.valeur)}
+                        onChange={() => { setUesChoisies(s => {
+                          const n = new Set(s);
+                          n.has(u.valeur) ? n.delete(u.valeur) : n.add(u.valeur);
+                          return n;
+                        }); setDestinataires(null); }} />
+                      <span className="font-mono text-[11px] text-slate-500 w-10 flex-none">
+                        {u.valeur}
+                      </span>
+                      <span className="truncate">{u.libelle}</span>
+                    </label>
+                  ))}
+                </div>
+                <span className="block text-[10.5px] text-slate-400 mt-0.5">
+                  Aucune cochée = toutes les unités.
+                </span>
+              </div>
             )}
           </div>
         )}

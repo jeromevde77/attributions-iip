@@ -481,6 +481,9 @@ r.post('/lot', authRequired, (req, res) => {
 
   const documents = [];
   const manquants = [];
+  // Deux homonymes dans la même unité produiraient le même nom de fichier, et
+  // l'un écraserait l'autre dans l'archive. On suffixe alors le matricule.
+  const nomsVus = new Map();
 
   for (const p of paires) {
     const etudId = Number(p.etudiant_id);
@@ -500,7 +503,16 @@ r.post('/lot', authRequired, (req, res) => {
     const propre = s => String(s || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '')
       .replace(/[^A-Za-z0-9]+/g, '_').replace(/^_|_$/g, '');
     documents.push({
-      nom_fichier: `${propre(e.nom)}_${propre(e.prenom)}_UE${u.ue_num}_${p.annee_scolaire}.html`,
+      // Format demandé : UE65_Sohet_Charles_2526. L'unité vient en tête pour
+      // que l'archive se range par UE, et le millésime est abrégé.
+      nom_fichier: (() => {
+        const base = `UE${u.ue_num}_${propre(e.nom)}_${propre(e.prenom)}`
+          + `_${String(p.annee_scolaire).replace(/^(\d{2})(\d{2})-(\d{2})(\d{2})$/, '$2$4')
+               .replace(/-/g, '')}`;
+        const n = (nomsVus.get(base) || 0) + 1;
+        nomsVus.set(base, n);
+        return (n === 1 ? base : `${base}_${e.id_ecampus || e.id}`) + '.html';
+      })(),
       etudiant: `${e.nom} ${e.prenom}`,
       ue_num: u.ue_num,
       annee: p.annee_scolaire,
