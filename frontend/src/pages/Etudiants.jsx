@@ -628,6 +628,7 @@ function Valorisations({ etudId, annee }) {
   // mentionne pas de seuil propre au report : celui-ci relève donc d'une règle
   // interne, et reste modifiable au cas par cas.
   const [seuilReport, setSeuilReport] = useState(12);
+  const [anterieur, setAnterieur] = useState(null);   // notes des années passées
   const [composantes, setComposantes] = useState(null);
   // Directeur, directeur adjoint et administrateur technique ont les mêmes
   // droits ici : comparer à la seule chaîne 'admin' en écartait la direction.
@@ -644,10 +645,33 @@ function Valorisations({ etudId, annee }) {
   }
   useEffect(() => { charger(); /* eslint-disable-next-line */ }, [etudId]);
 
-  async function chargerComposantes(ueNum) {
-    if (!ueNum) { setComposantes(null); return; }
-    const rep = await fetch(`/api/etudiants/ue/${ueNum}/composantes?annee=${annee}`, { headers: authHeaders() });
+  async function chargerComposantes(ueNum, anneeSource = null) {
+    if (!ueNum) { setComposantes(null); setAnterieur(null); return; }
+    const rep = await fetch(`/api/etudiants/ue/${ueNum}/composantes?annee=${annee}`,
+      { headers: authHeaders() });
     if (rep.ok) setComposantes(await rep.json());
+
+    // Les notes déjà connues de l'étudiant : le report se décidait à l'aveugle,
+    // il fallait les retenir de tête et les ressaisir.
+    const qs = new URLSearchParams({ annee_cible: annee });
+    if (anneeSource) qs.set('annee_source', anneeSource);
+    const rep2 = await fetch(`/api/acquis/notes-anterieures/${etudId}/${ueNum}?${qs}`,
+      { headers: authHeaders() });
+    if (!rep2.ok) { setAnterieur(null); return; }
+    const j = await rep2.json();
+    setAnterieur(j);
+
+    // Les notes reportables sont proposées d'emblée ; on décoche ce qu'on ne
+    // veut pas, plutôt que de tout ressaisir.
+    const notes = {}; const sel = [];
+    for (const co of j.cours) {
+      if (co.note == null || j.deja_reportes.includes(co.cours_code)) continue;
+      if (co.note < seuilReport) continue;
+      notes[co.cours_code] = String(co.note);
+      sel.push(co.cours_code);
+    }
+    setForm(f2 => f2 && ({ ...f2, notes, cible_detail: sel.join(','),
+                           annee_origine: j.annee_source }));
   }
 
   async function sauver() {
@@ -736,6 +760,26 @@ function Valorisations({ etudId, annee }) {
               </div>
               {composantes && (
                 <div className="border border-slate-200 rounded-xl overflow-hidden">
+                  {anterieur?.annees?.length > 0 && (
+                    <div className="flex items-center gap-2 px-3 py-1.5 bg-amber-50
+                                    border-b border-amber-200 text-[11.5px] text-amber-900">
+                      <span className="font-semibold">Notes de</span>
+                      <select value={anterieur.annee_source}
+                        onChange={e => chargerComposantes(form.ue_num, e.target.value)}
+                        className="border border-amber-300 rounded px-1.5 py-0.5
+                                   text-[11.5px] bg-white">
+                        {anterieur.annees.map(a => <option key={a} value={a}>{a}</option>)}
+                      </select>
+                      {anterieur.resultat_ue && (
+                        <span className="text-amber-800">
+                          · UE {anterieur.resultat_ue === 'reussi' ? 'réussie'
+                            : anterieur.resultat_ue === 'ajourne' ? 'refusée' : anterieur.resultat_ue}
+                          {anterieur.points_ue != null && ` (${anterieur.points_ue}/20)`}
+                        </span>
+                      )}
+                    </div>
+                  )}
+
                   <div className="flex items-center justify-between px-3 py-1.5 bg-slate-50
                                   border-b border-slate-200">
                     <span className="text-[11px] uppercase tracking-wide text-slate-500
@@ -775,6 +819,34 @@ function Valorisations({ etudId, annee }) {
                             {code}
                           </span>
                           <span className="flex-1 min-w-0 truncate" title={libelle}>{libelle}</span>
+                          {(() => {
+                            const co = anterieur?.cours?.find(x => x.cours_code === code);
+                            if (!co) return null;
+                            const reporte = anterieur.deja_reportes.includes(code);
+                            if (co.note == null) {
+                              return <span className="text-[10.5px] text-slate-300 flex-none
+                                                      w-20 text-right">sans note</span>;
+                            }
+                            return (
+                              <button type="button"
+                                onClick={() => setForm(f => {
+                                  const notes = { ...(f.notes || {}), [code]: String(co.note) };
+                                  const s = (f.cible_detail || '').split(',').filter(Boolean);
+                                  return { ...f, notes,
+                                    cible_detail: s.includes(code) ? f.cible_detail
+                                                                   : [...s, code].join(',') };
+                                })}
+                                title={reporte ? 'Déjà reportée cette année'
+                                               : 'Cliquer pour reprendre cette note'}
+                                className={`text-[10.5px] flex-none w-20 text-right
+                                  ${reporte ? 'text-slate-300'
+                                            : co.note >= seuilReport
+                                              ? 'text-emerald-700 font-semibold hover:underline'
+                                              : 'text-slate-400 hover:underline'}`}>
+                                {co.note_affichee ?? co.note}/20{reporte ? ' ✓' : ''}
+                              </button>
+                            );
+                          })()}
                           <input type="number" min="0" max="20" step="0.5" value={note}
                             placeholder="—"
                             onChange={e => {
