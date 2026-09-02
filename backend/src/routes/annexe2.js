@@ -157,29 +157,61 @@ r.post('/document', authRequired, roleRequired('admin', 'directeur',
 
   const corps = `
 <div class="a2">
-  <div class="ref">
-    Annexe 2 de l'arrêté ministériel du 28 mars 2022 déterminant les formulaires
-    standard visés aux articles 99, 103 et 104/3 de l'arrêté royal du 8 octobre 1981
-    sur l'accès au territoire, le séjour, l'établissement et l'éloignement des étrangers.
+  <!-- Bandeau institutionnel, comme sur l'attestation de réussite : ce
+       document part à une administration fédérale, il doit se rattacher à
+       l'établissement au premier regard. -->
+  <div class="entete">
+    <div class="cf">COMMUNAUTÉ FRANÇAISE DE BELGIQUE</div>
+    <div class="epa">${esc((etab.etab_nom || 'INSTITUT ILYA PRIGOGINE').toUpperCase())}</div>
+    <div class="annee">Enseignement supérieur pour adultes${
+      etab.code_fase ? ' · N° FASE ' + esc(etab.code_fase) : ''}</div>
   </div>
 
-  <h1>Modèle de formulaire standard — attestation du progrès des études
-      au terme de l'année académique ${esc(a1)}–${esc(a2)}</h1>
+  <h1>Attestation du progrès des études</h1>
+  <div class="sous-titre">au terme de l'année académique ${esc(a1)}–${esc(a2)}</div>
 
   <div class="visa">
-    visée à l'article 103, §1er, alinéa 1er, 5°, de l'arrêté royal du 8 octobre 1981
-    sur l'accès au territoire, le séjour, l'établissement et l'éloignement des étrangers.
+    Formulaire standard visé à l'article 103, §1er, alinéa 1er, 5°, de l'arrêté royal
+    du 8 octobre 1981 sur l'accès au territoire, le séjour, l'établissement et
+    l'éloignement des étrangers — annexe 2 de l'arrêté ministériel du 28 mars 2022.
   </div>
 
-  <p>Je soussigné(e) ${champ((etab.directeur_nom || 'CHARLES SOHET').toUpperCase())}</p>
-  <p>En ma qualité de représentant(e) de : ${champ(etab.etab_nom || 'Institut Ilya Prigogine')}</p>
-  <p>Confirme que l'étudiant(e) nommé(e) ci-dessous</p>
+  <p class="soussigne">
+    Je soussigné(e) ${champ((etab.directeur_nom || 'CHARLES SOHET').toUpperCase())},
+    en ma qualité de représentant(e) de
+    ${champ(etab.etab_nom || 'Institut Ilya Prigogine')},
+    confirme que l'étudiant(e) nommé(e) ci-dessous :
+  </p>
 
+  <!-- L'identité, en carte : c'est la première chose que l'Office vérifie. -->
   <table class="ident">
-    <tr><td>Nom</td><td>${champ((e.nom || '').toUpperCase())}</td></tr>
-    <tr><td>Prénom</td><td>${champ(e.prenom)}</td></tr>
-    <tr><td>Date de naissance</td><td>${champ(frDate(e.date_naissance))}</td></tr>
-    <tr><td>Nationalité</td><td>${champ(e.nationalite)}</td></tr>
+    <tr>
+      <td class="lib">Nom</td><td class="val">${champ((e.nom || '').toUpperCase())}</td>
+      <td class="lib">Date de naissance</td><td class="val">${champ(frDate(e.date_naissance))}</td>
+    </tr>
+    <tr>
+      <td class="lib">Prénom</td><td class="val">${champ(e.prenom)}</td>
+      <td class="lib">Nationalité</td><td class="val">${champ(e.nationalite)}</td>
+    </tr>
+  </table>
+
+  <!-- Les quatre nombres que l'Office examine, sortis du texte où ils se
+       noyaient. Les phrases réglementaires les reprennent en dessous. -->
+  <table class="credits">
+    <tr>
+      <th>Inscrits ${esc(a1)}-${esc(a2)}</th>
+      <th>Obtenus cette année</th>
+      <th>Obtenus au total</th>
+      <th>Dispense</th>
+      <th>Total de la formation</th>
+    </tr>
+    <tr>
+      <td>${credits.inscritsAnnee || '—'}</td>
+      <td>${credits.acquisAnnee}</td>
+      <td class="fort">${credits.acquisTotal}</td>
+      <td>${credits.valorises || 0}</td>
+      <td>${formation.totalCredits || '…'}</td>
+    </tr>
   </table>
 
   <p>était inscrit(e) pour ${champ(credits.inscritsAnnee || null)} crédits pour la
@@ -193,23 +225,27 @@ r.post('/document', authRequired, roleRequired('admin', 'directeur',
      <b>${esc(a1)}-${esc(a2)}</b> et le nombre de crédits qu'il/elle a obtenus à ce jour
      au total dans sa formation est donc de <b>${credits.acquisTotal}</b> crédits.</p>
 
-  <p>L'étudiant(e) n'a pas dû obtenir de crédits pour les raisons suivantes :
-     ${champ(motif)}</p>
+  <div class="champ-libre">
+    <div class="etiq">Raisons pour lesquelles les crédits n'ont pas été obtenus</div>
+    <div class="rep">${champ(motif)}</div>
+  </div>
+
+  <div class="champ-libre">
+    <div class="etiq">Avis facultatif sur le déroulement des études</div>
+    <div class="rep">${champ(avis || 'Néant')}</div>
+  </div>
 
   <p class="note">Le relevé de notes doit être joint au présent formulaire afin
      d'informer l'Office des Étrangers le plus complètement possible.</p>
 
-  <p>Avis facultatif concernant le déroulement des études de l'étudiant(e) :
-     ${champ(avis || 'Néant')}</p>
-
-  <p class="avant-sig">Fait à <b>${esc(etab.localite || 'Anderlecht')}</b>, le
-     <b>${frDate(date_document || new Date().toISOString())}</b></p>
-
-  <div class="sig">
-    <div class="lib">Signature du représentant ou de la représentante
-      de l'établissement précité :</div>
-    <div class="paraphe"></div>
-    <div class="nom">${esc(etab.directeur_nom || 'Charles SOHET')}</div>
+  <div class="cloture">
+    <div class="lieu">Fait à <b>${esc(etab.localite || 'Anderlecht')}</b>,<br>
+      le <b>${frDate(date_document || new Date().toISOString())}</b></div>
+    <div class="sig">
+      <div class="lib">Signature du représentant de l'établissement</div>
+      <div class="paraphe"></div>
+      <div class="nom">${esc(etab.directeur_nom || 'Charles SOHET')}</div>
+    </div>
   </div>
 </div>`;
 
@@ -222,27 +258,67 @@ r.post('/document', authRequired, roleRequired('admin', 'directeur',
     margeHaut: 12, margeCote: 15,
     styles: `
 :root{--paraphe:url("${SIGNATURE_SOHET}")}
-.a2{font-size:9.5pt;line-height:1.35}
-.a2 .ref{font-size:7pt;color:#475569;text-align:justify;margin-bottom:2.5mm;
-  border-bottom:.4pt solid #cbd5e1;padding-bottom:2mm}
-.a2 h1{font-size:11pt;text-align:center;margin:0 0 2mm;line-height:1.25}
-.a2 .visa{font-size:7.5pt;color:#475569;text-align:justify;margin-bottom:3mm}
-.a2 p{margin:1.8mm 0;text-align:justify}
-.a2 .note{font-size:8.5pt;color:#475569;font-style:italic}
-.a2 table.ident{width:auto;margin:2mm 0 3mm}
-.a2 table.ident td{border:0;padding:.5mm 6mm .5mm 0;font-size:9.5pt}
-.a2 table.ident td:first-child{color:#475569;width:38mm}
+
+.a2{font-size:9.5pt;line-height:1.4;color:#1B2B4B}
+
+/* Bandeau institutionnel, entre deux filets dorés — celui de l'attestation. */
+.a2 .entete{text-align:center;padding:3mm 6mm;margin-bottom:5mm;
+  border-top:.9mm solid #C9A84C;border-bottom:.9mm solid #C9A84C}
+.a2 .entete .cf{font-size:7.5pt;letter-spacing:.7pt;font-weight:600}
+.a2 .entete .epa{font-size:11pt;font-weight:700;letter-spacing:.4pt;margin-top:1mm}
+.a2 .entete .annee{font-size:8pt;margin-top:1mm;color:#475569}
+
+.a2 h1{font-size:13pt;text-align:center;margin:0;letter-spacing:.2pt}
+.a2 .sous-titre{text-align:center;font-size:10pt;color:#334155;margin:.5mm 0 3mm}
+
+/* Le visa réglementaire : présent car obligatoire, discret car ce n'est pas
+   ce que l'agent lit. */
+.a2 .visa{font-size:7pt;color:#64748b;text-align:center;line-height:1.35;
+  margin-bottom:5mm;padding:0 8mm}
+
+.a2 p{margin:2mm 0;text-align:justify}
+.a2 .soussigne{margin-bottom:3mm}
+.a2 .note{font-size:8pt;color:#64748b;font-style:italic;margin-top:4mm}
+
+/* L'identité en carte bleu pâle : c'est ce que l'Office vérifie d'abord. */
+.a2 table.ident{width:100%;border-collapse:collapse;margin:0 0 4mm;
+  background:#F1F5F9;border:.4pt solid #cbd5e1}
+.a2 table.ident td{border:0;padding:1.6mm 3mm;font-size:9.5pt;vertical-align:baseline}
+.a2 table.ident td.lib{color:#64748b;font-size:7.5pt;text-transform:uppercase;
+  letter-spacing:.3pt;width:26mm;white-space:nowrap}
+.a2 table.ident td.val{font-weight:600}
+
+/* Les chiffres, sortis du texte où ils se noyaient. */
+.a2 table.credits{width:100%;border-collapse:collapse;margin:0 0 4mm}
+.a2 table.credits th{background:#1B2B4B;color:#fff;font-size:7pt;font-weight:600;
+  text-transform:uppercase;letter-spacing:.3pt;padding:1.4mm 2mm;
+  text-align:center;border:.4pt solid #1B2B4B}
+.a2 table.credits td{text-align:center;font-size:13pt;font-weight:700;
+  padding:2mm;border:.4pt solid #cbd5e1;border-top:0}
+.a2 table.credits td.fort{color:#C9A84C}
+
+/* Les champs à remplir : encadrés, pour qu'on voie qu'ils attendent une
+   réponse plutôt que de les confondre avec le texte. */
+.a2 .champ-libre{border:.4pt solid #cbd5e1;border-left:1.2mm solid #C9A84C;
+  padding:1.8mm 3mm;margin:2.5mm 0;page-break-inside:avoid}
+.a2 .champ-libre .etiq{font-size:7.5pt;color:#64748b;text-transform:uppercase;
+  letter-spacing:.3pt;margin-bottom:.8mm}
+.a2 .champ-libre .rep{font-size:9.5pt}
+
 /* Une valeur que Lucie ne connaît pas se voit, pour être complétée à la main. */
 .a2 .manque{color:#b45309;letter-spacing:.5pt}
-/* La signature ne doit jamais se scinder ni partir seule : elle reste
-   solidaire du paragraphe qui la précède. */
-.a2 .sig{margin-top:5mm;page-break-inside:avoid;break-inside:avoid}
-.a2 .avant-sig{page-break-after:avoid;break-after:avoid}
-.a2 .sig .lib{font-size:9pt;margin-bottom:1mm}
-.a2 .sig .paraphe{height:15mm;width:46mm;background-image:var(--paraphe);
-  background-repeat:no-repeat;background-position:left bottom;background-size:contain}
-.a2 .sig .nom{font-size:9.5pt;font-weight:700;color:#1B2B4B;
-  border-top:.4pt solid #94a3b8;width:46mm;padding-top:1mm}`,
+
+/* Lieu à gauche, signature à droite, alignés sur une même ligne de base. */
+.a2 .cloture{display:flex;align-items:flex-end;justify-content:space-between;
+  gap:10mm;margin-top:8mm;page-break-inside:avoid}
+.a2 .cloture .lieu{font-size:9.5pt;padding-bottom:1mm}
+.a2 .sig{text-align:center;min-width:52mm}
+.a2 .sig .lib{font-size:7.5pt;color:#64748b;margin-bottom:.5mm}
+.a2 .sig .paraphe{height:15mm;width:46mm;margin:0 auto;
+  background-image:var(--paraphe);background-repeat:no-repeat;
+  background-position:center bottom;background-size:contain}
+.a2 .sig .nom{font-size:9.5pt;font-weight:700;border-top:.4pt solid #94a3b8;
+  width:46mm;margin:0 auto;padding-top:1mm}`,
   });
 
   res.json({ html, credits, manques: [] });
