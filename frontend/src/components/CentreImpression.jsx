@@ -233,23 +233,40 @@ export default function CentreImpression({ onClose, documentInitial = null,
     } finally { setEnCours(false); }
   }
 
+  /**
+   * Produit UNE pièce, quel que soit le document.
+   *
+   * Le chemin vient du CATALOGUE, non d'une table écrite à la main : celle-ci
+   * ne connaissait que deux documents sur cinq, et tout nouveau document
+   * arrivait « pas encore branché ». Le catalogue est la source unique.
+   */
   async function produireUn(d) {
     const id = d.etudiant_id || d.professeur_id;
-    const routes = {
-      fiche_inscription: `/api/etudiants/${id}/fiche-inscription?annee=${encodeURIComponent(annee)}`,
-      frais_scolarite: `/api/frais-scolarite/etudiant/${id}/document?annee=${encodeURIComponent(annee)}`,
-    };
-    if (docCle === 'annexe2') {
-      const rep = await fetch('/api/annexe2/document', {
-        method: 'POST', headers: authHeaders(),
-        body: JSON.stringify({ etudiant_id: id, annee, motif: '', avis: 'Néant' }),
-      });
-      return rep.ok ? (await rep.json()).html : null;
+    const decl = catalogue?.find(x => x.cle === docCle);
+    if (!decl?.route) {
+      throw new Error(`Le document « ${doc?.libelle} » ne déclare pas de route.`);
     }
-    const url = routes[docCle];
-    if (!url) throw new Error(`Le document « ${doc?.libelle} » n'est pas encore branché ici.`);
-    const rep = await fetch(url, { headers: authHeaders() });
-    return rep.ok ? (await rep.json()).html : null;
+
+    const chemin = decl.route.chemin
+      .replace(':id', id)
+      .replace(':ue', d.ue_num ?? '');
+
+    const rep = decl.route.methode === 'POST'
+      ? await fetch(chemin, {
+          method: 'POST', headers: authHeaders(),
+          body: JSON.stringify({ etudiant_id: id, annee, ue_num: d.ue_num,
+                                 date_document: dateDoc, avis: 'Néant' }),
+        })
+      : await fetch(`${chemin}?annee=${encodeURIComponent(annee)}`
+          + `&date_document=${encodeURIComponent(dateDoc)}`, { headers: authHeaders() });
+
+    if (!rep.ok) {
+      // L'erreur du serveur est REMONTÉE : « aucun acquis en échec » doit se
+      // lire, non se perdre dans un échec muet.
+      const e = await rep.json().catch(() => ({}));
+      throw new Error(e.error || `${decl.libelle} : erreur ${rep.status}`);
+    }
+    return (await rep.json()).html || null;
   }
 
   /** Les pièces s'enchaînent dans un seul document, chacune sur sa page. */
@@ -330,7 +347,15 @@ export default function CentreImpression({ onClose, documentInitial = null,
           const decl = catalogue?.find(x => x.cle === type);
           if (!decl?.route) { echecs.push(`${nomEtud} — ${type}`); continue; }
           try {
-            const chemin = decl.route.chemin.replace(':id', etudId);
+            // Certains documents portent une unité dans leur chemin ; sans
+            // elle, la requête partirait avec un segment non résolu.
+            const chemin = decl.route.chemin
+              .replace(':id', etudId)
+              .replace(':ue', d0?.ue_num ?? '');
+            if (/:\w+/.test(chemin)) {
+              echecs.push(`${nomEtud} — ${decl.libelle} : unité non déterminée`);
+              continue;
+            }
             const rep = decl.route.methode === 'POST'
               ? await fetch(chemin, { method: 'POST', headers: authHeaders(),
                   body: JSON.stringify({ etudiant_id: etudId, annee,
