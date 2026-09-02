@@ -441,7 +441,9 @@ r.get('/motivation/:etudId/:ueNum/document', authRequired, (req, res) => {
   const estRefus = insc?.resultat === 'refuse';
 
   const ue = db.prepare(`
-    SELECT ue_nom, ue_code_fwb, ue_periodes FROM ue
+    -- Le nombre de périodes destiné à l'étudiant : la colonne s'appelle
+    -- ue_per_etudiants, non ue_periodes.
+    SELECT ue_nom, ue_code_fwb, ue_per_etudiants FROM ue
     WHERE ue_num = ? ORDER BY (annee_scolaire = ?) DESC, annee_scolaire DESC LIMIT 1
   `).get(ueNum, annee) || {};
 
@@ -501,7 +503,7 @@ r.get('/motivation/:etudId/:ueNum/document', authRequired, (req, res) => {
     <tr><th>Intitulé de l'unité d'enseignement</th><th>Nombre de périodes</th>
         <th>Numéro de code</th></tr>
     <tr><td>${esc2(ue.ue_nom || '')}</td>
-        <td>${ue.ue_periodes || '……………'}</td>
+        <td>${ue.ue_per_etudiants || '……………'}</td>
         <td>${esc2(ue.ue_code_fwb || ueNum)}</td></tr>
   </table>
 
