@@ -629,6 +629,19 @@ function Valorisations({ etudId, annee }) {
   // interne, et reste modifiable au cas par cas.
   const [seuilReport, setSeuilReport] = useState(12);
   const [anterieur, setAnterieur] = useState(null);   // notes des années passées
+  const [coursEtud, setCoursEtud] = useState(null);   // tous les cours suivis
+
+  // Chargés dès qu'une dispense partielle est ouverte : le sélecteur doit être
+  // là avant qu'on ait tapé quoi que ce soit.
+  useEffect(() => {
+    if (form?.type !== 'partielle') { setCoursEtud(null); return; }
+    if (coursEtud) return;
+    fetch(`/api/acquis/cours-etudiant/${etudId}?annee=${annee}`, { headers: authHeaders() })
+      .then(r => r.json())
+      .then(j => setCoursEtud(j?.unites ? j : { unites: [], nb_cours: 0 }))
+      .catch(() => setCoursEtud({ unites: [], nb_cours: 0 }));
+    /* eslint-disable-next-line */
+  }, [form?.type, etudId, annee]);
   const [composantes, setComposantes] = useState(null);
   // Directeur, directeur adjoint et administrateur technique ont les mêmes
   // droits ici : comparer à la seule chaîne 'admin' en écartait la direction.
@@ -737,7 +750,10 @@ function Valorisations({ etudId, annee }) {
             <label className="text-xs"><span className="block font-semibold text-slate-500 uppercase tracking-wide mb-1">N° UE</span>
               <input type="number" value={form.ue_num}
                 onChange={e => { setForm(f => ({ ...f, ue_num: e.target.value })); }}
-                onBlur={e => form.type === 'partielle' && chargerComposantes(e.target.value)}
+                readOnly={form.type === 'partielle'}
+                title={form.type === 'partielle'
+                  ? "En dispense partielle, l'unité se déduit du cours choisi"
+                  : undefined}
                 className="w-full border border-slate-300 rounded-lg px-2 py-1.5 text-sm" /></label>
             {form.type !== 'admission' && (
               <label className="text-xs"><span className="block font-semibold text-slate-500 uppercase tracking-wide mb-1">%</span>
@@ -753,125 +769,135 @@ function Valorisations({ etudId, annee }) {
                 {['cours','aa'].map(cb => (
                   <label key={cb} className="flex items-center gap-1.5 text-sm">
                     <input type="radio" checked={form.cible === cb}
-                      onChange={() => { setForm(f => ({ ...f, cible: cb, cible_detail: '' })); chargerComposantes(form.ue_num); }} />
+                      onChange={() => setForm(f => ({ ...f, cible: cb, cible_detail: '', notes: {} }))} />
                     {cb === 'cours' ? 'Par cours' : "Par acquis d'apprentissage"}
                   </label>
                 ))}
+                <label className="flex items-center gap-1.5 text-[11px] text-slate-500 ml-auto">
+                  Seuil de report
+                  <input type="number" min="0" max="20" step="0.5" value={seuilReport}
+                    onChange={e => setSeuilReport(Number(e.target.value))}
+                    className="w-14 border border-slate-300 rounded px-1.5 py-0.5 text-[11px]" />
+                  /20
+                </label>
               </div>
-              {composantes && (
-                <div className="border border-slate-200 rounded-xl overflow-hidden">
-                  {anterieur?.annees?.length > 0 && (
-                    <div className="flex items-center gap-2 px-3 py-1.5 bg-amber-50
-                                    border-b border-amber-200 text-[11.5px] text-amber-900">
-                      <span className="font-semibold">Notes de</span>
-                      <select value={anterieur.annee_source}
-                        onChange={e => chargerComposantes(form.ue_num, e.target.value)}
-                        className="border border-amber-300 rounded px-1.5 py-0.5
-                                   text-[11.5px] bg-white">
-                        {anterieur.annees.map(a => <option key={a} value={a}>{a}</option>)}
-                      </select>
-                      {anterieur.resultat_ue && (
-                        <span className="text-amber-800">
-                          · UE {anterieur.resultat_ue === 'reussi' ? 'réussie'
-                            : anterieur.resultat_ue === 'ajourne' ? 'refusée' : anterieur.resultat_ue}
-                          {anterieur.points_ue != null && ` (${anterieur.points_ue}/20)`}
-                        </span>
-                      )}
-                    </div>
-                  )}
 
-                  <div className="flex items-center justify-between px-3 py-1.5 bg-slate-50
-                                  border-b border-slate-200">
-                    <span className="text-[11px] uppercase tracking-wide text-slate-500
-                                     font-semibold">
-                      {form.cible === 'cours' ? 'Cours de l\u2019UE' : "Acquis d\u2019apprentissage"}
-                    </span>
-                    <label className="flex items-center gap-1.5 text-[11px] text-slate-500">
-                      Seuil de report
-                      <input type="number" min="0" max="20" step="0.5" value={seuilReport}
-                        onChange={e => setSeuilReport(Number(e.target.value))}
-                        className="w-14 border border-slate-300 rounded px-1.5 py-0.5 text-[11px]" />
-                      /20
-                    </label>
+              {/* TOUS les cours suivis par l'étudiant, groupés par unité. Il
+                  fallait auparavant connaître le numéro d'UE et le taper avant
+                  de voir quoi que ce soit. */}
+              {!coursEtud ? (
+                <div className="py-4 text-center text-[12.5px] text-slate-400
+                                border-2 border-dashed rounded-xl">
+                  Chargement des cours de l'étudiant…
+                </div>
+              ) : !coursEtud.unites.length ? (
+                <div className="py-4 text-center text-[12.5px] text-slate-400
+                                border-2 border-dashed rounded-xl">
+                  Cet étudiant n'est inscrit à aucune unité en {annee}.
+                </div>
+              ) : (
+                <div className="border border-slate-200 rounded-xl overflow-hidden">
+                  <div className="px-3 py-1.5 bg-slate-50 border-b border-slate-200
+                                  text-[11px] uppercase tracking-wide text-slate-500 font-semibold">
+                    {coursEtud.nb_cours} cours · {coursEtud.unites.length} unité(s)
                   </div>
 
-                  <div className="max-h-56 overflow-y-auto divide-y divide-slate-100">
-                    {(form.cible === 'cours' ? composantes.cours : composantes.aas).map(item => {
-                      const code = form.cible === 'cours' ? item.cours_code : item.aa_code;
-                      const libelle = form.cible === 'cours'
-                        ? item.cours_nom : (item.description || item.aa_code);
-                      const sel = (form.cible_detail || '').split(',').filter(Boolean);
-                      const actif = sel.includes(code);
-                      const note = form.notes?.[code] ?? '';
-                      // Sous le seuil, le report n'a pas lieu d'être : on le
-                      // signale sans l'interdire, la décision revient au CDE.
-                      const sousSeuil = note !== '' && Number(note) < seuilReport;
-                      return (
-                        <div key={code}
-                          className={`flex items-center gap-2 px-3 py-1.5 text-[12px]
-                                      ${actif ? 'bg-iip-blue/5' : ''}`}>
-                          <input type="checkbox" checked={actif}
-                            onChange={() => {
-                              const next = actif ? sel.filter(s => s !== code) : [...sel, code];
-                              setForm(f => ({ ...f, cible_detail: next.join(',') }));
-                            }} />
-                          <span className="w-20 flex-none font-mono text-[11px] text-slate-500">
-                            {code}
+                  <div className="max-h-72 overflow-y-auto">
+                    {coursEtud.unites.map(u => (
+                      <div key={u.ue_num}>
+                        <div className="px-3 py-1 bg-slate-100/70 border-y border-slate-200
+                                        text-[11.5px] font-semibold text-iip-blue sticky top-0">
+                          <span className="font-mono text-[10.5px] text-slate-500 mr-1.5">
+                            {u.ue_num}
                           </span>
-                          <span className="flex-1 min-w-0 truncate" title={libelle}>{libelle}</span>
-                          {(() => {
-                            const co = anterieur?.cours?.find(x => x.cours_code === code);
-                            if (!co) return null;
-                            const reporte = anterieur.deja_reportes.includes(code);
-                            if (co.note == null) {
-                              return <span className="text-[10.5px] text-slate-300 flex-none
-                                                      w-20 text-right">sans note</span>;
-                            }
-                            return (
-                              <button type="button"
-                                onClick={() => setForm(f => {
-                                  const notes = { ...(f.notes || {}), [code]: String(co.note) };
-                                  const s = (f.cible_detail || '').split(',').filter(Boolean);
-                                  return { ...f, notes,
-                                    cible_detail: s.includes(code) ? f.cible_detail
-                                                                   : [...s, code].join(',') };
-                                })}
-                                title={reporte ? 'Déjà reportée cette année'
-                                               : 'Cliquer pour reprendre cette note'}
-                                className={`text-[10.5px] flex-none w-20 text-right
-                                  ${reporte ? 'text-slate-300'
-                                            : co.note >= seuilReport
-                                              ? 'text-emerald-700 font-semibold hover:underline'
-                                              : 'text-slate-400 hover:underline'}`}>
-                                {co.note_affichee ?? co.note}/20{reporte ? ' ✓' : ''}
-                              </button>
-                            );
-                          })()}
-                          <input type="number" min="0" max="20" step="0.5" value={note}
-                            placeholder="—"
-                            onChange={e => {
-                              const v = e.target.value;
-                              setForm(f => {
-                                const notes = { ...(f.notes || {}) };
-                                if (v === '') delete notes[code]; else notes[code] = v;
-                                // Saisir une note vaut sélection : sans cela on
-                                // encoderait un point sans dispenser le cours.
-                                const s = (f.cible_detail || '').split(',').filter(Boolean);
-                                const detail = v !== '' && !s.includes(code)
-                                  ? [...s, code].join(',') : f.cible_detail;
-                                return { ...f, notes, cible_detail: detail };
-                              });
-                            }}
-                            className={`w-16 flex-none border rounded px-1.5 py-0.5 text-[12px]
-                                        text-right ${sousSeuil
-                                          ? 'border-amber-400 bg-amber-50' : 'border-slate-300'}`}
-                            title={sousSeuil
-                              ? `Sous le seuil de ${seuilReport}/20`
-                              : 'Note reportée pour ce cours'} />
-                          <span className="text-[10px] text-slate-400 flex-none w-6">/20</span>
+                          {u.ue_nom}
+                          {u.ue_niv && (
+                            <span className="text-[10px] text-slate-400 ml-1.5">{u.ue_niv}</span>
+                          )}
                         </div>
-                      );
-                    })}
+
+                        {(form.cible === 'cours' ? u.cours
+                          : u.cours.flatMap(co => co.aas.map(a => ({
+                              ...co, cours_code: a.aa_code,
+                              cours_nom: a.description || a.aa_code,
+                            })))).map(co => {
+                          const code = co.cours_code;
+                          const sel = (form.cible_detail || '').split(',').filter(Boolean);
+                          const actif = sel.includes(code);
+                          const note = form.notes?.[code] ?? '';
+                          const sousSeuil = note !== '' && Number(note) < seuilReport;
+                          return (
+                            <div key={u.ue_num + '|' + code}
+                              className={`flex items-center gap-2 px-3 py-1.5 text-[12px]
+                                          border-b border-slate-50 last:border-0
+                                          ${actif ? 'bg-iip-blue/5' : ''}`}>
+                              <input type="checkbox" checked={actif}
+                                onChange={() => {
+                                  const next = actif ? sel.filter(s => s !== code) : [...sel, code];
+                                  setForm(f => ({ ...f, cible_detail: next.join(','),
+                                                  ue_num: f.ue_num || u.ue_num }));
+                                }} />
+                              <span className="w-20 flex-none font-mono text-[11px] text-slate-500">
+                                {code}
+                              </span>
+                              <span className="flex-1 min-w-0 truncate" title={co.cours_nom}>
+                                {co.cours_nom}
+                              </span>
+
+                              {/* La note déjà connue : un clic la reprend, plutôt
+                                  que de la retenir de tête et la ressaisir. */}
+                              {co.note_anterieure != null ? (
+                                <button type="button"
+                                  onClick={() => setForm(f => {
+                                    const s = (f.cible_detail || '').split(',').filter(Boolean);
+                                    return { ...f,
+                                      notes: { ...(f.notes || {}), [code]: String(co.note_anterieure) },
+                                      cible_detail: s.includes(code) ? f.cible_detail
+                                                                     : [...s, code].join(','),
+                                      ue_num: f.ue_num || u.ue_num,
+                                      annee_origine: f.annee_origine || co.annee_anterieure };
+                                  })}
+                                  title={co.deja_reporte ? 'Déjà reportée'
+                                    : `Obtenue en ${co.annee_anterieure} — cliquer pour la reprendre`}
+                                  className={`text-[10.5px] flex-none w-24 text-right
+                                    ${co.deja_reporte ? 'text-slate-300'
+                                      : co.note_anterieure >= seuilReport
+                                        ? 'text-emerald-700 font-semibold hover:underline'
+                                        : 'text-slate-400 hover:underline'}`}>
+                                  {co.note_anterieure}/20 <span className="text-slate-400">
+                                    {String(co.annee_anterieure || '').slice(2, 7)}
+                                  </span>{co.deja_reporte ? ' ✓' : ''}
+                                </button>
+                              ) : (
+                                <span className="text-[10.5px] text-slate-300 flex-none
+                                                 w-24 text-right">—</span>
+                              )}
+
+                              <input type="number" min="0" max="20" step="0.5" value={note}
+                                placeholder="note"
+                                onChange={e => {
+                                  const v = e.target.value;
+                                  setForm(f => {
+                                    const notes = { ...(f.notes || {}) };
+                                    if (v === '') delete notes[code]; else notes[code] = v;
+                                    // Saisir une note vaut sélection : sans cela on
+                                    // encoderait un point sans dispenser le cours.
+                                    const s = (f.cible_detail || '').split(',').filter(Boolean);
+                                    return { ...f, notes,
+                                      cible_detail: v !== '' && !s.includes(code)
+                                        ? [...s, code].join(',') : f.cible_detail,
+                                      ue_num: f.ue_num || u.ue_num };
+                                  });
+                                }}
+                                className={`w-16 flex-none border rounded px-1.5 py-0.5
+                                            text-[12px] text-right ${sousSeuil
+                                              ? 'border-amber-400 bg-amber-50'
+                                              : 'border-slate-300'}`} />
+                            </div>
+                          );
+                        })}
+                      </div>
+                    ))}
                   </div>
 
                   {Object.keys(form.notes || {}).length > 0 && (

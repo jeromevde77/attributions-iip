@@ -288,6 +288,72 @@ export function coursValidesAnterieurs(etudId, ueNum, anneeCible) {
   return Object.values(parCours);
 }
 
+// ── Tous les cours suivis par un étudiant, toutes UE confondues ────────────
+// La dispense partielle exigeait de connaître le numéro d'UE et de le taper
+// avant de voir quoi que ce soit. On liste ici tous les cours des unités
+// auxquelles l'étudiant est inscrit, avec la note déjà connue quand il y en a
+// une : il n'y a plus qu'à choisir.
+r.get('/cours-etudiant/:etudId', authRequired, (req, res) => {
+  const etudId = Number(req.params.etudId);
+  const annee = req.query.annee;
+  if (!annee) return res.status(400).json({ error: 'annee requise' });
+
+  const inscriptions = db.prepare(`
+    SELECT i.ue_num, i.resultat,
+           (SELECT ue_nom FROM ue u WHERE u.ue_num = i.ue_num AND u.ue_nom IS NOT NULL
+             ORDER BY u.annee_scolaire DESC LIMIT 1) AS ue_nom,
+           (SELECT ue_niv FROM ue u WHERE u.ue_num = i.ue_num AND u.ue_niv IS NOT NULL
+             ORDER BY u.annee_scolaire DESC LIMIT 1) AS ue_niv
+    FROM etudiant_inscription i
+    WHERE i.etudiant_id = ? AND i.annee_scolaire = ?
+    ORDER BY i.ue_num
+  `).all(etudId, annee);
+
+  // Les notes des ANNÉES ANTÉRIEURES, tous cours confondus : c'est d'elles que
+  // vient un report.
+  const anterieures = {};
+  for (const l of db.prepare(`
+    SELECT ue_num, code, cours_code, points, annee_scolaire
+    FROM etudiant_note_detail
+    WHERE etudiant_id = ? AND type = 'aa' AND annee_scolaire < ?
+    ORDER BY annee_scolaire
+  `).all(etudId, annee)) {
+    const brut = String(l.code).includes('|') ? String(l.code).split('|')[1] : l.code;
+    const cc = l.cours_code;
+    if (cc) anterieures[l.ue_num + '|' + cc] = { points: l.points, annee: l.annee_scolaire };
+    anterieures[l.ue_num + '||' + brut] = { points: l.points, annee: l.annee_scolaire };
+  }
+
+  const dejaReportes = new Set(db.prepare(`
+    SELECT ue_num, cours_code FROM etudiant_report_note
+    WHERE etudiant_id = ? AND annee_scolaire = ?
+  `).all(etudId, annee).map(x => x.ue_num + '|' + x.cours_code));
+
+  const rang = v => { const m = /^BA(\d+)$/.exec((v || '').toUpperCase()); return m ? Number(m[1]) : 9; };
+
+  const unites = inscriptions.map(i => {
+    const structure = structureUE(i.ue_num, annee);
+    return {
+      ue_num: i.ue_num, ue_nom: i.ue_nom, ue_niv: i.ue_niv, resultat: i.resultat,
+      cours: structure.map(co => {
+        const ant = anterieures[i.ue_num + '|' + co.cours_code];
+        return {
+          cours_code: co.cours_code, cours_nom: co.cours_nom, periodes: co.cours_per,
+          note_anterieure: ant?.points ?? null,
+          annee_anterieure: ant?.annee ?? null,
+          deja_reporte: dejaReportes.has(i.ue_num + '|' + co.cours_code),
+          aas: (co.aas || []).map(a => ({ aa_code: a.aa_code, description: a.description })),
+        };
+      }),
+    };
+  }).sort((a, b) => rang(a.ue_niv) - rang(b.ue_niv) || a.ue_num - b.ue_num);
+
+  res.json({
+    annee, unites,
+    nb_cours: unites.reduce((n, u) => n + u.cours.length, 0),
+  });
+});
+
 // ── Toutes les notes d'un étudiant dans une UE, pour une année donnée ──────
 // Le report se décidait à l'aveugle : il fallait connaître les notes de tête et
 // les ressaisir. On expose ici TOUTES les notes de l'année source, reportables

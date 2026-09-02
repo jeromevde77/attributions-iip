@@ -1,5 +1,5 @@
 import { useState, useEffect, Component } from 'react';
-import { estDirection } from './lib/modules.js';
+import { estDirection, droitEffectif } from './lib/modules.js';
 
 // Error boundary : affiche l'erreur au lieu d'une page blanche
 class ErrorBoundary extends Component {
@@ -232,23 +232,23 @@ function ProtectedLayout({ children }) {
   if (!isAuthenticated()) return <Navigate to="/login" replace />;
   const u = getUser();
 
-  const isCoordination = u?.role === 'coordination';
+  // Le menu suit les PERMISSIONS, non le rôle. Il testait auparavant
+  // « role === coordination » pour ne montrer que deux entrées, alors que le
+  // système de permissions accorde à la coordination un droit de validation sur
+  // les étudiants : l'onglet était masqué à des gens qui y avaient droit.
+  const AXES = [
+    ['/accueil',       'Accueil',       IconHome,           null],
+    ['/etudiants',     'Étudiants',     IconChecklist,      'etudiants'],
+    ['/professeurs',   'Personnel',     IconUsers,          'personnel'],
+    ['/organisation',  'Organisation',  IconClipboardList,  'attributions'],
+    ['/communication', 'Communication', IconFileExport,     'communication'],
+    ['/pilotage',      'Pilotage',      IconChartBar,       'pilotage'],
+  ];
 
-  // Structure en 7 axes (maquette validée) : chaque entrée répond à une
-  // question de l'utilisateur ; les rôles taillent le bandeau.
-  const nav = isCoordination
-    ? [
-        ['/accueil',      'Accueil',      IconHome],
-        ['/organisation', 'Organisation', IconClipboardList],
-      ]
-    : [
-        ['/accueil',      'Accueil',       IconHome],
-        ['/etudiants',    'Étudiants',     IconChecklist],
-        ['/professeurs',  'Personnel',     IconUsers],
-        ['/organisation', 'Organisation',  IconClipboardList],
-        ['/communication','Communication', IconFileExport],
-        ['/pilotage',     'Pilotage',      IconChartBar],
-      ];
+  const nav = AXES
+    .filter(([, , , module]) => !module || droitEffectif(u, module) !== 'rien')
+    .map(([to, lbl, Icon]) => [to, lbl, Icon]);
+
   nav.push(['/aide', '', IconHelpCircle]);
   if (estDirection(u)) nav.push(['/configuration', 'Config.', IconSettings]);
 
