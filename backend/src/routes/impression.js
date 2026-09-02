@@ -140,7 +140,16 @@ r.post('/pdf', authRequired, async (req, res) => {
     res.end(pdf);
   } catch (e) {
     console.error('[impression/pdf]', e);
-    res.status(500).json({ error: e.message });
+    // « Timed out after waiting 30000ms » ne dit rien à l'utilisateur : on
+    // explique ce qui s'est passé et ce qu'il peut faire.
+    const expire = /timed out|timeout/i.test(String(e.message));
+    res.status(expire ? 504 : 500).json({
+      error: expire
+        ? "Le rendu a dépassé le temps imparti. Ce lot est trop volumineux pour "
+          + "être produit d'un seul tenant : restreignez la sélection, par unité "
+          + "ou par section, et reprenez en plusieurs fois."
+        : e.message,
+    });
   }
 });
 
