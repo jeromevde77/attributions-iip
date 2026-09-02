@@ -10,6 +10,7 @@ import Amenagements from '../components/Amenagements.jsx';
 import Stages from '../components/Stages.jsx';
 import IdentiteEtudiant, { ComplementDossiers } from '../components/IdentiteEtudiant.jsx';
 import CentreImpression from '../components/CentreImpression.jsx';
+import CentrePAE from '../components/CentrePAE.jsx';
 import ImportSurMesure from '../components/ImportSurMesure.jsx';
 import Annexe2 from '../components/Annexe2.jsx';
 import MenuActions from '../components/MenuActions.jsx';
@@ -1427,6 +1428,7 @@ export default function Etudiants() {
   const [importHisto, setImportHisto] = useState(false);
   const [complement, setComplement] = useState(false);
   const [centreImpression, setCentreImpression] = useState(false);
+  const [centrePAE, setCentrePAE] = useState(false);
   const [comparaison, setComparaison] = useState(false);
   const [importSurMesure, setImportSurMesure] = useState(false);
   const [tri, setTri] = useState({ champ: 'nom', sens: 1 });
@@ -1794,6 +1796,12 @@ export default function Etudiants() {
                          font-semibold rounded-lg">
               <IconPrinter size={14} /> Imprimer
             </button>
+            <button onClick={() => setCentrePAE(true)}
+              title="Inscrire ou retirer des unités pour tous les étudiants retenus"
+              className="flex items-center gap-1.5 px-3 py-1.5 text-sm border border-iip-blue
+                         text-iip-blue font-semibold rounded-lg">
+              <IconChecklist size={14} /> Composer les PAE
+            </button>
             <button onClick={() => setSelEtudiants(new Set())}
               className="px-3 py-1.5 text-sm border border-slate-300 text-slate-600 rounded-lg">
               Vider
@@ -1888,6 +1896,11 @@ export default function Etudiants() {
 
       {importSurMesure && (
         <ImportSurMesure onClose={() => setImportSurMesure(false)} onTermine={charger} />
+      )}
+
+      {centrePAE && (
+        <CentrePAE annee={annee} etudiants={[...selEtudiants]}
+          onClose={() => setCentrePAE(false)} onTermine={charger} />
       )}
 
       {centreImpression && (
