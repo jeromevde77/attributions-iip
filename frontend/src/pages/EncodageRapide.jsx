@@ -291,10 +291,15 @@ export default function EncodageRapide() {
                 <th className="sticky left-8 z-30 bg-slate-50 border-b border-r border-slate-200 px-3 py-2 text-left min-w-[190px]">
                   <span className="text-[10.5px] uppercase tracking-wide text-slate-500">Étudiant</span>
                 </th>
-                {data.ues.map(u => (
+                {data.ues.map((u, i) => (
                   <th key={u.ue_num} onClick={() => appliquerColonne(u.ue_num)}
                     title={`${u.ue_nom || ''} — cliquer pour marquer réussi sur la sélection`}
-                    className="border-b border-slate-200 px-1 py-2 w-14 cursor-pointer hover:bg-slate-100">
+                    /* Un filet marque le passage d'un niveau au suivant : les
+                       colonnes sont triées BA1, BA2, BA3, mais rien ne le
+                       montrait. */
+                    className={`border-b border-slate-200 px-1 py-2 w-14 cursor-pointer
+                      hover:bg-slate-100 ${i > 0 && data.ues[i - 1].ue_niv !== u.ue_niv
+                        ? 'border-l-2 border-l-iip-blue/30' : ''}`}>
                     <div className="text-[11.5px] font-bold text-iip-blue">{u.ue_num}</div>
                     <div className="text-[8.5px] font-semibold"
                       style={{ color: couleurNiveau(u.ue_niv) || '#94A3B8' }}>
@@ -321,12 +326,15 @@ export default function EncodageRapide() {
                     </div>
                     <div className="text-[10px] text-slate-400">{e.id_ecampus}</div>
                   </td>
-                  {data.ues.map(u => {
+                  {data.ues.map((u, i) => {
                     const cle = e.id + '|' + u.ue_num;
                     const val = cellules[cle] || null;
                     const ant = e.anterieurs?.[u.ue_num];
                     return (
-                      <td key={u.ue_num} className="border-b border-slate-100 p-0.5 text-center">
+                      <td key={u.ue_num}
+                        className={`border-b border-slate-100 p-0.5 text-center
+                          ${i > 0 && data.ues[i - 1].ue_niv !== u.ue_niv
+                            ? 'border-l-2 border-l-iip-blue/30' : ''}`}>
                         <button onClick={() => cycler(e.id, u.ue_num)}
                           title={val
                             ? `${val === 'reussi' ? 'Réussi' : val === 'ajourne' ? 'Refusé' : 'Absent'} en ${annee}`

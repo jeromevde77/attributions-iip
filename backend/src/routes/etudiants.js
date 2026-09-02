@@ -984,7 +984,11 @@ r.get('/matrice', authRequired, (req, res) => {
   const anneeRef = anneeDeTravail(req) || annee;
 
   const ues = db.prepare(`
-    SELECT DISTINCT ue_num, MIN(ue_nom) AS ue_nom FROM ue
+    SELECT DISTINCT ue_num, MIN(ue_nom) AS ue_nom,
+           -- Le niveau propre à l'UE, tous millésimes confondus : il sert de
+           -- recours quand niveauxEffectifs n'en trouve pas.
+           MIN(NULLIF(ue_niv, '')) AS ue_niv_propre
+    FROM ue
     WHERE section = ? AND annee_scolaire IN (?, ?)
     GROUP BY ue_num
   `).all(section, annee, anneeRef);
@@ -992,8 +996,16 @@ r.get('/matrice', authRequired, (req, res) => {
 
   const niveaux = niveauxEffectifs([section], annee);
   const rang = v => { const m = /^BA(\d+)$/.exec((v || '').toUpperCase()); return m ? Number(m[1]) : 9; };
-  ues.sort((a, b) => rang(niveaux[a.ue_num]) - rang(niveaux[b.ue_num]) || a.ue_num - b.ue_num);
-  for (const u of ues) u.ue_niv = niveaux[u.ue_num] || null;
+
+  // niveauxEffectifs ne lit le niveau que pour l'ANNÉE ACTIVE : une UE
+  // présente uniquement dans l'année consultée n'en recevait aucun et se
+  // retrouvait reléguée en fin de tableau, d'où un classement apparemment
+  // aléatoire. On retombe sur le niveau porté par l'UE elle-même.
+  for (const u of ues) {
+    u.ue_niv = niveaux[u.ue_num] || (u.ue_niv_propre || '').toUpperCase() || null;
+    delete u.ue_niv_propre;
+  }
+  ues.sort((a, b) => rang(a.ue_niv) - rang(b.ue_niv) || a.ue_num - b.ue_num);
 
   const listeUe = ues.map(u => u.ue_num).join(',');
 
