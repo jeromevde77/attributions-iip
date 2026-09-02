@@ -463,14 +463,15 @@ r.post('/lot', authRequired, (req, res) => {
   // qu'une fois. En pièces séparées, CHACUNE les porte pour rester imprimable
   // seule — d'où un plafond plus bas : cinq cents pièces feraient 300 Mo dans
   // le navigateur.
-  const plafond = separes ? 120 : 500;
+  // Les images pesaient 632 Ko par pièce, ce qui plafonnait l'archive à 120.
+  // Redimensionnées à 56 Ko, neuf cents pièces tiennent en 49 Mo.
+  const plafond = separes ? 900 : 900;
   if (paires.length > plafond) {
     return res.status(400).json({
       error: `${paires.length} attestations demandées, maximum ${plafond} `
            + (separes
-              ? `en pièces séparées : chacune porte le sceau et la signature, et `
-              + `le navigateur ne suivrait pas. Restreignez la sélection, ou `
-              + `choisissez le document unique qui accepte 500 attestations.`
+              ? `en pièces séparées. Restreignez la sélection, par unité ou par `
+              + `section, et reprenez en plusieurs fois.`
               : `: restreignez la sélection, par section ou par année.`),
     });
   }
