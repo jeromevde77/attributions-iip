@@ -422,12 +422,13 @@ r.get('/rapport', authRequired, (req, res) => {
   td.va { background: #ede9fe; color: #5b21b6; font-weight: 700; }
   td.i  { color: #64748b; }
   .legende { margin-top: 10px; font-size: 10px; color: #64748b; }
-  @media print { body { margin: 8mm 8mm 0; } @page { size: landscape; } }
+  @media print { body { margin: 0; } }
 
-  /* Deux protections plutôt qu'une : la marge de @page, que certains
-     navigateurs ignorent lorsqu'ils impriment depuis un cadre, ET une réserve
-     dans le corps même. Sans la seconde, le pied se superposait au texte. */
-  ${reglesDePage({ haut: 14, cote: 14 })}
+  /* PAYSAGE : une colonne par UE, la matrice ne tient pas en portrait.
+     L'orientation se déclare ICI et nulle part ailleurs — un second @page
+     déclaré plus bas l'emporterait, ce qui est précisément ce qui ramenait ce
+     rapport en portrait. */
+  ${reglesDePage({ haut: 12, cote: 10, orientation })}
 
   /* Pied de page commun, ancré en bas de CHAQUE page — dernière comprise.
      Un pied placé dans le flux, ou en table-footer-group, flotte au milieu
@@ -584,6 +585,9 @@ r.post('/import-liste', authRequired, roleRequired('admin', 'editeur'), (req, re
 // ── Rapport de PAE : données pour l'aperçu et pour l'export Excel ──────────
 // Un seul jeu de données sert les deux sorties, pour qu'elles ne divergent pas.
 r.get('/rapport-pae', authRequired, (req, res) => {
+  // Paysage par défaut : une colonne par UE, la matrice ne tient pas en
+  // portrait. Le portrait reste possible pour une section à peu d'unités.
+  const orientation = req.query.orientation === 'portrait' ? 'portrait' : 'paysage';
   const { section, annee, niveau, ue_num, granularite = 'ue' } = req.query;
   if (!section || !annee) return res.status(400).json({ error: 'section et annee requises' });
 
@@ -984,7 +988,11 @@ r.get('/matrice', authRequired, (req, res) => {
   const anneeRef = anneeDeTravail(req) || annee;
 
   const ues = db.prepare(`
-    SELECT DISTINCT ue_num, MIN(ue_nom) AS ue_nom FROM ue
+    SELECT DISTINCT ue_num, MIN(ue_nom) AS ue_nom,
+           -- Le niveau propre à l'UE, tous millésimes confondus : il sert de
+           -- recours quand niveauxEffectifs n'en trouve pas.
+           MIN(NULLIF(ue_niv, '')) AS ue_niv_propre
+    FROM ue
     WHERE section = ? AND annee_scolaire IN (?, ?)
     GROUP BY ue_num
   `).all(section, annee, anneeRef);
@@ -992,8 +1000,16 @@ r.get('/matrice', authRequired, (req, res) => {
 
   const niveaux = niveauxEffectifs([section], annee);
   const rang = v => { const m = /^BA(\d+)$/.exec((v || '').toUpperCase()); return m ? Number(m[1]) : 9; };
-  ues.sort((a, b) => rang(niveaux[a.ue_num]) - rang(niveaux[b.ue_num]) || a.ue_num - b.ue_num);
-  for (const u of ues) u.ue_niv = niveaux[u.ue_num] || null;
+
+  // niveauxEffectifs ne lit le niveau que pour l'ANNÉE ACTIVE : une UE
+  // présente uniquement dans l'année consultée n'en recevait aucun et se
+  // retrouvait reléguée en fin de tableau, d'où un classement apparemment
+  // aléatoire. On retombe sur le niveau porté par l'UE elle-même.
+  for (const u of ues) {
+    u.ue_niv = niveaux[u.ue_num] || (u.ue_niv_propre || '').toUpperCase() || null;
+    delete u.ue_niv_propre;
+  }
+  ues.sort((a, b) => rang(a.ue_niv) - rang(b.ue_niv) || a.ue_num - b.ue_num);
 
   const listeUe = ues.map(u => u.ue_num).join(',');
 
@@ -1096,6 +1112,106 @@ r.get('/encodage-direct', authRequired, (req, res) => {
   }
 
   res.json({ ues, etudiants, existant });
+});
+
+// ── Composition des PAE en lot ──────────────────────────────────────────────
+// Composer un programme annuel étudiant par étudiant est intenable sur une
+// promotion entière : on inscrit ou on retire les mêmes unités pour tous les
+// étudiants retenus, en une fois.
+r.post('/pae-lot', authRequired,
+       roleRequired('admin', 'directeur', 'directeur_adjoint', 'editeur', 'secretariat'), (req, res) => {
+  const { annee, etudiants, ues, action, simulation } = req.body || {};
+  if (!annee || !Array.isArray(etudiants) || !Array.isArray(ues)) {
+    return res.status(400).json({ error: 'annee, etudiants et ues requis' });
+  }
+  if (!['inscrire', 'retirer'].includes(action)) {
+    return res.status(400).json({ error: 'action inconnue' });
+  }
+  if (!etudiants.length || !ues.length) {
+    return res.status(400).json({ error: 'sélection vide' });
+  }
+
+  const perim = getUserSections(req.user);
+  const dateJour = new Date().toISOString().slice(0, 10);
+
+  // Le périmètre s'applique aux UNITÉS : une coordination ne compose pas les
+  // programmes d'une autre section.
+  const sectionsUe = {};
+  for (const u of db.prepare(`
+    SELECT ue_num, MIN(section) AS section FROM ue
+    WHERE ue_num IN (${ues.map(() => '?').join(',')}) AND section IS NOT NULL
+    GROUP BY ue_num`).all(...ues.map(Number))) {
+    sectionsUe[u.ue_num] = u.section;
+  }
+  const horsPerimetre = perim
+    ? ues.filter(n => sectionsUe[n] && !perim.includes(sectionsUe[n]))
+    : [];
+  if (horsPerimetre.length) {
+    return res.status(403).json({
+      error: `${horsPerimetre.length} unité(s) hors de votre périmètre : `
+           + horsPerimetre.join(', '),
+    });
+  }
+
+  const rapport = { inscrits: 0, deja: 0, retires: 0, absents: 0, proteges: [] };
+
+  const dejaLa = db.prepare(`
+    SELECT resultat FROM etudiant_inscription
+    WHERE etudiant_id = ? AND annee_scolaire = ? AND ue_num = ?`);
+
+  const ins = db.prepare(`
+    INSERT INTO etudiant_inscription (etudiant_id, annee_scolaire, ue_num, date_inscription)
+    VALUES (?,?,?,?)
+    ON CONFLICT(etudiant_id, annee_scolaire, ue_num) DO NOTHING`);
+
+  const del = db.prepare(`
+    DELETE FROM etudiant_inscription
+    WHERE etudiant_id = ? AND annee_scolaire = ? AND ue_num = ?`);
+
+  const noms = Object.fromEntries(db.prepare(`
+    SELECT id, nom, prenom FROM etudiant
+    WHERE id IN (${etudiants.map(() => '?').join(',')})`).all(...etudiants.map(Number))
+    .map(e => [e.id, `${e.nom} ${e.prenom}`]));
+
+  const appliquer = db.transaction(() => {
+    for (const etudId of etudiants.map(Number)) {
+      for (const ueNum of ues.map(Number)) {
+        const existant = dejaLa.get(etudId, annee, ueNum);
+
+        if (action === 'inscrire') {
+          if (existant) { rapport.deja++; continue; }
+          ins.run(etudId, annee, ueNum, dateJour);
+          rapport.inscrits++;
+        } else {
+          if (!existant) { rapport.absents++; continue; }
+          // Un résultat encodé ne se supprime pas à la légère : ce serait
+          // effacer une décision du Conseil des études.
+          if (existant.resultat) {
+            rapport.proteges.push({ etudiant: noms[etudId] || etudId, ue_num: ueNum,
+                                    resultat: existant.resultat });
+            continue;
+          }
+          del.run(etudId, annee, ueNum);
+          rapport.retires++;
+        }
+      }
+    }
+    if (simulation) throw new Error('SIMULATION');
+  });
+
+  try { appliquer(); } catch (e) {
+    if (e.message !== 'SIMULATION') {
+      console.error('[pae-lot]', e);
+      return res.status(500).json({ error: e.message });
+    }
+  }
+
+  res.json({
+    ok: true, simulation: !!simulation, action,
+    ...rapport,
+    proteges: rapport.proteges.slice(0, 40),
+    nb_proteges: rapport.proteges.length,
+  });
 });
 
 r.post('/encodage-direct', authRequired,

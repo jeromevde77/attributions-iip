@@ -288,6 +288,72 @@ export function coursValidesAnterieurs(etudId, ueNum, anneeCible) {
   return Object.values(parCours);
 }
 
+// ── Toutes les notes d'un étudiant dans une UE, pour une année donnée ──────
+// Le report se décidait à l'aveugle : il fallait connaître les notes de tête et
+// les ressaisir. On expose ici TOUTES les notes de l'année source, reportables
+// ou non — c'est en les voyant qu'on décide.
+r.get('/notes-anterieures/:etudId/:ueNum', authRequired, (req, res) => {
+  const etudId = Number(req.params.etudId);
+  const ueNum = Number(req.params.ueNum);
+  const { annee_source } = req.query;
+
+  // Les années où cet étudiant a des notes dans cette UE.
+  const annees = db.prepare(`
+    SELECT DISTINCT annee_scolaire FROM etudiant_note_detail
+    WHERE etudiant_id = ? AND ue_num = ? AND type = 'aa'
+    ORDER BY annee_scolaire DESC
+  `).all(etudId, ueNum).map(r0 => r0.annee_scolaire);
+
+  if (!annees.length) return res.json({ annees: [], cours: [], resultat_ue: null });
+
+  const an = annee_source && annees.includes(annee_source) ? annee_source : annees[0];
+
+  const lignes = db.prepare(`
+    SELECT code, cours_code, points, non_evalue FROM etudiant_note_detail
+    WHERE etudiant_id = ? AND ue_num = ? AND type = 'aa' AND annee_scolaire = ?
+  `).all(etudId, ueNum, an);
+
+  const structure = structureUE(ueNum, an);
+  const notes = {};
+  for (const l of lignes) {
+    const brut = String(l.code).includes('|') ? String(l.code).split('|')[1] : l.code;
+    const cc = l.cours_code
+      || structure.find(c0 => c0.aas.some(a => a.aa_code === brut))?.cours_code;
+    if (cc) notes[cc + '|' + brut] = { points: l.points, non_evalue: l.non_evalue };
+  }
+
+  // Tous les cours de l'UE, avec ou sans note : l'absence de note est une
+  // information, elle dit qu'il n'y a rien à reporter.
+  const cours = structure.map(co => {
+    const n = calculerNoteCours(co, notes);
+    return {
+      cours_code: co.cours_code, cours_nom: co.cours_nom,
+      note: n.sur20_exact, note_affichee: n.sur20,
+      annee_origine: an,
+    };
+  });
+
+  const insc = db.prepare(`
+    SELECT resultat, points FROM etudiant_inscription
+    WHERE etudiant_id = ? AND ue_num = ? AND annee_scolaire = ?
+  `).get(etudId, ueNum, an);
+
+  // Déjà reportés vers l'année cible : on ne les propose pas deux fois.
+  const dejaReportes = req.query.annee_cible
+    ? db.prepare(`
+        SELECT cours_code FROM etudiant_report_note
+        WHERE etudiant_id = ? AND ue_num = ? AND annee_scolaire = ?
+      `).all(etudId, ueNum, req.query.annee_cible).map(x => x.cours_code)
+    : [];
+
+  res.json({
+    annees, annee_source: an, cours,
+    resultat_ue: insc?.resultat || null,
+    points_ue: insc?.points ?? null,
+    deja_reportes: dejaReportes,
+  });
+});
+
 // ── Reports de note d'un étudiant pour une UE et une année ─────────────────
 r.get('/reports/:etudId/:ueNum', authRequired, (req, res) => {
   const { etudId, ueNum } = req.params;
