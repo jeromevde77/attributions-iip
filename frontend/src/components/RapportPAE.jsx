@@ -22,6 +22,9 @@ export default function RapportPAE({ anneeCourante, onClose }) {
 
   const [contenu, setContenu] = useState('annee');    // annee | etat | note
   const [granularite, setGranularite] = useState('ue');
+  // Paysage par défaut : une colonne par UE. Le portrait convient aux sections
+  // à peu d'unités, où le paysage gaspille la largeur.
+  const [orientation, setOrientation] = useState('paysage');
   const [intitules, setIntitules] = useState(false);   // en-têtes détaillés
   const [synthese, setSynthese] = useState(true);      // colonnes acquis / ECTS
   const [tauxUE, setTauxUE] = useState(true);          // ligne de réussite par UE
@@ -54,7 +57,7 @@ export default function RapportPAE({ anneeCourante, onClose }) {
   }, [choisies, annee]);
 
   function url(sect) {
-    const p = new URLSearchParams({ section: sect, annee, granularite });
+    const p = new URLSearchParams({ section: sect, annee, granularite, orientation });
     if (etendue === 'niveau') p.set('niveau', niveau);
     if (etendue === 'ue' && ueNum) p.set('ue_num', ueNum);
     return `/api/etudiants/rapport-pae?${p}`;
@@ -229,7 +232,11 @@ export default function RapportPAE({ anneeCourante, onClose }) {
   .alerte { background: #FEF3C7; border: 1px solid #FCD34D; color: #92400E;
             padding: 7px 10px; border-radius: 6px; font-size: 11px; margin-bottom: 10px; }
   .legende { margin-top: 10px; font-size: 10px; color: #64748b; }
-  @media print { body { margin: 8mm; } @page { size: landscape; } }
+  /* L'orientation suit le choix : paysage par défaut, une colonne par UE ;
+     le portrait convient aux sections à peu d'unités. */
+  @page { size: A4 ${orientation === 'portrait' ? 'portrait' : 'landscape'};
+          margin: 12mm 10mm 24mm 10mm; }
+  @media print { body { margin: 0; padding-bottom: 0; } }
 </style></head><body>
 <h1>Plan annuel — ${esc(j.section)}</h1>
 ${j.granularite === 'cours' && !cotesCours ? `
@@ -413,7 +420,17 @@ ${j.granularite === 'cours' && !cotesCours ? `
                 ))}
               </div>
               <div>
-                <div className="text-[11px] font-semibold text-slate-500 uppercase tracking-wide mb-1.5">Colonnes</div>
+                <label className="text-xs mr-4 inline-block align-top">
+              <span className="block font-semibold text-slate-500 uppercase tracking-wide mb-1">
+                Orientation
+              </span>
+              <select value={orientation} onChange={e => setOrientation(e.target.value)}
+                className="border border-slate-300 rounded-lg px-2 py-1.5 text-sm">
+                <option value="paysage">Paysage</option>
+                <option value="portrait">Portrait</option>
+              </select>
+            </label>
+            <div className="text-[11px] font-semibold text-slate-500 uppercase tracking-wide mb-1.5">Colonnes</div>
                 {[['ue', 'Une par UE'], ['cours', 'Une par cours']].map(([v, l]) => (
                   <label key={v} className="flex items-center gap-1.5 text-[12.5px] mb-1">
                     <input type="radio" checked={granularite === v} onChange={() => setGranularite(v)} /> {l}

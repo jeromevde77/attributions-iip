@@ -422,12 +422,13 @@ r.get('/rapport', authRequired, (req, res) => {
   td.va { background: #ede9fe; color: #5b21b6; font-weight: 700; }
   td.i  { color: #64748b; }
   .legende { margin-top: 10px; font-size: 10px; color: #64748b; }
-  @media print { body { margin: 8mm 8mm 0; } @page { size: landscape; } }
+  @media print { body { margin: 0; } }
 
-  /* Deux protections plutôt qu'une : la marge de @page, que certains
-     navigateurs ignorent lorsqu'ils impriment depuis un cadre, ET une réserve
-     dans le corps même. Sans la seconde, le pied se superposait au texte. */
-  ${reglesDePage({ haut: 14, cote: 14 })}
+  /* PAYSAGE : une colonne par UE, la matrice ne tient pas en portrait.
+     L'orientation se déclare ICI et nulle part ailleurs — un second @page
+     déclaré plus bas l'emporterait, ce qui est précisément ce qui ramenait ce
+     rapport en portrait. */
+  ${reglesDePage({ haut: 12, cote: 10, orientation })}
 
   /* Pied de page commun, ancré en bas de CHAQUE page — dernière comprise.
      Un pied placé dans le flux, ou en table-footer-group, flotte au milieu
@@ -584,6 +585,9 @@ r.post('/import-liste', authRequired, roleRequired('admin', 'editeur'), (req, re
 // ── Rapport de PAE : données pour l'aperçu et pour l'export Excel ──────────
 // Un seul jeu de données sert les deux sorties, pour qu'elles ne divergent pas.
 r.get('/rapport-pae', authRequired, (req, res) => {
+  // Paysage par défaut : une colonne par UE, la matrice ne tient pas en
+  // portrait. Le portrait reste possible pour une section à peu d'unités.
+  const orientation = req.query.orientation === 'portrait' ? 'portrait' : 'paysage';
   const { section, annee, niveau, ue_num, granularite = 'ue' } = req.query;
   if (!section || !annee) return res.status(400).json({ error: 'section et annee requises' });
 
