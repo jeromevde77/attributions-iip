@@ -18,6 +18,9 @@ export default function CentreImpression({ onClose, documentInitial = null,
   const [catalogue, setCatalogue] = useState(null);
   const [pdfPossible, setPdfPossible] = useState(false);
   const [docCle, setDocCle] = useState(documentInitial);
+  // Un dossier compte plusieurs pièces : on peut en cocher d'autres et les
+  // tirer d'un coup pour tous les étudiants retenus.
+  const [docsSupp, setDocsSupp] = useState(new Set());
 
   const [annees, setAnnees] = useState([]);
   const [sections, setSections] = useState([]);
@@ -291,6 +294,83 @@ export default function CentreImpression({ onClose, documentInitial = null,
     await telecharger(await rep.blob(), `${nom}.pdf`);
   }
 
+  /**
+   * Le dossier : chaque document coché, pour chaque étudiant retenu.
+   *
+   * Les quatre types sont produits par des routes distinctes, chacune avec sa
+   * mise en page. On ne les fusionne donc pas en un seul HTML — ce serait
+   * mêler quatre feuilles de style — mais on les range dans une archive, une
+   * pièce par fichier, un sous-dossier par étudiant. C'est d'ailleurs ce qu'on
+   * attend d'un dossier : des pièces séparées, nommées, classables.
+   */
+  async function produireDossier() {
+    const types = [docCle, ...docsSupp].filter(Boolean);
+    const etuds = [...new Set(retenus.map(d => d.etudiant_id))];
+    const total = types.length * etuds.length;
+
+    setEnCours(true); setMessage(null);
+    setTravail({ total, debut: Date.now(),
+                 estime: cadenceMs() ? Math.round(total * cadenceMs() / 1000) : null });
+
+    const propre = s => String(s || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+      .replace(/[^A-Za-z0-9]+/g, '_').replace(/^_|_$/g, '');
+    const mill = String(annee).replace(/^(\d{2})(\d{2})-(\d{2})(\d{2})$/, '$2$4');
+
+    try {
+      const JSZip = (await import('jszip')).default;
+      const zip = new JSZip();
+      const echecs = [];
+
+      for (const etudId of etuds) {
+        const d0 = retenus.find(x => x.etudiant_id === etudId);
+        const nomEtud = `${propre(d0?.nom)}_${propre(d0?.prenom)}` || String(etudId);
+        const dossier = zip.folder(nomEtud);
+
+        for (const type of types) {
+          const decl = catalogue?.find(x => x.cle === type);
+          if (!decl?.route) { echecs.push(`${nomEtud} — ${type}`); continue; }
+          try {
+            const chemin = decl.route.chemin.replace(':id', etudId);
+            const rep = decl.route.methode === 'POST'
+              ? await fetch(chemin, { method: 'POST', headers: authHeaders(),
+                  body: JSON.stringify({ etudiant_id: etudId, annee,
+                                         date_document: dateDoc, avis: 'Néant' }) })
+              : await fetch(`${chemin}?annee=${encodeURIComponent(annee)}`
+                  + `&date_document=${encodeURIComponent(dateDoc)}`,
+                  { headers: authHeaders() });
+            if (!rep.ok) {
+              const e = await rep.json().catch(() => ({}));
+              echecs.push(`${nomEtud} — ${decl.libelle} : ${e.error || rep.status}`);
+              continue;
+            }
+            const j = await rep.json();
+            const html = j.html || j.document || '';
+            if (!html) { echecs.push(`${nomEtud} — ${decl.libelle} : vide`); continue; }
+            dossier.file(`${type}_${nomEtud}_${mill}.html`, html);
+          } catch (e) {
+            echecs.push(`${nomEtud} — ${decl.libelle} : ${e.message}`);
+          }
+        }
+      }
+
+      telecharger(await zip.generateAsync({ type: 'blob' }),
+        `dossiers_${annee}_${etuds.length}etudiant(s).zip`);
+
+      // Les échecs sont ÉNONCÉS : une pièce manquante dans un dossier
+      // administratif ne doit pas passer inaperçue.
+      if (echecs.length) {
+        setMessage({ type: 'alerte',
+          texte: `${echecs.length} pièce(s) non produite(s) : `
+               + echecs.slice(0, 4).join(' · ')
+               + (echecs.length > 4 ? ` … et ${echecs.length - 4} autre(s)` : '') });
+      }
+    } catch (e) {
+      setMessage({ type: 'err', texte: e.message });
+    } finally {
+      setEnCours(false); setTravail(null);
+    }
+  }
+
   async function telecharger(blob, nom) {
     const a = document.createElement('a');
     a.href = URL.createObjectURL(blob);
@@ -378,15 +458,41 @@ export default function CentreImpression({ onClose, documentInitial = null,
               <div key={g}>
                 <div className="text-[11px] text-slate-400 mb-1">{g}</div>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
-                  {docs.map(d => (
-                    <button key={d.cle} onClick={() => setDocCle(d.cle)}
-                      className={`text-left px-3 py-2 rounded-xl border transition
-                        ${docCle === d.cle ? 'border-iip-blue bg-iip-blue/5'
-                                           : 'border-slate-200 hover:bg-slate-50'}`}>
-                      <div className="text-[12.5px] font-semibold text-iip-blue">{d.libelle}</div>
-                      <div className="text-[11px] text-slate-500">{d.description}</div>
-                    </button>
-                  ))}
+                  {docs.map(d => {
+                    const principal = docCle === d.cle;
+                    const enPlus = docsSupp.has(d.cle);
+                    return (
+                      <div key={d.cle}
+                        className={`px-3 py-2 rounded-xl border transition
+                          ${principal ? 'border-iip-blue bg-iip-blue/5'
+                            : enPlus ? 'border-iip-turquoise bg-iip-turquoise/5'
+                            : 'border-slate-200 hover:bg-slate-50'}`}>
+                        <button onClick={() => {
+                          setDocCle(d.cle);
+                          setDocsSupp(s => { const n = new Set(s); n.delete(d.cle); return n; });
+                        }} className="text-left w-full">
+                          <div className="text-[12.5px] font-semibold text-iip-blue">
+                            {d.libelle}
+                          </div>
+                          <div className="text-[11px] text-slate-500">{d.description}</div>
+                        </button>
+                        {/* Une pièce de plus au dossier, sans changer le document
+                            qui commande la recherche des destinataires. */}
+                        {!principal && (
+                          <label className="flex items-center gap-1.5 mt-1 text-[11px]
+                                            text-slate-500 cursor-pointer">
+                            <input type="checkbox" checked={enPlus}
+                              onChange={() => setDocsSupp(s => {
+                                const n = new Set(s);
+                                n.has(d.cle) ? n.delete(d.cle) : n.add(d.cle);
+                                return n;
+                              })} />
+                            Ajouter au dossier
+                          </label>
+                        )}
+                      </div>
+                    );
+                  })}
                 </div>
               </div>
             ))}
@@ -500,6 +606,15 @@ export default function CentreImpression({ onClose, documentInitial = null,
                                disabled:opacity-40">
                     <IconPrinter size={15} /> Imprimer
                   </button>
+                  {docsSupp.size > 0 && (
+                    <button onClick={produireDossier} disabled={enCours || !retenus.length}
+                      title="Une archive par étudiant, avec chacune de ses pièces"
+                      className="flex items-center gap-1.5 px-3.5 py-1.5 text-sm
+                                 bg-iip-turquoise text-white font-semibold rounded-lg
+                                 disabled:opacity-40">
+                      <IconFileZip size={15} /> Dossiers ({docsSupp.size + 1} pièces)
+                    </button>
+                  )}
                   <button onClick={() => produire('zip')} disabled={enCours || !retenus.length}
                     className="flex items-center gap-1.5 px-3.5 py-1.5 text-sm border
                                border-slate-300 text-slate-600 font-semibold rounded-lg

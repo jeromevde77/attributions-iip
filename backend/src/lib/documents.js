@@ -77,6 +77,10 @@ export function documentsPour(user) {
   return DOCUMENTS.filter(d => !d.roles || d.roles.includes(role))
     .map(({ route, routeLot, routePdf, ...reste }) => ({
       ...reste,
+      // Le chemin est exposé pour permettre au centre d'assembler un DOSSIER —
+      // plusieurs documents pour plusieurs étudiants. Il reste une route
+      // normale, soumise aux mêmes contrôles d'accès.
+      route,
       // Les chemins ne sortent pas : l'écran passe par le centre, qui seul
       // décide où appeler. Sans quoi on recréerait la dispersion.
       lotPossible: !!routeLot,
