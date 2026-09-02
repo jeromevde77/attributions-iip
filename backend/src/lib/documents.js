@@ -39,6 +39,16 @@ export const DOCUMENTS = [
     roles: null,
   },
   {
+    cle: 'motivation_decision',
+    libelle: "Motivation d'une décision (refus / ajournement)",
+    description: "Annexes 8 et 9 — pour les unités en échec, jamais de points.",
+    portee: 'etudiant', lot: true, groupe: 'Étudiants',
+    route: { methode: 'GET', chemin: '/api/acquis/motivation/:id/:ue/document' },
+    parametres: ['annee', 'section', 'ue'],
+    nomFichier: 'Motivation_UE{ue}_{nom}_{prenom}_{annee}',
+    roles: ['admin', 'directeur', 'directeur_adjoint', 'editeur'],
+  },
+  {
     cle: 'annexe2',
     libelle: 'Attestation du progrès des études (annexe 2)',
     description: "Formulaire de l'Office des Étrangers. Réclame la nationalité.",

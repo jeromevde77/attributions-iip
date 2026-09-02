@@ -58,11 +58,17 @@ r.get('/destinataires', authRequired, (req, res) => {
 
     // Pour l'attestation, la maille est le couple étudiant × unité réussie ;
     // pour les autres, c'est l'étudiant.
-    const parUE = doc.cle === 'attestation_reussite';
+    const parUE = doc.cle === 'attestation_reussite' || doc.cle === 'motivation_decision';
+    // La motivation ne concerne QUE les unités en échec ; l'attestation, que
+    // les réussites. Les confondre délivrerait une attestation de réussite à un
+    // étudiant refusé — ce qui engagerait l'établissement.
+    const enEchec = doc.cle === 'motivation_decision';
 
     const clauses = ['i.annee_scolaire = ?'];
     const params = [annee];
-    if (parUE) clauses.push("i.resultat = 'reussi'");
+    if (parUE) {
+      clauses.push(enEchec ? "i.resultat IN ('refuse','ajourne')" : "i.resultat = 'reussi'");
+    }
     // Plusieurs unités possibles : « ues » l'emporte, « ue » reste accepté
     // pour ne pas casser les appels existants.
     const listeUe = (ues || ue || '').split(',').map(Number).filter(Boolean);

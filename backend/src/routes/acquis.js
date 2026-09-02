@@ -25,6 +25,8 @@ import { Router } from 'express';
 import db from '../db/index.js';
 import { anneeDeTravail, anneeActiveEnBase } from '../helpers/annee.js';
 import { authRequired, roleRequired } from '../middleware/auth.js';
+import { envelopperDocument } from '../lib/document.js';
+import { SIGNATURE_SOHET, SCEAU_IIP } from '../services/assets/signature_sohet.js';
 
 const r = Router();
 
@@ -287,6 +289,280 @@ export function coursValidesAnterieurs(etudId, ueNum, anneeCible) {
   }
   return Object.values(parCours);
 }
+
+// ── Motivation d'une décision d'ajournement ou de refus ────────────────────
+// Annexes 8 et 9 de la circulaire « Sanction des études ». Ce ne sont pas des
+// attestations mais des MOTIVATIONS : leur cœur est un tableau où chaque acquis
+// non maîtrisé reçoit sa justification. Le décret l'exige, et une décision non
+// motivée est attaquable.
+//
+// L'ÉCHEC SE DÉDUIT des notes : les acquis sont encodés un à un, inutile de les
+// faire cocher. Seul le motif reste à écrire.
+(function migrer() {
+  try {
+    db.exec(`
+      CREATE TABLE IF NOT EXISTS decision_motivation (
+        id             INTEGER PRIMARY KEY AUTOINCREMENT,
+        etudiant_id    INTEGER NOT NULL,
+        annee_scolaire TEXT    NOT NULL,
+        ue_num         INTEGER NOT NULL,
+        aa_code        TEXT    NOT NULL,
+        motif          TEXT,
+        maj_le         TEXT DEFAULT CURRENT_TIMESTAMP,
+        maj_par        TEXT,
+        UNIQUE(etudiant_id, annee_scolaire, ue_num, aa_code)
+      )`);
+  } catch (e) { console.error('[motivation] migration', e.message); }
+})();
+
+/**
+ * Les acquis d'une UE pour un étudiant, avec leur note et leur motif.
+ *
+ * Le seuil de maîtrise est celui du RDE : 10/20 (art. 78). Un acquis non évalué
+ * est signalé comme tel — c'est différent d'un échec, et le confondre serait
+ * motiver un refus sur une absence d'évaluation.
+ */
+r.get('/motivation/:etudId/:ueNum', authRequired, (req, res) => {
+  const etudId = Number(req.params.etudId);
+  const ueNum = Number(req.params.ueNum);
+  const annee = req.query.annee;
+  if (!annee) return res.status(400).json({ error: 'annee requise' });
+
+  const insc = db.prepare(`
+    SELECT resultat, points FROM etudiant_inscription
+    WHERE etudiant_id = ? AND annee_scolaire = ? AND ue_num = ?
+  `).get(etudId, annee, ueNum);
+
+  const notes = {};
+  for (const l of db.prepare(`
+    SELECT code, points, non_evalue FROM etudiant_note_detail
+    WHERE etudiant_id = ? AND annee_scolaire = ? AND ue_num = ? AND type = 'aa'
+  `).all(etudId, annee, ueNum)) {
+    const brut = String(l.code).includes('|') ? String(l.code).split('|')[1] : l.code;
+    notes[brut] = { points: l.points, non_evalue: l.non_evalue };
+  }
+
+  const motifs = Object.fromEntries(db.prepare(`
+    SELECT aa_code, motif FROM decision_motivation
+    WHERE etudiant_id = ? AND annee_scolaire = ? AND ue_num = ?
+  `).all(etudId, annee, ueNum).map(m => [m.aa_code, m.motif]));
+
+  const SEUIL = 10;   // RDE, art. 78
+  const acquis = structureUE(ueNum, annee).flatMap(co =>
+    (co.aas || []).map(a => {
+      const n = notes[a.aa_code];
+      const evalue = n && !n.non_evalue && n.points != null;
+      return {
+        aa_code: a.aa_code, description: a.description,
+        cours_code: co.cours_code, cours_nom: co.cours_nom,
+        note: evalue ? n.points : null,
+        non_evalue: !evalue,
+        // Non maîtrisé : évalué et sous le seuil. Une absence d'évaluation
+        // n'est PAS un échec.
+        non_maitrise: evalue && n.points < SEUIL,
+        motif: motifs[a.aa_code] || '',
+      };
+    }));
+
+  res.json({
+    annee, ue_num: ueNum, seuil: SEUIL,
+    resultat: insc?.resultat || null,
+    points: insc?.points ?? null,
+    acquis,
+    nb_non_maitrises: acquis.filter(a => a.non_maitrise).length,
+    nb_non_evalues: acquis.filter(a => a.non_evalue).length,
+    // Sans motif, la décision est attaquable : on le dit.
+    sans_motif: acquis.filter(a => a.non_maitrise && !a.motif).length,
+  });
+});
+
+r.put('/motivation', authRequired, roleRequired('admin', 'directeur',
+      'directeur_adjoint', 'editeur'), (req, res) => {
+  const { etudiant_id, annee_scolaire, ue_num, motifs } = req.body || {};
+  if (!etudiant_id || !annee_scolaire || !ue_num || typeof motifs !== 'object') {
+    return res.status(400).json({ error: 'étudiant, année, unité et motifs requis' });
+  }
+  const st = db.prepare(`
+    INSERT INTO decision_motivation
+      (etudiant_id, annee_scolaire, ue_num, aa_code, motif, maj_le, maj_par)
+    VALUES (?,?,?,?,?, datetime('now'), ?)
+    ON CONFLICT(etudiant_id, annee_scolaire, ue_num, aa_code) DO UPDATE SET
+      motif = excluded.motif, maj_le = excluded.maj_le, maj_par = excluded.maj_par`);
+  const qui = req.user?.email || req.user?.nom || null;
+
+  db.transaction(() => {
+    for (const [aa, motif] of Object.entries(motifs)) {
+      st.run(etudiant_id, annee_scolaire, Number(ue_num), aa,
+             String(motif || '').trim() || null, qui);
+    }
+  })();
+
+  res.json({ ok: true, enregistres: Object.keys(motifs).length });
+});
+
+// ── Le document réglementaire ──────────────────────────────────────────────
+// Annexe 8 (ajournement) ou 9 (refus), selon la décision encodée. La forme est
+// imposée par la circulaire : on la suit, sans habillage.
+r.get('/motivation/:etudId/:ueNum/document', authRequired, (req, res) => {
+  const etudId = Number(req.params.etudId);
+  const ueNum = Number(req.params.ueNum);
+  const annee = req.query.annee;
+  if (!annee) return res.status(400).json({ error: 'annee requise' });
+
+  const e = db.prepare('SELECT * FROM etudiant WHERE id = ?').get(etudId);
+  if (!e) return res.status(404).json({ error: 'étudiant introuvable' });
+
+  const etab = db.prepare('SELECT * FROM etablissement LIMIT 1').get() || {};
+  const insc = db.prepare(`
+    SELECT resultat FROM etudiant_inscription
+    WHERE etudiant_id = ? AND annee_scolaire = ? AND ue_num = ?
+  `).get(etudId, annee, ueNum);
+
+  const estRefus = insc?.resultat === 'refuse';
+
+  const ue = db.prepare(`
+    SELECT ue_nom, ue_code_fwb, ue_periodes FROM ue
+    WHERE ue_num = ? ORDER BY (annee_scolaire = ?) DESC, annee_scolaire DESC LIMIT 1
+  `).get(ueNum, annee) || {};
+
+  // Les acquis non maîtrisés et leur motivation.
+  const notes = {};
+  for (const l of db.prepare(`
+    SELECT code, points, non_evalue FROM etudiant_note_detail
+    WHERE etudiant_id = ? AND annee_scolaire = ? AND ue_num = ? AND type = 'aa'
+  `).all(etudId, annee, ueNum)) {
+    const brut = String(l.code).includes('|') ? String(l.code).split('|')[1] : l.code;
+    notes[brut] = l;
+  }
+  const motifs = Object.fromEntries(db.prepare(`
+    SELECT aa_code, motif FROM decision_motivation
+    WHERE etudiant_id = ? AND annee_scolaire = ? AND ue_num = ?
+  `).all(etudId, annee, ueNum).map(m => [m.aa_code, m.motif]));
+
+  const lignes = structureUE(ueNum, annee).flatMap(co => (co.aas || []).map(a => {
+    const n = notes[a.aa_code];
+    const evalue = n && !n.non_evalue && n.points != null;
+    return evalue && n.points < 10
+      ? { code: a.aa_code, description: a.description || co.cours_nom,
+          motif: motifs[a.aa_code] || '' }
+      : null;
+  })).filter(Boolean);
+
+  if (!lignes.length) {
+    return res.status(400).json({
+      error: "Aucun acquis en échec pour cette unité : une motivation de refus "
+           + "n'a pas lieu d'être. Vérifiez la décision encodée.",
+    });
+  }
+
+  const esc2 = s => String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;');
+  const jour = d => d ? String(d).slice(0, 10).split('-').reverse().join('-') : '……………';
+  const [a1, a2] = String(annee).split('-');
+
+  const corps = `
+<div class="mot">
+  <p class="cf">COMMUNAUTÉ FRANÇAISE DE BELGIQUE<br>
+    ENSEIGNEMENT DE PROMOTION SOCIALE</p>
+  <p class="an">ANNÉE SCOLAIRE / ANNÉE ACADÉMIQUE : ${esc2(a1)} / ${esc2(a2)}</p>
+
+  <p class="etab"><b>${esc2(etab.etab_nom || 'Institut Ilya Prigogine')}</b><br>
+    Adresse : ${esc2(etab.adresse || '')}<br>
+    Numéro de matricule : ${esc2(etab.matricule || '……………')}<br>
+    Numéro FASE : ${esc2(etab.fase || '……………')}</p>
+
+  <h1>MOTIVATION D'UNE DÉCISION ${estRefus ? 'DE REFUS' : "D'AJOURNEMENT"}</h1>
+
+  <p>Nous, soussignés, Président-e et Membres du Conseil des études / Jury d'épreuve
+    intégrée constitué par le Pouvoir organisateur de l'établissement précité en vue de
+    la délivrance de l'attestation de réussite de l'unité d'enseignement :</p>
+
+  <table class="ue">
+    <tr><th>Intitulé de l'unité d'enseignement</th><th>Nombre de périodes</th>
+        <th>Numéro de code</th></tr>
+    <tr><td>${esc2(ue.ue_nom || '')}</td>
+        <td>${ue.ue_periodes || '……………'}</td>
+        <td>${esc2(ue.ue_code_fwb || ueNum)}</td></tr>
+  </table>
+
+  <p>Attestons que :</p>
+  <p class="etud"><b>${esc2((e.nom || '').toUpperCase())} ${esc2(e.prenom || '')}</b> (H/F/X)<br>
+    Né-e à ${esc2(e.lieu_naissance) || '……………………'},
+    le ${jour(e.date_naissance)},</p>
+
+  <p>Ne maîtrise pas les acquis d'apprentissage suivants, soit :</p>
+
+  <table class="aa">
+    <tr><th style="width:45%">ACQUIS D'APPRENTISSAGE</th>
+        <th>${estRefus ? 'MOTIVATION' : 'JUSTIFICATION'}</th></tr>
+    ${lignes.map(l => `<tr>
+      <td>${esc2(l.description)}</td>
+      <td>${esc2(l.motif) || '……………………………………'}</td>
+    </tr>`).join('')}
+  </table>
+
+  ${estRefus ? `
+  <p class="champ">Base légale de la décision :<br>
+    ${esc2(etab.base_legale_refus
+      || "Arrêté du Gouvernement de la Communauté française du 2 septembre 2015 "
+       + "relatif à la sanction des études ; règlement des études de l'établissement.")}</p>
+  <p class="champ">Voies de recours interne :<br>
+    ${esc2(etab.voies_recours
+      || "Conformément au règlement des études, un recours interne peut être "
+       + "introduit auprès de la direction dans les délais qu'il prévoit.")}</p>
+  <p class="champ">Remarques particulières :<br>……………………………………………………………</p>
+  ` : `
+  <p class="champ">L'étudiant-e doit représenter les acquis d'apprentissage suivants :<br>
+    ${lignes.map(l => esc2(l.description)).join(' ; ')}</p>
+  <p class="champ">En date du ……………… à ……H……, au local ………,
+    à ……………………………… (adresse)</p>
+  <p class="champ">Remarques :<br>……………………………………………………………………</p>
+  `}
+
+  <div class="cloture">
+    <div>Le Conseil des études,<br>Le Jury d'épreuve intégrée,</div>
+    <div class="sceau"></div>
+    <div class="sig">
+      <div>Fait à ${esc2(etab.localite || 'Anderlecht')},<br>
+        le ${jour(new Date().toISOString())}</div>
+      <div class="paraphe"></div>
+      <div class="nom">Le Directeur,<br><b>${esc2(etab.directeur_nom || 'Charles SOHET')}</b></div>
+    </div>
+  </div>
+</div>`;
+
+  const html = envelopperDocument({
+    html: corps, titre: '', avecPied: false, margeHaut: 15, margeCote: 18,
+    styles: `
+:root{--paraphe:url("${SIGNATURE_SOHET}");--sceau:url("${SCEAU_IIP}")}
+.mot{font-size:10pt;line-height:1.35;color:#000}
+.mot p{margin:0 0 2.5mm}
+.mot .cf{text-align:center;font-weight:700;font-size:10.5pt}
+.mot .an{text-align:center;font-size:9.5pt;margin-bottom:4mm}
+.mot .etab{font-size:9.5pt;margin-bottom:4mm}
+/* Le titre en rouge : la décision doit se distinguer au premier regard d'une
+   attestation de réussite, dont la forme est très proche. */
+.mot h1{font-size:12pt;font-weight:700;text-align:center;color:#B91C1C;
+  margin:0 0 4mm;letter-spacing:.3pt}
+.mot table{width:100%;border-collapse:collapse;margin:2mm 0 3mm}
+.mot table th,.mot table td{border:.5pt solid #000;padding:1.5mm 2mm;
+  font-size:9.5pt;vertical-align:top;text-align:left}
+.mot table th{font-size:8.5pt;font-weight:700;background:#f1f5f9}
+.mot .etud{margin:2mm 0 3mm}
+.mot .champ{margin-top:3mm;font-size:9.5pt}
+.mot .cloture{display:flex;justify-content:space-between;align-items:flex-end;
+  gap:8mm;margin-top:8mm;font-size:9.5pt;page-break-inside:avoid}
+.mot .cloture .sceau{width:24mm;height:24mm;background-image:var(--sceau);
+  background-repeat:no-repeat;background-position:center bottom;background-size:contain}
+.mot .sig{text-align:center}
+.mot .sig .paraphe{width:44mm;height:16mm;margin:1mm auto -1mm;
+  background-image:var(--paraphe);background-repeat:no-repeat;
+  background-position:center bottom;background-size:contain}
+.mot .sig .nom{border-top:.4pt solid #94a3b8;padding-top:1mm}`,
+  });
+
+  res.json({ html, nom: `Motivation_${estRefus ? 'refus' : 'ajournement'}_UE${ueNum}` });
+});
 
 // ── Tous les cours suivis par un étudiant, toutes UE confondues ────────────
 // La dispense partielle exigeait de connaître le numéro d'UE et de le taper
