@@ -103,7 +103,8 @@ export function piedStyles(hauteur = HAUTEUR_PIED_MM) {
 }
 
 export function envelopperDocument({ html, titre, orientation = 'portrait',
-                                     styles = '', logo = null, avecPied = true }) {
+                                     styles = '', logo = null, avecPied = true,
+                                     margeHaut = 18, margeCote = 18 }) {
   const pied = avecPied ? piedDocument() : '';
   const esc = s => String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;');
 
@@ -114,7 +115,7 @@ export function envelopperDocument({ html, titre, orientation = 'portrait',
 <style>
   * { box-sizing: border-box; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
 
-  ${reglesDePage({ haut: 18, cote: 18, orientation, avecPied })}
+  ${reglesDePage({ haut: margeHaut, cote: margeCote, orientation, avecPied })}
 
   body { font-family: Arial, Helvetica, sans-serif; font-size: 10pt;
          color: #1a1a2e; margin: 0; }

@@ -202,7 +202,7 @@ r.post('/document', authRequired, roleRequired('admin', 'directeur',
   <p>Avis facultatif concernant le déroulement des études de l'étudiant(e) :
      ${champ(avis || 'Néant')}</p>
 
-  <p>Fait à <b>${esc(etab.localite || 'Anderlecht')}</b>, le
+  <p class="avant-sig">Fait à <b>${esc(etab.localite || 'Anderlecht')}</b>, le
      <b>${frDate(date_document || new Date().toISOString())}</b></p>
 
   <div class="sig">
@@ -217,23 +217,29 @@ r.post('/document', authRequired, roleRequired('admin', 'directeur',
     html: corps,
     titre: '',
     logo: LOGO_IIP_JPEG,
+    // 18 mm ne laissaient qu'un millimètre de marge : le moindre nom un peu
+    // long faisait basculer la signature sur une seconde page.
+    margeHaut: 12, margeCote: 15,
     styles: `
 :root{--paraphe:url("${SIGNATURE_SOHET}")}
-.a2{font-size:10pt;line-height:1.45}
-.a2 .ref{font-size:7.5pt;color:#475569;text-align:justify;margin-bottom:4mm;
+.a2{font-size:9.5pt;line-height:1.35}
+.a2 .ref{font-size:7pt;color:#475569;text-align:justify;margin-bottom:2.5mm;
   border-bottom:.4pt solid #cbd5e1;padding-bottom:2mm}
-.a2 h1{font-size:11.5pt;text-align:center;margin:0 0 3mm;line-height:1.3}
-.a2 .visa{font-size:8pt;color:#475569;text-align:justify;margin-bottom:5mm}
-.a2 p{margin:2.5mm 0;text-align:justify}
+.a2 h1{font-size:11pt;text-align:center;margin:0 0 2mm;line-height:1.25}
+.a2 .visa{font-size:7.5pt;color:#475569;text-align:justify;margin-bottom:3mm}
+.a2 p{margin:1.8mm 0;text-align:justify}
 .a2 .note{font-size:8.5pt;color:#475569;font-style:italic}
-.a2 table.ident{width:auto;margin:3mm 0 5mm}
-.a2 table.ident td{border:0;padding:.8mm 6mm .8mm 0;font-size:10pt}
+.a2 table.ident{width:auto;margin:2mm 0 3mm}
+.a2 table.ident td{border:0;padding:.5mm 6mm .5mm 0;font-size:9.5pt}
 .a2 table.ident td:first-child{color:#475569;width:38mm}
 /* Une valeur que Lucie ne connaît pas se voit, pour être complétée à la main. */
 .a2 .manque{color:#b45309;letter-spacing:.5pt}
-.a2 .sig{margin-top:8mm;page-break-inside:avoid}
+/* La signature ne doit jamais se scinder ni partir seule : elle reste
+   solidaire du paragraphe qui la précède. */
+.a2 .sig{margin-top:5mm;page-break-inside:avoid;break-inside:avoid}
+.a2 .avant-sig{page-break-after:avoid;break-after:avoid}
 .a2 .sig .lib{font-size:9pt;margin-bottom:1mm}
-.a2 .sig .paraphe{height:17mm;width:46mm;background-image:var(--paraphe);
+.a2 .sig .paraphe{height:15mm;width:46mm;background-image:var(--paraphe);
   background-repeat:no-repeat;background-position:left bottom;background-size:contain}
 .a2 .sig .nom{font-size:9.5pt;font-weight:700;color:#1B2B4B;
   border-top:.4pt solid #94a3b8;width:46mm;padding-top:1mm}`,
