@@ -85,7 +85,7 @@ export function piedBalisage(logo = null) {
     + `</div>`;
 }
 
-export function piedStyles(hauteur = HAUTEUR_PIED_MM) {
+export function piedStyles(hauteur = HAUTEUR_PIED_MM, margeHaut = 18) {
   return `
   /* Le pied descend DANS la marge basse : « bottom: 0 » l'arrêterait au bas de
      la zone de contenu, soit à ${BANDE_PIED_MM}mm du bord, d'où le blanc dessous. */
@@ -105,6 +105,20 @@ export function piedStyles(hauteur = HAUTEUR_PIED_MM) {
     body { min-height: 297mm; display: flex; flex-direction: column; }
     body > .pied-lucie { position: static; height: auto; margin-top: auto;
                          padding-top: 10mm; }
+  }
+
+  /* Repli pour Safari, qui ne place pas correctement les éléments en position
+     fixe à l'impression : le pied y reste dans le flux. On le pousse alors en
+     bas de la page par la même mécanique qu'à l'écran, ce qui donne un résultat
+     correct sur un document d'une page. Le PDF, lui, passe par Chromium et
+     n'a pas besoin de ce détour. */
+  @supports (-webkit-hyphens: none) and (not (translate: none)) {
+    @media print {
+      body { min-height: calc(297mm - ${margeHaut}mm - ${BANDE_PIED_MM}mm);
+             display: flex; flex-direction: column; }
+      body > .pied-lucie { position: static; bottom: auto; height: auto;
+                           margin-top: auto; }
+    }
   }`;
 }
 
@@ -141,7 +155,7 @@ export function envelopperDocument({ html, titre, orientation = 'portrait',
   tr, td, th { break-inside: avoid; page-break-inside: avoid; }
 
   /* Le pied, ancré en bas de CHAQUE page — dernière comprise. */
-  ${piedStyles(HAUTEUR_PIED_MM)}
+  ${piedStyles(HAUTEUR_PIED_MM, margeHaut)}
 
   /* À l'écran, la position fixe collerait le pied au bas de la fenêtre, non
      de la page : on le laisse suivre le flux tant qu'on n'imprime pas. */
