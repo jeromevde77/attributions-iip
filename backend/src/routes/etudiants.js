@@ -1278,6 +1278,130 @@ r.delete('/:id/pae/confirmer', authRequired,
   res.json({ ok: true, confirme: false });
 });
 
+// ── Import d'un classeur de suivi ──────────────────────────────────────────
+// Les classeurs portent les DEUX sessions, les notes par acquis et la
+// MOTIVATION des décisions — ce que Lucie ne savait pas importer. Chaque ligne
+// alimente trois tables : l'inscription pour la décision et sa session,
+// etudiant_note_detail pour les acquis, decision_motivation pour le motif.
+r.post('/import-suivi', authRequired,
+       roleRequired('admin', 'directeur', 'directeur_adjoint', 'editeur'), (req, res) => {
+  const { annee, lignes, simulation } = req.body || {};
+  if (!annee || !Array.isArray(lignes)) {
+    return res.status(400).json({ error: 'annee et lignes requises' });
+  }
+
+  // Rapprochement par MATRICULE : c'est ce que portent les classeurs. Il change
+  // d'une rentrée à l'autre, mais ces fichiers sont annuels — le matricule y
+  // est donc fiable, contrairement à un import pluriannuel.
+  const parMatricule = {};
+  for (const e of db.prepare('SELECT id, id_ecampus, nom, prenom FROM etudiant').all()) {
+    const k = String(e.id_ecampus || '').trim();
+    if (k) parMatricule[k] = e;
+  }
+
+  const rapport = { retrouves: 0, resultats: 0, notes: 0, motivations: 0,
+                    ecrases: 0, inconnus: [] };
+  const vusEtud = new Set();
+
+  const insInsc = db.prepare(`
+    INSERT INTO etudiant_inscription
+      (etudiant_id, annee_scolaire, ue_num, resultat, resultat_s1, resultat_s2,
+       points, date_inscription)
+    VALUES (?,?,?,?,?,?,?,?)
+    ON CONFLICT(etudiant_id, annee_scolaire, ue_num) DO UPDATE SET
+      resultat    = excluded.resultat,
+      resultat_s1 = COALESCE(excluded.resultat_s1, etudiant_inscription.resultat_s1),
+      resultat_s2 = COALESCE(excluded.resultat_s2, etudiant_inscription.resultat_s2),
+      points      = COALESCE(excluded.points, etudiant_inscription.points)`);
+
+  const lireInsc = db.prepare(`
+    SELECT resultat, points FROM etudiant_inscription
+    WHERE etudiant_id = ? AND annee_scolaire = ? AND ue_num = ?`);
+
+  const insNote = db.prepare(`
+    INSERT INTO etudiant_note_detail
+      (etudiant_id, annee_scolaire, ue_num, type, code, points)
+    VALUES (?,?,?, 'aa', ?, ?)
+    ON CONFLICT(etudiant_id, annee_scolaire, ue_num, type, code) DO UPDATE SET
+      points = excluded.points`);
+
+  const insMotif = db.prepare(`
+    INSERT INTO decision_motivation
+      (etudiant_id, annee_scolaire, ue_num, aa_code, motif, maj_le, maj_par)
+    VALUES (?,?,?,?,?, datetime('now'), ?)
+    ON CONFLICT(etudiant_id, annee_scolaire, ue_num, aa_code) DO UPDATE SET
+      motif = excluded.motif, maj_le = excluded.maj_le`);
+
+  const dateJour = new Date().toISOString().slice(0, 10);
+  const qui = req.user?.email || req.user?.nom_complet || null;
+
+  const appliquer = db.transaction(() => {
+    for (const l of lignes) {
+      const e = parMatricule[String(l.matricule || '').trim()];
+      if (!e) {
+        rapport.inconnus.push({ matricule: l.matricule, nom: l.nom, prenom: l.prenom });
+        continue;
+      }
+      if (!vusEtud.has(e.id)) { vusEtud.add(e.id); rapport.retrouves++; }
+
+      const ueNum = Number(l.ue_num);
+      if (!Number.isFinite(ueNum)) continue;
+
+      // Un résultat déjà en base sera REMPLACÉ : on le compte pour l'annoncer.
+      const avant = lireInsc.get(e.id, annee, ueNum);
+      if (avant?.resultat && avant.resultat !== l.decision) rapport.ecrases++;
+
+      if (l.decision) {
+        // La session d'où vient la décision, telle que le classeur la dit.
+        const s1 = l.session === 's1' ? l.decision : null;
+        const s2 = l.session === 's2' ? (l.decision === 'reussi' ? 'reussi' : 'echec') : null;
+        if (!simulation) {
+          insInsc.run(e.id, annee, ueNum, l.decision, s1, s2,
+                      l.points ?? null, dateJour);
+        }
+        rapport.resultats++;
+      }
+
+      for (const [bloc, notes] of [['s1', l.notes_s1], ['s2', l.notes_s2]]) {
+        for (const [aa, note] of Object.entries(notes || {})) {
+          // Le code porte la session : sans cela, la seconde écraserait la
+          // première et l'on perdrait le détail de la délibération.
+          if (!simulation) insNote.run(e.id, annee, ueNum, `${bloc}|${aa}`, note);
+          rapport.notes++;
+        }
+      }
+
+      // La justification du classeur devient la motivation de la décision.
+      if (l.justification && (l.decision === 'refuse' || l.decision === 'ajourne')) {
+        if (!simulation) {
+          insMotif.run(e.id, annee, ueNum, '_ue', l.justification, qui);
+        }
+        rapport.motivations++;
+      }
+    }
+    if (simulation) throw new Error('SIMULATION');
+  });
+
+  try { appliquer(); } catch (e) {
+    if (e.message !== 'SIMULATION') {
+      console.error('[import-suivi]', e);
+      return res.status(500).json({ error: e.message });
+    }
+  }
+
+  res.json({
+    ok: true, simulation: !!simulation,
+    lignes_lues: lignes.length,
+    retrouves: rapport.retrouves,
+    resultats: rapport.resultats,
+    notes: rapport.notes,
+    motivations: rapport.motivations,
+    ecrases: rapport.ecrases,
+    inconnus: rapport.inconnus.slice(0, 20),
+    nb_inconnus: rapport.inconnus.length,
+  });
+});
+
 r.get('/coherence-resultats', authRequired, (req, res) => {
   const { annee, section } = req.query;
   if (!annee) return res.status(400).json({ error: 'annee requise' });

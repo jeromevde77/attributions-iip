@@ -12,6 +12,7 @@ import IdentiteEtudiant, { ComplementDossiers } from '../components/IdentiteEtud
 import CentreImpression from '../components/CentreImpression.jsx';
 import CentrePAE from '../components/CentrePAE.jsx';
 import ImportSurMesure from '../components/ImportSurMesure.jsx';
+import ImportSuivi from '../components/ImportSuivi.jsx';
 import Annexe2 from '../components/Annexe2.jsx';
 import MotivationDecision from '../components/MotivationDecision.jsx';
 import MenuActions from '../components/MenuActions.jsx';
@@ -1619,6 +1620,7 @@ export default function Etudiants() {
   const [centrePAE, setCentrePAE] = useState(false);
   const [comparaison, setComparaison] = useState(false);
   const [importSurMesure, setImportSurMesure] = useState(false);
+  const [importSuivi, setImportSuivi] = useState(false);
   const [tri, setTri] = useState({ champ: 'nom', sens: 1 });
 
 
@@ -1933,6 +1935,8 @@ export default function Etudiants() {
         onClick: () => setImportHisto(true) },
       { key: 'comparer', label: 'Comparer un classeur', icon: IconUpload,
         onClick: () => setComparaison(true) },
+      { key: 'suivi', label: 'Classeur de suivi (2 sessions)', icon: IconUpload,
+        onClick: () => setImportSuivi(true) },
       { key: 'sur-mesure', label: 'Importateur sur mesure', icon: IconUpload,
         onClick: () => setImportSurMesure(true) },
     ] },
@@ -2103,6 +2107,11 @@ export default function Etudiants() {
       )}
 
       {comparaison && <ComparaisonClasseur onClose={() => setComparaison(false)} />}
+
+      {importSuivi && (
+        <ImportSuivi annee={annee} onClose={() => setImportSuivi(false)}
+          onTermine={charger} />
+      )}
 
       {importSurMesure && (
         <ImportSurMesure onClose={() => setImportSurMesure(false)} onTermine={charger} />
