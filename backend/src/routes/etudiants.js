@@ -1117,6 +1117,24 @@ r.get('/encodage-direct', authRequired, (req, res) => {
     existant[`${l.etudiant_id}|${l.ue_num}`] = { resultat: l.resultat, points: l.points };
   }
 
+  // Les VALORISATIONS complètes. La grille de parcours les affiche et elles y
+  // masquent l'inscription ; cet écran les ignorait, si bien que les deux ne
+  // disaient pas la même chose du même étudiant.
+  for (const v of db.prepare(`
+    SELECT etudiant_id, ue_num, pourcentage FROM etudiant_valorisation
+    WHERE annee_scolaire = ? AND type = 'complete'
+      AND ue_num IN (SELECT ue_num FROM ue WHERE section = ? AND annee_scolaire = ?)
+  `).all(annee, section, annee)) {
+    const cle = `${v.etudiant_id}|${v.ue_num}`;
+    const insc = existant[cle];
+    existant[cle] = {
+      resultat: 'va', points: v.pourcentage,
+      // Une valorisation ET un résultat encodé sur la même unité, c'est une
+      // contradiction : on la signale plutôt que d'en taire une des deux.
+      conflit: insc?.resultat ? insc.resultat : null,
+    };
+  }
+
   res.json({ ues, etudiants, existant });
 });
 
