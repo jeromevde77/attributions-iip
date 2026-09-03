@@ -12,7 +12,7 @@
 
 import { Router } from 'express';
 import db from '../db/index.js';
-import { authRequired, roleRequired } from '../middleware/auth.js';
+import { authRequired, roleRequired, exigerPerimetreProfesseur, professeurDansPerimetre } from '../middleware/auth.js';
 import { declencher, anneeActive } from '../services/echeancier.js';
 
 const r = Router();
@@ -25,7 +25,7 @@ const peutEcrire = roleRequired('admin', 'editeur');
  * l'état réel s'il existe. Les pièces non encore créées apparaissent comme
  * « manquantes » sans qu'il faille les matérialiser en base.
  */
-r.get('/:profId/pieces', authRequired, (req, res) => {
+r.get('/:profId/pieces', authRequired, exigerPerimetreProfesseur, (req, res) => {
   const profId = Number(req.params.profId);
   const prof = db.prepare('SELECT id, nom, prenom, statut FROM professeur WHERE id = ?').get(profId);
   if (!prof) return res.status(404).json({ error: 'membre du personnel introuvable' });
@@ -93,7 +93,7 @@ r.get('/:profId/pieces', authRequired, (req, res) => {
 });
 
 /** Crée ou met à jour l'état d'une pièce (upsert par professeur + code). */
-r.put('/:profId/pieces/:code', authRequired, peutEcrire, (req, res) => {
+r.put('/:profId/pieces/:code', authRequired, exigerPerimetreProfesseur, peutEcrire, (req, res) => {
   const profId = Number(req.params.profId);
   const code = req.params.code;
   const { statut, date_reception, date_transmission, date_expiration,
@@ -140,7 +140,7 @@ r.put('/:profId/pieces/:code', authRequired, peutEcrire, (req, res) => {
 const TYPES_ABSENCE = ['maladie_1j', 'maladie', 'maternite', 'accident_travail',
                        'accident_hors_service', 'anrj', 'greve', 'cad', 'autre'];
 
-r.get('/:profId/absences', authRequired, (req, res) => {
+r.get('/:profId/absences', authRequired, exigerPerimetreProfesseur, (req, res) => {
   const lignes = db.prepare(`
     SELECT a.*, p.nom AS remplacant_nom, p.prenom AS remplacant_prenom
       FROM absence_personnel a
@@ -162,7 +162,7 @@ r.get('/:profId/absences', authRequired, (req, res) => {
   res.json({ absences: lignes, jours_annee: total, annee });
 });
 
-r.post('/:profId/absences', authRequired, peutEcrire, (req, res) => {
+r.post('/:profId/absences', authRequired, exigerPerimetreProfesseur, peutEcrire, (req, res) => {
   const profId = Number(req.params.profId);
   const { type, date_debut, date_fin, code_cad, code_di, motif,
           cammat_declare, certificat_recu, notes } = req.body;
@@ -218,6 +218,14 @@ r.patch('/absences/:id', authRequired, peutEcrire, (req, res) => {
 });
 
 r.delete('/absences/:id', authRequired, peutEcrire, (req, res) => {
+  // À qui appartient cette absence ? Sans ce contrôle, un identifiant deviné
+  // suffisait à supprimer l'absence de n'importe qui.
+  const abs = db.prepare('SELECT professeur_id FROM absence_personnel WHERE id = ?')
+    .get(Number(req.params.id));
+  if (!abs) return res.status(404).json({ error: 'introuvable' });
+  if (!professeurDansPerimetre(req.user, abs.professeur_id)) {
+    return res.status(404).json({ error: 'introuvable' });
+  }
   db.prepare('DELETE FROM absence_personnel WHERE id = ?').run(Number(req.params.id));
   res.json({ ok: true });
 });
@@ -227,7 +235,7 @@ r.delete('/absences/:id', authRequired, peutEcrire, (req, res) => {
 const TYPES_ENTRETIEN = ['accueil', 'suivi', 'visite_classe', 'evaluation',
                          'recadrage', 'fin_fonction', 'autre'];
 
-r.get('/:profId/entretiens', authRequired, (req, res) => {
+r.get('/:profId/entretiens', authRequired, exigerPerimetreProfesseur, (req, res) => {
   const lignes = db.prepare(`
     SELECT * FROM entretien_personnel
      WHERE professeur_id = ?
@@ -244,7 +252,7 @@ r.get('/:profId/entretiens', authRequired, (req, res) => {
   res.json({ entretiens: visibles });
 });
 
-r.post('/:profId/entretiens', authRequired, peutEcrire, (req, res) => {
+r.post('/:profId/entretiens', authRequired, exigerPerimetreProfesseur, peutEcrire, (req, res) => {
   const profId = Number(req.params.profId);
   const { type, date_prevue, date_tenue, mene_par, lieu,
           compte_rendu_html, confidentiel } = req.body;
@@ -297,7 +305,7 @@ r.delete('/entretiens/:id', authRequired, roleRequired('admin'), (req, res) => {
  * événements dérivés des tables existantes (jamais recopiés). Une remarque
  * confidentielle n'est lisible que par un administrateur ou son auteur.
  */
-r.get('/:profId/journal', authRequired, (req, res) => {
+r.get('/:profId/journal', authRequired, exigerPerimetreProfesseur, (req, res) => {
   const profId = Number(req.params.profId);
   const estAdmin = req.user.role === 'admin';
   const items = [];
@@ -380,7 +388,7 @@ r.get('/:profId/journal', authRequired, (req, res) => {
 });
 
 /** Ajouter une remarque (admin et éditeur). Inaltérable après création. */
-r.post('/:profId/journal', authRequired, peutEcrire, (req, res) => {
+r.post('/:profId/journal', authRequired, exigerPerimetreProfesseur, peutEcrire, (req, res) => {
   const profId = Number(req.params.profId);
   const { contenu, confidentiel } = req.body;
   if (!contenu || !String(contenu).trim()) {
@@ -414,7 +422,11 @@ r.get('/completude', authRequired, (req, res) => {
 
   const profs = db.prepare(`
     SELECT id, nom, prenom, statut FROM professeur ORDER BY nom, prenom
-  `).all();
+  `).all()
+    // Cette route listait TOUT le personnel sans égard au périmètre : une
+    // coordination y voyait l'Institut entier. On la réduit aux professeurs
+    // qu'elle a le droit de voir.
+    .filter(p => professeurDansPerimetre(req.user, p.id));
 
   const pieces = db.prepare(
     "SELECT professeur_id, code_piece, statut FROM piece_dossier"

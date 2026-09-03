@@ -83,6 +83,69 @@ export function canAccessSection(user, section) {
   return allowed.includes(section);
 }
 
+/**
+ * Interdit l'accès à un professeur hors du périmètre de la personne.
+ *
+ * CE MIDDLEWARE ÉTAIT IMPORTÉ TRENTE-DEUX FOIS ET N'EXISTAIT PAS. Un import
+ * nommé absent vaut `undefined` ; Express l'ignore alors en silence, si bien
+ * que toutes ces routes se croyaient protégées sans l'être. Une coordination
+ * accédait donc aux dossiers de tout le personnel de l'Institut.
+ *
+ * Le rattachement d'un professeur à une section passe par ses ATTRIBUTIONS :
+ * il n'existe pas de lien direct. Un professeur sans aucune attribution
+ * n'appartient à aucune section — il reste alors réservé à la direction, ce
+ * qui est le choix prudent pour des données de personnel.
+ *
+ * L'identifiant est cherché dans les endroits où les routes le placent :
+ * :id, :profId, :professeur_id, puis le corps de la requête.
+ */
+/**
+ * Ce professeur est-il dans le périmètre de la personne ?
+ *
+ * Version en FONCTION, pour filtrer une liste ou tester un cas particulier là
+ * où un middleware ne convient pas. Elle était appelée dans dossierAdmin.js
+ * sans exister : « undefined(...) » lève une TypeError et la route tombait.
+ */
+export function professeurDansPerimetre(user, profId) {
+  const perim = getUserSections(user);
+  if (perim === null) return true;            // direction
+  if (!perim.length) return false;
+  const id = Number(profId);
+  if (!Number.isFinite(id)) return false;
+  const ph = perim.map(() => '?').join(',');
+  return !!db.prepare(`
+    SELECT 1 FROM attribution
+    WHERE professeur_id = ? AND section IN (${ph}) LIMIT 1
+  `).get(id, ...perim);
+}
+
+export function exigerPerimetreProfesseur(req, res, next) {
+  const perim = getUserSections(req.user);
+  if (perim === null) return next();          // direction : sans restriction
+
+  const brut = req.params?.id ?? req.params?.profId ?? req.params?.professeur_id
+    ?? req.body?.professeur_id ?? req.query?.professeur_id;
+  const profId = Number(brut);
+  if (!Number.isFinite(profId)) {
+    return res.status(400).json({ error: 'professeur non identifié' });
+  }
+
+  if (!perim.length) {
+    return res.status(403).json({
+      error: 'Aucune section ne vous est attribuée : les dossiers du personnel '
+           + 'ne vous sont pas accessibles.',
+    });
+  }
+
+  if (!professeurDansPerimetre(req.user, profId)) {
+    // On ne dit pas si le professeur existe : ce serait déjà une information.
+    return res.status(403).json({
+      error: "Ce membre du personnel n'enseigne pas dans vos sections.",
+    });
+  }
+  next();
+}
+
 export function peutValiderAttributions(user) {
   if (!user) return 0;
   if (user.role === 'admin') return 1;

@@ -1,7 +1,7 @@
 import { Fragment, useCallback, useEffect, useMemo, useState } from 'react';
 import { RailLateral } from '../components/ui.jsx';
 import {
-  IconAlertTriangle, IconCheck, IconChecklist, IconChevronRight, IconClock, IconFileText, IconFolder, IconPlus, IconPrinter, IconSearch, IconTable, IconTrash, IconUpload, IconUser, IconX,
+  IconAlertTriangle, IconCheck, IconChecklist, IconChevronRight, IconClock, IconFileText, IconFolder, IconPlus, IconPrinter, IconSearch, IconTable, IconTrash, IconUpload, IconUser, IconWritingSign, IconWritingSignOff, IconX,
 } from '@tabler/icons-react';
 import { authHeaders, getAnnee } from '../lib/api.js';
 import PreviewModal from '../components/PreviewModal.jsx';
@@ -126,6 +126,27 @@ function GrilleParcours({ etudId, peutEcrire }) {
   const [detailOuvert, setDetailOuvert] = useState(false);
 
 
+
+  /** Export Excel de la section : signalétique et résultats, réimportables. */
+  async function exporterSection() {
+    try {
+      const rep = await fetch(
+        `/api/etudiants/export-section?section=${encodeURIComponent(section)}`,
+        { headers: authHeaders() });
+      if (!rep.ok) {
+        const e = await rep.json().catch(() => ({}));
+        alert(e.error || `Export impossible (${rep.status}).`);
+        return;
+      }
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(await rep.blob());
+      a.download = `Export_${section}.xlsx`;
+      document.body.appendChild(a); a.click(); a.remove();
+      URL.revokeObjectURL(a.href);
+    } catch (e) {
+      alert(e.message);
+    }
+  }
 
   async function charger() {
     const rep = await fetch(`/api/etudiants/${etudId}/grille`, { headers: authHeaders() });
@@ -1032,6 +1053,7 @@ function FicheEtudiant({ id, annee, onClose }) {
   const [selection, setSelection] = useState(null);      // Set des ue_num retenues
   const [catalogueOuvert, setCatalogueOuvert] = useState(false);
   const [enregistrement, setEnregistrement] = useState(false);
+  const [paeConfirme, setPaeConfirme] = useState(false);
   const [sectionForcee, setSectionForcee] = useState('');
 
   async function paeAuto() {
@@ -1064,6 +1086,35 @@ function FicheEtudiant({ id, annee, onClose }) {
       s.add(u.ue_num);
       return s;
     });
+  }
+
+  /**
+   * Confirmer le programme : les unités retenues sont inscrites et l'étudiant
+   * passe en « inscrit ». Retirer la confirmation ne SUPPRIME PAS les
+   * inscriptions — les effacer emporterait des résultats éventuels.
+   */
+  async function confirmerPAE() {
+    setEnregistrement(true);
+    try {
+      if (paeConfirme) {
+        const rep = await fetch(
+          `/api/etudiants/${id}/pae/confirmer?annee=${encodeURIComponent(annee)}`,
+          { method: 'DELETE', headers: authHeaders() });
+        if (!rep.ok) { alert('Le retrait a échoué.'); return; }
+        setPaeConfirme(false);
+        return;
+      }
+      const ues = (pae?.pae || []).filter(u => u.inscrit || u.propose).map(u => u.ue_num);
+      const rep = await fetch(`/api/etudiants/${id}/pae/confirmer`, {
+        method: 'POST', headers: authHeaders(),
+        body: JSON.stringify({ annee, ues }),
+      });
+      const j = await rep.json();
+      if (!rep.ok) { alert(j.error || 'La confirmation a échoué.'); return; }
+      setPaeConfirme(true);
+      await chargerPAE();
+      onModifie && onModifie();
+    } finally { setEnregistrement(false); }
   }
 
   async function enregistrerPAE() {
@@ -1167,6 +1218,9 @@ function FicheEtudiant({ id, annee, onClose }) {
       const j = await rep.json();
       if (rep.ok) {
         setPae(j);
+        // L'état vient du serveur : sans cela le bouton repartirait à zéro à
+        // chaque rechargement de la fiche.
+        setPaeConfirme(!!j.pae_confirme);
         // Une inscription existante n'est reconduite que si elle TIENT :
         // ni déjà acquise, ni bloquée par des prérequis manquants. Sans quoi
         // un programme calculé par erreur se perpétuerait d'année en année.
@@ -1328,6 +1382,20 @@ function FicheEtudiant({ id, annee, onClose }) {
                       <button onClick={enregistrerPAE} disabled={enregistrement}
                         className="flex items-center gap-1.5 px-3 py-1.5 text-sm bg-iip-turquoise text-white font-semibold rounded-lg disabled:opacity-50">
                         <IconCheck size={14} /> {enregistrement ? 'Enregistrement…' : 'Enregistrer le PAE'}
+                      </button>
+                      {/* Enregistrer n'est pas confirmer : tant que le
+                          programme n'est pas confirmé, il reste une
+                          proposition et l'étudiant n'est pas inscrit. */}
+                      <button onClick={confirmerPAE} disabled={enregistrement}
+                        title={paeConfirme
+                          ? 'Retirer la confirmation — les inscriptions sont conservées'
+                          : "Confirmer le programme : l'étudiant passe en inscrit"}
+                        className={`flex items-center gap-1.5 px-3 py-1.5 text-sm font-semibold
+                          rounded-lg disabled:opacity-50 ${paeConfirme
+                            ? 'border border-slate-300 text-slate-600'
+                            : 'bg-iip-blue text-white'}`}>
+                        <IconWritingSign size={14} />
+                        {paeConfirme ? 'Programme confirmé' : 'Confirmer le programme'}
                       </button>
                       {/* Quatre documents alignés : ils se rangent derrière une
                           seule entrée, l'enregistrement du PAE restant seul en
@@ -1830,6 +1898,19 @@ export default function Etudiants() {
       { key: 'rapport-pae', label: 'Rapport PAE', icon: IconTable,
         onClick: () => setRapportPAE(true) },
     ] },
+    { label: 'Exporter', items: [
+      { key: 'export-section', label: 'Export de la section',
+        icon: IconTable,
+        onClick: () => {
+          if (!section) {
+            alert("Choisissez d'abord une section : l'export porte sur elle.");
+            return;
+          }
+          // Appel AUTHENTIFIÉ : un window.location ne transmettrait pas le
+          // jeton, et le serveur répondrait 401.
+          exporterSection();
+        } },
+    ] },
     { label: 'Importer', items: [
       { key: 'liste', label: 'Liste eCampus', icon: IconUpload,
         onClick: () => setImportListe(true) },
@@ -1970,6 +2051,15 @@ export default function Etudiants() {
                       onChange={() => basculerSelection(e.id)} />
                   </td>
                   <td className="px-4 py-2.5">
+                    {/* Tant que le PAE n'est pas confirmé, l'étudiant n'est pas
+                        inscrit : son programme reste une proposition. */}
+                    {e.pae_confirme ? (
+                      <IconWritingSign size={14} className="inline mr-1.5 text-iip-turquoise"
+                        title="Programme confirmé — étudiant inscrit" />
+                    ) : (
+                      <IconWritingSignOff size={14} className="inline mr-1.5 text-slate-300"
+                        title="Programme non confirmé" />
+                    )}
                     <div className="flex items-center gap-2">
                       <div className="w-8 h-8 rounded-full bg-iip-blue/10 text-iip-blue flex items-center justify-center text-[11px] font-bold flex-none">
                         {(e.nom||'?')[0]}{(e.prenom||'?')[0]}

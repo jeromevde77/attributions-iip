@@ -5,7 +5,7 @@
 
 import { Router } from 'express';
 import db from '../db/index.js';
-import { authRequired, roleRequired } from '../middleware/auth.js';
+import { authRequired, roleRequired, exigerPerimetreProfesseur } from '../middleware/auth.js';
 import { calculerAnciennete } from '../services/anciennete.js';
 
 const r = Router();
@@ -36,7 +36,7 @@ export function migrerAncienneteService(dbx) {
  * GET /:profId — calcul complet, toutes années
  * Renvoie les services enregistrés + le calcul par année + les totaux.
  */
-r.get('/:profId', authRequired, (req, res) => {
+r.get('/:profId', authRequired, exigerPerimetreProfesseur, (req, res) => {
   const profId = Number(req.params.profId);
   const services = db.prepare(`
     SELECT * FROM anciennete_service
@@ -58,7 +58,7 @@ r.get('/:profId', authRequired, (req, res) => {
  * Importe les attributions IIP de l'année demandée comme services de départ.
  * N'écrase pas les lignes existantes.
  */
-r.post('/:profId/preremplir', authRequired, roleRequired('admin', 'editeur'), (req, res) => {
+r.post('/:profId/preremplir', authRequired, exigerPerimetreProfesseur, roleRequired('admin', 'editeur'), (req, res) => {
   const profId = Number(req.params.profId);
   const annee = req.body.annee;
   if (!annee) return res.status(400).json({ error: 'annee requise' });
@@ -89,7 +89,7 @@ r.post('/:profId/preremplir', authRequired, roleRequired('admin', 'editeur'), (r
 });
 
 /** PUT /:profId — ajouter ou mettre à jour un service */
-r.put('/:profId', authRequired, roleRequired('admin', 'editeur'), (req, res) => {
+r.put('/:profId', authRequired, exigerPerimetreProfesseur, roleRequired('admin', 'editeur'), (req, res) => {
   const profId = Number(req.params.profId);
   const { annee_scolaire, cours_code, cours_nom, type_cours, periodes, notes } = req.body;
   if (!annee_scolaire || !cours_code || !type_cours) {
@@ -113,7 +113,7 @@ r.put('/:profId', authRequired, roleRequired('admin', 'editeur'), (req, res) => 
 });
 
 /** DELETE /service/:id — supprimer un service (admin seul) */
-r.delete('/service/:id', authRequired, roleRequired('admin'), (req, res) => {
+r.delete('/service/:id', authRequired, exigerPerimetreProfesseur, roleRequired('admin'), (req, res) => {
   db.prepare('DELETE FROM anciennete_service WHERE id = ?').run(Number(req.params.id));
   res.json({ ok: true });
 });
@@ -123,7 +123,7 @@ r.delete('/service/:id', authRequired, roleRequired('admin'), (req, res) => {
  * Pousse les totaux calculés vers anciennete_fonction et report_anc_po.
  * Réservé à l'administrateur — acte de référence, pas de calcul automatique.
  */
-r.post('/:profId/synchroniser', authRequired, roleRequired('admin'), (req, res) => {
+r.post('/:profId/synchroniser', authRequired, exigerPerimetreProfesseur, roleRequired('admin'), (req, res) => {
   const profId = Number(req.params.profId);
   const services = db.prepare(
     'SELECT * FROM anciennete_service WHERE professeur_id = ?'

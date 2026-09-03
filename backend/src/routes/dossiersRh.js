@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import db from '../db/index.js';
-import { authRequired, roleRequired } from '../middleware/auth.js';
+import { authRequired, roleRequired, exigerPerimetreProfesseur } from '../middleware/auth.js';
 
 const r = Router();
 
@@ -8,7 +8,7 @@ const MOTIFS_FIN = ['fin_cdd','demission','licenciement','retraite','mutation','
 const ETAPES_DISCIPLINAIRE = ['ouverture','convocation','audition','decision','appel','cloture'];
 
 // ── GET /api/dossiers-rh/:profId ──────────────────────────────────────────────
-r.get('/:profId', authRequired, roleRequired('admin'), (req, res) => {
+r.get('/:profId', authRequired, exigerPerimetreProfesseur, roleRequired('admin'), (req, res) => {
   const dossiers = db.prepare(`
     SELECT d.*, u.nom_complet as createur_nom
     FROM dossier_rh d
@@ -26,7 +26,7 @@ r.get('/:profId', authRequired, roleRequired('admin'), (req, res) => {
 });
 
 // ── POST /api/dossiers-rh/:profId ─────────────────────────────────────────────
-r.post('/:profId', authRequired, roleRequired('admin'), (req, res) => {
+r.post('/:profId', authRequired, exigerPerimetreProfesseur, roleRequired('admin'), (req, res) => {
   const { type, motif, notes, date_ouverture } = req.body || {};
   if (!['fin_contrat','disciplinaire'].includes(type))
     return res.status(400).json({ error: 'Type invalide' });
