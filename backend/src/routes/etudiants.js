@@ -2868,13 +2868,28 @@ r.get('/:id/grille/detail', authRequired, (req, res) => {
   // Clé de note d'AA : cours|aa ; les anciennes lignes sans cours_code sont
   // rattachées au premier cours qui contient cet AA.
   const notes = {};
+  // Les notes PAR SESSION. L'import des classeurs de suivi préfixe le code par
+  // « s1| » ou « s2| » : sans les séparer ici, la seconde session écrasait la
+  // première et l'on perdait le détail de la délibération.
+  const sessions = { s1: {}, s2: {} };
+
   for (const l of lignes) {
     if (l.type !== 'aa') continue;
-    const brut = String(l.code).includes('|') ? String(l.code).split('|')[1] : l.code;
+    const parts = String(l.code).split('|');
+    // Trois formes coexistent : « aa », « cours|aa », et « s1|aa » depuis
+    // l'import des classeurs.
+    const session = /^s[12]$/.test(parts[0]) ? parts[0] : null;
+    const brut = parts.length > 1 ? parts[parts.length - 1] : l.code;
     const cc = l.cours_code
       || structure.find(c => c.aas.some(a => a.aa_code === brut))?.cours_code;
     if (!cc) continue;
-    notes[cc + '|' + brut] = { points: l.points, va: l.va, non_evalue: l.non_evalue };
+    const valeur = { points: l.points, va: l.va, non_evalue: l.non_evalue };
+    if (session) sessions[session][cc + '|' + brut] = valeur;
+    // Le calcul de l'UE s'appuie sur la note qui FAIT FOI : la seconde session
+    // si elle existe, la première sinon.
+    if (!session || session === 's2' || !notes[cc + '|' + brut]) {
+      notes[cc + '|' + brut] = valeur;
+    }
   }
 
   const reportsActifs = db.prepare(`
@@ -2889,7 +2904,28 @@ r.get('/:id/grille/detail', authRequired, (req, res) => {
 
   const calcul = calculerNoteUE(ueN, annee, notes, reports);
 
-  res.json({ structure, notes, calcul, reports: reportsActifs, candidats_report: candidats });
+  // La décision de chaque session, et la motivation si le Conseil en a donné une.
+  const insc = db.prepare(`
+    SELECT resultat, resultat_s1, resultat_s2, points FROM etudiant_inscription
+    WHERE etudiant_id = ? AND annee_scolaire = ? AND ue_num = ?
+  `).get(etudId, annee, ueN) || {};
+
+  const motivation = db.prepare(`
+    SELECT motif FROM decision_motivation
+    WHERE etudiant_id = ? AND annee_scolaire = ? AND ue_num = ? AND aa_code = '_ue'
+  `).get(etudId, annee, ueN)?.motif || null;
+
+  res.json({
+    structure, notes, calcul, reports: reportsActifs, candidats_report: candidats,
+    sessions,
+    decision: {
+      finale: insc.resultat || null,
+      s1: insc.resultat_s1 || null,
+      s2: insc.resultat_s2 || null,
+      points: insc.points ?? null,
+      motivation,
+    },
+  });
 });
 
 r.put('/:id/grille/detail', authRequired, roleRequired('admin', 'editeur'), (req, res) => {

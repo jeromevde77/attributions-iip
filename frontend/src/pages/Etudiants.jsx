@@ -520,6 +520,32 @@ function GrilleParcours({ etudId, peutEcrire }) {
                 )}
 
                 <div className="max-h-72 overflow-y-auto space-y-2.5">
+                  {detail.decision && (detail.decision.s1 || detail.decision.s2
+                    || detail.decision.motivation) && (
+                    <div className="mb-2 px-3 py-2 rounded-lg bg-slate-50 border
+                                    border-slate-200 text-[11.5px]">
+                      <span className="font-semibold text-iip-blue">Décision</span>
+                      {detail.decision.s1 && (
+                        <span className="ml-2">1<sup>re</sup> session :
+                          <b> {LIBELLE_RES[detail.decision.s1] || detail.decision.s1}</b></span>
+                      )}
+                      {detail.decision.s2 && (
+                        <span className="ml-2">· 2<sup>e</sup> session :
+                          <b> {LIBELLE_RES[detail.decision.s2] || detail.decision.s2}</b></span>
+                      )}
+                      {detail.decision.finale && (
+                        <span className="ml-2">· retenue :
+                          <b> {LIBELLE_RES[detail.decision.finale] || detail.decision.finale}</b>
+                          {detail.decision.points != null && ` (${detail.decision.points}/20)`}</span>
+                      )}
+                      {detail.decision.motivation && (
+                        <div className="mt-1 text-slate-600 italic">
+                          {detail.decision.motivation}
+                        </div>
+                      )}
+                    </div>
+                  )}
+
                   {(detail.structure || []).map(co => (
                     <div key={co.cours_code} className="border border-slate-200 rounded-lg overflow-hidden">
                       <div className="flex items-center gap-2 px-2 py-1.5 bg-slate-50">
@@ -576,6 +602,23 @@ function GrilleParcours({ etudId, peutEcrire }) {
                                   title="Pondération dans ce cours">
                                   {aa.poids != null ? aa.poids + '%' : '—'}
                                 </span>
+                                {/* Les deux sessions, quand l'import les a
+                                    apportées : on voit ce qui s'est joué en
+                                    première et en seconde, pas seulement le
+                                    résultat qui fait foi. */}
+                                {(detail.sessions?.s1?.[cle] || detail.sessions?.s2?.[cle]) && (
+                                  <span className="flex-none text-[10px] w-20 text-right">
+                                    <span className="text-slate-500" title="Première session">
+                                      S1&nbsp;{detail.sessions.s1?.[cle]?.points ?? '—'}
+                                    </span>
+                                    <span className="text-slate-300"> · </span>
+                                    <span className={detail.sessions.s2?.[cle]?.points != null
+                                      ? 'text-iip-blue font-semibold' : 'text-slate-400'}
+                                      title="Seconde session">
+                                      S2&nbsp;{detail.sessions.s2?.[cle]?.points ?? '—'}
+                                    </span>
+                                  </span>
+                                )}
                                 <input type="number" min="0" max="20" step="0.1" placeholder="/20"
                                   defaultValue={n.points ?? ''}
                                   disabled={!!n.non_evalue}
@@ -2169,4 +2212,11 @@ export default function Etudiants() {
     </div>
     </div>
   );
+
+// Le vocabulaire des décisions, en clair. « echec » vient des sessions,
+// « ajourne » et « refuse » des décisions d'unité.
+const LIBELLE_RES = {
+  reussi: 'réussi', echec: 'échec', absent: 'absent',
+  ajourne: 'ajourné', refuse: 'refusé', va: 'valorisé',
+};
 }

@@ -56,6 +56,9 @@ const SIGLE = { reussi: '✓', ajourne: 'Aj', refuse: 'R', absent: '–', va: 'V
 // En vue délibération, la réussite prend « C » — capitalisé — comme dans vos
 // classeurs et dans le rapport de parcours.
 const SIGLE_DELIB = { reussi: 'C', ajourne: 'Aj', refuse: 'R', absent: 'A', va: 'VA' };
+// Sous la note, les deux sessions en une lettre chacune : « C·R » se lit
+// « capitalisé en première, refusé en seconde ».
+const LETTRE_SESSION = { reussi: 'C', echec: 'E', absent: 'A', ajourne: 'Aj', refuse: 'R' };
 
 // « 2024-2025 » → « 24-25 »
 const millesime = a => (a || '').slice(2, 4) + '-' + (a || '').slice(7, 9);
@@ -482,8 +485,13 @@ export default function EncodageRapide() {
                               </span>
                               {/* La session d'où vient la décision, à côté de la
                                   note : S2 prime sur S1 puisqu'elle la clôt. */}
+                              {/* Les DEUX sessions quand elles existent : le
+                                  marqueur ne disait que d'où venait la
+                                  décision, pas ce qui s'est joué dans chacune. */}
                               <span className="block text-[7.5px] font-medium opacity-70">
-                                {sessions[cle]?.s2 ? 'S2'
+                                {sessions[cle]?.s1 && sessions[cle]?.s2
+                                  ? `${LETTRE_SESSION[sessions[cle].s1] || '?'}·${LETTRE_SESSION[sessions[cle].s2] || '?'}`
+                                  : sessions[cle]?.s2 ? 'S2'
                                   : sessions[cle]?.s1 ? 'S1' : millesime(annee)}
                               </span>
                             </span>
