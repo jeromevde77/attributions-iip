@@ -4,14 +4,14 @@
  */
 import { Router } from 'express';
 import db from '../db/index.js';
-import { authRequired, roleRequired } from '../middleware/auth.js';
+import { authRequired, roleRequired, exigerPerimetreProfesseur } from '../middleware/auth.js';
 
 const r = Router();
 
 // ─── Nominations d'un prof ────────────────────────────────────────────────────
 
 // GET /nominations/prof/:id — nominations définitives d'un prof
-r.get('/prof/:id', authRequired, (req, res) => {
+r.get('/prof/:id', authRequired, exigerPerimetreProfesseur, (req, res) => {
   const rows = db.prepare(`
     SELECT n.*, u.ue_nom, u.ue_code_fwb
     FROM nomination_definitive n
@@ -39,7 +39,7 @@ r.post('/', authRequired, roleRequired('admin', 'editeur'), (req, res) => {
 });
 
 // PATCH /nominations/:id
-r.patch('/:id', authRequired, roleRequired('admin', 'editeur'), (req, res) => {
+r.patch('/:id', authRequired, exigerPerimetreProfesseur, roleRequired('admin', 'editeur'), (req, res) => {
   const allowed = ['code_fwb', 'ue_num', 'cours_code', 'cours_libre', 'periodes', 'type_charge', 'actif', 'notes'];
   const updates = [], params = { id: req.params.id };
   for (const k of allowed) if (k in req.body) { updates.push(`${k} = @${k}`); params[k] = req.body[k]; }
@@ -49,7 +49,7 @@ r.patch('/:id', authRequired, roleRequired('admin', 'editeur'), (req, res) => {
 });
 
 // DELETE /nominations/:id
-r.delete('/:id', authRequired, roleRequired('admin'), (req, res) => {
+r.delete('/:id', authRequired, exigerPerimetreProfesseur, roleRequired('admin'), (req, res) => {
   db.prepare('UPDATE nomination_definitive SET actif = 0 WHERE id = ?').run(req.params.id);
   res.json({ ok: true });
 });
@@ -75,7 +75,7 @@ r.get('/verrous', authRequired, (req, res) => {
 // ─── Remise au travail ────────────────────────────────────────────────────────
 
 // GET /nominations/rt/prof/:id
-r.get('/rt/prof/:id', authRequired, (req, res) => {
+r.get('/rt/prof/:id', authRequired, exigerPerimetreProfesseur, (req, res) => {
   const rows = db.prepare(`
     SELECT rt.*, u.ue_nom FROM remise_travail rt
     LEFT JOIN ue u ON u.ue_num = rt.ue_num
@@ -131,7 +131,7 @@ r.post('/rt', authRequired, roleRequired('admin', 'editeur'), (req, res) => {
 });
 
 // DELETE /nominations/rt/:id
-r.delete('/rt/:id', authRequired, roleRequired('admin'), (req, res) => {
+r.delete('/rt/:id', authRequired, exigerPerimetreProfesseur, roleRequired('admin'), (req, res) => {
   db.prepare('DELETE FROM remise_travail WHERE id = ?').run(req.params.id);
   res.json({ ok: true });
 });
@@ -296,7 +296,7 @@ r.post('/appliquer', authRequired, roleRequired('admin', 'editeur'), (req, res) 
 // GET /nominations/prof/:id/situation?annee= — tableau de bord ETD d'un prof (calcul ETP global)
 // L'ETP nommé total doit être couvert par l'ETP des cours nommés + des lignes cochées RT.
 // CT et PP sont interchangeables (équivalence en ETP : CT/800, PP/1000).
-r.get('/prof/:id/situation', authRequired, (req, res) => {
+r.get('/prof/:id/situation', authRequired, exigerPerimetreProfesseur, (req, res) => {
   const { annee } = req.query;
   const profId = req.params.id;
   const etp = (per, type) => (type === 'PP' ? (per || 0) / 1000 : (per || 0) / 800);
@@ -370,7 +370,7 @@ r.patch('/attribution/:attrId/rt', authRequired, roleRequired('admin', 'editeur'
 // Body : { annee, en_conge: true|false }
 // Active : chaque ligne non encore en congé est grisée + un remplaçant est créé (À DÉSIGNER).
 // Désactive : lève le congé sur toutes les lignes (ne supprime pas les remplaçants).
-r.post('/prof/:id/conge-global', authRequired, roleRequired('admin', 'editeur'), (req, res) => {
+r.post('/prof/:id/conge-global', authRequired, exigerPerimetreProfesseur, roleRequired('admin', 'editeur'), (req, res) => {
   const { annee, en_conge } = req.body;
   const profId = req.params.id;
   if (!annee) return res.status(400).json({ error: 'annee requise' });

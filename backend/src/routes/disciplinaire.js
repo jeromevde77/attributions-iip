@@ -3,7 +3,7 @@ import multer from 'multer';
 import { existsSync, mkdirSync, unlinkSync } from 'fs';
 import { join } from 'path';
 import db from '../db/index.js';
-import { authRequired } from '../middleware/auth.js';
+import { authRequired, exigerPerimetreProfesseur } from '../middleware/auth.js';
 
 const r = Router();
 const DATA_DIR = process.env.DATA_DIR || '/app/data';
@@ -58,14 +58,14 @@ r.get('/cases', authRequired, (req, res) => {
   res.json(db.prepare("SELECT id, etudiant, section, annee_scolaire, statut, cree_le, modifie_le FROM procedure_archive WHERE type='disciplinaire' ORDER BY modifie_le DESC").all());
 });
 
-r.get('/cases/:id', authRequired, (req, res) => {
+r.get('/cases/:id', authRequired, exigerPerimetreProfesseur, (req, res) => {
   const c = db.prepare("SELECT * FROM procedure_archive WHERE id=? AND type='disciplinaire'").get(req.params.id);
   if (!c) return res.status(404).json({ error: 'Introuvable' });
   const fichiers = db.prepare('SELECT id, categorie, nom, taille, cree_le FROM procedure_fichier WHERE procedure_id=? ORDER BY cree_le DESC').all(c.id);
   res.json({ ...c, payload: c.payload_json ? JSON.parse(c.payload_json) : {}, fichiers });
 });
 
-r.delete('/cases/:id', authRequired, ecritureRequise, (req, res) => {
+r.delete('/cases/:id', authRequired, exigerPerimetreProfesseur, ecritureRequise, (req, res) => {
   const c = db.prepare("SELECT id FROM procedure_archive WHERE id=? AND type='disciplinaire'").get(req.params.id);
   if (!c) return res.status(404).json({ error: 'Introuvable' });
   for (const f of db.prepare('SELECT chemin FROM procedure_fichier WHERE procedure_id=?').all(c.id)) { try { unlinkSync(f.chemin); } catch {} }
@@ -74,7 +74,7 @@ r.delete('/cases/:id', authRequired, ecritureRequise, (req, res) => {
   res.json({ ok: true });
 });
 
-r.post('/cases/:id/fichiers', authRequired, ecritureRequise, upload.single('fichier'), (req, res) => {
+r.post('/cases/:id/fichiers', authRequired, exigerPerimetreProfesseur, ecritureRequise, upload.single('fichier'), (req, res) => {
   const c = db.prepare("SELECT id FROM procedure_archive WHERE id=? AND type='disciplinaire'").get(req.params.id);
   if (!c) return res.status(404).json({ error: 'Dossier introuvable' });
   if (!req.file) return res.status(400).json({ error: 'Aucun fichier' });

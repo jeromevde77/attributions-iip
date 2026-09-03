@@ -1,7 +1,7 @@
 import { Router } from 'express';
 import db from '../db/index.js';
 import { anneeDeTravail } from '../helpers/annee.js';
-import { authRequired, roleRequired, getUserSections } from '../middleware/auth.js';
+import { authRequired, roleRequired, getUserSections, exigerPerimetreProfesseur } from '../middleware/auth.js';
 import { parseDossierPedagogique } from '../parseDossierPedagogique.js';
 
 const r = Router();
@@ -785,11 +785,25 @@ r.get('/professeurs', authRequired, (req, res) => {
     LEFT JOIN v_professeur_total v ON v.id = p.id`;
 
   const sql = `${base} ORDER BY v.nom, v.prenom`;
+  let lignes = db.prepare(sql).all();
 
-  res.json(db.prepare(sql).all());
+  // Le PÉRIMÈTRE s'applique à la LISTE : sans lui, une coordination voyait le
+  // nom, la commune et le statut de tout le personnel de l'Institut. Un
+  // professeur est rattaché aux sections où il a des attributions ; celui qui
+  // n'en a aucune ne reste visible que de la direction.
+  const perim = getUserSections(req.user);
+  if (perim) {
+    const dansPerim = new Set(db.prepare(`
+      SELECT DISTINCT professeur_id FROM attribution
+      WHERE section IN (${perim.map(() => '?').join(',')})
+    `).all(...perim).map(r0 => r0.professeur_id));
+    lignes = lignes.filter(p => dansPerim.has(p.id));
+  }
+
+  res.json(lignes);
 });
 
-r.get('/professeurs/:id', authRequired, (req, res) => {
+r.get('/professeurs/:id', authRequired, exigerPerimetreProfesseur, (req, res) => {
   // Table complète (TOUS les champs de la fiche signalétique)
   const base = db.prepare('SELECT * FROM professeur WHERE id = ?').get(req.params.id);
   if (!base) return res.status(404).json({ error: 'Professeur introuvable' });
