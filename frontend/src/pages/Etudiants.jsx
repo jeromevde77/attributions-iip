@@ -127,6 +127,27 @@ function GrilleParcours({ etudId, peutEcrire }) {
 
 
 
+  /** Export Excel de la section : signalétique et résultats, réimportables. */
+  async function exporterSection() {
+    try {
+      const rep = await fetch(
+        `/api/etudiants/export-section?section=${encodeURIComponent(section)}`,
+        { headers: authHeaders() });
+      if (!rep.ok) {
+        const e = await rep.json().catch(() => ({}));
+        alert(e.error || `Export impossible (${rep.status}).`);
+        return;
+      }
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(await rep.blob());
+      a.download = `Export_${section}.xlsx`;
+      document.body.appendChild(a); a.click(); a.remove();
+      URL.revokeObjectURL(a.href);
+    } catch (e) {
+      alert(e.message);
+    }
+  }
+
   async function charger() {
     const rep = await fetch(`/api/etudiants/${etudId}/grille`, { headers: authHeaders() });
     if (rep.ok) setData(await rep.json());
@@ -1829,6 +1850,19 @@ export default function Etudiants() {
         onClick: ouvrirRapport },
       { key: 'rapport-pae', label: 'Rapport PAE', icon: IconTable,
         onClick: () => setRapportPAE(true) },
+    ] },
+    { label: 'Exporter', items: [
+      { key: 'export-section', label: 'Export de la section',
+        icon: IconTable,
+        onClick: () => {
+          if (!section) {
+            alert("Choisissez d'abord une section : l'export porte sur elle.");
+            return;
+          }
+          // Appel AUTHENTIFIÉ : un window.location ne transmettrait pas le
+          // jeton, et le serveur répondrait 401.
+          exporterSection();
+        } },
     ] },
     { label: 'Importer', items: [
       { key: 'liste', label: 'Liste eCampus', icon: IconUpload,

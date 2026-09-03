@@ -825,6 +825,141 @@ r.get('/synthese', authRequired, (req, res) => {
 // Construit côté serveur avec ExcelJS, seul à savoir mettre en forme les
 // cellules. La disposition reste celle du classeur de la coordination —
 // intitulés en ligne 1, codes en ligne 2 — pour rester réimportable.
+// ── Export complet d'une section, réimportable ─────────────────────────────
+// Deux feuilles. « Étudiants » porte le signalétique ; « Résultats » porte une
+// LIGNE PAR RÉSULTAT — étudiant, année, unité, session, décision, note.
+//
+// Le format est pensé pour le RETOUR : les colonnes portent les noms que
+// l'importateur sur mesure reconnaît, et le numéro national sert de clé.
+r.get('/export-section', authRequired, async (req, res) => {
+  const { section, annee } = req.query;
+  if (!section) return res.status(400).json({ error: 'section requise' });
+
+  const perim = getUserSections(req.user);
+  if (perim && !perim.includes(section)) {
+    return res.status(403).json({ error: 'section hors de votre périmètre' });
+  }
+
+  const ues = db.prepare(
+    'SELECT DISTINCT ue_num FROM ue WHERE section = ?').all(section).map(u => u.ue_num);
+  if (!ues.length) return res.status(404).json({ error: 'aucune unité pour cette section' });
+  const ph = ues.map(() => '?').join(',');
+
+  const clauseAnnee = annee ? ' AND i.annee_scolaire = ?' : '';
+  const params = [...ues, ...(annee ? [annee] : [])];
+
+  const lignes = db.prepare(`
+    SELECT e.id, e.id_ecampus, e.num_national, e.nom, e.prenom, e.titre,
+           e.date_naissance, e.lieu_naissance, e.nationalite,
+           e.adresse, e.cp, e.localite, e.gsm, e.email_ecole, e.email_perso,
+           i.annee_scolaire, i.ue_num, i.resultat, i.resultat_s1, i.resultat_s2,
+           i.points, i.mention, i.groupe,
+           (SELECT ue_nom FROM ue u WHERE u.ue_num = i.ue_num AND u.ue_nom IS NOT NULL
+             ORDER BY u.annee_scolaire DESC LIMIT 1) AS ue_nom
+    FROM etudiant_inscription i
+    JOIN etudiant e ON e.id = i.etudiant_id
+    WHERE i.ue_num IN (${ph})${clauseAnnee}
+    ORDER BY e.nom, e.prenom, i.annee_scolaire DESC, i.ue_num
+  `).all(...params);
+
+  const ExcelJS = (await import('exceljs')).default;
+  const wb = new ExcelJS.Workbook();
+  wb.creator = 'Lucie — Institut Ilya Prigogine';
+  wb.created = new Date();
+
+  // ── Feuille 1 : les étudiants, une ligne chacun ──────────────────────────
+  const fe = wb.addWorksheet('Étudiants');
+  fe.columns = [
+    { header: 'num_national', key: 'num_national', width: 18 },
+    { header: 'id_ecampus', key: 'id_ecampus', width: 12 },
+    { header: 'nom', key: 'nom', width: 22 },
+    { header: 'prenom', key: 'prenom', width: 18 },
+    { header: 'titre', key: 'titre', width: 10 },
+    { header: 'date_naissance', key: 'date_naissance', width: 14 },
+    { header: 'lieu_naissance', key: 'lieu_naissance', width: 18 },
+    { header: 'nationalite', key: 'nationalite', width: 14 },
+    { header: 'adresse', key: 'adresse', width: 30 },
+    { header: 'cp', key: 'cp', width: 8 },
+    { header: 'localite', key: 'localite', width: 18 },
+    { header: 'gsm', key: 'gsm', width: 15 },
+    { header: 'email_ecole', key: 'email_ecole', width: 30 },
+    { header: 'email_perso', key: 'email_perso', width: 30 },
+  ];
+  const vus = new Set();
+  for (const l of lignes) {
+    if (vus.has(l.id)) continue;
+    vus.add(l.id);
+    fe.addRow(l);
+  }
+
+  // ── Feuille 2 : un résultat par ligne ────────────────────────────────────
+  const fr = wb.addWorksheet('Résultats');
+  fr.columns = [
+    { header: 'num_national', key: 'num_national', width: 18 },
+    { header: 'nom', key: 'nom', width: 22 },
+    { header: 'prenom', key: 'prenom', width: 18 },
+    { header: 'annee_scolaire', key: 'annee_scolaire', width: 14 },
+    { header: 'ue_num', key: 'ue_num', width: 9 },
+    { header: 'ue_nom', key: 'ue_nom', width: 40 },
+    { header: 'session', key: 'session', width: 10 },
+    { header: 'decision', key: 'decision', width: 11 },
+    { header: 'points', key: 'points', width: 8 },
+    { header: 'resultat_s1', key: 'resultat_s1', width: 12 },
+    { header: 'resultat_s2', key: 'resultat_s2', width: 12 },
+    { header: 'mention', key: 'mention', width: 14 },
+    { header: 'groupe', key: 'groupe', width: 8 },
+  ];
+
+  // La lettre de délibération : C capitalisé, Aj ajourné, R refusé, A absent.
+  const lettre = r0 => r0 === 'reussi' ? 'C' : r0 === 'ajourne' ? 'Aj'
+    : r0 === 'refuse' ? 'R' : r0 === 'absent' ? 'A' : '';
+
+  for (const l of lignes) {
+    // La session d'où vient la décision. Ni l'une ni l'autre : « finale » —
+    // c'est le cas de tout ce qui précède la distinction des sessions.
+    const session = l.resultat_s2 ? 'S2' : l.resultat_s1 ? 'S1' : 'finale';
+    fr.addRow({
+      ...l,
+      session,
+      decision: lettre(l.resultat),
+      resultat_s1: lettre(l.resultat_s1),
+      resultat_s2: lettre(l.resultat_s2),
+    });
+  }
+
+  for (const f0 of [fe, fr]) {
+    f0.getRow(1).font = { bold: true };
+    f0.getRow(1).fill = { type: 'pattern', pattern: 'solid',
+                          fgColor: { argb: 'FF1B2B4B' } };
+    f0.getRow(1).font = { bold: true, color: { argb: 'FFFFFFFF' } };
+    f0.views = [{ state: 'frozen', ySplit: 1 }];
+    f0.autoFilter = { from: { row: 1, column: 1 },
+                      to: { row: 1, column: f0.columns.length } };
+  }
+
+  // ── Feuille 3 : ce que les colonnes veulent dire ─────────────────────────
+  const fl = wb.addWorksheet('Légende');
+  fl.columns = [{ header: 'Colonne', key: 'c', width: 18 },
+                { header: 'Signification', key: 's', width: 80 }];
+  for (const [k, v] of [
+    ['num_national', "Clé de rapprochement à la réimportation. Le matricule change chaque rentrée, pas lui."],
+    ['session', "S1, S2, ou « finale » lorsque la décision ne distingue pas les sessions."],
+    ['decision', "C capitalisé · Aj ajourné · R refusé · A absent. C'est la décision qui fait foi."],
+    ['resultat_s1', "Résultat de la première session, s'il a été encodé."],
+    ['resultat_s2', "Résultat de la seconde session. Il prime sur la première."],
+    ['points', 'Note sur 20.'],
+  ]) fl.addRow({ c: k, s: v });
+  fl.getRow(1).font = { bold: true };
+
+  const nom = `Export_${String(section).replace(/[^A-Za-z0-9]+/g, '_')}`
+    + (annee ? `_${annee}` : '') + '.xlsx';
+  res.setHeader('Content-Type',
+    'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+  res.setHeader('Content-Disposition', `attachment; filename="${nom}"`);
+  await wb.xlsx.write(res);
+  res.end();
+});
+
 r.post('/rapport-pae/excel', authRequired, async (req, res) => {
   const { section, annee, colonnes, etudiants, taux, options = {} } = req.body;
   if (!section || !annee || !Array.isArray(colonnes) || !Array.isArray(etudiants)) {
