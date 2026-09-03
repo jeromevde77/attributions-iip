@@ -15,6 +15,7 @@ import db from '../db/index.js';
 import { authRequired, roleRequired } from '../middleware/auth.js';
 import { envelopperDocument } from '../lib/document.js';
 import { SIGNATURE_SOHET, SCEAU_IIP } from '../services/assets/signature_sohet.js';
+import { identiteEtablissement } from './config.js';
 
 const r = express.Router();
 
@@ -145,6 +146,7 @@ r.post('/document', authRequired, roleRequired('admin', 'directeur',
   if (!e) return res.status(404).json({ error: 'étudiant introuvable' });
 
   const etab = db.prepare('SELECT * FROM etablissement LIMIT 1').get() || {};
+  const ident = identiteEtablissement();
   const credits = bilanCredits(e.id, annee);
   const formation = formationDe(e.id, annee);
 
@@ -172,9 +174,9 @@ r.post('/document', authRequired, roleRequired('admin', 'directeur',
     8 octobre 1981 sur l\u2019accès au territoire, le séjour, l\u2019établissement et
     l\u2019éloignement des étrangers.</p>
 
-  <p>Je soussigné(e) ${champ((etab.directeur_nom || 'CHARLES SOHET').toUpperCase())}</p>
+  <p>Je soussigné(e) ${champ((ident.directeur || 'CHARLES SOHET').toUpperCase())}</p>
 
-  <p>En ma qualité de représentant(e) de : ${champ(etab.etab_nom || 'Institut Ilya Prigogine')}</p>
+  <p>En ma qualité de représentant(e) de : ${champ(ident.nom || 'Institut Ilya Prigogine')}</p>
 
   <p>Confirme que l\u2019étudiant(e) nommé(e) ci-dessous</p>
 
@@ -203,7 +205,7 @@ r.post('/document', authRequired, roleRequired('admin', 'directeur',
   <p>Avis facultatif concernant le déroulement des études de l\u2019étudiant(e) :
     ${champ(avis || 'Néant')}</p>
 
-  <p>Fait à ${esc(etab.localite || 'Anderlecht')}, le
+  <p>Fait à ${esc(ident.ville || 'Anderlecht')}, le
     ${frDate(date_document || new Date().toISOString())}</p>
 
   <p>Signature du représentant ou de la représentante de l\u2019établissement précité :</p>

@@ -21,6 +21,7 @@ import { authRequired, getUserSections } from '../middleware/auth.js';
 import { capacitePdf, rendrePdf } from '../services/pdf.js';
 import { SIGNATURE_SOHET, SCEAU_IIP } from '../services/assets/signature_sohet.js';
 import { piedDocument } from './parametres.js';
+import { identiteEtablissement } from './config.js';
 
 const r = Router();
 
@@ -307,12 +308,12 @@ function pageAttestation(e, u, annee, etab, dateDoc = null) {
 
   <div class="etab">
     <div>
-      <div class="nom">${esc(etab.etab_nom || 'Institut Ilya Prigogine')}</div>
-      <div>${esc(etab.adresse || '')}</div>
+      <div class="nom">${esc(ident.nom || 'Institut Ilya Prigogine')}</div>
+      <div>${esc(ident.adresse || '')}</div>
     </div>
     <div class="ident">
       Matricule ${esc(etab.num_matricule || '2.132.070')}<br>
-      FASE ${esc(etab.num_fase || '292')}
+      FASE ${esc(ident.fase || '292')}
     </div>
   </div>
 
@@ -393,12 +394,12 @@ function pageAttestation(e, u, annee, etab, dateDoc = null) {
   <div class="cloture">
     <div class="sceau"></div>
     <div class="paraphe"></div>
-    <div class="lieu">Fait à ${esc(etab.localite || 'Anderlecht')},
+    <div class="lieu">Fait à ${esc(ident.ville || 'Anderlecht')},
       le ${frDate(dateDoc || new Date().toISOString())}</div>
     <div class="legende">
       <div class="qualite">Pour ${u.epreuve_integree
         ? "le Jury d'épreuve intégrée" : 'le Conseil des études'},<br>le Directeur</div>
-      <div class="nom">${esc(etab.directeur_nom || 'Charles SOHET')}</div>
+      <div class="nom">${esc(ident.directeur || 'Charles SOHET')}</div>
     </div>
   </div>
 </div>`;
@@ -418,6 +419,7 @@ r.get('/etudiant/:id/document', authRequired, (req, res) => {
   }
 
   const etab = db.prepare('SELECT * FROM etablissement LIMIT 1').get() || {};
+  const ident = identiteEtablissement();
 
   // Une attestation par unité, chacune sur sa propre page : ce sont des pièces
   // distinctes, remises séparément.
@@ -518,6 +520,7 @@ r.post('/lot', authRequired, (req, res) => {
   }
 
   const etab = db.prepare('SELECT * FROM etablissement LIMIT 1').get() || {};
+  const ident = identiteEtablissement();
   const cacheEtud = {};
   const cacheUnites = {};
 

@@ -48,6 +48,10 @@ export default function ImportListe({ annee, onClose, onImporte }) {
           email_ecole: nettoie(l.EmailEcole) || nettoie(l['Email Ecole']),
           email_perso: nettoie(l['Email Perso']),
           date_naissance: nettoie(l.StrDatNais),
+          // Vos classeurs portent LieuNais, mais l'import ne le lisait pas :
+          // le lieu de naissance restait vide sur les attestations, alors que
+          // la donnée était dans le fichier.
+          lieu_naissance: nettoie(l.LieuNais),
           num_national: nettoie(l['N°National']),
           gsm: nettoie(l.GSMEtud) || nettoie(l['TélEtud']),
           adresse: nettoie(l['AdrN°Bte']),

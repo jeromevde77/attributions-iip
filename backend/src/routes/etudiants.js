@@ -537,8 +537,9 @@ r.post('/import-liste', authRequired, roleRequired('admin', 'editeur'), (req, re
 
   const upEtud = db.prepare(`
     INSERT INTO etudiant (id_ecampus, nom, prenom, email_ecole, email_perso,
-      date_naissance, num_national, gsm, adresse, localite, cp, titre)
-    VALUES (?,?,?,?,?,?,?,?,?,?,?,?)
+      date_naissance, num_national, gsm, adresse, localite, cp, titre,
+      lieu_naissance)
+    VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)
     ON CONFLICT(id_ecampus) DO UPDATE SET
       nom = excluded.nom, prenom = excluded.prenom,
       email_ecole   = COALESCE(excluded.email_ecole,   etudiant.email_ecole),
@@ -549,7 +550,11 @@ r.post('/import-liste', authRequired, roleRequired('admin', 'editeur'), (req, re
       adresse       = COALESCE(excluded.adresse,       etudiant.adresse),
       localite      = COALESCE(excluded.localite,      etudiant.localite),
       cp            = COALESCE(excluded.cp,            etudiant.cp),
-      titre         = COALESCE(excluded.titre,         etudiant.titre)
+      titre         = COALESCE(excluded.titre,         etudiant.titre),
+      -- Les classeurs eCampus portent LieuNais, mais l'import ne le reprenait
+      -- pas : la donnée existait dans vos fichiers et n'entrait jamais en base,
+      -- d'où le lieu de naissance vide sur les attestations.
+      lieu_naissance= COALESCE(excluded.lieu_naissance, etudiant.lieu_naissance)
   `);
   const trouver = db.prepare('SELECT id FROM etudiant WHERE id_ecampus = ?');
   const upInsc = db.prepare(`
@@ -567,7 +572,8 @@ r.post('/import-liste', authRequired, roleRequired('admin', 'editeur'), (req, re
       upEtud.run(String(e.id_ecampus || '').trim(), e.nom || '', e.prenom || '',
         e.email_ecole || null, e.email_perso || null, e.date_naissance || null,
         e.num_national || null, e.gsm || null, e.adresse || null,
-        e.localite || null, e.cp || null, e.titre || null);
+        e.localite || null, e.cp || null, e.titre || null,
+        e.lieu_naissance || null);
       nEtud++;
     }
     for (const i of (inscriptions || [])) {

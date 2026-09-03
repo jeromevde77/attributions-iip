@@ -27,6 +27,7 @@ import { anneeDeTravail, anneeActiveEnBase } from '../helpers/annee.js';
 import { authRequired, roleRequired } from '../middleware/auth.js';
 import { envelopperDocument } from '../lib/document.js';
 import { SIGNATURE_SOHET, SCEAU_IIP } from '../services/assets/signature_sohet.js';
+import { identiteEtablissement } from './config.js';
 
 const r = Router();
 
@@ -433,6 +434,7 @@ r.get('/motivation/:etudId/:ueNum/document', authRequired, (req, res) => {
   if (!e) return res.status(404).json({ error: 'étudiant introuvable' });
 
   const etab = db.prepare('SELECT * FROM etablissement LIMIT 1').get() || {};
+  const ident = identiteEtablissement();
   const insc = db.prepare(`
     SELECT resultat FROM etudiant_inscription
     WHERE etudiant_id = ? AND annee_scolaire = ? AND ue_num = ?
@@ -488,10 +490,10 @@ r.get('/motivation/:etudId/:ueNum/document', authRequired, (req, res) => {
     ENSEIGNEMENT DE PROMOTION SOCIALE</p>
   <p class="an">ANNÉE SCOLAIRE / ANNÉE ACADÉMIQUE : ${esc2(a1)} / ${esc2(a2)}</p>
 
-  <p class="etab"><b>${esc2(etab.etab_nom || 'Institut Ilya Prigogine')}</b><br>
-    Adresse : ${esc2(etab.adresse || '')}<br>
-    Numéro de matricule : ${esc2(etab.matricule || '……………')}<br>
-    Numéro FASE : ${esc2(etab.fase || '……………')}</p>
+  <p class="etab"><b>${esc2(ident.nom || 'Institut Ilya Prigogine')}</b><br>
+    Adresse : ${esc2(ident.adresse || '')}<br>
+    Numéro de matricule : ${esc2(ident.matricule || '……………')}<br>
+    Numéro FASE : ${esc2(ident.fase || '……………')}</p>
 
   <h1>MOTIVATION D'UNE DÉCISION ${estRefus ? 'DE REFUS' : "D'AJOURNEMENT"}</h1>
 
@@ -545,10 +547,10 @@ r.get('/motivation/:etudId/:ueNum/document', authRequired, (req, res) => {
     <div>Le Conseil des études,<br>Le Jury d'épreuve intégrée,</div>
     <div class="sceau"></div>
     <div class="sig">
-      <div>Fait à ${esc2(etab.localite || 'Anderlecht')},<br>
+      <div>Fait à ${esc2(ident.ville || 'Anderlecht')},<br>
         le ${jour(new Date().toISOString())}</div>
       <div class="paraphe"></div>
-      <div class="nom">Le Directeur,<br><b>${esc2(etab.directeur_nom || 'Charles SOHET')}</b></div>
+      <div class="nom">Le Directeur,<br><b>${esc2(ident.directeur || 'Charles SOHET')}</b></div>
     </div>
   </div>
 </div>`;
