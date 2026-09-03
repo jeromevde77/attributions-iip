@@ -14,8 +14,8 @@ import express from 'express';
 import db from '../db/index.js';
 import { authRequired, roleRequired } from '../middleware/auth.js';
 import { envelopperDocument } from '../lib/document.js';
-import { LOGO_IIP_JPEG } from '../services/assets/logo_iip_jpeg.js';
-import { SIGNATURE_SOHET } from '../services/assets/signature_sohet.js';
+import { SIGNATURE_SOHET, SCEAU_IIP } from '../services/assets/signature_sohet.js';
+import { identiteEtablissement } from './config.js';
 
 const r = express.Router();
 
@@ -146,6 +146,7 @@ r.post('/document', authRequired, roleRequired('admin', 'directeur',
   if (!e) return res.status(404).json({ error: 'étudiant introuvable' });
 
   const etab = db.prepare('SELECT * FROM etablissement LIMIT 1').get() || {};
+  const ident = identiteEtablissement();
   const credits = bilanCredits(e.id, annee);
   const formation = formationDe(e.id, annee);
 
@@ -155,94 +156,93 @@ r.post('/document', authRequired, roleRequired('admin', 'directeur',
     ? `<b>${esc(v)}</b>`
     : '<span class="manque">…………………</span>';
 
+  // FORMULAIRE RÉGLEMENTAIRE : reproduit à l'identique du modèle officiel.
+  // L'administration exige la forme stricte — ni bandeau, ni tableaux, ni
+  // habillage. Le document Word de référence n'a d'ailleurs ni en-tête ni pied
+  // de page : nous n'en ajoutons pas.
   const corps = `
 <div class="a2">
-  <div class="ref">
-    Annexe 2 de l'arrêté ministériel du 28 mars 2022 déterminant les formulaires
-    standard visés aux articles 99, 103 et 104/3 de l'arrêté royal du 8 octobre 1981
-    sur l'accès au territoire, le séjour, l'établissement et l'éloignement des étrangers.
-  </div>
+  <p class="ref">Annexe 2 de l\u2019arrêté ministériel du 28 mars 2022 déterminant les
+    formulaires standard visés aux articles 99, 103 et 104/3 de l\u2019arrêté royal du
+    8 octobre 1981 sur l\u2019accès au territoire, le séjour, l\u2019établissement et
+    l\u2019éloignement des étrangers.</p>
 
-  <h1>Modèle de formulaire standard — attestation du progrès des études
-      au terme de l'année académique ${esc(a1)}–${esc(a2)}</h1>
+  <p class="titre">MODÈLE DE FORMULAIRE STANDARD – ATTESTATION DU PROGRÈS DES ÉTUDES
+    AU TERME DE L\u2019ANNÉE ACADÉMIQUE ${esc(a1)} – ${esc(a2)}</p>
 
-  <div class="visa">
-    visée à l'article 103, §1er, alinéa 1er, 5°, de l'arrêté royal du 8 octobre 1981
-    sur l'accès au territoire, le séjour, l'établissement et l'éloignement des étrangers.
-  </div>
+  <p class="visa">visée à l\u2019article 103, 1er, alinéa 1er, 5°, de l\u2019arrêté royal du
+    8 octobre 1981 sur l\u2019accès au territoire, le séjour, l\u2019établissement et
+    l\u2019éloignement des étrangers.</p>
 
-  <p>Je soussigné(e) ${champ((etab.directeur_nom || 'CHARLES SOHET').toUpperCase())}</p>
-  <p>En ma qualité de représentant(e) de : ${champ(etab.etab_nom || 'Institut Ilya Prigogine')}</p>
-  <p>Confirme que l'étudiant(e) nommé(e) ci-dessous</p>
+  <p>Je soussigné(e) ${champ((ident.directeur || 'CHARLES SOHET').toUpperCase())}</p>
 
-  <table class="ident">
-    <tr><td>Nom</td><td>${champ((e.nom || '').toUpperCase())}</td></tr>
-    <tr><td>Prénom</td><td>${champ(e.prenom)}</td></tr>
-    <tr><td>Date de naissance</td><td>${champ(frDate(e.date_naissance))}</td></tr>
-    <tr><td>Nationalité</td><td>${champ(e.nationalite)}</td></tr>
-  </table>
+  <p>En ma qualité de représentant(e) de : ${champ(ident.nom || 'Institut Ilya Prigogine')}</p>
+
+  <p>Confirme que l\u2019étudiant(e) nommé(e) ci-dessous</p>
+
+  <p class="ident">Nom : ${champ((e.nom || '').toUpperCase())}</p>
+  <p class="ident">Prénom : ${champ(e.prenom)}</p>
+  <p class="ident">Date de naissance : ${champ(frDate(e.date_naissance))}</p>
+  <p class="ident">Nationalité : ${champ(e.nationalite)}</p>
 
   <p>était inscrit(e) pour ${champ(credits.inscritsAnnee || null)} crédits pour la
-     formation ${champ(formation.libelle)} pour l'année académique
-     <b>${esc(a1)}-${esc(a2)}</b>. Cette formation comprend
-     ${champ(formation.totalCredits)} crédits au total et ayant obtenu ou valorisé
-     des crédits antérieurement, l'étudiant(e) obtient une dispense pour
-     <b>${credits.valorises || 0}</b> crédits de la formation.</p>
+    formation ${champ(formation.libelle)} pour l\u2019année académique
+    ${esc(a1)}-${esc(a2)}. Cette formation comprend
+    ${champ(formation.totalCredits)} crédits au total et ayant obtenu ou valorisé des
+    crédits antérieurement, l\u2019étudiant(e) obtient une dispense pour
+    ${credits.valorises || 0} crédits de la formation.</p>
 
-  <p>Il/elle a obtenu <b>${credits.acquisAnnee}</b> crédits durant l'année académique
-     <b>${esc(a1)}-${esc(a2)}</b> et le nombre de crédits qu'il/elle a obtenus à ce jour
-     au total dans sa formation est donc de <b>${credits.acquisTotal}</b> crédits.</p>
+  <p>Il/elle a obtenu ${credits.acquisAnnee} crédits durant l\u2019année académique
+    ${esc(a1)}-${esc(a2)} et le nombre de crédits qu\u2019il/elle a obtenus à ce jour au
+    total dans sa formation est donc de ${credits.acquisTotal} crédits.</p>
 
-  <p>L'étudiant(e) n'a pas dû obtenir de crédits pour les raisons suivantes :
-     ${champ(motif)}</p>
+  <p>L\u2019étudiant(e) n\u2019a pas dû obtenir de crédits pour les raisons suivantes :
+    ${champ(motif)}</p>
 
-  <p class="note">Le relevé de notes doit être joint au présent formulaire afin
-     d'informer l'Office des Étrangers le plus complètement possible.</p>
+  <p>Le relevé de notes doit être joint au présent formulaire afin d\u2019informer
+    l\u2019Office des Étrangers le plus complètement possible.</p>
 
-  <p>Avis facultatif concernant le déroulement des études de l'étudiant(e) :
-     ${champ(avis || 'Néant')}</p>
+  <p>Avis facultatif concernant le déroulement des études de l\u2019étudiant(e) :
+    ${champ(avis || 'Néant')}</p>
 
-  <p class="avant-sig">Fait à <b>${esc(etab.localite || 'Anderlecht')}</b>, le
-     <b>${frDate(date_document || new Date().toISOString())}</b></p>
+  <p>Fait à ${esc(ident.ville || 'Anderlecht')}, le
+    ${frDate(date_document || new Date().toISOString())}</p>
 
-  <div class="sig">
-    <div class="lib">Signature du représentant ou de la représentante
-      de l'établissement précité :</div>
+  <p>Signature du représentant ou de la représentante de l\u2019établissement précité :</p>
+
+  <div class="signature">
     <div class="paraphe"></div>
-    <div class="nom">${esc(etab.directeur_nom || 'Charles SOHET')}</div>
+    <div class="sceau"></div>
   </div>
 </div>`;
 
   const html = envelopperDocument({
     html: corps,
     titre: '',
-    logo: LOGO_IIP_JPEG,
-    // 18 mm ne laissaient qu'un millimètre de marge : le moindre nom un peu
-    // long faisait basculer la signature sur une seconde page.
-    margeHaut: 12, margeCote: 15,
+    // Le modèle officiel n'a NI en-tête NI pied de page : nous n'en ajoutons
+    // pas. L'administration attend la forme stricte, pas notre habillage.
+    avecPied: false,
+    margeHaut: 20, margeCote: 20,
     styles: `
-:root{--paraphe:url("${SIGNATURE_SOHET}")}
-.a2{font-size:9.5pt;line-height:1.35}
-.a2 .ref{font-size:7pt;color:#475569;text-align:justify;margin-bottom:2.5mm;
-  border-bottom:.4pt solid #cbd5e1;padding-bottom:2mm}
-.a2 h1{font-size:11pt;text-align:center;margin:0 0 2mm;line-height:1.25}
-.a2 .visa{font-size:7.5pt;color:#475569;text-align:justify;margin-bottom:3mm}
-.a2 p{margin:1.8mm 0;text-align:justify}
-.a2 .note{font-size:8.5pt;color:#475569;font-style:italic}
-.a2 table.ident{width:auto;margin:2mm 0 3mm}
-.a2 table.ident td{border:0;padding:.5mm 6mm .5mm 0;font-size:9.5pt}
-.a2 table.ident td:first-child{color:#475569;width:38mm}
-/* Une valeur que Lucie ne connaît pas se voit, pour être complétée à la main. */
-.a2 .manque{color:#b45309;letter-spacing:.5pt}
-/* La signature ne doit jamais se scinder ni partir seule : elle reste
-   solidaire du paragraphe qui la précède. */
-.a2 .sig{margin-top:5mm;page-break-inside:avoid;break-inside:avoid}
-.a2 .avant-sig{page-break-after:avoid;break-after:avoid}
-.a2 .sig .lib{font-size:9pt;margin-bottom:1mm}
-.a2 .sig .paraphe{height:15mm;width:46mm;background-image:var(--paraphe);
+:root{--paraphe:url("${SIGNATURE_SOHET}");--sceau:url("${SCEAU_IIP}")}
+
+/* Formulaire réglementaire : mise en forme sobre, au plus près du Word. */
+.a2{font-size:11pt;line-height:1.45;color:#000;font-family:Calibri,Arial,sans-serif}
+.a2 p{margin:0 0 3.5mm;text-align:justify}
+.a2 .ref{font-size:9pt;margin-bottom:6mm}
+.a2 .titre{font-weight:700;text-align:center;margin-bottom:2mm}
+.a2 .visa{font-size:10pt;margin-bottom:6mm}
+.a2 .ident{margin-bottom:1.5mm}
+
+/* Une valeur absente reste en pointillés : ce document engage
+   l'établissement devant une administration fédérale. */
+.a2 .manque{color:#000;letter-spacing:.5pt}
+
+.a2 .signature{margin-top:4mm;display:flex;align-items:flex-end;gap:14mm}
+.a2 .signature .paraphe{width:52mm;height:19mm;background-image:var(--paraphe);
   background-repeat:no-repeat;background-position:left bottom;background-size:contain}
-.a2 .sig .nom{font-size:9.5pt;font-weight:700;color:#1B2B4B;
-  border-top:.4pt solid #94a3b8;width:46mm;padding-top:1mm}`,
+.a2 .signature .sceau{width:26mm;height:26mm;background-image:var(--sceau);
+  background-repeat:no-repeat;background-position:left bottom;background-size:contain}`,
   });
 
   res.json({ html, credits, manques: [] });

@@ -47,7 +47,7 @@ r.get('/valeurs/:parametre', authRequired, (req, res) => {
  * même requête, autant ne pas la refaire au moment de produire.
  */
 r.get('/destinataires', authRequired, (req, res) => {
-  const { document, annee, section, ue } = req.query;
+  const { document, annee, section, ue, ues } = req.query;
   const doc = documentParCle(document);
   if (!doc) return res.status(400).json({ error: 'document inconnu' });
 
@@ -58,12 +58,24 @@ r.get('/destinataires', authRequired, (req, res) => {
 
     // Pour l'attestation, la maille est le couple étudiant × unité réussie ;
     // pour les autres, c'est l'étudiant.
-    const parUE = doc.cle === 'attestation_reussite';
+    const parUE = doc.cle === 'attestation_reussite' || doc.cle === 'motivation_decision';
+    // La motivation ne concerne QUE les unités en échec ; l'attestation, que
+    // les réussites. Les confondre délivrerait une attestation de réussite à un
+    // étudiant refusé — ce qui engagerait l'établissement.
+    const enEchec = doc.cle === 'motivation_decision';
 
     const clauses = ['i.annee_scolaire = ?'];
     const params = [annee];
-    if (parUE) clauses.push("i.resultat = 'reussi'");
-    if (ue) { clauses.push('i.ue_num = ?'); params.push(Number(ue)); }
+    if (parUE) {
+      clauses.push(enEchec ? "i.resultat IN ('refuse','ajourne')" : "i.resultat = 'reussi'");
+    }
+    // Plusieurs unités possibles : « ues » l'emporte, « ue » reste accepté
+    // pour ne pas casser les appels existants.
+    const listeUe = (ues || ue || '').split(',').map(Number).filter(Boolean);
+    if (listeUe.length) {
+      clauses.push(`i.ue_num IN (${listeUe.map(() => '?').join(',')})`);
+      params.push(...listeUe);
+    }
 
     const lignes = db.prepare(`
       SELECT DISTINCT e.id AS etudiant_id, e.nom, e.prenom,
@@ -134,7 +146,16 @@ r.post('/pdf', authRequired, async (req, res) => {
     res.end(pdf);
   } catch (e) {
     console.error('[impression/pdf]', e);
-    res.status(500).json({ error: e.message });
+    // « Timed out after waiting 30000ms » ne dit rien à l'utilisateur : on
+    // explique ce qui s'est passé et ce qu'il peut faire.
+    const expire = /timed out|timeout/i.test(String(e.message));
+    res.status(expire ? 504 : 500).json({
+      error: expire
+        ? "Le rendu a dépassé le temps imparti. Ce lot est trop volumineux pour "
+          + "être produit d'un seul tenant : restreignez la sélection, par unité "
+          + "ou par section, et reprenez en plusieurs fois."
+        : e.message,
+    });
   }
 });
 

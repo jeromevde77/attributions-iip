@@ -48,7 +48,9 @@ r.get('/section/:code', authRequired, (req, res) => {
   const orgasParUE = new Map(orgas.map(o => [o.ue_num, o.n]));
 
   const toutes = db.prepare(`
-    SELECT ue_num, ue_nom, ue_per_total, ue_niv
+    -- ue_per_total n'existe pas : les périodes destinées à l'étudiant sont
+    -- dans ue_per_etudiants. La requête échouait dès qu'elle était atteinte.
+    SELECT ue_num, ue_nom, ue_per_etudiants AS ue_per_total, ue_niv
       FROM ue WHERE annee_scolaire = ? ORDER BY ue_num
   `).all(annee);
 

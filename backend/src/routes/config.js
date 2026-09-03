@@ -62,6 +62,33 @@ r.get('/attestation_etab_defaut', authRequired, roleRequired('admin'), (req, res
   }) });
 });
 
+/**
+ * L'identité de l'établissement, telle que les documents officiels l'exigent.
+ *
+ * Elle était déjà consolidée ici — table etablissement, surchargée par la
+ * configuration — mais chaque document la relisait à sa façon, en inventant des
+ * noms de propriétés : « etab.matricule » au lieu de num_ecot, « etab.fase » au
+ * lieu de num_fase. Les champs sortaient donc vides alors que la donnée était là.
+ */
+export function identiteEtablissement() {
+  const etabDB = db.prepare('SELECT * FROM etablissement LIMIT 1').get() || {};
+  const row = db.prepare("SELECT valeur FROM lucie_config WHERE cle = 'attestation_etab'").get();
+  let saved = {};
+  if (row) { try { saved = JSON.parse(row.valeur); } catch { /* configuration illisible */ } }
+
+  return {
+    nom:       saved.nom       || etabDB.etab_nom || 'INSTITUT ILYA PRIGOGINE',
+    adresse:   saved.adresse   || etabDB.adresse
+      || 'Campus Erasme, Bât. P, route de Lennik 808 - 1070 Bruxelles',
+    matricule: saved.matricule || etabDB.num_ecot || null,
+    fase:      saved.fase      || etabDB.num_fase || null,
+    ville:     saved.ville     || 'Bruxelles',
+    tel:       saved.tel       || etabDB.gest_tel || null,
+    site:      saved.site      || etabDB.site_web || null,
+    directeur: saved.directeur || etabDB.gest_nom || 'SOHET Charles',
+  };
+}
+
 r.get('/attestation_etab', authRequired, (req, res) => {
   // Enrichir avec les vraies données de la table etablissement
   let etabDB = {};

@@ -1,5 +1,7 @@
 import { useEffect, useState } from 'react';
-import { IconAlertTriangle, IconPrinter, IconX } from '@tabler/icons-react';
+import {
+  IconAlertTriangle, IconPrinter, IconX, IconFileTypePdf,
+} from '@tabler/icons-react';
 import { authHeaders } from '../lib/api.js';
 
 /**
@@ -17,6 +19,15 @@ export default function Annexe2({ etudId, annee, onClose }) {
   const [dateDoc, setDateDoc] = useState(() => new Date().toISOString().slice(0, 10));
   const [enCours, setEnCours] = useState(false);
   const [erreur, setErreur] = useState(null);
+  // Safari place mal les éléments en position fixe à l'impression : le pied
+  // reste dans le flux au lieu d'être ancré en bas de page. Le PDF passe par
+  // Chromium côté serveur et n'a pas ce défaut.
+  const [pdfPossible, setPdfPossible] = useState(false);
+
+  useEffect(() => {
+    fetch('/api/parametres/capacites', { headers: authHeaders() })
+      .then(r => r.json()).then(j => setPdfPossible(!!j.pdf)).catch(() => {});
+  }, []);
 
   useEffect(() => {
     fetch(`/api/annexe2/donnees/${etudId}?annee=${encodeURIComponent(annee)}`,
@@ -28,7 +39,7 @@ export default function Annexe2({ etudId, annee, onClose }) {
       }).catch(e => setErreur(e.message));
   }, [etudId, annee]);
 
-  async function produire() {
+  async function produire(enPdf = false) {
     setEnCours(true); setErreur(null);
     try {
       const rep = await fetch('/api/annexe2/document', {
@@ -38,6 +49,25 @@ export default function Annexe2({ etudId, annee, onClose }) {
       });
       const j = await rep.json();
       if (!rep.ok) { setErreur(j.error); return; }
+
+      if (enPdf) {
+        const rep2 = await fetch('/api/impression/pdf', {
+          method: 'POST', headers: authHeaders(),
+          body: JSON.stringify({ html: j.html, nom: `Annexe2_${annee}`, pagination: 'jamais' }),
+        });
+        if (!rep2.ok) {
+          const e = await rep2.json().catch(() => ({}));
+          setErreur(e.error || "Le PDF n'a pas pu être produit.");
+          return;
+        }
+        const a = document.createElement('a');
+        a.href = URL.createObjectURL(await rep2.blob());
+        a.download = `Annexe2_${annee}.pdf`;
+        document.body.appendChild(a); a.click(); a.remove();
+        URL.revokeObjectURL(a.href);
+        return;
+      }
+
       // Fenêtre dédiée : Safari imprime le document parent depuis un cadre.
       const w = window.open('', '_blank');
       if (!w) { setErreur('Fenêtre bloquée. Autorisez les fenêtres surgissantes.'); return; }
@@ -132,11 +162,22 @@ export default function Annexe2({ etudId, annee, onClose }) {
             className="border border-slate-300 rounded-lg px-2 py-1.5 text-sm" />
         </label>
 
-                <button onClick={produire} disabled={enCours || !donnees}
+                <div className="flex gap-2 flex-wrap">
+        {pdfPossible && (
+          <button onClick={() => produire(true)} disabled={enCours || !donnees}
+            title="Recommandé : le pied de page est correctement ancré, ce que
+                   l'impression du navigateur ne garantit pas sur Safari"
+            className="flex items-center gap-1.5 px-4 py-2 text-sm bg-iip-blue text-white
+                       font-semibold rounded-lg disabled:opacity-40">
+            <IconFileTypePdf size={15} /> {enCours ? 'Génération…' : 'PDF'}
+          </button>
+        )}
+        <button onClick={() => produire(false)} disabled={enCours || !donnees}
           className="flex items-center gap-1.5 px-4 py-2 text-sm bg-iip-blue text-white
                      font-semibold rounded-lg disabled:opacity-40">
-          <IconPrinter size={15} /> {enCours ? 'Génération…' : 'Produire le document'}
+          <IconPrinter size={15} /> Imprimer
         </button>
+        </div>
 
         <p className="text-[11px] text-slate-500">
           Le relevé de notes doit être joint au formulaire, comme le prévoit le modèle.

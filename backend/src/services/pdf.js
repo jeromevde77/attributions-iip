@@ -49,7 +49,11 @@ async function obtenirNavigateur() {
   }
   const p = await chargerPuppeteer();
   if (!p) throw new Error("Le module de rendu PDF n'est pas installé sur ce serveur.");
-  navigateur = await p.launch({ headless: true, timeout: 120000, args: ARGS });
+  // protocolTimeout : c'est LUI qui plafonnait le rendu à 30 s par défaut.
+  // Un lot de plusieurs centaines de pages dépasse largement ce délai.
+  navigateur = await p.launch({
+    headless: true, timeout: 120000, protocolTimeout: 15 * 60 * 1000, args: ARGS,
+  });
   navigateur.on('disconnected', () => { navigateur = null; });
   return navigateur;
 }
@@ -99,7 +103,13 @@ export async function rendrePdf(html, options = {}) {
   try {
     await page.setContent(html, { waitUntil: 'networkidle0', timeout: 120000 });
 
+    // Le délai s'adapte au volume : une minute de base, plus une seconde par
+    // page estimée. Mieux vaut un rendu long qu'une expiration à mi-course.
+    const pagesEstimees = Math.max(1, (html.match(/class="saut"/g) || []).length + 1);
+    const delai = Math.min(15 * 60 * 1000, 60000 + pagesEstimees * 1000);
+
     const commun = {
+      timeout: delai,
       format: 'A4',
       landscape: orientation === 'paysage',
       printBackground: true,

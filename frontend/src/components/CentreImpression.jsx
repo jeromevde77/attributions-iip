@@ -18,6 +18,9 @@ export default function CentreImpression({ onClose, documentInitial = null,
   const [catalogue, setCatalogue] = useState(null);
   const [pdfPossible, setPdfPossible] = useState(false);
   const [docCle, setDocCle] = useState(documentInitial);
+  // Un dossier compte plusieurs pièces : on peut en cocher d'autres et les
+  // tirer d'un coup pour tous les étudiants retenus.
+  const [docsSupp, setDocsSupp] = useState(new Set());
 
   const [annees, setAnnees] = useState([]);
   const [sections, setSections] = useState([]);
@@ -25,7 +28,9 @@ export default function CentreImpression({ onClose, documentInitial = null,
 
   const [annee, setAnnee] = useState(anneeInitiale || '');
   const [section, setSection] = useState('');
-  const [ue, setUe] = useState('');
+  // Plusieurs unités à la fois : neuf cents attestations d'un coup sont
+  // ingérables, et une seule unité est souvent trop peu.
+  const [uesChoisies, setUesChoisies] = useState(new Set());
 
   const [destinataires, setDestinataires] = useState(null);
   // Sélection EXPLICITE plutôt qu'exclusion : on voit ce qu'on va produire,
@@ -33,6 +38,14 @@ export default function CentreImpression({ onClose, documentInitial = null,
   const [coches, setCoches] = useState(new Set());
   const [recherche, setRecherche] = useState('');
   const [enCours, setEnCours] = useState(false);
+  // Le temps d'un lot dépend du serveur : plutôt que d'inventer une estimation,
+  // on MESURE le premier et on s'en sert pour annoncer les suivants.
+  const [travail, setTravail] = useState(null);   // { total, debut, estime }
+
+  const cadenceMs = () => {
+    const v = Number(localStorage.getItem('impression_ms_par_piece'));
+    return Number.isFinite(v) && v > 0 ? v : null;
+  };
   // La date portée par le document. Le jour même par défaut, mais une
   // attestation se signe souvent à une date décidée — délibération, courrier —
   // et non le jour où on l'imprime.
@@ -83,7 +96,7 @@ export default function CentreImpression({ onClose, documentInitial = null,
     try {
       const qs = new URLSearchParams({ document: docCle, annee });
       if (section) qs.set('section', section);
-      if (ue) qs.set('ue', ue);
+      if (uesChoisies.size) qs.set('ues', [...uesChoisies].join(','));
       const rep = await fetch(`/api/impression/destinataires?${qs}`,
         { headers: authHeaders() });
       const j = await rep.json();
@@ -99,7 +112,19 @@ export default function CentreImpression({ onClose, documentInitial = null,
         j.destinataires
           .filter(d => !pre.size || pre.has(Number(d.etudiant_id)))
           .map(cle)));
-    } finally { setEnCours(false); }
+    } finally {
+      setEnCours(false);
+      setTravail(t => {
+        if (t?.total) {
+          const ms = (Date.now() - t.debut) / t.total;
+          // Moyenne glissante : une mesure isolée peut être trompeuse.
+          const ancien = cadenceMs();
+          localStorage.setItem('impression_ms_par_piece',
+            String(ancien ? Math.round((ancien * 2 + ms) / 3) : Math.round(ms)));
+        }
+        return null;
+      });
+    }
   }
 
   const cle = d => `${d.etudiant_id || d.professeur_id}|${d.ue_num ?? ''}|${d.annee_scolaire ?? ''}`;
@@ -146,6 +171,13 @@ export default function CentreImpression({ onClose, documentInitial = null,
    * source des régressions passées.
    */
   async function produire(forme) {
+    const total = retenus.length;
+    const cad = cadenceMs();
+    setTravail({
+      total,
+      debut: Date.now(),
+      estime: cad ? Math.round((total * cad) / 1000) : null,
+    });
     if (!retenus.length) return;
     setEnCours(true); setMessage(null);
     try {
@@ -201,23 +233,40 @@ export default function CentreImpression({ onClose, documentInitial = null,
     } finally { setEnCours(false); }
   }
 
+  /**
+   * Produit UNE pièce, quel que soit le document.
+   *
+   * Le chemin vient du CATALOGUE, non d'une table écrite à la main : celle-ci
+   * ne connaissait que deux documents sur cinq, et tout nouveau document
+   * arrivait « pas encore branché ». Le catalogue est la source unique.
+   */
   async function produireUn(d) {
     const id = d.etudiant_id || d.professeur_id;
-    const routes = {
-      fiche_inscription: `/api/etudiants/${id}/fiche-inscription?annee=${encodeURIComponent(annee)}`,
-      frais_scolarite: `/api/frais-scolarite/etudiant/${id}/document?annee=${encodeURIComponent(annee)}`,
-    };
-    if (docCle === 'annexe2') {
-      const rep = await fetch('/api/annexe2/document', {
-        method: 'POST', headers: authHeaders(),
-        body: JSON.stringify({ etudiant_id: id, annee, motif: '', avis: 'Néant' }),
-      });
-      return rep.ok ? (await rep.json()).html : null;
+    const decl = catalogue?.find(x => x.cle === docCle);
+    if (!decl?.route) {
+      throw new Error(`Le document « ${doc?.libelle} » ne déclare pas de route.`);
     }
-    const url = routes[docCle];
-    if (!url) throw new Error(`Le document « ${doc?.libelle} » n'est pas encore branché ici.`);
-    const rep = await fetch(url, { headers: authHeaders() });
-    return rep.ok ? (await rep.json()).html : null;
+
+    const chemin = decl.route.chemin
+      .replace(':id', id)
+      .replace(':ue', d.ue_num ?? '');
+
+    const rep = decl.route.methode === 'POST'
+      ? await fetch(chemin, {
+          method: 'POST', headers: authHeaders(),
+          body: JSON.stringify({ etudiant_id: id, annee, ue_num: d.ue_num,
+                                 date_document: dateDoc, avis: 'Néant' }),
+        })
+      : await fetch(`${chemin}?annee=${encodeURIComponent(annee)}`
+          + `&date_document=${encodeURIComponent(dateDoc)}`, { headers: authHeaders() });
+
+    if (!rep.ok) {
+      // L'erreur du serveur est REMONTÉE : « aucun acquis en échec » doit se
+      // lire, non se perdre dans un échec muet.
+      const e = await rep.json().catch(() => ({}));
+      throw new Error(e.error || `${decl.libelle} : erreur ${rep.status}`);
+    }
+    return (await rep.json()).html || null;
   }
 
   /** Les pièces s'enchaînent dans un seul document, chacune sur sa page. */
@@ -260,6 +309,91 @@ export default function CentreImpression({ onClose, documentInitial = null,
       return;
     }
     await telecharger(await rep.blob(), `${nom}.pdf`);
+  }
+
+  /**
+   * Le dossier : chaque document coché, pour chaque étudiant retenu.
+   *
+   * Les quatre types sont produits par des routes distinctes, chacune avec sa
+   * mise en page. On ne les fusionne donc pas en un seul HTML — ce serait
+   * mêler quatre feuilles de style — mais on les range dans une archive, une
+   * pièce par fichier, un sous-dossier par étudiant. C'est d'ailleurs ce qu'on
+   * attend d'un dossier : des pièces séparées, nommées, classables.
+   */
+  async function produireDossier() {
+    const types = [docCle, ...docsSupp].filter(Boolean);
+    const etuds = [...new Set(retenus.map(d => d.etudiant_id))];
+    const total = types.length * etuds.length;
+
+    setEnCours(true); setMessage(null);
+    setTravail({ total, debut: Date.now(),
+                 estime: cadenceMs() ? Math.round(total * cadenceMs() / 1000) : null });
+
+    const propre = s => String(s || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+      .replace(/[^A-Za-z0-9]+/g, '_').replace(/^_|_$/g, '');
+    const mill = String(annee).replace(/^(\d{2})(\d{2})-(\d{2})(\d{2})$/, '$2$4');
+
+    try {
+      const JSZip = (await import('jszip')).default;
+      const zip = new JSZip();
+      const echecs = [];
+
+      for (const etudId of etuds) {
+        const d0 = retenus.find(x => x.etudiant_id === etudId);
+        const nomEtud = `${propre(d0?.nom)}_${propre(d0?.prenom)}` || String(etudId);
+        const dossier = zip.folder(nomEtud);
+
+        for (const type of types) {
+          const decl = catalogue?.find(x => x.cle === type);
+          if (!decl?.route) { echecs.push(`${nomEtud} — ${type}`); continue; }
+          try {
+            // Certains documents portent une unité dans leur chemin ; sans
+            // elle, la requête partirait avec un segment non résolu.
+            const chemin = decl.route.chemin
+              .replace(':id', etudId)
+              .replace(':ue', d0?.ue_num ?? '');
+            if (/:\w+/.test(chemin)) {
+              echecs.push(`${nomEtud} — ${decl.libelle} : unité non déterminée`);
+              continue;
+            }
+            const rep = decl.route.methode === 'POST'
+              ? await fetch(chemin, { method: 'POST', headers: authHeaders(),
+                  body: JSON.stringify({ etudiant_id: etudId, annee,
+                                         date_document: dateDoc, avis: 'Néant' }) })
+              : await fetch(`${chemin}?annee=${encodeURIComponent(annee)}`
+                  + `&date_document=${encodeURIComponent(dateDoc)}`,
+                  { headers: authHeaders() });
+            if (!rep.ok) {
+              const e = await rep.json().catch(() => ({}));
+              echecs.push(`${nomEtud} — ${decl.libelle} : ${e.error || rep.status}`);
+              continue;
+            }
+            const j = await rep.json();
+            const html = j.html || j.document || '';
+            if (!html) { echecs.push(`${nomEtud} — ${decl.libelle} : vide`); continue; }
+            dossier.file(`${type}_${nomEtud}_${mill}.html`, html);
+          } catch (e) {
+            echecs.push(`${nomEtud} — ${decl.libelle} : ${e.message}`);
+          }
+        }
+      }
+
+      telecharger(await zip.generateAsync({ type: 'blob' }),
+        `dossiers_${annee}_${etuds.length}etudiant(s).zip`);
+
+      // Les échecs sont ÉNONCÉS : une pièce manquante dans un dossier
+      // administratif ne doit pas passer inaperçue.
+      if (echecs.length) {
+        setMessage({ type: 'alerte',
+          texte: `${echecs.length} pièce(s) non produite(s) : `
+               + echecs.slice(0, 4).join(' · ')
+               + (echecs.length > 4 ? ` … et ${echecs.length - 4} autre(s)` : '') });
+      }
+    } catch (e) {
+      setMessage({ type: 'err', texte: e.message });
+    } finally {
+      setEnCours(false); setTravail(null);
+    }
   }
 
   async function telecharger(blob, nom) {
@@ -313,6 +447,24 @@ export default function CentreImpression({ onClose, documentInitial = null,
           </div>
         )}
 
+        {travail && (
+          <div className="px-3 py-2.5 rounded-lg bg-iip-blue/5 border border-iip-blue/30
+                          text-[12.5px] text-iip-blue">
+            <div className="font-semibold">
+              Votre demande est en cours de traitement.
+            </div>
+            <div className="text-slate-600 mt-0.5">
+              {travail.total} document(s).{' '}
+              {travail.estime
+                ? `Environ ${travail.estime < 60
+                    ? travail.estime + ' seconde(s)'
+                    : Math.round(travail.estime / 60) + ' minute(s)'}, d'après vos lots précédents.`
+                : "La durée dépend du serveur ; le premier lot servira de repère."}
+              {travail.total > 200 && ' Ne fermez pas cette fenêtre.'}
+            </div>
+          </div>
+        )}
+
         {message && (
           <div className={`px-3 py-2 rounded-lg text-[12.5px] ${
             message.type === 'err' ? 'bg-red-50 border border-red-200 text-red-800'
@@ -331,15 +483,41 @@ export default function CentreImpression({ onClose, documentInitial = null,
               <div key={g}>
                 <div className="text-[11px] text-slate-400 mb-1">{g}</div>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
-                  {docs.map(d => (
-                    <button key={d.cle} onClick={() => setDocCle(d.cle)}
-                      className={`text-left px-3 py-2 rounded-xl border transition
-                        ${docCle === d.cle ? 'border-iip-blue bg-iip-blue/5'
-                                           : 'border-slate-200 hover:bg-slate-50'}`}>
-                      <div className="text-[12.5px] font-semibold text-iip-blue">{d.libelle}</div>
-                      <div className="text-[11px] text-slate-500">{d.description}</div>
-                    </button>
-                  ))}
+                  {docs.map(d => {
+                    const principal = docCle === d.cle;
+                    const enPlus = docsSupp.has(d.cle);
+                    return (
+                      <div key={d.cle}
+                        className={`px-3 py-2 rounded-xl border transition
+                          ${principal ? 'border-iip-blue bg-iip-blue/5'
+                            : enPlus ? 'border-iip-turquoise bg-iip-turquoise/5'
+                            : 'border-slate-200 hover:bg-slate-50'}`}>
+                        <button onClick={() => {
+                          setDocCle(d.cle);
+                          setDocsSupp(s => { const n = new Set(s); n.delete(d.cle); return n; });
+                        }} className="text-left w-full">
+                          <div className="text-[12.5px] font-semibold text-iip-blue">
+                            {d.libelle}
+                          </div>
+                          <div className="text-[11px] text-slate-500">{d.description}</div>
+                        </button>
+                        {/* Une pièce de plus au dossier, sans changer le document
+                            qui commande la recherche des destinataires. */}
+                        {!principal && (
+                          <label className="flex items-center gap-1.5 mt-1 text-[11px]
+                                            text-slate-500 cursor-pointer">
+                            <input type="checkbox" checked={enPlus}
+                              onChange={() => setDocsSupp(s => {
+                                const n = new Set(s);
+                                n.has(d.cle) ? n.delete(d.cle) : n.add(d.cle);
+                                return n;
+                              })} />
+                            Ajouter au dossier
+                          </label>
+                        )}
+                      </div>
+                    );
+                  })}
                 </div>
               </div>
             ))}
@@ -355,10 +533,41 @@ export default function CentreImpression({ onClose, documentInitial = null,
               <Choix libelle="Section" valeur={section} onChange={setSection}
                 options={sections} vide="Toutes" />
             )}
-            {doc.parametres?.includes('ue') && (
-              <Choix libelle="Unité" valeur={ue} onChange={setUe}
-                options={ues.map(u => ({ valeur: u.valeur, libelle: `${u.valeur} — ${u.libelle}` }))}
-                vide="Toutes" />
+            {doc.parametres?.includes('ue') && ues.length > 0 && (
+              <div className="text-xs w-full">
+                <div className="flex items-center justify-between mb-1">
+                  <span className="font-semibold text-slate-500 uppercase tracking-wide">
+                    Unités {uesChoisies.size ? `(${uesChoisies.size})` : '— toutes'}
+                  </span>
+                  <button onClick={() => setUesChoisies(s =>
+                    s.size === ues.length ? new Set() : new Set(ues.map(u => u.valeur)))}
+                    className="text-[11.5px] text-iip-blue font-semibold">
+                    {uesChoisies.size === ues.length ? 'Tout décocher' : 'Tout cocher'}
+                  </button>
+                </div>
+                <div className="border border-slate-300 rounded-lg max-h-36 overflow-y-auto
+                                divide-y divide-slate-100">
+                  {ues.map(u => (
+                    <label key={u.valeur}
+                      className={`flex items-center gap-2 px-2 py-1 cursor-pointer text-[12px]
+                        ${uesChoisies.has(u.valeur) ? 'bg-iip-blue/5' : 'hover:bg-slate-50'}`}>
+                      <input type="checkbox" checked={uesChoisies.has(u.valeur)}
+                        onChange={() => { setUesChoisies(s => {
+                          const n = new Set(s);
+                          n.has(u.valeur) ? n.delete(u.valeur) : n.add(u.valeur);
+                          return n;
+                        }); setDestinataires(null); }} />
+                      <span className="font-mono text-[11px] text-slate-500 w-10 flex-none">
+                        {u.valeur}
+                      </span>
+                      <span className="truncate">{u.libelle}</span>
+                    </label>
+                  ))}
+                </div>
+                <span className="block text-[10.5px] text-slate-400 mt-0.5">
+                  Aucune cochée = toutes les unités.
+                </span>
+              </div>
             )}
           </div>
         )}
@@ -422,6 +631,15 @@ export default function CentreImpression({ onClose, documentInitial = null,
                                disabled:opacity-40">
                     <IconPrinter size={15} /> Imprimer
                   </button>
+                  {docsSupp.size > 0 && (
+                    <button onClick={produireDossier} disabled={enCours || !retenus.length}
+                      title="Une archive par étudiant, avec chacune de ses pièces"
+                      className="flex items-center gap-1.5 px-3.5 py-1.5 text-sm
+                                 bg-iip-turquoise text-white font-semibold rounded-lg
+                                 disabled:opacity-40">
+                      <IconFileZip size={15} /> Dossiers ({docsSupp.size + 1} pièces)
+                    </button>
+                  )}
                   <button onClick={() => produire('zip')} disabled={enCours || !retenus.length}
                     className="flex items-center gap-1.5 px-3.5 py-1.5 text-sm border
                                border-slate-300 text-slate-600 font-semibold rounded-lg

@@ -13,6 +13,7 @@ import CentreImpression from '../components/CentreImpression.jsx';
 import CentrePAE from '../components/CentrePAE.jsx';
 import ImportSurMesure from '../components/ImportSurMesure.jsx';
 import Annexe2 from '../components/Annexe2.jsx';
+import MotivationDecision from '../components/MotivationDecision.jsx';
 import MenuActions from '../components/MenuActions.jsx';
 import ComparaisonClasseur from '../components/ComparaisonClasseur.jsx';
 import ImportPAE from '../components/ImportPAE.jsx';
@@ -1023,6 +1024,7 @@ function DossierApprenant({ etudId }) {
 // ── Fiche étudiant + PAE ──────────────────────────────────────────────────────
 function FicheEtudiant({ id, annee, onClose }) {
   const [annexe2, setAnnexe2] = useState(false);
+  const [motivation, setMotivation] = useState(false);
   const [data, setData] = useState(null);
   const [pae, setPae] = useState(null);
   const [onglet, setOnglet] = useState('grille');
@@ -1232,6 +1234,11 @@ function FicheEtudiant({ id, annee, onClose }) {
 
           {onglet === 'dossier' && <DossierApprenant etudId={id} />}
 
+          {motivation && (
+            <MotivationDecision etudId={id} annee={annee}
+              onClose={() => setMotivation(false)} />
+          )}
+
           {annexe2 && (
             <Annexe2 etudId={id} annee={annee} onClose={() => setAnnexe2(false)} />
           )}
@@ -1337,6 +1344,10 @@ function FicheEtudiant({ id, annee, onClose }) {
                           { libelle: 'Frais de scolarité', Icone: IconFileText,
                             aide: "Document distinct : l'administration n'en connaît pas",
                             onClick: ouvrirFraisScolarite },
+                          { separateur: true, titre: 'Décisions' },
+                          { libelle: 'Motiver un refus / ajournement', Icone: IconFileText,
+                            aide: 'Annexes 8 et 9 — une justification par acquis',
+                            onClick: () => setMotivation(true) },
                           { separateur: true, titre: 'Administrations' },
                           { libelle: 'Progrès des études (annexe 2)', Icone: IconFileText,
                             aide: "Office des Étrangers — réclame la nationalité",

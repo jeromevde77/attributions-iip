@@ -21,6 +21,7 @@ import { authRequired, getUserSections } from '../middleware/auth.js';
 import { capacitePdf, rendrePdf } from '../services/pdf.js';
 import { SIGNATURE_SOHET, SCEAU_IIP } from '../services/assets/signature_sohet.js';
 import { piedDocument } from './parametres.js';
+import { identiteEtablissement } from './config.js';
 
 const r = Router();
 
@@ -105,15 +106,20 @@ function unitesReussies(etudId, annee) {
       ).all(i.ue_num);
     } catch { /* table absente ou colonnes différentes : on le signalera */ }
 
-    const totalPeriodes = ue.ue_per_etudiants
+    // Les périodes de COURS, telles que le dossier pédagogique les liste.
+    const periodesCours = ue.ue_per_etudiants
       || activites.reduce((s, c) => s + (Number(c.cours_per) || 0), 0);
+    // L'AUTONOMIE s'y ajoute : le dossier pédagogique la donne à part, et la
+    // somme des deux fait le total de l'unité pour l'étudiant.
+    const autonomie = Number(ue.ue_aut) || 0;
+    const totalPeriodes = (Number(periodesCours) || 0) + autonomie;
 
     // Ce qui manque rendrait l'attestation irrégulière : on l'annonce.
     const manques = [];
     if (!ue.ue_code_fwb) manques.push("le numéro de code approuvé par le Gouvernement");
     if (!ue.ects) manques.push("le nombre d'ECTS");
     if (!(ue.domaine || sec?.domaine)) manques.push("le domaine d'études");
-    if (!totalPeriodes) manques.push("le total des périodes");
+    if (!periodesCours) manques.push("le total des périodes");
     if (!activites.length) manques.push("la répartition par activité d'enseignement");
     if (i.points == null) manques.push("le pourcentage obtenu");
 
@@ -127,6 +133,12 @@ function unitesReussies(etudId, annee) {
         || 'Enseignement supérieur de type court',
       section: ue.section || null,
       periodes: totalPeriodes || null,
+      periodes_cours: periodesCours || null,
+      autonomie: autonomie || null,
+      // Le modèle diffère selon la nature de l'unité : épreuve intégrée, stage
+      // ou unité déterminante ordinaire.
+      epreuve_integree: !!ue.is_epreuve_integree,
+      est_stage: /\bstage\b|activit[ée]s? professionnelles?/i.test(ue.ue_nom || ''),
       activites,
       acquis,
       // Le modèle demande un pourcentage ; les résultats sont sur 20.
@@ -205,6 +217,12 @@ function envelopper(corps, titre = 'Attestations de réussite') {
   .etudiant .naissance { font-size: 8.5pt; color: #475569; margin-top: 0.8mm; }
 
   .activites { margin: 1.5mm 0 3mm 8mm; font-size: 8.5pt; }
+  /* L'autonomie se distingue des cours : elle vient du dossier pédagogique et
+     s'ajoute à eux pour faire le total de l'unité. */
+  .activites .autonomie { font-style: italic; color: #475569;
+                          border-top: .3pt solid #cbd5e1; margin-top: .8mm;
+                          padding-top: .8mm; }
+  .carac .detail { font-size: 7.5pt; color: #64748b; font-weight: 400; }
   ul.acquis { margin: 1.5mm 0 3mm 8mm; padding-left: 4mm; font-size: 8.5pt; }
   ul.acquis li { margin: 0.5mm 0; }
 
@@ -290,16 +308,17 @@ function pageAttestation(e, u, annee, etab, dateDoc = null) {
 
   <div class="etab">
     <div>
-      <div class="nom">${esc(etab.etab_nom || 'Institut Ilya Prigogine')}</div>
-      <div>${esc(etab.adresse || '')}</div>
+      <div class="nom">${esc(ident.nom || 'Institut Ilya Prigogine')}</div>
+      <div>${esc(ident.adresse || '')}</div>
     </div>
     <div class="ident">
       Matricule ${esc(etab.num_matricule || '2.132.070')}<br>
-      FASE ${esc(etab.num_fase || '292')}
+      FASE ${esc(ident.fase || '292')}
     </div>
   </div>
 
-  <h1>ATTESTATION DE RÉUSSITE D'UNITÉ D'ENSEIGNEMENT</h1>
+  <h1>ATTESTATION DE RÉUSSITE DE L'UNITÉ D'ENSEIGNEMENT${
+    u.epreuve_integree ? ' « ÉPREUVE INTÉGRÉE »' : ''}</h1>
   <h2>${esc((u.ue_nom || '').toUpperCase())}</h2>
   <div class="filet"></div>
 
@@ -312,13 +331,16 @@ function pageAttestation(e, u, annee, etab, dateDoc = null) {
                    : '<span class="manque">à compléter au référentiel</span>'}</div>
     <div>${u.ects ? `<b>${u.ects}</b> E.C.T.S.`
                   : '<span class="manque">ECTS à compléter</span>'}</div>
-    <div>${u.periodes ? `<b>${u.periodes}</b> périodes`
-                      : '<span class="manque">périodes à compléter</span>'}</div>
+    <div>${u.periodes
+      ? `<b>${u.periodes}</b> périodes`
+        + (u.autonomie ? ` <span class="detail">(${u.periodes_cours} + ${u.autonomie} aut.)</span>` : '')
+      : '<span class="manque">périodes à compléter</span>'}</div>
   </div>
 
   <p class="corps">
     Conformément aux articles 52, 53 et 58 alinéa 1<sup>er</sup> du décret du 16 avril 1991
-    organisant l'enseignement de promotion sociale, le Conseil des études, chargé de procéder
+    organisant l'enseignement de promotion sociale, ${u.epreuve_integree
+      ? "le Jury d'épreuve intégrée" : 'le Conseil des études'}, chargé de procéder
     à l'évaluation de l'unité d'enseignement susvisée, atteste que
   </p>
 
@@ -331,18 +353,37 @@ function pageAttestation(e, u, annee, etab, dateDoc = null) {
   </div>
 
   <p class="corps indente">
-    a suivi avec fruit, dans l'établissement précité, l'unité d'enseignement susvisée,
-    comportant au total <b>${u.periodes || '………'}</b> périodes d'activités d'enseignement
-    réparties comme suit :
+    a suivi avec fruit, dans l'établissement précité, l'unité d'enseignement${
+      u.epreuve_integree ? ' « épreuve intégrée »' : ''} susvisée,
+    ${u.est_stage || u.epreuve_integree
+      // Annexes 12, 13, 17 et 18 : « comportant, pour l'étudiant, X périodes »,
+      // SANS répartition par activité.
+      ? `comportant, pour l'étudiant, <b>${u.periodes || '………'}</b> périodes
+         d'activités d'enseignement ;`
+      // Annexe 11 : la répartition par activité y figure.
+      : `comportant au total <b>${u.periodes || '………'}</b> périodes d'activités
+         d'enseignement réparties comme suit :`}
   </p>
-  <div class="activites">${activites}</div>
+  ${u.est_stage || u.epreuve_integree ? '' : `<div class="activites">${activites}${u.autonomie
+    ? `<div class="ligne autonomie"><span>Activités d'enseignement en autonomie</span>`
+      + `<span><b>${u.autonomie}</b> pér.</span></div>`
+    : ''}</div>`}
 
   <p class="corps">Attendu qu'${accord} tous les acquis d'apprentissage de l'unité
     d'enseignement, soit :</p>
   ${acquis}
 
+  ${u.est_stage || u.epreuve_integree
+    // Le modèle de stage porte « termine ses études avec succès », mais un
+    // stage n'est pas la fin du cursus : l'affirmer serait inexact. On s'en
+    // tient au stage. L'épreuve intégrée, elle, clôt bien les études.
+    ? `<p class="corps">Attendu qu'${genre === 'F' ? 'elle termine' : 'il termine'}
+       ${u.est_stage && !u.epreuve_integree ? 'son stage' : 'ses études'} avec succès ;</p>`
+    : ''}
+
   <div class="resultat">
-    Le Conseil des études lui délivre la présente attestation, pour laquelle
+    ${u.epreuve_integree ? "Le Jury d'épreuve intégrée" : 'Le Conseil des études'} lui délivre
+    la présente attestation, pour laquelle
     ${genre === 'F' ? 'elle obtient' : 'il obtient'}
     <span class="pct">${u.pourcentage != null ? u.pourcentage + ' %' : '………'}</span>
     du total des points.
@@ -353,11 +394,12 @@ function pageAttestation(e, u, annee, etab, dateDoc = null) {
   <div class="cloture">
     <div class="sceau"></div>
     <div class="paraphe"></div>
-    <div class="lieu">Fait à ${esc(etab.localite || 'Anderlecht')},
+    <div class="lieu">Fait à ${esc(ident.ville || 'Anderlecht')},
       le ${frDate(dateDoc || new Date().toISOString())}</div>
     <div class="legende">
-      <div class="qualite">Pour le Conseil des études,<br>le Directeur</div>
-      <div class="nom">${esc(etab.directeur_nom || 'Charles SOHET')}</div>
+      <div class="qualite">Pour ${u.epreuve_integree
+        ? "le Jury d'épreuve intégrée" : 'le Conseil des études'},<br>le Directeur</div>
+      <div class="nom">${esc(ident.directeur || 'Charles SOHET')}</div>
     </div>
   </div>
 </div>`;
@@ -377,6 +419,7 @@ r.get('/etudiant/:id/document', authRequired, (req, res) => {
   }
 
   const etab = db.prepare('SELECT * FROM etablissement LIMIT 1').get() || {};
+  const ident = identiteEtablissement();
 
   // Une attestation par unité, chacune sur sa propre page : ce sont des pièces
   // distinctes, remises séparément.
@@ -463,24 +506,29 @@ r.post('/lot', authRequired, (req, res) => {
   // qu'une fois. En pièces séparées, CHACUNE les porte pour rester imprimable
   // seule — d'où un plafond plus bas : cinq cents pièces feraient 300 Mo dans
   // le navigateur.
-  const plafond = separes ? 120 : 500;
+  // Les images pesaient 632 Ko par pièce, ce qui plafonnait l'archive à 120.
+  // Redimensionnées à 56 Ko, neuf cents pièces tiennent en 49 Mo.
+  const plafond = separes ? 900 : 900;
   if (paires.length > plafond) {
     return res.status(400).json({
       error: `${paires.length} attestations demandées, maximum ${plafond} `
            + (separes
-              ? `en pièces séparées : chacune porte le sceau et la signature, et `
-              + `le navigateur ne suivrait pas. Restreignez la sélection, ou `
-              + `choisissez le document unique qui accepte 500 attestations.`
+              ? `en pièces séparées. Restreignez la sélection, par unité ou par `
+              + `section, et reprenez en plusieurs fois.`
               : `: restreignez la sélection, par section ou par année.`),
     });
   }
 
   const etab = db.prepare('SELECT * FROM etablissement LIMIT 1').get() || {};
+  const ident = identiteEtablissement();
   const cacheEtud = {};
   const cacheUnites = {};
 
   const documents = [];
   const manquants = [];
+  // Deux homonymes dans la même unité produiraient le même nom de fichier, et
+  // l'un écraserait l'autre dans l'archive. On suffixe alors le matricule.
+  const nomsVus = new Map();
 
   for (const p of paires) {
     const etudId = Number(p.etudiant_id);
@@ -500,7 +548,16 @@ r.post('/lot', authRequired, (req, res) => {
     const propre = s => String(s || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '')
       .replace(/[^A-Za-z0-9]+/g, '_').replace(/^_|_$/g, '');
     documents.push({
-      nom_fichier: `${propre(e.nom)}_${propre(e.prenom)}_UE${u.ue_num}_${p.annee_scolaire}.html`,
+      // Format demandé : UE65_Sohet_Charles_2526. L'unité vient en tête pour
+      // que l'archive se range par UE, et le millésime est abrégé.
+      nom_fichier: (() => {
+        const base = `UE${u.ue_num}_${propre(e.nom)}_${propre(e.prenom)}`
+          + `_${String(p.annee_scolaire).replace(/^(\d{2})(\d{2})-(\d{2})(\d{2})$/, '$2$4')
+               .replace(/-/g, '')}`;
+        const n = (nomsVus.get(base) || 0) + 1;
+        nomsVus.set(base, n);
+        return (n === 1 ? base : `${base}_${e.id_ecampus || e.id}`) + '.html';
+      })(),
       etudiant: `${e.nom} ${e.prenom}`,
       ue_num: u.ue_num,
       annee: p.annee_scolaire,

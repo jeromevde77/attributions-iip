@@ -1,5 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { IconSearch, IconCheck, IconDeviceFloppy, IconPencil } from '@tabler/icons-react';
+import {
+  IconAlertTriangle, IconCheck, IconDeviceFloppy, IconPencil, IconSearch,
+} from '@tabler/icons-react';
 import { authHeaders } from '../lib/api.js';
 import EncodageDirect from '../components/EncodageDirect.jsx';
 
@@ -15,7 +17,14 @@ import EncodageDirect from '../components/EncodageDirect.jsx';
  * pour qu'on sache ce qui est déjà fait sans quitter l'écran.
  */
 
-const CYCLE = [null, 'reussi', 'ajourne'];
+// L'ajournement et le REFUS sont deux décisions distinctes — la circulaire les
+// sépare, et le backend aussi. Cet écran ne connaissait que l'ajournement, mais
+// l'appelait « refusé » : la fiche disait « ajourné » pour la même unité.
+// Sans session : la décision se saisit telle quelle. Avec session, on encode
+// le RÉSULTAT DE LA SESSION et Lucie en déduit la décision — l'ajournement
+// n'est pas saisissable, il se déduit d'un échec en session 1.
+const CYCLE = [null, 'reussi', 'ajourne', 'refuse'];
+const CYCLE_SESSION = [null, 'reussi', 'echec', 'absent'];
 
 // Couleurs des années d'études, communes à Lucie : BA1 orange, BA2 bleu clair,
 // BA3 bleu marine.
@@ -30,16 +39,23 @@ const couleurNiveau = niv => {
 // alors sans quitter l'écran.
 const STYLE = {
   reussi:  'bg-emerald-100 text-emerald-800 border-emerald-300',
-  ajourne: 'bg-red-100 text-red-700 border-red-300',
+  // L'ajournement rouvre une session : ambre, non rouge. Le refus est
+  // définitif : rouge.
+  ajourne: 'bg-amber-100 text-amber-800 border-amber-300',
+  refuse:  'bg-red-100 text-red-700 border-red-300',
   absent:  'bg-slate-100 text-slate-500 border-slate-300',
 };
 const STYLE_ANTERIEUR = {
   reussi:  'bg-emerald-50/70 text-emerald-600 border-emerald-200',
-  ajourne: 'bg-red-50/60 text-red-500 border-red-200',
+  ajourne: 'bg-amber-50/60 text-amber-600 border-amber-200',
+  refuse:  'bg-red-50/60 text-red-500 border-red-200',
   absent:  'bg-slate-50 text-slate-400 border-slate-200',
   va:      'bg-violet-50/70 text-violet-600 border-violet-200',
 };
-const SIGLE = { reussi: '✓', ajourne: '✕', absent: '–', va: 'VA' };
+const SIGLE = { reussi: '✓', ajourne: 'Aj', refuse: 'R', absent: '–', va: 'VA' };
+// En vue délibération, la réussite prend « C » — capitalisé — comme dans vos
+// classeurs et dans le rapport de parcours.
+const SIGLE_DELIB = { reussi: 'C', ajourne: 'Aj', refuse: 'R', absent: 'A', va: 'VA' };
 
 // « 2024-2025 » → « 24-25 »
 const millesime = a => (a || '').slice(2, 4) + '-' + (a || '').slice(7, 9);
@@ -52,6 +68,19 @@ export default function EncodageRapide() {
   const [annee, setAnnee] = useState('');
 
   const [data, setData] = useState(null);
+  // Notes sous le seuil sans décision d'échec : les notes sont encodées, la
+  // délibération ne les suit pas. Lucie ne décide pas à la place du Conseil,
+  // mais elle doit le signaler.
+  const [coherence, setCoherence] = useState(null);
+  // La session encodée. « Décision » enregistre directement le verdict, comme
+  // avant ; S1 et S2 enregistrent le résultat de la session et Lucie en déduit
+  // la décision.
+  const [session, setSession] = useState(null);
+  const [sessions, setSessions] = useState({});   // { 'etud|ue': {s1, s2} }
+  // Deux lectures du même tableau. « Points » montre les notes, « Délibération »
+  // montre la décision — C, Aj, R — car c'est elle qui compte au Conseil, et
+  // une note de 7 ne dit pas à elle seule si l'unité est ajournée ou refusée.
+  const [vueCellule, setVueCellule] = useState('points');
   const [cellules, setCellules] = useState({});     // "etud|ue" -> resultat
   const [notes, setNotes] = useState({});          // "etud|ue" -> note sur 20
   const [recherche, setRecherche] = useState('');
@@ -77,6 +106,14 @@ export default function EncodageRapide() {
     // eslint-disable-next-line
   }, []);
 
+  useEffect(() => {
+    if (!section || !annee) { setCoherence(null); return; }
+    fetch(`/api/etudiants/coherence-resultats?annee=${encodeURIComponent(annee)}`
+      + `&section=${encodeURIComponent(section)}`, { headers: authHeaders() })
+      .then(r => r.json()).then(j => setCoherence(j?.nb_incoherents ? j : null))
+      .catch(() => setCoherence(null));
+  }, [section, annee, data]);
+
   async function charger() {
     if (!section || !annee) return;
     setData(null);
@@ -86,14 +123,18 @@ export default function EncodageRapide() {
     if (!rep.ok) { setData({ ues: [], etudiants: [] }); return; }
     const j = await rep.json();
     setData(j);
-    const c = {}, n = {};
+    const c = {}, n = {}, s = {};
     for (const e of j.etudiants) {
       for (const [ue, v] of Object.entries(e.cellules || {})) {
-        if (v.resultat) c[e.id + '|' + ue] = v.resultat;
-        if (v.points != null) n[e.id + '|' + ue] = v.points;
+        const cle = e.id + '|' + ue;
+        if (v.resultat) c[cle] = v.resultat;
+        if (v.points != null) n[cle] = v.points;
+        // Les sessions déjà encodées, pour que le cycle reprenne où il en est
+        // plutôt que de repartir de zéro à chaque chargement.
+        if (v.s1 || v.s2) s[cle] = { s1: v.s1 || null, s2: v.s2 || null };
       }
     }
-    setCellules(c); setNotes(n);
+    setCellules(c); setNotes(n); setSessions(s);
     setChoisis(new Set());
   }
   useEffect(() => { charger(); /* eslint-disable-next-line */ }, [section, annee]);
@@ -108,8 +149,9 @@ export default function EncodageRapide() {
   useEffect(() => { if (vue === 'annee') chargerSynthese(); /* eslint-disable-next-line */ }, [vue, section]);
 
   // Enregistrement au fil de l'eau, par lots
-  function planifier(etudId, ueNum, resultat) {
-    enAttente.current.set(etudId + '|' + ueNum, { etudiant_id: etudId, ue_num: ueNum, resultat });
+  function planifier(etudId, ueNum, resultat, session = null) {
+    enAttente.current.set(etudId + '|' + ueNum,
+      { etudiant_id: etudId, ue_num: ueNum, resultat, session });
     setEtat('enregistrement');
     clearTimeout(minuteur.current);
     minuteur.current = setTimeout(async () => {
@@ -125,8 +167,34 @@ export default function EncodageRapide() {
     }, 700);
   }
 
+  /** La décision déduite des deux sessions — même règle que le serveur. */
+  function decision(s1, s2) {
+    if (s2 === 'reussi') return 'reussi';
+    if (s2 === 'echec' || s2 === 'absent') return 'refuse';
+    if (s1 === 'reussi') return 'reussi';
+    if (s1 === 'absent') return 'refuse';
+    if (s1 === 'echec') return 'ajourne';
+    return null;
+  }
+
   function poser(etudId, ueNum, resultat) {
     const cle = etudId + '|' + ueNum;
+
+    if (session) {
+      // On encode le résultat de la SESSION ; la décision s'en déduit.
+      const avant = sessions[cle] || {};
+      const apres = { ...avant, [session === 1 ? 's1' : 's2']: resultat };
+      setSessions(s => ({ ...s, [cle]: apres }));
+      const d = decision(apres.s1, apres.s2);
+      setCellules(c => {
+        const n = { ...c };
+        if (d) n[cle] = d; else delete n[cle];
+        return n;
+      });
+      planifier(etudId, ueNum, resultat, session);
+      return;
+    }
+
     setCellules(c => {
       const n = { ...c };
       if (resultat) n[cle] = resultat; else delete n[cle];
@@ -138,9 +206,13 @@ export default function EncodageRapide() {
   }
 
   function cycler(etudId, ueNum) {
-    const actuel = cellules[etudId + '|' + ueNum] || null;
-    const i = CYCLE.indexOf(actuel);
-    poser(etudId, ueNum, CYCLE[(i + 1) % CYCLE.length]);
+    const cle = etudId + '|' + ueNum;
+    const cyc = session ? CYCLE_SESSION : CYCLE;
+    const actuel = session
+      ? (sessions[cle]?.[session === 1 ? 's1' : 's2'] || null)
+      : (cellules[cle] || null);
+    const i = cyc.indexOf(actuel);
+    poser(etudId, ueNum, cyc[(i + 1) % cyc.length]);
   }
 
   const filtres = useMemo(() => {
@@ -161,7 +233,9 @@ export default function EncodageRapide() {
     const ues = data.ues.filter(u => !niveauLot || (u.ue_niv || '') === niveauLot);
     const etuds = cibles();
     if (!ues.length || !etuds.length) return;
-    const quoi = resultat === 'reussi' ? 'réussi' : resultat === 'ajourne' ? 'refusé' : 'effacé';
+    const quoi = resultat === 'reussi' ? 'réussi'
+      : resultat === 'ajourne' ? 'ajourné'
+      : resultat === 'refuse' ? 'refusé' : 'effacé';
     if (!window.confirm(
       `Marquer ${quoi} ${ues.length} UE${niveauLot ? ' de ' + niveauLot : ''} ` +
       `pour ${etuds.length} étudiant(s), en ${annee} ?`)) return;
@@ -198,8 +272,10 @@ export default function EncodageRapide() {
         <div>
           <h2 className="text-xl font-semibold text-iip-blue">Encodage rapide</h2>
           <p className="text-sm text-slate-500">
-            Un clic pour la réussite, deux pour le refus, trois pour effacer. L'inscription
-            découle du résultat.
+            {session
+              ? `Session ${session} : réussi, échec, absent — la décision s'en déduit.`
+              : 'Clics successifs : réussi, ajourné, refusé, effacer.'}{' '}
+            L'inscription découle du résultat.
           </p>
         </div>
         <button onClick={() => setEncodageDirect(true)}
@@ -255,11 +331,39 @@ export default function EncodageRapide() {
           <option value="">Toutes les UE</option>
           {niveauxPresents.map(n => <option key={n} value={n}>UE de {n}</option>)}
         </select>
+        {/* La session encodée. « Décision » conserve l'ancien fonctionnement ;
+            S1 et S2 encodent le résultat de la session, la décision s'en déduit. */}
+        <div className="flex items-center gap-1 mr-2 border border-slate-300 rounded-lg p-0.5">
+          {[[null, 'Décision'], [1, 'Session 1'], [2, 'Session 2']].map(([v, l]) => (
+            <button key={String(v)} onClick={() => setSession(v)}
+              className={`px-2.5 py-1 text-[12px] rounded-md font-semibold ${
+                session === v ? 'bg-iip-blue text-white' : 'text-slate-600 hover:bg-slate-100'}`}>
+              {l}
+            </button>
+          ))}
+        </div>
+
+        <div className="flex items-center gap-1 mr-2 border border-slate-300 rounded-lg p-0.5">
+          {[['points', 'Points'], ['delib', 'Délibération']].map(([v, l]) => (
+            <button key={v} onClick={() => setVueCellule(v)}
+              className={`px-2.5 py-1 text-[12px] rounded-md font-semibold ${
+                vueCellule === v ? 'bg-slate-700 text-white'
+                                 : 'text-slate-600 hover:bg-slate-100'}`}>
+              {l}
+            </button>
+          ))}
+        </div>
+
         <button onClick={() => appliquerLot('reussi')}
           className="text-[12px] px-2.5 py-1 rounded-lg bg-emerald-600 text-white font-semibold">
           Tout réussi
         </button>
         <button onClick={() => appliquerLot('ajourne')}
+          className="text-[12px] px-2.5 py-1 rounded-lg border border-amber-300 text-amber-800">
+          Tout ajourné
+        </button>
+        <button onClick={() => appliquerLot('refuse')}
+          title="Décision définitive, distincte de l'ajournement"
           className="text-[12px] px-2.5 py-1 rounded-lg border border-red-300 text-red-700">
           Tout refusé
         </button>
@@ -272,6 +376,25 @@ export default function EncodageRapide() {
             className="text-[12px] px-2 py-1 text-slate-500">Désélectionner</button>
         )}
       </div>
+
+      {coherence && vue !== 'annee' && (
+        <div className="mb-3 px-4 py-3 rounded-xl bg-amber-50 border border-amber-300
+                        text-[12.5px] text-amber-900">
+          <div className="flex items-center gap-1.5 font-semibold mb-1">
+            <IconAlertTriangle size={15} />
+            {coherence.nb_incoherents} note(s) sous 10 sans décision d'échec
+          </div>
+          Ces unités portent une note inférieure au seuil mais sont marquées
+          réussies, ou sans décision — {coherence.etudiants_concernes} étudiant(s)
+          concerné(s). La délibération n'a pas suivi les notes, ou reste à prendre.
+          <div className="mt-1.5 text-[11.5px] text-amber-800">
+            {coherence.incoherents.slice(0, 8).map(i =>
+              `${i.nom} ${i.prenom} — UE ${i.ue_num} (${i.points}/20)`).join(' · ')}
+            {coherence.nb_incoherents > 8
+              && ` … et ${coherence.nb_incoherents - 8} autre(s)`}
+          </div>
+        </div>
+      )}
 
       {vue === 'annee' ? (
         <SyntheseAnnees synthese={synthese} recherche={recherche}
@@ -337,10 +460,14 @@ export default function EncodageRapide() {
                             ? 'border-l-2 border-l-iip-blue/30' : ''}`}>
                         <button onClick={() => cycler(e.id, u.ue_num)}
                           title={val
-                            ? `${val === 'reussi' ? 'Réussi' : val === 'ajourne' ? 'Refusé' : 'Absent'} en ${annee}`
+                            ? `${val === 'reussi' ? 'Réussi' : val === 'ajourne' ? 'Ajourné'
+                              : val === 'refuse' ? 'Refusé' : 'Absent'} en ${annee}`
                               + (notes[cle] != null ? ` — ${notes[cle]}/20` : '')
                             : ant
-                              ? `${ant.resultat === 'va' ? 'Valorisée' : ant.resultat === 'reussi' ? 'Réussie' : 'Refusée'} en ${ant.annee}`
+                              ? `${ant.resultat === 'va' ? 'Valorisée'
+   : ant.resultat === 'reussi' ? 'Réussie'
+   : ant.resultat === 'ajourne' ? 'Ajournée'
+   : ant.resultat === 'refuse' ? 'Refusée' : 'Absente'} en ${ant.annee}`
                               : 'Cliquer pour encoder'}
                           className={`w-12 h-9 rounded-md border transition leading-none
                             ${val ? STYLE[val]
@@ -349,9 +476,16 @@ export default function EncodageRapide() {
                           {val ? (
                             <span className="block">
                               <span className="block text-[13px] font-bold">
-                                {notes[cle] != null ? notes[cle] : SIGLE[val]}
+                                {vueCellule === 'delib'
+                                  ? (SIGLE_DELIB[val] || val)
+                                  : (notes[cle] != null ? notes[cle] : SIGLE[val])}
                               </span>
-                              <span className="block text-[7.5px] font-medium opacity-70">{millesime(annee)}</span>
+                              {/* La session d'où vient la décision, à côté de la
+                                  note : S2 prime sur S1 puisqu'elle la clôt. */}
+                              <span className="block text-[7.5px] font-medium opacity-70">
+                                {sessions[cle]?.s2 ? 'S2'
+                                  : sessions[cle]?.s1 ? 'S1' : millesime(annee)}
+                              </span>
                             </span>
                           ) : ant ? (
                             <span className="block">

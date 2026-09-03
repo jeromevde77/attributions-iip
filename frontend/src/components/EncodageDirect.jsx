@@ -222,15 +222,33 @@ export default function EncodageDirect({ onClose, anneeDefaut, sectionDefaut }) 
                         const v = valeur(e.id, u.ue_num);
                         const modifie = cle in saisies;
                         const n = v === '' ? null : Number(String(v).replace(',', '.'));
+                        const d = donnees?.existant?.[cle];
+                        const va = d?.resultat === 'va';
                         return (
-                          <td key={u.ue_num} className="px-0.5 py-1 border-b border-slate-100 text-center">
+                          <td key={u.ue_num}
+                            className="px-0.5 py-1 border-b border-slate-100 text-center">
                             <input value={v} inputMode="decimal"
                               onChange={ev => setSaisies(s => ({ ...s, [cle]: ev.target.value }))}
+                              title={va
+                                ? `Valorisation${d.conflit
+                                    ? ` — attention, un résultat « ${d.conflit} » est aussi encodé`
+                                    : ''}`
+                                : undefined}
                               className={`w-11 text-center border rounded px-1 py-0.5 text-[12px]
                                 ${modifie ? 'border-amber-400 bg-amber-50'
+                                  // La valorisation se distingue : la grille de
+                                  // parcours l'affiche, cet écran l'ignorait.
+                                  : d?.conflit ? 'border-red-400 bg-red-100 font-semibold'
+                                  : va ? 'border-iip-turquoise bg-iip-turquoise/10'
                                   : n == null ? 'border-slate-200'
                                   : n >= 10 ? 'border-emerald-200 bg-emerald-50/50'
                                             : 'border-red-200 bg-red-50/50'}`} />
+                            {va && (
+                              <div className="text-[8px] leading-none mt-0.5 text-iip-turquoise
+                                              font-semibold">
+                                {d.conflit ? '⚠ VA' : 'VA'}
+                              </div>
+                            )}
                           </td>
                         );
                       })}
@@ -241,6 +259,9 @@ export default function EncodageDirect({ onClose, anneeDefaut, sectionDefaut }) 
             </div>
 
             <div className="flex items-center justify-between gap-3 flex-wrap">
+              <span className="text-[11px] text-iip-turquoise flex items-center gap-1.5">
+                VA = valorisation · ⚠ VA = valorisation ET résultat encodé, à trancher
+              </span>
               <span className="text-[11.5px] text-slate-500 flex items-center gap-1.5">
                 <IconAlertTriangle size={13} />
                 {etudiantsVus.length} étudiant(s) · {uesVues.length} unité(s).

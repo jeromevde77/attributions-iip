@@ -537,8 +537,9 @@ r.post('/import-liste', authRequired, roleRequired('admin', 'editeur'), (req, re
 
   const upEtud = db.prepare(`
     INSERT INTO etudiant (id_ecampus, nom, prenom, email_ecole, email_perso,
-      date_naissance, num_national, gsm, adresse, localite, cp, titre)
-    VALUES (?,?,?,?,?,?,?,?,?,?,?,?)
+      date_naissance, num_national, gsm, adresse, localite, cp, titre,
+      lieu_naissance)
+    VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)
     ON CONFLICT(id_ecampus) DO UPDATE SET
       nom = excluded.nom, prenom = excluded.prenom,
       email_ecole   = COALESCE(excluded.email_ecole,   etudiant.email_ecole),
@@ -549,7 +550,11 @@ r.post('/import-liste', authRequired, roleRequired('admin', 'editeur'), (req, re
       adresse       = COALESCE(excluded.adresse,       etudiant.adresse),
       localite      = COALESCE(excluded.localite,      etudiant.localite),
       cp            = COALESCE(excluded.cp,            etudiant.cp),
-      titre         = COALESCE(excluded.titre,         etudiant.titre)
+      titre         = COALESCE(excluded.titre,         etudiant.titre),
+      -- Les classeurs eCampus portent LieuNais, mais l'import ne le reprenait
+      -- pas : la donnée existait dans vos fichiers et n'entrait jamais en base,
+      -- d'où le lieu de naissance vide sur les attestations.
+      lieu_naissance= COALESCE(excluded.lieu_naissance, etudiant.lieu_naissance)
   `);
   const trouver = db.prepare('SELECT id FROM etudiant WHERE id_ecampus = ?');
   const upInsc = db.prepare(`
@@ -567,7 +572,8 @@ r.post('/import-liste', authRequired, roleRequired('admin', 'editeur'), (req, re
       upEtud.run(String(e.id_ecampus || '').trim(), e.nom || '', e.prenom || '',
         e.email_ecole || null, e.email_perso || null, e.date_naissance || null,
         e.num_national || null, e.gsm || null, e.adresse || null,
-        e.localite || null, e.cp || null, e.titre || null);
+        e.localite || null, e.cp || null, e.titre || null,
+        e.lieu_naissance || null);
       nEtud++;
     }
     for (const i of (inscriptions || [])) {
@@ -981,6 +987,83 @@ r.post('/rapport-pae/excel', authRequired, async (req, res) => {
 // L'année est portée par l'écran, pas par la cellule : on encode une année
 // entière d'un coup. Les acquis des AUTRES années sont tout de même renvoyés,
 // pour que l'on voie d'un coup d'œil ce qui est déjà fait et quand.
+// ── Sessions et cohérence des décisions ────────────────────────────────────
+// La circulaire distingue deux sessions. La règle, telle que l'IIP l'applique :
+//
+//   session 1 réussie ................. réussi
+//   session 1 échouée, présenté ....... ajourné, l'étudiant va en session 2
+//   session 1 non présenté ............ REFUS, définitif
+//   session 2 réussie ................. réussi
+//   session 2 échouée ou non présenté . REFUS
+//
+// resultat_s1 et resultat_s2 gardent le détail ; « resultat » reste la décision
+// QUI FAIT FOI — celle de session 2 si elle existe, celle de session 1 sinon.
+// Les documents la lisent sans rien changer.
+(function migrerSessions() {
+  try {
+    const cols = db.prepare('PRAGMA table_info(etudiant_inscription)').all().map(c => c.name);
+    if (!cols.includes('resultat_s1')) {
+      db.exec('ALTER TABLE etudiant_inscription ADD COLUMN resultat_s1 TEXT');
+      console.log('[migration] etudiant_inscription.resultat_s1 ajoutée');
+    }
+    if (!cols.includes('resultat_s2')) {
+      db.exec('ALTER TABLE etudiant_inscription ADD COLUMN resultat_s2 TEXT');
+    }
+  } catch (e) { console.error('[migration] sessions :', e.message); }
+})();
+
+/** La décision qui fait foi, déduite des deux sessions. */
+export function decisionFinale(s1, s2) {
+  if (s2 === 'reussi') return 'reussi';
+  if (s2 === 'echec' || s2 === 'absent') return 'refuse';
+  if (s1 === 'reussi') return 'reussi';
+  if (s1 === 'absent') return 'refuse';      // non présenté en S1 : définitif
+  if (s1 === 'echec') return 'ajourne';      // va en seconde session
+  if (s1 === 'refuse') return 'refuse';
+  return null;
+}
+
+// ── Contrôle de cohérence : notes en échec, décision absente ────────────────
+// 61 notes sous 10 en Psychomotricité sans décision d'échec correspondante :
+// les notes sont encodées, la délibération ne les suit pas. Lucie ne décide
+// pas à la place du Conseil, mais elle doit le signaler.
+r.get('/coherence-resultats', authRequired, (req, res) => {
+  const { annee, section } = req.query;
+  if (!annee) return res.status(400).json({ error: 'annee requise' });
+
+  const params = [annee];
+  let clauseSection = '';
+  if (section) {
+    clauseSection = ` AND i.ue_num IN (SELECT ue_num FROM ue WHERE section = ?)`;
+    params.push(section);
+  }
+
+  const lignes = db.prepare(`
+    SELECT i.etudiant_id, i.ue_num, i.resultat, i.points,
+           e.nom, e.prenom
+    FROM etudiant_inscription i
+    JOIN etudiant e ON e.id = i.etudiant_id
+    WHERE i.annee_scolaire = ? AND i.points IS NOT NULL AND i.points < 10
+      ${clauseSection}
+    ORDER BY e.nom, i.ue_num
+  `).all(...params);
+
+  // Une note sous le seuil avec une décision de réussite, ou sans décision.
+  const incoherents = lignes.filter(l =>
+    l.resultat === 'reussi' || l.resultat == null);
+
+  res.json({
+    annee, section: section || null,
+    notes_sous_seuil: lignes.length,
+    incoherents: incoherents.slice(0, 200).map(l => ({
+      etudiant_id: l.etudiant_id, nom: l.nom, prenom: l.prenom,
+      ue_num: l.ue_num, points: l.points, resultat: l.resultat,
+    })),
+    nb_incoherents: incoherents.length,
+    etudiants_concernes: new Set(incoherents.map(l => l.etudiant_id)).size,
+  });
+});
+
 r.get('/matrice', authRequired, (req, res) => {
   const { annee, section } = req.query;
   if (!annee || !section) return res.status(400).json({ error: 'annee et section requises' });
@@ -1102,13 +1185,41 @@ r.get('/encodage-direct', authRequired, (req, res) => {
   `).all(...params);
 
   // Ce qui est déjà encodé, pour ne pas faire ressaisir.
+  // Les résultats se chargent pour les MÊMES unités que les colonnes.
+  // Auparavant les colonnes étaient bâties sur deux millésimes — l'année
+  // consultée et l'année de référence — mais les résultats n'étaient lus que
+  // pour l'année consultée : une unité absente de ce millésime affichait une
+  // colonne VIDE alors que le résultat existait, et l'encodage direct
+  // contredisait la grille de parcours.
   const existant = {};
   for (const l of db.prepare(`
-    SELECT etudiant_id, ue_num, resultat, points FROM etudiant_inscription
+    SELECT etudiant_id, ue_num, resultat, resultat_s1, resultat_s2, points
+    FROM etudiant_inscription
     WHERE annee_scolaire = ?
-      AND ue_num IN (SELECT ue_num FROM ue WHERE section = ? AND annee_scolaire = ?)
-  `).all(annee, section, annee)) {
-    existant[`${l.etudiant_id}|${l.ue_num}`] = { resultat: l.resultat, points: l.points };
+      AND ue_num IN (${ues.map(() => '?').join(',')})
+  `).all(annee, ...ues.map(u => u.ue_num))) {
+    existant[`${l.etudiant_id}|${l.ue_num}`] = {
+      resultat: l.resultat, points: l.points,
+      s1: l.resultat_s1 || null, s2: l.resultat_s2 || null,
+    };
+  }
+
+  // Les VALORISATIONS complètes. La grille de parcours les affiche et elles y
+  // masquent l'inscription ; cet écran les ignorait, si bien que les deux ne
+  // disaient pas la même chose du même étudiant.
+  for (const v of db.prepare(`
+    SELECT etudiant_id, ue_num, pourcentage FROM etudiant_valorisation
+    WHERE annee_scolaire = ? AND type = 'complete'
+      AND ue_num IN (${ues.map(() => '?').join(',')})
+  `).all(annee, ...ues.map(u => u.ue_num))) {
+    const cle = `${v.etudiant_id}|${v.ue_num}`;
+    const insc = existant[cle];
+    existant[cle] = {
+      resultat: 'va', points: v.pourcentage,
+      // Une valorisation ET un résultat encodé sur la même unité, c'est une
+      // contradiction : on la signale plutôt que d'en taire une des deux.
+      conflit: insc?.resultat ? insc.resultat : null,
+    };
   }
 
   res.json({ ues, etudiants, existant });
@@ -1263,20 +1374,57 @@ r.post('/matrice', authRequired, roleRequired('admin', 'editeur'), (req, res) =>
   if (!annee || !Array.isArray(changements)) {
     return res.status(400).json({ error: 'annee et changements requis' });
   }
-  const RES = ['reussi', 'ajourne', 'absent'];
+  // « refuse » manquait : l'écran ne pouvait donc pas enregistrer une décision
+  // de refus, pourtant distincte de l'ajournement dans toute l'application.
+  const RES = ['reussi', 'ajourne', 'refuse', 'absent'];
   const dateJour = new Date().toISOString().slice(0, 10);
 
+  // Ce qu'une session accepte. La session 2 ne connaît que la réussite et
+  // l'échec : un ajournement n'y a pas de sens, il n'y a pas de troisième tour.
+  const RES_S1 = ['reussi', 'echec', 'absent'];
+  const RES_S2 = ['reussi', 'echec', 'absent'];
+
   const ins = db.prepare(`
-    INSERT INTO etudiant_inscription (etudiant_id, annee_scolaire, ue_num, resultat, date_inscription)
-    VALUES (?,?,?,?,?)
-    ON CONFLICT(etudiant_id, annee_scolaire, ue_num) DO UPDATE SET resultat = excluded.resultat
+    INSERT INTO etudiant_inscription
+      (etudiant_id, annee_scolaire, ue_num, resultat, resultat_s1, resultat_s2, date_inscription)
+    VALUES (?,?,?,?,?,?,?)
+    ON CONFLICT(etudiant_id, annee_scolaire, ue_num) DO UPDATE SET
+      resultat    = excluded.resultat,
+      resultat_s1 = COALESCE(excluded.resultat_s1, etudiant_inscription.resultat_s1),
+      resultat_s2 = COALESCE(excluded.resultat_s2, etudiant_inscription.resultat_s2)
   `);
+
+  const lire = db.prepare(`
+    SELECT resultat_s1, resultat_s2 FROM etudiant_inscription
+    WHERE etudiant_id = ? AND annee_scolaire = ? AND ue_num = ?`);
 
   let n = 0;
   db.transaction(() => {
     for (const ch of changements) {
-      const r0 = ch.resultat && RES.includes(ch.resultat) ? ch.resultat : null;
-      ins.run(Number(ch.etudiant_id), annee, Number(ch.ue_num), r0, dateJour);
+      const session = ch.session === 2 ? 2 : ch.session === 1 ? 1 : null;
+
+      if (!session) {
+        // Saisie directe de la décision, sans session : on la respecte telle
+        // quelle. C'est le cas des reprises et des corrections du Conseil.
+        const r0 = ch.resultat && RES.includes(ch.resultat) ? ch.resultat : null;
+        ins.run(Number(ch.etudiant_id), annee, Number(ch.ue_num), r0, null, null, dateJour);
+        n++; continue;
+      }
+
+      const permis = session === 1 ? RES_S1 : RES_S2;
+      const val = ch.resultat && permis.includes(ch.resultat) ? ch.resultat : null;
+
+      const actuel = lire.get(Number(ch.etudiant_id), annee, Number(ch.ue_num)) || {};
+      const s1 = session === 1 ? val : (actuel.resultat_s1 ?? null);
+      const s2 = session === 2 ? val : (actuel.resultat_s2 ?? null);
+
+      // La décision se DÉDUIT des deux sessions, sauf si le Conseil l'impose.
+      const decision = ch.decision_imposee && RES.includes(ch.decision_imposee)
+        ? ch.decision_imposee
+        : decisionFinale(s1, s2);
+
+      ins.run(Number(ch.etudiant_id), annee, Number(ch.ue_num), decision,
+              session === 1 ? val : null, session === 2 ? val : null, dateJour);
       n++;
     }
   })();
