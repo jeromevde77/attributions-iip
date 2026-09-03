@@ -148,13 +148,25 @@ export function lireFeuilleUE(lignes, ueNum) {
  */
 export function decisionRetenue(sessions) {
   if (sessions.final?.decision) {
+    // D'où vient la décision finale ? Si la première session CAPITALISE, le
+    // bloc Final n'est qu'une recopie : la décision reste de session 1. Si la
+    // première session AJOURNE, ce sont bien les dernières cellules qui
+    // comptent, et la décision vient de la seconde session.
+    const s1 = sessions.s1?.decision || null;
+    const session = s1 === 'reussi' ? 's1'
+      : s1 === 'ajourne' ? 's2'
+      // Un refus en première session est définitif : il n'ouvre pas de
+      // seconde session, la décision lui appartient.
+      : s1 === 'refuse' ? 's1'
+      : 's2';
     return {
       resultat: sessions.final.decision,
       points: sessions.final.note_ue ?? null,
-      // Une décision finale qui suit un échec en S1 vient de la seconde
-      // session ; sinon elle clôt la première.
-      session: sessions.s1?.decision === 'ajourne' || sessions.s2 ? 's2' : 's1',
+      session,
       justification: sessions.final.justification || null,
+      // Une recopie n'est pas une délibération : on le signale, cela évitera
+      // d'attribuer à la seconde session ce qui s'est joué en première.
+      recopie: s1 === 'reussi' && sessions.final.decision === 'reussi',
     };
   }
   if (sessions.s1?.decision) {
