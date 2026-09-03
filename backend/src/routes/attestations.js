@@ -352,18 +352,30 @@ function pageAttestation(e, u, annee, etab, dateDoc = null) {
   </div>
 
   <p class="corps indente">
-    a suivi avec fruit, dans l'établissement précité, l'unité d'enseignement susvisée,
-    comportant au total <b>${u.periodes || '………'}</b> périodes d'activités d'enseignement
-    réparties comme suit :
+    a suivi avec fruit, dans l'établissement précité, l'unité d'enseignement${
+      u.epreuve_integree ? ' « épreuve intégrée »' : ''} susvisée,
+    ${u.est_stage || u.epreuve_integree
+      // Annexes 12, 13, 17 et 18 : « comportant, pour l'étudiant, X périodes »,
+      // SANS répartition par activité.
+      ? `comportant, pour l'étudiant, <b>${u.periodes || '………'}</b> périodes
+         d'activités d'enseignement ;`
+      // Annexe 11 : la répartition par activité y figure.
+      : `comportant au total <b>${u.periodes || '………'}</b> périodes d'activités
+         d'enseignement réparties comme suit :`}
   </p>
-  <div class="activites">${activites}${u.autonomie
+  ${u.est_stage || u.epreuve_integree ? '' : `<div class="activites">${activites}${u.autonomie
     ? `<div class="ligne autonomie"><span>Activités d'enseignement en autonomie</span>`
       + `<span><b>${u.autonomie}</b> pér.</span></div>`
-    : ''}</div>
+    : ''}</div>`}
 
   <p class="corps">Attendu qu'${accord} tous les acquis d'apprentissage de l'unité
     d'enseignement, soit :</p>
   ${acquis}
+
+  ${u.est_stage || u.epreuve_integree
+    ? `<p class="corps">Attendu qu'${genre === 'F' ? 'elle termine' : 'il termine'}
+       ses études avec succès ;</p>`
+    : ''}
 
   <div class="resultat">
     ${u.epreuve_integree ? "Le Jury d'épreuve intégrée" : 'Le Conseil des études'} lui délivre
