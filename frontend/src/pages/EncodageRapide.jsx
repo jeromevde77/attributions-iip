@@ -15,7 +15,10 @@ import EncodageDirect from '../components/EncodageDirect.jsx';
  * pour qu'on sache ce qui est déjà fait sans quitter l'écran.
  */
 
-const CYCLE = [null, 'reussi', 'ajourne'];
+// L'ajournement et le REFUS sont deux décisions distinctes — la circulaire les
+// sépare, et le backend aussi. Cet écran ne connaissait que l'ajournement, mais
+// l'appelait « refusé » : la fiche disait « ajourné » pour la même unité.
+const CYCLE = [null, 'reussi', 'ajourne', 'refuse'];
 
 // Couleurs des années d'études, communes à Lucie : BA1 orange, BA2 bleu clair,
 // BA3 bleu marine.
@@ -30,16 +33,20 @@ const couleurNiveau = niv => {
 // alors sans quitter l'écran.
 const STYLE = {
   reussi:  'bg-emerald-100 text-emerald-800 border-emerald-300',
-  ajourne: 'bg-red-100 text-red-700 border-red-300',
+  // L'ajournement rouvre une session : ambre, non rouge. Le refus est
+  // définitif : rouge.
+  ajourne: 'bg-amber-100 text-amber-800 border-amber-300',
+  refuse:  'bg-red-100 text-red-700 border-red-300',
   absent:  'bg-slate-100 text-slate-500 border-slate-300',
 };
 const STYLE_ANTERIEUR = {
   reussi:  'bg-emerald-50/70 text-emerald-600 border-emerald-200',
-  ajourne: 'bg-red-50/60 text-red-500 border-red-200',
+  ajourne: 'bg-amber-50/60 text-amber-600 border-amber-200',
+  refuse:  'bg-red-50/60 text-red-500 border-red-200',
   absent:  'bg-slate-50 text-slate-400 border-slate-200',
   va:      'bg-violet-50/70 text-violet-600 border-violet-200',
 };
-const SIGLE = { reussi: '✓', ajourne: '✕', absent: '–', va: 'VA' };
+const SIGLE = { reussi: '✓', ajourne: 'Aj', refuse: 'R', absent: '–', va: 'VA' };
 
 // « 2024-2025 » → « 24-25 »
 const millesime = a => (a || '').slice(2, 4) + '-' + (a || '').slice(7, 9);
@@ -161,7 +168,9 @@ export default function EncodageRapide() {
     const ues = data.ues.filter(u => !niveauLot || (u.ue_niv || '') === niveauLot);
     const etuds = cibles();
     if (!ues.length || !etuds.length) return;
-    const quoi = resultat === 'reussi' ? 'réussi' : resultat === 'ajourne' ? 'refusé' : 'effacé';
+    const quoi = resultat === 'reussi' ? 'réussi'
+      : resultat === 'ajourne' ? 'ajourné'
+      : resultat === 'refuse' ? 'refusé' : 'effacé';
     if (!window.confirm(
       `Marquer ${quoi} ${ues.length} UE${niveauLot ? ' de ' + niveauLot : ''} ` +
       `pour ${etuds.length} étudiant(s), en ${annee} ?`)) return;
@@ -260,6 +269,11 @@ export default function EncodageRapide() {
           Tout réussi
         </button>
         <button onClick={() => appliquerLot('ajourne')}
+          className="text-[12px] px-2.5 py-1 rounded-lg border border-amber-300 text-amber-800">
+          Tout ajourné
+        </button>
+        <button onClick={() => appliquerLot('refuse')}
+          title="Décision définitive, distincte de l'ajournement"
           className="text-[12px] px-2.5 py-1 rounded-lg border border-red-300 text-red-700">
           Tout refusé
         </button>
@@ -337,10 +351,14 @@ export default function EncodageRapide() {
                             ? 'border-l-2 border-l-iip-blue/30' : ''}`}>
                         <button onClick={() => cycler(e.id, u.ue_num)}
                           title={val
-                            ? `${val === 'reussi' ? 'Réussi' : val === 'ajourne' ? 'Refusé' : 'Absent'} en ${annee}`
+                            ? `${val === 'reussi' ? 'Réussi' : val === 'ajourne' ? 'Ajourné'
+                              : val === 'refuse' ? 'Refusé' : 'Absent'} en ${annee}`
                               + (notes[cle] != null ? ` — ${notes[cle]}/20` : '')
                             : ant
-                              ? `${ant.resultat === 'va' ? 'Valorisée' : ant.resultat === 'reussi' ? 'Réussie' : 'Refusée'} en ${ant.annee}`
+                              ? `${ant.resultat === 'va' ? 'Valorisée'
+   : ant.resultat === 'reussi' ? 'Réussie'
+   : ant.resultat === 'ajourne' ? 'Ajournée'
+   : ant.resultat === 'refuse' ? 'Refusée' : 'Absente'} en ${ant.annee}`
                               : 'Cliquer pour encoder'}
                           className={`w-12 h-9 rounded-md border transition leading-none
                             ${val ? STYLE[val]

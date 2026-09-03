@@ -1293,7 +1293,9 @@ r.post('/matrice', authRequired, roleRequired('admin', 'editeur'), (req, res) =>
   if (!annee || !Array.isArray(changements)) {
     return res.status(400).json({ error: 'annee et changements requis' });
   }
-  const RES = ['reussi', 'ajourne', 'absent'];
+  // « refuse » manquait : l'écran ne pouvait donc pas enregistrer une décision
+  // de refus, pourtant distincte de l'ajournement dans toute l'application.
+  const RES = ['reussi', 'ajourne', 'refuse', 'absent'];
   const dateJour = new Date().toISOString().slice(0, 10);
 
   const ins = db.prepare(`
