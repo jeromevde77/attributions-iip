@@ -20,7 +20,11 @@ import EncodageDirect from '../components/EncodageDirect.jsx';
 // L'ajournement et le REFUS sont deux décisions distinctes — la circulaire les
 // sépare, et le backend aussi. Cet écran ne connaissait que l'ajournement, mais
 // l'appelait « refusé » : la fiche disait « ajourné » pour la même unité.
+// Sans session : la décision se saisit telle quelle. Avec session, on encode
+// le RÉSULTAT DE LA SESSION et Lucie en déduit la décision — l'ajournement
+// n'est pas saisissable, il se déduit d'un échec en session 1.
 const CYCLE = [null, 'reussi', 'ajourne', 'refuse'];
+const CYCLE_SESSION = [null, 'reussi', 'echec', 'absent'];
 
 // Couleurs des années d'études, communes à Lucie : BA1 orange, BA2 bleu clair,
 // BA3 bleu marine.
@@ -65,6 +69,11 @@ export default function EncodageRapide() {
   // délibération ne les suit pas. Lucie ne décide pas à la place du Conseil,
   // mais elle doit le signaler.
   const [coherence, setCoherence] = useState(null);
+  // La session encodée. « Décision » enregistre directement le verdict, comme
+  // avant ; S1 et S2 enregistrent le résultat de la session et Lucie en déduit
+  // la décision.
+  const [session, setSession] = useState(null);
+  const [sessions, setSessions] = useState({});   // { 'etud|ue': {s1, s2} }
   const [cellules, setCellules] = useState({});     // "etud|ue" -> resultat
   const [notes, setNotes] = useState({});          // "etud|ue" -> note sur 20
   const [recherche, setRecherche] = useState('');
@@ -107,14 +116,18 @@ export default function EncodageRapide() {
     if (!rep.ok) { setData({ ues: [], etudiants: [] }); return; }
     const j = await rep.json();
     setData(j);
-    const c = {}, n = {};
+    const c = {}, n = {}, s = {};
     for (const e of j.etudiants) {
       for (const [ue, v] of Object.entries(e.cellules || {})) {
-        if (v.resultat) c[e.id + '|' + ue] = v.resultat;
-        if (v.points != null) n[e.id + '|' + ue] = v.points;
+        const cle = e.id + '|' + ue;
+        if (v.resultat) c[cle] = v.resultat;
+        if (v.points != null) n[cle] = v.points;
+        // Les sessions déjà encodées, pour que le cycle reprenne où il en est
+        // plutôt que de repartir de zéro à chaque chargement.
+        if (v.s1 || v.s2) s[cle] = { s1: v.s1 || null, s2: v.s2 || null };
       }
     }
-    setCellules(c); setNotes(n);
+    setCellules(c); setNotes(n); setSessions(s);
     setChoisis(new Set());
   }
   useEffect(() => { charger(); /* eslint-disable-next-line */ }, [section, annee]);
@@ -129,8 +142,9 @@ export default function EncodageRapide() {
   useEffect(() => { if (vue === 'annee') chargerSynthese(); /* eslint-disable-next-line */ }, [vue, section]);
 
   // Enregistrement au fil de l'eau, par lots
-  function planifier(etudId, ueNum, resultat) {
-    enAttente.current.set(etudId + '|' + ueNum, { etudiant_id: etudId, ue_num: ueNum, resultat });
+  function planifier(etudId, ueNum, resultat, session = null) {
+    enAttente.current.set(etudId + '|' + ueNum,
+      { etudiant_id: etudId, ue_num: ueNum, resultat, session });
     setEtat('enregistrement');
     clearTimeout(minuteur.current);
     minuteur.current = setTimeout(async () => {
@@ -146,8 +160,34 @@ export default function EncodageRapide() {
     }, 700);
   }
 
+  /** La décision déduite des deux sessions — même règle que le serveur. */
+  function decision(s1, s2) {
+    if (s2 === 'reussi') return 'reussi';
+    if (s2 === 'echec' || s2 === 'absent') return 'refuse';
+    if (s1 === 'reussi') return 'reussi';
+    if (s1 === 'absent') return 'refuse';
+    if (s1 === 'echec') return 'ajourne';
+    return null;
+  }
+
   function poser(etudId, ueNum, resultat) {
     const cle = etudId + '|' + ueNum;
+
+    if (session) {
+      // On encode le résultat de la SESSION ; la décision s'en déduit.
+      const avant = sessions[cle] || {};
+      const apres = { ...avant, [session === 1 ? 's1' : 's2']: resultat };
+      setSessions(s => ({ ...s, [cle]: apres }));
+      const d = decision(apres.s1, apres.s2);
+      setCellules(c => {
+        const n = { ...c };
+        if (d) n[cle] = d; else delete n[cle];
+        return n;
+      });
+      planifier(etudId, ueNum, resultat, session);
+      return;
+    }
+
     setCellules(c => {
       const n = { ...c };
       if (resultat) n[cle] = resultat; else delete n[cle];
@@ -159,9 +199,13 @@ export default function EncodageRapide() {
   }
 
   function cycler(etudId, ueNum) {
-    const actuel = cellules[etudId + '|' + ueNum] || null;
-    const i = CYCLE.indexOf(actuel);
-    poser(etudId, ueNum, CYCLE[(i + 1) % CYCLE.length]);
+    const cle = etudId + '|' + ueNum;
+    const cyc = session ? CYCLE_SESSION : CYCLE;
+    const actuel = session
+      ? (sessions[cle]?.[session === 1 ? 's1' : 's2'] || null)
+      : (cellules[cle] || null);
+    const i = cyc.indexOf(actuel);
+    poser(etudId, ueNum, cyc[(i + 1) % cyc.length]);
   }
 
   const filtres = useMemo(() => {
@@ -278,6 +322,18 @@ export default function EncodageRapide() {
           <option value="">Toutes les UE</option>
           {niveauxPresents.map(n => <option key={n} value={n}>UE de {n}</option>)}
         </select>
+        {/* La session encodée. « Décision » conserve l'ancien fonctionnement ;
+            S1 et S2 encodent le résultat de la session, la décision s'en déduit. */}
+        <div className="flex items-center gap-1 mr-2 border border-slate-300 rounded-lg p-0.5">
+          {[[null, 'Décision'], [1, 'Session 1'], [2, 'Session 2']].map(([v, l]) => (
+            <button key={String(v)} onClick={() => setSession(v)}
+              className={`px-2.5 py-1 text-[12px] rounded-md font-semibold ${
+                session === v ? 'bg-iip-blue text-white' : 'text-slate-600 hover:bg-slate-100'}`}>
+              {l}
+            </button>
+          ))}
+        </div>
+
         <button onClick={() => appliquerLot('reussi')}
           className="text-[12px] px-2.5 py-1 rounded-lg bg-emerald-600 text-white font-semibold">
           Tout réussi
@@ -402,7 +458,12 @@ export default function EncodageRapide() {
                               <span className="block text-[13px] font-bold">
                                 {notes[cle] != null ? notes[cle] : SIGLE[val]}
                               </span>
-                              <span className="block text-[7.5px] font-medium opacity-70">{millesime(annee)}</span>
+                              {/* La session d'où vient la décision, à côté de la
+                                  note : S2 prime sur S1 puisqu'elle la clôt. */}
+                              <span className="block text-[7.5px] font-medium opacity-70">
+                                {sessions[cle]?.s2 ? 'S2'
+                                  : sessions[cle]?.s1 ? 'S1' : millesime(annee)}
+                              </span>
                             </span>
                           ) : ant ? (
                             <span className="block">

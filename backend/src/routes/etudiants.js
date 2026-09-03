@@ -1193,11 +1193,15 @@ r.get('/encodage-direct', authRequired, (req, res) => {
   // contredisait la grille de parcours.
   const existant = {};
   for (const l of db.prepare(`
-    SELECT etudiant_id, ue_num, resultat, points FROM etudiant_inscription
+    SELECT etudiant_id, ue_num, resultat, resultat_s1, resultat_s2, points
+    FROM etudiant_inscription
     WHERE annee_scolaire = ?
       AND ue_num IN (${ues.map(() => '?').join(',')})
   `).all(annee, ...ues.map(u => u.ue_num))) {
-    existant[`${l.etudiant_id}|${l.ue_num}`] = { resultat: l.resultat, points: l.points };
+    existant[`${l.etudiant_id}|${l.ue_num}`] = {
+      resultat: l.resultat, points: l.points,
+      s1: l.resultat_s1 || null, s2: l.resultat_s2 || null,
+    };
   }
 
   // Les VALORISATIONS complètes. La grille de parcours les affiche et elles y
@@ -1375,17 +1379,52 @@ r.post('/matrice', authRequired, roleRequired('admin', 'editeur'), (req, res) =>
   const RES = ['reussi', 'ajourne', 'refuse', 'absent'];
   const dateJour = new Date().toISOString().slice(0, 10);
 
+  // Ce qu'une session accepte. La session 2 ne connaît que la réussite et
+  // l'échec : un ajournement n'y a pas de sens, il n'y a pas de troisième tour.
+  const RES_S1 = ['reussi', 'echec', 'absent'];
+  const RES_S2 = ['reussi', 'echec', 'absent'];
+
   const ins = db.prepare(`
-    INSERT INTO etudiant_inscription (etudiant_id, annee_scolaire, ue_num, resultat, date_inscription)
-    VALUES (?,?,?,?,?)
-    ON CONFLICT(etudiant_id, annee_scolaire, ue_num) DO UPDATE SET resultat = excluded.resultat
+    INSERT INTO etudiant_inscription
+      (etudiant_id, annee_scolaire, ue_num, resultat, resultat_s1, resultat_s2, date_inscription)
+    VALUES (?,?,?,?,?,?,?)
+    ON CONFLICT(etudiant_id, annee_scolaire, ue_num) DO UPDATE SET
+      resultat    = excluded.resultat,
+      resultat_s1 = COALESCE(excluded.resultat_s1, etudiant_inscription.resultat_s1),
+      resultat_s2 = COALESCE(excluded.resultat_s2, etudiant_inscription.resultat_s2)
   `);
+
+  const lire = db.prepare(`
+    SELECT resultat_s1, resultat_s2 FROM etudiant_inscription
+    WHERE etudiant_id = ? AND annee_scolaire = ? AND ue_num = ?`);
 
   let n = 0;
   db.transaction(() => {
     for (const ch of changements) {
-      const r0 = ch.resultat && RES.includes(ch.resultat) ? ch.resultat : null;
-      ins.run(Number(ch.etudiant_id), annee, Number(ch.ue_num), r0, dateJour);
+      const session = ch.session === 2 ? 2 : ch.session === 1 ? 1 : null;
+
+      if (!session) {
+        // Saisie directe de la décision, sans session : on la respecte telle
+        // quelle. C'est le cas des reprises et des corrections du Conseil.
+        const r0 = ch.resultat && RES.includes(ch.resultat) ? ch.resultat : null;
+        ins.run(Number(ch.etudiant_id), annee, Number(ch.ue_num), r0, null, null, dateJour);
+        n++; continue;
+      }
+
+      const permis = session === 1 ? RES_S1 : RES_S2;
+      const val = ch.resultat && permis.includes(ch.resultat) ? ch.resultat : null;
+
+      const actuel = lire.get(Number(ch.etudiant_id), annee, Number(ch.ue_num)) || {};
+      const s1 = session === 1 ? val : (actuel.resultat_s1 ?? null);
+      const s2 = session === 2 ? val : (actuel.resultat_s2 ?? null);
+
+      // La décision se DÉDUIT des deux sessions, sauf si le Conseil l'impose.
+      const decision = ch.decision_imposee && RES.includes(ch.decision_imposee)
+        ? ch.decision_imposee
+        : decisionFinale(s1, s2);
+
+      ins.run(Number(ch.etudiant_id), annee, Number(ch.ue_num), decision,
+              session === 1 ? val : null, session === 2 ? val : null, dateJour);
       n++;
     }
   })();
