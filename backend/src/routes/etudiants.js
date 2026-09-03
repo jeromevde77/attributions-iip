@@ -1108,12 +1108,18 @@ r.get('/encodage-direct', authRequired, (req, res) => {
   `).all(...params);
 
   // Ce qui est déjà encodé, pour ne pas faire ressaisir.
+  // Les résultats se chargent pour les MÊMES unités que les colonnes.
+  // Auparavant les colonnes étaient bâties sur deux millésimes — l'année
+  // consultée et l'année de référence — mais les résultats n'étaient lus que
+  // pour l'année consultée : une unité absente de ce millésime affichait une
+  // colonne VIDE alors que le résultat existait, et l'encodage direct
+  // contredisait la grille de parcours.
   const existant = {};
   for (const l of db.prepare(`
     SELECT etudiant_id, ue_num, resultat, points FROM etudiant_inscription
     WHERE annee_scolaire = ?
-      AND ue_num IN (SELECT ue_num FROM ue WHERE section = ? AND annee_scolaire = ?)
-  `).all(annee, section, annee)) {
+      AND ue_num IN (${ues.map(() => '?').join(',')})
+  `).all(annee, ...ues.map(u => u.ue_num))) {
     existant[`${l.etudiant_id}|${l.ue_num}`] = { resultat: l.resultat, points: l.points };
   }
 
@@ -1123,8 +1129,8 @@ r.get('/encodage-direct', authRequired, (req, res) => {
   for (const v of db.prepare(`
     SELECT etudiant_id, ue_num, pourcentage FROM etudiant_valorisation
     WHERE annee_scolaire = ? AND type = 'complete'
-      AND ue_num IN (SELECT ue_num FROM ue WHERE section = ? AND annee_scolaire = ?)
-  `).all(annee, section, annee)) {
+      AND ue_num IN (${ues.map(() => '?').join(',')})
+  `).all(annee, ...ues.map(u => u.ue_num))) {
     const cle = `${v.etudiant_id}|${v.ue_num}`;
     const insc = existant[cle];
     existant[cle] = {
