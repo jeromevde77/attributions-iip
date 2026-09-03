@@ -373,8 +373,11 @@ function pageAttestation(e, u, annee, etab, dateDoc = null) {
   ${acquis}
 
   ${u.est_stage || u.epreuve_integree
+    // Le modèle de stage porte « termine ses études avec succès », mais un
+    // stage n'est pas la fin du cursus : l'affirmer serait inexact. On s'en
+    // tient au stage. L'épreuve intégrée, elle, clôt bien les études.
     ? `<p class="corps">Attendu qu'${genre === 'F' ? 'elle termine' : 'il termine'}
-       ses études avec succès ;</p>`
+       ${u.est_stage && !u.epreuve_integree ? 'son stage' : 'ses études'} avec succès ;</p>`
     : ''}
 
   <div class="resultat">
