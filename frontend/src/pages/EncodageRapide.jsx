@@ -53,6 +53,9 @@ const STYLE_ANTERIEUR = {
   va:      'bg-violet-50/70 text-violet-600 border-violet-200',
 };
 const SIGLE = { reussi: '✓', ajourne: 'Aj', refuse: 'R', absent: '–', va: 'VA' };
+// En vue délibération, la réussite prend « C » — capitalisé — comme dans vos
+// classeurs et dans le rapport de parcours.
+const SIGLE_DELIB = { reussi: 'C', ajourne: 'Aj', refuse: 'R', absent: 'A', va: 'VA' };
 
 // « 2024-2025 » → « 24-25 »
 const millesime = a => (a || '').slice(2, 4) + '-' + (a || '').slice(7, 9);
@@ -74,6 +77,10 @@ export default function EncodageRapide() {
   // la décision.
   const [session, setSession] = useState(null);
   const [sessions, setSessions] = useState({});   // { 'etud|ue': {s1, s2} }
+  // Deux lectures du même tableau. « Points » montre les notes, « Délibération »
+  // montre la décision — C, Aj, R — car c'est elle qui compte au Conseil, et
+  // une note de 7 ne dit pas à elle seule si l'unité est ajournée ou refusée.
+  const [vueCellule, setVueCellule] = useState('points');
   const [cellules, setCellules] = useState({});     // "etud|ue" -> resultat
   const [notes, setNotes] = useState({});          // "etud|ue" -> note sur 20
   const [recherche, setRecherche] = useState('');
@@ -265,8 +272,10 @@ export default function EncodageRapide() {
         <div>
           <h2 className="text-xl font-semibold text-iip-blue">Encodage rapide</h2>
           <p className="text-sm text-slate-500">
-            Un clic pour la réussite, deux pour le refus, trois pour effacer. L'inscription
-            découle du résultat.
+            {session
+              ? `Session ${session} : réussi, échec, absent — la décision s'en déduit.`
+              : 'Clics successifs : réussi, ajourné, refusé, effacer.'}{' '}
+            L'inscription découle du résultat.
           </p>
         </div>
         <button onClick={() => setEncodageDirect(true)}
@@ -329,6 +338,17 @@ export default function EncodageRapide() {
             <button key={String(v)} onClick={() => setSession(v)}
               className={`px-2.5 py-1 text-[12px] rounded-md font-semibold ${
                 session === v ? 'bg-iip-blue text-white' : 'text-slate-600 hover:bg-slate-100'}`}>
+              {l}
+            </button>
+          ))}
+        </div>
+
+        <div className="flex items-center gap-1 mr-2 border border-slate-300 rounded-lg p-0.5">
+          {[['points', 'Points'], ['delib', 'Délibération']].map(([v, l]) => (
+            <button key={v} onClick={() => setVueCellule(v)}
+              className={`px-2.5 py-1 text-[12px] rounded-md font-semibold ${
+                vueCellule === v ? 'bg-slate-700 text-white'
+                                 : 'text-slate-600 hover:bg-slate-100'}`}>
               {l}
             </button>
           ))}
@@ -456,7 +476,9 @@ export default function EncodageRapide() {
                           {val ? (
                             <span className="block">
                               <span className="block text-[13px] font-bold">
-                                {notes[cle] != null ? notes[cle] : SIGLE[val]}
+                                {vueCellule === 'delib'
+                                  ? (SIGLE_DELIB[val] || val)
+                                  : (notes[cle] != null ? notes[cle] : SIGLE[val])}
                               </span>
                               {/* La session d'où vient la décision, à côté de la
                                   note : S2 prime sur S1 puisqu'elle la clôt. */}
