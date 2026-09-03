@@ -987,6 +987,83 @@ r.post('/rapport-pae/excel', authRequired, async (req, res) => {
 // L'année est portée par l'écran, pas par la cellule : on encode une année
 // entière d'un coup. Les acquis des AUTRES années sont tout de même renvoyés,
 // pour que l'on voie d'un coup d'œil ce qui est déjà fait et quand.
+// ── Sessions et cohérence des décisions ────────────────────────────────────
+// La circulaire distingue deux sessions. La règle, telle que l'IIP l'applique :
+//
+//   session 1 réussie ................. réussi
+//   session 1 échouée, présenté ....... ajourné, l'étudiant va en session 2
+//   session 1 non présenté ............ REFUS, définitif
+//   session 2 réussie ................. réussi
+//   session 2 échouée ou non présenté . REFUS
+//
+// resultat_s1 et resultat_s2 gardent le détail ; « resultat » reste la décision
+// QUI FAIT FOI — celle de session 2 si elle existe, celle de session 1 sinon.
+// Les documents la lisent sans rien changer.
+(function migrerSessions() {
+  try {
+    const cols = db.prepare('PRAGMA table_info(etudiant_inscription)').all().map(c => c.name);
+    if (!cols.includes('resultat_s1')) {
+      db.exec('ALTER TABLE etudiant_inscription ADD COLUMN resultat_s1 TEXT');
+      console.log('[migration] etudiant_inscription.resultat_s1 ajoutée');
+    }
+    if (!cols.includes('resultat_s2')) {
+      db.exec('ALTER TABLE etudiant_inscription ADD COLUMN resultat_s2 TEXT');
+    }
+  } catch (e) { console.error('[migration] sessions :', e.message); }
+})();
+
+/** La décision qui fait foi, déduite des deux sessions. */
+export function decisionFinale(s1, s2) {
+  if (s2 === 'reussi') return 'reussi';
+  if (s2 === 'echec' || s2 === 'absent') return 'refuse';
+  if (s1 === 'reussi') return 'reussi';
+  if (s1 === 'absent') return 'refuse';      // non présenté en S1 : définitif
+  if (s1 === 'echec') return 'ajourne';      // va en seconde session
+  if (s1 === 'refuse') return 'refuse';
+  return null;
+}
+
+// ── Contrôle de cohérence : notes en échec, décision absente ────────────────
+// 61 notes sous 10 en Psychomotricité sans décision d'échec correspondante :
+// les notes sont encodées, la délibération ne les suit pas. Lucie ne décide
+// pas à la place du Conseil, mais elle doit le signaler.
+r.get('/coherence-resultats', authRequired, (req, res) => {
+  const { annee, section } = req.query;
+  if (!annee) return res.status(400).json({ error: 'annee requise' });
+
+  const params = [annee];
+  let clauseSection = '';
+  if (section) {
+    clauseSection = ` AND i.ue_num IN (SELECT ue_num FROM ue WHERE section = ?)`;
+    params.push(section);
+  }
+
+  const lignes = db.prepare(`
+    SELECT i.etudiant_id, i.ue_num, i.resultat, i.points,
+           e.nom, e.prenom
+    FROM etudiant_inscription i
+    JOIN etudiant e ON e.id = i.etudiant_id
+    WHERE i.annee_scolaire = ? AND i.points IS NOT NULL AND i.points < 10
+      ${clauseSection}
+    ORDER BY e.nom, i.ue_num
+  `).all(...params);
+
+  // Une note sous le seuil avec une décision de réussite, ou sans décision.
+  const incoherents = lignes.filter(l =>
+    l.resultat === 'reussi' || l.resultat == null);
+
+  res.json({
+    annee, section: section || null,
+    notes_sous_seuil: lignes.length,
+    incoherents: incoherents.slice(0, 200).map(l => ({
+      etudiant_id: l.etudiant_id, nom: l.nom, prenom: l.prenom,
+      ue_num: l.ue_num, points: l.points, resultat: l.resultat,
+    })),
+    nb_incoherents: incoherents.length,
+    etudiants_concernes: new Set(incoherents.map(l => l.etudiant_id)).size,
+  });
+});
+
 r.get('/matrice', authRequired, (req, res) => {
   const { annee, section } = req.query;
   if (!annee || !section) return res.status(400).json({ error: 'annee et section requises' });

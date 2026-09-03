@@ -1,5 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { IconSearch, IconCheck, IconDeviceFloppy, IconPencil } from '@tabler/icons-react';
+import {
+  IconAlertTriangle, IconCheck, IconDeviceFloppy, IconPencil, IconSearch,
+} from '@tabler/icons-react';
 import { authHeaders } from '../lib/api.js';
 import EncodageDirect from '../components/EncodageDirect.jsx';
 
@@ -59,6 +61,10 @@ export default function EncodageRapide() {
   const [annee, setAnnee] = useState('');
 
   const [data, setData] = useState(null);
+  // Notes sous le seuil sans décision d'échec : les notes sont encodées, la
+  // délibération ne les suit pas. Lucie ne décide pas à la place du Conseil,
+  // mais elle doit le signaler.
+  const [coherence, setCoherence] = useState(null);
   const [cellules, setCellules] = useState({});     // "etud|ue" -> resultat
   const [notes, setNotes] = useState({});          // "etud|ue" -> note sur 20
   const [recherche, setRecherche] = useState('');
@@ -83,6 +89,14 @@ export default function EncodageRapide() {
       }).catch(() => {});
     // eslint-disable-next-line
   }, []);
+
+  useEffect(() => {
+    if (!section || !annee) { setCoherence(null); return; }
+    fetch(`/api/etudiants/coherence-resultats?annee=${encodeURIComponent(annee)}`
+      + `&section=${encodeURIComponent(section)}`, { headers: authHeaders() })
+      .then(r => r.json()).then(j => setCoherence(j?.nb_incoherents ? j : null))
+      .catch(() => setCoherence(null));
+  }, [section, annee, data]);
 
   async function charger() {
     if (!section || !annee) return;
@@ -286,6 +300,25 @@ export default function EncodageRapide() {
             className="text-[12px] px-2 py-1 text-slate-500">Désélectionner</button>
         )}
       </div>
+
+      {coherence && vue !== 'annee' && (
+        <div className="mb-3 px-4 py-3 rounded-xl bg-amber-50 border border-amber-300
+                        text-[12.5px] text-amber-900">
+          <div className="flex items-center gap-1.5 font-semibold mb-1">
+            <IconAlertTriangle size={15} />
+            {coherence.nb_incoherents} note(s) sous 10 sans décision d'échec
+          </div>
+          Ces unités portent une note inférieure au seuil mais sont marquées
+          réussies, ou sans décision — {coherence.etudiants_concernes} étudiant(s)
+          concerné(s). La délibération n'a pas suivi les notes, ou reste à prendre.
+          <div className="mt-1.5 text-[11.5px] text-amber-800">
+            {coherence.incoherents.slice(0, 8).map(i =>
+              `${i.nom} ${i.prenom} — UE ${i.ue_num} (${i.points}/20)`).join(' · ')}
+            {coherence.nb_incoherents > 8
+              && ` … et ${coherence.nb_incoherents - 8} autre(s)`}
+          </div>
+        </div>
+      )}
 
       {vue === 'annee' ? (
         <SyntheseAnnees synthese={synthese} recherche={recherche}
