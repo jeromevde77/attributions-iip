@@ -127,26 +127,6 @@ function GrilleParcours({ etudId, peutEcrire }) {
 
 
 
-  /** Export Excel de la section : signalétique et résultats, réimportables. */
-  async function exporterSection() {
-    try {
-      const rep = await fetch(
-        `/api/etudiants/export-section?section=${encodeURIComponent(section)}`,
-        { headers: authHeaders() });
-      if (!rep.ok) {
-        const e = await rep.json().catch(() => ({}));
-        alert(e.error || `Export impossible (${rep.status}).`);
-        return;
-      }
-      const a = document.createElement('a');
-      a.href = URL.createObjectURL(await rep.blob());
-      a.download = `Export_${section}.xlsx`;
-      document.body.appendChild(a); a.click(); a.remove();
-      URL.revokeObjectURL(a.href);
-    } catch (e) {
-      alert(e.message);
-    }
-  }
 
   async function charger() {
     const rep = await fetch(`/api/etudiants/${etudId}/grille`, { headers: authHeaders() });
@@ -1587,6 +1567,37 @@ function FicheEtudiant({ id, annee, onClose }) {
 
 // ── Page principale Étudiants ─────────────────────────────────────────────────
 export default function Etudiants() {
+  /**
+   * Export Excel de la section : signalétique et résultats, réimportables.
+   *
+   * Cette fonction était définie dans GrilleParcours et appelée depuis
+   * Etudiants — deux composants distincts. Le bouton cherchait donc une
+   * fonction qui n'existait pas dans sa portée.
+   */
+  async function exporterSection() {
+    if (!section) {
+      alert("Choisissez d'abord une section : l'export porte sur elle.");
+      return;
+    }
+    try {
+      const rep = await fetch(
+        `/api/etudiants/export-section?section=${encodeURIComponent(section)}`,
+        { headers: authHeaders() });
+      if (!rep.ok) {
+        const e = await rep.json().catch(() => ({}));
+        alert(e.error || `Export impossible (${rep.status}).`);
+        return;
+      }
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(await rep.blob());
+      a.download = `Export_${section}.xlsx`;
+      document.body.appendChild(a); a.click(); a.remove();
+      URL.revokeObjectURL(a.href);
+    } catch (e) {
+      alert(e.message);
+    }
+  }
+
   const annee = getAnnee();
   const [etudiants, setEtudiants] = useState([]);
   const [recherche, setRecherche] = useState('');
