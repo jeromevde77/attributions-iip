@@ -327,9 +327,22 @@ r.get('/', authRequired, (req, res) => {
 
   const anneeActive = anneeDeTravail(req);
   const rows = db.prepare(sql).all(...params);
+
+  // Les PAE confirmés de l'année : une seule requête plutôt qu'une par ligne.
+  const confirmes = new Set(db.prepare(
+    'SELECT etudiant_id FROM etudiant_pae WHERE annee_scolaire = ? AND confirme_le IS NOT NULL'
+  ).all(anneeActive).map(x => x.etudiant_id));
+
   res.json(rows.map(r0 => {
     const n = niveauEtudiant(r0.id, anneeActive);
-    return { ...r0, niveau: n.niveau, niveau_libelle: n.libelle };
+    const rat = sectionRattachement(r0.id, anneeActive);
+    return {
+      ...r0, niveau: n.niveau, niveau_libelle: n.libelle,
+      // Tant que le programme n'est pas confirmé, il n'est qu'une proposition.
+      pae_confirme: confirmes.has(r0.id),
+      section_rattachement: rat.section,
+      section_deduite: rat.deduite,
+    };
   }));
 });
 
@@ -1162,6 +1175,109 @@ export function decisionFinale(s1, s2) {
 // 61 notes sous 10 en Psychomotricité sans décision d'échec correspondante :
 // les notes sont encodées, la délibération ne les suit pas. Lucie ne décide
 // pas à la place du Conseil, mais elle doit le signaler.
+// ── Rattachement et confirmation du PAE ────────────────────────────────────
+// Trois axes, comme vous les décrivez : les DONNÉES de l'étudiant, son
+// INSCRIPTION au programme, ses RÉSULTATS. Le rattachement à une section est le
+// point de départ du deuxième : jusqu'ici la section se déduisait des
+// inscriptions, ce qui inverse l'ordre naturel — on choisit d'abord la section,
+// on inscrit ensuite.
+(function migrerParcours() {
+  try {
+    const cols = db.prepare('PRAGMA table_info(etudiant)').all().map(c => c.name);
+    if (!cols.includes('section_rattachement')) {
+      db.exec('ALTER TABLE etudiant ADD COLUMN section_rattachement TEXT');
+      console.log('[migration] etudiant.section_rattachement ajoutée');
+    }
+    // La confirmation porte sur un COUPLE étudiant × année : un même étudiant
+    // confirme son programme chaque année, ce n'est pas un état permanent.
+    db.exec(`
+      CREATE TABLE IF NOT EXISTS etudiant_pae (
+        id             INTEGER PRIMARY KEY AUTOINCREMENT,
+        etudiant_id    INTEGER NOT NULL,
+        annee_scolaire TEXT    NOT NULL,
+        confirme_le    TEXT,
+        confirme_par   TEXT,
+        UNIQUE(etudiant_id, annee_scolaire)
+      )`);
+  } catch (e) { console.error('[migration] parcours :', e.message); }
+})();
+
+/**
+ * La section de rattachement, avec DÉDUCTION EN SECOURS.
+ *
+ * Le rattachement explicite fait foi. À défaut — les étudiants déjà en base
+ * n'en ont pas — on retombe sur la section la plus représentée dans ses
+ * inscriptions, comme avant.
+ */
+export function sectionRattachement(etudId, annee = null) {
+  const e = db.prepare('SELECT section_rattachement FROM etudiant WHERE id = ?').get(etudId);
+  if (e?.section_rattachement) return { section: e.section_rattachement, deduite: false };
+
+  const lignes = db.prepare(`
+    SELECT (SELECT section FROM ue u WHERE u.ue_num = i.ue_num AND u.section IS NOT NULL
+             ORDER BY u.annee_scolaire DESC LIMIT 1) AS section
+    FROM etudiant_inscription i
+    WHERE i.etudiant_id = ?${annee ? ' AND i.annee_scolaire = ?' : ''}
+  `).all(...(annee ? [etudId, annee] : [etudId])).map(x => x.section).filter(Boolean);
+
+  if (!lignes.length) return { section: null, deduite: true };
+  const compte = {};
+  for (const s of lignes) compte[s] = (compte[s] || 0) + 1;
+  const section = Object.entries(compte).sort((a, b) => b[1] - a[1])[0][0];
+  return { section, deduite: true };
+}
+
+// ── Confirmer le programme d'un étudiant ───────────────────────────────────
+// Tant que le PAE n'est pas confirmé, il n'est qu'une PROPOSITION. La
+// confirmation le fige et fait passer l'étudiant en « inscrit ».
+r.post('/:id/pae/confirmer', authRequired,
+       roleRequired('admin', 'directeur', 'directeur_adjoint', 'editeur', 'secretariat'),
+       (req, res) => {
+  const etudId = Number(req.params.id);
+  const { annee, ues } = req.body || {};
+  if (!annee) return res.status(400).json({ error: 'annee requise' });
+
+  const e = db.prepare('SELECT id FROM etudiant WHERE id = ?').get(etudId);
+  if (!e) return res.status(404).json({ error: 'étudiant introuvable' });
+
+  const dateJour = new Date().toISOString().slice(0, 10);
+  const qui = req.user?.email || req.user?.nom_complet || null;
+
+  const ins = db.prepare(`
+    INSERT INTO etudiant_inscription (etudiant_id, annee_scolaire, ue_num, date_inscription)
+    VALUES (?,?,?,?)
+    ON CONFLICT(etudiant_id, annee_scolaire, ue_num) DO NOTHING`);
+
+  let ajoutees = 0;
+  db.transaction(() => {
+    // Les unités transmises sont celles que l'écran affiche APRÈS ajustement :
+    // on inscrit ce qui a été retenu, pas la proposition brute.
+    for (const n of (Array.isArray(ues) ? ues : []).map(Number).filter(Boolean)) {
+      const r0 = ins.run(etudId, annee, n, dateJour);
+      if (r0.changes) ajoutees++;
+    }
+    db.prepare(`
+      INSERT INTO etudiant_pae (etudiant_id, annee_scolaire, confirme_le, confirme_par)
+      VALUES (?,?, datetime('now'), ?)
+      ON CONFLICT(etudiant_id, annee_scolaire) DO UPDATE SET
+        confirme_le = datetime('now'), confirme_par = excluded.confirme_par
+    `).run(etudId, annee, qui);
+  })();
+
+  res.json({ ok: true, ajoutees, confirme: true });
+});
+
+r.delete('/:id/pae/confirmer', authRequired,
+         roleRequired('admin', 'directeur', 'directeur_adjoint', 'editeur'), (req, res) => {
+  const { annee } = req.query;
+  if (!annee) return res.status(400).json({ error: 'annee requise' });
+  // On retire la confirmation SANS toucher aux inscriptions : les supprimer
+  // effacerait des résultats éventuels.
+  db.prepare('DELETE FROM etudiant_pae WHERE etudiant_id = ? AND annee_scolaire = ?')
+    .run(Number(req.params.id), annee);
+  res.json({ ok: true, confirme: false });
+});
+
 r.get('/coherence-resultats', authRequired, (req, res) => {
   const { annee, section } = req.query;
   if (!annee) return res.status(400).json({ error: 'annee requise' });
@@ -1997,9 +2113,18 @@ r.get('/:id/pae', authRequired, (req, res) => {
     ? niveauxEffectifs(sectionsEtudiant, annee) : {};
   for (const u of pae) u.ue_niv = nivEffectifs[u.ue_num] || u.ue_niv || null;
 
+  // L'état de confirmation : l'écran doit savoir si le programme est figé ou
+  // n'est encore qu'une proposition.
+  const confirmation = db.prepare(
+    'SELECT confirme_le, confirme_par FROM etudiant_pae WHERE etudiant_id = ? AND annee_scolaire = ?'
+  ).get(profId, annee);
+
   res.json({
     etudiant,
     annee,
+    pae_confirme: !!confirmation?.confirme_le,
+    pae_confirme_le: confirmation?.confirme_le || null,
+    pae_confirme_par: confirmation?.confirme_par || null,
     annee_precedente: anneePrecedente,
     sections: sectionsEtudiant,
     sections_scores: sectionsScores,
