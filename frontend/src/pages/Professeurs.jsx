@@ -841,6 +841,45 @@ function DetailModal({ profId, onClose, onEdit, onFiche }) {
                 <div className="text-[10px] text-gray-400">ETP{heuresHELB > 0 ? ' — IIP + HELB' : ''}</div>
               </div>
 
+              {/* Le DÉTAIL par type : les dénominateurs diffèrent — 800
+                  périodes pour le cours technique, 1000 pour la pratique
+                  professionnelle — et l'ETP ne se lit pas sans eux. Les sommes
+                  incluent l'autonomie, qui compte dans la charge. */}
+              {detail?.detail_etp && (
+                <div className="bg-white rounded-xl border border-gray-200 px-3 py-2.5">
+                  <div className="text-[11px] text-gray-500 mb-1.5 text-center">
+                    Détail — autonomie comprise
+                  </div>
+                  <table className="w-full text-[11.5px]">
+                    <tbody>
+                      {[['CT', detail.detail_etp.ct], ['PP', detail.detail_etp.pp]].map(
+                        ([lib, d]) => (
+                        <tr key={lib}>
+                          <td className="text-gray-500">{lib}</td>
+                          <td className="text-right font-semibold">{d.periodes}</td>
+                          <td className="text-right text-gray-400 text-[10px] px-1">
+                            /{d.diviseur}
+                          </td>
+                          <td className="text-right font-bold text-iip-blue">
+                            {d.etp.toFixed(4)}
+                          </td>
+                        </tr>
+                      ))}
+                      <tr className="border-t border-gray-200">
+                        <td className="text-gray-600 font-semibold pt-1">Total</td>
+                        <td className="text-right font-bold pt-1">
+                          {detail.detail_etp.total.periodes}
+                        </td>
+                        <td />
+                        <td className="text-right font-bold text-iip-turquoise pt-1">
+                          {detail.detail_etp.total.etp.toFixed(4)}
+                        </td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
+              )}
+
               <div className="bg-white rounded-xl border border-gray-200 px-4 py-2.5 text-center">
                 <div className="text-[11px] text-gray-500 mb-0.5">Périodes IIP</div>
                 <div className="text-xl font-bold text-iip-blue">{totalIIP}</div>

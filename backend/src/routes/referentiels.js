@@ -880,6 +880,18 @@ r.get('/professeurs/:id', authRequired, exigerPerimetreProfesseur, (req, res) =>
   // près d'un pour cent sur une charge partielle.
   const etp_annee = Math.round((etp_ct / 800 + etp_pp / 1000) * 10000) / 10000;
 
+  // Le DÉTAIL par type de cours : la fiche donnait un total global, sans dire
+  // ce qui relève du cours technique et ce qui relève de la pratique
+  // professionnelle. Or les dénominateurs diffèrent — 800 et 1000 périodes —
+  // et l'ETP ne se lit pas sans eux. Les sommes incluent l'autonomie, qui
+  // compte dans la charge.
+  const arr4 = (n) => Math.round(n * 10000) / 10000;
+  const detail_etp = {
+    ct: { periodes: etp_ct, diviseur: 800, etp: arr4(etp_ct / 800) },
+    pp: { periodes: etp_pp, diviseur: 1000, etp: arr4(etp_pp / 1000) },
+    total: { periodes: etp_ct + etp_pp, etp: etp_annee },
+  };
+
   // Missions de la personne (depuis personnel_mission) pour l'année concernée
   // Regroupées par fonction, avec la liste des sections (et le marqueur établissement)
   const missionRows = db.prepare(`
@@ -922,6 +934,7 @@ r.get('/professeurs/:id', authRequired, exigerPerimetreProfesseur, (req, res) =>
     tot_aut_annee,
     tot_global_annee: tot_per_annee + tot_aut_annee,
     etp_annee,
+    detail_etp,
     etp_ct: Math.round(etp_ct / 800 * 100) / 100,
     etp_pp: Math.round(etp_pp / 1000 * 100) / 100,
   });

@@ -15,7 +15,9 @@ import { authHeaders } from '../lib/api.js';
 export default function DroitInscription({ etudId, annee, peutEcrire = true }) {
   const [data, setData] = useState(null);
   const [enregistrement, setEnregistrement] = useState(false);
-  const [detailOuvert, setDetailOuvert] = useState(false);
+  // Le détail est OUVERT d'emblée : c'est ce qui explique le montant, et le
+  // cacher derrière un clic obligeait à le chercher.
+  const [detailOuvert, setDetailOuvert] = useState(true);
 
   async function charger() {
     const rep = await fetch(`/api/droit-inscription/etudiant/${etudId}?annee=${annee}`,
