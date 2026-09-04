@@ -42,17 +42,42 @@ export function analyserBloc(lignes, bloc) {
   const l12 = lignes[11] || [];
   const acquis = [];
   const decision = {};
+  const ponderations = {};
+
+  // Les PONDÉRATIONS, que le classeur porte : ligne 9 le total, ligne 10 le
+  // poids du cours, ligne 11 celui de l'acquis. Elles manquent au référentiel
+  // de Lucie, alors qu'elles sont là.
+  const l9 = lignes[8] || [];
+  const l10 = lignes[9] || [];
+  const nombre = v => {
+    const n = Number(String(v ?? '').replace(',', '.'));
+    return Number.isFinite(n) ? n : null;
+  };
 
   for (let i = bloc.debut; i <= bloc.fin; i++) {
     const code = String(l12[i] ?? '').trim();
     if (/^AA[\d.]+$/i.test(code) && String(l11[i] ?? '').includes('/20')) {
       acquis.push({ colonne: i, aa_code: code.replace(/^AA/i, '') });
     }
+    // La pondération se lit sur la colonne du CODE, non sur celle des notes :
+    // les deux ne coïncident pas, la ligne 12 porte le code partout.
+    if (/^AA[\d.]+$/i.test(code)) {
+      // l9 = pondération totale, l10 = poids du COURS, l11 = poids de l'ACQUIS.
+      // Je les avais interverties : toutes les pondérations sortaient à zéro.
+      const p = nombre(l11[i]);
+      if (p != null) {
+        ponderations[code.replace(/^AA/i, '')] = {
+          poids_aa: p,
+          poids_cours: nombre(l10[i]),
+          total: nombre(l9[i]),
+        };
+      }
+    }
     if (code === 'F') decision.brute = i;
     if (code === 'N') decision.note = i;
     if (code === 'D') decision.decision = i;
   }
-  return { acquis, decision };
+  return { acquis, decision, ponderations };
 }
 
 /** La lettre du classeur vers le vocabulaire de Lucie. */
@@ -130,8 +155,15 @@ export function lireFeuilleUE(lignes, ueNum) {
     if (Object.keys(e.sessions).length) etudiants.push(e);
   }
 
+  // Les pondérations viennent du bloc « Final » s'il en porte, sinon de la
+  // première session : elles décrivent l'unité, non une session.
+  const ponderations = analyse.final?.ponderations && Object.keys(analyse.final.ponderations).length
+    ? analyse.final.ponderations
+    : (analyse.s1?.ponderations || {});
+
   return {
     ue_num: ueNum,
+    ponderations,
     blocs: Object.fromEntries(Object.entries(analyse).map(([k, v]) => [k, {
       acquis: v.acquis.length,
       decision: v.decision.decision != null,

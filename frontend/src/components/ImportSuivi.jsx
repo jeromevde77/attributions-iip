@@ -54,7 +54,8 @@ export default function ImportSuivi({ annee, onClose, onTermine }) {
             decisions[cle] = (decisions[cle] || 0) + 1;
             if (d.justification) justifs++;
           }
-          return { ...r, decisions, justifs, sansDecision, erreur: r.erreur || null };
+          return { ...r, decisions, justifs, sansDecision, erreur: r.erreur || null,
+                   nbPonderations: Object.keys(r.ponderations || {}).length };
         } catch (e) {
           return { ue_num: f.ue_num, etudiants: [], erreur: e.message };
         }
@@ -81,6 +82,9 @@ export default function ImportSuivi({ annee, onClose, onTermine }) {
             session: d?.session || null,
             justification: d?.justification || null,
             recopie: !!d?.recopie,
+            // Les pondérations du bloc : propres à l'unité, portées par la
+            // première ligne suffit, mais on les joint à chacune par simplicité.
+            ponderations: f.ponderations || null,
             notes_s1: e.sessions.s1?.notes || {},
             notes_s2: e.sessions.s2?.notes || {},
           });
@@ -189,6 +193,7 @@ export default function ImportSuivi({ annee, onClose, onTermine }) {
                           {Object.entries(f.blocs || {}).map(([k, b]) =>
                             `${k} ${b.acquis} AA`).join(' · ')}
                           {f.justifs > 0 && ` · ${f.justifs} justification(s)`}
+                          {f.nbPonderations > 0 && ` · ${f.nbPonderations} pondération(s)`}
                         </div>
                         <div className="text-[11px] text-slate-500 mt-0.5">
                           {Object.entries(f.decisions).sort()

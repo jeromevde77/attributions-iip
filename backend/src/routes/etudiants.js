@@ -1308,9 +1308,20 @@ r.post('/import-suivi', authRequired,
     if (k) parMatricule[k] = e;
   }
 
+  // Les PONDÉRATIONS du classeur : elles manquent au référentiel de Lucie,
+  // alors que vos fichiers les portent. Sans elles, la note d'unité se calcule
+  // à la moyenne simple, ce qui est faux dès qu'un acquis pèse 60 %.
+  const insPond = db.prepare(`
+    INSERT INTO aa_ponderation (ue_num, cours_code, aa_code, poids, maj_le)
+    VALUES (?,?,?,?, datetime('now'))
+    ON CONFLICT(ue_num, cours_code, aa_code) DO UPDATE SET
+      poids = excluded.poids, maj_le = excluded.maj_le`);
+
   const rapport = { retrouves: 0, resultats: 0, notes: 0, motivations: 0,
+                    ponderations: 0,
                     ecrases: 0, inconnus: [] };
   const vusEtud = new Set();
+  const ponderationsFaites = new Set();
 
   const insInsc = db.prepare(`
     INSERT INTO etudiant_inscription
@@ -1380,6 +1391,20 @@ r.post('/import-suivi', authRequired,
         }
       }
 
+      // Les pondérations sont propres à l'UNITÉ, non à l'étudiant : on ne les
+      // écrit qu'une fois par unité rencontrée.
+      if (l.ponderations && !ponderationsFaites.has(ueNum)) {
+        ponderationsFaites.add(ueNum);
+        for (const [aa, p] of Object.entries(l.ponderations)) {
+          if (p?.poids_aa == null) continue;
+          const cc = db.prepare(
+            'SELECT cours_code FROM aa WHERE ue_num = ? AND aa_code = ? LIMIT 1'
+          ).get(ueNum, aa)?.cours_code || '';
+          if (!simulation) insPond.run(ueNum, cc, aa, p.poids_aa);
+          rapport.ponderations++;
+        }
+      }
+
       // La justification du classeur devient la motivation de la décision.
       if (l.justification && (l.decision === 'refuse' || l.decision === 'ajourne')) {
         if (!simulation) {
@@ -1405,6 +1430,7 @@ r.post('/import-suivi', authRequired,
     resultats: rapport.resultats,
     notes: rapport.notes,
     motivations: rapport.motivations,
+    ponderations: rapport.ponderations,
     ecrases: rapport.ecrases,
     inconnus: rapport.inconnus.slice(0, 20),
     nb_inconnus: rapport.inconnus.length,
