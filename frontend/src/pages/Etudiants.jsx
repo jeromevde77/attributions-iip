@@ -1072,7 +1072,9 @@ function FicheEtudiant({ id, annee, onClose }) {
   const [motivation, setMotivation] = useState(false);
   const [data, setData] = useState(null);
   const [pae, setPae] = useState(null);
-  const [onglet, setOnglet] = useState('grille');
+  // « grille » n'existe plus depuis la fusion avec le PAE : la fiche s'ouvrait
+  // sur un onglet sans contenu, et paraissait vide jusqu'à ce qu'on clique.
+  const [onglet, setOnglet] = useState('parcours');
   const [ficheInscription, setFicheInscription] = useState(null);
   const [selection, setSelection] = useState(null);      // Set des ue_num retenues
   const [catalogueOuvert, setCatalogueOuvert] = useState(false);
