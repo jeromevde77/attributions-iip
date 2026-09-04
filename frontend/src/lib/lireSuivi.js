@@ -214,3 +214,52 @@ export function decisionRetenue(sessions) {
   }
   return null;
 }
+
+/**
+ * L'onglet « Repartition_AA_UE » : les pondérations telles que le Conseil les a
+ * fixées, et non déduites des périodes.
+ *
+ * Structure, établie sur le classeur TIM 2025-2026 :
+ *
+ *   ligne 4   le numéro d'UE, répété sur toutes les colonnes de son bloc
+ *   ligne 7   « UE » sur la colonne de synthèse, puis le code de chaque COURS
+ *   ligne 15  la pondération de chaque cours dans l'UE (somme 100)
+ *   ligne 17+ une ligne par acquis : sa pondération DANS chaque cours
+ *
+ * Un même acquis figure dans plusieurs cours avec des poids différents — c'est
+ * exactement ce que le calcul de la note d'UE attend.
+ */
+export function lireRepartition(lignes) {
+  const l4 = lignes[3] || [];    // numéros d'UE
+  const l7 = lignes[6] || [];    // « UE » ou code de cours
+  const l15 = lignes[14] || [];  // pondération du cours
+
+  const nombre = (v) => {
+    const n = Number(String(v ?? '').replace(',', '.'));
+    return Number.isFinite(n) ? n : null;
+  };
+
+  const parUE = {};
+  for (let i = 0; i < l4.length; i++) {
+    const ue = Number(String(l4[i] ?? '').trim());
+    if (!Number.isFinite(ue) || !ue) continue;
+    const tete = String(l7[i] ?? '').trim();
+    // La colonne « UE » porte la synthèse, pas un cours : on la passe.
+    if (!tete || /^UE$/i.test(tete)) continue;
+
+    const bloc = (parUE[ue] ||= { cours: {}, acquis: {} });
+    const poidsCours = nombre(l15[i]);
+    if (poidsCours != null) bloc.cours[tete] = poidsCours;
+
+    // Les acquis : une ligne chacun à partir de la 17, numérotés en colonne 1.
+    for (let r = 16; r < lignes.length; r++) {
+      const num = nombre((lignes[r] || [])[0]);
+      if (num == null || num < 1) continue;
+      const p = nombre((lignes[r] || [])[i]);
+      if (p == null || p === 0) continue;   // 0 = acquis non évalué dans ce cours
+      const aaCode = `AA${ue}.${num}`;
+      ((bloc.acquis[aaCode] ||= {}))[tete] = p;
+    }
+  }
+  return parUE;
+}

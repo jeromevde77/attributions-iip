@@ -3,7 +3,7 @@ import {
   IconUpload, IconX, IconAlertTriangle, IconCheck, IconSearch,
 } from '@tabler/icons-react';
 import { authHeaders } from '../lib/api.js';
-import { lireFeuilleUE, decisionRetenue } from '../lib/lireSuivi.js';
+import { lireFeuilleUE, decisionRetenue, lireRepartition } from '../lib/lireSuivi.js';
 
 /**
  * Import d'un classeur « Suivi étudiants » — une feuille par unité.
@@ -30,6 +30,17 @@ export default function ImportSuivi({ annee, onClose, onTermine }) {
 
       // Une feuille d'unité porte un nom purement numérique : « 246 ». Les
       // autres — Coordonnées, PAE, Listes — ne nous concernent pas.
+      // L'onglet de RÉPARTITION porte les pondérations telles que le Conseil
+      // les a fixées : elles priment sur celles déduites des périodes.
+      let repartition = {};
+      const nomRep = wb.SheetNames.find(n => /^Repartition_AA_UE$/i.test(n.trim()));
+      if (nomRep) {
+        try {
+          repartition = lireRepartition(XLSX.utils.sheet_to_json(
+            wb.Sheets[nomRep], { header: 1, defval: null, raw: false }));
+        } catch (e) { console.error('[répartition]', e); }
+      }
+
       const utiles = wb.SheetNames.filter(n => /^\d+$/.test(n.trim()));
       if (!utiles.length) {
         throw new Error("Aucune feuille d'unité dans ce classeur. Les feuilles "
@@ -38,6 +49,7 @@ export default function ImportSuivi({ annee, onClose, onTermine }) {
 
       const brut = utiles.map(nom => ({
         ue_num: Number(nom.trim()),
+        repartition: repartition[Number(nom.trim())] || null,
         lignes: XLSX.utils.sheet_to_json(wb.Sheets[nom], { header: 1, defval: null, raw: false }),
       }));
       setFeuilles(brut);
@@ -45,6 +57,7 @@ export default function ImportSuivi({ annee, onClose, onTermine }) {
       const analyse = brut.map(f => {
         try {
           const r = lireFeuilleUE(f.lignes, f.ue_num);
+          r.repartition = f.repartition;
           const decisions = {};
           let justifs = 0, sansDecision = 0;
           for (const e of r.etudiants) {
@@ -55,7 +68,10 @@ export default function ImportSuivi({ annee, onClose, onTermine }) {
             if (d.justification) justifs++;
           }
           return { ...r, decisions, justifs, sansDecision, erreur: r.erreur || null,
-                   nbPonderations: Object.keys(r.ponderations || {}).length };
+                   nbPonderations: r.repartition
+                     ? Object.keys(r.repartition.cours || {}).filter(k => r.repartition.cours[k]).length
+                     : Object.keys(r.ponderations || {}).length,
+                   aRepartition: !!r.repartition };
         } catch (e) {
           return { ue_num: f.ue_num, etudiants: [], erreur: e.message };
         }
@@ -85,6 +101,7 @@ export default function ImportSuivi({ annee, onClose, onTermine }) {
             // Les pondérations du bloc : propres à l'unité, portées par la
             // première ligne suffit, mais on les joint à chacune par simplicité.
             ponderations: f.ponderations || null,
+            repartition: f.repartition || null,
             notes_s1: e.sessions.s1?.notes || {},
             notes_s2: e.sessions.s2?.notes || {},
           });
@@ -193,7 +210,9 @@ export default function ImportSuivi({ annee, onClose, onTermine }) {
                           {Object.entries(f.blocs || {}).map(([k, b]) =>
                             `${k} ${b.acquis} AA`).join(' · ')}
                           {f.justifs > 0 && ` · ${f.justifs} justification(s)`}
-                          {f.nbPonderations > 0 && ` · ${f.nbPonderations} pondération(s)`}
+                          {f.nbPonderations > 0 && (f.aRepartition
+                            ? ` · ${f.nbPonderations} cours pondéré(s)`
+                            : ` · ${f.nbPonderations} pondération(s)`)}
                         </div>
                         <div className="text-[11px] text-slate-500 mt-0.5">
                           {Object.entries(f.decisions).sort()

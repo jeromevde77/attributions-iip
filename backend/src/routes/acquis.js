@@ -155,6 +155,18 @@ export function structureUE(ueNum, annee) {
       : null;
   }
 
+  // La pondération EXPLICITE l'emporte, quand elle existe. Les classeurs de
+  // suivi la portent pour 2024-2025 et 2025-2026 : elle ne coïncide pas avec
+  // la répartition des périodes — l'UE 248 pèse 47/31/22 alors que ses cours
+  // n'ont pas ce rapport de périodes. À partir de 2026-2027, les périodes du
+  // dossier pédagogique font foi, et cette table reste vide.
+  try {
+    for (const p of db.prepare(
+      'SELECT cours_code, poids FROM cours_ponderation WHERE ue_num = ?').all(ueNum)) {
+      if (p.poids != null) poidsCours[p.cours_code] = Number(p.poids);
+    }
+  } catch { /* table absente : on s'en tient aux périodes */ }
+
   return cours.map(c => {
     const siens = aas.filter(a => a.cours_code === c.cours_code).map(a => ({
       ...a, poids: pond[c.cours_code + '|' + a.aa_code] ?? null,

@@ -1311,6 +1311,12 @@ r.post('/import-suivi', authRequired,
   // Les PONDÉRATIONS du classeur : elles manquent au référentiel de Lucie,
   // alors que vos fichiers les portent. Sans elles, la note d'unité se calcule
   // à la moyenne simple, ce qui est faux dès qu'un acquis pèse 60 %.
+  const insPondCours = db.prepare(`
+    INSERT INTO cours_ponderation (ue_num, cours_code, poids, maj_le)
+    VALUES (?,?,?, datetime('now'))
+    ON CONFLICT(ue_num, cours_code) DO UPDATE SET
+      poids = excluded.poids, maj_le = excluded.maj_le`);
+
   const insPond = db.prepare(`
     INSERT INTO aa_ponderation (ue_num, cours_code, aa_code, poids, maj_le)
     VALUES (?,?,?,?, datetime('now'))
@@ -1324,6 +1330,7 @@ r.post('/import-suivi', authRequired,
                     ecrases: 0, inconnus: [] };
   const vusEtud = new Set();
   const ponderationsFaites = new Set();
+  rapport.aa_sans_cours = new Set();
 
   const insInsc = db.prepare(`
     INSERT INTO etudiant_inscription
@@ -1384,24 +1391,67 @@ r.post('/import-suivi', authRequired,
         rapport.resultats++;
       }
 
+      // Le cours de chaque acquis : le calcul de la note d'UE cherche les
+      // notes sous la clé « cours|acquis », les pondérations étant propres au
+      // cours. Une note sans cours resterait invisible au calcul.
+      const coursDe = {};
+      for (const r0 of db.prepare(
+        'SELECT aa_code, cours_code FROM aa WHERE ue_num = ?').all(ueNum)) {
+        if (r0.cours_code) coursDe[r0.aa_code] = r0.cours_code;
+      }
+
       for (const [bloc, notes] of [['s1', l.notes_s1], ['s2', l.notes_s2]]) {
         for (const [aa, note] of Object.entries(notes || {})) {
           // Le code porte la session : sans cela, la seconde écraserait la
           // première et l'on perdrait le détail de la délibération.
+          // Deux écritures : la SESSION pour la feuille de délibération, et le
+          // COURS pour le calcul de la note d'unité. Les deux sont utiles et ne
+          // se remplacent pas.
           if (!simulation) insNote.run(e.id, annee, ueNum, `${bloc}|${aa}`, note);
+          const cc = coursDe[aa];
+          if (cc && bloc === 's2' || (cc && bloc === 's1' && !l.notes_s2?.[aa])) {
+            // La note qui FAIT FOI : la seconde session si elle existe.
+            if (!simulation) insNote.run(e.id, annee, ueNum, `${cc}|${aa}`, note);
+          }
           rapport.notes++;
         }
       }
 
       // Les pondérations sont propres à l'UNITÉ, non à l'étudiant : on ne les
       // écrit qu'une fois par unité rencontrée.
+      // La RÉPARTITION de l'onglet dédié fait foi jusqu'en 2025-2026 : elle
+      // donne le poids de chaque cours et le poids de chaque acquis DANS
+      // chaque cours, un même acquis pouvant figurer dans plusieurs. À partir
+      // de 2026-2027, les périodes du dossier pédagogique prennent le relais
+      // et ces tables restent vides.
+      if (l.repartition && !ponderationsFaites.has(ueNum)) {
+        ponderationsFaites.add(ueNum);
+        for (const [cc, p] of Object.entries(l.repartition.cours || {})) {
+          if (p == null || p === 0) continue;
+          if (!simulation) insPondCours.run(ueNum, cc, p);
+          rapport.ponderations++;
+        }
+        for (const [aa, parCours] of Object.entries(l.repartition.acquis || {})) {
+          for (const [cc, p] of Object.entries(parCours)) {
+            if (p == null || p === 0) continue;
+            if (!simulation) insPond.run(ueNum, cc, aa, p);
+            rapport.ponderations++;
+          }
+        }
+        continue;
+      }
+
       if (l.ponderations && !ponderationsFaites.has(ueNum)) {
         ponderationsFaites.add(ueNum);
         for (const [aa, p] of Object.entries(l.ponderations)) {
           if (p?.poids_aa == null) continue;
+          // La pondération est stockée PAR COURS : sans le cours, le calcul
+          // de la note d'UE ne la retrouve pas. Un acquis sans cours rattaché
+          // est signalé plutôt qu'écrit sous une clé vide.
           const cc = db.prepare(
             'SELECT cours_code FROM aa WHERE ue_num = ? AND aa_code = ? LIMIT 1'
-          ).get(ueNum, aa)?.cours_code || '';
+          ).get(ueNum, aa)?.cours_code;
+          if (!cc) { rapport.aa_sans_cours.add(aa); continue; }
           if (!simulation) insPond.run(ueNum, cc, aa, p.poids_aa);
           rapport.ponderations++;
         }
@@ -1433,6 +1483,7 @@ r.post('/import-suivi', authRequired,
     notes: rapport.notes,
     motivations: rapport.motivations,
     ponderations: rapport.ponderations,
+    aa_sans_cours: [...rapport.aa_sans_cours],
     ecrases: rapport.ecrases,
     inconnus: rapport.inconnus.slice(0, 20),
     nb_inconnus: rapport.inconnus.length,
