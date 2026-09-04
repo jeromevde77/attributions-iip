@@ -1342,6 +1342,29 @@ function FicheEtudiant({ id, annee, onClose }) {
                     <IconWritingSign size={14} />
                     {paeConfirme ? 'Programme confirmé' : 'Confirmer le programme'}
                   </button>
+                  {/* Quatre documents alignés derrière une seule entrée.
+                      Ils avaient disparu avec l'ancienne barre d'actions : les
+                      fonctions étaient restées, plus rien ne les appelait, et
+                      le parcours de formation n'était donc plus imprimable. */}
+                  <MenuActions libelle="Documents" Icone={IconFileText} ton="bleu"
+                    titre="Documents de cet étudiant"
+                    items={[
+                      { libelle: 'Attestations de réussite', Icone: IconFileText,
+                        aide: "Une par unité d'enseignement réussie",
+                        onClick: ouvrirAttestations },
+                      { libelle: 'Parcours de formation', Icone: IconFileText,
+                        aide: 'Schéma de capitalisation et unités acquises — 1 page',
+                        onClick: ouvrirParcours },
+                      { separateur: true, titre: 'Décisions' },
+                      { libelle: 'Motiver un refus / ajournement', Icone: IconFileText,
+                        aide: 'Annexes 8 et 9 — une justification par acquis',
+                        onClick: () => setMotivation(true) },
+                      { separateur: true, titre: 'Administrations' },
+                      { libelle: 'Progrès des études (annexe 2)', Icone: IconFileText,
+                        aide: "Office des Étrangers — réclame la nationalité",
+                        onClick: () => setAnnexe2(true) },
+                    ]} />
+
                   <span className="text-[11.5px] text-slate-500 ml-1">
                     {paeConfirme
                       ? "L'étudiant est inscrit aux unités retenues."
