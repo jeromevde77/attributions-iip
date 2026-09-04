@@ -213,6 +213,29 @@ r.post('/dossier', authRequired, roleRequired('admin', 'directeur', 'directeur_a
   }
 });
 
+// ── Les unités du PAE de l'étudiant ────────────────────────────────────────
+// Le cadre A fait cocher les unités concernées, mais seules celles où
+// l'étudiant est INSCRIT ont un sens : lui proposer les dix-neuf unités de la
+// section quand il en suit six oblige à chercher dans une liste inutile.
+r.get('/dossier/:id/ues-possibles', authRequired, (req, res) => {
+  const d = db.prepare('SELECT etudiant_id, annee_scolaire FROM amenagement_dossier WHERE id = ?')
+    .get(Number(req.params.id));
+  if (!d) return res.status(404).json({ error: 'dossier introuvable' });
+
+  const ues = db.prepare(`
+    SELECT DISTINCT i.ue_num,
+           (SELECT ue_nom FROM ue u WHERE u.ue_num = i.ue_num AND u.ue_nom IS NOT NULL
+             ORDER BY u.annee_scolaire DESC LIMIT 1) AS ue_nom,
+           (SELECT ue_niv FROM ue u WHERE u.ue_num = i.ue_num AND u.ue_niv IS NOT NULL
+             ORDER BY u.annee_scolaire DESC LIMIT 1) AS ue_niv
+    FROM etudiant_inscription i
+    WHERE i.etudiant_id = ? AND i.annee_scolaire = ?
+    ORDER BY i.ue_num
+  `).all(d.etudiant_id, d.annee_scolaire);
+
+  res.json({ annee: d.annee_scolaire, ues });
+});
+
 // ── Les unités concernées par la demande (cadre A.2) ───────────────────────
 r.put('/dossier/:id/ues', authRequired, roleRequired('admin', 'directeur',
       'directeur_adjoint', 'editeur', 'secretariat'), (req, res) => {

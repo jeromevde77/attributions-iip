@@ -417,11 +417,14 @@ function UesConcernees({ dossierId, annee, choisies, onChange }) {
   useEffect(() => { setSel(new Set(choisies || [])); }, [choisies]);
 
   useEffect(() => {
-    fetch(`/api/ref/ue?annee=${encodeURIComponent(annee)}`, { headers: authHeaders() })
+    // Les unités du PAE de l'étudiant, non tout le référentiel : lui proposer
+    // des unités qu'il ne suit pas n'a pas de sens.
+    fetch(`/api/amenagements/dossier/${dossierId}/ues-possibles`,
+      { headers: authHeaders() })
       .then(r => r.json())
-      .then(l => setUes(Array.isArray(l) ? l : []))
+      .then(j => setUes(Array.isArray(j?.ues) ? j.ues : []))
       .catch(() => setUes([]));
-  }, [annee]);
+  }, [dossierId]);
 
   async function enregistrer(prochain) {
     setEnCours(true);
@@ -435,7 +438,14 @@ function UesConcernees({ dossierId, annee, choisies, onChange }) {
   }
 
   if (!ues) return <div className="text-[12px] text-slate-400">Chargement des unités…</div>;
-  if (!ues.length) return null;
+  if (!ues.length) {
+    return (
+      <div className="text-[12px] text-slate-500 border border-slate-200 rounded-lg p-3">
+        Cet étudiant n'est inscrit à aucune unité en {annee} : son programme doit
+        être établi avant de désigner les unités concernées.
+      </div>
+    );
+  }
 
   return (
     <div className="border border-slate-200 rounded-lg p-3">
