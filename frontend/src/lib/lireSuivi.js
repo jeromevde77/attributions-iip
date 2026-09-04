@@ -57,7 +57,10 @@ export function analyserBloc(lignes, bloc) {
   for (let i = bloc.debut; i <= bloc.fin; i++) {
     const code = String(l12[i] ?? '').trim();
     if (/^AA[\d.]+$/i.test(code) && String(l11[i] ?? '').includes('/20')) {
-      acquis.push({ colonne: i, aa_code: code.replace(/^AA/i, '') });
+      // Le code est conservé TEL QUEL : le référentiel enregistre « AA246.1 »
+      // avec son préfixe, et retirer celui-ci faisait que les notes importées
+      // ne correspondaient à aucun acquis — colonnes vides dans la feuille.
+      acquis.push({ colonne: i, aa_code: code });
     }
     // La pondération se lit sur la colonne du CODE, non sur celle des notes :
     // les deux ne coïncident pas, la ligne 12 porte le code partout.
@@ -66,7 +69,7 @@ export function analyserBloc(lignes, bloc) {
       // Je les avais interverties : toutes les pondérations sortaient à zéro.
       const p = nombre(l11[i]);
       if (p != null) {
-        ponderations[code.replace(/^AA/i, '')] = {
+        ponderations[code] = {
           poids_aa: p,
           poids_cours: nombre(l10[i]),
           total: nombre(l9[i]),
