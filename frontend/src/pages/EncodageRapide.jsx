@@ -21,11 +21,10 @@ import EncodageDirect from '../components/EncodageDirect.jsx';
 // L'ajournement et le REFUS sont deux décisions distinctes — la circulaire les
 // sépare, et le backend aussi. Cet écran ne connaissait que l'ajournement, mais
 // l'appelait « refusé » : la fiche disait « ajourné » pour la même unité.
-// Sans session : la décision se saisit telle quelle. Avec session, on encode
-// le RÉSULTAT DE LA SESSION et Lucie en déduit la décision — l'ajournement
-// n'est pas saisissable, il se déduit d'un échec en session 1.
+// La matrice ne porte QUE des décisions d'unité. Les notes et le détail des
+// sessions se saisissent dans la feuille de délibération, qui a la place de les
+// montrer — ici une cellule fait douze pixels de large.
 const CYCLE = [null, 'reussi', 'ajourne', 'refuse'];
-const CYCLE_SESSION = [null, 'reussi', 'echec', 'absent'];
 
 // Couleurs des années d'études, communes à Lucie : BA1 orange, BA2 bleu clair,
 // BA3 bleu marine.
@@ -76,11 +75,9 @@ export default function EncodageRapide() {
   // délibération ne les suit pas. Lucie ne décide pas à la place du Conseil,
   // mais elle doit le signaler.
   const [coherence, setCoherence] = useState(null);
-  // La session encodée. « Décision » enregistre directement le verdict, comme
-  // avant ; S1 et S2 enregistrent le résultat de la session et Lucie en déduit
-  // la décision.
-  const [session, setSession] = useState(null);
-  const [sessions, setSessions] = useState({});   // { 'etud|ue': {s1, s2} }
+  // Les sessions ne se saisissent PAS ici, mais elles s'affichent : le marqueur
+  // sous la note dit ce qui s'est joué dans chacune.
+  const [sessions, setSessions] = useState({});   // { 'etud|ue': {s1, s2, p1, p2} }
   // Deux lectures du même tableau. « Points » montre les notes, « Délibération »
   // montre la décision — C, Aj, R — car c'est elle qui compte au Conseil, et
   // une note de 7 ne dit pas à elle seule si l'unité est ajournée ou refusée.
@@ -159,10 +156,9 @@ export default function EncodageRapide() {
   useEffect(() => { if (vue === 'annee') chargerSynthese(); /* eslint-disable-next-line */ }, [vue, section]);
 
   // Enregistrement au fil de l'eau, par lots
-  function planifier(etudId, ueNum, resultat, session = null, points = undefined) {
+  function planifier(etudId, ueNum, resultat) {
     enAttente.current.set(etudId + '|' + ueNum,
-      { etudiant_id: etudId, ue_num: ueNum, resultat, session,
-        ...(points !== undefined ? { points } : {}) });
+      { etudiant_id: etudId, ue_num: ueNum, resultat });
     setEtat('enregistrement');
     clearTimeout(minuteur.current);
     minuteur.current = setTimeout(async () => {
@@ -188,58 +184,8 @@ export default function EncodageRapide() {
     return null;
   }
 
-  /**
-   * La note d'une session. La décision s'en déduit — au-dessus de dix c'est
-   * réussi, en dessous un échec — mais elle reste modifiable en mode Décision :
-   * le Conseil peut délibérer autrement, une note n'est pas un verdict.
-   */
-  function poserNote(etudId, ueNum, valeur) {
-    if (!session) return;
-    const cle = etudId + '|' + ueNum;
-    const brut = String(valeur).trim();
-    const n = brut === '' ? null : Number(brut.replace(',', '.'));
-    const note = (n != null && Number.isFinite(n) && n >= 0 && n <= 20) ? n : null;
-    if (brut !== '' && note == null) return;   // saisie illisible : on ignore
-
-    const champP = session === 1 ? 'p1' : 'p2';
-    const champR = session === 1 ? 's1' : 's2';
-    const avant = sessions[cle] || {};
-    const resultat = note == null ? null : (note >= 10 ? 'reussi' : 'echec');
-    const apres = { ...avant, [champP]: note, [champR]: resultat };
-
-    setSessions(s => ({ ...s, [cle]: apres }));
-    const d = decision(apres.s1, apres.s2);
-    setCellules(c2 => {
-      const m = { ...c2 };
-      if (d) m[cle] = d; else delete m[cle];
-      return m;
-    });
-    setNotes(nn => {
-      const m = { ...nn };
-      const foi = apres.p2 ?? apres.p1;
-      if (foi != null) m[cle] = foi; else delete m[cle];
-      return m;
-    });
-    planifier(etudId, ueNum, resultat, session, note);
-  }
-
   function poser(etudId, ueNum, resultat) {
     const cle = etudId + '|' + ueNum;
-
-    if (session) {
-      // On encode le résultat de la SESSION ; la décision s'en déduit.
-      const avant = sessions[cle] || {};
-      const apres = { ...avant, [session === 1 ? 's1' : 's2']: resultat };
-      setSessions(s => ({ ...s, [cle]: apres }));
-      const d = decision(apres.s1, apres.s2);
-      setCellules(c => {
-        const n = { ...c };
-        if (d) n[cle] = d; else delete n[cle];
-        return n;
-      });
-      planifier(etudId, ueNum, resultat, session);
-      return;
-    }
 
     setCellules(c => {
       const n = { ...c };
@@ -251,14 +197,13 @@ export default function EncodageRapide() {
     planifier(etudId, ueNum, resultat);
   }
 
+  // Une matrice de DÉCISIONS : réussi, ajourné, refusé, effacer. Les notes et
+  // les sessions se saisissent dans la feuille de délibération, qui a la place
+  // de les montrer.
   function cycler(etudId, ueNum) {
-    const cle = etudId + '|' + ueNum;
-    const cyc = session ? CYCLE_SESSION : CYCLE;
-    const actuel = session
-      ? (sessions[cle]?.[session === 1 ? 's1' : 's2'] || null)
-      : (cellules[cle] || null);
-    const i = cyc.indexOf(actuel);
-    poser(etudId, ueNum, cyc[(i + 1) % cyc.length]);
+    const actuel = cellules[etudId + '|' + ueNum] || null;
+    const i = CYCLE.indexOf(actuel);
+    poser(etudId, ueNum, CYCLE[(i + 1) % CYCLE.length]);
   }
 
   const filtres = useMemo(() => {
@@ -318,9 +263,8 @@ export default function EncodageRapide() {
         <div>
           <h2 className="text-xl font-semibold text-iip-blue">Encodage rapide</h2>
           <p className="text-sm text-slate-500">
-            {session
-              ? `Session ${session} : réussi, échec, absent — la décision s'en déduit.`
-              : 'Clics successifs : réussi, ajourné, refusé, effacer.'}{' '}
+            Clics successifs : réussi, ajourné, refusé, effacer.{' '}
+            Cliquez l'en-tête d'une unité pour sa feuille de délibération.{' '}
             L'inscription découle du résultat.
           </p>
         </div>
@@ -377,29 +321,6 @@ export default function EncodageRapide() {
           <option value="">Toutes les UE</option>
           {niveauxPresents.map(n => <option key={n} value={n}>UE de {n}</option>)}
         </select>
-        {/* La session encodée. « Décision » conserve l'ancien fonctionnement ;
-            S1 et S2 encodent le résultat de la session, la décision s'en déduit. */}
-        <div className="flex items-center gap-1 mr-2 border border-slate-300 rounded-lg p-0.5">
-          {[[null, 'Décision'], [1, 'Session 1'], [2, 'Session 2']].map(([v, l]) => (
-            <button key={String(v)} onClick={() => setSession(v)}
-              className={`px-2.5 py-1 text-[12px] rounded-md font-semibold ${
-                session === v ? 'bg-iip-blue text-white' : 'text-slate-600 hover:bg-slate-100'}`}>
-              {l}
-            </button>
-          ))}
-        </div>
-
-        <div className="flex items-center gap-1 mr-2 border border-slate-300 rounded-lg p-0.5">
-          {[['points', 'Points'], ['delib', 'Délibération']].map(([v, l]) => (
-            <button key={v} onClick={() => setVueCellule(v)}
-              className={`px-2.5 py-1 text-[12px] rounded-md font-semibold ${
-                vueCellule === v ? 'bg-slate-700 text-white'
-                                 : 'text-slate-600 hover:bg-slate-100'}`}>
-              {l}
-            </button>
-          ))}
-        </div>
-
         <button onClick={() => appliquerLot('reussi')}
           className="text-[12px] px-2.5 py-1 rounded-lg bg-emerald-600 text-white font-semibold">
           Tout réussi
@@ -513,26 +434,6 @@ export default function EncodageRapide() {
                         className={`border-b border-slate-100 p-0.5 text-center
                           ${i > 0 && data.ues[i - 1].ue_niv !== u.ue_niv
                             ? 'border-l-2 border-l-iip-blue/30' : ''}`}>
-                        {/* En mode SESSION, la cellule devient une SAISIE : on
-                            encode la note de la session choisie, et la décision
-                            s'en déduit. Un bouton ne peut pas contenir de champ,
-                            d'où les deux formes. */}
-                        {session ? (
-                          <input type="number" min="0" max="20" step="0.5"
-                            value={sessions[cle]?.[session === 1 ? 'p1' : 'p2'] ?? ''}
-                            placeholder={session === 1 ? 'S1' : 'S2'}
-                            onChange={ev => poserNote(e.id, u.ue_num, ev.target.value)}
-                            title={`Note de session ${session}`
-                              + (sessions[cle]?.p1 != null ? ` · S1 ${sessions[cle].p1}` : '')
-                              + (sessions[cle]?.p2 != null ? ` · S2 ${sessions[cle].p2}` : '')}
-                            className={`w-12 h-9 rounded-md border text-center text-[12px]
-                              font-semibold leading-none ${
-                              sessions[cle]?.[session === 1 ? 'p1' : 'p2'] != null
-                                ? (sessions[cle][session === 1 ? 'p1' : 'p2'] < 10
-                                    ? 'border-amber-300 bg-amber-50 text-amber-800'
-                                    : 'border-emerald-300 bg-emerald-50 text-emerald-800')
-                                : 'border-slate-200 text-slate-400'}`} />
-                        ) : (
                         <button onClick={() => cycler(e.id, u.ue_num)}
                           title={val
                             ? `${val === 'reussi' ? 'Réussi' : val === 'ajourne' ? 'Ajourné'
@@ -576,7 +477,6 @@ export default function EncodageRapide() {
                             </span>
                           ) : '·'}
                         </button>
-                        )}
                       </td>
                     );
                   })}
