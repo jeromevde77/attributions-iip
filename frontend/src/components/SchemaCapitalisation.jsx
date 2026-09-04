@@ -39,10 +39,11 @@ export default function SchemaCapitalisation({
 
   const layout = useMemo(() => {
     if (!data?.nodes?.length) return null;
-    // Boîtes RESSERRÉES : à 116×40 le schéma débordait de son cadre et
-    // recouvrait la légende. Les écarts se réduisent aussi, les flèches
-    // restant lisibles.
-    const L = 96, H = 32, GX = 44, GY = 7, PAD = 5, TETE = 20;
+    // Boîtes RESSERRÉES une seconde fois : à 96×32 elles restaient trop
+    // grandes et la légende du bas se faisait manger. Le numéro d'UE reste
+    // parfaitement lisible à cette taille, c'est lui qu'on cherche du regard.
+    // PIED réserve la bande de la légende, qui était recouverte.
+    const L = 78, H = 26, GX = 38, GY = 6, PAD = 5, TETE = 18, PIED = 22;
     const couches = {};
     for (const n of data.nodes) (couches[n.couche] = couches[n.couche] || []).push(n);
     const nums = Object.keys(couches).map(Number).sort((a, b) => a - b);
@@ -79,7 +80,8 @@ export default function SchemaCapitalisation({
     return {
       pos, L, H, TETE, PAD, entetes, groupes, colonnesX,
       largeur: PAD * 2 + nums.length * (L + GX) - GX,
-      hauteur: PAD * 2 + TETE + hauteurMax * (H + GY) - GY,
+      // PIED : la légende s'affiche SOUS le schéma et se faisait recouvrir.
+      hauteur: PAD * 2 + TETE + PIED + hauteurMax * (H + GY) - GY,
     };
   }, [data]);
 
@@ -312,7 +314,10 @@ export default function SchemaCapitalisation({
                 const co = ei
                   ? { fill: mode === 'structure' ? OR.fill : base.fill, stroke: OR.stroke, text: ei && mode === 'structure' ? OR.text : base.text }
                   : base;
-                const nom = (n.ue_nom || '').length > 24 ? (n.ue_nom || '').slice(0, 23) + '…' : (n.ue_nom || '');
+                // Le libellé est coupé plus court : les boîtes ont rétréci et
+                // le texte débordait sur la voisine.
+                const nom = (n.ue_nom || '').length > 17
+                  ? (n.ue_nom || '').slice(0, 16) + '…' : (n.ue_nom || '');
                 const actif = selection === n.ue_num;
                 const enDeplacement = drag?.bouge && drag.ue_num === n.ue_num;
                 return (
@@ -334,23 +339,31 @@ export default function SchemaCapitalisation({
                         qu'elle mord dedans. */}
                     {n.determinante && (
                       <g>
-                        <circle cx={p.x + layout.L} cy={p.y} r={9}
-                          fill="#047857" stroke="#fff" strokeWidth={1.5} />
-                        <text x={p.x + layout.L} y={p.y + 3.5} textAnchor="middle"
-                          fontSize={11} fontWeight="700" fill="#fff">D</text>
+                        {/* Proportionnée aux boîtes resserrées : à r=9 sur une
+                            boîte de 26 de haut, la pastille la mangeait. */}
+                        <circle cx={p.x + layout.L} cy={p.y} r={6.5}
+                          fill="#047857" stroke="#fff" strokeWidth={1.2} />
+                        <text x={p.x + layout.L} y={p.y + 2.5} textAnchor="middle"
+                          fontSize={8} fontWeight="700" fill="#fff">D</text>
                       </g>
                     )}
                     {ei && (
-                      <text x={p.x + layout.L - 9} y={p.y + layout.H - 7} textAnchor="end"
-                        fontSize="10" fill={OR.stroke}>★</text>
+                      <text x={p.x + layout.L - 5} y={p.y + layout.H - 5} textAnchor="end"
+                        fontSize="8" fill={OR.stroke}>★</text>
                     )}
-                    <text x={p.x + 8} y={p.y + 16} fontSize="11.5" fontWeight="700" fill={co.text}>
+                    <text x={p.x + 6} y={p.y + 12} fontSize="10" fontWeight="700" fill={co.text}>
                       {n.ue_num}
                     </text>
-                    <text x={p.x + 8} y={p.y + 29} fontSize="8.5" fill={co.text} opacity="0.85">
+                    <text x={p.x + 6} y={p.y + 22} fontSize="7" fill={co.text} opacity="0.85">
                       {nom}
                     </text>
-                    {n.inscrite && <circle cx={p.x + layout.L - 8} cy={p.y + 8} r="3.2" fill={co.stroke} />}
+                    {/* La pastille de l'UE inscrite, replacée pour les boîtes
+                        resserrées. Elle se décale quand la pastille « D »
+                        occupe déjà l'angle. */}
+                    {n.inscrite && (
+                      <circle cx={p.x + layout.L - (n.determinante ? 15 : 6)}
+                        cy={p.y + 6} r="2.6" fill={co.stroke} />
+                    )}
                     {modeLien && onLien && (
                       <circle cx={p.x + layout.L} cy={p.y + layout.H / 2} r="5.5"
                         fill={lien?.cible === n.ue_num ? '#00AACC' : '#FFFFFF'}

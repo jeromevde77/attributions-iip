@@ -1318,6 +1318,37 @@ function FicheEtudiant({ id, annee, onClose }) {
           ))}
         </div>
 
+        {/* Les ACTIONS du programme, ancrées sous les onglets. Placées dans
+            le contenu, elles ne pouvaient pas rester visibles : le défilement
+            est porté par la fenêtre entière, non par l'onglet. */}
+              {onglet === 'parcours' && pae && !pae.erreur && (
+                <div className="sticky top-0 z-30 bg-white/95 backdrop-blur border-b border-slate-200 px-6 py-2.5 flex gap-2 items-center flex-wrap">
+                  <button onClick={enregistrerPAE} disabled={enregistrement}
+                    className="flex items-center gap-1.5 px-3 py-1.5 text-sm
+                               bg-iip-turquoise text-white font-semibold rounded-lg
+                               disabled:opacity-50">
+                    <IconCheck size={14} />
+                    {enregistrement ? 'Enregistrement…' : 'Enregistrer le PAE'}
+                  </button>
+                  <button onClick={confirmerPAE} disabled={enregistrement}
+                    title={paeConfirme
+                      ? 'Retirer la confirmation — les inscriptions sont conservées'
+                      : "Confirmer le programme : l'étudiant passe en inscrit"}
+                    className={`flex items-center gap-1.5 px-3 py-1.5 text-sm
+                      font-semibold rounded-lg disabled:opacity-50 ${paeConfirme
+                        ? 'border border-slate-300 text-slate-600'
+                        : 'bg-iip-blue text-white'}`}>
+                    <IconWritingSign size={14} />
+                    {paeConfirme ? 'Programme confirmé' : 'Confirmer le programme'}
+                  </button>
+                  <span className="text-[11.5px] text-slate-500 ml-1">
+                    {paeConfirme
+                      ? "L'étudiant est inscrit aux unités retenues."
+                      : "Rien n'est inscrit tant que vous n'avez pas confirmé."}
+                  </span>
+                </div>
+              )}
+
         <div className="p-6">
           {/* Inscriptions + résultats */}
           {onglet === 'va' && <Valorisations etudId={id} annee={annee} />}
@@ -1394,38 +1425,6 @@ function FicheEtudiant({ id, annee, onClose }) {
 
           {onglet === 'parcours' && (
             <div>
-              {/* Les ACTIONS en tête de l'onglet. Elles étaient en tête de
-                  leur propre bloc, mais celui-ci vient après le schéma et la
-                  grille : il fallait descendre pour enregistrer. */}
-              {pae && !pae.erreur && (
-                <div className="sticky top-0 z-30 bg-white/95 backdrop-blur
-                                border-b border-slate-200 px-5 py-2.5 flex gap-2
-                                items-center flex-wrap">
-                  <button onClick={enregistrerPAE} disabled={enregistrement}
-                    className="flex items-center gap-1.5 px-3 py-1.5 text-sm
-                               bg-iip-turquoise text-white font-semibold rounded-lg
-                               disabled:opacity-50">
-                    <IconCheck size={14} />
-                    {enregistrement ? 'Enregistrement…' : 'Enregistrer le PAE'}
-                  </button>
-                  <button onClick={confirmerPAE} disabled={enregistrement}
-                    title={paeConfirme
-                      ? 'Retirer la confirmation — les inscriptions sont conservées'
-                      : "Confirmer le programme : l'étudiant passe en inscrit"}
-                    className={`flex items-center gap-1.5 px-3 py-1.5 text-sm
-                      font-semibold rounded-lg disabled:opacity-50 ${paeConfirme
-                        ? 'border border-slate-300 text-slate-600'
-                        : 'bg-iip-blue text-white'}`}>
-                    <IconWritingSign size={14} />
-                    {paeConfirme ? 'Programme confirmé' : 'Confirmer le programme'}
-                  </button>
-                  <span className="text-[11.5px] text-slate-500 ml-1">
-                    {paeConfirme
-                      ? "L'étudiant est inscrit aux unités retenues."
-                      : "Rien n'est inscrit tant que vous n'avez pas confirmé."}
-                  </span>
-                </div>
-              )}
 
               {/* L'ordre de lecture : le SCHÉMA d'abord — la vue d'ensemble du
                   parcours —, puis le programme proposé, et les NOTES en
