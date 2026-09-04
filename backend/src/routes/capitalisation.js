@@ -75,7 +75,10 @@ export function construireGraphe({ sections, annee, etat }) {
 
   const ues = db.prepare(`
     SELECT ue_num, MIN(ue_nom) AS ue_nom, MIN(section) AS section,
-           MAX(COALESCE(is_epreuve_integree, 0)) AS is_epreuve_integree
+           MAX(COALESCE(is_epreuve_integree, 0)) AS is_epreuve_integree,
+           -- Une UE DÉTERMINANTE pèse double dans la mention du diplôme
+           -- (décret de 1991) : elle mérite d'être signalée sur le schéma.
+           MAX(CASE WHEN ue_det = 'x' THEN 1 ELSE 0 END) AS determinante
     FROM ue WHERE annee_scolaire = ? AND section IN (${ph})
     GROUP BY ue_num
   `).all(anneeRef, ...sections);
@@ -169,6 +172,7 @@ export function construireGraphe({ sections, annee, etat }) {
       couche: colonneNoeud(n),
       ordre: profondeur[n] || 0,
       epreuve_integree: estEI[n],
+      determinante: !!u.determinante,
       prerequis: prereqDe[n] || [],
       ...(etat ? etat(n) : { statut: 'structure' }),
     };

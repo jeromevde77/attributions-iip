@@ -316,6 +316,18 @@ export default function SchemaCapitalisation({
                       fill={co.fill} stroke={actif ? '#00AACC' : co.stroke}
                       strokeWidth={actif ? 2.5 : (ei ? 2.2 : (n.inscrite ? 2 : 1.2))}
                       strokeDasharray={n.statut === 'sous_reserve' ? '4 3' : undefined} />
+                    {/* UE DÉTERMINANTE : elle pèse double dans la mention du
+                        diplôme. La pastille est CENTRÉE sur l'angle supérieur
+                        droit, à cheval sur le bord — elle déborde autant
+                        qu'elle mord dedans. */}
+                    {n.determinante && (
+                      <g>
+                        <circle cx={p.x + layout.L} cy={p.y} r={9}
+                          fill="#047857" stroke="#fff" strokeWidth={1.5} />
+                        <text x={p.x + layout.L} y={p.y + 3.5} textAnchor="middle"
+                          fontSize={11} fontWeight="700" fill="#fff">D</text>
+                      </g>
+                    )}
                     {ei && (
                       <text x={p.x + layout.L - 9} y={p.y + layout.H - 7} textAnchor="end"
                         fontSize="10" fill={OR.stroke}>★</text>

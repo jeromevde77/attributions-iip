@@ -1629,6 +1629,14 @@ r.get('/:id/fiche-parcours/document', authRequired, (req, res) => {
       <text x="${p.x + 4}" y="${p.y + 18}" font-size="6" fill="${co.texte}">${esc2(l1.join(' '))}</text>
       <text x="${p.x + 4}" y="${p.y + 25}" font-size="6" fill="${co.texte}">${esc2(l2.join(' '))}${
         mots.length > l1.length + l2.length ? '…' : ''}</text>
+      ${n.determinante ? `
+      <!-- UE déterminante : la pastille est CENTRÉE sur l'angle supérieur
+           droit, donc à cheval sur le bord — elle déborde autant qu'elle
+           mord dedans, comme un cachet posé sur le coin. -->
+      <circle cx="${p.x + L}" cy="${p.y}" r="4.5" fill="#047857"
+        stroke="#fff" stroke-width="0.7" />
+      <text x="${p.x + L}" y="${p.y + 2.2}" text-anchor="middle"
+        font-size="5.5" font-weight="700" fill="#fff">D</text>` : ''}
     </g>`;
   }).join('');
 
