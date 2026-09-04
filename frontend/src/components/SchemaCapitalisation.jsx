@@ -39,7 +39,10 @@ export default function SchemaCapitalisation({
 
   const layout = useMemo(() => {
     if (!data?.nodes?.length) return null;
-    const L = 116, H = 40, GX = 52, GY = 9, PAD = 6, TETE = 22;
+    // Boîtes RESSERRÉES : à 116×40 le schéma débordait de son cadre et
+    // recouvrait la légende. Les écarts se réduisent aussi, les flèches
+    // restant lisibles.
+    const L = 96, H = 32, GX = 44, GY = 7, PAD = 5, TETE = 20;
     const couches = {};
     for (const n of data.nodes) (couches[n.couche] = couches[n.couche] || []).push(n);
     const nums = Object.keys(couches).map(Number).sort((a, b) => a - b);
@@ -201,12 +204,14 @@ export default function SchemaCapitalisation({
           {/* Le schéma tient ENTIER dans son cadre : un ascenseur interne
               piégeait la molette et empêchait la page de défiler. Le SVG se
               met à l'échelle par son viewBox. */}
-          <div className="bg-white" style={{ maxHeight: mode === 'structure' ? 520 : 340 }}>
+          {/* La hauteur SUIT le schéma : un plafond fixe l'écrasait et le
+              faisait déborder sur la légende. Le SVG garde ses proportions et
+              la zone s'adapte, sans ascenseur. */}
+          <div className="bg-white">
             <svg ref={svgRef}
               viewBox={`0 0 ${layout.largeur} ${layout.hauteur}`}
               preserveAspectRatio="xMidYMid meet"
-              style={{ width: '100%', height: 'auto',
-                       maxHeight: mode === 'structure' ? 520 : 340 }}
+              style={{ width: '100%', height: 'auto', display: 'block' }}
               viewBox={`0 0 ${layout.largeur} ${layout.hauteur}`}
               onPointerMove={e => { pointerMove(e); lienMove(e); }}
               onPointerUp={e => { pointerUp(e); lienUp(e); }}

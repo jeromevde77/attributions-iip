@@ -1394,6 +1394,39 @@ function FicheEtudiant({ id, annee, onClose }) {
 
           {onglet === 'parcours' && (
             <div>
+              {/* Les ACTIONS en tête de l'onglet. Elles étaient en tête de
+                  leur propre bloc, mais celui-ci vient après le schéma et la
+                  grille : il fallait descendre pour enregistrer. */}
+              {pae && !pae.erreur && (
+                <div className="sticky top-0 z-30 bg-white/95 backdrop-blur
+                                border-b border-slate-200 px-5 py-2.5 flex gap-2
+                                items-center flex-wrap">
+                  <button onClick={enregistrerPAE} disabled={enregistrement}
+                    className="flex items-center gap-1.5 px-3 py-1.5 text-sm
+                               bg-iip-turquoise text-white font-semibold rounded-lg
+                               disabled:opacity-50">
+                    <IconCheck size={14} />
+                    {enregistrement ? 'Enregistrement…' : 'Enregistrer le PAE'}
+                  </button>
+                  <button onClick={confirmerPAE} disabled={enregistrement}
+                    title={paeConfirme
+                      ? 'Retirer la confirmation — les inscriptions sont conservées'
+                      : "Confirmer le programme : l'étudiant passe en inscrit"}
+                    className={`flex items-center gap-1.5 px-3 py-1.5 text-sm
+                      font-semibold rounded-lg disabled:opacity-50 ${paeConfirme
+                        ? 'border border-slate-300 text-slate-600'
+                        : 'bg-iip-blue text-white'}`}>
+                    <IconWritingSign size={14} />
+                    {paeConfirme ? 'Programme confirmé' : 'Confirmer le programme'}
+                  </button>
+                  <span className="text-[11.5px] text-slate-500 ml-1">
+                    {paeConfirme
+                      ? "L'étudiant est inscrit aux unités retenues."
+                      : "Rien n'est inscrit tant que vous n'avez pas confirmé."}
+                  </span>
+                </div>
+              )}
+
               {/* L'ordre de lecture : le SCHÉMA d'abord — la vue d'ensemble du
                   parcours —, puis le programme proposé, et les NOTES en
                   dernier, qui sont le détail. */}
@@ -1480,52 +1513,6 @@ function FicheEtudiant({ id, annee, onClose }) {
                           </select>
                         )}
                       </div>
-                    </div>
-                    {/* La barre reste VISIBLE au défilement : les boutons
-                        étaient en tête du bloc PAE, mais celui-ci vient après
-                        le schéma et la grille — il fallait remonter pour
-                        enregistrer. */}
-                    <div className="flex gap-2 sticky top-0 z-20 bg-white/95
-                                    backdrop-blur py-2 -mt-2">
-                      <button onClick={enregistrerPAE} disabled={enregistrement}
-                        className="flex items-center gap-1.5 px-3 py-1.5 text-sm bg-iip-turquoise text-white font-semibold rounded-lg disabled:opacity-50">
-                        <IconCheck size={14} /> {enregistrement ? 'Enregistrement…' : 'Enregistrer le PAE'}
-                      </button>
-                      {/* Enregistrer n'est pas confirmer : tant que le
-                          programme n'est pas confirmé, il reste une
-                          proposition et l'étudiant n'est pas inscrit. */}
-                      <button onClick={confirmerPAE} disabled={enregistrement}
-                        title={paeConfirme
-                          ? 'Retirer la confirmation — les inscriptions sont conservées'
-                          : "Confirmer le programme : l'étudiant passe en inscrit"}
-                        className={`flex items-center gap-1.5 px-3 py-1.5 text-sm font-semibold
-                          rounded-lg disabled:opacity-50 ${paeConfirme
-                            ? 'border border-slate-300 text-slate-600'
-                            : 'bg-iip-blue text-white'}`}>
-                        <IconWritingSign size={14} />
-                        {paeConfirme ? 'Programme confirmé' : 'Confirmer le programme'}
-                      </button>
-                      {/* Quatre documents alignés : ils se rangent derrière une
-                          seule entrée, l'enregistrement du PAE restant seul en
-                          évidence puisque c'est l'action courante. */}
-                      <MenuActions libelle="Documents" Icone={IconFileText} ton="bleu"
-                        titre="Documents de cet étudiant"
-                        items={[
-                          { libelle: 'Attestations de réussite', Icone: IconFileText,
-                            aide: "Une par unité d'enseignement réussie",
-                            onClick: ouvrirAttestations },
-                          { libelle: 'Parcours de formation', Icone: IconFileText,
-                            aide: 'Schéma de capitalisation et unités acquises — 1 page',
-                            onClick: ouvrirParcours },
-                          { separateur: true, titre: 'Décisions' },
-                          { libelle: 'Motiver un refus / ajournement', Icone: IconFileText,
-                            aide: 'Annexes 8 et 9 — une justification par acquis',
-                            onClick: () => setMotivation(true) },
-                          { separateur: true, titre: 'Administrations' },
-                          { libelle: 'Progrès des études (annexe 2)', Icone: IconFileText,
-                            aide: "Office des Étrangers — réclame la nationalité",
-                            onClick: () => setAnnexe2(true) },
-                        ]} />
                     </div>
                   </div>
 
