@@ -1314,7 +1314,9 @@ r.post('/import-suivi', authRequired,
   const insPond = db.prepare(`
     INSERT INTO aa_ponderation (ue_num, cours_code, aa_code, poids, maj_le)
     VALUES (?,?,?,?, datetime('now'))
-    ON CONFLICT(ue_num, cours_code, aa_code) DO UPDATE SET
+    -- La contrainte de la table porte sur (cours_code, aa_code), SANS ue_num :
+    -- l'avoir supposée à trois colonnes faisait échouer tout l'import.
+    ON CONFLICT(cours_code, aa_code) DO UPDATE SET
       poids = excluded.poids, maj_le = excluded.maj_le`);
 
   const rapport = { retrouves: 0, resultats: 0, notes: 0, motivations: 0,
