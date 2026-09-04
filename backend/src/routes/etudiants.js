@@ -1157,6 +1157,15 @@ r.post('/rapport-pae/excel', authRequired, async (req, res) => {
     if (!cols.includes('resultat_s2')) {
       db.exec('ALTER TABLE etudiant_inscription ADD COLUMN resultat_s2 TEXT');
     }
+    // Les NOTES de chaque session, à côté de leur décision. « points » reste
+    // la note qui fait foi, comme « resultat » reste la décision qui fait foi.
+    if (!cols.includes('points_s1')) {
+      db.exec('ALTER TABLE etudiant_inscription ADD COLUMN points_s1 REAL');
+      console.log('[migration] points_s1 / points_s2 ajoutées');
+    }
+    if (!cols.includes('points_s2')) {
+      db.exec('ALTER TABLE etudiant_inscription ADD COLUMN points_s2 REAL');
+    }
   } catch (e) { console.error('[migration] sessions :', e.message); }
 })();
 
@@ -1886,7 +1895,8 @@ r.get('/encodage-direct', authRequired, (req, res) => {
   // contredisait la grille de parcours.
   const existant = {};
   for (const l of db.prepare(`
-    SELECT etudiant_id, ue_num, resultat, resultat_s1, resultat_s2, points
+    SELECT etudiant_id, ue_num, resultat, resultat_s1, resultat_s2,
+           points, points_s1, points_s2
     FROM etudiant_inscription
     WHERE annee_scolaire = ?
       AND ue_num IN (${ues.map(() => '?').join(',')})
@@ -1894,6 +1904,7 @@ r.get('/encodage-direct', authRequired, (req, res) => {
     existant[`${l.etudiant_id}|${l.ue_num}`] = {
       resultat: l.resultat, points: l.points,
       s1: l.resultat_s1 || null, s2: l.resultat_s2 || null,
+      p1: l.points_s1 ?? null, p2: l.points_s2 ?? null,
     };
   }
 
@@ -2079,17 +2090,28 @@ r.post('/matrice', authRequired, roleRequired('admin', 'editeur'), (req, res) =>
 
   const ins = db.prepare(`
     INSERT INTO etudiant_inscription
-      (etudiant_id, annee_scolaire, ue_num, resultat, resultat_s1, resultat_s2, date_inscription)
-    VALUES (?,?,?,?,?,?,?)
+      (etudiant_id, annee_scolaire, ue_num, resultat, resultat_s1, resultat_s2,
+       points, points_s1, points_s2, date_inscription)
+    VALUES (?,?,?,?,?,?,?,?,?,?)
     ON CONFLICT(etudiant_id, annee_scolaire, ue_num) DO UPDATE SET
       resultat    = excluded.resultat,
       resultat_s1 = COALESCE(excluded.resultat_s1, etudiant_inscription.resultat_s1),
-      resultat_s2 = COALESCE(excluded.resultat_s2, etudiant_inscription.resultat_s2)
+      resultat_s2 = COALESCE(excluded.resultat_s2, etudiant_inscription.resultat_s2),
+      points      = COALESCE(excluded.points,      etudiant_inscription.points),
+      points_s1   = COALESCE(excluded.points_s1,   etudiant_inscription.points_s1),
+      points_s2   = COALESCE(excluded.points_s2,   etudiant_inscription.points_s2)
   `);
 
   const lire = db.prepare(`
-    SELECT resultat_s1, resultat_s2 FROM etudiant_inscription
+    SELECT resultat_s1, resultat_s2, points_s1, points_s2 FROM etudiant_inscription
     WHERE etudiant_id = ? AND annee_scolaire = ? AND ue_num = ?`);
+
+  /** Une note : hors bornes ou illisible, elle ne vaut RIEN, pas zéro. */
+  const note = v => {
+    if (v == null || v === '') return null;
+    const x = Number(String(v).replace(',', '.'));
+    return Number.isFinite(x) && x >= 0 && x <= 20 ? x : null;
+  };
 
   let n = 0;
   db.transaction(() => {
@@ -2100,7 +2122,8 @@ r.post('/matrice', authRequired, roleRequired('admin', 'editeur'), (req, res) =>
         // Saisie directe de la décision, sans session : on la respecte telle
         // quelle. C'est le cas des reprises et des corrections du Conseil.
         const r0 = ch.resultat && RES.includes(ch.resultat) ? ch.resultat : null;
-        ins.run(Number(ch.etudiant_id), annee, Number(ch.ue_num), r0, null, null, dateJour);
+        ins.run(Number(ch.etudiant_id), annee, Number(ch.ue_num), r0, null, null,
+                note(ch.points), null, null, dateJour);
         n++; continue;
       }
 
@@ -2116,8 +2139,16 @@ r.post('/matrice', authRequired, roleRequired('admin', 'editeur'), (req, res) =>
         ? ch.decision_imposee
         : decisionFinale(s1, s2);
 
+      // La note de la session, et celle qui FAIT FOI : la seconde si elle
+      // existe, la première sinon — même règle que pour la décision.
+      const p = note(ch.points);
+      const p1 = session === 1 ? p : (actuel.points_s1 ?? null);
+      const p2 = session === 2 ? p : (actuel.points_s2 ?? null);
+      const pFoi = p2 ?? p1;
+
       ins.run(Number(ch.etudiant_id), annee, Number(ch.ue_num), decision,
-              session === 1 ? val : null, session === 2 ? val : null, dateJour);
+              session === 1 ? val : null, session === 2 ? val : null,
+              pFoi, session === 1 ? p : null, session === 2 ? p : null, dateJour);
       n++;
     }
   })();
