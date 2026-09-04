@@ -1550,15 +1550,92 @@ r.get('/:id/fiche-parcours/document', authRequired, (req, res) => {
     return c0?.groupe || c0?.label || '';
   };
 
-  const schema = `<div class="grille">${colonnes.map(i => `
-    <div class="col">
-      <div class="col-titre">${esc2(libColonne(i))}</div>
-      ${parColonne[i].map(n => `
-        <div class="ue ${n.statut}${n.inscrite ? ' inscrite' : ''}">
-          <span class="num">${n.ue_num}</span>
-          <span class="nom">${esc2(n.ue_nom || '')}</span>
-        </div>`).join('')}
-    </div>`).join('')}</div>`;
+  // Le schéma en SVG, comme à l'écran : un flux CSS n'a pas de coordonnées, et
+  // sans coordonnées on ne peut pas tracer les flèches de prérequis. Or ce sont
+  // elles qui font lire le parcours — sans elles on voit des colonnes, pas des
+  // dépendances.
+  const L = 108, H = 34, GX = 44, GY = 7, PAD = 4, TETE = 16;
+  const couches = {};
+  for (const n of graphe.nodes) (couches[n.couche] ||= []).push(n);
+  const nums = Object.keys(couches).map(Number).sort((a, b) => a - b);
+
+  const pos = {};
+  const colonnesX = {};
+  let lignesMax = 0;
+  nums.forEach((cn, ci) => {
+    const x = PAD + ci * (L + GX);
+    colonnesX[cn] = x;
+    couches[cn].forEach((n, ri) => { pos[n.ue_num] = { x, y: PAD + TETE + ri * (H + GY) }; });
+    lignesMax = Math.max(lignesMax, couches[cn].length);
+  });
+  const largeur = PAD * 2 + nums.length * L + Math.max(0, nums.length - 1) * GX;
+  const hauteur = PAD * 2 + TETE + lignesMax * (H + GY);
+
+  const COULEUR = {
+    acquis:     { fond: '#D1FAE5', trait: '#34D399', texte: '#065F46' },
+    accessible: { fond: '#DBEAFE', trait: '#60A5FA', texte: '#1E3A8A' },
+    bloque:     { fond: '#F1F5F9', trait: '#CBD5E1', texte: '#64748B' },
+  };
+
+  const fleches = (graphe.edges || []).map(e2 => {
+    const a = pos[e2.from], b = pos[e2.to];
+    if (!a || !b) return '';
+    const x1 = a.x + L, y1 = a.y + H / 2;
+    const x2 = b.x - 3, y2 = b.y + H / 2;
+    // Une courbe plutôt qu'une droite : les liens se croisent moins et se
+    // suivent mieux à l'œil.
+    const dx = Math.max(14, (x2 - x1) / 2);
+    return `<path d="M${x1},${y1} C${x1 + dx},${y1} ${x2 - dx},${y2} ${x2},${y2}"
+      fill="none" stroke="${e2.type === 'legal' ? '#94A3B8' : '#C9A84C'}"
+      stroke-width="${e2.type === 'legal' ? 0.8 : 0.7}"
+      stroke-dasharray="${e2.type === 'legal' ? '' : '2,1.5'}"
+      marker-end="url(#fl)" />`;
+  }).join('');
+
+  const titres = nums.map(cn => {
+    const c0 = (graphe.colonnes || []).find(x => x.index === cn);
+    const lib = c0?.groupe || c0?.label || couches[cn][0]?.ue_niv || '';
+    return lib ? `<text x="${colonnesX[cn] + L / 2}" y="${PAD + 9}"
+      text-anchor="middle" font-size="7" font-weight="700"
+      fill="#475569">${esc2(lib)}</text>` : '';
+  }).join('');
+
+  const boites = graphe.nodes.map(n => {
+    const p = pos[n.ue_num];
+    const co = COULEUR[n.statut] || COULEUR.bloque;
+    // Le nom, coupé sur deux lignes : les intitulés d'UE sont longs.
+    const mots = String(n.ue_nom || '').split(/\s+/);
+    const l1 = [], l2 = [];
+    for (const m of mots) {
+      if (l1.join(' ').length + m.length <= 24) l1.push(m);
+      else if (l2.join(' ').length + m.length <= 24) l2.push(m);
+    }
+    return `
+    <g>
+      <rect x="${p.x}" y="${p.y}" width="${L}" height="${H}" rx="2.5"
+        fill="${co.fond}" stroke="${n.inscrite ? '#C9A84C' : co.trait}"
+        stroke-width="${n.inscrite ? 1.6 : 0.6}" />
+      <text x="${p.x + 4}" y="${p.y + 9}" font-size="7.5" font-weight="700"
+        fill="${co.texte}">${n.ue_num}${n.epreuve_integree ? ' · EI' : ''}</text>
+      <text x="${p.x + 4}" y="${p.y + 18}" font-size="6" fill="${co.texte}">${esc2(l1.join(' '))}</text>
+      <text x="${p.x + 4}" y="${p.y + 25}" font-size="6" fill="${co.texte}">${esc2(l2.join(' '))}${
+        mots.length > l1.length + l2.length ? '…' : ''}</text>
+    </g>`;
+  }).join('');
+
+  const schema = `
+  <svg viewBox="0 0 ${largeur} ${hauteur}" class="schema"
+       xmlns="http://www.w3.org/2000/svg">
+    <defs>
+      <marker id="fl" markerWidth="6" markerHeight="6" refX="5" refY="2"
+        orient="auto" markerUnits="strokeWidth">
+        <path d="M0,0 L5,2 L0,4 z" fill="#94A3B8" />
+      </marker>
+    </defs>
+    ${titres}
+    ${fleches}
+    ${boites}
+  </svg>`;
 
   const reussies = [...acquis.entries()]
     .map(([ue, a]) => ({ ue, ...a,
@@ -1624,15 +1701,8 @@ r.get('/:id/fiche-parcours/document', authRequired, (req, res) => {
 .p.bloque,.ue.bloque{background:#F1F5F9;border-color:#CBD5E1;color:#64748B}
 .p.inscrite{background:#fff;border:1.2pt solid #C9A84C}
 
-.grille{display:flex;gap:2mm;align-items:flex-start}
-.col{flex:1;min-width:0}
-.col-titre{font-size:7.5pt;font-weight:700;text-align:center;color:#475569;
-  border-bottom:.4pt solid #cbd5e1;padding-bottom:.6mm;margin-bottom:1mm}
-.ue{border:.5pt solid;border-radius:1mm;padding:1mm 1.2mm;margin-bottom:1mm;
-  font-size:6.8pt;line-height:1.15;break-inside:avoid}
-.ue.inscrite{box-shadow:inset 0 0 0 .8pt #C9A84C}
-.ue .num{font-weight:700;display:block}
-.ue .nom{display:block;color:#334155}
+/* Le schéma est un SVG : il porte ses propres couleurs. */
+.schema{width:100%;height:auto;max-height:105mm;display:block;margin:1mm 0 2mm}
 
 .bas{margin-top:3mm;border-top:.5pt solid #cbd5e1;padding-top:1.5mm}
 .bas-titre{font-size:8.5pt;font-weight:700;margin-bottom:1mm}
