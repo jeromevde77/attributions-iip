@@ -3,6 +3,7 @@ import {
   IconAlertTriangle, IconCheck, IconDeviceFloppy, IconPencil, IconSearch,
 } from '@tabler/icons-react';
 import { authHeaders } from '../lib/api.js';
+import FeuilleDeliberation from '../components/FeuilleDeliberation.jsx';
 import EncodageDirect from '../components/EncodageDirect.jsx';
 
 /**
@@ -84,6 +85,9 @@ export default function EncodageRapide() {
   // montre la décision — C, Aj, R — car c'est elle qui compte au Conseil, et
   // une note de 7 ne dit pas à elle seule si l'unité est ajournée ou refusée.
   const [vueCellule, setVueCellule] = useState('points');
+  // La feuille de délibération d'une unité : ses acquis pour tous ses
+  // étudiants, ce que la matrice ne peut pas montrer.
+  const [feuilleUE, setFeuilleUE] = useState(null);
   const [cellules, setCellules] = useState({});     // "etud|ue" -> resultat
   const [notes, setNotes] = useState({});          // "etud|ue" -> note sur 20
   const [recherche, setRecherche] = useState('');
@@ -419,6 +423,11 @@ export default function EncodageRapide() {
         )}
       </div>
 
+      {feuilleUE && (
+        <FeuilleDeliberation ueNum={feuilleUE} annee={annee}
+          onClose={() => { setFeuilleUE(null); charger(); }} />
+      )}
+
       {coherence && vue !== 'annee' && (
         <div className="mb-3 px-4 py-3 rounded-xl bg-amber-50 border border-amber-300
                         text-[12.5px] text-amber-900">
@@ -457,8 +466,12 @@ export default function EncodageRapide() {
                   <span className="text-[10.5px] uppercase tracking-wide text-slate-500">Étudiant</span>
                 </th>
                 {data.ues.map((u, i) => (
-                  <th key={u.ue_num} onClick={() => appliquerColonne(u.ue_num)}
-                    title={`${u.ue_nom || ''} — cliquer pour marquer réussi sur la sélection`}
+                  <th key={u.ue_num}
+                    onClick={ev => ev.shiftKey
+                      ? appliquerColonne(u.ue_num)
+                      : setFeuilleUE(u.ue_num)}
+                    title={`${u.ue_nom || ''}\nClic : feuille de délibération`
+                      + `\nMaj+clic : marquer réussi sur la sélection`}
                     /* Un filet marque le passage d'un niveau au suivant : les
                        colonnes sont triées BA1, BA2, BA3, mais rien ne le
                        montrait. */
