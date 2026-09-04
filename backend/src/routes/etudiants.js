@@ -4,7 +4,7 @@
 
 import { Router } from 'express';
 import { LOGO_IIP_JPEG } from '../services/assets/logo_iip_jpeg.js';
-import { piedBalisage, piedStyles, reglesDePage } from '../lib/document.js';
+import { piedBalisage, piedStyles, reglesDePage, envelopperDocument } from '../lib/document.js';
 
 import db from '../db/index.js';
 import { piedDocument } from './parametres.js';
@@ -1400,6 +1400,254 @@ r.post('/import-suivi', authRequired,
     inconnus: rapport.inconnus.slice(0, 20),
     nb_inconnus: rapport.inconnus.length,
   });
+});
+
+// ── Fiche pédagogique de parcours ──────────────────────────────────────────
+// Le document qu'on remet à l'étudiant après délibération : où il en est, ce
+// qu'il peut suivre, ce qui lui reste. Aucune notion financière — c'est une
+// pièce PÉDAGOGIQUE, non un décompte de droits d'inscription.
+r.get('/:id/fiche-parcours', authRequired, (req, res) => {
+  const etudId = Number(req.params.id);
+  const annee = req.query.annee || anneeDeTravail(req);
+
+  const e = db.prepare('SELECT * FROM etudiant WHERE id = ?').get(etudId);
+  if (!e) return res.status(404).json({ error: 'étudiant introuvable' });
+
+  const { section } = sectionRattachement(etudId, annee);
+  if (!section) {
+    return res.status(400).json({
+      error: "Aucune section pour cet étudiant : le schéma de capitalisation "
+           + 'ne peut pas être construit.',
+    });
+  }
+
+  // Tout ce que l'étudiant a acquis, TOUTES ANNÉES : une unité réussie ne se
+  // reperd pas.
+  const acquis = new Map();
+  for (const l of db.prepare(`
+    SELECT ue_num, resultat, points, annee_scolaire FROM etudiant_inscription
+    WHERE etudiant_id = ? ORDER BY annee_scolaire
+  `).all(etudId)) {
+    if (l.resultat === 'reussi') {
+      acquis.set(l.ue_num, { points: l.points, annee: l.annee_scolaire, mode: 'reussi' });
+    }
+  }
+  for (const v of db.prepare(`
+    SELECT ue_num, pourcentage, annee_scolaire FROM etudiant_valorisation
+    WHERE etudiant_id = ? AND type = 'complete'
+  `).all(etudId)) {
+    if (!acquis.has(v.ue_num)) {
+      acquis.set(v.ue_num, { points: v.pourcentage, annee: v.annee_scolaire, mode: 'va' });
+    }
+  }
+
+  const inscrites = new Set(db.prepare(`
+    SELECT ue_num FROM etudiant_inscription
+    WHERE etudiant_id = ? AND annee_scolaire = ?
+  `).all(etudId, annee).map(x => x.ue_num));
+
+  // Le graphe, avec la situation de l'étudiant superposée. Une unité est
+  // ACCESSIBLE si tous ses prérequis sont acquis ; sinon elle est hors
+  // d'atteinte pour l'instant.
+  const graphe = construireGraphe({
+    sections: [section], annee,
+    etat: (ueNum) => {
+      if (acquis.has(ueNum)) {
+        const a = acquis.get(ueNum);
+        return { statut: 'acquis', points: a.points, annee_acquis: a.annee, mode: a.mode };
+      }
+      return { statut: 'a_evaluer', inscrite: inscrites.has(ueNum) };
+    },
+  });
+
+  // L'accessibilité se calcule APRÈS coup : elle dépend des prérequis, que le
+  // graphe vient d'établir.
+  for (const n of graphe.nodes) {
+    if (n.statut === 'acquis') continue;
+    const bloquants = (n.prerequis || []).filter(p => !acquis.has(p));
+    n.statut = bloquants.length ? 'bloque' : 'accessible';
+    n.bloquants = bloquants;
+  }
+
+  // Les unités réussies, avec leur note — la partie basse du document.
+  const reussies = [...acquis.entries()]
+    .map(([ue_num, a]) => {
+      const u = graphe.nodes.find(n => n.ue_num === ue_num);
+      return {
+        ue_num, ue_nom: u?.ue_nom || `UE ${ue_num}`, ue_niv: u?.ue_niv || '',
+        points: a.points, annee: a.annee, mode: a.mode,
+      };
+    })
+    .sort((a, b) => String(a.annee).localeCompare(String(b.annee)) || a.ue_num - b.ue_num);
+
+  res.json({
+    etudiant: { id: e.id, nom: e.nom, prenom: e.prenom, id_ecampus: e.id_ecampus },
+    section, annee, graphe, reussies,
+    compte: {
+      acquis: acquis.size,
+      accessibles: graphe.nodes.filter(n => n.statut === 'accessible').length,
+      bloquees: graphe.nodes.filter(n => n.statut === 'bloque').length,
+      inscrites: inscrites.size,
+      total: graphe.nodes.length,
+    },
+  });
+});
+
+// ── Le document imprimable ─────────────────────────────────────────────────
+// Paysage, une page A4. Le schéma en haut, les unités réussies en bas.
+r.get('/:id/fiche-parcours/document', authRequired, (req, res) => {
+  const annee = req.query.annee || anneeDeTravail(req);
+  const etudId = Number(req.params.id);
+
+  const e = db.prepare('SELECT * FROM etudiant WHERE id = ?').get(etudId);
+  if (!e) return res.status(404).json({ error: 'étudiant introuvable' });
+
+  const { section } = sectionRattachement(etudId, annee);
+  if (!section) return res.status(400).json({ error: 'aucune section pour cet étudiant' });
+
+  // On réutilise le calcul de la route de données, sans le dupliquer.
+  const acquis = new Map();
+  for (const l of db.prepare(`
+    SELECT ue_num, resultat, points, annee_scolaire FROM etudiant_inscription
+    WHERE etudiant_id = ? ORDER BY annee_scolaire`).all(etudId)) {
+    if (l.resultat === 'reussi') {
+      acquis.set(l.ue_num, { points: l.points, annee: l.annee_scolaire, mode: 'reussi' });
+    }
+  }
+  for (const v of db.prepare(`
+    SELECT ue_num, pourcentage, annee_scolaire FROM etudiant_valorisation
+    WHERE etudiant_id = ? AND type = 'complete'`).all(etudId)) {
+    if (!acquis.has(v.ue_num)) {
+      acquis.set(v.ue_num, { points: v.pourcentage, annee: v.annee_scolaire, mode: 'va' });
+    }
+  }
+  const inscrites = new Set(db.prepare(`
+    SELECT ue_num FROM etudiant_inscription
+    WHERE etudiant_id = ? AND annee_scolaire = ?`).all(etudId, annee).map(x => x.ue_num));
+
+  const graphe = construireGraphe({
+    sections: [section], annee,
+    etat: n => acquis.has(n)
+      ? { statut: 'acquis' }
+      : { statut: 'a_evaluer', inscrite: inscrites.has(n) },
+  });
+  for (const n of graphe.nodes) {
+    if (n.statut === 'acquis') continue;
+    const bl = (n.prerequis || []).filter(p => !acquis.has(p));
+    n.statut = bl.length ? 'bloque' : 'accessible';
+  }
+
+  const esc2 = s => String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;');
+
+  // Les unités rangées par colonne du graphe : c'est la lecture du parcours.
+  const parColonne = {};
+  for (const n of graphe.nodes) (parColonne[n.couche] ||= []).push(n);
+  const colonnes = Object.keys(parColonne).map(Number).sort((a, b) => a - b);
+
+  const libColonne = i => {
+    const c0 = (graphe.colonnes || []).find(x => x.index === i);
+    return c0?.groupe || c0?.label || '';
+  };
+
+  const schema = `<div class="grille">${colonnes.map(i => `
+    <div class="col">
+      <div class="col-titre">${esc2(libColonne(i))}</div>
+      ${parColonne[i].map(n => `
+        <div class="ue ${n.statut}${n.inscrite ? ' inscrite' : ''}">
+          <span class="num">${n.ue_num}</span>
+          <span class="nom">${esc2(n.ue_nom || '')}</span>
+        </div>`).join('')}
+    </div>`).join('')}</div>`;
+
+  const reussies = [...acquis.entries()]
+    .map(([ue, a]) => ({ ue, ...a,
+      nom: graphe.nodes.find(n => n.ue_num === ue)?.ue_nom || `UE ${ue}` }))
+    .sort((a, b) => String(a.annee).localeCompare(String(b.annee)) || a.ue - b.ue);
+
+  const corps = `
+<div class="fp">
+  <div class="entete">
+    <div>
+      <div class="nom-etud">${esc2((e.nom || '').toUpperCase())} ${esc2(e.prenom || '')}</div>
+      <div class="sous">${esc2(section)} · année ${esc2(annee)}${
+        e.id_ecampus ? ` · matricule ${esc2(e.id_ecampus)}` : ''}</div>
+    </div>
+    <div class="titre">Parcours de formation</div>
+  </div>
+
+  <div class="legende">
+    <span><i class="p acquis"></i> acquise</span>
+    <span><i class="p accessible"></i> accessible</span>
+    <span><i class="p bloque"></i> prérequis manquants</span>
+    <span><i class="p inscrite"></i> inscrite cette année</span>
+  </div>
+
+  ${schema}
+
+  <div class="bas">
+    <div class="bas-titre">Unités d'enseignement acquises
+      <span class="cpt">${reussies.length}</span></div>
+    ${reussies.length ? `<table class="acquises">
+      <tr><th>UE</th><th>Intitulé</th><th>Année</th><th>Note</th></tr>
+      ${reussies.map(u => `<tr>
+        <td>${u.ue}</td>
+        <td>${esc2(u.nom)}</td>
+        <td>${esc2(u.annee || '')}</td>
+        <td class="n">${u.mode === 'va' ? 'Valorisation'
+          : (u.points != null ? u.points + '/20' : '—')}</td>
+      </tr>`).join('')}
+    </table>` : '<div class="vide">Aucune unité acquise à ce jour.</div>'}
+  </div>
+</div>`;
+
+  const html = envelopperDocument({
+    html: corps, titre: '', orientation: 'paysage',
+    margeHaut: 10, margeCote: 10, logo: LOGO_IIP_JPEG,
+    styles: `
+.fp{font-size:8pt;color:#1B2B4B}
+.entete{display:flex;justify-content:space-between;align-items:flex-end;
+  border-bottom:1pt solid #C9A84C;padding-bottom:1.5mm;margin-bottom:2mm}
+.entete .nom-etud{font-size:13pt;font-weight:700}
+.entete .sous{font-size:8.5pt;color:#475569}
+.entete .titre{font-size:10pt;font-weight:700;letter-spacing:.4pt;color:#475569}
+
+.legende{display:flex;gap:6mm;font-size:7pt;color:#475569;margin-bottom:2mm}
+.legende i.p{display:inline-block;width:3mm;height:3mm;border-radius:.6mm;
+  margin-right:1mm;vertical-align:-.3mm;border:.4pt solid rgba(0,0,0,.15)}
+
+/* Les couleurs demandées : vert acquis, bleu accessible, gris hors d'atteinte.
+   L'inscription se marque par un liseré, non par une couleur — une unité
+   inscrite reste accessible ou bloquée. */
+.p.acquis,.ue.acquis{background:#D1FAE5;border-color:#6EE7B7}
+.p.accessible,.ue.accessible{background:#DBEAFE;border-color:#93C5FD}
+.p.bloque,.ue.bloque{background:#F1F5F9;border-color:#CBD5E1;color:#64748B}
+.p.inscrite{background:#fff;border:1.2pt solid #C9A84C}
+
+.grille{display:flex;gap:2mm;align-items:flex-start}
+.col{flex:1;min-width:0}
+.col-titre{font-size:7.5pt;font-weight:700;text-align:center;color:#475569;
+  border-bottom:.4pt solid #cbd5e1;padding-bottom:.6mm;margin-bottom:1mm}
+.ue{border:.5pt solid;border-radius:1mm;padding:1mm 1.2mm;margin-bottom:1mm;
+  font-size:6.8pt;line-height:1.15;break-inside:avoid}
+.ue.inscrite{box-shadow:inset 0 0 0 .8pt #C9A84C}
+.ue .num{font-weight:700;display:block}
+.ue .nom{display:block;color:#334155}
+
+.bas{margin-top:3mm;border-top:.5pt solid #cbd5e1;padding-top:1.5mm}
+.bas-titre{font-size:8.5pt;font-weight:700;margin-bottom:1mm}
+.bas-titre .cpt{background:#1B2B4B;color:#fff;border-radius:2mm;
+  padding:.2mm 1.6mm;font-size:7pt;margin-left:1.5mm}
+table.acquises{width:100%;border-collapse:collapse;font-size:7pt}
+table.acquises th{background:#f1f5f9;text-align:left;font-size:6.5pt;
+  text-transform:uppercase;letter-spacing:.2pt;color:#475569;
+  padding:.8mm 1.2mm;border:.4pt solid #cbd5e1}
+table.acquises td{padding:.7mm 1.2mm;border:.4pt solid #e2e8f0}
+table.acquises td.n{text-align:right;white-space:nowrap;font-weight:600}
+.vide{font-size:7.5pt;color:#94a3b8;font-style:italic}`,
+  });
+
+  res.json({ html, nom: `Parcours_${e.nom}_${e.prenom}_${annee}` });
 });
 
 r.get('/coherence-resultats', authRequired, (req, res) => {

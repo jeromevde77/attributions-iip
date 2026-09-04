@@ -1208,6 +1208,16 @@ function FicheEtudiant({ id, annee, onClose }) {
 
   // Une attestation PAR UNITÉ réussie : ce sont des pièces distinctes, remises
   // séparément, chacune sur sa page.
+  /** Le parcours pédagogique : schéma et unités acquises, une page paysage. */
+  async function ouvrirParcours() {
+    const rep = await fetch(
+      `/api/etudiants/${id}/fiche-parcours/document?annee=${encodeURIComponent(annee)}`,
+      { headers: authHeaders() });
+    const j = await rep.json();
+    if (!rep.ok) { alert(j.error || 'Document indisponible.'); return; }
+    setFicheInscription({ html: j.html, titre: 'Parcours de formation', nom: j.nom });
+  }
+
   async function ouvrirAttestations() {
     const rep = await fetch(`/api/attestations/etudiant/${id}/document?annee=${annee}`,
       { headers: authHeaders() });
@@ -1436,6 +1446,9 @@ function FicheEtudiant({ id, annee, onClose }) {
                           { libelle: 'Frais de scolarité', Icone: IconFileText,
                             aide: "Document distinct : l'administration n'en connaît pas",
                             onClick: ouvrirFraisScolarite },
+                          { libelle: 'Parcours de formation', Icone: IconFileText,
+                            aide: 'Schéma de capitalisation et unités acquises — 1 page',
+                            onClick: ouvrirParcours },
                           { separateur: true, titre: 'Décisions' },
                           { libelle: 'Motiver un refus / ajournement', Icone: IconFileText,
                             aide: 'Annexes 8 et 9 — une justification par acquis',
