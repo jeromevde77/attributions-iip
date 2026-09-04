@@ -24,7 +24,7 @@
 import { Router } from 'express';
 import db from '../db/index.js';
 import { anneeDeTravail, anneeActiveEnBase } from '../helpers/annee.js';
-import { authRequired, roleRequired } from '../middleware/auth.js';
+import { authRequired, roleRequired, getUserSections } from '../middleware/auth.js';
 import { envelopperDocument } from '../lib/document.js';
 import { SIGNATURE_SOHET, SCEAU_IIP } from '../services/assets/signature_sohet.js';
 import { identiteEtablissement } from './config.js';
