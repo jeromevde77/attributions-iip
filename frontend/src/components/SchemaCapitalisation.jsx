@@ -213,12 +213,22 @@ export default function SchemaCapitalisation({
             <svg ref={svgRef}
               viewBox={`0 0 ${layout.largeur} ${layout.hauteur}`}
               preserveAspectRatio="xMidYMid meet"
-              style={{ width: '100%', height: 'auto', display: 'block' }}
-              viewBox={`0 0 ${layout.largeur} ${layout.hauteur}`}
               onPointerMove={e => { pointerMove(e); lienMove(e); }}
               onPointerUp={e => { pointerUp(e); lienUp(e); }}
               onPointerLeave={e => { pointerUp(e); lienUp(e); }}
-              style={{ display: 'block', touchAction: deplacable ? 'none' : 'auto' }}>
+              /* L'echelle est PLAFONNEE a 1:1 (maxWidth = largeur du viewBox).
+                 Sans ce plafond le SVG s'etirait a toute la largeur du cadre et
+                 agrandissait tout le schema d'un facteur 2 a 3 : les fontSize
+                 du SVG s'affichaient bien plus gros que le texte de la fenetre.
+                 Une unite de viewBox = un pixel, donc fontSize="10" = 10 px. */
+              style={{
+                width: '100%',
+                maxWidth: layout.largeur,
+                height: 'auto',
+                display: 'block',
+                margin: '0 auto',
+                touchAction: deplacable ? 'none' : 'auto',
+              }}>
               <defs>
                 <marker id="fl-cap" markerWidth="7" markerHeight="7" refX="6" refY="2.5"
                   orient="auto" markerUnits="strokeWidth">

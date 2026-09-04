@@ -1652,7 +1652,7 @@ export default function Professeurs() {
               <tr><td style="padding:2px 0;color:#374151;border:none">Total heures</td><td style="padding:2px 0;text-align:right;font-weight:600;color:#1B2B4B;border:none">${fmtH(totHeures)} h</td></tr>
               <tr style="border-top:2px solid #7c3aed">
                 <td style="padding:4px 0;font-weight:700;color:#7c3aed;border:none">Charge totale</td>
-                <td style="padding:4px 0;text-align:right;font-size:16px;font-weight:700;color:#7c3aed;border:none">${(Math.round(totCharge*1000)/1000).toFixed(3)}</td>
+                <td style="padding:4px 0;text-align:right;font-weight:700;color:#7c3aed;border:none">${(Math.round(totCharge*1000)/1000).toFixed(3)}</td>
               </tr>
             </table>
           </div>
@@ -1780,7 +1780,7 @@ export default function Professeurs() {
               <tr><td style="padding:2px 0;color:#374151;border:none">Total heures HELB</td><td style="padding:2px 0;text-align:right;font-weight:600;color:#7c3aed;border:none">${fmtH(totHeures)} h</td><td style="padding:2px 0;text-align:right;color:#9ca3af;border:none;font-size:10px">charge ${chargeHELB.toFixed(4)}</td></tr>
               <tr style="border-top:2px solid #1B2B4B">
                 <td style="padding:5px 0;font-weight:700;color:#1B2B4B;border:none">Total général (ETP)</td>
-                <td colspan="2" style="padding:5px 0;text-align:right;font-size:18px;font-weight:700;color:#00AACC;border:none">${totalGeneral.toFixed(4)}</td>
+                <td colspan="2" style="padding:5px 0;text-align:right;font-weight:700;color:#00AACC;border:none">${totalGeneral.toFixed(4)}</td>
               </tr>
             </table>
           </div>
@@ -1904,7 +1904,7 @@ export default function Professeurs() {
               </tr>
               <tr>
                 <td style="padding:2px 0;font-weight:700;color:#1B2B4B;border:none">ETP</td>
-                <td style="padding:2px 0;text-align:right;font-size:16px;font-weight:700;color:#00AACC;border:none">${etp}</td>
+                <td style="padding:2px 0;text-align:right;font-weight:700;color:#00AACC;border:none">${etp}</td>
               </tr>
             </table>
           </div>
