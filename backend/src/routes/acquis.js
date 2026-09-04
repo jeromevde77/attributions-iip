@@ -481,8 +481,23 @@ r.get('/feuille/:ueNum', authRequired, (req, res) => {
     ((notes[l.etudiant_id] ||= {})[sess || 'foi'] ||= {})[brut] = l.points;
   }
 
+  // Les COURS de l'unité, avec leur poids et les acquis qui les composent.
+  // Un même acquis peut peser dans plusieurs cours : la note par cours est
+  // donc calculée cours par cours, non acquis par acquis.
+  const cours = structure.map(co => ({
+    cours_code: co.cours_code,
+    cours_nom: co.cours_nom,
+    poids: co.poids_cours ?? null,
+    poids_affiche: co.poids_cours_affiche ?? null,
+    periodes: co.periodes ?? null,
+    acquis: (co.aas || [])
+      .filter(a => a.poids)
+      .map(a => ({ aa_code: a.aa_code, poids: a.poids })),
+  })).filter(co => co.acquis.length);
+
   res.json({
     ue_num: ueNum, ue_nom: ue.ue_nom || `UE ${ueNum}`, section: ue.section || null,
+    cours,
     annee, session,
     acquis,
     // Ce qui manque au référentiel, pour le dire à l'écran plutôt que de

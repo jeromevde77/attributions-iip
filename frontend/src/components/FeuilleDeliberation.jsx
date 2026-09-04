@@ -70,8 +70,47 @@ export default function FeuilleDeliberation({ ueNum, annee, onClose }) {
     } finally { setEnAttente(v => v - 1); }
   }
 
+  /**
+   * La note d'un COURS : moyenne de ses acquis, pondérée par leur poids DANS
+   * ce cours. Un acquis non évalué sort du dénominateur — il ne vaut pas zéro.
+   */
+  function noteCours(e, co, s) {
+    let somme = 0, poids = 0;
+    for (const a of co.acquis) {
+      const n = noteDe(e, a.aa_code, s);
+      if (n == null) continue;
+      somme += n * a.poids; poids += a.poids;
+    }
+    return poids ? Math.round((somme / poids) * 10) / 10 : null;
+  }
+
   /** La note d'unité, pondérée si les poids sont connus. */
+  /**
+   * La note d'UNITÉ, selon la formule du Conseil :
+   *
+   *   note UE = Σ ( note_AA × poids_AA_dans_le_cours × poids_du_cours )
+   *             ───────────────────────────────────────────────────────
+   *             Σ ( 20      × poids_AA_dans_le_cours × poids_du_cours )
+   *
+   * Un même acquis compte autant de fois qu'il figure dans des cours, avec le
+   * poids propre à chacun. À défaut de structure de cours, on retombe sur la
+   * moyenne pondérée des acquis.
+   */
   function noteUE(e, s) {
+    if (data?.cours?.length) {
+      let num = 0, max = 0;
+      for (const co of data.cours) {
+        if (!co.poids) continue;
+        for (const a of co.acquis) {
+          const n = noteDe(e, a.aa_code, s);
+          if (n == null) continue;
+          const f = a.poids * co.poids;
+          num += n * f; max += 20 * f;
+        }
+      }
+      return max ? Math.round((num / max) * 20 * 10) / 10 : null;
+    }
+
     if (!data?.acquis?.length) return null;
     let somme = 0, poids = 0;
     for (const a of data.acquis) {
@@ -206,8 +245,24 @@ export default function FeuilleDeliberation({ ueNum, annee, onClose }) {
                         )}
                       </th>
                     )),
-                    <th key={`${s}-n`} className="px-1 py-1.5 border-b border-slate-200
-                      w-12 text-[10px] text-iip-blue">Note</th>,
+                    ...(data.cours || []).map(co => (
+                      <th key={`${s}-c-${co.cours_code}`}
+                        title={`${co.cours_nom || ''}\nPoids dans l'unité : ${
+                          co.poids_affiche ?? '—'} %`}
+                        className="px-1 py-1.5 border-b border-l border-slate-300
+                                   w-12 bg-slate-50/70">
+                        <div className="text-[9.5px] font-bold text-slate-700">
+                          {co.cours_code}
+                        </div>
+                        {co.poids_affiche != null && (
+                          <div className="text-[8px] text-slate-400">
+                            {co.poids_affiche}%
+                          </div>
+                        )}
+                      </th>
+                    )),
+                    <th key={`${s}-n`} className="px-1 py-1.5 border-b border-l
+                      border-slate-300 w-12 text-[10px] text-iip-blue">UE</th>,
                     <th key={`${s}-d`} className="px-1 py-1.5 border-b border-slate-200
                       w-12 text-[10px] text-iip-blue">Déc.</th>,
                   ])}
@@ -244,7 +299,23 @@ export default function FeuilleDeliberation({ ueNum, annee, onClose }) {
                             </td>
                           );
                         }),
-                        <td key={`${s}-n`} className="border-b border-slate-100 px-1
+                        ...(data.cours || []).map(co => {
+                          // La note du cours EXPLIQUE celle de l'unité : sans
+                          // elle, on voit un résultat sans en voir la formation.
+                          const nc = noteCours(e, co, s);
+                          return (
+                            <td key={`${s}-c-${co.cours_code}`}
+                              className="border-b border-l border-slate-200 px-1
+                                         text-right bg-slate-50/50">
+                              <span className={`text-[11px] font-semibold ${
+                                nc == null ? 'text-slate-300'
+                                  : nc < 10 ? 'text-amber-700' : 'text-emerald-700'}`}>
+                                {nc ?? '—'}
+                              </span>
+                            </td>
+                          );
+                        }),
+                        <td key={`${s}-n`} className="border-b border-l border-slate-300 px-1
                           text-right font-bold text-[11.5px]">
                           <span className={nUE == null ? 'text-slate-300'
                             : nUE < 10 ? 'text-amber-700' : 'text-emerald-700'}>
