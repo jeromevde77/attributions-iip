@@ -142,10 +142,31 @@ export default function FeuilleDeliberation({ ueNum, annee, onClose }) {
           </div>
         )}
 
+        {/* Ce qui manque au référentiel se DIT, plutôt que de laisser croire
+            que l'unité n'a pas d'acquis. La pondération et le rattachement aux
+            cours sont des raffinements : la feuille fonctionne sans eux. */}
+        {data.acquis.length > 0 && (data.sans_ponderation || data.sans_cours) ? (
+          <div className="px-3 py-2 rounded-lg bg-amber-50 border border-amber-200
+                          text-[12px] text-amber-900">
+            {data.sans_ponderation > 0 && (
+              <>
+                {data.sans_ponderation} acquis sur {data.acquis.length} sans
+                pondération : la note d'unité est calculée en moyenne simple.
+              </>
+            )}
+            {data.sans_cours > 0 && (
+              <div className={data.sans_ponderation ? 'mt-0.5' : ''}>
+                {data.sans_cours} acquis ne sont rattachés à aucun cours.
+              </div>
+            )}
+          </div>
+        ) : null}
+
         {!data.acquis.length ? (
           <div className="py-8 text-center text-[12.5px] text-slate-400 border-2
                           border-dashed rounded-xl">
-            Aucun acquis d'apprentissage au référentiel de cette unité.
+            Aucun acquis d'apprentissage n'est enregistré pour cette unité.
+            Vérifiez le référentiel — table des acquis, colonne UE.
           </div>
         ) : (
           <div className="flex-1 overflow-auto border border-slate-200 rounded-xl">

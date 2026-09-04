@@ -421,11 +421,29 @@ r.get('/feuille/:ueNum', authRequired, (req, res) => {
   }
 
   const structure = structureUE(ueNum, annee);
-  const acquis = structure.flatMap(co => (co.aas || []).map(a => ({
-    aa_code: a.aa_code, description: a.description,
-    cours_code: co.cours_code, cours_nom: co.cours_nom,
-    poids: a.poids ?? null,
-  })));
+
+  // Les acquis se prennent DIRECTEMENT dans la table, non à travers les cours.
+  // structureUE les rattache par cours_code : un acquis sans cours renseigné
+  // n'apparaissait sous aucun et disparaissait de la feuille — la pondération
+  // et le rattachement sont des raffinements, l'acquis existe sans eux.
+  const pondere = {};
+  for (const co of structure) {
+    for (const a of (co.aas || [])) {
+      pondere[a.aa_code] = { poids: a.poids ?? null,
+                             cours_code: co.cours_code, cours_nom: co.cours_nom };
+    }
+  }
+
+  const acquis = db.prepare(`
+    SELECT aa_code, aa_num, description, cours_code FROM aa
+    WHERE ue_num = ? ORDER BY aa_num, aa_code
+  `).all(ueNum).map(a => ({
+    aa_code: a.aa_code,
+    description: a.description,
+    cours_code: pondere[a.aa_code]?.cours_code || a.cours_code || null,
+    cours_nom: pondere[a.aa_code]?.cours_nom || null,
+    poids: pondere[a.aa_code]?.poids ?? null,
+  }));
 
   const etudiants = db.prepare(`
     SELECT e.id, e.nom, e.prenom, e.id_ecampus,
@@ -455,6 +473,10 @@ r.get('/feuille/:ueNum', authRequired, (req, res) => {
     ue_num: ueNum, ue_nom: ue.ue_nom || `UE ${ueNum}`, section: ue.section || null,
     annee, session,
     acquis,
+    // Ce qui manque au référentiel, pour le dire à l'écran plutôt que de
+    // laisser croire à une absence d'acquis.
+    sans_ponderation: acquis.filter(a => a.poids == null).length,
+    sans_cours: acquis.filter(a => !a.cours_code).length,
     etudiants: etudiants.map(e => ({
       id: e.id, nom: e.nom, prenom: e.prenom, matricule: e.id_ecampus,
       resultat: e.resultat, resultat_s1: e.resultat_s1, resultat_s2: e.resultat_s2,
