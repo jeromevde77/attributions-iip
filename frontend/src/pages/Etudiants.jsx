@@ -22,6 +22,7 @@ import PurgeResultats from '../components/PurgeResultats.jsx';
 import RapportPAE from '../components/RapportPAE.jsx';
 import ImportListe from '../components/ImportListe.jsx';
 import DroitInscription from '../components/DroitInscription.jsx';
+import FraisScolarite from '../components/FraisScolarite.jsx';
 import ImportHistorique from '../components/ImportHistorique.jsx';
 
 // Niveau de l'étudiant : BA1/BA2 s'il ne suit qu'une année, « Diplômant »
@@ -1378,6 +1379,11 @@ function FicheEtudiant({ id, annee, onClose }) {
                     <IconFileText size={14} /> Produire le document
                   </button>
                 </div>
+
+                {/* Le calcul À L'ÉCRAN, et pas seulement dans le document
+                    imprimé : le secrétariat doit pouvoir répondre à un
+                    étudiant sans générer un PDF. */}
+                <FraisScolarite etudId={id} annee={annee} />
               </div>
 
               <div className="border-t border-slate-200 pt-4">

@@ -226,7 +226,6 @@ export default function SchemaCapitalisation({
                 maxWidth: layout.largeur,
                 height: 'auto',
                 display: 'block',
-                margin: '0 auto',
                 touchAction: deplacable ? 'none' : 'auto',
               }}>
               <defs>
