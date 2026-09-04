@@ -1813,13 +1813,23 @@ export default function Professeurs() {
     if (contratFiltre === null) { return genererFicheGlobale(prof, attributions, nominations, bilan_nomination, annee, returnOnly); }
 
     // Recalcul des totaux IIP sur les lignes filtrées (ou toutes si global)
-    let tot_ct = 0, tot_pp = 0, tot_aut = 0;
+    // L'autonomie suit le TYPE DE COURS auquel elle se rattache : c'est ainsi
+    // que le serveur calcule l'ETP — (CT + aut_CT)/800 + (PP + aut_PP)/1000.
+    // La totaliser à part donnait une ligne qu'on ne pouvait relier à aucun
+    // diviseur, donc à aucun ETP.
+    let tot_ct = 0, tot_pp = 0, tot_aut_ct = 0, tot_aut_pp = 0;
     for (const a of attributions) {
-      if (a.type_cours === 'CT') { tot_ct += a.per || 0; } else { tot_pp += a.per || 0; }
-      tot_aut += a.aut || 0;
+      if (a.type_cours === 'CT') { tot_ct += a.per || 0; tot_aut_ct += a.aut || 0; }
+      else { tot_pp += a.per || 0; tot_aut_pp += a.aut || 0; }
     }
+    const tot_aut = tot_aut_ct + tot_aut_pp;
     const tot_per = tot_ct + tot_pp;
     const tot_global = tot_per + tot_aut;
+    const charge_ct = tot_ct + tot_aut_ct;
+    const charge_pp = tot_pp + tot_aut_pp;
+    const etp4 = n => (Math.round(n * 10000) / 10000).toFixed(4);
+    const etp_ct = charge_ct / 800;
+    const etp_pp = charge_pp / 1000;
 
     const fmt = n => n != null ? String(n) : '0';
     const S  = 'padding:2px 6px;font-size:11px;';
@@ -1892,19 +1902,28 @@ export default function Professeurs() {
 
         <!-- Totaux -->
         <div style="margin-top:16px;display:flex;gap:24px;justify-content:flex-end">
-          <div style="background:#f1f5f9;border-radius:8px;padding:12px 20px;min-width:200px">
+          <div style="background:#f1f5f9;border-radius:8px;padding:12px 20px;min-width:320px">
             <div style="font-size:10px;color:#6b7280;margin-bottom:8px;text-transform:uppercase;letter-spacing:1px">Récapitulatif</div>
             <table style="width:100%">
-              <tr><td style="padding:2px 0;color:#374151;border:none">Charge de cours (CT)</td><td style="padding:2px 0;text-align:right;font-weight:600;color:#1B2B4B;border:none">${fmt(tot_ct)} p.</td></tr>
-              <tr><td style="padding:2px 0;color:#374151;border:none">Pratique professionnelle (PP)</td><td style="padding:2px 0;text-align:right;font-weight:600;color:#00AACC;border:none">${fmt(tot_pp)} p.</td></tr>
-              <tr><td style="padding:2px 0;color:#374151;border:none">Autonomie</td><td style="padding:2px 0;text-align:right;font-weight:600;color:#6b7280;border:none">${fmt(tot_aut)} p.</td></tr>
+              <tr>
+                <td style="padding:2px 0;color:#374151;border:none">Charge de cours (CT)<span style="color:#9ca3af"> + autonomie</span></td>
+                <td style="padding:2px 0;text-align:right;font-weight:600;color:#1B2B4B;border:none">${fmt(charge_ct)} p.</td>
+                <td style="padding:2px 0;text-align:right;color:#6b7280;border:none;padding-left:14px">${etp4(etp_ct)}</td>
+              </tr>
+              <tr>
+                <td style="padding:2px 0;color:#374151;border:none">Pratique professionnelle (PP)<span style="color:#9ca3af"> + autonomie</span></td>
+                <td style="padding:2px 0;text-align:right;font-weight:600;color:#00AACC;border:none">${fmt(charge_pp)} p.</td>
+                <td style="padding:2px 0;text-align:right;color:#6b7280;border:none;padding-left:14px">${etp4(etp_pp)}</td>
+              </tr>
               <tr style="border-top:2px solid #1B2B4B">
                 <td style="padding:4px 0;font-weight:700;color:#1B2B4B;border:none">Total général</td>
                 <td style="padding:4px 0;text-align:right;font-weight:700;color:#1B2B4B;border:none">${fmt(tot_global)} p.</td>
+                <td style="padding:4px 0;text-align:right;font-weight:700;color:#00AACC;border:none;padding-left:14px">${etp}</td>
               </tr>
               <tr>
-                <td style="padding:2px 0;font-weight:700;color:#1B2B4B;border:none">ETP</td>
-                <td style="padding:2px 0;text-align:right;font-weight:700;color:#00AACC;border:none">${etp}</td>
+                <td colspan="3" style="padding:2px 0;color:#9ca3af;font-size:9px;border:none">
+                  ETP : CT ÷ 800, PP ÷ 1000, autonomie comprise dans son type de cours.
+                </td>
               </tr>
             </table>
           </div>
