@@ -198,8 +198,15 @@ export default function SchemaCapitalisation({
 
       {ouvert && layout && (
         <>
-          <div className="overflow-auto bg-white" style={{ maxHeight: mode === 'structure' ? 520 : 340 }}>
-            <svg ref={svgRef} width={layout.largeur} height={layout.hauteur}
+          {/* Le schéma tient ENTIER dans son cadre : un ascenseur interne
+              piégeait la molette et empêchait la page de défiler. Le SVG se
+              met à l'échelle par son viewBox. */}
+          <div className="bg-white" style={{ maxHeight: mode === 'structure' ? 520 : 340 }}>
+            <svg ref={svgRef}
+              viewBox={`0 0 ${layout.largeur} ${layout.hauteur}`}
+              preserveAspectRatio="xMidYMid meet"
+              style={{ width: '100%', height: 'auto',
+                       maxHeight: mode === 'structure' ? 520 : 340 }}
               viewBox={`0 0 ${layout.largeur} ${layout.hauteur}`}
               onPointerMove={e => { pointerMove(e); lienMove(e); }}
               onPointerUp={e => { pointerUp(e); lienUp(e); }}

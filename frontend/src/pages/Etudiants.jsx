@@ -1481,7 +1481,12 @@ function FicheEtudiant({ id, annee, onClose }) {
                         )}
                       </div>
                     </div>
-                    <div className="flex gap-2">
+                    {/* La barre reste VISIBLE au défilement : les boutons
+                        étaient en tête du bloc PAE, mais celui-ci vient après
+                        le schéma et la grille — il fallait remonter pour
+                        enregistrer. */}
+                    <div className="flex gap-2 sticky top-0 z-20 bg-white/95
+                                    backdrop-blur py-2 -mt-2">
                       <button onClick={enregistrerPAE} disabled={enregistrement}
                         className="flex items-center gap-1.5 px-3 py-1.5 text-sm bg-iip-turquoise text-white font-semibold rounded-lg disabled:opacity-50">
                         <IconCheck size={14} /> {enregistrement ? 'Enregistrement…' : 'Enregistrer le PAE'}
@@ -1506,15 +1511,9 @@ function FicheEtudiant({ id, annee, onClose }) {
                       <MenuActions libelle="Documents" Icone={IconFileText} ton="bleu"
                         titre="Documents de cet étudiant"
                         items={[
-                          { libelle: "Fiche d'inscription / reçu", Icone: IconFileText,
-                            aide: 'PAE, droits d\u2019inscription et engagement signé',
-                            onClick: ouvrirFicheInscription },
                           { libelle: 'Attestations de réussite', Icone: IconFileText,
                             aide: "Une par unité d'enseignement réussie",
                             onClick: ouvrirAttestations },
-                          { libelle: 'Frais de scolarité', Icone: IconFileText,
-                            aide: "Document distinct : l'administration n'en connaît pas",
-                            onClick: ouvrirFraisScolarite },
                           { libelle: 'Parcours de formation', Icone: IconFileText,
                             aide: 'Schéma de capitalisation et unités acquises — 1 page',
                             onClick: ouvrirParcours },

@@ -3972,7 +3972,7 @@ ${piedBalisage(LOGO_IIP_JPEG)}
 // on pouvait créer un étudiant, jamais le rectifier.
 const CHAMPS_ETUDIANT = ['id_ecampus', 'nom', 'prenom', 'titre', 'date_naissance',
   'lieu_naissance', 'nationalite', 'num_national', 'email_ecole', 'email_perso',
-  'gsm', 'adresse', 'cp', 'localite', 'actif'];
+  'gsm', 'adresse', 'cp', 'localite', 'actif', 'sejour_limite_etudes'];
 
 r.patch('/:id', authRequired, roleRequired('admin', 'directeur', 'directeur_adjoint',
         'editeur', 'secretariat'), (req, res) => {

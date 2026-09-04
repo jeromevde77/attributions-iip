@@ -43,8 +43,10 @@ export default function MenuActions({ libelle, Icone, ton = 'neutre', items, tit
         <IconChevronDown size={13} className={`transition-transform ${ouvert ? 'rotate-180' : ''}`} />
       </button>
 
+      {/* Le panneau est ancré à DROITE : aligné à gauche du bouton, il sortait
+          de la fenêtre quand le bouton était lui-même à droite. */}
       {ouvert && (
-        <div className="absolute left-0 mt-1 w-72 bg-white border border-slate-200
+        <div className="absolute right-0 mt-1 w-72 max-w-[calc(100vw-2rem)] bg-white border border-slate-200
                         rounded-xl shadow-lg z-40 py-1.5">
           {visibles.map((it, i) => (
             it.separateur ? (

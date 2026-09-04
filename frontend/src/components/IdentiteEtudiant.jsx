@@ -112,6 +112,20 @@ export default function IdentiteEtudiant({ etudId, onModifie }) {
         ))}
       </div>
 
+      {/* Le séjour limité aux études conditionne l'annexe 2 remise à l'Office
+          des Étrangers, et le droit d'inscription. C'est une donnée
+          administrative, non une remarque libre. */}
+      <label className="flex items-center gap-2 text-[12.5px] text-slate-600">
+        <input type="checkbox"
+          checked={val('sejour_limite_etudes') === 1 || val('sejour_limite_etudes') === true}
+          onChange={ev => setModifs(m => ({
+            ...m, sejour_limite_etudes: ev.target.checked ? 1 : 0 }))} />
+        Séjour limité aux études
+        <span className="text-[11px] text-slate-400">
+          — conditionne l'annexe 2 et le droit d'inscription
+        </span>
+      </label>
+
       <label className="flex items-center gap-2 text-[12.5px] text-slate-600">
         <input type="checkbox" checked={val('actif') !== 0 && val('actif') !== false}
           onChange={ev => setModifs(m => ({ ...m, actif: ev.target.checked ? 1 : 0 }))} />
