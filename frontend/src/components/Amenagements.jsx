@@ -135,14 +135,25 @@ export default function Amenagements({ etudId, annee }) {
           <EtapesAmenagement d={d} etapeActive={etape} onAller={setEtape} />
 
           <div className="border border-slate-200 rounded-xl p-4 space-y-3">
+            {/* Le statut n'est CHOISI qu'à la décision : c'est là seulement
+                qu'il résulte d'un acte. Aux cadres A et B il découle de
+                l'étape où l'on se trouve, et le proposer au choix n'ajoutait
+                rien tout en permettant de désaccorder statut et étape.
+                Le badge, lui, reste partout : on doit toujours voir où en est
+                le dossier. */}
             <div className="flex items-center gap-3 flex-wrap">
-              <select value={d.statut} onChange={e => majDossier({ statut: e.target.value })}
-                className="border border-slate-300 rounded-lg px-2 py-1.5 text-sm">
-                {Object.entries(STATUTS).map(([k, s]) => (
-                  <option key={k} value={k}>{s.libelle}</option>
-                ))}
-              </select>
               <Badge ton={STATUTS[d.statut]?.ton || 'neutre'}>{STATUTS[d.statut]?.libelle}</Badge>
+              {etape === 'decision' && (
+                <label className="flex items-center gap-2 text-xs text-slate-500">
+                  Décision du Conseil
+                  <select value={d.statut} onChange={e => majDossier({ statut: e.target.value })}
+                    className="border border-slate-300 rounded-lg px-2 py-1.5 text-sm">
+                    {Object.entries(STATUTS).map(([k, s]) => (
+                      <option key={k} value={k}>{s.libelle}</option>
+                    ))}
+                  </select>
+                </label>
+              )}
             </div>
 
             {/* CADRE A — la demande de l'étudiant. */}
