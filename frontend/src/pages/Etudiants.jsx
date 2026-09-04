@@ -1266,7 +1266,7 @@ function FicheEtudiant({ id, annee, onClose }) {
     } catch(e) { setPae({ erreur: e.message }); }
   }
   useEffect(() => { charger(); /* eslint-disable-next-line */ }, [id]);
-  useEffect(() => { if (onglet === 'pae') chargerPAE(); /* eslint-disable-next-line */ }, [sectionForcee]);
+  useEffect(() => { if (onglet === 'parcours') chargerPAE(); /* eslint-disable-next-line */ }, [sectionForcee]);
 
 
 
@@ -1295,15 +1295,19 @@ function FicheEtudiant({ id, annee, onClose }) {
 
         {/* Onglets */}
         <div className="flex border-b border-slate-200 px-6">
-          {[['grille', `Grille de parcours (${data.inscriptions?.length || 0})`],
+          {/* Le PARCOURS réunit ce que la grille et le PAE disaient de deux
+              façons : le schéma, l'acquis, et le programme proposé. Les
+              VALORISATIONS et le DROIT D'INSCRIPTION se rejoignent aussi —
+              l'un détermine l'autre. */}
+          {[['parcours', `Parcours (${data.inscriptions?.length || 0})`],
             ['identite', 'Identité'],
-            ['pae', `PAE ${annee}`],
             ['va', 'Valorisation'],
-            ['di', "Droit d'inscription"],
+            ['finances', 'Finances'],
             ['stages', 'Stages'],
             ['amenagements', 'Aménagements'],
             ['dossier', 'Dossier']].map(([k, l]) => (
-            <button key={k} onClick={() => { setOnglet(k); if (k==='pae' && !pae) chargerPAE(); }}
+            <button key={k}
+            onClick={() => { setOnglet(k); if (k === 'parcours' && !pae) chargerPAE(); }}
               className={`px-4 py-3 text-sm font-medium border-b-2 -mb-px ${onglet===k
                 ? 'border-iip-turquoise text-iip-blue font-semibold'
                 : 'border-transparent text-slate-500'}`}>
@@ -1314,11 +1318,48 @@ function FicheEtudiant({ id, annee, onClose }) {
 
         <div className="p-6">
           {/* Inscriptions + résultats */}
-          {onglet === 'grille' && <GrilleParcours etudId={id} peutEcrire={true} />}
-
           {onglet === 'va' && <Valorisations etudId={id} annee={annee} />}
 
-          {onglet === 'di' && <DroitInscription etudId={id} annee={annee} />}
+          {/* FINANCES : tout ce qui touche à l'argent au même endroit — droit
+              d'inscription, exonérations, frais de scolarité et leurs
+              documents. Le mêler à la valorisation était bancal : l'une relève
+              du pédagogique, l'autre de l'administratif. */}
+          {onglet === 'finances' && (
+            <div className="p-5 space-y-5">
+              <DroitInscription etudId={id} annee={annee} />
+
+              <div className="border-t border-slate-200 pt-4">
+                <div className="flex items-center justify-between gap-3 flex-wrap mb-2">
+                  <div>
+                    <h3 className="text-[15px] font-semibold text-iip-blue">
+                      Frais de scolarité
+                    </h3>
+                    <p className="text-[12px] text-slate-500">
+                      Document distinct du droit d'inscription : la Fédération
+                      n'en connaît pas.
+                    </p>
+                  </div>
+                  <button onClick={ouvrirFraisScolarite}
+                    className="flex items-center gap-1.5 px-3 py-1.5 text-sm border
+                               border-iip-blue text-iip-blue font-semibold rounded-lg">
+                    <IconFileText size={14} /> Produire le document
+                  </button>
+                </div>
+              </div>
+
+              <div className="border-t border-slate-200 pt-4">
+                <button onClick={ouvrirFicheInscription}
+                  className="flex items-center gap-1.5 px-3 py-1.5 text-sm border
+                             border-slate-300 text-slate-600 font-semibold rounded-lg">
+                  <IconFileText size={14} /> Fiche d'inscription / reçu
+                </button>
+                <p className="text-[11.5px] text-slate-500 mt-1">
+                  Récapitulatif du programme, des droits et de l'engagement signé.
+                </p>
+              </div>
+            </div>
+          )}
+
 
           {onglet === 'dossier' && <DossierApprenant etudId={id} />}
 
@@ -1349,8 +1390,29 @@ function FicheEtudiant({ id, annee, onClose }) {
             </div>
           )}
 
-          {onglet === 'pae' && (
+          {onglet === 'parcours' && (
             <div>
+              {/* Le SCHÉMA d'abord : on lit d'où l'on vient avant de décider où
+                  l'on va. Le programme proposé vient ensuite. */}
+              <GrilleParcours etudId={id} peutEcrire={true} />
+
+              <div className="border-t border-slate-200 mt-4 pt-4">
+              {/* Ce qui suit est une PROPOSITION tant qu'elle n'est pas
+                  confirmée : le dire évite de la lire comme un état de fait,
+                  maintenant que schéma et programme sont sur la même page. */}
+              <div className={`mb-3 px-3 py-2 rounded-lg text-[12.5px] border ${
+                paeConfirme
+                  ? 'bg-emerald-50 border-emerald-200 text-emerald-800'
+                  : 'bg-amber-50 border-amber-200 text-amber-900'}`}>
+                <b>{paeConfirme ? 'Programme confirmé' : 'Programme proposé'}</b>
+                {' — '}
+                {paeConfirme
+                  ? "l'étudiant est inscrit aux unités ci-dessous."
+                  : "rien n'est inscrit tant que vous n'avez pas confirmé. "
+                    + 'Les unités ci-dessous sont celles que Lucie propose au vu '
+                    + 'du parcours et des prérequis.'}
+              </div>
+
               {!pae ? (
                 <div className="text-center py-8 text-slate-400 text-sm">Chargement du PAE…</div>
               ) : pae.erreur ? (
@@ -1610,6 +1672,7 @@ function FicheEtudiant({ id, annee, onClose }) {
                 );
               })()}
             </div>
+              </div>
           )}
         </div>
       </div>
