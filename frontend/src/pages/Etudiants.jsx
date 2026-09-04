@@ -1392,8 +1392,13 @@ function FicheEtudiant({ id, annee, onClose }) {
 
           {onglet === 'parcours' && (
             <div>
-              {/* Le SCHÉMA d'abord : on lit d'où l'on vient avant de décider où
-                  l'on va. Le programme proposé vient ensuite. */}
+              {/* L'ordre de lecture : le SCHÉMA d'abord — la vue d'ensemble du
+                  parcours —, puis le programme proposé, et les NOTES en
+                  dernier, qui sont le détail. */}
+              <div className="p-5 pb-0">
+                <SchemaCapitalisation etudId={id} annee={annee} />
+              </div>
+
               <GrilleParcours etudId={id} peutEcrire={true} />
 
               <div className="border-t border-slate-200 mt-4 pt-4">
@@ -1560,7 +1565,6 @@ function FicheEtudiant({ id, annee, onClose }) {
                     </div>
                   )}
 
-                  <SchemaCapitalisation etudId={id} annee={pae.annee} />
 
                   {!retenues.length ? (
                     <div className="text-center py-8 text-slate-400 text-sm border-2 border-dashed rounded-xl">
