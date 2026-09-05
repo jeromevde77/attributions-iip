@@ -55,6 +55,10 @@ export const CIBLES = [
     // du tout — écrire « WHERE id = ? » n'y touchait rien.
     pk: ['id'],
     libelle: r0 => [r0.nom, r0.prenom].filter(Boolean).join(' '),
+    // Seule cible où la CRÉATION est ouverte, et seulement sur demande
+    // explicite. `nom` et `prenom` sont NOT NULL en base : sans eux la ligne
+    // ne peut pas exister, et un dossier sans nom ne se retrouve jamais.
+    creation: { requis: ['nom', 'prenom'] },
   },
   {
     cle: 'professeur',
@@ -222,7 +226,7 @@ const normaliser = (v, mode) => {
 // ── Exécution ───────────────────────────────────────────────────────────────
 r.post('/executer', authRequired, roleRequired('admin', 'directeur',
        'directeur_adjoint', 'editeur', 'secretariat'), (req, res) => {
-  const { cible, cle_choisie, lignes, simulation, ecraser, annee } = req.body || {};
+  const { cible, cle_choisie, lignes, simulation, ecraser, annee, creer } = req.body || {};
   const decl = CIBLES.find(c => c.cle === cible);
   if (!decl) return res.status(400).json({ error: 'cible inconnue' });
   if (!Array.isArray(lignes) || !lignes.length) {
@@ -257,14 +261,55 @@ r.post('/executer', authRequired, roleRequired('admin', 'directeur',
 
   const autorises = new Set(decl.champs.map(c => c.champ));
   const rapport = { retrouves: 0, inconnus: [], modifications: [], champs: {},
-                    illisibles: [] };
+                    illisibles: [], crees: [] };
+  // La création reste FERMÉE tant qu'elle n'est pas demandée, et n'existe que
+  // pour les cibles qui la déclarent.
+  const creationOuverte = !!(creer && decl.creation);
 
   const appliquer = db.transaction(() => {
     for (const l of lignes) {
       const k = normaliser(l[declCle.champ], declCle.normaliser);
       if (!k) continue;
       const actuel = index[k];
-      if (!actuel) { rapport.inconnus.push({ cle: k, nom: l.nom || null }); continue; }
+      if (!actuel) {
+        if (!creationOuverte) {
+          rapport.inconnus.push({ cle: k, nom: l.nom || null });
+          continue;
+        }
+        // Les champs obligatoires manquants font échouer la ligne, pas
+        // l'import : on la signale et on passe à la suivante.
+        const manque = decl.creation.requis
+          .filter(c => l[c] == null || String(l[c]).trim() === '');
+        if (manque.length) {
+          rapport.inconnus.push({ cle: k, nom: l.nom || null,
+                                  motif: `manque ${manque.join(', ')}` });
+          continue;
+        }
+        const nouveau = {};
+        for (const [champ, brut] of Object.entries(l)) {
+          if (!autorises.has(champ)) continue;
+          if (brut == null || String(brut).trim() === '') continue;
+          const dc = decl.champs.find(c => c.champ === champ);
+          let v = String(brut).trim();
+          if (dc?.type === 'date') {
+            const d = versDate(brut);
+            if (!d) { rapport.illisibles.push(`${champ} : ${v}`); continue; }
+            v = d;
+          }
+          nouveau[champ] = v;
+        }
+        rapport.crees.push({
+          libelle: [nouveau.nom, nouveau.prenom].filter(Boolean).join(' ') || k,
+          cle: k, champs: Object.keys(nouveau),
+        });
+        if (!simulation) {
+          const cols = Object.keys(nouveau);
+          db.prepare(`INSERT INTO ${decl.table} (${cols.join(', ')})
+                      VALUES (${cols.map(() => '?').join(', ')})`)
+            .run(...cols.map(c => nouveau[c]));
+        }
+        continue;
+      }
       rapport.retrouves++;
 
       const maj = {};
@@ -327,6 +372,9 @@ r.post('/executer', authRequired, roleRequired('admin', 'directeur',
     nb_inconnus: rapport.inconnus.length,
     illisibles: [...new Set(rapport.illisibles)].slice(0, 10),
     nb_illisibles: rapport.illisibles.length,
+    crees: rapport.crees.slice(0, 60),
+    nb_crees: rapport.crees.length,
+    creation_possible: !!decl.creation,
   });
 });
 

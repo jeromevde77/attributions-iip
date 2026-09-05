@@ -24,6 +24,9 @@ export default function ImportSurMesure({ onClose, onTermine, annee = null }) {
   const [cleChoisie, setCleChoisie] = useState('');
 
   const [ecraser, setEcraser] = useState(false);
+  // La CRÉATION est fermée par défaut : compléter un dossier existant est
+  // anodin, en créer un ne l'est pas.
+  const [creer, setCreer] = useState(false);
   const [rapport, setRapport] = useState(null);
   const [enCours, setEnCours] = useState(false);
   const [erreur, setErreur] = useState(null);
@@ -127,6 +130,7 @@ export default function ImportSurMesure({ onClose, onTermine, annee = null }) {
         // même unité dans toutes les années.
         body: JSON.stringify({ cible: cible.cle, cle_choisie: cleChoisie,
                                lignes, simulation, ecraser,
+                               creer: cible.creation ? creer : undefined,
                                annee: cible.portee === 'annee' ? annee : undefined }),
       });
       const j = await rep.json();
@@ -273,6 +277,22 @@ export default function ImportSurMesure({ onClose, onTermine, annee = null }) {
               </div>
             )}
 
+            {cible.creation && (
+              <label className="flex items-center gap-2 text-[12.5px] text-slate-700
+                                px-3 py-2 rounded-lg bg-amber-50 border border-amber-200">
+                <input type="checkbox" checked={creer}
+                  onChange={e => setCreer(e.target.checked)} />
+                <span>
+                  <b>Créer les lignes sans correspondance</b>
+                  <span className="block text-[11px] text-amber-900">
+                    Un dossier sera ouvert pour chaque ligne inconnue portant un
+                    nom et un prénom. Simulez d'abord : une clé mal choisie crée
+                    des doublons au lieu de compléter les dossiers existants.
+                  </span>
+                </span>
+              </label>
+            )}
+
             <label className="flex items-center gap-2 text-[12.5px] text-slate-600">
               <input type="checkbox" checked={ecraser} onChange={e => setEcraser(e.target.checked)} />
               Écraser les valeurs déjà présentes
@@ -307,6 +327,7 @@ export default function ImportSurMesure({ onClose, onTermine, annee = null }) {
             <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
               {[['Lignes lues', rapport.lignes_lues], ['Retrouvés', rapport.retrouves],
                 ['À compléter', rapport.nb_modifications],
+                ...(rapport.nb_crees ? [['À créer', rapport.nb_crees]] : []),
                 ['Sans correspondance', rapport.nb_inconnus]].map(([l, v]) => (
                 <div key={l} className="border border-slate-200 rounded-xl px-3 py-2">
                   <div className="text-[10px] uppercase tracking-wide text-slate-500
@@ -333,6 +354,15 @@ export default function ImportSurMesure({ onClose, onTermine, annee = null }) {
               </div>
             )}
 
+            {rapport.nb_crees > 0 && (
+              <div className="px-3 py-2 rounded-lg bg-emerald-50 border border-emerald-200
+                              text-[12px] text-emerald-900">
+                <b>{rapport.nb_crees} dossier(s)</b> {rapport.simulation ? 'seraient créés' : 'créés'} :
+                {' '}{rapport.crees.slice(0, 12).map(c => c.libelle).join(' · ')}
+                {rapport.nb_crees > 12 && ` … et ${rapport.nb_crees - 12} autre(s)`}
+              </div>
+            )}
+
             {rapport.nb_inconnus > 0 && (
               <div className="px-3 py-2 rounded-lg bg-amber-50 border border-amber-200
                               text-[12px] text-amber-900">
@@ -342,7 +372,7 @@ export default function ImportSurMesure({ onClose, onTermine, annee = null }) {
 
             {rapport.simulation ? (
               <button onClick={() => executer(false)}
-                disabled={enCours || !rapport.nb_modifications}
+                disabled={enCours || !(rapport.nb_modifications || rapport.nb_crees)}
                 className="flex items-center gap-1.5 px-4 py-2 text-sm bg-iip-blue text-white
                            font-semibold rounded-lg disabled:opacity-40">
                 <IconCheck size={15} /> Appliquer à {rapport.nb_modifications} dossier(s)
