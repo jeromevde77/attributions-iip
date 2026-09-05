@@ -35,8 +35,10 @@ export default function SchemaCapitalisation({
   const [modeLien, setModeLien] = useState(false);   // tirer des liens de prérequis
   const [lien, setLien] = useState(null);            // { depuis, x, y, cible }
   const [natureLien, setNatureLien] = useState('legal');   // legal | interne
-  // Zoom RÉGLABLE : à 1:1 le schéma est lisible mais menu sur grand écran.
-  // 1 unité de viewBox = `zoom` pixels, donc la police suit le zoom.
+  // Zoom RÉGLABLE. La taille de BASE vaut 1,25 fois l'échelle 1:1 : à 1:1 le
+  // schéma était lisible mais menu. C'est cette taille-là qui s'affiche
+  // « 100 % », le facteur restant interne pour que la commande reste simple.
+  const BASE = 1.25;
   const [zoom, setZoom] = useState(1);
   const svgRef = useRef(null);
 
@@ -46,7 +48,10 @@ export default function SchemaCapitalisation({
     // grandes et la légende du bas se faisait manger. Le numéro d'UE reste
     // parfaitement lisible à cette taille, c'est lui qu'on cherche du regard.
     // PIED réserve la bande de la légende, qui était recouverte.
-    const L = 78, H = 26, GX = 38, GY = 6, PAD = 5, TETE = 18, PIED = 22;
+    // TETE passe de 18 à 28 : le sous-titre « ÉPREUVE INTÉGRÉE » est tracé
+    // à PAD + 18, exactement là où commençait la première tuile — il se
+    // superposait donc à elle.
+    const L = 78, H = 26, GX = 38, GY = 6, PAD = 5, TETE = 28, PIED = 22;
     const couches = {};
     for (const n of data.nodes) (couches[n.couche] = couches[n.couche] || []).push(n);
     const nums = Object.keys(couches).map(Number).sort((a, b) => a - b);
@@ -263,7 +268,7 @@ export default function SchemaCapitalisation({
                 // 1 unité de viewBox = `zoom` pixels : à 100 % le fontSize="10"
                 // du SVG s'affiche en 10 px, cohérent avec le texte du cadre,
                 // et la police grandit avec le zoom sans rien déformer.
-                width: layout.largeur * zoom,
+                width: layout.largeur * zoom * BASE,
                 height: 'auto',
                 display: 'block',
                 touchAction: deplacable ? 'none' : 'auto',

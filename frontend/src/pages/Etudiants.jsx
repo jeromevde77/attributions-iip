@@ -1458,7 +1458,11 @@ function FicheEtudiant({ id, annee, onClose }) {
               {/* L'ordre de lecture : le SCHÉMA d'abord — la vue d'ensemble du
                   parcours —, puis le programme proposé, et les NOTES en
                   dernier, qui sont le détail. */}
-              <div className="p-5 pb-0">
+              {/* Pas de marge LATÉRALE : la grille qui suit n'en a pas, et le
+                  cadre du schéma s'arrêtait donc avant elle. Les deux blocs
+                  doivent avoir exactement la même largeur pour se lire comme
+                  un seul écran. */}
+              <div className="pt-5 pb-0">
                 <SchemaCapitalisation etudId={id} annee={annee} />
               </div>
 
