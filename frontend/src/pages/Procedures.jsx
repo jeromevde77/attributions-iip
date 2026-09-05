@@ -1180,12 +1180,12 @@ function OutilFraude({ initialPayload, onPayloadConsumed }) {
   return (
     <div className="max-w-[1100px] space-y-6">
 
-      {/* Indicateur autosave */}
-      {autosaved && (
-        <div className="fixed bottom-4 right-4 z-50 bg-gray-800/80 text-white text-xs px-3 py-1.5 rounded-full flex items-center gap-1.5 pointer-events-none">
-          <span>✓</span> Brouillon sauvegardé
-        </div>
-      )}
+      {/* L'indicateur « Brouillon sauvegardé » a été retiré : il avait été
+          recopié de l'outil Recours, mais CET outil n'a aucune sauvegarde
+          automatique — ni état, ni minuteur, ni appel serveur. La variable
+          `autosaved` n'existait donc pas ici et l'écran plantait à
+          l'ouverture. L'afficher quand même aurait été pire : on perdrait sa
+          saisie en la croyant à l'abri. */}
 
       {/* ── 1 · IDENTIFICATION DU DOSSIER ── */}
       <Section title="1 · Identification du dossier" color="red">
