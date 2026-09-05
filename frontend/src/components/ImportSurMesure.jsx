@@ -31,6 +31,10 @@ export default function ImportSurMesure({ onClose, onTermine, annee = null }) {
   const [enCours, setEnCours] = useState(false);
   const [erreur, setErreur] = useState(null);
   const [nomProfil, setNomProfil] = useState('');
+  // Ligne du fichier servant d'exemple. On juge une correspondance sur des
+  // valeurs, pas sur des noms de colonnes : la première ligne peut être
+  // atypique — champ vide, cas particulier — et donner faussement raison.
+  const [ligne, setLigne] = useState(0);
 
   useEffect(() => {
     fetch('/api/import-sur-mesure/cibles', { headers: authHeaders() })
@@ -60,7 +64,7 @@ export default function ImportSurMesure({ onClose, onTermine, annee = null }) {
       if (!lignes.length) throw new Error('Ce classeur ne contient aucune ligne.');
 
       const cols = Object.keys(lignes[0]);
-      setEntetes(cols); setBrut(lignes);
+      setEntetes(cols); setBrut(lignes); setLigne(0);
 
       // Proposition de départ : on rapproche les noms réduits à leurs lettres,
       // accents transposés. Elle ne fait que dégrossir, tout reste corrigeable.
@@ -240,6 +244,31 @@ export default function ImportSurMesure({ onClose, onTermine, annee = null }) {
               </span>
             </label>
 
+            {/* La navigation entre lignes : une correspondance juste sur la
+                première ligne peut être fausse sur la dixième. */}
+            <div className="flex items-center justify-between gap-3 flex-wrap
+                            px-3 py-1.5 rounded-lg bg-slate-50 border border-slate-200">
+              <span className="text-[11.5px] text-slate-500">
+                Exemple pris sur la ligne <b className="text-slate-700">{ligne + 1}</b> sur {brut.length}
+              </span>
+              <div className="flex items-center gap-1">
+                <button type="button" onClick={() => setLigne(i => Math.max(0, i - 1))}
+                  disabled={ligne === 0}
+                  className="px-2 h-6 rounded border border-slate-300 text-slate-600
+                             text-[12px] disabled:opacity-40">◀</button>
+                <input type="number" min={1} max={brut.length} value={ligne + 1}
+                  onChange={e => {
+                    const v = Number(e.target.value);
+                    if (Number.isFinite(v)) setLigne(Math.min(brut.length, Math.max(1, v)) - 1);
+                  }}
+                  className="w-16 border border-slate-300 rounded px-1 py-0.5 text-[12px] text-center" />
+                <button type="button" onClick={() => setLigne(i => Math.min(brut.length - 1, i + 1))}
+                  disabled={ligne >= brut.length - 1}
+                  className="px-2 h-6 rounded border border-slate-300 text-slate-600
+                             text-[12px] disabled:opacity-40">▶</button>
+              </div>
+            </div>
+
             <div className="space-y-1">
               {cible.champs.map(ch => {
                 const estCle = ch.champ === cleChoisie;
@@ -258,6 +287,22 @@ export default function ImportSurMesure({ onClose, onTermine, annee = null }) {
                       <option value="">— ne pas importer —</option>
                       {entetes.map(col => <option key={col} value={col}>{col}</option>)}
                     </select>
+                    {/* Ce que la colonne choisie DONNE sur cette ligne : c'est
+                        cela qu'on vérifie, pas l'intitulé de la colonne. */}
+                    <span className="w-40 flex-none truncate text-[11.5px]"
+                      title={corresp[ch.champ]
+                        ? String(brut[ligne]?.[corresp[ch.champ]] ?? '')
+                        : ''}>
+                      {corresp[ch.champ]
+                        ? (() => {
+                            const v = brut[ligne]?.[corresp[ch.champ]];
+                            const vide = v == null || String(v).trim() === '';
+                            return vide
+                              ? <em className="text-slate-300">vide</em>
+                              : <b className="text-slate-700">{String(v)}</b>;
+                          })()
+                        : <span className="text-slate-300">—</span>}
+                    </span>
                   </div>
                 );
               })}
@@ -265,12 +310,12 @@ export default function ImportSurMesure({ onClose, onTermine, annee = null }) {
 
             {corresp[cleChoisie] && (
               <div className="text-[11.5px] text-slate-600 bg-slate-50 rounded-lg p-2.5">
-                <b>Première ligne telle qu'elle sera lue :</b>
+                <b>Ligne {ligne + 1} telle qu'elle sera lue :</b>
                 <div className="mt-1 space-y-0.5">
                   {cible.champs.filter(ch => corresp[ch.champ]).map(ch => (
                     <div key={ch.champ}>
                       <span className="text-slate-500">{ch.libelle} :</span>{' '}
-                      <b>{String(brut[0][corresp[ch.champ]] ?? '—')}</b>
+                      <b>{String(brut[ligne]?.[corresp[ch.champ]] ?? '—')}</b>
                     </div>
                   ))}
                 </div>
