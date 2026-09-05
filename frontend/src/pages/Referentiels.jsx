@@ -941,7 +941,27 @@ export default function Referentiels({ embedded = false }) {
                                         <td className="text-center px-1">{["CT","PP","CG"].includes(c.ct_pp) ? <span className={`badge ${{CT:'badge-ct',CG:'badge-cc',PP:'badge-pp',Z:'badge-z',B:'badge-b',F:'badge-f',T:'badge-t',P:'badge-p',O:'badge-o'}[c.ct_pp]}`}>{c.ct_pp}</span> : null}</td>
                                         <td className="text-center px-1">{["Z","B","F","T","P","O"].includes(c.ct_pp) ? <span className={`badge ${{CT:'badge-ct',CG:'badge-cc',PP:'badge-pp',Z:'badge-z',B:'badge-b',F:'badge-f',T:'badge-t',P:'badge-p',O:'badge-o'}[c.ct_pp]}`}>{c.ct_pp}</span> : null}</td>
                                         <td className="text-right px-2 font-semibold tabular-nums">{["Z","B","F","T","P","O"].includes(c.ct_pp) ? <span className="text-gray-300">—</span> : (c.cours_per ?? '—')}</td>
-                                        <td className="text-right px-2 tabular-nums">{c.ct_pp === 'Z' ? <span className="font-semibold text-iip-mauve">{c.per_etudiant ?? '—'}</span> : (c.cours_per ?? '—')}</td>
+                                        {/* Périodes étudiant, dans l'ordre de priorité du modèle :
+      1. per_etudiant, quand il est saisi explicitement (activités Z, 7.3) ;
+      2. sinon les HEURES converties — schema.sql : « heures réelles étudiant
+         (×60 min) → converti en périodes ×1.2 ». C'est ce chemin qui manquait :
+         la colonne ignorait `heures` et affichait les périodes PROFESSEUR, soit
+         60 au lieu de 480 sur un encadrement de stage encodé à 400 h ;
+      3. à défaut, les périodes professeur.
+      En mauve dès que le nombre diffère du professeur : c'est là que la
+      distinction se joue, et c'est ce qu'on vient lire. */}
+<td className="text-right px-2 tabular-nums">{(() => {
+  const vide = v => v === null || v === undefined || v === '';
+  const pe = !vide(c.per_etudiant) ? Number(c.per_etudiant)
+    : !vide(c.heures) ? Math.round(Number(c.heures) * 1.2)
+    : !vide(c.cours_per) ? Number(c.cours_per) : null;
+  if (pe === null || Number.isNaN(pe)) return '—';
+  const titre = !vide(c.per_etudiant) ? 'Périodes étudiant saisies'
+    : !vide(c.heures) ? `${c.heures} h × 1,2` : 'Identique aux périodes professeur';
+  return pe !== Number(c.cours_per)
+    ? <span className="font-semibold text-iip-mauve" title={titre}>{pe}</span>
+    : <span title={titre}>{pe}</span>;
+})()}</td>
                                         <td className="text-center">{c.quadrimestre_cours || '—'}</td>
                                         <td className="text-right text-gray-400">{c.nb_attributions}</td>
                                         <td className="text-right whitespace-nowrap">
@@ -1064,7 +1084,27 @@ export default function Referentiels({ embedded = false }) {
                                     <td className="text-center px-1">{["CT","PP","CG"].includes(c.ct_pp) ? <span className={`badge ${{CT:'badge-ct',CG:'badge-cc',PP:'badge-pp',Z:'badge-z',B:'badge-b',F:'badge-f',T:'badge-t',P:'badge-p',O:'badge-o'}[c.ct_pp]}`}>{c.ct_pp}</span> : null}</td>
                                     <td className="text-center px-1">{["Z","B","F","T","P","O"].includes(c.ct_pp) ? <span className={`badge ${{CT:'badge-ct',CG:'badge-cc',PP:'badge-pp',Z:'badge-z',B:'badge-b',F:'badge-f',T:'badge-t',P:'badge-p',O:'badge-o'}[c.ct_pp]}`}>{c.ct_pp}</span> : null}</td>
                                     <td className="text-right px-2 font-semibold tabular-nums">{["Z","B","F","T","P","O"].includes(c.ct_pp) ? <span className="text-gray-300">—</span> : (c.cours_per ?? '—')}</td>
-                                    <td className="text-right px-2 tabular-nums">{c.ct_pp === 'Z' ? <span className="font-semibold text-iip-mauve">{c.per_etudiant ?? '—'}</span> : (c.cours_per ?? '—')}</td>
+                                    {/* Périodes étudiant, dans l'ordre de priorité du modèle :
+      1. per_etudiant, quand il est saisi explicitement (activités Z, 7.3) ;
+      2. sinon les HEURES converties — schema.sql : « heures réelles étudiant
+         (×60 min) → converti en périodes ×1.2 ». C'est ce chemin qui manquait :
+         la colonne ignorait `heures` et affichait les périodes PROFESSEUR, soit
+         60 au lieu de 480 sur un encadrement de stage encodé à 400 h ;
+      3. à défaut, les périodes professeur.
+      En mauve dès que le nombre diffère du professeur : c'est là que la
+      distinction se joue, et c'est ce qu'on vient lire. */}
+<td className="text-right px-2 tabular-nums">{(() => {
+  const vide = v => v === null || v === undefined || v === '';
+  const pe = !vide(c.per_etudiant) ? Number(c.per_etudiant)
+    : !vide(c.heures) ? Math.round(Number(c.heures) * 1.2)
+    : !vide(c.cours_per) ? Number(c.cours_per) : null;
+  if (pe === null || Number.isNaN(pe)) return '—';
+  const titre = !vide(c.per_etudiant) ? 'Périodes étudiant saisies'
+    : !vide(c.heures) ? `${c.heures} h × 1,2` : 'Identique aux périodes professeur';
+  return pe !== Number(c.cours_per)
+    ? <span className="font-semibold text-iip-mauve" title={titre}>{pe}</span>
+    : <span title={titre}>{pe}</span>;
+})()}</td>
                                     <td className="text-center">{c.quadrimestre_cours || '—'}</td>
                                     <td className="text-right text-gray-400">{c.nb_attributions}</td>
                                     <td className="text-right whitespace-nowrap">
