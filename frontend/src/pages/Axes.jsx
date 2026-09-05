@@ -40,7 +40,10 @@ export function AxeEtudiants() {
           rendu: <Etudiants /> },
         { key: 'encodage', label: 'Encodage rapide', sansMarge: true,
           rendu: <EncodageRapide /> },
-        { key: 'recours', label: 'Recours', sansMarge: true,
+        // L'onglet ouvre TOUTE la page Procédures — recours, fraude,
+        // disciplinaire, examens, archives. L'appeler « Recours » annonçait un
+        // cinquième de son contenu et cachait le reste.
+        { key: 'procedures', label: 'Procédures', sansMarge: true,
           rendu: <Suspense fallback={<Attente />}><Procedures /></Suspense> },
         { key: 'admission', label: 'Admission & inscription', futur: true,
           description: "Titres d'accès, valorisation des acquis, droit d'inscription et exemptions." },
