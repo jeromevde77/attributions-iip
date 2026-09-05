@@ -1738,6 +1738,19 @@ r.get('/:id/fiche-parcours/document', authRequired, (req, res) => {
       nom: graphe.nodes.find(n => n.ue_num === ue)?.ue_nom || `UE ${ue}` }))
     .sort((a, b) => String(a.annee).localeCompare(String(b.annee)) || a.ue - b.ue);
 
+  // Le PROGRAMME de l'année, énuméré sous le schéma : la pastille du graphe
+  // signale bien une UE inscrite, mais elle ne se lit qu'en cherchant, et la
+  // fiche imprimée doit pouvoir se relire sans décoder le dessin. Les unités
+  // déjà acquises en sont exclues — elles figurent dans l'autre tableau.
+  const inscritesListe = [...inscrites]
+    .filter(ue => !acquis.has(ue))
+    .map(ue => {
+      const n0 = graphe.nodes.find(x => x.ue_num === ue);
+      return { ue, nom: n0?.ue_nom || `UE ${ue}`, niv: n0?.ue_niv || '',
+               statut: n0?.statut || null };
+    })
+    .sort((a, b) => a.ue - b.ue);
+
   const corps = `
 <div class="fp">
   <div class="entete">
@@ -1771,6 +1784,19 @@ r.get('/:id/fiche-parcours/document', authRequired, (req, res) => {
           : (u.points != null ? u.points + '/20' : '—')}</td>
       </tr>`).join('')}
     </table>` : '<div class="vide">Aucune unité acquise à ce jour.</div>'}
+  </div>
+
+  <div class="bas">
+    <div class="bas-titre">Unités d'enseignement inscrites au programme ${esc2(annee)}
+      <span class="cpt">${inscritesListe.length}</span></div>
+    ${inscritesListe.length ? `<table class="acquises">
+      <tr><th>UE</th><th>Intitulé</th><th>Bloc</th></tr>
+      ${inscritesListe.map(u => `<tr>
+        <td>${u.ue}</td>
+        <td>${esc2(u.nom)}</td>
+        <td class="n">${esc2(u.niv || '—')}</td>
+      </tr>`).join('')}
+    </table>` : `<div class="vide">Aucune unité inscrite au programme ${esc2(annee)}.</div>`}
   </div>
 </div>`;
 
