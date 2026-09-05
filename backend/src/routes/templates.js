@@ -70,7 +70,8 @@ function genererResumeSection(section, annee) {
   let rows = '';
   for (const ue of ues) {
     const cours = db.prepare(`
-      SELECT cours_code, cours_nom, ct_pp, cours_per, cours_autonomie, dedouble, quadrimestre_cours
+      SELECT cours_code, cours_nom, ct_pp, cours_per, cours_autonomie, dedouble, quadrimestre_cours,
+             heures, per_etudiant
       FROM cours WHERE ue_num = ? AND annee_scolaire = ?
       ORDER BY cours_code
     `).all(ue.ue_num, annee);
@@ -103,7 +104,20 @@ function genererResumeSection(section, annee) {
     for (const c of cours) {
       const fac = c.dedouble === 'O' ? 2 : 1;
       const perProf = ((Number(c.cours_per) || 0) * fac) + ((Number(c.cours_autonomie) || 0) * fac);
-      const perEtud = (Number(c.cours_per) || 0) * fac; // périodes étudiant = périodes de cours
+      // Périodes ÉTUDIANT, dans l'ordre de priorité du modèle :
+      //   1. per_etudiant, saisi explicitement (activités Z, 7.3) ;
+      //   2. sinon les HEURES converties — schema.sql : « heures réelles
+      //      étudiant (×60 min) → converti en périodes ×1.2 » ;
+      //   3. à défaut seulement, les périodes de cours.
+      // La grille posait « périodes étudiant = périodes de cours » et ignorait
+      // `heures` : un stage encodé à 400 h sortait à 60 au lieu de 480.
+      // Le dédoublement ne s'applique qu'au repli : il double la charge du
+      // PROFESSEUR, qui donne le cours à deux groupes, alors que les heures
+      // encodées sont déjà le volume suivi par un étudiant.
+      const vide = v => v === null || v === undefined || v === '';
+      const perEtud = !vide(c.per_etudiant) ? Number(c.per_etudiant)
+        : !vide(c.heures) ? Math.round(Number(c.heures) * 1.2)
+        : (Number(c.cours_per) || 0) * fac;
       rows += `
         <tr style="background:#ffffff;">
           <td style="padding:4px 8px 4px 28px;border:1px solid #ddd;color:#444;font-size:9.5pt">
