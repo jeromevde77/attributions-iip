@@ -12,6 +12,7 @@ import IdentiteEtudiant, { ComplementDossiers } from '../components/IdentiteEtud
 import CentreImpression from '../components/CentreImpression.jsx';
 import CentrePAE from '../components/CentrePAE.jsx';
 import ImportSurMesure from '../components/ImportSurMesure.jsx';
+import ImportSuivi from '../components/ImportSuivi.jsx';
 import Annexe2 from '../components/Annexe2.jsx';
 import MotivationDecision from '../components/MotivationDecision.jsx';
 import MenuActions from '../components/MenuActions.jsx';
@@ -21,6 +22,7 @@ import PurgeResultats from '../components/PurgeResultats.jsx';
 import RapportPAE from '../components/RapportPAE.jsx';
 import ImportListe from '../components/ImportListe.jsx';
 import DroitInscription from '../components/DroitInscription.jsx';
+import FraisScolarite from '../components/FraisScolarite.jsx';
 import ImportHistorique from '../components/ImportHistorique.jsx';
 
 // Niveau de l'étudiant : BA1/BA2 s'il ne suit qu'une année, « Diplômant »
@@ -519,6 +521,32 @@ function GrilleParcours({ etudId, peutEcrire }) {
                 )}
 
                 <div className="max-h-72 overflow-y-auto space-y-2.5">
+                  {detail.decision && (detail.decision.s1 || detail.decision.s2
+                    || detail.decision.motivation) && (
+                    <div className="mb-2 px-3 py-2 rounded-lg bg-slate-50 border
+                                    border-slate-200 text-[11.5px]">
+                      <span className="font-semibold text-iip-blue">Décision</span>
+                      {detail.decision.s1 && (
+                        <span className="ml-2">1<sup>re</sup> session :
+                          <b> {LIBELLE_RES[detail.decision.s1] || detail.decision.s1}</b></span>
+                      )}
+                      {detail.decision.s2 && (
+                        <span className="ml-2">· 2<sup>e</sup> session :
+                          <b> {LIBELLE_RES[detail.decision.s2] || detail.decision.s2}</b></span>
+                      )}
+                      {detail.decision.finale && (
+                        <span className="ml-2">· retenue :
+                          <b> {LIBELLE_RES[detail.decision.finale] || detail.decision.finale}</b>
+                          {detail.decision.points != null && ` (${detail.decision.points}/20)`}</span>
+                      )}
+                      {detail.decision.motivation && (
+                        <div className="mt-1 text-slate-600 italic">
+                          {detail.decision.motivation}
+                        </div>
+                      )}
+                    </div>
+                  )}
+
                   {(detail.structure || []).map(co => (
                     <div key={co.cours_code} className="border border-slate-200 rounded-lg overflow-hidden">
                       <div className="flex items-center gap-2 px-2 py-1.5 bg-slate-50">
@@ -575,6 +603,23 @@ function GrilleParcours({ etudId, peutEcrire }) {
                                   title="Pondération dans ce cours">
                                   {aa.poids != null ? aa.poids + '%' : '—'}
                                 </span>
+                                {/* Les deux sessions, quand l'import les a
+                                    apportées : on voit ce qui s'est joué en
+                                    première et en seconde, pas seulement le
+                                    résultat qui fait foi. */}
+                                {(detail.sessions?.s1?.[cle] || detail.sessions?.s2?.[cle]) && (
+                                  <span className="flex-none text-[10px] w-20 text-right">
+                                    <span className="text-slate-500" title="Première session">
+                                      S1&nbsp;{detail.sessions.s1?.[cle]?.points ?? '—'}
+                                    </span>
+                                    <span className="text-slate-300"> · </span>
+                                    <span className={detail.sessions.s2?.[cle]?.points != null
+                                      ? 'text-iip-blue font-semibold' : 'text-slate-400'}
+                                      title="Seconde session">
+                                      S2&nbsp;{detail.sessions.s2?.[cle]?.points ?? '—'}
+                                    </span>
+                                  </span>
+                                )}
                                 <input type="number" min="0" max="20" step="0.1" placeholder="/20"
                                   defaultValue={n.points ?? ''}
                                   disabled={!!n.non_evalue}
@@ -1028,7 +1073,9 @@ function FicheEtudiant({ id, annee, onClose }) {
   const [motivation, setMotivation] = useState(false);
   const [data, setData] = useState(null);
   const [pae, setPae] = useState(null);
-  const [onglet, setOnglet] = useState('grille');
+  // « grille » n'existe plus depuis la fusion avec le PAE : la fiche s'ouvrait
+  // sur un onglet sans contenu, et paraissait vide jusqu'à ce qu'on clique.
+  const [onglet, setOnglet] = useState('parcours');
   const [ficheInscription, setFicheInscription] = useState(null);
   const [selection, setSelection] = useState(null);      // Set des ue_num retenues
   const [catalogueOuvert, setCatalogueOuvert] = useState(false);
@@ -1164,6 +1211,16 @@ function FicheEtudiant({ id, annee, onClose }) {
 
   // Une attestation PAR UNITÉ réussie : ce sont des pièces distinctes, remises
   // séparément, chacune sur sa page.
+  /** Le parcours pédagogique : schéma et unités acquises, une page paysage. */
+  async function ouvrirParcours() {
+    const rep = await fetch(
+      `/api/etudiants/${id}/fiche-parcours/document?annee=${encodeURIComponent(annee)}`,
+      { headers: authHeaders() });
+    const j = await rep.json();
+    if (!rep.ok) { alert(j.error || 'Document indisponible.'); return; }
+    setFicheInscription({ html: j.html, titre: 'Parcours de formation', nom: j.nom });
+  }
+
   async function ouvrirAttestations() {
     const rep = await fetch(`/api/attestations/etudiant/${id}/document?annee=${annee}`,
       { headers: authHeaders() });
@@ -1212,7 +1269,7 @@ function FicheEtudiant({ id, annee, onClose }) {
     } catch(e) { setPae({ erreur: e.message }); }
   }
   useEffect(() => { charger(); /* eslint-disable-next-line */ }, [id]);
-  useEffect(() => { if (onglet === 'pae') chargerPAE(); /* eslint-disable-next-line */ }, [sectionForcee]);
+  useEffect(() => { if (onglet === 'parcours') chargerPAE(); /* eslint-disable-next-line */ }, [sectionForcee]);
 
 
 
@@ -1241,15 +1298,19 @@ function FicheEtudiant({ id, annee, onClose }) {
 
         {/* Onglets */}
         <div className="flex border-b border-slate-200 px-6">
-          {[['grille', `Grille de parcours (${data.inscriptions?.length || 0})`],
+          {/* Le PARCOURS réunit ce que la grille et le PAE disaient de deux
+              façons : le schéma, l'acquis, et le programme proposé. Les
+              VALORISATIONS et le DROIT D'INSCRIPTION se rejoignent aussi —
+              l'un détermine l'autre. */}
+          {[['parcours', `Parcours (${data.inscriptions?.length || 0})`],
             ['identite', 'Identité'],
-            ['pae', `PAE ${annee}`],
             ['va', 'Valorisation'],
-            ['di', "Droit d'inscription"],
+            ['finances', 'Finances'],
             ['stages', 'Stages'],
             ['amenagements', 'Aménagements'],
             ['dossier', 'Dossier']].map(([k, l]) => (
-            <button key={k} onClick={() => { setOnglet(k); if (k==='pae' && !pae) chargerPAE(); }}
+            <button key={k}
+            onClick={() => { setOnglet(k); if (k === 'parcours' && !pae) chargerPAE(); }}
               className={`px-4 py-3 text-sm font-medium border-b-2 -mb-px ${onglet===k
                 ? 'border-iip-turquoise text-iip-blue font-semibold'
                 : 'border-transparent text-slate-500'}`}>
@@ -1258,13 +1319,109 @@ function FicheEtudiant({ id, annee, onClose }) {
           ))}
         </div>
 
+        {/* Les ACTIONS du programme, ancrées sous les onglets. Placées dans
+            le contenu, elles ne pouvaient pas rester visibles : le défilement
+            est porté par la fenêtre entière, non par l'onglet. */}
+              {onglet === 'parcours' && pae && !pae.erreur && (
+                <div className="sticky top-0 z-30 bg-white/95 backdrop-blur border-b border-slate-200 px-6 py-2.5 flex gap-2 items-center flex-wrap">
+                  <button onClick={enregistrerPAE} disabled={enregistrement}
+                    className="flex items-center gap-1.5 px-3 py-1.5 text-sm
+                               bg-iip-turquoise text-white font-semibold rounded-lg
+                               disabled:opacity-50">
+                    <IconCheck size={14} />
+                    {enregistrement ? 'Enregistrement…' : 'Enregistrer le PAE'}
+                  </button>
+                  <button onClick={confirmerPAE} disabled={enregistrement}
+                    title={paeConfirme
+                      ? 'Retirer la confirmation — les inscriptions sont conservées'
+                      : "Confirmer le programme : l'étudiant passe en inscrit"}
+                    className={`flex items-center gap-1.5 px-3 py-1.5 text-sm
+                      font-semibold rounded-lg disabled:opacity-50 ${paeConfirme
+                        ? 'border border-slate-300 text-slate-600'
+                        : 'bg-iip-blue text-white'}`}>
+                    <IconWritingSign size={14} />
+                    {paeConfirme ? 'Programme confirmé' : 'Confirmer le programme'}
+                  </button>
+                  {/* Quatre documents alignés derrière une seule entrée.
+                      Ils avaient disparu avec l'ancienne barre d'actions : les
+                      fonctions étaient restées, plus rien ne les appelait, et
+                      le parcours de formation n'était donc plus imprimable. */}
+                  <MenuActions libelle="Documents" Icone={IconFileText} ton="bleu"
+                    titre="Documents de cet étudiant"
+                    items={[
+                      { libelle: 'Attestations de réussite', Icone: IconFileText,
+                        aide: "Une par unité d'enseignement réussie",
+                        onClick: ouvrirAttestations },
+                      { libelle: 'Parcours de formation', Icone: IconFileText,
+                        aide: 'Schéma de capitalisation et unités acquises — 1 page',
+                        onClick: ouvrirParcours },
+                      { separateur: true, titre: 'Décisions' },
+                      { libelle: 'Motiver un refus / ajournement', Icone: IconFileText,
+                        aide: 'Annexes 8 et 9 — une justification par acquis',
+                        onClick: () => setMotivation(true) },
+                      { separateur: true, titre: 'Administrations' },
+                      { libelle: 'Progrès des études (annexe 2)', Icone: IconFileText,
+                        aide: "Office des Étrangers — réclame la nationalité",
+                        onClick: () => setAnnexe2(true) },
+                    ]} />
+
+                  <span className="text-[11.5px] text-slate-500 ml-1">
+                    {paeConfirme
+                      ? "L'étudiant est inscrit aux unités retenues."
+                      : "Rien n'est inscrit tant que vous n'avez pas confirmé."}
+                  </span>
+                </div>
+              )}
+
         <div className="p-6">
           {/* Inscriptions + résultats */}
-          {onglet === 'grille' && <GrilleParcours etudId={id} peutEcrire={true} />}
-
           {onglet === 'va' && <Valorisations etudId={id} annee={annee} />}
 
-          {onglet === 'di' && <DroitInscription etudId={id} annee={annee} />}
+          {/* FINANCES : tout ce qui touche à l'argent au même endroit — droit
+              d'inscription, exonérations, frais de scolarité et leurs
+              documents. Le mêler à la valorisation était bancal : l'une relève
+              du pédagogique, l'autre de l'administratif. */}
+          {onglet === 'finances' && (
+            <div className="p-5 space-y-5">
+              <DroitInscription etudId={id} annee={annee} />
+
+              <div className="border-t border-slate-200 pt-4">
+                <div className="flex items-center justify-between gap-3 flex-wrap mb-2">
+                  <div>
+                    <h3 className="text-[15px] font-semibold text-iip-blue">
+                      Frais de scolarité
+                    </h3>
+                    <p className="text-[12px] text-slate-500">
+                      Document distinct du droit d'inscription : la Fédération
+                      n'en connaît pas.
+                    </p>
+                  </div>
+                  <button onClick={ouvrirFraisScolarite}
+                    className="flex items-center gap-1.5 px-3 py-1.5 text-sm border
+                               border-iip-blue text-iip-blue font-semibold rounded-lg">
+                    <IconFileText size={14} /> Produire le document
+                  </button>
+                </div>
+
+                {/* Le calcul À L'ÉCRAN, et pas seulement dans le document
+                    imprimé : le secrétariat doit pouvoir répondre à un
+                    étudiant sans générer un PDF. */}
+                <FraisScolarite etudId={id} annee={annee} />
+              </div>
+
+              <div className="border-t border-slate-200 pt-4">
+                <button onClick={ouvrirFicheInscription}
+                  className="flex items-center gap-1.5 px-3 py-1.5 text-sm border
+                             border-slate-300 text-slate-600 font-semibold rounded-lg">
+                  <IconFileText size={14} /> Fiche d'inscription / reçu
+                </button>
+                <p className="text-[11.5px] text-slate-500 mt-1">
+                  Récapitulatif du programme, des droits et de l'engagement signé.
+                </p>
+              </div>
+            </div>
+          )}
+
 
           {onglet === 'dossier' && <DossierApprenant etudId={id} />}
 
@@ -1295,8 +1452,39 @@ function FicheEtudiant({ id, annee, onClose }) {
             </div>
           )}
 
-          {onglet === 'pae' && (
+          {onglet === 'parcours' && (
             <div>
+
+              {/* L'ordre de lecture : le SCHÉMA d'abord — la vue d'ensemble du
+                  parcours —, puis le programme proposé, et les NOTES en
+                  dernier, qui sont le détail. */}
+              {/* Pas de marge LATÉRALE : la grille qui suit n'en a pas, et le
+                  cadre du schéma s'arrêtait donc avant elle. Les deux blocs
+                  doivent avoir exactement la même largeur pour se lire comme
+                  un seul écran. */}
+              <div className="pt-5 pb-0">
+                <SchemaCapitalisation etudId={id} annee={annee} />
+              </div>
+
+              <GrilleParcours etudId={id} peutEcrire={true} />
+
+              <div className="border-t border-slate-200 mt-4 pt-4">
+              {/* Ce qui suit est une PROPOSITION tant qu'elle n'est pas
+                  confirmée : le dire évite de la lire comme un état de fait,
+                  maintenant que schéma et programme sont sur la même page. */}
+              <div className={`mb-3 px-3 py-2 rounded-lg text-[12.5px] border ${
+                paeConfirme
+                  ? 'bg-emerald-50 border-emerald-200 text-emerald-800'
+                  : 'bg-amber-50 border-amber-200 text-amber-900'}`}>
+                <b>{paeConfirme ? 'Programme confirmé' : 'Programme proposé'}</b>
+                {' — '}
+                {paeConfirme
+                  ? "l'étudiant est inscrit aux unités ci-dessous."
+                  : "rien n'est inscrit tant que vous n'avez pas confirmé. "
+                    + 'Les unités ci-dessous sont celles que Lucie propose au vu '
+                    + 'du parcours et des prérequis.'}
+              </div>
+
               {!pae ? (
                 <div className="text-center py-8 text-slate-400 text-sm">Chargement du PAE…</div>
               ) : pae.erreur ? (
@@ -1358,50 +1546,6 @@ function FicheEtudiant({ id, annee, onClose }) {
                         )}
                       </div>
                     </div>
-                    <div className="flex gap-2">
-                      <button onClick={enregistrerPAE} disabled={enregistrement}
-                        className="flex items-center gap-1.5 px-3 py-1.5 text-sm bg-iip-turquoise text-white font-semibold rounded-lg disabled:opacity-50">
-                        <IconCheck size={14} /> {enregistrement ? 'Enregistrement…' : 'Enregistrer le PAE'}
-                      </button>
-                      {/* Enregistrer n'est pas confirmer : tant que le
-                          programme n'est pas confirmé, il reste une
-                          proposition et l'étudiant n'est pas inscrit. */}
-                      <button onClick={confirmerPAE} disabled={enregistrement}
-                        title={paeConfirme
-                          ? 'Retirer la confirmation — les inscriptions sont conservées'
-                          : "Confirmer le programme : l'étudiant passe en inscrit"}
-                        className={`flex items-center gap-1.5 px-3 py-1.5 text-sm font-semibold
-                          rounded-lg disabled:opacity-50 ${paeConfirme
-                            ? 'border border-slate-300 text-slate-600'
-                            : 'bg-iip-blue text-white'}`}>
-                        <IconWritingSign size={14} />
-                        {paeConfirme ? 'Programme confirmé' : 'Confirmer le programme'}
-                      </button>
-                      {/* Quatre documents alignés : ils se rangent derrière une
-                          seule entrée, l'enregistrement du PAE restant seul en
-                          évidence puisque c'est l'action courante. */}
-                      <MenuActions libelle="Documents" Icone={IconFileText} ton="bleu"
-                        titre="Documents de cet étudiant"
-                        items={[
-                          { libelle: "Fiche d'inscription / reçu", Icone: IconFileText,
-                            aide: 'PAE, droits d\u2019inscription et engagement signé',
-                            onClick: ouvrirFicheInscription },
-                          { libelle: 'Attestations de réussite', Icone: IconFileText,
-                            aide: "Une par unité d'enseignement réussie",
-                            onClick: ouvrirAttestations },
-                          { libelle: 'Frais de scolarité', Icone: IconFileText,
-                            aide: "Document distinct : l'administration n'en connaît pas",
-                            onClick: ouvrirFraisScolarite },
-                          { separateur: true, titre: 'Décisions' },
-                          { libelle: 'Motiver un refus / ajournement', Icone: IconFileText,
-                            aide: 'Annexes 8 et 9 — une justification par acquis',
-                            onClick: () => setMotivation(true) },
-                          { separateur: true, titre: 'Administrations' },
-                          { libelle: 'Progrès des études (annexe 2)', Icone: IconFileText,
-                            aide: "Office des Étrangers — réclame la nationalité",
-                            onClick: () => setAnnexe2(true) },
-                        ]} />
-                    </div>
                   </div>
 
                   {bloquees.length > 0 && (
@@ -1441,7 +1585,6 @@ function FicheEtudiant({ id, annee, onClose }) {
                     </div>
                   )}
 
-                  <SchemaCapitalisation etudId={id} annee={pae.annee} />
 
                   {!retenues.length ? (
                     <div className="text-center py-8 text-slate-400 text-sm border-2 border-dashed rounded-xl">
@@ -1553,6 +1696,7 @@ function FicheEtudiant({ id, annee, onClose }) {
                 );
               })()}
             </div>
+              </div>
           )}
         </div>
       </div>
@@ -1619,6 +1763,7 @@ export default function Etudiants() {
   const [centrePAE, setCentrePAE] = useState(false);
   const [comparaison, setComparaison] = useState(false);
   const [importSurMesure, setImportSurMesure] = useState(false);
+  const [importSuivi, setImportSuivi] = useState(false);
   const [tri, setTri] = useState({ champ: 'nom', sens: 1 });
 
 
@@ -1933,6 +2078,8 @@ export default function Etudiants() {
         onClick: () => setImportHisto(true) },
       { key: 'comparer', label: 'Comparer un classeur', icon: IconUpload,
         onClick: () => setComparaison(true) },
+      { key: 'suivi', label: 'Classeur de suivi (2 sessions)', icon: IconUpload,
+        onClick: () => setImportSuivi(true) },
       { key: 'sur-mesure', label: 'Importateur sur mesure', icon: IconUpload,
         onClick: () => setImportSurMesure(true) },
     ] },
@@ -2104,6 +2251,11 @@ export default function Etudiants() {
 
       {comparaison && <ComparaisonClasseur onClose={() => setComparaison(false)} />}
 
+      {importSuivi && (
+        <ImportSuivi annee={annee} onClose={() => setImportSuivi(false)}
+          onTermine={charger} />
+      )}
+
       {importSurMesure && (
         <ImportSurMesure onClose={() => setImportSurMesure(false)} onTermine={charger} />
       )}
@@ -2160,4 +2312,11 @@ export default function Etudiants() {
     </div>
     </div>
   );
+
+// Le vocabulaire des décisions, en clair. « echec » vient des sessions,
+// « ajourne » et « refuse » des décisions d'unité.
+const LIBELLE_RES = {
+  reussi: 'réussi', echec: 'échec', absent: 'absent',
+  ajourne: 'ajourné', refuse: 'refusé', va: 'valorisé',
+};
 }

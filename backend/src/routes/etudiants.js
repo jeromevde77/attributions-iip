@@ -4,7 +4,7 @@
 
 import { Router } from 'express';
 import { LOGO_IIP_JPEG } from '../services/assets/logo_iip_jpeg.js';
-import { piedBalisage, piedStyles, reglesDePage } from '../lib/document.js';
+import { piedBalisage, piedStyles, reglesDePage, envelopperDocument } from '../lib/document.js';
 
 import db from '../db/index.js';
 import { piedDocument } from './parametres.js';
@@ -441,7 +441,7 @@ r.get('/rapport', authRequired, (req, res) => {
      L'orientation se déclare ICI et nulle part ailleurs — un second @page
      déclaré plus bas l'emporterait, ce qui est précisément ce qui ramenait ce
      rapport en portrait. */
-  ${reglesDePage({ haut: 12, cote: 10, orientation })}
+  ${reglesDePage({ haut: 12, cote: 10, orientation: 'paysage' })}
 
   /* Pied de page commun, ancré en bas de CHAQUE page — dernière comprise.
      Un pied placé dans le flux, ou en table-footer-group, flotte au milieu
@@ -1157,6 +1157,15 @@ r.post('/rapport-pae/excel', authRequired, async (req, res) => {
     if (!cols.includes('resultat_s2')) {
       db.exec('ALTER TABLE etudiant_inscription ADD COLUMN resultat_s2 TEXT');
     }
+    // Les NOTES de chaque session, à côté de leur décision. « points » reste
+    // la note qui fait foi, comme « resultat » reste la décision qui fait foi.
+    if (!cols.includes('points_s1')) {
+      db.exec('ALTER TABLE etudiant_inscription ADD COLUMN points_s1 REAL');
+      console.log('[migration] points_s1 / points_s2 ajoutées');
+    }
+    if (!cols.includes('points_s2')) {
+      db.exec('ALTER TABLE etudiant_inscription ADD COLUMN points_s2 REAL');
+    }
   } catch (e) { console.error('[migration] sessions :', e.message); }
 })();
 
@@ -1276,6 +1285,561 @@ r.delete('/:id/pae/confirmer', authRequired,
   db.prepare('DELETE FROM etudiant_pae WHERE etudiant_id = ? AND annee_scolaire = ?')
     .run(Number(req.params.id), annee);
   res.json({ ok: true, confirme: false });
+});
+
+// ── Import d'un classeur de suivi ──────────────────────────────────────────
+// Les classeurs portent les DEUX sessions, les notes par acquis et la
+// MOTIVATION des décisions — ce que Lucie ne savait pas importer. Chaque ligne
+// alimente trois tables : l'inscription pour la décision et sa session,
+// etudiant_note_detail pour les acquis, decision_motivation pour le motif.
+r.post('/import-suivi', authRequired,
+       roleRequired('admin', 'directeur', 'directeur_adjoint', 'editeur'), (req, res) => {
+  const { annee, lignes, simulation } = req.body || {};
+  if (!annee || !Array.isArray(lignes)) {
+    return res.status(400).json({ error: 'annee et lignes requises' });
+  }
+
+  // Rapprochement par MATRICULE : c'est ce que portent les classeurs. Il change
+  // d'une rentrée à l'autre, mais ces fichiers sont annuels — le matricule y
+  // est donc fiable, contrairement à un import pluriannuel.
+  const parMatricule = {};
+  for (const e of db.prepare('SELECT id, id_ecampus, nom, prenom FROM etudiant').all()) {
+    const k = String(e.id_ecampus || '').trim();
+    if (k) parMatricule[k] = e;
+  }
+
+  // Les PONDÉRATIONS du classeur : elles manquent au référentiel de Lucie,
+  // alors que vos fichiers les portent. Sans elles, la note d'unité se calcule
+  // à la moyenne simple, ce qui est faux dès qu'un acquis pèse 60 %.
+  const insPondCours = db.prepare(`
+    INSERT INTO cours_ponderation (ue_num, cours_code, poids, maj_le)
+    VALUES (?,?,?, datetime('now'))
+    ON CONFLICT(ue_num, cours_code) DO UPDATE SET
+      poids = excluded.poids, maj_le = excluded.maj_le`);
+
+  const insPond = db.prepare(`
+    INSERT INTO aa_ponderation (ue_num, cours_code, aa_code, poids, maj_le)
+    VALUES (?,?,?,?, datetime('now'))
+    -- La contrainte de la table porte sur (cours_code, aa_code), SANS ue_num :
+    -- l'avoir supposée à trois colonnes faisait échouer tout l'import.
+    ON CONFLICT(cours_code, aa_code) DO UPDATE SET
+      poids = excluded.poids, maj_le = excluded.maj_le`);
+
+  const rapport = { retrouves: 0, resultats: 0, notes: 0, motivations: 0,
+                    ponderations: 0,
+                    ecrases: 0, inconnus: [] };
+  const vusEtud = new Set();
+  const ponderationsFaites = new Set();
+  rapport.aa_sans_cours = new Set();
+
+  const insInsc = db.prepare(`
+    INSERT INTO etudiant_inscription
+      (etudiant_id, annee_scolaire, ue_num, resultat, resultat_s1, resultat_s2,
+       points, date_inscription)
+    VALUES (?,?,?,?,?,?,?,?)
+    ON CONFLICT(etudiant_id, annee_scolaire, ue_num) DO UPDATE SET
+      resultat    = excluded.resultat,
+      resultat_s1 = COALESCE(excluded.resultat_s1, etudiant_inscription.resultat_s1),
+      resultat_s2 = COALESCE(excluded.resultat_s2, etudiant_inscription.resultat_s2),
+      points      = COALESCE(excluded.points, etudiant_inscription.points)`);
+
+  const lireInsc = db.prepare(`
+    SELECT resultat, points FROM etudiant_inscription
+    WHERE etudiant_id = ? AND annee_scolaire = ? AND ue_num = ?`);
+
+  const insNote = db.prepare(`
+    INSERT INTO etudiant_note_detail
+      (etudiant_id, annee_scolaire, ue_num, type, code, points)
+    VALUES (?,?,?, 'aa', ?, ?)
+    ON CONFLICT(etudiant_id, annee_scolaire, ue_num, type, code) DO UPDATE SET
+      points = excluded.points`);
+
+  const insMotif = db.prepare(`
+    INSERT INTO decision_motivation
+      (etudiant_id, annee_scolaire, ue_num, aa_code, motif, maj_le, maj_par)
+    VALUES (?,?,?,?,?, datetime('now'), ?)
+    ON CONFLICT(etudiant_id, annee_scolaire, ue_num, aa_code) DO UPDATE SET
+      motif = excluded.motif, maj_le = excluded.maj_le`);
+
+  const dateJour = new Date().toISOString().slice(0, 10);
+  const qui = req.user?.email || req.user?.nom_complet || null;
+
+  const appliquer = db.transaction(() => {
+    for (const l of lignes) {
+      const e = parMatricule[String(l.matricule || '').trim()];
+      if (!e) {
+        rapport.inconnus.push({ matricule: l.matricule, nom: l.nom, prenom: l.prenom });
+        continue;
+      }
+      if (!vusEtud.has(e.id)) { vusEtud.add(e.id); rapport.retrouves++; }
+
+      const ueNum = Number(l.ue_num);
+      if (!Number.isFinite(ueNum)) continue;
+
+      // Un résultat déjà en base sera REMPLACÉ : on le compte pour l'annoncer.
+      const avant = lireInsc.get(e.id, annee, ueNum);
+      if (avant?.resultat && avant.resultat !== l.decision) rapport.ecrases++;
+
+      if (l.decision) {
+        // La session d'où vient la décision, telle que le classeur la dit.
+        const s1 = l.session === 's1' ? l.decision : null;
+        const s2 = l.session === 's2' ? (l.decision === 'reussi' ? 'reussi' : 'echec') : null;
+        if (!simulation) {
+          insInsc.run(e.id, annee, ueNum, l.decision, s1, s2,
+                      l.points ?? null, dateJour);
+        }
+        rapport.resultats++;
+      }
+
+      // Le cours de chaque acquis : le calcul de la note d'UE cherche les
+      // notes sous la clé « cours|acquis », les pondérations étant propres au
+      // cours. Une note sans cours resterait invisible au calcul.
+      const coursDe = {};
+      for (const r0 of db.prepare(
+        'SELECT aa_code, cours_code FROM aa WHERE ue_num = ?').all(ueNum)) {
+        if (r0.cours_code) coursDe[r0.aa_code] = r0.cours_code;
+      }
+
+      for (const [bloc, notes] of [['s1', l.notes_s1], ['s2', l.notes_s2]]) {
+        for (const [aa, note] of Object.entries(notes || {})) {
+          // Le code porte la session : sans cela, la seconde écraserait la
+          // première et l'on perdrait le détail de la délibération.
+          // Deux écritures : la SESSION pour la feuille de délibération, et le
+          // COURS pour le calcul de la note d'unité. Les deux sont utiles et ne
+          // se remplacent pas.
+          if (!simulation) insNote.run(e.id, annee, ueNum, `${bloc}|${aa}`, note);
+          const cc = coursDe[aa];
+          if (cc && bloc === 's2' || (cc && bloc === 's1' && !l.notes_s2?.[aa])) {
+            // La note qui FAIT FOI : la seconde session si elle existe.
+            if (!simulation) insNote.run(e.id, annee, ueNum, `${cc}|${aa}`, note);
+          }
+          rapport.notes++;
+        }
+      }
+
+      // Les pondérations sont propres à l'UNITÉ, non à l'étudiant : on ne les
+      // écrit qu'une fois par unité rencontrée.
+      // La RÉPARTITION de l'onglet dédié fait foi jusqu'en 2025-2026 : elle
+      // donne le poids de chaque cours et le poids de chaque acquis DANS
+      // chaque cours, un même acquis pouvant figurer dans plusieurs. À partir
+      // de 2026-2027, les périodes du dossier pédagogique prennent le relais
+      // et ces tables restent vides.
+      if (l.repartition && !ponderationsFaites.has(ueNum)) {
+        ponderationsFaites.add(ueNum);
+        for (const [cc, p] of Object.entries(l.repartition.cours || {})) {
+          if (p == null || p === 0) continue;
+          if (!simulation) insPondCours.run(ueNum, cc, p);
+          rapport.ponderations++;
+        }
+        for (const [aa, parCours] of Object.entries(l.repartition.acquis || {})) {
+          for (const [cc, p] of Object.entries(parCours)) {
+            if (p == null || p === 0) continue;
+            if (!simulation) insPond.run(ueNum, cc, aa, p);
+            rapport.ponderations++;
+          }
+        }
+        continue;
+      }
+
+      if (l.ponderations && !ponderationsFaites.has(ueNum)) {
+        ponderationsFaites.add(ueNum);
+        for (const [aa, p] of Object.entries(l.ponderations)) {
+          if (p?.poids_aa == null) continue;
+          // La pondération est stockée PAR COURS : sans le cours, le calcul
+          // de la note d'UE ne la retrouve pas. Un acquis sans cours rattaché
+          // est signalé plutôt qu'écrit sous une clé vide.
+          const cc = db.prepare(
+            'SELECT cours_code FROM aa WHERE ue_num = ? AND aa_code = ? LIMIT 1'
+          ).get(ueNum, aa)?.cours_code;
+          if (!cc) { rapport.aa_sans_cours.add(aa); continue; }
+          if (!simulation) insPond.run(ueNum, cc, aa, p.poids_aa);
+          rapport.ponderations++;
+        }
+      }
+
+      // La justification du classeur devient la motivation de la décision.
+      if (l.justification && (l.decision === 'refuse' || l.decision === 'ajourne')) {
+        if (!simulation) {
+          insMotif.run(e.id, annee, ueNum, '_ue', l.justification, qui);
+        }
+        rapport.motivations++;
+      }
+    }
+    if (simulation) throw new Error('SIMULATION');
+  });
+
+  try { appliquer(); } catch (e) {
+    if (e.message !== 'SIMULATION') {
+      console.error('[import-suivi]', e);
+      return res.status(500).json({ error: e.message });
+    }
+  }
+
+  res.json({
+    ok: true, simulation: !!simulation,
+    lignes_lues: lignes.length,
+    retrouves: rapport.retrouves,
+    resultats: rapport.resultats,
+    notes: rapport.notes,
+    motivations: rapport.motivations,
+    ponderations: rapport.ponderations,
+    aa_sans_cours: [...rapport.aa_sans_cours],
+    ecrases: rapport.ecrases,
+    inconnus: rapport.inconnus.slice(0, 20),
+    nb_inconnus: rapport.inconnus.length,
+  });
+});
+
+// ── Fiche pédagogique de parcours ──────────────────────────────────────────
+// Le document qu'on remet à l'étudiant après délibération : où il en est, ce
+// qu'il peut suivre, ce qui lui reste. Aucune notion financière — c'est une
+// pièce PÉDAGOGIQUE, non un décompte de droits d'inscription.
+r.get('/:id/fiche-parcours', authRequired, (req, res) => {
+  const etudId = Number(req.params.id);
+  const annee = req.query.annee || anneeDeTravail(req);
+
+  const e = db.prepare('SELECT * FROM etudiant WHERE id = ?').get(etudId);
+  if (!e) return res.status(404).json({ error: 'étudiant introuvable' });
+
+  const { section } = sectionRattachement(etudId, annee);
+  if (!section) {
+    return res.status(400).json({
+      error: "Aucune section pour cet étudiant : le schéma de capitalisation "
+           + 'ne peut pas être construit.',
+    });
+  }
+
+  // Tout ce que l'étudiant a acquis, TOUTES ANNÉES : une unité réussie ne se
+  // reperd pas.
+  const acquis = new Map();
+  for (const l of db.prepare(`
+    SELECT ue_num, resultat, points, annee_scolaire FROM etudiant_inscription
+    WHERE etudiant_id = ? ORDER BY annee_scolaire
+  `).all(etudId)) {
+    if (l.resultat === 'reussi') {
+      acquis.set(l.ue_num, { points: l.points, annee: l.annee_scolaire, mode: 'reussi' });
+    }
+  }
+  for (const v of db.prepare(`
+    SELECT ue_num, pourcentage, annee_scolaire FROM etudiant_valorisation
+    WHERE etudiant_id = ? AND type = 'complete'
+  `).all(etudId)) {
+    if (!acquis.has(v.ue_num)) {
+      acquis.set(v.ue_num, { points: v.pourcentage, annee: v.annee_scolaire, mode: 'va' });
+    }
+  }
+
+  const inscrites = new Set(db.prepare(`
+    SELECT ue_num FROM etudiant_inscription
+    WHERE etudiant_id = ? AND annee_scolaire = ?
+  `).all(etudId, annee).map(x => x.ue_num));
+
+  // Le graphe, avec la situation de l'étudiant superposée. Une unité est
+  // ACCESSIBLE si tous ses prérequis sont acquis ; sinon elle est hors
+  // d'atteinte pour l'instant.
+  const graphe = construireGraphe({
+    sections: [section], annee,
+    etat: (ueNum) => {
+      if (acquis.has(ueNum)) {
+        const a = acquis.get(ueNum);
+        return { statut: 'acquis', points: a.points, annee_acquis: a.annee, mode: a.mode };
+      }
+      return { statut: 'a_evaluer', inscrite: inscrites.has(ueNum) };
+    },
+  });
+
+  // L'accessibilité se calcule APRÈS coup : elle dépend des prérequis, que le
+  // graphe vient d'établir.
+  for (const n of graphe.nodes) {
+    if (n.statut === 'acquis') continue;
+    const bloquants = (n.prerequis || []).filter(p => !acquis.has(p));
+    n.statut = bloquants.length ? 'bloque' : 'accessible';
+    n.bloquants = bloquants;
+  }
+
+  // Les unités réussies, avec leur note — la partie basse du document.
+  const reussies = [...acquis.entries()]
+    .map(([ue_num, a]) => {
+      const u = graphe.nodes.find(n => n.ue_num === ue_num);
+      return {
+        ue_num, ue_nom: u?.ue_nom || `UE ${ue_num}`, ue_niv: u?.ue_niv || '',
+        points: a.points, annee: a.annee, mode: a.mode,
+      };
+    })
+    .sort((a, b) => String(a.annee).localeCompare(String(b.annee)) || a.ue_num - b.ue_num);
+
+  res.json({
+    etudiant: { id: e.id, nom: e.nom, prenom: e.prenom, id_ecampus: e.id_ecampus },
+    section, annee, graphe, reussies,
+    compte: {
+      acquis: acquis.size,
+      accessibles: graphe.nodes.filter(n => n.statut === 'accessible').length,
+      bloquees: graphe.nodes.filter(n => n.statut === 'bloque').length,
+      inscrites: inscrites.size,
+      total: graphe.nodes.length,
+    },
+  });
+});
+
+// ── Le document imprimable ─────────────────────────────────────────────────
+// Paysage, une page A4. Le schéma en haut, les unités réussies en bas.
+r.get('/:id/fiche-parcours/document', authRequired, (req, res) => {
+  const annee = req.query.annee || anneeDeTravail(req);
+  const etudId = Number(req.params.id);
+
+  const e = db.prepare('SELECT * FROM etudiant WHERE id = ?').get(etudId);
+  if (!e) return res.status(404).json({ error: 'étudiant introuvable' });
+
+  const { section } = sectionRattachement(etudId, annee);
+  if (!section) return res.status(400).json({ error: 'aucune section pour cet étudiant' });
+
+  // On réutilise le calcul de la route de données, sans le dupliquer.
+  const acquis = new Map();
+  for (const l of db.prepare(`
+    SELECT ue_num, resultat, points, annee_scolaire FROM etudiant_inscription
+    WHERE etudiant_id = ? ORDER BY annee_scolaire`).all(etudId)) {
+    if (l.resultat === 'reussi') {
+      acquis.set(l.ue_num, { points: l.points, annee: l.annee_scolaire, mode: 'reussi' });
+    }
+  }
+  for (const v of db.prepare(`
+    SELECT ue_num, pourcentage, annee_scolaire FROM etudiant_valorisation
+    WHERE etudiant_id = ? AND type = 'complete'`).all(etudId)) {
+    if (!acquis.has(v.ue_num)) {
+      acquis.set(v.ue_num, { points: v.pourcentage, annee: v.annee_scolaire, mode: 'va' });
+    }
+  }
+  const inscrites = new Set(db.prepare(`
+    SELECT ue_num FROM etudiant_inscription
+    WHERE etudiant_id = ? AND annee_scolaire = ?`).all(etudId, annee).map(x => x.ue_num));
+
+  const graphe = construireGraphe({
+    sections: [section], annee,
+    etat: n => acquis.has(n)
+      ? { statut: 'acquis' }
+      : { statut: 'a_evaluer', inscrite: inscrites.has(n) },
+  });
+  for (const n of graphe.nodes) {
+    if (n.statut === 'acquis') continue;
+    const bl = (n.prerequis || []).filter(p => !acquis.has(p));
+    n.statut = bl.length ? 'bloque' : 'accessible';
+  }
+
+  const esc2 = s => String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;');
+
+  // Les unités rangées par colonne du graphe : c'est la lecture du parcours.
+  const parColonne = {};
+  for (const n of graphe.nodes) (parColonne[n.couche] ||= []).push(n);
+  const colonnes = Object.keys(parColonne).map(Number).sort((a, b) => a - b);
+
+  const libColonne = i => {
+    const c0 = (graphe.colonnes || []).find(x => x.index === i);
+    return c0?.groupe || c0?.label || '';
+  };
+
+  // Le schéma en SVG, comme à l'écran : un flux CSS n'a pas de coordonnées, et
+  // sans coordonnées on ne peut pas tracer les flèches de prérequis. Or ce sont
+  // elles qui font lire le parcours — sans elles on voit des colonnes, pas des
+  // dépendances.
+  const L = 108, H = 34, GX = 44, GY = 7, PAD = 4, TETE = 16;
+  const couches = {};
+  for (const n of graphe.nodes) (couches[n.couche] ||= []).push(n);
+  const nums = Object.keys(couches).map(Number).sort((a, b) => a - b);
+
+  const pos = {};
+  const colonnesX = {};
+  let lignesMax = 0;
+  nums.forEach((cn, ci) => {
+    const x = PAD + ci * (L + GX);
+    colonnesX[cn] = x;
+    couches[cn].forEach((n, ri) => { pos[n.ue_num] = { x, y: PAD + TETE + ri * (H + GY) }; });
+    lignesMax = Math.max(lignesMax, couches[cn].length);
+  });
+  const largeur = PAD * 2 + nums.length * L + Math.max(0, nums.length - 1) * GX;
+  const hauteur = PAD * 2 + TETE + lignesMax * (H + GY);
+
+  const COULEUR = {
+    acquis:     { fond: '#D1FAE5', trait: '#34D399', texte: '#065F46' },
+    accessible: { fond: '#DBEAFE', trait: '#60A5FA', texte: '#1E3A8A' },
+    bloque:     { fond: '#F1F5F9', trait: '#CBD5E1', texte: '#64748B' },
+  };
+
+  const fleches = (graphe.edges || []).map(e2 => {
+    const a = pos[e2.from], b = pos[e2.to];
+    if (!a || !b) return '';
+    const x1 = a.x + L, y1 = a.y + H / 2;
+    const x2 = b.x - 3, y2 = b.y + H / 2;
+    // Une courbe plutôt qu'une droite : les liens se croisent moins et se
+    // suivent mieux à l'œil.
+    const dx = Math.max(14, (x2 - x1) / 2);
+    return `<path d="M${x1},${y1} C${x1 + dx},${y1} ${x2 - dx},${y2} ${x2},${y2}"
+      fill="none" stroke="${e2.type === 'legal' ? '#94A3B8' : '#C9A84C'}"
+      stroke-width="${e2.type === 'legal' ? 0.8 : 0.7}"
+      stroke-dasharray="${e2.type === 'legal' ? '' : '2,1.5'}"
+      marker-end="url(#fl)" />`;
+  }).join('');
+
+  const titres = nums.map(cn => {
+    const c0 = (graphe.colonnes || []).find(x => x.index === cn);
+    const lib = c0?.groupe || c0?.label || couches[cn][0]?.ue_niv || '';
+    return lib ? `<text x="${colonnesX[cn] + L / 2}" y="${PAD + 9}"
+      text-anchor="middle" font-size="7" font-weight="700"
+      fill="#475569">${esc2(lib)}</text>` : '';
+  }).join('');
+
+  const boites = graphe.nodes.map(n => {
+    const p = pos[n.ue_num];
+    const co = COULEUR[n.statut] || COULEUR.bloque;
+    // Le nom, coupé sur deux lignes : les intitulés d'UE sont longs.
+    const mots = String(n.ue_nom || '').split(/\s+/);
+    const l1 = [], l2 = [];
+    for (const m of mots) {
+      if (l1.join(' ').length + m.length <= 24) l1.push(m);
+      else if (l2.join(' ').length + m.length <= 24) l2.push(m);
+    }
+    return `
+    <g>
+      <rect x="${p.x}" y="${p.y}" width="${L}" height="${H}" rx="2.5"
+        fill="${co.fond}" stroke="${n.inscrite ? '#C9A84C' : co.trait}"
+        stroke-width="${n.inscrite ? 1.6 : 0.6}" />
+      <text x="${p.x + 4}" y="${p.y + 9}" font-size="7.5" font-weight="700"
+        fill="${co.texte}">${n.ue_num}${n.epreuve_integree ? ' · EI' : ''}</text>
+      <text x="${p.x + 4}" y="${p.y + 18}" font-size="6" fill="${co.texte}">${esc2(l1.join(' '))}</text>
+      <text x="${p.x + 4}" y="${p.y + 25}" font-size="6" fill="${co.texte}">${esc2(l2.join(' '))}${
+        mots.length > l1.length + l2.length ? '…' : ''}</text>
+      ${n.determinante ? `
+      <!-- UE déterminante : la pastille est CENTRÉE sur l'angle supérieur
+           droit, donc à cheval sur le bord — elle déborde autant qu'elle
+           mord dedans, comme un cachet posé sur le coin. -->
+      <circle cx="${p.x + L}" cy="${p.y}" r="4.5" fill="#047857"
+        stroke="#fff" stroke-width="0.7" />
+      <text x="${p.x + L}" y="${p.y + 2.2}" text-anchor="middle"
+        font-size="5.5" font-weight="700" fill="#fff">D</text>` : ''}
+    </g>`;
+  }).join('');
+
+  const schema = `
+  <svg viewBox="0 0 ${largeur} ${hauteur}" class="schema"
+       xmlns="http://www.w3.org/2000/svg">
+    <defs>
+      <marker id="fl" markerWidth="6" markerHeight="6" refX="5" refY="2"
+        orient="auto" markerUnits="strokeWidth">
+        <path d="M0,0 L5,2 L0,4 z" fill="#94A3B8" />
+      </marker>
+    </defs>
+    ${titres}
+    ${fleches}
+    ${boites}
+  </svg>`;
+
+  const reussies = [...acquis.entries()]
+    .map(([ue, a]) => ({ ue, ...a,
+      nom: graphe.nodes.find(n => n.ue_num === ue)?.ue_nom || `UE ${ue}` }))
+    .sort((a, b) => String(a.annee).localeCompare(String(b.annee)) || a.ue - b.ue);
+
+  // Le PROGRAMME de l'année, énuméré sous le schéma : la pastille du graphe
+  // signale bien une UE inscrite, mais elle ne se lit qu'en cherchant, et la
+  // fiche imprimée doit pouvoir se relire sans décoder le dessin. Les unités
+  // déjà acquises en sont exclues — elles figurent dans l'autre tableau.
+  const inscritesListe = [...inscrites]
+    .filter(ue => !acquis.has(ue))
+    .map(ue => {
+      const n0 = graphe.nodes.find(x => x.ue_num === ue);
+      return { ue, nom: n0?.ue_nom || `UE ${ue}`, niv: n0?.ue_niv || '',
+               statut: n0?.statut || null };
+    })
+    .sort((a, b) => a.ue - b.ue);
+
+  const corps = `
+<div class="fp">
+  <div class="entete">
+    <div>
+      <div class="nom-etud">${esc2((e.nom || '').toUpperCase())} ${esc2(e.prenom || '')}</div>
+      <div class="sous">${esc2(section)} · année ${esc2(annee)}${
+        e.id_ecampus ? ` · matricule ${esc2(e.id_ecampus)}` : ''}</div>
+    </div>
+    <div class="titre">Parcours de formation</div>
+  </div>
+
+  <div class="legende">
+    <span><i class="p acquis"></i> acquise</span>
+    <span><i class="p accessible"></i> accessible</span>
+    <span><i class="p bloque"></i> prérequis manquants</span>
+    <span><i class="p inscrite"></i> inscrite cette année</span>
+  </div>
+
+  ${schema}
+
+  <div class="bas">
+    <div class="bas-titre">Unités d'enseignement acquises
+      <span class="cpt">${reussies.length}</span></div>
+    ${reussies.length ? `<table class="acquises">
+      <tr><th>UE</th><th>Intitulé</th><th>Année</th><th>Note</th></tr>
+      ${reussies.map(u => `<tr>
+        <td>${u.ue}</td>
+        <td>${esc2(u.nom)}</td>
+        <td>${esc2(u.annee || '')}</td>
+        <td class="n">${u.mode === 'va' ? 'Valorisation'
+          : (u.points != null ? u.points + '/20' : '—')}</td>
+      </tr>`).join('')}
+    </table>` : '<div class="vide">Aucune unité acquise à ce jour.</div>'}
+  </div>
+
+  <div class="bas">
+    <div class="bas-titre">Unités d'enseignement inscrites au programme ${esc2(annee)}
+      <span class="cpt">${inscritesListe.length}</span></div>
+    ${inscritesListe.length ? `<table class="acquises">
+      <tr><th>UE</th><th>Intitulé</th><th>Bloc</th></tr>
+      ${inscritesListe.map(u => `<tr>
+        <td>${u.ue}</td>
+        <td>${esc2(u.nom)}</td>
+        <td class="n">${esc2(u.niv || '—')}</td>
+      </tr>`).join('')}
+    </table>` : `<div class="vide">Aucune unité inscrite au programme ${esc2(annee)}.</div>`}
+  </div>
+</div>`;
+
+  const html = envelopperDocument({
+    html: corps, titre: '', orientation: 'paysage',
+    margeHaut: 10, margeCote: 10, logo: LOGO_IIP_JPEG,
+    styles: `
+.fp{font-size:8pt;color:#1B2B4B}
+.entete{display:flex;justify-content:space-between;align-items:flex-end;
+  border-bottom:1pt solid #C9A84C;padding-bottom:1.5mm;margin-bottom:2mm}
+.entete .nom-etud{font-size:13pt;font-weight:700}
+.entete .sous{font-size:8.5pt;color:#475569}
+.entete .titre{font-size:10pt;font-weight:700;letter-spacing:.4pt;color:#475569}
+
+.legende{display:flex;gap:6mm;font-size:7pt;color:#475569;margin-bottom:2mm}
+.legende i.p{display:inline-block;width:3mm;height:3mm;border-radius:.6mm;
+  margin-right:1mm;vertical-align:-.3mm;border:.4pt solid rgba(0,0,0,.15)}
+
+/* Les couleurs demandées : vert acquis, bleu accessible, gris hors d'atteinte.
+   L'inscription se marque par un liseré, non par une couleur — une unité
+   inscrite reste accessible ou bloquée. */
+.p.acquis,.ue.acquis{background:#D1FAE5;border-color:#6EE7B7}
+.p.accessible,.ue.accessible{background:#DBEAFE;border-color:#93C5FD}
+.p.bloque,.ue.bloque{background:#F1F5F9;border-color:#CBD5E1;color:#64748B}
+.p.inscrite{background:#fff;border:1.2pt solid #C9A84C}
+
+/* Le schéma est un SVG : il porte ses propres couleurs. */
+.schema{width:100%;height:auto;max-height:105mm;display:block;margin:1mm 0 2mm}
+
+.bas{margin-top:3mm;border-top:.5pt solid #cbd5e1;padding-top:1.5mm}
+.bas-titre{font-size:8.5pt;font-weight:700;margin-bottom:1mm}
+.bas-titre .cpt{background:#1B2B4B;color:#fff;border-radius:2mm;
+  padding:.2mm 1.6mm;font-size:7pt;margin-left:1.5mm}
+table.acquises{width:100%;border-collapse:collapse;font-size:7pt}
+table.acquises th{background:#f1f5f9;text-align:left;font-size:6.5pt;
+  text-transform:uppercase;letter-spacing:.2pt;color:#475569;
+  padding:.8mm 1.2mm;border:.4pt solid #cbd5e1}
+table.acquises td{padding:.7mm 1.2mm;border:.4pt solid #e2e8f0}
+table.acquises td.n{text-align:right;white-space:nowrap;font-weight:600}
+.vide{font-size:7.5pt;color:#94a3b8;font-style:italic}`,
+  });
+
+  res.json({ html, nom: `Parcours_${e.nom}_${e.prenom}_${annee}` });
 });
 
 r.get('/coherence-resultats', authRequired, (req, res) => {
@@ -1444,7 +2008,8 @@ r.get('/encodage-direct', authRequired, (req, res) => {
   // contredisait la grille de parcours.
   const existant = {};
   for (const l of db.prepare(`
-    SELECT etudiant_id, ue_num, resultat, resultat_s1, resultat_s2, points
+    SELECT etudiant_id, ue_num, resultat, resultat_s1, resultat_s2,
+           points, points_s1, points_s2
     FROM etudiant_inscription
     WHERE annee_scolaire = ?
       AND ue_num IN (${ues.map(() => '?').join(',')})
@@ -1452,6 +2017,7 @@ r.get('/encodage-direct', authRequired, (req, res) => {
     existant[`${l.etudiant_id}|${l.ue_num}`] = {
       resultat: l.resultat, points: l.points,
       s1: l.resultat_s1 || null, s2: l.resultat_s2 || null,
+      p1: l.points_s1 ?? null, p2: l.points_s2 ?? null,
     };
   }
 
@@ -1637,17 +2203,28 @@ r.post('/matrice', authRequired, roleRequired('admin', 'editeur'), (req, res) =>
 
   const ins = db.prepare(`
     INSERT INTO etudiant_inscription
-      (etudiant_id, annee_scolaire, ue_num, resultat, resultat_s1, resultat_s2, date_inscription)
-    VALUES (?,?,?,?,?,?,?)
+      (etudiant_id, annee_scolaire, ue_num, resultat, resultat_s1, resultat_s2,
+       points, points_s1, points_s2, date_inscription)
+    VALUES (?,?,?,?,?,?,?,?,?,?)
     ON CONFLICT(etudiant_id, annee_scolaire, ue_num) DO UPDATE SET
       resultat    = excluded.resultat,
       resultat_s1 = COALESCE(excluded.resultat_s1, etudiant_inscription.resultat_s1),
-      resultat_s2 = COALESCE(excluded.resultat_s2, etudiant_inscription.resultat_s2)
+      resultat_s2 = COALESCE(excluded.resultat_s2, etudiant_inscription.resultat_s2),
+      points      = COALESCE(excluded.points,      etudiant_inscription.points),
+      points_s1   = COALESCE(excluded.points_s1,   etudiant_inscription.points_s1),
+      points_s2   = COALESCE(excluded.points_s2,   etudiant_inscription.points_s2)
   `);
 
   const lire = db.prepare(`
-    SELECT resultat_s1, resultat_s2 FROM etudiant_inscription
+    SELECT resultat_s1, resultat_s2, points_s1, points_s2 FROM etudiant_inscription
     WHERE etudiant_id = ? AND annee_scolaire = ? AND ue_num = ?`);
+
+  /** Une note : hors bornes ou illisible, elle ne vaut RIEN, pas zéro. */
+  const note = v => {
+    if (v == null || v === '') return null;
+    const x = Number(String(v).replace(',', '.'));
+    return Number.isFinite(x) && x >= 0 && x <= 20 ? x : null;
+  };
 
   let n = 0;
   db.transaction(() => {
@@ -1658,7 +2235,8 @@ r.post('/matrice', authRequired, roleRequired('admin', 'editeur'), (req, res) =>
         // Saisie directe de la décision, sans session : on la respecte telle
         // quelle. C'est le cas des reprises et des corrections du Conseil.
         const r0 = ch.resultat && RES.includes(ch.resultat) ? ch.resultat : null;
-        ins.run(Number(ch.etudiant_id), annee, Number(ch.ue_num), r0, null, null, dateJour);
+        ins.run(Number(ch.etudiant_id), annee, Number(ch.ue_num), r0, null, null,
+                note(ch.points), null, null, dateJour);
         n++; continue;
       }
 
@@ -1674,8 +2252,16 @@ r.post('/matrice', authRequired, roleRequired('admin', 'editeur'), (req, res) =>
         ? ch.decision_imposee
         : decisionFinale(s1, s2);
 
+      // La note de la session, et celle qui FAIT FOI : la seconde si elle
+      // existe, la première sinon — même règle que pour la décision.
+      const p = note(ch.points);
+      const p1 = session === 1 ? p : (actuel.points_s1 ?? null);
+      const p2 = session === 2 ? p : (actuel.points_s2 ?? null);
+      const pFoi = p2 ?? p1;
+
       ins.run(Number(ch.etudiant_id), annee, Number(ch.ue_num), decision,
-              session === 1 ? val : null, session === 2 ? val : null, dateJour);
+              session === 1 ? val : null, session === 2 ? val : null,
+              pFoi, session === 1 ? p : null, session === 2 ? p : null, dateJour);
       n++;
     }
   })();
@@ -2744,13 +3330,28 @@ r.get('/:id/grille/detail', authRequired, (req, res) => {
   // Clé de note d'AA : cours|aa ; les anciennes lignes sans cours_code sont
   // rattachées au premier cours qui contient cet AA.
   const notes = {};
+  // Les notes PAR SESSION. L'import des classeurs de suivi préfixe le code par
+  // « s1| » ou « s2| » : sans les séparer ici, la seconde session écrasait la
+  // première et l'on perdait le détail de la délibération.
+  const sessions = { s1: {}, s2: {} };
+
   for (const l of lignes) {
     if (l.type !== 'aa') continue;
-    const brut = String(l.code).includes('|') ? String(l.code).split('|')[1] : l.code;
+    const parts = String(l.code).split('|');
+    // Trois formes coexistent : « aa », « cours|aa », et « s1|aa » depuis
+    // l'import des classeurs.
+    const session = /^s[12]$/.test(parts[0]) ? parts[0] : null;
+    const brut = parts.length > 1 ? parts[parts.length - 1] : l.code;
     const cc = l.cours_code
       || structure.find(c => c.aas.some(a => a.aa_code === brut))?.cours_code;
     if (!cc) continue;
-    notes[cc + '|' + brut] = { points: l.points, va: l.va, non_evalue: l.non_evalue };
+    const valeur = { points: l.points, va: l.va, non_evalue: l.non_evalue };
+    if (session) sessions[session][cc + '|' + brut] = valeur;
+    // Le calcul de l'UE s'appuie sur la note qui FAIT FOI : la seconde session
+    // si elle existe, la première sinon.
+    if (!session || session === 's2' || !notes[cc + '|' + brut]) {
+      notes[cc + '|' + brut] = valeur;
+    }
   }
 
   const reportsActifs = db.prepare(`
@@ -2765,7 +3366,28 @@ r.get('/:id/grille/detail', authRequired, (req, res) => {
 
   const calcul = calculerNoteUE(ueN, annee, notes, reports);
 
-  res.json({ structure, notes, calcul, reports: reportsActifs, candidats_report: candidats });
+  // La décision de chaque session, et la motivation si le Conseil en a donné une.
+  const insc = db.prepare(`
+    SELECT resultat, resultat_s1, resultat_s2, points FROM etudiant_inscription
+    WHERE etudiant_id = ? AND annee_scolaire = ? AND ue_num = ?
+  `).get(etudId, annee, ueN) || {};
+
+  const motivation = db.prepare(`
+    SELECT motif FROM decision_motivation
+    WHERE etudiant_id = ? AND annee_scolaire = ? AND ue_num = ? AND aa_code = '_ue'
+  `).get(etudId, annee, ueN)?.motif || null;
+
+  res.json({
+    structure, notes, calcul, reports: reportsActifs, candidats_report: candidats,
+    sessions,
+    decision: {
+      finale: insc.resultat || null,
+      s1: insc.resultat_s1 || null,
+      s2: insc.resultat_s2 || null,
+      points: insc.points ?? null,
+      motivation,
+    },
+  });
 });
 
 r.put('/:id/grille/detail', authRequired, roleRequired('admin', 'editeur'), (req, res) => {
@@ -3376,7 +3998,7 @@ ${piedBalisage(LOGO_IIP_JPEG)}
 // on pouvait créer un étudiant, jamais le rectifier.
 const CHAMPS_ETUDIANT = ['id_ecampus', 'nom', 'prenom', 'titre', 'date_naissance',
   'lieu_naissance', 'nationalite', 'num_national', 'email_ecole', 'email_perso',
-  'gsm', 'adresse', 'cp', 'localite', 'actif'];
+  'gsm', 'adresse', 'cp', 'localite', 'actif', 'sejour_limite_etudes'];
 
 r.patch('/:id', authRequired, roleRequired('admin', 'directeur', 'directeur_adjoint',
         'editeur', 'secretariat'), (req, res) => {

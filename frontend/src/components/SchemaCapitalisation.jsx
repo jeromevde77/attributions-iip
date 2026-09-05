@@ -35,11 +35,23 @@ export default function SchemaCapitalisation({
   const [modeLien, setModeLien] = useState(false);   // tirer des liens de prérequis
   const [lien, setLien] = useState(null);            // { depuis, x, y, cible }
   const [natureLien, setNatureLien] = useState('legal');   // legal | interne
+  // Zoom RÉGLABLE. La taille de BASE vaut 1,25 fois l'échelle 1:1 : à 1:1 le
+  // schéma était lisible mais menu. C'est cette taille-là qui s'affiche
+  // « 100 % », le facteur restant interne pour que la commande reste simple.
+  const BASE = 1.25;
+  const [zoom, setZoom] = useState(1);
   const svgRef = useRef(null);
 
   const layout = useMemo(() => {
     if (!data?.nodes?.length) return null;
-    const L = 116, H = 40, GX = 52, GY = 9, PAD = 6, TETE = 22;
+    // Boîtes RESSERRÉES une seconde fois : à 96×32 elles restaient trop
+    // grandes et la légende du bas se faisait manger. Le numéro d'UE reste
+    // parfaitement lisible à cette taille, c'est lui qu'on cherche du regard.
+    // PIED réserve la bande de la légende, qui était recouverte.
+    // TETE passe de 18 à 28 : le sous-titre « ÉPREUVE INTÉGRÉE » est tracé
+    // à PAD + 18, exactement là où commençait la première tuile — il se
+    // superposait donc à elle.
+    const L = 78, H = 26, GX = 38, GY = 6, PAD = 5, TETE = 28, PIED = 22;
     const couches = {};
     for (const n of data.nodes) (couches[n.couche] = couches[n.couche] || []).push(n);
     const nums = Object.keys(couches).map(Number).sort((a, b) => a - b);
@@ -76,7 +88,8 @@ export default function SchemaCapitalisation({
     return {
       pos, L, H, TETE, PAD, entetes, groupes, colonnesX,
       largeur: PAD * 2 + nums.length * (L + GX) - GX,
-      hauteur: PAD * 2 + TETE + hauteurMax * (H + GY) - GY,
+      // PIED : la légende s'affiche SOUS le schéma et se faisait recouvrir.
+      hauteur: PAD * 2 + TETE + PIED + hauteurMax * (H + GY) - GY,
     };
   }, [data]);
 
@@ -106,9 +119,15 @@ export default function SchemaCapitalisation({
   // ── Tirage d'un lien de prérequis ──
   // On tire DEPUIS l'UE prérequise VERS celle qu'elle conditionne, dans le sens
   // de lecture des flèches.
+  // Les coordonnées d'un pointeur sont en PIXELS ÉCRAN ; le reste du composant
+  // raisonne en unités de viewBox. Sans cette division, tirer un lien visait à
+  // côté dès que le SVG n'était pas affiché à l'échelle 1:1 — au zoom, comme
+  // dans une fenêtre plus étroite que le schéma.
   function svgXY(e) {
     const r0 = svgRef.current?.getBoundingClientRect();
-    return r0 ? { x: e.clientX - r0.left, y: e.clientY - r0.top } : { x: 0, y: 0 };
+    if (!r0 || !layout) return { x: 0, y: 0 };
+    const k = r0.width ? layout.largeur / r0.width : 1;
+    return { x: (e.clientX - r0.left) * k, y: (e.clientY - r0.top) * k };
   }
 
   function lienDown(e, n) {
@@ -158,7 +177,10 @@ export default function SchemaCapitalisation({
     const dx = e.clientX - drag.ox, dy = e.clientY - drag.oy;
     const bouge = drag.bouge || Math.abs(dx) > 4 || Math.abs(dy) > 4;
     const p = layout.pos[drag.ue_num];
-    const xSvg = (p?.x ?? 0) + layout.L / 2 + dx;
+    // Même conversion que svgXY : le déplacement est mesuré à l'écran, la
+    // colonne visée se cherche en unités de viewBox.
+    const k = drag.rect?.width ? layout.largeur / drag.rect.width : 1;
+    const xSvg = (p?.x ?? 0) + layout.L / 2 + dx * k;
     setDrag(d => d && ({ ...d, dx, dy, bouge, cible: bouge ? colonneA(xSvg) : null }));
   }
 
@@ -196,15 +218,61 @@ export default function SchemaCapitalisation({
         <span className="text-[11px] text-slate-400">{ouvert ? 'Masquer' : 'Afficher'}</span>
       </button>
 
+      {/* Le ZOOM est une commande à part : le bandeau replie/déplie le schéma,
+          et un bouton dans un bouton n'est pas cliquable. */}
+      {ouvert && layout && (
+        <div className="flex items-center justify-end gap-1 px-3 py-1.5
+                        border-b border-slate-100 bg-white">
+          <span className="text-[10.5px] text-slate-400 mr-1">Taille</span>
+          <button type="button" onClick={() => setZoom(z => Math.max(0.8, Math.round((z - 0.25) * 100) / 100))}
+            disabled={zoom <= 0.8}
+            className="w-6 h-6 rounded border border-slate-200 text-slate-600
+                       text-[13px] leading-none disabled:opacity-40"
+            title="Réduire">−</button>
+          <button type="button" onClick={() => setZoom(1)}
+            className="px-2 h-6 rounded border border-slate-200 text-slate-600
+                       text-[10.5px] tabular-nums"
+            title="Revenir à la taille normale">{Math.round(zoom * 100)} %</button>
+          <button type="button" onClick={() => setZoom(z => Math.min(3, Math.round((z + 0.25) * 100) / 100))}
+            disabled={zoom >= 3}
+            className="w-6 h-6 rounded border border-slate-200 text-slate-600
+                       text-[13px] leading-none disabled:opacity-40"
+            title="Agrandir">+</button>
+        </div>
+      )}
+
       {ouvert && layout && (
         <>
-          <div className="overflow-auto bg-white" style={{ maxHeight: mode === 'structure' ? 520 : 340 }}>
-            <svg ref={svgRef} width={layout.largeur} height={layout.hauteur}
+          {/* Le schéma tient ENTIER dans son cadre : un ascenseur interne
+              piégeait la molette et empêchait la page de défiler. Le SVG se
+              met à l'échelle par son viewBox. */}
+          {/* La hauteur SUIT le schéma : un plafond fixe l'écrasait et le
+              faisait déborder sur la légende. Le SVG garde ses proportions et
+              la zone s'adapte, sans ascenseur. */}
+          {/* overflow-x SEULEMENT : un ascenseur vertical interne piégeait la
+              molette et empêchait la page de défiler. Le défilement horizontal,
+              lui, ne capture pas la molette verticale. */}
+          <div className="bg-white" style={{ overflowX: 'auto' }}>
+            <svg ref={svgRef}
               viewBox={`0 0 ${layout.largeur} ${layout.hauteur}`}
+              preserveAspectRatio="xMidYMid meet"
               onPointerMove={e => { pointerMove(e); lienMove(e); }}
               onPointerUp={e => { pointerUp(e); lienUp(e); }}
               onPointerLeave={e => { pointerUp(e); lienUp(e); }}
-              style={{ display: 'block', touchAction: deplacable ? 'none' : 'auto' }}>
+              /* L'echelle est PLAFONNEE a 1:1 (maxWidth = largeur du viewBox).
+                 Sans ce plafond le SVG s'etirait a toute la largeur du cadre et
+                 agrandissait tout le schema d'un facteur 2 a 3 : les fontSize
+                 du SVG s'affichaient bien plus gros que le texte de la fenetre.
+                 Une unite de viewBox = un pixel, donc fontSize="10" = 10 px. */
+              style={{
+                // 1 unité de viewBox = `zoom` pixels : à 100 % le fontSize="10"
+                // du SVG s'affiche en 10 px, cohérent avec le texte du cadre,
+                // et la police grandit avec le zoom sans rien déformer.
+                width: layout.largeur * zoom * BASE,
+                height: 'auto',
+                display: 'block',
+                touchAction: deplacable ? 'none' : 'auto',
+              }}>
               <defs>
                 <marker id="fl-cap" markerWidth="7" markerHeight="7" refX="6" refY="2.5"
                   orient="auto" markerUnits="strokeWidth">
@@ -300,7 +368,10 @@ export default function SchemaCapitalisation({
                 const co = ei
                   ? { fill: mode === 'structure' ? OR.fill : base.fill, stroke: OR.stroke, text: ei && mode === 'structure' ? OR.text : base.text }
                   : base;
-                const nom = (n.ue_nom || '').length > 24 ? (n.ue_nom || '').slice(0, 23) + '…' : (n.ue_nom || '');
+                // Le libellé est coupé plus court : les boîtes ont rétréci et
+                // le texte débordait sur la voisine.
+                const nom = (n.ue_nom || '').length > 17
+                  ? (n.ue_nom || '').slice(0, 16) + '…' : (n.ue_nom || '');
                 const actif = selection === n.ue_num;
                 const enDeplacement = drag?.bouge && drag.ue_num === n.ue_num;
                 return (
@@ -316,17 +387,37 @@ export default function SchemaCapitalisation({
                       fill={co.fill} stroke={actif ? '#00AACC' : co.stroke}
                       strokeWidth={actif ? 2.5 : (ei ? 2.2 : (n.inscrite ? 2 : 1.2))}
                       strokeDasharray={n.statut === 'sous_reserve' ? '4 3' : undefined} />
-                    {ei && (
-                      <text x={p.x + layout.L - 9} y={p.y + layout.H - 7} textAnchor="end"
-                        fontSize="10" fill={OR.stroke}>★</text>
+                    {/* UE DÉTERMINANTE : elle pèse double dans la mention du
+                        diplôme. La pastille est CENTRÉE sur l'angle supérieur
+                        droit, à cheval sur le bord — elle déborde autant
+                        qu'elle mord dedans. */}
+                    {n.determinante && (
+                      <g>
+                        {/* Proportionnée aux boîtes resserrées : à r=9 sur une
+                            boîte de 26 de haut, la pastille la mangeait. */}
+                        <circle cx={p.x + layout.L} cy={p.y} r={6.5}
+                          fill="#047857" stroke="#fff" strokeWidth={1.2} />
+                        <text x={p.x + layout.L} y={p.y + 2.5} textAnchor="middle"
+                          fontSize={8} fontWeight="700" fill="#fff">D</text>
+                      </g>
                     )}
-                    <text x={p.x + 8} y={p.y + 16} fontSize="11.5" fontWeight="700" fill={co.text}>
+                    {ei && (
+                      <text x={p.x + layout.L - 5} y={p.y + layout.H - 5} textAnchor="end"
+                        fontSize="8" fill={OR.stroke}>★</text>
+                    )}
+                    <text x={p.x + 6} y={p.y + 12} fontSize="10" fontWeight="700" fill={co.text}>
                       {n.ue_num}
                     </text>
-                    <text x={p.x + 8} y={p.y + 29} fontSize="8.5" fill={co.text} opacity="0.85">
+                    <text x={p.x + 6} y={p.y + 22} fontSize="7" fill={co.text} opacity="0.85">
                       {nom}
                     </text>
-                    {n.inscrite && <circle cx={p.x + layout.L - 8} cy={p.y + 8} r="3.2" fill={co.stroke} />}
+                    {/* La pastille de l'UE inscrite, replacée pour les boîtes
+                        resserrées. Elle se décale quand la pastille « D »
+                        occupe déjà l'angle. */}
+                    {n.inscrite && (
+                      <circle cx={p.x + layout.L - (n.determinante ? 15 : 6)}
+                        cy={p.y + 6} r="2.6" fill={co.stroke} />
+                    )}
                     {modeLien && onLien && (
                       <circle cx={p.x + layout.L} cy={p.y + layout.H / 2} r="5.5"
                         fill={lien?.cible === n.ue_num ? '#00AACC' : '#FFFFFF'}

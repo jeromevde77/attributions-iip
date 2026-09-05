@@ -258,12 +258,28 @@ export function calculerDIS(etudId, annee) {
 }
 
 // ── Consultation ────────────────────────────────────────────────────────────
-r.get('/etudiant/:id', authRequired, (req, res) => {
+r.get('/etudiant/:id', authRequired, async (req, res) => {
   const annee = req.query.annee;
   if (!annee) return res.status(400).json({ error: 'annee requise' });
   const di = calculerDI(Number(req.params.id), annee);
   if (!di) return res.status(404).json({ error: 'étudiant introuvable' });
-  res.json({ di, dis: calculerDIS(Number(req.params.id), annee), motifs_di: MOTIFS_DI, motifs_dis: MOTIFS_DIS });
+  // Les FRAIS et le total : sans eux, l'écran montrait deux droits sans dire
+  // ce que l'étudiant doit payer. Le calcul existait déjà, il n'était pas
+  // remonté ici.
+  // Import DIFFÉRÉ : fraisScolarite importe déjà calculerDI et calculerDIS
+  // d'ici. Un import statique en retour créerait un cycle, que les modules ES
+  // tolèrent mal quand les deux s'appellent au chargement.
+  let frais = null;
+  try {
+    const { calculerFrais } = await import('./fraisScolarite.js');
+    frais = calculerFrais(Number(req.params.id), annee);
+  } catch (e) { console.error('[DI] frais :', e.message); }
+
+  res.json({
+    di, dis: calculerDIS(Number(req.params.id), annee),
+    frais,
+    motifs_di: MOTIFS_DI, motifs_dis: MOTIFS_DIS,
+  });
 });
 
 // ── Situation de l'étudiant au regard des deux droits ──────────────────────

@@ -15,7 +15,9 @@ import { authHeaders } from '../lib/api.js';
 export default function DroitInscription({ etudId, annee, peutEcrire = true }) {
   const [data, setData] = useState(null);
   const [enregistrement, setEnregistrement] = useState(false);
-  const [detailOuvert, setDetailOuvert] = useState(false);
+  // Le détail est OUVERT d'emblée : c'est ce qui explique le montant, et le
+  // cacher derrière un clic obligeait à le chercher.
+  const [detailOuvert, setDetailOuvert] = useState(true);
 
   async function charger() {
     const rep = await fetch(`/api/droit-inscription/etudiant/${etudId}?annee=${annee}`,
@@ -45,8 +47,76 @@ export default function DroitInscription({ etudId, annee, peutEcrire = true }) {
   const { di, dis, motifs_di, motifs_dis } = data;
   const eur = n => (n ?? 0).toFixed(2).replace('.', ',') + ' €';
 
+  const f = data.frais;
+
   return (
     <div className="space-y-4">
+      {/* LE MONTANT À PAYER, en tête. L'écran montrait deux droits sans jamais
+          dire ce que l'étudiant doit verser : c'est pourtant la question. */}
+      {f && (
+        <div className="border-2 border-iip-blue/30 rounded-xl overflow-hidden">
+          <div className="px-4 py-2.5 bg-iip-blue/5 border-b border-iip-blue/20
+                          flex items-center justify-between gap-3 flex-wrap">
+            <span className="text-[13px] font-semibold text-iip-blue">
+              Montant à payer
+            </span>
+            <span className="text-[10.5px] text-slate-500">
+              {f.periodes ?? '—'} périodes · {annee}
+            </span>
+          </div>
+
+          <div className="p-4">
+            <div className="flex flex-wrap items-end gap-x-8 gap-y-3">
+              {[['Droit d\u2019inscription', f.droit, di.exonere && 'exonéré'],
+                ['Droit spécifique', f.droit_specifique,
+                  !dis.soumis && (dis.exempte ? 'exempté' : 'non soumis')],
+                ['Frais administratifs', f.frais_admin, null]].map(([lib, v, note]) => (
+                <div key={lib}>
+                  <div className="text-[10px] uppercase tracking-wide text-slate-500
+                                  font-semibold">{lib}</div>
+                  <div className="text-[17px] font-bold text-slate-700">{eur(v)}</div>
+                  {note && (
+                    <div className="text-[10.5px] text-emerald-700">{note}</div>
+                  )}
+                </div>
+              ))}
+
+              <div className="ml-auto text-right">
+                <div className="text-[10px] uppercase tracking-wide text-slate-500
+                                font-semibold">Total</div>
+                <div className="text-[30px] font-bold text-iip-blue leading-tight">
+                  {eur(f.total)}
+                </div>
+              </div>
+            </div>
+
+            {/* L'acompte n'est pas un supplément : il s'impute sur le total
+                (art. 16 §3). Le dire évite qu'on l'additionne. */}
+            <div className="mt-3 pt-3 border-t border-slate-200 flex flex-wrap
+                            items-center gap-x-6 gap-y-2 text-[12px]">
+              <span>
+                <span className="text-slate-500">Acompte à l'inscription :</span>{' '}
+                <b>{eur(f.acompte)}</b>
+              </span>
+              <span>
+                <span className="text-slate-500">Solde :</span>{' '}
+                <b>{eur(f.solde)}</b>
+                {f.echeance_solde && (
+                  <span className="text-slate-500"> pour le {f.echeance_solde}</span>
+                )}
+              </span>
+              {f.verse != null && (
+                <span className={f.verse >= f.total ? 'text-emerald-700' : 'text-amber-700'}>
+                  <span className="text-slate-500">Versé :</span>{' '}
+                  <b>{eur(f.verse)}</b>
+                  {f.verse < f.total && ` · reste ${eur(f.total - f.verse)}`}
+                </span>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* ── Droit d'inscription ── */}
       <div className="border border-slate-200 rounded-xl overflow-hidden">
         <div className="px-4 py-2.5 bg-slate-50 border-b border-slate-200 flex items-center justify-between gap-3">

@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { IconAlertTriangle, IconPlus, IconTrash, IconShieldCheck } from '@tabler/icons-react';
 import { authHeaders } from '../lib/api.js';
+import EtapesAmenagement from './EtapesAmenagement.jsx';
 import { Tableau, TableauEntete, Th, Td, Tr, Badge } from './ui.jsx';
 
 /**
@@ -29,6 +30,7 @@ export default function Amenagements({ etudId, annee }) {
   const [data, setData] = useState(null);
   const [message, setMessage] = useState(null);
   const [ajout, setAjout] = useState(null);
+  const [etape, setEtape] = useState('demande');
 
   async function charger() {
     const rep = await fetch(`/api/amenagements/etudiant/${etudId}?annee=${annee}`,
@@ -128,16 +130,109 @@ export default function Amenagements({ etudId, annee }) {
         </div>
       ) : (
         <>
+          {/* Le cheminement du formulaire, rendu visible : cadre A, cadre B,
+              décision. On voit où l'on en est et ce qui manque. */}
+          <EtapesAmenagement d={d} etapeActive={etape} onAller={setEtape} />
+
           <div className="border border-slate-200 rounded-xl p-4 space-y-3">
+            {/* Le statut n'est CHOISI qu'à la décision : c'est là seulement
+                qu'il résulte d'un acte. Aux cadres A et B il découle de
+                l'étape où l'on se trouve, et le proposer au choix n'ajoutait
+                rien tout en permettant de désaccorder statut et étape.
+                Le badge, lui, reste partout : on doit toujours voir où en est
+                le dossier. */}
             <div className="flex items-center gap-3 flex-wrap">
-              <select value={d.statut} onChange={e => majDossier({ statut: e.target.value })}
-                className="border border-slate-300 rounded-lg px-2 py-1.5 text-sm">
-                {Object.entries(STATUTS).map(([k, s]) => (
-                  <option key={k} value={k}>{s.libelle}</option>
-                ))}
-              </select>
               <Badge ton={STATUTS[d.statut]?.ton || 'neutre'}>{STATUTS[d.statut]?.libelle}</Badge>
+              {etape === 'decision' && (
+                <label className="flex items-center gap-2 text-xs text-slate-500">
+                  Décision du Conseil
+                  <select value={d.statut} onChange={e => majDossier({ statut: e.target.value })}
+                    className="border border-slate-300 rounded-lg px-2 py-1.5 text-sm">
+                    {Object.entries(STATUTS).map(([k, s]) => (
+                      <option key={k} value={k}>{s.libelle}</option>
+                    ))}
+                  </select>
+                </label>
+              )}
             </div>
+
+            {/* CADRE A — la demande de l'étudiant. */}
+            {etape === 'demande' && (
+              <div className="space-y-3">
+                <label className="text-xs block">
+                  <span className="block font-semibold text-slate-500 uppercase
+                                   tracking-wide mb-1">
+                    Nature des soins spécifiques et aménagements demandés
+                  </span>
+                  <textarea rows={3} defaultValue={d.soins_specifiques || ''}
+                    onBlur={e => e.target.value !== (d.soins_specifiques || '')
+                      && majDossier({ soins_specifiques: e.target.value })}
+                    className="w-full border border-slate-300 rounded-lg px-2 py-1.5 text-sm" />
+                </label>
+
+                <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
+                  {champ('annexes_nb', 'Annexes — nombre', 'number')}
+                  <div className="md:col-span-3">
+                    {champ('annexes_desc', 'Annexes — description')}
+                  </div>
+                  {champ('signe_etudiant_le', "Signé par l'étudiant le", 'date')}
+                  {champ('signe_reference_le', 'Reçu et signé le', 'date')}
+                </div>
+
+                {/* Le cadre A.2 fait cocher les unités : une demande ne porte
+                    pas toujours sur toute l'année. */}
+                <UesConcernees dossierId={d.id} annee={annee}
+                  choisies={d.ues || []} onChange={charger} />
+              </div>
+            )}
+
+            {/* CADRE B — le rapport de la personne de référence. */}
+            {etape === 'rapport' && (
+              <div className="space-y-3">
+                {[['materiel', 'Aménagements matériels'],
+                  ['pedago', 'Aménagements pédagogiques']].map(([k, lib]) => (
+                  <div key={k} className="border border-slate-200 rounded-lg p-3">
+                    <div className="flex items-center gap-3 mb-2">
+                      <span className="text-[12.5px] font-semibold text-iip-blue">{lib}</span>
+                      <div className="flex gap-1">
+                        {[[1, 'Demandés'], [0, 'Non demandés']].map(([v, l]) => (
+                          <button key={v}
+                            onClick={() => majDossier({ [`${k}_demande`]: v })}
+                            className={`px-2.5 py-1 text-[11.5px] rounded-md border ${
+                              d[`${k}_demande`] === v
+                                ? 'bg-iip-blue text-white border-iip-blue'
+                                : 'border-slate-300 text-slate-600'}`}>
+                            {l}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                    <textarea rows={2} defaultValue={d[`${k}_desc`] || ''}
+                      placeholder="Description"
+                      onBlur={e => e.target.value !== (d[`${k}_desc`] || '')
+                        && majDossier({ [`${k}_desc`]: e.target.value })}
+                      className="w-full border border-slate-300 rounded-lg px-2 py-1.5 text-sm" />
+                  </div>
+                ))}
+
+                <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
+                  {champ('rapport_annexes_nb', 'Annexes — nombre', 'number')}
+                  <div className="md:col-span-3">
+                    {champ('rapport_annexes_desc', 'Annexes — description')}
+                  </div>
+                  {champ('transmis_cde_le', 'Transmis au Conseil le', 'date')}
+                </div>
+              </div>
+            )}
+
+            {/* La DÉCISION du Conseil. */}
+            {etape === 'decision' && (
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                {champ('cde_recu_le', 'Reçu par le Conseil le', 'date')}
+                {champ('cde_date', 'Date de la décision', 'date')}
+                {champ('notifie_le', "Notifié à l'étudiant le", 'date')}
+              </div>
+            )}
 
             <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
               {champ('date_demande', 'Date de la demande', 'date')}
@@ -314,6 +409,83 @@ export default function Amenagements({ etudId, annee }) {
           </p>
         </>
       )}
+    </div>
+  );
+}
+
+/**
+ * Les unités concernées par la demande (cadre A.2 du formulaire).
+ *
+ * Le formulaire les fait COCHER dans une liste : une demande d'aménagement ne
+ * porte pas forcément sur toute l'année — un tiers-temps peut ne concerner que
+ * les épreuves écrites d'une unité.
+ */
+function UesConcernees({ dossierId, annee, choisies, onChange }) {
+  const [ues, setUes] = useState(null);
+  const [sel, setSel] = useState(new Set(choisies || []));
+  const [enCours, setEnCours] = useState(false);
+
+  useEffect(() => { setSel(new Set(choisies || [])); }, [choisies]);
+
+  useEffect(() => {
+    // Les unités du PAE de l'étudiant, non tout le référentiel : lui proposer
+    // des unités qu'il ne suit pas n'a pas de sens.
+    fetch(`/api/amenagements/dossier/${dossierId}/ues-possibles`,
+      { headers: authHeaders() })
+      .then(r => r.json())
+      .then(j => setUes(Array.isArray(j?.ues) ? j.ues : []))
+      .catch(() => setUes([]));
+  }, [dossierId]);
+
+  async function enregistrer(prochain) {
+    setEnCours(true);
+    try {
+      await fetch(`/api/amenagements/dossier/${dossierId}/ues`, {
+        method: 'PUT', headers: authHeaders(),
+        body: JSON.stringify({ ues: [...prochain] }),
+      });
+      onChange && onChange();
+    } finally { setEnCours(false); }
+  }
+
+  if (!ues) return <div className="text-[12px] text-slate-400">Chargement des unités…</div>;
+  if (!ues.length) {
+    return (
+      <div className="text-[12px] text-slate-500 border border-slate-200 rounded-lg p-3">
+        Cet étudiant n'est inscrit à aucune unité en {annee} : son programme doit
+        être établi avant de désigner les unités concernées.
+      </div>
+    );
+  }
+
+  return (
+    <div className="border border-slate-200 rounded-lg p-3">
+      <div className="flex items-center justify-between mb-2">
+        <span className="text-[12.5px] font-semibold text-iip-blue">
+          Unités concernées {sel.size > 0 && `(${sel.size})`}
+        </span>
+        <span className="text-[11px] text-slate-400">
+          {enCours ? 'Enregistrement…' : 'Aucune cochée = toutes'}
+        </span>
+      </div>
+      <div className="max-h-40 overflow-y-auto grid grid-cols-1 md:grid-cols-2 gap-x-3">
+        {ues.map(u => (
+          <label key={u.ue_num}
+            className="flex items-center gap-2 py-0.5 text-[12px] cursor-pointer">
+            <input type="checkbox" checked={sel.has(u.ue_num)}
+              onChange={() => {
+                const n = new Set(sel);
+                n.has(u.ue_num) ? n.delete(u.ue_num) : n.add(u.ue_num);
+                setSel(n);
+                enregistrer(n);
+              }} />
+            <span className="font-mono text-[11px] text-slate-500 w-10 flex-none">
+              {u.ue_num}
+            </span>
+            <span className="truncate">{u.ue_nom}</span>
+          </label>
+        ))}
+      </div>
     </div>
   );
 }

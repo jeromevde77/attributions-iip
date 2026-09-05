@@ -33,6 +33,12 @@ const esc = s => String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;')
     if (!cols.includes('lieu_naissance')) {
       db.exec('ALTER TABLE etudiant ADD COLUMN lieu_naissance TEXT');
     }
+    // Le séjour limité aux études conditionne l'annexe 2 et le droit
+    // d'inscription : c'est une donnée administrative, pas une remarque.
+    if (!cols.includes('sejour_limite_etudes')) {
+      db.exec('ALTER TABLE etudiant ADD COLUMN sejour_limite_etudes INTEGER DEFAULT 0');
+      console.log('[migration] etudiant.sejour_limite_etudes ajoutée');
+    }
   } catch (e) { console.error('[annexe2] migration', e.message); }
 })();
 

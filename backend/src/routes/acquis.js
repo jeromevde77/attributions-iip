@@ -24,7 +24,7 @@
 import { Router } from 'express';
 import db from '../db/index.js';
 import { anneeDeTravail, anneeActiveEnBase } from '../helpers/annee.js';
-import { authRequired, roleRequired } from '../middleware/auth.js';
+import { authRequired, roleRequired, getUserSections } from '../middleware/auth.js';
 import { envelopperDocument } from '../lib/document.js';
 import { SIGNATURE_SOHET, SCEAU_IIP } from '../services/assets/signature_sohet.js';
 import { identiteEtablissement } from './config.js';
@@ -154,6 +154,18 @@ export function structureUE(ueNum, annee) {
       ? (Number(x.cours_per || 0) / totalPeriodes) * 100
       : null;
   }
+
+  // La pondération EXPLICITE l'emporte, quand elle existe. Les classeurs de
+  // suivi la portent pour 2024-2025 et 2025-2026 : elle ne coïncide pas avec
+  // la répartition des périodes — l'UE 248 pèse 47/31/22 alors que ses cours
+  // n'ont pas ce rapport de périodes. À partir de 2026-2027, les périodes du
+  // dossier pédagogique font foi, et cette table reste vide.
+  try {
+    for (const p of db.prepare(
+      'SELECT cours_code, poids FROM cours_ponderation WHERE ue_num = ?').all(ueNum)) {
+      if (p.poids != null) poidsCours[p.cours_code] = Number(p.poids);
+    }
+  } catch { /* table absente : on s'en tient aux périodes */ }
 
   return cours.map(c => {
     const siens = aas.filter(a => a.cours_code === c.cours_code).map(a => ({
@@ -399,6 +411,142 @@ r.put('/motivation', authRequired, roleRequired('admin', 'directeur',
   })();
 
   res.json({ ok: true, enregistres: Object.keys(motifs).length });
+});
+
+// ── Feuille de délibération d'une unité ────────────────────────────────────
+// L'encodage rapide présente les UNITÉS en colonnes ; cette feuille présente
+// les ACQUIS d'une seule unité, pour tous ses étudiants. C'est la vue du
+// Conseil des études au moment de délibérer.
+r.get('/feuille/:ueNum', authRequired, (req, res) => {
+  const ueNum = Number(req.params.ueNum);
+  const annee = req.query.annee;
+  const session = req.query.session === '2' ? 2 : req.query.session === '1' ? 1 : null;
+  if (!annee) return res.status(400).json({ error: 'annee requise' });
+
+  const perim = getUserSections(req.user);
+  const ue = db.prepare(`
+    SELECT ue_nom, section, ue_per_etudiants, ue_aut FROM ue
+    WHERE ue_num = ? ORDER BY (annee_scolaire = ?) DESC, annee_scolaire DESC LIMIT 1
+  `).get(ueNum, annee) || {};
+  if (perim && ue.section && !perim.includes(ue.section)) {
+    return res.status(403).json({ error: 'unité hors de votre périmètre' });
+  }
+
+  const structure = structureUE(ueNum, annee);
+
+  // Les acquis se prennent DIRECTEMENT dans la table, non à travers les cours.
+  // structureUE les rattache par cours_code : un acquis sans cours renseigné
+  // n'apparaissait sous aucun et disparaissait de la feuille — la pondération
+  // et le rattachement sont des raffinements, l'acquis existe sans eux.
+  const pondere = {};
+  for (const co of structure) {
+    for (const a of (co.aas || [])) {
+      pondere[a.aa_code] = { poids: a.poids ?? null,
+                             cours_code: co.cours_code, cours_nom: co.cours_nom };
+    }
+  }
+
+  const acquis = db.prepare(`
+    SELECT aa_code, aa_num, description, cours_code FROM aa
+    WHERE ue_num = ? ORDER BY aa_num, aa_code
+  `).all(ueNum).map(a => ({
+    aa_code: a.aa_code,
+    description: a.description,
+    cours_code: pondere[a.aa_code]?.cours_code || a.cours_code || null,
+    cours_nom: pondere[a.aa_code]?.cours_nom || null,
+    poids: pondere[a.aa_code]?.poids ?? null,
+  }));
+
+  const etudiants = db.prepare(`
+    SELECT e.id, e.nom, e.prenom, e.id_ecampus,
+           i.resultat, i.resultat_s1, i.resultat_s2,
+           i.points, i.points_s1, i.points_s2
+    FROM etudiant_inscription i
+    JOIN etudiant e ON e.id = i.etudiant_id
+    WHERE i.annee_scolaire = ? AND i.ue_num = ?
+    ORDER BY e.nom, e.prenom
+  `).all(annee, ueNum);
+
+  // Les notes par acquis, séparées par session. Le code porte « s1| » ou
+  // « s2| » depuis l'import ; sans ce préfixe, la note vaut pour la session
+  // qui fait foi.
+  const notes = {};
+  for (const l of db.prepare(`
+    SELECT etudiant_id, code, points FROM etudiant_note_detail
+    WHERE annee_scolaire = ? AND ue_num = ? AND type = 'aa'
+  `).all(annee, ueNum)) {
+    const parts = String(l.code).split('|');
+    const sess = /^s[12]$/.test(parts[0]) ? parts[0] : null;
+    const brut = parts.length > 1 ? parts[parts.length - 1] : l.code;
+    ((notes[l.etudiant_id] ||= {})[sess || 'foi'] ||= {})[brut] = l.points;
+  }
+
+  // Les COURS de l'unité, avec leur poids et les acquis qui les composent.
+  // Un même acquis peut peser dans plusieurs cours : la note par cours est
+  // donc calculée cours par cours, non acquis par acquis.
+  const cours = structure.map(co => ({
+    cours_code: co.cours_code,
+    cours_nom: co.cours_nom,
+    poids: co.poids_cours ?? null,
+    poids_affiche: co.poids_cours_affiche ?? null,
+    periodes: co.periodes ?? null,
+    acquis: (co.aas || [])
+      .filter(a => a.poids)
+      .map(a => ({ aa_code: a.aa_code, poids: a.poids })),
+  })).filter(co => co.acquis.length);
+
+  res.json({
+    ue_num: ueNum, ue_nom: ue.ue_nom || `UE ${ueNum}`, section: ue.section || null,
+    cours,
+    annee, session,
+    acquis,
+    // Ce qui manque au référentiel, pour le dire à l'écran plutôt que de
+    // laisser croire à une absence d'acquis.
+    sans_ponderation: acquis.filter(a => a.poids == null).length,
+    sans_cours: acquis.filter(a => !a.cours_code).length,
+    etudiants: etudiants.map(e => ({
+      id: e.id, nom: e.nom, prenom: e.prenom, matricule: e.id_ecampus,
+      resultat: e.resultat, resultat_s1: e.resultat_s1, resultat_s2: e.resultat_s2,
+      points: e.points, points_s1: e.points_s1, points_s2: e.points_s2,
+      notes: notes[e.id] || {},
+    })),
+  });
+});
+
+// ── Enregistrer une note d'acquis ──────────────────────────────────────────
+r.put('/feuille/note', authRequired,
+      roleRequired('admin', 'directeur', 'directeur_adjoint', 'editeur'), (req, res) => {
+  const { etudiant_id, annee_scolaire, ue_num, aa_code, session, points } = req.body || {};
+  if (!etudiant_id || !annee_scolaire || !ue_num || !aa_code) {
+    return res.status(400).json({ error: 'étudiant, année, unité et acquis requis' });
+  }
+
+  // Une note hors bornes ne vaut RIEN, pas zéro.
+  const n = points == null || points === '' ? null
+    : Number(String(points).replace(',', '.'));
+  const note = (n != null && Number.isFinite(n) && n >= 0 && n <= 20) ? n : null;
+  if (points != null && points !== '' && note == null) {
+    return res.status(400).json({ error: 'note attendue entre 0 et 20' });
+  }
+
+  // Le code porte la session : sans lui, la seconde écraserait la première.
+  const code = session === 1 || session === 2 ? `s${session}|${aa_code}` : aa_code;
+
+  if (note == null) {
+    db.prepare(`DELETE FROM etudiant_note_detail
+      WHERE etudiant_id = ? AND annee_scolaire = ? AND ue_num = ? AND type = 'aa' AND code = ?`)
+      .run(etudiant_id, annee_scolaire, Number(ue_num), code);
+  } else {
+    db.prepare(`
+      INSERT INTO etudiant_note_detail
+        (etudiant_id, annee_scolaire, ue_num, type, code, points)
+      VALUES (?,?,?, 'aa', ?, ?)
+      ON CONFLICT(etudiant_id, annee_scolaire, ue_num, type, code) DO UPDATE SET
+        points = excluded.points
+    `).run(etudiant_id, annee_scolaire, Number(ue_num), code, note);
+  }
+
+  res.json({ ok: true });
 });
 
 // ── Les unités en échec d'un étudiant ──────────────────────────────────────

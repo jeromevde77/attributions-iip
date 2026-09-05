@@ -102,7 +102,39 @@ export function migrerAmenagements(dbx) {
       motif_refus  TEXT
     );
     CREATE INDEX IF NOT EXISTS idx_amenagement_mesure ON amenagement_mesure(dossier_id);
+
+    -- Le cadre A du formulaire fait COCHER les unités concernées : la demande
+    -- ne porte pas toujours sur toute l'année.
+    CREATE TABLE IF NOT EXISTS amenagement_ue (
+      dossier_id INTEGER NOT NULL REFERENCES amenagement_dossier(id) ON DELETE CASCADE,
+      ue_num     INTEGER NOT NULL,
+      PRIMARY KEY (dossier_id, ue_num)
+    );
     `);
+
+    // Les champs du formulaire que la table n'avait pas. Ajoutés un à un :
+    // SQLite n'accepte pas plusieurs colonnes en une seule instruction.
+    const cols = db.prepare('PRAGMA table_info(amenagement_dossier)').all().map(c0 => c0.name);
+    const manquants = [
+      ['soins_specifiques', 'TEXT'],   // cadre A.3 — nature des soins demandés
+      ['annexes_nb', 'INTEGER'],       // cadre A.5
+      ['annexes_desc', 'TEXT'],
+      ['signe_etudiant_le', 'TEXT'],   // dates de signature du cadre A
+      ['signe_reference_le', 'TEXT'],
+      ['materiel_demande', 'INTEGER'], // cadre B.2.1 — demandés / non demandés
+      ['materiel_desc', 'TEXT'],
+      ['pedago_demande', 'INTEGER'],   // cadre B.2.2
+      ['pedago_desc', 'TEXT'],
+      ['rapport_annexes_nb', 'INTEGER'],
+      ['rapport_annexes_desc', 'TEXT'],
+      ['transmis_cde_le', 'TEXT'],     // cadre B.6
+      ['cde_recu_le', 'TEXT'],         // cadre B.7
+    ];
+    for (const [nom, type] of manquants) {
+      if (!cols.includes(nom)) {
+        db.exec(`ALTER TABLE amenagement_dossier ADD COLUMN ${nom} ${type}`);
+      }
+    }
     console.log('[migration] aménagements raisonnables : dossier et mesures');
   } catch (e) { console.error('[migration] aménagements :', e.message); }
 }
@@ -149,7 +181,14 @@ r.get('/etudiant/:id', authRequired, (req, res) => {
     };
   })();
 
-  res.json({ dossiers, courant: courant || null, piece_valide: pieceValide, catalogue: CATALOGUE });
+  // Les unités cochées de chaque dossier (cadre A.2).
+  for (const d of dossiers) {
+    d.ues = db.prepare('SELECT ue_num FROM amenagement_ue WHERE dossier_id = ? ORDER BY ue_num')
+      .all(d.id).map(x => x.ue_num);
+  }
+
+  res.json({ dossiers, courant: courant || null, piece_valide: pieceValide,
+             catalogue: CATALOGUE });
 });
 
 // ── Création et mise à jour ─────────────────────────────────────────────────
@@ -174,13 +213,59 @@ r.post('/dossier', authRequired, roleRequired('admin', 'directeur', 'directeur_a
   }
 });
 
+// ── Les unités du PAE de l'étudiant ────────────────────────────────────────
+// Le cadre A fait cocher les unités concernées, mais seules celles où
+// l'étudiant est INSCRIT ont un sens : lui proposer les dix-neuf unités de la
+// section quand il en suit six oblige à chercher dans une liste inutile.
+r.get('/dossier/:id/ues-possibles', authRequired, (req, res) => {
+  const d = db.prepare('SELECT etudiant_id, annee_scolaire FROM amenagement_dossier WHERE id = ?')
+    .get(Number(req.params.id));
+  if (!d) return res.status(404).json({ error: 'dossier introuvable' });
+
+  const ues = db.prepare(`
+    SELECT DISTINCT i.ue_num,
+           (SELECT ue_nom FROM ue u WHERE u.ue_num = i.ue_num AND u.ue_nom IS NOT NULL
+             ORDER BY u.annee_scolaire DESC LIMIT 1) AS ue_nom,
+           (SELECT ue_niv FROM ue u WHERE u.ue_num = i.ue_num AND u.ue_niv IS NOT NULL
+             ORDER BY u.annee_scolaire DESC LIMIT 1) AS ue_niv
+    FROM etudiant_inscription i
+    WHERE i.etudiant_id = ? AND i.annee_scolaire = ?
+    ORDER BY i.ue_num
+  `).all(d.etudiant_id, d.annee_scolaire);
+
+  res.json({ annee: d.annee_scolaire, ues });
+});
+
+// ── Les unités concernées par la demande (cadre A.2) ───────────────────────
+r.put('/dossier/:id/ues', authRequired, roleRequired('admin', 'directeur',
+      'directeur_adjoint', 'editeur', 'secretariat'), (req, res) => {
+  const id = Number(req.params.id);
+  const ues = Array.isArray(req.body?.ues) ? req.body.ues.map(Number).filter(Boolean) : [];
+
+  db.transaction(() => {
+    // On remplace l'ensemble : cocher et décocher sont le même geste.
+    db.prepare('DELETE FROM amenagement_ue WHERE dossier_id = ?').run(id);
+    const ins = db.prepare('INSERT OR IGNORE INTO amenagement_ue (dossier_id, ue_num) VALUES (?,?)');
+    for (const n of ues) ins.run(id, n);
+  })();
+
+  res.json({ ok: true, ues });
+});
+
 r.put('/dossier/:id', authRequired, roleRequired('admin', 'directeur', 'directeur_adjoint',
                                                  'editeur', 'secretariat'), (req, res) => {
   const d = req.body || {};
   const champs = ['statut', 'date_demande', 'personne_reference', 'piece_type', 'piece_date',
                   'piece_auteur', 'piece_reference', 'cde_date', 'cde_motivation',
                   'delai_mise_oeuvre', 'conditions_particulieres', 'notifie_le', 'notifie_par',
-                  'recours_le', 'recours_issue', 'besoins', 'remarques'];
+                  'recours_le', 'recours_issue', 'besoins', 'remarques',
+                  // Les champs du formulaire officiel, cadres A et B.
+                  'soins_specifiques', 'annexes_nb', 'annexes_desc',
+                  'signe_etudiant_le', 'signe_reference_le',
+                  'materiel_demande', 'materiel_desc',
+                  'pedago_demande', 'pedago_desc',
+                  'rapport_annexes_nb', 'rapport_annexes_desc',
+                  'transmis_cde_le', 'cde_recu_le'];
   const presents = champs.filter(k => k in d);
   if (!presents.length) return res.json({ ok: true, inchange: true });
 
