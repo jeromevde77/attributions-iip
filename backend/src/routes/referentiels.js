@@ -711,7 +711,16 @@ r.get('/sections/:section/grille', authRequired, (req, res) => {
     const tot_aut = Math.max(0, ...uesCours.map(c => c.ue_autonomie || 0), 0);
     const tot_per_etud = uesCours.reduce((s,c) => {
       const cp = Number(c.cours_per) || 0;
-      const pe = (c.per_etudiant !== null && c.per_etudiant !== '' && c.per_etudiant != null) ? Number(c.per_etudiant) : cp;
+      // Périodes ÉTUDIANT, dans l'ordre de priorité du modèle :
+      //   1. per_etudiant, saisi explicitement (activités Z, 7.3) ;
+      //   2. sinon les HEURES converties — schema.sql : « heures réelles
+      //      étudiant (×60 min) → converti en périodes ×1.2 » ;
+      //   3. à défaut, les périodes de cours.
+      // `heures` était ignoré : un stage encodé à 400 h comptait pour 60.
+      const vide = v => v === null || v === undefined || v === '';
+      const pe = !vide(c.per_etudiant) ? Number(c.per_etudiant)
+        : !vide(c.heures) ? Math.round(Number(c.heures) * 1.2)
+        : cp;
       return s + pe;
     }, 0);
     return { ...u, cours: uesCours, tot_ct, tot_pp, tot_aut, tot_per: tot_ct + tot_pp, tot_per_etud };

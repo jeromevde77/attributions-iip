@@ -473,7 +473,16 @@ export default function Listes() {
         const lignesCours = u.cours.map((c, i) => {
           const estZ = c.ct_pp === 'Z';
           const cp = Number(c.cours_per) || 0;
-          const pe = (c.per_etudiant !== null && c.per_etudiant !== '' && c.per_etudiant != null) ? Number(c.per_etudiant) : cp;
+          // Périodes ÉTUDIANT, dans l'ordre de priorité du modèle :
+          //   1. per_etudiant, saisi explicitement (activités Z, 7.3) ;
+          //   2. sinon les HEURES converties — schema.sql : « heures réelles
+          //      étudiant (×60 min) → converti en périodes ×1.2 » ;
+          //   3. à défaut, les périodes de cours.
+          // `heures` était ignoré : un stage encodé à 400 h comptait pour 60.
+          const vide = v => v === null || v === undefined || v === '';
+          const pe = !vide(c.per_etudiant) ? Number(c.per_etudiant)
+            : !vide(c.heures) ? Math.round(Number(c.heures) * 1.2)
+            : cp;
           return `
           <tr style="background:${estZ?'#f3f4f6':(i%2===0?'#fff':'#f9fafb')}">
             <td style="${S}padding-left:20px;color:#6b7280;font-family:monospace">${c.cours_code}</td>
