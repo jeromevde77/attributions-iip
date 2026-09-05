@@ -50,6 +50,88 @@ export const CIBLES = [
       { champ: 'email_ecole', libelle: 'Courriel école' },
       { champ: 'email_perso', libelle: 'Courriel personnel' },
     ],
+    // Colonnes qui DÉSIGNENT la ligne pour l'écriture. `etudiant` a un id
+    // technique ; `ue` et `cours` ont une clé primaire composite et pas d'id
+    // du tout — écrire « WHERE id = ? » n'y touchait rien.
+    pk: ['id'],
+    libelle: r0 => [r0.nom, r0.prenom].filter(Boolean).join(' '),
+  },
+  {
+    cle: 'professeur',
+    libelle: 'Professeurs — signalétique',
+    description: 'Complète les dossiers du personnel : contact, statut, adresse.',
+    table: 'professeur',
+    cles: [
+      { champ: 'adresse_mail', libelle: 'Courriel école', normaliser: 'minuscules' },
+      { champ: 'mail_prive', libelle: 'Courriel privé', normaliser: 'minuscules' },
+      { champ: 'nom_prenom', libelle: 'Nom et prénom', normaliser: 'texte' },
+    ],
+    champs: [
+      { champ: 'nom', libelle: 'Nom' },
+      { champ: 'prenom', libelle: 'Prénom' },
+      { champ: 'adresse_mail', libelle: 'Courriel école' },
+      { champ: 'mail_prive', libelle: 'Courriel privé' },
+      { champ: 'statut', libelle: 'Statut' },
+      { champ: 'adresse_rue', libelle: 'Adresse' },
+      { champ: 'code_postal', libelle: 'Code postal' },
+      { champ: 'commune', libelle: 'Commune' },
+      { champ: 'contrat_cc', libelle: 'Contrat' },
+      { champ: 'capaes', libelle: 'CAPAES' },
+      { champ: 'suivi_peda', libelle: 'Suivi pédagogique' },
+    ],
+    pk: ['id'],
+    libelle: r0 => [r0.nom, r0.prenom].filter(Boolean).join(' ') || r0.nom_prenom,
+  },
+  {
+    cle: 'ue',
+    libelle: 'UE — référentiel',
+    description: "Complète les unités d'une année : intitulé, code FWB, ECTS, périodes.",
+    table: 'ue',
+    // Une UE n'est unique QUE dans son millésime : sans la portée, un import
+    // écraserait l'unité de toutes les années à la fois.
+    portee: 'annee',
+    cles: [{ champ: 'ue_num', libelle: "Numéro d'UE", normaliser: 'chiffres' }],
+    champs: [
+      { champ: 'ue_nom', libelle: "Intitulé de l'UE" },
+      { champ: 'ue_code_fwb', libelle: 'Code FWB' },
+      { champ: 'section', libelle: 'Section' },
+      { champ: 'ue_niv', libelle: 'Bloc (BA1/BA2/BA3)' },
+      { champ: 'ue_niveau', libelle: 'Niveau (SUP/SEC)' },
+      { champ: 'ue_quad', libelle: 'Quadrimestre' },
+      { champ: 'ects', libelle: 'ECTS' },
+      { champ: 'ue_per_etudiants', libelle: 'Périodes étudiant' },
+      { champ: 'ue_per_cours', libelle: 'Périodes de cours' },
+      { champ: 'ue_aut', libelle: 'Autonomie' },
+      { champ: 'ue_det', libelle: 'Déterminante' },
+      { champ: 'ue_tc', libelle: 'Tronc commun' },
+      { champ: 'ue_prerequise', libelle: 'UE prérequise' },
+      { champ: 'et_ref', libelle: 'Référence' },
+    ],
+    pk: ['ue_num', 'annee_scolaire'],
+    libelle: r0 => `UE ${r0.ue_num} — ${r0.ue_nom || ''}`.trim(),
+  },
+  {
+    cle: 'cours',
+    libelle: "Cours d'une UE",
+    description: 'Complète les cours : intitulé, type, périodes professeur, heures étudiant.',
+    table: 'cours',
+    portee: 'annee',
+    cles: [{ champ: 'cours_code', libelle: 'Code du cours', normaliser: 'texte' }],
+    champs: [
+      { champ: 'cours_nom', libelle: 'Intitulé du cours' },
+      { champ: 'ue_num', libelle: "Numéro d'UE" },
+      { champ: 'ct_pp', libelle: 'Type (CT/PP/Z…)' },
+      { champ: 'section', libelle: 'Section' },
+      { champ: 'quadrimestre_cours', libelle: 'Quadrimestre' },
+      { champ: 'cours_per', libelle: 'Périodes professeur' },
+      { champ: 'heures', libelle: 'Heures étudiant' },
+      { champ: 'per_etudiant', libelle: 'Périodes étudiant (Z)' },
+      { champ: 'cours_autonomie', libelle: 'Autonomie du cours' },
+      { champ: 'dedouble', libelle: 'Dédoublé (O/N)' },
+      { champ: 'is_stage', libelle: 'Stage (0/1)' },
+    ],
+    pk: ['cours_code', 'annee_scolaire'],
+    libelle: r0 => `${r0.cours_code} — ${r0.cours_nom || ''}`.trim(),
   },
 ];
 
@@ -140,11 +222,18 @@ const normaliser = (v, mode) => {
 // ── Exécution ───────────────────────────────────────────────────────────────
 r.post('/executer', authRequired, roleRequired('admin', 'directeur',
        'directeur_adjoint', 'editeur', 'secretariat'), (req, res) => {
-  const { cible, cle_choisie, lignes, simulation, ecraser } = req.body || {};
+  const { cible, cle_choisie, lignes, simulation, ecraser, annee } = req.body || {};
   const decl = CIBLES.find(c => c.cle === cible);
   if (!decl) return res.status(400).json({ error: 'cible inconnue' });
   if (!Array.isArray(lignes) || !lignes.length) {
     return res.status(400).json({ error: 'aucune ligne' });
+  }
+  // Une UE ou un cours n'existe que dans son millésime. Sans année, l'import
+  // écraserait la même unité dans toutes les années à la fois : on refuse.
+  if (decl.portee === 'annee' && !annee) {
+    return res.status(400).json({
+      error: "Indiquez l'année scolaire : cette cible existe une fois par millésime.",
+    });
   }
 
   const declCle = decl.cles.find(k => k.champ === cle_choisie);
@@ -155,9 +244,13 @@ r.post('/executer', authRequired, roleRequired('admin', 'directeur',
     });
   }
 
-  // Index des lignes existantes, par la clé retenue.
+  // Index des lignes existantes, par la clé retenue — restreint au millésime
+  // pour les cibles qui en dépendent.
   const index = {};
-  for (const row of db.prepare(`SELECT * FROM ${decl.table}`).all()) {
+  const existantes = decl.portee === 'annee'
+    ? db.prepare(`SELECT * FROM ${decl.table} WHERE annee_scolaire = ?`).all(annee)
+    : db.prepare(`SELECT * FROM ${decl.table}`).all();
+  for (const row of existantes) {
     const k = normaliser(row[declCle.champ], declCle.normaliser);
     if (k) index[k] = row;
   }
@@ -200,12 +293,17 @@ r.post('/executer', authRequired, roleRequired('admin', 'directeur',
       if (!Object.keys(maj).length) continue;
 
       rapport.modifications.push({
-        id: actuel.id, libelle: [actuel.nom, actuel.prenom].filter(Boolean).join(' ') || k,
+        id: actuel.id ?? null,
+        libelle: (decl.libelle ? decl.libelle(actuel) : null) || k,
         champs: Object.keys(maj),
       });
       if (!simulation) {
+        // La ligne se désigne par la clé primaire DÉCLARÉE : `ue` et `cours`
+        // n'ont pas d'id technique, leur identité est composite.
+        const pk = decl.pk || ['id'];
         db.prepare(`UPDATE ${decl.table} SET ${Object.keys(maj).map(c => `${c} = ?`).join(', ')}
-                    WHERE id = ?`).run(...Object.values(maj), actuel.id);
+                    WHERE ${pk.map(c => `${c} = ?`).join(' AND ')}`)
+          .run(...Object.values(maj), ...pk.map(c => actuel[c]));
       }
     }
     if (simulation) throw new Error('SIMULATION');

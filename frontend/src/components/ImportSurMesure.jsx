@@ -13,7 +13,7 @@ import { authHeaders } from '../lib/api.js';
  * qu'un intitulé change ; ici on désigne soi-même, et le réglage s'enregistre
  * en profil pour ne pas être refait.
  */
-export default function ImportSurMesure({ onClose, onTermine }) {
+export default function ImportSurMesure({ onClose, onTermine, annee = null }) {
   const [cibles, setCibles] = useState([]);
   const [cible, setCible] = useState(null);
   const [profils, setProfils] = useState([]);
@@ -122,8 +122,12 @@ export default function ImportSurMesure({ onClose, onTermine }) {
       if (!lignes.length) throw new Error('Aucune ligne ne porte la clé choisie.');
       const rep = await fetch('/api/import-sur-mesure/executer', {
         method: 'POST', headers: authHeaders(),
+        // L'ANNÉE accompagne les cibles qui n'existent qu'au millésime — une
+        // UE, un cours. Sans elle le serveur refuse, plutôt que d'écraser la
+        // même unité dans toutes les années.
         body: JSON.stringify({ cible: cible.cle, cle_choisie: cleChoisie,
-                               lignes, simulation, ecraser }),
+                               lignes, simulation, ecraser,
+                               annee: cible.portee === 'annee' ? annee : undefined }),
       });
       const j = await rep.json();
       if (!rep.ok) { setErreur(j.error); return; }
@@ -159,6 +163,14 @@ export default function ImportSurMesure({ onClose, onTermine }) {
         )}
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+          {cible?.portee === 'annee' && (
+            <div className="mb-3 px-3 py-2 rounded-lg bg-sky-50 border border-sky-200
+                            text-[12px] text-sky-900">
+              Cette cible existe une fois par millésime : l'import portera sur
+              l'année <b>{annee || '— non déterminée'}</b>.
+              {!annee && " Fermez et choisissez d'abord une année de travail."}
+            </div>
+          )}
           {cibles.map(c => (
             <button key={c.cle}
               onClick={() => { setCible(c); setCleChoisie(c.cles[0]?.champ || '');
