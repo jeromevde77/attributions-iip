@@ -154,7 +154,7 @@ export default function MotivationDecision({ etudId, annee, onClose }) {
       <div className="bg-white rounded-2xl shadow-2xl w-full max-w-3xl mt-8 p-5 space-y-4
                       max-h-[88vh] overflow-y-auto">
 
-        <div className="flex items-start justify-between">
+        <div className="sticky top-0 z-20 bg-white -mx-5 px-5 -mt-5 pt-5 pb-3 border-b border-slate-100 flex items-start justify-between">
           <div>
             <h3 className="text-[16px] font-semibold text-iip-blue">
               Motivation d'une décision {estRefus ? 'de refus' : "d'ajournement"}

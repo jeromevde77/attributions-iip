@@ -86,7 +86,7 @@ export default function Annexe2({ etudId, annee, onClose }) {
       onClick={e => e.target === e.currentTarget && onClose()}>
       <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl mt-12 p-5 space-y-4
                       max-h-[85vh] overflow-y-auto">
-        <div className="flex items-start justify-between">
+        <div className="sticky top-0 z-20 bg-white -mx-5 px-5 -mt-5 pt-5 pb-3 border-b border-slate-100 flex items-start justify-between">
           <div>
             <h3 className="text-[15px] font-semibold text-iip-blue">
               Attestation du progrès des études
