@@ -941,7 +941,19 @@ export default function Referentiels({ embedded = false }) {
                                         <td className="text-center px-1">{["CT","PP","CG"].includes(c.ct_pp) ? <span className={`badge ${{CT:'badge-ct',CG:'badge-cc',PP:'badge-pp',Z:'badge-z',B:'badge-b',F:'badge-f',T:'badge-t',P:'badge-p',O:'badge-o'}[c.ct_pp]}`}>{c.ct_pp}</span> : null}</td>
                                         <td className="text-center px-1">{["Z","B","F","T","P","O"].includes(c.ct_pp) ? <span className={`badge ${{CT:'badge-ct',CG:'badge-cc',PP:'badge-pp',Z:'badge-z',B:'badge-b',F:'badge-f',T:'badge-t',P:'badge-p',O:'badge-o'}[c.ct_pp]}`}>{c.ct_pp}</span> : null}</td>
                                         <td className="text-right px-2 font-semibold tabular-nums">{["Z","B","F","T","P","O"].includes(c.ct_pp) ? <span className="text-gray-300">—</span> : (c.cours_per ?? '—')}</td>
-                                        <td className="text-right px-2 tabular-nums">{c.ct_pp === 'Z' ? <span className="font-semibold text-iip-mauve">{c.per_etudiant ?? '—'}</span> : (c.cours_per ?? '—')}</td>
+                                        {/* Même règle que le serveur : per_etudiant s'il est renseigné, sinon
+    les périodes professeur. La colonne ne l'affichait que pour les Z et
+    montrait donc les périodes PROFESSEUR sur tous les autres cours —
+    60 au lieu de 480 sur un encadrement de stage. En mauve dès que les
+    deux nombres diffèrent : c'est là que la distinction se joue. */}
+<td className="text-right px-2 tabular-nums">{(() => {
+  const pe = (c.per_etudiant !== null && c.per_etudiant !== '' && c.per_etudiant !== undefined)
+    ? c.per_etudiant : c.cours_per;
+  if (pe === null || pe === undefined || pe === '') return '—';
+  return Number(pe) !== Number(c.cours_per)
+    ? <span className="font-semibold text-iip-mauve" title="Diffère des périodes professeur">{pe}</span>
+    : pe;
+})()}</td>
                                         <td className="text-center">{c.quadrimestre_cours || '—'}</td>
                                         <td className="text-right text-gray-400">{c.nb_attributions}</td>
                                         <td className="text-right whitespace-nowrap">
@@ -1064,7 +1076,19 @@ export default function Referentiels({ embedded = false }) {
                                     <td className="text-center px-1">{["CT","PP","CG"].includes(c.ct_pp) ? <span className={`badge ${{CT:'badge-ct',CG:'badge-cc',PP:'badge-pp',Z:'badge-z',B:'badge-b',F:'badge-f',T:'badge-t',P:'badge-p',O:'badge-o'}[c.ct_pp]}`}>{c.ct_pp}</span> : null}</td>
                                     <td className="text-center px-1">{["Z","B","F","T","P","O"].includes(c.ct_pp) ? <span className={`badge ${{CT:'badge-ct',CG:'badge-cc',PP:'badge-pp',Z:'badge-z',B:'badge-b',F:'badge-f',T:'badge-t',P:'badge-p',O:'badge-o'}[c.ct_pp]}`}>{c.ct_pp}</span> : null}</td>
                                     <td className="text-right px-2 font-semibold tabular-nums">{["Z","B","F","T","P","O"].includes(c.ct_pp) ? <span className="text-gray-300">—</span> : (c.cours_per ?? '—')}</td>
-                                    <td className="text-right px-2 tabular-nums">{c.ct_pp === 'Z' ? <span className="font-semibold text-iip-mauve">{c.per_etudiant ?? '—'}</span> : (c.cours_per ?? '—')}</td>
+                                    {/* Même règle que le serveur : per_etudiant s'il est renseigné, sinon
+    les périodes professeur. La colonne ne l'affichait que pour les Z et
+    montrait donc les périodes PROFESSEUR sur tous les autres cours —
+    60 au lieu de 480 sur un encadrement de stage. En mauve dès que les
+    deux nombres diffèrent : c'est là que la distinction se joue. */}
+<td className="text-right px-2 tabular-nums">{(() => {
+  const pe = (c.per_etudiant !== null && c.per_etudiant !== '' && c.per_etudiant !== undefined)
+    ? c.per_etudiant : c.cours_per;
+  if (pe === null || pe === undefined || pe === '') return '—';
+  return Number(pe) !== Number(c.cours_per)
+    ? <span className="font-semibold text-iip-mauve" title="Diffère des périodes professeur">{pe}</span>
+    : pe;
+})()}</td>
                                     <td className="text-center">{c.quadrimestre_cours || '—'}</td>
                                     <td className="text-right text-gray-400">{c.nb_attributions}</td>
                                     <td className="text-right whitespace-nowrap">

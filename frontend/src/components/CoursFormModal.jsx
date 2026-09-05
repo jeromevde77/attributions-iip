@@ -139,22 +139,30 @@ export default function CoursFormModal({ cours, ueNum, section, onClose, onSaved
             )}
           </div>
 
-          {/* ── PÉRIODES ÉTUDIANT (Z uniquement) ──────────────────────────── */}
-          {isZ && (
-            <label className="block">
-              <div className="text-xs font-semibold text-iip-blue mb-1 flex items-center gap-2">
-                <span className="badge badge-z text-xs">Z</span>
-                Périodes étudiant (7.3) *
-              </div>
-              <input type="number" min="0" value={form.per_etudiant}
-                onChange={e => set('per_etudiant', e.target.value)}
-                placeholder="Nombre de périodes autonomes de l'étudiant"
-                className="w-full border-2 border-iip-blue rounded-lg px-3 py-1.5 h-9 text-sm font-semibold focus:ring-2 focus:ring-iip-blue/30" />
-              <p className="text-xs text-gray-500 mt-1">
-                Ces périodes s'ajoutent aux périodes étudiant totaux de l'UE.
-              </p>
-            </label>
-          )}
+          {/* ── PÉRIODES ÉTUDIANT ─────────────────────────────────────────
+              Ouvert à TOUS les types, pas aux seuls Z : un encadrement de
+              stage coûte au professeur les périodes qu'il preste, alors que
+              l'étudiant en effectue bien davantage. Le serveur applique déjà
+              cette règle — per_etudiant s'il est renseigné, sinon les périodes
+              professeur — mais le champ n'était saisissable que sur les Z, si
+              bien que la valeur restait impossible à encoder ailleurs. */}
+          <label className="block">
+            <div className="text-xs font-semibold text-iip-blue mb-1 flex items-center gap-2">
+              {isZ && <span className="badge badge-z text-xs">Z</span>}
+              Périodes étudiant {isZ ? '(7.3) *' : ''}
+            </div>
+            <input type="number" min="0" value={form.per_etudiant}
+              onChange={e => set('per_etudiant', e.target.value)}
+              placeholder={isZ
+                ? "Nombre de périodes autonomes de l'étudiant"
+                : 'Identique aux périodes professeur si laissé vide'}
+              className="w-full border-2 border-iip-blue rounded-lg px-3 py-1.5 h-9 text-sm font-semibold focus:ring-2 focus:ring-iip-blue/30" />
+            <p className="text-xs text-gray-500 mt-1">
+              {isZ
+                ? "Ces périodes s'ajoutent aux périodes étudiant totaux de l'UE."
+                : "À renseigner seulement si elles diffèrent des périodes professeur — un stage dédoublé, par exemple. Vide = même nombre."}
+            </p>
+          </label>
 
           {/* Forçage code (admin) */}
           {renaming && (
