@@ -2275,7 +2275,7 @@ export default function Etudiants() {
           onClick={e => e.target === e.currentTarget && setComplement(false)}>
           <div className="bg-white rounded-2xl shadow-2xl w-full max-w-3xl mt-12 p-5
                           max-h-[85vh] overflow-y-auto">
-            <div className="sticky top-0 z-20 bg-white -mx-5 px-5 -mt-5 pt-5 pb-3 border-b border-slate-100 flex items-center justify-between mb-3">
+            <div className="flex items-center justify-between mb-3">
               <span className="text-[15px] font-semibold text-iip-blue">
                 Compléter les dossiers
               </span>

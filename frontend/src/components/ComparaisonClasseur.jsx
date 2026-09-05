@@ -125,9 +125,8 @@ export default function ComparaisonClasseur({ onClose }) {
   return (
     <div className="fixed inset-0 bg-black/40 flex items-start justify-center z-50 p-4"
       onClick={e => e.target === e.currentTarget && onClose()}>
-      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-5xl mt-8 p-5 space-y-4
-                      max-h-[90vh] overflow-y-auto">
-        <div className="sticky top-0 z-20 bg-white -mx-5 px-5 -mt-5 pt-5 pb-3 border-b border-slate-100 flex items-start justify-between">
+      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-5xl mt-8 max-h-[90vh] overflow-hidden flex flex-col">
+        <div className="flex-none p-5 pb-3 border-b border-slate-100 flex items-start justify-between">
           <div>
             <h3 className="text-[16px] font-semibold text-iip-blue">
               Comparer un classeur de coordination
@@ -140,6 +139,8 @@ export default function ComparaisonClasseur({ onClose }) {
             <IconX size={18} />
           </button>
         </div>
+
+        <div className="flex-1 overflow-y-auto p-5 space-y-4">
 
         <div className="flex items-end gap-3 flex-wrap">
           <label className="text-xs">
@@ -265,6 +266,7 @@ export default function ComparaisonClasseur({ onClose }) {
             </p>
           </>
         )}
+        </div>
       </div>
     </div>
   );
