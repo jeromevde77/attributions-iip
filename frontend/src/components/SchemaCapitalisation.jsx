@@ -35,6 +35,9 @@ export default function SchemaCapitalisation({
   const [modeLien, setModeLien] = useState(false);   // tirer des liens de prérequis
   const [lien, setLien] = useState(null);            // { depuis, x, y, cible }
   const [natureLien, setNatureLien] = useState('legal');   // legal | interne
+  // Zoom RÉGLABLE : à 1:1 le schéma est lisible mais menu sur grand écran.
+  // 1 unité de viewBox = `zoom` pixels, donc la police suit le zoom.
+  const [zoom, setZoom] = useState(1);
   const svgRef = useRef(null);
 
   const layout = useMemo(() => {
@@ -111,9 +114,15 @@ export default function SchemaCapitalisation({
   // ── Tirage d'un lien de prérequis ──
   // On tire DEPUIS l'UE prérequise VERS celle qu'elle conditionne, dans le sens
   // de lecture des flèches.
+  // Les coordonnées d'un pointeur sont en PIXELS ÉCRAN ; le reste du composant
+  // raisonne en unités de viewBox. Sans cette division, tirer un lien visait à
+  // côté dès que le SVG n'était pas affiché à l'échelle 1:1 — au zoom, comme
+  // dans une fenêtre plus étroite que le schéma.
   function svgXY(e) {
     const r0 = svgRef.current?.getBoundingClientRect();
-    return r0 ? { x: e.clientX - r0.left, y: e.clientY - r0.top } : { x: 0, y: 0 };
+    if (!r0 || !layout) return { x: 0, y: 0 };
+    const k = r0.width ? layout.largeur / r0.width : 1;
+    return { x: (e.clientX - r0.left) * k, y: (e.clientY - r0.top) * k };
   }
 
   function lienDown(e, n) {
@@ -163,7 +172,10 @@ export default function SchemaCapitalisation({
     const dx = e.clientX - drag.ox, dy = e.clientY - drag.oy;
     const bouge = drag.bouge || Math.abs(dx) > 4 || Math.abs(dy) > 4;
     const p = layout.pos[drag.ue_num];
-    const xSvg = (p?.x ?? 0) + layout.L / 2 + dx;
+    // Même conversion que svgXY : le déplacement est mesuré à l'écran, la
+    // colonne visée se cherche en unités de viewBox.
+    const k = drag.rect?.width ? layout.largeur / drag.rect.width : 1;
+    const xSvg = (p?.x ?? 0) + layout.L / 2 + dx * k;
     setDrag(d => d && ({ ...d, dx, dy, bouge, cible: bouge ? colonneA(xSvg) : null }));
   }
 
@@ -201,6 +213,29 @@ export default function SchemaCapitalisation({
         <span className="text-[11px] text-slate-400">{ouvert ? 'Masquer' : 'Afficher'}</span>
       </button>
 
+      {/* Le ZOOM est une commande à part : le bandeau replie/déplie le schéma,
+          et un bouton dans un bouton n'est pas cliquable. */}
+      {ouvert && layout && (
+        <div className="flex items-center justify-end gap-1 px-3 py-1.5
+                        border-b border-slate-100 bg-white">
+          <span className="text-[10.5px] text-slate-400 mr-1">Taille</span>
+          <button type="button" onClick={() => setZoom(z => Math.max(0.8, Math.round((z - 0.25) * 100) / 100))}
+            disabled={zoom <= 0.8}
+            className="w-6 h-6 rounded border border-slate-200 text-slate-600
+                       text-[13px] leading-none disabled:opacity-40"
+            title="Réduire">−</button>
+          <button type="button" onClick={() => setZoom(1)}
+            className="px-2 h-6 rounded border border-slate-200 text-slate-600
+                       text-[10.5px] tabular-nums"
+            title="Revenir à la taille normale">{Math.round(zoom * 100)} %</button>
+          <button type="button" onClick={() => setZoom(z => Math.min(3, Math.round((z + 0.25) * 100) / 100))}
+            disabled={zoom >= 3}
+            className="w-6 h-6 rounded border border-slate-200 text-slate-600
+                       text-[13px] leading-none disabled:opacity-40"
+            title="Agrandir">+</button>
+        </div>
+      )}
+
       {ouvert && layout && (
         <>
           {/* Le schéma tient ENTIER dans son cadre : un ascenseur interne
@@ -209,7 +244,10 @@ export default function SchemaCapitalisation({
           {/* La hauteur SUIT le schéma : un plafond fixe l'écrasait et le
               faisait déborder sur la légende. Le SVG garde ses proportions et
               la zone s'adapte, sans ascenseur. */}
-          <div className="bg-white">
+          {/* overflow-x SEULEMENT : un ascenseur vertical interne piégeait la
+              molette et empêchait la page de défiler. Le défilement horizontal,
+              lui, ne capture pas la molette verticale. */}
+          <div className="bg-white" style={{ overflowX: 'auto' }}>
             <svg ref={svgRef}
               viewBox={`0 0 ${layout.largeur} ${layout.hauteur}`}
               preserveAspectRatio="xMidYMid meet"
@@ -222,8 +260,10 @@ export default function SchemaCapitalisation({
                  du SVG s'affichaient bien plus gros que le texte de la fenetre.
                  Une unite de viewBox = un pixel, donc fontSize="10" = 10 px. */
               style={{
-                width: '100%',
-                maxWidth: layout.largeur,
+                // 1 unité de viewBox = `zoom` pixels : à 100 % le fontSize="10"
+                // du SVG s'affiche en 10 px, cohérent avec le texte du cadre,
+                // et la police grandit avec le zoom sans rien déformer.
+                width: layout.largeur * zoom,
                 height: 'auto',
                 display: 'block',
                 touchAction: deplacable ? 'none' : 'auto',
