@@ -2996,15 +2996,39 @@ function EditeurGrille({ grille, onSaved }) {
     } catch (e) { setErr(e.message); } finally { setSaving(false); }
   };
 
+  // Revenir à la grille de référence : quatre axes, deux questions tirées dans
+  // chacun. C'est un REMPLACEMENT — les axes ajoutés à la main disparaissent —
+  // donc il se confirme.
+  const revenirDefaut = async () => {
+    if (!confirm("Remplacer la grille actuelle par la grille de référence ?\n\n"
+      + "Quatre axes, deux questions tirées dans chacun, soit huit questions par "
+      + "entretien. Vos axes et questions personnalisés seront perdus.")) return;
+    setSaving(true); setErr('');
+    try {
+      const j = await af('/grille/defaut', { method: 'POST' });
+      setSaved(true); setTimeout(() => setSaved(false), 2000);
+      onSaved();
+      if (j?.axes) setErr('');
+    } catch (e) { setErr(e.message); } finally { setSaving(false); }
+  };
+
   return (
     <div className="max-w-none">
       <div className="flex items-center justify-between mb-5">
         <div>
           <h1 className="text-2xl font-title text-iip-gold">Grille d'entretien</h1>
-          <p className="text-sm text-gray-400 mt-1">Modifiez les axes et questions — appliqués à tous les entretiens.</p>
+          <p className="text-sm text-gray-400 mt-1">
+            Modifiez les axes et questions — appliqués à tous les entretiens.
+            Chaque axe tire au hasard le nombre de questions qu'il déclare :
+            au-delà de quatre axes, l'entretien devient trop long pour se tenir.
+          </p>
         </div>
         <div className="flex items-center gap-2">
           {saved && <span className="text-sm text-green-600 flex items-center gap-1"><IconCheck size={15} /> Enregistré</span>}
+          <Btn variant="ghost" onClick={revenirDefaut} disabled={saving}
+            title="Quatre axes, deux questions tirées dans chacun">
+            Grille de référence
+          </Btn>
           <Btn variant="primary" icon={IconCheck} onClick={enregistrer} disabled={saving}>
             {saving ? 'Enregistrement…' : 'Enregistrer'}
           </Btn>

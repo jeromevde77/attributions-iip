@@ -5,6 +5,7 @@
 import { Router } from 'express';
 import db from '../db/index.js';
 import { authRequired, roleRequired } from '../middleware/auth.js';
+import { GRILLE_DEFAUT } from './grilleEntretienDefaut.js';
 import multer from 'multer';
 import { mkdirSync, existsSync, unlinkSync } from 'fs';
 import { join } from 'path';
@@ -565,6 +566,25 @@ r.put('/grille', (req, res) => {
   });
   tx();
   res.json({ ok: true });
+});
+
+// POST /api/recrutement/grille/defaut — revenir à la grille de référence
+// Quatre axes, deux questions tirées dans chacun. Remplace la grille en place :
+// c'est une remise à zéro, pas une fusion, et elle efface les axes ajoutés.
+r.post('/grille/defaut', authRequired, roleRequired('admin', 'directeur',
+       'directeur_adjoint'), (req, res) => {
+  const tx = db.transaction(() => {
+    db.prepare('DELETE FROM recrutement_grille_axe').run();  // CASCADE : les questions suivent
+    const insAxe = db.prepare('INSERT INTO recrutement_grille_axe (libelle, couleur, ordre, nb_questions_tirees, type_axe) VALUES (?, ?, ?, ?, ?)');
+    const insQ   = db.prepare('INSERT INTO recrutement_grille_question (axe_id, libelle, ordre) VALUES (?, ?, ?)');
+    GRILLE_DEFAUT.forEach((axe, ai) => {
+      const { lastInsertRowid: axeId } = insAxe.run(axe.libelle, axe.couleur, ai, axe.nb, axe.type);
+      axe.questions.forEach((q, qi) => insQ.run(axeId, q, qi));
+    });
+  });
+  tx();
+  res.json({ ok: true, axes: GRILLE_DEFAUT.length,
+             questions: GRILLE_DEFAUT.reduce((s, a) => s + a.questions.length, 0) });
 });
 
 // ═══════════════════════════════════════════════════════════════════════════════
