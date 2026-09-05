@@ -441,7 +441,7 @@ r.get('/rapport', authRequired, (req, res) => {
      L'orientation se déclare ICI et nulle part ailleurs — un second @page
      déclaré plus bas l'emporterait, ce qui est précisément ce qui ramenait ce
      rapport en portrait. */
-  ${reglesDePage({ haut: 12, cote: 10, orientation })}
+  ${reglesDePage({ haut: 12, cote: 10, orientation: 'paysage' })}
 
   /* Pied de page commun, ancré en bas de CHAQUE page — dernière comprise.
      Un pied placé dans le flux, ou en table-footer-group, flotte au milieu

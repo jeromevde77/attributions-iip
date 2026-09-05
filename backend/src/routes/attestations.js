@@ -283,7 +283,12 @@ r.get('/etudiant/:id', authRequired, (req, res) => {
  *   défaut le jour même — mais une attestation se signe souvent à une date
  *   décidée (délibération, courrier), non le jour où on l'imprime.
  */
-function pageAttestation(e, u, annee, etab, dateDoc = null) {
+// `ident` était utilisé dans le corps de cette fonction sans y être défini
+// ni transmis : les deux routes appelantes le calculaient et le gardaient
+// pour elles. Toute production d'attestation levait donc « ident is not
+// defined ». Il devient un paramètre, avec repli sur l'identité de
+// l'établissement pour tout appel qui l'oublierait.
+function pageAttestation(e, u, annee, etab, dateDoc = null, ident = identiteEtablissement()) {
   // Le titre s'écrit tantôt « Mme », tantôt « Madame » : chercher la seule
   // abréviation produisait une attestation au masculin pour une étudiante.
   const genre = /^(mme|madame|mlle|mademoiselle|m\.?me)\b/i.test((e.titre || '').trim())
@@ -423,7 +428,7 @@ r.get('/etudiant/:id/document', authRequired, (req, res) => {
 
   // Une attestation par unité, chacune sur sa propre page : ce sont des pièces
   // distinctes, remises séparément.
-  const pages = unites.map(u => pageAttestation(e, u, annee, etab, req.query.date_document))
+  const pages = unites.map(u => pageAttestation(e, u, annee, etab, req.query.date_document, ident))
     .join('<div class="saut"></div>');
 
   const html = envelopper(pages, `Attestations — ${e.nom} ${e.prenom}`);
@@ -561,7 +566,7 @@ r.post('/lot', authRequired, (req, res) => {
       etudiant: `${e.nom} ${e.prenom}`,
       ue_num: u.ue_num,
       annee: p.annee_scolaire,
-      corps: pageAttestation(e, u, p.annee_scolaire, etab, date_document),
+      corps: pageAttestation(e, u, p.annee_scolaire, etab, date_document, ident),
     });
   }
 
