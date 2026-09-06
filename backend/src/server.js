@@ -2686,6 +2686,10 @@ app.use(helmet());
 app.use((req, res, next) => demoWriteGuard(req, res, next));
 
 app.use(cors({ origin: process.env.CORS_ORIGIN || true, credentials: true }));
+// L'envoi par courriel transporte jusqu'à deux cents documents HTML en un
+// appel : il lui faut plus que la limite commune. Déclaré AVANT, car un
+// corps déjà lu n'est pas relu par le parseur suivant.
+app.use('/api/envois', express.json({ limit: '60mb' }));
 app.use(express.json({ limit: '5mb' }));
 app.use(morgan('tiny'));
 
@@ -2747,6 +2751,7 @@ app.use('/api/stages', stagesRoutes);
 app.use('/api/attestations', attestationsRoutes);
 app.use('/api/annexe2', annexe2Routes);
 app.use('/api/impression', impressionRoutes);
+app.use('/api/envois',     (await import('./routes/envois.js')).default);
 app.use('/api/import-sur-mesure', importSurMesureRoutes);
 app.use('/api/historique',   historiqueRoutes);
 app.use('/api/etablissement', etablissementRoutes);

@@ -867,6 +867,8 @@ function OutilRecours({ initialPayload, onPayloadConsumed }) {
 
       {previewHtml && (
         <PreviewModal html={previewHtml} titre="PV de recours — Décision motivée" onClose={() => setPreviewHtml(null)}
+          destinataire={{ nom: etudiant || 'Étudiant' }} typeDoc="decision_recours"
+          sujetMail={`Décision du Conseil des études — recours${ueNum ? ` UE ${ueNum}` : ''} — Institut Ilya Prigogine`}
           actionExtra={
             <button onClick={async () => {
                 try {

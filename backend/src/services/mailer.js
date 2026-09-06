@@ -32,29 +32,45 @@ function getTransporter() {
   return transporter;
 }
 
+/** Le SMTP est-il configuré ? Sinon, les envois sont simulés (console). */
+export function mailerConfigure() {
+  return !!SMTP_HOST;
+}
+
 /**
  * Envoie un e-mail.
- * @param {{ to: string|string[], subject: string, html: string, text?: string }} opts
+ * @param {{ to: string|string[], subject: string, html: string, text?: string,
+ *           attachments?: Array<{ filename: string, content: Buffer, contentType?: string }> }} opts
+ * @returns {Promise<{ ok: boolean, simule: boolean, erreur?: string }>}
+ *   L'échec est RENVOYÉ, pas seulement loggué : un envoi de document officiel
+ *   doit pouvoir dire à l'utilisateur qu'il n'est pas parti.
  */
-export async function envoyerEmail({ to, subject, html, text }) {
+export async function envoyerEmail({ to, subject, html, text, attachments }) {
   const t = getTransporter();
+  const dest = Array.isArray(to) ? to.join(', ') : to;
   if (!t) {
-    console.log(`[MAILER DEV] À: ${Array.isArray(to) ? to.join(', ') : to}`);
+    console.log(`[MAILER DEV] À: ${dest}`);
     console.log(`[MAILER DEV] Sujet: ${subject}`);
     console.log(`[MAILER DEV] ${text || '(html uniquement)'}`);
-    return;
+    if (attachments?.length) {
+      console.log(`[MAILER DEV] Pièces jointes: ${attachments.map(a => `${a.filename} (${a.content?.length || 0} o)`).join(', ')}`);
+    }
+    return { ok: true, simule: true };
   }
   try {
     await t.sendMail({
       from: SMTP_FROM,
-      to: Array.isArray(to) ? to.join(', ') : to,
+      to: dest,
       subject,
       html,
       text: text || html.replace(/<[^>]+>/g, ''),
+      attachments: attachments || [],
     });
-    console.log(`[MAILER] Email envoyé à ${Array.isArray(to) ? to.join(', ') : to}`);
+    console.log(`[MAILER] Email envoyé à ${dest}`);
+    return { ok: true, simule: false };
   } catch (e) {
     console.error('[MAILER] Erreur envoi:', e.message);
+    return { ok: false, simule: false, erreur: e.message };
   }
 }
 

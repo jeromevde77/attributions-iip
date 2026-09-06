@@ -1663,7 +1663,7 @@ export default function Professeurs() {
       </table>
       </body></html>`;
     if (returnOnly) return html;
-    setFicheHtml({ html, nom: nomDoc('Fiche_HELB', prof.nom, prof.prenom, annee), titre: `${prof.prenom || ''} ${prof.nom || ''}`.trim(), sousTitre: `Fiche HELB · ${annee}` });
+    setFicheHtml({ html, destinataire: { type: 'professeur', id: prof.id, nom: `${prof.nom || ''} ${prof.prenom || ''}`.trim() }, nom: nomDoc('Fiche_HELB', prof.nom, prof.prenom, annee), titre: `${prof.prenom || ''} ${prof.nom || ''}`.trim(), sousTitre: `Fiche HELB · ${annee}` });
   }
 
   // Fiche globale : bloc IIP (périodes) + bloc HELB (heures) + rectangle récap combiné
@@ -1791,7 +1791,7 @@ export default function Professeurs() {
       </table>
       </body></html>`;
     if (returnOnly) return html;
-    setFicheHtml({ html, nom: nomDoc('Fiche_globale', prof.nom, prof.prenom, annee), titre: `${prof.prenom || ''} ${prof.nom || ''}`.trim(), sousTitre: `Fiche globale · ${annee}` });
+    setFicheHtml({ html, destinataire: { type: 'professeur', id: prof.id, nom: `${prof.nom || ''} ${prof.prenom || ''}`.trim() }, nom: nomDoc('Fiche_globale', prof.nom, prof.prenom, annee), titre: `${prof.prenom || ''} ${prof.nom || ''}`.trim(), sousTitre: `Fiche globale · ${annee}` });
   }
 
   async function genererFicheAttributions(profId, contratFiltre = null, returnOnly = false) {
@@ -1973,7 +1973,7 @@ export default function Professeurs() {
       </body></html>`;
 
     if (returnOnly) return html;
-    setFicheHtml({ html, nom: nomDoc('Fiche_attr', prof.nom, prof.prenom, annee), titre: `${prof.prenom || ''} ${prof.nom || ''}`.trim(), sousTitre: `Fiche attributions IIP · ${annee}` });
+    setFicheHtml({ html, destinataire: { type: 'professeur', id: prof.id, nom: `${prof.nom || ''} ${prof.prenom || ''}`.trim() }, nom: nomDoc('Fiche_attr', prof.nom, prof.prenom, annee), titre: `${prof.prenom || ''} ${prof.nom || ''}`.trim(), sousTitre: `Fiche attributions IIP · ${annee}` });
   }
   const canEdit = estDirection(me) || ['editeur', 'secretariat'].includes(me?.role);
 
@@ -2494,7 +2494,10 @@ export default function Professeurs() {
         <ProfFicheModal prof={editProf} onClose={() => setEditProf(null)}
           onSaved={() => { setEditProf(null); load(); }} />
       )}
-      {ficheHtml && <PreviewModal html={ficheHtml.html||ficheHtml} titre={ficheHtml.titre || "Fiche d'attributions"} sousTitre={ficheHtml.sousTitre} nomFichier={ficheHtml.nom} onClose={() => setFicheHtml(null)} />}
+      {ficheHtml && <PreviewModal html={ficheHtml.html||ficheHtml} titre={ficheHtml.titre || "Fiche d'attributions"} sousTitre={ficheHtml.sousTitre} nomFichier={ficheHtml.nom}
+        destinataire={ficheHtml.destinataire || null} typeDoc="fiche_attributions"
+        sujetMail={ficheHtml.sousTitre ? `${ficheHtml.sousTitre} — Institut Ilya Prigogine` : null}
+        onClose={() => setFicheHtml(null)} />}
       </div>
     </div>
   );

@@ -1,8 +1,9 @@
 import { memo, useCallback, useEffect, useMemo, useState } from 'react';
 import {
-  IconAlertTriangle, IconFileTypePdf, IconFileZip, IconPrinter, IconSearch, IconSquare, IconSquareCheck, IconX,
+  IconAlertTriangle, IconFileTypePdf, IconFileZip, IconMail, IconPrinter, IconSearch, IconSquare, IconSquareCheck, IconX,
 } from '@tabler/icons-react';
 import { authHeaders } from '../lib/api.js';
+import EnvoiMailModal from './EnvoiMailModal.jsx';
 import { Tableau, TableauEntete, Th, Td, Tr } from './ui.jsx';
 
 /**
@@ -51,6 +52,9 @@ export default function CentreImpression({ onClose, documentInitial = null,
   // et non le jour où on l'imprime.
   const [dateDoc, setDateDoc] = useState(() => new Date().toISOString().slice(0, 10));
   const [message, setMessage] = useState(null);
+  // Les pièces à envoyer par courriel, une fois produites : la modale d'envoi
+  // prend le relais, le centre ne fait que composer.
+  const [envoi, setEnvoi] = useState(null);
 
   const doc = catalogue?.find(d => d.cle === docCle) || null;
 
@@ -228,6 +232,61 @@ export default function CentreImpression({ onClose, documentInitial = null,
         : assembler(pieces.map(p => p.html));
       if (forme === 'pdf') return await enPdf(assemble, `${docCle}_${annee}`);
       imprimer(assemble);
+    } catch (e) {
+      setMessage({ type: 'err', texte: e.message });
+    } finally { setEnCours(false); }
+  }
+
+  /**
+   * Envoi par courriel : chaque pièce à SON intéressé.
+   *
+   * Même règle que le ZIP : une pièce par personne, jamais un assemblage. Le
+   * centre produit, la modale d'envoi retrouve les adresses et le serveur
+   * rend le PDF, l'attache et consigne.
+   */
+  async function preparerEnvoi() {
+    if (!retenus.length) return;
+    setEnCours(true); setMessage(null);
+    try {
+      const pieces = [];
+      if (docCle === 'attestation_reussite') {
+        const rep = await fetch('/api/attestations/lot', {
+          method: 'POST', headers: authHeaders(),
+          body: JSON.stringify({
+            paires: retenus.map(d => ({
+              etudiant_id: d.etudiant_id, ue_num: d.ue_num,
+              annee_scolaire: d.annee_scolaire,
+            })),
+            separes: true,
+            date_document: dateDoc,
+          }),
+        });
+        const j = await rep.json();
+        if (!rep.ok) { setMessage({ type: 'err', texte: j.error }); return; }
+        for (const d of j.documents) {
+          pieces.push({
+            html: j.enveloppe.replace('__CORPS__', d.corps),
+            nom_fichier: d.nom_fichier,
+            destinataire: { type: 'etudiant', id: d.etudiant_id, nom: d.etudiant },
+          });
+        }
+      } else {
+        for (const d of retenus.slice(0, 200)) {
+          const html = await produireUn(d);
+          if (!html) continue;
+          const type = d.etudiant_id ? 'etudiant' : 'professeur';
+          pieces.push({
+            html, nom_fichier: nommer(d),
+            destinataire: { type, id: d.etudiant_id || d.professeur_id,
+                            nom: `${d.nom || ''} ${d.prenom || ''}`.trim() },
+          });
+        }
+      }
+      if (!pieces.length) {
+        setMessage({ type: 'err', texte: "Aucune pièce n'a pu être produite." });
+        return;
+      }
+      setEnvoi(pieces);
     } catch (e) {
       setMessage({ type: 'err', texte: e.message });
     } finally { setEnCours(false); }
@@ -647,6 +706,15 @@ export default function CentreImpression({ onClose, documentInitial = null,
                                disabled:opacity-40">
                     <IconFileZip size={15} /> Pièces séparées
                   </button>
+                  {pdfPossible && (
+                    <button onClick={preparerEnvoi} disabled={enCours || !retenus.length}
+                      title="Un courriel par personne, avec son document en PDF joint"
+                      className="flex items-center gap-1.5 px-3.5 py-1.5 text-sm border
+                                 border-iip-turquoise text-iip-turquoise font-semibold rounded-lg
+                                 disabled:opacity-40">
+                      <IconMail size={15} /> Envoyer par courriel
+                    </button>
+                  )}
                 </div>
               </div>
             </div>
@@ -685,6 +753,11 @@ export default function CentreImpression({ onClose, documentInitial = null,
         )}
         </div>
       </div>
+      {envoi && (
+        <EnvoiMailModal pieces={envoi} typeDoc={docCle}
+          sujet={`${doc?.libelle || 'Document'} — ${annee}`}
+          onClose={() => setEnvoi(null)} />
+      )}
     </div>
   );
 }
