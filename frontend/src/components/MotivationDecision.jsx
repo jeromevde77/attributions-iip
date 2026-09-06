@@ -3,6 +3,7 @@ import {
   IconX, IconDeviceFloppy, IconAlertTriangle, IconPrinter,
 } from '@tabler/icons-react';
 import { authHeaders } from '../lib/api.js';
+import { MOTIFS_ECHEC, texteDuMotif, composerMotif, decomposerMotif } from './motifsEchec.js';
 
 /**
  * Motivation d'une décision d'ajournement ou de refus.
@@ -20,7 +21,12 @@ export default function MotivationDecision({ etudId, annee, onClose }) {
   const [ues, setUes] = useState(null);
   const [ueNum, setUeNum] = useState(null);
   const [donnees, setDonnees] = useState(null);
-  const [motifs, setMotifs] = useState({});
+  // Motivation d'un acquis = des énoncés COCHÉS dans le catalogue, plus des
+  // précisions écrites à la main. La base ne connaît qu'une chaîne : on
+  // compose à l'enregistrement, on décompose à la relecture.
+  const [coches, setCoches] = useState({});   // aa_code → [clés d'énoncés]
+  const [motifs, setMotifs] = useState({});   // aa_code → précisions libres
+  const [catalogueOuvert, setCatalogueOuvert] = useState({});
   const [enCours, setEnCours] = useState(false);
   const [message, setMessage] = useState(null);
 
@@ -48,7 +54,9 @@ export default function MotivationDecision({ etudId, annee, onClose }) {
         const j = await r.json();
         if (!r.ok) { setMessage({ type: 'err', texte: j.error }); return; }
         setDonnees(j);
-        setMotifs(Object.fromEntries(j.acquis.map(a => [a.aa_code, a.motif || ''])));
+        const dec = j.acquis.map(a => [a.aa_code, decomposerMotif(a.motif || '')]);
+        setCoches(Object.fromEntries(dec.map(([c, d]) => [c, d.cles])));
+        setMotifs(Object.fromEntries(dec.map(([c, d]) => [c, d.libre])));
       }).catch(e => setMessage({ type: 'err', texte: e.message }));
   }, [etudId, ueNum, annee]);
 
@@ -86,7 +94,9 @@ export default function MotivationDecision({ etudId, annee, onClose }) {
       const rep = await fetch('/api/acquis/motivation', {
         method: 'PUT', headers: authHeaders(),
         body: JSON.stringify({ etudiant_id: etudId, annee_scolaire: annee,
-                               ue_num: ueNum, motifs }),
+                               ue_num: ueNum,
+                               motifs: Object.fromEntries(donnees.acquis.map(a =>
+                                 [a.aa_code, composerMotif(coches[a.aa_code], motifs[a.aa_code])])) }),
       });
       const j = await rep.json();
       if (!rep.ok) { setMessage({ type: 'err', texte: j.error }); return; }
@@ -145,7 +155,8 @@ export default function MotivationDecision({ etudId, annee, onClose }) {
   }
 
   const nonMaitrises = donnees.acquis.filter(a => a.non_maitrise);
-  const sansMotif = nonMaitrises.filter(a => !(motifs[a.aa_code] || '').trim()).length;
+  const sansMotif = nonMaitrises.filter(a =>
+    !(coches[a.aa_code] || []).length && !(motifs[a.aa_code] || '').trim()).length;
   const estRefus = donnees.resultat === 'refuse';
 
   return (
@@ -226,11 +237,60 @@ export default function MotivationDecision({ etudId, annee, onClose }) {
                       {a.note}/20
                     </span>
                   </div>
+                  {/* Le CATALOGUE : des énoncés qui se rapportent à l'acquis,
+                      jamais à l'étudiant. On en coche un ou plusieurs, puis on
+                      précise en toutes lettres — deux motivations identiques
+                      mot pour mot sur deux dossiers s'affaiblissent l'une
+                      l'autre. */}
+                  <button type="button"
+                    onClick={() => setCatalogueOuvert(o => ({ ...o, [a.aa_code]: !o[a.aa_code] }))}
+                    className="text-[11.5px] text-iip-blue underline mb-1">
+                    {catalogueOuvert[a.aa_code] ? 'Masquer les motivations types' : 'Choisir des motivations types'}
+                    {!!(coches[a.aa_code] || []).length &&
+                      ` · ${(coches[a.aa_code] || []).length} cochée(s)`}
+                  </button>
+
+                  {catalogueOuvert[a.aa_code] && (
+                    <div className="mb-2 border border-slate-200 rounded-lg divide-y divide-slate-100">
+                      {MOTIFS_ECHEC.map(g => (
+                        <div key={g.cle} className="px-2.5 py-2">
+                          <div className="text-[10.5px] uppercase tracking-wide font-semibold mb-1"
+                            style={{ color: g.couleur }}>{g.libelle}</div>
+                          <div className="space-y-1">
+                            {g.motifs.map(m => {
+                              const pris = (coches[a.aa_code] || []).includes(m.cle);
+                              return (
+                                <label key={m.cle} className="flex items-start gap-2 text-[12px] cursor-pointer">
+                                  <input type="checkbox" checked={pris} className="mt-0.5"
+                                    onChange={() => setCoches(c => {
+                                      const act = c[a.aa_code] || [];
+                                      return { ...c, [a.aa_code]: pris
+                                        ? act.filter(x => x !== m.cle) : [...act, m.cle] };
+                                    })} />
+                                  <span className={pris ? 'text-slate-800' : 'text-slate-600'}>{m.texte}</span>
+                                </label>
+                              );
+                            })}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+
+                  {!!(coches[a.aa_code] || []).length && !catalogueOuvert[a.aa_code] && (
+                    <div className="mb-1 text-[11.5px] text-slate-600 bg-slate-50
+                                    border border-slate-200 rounded-lg px-2 py-1.5">
+                      {(coches[a.aa_code] || []).map(texteDuMotif).filter(Boolean).join(' ')}
+                    </div>
+                  )}
+
                   <textarea rows={2} value={motifs[a.aa_code] || ''}
                     onChange={e => setMotifs(m => ({ ...m, [a.aa_code]: e.target.value }))}
-                    placeholder="Motivation — ce qui n'est pas maîtrisé, et pourquoi"
+                    placeholder={(coches[a.aa_code] || []).length
+                      ? "Précisions propres à ce dossier — ce qui a été observé"
+                      : "Motivation — ce qui n'est pas maîtrisé, et pourquoi"}
                     className={`w-full border rounded-lg px-2 py-1.5 text-[12px]
-                      ${(motifs[a.aa_code] || '').trim()
+                      ${(coches[a.aa_code] || []).length || (motifs[a.aa_code] || '').trim()
                         ? 'border-slate-300' : 'border-amber-300 bg-amber-50/50'}`} />
                 </div>
               ))}
