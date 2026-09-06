@@ -1182,4 +1182,73 @@ r.get('/parcours-bilan/:etudId', authRequired, (req, res) => {
   });
 });
 
+/**
+ * Le PLAN DE SÉANCE : les sections, leurs unités, et où en est la délibération.
+ *
+ * On atteignait la feuille par un clic non annoncé sur un en-tête de colonne,
+ * dans l'écran de saisie rapide — on arrivait au sens par l'accessoire. Cette
+ * route donne la porte d'entrée : d'abord les sections, puis leurs unités, avec
+ * ce qui reste à faire sur chacune.
+ */
+r.get('/deliberation/plan', authRequired, (req, res) => {
+  const annee = req.query.annee || anneeDeTravail(req);
+  const perim = getUserSections(req.user);
+
+  // Une unité entre au plan dès qu'un étudiant y est inscrit cette année :
+  // c'est l'inscription qui appelle une délibération, pas le référentiel.
+  const lignes = db.prepare(`
+    SELECT i.ue_num, i.etudiant_id, i.resultat
+    FROM etudiant_inscription i WHERE i.annee_scolaire = ?
+  `).all(annee);
+
+  const refs = db.prepare(`
+    SELECT ue_num, annee_scolaire, ue_nom, ue_niv, section
+    FROM ue ORDER BY annee_scolaire DESC
+  `).all();
+  const refDe = {};
+  for (const r0 of refs) if (!refDe[r0.ue_num] || r0.annee_scolaire === annee) refDe[r0.ue_num] = r0;
+
+  // Les motivations déjà écrites, pour dire ce qui manque sans le deviner.
+  const motives = new Set(db.prepare(`
+    SELECT ue_num, etudiant_id FROM decision_motivation
+    WHERE annee_scolaire = ? AND motif IS NOT NULL AND TRIM(motif) <> ''
+  `).all(annee).map(m => `${m.ue_num}|${m.etudiant_id}`));
+
+  const parUe = {};
+  for (const l of lignes) {
+    const u = (parUe[l.ue_num] = parUe[l.ue_num] || {
+      ue_num: l.ue_num, inscrits: 0, decides: 0, echecs: 0, echecs_non_motives: 0,
+    });
+    u.inscrits++;
+    if (l.resultat) u.decides++;
+    if (l.resultat === 'ajourne' || l.resultat === 'refuse') {
+      u.echecs++;
+      if (!motives.has(`${l.ue_num}|${l.etudiant_id}`)) u.echecs_non_motives++;
+    }
+  }
+
+  const sections = {};
+  for (const u of Object.values(parUe)) {
+    const r0 = refDe[u.ue_num] || {};
+    const sec = r0.section || '—';
+    if (perim && r0.section && !perim.includes(r0.section)) continue;
+    (sections[sec] = sections[sec] || { section: sec, ues: [] }).ues.push({
+      ...u, ue_nom: r0.ue_nom || null, ue_niv: r0.ue_niv || null,
+    });
+  }
+
+  const resultat = Object.values(sections).map(s => {
+    s.ues.sort((a, b) => a.ue_num - b.ue_num);
+    return {
+      ...s,
+      nb_ues: s.ues.length,
+      inscrits: s.ues.reduce((n, u) => n + u.inscrits, 0),
+      a_delibierer: s.ues.filter(u => u.decides < u.inscrits).length,
+      non_motives: s.ues.reduce((n, u) => n + u.echecs_non_motives, 0),
+    };
+  }).sort((a, b) => a.section.localeCompare(b.section));
+
+  res.json({ annee, sections: resultat });
+});
+
 export default r;
