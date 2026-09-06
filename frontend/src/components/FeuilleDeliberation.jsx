@@ -94,8 +94,12 @@ export default function FeuilleDeliberation({ ueNum, annee, onClose }) {
           `${e.nom} ${e.prenom} ${e.id_ecampus || ''}`.toLowerCase().includes(q))
       : data.etudiants;
     if (ordre) {
+      // L'ordre définit AUSSI le périmètre de la revue : ceux qui ont été
+      // délibérés d'office n'y sont plus. Les repasser en revue ne leur
+      // ajoutait rien et coûtait un clic par étudiant.
       const pos = Object.fromEntries(ordre.map((id, i) => [id, i]));
-      return [...base].sort((a, b) => (pos[a.id] ?? 1e9) - (pos[b.id] ?? 1e9));
+      return base.filter(e => pos[e.id] !== undefined)
+        .sort((a, b) => pos[a.id] - pos[b.id]);
     }
     return [...base].sort((a, b) => {
       const d = rang(b) - rang(a);
@@ -250,10 +254,15 @@ export default function FeuilleDeliberation({ ueNum, annee, onClose }) {
       const j = await rep.json();
       if (!rep.ok) { setErreur(j.error); return; }
       const frais = await charger();
-      // On reprend la revue là où elle a du sens : au meilleur de ceux qui
-      // restent à apprécier — et l'ordre se fige ici.
-      figerOrdre(frais);
-      setIdx(0); setEtape('fiche');
+      // LA REVUE NE PORTE PLUS QUE SUR CE QUI RESTE À APPRÉCIER. Ceux qui
+      // viennent d'être délibérés d'office sont décidés : les repasser en revue
+      // ne leur ajoute rien et coûte un clic par étudiant.
+      const restants = (frais || []).filter(e => !e.ue?.de_plein_droit);
+      figerOrdre(restants);
+      setIdx(0);
+      // Tout le monde réussissait de plein droit : il n'y a plus rien à
+      // délibérer, on va droit à la clôture.
+      setEtape(restants.length ? 'fiche' : 'cloture');
     } catch (e) { setErreur(e.message); }
     finally { setEnCours(false); }
   }
