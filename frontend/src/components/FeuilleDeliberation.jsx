@@ -39,6 +39,9 @@ export default function FeuilleDeliberation({ ueNum, annee, onClose }) {
   const [seance, setSeance] = useState(null);
   // L'ORDRE DE REVUE, FIGÉ. Il se calcule une fois, à l'ouverture de la revue.
   const [ordre, setOrdre] = useState(null);   // [etudiant_id] du meilleur au moins bon
+  // La décision que le Conseil retient, quand elle s'écarte de celle que le
+  // calcul propose. Le calcul propose ; le Conseil décide.
+  const [decisions, setDecisions] = useState({});   // etudiant_id → resultat
   const [etape, setEtape] = useState('presences');   // presences | auto | fiche | cloture
   const [auto, setAuto] = useState(null);           // les réussites de plein droit
 
@@ -180,20 +183,27 @@ export default function FeuilleDeliberation({ ueNum, annee, onClose }) {
   async function enregistrerPuisAvancer(pas) {
     if (!etud) return;
     const ue = etud.ue || {};
-    const manquants = ue.motifs_manquants || [];
-    if (ue.decision_proposee !== 'reussi' && manquants.length) {
+    // CE QUI RESTE À JUSTIFIER SE RECALCULE ICI, sur les acquis tels qu'ils
+    // sont à l'écran. La liste venue du serveur date de l'ouverture de la
+    // fiche : écrire une justification ne la rafraîchissait pas, et l'écran
+    // réclamait encore ce qu'on venait d'écrire.
+    const manquants = (etud.acquis || [])
+      .filter(a => (a.na || a.echec) && !a.motif).map(a => a.aa_code);
+    const decision = decisions[etud.id] || ue.decision_proposee;
+    if (decision !== 'reussi' && manquants.length) {
       setErreur(`Justification requise avant de passer au suivant : `
-        + `${manquants.join(', ')}. Cliquez sur la bulle rouge de l'acquis.`);
+        + `${manquants.join(', ')}. Elle se pose sous la matrice, `
+        + `dans « À justifier ».`);
       return;
     }
     setEnCours(true); setErreur(null);
     try {
-      if (ue.decision_proposee) {
+      if (decision) {
         const rep = await fetch('/api/acquis/decision', {
           method: 'PUT', headers: authHeaders(),
           body: JSON.stringify({
             etudiant_id: etud.id, annee_scolaire: annee, ue_num: ueNum,
-            resultat: ue.decision_proposee, points: ue.note,
+            resultat: decision, points: ue.note,
           }),
         });
         if (!rep.ok) {
@@ -202,7 +212,7 @@ export default function FeuilleDeliberation({ ueNum, annee, onClose }) {
           return;
         }
         setData(d => ({ ...d, etudiants: d.etudiants.map(x => x.id === etud.id
-          ? { ...x, resultat: ue.decision_proposee, points: ue.note } : x) }));
+          ? { ...x, resultat: decision, points: ue.note } : x) }));
       }
       // Dernier étudiant : la séance se clôt, et la visite des copies se fixe.
       if (pas > 0 && idx >= liste.length - 1) setEtape('cloture');
@@ -415,7 +425,9 @@ export default function FeuilleDeliberation({ ueNum, annee, onClose }) {
               </div>
 
               <Fiche e={etud} data={data} onAjuster={ajuster} onMotif={poserMotif}
-                enCours={enCours} onBord={() => setBord(etud)} />
+                enCours={enCours} onBord={() => setBord(etud)}
+                decision={decisions[etud.id] || etud.ue?.decision_proposee || null}
+                onDecision={d => setDecisions(m => ({ ...m, [etud.id]: d }))} />
             </>
           ) : null}
         </div>
@@ -675,7 +687,7 @@ function Cloture({ seance, onClore, onRetour, onPV, enCours, nb }) {
  *     c'est de lui qu'il faut rendre compte, et c'est lui que reprend l'annexe.
  */
 
-function Fiche({ e, data, onAjuster, onMotif, enCours, onBord }) {
+function Fiche({ e, data, onAjuster, onMotif, enCours, onBord, decision, onDecision }) {
   const ue = e.ue || {};
   const acquis = e.acquis || [];
   const cours = e.cours || [];
@@ -794,7 +806,8 @@ function Fiche({ e, data, onAjuster, onMotif, enCours, onBord }) {
       <AideDecision ue={ue} />
 
       {/* Ce que le Conseil décide, et ce qu'il y a à représenter. */}
-      <Decision e={e} ue={ue} onBord={onBord} />
+      <Decision e={e} ue={ue} onBord={onBord} acquis={acquis}
+        decision={decision} onDecision={onDecision} enCours={enCours} />
     </div>
   );
 }
@@ -1141,49 +1154,94 @@ function AideDecision({ ue }) {
 
 const LIB_RES = { reussi: 'Réussi', ajourne: 'Ajourné', refuse: 'Refusé', absent: 'Absent' };
 
-function Decision({ e, ue, onBord }) {
+const DECISIONS = [
+  { cle: 'reussi',  libelle: 'Réussi',  ton: 'bg-emerald-600 border-emerald-700' },
+  { cle: 'ajourne', libelle: 'Ajourné', ton: 'bg-amber-500 border-amber-600' },
+  { cle: 'refuse',  libelle: 'Refusé',  ton: 'bg-red-600 border-red-700' },
+  { cle: 'absent',  libelle: 'Absent',  ton: 'bg-slate-500 border-slate-600' },
+];
+
+/**
+ * La décision — proposée par le calcul, ARRÊTÉE PAR LE CONSEIL.
+ *
+ * Elle n'était qu'affichée : le calcul disait « ajourné » et il n'y avait plus
+ * qu'à s'y ranger. Le Conseil délibère, il ne ratifie pas ; les quatre
+ * décisions sont donc offertes, celle du calcul portée d'avance.
+ */
+function Decision({ e, ue, onBord, acquis, decision, onDecision, enCours }) {
   const detail = ue.a_representer_detail || [];
+  // Ce qui reste à justifier se lit sur les acquis affichés, non sur la liste
+  // que le serveur a calculée à l'ouverture de la fiche.
+  const manquants = (acquis || []).filter(a => (a.na || a.echec) && !a.motif)
+    .map(a => a.aa_code);
+  const propose = ue.decision_proposee;
+
   return (
     <div className="border border-slate-200 rounded-xl overflow-hidden">
       <div className="px-3 py-1.5 bg-slate-50 border-b border-slate-200 text-[12px]
-                      font-semibold text-iip-blue">
-        Décision du Conseil des études
-      </div>
-      <div className="p-3 space-y-2">
-        <div className="flex items-center gap-3 flex-wrap">
-          {/* La décision se déduit du calcul et s'enregistre en passant au
-              suivant : elle n'a pas à être ressaisie ailleurs. */}
-          <span className={`text-[12.5px] font-bold px-2.5 py-1 rounded-lg border
-            ${ue.decision_proposee === 'reussi' ? 'bg-emerald-100 text-emerald-800 border-emerald-200'
-              : ue.decision_proposee === 'refuse' ? 'bg-red-100 text-red-800 border-red-200'
-              : ue.decision_proposee ? 'bg-amber-100 text-amber-900 border-amber-200'
-              : 'bg-white text-slate-400 border-dashed border-slate-300'}`}>
-            {LIB_RES[ue.decision_proposee] || 'Pas de note : rien à décider'}
-            {!ue.na && ue.note != null && ` · ${fmt(ue.note)}/20`}
+                      font-semibold text-iip-blue flex items-center justify-between gap-2">
+        <span>Décision du Conseil des études</span>
+        {!ue.na && ue.note != null && (
+          <span className="font-normal text-slate-600">
+            note de l'unité : <b>{fmt(ue.note)}</b>/20
           </span>
-          {e.resultat && e.resultat !== ue.decision_proposee && (
-            <span className="text-[11px] text-slate-500">
-              enregistré : {LIB_RES[e.resultat]}
-            </span>
-          )}
-          {(ue.motifs_manquants || []).length > 0 && ue.decision_proposee !== 'reussi' && (
-            <span className="text-[11.5px] text-red-800 bg-red-50 border border-red-200
-                             rounded-lg px-2 py-1">
-              À justifier avant de passer au suivant :
-              {' '}{ue.motifs_manquants.join(', ')}
-            </span>
-          )}
-          {ue.de_plein_droit && e.resultat !== 'reussi' && (
-            <span className="text-[11.5px] text-emerald-800 bg-emerald-50 border
-                             border-emerald-200 rounded-lg px-2 py-1">
-              Réussite de plein droit : tous les acquis et tous les cours au seuil.
-            </span>
-          )}
+        )}
+      </div>
+
+      <div className="p-3 space-y-2">
+        <div className="flex items-center gap-2 flex-wrap">
+          {DECISIONS.map(d => {
+            const actif = decision === d.cle;
+            return (
+              <button key={d.cle} disabled={enCours}
+                onClick={() => onDecision(d.cle)}
+                className={`px-3 py-1.5 text-[12.5px] font-semibold rounded-lg border
+                  ${actif ? `${d.ton} text-white`
+                          : 'bg-white border-slate-300 text-slate-600 hover:border-slate-400'}`}>
+                {d.libelle}
+                {d.cle === propose && (
+                  <span className={`ml-1.5 text-[9.5px] font-normal
+                    ${actif ? 'opacity-80' : 'text-slate-400'}`}>proposé</span>
+                )}
+              </button>
+            );
+          })}
+
           <button onClick={onBord}
             className="ml-auto text-[11.5px] px-2.5 py-1 rounded-lg bg-iip-blue
                        text-white font-semibold">
             Parcours et décision
           </button>
+        </div>
+
+        <div className="flex items-center gap-2 flex-wrap text-[11.5px]">
+          <span className="text-slate-500">
+            {e.resultat
+              ? <>Enregistré : <b className="text-slate-700">{LIB_RES[e.resultat]}</b>
+                  {e.points != null && ` · ${fmt(e.points)}/20`}</>
+              : 'Aucune décision encore enregistrée — elle part en passant au suivant.'}
+          </span>
+
+          {decision && decision !== propose && (
+            <span className="text-amber-900 bg-amber-50 border border-amber-200
+                             rounded-lg px-2 py-0.5">
+              Le Conseil s'écarte de la proposition du calcul ({LIB_RES[propose] || '—'}).
+            </span>
+          )}
+
+          {!!manquants.length && decision !== 'reussi' && (
+            <span className="text-red-800 bg-red-50 border border-red-200 rounded-lg px-2 py-0.5">
+              À justifier sous la matrice avant de passer au suivant :
+              {' '}{manquants.join(', ')}
+            </span>
+          )}
+
+          {ue.de_plein_droit && e.resultat !== 'reussi' && (
+            <span className="text-emerald-800 bg-emerald-50 border border-emerald-200
+                             rounded-lg px-2 py-0.5">
+              Réussite de plein droit : tous les acquis et tous les cours au seuil.
+            </span>
+          )}
         </div>
 
         {ue.faveur && (
@@ -1209,7 +1267,7 @@ function Decision({ e, ue, onBord }) {
               </div>
             )) : (
               <div className="pl-2 text-slate-500">
-                Acquis ajournés : {(e.acquis || []).filter(a => a.na)
+                Acquis ajournés : {(acquis || []).filter(a => a.na)
                   .map(a => a.aa_code).join(', ') || '—'}
               </div>
             )}
