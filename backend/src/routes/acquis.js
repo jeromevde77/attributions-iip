@@ -1291,9 +1291,16 @@ const SEUIL_UE = 10;   // RDE, art. 78
  *     pas zéro.
  *
  * DEUX AJUSTEMENTS que le Conseil peut poser :
- *  - FAVEUR : l'élément forcé vaut 10. L'unité se recalcule, mais elle est
- *    PLAFONNÉE à 10 — une unité obtenue en faveur ne vaut pas mieux que le
- *    seuil.
+ *
+ *  - FAVEUR. Le décret du 16 avril 1991 ne permet au Conseil des études ni de
+ *    sanctionner la réussite d'un étudiant qui ne maîtrise pas TOUS ses acquis,
+ *    ni d'attribuer plus de 10/20 lorsque l'un d'eux ne l'est pas. Lever un
+ *    acquis en échec est donc déjà une faveur considérable, et la note qui en
+ *    résulte ne peut être que le seuil : l'acquis forcé vaut 10, le cours qui
+ *    le porte vaut 10, et l'unité vaut 10. Ce n'est pas un plafond appliqué
+ *    après un calcul — c'est la note elle-même, et le calcul ne s'applique
+ *    plus à ces éléments.
+ *
  *  - AJOURNEMENT : l'élément passe à NA et sort du calcul. Un cours ajourné
  *    emporte tous ses acquis. Et l'unité elle-même devient NA : tant qu'un
  *    élément est à représenter, elle n'a pas de note.
@@ -1395,19 +1402,23 @@ export function delibererUE(etudId, ueNum, annee) {
         if (aaAjourne(p.aa_code)) continue;
         // La note du cours se calcule sur SES évaluations, non sur la note
         // globale de l'acquis : c'est ce cours-ci qu'on juge.
-        const v = aaFaveur(p.aa_code) ? SEUIL_UE : noteDe(c.cours_code, p.aa_code);
+        const v = noteDe(c.cours_code, p.aa_code);
         if (v == null) continue;
         num += v * (p.poids || 0); den += (p.poids || 0);
       }
       note = den ? Math.round((num / den) * 100) / 100 : null;
     }
-    const forcee = coursFaveur(c.cours_code);
+    // Un cours dont UN acquis a été levé en faveur vaut le seuil, et rien de
+    // plus : le Conseil ne peut aller au-delà quand un acquis n'est pas
+    // maîtrisé. La faveur du cours lui-même produit le même effet.
+    const forcee = coursFaveur(c.cours_code) || siennes.some(p => aaFaveur(p.aa_code));
     const affichee = na ? null : (forcee ? SEUIL_UE : note);
     return {
       cours_code: c.cours_code, cours_nom: c.cours_nom,
       poids_cours: c.poids_cours, poids_cours_affiche: c.poids_cours_affiche,
       aas: siennes.map(p => p.aa_code),
       note_calculee: note, note: affichee, na, faveur: forcee,
+      faveur_directe: coursFaveur(c.cours_code),
       echec: !na && affichee != null && affichee < SEUIL_UE,
     };
   });
@@ -1420,20 +1431,24 @@ export function delibererUE(etudId, ueNum, annee) {
 
   let noteUE = null;
   if (!ajourne) {
-    let num = 0, den = 0;
-    for (const p of paires) {
-      const c = coursDe[p.cours_code];
-      const pc = c?.poids_cours;
-      if (pc == null) continue;
-      const v = aaFaveur(p.aa_code) ? SEUIL_UE
-        : (coursFaveur(p.cours_code) ? SEUIL_UE : noteDe(p.cours_code, p.aa_code));
-      if (v == null) continue;                       // non évalué : hors dénominateur
-      num += v * (p.poids || 0) * pc;
-      den += 20 * (p.poids || 0) * pc;
+    if (faveur) {
+      // Dès qu'une faveur a été accordée, l'unité vaut le seuil. Le décret
+      // interdit d'aller au-delà quand un acquis n'est pas maîtrisé : il n'y a
+      // donc rien à calculer.
+      noteUE = SEUIL_UE;
+    } else {
+      let num = 0, den = 0;
+      for (const p of paires) {
+        const c = coursDe[p.cours_code];
+        const pc = c?.poids_cours;
+        if (pc == null) continue;
+        const v = noteDe(p.cours_code, p.aa_code);
+        if (v == null) continue;                     // non évalué : hors dénominateur
+        num += v * (p.poids || 0) * pc;
+        den += 20 * (p.poids || 0) * pc;
+      }
+      noteUE = den ? Math.round((num / den) * 20 * 100) / 100 : null;
     }
-    noteUE = den ? Math.round((num / den) * 20 * 100) / 100 : null;
-    // PLAFOND : une unité obtenue en faveur ne vaut pas mieux que le seuil.
-    if (faveur && noteUE != null && noteUE > SEUIL_UE) noteUE = SEUIL_UE;
   }
 
   return {
