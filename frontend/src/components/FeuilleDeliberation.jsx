@@ -51,7 +51,11 @@ export default function FeuilleDeliberation({ ueNum, annee, onClose }) {
       const j = await rep.json();
       if (!rep.ok) throw new Error(j.error);
       setData(j);
-    } catch (e) { setErreur(e.message); }
+      // Les étudiants sont RENDUS, et pas seulement rangés dans l'état : celui
+      // qui vient d'enregistrer les réussites d'office doit savoir qui reste, et
+      // l'état de React n'est pas encore à jour à cet instant-là.
+      return j.etudiants;
+    } catch (e) { setErreur(e.message); return null; }
   }
   async function chargerSeance() {
     try {
@@ -261,7 +265,10 @@ export default function FeuilleDeliberation({ ueNum, annee, onClose }) {
       // LA REVUE NE PORTE PLUS QUE SUR CE QUI RESTE À APPRÉCIER. Ceux qui
       // viennent d'être délibérés d'office sont décidés : les repasser en revue
       // ne leur ajoute rien et coûte un clic par étudiant.
-      const restants = (frais || []).filter(e => !e.ue?.de_plein_droit);
+      // Si le rechargement a échoué, on ne conclut RIEN : sauter à la clôture
+      // sur une liste vide ferait croire qu'il n'y a plus personne à délibérer.
+      if (!frais) { setEtape('fiche'); return; }
+      const restants = frais.filter(e => !e.ue?.de_plein_droit);
       figerOrdre(restants);
       setIdx(0);
       // Tout le monde réussissait de plein droit : il n'y a plus rien à
