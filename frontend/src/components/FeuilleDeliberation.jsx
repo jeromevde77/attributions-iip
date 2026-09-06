@@ -864,12 +864,17 @@ function Fiche({ e, data, onAjuster, onMotif, enCours, onBord, decision, onDecis
                       {!v ? (
                         <span className="text-slate-300 text-[11px]">·</span>
                       ) : (
-                        <div className={`rounded-lg py-1 text-[13px] font-semibold tabular-nums
+                        <div title={v.mention === 'NP'
+                            ? 'Note de présence — présent, rien qui vaille un point'
+                            : v.mention === 'PP' ? "Pas présenté à l'épreuve" : ''}
+                          className={`rounded-lg py-1 text-[13px] font-semibold tabular-nums
                           ${c.na || a.na ? 'bg-slate-100 text-slate-400'
+                            : v.mention === 'PP' ? 'bg-red-100 text-red-800'
+                            : v.mention === 'NP' ? 'bg-amber-100 text-amber-900'
                             : v.note == null ? 'bg-slate-50 text-slate-300'
                             : v.note < data.seuil ? 'bg-red-50 text-red-700'
                             : 'bg-emerald-50 text-emerald-800'}`}>
-                          {c.na || a.na ? 'NA' : fmt(v.note)}
+                          {c.na || a.na ? 'NA' : (v.mention || fmt(v.note))}
                           {v.poids ? (
                             <span className="block text-[8.5px] font-normal opacity-60">
                               poids {v.poids}
@@ -1068,7 +1073,7 @@ function Chiffre({ libelle, valeur, suffixe, ton }) {
  * témoin : un point bleu quand le motif est écrit, un point rouge sinon.
  */
 function TuileSomme({ etat, seuil, onAjourner, motif, enCours }) {
-  const { na, faveur, note } = etat;
+  const { na, faveur, note, mention } = etat;
   const echec = !na && note != null && note < seuil;
   return (
     <div className={`rounded-lg border px-2 py-1 flex items-center gap-1.5
@@ -1077,8 +1082,9 @@ function TuileSomme({ etat, seuil, onAjourner, motif, enCours }) {
         : echec ? 'border-red-500 border-2 bg-red-50 text-red-800'
         : note == null ? 'border-slate-200 bg-white text-slate-300'
         : 'border-emerald-300 bg-emerald-50 text-emerald-900'}`}>
-      <span className="text-[15px] font-bold tabular-nums flex-1 text-right">
-        {na ? 'NA' : fmt(note)}
+      <span className="text-[15px] font-bold tabular-nums flex-1 text-right"
+        title={mention === 'NP' ? 'Note de présence' : mention === 'PP' ? 'Pas présenté' : ''}>
+        {na ? 'NA' : (mention || fmt(note))}
       </span>
       <span className="flex flex-col gap-0.5">
         <button disabled={enCours} onClick={onAjourner}
@@ -1469,6 +1475,17 @@ function Decision({ e, ue, onBord, acquis, cours, decision, onDecision, enCours,
             <span className="text-red-800 bg-red-50 border border-red-200 rounded-lg px-2 py-0.5">
               À justifier sous la matrice avant de passer au suivant :
               {' '}{manquants.join(', ')}
+            </span>
+          )}
+
+          {!!(ue.mentions || []).length && (
+            <span className="text-[11.5px] text-amber-900 bg-amber-50 border
+                             border-amber-300 rounded-lg px-2 py-0.5">
+              {ue.mentions.map(m => `${m.cours_code} : ${m.mention}`).join(' · ')}
+              {' — '}
+              {ue.mentions.some(m => m.mention === 'PP')
+                ? "épreuve non présentée : ajournement si l'absence est justifiée, refus sinon"
+                : 'présent sans production : la seconde session reste ouverte'}
             </span>
           )}
 
