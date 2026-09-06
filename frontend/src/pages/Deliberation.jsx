@@ -6,6 +6,7 @@ import FeuilleDeliberation from '../components/FeuilleDeliberation.jsx';
 import EncodageCours from '../components/EncodageCours.jsx';
 import SchemaLiensAA from '../components/SchemaLiensAA.jsx';
 import EncodageRapide from './EncodageRapide.jsx';
+import CentreDocumentsUE from '../components/CentreDocumentsUE.jsx';
 
 /**
  * Délibération — la porte d'entrée.
@@ -34,50 +35,9 @@ export default function Deliberation() {
   const [deplie, setDeplie] = useState(null);
   const [encoder, setEncoder] = useState(null);     // cours_code en saisie
   const [parametrer, setParametrer] = useState(null);  // ue_num en paramétrage
-  const [docs, setDocs] = useState(null);           // le générateur de documents
-  const [choix, setChoix] = useState({ reussite: true, ajournement: true, refus: true });
+  const [docs, setDocs] = useState(null);           // l'unité dont on imprime les pièces
   const [annuler, setAnnuler] = useState(null);     // ue en cours d'annulation
   const [enCours, setEnCours] = useState(false);
-
-  /**
-   * LES DOCUMENTS DE LA SÉANCE. Le secrétariat sort trois piles — attestations
-   * de réussite, notifications d'ajournement, notifications de refus — et il
-   * les sortait jusqu'ici dossier par dossier, depuis la fiche de chaque
-   * étudiant.
-   */
-  async function ouvrirDocuments(u) {
-    setErreur(null);
-    try {
-      const rep = await fetch(
-        `/api/acquis/deliberation/ue/${u.ue_num}/documents?annee=${encodeURIComponent(annee)}`,
-        { headers: authHeaders() });
-      const j = await rep.json();
-      if (!rep.ok) throw new Error(j.error);
-      setDocs({ ...j, ue_nom: u.ue_nom });
-      setChoix({ reussite: true, ajournement: true, refus: true });
-    } catch (e) { setErreur(e.message); }
-  }
-
-  async function produireDocuments() {
-    setEnCours(true); setErreur(null);
-    try {
-      const rep = await fetch(`/api/acquis/deliberation/ue/${docs.ue_num}/documents`, {
-        method: 'POST', headers: authHeaders(),
-        body: JSON.stringify({ annee, ...choix }),
-      });
-      const j = await rep.json();
-      if (!rep.ok) { setErreur(j.error); return; }
-      if (j.manques?.length) {
-        setErreur(`${j.pieces} pièce(s) produite(s), mais : ${j.manques.slice(0, 6).join(' · ')}`
-          + (j.manques.length > 6 ? ` … et ${j.manques.length - 6} autres.` : ''));
-      }
-      const f = window.open('', '_blank');
-      if (!f) { setErreur('Le navigateur a bloqué la fenêtre d’impression.'); return; }
-      f.document.write(j.html); f.document.close();
-      setDocs(null);
-    } catch (e) { setErreur(e.message); }
-    finally { setEnCours(false); }
-  }
 
   /**
    * ANNULER LA DÉLIBÉRATION d'une unité : effacer les décisions et les
@@ -266,7 +226,7 @@ export default function Deliberation() {
                     )}
                     {/* Les documents de la séance : le secrétariat sort les
                         trois piles d'ici, non dossier par dossier. */}
-                    <button onClick={() => ouvrirDocuments(u)}
+                    <button onClick={() => setDocs(u)}
                       title="Attestations de réussite, notifications d'ajournement et de refus"
                       className="px-2 py-1 text-[11.5px] rounded-lg border border-iip-blue
                                  text-iip-blue font-semibold flex-none flex items-center gap-1">
@@ -391,83 +351,8 @@ export default function Deliberation() {
       )}
 
       {docs && (
-        <div className="fixed inset-0 bg-black/40 flex items-start justify-center z-50 p-4"
-          onClick={e => e.target === e.currentTarget && setDocs(null)}>
-          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg mt-20 p-5 space-y-3">
-            <div>
-              <h3 className="text-[15px] font-semibold text-iip-blue">
-                Documents — UE {docs.ue_num}
-              </h3>
-              <p className="text-[12px] text-slate-500">
-                {docs.ue_nom || ''} · {annee}
-                {docs.cloturee
-                  ? ' · séance close'
-                  : ' · séance non close — les pièces resteront provisoires'}
-              </p>
-            </div>
-
-            <div className="space-y-1.5">
-              {[
-                { cle: 'reussite', libelle: 'Attestations de réussite',
-                  aide: 'Une par étudiant, pour cette unité',
-                  liste: docs.reussites, ton: 'border-emerald-300 bg-emerald-50' },
-                { cle: 'ajournement', libelle: "Notifications d'ajournement",
-                  aide: 'Annexe 8 — acquis à représenter',
-                  liste: docs.ajournements, ton: 'border-amber-300 bg-amber-50' },
-                { cle: 'refus', libelle: 'Notifications de refus',
-                  aide: 'Annexe 9 — base légale et voies de recours',
-                  liste: docs.refus, ton: 'border-red-300 bg-red-50' },
-              ].map(t => (
-                <label key={t.cle}
-                  className={`flex items-start gap-2.5 px-3 py-2 rounded-xl border cursor-pointer
-                    ${!t.liste.length ? 'border-slate-200 bg-slate-50 opacity-60'
-                      : choix[t.cle] ? t.ton : 'border-slate-200'}`}>
-                  <input type="checkbox" checked={!!choix[t.cle] && !!t.liste.length}
-                    disabled={!t.liste.length}
-                    onChange={e => setChoix(c => ({ ...c, [t.cle]: e.target.checked }))}
-                    className="mt-0.5 w-4 h-4 accent-iip-blue" />
-                  <span className="flex-1 min-w-0">
-                    <span className="text-[12.5px] font-semibold text-slate-800">
-                      {t.liste.length} {t.libelle.toLowerCase()}
-                    </span>
-                    <span className="block text-[11px] text-slate-500">{t.aide}</span>
-                    {!!t.liste.length && (
-                      <span className="block text-[10.5px] text-slate-400 truncate">
-                        {t.liste.map(x => x.nom).join(', ')}
-                      </span>
-                    )}
-                  </span>
-                </label>
-              ))}
-            </div>
-
-            {!!docs.sans_decision.length && (
-              <div className="px-3 py-2 rounded-lg bg-amber-50 border border-amber-200
-                              text-[11.5px] text-amber-900">
-                <b>{docs.sans_decision.length} étudiant(s) sans décision</b> : aucune pièce
-                ne peut être produite pour eux tant que le Conseil n'a pas délibéré.
-              </div>
-            )}
-
-            <p className="text-[11px] text-slate-500">
-              Toutes les pièces sortent dans un seul document, chacune sur sa page,
-              prêtes à imprimer et à signer.
-            </p>
-
-            <div className="flex justify-end gap-2">
-              <button onClick={() => setDocs(null)}
-                className="px-3 py-1.5 text-[12.5px] rounded-lg border border-slate-300
-                           text-slate-600">
-                Fermer
-              </button>
-              <button onClick={produireDocuments} disabled={enCours}
-                className="px-4 py-2 text-[12.5px] rounded-lg bg-iip-blue text-white
-                           font-semibold disabled:opacity-40 flex items-center gap-1.5">
-                <IconPrinter size={14} /> Produire les documents
-              </button>
-            </div>
-          </div>
-        </div>
+        <CentreDocumentsUE ueNum={docs.ue_num} ueNom={docs.ue_nom} annee={annee}
+          onClose={() => setDocs(null)} />
       )}
 
       {parametrer && (

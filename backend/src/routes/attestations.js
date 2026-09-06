@@ -181,8 +181,10 @@ export function envelopper(corps, titre = 'Attestations de réussite') {
   /* Bandeau marine et filet doré, comme les autres documents de la maison. */
   /* Mention encadrée de deux filets dorés, plutôt qu'en réserve sur marine :
      c'est la présentation des attestations de réussite. */
+  /* Filets dorés FINS : à 0,9 mm ils faisaient bandeau et écrasaient le titre.
+     Un filet doit se voir sans peser. */
   .entete { text-align: center; padding: 3.5mm 6mm;
-    border-top: 0.9mm solid #C9A84C; border-bottom: 0.9mm solid #C9A84C; }
+    border-top: 0.3mm solid #C9A84C; border-bottom: 0.3mm solid #C9A84C; }
   .entete .cf { font-size: 8pt; letter-spacing: .7pt; color: #1B2B4B; font-weight: 600; }
   .entete .epa { font-size: 10.5pt; font-weight: 700; letter-spacing: .5pt;
     color: #1B2B4B; margin-top: 1mm; }
@@ -198,7 +200,7 @@ export function envelopper(corps, titre = 'Attestations de réussite') {
        letter-spacing: .3pt; color: #1B2B4B; }
   h2 { font-size: 12pt; text-align: center; margin: 0 0 1.5mm; font-weight: 700;
        color: #1B2B4B; }
-  .filet { width: 40mm; height: 0.8mm; background: #C9A84C; margin: 0 auto 4mm; }
+  .filet { width: 40mm; height: 0.3mm; background: #C9A84C; margin: 0 auto 4mm; }
 
   /* Caractéristiques de l'unité, en deux colonnes pour gagner de la hauteur. */
   .carac { display: grid; grid-template-columns: 1fr 1fr; gap: 1mm 6mm;
@@ -211,7 +213,7 @@ export function envelopper(corps, titre = 'Attestations de réussite') {
   .indente { margin-left: 8mm; }
 
   /* La personne, en évidence sans excès. */
-  .etudiant { background: #eff6ff; border-left: 1mm solid #1B2B4B;
+  .etudiant { background: #eff6ff; border-left: 0.6mm solid #1B2B4B;
               padding: 2.5mm 3.5mm; margin: 3mm 0; font-size: 9.5pt; }
   .etudiant .nom { font-weight: 700; font-size: 10.5pt; }
   .etudiant .naissance { font-size: 8.5pt; color: #475569; margin-top: 0.8mm; }
@@ -264,18 +266,23 @@ export function envelopper(corps, titre = 'Attestations de réussite') {
               text-align: center; }
   .decision .quoi { font-size: 11pt; font-weight: 700; letter-spacing: .3pt; }
   .decision .sous { font-size: 8pt; margin-top: .8mm; }
-  .decision.ajourne { background: #FFF7ED; border: .5mm solid #F59E0B; color: #7C2D12; }
-  .decision.refus   { background: #FEF2F2; border: .5mm solid #DC2626; color: #7F1D1D; }
+  .decision.ajourne { background: #FFF7ED; border: .3mm solid #F59E0B; color: #7C2D12; }
+  .decision.refus   { background: #FEF2F2; border: .3mm solid #DC2626; color: #7F1D1D; }
 
   /* UNE PIÈCE DE DÉLIBÉRATION TIENT SUR UNE PAGE. Motivation et procès-verbal
      portent plus de blocs qu'une attestation : avec la marge de signature de
      14 mm, le bloc de clôture passait à la page suivante et chaque pièce en
      laissait une presque vide derrière elle. */
-  .piece .cloture { margin-top: 6mm; }
-  .piece .info { margin: 2mm 0; }
-  .piece table.doc { margin: 1.5mm 0 2.5mm; }
+  .piece .cloture { margin-top: 5mm; }
+  .piece .info { margin: 1.5mm 0; padding: 2mm 3mm; }
+  .piece table.doc { margin: 1.2mm 0 2mm; }
+  .piece table.doc th, .piece table.doc td { padding: 1.1mm 2.2mm; }
   .piece h2 { margin-top: 1mm; }
-  .piece .filet { margin-bottom: 3mm; }
+  .piece .filet { margin-bottom: 2.5mm; }
+  .piece .decision { margin: 3mm 0 2.5mm; padding: 2.2mm 4mm; }
+  .piece .carac { margin-bottom: 3mm; padding: 2mm 3.5mm; }
+  .piece .corps { margin: 2mm 0; }
+  .piece .etudiant { margin: 2.5mm 0; padding: 2mm 3.5mm; }
 
   /* Un bloc d'information encadré — seconde session, visite des copies. */
   .info { background: #f8fafc; border: 0.4pt solid #e2e8f0; border-radius: 1.5mm;
@@ -311,6 +318,23 @@ export function envelopper(corps, titre = 'Attestations de réussite') {
   .membres .m span { color: #475569; font-size: 7.5pt; }
 
   ${piedStyles()}
+
+  /* ── LE PIED, COLLÉ EN BAS DE CHAQUE PAGE ──────────────────────────────
+     Il était posé en position fixe avec un décalage NÉGATIF, pour descendre
+     dans la marge basse. Chromium le rendait alors en haut de la page
+     suivante, par-dessus l'en-tête : le logo chevauchait le titre et le bas
+     de page manquait. On procède autrement, sans décalage négatif :
+
+       — la marge basse de la feuille se réduit à ce qui doit rester sous le
+         pied ;
+       — le pied s'ancre à « bottom: 0 », donc au bas de la zone de contenu,
+         qui est désormais le bas utile de la feuille ;
+       — chaque pièce réserve elle-même la hauteur du pied. La réserve est
+         dans la PIÈCE et non dans le corps : posée sur le corps, elle
+         ajoutait une page blanche en fin de document. */
+  @page { margin-bottom: 8mm; }
+  .pied-lucie { bottom: 0; }
+  .attestation { padding-bottom: 17mm; }
 
   @media screen {
     html { background: #e5e5e5; }

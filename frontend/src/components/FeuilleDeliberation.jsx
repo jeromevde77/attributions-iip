@@ -7,6 +7,7 @@ import {
 import { authHeaders } from '../lib/api.js';
 import TableauBordEtudiant from './TableauBordEtudiant.jsx';
 import { MOTIFS_ECHEC, composerMotif, decomposerMotif, texteDuMotif } from './motifsEchec.js';
+import CentreDocumentsUE from './CentreDocumentsUE.jsx';
 
 /**
  * La FEUILLE DE DÉLIBÉRATION — un étudiant à la fois.
@@ -63,6 +64,7 @@ export default function FeuilleDeliberation({ ueNum, annee, onClose }) {
   // calcul propose. Le calcul propose ; le Conseil décide.
   const [decisions, setDecisions] = useState({});   // etudiant_id → resultat
   const [etape, setEtape] = useState('presences');   // presences | auto | fiche | cloture
+  const [documents, setDocuments] = useState(false); // le centre d'impression
   const [auto, setAuto] = useState(null);           // les réussites de plein droit
 
   async function charger() {
@@ -255,31 +257,6 @@ export default function FeuilleDeliberation({ ueNum, annee, onClose }) {
   }
 
   /**
-   * LE PROCÈS-VERBAL, à la clôture. Circulaire « Sanction des études »,
-   * annexe 3 pour une unité ordinaire, annexe 5 pour une épreuve intégrée.
-   * Il s'ouvre dans une fenêtre d'impression : c'est une pièce signée, elle
-   * sort sur papier.
-   */
-  async function imprimerPV() {
-    setEnCours(true); setErreur(null);
-    try {
-      const rep = await fetch(
-        `/api/acquis/deliberation/ue/${ueNum}/pv?annee=${encodeURIComponent(annee)}`,
-        { headers: authHeaders() });
-      const j = await rep.json();
-      if (!rep.ok) { setErreur(j.error); return; }
-      if (j.manques?.length) {
-        setErreur(`Procès-verbal produit, mais il manque : ${j.manques.join(', ')}.`);
-      }
-      const f = window.open('', '_blank');
-      if (!f) { setErreur('Le navigateur a bloqué la fenêtre d’impression.'); return; }
-      f.document.write(j.html);
-      f.document.close();
-    } catch (e) { setErreur(e.message); }
-    finally { setEnCours(false); }
-  }
-
-  /**
    * LA DÉLIBÉRATION AUTOMATIQUE, proposée d'emblée. Ceux qui réussissent de
    * plein droit — tous les acquis et tous les cours au seuil — n'appellent
    * aucune appréciation : les enregistrer d'un coup laisse au Conseil le temps
@@ -439,7 +416,7 @@ export default function FeuilleDeliberation({ ueNum, annee, onClose }) {
           ) : etape === 'cloture' ? (
             <Cloture seance={seance?.seance} enCours={enCours} nb={liste.length}
               ajournes={(data?.etudiants || []).filter(e => e.resultat === 'ajourne').length}
-              onRetour={() => setEtape('fiche')} onPV={imprimerPV}
+              onRetour={() => setEtape('fiche')} onPV={() => setDocuments(true)}
               onClore={champs => enregistrerSeance({ ...champs, cloturee: 1 })} />
           ) : !liste.length ? (
             <div className="py-10 text-center text-[12.5px] text-slate-400 border-2
@@ -507,6 +484,11 @@ export default function FeuilleDeliberation({ ueNum, annee, onClose }) {
       {bord && (
         <TableauBordEtudiant etudId={bord.id} ueNum={data.ue_num} annee={annee}
           onClose={() => setBord(null)} onDecide={charger} />
+      )}
+
+      {documents && (
+        <CentreDocumentsUE ueNum={data.ue_num} ueNom={data.ue_nom} annee={annee}
+          onClose={() => setDocuments(false)} />
       )}
     </div>
   );
@@ -751,12 +733,13 @@ function Cloture({ seance, onClore, onRetour, onPV, enCours, nb, ajournes }) {
           {/* Le procès-verbal ne s'imprime qu'une fois la visite fixée : il en
               porte la date, et un PV incomplet devrait être refait. */}
           <button disabled={enCours || !close} onClick={onPV}
-            title={close ? 'Circulaire « Sanction des études », annexes 3 et 5'
-                         : 'Clôturez d’abord : le PV porte la date de communication'}
+            title={close
+              ? 'Procès-verbal, attestations de réussite, notifications d’ajournement et de refus'
+              : 'Clôturez d’abord : les pièces portent la date de communication'}
             className="px-3 py-2 text-[12.5px] rounded-lg border border-iip-blue
                        text-iip-blue font-semibold disabled:opacity-40
                        flex items-center gap-1.5">
-            <IconFileText size={14} /> Procès-verbal
+            <IconFileText size={14} /> Générer les documents
           </button>
           <button disabled={enCours || !complet} onClick={() => onClore({
               visite_date: date, visite_heure: heure, visite_local: local.trim(),
@@ -773,7 +756,7 @@ function Cloture({ seance, onClore, onRetour, onPV, enCours, nb, ajournes }) {
 
       {close && (
         <p className="text-[11.5px] text-emerald-800 text-center">
-          Séance close. Le procès-verbal peut être imprimé, puis signé.
+          Séance close. Les documents peuvent être générés, imprimés, puis signés.
         </p>
       )}
     </div>

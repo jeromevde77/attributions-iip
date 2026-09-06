@@ -2412,6 +2412,7 @@ r.post('/deliberation/ue/:ueNum/documents', authRequired, (req, res) => {
     reussite: req.body?.reussite !== false,
     ajournement: req.body?.ajournement !== false,
     refus: req.body?.refus !== false,
+    pv: req.body?.pv === true,
   };
 
   const etab = db.prepare('SELECT * FROM etablissement LIMIT 1').get() || {};
@@ -2427,7 +2428,16 @@ r.post('/deliberation/ue/:ueNum/documents', authRequired, (req, res) => {
 
   const pages = [];
   const manques = [];
-  let nbR = 0, nbA = 0, nbX = 0;
+  let nbR = 0, nbA = 0, nbX = 0, nbPV = 0;
+
+  // LE PROCÈS-VERBAL EN TÊTE : c'est la pièce du Conseil, les notifications
+  // sont ce qu'on en tire. Il suit la même charte, il s'imprime avec elles.
+  if (veut.pv) {
+    const d = documentPV(ueNum, annee, req.body?.session === 2 ? 2 : 1);
+    pages.push(d.corps);
+    nbPV = 1;
+    for (const m of (d.manques || [])) manques.push(`Procès-verbal : ${m}`);
+  }
 
   for (const e of etudiants) {
     if (e.resultat === 'reussi' && veut.reussite) {
@@ -2461,7 +2471,8 @@ r.post('/deliberation/ue/:ueNum/documents', authRequired, (req, res) => {
     html: envelopper(pages.join('<div class="saut"></div>'),
                      `Documents de délibération — UE ${ueNum}`),
     nom: `Documents_UE${ueNum}_${String(annee).replace(/\W/g, '')}.html`,
-    reussites: nbR, ajournements: nbA, refus: nbX, pieces: pages.length, manques,
+    reussites: nbR, ajournements: nbA, refus: nbX, pv: nbPV,
+    pieces: pages.length, manques,
   });
 });
 
@@ -2539,10 +2550,11 @@ r.delete('/deliberation/ue/:ueNum', authRequired,
  * Le pourcentage n'est porté qu'en cas de réussite, comme la note 1 du modèle
  * l'impose — un échec ne se chiffre pas dans un procès-verbal.
  */
-r.get('/deliberation/ue/:ueNum/pv', authRequired, (req, res) => {
-  const ueNum = Number(req.params.ueNum);
-  const annee = req.query.annee || anneeDeTravail(req);
-  const session = req.query.session === '2' ? 2 : 1;
+/**
+ * Le procès-verbal, en fonction : le centre d'impression l'enchaîne avec les
+ * attestations et les notifications, dans un seul document à imprimer.
+ */
+export function documentPV(ueNum, annee, session = 1) {
 
   const ue = db.prepare(`
     SELECT ue_nom, section, ue_per_etudiants, ue_code_fwb, ue_niv, ue_niveau
@@ -2701,8 +2713,8 @@ r.get('/deliberation/ue/:ueNum/pv', authRequired, (req, res) => {
 
   const html = envelopper(corps, `PV de délibération — UE ${ueNum}`);
 
-  res.json({
-    html,
+  return {
+    html, corps,
     nom: `PV_deliberation_UE${ueNum}_${String(annee).replace(/\W/g, '')}.html`,
     annexe: integree ? 5 : 3,
     etudiants: etudiants.length,
@@ -2715,7 +2727,14 @@ r.get('/deliberation/ue/:ueNum/pv', authRequired, (req, res) => {
       ue.ue_per_etudiants == null && "le nombre de périodes de l'unité",
       etudiants.some(e => !e.resultat) && 'des décisions non enregistrées',
     ].filter(Boolean),
-  });
+  };
+}
+
+r.get('/deliberation/ue/:ueNum/pv', authRequired, (req, res) => {
+  const d = documentPV(Number(req.params.ueNum),
+    req.query.annee || anneeDeTravail(req),
+    req.query.session === '2' ? 2 : 1);
+  res.json(d);
 });
 
 /**
