@@ -28,6 +28,25 @@ import { MOTIFS_ECHEC, composerMotif, decomposerMotif, texteDuMotif } from './mo
 
 const fmt = n => n == null ? '—' : (Math.round(n * 100) / 100).toString().replace('.', ',');
 
+/**
+ * CE DONT IL FAUT RENDRE COMPTE : l'acquis en échec, l'acquis ajourné, et les
+ * acquis d'un COURS ajourné — ajourner un cours est une décision défavorable,
+ * et elle se motive comme une autre, même quand la note prise ailleurs sauvait
+ * l'acquis.
+ */
+function aJustifier(acquis = [], cours = [], decision = null) {
+  const enCause = new Set(acquis.filter(a => a.na || a.echec).map(a => a.aa_code));
+  for (const c of cours) if (c.na) for (const code of (c.aas || [])) enCause.add(code);
+  // Sur un REFUS, l'unité entière est renvoyée : tout acquis non maîtrisé
+  // entre dans la motivation, quel que soit le cours qui le portait.
+  if (decision === 'refuse') {
+    for (const a of acquis) {
+      if (!a.faveur && (a.na || (a.note != null && a.note < 10))) enCause.add(a.aa_code);
+    }
+  }
+  return acquis.filter(a => enCause.has(a.aa_code));
+}
+
 export default function FeuilleDeliberation({ ueNum, annee, onClose }) {
   const [data, setData] = useState(null);
   const [erreur, setErreur] = useState(null);
@@ -188,8 +207,8 @@ export default function FeuilleDeliberation({ ueNum, annee, onClose }) {
     // sont à l'écran. La liste venue du serveur date de l'ouverture de la
     // fiche : écrire une justification ne la rafraîchissait pas, et l'écran
     // réclamait encore ce qu'on venait d'écrire.
-    const manquants = (etud.acquis || [])
-      .filter(a => (a.na || a.echec) && !a.motif).map(a => a.aa_code);
+    const manquants = aJustifier(etud.acquis, etud.cours, decision)
+      .filter(a => !a.motif).map(a => a.aa_code);
     const decision = decisions[etud.id] || ue.decision_proposee;
     if (decision !== 'reussi' && manquants.length) {
       setErreur(`Justification requise avant de passer au suivant : `
@@ -865,13 +884,14 @@ function Fiche({ e, data, onAjuster, onMotif, enCours, onBord, decision, onDecis
           de justification vivait sur la tuile de l'acquis : ajourner le faisait
           passer NA, la tuile changeait d'état et le bouton disparaissait — on
           ne pouvait plus justifier ce qu'on venait d'ajourner. */}
-      <AJustifier acquis={acquis} cours={cours} onMotif={onMotif} enCours={enCours} />
+      <AJustifier acquis={acquis} cours={cours} onMotif={onMotif} enCours={enCours}
+        decision={decision} />
 
       {/* Ce que la faveur coûterait — dit avant de décider, jamais après. */}
       <AideDecision ue={ue} />
 
       {/* Ce que le Conseil décide, et ce qu'il y a à représenter. */}
-      <Decision e={e} ue={ue} onBord={onBord} acquis={acquis}
+      <Decision e={e} ue={ue} onBord={onBord} acquis={acquis} cours={cours}
         decision={decision} onDecision={onDecision} enCours={enCours}
         onAnnuler={onAnnuler} />
       </div>
@@ -1091,18 +1111,18 @@ function TuileUE({ ue, seuil, onFaveur, enCours }) {
  * aux leurs, il ne les remplace pas : ce qu'on a écrit ailleurs reste.
  */
 
-function AJustifier({ acquis, cours, onMotif, enCours }) {
+function AJustifier({ acquis, cours, onMotif, enCours, decision }) {
   const aRepresenter = cours.filter(c => c.na);
-  const aJustifier = acquis.filter(a => a.na || a.echec);
-  if (!aJustifier.length) return null;
+  const liste = aJustifier(acquis, cours, decision);
+  if (!liste.length) return null;
 
-  const sansMotif = aJustifier.filter(a => !a.motif).length;
+  const sansMotif = liste.filter(a => !a.motif).length;
 
   /** Le pinceau : ajouter ces énoncés à tous les autres acquis à justifier. */
   function reporter(cles) {
     if (!cles.length) return;
     const motifs = {};
-    for (const a of aJustifier) {
+    for (const a of liste) {
       const d = decomposerMotif(a.motif || '');
       const union = [...new Set([...d.cles, ...cles])];
       // On ne réécrit que ce qui change : inutile de toucher aux lignes qui
@@ -1119,7 +1139,7 @@ function AJustifier({ acquis, cours, onMotif, enCours }) {
       <div className="px-3 py-1.5 bg-red-50 border-b border-red-200 flex items-center
                       justify-between gap-2 flex-wrap">
         <span className="text-[12px] font-semibold text-red-900">
-          À justifier — {aJustifier.length} acquis
+          À justifier — {liste.length} acquis
         </span>
         <span className="text-[11px] text-red-700">
           {sansMotif ? `${sansMotif} sans motivation` : 'tous motivés'}
@@ -1142,11 +1162,11 @@ function AJustifier({ acquis, cours, onMotif, enCours }) {
       )}
 
       <div className="divide-y divide-slate-100">
-        {aJustifier.map(a => (
+        {liste.map(a => (
           <LigneMotif key={a.aa_code} a={a} enCours={enCours}
             onMotif={(code, texte) => onMotif({ [code]: texte })}
             onReporter={reporter}
-            seul={aJustifier.length < 2} />
+            seul={liste.length < 2} />
         ))}
       </div>
 
@@ -1342,12 +1362,11 @@ const DECISIONS = [
  * qu'à s'y ranger. Le Conseil délibère, il ne ratifie pas ; les quatre
  * décisions sont donc offertes, celle du calcul portée d'avance.
  */
-function Decision({ e, ue, onBord, acquis, decision, onDecision, enCours, onAnnuler }) {
+function Decision({ e, ue, onBord, acquis, cours, decision, onDecision, enCours, onAnnuler }) {
   const detail = ue.a_representer_detail || [];
   // Ce qui reste à justifier se lit sur les acquis affichés, non sur la liste
   // que le serveur a calculée à l'ouverture de la fiche.
-  const manquants = (acquis || []).filter(a => (a.na || a.echec) && !a.motif)
-    .map(a => a.aa_code);
+  const manquants = aJustifier(acquis, cours, decision).filter(a => !a.motif).map(a => a.aa_code);
   const propose = ue.decision_proposee;
 
   return (
@@ -1433,7 +1452,37 @@ function Decision({ e, ue, onBord, acquis, decision, onDecision, enCours, onAnnu
           </p>
         )}
 
-        {ue.na && (
+        {/* LE REFUS N'OUVRE RIEN. Ajourner, c'est désigner ce que l'étudiant
+            représentera en seconde session ; refuser, c'est clore l'unité pour
+            cette année — aucune épreuve ne suit. Toute l'unité est sans note,
+            et chaque acquis non maîtrisé doit être justifié : c'est ce que
+            l'étudiant recevra, et ce sur quoi porterait un recours. */}
+        {decision === 'refuse' && (
+          <div className="text-[11.5px] text-red-900 bg-red-50 border border-red-200
+                          rounded-lg px-2.5 py-1.5 space-y-1">
+            <div className="font-semibold">
+              Refus — décision définitive pour cette année
+            </div>
+            <div className="text-red-800">
+              Aucune seconde session ne suit : l'unité n'est pas réussie et rien
+              n'est à représenter. Tous ses cours restent sans note.
+            </div>
+            <div className="pl-2 text-red-800">
+              {(cours || []).map(c => (
+                <span key={c.cours_code} className="mr-3">
+                  <span className="font-mono font-semibold">{c.cours_code}</span>
+                  <span className="ml-1 opacity-70">NA</span>
+                </span>
+              ))}
+            </div>
+            <div className="text-red-800">
+              Chaque acquis non maîtrisé doit être justifié : c'est ce que reprend
+              l'annexe 9, avec la base légale et les voies de recours.
+            </div>
+          </div>
+        )}
+
+        {ue.na && decision !== 'refuse' && (
           <div className="text-[11.5px] text-slate-700 bg-slate-50 border border-slate-200
                           rounded-lg px-2.5 py-1.5 space-y-1">
             <div className="font-semibold">Ajournement — à représenter :</div>

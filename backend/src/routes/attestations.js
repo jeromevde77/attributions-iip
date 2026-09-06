@@ -297,6 +297,9 @@ export function envelopper(corps, titre = 'Attestations de réussite') {
   table.doc td.c { text-align: center; }
   table.doc .code { font-weight: 700; color: #1B2B4B; }
   table.doc .vide { color: #b45309; font-style: italic; }
+  /* Le code de l'acquis n'est qu'une référence : c'est son intitulé qui dit
+     ce qui n'est pas maîtrisé, et c'est lui que l'étudiant doit lire. */
+  table.doc .ref { font-size: 7pt; color: #64748b; letter-spacing: .2pt; }
 
   .champ { font-size: 8.5pt; margin: 2mm 0; }
   .champ .lab { font-weight: 700; color: #1B2B4B; }
@@ -395,7 +398,7 @@ export function pageAttestation(e, u, annee, etab, dateDoc = null, ident = ident
 
   <p class="corps">
     Conformément aux articles 52, 53 et 58 alinéa 1<sup>er</sup> du décret du 16 avril 1991
-    organisant l'enseignement de promotion sociale, ${u.epreuve_integree
+    organisant l'enseignement pour adultes, ${u.epreuve_integree
       ? "le Jury d'épreuve intégrée" : 'le Conseil des études'}, chargé de procéder
     à l'évaluation de l'unité d'enseignement susvisée, atteste que
   </p>

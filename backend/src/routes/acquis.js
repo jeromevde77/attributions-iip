@@ -692,10 +692,16 @@ export function documentMotivation(etudId, ueNum, annee) {
     WHERE etudiant_id = ? AND annee_scolaire = ? AND ue_num = ?
   `).all(etudId, annee, ueNum).map(m => [m.aa_code, m.motif]));
 
-  // Ce dont il faut rendre compte : l'acquis sous le seuil, et celui que le
-  // Conseil a ajourné. Celui qu'une faveur a levé, non — il est acquis.
+  // Ce dont il faut rendre compte : l'acquis sous le seuil, celui que le
+  // Conseil a ajourné, et ceux d'un COURS ajourné — c'est de leur maîtrise
+  // qu'il faut parler, même si la note prise ailleurs les sauvait.
+  // Celui qu'une faveur a levé, non — il est acquis.
+  const enCause = new Set(d.acquis
+    .filter(a => a.na || (a.note != null && a.note < SEUIL_UE)).map(a => a.aa_code));
+  for (const c of d.cours) if (c.na) for (const code of (c.aas || [])) enCause.add(code);
+
   const lignes = d.acquis
-    .filter(a => !a.faveur && (a.na || (a.note != null && a.note < SEUIL_UE)))
+    .filter(a => !a.faveur && enCause.has(a.aa_code))
     .map(a => ({ code: a.aa_code, description: a.description || '',
                  motif: motifs[a.aa_code] || '' }));
 
@@ -726,6 +732,8 @@ export function documentMotivation(etudId, ueNum, annee) {
     }
   }
 
+  const regles = reglesAjournement();
+
   // La seconde session, telle que la séance l'a fixée.
   const seance = db.prepare(
     'SELECT * FROM deliberation_seance WHERE ue_num = ? AND annee_scolaire = ?'
@@ -735,7 +743,7 @@ export function documentMotivation(etudId, ueNum, annee) {
 <div class="attestation piece">
   <div class="entete">
     <div class="cf">COMMUNAUTÉ FRANÇAISE DE BELGIQUE</div>
-    <div class="epa">ENSEIGNEMENT DE PROMOTION SOCIALE</div>
+    <div class="epa">ENSEIGNEMENT POUR ADULTES</div>
     <div class="annee">Année scolaire / académique ${esc2(String(annee).replace('-', '/'))}</div>
   </div>
 
@@ -795,8 +803,9 @@ export function documentMotivation(etudId, ueNum, annee) {
     </tr></thead>
     <tbody>
       ${lignes.map(l => `<tr>
-        <td><span class="code">${esc2(l.code)}</span>${
-          l.description ? ` — ${esc2(l.description)}` : ''}</td>
+        <td>${l.description
+          ? `${esc2(l.description)}<br><span class="ref">${esc2(l.code)}</span>`
+          : `<span class="code">${esc2(l.code)}</span>`}</td>
         <td>${l.motif ? esc2(l.motif)
           : '<span class="vide">motivation à compléter</span>'}</td>
       </tr>`).join('')}
@@ -807,7 +816,7 @@ export function documentMotivation(etudId, ueNum, annee) {
   <div class="info">
     <div class="titre">Base légale de la décision</div>
     <div class="ligne">${esc2(etab.base_legale_refus
-      || "Décret du 16 avril 1991 organisant l'enseignement de promotion sociale ; "
+      || "Décret du 16 avril 1991 organisant l'enseignement pour adultes ; "
        + "arrêté du Gouvernement de la Communauté française du 2 septembre 2015 relatif "
        + "à la sanction des études ; règlement des études de l'établissement.")}</div>
   </div>
@@ -818,8 +827,28 @@ export function documentMotivation(etudId, ueNum, annee) {
        + "auprès de la direction dans les délais qu'il prévoit.")}</div>
   </div>
   ` : `
-  <p class="corps">Les acquis d'apprentissage ci-dessus seront donc à représenter
-    dans les cours suivants :</p>
+  ${regles.portee === 'aa' && regles.session2 === 'unique' ? `
+  <p class="corps">Les acquis d'apprentissage ci-dessus seront à représenter en
+    <b>une épreuve unique</b> par acquis, quels que soient les cours dans
+    lesquels ils ont été évalués.</p>
+  <table class="doc">
+    <thead><tr>
+      <th style="width:60%">Acquis à représenter</th>
+      <th>Évalué dans</th>
+    </tr></thead>
+    <tbody>
+      ${lignes.map(l => `<tr>
+        <td>${esc2(l.description || l.code)}<br><span class="ref">${esc2(l.code)}</span></td>
+        <td>${esc2((coursDe[l.code] || []).map(c => c.cours_code).join(', ')) || '—'}</td>
+      </tr>`).join('')}
+    </tbody>
+  </table>
+  ` : `
+  <p class="corps">${regles.portee === 'aa'
+    ? `Les acquis d'apprentissage ci-dessus seront à représenter dans chacun des
+       cours où ils sont évalués :`
+    : `Les acquis d'apprentissage ci-dessus seront donc à représenter dans les
+       cours suivants, qui sont à représenter dans leur entièreté :`}</p>
   <table class="doc">
     <thead><tr>
       <th style="width:30%">Cours à représenter</th>
@@ -835,6 +864,7 @@ export function documentMotivation(etudId, ueNum, annee) {
            au référentiel : la répartition est à compléter.</td></tr>`}
     </tbody>
   </table>
+  `}
 
   <div class="info orange">
     <div class="titre">Seconde session</div>
@@ -1514,6 +1544,37 @@ r.get('/deliberation/plan', authRequired, (req, res) => {
 const SEUIL_UE = 10;   // RDE, art. 78
 
 /**
+ * LA RÈGLE D'AJOURNEMENT DE L'ÉTABLISSEMENT.
+ *
+ * Deux établissements ne délibèrent pas de la même façon, et le décret ne
+ * tranche pas. Deux choix, donc, posés une fois pour toutes aux paramètres :
+ *
+ *  — PORTÉE. « par cours » : ce qu'on ajourne, c'est un cours, et TOUS ses
+ *    acquis sont à représenter avec lui — y compris ceux qu'un autre cours
+ *    évalue aussi. « par acquis » : on ajourne l'acquis seul ; le cours n'est
+ *    pas emporté, et l'étudiant ne repasse que ce qui n'est pas maîtrisé.
+ *
+ *  — SECONDE SESSION, en portée « par acquis » seulement : l'acquis se
+ *    représente en UN examen, ou dans CHACUN des cours où il est évalué.
+ *
+ * Le repli est « par cours » : c'est la pratique la plus répandue, et celle
+ * que l'application appliquait sans le dire.
+ */
+export function reglesAjournement() {
+  const defaut = { portee: 'cours', session2: 'par_cours' };
+  try {
+    const row = db.prepare(
+      "SELECT valeur FROM lucie_config WHERE cle = 'deliberation_ajournement'").get();
+    if (!row) return defaut;
+    const v = JSON.parse(row.valeur);
+    return {
+      portee: v.portee === 'aa' ? 'aa' : 'cours',
+      session2: v.session2 === 'unique' ? 'unique' : 'par_cours',
+    };
+  } catch { return defaut; }
+}
+
+/**
  * L'ÉPREUVE INTÉGRÉE D'UNITÉ.
  *
  * Les professeurs d'une unité peuvent décider d'une épreuve commune : on
@@ -1603,6 +1664,7 @@ export function coursAutorises(user, annee) {
 export function delibererUE(etudId, ueNum, annee) {
   const structure = structureUE(ueNum, annee);
   const integree = estEpreuveIntegree(ueNum, annee);
+  const regles = reglesAjournement();
 
   // Les couples (cours, acquis) et leur poids. La table de pondération fait
   // foi : c'est elle, et non la colonne cours_code de l'acquis, qui permet
@@ -1682,7 +1744,14 @@ export function delibererUE(etudId, ueNum, annee) {
       note: noteDe(p.cours_code, code),
       ajourne: coursAjourne(p.cours_code),
     }));
-    const na = aaAjourne(code) || evals.every(e => e.ajourne);
+    // En portée « par cours », un cours ajourné emporte tous ses acquis — même
+    // ceux qu'un autre cours évalue aussi : c'est le cours qu'on représente.
+    // En portée « par acquis », l'acquis ne tombe que si TOUTES ses
+    // évaluations tombent.
+    const na = aaAjourne(code)
+      || (evals.length > 0 && (regles.portee === 'cours'
+        ? evals.some(e => e.ajourne)
+        : evals.every(e => e.ajourne)));
     let note = null;
     if (!na && integree) {
       // Épreuve commune : l'acquis a UNE note, celle de l'unité — pas une par
@@ -1715,7 +1784,10 @@ export function delibererUE(etudId, ueNum, annee) {
     // Ajourner un ACQUIS ajourne les cours qui l'évaluent : cet acquis n'y est
     // pas maîtrisé, et le cours est donc lui aussi à représenter.
     const aas_ajournes = siennes.filter(p => aaAjourne(p.aa_code)).map(p => p.aa_code);
-    const na = coursAjourne(c.cours_code) || aas_ajournes.length > 0;
+    // En portée « par acquis », l'étudiant ne représente QUE l'acquis : le
+    // cours n'est pas ajourné avec lui.
+    const na = coursAjourne(c.cours_code)
+      || (regles.portee === 'cours' && aas_ajournes.length > 0);
     let note = null;
     if (!na && !integree) {
       let num = 0, den = 0;
@@ -1799,12 +1871,15 @@ export function delibererUE(etudId, ueNum, annee) {
 
   return {
     ue_num: ueNum, annee, seuil: SEUIL_UE, epreuve_integree: integree,
+    regles_ajournement: regles,
     acquis, cours,
     ue: {
       note: ajourne ? null : noteUE,
       na: ajourne, faveur, faveur_ue: ueFaveur,
       echec: !ajourne && noteUE != null && noteUE < SEUIL_UE,
-      a_representer: cours.filter(c => c.na).map(c => c.cours_code),
+      a_representer: regles.portee === 'cours'
+        ? cours.filter(c => c.na).map(c => c.cours_code)
+        : acquis.filter(a => a.na).map(a => a.aa_code),
       // Ce qu'il faut représenter, cours par cours et acquis par acquis :
       // c'est ce que l'annexe 8 doit énoncer à l'étudiant.
       a_representer_detail: cours.filter(c => c.na).map(c => ({
@@ -1819,9 +1894,22 @@ export function delibererUE(etudId, ueNum, annee) {
         : noteUE >= SEUIL_UE ? 'reussi' : 'refuse',
       // Un échec non motivé rend la décision attaquable : on nomme ce qui
       // manque plutôt que de laisser passer.
-      motifs_manquants: acquis
-        .filter(a => (a.na || (a.note != null && a.note < SEUIL_UE)) && !a.motif)
-        .map(a => a.aa_code),
+      //
+      // AJOURNER UN COURS OBLIGE À MOTIVER SES ACQUIS. En portée « par
+      // acquis », un cours ajourné ne rendait ses acquis NA que s'ils
+      // n'étaient évalués nulle part ailleurs : on ajournait donc un cours
+      // sans avoir rien à justifier. C'est pourtant une décision défavorable
+      // comme une autre, et l'annexe 8 doit dire de quoi elle procède.
+      motifs_manquants: (() => {
+        const aRendreCompte = new Set(acquis
+          .filter(a => a.na || (a.note != null && a.note < SEUIL_UE))
+          .map(a => a.aa_code));
+        for (const c of cours) {
+          if (c.na) for (const code of (c.aas || [])) aRendreCompte.add(code);
+        }
+        return acquis.filter(a => aRendreCompte.has(a.aa_code) && !a.motif)
+          .map(a => a.aa_code);
+      })(),
       de_plein_droit: !ajourne && !faveur
         && acquis.length > 0 && cours.length > 0
         && acquis.every(a => a.note != null && a.note >= SEUIL_UE)
@@ -2462,6 +2550,7 @@ r.get('/deliberation/ue/:ueNum/pv', authRequired, (req, res) => {
     ORDER BY (annee_scolaire = ?) DESC, annee_scolaire DESC LIMIT 1
   `).get(ueNum, annee) || {};
   const integree = estEpreuveIntegree(ueNum, annee);
+  const regles = reglesAjournement();
   const sec = ue.section
     ? db.prepare('SELECT libelle, niveau, code_fwb FROM section WHERE code = ?').get(ue.section)
     : null;
@@ -2522,7 +2611,7 @@ r.get('/deliberation/ue/:ueNum/pv', authRequired, (req, res) => {
 <div class="attestation piece">
   <div class="entete">
     <div class="cf">COMMUNAUTÉ FRANÇAISE DE BELGIQUE</div>
-    <div class="epa">ENSEIGNEMENT DE PROMOTION SOCIALE</div>
+    <div class="epa">ENSEIGNEMENT POUR ADULTES</div>
     <div class="annee">Année scolaire / académique ${esc(String(annee).replace('-', '/'))}
       · ${/sup|bach|bes|master/i.test(ue.ue_niveau || ue.ue_niv || sec?.niveau || '')
         ? 'Enseignement supérieur' : 'Enseignement secondaire'}</div>
