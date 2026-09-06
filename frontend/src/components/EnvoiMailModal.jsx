@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { IconMail, IconX, IconAlertTriangle, IconCheck, IconSend, IconLoader2 } from '@tabler/icons-react';
 import { authHeaders } from '../lib/api.js';
+import { useEnvoiMail } from '../lib/envoiMail.js';
 
 /**
  * Envoyer un ou plusieurs documents générés à leurs intéressés.
@@ -20,7 +21,7 @@ import { authHeaders } from '../lib/api.js';
  */
 export default function EnvoiMailModal({ pieces, typeDoc, sujet: sujetInitial = '',
                                          message: messageInitial = '', onClose }) {
-  const [etat, setEtat] = useState(null);          // { smtp, pdf }
+  const etat = useEnvoiMail(true);                 // { actif, smtp, pdf } — relu à l'ouverture
   const [lignes, setLignes] = useState(null);      // une par pièce
   const [sujet, setSujet] = useState(sujetInitial);
   const [message, setMessage] = useState(messageInitial
@@ -28,11 +29,6 @@ export default function EnvoiMailModal({ pieces, typeDoc, sujet: sujetInitial = 
   const [enCours, setEnCours] = useState(false);
   const [resultat, setResultat] = useState(null);
   const [erreur, setErreur] = useState(null);
-
-  useEffect(() => {
-    fetch('/api/envois/etat', { headers: authHeaders() })
-      .then(r => r.json()).then(setEtat).catch(() => setEtat({ smtp: false, pdf: false }));
-  }, []);
 
   // Les adresses connues, par type de personne, en un appel par type.
   useEffect(() => {
@@ -101,7 +97,7 @@ export default function EnvoiMailModal({ pieces, typeDoc, sujet: sujetInitial = 
   }
 
   const pret = etat && lignes;
-  const bloque = etat && !etat.pdf;
+  const bloque = etat && (!etat.actif || !etat.pdf);
 
   return (
     <div className="fixed inset-0 bg-black/60 z-[60] flex items-center justify-center p-3"
@@ -126,14 +122,20 @@ export default function EnvoiMailModal({ pieces, typeDoc, sujet: sujetInitial = 
         </div>
 
         <div className="flex-1 overflow-y-auto p-4 space-y-4">
-          {etat && !etat.smtp && !bloque && (
+          {etat?.actif && etat.pdf && !etat.smtp && (
             <div className="flex items-start gap-2 text-[12px] text-amber-800 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
               <IconAlertTriangle size={15} className="flex-shrink-0 mt-0.5" />
               <span>Le serveur n'a pas de configuration SMTP : les envois seront <b>simulés</b> et
                 consignés dans le journal, mais aucun courriel ne partira.</span>
             </div>
           )}
-          {bloque && (
+          {etat && !etat.actif && (
+            <div className="flex items-start gap-2 text-[12px] text-red-800 bg-red-50 border border-red-200 rounded-lg px-3 py-2">
+              <IconAlertTriangle size={15} className="flex-shrink-0 mt-0.5" />
+              <span>L'envoi de documents par courriel est <b>désactivé</b> (Configuration → Courriels).</span>
+            </div>
+          )}
+          {etat?.actif && !etat.pdf && (
             <div className="flex items-start gap-2 text-[12px] text-red-800 bg-red-50 border border-red-200 rounded-lg px-3 py-2">
               <IconAlertTriangle size={15} className="flex-shrink-0 mt-0.5" />
               <span>Ce serveur ne sait pas produire de PDF ; l'envoi exige une pièce jointe PDF.

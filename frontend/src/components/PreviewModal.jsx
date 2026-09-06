@@ -1,6 +1,7 @@
 import { useRef, useState } from 'react';
 import { IconPrinter, IconX, IconDownload, IconMail } from '@tabler/icons-react';
 import EnvoiMailModal from './EnvoiMailModal.jsx';
+import { useEnvoiMail } from '../lib/envoiMail.js';
 
 /**
  * Modale d'aperçu d'un document HTML avant impression / sauvegarde PDF.
@@ -20,6 +21,7 @@ export default function PreviewModal({ html, titre = 'Document', sousTitre, nomF
   const iframeRef = useRef(null);
   const [pret, setPret] = useState(false);
   const [envoi, setEnvoi] = useState(false);
+  const envoiMail = useEnvoiMail();
 
   function imprimer() {
     // Safari imprime le document PARENT lorsqu'on lui demande d'imprimer un
@@ -86,7 +88,7 @@ export default function PreviewModal({ html, titre = 'Document', sousTitre, nomF
               className="flex items-center gap-1.5 px-3 py-1.5 bg-iip-turquoise text-white rounded-lg text-xs font-medium hover:opacity-90 disabled:opacity-40">
               <IconPrinter size={13} /> Imprimer / PDF
             </button>
-            {destinataire && (
+            {destinataire && envoiMail?.actif && (
               <button onClick={() => setEnvoi(true)} disabled={!pret}
                 title="Envoyer ce document par courriel, en PDF joint"
                 className="flex items-center gap-1.5 px-3 py-1.5 bg-white/10 text-white border border-white/30 rounded-lg text-xs font-medium hover:bg-white/20 disabled:opacity-40">

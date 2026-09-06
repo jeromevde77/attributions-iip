@@ -1,40 +1,103 @@
 /**
  * mailer.js — Service d'envoi d'e-mail pour Lucie
- * Configuration via variables d'environnement :
- *   SMTP_HOST, SMTP_PORT, SMTP_USER, SMTP_PASS, SMTP_FROM
- * Si SMTP_HOST n'est pas défini, les e-mails sont loggués en console (dev).
+ * Configuration en base (Configuration → Courriels), variables d'environnement
+ * SMTP_* en repli. Sans serveur renseigné, les e-mails sont loggués en console.
  */
 import { createRequire } from 'module';
 const require = createRequire(import.meta.url);
 const nodemailer = require('nodemailer');
 
-const SMTP_HOST = process.env.SMTP_HOST;
-const SMTP_PORT = parseInt(process.env.SMTP_PORT || '587');
-const SMTP_USER = process.env.SMTP_USER;
-const SMTP_PASS = process.env.SMTP_PASS;
-const SMTP_FROM = process.env.SMTP_FROM || 'Lucie IIP <lucie@institut-prigogine.be>';
+import db from '../db/index.js';
+
+/**
+ * La configuration SMTP vit en base (lucie_config, clé `smtp_config`, JSON)
+ * et se règle depuis Configuration → Courriels. Les variables d'environnement
+ * ne servent plus que de repli si rien n'est enregistré.
+ *   { host, port, secure, user, pass, from }
+ */
+export function lireConfigSmtp() {
+  let cfg = {};
+  try {
+    const row = db.prepare("SELECT valeur FROM lucie_config WHERE cle = 'smtp_config'").get();
+    if (row?.valeur) cfg = JSON.parse(row.valeur) || {};
+  } catch { cfg = {}; }
+  const port = parseInt(cfg.port || process.env.SMTP_PORT || '587');
+  return {
+    host:   (cfg.host   ?? process.env.SMTP_HOST ?? '').trim(),
+    port,
+    // 'ssl' = TLS implicite (465) ; 'starttls' = clair puis STARTTLS (587) ; 'aucun'
+    securite: cfg.securite || (port === 465 ? 'ssl' : 'starttls'),
+    user:   (cfg.user   ?? process.env.SMTP_USER ?? '').trim(),
+    pass:    cfg.pass   ?? process.env.SMTP_PASS ?? '',
+    from:   (cfg.from   ?? process.env.SMTP_FROM ?? '').trim() || 'Lucie IIP <lucie@institut-prigogine.be>',
+    // Certificat auto-signé toléré ? Faux par défaut : un relais légitime a un vrai certificat.
+    tolerer_certificat: !!cfg.tolerer_certificat,
+  };
+}
+
+/** Enregistre la configuration ; un mot de passe absent est conservé. */
+export function ecrireConfigSmtp(patch) {
+  const actuel = lireConfigSmtp();
+  const cfg = {
+    host: String(patch.host ?? actuel.host).trim(),
+    port: parseInt(patch.port ?? actuel.port) || 587,
+    securite: ['ssl', 'starttls', 'aucun'].includes(patch.securite) ? patch.securite : actuel.securite,
+    user: String(patch.user ?? actuel.user).trim(),
+    pass: patch.pass != null && patch.pass !== '' ? String(patch.pass) : actuel.pass,
+    from: String(patch.from ?? actuel.from).trim(),
+    tolerer_certificat: patch.tolerer_certificat != null ? !!patch.tolerer_certificat : actuel.tolerer_certificat,
+  };
+  db.prepare(`INSERT OR REPLACE INTO lucie_config (cle, valeur, description)
+              VALUES ('smtp_config', ?, 'Serveur SMTP pour l''envoi de courriels')`)
+    .run(JSON.stringify(cfg));
+  transporter = null; transporterCle = null;
+  return cfg;
+}
 
 let transporter = null;
+let transporterCle = null;
+
+function construire(cfg) {
+  return nodemailer.createTransport({
+    host: cfg.host,
+    port: cfg.port,
+    secure: cfg.securite === 'ssl',
+    ignoreTLS: cfg.securite === 'aucun',
+    requireTLS: cfg.securite === 'starttls',
+    auth: cfg.user ? { user: cfg.user, pass: cfg.pass } : undefined,
+    tls: { rejectUnauthorized: !cfg.tolerer_certificat },
+    // Un serveur injoignable doit répondre « injoignable », pas faire attendre
+    // l'écran indéfiniment.
+    connectionTimeout: 15000, greetingTimeout: 15000, socketTimeout: 60000,
+  });
+}
 
 function getTransporter() {
-  if (transporter) return transporter;
-  if (!SMTP_HOST) {
-    // Mode dev : log console uniquement
-    return null;
-  }
-  transporter = nodemailer.createTransport({
-    host: SMTP_HOST,
-    port: SMTP_PORT,
-    secure: SMTP_PORT === 465,
-    auth: { user: SMTP_USER, pass: SMTP_PASS },
-    tls: { rejectUnauthorized: false },
-  });
+  const cfg = lireConfigSmtp();
+  if (!cfg.host) return null;             // rien de configuré : mode simulation
+  const cle = JSON.stringify(cfg);
+  if (transporter && transporterCle === cle) return transporter;
+  transporter = construire(cfg);
+  transporterCle = cle;
   return transporter;
+}
+
+/** Vérifie la connexion au serveur avec la configuration fournie (non enregistrée). */
+export async function verifierSmtp(cfgEssai) {
+  const base = lireConfigSmtp();
+  const cfg = { ...base, ...cfgEssai, pass: cfgEssai?.pass ? cfgEssai.pass : base.pass };
+  if (!cfg.host) return { ok: false, erreur: 'serveur non renseigné' };
+  try {
+    await construire(cfg).verify();
+    return { ok: true };
+  } catch (e) {
+    return { ok: false, erreur: e.message };
+  }
 }
 
 /** Le SMTP est-il configuré ? Sinon, les envois sont simulés (console). */
 export function mailerConfigure() {
-  return !!SMTP_HOST;
+  return !!lireConfigSmtp().host;
 }
 
 /**
@@ -59,7 +122,7 @@ export async function envoyerEmail({ to, subject, html, text, attachments }) {
   }
   try {
     await t.sendMail({
-      from: SMTP_FROM,
+      from: lireConfigSmtp().from,
       to: dest,
       subject,
       html,

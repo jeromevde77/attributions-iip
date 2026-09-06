@@ -4,6 +4,7 @@ import {
 } from '@tabler/icons-react';
 import { authHeaders } from '../lib/api.js';
 import EnvoiMailModal from './EnvoiMailModal.jsx';
+import { useEnvoiMail } from '../lib/envoiMail.js';
 import { Tableau, TableauEntete, Th, Td, Tr } from './ui.jsx';
 
 /**
@@ -55,6 +56,7 @@ export default function CentreImpression({ onClose, documentInitial = null,
   // Les pièces à envoyer par courriel, une fois produites : la modale d'envoi
   // prend le relais, le centre ne fait que composer.
   const [envoi, setEnvoi] = useState(null);
+  const envoiMail = useEnvoiMail();
 
   const doc = catalogue?.find(d => d.cle === docCle) || null;
 
@@ -706,7 +708,7 @@ export default function CentreImpression({ onClose, documentInitial = null,
                                disabled:opacity-40">
                     <IconFileZip size={15} /> Pièces séparées
                   </button>
-                  {pdfPossible && (
+                  {pdfPossible && envoiMail?.actif && (
                     <button onClick={preparerEnvoi} disabled={enCours || !retenus.length}
                       title="Un courriel par personne, avec son document en PDF joint"
                       className="flex items-center gap-1.5 px-3.5 py-1.5 text-sm border

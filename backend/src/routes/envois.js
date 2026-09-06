@@ -12,9 +12,9 @@
  */
 import express from 'express';
 import db from '../db/index.js';
-import { authRequired } from '../middleware/auth.js';
+import { authRequired, roleRequired } from '../middleware/auth.js';
 import { capacitePdf, rendrePdf } from '../services/pdf.js';
-import { envoyerEmail, mailerConfigure } from '../services/mailer.js';
+import { envoyerEmail, mailerConfigure, lireConfigSmtp, ecrireConfigSmtp, verifierSmtp } from '../services/mailer.js';
 
 const r = express.Router();
 
@@ -41,10 +41,68 @@ function ensureTable() {
 
 const ADRESSE_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
-// ── État du service : l'écran prévient si les envois seront simulés ─────────
+/**
+ * L'interrupteur : Configuration → Courriels, clé `envoi_mail_actif` de
+ * lucie_config. ÉTEINT par défaut : sur un serveur où personne ne l'a allumé
+ * (la prod, par exemple), les boutons n'apparaissent pas et la route refuse.
+ */
+export function envoiActif() {
+  try {
+    const row = db.prepare("SELECT valeur FROM lucie_config WHERE cle = 'envoi_mail_actif'").get();
+    return row?.valeur === '1';
+  } catch { return false; }
+}
+function actifRequis(req, res, next) {
+  if (!envoiActif()) {
+    return res.status(403).json({
+      error: "L'envoi de documents par courriel est désactivé (Configuration → Courriels).",
+    });
+  }
+  next();
+}
+
+// ── État du service : l'écran cache la fonction ou prévient des simulations ──
 r.get('/etat', authRequired, async (req, res) => {
-  const pdf = await capacitePdf();
-  res.json({ smtp: mailerConfigure(), pdf: pdf.disponible, pdf_raison: pdf.raison });
+  const actif = envoiActif();
+  // Éteint, on ne lance pas Chromium pour rien.
+  const pdf = actif ? await capacitePdf() : { disponible: false, raison: null };
+  res.json({ actif, smtp: mailerConfigure(), pdf: pdf.disponible, pdf_raison: pdf.raison });
+});
+
+// ── Réglages (admin) : interrupteur et serveur SMTP ─────────────────────────
+r.put('/actif', authRequired, roleRequired('admin'), (req, res) => {
+  const v = req.body?.actif ? '1' : '0';
+  db.prepare(`INSERT OR REPLACE INTO lucie_config (cle, valeur, description)
+              VALUES ('envoi_mail_actif', ?, 'Envoi de documents par courriel')`).run(v);
+  res.json({ actif: v === '1' });
+});
+
+// Le mot de passe ne SORT jamais : on dit seulement s'il est défini.
+r.get('/smtp', authRequired, roleRequired('admin'), (req, res) => {
+  const { pass, ...cfg } = lireConfigSmtp();
+  res.json({ ...cfg, pass_defini: !!pass });
+});
+
+r.put('/smtp', authRequired, roleRequired('admin'), (req, res) => {
+  const { pass, ...cfg } = ecrireConfigSmtp(req.body || {});
+  res.json({ ...cfg, pass_defini: !!pass });
+});
+
+// Vérifie la connexion avec ce qui est à l'écran, sans l'enregistrer.
+r.post('/smtp/verifier', authRequired, roleRequired('admin'), async (req, res) => {
+  res.json(await verifierSmtp(req.body || {}));
+});
+
+// Envoie un courriel d'essai avec la configuration ENREGISTRÉE.
+r.post('/smtp/test', authRequired, roleRequired('admin'), async (req, res) => {
+  const to = String(req.body?.to || req.user?.email || '').trim();
+  if (!ADRESSE_RE.test(to)) return res.status(400).json({ error: 'adresse invalide' });
+  if (!mailerConfigure()) return res.status(400).json({ error: 'aucun serveur SMTP enregistré' });
+  const r2 = await envoyerEmail({
+    to, subject: '[Lucie] Courriel d\'essai',
+    html: corpsCourriel('Ceci est un courriel d\'essai envoyé depuis Lucie. Si vous le lisez, le serveur SMTP est correctement configuré.', req.user?.nom),
+  });
+  res.json(r2);
 });
 
 /**
@@ -53,7 +111,7 @@ r.get('/etat', authRequired, async (req, res) => {
  * On renvoie TOUTES les adresses (école et privée) : l'écran laisse choisir,
  * c'est l'utilisateur qui sait laquelle est lue.
  */
-r.get('/adresses', authRequired, (req, res) => {
+r.get('/adresses', authRequired, actifRequis, (req, res) => {
   const { type, ids } = req.query;
   const liste = String(ids || '').split(',').map(Number).filter(Boolean);
   if (!liste.length) return res.json([]);
@@ -95,7 +153,7 @@ r.get('/adresses', authRequired, (req, res) => {
  * Réponse : un résultat par pièce, jamais un échec global — dix envois dont
  * un rate doivent rendre neuf « envoyé » et un « échec » nommé.
  */
-r.post('/', authRequired, async (req, res) => {
+r.post('/', authRequired, actifRequis, async (req, res) => {
   const { sujet, message, type_doc, pieces } = req.body || {};
   if (!sujet?.trim()) return res.status(400).json({ error: 'sujet requis' });
   if (!Array.isArray(pieces) || !pieces.length) {
