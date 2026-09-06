@@ -549,6 +549,52 @@ r.put('/feuille/note', authRequired,
   res.json({ ok: true });
 });
 
+/**
+ * Poser la DÉCISION d'une unité, depuis la feuille de délibération.
+ *
+ * La route existante exige l'identifiant technique de l'inscription ; ici on
+ * désigne la ligne par ce que le Conseil connaît — un étudiant, une année, une
+ * unité. La cote est CONSERVÉE quel que soit le résultat : l'établissement doit
+ * la connaître pour la seconde session, pour un recours, pour la délibération.
+ * Ce que la circulaire écarte, c'est sa communication, pas son existence.
+ */
+r.put('/decision', authRequired,
+      roleRequired('admin', 'directeur', 'directeur_adjoint', 'editeur'), (req, res) => {
+  const { etudiant_id, annee_scolaire, ue_num, resultat, points, mention } = req.body || {};
+  if (!etudiant_id || !annee_scolaire || !ue_num) {
+    return res.status(400).json({ error: 'étudiant, année et unité requis' });
+  }
+  const RESULTATS = ['reussi', 'ajourne', 'refuse', 'absent', null];
+  if (resultat !== undefined && !RESULTATS.includes(resultat)) {
+    return res.status(400).json({ error: 'resultat invalide' });
+  }
+
+  const insc = db.prepare(`
+    SELECT id FROM etudiant_inscription
+    WHERE etudiant_id = ? AND annee_scolaire = ? AND ue_num = ?
+  `).get(Number(etudiant_id), annee_scolaire, Number(ue_num));
+  if (!insc) {
+    return res.status(404).json({
+      error: "Cet étudiant n'est pas inscrit à cette unité pour cette année : "
+           + 'la décision se pose sur une inscription.',
+    });
+  }
+
+  const n = points == null || points === '' ? null
+    : Number(String(points).replace(',', '.'));
+  const note = (n != null && Number.isFinite(n) && n >= 0 && n <= 20) ? n : null;
+  if (points != null && points !== '' && note == null) {
+    return res.status(400).json({ error: 'note attendue entre 0 et 20' });
+  }
+
+  db.prepare(`
+    UPDATE etudiant_inscription SET resultat = ?, points = ?, mention = ?
+    WHERE id = ?
+  `).run(resultat ?? null, note, mention ?? null, insc.id);
+
+  res.json({ ok: true });
+});
+
 // ── Les unités en échec d'un étudiant ──────────────────────────────────────
 // Route dédiée : la route /pae ne remonte pas les résultats, et deviner sa
 // structure m'a déjà valu une erreur.

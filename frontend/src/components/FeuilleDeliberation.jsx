@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { IconX, IconSearch, IconAlertTriangle } from '@tabler/icons-react';
 import { authHeaders } from '../lib/api.js';
+import TableauBordEtudiant from './TableauBordEtudiant.jsx';
 
 // Les lettres de la délibération, comme dans vos classeurs.
 const LETTRE = { reussi: 'C', echec: 'E', absent: 'A' };
@@ -21,6 +22,9 @@ export default function FeuilleDeliberation({ ueNum, annee, onClose }) {
   const [recherche, setRecherche] = useState('');
   const [erreur, setErreur] = useState(null);
   const [enAttente, setEnAttente] = useState(0);
+  // L'étudiant dont on ouvre le tableau de bord. La feuille sert à
+  // COMPARER ; quand une ligne interroge, on veut le parcours derrière.
+  const [bord, setBord] = useState(null);
 
   useEffect(() => { charger(); /* eslint-disable-next-line */ }, [ueNum, annee]);
 
@@ -275,8 +279,12 @@ export default function FeuilleDeliberation({ ueNum, annee, onClose }) {
                   <tr key={e.id} className="hover:bg-slate-50/60">
                     <td className="sticky left-0 bg-white hover:bg-slate-50/60 z-10
                                    px-3 py-1 border-b border-r border-slate-100">
-                      <div className="font-semibold text-iip-blue truncate">{e.nom}</div>
-                      <div className="text-[10.5px] text-slate-500 truncate">{e.prenom}</div>
+                      <button type="button" onClick={() => setBord(e)}
+                        title="Ouvrir le tableau de bord de délibération"
+                        className="text-left w-full">
+                        <div className="font-semibold text-iip-blue truncate hover:underline">{e.nom}</div>
+                        <div className="text-[10.5px] text-slate-500 truncate">{e.prenom}</div>
+                      </button>
                     </td>
 
                     {[1, 2].map(s => {
@@ -357,6 +365,13 @@ export default function FeuilleDeliberation({ ueNum, annee, onClose }) {
           est connue. Elle est indicative : la décision appartient au Conseil.
         </p>
       </div>
+
+      {/* Le tableau de bord se superpose à la feuille : on revient à la
+          comparaison en le fermant, sans avoir perdu sa place. */}
+      {bord && (
+        <TableauBordEtudiant etudId={bord.id} ueNum={data.ue_num} annee={annee}
+          onClose={() => setBord(null)} onDecide={charger} />
+      )}
     </div>
   );
 }
