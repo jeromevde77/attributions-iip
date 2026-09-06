@@ -218,11 +218,12 @@ export default function ConfigCourriels() {
         <div className="px-4 py-3 border-t border-gray-100 flex flex-wrap items-center gap-2">
           <input value={testTo} onChange={e => setTestTo(e.target.value)} placeholder="adresse pour le courriel d'essai"
             className="border border-slate-300 rounded-lg px-3 py-1.5 text-sm w-72" />
-          <button onClick={essai} disabled={!!occupe || !testTo || (cfg.mode === 'graph' ? !cfg.graph?.secret_defini : !cfg.pass_defini)}
+          <button onClick={essai} disabled={!!occupe || !testTo || !etat.smtp}
             title="Envoie avec la configuration ENREGISTRÉE"
             className="flex items-center gap-1.5 px-3.5 py-1.5 text-sm border border-iip-turquoise text-iip-turquoise font-semibold rounded-lg disabled:opacity-40">
             {occupe === 'test' ? <IconLoader2 size={14} className="animate-spin" /> : <IconSend size={14} />} Envoyer un essai
           </button>
+          {!etat.smtp && <span className="text-[12px] text-amber-700">Enregistrez d'abord une configuration complète (le bouton reste gris tant qu'aucun expéditeur n'est enregistré).</span>}
           {test && (test.ok
             ? <span className="text-[12px] text-emerald-700">{test.simule ? 'Simulé (aucun serveur enregistré).' : 'Courriel d\'essai parti.'}</span>
             : <span className="text-[12px] text-red-700">{test.erreur}</span>)}
