@@ -1006,4 +1006,120 @@ r.get('/sections/:section/ues', authRequired, (req, res) => {
   }));
 });
 
+/**
+ * Bilan de parcours d'un étudiant — ce qui entoure la décision.
+ *
+ * Le Conseil ne délibère pas une unité dans le vide : il délibère un ÉTUDIANT
+ * à propos d'une unité. Cette route rassemble ce qui manque à la feuille pour
+ * juger — le parcours antérieur, la moyenne de l'année, les crédits acquis.
+ *
+ * Elle ne recalcule PAS les notes de l'unité en cours : la feuille les tient
+ * déjà, et deux calculs parallèles finissent toujours par diverger.
+ */
+r.get('/parcours-bilan/:etudId', authRequired, (req, res) => {
+  const etudId = Number(req.params.etudId);
+  const annee = req.query.annee;
+  if (!annee) return res.status(400).json({ error: 'annee requise' });
+
+  const etud = db.prepare('SELECT * FROM etudiant WHERE id = ?').get(etudId);
+  if (!etud) return res.status(404).json({ error: 'étudiant introuvable' });
+
+  // Toutes les inscriptions, tous millésimes : le parcours ne se lit pas
+  // année par année. Le référentiel retenu est celui de l'année d'inscription,
+  // à défaut le plus récent — un intitulé ou un nombre d'ECTS peut changer.
+  const inscriptions = db.prepare(`
+    SELECT i.ue_num, i.annee_scolaire, i.resultat, i.points,
+           (SELECT ue_nom FROM ue u WHERE u.ue_num = i.ue_num
+             ORDER BY (u.annee_scolaire = i.annee_scolaire) DESC, u.annee_scolaire DESC LIMIT 1) AS ue_nom,
+           (SELECT ue_niv FROM ue u WHERE u.ue_num = i.ue_num
+             ORDER BY (u.annee_scolaire = i.annee_scolaire) DESC, u.annee_scolaire DESC LIMIT 1) AS ue_niv,
+           (SELECT ects FROM ue u WHERE u.ue_num = i.ue_num
+             ORDER BY (u.annee_scolaire = i.annee_scolaire) DESC, u.annee_scolaire DESC LIMIT 1) AS ects,
+           (SELECT ue_per_etudiants FROM ue u WHERE u.ue_num = i.ue_num
+             ORDER BY (u.annee_scolaire = i.annee_scolaire) DESC, u.annee_scolaire DESC LIMIT 1) AS periodes,
+           (SELECT section FROM ue u WHERE u.ue_num = i.ue_num AND u.section IS NOT NULL
+             ORDER BY u.annee_scolaire DESC LIMIT 1) AS section
+    FROM etudiant_inscription i
+    WHERE i.etudiant_id = ?
+    ORDER BY i.annee_scolaire, i.ue_num
+  `).all(etudId);
+
+  // Les valorisations valent acquisition : les ignorer sous-estimerait les
+  // crédits d'un étudiant qui a fait valoir un parcours antérieur.
+  const valorisations = db.prepare(`
+    SELECT v.ue_num, v.annee_scolaire, v.pourcentage,
+           (SELECT ects FROM ue u WHERE u.ue_num = v.ue_num
+             ORDER BY u.annee_scolaire DESC LIMIT 1) AS ects
+    FROM etudiant_valorisation v WHERE v.etudiant_id = ?
+  `).all(etudId);
+
+  const cetteAnnee = inscriptions.filter(i => i.annee_scolaire === annee);
+  const anterieures = inscriptions.filter(i => i.annee_scolaire !== annee);
+
+  // MOYENNE de l'année, pondérée par les PÉRIODES ÉTUDIANT du dossier
+  // pédagogique : une unité de 600 périodes pèse trois fois une de 200. Une
+  // unité sans note ne compte ni au numérateur ni au dénominateur — elle n'est
+  // pas un zéro, elle n'est pas encore jugée.
+  let num = 0, den = 0;
+  for (const i of cetteAnnee) {
+    if (i.points == null) continue;
+    const p = Number(i.periodes) || 0;
+    if (!p) continue;
+    num += Number(i.points) * p; den += p;
+  }
+  const moyenne = den ? Math.round((num / den) * 100) / 100 : null;
+  const sansPonderation = cetteAnnee.filter(i => i.points != null && !Number(i.periodes)).length;
+
+  // CRÉDITS. Le total de la section se somme au référentiel : il n'existe
+  // aucun total stocké. S'il ne tombe pas rond, c'est le référentiel qui est
+  // incomplet — on renvoie le nombre pour que l'écran puisse le dire.
+  const section = cetteAnnee.find(i => i.section)?.section
+    || inscriptions.find(i => i.section)?.section || null;
+  const totalSection = section
+    ? db.prepare(`
+        SELECT SUM(ects) AS t FROM (
+          SELECT ue_num, MAX(ects) AS ects FROM ue
+          WHERE section = ? AND ects IS NOT NULL GROUP BY ue_num)
+      `).get(section)?.t || 0
+    : 0;
+
+  const acquisesUe = new Set();
+  let ectsAcquis = 0;
+  for (const i of inscriptions) {
+    if (i.resultat === 'reussi' && !acquisesUe.has(i.ue_num)) {
+      acquisesUe.add(i.ue_num); ectsAcquis += Number(i.ects) || 0;
+    }
+  }
+  for (const v of valorisations) {
+    if (!acquisesUe.has(v.ue_num)) {
+      acquisesUe.add(v.ue_num); ectsAcquis += Number(v.ects) || 0;
+    }
+  }
+  // Au PROGRAMME de l'année : les unités inscrites que l'étudiant n'a pas
+  // encore acquises. Une unité déjà réussie n'y figure pas.
+  const ectsProgramme = cetteAnnee
+    .filter(i => i.resultat !== 'reussi')
+    .reduce((s, i) => s + (Number(i.ects) || 0), 0);
+
+  res.json({
+    etudiant: {
+      id: etud.id, nom: etud.nom, prenom: etud.prenom, titre: etud.titre,
+      id_ecampus: etud.id_ecampus, date_naissance: etud.date_naissance,
+      email_ecole: etud.email_ecole, section,
+    },
+    annee,
+    cette_annee: cetteAnnee,
+    anterieures,
+    valorisations,
+    moyenne, moyenne_sans_ponderation: sansPonderation,
+    ects: {
+      acquis: ectsAcquis,
+      programme: ectsProgramme,
+      total_section: totalSection,
+      restant: Math.max(0, totalSection - ectsAcquis - ectsProgramme),
+      section,
+    },
+  });
+});
+
 export default r;
