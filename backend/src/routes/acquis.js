@@ -633,14 +633,48 @@ r.get('/echecs/:etudId', authRequired, (req, res) => {
 // ── Le document réglementaire ──────────────────────────────────────────────
 // Annexe 8 (ajournement) ou 9 (refus), selon la décision encodée. La forme est
 // imposée par la circulaire : on la suit, sans habillage.
-r.get('/motivation/:etudId/:ueNum/document', authRequired, (req, res) => {
-  const etudId = Number(req.params.etudId);
-  const ueNum = Number(req.params.ueNum);
-  const annee = req.query.annee;
-  if (!annee) return res.status(400).json({ error: 'annee requise' });
+/**
+ * La feuille de style du document de motivation, sortie de la fonction : le
+ * lot du secrétariat enchaîne les pièces dans UNE enveloppe, et le corps d'une
+ * motivation doit y emporter sa mise en forme.
+ */
+export const STYLES_MOTIVATION = `
+:root{--paraphe:url("${SIGNATURE_SOHET}");--sceau:url("${SCEAU_IIP}")}
+.mot{font-size:10pt;line-height:1.35;color:#000}
+.mot p{margin:0 0 2.5mm}
+.mot .cf{text-align:center;font-weight:700;font-size:10.5pt}
+.mot .an{text-align:center;font-size:9.5pt;margin-bottom:4mm}
+.mot .etab{font-size:9.5pt;margin-bottom:4mm}
+/* Le titre en rouge : la décision doit se distinguer au premier regard d'une
+   attestation de réussite, dont la forme est très proche. */
+.mot h1{font-size:12pt;font-weight:700;text-align:center;color:#B91C1C;
+  margin:0 0 4mm;letter-spacing:.3pt}
+.mot table{width:100%;border-collapse:collapse;margin:2mm 0 3mm}
+.mot table th,.mot table td{border:.5pt solid #000;padding:1.5mm 2mm;
+  font-size:9.5pt;vertical-align:top;text-align:left}
+.mot table th{font-size:8.5pt;font-weight:700;background:#f1f5f9}
+.mot .etud{margin:2mm 0 3mm}
+.mot .champ{margin-top:3mm;font-size:9.5pt}
+.mot .cloture{display:flex;justify-content:space-between;align-items:flex-end;
+  gap:8mm;margin-top:8mm;font-size:9.5pt;page-break-inside:avoid}
+.mot .cloture .sceau{width:24mm;height:24mm;background-image:var(--sceau);
+  background-repeat:no-repeat;background-position:center bottom;background-size:contain}
+.mot .sig{text-align:center}
+.mot .sig .paraphe{width:44mm;height:16mm;margin:1mm auto -1mm;
+  background-image:var(--paraphe);background-repeat:no-repeat;
+  background-position:center bottom;background-size:contain}
+.mot .sig .nom{border-top:.4pt solid #94a3b8;padding-top:1mm}`;
+
+/**
+ * LE DOCUMENT DE MOTIVATION — annexe 8 (ajournement) ou 9 (refus).
+ *
+ * Extrait de sa route pour être produit aussi EN LOT : le secrétariat n'imprime
+ * pas les notifications une par une.
+ */
+export function documentMotivation(etudId, ueNum, annee) {
 
   const e = db.prepare('SELECT * FROM etudiant WHERE id = ?').get(etudId);
-  if (!e) return res.status(404).json({ error: 'étudiant introuvable' });
+  if (!e) return { erreur: 'étudiant introuvable', code: 404 };
 
   const etab = db.prepare('SELECT * FROM etablissement LIMIT 1').get() || {};
   const ident = identiteEtablissement();
@@ -658,34 +692,28 @@ r.get('/motivation/:etudId/:ueNum/document', authRequired, (req, res) => {
     WHERE ue_num = ? ORDER BY (annee_scolaire = ?) DESC, annee_scolaire DESC LIMIT 1
   `).get(ueNum, annee) || {};
 
-  // Les acquis non maîtrisés et leur motivation.
-  const notes = {};
-  for (const l of db.prepare(`
-    SELECT code, points, non_evalue FROM etudiant_note_detail
-    WHERE etudiant_id = ? AND annee_scolaire = ? AND ue_num = ? AND type = 'aa'
-  `).all(etudId, annee, ueNum)) {
-    const brut = String(l.code).includes('|') ? String(l.code).split('|')[1] : l.code;
-    notes[brut] = l;
-  }
+  // LES ACQUIS VIENNENT DE LA DÉLIBÉRATION. Cette fonction relisait les notes
+  // pour son compte et découpait « s1|C1|AA1 » sur le premier séparateur : elle
+  // cherchait donc une note sous le code « C1 », n'en trouvait aucune, et
+  // concluait qu'aucun acquis n'était en échec — la notification ne sortait
+  // jamais. Elle ignorait de surcroît les ajournements posés par le Conseil.
+  const d = delibererUE(etudId, ueNum, annee);
   const motifs = Object.fromEntries(db.prepare(`
     SELECT aa_code, motif FROM decision_motivation
     WHERE etudiant_id = ? AND annee_scolaire = ? AND ue_num = ?
   `).all(etudId, annee, ueNum).map(m => [m.aa_code, m.motif]));
 
-  const lignes = structureUE(ueNum, annee).flatMap(co => (co.aas || []).map(a => {
-    const n = notes[a.aa_code];
-    const evalue = n && !n.non_evalue && n.points != null;
-    return evalue && n.points < 10
-      ? { code: a.aa_code, description: a.description || co.cours_nom,
-          motif: motifs[a.aa_code] || '' }
-      : null;
-  })).filter(Boolean);
+  // Ce dont il faut rendre compte : l'acquis sous le seuil, et celui que le
+  // Conseil a ajourné. Celui qu'une faveur a levé, non — il est acquis.
+  const lignes = d.acquis
+    .filter(a => !a.faveur && (a.na || (a.note != null && a.note < SEUIL_UE)))
+    .map(a => ({ code: a.aa_code, description: a.description || '',
+                 motif: motifs[a.aa_code] || '' }));
 
   if (!lignes.length) {
-    return res.status(400).json({
-      error: "Aucun acquis en échec pour cette unité : une motivation de refus "
-           + "n'a pas lieu d'être. Vérifiez la décision encodée.",
-    });
+    return { code: 400,
+      erreur: "Aucun acquis en échec ni ajourné pour cette unité : la "
+            + "notification n'a pas lieu d'être. Vérifiez la décision encodée." };
   }
 
   const esc2 = s => String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;')
@@ -766,36 +794,22 @@ r.get('/motivation/:etudId/:ueNum/document', authRequired, (req, res) => {
 
   const html = envelopperDocument({
     html: corps, titre: '', avecPied: false, margeHaut: 15, margeCote: 18,
-    styles: `
-:root{--paraphe:url("${SIGNATURE_SOHET}");--sceau:url("${SCEAU_IIP}")}
-.mot{font-size:10pt;line-height:1.35;color:#000}
-.mot p{margin:0 0 2.5mm}
-.mot .cf{text-align:center;font-weight:700;font-size:10.5pt}
-.mot .an{text-align:center;font-size:9.5pt;margin-bottom:4mm}
-.mot .etab{font-size:9.5pt;margin-bottom:4mm}
-/* Le titre en rouge : la décision doit se distinguer au premier regard d'une
-   attestation de réussite, dont la forme est très proche. */
-.mot h1{font-size:12pt;font-weight:700;text-align:center;color:#B91C1C;
-  margin:0 0 4mm;letter-spacing:.3pt}
-.mot table{width:100%;border-collapse:collapse;margin:2mm 0 3mm}
-.mot table th,.mot table td{border:.5pt solid #000;padding:1.5mm 2mm;
-  font-size:9.5pt;vertical-align:top;text-align:left}
-.mot table th{font-size:8.5pt;font-weight:700;background:#f1f5f9}
-.mot .etud{margin:2mm 0 3mm}
-.mot .champ{margin-top:3mm;font-size:9.5pt}
-.mot .cloture{display:flex;justify-content:space-between;align-items:flex-end;
-  gap:8mm;margin-top:8mm;font-size:9.5pt;page-break-inside:avoid}
-.mot .cloture .sceau{width:24mm;height:24mm;background-image:var(--sceau);
-  background-repeat:no-repeat;background-position:center bottom;background-size:contain}
-.mot .sig{text-align:center}
-.mot .sig .paraphe{width:44mm;height:16mm;margin:1mm auto -1mm;
-  background-image:var(--paraphe);background-repeat:no-repeat;
-  background-position:center bottom;background-size:contain}
-.mot .sig .nom{border-top:.4pt solid #94a3b8;padding-top:1mm}`,
+    styles: STYLES_MOTIVATION,
   });
 
-  res.json({ html, nom: `Motivation_${estRefus ? 'refus' : 'ajournement'}_UE${ueNum}` });
+  return { html, corps,
+           nom: `Motivation_${estRefus ? 'refus' : 'ajournement'}_UE${ueNum}`,
+           estRefus };
+}
+
+r.get('/motivation/:etudId/:ueNum/document', authRequired, (req, res) => {
+  const annee = req.query.annee;
+  if (!annee) return res.status(400).json({ error: 'annee requise' });
+  const d = documentMotivation(Number(req.params.etudId), Number(req.params.ueNum), annee);
+  if (d.erreur) return res.status(d.code || 400).json({ error: d.erreur });
+  res.json({ html: d.html, nom: d.nom });
 });
+
 
 // ── Tous les cours suivis par un étudiant, toutes UE confondues ────────────
 // La dispense partielle exigeait de connaître le numéro d'UE et de le taper
@@ -2175,6 +2189,103 @@ r.put('/deliberation/ue/:ueNum/seance', authRequired,
     'SELECT * FROM deliberation_seance WHERE ue_num = ? AND annee_scolaire = ?'
   ).get(ueNum, annee);
   res.json({ ok: true, seance });
+});
+
+/**
+ * LES DOCUMENTS D'UNE DÉLIBÉRATION — ce que le secrétariat doit sortir.
+ *
+ * Une séance close produit trois piles : les attestations de réussite, les
+ * notifications d'ajournement (annexe 8) et celles de refus (annexe 9). Elles
+ * s'imprimaient jusqu'ici étudiant par étudiant, depuis sa fiche.
+ *
+ * GET compte ; POST assemble tout en UN document, chaque pièce sur sa page.
+ */
+r.get('/deliberation/ue/:ueNum/documents', authRequired, (req, res) => {
+  const ueNum = Number(req.params.ueNum);
+  const annee = req.query.annee || anneeDeTravail(req);
+
+  const etudiants = db.prepare(`
+    SELECT e.id, e.nom, e.prenom, i.resultat, i.points
+    FROM etudiant_inscription i JOIN etudiant e ON e.id = i.etudiant_id
+    WHERE i.annee_scolaire = ? AND i.ue_num = ?
+    ORDER BY e.nom, e.prenom
+  `).all(annee, ueNum);
+
+  const par = r0 => etudiants.filter(e => e.resultat === r0);
+  const seance = db.prepare(
+    'SELECT cloturee, visite_date FROM deliberation_seance WHERE ue_num = ? AND annee_scolaire = ?'
+  ).get(ueNum, annee) || {};
+
+  res.json({
+    ue_num: ueNum, annee,
+    reussites: par('reussi'), ajournements: par('ajourne'), refus: par('refuse'),
+    absents: par('absent'),
+    sans_decision: etudiants.filter(e => !e.resultat),
+    cloturee: !!seance.cloturee, visite_date: seance.visite_date || null,
+  });
+});
+
+r.post('/deliberation/ue/:ueNum/documents', authRequired, async (req, res) => {
+  const ueNum = Number(req.params.ueNum);
+  const annee = req.body?.annee || anneeDeTravail(req);
+  const veut = {
+    reussite: req.body?.reussite !== false,
+    ajournement: req.body?.ajournement !== false,
+    refus: req.body?.refus !== false,
+  };
+
+  const { unitesReussies, pageAttestation, envelopper } =
+    await import('./attestations.js');
+  const etab = db.prepare('SELECT * FROM etablissement LIMIT 1').get() || {};
+  let ident = {};
+  try { ident = identiteEtablissement() || {}; } catch { ident = {}; }
+
+  const etudiants = db.prepare(`
+    SELECT e.*, i.resultat
+    FROM etudiant_inscription i JOIN etudiant e ON e.id = i.etudiant_id
+    WHERE i.annee_scolaire = ? AND i.ue_num = ?
+    ORDER BY e.nom, e.prenom
+  `).all(annee, ueNum);
+
+  const pages = [];
+  const manques = [];
+  let nbR = 0, nbA = 0, nbX = 0;
+
+  for (const e of etudiants) {
+    if (e.resultat === 'reussi' && veut.reussite) {
+      // L'attestation ne porte que CETTE unité : c'est cette séance qu'on
+      // notifie, non tout le parcours de l'étudiant.
+      const u = unitesReussies(e.id, annee).find(x => Number(x.ue_num) === ueNum);
+      if (!u) { manques.push(`${e.nom} ${e.prenom} : unité non réussie au dossier`); continue; }
+      pages.push(pageAttestation(e, u, annee, etab, req.body?.date_document || null, ident));
+      if (u.manques?.length) manques.push(`${e.nom} ${e.prenom} : ${u.manques.join(', ')}`);
+      nbR++;
+    } else if ((e.resultat === 'ajourne' && veut.ajournement)
+            || (e.resultat === 'refuse' && veut.refus)) {
+      const d = documentMotivation(e.id, ueNum, annee);
+      if (d.erreur) { manques.push(`${e.nom} ${e.prenom} : ${d.erreur}`); continue; }
+      // On reprend le CORPS, non le document entier : les pièces s'enchaînent
+      // dans une seule enveloppe, chacune sur sa page.
+      pages.push(`<div class="mot-piece">${d.corps}</div>`);
+      if (e.resultat === 'ajourne') nbA++; else nbX++;
+    }
+  }
+
+  if (!pages.length) {
+    return res.status(400).json({
+      error: 'Aucun document à produire : les décisions ne sont pas encore '
+           + 'enregistrées, ou aucune ne correspond aux pièces demandées.',
+      manques,
+    });
+  }
+
+  res.json({
+    html: envelopper(`<style>${STYLES_MOTIVATION}</style>`
+                     + pages.join('<div class="saut"></div>'),
+                     `Documents de délibération — UE ${ueNum}`),
+    nom: `Documents_UE${ueNum}_${String(annee).replace(/\W/g, '')}.html`,
+    reussites: nbR, ajournements: nbA, refus: nbX, pieces: pages.length, manques,
+  });
 });
 
 /**

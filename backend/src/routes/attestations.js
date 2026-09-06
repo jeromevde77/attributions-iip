@@ -67,7 +67,7 @@ const frDate = d => {
 };
 
 /** Les UE réussies par un étudiant pour une année, avec ce qu'exige le modèle. */
-function unitesReussies(etudId, annee) {
+export function unitesReussies(etudId, annee) {
   const insc = db.prepare(`
     SELECT i.ue_num, i.points, i.annee_scolaire
     FROM etudiant_inscription i
@@ -154,7 +154,7 @@ function unitesReussies(etudId, annee) {
  * pièce ou cinquante. Elle sert aussi aux pièces séparées d'une archive, pour
  * que chacune reste imprimable seule.
  */
-function envelopper(corps, titre = 'Attestations de réussite') {
+export function envelopper(corps, titre = 'Attestations de réussite') {
   // Les images sont posées UNE fois par document, en variables CSS. Répétées
   // par page, un lot de cinq cents attestations pèserait plus de 300 Mo.
   return `<!DOCTYPE html><html lang="fr"><head><meta charset="utf-8">
@@ -288,7 +288,7 @@ r.get('/etudiant/:id', authRequired, (req, res) => {
 // pour elles. Toute production d'attestation levait donc « ident is not
 // defined ». Il devient un paramètre, avec repli sur l'identité de
 // l'établissement pour tout appel qui l'oublierait.
-function pageAttestation(e, u, annee, etab, dateDoc = null, ident = identiteEtablissement()) {
+export function pageAttestation(e, u, annee, etab, dateDoc = null, ident = identiteEtablissement()) {
   // Le titre s'écrit tantôt « Mme », tantôt « Madame » : chercher la seule
   // abréviation produisait une attestation au masculin pour une étudiante.
   const genre = /^(mme|madame|mlle|mademoiselle|m\.?me)\b/i.test((e.titre || '').trim())
