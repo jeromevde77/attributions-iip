@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { IconChevronRight, IconArrowLeft, IconBolt, IconAlertTriangle,
-  IconWand } from '@tabler/icons-react';
+  IconWand, IconRotate } from '@tabler/icons-react';
 import { authHeaders, getAnnee } from '../lib/api.js';
 import FeuilleDeliberation from '../components/FeuilleDeliberation.jsx';
 import EncodageCours from '../components/EncodageCours.jsx';
@@ -35,6 +35,7 @@ export default function Deliberation() {
   const [encoder, setEncoder] = useState(null);     // cours_code en saisie
   const [parametrer, setParametrer] = useState(null);  // ue_num en paramétrage
   const [auto, setAuto] = useState(null);           // { ue_num, reussites, a_deliberer }
+  const [annuler, setAnnuler] = useState(null);     // ue en cours d'annulation
   const [enCours, setEnCours] = useState(false);
 
   /**
@@ -57,6 +58,25 @@ export default function Deliberation() {
       if (!rep.ok) throw new Error(j.error);
       setAuto(j);
     } catch (e) { setErreur(e.message); }
+  }
+
+  /**
+   * ANNULER LA DÉLIBÉRATION d'une unité : effacer les décisions et les
+   * ajustements, garder les notes encodées. Le geste est destructeur, il se
+   * confirme.
+   */
+  async function annulerDeliberation() {
+    setEnCours(true); setErreur(null);
+    try {
+      const rep = await fetch(
+        `/api/acquis/deliberation/ue/${annuler.ue_num}?annee=${encodeURIComponent(annee)}`,
+        { method: 'DELETE', headers: authHeaders() });
+      const j = await rep.json();
+      if (!rep.ok) { setErreur(j.error); return; }
+      setAnnuler(null);
+      charger();
+    } catch (e) { setErreur(e.message); }
+    finally { setEnCours(false); }
   }
 
   async function appliquerAuto() {
@@ -230,6 +250,15 @@ export default function Deliberation() {
                                  text-slate-600 flex-none">
                       Encoder par cours
                     </button>
+                    {u.decides > 0 && (
+                      <button onClick={() => setAnnuler(u)}
+                        title="Annuler la délibération de cette unité — les notes encodées sont conservées"
+                        className="px-2 py-1 text-[11.5px] rounded-lg border border-slate-300
+                                   text-slate-500 flex-none flex items-center gap-1
+                                   hover:border-red-400 hover:text-red-700">
+                        <IconRotate size={13} />
+                      </button>
+                    )}
                     <button onClick={() => preparerAuto(u.ue_num)}
                       title="Enregistrer d'office les réussites de plein droit"
                       className="px-2 py-1 text-[11.5px] rounded-lg border border-emerald-600
@@ -298,6 +327,60 @@ export default function Deliberation() {
         <EncodageCours coursCode={encoder} annee={annee}
           onClose={() => { setEncoder(null); charger(); }}
           onParametrer={ue => { setEncoder(null); setParametrer(ue); }} />
+      )}
+
+      {annuler && (
+        <div className="fixed inset-0 bg-black/40 flex items-start justify-center z-50 p-4"
+          onClick={e => e.target === e.currentTarget && setAnnuler(null)}>
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg mt-24 p-5 space-y-3">
+            <div>
+              <h3 className="text-[15px] font-semibold text-iip-blue">
+                Annuler la délibération de l'UE {annuler.ue_num}
+              </h3>
+              <p className="text-[12px] text-slate-500">
+                {annuler.ue_nom || ''} · {annuler.decides} décision(s) enregistrée(s)
+              </p>
+            </div>
+
+            <div className="rounded-xl border border-red-200 bg-red-50 px-3 py-2
+                            text-[12.5px] text-red-900">
+              <div className="font-semibold">Seront effacés</div>
+              <ul className="list-disc pl-4 mt-0.5 space-y-0.5">
+                <li>les décisions du Conseil : résultat, cote, mention ;</li>
+                <li>les faveurs et les ajournements ;</li>
+                <li>la clôture de la séance et la date de visite des copies.</li>
+              </ul>
+            </div>
+
+            <div className="rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2
+                            text-[12.5px] text-emerald-900">
+              <div className="font-semibold">Seront conservés</div>
+              <ul className="list-disc pl-4 mt-0.5 space-y-0.5">
+                <li>les notes encodées par les professeurs ;</li>
+                <li>les motivations d'échec déjà écrites ;</li>
+                <li>les présences du Conseil.</li>
+              </ul>
+            </div>
+
+            <p className="text-[11.5px] text-slate-500">
+              La délibération repartira de ce qui a été encodé. Cette action
+              n'est pas réversible.
+            </p>
+
+            <div className="flex justify-end gap-2">
+              <button onClick={() => setAnnuler(null)}
+                className="px-3 py-1.5 text-[12.5px] rounded-lg border border-slate-300
+                           text-slate-600">
+                Renoncer
+              </button>
+              <button onClick={annulerDeliberation} disabled={enCours}
+                className="px-4 py-2 text-[12.5px] rounded-lg bg-red-600 text-white
+                           font-semibold disabled:opacity-40">
+                Annuler la délibération
+              </button>
+            </div>
+          </div>
+        </div>
       )}
 
       {auto && (

@@ -2169,6 +2169,67 @@ r.put('/deliberation/ue/:ueNum/seance', authRequired,
 });
 
 /**
+ * ANNULER UNE DÉLIBÉRATION — revenir à ce qui a été encodé.
+ *
+ * CE QUI EST EFFACÉ : les décisions portées sur les inscriptions (résultat,
+ * cote, mention), les ajustements du Conseil (faveurs et ajournements), et la
+ * clôture de la séance avec sa date de visite des copies.
+ *
+ * CE QUI EST GARDÉ : les NOTES ENCODÉES — c'est le travail des professeurs, il
+ * n'a pas à disparaître parce que le Conseil recommence. Les motivations
+ * d'échec aussi : elles sont écrites à la main, elles resserviront, et elles ne
+ * s'affichent que sur un acquis en échec. Les présences aussi : le Conseil est
+ * le même.
+ *
+ * Un étudiant peut être annulé seul, quand c'est son dossier qu'on a manqué.
+ */
+r.delete('/deliberation/ue/:ueNum', authRequired,
+         roleRequired('admin', 'directeur', 'directeur_adjoint', 'editeur'), (req, res) => {
+  const ueNum = Number(req.params.ueNum);
+  const annee = req.query.annee || anneeDeTravail(req);
+  const etudId = req.query.etudiant_id ? Number(req.query.etudiant_id) : null;
+
+  const perim = getUserSections(req.user);
+  const ue = db.prepare(`
+    SELECT section FROM ue WHERE ue_num = ?
+    ORDER BY (annee_scolaire = ?) DESC, annee_scolaire DESC LIMIT 1
+  `).get(ueNum, annee) || {};
+  if (perim && ue.section && !perim.includes(ue.section)) {
+    return res.status(403).json({ error: 'unité hors de votre périmètre' });
+  }
+
+  let decisions = 0, ajustements = 0;
+  db.transaction(() => {
+    const cond = etudId ? ' AND etudiant_id = ?' : '';
+    const args = etudId ? [annee, ueNum, etudId] : [annee, ueNum];
+
+    decisions = db.prepare(`
+      UPDATE etudiant_inscription SET resultat = NULL, points = NULL, mention = NULL
+      WHERE annee_scolaire = ? AND ue_num = ?${cond}
+        AND (resultat IS NOT NULL OR points IS NOT NULL OR mention IS NOT NULL)
+    `).run(...args).changes;
+
+    ajustements = db.prepare(`
+      DELETE FROM deliberation_ajustement
+      WHERE annee_scolaire = ? AND ue_num = ?${cond}
+    `).run(...args).changes;
+
+    // La séance ne se rouvre que si l'on annule l'unité entière.
+    if (!etudId) {
+      db.prepare(`
+        UPDATE deliberation_seance
+        SET cloturee = 0, visite_date = NULL, visite_heure = NULL, visite_local = NULL,
+            maj_le = datetime('now'), maj_par = ?
+        WHERE ue_num = ? AND annee_scolaire = ?
+      `).run(req.user?.email || null, ueNum, annee);
+    }
+  })();
+
+  res.json({ ok: true, ue_num: ueNum, annee, etudiant_id: etudId,
+             decisions_effacees: decisions, ajustements_effaces: ajustements });
+});
+
+/**
  * LE PROCÈS-VERBAL DE DÉLIBÉRATION.
  *
  * Circulaire « Sanction des études », annexe 3 pour une unité ordinaire,

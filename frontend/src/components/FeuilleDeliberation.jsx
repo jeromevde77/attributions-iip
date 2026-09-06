@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import {
   IconX, IconSearch, IconAlertTriangle, IconChevronLeft, IconChevronRight,
   IconArrowUp, IconRepeat, IconList, IconFileText, IconMessage, IconBrush,
+  IconRotate,
 } from '@tabler/icons-react';
 import { authHeaders } from '../lib/api.js';
 import TableauBordEtudiant from './TableauBordEtudiant.jsx';
@@ -288,6 +289,27 @@ export default function FeuilleDeliberation({ ueNum, annee, onClose }) {
     finally { setEnCours(false); }
   }
 
+  /**
+   * Annuler la délibération DE CET ÉTUDIANT : sa décision et ses ajustements
+   * s'effacent, ses notes restent. C'est le geste qu'on cherche quand on s'est
+   * trompé sur un dossier, sans vouloir défaire toute la séance.
+   */
+  async function annulerEtudiant() {
+    if (!etud) return;
+    setEnCours(true); setErreur(null);
+    try {
+      const rep = await fetch(
+        `/api/acquis/deliberation/ue/${ueNum}?annee=${encodeURIComponent(annee)}`
+        + `&etudiant_id=${etud.id}`,
+        { method: 'DELETE', headers: authHeaders() });
+      const j = await rep.json();
+      if (!rep.ok) { setErreur(j.error); return; }
+      setDecisions(m => { const n = { ...m }; delete n[etud.id]; return n; });
+      await charger();
+    } catch (e) { setErreur(e.message); }
+    finally { setEnCours(false); }
+  }
+
   async function enregistrerSeance(champs) {
     setEnCours(true); setErreur(null);
     try {
@@ -427,7 +449,8 @@ export default function FeuilleDeliberation({ ueNum, annee, onClose }) {
               <Fiche e={etud} data={data} onAjuster={ajuster} onMotif={poserMotif}
                 enCours={enCours} onBord={() => setBord(etud)}
                 decision={decisions[etud.id] || etud.ue?.decision_proposee || null}
-                onDecision={d => setDecisions(m => ({ ...m, [etud.id]: d }))} />
+                onDecision={d => setDecisions(m => ({ ...m, [etud.id]: d }))}
+                onAnnuler={annulerEtudiant} />
             </>
           ) : null}
         </div>
@@ -687,7 +710,7 @@ function Cloture({ seance, onClore, onRetour, onPV, enCours, nb }) {
  *     c'est de lui qu'il faut rendre compte, et c'est lui que reprend l'annexe.
  */
 
-function Fiche({ e, data, onAjuster, onMotif, enCours, onBord, decision, onDecision }) {
+function Fiche({ e, data, onAjuster, onMotif, enCours, onBord, decision, onDecision, onAnnuler }) {
   const ue = e.ue || {};
   const acquis = e.acquis || [];
   const cours = e.cours || [];
@@ -810,7 +833,8 @@ function Fiche({ e, data, onAjuster, onMotif, enCours, onBord, decision, onDecis
 
       {/* Ce que le Conseil décide, et ce qu'il y a à représenter. */}
       <Decision e={e} ue={ue} onBord={onBord} acquis={acquis}
-        decision={decision} onDecision={onDecision} enCours={enCours} />
+        decision={decision} onDecision={onDecision} enCours={enCours}
+        onAnnuler={onAnnuler} />
       </div>
 
       {/* LE PILOTAGE, à droite : de qui l'on parle, et où il en est. */}
@@ -1279,7 +1303,7 @@ const DECISIONS = [
  * qu'à s'y ranger. Le Conseil délibère, il ne ratifie pas ; les quatre
  * décisions sont donc offertes, celle du calcul portée d'avance.
  */
-function Decision({ e, ue, onBord, acquis, decision, onDecision, enCours }) {
+function Decision({ e, ue, onBord, acquis, decision, onDecision, enCours, onAnnuler }) {
   const detail = ue.a_representer_detail || [];
   // Ce qui reste à justifier se lit sur les acquis affichés, non sur la liste
   // que le serveur a calculée à l'ouverture de la fiche.
@@ -1318,11 +1342,17 @@ function Decision({ e, ue, onBord, acquis, decision, onDecision, enCours }) {
             );
           })}
 
-          <button onClick={onBord}
-            className="ml-auto text-[11.5px] px-2.5 py-1 rounded-lg bg-iip-blue
-                       text-white font-semibold">
-            Parcours et décision
-          </button>
+          {/* Reprendre ce dossier à zéro : décision et ajustements effacés,
+              notes conservées. */}
+          {(e.resultat || ue.faveur || ue.na) && onAnnuler && (
+            <button onClick={onAnnuler} disabled={enCours}
+              title="Effacer la décision et les ajustements de cet étudiant — ses notes sont conservées"
+              className="ml-auto text-[11.5px] px-2.5 py-1 rounded-lg border border-slate-300
+                         text-slate-500 hover:border-red-400 hover:text-red-700
+                         flex items-center gap-1">
+              <IconRotate size={13} /> Reprendre ce dossier
+            </button>
+          )}
         </div>
 
         <div className="flex items-center gap-2 flex-wrap text-[11.5px]">
