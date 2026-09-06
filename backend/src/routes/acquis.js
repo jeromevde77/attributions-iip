@@ -142,10 +142,24 @@ export function structureUE(ueNum, annee) {
     'SELECT aa_code, aa_num, cours_code, description FROM aa WHERE ue_num = ? ORDER BY aa_num'
   ).all(ueNum);
 
+  // LE LIEN COURS ↔ ACQUIS VIENT DE aa_ponderation, non de la colonne
+  // aa.cours_code du référentiel.
+  //
+  // C'était l'erreur de fond. Le schéma de paramétrage écrit ses liens dans
+  // aa_ponderation ; cette fonction, elle, lisait la colonne du référentiel,
+  // qui ne rattache un acquis qu'à UN cours et n'est presque jamais remplie.
+  // Résultat : on reliait les acquis aux cours et rien n'en tenait compte —
+  // « aucun acquis rattaché à ce cours », des colonnes vides à la
+  // délibération, des acquis sans intitulé. La colonne du référentiel reste
+  // un REPLI, pour les unités jamais paramétrées.
   const pond = {};
-  for (const p of db.prepare('SELECT cours_code, aa_code, poids FROM aa_ponderation WHERE ue_num = ?').all(ueNum)) {
+  const parCours = {};
+  for (const p of db.prepare(
+    'SELECT cours_code, aa_code, poids FROM aa_ponderation WHERE ue_num = ?').all(ueNum)) {
     pond[p.cours_code + '|' + p.aa_code] = Number(p.poids);
+    (parCours[p.cours_code] = parCours[p.cours_code] || []).push(p.aa_code);
   }
+  const aaParCode = Object.fromEntries(aas.map(a => [a.aa_code, a]));
   // Le poids d'un cours dans son UE se DÉDUIT de ses périodes, part
   // d'autonomie exclue : poids = périodes du cours ÷ périodes de l'UE.
   // Il n'est jamais saisi. Les décimales sont conservées pour le calcul ;
@@ -171,9 +185,13 @@ export function structureUE(ueNum, annee) {
   } catch { /* table absente : on s'en tient aux périodes */ }
 
   return cours.map(c => {
-    const siens = aas.filter(a => a.cours_code === c.cours_code).map(a => ({
-      ...a, poids: pond[c.cours_code + '|' + a.aa_code] ?? null,
-    }));
+    const lies = parCours[c.cours_code];
+    const siens = (lies && lies.length
+      // Les acquis que le paramétrage a reliés à ce cours.
+      ? lies.map(code => aaParCode[code] || { aa_code: code, description: null })
+      // Repli : ceux que le référentiel y rattache.
+      : aas.filter(a => a.cours_code === c.cours_code)
+    ).map(a => ({ ...a, poids: pond[c.cours_code + '|' + a.aa_code] ?? null }));
     const somme = siens.reduce((s, a) => s + (a.poids || 0), 0);
     return {
       ...c,
@@ -1606,8 +1624,15 @@ export function delibererUE(etudId, ueNum, annee) {
     }
   }
 
-  const descr = {};
-  for (const c of structure) for (const a of (c.aas || [])) descr[a.aa_code] = a.description;
+  // Les intitulés viennent de la table des acquis de l'UNITÉ, non de la
+  // structure : un acquis évalué par aucun cours doit garder son nom, et un
+  // acquis relié par le seul paramétrage n'était nommé nulle part.
+  const descr = Object.fromEntries(db.prepare(
+    'SELECT aa_code, description FROM aa WHERE ue_num = ?').all(ueNum)
+    .map(a => [a.aa_code, a.description]));
+  for (const c of structure) for (const a of (c.aas || [])) {
+    if (a.description) descr[a.aa_code] = a.description;
+  }
 
   // La justification s'écrit au niveau de l'ACQUIS non acquis : c'est de lui
   // qu'on doit rendre compte, et c'est lui que reprend l'annexe 8 ou 9.

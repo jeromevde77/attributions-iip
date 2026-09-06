@@ -6,12 +6,14 @@ import { authHeaders } from '../lib/api.js';
 /**
  * Relier les acquis aux cours — au tracé, comme le schéma de capitalisation.
  *
- * LE LIEN EST LA PONDÉRATION : un acquis est évalué dans un cours dès qu'il y
- * porte un poids ; l'en retirer, c'est cesser de l'y évaluer. Tirer une flèche
- * d'un cours vers un acquis crée donc le lien AVEC un poids de 1, qu'on ajuste
- * ensuite.
+ * LA SOMME DES ACQUIS FAIT LE COURS. L'acquis est à gauche, le cours à droite,
+ * et la flèche va de l'un à l'autre : ce n'est pas le cours qui donne l'acquis.
  *
- * DIX POINTS À RÉPARTIR par cours, en nombres entiers. Le barème sur 100 des
+ * LE LIEN EST LA PONDÉRATION : un acquis alimente un cours dès qu'il y porte un
+ * poids ; l'en retirer, c'est l'en détacher. Tirer une flèche crée donc le lien
+ * AVEC un poids de 1, qu'on ajuste ensuite.
+ *
+ * DIX POINTS À RÉPARTIR entre les acquis d'un cours, en nombres entiers. Le barème sur 100 des
  * classeurs de suivi reste accepté : seul le rapport entre les poids entre dans
  * le calcul, 3 sur 10 pèse comme 30 sur 100.
  *
@@ -21,9 +23,13 @@ import { authHeaders } from '../lib/api.js';
  * est juste.
  */
 
+// LES ACQUIS À GAUCHE, LES COURS À DROITE, et la flèche va de l'acquis au
+// cours. Ce n'est pas le cours qui donne l'acquis : c'est la SOMME DES ACQUIS
+// QUI FAIT LE COURS, et les dix points se répartissent entre les acquis qui
+// l'alimentent. Le schéma disait l'inverse et se lisait à rebours du calcul.
 const L = 200, H = 34, GY = 10, PAD = 12, TETE = 26;
-const X_COURS = PAD, X_AA = PAD + L + 200;
-const LARGEUR = X_AA + L + PAD;
+const X_AA = PAD, X_COURS = PAD + L + 200;
+const LARGEUR = X_COURS + L + PAD;
 
 export default function SchemaLiensAA({ ueNum, annee, onClose, onEnregistre }) {
   const [data, setData] = useState(null);
@@ -31,7 +37,7 @@ export default function SchemaLiensAA({ ueNum, annee, onClose, onEnregistre }) {
   const [erreur, setErreur] = useState(null);
   const [message, setMessage] = useState(null);
   const [enCours, setEnCours] = useState(false);
-  const [lien, setLien] = useState(null);      // tracé en cours : { cours, x, y, cible }
+  const [lien, setLien] = useState(null);      // tracé en cours : { aa, x, y, cible }
   const [integree, setIntegree] = useState(false);
   const svgRef = useRef(null);
 
@@ -52,8 +58,8 @@ export default function SchemaLiensAA({ ueNum, annee, onClose, onEnregistre }) {
   const layout = useMemo(() => {
     if (!data) return null;
     const posC = {}, posA = {};
-    data.cours.forEach((c, i) => { posC[c.cours_code] = { x: X_COURS, y: PAD + TETE + i * (H + GY) }; });
     data.acquis.forEach((a, i) => { posA[a.aa_code] = { x: X_AA, y: PAD + TETE + i * (H + GY) }; });
+    data.cours.forEach((c, i) => { posC[c.cours_code] = { x: X_COURS, y: PAD + TETE + i * (H + GY) }; });
     const n = Math.max(data.cours.length, data.acquis.length, 1);
     return { posC, posA, hauteur: PAD * 2 + TETE + n * (H + GY) - GY };
   }, [data]);
@@ -129,18 +135,18 @@ export default function SchemaLiensAA({ ueNum, annee, onClose, onEnregistre }) {
     if (!lien || !layout) return;
     const p = svgXY(e);
     let cible = null;
-    for (const a of data.acquis) {
-      const q = layout.posA[a.aa_code];
-      if (p.x >= q.x && p.x <= q.x + L && p.y >= q.y && p.y <= q.y + H) { cible = a.aa_code; break; }
+    for (const c of data.cours) {
+      const q = layout.posC[c.cours_code];
+      if (p.x >= q.x && p.x <= q.x + L && p.y >= q.y && p.y <= q.y + H) { cible = c.cours_code; break; }
     }
     setLien(l => l && ({ ...l, x: p.x, y: p.y, cible }));
   }
   function lienUp() {
     if (!lien) return;
-    const { cours, cible } = lien;
+    const { aa, cible } = lien;
     setLien(null);
     if (!cible) return;
-    const cle = `${cours}|${cible}`;
+    const cle = `${cible}|${aa}`;
     // Un lien nouveau naît avec un poids de 1 : il existe, il reste à le peser.
     if (!(Number(poids[cle]) > 0)) setPoids(m => ({ ...m, [cle]: 1 }));
   }
@@ -251,8 +257,9 @@ export default function SchemaLiensAA({ ueNum, annee, onClose, onEnregistre }) {
               UE {ueNum}{data?.ue_nom ? ` · ${data.ue_nom}` : ''} — cours et acquis
             </h3>
             <p className="text-[12px] text-slate-500">
-              Tirez une flèche d'un cours vers un acquis pour l'y rattacher, puis
-              répartissez <b>dix points</b> par cours.
+              Tirez une flèche d'un <b>acquis</b> vers le <b>cours</b> qu'il alimente :
+              c'est la somme des acquis qui fait le cours. Répartissez ensuite
+              <b>dix points</b> entre les acquis de chaque cours.
             </p>
           </div>
           <button onClick={onClose} className="text-slate-400 hover:text-slate-600">
@@ -310,25 +317,25 @@ export default function SchemaLiensAA({ ueNum, annee, onClose, onEnregistre }) {
                   <defs>
                     <marker id="fl-aa" markerWidth="7" markerHeight="7" refX="6" refY="2.5"
                       orient="auto" markerUnits="strokeWidth">
-                      <path d="M0,0 L0,5 L6,2.5 z" fill="#2563EB" />
+                      <path d="M0,0 L0,5 L6,2.5 z" fill="#0EA5E9" />
                     </marker>
                   </defs>
 
-                  <text x={X_COURS} y={PAD + 12} fontSize="11" fontWeight="700" fill="#64748B">COURS</text>
                   <text x={X_AA} y={PAD + 12} fontSize="11" fontWeight="700" fill="#64748B">ACQUIS D'APPRENTISSAGE</text>
+                  <text x={X_COURS} y={PAD + 12} fontSize="11" fontWeight="700" fill="#64748B">COURS</text>
 
                   {/* Les liens existants, avec leur poids et de quoi l'ajuster. */}
                   {data.cours.flatMap(c => data.acquis.map(a => {
                     const cle = `${c.cours_code}|${a.aa_code}`;
                     const v = Number(poids[cle]) || 0;
                     if (!(v > 0)) return null;
-                    const p1 = layout.posC[c.cours_code], p2 = layout.posA[a.aa_code];
+                    const p1 = layout.posA[a.aa_code], p2 = layout.posC[c.cours_code];
                     const x1 = p1.x + L, y1 = p1.y + H / 2, x2 = p2.x, y2 = p2.y + H / 2;
                     const mx = (x1 + x2) / 2;
                     return (
                       <g key={cle}>
                         <path d={`M${x1},${y1} C${mx},${y1} ${mx},${y2} ${x2 - 8},${y2}`}
-                          fill="none" stroke="#2563EB" strokeWidth="1.6" markerEnd="url(#fl-aa)" />
+                          fill="none" stroke="#0EA5E9" strokeWidth="1.6" markerEnd="url(#fl-aa)" />
                         {/* Le poids, au milieu du lien : − retire un point, +
                             en ajoute, et zéro défait le lien. */}
                         <g transform={`translate(${mx - 26}, ${(y1 + y2) / 2 - 11})`}>
@@ -346,7 +353,7 @@ export default function SchemaLiensAA({ ueNum, annee, onClose, onEnregistre }) {
 
                   {/* Le lien qu'on est en train de tirer. */}
                   {lien && (
-                    <path d={`M${layout.posC[lien.cours].x + L},${layout.posC[lien.cours].y + H / 2}
+                    <path d={`M${layout.posA[lien.aa].x + L},${layout.posA[lien.aa].y + H / 2}
                               L${lien.x},${lien.y}`}
                       fill="none" stroke="#93C5FD" strokeWidth="2" strokeDasharray="4 3" />
                   )}
@@ -367,15 +374,6 @@ export default function SchemaLiensAA({ ueNum, annee, onClose, onEnregistre }) {
                         </text>
                         <text x={p.x + L - 8} y={p.y + 21} fontSize="10" fontWeight="700"
                           textAnchor="end" fill={et.ton}>{et.libelle}</text>
-                        {/* La poignée de tirage, à droite du cours. */}
-                        <circle cx={p.x + L} cy={p.y + H / 2} r="6"
-                          fill="#2563EB" style={{ cursor: 'crosshair' }}
-                          onPointerDown={e => {
-                            e.preventDefault();
-                            const q = svgXY(e);
-                            setLien({ cours: c.cours_code, x: q.x, y: q.y, cible: null });
-                            e.currentTarget.setPointerCapture?.(e.pointerId);
-                          }} />
                       </g>
                     );
                   })}
@@ -393,8 +391,18 @@ export default function SchemaLiensAA({ ueNum, annee, onClose, onEnregistre }) {
                         <text x={p.x + 8} y={p.y + 14} fontSize="11" fontWeight="700"
                           fill={orphelin ? '#92400E' : '#075985'}>{a.aa_code}</text>
                         <text x={p.x + 8} y={p.y + 26} fontSize="9" fill="#475569">
-                          {(a.description || '').slice(0, 34)}
+                          {(a.description || '').slice(0, 30)}
                         </text>
+                        {/* La poignée est sur l'ACQUIS : c'est lui qui alimente
+                            un cours, et le geste doit dire ce sens-là. */}
+                        <circle cx={p.x + L} cy={p.y + H / 2} r="6"
+                          fill="#0EA5E9" style={{ cursor: 'crosshair' }}
+                          onPointerDown={e => {
+                            e.preventDefault();
+                            const q = svgXY(e);
+                            setLien({ aa: a.aa_code, x: q.x, y: q.y, cible: null });
+                            e.currentTarget.setPointerCapture?.(e.pointerId);
+                          }} />
                       </g>
                     );
                   })}
@@ -454,8 +462,8 @@ export default function SchemaLiensAA({ ueNum, annee, onClose, onEnregistre }) {
               </div>
 
               <p className="text-[11.5px] text-slate-500">
-                Tirez depuis le point bleu d'un cours jusqu'à un acquis pour l'y
-                rattacher. Le lien naît à 1 point ; ajustez-le avec − et +, et
+                Tirez depuis le point bleu d'un acquis jusqu'au cours qu'il
+                alimente. Le lien naît à 1 point ; ajustez-le avec − et +, et
                 ramenez-le à 0 pour le défaire. Chaque cours porte son état :
                 <b className="text-emerald-700"> vert</b> enregistré,
                 <b className="text-amber-700"> ambre</b> à enregistrer,
