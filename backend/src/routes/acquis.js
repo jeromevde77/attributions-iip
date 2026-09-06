@@ -1012,6 +1012,7 @@ r.get('/ue/:ueNum/liens', authRequired, (req, res) => {
   res.json({
     ue_num: ueNum, ue_nom: ue.ue_nom || null, section: ue.section || null, annee,
     cours, acquis, liens,
+    epreuve_integree: estEpreuveIntegree(ueNum, annee),
     sommes,
     acquis_sans_cours: acquis.filter(a => !lies.has(a.aa_code)).map(a => a.aa_code),
     cours_incomplets: cours
@@ -1364,6 +1365,66 @@ r.get('/deliberation/plan', authRequired, (req, res) => {
 const SEUIL_UE = 10;   // RDE, art. 78
 
 /**
+ * L'ÉPREUVE INTÉGRÉE D'UNITÉ.
+ *
+ * Les professeurs d'une unité peuvent décider d'une épreuve commune : on
+ * n'évalue plus cours par cours, mais l'unité entière, acquis par acquis. La
+ * note de l'unité se calcule alors sur ces seuls acquis, et CHAQUE COURS de
+ * l'unité reçoit cette note — elle est la même pour tous, puisque l'épreuve
+ * l'était.
+ *
+ * Les liens cours↔acquis restent utiles : ils disent qui enseigne quoi, et
+ * portent les pondérations qui servent encore à peser les acquis entre eux.
+ */
+(function migrerEpreuveIntegree() {
+  try {
+    db.exec(`
+      CREATE TABLE IF NOT EXISTS ue_epreuve_integree (
+        ue_num         INTEGER NOT NULL,
+        annee_scolaire TEXT    NOT NULL,
+        actif          INTEGER NOT NULL DEFAULT 1,
+        maj_le         TEXT DEFAULT CURRENT_TIMESTAMP,
+        maj_par        TEXT,
+        PRIMARY KEY (ue_num, annee_scolaire)
+      );
+    `);
+  } catch (e) { console.error('[migration] ue_epreuve_integree :', e.message); }
+})();
+
+export function estEpreuveIntegree(ueNum, annee) {
+  try {
+    const l = db.prepare(
+      'SELECT actif FROM ue_epreuve_integree WHERE ue_num = ? AND annee_scolaire = ?'
+    ).get(Number(ueNum), annee);
+    return !!(l && l.actif);
+  } catch { return false; }
+}
+
+/**
+ * Les cours qu'une personne a le droit d'encoder.
+ *
+ * Un professeur n'encode que SES cours : lui montrer ceux de ses collègues,
+ * c'est l'inviter à écraser leurs notes. Le lien passe par ses attributions —
+ * il n'y en a pas d'autre. La direction, elle, voit tout ; c'est elle qui
+ * délibère.
+ *
+ * Renvoie null quand il n'y a rien à restreindre, un Set sinon.
+ */
+export function coursAutorises(user, annee) {
+  if (!user) return new Set();
+  if (user.role !== 'professeur') return null;   // direction, secrétariat : tout
+  const u = db.prepare('SELECT professeur_id FROM utilisateur WHERE id = ?').get(user.id);
+  // Un compte professeur non rattaché à une fiche du personnel n'a aucun
+  // cours : mieux vaut ne rien lui montrer que de tout lui ouvrir.
+  if (!u?.professeur_id) return new Set();
+  const rows = db.prepare(`
+    SELECT DISTINCT code_cours FROM attribution
+    WHERE professeur_id = ? AND annee_scolaire = ? AND code_cours IS NOT NULL
+  `).all(u.professeur_id, annee);
+  return new Set(rows.map(r => r.code_cours));
+}
+
+/**
  * Le calcul de délibération d'une unité, pour un étudiant.
  *
  * TROIS NIVEAUX, dans cet ordre de lecture :
@@ -1392,6 +1453,7 @@ const SEUIL_UE = 10;   // RDE, art. 78
  */
 export function delibererUE(etudId, ueNum, annee) {
   const structure = structureUE(ueNum, annee);
+  const integree = estEpreuveIntegree(ueNum, annee);
 
   // Les couples (cours, acquis) et leur poids. La table de pondération fait
   // foi : c'est elle, et non la colonne cours_code de l'acquis, qui permet
@@ -1456,7 +1518,11 @@ export function delibererUE(etudId, ueNum, annee) {
     }));
     const na = aaAjourne(code) || evals.every(e => e.ajourne);
     let note = null;
-    if (!na) {
+    if (!na && integree) {
+      // Épreuve commune : l'acquis a UNE note, celle de l'unité — pas une par
+      // cours. On lit donc la note posée sans cours.
+      note = parAA[code] != null ? Number(parAA[code]) : null;
+    } else if (!na) {
       let num = 0, den = 0;
       for (const e of evals) {
         if (e.ajourne || e.note == null) continue;
@@ -1479,9 +1545,12 @@ export function delibererUE(etudId, ueNum, annee) {
   // ── 2. Le COURS ──────────────────────────────────────────────────────────
   const cours = structure.map(c => {
     const siennes = paires.filter(p => p.cours_code === c.cours_code);
-    const na = coursAjourne(c.cours_code);
+    // Ajourner un ACQUIS ajourne les cours qui l'évaluent : cet acquis n'y est
+    // pas maîtrisé, et le cours est donc lui aussi à représenter.
+    const aas_ajournes = siennes.filter(p => aaAjourne(p.aa_code)).map(p => p.aa_code);
+    const na = coursAjourne(c.cours_code) || aas_ajournes.length > 0;
     let note = null;
-    if (!na) {
+    if (!na && !integree) {
       let num = 0, den = 0;
       for (const p of siennes) {
         if (aaAjourne(p.aa_code)) continue;
@@ -1504,6 +1573,7 @@ export function delibererUE(etudId, ueNum, annee) {
       aas: siennes.map(p => p.aa_code),
       note_calculee: note, note: affichee, na, faveur: forcee,
       faveur_directe: coursFaveur(c.cours_code),
+      ajourne_directement: coursAjourne(c.cours_code), aas_ajournes,
       echec: !na && affichee != null && affichee < SEUIL_UE,
     };
   });
@@ -1521,6 +1591,18 @@ export function delibererUE(etudId, ueNum, annee) {
       // interdit d'aller au-delà quand un acquis n'est pas maîtrisé : il n'y a
       // donc rien à calculer.
       noteUE = SEUIL_UE;
+    } else if (integree) {
+      // Épreuve commune : l'unité se calcule sur ses acquis, pesés entre eux
+      // par la somme de leurs poids — le cours ne s'interpose plus.
+      const poidsAA = {};
+      for (const p of paires) poidsAA[p.aa_code] = (poidsAA[p.aa_code] || 0) + (p.poids || 0);
+      let num = 0, den = 0;
+      for (const a of acquis) {
+        if (a.na || a.note == null) continue;
+        const w = poidsAA[a.aa_code] || 1;
+        num += a.note * w; den += 20 * w;
+      }
+      noteUE = den ? Math.round((num / den) * 20 * 100) / 100 : null;
     } else {
       let num = 0, den = 0;
       for (const p of paires) {
@@ -1536,8 +1618,19 @@ export function delibererUE(etudId, ueNum, annee) {
     }
   }
 
+  // Épreuve commune : chaque cours reçoit la note de l'unité. Elle a été la
+  // même pour tous — il n'y a pas de note propre à un cours à en tirer.
+  if (integree && !ajourne) {
+    for (const c of cours) {
+      if (c.na) continue;
+      c.note_calculee = noteUE;
+      c.note = c.faveur || faveur ? SEUIL_UE : noteUE;
+      c.echec = c.note != null && c.note < SEUIL_UE;
+    }
+  }
+
   return {
-    ue_num: ueNum, annee, seuil: SEUIL_UE,
+    ue_num: ueNum, annee, seuil: SEUIL_UE, epreuve_integree: integree,
     acquis, cours,
     ue: {
       note: ajourne ? null : noteUE,
@@ -1573,6 +1666,12 @@ r.get('/cours/:coursCode/feuille', authRequired, (req, res) => {
   const perim = getUserSections(req.user);
   if (perim && co.section && !perim.includes(co.section)) {
     return res.status(403).json({ error: 'cours hors de votre périmètre' });
+  }
+  // Un professeur n'encode que les cours qui lui sont attribués : la grille
+  // d'un collègue n'est pas la sienne, et l'ouvrir serait pouvoir l'écraser.
+  const permis = coursAutorises(req.user, annee);
+  if (permis && !permis.has(coursCode)) {
+    return res.status(403).json({ error: "Ce cours ne vous est pas attribué cette année." });
   }
 
   // Les acquis ÉVALUÉS DANS CE COURS. La table de pondération fait foi ; à
@@ -1620,6 +1719,8 @@ r.get('/cours/:coursCode/feuille', authRequired, (req, res) => {
 
   res.json({
     cours: co, annee, session, acquis, etudiants, notes,
+    // L'épreuve est commune à l'unité : ce n'est pas ici qu'on encode.
+    epreuve_integree: estEpreuveIntegree(co.ue_num, annee),
     // Sans acquis rattaché, la saisie par cours n'a rien à montrer : mieux
     // vaut le dire que d'afficher une grille vide.
     sans_acquis: !acquis.length,
@@ -1627,16 +1728,87 @@ r.get('/cours/:coursCode/feuille', authRequired, (req, res) => {
   });
 });
 
+/** L'unité est-elle évaluée par une épreuve commune ? */
+r.get('/ue/:ueNum/epreuve-integree', authRequired, (req, res) => {
+  const annee = req.query.annee || anneeDeTravail(req);
+  res.json({ ue_num: Number(req.params.ueNum), annee,
+             actif: estEpreuveIntegree(req.params.ueNum, annee) });
+});
+
+r.put('/ue/:ueNum/epreuve-integree', authRequired, roleRequired('admin', 'editeur'), (req, res) => {
+  const ueNum = Number(req.params.ueNum);
+  const annee = req.body?.annee || req.query.annee || anneeDeTravail(req);
+  const actif = req.body?.actif ? 1 : 0;
+  db.prepare(`
+    INSERT INTO ue_epreuve_integree (ue_num, annee_scolaire, actif, maj_le, maj_par)
+    VALUES (?,?,?, datetime('now'), ?)
+    ON CONFLICT(ue_num, annee_scolaire) DO UPDATE SET
+      actif = excluded.actif, maj_le = datetime('now'), maj_par = excluded.maj_par
+  `).run(ueNum, annee, actif, req.user?.email || null);
+  res.json({ ok: true, ue_num: ueNum, annee, actif: !!actif });
+});
+
 /** Les cours d'une unité, pour choisir lequel encoder. */
 r.get('/ue/:ueNum/cours', authRequired, (req, res) => {
   const annee = req.query.annee || anneeDeTravail(req);
   const ueNum = Number(req.params.ueNum);
-  const st = structureUE(ueNum, annee);
+  // Un professeur n'encode que ses propres cours.
+  const permis = coursAutorises(req.user, annee);
+  const st = structureUE(ueNum, annee)
+    .filter(c => !permis || permis.has(c.cours_code));
   res.json(st.map(c => ({
     cours_code: c.cours_code, cours_nom: c.cours_nom,
     poids_cours_affiche: c.poids_cours_affiche ?? null,
     nb_acquis: (c.aas || []).length,
   })));
+});
+
+/**
+ * La feuille de délibération d'une UNITÉ : tous ses étudiants, calculés.
+ *
+ * Le calcul par étudiant existe (delibererUE) ; il manquait la vue d'ensemble,
+ * celle sur laquelle le Conseil siège. On y lit, pour chacun : les acquis AU
+ * GLOBAL — non par cours —, puis la note de chaque cours, puis celle de
+ * l'unité.
+ */
+r.get('/deliberation/ue/:ueNum', authRequired, (req, res) => {
+  const ueNum = Number(req.params.ueNum);
+  const annee = req.query.annee || anneeDeTravail(req);
+
+  const ue = db.prepare(`
+    SELECT ue_nom, section FROM ue WHERE ue_num = ?
+    ORDER BY (annee_scolaire = ?) DESC, annee_scolaire DESC LIMIT 1
+  `).get(ueNum, annee) || {};
+  const perim = getUserSections(req.user);
+  if (perim && ue.section && !perim.includes(ue.section)) {
+    return res.status(403).json({ error: 'unité hors de votre périmètre' });
+  }
+
+  const etudiants = db.prepare(`
+    SELECT e.id, e.nom, e.prenom, e.id_ecampus, i.resultat, i.points
+    FROM etudiant_inscription i JOIN etudiant e ON e.id = i.etudiant_id
+    WHERE i.annee_scolaire = ? AND i.ue_num = ?
+    ORDER BY e.nom, e.prenom
+  `).all(annee, ueNum);
+
+  const lignes = etudiants.map(e => ({ ...e, ...delibererUE(e.id, ueNum, annee) }));
+
+  // Les colonnes se prennent sur la première ligne calculée : la structure de
+  // l'unité est la même pour tous, seules les notes changent.
+  const modele = lignes[0] || delibererUE(0, ueNum, annee);
+
+  res.json({
+    ue_num: ueNum, ue_nom: ue.ue_nom || `UE ${ueNum}`, section: ue.section || null,
+    annee, seuil: SEUIL_UE, epreuve_integree: estEpreuveIntegree(ueNum, annee),
+    colonnes_acquis: modele.acquis.map(a => ({ aa_code: a.aa_code, description: a.description })),
+    colonnes_cours: modele.cours.map(c => ({
+      cours_code: c.cours_code, cours_nom: c.cours_nom,
+      poids_cours_affiche: c.poids_cours_affiche ?? null,
+    })),
+    etudiants: lignes,
+    // Ce qui empêcherait la feuille d'avoir un sens, dit franchement.
+    sans_structure: !modele.cours.length || !modele.acquis.length,
+  });
 });
 
 r.get('/deliberation/:etudId/:ueNum', authRequired, (req, res) => {

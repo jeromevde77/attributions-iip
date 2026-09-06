@@ -114,6 +114,19 @@ export default function EncodageCours({ coursCode, annee, onClose, onEnregistre,
 
           {!data ? (
             <div className="py-8 text-center text-slate-400 text-sm">Chargement…</div>
+          ) : data.epreuve_integree ? (
+            /* L'unité est évaluée par une épreuve commune : encoder ici, cours
+               par cours, n'aurait pas de sens — la note est celle de l'unité. */
+            <div className="px-4 py-6 rounded-xl bg-violet-50 border border-violet-200
+                            text-[13px] text-violet-900 space-y-1">
+              <div className="font-semibold">Épreuve intégrée d'unité</div>
+              <p>
+                Cette unité est évaluée par une épreuve commune à ses professeurs.
+                On y encode <b>une note par acquis pour l'unité entière</b>, et
+                chaque cours reçoit la note de l'unité. La saisie se fait donc
+                depuis l'unité, non depuis ce cours.
+              </p>
+            </div>
           ) : data.sans_acquis ? (
             /* Le cas de vos UE actuelles : sans lien cours↔acquis, il n'y a
                rien à saisir, et le dire vaut mieux qu'une grille vide. */

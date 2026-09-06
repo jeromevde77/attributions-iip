@@ -3,7 +3,7 @@ import { IconChevronRight, IconArrowLeft, IconBolt, IconAlertTriangle } from '@t
 import { authHeaders, getAnnee } from '../lib/api.js';
 import FeuilleDeliberation from '../components/FeuilleDeliberation.jsx';
 import EncodageCours from '../components/EncodageCours.jsx';
-import LiensCoursAcquis from '../components/LiensCoursAcquis.jsx';
+import SchemaLiensAA from '../components/SchemaLiensAA.jsx';
 import EncodageRapide from './EncodageRapide.jsx';
 
 /**
@@ -256,7 +256,7 @@ export default function Deliberation() {
       )}
 
       {parametrer && (
-        <LiensCoursAcquis ueNum={parametrer} annee={annee}
+        <SchemaLiensAA ueNum={parametrer} annee={annee}
           onClose={() => { setParametrer(null); setCoursDeUe({}); if (deplie) ouvrirCours(deplie); }}
           onEnregistre={() => setCoursDeUe({})} />
       )}

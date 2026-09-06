@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
-import { IconCheck, IconAlertTriangle, IconScale } from '@tabler/icons-react';
-import { authHeaders } from '../lib/api.js';
+import { IconCheck, IconAlertTriangle, IconScale, IconArrowsSplit } from '@tabler/icons-react';
+import { authHeaders, getAnnee } from '../lib/api.js';
+import SchemaLiensAA from '../components/SchemaLiensAA.jsx';
 
 /**
  * Pondération des acquis d'apprentissage.
@@ -18,6 +19,10 @@ export default function PonderationsAA() {
   const [structure, setStructure] = useState(null);
   const [brouillon, setBrouillon] = useState({});   // cours_code -> { aa_code: poids }
   const [message, setMessage] = useState(null);
+  // Le paramétrage au tracé : c'est LÀ que le lien cours↔acquis se crée. Cet
+  // écran ne savait que pondérer des liens existants, et disait « aucun acquis
+  // rattaché » sans offrir de quoi en rattacher un.
+  const [schema, setSchema] = useState(null);
 
   useEffect(() => {
     fetch('/api/ref/sections', { headers: authHeaders() })
@@ -150,7 +155,11 @@ export default function PonderationsAA() {
                   <span className="text-[12.5px] font-semibold text-white">
                     Poids des cours dans l'UE {ueActive}
                   </span>
-                  <span className="text-[10.5px] text-blue-200">déduits des périodes</span>
+                  <button onClick={() => setSchema(ueActive)}
+                    className="text-[11px] px-2 py-1 rounded-lg bg-white/15 text-white
+                               font-semibold flex items-center gap-1.5 hover:bg-white/25">
+                    <IconArrowsSplit size={13} /> Relier cours et acquis
+                  </button>
                 </div>
                 <div className="p-3 flex flex-wrap gap-3">
                   {structure.cours.map(co => (
@@ -203,6 +212,10 @@ export default function PonderationsAA() {
                     {!co.aas.length ? (
                       <div className="px-3 py-3 text-[12px] text-slate-400">
                         Aucun acquis rattaché à ce cours au référentiel.
+                        <button onClick={() => setSchema(ueActive)}
+                          className="ml-2 text-iip-blue underline font-semibold">
+                          Les relier
+                        </button>
                       </div>
                     ) : (
                       <>
@@ -250,6 +263,12 @@ export default function PonderationsAA() {
           )}
         </div>
       </div>
+
+      {schema && (
+        <SchemaLiensAA ueNum={schema} annee={getAnnee()}
+          onClose={() => { setSchema(null); if (ueActive) ouvrirUE(ueActive); }}
+          onEnregistre={() => { chargerUes(); }} />
+      )}
     </div>
   );
 }
