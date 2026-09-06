@@ -78,14 +78,15 @@ r.put('/actif', authRequired, roleRequired('admin'), (req, res) => {
 });
 
 // Le mot de passe ne SORT jamais : on dit seulement s'il est défini.
+function sansSecrets({ pass, graph, ...cfg }) {
+  const { client_secret, ...g } = graph || {};
+  return { ...cfg, pass_defini: !!pass, graph: { ...g, secret_defini: !!client_secret } };
+}
 r.get('/smtp', authRequired, roleRequired('admin'), (req, res) => {
-  const { pass, ...cfg } = lireConfigSmtp();
-  res.json({ ...cfg, pass_defini: !!pass });
+  res.json(sansSecrets(lireConfigSmtp()));
 });
-
 r.put('/smtp', authRequired, roleRequired('admin'), (req, res) => {
-  const { pass, ...cfg } = ecrireConfigSmtp(req.body || {});
-  res.json({ ...cfg, pass_defini: !!pass });
+  res.json(sansSecrets(ecrireConfigSmtp(req.body || {})));
 });
 
 // Vérifie la connexion avec ce qui est à l'écran, sans l'enregistrer.

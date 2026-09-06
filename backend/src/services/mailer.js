@@ -13,7 +13,15 @@ import db from '../db/index.js';
  * La configuration SMTP vit en base (lucie_config, clé `smtp_config`, JSON)
  * et se règle depuis Configuration → Courriels. Les variables d'environnement
  * ne servent plus que de repli si rien n'est enregistré.
- *   { host, port, secure, user, pass, from }
+ *   { mode: 'smtp'|'graph', host, port, securite, user, pass, from,
+ *     graph: { tenant, client_id, client_secret, expediteur } }
+ *
+ * Deux façons d'expédier :
+ *  - 'smtp'  : n'importe quel serveur SMTP (nodemailer).
+ *  - 'graph' : Microsoft 365 par l'API Graph, avec une application Entra
+ *              (OAuth « client credentials »). C'est la voie que Microsoft
+ *              impose : l'authentification SMTP par mot de passe est bloquée
+ *              par les security defaults et retirée fin 2026.
  */
 export function lireConfigSmtp() {
   let cfg = {};
@@ -32,6 +40,13 @@ export function lireConfigSmtp() {
     from:   (cfg.from   ?? process.env.SMTP_FROM ?? '').trim() || 'Lucie IIP <lucie@institut-prigogine.be>',
     // Certificat auto-signé toléré ? Faux par défaut : un relais légitime a un vrai certificat.
     tolerer_certificat: !!cfg.tolerer_certificat,
+    mode: cfg.mode === 'graph' ? 'graph' : 'smtp',
+    graph: {
+      tenant:        (cfg.graph?.tenant        ?? '').trim(),
+      client_id:     (cfg.graph?.client_id     ?? '').trim(),
+      client_secret:  cfg.graph?.client_secret ?? '',
+      expediteur:    (cfg.graph?.expediteur    ?? '').trim(),
+    },
   };
 }
 
@@ -46,7 +61,15 @@ export function ecrireConfigSmtp(patch) {
     pass: patch.pass != null && patch.pass !== '' ? String(patch.pass) : actuel.pass,
     from: String(patch.from ?? actuel.from).trim(),
     tolerer_certificat: patch.tolerer_certificat != null ? !!patch.tolerer_certificat : actuel.tolerer_certificat,
+    mode: patch.mode === 'graph' ? 'graph' : patch.mode === 'smtp' ? 'smtp' : actuel.mode,
+    graph: {
+      tenant:    String(patch.graph?.tenant    ?? actuel.graph.tenant).trim(),
+      client_id: String(patch.graph?.client_id ?? actuel.graph.client_id).trim(),
+      client_secret: patch.graph?.client_secret ? String(patch.graph.client_secret) : actuel.graph.client_secret,
+      expediteur: String(patch.graph?.expediteur ?? actuel.graph.expediteur).trim(),
+    },
   };
+  jetonGraph = null;
   db.prepare(`INSERT OR REPLACE INTO lucie_config (cle, valeur, description)
               VALUES ('smtp_config', ?, 'Serveur SMTP pour l''envoi de courriels')`)
     .run(JSON.stringify(cfg));
@@ -82,9 +105,92 @@ function getTransporter() {
   return transporter;
 }
 
-/** Vérifie la connexion au serveur avec la configuration fournie (non enregistrée). */
-export async function verifierSmtp(cfgEssai) {
+// ── Microsoft Graph ─────────────────────────────────────────────────────────
+let jetonGraph = null;   // { valeur, expire, cle }
+
+function graphComplet(g) {
+  return !!(g.tenant && g.client_id && g.client_secret && g.expediteur);
+}
+
+/** Jeton d'application (client credentials), mis en cache jusqu'à expiration. */
+async function obtenirJetonGraph(g) {
+  const cle = `${g.tenant}|${g.client_id}|${g.client_secret}`;
+  if (jetonGraph && jetonGraph.cle === cle && Date.now() < jetonGraph.expire - 60000) {
+    return jetonGraph.valeur;
+  }
+  const corps = new URLSearchParams({
+    client_id: g.client_id, client_secret: g.client_secret,
+    scope: 'https://graph.microsoft.com/.default', grant_type: 'client_credentials',
+  });
+  const rep = await fetch(`https://login.microsoftonline.com/${encodeURIComponent(g.tenant)}/oauth2/v2.0/token`, {
+    method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+    body: corps, signal: AbortSignal.timeout(15000),
+  });
+  const j = await rep.json().catch(() => ({}));
+  if (!rep.ok || !j.access_token) {
+    // Le message Entra traîne un Trace ID et un horodatage : on garde l'explication.
+    const msg = String(j.error_description || j.error || '').split(/\s+Trace ID/)[0].split('\n')[0];
+    throw new Error(msg || `jeton refusé (${rep.status})`);
+  }
+  jetonGraph = { valeur: j.access_token, expire: Date.now() + (j.expires_in || 3600) * 1000, cle };
+  return j.access_token;
+}
+
+/** Envoi par POST /users/{expéditeur}/sendMail. */
+async function envoyerParGraph(g, { to, subject, html, attachments }) {
+  const jeton = await obtenirJetonGraph(g);
+  const dests = (Array.isArray(to) ? to : String(to).split(',')).map(s => s.trim()).filter(Boolean);
+  const message = {
+    subject,
+    body: { contentType: 'HTML', content: html },
+    toRecipients: dests.map(a => ({ emailAddress: { address: a } })),
+    attachments: (attachments || []).map(a => ({
+      '@odata.type': '#microsoft.graph.fileAttachment',
+      name: a.filename,
+      contentType: a.contentType || 'application/octet-stream',
+      contentBytes: Buffer.from(a.content).toString('base64'),
+    })),
+  };
+  const rep = await fetch(`https://graph.microsoft.com/v1.0/users/${encodeURIComponent(g.expediteur)}/sendMail`, {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${jeton}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ message, saveToSentItems: true }),
+    signal: AbortSignal.timeout(60000),
+  });
+  if (rep.status === 202) return;
+  const j = await rep.json().catch(() => ({}));
+  throw new Error(j.error?.message || `Graph a répondu ${rep.status}`);
+}
+
+/**
+ * Vérifie la configuration fournie (non enregistrée).
+ * SMTP : connexion + authentification. Graph : obtention d'un jeton, puis
+ * lecture de la boîte expéditrice — ce qui prouve que l'application a le droit
+ * de la voir, sans rien envoyer.
+ */
+export async function verifierSmtp(cfgEssai = {}) {
   const base = lireConfigSmtp();
+  const mode = cfgEssai.mode || base.mode;
+  if (mode === 'graph') {
+    const g = { ...base.graph, ...(cfgEssai.graph || {}) };
+    if (!cfgEssai.graph?.client_secret) g.client_secret = base.graph.client_secret;
+    if (!graphComplet(g)) return { ok: false, erreur: 'tenant, application, secret et expéditeur sont requis' };
+    try {
+      jetonGraph = null;
+      const jeton = await obtenirJetonGraph(g);
+      const rep = await fetch(`https://graph.microsoft.com/v1.0/users/${encodeURIComponent(g.expediteur)}?$select=mail`, {
+        headers: { Authorization: `Bearer ${jeton}` }, signal: AbortSignal.timeout(15000),
+      });
+      if (rep.ok) return { ok: true };
+      // Mail.Send seul ne permet pas de lire l'utilisateur : le jeton est
+      // valable, le reste se vérifie par le courriel d'essai.
+      if (rep.status === 403) return { ok: true, remarque: "Jeton obtenu ; l'accès à la boîte se confirmera par le courriel d'essai." };
+      const j = await rep.json().catch(() => ({}));
+      return { ok: false, erreur: j.error?.message || `Graph a répondu ${rep.status}` };
+    } catch (e) {
+      return { ok: false, erreur: e.message };
+    }
+  }
   const cfg = { ...base, ...cfgEssai, pass: cfgEssai?.pass ? cfgEssai.pass : base.pass };
   if (!cfg.host) return { ok: false, erreur: 'serveur non renseigné' };
   try {
@@ -95,9 +201,10 @@ export async function verifierSmtp(cfgEssai) {
   }
 }
 
-/** Le SMTP est-il configuré ? Sinon, les envois sont simulés (console). */
+/** Un expéditeur est-il configuré ? Sinon, les envois sont simulés (console). */
 export function mailerConfigure() {
-  return !!lireConfigSmtp().host;
+  const cfg = lireConfigSmtp();
+  return cfg.mode === 'graph' ? graphComplet(cfg.graph) : !!cfg.host;
 }
 
 /**
@@ -109,8 +216,19 @@ export function mailerConfigure() {
  *   doit pouvoir dire à l'utilisateur qu'il n'est pas parti.
  */
 export async function envoyerEmail({ to, subject, html, text, attachments }) {
-  const t = getTransporter();
+  const cfg = lireConfigSmtp();
   const dest = Array.isArray(to) ? to.join(', ') : to;
+  if (cfg.mode === 'graph' && graphComplet(cfg.graph)) {
+    try {
+      await envoyerParGraph(cfg.graph, { to, subject, html, attachments });
+      console.log(`[MAILER/graph] Email envoyé à ${dest}`);
+      return { ok: true, simule: false };
+    } catch (e) {
+      console.error('[MAILER/graph] Erreur envoi:', e.message);
+      return { ok: false, simule: false, erreur: e.message };
+    }
+  }
+  const t = cfg.mode === 'graph' ? null : getTransporter();
   if (!t) {
     console.log(`[MAILER DEV] À: ${dest}`);
     console.log(`[MAILER DEV] Sujet: ${subject}`);

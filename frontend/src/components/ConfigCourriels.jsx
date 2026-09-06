@@ -14,6 +14,7 @@ export default function ConfigCourriels() {
   const [etat, setEtat] = useState(null);
   const [cfg, setCfg] = useState(null);
   const [pass, setPass] = useState('');
+  const [secret, setSecret] = useState('');
   const [enregistre, setEnregistre] = useState(false);
   const [verif, setVerif] = useState(null);      // { ok, erreur }
   const [test, setTest] = useState(null);
@@ -41,14 +42,17 @@ export default function ConfigCourriels() {
     } finally { setOccupe(''); }
   }
 
-  const corps = () => ({ ...cfg, pass: pass || undefined });
+  const corps = () => ({ ...cfg, pass: pass || undefined,
+                         graph: { ...cfg.graph, client_secret: secret || undefined } });
+  const majG = patch => setCfg(c => ({ ...c, graph: { ...c.graph, ...patch } }));
+  const graphOk = cfg?.mode === 'graph' && cfg.graph?.tenant && cfg.graph?.client_id && cfg.graph?.expediteur && (cfg.graph?.secret_defini || secret);
 
   async function enregistrer() {
     setOccupe('save'); setEnregistre(false);
     try {
       const r = await fetch('/api/envois/smtp', { method: 'PUT', headers: authHeaders(),
         body: JSON.stringify(corps()) });
-      if (r.ok) { setCfg(await r.json()); setPass(''); setEnregistre(true); setTimeout(() => setEnregistre(false), 2500); }
+      if (r.ok) { setCfg(await r.json()); setPass(''); setSecret(''); setEnregistre(true); setTimeout(() => setEnregistre(false), 2500); }
       await charger();
     } finally { setOccupe(''); }
   }
@@ -109,16 +113,60 @@ export default function ConfigCourriels() {
         </div>
       </section>
 
-      {/* ── Serveur SMTP ── */}
+      {/* ── Expédition ── */}
       <section className="bg-white rounded-lg border border-gray-200 overflow-hidden">
         <div className="px-4 py-3 bg-iip-blue/5 border-b border-gray-200">
-          <h2 className="font-semibold text-iip-blue">Serveur d'envoi (SMTP)</h2>
-          <p className="text-xs text-gray-500 mt-0.5">Microsoft 365 : smtp.office365.com, port 587, STARTTLS, avec un compte autorisé au SMTP AUTH.</p>
+          <h2 className="font-semibold text-iip-blue">Expéditeur</h2>
+          <p className="text-xs text-gray-500 mt-0.5">Par où les courriels partent.</p>
         </div>
-        <div className="p-4 grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div className="p-4 flex flex-wrap gap-2">
+          {[['graph', 'Microsoft 365 (API Graph)', 'Recommandé : application Entra, sans mot de passe de boîte.'],
+            ['smtp', 'Serveur SMTP', 'Tout autre serveur. Pour Microsoft 365, bloqué par les security defaults.']].map(([v, l, d]) => (
+            <button key={v} onClick={() => maj({ mode: v })}
+              className={`text-left px-4 py-3 rounded-lg border-2 w-full md:w-[calc(50%-4px)] ${cfg.mode === v ? 'border-iip-turquoise bg-iip-turquoise/5' : 'border-slate-200 hover:border-slate-300'}`}>
+              <div className="font-semibold text-sm text-slate-800">{l}</div>
+              <div className="text-[12px] text-slate-500 mt-0.5">{d}</div>
+            </button>
+          ))}
+        </div>
+
+        {cfg.mode === 'graph' ? (
+          <div className="px-4 pb-4 grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="md:col-span-2 text-[12px] text-slate-600 bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 leading-relaxed">
+              <b>Dans le centre d'administration Entra</b> (entra.microsoft.com → Applications → Inscriptions d'applications) :
+              <ol className="list-decimal ml-5 mt-1 space-y-0.5">
+                <li>Nouvelle inscription, nom « Lucie », comptes de cet annuaire uniquement. Copier l'<i>ID d'application (client)</i> et l'<i>ID de l'annuaire (tenant)</i>.</li>
+                <li>Certificats &amp; secrets → nouveau secret client. Copier la <i>valeur</i> tout de suite, elle ne se réaffiche pas.</li>
+                <li>Autorisations d'API → Microsoft Graph → <b>autorisations d'application</b> → <code>Mail.Send</code> → « Accorder le consentement d'administrateur ».</li>
+                <li>Conseillé : limiter l'application à la seule boîte expéditrice avec une <i>Application Access Policy</i> (Exchange PowerShell : <code>New-ApplicationAccessPolicy</code>), sinon elle peut envoyer au nom de n'importe quelle boîte du tenant.</li>
+              </ol>
+            </div>
+            <label className="block">
+              <span className="text-[12px] font-semibold text-slate-600">ID de l'annuaire (tenant)</span>
+              <input value={cfg.graph.tenant} onChange={e => majG({ tenant: e.target.value })} className={champ} placeholder="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx ou institut-prigogine.be" autoComplete="off" />
+            </label>
+            <label className="block">
+              <span className="text-[12px] font-semibold text-slate-600">ID d'application (client)</span>
+              <input value={cfg.graph.client_id} onChange={e => majG({ client_id: e.target.value })} className={champ} placeholder="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx" autoComplete="off" />
+            </label>
+            <label className="block">
+              <span className="text-[12px] font-semibold text-slate-600">
+                Secret client {cfg.graph.secret_defini && <span className="font-normal text-slate-400">— défini, laisser vide pour le conserver</span>}
+              </span>
+              <input type="password" value={secret} onChange={e => setSecret(e.target.value)} className={champ}
+                placeholder={cfg.graph.secret_defini ? '••••••••' : 'valeur du secret'} autoComplete="new-password" />
+            </label>
+            <label className="block">
+              <span className="text-[12px] font-semibold text-slate-600">Boîte expéditrice</span>
+              <input value={cfg.graph.expediteur} onChange={e => majG({ expediteur: e.target.value })} className={champ} placeholder="direction@institut-prigogine.be" autoComplete="off" />
+              <span className="text-[11px] text-slate-400">Une boîte du tenant (utilisateur ou boîte partagée). Les envois apparaissent dans ses éléments envoyés.</span>
+            </label>
+          </div>
+        ) : (
+        <div className="px-4 pb-4 grid grid-cols-1 md:grid-cols-2 gap-4">
           <label className="block md:col-span-2">
             <span className="text-[12px] font-semibold text-slate-600">Serveur</span>
-            <input value={cfg.host} onChange={e => maj({ host: e.target.value })} className={champ} placeholder="smtp.office365.com" />
+            <input value={cfg.host} onChange={e => maj({ host: e.target.value })} className={champ} placeholder="smtp.exemple.be" />
           </label>
           <label className="block">
             <span className="text-[12px] font-semibold text-slate-600">Port</span>
@@ -134,43 +182,43 @@ export default function ConfigCourriels() {
           </label>
           <label className="block">
             <span className="text-[12px] font-semibold text-slate-600">Utilisateur</span>
-            <input value={cfg.user} onChange={e => maj({ user: e.target.value })} className={champ} placeholder="direction@institut-prigogine.be" autoComplete="off" />
+            <input value={cfg.user} onChange={e => maj({ user: e.target.value })} className={champ} autoComplete="off" />
           </label>
           <label className="block">
             <span className="text-[12px] font-semibold text-slate-600">
               Mot de passe {cfg.pass_defini && <span className="font-normal text-slate-400">— défini, laisser vide pour le conserver</span>}
             </span>
             <input type="password" value={pass} onChange={e => setPass(e.target.value)} className={champ}
-              placeholder={cfg.pass_defini ? '••••••••' : 'mot de passe ou mot de passe d\'application'} autoComplete="new-password" />
+              placeholder={cfg.pass_defini ? '••••••••' : 'mot de passe'} autoComplete="new-password" />
           </label>
           <label className="block md:col-span-2">
             <span className="text-[12px] font-semibold text-slate-600">Expéditeur</span>
             <input value={cfg.from} onChange={e => maj({ from: e.target.value })} className={champ} placeholder="Institut Ilya Prigogine <direction@institut-prigogine.be>" />
-            <span className="text-[11px] text-slate-400">Avec Microsoft 365, l'adresse doit être celle du compte ou une adresse pour laquelle il a le droit d'envoyer.</span>
           </label>
           <label className="flex items-center gap-2 text-[13px] text-slate-600 md:col-span-2">
             <input type="checkbox" checked={!!cfg.tolerer_certificat} onChange={e => maj({ tolerer_certificat: e.target.checked })} />
             Tolérer un certificat non vérifiable (relais interne auto-signé uniquement)
           </label>
         </div>
+        )}
         <div className="px-4 py-3 border-t border-gray-100 bg-slate-50 flex flex-wrap items-center gap-2">
           <button onClick={enregistrer} disabled={!!occupe}
             className="flex items-center gap-1.5 px-4 py-1.5 text-sm bg-iip-blue text-white font-semibold rounded-lg disabled:opacity-40">
             {occupe === 'save' ? <IconLoader2 size={14} className="animate-spin" /> : <IconCheck size={14} />} Enregistrer
           </button>
-          <button onClick={verifier} disabled={!!occupe || !cfg.host}
+          <button onClick={verifier} disabled={!!occupe || (cfg.mode === 'graph' ? !graphOk : !cfg.host)}
             className="flex items-center gap-1.5 px-3.5 py-1.5 text-sm border border-iip-blue text-iip-blue font-semibold rounded-lg disabled:opacity-40">
             {occupe === 'verif' ? <IconLoader2 size={14} className="animate-spin" /> : <IconPlugConnected size={14} />} Vérifier la connexion
           </button>
           {enregistre && <span className="text-[12px] text-emerald-700">Enregistré.</span>}
           {verif && (verif.ok
-            ? <span className="text-[12px] text-emerald-700 flex items-center gap-1"><IconCheck size={13} /> Connexion et authentification réussies.</span>
+            ? <span className="text-[12px] text-emerald-700 flex items-center gap-1"><IconCheck size={13} /> {verif.remarque || 'Connexion et authentification réussies.'}</span>
             : <span className="text-[12px] text-red-700 flex items-center gap-1"><IconAlertTriangle size={13} /> {verif.erreur}</span>)}
         </div>
         <div className="px-4 py-3 border-t border-gray-100 flex flex-wrap items-center gap-2">
           <input value={testTo} onChange={e => setTestTo(e.target.value)} placeholder="adresse pour le courriel d'essai"
             className="border border-slate-300 rounded-lg px-3 py-1.5 text-sm w-72" />
-          <button onClick={essai} disabled={!!occupe || !testTo || !cfg.pass_defini && !pass}
+          <button onClick={essai} disabled={!!occupe || !testTo || (cfg.mode === 'graph' ? !cfg.graph?.secret_defini : !cfg.pass_defini)}
             title="Envoie avec la configuration ENREGISTRÉE"
             className="flex items-center gap-1.5 px-3.5 py-1.5 text-sm border border-iip-turquoise text-iip-turquoise font-semibold rounded-lg disabled:opacity-40">
             {occupe === 'test' ? <IconLoader2 size={14} className="animate-spin" /> : <IconSend size={14} />} Envoyer un essai
