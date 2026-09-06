@@ -316,7 +316,7 @@ export default function FeuilleDeliberation({ ueNum, annee, onClose }) {
   return (
     <div className="fixed inset-0 bg-black/40 flex items-start justify-center z-50 p-3"
       onClick={e => e.target === e.currentTarget && onClose()}>
-      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-6xl mt-4
+      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-[1400px] mt-4
                       max-h-[94vh] overflow-hidden flex flex-col">
 
         {/* L'en-tête ne défile pas : on doit toujours savoir de qui l'on parle. */}
@@ -696,10 +696,13 @@ function Fiche({ e, data, onAjuster, onMotif, enCours, onBord, decision, onDecis
   const caseDe = (a, coursCode) =>
     (a.evaluations || []).find(v => v.cours_code === coursCode) || null;
 
-  const largeurCol = cours.length > 4 ? 'min-w-[74px]' : 'min-w-[92px]';
+  // Les colonnes se resserrent : la matrice n'a plus toute la largeur, le
+  // panneau de pilotage occupe la droite.
+  const largeurCol = cours.length > 3 ? 'min-w-[58px]' : 'min-w-[72px]';
 
   return (
-    <div className="space-y-3">
+    <div className="grid gap-3 lg:grid-cols-[minmax(0,1fr)_300px] items-start">
+      <div className="space-y-3 min-w-0">
       <div className="overflow-x-auto border border-slate-200 rounded-xl">
         <table className="border-collapse text-[12px] w-full">
           <thead>
@@ -808,6 +811,130 @@ function Fiche({ e, data, onAjuster, onMotif, enCours, onBord, decision, onDecis
       {/* Ce que le Conseil décide, et ce qu'il y a à représenter. */}
       <Decision e={e} ue={ue} onBord={onBord} acquis={acquis}
         decision={decision} onDecision={onDecision} enCours={enCours} />
+      </div>
+
+      {/* LE PILOTAGE, à droite : de qui l'on parle, et où il en est. */}
+      <Pilotage e={e} ue={ue} onBord={onBord} />
+    </div>
+  );
+}
+
+/* ═══ Le panneau de pilotage ═══════════════════════════════════════════════
+ *
+ * On délibérait une unité sans voir les autres : il fallait ouvrir une seconde
+ * fenêtre pour savoir de qui l'on parlait, et l'on décidait entre-temps. Le
+ * parcours de l'année tient ici, en pastilles — vert réussi, rouge refusé,
+ * ambre ajourné, violet levé en faveur — avec la moyenne et les crédits.
+ *
+ * Fond sombre : ce n'est pas la feuille, c'est ce qui l'entoure. L'œil ne doit
+ * pas les confondre.
+ */
+
+const TON_RES = {
+  reussi:  'bg-emerald-500/20 text-emerald-200 border-emerald-400/40',
+  refuse:  'bg-red-500/20 text-red-200 border-red-400/40',
+  ajourne: 'bg-amber-500/20 text-amber-200 border-amber-400/40',
+  absent:  'bg-slate-500/20 text-slate-300 border-slate-400/40',
+};
+const TON_FAVEUR = 'bg-violet-500/25 text-violet-200 border-violet-400/50';
+
+function Pilotage({ e, ue, onBord }) {
+  const parcours = e.parcours || [];
+  const autres = parcours.filter(u => u.ue_num !== ue.ue_num);
+
+  const acquises = parcours.filter(u => u.resultat === 'reussi');
+  const ects = acquises.reduce((s, u) => s + (Number(u.ects) || 0), 0);
+  const enFaveur = parcours.filter(u => u.faveur).length;
+
+  return (
+    <div className="rounded-xl bg-slate-800 text-slate-200 p-3 space-y-3
+                    lg:sticky lg:top-2">
+      <div>
+        <div className="text-[13px] font-bold text-white truncate">
+          {e.nom} {e.prenom}
+        </div>
+        <div className="text-[10.5px] text-slate-400">{e.id_ecampus || '—'}</div>
+      </div>
+
+      {/* Les chiffres de l'année. */}
+      <div className="grid grid-cols-3 gap-1.5 text-center">
+        <Chiffre libelle="Moyenne"
+          valeur={ue.moyenne_annee != null ? fmt(ue.moyenne_annee) : '—'}
+          suffixe={ue.moyenne_annee != null ? '/20' : ''}
+          ton={ue.moyenne_annee == null ? 'text-slate-400'
+            : ue.moyenne_annee >= 12 ? 'text-emerald-300'
+            : ue.moyenne_annee >= 10 ? 'text-sky-300' : 'text-amber-300'} />
+        <Chiffre libelle="Acquises" valeur={acquises.length}
+          suffixe={`/${parcours.length}`} ton="text-white" />
+        <Chiffre libelle="Crédits" valeur={ects || '—'}
+          ton={ects ? 'text-white' : 'text-slate-400'} />
+      </div>
+
+      {/* Les autres unités de l'année, en pastilles. */}
+      <div>
+        <div className="text-[10px] font-bold uppercase tracking-wide text-slate-400 mb-1">
+          Les autres unités de l'année
+        </div>
+        {!autres.length ? (
+          <div className="text-[11px] text-slate-500">
+            Aucune autre inscription cette année.
+          </div>
+        ) : (
+          <div className="flex flex-wrap gap-1">
+            {autres.map(u => (
+              <span key={u.ue_num}
+                title={`${u.ue_nom || `UE ${u.ue_num}`}`
+                  + `${u.resultat ? ` — ${LIB_RES[u.resultat]}` : ' — non délibérée'}`
+                  + `${u.points != null ? ` (${fmt(u.points)}/20)` : ''}`
+                  + `${u.faveur ? ' — levée en faveur' : ''}`}
+                className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded-lg border
+                  text-[10.5px] font-semibold
+                  ${u.faveur ? TON_FAVEUR
+                    : TON_RES[u.resultat] || 'bg-slate-700 text-slate-400 border-slate-600'}`}>
+                <span className="tabular-nums">{u.ue_num}</span>
+                {u.points != null && (
+                  <span className="font-normal opacity-80">{fmt(u.points)}</span>
+                )}
+                {u.faveur && <span className="opacity-90">★</span>}
+              </span>
+            ))}
+          </div>
+        )}
+        <div className="mt-1.5 flex flex-wrap gap-x-2 gap-y-0.5 text-[9.5px] text-slate-400">
+          <span><span className="text-emerald-300">■</span> réussi</span>
+          <span><span className="text-amber-300">■</span> ajourné</span>
+          <span><span className="text-red-300">■</span> refusé</span>
+          <span><span className="text-violet-300">■</span> faveur</span>
+          <span><span className="text-slate-500">■</span> non délibérée</span>
+        </div>
+      </div>
+
+      {/* CADEAU SUR CADEAU : l'avertissement vit ici, où l'on voit le parcours. */}
+      {enFaveur > 0 && (
+        <div className="rounded-lg bg-violet-500/15 border border-violet-400/40 px-2 py-1.5
+                        text-[11px] text-violet-100">
+          <b>{enFaveur} unité(s) déjà levée(s) en faveur</b> cette année.
+          Chaque unité se délibère séparément : sans cette ligne, le Conseil
+          accorde sans le savoir une faveur de plus.
+        </div>
+      )}
+
+      <button onClick={onBord}
+        className="w-full px-2.5 py-1.5 text-[11.5px] rounded-lg bg-white/10 border
+                   border-white/20 text-white font-semibold hover:bg-white/15">
+        Parcours complet et motivation
+      </button>
+    </div>
+  );
+}
+
+function Chiffre({ libelle, valeur, suffixe, ton }) {
+  return (
+    <div className="rounded-lg bg-slate-900/60 py-1.5">
+      <div className={`text-[16px] font-bold leading-none tabular-nums ${ton}`}>
+        {valeur}<span className="text-[9px] font-normal opacity-70">{suffixe}</span>
+      </div>
+      <div className="text-[9px] uppercase tracking-wide text-slate-400 mt-0.5">{libelle}</div>
     </div>
   );
 }
@@ -1075,31 +1202,15 @@ function LigneMotif({ a, onMotif, onReporter, seul, enCours }) {
  */
 
 function AideDecision({ ue }) {
-  const ailleurs = ue.faveurs_ailleurs || [];
-  // Les faveurs déjà accordées se disent même quand cette unité-ci est
-  // réussie : c'est au moment où l'on décide qu'il faut le savoir.
-  if (ue.na || (!ue.faveur_cout && !ailleurs.length)) return null;
+  // Les faveurs déjà accordées ailleurs sont désormais dites par le panneau de
+  // pilotage, à droite, où l'on voit le parcours : les répéter ici ferait deux
+  // avertissements pour un.
+  if (ue.na || !ue.faveur_cout) return null;
   const b = ue.faveur_bareme || {};
   const ok = ue.faveur_eligible;
 
   return (
     <div className="space-y-1.5">
-      {/* CADEAU SUR CADEAU : l'avertissement passe avant le reste. */}
-      {!!ailleurs.length && (
-        <div className="rounded-xl border border-amber-400 bg-amber-50 px-3 py-2
-                        text-[12px] text-amber-950">
-          <span className="font-semibold">
-            Faveur déjà accordée cette année dans {ailleurs.length} autre(s) unité(s)
-          </span>
-          {' — '}
-          {ailleurs.map(u => `UE ${u.ue_num}${u.ue_nom ? ` (${u.ue_nom})` : ''}`).join(', ')}.
-          <span className="block text-[11px] opacity-80 mt-0.5">
-            Chaque unité se délibère séparément et de bonne foi : sans cette
-            ligne, le Conseil accorde sans le savoir une faveur de plus.
-          </span>
-        </div>
-      )}
-
       {!!ue.faveur_cout && (
         <div className={`rounded-xl border px-3 py-2 text-[12px]
           ${ok ? 'bg-emerald-50 border-emerald-200 text-emerald-900'

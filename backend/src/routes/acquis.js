@@ -1983,6 +1983,7 @@ r.get('/deliberation/ue/:ueNum', authRequired, (req, res) => {
     const ailleurs = (dejaFaveur[e.id] || []).sort((a, b) => a - b)
       .map(n => ({ ue_num: n, ue_nom: nomUE[n] || null }));
     return { ...e, ...d,
+      parcours: parcoursDeLAnnee(e.id, annee),
       ue: { ...d.ue, ...aideDecision(d, moyennes[e.id] ?? null, ailleurs) } };
   });
 
@@ -2485,6 +2486,31 @@ r.put('/deliberation/ajustement', authRequired,
   res.json(avecAide(Number(etudiant_id), Number(ue_num), annee_scolaire));
 });
 
+/**
+ * LE PARCOURS DE L'ANNÉE d'un étudiant : ses autres unités, leur décision, et
+ * celles qui ont été levées en faveur.
+ *
+ * C'est ce qui manquait à l'écran de délibération pour se suffire à lui-même :
+ * on jugeait une unité sans voir les autres, et il fallait ouvrir une seconde
+ * fenêtre pour savoir de qui l'on parlait.
+ */
+export function parcoursDeLAnnee(etudId, annee) {
+  const faveurs = new Set(db.prepare(`
+    SELECT DISTINCT ue_num FROM deliberation_ajustement
+    WHERE etudiant_id = ? AND annee_scolaire = ? AND action = 'faveur'
+  `).all(etudId, annee).map(r => r.ue_num));
+
+  return db.prepare(`
+    SELECT i.ue_num, i.resultat, i.points,
+           (SELECT MAX(ue_nom) FROM ue WHERE ue_num = i.ue_num) AS ue_nom,
+           (SELECT MAX(ue_per_etudiants) FROM ue WHERE ue_num = i.ue_num) AS periodes,
+           (SELECT MAX(ects) FROM ue WHERE ue_num = i.ue_num) AS ects
+    FROM etudiant_inscription i
+    WHERE i.etudiant_id = ? AND i.annee_scolaire = ?
+    ORDER BY i.ue_num
+  `).all(etudId, annee).map(u => ({ ...u, faveur: faveurs.has(u.ue_num) }));
+}
+
 /** Un étudiant délibéré, augmenté de son aide à la décision. */
 export function avecAide(etudId, ueNum, annee) {
   const d = delibererUE(etudId, ueNum, annee);
@@ -2511,7 +2537,8 @@ export function avecAide(etudId, ueNum, annee) {
     ORDER BY a.ue_num
   `).all(etudId, annee, ueNum);
 
-  return { ...d, ue: { ...d.ue, ...aideDecision(d, moyenne, ailleurs) } };
+  return { ...d, parcours: parcoursDeLAnnee(etudId, annee),
+           ue: { ...d.ue, ...aideDecision(d, moyenne, ailleurs) } };
 }
 
 export default r;
