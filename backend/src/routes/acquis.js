@@ -2180,6 +2180,125 @@ r.get('/cours/:coursCode/feuille', authRequired, (req, res) => {
 });
 
 /**
+ * IMPORTER LES ACQUIS D'UN COURS DEPUIS UN CLASSEUR.
+ *
+ * Les acquis se saisissaient un à un, puis se reliaient à la flèche. Quand ils
+ * existent déjà dans un tableur — et ils y sont toujours, c'est de là que vient
+ * le dossier pédagogique —, autant les lire.
+ *
+ * L'import fait DEUX choses d'un coup, parce qu'elles n'ont pas de sens
+ * séparées : il crée l'acquis dans l'unité s'il n'y est pas, et il le relie à
+ * ce cours avec son poids. Un acquis déjà présent voit son intitulé complété,
+ * jamais écrasé par du vide.
+ *
+ * En SIMULATION, rien n'est écrit : on rend ce qui serait fait, ligne par
+ * ligne, pour qu'on puisse le lire avant de s'engager.
+ */
+r.post('/cours/:coursCode/acquis/importer', authRequired,
+       roleRequired('admin', 'directeur', 'directeur_adjoint', 'editeur'), (req, res) => {
+  const coursCode = req.params.coursCode;
+  const { annee, lignes, simulation, remplacer } = req.body || {};
+  if (!Array.isArray(lignes) || !lignes.length) {
+    return res.status(400).json({ error: 'aucune ligne à importer' });
+  }
+  const an = annee || anneeDeTravail(req);
+
+  const co = db.prepare(`
+    SELECT cours_code, cours_nom, ue_num FROM cours WHERE cours_code = ?
+    ORDER BY (annee_scolaire = ?) DESC, annee_scolaire DESC LIMIT 1
+  `).get(coursCode, an);
+  if (!co) return res.status(404).json({ error: 'cours introuvable' });
+
+  const existants = Object.fromEntries(db.prepare(
+    'SELECT aa_code, description, aa_num FROM aa WHERE ue_num = ?').all(co.ue_num)
+    .map(a => [String(a.aa_code).trim().toUpperCase(), a]));
+  const liens = Object.fromEntries(db.prepare(
+    'SELECT aa_code, poids FROM aa_ponderation WHERE ue_num = ? AND cours_code = ?')
+    .all(co.ue_num, coursCode).map(l => [String(l.aa_code).trim().toUpperCase(), l.poids]));
+
+  const rapport = [];
+  const vus = new Set();
+  let numSuivant = Math.max(0, ...Object.values(existants).map(a => Number(a.aa_num) || 0));
+
+  for (const [i, l] of lignes.entries()) {
+    const code = String(l.aa_code ?? '').trim();
+    if (!code) { rapport.push({ ligne: i + 1, etat: 'ignoree',
+      quoi: "pas de code d'acquis" }); continue; }
+    const cle = code.toUpperCase();
+    if (vus.has(cle)) { rapport.push({ ligne: i + 1, aa_code: code, etat: 'ignoree',
+      quoi: 'déjà vu dans ce fichier' }); continue; }
+    vus.add(cle);
+
+    const desc = l.description == null ? null : String(l.description).trim() || null;
+    const poidsBrut = l.poids == null || l.poids === '' ? null
+      : Number(String(l.poids).replace(',', '.'));
+    if (poidsBrut != null && (!Number.isFinite(poidsBrut) || poidsBrut < 0)) {
+      rapport.push({ ligne: i + 1, aa_code: code, etat: 'refusee',
+        quoi: `poids illisible : « ${l.poids} »` });
+      continue;
+    }
+    // Sans poids, le lien naît à 1 : il existe, il reste à le peser.
+    const poids = poidsBrut == null ? 1 : poidsBrut;
+
+    const dejaLa = existants[cle];
+    const dejaLie = liens[cle] != null;
+    const actes = [];
+    if (!dejaLa) actes.push('acquis créé dans l’unité');
+    else if (desc && !dejaLa.description) actes.push('intitulé complété');
+    if (!dejaLie) actes.push(`relié à ${coursCode} au poids ${poids}`);
+    else if (Number(liens[cle]) !== poids) actes.push(`poids ${liens[cle]} → ${poids}`);
+
+    rapport.push({ ligne: i + 1, aa_code: code, description: desc, poids,
+      etat: actes.length ? (dejaLa && dejaLie ? 'modifiee' : 'creee') : 'inchangee',
+      quoi: actes.join(' · ') || 'rien à faire' });
+
+    if (simulation) continue;
+
+    if (!dejaLa) {
+      db.prepare(`INSERT INTO aa (aa_code, ue_num, aa_num, description, cours_code)
+        VALUES (?,?,?,?,NULL)`).run(code, co.ue_num, ++numSuivant, desc);
+      existants[cle] = { aa_code: code, description: desc, aa_num: numSuivant };
+    } else if (desc && !dejaLa.description) {
+      // On complète un intitulé absent ; on n'écrase jamais celui qui existe.
+      db.prepare('UPDATE aa SET description = ? WHERE ue_num = ? AND aa_code = ?')
+        .run(desc, co.ue_num, dejaLa.aa_code);
+    }
+
+    db.prepare(`
+      INSERT INTO aa_ponderation (ue_num, cours_code, aa_code, poids, maj_le)
+      VALUES (?,?,?,?, datetime('now'))
+      ON CONFLICT(cours_code, aa_code) DO UPDATE SET
+        poids = excluded.poids, ue_num = excluded.ue_num, maj_le = datetime('now')
+    `).run(co.ue_num, coursCode, existants[cle].aa_code, poids);
+  }
+
+  // « Remplacer » délie ce que le fichier ne mentionne pas — sans jamais
+  // supprimer l'acquis lui-même : un autre cours peut l'évaluer.
+  let delies = [];
+  if (remplacer) {
+    delies = Object.keys(liens).filter(c => !vus.has(c));
+    if (!simulation) {
+      const del = db.prepare(
+        'DELETE FROM aa_ponderation WHERE cours_code = ? AND aa_code = ?');
+      for (const c of delies) {
+        const vrai = Object.values(existants).find(a =>
+          String(a.aa_code).toUpperCase() === c);
+        del.run(coursCode, vrai ? vrai.aa_code : c);
+      }
+    }
+  }
+
+  const compte = (e) => rapport.filter(r0 => r0.etat === e).length;
+  res.json({
+    simulation: !!simulation, cours: co, annee: an, rapport,
+    delies,
+    resume: { creees: compte('creee'), modifiees: compte('modifiee'),
+              inchangees: compte('inchangee'), ignorees: compte('ignoree'),
+              refusees: compte('refusee'), deliees: delies.length },
+  });
+});
+
+/**
  * NP OU PP SUR TOUTE L'ÉPREUVE D'UN COURS.
  *
  * L'étudiant ne s'est pas présenté, ou s'est présenté sans rien produire :

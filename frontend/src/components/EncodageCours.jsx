@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
-import { IconX, IconAlertTriangle, IconSearch } from '@tabler/icons-react';
+import { IconX, IconAlertTriangle, IconSearch, IconFileSpreadsheet } from '@tabler/icons-react';
 import { authHeaders } from '../lib/api.js';
+import ImportAcquisCours from './ImportAcquisCours.jsx';
 
 /**
  * Saisie des notes D'UN COURS — l'écran du professeur.
@@ -28,6 +29,7 @@ export default function EncodageCours({ coursCode, annee, onClose, onEnregistre,
   const [session, setSession] = useState(1);
   const [recherche, setRecherche] = useState('');
   const [enAttente, setEnAttente] = useState(0);
+  const [importer, setImporter] = useState(false);
 
   async function charger() {
     setErreur(null);
@@ -111,6 +113,13 @@ export default function EncodageCours({ coursCode, annee, onClose, onEnregistre,
           </div>
           <div className="flex items-center gap-2">
             {enAttente > 0 && <span className="text-[11.5px] text-slate-400">enregistrement…</span>}
+            {/* Les acquis viennent d'un tableur : autant les y lire. */}
+            <button onClick={() => setImporter(true)}
+              title="Importer les acquis de ce cours depuis un classeur Excel"
+              className="px-2.5 py-1 text-[12px] rounded-lg border border-slate-300
+                         text-slate-600 flex items-center gap-1.5">
+              <IconFileSpreadsheet size={14} /> Importer les acquis
+            </button>
             <div className="flex rounded-lg border border-slate-300 overflow-hidden">
               {[1, 2].map(s => (
                 <button key={s} onClick={() => setSession(s)}
@@ -160,13 +169,20 @@ export default function EncodageCours({ coursCode, annee, onClose, onEnregistre,
                 Ce lien se pose au paramétrage de l'unité, ou s'importe du classeur
                 de suivi, onglet <b>Repartition_AA_UE</b>.
               </p>
-              {onParametrer && (
-                <button onClick={() => onParametrer(data.cours.ue_num)}
-                  className="mt-1 px-3 py-1.5 text-[12.5px] rounded-lg bg-iip-blue
-                             text-white font-semibold">
-                  Paramétrer les cours et acquis de l'UE {data.cours.ue_num}
+              <div className="flex flex-wrap gap-2 mt-1">
+                <button onClick={() => setImporter(true)}
+                  className="px-3 py-1.5 text-[12.5px] rounded-lg bg-iip-blue
+                             text-white font-semibold flex items-center gap-1.5">
+                  <IconFileSpreadsheet size={14} /> Importer les acquis depuis Excel
                 </button>
-              )}
+                {onParametrer && (
+                  <button onClick={() => onParametrer(data.cours.ue_num)}
+                    className="px-3 py-1.5 text-[12.5px] rounded-lg border border-iip-blue
+                               text-iip-blue font-semibold">
+                    Les relier à la main
+                  </button>
+                )}
+              </div>
             </div>
           ) : (
             <>
@@ -295,6 +311,12 @@ export default function EncodageCours({ coursCode, annee, onClose, onEnregistre,
           )}
         </div>
       </div>
+
+      {importer && (
+        <ImportAcquisCours coursCode={coursCode} coursNom={data?.cours?.cours_nom}
+          annee={annee} onClose={() => setImporter(false)}
+          onImporte={() => { charger(); onEnregistre && onEnregistre(); }} />
+      )}
     </div>
   );
 }
