@@ -1,11 +1,11 @@
 import { useEffect, useMemo, useState } from 'react';
 import {
   IconX, IconSearch, IconAlertTriangle, IconChevronLeft, IconChevronRight,
-  IconArrowUp, IconRepeat, IconList, IconFileText, IconMessage,
+  IconArrowUp, IconRepeat, IconList, IconFileText, IconMessage, IconBrush,
 } from '@tabler/icons-react';
 import { authHeaders } from '../lib/api.js';
 import TableauBordEtudiant from './TableauBordEtudiant.jsx';
-import { MOTIFS_ECHEC, composerMotif, decomposerMotif } from './motifsEchec.js';
+import { MOTIFS_ECHEC, composerMotif, decomposerMotif, texteDuMotif } from './motifsEchec.js';
 
 /**
  * La FEUILLE DE DÉLIBÉRATION — un étudiant à la fois.
@@ -139,21 +139,25 @@ export default function FeuilleDeliberation({ ueNum, annee, onClose }) {
   }
 
   /** La justification d'un acquis non acquis, enregistrée puis relue. */
-  async function poserMotif(aaCode, texte) {
+  /**
+   * Poser des justifications. Un acquis, ou plusieurs d'un coup — le pinceau
+   * en écrit une vingtaine en un geste, et une requête vaut mieux que vingt.
+   */
+  async function poserMotif(motifs) {
     if (!etud) return;
     setEnCours(true); setErreur(null);
     try {
       const rep = await fetch('/api/acquis/motivation', {
         method: 'PUT', headers: authHeaders(),
         body: JSON.stringify({
-          etudiant_id: etud.id, annee_scolaire: annee, ue_num: ueNum,
-          motifs: { [aaCode]: texte },
+          etudiant_id: etud.id, annee_scolaire: annee, ue_num: ueNum, motifs,
         }),
       });
       const j = await rep.json();
       if (!rep.ok) { setErreur(j.error); return; }
       setData(d => ({ ...d, etudiants: d.etudiants.map(x => x.id !== etud.id ? x
-        : { ...x, acquis: x.acquis.map(a => a.aa_code === aaCode ? { ...a, motif: texte } : a) }) }));
+        : { ...x, acquis: x.acquis.map(a => a.aa_code in motifs
+            ? { ...a, motif: motifs[a.aa_code] } : a) }) }));
     } catch (e) { setErreur(e.message); }
     finally { setEnCours(false); }
   }
@@ -863,61 +867,76 @@ function TuileUE({ ue, seuil, onFaveur, enCours }) {
 
 /* ═══ Ce qu'il faut justifier ══════════════════════════════════════════════
  *
- * Tout ce qui est en échec ou ajourné vient ici, sous la matrice, avec sa
- * justification à droite. Les cours ajournés en tête, avec les acquis qu'ils
- * emportent : l'étudiant devra représenter le cours entier, et c'est de chacun
- * de ses acquis qu'il faut rendre compte.
+ * UNE LIGNE PAR ACQUIS, ET UNE SEULE. Un acquis évalué dans deux cours était
+ * listé deux fois, et il fallait le justifier deux fois : c'est du même acquis
+ * qu'on rend compte, quel que soit le cours qui l'a évalué. Les cours ajournés
+ * sont donc rappelés en une ligne, et les acquis listés une fois chacun.
  *
- * L'énoncé se choisit dans le catalogue ; la précision propre à l'étudiant
- * s'ajoute à côté. Les deux composent le texte unique que reprend l'annexe 8
- * ou 9 — c'est ce que la base attend, et c'est ce qui sera notifié.
+ * PLUSIEURS ÉNONCÉS PAR ACQUIS. Un échec a rarement une seule cause : on
+ * ajoute les énoncés les uns aux autres, on les retire d'un clic, et la
+ * précision propre à l'étudiant se met à côté.
+ *
+ * LE PINCEAU. Une même cause vaut souvent pour tous les acquis d'un dossier.
+ * Le pinceau REPORTE les énoncés d'une ligne sur toutes les autres — il ajoute
+ * aux leurs, il ne les remplace pas : ce qu'on a écrit ailleurs reste.
  */
 
 function AJustifier({ acquis, cours, onMotif, enCours }) {
   const aRepresenter = cours.filter(c => c.na);
-  const dansCoursNa = new Set(aRepresenter.flatMap(c => c.aas || []));
-
   const aJustifier = acquis.filter(a => a.na || a.echec);
   if (!aJustifier.length) return null;
 
-  const isoles = aJustifier.filter(a => !dansCoursNa.has(a.aa_code));
+  const sansMotif = aJustifier.filter(a => !a.motif).length;
+
+  /** Le pinceau : ajouter ces énoncés à tous les autres acquis à justifier. */
+  function reporter(cles) {
+    if (!cles.length) return;
+    const motifs = {};
+    for (const a of aJustifier) {
+      const d = decomposerMotif(a.motif || '');
+      const union = [...new Set([...d.cles, ...cles])];
+      // On ne réécrit que ce qui change : inutile de toucher aux lignes qui
+      // portent déjà ces énoncés.
+      if (union.length !== d.cles.length || !a.motif) {
+        motifs[a.aa_code] = composerMotif(union, d.libre);
+      }
+    }
+    if (Object.keys(motifs).length) onMotif(motifs);
+  }
 
   return (
     <div className="border border-red-200 rounded-xl overflow-hidden">
       <div className="px-3 py-1.5 bg-red-50 border-b border-red-200 flex items-center
-                      justify-between gap-2">
+                      justify-between gap-2 flex-wrap">
         <span className="text-[12px] font-semibold text-red-900">
           À justifier — {aJustifier.length} acquis
         </span>
         <span className="text-[11px] text-red-700">
-          {aJustifier.filter(a => !a.motif).length || 'aucun'} sans motivation
+          {sansMotif ? `${sansMotif} sans motivation` : 'tous motivés'}
         </span>
       </div>
 
-      <div className="divide-y divide-slate-100">
-        {aRepresenter.map(c => (
-          <div key={c.cours_code}>
-            <div className="px-3 py-1.5 bg-slate-50 text-[11.5px]">
-              <span className="font-mono font-bold text-slate-700">{c.cours_code}</span>
-              <span className="text-slate-600">
-                {c.cours_nom ? ` · ${c.cours_nom}` : ''} — cours ajourné, à représenter
-              </span>
-              {!!(c.aas_ajournes || []).length && (
-                <span className="text-slate-500"> (par {c.aas_ajournes.join(', ')})</span>
-              )}
-            </div>
-            {(c.aas || []).map(code => {
-              const a = acquis.find(x => x.aa_code === code);
-              return a ? (
-                <LigneMotif key={`${c.cours_code}-${code}`} a={a} decale
-                  onMotif={onMotif} enCours={enCours} />
-              ) : null;
-            })}
-          </div>
-        ))}
+      {/* Les cours à représenter, rappelés en une ligne : c'est l'acquis qu'on
+          justifie, pas le cours. */}
+      {!!aRepresenter.length && (
+        <div className="px-3 py-1.5 bg-slate-50 border-b border-slate-200 text-[11.5px]
+                        text-slate-700">
+          <span className="font-semibold">Cours ajournés, à représenter :</span>{' '}
+          {aRepresenter.map(c => (
+            <span key={c.cours_code} className="mr-2">
+              <span className="font-mono font-bold">{c.cours_code}</span>
+              {c.cours_nom ? ` · ${c.cours_nom}` : ''}
+            </span>
+          ))}
+        </div>
+      )}
 
-        {isoles.map(a => (
-          <LigneMotif key={a.aa_code} a={a} onMotif={onMotif} enCours={enCours} />
+      <div className="divide-y divide-slate-100">
+        {aJustifier.map(a => (
+          <LigneMotif key={a.aa_code} a={a} enCours={enCours}
+            onMotif={(code, texte) => onMotif({ [code]: texte })}
+            onReporter={reporter}
+            seul={aJustifier.length < 2} />
         ))}
       </div>
 
@@ -929,24 +948,32 @@ function AJustifier({ acquis, cours, onMotif, enCours }) {
   );
 }
 
-/** Un acquis à justifier : son état à gauche, sa motivation à droite. */
-function LigneMotif({ a, decale, onMotif, enCours }) {
+/** Un acquis à justifier : son état à gauche, ses motivations à droite. */
+function LigneMotif({ a, onMotif, onReporter, seul, enCours }) {
   const depart = decomposerMotif(a.motif || '');
-  const [cle, setCle] = useState(depart.cles[0] || '');
+  const [cles, setCles] = useState(depart.cles);
   const [libre, setLibre] = useState(depart.libre);
 
-  // Le motif enregistré peut changer sous nos pieds — on repart de lui quand
-  // l'étudiant change, sans quoi la ligne garderait la saisie du précédent.
+  // Le motif enregistré peut changer sous nos pieds — le pinceau d'une autre
+  // ligne, l'étudiant suivant. On repart de lui.
   useEffect(() => {
     const d = decomposerMotif(a.motif || '');
-    setCle(d.cles[0] || ''); setLibre(d.libre);
+    setCles(d.cles); setLibre(d.libre);
   }, [a.aa_code, a.motif]);
 
-  const poser = (c, l) => onMotif(a.aa_code, composerMotif(c ? [c] : [], l));
+  const poser = (c, l) => onMotif(a.aa_code, composerMotif(c, l));
+  const ajouter = (cle) => {
+    if (!cle || cles.includes(cle)) return;
+    const c = [...cles, cle];
+    setCles(c); poser(c, libre);
+  };
+  const retirer = (cle) => {
+    const c = cles.filter(x => x !== cle);
+    setCles(c); poser(c, libre);
+  };
 
   return (
-    <div className={`px-3 py-2 flex items-start gap-3 ${decale ? 'pl-8' : ''}
-      ${a.motif ? '' : 'bg-red-50/40'}`}>
+    <div className={`px-3 py-2 flex items-start gap-3 ${a.motif ? '' : 'bg-red-50/40'}`}>
       <div className="w-40 flex-none">
         <div className="font-mono text-[11.5px] font-bold text-slate-700">{a.aa_code}</div>
         <div className="text-[10.5px] text-slate-500 truncate" title={a.description || ''}>
@@ -959,23 +986,59 @@ function LigneMotif({ a, decale, onMotif, enCours }) {
       </div>
 
       <div className="flex-1 min-w-0 space-y-1">
-        <select value={cle} disabled={enCours}
-          onChange={ev => { setCle(ev.target.value); poser(ev.target.value, libre); }}
-          className={`w-full border rounded-lg px-2 py-1.5 text-[12px]
-            ${cle ? 'border-slate-300' : 'border-red-400 text-red-700'}`}>
-          <option value="">— choisir la justification —</option>
-          {MOTIFS_ECHEC.map(g => (
-            <optgroup key={g.groupe} label={g.groupe}>
-              {g.motifs.map(m => (
-                <option key={m.cle} value={m.cle}>{m.texte}</option>
-              ))}
-            </optgroup>
-          ))}
-        </select>
+        {/* Les énoncés retenus, chacun retirable. */}
+        {!!cles.length && (
+          <div className="flex flex-wrap gap-1">
+            {cles.map(c => (
+              <span key={c} className="inline-flex items-start gap-1 max-w-full
+                             bg-iip-blue/10 border border-iip-blue/30 rounded-lg
+                             px-1.5 py-0.5 text-[11px] text-iip-blue">
+                <span className="truncate" title={texteDuMotif(c) || ''}>
+                  {texteDuMotif(c)}
+                </span>
+                <button disabled={enCours} onClick={() => retirer(c)}
+                  title="Retirer cet énoncé" className="flex-none opacity-60 hover:opacity-100">
+                  <IconX size={11} />
+                </button>
+              </span>
+            ))}
+          </div>
+        )}
+
+        <div className="flex items-center gap-1.5">
+          <select value="" disabled={enCours}
+            onChange={ev => { ajouter(ev.target.value); ev.target.value = ''; }}
+            className={`flex-1 border rounded-lg px-2 py-1.5 text-[12px]
+              ${cles.length ? 'border-slate-300' : 'border-red-400 text-red-700'}`}>
+            <option value="">
+              {cles.length ? '+ ajouter une justification…' : '— choisir la justification —'}
+            </option>
+            {MOTIFS_ECHEC.map(g => (
+              <optgroup key={g.groupe} label={g.groupe}>
+                {g.motifs.filter(m => !cles.includes(m.cle)).map(m => (
+                  <option key={m.cle} value={m.cle}>{m.texte}</option>
+                ))}
+              </optgroup>
+            ))}
+          </select>
+
+          {/* LE PINCEAU : reporter ces énoncés sur tous les autres acquis. */}
+          {!seul && (
+            <button disabled={enCours || !cles.length}
+              onClick={() => onReporter(cles)}
+              title="Reporter ces justifications sur tous les acquis à justifier — elles s'ajoutent aux leurs, elles ne les remplacent pas"
+              className="flex-none w-8 h-8 rounded-lg border border-iip-blue text-iip-blue
+                         flex items-center justify-center disabled:opacity-30
+                         disabled:border-slate-300 disabled:text-slate-400">
+              <IconBrush size={15} />
+            </button>
+          )}
+        </div>
+
         <input value={libre} disabled={enCours}
           onChange={ev => setLibre(ev.target.value)}
-          onBlur={() => poser(cle, libre)}
-          placeholder="Précision propre à cet étudiant (facultatif)…"
+          onBlur={() => poser(cles, libre)}
+          placeholder="Précision propre à cet acquis (facultatif)…"
           className="w-full border border-slate-200 rounded-lg px-2 py-1 text-[11.5px]" />
       </div>
     </div>
