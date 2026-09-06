@@ -51,7 +51,9 @@ export default function TableauBordEtudiant({ etudId, ueNum, annee, onClose, onD
   const [message, setMessage] = useState(null);
 
   const [decision, setDecision] = useState(null);
-  const [note, setNote] = useState('');
+  // LA COTE NE SE SAISIT PLUS ICI. Elle vient du calcul de délibération, ou de
+  // la décision que le Conseil y a prise. La ressaisir, c'était ouvrir la porte
+  // à deux chiffres divergents pour la même unité.
   const [coches, setCoches] = useState({});
   const [motifs, setMotifs] = useState({});
   const [ouvert, setOuvert] = useState({});
@@ -68,8 +70,7 @@ export default function TableauBordEtudiant({ etudId, ueNum, annee, onClose, onD
       if (d.error) throw new Error(d.error);
       if (b.error) throw new Error(b.error);
       setDetail(d); setBilan(b);
-      setDecision(d.resultat || null);
-      setNote(d.points ?? '');
+      setDecision(d.resultat || d.decision_proposee || null);
       const dec = d.acquis.map(a => [a.aa_code, decomposerMotif(a.motif || '')]);
       setCoches(Object.fromEntries(dec.map(([c, x]) => [c, x.cles])));
       setMotifs(Object.fromEntries(dec.map(([c, x]) => [c, x.libre])));
@@ -98,7 +99,9 @@ export default function TableauBordEtudiant({ etudId, ueNum, annee, onClose, onD
       const rep = await fetch('/api/acquis/decision', {
         method: 'PUT', headers: authHeaders(),
         body: JSON.stringify({ etudiant_id: etudId, annee_scolaire: annee, ue_num: ueNum,
-                               resultat: decision, points: note === '' ? null : note }),
+                               resultat: decision,
+                               // La cote délibérée, telle quelle.
+                               points: detail?.note_deliberee ?? null }),
       });
       const j = await rep.json();
       if (!rep.ok) { setMessage({ type: 'err', texte: j.error }); return; }
@@ -294,22 +297,43 @@ export default function TableauBordEtudiant({ etudId, ueNum, annee, onClose, onD
               {d.libelle}
             </button>
           ))}
-          <label className="flex items-center gap-1.5 text-[12px] text-slate-600 ml-2">
-            Cote
-            <input type="number" min="0" max="20" step="0.5" value={note}
-              onChange={ev => setNote(ev.target.value)}
-              className="w-20 border border-slate-300 rounded-lg px-2 py-1 text-[12.5px]" />
-            <span className="text-slate-400">/20</span>
-          </label>
+          {/* La cote est CELLE DE LA DÉLIBÉRATION : calculée, ou fixée au seuil
+              par une faveur. Elle se lit, elle ne se ressaisit pas. */}
+          <span className="ml-2 flex items-center gap-1.5 text-[12px] text-slate-600">
+            Cote délibérée
+            <b className={`text-[14px] tabular-nums ${
+              detail?.ue_na ? 'text-slate-500'
+                : detail?.ue_faveur ? 'text-amber-700'
+                : (detail?.note_deliberee ?? 0) < SEUIL ? 'text-red-700' : 'text-emerald-700'}`}>
+              {detail?.ue_na ? 'NA'
+                : detail?.note_deliberee == null ? '—'
+                : String(detail.note_deliberee).replace('.', ',')}
+            </b>
+            {!detail?.ue_na && detail?.note_deliberee != null && (
+              <span className="text-slate-400">/20</span>
+            )}
+            {detail?.ue_faveur && (
+              <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-full
+                               bg-amber-100 text-amber-900 border border-amber-300">faveur</span>
+            )}
+          </span>
         </div>
+
+        <p className="text-[11px] text-slate-500">
+          La cote vient de la délibération — du calcul, ou du seuil qu'impose une
+          faveur. Elle se change dans la feuille de délibération, en ajustant les
+          acquis ou les cours, non ici.
+        </p>
 
         {/* La cote reste EN BASE quel que soit le résultat — pour la seconde
             session, pour un recours. Ce que la circulaire écarte, c'est sa
             communication : les documents remis portent « NA ». */}
-        {note !== '' && Number(note) < SEUIL && decision === 'reussi' && (
+        {detail?.note_deliberee != null && detail.note_deliberee < SEUIL
+          && decision === 'reussi' && (
           <div className="px-3 py-2 rounded-lg bg-amber-50 border border-amber-200 text-[12px] text-amber-900">
-            Cote sous le seuil de {SEUIL}/20 avec une décision de réussite. C'est possible —
-            le Conseil délibère — mais la décision devra être motivée.
+            Cote délibérée sous le seuil de {SEUIL}/20 avec une décision de réussite.
+            C'est possible — le Conseil délibère — mais la décision devra être motivée,
+            et une faveur porterait l'unité à exactement {SEUIL}.
           </div>
         )}
 

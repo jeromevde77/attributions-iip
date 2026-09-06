@@ -346,41 +346,50 @@ r.get('/motivation/:etudId/:ueNum', authRequired, (req, res) => {
     WHERE etudiant_id = ? AND annee_scolaire = ? AND ue_num = ?
   `).get(etudId, annee, ueNum);
 
-  const notes = {};
-  for (const l of db.prepare(`
-    SELECT code, points, non_evalue FROM etudiant_note_detail
-    WHERE etudiant_id = ? AND annee_scolaire = ? AND ue_num = ? AND type = 'aa'
-  `).all(etudId, annee, ueNum)) {
-    const brut = String(l.code).includes('|') ? String(l.code).split('|')[1] : l.code;
-    notes[brut] = { points: l.points, non_evalue: l.non_evalue };
-  }
+  // LES ACQUIS VIENNENT DE LA DÉLIBÉRATION, non d'une seconde lecture des
+  // notes. Cet écran en faisait une à lui : il découpait « s1|C1|AA1 » sur le
+  // premier séparateur et lisait donc « C1 » comme code d'acquis — aucune note
+  // ne correspondait, et il ignorait faveurs et ajournements. Deux calculs pour
+  // la même unité, c'est un de trop : celui du Conseil fait foi.
+  const d = delibererUE(etudId, ueNum, annee);
 
   const motifs = Object.fromEntries(db.prepare(`
     SELECT aa_code, motif FROM decision_motivation
     WHERE etudiant_id = ? AND annee_scolaire = ? AND ue_num = ?
   `).all(etudId, annee, ueNum).map(m => [m.aa_code, m.motif]));
 
-  const SEUIL = 10;   // RDE, art. 78
-  const acquis = structureUE(ueNum, annee).flatMap(co =>
-    (co.aas || []).map(a => {
-      const n = notes[a.aa_code];
-      const evalue = n && !n.non_evalue && n.points != null;
-      return {
-        aa_code: a.aa_code, description: a.description,
-        cours_code: co.cours_code, cours_nom: co.cours_nom,
-        note: evalue ? n.points : null,
-        non_evalue: !evalue,
-        // Non maîtrisé : évalué et sous le seuil. Une absence d'évaluation
-        // n'est PAS un échec.
-        non_maitrise: evalue && n.points < SEUIL,
-        motif: motifs[a.aa_code] || '',
-      };
-    }));
+  const SEUIL = SEUIL_UE;   // RDE, art. 78
+  const coursDe = {};
+  for (const c of d.cours) for (const code of (c.aas || [])) {
+    (coursDe[code] = coursDe[code] || []).push(c);
+  }
+
+  const acquis = d.acquis.map(a => {
+    const cs = coursDe[a.aa_code] || [];
+    return {
+      aa_code: a.aa_code, description: a.description,
+      cours_code: cs.map(c => c.cours_code).join(', ') || null,
+      cours_nom: cs.map(c => c.cours_nom).filter(Boolean).join(', ') || null,
+      note: a.na ? null : a.note,
+      na: a.na, faveur: a.faveur,
+      non_evalue: !a.na && a.note == null,
+      // Non maîtrisé : sous le seuil, OU ajourné — dans les deux cas il faut
+      // en rendre compte. Une faveur, elle, l'a levé : elle ne se motive pas
+      // comme un échec.
+      non_maitrise: !a.faveur && (a.na || (a.note != null && a.note < SEUIL)),
+      motif: motifs[a.aa_code] || '',
+    };
+  });
 
   res.json({
     annee, ue_num: ueNum, seuil: SEUIL,
     resultat: insc?.resultat || null,
     points: insc?.points ?? null,
+    // Ce que la délibération dit de l'unité : la cote ne se ressaisit pas ici.
+    note_deliberee: d.ue.na ? null : d.ue.note,
+    decision_proposee: d.ue.decision_proposee,
+    ue_na: d.ue.na, ue_faveur: d.ue.faveur,
+    a_representer: d.ue.a_representer_detail || [],
     acquis,
     nb_non_maitrises: acquis.filter(a => a.non_maitrise).length,
     nb_non_evalues: acquis.filter(a => a.non_evalue).length,
