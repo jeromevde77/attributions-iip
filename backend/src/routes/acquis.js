@@ -2479,7 +2479,39 @@ r.put('/deliberation/ajustement', authRequired,
     `).run(Number(etudiant_id), annee_scolaire, Number(ue_num), portee, code, action,
            req.user?.email || null);
   }
-  res.json(delibererUE(Number(etudiant_id), Number(ue_num), annee_scolaire));
+  // On renvoie l'étudiant recalculé AVEC son aide à la décision : sans elle,
+  // poser un ajustement faisait disparaître de l'écran le coût de la faveur et
+  // les faveurs déjà accordées ailleurs — au moment précis où l'on décide.
+  res.json(avecAide(Number(etudiant_id), Number(ue_num), annee_scolaire));
 });
+
+/** Un étudiant délibéré, augmenté de son aide à la décision. */
+export function avecAide(etudId, ueNum, annee) {
+  const d = delibererUE(etudId, ueNum, annee);
+
+  // La moyenne de l'année, pondérée par les périodes étudiant — même
+  // définition que le bilan de parcours.
+  let num = 0, den = 0;
+  for (const i of db.prepare(`
+    SELECT ue_num, points FROM etudiant_inscription
+    WHERE etudiant_id = ? AND annee_scolaire = ? AND points IS NOT NULL
+  `).all(etudId, annee)) {
+    const p = Number(db.prepare(
+      'SELECT MAX(ue_per_etudiants) AS p FROM ue WHERE ue_num = ?').get(i.ue_num)?.p) || 0;
+    if (!p) continue;
+    num += Number(i.points) * p; den += p;
+  }
+  const moyenne = den ? Math.round((num / den) * 100) / 100 : null;
+
+  const ailleurs = db.prepare(`
+    SELECT DISTINCT a.ue_num, (SELECT MAX(ue_nom) FROM ue WHERE ue_num = a.ue_num) AS ue_nom
+    FROM deliberation_ajustement a
+    WHERE a.etudiant_id = ? AND a.annee_scolaire = ? AND a.action = 'faveur'
+      AND a.ue_num <> ?
+    ORDER BY a.ue_num
+  `).all(etudId, annee, ueNum);
+
+  return { ...d, ue: { ...d.ue, ...aideDecision(d, moyenne, ailleurs) } };
+}
 
 export default r;

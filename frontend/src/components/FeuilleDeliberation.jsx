@@ -37,6 +37,8 @@ export default function FeuilleDeliberation({ ueNum, annee, onClose }) {
   const [enCours, setEnCours] = useState(false);
   // La séance : les présences en ouverture, la visite des copies en clôture.
   const [seance, setSeance] = useState(null);
+  // L'ORDRE DE REVUE, FIGÉ. Il se calcule une fois, à l'ouverture de la revue.
+  const [ordre, setOrdre] = useState(null);   // [etudiant_id] du meilleur au moins bon
   const [etape, setEtape] = useState('presences');   // presences | auto | fiche | cloture
   const [auto, setAuto] = useState(null);           // les réussites de plein droit
 
@@ -70,6 +72,20 @@ export default function FeuilleDeliberation({ ueNum, annee, onClose }) {
    * Conseil voit ce qu'il vient de décider juste au-dessus, et se tient à sa
    * ligne. Les cas sans note passent en dernier — ils demandent autre chose.
    */
+  /**
+   * L'ORDRE EST FIGÉ À L'OUVERTURE DE LA REVUE, ET NE BOUGE PLUS.
+   *
+   * Trier à chaque rendu paraissait naturel — et rendait l'écran inutilisable :
+   * ajourner un étudiant le faisait passer NA, donc dernier ; accorder une
+   * faveur le ramenait à 10, donc plus bas. La liste se réordonnait sous le
+   * curseur et l'on se retrouvait, au même rang, devant QUELQU'UN D'AUTRE. On
+   * croyait voir sa décision passer au vert : on voyait l'étudiant suivant.
+   *
+   * L'ordre du mérite se calcule donc une fois, sur les notes telles qu'elles
+   * sont avant délibération, et la revue le suit jusqu'au bout.
+   */
+  const rang = (e) => e.ue?.na ? -1 : (e.ue?.note ?? -1);
+
   const liste = useMemo(() => {
     if (!data) return [];
     const q = recherche.trim().toLowerCase();
@@ -77,13 +93,24 @@ export default function FeuilleDeliberation({ ueNum, annee, onClose }) {
       ? data.etudiants.filter(e =>
           `${e.nom} ${e.prenom} ${e.id_ecampus || ''}`.toLowerCase().includes(q))
       : data.etudiants;
+    if (ordre) {
+      const pos = Object.fromEntries(ordre.map((id, i) => [id, i]));
+      return [...base].sort((a, b) => (pos[a.id] ?? 1e9) - (pos[b.id] ?? 1e9));
+    }
     return [...base].sort((a, b) => {
-      const na = a.ue?.na ? -1 : (a.ue?.note ?? -1);
-      const nb = b.ue?.na ? -1 : (b.ue?.note ?? -1);
-      if (nb !== na) return nb - na;
-      return `${a.nom} ${a.prenom}`.localeCompare(`${b.nom} ${b.prenom}`);
+      const d = rang(b) - rang(a);
+      return d || `${a.nom} ${a.prenom}`.localeCompare(`${b.nom} ${b.prenom}`);
     });
-  }, [data, recherche]);
+  }, [data, recherche, ordre]);
+
+  /** Figer l'ordre au moment où la revue commence. */
+  function figerOrdre(source) {
+    const l = [...(source || data?.etudiants || [])].sort((a, b) => {
+      const d = rang(b) - rang(a);
+      return d || `${a.nom} ${a.prenom}`.localeCompare(`${b.nom} ${b.prenom}`);
+    });
+    setOrdre(l.map(e => e.id));
+  }
 
   const etud = liste[Math.min(idx, Math.max(liste.length - 1, 0))] || null;
 
@@ -222,9 +249,10 @@ export default function FeuilleDeliberation({ ueNum, annee, onClose }) {
       });
       const j = await rep.json();
       if (!rep.ok) { setErreur(j.error); return; }
-      await charger();
+      const frais = await charger();
       // On reprend la revue là où elle a du sens : au meilleur de ceux qui
-      // restent à apprécier.
+      // restent à apprécier — et l'ordre se fige ici.
+      figerOrdre(frais);
       setIdx(0); setEtape('fiche');
     } catch (e) { setErreur(e.message); }
     finally { setEnCours(false); }
@@ -323,7 +351,7 @@ export default function FeuilleDeliberation({ ueNum, annee, onClose }) {
           ) : etape === 'auto' ? (
             <PleinDroit auto={auto} enCours={enCours}
               onAppliquer={appliquerAuto}
-              onPasser={() => { setIdx(0); setEtape('fiche'); }} />
+              onPasser={() => { figerOrdre(); setIdx(0); setEtape('fiche'); }} />
           ) : etape === 'cloture' ? (
             <Cloture seance={seance?.seance} enCours={enCours} nb={liste.length}
               onRetour={() => setEtape('fiche')} onPV={imprimerPV}
