@@ -256,6 +256,57 @@ export function envelopper(corps, titre = 'Attestations de réussite') {
                         vertical-align: top; width: 33.33%; }
   table.signatures tr.hauteur td { height: 16mm; }
   table.signatures .role { color: #475569; font-size: 7.5pt; }
+  /* ── LA DÉCISION, en cartouche coloré ──────────────────────────────────
+     Une motivation d'ajournement ou de refus a la forme d'une attestation :
+     sans marque, on les confond sur un bureau. Le cartouche porte la nature
+     de la pièce, à la couleur de nos badges. */
+  .decision { border-radius: 2.5mm; padding: 3mm 4mm; margin: 4mm 0 3mm;
+              text-align: center; }
+  .decision .quoi { font-size: 11pt; font-weight: 700; letter-spacing: .3pt; }
+  .decision .sous { font-size: 8pt; margin-top: .8mm; }
+  .decision.ajourne { background: #FFF7ED; border: .5mm solid #F59E0B; color: #7C2D12; }
+  .decision.refus   { background: #FEF2F2; border: .5mm solid #DC2626; color: #7F1D1D; }
+
+  /* UNE PIÈCE DE DÉLIBÉRATION TIENT SUR UNE PAGE. Motivation et procès-verbal
+     portent plus de blocs qu'une attestation : avec la marge de signature de
+     14 mm, le bloc de clôture passait à la page suivante et chaque pièce en
+     laissait une presque vide derrière elle. */
+  .piece .cloture { margin-top: 6mm; }
+  .piece .info { margin: 2mm 0; }
+  .piece table.doc { margin: 1.5mm 0 2.5mm; }
+  .piece h2 { margin-top: 1mm; }
+  .piece .filet { margin-bottom: 3mm; }
+
+  /* Un bloc d'information encadré — seconde session, visite des copies. */
+  .info { background: #f8fafc; border: 0.4pt solid #e2e8f0; border-radius: 1.5mm;
+          padding: 2.5mm 3.5mm; margin: 3mm 0; font-size: 8.5pt; }
+  .info .titre { font-weight: 700; color: #1B2B4B; font-size: 8.5pt;
+                 margin-bottom: 1.2mm; }
+  .info .ligne { margin: .6mm 0; }
+  .info b { color: #1B2B4B; }
+  .info.orange { background: #FFFBEB; border-color: #FCD34D; }
+
+  /* Les tableaux de pièce : acquis et motivation, décisions du PV. */
+  table.doc { width: 100%; border-collapse: collapse; margin: 2mm 0 3mm;
+              font-size: 8.5pt; }
+  table.doc th, table.doc td { border: 0.4pt solid #cbd5e1; padding: 1.5mm 2.5mm;
+                               vertical-align: top; text-align: left; }
+  table.doc th { background: #1B2B4B; color: #fff; font-size: 7.5pt;
+                 font-weight: 600; letter-spacing: .2pt; text-transform: uppercase; }
+  table.doc tbody tr:nth-child(even) td { background: #f8fafc; }
+  table.doc td.c { text-align: center; }
+  table.doc .code { font-weight: 700; color: #1B2B4B; }
+  table.doc .vide { color: #b45309; font-style: italic; }
+
+  .champ { font-size: 8.5pt; margin: 2mm 0; }
+  .champ .lab { font-weight: 700; color: #1B2B4B; }
+
+  /* Le PV liste ses membres en colonnes. */
+  .membres { display: grid; grid-template-columns: 1fr 1fr; gap: .8mm 6mm;
+             font-size: 8pt; margin-top: 1.5mm; }
+  .membres .m b { color: #1B2B4B; }
+  .membres .m span { color: #475569; font-size: 7.5pt; }
+
   ${piedStyles()}
 
   @media screen {

@@ -25,9 +25,12 @@ import { Router } from 'express';
 import db from '../db/index.js';
 import { anneeDeTravail, anneeActiveEnBase } from '../helpers/annee.js';
 import { authRequired, roleRequired, getUserSections } from '../middleware/auth.js';
-import { envelopperDocument } from '../lib/document.js';
 import { SIGNATURE_SOHET, SCEAU_IIP } from '../services/assets/signature_sohet.js';
 import { identiteEtablissement } from './config.js';
+// Les trois pièces de la délibération — attestation de réussite, motivation
+// d'ajournement ou de refus, procès-verbal — partagent une seule mise en page.
+// Le contenu légal diffère ; la charte, non.
+import { envelopper, unitesReussies, pageAttestation } from './attestations.js';
 
 const r = Router();
 
@@ -634,38 +637,6 @@ r.get('/echecs/:etudId', authRequired, (req, res) => {
 // Annexe 8 (ajournement) ou 9 (refus), selon la décision encodée. La forme est
 // imposée par la circulaire : on la suit, sans habillage.
 /**
- * La feuille de style du document de motivation, sortie de la fonction : le
- * lot du secrétariat enchaîne les pièces dans UNE enveloppe, et le corps d'une
- * motivation doit y emporter sa mise en forme.
- */
-export const STYLES_MOTIVATION = `
-:root{--paraphe:url("${SIGNATURE_SOHET}");--sceau:url("${SCEAU_IIP}")}
-.mot{font-size:10pt;line-height:1.35;color:#000}
-.mot p{margin:0 0 2.5mm}
-.mot .cf{text-align:center;font-weight:700;font-size:10.5pt}
-.mot .an{text-align:center;font-size:9.5pt;margin-bottom:4mm}
-.mot .etab{font-size:9.5pt;margin-bottom:4mm}
-/* Le titre en rouge : la décision doit se distinguer au premier regard d'une
-   attestation de réussite, dont la forme est très proche. */
-.mot h1{font-size:12pt;font-weight:700;text-align:center;color:#B91C1C;
-  margin:0 0 4mm;letter-spacing:.3pt}
-.mot table{width:100%;border-collapse:collapse;margin:2mm 0 3mm}
-.mot table th,.mot table td{border:.5pt solid #000;padding:1.5mm 2mm;
-  font-size:9.5pt;vertical-align:top;text-align:left}
-.mot table th{font-size:8.5pt;font-weight:700;background:#f1f5f9}
-.mot .etud{margin:2mm 0 3mm}
-.mot .champ{margin-top:3mm;font-size:9.5pt}
-.mot .cloture{display:flex;justify-content:space-between;align-items:flex-end;
-  gap:8mm;margin-top:8mm;font-size:9.5pt;page-break-inside:avoid}
-.mot .cloture .sceau{width:24mm;height:24mm;background-image:var(--sceau);
-  background-repeat:no-repeat;background-position:center bottom;background-size:contain}
-.mot .sig{text-align:center}
-.mot .sig .paraphe{width:44mm;height:16mm;margin:1mm auto -1mm;
-  background-image:var(--paraphe);background-repeat:no-repeat;
-  background-position:center bottom;background-size:contain}
-.mot .sig .nom{border-top:.4pt solid #94a3b8;padding-top:1mm}`;
-
-/**
  * LE DOCUMENT DE MOTIVATION — annexe 8 (ajournement) ou 9 (refus).
  *
  * Extrait de sa route pour être produit aussi EN LOT : le secrétariat n'imprime
@@ -718,84 +689,165 @@ export function documentMotivation(etudId, ueNum, annee) {
 
   const esc2 = s => String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;')
     .replace(/>/g, '&gt;');
-  const jour = d => d ? String(d).slice(0, 10).split('-').reverse().join('-') : '……………';
-  const [a1, a2] = String(annee).split('-');
+  const jour = d => d ? String(d).slice(0, 10).split('-').reverse().join('/') : '……………';
+  const genre = /^(mme|madame|mlle|mademoiselle|m\.?me)\b/i.test((e.titre || '').trim())
+    ? 'F' : 'H';
+
+  // LES COURS À REPRÉSENTER. Un acquis se représente DANS un cours : c'est le
+  // cours que l'étudiant vient repasser, et c'est donc lui qu'il faut nommer.
+  const coursDe = {};
+  for (const c of d.cours) for (const code of (c.aas || [])) {
+    (coursDe[code] = coursDe[code] || []).push(c);
+  }
+  const aRepresenter = [];
+  for (const l of lignes) {
+    for (const c of (coursDe[l.code] || [])) {
+      let e0 = aRepresenter.find(x => x.cours_code === c.cours_code);
+      if (!e0) aRepresenter.push(e0 = { cours_code: c.cours_code, cours_nom: c.cours_nom, aas: [] });
+      e0.aas.push(l.code);
+    }
+  }
+
+  // La seconde session, telle que la séance l'a fixée.
+  const seance = db.prepare(
+    'SELECT * FROM deliberation_seance WHERE ue_num = ? AND annee_scolaire = ?'
+  ).get(ueNum, annee) || {};
 
   const corps = `
-<div class="mot">
-  <p class="cf">COMMUNAUTÉ FRANÇAISE DE BELGIQUE<br>
-    ENSEIGNEMENT DE PROMOTION SOCIALE</p>
-  <p class="an">ANNÉE SCOLAIRE / ANNÉE ACADÉMIQUE : ${esc2(a1)} / ${esc2(a2)}</p>
+<div class="attestation piece">
+  <div class="entete">
+    <div class="cf">COMMUNAUTÉ FRANÇAISE DE BELGIQUE</div>
+    <div class="epa">ENSEIGNEMENT DE PROMOTION SOCIALE</div>
+    <div class="annee">Année scolaire / académique ${esc2(String(annee).replace('-', '/'))}</div>
+  </div>
 
-  <p class="etab"><b>${esc2(ident.nom || 'Institut Ilya Prigogine')}</b><br>
-    Adresse : ${esc2(ident.adresse || '')}<br>
-    Numéro de matricule : ${esc2(ident.matricule || '……………')}<br>
-    Numéro FASE : ${esc2(ident.fase || '……………')}</p>
+  <div class="etab">
+    <div>
+      <div class="nom">${esc2(ident.nom || 'Institut Ilya Prigogine')}</div>
+      <div>${esc2(ident.adresse || '')}</div>
+    </div>
+    <div class="ident">
+      Matricule ${esc2(ident.matricule || etab.num_ecot || '……………')}<br>
+      FASE ${esc2(ident.fase || etab.num_fase || '……………')}
+    </div>
+  </div>
 
-  <h1>MOTIVATION D'UNE DÉCISION ${estRefus ? 'DE REFUS' : "D'AJOURNEMENT"}</h1>
+  <!-- Le cartouche : cette pièce N'EST PAS une attestation de réussite, et
+       cela doit se voir avant même d'être lu. -->
+  <div class="decision ${estRefus ? 'refus' : 'ajourne'}">
+    <div class="quoi">MOTIVATION D'UNE DÉCISION ${estRefus ? 'DE REFUS' : "D'AJOURNEMENT"}</div>
+    <div class="sous">${estRefus
+      ? "Annexe 9 — circulaire « Sanction des études »"
+      : "Annexe 8 — circulaire « Sanction des études »"}</div>
+  </div>
 
-  <p>Nous, soussignés, Président-e et Membres du Conseil des études / Jury d'épreuve
-    intégrée constitué par le Pouvoir organisateur de l'établissement précité en vue de
-    la délivrance de l'attestation de réussite de l'unité d'enseignement :</p>
+  <h2>${esc2((ue.ue_nom || `UE ${ueNum}`).toUpperCase())}</h2>
+  <div class="filet"></div>
 
-  <table class="ue">
-    <tr><th>Intitulé de l'unité d'enseignement</th><th>Nombre de périodes</th>
-        <th>Numéro de code</th></tr>
-    <tr><td>${esc2(ue.ue_nom || '')}</td>
-        <td>${ue.ue_per_etudiants || '……………'}</td>
-        <td>${esc2(ue.ue_code_fwb || ueNum)}</td></tr>
-  </table>
+  <div class="carac">
+    <div class="large">Code approuvé par le Gouvernement :
+      ${ue.ue_code_fwb ? `<b>${esc2(ue.ue_code_fwb)}</b>`
+                       : '<span class="manque">à compléter au référentiel</span>'}</div>
+    <div>${ue.ue_per_etudiants
+      ? `<b>${ue.ue_per_etudiants}</b> périodes`
+      : '<span class="manque">périodes à compléter</span>'}</div>
+    <div>Unité n<sup>o</sup> <b>${ueNum}</b></div>
+  </div>
 
-  <p>Attestons que :</p>
-  <p class="etud"><b>${esc2((e.nom || '').toUpperCase())} ${esc2(e.prenom || '')}</b> (H/F/X)<br>
-    Né-e à ${esc2(e.lieu_naissance) || '……………………'},
-    le ${jour(e.date_naissance)},</p>
+  <p class="corps">
+    Nous, soussignés, Président-e et Membres du Conseil des études constitué par le
+    Pouvoir organisateur de l'établissement précité en vue de la délivrance de
+    l'attestation de réussite de l'unité d'enseignement susvisée, attestons que
+  </p>
 
-  <p>Ne maîtrise pas les acquis d'apprentissage suivants, soit :</p>
+  <div class="etudiant">
+    <div class="nom">${esc2((e.nom || '').toUpperCase())} ${esc2(e.prenom || '')}</div>
+    <div class="naissance">
+      Né${genre === 'F' ? 'e' : ''} à ${esc2(e.lieu_naissance) || '………'},
+      le ${jour(e.date_naissance)}
+    </div>
+  </div>
 
-  <table class="aa">
-    <tr><th style="width:45%">ACQUIS D'APPRENTISSAGE</th>
-        <th>${estRefus ? 'MOTIVATION' : 'JUSTIFICATION'}</th></tr>
-    ${lignes.map(l => `<tr>
-      <td>${esc2(l.description)}</td>
-      <td>${esc2(l.motif) || '……………………………………'}</td>
-    </tr>`).join('')}
+  <p class="corps">ne maîtrise pas les acquis d'apprentissage suivants :</p>
+
+  <table class="doc">
+    <thead><tr>
+      <th style="width:42%">Acquis d'apprentissage</th>
+      <th>${estRefus ? 'Motivation' : 'Justification'}</th>
+    </tr></thead>
+    <tbody>
+      ${lignes.map(l => `<tr>
+        <td><span class="code">${esc2(l.code)}</span>${
+          l.description ? ` — ${esc2(l.description)}` : ''}</td>
+        <td>${l.motif ? esc2(l.motif)
+          : '<span class="vide">motivation à compléter</span>'}</td>
+      </tr>`).join('')}
+    </tbody>
   </table>
 
   ${estRefus ? `
-  <p class="champ">Base légale de la décision :<br>
-    ${esc2(etab.base_legale_refus
-      || "Arrêté du Gouvernement de la Communauté française du 2 septembre 2015 "
-       + "relatif à la sanction des études ; règlement des études de l'établissement.")}</p>
-  <p class="champ">Voies de recours interne :<br>
-    ${esc2(etab.voies_recours
-      || "Conformément au règlement des études, un recours interne peut être "
-       + "introduit auprès de la direction dans les délais qu'il prévoit.")}</p>
-  <p class="champ">Remarques particulières :<br>……………………………………………………………</p>
+  <div class="info">
+    <div class="titre">Base légale de la décision</div>
+    <div class="ligne">${esc2(etab.base_legale_refus
+      || "Décret du 16 avril 1991 organisant l'enseignement de promotion sociale ; "
+       + "arrêté du Gouvernement de la Communauté française du 2 septembre 2015 relatif "
+       + "à la sanction des études ; règlement des études de l'établissement.")}</div>
+  </div>
+  <div class="info">
+    <div class="titre">Voies de recours interne</div>
+    <div class="ligne">${esc2(etab.voies_recours
+      || "Conformément au règlement des études, un recours interne peut être introduit "
+       + "auprès de la direction dans les délais qu'il prévoit.")}</div>
+  </div>
   ` : `
-  <p class="champ">L'étudiant-e doit représenter les acquis d'apprentissage suivants :<br>
-    ${lignes.map(l => esc2(l.description)).join(' ; ')}</p>
-  <p class="champ">En date du ……………… à ……H……, au local ………,
-    à ……………………………… (adresse)</p>
-  <p class="champ">Remarques :<br>……………………………………………………………………</p>
+  <p class="corps">Les acquis d'apprentissage ci-dessus seront donc à représenter
+    dans les cours suivants :</p>
+  <table class="doc">
+    <thead><tr>
+      <th style="width:30%">Cours à représenter</th>
+      <th>Acquis d'apprentissage concernés</th>
+    </tr></thead>
+    <tbody>
+      ${aRepresenter.length ? aRepresenter.map(c => `<tr>
+        <td><span class="code">${esc2(c.cours_code)}</span>${
+          c.cours_nom ? ` — ${esc2(c.cours_nom)}` : ''}</td>
+        <td>${esc2(c.aas.join(', '))}</td>
+      </tr>`).join('')
+      : `<tr><td colspan="2" class="vide">Aucun cours n'est rattaché à ces acquis
+           au référentiel : la répartition est à compléter.</td></tr>`}
+    </tbody>
+  </table>
+
+  <div class="info orange">
+    <div class="titre">Seconde session</div>
+    <div class="ligne">Le ${seance.session2_date ? `<b>${jour(seance.session2_date)}</b>` : '………………'}
+      à ${seance.session2_heure ? `<b>${esc2(seance.session2_heure)}</b>` : '……h……'},
+      local ${seance.session2_local ? `<b>${esc2(seance.session2_local)}</b>` : '…………'}</div>
+    <div class="ligne">${esc2(seance.session2_adresse || ident.adresse || '')}</div>
+  </div>
   `}
 
+  <div class="info">
+    <div class="titre">Consultation de la copie</div>
+    <div class="ligne">Le ${seance.visite_date ? `<b>${jour(seance.visite_date)}</b>` : '………………'}
+      à ${seance.visite_heure ? `<b>${esc2(seance.visite_heure)}</b>` : '……h……'},
+      local ${seance.visite_local ? `<b>${esc2(seance.visite_local)}</b>` : '…………'}</div>
+  </div>
+
   <div class="cloture">
-    <div>Le Conseil des études,<br>Le Jury d'épreuve intégrée,</div>
     <div class="sceau"></div>
-    <div class="sig">
-      <div>Fait à ${esc2(ident.ville || 'Anderlecht')},<br>
-        le ${jour(new Date().toISOString())}</div>
-      <div class="paraphe"></div>
-      <div class="nom">Le Directeur,<br><b>${esc2(ident.directeur || 'Charles SOHET')}</b></div>
+    <div class="paraphe"></div>
+    <div class="lieu">Fait à ${esc2(ident.ville || 'Anderlecht')},
+      le ${jour(seance.date_seance || new Date().toISOString())}</div>
+    <div class="legende">
+      <div class="qualite">Pour le Conseil des études,<br>le Directeur</div>
+      <div class="nom">${esc2(ident.directeur || 'Charles SOHET')}</div>
     </div>
   </div>
 </div>`;
 
-  const html = envelopperDocument({
-    html: corps, titre: '', avecPied: false, margeHaut: 15, margeCote: 18,
-    styles: STYLES_MOTIVATION,
-  });
+  const html = envelopper(corps,
+    `Motivation ${estRefus ? 'de refus' : "d'ajournement"} — UE ${ueNum}`);
 
   return { html, corps,
            nom: `Motivation_${estRefus ? 'refus' : 'ajournement'}_UE${ueNum}`,
@@ -2063,6 +2115,13 @@ r.get('/deliberation/ue/:ueNum', authRequired, (req, res) => {
         PRIMARY KEY (seance_id, cle)
       );
     `);
+    // LA SECONDE SESSION se notifie avec l'ajournement : sans sa date, son
+    // heure et son local, l'annexe 8 part avec des pointillés que le
+    // secrétariat remplit à la main, cent fois.
+    for (const col of ['session2_date TEXT', 'session2_heure TEXT',
+                       'session2_local TEXT', 'session2_adresse TEXT']) {
+      try { db.exec(`ALTER TABLE deliberation_seance ADD COLUMN ${col}`); } catch { /* déjà là */ }
+    }
   } catch (e) { console.error('[migration] deliberation_seance :', e.message); }
 })();
 
@@ -2151,23 +2210,31 @@ r.put('/deliberation/ue/:ueNum/seance', authRequired,
       roleRequired('admin', 'directeur', 'directeur_adjoint', 'editeur'), (req, res) => {
   const ueNum = Number(req.params.ueNum);
   const annee = req.body?.annee || anneeDeTravail(req);
-  const { membres, date_seance, visite_date, visite_heure, visite_local, cloturee } = req.body || {};
+  const { membres, date_seance, visite_date, visite_heure, visite_local, cloturee,
+          session2_date, session2_heure, session2_local, session2_adresse } = req.body || {};
 
   db.transaction(() => {
     db.prepare(`
       INSERT INTO deliberation_seance
         (ue_num, annee_scolaire, date_seance, visite_date, visite_heure, visite_local,
+         session2_date, session2_heure, session2_local, session2_adresse,
          cloturee, maj_le, maj_par)
-      VALUES (?,?,?,?,?,?,?, datetime('now'), ?)
+      VALUES (?,?,?,?,?,?,?,?,?,?,?, datetime('now'), ?)
       ON CONFLICT(ue_num, annee_scolaire) DO UPDATE SET
-        date_seance  = COALESCE(excluded.date_seance,  deliberation_seance.date_seance),
-        visite_date  = COALESCE(excluded.visite_date,  deliberation_seance.visite_date),
-        visite_heure = COALESCE(excluded.visite_heure, deliberation_seance.visite_heure),
-        visite_local = COALESCE(excluded.visite_local, deliberation_seance.visite_local),
+        date_seance      = COALESCE(excluded.date_seance,      deliberation_seance.date_seance),
+        visite_date      = COALESCE(excluded.visite_date,      deliberation_seance.visite_date),
+        visite_heure     = COALESCE(excluded.visite_heure,     deliberation_seance.visite_heure),
+        visite_local     = COALESCE(excluded.visite_local,     deliberation_seance.visite_local),
+        session2_date    = COALESCE(excluded.session2_date,    deliberation_seance.session2_date),
+        session2_heure   = COALESCE(excluded.session2_heure,   deliberation_seance.session2_heure),
+        session2_local   = COALESCE(excluded.session2_local,   deliberation_seance.session2_local),
+        session2_adresse = COALESCE(excluded.session2_adresse, deliberation_seance.session2_adresse),
         cloturee     = MAX(excluded.cloturee, deliberation_seance.cloturee),
         maj_le = datetime('now'), maj_par = excluded.maj_par
     `).run(ueNum, annee, date_seance || null, visite_date || null, visite_heure || null,
-           visite_local || null, cloturee ? 1 : 0, req.user?.email || null);
+           visite_local || null, session2_date || null, session2_heure || null,
+           session2_local || null, session2_adresse || null,
+           cloturee ? 1 : 0, req.user?.email || null);
 
     if (Array.isArray(membres)) {
       const s = db.prepare(
@@ -2225,7 +2292,7 @@ r.get('/deliberation/ue/:ueNum/documents', authRequired, (req, res) => {
   });
 });
 
-r.post('/deliberation/ue/:ueNum/documents', authRequired, async (req, res) => {
+r.post('/deliberation/ue/:ueNum/documents', authRequired, (req, res) => {
   const ueNum = Number(req.params.ueNum);
   const annee = req.body?.annee || anneeDeTravail(req);
   const veut = {
@@ -2234,8 +2301,6 @@ r.post('/deliberation/ue/:ueNum/documents', authRequired, async (req, res) => {
     refus: req.body?.refus !== false,
   };
 
-  const { unitesReussies, pageAttestation, envelopper } =
-    await import('./attestations.js');
   const etab = db.prepare('SELECT * FROM etablissement LIMIT 1').get() || {};
   let ident = {};
   try { ident = identiteEtablissement() || {}; } catch { ident = {}; }
@@ -2266,7 +2331,7 @@ r.post('/deliberation/ue/:ueNum/documents', authRequired, async (req, res) => {
       if (d.erreur) { manques.push(`${e.nom} ${e.prenom} : ${d.erreur}`); continue; }
       // On reprend le CORPS, non le document entier : les pièces s'enchaînent
       // dans une seule enveloppe, chacune sur sa page.
-      pages.push(`<div class="mot-piece">${d.corps}</div>`);
+      pages.push(d.corps);
       if (e.resultat === 'ajourne') nbA++; else nbX++;
     }
   }
@@ -2280,8 +2345,7 @@ r.post('/deliberation/ue/:ueNum/documents', authRequired, async (req, res) => {
   }
 
   res.json({
-    html: envelopper(`<style>${STYLES_MOTIVATION}</style>`
-                     + pages.join('<div class="saut"></div>'),
+    html: envelopper(pages.join('<div class="saut"></div>'),
                      `Documents de délibération — UE ${ueNum}`),
     nom: `Documents_UE${ueNum}_${String(annee).replace(/\W/g, '')}.html`,
     reussites: nbR, ajournements: nbA, refus: nbX, pieces: pages.length, manques,
@@ -2339,6 +2403,7 @@ r.delete('/deliberation/ue/:ueNum', authRequired,
       db.prepare(`
         UPDATE deliberation_seance
         SET cloturee = 0, visite_date = NULL, visite_heure = NULL, visite_local = NULL,
+            session2_date = NULL, session2_heure = NULL, session2_local = NULL,
             maj_le = datetime('now'), maj_par = ?
         WHERE ue_num = ? AND annee_scolaire = ?
       `).run(req.user?.email || null, ueNum, annee);
@@ -2429,129 +2494,98 @@ r.get('/deliberation/ue/:ueNum/pv', authRequired, (req, res) => {
   const conseil = integree ? "Jury d'épreuve intégrée" : 'Conseil des études';
 
   const corps = `
-    <div class="entete">
-      <div>COMMUNAUTÉ FRANÇAISE DE BELGIQUE</div>
-      <div>ENSEIGNEMENT DE PROMOTION SOCIALE</div>
-      <div>ANNÉE SCOLAIRE / ANNÉE ACADÉMIQUE : ${esc(annee)}</div>
-      <div>${/sup|bach|bes|master/i.test(ue.ue_niv || sec?.niveau || '')
-        ? 'ENSEIGNEMENT SUPÉRIEUR' : 'ENSEIGNEMENT SECONDAIRE'}</div>
-    </div>
+<div class="attestation piece">
+  <div class="entete">
+    <div class="cf">COMMUNAUTÉ FRANÇAISE DE BELGIQUE</div>
+    <div class="epa">ENSEIGNEMENT DE PROMOTION SOCIALE</div>
+    <div class="annee">Année scolaire / académique ${esc(String(annee).replace('-', '/'))}
+      · ${/sup|bach|bes|master/i.test(ue.ue_niveau || ue.ue_niv || sec?.niveau || '')
+        ? 'Enseignement supérieur' : 'Enseignement secondaire'}</div>
+  </div>
 
-    <div class="etab">
+  <div class="etab">
+    <div>
       <div class="nom">${esc(ident.nom || etab.etab_nom || '')}</div>
-      <div>Adresse : ${esc(ident.adresse || etab.adresse || '')}</div>
-      <div>Numéro de matricule : ${esc(ident.matricule || etab.num_ecot || '')}</div>
-      <div>Numéro FASE : ${esc(ident.fase || etab.num_fase || '')}</div>
-      <div>Date de délibération de la ${session}<sup>${session === 1 ? 're' : 'e'}</sup> session :
-        ${esc(jour(seance.date_seance) || '……………')}</div>
+      <div>${esc(ident.adresse || etab.adresse || '')}</div>
     </div>
+    <div class="ident">
+      Matricule ${esc(ident.matricule || etab.num_ecot || '……………')}<br>
+      FASE ${esc(ident.fase || etab.num_fase || '……………')}
+    </div>
+  </div>
 
-    <h1 class="titre">PROCÈS-VERBAL DE DÉLIBÉRATION D'UNE UNITÉ D'ENSEIGNEMENT${
-      integree ? '<br><span class="ei">« ÉPREUVE INTÉGRÉE »</span>' : ''}</h1>
+  <h1>PROCÈS-VERBAL DE DÉLIBÉRATION D'UNE UNITÉ D'ENSEIGNEMENT${
+    integree ? ' « ÉPREUVE INTÉGRÉE »' : ''}</h1>
+  <h2>${esc((ue.ue_nom || `UE ${ueNum}`).toUpperCase())}</h2>
+  <div class="filet"></div>
 
-    <p class="formule">
-      Nous, soussignés, Président-e et Membres du ${esc(conseil)} constitué par le
-      Pouvoir organisateur de l'établissement précité en vue de la délivrance de
-      l'attestation de réussite de l'unité d'enseignement :
-    </p>
+  <div class="carac">
+    <div class="large">Code approuvé par le Gouvernement :
+      ${ue.ue_code_fwb ? `<b>${esc(ue.ue_code_fwb)}</b>`
+                       : '<span class="manque">à compléter au référentiel</span>'}</div>
+    <div>${ue.ue_per_etudiants ? `<b>${ue.ue_per_etudiants}</b> périodes`
+                               : '<span class="manque">périodes à compléter</span>'}</div>
+    <div>${session}<sup>${session === 1 ? 're' : 'e'}</sup> session ·
+      délibérée le <b>${esc(jour(seance.date_seance) || '……………')}</b></div>
+    ${integree ? `<div class="large">Section : ${esc(sec?.libelle || ue.section || '')}
+      ${sec?.code_fwb ? `· code ${esc(sec.code_fwb)}` : ''}</div>` : ''}
+  </div>
 
-    <table class="ue">
-      <tr>
-        <th>Intitulé de l'unité d'enseignement</th>
-        <th>Nombre de périodes</th>
-        <th>Numéro de code</th>
-      </tr>
-      <tr>
-        <td>${esc(ue.ue_nom || `UE ${ueNum}`)}</td>
-        <td class="c">${esc(ue.ue_per_etudiants ?? '')}</td>
-        <td class="c">${esc(ue.ue_code_fwb || '')}</td>
-      </tr>
-    </table>
-    ${integree ? `
-    <p class="formule">
-      de la section : ${esc(sec?.libelle || ue.section || '')}<br>
-      Section approuvée par le Gouvernement sous le numéro de code :
-      ${esc(sec?.code_fwb || '……………………')}
-    </p>` : ''}
+  <p class="corps">
+    Nous, soussignés, Président-e et Membres du ${esc(conseil)} constitué par le
+    Pouvoir organisateur de l'établissement précité en vue de la délivrance de
+    l'attestation de réussite de l'unité d'enseignement susvisée, après en avoir
+    délibéré, avons pris les décisions suivantes :
+  </p>
 
-    <p class="formule">Après en avoir délibéré, avons pris les décisions suivantes :</p>
+  <table class="doc">
+    <thead><tr>
+      <th style="width:34%">Nom, prénom et initiales des autres prénoms</th>
+      <th style="width:26%">Lieu et date de naissance<br>(pays si pas la Belgique)</th>
+      <th style="width:13%">Seuil de réussite</th>
+      <th style="width:13%">Total des points en %<sup>1</sup></th>
+      <th>Décision finale</th>
+    </tr></thead>
+    <tbody>${lignes || '<tr><td colspan="5" class="c vide">Aucun étudiant inscrit.</td></tr>'}</tbody>
+  </table>
+  <p class="champ" style="font-size:7.5pt;color:#64748b">
+    <sup>1</sup> À ne compléter qu'en cas de « Réussite ».</p>
 
-    <table class="decisions">
-      <thead>
-        <tr>
-          <th>Nom, prénom et initiales des autres prénoms</th>
-          <th>Lieu et date de naissance<br><span class="pt">(Pays si pas la Belgique)</span></th>
-          <th>Seuil de réussite</th>
-          <th>Total des points en %<sup>1</sup></th>
-          <th>Décision finale</th>
-        </tr>
-      </thead>
-      <tbody>${lignes || '<tr><td colspan="5" class="c">—</td></tr>'}</tbody>
-    </table>
-    <p class="note"><sup>1</sup> À ne compléter qu'en cas de « Réussite ».</p>
+  <div class="info">
+    <div class="titre">Le ${esc(conseil)}</div>
+    ${presents.length
+      ? `<div class="membres">${presents.map(m => `<div class="m">
+          <b>${esc(m.nom)}</b><br><span>${esc(m.qualite || '')}</span></div>`).join('')}</div>`
+      : '<div class="ligne vide">Les présences n\'ont pas été enregistrées.</div>'}
+  </div>
 
-    <p class="formule">Le présent procès-verbal comporte …… pages.</p>
-    <p class="formule">Le ${esc(conseil)} a délibéré le
-      ${esc(jour(seance.date_seance) || '……………')}.</p>
-    <p class="formule">Les résultats sont communiqués conformément au ROI de
-      l'établissement le ${esc(jour(seance.visite_date) || '……………')}${
+  <div class="info">
+    <div class="ligne">Le présent procès-verbal comporte …… page(s).</div>
+    <div class="ligne">Le ${esc(conseil)} a délibéré le
+      <b>${esc(jour(seance.date_seance) || '……………')}</b>.</div>
+    <div class="ligne">Les résultats sont communiqués conformément au ROI de
+      l'établissement le <b>${esc(jour(seance.visite_date) || '……………')}</b>${
       seance.visite_heure ? ` à ${esc(seance.visite_heure)}` : ''}${
-      seance.visite_local ? `, ${esc(seance.visite_local)}` : ''}.</p>
+      seance.visite_local ? `, local ${esc(seance.visite_local)}` : ''}.</div>
+    ${seance.session2_date ? `<div class="ligne">Seconde session le
+      <b>${esc(jour(seance.session2_date))}</b>${
+      seance.session2_heure ? ` à ${esc(seance.session2_heure)}` : ''}${
+      seance.session2_local ? `, local ${esc(seance.session2_local)}` : ''}.</div>` : ''}
+  </div>
 
-    <div class="signatures">
-      <div class="membres">
-        <div class="lab">Le ${esc(conseil)},</div>
-        ${presents.length
-          ? presents.map(m => `<div class="m">${esc(m.nom)}
-              <span class="q">${esc(m.qualite || '')}</span></div>`).join('')
-          : '<div class="m vide">Les présences n\'ont pas été enregistrées.</div>'}
-      </div>
-      <div class="sceau">
-        <div class="lab">Sceau de l'établissement</div>
-        <img src="${SCEAU_IIP}" alt="">
-      </div>
-      <div class="direction">
-        <div class="lab">Fait en un exemplaire,<br>
-          à ${esc(ident.ville || 'Bruxelles')},<br>
-          le ${esc(jour(seance.date_seance) || '……………')}</div>
-        <img src="${SIGNATURE_SOHET}" alt="">
-        <div class="nom">${esc(ident.directeur || '')}</div>
-        <div class="q">Le Directeur</div>
-      </div>
-    </div>`;
+  <div class="cloture">
+    <div class="sceau"></div>
+    <div class="paraphe"></div>
+    <div class="lieu">Fait en un exemplaire à ${esc(ident.ville || 'Anderlecht')},
+      le ${esc(jour(seance.date_seance) || '……………')}</div>
+    <div class="legende">
+      <div class="qualite">Pour le ${esc(conseil)},<br>le Directeur</div>
+      <div class="nom">${esc(ident.directeur || 'Charles SOHET')}</div>
+    </div>
+  </div>
+</div>`;
 
-  const html = envelopperDocument({
-    html: corps, titre: `PV de délibération — UE ${ueNum}`,
-    styles: `
-      .entete { text-align: center; font-size: 9pt; line-height: 1.45;
-                text-transform: uppercase; letter-spacing: .2pt; }
-      .etab { margin: 4mm 0 2mm; font-size: 9.5pt; line-height: 1.5; }
-      .etab .nom { font-weight: bold; text-transform: uppercase; }
-      h1.titre { text-align: center; font-size: 12.5pt; margin: 5mm 0 3mm;
-                 text-transform: uppercase; letter-spacing: .3pt; }
-      h1.titre .ei { font-size: 11pt; }
-      .formule { font-size: 9.5pt; line-height: 1.5; margin: 2mm 0; }
-      table.ue td, table.ue th { font-size: 9.5pt; }
-      table.decisions { font-size: 9pt; }
-      table.decisions th { background: #f1f5f9; font-weight: bold; text-align: left; }
-      table.decisions td { height: 8mm; }
-      .c { text-align: center; }
-      .pt { font-weight: normal; font-size: 8pt; }
-      .note { font-size: 8pt; color: #475569; margin: 1mm 0 4mm; }
-      .signatures { display: flex; gap: 8mm; margin-top: 8mm;
-                    page-break-inside: avoid; }
-      .signatures > div { flex: 1; font-size: 9pt; }
-      .signatures .lab { font-weight: bold; margin-bottom: 2mm; }
-      .signatures .m { margin-bottom: 1.2mm; }
-      .signatures .m .q { display: block; font-size: 7.5pt; color: #64748b; }
-      .signatures .m.vide { color: #94a3b8; font-style: italic; }
-      .signatures .sceau { text-align: center; }
-      .signatures img { max-height: 22mm; }
-      .signatures .direction { text-align: center; }
-      .signatures .direction .nom { font-weight: bold; }
-      .signatures .direction .q { font-size: 8pt; color: #475569; }
-    `,
-  });
+  const html = envelopper(corps, `PV de délibération — UE ${ueNum}`);
 
   res.json({
     html,

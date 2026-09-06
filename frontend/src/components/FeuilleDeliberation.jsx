@@ -406,6 +406,7 @@ export default function FeuilleDeliberation({ ueNum, annee, onClose }) {
               onPasser={() => { figerOrdre(); setIdx(0); setEtape('fiche'); }} />
           ) : etape === 'cloture' ? (
             <Cloture seance={seance?.seance} enCours={enCours} nb={liste.length}
+              ajournes={(data?.etudiants || []).filter(e => e.resultat === 'ajourne').length}
               onRetour={() => setEtape('fiche')} onPV={imprimerPV}
               onClore={champs => enregistrerSeance({ ...champs, cloturee: 1 })} />
           ) : !liste.length ? (
@@ -613,10 +614,15 @@ function PleinDroit({ auto, onAppliquer, onPasser, enCours }) {
  * sans avoir dit quand et où. Trois champs, et l'affaire est close.
  */
 
-function Cloture({ seance, onClore, onRetour, onPV, enCours, nb }) {
+function Cloture({ seance, onClore, onRetour, onPV, enCours, nb, ajournes }) {
   const [date, setDate] = useState(seance?.visite_date || '');
   const [heure, setHeure] = useState(seance?.visite_heure || '');
   const [local, setLocal] = useState(seance?.visite_local || '');
+  // La seconde session se notifie AVEC l'ajournement : sans elle, l'annexe 8
+  // part avec des pointillés que le secrétariat remplit cent fois à la main.
+  const [s2date, setS2date] = useState(seance?.session2_date || '');
+  const [s2heure, setS2heure] = useState(seance?.session2_heure || '');
+  const [s2local, setS2local] = useState(seance?.session2_local || '');
   const [close, setClose] = useState(!!seance?.cloturee);
   const complet = date && heure && local.trim();
 
@@ -658,6 +664,37 @@ function Cloture({ seance, onClore, onRetour, onPV, enCours, nb }) {
         </label>
       </div>
 
+      {/* La seconde session, portée par la notification d'ajournement. */}
+      {ajournes > 0 && (
+        <div className="border border-amber-300 bg-amber-50/60 rounded-xl p-4 space-y-3">
+          <div>
+            <div className="text-[13px] font-semibold text-amber-900">Seconde session</div>
+            <p className="text-[11.5px] text-amber-800">
+              {ajournes} étudiant(s) ajourné(s). Ces trois indications figurent sur
+              leur notification (annexe 8) : sans elles, elle part avec des pointillés.
+            </p>
+          </div>
+          <div className="grid grid-cols-2 gap-2">
+            <label className="text-[11.5px] text-slate-600">
+              Date
+              <input type="date" value={s2date} onChange={e => setS2date(e.target.value)}
+                className="w-full mt-0.5 border border-slate-300 rounded-lg px-2 py-1.5 text-[12.5px]" />
+            </label>
+            <label className="text-[11.5px] text-slate-600">
+              Heure
+              <input type="time" value={s2heure} onChange={e => setS2heure(e.target.value)}
+                className="w-full mt-0.5 border border-slate-300 rounded-lg px-2 py-1.5 text-[12.5px]" />
+            </label>
+          </div>
+          <label className="text-[11.5px] text-slate-600 block">
+            Local
+            <input value={s2local} onChange={e => setS2local(e.target.value)}
+              placeholder="Bâtiment P, local 2.14…"
+              className="w-full mt-0.5 border border-slate-300 rounded-lg px-2 py-1.5 text-[12.5px]" />
+          </label>
+        </div>
+      )}
+
       <div className="flex items-center justify-between gap-2">
         <button onClick={onRetour}
           className="px-3 py-1.5 text-[12.5px] rounded-lg border border-slate-300 text-slate-600">
@@ -675,7 +712,9 @@ function Cloture({ seance, onClore, onRetour, onPV, enCours, nb }) {
             <IconFileText size={14} /> Procès-verbal
           </button>
           <button disabled={enCours || !complet} onClick={() => onClore({
-              visite_date: date, visite_heure: heure, visite_local: local.trim() })
+              visite_date: date, visite_heure: heure, visite_local: local.trim(),
+              session2_date: s2date || null, session2_heure: s2heure || null,
+              session2_local: s2local.trim() || null })
               .then(ok => ok && setClose(true))}
             title={complet ? '' : 'La date, l’heure et le local sont requis'}
             className="px-4 py-2 text-[13px] rounded-lg bg-emerald-600 text-white font-semibold
