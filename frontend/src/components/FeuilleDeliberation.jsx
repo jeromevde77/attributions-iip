@@ -631,7 +631,6 @@ function Fiche({ e, data, onAjuster, onMotif, enCours, onBord }) {
   const ue = e.ue || {};
   const acquis = e.acquis || [];
   const cours = e.cours || [];
-  const [motifDe, setMotifDe] = useState(null);   // aa_code en cours de motivation
 
   // La note d'un acquis DANS un cours : c'est la case de la matrice.
   const caseDe = (a, coursCode) =>
@@ -706,7 +705,6 @@ function Fiche({ e, data, onAjuster, onMotif, enCours, onBord }) {
                   <TuileSomme etat={a} seuil={data.seuil} enCours={enCours}
                     onAjourner={() => onAjuster('aa', a.aa_code,
                       a.ajourne_directement ? null : 'ajourne')}
-                    onMotiver={() => setMotifDe(m => m === a.aa_code ? null : a.aa_code)}
                     motif={a.motif} />
                 </td>
               </tr>
@@ -738,12 +736,11 @@ function Fiche({ e, data, onAjuster, onMotif, enCours, onBord }) {
         </table>
       </div>
 
-      {/* La justification, sous la matrice, pour l'acquis choisi. */}
-      {motifDe && (
-        <Justification aa={acquis.find(a => a.aa_code === motifDe)}
-          onFermer={() => setMotifDe(null)}
-          onEnregistrer={t => onMotif(motifDe, t).then(() => setMotifDe(null))} />
-      )}
+      {/* CE QU'IL FAUT JUSTIFIER, sous la matrice et en permanence. Le bouton
+          de justification vivait sur la tuile de l'acquis : ajourner le faisait
+          passer NA, la tuile changeait d'état et le bouton disparaissait — on
+          ne pouvait plus justifier ce qu'on venait d'ajourner. */}
+      <AJustifier acquis={acquis} cours={cours} onMotif={onMotif} enCours={enCours} />
 
       {/* Ce que la faveur coûterait — dit avant de décider, jamais après. */}
       <AideDecision ue={ue} />
@@ -756,9 +753,13 @@ function Fiche({ e, data, onAjuster, onMotif, enCours, onBord }) {
 
 /**
  * Une tuile de somme : la note, et l'ajournement qui s'y pose.
- * Le bouton de justification n'apparaît que sur un acquis en échec.
+ *
+ * La justification, elle, se pose SOUS la matrice : ici, ajourner faisait
+ * passer la tuile en NA et le bouton disparaissait avec l'état d'échec — on ne
+ * pouvait plus justifier ce qu'on venait d'ajourner. La tuile n'en garde qu'un
+ * témoin : un point bleu quand le motif est écrit, un point rouge sinon.
  */
-function TuileSomme({ etat, seuil, onAjourner, onMotiver, motif, enCours }) {
+function TuileSomme({ etat, seuil, onAjourner, motif, enCours }) {
   const { na, faveur, note } = etat;
   const echec = !na && note != null && note < seuil;
   return (
@@ -779,14 +780,13 @@ function TuileSomme({ etat, seuil, onAjourner, onMotiver, motif, enCours }) {
                  : 'bg-white border-slate-300 text-slate-500 hover:border-slate-500'}`}>
           <IconRepeat size={11} />
         </button>
-        {onMotiver && echec && (
-          <button disabled={enCours} onClick={onMotiver}
-            title={motif ? 'Modifier la justification' : 'Justifier cet acquis non acquis'}
+        {(echec || na) && motif !== undefined && (
+          <span title={motif ? 'Justifié' : 'À justifier sous la matrice'}
             className={`w-5 h-5 rounded-full flex items-center justify-center border
               ${motif ? 'bg-iip-blue border-iip-blue text-white'
                       : 'bg-white border-red-400 text-red-600'}`}>
             <IconMessage size={11} />
-          </button>
+          </span>
         )}
       </span>
     </div>
@@ -824,70 +824,122 @@ function TuileUE({ ue, seuil, onFaveur, enCours }) {
   );
 }
 
-/* ═══ La justification d'un acquis non acquis ══════════════════════════════ */
+/* ═══ Ce qu'il faut justifier ══════════════════════════════════════════════
+ *
+ * Tout ce qui est en échec ou ajourné vient ici, sous la matrice, avec sa
+ * justification à droite. Les cours ajournés en tête, avec les acquis qu'ils
+ * emportent : l'étudiant devra représenter le cours entier, et c'est de chacun
+ * de ses acquis qu'il faut rendre compte.
+ *
+ * L'énoncé se choisit dans le catalogue ; la précision propre à l'étudiant
+ * s'ajoute à côté. Les deux composent le texte unique que reprend l'annexe 8
+ * ou 9 — c'est ce que la base attend, et c'est ce qui sera notifié.
+ */
 
-function Justification({ aa, onFermer, onEnregistrer }) {
-  const depart = decomposerMotif(aa?.motif || '');
-  const [coches, setCoches] = useState(
-    Object.fromEntries(depart.cles.map(c => [c, true])));
-  const [libre, setLibre] = useState(depart.libre);
-  const [ouvert, setOuvert] = useState(MOTIFS_ECHEC[0]?.groupe || null);
+function AJustifier({ acquis, cours, onMotif, enCours }) {
+  const aRepresenter = cours.filter(c => c.na);
+  const dansCoursNa = new Set(aRepresenter.flatMap(c => c.aas || []));
 
-  const cles = Object.entries(coches).filter(([, v]) => v).map(([k]) => k);
+  const aJustifier = acquis.filter(a => a.na || a.echec);
+  if (!aJustifier.length) return null;
+
+  const isoles = aJustifier.filter(a => !dansCoursNa.has(a.aa_code));
 
   return (
     <div className="border border-red-200 rounded-xl overflow-hidden">
-      <div className="px-3 py-2 bg-red-50 border-b border-red-200 flex items-center justify-between">
-        <span className="text-[12.5px] font-semibold text-red-900">
-          Justifier <span className="font-mono">{aa?.aa_code}</span> — acquis non acquis
+      <div className="px-3 py-1.5 bg-red-50 border-b border-red-200 flex items-center
+                      justify-between gap-2">
+        <span className="text-[12px] font-semibold text-red-900">
+          À justifier — {aJustifier.length} acquis
         </span>
-        <button onClick={onFermer} className="text-red-400 hover:text-red-700">
-          <IconX size={16} />
-        </button>
+        <span className="text-[11px] text-red-700">
+          {aJustifier.filter(a => !a.motif).length || 'aucun'} sans motivation
+        </span>
       </div>
 
-      <div className="p-3 space-y-2 max-h-[42vh] overflow-y-auto">
-        {MOTIFS_ECHEC.map(g => (
-          <div key={g.groupe} className="border border-slate-200 rounded-lg overflow-hidden">
-            <button onClick={() => setOuvert(o => o === g.groupe ? null : g.groupe)}
-              className="w-full text-left px-2.5 py-1.5 bg-slate-50 text-[12px]
-                         font-semibold text-slate-700 flex items-center justify-between">
-              {g.groupe}
-              <span className="text-[10px] text-slate-400">
-                {g.motifs.filter(m => coches[m.cle]).length || ''}
+      <div className="divide-y divide-slate-100">
+        {aRepresenter.map(c => (
+          <div key={c.cours_code}>
+            <div className="px-3 py-1.5 bg-slate-50 text-[11.5px]">
+              <span className="font-mono font-bold text-slate-700">{c.cours_code}</span>
+              <span className="text-slate-600">
+                {c.cours_nom ? ` · ${c.cours_nom}` : ''} — cours ajourné, à représenter
               </span>
-            </button>
-            {ouvert === g.groupe && (
-              <div className="divide-y divide-slate-100">
-                {g.motifs.map(m => (
-                  <label key={m.cle}
-                    className="flex items-start gap-2 px-2.5 py-1.5 text-[11.5px]
-                               text-slate-700 cursor-pointer hover:bg-slate-50">
-                    <input type="checkbox" checked={!!coches[m.cle]}
-                      onChange={ev => setCoches(c => ({ ...c, [m.cle]: ev.target.checked }))}
-                      className="mt-0.5 accent-iip-blue" />
-                    <span>{m.texte}</span>
-                  </label>
-                ))}
-              </div>
-            )}
+              {!!(c.aas_ajournes || []).length && (
+                <span className="text-slate-500"> (par {c.aas_ajournes.join(', ')})</span>
+              )}
+            </div>
+            {(c.aas || []).map(code => {
+              const a = acquis.find(x => x.aa_code === code);
+              return a ? (
+                <LigneMotif key={`${c.cours_code}-${code}`} a={a} decale
+                  onMotif={onMotif} enCours={enCours} />
+              ) : null;
+            })}
           </div>
         ))}
 
-        <textarea value={libre} onChange={ev => setLibre(ev.target.value)}
-          rows={2} placeholder="Précision propre à cet étudiant (facultatif)…"
-          className="w-full border border-slate-300 rounded-lg px-2 py-1.5 text-[12px]" />
+        {isoles.map(a => (
+          <LigneMotif key={a.aa_code} a={a} onMotif={onMotif} enCours={enCours} />
+        ))}
       </div>
 
-      <div className="px-3 py-2 bg-slate-50 border-t border-slate-200 flex justify-end gap-2">
-        <button onClick={onFermer}
-          className="px-3 py-1 text-[12px] rounded-lg border border-slate-300 text-slate-600">
-          Annuler
-        </button>
-        <button onClick={() => onEnregistrer(composerMotif(cles, libre))}
-          className="px-3 py-1 text-[12px] rounded-lg bg-iip-blue text-white font-semibold">
-          Enregistrer la justification
-        </button>
+      <p className="px-3 py-1.5 bg-slate-50 border-t border-slate-100 text-[11px] text-slate-500">
+        Ce texte est celui que reprendra l'annexe 8 (ajournement) ou 9 (refus).
+        Sans lui, la décision est attaquable et l'écran ne passe pas au suivant.
+      </p>
+    </div>
+  );
+}
+
+/** Un acquis à justifier : son état à gauche, sa motivation à droite. */
+function LigneMotif({ a, decale, onMotif, enCours }) {
+  const depart = decomposerMotif(a.motif || '');
+  const [cle, setCle] = useState(depart.cles[0] || '');
+  const [libre, setLibre] = useState(depart.libre);
+
+  // Le motif enregistré peut changer sous nos pieds — on repart de lui quand
+  // l'étudiant change, sans quoi la ligne garderait la saisie du précédent.
+  useEffect(() => {
+    const d = decomposerMotif(a.motif || '');
+    setCle(d.cles[0] || ''); setLibre(d.libre);
+  }, [a.aa_code, a.motif]);
+
+  const poser = (c, l) => onMotif(a.aa_code, composerMotif(c ? [c] : [], l));
+
+  return (
+    <div className={`px-3 py-2 flex items-start gap-3 ${decale ? 'pl-8' : ''}
+      ${a.motif ? '' : 'bg-red-50/40'}`}>
+      <div className="w-40 flex-none">
+        <div className="font-mono text-[11.5px] font-bold text-slate-700">{a.aa_code}</div>
+        <div className="text-[10.5px] text-slate-500 truncate" title={a.description || ''}>
+          {a.description || ''}
+        </div>
+        <span className={`inline-block mt-0.5 text-[9.5px] font-bold px-1.5 py-0.5 rounded-full
+          ${a.na ? 'bg-slate-200 text-slate-700' : 'bg-red-100 text-red-800'}`}>
+          {a.na ? 'ajourné · à représenter' : `${fmt(a.note)}/20`}
+        </span>
+      </div>
+
+      <div className="flex-1 min-w-0 space-y-1">
+        <select value={cle} disabled={enCours}
+          onChange={ev => { setCle(ev.target.value); poser(ev.target.value, libre); }}
+          className={`w-full border rounded-lg px-2 py-1.5 text-[12px]
+            ${cle ? 'border-slate-300' : 'border-red-400 text-red-700'}`}>
+          <option value="">— choisir la justification —</option>
+          {MOTIFS_ECHEC.map(g => (
+            <optgroup key={g.groupe} label={g.groupe}>
+              {g.motifs.map(m => (
+                <option key={m.cle} value={m.cle}>{m.texte}</option>
+              ))}
+            </optgroup>
+          ))}
+        </select>
+        <input value={libre} disabled={enCours}
+          onChange={ev => setLibre(ev.target.value)}
+          onBlur={() => poser(cle, libre)}
+          placeholder="Précision propre à cet étudiant (facultatif)…"
+          className="w-full border border-slate-200 rounded-lg px-2 py-1 text-[11.5px]" />
       </div>
     </div>
   );
@@ -895,14 +947,11 @@ function Justification({ aa, onFermer, onEnregistrer }) {
 
 /* ═══ L'aide à la décision ═════════════════════════════════════════════════
  *
- * Le Conseil délibère mieux quand il sait ce que la faveur coûte. On lui dit
- * trois choses — la moyenne de l'année, le nombre de points qui manquent, les
- * cours concernés — et si cela tient dans la ligne qu'il s'est donnée : deux
- * points au plus, sur un ou deux cours, pour un étudiant d'au moins 12.
- *
- * Ce n'est pas une règle de droit : le décret ne fixe aucun barème. C'est une
- * pratique, écrite pour être appliquée à tous de la même façon. Rien ne
- * l'impose, rien ne l'empêche — la faveur reste à un clic.
+ * CHAQUE UNITÉ SE JUGE POUR ELLE-MÊME : la faveur s'apprécie sur celle-ci —
+ * deux points au plus à combler, sur un ou deux cours. La moyenne de l'année
+ * n'ouvre ni ne ferme rien ; elle dit seulement si l'échec est un accident de
+ * parcours. Et l'on rappelle ce qui a DÉJÀ été accordé ailleurs, sans quoi le
+ * Conseil fait cadeau sur cadeau sans le savoir.
  */
 
 function AideDecision({ ue }) {
@@ -947,7 +996,6 @@ function AideDecision({ ue }) {
                 · sur {ue.faveur_cours.length} cours ({ue.faveur_cours.join(', ')})
               </span>
             )}
-            {/* La moyenne éclaire, elle ne décide pas. */}
             <span className="text-[11.5px] opacity-60 ml-auto">
               moyenne de l'année :
               {' '}<b>{ue.moyenne_annee != null ? fmt(ue.moyenne_annee) : '—'}</b>/20

@@ -1388,8 +1388,11 @@ r.get('/deliberation/plan', authRequired, (req, res) => {
       "SELECT sql FROM sqlite_master WHERE type='table' AND name='deliberation_ajustement'"
     ).get()?.sql || '';
     if (!ddl.includes("'ue'")) {
-      db.exec(`
-        BEGIN;
+      // BEGIN/COMMIT écrits à la main dans un exec laissent la transaction
+      // OUVERTE si une instruction échoue — et une vue invalide ailleurs dans
+      // la base suffit à faire échouer n'importe quel DDL. On passe donc par
+      // db.transaction(), qui annule proprement.
+      db.transaction(() => db.exec(`
         CREATE TABLE deliberation_ajustement_v2 (
           id             INTEGER PRIMARY KEY AUTOINCREMENT,
           etudiant_id    INTEGER NOT NULL,
@@ -1410,8 +1413,7 @@ r.get('/deliberation/plan', authRequired, (req, res) => {
         ALTER TABLE deliberation_ajustement_v2 RENAME TO deliberation_ajustement;
         CREATE INDEX IF NOT EXISTS idx_delib_ajust
           ON deliberation_ajustement(etudiant_id, annee_scolaire, ue_num);
-        COMMIT;
-      `);
+      `))();
     }
   } catch (e) { console.error('[migration] deliberation_ajustement :', e.message); }
 })();
@@ -2183,7 +2185,8 @@ r.get('/deliberation/ue/:ueNum/pv', authRequired, (req, res) => {
   const session = req.query.session === '2' ? 2 : 1;
 
   const ue = db.prepare(`
-    SELECT ue_nom, section, ue_per, ue_code_fwb, ue_niv FROM ue WHERE ue_num = ?
+    SELECT ue_nom, section, ue_per_etudiants, ue_code_fwb, ue_niv, ue_niveau
+    FROM ue WHERE ue_num = ?
     ORDER BY (annee_scolaire = ?) DESC, annee_scolaire DESC LIMIT 1
   `).get(ueNum, annee) || {};
   const integree = estEpreuveIntegree(ueNum, annee);
@@ -2192,7 +2195,10 @@ r.get('/deliberation/ue/:ueNum/pv', authRequired, (req, res) => {
     : null;
 
   const etab = db.prepare('SELECT * FROM etablissement LIMIT 1').get() || {};
-  const ident = identiteEtablissement();
+  // L'identité vient d'une table de configuration : si elle manque, le PV doit
+  // sortir quand même, avec des blancs, plutôt que de tomber en 500.
+  let ident = {};
+  try { ident = identiteEtablissement() || {}; } catch { ident = {}; }
 
   const seance = db.prepare(
     'SELECT * FROM deliberation_seance WHERE ue_num = ? AND annee_scolaire = ?'
@@ -2201,8 +2207,14 @@ r.get('/deliberation/ue/:ueNum/pv', authRequired, (req, res) => {
     'SELECT nom, qualite FROM deliberation_presence WHERE seance_id = ? AND present = 1'
   ).all(seance.id) : [];
 
+  // Le lieu de naissance est ajouté par une migration des attestations, non
+  // par le schéma de base : on le demande s'il existe, et le procès-verbal
+  // sort sans lui sinon plutôt que de tomber.
+  const aLieu = db.prepare("PRAGMA table_info(etudiant)").all()
+    .some(c => c.name === 'lieu_naissance');
   const etudiants = db.prepare(`
-    SELECT e.id, e.nom, e.prenom, e.date_naissance, e.lieu_naissance,
+    SELECT e.id, e.nom, e.prenom, e.date_naissance,
+           ${aLieu ? 'e.lieu_naissance' : 'NULL AS lieu_naissance'},
            i.resultat, i.points
     FROM etudiant_inscription i JOIN etudiant e ON e.id = i.etudiant_id
     WHERE i.annee_scolaire = ? AND i.ue_num = ?
@@ -2269,7 +2281,7 @@ r.get('/deliberation/ue/:ueNum/pv', authRequired, (req, res) => {
       </tr>
       <tr>
         <td>${esc(ue.ue_nom || `UE ${ueNum}`)}</td>
-        <td class="c">${esc(ue.ue_per ?? '')}</td>
+        <td class="c">${esc(ue.ue_per_etudiants ?? '')}</td>
         <td class="c">${esc(ue.ue_code_fwb || '')}</td>
       </tr>
     </table>
@@ -2370,7 +2382,7 @@ r.get('/deliberation/ue/:ueNum/pv', authRequired, (req, res) => {
       !presents.length && 'les présences du Conseil',
       !seance.visite_date && 'la date de communication des résultats',
       !ue.ue_code_fwb && "le numéro de code de l'unité",
-      ue.ue_per == null && "le nombre de périodes de l'unité",
+      ue.ue_per_etudiants == null && "le nombre de périodes de l'unité",
       etudiants.some(e => !e.resultat) && 'des décisions non enregistrées',
     ].filter(Boolean),
   });
