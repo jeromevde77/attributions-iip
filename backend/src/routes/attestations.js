@@ -67,7 +67,7 @@ const frDate = d => {
 };
 
 /** Les UE réussies par un étudiant pour une année, avec ce qu'exige le modèle. */
-function unitesReussies(etudId, annee) {
+export function unitesReussies(etudId, annee) {
   const insc = db.prepare(`
     SELECT i.ue_num, i.points, i.annee_scolaire
     FROM etudiant_inscription i
@@ -154,7 +154,7 @@ function unitesReussies(etudId, annee) {
  * pièce ou cinquante. Elle sert aussi aux pièces séparées d'une archive, pour
  * que chacune reste imprimable seule.
  */
-function envelopper(corps, titre = 'Attestations de réussite') {
+export function envelopper(corps, titre = 'Attestations de réussite') {
   // Les images sont posées UNE fois par document, en variables CSS. Répétées
   // par page, un lot de cinq cents attestations pèserait plus de 300 Mo.
   return `<!DOCTYPE html><html lang="fr"><head><meta charset="utf-8">
@@ -181,8 +181,10 @@ function envelopper(corps, titre = 'Attestations de réussite') {
   /* Bandeau marine et filet doré, comme les autres documents de la maison. */
   /* Mention encadrée de deux filets dorés, plutôt qu'en réserve sur marine :
      c'est la présentation des attestations de réussite. */
+  /* Filets dorés FINS : à 0,9 mm ils faisaient bandeau et écrasaient le titre.
+     Un filet doit se voir sans peser. */
   .entete { text-align: center; padding: 3.5mm 6mm;
-    border-top: 0.9mm solid #C9A84C; border-bottom: 0.9mm solid #C9A84C; }
+    border-top: 0.3mm solid #C9A84C; border-bottom: 0.3mm solid #C9A84C; }
   .entete .cf { font-size: 8pt; letter-spacing: .7pt; color: #1B2B4B; font-weight: 600; }
   .entete .epa { font-size: 10.5pt; font-weight: 700; letter-spacing: .5pt;
     color: #1B2B4B; margin-top: 1mm; }
@@ -198,7 +200,7 @@ function envelopper(corps, titre = 'Attestations de réussite') {
        letter-spacing: .3pt; color: #1B2B4B; }
   h2 { font-size: 12pt; text-align: center; margin: 0 0 1.5mm; font-weight: 700;
        color: #1B2B4B; }
-  .filet { width: 40mm; height: 0.8mm; background: #C9A84C; margin: 0 auto 4mm; }
+  .filet { width: 40mm; height: 0.3mm; background: #C9A84C; margin: 0 auto 4mm; }
 
   /* Caractéristiques de l'unité, en deux colonnes pour gagner de la hauteur. */
   .carac { display: grid; grid-template-columns: 1fr 1fr; gap: 1mm 6mm;
@@ -211,7 +213,7 @@ function envelopper(corps, titre = 'Attestations de réussite') {
   .indente { margin-left: 8mm; }
 
   /* La personne, en évidence sans excès. */
-  .etudiant { background: #eff6ff; border-left: 1mm solid #1B2B4B;
+  .etudiant { background: #eff6ff; border-left: 0.6mm solid #1B2B4B;
               padding: 2.5mm 3.5mm; margin: 3mm 0; font-size: 9.5pt; }
   .etudiant .nom { font-weight: 700; font-size: 10.5pt; }
   .etudiant .naissance { font-size: 8.5pt; color: #475569; margin-top: 0.8mm; }
@@ -231,6 +233,14 @@ function envelopper(corps, titre = 'Attestations de réussite') {
   .resultat .pct { font-size: 13pt; font-weight: 700; color: #1B2B4B; }
 
   .manque { color: #b45309; font-style: italic; }
+
+  /* Les enseignants de l'unité, sous la mention du Conseil. */
+  .profs { margin: 2.5mm 0 0; font-size: 8pt; }
+  .profs .titre { font-size: 7.5pt; font-weight: 700; color: #64748b;
+                  text-transform: uppercase; letter-spacing: .2pt; margin-bottom: 1mm; }
+  .profs .liste { display: flex; flex-wrap: wrap; gap: 1mm 5mm; }
+  .profs .p b { color: #1B2B4B; font-weight: 600; }
+  .profs .p .c { color: #64748b; font-size: 7pt; }
 
   .cloture{display:grid;grid-template-columns:auto 1fr auto;
     grid-template-rows:auto auto;column-gap:14mm;align-items:end;
@@ -256,7 +266,97 @@ function envelopper(corps, titre = 'Attestations de réussite') {
                         vertical-align: top; width: 33.33%; }
   table.signatures tr.hauteur td { height: 16mm; }
   table.signatures .role { color: #475569; font-size: 7.5pt; }
+  /* ── LA DÉCISION, en cartouche coloré ──────────────────────────────────
+     Une motivation d'ajournement ou de refus a la forme d'une attestation :
+     sans marque, on les confond sur un bureau. Le cartouche porte la nature
+     de la pièce, à la couleur de nos badges. */
+  .decision { border-radius: 2.5mm; padding: 3mm 4mm; margin: 4mm 0 3mm;
+              text-align: center; }
+  .decision .quoi { font-size: 11pt; font-weight: 700; letter-spacing: .3pt; }
+  .decision .sous { font-size: 8pt; margin-top: .8mm; }
+  .decision.ajourne { background: #FFF7ED; border: .3mm solid #F59E0B; color: #7C2D12; }
+  .decision.refus   { background: #FEF2F2; border: .3mm solid #DC2626; color: #7F1D1D; }
+
+  /* UNE PIÈCE DE DÉLIBÉRATION TIENT SUR UNE PAGE. Motivation et procès-verbal
+     portent plus de blocs qu'une attestation : avec la marge de signature de
+     14 mm, le bloc de clôture passait à la page suivante et chaque pièce en
+     laissait une presque vide derrière elle. */
+  /* Le bloc de signature, resserré pour ces pièces : elles portent plus de
+     blocs qu'une attestation, et il basculait à la page suivante — laissant
+     derrière lui une page où ne figuraient qu'un sceau et un paraphe. */
+  .piece .cloture { margin-top: 2mm; }
+  .piece .cloture .sceau, .piece .cloture .paraphe { height: 14mm; }
+  .piece .cloture .qualite { font-size: 7.5pt; }
+  .piece .cloture .nom { font-size: 9pt; }
+  .piece .cloture .lieu { font-size: 8pt; }
+  .piece .cloture .paraphe, .piece .cloture .legende { width: 40mm; }
+  .piece .cloture .sceau { width: 16mm; }
+  .piece .info { margin: 1.5mm 0; padding: 2mm 3mm; }
+  .piece table.doc { margin: 1.2mm 0 2mm; }
+  .piece table.doc th, .piece table.doc td { padding: 1.1mm 2.2mm; }
+  .piece h2 { margin-top: 1mm; }
+  .piece .filet { margin-bottom: 2.5mm; }
+  .piece .decision { margin: 3mm 0 2.5mm; padding: 2.2mm 4mm; }
+  .piece .carac { margin-bottom: 3mm; padding: 2mm 3.5mm; }
+  .piece .corps { margin: 2mm 0; }
+  .piece .etudiant { margin: 2.5mm 0; padding: 2mm 3.5mm; }
+
+  /* Un bloc d'information encadré — seconde session, visite des copies. */
+  .info { background: #f8fafc; border: 0.4pt solid #e2e8f0; border-radius: 1.5mm;
+          padding: 2.5mm 3.5mm; margin: 3mm 0; font-size: 8.5pt; }
+  .info .titre { font-weight: 700; color: #1B2B4B; font-size: 8.5pt;
+                 margin-bottom: 1.2mm; }
+  .info .ligne { margin: .6mm 0; }
+  .info b { color: #1B2B4B; }
+  .info.orange { background: #FFFBEB; border-color: #FCD34D; }
+  /* Les voies de recours tiennent en deux paragraphes serrés : elles sont
+     longues par nature, et une pièce qui déborde passe sous le pied. */
+  .info.recours { font-size: 7.5pt; }
+  .info.recours .ligne { margin: .8mm 0; text-align: justify; line-height: 1.3; }
+  .info.recours .ref2 { display: block; color: #64748b; font-size: 6.8pt; }
+
+  /* Les tableaux de pièce : acquis et motivation, décisions du PV. */
+  table.doc { width: 100%; border-collapse: collapse; margin: 2mm 0 3mm;
+              font-size: 8.5pt; }
+  table.doc th, table.doc td { border: 0.4pt solid #cbd5e1; padding: 1.5mm 2.5mm;
+                               vertical-align: top; text-align: left; }
+  table.doc th { background: #1B2B4B; color: #fff; font-size: 7.5pt;
+                 font-weight: 600; letter-spacing: .2pt; text-transform: uppercase; }
+  table.doc tbody tr:nth-child(even) td { background: #f8fafc; }
+  table.doc td.c { text-align: center; }
+  table.doc .code { font-weight: 700; color: #1B2B4B; }
+  table.doc .vide { color: #b45309; font-style: italic; }
+  /* Le code de l'acquis n'est qu'une référence : c'est son intitulé qui dit
+     ce qui n'est pas maîtrisé, et c'est lui que l'étudiant doit lire. */
+  table.doc .ref { font-size: 7pt; color: #64748b; letter-spacing: .2pt; }
+
+  .champ { font-size: 8.5pt; margin: 2mm 0; }
+  .champ .lab { font-weight: 700; color: #1B2B4B; }
+
+  /* Le PV liste ses membres en colonnes. */
+  .membres { display: grid; grid-template-columns: 1fr 1fr; gap: .8mm 6mm;
+             font-size: 8pt; margin-top: 1.5mm; }
+  .membres .m b { color: #1B2B4B; }
+  .membres .m span { color: #475569; font-size: 7.5pt; }
+
   ${piedStyles()}
+
+  /* ── LE PIED, COLLÉ EN BAS DE CHAQUE PAGE ──────────────────────────────
+     Il était posé en position fixe avec un décalage NÉGATIF, pour descendre
+     dans la marge basse. Chromium le rendait alors en haut de la page
+     suivante, par-dessus l'en-tête : le logo chevauchait le titre et le bas
+     de page manquait. On procède autrement, sans décalage négatif :
+
+       — la marge basse de la feuille se réduit à ce qui doit rester sous le
+         pied ;
+       — le pied s'ancre à « bottom: 0 », donc au bas de la zone de contenu,
+         qui est désormais le bas utile de la feuille ;
+       — chaque pièce réserve elle-même la hauteur du pied. La réserve est
+         dans la PIÈCE et non dans le corps : posée sur le corps, elle
+         ajoutait une page blanche en fin de document. */
+  @page { margin-bottom: 8mm; }
+  .pied-lucie { bottom: 0; }
+  .attestation { padding-bottom: 17mm; }
 
   @media screen {
     html { background: #e5e5e5; }
@@ -288,7 +388,28 @@ r.get('/etudiant/:id', authRequired, (req, res) => {
 // pour elles. Toute production d'attestation levait donc « ident is not
 // defined ». Il devient un paramètre, avec repli sur l'identité de
 // l'établissement pour tout appel qui l'oublierait.
-function pageAttestation(e, u, annee, etab, dateDoc = null, ident = identiteEtablissement()) {
+/**
+ * Les enseignants qui donnent les cours de l'unité, d'après les attributions
+ * de l'année. L'attestation nomme le Conseil des études ; elle doit aussi dire
+ * QUI l'a composé — ce sont eux qui ont évalué.
+ */
+export function enseignantsDeLUE(ueNum, annee) {
+  try {
+    return db.prepare(`
+      SELECT DISTINCT p.nom, p.prenom,
+        (SELECT GROUP_CONCAT(DISTINCT a2.code_cours) FROM attribution a2
+          WHERE a2.professeur_id = p.id AND a2.ue_num = a.ue_num
+            AND a2.annee_scolaire = a.annee_scolaire
+            AND a2.code_cours IS NOT NULL) AS cours
+      FROM attribution a JOIN professeur p ON p.id = a.professeur_id
+      WHERE a.ue_num = ? AND a.annee_scolaire = ? AND a.professeur_id IS NOT NULL
+      ORDER BY p.nom, p.prenom
+    `).all(ueNum, annee);
+  } catch { return []; }
+}
+
+export function pageAttestation(e, u, annee, etab, dateDoc = null, ident = identiteEtablissement()) {
+  const profs = enseignantsDeLUE(u.ue_num, annee);
   // Le titre s'écrit tantôt « Mme », tantôt « Madame » : chercher la seule
   // abréviation produisait une attestation au masculin pour une étudiante.
   const genre = /^(mme|madame|mlle|mademoiselle|m\.?me)\b/i.test((e.titre || '').trim())
@@ -344,7 +465,7 @@ function pageAttestation(e, u, annee, etab, dateDoc = null, ident = identiteEtab
 
   <p class="corps">
     Conformément aux articles 52, 53 et 58 alinéa 1<sup>er</sup> du décret du 16 avril 1991
-    organisant l'enseignement de promotion sociale, ${u.epreuve_integree
+    organisant l'enseignement pour adultes, ${u.epreuve_integree
       ? "le Jury d'épreuve intégrée" : 'le Conseil des études'}, chargé de procéder
     à l'évaluation de l'unité d'enseignement susvisée, atteste que
   </p>
@@ -393,6 +514,18 @@ function pageAttestation(e, u, annee, etab, dateDoc = null, ident = identiteEtab
     <span class="pct">${u.pourcentage != null ? u.pourcentage + ' %' : '………'}</span>
     du total des points.
   </div>
+
+  <!-- Ceux qui ont enseigné et évalué : le Conseil des études n'est pas une
+       abstraction, et l'attestation doit pouvoir dire qui le composait. -->
+  ${profs.length ? `
+  <div class="profs">
+    <div class="titre">${u.epreuve_integree ? "Le Jury d'épreuve intégrée"
+      : 'Le Conseil des études'}, pour cette unité</div>
+    <div class="liste">${profs.map(p => `<span class="p">`
+      + `<b>${esc(p.nom)} ${esc(p.prenom)}</b>`
+      + (p.cours ? ` <span class="c">${esc(p.cours)}</span>` : '')
+      + `</span>`).join('')}</div>
+  </div>` : ''}
 
   <!-- Sceau et signature. Le tableau à trois cases (conseil des études,
        sceau, direction) est remplacé par les pièces réelles. -->

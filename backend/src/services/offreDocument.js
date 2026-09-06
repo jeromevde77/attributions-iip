@@ -47,7 +47,7 @@ export function documentOffre(o, titres = [], acquis = [], etab = {}) {
 <div style="max-width:640px;margin:0 auto;padding:24px 16px">
   <div style="background:#1B2B4B;border-radius:12px 12px 0 0;padding:22px 26px">
     <div style="color:#fff;font-size:19px;font-weight:800;letter-spacing:.3px">${ech(nomEtab)}</div>
-    <div style="color:#8FA3C4;font-size:11px;font-weight:600;letter-spacing:1.5px;text-transform:uppercase;margin-top:3px">Offre d'emploi — Enseignement de promotion sociale</div>
+    <div style="color:#8FA3C4;font-size:11px;font-weight:600;letter-spacing:1.5px;text-transform:uppercase;margin-top:3px">Offre d'emploi — Enseignement pour adultes</div>
   </div>
   <div style="background:#fff;border:1px solid #E2E8F0;border-top:none;border-radius:0 0 12px 12px;padding:24px 26px">
 

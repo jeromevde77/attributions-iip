@@ -2,7 +2,7 @@ import { Suspense, lazy } from 'react';
 import Axe from '../components/Axe.jsx';
 import Accueil from './Accueil.jsx';
 import Etudiants from './Etudiants.jsx';
-import EncodageRapide from './EncodageRapide.jsx';
+import Deliberation from './Deliberation.jsx';
 import Echeancier from './Echeancier.jsx';
 
 const Listes = lazy(() => import('./Listes.jsx'));
@@ -38,9 +38,17 @@ export function AxeEtudiants() {
       onglets={[
         { key: 'pae', label: 'PAE & inscriptions', sansMarge: true,
           rendu: <Etudiants /> },
-        { key: 'encodage', label: 'Encodage rapide', sansMarge: true,
-          rendu: <EncodageRapide /> },
-        { key: 'recours', label: 'Recours', sansMarge: true,
+        // La DÉLIBÉRATION prend la place de la saisie rapide, qu'elle contient.
+        // On atteignait la feuille par un clic non annoncé sur un en-tête de
+        // colonne, dans l'écran de saisie : on arrivait au sens par
+        // l'accessoire. L'onglet nomme désormais ce qu'on vient y faire, et la
+        // saisie rapide s'y ouvre d'un bouton.
+        { key: 'deliberation', label: 'Délibération', sansMarge: true,
+          rendu: <Deliberation /> },
+        // L'onglet ouvre TOUTE la page Procédures — recours, fraude,
+        // disciplinaire, examens, archives. L'appeler « Recours » annonçait un
+        // cinquième de son contenu et cachait le reste.
+        { key: 'procedures', label: 'Procédures', sansMarge: true,
           rendu: <Suspense fallback={<Attente />}><Procedures /></Suspense> },
         { key: 'admission', label: 'Admission & inscription', futur: true,
           description: "Titres d'accès, valorisation des acquis, droit d'inscription et exemptions." },

@@ -13,7 +13,7 @@ import { authHeaders } from '../lib/api.js';
  * qu'un intitulé change ; ici on désigne soi-même, et le réglage s'enregistre
  * en profil pour ne pas être refait.
  */
-export default function ImportSurMesure({ onClose, onTermine }) {
+export default function ImportSurMesure({ onClose, onTermine, annee = null }) {
   const [cibles, setCibles] = useState([]);
   const [cible, setCible] = useState(null);
   const [profils, setProfils] = useState([]);
@@ -24,10 +24,17 @@ export default function ImportSurMesure({ onClose, onTermine }) {
   const [cleChoisie, setCleChoisie] = useState('');
 
   const [ecraser, setEcraser] = useState(false);
+  // La CRÉATION est fermée par défaut : compléter un dossier existant est
+  // anodin, en créer un ne l'est pas.
+  const [creer, setCreer] = useState(false);
   const [rapport, setRapport] = useState(null);
   const [enCours, setEnCours] = useState(false);
   const [erreur, setErreur] = useState(null);
   const [nomProfil, setNomProfil] = useState('');
+  // Ligne du fichier servant d'exemple. On juge une correspondance sur des
+  // valeurs, pas sur des noms de colonnes : la première ligne peut être
+  // atypique — champ vide, cas particulier — et donner faussement raison.
+  const [ligne, setLigne] = useState(0);
 
   useEffect(() => {
     fetch('/api/import-sur-mesure/cibles', { headers: authHeaders() })
@@ -57,7 +64,7 @@ export default function ImportSurMesure({ onClose, onTermine }) {
       if (!lignes.length) throw new Error('Ce classeur ne contient aucune ligne.');
 
       const cols = Object.keys(lignes[0]);
-      setEntetes(cols); setBrut(lignes);
+      setEntetes(cols); setBrut(lignes); setLigne(0);
 
       // Proposition de départ : on rapproche les noms réduits à leurs lettres,
       // accents transposés. Elle ne fait que dégrossir, tout reste corrigeable.
@@ -122,8 +129,13 @@ export default function ImportSurMesure({ onClose, onTermine }) {
       if (!lignes.length) throw new Error('Aucune ligne ne porte la clé choisie.');
       const rep = await fetch('/api/import-sur-mesure/executer', {
         method: 'POST', headers: authHeaders(),
+        // L'ANNÉE accompagne les cibles qui n'existent qu'au millésime — une
+        // UE, un cours. Sans elle le serveur refuse, plutôt que d'écraser la
+        // même unité dans toutes les années.
         body: JSON.stringify({ cible: cible.cle, cle_choisie: cleChoisie,
-                               lignes, simulation, ecraser }),
+                               lignes, simulation, ecraser,
+                               creer: cible.creation ? creer : undefined,
+                               annee: cible.portee === 'annee' ? annee : undefined }),
       });
       const j = await rep.json();
       if (!rep.ok) { setErreur(j.error); return; }
@@ -138,10 +150,9 @@ export default function ImportSurMesure({ onClose, onTermine }) {
   return (
     <div className="fixed inset-0 bg-black/40 flex items-start justify-center z-50 p-4"
       onClick={e => e.target === e.currentTarget && onClose()}>
-      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-3xl mt-8 p-5 space-y-4
-                      max-h-[88vh] overflow-y-auto">
+      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-3xl mt-8 max-h-[88vh] overflow-hidden flex flex-col">
 
-        <div className="flex items-start justify-between">
+        <div className="flex-none p-5 pb-3 border-b border-slate-100 flex items-start justify-between">
           <div>
             <h3 className="text-[16px] font-semibold text-iip-blue">Importateur sur mesure</h3>
             <p className="text-[12px] text-slate-500">
@@ -153,12 +164,22 @@ export default function ImportSurMesure({ onClose, onTermine }) {
           </button>
         </div>
 
+        <div className="flex-1 overflow-y-auto p-5 space-y-4">
+
         {erreur && (
           <div className="px-3 py-2 rounded-lg bg-red-50 border border-red-200
                           text-[12.5px] text-red-800">{erreur}</div>
         )}
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+          {cible?.portee === 'annee' && (
+            <div className="mb-3 px-3 py-2 rounded-lg bg-sky-50 border border-sky-200
+                            text-[12px] text-sky-900">
+              Cette cible existe une fois par millésime : l'import portera sur
+              l'année <b>{annee || '— non déterminée'}</b>.
+              {!annee && " Fermez et choisissez d'abord une année de travail."}
+            </div>
+          )}
           {cibles.map(c => (
             <button key={c.cle}
               onClick={() => { setCible(c); setCleChoisie(c.cles[0]?.champ || '');
@@ -224,6 +245,31 @@ export default function ImportSurMesure({ onClose, onTermine }) {
               </span>
             </label>
 
+            {/* La navigation entre lignes : une correspondance juste sur la
+                première ligne peut être fausse sur la dixième. */}
+            <div className="flex items-center justify-between gap-3 flex-wrap
+                            px-3 py-1.5 rounded-lg bg-slate-50 border border-slate-200">
+              <span className="text-[11.5px] text-slate-500">
+                Exemple pris sur la ligne <b className="text-slate-700">{ligne + 1}</b> sur {brut.length}
+              </span>
+              <div className="flex items-center gap-1">
+                <button type="button" onClick={() => setLigne(i => Math.max(0, i - 1))}
+                  disabled={ligne === 0}
+                  className="px-2 h-6 rounded border border-slate-300 text-slate-600
+                             text-[12px] disabled:opacity-40">◀</button>
+                <input type="number" min={1} max={brut.length} value={ligne + 1}
+                  onChange={e => {
+                    const v = Number(e.target.value);
+                    if (Number.isFinite(v)) setLigne(Math.min(brut.length, Math.max(1, v)) - 1);
+                  }}
+                  className="w-16 border border-slate-300 rounded px-1 py-0.5 text-[12px] text-center" />
+                <button type="button" onClick={() => setLigne(i => Math.min(brut.length - 1, i + 1))}
+                  disabled={ligne >= brut.length - 1}
+                  className="px-2 h-6 rounded border border-slate-300 text-slate-600
+                             text-[12px] disabled:opacity-40">▶</button>
+              </div>
+            </div>
+
             <div className="space-y-1">
               {cible.champs.map(ch => {
                 const estCle = ch.champ === cleChoisie;
@@ -242,6 +288,22 @@ export default function ImportSurMesure({ onClose, onTermine }) {
                       <option value="">— ne pas importer —</option>
                       {entetes.map(col => <option key={col} value={col}>{col}</option>)}
                     </select>
+                    {/* Ce que la colonne choisie DONNE sur cette ligne : c'est
+                        cela qu'on vérifie, pas l'intitulé de la colonne. */}
+                    <span className="w-40 flex-none truncate text-[11.5px]"
+                      title={corresp[ch.champ]
+                        ? String(brut[ligne]?.[corresp[ch.champ]] ?? '')
+                        : ''}>
+                      {corresp[ch.champ]
+                        ? (() => {
+                            const v = brut[ligne]?.[corresp[ch.champ]];
+                            const vide = v == null || String(v).trim() === '';
+                            return vide
+                              ? <em className="text-slate-300">vide</em>
+                              : <b className="text-slate-700">{String(v)}</b>;
+                          })()
+                        : <span className="text-slate-300">—</span>}
+                    </span>
                   </div>
                 );
               })}
@@ -249,16 +311,32 @@ export default function ImportSurMesure({ onClose, onTermine }) {
 
             {corresp[cleChoisie] && (
               <div className="text-[11.5px] text-slate-600 bg-slate-50 rounded-lg p-2.5">
-                <b>Première ligne telle qu'elle sera lue :</b>
+                <b>Ligne {ligne + 1} telle qu'elle sera lue :</b>
                 <div className="mt-1 space-y-0.5">
                   {cible.champs.filter(ch => corresp[ch.champ]).map(ch => (
                     <div key={ch.champ}>
                       <span className="text-slate-500">{ch.libelle} :</span>{' '}
-                      <b>{String(brut[0][corresp[ch.champ]] ?? '—')}</b>
+                      <b>{String(brut[ligne]?.[corresp[ch.champ]] ?? '—')}</b>
                     </div>
                   ))}
                 </div>
               </div>
+            )}
+
+            {cible.creation && (
+              <label className="flex items-center gap-2 text-[12.5px] text-slate-700
+                                px-3 py-2 rounded-lg bg-amber-50 border border-amber-200">
+                <input type="checkbox" checked={creer}
+                  onChange={e => setCreer(e.target.checked)} />
+                <span>
+                  <b>Créer les lignes sans correspondance</b>
+                  <span className="block text-[11px] text-amber-900">
+                    Un dossier sera ouvert pour chaque ligne inconnue portant un
+                    nom et un prénom. Simulez d'abord : une clé mal choisie crée
+                    des doublons au lieu de compléter les dossiers existants.
+                  </span>
+                </span>
+              </label>
             )}
 
             <label className="flex items-center gap-2 text-[12.5px] text-slate-600">
@@ -295,6 +373,7 @@ export default function ImportSurMesure({ onClose, onTermine }) {
             <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
               {[['Lignes lues', rapport.lignes_lues], ['Retrouvés', rapport.retrouves],
                 ['À compléter', rapport.nb_modifications],
+                ...(rapport.nb_crees ? [['À créer', rapport.nb_crees]] : []),
                 ['Sans correspondance', rapport.nb_inconnus]].map(([l, v]) => (
                 <div key={l} className="border border-slate-200 rounded-xl px-3 py-2">
                   <div className="text-[10px] uppercase tracking-wide text-slate-500
@@ -321,6 +400,15 @@ export default function ImportSurMesure({ onClose, onTermine }) {
               </div>
             )}
 
+            {rapport.nb_crees > 0 && (
+              <div className="px-3 py-2 rounded-lg bg-emerald-50 border border-emerald-200
+                              text-[12px] text-emerald-900">
+                <b>{rapport.nb_crees} dossier(s)</b> {rapport.simulation ? 'seraient créés' : 'créés'} :
+                {' '}{rapport.crees.slice(0, 12).map(c => c.libelle).join(' · ')}
+                {rapport.nb_crees > 12 && ` … et ${rapport.nb_crees - 12} autre(s)`}
+              </div>
+            )}
+
             {rapport.nb_inconnus > 0 && (
               <div className="px-3 py-2 rounded-lg bg-amber-50 border border-amber-200
                               text-[12px] text-amber-900">
@@ -330,7 +418,7 @@ export default function ImportSurMesure({ onClose, onTermine }) {
 
             {rapport.simulation ? (
               <button onClick={() => executer(false)}
-                disabled={enCours || !rapport.nb_modifications}
+                disabled={enCours || !(rapport.nb_modifications || rapport.nb_crees)}
                 className="flex items-center gap-1.5 px-4 py-2 text-sm bg-iip-blue text-white
                            font-semibold rounded-lg disabled:opacity-40">
                 <IconCheck size={15} /> Appliquer à {rapport.nb_modifications} dossier(s)
@@ -355,6 +443,7 @@ export default function ImportSurMesure({ onClose, onTermine }) {
             )}
           </div>
         )}
+        </div>
       </div>
     </div>
   );

@@ -2257,7 +2257,7 @@ export default function Etudiants() {
       )}
 
       {importSurMesure && (
-        <ImportSurMesure onClose={() => setImportSurMesure(false)} onTermine={charger} />
+        <ImportSurMesure onClose={() => setImportSurMesure(false)} onTermine={charger} annee={annee} />
       )}
 
       {centrePAE && (
