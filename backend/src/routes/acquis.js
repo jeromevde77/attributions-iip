@@ -966,6 +966,66 @@ r.delete('/reports/:etudId/:ueNum/:coursCode', authRequired, roleRequired('admin
 });
 
 // ── Structure d'évaluation d'une UE ─────────────────────────────────────────
+/**
+ * Les LIENS cours ↔ acquis d'une unité, pour les paramétrer.
+ *
+ * structureUE ne remonte que les acquis DÉJÀ rattachés à un cours : elle sert
+ * au calcul, pas au paramétrage. Ici on veut l'inverse — tous les acquis de
+ * l'unité, tous ses cours, et l'état des liens — pour pouvoir en créer.
+ *
+ * Le lien EST la pondération : un acquis est évalué dans un cours dès qu'il y
+ * porte un poids, et cesser de l'y évaluer, c'est retirer ce poids.
+ */
+r.get('/ue/:ueNum/liens', authRequired, (req, res) => {
+  const ueNum = Number(req.params.ueNum);
+  const annee = req.query.annee || anneeDeTravail(req);
+
+  let cours = db.prepare(`
+    SELECT cours_code, cours_nom, cours_per FROM cours
+    WHERE ue_num = ? AND annee_scolaire = ? ORDER BY cours_code
+  `).all(ueNum, annee);
+  if (!cours.length) {
+    cours = db.prepare(`
+      SELECT cours_code, MIN(cours_nom) AS cours_nom, MAX(cours_per) AS cours_per
+      FROM cours WHERE ue_num = ? GROUP BY cours_code ORDER BY cours_code
+    `).all(ueNum);
+  }
+
+  const acquis = db.prepare(`
+    SELECT aa_code, aa_num, description, cours_code AS cours_referentiel
+    FROM aa WHERE ue_num = ? ORDER BY aa_num, aa_code
+  `).all(ueNum);
+
+  const liens = db.prepare(
+    'SELECT cours_code, aa_code, poids FROM aa_ponderation WHERE ue_num = ?').all(ueNum);
+
+  const ue = db.prepare(`
+    SELECT ue_nom, section FROM ue WHERE ue_num = ?
+    ORDER BY (annee_scolaire = ?) DESC, annee_scolaire DESC LIMIT 1
+  `).get(ueNum, annee) || {};
+
+  // Ce qui empêche la saisie par cours de fonctionner, dit explicitement.
+  const lies = new Set(liens.map(l => l.aa_code));
+  const sommes = {};
+  for (const l of liens) sommes[l.cours_code] = (sommes[l.cours_code] || 0) + Number(l.poids || 0);
+
+  res.json({
+    ue_num: ueNum, ue_nom: ue.ue_nom || null, section: ue.section || null, annee,
+    cours, acquis, liens,
+    sommes,
+    acquis_sans_cours: acquis.filter(a => !lies.has(a.aa_code)).map(a => a.aa_code),
+    cours_incomplets: cours
+      .filter(c => { const s = sommes[c.cours_code]; return s != null && Math.abs(s - 10) > 0.001 && Math.abs(s - 100) > 0.01; })
+      .map(c => c.cours_code),
+    pret: cours.length > 0 && acquis.length > 0
+      && acquis.every(a => lies.has(a.aa_code))
+      && cours.every(c => {
+        const s = sommes[c.cours_code];
+        return s != null && (Math.abs(s - 10) < 0.001 || Math.abs(s - 100) < 0.01);
+      }),
+  });
+});
+
 r.get('/ue/:ueNum/structure', authRequired, (req, res) => {
   const cours = structureUE(Number(req.params.ueNum), req.query.annee);
   const sommeCours = cours.reduce((s, c) => s + (c.poids_cours || 0), 0);   // 100 si les périodes sont renseignées
@@ -984,10 +1044,26 @@ r.put('/ponderations', authRequired, roleRequired('admin', 'editeur'), (req, res
   if (!ue_num || !cours_code || !Array.isArray(ponderations)) {
     return res.status(400).json({ error: 'ue_num, cours_code et ponderations requis' });
   }
-  const somme = ponderations.reduce((s, p) => s + Number(p.poids || 0), 0);
-  if (ponderations.length && Math.abs(somme - 100) > 0.01) {
+  // Un poids ABSENT ou NUL délie l'acquis du cours : c'est par cette table que
+  // le lien existe, et sans effacement on ne pouvait jamais le défaire.
+  const gardes = ponderations.filter(p => Number(p.poids) > 0);
+  const somme = gardes.reduce((s, p) => s + Number(p.poids || 0), 0);
+
+  // DEUX barèmes coexistent, et seul le RAPPORT entre les poids entre dans le
+  // calcul — 3 sur 10 pèse comme 30 sur 100. Le barème sur 10, en entiers, est
+  // celui qu'on encode désormais ; celui sur 100 vient des classeurs de suivi
+  // et reste valide tel quel.
+  const sur10 = Math.abs(somme - 10) < 0.001;
+  const sur100 = Math.abs(somme - 100) < 0.01;
+  if (gardes.length && !sur10 && !sur100) {
     return res.status(400).json({
-      error: `La somme des pondérations de ce cours vaut ${Math.round(somme * 100) / 100} au lieu de 100.`,
+      error: `La somme des pondérations de ce cours vaut ${Math.round(somme * 100) / 100}.`
+           + ' Elle doit valoir 10 — dix points à répartir entre les acquis du cours.',
+    });
+  }
+  if (sur10 && gardes.some(p => !Number.isInteger(Number(p.poids)))) {
+    return res.status(400).json({
+      error: 'Sur un barème de 10, les poids sont des nombres entiers de 1 à 10.',
     });
   }
 
@@ -997,12 +1073,15 @@ r.put('/ponderations', authRequired, roleRequired('admin', 'editeur'), (req, res
     ON CONFLICT(cours_code, aa_code) DO UPDATE SET
       poids = excluded.poids, ue_num = excluded.ue_num, maj_le = datetime('now')
   `);
+  const del = db.prepare('DELETE FROM aa_ponderation WHERE cours_code = ? AND aa_code = ?');
   db.transaction(() => {
     for (const p of ponderations) {
-      up.run(Number(ue_num), cours_code, p.aa_code, Number(p.poids || 0));
+      if (Number(p.poids) > 0) up.run(Number(ue_num), cours_code, p.aa_code, Number(p.poids));
+      else del.run(cours_code, p.aa_code);
     }
   })();
-  res.json({ ok: true, cours_code, somme: Math.round(somme * 100) / 100 });
+  res.json({ ok: true, cours_code, somme: Math.round(somme * 100) / 100,
+             bareme: sur10 ? 10 : 100 });
 });
 
 // ── Répartition égale, pour amorcer ─────────────────────────────────────────

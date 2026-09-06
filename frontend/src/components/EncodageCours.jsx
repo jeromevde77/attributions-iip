@@ -22,7 +22,7 @@ const tonNote = n => n == null || n === '' ? 'border-slate-300'
   : Number(n) >= SEUIL ? 'border-sky-300 bg-sky-50'
   : 'border-amber-300 bg-amber-50';
 
-export default function EncodageCours({ coursCode, annee, onClose, onEnregistre }) {
+export default function EncodageCours({ coursCode, annee, onClose, onEnregistre, onParametrer }) {
   const [data, setData] = useState(null);
   const [erreur, setErreur] = useState(null);
   const [session, setSession] = useState(1);
@@ -124,10 +124,16 @@ export default function EncodageCours({ coursCode, annee, onClose, onEnregistre 
               </div>
               <p>
                 La saisie par cours suppose de savoir quels acquis ce cours évalue.
-                Ce lien se déclare dans le référentiel de l'unité — pondération des
-                acquis par cours — ou s'importe du classeur de suivi, onglet
-                <b> Repartition_AA_UE</b>.
+                Ce lien se pose au paramétrage de l'unité, ou s'importe du classeur
+                de suivi, onglet <b>Repartition_AA_UE</b>.
               </p>
+              {onParametrer && (
+                <button onClick={() => onParametrer(data.cours.ue_num)}
+                  className="mt-1 px-3 py-1.5 text-[12.5px] rounded-lg bg-iip-blue
+                             text-white font-semibold">
+                  Paramétrer les cours et acquis de l'UE {data.cours.ue_num}
+                </button>
+              )}
             </div>
           ) : (
             <>

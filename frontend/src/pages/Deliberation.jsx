@@ -3,6 +3,7 @@ import { IconChevronRight, IconArrowLeft, IconBolt, IconAlertTriangle } from '@t
 import { authHeaders, getAnnee } from '../lib/api.js';
 import FeuilleDeliberation from '../components/FeuilleDeliberation.jsx';
 import EncodageCours from '../components/EncodageCours.jsx';
+import LiensCoursAcquis from '../components/LiensCoursAcquis.jsx';
 import EncodageRapide from './EncodageRapide.jsx';
 
 /**
@@ -31,6 +32,7 @@ export default function Deliberation() {
   const [coursDeUe, setCoursDeUe] = useState({});   // ue_num → [cours]
   const [deplie, setDeplie] = useState(null);
   const [encoder, setEncoder] = useState(null);     // cours_code en saisie
+  const [parametrer, setParametrer] = useState(null);  // ue_num en paramétrage
 
   async function ouvrirCours(ueNum) {
     if (deplie === ueNum) { setDeplie(null); return; }
@@ -197,9 +199,15 @@ export default function Deliberation() {
                       {!coursDeUe[u.ue_num] ? (
                         <div className="text-[11.5px] text-slate-400">Chargement des cours…</div>
                       ) : !coursDeUe[u.ue_num].length ? (
-                        <div className="text-[11.5px] text-amber-800">
-                          Aucun cours au référentiel de cette unité : la saisie par cours
-                          suppose des cours et des acquis qui leur sont rattachés.
+                        <div className="text-[11.5px] text-amber-800 space-y-1">
+                          <div>
+                            Aucun cours n'a d'acquis rattaché dans cette unité : la saisie
+                            par cours n'a rien à montrer.
+                          </div>
+                          <button onClick={() => setParametrer(u.ue_num)}
+                            className="px-2 py-1 rounded-lg bg-iip-blue text-white font-semibold">
+                            Paramétrer les cours et acquis
+                          </button>
                         </div>
                       ) : coursDeUe[u.ue_num].map(c => (
                         <button key={c.cours_code} onClick={() => setEncoder(c.cours_code)}
@@ -215,6 +223,12 @@ export default function Deliberation() {
                           </span>
                         </button>
                       ))}
+                      {!!(coursDeUe[u.ue_num] || []).length && (
+                        <button onClick={() => setParametrer(u.ue_num)}
+                          className="text-[11.5px] text-iip-blue underline">
+                          Paramétrer les cours et acquis de cette unité
+                        </button>
+                      )}
                     </div>
                   )}
                   </div>
@@ -237,7 +251,14 @@ export default function Deliberation() {
 
       {encoder && (
         <EncodageCours coursCode={encoder} annee={annee}
-          onClose={() => { setEncoder(null); charger(); }} />
+          onClose={() => { setEncoder(null); charger(); }}
+          onParametrer={ue => { setEncoder(null); setParametrer(ue); }} />
+      )}
+
+      {parametrer && (
+        <LiensCoursAcquis ueNum={parametrer} annee={annee}
+          onClose={() => { setParametrer(null); setCoursDeUe({}); if (deplie) ouvrirCours(deplie); }}
+          onEnregistre={() => setCoursDeUe({})} />
       )}
     </div>
   );
