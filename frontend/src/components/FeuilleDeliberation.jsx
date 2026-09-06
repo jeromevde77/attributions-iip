@@ -145,6 +145,18 @@ export default function FeuilleDeliberation({ ueNum, annee, onClose }) {
 
   const etud = liste[Math.min(idx, Math.max(liste.length - 1, 0))] || null;
 
+  /**
+   * CE QUI EMPÊCHE DE PASSER AU SUIVANT, calculé ici pour être DIT AU BON
+   * ENDROIT. Le refus était posé dans la fonction d'enregistrement et son
+   * message s'affichait tout en haut du panneau : sur une fiche à quatre
+   * blocs, on cliquait « Suivant » en bas et il ne se passait rien de
+   * visible. Le bouton porte désormais lui-même la raison.
+   */
+  const decisionRetenue = etud ? (decisions[etud.id] || etud.ue?.decision_proposee || null) : null;
+  const aMotiver = etud && decisionRetenue !== 'reussi'
+    ? aJustifier(etud.acquis, etud.cours, decisionRetenue).filter(a => !a.motif)
+    : [];
+
   /** Poser ou retirer un ajustement. Le serveur renvoie l'étudiant recalculé. */
   async function ajuster(portee, code, action) {
     if (!etud) return;
@@ -207,13 +219,14 @@ export default function FeuilleDeliberation({ ueNum, annee, onClose }) {
     // sont à l'écran. La liste venue du serveur date de l'ouverture de la
     // fiche : écrire une justification ne la rafraîchissait pas, et l'écran
     // réclamait encore ce qu'on venait d'écrire.
-    const manquants = aJustifier(etud.acquis, etud.cours, decision)
-      .filter(a => !a.motif).map(a => a.aa_code);
     const decision = decisions[etud.id] || ue.decision_proposee;
-    if (decision !== 'reussi' && manquants.length) {
+    if (aMotiver.length) {
       setErreur(`Justification requise avant de passer au suivant : `
-        + `${manquants.join(', ')}. Elle se pose sous la matrice, `
-        + `dans « À justifier ».`);
+        + `${aMotiver.map(a => a.aa_code).join(', ')}. Elle se pose sous la `
+        + `matrice, dans « À justifier ».`);
+      // On y emmène : le message seul se perdait en haut de l'écran.
+      document.getElementById('a-justifier')
+        ?.scrollIntoView({ behavior: 'smooth', block: 'center' });
       return;
     }
     setEnCours(true); setErreur(null);
@@ -454,16 +467,31 @@ export default function FeuilleDeliberation({ ueNum, annee, onClose }) {
                     {etud.id_ecampus || '—'} · {idx + 1} / {liste.length}
                   </div>
                 </div>
-                <button disabled={enCours} onClick={() => enregistrerPuisAvancer(1)}
-                  title={idx >= liste.length - 1
-                    ? 'Enregistrer et clore la délibération'
-                    : 'Enregistrer la décision et passer au suivant'}
-                  className="px-2.5 py-1.5 rounded-lg border border-iip-blue text-iip-blue
-                             font-semibold text-[12px] flex items-center gap-1
-                             disabled:opacity-30">
-                  {idx >= liste.length - 1 ? 'Clore' : 'Suivant'}
-                  <IconChevronRight size={16} />
-                </button>
+                <div className="flex items-center gap-2">
+                  {/* La raison du blocage, à côté du bouton qu'on presse. */}
+                  {!!aMotiver.length && (
+                    <button onClick={() => document.getElementById('a-justifier')
+                        ?.scrollIntoView({ behavior: 'smooth', block: 'center' })}
+                      className="text-[11px] text-red-800 bg-red-50 border border-red-300
+                                 rounded-lg px-2 py-1 text-right max-w-[280px]">
+                      <b>{aMotiver.length} acquis à justifier</b> avant de passer :
+                      {' '}{aMotiver.map(a => a.aa_code).join(', ')}
+                    </button>
+                  )}
+                  <button disabled={enCours} onClick={() => enregistrerPuisAvancer(1)}
+                    title={aMotiver.length
+                      ? `À justifier d'abord : ${aMotiver.map(a => a.aa_code).join(', ')}`
+                      : idx >= liste.length - 1
+                        ? 'Enregistrer et clore la délibération'
+                        : 'Enregistrer la décision et passer au suivant'}
+                    className={`px-2.5 py-1.5 rounded-lg border font-semibold text-[12px]
+                      flex items-center gap-1 disabled:opacity-30 ${aMotiver.length
+                        ? 'border-red-300 text-red-400 cursor-not-allowed'
+                        : 'border-iip-blue text-iip-blue'}`}>
+                    {idx >= liste.length - 1 ? 'Clore' : 'Suivant'}
+                    <IconChevronRight size={16} />
+                  </button>
+                </div>
               </div>
 
               <Fiche e={etud} data={data} onAjuster={ajuster} onMotif={poserMotif}
@@ -1135,7 +1163,7 @@ function AJustifier({ acquis, cours, onMotif, enCours, decision }) {
   }
 
   return (
-    <div className="border border-red-200 rounded-xl overflow-hidden">
+    <div id="a-justifier" className="border border-red-200 rounded-xl overflow-hidden">
       <div className="px-3 py-1.5 bg-red-50 border-b border-red-200 flex items-center
                       justify-between gap-2 flex-wrap">
         <span className="text-[12px] font-semibold text-red-900">
