@@ -1073,31 +1073,45 @@ r.get('/parcours-bilan/:etudId', authRequired, (req, res) => {
   // Toutes les inscriptions, tous millésimes : le parcours ne se lit pas
   // année par année. Le référentiel retenu est celui de l'année d'inscription,
   // à défaut le plus récent — un intitulé ou un nombre d'ECTS peut changer.
-  const inscriptions = db.prepare(`
-    SELECT i.ue_num, i.annee_scolaire, i.resultat, i.points,
-           (SELECT ue_nom FROM ue u WHERE u.ue_num = i.ue_num
-             ORDER BY (u.annee_scolaire = i.annee_scolaire) DESC, u.annee_scolaire DESC LIMIT 1) AS ue_nom,
-           (SELECT ue_niv FROM ue u WHERE u.ue_num = i.ue_num
-             ORDER BY (u.annee_scolaire = i.annee_scolaire) DESC, u.annee_scolaire DESC LIMIT 1) AS ue_niv,
-           (SELECT ects FROM ue u WHERE u.ue_num = i.ue_num
-             ORDER BY (u.annee_scolaire = i.annee_scolaire) DESC, u.annee_scolaire DESC LIMIT 1) AS ects,
-           (SELECT ue_per_etudiants FROM ue u WHERE u.ue_num = i.ue_num
-             ORDER BY (u.annee_scolaire = i.annee_scolaire) DESC, u.annee_scolaire DESC LIMIT 1) AS periodes,
-           (SELECT section FROM ue u WHERE u.ue_num = i.ue_num AND u.section IS NOT NULL
-             ORDER BY u.annee_scolaire DESC LIMIT 1) AS section
-    FROM etudiant_inscription i
-    WHERE i.etudiant_id = ?
-    ORDER BY i.annee_scolaire, i.ue_num
+  // Le référentiel se rapproche EN JAVASCRIPT, non par sous-requête : SQLite
+  // n'admet pas de référence à l'alias externe (« i ») dans le ORDER BY d'une
+  // sous-requête, et l'erreur ne se voit qu'à l'exécution — « no such column:
+  // i.annee_scolaire ». Le code de attestations.js le signalait déjà.
+  const brutes = db.prepare(`
+    SELECT ue_num, annee_scolaire, resultat, points
+    FROM etudiant_inscription WHERE etudiant_id = ?
+    ORDER BY annee_scolaire, ue_num
   `).all(etudId);
+
+  const refs = db.prepare(`
+    SELECT ue_num, annee_scolaire, ue_nom, ue_niv, ects, ue_per_etudiants, section
+    FROM ue ORDER BY annee_scolaire DESC
+  `).all();
+  const refsParUe = {};
+  for (const r0 of refs) (refsParUe[r0.ue_num] = refsParUe[r0.ue_num] || []).push(r0);
+
+  // Millésime de l'inscription d'abord, sinon le plus récent : un intitulé ou
+  // un nombre d'ECTS peut changer d'une année à l'autre.
+  const refDe = (ueNum, an) => {
+    const l = refsParUe[ueNum] || [];
+    return l.find(x => x.annee_scolaire === an) || l[0] || {};
+  };
+
+  const inscriptions = brutes.map(i => {
+    const r0 = refDe(i.ue_num, i.annee_scolaire);
+    const sec = (refsParUe[i.ue_num] || []).find(x => x.section)?.section || null;
+    return {
+      ...i, ue_nom: r0.ue_nom || null, ue_niv: r0.ue_niv || null,
+      ects: r0.ects ?? null, periodes: r0.ue_per_etudiants ?? null, section: sec,
+    };
+  });
 
   // Les valorisations valent acquisition : les ignorer sous-estimerait les
   // crédits d'un étudiant qui a fait valoir un parcours antérieur.
   const valorisations = db.prepare(`
-    SELECT v.ue_num, v.annee_scolaire, v.pourcentage,
-           (SELECT ects FROM ue u WHERE u.ue_num = v.ue_num
-             ORDER BY u.annee_scolaire DESC LIMIT 1) AS ects
-    FROM etudiant_valorisation v WHERE v.etudiant_id = ?
-  `).all(etudId);
+    SELECT ue_num, annee_scolaire, pourcentage
+    FROM etudiant_valorisation WHERE etudiant_id = ?
+  `).all(etudId).map(v => ({ ...v, ects: refDe(v.ue_num, v.annee_scolaire).ects ?? null }));
 
   const cetteAnnee = inscriptions.filter(i => i.annee_scolaire === annee);
   const anterieures = inscriptions.filter(i => i.annee_scolaire !== annee);
