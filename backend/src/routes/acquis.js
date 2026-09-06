@@ -1710,6 +1710,16 @@ export function delibererUE(etudId, ueNum, annee) {
       })),
       // La réussite de plein droit : tous les acquis et tous les cours au
       // seuil, sans qu'aucune faveur ni aucun ajournement n'ait été nécessaire.
+      // Ce que la délibération DIT — la décision reste au Conseil, mais elle
+      // se déduit du calcul et n'a pas à être ressaisie dans l'écran voisin.
+      decision_proposee: ajourne ? 'ajourne'
+        : noteUE == null ? null
+        : noteUE >= SEUIL_UE ? 'reussi' : 'refuse',
+      // Un échec non motivé rend la décision attaquable : on nomme ce qui
+      // manque plutôt que de laisser passer.
+      motifs_manquants: acquis
+        .filter(a => (a.na || (a.note != null && a.note < SEUIL_UE)) && !a.motif)
+        .map(a => a.aa_code),
       de_plein_droit: !ajourne && !faveur
         && acquis.length > 0 && cours.length > 0
         && acquis.every(a => a.note != null && a.note >= SEUIL_UE)
@@ -1885,6 +1895,380 @@ r.get('/deliberation/ue/:ueNum', authRequired, (req, res) => {
     etudiants: lignes,
     // Ce qui empêcherait la feuille d'avoir un sens, dit franchement.
     sans_structure: !modele.cours.length || !modele.acquis.length,
+  });
+});
+
+// ═══════════════════════════════════════════════════════════════════════════
+// LA SÉANCE DU CONSEIL DES ÉTUDES
+//
+// Une délibération est une SÉANCE : elle s'ouvre par la composition du Conseil
+// et les présences, elle se clôt par la date de visite des copies. Ces deux
+// bornes ne sont pas de l'administration : la composition fonde la validité de
+// la décision, et la visite des copies est un droit de l'étudiant. Les laisser
+// hors de l'outil, c'était les laisser à la mémoire de celui qui préside.
+// ═══════════════════════════════════════════════════════════════════════════
+
+(function migrerSeance() {
+  try {
+    db.exec(`
+      CREATE TABLE IF NOT EXISTS deliberation_seance (
+        id             INTEGER PRIMARY KEY AUTOINCREMENT,
+        ue_num         INTEGER NOT NULL,
+        annee_scolaire TEXT    NOT NULL,
+        date_seance    TEXT,
+        visite_date    TEXT,
+        visite_heure   TEXT,
+        visite_local   TEXT,
+        cloturee       INTEGER NOT NULL DEFAULT 0,
+        maj_le         TEXT DEFAULT CURRENT_TIMESTAMP,
+        maj_par        TEXT,
+        UNIQUE(ue_num, annee_scolaire)
+      );
+      CREATE TABLE IF NOT EXISTS deliberation_presence (
+        seance_id      INTEGER NOT NULL,
+        cle            TEXT    NOT NULL,
+        nom            TEXT    NOT NULL,
+        qualite        TEXT,
+        present        INTEGER NOT NULL DEFAULT 0,
+        PRIMARY KEY (seance_id, cle)
+      );
+    `);
+  } catch (e) { console.error('[migration] deliberation_seance :', e.message); }
+})();
+
+/**
+ * La composition du Conseil pour une unité.
+ *
+ * Y siègent de droit tous les professeurs qui y ont des heures — c'est
+ * l'attribution qui le dit, il n'y a pas d'autre source —, la coordination de
+ * la section au titre du suivi pédagogique, et la direction ou son
+ * représentant. On ne coche que la présence : la composition, elle, se déduit.
+ */
+function membresDuConseil(ueNum, annee) {
+  const membres = [];
+
+  for (const p of db.prepare(`
+    SELECT DISTINCT p.id, p.nom, p.prenom
+    FROM attribution a JOIN professeur p ON p.id = a.professeur_id
+    WHERE a.ue_num = ? AND a.annee_scolaire = ? AND a.professeur_id IS NOT NULL
+    ORDER BY p.nom, p.prenom
+  `).all(ueNum, annee)) {
+    // Les cours qu'il porte dans CETTE unité : c'est à ce titre qu'il siège.
+    const cours = db.prepare(`
+      SELECT DISTINCT code_cours FROM attribution
+      WHERE professeur_id = ? AND ue_num = ? AND annee_scolaire = ?
+        AND code_cours IS NOT NULL ORDER BY code_cours
+    `).all(p.id, ueNum, annee).map(c => c.code_cours);
+    membres.push({
+      cle: `prof:${p.id}`, nom: `${p.nom} ${p.prenom}`,
+      qualite: cours.length ? `Professeur · ${cours.join(', ')}` : 'Professeur',
+      role: 'professeur',
+    });
+  }
+
+  const ue = db.prepare(`
+    SELECT section FROM ue WHERE ue_num = ?
+    ORDER BY (annee_scolaire = ?) DESC, annee_scolaire DESC LIMIT 1
+  `).get(ueNum, annee) || {};
+  if (ue.section) {
+    const sec = db.prepare('SELECT responsable FROM section WHERE code = ?').get(ue.section);
+    membres.push({
+      cle: 'coordination', nom: sec?.responsable || `Coordination ${ue.section}`,
+      qualite: 'Coordination de section · suivi pédagogique', role: 'coordination',
+    });
+  }
+
+  let directeur = null;
+  try { directeur = identiteEtablissement()?.directeur || null; } catch { /* défaut ci-dessous */ }
+  membres.push({
+    cle: 'direction', nom: directeur || 'Direction',
+    qualite: 'Direction ou son représentant', role: 'direction',
+  });
+
+  return membres;
+}
+
+r.get('/deliberation/ue/:ueNum/seance', authRequired, (req, res) => {
+  const ueNum = Number(req.params.ueNum);
+  const annee = req.query.annee || anneeDeTravail(req);
+
+  const seance = db.prepare(
+    'SELECT * FROM deliberation_seance WHERE ue_num = ? AND annee_scolaire = ?'
+  ).get(ueNum, annee) || null;
+
+  const poses = seance ? Object.fromEntries(db.prepare(
+    'SELECT cle, present, nom, qualite FROM deliberation_presence WHERE seance_id = ?'
+  ).all(seance.id).map(l => [l.cle, l])) : {};
+
+  // Les membres se recalculent à chaque ouverture : une attribution a pu
+  // changer depuis la dernière séance, et la liste doit le refléter.
+  const membres = membresDuConseil(ueNum, annee).map(m => ({
+    ...m,
+    nom: poses[m.cle]?.nom || m.nom,
+    present: poses[m.cle] ? !!poses[m.cle].present : true,
+  }));
+  // Un membre ajouté à la main lors d'une séance précédente y reste.
+  for (const [cle, l] of Object.entries(poses)) {
+    if (!membres.some(m => m.cle === cle)) {
+      membres.push({ cle, nom: l.nom, qualite: l.qualite, role: 'ajoute', present: !!l.present });
+    }
+  }
+
+  res.json({ ue_num: ueNum, annee, seance, membres });
+});
+
+r.put('/deliberation/ue/:ueNum/seance', authRequired,
+      roleRequired('admin', 'directeur', 'directeur_adjoint', 'editeur'), (req, res) => {
+  const ueNum = Number(req.params.ueNum);
+  const annee = req.body?.annee || anneeDeTravail(req);
+  const { membres, date_seance, visite_date, visite_heure, visite_local, cloturee } = req.body || {};
+
+  db.transaction(() => {
+    db.prepare(`
+      INSERT INTO deliberation_seance
+        (ue_num, annee_scolaire, date_seance, visite_date, visite_heure, visite_local,
+         cloturee, maj_le, maj_par)
+      VALUES (?,?,?,?,?,?,?, datetime('now'), ?)
+      ON CONFLICT(ue_num, annee_scolaire) DO UPDATE SET
+        date_seance  = COALESCE(excluded.date_seance,  deliberation_seance.date_seance),
+        visite_date  = COALESCE(excluded.visite_date,  deliberation_seance.visite_date),
+        visite_heure = COALESCE(excluded.visite_heure, deliberation_seance.visite_heure),
+        visite_local = COALESCE(excluded.visite_local, deliberation_seance.visite_local),
+        cloturee     = MAX(excluded.cloturee, deliberation_seance.cloturee),
+        maj_le = datetime('now'), maj_par = excluded.maj_par
+    `).run(ueNum, annee, date_seance || null, visite_date || null, visite_heure || null,
+           visite_local || null, cloturee ? 1 : 0, req.user?.email || null);
+
+    if (Array.isArray(membres)) {
+      const s = db.prepare(
+        'SELECT id FROM deliberation_seance WHERE ue_num = ? AND annee_scolaire = ?'
+      ).get(ueNum, annee);
+      const up = db.prepare(`
+        INSERT INTO deliberation_presence (seance_id, cle, nom, qualite, present)
+        VALUES (?,?,?,?,?)
+        ON CONFLICT(seance_id, cle) DO UPDATE SET
+          nom = excluded.nom, qualite = excluded.qualite, present = excluded.present`);
+      for (const m of membres) {
+        if (!m?.cle || !m?.nom) continue;
+        up.run(s.id, m.cle, m.nom, m.qualite || null, m.present ? 1 : 0);
+      }
+    }
+  })();
+
+  const seance = db.prepare(
+    'SELECT * FROM deliberation_seance WHERE ue_num = ? AND annee_scolaire = ?'
+  ).get(ueNum, annee);
+  res.json({ ok: true, seance });
+});
+
+/**
+ * LE PROCÈS-VERBAL DE DÉLIBÉRATION.
+ *
+ * Circulaire « Sanction des études », annexe 3 pour une unité ordinaire,
+ * annexe 5 pour une unité « épreuve intégrée » — le Conseil des études y
+ * devient Jury d'épreuve intégrée, et c'est la seule différence de fond.
+ *
+ * Le modèle est repris tel quel : ses colonnes (seuil de réussite, total des
+ * points en %, décision finale), sa formule d'ouverture, ses mentions de pied.
+ * Le pourcentage n'est porté qu'en cas de réussite, comme la note 1 du modèle
+ * l'impose — un échec ne se chiffre pas dans un procès-verbal.
+ */
+r.get('/deliberation/ue/:ueNum/pv', authRequired, (req, res) => {
+  const ueNum = Number(req.params.ueNum);
+  const annee = req.query.annee || anneeDeTravail(req);
+  const session = req.query.session === '2' ? 2 : 1;
+
+  const ue = db.prepare(`
+    SELECT ue_nom, section, ue_per, ue_code_fwb, ue_niv FROM ue WHERE ue_num = ?
+    ORDER BY (annee_scolaire = ?) DESC, annee_scolaire DESC LIMIT 1
+  `).get(ueNum, annee) || {};
+  const integree = estEpreuveIntegree(ueNum, annee);
+  const sec = ue.section
+    ? db.prepare('SELECT libelle, niveau, code_fwb FROM section WHERE code = ?').get(ue.section)
+    : null;
+
+  const etab = db.prepare('SELECT * FROM etablissement LIMIT 1').get() || {};
+  const ident = identiteEtablissement();
+
+  const seance = db.prepare(
+    'SELECT * FROM deliberation_seance WHERE ue_num = ? AND annee_scolaire = ?'
+  ).get(ueNum, annee) || {};
+  const presents = seance.id ? db.prepare(
+    'SELECT nom, qualite FROM deliberation_presence WHERE seance_id = ? AND present = 1'
+  ).all(seance.id) : [];
+
+  const etudiants = db.prepare(`
+    SELECT e.id, e.nom, e.prenom, e.date_naissance, e.lieu_naissance,
+           i.resultat, i.points
+    FROM etudiant_inscription i JOIN etudiant e ON e.id = i.etudiant_id
+    WHERE i.annee_scolaire = ? AND i.ue_num = ?
+    ORDER BY e.nom, e.prenom
+  `).all(annee, ueNum);
+
+  const esc = s => String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;');
+  const jour = d => {
+    if (!d) return '';
+    const m = String(d).match(/^(\d{4})-(\d{2})-(\d{2})/);
+    return m ? `${m[3]}/${m[2]}/${m[1]}` : String(d);
+  };
+  const LIB = { reussi: 'Réussite', ajourne: 'Ajournement', refuse: 'Refus', absent: 'Absence' };
+
+  const lignes = etudiants.map(e => {
+    // « A ne compléter qu'en cas de Réussite » : le pourcentage ne figure au
+    // procès-verbal que lorsque l'unité est réussie.
+    const pct = e.resultat === 'reussi' && e.points != null
+      ? `${Math.round(Number(e.points) * 5)} %` : '';
+    return `<tr>
+      <td>${esc(`${e.nom} ${e.prenom}`)}</td>
+      <td>${esc([e.lieu_naissance, jour(e.date_naissance)].filter(Boolean).join(', '))}</td>
+      <td class="c">50 %</td>
+      <td class="c">${pct}</td>
+      <td class="c">${esc(LIB[e.resultat] || '')}</td>
+    </tr>`;
+  }).join('');
+
+  const conseil = integree ? "Jury d'épreuve intégrée" : 'Conseil des études';
+
+  const corps = `
+    <div class="entete">
+      <div>COMMUNAUTÉ FRANÇAISE DE BELGIQUE</div>
+      <div>ENSEIGNEMENT DE PROMOTION SOCIALE</div>
+      <div>ANNÉE SCOLAIRE / ANNÉE ACADÉMIQUE : ${esc(annee)}</div>
+      <div>${/sup|bach|bes|master/i.test(ue.ue_niv || sec?.niveau || '')
+        ? 'ENSEIGNEMENT SUPÉRIEUR' : 'ENSEIGNEMENT SECONDAIRE'}</div>
+    </div>
+
+    <div class="etab">
+      <div class="nom">${esc(ident.nom || etab.etab_nom || '')}</div>
+      <div>Adresse : ${esc(ident.adresse || etab.adresse || '')}</div>
+      <div>Numéro de matricule : ${esc(ident.matricule || etab.num_ecot || '')}</div>
+      <div>Numéro FASE : ${esc(ident.fase || etab.num_fase || '')}</div>
+      <div>Date de délibération de la ${session}<sup>${session === 1 ? 're' : 'e'}</sup> session :
+        ${esc(jour(seance.date_seance) || '……………')}</div>
+    </div>
+
+    <h1 class="titre">PROCÈS-VERBAL DE DÉLIBÉRATION D'UNE UNITÉ D'ENSEIGNEMENT${
+      integree ? '<br><span class="ei">« ÉPREUVE INTÉGRÉE »</span>' : ''}</h1>
+
+    <p class="formule">
+      Nous, soussignés, Président-e et Membres du ${esc(conseil)} constitué par le
+      Pouvoir organisateur de l'établissement précité en vue de la délivrance de
+      l'attestation de réussite de l'unité d'enseignement :
+    </p>
+
+    <table class="ue">
+      <tr>
+        <th>Intitulé de l'unité d'enseignement</th>
+        <th>Nombre de périodes</th>
+        <th>Numéro de code</th>
+      </tr>
+      <tr>
+        <td>${esc(ue.ue_nom || `UE ${ueNum}`)}</td>
+        <td class="c">${esc(ue.ue_per ?? '')}</td>
+        <td class="c">${esc(ue.ue_code_fwb || '')}</td>
+      </tr>
+    </table>
+    ${integree ? `
+    <p class="formule">
+      de la section : ${esc(sec?.libelle || ue.section || '')}<br>
+      Section approuvée par le Gouvernement sous le numéro de code :
+      ${esc(sec?.code_fwb || '……………………')}
+    </p>` : ''}
+
+    <p class="formule">Après en avoir délibéré, avons pris les décisions suivantes :</p>
+
+    <table class="decisions">
+      <thead>
+        <tr>
+          <th>Nom, prénom et initiales des autres prénoms</th>
+          <th>Lieu et date de naissance<br><span class="pt">(Pays si pas la Belgique)</span></th>
+          <th>Seuil de réussite</th>
+          <th>Total des points en %<sup>1</sup></th>
+          <th>Décision finale</th>
+        </tr>
+      </thead>
+      <tbody>${lignes || '<tr><td colspan="5" class="c">—</td></tr>'}</tbody>
+    </table>
+    <p class="note"><sup>1</sup> À ne compléter qu'en cas de « Réussite ».</p>
+
+    <p class="formule">Le présent procès-verbal comporte …… pages.</p>
+    <p class="formule">Le ${esc(conseil)} a délibéré le
+      ${esc(jour(seance.date_seance) || '……………')}.</p>
+    <p class="formule">Les résultats sont communiqués conformément au ROI de
+      l'établissement le ${esc(jour(seance.visite_date) || '……………')}${
+      seance.visite_heure ? ` à ${esc(seance.visite_heure)}` : ''}${
+      seance.visite_local ? `, ${esc(seance.visite_local)}` : ''}.</p>
+
+    <div class="signatures">
+      <div class="membres">
+        <div class="lab">Le ${esc(conseil)},</div>
+        ${presents.length
+          ? presents.map(m => `<div class="m">${esc(m.nom)}
+              <span class="q">${esc(m.qualite || '')}</span></div>`).join('')
+          : '<div class="m vide">Les présences n\'ont pas été enregistrées.</div>'}
+      </div>
+      <div class="sceau">
+        <div class="lab">Sceau de l'établissement</div>
+        <img src="${SCEAU_IIP}" alt="">
+      </div>
+      <div class="direction">
+        <div class="lab">Fait en un exemplaire,<br>
+          à ${esc(ident.ville || 'Bruxelles')},<br>
+          le ${esc(jour(seance.date_seance) || '……………')}</div>
+        <img src="${SIGNATURE_SOHET}" alt="">
+        <div class="nom">${esc(ident.directeur || '')}</div>
+        <div class="q">Le Directeur</div>
+      </div>
+    </div>`;
+
+  const html = envelopperDocument({
+    html: corps, titre: `PV de délibération — UE ${ueNum}`,
+    styles: `
+      .entete { text-align: center; font-size: 9pt; line-height: 1.45;
+                text-transform: uppercase; letter-spacing: .2pt; }
+      .etab { margin: 4mm 0 2mm; font-size: 9.5pt; line-height: 1.5; }
+      .etab .nom { font-weight: bold; text-transform: uppercase; }
+      h1.titre { text-align: center; font-size: 12.5pt; margin: 5mm 0 3mm;
+                 text-transform: uppercase; letter-spacing: .3pt; }
+      h1.titre .ei { font-size: 11pt; }
+      .formule { font-size: 9.5pt; line-height: 1.5; margin: 2mm 0; }
+      table.ue td, table.ue th { font-size: 9.5pt; }
+      table.decisions { font-size: 9pt; }
+      table.decisions th { background: #f1f5f9; font-weight: bold; text-align: left; }
+      table.decisions td { height: 8mm; }
+      .c { text-align: center; }
+      .pt { font-weight: normal; font-size: 8pt; }
+      .note { font-size: 8pt; color: #475569; margin: 1mm 0 4mm; }
+      .signatures { display: flex; gap: 8mm; margin-top: 8mm;
+                    page-break-inside: avoid; }
+      .signatures > div { flex: 1; font-size: 9pt; }
+      .signatures .lab { font-weight: bold; margin-bottom: 2mm; }
+      .signatures .m { margin-bottom: 1.2mm; }
+      .signatures .m .q { display: block; font-size: 7.5pt; color: #64748b; }
+      .signatures .m.vide { color: #94a3b8; font-style: italic; }
+      .signatures .sceau { text-align: center; }
+      .signatures img { max-height: 22mm; }
+      .signatures .direction { text-align: center; }
+      .signatures .direction .nom { font-weight: bold; }
+      .signatures .direction .q { font-size: 8pt; color: #475569; }
+    `,
+  });
+
+  res.json({
+    html,
+    nom: `PV_deliberation_UE${ueNum}_${String(annee).replace(/\W/g, '')}.html`,
+    annexe: integree ? 5 : 3,
+    etudiants: etudiants.length,
+    // Ce qui manque au procès-verbal se dit : il est signé, il doit être juste.
+    manques: [
+      !seance.date_seance && 'la date de délibération',
+      !presents.length && 'les présences du Conseil',
+      !seance.visite_date && 'la date de communication des résultats',
+      !ue.ue_code_fwb && "le numéro de code de l'unité",
+      ue.ue_per == null && "le nombre de périodes de l'unité",
+      etudiants.some(e => !e.resultat) && 'des décisions non enregistrées',
+    ].filter(Boolean),
   });
 });
 

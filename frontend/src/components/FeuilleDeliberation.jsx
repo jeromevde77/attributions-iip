@@ -35,6 +35,9 @@ export default function FeuilleDeliberation({ ueNum, annee, onClose }) {
   const [tableau, setTableau] = useState(false);   // la vue d'ensemble
   const [bord, setBord] = useState(null);
   const [enCours, setEnCours] = useState(false);
+  // La séance : les présences en ouverture, la visite des copies en clôture.
+  const [seance, setSeance] = useState(null);
+  const [etape, setEtape] = useState('presences');   // presences | fiche | cloture
 
   async function charger() {
     setErreur(null);
@@ -47,7 +50,16 @@ export default function FeuilleDeliberation({ ueNum, annee, onClose }) {
       setData(j);
     } catch (e) { setErreur(e.message); }
   }
-  useEffect(() => { charger(); /* eslint-disable-next-line */ }, [ueNum, annee]);
+  async function chargerSeance() {
+    try {
+      const rep = await fetch(
+        `/api/acquis/deliberation/ue/${ueNum}/seance?annee=${encodeURIComponent(annee)}`,
+        { headers: authHeaders() });
+      const j = await rep.json();
+      if (rep.ok) setSeance(j);
+    } catch { /* la séance est un cadre, pas un bloquant */ }
+  }
+  useEffect(() => { charger(); chargerSeance(); /* eslint-disable-next-line */ }, [ueNum, annee]);
 
   const liste = useMemo(() => {
     if (!data) return [];
@@ -96,6 +108,91 @@ export default function FeuilleDeliberation({ ueNum, annee, onClose }) {
       setData(d => ({ ...d, etudiants: d.etudiants.map(x => x.id !== etud.id ? x
         : { ...x, acquis: x.acquis.map(a => a.aa_code === aaCode ? { ...a, motif: texte } : a) }) }));
     } catch (e) { setErreur(e.message); }
+    finally { setEnCours(false); }
+  }
+
+  /**
+   * LA DÉCISION SE PREND ICI, et elle s'enregistre en passant au suivant.
+   *
+   * Elle n'a pas à être ressaisie dans un second écran : le calcul l'a déjà
+   * dite — réussi, ajourné, refusé — et le Conseil l'a déjà prise en posant
+   * ses ajustements. Ce qu'il reste à faire, c'est l'écrire.
+   *
+   * MAIS on ne quitte pas un échec sans motivation : une décision défavorable
+   * non motivée est attaquable, et l'annexe 8 ou 9 ne pourrait pas être
+   * produite. C'est le seul barrage de cet écran, et il est délibéré.
+   */
+  async function enregistrerPuisAvancer(pas) {
+    if (!etud) return;
+    const ue = etud.ue || {};
+    const manquants = ue.motifs_manquants || [];
+    if (ue.decision_proposee !== 'reussi' && manquants.length) {
+      setErreur(`Justification requise avant de passer au suivant : `
+        + `${manquants.join(', ')}. Cliquez sur la bulle rouge de l'acquis.`);
+      return;
+    }
+    setEnCours(true); setErreur(null);
+    try {
+      if (ue.decision_proposee) {
+        const rep = await fetch('/api/acquis/decision', {
+          method: 'PUT', headers: authHeaders(),
+          body: JSON.stringify({
+            etudiant_id: etud.id, annee_scolaire: annee, ue_num: ueNum,
+            resultat: ue.decision_proposee, points: ue.note,
+          }),
+        });
+        if (!rep.ok) {
+          const j = await rep.json().catch(() => ({}));
+          setErreur(j.error || "La décision n'a pas pu être enregistrée.");
+          return;
+        }
+        setData(d => ({ ...d, etudiants: d.etudiants.map(x => x.id === etud.id
+          ? { ...x, resultat: ue.decision_proposee, points: ue.note } : x) }));
+      }
+      // Dernier étudiant : la séance se clôt, et la visite des copies se fixe.
+      if (pas > 0 && idx >= liste.length - 1) setEtape('cloture');
+      else setIdx(i => Math.max(0, Math.min(liste.length - 1, i + pas)));
+    } catch (e) { setErreur(e.message); }
+    finally { setEnCours(false); }
+  }
+
+  /**
+   * LE PROCÈS-VERBAL, à la clôture. Circulaire « Sanction des études »,
+   * annexe 3 pour une unité ordinaire, annexe 5 pour une épreuve intégrée.
+   * Il s'ouvre dans une fenêtre d'impression : c'est une pièce signée, elle
+   * sort sur papier.
+   */
+  async function imprimerPV() {
+    setEnCours(true); setErreur(null);
+    try {
+      const rep = await fetch(
+        `/api/acquis/deliberation/ue/${ueNum}/pv?annee=${encodeURIComponent(annee)}`,
+        { headers: authHeaders() });
+      const j = await rep.json();
+      if (!rep.ok) { setErreur(j.error); return; }
+      if (j.manques?.length) {
+        setErreur(`Procès-verbal produit, mais il manque : ${j.manques.join(', ')}.`);
+      }
+      const f = window.open('', '_blank');
+      if (!f) { setErreur('Le navigateur a bloqué la fenêtre d’impression.'); return; }
+      f.document.write(j.html);
+      f.document.close();
+    } catch (e) { setErreur(e.message); }
+    finally { setEnCours(false); }
+  }
+
+  async function enregistrerSeance(champs) {
+    setEnCours(true); setErreur(null);
+    try {
+      const rep = await fetch(`/api/acquis/deliberation/ue/${ueNum}/seance`, {
+        method: 'PUT', headers: authHeaders(),
+        body: JSON.stringify({ annee, ...champs }),
+      });
+      const j = await rep.json();
+      if (!rep.ok) { setErreur(j.error); return false; }
+      await chargerSeance();
+      return true;
+    } catch (e) { setErreur(e.message); return false; }
     finally { setEnCours(false); }
   }
 
@@ -169,7 +266,16 @@ export default function FeuilleDeliberation({ ueNum, annee, onClose }) {
             </div>
           )}
 
-          {!liste.length ? (
+          {etape === 'presences' ? (
+            <Presences seance={seance} enCours={enCours}
+              onValider={membres => enregistrerSeance({
+                membres, date_seance: new Date().toISOString().slice(0, 10),
+              }).then(ok => ok && setEtape('fiche'))} />
+          ) : etape === 'cloture' ? (
+            <Cloture seance={seance?.seance} enCours={enCours} nb={liste.length}
+              onRetour={() => setEtape('fiche')} onPV={imprimerPV}
+              onClore={champs => enregistrerSeance({ ...champs, cloturee: 1 })} />
+          ) : !liste.length ? (
             <div className="py-10 text-center text-[12.5px] text-slate-400 border-2
                             border-dashed rounded-xl">
               Aucun étudiant inscrit à cette unité pour {annee}.
@@ -182,7 +288,8 @@ export default function FeuilleDeliberation({ ueNum, annee, onClose }) {
               {/* Le passage d'un étudiant au suivant : c'est le geste du Conseil. */}
               <div className="flex items-center justify-between gap-3 px-3 py-2
                               rounded-xl bg-slate-50 border border-slate-200">
-                <button disabled={idx <= 0} onClick={() => setIdx(i => i - 1)}
+                <button disabled={idx <= 0 || enCours} onClick={() => enregistrerPuisAvancer(-1)}
+                  title="Enregistrer la décision et revenir au précédent"
                   className="p-1.5 rounded-lg border border-slate-300 disabled:opacity-30">
                   <IconChevronLeft size={16} />
                 </button>
@@ -194,8 +301,14 @@ export default function FeuilleDeliberation({ ueNum, annee, onClose }) {
                     {etud.id_ecampus || '—'} · {idx + 1} / {liste.length}
                   </div>
                 </div>
-                <button disabled={idx >= liste.length - 1} onClick={() => setIdx(i => i + 1)}
-                  className="p-1.5 rounded-lg border border-slate-300 disabled:opacity-30">
+                <button disabled={enCours} onClick={() => enregistrerPuisAvancer(1)}
+                  title={idx >= liste.length - 1
+                    ? 'Enregistrer et clore la délibération'
+                    : 'Enregistrer la décision et passer au suivant'}
+                  className="px-2.5 py-1.5 rounded-lg border border-iip-blue text-iip-blue
+                             font-semibold text-[12px] flex items-center gap-1
+                             disabled:opacity-30">
+                  {idx >= liste.length - 1 ? 'Clore' : 'Suivant'}
                   <IconChevronRight size={16} />
                 </button>
               </div>
@@ -210,6 +323,177 @@ export default function FeuilleDeliberation({ ueNum, annee, onClose }) {
       {bord && (
         <TableauBordEtudiant etudId={bord.id} ueNum={data.ue_num} annee={annee}
           onClose={() => setBord(null)} onDecide={charger} />
+      )}
+    </div>
+  );
+}
+
+/* ═══ Les présences du Conseil ═════════════════════════════════════════════
+ *
+ * La composition fonde la validité de la décision : y siègent de droit tous
+ * les professeurs qui ont des heures dans l'unité, la coordination de section
+ * au titre du suivi pédagogique, et la direction ou son représentant. On ne
+ * coche que la présence — la composition, elle, se déduit des attributions.
+ */
+
+function Presences({ seance, onValider, enCours }) {
+  const [membres, setMembres] = useState(null);
+  const [ajout, setAjout] = useState('');
+
+  useEffect(() => { if (seance && !membres) setMembres(seance.membres); }, [seance, membres]);
+
+  if (!membres) {
+    return <div className="py-10 text-center text-[12.5px] text-slate-400">Chargement du Conseil…</div>;
+  }
+
+  const presents = membres.filter(m => m.present).length;
+  const ton = { professeur: 'text-slate-700', coordination: 'text-sky-800',
+                direction: 'text-iip-blue', ajoute: 'text-slate-600' };
+
+  return (
+    <div className="space-y-3">
+      <div className="px-3 py-2 rounded-xl bg-iip-blue/5 border border-iip-blue/20">
+        <div className="text-[13px] font-semibold text-iip-blue">Conseil des études</div>
+        <p className="text-[11.5px] text-slate-600">
+          Cochez les présents avant d'ouvrir la délibération. La liste se déduit
+          des attributions de l'unité ; elle est donc à jour de l'année en cours.
+        </p>
+      </div>
+
+      <div className="border border-slate-200 rounded-xl divide-y divide-slate-100">
+        {membres.map((m, i) => (
+          <label key={m.cle}
+            className="flex items-center gap-3 px-3 py-2 cursor-pointer hover:bg-slate-50">
+            <input type="checkbox" checked={!!m.present}
+              onChange={e => setMembres(l => l.map((x, k) =>
+                k === i ? { ...x, present: e.target.checked } : x))}
+              className="w-4 h-4 accent-iip-blue flex-none" />
+            <span className="flex-1 min-w-0">
+              <span className={`text-[12.5px] font-semibold ${ton[m.role] || 'text-slate-700'}`}>
+                {m.nom}
+              </span>
+              <span className="block text-[11px] text-slate-500 truncate">{m.qualite}</span>
+            </span>
+            <span className={`text-[10.5px] font-semibold px-2 py-0.5 rounded-full flex-none
+              ${m.present ? 'bg-emerald-100 text-emerald-800' : 'bg-slate-100 text-slate-500'}`}>
+              {m.present ? 'présent' : 'excusé'}
+            </span>
+          </label>
+        ))}
+      </div>
+
+      <div className="flex items-center gap-2">
+        <input value={ajout} onChange={e => setAjout(e.target.value)}
+          placeholder="Ajouter un membre (nom, qualité)…"
+          className="flex-1 border border-slate-300 rounded-lg px-2.5 py-1.5 text-[12.5px]" />
+        <button disabled={!ajout.trim()}
+          onClick={() => {
+            setMembres(l => [...l, { cle: `ajout:${Date.now()}`, nom: ajout.trim(),
+              qualite: 'Membre invité', role: 'ajoute', present: true }]);
+            setAjout('');
+          }}
+          className="px-3 py-1.5 text-[12.5px] rounded-lg border border-slate-300
+                     text-slate-600 disabled:opacity-40">
+          Ajouter
+        </button>
+      </div>
+
+      <div className="flex items-center justify-between gap-3 pt-1">
+        <span className="text-[12px] text-slate-500">
+          <b className="text-iip-blue">{presents}</b> présent(s) sur {membres.length}
+        </span>
+        <button disabled={enCours || !presents} onClick={() => onValider(membres)}
+          className="px-4 py-2 text-[13px] rounded-lg bg-iip-blue text-white font-semibold
+                     disabled:opacity-40">
+          Ouvrir la délibération
+        </button>
+      </div>
+    </div>
+  );
+}
+
+/* ═══ La clôture ═══════════════════════════════════════════════════════════
+ *
+ * La visite des copies est un droit de l'étudiant : la séance ne se clôt pas
+ * sans avoir dit quand et où. Trois champs, et l'affaire est close.
+ */
+
+function Cloture({ seance, onClore, onRetour, onPV, enCours, nb }) {
+  const [date, setDate] = useState(seance?.visite_date || '');
+  const [heure, setHeure] = useState(seance?.visite_heure || '');
+  const [local, setLocal] = useState(seance?.visite_local || '');
+  const [close, setClose] = useState(!!seance?.cloturee);
+  const complet = date && heure && local.trim();
+
+  return (
+    <div className="space-y-3 max-w-xl mx-auto py-4">
+      <div className="px-4 py-3 rounded-xl bg-emerald-50 border border-emerald-200">
+        <div className="text-[14px] font-semibold text-emerald-900">Délibération terminée</div>
+        <p className="text-[12px] text-emerald-800">
+          Les {nb} étudiant(s) de cette unité ont été délibérés et leurs décisions
+          sont enregistrées.
+        </p>
+      </div>
+
+      <div className="border border-slate-200 rounded-xl p-4 space-y-3">
+        <div>
+          <div className="text-[13px] font-semibold text-iip-blue">Visite des copies</div>
+          <p className="text-[11.5px] text-slate-500">
+            L'étudiant a le droit de consulter sa copie. La date, l'heure et le
+            local figurent sur la notification qui lui est remise.
+          </p>
+        </div>
+        <div className="grid grid-cols-2 gap-2">
+          <label className="text-[11.5px] text-slate-600">
+            Date
+            <input type="date" value={date} onChange={e => setDate(e.target.value)}
+              className="w-full mt-0.5 border border-slate-300 rounded-lg px-2 py-1.5 text-[12.5px]" />
+          </label>
+          <label className="text-[11.5px] text-slate-600">
+            Heure
+            <input type="time" value={heure} onChange={e => setHeure(e.target.value)}
+              className="w-full mt-0.5 border border-slate-300 rounded-lg px-2 py-1.5 text-[12.5px]" />
+          </label>
+        </div>
+        <label className="text-[11.5px] text-slate-600 block">
+          Local
+          <input value={local} onChange={e => setLocal(e.target.value)}
+            placeholder="Bâtiment P, local 2.14…"
+            className="w-full mt-0.5 border border-slate-300 rounded-lg px-2 py-1.5 text-[12.5px]" />
+        </label>
+      </div>
+
+      <div className="flex items-center justify-between gap-2">
+        <button onClick={onRetour}
+          className="px-3 py-1.5 text-[12.5px] rounded-lg border border-slate-300 text-slate-600">
+          Revenir aux fiches
+        </button>
+        <div className="flex items-center gap-2">
+          {/* Le procès-verbal ne s'imprime qu'une fois la visite fixée : il en
+              porte la date, et un PV incomplet devrait être refait. */}
+          <button disabled={enCours || !close} onClick={onPV}
+            title={close ? 'Circulaire « Sanction des études », annexes 3 et 5'
+                         : 'Clôturez d’abord : le PV porte la date de communication'}
+            className="px-3 py-2 text-[12.5px] rounded-lg border border-iip-blue
+                       text-iip-blue font-semibold disabled:opacity-40
+                       flex items-center gap-1.5">
+            <IconFileText size={14} /> Procès-verbal
+          </button>
+          <button disabled={enCours || !complet} onClick={() => onClore({
+              visite_date: date, visite_heure: heure, visite_local: local.trim() })
+              .then(ok => ok && setClose(true))}
+            title={complet ? '' : 'La date, l’heure et le local sont requis'}
+            className="px-4 py-2 text-[13px] rounded-lg bg-emerald-600 text-white font-semibold
+                       disabled:opacity-40">
+            {close ? 'Enregistré' : 'Clore la délibération'}
+          </button>
+        </div>
+      </div>
+
+      {close && (
+        <p className="text-[11.5px] text-emerald-800 text-center">
+          Séance close. Le procès-verbal peut être imprimé, puis signé.
+        </p>
       )}
     </div>
   );
@@ -508,14 +792,28 @@ function Decision({ e, ue, onBord }) {
       </div>
       <div className="p-3 space-y-2">
         <div className="flex items-center gap-3 flex-wrap">
+          {/* La décision se déduit du calcul et s'enregistre en passant au
+              suivant : elle n'a pas à être ressaisie ailleurs. */}
           <span className={`text-[12.5px] font-bold px-2.5 py-1 rounded-lg border
-            ${e.resultat === 'reussi' ? 'bg-emerald-100 text-emerald-800 border-emerald-200'
-              : e.resultat === 'refuse' ? 'bg-red-100 text-red-800 border-red-200'
-              : e.resultat ? 'bg-amber-100 text-amber-900 border-amber-200'
+            ${ue.decision_proposee === 'reussi' ? 'bg-emerald-100 text-emerald-800 border-emerald-200'
+              : ue.decision_proposee === 'refuse' ? 'bg-red-100 text-red-800 border-red-200'
+              : ue.decision_proposee ? 'bg-amber-100 text-amber-900 border-amber-200'
               : 'bg-white text-slate-400 border-dashed border-slate-300'}`}>
-            {LIB_RES[e.resultat] || 'Aucune décision enregistrée'}
-            {e.points != null && ` · ${fmt(e.points)}/20`}
+            {LIB_RES[ue.decision_proposee] || 'Pas de note : rien à décider'}
+            {!ue.na && ue.note != null && ` · ${fmt(ue.note)}/20`}
           </span>
+          {e.resultat && e.resultat !== ue.decision_proposee && (
+            <span className="text-[11px] text-slate-500">
+              enregistré : {LIB_RES[e.resultat]}
+            </span>
+          )}
+          {(ue.motifs_manquants || []).length > 0 && ue.decision_proposee !== 'reussi' && (
+            <span className="text-[11.5px] text-red-800 bg-red-50 border border-red-200
+                             rounded-lg px-2 py-1">
+              À justifier avant de passer au suivant :
+              {' '}{ue.motifs_manquants.join(', ')}
+            </span>
+          )}
           {ue.de_plein_droit && e.resultat !== 'reussi' && (
             <span className="text-[11.5px] text-emerald-800 bg-emerald-50 border
                              border-emerald-200 rounded-lg px-2 py-1">
