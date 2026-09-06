@@ -107,6 +107,9 @@ export default function ConfigCourriels() {
           {etat.actif && !etat.pdf && (
             <p className="text-red-700 flex items-center gap-1.5 mt-1"><IconAlertTriangle size={14} /> Ce serveur ne produit pas de PDF ; l'envoi est impossible ({etat.pdf_raison || 'raison inconnue'}).</p>
           )}
+          {etat.redirection && (
+            <p className="text-amber-700 flex items-center gap-1.5 mt-1"><IconAlertTriangle size={14} /> Redirection de test : tout part vers {etat.redirection}.</p>
+          )}
           {etat.actif && !etat.smtp && (
             <p className="text-amber-700 flex items-center gap-1.5 mt-1"><IconAlertTriangle size={14} /> Aucun serveur SMTP : les envois sont simulés et seulement consignés.</p>
           )}
@@ -230,6 +233,26 @@ export default function ConfigCourriels() {
         </div>
       </section>
 
+      {/* ── Garde-fou de test ── */}
+      <section className="bg-white rounded-lg border border-amber-200 overflow-hidden">
+        <div className="px-4 py-3 bg-amber-50 border-b border-amber-200">
+          <h2 className="font-semibold text-amber-800">Redirection de test</h2>
+          <p className="text-xs text-amber-700 mt-0.5">
+            Si une adresse est renseignée, <b>tous</b> les courriels partent vers elle, quel que soit le destinataire — l'objet indique le vrai destinataire.
+            Ce réglage vit dans la base de ce serveur : posé sur dev, il n'existe pas en prod. À vider pour envoyer réellement.
+          </p>
+        </div>
+        <div className="p-4 flex flex-wrap items-center gap-2">
+          <input value={cfg.redirection || ''} onChange={e => maj({ redirection: e.target.value })}
+            placeholder="vide = envoi réel aux destinataires"
+            className="border border-slate-300 rounded-lg px-3 py-1.5 text-sm w-96" />
+          <button onClick={enregistrer} disabled={!!occupe}
+            className="flex items-center gap-1.5 px-4 py-1.5 text-sm bg-iip-blue text-white font-semibold rounded-lg disabled:opacity-40">
+            <IconCheck size={14} /> Enregistrer
+          </button>
+        </div>
+      </section>
+
       {/* ── Journal ── */}
       <section className="bg-white rounded-lg border border-gray-200 overflow-hidden">
         <div className="px-4 py-3 bg-iip-blue/5 border-b border-gray-200 flex items-center justify-between">
@@ -262,7 +285,7 @@ export default function ConfigCourriels() {
                   <td className="px-3 py-1.5 text-slate-500">{l.nom_fichier || '—'}</td>
                   <td className="px-3 py-1.5 text-slate-500">{l.envoye_par}</td>
                   <td className="px-3 py-1.5">
-                    {l.statut === 'envoye' && <span className="text-emerald-700">envoyé</span>}
+                    {l.statut === 'envoye' && <span className="text-emerald-700">envoyé{l.erreur?.startsWith('redirigé') ? <span className="text-amber-700"> · {l.erreur}</span> : ''}</span>}
                     {l.statut === 'simule' && <span className="text-amber-700">simulé</span>}
                     {l.statut === 'echec' && <span className="text-red-700" title={l.erreur}>échec{l.erreur ? ` — ${l.erreur}` : ''}</span>}
                   </td>

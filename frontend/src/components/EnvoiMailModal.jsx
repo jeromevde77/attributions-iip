@@ -122,6 +122,12 @@ export default function EnvoiMailModal({ pieces, typeDoc, sujet: sujetInitial = 
         </div>
 
         <div className="flex-1 overflow-y-auto p-4 space-y-4">
+          {etat?.redirection && (
+            <div className="flex items-start gap-2 text-[12px] text-amber-800 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
+              <IconAlertTriangle size={15} className="flex-shrink-0 mt-0.5" />
+              <span>Redirection de test active : tous les courriels partiront vers <b>{etat.redirection}</b>, quel que soit le destinataire affiché.</span>
+            </div>
+          )}
           {etat?.actif && etat.pdf && !etat.smtp && (
             <div className="flex items-start gap-2 text-[12px] text-amber-800 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
               <IconAlertTriangle size={15} className="flex-shrink-0 mt-0.5" />

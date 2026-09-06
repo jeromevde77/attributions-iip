@@ -66,7 +66,8 @@ r.get('/etat', authRequired, async (req, res) => {
   const actif = envoiActif();
   // Éteint, on ne lance pas Chromium pour rien.
   const pdf = actif ? await capacitePdf() : { disponible: false, raison: null };
-  res.json({ actif, smtp: mailerConfigure(), pdf: pdf.disponible, pdf_raison: pdf.raison });
+  res.json({ actif, smtp: mailerConfigure(), pdf: pdf.disponible, pdf_raison: pdf.raison,
+             redirection: lireConfigSmtp().redirection || null });
 });
 
 // ── Réglages (admin) : interrupteur et serveur SMTP ─────────────────────────
@@ -219,9 +220,11 @@ r.post('/', authRequired, actifRequis, async (req, res) => {
       attachments: [{ filename: fichier, content: pdf, contentType: 'application/pdf' }],
     });
     const statut = !envoi.ok ? 'echec' : envoi.simule ? 'simule' : 'envoye';
-    resultats.push({ ...base, statut, erreur: envoi.erreur || null, nom_fichier: fichier });
+    const redir = lireConfigSmtp().redirection;
+    const note = envoi.erreur || (redir ? `redirigé vers ${redir}` : null);
+    resultats.push({ ...base, statut, erreur: envoi.erreur || null, redirige: redir || null, nom_fichier: fichier });
     journal.run(lot, type_doc || null, base.destinataire_type, base.destinataire_id,
-      base.nom, email, sujet, fichier, pdf.length, statut, envoi.erreur || null, par);
+      base.nom, email, sujet, fichier, pdf.length, statut, note, par);
   }
 
   res.json({

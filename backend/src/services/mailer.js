@@ -41,6 +41,10 @@ export function lireConfigSmtp() {
     // Certificat auto-signé toléré ? Faux par défaut : un relais légitime a un vrai certificat.
     tolerer_certificat: !!cfg.tolerer_certificat,
     mode: cfg.mode === 'graph' ? 'graph' : 'smtp',
+    // Garde-fou de test : si renseignée, TOUT courriel part vers cette adresse,
+    // quel que soit le destinataire. Vit en base, donc propre à chaque serveur :
+    // posée sur dev, elle n'existe pas en prod.
+    redirection: (cfg.redirection ?? '').trim(),
     graph: {
       tenant:        (cfg.graph?.tenant        ?? '').trim(),
       client_id:     (cfg.graph?.client_id     ?? '').trim(),
@@ -62,6 +66,7 @@ export function ecrireConfigSmtp(patch) {
     from: String(patch.from ?? actuel.from).trim(),
     tolerer_certificat: patch.tolerer_certificat != null ? !!patch.tolerer_certificat : actuel.tolerer_certificat,
     mode: patch.mode === 'graph' ? 'graph' : patch.mode === 'smtp' ? 'smtp' : actuel.mode,
+    redirection: String(patch.redirection ?? actuel.redirection).trim(),
     graph: {
       tenant:    String(patch.graph?.tenant    ?? actuel.graph.tenant).trim(),
       client_id: String(patch.graph?.client_id ?? actuel.graph.client_id).trim(),
@@ -217,6 +222,16 @@ export function mailerConfigure() {
  */
 export async function envoyerEmail({ to, subject, html, text, attachments }) {
   const cfg = lireConfigSmtp();
+  if (cfg.redirection) {
+    // Le vrai destinataire reste lisible dans l'objet et en tête du message :
+    // on teste le contenu sans risquer l'envoi.
+    const vrai = Array.isArray(to) ? to.join(', ') : String(to);
+    to = cfg.redirection;
+    subject = `[TEST → ${vrai}] ${subject}`;
+    html = `<div style="background:#FEF3C7;color:#92400E;padding:8px 12px;font:12px Arial,sans-serif;margin-bottom:12px">`
+         + `Courriel de test redirigé. Destinataire réel : <b>${vrai}</b></div>` + html;
+    if (text) text = `[TEST — destinataire réel : ${vrai}]\n\n${text}`;
+  }
   const dest = Array.isArray(to) ? to.join(', ') : to;
   if (cfg.mode === 'graph' && graphComplet(cfg.graph)) {
     try {
