@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { IconChevronRight, IconArrowLeft, IconBolt, IconAlertTriangle } from '@tabler/icons-react';
 import { authHeaders, getAnnee } from '../lib/api.js';
 import FeuilleDeliberation from '../components/FeuilleDeliberation.jsx';
+import EncodageCours from '../components/EncodageCours.jsx';
 import EncodageRapide from './EncodageRapide.jsx';
 
 /**
@@ -25,6 +26,23 @@ export default function Deliberation() {
   const [section, setSection] = useState(null);
   const [ueNum, setUeNum] = useState(null);
   const [rapide, setRapide] = useState(false);
+  // Les COURS d'une unité, dépliés à la demande : c'est par eux que les
+  // professeurs encodent, acquis par acquis.
+  const [coursDeUe, setCoursDeUe] = useState({});   // ue_num → [cours]
+  const [deplie, setDeplie] = useState(null);
+  const [encoder, setEncoder] = useState(null);     // cours_code en saisie
+
+  async function ouvrirCours(ueNum) {
+    if (deplie === ueNum) { setDeplie(null); return; }
+    setDeplie(ueNum);
+    if (coursDeUe[ueNum]) return;
+    try {
+      const rep = await fetch(`/api/acquis/ue/${ueNum}/cours?annee=${encodeURIComponent(annee)}`,
+        { headers: authHeaders() });
+      const j = await rep.json();
+      if (rep.ok) setCoursDeUe(m => ({ ...m, [ueNum]: j }));
+    } catch { /* la liste des cours est un confort, pas un bloquant */ }
+  }
 
   async function charger() {
     setErreur(null);
@@ -133,9 +151,11 @@ export default function Deliberation() {
               {sec.ues.map(u => {
                 const reste = u.inscrits - u.decides;
                 return (
-                  <button key={u.ue_num} onClick={() => setUeNum(u.ue_num)}
-                    className="w-full text-left px-3 py-2 hover:bg-slate-50 flex items-center gap-3">
-                    <span className="font-bold text-iip-blue w-12 flex-none tabular-nums">{u.ue_num}</span>
+                  <div key={u.ue_num}>
+                  <div className="w-full px-3 py-2 hover:bg-slate-50 flex items-center gap-3">
+                    <button onClick={() => setUeNum(u.ue_num)}
+                      className="font-bold text-iip-blue w-12 flex-none tabular-nums text-left
+                                 hover:underline">{u.ue_num}</button>
                     <span className="flex-1 text-[12.5px] text-slate-700 truncate">
                       {u.ue_nom || `UE ${u.ue_num}`}
                       {u.ue_niv && <span className="ml-2 text-[10.5px] text-slate-400">{u.ue_niv}</span>}
@@ -157,8 +177,47 @@ export default function Deliberation() {
                         </span>
                       )}
                     </span>
+                    {/* Deux gestes distincts, nommés : délibérer l'unité, ou
+                        encoder l'un de ses cours. */}
+                    <button onClick={() => setUeNum(u.ue_num)}
+                      className="px-2 py-1 text-[11.5px] rounded-lg border border-iip-blue
+                                 text-iip-blue font-semibold flex-none">
+                      Délibérer
+                    </button>
+                    <button onClick={() => ouvrirCours(u.ue_num)}
+                      className="px-2 py-1 text-[11.5px] rounded-lg border border-slate-300
+                                 text-slate-600 flex-none">
+                      Encoder par cours
+                    </button>
                     <IconChevronRight size={16} className="text-slate-300 flex-none" />
-                  </button>
+                  </div>
+
+                  {deplie === u.ue_num && (
+                    <div className="px-3 pb-2 pl-16 space-y-1">
+                      {!coursDeUe[u.ue_num] ? (
+                        <div className="text-[11.5px] text-slate-400">Chargement des cours…</div>
+                      ) : !coursDeUe[u.ue_num].length ? (
+                        <div className="text-[11.5px] text-amber-800">
+                          Aucun cours au référentiel de cette unité : la saisie par cours
+                          suppose des cours et des acquis qui leur sont rattachés.
+                        </div>
+                      ) : coursDeUe[u.ue_num].map(c => (
+                        <button key={c.cours_code} onClick={() => setEncoder(c.cours_code)}
+                          className="w-full text-left px-2 py-1 rounded-lg hover:bg-slate-100
+                                     flex items-center gap-2 text-[12px]">
+                          <span className="font-mono text-[11px] text-slate-500 w-16 flex-none">
+                            {c.cours_code}
+                          </span>
+                          <span className="flex-1 truncate text-slate-700">{c.cours_nom || '—'}</span>
+                          <span className="text-[11px] text-slate-400">
+                            {c.nb_acquis} acquis
+                            {c.poids_cours_affiche != null && ` · poids ${c.poids_cours_affiche}`}
+                          </span>
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                  </div>
                 );
               })}
             </div>
@@ -174,6 +233,11 @@ export default function Deliberation() {
       {ueNum && (
         <FeuilleDeliberation ueNum={ueNum} annee={annee}
           onClose={() => { setUeNum(null); charger(); }} />
+      )}
+
+      {encoder && (
+        <EncodageCours coursCode={encoder} annee={annee}
+          onClose={() => { setEncoder(null); charger(); }} />
       )}
     </div>
   );

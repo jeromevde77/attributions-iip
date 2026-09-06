@@ -516,7 +516,8 @@ r.get('/feuille/:ueNum', authRequired, (req, res) => {
 // ── Enregistrer une note d'acquis ──────────────────────────────────────────
 r.put('/feuille/note', authRequired,
       roleRequired('admin', 'directeur', 'directeur_adjoint', 'editeur'), (req, res) => {
-  const { etudiant_id, annee_scolaire, ue_num, aa_code, session, points } = req.body || {};
+  const { etudiant_id, annee_scolaire, ue_num, aa_code, session, points,
+          cours_code } = req.body || {};
   if (!etudiant_id || !annee_scolaire || !ue_num || !aa_code) {
     return res.status(400).json({ error: 'étudiant, année, unité et acquis requis' });
   }
@@ -529,8 +530,13 @@ r.put('/feuille/note', authRequired,
     return res.status(400).json({ error: 'note attendue entre 0 et 20' });
   }
 
-  // Le code porte la session : sans lui, la seconde écraserait la première.
-  const code = session === 1 || session === 2 ? `s${session}|${aa_code}` : aa_code;
+  // Le code porte la SESSION puis le COURS : sans la session, la seconde
+  // écraserait la première ; sans le cours, un acquis évalué dans deux cours
+  // n'aurait qu'une note pour les deux, et la note de chaque cours serait
+  // fausse. Les trois formes cohabitent — « aa », « cours|aa »,
+  // « s1|cours|aa » — et la lecture prend la plus précise.
+  const prefixe = session === 1 || session === 2 ? `s${session}|` : '';
+  const code = prefixe + (cours_code ? `${cours_code}|${aa_code}` : aa_code);
 
   if (note == null) {
     db.prepare(`DELETE FROM etudiant_note_detail
@@ -1340,10 +1346,10 @@ export function delibererUE(etudId, ueNum, annee) {
   `).all(etudId, annee, ueNum);
   const parCoursAA = {}, parAA = {};
   for (const l of brutes) {
-    const s = String(l.code);
-    const parts = s.split('|');
-    if (parts.length === 2 && !/^s[12]$/.test(parts[0])) parCoursAA[s] = l.points;
-    else parAA[parts[parts.length - 1]] = l.points;
+    let parts = String(l.code).split('|');
+    if (/^s[12]$/.test(parts[0])) parts = parts.slice(1);   // la session, mise de côté
+    if (parts.length === 2) parCoursAA[`${parts[0]}|${parts[1]}`] = l.points;
+    else parAA[parts[0]] = l.points;
   }
   const noteDe = (cours, aa) => {
     const v = parCoursAA[`${cours}|${aa}`];
@@ -1462,6 +1468,97 @@ export function delibererUE(etudId, ueNum, annee) {
     },
   };
 }
+
+/**
+ * La feuille de saisie D'UN COURS — ce que le professeur remplit.
+ *
+ * L'écran existant présente les acquis d'une unité, consolidés : c'est la vue
+ * du Conseil. Le professeur, lui, ne connaît que SON cours et les acquis qu'il
+ * y évalue. Lui demander de saisir dans la grille de l'unité, c'est lui montrer
+ * les acquis de ses collègues et lui faire écraser leurs notes.
+ *
+ * La note est écrite sous « cours|acquis » : un acquis évalué dans deux cours
+ * a donc deux notes, et chaque cours a la sienne.
+ */
+r.get('/cours/:coursCode/feuille', authRequired, (req, res) => {
+  const coursCode = req.params.coursCode;
+  const annee = req.query.annee || anneeDeTravail(req);
+  const session = req.query.session === '2' ? 2 : 1;
+
+  const co = db.prepare(`
+    SELECT cours_code, cours_nom, ue_num, section FROM cours
+    WHERE cours_code = ? ORDER BY (annee_scolaire = ?) DESC, annee_scolaire DESC LIMIT 1
+  `).get(coursCode, annee);
+  if (!co) return res.status(404).json({ error: 'cours introuvable' });
+
+  const perim = getUserSections(req.user);
+  if (perim && co.section && !perim.includes(co.section)) {
+    return res.status(403).json({ error: 'cours hors de votre périmètre' });
+  }
+
+  // Les acquis ÉVALUÉS DANS CE COURS. La table de pondération fait foi ; à
+  // défaut, ceux que le référentiel rattache au cours.
+  let acquis = db.prepare(`
+    SELECT p.aa_code, p.poids, a.description
+    FROM aa_ponderation p
+    LEFT JOIN aa a ON a.aa_code = p.aa_code AND a.ue_num = p.ue_num
+    WHERE p.ue_num = ? AND p.cours_code = ? ORDER BY p.aa_code
+  `).all(co.ue_num, coursCode);
+  if (!acquis.length) {
+    acquis = db.prepare(`
+      SELECT aa_code, NULL AS poids, description FROM aa
+      WHERE ue_num = ? AND cours_code = ? ORDER BY aa_num, aa_code
+    `).all(co.ue_num, coursCode);
+  }
+
+  const etudiants = db.prepare(`
+    SELECT e.id, e.nom, e.prenom, e.id_ecampus
+    FROM etudiant_inscription i JOIN etudiant e ON e.id = i.etudiant_id
+    WHERE i.annee_scolaire = ? AND i.ue_num = ?
+    ORDER BY e.nom, e.prenom
+  `).all(annee, co.ue_num);
+
+  const prefixe = `s${session}|`;
+  const notes = {};
+  for (const l of db.prepare(`
+    SELECT etudiant_id, code, points FROM etudiant_note_detail
+    WHERE annee_scolaire = ? AND ue_num = ? AND type = 'aa'
+  `).all(annee, co.ue_num)) {
+    const s = String(l.code);
+    const avecSession = `${prefixe}${coursCode}|`;
+    const sansSession = `${coursCode}|`;
+    if (s.startsWith(avecSession)) {
+      // La note de CE cours pour CETTE session : la plus précise, elle gagne.
+      (notes[l.etudiant_id] ||= {})[s.slice(avecSession.length)] = l.points;
+    } else if (session === 1 && s.startsWith(sansSession)) {
+      // Écrite avant que les sessions ne soient distinguées : elle vaut pour
+      // la première, et ne recouvre pas une note explicite.
+      const aa = s.slice(sansSession.length);
+      const e = (notes[l.etudiant_id] ||= {});
+      if (e[aa] == null) e[aa] = l.points;
+    }
+  }
+
+  res.json({
+    cours: co, annee, session, acquis, etudiants, notes,
+    // Sans acquis rattaché, la saisie par cours n'a rien à montrer : mieux
+    // vaut le dire que d'afficher une grille vide.
+    sans_acquis: !acquis.length,
+    sans_ponderation: acquis.length > 0 && acquis.every(a => a.poids == null),
+  });
+});
+
+/** Les cours d'une unité, pour choisir lequel encoder. */
+r.get('/ue/:ueNum/cours', authRequired, (req, res) => {
+  const annee = req.query.annee || anneeDeTravail(req);
+  const ueNum = Number(req.params.ueNum);
+  const st = structureUE(ueNum, annee);
+  res.json(st.map(c => ({
+    cours_code: c.cours_code, cours_nom: c.cours_nom,
+    poids_cours_affiche: c.poids_cours_affiche ?? null,
+    nb_acquis: (c.aas || []).length,
+  })));
+});
 
 r.get('/deliberation/:etudId/:ueNum', authRequired, (req, res) => {
   const annee = req.query.annee || anneeDeTravail(req);
