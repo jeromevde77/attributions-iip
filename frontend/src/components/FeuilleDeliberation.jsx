@@ -37,7 +37,8 @@ export default function FeuilleDeliberation({ ueNum, annee, onClose }) {
   const [enCours, setEnCours] = useState(false);
   // La séance : les présences en ouverture, la visite des copies en clôture.
   const [seance, setSeance] = useState(null);
-  const [etape, setEtape] = useState('presences');   // presences | fiche | cloture
+  const [etape, setEtape] = useState('presences');   // presences | auto | fiche | cloture
+  const [auto, setAuto] = useState(null);           // les réussites de plein droit
 
   async function charger() {
     setErreur(null);
@@ -61,12 +62,27 @@ export default function FeuilleDeliberation({ ueNum, annee, onClose }) {
   }
   useEffect(() => { charger(); chargerSeance(); /* eslint-disable-next-line */ }, [ueNum, annee]);
 
+  /**
+   * LES ÉTUDIANTS, DU MEILLEUR AU MOINS BON.
+   *
+   * L'ordre alphabétique fait délibérer au hasard : on accorde à l'un ce qu'on
+   * refusera au suivant, sans l'avoir voulu. En descendant les notes, le
+   * Conseil voit ce qu'il vient de décider juste au-dessus, et se tient à sa
+   * ligne. Les cas sans note passent en dernier — ils demandent autre chose.
+   */
   const liste = useMemo(() => {
     if (!data) return [];
     const q = recherche.trim().toLowerCase();
-    if (!q) return data.etudiants;
-    return data.etudiants.filter(e =>
-      `${e.nom} ${e.prenom} ${e.id_ecampus || ''}`.toLowerCase().includes(q));
+    const base = q
+      ? data.etudiants.filter(e =>
+          `${e.nom} ${e.prenom} ${e.id_ecampus || ''}`.toLowerCase().includes(q))
+      : data.etudiants;
+    return [...base].sort((a, b) => {
+      const na = a.ue?.na ? -1 : (a.ue?.note ?? -1);
+      const nb = b.ue?.na ? -1 : (b.ue?.note ?? -1);
+      if (nb !== na) return nb - na;
+      return `${a.nom} ${a.prenom}`.localeCompare(`${b.nom} ${b.prenom}`);
+    });
   }, [data, recherche]);
 
   const etud = liste[Math.min(idx, Math.max(liste.length - 1, 0))] || null;
@@ -181,6 +197,39 @@ export default function FeuilleDeliberation({ ueNum, annee, onClose }) {
     finally { setEnCours(false); }
   }
 
+  /**
+   * LA DÉLIBÉRATION AUTOMATIQUE, proposée d'emblée. Ceux qui réussissent de
+   * plein droit — tous les acquis et tous les cours au seuil — n'appellent
+   * aucune appréciation : les enregistrer d'un coup laisse au Conseil le temps
+   * des cas qui le méritent.
+   */
+  async function chargerAuto() {
+    try {
+      const rep = await fetch(
+        `/api/acquis/deliberation/ue/${ueNum}/plein-droit?annee=${encodeURIComponent(annee)}`,
+        { headers: authHeaders() });
+      const j = await rep.json();
+      if (rep.ok) setAuto(j);
+      setEtape('auto');
+    } catch (e) { setErreur(e.message); setEtape('fiche'); }
+  }
+
+  async function appliquerAuto() {
+    setEnCours(true); setErreur(null);
+    try {
+      const rep = await fetch(`/api/acquis/deliberation/ue/${ueNum}/plein-droit`, {
+        method: 'POST', headers: authHeaders(), body: JSON.stringify({ annee }),
+      });
+      const j = await rep.json();
+      if (!rep.ok) { setErreur(j.error); return; }
+      await charger();
+      // On reprend la revue là où elle a du sens : au meilleur de ceux qui
+      // restent à apprécier.
+      setIdx(0); setEtape('fiche');
+    } catch (e) { setErreur(e.message); }
+    finally { setEnCours(false); }
+  }
+
   async function enregistrerSeance(champs) {
     setEnCours(true); setErreur(null);
     try {
@@ -270,7 +319,11 @@ export default function FeuilleDeliberation({ ueNum, annee, onClose }) {
             <Presences seance={seance} enCours={enCours}
               onValider={membres => enregistrerSeance({
                 membres, date_seance: new Date().toISOString().slice(0, 10),
-              }).then(ok => ok && setEtape('fiche'))} />
+              }).then(ok => ok && chargerAuto())} />
+          ) : etape === 'auto' ? (
+            <PleinDroit auto={auto} enCours={enCours}
+              onAppliquer={appliquerAuto}
+              onPasser={() => { setIdx(0); setEtape('fiche'); }} />
           ) : etape === 'cloture' ? (
             <Cloture seance={seance?.seance} enCours={enCours} nb={liste.length}
               onRetour={() => setEtape('fiche')} onPV={imprimerPV}
@@ -407,6 +460,65 @@ function Presences({ seance, onValider, enCours }) {
                      disabled:opacity-40">
           Ouvrir la délibération
         </button>
+      </div>
+    </div>
+  );
+}
+
+/* ═══ Les réussites de plein droit ═════════════════════════════════════════ */
+
+function PleinDroit({ auto, onAppliquer, onPasser, enCours }) {
+  if (!auto) return <div className="py-10 text-center text-[12.5px] text-slate-400">Calcul…</div>;
+  return (
+    <div className="space-y-3 max-w-2xl mx-auto">
+      <div className="px-3 py-2 rounded-xl bg-emerald-50 border border-emerald-200">
+        <div className="text-[13px] font-semibold text-emerald-900">
+          Réussites de plein droit
+        </div>
+        <p className="text-[11.5px] text-emerald-800">
+          Tous les acquis et tous les cours au seuil, sans faveur ni ajournement :
+          le Conseil n'a rien à y apprécier. Les enregistrer d'un coup lui laisse
+          le temps des cas qui le méritent.
+        </p>
+      </div>
+
+      {!auto.reussites.length ? (
+        <div className="py-6 text-center text-[12.5px] text-slate-500 border-2
+                        border-dashed rounded-xl">
+          Aucun étudiant ne réussit de plein droit : chaque cas demande une décision.
+        </div>
+      ) : (
+        <div className="border border-slate-200 rounded-xl divide-y divide-slate-100
+                        max-h-[46vh] overflow-y-auto">
+          {auto.reussites.map(r => (
+            <div key={r.id} className="px-3 py-1.5 flex items-center gap-2 text-[12.5px]">
+              <span className="flex-1 truncate">
+                <b className="text-iip-blue">{r.nom}</b> {r.prenom}
+              </span>
+              {r.deja_decide && <span className="text-[10.5px] text-slate-400">déjà décidé</span>}
+              <span className="font-bold tabular-nums text-emerald-700 w-14 text-right">
+                {fmt(r.note)}/20
+              </span>
+            </div>
+          ))}
+        </div>
+      )}
+
+      <div className="flex items-center justify-between gap-2">
+        <span className="text-[12px] text-slate-500">
+          {auto.a_deliberer.length} cas à examiner ensuite
+        </span>
+        <div className="flex gap-2">
+          <button onClick={onPasser}
+            className="px-3 py-1.5 text-[12.5px] rounded-lg border border-slate-300 text-slate-600">
+            Passer — les revoir un à un
+          </button>
+          <button disabled={enCours || !auto.reussites.length} onClick={onAppliquer}
+            className="px-4 py-2 text-[13px] rounded-lg bg-emerald-600 text-white
+                       font-semibold disabled:opacity-40">
+            Enregistrer ces {auto.reussites.length} réussites
+          </button>
+        </div>
       </div>
     </div>
   );
@@ -633,6 +745,9 @@ function Fiche({ e, data, onAjuster, onMotif, enCours, onBord }) {
           onEnregistrer={t => onMotif(motifDe, t).then(() => setMotifDe(null))} />
       )}
 
+      {/* Ce que la faveur coûterait — dit avant de décider, jamais après. */}
+      <AideDecision ue={ue} />
+
       {/* Ce que le Conseil décide, et ce qu'il y a à représenter. */}
       <Decision e={e} ue={ue} onBord={onBord} />
     </div>
@@ -773,6 +888,65 @@ function Justification({ aa, onFermer, onEnregistrer }) {
           className="px-3 py-1 text-[12px] rounded-lg bg-iip-blue text-white font-semibold">
           Enregistrer la justification
         </button>
+      </div>
+    </div>
+  );
+}
+
+/* ═══ L'aide à la décision ═════════════════════════════════════════════════
+ *
+ * Le Conseil délibère mieux quand il sait ce que la faveur coûte. On lui dit
+ * trois choses — la moyenne de l'année, le nombre de points qui manquent, les
+ * cours concernés — et si cela tient dans la ligne qu'il s'est donnée : deux
+ * points au plus, sur un ou deux cours, pour un étudiant d'au moins 12.
+ *
+ * Ce n'est pas une règle de droit : le décret ne fixe aucun barème. C'est une
+ * pratique, écrite pour être appliquée à tous de la même façon. Rien ne
+ * l'impose, rien ne l'empêche — la faveur reste à un clic.
+ */
+
+function AideDecision({ ue }) {
+  if (ue.na || !ue.faveur_cout) return null;
+  const b = ue.faveur_bareme || {};
+  const ok = ue.faveur_eligible;
+
+  return (
+    <div className={`rounded-xl border px-3 py-2 text-[12px]
+      ${ok ? 'bg-emerald-50 border-emerald-200 text-emerald-900'
+           : 'bg-slate-50 border-slate-200 text-slate-700'}`}>
+      <div className="flex items-center gap-2 flex-wrap">
+        <span className="font-semibold">
+          {ok ? 'Faveur envisageable' : 'Faveur hors de la ligne du Conseil'}
+        </span>
+        <span className="text-[11.5px] opacity-80">
+          moyenne de l'année :
+          {' '}<b>{ue.moyenne_annee != null ? fmt(ue.moyenne_annee) : '—'}</b>/20
+        </span>
+        <span className="text-[11.5px] opacity-80">
+          · il manque <b>{fmt(ue.faveur_cout)}</b> point(s)
+        </span>
+        {!!(ue.faveur_cours || []).length && (
+          <span className="text-[11.5px] opacity-80">
+            · sur {ue.faveur_cours.length} cours ({ue.faveur_cours.join(', ')})
+          </span>
+        )}
+      </div>
+
+      <div className="mt-1 text-[11px] opacity-80">
+        {(ue.faveur_acquis || []).map(a => (
+          <span key={a.aa_code} className="mr-2">
+            <span className="font-mono">{a.aa_code}</span> −{fmt(a.manque)}
+          </span>
+        ))}
+      </div>
+
+      <div className="mt-1 text-[11px] opacity-70">
+        {ue.faveur_motif
+          ? `Motif : ${ue.faveur_motif}.`
+          : `Dans la limite retenue : ${b.points_max} point(s) au plus, sur `
+            + `${b.cours_max} cours au plus, à partir de ${b.moyenne_min} de moyenne.`}
+        {' '}La décision reste au Conseil : la flèche verte de la note d'unité
+        l'applique, et l'unité vaudra alors exactement le seuil.
       </div>
     </div>
   );

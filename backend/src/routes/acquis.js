@@ -1729,6 +1729,60 @@ export function delibererUE(etudId, ueNum, annee) {
 }
 
 /**
+ * L'AIDE À LA DÉCISION.
+ *
+ * Le Conseil délibère mieux quand il sait ce que la faveur coûte. On lui dit
+ * donc trois choses, sans rien décider à sa place :
+ *
+ *  — la MOYENNE de l'année. Un étudiant qui tient 12 ou plus n'est pas dans la
+ *    situation de celui qui échoue partout : le point qui lui manque ici
+ *    s'apprécie autrement.
+ *  — le COÛT de la faveur : ce qu'il faudrait de points pour ramener au seuil
+ *    chaque acquis en échec, et sur combien de cours ils se répartissent.
+ *  — la LIMITE d'usage retenue par le Conseil : deux points au plus, répartis
+ *    sur un ou deux cours, et pour un étudiant d'au moins 12 de moyenne.
+ *
+ * Ce n'est pas une règle de droit — le décret ne fixe aucun barème — mais la
+ * pratique du Conseil, écrite pour être appliquée à tous de la même façon.
+ * Rien ne l'impose et rien ne l'empêche : la faveur reste à un clic.
+ */
+const FAVEUR_MOYENNE_MIN = 12;   // moyenne de l'année ouvrant la faveur
+const FAVEUR_POINTS_MAX = 2;     // points que la faveur peut combler
+const FAVEUR_COURS_MAX = 2;      // cours sur lesquels elle peut se répartir
+
+export function aideDecision(d, moyenne) {
+  const manquants = d.acquis.filter(a => !a.na && a.note != null && a.note < SEUIL_UE);
+  const cout = Math.round(manquants.reduce((s, a) => s + (SEUIL_UE - a.note), 0) * 100) / 100;
+  const coursTouches = [...new Set(manquants.flatMap(a =>
+    (a.evaluations || []).filter(v => v.note != null && v.note < SEUIL_UE)
+      .map(v => v.cours_code)))];
+
+  const eligible = moyenne != null && moyenne >= FAVEUR_MOYENNE_MIN;
+  const dansLaLimite = cout > 0 && cout <= FAVEUR_POINTS_MAX
+    && coursTouches.length <= FAVEUR_COURS_MAX;
+
+  return {
+    moyenne_annee: moyenne,
+    faveur_cout: cout,
+    faveur_cours: coursTouches,
+    faveur_acquis: manquants.map(a => ({ aa_code: a.aa_code, manque:
+      Math.round((SEUIL_UE - a.note) * 100) / 100 })),
+    faveur_eligible: eligible && dansLaLimite,
+    faveur_bareme: { moyenne_min: FAVEUR_MOYENNE_MIN, points_max: FAVEUR_POINTS_MAX,
+                     cours_max: FAVEUR_COURS_MAX },
+    faveur_motif: cout === 0 ? null
+      : !eligible ? (moyenne == null
+          ? "moyenne de l'année inconnue — aucune autre unité n'est encore cotée"
+          : `moyenne de ${String(moyenne).replace('.', ',')} — sous le seuil de ${FAVEUR_MOYENNE_MIN}`)
+      : coursTouches.length > FAVEUR_COURS_MAX
+        ? `${coursTouches.length} cours concernés — au-delà de ${FAVEUR_COURS_MAX}`
+      : cout > FAVEUR_POINTS_MAX
+        ? `il manque ${String(cout).replace('.', ',')} points — au-delà de ${FAVEUR_POINTS_MAX}`
+      : null,
+  };
+}
+
+/**
  * La feuille de saisie D'UN COURS — ce que le professeur remplit.
  *
  * L'écran existant présente les acquis d'une unité, consolidés : c'est la vue
@@ -1878,7 +1932,37 @@ r.get('/deliberation/ue/:ueNum', authRequired, (req, res) => {
     ORDER BY e.nom, e.prenom
   `).all(annee, ueNum);
 
-  const lignes = etudiants.map(e => ({ ...e, ...delibererUE(e.id, ueNum, annee) }));
+  // LA MOYENNE DE L'ANNÉE, pour tous ces étudiants d'un coup. Elle sert
+  // l'aide à la décision : un étudiant qui tient une bonne moyenne générale
+  // n'est pas dans la situation de celui qui échoue partout, et le Conseil
+  // apprécie autrement le point qui lui manque ici.
+  //
+  // Définition identique à celle du bilan de parcours : pondérée par les
+  // périodes étudiant du dossier pédagogique, les unités sans note exclues.
+  const perUE = Object.fromEntries(db.prepare(`
+    SELECT ue_num, MAX(ue_per_etudiants) AS per FROM ue GROUP BY ue_num
+  `).all().map(r => [r.ue_num, r.per]));
+  const moyennes = {};
+  {
+    const acc = {};
+    for (const i of db.prepare(`
+      SELECT etudiant_id, ue_num, points FROM etudiant_inscription
+      WHERE annee_scolaire = ? AND points IS NOT NULL
+    `).all(annee)) {
+      const p = Number(perUE[i.ue_num]) || 0;
+      if (!p) continue;
+      const a = (acc[i.etudiant_id] ||= { num: 0, den: 0 });
+      a.num += Number(i.points) * p; a.den += p;
+    }
+    for (const [id, a] of Object.entries(acc)) {
+      moyennes[id] = a.den ? Math.round((a.num / a.den) * 100) / 100 : null;
+    }
+  }
+
+  const lignes = etudiants.map(e => {
+    const d = delibererUE(e.id, ueNum, annee);
+    return { ...e, ...d, ue: { ...d.ue, ...aideDecision(d, moyennes[e.id] ?? null) } };
+  });
 
   // Les colonnes se prennent sur la première ligne calculée : la structure de
   // l'unité est la même pour tous, seules les notes changent.
