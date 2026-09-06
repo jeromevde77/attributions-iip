@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { IconX, IconAlertTriangle, IconCheck, IconEqual } from '@tabler/icons-react';
+import { IconX, IconAlertTriangle, IconCheck, IconEqual, IconDeviceFloppy }
+  from '@tabler/icons-react';
 import { authHeaders } from '../lib/api.js';
 
 /**
@@ -57,21 +58,61 @@ export default function SchemaLiensAA({ ueNum, annee, onClose, onEnregistre }) {
     return { posC, posA, hauteur: PAD * 2 + TETE + n * (H + GY) - GY };
   }, [data]);
 
-  const sommes = useMemo(() => {
-    const s = {};
-    for (const [cle, v] of Object.entries(poids)) {
-      if (!(Number(v) > 0)) continue;
-      s[cle.split('|')[0]] = (s[cle.split('|')[0]] || 0) + Number(v);
-    }
-    return s;
-  }, [poids]);
+  /**
+   * L'ÉTAT D'UN COURS — deux questions distinctes, longtemps confondues :
+   * sa répartition est-elle VALIDE, et est-elle ENREGISTRÉE ?
+   *
+   * Une répartition est valide de trois façons : dix points répartis, le
+   * barème sur 100 des classeurs, ou la PARITÉ — tous les acquis au même
+   * poids. La parité écrit 1 partout : la somme vaut alors le nombre
+   * d'acquis, jamais dix, et le cours passait en rouge « 3/10 » avec son
+   * bouton grisé — on croyait avoir tout défait.
+   */
+  const liensDe = (c) => Object.entries(poids)
+    .filter(([cle, v]) => cle.split('|')[0] === c && Number(v) > 0)
+    .map(([cle, v]) => [cle.split('|')[1], Number(v)]);
+
+  // Ce que le serveur a enregistré, pour savoir ce qui a changé depuis.
+  const enBase = useMemo(() => Object.fromEntries(
+    (data?.liens || []).map(l => [`${l.cours_code}|${l.aa_code}`, Number(l.poids)])), [data]);
 
   const etatCours = c => {
-    const s = sommes[c] || 0;
-    if (s === 0) return { ok: false, libelle: '—', ton: '#94A3B8' };
-    if (Math.abs(s - 10) < 0.001) return { ok: true, libelle: '10/10', ton: '#15803D' };
-    if (Math.abs(s - 100) < 0.01) return { ok: true, libelle: '100', ton: '#0369A1' };
-    return { ok: false, libelle: `${s}/10`, ton: '#B91C1C' };
+    const l = liensDe(c);
+    const s = Math.round(l.reduce((n, [, v]) => n + v, 0) * 100) / 100;
+
+    // Ce qui a changé depuis l'enregistrement : un poids ajouté, retiré, ou
+    // modifié dans ce cours.
+    const cles = new Set([
+      ...Object.keys(poids).filter(k => k.split('|')[0] === c && Number(poids[k]) > 0),
+      ...Object.keys(enBase).filter(k => k.split('|')[0] === c),
+    ]);
+    const modifie = [...cles].some(k => (Number(poids[k]) || 0) !== (enBase[k] || 0));
+
+    if (!l.length) {
+      return { ok: false, modifie, libelle: modifie ? 'à vider' : '—',
+               ton: modifie ? '#B45309' : '#94A3B8', quoi: 'aucun acquis relié' };
+    }
+    // Un cours à UN SEUL acquis est valide quel que soit le poids : cet acquis
+    // fait tout le cours. Le compter comme parité évite un rouge absurde.
+    const parite = l.every(([, v]) => v === l[0][1]);
+    const sur10 = Math.abs(s - 10) < 0.001;
+    const sur100 = Math.abs(s - 100) < 0.01;
+    const ok = sur10 || sur100 || parite;
+
+    const quoi = sur10 ? '10 points répartis'
+      : sur100 ? 'barème sur 100'
+      : parite ? (l.length === 1 ? 'un seul acquis — tout le cours'
+                                 : `parité — ${l.length} acquis à poids égal`)
+      : `${s} points répartis au lieu de 10`;
+    const libelle = sur10 ? '10/10' : sur100 ? '100'
+      : parite ? (l.length === 1 ? 'seul' : 'parité') : `${s}/10`;
+
+    return {
+      ok, modifie, parite, libelle, quoi,
+      // Vert : valide ET enregistré. Ambre : valide, reste à enregistrer.
+      // Rouge : la répartition ne tient pas.
+      ton: !ok ? '#B91C1C' : modifie ? '#B45309' : '#15803D',
+    };
   };
 
   // Les coordonnées d'un pointeur sont en PIXELS ÉCRAN ; le dessin raisonne en
@@ -134,6 +175,39 @@ export default function SchemaLiensAA({ ueNum, annee, onClose, onEnregistre }) {
       setMessage(parite
         ? `Cours ${coursCode} : parité — tous ses acquis pèsent pareil.`
         : `Cours ${coursCode} enregistré.`);
+      await charger();
+      onEnregistre && onEnregistre();
+    } catch (e) { setErreur(e.message); }
+    finally { setEnCours(false); }
+  }
+
+  /** Les cours dont la répartition est valide mais pas encore enregistrée. */
+  const aEnregistrer = (data?.cours || [])
+    .filter(c => { const e = etatCours(c.cours_code); return e.ok && e.modifie; })
+    .map(c => c.cours_code);
+
+  /** Tout enregistrer d'un coup — cours par cours, le serveur les veut ainsi. */
+  async function enregistrerTout() {
+    setEnCours(true); setErreur(null); setMessage(null);
+    let faits = 0;
+    try {
+      for (const code of aEnregistrer) {
+        const ponderations = data.acquis.map(a => ({
+          aa_code: a.aa_code, poids: Number(poids[`${code}|${a.aa_code}`]) || 0,
+        }));
+        const rep = await fetch('/api/acquis/ponderations', {
+          method: 'PUT', headers: authHeaders(),
+          body: JSON.stringify({ ue_num: ueNum, cours_code: code, ponderations,
+                                 parite: etatCours(code).parite }),
+        });
+        if (!rep.ok) {
+          const j = await rep.json().catch(() => ({}));
+          setErreur(`Cours ${code} : ${j.error || 'enregistrement refusé'}.`);
+          break;
+        }
+        faits++;
+      }
+      if (faits) setMessage(`${faits} cours enregistré(s).`);
       await charger();
       onEnregistre && onEnregistre();
     } catch (e) { setErreur(e.message); }
@@ -327,40 +401,66 @@ export default function SchemaLiensAA({ ueNum, annee, onClose, onEnregistre }) {
                 </svg>
               </div>
 
-              {/* L'enregistrement, cours par cours : le serveur refuse un cours
-                  dont les dix points ne sont pas répartis, et sauver à chaque
-                  geste ferait échouer un réglage sur deux. */}
-              <div className="flex flex-wrap gap-2">
+              {/* CHAQUE COURS DIT OÙ IL EN EST : vert enregistré, ambre à
+                  enregistrer, rouge répartition invalide. Sans cela on ne
+                  savait pas ce qui était pris en compte. */}
+              <div className="flex flex-wrap gap-2 items-center">
                 {data.cours.map(c => {
                   const et = etatCours(c.cours_code);
                   const relie = data.acquis.some(a => Number(poids[`${c.cours_code}|${a.aa_code}`]) > 0);
+                  const ton = !et.ok ? 'border-red-300 bg-red-50 text-red-800'
+                    : et.modifie ? 'border-amber-400 bg-amber-50 text-amber-900'
+                    : 'border-emerald-400 bg-emerald-50 text-emerald-800';
                   return (
-                    <span key={c.cours_code} className="inline-flex rounded-lg overflow-hidden border
-                                                        border-slate-300">
+                    <span key={c.cours_code}
+                      className={`inline-flex items-stretch rounded-lg overflow-hidden border ${ton}`}>
+                      <span className="px-2.5 py-1 border-r border-current/20">
+                        <span className="block text-[12px] font-bold font-mono leading-tight">
+                          {c.cours_code}
+                        </span>
+                        <span className="block text-[9.5px] opacity-80 leading-tight">{et.quoi}</span>
+                      </span>
                       <button onClick={() => enregistrer(c.cours_code, false)}
-                        disabled={enCours || !et.ok}
-                        className={`px-3 py-1.5 text-[12px] font-semibold border-r border-slate-300
-                          ${et.ok ? 'text-iip-blue' : 'text-slate-400'}`}>
-                        <IconCheck size={13} className="inline align-[-2px] mr-1" />
-                        {c.cours_code} · {et.libelle}
+                        disabled={enCours || !et.ok || !et.modifie}
+                        title={!et.ok ? et.quoi
+                          : et.modifie ? 'Enregistrer ce cours' : 'Déjà enregistré'}
+                        className="px-2.5 text-[11.5px] font-semibold border-r border-current/20
+                                   disabled:opacity-45 flex items-center gap-1">
+                        {et.ok && !et.modifie
+                          ? <><IconCheck size={13} /> enregistré</>
+                          : <><IconDeviceFloppy size={13} /> enregistrer</>}
                       </button>
                       <button onClick={() => enregistrer(c.cours_code, true)}
                         disabled={enCours || !relie}
-                        title="Parité : tous les acquis de ce cours pèsent pareil"
-                        className={`px-2.5 py-1.5 text-[12px] font-semibold
-                          ${relie ? 'text-slate-600 hover:bg-slate-50' : 'text-slate-300'}`}>
-                        <IconEqual size={13} className="inline align-[-2px] mr-1" />
-                        Parité
+                        title="Parité : tous les acquis de ce cours pèsent pareil — enregistré aussitôt"
+                        className="px-2 text-[11.5px] font-semibold disabled:opacity-40
+                                   flex items-center gap-1">
+                        <IconEqual size={13} /> parité
                       </button>
                     </span>
                   );
                 })}
+
+                {/* Le geste global : tout ce qui est valide et modifié part
+                    d'un coup, cours par cours. */}
+                {aEnregistrer.length > 1 && (
+                  <button onClick={enregistrerTout} disabled={enCours}
+                    className="px-3 py-2 text-[12px] rounded-lg bg-iip-blue text-white
+                               font-semibold disabled:opacity-40 flex items-center gap-1.5">
+                    <IconDeviceFloppy size={14} />
+                    Enregistrer les {aEnregistrer.length} cours modifiés
+                  </button>
+                )}
               </div>
 
               <p className="text-[11.5px] text-slate-500">
                 Tirez depuis le point bleu d'un cours jusqu'à un acquis pour l'y
                 rattacher. Le lien naît à 1 point ; ajustez-le avec − et +, et
-                ramenez-le à 0 pour le défaire. « Parité » donne à tous les acquis
+                ramenez-le à 0 pour le défaire. Chaque cours porte son état :
+                <b className="text-emerald-700"> vert</b> enregistré,
+                <b className="text-amber-700"> ambre</b> à enregistrer,
+                <b className="text-red-700"> rouge</b> répartition à revoir.
+                « Parité » donne à tous les acquis
                 d'un cours le même poids, sans avoir à répartir dix points — utile
                 quand ils ne se divisent pas en entiers. Un acquis peut être évalué par
                 plusieurs cours : sa note globale est alors la moyenne de ses
