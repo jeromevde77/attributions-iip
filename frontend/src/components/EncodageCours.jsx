@@ -204,7 +204,7 @@ export default function EncodageCours({ coursCode, annee, onClose, onEnregistre,
                           const v = data.notes[e.id]?.[a.aa_code];
                           return (
                             <td key={a.aa_code} className="px-1 py-1 border-b border-slate-100 text-center">
-                              <input type="number" min="0" max="20" step="0.5"
+                              <input type="number" min="0" max="20" step="1"
                                 defaultValue={v ?? ''}
                                 key={`${e.id}-${a.aa_code}-${session}-${v ?? ''}`}
                                 onBlur={ev => {
@@ -224,7 +224,7 @@ export default function EncodageCours({ coursCode, annee, onClose, onEnregistre,
               </div>
 
               <p className="text-[11.5px] text-slate-500">
-                Chaque note s'enregistre en quittant le champ. Elle vaut pour CE cours :
+                La note s'encode par point entier et s'enregistre en quittant le champ. Elle vaut pour CE cours :
                 un acquis évalué dans un autre cours y garde sa propre note, et la
                 délibération consolide les deux.
               </p>

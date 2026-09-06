@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { IconX, IconAlertTriangle, IconCheck } from '@tabler/icons-react';
+import { IconX, IconAlertTriangle, IconCheck, IconEqual } from '@tabler/icons-react';
 import { authHeaders } from '../lib/api.js';
 
 /**
@@ -109,19 +109,31 @@ export default function SchemaLiensAA({ ueNum, annee, onClose, onEnregistre }) {
     return { ...m, [cle]: v };
   });
 
-  async function enregistrer(coursCode) {
+  /**
+   * PARITÉ : tous les acquis du cours pèsent pareil. Trois acquis, un tiers
+   * chacun — ce qui ne se répartit pas en dix points entiers. Comme seul le
+   * rapport entre les poids compte, un poids de 1 partout dit exactement cela,
+   * et la règle des dix points ne s'applique alors plus.
+   */
+  async function enregistrer(coursCode, parite) {
     setEnCours(true); setErreur(null); setMessage(null);
     try {
       const ponderations = data.acquis.map(a => ({
         aa_code: a.aa_code, poids: Number(poids[`${coursCode}|${a.aa_code}`]) || 0,
       }));
+      if (parite && !ponderations.some(p => p.poids > 0)) {
+        setErreur('Reliez d’abord ce cours à ses acquis : la parité les répartit, elle ne les crée pas.');
+        return;
+      }
       const rep = await fetch('/api/acquis/ponderations', {
         method: 'PUT', headers: authHeaders(),
-        body: JSON.stringify({ ue_num: ueNum, cours_code: coursCode, ponderations }),
+        body: JSON.stringify({ ue_num: ueNum, cours_code: coursCode, ponderations, parite }),
       });
       const j = await rep.json();
       if (!rep.ok) { setErreur(j.error); return; }
-      setMessage(`Cours ${coursCode} enregistré.`);
+      setMessage(parite
+        ? `Cours ${coursCode} : parité — tous ses acquis pèsent pareil.`
+        : `Cours ${coursCode} enregistré.`);
       await charger();
       onEnregistre && onEnregistre();
     } catch (e) { setErreur(e.message); }
@@ -321,15 +333,26 @@ export default function SchemaLiensAA({ ueNum, annee, onClose, onEnregistre }) {
               <div className="flex flex-wrap gap-2">
                 {data.cours.map(c => {
                   const et = etatCours(c.cours_code);
+                  const relie = data.acquis.some(a => Number(poids[`${c.cours_code}|${a.aa_code}`]) > 0);
                   return (
-                    <button key={c.cours_code} onClick={() => enregistrer(c.cours_code)}
-                      disabled={enCours || !et.ok}
-                      className={`px-3 py-1.5 text-[12px] rounded-lg border font-semibold
-                        ${et.ok ? 'border-iip-blue text-iip-blue'
-                                : 'border-slate-300 text-slate-400'}`}>
-                      <IconCheck size={13} className="inline align-[-2px] mr-1" />
-                      {c.cours_code} · {et.libelle}
-                    </button>
+                    <span key={c.cours_code} className="inline-flex rounded-lg overflow-hidden border
+                                                        border-slate-300">
+                      <button onClick={() => enregistrer(c.cours_code, false)}
+                        disabled={enCours || !et.ok}
+                        className={`px-3 py-1.5 text-[12px] font-semibold border-r border-slate-300
+                          ${et.ok ? 'text-iip-blue' : 'text-slate-400'}`}>
+                        <IconCheck size={13} className="inline align-[-2px] mr-1" />
+                        {c.cours_code} · {et.libelle}
+                      </button>
+                      <button onClick={() => enregistrer(c.cours_code, true)}
+                        disabled={enCours || !relie}
+                        title="Parité : tous les acquis de ce cours pèsent pareil"
+                        className={`px-2.5 py-1.5 text-[12px] font-semibold
+                          ${relie ? 'text-slate-600 hover:bg-slate-50' : 'text-slate-300'}`}>
+                        <IconEqual size={13} className="inline align-[-2px] mr-1" />
+                        Parité
+                      </button>
+                    </span>
                   );
                 })}
               </div>
@@ -337,7 +360,9 @@ export default function SchemaLiensAA({ ueNum, annee, onClose, onEnregistre }) {
               <p className="text-[11.5px] text-slate-500">
                 Tirez depuis le point bleu d'un cours jusqu'à un acquis pour l'y
                 rattacher. Le lien naît à 1 point ; ajustez-le avec − et +, et
-                ramenez-le à 0 pour le défaire. Un acquis peut être évalué par
+                ramenez-le à 0 pour le défaire. « Parité » donne à tous les acquis
+                d'un cours le même poids, sans avoir à répartir dix points — utile
+                quand ils ne se divisent pas en entiers. Un acquis peut être évalué par
                 plusieurs cours : sa note globale est alors la moyenne de ses
                 évaluations, pondérée par ces poids.
               </p>

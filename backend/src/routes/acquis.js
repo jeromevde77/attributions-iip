@@ -1050,6 +1050,26 @@ r.put('/ponderations', authRequired, roleRequired('admin', 'editeur'), (req, res
   const gardes = ponderations.filter(p => Number(p.poids) > 0);
   const somme = gardes.reduce((s, p) => s + Number(p.poids || 0), 0);
 
+  // PARITÉ : tous les acquis du cours pèsent pareil. Trois acquis, un tiers
+  // chacun — ce qui ne se répartit pas en dix points entiers. Comme seul le
+  // RAPPORT entre les poids entre dans le calcul, un poids de 1 partout dit
+  // exactement cela, et la somme n'a alors pas à valoir dix.
+  if (req.body.parite) {
+    const del = db.prepare('DELETE FROM aa_ponderation WHERE cours_code = ? AND aa_code = ?');
+    const up = db.prepare(`
+      INSERT INTO aa_ponderation (ue_num, cours_code, aa_code, poids, maj_le)
+      VALUES (?,?,?,1, datetime('now'))
+      ON CONFLICT(cours_code, aa_code) DO UPDATE SET
+        poids = 1, ue_num = excluded.ue_num, maj_le = datetime('now')`);
+    db.transaction(() => {
+      for (const p of ponderations) {
+        if (Number(p.poids) > 0) up.run(Number(ue_num), cours_code, p.aa_code);
+        else del.run(cours_code, p.aa_code);
+      }
+    })();
+    return res.json({ ok: true, cours_code, parite: true, nb: gardes.length });
+  }
+
   // DEUX barèmes coexistent, et seul le RAPPORT entre les poids entre dans le
   // calcul — 3 sur 10 pèse comme 30 sur 100. Le barème sur 10, en entiers, est
   // celui qu'on encode désormais ; celui sur 100 vient des classeurs de suivi
@@ -1359,6 +1379,40 @@ r.get('/deliberation/plan', authRequired, (req, res) => {
       CREATE INDEX IF NOT EXISTS idx_delib_ajust
         ON deliberation_ajustement(etudiant_id, annee_scolaire, ue_num);
     `);
+    // LA FAVEUR SE POSE SUR L'UNITÉ, désormais, et non plus sur un acquis ou
+    // un cours : c'est l'unité que le Conseil lève, et le décret fixe seul ce
+    // qu'il advient du reste. La portée 'ue' doit donc être admise — la
+    // contrainte CHECK d'origine ne la connaît pas, et SQLite ne sait pas la
+    // modifier : on recrée la table en conservant les ajustements posés.
+    const ddl = db.prepare(
+      "SELECT sql FROM sqlite_master WHERE type='table' AND name='deliberation_ajustement'"
+    ).get()?.sql || '';
+    if (!ddl.includes("'ue'")) {
+      db.exec(`
+        BEGIN;
+        CREATE TABLE deliberation_ajustement_v2 (
+          id             INTEGER PRIMARY KEY AUTOINCREMENT,
+          etudiant_id    INTEGER NOT NULL,
+          annee_scolaire TEXT    NOT NULL,
+          ue_num         INTEGER NOT NULL,
+          portee         TEXT    NOT NULL CHECK (portee IN ('aa','cours','ue')),
+          code           TEXT    NOT NULL,
+          action         TEXT    NOT NULL CHECK (action IN ('faveur','ajourne')),
+          maj_le         TEXT DEFAULT CURRENT_TIMESTAMP,
+          maj_par        TEXT,
+          UNIQUE(etudiant_id, annee_scolaire, ue_num, portee, code)
+        );
+        INSERT INTO deliberation_ajustement_v2
+          (id, etudiant_id, annee_scolaire, ue_num, portee, code, action, maj_le, maj_par)
+          SELECT id, etudiant_id, annee_scolaire, ue_num, portee, code, action, maj_le, maj_par
+          FROM deliberation_ajustement;
+        DROP TABLE deliberation_ajustement;
+        ALTER TABLE deliberation_ajustement_v2 RENAME TO deliberation_ajustement;
+        CREATE INDEX IF NOT EXISTS idx_delib_ajust
+          ON deliberation_ajustement(etudiant_id, annee_scolaire, ue_num);
+        COMMIT;
+      `);
+    }
   } catch (e) { console.error('[migration] deliberation_ajustement :', e.message); }
 })();
 
@@ -1478,6 +1532,13 @@ export function delibererUE(etudId, ueNum, annee) {
   const descr = {};
   for (const c of structure) for (const a of (c.aas || [])) descr[a.aa_code] = a.description;
 
+  // La justification s'écrit au niveau de l'ACQUIS non acquis : c'est de lui
+  // qu'on doit rendre compte, et c'est lui que reprend l'annexe 8 ou 9.
+  const motifs = Object.fromEntries(db.prepare(`
+    SELECT aa_code, motif FROM decision_motivation
+    WHERE etudiant_id = ? AND annee_scolaire = ? AND ue_num = ?
+  `).all(etudId, annee, ueNum).map(m => [m.aa_code, m.motif]));
+
   // Les notes. Le code porte le cours quand la saisie s'est faite cours par
   // cours ; il ne porte que l'acquis quand elle vient du classeur consolidé.
   // Les deux formes cohabitent, et la plus précise l'emporte.
@@ -1507,6 +1568,9 @@ export function delibererUE(etudId, ueNum, annee) {
   const coursFaveur = c => ajust[`cours|${c}`] === 'faveur';
   const aaAjourne = a => ajust[`aa|${a}`] === 'ajourne';
   const aaFaveur = a => ajust[`aa|${a}`] === 'faveur';
+  // La faveur se pose sur l'UNITÉ : c'est elle que le Conseil lève. Les
+  // faveurs d'acquis ou de cours posées avant ce changement restent honorées.
+  const ueFaveur = ajust['ue|*'] === 'faveur';
 
   // ── 1. L'ACQUIS au global ────────────────────────────────────────────────
   const codesAA = [...new Set(paires.map(p => p.aa_code))];
@@ -1530,12 +1594,13 @@ export function delibererUE(etudId, ueNum, annee) {
       }
       note = den ? Math.round((num / den) * 100) / 100 : null;
     }
-    const forcee = aaFaveur(code);
+    const forcee = aaFaveur(code) || (ueFaveur && !na && note != null && note < SEUIL_UE);
     const affichee = na ? null : (forcee ? SEUIL_UE : note);
     return {
       aa_code: code, description: descr[code] || null,
       evaluations: evals, note_calculee: note, note: affichee,
-      na, faveur: forcee,
+      na, faveur: forcee, motif: motifs[code] || '',
+      ajourne_directement: aaAjourne(code),
       echec: !na && affichee != null && affichee < SEUIL_UE,
     };
   });
@@ -1565,7 +1630,8 @@ export function delibererUE(etudId, ueNum, annee) {
     // Un cours dont UN acquis a été levé en faveur vaut le seuil, et rien de
     // plus : le Conseil ne peut aller au-delà quand un acquis n'est pas
     // maîtrisé. La faveur du cours lui-même produit le même effet.
-    const forcee = coursFaveur(c.cours_code) || siennes.some(p => aaFaveur(p.aa_code));
+    const forcee = coursFaveur(c.cours_code) || siennes.some(p => aaFaveur(p.aa_code))
+      || (ueFaveur && !na && note != null && note < SEUIL_UE);
     const affichee = na ? null : (forcee ? SEUIL_UE : note);
     return {
       cours_code: c.cours_code, cours_nom: c.cours_nom,
@@ -1582,7 +1648,7 @@ export function delibererUE(etudId, ueNum, annee) {
 
   // ── 3. L'UNITÉ ───────────────────────────────────────────────────────────
   const ajourne = cours.some(c => c.na) || acquis.some(a => a.na);
-  const faveur = cours.some(c => c.faveur) || acquis.some(a => a.faveur);
+  const faveur = ueFaveur || cours.some(c => c.faveur) || acquis.some(a => a.faveur);
 
   let noteUE = null;
   if (!ajourne) {
@@ -1634,9 +1700,20 @@ export function delibererUE(etudId, ueNum, annee) {
     acquis, cours,
     ue: {
       note: ajourne ? null : noteUE,
-      na: ajourne, faveur,
+      na: ajourne, faveur, faveur_ue: ueFaveur,
       echec: !ajourne && noteUE != null && noteUE < SEUIL_UE,
       a_representer: cours.filter(c => c.na).map(c => c.cours_code),
+      // Ce qu'il faut représenter, cours par cours et acquis par acquis :
+      // c'est ce que l'annexe 8 doit énoncer à l'étudiant.
+      a_representer_detail: cours.filter(c => c.na).map(c => ({
+        cours_code: c.cours_code, cours_nom: c.cours_nom, aas: c.aas,
+      })),
+      // La réussite de plein droit : tous les acquis et tous les cours au
+      // seuil, sans qu'aucune faveur ni aucun ajournement n'ait été nécessaire.
+      de_plein_droit: !ajourne && !faveur
+        && acquis.length > 0 && cours.length > 0
+        && acquis.every(a => a.note != null && a.note >= SEUIL_UE)
+        && cours.every(c => c.note != null && c.note >= SEUIL_UE),
     },
   };
 }
@@ -1811,6 +1888,65 @@ r.get('/deliberation/ue/:ueNum', authRequired, (req, res) => {
   });
 });
 
+/**
+ * LA DÉLIBÉRATION AUTOMATIQUE DES RÉUSSITES DE PLEIN DROIT.
+ *
+ * Un étudiant qui a tous ses acquis au seuil ET tous ses cours au seuil réussit
+ * de plein droit : le Conseil n'a rien à apprécier, et lui faire ouvrir cent
+ * fiches pour cliquer cent fois « réussi » n'ajoute aucune garantie. Il ne
+ * reste alors au Conseil que les cas qui le méritent.
+ *
+ * GET liste les concernés ; POST enregistre leur décision. Rien d'autre n'est
+ * automatisé : un échec, une faveur, un ajournement restent des décisions.
+ */
+r.get('/deliberation/ue/:ueNum/plein-droit', authRequired, (req, res) => {
+  const ueNum = Number(req.params.ueNum);
+  const annee = req.query.annee || anneeDeTravail(req);
+  const etudiants = db.prepare(`
+    SELECT e.id, e.nom, e.prenom, e.id_ecampus, i.resultat
+    FROM etudiant_inscription i JOIN etudiant e ON e.id = i.etudiant_id
+    WHERE i.annee_scolaire = ? AND i.ue_num = ? ORDER BY e.nom, e.prenom
+  `).all(annee, ueNum);
+
+  const lignes = etudiants.map(e => {
+    const d = delibererUE(e.id, ueNum, annee);
+    return { ...e, note: d.ue.note, de_plein_droit: d.ue.de_plein_droit,
+             deja_decide: !!e.resultat };
+  });
+  res.json({
+    ue_num: ueNum, annee,
+    reussites: lignes.filter(l => l.de_plein_droit),
+    a_deliberer: lignes.filter(l => !l.de_plein_droit),
+  });
+});
+
+r.post('/deliberation/ue/:ueNum/plein-droit', authRequired,
+       roleRequired('admin', 'directeur', 'directeur_adjoint', 'editeur'), (req, res) => {
+  const ueNum = Number(req.params.ueNum);
+  const annee = req.body?.annee || anneeDeTravail(req);
+  // On n'enregistre que ce que le serveur a lui-même reconnu : une liste
+  // fournie par le client ne fait pas foi pour une décision.
+  const ids = Array.isArray(req.body?.etudiants) ? req.body.etudiants.map(Number) : null;
+
+  const inscrits = db.prepare(`
+    SELECT id, etudiant_id, resultat FROM etudiant_inscription
+    WHERE annee_scolaire = ? AND ue_num = ?
+  `).all(annee, ueNum);
+
+  const maj = db.prepare('UPDATE etudiant_inscription SET resultat = ?, points = ? WHERE id = ?');
+  const faits = [];
+  db.transaction(() => {
+    for (const i of inscrits) {
+      if (ids && !ids.includes(i.etudiant_id)) continue;
+      const d = delibererUE(i.etudiant_id, ueNum, annee);
+      if (!d.ue.de_plein_droit) continue;
+      maj.run('reussi', d.ue.note, i.id);
+      faits.push({ etudiant_id: i.etudiant_id, note: d.ue.note });
+    }
+  })();
+  res.json({ ok: true, enregistres: faits.length, etudiants: faits });
+});
+
 r.get('/deliberation/:etudId/:ueNum', authRequired, (req, res) => {
   const annee = req.query.annee || anneeDeTravail(req);
   try {
@@ -1825,7 +1961,7 @@ r.put('/deliberation/ajustement', authRequired,
   if (!etudiant_id || !annee_scolaire || !ue_num || !portee || !code) {
     return res.status(400).json({ error: 'étudiant, année, unité, portée et code requis' });
   }
-  if (!['aa', 'cours'].includes(portee)) return res.status(400).json({ error: 'portée invalide' });
+  if (!['aa', 'cours', 'ue'].includes(portee)) return res.status(400).json({ error: 'portée invalide' });
   if (action != null && !['faveur', 'ajourne'].includes(action)) {
     return res.status(400).json({ error: 'action invalide' });
   }
