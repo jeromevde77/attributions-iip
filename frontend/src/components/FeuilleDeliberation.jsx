@@ -417,6 +417,7 @@ export default function FeuilleDeliberation({ ueNum, annee, onClose }) {
             <Cloture seance={seance?.seance} enCours={enCours} nb={liste.length}
               ajournes={(data?.etudiants || []).filter(e => e.resultat === 'ajourne').length}
               onRetour={() => setEtape('fiche')} onPV={() => setDocuments(true)}
+              coursSession2={seance?.session2 || []}
               onClore={champs => enregistrerSeance({ ...champs, cloturee: 1 })} />
           ) : !liste.length ? (
             <div className="py-10 text-center text-[12.5px] text-slate-400 border-2
@@ -643,15 +644,22 @@ function PleinDroit({ auto, onAppliquer, onPasser, enCours }) {
  * sans avoir dit quand et où. Trois champs, et l'affaire est close.
  */
 
-function Cloture({ seance, onClore, onRetour, onPV, enCours, nb, ajournes }) {
+function Cloture({ seance, onClore, onRetour, onPV, enCours, nb, ajournes, coursSession2 }) {
   const [date, setDate] = useState(seance?.visite_date || '');
   const [heure, setHeure] = useState(seance?.visite_heure || '');
   const [local, setLocal] = useState(seance?.visite_local || '');
-  // La seconde session se notifie AVEC l'ajournement : sans elle, l'annexe 8
-  // part avec des pointillés que le secrétariat remplit cent fois à la main.
-  const [s2date, setS2date] = useState(seance?.session2_date || '');
-  const [s2heure, setS2heure] = useState(seance?.session2_heure || '');
-  const [s2local, setS2local] = useState(seance?.session2_local || '');
+  // LA SECONDE SESSION SE TIENT COURS PAR COURS : deux professeurs ne
+  // repassent pas leurs épreuves le même jour. Une date unique pour l'unité
+  // obligeait le secrétariat à corriger chaque notification à la main.
+  const [s2, setS2] = useState(() => (coursSession2 || []).map(c => ({
+    cours_code: c.cours_code, cours_nom: c.cours_nom,
+    date: c.date || '', heure: c.heure || '', local: c.local || '',
+  })));
+  const majS2 = (i, champ, v) =>
+    setS2(l => l.map((c, k) => k === i ? { ...c, [champ]: v } : c));
+  // Le confort qui évite dix saisies quand la date est la même partout.
+  const reporterPartout = () => setS2(l => l.length ? l.map(c => ({
+    ...c, date: l[0].date, heure: l[0].heure, local: l[0].local })) : l);
   const [close, setClose] = useState(!!seance?.cloturee);
   const complet = date && heure && local.trim();
 
@@ -693,34 +701,49 @@ function Cloture({ seance, onClore, onRetour, onPV, enCours, nb, ajournes }) {
         </label>
       </div>
 
-      {/* La seconde session, portée par la notification d'ajournement. */}
-      {ajournes > 0 && (
+      {/* La seconde session, cours par cours, portée par l'annexe 8. */}
+      {ajournes > 0 && !!s2.length && (
         <div className="border border-amber-300 bg-amber-50/60 rounded-xl p-4 space-y-3">
-          <div>
-            <div className="text-[13px] font-semibold text-amber-900">Seconde session</div>
-            <p className="text-[11.5px] text-amber-800">
-              {ajournes} étudiant(s) ajourné(s). Ces trois indications figurent sur
-              leur notification (annexe 8) : sans elles, elle part avec des pointillés.
-            </p>
+          <div className="flex items-start justify-between gap-3">
+            <div>
+              <div className="text-[13px] font-semibold text-amber-900">Seconde session</div>
+              <p className="text-[11.5px] text-amber-800">
+                {ajournes} étudiant(s) ajourné(s). Chaque cours a sa date : elle
+                figure en regard du cours sur la notification (annexe 8).
+              </p>
+            </div>
+            {s2.length > 1 && (
+              <button onClick={reporterPartout} disabled={enCours || !s2[0].date}
+                title="Reporter la date, l'heure et le local du premier cours sur tous les autres"
+                className="flex-none px-2.5 py-1 text-[11.5px] rounded-lg border
+                           border-amber-500 text-amber-900 font-semibold disabled:opacity-40">
+                Même date pour tous
+              </button>
+            )}
           </div>
-          <div className="grid grid-cols-2 gap-2">
-            <label className="text-[11.5px] text-slate-600">
-              Date
-              <input type="date" value={s2date} onChange={e => setS2date(e.target.value)}
-                className="w-full mt-0.5 border border-slate-300 rounded-lg px-2 py-1.5 text-[12.5px]" />
-            </label>
-            <label className="text-[11.5px] text-slate-600">
-              Heure
-              <input type="time" value={s2heure} onChange={e => setS2heure(e.target.value)}
-                className="w-full mt-0.5 border border-slate-300 rounded-lg px-2 py-1.5 text-[12.5px]" />
-            </label>
+
+          <div className="space-y-1.5">
+            {s2.map((c, i) => (
+              <div key={c.cours_code} className="flex items-center gap-2">
+                <span className="w-32 flex-none min-w-0">
+                  <span className="block font-mono text-[11.5px] font-bold text-slate-700">
+                    {c.cours_code}
+                  </span>
+                  <span className="block text-[10px] text-slate-500 truncate"
+                    title={c.cours_nom || ''}>{c.cours_nom || ''}</span>
+                </span>
+                <input type="date" value={c.date}
+                  onChange={e => majS2(i, 'date', e.target.value)}
+                  className="border border-slate-300 rounded-lg px-2 py-1 text-[12px] w-36" />
+                <input type="time" value={c.heure}
+                  onChange={e => majS2(i, 'heure', e.target.value)}
+                  className="border border-slate-300 rounded-lg px-2 py-1 text-[12px] w-24" />
+                <input value={c.local} placeholder="local…"
+                  onChange={e => majS2(i, 'local', e.target.value)}
+                  className="flex-1 border border-slate-300 rounded-lg px-2 py-1 text-[12px]" />
+              </div>
+            ))}
           </div>
-          <label className="text-[11.5px] text-slate-600 block">
-            Local
-            <input value={s2local} onChange={e => setS2local(e.target.value)}
-              placeholder="Bâtiment P, local 2.14…"
-              className="w-full mt-0.5 border border-slate-300 rounded-lg px-2 py-1.5 text-[12.5px]" />
-          </label>
         </div>
       )}
 
@@ -743,8 +766,11 @@ function Cloture({ seance, onClore, onRetour, onPV, enCours, nb, ajournes }) {
           </button>
           <button disabled={enCours || !complet} onClick={() => onClore({
               visite_date: date, visite_heure: heure, visite_local: local.trim(),
-              session2_date: s2date || null, session2_heure: s2heure || null,
-              session2_local: s2local.trim() || null })
+              session2_cours: s2,
+              // La première date sert de repli pour ce qui n'est pas fixé.
+              session2_date: s2[0]?.date || null,
+              session2_heure: s2[0]?.heure || null,
+              session2_local: s2[0]?.local || null })
               .then(ok => ok && setClose(true))}
             title={complet ? '' : 'La date, l’heure et le local sont requis'}
             className="px-4 py-2 text-[13px] rounded-lg bg-emerald-600 text-white font-semibold

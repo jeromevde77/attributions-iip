@@ -734,10 +734,24 @@ export function documentMotivation(etudId, ueNum, annee) {
 
   const regles = reglesAjournement();
 
-  // La seconde session, telle que la séance l'a fixée.
+  // La seconde session, telle que la séance l'a fixée — et cours par cours
+  // quand les professeurs ne repassent pas le même jour.
   const seance = db.prepare(
     'SELECT * FROM deliberation_seance WHERE ue_num = ? AND annee_scolaire = ?'
   ).get(ueNum, annee) || {};
+  const s2 = Object.fromEntries(db.prepare(
+    'SELECT * FROM deliberation_session2 WHERE ue_num = ? AND annee_scolaire = ?'
+  ).all(ueNum, annee).map(l => [l.cours_code, l]));
+  // Ce qui n'est pas fixé pour un cours retombe sur la date de l'unité.
+  const quand = (code) => {
+    const l = s2[code] || {};
+    return {
+      date: l.s2_date || seance.session2_date || null,
+      heure: l.s2_heure || seance.session2_heure || null,
+      local: l.s2_local || seance.session2_local || null,
+      adresse: l.s2_adresse || seance.session2_adresse || ident.adresse || '',
+    };
+  };
 
   const corps = `
 <div class="attestation piece">
@@ -851,28 +865,47 @@ export function documentMotivation(etudId, ueNum, annee) {
        cours suivants, qui sont à représenter dans leur entièreté :`}</p>
   <table class="doc">
     <thead><tr>
-      <th style="width:30%">Cours à représenter</th>
-      <th>Acquis d'apprentissage concernés</th>
+      <th style="width:26%">Cours à représenter</th>
+      <th style="width:40%">Acquis d'apprentissage concernés</th>
+      <th>Seconde session</th>
     </tr></thead>
     <tbody>
-      ${aRepresenter.length ? aRepresenter.map(c => `<tr>
+      ${aRepresenter.length ? aRepresenter.map(c => {
+        const q = quand(c.cours_code);
+        return `<tr>
         <td><span class="code">${esc2(c.cours_code)}</span>${
-          c.cours_nom ? ` — ${esc2(c.cours_nom)}` : ''}</td>
-        <td>${esc2(c.aas.join(', '))}</td>
-      </tr>`).join('')
-      : `<tr><td colspan="2" class="vide">Aucun cours n'est rattaché à ces acquis
+          c.cours_nom ? `<br><span class="ref">${esc2(c.cours_nom)}</span>` : ''}</td>
+        <td>${c.aas.map(code => {
+          const a = d.acquis.find(x => x.aa_code === code);
+          return a?.description
+            ? `${esc2(a.description)} <span class="ref">${esc2(code)}</span>`
+            : `<span class="code">${esc2(code)}</span>`;
+        }).join('<br>')}</td>
+        <td>${q.date
+          ? `<b>${jour(q.date)}</b>${q.heure ? ` à ${esc2(q.heure)}` : ''}`
+            + `${q.local ? `<br>local ${esc2(q.local)}` : ''}`
+          : '<span class="vide">date à fixer</span>'}</td>
+      </tr>`; }).join('')
+      : `<tr><td colspan="3" class="vide">Aucun cours n'est rattaché à ces acquis
            au référentiel : la répartition est à compléter.</td></tr>`}
     </tbody>
   </table>
   `}
 
+  ${regles.portee === 'aa' && regles.session2 === 'unique' ? `
   <div class="info orange">
     <div class="titre">Seconde session</div>
     <div class="ligne">Le ${seance.session2_date ? `<b>${jour(seance.session2_date)}</b>` : '………………'}
       à ${seance.session2_heure ? `<b>${esc2(seance.session2_heure)}</b>` : '……h……'},
       local ${seance.session2_local ? `<b>${esc2(seance.session2_local)}</b>` : '…………'}</div>
     <div class="ligne">${esc2(seance.session2_adresse || ident.adresse || '')}</div>
-  </div>
+  </div>`
+  // Quand chaque cours a sa date, le tableau la porte déjà : un bloc de plus
+  // pour redire « voir le tableau » ne fait que pousser la signature à la
+  // page suivante. Seule l'adresse reste à dire, en une ligne.
+  : `<p class="champ" style="font-size:8pt;color:#475569">
+       Les épreuves se tiennent à
+       ${esc2(seance.session2_adresse || ident.adresse || '……………')}.</p>`}
   `}
 
   <div class="info">
@@ -2219,6 +2252,20 @@ r.get('/deliberation/ue/:ueNum', authRequired, (req, res) => {
         maj_par        TEXT,
         UNIQUE(ue_num, annee_scolaire)
       );
+      -- LA SECONDE SESSION SE TIENT COURS PAR COURS. Deux professeurs ne
+      -- repassent pas leurs épreuves le même jour, et une date unique pour
+      -- l'unité obligeait le secrétariat à corriger chaque notification à la
+      -- main. Ce qui manque ici retombe sur la date de la séance.
+      CREATE TABLE IF NOT EXISTS deliberation_session2 (
+        ue_num         INTEGER NOT NULL,
+        annee_scolaire TEXT    NOT NULL,
+        cours_code     TEXT    NOT NULL,
+        s2_date        TEXT,
+        s2_heure       TEXT,
+        s2_local       TEXT,
+        s2_adresse     TEXT,
+        PRIMARY KEY (ue_num, annee_scolaire, cours_code)
+      );
       CREATE TABLE IF NOT EXISTS deliberation_presence (
         seance_id      INTEGER NOT NULL,
         cle            TEXT    NOT NULL,
@@ -2316,7 +2363,21 @@ r.get('/deliberation/ue/:ueNum/seance', authRequired, (req, res) => {
     }
   }
 
-  res.json({ ue_num: ueNum, annee, seance, membres });
+  // Les cours de l'unité, avec la date de seconde session propre à chacun.
+  const parCours = Object.fromEntries(db.prepare(`
+    SELECT * FROM deliberation_session2 WHERE ue_num = ? AND annee_scolaire = ?
+  `).all(ueNum, annee).map(l => [l.cours_code, l]));
+
+  const session2 = structureUE(ueNum, annee).map(c => {
+    const l = parCours[c.cours_code] || {};
+    return {
+      cours_code: c.cours_code, cours_nom: c.cours_nom,
+      date: l.s2_date || null, heure: l.s2_heure || null,
+      local: l.s2_local || null, adresse: l.s2_adresse || null,
+    };
+  });
+
+  res.json({ ue_num: ueNum, annee, seance, membres, session2 });
 });
 
 r.put('/deliberation/ue/:ueNum/seance', authRequired,
@@ -2324,7 +2385,8 @@ r.put('/deliberation/ue/:ueNum/seance', authRequired,
   const ueNum = Number(req.params.ueNum);
   const annee = req.body?.annee || anneeDeTravail(req);
   const { membres, date_seance, visite_date, visite_heure, visite_local, cloturee,
-          session2_date, session2_heure, session2_local, session2_adresse } = req.body || {};
+          session2_date, session2_heure, session2_local, session2_adresse,
+          session2_cours } = req.body || {};
 
   db.transaction(() => {
     db.prepare(`
@@ -2348,6 +2410,22 @@ r.put('/deliberation/ue/:ueNum/seance', authRequired,
            visite_local || null, session2_date || null, session2_heure || null,
            session2_local || null, session2_adresse || null,
            cloturee ? 1 : 0, req.user?.email || null);
+
+    // Une date de seconde session par cours.
+    if (Array.isArray(session2_cours)) {
+      const up = db.prepare(`
+        INSERT INTO deliberation_session2
+          (ue_num, annee_scolaire, cours_code, s2_date, s2_heure, s2_local, s2_adresse)
+        VALUES (?,?,?,?,?,?,?)
+        ON CONFLICT(ue_num, annee_scolaire, cours_code) DO UPDATE SET
+          s2_date = excluded.s2_date, s2_heure = excluded.s2_heure,
+          s2_local = excluded.s2_local, s2_adresse = excluded.s2_adresse`);
+      for (const c of session2_cours) {
+        if (!c?.cours_code) continue;
+        up.run(ueNum, annee, c.cours_code, c.date || null, c.heure || null,
+               c.local || null, c.adresse || null);
+      }
+    }
 
     if (Array.isArray(membres)) {
       const s = db.prepare(

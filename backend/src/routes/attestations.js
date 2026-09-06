@@ -234,6 +234,14 @@ export function envelopper(corps, titre = 'Attestations de réussite') {
 
   .manque { color: #b45309; font-style: italic; }
 
+  /* Les enseignants de l'unité, sous la mention du Conseil. */
+  .profs { margin: 2.5mm 0 0; font-size: 8pt; }
+  .profs .titre { font-size: 7.5pt; font-weight: 700; color: #64748b;
+                  text-transform: uppercase; letter-spacing: .2pt; margin-bottom: 1mm; }
+  .profs .liste { display: flex; flex-wrap: wrap; gap: 1mm 5mm; }
+  .profs .p b { color: #1B2B4B; font-weight: 600; }
+  .profs .p .c { color: #64748b; font-size: 7pt; }
+
   .cloture{display:grid;grid-template-columns:auto 1fr auto;
     grid-template-rows:auto auto;column-gap:14mm;align-items:end;
     margin-top:14mm;page-break-inside:avoid}
@@ -366,7 +374,28 @@ r.get('/etudiant/:id', authRequired, (req, res) => {
 // pour elles. Toute production d'attestation levait donc « ident is not
 // defined ». Il devient un paramètre, avec repli sur l'identité de
 // l'établissement pour tout appel qui l'oublierait.
+/**
+ * Les enseignants qui donnent les cours de l'unité, d'après les attributions
+ * de l'année. L'attestation nomme le Conseil des études ; elle doit aussi dire
+ * QUI l'a composé — ce sont eux qui ont évalué.
+ */
+export function enseignantsDeLUE(ueNum, annee) {
+  try {
+    return db.prepare(`
+      SELECT DISTINCT p.nom, p.prenom,
+        (SELECT GROUP_CONCAT(DISTINCT a2.code_cours) FROM attribution a2
+          WHERE a2.professeur_id = p.id AND a2.ue_num = a.ue_num
+            AND a2.annee_scolaire = a.annee_scolaire
+            AND a2.code_cours IS NOT NULL) AS cours
+      FROM attribution a JOIN professeur p ON p.id = a.professeur_id
+      WHERE a.ue_num = ? AND a.annee_scolaire = ? AND a.professeur_id IS NOT NULL
+      ORDER BY p.nom, p.prenom
+    `).all(ueNum, annee);
+  } catch { return []; }
+}
+
 export function pageAttestation(e, u, annee, etab, dateDoc = null, ident = identiteEtablissement()) {
+  const profs = enseignantsDeLUE(u.ue_num, annee);
   // Le titre s'écrit tantôt « Mme », tantôt « Madame » : chercher la seule
   // abréviation produisait une attestation au masculin pour une étudiante.
   const genre = /^(mme|madame|mlle|mademoiselle|m\.?me)\b/i.test((e.titre || '').trim())
@@ -471,6 +500,18 @@ export function pageAttestation(e, u, annee, etab, dateDoc = null, ident = ident
     <span class="pct">${u.pourcentage != null ? u.pourcentage + ' %' : '………'}</span>
     du total des points.
   </div>
+
+  <!-- Ceux qui ont enseigné et évalué : le Conseil des études n'est pas une
+       abstraction, et l'attestation doit pouvoir dire qui le composait. -->
+  ${profs.length ? `
+  <div class="profs">
+    <div class="titre">${u.epreuve_integree ? "Le Jury d'épreuve intégrée"
+      : 'Le Conseil des études'}, pour cette unité</div>
+    <div class="liste">${profs.map(p => `<span class="p">`
+      + `<b>${esc(p.nom)} ${esc(p.prenom)}</b>`
+      + (p.cours ? ` <span class="c">${esc(p.cours)}</span>` : '')
+      + `</span>`).join('')}</div>
+  </div>` : ''}
 
   <!-- Sceau et signature. Le tableau à trois cases (conseil des études,
        sceau, direction) est remplacé par les pièces réelles. -->
