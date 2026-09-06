@@ -1731,33 +1731,36 @@ export function delibererUE(etudId, ueNum, annee) {
 /**
  * L'AIDE À LA DÉCISION.
  *
- * Le Conseil délibère mieux quand il sait ce que la faveur coûte. On lui dit
- * donc trois choses, sans rien décider à sa place :
+ * CHAQUE UNITÉ SE JUGE POUR ELLE-MÊME. La faveur s'apprécie donc sur l'unité
+ * en question : ce qu'il manque pour ramener au seuil les acquis en échec, et
+ * sur combien de cours cela se répartit. Deux points au plus, sur un ou deux
+ * cours — au-delà, ce n'est plus une faveur, c'est une dispense.
  *
- *  — la MOYENNE de l'année. Un étudiant qui tient 12 ou plus n'est pas dans la
- *    situation de celui qui échoue partout : le point qui lui manque ici
- *    s'apprécie autrement.
- *  — le COÛT de la faveur : ce qu'il faudrait de points pour ramener au seuil
- *    chaque acquis en échec, et sur combien de cours ils se répartissent.
- *  — la LIMITE d'usage retenue par le Conseil : deux points au plus, répartis
- *    sur un ou deux cours, et pour un étudiant d'au moins 12 de moyenne.
+ * Deux ÉCLAIRAGES viennent ensuite, qui ne conditionnent rien :
  *
- * Ce n'est pas une règle de droit — le décret ne fixe aucun barème — mais la
- * pratique du Conseil, écrite pour être appliquée à tous de la même façon.
- * Rien ne l'impose et rien ne l'empêche : la faveur reste à un clic.
+ *  — la MOYENNE de l'année. Elle dit si l'échec est un accident de parcours ou
+ *    la règle. Elle n'ouvre ni ne ferme la faveur : un bon étudiant peut avoir
+ *    manqué cette unité-ci pour de bon, un étudiant en difficulté peut la
+ *    mériter.
+ *  — les FAVEURS DÉJÀ ACCORDÉES cette année, dans les autres unités. Sans
+ *    cela, le Conseil fait cadeau sur cadeau sans le savoir : chaque unité
+ *    délibérée séparément, chacune de bonne foi, et l'étudiant sort avec trois
+ *    unités levées. C'est l'information qui manquait le plus.
+ *
+ * Rien de tout ceci n'est une règle de droit — le décret ne fixe aucun barème.
+ * C'est la pratique du Conseil, écrite pour être appliquée à tous de la même
+ * façon. La faveur reste à un clic, et c'est le Conseil qui décide.
  */
-const FAVEUR_MOYENNE_MIN = 12;   // moyenne de l'année ouvrant la faveur
 const FAVEUR_POINTS_MAX = 2;     // points que la faveur peut combler
 const FAVEUR_COURS_MAX = 2;      // cours sur lesquels elle peut se répartir
 
-export function aideDecision(d, moyenne) {
+export function aideDecision(d, moyenne, faveursAilleurs = []) {
   const manquants = d.acquis.filter(a => !a.na && a.note != null && a.note < SEUIL_UE);
   const cout = Math.round(manquants.reduce((s, a) => s + (SEUIL_UE - a.note), 0) * 100) / 100;
   const coursTouches = [...new Set(manquants.flatMap(a =>
     (a.evaluations || []).filter(v => v.note != null && v.note < SEUIL_UE)
       .map(v => v.cours_code)))];
 
-  const eligible = moyenne != null && moyenne >= FAVEUR_MOYENNE_MIN;
   const dansLaLimite = cout > 0 && cout <= FAVEUR_POINTS_MAX
     && coursTouches.length <= FAVEUR_COURS_MAX;
 
@@ -1767,18 +1770,16 @@ export function aideDecision(d, moyenne) {
     faveur_cours: coursTouches,
     faveur_acquis: manquants.map(a => ({ aa_code: a.aa_code, manque:
       Math.round((SEUIL_UE - a.note) * 100) / 100 })),
-    faveur_eligible: eligible && dansLaLimite,
-    faveur_bareme: { moyenne_min: FAVEUR_MOYENNE_MIN, points_max: FAVEUR_POINTS_MAX,
-                     cours_max: FAVEUR_COURS_MAX },
+    faveur_eligible: dansLaLimite,
+    faveur_bareme: { points_max: FAVEUR_POINTS_MAX, cours_max: FAVEUR_COURS_MAX },
     faveur_motif: cout === 0 ? null
-      : !eligible ? (moyenne == null
-          ? "moyenne de l'année inconnue — aucune autre unité n'est encore cotée"
-          : `moyenne de ${String(moyenne).replace('.', ',')} — sous le seuil de ${FAVEUR_MOYENNE_MIN}`)
       : coursTouches.length > FAVEUR_COURS_MAX
         ? `${coursTouches.length} cours concernés — au-delà de ${FAVEUR_COURS_MAX}`
       : cout > FAVEUR_POINTS_MAX
         ? `il manque ${String(cout).replace('.', ',')} points — au-delà de ${FAVEUR_POINTS_MAX}`
       : null,
+    // Ce que le Conseil a déjà accordé ailleurs, cette année.
+    faveurs_ailleurs: faveursAilleurs,
   };
 }
 
@@ -1959,9 +1960,28 @@ r.get('/deliberation/ue/:ueNum', authRequired, (req, res) => {
     }
   }
 
+  // LES FAVEURS DÉJÀ ACCORDÉES cette année, dans les AUTRES unités. Sans
+  // cela, chaque unité se délibère de bonne foi et l'étudiant ressort avec
+  // trois unités levées que personne n'a vues ensemble.
+  const dejaFaveur = {};
+  for (const l of db.prepare(`
+    SELECT DISTINCT a.etudiant_id, a.ue_num
+    FROM deliberation_ajustement a
+    WHERE a.annee_scolaire = ? AND a.action = 'faveur' AND a.ue_num <> ?
+  `).all(annee, ueNum)) {
+    (dejaFaveur[l.etudiant_id] ||= []).push(l.ue_num);
+  }
+  // Une unité levée en faveur puis décidée « réussie » à exactement le seuil
+  // reste une faveur : on la nomme telle quelle.
+  const nomUE = Object.fromEntries(db.prepare(
+    'SELECT ue_num, MAX(ue_nom) AS n FROM ue GROUP BY ue_num').all().map(r => [r.ue_num, r.n]));
+
   const lignes = etudiants.map(e => {
     const d = delibererUE(e.id, ueNum, annee);
-    return { ...e, ...d, ue: { ...d.ue, ...aideDecision(d, moyennes[e.id] ?? null) } };
+    const ailleurs = (dejaFaveur[e.id] || []).sort((a, b) => a - b)
+      .map(n => ({ ue_num: n, ue_nom: nomUE[n] || null }));
+    return { ...e, ...d,
+      ue: { ...d.ue, ...aideDecision(d, moyennes[e.id] ?? null, ailleurs) } };
   });
 
   // Les colonnes se prennent sur la première ligne calculée : la structure de

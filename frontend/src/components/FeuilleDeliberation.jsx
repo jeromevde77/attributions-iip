@@ -906,48 +906,78 @@ function Justification({ aa, onFermer, onEnregistrer }) {
  */
 
 function AideDecision({ ue }) {
-  if (ue.na || !ue.faveur_cout) return null;
+  const ailleurs = ue.faveurs_ailleurs || [];
+  // Les faveurs déjà accordées se disent même quand cette unité-ci est
+  // réussie : c'est au moment où l'on décide qu'il faut le savoir.
+  if (ue.na || (!ue.faveur_cout && !ailleurs.length)) return null;
   const b = ue.faveur_bareme || {};
   const ok = ue.faveur_eligible;
 
   return (
-    <div className={`rounded-xl border px-3 py-2 text-[12px]
-      ${ok ? 'bg-emerald-50 border-emerald-200 text-emerald-900'
-           : 'bg-slate-50 border-slate-200 text-slate-700'}`}>
-      <div className="flex items-center gap-2 flex-wrap">
-        <span className="font-semibold">
-          {ok ? 'Faveur envisageable' : 'Faveur hors de la ligne du Conseil'}
-        </span>
-        <span className="text-[11.5px] opacity-80">
-          moyenne de l'année :
-          {' '}<b>{ue.moyenne_annee != null ? fmt(ue.moyenne_annee) : '—'}</b>/20
-        </span>
-        <span className="text-[11.5px] opacity-80">
-          · il manque <b>{fmt(ue.faveur_cout)}</b> point(s)
-        </span>
-        {!!(ue.faveur_cours || []).length && (
-          <span className="text-[11.5px] opacity-80">
-            · sur {ue.faveur_cours.length} cours ({ue.faveur_cours.join(', ')})
+    <div className="space-y-1.5">
+      {/* CADEAU SUR CADEAU : l'avertissement passe avant le reste. */}
+      {!!ailleurs.length && (
+        <div className="rounded-xl border border-amber-400 bg-amber-50 px-3 py-2
+                        text-[12px] text-amber-950">
+          <span className="font-semibold">
+            Faveur déjà accordée cette année dans {ailleurs.length} autre(s) unité(s)
           </span>
-        )}
-      </div>
-
-      <div className="mt-1 text-[11px] opacity-80">
-        {(ue.faveur_acquis || []).map(a => (
-          <span key={a.aa_code} className="mr-2">
-            <span className="font-mono">{a.aa_code}</span> −{fmt(a.manque)}
+          {' — '}
+          {ailleurs.map(u => `UE ${u.ue_num}${u.ue_nom ? ` (${u.ue_nom})` : ''}`).join(', ')}.
+          <span className="block text-[11px] opacity-80 mt-0.5">
+            Chaque unité se délibère séparément et de bonne foi : sans cette
+            ligne, le Conseil accorde sans le savoir une faveur de plus.
           </span>
-        ))}
-      </div>
+        </div>
+      )}
 
-      <div className="mt-1 text-[11px] opacity-70">
-        {ue.faveur_motif
-          ? `Motif : ${ue.faveur_motif}.`
-          : `Dans la limite retenue : ${b.points_max} point(s) au plus, sur `
-            + `${b.cours_max} cours au plus, à partir de ${b.moyenne_min} de moyenne.`}
-        {' '}La décision reste au Conseil : la flèche verte de la note d'unité
-        l'applique, et l'unité vaudra alors exactement le seuil.
-      </div>
+      {!!ue.faveur_cout && (
+        <div className={`rounded-xl border px-3 py-2 text-[12px]
+          ${ok ? 'bg-emerald-50 border-emerald-200 text-emerald-900'
+               : 'bg-slate-50 border-slate-200 text-slate-700'}`}>
+          <div className="flex items-center gap-2 flex-wrap">
+            <span className="font-semibold">
+              {ok ? 'Faveur envisageable' : 'Faveur hors de la ligne du Conseil'}
+            </span>
+            <span className="text-[11.5px] opacity-80">
+              il manque <b>{fmt(ue.faveur_cout)}</b> point(s)
+            </span>
+            {!!(ue.faveur_cours || []).length && (
+              <span className="text-[11.5px] opacity-80">
+                · sur {ue.faveur_cours.length} cours ({ue.faveur_cours.join(', ')})
+              </span>
+            )}
+            {/* La moyenne éclaire, elle ne décide pas. */}
+            <span className="text-[11.5px] opacity-60 ml-auto">
+              moyenne de l'année :
+              {' '}<b>{ue.moyenne_annee != null ? fmt(ue.moyenne_annee) : '—'}</b>/20
+              {ue.moyenne_annee != null && (
+                <span className="ml-1">
+                  {ue.moyenne_annee >= 12 ? '· accident de parcours ?'
+                    : '· difficulté générale'}
+                </span>
+              )}
+            </span>
+          </div>
+
+          <div className="mt-1 text-[11px] opacity-80">
+            {(ue.faveur_acquis || []).map(a => (
+              <span key={a.aa_code} className="mr-2">
+                <span className="font-mono">{a.aa_code}</span> −{fmt(a.manque)}
+              </span>
+            ))}
+          </div>
+
+          <div className="mt-1 text-[11px] opacity-70">
+            {ue.faveur_motif
+              ? `Motif : ${ue.faveur_motif}.`
+              : `Dans la limite retenue pour l'unité : ${b.points_max} point(s) au plus, `
+                + `sur ${b.cours_max} cours au plus.`}
+            {' '}La moyenne de l'année n'ouvre ni ne ferme la faveur : elle dit
+            seulement si cet échec est isolé. La décision reste au Conseil.
+          </div>
+        </div>
+      )}
     </div>
   );
 }
