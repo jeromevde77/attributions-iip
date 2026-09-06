@@ -1251,4 +1251,236 @@ r.get('/deliberation/plan', authRequired, (req, res) => {
   res.json({ annee, sections: resultat });
 });
 
+// ═══════════════════════════════════════════════════════════════════════════
+// DÉLIBÉRATION D'UNE UNITÉ POUR UN ÉTUDIANT
+// ═══════════════════════════════════════════════════════════════════════════
+
+(function migrerAjustements() {
+  try {
+    db.exec(`
+      CREATE TABLE IF NOT EXISTS deliberation_ajustement (
+        id             INTEGER PRIMARY KEY AUTOINCREMENT,
+        etudiant_id    INTEGER NOT NULL,
+        annee_scolaire TEXT    NOT NULL,
+        ue_num         INTEGER NOT NULL,
+        portee         TEXT    NOT NULL CHECK (portee IN ('aa','cours')),
+        code           TEXT    NOT NULL,
+        action         TEXT    NOT NULL CHECK (action IN ('faveur','ajourne')),
+        maj_le         TEXT DEFAULT CURRENT_TIMESTAMP,
+        maj_par        TEXT,
+        UNIQUE(etudiant_id, annee_scolaire, ue_num, portee, code)
+      );
+      CREATE INDEX IF NOT EXISTS idx_delib_ajust
+        ON deliberation_ajustement(etudiant_id, annee_scolaire, ue_num);
+    `);
+  } catch (e) { console.error('[migration] deliberation_ajustement :', e.message); }
+})();
+
+const SEUIL_UE = 10;   // RDE, art. 78
+
+/**
+ * Le calcul de délibération d'une unité, pour un étudiant.
+ *
+ * TROIS NIVEAUX, dans cet ordre de lecture :
+ *  1. l'ACQUIS au global — un acquis peut être évalué dans plusieurs cours ;
+ *     sa note globale est la moyenne de ses évaluations, pondérée par le poids
+ *     qu'il a DANS CHAQUE cours ;
+ *  2. le COURS — moyenne de ses acquis, pondérée par leur poids dans ce cours ;
+ *  3. l'UNITÉ — Σ(note × poids_aa × poids_cours) ÷ Σ(20 × poids_aa × poids_cours),
+ *     ramenée sur 20. Un acquis non évalué SORT du dénominateur : il ne vaut
+ *     pas zéro.
+ *
+ * DEUX AJUSTEMENTS que le Conseil peut poser :
+ *  - FAVEUR : l'élément forcé vaut 10. L'unité se recalcule, mais elle est
+ *    PLAFONNÉE à 10 — une unité obtenue en faveur ne vaut pas mieux que le
+ *    seuil.
+ *  - AJOURNEMENT : l'élément passe à NA et sort du calcul. Un cours ajourné
+ *    emporte tous ses acquis. Et l'unité elle-même devient NA : tant qu'un
+ *    élément est à représenter, elle n'a pas de note.
+ */
+export function delibererUE(etudId, ueNum, annee) {
+  const structure = structureUE(ueNum, annee);
+
+  // Les couples (cours, acquis) et leur poids. La table de pondération fait
+  // foi : c'est elle, et non la colonne cours_code de l'acquis, qui permet
+  // qu'un même acquis soit évalué dans plusieurs cours.
+  const paires = [];
+  const pondRows = db.prepare(
+    'SELECT cours_code, aa_code, poids FROM aa_ponderation WHERE ue_num = ?').all(ueNum);
+  if (pondRows.length) {
+    for (const p of pondRows) {
+      paires.push({ cours_code: p.cours_code, aa_code: p.aa_code, poids: Number(p.poids) || 0 });
+    }
+  } else {
+    // Sans pondération explicite, les acquis d'un cours pèsent également : la
+    // moyenne reste juste, seule la finesse manque.
+    for (const c of structure) {
+      for (const a of (c.aas || [])) {
+        paires.push({ cours_code: c.cours_code, aa_code: a.aa_code, poids: 1 });
+      }
+    }
+  }
+
+  const descr = {};
+  for (const c of structure) for (const a of (c.aas || [])) descr[a.aa_code] = a.description;
+
+  // Les notes. Le code porte le cours quand la saisie s'est faite cours par
+  // cours ; il ne porte que l'acquis quand elle vient du classeur consolidé.
+  // Les deux formes cohabitent, et la plus précise l'emporte.
+  const brutes = db.prepare(`
+    SELECT code, points FROM etudiant_note_detail
+    WHERE etudiant_id = ? AND annee_scolaire = ? AND ue_num = ? AND type = 'aa'
+  `).all(etudId, annee, ueNum);
+  const parCoursAA = {}, parAA = {};
+  for (const l of brutes) {
+    const s = String(l.code);
+    const parts = s.split('|');
+    if (parts.length === 2 && !/^s[12]$/.test(parts[0])) parCoursAA[s] = l.points;
+    else parAA[parts[parts.length - 1]] = l.points;
+  }
+  const noteDe = (cours, aa) => {
+    const v = parCoursAA[`${cours}|${aa}`];
+    return v != null ? Number(v) : (parAA[aa] != null ? Number(parAA[aa]) : null);
+  };
+
+  const ajust = {};
+  for (const a of db.prepare(`
+    SELECT portee, code, action FROM deliberation_ajustement
+    WHERE etudiant_id = ? AND annee_scolaire = ? AND ue_num = ?
+  `).all(etudId, annee, ueNum)) ajust[`${a.portee}|${a.code}`] = a.action;
+
+  const coursAjourne = c => ajust[`cours|${c}`] === 'ajourne';
+  const coursFaveur = c => ajust[`cours|${c}`] === 'faveur';
+  const aaAjourne = a => ajust[`aa|${a}`] === 'ajourne';
+  const aaFaveur = a => ajust[`aa|${a}`] === 'faveur';
+
+  // ── 1. L'ACQUIS au global ────────────────────────────────────────────────
+  const codesAA = [...new Set(paires.map(p => p.aa_code))];
+  const acquis = codesAA.map(code => {
+    const evals = paires.filter(p => p.aa_code === code).map(p => ({
+      cours_code: p.cours_code, poids: p.poids,
+      note: noteDe(p.cours_code, code),
+      ajourne: coursAjourne(p.cours_code),
+    }));
+    const na = aaAjourne(code) || evals.every(e => e.ajourne);
+    let note = null;
+    if (!na) {
+      let num = 0, den = 0;
+      for (const e of evals) {
+        if (e.ajourne || e.note == null) continue;
+        num += e.note * (e.poids || 0); den += (e.poids || 0);
+      }
+      note = den ? Math.round((num / den) * 100) / 100 : null;
+    }
+    const forcee = aaFaveur(code);
+    const affichee = na ? null : (forcee ? SEUIL_UE : note);
+    return {
+      aa_code: code, description: descr[code] || null,
+      evaluations: evals, note_calculee: note, note: affichee,
+      na, faveur: forcee,
+      echec: !na && affichee != null && affichee < SEUIL_UE,
+    };
+  });
+  const noteAA = {};
+  for (const a of acquis) noteAA[a.aa_code] = a;
+
+  // ── 2. Le COURS ──────────────────────────────────────────────────────────
+  const cours = structure.map(c => {
+    const siennes = paires.filter(p => p.cours_code === c.cours_code);
+    const na = coursAjourne(c.cours_code);
+    let note = null;
+    if (!na) {
+      let num = 0, den = 0;
+      for (const p of siennes) {
+        if (aaAjourne(p.aa_code)) continue;
+        // La note du cours se calcule sur SES évaluations, non sur la note
+        // globale de l'acquis : c'est ce cours-ci qu'on juge.
+        const v = aaFaveur(p.aa_code) ? SEUIL_UE : noteDe(c.cours_code, p.aa_code);
+        if (v == null) continue;
+        num += v * (p.poids || 0); den += (p.poids || 0);
+      }
+      note = den ? Math.round((num / den) * 100) / 100 : null;
+    }
+    const forcee = coursFaveur(c.cours_code);
+    const affichee = na ? null : (forcee ? SEUIL_UE : note);
+    return {
+      cours_code: c.cours_code, cours_nom: c.cours_nom,
+      poids_cours: c.poids_cours, poids_cours_affiche: c.poids_cours_affiche,
+      aas: siennes.map(p => p.aa_code),
+      note_calculee: note, note: affichee, na, faveur: forcee,
+      echec: !na && affichee != null && affichee < SEUIL_UE,
+    };
+  });
+  const coursDe = {};
+  for (const c of cours) coursDe[c.cours_code] = c;
+
+  // ── 3. L'UNITÉ ───────────────────────────────────────────────────────────
+  const ajourne = cours.some(c => c.na) || acquis.some(a => a.na);
+  const faveur = cours.some(c => c.faveur) || acquis.some(a => a.faveur);
+
+  let noteUE = null;
+  if (!ajourne) {
+    let num = 0, den = 0;
+    for (const p of paires) {
+      const c = coursDe[p.cours_code];
+      const pc = c?.poids_cours;
+      if (pc == null) continue;
+      const v = aaFaveur(p.aa_code) ? SEUIL_UE
+        : (coursFaveur(p.cours_code) ? SEUIL_UE : noteDe(p.cours_code, p.aa_code));
+      if (v == null) continue;                       // non évalué : hors dénominateur
+      num += v * (p.poids || 0) * pc;
+      den += 20 * (p.poids || 0) * pc;
+    }
+    noteUE = den ? Math.round((num / den) * 20 * 100) / 100 : null;
+    // PLAFOND : une unité obtenue en faveur ne vaut pas mieux que le seuil.
+    if (faveur && noteUE != null && noteUE > SEUIL_UE) noteUE = SEUIL_UE;
+  }
+
+  return {
+    ue_num: ueNum, annee, seuil: SEUIL_UE,
+    acquis, cours,
+    ue: {
+      note: ajourne ? null : noteUE,
+      na: ajourne, faveur,
+      echec: !ajourne && noteUE != null && noteUE < SEUIL_UE,
+      a_representer: cours.filter(c => c.na).map(c => c.cours_code),
+    },
+  };
+}
+
+r.get('/deliberation/:etudId/:ueNum', authRequired, (req, res) => {
+  const annee = req.query.annee || anneeDeTravail(req);
+  try {
+    res.json(delibererUE(Number(req.params.etudId), Number(req.params.ueNum), annee));
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+/** Poser ou retirer un ajustement. `action: null` retire. */
+r.put('/deliberation/ajustement', authRequired,
+      roleRequired('admin', 'directeur', 'directeur_adjoint', 'editeur'), (req, res) => {
+  const { etudiant_id, annee_scolaire, ue_num, portee, code, action } = req.body || {};
+  if (!etudiant_id || !annee_scolaire || !ue_num || !portee || !code) {
+    return res.status(400).json({ error: 'étudiant, année, unité, portée et code requis' });
+  }
+  if (!['aa', 'cours'].includes(portee)) return res.status(400).json({ error: 'portée invalide' });
+  if (action != null && !['faveur', 'ajourne'].includes(action)) {
+    return res.status(400).json({ error: 'action invalide' });
+  }
+  if (action == null) {
+    db.prepare(`DELETE FROM deliberation_ajustement
+      WHERE etudiant_id = ? AND annee_scolaire = ? AND ue_num = ? AND portee = ? AND code = ?`)
+      .run(Number(etudiant_id), annee_scolaire, Number(ue_num), portee, code);
+  } else {
+    db.prepare(`
+      INSERT INTO deliberation_ajustement
+        (etudiant_id, annee_scolaire, ue_num, portee, code, action, maj_par)
+      VALUES (?,?,?,?,?,?,?)
+      ON CONFLICT(etudiant_id, annee_scolaire, ue_num, portee, code)
+      DO UPDATE SET action = excluded.action, maj_le = CURRENT_TIMESTAMP, maj_par = excluded.maj_par
+    `).run(Number(etudiant_id), annee_scolaire, Number(ue_num), portee, code, action,
+           req.user?.email || null);
+  }
+  res.json(delibererUE(Number(etudiant_id), Number(ue_num), annee_scolaire));
+});
+
 export default r;
