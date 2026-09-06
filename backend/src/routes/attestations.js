@@ -281,7 +281,16 @@ export function envelopper(corps, titre = 'Attestations de réussite') {
      portent plus de blocs qu'une attestation : avec la marge de signature de
      14 mm, le bloc de clôture passait à la page suivante et chaque pièce en
      laissait une presque vide derrière elle. */
-  .piece .cloture { margin-top: 5mm; }
+  /* Le bloc de signature, resserré pour ces pièces : elles portent plus de
+     blocs qu'une attestation, et il basculait à la page suivante — laissant
+     derrière lui une page où ne figuraient qu'un sceau et un paraphe. */
+  .piece .cloture { margin-top: 2mm; }
+  .piece .cloture .sceau, .piece .cloture .paraphe { height: 14mm; }
+  .piece .cloture .qualite { font-size: 7.5pt; }
+  .piece .cloture .nom { font-size: 9pt; }
+  .piece .cloture .lieu { font-size: 8pt; }
+  .piece .cloture .paraphe, .piece .cloture .legende { width: 40mm; }
+  .piece .cloture .sceau { width: 16mm; }
   .piece .info { margin: 1.5mm 0; padding: 2mm 3mm; }
   .piece table.doc { margin: 1.2mm 0 2mm; }
   .piece table.doc th, .piece table.doc td { padding: 1.1mm 2.2mm; }
@@ -300,6 +309,11 @@ export function envelopper(corps, titre = 'Attestations de réussite') {
   .info .ligne { margin: .6mm 0; }
   .info b { color: #1B2B4B; }
   .info.orange { background: #FFFBEB; border-color: #FCD34D; }
+  /* Les voies de recours tiennent en deux paragraphes serrés : elles sont
+     longues par nature, et une pièce qui déborde passe sous le pied. */
+  .info.recours { font-size: 7.5pt; }
+  .info.recours .ligne { margin: .8mm 0; text-align: justify; line-height: 1.3; }
+  .info.recours .ref2 { display: block; color: #64748b; font-size: 6.8pt; }
 
   /* Les tableaux de pièce : acquis et motivation, décisions du PV. */
   table.doc { width: 100%; border-collapse: collapse; margin: 2mm 0 3mm;
