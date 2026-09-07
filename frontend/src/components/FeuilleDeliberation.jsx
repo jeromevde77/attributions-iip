@@ -97,12 +97,15 @@ export default function FeuilleDeliberation({ ueNum, annee, onClose }) {
   async function chargerSeance() {
     try {
       const rep = await fetch(
-        `/api/acquis/deliberation/ue/${ueNum}/seance?annee=${encodeURIComponent(annee)}`,
+        `/api/acquis/deliberation/ue/${ueNum}/seance?annee=${encodeURIComponent(annee)}`
+        + `&session=${session}`,
         { headers: authHeaders() });
       const j = await rep.json();
       if (rep.ok) setSeance(j);
     } catch { /* la séance est un cadre, pas un bloquant */ }
   }
+  // La séance suit la session : présences, date et visite des copies lui
+  // appartiennent, et celles de juin ne valent pas pour septembre.
   useEffect(() => { charger(); chargerSeance(); /* eslint-disable-next-line */ },
     [ueNum, annee, choixSession]);
 
@@ -304,7 +307,8 @@ export default function FeuilleDeliberation({ ueNum, annee, onClose }) {
   async function chargerAuto() {
     try {
       const rep = await fetch(
-        `/api/acquis/deliberation/ue/${ueNum}/plein-droit?annee=${encodeURIComponent(annee)}`,
+        `/api/acquis/deliberation/ue/${ueNum}/plein-droit?annee=${encodeURIComponent(annee)}`
+        + `&session=${session}`,
         { headers: authHeaders() });
       const j = await rep.json();
       if (rep.ok) setAuto(j);
@@ -363,7 +367,7 @@ export default function FeuilleDeliberation({ ueNum, annee, onClose }) {
     try {
       const rep = await fetch(`/api/acquis/deliberation/ue/${ueNum}/seance`, {
         method: 'PUT', headers: authHeaders(),
-        body: JSON.stringify({ annee, ...champs }),
+        body: JSON.stringify({ annee, session, ...champs }),
       });
       const j = await rep.json();
       if (!rep.ok) { setErreur(j.error); return false; }
