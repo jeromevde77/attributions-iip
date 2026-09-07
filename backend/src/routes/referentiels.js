@@ -1898,10 +1898,14 @@ r.post('/import-dp', authRequired, roleRequired('admin', 'editeur'), async (req,
       req.on('data', c => chunks.push(c));
       req.on('end', () => {
         const full = Buffer.concat(chunks);
-        // Si multipart : extraire la partie binaire (après les headers MIME)
-        // Chercher la séquence PK (signature ZIP/DOCX)
-        const pk = full.indexOf(Buffer.from([0x50, 0x4B, 0x03, 0x04]));
-        resolve(pk >= 0 ? full.slice(pk) : full);
+        // Si multipart : extraire la partie binaire (après les headers MIME).
+        // Un dossier pédagogique arrive en .docx (signature PK) ou, depuis la
+        // Fédération, en PDF (signature %PDF) : on prend la première des deux
+        // qui se présente.
+        const pk  = full.indexOf(Buffer.from([0x50, 0x4B, 0x03, 0x04]));
+        const pdf = full.indexOf(Buffer.from('%PDF', 'latin1'));
+        const candidats = [pk, pdf].filter(i => i >= 0);
+        resolve(candidats.length ? full.slice(Math.min(...candidats)) : full);
       });
       req.on('error', reject);
     });

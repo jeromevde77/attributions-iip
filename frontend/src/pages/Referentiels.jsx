@@ -18,7 +18,7 @@ function DPImportModal({ annee, sections, onClose, onSaved }) {
   const [error, setError]         = useState('');
 
   async function analyser() {
-    if (!file) return setError('Sélectionnez un fichier .docx');
+    if (!file) return setError('Sélectionnez un dossier pédagogique (.pdf ou .docx)');
     setError(''); setLoading(true); setPreview(null);
     try {
       const buf = await file.arrayBuffer();
@@ -71,14 +71,14 @@ function DPImportModal({ annee, sections, onClose, onSaved }) {
           {!result ? (<>
             {/* Étape 1 : sélection fichier */}
             <div>
-              <div className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-1">Fichier .docx</div>
+              <div className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-1">Dossier pédagogique</div>
               <label className="flex items-center gap-3 border-2 border-dashed border-iip-turquoise/30 rounded-lg p-4 cursor-pointer hover:border-iip-turquoise/60 hover:bg-iip-turquoise/3 transition">
                 <IconUpload size={22} className="text-iip-turquoise flex-shrink-0" />
                 <div>
                   <div className="text-sm font-medium text-iip-blue">{file ? file.name : 'Cliquer pour sélectionner'}</div>
-                  <div className="text-xs text-gray-400">Dossier pédagogique FWB au format Word (.docx)</div>
+                  <div className="text-xs text-gray-400">Dossier pédagogique FWB — le PDF publié par la Fédération, ou un .docx</div>
                 </div>
-                <input type="file" accept=".docx" className="sr-only" onChange={e => { setFile(e.target.files[0]); setPreview(null); setError(''); }} />
+                <input type="file" accept=".pdf,.docx" className="sr-only" onChange={e => { setFile(e.target.files[0]); setPreview(null); setError(''); }} />
               </label>
             </div>
 

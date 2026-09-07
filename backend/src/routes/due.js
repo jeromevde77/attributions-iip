@@ -109,12 +109,17 @@ function sectionsDuDP(ueDet) {
   poser();
 
   const acquisBrut = parts["acquis d'apprentissage"] || '';
-  const coupe = acquisBrut.search(/pour la d[ée]termination du degr[ée] de ma[îi]trise/i);
+  // Les dossiers en PDF isolent déjà le degré de maîtrise ; les anciens
+  // imports .docx le laissaient à la queue des acquis, après « Pour la
+  // détermination / Pour déterminer le degré de maîtrise ». On coupe alors là.
+  const coupe = parts['degré de maîtrise'] ? -1
+    : acquisBrut.search(/pour (la d[ée]termination du|d[ée]terminer le) degr[ée] de ma[îi]trise/i);
   const dp = {
     finalites: parts['finalités'] || null,
     capacites: parts['capacités préalables'] || null,
     acquis: (coupe > 0 ? acquisBrut.slice(0, coupe) : acquisBrut).trim() || null,
-    degre_maitrise: coupe > 0 ? acquisBrut.slice(coupe).trim() : null,
+    degre_maitrise: parts['degré de maîtrise']
+      || (coupe > 0 ? acquisBrut.slice(coupe).trim() : null),
     programme: parts['programme'] || null,
   };
   return Object.values(dp).some(Boolean) ? dp : null;

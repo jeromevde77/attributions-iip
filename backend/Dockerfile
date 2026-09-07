@@ -1,6 +1,9 @@
 FROM node:20-bookworm-slim
 WORKDIR /app
 
+# poppler-utils fournit pdftotext : les dossiers pédagogiques publiés par la
+# Fédération circulent en PDF, et c'est par lui qu'on en extrait le texte.
+#
 # Bibliothèques système requises pour que Chromium (téléchargé par Puppeteer à l'installation
 # des dépendances npm) puisse démarrer en mode headless dans le conteneur — le paquet Debian
 # "chromium" lui-même s'est révélé incompatible avec le noyau de ce NAS (crash SIGTRAP au
@@ -12,6 +15,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     libxcomposite1 libxdamage1 libxfixes3 libxrandr2 libgbm1 libasound2 \
     libpangocairo-1.0-0 libpango-1.0-0 libcairo2 libgtk-3-0 libx11-xcb1 \
     libxshmfence1 \
+    poppler-utils \
     && rm -rf /var/lib/apt/lists/*
 
 COPY package.json ./
