@@ -26,7 +26,7 @@ import { Router } from 'express';
 import db from '../db/index.js';
 import { authRequired } from '../middleware/auth.js';
 import { anneeDeTravail } from '../helpers/annee.js';
-import { envelopper, enseignantsDeLUE } from './attestations.js';
+import { envelopper } from './attestations.js';
 import { identiteEtablissement } from './config.js';
 
 const r = Router();
@@ -107,7 +107,26 @@ function partieAutomatique(ueNum, annee) {
 
   const periodes = ue.ue_per_etudiants ?? cours.reduce((n, c) => n + (c.cours_per || 0), 0);
 
+  // LE RESPONSABLE DE L'UNITÉ.
+  //
+  // Le champ était libre : chacun y écrivait ce qu'il voulait, et rien ne
+  // garantissait que la personne citée enseignât seulement dans l'unité. Il se
+  // choisit désormais parmi les titulaires, et Lucie propose d'office celui
+  // qui y porte le plus de périodes — c'est en général lui qui répond de
+  // l'unité. La proposition n'est qu'un défaut : le choix reste ouvert.
+  const enseignants = db.prepare(`
+    SELECT p.id, p.nom, p.prenom,
+           SUM(COALESCE(a.periodes_attribuees, 0)) AS periodes,
+           COUNT(DISTINCT a.code_cours)            AS nb_cours,
+           GROUP_CONCAT(DISTINCT a.code_cours)     AS cours
+    FROM attribution a JOIN professeur p ON p.id = a.professeur_id
+    WHERE a.ue_num = ? AND a.annee_scolaire = ? AND a.professeur_id IS NOT NULL
+    GROUP BY p.id, p.nom, p.prenom
+    ORDER BY periodes DESC, nb_cours DESC, p.nom
+  `).all(ueNum, annee);
+
   return {
+    responsable_propose: enseignants[0]?.id ?? null,
     ue: {
       ue_num: ue.ue_num, ue_nom: ue.ue_nom, ue_code_fwb: ue.ue_code_fwb,
       section: ue.section, ects: ue.ects, niveau: ue.ue_niveau, niv: ue.ue_niv,
@@ -119,7 +138,7 @@ function partieAutomatique(ueNum, annee) {
       acquis: parCours[c.cours_code] || [],
     })),
     acquis,
-    enseignants: enseignantsDeLUE(ueNum, annee),
+    enseignants,
     etablissement: identiteEtablissement(),
   };
 }
@@ -285,6 +304,13 @@ export function documentDUE(ueNum, annee) {
   const u = auto.ue;
   const c = contenu || {};
 
+  // Le responsable est enregistré par son identifiant : le document doit donc
+  // le renommer. Un ancien texte libre est conservé tel quel.
+  const idResp = c.responsable ?? auto.responsable_propose;
+  const resp = auto.enseignants.find(e => String(e.id) === String(idResp));
+  const nomResp = resp ? `${resp.prenom} ${resp.nom}`
+    : (typeof c.responsable === 'string' && !/^\d+$/.test(c.responsable) ? c.responsable : null);
+
   const ident = [
     ['Cursus', c.cursus || auto.ue.section],
     ['Section', u.section],
@@ -297,7 +323,7 @@ export function documentDUE(ueNum, annee) {
     ["Langue d'évaluation", c.langue_eval || 'Français'],
     ['Niveau du cadre européen des certifications', c.niveau_cec
       || (u.niveau === 'SUP' ? 'Niveau 6 (TC)' : null)],
-    ["Responsable(s) de l'unité", c.responsable],
+    ["Responsable de l'unité", nomResp],
     ['Co-diplomation HELB', c.codiplomation ? 'Oui' : 'Non'],
   ].filter(([, v]) => v != null && v !== '')
     .map(([k, v]) => `<tr><th>${esc(k)}</th><td>${esc(v)}</td></tr>`).join('');

@@ -77,6 +77,71 @@ function Champ({ label, valeur, onChange, lecture, placeholder }) {
   );
 }
 
+/**
+ * LE RESPONSABLE DE L'UNITÉ.
+ *
+ * Le champ était libre : chacun y écrivait ce qu'il voulait, sans garantie que
+ * la personne citée enseignât dans l'unité. On choisit désormais parmi les
+ * titulaires, et Lucie propose celui qui y porte le plus de périodes — c'est
+ * en général lui qui en répond. La proposition n'est qu'un défaut : le choix
+ * reste ouvert, et l'écran dit lequel des deux est affiché.
+ */
+function Responsable({ c, d, lecture, onChange }) {
+  const liste = d.enseignants || [];
+  const choisi = c.responsable ?? d.responsable_propose ?? '';
+  const parDefaut = c.responsable == null && d.responsable_propose != null;
+  const nom = id => {
+    const e = liste.find(x => String(x.id) === String(id));
+    return e ? `${e.prenom} ${e.nom}` : (id || '—');
+  };
+
+  if (lecture) {
+    return (
+      <div>
+        <span className="block text-[11px] font-semibold text-slate-500 mb-0.5">
+          Responsable de l'unité
+        </span>
+        <span className="text-[12.5px] text-slate-700">{nom(choisi)}</span>
+      </div>
+    );
+  }
+
+  if (!liste.length) {
+    return (
+      <div>
+        <span className="block text-[11px] font-semibold text-slate-500 mb-0.5">
+          Responsable de l'unité
+        </span>
+        <span className="text-[12px] text-amber-800">
+          Aucune attribution encodée : le responsable ne peut pas être choisi.
+        </span>
+      </div>
+    );
+  }
+
+  return (
+    <label className="block">
+      <span className="block text-[11px] font-semibold text-slate-500 mb-0.5">
+        Responsable de l'unité
+      </span>
+      <select value={String(choisi)} onChange={e => onChange(e.target.value)}
+        className="w-full text-[12.5px] border border-slate-300 rounded-lg px-2 py-1.5
+                   focus:outline-none focus:ring-2 focus:ring-iip-blue/30">
+        {liste.map(e => (
+          <option key={e.id} value={String(e.id)}>
+            {e.prenom} {e.nom}{e.periodes ? ` — ${e.periodes} p.` : ''}
+          </option>
+        ))}
+      </select>
+      <span className="block text-[10.5px] text-slate-400 mt-0.5">
+        {parDefaut
+          ? 'Proposé : le titulaire qui porte le plus de périodes dans l’unité.'
+          : 'Choisi manuellement parmi les titulaires de l’unité.'}
+      </span>
+    </label>
+  );
+}
+
 // Ce que Lucie sait déjà : posé sur fond gris, sans champ de saisie, pour que
 // nul ne cherche à le corriger ici.
 function Su({ label, valeur }) {
@@ -306,8 +371,7 @@ function Fiche({ ueNum, onRetour }) {
         <div className="grid gap-2 sm:grid-cols-2">
           <Champ label="Cursus" valeur={c.cursus} lecture={lecture}
             placeholder={u.section} onChange={v => maj('cursus', v)} />
-          <Champ label="Responsable(s) de l'unité" valeur={c.responsable} lecture={lecture}
-            onChange={v => maj('responsable', v)} />
+          <Responsable c={c} d={d} lecture={lecture} onChange={v => maj('responsable', v)} />
           <Champ label="Bloc d'études administratif" valeur={c.bloc} lecture={lecture}
             placeholder="1, 2 ou 3" onChange={v => maj('bloc', v)} />
           <Champ label="Niveau du cadre européen des certifications" valeur={c.niveau_cec}
