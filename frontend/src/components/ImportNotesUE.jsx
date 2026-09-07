@@ -1,201 +1,179 @@
-import { useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import {
-  IconX, IconUpload, IconAlertTriangle, IconCheck, IconFileSpreadsheet,
+  IconX, IconUpload, IconAlertTriangle, IconCheck, IconFileSpreadsheet, IconWand,
 } from '@tabler/icons-react';
 import { authHeaders } from '../lib/api.js';
 
 /**
- * IMPORTER LES NOTES D'UNE UNITÉ DEPUIS UN CLASSEUR DE SUIVI.
+ * IMPORTER LES NOTES D'UNE UNITÉ, COLONNE PAR COLONNE.
  *
- * Les notes existent déjà — dans les classeurs de suivi, une feuille par unité,
- * une note par acquis. Les retaper étudiant par étudiant, pour quarante-huit
- * étudiants et quinze acquis, c'est sept cents saisies pour des chiffres qu'on
- * possède.
+ * Les notes existent déjà, dans un classeur. Les retaper — quarante-huit
+ * étudiants et trois cotes chacun pour la seule UE 282 — c'est cent cinquante
+ * saisies pour des chiffres qu'on possède.
  *
- * Ces classeurs sont larges et pleins d'échafaudages : pour l'UE 282, quatorze
- * blocs de quinze colonnes, dont douze ne servent qu'à pondérer. L'écran
- * recense donc les blocs qui portent des notes sur vingt, les nomme par leur
- * étiquette de session, et propose celui de la session demandée — en laissant
- * choisir, car le classeur en compte parfois plusieurs.
+ * Mais aucun classeur ne ressemble au suivant : l'un tient une note par acquis,
+ * l'autre une colonne par couple cours-acquis, et les en-têtes répètent le même
+ * code d'acquis autant de fois qu'il est évalué de cours. Deviner mène à
+ * l'erreur silencieuse — une note rangée sous le mauvais cours ne se voit
+ * nulle part.
  *
- * Rien n'est écrit avant que la simulation n'ait montré ce qui sera fait.
+ * L'écran part donc de LUCIE, non du fichier : il énumère les couples
+ * cours-acquis de l'unité, tels que la pondération les établit, et demande pour
+ * chacun la colonne qui le porte. Une proposition automatique dégrossit le
+ * travail ; c'est l'œil qui tranche.
+ *
+ * Rien n'est écrit avant qu'une simulation n'ait montré ce qui sera fait.
  */
 export default function ImportNotesUE({ ueNum, annee, onClose, onImporte }) {
-  const [classeur, setClasseur] = useState(null);   // { nom, feuilles, XLSX, wb }
+  const [structure, setStructure] = useState(null);  // les couples attendus par Lucie
+  const [classeur, setClasseur] = useState(null);    // { nom, feuilles, XLSX, wb }
   const [feuille, setFeuille] = useState('');
+  const [matrice, setMatrice] = useState(null);      // le tableau brut de la feuille
+  const [ligneEntete, setLigneEntete] = useState(0);
   const [session, setSession] = useState(1);
+  const [bareme, setBareme] = useState(20);
   const [arrondi, setArrondi] = useState(true);
-  const [reperes, setReperes] = useState(null);     // le bloc retenu
-  const [blocs, setBlocs] = useState([]);           // tous les blocs de notes trouvés
-  const [apercu, setApercu] = useState(null);       // lignes lues
+  const [ident, setIdent] = useState({ matricule: -1, nom: -1, prenom: -1 });
+  const [assoc, setAssoc] = useState({});            // « cours|aa » → index de colonne
   const [rapport, setRapport] = useState(null);
   const [erreur, setErreur] = useState(null);
   const [enCours, setEnCours] = useState(false);
 
-  const net = v => String(v ?? '').replace(/ /g, ' ').trim();
+  const net = v => String(v ?? '').replace(/ /g, ' ').trim();
+  const col = i => {
+    let s = '', n = i + 1;
+    while (n > 0) { const m = (n - 1) % 26; s = String.fromCharCode(65 + m) + s; n = Math.floor((n - m) / 26); }
+    return s;
+  };
 
+  // ── Ce que Lucie attend ────────────────────────────────────────────────────
+  useEffect(() => {
+    (async () => {
+      try {
+        const rep = await fetch(`/api/acquis/ue/${ueNum}/feuille`
+          + `?annee=${encodeURIComponent(annee)}&session=1`, { headers: authHeaders() });
+        const j = await rep.json();
+        if (!rep.ok) throw new Error(j.error);
+        setStructure(j);
+      } catch (e) { setErreur(e.message); }
+    })();
+  }, [ueNum, annee]);
+
+  const couples = useMemo(() => (structure?.cours || []).flatMap(c =>
+    (c.acquis || []).map(a => ({ cle: `${c.cours_code}|${a.aa_code}`, cours: c, aa: a }))),
+  [structure]);
+
+  // ── Le fichier ─────────────────────────────────────────────────────────────
   async function lireFichier(f) {
-    setErreur(null); setEnCours(true); setRapport(null); setApercu(null);
+    setErreur(null); setEnCours(true); setRapport(null);
     try {
       const XLSX = await import('xlsx');
       const wb = XLSX.read(await f.arrayBuffer(), { type: 'array' });
       setClasseur({ nom: f.name, feuilles: wb.SheetNames, XLSX, wb });
-      // Une feuille porte souvent le numéro de l'unité : on la propose.
-      const probable = wb.SheetNames.find(n => net(n) === String(ueNum)) || '';
-      setFeuille(probable);
-      if (probable) detecter(wb, XLSX, probable);
+      const nom = wb.SheetNames.find(n => net(n) === String(ueNum)) || wb.SheetNames[0];
+      setFeuille(nom);
+      ouvrirFeuille(wb, XLSX, nom);
     } catch (e) { setErreur(e.message); }
     finally { setEnCours(false); }
   }
 
+  function ouvrirFeuille(wb, XLSX, nom) {
+    const M = XLSX.utils.sheet_to_json(wb.Sheets[nom], { header: 1, defval: null });
+    setMatrice(M);
+    // La ligne d'en-tête : la première qui nomme un matricule ou un acquis.
+    let r0 = 0;
+    for (let r = 0; r < Math.min(M.length, 30); r++) {
+      const L = (M[r] || []).map(net);
+      if (L.some(v => /matricule/i.test(v)) || L.some(v => /^AA\s*\d/i.test(v))) { r0 = r; break; }
+    }
+    setLigneEntete(r0);
+    proposer(M, r0);
+  }
+
   /**
-   * TROUVER LES BLOCS DE NOTES.
+   * LA PROPOSITION.
    *
-   * Ces classeurs sont larges : pour l'UE 282, quatorze blocs de quinze
-   * colonnes, dont douze ne servent qu'à pondérer. Trois seulement portent des
-   * notes sur vingt — première session, seconde session, et le report final —
-   * et rien ne les distingue sur la ligne des codes.
-   *
-   * Ce qui les distingue, c'est l'étiquette au-dessus : « AA282.1.S1 »,
-   * « AA282.1.S2A », « AA282.1.S2 ». On les recense donc tous, on les nomme, et
-   * l'on propose celui qui correspond à la session demandée — en laissant
-   * choisir, car le classeur peut en compter d'autres.
+   * Les en-têtes répètent le code d'acquis autant de fois qu'il y a de cours
+   * qui l'évaluent : « AA282.1 · AA282.1 · AA282.2 ». On distribue donc les
+   * colonnes d'un même code sur ses couples, dans l'ordre. Et si le classeur
+   * porte deux séries — sur cent puis sur vingt —, on retient la DERNIÈRE :
+   * c'est la cotation définitive qui vient en fin de tableau.
    */
-  function detecter(wb, XLSX, nomFeuille, sessionVoulue = session) {
-    const M = XLSX.utils.sheet_to_json(wb.Sheets[nomFeuille], { header: 1, defval: null });
-    const estCode = v => /^AA\s*\d+(\.\d+)?$/i.test(net(v));
+  function proposer(M, r0, listeCouples = couples) {
+    const L = (M[r0] || []).map(net);
+    const suivant = { matricule: -1, nom: -1, prenom: -1 };
+    L.forEach((v, i) => {
+      if (suivant.matricule < 0 && /matricule/i.test(v)) suivant.matricule = i;
+      if (suivant.nom < 0 && /^nom$/i.test(v)) suivant.nom = i;
+      if (suivant.prenom < 0 && /^pr[ée]nom$/i.test(v)) suivant.prenom = i;
+    });
+    setIdent(suivant);
 
-    let ligneCodes = -1, meilleur = 0;
-    for (let r = 0; r < Math.min(M.length, 40); r++) {
-      const n = (M[r] || []).filter(estCode).length;
-      if (n > meilleur) { meilleur = n; ligneCodes = r; }
+    const parCode = {};
+    L.forEach((v, i) => {
+      const c = v.replace(/\s+/g, '').toUpperCase();
+      if (/^AA\d/.test(c)) (parCode[c] ||= []).push(i);
+    });
+    const a = {}, compte = {};
+    for (const cp of listeCouples) {
+      const code = String(cp.aa.aa_code).replace(/\s+/g, '').toUpperCase();
+      const cols = parCode[code] || [];
+      if (!cols.length) continue;
+      const parts = listeCouples.filter(x =>
+        String(x.aa.aa_code).replace(/\s+/g, '').toUpperCase() === code).length;
+      const depart = Math.max(0, cols.length - parts);
+      const k = compte[code] = (compte[code] ?? -1) + 1;
+      if (cols[depart + k] != null) a[cp.cle] = cols[depart + k];
     }
-    if (ligneCodes < 0) {
-      setBlocs([]); setReperes(null); setApercu(null);
-      setErreur("Aucune ligne de cette feuille ne porte de codes d'acquis (AA…).");
-      return;
-    }
+    setAssoc(a);
 
-    // Les codes se suivent sans interruption d'un bloc à l'autre : on découpe
-    // donc sur l'étiquette de session, qui change, et non sur un trou.
-    const ligne = M[ligneCodes] || [];
-    const dessus = M[ligneCodes - 1] || [];
-    const etiq = (c) => {
-      for (let r = Math.max(0, ligneCodes - 6); r < ligneCodes; r++) {
-        const v = net((M[r] || [])[c]).toUpperCase();
-        const m = v.match(/\.(S\d[A-Z]?)$/);
-        if (m) return m[1];
-      }
-      return '';
-    };
-    const bande = (c) => {
-      let dernier = '';
-      for (let x = 0; x <= c; x++) { const v = net((M[0] || [])[x]); if (v) dernier = v; }
-      return dernier;
-    };
-
-    const trouves = [];
-    let debut = -1, tag = null;
-    for (let c = 0; c <= ligne.length; c++) {
-      const ok = c < ligne.length && estCode(ligne[c]);
-      const t = ok ? etiq(c) : null;
-      if (ok && (debut < 0 || t === tag)) { if (debut < 0) { debut = c; tag = t; } continue; }
-      if (debut >= 0) {
-        const sur20 = (() => {
-          for (let x = debut; x <= c - 1; x++) if (/^\/\s*20$/.test(net(dessus[x]))) return true;
-          return false;
-        })();
-        if (sur20) {
-          trouves.push({ debut, fin: c - 1, tag: tag || '', bande: bande(debut),
-            n: c - debut });
-        }
-      }
-      debut = ok ? c : -1; tag = ok ? t : null;
-    }
-
-    if (!trouves.length) {
-      setBlocs([]); setReperes(null); setApercu(null);
-      setErreur('Aucun bloc de notes sur 20 trouvé dans cette feuille.');
-      return;
-    }
-
-    // La session voulue : l'étiquette S1 ou S2 d'abord, la bande ensuite.
-    const cherche = `S${sessionVoulue}`;
-    const choisi = trouves.find(b => b.tag === cherche)
-      || trouves.find(b => b.tag.startsWith(cherche))
-      || trouves.find(b => new RegExp(sessionVoulue === 1 ? 'premi' : 'deuxi', 'i').test(b.bande))
-      || trouves[0];
-
-    setBlocs(trouves);
-    poser(M, ligne, ligneCodes, choisi);
-    setErreur(null);
-  }
-
-  // Retenir un bloc : on en déduit les colonnes d'identité et on relit.
-  function poser(M, ligne, ligneCodes, bloc) {
-    let colMat = ligne.findIndex(v => /matricule/i.test(net(v)));
-    if (colMat < 0) {
-      let mieux = 0;
-      for (let c = 0; c < 12; c++) {
-        let n = 0;
-        for (let r = ligneCodes + 1; r < Math.min(M.length, ligneCodes + 25); r++) {
-          if (/^\d{2}-\d{3,6}$/.test(net((M[r] || [])[c]))) n++;
-        }
-        if (n > mieux) { mieux = n; colMat = c; }
+    // Un barème sur cent se voit : des valeurs au-dessus de vingt.
+    const cols = Object.values(a);
+    let grand = 0, total = 0;
+    for (let r = r0 + 1; r < Math.min(M.length, r0 + 30); r++) {
+      for (const c of cols) {
+        const v = Number((M[r] || [])[c]);
+        if (Number.isFinite(v)) { total++; if (v > 20) grand++; }
       }
     }
-    const rep = {
-      ligneCodes, colDebut: bloc.debut, colFin: bloc.fin, colMat,
-      colNom: ligne.findIndex(v => /^nom$/i.test(net(v))),
-      colPre: ligne.findIndex(v => /^pr[ée]nom$/i.test(net(v))),
-      ligneDebut: ligneCodes + 1, tag: bloc.tag, bande: bloc.bande, M,
-    };
-    setReperes(rep);
-    lireLignes(M, rep);
+    setBareme(total && grand / total > 0.1 ? 100 : 20);
   }
 
-  function choisirBloc(i) {
-    if (!reperes?.M) return;
-    const M = reperes.M;
-    poser(M, M[reperes.ligneCodes] || [], reperes.ligneCodes, blocs[i]);
-    setRapport(null);
-  }
+  // La structure arrive parfois après le fichier : on repropose alors.
+  useEffect(() => {
+    if (matrice && couples.length && !Object.keys(assoc).length) proposer(matrice, ligneEntete);
+  }, [couples.length]);
 
-  function lireLignes(M, rep) {
-    const codes = [];
-    for (let c = rep.colDebut; c <= rep.colFin; c++) {
-      codes.push(net((M[rep.ligneCodes] || [])[c]).replace(/\s+/g, '').toUpperCase());
-    }
+  // ── Les lignes à envoyer ───────────────────────────────────────────────────
+  const lignes = useMemo(() => {
+    if (!matrice) return [];
     const out = [];
-    for (let r = rep.ligneDebut; r < M.length; r++) {
-      const L = M[r] || [];
-      const matricule = net(L[rep.colMat]);
-      const nom = rep.colNom >= 0 ? net(L[rep.colNom]) : '';
-      const prenom = rep.colPre >= 0 ? net(L[rep.colPre]) : '';
+    for (let r = ligneEntete + 1; r < matrice.length; r++) {
+      const L = matrice[r] || [];
+      const matricule = ident.matricule >= 0 ? net(L[ident.matricule]) : '';
+      const nom = ident.nom >= 0 ? net(L[ident.nom]) : '';
+      const prenom = ident.prenom >= 0 ? net(L[ident.prenom]) : '';
       if (!matricule && !nom) continue;
-      const notes = {};
-      codes.forEach((code, i) => {
-        const v = L[rep.colDebut + i];
-        if (v !== null && v !== '' && v !== undefined) notes[code] = v;
-      });
-      if (!Object.keys(notes).length && !matricule) continue;
+      const notes = [];
+      for (const cp of couples) {
+        const c = assoc[cp.cle];
+        if (c == null) continue;
+        const v = L[c];
+        if (v === null || v === '' || v === undefined) continue;
+        notes.push({ cours_code: cp.cours.cours_code, aa_code: cp.aa.aa_code, valeur: v });
+      }
       out.push({ matricule, nom, prenom, notes });
     }
-    setApercu({ codes, lignes: out });
-  }
-
-  function changerFeuille(nom) {
-    setFeuille(nom); setRapport(null);
-    if (classeur && nom) detecter(classeur.wb, classeur.XLSX, nom);
-  }
+    return out;
+  }, [matrice, ligneEntete, ident, assoc, couples]);
 
   async function envoyer(simulation) {
-    if (!apercu?.lignes.length) return;
+    if (!lignes.length) return;
     setEnCours(true); setErreur(null);
     try {
       const rep = await fetch(`/api/acquis/ue/${ueNum}/notes/importer`, {
         method: 'POST', headers: authHeaders(),
-        body: JSON.stringify({ annee, session, arrondi, simulation, lignes: apercu.lignes }),
+        body: JSON.stringify({ annee, session, arrondi, bareme, simulation, lignes }),
       });
       const j = await rep.json();
       if (!rep.ok) throw new Error(j.error);
@@ -205,17 +183,41 @@ export default function ImportNotesUE({ ueNum, annee, onClose, onImporte }) {
     finally { setEnCours(false); }
   }
 
-  const col = i => {
-    let s = '', n = i + 1;
-    while (n > 0) { const m = (n - 1) % 26; s = String.fromCharCode(65 + m) + s; n = Math.floor((n - m) / 26); }
-    return s;
-  };
+  // Les colonnes proposées au choix : lettre, en-tête, premier échantillon.
+  const optionsColonnes = useMemo(() => {
+    if (!matrice) return [];
+    const L = matrice[ligneEntete] || [];
+    const ex = matrice[ligneEntete + 1] || [];
+    const n = Math.max(L.length, ex.length);
+    return Array.from({ length: n }, (_, i) => ({
+      i,
+      libelle: `${col(i)} · ${net(L[i]) || '(sans titre)'}`
+        + (ex[i] != null && ex[i] !== '' ? ` · ex. ${net(ex[i])}` : ''),
+    }));
+  }, [matrice, ligneEntete]);
+
+  const associees = Object.keys(assoc).length;
+  const doublons = useMemo(() => {
+    const vus = {}, out = [];
+    for (const [cle, c] of Object.entries(assoc)) {
+      if (vus[c]) out.push(cle); else vus[c] = cle;
+    }
+    return out;
+  }, [assoc]);
+
+  const Sel = ({ valeur, onChange }) => (
+    <select value={valeur ?? -1} onChange={e => onChange(Number(e.target.value))}
+      className="w-full text-[11.5px] border border-slate-300 rounded px-1.5 py-1 bg-white">
+      <option value={-1}>— aucune —</option>
+      {optionsColonnes.map(o => <option key={o.i} value={o.i}>{o.libelle}</option>)}
+    </select>
+  );
 
   return (
     <div className="fixed inset-0 bg-black/40 flex items-start justify-center z-50 p-4"
       onClick={e => e.target === e.currentTarget && onClose()}>
-      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl mt-10
-                      max-h-[88vh] overflow-hidden flex flex-col">
+      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-3xl mt-8
+                      max-h-[90vh] overflow-hidden flex flex-col">
         <div className="flex-none px-5 py-3 border-b border-slate-100 flex items-start
                         justify-between gap-3">
           <div>
@@ -224,7 +226,8 @@ export default function ImportNotesUE({ ueNum, annee, onClose, onImporte }) {
               Importer les notes — UE {ueNum}
             </h3>
             <p className="text-[12px] text-slate-500">
-              Depuis un classeur de suivi · {annee}
+              {structure?.ue?.ue_nom ? `${structure.ue.ue_nom} · ` : ''}
+              {couples.length} cote(s) attendue(s) · {annee}
             </p>
           </div>
           <button onClick={onClose} className="text-slate-400 hover:text-slate-600">
@@ -240,6 +243,14 @@ export default function ImportNotesUE({ ueNum, annee, onClose, onImporte }) {
             </div>
           )}
 
+          {structure && !couples.length && (
+            <div className="px-3 py-2 rounded-lg bg-amber-50 border border-amber-200
+                            text-[12px] text-amber-900">
+              Aucun acquis n'est rattaché aux cours de cette unité : reliez-les d'abord
+              dans le paramétrage, sinon il n'y a nulle part où ranger les notes.
+            </div>
+          )}
+
           <label className="flex items-center gap-3 border-2 border-dashed border-iip-turquoise/30
                             rounded-lg p-3.5 cursor-pointer hover:border-iip-turquoise/60">
             <IconUpload size={20} className="text-iip-turquoise flex-none" />
@@ -248,92 +259,136 @@ export default function ImportNotesUE({ ueNum, annee, onClose, onImporte }) {
                 {classeur ? classeur.nom : 'Cliquer pour choisir le classeur'}
               </div>
               <div className="text-[11px] text-slate-400">
-                Le fichier de suivi de la section (.xlsm, .xlsx)
+                Matricule, nom, prénom, puis une colonne par cote (.xlsx, .xlsm)
               </div>
             </div>
-            <input type="file" accept=".xlsm,.xlsx,.xls" className="sr-only"
+            <input type="file" accept=".xlsx,.xlsm,.xls,.csv" className="sr-only"
               onChange={e => e.target.files[0] && lireFichier(e.target.files[0])} />
           </label>
 
-          {classeur && (
-            <div className="grid gap-2 sm:grid-cols-3">
-              <label className="block">
-                <span className="block text-[11px] font-semibold text-slate-500 mb-0.5">Feuille</span>
-                <select value={feuille} onChange={e => changerFeuille(e.target.value)}
-                  className="w-full text-[12.5px] border border-slate-300 rounded-lg px-2 py-1.5">
-                  <option value="">— choisir —</option>
-                  {classeur.feuilles.map(n => <option key={n} value={n}>{n}</option>)}
-                </select>
-              </label>
-              <label className="block">
-                <span className="block text-[11px] font-semibold text-slate-500 mb-0.5">Session</span>
-                <select value={session}
-                  onChange={e => {
-                    const v = Number(e.target.value); setSession(v); setRapport(null);
-                    if (classeur && feuille) detecter(classeur.wb, classeur.XLSX, feuille, v);
-                  }}
-                  className="w-full text-[12.5px] border border-slate-300 rounded-lg px-2 py-1.5">
-                  <option value={1}>1re session</option>
-                  <option value={2}>2e session</option>
-                </select>
-              </label>
-              <label className="flex items-end gap-2 pb-1.5">
-                <input type="checkbox" checked={arrondi} className="w-4 h-4 accent-iip-blue"
-                  onChange={e => { setArrondi(e.target.checked); setRapport(null); }} />
-                <span className="text-[12px] text-slate-700">Arrondir à l'unité</span>
-              </label>
-            </div>
-          )}
-
-          {reperes && apercu && (
-            <div className="border border-slate-200 rounded-lg overflow-hidden">
-              {blocs.length > 1 && (
-                <div className="px-3 py-2 border-b border-slate-100 flex items-center gap-2">
-                  <span className="text-[11px] font-semibold text-slate-500">Bloc de notes</span>
-                  <select
-                    value={blocs.findIndex(b => b.debut === reperes.colDebut)}
-                    onChange={e => choisirBloc(Number(e.target.value))}
-                    className="flex-1 text-[12px] border border-slate-300 rounded-lg px-2 py-1">
-                    {blocs.map((b, i) => (
-                      <option key={i} value={i}>
-                        {col(b.debut)}..{col(b.fin)} · {b.n} acquis
-                        {b.tag ? ` · ${b.tag}` : ''}{b.bande ? ` · ${b.bande}` : ''}
-                      </option>
-                    ))}
+          {classeur && matrice && (
+            <>
+              <div className="grid gap-2 sm:grid-cols-4">
+                <label className="block">
+                  <span className="block text-[11px] font-semibold text-slate-500 mb-0.5">Feuille</span>
+                  <select value={feuille}
+                    onChange={e => {
+                      setFeuille(e.target.value); setRapport(null);
+                      ouvrirFeuille(classeur.wb, classeur.XLSX, e.target.value);
+                    }}
+                    className="w-full text-[12px] border border-slate-300 rounded-lg px-2 py-1.5">
+                    {classeur.feuilles.map(n => <option key={n} value={n}>{n}</option>)}
                   </select>
+                </label>
+                <label className="block">
+                  <span className="block text-[11px] font-semibold text-slate-500 mb-0.5">Ligne d'en-tête</span>
+                  <input type="number" min="1" value={ligneEntete + 1}
+                    onChange={e => {
+                      const r = Math.max(0, Number(e.target.value) - 1);
+                      setLigneEntete(r); setRapport(null); proposer(matrice, r);
+                    }}
+                    className="w-full text-[12px] border border-slate-300 rounded-lg px-2 py-1.5" />
+                </label>
+                <label className="block">
+                  <span className="block text-[11px] font-semibold text-slate-500 mb-0.5">Session</span>
+                  <select value={session}
+                    onChange={e => { setSession(Number(e.target.value)); setRapport(null); }}
+                    className="w-full text-[12px] border border-slate-300 rounded-lg px-2 py-1.5">
+                    <option value={1}>1re session</option>
+                    <option value={2}>2e session</option>
+                  </select>
+                </label>
+                <label className="block">
+                  <span className="block text-[11px] font-semibold text-slate-500 mb-0.5">Barème</span>
+                  <select value={bareme}
+                    onChange={e => { setBareme(Number(e.target.value)); setRapport(null); }}
+                    className="w-full text-[12px] border border-slate-300 rounded-lg px-2 py-1.5">
+                    <option value={20}>Sur 20</option>
+                    <option value={100}>Sur 100 (÷ 5)</option>
+                  </select>
+                </label>
+              </div>
+
+              <div className="grid gap-2 sm:grid-cols-3">
+                {[['matricule', 'Matricule'], ['nom', 'Nom'], ['prenom', 'Prénom']].map(([k, lib]) => (
+                  <label key={k} className="block">
+                    <span className="block text-[11px] font-semibold text-slate-500 mb-0.5">{lib}</span>
+                    <Sel valeur={ident[k]} onChange={v => setIdent(x => ({ ...x, [k]: v }))} />
+                  </label>
+                ))}
+              </div>
+
+              {/* ── LES COTES ATTENDUES, COURS PAR COURS ── */}
+              <div className="border border-slate-200 rounded-lg overflow-hidden">
+                <div className="bg-slate-50 px-3 py-2 flex items-center justify-between gap-2">
+                  <span className="text-[11.5px] text-slate-600">
+                    <b>{associees}</b> / {couples.length} cote(s) associée(s)
+                  </span>
+                  <button onClick={() => { proposer(matrice, ligneEntete); setRapport(null); }}
+                    className="text-[11px] px-2 py-1 rounded-lg border border-iip-gold/60
+                               text-iip-blue hover:bg-amber-50 flex items-center gap-1">
+                    <IconWand size={12} /> Reproposer
+                  </button>
+                </div>
+                <div className="divide-y divide-slate-100 max-h-64 overflow-y-auto">
+                  {(structure?.cours || []).filter(c => c.acquis?.length).map(c => (
+                    <div key={c.cours_code}>
+                      <div className="px-3 py-1 bg-iip-blue/5 text-[11px] font-semibold text-iip-blue">
+                        {c.cours_code} · {c.cours_nom || ''}
+                      </div>
+                      {c.acquis.map(a => {
+                        const cle = `${c.cours_code}|${a.aa_code}`;
+                        return (
+                          <div key={cle} className="px-3 py-1.5 flex items-center gap-2">
+                            <span className="text-[11.5px] w-28 flex-none text-slate-700"
+                              title={a.description || ''}>
+                              {a.aa_code}
+                              {a.poids != null && <span className="text-slate-400"> · {a.poids}</span>}
+                            </span>
+                            <div className="flex-1 min-w-0">
+                              <Sel valeur={assoc[cle]}
+                                onChange={v => {
+                                  setRapport(null);
+                                  setAssoc(x => {
+                                    const y = { ...x };
+                                    if (v < 0) delete y[cle]; else y[cle] = v;
+                                    return y;
+                                  });
+                                }} />
+                            </div>
+                            {doublons.includes(cle) && (
+                              <span title="Cette colonne sert déjà à une autre cote"
+                                className="text-amber-600 flex-none">
+                                <IconAlertTriangle size={13} />
+                              </span>
+                            )}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {!!doublons.length && (
+                <div className="px-3 py-2 rounded-lg bg-amber-50 border border-amber-200
+                                text-[11.5px] text-amber-900">
+                  Une même colonne sert à plusieurs cotes. C'est légitime si un acquis reçoit
+                  la même note dans deux cours — sinon, corrigez.
                 </div>
               )}
-              <div className="bg-slate-50 px-3 py-2 text-[11.5px] text-slate-600">
-                Bloc retenu : <b>{col(reperes.colDebut)}</b> à <b>{col(reperes.colFin)}</b>
-                {reperes.tag ? <> · <b>{reperes.tag}</b></> : null}
-                {' '}· codes en ligne <b>{reperes.ligneCodes + 1}</b>
-                {' '}· matricules en <b>{col(reperes.colMat)}</b>
-                <span className="float-right">
-                  {apercu.codes.length} acquis · {apercu.lignes.length} étudiants
-                </span>
+
+              <label className="flex items-center gap-2 text-[12px] text-slate-700">
+                <input type="checkbox" checked={arrondi} className="w-4 h-4 accent-iip-blue"
+                  onChange={e => { setArrondi(e.target.checked); setRapport(null); }} />
+                Arrondir à l'unité
+              </label>
+
+              <div className="text-[11.5px] text-slate-500">
+                {lignes.length} ligne(s) d'étudiants lues,
+                {' '}{lignes.reduce((n, l) => n + l.notes.length, 0)} cote(s) au total.
               </div>
-              <div className="px-3 py-2 text-[11px] text-slate-500 border-b border-slate-100">
-                {apercu.codes.join(' · ')}
-              </div>
-              <div className="max-h-40 overflow-auto divide-y divide-slate-50">
-                {apercu.lignes.slice(0, 6).map((l, i) => (
-                  <div key={i} className="px-3 py-1 text-[11.5px] flex gap-2">
-                    <span className="font-mono text-slate-400 w-20 flex-none">{l.matricule}</span>
-                    <span className="flex-1 truncate text-slate-700">{l.nom} {l.prenom}</span>
-                    <span className="text-slate-500 flex-none">
-                      {Object.entries(l.notes).slice(0, 4)
-                        .map(([c, v]) => `${c}=${Math.round(Number(v) * 10) / 10}`).join(' ')}
-                      {Object.keys(l.notes).length > 4 ? ' …' : ''}
-                    </span>
-                  </div>
-                ))}
-                {apercu.lignes.length > 6 && (
-                  <div className="px-3 py-1 text-[11px] text-slate-400">
-                    … et {apercu.lignes.length - 6} autres.
-                  </div>
-                )}
-              </div>
-            </div>
+            </>
           )}
 
           {rapport && (
@@ -348,9 +403,6 @@ export default function ImportNotesUE({ ueNum, annee, onClose, onImporte }) {
               <div>
                 <b>{rapport.total.rapproches}</b> étudiant(s) reconnu(s) sur {rapport.total.etudiants}
                 {' · '}<b>{rapport.total.notes}</b> note(s)
-                {rapport.total.notes > 0 && (
-                  <span className="opacity-70"> (une par cours où l’acquis est évalué)</span>
-                )}
               </div>
               {!!rapport.total.inconnus && (
                 <div className="text-amber-800">
@@ -365,13 +417,7 @@ export default function ImportNotesUE({ ueNum, annee, onClose, onImporte }) {
               )}
               {!!rapport.acquis_inconnus.length && (
                 <div className="text-amber-800">
-                  Acquis absents du référentiel de l’unité : {rapport.acquis_inconnus.join(', ')}.
-                </div>
-              )}
-              {!!rapport.acquis_sans_cours.length && (
-                <div className="text-amber-800">
-                  Acquis rattachés à aucun cours (pondération manquante), donc non écrits :
-                  {' '}{rapport.acquis_sans_cours.join(', ')}.
+                  Acquis absents du référentiel : {rapport.acquis_inconnus.join(', ')}.
                 </div>
               )}
             </div>
@@ -379,11 +425,12 @@ export default function ImportNotesUE({ ueNum, annee, onClose, onImporte }) {
         </div>
 
         <div className="flex-none px-5 py-3 border-t border-slate-100 flex items-center
-                        justify-between gap-2">
-          <p className="text-[11px] text-slate-500 flex-1">
-            La note d’un acquis est écrite dans chaque cours qui l’évalue, selon la pondération.
-          </p>
-          <button onClick={() => envoyer(true)} disabled={enCours || !apercu?.lignes.length}
+                        justify-end gap-2">
+          <button onClick={onClose}
+            className="px-3 py-1.5 text-[12.5px] rounded-lg border border-slate-300 text-slate-600">
+            Fermer
+          </button>
+          <button onClick={() => envoyer(true)} disabled={enCours || !lignes.length || !associees}
             className="px-3 py-1.5 text-[12.5px] rounded-lg border border-slate-300
                        text-slate-600 disabled:opacity-40">
             Simuler

@@ -2197,7 +2197,10 @@ r.get('/cours/:coursCode/feuille', authRequired, (req, res) => {
 r.post('/ue/:ueNum/notes/importer', authRequired,
        roleRequired('admin', 'directeur', 'directeur_adjoint', 'editeur'), (req, res) => {
   const ueNum = Number(req.params.ueNum);
-  const { annee, session, lignes, simulation = true, arrondi = true } = req.body || {};
+  const { annee, session, lignes, simulation = true, arrondi = true,
+    bareme = 20 } = req.body || {};
+  // Les classeurs cotent tantôt sur vingt, tantôt sur cent : on ramène.
+  const diviseur = Number(bareme) === 100 ? 5 : 1;
   const an = annee || anneeDeTravail(req);
   const ses = Number(session) === 2 ? 2 : 1;
   if (!Array.isArray(lignes) || !lignes.length) {
@@ -2285,26 +2288,37 @@ r.post('/ue/:ueNum/notes/importer', authRequired,
       }
       rapport.total.rapproches++;
 
+      // Deux formes de notes coexistent, parce que deux classeurs coexistent.
+      //
+      // Le classeur de suivi tient UNE note par acquis, pour l'unité : la
+      // pondération dit alors quels cours l'évaluent, et la note va dans
+      // chacun. Un classeur monté à la main, lui, tient une colonne par
+      // COUPLE cours-acquis — c'est plus précis, et cela seul permet de coter
+      // différemment un même acquis dans deux cours.
+      const posees0 = Array.isArray(l.notes)
+        ? l.notes.map(x => ({ cours: x.cours_code ? [x.cours_code] : null,
+          code: String(x.aa_code || '').trim().toUpperCase(), val: x.valeur }))
+        : Object.entries(l.notes || {}).map(([c, v]) => ({
+          cours: null, code: String(c).trim().toUpperCase(), val: v }));
+
       let posees = 0;
-      for (const [codeBrut, valBrute] of Object.entries(l.notes || {})) {
-        if (valBrute === '' || valBrute == null) continue;
-        const code = String(codeBrut).trim().toUpperCase();
-        const n = Number(String(valBrute).replace(',', '.'));
+      for (const x of posees0) {
+        if (x.val === '' || x.val == null) continue;
+        const n = Number(String(x.val).replace(',', '.')) / diviseur;
         if (!Number.isFinite(n) || n < 0 || n > 20) continue;
         const points = arrondi ? Math.round(n) : Math.round(n * 100) / 100;
 
-        if (!acquisConnus.has(code)) {
-          if (!vus.has('i' + code)) { vus.add('i' + code); rapport.acquis_inconnus.push(code); }
+        if (!acquisConnus.has(x.code)) {
+          if (!vus.has('i' + x.code)) { vus.add('i' + x.code); rapport.acquis_inconnus.push(x.code); }
           continue;
         }
-        const cours = coursDeAA[code] || [];
+        const cours = x.cours || coursDeAA[x.code] || [];
         if (!cours.length) {
-          if (!vus.has('c' + code)) { vus.add('c' + code); rapport.acquis_sans_cours.push(code); }
+          if (!vus.has('c' + x.code)) { vus.add('c' + x.code); rapport.acquis_sans_cours.push(x.code); }
           continue;
         }
-        // La note d'un acquis vaut dans chacun des cours qui l'évaluent.
         for (const cc of cours) {
-          if (!simulation) ecrire.run(t.id, an, ueNum, `s${ses}|${cc}|${code}`, cc, points);
+          if (!simulation) ecrire.run(t.id, an, ueNum, `s${ses}|${cc}|${x.code}`, cc, points);
           posees++;
         }
       }
