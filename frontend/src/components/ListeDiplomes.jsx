@@ -95,7 +95,9 @@ export default function ListeDiplomes({ annee, onClose }) {
         <span className="block text-[11px] text-slate-500">
           {c.reussies}/{c.total} unités · {c.ects} ECTS
           {c.annee_fin ? ` · dernière en ${c.annee_fin}` : ''}
-          {c.manquantes.length ? ` · manque UE ${c.manquantes.slice(0, 6).join(', ')}` : ''}
+          {c.integree ? ' · épreuve intégrée réussie' : ''}
+          {c.manquantes.length ? ` · non décomptées : UE ${
+            c.manquantes.slice(0, 6).join(', ')}` : ''}
         </span>
         {!!c.manques.length && (
           <span className="block text-[11px] text-amber-700 flex items-center gap-1">
@@ -103,10 +105,11 @@ export default function ListeDiplomes({ annee, onClose }) {
           </span>
         )}
       </span>
-      <span className={`flex-none text-[10px] px-2 py-0.5 rounded-full font-semibold ${c.complet
-        ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
-        : 'bg-slate-50 text-slate-500 border border-slate-200'}`}>
-        {c.complet ? 'complet' : 'en cours'}
+      <span className={`flex-none text-[10px] px-2 py-0.5 rounded-full font-semibold ${
+        c.toutes_unites
+          ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
+          : 'bg-amber-50 text-amber-800 border border-amber-200'}`}>
+        {c.toutes_unites ? 'complet' : 'épreuve intégrée'}
       </span>
     </label>
   );
@@ -161,13 +164,15 @@ export default function ListeDiplomes({ annee, onClose }) {
               <p className="text-[11.5px] text-slate-500">
                 {etat.requises.length} unités composent la section
                 {etat.ects_total ? `, soit ${etat.ects_total} ECTS` : ''}.
-                Seuls les parcours complets figurent ici ; sont cochés ceux qui ont terminé
-                cette année.
+                Figurent ici ceux qui ont acquis toutes les unités, et ceux qui ont réussi
+                l'épreuve intégrée{etat.epreuve_integree ? ` (UE ${etat.epreuve_integree})` : ''} —
+                elle sanctionne la section, et une valorisation ou une dispense échappe au
+                décompte. Sont cochés ceux qui ont terminé cette année.
               </p>
 
               <div className="border border-slate-200 rounded-lg overflow-hidden">
                 <div className="bg-emerald-50 px-3 py-1.5 text-[11px] font-semibold text-emerald-800">
-                  Parcours complet ({cands.length})
+                  Diplômables ({cands.length})
                 </div>
                 {cands.map(c => <Ligne key={c.id} c={c} />)}
               </div>
@@ -191,7 +196,8 @@ export default function ListeDiplomes({ annee, onClose }) {
 
           {etat && !cands.length && !etat.avertissement && (
             <div className="py-6 text-center text-[12.5px] text-slate-500">
-              Aucun étudiant n'a encore acquis toutes les unités de cette section.
+              Aucun étudiant n'a terminé cette section : ni toutes les unités acquises,
+              ni l'épreuve intégrée réussie.
             </div>
           )}
         </div>
