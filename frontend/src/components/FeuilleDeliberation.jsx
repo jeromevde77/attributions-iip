@@ -578,6 +578,45 @@ export default function FeuilleDeliberation({ ueNum, annee, onClose }) {
  * coche que la présence — la composition, elle, se déduit des attributions.
  */
 
+/**
+ * LE QUORUM, COMPTÉ PENDANT QU'ON COCHE.
+ *
+ * Le serveur le recalcule et refuse la clôture s'il manque — c'est lui qui
+ * fait foi. Ici, il s'agit de ne pas laisser le Conseil découvrir à la fin
+ * qu'il siégeait à trois. Seules les voix délibératives comptent : la
+ * coordination de section, qui ne siège au titre du suivi pédagogique que pour
+ * les réunions de suivi, ne fait pas le quorum d'une sanction (RGE art. 22
+ * al. 2 et 25 §1) — sauf réglage contraire de l'établissement.
+ */
+function QuorumBandeau({ membres }) {
+  const votants = membres.filter(m => (m.voix || 'deliberative') === 'deliberative');
+  const presents = votants.filter(m => m.present).length;
+  const requis = Math.ceil((votants.length * 2) / 3);
+  const ok = votants.length > 0 && presents >= requis;
+  const consultatifs = membres.filter(m => m.voix === 'consultative').length;
+
+  return (
+    <div className={`px-3 py-2 rounded-xl border flex items-center gap-3
+      ${ok ? 'bg-emerald-50 border-emerald-200' : 'bg-amber-50 border-amber-300'}`}>
+      <span className={`text-[19px] font-bold tabular-nums leading-none flex-none
+        ${ok ? 'text-emerald-700' : 'text-amber-800'}`}>
+        {presents}/{votants.length}
+      </span>
+      <span className="flex-1 min-w-0">
+        <span className={`block text-[12.5px] font-semibold
+          ${ok ? 'text-emerald-900' : 'text-amber-900'}`}>
+          {ok ? 'Quorum atteint' : `Quorum non atteint — il en faut ${requis}`}
+        </span>
+        <span className="block text-[11px] text-slate-600">
+          Deux tiers des membres à voix délibérative (RGE art. 25 §1).
+          {consultatifs > 0 && ' Les voix consultatives figurent au procès-verbal '
+            + 'sans compter au quorum.'}
+        </span>
+      </span>
+    </div>
+  );
+}
+
 function Presences({ seance, onValider, enCours }) {
   const [membres, setMembres] = useState(null);
   const [ajout, setAjout] = useState('');
@@ -602,6 +641,8 @@ function Presences({ seance, onValider, enCours }) {
         </p>
       </div>
 
+      <QuorumBandeau membres={membres} />
+
       <div className="border border-slate-200 rounded-xl divide-y divide-slate-100">
         {membres.map((m, i) => (
           <label key={m.cle}
@@ -616,6 +657,13 @@ function Presences({ seance, onValider, enCours }) {
               </span>
               <span className="block text-[11px] text-slate-500 truncate">{m.qualite}</span>
             </span>
+            {m.voix === 'consultative' && (
+              <span title="Siège avec voix consultative : ne compte pas au quorum"
+                className="text-[10px] font-semibold px-2 py-0.5 rounded-full flex-none
+                           bg-sky-50 text-sky-800 border border-sky-200">
+                consultative
+              </span>
+            )}
             <span className={`text-[10.5px] font-semibold px-2 py-0.5 rounded-full flex-none
               ${m.present ? 'bg-emerald-100 text-emerald-800' : 'bg-slate-100 text-slate-500'}`}>
               {m.present ? 'présent' : 'excusé'}
@@ -967,6 +1015,8 @@ function Fiche({ e, data, onAjuster, onLot, onMotif, enCours, onBord,
                   <TuileSomme etat={a} seuil={data.seuil} enCours={enCours}
                     onAjourner={() => onAjuster('aa', a.aa_code,
                       a.ajourne_directement ? null : 'ajourne')}
+                    onFaveur={() => onAjuster('aa', a.aa_code,
+                      a.faveur_directe ? null : 'faveur')}
                     motif={a.motif} />
                 </td>
               </tr>
@@ -983,7 +1033,9 @@ function Fiche({ e, data, onAjuster, onLot, onMotif, enCours, onBord,
                 <td key={c.cours_code} className="border-t border-slate-200 px-1.5 py-1.5">
                   <TuileSomme etat={c} seuil={data.seuil} enCours={enCours}
                     onAjourner={() => onAjuster('cours', c.cours_code,
-                      c.ajourne_directement ? null : 'ajourne')} />
+                      c.ajourne_directement ? null : 'ajourne')}
+                    onFaveur={() => onAjuster('cours', c.cours_code,
+                      c.faveur_directe ? null : 'faveur')} />
                 </td>
               ))}
 
@@ -1153,7 +1205,7 @@ function Chiffre({ libelle, valeur, suffixe, ton }) {
  * pouvait plus justifier ce qu'on venait d'ajourner. La tuile n'en garde qu'un
  * témoin : un point bleu quand le motif est écrit, un point rouge sinon.
  */
-function TuileSomme({ etat, seuil, onAjourner, motif, enCours }) {
+function TuileSomme({ etat, seuil, onAjourner, onFaveur, motif, enCours }) {
   const { na, faveur, note, mention } = etat;
   const echec = !na && note != null && note < seuil;
   return (
@@ -1175,6 +1227,23 @@ function TuileSomme({ etat, seuil, onAjourner, motif, enCours }) {
                  : 'bg-white border-slate-300 text-slate-500 hover:border-slate-500'}`}>
           <IconRepeat size={11} />
         </button>
+
+        {/* LEVER EN FAVEUR, ICI AUSSI. La faveur avait été ramenée à la seule
+            unité ; c'était une erreur. Le Conseil ne lève pas « une unité » :
+            il lève L'ACQUIS qui manque, ou LE COURS. C'est ce geste-là qui se
+            motive et se relit, et c'est le seul qui rende compte d'une réussite
+            accordée alors qu'un acquis précis n'était pas maîtrisé. */}
+        {(echec || faveur) && !na && onFaveur && (
+          <button disabled={enCours} onClick={onFaveur}
+            title={faveur ? 'Retirer la faveur'
+              : `Lever en faveur — vaudra exactement ${seuil}`}
+            className={`w-5 h-5 rounded-full flex items-center justify-center border
+              ${faveur ? 'bg-amber-400 border-amber-600 text-amber-950'
+                       : 'bg-emerald-600 border-emerald-700 text-white'}`}>
+            <IconArrowUp size={11} />
+          </button>
+        )}
+
         {(echec || na) && motif !== undefined && (
           <span title={motif ? 'Justifié' : 'À justifier sous la matrice'}
             className={`w-5 h-5 rounded-full flex items-center justify-center border
@@ -1188,7 +1257,7 @@ function TuileSomme({ etat, seuil, onAjourner, motif, enCours }) {
   );
 }
 
-/** La note de l'unité — et la faveur, qui ne se pose que là. */
+/** La note de l'unité. La faveur se pose ici comme sur l'acquis et le cours. */
 function TuileUE({ ue, seuil, onFaveur, enCours }) {
   const echec = !ue.na && ue.note != null && ue.note < seuil;
   return (

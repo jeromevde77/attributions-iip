@@ -1851,6 +1851,22 @@ export function reglesAjournement() {
 }
 
 /**
+ * La coordination de section délibère-t-elle, ou siège-t-elle en avis ?
+ *
+ * Voir membresDuConseil : le texte ne la fait membre que des réunions de suivi
+ * pédagogique, sauf si elle occupe la fonction de conseiller à la formation.
+ * Le défaut suit le texte ; l'établissement peut en décider autrement, et le
+ * procès-verbal en portera la trace.
+ */
+export function coordinationDelibere() {
+  try {
+    const row = db.prepare(
+      "SELECT valeur FROM lucie_config WHERE cle = 'deliberation_quorum'").get();
+    return row ? JSON.parse(row.valeur)?.coordination_delibere === true : false;
+  } catch { return false; }
+}
+
+/**
  * L'ÉPREUVE INTÉGRÉE D'UNITÉ.
  *
  * Les professeurs d'une unité peuvent décider d'une épreuve commune : on
@@ -2049,8 +2065,13 @@ export function delibererUE(etudId, ueNum, annee, session = 1) {
   const coursFaveur = c => ajust[`cours|${c}`] === 'faveur';
   const aaAjourne = a => ajust[`aa|${a}`] === 'ajourne';
   const aaFaveur = a => ajust[`aa|${a}`] === 'faveur';
-  // La faveur se pose sur l'UNITÉ : c'est elle que le Conseil lève. Les
-  // faveurs d'acquis ou de cours posées avant ce changement restent honorées.
+  // La faveur se pose aux TROIS niveaux : sur l'acquis, sur le cours, sur
+  // l'unité. Elle avait été ramenée à la seule unité — à tort : le règlement
+  // ne connaît pas la compensation (art. 77 §1, 78 §2), et ce que le Conseil
+  // lève, c'est L'ACQUIS qui manque. Poser la faveur là où l'échec se trouve
+  // est le seul geste qui laisse au procès-verbal la trace de ce qui a été
+  // accordé, et à qui. À tous les niveaux, l'effet est le même : l'élément
+  // vaut exactement le seuil, jamais davantage.
   const ueFaveur = ajust['ue|*'] === 'faveur';
 
   // ── 1. L'ACQUIS au global ────────────────────────────────────────────────
@@ -2089,6 +2110,9 @@ export function delibererUE(etudId, ueNum, annee, session = 1) {
       aa_code: code, description: descr[code] || null,
       evaluations: evals, note_calculee: note, note: affichee,
       na, faveur: forcee, motif: motifs[code] || '',
+      // La faveur POSÉE SUR CET ACQUIS, distincte de celle qu'il hérite de
+      // l'unité : c'est elle que le bouton retire, et elle seule.
+      faveur_directe: aaFaveur(code),
       // La mention de l'acquis : celle de ses évaluations quand elles
       // s'accordent, sinon rien — deux cours peuvent ne pas dire la même chose.
       mention: (() => {
@@ -3115,7 +3139,7 @@ function membresDuConseil(ueNum, annee) {
     membres.push({
       cle: `prof:${p.id}`, nom: `${p.nom} ${p.prenom}`,
       qualite: cours.length ? `Professeur · ${cours.join(', ')}` : 'Professeur',
-      role: 'professeur',
+      role: 'professeur', voix: 'deliberative',
     });
   }
 
@@ -3125,9 +3149,23 @@ function membresDuConseil(ueNum, annee) {
   `).get(ueNum, annee) || {};
   if (ue.section) {
     const sec = db.prepare('SELECT responsable FROM section WHERE code = ?').get(ue.section);
+    // LA COORDINATION SIÈGE, MAIS DE QUELLE VOIX ?
+    //
+    // Le texte est étroit : « lorsqu'un membre du personnel est chargé du suivi
+    // social et pédagogique d'un groupe particulier, il participe aux réunions
+    // du CDE RELATIVES AU SUIVI PÉDAGOGIQUE » (RGE art. 22 al. 2 ; décret
+    // art. 52 al. 2, qui renvoie au seul art. 53, 2°). La sanction des études
+    // est le 3° : la coordination n'y est donc pas membre de plein droit.
+    //
+    // Mais si l'établissement a ouvert la fonction de CONSEILLER À LA
+    // FORMATION, l'article 91/3 §2 le fait participer au conseil des études
+    // sans restreindre aux réunions de suivi. Le statut dépend donc de la
+    // fonction réellement occupée, que Lucie ne peut pas deviner : d'où un
+    // réglage, dont le défaut suit le texte le plus étroit.
     membres.push({
       cle: 'coordination', nom: sec?.responsable || `Coordination ${ue.section}`,
       qualite: 'Coordination de section · suivi pédagogique', role: 'coordination',
+      voix: coordinationDelibere() ? 'deliberative' : 'consultative',
     });
   }
 
@@ -3136,9 +3174,38 @@ function membresDuConseil(ueNum, annee) {
   membres.push({
     cle: 'direction', nom: directeur || 'Direction',
     qualite: 'Direction ou son représentant', role: 'direction',
+    voix: 'deliberative',
   });
 
   return membres;
+}
+
+/**
+ * LE QUORUM DES DEUX TIERS.
+ *
+ * « Pour délibérer valablement, au moins deux tiers des membres du CDE ou du
+ * Jury d'EI doivent être présents » (RGE art. 25 §1).
+ *
+ * Il se calcule sur les seules voix délibératives : compter au dénominateur
+ * quelqu'un qui n'est pas membre pour cette réunion-là durcirait le quorum
+ * sans raison, et le compter au numérateur validerait une séance qui ne l'est
+ * pas. Les deux tiers s'arrondissent VERS LE HAUT — deux tiers de 4 font 2,67,
+ * et l'on ne délibère pas à 2,67 : il en faut 3.
+ */
+function etatQuorum(membres, presences) {
+  const votants = membres.filter(m => (m.voix || 'deliberative') === 'deliberative');
+  const presents = votants.filter(m => presences[m.cle]);
+  const requis = Math.ceil((votants.length * 2) / 3);
+  return {
+    membres: votants.length,
+    presents: presents.length,
+    requis,
+    atteint: votants.length > 0 && presents.length >= requis,
+    // Les voix consultatives se comptent à part : elles figurent au procès-
+    // verbal, elles ne font pas le quorum.
+    consultatifs_presents: membres.filter(
+      m => m.voix === 'consultative' && presences[m.cle]).length,
+  };
 }
 
 r.get('/deliberation/ue/:ueNum/seance', authRequired, (req, res) => {
@@ -3166,7 +3233,8 @@ r.get('/deliberation/ue/:ueNum/seance', authRequired, (req, res) => {
   // Un membre ajouté à la main lors d'une séance précédente y reste.
   for (const [cle, l] of Object.entries(poses)) {
     if (!membres.some(m => m.cle === cle)) {
-      membres.push({ cle, nom: l.nom, qualite: l.qualite, role: 'ajoute', present: !!l.present });
+      membres.push({ cle, nom: l.nom, qualite: l.qualite, role: 'ajoute',
+                     voix: 'deliberative', present: !!l.present });
     }
   }
 
@@ -3184,7 +3252,10 @@ r.get('/deliberation/ue/:ueNum/seance', authRequired, (req, res) => {
     };
   });
 
-  res.json({ ue_num: ueNum, annee, session, seance, membres, session2 });
+  const quorum = etatQuorum(membres,
+    Object.fromEntries(membres.map(m => [m.cle, m.present])));
+
+  res.json({ ue_num: ueNum, annee, session, seance, membres, session2, quorum });
 });
 
 r.put('/deliberation/ue/:ueNum/seance', authRequired,
@@ -3195,6 +3266,43 @@ r.put('/deliberation/ue/:ueNum/seance', authRequired,
   const { membres, date_seance, visite_date, visite_heure, visite_local, cloturee,
           session2_date, session2_heure, session2_local, session2_adresse,
           session2_cours } = req.body || {};
+
+  // LE QUORUM SE VÉRIFIE À LA CLÔTURE, ET NULLE PART AILLEURS.
+  //
+  // Tant que la séance est ouverte, le Conseil s'installe : on coche les
+  // présences, on attend un retardataire. C'est la clôture qui arrête l'acte,
+  // et c'est donc elle qui doit constater que les deux tiers y étaient
+  // (RGE art. 25 §1). Une délibération close sous le quorum est une
+  // délibération attaquable ; mieux vaut un refus ici qu'un recours en août.
+  if (cloturee) {
+    const membres = membresDuConseil(ueNum, annee);
+    const posees = Array.isArray(membres) && Array.isArray(req.body?.membres)
+      ? Object.fromEntries(req.body.membres.map(m => [m.cle, !!m.present]))
+      : null;
+    // À défaut de présences transmises, on lit celles déjà enregistrées.
+    let presences = posees;
+    if (!presences) {
+      const s = db.prepare(`SELECT id FROM deliberation_seance
+        WHERE ue_num = ? AND annee_scolaire = ? AND session = ?`).get(ueNum, annee, session);
+      presences = s ? Object.fromEntries(db.prepare(
+        'SELECT cle, present FROM deliberation_presence WHERE seance_id = ?'
+      ).all(s.id).map(l => [l.cle, !!l.present])) : {};
+    }
+    // Un membre ajouté à la main siège aussi : il compte.
+    const tous = [...membres];
+    for (const cle of Object.keys(presences)) {
+      if (!tous.some(m => m.cle === cle)) tous.push({ cle, voix: 'deliberative' });
+    }
+    const q = etatQuorum(tous, presences);
+    if (!q.atteint) {
+      return res.status(409).json({
+        error: `Quorum non atteint : ${q.presents} membre(s) présent(s) sur `
+             + `${q.membres} à voix délibérative, il en faut ${q.requis} `
+             + `(deux tiers, RGE art. 25 §1). La séance reste ouverte.`,
+        quorum: q,
+      });
+    }
+  }
 
   db.transaction(() => {
     db.prepare(`
