@@ -45,18 +45,58 @@ function genre(titre) {
 }
 
 /**
- * LES UNITÉS QUE LA SECTION EXIGE.
+ * LES UNITÉS QUE LA SECTION EXIGE, POUR UN MILLÉSIME DONNÉ.
  *
  * Le rattachement explicite (ue_section) fait foi quand il existe : une unité
  * peut servir plusieurs sections. À défaut, la colonne section de l'unité.
+ *
+ * L'ANNÉE EST DÉTERMINANTE, et son oubli a longtemps vidé cette liste de tout
+ * candidat : ue_section est tenue par millésime, si bien qu'interroger la table
+ * sans année renvoyait la RÉUNION de toutes les grilles jamais organisées. Une
+ * unité supprimée du programme en 2019 restait alors exigée, et plus personne
+ * n'avait « tout réussi ». On prend donc la grille de l'année demandée, et à
+ * défaut la dernière grille renseignée avant elle.
  */
-function unitesDeLaSection(sectionCode) {
-  const parRattachement = db.prepare(`
-    SELECT DISTINCT ue_num FROM ue_section WHERE section_code = ?
-  `).all(sectionCode).map(x => x.ue_num);
-  if (parRattachement.length) return parRattachement;
+function unitesDeLaSection(sectionCode, annee) {
+  const parAnnee = db.prepare(`
+    SELECT DISTINCT ue_num FROM ue_section
+    WHERE section_code = ? AND annee_scolaire = ?
+  `).all(sectionCode, annee).map(x => x.ue_num);
+  if (parAnnee.length) return parAnnee;
+
+  const derniere = db.prepare(`
+    SELECT MAX(annee_scolaire) AS a FROM ue_section
+    WHERE section_code = ? AND annee_scolaire <= ?
+  `).get(sectionCode, annee)?.a
+    || db.prepare('SELECT MAX(annee_scolaire) AS a FROM ue_section WHERE section_code = ?')
+      .get(sectionCode)?.a;
+  if (derniere) {
+    const l = db.prepare(`
+      SELECT DISTINCT ue_num FROM ue_section
+      WHERE section_code = ? AND annee_scolaire = ?
+    `).all(sectionCode, derniere).map(x => x.ue_num);
+    if (l.length) return l;
+  }
   return db.prepare('SELECT DISTINCT ue_num FROM ue WHERE section = ?')
     .all(sectionCode).map(x => x.ue_num);
+}
+
+/**
+ * L'ÉPREUVE INTÉGRÉE DE LA SECTION.
+ *
+ * C'est elle qui sanctionne la section : on ne s'y présente qu'après le reste,
+ * et le jury qui la délibère est celui qui confère le grade. L'étudiant qui l'a
+ * réussie a donc terminé, même quand le décompte des unités ne tombe pas juste
+ * — une valorisation, une dispense ou une unité d'un millésime abandonné
+ * échappent au calcul, jamais au jury.
+ */
+function epreuveIntegreeDe(unites) {
+  if (!unites.length) return null;
+  const m = unites.map(() => '?').join(',');
+  return db.prepare(`
+    SELECT ue_num FROM ue WHERE ue_num IN (${m}) AND is_epreuve_integree = 1
+    ORDER BY annee_scolaire DESC LIMIT 1
+  `).get(...unites)?.ue_num ?? null;
 }
 
 /**
@@ -78,7 +118,7 @@ r.get('/candidats', authRequired, (req, res) => {
 
   const sec = db.prepare('SELECT code, libelle, niveau, code_fwb, domaine FROM section WHERE code = ?')
     .get(section) || { code: section };
-  const requises = unitesDeLaSection(section);
+  const requises = unitesDeLaSection(section, annee);
   if (!requises.length) {
     return res.json({ annee, section: sec, requises: [], candidats: [],
       avertissement: "Aucune unité n'est rattachée à cette section." });
@@ -105,12 +145,18 @@ r.get('/candidats', authRequired, (req, res) => {
     GROUP BY ue_num
   `);
 
+  const ei = epreuveIntegreeDe(requises);
+
   const candidats = etudiants.map(e => {
     const reussies = reussiesDe.all(e.id, ...requises);
     const codes = reussies.map(x => x.ue_num);
     const manquantes = requises.filter(u => !codes.includes(u));
     // L'année de fin : le millésime de la dernière unité acquise.
-    const fin = reussies.map(x => x.derniere).sort().pop() || null;
+    // L'année de fin : celle de l'épreuve intégrée quand elle est réussie —
+    // c'est elle qui clôt le cycle — sinon le millésime de la dernière unité.
+    const anEI = ei ? reussies.find(x => x.ue_num === ei)?.derniere : null;
+    const fin = anEI || reussies.map(x => x.derniere).sort().pop() || null;
+    const integree = !!anEI;
     return {
       ...e,
       genre: genre(e.titre),
@@ -118,7 +164,10 @@ r.get('/candidats', authRequired, (req, res) => {
       total: requises.length,
       manquantes,
       ects: codes.reduce((n, u) => n + (ects[u] || 0), 0),
-      complet: manquantes.length === 0,
+      // Complet par le décompte OU par l'épreuve intégrée : le jury a tranché.
+      complet: manquantes.length === 0 || integree,
+      toutes_unites: manquantes.length === 0,
+      integree,
       annee_fin: fin,
       // Ce qui empêcherait le document d'être juste, dit avant de l'imprimer.
       manques: [
@@ -134,7 +183,7 @@ r.get('/candidats', authRequired, (req, res) => {
     .filter(c => c.complet);
 
   res.json({
-    annee, section: sec, requises,
+    annee, section: sec, requises, epreuve_integree: ei,
     ects_total: requises.reduce((n, u) => n + (ects[u] || 0), 0),
     candidats,
     // Cochés d'office : ceux qui ont TERMINÉ cette année. Les diplômés des
