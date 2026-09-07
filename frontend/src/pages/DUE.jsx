@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import {
   IconPrinter, IconDeviceFloppy, IconLock, IconLockOpen, IconArrowLeft,
-  IconAlertTriangle, IconCheck, IconCircleCheck, IconPencil, IconEye,
+  IconAlertTriangle, IconCheck, IconCircleCheck, IconPencil, IconEye, IconFileText,
 } from '@tabler/icons-react';
 import { api } from '../lib/api.js';
 
@@ -46,6 +46,47 @@ function Bloc({ titre, aide, children }) {
         {children}
       </div>
     </section>
+  );
+}
+
+/**
+ * LE TEXTE OFFICIEL, À PORTÉE DE CLIC.
+ *
+ * Le modèle Word disait « copier le contenu du DP » — et chacun recopiait à la
+ * main un texte qui figure déjà dans Lucie depuis l'import du dossier
+ * pédagogique. On le montre, replié, avec un bouton qui le reprend.
+ *
+ * Reprendre n'écrase jamais en silence : si le champ contient déjà quelque
+ * chose, le texte du dossier s'ajoute à la suite plutôt que de se substituer
+ * au travail de l'enseignant.
+ */
+function DuDossier({ texte, valeur, onChange, lecture }) {
+  const [ouvert, setOuvert] = useState(false);
+  if (lecture || !texte) return null;
+  const dejaLa = (valeur || '').includes(texte.slice(0, 40));
+
+  return (
+    <div className="mt-2 border-t border-dashed border-slate-200 pt-2">
+      <div className="flex items-center justify-between gap-2">
+        <button onClick={() => setOuvert(o => !o)}
+          className="text-[11px] text-slate-500 hover:text-iip-blue flex items-center gap-1">
+          <IconFileText size={12} />
+          {ouvert ? 'Masquer' : 'Voir'} le texte du dossier pédagogique
+        </button>
+        <button disabled={dejaLa}
+          onClick={() => onChange(valeur ? `${valeur.trim()}\n\n${texte}` : texte)}
+          className="text-[11px] px-2 py-1 rounded-lg border border-iip-gold/60 text-iip-blue
+                     hover:bg-amber-50 disabled:opacity-40 disabled:hover:bg-transparent">
+          {dejaLa ? 'déjà repris' : valeur ? 'Ajouter à la suite' : 'Reprendre ce texte'}
+        </button>
+      </div>
+      {ouvert && (
+        <pre className="mt-2 p-2 bg-slate-50 border border-slate-200 rounded-lg text-[11.5px]
+                        text-slate-600 whitespace-pre-wrap font-sans max-h-56 overflow-y-auto">
+          {texte}
+        </pre>
+      )}
+    </div>
   );
 }
 
@@ -416,7 +457,20 @@ function Fiche({ ueNum, onRetour }) {
               </li>
             ))}
           </ul>
-        ) : <div className="text-[12px] text-amber-800">Aucun acquis encodé pour cette unité.</div>}
+        ) : (
+          <div className="text-[12px] text-amber-800">
+            Aucun acquis encodé pour cette unité.
+            {d.dp?.acquis && (
+              <div className="mt-2 text-slate-600">
+                Le dossier pédagogique en énonce pourtant ; ils s'encodent dans le référentiel
+                des acquis, où ils serviront aussi à l'encodage et à la délibération :
+                <pre className="mt-1 p-2 bg-slate-50 border border-slate-200 rounded-lg
+                                text-[11.5px] whitespace-pre-wrap font-sans max-h-56
+                                overflow-y-auto">{d.dp.acquis}</pre>
+              </div>
+            )}
+          </div>
+        )}
       </Bloc>
 
       <Bloc titre="Activités d'apprentissage">
@@ -447,10 +501,14 @@ function Fiche({ ueNum, onRetour }) {
         aide="Ce que cette unité vise à faire acquérir, au-delà des finalités générales du décret.">
         <Zone valeur={c.finalites} lecture={lecture} lignes={4}
           onChange={v => maj('finalites', v)} />
+        <DuDossier texte={d.dp?.finalites} valeur={c.finalites} lecture={lecture}
+          onChange={v => maj('finalites', v)} />
       </Bloc>
 
       <Bloc titre="Programme" aide="Le contenu, tel qu'il figure au dossier pédagogique.">
         <Zone valeur={c.programme} lecture={lecture} lignes={6}
+          onChange={v => maj('programme', v)} />
+        <DuDossier texte={d.dp?.programme} valeur={c.programme} lecture={lecture}
           onChange={v => maj('programme', v)} />
       </Bloc>
 
@@ -563,10 +621,14 @@ function Fiche({ ueNum, onRetour }) {
       <Bloc titre="Critères d'évaluation" aide="Ce qui, concrètement, mène à la réussite.">
         <Zone valeur={c.criteres} lecture={lecture} lignes={4}
           onChange={v => maj('criteres', v)} />
+        <DuDossier texte={d.dp?.capacites} valeur={c.criteres} lecture={lecture}
+          onChange={v => maj('criteres', v)} />
       </Bloc>
 
       <Bloc titre="Degré de maîtrise" aide="Pour chaque acquis, ce qui distingue la maîtrise.">
         <Zone valeur={c.degre_maitrise} lecture={lecture} lignes={4}
+          onChange={v => maj('degre_maitrise', v)} />
+        <DuDossier texte={d.dp?.degre_maitrise} valeur={c.degre_maitrise} lecture={lecture}
           onChange={v => maj('degre_maitrise', v)} />
       </Bloc>
 

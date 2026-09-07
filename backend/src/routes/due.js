@@ -83,6 +83,43 @@ function droitsSurLUE(user, ueNum, annee) {
 // la même constante que partout ailleurs dans Lucie.
 const enHeures = per => (per == null ? null : Math.round(Number(per) / 1.2));
 
+/**
+ * LE DOSSIER PÉDAGOGIQUE, DÉCOUPÉ.
+ *
+ * Le modèle Word disait, à trois endroits, « copier le contenu du DP » — et
+ * c'est exactement ce que chacun faisait, à la main, en recopiant un texte
+ * officiel qui figure déjà dans Lucie. L'import du dossier pédagogique dépose
+ * ses sections dans `ue.ue_det`, sous des titres « ## ». On les redonne ici
+ * telles quelles, à charge pour l'écran de les proposer d'un clic.
+ *
+ * Le degré de maîtrise n'est pas une section à lui seul : le dossier le loge à
+ * la fin des acquis, après la phrase « Pour la détermination du degré de
+ * maîtrise… ». On coupe donc là.
+ */
+function sectionsDuDP(ueDet) {
+  if (!ueDet) return null;
+  const parts = {};
+  let titre = null, corps = [];
+  const poser = () => { if (titre) parts[titre] = corps.join('\n').trim(); };
+  for (const l of String(ueDet).split('\n')) {
+    const m = l.match(/^##\s+(.*)$/);
+    if (m) { poser(); titre = m[1].trim().toLowerCase(); corps = []; }
+    else if (titre) corps.push(l);
+  }
+  poser();
+
+  const acquisBrut = parts["acquis d'apprentissage"] || '';
+  const coupe = acquisBrut.search(/pour la d[ée]termination du degr[ée] de ma[îi]trise/i);
+  const dp = {
+    finalites: parts['finalités'] || null,
+    capacites: parts['capacités préalables'] || null,
+    acquis: (coupe > 0 ? acquisBrut.slice(0, coupe) : acquisBrut).trim() || null,
+    degre_maitrise: coupe > 0 ? acquisBrut.slice(coupe).trim() : null,
+    programme: parts['programme'] || null,
+  };
+  return Object.values(dp).some(Boolean) ? dp : null;
+}
+
 function partieAutomatique(ueNum, annee) {
   const ue = db.prepare('SELECT * FROM ue WHERE ue_num = ? AND annee_scolaire = ?')
     .get(ueNum, annee);
@@ -127,6 +164,7 @@ function partieAutomatique(ueNum, annee) {
 
   return {
     responsable_propose: enseignants[0]?.id ?? null,
+    dp: sectionsDuDP(ue.ue_det),
     ue: {
       ue_num: ue.ue_num, ue_nom: ue.ue_nom, ue_code_fwb: ue.ue_code_fwb,
       section: ue.section, ects: ue.ects, niveau: ue.ue_niveau, niv: ue.ue_niv,
