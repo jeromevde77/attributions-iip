@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { IconX, IconAlertTriangle, IconSearch, IconCheck } from '@tabler/icons-react';
+import { IconX, IconAlertTriangle, IconSearch, IconCheck, IconLink } from '@tabler/icons-react';
 import { authHeaders } from '../lib/api.js';
 
 /**
@@ -35,7 +35,7 @@ const TEINTES = [
   'bg-sky-50 border-sky-200', 'bg-rose-50 border-rose-200',
 ];
 
-export default function EncodageUE({ ueNum, annee, onClose, onEnregistre }) {
+export default function EncodageUE({ ueNum, annee, onClose, onEnregistre, onParametrer }) {
   const [data, setData] = useState(null);
   const [erreur, setErreur] = useState(null);
   const [session, setSession] = useState(1);
@@ -172,11 +172,31 @@ export default function EncodageUE({ ueNum, annee, onClose, onEnregistre }) {
           {!data ? (
             <div className="py-10 text-center text-slate-400 text-sm">Chargement…</div>
           ) : data.sans_acquis ? (
-            <div className="py-10 text-center text-slate-500 text-sm">
-              Aucun acquis n'est rattaché aux cours de cette unité.<br />
-              <span className="text-slate-400">
-                Reliez d'abord les acquis aux cours dans le paramétrage de l'unité.
-              </span>
+            /* UN CUL-DE-SAC N'EST PAS UN MESSAGE.
+               L'écran disait d'aller au paramétrage sans y conduire : il
+               fallait fermer, retrouver l'unité, ouvrir le paramétrage. Le
+               blocage lui-même porte donc maintenant la porte de sortie —
+               réservée à qui peut la franchir, puisque relier les acquis
+               engage toute l'unité et non le seul cours qu'on encodait. */
+            <div className="py-10 text-center text-slate-500 text-sm space-y-3">
+              <div>
+                Aucun acquis n'est rattaché aux cours de cette unité.<br />
+                <span className="text-slate-400">
+                  Sans ce lien, il n'y a pas de colonne à remplir : la note d'un
+                  acquis se pose dans un cours.
+                </span>
+              </div>
+              {onParametrer ? (
+                <button onClick={() => onParametrer(ueNum)}
+                  className="px-4 py-2 text-[12.5px] rounded-lg bg-iip-blue text-white
+                             font-semibold inline-flex items-center gap-1.5">
+                  <IconLink size={14} /> Relier les acquis aux cours
+                </button>
+              ) : (
+                <span className="text-slate-400 text-[12.5px] block">
+                  Le paramétrage de l'unité est réservé à la direction.
+                </span>
+              )}
             </div>
           ) : !etudiants.length ? (
             <div className="py-10 text-center text-slate-500 text-sm">

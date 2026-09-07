@@ -170,11 +170,15 @@ export default function LiensCoursAcquis({ ueNum, annee, onClose, onEnregistre }
                             return (
                               <td key={c.cours_code}
                                 className="px-1 py-1 border-b border-slate-100 text-center">
-                                <input type="number" min="0" max="100" step="1"
+                                {/* AU DEMI-POINT. Les dix points d'un cours ne se
+                                    répartissent pas toujours en entiers : trois
+                                    acquis, ou une grille reprise d'un classeur qui
+                                    comptait sur cent — 45 sur 100 fait 4,5. */}
+                                <input type="number" min="0" max="100" step="0.5"
                                   value={v ?? ''}
                                   onChange={e => setPoids(m => ({ ...m, [cle]: e.target.value }))}
                                   placeholder="—"
-                                  title="Poids de cet acquis dans ce cours — vide ou 0 : il n'y est pas évalué"
+                                  title="Poids de cet acquis dans ce cours, au demi-point — vide ou 0 : il n'y est pas évalué"
                                   className={`w-16 border rounded-lg px-1.5 py-1 text-[12.5px]
                                     text-center tabular-nums ${Number(v) > 0
                                       ? 'border-iip-blue/40 bg-iip-blue/5 font-semibold'
