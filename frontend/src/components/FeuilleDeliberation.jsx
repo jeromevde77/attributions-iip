@@ -67,6 +67,12 @@ export default function FeuilleDeliberation({ ueNum, annee, onClose }) {
   const [documents, setDocuments] = useState(false); // le centre d'impression
   const [auto, setAuto] = useState(null);           // les réussites de plein droit
 
+  // LA SESSION DÉLIBÉRÉE. Le serveur la déduit — première tant qu'elle n'est
+  // pas décidée pour tout le monde, seconde dès qu'elle laisse des ajournés —
+  // et l'écran s'y range. Toute écriture la porte : sans elle, un ajournement
+  // de septembre écraserait celui de juin.
+  const session = data?.session || 1;
+
   async function charger() {
     setErreur(null);
     try {
@@ -173,7 +179,8 @@ export default function FeuilleDeliberation({ ueNum, annee, onClose }) {
       const rep = await fetch('/api/acquis/deliberation/ajustement/lot', {
         method: 'PUT', headers: authHeaders(),
         body: JSON.stringify({
-          etudiant_id: etud.id, annee_scolaire: annee, ue_num: ueNum, portee, codes, action,
+          etudiant_id: etud.id, annee_scolaire: annee, ue_num: ueNum, session,
+          portee, codes, action,
         }),
       });
       const j = await rep.json();
@@ -192,7 +199,7 @@ export default function FeuilleDeliberation({ ueNum, annee, onClose }) {
       const rep = await fetch('/api/acquis/deliberation/ajustement', {
         method: 'PUT', headers: authHeaders(),
         body: JSON.stringify({
-          etudiant_id: etud.id, annee_scolaire: annee, ue_num: ueNum,
+          etudiant_id: etud.id, annee_scolaire: annee, ue_num: ueNum, session,
           portee, code, action,
         }),
       });
@@ -262,7 +269,7 @@ export default function FeuilleDeliberation({ ueNum, annee, onClose }) {
         const rep = await fetch('/api/acquis/decision', {
           method: 'PUT', headers: authHeaders(),
           body: JSON.stringify({
-            etudiant_id: etud.id, annee_scolaire: annee, ue_num: ueNum,
+            etudiant_id: etud.id, annee_scolaire: annee, ue_num: ueNum, session,
             resultat: decision, points: ue.note,
           }),
         });
@@ -413,7 +420,17 @@ export default function FeuilleDeliberation({ ueNum, annee, onClose }) {
         </div>
 
         <div className="flex-1 overflow-y-auto p-4 space-y-3">
-          {erreur && (
+          {data?.session === 2 && (
+        <div className="mx-5 mt-3 px-3 py-2 rounded-lg bg-amber-50 border border-amber-200
+                        text-[12px] text-amber-900">
+          <b>Seconde session.</b> Seuls les étudiants ajournés en première session sont
+          présentés. Les cours qui n'étaient pas à représenter gardent leur note de
+          première session ; les autres attendent celle de septembre. La décision prise
+          ici s'ajoute à celle de juin, qu'elle ne remplace pas — mais c'est elle qui
+          devient le résultat final.
+        </div>
+      )}
+      {erreur && (
             <div className="px-3 py-2 rounded-lg bg-red-50 border border-red-200
                             text-[12.5px] text-red-800 flex items-center gap-2">
               <IconAlertTriangle size={14} /> {erreur}
@@ -1450,12 +1467,16 @@ const DECISIONS = [
  * Conseil n'étant lié par aucun bouton.
  */
 function DecisionGenerale({ cours, enCours, onLot, onDecision, decision }) {
-  const codes = cours.map(c => c.cours_code);
+  // En seconde session, on n'ajourne que ce qui était à représenter : le reste
+  // est acquis depuis juin et n'a pas à retomber.
+  const enJeu = cours.some(c => c.represente != null)
+    ? cours.filter(c => c.represente) : cours;
+  const codes = enJeu.map(c => c.cours_code);
   if (codes.length < 2) return null;
   // C'est l'AJOURNEMENT POSÉ qui compte, non l'échec : un cours sous dix est
   // déjà « non acquis » sans que le Conseil ait rien décidé, et le bouton
   // aurait annoncé « relever » avant qu'on ait ajourné quoi que ce soit.
-  const tousAjournes = cours.length > 0 && cours.every(c => c.ajourne_directement);
+  const tousAjournes = enJeu.length > 0 && enJeu.every(c => c.ajourne_directement);
 
   return (
     <div className="flex items-center gap-2 flex-wrap text-[11.5px]">

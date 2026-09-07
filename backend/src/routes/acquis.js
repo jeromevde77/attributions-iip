@@ -34,6 +34,97 @@ import { envelopper, unitesReussies, pageAttestation } from './attestations.js';
 
 const r = Router();
 
+export function migrerSessions(dbx) {
+  // Chaque migration dans son propre try : groupées, la première qui échoue
+  // emportait les suivantes, et la table des résultats n'était jamais créée.
+  try {
+    // Les ajustements : une colonne, et l'unicité qui s'y adapte.
+    const ddl = dbx.prepare(
+      "SELECT sql FROM sqlite_master WHERE type='table' AND name='deliberation_ajustement'"
+    ).get()?.sql || '';
+    if (ddl && !ddl.includes('session')) {
+      // On RECONSTRUIT la table : l'unicité d'origine porte sur
+      // (étudiant, année, unité, portée, code) et interdit donc au même cours
+      // d'être ajourné en deux sessions. Une contrainte UNIQUE de déclaration
+      // ne se laisse pas défaire par un DROP INDEX.
+      dbx.transaction(() => dbx.exec(`
+        CREATE TABLE deliberation_ajustement_v3 (
+          id             INTEGER PRIMARY KEY AUTOINCREMENT,
+          etudiant_id    INTEGER NOT NULL,
+          annee_scolaire TEXT    NOT NULL,
+          ue_num         INTEGER NOT NULL,
+          session        INTEGER NOT NULL DEFAULT 1,
+          portee         TEXT    NOT NULL CHECK (portee IN ('aa','cours','ue')),
+          code           TEXT    NOT NULL,
+          action         TEXT    NOT NULL CHECK (action IN ('faveur','ajourne')),
+          maj_le         TEXT DEFAULT CURRENT_TIMESTAMP,
+          maj_par        TEXT,
+          UNIQUE(etudiant_id, annee_scolaire, ue_num, session, portee, code)
+        );
+        INSERT INTO deliberation_ajustement_v3
+          (id, etudiant_id, annee_scolaire, ue_num, session, portee, code, action, maj_le, maj_par)
+          SELECT id, etudiant_id, annee_scolaire, ue_num, 1, portee, code, action, maj_le, maj_par
+          FROM deliberation_ajustement;
+        DROP TABLE deliberation_ajustement;
+        ALTER TABLE deliberation_ajustement_v3 RENAME TO deliberation_ajustement;
+        CREATE INDEX IF NOT EXISTS idx_delib_ajust
+          ON deliberation_ajustement(etudiant_id, annee_scolaire, ue_num);
+      `))();
+      console.log('[migration] deliberation_ajustement : session ajoutée');
+    }
+  } catch (e) { console.error('[migration] ajustement.session :', e.message); }
+
+  try {
+    // La séance : une par session.
+    const ddlS = dbx.prepare(
+      "SELECT sql FROM sqlite_master WHERE type='table' AND name='deliberation_seance'"
+    ).get()?.sql || '';
+    if (ddlS && !ddlS.includes('session')) {
+      dbx.transaction(() => dbx.exec(`
+        ALTER TABLE deliberation_seance ADD COLUMN session INTEGER NOT NULL DEFAULT 1;
+        CREATE UNIQUE INDEX IF NOT EXISTS idx_delib_seance_unique
+          ON deliberation_seance(ue_num, annee_scolaire, session);
+      `))();
+      console.log('[migration] deliberation_seance : session ajoutée');
+    }
+  } catch (e) { console.error('[migration] seance.session :', e.message); }
+
+  try {
+    // Le résultat de chaque session, conservé à côté du résultat final.
+    dbx.exec(`
+      CREATE TABLE IF NOT EXISTS deliberation_resultat (
+        id             INTEGER PRIMARY KEY AUTOINCREMENT,
+        etudiant_id    INTEGER NOT NULL,
+        annee_scolaire TEXT    NOT NULL,
+        ue_num         INTEGER NOT NULL,
+        session        INTEGER NOT NULL DEFAULT 1,
+        resultat       TEXT,
+        points         REAL,
+        mention        TEXT,
+        decide_le      TEXT DEFAULT CURRENT_TIMESTAMP,
+        decide_par     TEXT,
+        UNIQUE(etudiant_id, annee_scolaire, ue_num, session)
+      );
+      CREATE INDEX IF NOT EXISTS idx_delib_res_ue
+        ON deliberation_resultat(ue_num, annee_scolaire, session);
+    `);
+
+    // Les décisions déjà prises sont celles de la première session : on les y
+    // recopie, sans quoi l'écran croirait qu'aucune séance n'a eu lieu et
+    // proposerait de délibérer une première session déjà faite.
+    const n = dbx.prepare("SELECT COUNT(*) AS n FROM deliberation_resultat WHERE session = 1").get().n;
+    if (!n) {
+      const faits = dbx.prepare(`
+        INSERT INTO deliberation_resultat
+          (etudiant_id, annee_scolaire, ue_num, session, resultat, points, mention, decide_par)
+        SELECT etudiant_id, annee_scolaire, ue_num, 1, resultat, points, mention, 'reprise'
+        FROM etudiant_inscription WHERE resultat IS NOT NULL AND resultat != ''
+      `).run().changes;
+      if (faits) console.log(`[migration] ${faits} décision(s) reprises en session 1`);
+    }
+  } catch (e) { console.error('[migration] deliberation_resultat :', e.message); }
+}
+
 export function migrerAA(dbx) {
   // NP ET PP : DEUX FAÇONS DE VALOIR ZÉRO, QUI NE DISENT PAS LA MÊME CHOSE.
   //
@@ -125,6 +216,11 @@ export function migrerAA(dbx) {
     }
     console.log('[migration] aa_ponderation créée');
   } catch (e) { console.error('[migration] aa :', e.message); }
+
+  // La session comme dimension : après migrerEtudiants, qui crée
+  // etudiant_inscription — c'est de là que les décisions déjà prises sont
+  // reprises en première session.
+  migrerSessions(dbx);
 }
 
 // Le poids d'un cours dans son UE est un pourcentage explicite : les poids
@@ -643,12 +739,31 @@ r.put('/decision', authRequired,
     return res.status(400).json({ error: 'note attendue entre 0 et 20' });
   }
 
-  db.prepare(`
-    UPDATE etudiant_inscription SET resultat = ?, points = ?, mention = ?
-    WHERE id = ?
-  `).run(resultat ?? null, note, mention ?? null, insc.id);
+  // La décision se range DEUX fois. Dans deliberation_resultat, sous sa
+  // session : c'est la trace de ce que le Conseil a décidé ce jour-là, et
+  // celle de juin doit survivre à celle de septembre. Et dans l'inscription,
+  // qui porte le RÉSULTAT FINAL — celui que lisent le parcours, les crédits et
+  // les attestations. La seconde session s'ajoute et l'emporte.
+  const ses = Number(req.body?.session) === 2 ? 2 : 1;
+  db.transaction(() => {
+    db.prepare(`
+      INSERT INTO deliberation_resultat
+        (etudiant_id, annee_scolaire, ue_num, session, resultat, points, mention, decide_par)
+      VALUES (?,?,?,?,?,?,?,?)
+      ON CONFLICT(etudiant_id, annee_scolaire, ue_num, session) DO UPDATE SET
+        resultat = excluded.resultat, points = excluded.points,
+        mention = excluded.mention, decide_le = CURRENT_TIMESTAMP,
+        decide_par = excluded.decide_par
+    `).run(Number(etudiant_id), annee_scolaire, Number(ue_num), ses,
+      resultat ?? null, note, mention ?? null, req.user?.email || null);
 
-  res.json({ ok: true });
+    db.prepare(`
+      UPDATE etudiant_inscription SET resultat = ?, points = ?, mention = ?
+      WHERE id = ?
+    `).run(resultat ?? null, note, mention ?? null, insc.id);
+  })();
+
+  res.json({ ok: true, session: ses });
 });
 
 // ── Les unités en échec d'un étudiant ──────────────────────────────────────
@@ -1549,8 +1664,16 @@ r.get('/deliberation/plan', authRequired, (req, res) => {
     const r0 = refDe[u.ue_num] || {};
     const sec = r0.section || '—';
     if (perim && r0.section && !perim.includes(r0.section)) continue;
+    // La session que l'unité attend : le bouton n'a pas à être choisi à la
+    // main, il se déduit de ce qui a déjà été décidé.
+    const ses = sessionDeLUE(u.ue_num, annee);
     (sections[sec] = sections[sec] || { section: sec, ues: [] }).ues.push({
       ...u, ue_nom: r0.ue_nom || null, ue_niv: r0.ue_niv || null,
+      session: ses.session,
+      s1_complete: ses.s1.complete,
+      s1_ajournes: ses.s1.ajournes,
+      s2_decides: ses.s2.decides,
+      seconde_possible: ses.seconde_possible,
     });
   }
 
@@ -1628,6 +1751,24 @@ r.get('/deliberation/plan', authRequired, (req, res) => {
     }
   } catch (e) { console.error('[migration] deliberation_ajustement :', e.message); }
 })();
+
+/**
+ * LA SESSION DEVIENT UNE DIMENSION.
+ *
+ * Jusqu'ici, une unité se délibérait UNE fois : une séance, un jeu
+ * d'ajustements, un résultat. La seconde session n'avait donc nulle part où se
+ * ranger — l'y écrire aurait écrasé la première, et l'on aurait perdu la trace
+ * de ce que le Conseil avait décidé en juin, qui est précisément ce qui
+ * justifie la seconde session.
+ *
+ * La session s'ajoute donc partout où une décision se pose : à la séance, aux
+ * ajustements, et au résultat. Tout ce qui existe est de la première session.
+ *
+ * Le résultat de chaque session est conservé à part ; celui de l'inscription
+ * reste le RÉSULTAT FINAL — celui que lisent le parcours, les crédits et les
+ * attestations. La seconde session s'ajoute et l'emporte.
+ */
+
 
 const SEUIL_UE = 10;   // RDE, art. 78
 
@@ -1749,7 +1890,13 @@ export function coursAutorises(user, annee) {
  *    emporte tous ses acquis. Et l'unité elle-même devient NA : tant qu'un
  *    élément est à représenter, elle n'a pas de note.
  */
-export function delibererUE(etudId, ueNum, annee) {
+/**
+ * @param {number} session  1 = la première session seule ; 2 = la seconde, qui
+ *   REPREND les notes de la première pour les cours non représentés et les
+ *   remplace pour ceux qui l'ont été. C'est ainsi que le résultat de seconde
+ *   session est final : il s'ajoute, il n'efface pas.
+ */
+export function delibererUE(etudId, ueNum, annee, session = 1) {
   const structure = structureUE(ueNum, annee);
   const integree = estEpreuveIntegree(ueNum, annee);
   const regles = reglesAjournement();
@@ -1798,16 +1945,33 @@ export function delibererUE(etudId, ueNum, annee) {
     SELECT code, points, mention FROM etudiant_note_detail
     WHERE etudiant_id = ? AND annee_scolaire = ? AND ue_num = ? AND type = 'aa'
   `).all(etudId, annee, ueNum);
+  //
+  // LA SESSION COMPTE. En première session, on ne lit que les notes de la
+  // première — une note de seconde session ne doit pas rétroagir sur ce que le
+  // Conseil a décidé en juin. En seconde, la note de seconde session l'emporte
+  // quand elle existe, et celle de la première subsiste pour les cours qui
+  // n'étaient pas à représenter : c'est ce qui fait que la seconde session
+  // s'AJOUTE au lieu d'effacer.
   const parCoursAA = {}, parAA = {}, mentionDe = {};
+  const rang = { '': 0, s1: 1, s2: 2 };
+  const meilleur = {};
   for (const l of brutes) {
     let parts = String(l.code).split('|');
-    if (/^s[12]$/.test(parts[0])) parts = parts.slice(1);   // la session, mise de côté
+    const ses = /^s[12]$/.test(parts[0]) ? parts[0] : '';
+    if (ses) parts = parts.slice(1);
+    if (ses === 's2' && session < 2) continue;          // pas encore délibérée
+    const cle = parts.length === 2 ? `${parts[0]}|${parts[1]}` : parts[0];
+    // À clé égale, la note la plus récemment sessionnée gagne ; une note sans
+    // préfixe, écrite avant qu'on ne distingue les sessions, vaut pour la
+    // première et ne recouvre jamais une note explicite.
+    if (meilleur[cle] != null && meilleur[cle] > rang[ses]) continue;
+    meilleur[cle] = rang[ses];
     if (parts.length === 2) {
-      parCoursAA[`${parts[0]}|${parts[1]}`] = l.points;
-      if (l.mention) mentionDe[`${parts[0]}|${parts[1]}`] = l.mention;
+      parCoursAA[cle] = l.points;
+      mentionDe[cle] = l.mention || null;
     } else {
-      parAA[parts[0]] = l.points;
-      if (l.mention) mentionDe[parts[0]] = l.mention;
+      parAA[cle] = l.points;
+      mentionDe[cle] = l.mention || null;
     }
   }
   const noteDe = (cours, aa) => {
@@ -1817,11 +1981,22 @@ export function delibererUE(etudId, ueNum, annee) {
   // NP ou PP : la raison du zéro, qui suit la note jusqu'à la feuille.
   const mentionAA = (cours, aa) => mentionDe[`${cours}|${aa}`] || mentionDe[aa] || null;
 
+  // Les ajustements sont ceux de LA session délibérée : ce que le Conseil a
+  // ajourné en juin ne pèse plus sur la décision de septembre, il en est la
+  // cause. Les ajournements de première session restent lus à part, pour
+  // savoir quels cours sont à représenter.
   const ajust = {};
   for (const a of db.prepare(`
     SELECT portee, code, action FROM deliberation_ajustement
+    WHERE etudiant_id = ? AND annee_scolaire = ? AND ue_num = ? AND session = ?
+  `).all(etudId, annee, ueNum, session)) ajust[`${a.portee}|${a.code}`] = a.action;
+
+  // Ce que la première session a laissé à représenter — vide en session 1.
+  const coursARepresenter = session < 2 ? new Set() : new Set(db.prepare(`
+    SELECT code FROM deliberation_ajustement
     WHERE etudiant_id = ? AND annee_scolaire = ? AND ue_num = ?
-  `).all(etudId, annee, ueNum)) ajust[`${a.portee}|${a.code}`] = a.action;
+      AND session = 1 AND portee = 'cours' AND action = 'ajourne'
+  `).all(etudId, annee, ueNum).map(x => x.code));
 
   const coursAjourne = c => ajust[`cours|${c}`] === 'ajourne';
   const coursFaveur = c => ajust[`cours|${c}`] === 'faveur';
@@ -1978,9 +2153,15 @@ export function delibererUE(etudId, ueNum, annee) {
   }
 
   return {
-    ue_num: ueNum, annee, seuil: SEUIL_UE, epreuve_integree: integree,
+    ue_num: ueNum, annee, session, seuil: SEUIL_UE, epreuve_integree: integree,
     regles_ajournement: regles,
-    acquis, cours,
+    // En seconde session, l'écran doit savoir quels cours étaient à
+    // représenter : les autres gardent la note de juin et ne se réencodent
+    // pas.
+    cours_a_representer: [...coursARepresenter],
+    acquis,
+    cours: cours.map(c => ({ ...c,
+      represente: session < 2 ? null : coursARepresenter.has(c.cours_code) })),
     ue: {
       note: ajourne ? null : noteUE,
       na: ajourne, faveur, faveur_ue: ueFaveur,
@@ -2656,6 +2837,41 @@ r.get('/ue/:ueNum/cours', authRequired, (req, res) => {
  * GLOBAL — non par cours —, puis la note de chaque cours, puis celle de
  * l'unité.
  */
+/**
+ * QUELLE SESSION RESTE-T-IL À DÉLIBÉRER ?
+ *
+ * On ne le demande pas : on le déduit. Tant que la première session n'a pas
+ * été décidée pour tout le monde, c'est elle. Dès qu'elle l'est et qu'elle
+ * laisse des ajournés, la seconde s'ouvre. Sans ajourné, il n'y a pas de
+ * seconde session, et le bouton n'a pas à en proposer une.
+ */
+export function sessionDeLUE(ueNum, annee) {
+  const inscrits = db.prepare(
+    'SELECT COUNT(*) AS n FROM etudiant_inscription WHERE annee_scolaire = ? AND ue_num = ?')
+    .get(annee, ueNum).n;
+  const parSession = {};
+  for (const l of db.prepare(`
+    SELECT session, COUNT(*) AS n,
+           SUM(CASE WHEN resultat = 'ajourne' THEN 1 ELSE 0 END) AS ajournes
+    FROM deliberation_resultat
+    WHERE ue_num = ? AND annee_scolaire = ? AND resultat IS NOT NULL
+    GROUP BY session
+  `).all(ueNum, annee)) parSession[l.session] = l;
+
+  const s1 = parSession[1] || { n: 0, ajournes: 0 };
+  const s2 = parSession[2] || { n: 0, ajournes: 0 };
+  const s1Faite = inscrits > 0 && s1.n >= inscrits;
+
+  return {
+    session: s1Faite && s1.ajournes > 0 ? 2 : 1,
+    inscrits,
+    s1: { decides: s1.n, ajournes: s1.ajournes, complete: s1Faite },
+    s2: { decides: s2.n },
+    // Sans ajourné en première session, la seconde n'a pas lieu d'être.
+    seconde_possible: s1Faite && s1.ajournes > 0,
+  };
+}
+
 r.get('/deliberation/ue/:ueNum', authRequired, (req, res) => {
   const ueNum = Number(req.params.ueNum);
   const annee = req.query.annee || anneeDeTravail(req);
@@ -2669,12 +2885,32 @@ r.get('/deliberation/ue/:ueNum', authRequired, (req, res) => {
     return res.status(403).json({ error: 'unité hors de votre périmètre' });
   }
 
-  const etudiants = db.prepare(`
-    SELECT e.id, e.nom, e.prenom, e.id_ecampus, i.resultat, i.points
-    FROM etudiant_inscription i JOIN etudiant e ON e.id = i.etudiant_id
-    WHERE i.annee_scolaire = ? AND i.ue_num = ?
-    ORDER BY e.nom, e.prenom
-  `).all(annee, ueNum);
+  // La session : celle qu'on demande, ou celle qui reste à faire.
+  const etat = sessionDeLUE(ueNum, annee);
+  const session = req.query.session ? (Number(req.query.session) === 2 ? 2 : 1) : etat.session;
+
+  // EN SECONDE SESSION, SEULS LES AJOURNÉS. Les autres ont fini : les faire
+  // défiler à nouveau, c'est risquer de rouvrir ce qui était clos.
+  const etudiants = session < 2
+    ? db.prepare(`
+      SELECT e.id, e.nom, e.prenom, e.id_ecampus, i.resultat, i.points
+      FROM etudiant_inscription i JOIN etudiant e ON e.id = i.etudiant_id
+      WHERE i.annee_scolaire = ? AND i.ue_num = ?
+      ORDER BY e.nom, e.prenom
+    `).all(annee, ueNum)
+    : db.prepare(`
+      SELECT e.id, e.nom, e.prenom, e.id_ecampus,
+             r2.resultat, r2.points,
+             r1.resultat AS resultat_s1, r1.points AS points_s1
+      FROM deliberation_resultat r1
+      JOIN etudiant e ON e.id = r1.etudiant_id
+      LEFT JOIN deliberation_resultat r2
+        ON r2.etudiant_id = r1.etudiant_id AND r2.annee_scolaire = r1.annee_scolaire
+       AND r2.ue_num = r1.ue_num AND r2.session = 2
+      WHERE r1.annee_scolaire = ? AND r1.ue_num = ? AND r1.session = 1
+        AND r1.resultat = 'ajourne'
+      ORDER BY e.nom, e.prenom
+    `).all(annee, ueNum);
 
   // LA MOYENNE DE L'ANNÉE, pour tous ces étudiants d'un coup. Elle sert
   // l'aide à la décision : un étudiant qui tient une bonne moyenne générale
@@ -2720,7 +2956,7 @@ r.get('/deliberation/ue/:ueNum', authRequired, (req, res) => {
     'SELECT ue_num, MAX(ue_nom) AS n FROM ue GROUP BY ue_num').all().map(r => [r.ue_num, r.n]));
 
   const lignes = etudiants.map(e => {
-    const d = delibererUE(e.id, ueNum, annee);
+    const d = delibererUE(e.id, ueNum, annee, session);
     const ailleurs = (dejaFaveur[e.id] || []).sort((a, b) => a - b)
       .map(n => ({ ue_num: n, ue_nom: nomUE[n] || null }));
     return { ...e, ...d,
@@ -2730,11 +2966,12 @@ r.get('/deliberation/ue/:ueNum', authRequired, (req, res) => {
 
   // Les colonnes se prennent sur la première ligne calculée : la structure de
   // l'unité est la même pour tous, seules les notes changent.
-  const modele = lignes[0] || delibererUE(0, ueNum, annee);
+  const modele = lignes[0] || delibererUE(0, ueNum, annee, session);
 
   res.json({
     ue_num: ueNum, ue_nom: ue.ue_nom || `UE ${ueNum}`, section: ue.section || null,
-    annee, seuil: SEUIL_UE, epreuve_integree: estEpreuveIntegree(ueNum, annee),
+    annee, session, etat_sessions: etat,
+    seuil: SEUIL_UE, epreuve_integree: estEpreuveIntegree(ueNum, annee),
     colonnes_acquis: modele.acquis.map(a => ({ aa_code: a.aa_code, description: a.description })),
     colonnes_cours: modele.cours.map(c => ({
       cours_code: c.cours_code, cours_nom: c.cours_nom,
@@ -3349,14 +3586,30 @@ r.get('/deliberation/ue/:ueNum/pv', authRequired, (req, res) => {
 r.get('/deliberation/ue/:ueNum/plein-droit', authRequired, (req, res) => {
   const ueNum = Number(req.params.ueNum);
   const annee = req.query.annee || anneeDeTravail(req);
-  const etudiants = db.prepare(`
-    SELECT e.id, e.nom, e.prenom, e.id_ecampus, i.resultat
-    FROM etudiant_inscription i JOIN etudiant e ON e.id = i.etudiant_id
-    WHERE i.annee_scolaire = ? AND i.ue_num = ? ORDER BY e.nom, e.prenom
-  `).all(annee, ueNum);
+  const etat = sessionDeLUE(ueNum, annee);
+  const session = req.query.session ? (Number(req.query.session) === 2 ? 2 : 1) : etat.session;
+
+  // En seconde session, seuls les ajournés reviennent : les réussites de plein
+  // droit se cherchent parmi eux, non parmi ceux qui ont déjà fini.
+  const etudiants = session < 2
+    ? db.prepare(`
+      SELECT e.id, e.nom, e.prenom, e.id_ecampus, i.resultat
+      FROM etudiant_inscription i JOIN etudiant e ON e.id = i.etudiant_id
+      WHERE i.annee_scolaire = ? AND i.ue_num = ? ORDER BY e.nom, e.prenom
+    `).all(annee, ueNum)
+    : db.prepare(`
+      SELECT e.id, e.nom, e.prenom, e.id_ecampus, r2.resultat
+      FROM deliberation_resultat r1 JOIN etudiant e ON e.id = r1.etudiant_id
+      LEFT JOIN deliberation_resultat r2
+        ON r2.etudiant_id = r1.etudiant_id AND r2.annee_scolaire = r1.annee_scolaire
+       AND r2.ue_num = r1.ue_num AND r2.session = 2
+      WHERE r1.annee_scolaire = ? AND r1.ue_num = ? AND r1.session = 1
+        AND r1.resultat = 'ajourne'
+      ORDER BY e.nom, e.prenom
+    `).all(annee, ueNum);
 
   const lignes = etudiants.map(e => {
-    const d = delibererUE(e.id, ueNum, annee);
+    const d = delibererUE(e.id, ueNum, annee, session);
     return { ...e, note: d.ue.note, de_plein_droit: d.ue.de_plein_droit,
              deja_decide: !!e.resultat };
   });
@@ -3416,6 +3669,7 @@ r.get('/deliberation/:etudId/:ueNum', authRequired, (req, res) => {
 r.put('/deliberation/ajustement/lot', authRequired,
       roleRequired('admin', 'directeur', 'directeur_adjoint', 'editeur'), (req, res) => {
   const { etudiant_id, annee_scolaire, ue_num, portee = 'cours', codes, action } = req.body || {};
+  const ses = Number(req.body?.session) === 2 ? 2 : 1;
   if (!etudiant_id || !annee_scolaire || !ue_num || !Array.isArray(codes) || !codes.length) {
     return res.status(400).json({ error: 'étudiant, année, unité et codes requis' });
   }
@@ -3425,29 +3679,34 @@ r.put('/deliberation/ajustement/lot', authRequired,
   }
 
   const oter = db.prepare(`DELETE FROM deliberation_ajustement
-    WHERE etudiant_id = ? AND annee_scolaire = ? AND ue_num = ? AND portee = ? AND code = ?`);
+    WHERE etudiant_id = ? AND annee_scolaire = ? AND ue_num = ? AND session = ?
+      AND portee = ? AND code = ?`);
   const poser = db.prepare(`
     INSERT INTO deliberation_ajustement
-      (etudiant_id, annee_scolaire, ue_num, portee, code, action, maj_par)
-    VALUES (?,?,?,?,?,?,?)
-    ON CONFLICT(etudiant_id, annee_scolaire, ue_num, portee, code)
+      (etudiant_id, annee_scolaire, ue_num, session, portee, code, action, maj_par)
+    VALUES (?,?,?,?,?,?,?,?)
+    ON CONFLICT(etudiant_id, annee_scolaire, ue_num, session, portee, code)
     DO UPDATE SET action = excluded.action, maj_le = CURRENT_TIMESTAMP, maj_par = excluded.maj_par
   `);
 
   db.transaction(() => {
     for (const code of codes) {
-      if (action == null) oter.run(Number(etudiant_id), annee_scolaire, Number(ue_num), portee, code);
-      else poser.run(Number(etudiant_id), annee_scolaire, Number(ue_num), portee, code, action,
-        req.user?.email || null);
+      if (action == null) {
+        oter.run(Number(etudiant_id), annee_scolaire, Number(ue_num), ses, portee, code);
+      } else {
+        poser.run(Number(etudiant_id), annee_scolaire, Number(ue_num), ses, portee, code, action,
+          req.user?.email || null);
+      }
     }
   })();
 
-  res.json(avecAide(Number(etudiant_id), Number(ue_num), annee_scolaire));
+  res.json(avecAide(Number(etudiant_id), Number(ue_num), annee_scolaire, ses));
 });
 
 r.put('/deliberation/ajustement', authRequired,
       roleRequired('admin', 'directeur', 'directeur_adjoint', 'editeur'), (req, res) => {
   const { etudiant_id, annee_scolaire, ue_num, portee, code, action } = req.body || {};
+  const ses = Number(req.body?.session) === 2 ? 2 : 1;
   if (!etudiant_id || !annee_scolaire || !ue_num || !portee || !code) {
     return res.status(400).json({ error: 'étudiant, année, unité, portée et code requis' });
   }
@@ -3457,22 +3716,23 @@ r.put('/deliberation/ajustement', authRequired,
   }
   if (action == null) {
     db.prepare(`DELETE FROM deliberation_ajustement
-      WHERE etudiant_id = ? AND annee_scolaire = ? AND ue_num = ? AND portee = ? AND code = ?`)
-      .run(Number(etudiant_id), annee_scolaire, Number(ue_num), portee, code);
+      WHERE etudiant_id = ? AND annee_scolaire = ? AND ue_num = ? AND session = ?
+        AND portee = ? AND code = ?`)
+      .run(Number(etudiant_id), annee_scolaire, Number(ue_num), ses, portee, code);
   } else {
     db.prepare(`
       INSERT INTO deliberation_ajustement
-        (etudiant_id, annee_scolaire, ue_num, portee, code, action, maj_par)
-      VALUES (?,?,?,?,?,?,?)
-      ON CONFLICT(etudiant_id, annee_scolaire, ue_num, portee, code)
+        (etudiant_id, annee_scolaire, ue_num, session, portee, code, action, maj_par)
+      VALUES (?,?,?,?,?,?,?,?)
+      ON CONFLICT(etudiant_id, annee_scolaire, ue_num, session, portee, code)
       DO UPDATE SET action = excluded.action, maj_le = CURRENT_TIMESTAMP, maj_par = excluded.maj_par
-    `).run(Number(etudiant_id), annee_scolaire, Number(ue_num), portee, code, action,
+    `).run(Number(etudiant_id), annee_scolaire, Number(ue_num), ses, portee, code, action,
            req.user?.email || null);
   }
   // On renvoie l'étudiant recalculé AVEC son aide à la décision : sans elle,
   // poser un ajustement faisait disparaître de l'écran le coût de la faveur et
   // les faveurs déjà accordées ailleurs — au moment précis où l'on décide.
-  res.json(avecAide(Number(etudiant_id), Number(ue_num), annee_scolaire));
+  res.json(avecAide(Number(etudiant_id), Number(ue_num), annee_scolaire, ses));
 });
 
 /**
@@ -3501,8 +3761,8 @@ export function parcoursDeLAnnee(etudId, annee) {
 }
 
 /** Un étudiant délibéré, augmenté de son aide à la décision. */
-export function avecAide(etudId, ueNum, annee) {
-  const d = delibererUE(etudId, ueNum, annee);
+export function avecAide(etudId, ueNum, annee, session = 1) {
+  const d = delibererUE(etudId, ueNum, annee, session);
 
   // La moyenne de l'année, pondérée par les périodes étudiant — même
   // définition que le bilan de parcours.
