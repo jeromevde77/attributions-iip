@@ -11,11 +11,11 @@ import { authHeaders } from '../lib/api.js';
  * dans un Word recopié d'année en année, en relisant les dossiers un par un
  * pour savoir qui avait terminé.
  *
- * Lucie sait qui a réussi quoi : elle PROPOSE donc les diplômables — toutes les
- * unités de la section acquises, la dernière cette année — et coche ceux-là.
- * Mais c'est la direction qui arrête la liste : une valorisation, une dispense
- * ou une unité d'un autre millésime peuvent échapper au calcul, et c'est le
- * Conseil qui délivre le titre, pas une requête.
+ * Seuls les parcours COMPLETS y figurent : un diplôme ne se délivre pas à
+ * moitié, et faire défiler ceux qui n'ont pas tout acquis, c'est offrir de les
+ * cocher. Parmi eux, Lucie coche ceux qui ont terminé cette année ; les
+ * diplômés des années précédentes restent listés, décochés, car on réédite
+ * parfois une liste ancienne.
  *
  * Les dossiers incomplets sont signalés AVANT l'impression : une date de
  * naissance manquante fait un document à refaire.
@@ -82,8 +82,6 @@ export default function ListeDiplomes({ annee, onClose }) {
   }
 
   const cands = etat?.candidats || [];
-  const complets = cands.filter(c => c.complet);
-  const partiels = cands.filter(c => !c.complet);
 
   const Ligne = ({ c }) => (
     <label className="flex items-start gap-2 px-3 py-1.5 border-b border-slate-50
@@ -163,27 +161,15 @@ export default function ListeDiplomes({ annee, onClose }) {
               <p className="text-[11.5px] text-slate-500">
                 {etat.requises.length} unités composent la section
                 {etat.ects_total ? `, soit ${etat.ects_total} ECTS` : ''}.
-                Lucie a coché ceux qui les ont toutes acquises, la dernière cette année —
-                à vous d'arrêter la liste.
+                Seuls les parcours complets figurent ici ; sont cochés ceux qui ont terminé
+                cette année.
               </p>
 
               <div className="border border-slate-200 rounded-lg overflow-hidden">
                 <div className="bg-emerald-50 px-3 py-1.5 text-[11px] font-semibold text-emerald-800">
-                  Parcours complet ({complets.length})
+                  Parcours complet ({cands.length})
                 </div>
-                {complets.length
-                  ? complets.map(c => <Ligne key={c.id} c={c} />)
-                  : <div className="px-3 py-2 text-[12px] text-slate-400">Aucun.</div>}
-
-                {!!partiels.length && (
-                  <>
-                    <div className="bg-slate-50 px-3 py-1.5 text-[11px] font-semibold text-slate-600">
-                      Parcours incomplet ({partiels.length}) — à cocher seulement en connaissance
-                      de cause
-                    </div>
-                    {partiels.map(c => <Ligne key={c.id} c={c} />)}
-                  </>
-                )}
+                {cands.map(c => <Ligne key={c.id} c={c} />)}
               </div>
 
               <div className="grid gap-2 sm:grid-cols-2">
@@ -205,7 +191,7 @@ export default function ListeDiplomes({ annee, onClose }) {
 
           {etat && !cands.length && !etat.avertissement && (
             <div className="py-6 text-center text-[12.5px] text-slate-500">
-              Aucun étudiant n'a encore réussi d'unité dans cette section.
+              Aucun étudiant n'a encore acquis toutes les unités de cette section.
             </div>
           )}
         </div>
