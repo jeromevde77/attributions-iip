@@ -295,7 +295,13 @@ function parseDPTexte(brut) {
   const sections = decouperEnSections(texte);
   const lignes = texte.split('\n').map(l => l.trim());
 
-  const codeMatch = texte.match(/CODE\s*:\s*([\dA-Z][\dA-Z\s]*U\s*\d+\s*D\s*\d+)/i);
+  // « CODE : » ou « CODE N : » selon les dossiers — celui des sciences
+  // fondamentales écrit le second, et l'import le refusait pour cela seul.
+  const codeMatch = texte.match(
+    /CODE\s*(?:N[°ºo]?)?\s*:\s*([\dA-Z][\dA-Z\s]*U\s*\d+\s*D\s*\d+)/i)
+    // Dernier recours : le code a une forme trop reconnaissable pour qu'on
+    // renonce sur un simple écart de libellé.
+    || texte.match(/\b(\d{6}\s*U\s*\d+\s*D\s*\d+)\b/);
   const codeFwb = codeMatch ? codeMatch[1].replace(/\s+/g, ' ').trim() : '';
   const domaineMatch = texte.match(/CODE DU DOMAINE DE FORMATION\s*:\s*(\d+)/i);
 
