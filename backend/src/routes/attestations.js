@@ -15,7 +15,8 @@
 
 import { Router } from 'express';
 import { LOGO_IIP_JPEG } from '../services/assets/logo_iip_jpeg.js';
-import { piedBalisage, piedStyles, reglesDePage } from '../lib/document.js';
+import { piedBalisage, piedStyles, reglesDePage,
+  BANDE_PIED_MM, MARGE_SOUS_PIED_MM } from '../lib/document.js';
 import db from '../db/index.js';
 import { authRequired, getUserSections } from '../middleware/auth.js';
 import { capacitePdf, rendrePdf } from '../services/pdf.js';
@@ -357,13 +358,23 @@ export function envelopper(corps, titre = 'Attestations de réussite') {
      et un procès-verbal long se pagine au lieu d'être coupé. */
   .attestation + .attestation { break-before: page; page-break-before: always; }
 
-  /* Le pied s'ancre à « bottom: 0 », soit le bas de la ZONE DE CONTENU, et la
-     marge basse de la feuille réserve la place sous lui. Un « bottom » NÉGATIF
-     — qui faisait descendre le pied dans la marge pour le coller au bord — ne
-     tient que sur la première page : au-delà, le navigateur le remontait en
-     haut de la feuille suivante, par-dessus le texte. */
-  @page { margin-bottom: 17mm; }
-  .pied-lucie { bottom: 0; height: 13mm; }
+  /* LE PIED : EN FLUX, À LA FIN DU DOCUMENT.
+     Trois réglages ont été essayés avant celui-ci ; autant les consigner pour
+     ne pas y revenir.
+       — « position: fixed ; bottom: 0 » se répète bien sur chaque page, mais
+         le pied s'y pose AU BAS DE LA ZONE DE CONTENU. Étant hors flux, le
+         tableau lui passe dessous et s'y fait recouvrir : c'est ce qui coupait
+         les dernières lignes du procès-verbal de l'UE 71.
+       — un « bottom » NÉGATIF le descend dans la marge, où rien ne le
+         recouvre — mais le navigateur le remonte en HAUT des pages suivantes.
+       — une translation vers le bas depuis « bottom: 0 » fait de même.
+     Aucune marge de page ne peut empêcher le contenu d'atteindre l'endroit où
+     un élément fixe s'ancre, puisque les deux visent le même bord.
+     Le pied revient donc DANS LE FLUX, en fin de document : il ne recouvre
+     plus rien, et aucune ligne n'est perdue. Un pied répété sur chaque page
+     demanderait de produire le PDF côté serveur, où l'on dispose d'un vrai
+     gabarit de pied de page. */
+  .pied-lucie { position: static; margin-top: 12mm; break-inside: avoid; }
 
   @media screen {
     html { background: #e5e5e5; }
