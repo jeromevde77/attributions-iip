@@ -186,9 +186,13 @@ import { execFile } from 'child_process';
 function pdfEnTexte(buffer) {
   return new Promise((resolve, reject) => {
     // -enc UTF-8 : les dossiers sont pleins d'accents et d'apostrophes typo.
-    // Pas de -layout : l'ordre de lecture donne des lignes plus franches que
-    // les colonnes reconstituées, et les tableaux d'horaire y restent lisibles.
-    const p = execFile('pdftotext', ['-enc', 'UTF-8', '-', '-'],
+    //
+    // -layout est INDISPENSABLE. Sans lui, pdftotext restitue le tableau de
+    // l'horaire minimum colonne par colonne : les intitulés des cours d'abord,
+    // puis tous les classements, puis tous les codes U, puis tous les nombres.
+    // Aucune ligne ne portait donc un cours complet, et « Total des périodes »
+    // se voyait attribuer le premier nombre venu — 32 au lieu de 100.
+    const p = execFile('pdftotext', ['-layout', '-enc', 'UTF-8', '-', '-'],
       { maxBuffer: 20 * 1024 * 1024, encoding: 'utf8' },
       (err, stdout) => {
         if (err) {
@@ -210,6 +214,7 @@ const ENTETE_MINISTERE =
 function nettoyer(texte) {
   return String(texte)
     .replace(/\u0002/g, '-')      // la césure ressort en caractère de contrôle
+    .replace(/\f/g, '\n')        // le saut de page collerait au titre suivant
     .replace(/\r/g, '')
     .split('\n')
     .map(l => l.replace(/\s+$/, ''))
@@ -356,7 +361,10 @@ function parseDPTexte(brut) {
       continue;
     }
     const t = l.trim();
-    if (!t || /Classement|Code U|Nombre de p|par groupe d.[ée]tudiants|D[ée]nomination|autonomie|Total des|Etudiant\s*:/i.test(t)) {
+    // L'en-tête du tableau se répartit sur trois lignes et laisse traîner des
+    // fragments (« des cours », « périodes ») qui se collaient à l'intitulé
+    // du premier cours.
+    if (!t || /Classement|Code U|Nombre de|^des cours\b|^p[ée]riodes\b|par groupe d.[ée]tudiants|D[ée]nomination|autonomie|Total des|Etudiant\s*:/i.test(t)) {
       attente = []; continue;
     }
     attente.push(t);
