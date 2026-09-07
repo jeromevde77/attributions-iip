@@ -66,18 +66,24 @@ export default function FeuilleDeliberation({ ueNum, annee, onClose }) {
   const [etape, setEtape] = useState('presences');   // presences | auto | fiche | cloture
   const [documents, setDocuments] = useState(false); // le centre d'impression
   const [auto, setAuto] = useState(null);           // les réussites de plein droit
+  const [choixSession, setChoixSession] = useState(null); // null = celle que déduit le serveur
 
   // LA SESSION DÉLIBÉRÉE. Le serveur la déduit — première tant qu'elle n'est
   // pas décidée pour tout le monde, seconde dès qu'elle laisse des ajournés —
   // et l'écran s'y range. Toute écriture la porte : sans elle, un ajournement
   // de septembre écraserait celui de juin.
-  const session = data?.session || 1;
+  //
+  // Mais la déduction ne doit pas ENFERMER : on revient sur la première
+  // session pour corriger une décision de juin, et il faut pouvoir le faire.
+  // Le choix explicite l'emporte alors sur la déduction.
+  const session = choixSession ?? data?.session ?? 1;
 
   async function charger() {
     setErreur(null);
     try {
       const rep = await fetch(
-        `/api/acquis/deliberation/ue/${ueNum}?annee=${encodeURIComponent(annee)}`,
+        `/api/acquis/deliberation/ue/${ueNum}?annee=${encodeURIComponent(annee)}`
+        + (choixSession ? `&session=${choixSession}` : ''),
         { headers: authHeaders() });
       const j = await rep.json();
       if (!rep.ok) throw new Error(j.error);
@@ -97,7 +103,8 @@ export default function FeuilleDeliberation({ ueNum, annee, onClose }) {
       if (rep.ok) setSeance(j);
     } catch { /* la séance est un cadre, pas un bloquant */ }
   }
-  useEffect(() => { charger(); chargerSeance(); /* eslint-disable-next-line */ }, [ueNum, annee]);
+  useEffect(() => { charger(); chargerSeance(); /* eslint-disable-next-line */ },
+    [ueNum, annee, choixSession]);
 
   /**
    * LES ÉTUDIANTS, DU MEILLEUR AU MOINS BON.
@@ -420,7 +427,28 @@ export default function FeuilleDeliberation({ ueNum, annee, onClose }) {
         </div>
 
         <div className="flex-1 overflow-y-auto p-4 space-y-3">
-          {data?.session === 2 && (
+          {data?.etat_sessions?.seconde_possible && (
+        <div className="mx-5 mt-3 flex items-center gap-2 text-[12px]">
+          <span className="text-slate-500">Session délibérée :</span>
+          <div className="flex rounded-lg border border-slate-300 overflow-hidden">
+            {[1, 2].map(n => (
+              <button key={n} onClick={() => setChoixSession(n)}
+                className={`px-3 py-1 ${session === n
+                  ? 'bg-iip-blue text-white font-semibold' : 'text-slate-600 hover:bg-slate-50'}`}>
+                {n === 1 ? '1re' : '2e'}
+              </button>
+            ))}
+          </div>
+          {session === 1 && (
+            <span className="text-slate-500">
+              Retour sur la première session — la décision de seconde session, si elle existe,
+              reste le résultat final.
+            </span>
+          )}
+        </div>
+      )}
+
+      {data?.session === 2 && (
         <div className="mx-5 mt-3 px-3 py-2 rounded-lg bg-amber-50 border border-amber-200
                         text-[12px] text-amber-900">
           <b>Seconde session.</b> Seuls les étudiants ajournés en première session sont

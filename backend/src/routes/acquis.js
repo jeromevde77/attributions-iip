@@ -757,10 +757,23 @@ r.put('/decision', authRequired,
     `).run(Number(etudiant_id), annee_scolaire, Number(ue_num), ses,
       resultat ?? null, note, mention ?? null, req.user?.email || null);
 
+    // LE RÉSULTAT FINAL EST CELUI DE LA SESSION LA PLUS AVANCÉE.
+    //
+    // On ne recopie donc pas aveuglément ce qu'on vient d'écrire : revenir sur
+    // la première session pour corriger une erreur ne doit pas effacer la
+    // seconde, qui l'emporte. On relit la décision la plus haute et c'est elle
+    // qui va au dossier.
+    const fin = db.prepare(`
+      SELECT resultat, points, mention FROM deliberation_resultat
+      WHERE etudiant_id = ? AND annee_scolaire = ? AND ue_num = ?
+        AND resultat IS NOT NULL AND resultat != ''
+      ORDER BY session DESC LIMIT 1
+    `).get(Number(etudiant_id), annee_scolaire, Number(ue_num)) || {};
+
     db.prepare(`
       UPDATE etudiant_inscription SET resultat = ?, points = ?, mention = ?
       WHERE id = ?
-    `).run(resultat ?? null, note, mention ?? null, insc.id);
+    `).run(fin.resultat ?? null, fin.points ?? null, fin.mention ?? null, insc.id);
   })();
 
   res.json({ ok: true, session: ses });
