@@ -90,7 +90,7 @@ r.post('/', authRequired, roleRequired('admin', 'directeur', 'directeur_adjoint'
   const rapport = { simulation, annee: an, unites: [], total: {
     unites: 0, etudiants: 0, rapproches: 0, inconnus: 0, hors_inscription: 0,
     collisions: 0, notes_s1: 0, notes_s2: 0, decisions: 0, ajournements: 0,
-    ponderations: 0,
+    ponderations: 0, acquis: 0,
   } };
 
   // ── Les écritures ────────────────────────────────────────────────────────
@@ -101,9 +101,22 @@ r.post('/', authRequired, roleRequired('admin', 'directeur', 'directeur_adjoint'
     INSERT INTO aa_ponderation (ue_num, cours_code, aa_code, poids) VALUES (?,?,?,?)
     ON CONFLICT(cours_code, aa_code) DO UPDATE SET poids = excluded.poids,
       ue_num = excluded.ue_num`);
+  // L'ACQUIS EXISTE AVANT D'ÊTRE PONDÉRÉ.
+  //
+  // Le référentiel du classeur porte son numéro et son énoncé — le texte même
+  // de ce que l'étudiant doit savoir faire. Sans lui, Lucie n'a que des codes
+  // nus, et une notification d'ajournement ne peut pas nommer l'acquis non
+  // maîtrisé comme le règlement l'exige. On complète donc sans écraser : un
+  // énoncé déjà présent, venu du dossier pédagogique, reste le bon.
+  const poserAA = db.prepare(`
+    INSERT INTO aa (aa_code, aa_num, ue_num, description) VALUES (?,?,?,?)
+    ON CONFLICT(aa_code) DO UPDATE SET
+      ue_num      = excluded.ue_num,
+      aa_num      = COALESCE(excluded.aa_num, aa.aa_num),
+      description = COALESCE(NULLIF(aa.description, ''), excluded.description)`);
   const creerAA = db.prepare(`
     INSERT INTO aa (aa_code, ue_num, cours_code) VALUES (?,?,?)
-    ON CONFLICT(aa_code) DO NOTHING`);
+    ON CONFLICT(aa_code) DO UPDATE SET ue_num = excluded.ue_num`);
   const poseNote = db.prepare(`
     INSERT INTO etudiant_note_detail
       (etudiant_id, annee_scolaire, ue_num, type, code, cours_code, points)
@@ -138,7 +151,8 @@ r.post('/', authRequired, roleRequired('admin', 'directeur', 'directeur_adjoint'
       const ueNum = Number(u.ue_num);
       const fiche = { ue_num: ueNum, etudiants: 0, rapproches: 0, inconnus: [],
         hors_inscription: [], collisions: [], notes_s1: 0, notes_s2: 0,
-        decisions: 0, ajournements: 0, ponderations: 0, ignoree: null };
+        decisions: 0, ajournements: 0, ponderations: 0, acquis: 0,
+        acquis_hors_referentiel: [], ignoree: null };
 
       const ue = db.prepare(
         'SELECT ue_num, section FROM ue WHERE ue_num = ? AND annee_scolaire = ?')
@@ -156,6 +170,16 @@ r.post('/', authRequired, roleRequired('admin', 'directeur', 'directeur_adjoint'
       // classeur apporte de plus précieux — la structure, pas seulement les
       // chiffres.
       if (importerPonderations) {
+        // Les acquis déclarés au référentiel, d'abord : la pondération qui
+        // suit se pose sur des acquis qui existent et qui s'énoncent.
+        for (const a of (u.acquis || [])) {
+          if (!simulation) poserAA.run(a.aa_code, a.aa_num, ueNum, a.description);
+          fiche.acquis++;
+        }
+        // Ce que la grille pondère sans que le référentiel le connaisse : on
+        // le dit, car c'est presque toujours un acquis oublié dans l'onglet AA.
+        fiche.acquis_hors_referentiel = u.acquis_hors_referentiel || [];
+
         for (const c of (u.cours || [])) {
           if (!simulation) posePoidsCours.run(ueNum, c.cours_code, c.poids_cours / 10);
           fiche.ponderations++;
@@ -168,6 +192,7 @@ r.post('/', authRequired, roleRequired('admin', 'directeur', 'directeur_adjoint'
           fiche.ponderations++;
         }
         rapport.total.ponderations += fiche.ponderations;
+        rapport.total.acquis += fiche.acquis;
       }
 
       const trouver = chercheur(an, ueNum);

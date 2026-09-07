@@ -2253,11 +2253,37 @@ export function delibererUE(etudId, ueNum, annee, session = 1) {
       // un refus, un « note de présence » un ajournement : la règle vient de la
       // circulaire, mais c'est le Conseil qui apprécie la justification — on
       // propose, on n'impose pas.
+      // TOUS LES ACQUIS, OU AUCUNE RÉUSSITE.
+      //
+      // La proposition se lisait sur la moyenne de l'unité : un acquis à 4
+      // se laissait rattraper par les autres et l'écran annonçait « réussi ».
+      // Le règlement ne le permet pas — l'attestation va « à l'étudiant qui
+      // maîtrise TOUS les acquis d'apprentissage » et « si un ou plusieurs
+      // acquis ne sont pas acquis, l'attestation n'est pas délivrée »
+      // (RGE art. 77 §1 et 78 §2 ; décret du 16/04/1991, art. 58).
+      //
+      // Le Conseil garde la main, et c'est bien le sujet : il dispose pour
+      // cela de la FAVEUR, qui porte l'acquis manquant au seuil et laisse au
+      // procès-verbal la trace de ce qui a été accordé. Ce que la moyenne
+      // faisait, elle le faisait en silence — le Conseil compensait sans
+      // savoir qu'il compensait.
+      // L'ÉCHEC N'A PAS LE MÊME NOM SELON LA SESSION. En première, un acquis
+      // non maîtrisé s'ajourne — l'étudiant le représente (RGE art. 79 §1).
+      // En seconde, il n'y a plus rien à représenter : « l'étudiant qui échoue
+      // en seconde session est refusé » (art. 69 §2).
       decision_proposee: ajourne ? 'ajourne'
         : cours.some(c => c.mention === 'PP') ? 'refuse'
-        : cours.some(c => c.mention === 'NP') ? 'ajourne'
+        : cours.some(c => c.mention === 'NP') ? (session >= 2 ? 'refuse' : 'ajourne')
         : noteUE == null ? null
-        : noteUE >= SEUIL_UE ? 'reussi' : 'refuse',
+        : (acquis.some(a => !a.na && a.note != null && a.note < SEUIL_UE)
+           || cours.some(c => !c.na && c.note != null && c.note < SEUIL_UE)
+           || noteUE < SEUIL_UE) ? (session >= 2 ? 'refuse' : 'ajourne')
+        : 'reussi',
+      // Ce qui empêche la réussite, nommé : c'est de cela que la motivation
+      // doit rendre compte, et c'est ce que la faveur lèverait.
+      acquis_en_defaut: acquis
+        .filter(a => !a.na && !a.faveur && a.note != null && a.note < SEUIL_UE)
+        .map(a => a.aa_code),
       // Les épreuves non présentées, pour que le Conseil les voie.
       mentions: cours.filter(c => c.mention)
         .map(c => ({ cours_code: c.cours_code, mention: c.mention })),

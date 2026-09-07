@@ -155,9 +155,15 @@ export default function ImportSuivi({ annee, onClose, onFini }) {
                         UE {u.ue_num}
                       </span>
                       <span className="flex-1 text-[11.5px] text-slate-500 tabular-nums">
-                        {u.resume.cours} cours · {u.resume.couples_s1} acquis pondérés ·{' '}
+                        {u.resume.cours} cours · {u.resume.acquis_declares} acquis ·{' '}
                         {u.resume.etudiants} étudiants ·{' '}
                         {u.resume.decides_s1} décidés en S1, {u.resume.decides_s2} en S2
+                        {!!u.acquis_hors_referentiel?.length && (
+                          <span className="text-amber-700">
+                            {' '}· {u.acquis_hors_referentiel.join(', ')} pondéré(s) mais absent(s)
+                            de l'onglet AA
+                          </span>
+                        )}
                       </span>
                     </label>
                   ))}
@@ -199,7 +205,7 @@ export default function ImportSuivi({ annee, onClose, onFini }) {
                   ['notes 2e session', rapport.total.notes_s2],
                   ['décisions', rapport.total.decisions],
                   ['cours à représenter', rapport.total.ajournements],
-                  ['pondérations', rapport.total.ponderations],
+                  ['acquis', rapport.total.acquis],
                   ['non rapprochés', rapport.total.inconnus + rapport.total.hors_inscription
                     + rapport.total.collisions]].map(([l, n]) => (
                   <div key={l} className="bg-white/70 rounded-lg px-2 py-1.5">

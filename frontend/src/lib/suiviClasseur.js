@@ -212,9 +212,63 @@ export function lireFeuilleUE(nomFeuille, cell) {
   };
 }
 
-/** Toutes les feuilles d'unité d'un classeur. `feuilles` : [{ nom, cell }]. */
+/**
+ * LE RÉFÉRENTIEL DES ACQUIS — la feuille « AA ».
+ *
+ * C'est elle qui dit quels acquis EXISTENT, et ce qu'ils énoncent. Un acquis
+ * sans poids dans la grille d'une unité n'existe pas : les quinze colonnes du
+ * gabarit sont un cadre, pas une liste. Sans cette feuille, Lucie reçoit des
+ * codes nus — AA251.1 — sans le texte qui dit ce que l'étudiant doit savoir
+ * faire, et une notification d'ajournement ne peut plus nommer ce qui n'est pas
+ * maîtrisé, alors que le règlement l'exige (RGE art. 78 §2).
+ *
+ *   A  numéro de l'acquis dans son unité
+ *   B  l'unité
+ *   C  le code de l'acquis
+ *   D  le cours attribué (rarement rempli — la pondération fait foi)
+ *   E  l'énoncé de l'acquis
+ *
+ * L'en-tête de la colonne E annonce « Pondération dans le cours » ; elle
+ * contient en réalité l'énoncé. On lit le contenu, pas l'en-tête.
+ */
+export function lireReferentielAA(cell, maxLignes = 600) {
+  const acquis = [];
+  let vides = 0;
+  for (let r = 2; r <= maxLignes; r++) {
+    const code = txt(cell('C', r));
+    if (!code) { if (++vides > 20) break; continue; }
+    vides = 0;
+    acquis.push({
+      aa_num: nombre(cell('A', r)),
+      ue_num: nombre(cell('B', r)),
+      aa_code: code,
+      description: txt(cell('E', r)) || null,
+    });
+  }
+  return acquis;
+}
+
+/**
+ * Toutes les feuilles d'unité d'un classeur, enrichies du référentiel.
+ * `feuilles` : [{ nom, cell }].
+ */
 export function lireClasseur(feuilles) {
+  const refFeuille = feuilles.find(f => String(f.nom).trim().toUpperCase() === 'AA');
+  const referentiel = refFeuille ? lireReferentielAA(refFeuille.cell) : [];
+
   return feuilles
     .filter(f => GEOMETRIE.estFeuilleUE(f.nom))
-    .map(f => lireFeuilleUE(f.nom, f.cell));
+    .map(f => {
+      const u = lireFeuilleUE(f.nom, f.cell);
+      // Les acquis déclarés pour CETTE unité, avec leur énoncé.
+      u.acquis = referentiel.filter(a => a.ue_num === u.ue_num);
+      // Ce que la grille pondère sans que le référentiel le connaisse : à
+      // signaler plutôt qu'à inventer.
+      const declares = new Set(u.acquis.map(a => a.aa_code));
+      u.acquis_hors_referentiel = [
+        ...new Set(u.ponderations.map(p => p.aa_code).filter(c => !declares.has(c))),
+      ];
+      u.resume.acquis_declares = u.acquis.length;
+      return u;
+    });
 }
