@@ -6,6 +6,7 @@ import { estDirection } from '../lib/modules.js';
 import FeuilleDeliberation from '../components/FeuilleDeliberation.jsx';
 import EncodageCours from '../components/EncodageCours.jsx';
 import EncodageUE from '../components/EncodageUE.jsx';
+import ImportNotesUE from '../components/ImportNotesUE.jsx';
 import SchemaLiensAA from '../components/SchemaLiensAA.jsx';
 import EncodageRapide from './EncodageRapide.jsx';
 import CentreDocumentsUE from '../components/CentreDocumentsUE.jsx';
@@ -40,6 +41,7 @@ export default function Deliberation() {
   // toutes les grilles. Un professeur n'y a pas accès — sa feuille est celle
   // de son cours.
   const [encoderUE, setEncoderUE] = useState(null); // ue_num en saisie complète
+  const [importer, setImporter] = useState(null);   // ue_num en import de notes
   // La grille de toute l'unité montre les acquis de tous les collègues : elle
   // n'a de sens que pour qui les encode déjà tous. Le serveur applique la même
   // règle — le bouton caché ne serait pas une protection.
@@ -228,6 +230,14 @@ export default function Deliberation() {
                       Encoder par cours
                     </button>
                     {peutToutEncoder && (
+                      <button onClick={() => setImporter(u.ue_num)}
+                        title="Reprendre les notes depuis un classeur de suivi"
+                        className="px-2 py-1 text-[11.5px] rounded-lg border border-slate-300
+                                   text-slate-600 flex-none">
+                        Importer
+                      </button>
+                    )}
+                    {peutToutEncoder && (
                       <button onClick={() => setEncoderUE(u.ue_num)}
                         title="Tous les cours de l'unité dans une seule grille"
                         className="px-2 py-1 text-[11.5px] rounded-lg border border-slate-300
@@ -308,6 +318,11 @@ export default function Deliberation() {
       {ueNum && (
         <FeuilleDeliberation ueNum={ueNum} annee={annee}
           onClose={() => { setUeNum(null); charger(); }} />
+      )}
+
+      {importer != null && (
+        <ImportNotesUE ueNum={importer} annee={annee}
+          onClose={() => { setImporter(null); charger(); }} />
       )}
 
       {encoderUE != null && (
