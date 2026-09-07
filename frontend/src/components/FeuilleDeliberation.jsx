@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import {
   IconX, IconSearch, IconAlertTriangle, IconChevronLeft, IconChevronRight,
   IconArrowUp, IconRepeat, IconList, IconFileText, IconMessage, IconBrush,
-  IconRotate,
+  IconRotate, IconBan,
 } from '@tabler/icons-react';
 import { authHeaders } from '../lib/api.js';
 import TableauBordEtudiant from './TableauBordEtudiant.jsx';
@@ -66,12 +66,24 @@ export default function FeuilleDeliberation({ ueNum, annee, onClose }) {
   const [etape, setEtape] = useState('presences');   // presences | auto | fiche | cloture
   const [documents, setDocuments] = useState(false); // le centre d'impression
   const [auto, setAuto] = useState(null);           // les réussites de plein droit
+  const [choixSession, setChoixSession] = useState(null); // null = celle que déduit le serveur
+
+  // LA SESSION DÉLIBÉRÉE. Le serveur la déduit — première tant qu'elle n'est
+  // pas décidée pour tout le monde, seconde dès qu'elle laisse des ajournés —
+  // et l'écran s'y range. Toute écriture la porte : sans elle, un ajournement
+  // de septembre écraserait celui de juin.
+  //
+  // Mais la déduction ne doit pas ENFERMER : on revient sur la première
+  // session pour corriger une décision de juin, et il faut pouvoir le faire.
+  // Le choix explicite l'emporte alors sur la déduction.
+  const session = choixSession ?? data?.session ?? 1;
 
   async function charger() {
     setErreur(null);
     try {
       const rep = await fetch(
-        `/api/acquis/deliberation/ue/${ueNum}?annee=${encodeURIComponent(annee)}`,
+        `/api/acquis/deliberation/ue/${ueNum}?annee=${encodeURIComponent(annee)}`
+        + (choixSession ? `&session=${choixSession}` : ''),
         { headers: authHeaders() });
       const j = await rep.json();
       if (!rep.ok) throw new Error(j.error);
@@ -91,7 +103,8 @@ export default function FeuilleDeliberation({ ueNum, annee, onClose }) {
       if (rep.ok) setSeance(j);
     } catch { /* la séance est un cadre, pas un bloquant */ }
   }
-  useEffect(() => { charger(); chargerSeance(); /* eslint-disable-next-line */ }, [ueNum, annee]);
+  useEffect(() => { charger(); chargerSeance(); /* eslint-disable-next-line */ },
+    [ueNum, annee, choixSession]);
 
   /**
    * LES ÉTUDIANTS, DU MEILLEUR AU MOINS BON.
@@ -159,6 +172,32 @@ export default function FeuilleDeliberation({ ueNum, annee, onClose }) {
     ? aJustifier(etud.acquis, etud.cours, decisionRetenue).filter(a => !a.motif)
     : [];
 
+  /**
+   * Poser ou retirer le MÊME ajustement sur plusieurs codes d'un coup.
+   *
+   * Une unité ratée l'est rarement à moitié : quand le Conseil ajourne, il
+   * ajourne souvent tout. Le faire tuile par tuile sur six cours, c'est six
+   * allers-retours pendant lesquels la fiche se reconstruit à mesure.
+   */
+  async function ajusterLot(portee, codes, action) {
+    if (!etud || !codes.length) return;
+    setEnCours(true); setErreur(null);
+    try {
+      const rep = await fetch('/api/acquis/deliberation/ajustement/lot', {
+        method: 'PUT', headers: authHeaders(),
+        body: JSON.stringify({
+          etudiant_id: etud.id, annee_scolaire: annee, ue_num: ueNum, session,
+          portee, codes, action,
+        }),
+      });
+      const j = await rep.json();
+      if (!rep.ok) { setErreur(j.error); return; }
+      setData(d => ({ ...d,
+        etudiants: d.etudiants.map(x => x.id === etud.id ? { ...x, ...j } : x) }));
+    } catch (e) { setErreur(e.message); }
+    finally { setEnCours(false); }
+  }
+
   /** Poser ou retirer un ajustement. Le serveur renvoie l'étudiant recalculé. */
   async function ajuster(portee, code, action) {
     if (!etud) return;
@@ -167,7 +206,7 @@ export default function FeuilleDeliberation({ ueNum, annee, onClose }) {
       const rep = await fetch('/api/acquis/deliberation/ajustement', {
         method: 'PUT', headers: authHeaders(),
         body: JSON.stringify({
-          etudiant_id: etud.id, annee_scolaire: annee, ue_num: ueNum,
+          etudiant_id: etud.id, annee_scolaire: annee, ue_num: ueNum, session,
           portee, code, action,
         }),
       });
@@ -237,7 +276,7 @@ export default function FeuilleDeliberation({ ueNum, annee, onClose }) {
         const rep = await fetch('/api/acquis/decision', {
           method: 'PUT', headers: authHeaders(),
           body: JSON.stringify({
-            etudiant_id: etud.id, annee_scolaire: annee, ue_num: ueNum,
+            etudiant_id: etud.id, annee_scolaire: annee, ue_num: ueNum, session,
             resultat: decision, points: ue.note,
           }),
         });
@@ -388,7 +427,38 @@ export default function FeuilleDeliberation({ ueNum, annee, onClose }) {
         </div>
 
         <div className="flex-1 overflow-y-auto p-4 space-y-3">
-          {erreur && (
+          {data?.etat_sessions?.seconde_possible && (
+        <div className="mx-5 mt-3 flex items-center gap-2 text-[12px]">
+          <span className="text-slate-500">Session délibérée :</span>
+          <div className="flex rounded-lg border border-slate-300 overflow-hidden">
+            {[1, 2].map(n => (
+              <button key={n} onClick={() => setChoixSession(n)}
+                className={`px-3 py-1 ${session === n
+                  ? 'bg-iip-blue text-white font-semibold' : 'text-slate-600 hover:bg-slate-50'}`}>
+                {n === 1 ? '1re' : '2e'}
+              </button>
+            ))}
+          </div>
+          {session === 1 && (
+            <span className="text-slate-500">
+              Retour sur la première session — la décision de seconde session, si elle existe,
+              reste le résultat final.
+            </span>
+          )}
+        </div>
+      )}
+
+      {data?.session === 2 && (
+        <div className="mx-5 mt-3 px-3 py-2 rounded-lg bg-amber-50 border border-amber-200
+                        text-[12px] text-amber-900">
+          <b>Seconde session.</b> Seuls les étudiants ajournés en première session sont
+          présentés. Les cours qui n'étaient pas à représenter gardent leur note de
+          première session ; les autres attendent celle de septembre. La décision prise
+          ici s'ajoute à celle de juin, qu'elle ne remplace pas — mais c'est elle qui
+          devient le résultat final.
+        </div>
+      )}
+      {erreur && (
             <div className="px-3 py-2 rounded-lg bg-red-50 border border-red-200
                             text-[12.5px] text-red-800 flex items-center gap-2">
               <IconAlertTriangle size={14} /> {erreur}
@@ -472,7 +542,8 @@ export default function FeuilleDeliberation({ ueNum, annee, onClose }) {
                 </div>
               </div>
 
-              <Fiche e={etud} data={data} onAjuster={ajuster} onMotif={poserMotif}
+              <Fiche e={etud} data={data} onAjuster={ajuster} onLot={ajusterLot}
+                onMotif={poserMotif}
                 enCours={enCours} onBord={() => setBord(etud)}
                 decision={decisions[etud.id] || etud.ue?.decision_proposee || null}
                 onDecision={d => setDecisions(m => ({ ...m, [etud.id]: d }))}
@@ -805,7 +876,8 @@ function Cloture({ seance, onClore, onRetour, onPV, enCours, nb, ajournes, cours
  *     c'est de lui qu'il faut rendre compte, et c'est lui que reprend l'annexe.
  */
 
-function Fiche({ e, data, onAjuster, onMotif, enCours, onBord, decision, onDecision, onAnnuler }) {
+function Fiche({ e, data, onAjuster, onLot, onMotif, enCours, onBord,
+  decision, onDecision, onAnnuler }) {
   const ue = e.ue || {};
   const acquis = e.acquis || [];
   const cours = e.cours || [];
@@ -921,6 +993,11 @@ function Fiche({ e, data, onAjuster, onMotif, enCours, onBord, decision, onDecis
           </tbody>
         </table>
       </div>
+
+      {/* AJOURNER OU REFUSER TOUT — le geste le plus fréquent du Conseil.
+          Une unité ratée l'est rarement à moitié. */}
+      <DecisionGenerale cours={cours} enCours={enCours} onLot={onLot}
+        onDecision={onDecision} decision={decision} />
 
       {/* CE QU'IL FAUT JUSTIFIER, sous la matrice et en permanence. Le bouton
           de justification vivait sur la tuile de l'acquis : ajourner le faisait
@@ -1405,6 +1482,62 @@ const DECISIONS = [
  * qu'à s'y ranger. Le Conseil délibère, il ne ratifie pas ; les quatre
  * décisions sont donc offertes, celle du calcul portée d'avance.
  */
+/**
+ * L'AJOURNEMENT — OU LE REFUS — DE TOUTE L'UNITÉ, D'UN GESTE.
+ *
+ * Quand le Conseil ajourne, il ajourne le plus souvent tous les cours ; quand
+ * il refuse, ils tombent tous. Cliquer six tuiles pour chaque étudiant, c'est
+ * long et c'est là qu'on en oublie une.
+ *
+ * Les deux boutons basculent : tout est déjà ajourné, un second clic relève.
+ * Le refus ajourne les cours ET pose la décision, parce que ces deux gestes
+ * n'ont pas de sens séparés — mais la décision reste modifiable en dessous, le
+ * Conseil n'étant lié par aucun bouton.
+ */
+function DecisionGenerale({ cours, enCours, onLot, onDecision, decision }) {
+  // En seconde session, on n'ajourne que ce qui était à représenter : le reste
+  // est acquis depuis juin et n'a pas à retomber.
+  const enJeu = cours.some(c => c.represente != null)
+    ? cours.filter(c => c.represente) : cours;
+  const codes = enJeu.map(c => c.cours_code);
+  if (codes.length < 2) return null;
+  // C'est l'AJOURNEMENT POSÉ qui compte, non l'échec : un cours sous dix est
+  // déjà « non acquis » sans que le Conseil ait rien décidé, et le bouton
+  // aurait annoncé « relever » avant qu'on ait ajourné quoi que ce soit.
+  const tousAjournes = enJeu.length > 0 && enJeu.every(c => c.ajourne_directement);
+
+  return (
+    <div className="flex items-center gap-2 flex-wrap text-[11.5px]">
+      <span className="text-slate-500">Sur l'ensemble des cours :</span>
+      <button disabled={enCours} onClick={() => onLot('cours', codes, tousAjournes ? null : 'ajourne')}
+        title={tousAjournes
+          ? "Relever l'ajournement de tous les cours"
+          : "Ajourner les cours de l'unité en une fois"}
+        className={`px-2.5 py-1 rounded-lg border font-semibold flex items-center gap-1.5
+          ${tousAjournes
+    ? 'bg-amber-100 border-amber-300 text-amber-900'
+    : 'bg-white border-amber-300 text-amber-800 hover:bg-amber-50'}`}>
+        <IconAlertTriangle size={13} />
+        {tousAjournes ? 'Relever l’ajournement général' : 'Ajournement général'}
+      </button>
+      <button disabled={enCours}
+        onClick={() => { onLot('cours', codes, 'ajourne'); onDecision('refuse'); }}
+        title="Tous les cours tombent et l'unité est refusée — sans seconde session"
+        className={`px-2.5 py-1 rounded-lg border font-semibold flex items-center gap-1.5
+          ${decision === 'refuse'
+    ? 'bg-red-100 border-red-300 text-red-800'
+    : 'bg-white border-red-300 text-red-700 hover:bg-red-50'}`}>
+        <IconBan size={13} /> Refus général
+      </button>
+      {tousAjournes && (
+        <span className="text-amber-800">
+          Tous les cours sont à représenter — chaque acquis en cause demande sa justification.
+        </span>
+      )}
+    </div>
+  );
+}
+
 function Decision({ e, ue, onBord, acquis, cours, decision, onDecision, enCours, onAnnuler }) {
   const detail = ue.a_representer_detail || [];
   // Ce qui reste à justifier se lit sur les acquis affichés, non sur la liste

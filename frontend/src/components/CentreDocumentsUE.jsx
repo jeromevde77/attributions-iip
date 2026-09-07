@@ -16,7 +16,8 @@ import { authHeaders } from '../lib/api.js';
  */
 export default function CentreDocumentsUE({ ueNum, ueNom, annee, onClose }) {
   const [etat, setEtat] = useState(null);      // le comptage
-  const [choix, setChoix] = useState({ pv: true, reussite: true, ajournement: true, refus: true });
+  const [choix, setChoix] = useState({ pv: true, reussite: true, ajournement: true,
+    refus: true, listes: false });
   const [erreur, setErreur] = useState(null);
   const [enCours, setEnCours] = useState(false);
 
@@ -75,6 +76,13 @@ export default function CentreDocumentsUE({ ueNum, ueNom, annee, onClose }) {
       aide: 'Annexe 9 — base légale et voies de recours',
       nb: etat.refus.length, noms: etat.refus,
       ton: 'border-red-300 bg-red-50' },
+    // Une liste par cours, même sans ajourné : une liste absente laisse croire
+    // qu'on l'a oubliée, une liste « Néant » dit que le cours n'a personne à
+    // revoir — et c'est une information pour le professeur.
+    { cle: 'listes', libelle: 'Listes des ajournés par cours',
+      aide: 'Une par cours, pour les professeurs — « Néant » si personne',
+      nb: etat.nb_cours || 0, noms: null,
+      ton: 'border-slate-400 bg-slate-50' },
   ] : [];
 
   const total = pieces.filter(p => choix[p.cle] && p.nb).reduce((n, p) => n + p.nb, 0);

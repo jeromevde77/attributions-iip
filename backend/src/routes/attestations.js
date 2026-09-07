@@ -15,7 +15,8 @@
 
 import { Router } from 'express';
 import { LOGO_IIP_JPEG } from '../services/assets/logo_iip_jpeg.js';
-import { piedBalisage, piedStyles, reglesDePage } from '../lib/document.js';
+import { piedBalisage, piedStyles, reglesDePage,
+  BANDE_PIED_MM, MARGE_SOUS_PIED_MM } from '../lib/document.js';
 import db from '../db/index.js';
 import { authRequired, getUserSections } from '../middleware/auth.js';
 import { capacitePdf, rendrePdf } from '../services/pdf.js';
@@ -175,7 +176,9 @@ export function envelopper(corps, titre = 'Attestations de réussite') {
   body { font-family: 'Segoe UI', Arial, Helvetica, sans-serif; font-size: 9pt;
          color: #1B2B4B; margin: 0; line-height: 1.35; }
 
-  .attestation { break-inside: avoid; }
+  /* Surtout PAS de break-inside: avoid ici : un procès-verbal de trois pages
+     ne peut pas tenir d'un bloc, et le navigateur le tronquait au lieu de le
+     paginer. Ce sont les petits blocs qui refusent d'être coupés. */
   .saut { break-after: page; page-break-after: always; height: 0; }
 
   /* Bandeau marine et filet doré, comme les autres documents de la maison. */
@@ -341,22 +344,37 @@ export function envelopper(corps, titre = 'Attestations de réussite') {
 
   ${piedStyles()}
 
-  /* ── LE PIED, COLLÉ EN BAS DE CHAQUE PAGE ──────────────────────────────
-     Il était posé en position fixe avec un décalage NÉGATIF, pour descendre
-     dans la marge basse. Chromium le rendait alors en haut de la page
-     suivante, par-dessus l'en-tête : le logo chevauchait le titre et le bas
-     de page manquait. On procède autrement, sans décalage négatif :
+  /* LA PAGINATION.
+     Le pied vit dans la MARGE BASSE de la feuille, réservée par reglesDePage :
+     il se répète alors sur chaque page imprimée, y compris au milieu d'un
+     procès-verbal qui en occupe trois.
+     La version précédente réduisait cette marge à 8 mm et réservait la place du
+     pied par un padding sur la pièce. Cela tenait tant qu'une pièce tenait sur
+     une page : dès qu'elle débordait, la première page courait jusqu'au bord et
+     le pied, en position fixe, se posait par-dessus le texte. */
 
-       — la marge basse de la feuille se réduit à ce qui doit rester sous le
-         pied ;
-       — le pied s'ancre à « bottom: 0 », donc au bas de la zone de contenu,
-         qui est désormais le bas utile de la feuille ;
-       — chaque pièce réserve elle-même la hauteur du pied. La réserve est
-         dans la PIÈCE et non dans le corps : posée sur le corps, elle
-         ajoutait une page blanche en fin de document. */
-  @page { margin-bottom: 8mm; }
-  .pied-lucie { bottom: 0; }
-  .attestation { padding-bottom: 17mm; }
+  /* Chaque pièce commence sur une nouvelle feuille. La précédente s'arrête où
+     elle veut : une attestation courte ne pousse plus la suivante contre elle,
+     et un procès-verbal long se pagine au lieu d'être coupé. */
+  .attestation + .attestation { break-before: page; page-break-before: always; }
+
+  /* LE PIED : EN FLUX, À LA FIN DU DOCUMENT.
+     Trois réglages ont été essayés avant celui-ci ; autant les consigner pour
+     ne pas y revenir.
+       — « position: fixed ; bottom: 0 » se répète bien sur chaque page, mais
+         le pied s'y pose AU BAS DE LA ZONE DE CONTENU. Étant hors flux, le
+         tableau lui passe dessous et s'y fait recouvrir : c'est ce qui coupait
+         les dernières lignes du procès-verbal de l'UE 71.
+       — un « bottom » NÉGATIF le descend dans la marge, où rien ne le
+         recouvre — mais le navigateur le remonte en HAUT des pages suivantes.
+       — une translation vers le bas depuis « bottom: 0 » fait de même.
+     Aucune marge de page ne peut empêcher le contenu d'atteindre l'endroit où
+     un élément fixe s'ancre, puisque les deux visent le même bord.
+     Le pied revient donc DANS LE FLUX, en fin de document : il ne recouvre
+     plus rien, et aucune ligne n'est perdue. Un pied répété sur chaque page
+     demanderait de produire le PDF côté serveur, où l'on dispose d'un vrai
+     gabarit de pied de page. */
+  .pied-lucie { position: static; margin-top: 12mm; break-inside: avoid; }
 
   @media screen {
     html { background: #e5e5e5; }

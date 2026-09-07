@@ -219,10 +219,19 @@ export default function Deliberation() {
                     </span>
                     {/* Deux gestes distincts, nommés : délibérer l'unité, ou
                         encoder l'un de ses cours. */}
+                    {/* Le bouton dit LA session qui reste à faire. Tant que la
+                        première n'est pas décidée pour tout le monde, c'est
+                        elle ; dès qu'elle l'est et qu'elle laisse des ajournés,
+                        la seconde s'ouvre d'elle-même. */}
                     <button onClick={() => setUeNum(u.ue_num)}
-                      className="px-2 py-1 text-[11.5px] rounded-lg border border-iip-blue
-                                 text-iip-blue font-semibold flex-none">
-                      Délibérer
+                      title={u.session === 2
+                        ? `Seconde session — ${u.s1_ajournes} ajourné(s) en première`
+                        : 'Première session'}
+                      className={`px-2 py-1 text-[11.5px] rounded-lg border font-semibold flex-none
+                        ${u.session === 2
+    ? 'border-amber-500 text-amber-800 bg-amber-50'
+    : 'border-iip-blue text-iip-blue'}`}>
+                      Délibérer {u.session === 2 ? 'S2' : 'S1'}
                     </button>
                     <button onClick={() => ouvrirCours(u.ue_num)}
                       className="px-2 py-1 text-[11.5px] rounded-lg border border-slate-300

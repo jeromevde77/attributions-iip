@@ -1,0 +1,241 @@
+// ─────────────────────────────────────────────────────────────────────────────
+// Lucie — La liste des étudiants diplômés
+//
+// Le document que la Fédération réclame en fin de cycle : nom, prénom et
+// initiales des autres prénoms, lieu et date de naissance, genre. Il se tapait
+// à la main dans un Word recopié d'année en année, en relisant les dossiers un
+// par un pour savoir qui avait terminé.
+//
+// Lucie sait déjà qui a réussi quoi. Elle PROPOSE donc les diplômables — ceux
+// dont toutes les unités de la section sont acquises — et c'est la direction
+// qui arrête la liste. La proposition n'engage rien : une valorisation, une
+// dispense ou une unité d'un autre millésime peuvent échapper au calcul, et
+// c'est le Conseil qui délivre le titre, pas une requête.
+// ─────────────────────────────────────────────────────────────────────────────
+
+import { Router } from 'express';
+import db from '../db/index.js';
+import { authRequired, roleRequired, getUserSections } from '../middleware/auth.js';
+import { anneeDeTravail } from '../helpers/annee.js';
+import { envelopper } from './attestations.js';
+import { identiteEtablissement } from './config.js';
+
+const r = Router();
+
+const esc = s => String(s ?? '').replace(/[&<>"]/g,
+  c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+
+const MOIS = ['janvier', 'février', 'mars', 'avril', 'mai', 'juin',
+  'juillet', 'août', 'septembre', 'octobre', 'novembre', 'décembre'];
+
+// « le 1 janvier 2002 » — la forme du document officiel, en toutes lettres.
+function enToutesLettres(iso) {
+  const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(String(iso || ''));
+  if (!m) return String(iso || '');
+  return `le ${Number(m[3])} ${MOIS[Number(m[2]) - 1]} ${m[1]}`;
+}
+
+// Le genre attendu par la Fédération : H, F ou X. Lucie ne tient qu'une
+// civilité ; on la traduit, et l'on n'invente rien quand elle manque.
+function genre(titre) {
+  const t = String(titre || '').trim().toLowerCase();
+  if (/^(m|mr|monsieur)\.?$/.test(t)) return 'H';
+  if (/^(mme|mlle|madame|mademoiselle)\.?$/.test(t)) return 'F';
+  return '';
+}
+
+/**
+ * LES UNITÉS QUE LA SECTION EXIGE.
+ *
+ * Le rattachement explicite (ue_section) fait foi quand il existe : une unité
+ * peut servir plusieurs sections. À défaut, la colonne section de l'unité.
+ */
+function unitesDeLaSection(sectionCode) {
+  const parRattachement = db.prepare(`
+    SELECT DISTINCT ue_num FROM ue_section WHERE section_code = ?
+  `).all(sectionCode).map(x => x.ue_num);
+  if (parRattachement.length) return parRattachement;
+  return db.prepare('SELECT DISTINCT ue_num FROM ue WHERE section = ?')
+    .all(sectionCode).map(x => x.ue_num);
+}
+
+/**
+ * LES CANDIDATS AU DIPLÔME.
+ *
+ * On regarde TOUT le parcours, non la seule année en cours : un cycle
+ * s'étale sur plusieurs millésimes, et l'étudiant qui a fini cette année a
+ * réussi le gros de ses unités les années précédentes.
+ */
+r.get('/candidats', authRequired, (req, res) => {
+  const annee = req.query.annee || anneeDeTravail(req);
+  const section = req.query.section;
+  if (!section) return res.status(400).json({ error: 'section requise' });
+
+  const perim = getUserSections(req.user);
+  if (perim && !perim.includes(section)) {
+    return res.status(403).json({ error: 'section hors de votre périmètre' });
+  }
+
+  const sec = db.prepare('SELECT code, libelle, niveau, code_fwb, domaine FROM section WHERE code = ?')
+    .get(section) || { code: section };
+  const requises = unitesDeLaSection(section);
+  if (!requises.length) {
+    return res.json({ annee, section: sec, requises: [], candidats: [],
+      avertissement: "Aucune unité n'est rattachée à cette section." });
+  }
+  const marques = requises.map(() => '?').join(',');
+
+  // Tout étudiant ayant touché à une unité de la section, où qu'il en soit.
+  const etudiants = db.prepare(`
+    SELECT DISTINCT e.id, e.nom, e.prenom, e.titre, e.date_naissance,
+           e.lieu_naissance, e.id_ecampus
+    FROM etudiant_inscription i JOIN etudiant e ON e.id = i.etudiant_id
+    WHERE i.ue_num IN (${marques})
+    ORDER BY e.nom, e.prenom
+  `).all(...requises);
+
+  const ects = Object.fromEntries(db.prepare(
+    `SELECT ue_num, MAX(ects) AS n FROM ue WHERE ue_num IN (${marques}) GROUP BY ue_num`)
+    .all(...requises).map(x => [x.ue_num, Number(x.n) || 0]));
+
+  const reussiesDe = db.prepare(`
+    SELECT DISTINCT ue_num, MAX(annee_scolaire) AS derniere
+    FROM etudiant_inscription
+    WHERE etudiant_id = ? AND resultat = 'reussi' AND ue_num IN (${marques})
+    GROUP BY ue_num
+  `);
+
+  const candidats = etudiants.map(e => {
+    const reussies = reussiesDe.all(e.id, ...requises);
+    const codes = reussies.map(x => x.ue_num);
+    const manquantes = requises.filter(u => !codes.includes(u));
+    // L'année de fin : le millésime de la dernière unité acquise.
+    const fin = reussies.map(x => x.derniere).sort().pop() || null;
+    return {
+      ...e,
+      genre: genre(e.titre),
+      reussies: codes.length,
+      total: requises.length,
+      manquantes,
+      ects: codes.reduce((n, u) => n + (ects[u] || 0), 0),
+      complet: manquantes.length === 0,
+      annee_fin: fin,
+      // Ce qui empêcherait le document d'être juste, dit avant de l'imprimer.
+      manques: [
+        !e.date_naissance && 'date de naissance',
+        !e.lieu_naissance && 'lieu de naissance',
+        !genre(e.titre) && 'genre',
+      ].filter(Boolean),
+    };
+  }).filter(c => c.reussies > 0);
+
+  res.json({
+    annee, section: sec, requises,
+    ects_total: requises.reduce((n, u) => n + (ects[u] || 0), 0),
+    candidats,
+    // Ceux que Lucie propose : le reste se coche à la main.
+    proposes: candidats.filter(c => c.complet && c.annee_fin === annee).map(c => c.id),
+  });
+});
+
+/**
+ * LE DOCUMENT.
+ *
+ * La liste porte les étudiants qu'on lui donne, dans l'ordre alphabétique, et
+ * rien d'autre : c'est la direction qui a arrêté qui figure dessus.
+ */
+r.post('/document', authRequired,
+       roleRequired('admin', 'directeur', 'directeur_adjoint', 'editeur'), (req, res) => {
+  const { section, annee, etudiants: ids, lieu, date } = req.body || {};
+  if (!section) return res.status(400).json({ error: 'section requise' });
+  if (!Array.isArray(ids) || !ids.length) {
+    return res.status(400).json({ error: 'aucun étudiant sélectionné' });
+  }
+  const an = annee || anneeDeTravail(req);
+  const ident = identiteEtablissement();
+  const sec = db.prepare('SELECT * FROM section WHERE code = ?').get(section) || {};
+
+  const marques = ids.map(() => '?').join(',');
+  const liste = db.prepare(`
+    SELECT id, nom, prenom, titre, date_naissance, lieu_naissance
+    FROM etudiant WHERE id IN (${marques}) ORDER BY nom, prenom
+  `).all(...ids);
+
+  const lignes = liste.map(e => `<tr>
+    <td>${esc(e.nom)}</td>
+    <td>${esc(e.prenom)}</td>
+    <td>${esc(e.lieu_naissance || '')}</td>
+    <td>${esc(enToutesLettres(e.date_naissance))}</td>
+    <td class="c">${esc(genre(e.titre))}</td>
+  </tr>`).join('');
+
+  // L'année académique s'écrit 2025/2026, comme le veut le formulaire.
+  const academique = String(an).replace('-', '/');
+
+  const corps = `<div class="attestation">
+    <div class="entete">
+      <div class="nom">COMMUNAUTÉ FRANÇAISE DE BELGIQUE</div>
+      <div class="sous">ENSEIGNEMENT POUR ADULTES</div>
+      <div class="sous">ANNÉE ACADÉMIQUE : ${esc(academique)}</div>
+    </div>
+
+    <table class="doc etab-liste">
+      <tr><th>Établissement</th><td>${esc(ident.nom || '')}</td></tr>
+      <tr><th>Adresse</th><td>${esc(ident.adresse || '')}</td></tr>
+      <tr><th>Numéro de matricule</th><td>${esc(ident.matricule || '')}</td></tr>
+      <tr><th>Numéro FASE</th><td>${esc(ident.fase || '')}</td></tr>
+    </table>
+
+    <div class="titre-dip">LISTE DES ÉTUDIANTS DIPLÔMÉS</div>
+
+    <table class="doc etab-liste">
+      <tr><th>Intitulé de la section</th><td>${esc(sec.libelle || section)}</td></tr>
+      <tr><th>Classement de la section suivant la catégorie / le domaine</th>
+          <td>${esc(sec.domaine || sec.niveau || '')}</td></tr>
+      <tr><th>Section approuvée par le Gouvernement sous le numéro de code</th>
+          <td>${esc(sec.code_fwb || '')}</td></tr>
+    </table>
+
+    <table class="doc liste-dip">
+      <tr>
+        <th>Nom</th>
+        <th>Prénom, initiales des autres prénoms</th>
+        <th>Lieu de naissance<br><span class="pt">(indication du pays si hors Belgique)</span></th>
+        <th>Date de naissance</th>
+        <th class="c">Genre<br><span class="pt">(H/F/X)</span></th>
+      </tr>
+      ${lignes}
+    </table>
+
+    <div class="fin-dip">
+      <div>Fait en deux exemplaires à ${esc(lieu || ident.ville || 'Anderlecht')},
+        le ${esc(date || '……………………')}</div>
+      <div class="sign-dip">Le Directeur,<br><b>${esc(ident.directeur || '')}</b></div>
+    </div>
+  </div>
+
+  <style>
+    .titre-dip { text-align:center; font-size:13pt; font-weight:700; color:#1B2B4B;
+                 margin: 6mm 0 4mm; letter-spacing:.02em; }
+    table.doc.etab-liste th { width: 62mm; text-align:left; }
+    table.doc.liste-dip th { font-size: 8pt; }
+    table.doc.liste-dip .pt { font-weight:400; font-size:7pt; }
+    .fin-dip { margin-top: 14mm; display:flex; justify-content:space-between;
+               align-items:flex-start; gap:10mm; font-size:9.5pt; break-inside: avoid; }
+    .sign-dip { text-align:center; }
+  </style>`;
+
+  res.json({
+    html: envelopper(corps, `Liste des diplômés — ${sec.libelle || section}`),
+    nom: `Diplomes_${String(section).replace(/\W/g, '')}_${String(an).replace(/\W/g, '')}.html`,
+    nb: liste.length,
+    manques: liste.filter(e => !e.date_naissance || !e.lieu_naissance || !genre(e.titre))
+      .map(e => `${e.nom} ${e.prenom} : ${[
+        !e.date_naissance && 'date de naissance',
+        !e.lieu_naissance && 'lieu de naissance',
+        !genre(e.titre) && 'genre',
+      ].filter(Boolean).join(', ')}`),
+  });
+});
+
+export default r;
