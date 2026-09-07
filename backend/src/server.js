@@ -39,6 +39,7 @@ import repartitionRoutes, { migrerRepartition } from './routes/repartitionPeriod
 import amenagementsRoutes, { migrerAmenagements } from './routes/amenagements.js';
 import stagesRoutes, { migrerStages } from './routes/stages.js';
 import attestationsRoutes, { migrerAttestations } from './routes/attestations.js';
+import dueRoutes, { migrerDUE } from './routes/due.js';
 import annexe2Routes from './routes/annexe2.js';
 import impressionRoutes from './routes/impression.js';
 import importSurMesureRoutes from './routes/importSurMesure.js';
@@ -2650,6 +2651,7 @@ try { migrerRepartition(db); } catch (e) { console.error('[migration] répartiti
 try { migrerAmenagements(db); } catch (e) { console.error('[migration] aménagements :', e.message); }
 try { migrerStages(db); } catch (e) { console.error('[migration] stages :', e.message); }
 try { migrerAttestations(db); } catch (e) { console.error('[migration] attestations :', e.message); }
+try { migrerDUE(db); } catch (e) { console.error('[migration] due :', e.message); }
 // lucie_config : table de configuration clé/valeur — présente en prod depuis l'origine
 // mais jamais créée par migration (omission). On la garantit ici.
 try {
@@ -2738,6 +2740,7 @@ app.use('/api/capitalisation', capitalisationRoutes);
 app.use('/api/assistants', assistantsRoutes);
 app.use('/api/rentree', rentreeRoutes);
 app.use('/api/acquis', acquisRoutes);
+app.use('/api/due', dueRoutes);
 app.use('/api/droit-inscription', droitInscriptionRoutes);
 app.use('/api/import-historique', importHistoriqueRoutes);
 app.use('/api/budget', budgetRoutes);

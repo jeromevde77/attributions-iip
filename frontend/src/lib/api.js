@@ -133,6 +133,13 @@ export const api = {
   historiqueAttribution(id) { return request(`/historique/attribution/${id}`); },
   rollback(snapshotId) { return request(`/historique/rollback/${snapshotId}`, { method: 'POST' }); },
 
+  // descriptifs d'unité d'enseignement (DUE)
+  dueListe() { return request('/due'); },
+  dueLire(ueNum) { return request(`/due/${ueNum}`); },
+  dueEnregistrer(ueNum, contenu) { return request(`/due/${ueNum}`, { method: 'PUT', body: { contenu } }); },
+  dueValider(ueNum, rouvrir = false) { return request(`/due/${ueNum}/valider`, { method: 'POST', body: { rouvrir } }); },
+  dueDocument(ueNum) { return request(`/due/${ueNum}/document`); },
+
   // années scolaires
   annees() { return request('/annees'); },
   createAnnee(data) { return request('/annees', { method: 'POST', body: data }); },
