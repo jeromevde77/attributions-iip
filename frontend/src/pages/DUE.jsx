@@ -60,7 +60,8 @@ function Bloc({ titre, aide, children }) {
  * chose, le texte du dossier s'ajoute à la suite plutôt que de se substituer
  * au travail de l'enseignant.
  */
-function DuDossier({ texte, valeur, onChange, lecture }) {
+function DuDossier({ texte, valeur, onChange, lecture,
+  libelle = 'le texte du dossier pédagogique' }) {
   const [ouvert, setOuvert] = useState(false);
   if (lecture || !texte) return null;
   const dejaLa = (valeur || '').includes(texte.slice(0, 40));
@@ -71,7 +72,7 @@ function DuDossier({ texte, valeur, onChange, lecture }) {
         <button onClick={() => setOuvert(o => !o)}
           className="text-[11px] text-slate-500 hover:text-iip-blue flex items-center gap-1">
           <IconFileText size={12} />
-          {ouvert ? 'Masquer' : 'Voir'} le texte du dossier pédagogique
+          {ouvert ? 'Masquer' : 'Voir'} {libelle}
         </button>
         <button disabled={dejaLa}
           onClick={() => onChange(valeur ? `${valeur.trim()}\n\n${texte}` : texte)}
@@ -87,6 +88,19 @@ function DuDossier({ texte, valeur, onChange, lecture }) {
         </pre>
       )}
     </div>
+  );
+}
+
+// Dire d'où vient un texte qu'on n'a pas écrit : sans cela, l'enseignant croit
+// avoir déjà rédigé, ou pense qu'un autre l'a fait à sa place.
+function Repris({ actif }) {
+  if (!actif) return null;
+  return (
+    <p className="mt-1.5 text-[11px] text-slate-500 flex items-start gap-1">
+      <IconFileText size={12} className="mt-0.5 flex-none text-iip-gold" />
+      Repris du dossier pédagogique. Adaptez-le à votre unité : tant que vous n'y
+      touchez pas, il suivra les mises à jour du dossier.
+    </p>
   );
 }
 
@@ -271,6 +285,18 @@ function Fiche({ ueNum, onRetour }) {
   }, [ueNum]);
 
   const lecture = !d?.droits?.ecrire;
+
+  // CE QUI N'EST PAS ENCORE RÉDIGÉ EST REPRIS DU DOSSIER PÉDAGOGIQUE.
+  //
+  // Proposer un bouton « reprendre ce texte » revenait à demander seize fois
+  // le même clic pour recopier un texte officiel que Lucie détient déjà. Le
+  // champ arrive donc rempli du dossier, et l'enseignant l'adapte. Rien n'est
+  // enregistré tant qu'il n'a rien touché : le jour où le dossier change, la
+  // DUE suit.
+  const duDP = { finalites: 'finalites', programme: 'programme',
+    degre_maitrise: 'degre_maitrise' };
+  const valeur = cle => c[cle] ?? (duDP[cle] ? d?.dp?.[duDP[cle]] : null) ?? '';
+  const reprisDuDP = cle => c[cle] == null && !!(duDP[cle] && d?.dp?.[duDP[cle]]);
   const maj = (cle, val) => { setC(x => ({ ...x, [cle]: val })); setSale(true); };
   const majSous = (cle, sous, val) => {
     setC(x => ({ ...x, [cle]: { ...(x[cle] || {}), [sous]: val } })); setSale(true);
@@ -313,11 +339,12 @@ function Fiche({ ueNum, onRetour }) {
   const manques = useMemo(() => {
     if (!d) return [];
     const m = [];
-    if (!c.finalites) m.push('finalités particulières');
-    if (!c.programme) m.push('programme');
+    const vide = cle => !(c[cle] || d.dp?.[cle]);
+    if (vide('finalites')) m.push('finalités particulières');
+    if (vide('programme')) m.push('programme');
     if (!Object.values(c.methodes || {}).some(Boolean)) m.push("méthodes d'apprentissage");
     if (!c.criteres) m.push("critères d'évaluation");
-    if (!c.degre_maitrise) m.push('degré de maîtrise');
+    if (vide('degre_maitrise')) m.push('degré de maîtrise');
     const sansEval = (d.cours || []).filter(x =>
       !Object.values(c.evaluation?.[x.cours_code]?.s1 || {}).some(Boolean));
     if (sansEval.length) m.push(`modalités de 1re session (${sansEval.length} cours)`);
@@ -499,17 +526,15 @@ function Fiche({ ueNum, onRetour }) {
       {/* ── Ce que l'enseignant rédige ── */}
       <Bloc titre="Finalités particulières"
         aide="Ce que cette unité vise à faire acquérir, au-delà des finalités générales du décret.">
-        <Zone valeur={c.finalites} lecture={lecture} lignes={4}
+        <Zone valeur={valeur('finalites')} lecture={lecture} lignes={4}
           onChange={v => maj('finalites', v)} />
-        <DuDossier texte={d.dp?.finalites} valeur={c.finalites} lecture={lecture}
-          onChange={v => maj('finalites', v)} />
+        <Repris actif={reprisDuDP('finalites')} />
       </Bloc>
 
       <Bloc titre="Programme" aide="Le contenu, tel qu'il figure au dossier pédagogique.">
-        <Zone valeur={c.programme} lecture={lecture} lignes={6}
+        <Zone valeur={valeur('programme')} lecture={lecture} lignes={6}
           onChange={v => maj('programme', v)} />
-        <DuDossier texte={d.dp?.programme} valeur={c.programme} lecture={lecture}
-          onChange={v => maj('programme', v)} />
+        <Repris actif={reprisDuDP('programme')} />
       </Bloc>
 
       <Bloc titre="Méthodes d'apprentissage">
@@ -622,14 +647,14 @@ function Fiche({ ueNum, onRetour }) {
         <Zone valeur={c.criteres} lecture={lecture} lignes={4}
           onChange={v => maj('criteres', v)} />
         <DuDossier texte={d.dp?.capacites} valeur={c.criteres} lecture={lecture}
-          onChange={v => maj('criteres', v)} />
+          onChange={v => maj('criteres', v)}
+          libelle="les capacités préalables du dossier pédagogique" />
       </Bloc>
 
       <Bloc titre="Degré de maîtrise" aide="Pour chaque acquis, ce qui distingue la maîtrise.">
-        <Zone valeur={c.degre_maitrise} lecture={lecture} lignes={4}
+        <Zone valeur={valeur('degre_maitrise')} lecture={lecture} lignes={4}
           onChange={v => maj('degre_maitrise', v)} />
-        <DuDossier texte={d.dp?.degre_maitrise} valeur={c.degre_maitrise} lecture={lecture}
-          onChange={v => maj('degre_maitrise', v)} />
+        <Repris actif={reprisDuDP('degre_maitrise')} />
       </Bloc>
 
       {!lecture && sale && (

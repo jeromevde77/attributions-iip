@@ -349,6 +349,17 @@ export function documentDUE(ueNum, annee) {
 
   // Le responsable est enregistré par son identifiant : le document doit donc
   // le renommer. Un ancien texte libre est conservé tel quel.
+  // Ce que l'enseignant n'a pas encore rédigé est repris du dossier
+  // pédagogique : c'est le texte officiel, et une DUE qui l'affiche vaut
+  // mieux qu'une DUE vide. Dès qu'il écrit, c'est son texte qui vaut.
+  const dp = auto.dp || {};
+  const rediges = {
+    finalites:      c.finalites      || dp.finalites,
+    programme:      c.programme      || dp.programme,
+    degre_maitrise: c.degre_maitrise || dp.degre_maitrise,
+    criteres:       c.criteres,
+  };
+
   const idResp = c.responsable ?? auto.responsable_propose;
   const resp = auto.enseignants.find(e => String(e.id) === String(idResp));
   const nomResp = resp ? `${resp.prenom} ${resp.nom}`
@@ -432,7 +443,7 @@ export function documentDUE(ueNum, annee) {
       demandes en formation émanant des entreprises, des administrations, de l'enseignement
       et, d'une manière générale, des milieux socio-économiques et culturels.</p>`)}
 
-    ${bloc('Finalités particulières', para(c.finalites))}
+    ${bloc('Finalités particulières', para(rediges.finalites))}
 
     ${bloc("Acquis d'apprentissage", `<p>Pour atteindre le seuil de réussite, l'étudiant sera
       capable de :</p><ul class="serre">${listeAA}</ul>`)}
@@ -441,7 +452,7 @@ export function documentDUE(ueNum, annee) {
       <tr><th>Code</th><th>Intitulé</th><th class="n">Périodes</th><th class="n">Heures</th>
           <th>Acquis évalués</th></tr>${listeCours}</table>`)}
 
-    ${bloc('Programme', para(c.programme))}
+    ${bloc('Programme', para(rediges.programme))}
 
     ${bloc("Méthodes d'apprentissage", methodes || '<p class="vide">à compléter</p>')}
 
@@ -455,9 +466,9 @@ export function documentDUE(ueNum, annee) {
       ${evaluation}</table>
       <p class="fin">${esc(c.note_ue || NOTE_UE_DEFAUT)}</p>`)}
 
-    ${bloc("Critères d'évaluation", para(c.criteres))}
+    ${bloc("Critères d'évaluation", para(rediges.criteres))}
 
-    ${bloc('Degré de maîtrise', para(c.degre_maitrise))}
+    ${bloc('Degré de maîtrise', para(rediges.degre_maitrise))}
   </div>`;
 
   return envelopper(corps, `DUE ${ueNum} — ${annee}`) + STYLE_DUE;
