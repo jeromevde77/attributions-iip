@@ -127,14 +127,20 @@ r.get('/candidats', authRequired, (req, res) => {
         !genre(e.titre) && 'genre',
       ].filter(Boolean),
     };
-  }).filter(c => c.reussies > 0);
+  })
+    // SEULS LES PARCOURS COMPLETS. Un diplôme ne se délivre pas à moitié :
+    // faire défiler ceux qui n'ont pas tout acquis, c'est offrir de les cocher,
+    // et c'est le genre d'erreur qu'un document officiel ne pardonne pas.
+    .filter(c => c.complet);
 
   res.json({
     annee, section: sec, requises,
     ects_total: requises.reduce((n, u) => n + (ects[u] || 0), 0),
     candidats,
-    // Ceux que Lucie propose : le reste se coche à la main.
-    proposes: candidats.filter(c => c.complet && c.annee_fin === annee).map(c => c.id),
+    // Cochés d'office : ceux qui ont TERMINÉ cette année. Les diplômés des
+    // années précédentes restent listés — on réédite parfois une liste — mais
+    // décochés, pour ne pas les glisser par inadvertance dans celle-ci.
+    proposes: candidats.filter(c => c.annee_fin === annee).map(c => c.id),
   });
 });
 
