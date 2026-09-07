@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { IconX, IconAlertTriangle, IconCheck } from '@tabler/icons-react';
-import { authHeaders } from '../lib/api.js';
+import { authHeaders, api } from '../lib/api.js';
 import { MOTIFS_ECHEC, texteDuMotif, composerMotif, decomposerMotif } from './motifsEchec.js';
 
 /**
@@ -436,12 +436,27 @@ export default function TableauBordEtudiant({ etudId, ueNum, annee, onClose, onD
   );
 }
 
-/** Une UE du parcours, en petit. La couleur porte le résultat, l'infobulle le détail. */
+/** Une UE du parcours, en petit. La couleur porte le résultat, l'infobulle le détail.
+ *
+ * Le badge ouvre le descriptif de l'unité (DUE) : c'est le document qu'on tend
+ * à l'étudiant qui demande ce qu'on attend de lui dans cette unité, et il était
+ * jusqu'ici introuvable ailleurs que dans un Word du secrétariat. */
 function Badge({ i, courante = false, passe = false }) {
+  async function ouvrirDUE() {
+    try {
+      const j = await api.dueDocument(i.ue_num);
+      const f = window.open('', '_blank');
+      if (f) { f.document.write(j.html); f.document.close(); }
+    } catch { /* pas de descriptif accessible pour cette unité */ }
+  }
   return (
-    <span title={`${i.ue_nom || ''}${i.points != null ? ` · ${i.points}/20` : ''}`
-        + `${i.ects ? ` · ${i.ects} ECTS` : ''}${passe ? ` · ${i.annee_scolaire}` : ''}`}
+    <span onClick={ouvrirDUE} role="button" tabIndex={0}
+      onKeyDown={ev => ev.key === 'Enter' && ouvrirDUE()}
+      title={`${i.ue_nom || ''}${i.points != null ? ` · ${i.points}/20` : ''}`
+        + `${i.ects ? ` · ${i.ects} ECTS` : ''}${passe ? ` · ${i.annee_scolaire}` : ''}`
+        + ' — cliquer pour le descriptif de l’unité'}
       className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-lg border text-[11.5px]
+        cursor-pointer hover:shadow-sm
         ${tonResultat(i.resultat)} ${courante ? 'ring-2 ring-iip-blue ring-offset-1' : ''}`}>
       <b>{i.ue_num}</b>
       {i.points != null && <span className="tabular-nums">{String(i.points).replace('.', ',')}</span>}

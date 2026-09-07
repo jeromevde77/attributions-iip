@@ -1,9 +1,10 @@
 import { useEffect, useState, lazy, Suspense } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { api, getAnnee } from '../lib/api.js';
-import { IconAdjustments, IconAward, IconBooks, IconBuilding, IconCalendar, IconCalendarEvent, IconChartBar, IconCheck, IconChevronRight, IconDownload, IconFileText, IconHistory, IconLink, IconScale, IconSettings, IconSparkles, IconUserShield, IconUsers, IconX, IconGavel, IconPlus, IconTrash, IconGripVertical, IconEdit } from '@tabler/icons-react';
+import { IconAdjustments, IconAward, IconBooks, IconBuilding, IconCalendar, IconCalendarEvent, IconChartBar, IconCheck, IconChevronRight, IconDownload, IconFileText, IconHistory, IconLink, IconScale, IconSettings, IconSparkles, IconUserShield, IconUsers, IconX, IconGavel, IconPlus, IconTrash, IconGripVertical, IconEdit, IconMail } from '@tabler/icons-react';
 import { PageHeader, RailLateral } from '../components/ui.jsx';
 const Editeur = lazy(() => import('./Editeur.jsx'));
+const ConfigCourriels = lazy(() => import('../components/ConfigCourriels.jsx'));
 
 const TOKEN = () => localStorage.getItem('token');
 const authFetch = (url, opts = {}) => fetch(url, { ...opts, headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${TOKEN()}`, ...opts.headers } }).then(r => r.json());
@@ -1287,6 +1288,7 @@ export default function Configuration() {
     ]},
     { label: 'Système', items: [
       { key: 'parametres', label: 'Paramètres', icon: IconAdjustments },
+      { key: 'courriels', label: 'Courriels', icon: IconMail },
       { key: 'systeme', label: 'Historique & Sauvegarde', icon: IconHistory },
       { key: 'statistiques', label: 'Statistiques', icon: IconChartBar },
       { key: 'changelog', label: 'Nouveautés', icon: IconSparkles },
@@ -1355,6 +1357,13 @@ export default function Configuration() {
 
       {/* ── Onglet Contrat ── */}
       {tab === 'contrat' && <ConfigContrat />}
+
+      {/* ── Onglet Courriels ── */}
+      {tab === 'courriels' && (
+        <Suspense fallback={<div className="p-8 text-center text-gray-400">Chargement…</div>}>
+          <ConfigCourriels />
+        </Suspense>
+      )}
 
       {/* ── Onglet Attestation ── */}
       {tab === 'attestation' && <ConfigAttestation />}

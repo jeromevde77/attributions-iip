@@ -39,6 +39,7 @@ import repartitionRoutes, { migrerRepartition } from './routes/repartitionPeriod
 import amenagementsRoutes, { migrerAmenagements } from './routes/amenagements.js';
 import stagesRoutes, { migrerStages } from './routes/stages.js';
 import attestationsRoutes, { migrerAttestations } from './routes/attestations.js';
+import dueRoutes, { migrerDUE } from './routes/due.js';
 import annexe2Routes from './routes/annexe2.js';
 import impressionRoutes from './routes/impression.js';
 import importSurMesureRoutes from './routes/importSurMesure.js';
@@ -2650,6 +2651,7 @@ try { migrerRepartition(db); } catch (e) { console.error('[migration] répartiti
 try { migrerAmenagements(db); } catch (e) { console.error('[migration] aménagements :', e.message); }
 try { migrerStages(db); } catch (e) { console.error('[migration] stages :', e.message); }
 try { migrerAttestations(db); } catch (e) { console.error('[migration] attestations :', e.message); }
+try { migrerDUE(db); } catch (e) { console.error('[migration] due :', e.message); }
 // lucie_config : table de configuration clé/valeur — présente en prod depuis l'origine
 // mais jamais créée par migration (omission). On la garantit ici.
 try {
@@ -2686,6 +2688,10 @@ app.use(helmet());
 app.use((req, res, next) => demoWriteGuard(req, res, next));
 
 app.use(cors({ origin: process.env.CORS_ORIGIN || true, credentials: true }));
+// L'envoi par courriel transporte jusqu'à deux cents documents HTML en un
+// appel : il lui faut plus que la limite commune. Déclaré AVANT, car un
+// corps déjà lu n'est pas relu par le parseur suivant.
+app.use('/api/envois', express.json({ limit: '60mb' }));
 app.use(express.json({ limit: '5mb' }));
 app.use(morgan('tiny'));
 
@@ -2734,6 +2740,7 @@ app.use('/api/capitalisation', capitalisationRoutes);
 app.use('/api/assistants', assistantsRoutes);
 app.use('/api/rentree', rentreeRoutes);
 app.use('/api/acquis', acquisRoutes);
+app.use('/api/due', dueRoutes);
 app.use('/api/droit-inscription', droitInscriptionRoutes);
 app.use('/api/import-historique', importHistoriqueRoutes);
 app.use('/api/budget', budgetRoutes);
@@ -2747,6 +2754,7 @@ app.use('/api/stages', stagesRoutes);
 app.use('/api/attestations', attestationsRoutes);
 app.use('/api/annexe2', annexe2Routes);
 app.use('/api/impression', impressionRoutes);
+app.use('/api/envois',     (await import('./routes/envois.js')).default);
 app.use('/api/import-sur-mesure', importSurMesureRoutes);
 app.use('/api/historique',   historiqueRoutes);
 app.use('/api/etablissement', etablissementRoutes);

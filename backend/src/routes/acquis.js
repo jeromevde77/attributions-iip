@@ -35,6 +35,19 @@ import { envelopper, unitesReussies, pageAttestation } from './attestations.js';
 const r = Router();
 
 export function migrerAA(dbx) {
+  // NP ET PP : DEUX FAÇONS DE VALOIR ZÉRO, QUI NE DISENT PAS LA MÊME CHOSE.
+  //
+  //   — NP, note de présence : l'étudiant s'est présenté et n'a rien produit
+  //     qui vaille un point. Il garde l'accès à la seconde session.
+  //   — PP, pas présenté : il ne s'est pas présenté à l'épreuve. Justifiée,
+  //     l'absence donne un ajournement ; non justifiée, un refus.
+  //   — 0 tout court : il a remis une copie, et elle ne vaut aucun point.
+  //
+  // Les trois pèsent zéro dans la moyenne — c'est la RAISON qui diffère, et
+  // c'est elle qui oriente la décision du Conseil. Une note ne pouvait pas la
+  // porter : il fallait une mention à côté.
+  try { dbx.exec('ALTER TABLE etudiant_note_detail ADD COLUMN mention TEXT'); }
+  catch { /* déjà là */ }
   try {
     dbx.exec(`
     CREATE TABLE IF NOT EXISTS aa_ponderation (
@@ -547,9 +560,12 @@ r.get('/feuille/:ueNum', authRequired, (req, res) => {
 r.put('/feuille/note', authRequired,
       roleRequired('admin', 'directeur', 'directeur_adjoint', 'editeur'), (req, res) => {
   const { etudiant_id, annee_scolaire, ue_num, aa_code, session, points,
-          cours_code } = req.body || {};
+          cours_code, mention } = req.body || {};
   if (!etudiant_id || !annee_scolaire || !ue_num || !aa_code) {
     return res.status(400).json({ error: 'étudiant, année, unité et acquis requis' });
+  }
+  if (mention != null && !['NP', 'PP'].includes(mention)) {
+    return res.status(400).json({ error: 'mention attendue : NP ou PP' });
   }
 
   // Une note hors bornes ne vaut RIEN, pas zéro.
@@ -568,18 +584,22 @@ r.put('/feuille/note', authRequired,
   const prefixe = session === 1 || session === 2 ? `s${session}|` : '';
   const code = prefixe + (cours_code ? `${cours_code}|${aa_code}` : aa_code);
 
-  if (note == null) {
+  // Une mention vaut zéro : NP et PP ne sont pas des notes, mais elles
+  // comptent comme telles dans la moyenne.
+  const valeur = mention ? 0 : note;
+
+  if (valeur == null) {
     db.prepare(`DELETE FROM etudiant_note_detail
       WHERE etudiant_id = ? AND annee_scolaire = ? AND ue_num = ? AND type = 'aa' AND code = ?`)
       .run(etudiant_id, annee_scolaire, Number(ue_num), code);
   } else {
     db.prepare(`
       INSERT INTO etudiant_note_detail
-        (etudiant_id, annee_scolaire, ue_num, type, code, points)
-      VALUES (?,?,?, 'aa', ?, ?)
+        (etudiant_id, annee_scolaire, ue_num, type, code, points, mention)
+      VALUES (?,?,?, 'aa', ?, ?, ?)
       ON CONFLICT(etudiant_id, annee_scolaire, ue_num, type, code) DO UPDATE SET
-        points = excluded.points
-    `).run(etudiant_id, annee_scolaire, Number(ue_num), code, note);
+        points = excluded.points, mention = excluded.mention
+    `).run(etudiant_id, annee_scolaire, Number(ue_num), code, valeur, mention || null);
   }
 
   res.json({ ok: true });
@@ -1775,20 +1795,27 @@ export function delibererUE(etudId, ueNum, annee) {
   // cours ; il ne porte que l'acquis quand elle vient du classeur consolidé.
   // Les deux formes cohabitent, et la plus précise l'emporte.
   const brutes = db.prepare(`
-    SELECT code, points FROM etudiant_note_detail
+    SELECT code, points, mention FROM etudiant_note_detail
     WHERE etudiant_id = ? AND annee_scolaire = ? AND ue_num = ? AND type = 'aa'
   `).all(etudId, annee, ueNum);
-  const parCoursAA = {}, parAA = {};
+  const parCoursAA = {}, parAA = {}, mentionDe = {};
   for (const l of brutes) {
     let parts = String(l.code).split('|');
     if (/^s[12]$/.test(parts[0])) parts = parts.slice(1);   // la session, mise de côté
-    if (parts.length === 2) parCoursAA[`${parts[0]}|${parts[1]}`] = l.points;
-    else parAA[parts[0]] = l.points;
+    if (parts.length === 2) {
+      parCoursAA[`${parts[0]}|${parts[1]}`] = l.points;
+      if (l.mention) mentionDe[`${parts[0]}|${parts[1]}`] = l.mention;
+    } else {
+      parAA[parts[0]] = l.points;
+      if (l.mention) mentionDe[parts[0]] = l.mention;
+    }
   }
   const noteDe = (cours, aa) => {
     const v = parCoursAA[`${cours}|${aa}`];
     return v != null ? Number(v) : (parAA[aa] != null ? Number(parAA[aa]) : null);
   };
+  // NP ou PP : la raison du zéro, qui suit la note jusqu'à la feuille.
+  const mentionAA = (cours, aa) => mentionDe[`${cours}|${aa}`] || mentionDe[aa] || null;
 
   const ajust = {};
   for (const a of db.prepare(`
@@ -1810,6 +1837,7 @@ export function delibererUE(etudId, ueNum, annee) {
     const evals = paires.filter(p => p.aa_code === code).map(p => ({
       cours_code: p.cours_code, poids: p.poids,
       note: noteDe(p.cours_code, code),
+      mention: mentionAA(p.cours_code, code),
       ajourne: coursAjourne(p.cours_code),
     }));
     // En portée « par cours », un cours ajourné emporte tous ses acquis — même
@@ -1839,6 +1867,12 @@ export function delibererUE(etudId, ueNum, annee) {
       aa_code: code, description: descr[code] || null,
       evaluations: evals, note_calculee: note, note: affichee,
       na, faveur: forcee, motif: motifs[code] || '',
+      // La mention de l'acquis : celle de ses évaluations quand elles
+      // s'accordent, sinon rien — deux cours peuvent ne pas dire la même chose.
+      mention: (() => {
+        const m = [...new Set(evals.map(e => e.mention).filter(Boolean))];
+        return m.length === 1 && evals.every(e => e.mention) ? m[0] : null;
+      })(),
       ajourne_directement: aaAjourne(code),
       echec: !na && affichee != null && affichee < SEUIL_UE,
     };
@@ -1880,6 +1914,12 @@ export function delibererUE(etudId, ueNum, annee) {
       poids_cours: c.poids_cours, poids_cours_affiche: c.poids_cours_affiche,
       aas: siennes.map(p => p.aa_code),
       note_calculee: note, note: affichee, na, faveur: forcee,
+      // L'épreuve du cours n'a pas été présentée, ou l'a été sans rien
+      // produire : la mention vaut pour tous ses acquis.
+      mention: (() => {
+        const m = siennes.map(p => mentionAA(c.cours_code, p.aa_code));
+        return m.length && m.every(x => x && x === m[0]) ? m[0] : null;
+      })(),
       faveur_directe: coursFaveur(c.cours_code),
       ajourne_directement: coursAjourne(c.cours_code), aas_ajournes,
       echec: !na && affichee != null && affichee < SEUIL_UE,
@@ -1957,9 +1997,18 @@ export function delibererUE(etudId, ueNum, annee) {
       // seuil, sans qu'aucune faveur ni aucun ajournement n'ait été nécessaire.
       // Ce que la délibération DIT — la décision reste au Conseil, mais elle
       // se déduit du calcul et n'a pas à être ressaisie dans l'écran voisin.
+      // Ce que la délibération DIT. Un « pas présenté » non justifié appelle
+      // un refus, un « note de présence » un ajournement : la règle vient de la
+      // circulaire, mais c'est le Conseil qui apprécie la justification — on
+      // propose, on n'impose pas.
       decision_proposee: ajourne ? 'ajourne'
+        : cours.some(c => c.mention === 'PP') ? 'refuse'
+        : cours.some(c => c.mention === 'NP') ? 'ajourne'
         : noteUE == null ? null
         : noteUE >= SEUIL_UE ? 'reussi' : 'refuse',
+      // Les épreuves non présentées, pour que le Conseil les voie.
+      mentions: cours.filter(c => c.mention)
+        .map(c => ({ cours_code: c.cours_code, mention: c.mention })),
       // Un échec non motivé rend la décision attaquable : on nomme ce qui
       // manque plutôt que de laisser passer.
       //
@@ -1978,7 +2027,7 @@ export function delibererUE(etudId, ueNum, annee) {
         return acquis.filter(a => aRendreCompte.has(a.aa_code) && !a.motif)
           .map(a => a.aa_code);
       })(),
-      de_plein_droit: !ajourne && !faveur
+      de_plein_droit: !ajourne && !faveur && !cours.some(c => c.mention)
         && acquis.length > 0 && cours.length > 0
         && acquis.every(a => a.note != null && a.note >= SEUIL_UE)
         && cours.every(c => c.note != null && c.note >= SEUIL_UE),
@@ -2098,8 +2147,9 @@ r.get('/cours/:coursCode/feuille', authRequired, (req, res) => {
 
   const prefixe = `s${session}|`;
   const notes = {};
+  const mentions = {};
   for (const l of db.prepare(`
-    SELECT etudiant_id, code, points FROM etudiant_note_detail
+    SELECT etudiant_id, code, points, mention FROM etudiant_note_detail
     WHERE annee_scolaire = ? AND ue_num = ? AND type = 'aa'
   `).all(annee, co.ue_num)) {
     const s = String(l.code);
@@ -2108,6 +2158,7 @@ r.get('/cours/:coursCode/feuille', authRequired, (req, res) => {
     if (s.startsWith(avecSession)) {
       // La note de CE cours pour CETTE session : la plus précise, elle gagne.
       (notes[l.etudiant_id] ||= {})[s.slice(avecSession.length)] = l.points;
+      if (l.mention) mentions[l.etudiant_id] = l.mention;
     } else if (session === 1 && s.startsWith(sansSession)) {
       // Écrite avant que les sessions ne soient distinguées : elle vaut pour
       // la première, et ne recouvre pas une note explicite.
@@ -2118,7 +2169,7 @@ r.get('/cours/:coursCode/feuille', authRequired, (req, res) => {
   }
 
   res.json({
-    cours: co, annee, session, acquis, etudiants, notes,
+    cours: co, annee, session, acquis, etudiants, notes, mentions,
     // L'épreuve est commune à l'unité : ce n'est pas ici qu'on encode.
     epreuve_integree: estEpreuveIntegree(co.ue_num, annee),
     // Sans acquis rattaché, la saisie par cours n'a rien à montrer : mieux
@@ -2126,6 +2177,284 @@ r.get('/cours/:coursCode/feuille', authRequired, (req, res) => {
     sans_acquis: !acquis.length,
     sans_ponderation: acquis.length > 0 && acquis.every(a => a.poids == null),
   });
+});
+
+/**
+ * LA FEUILLE DE TOUTE L'UNITÉ.
+ *
+ * Le professeur encode SON cours : lui montrer les acquis de ses collègues
+ * serait le mettre en position d'écraser leurs notes. Mais la direction et le
+ * secrétariat, eux, encodent souvent pour toute une unité — un paquet de copies
+ * remis en bloc, une session rattrapée, une reprise après coup. Ouvrir et
+ * refermer six grilles de cours pour les mêmes étudiants n'a alors aucun sens :
+ * on perd la vue d'ensemble et l'on ressaisit six fois le même nom.
+ *
+ * Cette feuille rend donc l'unité entière — chaque cours avec ses acquis, tous
+ * les étudiants inscrits, toutes les notes — en une seule lecture. L'écriture,
+ * elle, passe par les mêmes routes que la saisie par cours : une note reste une
+ * note de cours, et rien du modèle ne change.
+ *
+ * Elle est réservée à ceux qui ont déjà tous les droits sur toutes les grilles.
+ * Un professeur n'y a pas accès : sa feuille à lui est celle de son cours.
+ */
+r.get('/ue/:ueNum/feuille', authRequired,
+      roleRequired('admin', 'directeur', 'directeur_adjoint', 'editeur'), (req, res) => {
+  const ueNum = Number(req.params.ueNum);
+  const annee = req.query.annee || anneeDeTravail(req);
+  const session = req.query.session === '2' ? 2 : 1;
+
+  const ue = db.prepare('SELECT ue_num, ue_nom, section FROM ue WHERE ue_num = ? AND annee_scolaire = ?')
+    .get(ueNum, annee);
+  if (!ue) return res.status(404).json({ error: `L'unité ${ueNum} n'existe pas en ${annee}` });
+
+  const perim = getUserSections(req.user);
+  if (perim && ue.section && !perim.includes(ue.section)) {
+    return res.status(403).json({ error: 'unité hors de votre périmètre' });
+  }
+
+  const tousCours = db.prepare(`
+    SELECT cours_code, cours_nom, cours_per FROM cours
+    WHERE ue_num = ? AND annee_scolaire = ? ORDER BY cours_num, cours_code
+  `).all(ueNum, annee);
+
+  // Le lien acquis ↔ cours vient de la pondération : c'est la somme des acquis
+  // qui fait le cours. À défaut, le rattachement du référentiel.
+  const pond = db.prepare(`
+    SELECT p.cours_code, p.aa_code, p.poids, a.description
+    FROM aa_ponderation p LEFT JOIN aa a ON a.aa_code = p.aa_code AND a.ue_num = p.ue_num
+    WHERE p.ue_num = ? ORDER BY p.aa_code
+  `).all(ueNum);
+  const parCours = {};
+  for (const x of pond) (parCours[x.cours_code] ||= []).push(x);
+
+  const cours = tousCours.map(c => ({
+    ...c,
+    acquis: parCours[c.cours_code] || db.prepare(`
+      SELECT aa_code, NULL AS poids, description FROM aa
+      WHERE ue_num = ? AND cours_code = ? ORDER BY aa_num, aa_code
+    `).all(ueNum, c.cours_code),
+  }));
+
+  const etudiants = db.prepare(`
+    SELECT e.id, e.nom, e.prenom, e.id_ecampus
+    FROM etudiant_inscription i JOIN etudiant e ON e.id = i.etudiant_id
+    WHERE i.annee_scolaire = ? AND i.ue_num = ?
+    ORDER BY e.nom, e.prenom
+  `).all(annee, ueNum);
+
+  // Les notes sont rangées par « cours|acquis » : un même acquis coté dans deux
+  // cours a deux notes, et chacune appartient à son cours. La note portant la
+  // session l'emporte sur celle qui n'en porte pas — écrite avant qu'on ne les
+  // distingue, celle-ci vaut pour la première session sans jamais la recouvrir.
+  const notes = {};
+  const mentions = {};
+  const prefixe = `s${session}|`;
+  for (const l of db.prepare(`
+    SELECT etudiant_id, code, points, mention FROM etudiant_note_detail
+    WHERE annee_scolaire = ? AND ue_num = ? AND type = 'aa'
+  `).all(annee, ueNum)) {
+    const code = String(l.code);
+    const avecSession = code.startsWith(prefixe);
+    if (!avecSession && (session === 2 || code.startsWith('s2|') || code.startsWith('s1|'))) continue;
+    const reste = avecSession ? code.slice(prefixe.length) : code;
+    const sep = reste.indexOf('|');
+    if (sep < 0) continue;                       // note d'acquis sans cours
+    const cle = reste;                           // « cours|acquis »
+    const e = (notes[l.etudiant_id] ||= {});
+    if (avecSession || e[cle] == null) e[cle] = l.points;
+    if (l.mention && avecSession) {
+      (mentions[l.etudiant_id] ||= {})[reste.slice(0, sep)] = l.mention;
+    }
+  }
+
+  res.json({
+    ue, annee, session, cours, etudiants, notes, mentions,
+    epreuve_integree: estEpreuveIntegree(ueNum, annee),
+    sans_acquis: cours.every(c => !c.acquis.length),
+  });
+});
+
+/**
+ * IMPORTER LES ACQUIS D'UN COURS DEPUIS UN CLASSEUR.
+ *
+ * Les acquis se saisissaient un à un, puis se reliaient à la flèche. Quand ils
+ * existent déjà dans un tableur — et ils y sont toujours, c'est de là que vient
+ * le dossier pédagogique —, autant les lire.
+ *
+ * L'import fait DEUX choses d'un coup, parce qu'elles n'ont pas de sens
+ * séparées : il crée l'acquis dans l'unité s'il n'y est pas, et il le relie à
+ * ce cours avec son poids. Un acquis déjà présent voit son intitulé complété,
+ * jamais écrasé par du vide.
+ *
+ * En SIMULATION, rien n'est écrit : on rend ce qui serait fait, ligne par
+ * ligne, pour qu'on puisse le lire avant de s'engager.
+ */
+r.post('/cours/:coursCode/acquis/importer', authRequired,
+       roleRequired('admin', 'directeur', 'directeur_adjoint', 'editeur'), (req, res) => {
+  const coursCode = req.params.coursCode;
+  const { annee, lignes, simulation, remplacer } = req.body || {};
+  if (!Array.isArray(lignes) || !lignes.length) {
+    return res.status(400).json({ error: 'aucune ligne à importer' });
+  }
+  const an = annee || anneeDeTravail(req);
+
+  const co = db.prepare(`
+    SELECT cours_code, cours_nom, ue_num FROM cours WHERE cours_code = ?
+    ORDER BY (annee_scolaire = ?) DESC, annee_scolaire DESC LIMIT 1
+  `).get(coursCode, an);
+  if (!co) return res.status(404).json({ error: 'cours introuvable' });
+
+  const existants = Object.fromEntries(db.prepare(
+    'SELECT aa_code, description, aa_num FROM aa WHERE ue_num = ?').all(co.ue_num)
+    .map(a => [String(a.aa_code).trim().toUpperCase(), a]));
+  const liens = Object.fromEntries(db.prepare(
+    'SELECT aa_code, poids FROM aa_ponderation WHERE ue_num = ? AND cours_code = ?')
+    .all(co.ue_num, coursCode).map(l => [String(l.aa_code).trim().toUpperCase(), l.poids]));
+
+  const rapport = [];
+  const vus = new Set();
+  let numSuivant = Math.max(0, ...Object.values(existants).map(a => Number(a.aa_num) || 0));
+
+  for (const [i, l] of lignes.entries()) {
+    const code = String(l.aa_code ?? '').trim();
+    if (!code) { rapport.push({ ligne: i + 1, etat: 'ignoree',
+      quoi: "pas de code d'acquis" }); continue; }
+    const cle = code.toUpperCase();
+    if (vus.has(cle)) { rapport.push({ ligne: i + 1, aa_code: code, etat: 'ignoree',
+      quoi: 'déjà vu dans ce fichier' }); continue; }
+    vus.add(cle);
+
+    const desc = l.description == null ? null : String(l.description).trim() || null;
+    const poidsBrut = l.poids == null || l.poids === '' ? null
+      : Number(String(l.poids).replace(',', '.'));
+    if (poidsBrut != null && (!Number.isFinite(poidsBrut) || poidsBrut < 0)) {
+      rapport.push({ ligne: i + 1, aa_code: code, etat: 'refusee',
+        quoi: `poids illisible : « ${l.poids} »` });
+      continue;
+    }
+    // Sans poids, le lien naît à 1 : il existe, il reste à le peser.
+    const poids = poidsBrut == null ? 1 : poidsBrut;
+
+    const dejaLa = existants[cle];
+    const dejaLie = liens[cle] != null;
+    const actes = [];
+    if (!dejaLa) actes.push('acquis créé dans l’unité');
+    else if (desc && !dejaLa.description) actes.push('intitulé complété');
+    if (!dejaLie) actes.push(`relié à ${coursCode} au poids ${poids}`);
+    else if (Number(liens[cle]) !== poids) actes.push(`poids ${liens[cle]} → ${poids}`);
+
+    rapport.push({ ligne: i + 1, aa_code: code, description: desc, poids,
+      etat: actes.length ? (dejaLa && dejaLie ? 'modifiee' : 'creee') : 'inchangee',
+      quoi: actes.join(' · ') || 'rien à faire' });
+
+    if (simulation) continue;
+
+    if (!dejaLa) {
+      db.prepare(`INSERT INTO aa (aa_code, ue_num, aa_num, description, cours_code)
+        VALUES (?,?,?,?,NULL)`).run(code, co.ue_num, ++numSuivant, desc);
+      existants[cle] = { aa_code: code, description: desc, aa_num: numSuivant };
+    } else if (desc && !dejaLa.description) {
+      // On complète un intitulé absent ; on n'écrase jamais celui qui existe.
+      db.prepare('UPDATE aa SET description = ? WHERE ue_num = ? AND aa_code = ?')
+        .run(desc, co.ue_num, dejaLa.aa_code);
+    }
+
+    db.prepare(`
+      INSERT INTO aa_ponderation (ue_num, cours_code, aa_code, poids, maj_le)
+      VALUES (?,?,?,?, datetime('now'))
+      ON CONFLICT(cours_code, aa_code) DO UPDATE SET
+        poids = excluded.poids, ue_num = excluded.ue_num, maj_le = datetime('now')
+    `).run(co.ue_num, coursCode, existants[cle].aa_code, poids);
+  }
+
+  // « Remplacer » délie ce que le fichier ne mentionne pas — sans jamais
+  // supprimer l'acquis lui-même : un autre cours peut l'évaluer.
+  let delies = [];
+  if (remplacer) {
+    delies = Object.keys(liens).filter(c => !vus.has(c));
+    if (!simulation) {
+      const del = db.prepare(
+        'DELETE FROM aa_ponderation WHERE cours_code = ? AND aa_code = ?');
+      for (const c of delies) {
+        const vrai = Object.values(existants).find(a =>
+          String(a.aa_code).toUpperCase() === c);
+        del.run(coursCode, vrai ? vrai.aa_code : c);
+      }
+    }
+  }
+
+  const compte = (e) => rapport.filter(r0 => r0.etat === e).length;
+  res.json({
+    simulation: !!simulation, cours: co, annee: an, rapport,
+    delies,
+    resume: { creees: compte('creee'), modifiees: compte('modifiee'),
+              inchangees: compte('inchangee'), ignorees: compte('ignoree'),
+              refusees: compte('refusee'), deliees: delies.length },
+  });
+});
+
+/**
+ * NP OU PP SUR TOUTE L'ÉPREUVE D'UN COURS.
+ *
+ * L'étudiant ne s'est pas présenté, ou s'est présenté sans rien produire :
+ * cela ne vise pas un acquis, cela vise l'épreuve. Tous les acquis que ce
+ * cours évalue passent donc à zéro, avec la mention qui dit pourquoi.
+ */
+r.put('/cours/:coursCode/epreuve', authRequired,
+      roleRequired('admin', 'directeur', 'directeur_adjoint', 'editeur'), (req, res) => {
+  const coursCode = req.params.coursCode;
+  const { etudiant_id, annee_scolaire, session, mention } = req.body || {};
+  if (!etudiant_id || !annee_scolaire) {
+    return res.status(400).json({ error: 'étudiant et année requis' });
+  }
+  if (mention != null && !['NP', 'PP'].includes(mention)) {
+    return res.status(400).json({ error: 'mention attendue : NP, PP, ou rien pour effacer' });
+  }
+
+  const co = db.prepare(`
+    SELECT cours_code, ue_num, section FROM cours WHERE cours_code = ?
+    ORDER BY (annee_scolaire = ?) DESC, annee_scolaire DESC LIMIT 1
+  `).get(coursCode, annee_scolaire);
+  if (!co) return res.status(404).json({ error: 'cours introuvable' });
+
+  const permis = coursAutorises(req.user, annee_scolaire);
+  if (permis && !permis.has(coursCode)) {
+    return res.status(403).json({ error: "Ce cours ne vous est pas attribué cette année." });
+  }
+
+  // Les acquis que CE cours évalue.
+  let acquis = db.prepare(
+    'SELECT aa_code FROM aa_ponderation WHERE ue_num = ? AND cours_code = ?'
+  ).all(co.ue_num, coursCode).map(a => a.aa_code);
+  if (!acquis.length) {
+    acquis = db.prepare('SELECT aa_code FROM aa WHERE ue_num = ? AND cours_code = ?')
+      .all(co.ue_num, coursCode).map(a => a.aa_code);
+  }
+  if (!acquis.length) {
+    return res.status(400).json({
+      error: "Aucun acquis n'est rattaché à ce cours : il n'y a rien à coter." });
+  }
+
+  const prefixe = session === 1 || session === 2 ? `s${session}|` : 's1|';
+  const poser = db.prepare(`
+    INSERT INTO etudiant_note_detail
+      (etudiant_id, annee_scolaire, ue_num, type, code, points, mention)
+    VALUES (?,?,?, 'aa', ?, 0, ?)
+    ON CONFLICT(etudiant_id, annee_scolaire, ue_num, type, code) DO UPDATE SET
+      points = 0, mention = excluded.mention`);
+  const effacer = db.prepare(`DELETE FROM etudiant_note_detail
+    WHERE etudiant_id = ? AND annee_scolaire = ? AND ue_num = ? AND type = 'aa' AND code = ?`);
+
+  db.transaction(() => {
+    for (const aa of acquis) {
+      const code = `${prefixe}${coursCode}|${aa}`;
+      if (mention) poser.run(etudiant_id, annee_scolaire, co.ue_num, code, mention);
+      else effacer.run(etudiant_id, annee_scolaire, co.ue_num, code);
+    }
+  })();
+
+  res.json({ ok: true, cours_code: coursCode, mention: mention || null,
+             acquis: acquis.length });
 });
 
 /** L'unité est-elle évaluée par une épreuve commune ? */

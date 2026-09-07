@@ -8,83 +8,111 @@ import ImportUEAssistant from '../components/ImportUEAssistant.jsx';
 import { IconX, IconPencil, IconTrash, IconPlus, IconCheck, IconLink, IconChevronRight, IconTarget, IconUpload, IconFileText, IconAlertTriangle } from '@tabler/icons-react';
 import AcquisUE from '../components/AcquisUE.jsx';
 
-// ─── Import Dossier Pédagogique FWB ───────────────────────────────────────────
+// ─── Import des dossiers pédagogiques FWB ────────────────────────────────────
+//
+// Une section, c'est une quinzaine de dossiers. Les importer un par un — choisir
+// le fichier, analyser, confirmer, fermer, recommencer — c'était soixante gestes
+// pour une opération qui n'en demande qu'un. On les dépose donc tous ensemble.
+//
+// L'analyse reste séparée de l'écriture : rien n'est écrit tant que la liste
+// complète n'a pas été montrée, dossier par dossier, avec ce qui sera créé et ce
+// qui sera mis à jour.
 function DPImportModal({ annee, sections, onClose, onSaved }) {
-  const [file, setFile]           = useState(null);
-  const [section, setSection]     = useState('');
-  const [loading, setLoading]     = useState(false);
-  const [preview, setPreview]     = useState(null); // résultat du parse avant confirmation
-  const [result, setResult]       = useState(null); // résultat après import
-  const [error, setError]         = useState('');
+  const [fichiers, setFichiers] = useState([]);
+  const [section, setSection]   = useState('');
+  const [loading, setLoading]   = useState(false);
+  const [encours, setEncours]   = useState('');      // nom du dossier en traitement
+  const [analyses, setAnalyses] = useState(null);    // [{ fichier, ok, data|erreur }]
+  const [resultats, setResultats] = useState(null);  // idem, après écriture
+  const [error, setError]       = useState('');
 
-  async function analyser() {
-    if (!file) return setError('Sélectionnez un fichier .docx');
-    setError(''); setLoading(true); setPreview(null);
-    try {
-      const buf = await file.arrayBuffer();
-      const res = await fetch(`/api/ref/import-dp?annee=${annee}&section=${section}&preview=1`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/octet-stream', 'Authorization': `Bearer ${localStorage.getItem('token')}` },
-        body: buf,
-      });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || 'Erreur analyse');
-      setPreview(data);
-    } catch (e) { setError(e.message); }
-    finally { setLoading(false); }
+  async function envoyer(fichier, apercu) {
+    const buf = await fichier.arrayBuffer();
+    const res = await fetch(`/api/ref/import-dp?annee=${annee}&section=${section}`
+      + (apercu ? '&preview=1' : ''), {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/octet-stream',
+        Authorization: `Bearer ${localStorage.getItem('token')}` },
+      body: buf,
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || (apercu ? 'Erreur analyse' : 'Erreur import'));
+    return data;
   }
 
-  async function confirmer() {
-    if (!file) return;
-    setError(''); setLoading(true);
+  // Les dossiers défilent un par un : le serveur lance un pdftotext par fichier,
+  // et seize en parallèle ne lui rendraient pas service.
+  async function parcourir(apercu, poser) {
+    setError(''); setLoading(true); poser(null);
+    const out = [];
     try {
-      const buf = await file.arrayBuffer();
-      const res = await fetch(`/api/ref/import-dp?annee=${annee}&section=${section}`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/octet-stream', 'Authorization': `Bearer ${localStorage.getItem('token')}` },
-        body: buf,
-      });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || 'Erreur import');
-      setResult(data);
-      onSaved?.();
-    } catch (e) { setError(e.message); }
-    finally { setLoading(false); }
+      for (const f of fichiers) {
+        setEncours(f.name);
+        try { out.push({ fichier: f.name, ok: true, data: await envoyer(f, apercu) }); }
+        catch (e) { out.push({ fichier: f.name, ok: false, erreur: e.message }); }
+        poser([...out]);
+      }
+    } finally { setEncours(''); setLoading(false); }
+    return out;
   }
 
-  const ue = preview?.parsed?.ue || result?.parsed?.ue;
-  const cours = preview?.parsed?.cours || result?.parsed?.cours || [];
+  const analyser = () => {
+    if (!fichiers.length) return setError('Sélectionnez un ou plusieurs dossiers (.pdf ou .docx)');
+    return parcourir(true, setAnalyses);
+  };
+  const confirmer = async () => {
+    await parcourir(false, setResultats);
+    onSaved?.();
+  };
+
+  const liste = resultats || analyses;
+  const aCreer = (analyses || []).filter(a => a.ok && a.data.action === 'created');
+  const bloquant = !section && aCreer.length > 0;
 
   return (
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50"
-         onClick={e => e.target === e.currentTarget && onClose()}>
-      <div className="bg-white rounded-xl shadow-2xl max-w-xl w-full border-t-4 border-iip-turquoise max-h-[90vh] overflow-hidden flex flex-col">
+      onClick={e => e.target === e.currentTarget && onClose()}>
+      <div className="bg-white rounded-xl shadow-2xl max-w-2xl w-full border-t-4 border-iip-turquoise max-h-[90vh] overflow-hidden flex flex-col">
         <div className="flex items-center justify-between px-5 py-3 border-b flex-shrink-0">
           <h2 className="font-title text-lg text-iip-blue flex items-center gap-2">
             <IconFileText size={20} className="text-iip-turquoise" />
-            Import dossier pédagogique FWB
+            Import des dossiers pédagogiques FWB
           </h2>
           <button onClick={onClose} className="text-gray-400 hover:text-red-500"><IconX size={20} /></button>
         </div>
 
         <div className="p-5 space-y-4 overflow-auto">
-          {!result ? (<>
-            {/* Étape 1 : sélection fichier */}
+          {!resultats && (<>
             <div>
-              <div className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-1">Fichier .docx</div>
-              <label className="flex items-center gap-3 border-2 border-dashed border-iip-turquoise/30 rounded-lg p-4 cursor-pointer hover:border-iip-turquoise/60 hover:bg-iip-turquoise/3 transition">
+              <div className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-1">
+                Dossiers pédagogiques
+              </div>
+              <label className="flex items-center gap-3 border-2 border-dashed border-iip-turquoise/30 rounded-lg p-4 cursor-pointer hover:border-iip-turquoise/60 transition">
                 <IconUpload size={22} className="text-iip-turquoise flex-shrink-0" />
-                <div>
-                  <div className="text-sm font-medium text-iip-blue">{file ? file.name : 'Cliquer pour sélectionner'}</div>
-                  <div className="text-xs text-gray-400">Dossier pédagogique FWB au format Word (.docx)</div>
+                <div className="min-w-0">
+                  <div className="text-sm font-medium text-iip-blue">
+                    {fichiers.length
+                      ? `${fichiers.length} dossier(s) sélectionné(s)`
+                      : 'Cliquer pour sélectionner — plusieurs fichiers à la fois'}
+                  </div>
+                  <div className="text-xs text-gray-400 truncate">
+                    {fichiers.length
+                      ? fichiers.map(f => f.name).join(', ')
+                      : 'Les PDF publiés par la Fédération, ou des .docx'}
+                  </div>
                 </div>
-                <input type="file" accept=".docx" className="sr-only" onChange={e => { setFile(e.target.files[0]); setPreview(null); setError(''); }} />
+                <input type="file" accept=".pdf,.docx" multiple className="sr-only"
+                  onChange={e => {
+                    setFichiers(Array.from(e.target.files || []));
+                    setAnalyses(null); setError('');
+                  }} />
               </label>
             </div>
 
-            {/* Section (pour création) */}
             <div>
-              <div className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-1">Section cible <span className="text-gray-400 font-normal normal-case">(si l'UE n'existe pas encore)</span></div>
+              <div className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-1">
+                Section cible <span className="text-gray-400 font-normal normal-case">(pour les UE qui n'existent pas encore)</span>
+              </div>
               <select value={section} onChange={e => setSection(e.target.value)}
                 className="w-full border border-gray-300 rounded px-3 py-1.5 h-9 text-sm bg-white focus:outline-none focus:border-iip-blue">
                 <option value="">— Rechercher par code FWB uniquement —</option>
@@ -98,75 +126,80 @@ function DPImportModal({ annee, sections, onClose, onSaved }) {
               </div>
             )}
 
-            <button onClick={analyser} disabled={loading || !file}
+            <button onClick={analyser} disabled={loading || !fichiers.length}
               className="w-full bg-iip-turquoise hover:opacity-90 disabled:opacity-40 text-white text-sm py-2.5 rounded-lg font-medium flex items-center justify-center gap-2">
-              <IconFileText size={16} />{loading ? 'Analyse en cours…' : 'Analyser le document'}
+              <IconFileText size={16} />
+              {loading && encours ? `Analyse de ${encours}…` : 'Analyser les documents'}
             </button>
+          </>)}
 
-            {/* Preview du parsing */}
-            {preview && (
-              <div className="border border-iip-turquoise/30 rounded-lg overflow-hidden">
-                <div className="bg-iip-turquoise/8 px-4 py-2 text-xs font-semibold text-iip-blue uppercase tracking-wide">
-                  Résultat de l'analyse
-                </div>
-                <div className="p-4 space-y-3 text-sm">
-                  <div className="grid grid-cols-2 gap-2 text-xs">
-                    <div><span className="text-gray-500">Code FWB :</span> <strong>{ue?.ue_code_fwb || '—'}</strong></div>
-                    <div><span className="text-gray-500">Action :</span> <strong className={preview.action === 'created' ? 'text-iip-turquoise' : 'text-iip-blue'}>{preview.action === 'created' ? '✚ Création' : '↻ Mise à jour'}</strong></div>
-                    <div><span className="text-gray-500">UE N° :</span> <strong>{preview.ue_num}</strong></div>
-                    <div><span className="text-gray-500">Niveau :</span> {ue?.ue_niveau} · {ue?.ects} ECTS</div>
-                    <div className="col-span-2"><span className="text-gray-500">Intitulé :</span> {ue?.ue_nom}</div>
-                    <div><span className="text-gray-500">Autonomie :</span> {ue?.ue_aut ?? '—'} pér.</div>
-                    <div><span className="text-gray-500">Total périodes :</span> {ue?.ue_per_etudiants ?? '—'}</div>
-                  </div>
-                  <div>
-                    <div className="text-xs text-gray-500 mb-1">Cours détectés ({cours.length}) :</div>
-                    {cours.map((c, i) => (
-                      <div key={i} className="text-xs flex gap-2 py-0.5 border-b border-gray-50 last:border-0">
-                        <span className="font-mono bg-gray-100 rounded px-1 text-gray-600 flex-shrink-0">{c.classement || '?'} {c.codeU}</span>
-                        <span className="flex-1">{c.nom}</span>
-                        <span className="text-gray-400 flex-shrink-0">{c.periodes ?? '—'} pér.</span>
+          {liste && (
+            <div className="border border-iip-turquoise/30 rounded-lg overflow-hidden">
+              <div className="bg-iip-turquoise/8 px-4 py-2 text-xs font-semibold text-iip-blue uppercase tracking-wide">
+                {resultats ? 'Import effectué' : "Résultat de l'analyse"}
+                <span className="float-right font-normal normal-case text-gray-500">
+                  {liste.filter(x => x.ok).length}/{liste.length} lus
+                </span>
+              </div>
+              <div className="divide-y divide-gray-100 max-h-72 overflow-auto">
+                {liste.map((x, i) => (
+                  <div key={i} className="px-4 py-2 text-xs">
+                    {x.ok ? (
+                      <>
+                        <div className="flex items-start gap-2">
+                          <span className={`flex-shrink-0 font-semibold ${x.data.action === 'created'
+                            ? 'text-iip-turquoise' : 'text-iip-blue'}`}>
+                            {x.data.action === 'created' ? '✚' : '↻'} UE {x.data.ue_num}
+                          </span>
+                          <span className="flex-1 text-gray-700">{x.data.parsed?.ue?.ue_nom || x.fichier}</span>
+                          <span className="text-gray-400 flex-shrink-0">
+                            {x.data.parsed?.cours?.length || 0} cours · {x.data.parsed?.acquis?.length || 0} acquis
+                          </span>
+                        </div>
+                        <div className="text-gray-400 pl-6">
+                          {x.data.parsed?.ue?.ue_code_fwb || '(code FWB absent)'}
+                          {x.data.parsed?.ue?.ue_per_etudiants
+                            ? ` · ${x.data.parsed.ue.ue_per_etudiants} pér.` : ''}
+                          {resultats && x.data.cours_crees?.length
+                            ? ` · ${x.data.cours_crees.length} cours créé(s)` : ''}
+                        </div>
+                      </>
+                    ) : (
+                      <div className="flex items-start gap-2 text-red-700">
+                        <IconAlertTriangle size={13} className="flex-shrink-0 mt-0.5" />
+                        <span className="flex-1"><b>{x.fichier}</b> — {x.erreur}</span>
                       </div>
-                    ))}
+                    )}
                   </div>
-                  {preview.action === 'created' && !section && (
+                ))}
+              </div>
+
+              {!resultats && (
+                <div className="p-3 border-t border-gray-100 space-y-2">
+                  {bloquant && (
                     <div className="bg-amber-50 border border-amber-200 rounded p-2 text-xs text-amber-700 flex items-start gap-1.5">
                       <IconAlertTriangle size={14} className="flex-shrink-0 mt-0.5" />
-                      UE non trouvée — sélectionnez une section cible pour la créer.
+                      {aCreer.length} unité(s) sont inconnues et seraient créées : choisissez d'abord
+                      une section cible.
                     </div>
                   )}
-                  <button onClick={confirmer} disabled={loading || (preview.action === 'created' && !section)}
+                  <button onClick={confirmer}
+                    disabled={loading || bloquant || !liste.some(x => x.ok)}
                     className="w-full bg-iip-blue hover:bg-iip-blue-dark disabled:opacity-40 text-white text-sm py-2 rounded-lg font-medium flex items-center justify-center gap-2">
-                    <IconCheck size={16} />{loading ? 'Import en cours…' : 'Confirmer l\'import'}
+                    <IconCheck size={16} />
+                    {loading && encours ? `Import de ${encours}…`
+                      : `Confirmer l'import de ${liste.filter(x => x.ok).length} dossier(s)`}
                   </button>
                 </div>
-              </div>
-            )}
-          </>) : (
-            /* Résultat final */
-            <div className="space-y-3">
-              <div className="bg-green-50 border border-green-200 rounded-lg p-4 flex items-start gap-3">
-                <IconCheck size={20} className="text-green-600 flex-shrink-0 mt-0.5" />
-                <div>
-                  <div className="font-semibold text-green-800">Import réussi</div>
-                  <div className="text-sm text-green-700 mt-0.5">
-                    UE N° <strong>{result.ue_num}</strong> — {result.action === 'created' ? 'créée' : 'mise à jour'}
-                  </div>
-                </div>
-              </div>
-              {result.cours_crees?.length > 0 && (
-                <div className="text-sm text-gray-700">
-                  <strong>{result.cours_crees.length}</strong> cours créé(s) :
-                  {result.cours_crees.map(c => <div key={c.code} className="text-xs text-gray-500 pl-3">· {c.code} — {c.nom}</div>)}
-                </div>
               )}
-              {result.cours_existants?.length > 0 && (
-                <div className="text-xs text-gray-400">
-                  {result.cours_existants.length} cours déjà présent(s) (inchangé(s)) : {result.cours_existants.join(', ')}
-                </div>
-              )}
-              <button onClick={onClose} className="w-full bg-iip-blue text-white text-sm py-2 rounded-lg font-medium">Fermer</button>
             </div>
+          )}
+
+          {resultats && !loading && (
+            <button onClick={onClose}
+              className="w-full bg-iip-blue text-white text-sm py-2 rounded-lg font-medium">
+              Fermer
+            </button>
           )}
         </div>
       </div>

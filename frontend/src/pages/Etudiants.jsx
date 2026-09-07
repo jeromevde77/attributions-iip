@@ -1704,6 +1704,10 @@ function FicheEtudiant({ id, annee, onClose }) {
       {ficheInscription && <PreviewModal html={ficheInscription.html}
         titre={ficheInscription.titre || "Fiche d'inscription / reçu"}
         nomFichier={ficheInscription.nom} astuceImpression="Portrait A4"
+        destinataire={{ type: 'etudiant', id,
+          nom: `${data?.etudiant?.nom || data?.nom || ''} ${data?.etudiant?.prenom || data?.prenom || ''}`.trim() || undefined }}
+        typeDoc="fiche_etudiant"
+        sujetMail={`${ficheInscription.titre || "Fiche d'inscription"} — Institut Ilya Prigogine`}
         onClose={() => setFicheInscription(null)} />}
     </div>
   );

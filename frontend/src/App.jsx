@@ -50,6 +50,7 @@ import Disciplinaire from './pages/Disciplinaire.jsx';
 import Echeancier from './pages/Echeancier.jsx';
 import Besoins from './pages/Besoins.jsx';
 import Organisation from './pages/Organisation.jsx';
+import DUE from './pages/DUE.jsx';
 import Classement from './pages/Classement.jsx';
 import { AxeAccueil, AxeEtudiants, AxeCommunication } from './pages/Axes.jsx';
 import { BoutonAide } from './pages/Aide.jsx';
@@ -440,6 +441,7 @@ export default function App() {
       <Route path="/utilisateurs" element={<ProtectedLayout><Users /></ProtectedLayout>} />
       <Route path="/annees"         element={<ProtectedLayout><Annees /></ProtectedLayout>} />
       <Route path="/configuration"  element={<ProtectedLayout><Configuration /></ProtectedLayout>} />
+      <Route path="/due"            element={<ProtectedLayout><DUE /></ProtectedLayout>} />
       <Route path="/referentiels"   element={<ProtectedLayout><Referentiels /></ProtectedLayout>} />
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>

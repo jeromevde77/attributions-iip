@@ -697,6 +697,7 @@ r.post('/lot', authRequired, (req, res) => {
         return (n === 1 ? base : `${base}_${e.id_ecampus || e.id}`) + '.html';
       })(),
       etudiant: `${e.nom} ${e.prenom}`,
+      etudiant_id: e.id,
       ue_num: u.ue_num,
       annee: p.annee_scolaire,
       corps: pageAttestation(e, u, p.annee_scolaire, etab, date_document, ident),

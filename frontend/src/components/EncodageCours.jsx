@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
-import { IconX, IconAlertTriangle, IconSearch } from '@tabler/icons-react';
+import { IconX, IconAlertTriangle, IconSearch, IconFileSpreadsheet } from '@tabler/icons-react';
 import { authHeaders } from '../lib/api.js';
+import ImportAcquisCours from './ImportAcquisCours.jsx';
 
 /**
  * Saisie des notes D'UN COURS — l'écran du professeur.
@@ -28,6 +29,7 @@ export default function EncodageCours({ coursCode, annee, onClose, onEnregistre,
   const [session, setSession] = useState(1);
   const [recherche, setRecherche] = useState('');
   const [enAttente, setEnAttente] = useState(0);
+  const [importer, setImporter] = useState(false);
 
   async function charger() {
     setErreur(null);
@@ -46,6 +48,26 @@ export default function EncodageCours({ coursCode, annee, onClose, onEnregistre,
   // Chaque note part SEULE, dès la sortie du champ : une saisie de délibération
   // s'interrompt — un appel, une question — et un enregistrement global perdrait
   // tout ce qui n'a pas été validé.
+  /**
+   * NP OU PP SUR TOUTE L'ÉPREUVE. Cela ne vise pas un acquis mais l'épreuve :
+   * tous les acquis du cours passent à zéro, avec la raison.
+   */
+  async function poserMention(etudId, mention) {
+    setEnAttente(n => n + 1);
+    try {
+      const rep = await fetch(`/api/acquis/cours/${encodeURIComponent(coursCode)}/epreuve`, {
+        method: 'PUT', headers: authHeaders(),
+        body: JSON.stringify({ etudiant_id: etudId, annee_scolaire: annee, session, mention }),
+      });
+      if (!rep.ok) {
+        const j = await rep.json().catch(() => ({}));
+        setErreur(j.error || 'Enregistrement refusé.');
+      } else { setErreur(null); onEnregistre && onEnregistre(); }
+      await charger();
+    } catch (e) { setErreur(e.message); }
+    finally { setEnAttente(n => n - 1); }
+  }
+
   async function poser(etudId, aaCode, valeur) {
     const v = valeur === '' ? null : Number(String(valeur).replace(',', '.'));
     if (v != null && (!Number.isFinite(v) || v < 0 || v > 20)) {
@@ -91,6 +113,13 @@ export default function EncodageCours({ coursCode, annee, onClose, onEnregistre,
           </div>
           <div className="flex items-center gap-2">
             {enAttente > 0 && <span className="text-[11.5px] text-slate-400">enregistrement…</span>}
+            {/* Les acquis viennent d'un tableur : autant les y lire. */}
+            <button onClick={() => setImporter(true)}
+              title="Importer les acquis de ce cours depuis un classeur Excel"
+              className="px-2.5 py-1 text-[12px] rounded-lg border border-slate-300
+                         text-slate-600 flex items-center gap-1.5">
+              <IconFileSpreadsheet size={14} /> Importer les acquis
+            </button>
             <div className="flex rounded-lg border border-slate-300 overflow-hidden">
               {[1, 2].map(s => (
                 <button key={s} onClick={() => setSession(s)}
@@ -140,13 +169,20 @@ export default function EncodageCours({ coursCode, annee, onClose, onEnregistre,
                 Ce lien se pose au paramétrage de l'unité, ou s'importe du classeur
                 de suivi, onglet <b>Repartition_AA_UE</b>.
               </p>
-              {onParametrer && (
-                <button onClick={() => onParametrer(data.cours.ue_num)}
-                  className="mt-1 px-3 py-1.5 text-[12.5px] rounded-lg bg-iip-blue
-                             text-white font-semibold">
-                  Paramétrer les cours et acquis de l'UE {data.cours.ue_num}
+              <div className="flex flex-wrap gap-2 mt-1">
+                <button onClick={() => setImporter(true)}
+                  className="px-3 py-1.5 text-[12.5px] rounded-lg bg-iip-blue
+                             text-white font-semibold flex items-center gap-1.5">
+                  <IconFileSpreadsheet size={14} /> Importer les acquis depuis Excel
                 </button>
-              )}
+                {onParametrer && (
+                  <button onClick={() => onParametrer(data.cours.ue_num)}
+                    className="px-3 py-1.5 text-[12.5px] rounded-lg border border-iip-blue
+                               text-iip-blue font-semibold">
+                    Les relier à la main
+                  </button>
+                )}
+              </div>
             </div>
           ) : (
             <>
@@ -173,6 +209,11 @@ export default function EncodageCours({ coursCode, annee, onClose, onEnregistre,
                     <tr>
                       <th className="sticky left-0 bg-white text-left px-3 py-1.5
                                      border-b border-r border-slate-200 min-w-[180px]">Étudiant</th>
+                      <th className="px-2 py-1.5 border-b border-r border-slate-200
+                                     text-[10px] text-slate-500 font-semibold uppercase
+                                     tracking-wide w-24" title="Épreuve non présentée">
+                        Épreuve
+                      </th>
                       {data.acquis.map(a => (
                         <th key={a.aa_code}
                           title={a.description || ''}
@@ -200,20 +241,53 @@ export default function EncodageCours({ coursCode, annee, onClose, onEnregistre,
                           <div className="font-semibold text-iip-blue truncate">{e.nom}</div>
                           <div className="text-[10.5px] text-slate-500 truncate">{e.prenom}</div>
                         </td>
+                        {/* NP / PP : la raison d'un zéro, posée sur l'épreuve
+                            entière et non sur un acquis. */}
+                        <td className="px-1 py-1 border-b border-r border-slate-100 text-center">
+                          <div className="inline-flex rounded-lg border border-slate-300 overflow-hidden">
+                            {['NP', 'PP'].map(m => {
+                              const actif = data.mentions?.[e.id] === m;
+                              return (
+                                <button key={m} type="button"
+                                  onClick={() => poserMention(e.id, actif ? null : m)}
+                                  title={m === 'NP'
+                                    ? 'Note de présence — présent, rien qui vaille un point. Zéro, seconde session ouverte.'
+                                    : "Pas présenté — absent à l'épreuve. Zéro ; le Conseil appréciera la justification."}
+                                  className={`px-1.5 py-0.5 text-[10.5px] font-bold
+                                    ${actif
+                                      ? (m === 'NP' ? 'bg-amber-500 text-white' : 'bg-red-600 text-white')
+                                      : 'bg-white text-slate-400 hover:text-slate-600'}`}>
+                                  {m}
+                                </button>
+                              );
+                            })}
+                          </div>
+                        </td>
+
                         {data.acquis.map(a => {
                           const v = data.notes[e.id]?.[a.aa_code];
+                          const men = data.mentions?.[e.id];
                           return (
                             <td key={a.aa_code} className="px-1 py-1 border-b border-slate-100 text-center">
-                              <input type="number" min="0" max="20" step="1"
-                                defaultValue={v ?? ''}
-                                key={`${e.id}-${a.aa_code}-${session}-${v ?? ''}`}
-                                onBlur={ev => {
-                                  const brut = ev.target.value;
-                                  const avant = v == null ? '' : String(v);
-                                  if (brut !== avant) poser(e.id, a.aa_code, brut);
-                                }}
-                                className={`w-16 border rounded-lg px-1.5 py-1 text-[12.5px]
-                                            text-center tabular-nums ${tonNote(v)}`} />
+                              {men ? (
+                                <span className={`inline-block w-16 py-1 rounded-lg text-[11.5px]
+                                  font-bold ${men === 'NP'
+                                    ? 'bg-amber-100 text-amber-800 border border-amber-300'
+                                    : 'bg-red-100 text-red-800 border border-red-300'}`}>
+                                  {men}
+                                </span>
+                              ) : (
+                                <input type="number" min="0" max="20" step="1"
+                                  defaultValue={v ?? ''}
+                                  key={`${e.id}-${a.aa_code}-${session}-${v ?? ''}`}
+                                  onBlur={ev => {
+                                    const brut = ev.target.value;
+                                    const avant = v == null ? '' : String(v);
+                                    if (brut !== avant) poser(e.id, a.aa_code, brut);
+                                  }}
+                                  className={`w-16 border rounded-lg px-1.5 py-1 text-[12.5px]
+                                              text-center tabular-nums ${tonNote(v)}`} />
+                              )}
                             </td>
                           );
                         })}
@@ -224,7 +298,12 @@ export default function EncodageCours({ coursCode, annee, onClose, onEnregistre,
               </div>
 
               <p className="text-[11.5px] text-slate-500">
-                La note s'encode par point entier et s'enregistre en quittant le champ. Elle vaut pour CE cours :
+                <b>NP</b> — note de présence : l'étudiant s'est présenté sans rien
+                produire qui vaille un point. <b>PP</b> — pas présenté à l'épreuve.
+                Les deux valent zéro sur tous les acquis du cours, à la différence
+                d'un <b>0</b> saisi, qui dit qu'une copie a été remise et ne vaut
+                aucun point. La note s'encode par point entier et s'enregistre en
+                quittant le champ. Elle vaut pour CE cours :
                 un acquis évalué dans un autre cours y garde sa propre note, et la
                 délibération consolide les deux.
               </p>
@@ -232,6 +311,12 @@ export default function EncodageCours({ coursCode, annee, onClose, onEnregistre,
           )}
         </div>
       </div>
+
+      {importer && (
+        <ImportAcquisCours coursCode={coursCode} coursNom={data?.cours?.cours_nom}
+          annee={annee} onClose={() => setImporter(false)}
+          onImporte={() => { charger(); onEnregistre && onEnregistre(); }} />
+      )}
     </div>
   );
 }
