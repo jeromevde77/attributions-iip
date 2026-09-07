@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { api, getAnnee, nomDoc } from '../lib/api.js';
 import PreviewModal from '../components/PreviewModal.jsx';
+import ListeDiplomes from '../components/ListeDiplomes.jsx';
 import { RailLateral } from '../components/ui.jsx';
 import {
   IconUser, IconBooks, IconBook, IconLink, IconSchool, IconScale,
@@ -14,7 +15,7 @@ import * as XLSX from 'xlsx';
 // Table des composants d'icônes (référencés par nom dans ENTITES.tabler)
 const TABLER = {
   IconUser, IconBooks, IconBook, IconLink, IconSchool, IconScale,
-  IconAlertTriangle, IconLayoutGrid, IconFileText, IconFileDescription, IconCertificate,
+  IconAlertTriangle, IconLayoutGrid, IconFileText, IconFileDescription,
 };
 
 // Export Excel via import dynamique (évite de bloquer le bundle si xlsx pose problème)
@@ -384,6 +385,7 @@ const LOGO_IIP = 'data:image/jpeg;base64,/9j/4AAQSkZJRgABAgAAZABkAAD/7AARRHVja3k
 export default function Listes() {
   const navigate = useNavigate();
   const annee = getAnnee() || '2026-2027';
+  const [diplomes, setDiplomes] = useState(false);
   const [entite, setEntite] = useState('profs');
   const [colsActives, setColsActives] = useState(() => new Set(ENTITES['profs'].cols.filter(c => c.defaut).map(c => c.key)));
   const [filtres, setFiltres] = useState({});
@@ -1254,6 +1256,10 @@ export default function Listes() {
           { label: 'Documents', items: [
             { key: 'attestation', label: 'Attestation réussite', icon: IconFileText, actif: false,
               couleur: '#16a34a', onClick: () => navigate('/attestation') },
+            // La liste réclamée par la Fédération en fin de cycle : elle se
+            // tapait à la main dans un Word recopié d'année en année.
+            { key: 'diplomes', label: 'Étudiants diplômés', icon: IconCertificate, actif: false,
+              couleur: '#C9A227', onClick: () => setDiplomes(true) },
           ]},
           ...ordreGroupes.map(grp => ({
           label: GROUPES_LABEL[grp],
@@ -1265,6 +1271,10 @@ export default function Listes() {
             })),
         })).filter(s => s.items.length > 0)]}
       />
+
+      {diplomes && (
+        <ListeDiplomes annee={annee} onClose={() => setDiplomes(false)} />
+      )}
 
       {/* ── Colonne droite : filtres + contenu ── */}
       <div className="ml-16 flex flex-col min-w-0">

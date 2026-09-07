@@ -40,6 +40,7 @@ import amenagementsRoutes, { migrerAmenagements } from './routes/amenagements.js
 import stagesRoutes, { migrerStages } from './routes/stages.js';
 import attestationsRoutes, { migrerAttestations } from './routes/attestations.js';
 import dueRoutes, { migrerDUE } from './routes/due.js';
+import diplomesRoutes from './routes/diplomes.js';
 import annexe2Routes from './routes/annexe2.js';
 import impressionRoutes from './routes/impression.js';
 import importSurMesureRoutes from './routes/importSurMesure.js';
@@ -2741,6 +2742,7 @@ app.use('/api/assistants', assistantsRoutes);
 app.use('/api/rentree', rentreeRoutes);
 app.use('/api/acquis', acquisRoutes);
 app.use('/api/due', dueRoutes);
+app.use('/api/diplomes', diplomesRoutes);
 app.use('/api/droit-inscription', droitInscriptionRoutes);
 app.use('/api/import-historique', importHistoriqueRoutes);
 app.use('/api/budget', budgetRoutes);
