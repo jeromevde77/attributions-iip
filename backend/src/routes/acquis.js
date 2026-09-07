@@ -3231,14 +3231,119 @@ r.get('/deliberation/ue/:ueNum/documents', authRequired, (req, res) => {
     'SELECT cloturee, visite_date FROM deliberation_seance WHERE ue_num = ? AND annee_scolaire = ?'
   ).get(ueNum, annee) || {};
 
+  // Les listes d'ajournés : une par cours, qu'il y ait des ajournés ou non.
+  const nbCours = db.prepare(
+    'SELECT COUNT(*) AS n FROM cours WHERE ue_num = ? AND annee_scolaire = ?')
+    .get(ueNum, annee).n;
+
   res.json({
     ue_num: ueNum, annee,
     reussites: par('reussi'), ajournements: par('ajourne'), refus: par('refuse'),
     absents: par('absent'),
+    nb_cours: nbCours,
     sans_decision: etudiants.filter(e => !e.resultat),
     cloturee: !!seance.cloturee, visite_date: seance.visite_date || null,
   });
 });
+
+const STYLE_LISTES = `<style>
+  .titre-liste { font-size: 13pt; font-weight: 700; color:#1B2B4B; margin: 5mm 0 0.5mm; }
+  .sous-liste { font-size: 9pt; color:#5b6577; margin-bottom: 3mm; }
+  .neant { font-size: 11pt; font-style: italic; color:#7a8699; text-align:center;
+           padding: 8mm 0; border: 0.25mm dashed #cbd2dd; border-radius: 2mm; }
+  .signature-liste { margin-top: 12mm; font-size: 9pt; }
+  .signature-liste .ligne-sign { margin-top: 10mm; border-top: 0.25mm solid #94a3b8;
+                                 width: 60mm; padding-top: 1mm; }
+</style>`;
+
+/**
+ * LES LISTES D'AJOURNÉS, COURS PAR COURS.
+ *
+ * Le procès-verbal dit l'unité ; le professeur, lui, a besoin de savoir qui il
+ * réinterroge dans SON cours. On tirait cette liste à la main du PV, en
+ * recopiant les noms — et c'est là que l'on oublie quelqu'un.
+ *
+ * Une liste par cours, dans l'ordre des cours de l'unité, chacune sur sa page.
+ * Un cours sans ajourné n'est PAS omis : il porte la mention « Néant ». Une
+ * liste absente laisse croire qu'on l'a oubliée ; une liste vide dit que le
+ * cours n'a personne à revoir, et c'est une information.
+ */
+export function documentAjournesParCours(ueNum, annee, session = 1) {
+  const ident = identiteEtablissement();
+  const ue = db.prepare(`
+    SELECT ue_nom, ue_niv FROM ue WHERE ue_num = ?
+    ORDER BY (annee_scolaire = ?) DESC, annee_scolaire DESC LIMIT 1
+  `).get(ueNum, annee) || {};
+  const cours = db.prepare(`
+    SELECT cours_code, cours_nom FROM cours
+    WHERE ue_num = ? AND annee_scolaire = ? ORDER BY cours_num, cours_code
+  `).all(ueNum, annee);
+
+  // Les ajournés de la session : ceux dont le Conseil a arrêté « ajourné »,
+  // et pour chacun les cours qu'il doit représenter.
+  const ajournes = db.prepare(`
+    SELECT e.id, e.nom, e.prenom, e.id_ecampus
+    FROM deliberation_resultat r JOIN etudiant e ON e.id = r.etudiant_id
+    WHERE r.ue_num = ? AND r.annee_scolaire = ? AND r.session = ? AND r.resultat = 'ajourne'
+    ORDER BY e.nom, e.prenom
+  `).all(ueNum, annee, session);
+
+  const parCours = {};
+  for (const e of ajournes) {
+    const d = delibererUE(e.id, ueNum, annee, session);
+    for (const c of d.cours) {
+      if (!c.na) continue;
+      (parCours[c.cours_code] ||= []).push({
+        ...e,
+        aas: (c.aas || []).map(a => (typeof a === 'string' ? a : a.aa_code)),
+      });
+    }
+  }
+
+  const esc0 = t => String(t ?? '').replace(/[&<>"]/g,
+    x => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[x]));
+
+  const pages = cours.map(c => {
+    const liste = parCours[c.cours_code] || [];
+    const corps = liste.length ? `
+      <table class="doc">
+        <tr><th style="width:8mm">N°</th><th>Étudiant</th><th style="width:26mm">Matricule</th>
+            <th>Acquis à représenter</th></tr>
+        ${liste.map((e, i) => `<tr>
+          <td>${i + 1}</td>
+          <td>${esc0(e.nom)} ${esc0(e.prenom)}</td>
+          <td>${esc0(e.id_ecampus || '')}</td>
+          <td>${esc0((e.aas || []).join(', ')) || '—'}</td>
+        </tr>`).join('')}
+      </table>
+      <p class="fin">${liste.length} étudiant(s) à représenter dans ce cours.</p>`
+      : '<p class="neant">Néant — aucun étudiant n’est à représenter dans ce cours.</p>';
+
+    return `<div class="attestation">
+      <div class="entete">
+        <div class="nom">${esc0(ident.nom || 'INSTITUT ILYA PRIGOGINE')}</div>
+        <div class="sous">Liste des étudiants ajournés — ${session === 2 ? 'seconde' : 'première'} session</div>
+      </div>
+      <div class="titre-liste">${esc0(c.cours_nom || c.cours_code)}</div>
+      <div class="sous-liste">Cours ${esc0(c.cours_code)} · UE ${ueNum}
+        ${ue.ue_nom ? `— ${esc0(ue.ue_nom)}` : ''} · ${esc0(annee)}</div>
+      ${corps}
+      <div class="signature-liste">
+        <div>Le président du Conseil des études</div>
+        <div class="ligne-sign">${esc0(ident.directeur || '')}</div>
+      </div>
+    </div>`;
+  });
+
+  return {
+    corps: STYLE_LISTES + pages.join(''),
+    nb_listes: pages.length,
+    nb_ajournes: ajournes.length,
+    sans_cours: !cours.length,
+  };
+}
+
+
 
 r.post('/deliberation/ue/:ueNum/documents', authRequired, (req, res) => {
   const ueNum = Number(req.params.ueNum);
@@ -3248,6 +3353,7 @@ r.post('/deliberation/ue/:ueNum/documents', authRequired, (req, res) => {
     ajournement: req.body?.ajournement !== false,
     refus: req.body?.refus !== false,
     pv: req.body?.pv === true,
+    listes: req.body?.listes === true,
   };
 
   const etab = db.prepare('SELECT * FROM etablissement LIMIT 1').get() || {};
@@ -3294,6 +3400,15 @@ r.post('/deliberation/ue/:ueNum/documents', authRequired, (req, res) => {
     }
   }
 
+  // Les listes d'ajournés viennent APRÈS les notifications : le secrétariat
+  // envoie les unes aux étudiants et remet les autres aux professeurs.
+  let nbL = 0;
+  if (veut.listes) {
+    const l = documentAjournesParCours(ueNum, annee, req.body?.session === 2 ? 2 : 1);
+    if (l.sans_cours) manques.push("Listes : aucun cours n'est encodé pour cette unité");
+    else { pages.push(l.corps); nbL = l.nb_listes; }
+  }
+
   if (!pages.length) {
     return res.status(400).json({
       error: 'Aucun document à produire : les décisions ne sont pas encore '
@@ -3303,10 +3418,9 @@ r.post('/deliberation/ue/:ueNum/documents', authRequired, (req, res) => {
   }
 
   res.json({
-    html: envelopper(pages.join('<div class="saut"></div>'),
-                     `Documents de délibération — UE ${ueNum}`),
+    html: envelopper(pages.join(''), `Documents de délibération — UE ${ueNum}`),
     nom: `Documents_UE${ueNum}_${String(annee).replace(/\W/g, '')}.html`,
-    reussites: nbR, ajournements: nbA, refus: nbX, pv: nbPV,
+    reussites: nbR, ajournements: nbA, refus: nbX, pv: nbPV, listes: nbL,
     pieces: pages.length, manques,
   });
 });

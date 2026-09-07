@@ -175,7 +175,9 @@ export function envelopper(corps, titre = 'Attestations de réussite') {
   body { font-family: 'Segoe UI', Arial, Helvetica, sans-serif; font-size: 9pt;
          color: #1B2B4B; margin: 0; line-height: 1.35; }
 
-  .attestation { break-inside: avoid; }
+  /* Surtout PAS de break-inside: avoid ici : un procès-verbal de trois pages
+     ne peut pas tenir d'un bloc, et le navigateur le tronquait au lieu de le
+     paginer. Ce sont les petits blocs qui refusent d'être coupés. */
   .saut { break-after: page; page-break-after: always; height: 0; }
 
   /* Bandeau marine et filet doré, comme les autres documents de la maison. */
@@ -341,22 +343,27 @@ export function envelopper(corps, titre = 'Attestations de réussite') {
 
   ${piedStyles()}
 
-  /* ── LE PIED, COLLÉ EN BAS DE CHAQUE PAGE ──────────────────────────────
-     Il était posé en position fixe avec un décalage NÉGATIF, pour descendre
-     dans la marge basse. Chromium le rendait alors en haut de la page
-     suivante, par-dessus l'en-tête : le logo chevauchait le titre et le bas
-     de page manquait. On procède autrement, sans décalage négatif :
+  /* LA PAGINATION.
+     Le pied vit dans la MARGE BASSE de la feuille, réservée par reglesDePage :
+     il se répète alors sur chaque page imprimée, y compris au milieu d'un
+     procès-verbal qui en occupe trois.
+     La version précédente réduisait cette marge à 8 mm et réservait la place du
+     pied par un padding sur la pièce. Cela tenait tant qu'une pièce tenait sur
+     une page : dès qu'elle débordait, la première page courait jusqu'au bord et
+     le pied, en position fixe, se posait par-dessus le texte. */
 
-       — la marge basse de la feuille se réduit à ce qui doit rester sous le
-         pied ;
-       — le pied s'ancre à « bottom: 0 », donc au bas de la zone de contenu,
-         qui est désormais le bas utile de la feuille ;
-       — chaque pièce réserve elle-même la hauteur du pied. La réserve est
-         dans la PIÈCE et non dans le corps : posée sur le corps, elle
-         ajoutait une page blanche en fin de document. */
-  @page { margin-bottom: 8mm; }
-  .pied-lucie { bottom: 0; }
-  .attestation { padding-bottom: 17mm; }
+  /* Chaque pièce commence sur une nouvelle feuille. La précédente s'arrête où
+     elle veut : une attestation courte ne pousse plus la suivante contre elle,
+     et un procès-verbal long se pagine au lieu d'être coupé. */
+  .attestation + .attestation { break-before: page; page-break-before: always; }
+
+  /* Le pied s'ancre à « bottom: 0 », soit le bas de la ZONE DE CONTENU, et la
+     marge basse de la feuille réserve la place sous lui. Un « bottom » NÉGATIF
+     — qui faisait descendre le pied dans la marge pour le coller au bord — ne
+     tient que sur la première page : au-delà, le navigateur le remontait en
+     haut de la feuille suivante, par-dessus le texte. */
+  @page { margin-bottom: 17mm; }
+  .pied-lucie { bottom: 0; height: 13mm; }
 
   @media screen {
     html { background: #e5e5e5; }
