@@ -233,6 +233,26 @@ export default function ImportSuivi({ annee, onClose, onFini }) {
                 </div>
               )}
 
+              {rapport.unites.some(u => u.acquis_retires?.length
+                || u.acquis_a_verifier?.length) && (
+                <div className="bg-white rounded-lg border border-slate-200 px-2.5 py-2
+                                text-[11.5px] space-y-1">
+                  {rapport.unites.filter(u => u.acquis_retires?.length).map(u => (
+                    <div key={`r${u.ue_num}`} className="text-slate-600">
+                      <b>UE {u.ue_num}</b> — {u.acquis_retires.length} acquis du gabarit
+                      retiré(s), sans pondération ni note :{' '}
+                      <span className="text-slate-500">{u.acquis_retires.join(', ')}</span>
+                    </div>
+                  ))}
+                  {rapport.unites.filter(u => u.acquis_a_verifier?.length).map(u => (
+                    <div key={`v${u.ue_num}`} className="text-amber-800">
+                      <b>UE {u.ue_num}</b> — conservé(s) car des notes y pendent, à vérifier :{' '}
+                      {u.acquis_a_verifier.join(', ')}
+                    </div>
+                  ))}
+                </div>
+              )}
+
               {rapport.unites.some(u => u.ignoree) && (
                 <p className="text-[11.5px] text-amber-900">
                   Unités écartées :{' '}

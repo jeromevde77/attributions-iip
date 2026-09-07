@@ -1455,9 +1455,13 @@ r.put('/ponderations', authRequired, roleRequired('admin', 'editeur'), (req, res
            + ' Elle doit valoir 10 — dix points à répartir entre les acquis du cours.',
     });
   }
-  if (sur10 && gardes.some(p => !Number.isInteger(Number(p.poids)))) {
+  // AU DEMI-POINT. Les dix points ne se répartissent pas toujours en entiers :
+  // un classeur qui comptait sur cent donne 45 → 4,5, et trois acquis dans un
+  // cours ne se partagent pas dix en nombres ronds. Le quart de point, lui,
+  // n'apporte plus rien qu'une fausse précision.
+  if (sur10 && gardes.some(p => Math.abs(Number(p.poids) * 2 - Math.round(Number(p.poids) * 2)) > 1e-9)) {
     return res.status(400).json({
-      error: 'Sur un barème de 10, les poids sont des nombres entiers de 1 à 10.',
+      error: 'Sur un barème de 10, les poids se posent au demi-point (0,5 · 1 · 1,5 …).',
     });
   }
 

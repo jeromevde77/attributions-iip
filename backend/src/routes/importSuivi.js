@@ -90,7 +90,7 @@ r.post('/', authRequired, roleRequired('admin', 'directeur', 'directeur_adjoint'
   const rapport = { simulation, annee: an, unites: [], total: {
     unites: 0, etudiants: 0, rapproches: 0, inconnus: 0, hors_inscription: 0,
     collisions: 0, notes_s1: 0, notes_s2: 0, decisions: 0, ajournements: 0,
-    ponderations: 0, acquis: 0,
+    ponderations: 0, acquis: 0, acquis_retires: 0,
   } };
 
   // ── Les écritures ────────────────────────────────────────────────────────
@@ -152,7 +152,8 @@ r.post('/', authRequired, roleRequired('admin', 'directeur', 'directeur_adjoint'
       const fiche = { ue_num: ueNum, etudiants: 0, rapproches: 0, inconnus: [],
         hors_inscription: [], collisions: [], notes_s1: 0, notes_s2: 0,
         decisions: 0, ajournements: 0, ponderations: 0, acquis: 0,
-        acquis_hors_referentiel: [], ignoree: null };
+        acquis_hors_referentiel: [], acquis_retires: [], acquis_a_verifier: [],
+        ignoree: null };
 
       const ue = db.prepare(
         'SELECT ue_num, section FROM ue WHERE ue_num = ? AND annee_scolaire = ?')
@@ -179,6 +180,45 @@ r.post('/', authRequired, roleRequired('admin', 'directeur', 'directeur_adjoint'
         // Ce que la grille pondère sans que le référentiel le connaisse : on
         // le dit, car c'est presque toujours un acquis oublié dans l'onglet AA.
         fiche.acquis_hors_referentiel = u.acquis_hors_referentiel || [];
+
+        // ── LE MÉNAGE ───────────────────────────────────────────────────────
+        //
+        // « Si l'acquis n'a pas de poids, il n'existe pas. » Les quinze lignes
+        // du gabarit ont laissé dans la base des acquis que rien n'évalue :
+        // ils remplissaient la feuille de délibération de rangées vides, et
+        // l'on ne pouvait plus lire d'un coup d'œil si tous les acquis étaient
+        // au seuil — la question même que le Conseil se pose.
+        //
+        // On ne supprime que ce qui ne tient à rien : absent du référentiel du
+        // classeur, sans pondération dans aucun cours, et sans la moindre note
+        // encodée. Un acquis auquel pend une note reste en place et se
+        // signale : c'est alors une correction à faire à la main, pas un
+        // reliquat.
+        if (u.acquis?.length) {
+          const declares = new Set(u.acquis.map(a => a.aa_code));
+          const enTrop = db.prepare('SELECT aa_code FROM aa WHERE ue_num = ?')
+            .all(ueNum).map(a => a.aa_code).filter(c => !declares.has(c));
+
+          for (const code of enTrop) {
+            const pondere = db.prepare(
+              'SELECT 1 FROM aa_ponderation WHERE ue_num = ? AND aa_code = ? AND poids > 0 LIMIT 1')
+              .get(ueNum, code);
+            if (pondere) continue;
+            const note = db.prepare(`
+              SELECT 1 FROM etudiant_note_detail
+              WHERE ue_num = ? AND type = 'aa' AND (code = ? OR code LIKE ?) LIMIT 1
+            `).get(ueNum, code, `%|${code}`);
+            if (note) { fiche.acquis_a_verifier.push(code); continue; }
+
+            if (!simulation) {
+              db.prepare('DELETE FROM aa_ponderation WHERE ue_num = ? AND aa_code = ?')
+                .run(ueNum, code);
+              db.prepare('DELETE FROM aa WHERE aa_code = ? AND ue_num = ?').run(code, ueNum);
+            }
+            fiche.acquis_retires.push(code);
+          }
+          rapport.total.acquis_retires += fiche.acquis_retires.length;
+        }
 
         for (const c of (u.cours || [])) {
           if (!simulation) posePoidsCours.run(ueNum, c.cours_code, c.poids_cours / 10);
