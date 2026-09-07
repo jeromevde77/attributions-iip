@@ -1,0 +1,297 @@
+import { useEffect, useMemo, useState } from 'react';
+import { IconX, IconAlertTriangle, IconSearch, IconCheck } from '@tabler/icons-react';
+import { authHeaders } from '../lib/api.js';
+
+/**
+ * SAISIE DES NOTES DE TOUTE UNE UNITÉ.
+ *
+ * Le professeur encode son cours, et rien d'autre : lui montrer les acquis de
+ * ses collègues serait le mettre en position d'écraser leurs notes. Mais la
+ * direction et le secrétariat, eux, encodent souvent pour l'unité entière — un
+ * paquet de copies remis en bloc, une session rattrapée, une reprise après
+ * coup. Ouvrir et refermer six grilles de cours pour les mêmes étudiants faisait
+ * perdre la vue d'ensemble et retrouver six fois le même nom dans six listes.
+ *
+ * Ici, les étudiants sont en lignes et les acquis en colonnes, groupés sous leur
+ * cours. Une note s'enregistre seule, à la sortie du champ : une séance
+ * s'interrompt — un appel, une question — et un enregistrement global perdrait
+ * tout ce qui n'a pas été validé.
+ *
+ * L'écriture passe par les mêmes routes que la saisie par cours : une note reste
+ * la note d'un acquis DANS un cours.
+ */
+const SEUIL = 10;
+
+const tonNote = n => (n == null || n === '' ? 'border-slate-300'
+  : Number(n) >= 14 ? 'border-emerald-300 bg-emerald-50'
+    : Number(n) >= SEUIL ? 'border-sky-300 bg-sky-50'
+      : 'border-amber-300 bg-amber-50');
+
+// Les cours se distinguent par une teinte d'en-tête : sans elle, quinze
+// colonnes d'acquis se ressemblent toutes et l'on ne sait plus où l'on est.
+const TEINTES = [
+  'bg-iip-blue/5 border-iip-blue/20', 'bg-emerald-50 border-emerald-200',
+  'bg-amber-50 border-amber-200', 'bg-violet-50 border-violet-200',
+  'bg-sky-50 border-sky-200', 'bg-rose-50 border-rose-200',
+];
+
+export default function EncodageUE({ ueNum, annee, onClose, onEnregistre }) {
+  const [data, setData] = useState(null);
+  const [erreur, setErreur] = useState(null);
+  const [session, setSession] = useState(1);
+  const [recherche, setRecherche] = useState('');
+  const [enAttente, setEnAttente] = useState(0);
+  const [dernier, setDernier] = useState(null);
+
+  async function charger() {
+    setErreur(null);
+    try {
+      const rep = await fetch(`/api/acquis/ue/${ueNum}/feuille`
+        + `?annee=${encodeURIComponent(annee)}&session=${session}`, { headers: authHeaders() });
+      const j = await rep.json();
+      if (!rep.ok) throw new Error(j.error);
+      setData(j);
+    } catch (e) { setErreur(e.message); }
+  }
+  useEffect(() => { charger(); /* eslint-disable-next-line */ }, [ueNum, annee, session]);
+
+  // Une colonne par acquis, mais on garde son cours : c'est lui qui porte la
+  // note, et c'est sous lui que la colonne se range.
+  const colonnes = useMemo(() => (data?.cours || []).flatMap((c, i) =>
+    (c.acquis || []).map(a => ({ ...a, cours: c, teinte: TEINTES[i % TEINTES.length] }))),
+  [data]);
+
+  const etudiants = useMemo(() => {
+    const q = recherche.trim().toLowerCase();
+    if (!q) return data?.etudiants || [];
+    return (data?.etudiants || []).filter(e =>
+      `${e.nom} ${e.prenom} ${e.id_ecampus || ''}`.toLowerCase().includes(q));
+  }, [data, recherche]);
+
+  async function poser(etudId, coursCode, aaCode, valeur) {
+    const v = valeur === '' ? null : Number(String(valeur).replace(',', '.'));
+    if (v != null && (!Number.isFinite(v) || v < 0 || v > 20)) {
+      setErreur('Note attendue entre 0 et 20.');
+      return;
+    }
+    const cle = `${coursCode}|${aaCode}`;
+    setData(d => ({ ...d,
+      notes: { ...d.notes, [etudId]: { ...(d.notes[etudId] || {}), [cle]: v } } }));
+    setEnAttente(n => n + 1);
+    try {
+      const rep = await fetch('/api/acquis/feuille/note', {
+        method: 'PUT', headers: authHeaders(),
+        body: JSON.stringify({
+          etudiant_id: etudId, annee_scolaire: annee, ue_num: ueNum,
+          cours_code: coursCode, aa_code: aaCode, session, points: v,
+        }),
+      });
+      if (!rep.ok) {
+        const j = await rep.json().catch(() => ({}));
+        setErreur(j.error || 'Enregistrement refusé.');
+        await charger();
+      } else {
+        setErreur(null); setDernier(Date.now()); onEnregistre?.();
+      }
+    } catch (e) { setErreur(e.message); }
+    finally { setEnAttente(n => n - 1); }
+  }
+
+  // NP ou PP ne visent pas un acquis mais l'épreuve : tous les acquis du cours
+  // passent à zéro, avec la raison. Reposer la même mention l'enlève.
+  async function poserMention(etudId, coursCode, mention) {
+    setEnAttente(n => n + 1);
+    try {
+      const rep = await fetch(`/api/acquis/cours/${encodeURIComponent(coursCode)}/epreuve`, {
+        method: 'PUT', headers: authHeaders(),
+        body: JSON.stringify({ etudiant_id: etudId, annee_scolaire: annee, session, mention }),
+      });
+      if (!rep.ok) {
+        const j = await rep.json().catch(() => ({}));
+        setErreur(j.error || 'Enregistrement refusé.');
+      } else setErreur(null);
+      await charger(); onEnregistre?.();
+    } catch (e) { setErreur(e.message); }
+    finally { setEnAttente(n => n - 1); }
+  }
+
+  const note = (e, col) => data?.notes?.[e.id]?.[`${col.cours.cours_code}|${col.aa_code}`];
+  const mention = (e, coursCode) => data?.mentions?.[e.id]?.[coursCode];
+
+  return (
+    <div className="fixed inset-0 bg-black/40 flex items-start justify-center z-50 p-4"
+      onClick={e => e.target === e.currentTarget && onClose()}>
+      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-7xl mt-6
+                      max-h-[92vh] overflow-hidden flex flex-col">
+
+        <div className="flex-none p-5 pb-3 border-b border-slate-100 flex items-start
+                        justify-between gap-3">
+          <div className="min-w-0">
+            <h3 className="text-[16px] font-semibold text-iip-blue truncate">
+              UE {ueNum}{data?.ue?.ue_nom ? ` · ${data.ue.ue_nom}` : ''}
+            </h3>
+            <p className="text-[12px] text-slate-500">
+              {data && `${data.cours.length} cours · ${colonnes.length} acquis · `}
+              {data && `${data.etudiants.length} étudiant(s) · `}{annee}
+              {enAttente > 0 && <span className="text-amber-700"> · enregistrement…</span>}
+              {!enAttente && dernier && (
+                <span className="text-emerald-700"> · <IconCheck size={11} className="inline" /> enregistré</span>
+              )}
+            </p>
+          </div>
+          <div className="flex items-center gap-2 flex-none">
+            <div className="flex rounded-lg border border-slate-300 overflow-hidden">
+              {[1, 2].map(s => (
+                <button key={s} onClick={() => setSession(s)}
+                  className={`px-2.5 py-1 text-[12px] ${session === s
+                    ? 'bg-iip-blue text-white font-semibold' : 'text-slate-600'}`}>
+                  {s === 1 ? '1re' : '2e'} session
+                </button>
+              ))}
+            </div>
+            <div className="relative">
+              <IconSearch size={13} className="absolute left-2 top-1/2 -translate-y-1/2 text-slate-400" />
+              <input value={recherche} onChange={e => setRecherche(e.target.value)}
+                placeholder="Étudiant…"
+                className="pl-7 pr-2 py-1 text-[12px] border border-slate-300 rounded-lg w-36" />
+            </div>
+            <button onClick={onClose} className="text-slate-400 hover:text-slate-600">
+              <IconX size={18} />
+            </button>
+          </div>
+        </div>
+
+        {erreur && (
+          <div className="flex-none mx-5 mt-3 px-3 py-2 rounded-lg bg-red-50 border
+                          border-red-200 text-[12px] text-red-800 flex items-start gap-1.5">
+            <IconAlertTriangle size={14} className="mt-0.5 flex-none" /> {erreur}
+          </div>
+        )}
+
+        <div className="flex-1 overflow-auto p-5 pt-3">
+          {!data ? (
+            <div className="py-10 text-center text-slate-400 text-sm">Chargement…</div>
+          ) : data.sans_acquis ? (
+            <div className="py-10 text-center text-slate-500 text-sm">
+              Aucun acquis n'est rattaché aux cours de cette unité.<br />
+              <span className="text-slate-400">
+                Reliez d'abord les acquis aux cours dans le paramétrage de l'unité.
+              </span>
+            </div>
+          ) : !etudiants.length ? (
+            <div className="py-10 text-center text-slate-500 text-sm">
+              {recherche ? 'Aucun étudiant ne correspond.' : 'Aucun étudiant inscrit à cette unité.'}
+            </div>
+          ) : (
+            <table className="text-[12px] border-separate border-spacing-0">
+              <thead>
+                {/* Les cours en bandeau, chacun couvrant ses acquis. */}
+                <tr>
+                  <th className="sticky left-0 z-20 bg-white text-left px-2 pb-1" />
+                  {data.cours.filter(c => c.acquis?.length).map((c, i) => (
+                    <th key={c.cours_code} colSpan={c.acquis.length + 1}
+                      className={`px-2 py-1 border rounded-t-lg text-left align-bottom
+                                  ${TEINTES[i % TEINTES.length]}`}>
+                      <div className="font-semibold text-iip-blue truncate max-w-[220px]">
+                        {c.cours_nom || c.cours_code}
+                      </div>
+                      <div className="text-[10px] text-slate-500 font-normal">
+                        {c.cours_code}{c.cours_per ? ` · ${c.cours_per} pér.` : ''}
+                      </div>
+                    </th>
+                  ))}
+                </tr>
+                <tr>
+                  <th className="sticky left-0 z-20 bg-white text-left px-2 pb-1
+                                 text-[10px] uppercase text-slate-400">Étudiant</th>
+                  {data.cours.filter(c => c.acquis?.length).flatMap((c, i) => [
+                    ...c.acquis.map(a => (
+                      <th key={`${c.cours_code}|${a.aa_code}`}
+                        title={a.description || a.aa_code}
+                        className={`px-1 pb-1 border-x text-[10px] font-semibold text-slate-600
+                                    ${TEINTES[i % TEINTES.length]}`}>
+                        <div>{a.aa_code}</div>
+                        {a.poids != null && (
+                          <div className="text-[9px] font-normal text-slate-400">{a.poids}</div>
+                        )}
+                      </th>
+                    )),
+                    <th key={`${c.cours_code}|mention`}
+                      className={`px-1 pb-1 border-x text-[10px] text-slate-400 font-normal
+                                  ${TEINTES[i % TEINTES.length]}`}>
+                      épreuve
+                    </th>,
+                  ])}
+                </tr>
+              </thead>
+              <tbody>
+                {etudiants.map(e => (
+                  <tr key={e.id} className="hover:bg-slate-50/60">
+                    <td className="sticky left-0 z-10 bg-white hover:bg-slate-50/60 px-2 py-0.5
+                                   whitespace-nowrap border-b border-slate-100">
+                      <span className="font-medium text-slate-800">{e.nom}</span>{' '}
+                      <span className="text-slate-500">{e.prenom}</span>
+                    </td>
+                    {data.cours.filter(c => c.acquis?.length).flatMap(c => {
+                      const m = mention(e, c.cours_code);
+                      return [
+                        ...c.acquis.map(a => {
+                          const col = { ...a, cours: c };
+                          const v = note(e, col);
+                          return (
+                            <td key={`${e.id}|${c.cours_code}|${a.aa_code}`}
+                              className="px-1 py-0.5 border-b border-slate-100 text-center">
+                              <input type="number" step="1" min="0" max="20"
+                                defaultValue={v ?? ''} disabled={!!m}
+                                onBlur={ev => {
+                                  if (String(ev.target.value) !== String(v ?? '')) {
+                                    poser(e.id, c.cours_code, a.aa_code, ev.target.value);
+                                  }
+                                }}
+                                className={`w-12 text-center py-0.5 border rounded
+                                            disabled:bg-slate-100 disabled:text-slate-400
+                                            ${tonNote(v)}`} />
+                            </td>
+                          );
+                        }),
+                        <td key={`${e.id}|${c.cours_code}|mention`}
+                          className="px-1 py-0.5 border-b border-slate-100 text-center whitespace-nowrap">
+                          {['NP', 'PP'].map(x => (
+                            <button key={x}
+                              onClick={() => poserMention(e.id, c.cours_code, m === x ? null : x)}
+                              title={x === 'NP'
+                                ? 'Note de présence — zéro, mais la seconde session reste ouverte'
+                                : "Pas présenté — absence non justifiée, refus d'office"}
+                              className={`px-1 mx-0.5 rounded text-[10px] font-semibold border
+                                ${m === x
+                    ? (x === 'NP' ? 'bg-amber-100 border-amber-300 text-amber-800'
+                      : 'bg-red-100 border-red-300 text-red-700')
+                    : 'border-slate-200 text-slate-400 hover:border-slate-400'}`}>
+                              {x}
+                            </button>
+                          ))}
+                        </td>,
+                      ];
+                    })}
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
+        </div>
+
+        <div className="flex-none px-5 py-2.5 border-t border-slate-100 flex items-center
+                        justify-between gap-3">
+          <p className="text-[11px] text-slate-500">
+            Chaque note s'enregistre seule, en quittant la case. <b>NP</b> vaut zéro sur tout le
+            cours en gardant la seconde session ; <b>PP</b> est l'absence non justifiée.
+          </p>
+          <button onClick={onClose}
+            className="px-3 py-1.5 text-[12.5px] rounded-lg border border-slate-300 text-slate-600">
+            Fermer
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}

@@ -2180,6 +2180,101 @@ r.get('/cours/:coursCode/feuille', authRequired, (req, res) => {
 });
 
 /**
+ * LA FEUILLE DE TOUTE L'UNITÉ.
+ *
+ * Le professeur encode SON cours : lui montrer les acquis de ses collègues
+ * serait le mettre en position d'écraser leurs notes. Mais la direction et le
+ * secrétariat, eux, encodent souvent pour toute une unité — un paquet de copies
+ * remis en bloc, une session rattrapée, une reprise après coup. Ouvrir et
+ * refermer six grilles de cours pour les mêmes étudiants n'a alors aucun sens :
+ * on perd la vue d'ensemble et l'on ressaisit six fois le même nom.
+ *
+ * Cette feuille rend donc l'unité entière — chaque cours avec ses acquis, tous
+ * les étudiants inscrits, toutes les notes — en une seule lecture. L'écriture,
+ * elle, passe par les mêmes routes que la saisie par cours : une note reste une
+ * note de cours, et rien du modèle ne change.
+ *
+ * Elle est réservée à ceux qui ont déjà tous les droits sur toutes les grilles.
+ * Un professeur n'y a pas accès : sa feuille à lui est celle de son cours.
+ */
+r.get('/ue/:ueNum/feuille', authRequired,
+      roleRequired('admin', 'directeur', 'directeur_adjoint', 'editeur'), (req, res) => {
+  const ueNum = Number(req.params.ueNum);
+  const annee = req.query.annee || anneeDeTravail(req);
+  const session = req.query.session === '2' ? 2 : 1;
+
+  const ue = db.prepare('SELECT ue_num, ue_nom, section FROM ue WHERE ue_num = ? AND annee_scolaire = ?')
+    .get(ueNum, annee);
+  if (!ue) return res.status(404).json({ error: `L'unité ${ueNum} n'existe pas en ${annee}` });
+
+  const perim = getUserSections(req.user);
+  if (perim && ue.section && !perim.includes(ue.section)) {
+    return res.status(403).json({ error: 'unité hors de votre périmètre' });
+  }
+
+  const tousCours = db.prepare(`
+    SELECT cours_code, cours_nom, cours_per FROM cours
+    WHERE ue_num = ? AND annee_scolaire = ? ORDER BY cours_num, cours_code
+  `).all(ueNum, annee);
+
+  // Le lien acquis ↔ cours vient de la pondération : c'est la somme des acquis
+  // qui fait le cours. À défaut, le rattachement du référentiel.
+  const pond = db.prepare(`
+    SELECT p.cours_code, p.aa_code, p.poids, a.description
+    FROM aa_ponderation p LEFT JOIN aa a ON a.aa_code = p.aa_code AND a.ue_num = p.ue_num
+    WHERE p.ue_num = ? ORDER BY p.aa_code
+  `).all(ueNum);
+  const parCours = {};
+  for (const x of pond) (parCours[x.cours_code] ||= []).push(x);
+
+  const cours = tousCours.map(c => ({
+    ...c,
+    acquis: parCours[c.cours_code] || db.prepare(`
+      SELECT aa_code, NULL AS poids, description FROM aa
+      WHERE ue_num = ? AND cours_code = ? ORDER BY aa_num, aa_code
+    `).all(ueNum, c.cours_code),
+  }));
+
+  const etudiants = db.prepare(`
+    SELECT e.id, e.nom, e.prenom, e.id_ecampus
+    FROM etudiant_inscription i JOIN etudiant e ON e.id = i.etudiant_id
+    WHERE i.annee_scolaire = ? AND i.ue_num = ?
+    ORDER BY e.nom, e.prenom
+  `).all(annee, ueNum);
+
+  // Les notes sont rangées par « cours|acquis » : un même acquis coté dans deux
+  // cours a deux notes, et chacune appartient à son cours. La note portant la
+  // session l'emporte sur celle qui n'en porte pas — écrite avant qu'on ne les
+  // distingue, celle-ci vaut pour la première session sans jamais la recouvrir.
+  const notes = {};
+  const mentions = {};
+  const prefixe = `s${session}|`;
+  for (const l of db.prepare(`
+    SELECT etudiant_id, code, points, mention FROM etudiant_note_detail
+    WHERE annee_scolaire = ? AND ue_num = ? AND type = 'aa'
+  `).all(annee, ueNum)) {
+    const code = String(l.code);
+    const avecSession = code.startsWith(prefixe);
+    if (!avecSession && (session === 2 || code.startsWith('s2|') || code.startsWith('s1|'))) continue;
+    const reste = avecSession ? code.slice(prefixe.length) : code;
+    const sep = reste.indexOf('|');
+    if (sep < 0) continue;                       // note d'acquis sans cours
+    const cle = reste;                           // « cours|acquis »
+    const e = (notes[l.etudiant_id] ||= {});
+    if (avecSession || e[cle] == null) e[cle] = l.points;
+    if (l.mention && avecSession) {
+      (mentions[l.etudiant_id] ||= {})[reste.slice(0, sep)] = l.mention;
+    }
+  }
+
+  res.json({
+    ue, annee, session, cours, etudiants, notes, mentions,
+    epreuve_integree: estEpreuveIntegree(ueNum, annee),
+    sans_acquis: cours.every(c => !c.acquis.length),
+  });
+});
+
+/**
  * IMPORTER LES ACQUIS D'UN COURS DEPUIS UN CLASSEUR.
  *
  * Les acquis se saisissaient un à un, puis se reliaient à la flèche. Quand ils

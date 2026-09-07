@@ -1,9 +1,11 @@
 import { useEffect, useState } from 'react';
 import { IconChevronRight, IconArrowLeft, IconBolt, IconAlertTriangle,
   IconRotate, IconPrinter } from '@tabler/icons-react';
-import { authHeaders, getAnnee } from '../lib/api.js';
+import { authHeaders, getAnnee, getUser } from '../lib/api.js';
+import { estDirection } from '../lib/modules.js';
 import FeuilleDeliberation from '../components/FeuilleDeliberation.jsx';
 import EncodageCours from '../components/EncodageCours.jsx';
+import EncodageUE from '../components/EncodageUE.jsx';
 import SchemaLiensAA from '../components/SchemaLiensAA.jsx';
 import EncodageRapide from './EncodageRapide.jsx';
 import CentreDocumentsUE from '../components/CentreDocumentsUE.jsx';
@@ -34,6 +36,16 @@ export default function Deliberation() {
   const [coursDeUe, setCoursDeUe] = useState({});   // ue_num → [cours]
   const [deplie, setDeplie] = useState(null);
   const [encoder, setEncoder] = useState(null);     // cours_code en saisie
+  // La saisie de TOUTE l'unité : réservée à qui a déjà tous les droits sur
+  // toutes les grilles. Un professeur n'y a pas accès — sa feuille est celle
+  // de son cours.
+  const [encoderUE, setEncoderUE] = useState(null); // ue_num en saisie complète
+  // La grille de toute l'unité montre les acquis de tous les collègues : elle
+  // n'a de sens que pour qui les encode déjà tous. Le serveur applique la même
+  // règle — le bouton caché ne serait pas une protection.
+  const moi = getUser();
+  const peutToutEncoder = estDirection(moi) || moi?.role === 'secretariat'
+    || moi?.role === 'editeur';
   const [parametrer, setParametrer] = useState(null);  // ue_num en paramétrage
   const [docs, setDocs] = useState(null);           // l'unité dont on imprime les pièces
   const [annuler, setAnnuler] = useState(null);     // ue en cours d'annulation
@@ -215,6 +227,14 @@ export default function Deliberation() {
                                  text-slate-600 flex-none">
                       Encoder par cours
                     </button>
+                    {peutToutEncoder && (
+                      <button onClick={() => setEncoderUE(u.ue_num)}
+                        title="Tous les cours de l'unité dans une seule grille"
+                        className="px-2 py-1 text-[11.5px] rounded-lg border border-slate-300
+                                   text-slate-600 flex-none">
+                        Encoder toute l'UE
+                      </button>
+                    )}
                     {u.decides > 0 && (
                       <button onClick={() => setAnnuler(u)}
                         title="Annuler la délibération de cette unité — les notes encodées sont conservées"
@@ -288,6 +308,11 @@ export default function Deliberation() {
       {ueNum && (
         <FeuilleDeliberation ueNum={ueNum} annee={annee}
           onClose={() => { setUeNum(null); charger(); }} />
+      )}
+
+      {encoderUE != null && (
+        <EncodageUE ueNum={encoderUE} annee={annee}
+          onClose={() => { setEncoderUE(null); charger(); }} />
       )}
 
       {encoder && (
