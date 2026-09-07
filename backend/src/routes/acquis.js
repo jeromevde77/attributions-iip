@@ -79,12 +79,44 @@ export function migrerSessions(dbx) {
     const ddlS = dbx.prepare(
       "SELECT sql FROM sqlite_master WHERE type='table' AND name='deliberation_seance'"
     ).get()?.sql || '';
-    if (ddlS && !ddlS.includes('session')) {
-      dbx.transaction(() => dbx.exec(`
-        ALTER TABLE deliberation_seance ADD COLUMN session INTEGER NOT NULL DEFAULT 1;
-        CREATE UNIQUE INDEX IF NOT EXISTS idx_delib_seance_unique
-          ON deliberation_seance(ue_num, annee_scolaire, session);
-      `))();
+    if (ddlS && !/session\s+INTEGER/.test(ddlS)) {
+      // RECONSTRUCTION, non ALTER : l'unicité déclarée sur (unité, année)
+      // interdit deux séances la même année, donc une séance de seconde
+      // session. Une contrainte UNIQUE de déclaration ne se défait pas par un
+      // DROP INDEX ; il faut refaire la table.
+      //
+      // Les colonnes ajoutées après coup (visite, session2…) sont reprises
+      // telles qu'elles existent : on lit la liste réelle plutôt que de la
+      // supposer, un ALTER ayant pu passer sur certaines bases et pas sur
+      // d'autres.
+      const cols = dbx.prepare('PRAGMA table_info(deliberation_seance)').all()
+        .map(c => c.name).filter(n => n !== 'id' && n !== 'session');
+      const liste = cols.join(', ');
+      dbx.transaction(() => {
+        dbx.exec(`
+          CREATE TABLE deliberation_seance_v2 (
+            id             INTEGER PRIMARY KEY AUTOINCREMENT,
+            ue_num         INTEGER NOT NULL,
+            annee_scolaire TEXT    NOT NULL,
+            session        INTEGER NOT NULL DEFAULT 1,
+            date_seance    TEXT,
+            visite_date    TEXT,
+            visite_heure   TEXT,
+            visite_local   TEXT,
+            session2_date  TEXT,
+            session2_heure TEXT,
+            session2_local TEXT,
+            session2_adresse TEXT,
+            cloturee       INTEGER NOT NULL DEFAULT 0,
+            maj_le         TEXT DEFAULT CURRENT_TIMESTAMP,
+            maj_par        TEXT,
+            UNIQUE(ue_num, annee_scolaire, session)
+          );`);
+        dbx.exec(`INSERT INTO deliberation_seance_v2 (id, session, ${liste})
+                  SELECT id, 1, ${liste} FROM deliberation_seance;`);
+        dbx.exec(`DROP TABLE deliberation_seance;
+          ALTER TABLE deliberation_seance_v2 RENAME TO deliberation_seance;`);
+      })();
       console.log('[migration] deliberation_seance : session ajoutée');
     }
   } catch (e) { console.error('[migration] seance.session :', e.message); }
@@ -884,8 +916,10 @@ export function documentMotivation(etudId, ueNum, annee) {
 
   // La seconde session, telle que la séance l'a fixée — et cours par cours
   // quand les professeurs ne repassent pas le même jour.
+  // Les dates de seconde session ont été fixées à la CLÔTURE DE LA PREMIÈRE :
+  // c'est cette séance-là qu'on lit, quelle que soit celle qu'on délibère.
   const seance = db.prepare(
-    'SELECT * FROM deliberation_seance WHERE ue_num = ? AND annee_scolaire = ?'
+    'SELECT * FROM deliberation_seance WHERE ue_num = ? AND annee_scolaire = ? AND session = 1'
   ).get(ueNum, annee) || {};
   const s2 = Object.fromEntries(db.prepare(
     'SELECT * FROM deliberation_session2 WHERE ue_num = ? AND annee_scolaire = ?'
@@ -3110,10 +3144,13 @@ function membresDuConseil(ueNum, annee) {
 r.get('/deliberation/ue/:ueNum/seance', authRequired, (req, res) => {
   const ueNum = Number(req.params.ueNum);
   const annee = req.query.annee || anneeDeTravail(req);
+  // Chaque session a SA séance : ses présences, sa date, sa visite des copies.
+  // Le procès-verbal de septembre ne peut pas porter le Conseil de juin.
+  const session = Number(req.query.session) === 2 ? 2 : 1;
 
   const seance = db.prepare(
-    'SELECT * FROM deliberation_seance WHERE ue_num = ? AND annee_scolaire = ?'
-  ).get(ueNum, annee) || null;
+    'SELECT * FROM deliberation_seance WHERE ue_num = ? AND annee_scolaire = ? AND session = ?'
+  ).get(ueNum, annee, session) || null;
 
   const poses = seance ? Object.fromEntries(db.prepare(
     'SELECT cle, present, nom, qualite FROM deliberation_presence WHERE seance_id = ?'
@@ -3147,13 +3184,14 @@ r.get('/deliberation/ue/:ueNum/seance', authRequired, (req, res) => {
     };
   });
 
-  res.json({ ue_num: ueNum, annee, seance, membres, session2 });
+  res.json({ ue_num: ueNum, annee, session, seance, membres, session2 });
 });
 
 r.put('/deliberation/ue/:ueNum/seance', authRequired,
       roleRequired('admin', 'directeur', 'directeur_adjoint', 'editeur'), (req, res) => {
   const ueNum = Number(req.params.ueNum);
   const annee = req.body?.annee || anneeDeTravail(req);
+  const session = Number(req.body?.session) === 2 ? 2 : 1;
   const { membres, date_seance, visite_date, visite_heure, visite_local, cloturee,
           session2_date, session2_heure, session2_local, session2_adresse,
           session2_cours } = req.body || {};
@@ -3161,11 +3199,11 @@ r.put('/deliberation/ue/:ueNum/seance', authRequired,
   db.transaction(() => {
     db.prepare(`
       INSERT INTO deliberation_seance
-        (ue_num, annee_scolaire, date_seance, visite_date, visite_heure, visite_local,
+        (ue_num, annee_scolaire, session, date_seance, visite_date, visite_heure, visite_local,
          session2_date, session2_heure, session2_local, session2_adresse,
          cloturee, maj_le, maj_par)
-      VALUES (?,?,?,?,?,?,?,?,?,?,?, datetime('now'), ?)
-      ON CONFLICT(ue_num, annee_scolaire) DO UPDATE SET
+      VALUES (?,?,?,?,?,?,?,?,?,?,?,?, datetime('now'), ?)
+      ON CONFLICT(ue_num, annee_scolaire, session) DO UPDATE SET
         date_seance      = COALESCE(excluded.date_seance,      deliberation_seance.date_seance),
         visite_date      = COALESCE(excluded.visite_date,      deliberation_seance.visite_date),
         visite_heure     = COALESCE(excluded.visite_heure,     deliberation_seance.visite_heure),
@@ -3176,7 +3214,7 @@ r.put('/deliberation/ue/:ueNum/seance', authRequired,
         session2_adresse = COALESCE(excluded.session2_adresse, deliberation_seance.session2_adresse),
         cloturee     = MAX(excluded.cloturee, deliberation_seance.cloturee),
         maj_le = datetime('now'), maj_par = excluded.maj_par
-    `).run(ueNum, annee, date_seance || null, visite_date || null, visite_heure || null,
+    `).run(ueNum, annee, session, date_seance || null, visite_date || null, visite_heure || null,
            visite_local || null, session2_date || null, session2_heure || null,
            session2_local || null, session2_adresse || null,
            cloturee ? 1 : 0, req.user?.email || null);
@@ -3199,8 +3237,8 @@ r.put('/deliberation/ue/:ueNum/seance', authRequired,
 
     if (Array.isArray(membres)) {
       const s = db.prepare(
-        'SELECT id FROM deliberation_seance WHERE ue_num = ? AND annee_scolaire = ?'
-      ).get(ueNum, annee);
+        'SELECT id FROM deliberation_seance WHERE ue_num = ? AND annee_scolaire = ? AND session = ?'
+      ).get(ueNum, annee, session);
       const up = db.prepare(`
         INSERT INTO deliberation_presence (seance_id, cle, nom, qualite, present)
         VALUES (?,?,?,?,?)
@@ -3214,9 +3252,9 @@ r.put('/deliberation/ue/:ueNum/seance', authRequired,
   })();
 
   const seance = db.prepare(
-    'SELECT * FROM deliberation_seance WHERE ue_num = ? AND annee_scolaire = ?'
-  ).get(ueNum, annee);
-  res.json({ ok: true, seance });
+    'SELECT * FROM deliberation_seance WHERE ue_num = ? AND annee_scolaire = ? AND session = ?'
+  ).get(ueNum, annee, session);
+  res.json({ ok: true, session, seance });
 });
 
 /**
@@ -3241,8 +3279,9 @@ r.get('/deliberation/ue/:ueNum/documents', authRequired, (req, res) => {
 
   const par = r0 => etudiants.filter(e => e.resultat === r0);
   const seance = db.prepare(
-    'SELECT cloturee, visite_date FROM deliberation_seance WHERE ue_num = ? AND annee_scolaire = ?'
-  ).get(ueNum, annee) || {};
+    'SELECT cloturee, visite_date FROM deliberation_seance'
+    + ' WHERE ue_num = ? AND annee_scolaire = ? AND session = ?'
+  ).get(ueNum, annee, Number(req.query.session) === 2 ? 2 : sessionDeLUE(ueNum, annee).session) || {};
 
   // Les listes d'ajournés : une par cours, qu'il y ait des ajournés ou non.
   const nbCours = db.prepare(
@@ -3535,9 +3574,11 @@ export function documentPV(ueNum, annee, session = 1) {
   let ident = {};
   try { ident = identiteEtablissement() || {}; } catch { ident = {}; }
 
+  // La séance de CETTE session : présences, date, visite des copies. Le
+  // procès-verbal de septembre ne peut pas porter le Conseil de juin.
   const seance = db.prepare(
-    'SELECT * FROM deliberation_seance WHERE ue_num = ? AND annee_scolaire = ?'
-  ).get(ueNum, annee) || {};
+    'SELECT * FROM deliberation_seance WHERE ue_num = ? AND annee_scolaire = ? AND session = ?'
+  ).get(ueNum, annee, session) || {};
   const presents = seance.id ? db.prepare(
     'SELECT nom, qualite FROM deliberation_presence WHERE seance_id = ? AND present = 1'
   ).all(seance.id) : [];

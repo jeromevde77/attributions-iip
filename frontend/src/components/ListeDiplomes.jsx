@@ -31,7 +31,9 @@ export default function ListeDiplomes({ annee, onClose }) {
   const [enCours, setEnCours] = useState(false);
 
   useEffect(() => {
-    fetch('/api/referentiels/sections', { headers: authHeaders() })
+    // Les référentiels sont montés sur /api/ref, non /api/referentiels :
+    // l'appel tombait donc dans le vide et la liste restait déserte.
+    fetch('/api/ref/sections', { headers: authHeaders() })
       .then(r => r.json())
       .then(l => setSections(Array.isArray(l) ? l : (l.sections || [])))
       .catch(() => {});
