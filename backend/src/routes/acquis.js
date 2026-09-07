@@ -3402,6 +3402,49 @@ r.get('/deliberation/:etudId/:ueNum', authRequired, (req, res) => {
 });
 
 /** Poser ou retirer un ajustement. `action: null` retire. */
+/**
+ * AJOURNER — OU RELEVER — TOUS LES COURS D'UN COUP.
+ *
+ * Une unité ratée l'est rarement à moitié : quand le Conseil ajourne, il
+ * ajourne souvent tout, et quand il refuse, tous les cours tombent. Le faire
+ * tuile par tuile sur six cours, pour quarante étudiants, c'est deux cent
+ * quarante clics et autant d'occasions d'en oublier un.
+ *
+ * Un seul appel, une seule transaction, un seul recalcul : l'étudiant revient
+ * cohérent plutôt que reconstruit à mesure des allers-retours.
+ */
+r.put('/deliberation/ajustement/lot', authRequired,
+      roleRequired('admin', 'directeur', 'directeur_adjoint', 'editeur'), (req, res) => {
+  const { etudiant_id, annee_scolaire, ue_num, portee = 'cours', codes, action } = req.body || {};
+  if (!etudiant_id || !annee_scolaire || !ue_num || !Array.isArray(codes) || !codes.length) {
+    return res.status(400).json({ error: 'étudiant, année, unité et codes requis' });
+  }
+  if (!['aa', 'cours'].includes(portee)) return res.status(400).json({ error: 'portée invalide' });
+  if (action != null && !['faveur', 'ajourne'].includes(action)) {
+    return res.status(400).json({ error: 'action invalide' });
+  }
+
+  const oter = db.prepare(`DELETE FROM deliberation_ajustement
+    WHERE etudiant_id = ? AND annee_scolaire = ? AND ue_num = ? AND portee = ? AND code = ?`);
+  const poser = db.prepare(`
+    INSERT INTO deliberation_ajustement
+      (etudiant_id, annee_scolaire, ue_num, portee, code, action, maj_par)
+    VALUES (?,?,?,?,?,?,?)
+    ON CONFLICT(etudiant_id, annee_scolaire, ue_num, portee, code)
+    DO UPDATE SET action = excluded.action, maj_le = CURRENT_TIMESTAMP, maj_par = excluded.maj_par
+  `);
+
+  db.transaction(() => {
+    for (const code of codes) {
+      if (action == null) oter.run(Number(etudiant_id), annee_scolaire, Number(ue_num), portee, code);
+      else poser.run(Number(etudiant_id), annee_scolaire, Number(ue_num), portee, code, action,
+        req.user?.email || null);
+    }
+  })();
+
+  res.json(avecAide(Number(etudiant_id), Number(ue_num), annee_scolaire));
+});
+
 r.put('/deliberation/ajustement', authRequired,
       roleRequired('admin', 'directeur', 'directeur_adjoint', 'editeur'), (req, res) => {
   const { etudiant_id, annee_scolaire, ue_num, portee, code, action } = req.body || {};

@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import {
   IconX, IconSearch, IconAlertTriangle, IconChevronLeft, IconChevronRight,
   IconArrowUp, IconRepeat, IconList, IconFileText, IconMessage, IconBrush,
-  IconRotate,
+  IconRotate, IconBan,
 } from '@tabler/icons-react';
 import { authHeaders } from '../lib/api.js';
 import TableauBordEtudiant from './TableauBordEtudiant.jsx';
@@ -158,6 +158,31 @@ export default function FeuilleDeliberation({ ueNum, annee, onClose }) {
   const aMotiver = etud && decisionRetenue !== 'reussi'
     ? aJustifier(etud.acquis, etud.cours, decisionRetenue).filter(a => !a.motif)
     : [];
+
+  /**
+   * Poser ou retirer le MÊME ajustement sur plusieurs codes d'un coup.
+   *
+   * Une unité ratée l'est rarement à moitié : quand le Conseil ajourne, il
+   * ajourne souvent tout. Le faire tuile par tuile sur six cours, c'est six
+   * allers-retours pendant lesquels la fiche se reconstruit à mesure.
+   */
+  async function ajusterLot(portee, codes, action) {
+    if (!etud || !codes.length) return;
+    setEnCours(true); setErreur(null);
+    try {
+      const rep = await fetch('/api/acquis/deliberation/ajustement/lot', {
+        method: 'PUT', headers: authHeaders(),
+        body: JSON.stringify({
+          etudiant_id: etud.id, annee_scolaire: annee, ue_num: ueNum, portee, codes, action,
+        }),
+      });
+      const j = await rep.json();
+      if (!rep.ok) { setErreur(j.error); return; }
+      setData(d => ({ ...d,
+        etudiants: d.etudiants.map(x => x.id === etud.id ? { ...x, ...j } : x) }));
+    } catch (e) { setErreur(e.message); }
+    finally { setEnCours(false); }
+  }
 
   /** Poser ou retirer un ajustement. Le serveur renvoie l'étudiant recalculé. */
   async function ajuster(portee, code, action) {
@@ -472,7 +497,8 @@ export default function FeuilleDeliberation({ ueNum, annee, onClose }) {
                 </div>
               </div>
 
-              <Fiche e={etud} data={data} onAjuster={ajuster} onMotif={poserMotif}
+              <Fiche e={etud} data={data} onAjuster={ajuster} onLot={ajusterLot}
+                onMotif={poserMotif}
                 enCours={enCours} onBord={() => setBord(etud)}
                 decision={decisions[etud.id] || etud.ue?.decision_proposee || null}
                 onDecision={d => setDecisions(m => ({ ...m, [etud.id]: d }))}
@@ -805,7 +831,8 @@ function Cloture({ seance, onClore, onRetour, onPV, enCours, nb, ajournes, cours
  *     c'est de lui qu'il faut rendre compte, et c'est lui que reprend l'annexe.
  */
 
-function Fiche({ e, data, onAjuster, onMotif, enCours, onBord, decision, onDecision, onAnnuler }) {
+function Fiche({ e, data, onAjuster, onLot, onMotif, enCours, onBord,
+  decision, onDecision, onAnnuler }) {
   const ue = e.ue || {};
   const acquis = e.acquis || [];
   const cours = e.cours || [];
@@ -921,6 +948,11 @@ function Fiche({ e, data, onAjuster, onMotif, enCours, onBord, decision, onDecis
           </tbody>
         </table>
       </div>
+
+      {/* AJOURNER OU REFUSER TOUT — le geste le plus fréquent du Conseil.
+          Une unité ratée l'est rarement à moitié. */}
+      <DecisionGenerale cours={cours} enCours={enCours} onLot={onLot}
+        onDecision={onDecision} decision={decision} />
 
       {/* CE QU'IL FAUT JUSTIFIER, sous la matrice et en permanence. Le bouton
           de justification vivait sur la tuile de l'acquis : ajourner le faisait
@@ -1405,6 +1437,58 @@ const DECISIONS = [
  * qu'à s'y ranger. Le Conseil délibère, il ne ratifie pas ; les quatre
  * décisions sont donc offertes, celle du calcul portée d'avance.
  */
+/**
+ * L'AJOURNEMENT — OU LE REFUS — DE TOUTE L'UNITÉ, D'UN GESTE.
+ *
+ * Quand le Conseil ajourne, il ajourne le plus souvent tous les cours ; quand
+ * il refuse, ils tombent tous. Cliquer six tuiles pour chaque étudiant, c'est
+ * long et c'est là qu'on en oublie une.
+ *
+ * Les deux boutons basculent : tout est déjà ajourné, un second clic relève.
+ * Le refus ajourne les cours ET pose la décision, parce que ces deux gestes
+ * n'ont pas de sens séparés — mais la décision reste modifiable en dessous, le
+ * Conseil n'étant lié par aucun bouton.
+ */
+function DecisionGenerale({ cours, enCours, onLot, onDecision, decision }) {
+  const codes = cours.map(c => c.cours_code);
+  if (codes.length < 2) return null;
+  // C'est l'AJOURNEMENT POSÉ qui compte, non l'échec : un cours sous dix est
+  // déjà « non acquis » sans que le Conseil ait rien décidé, et le bouton
+  // aurait annoncé « relever » avant qu'on ait ajourné quoi que ce soit.
+  const tousAjournes = cours.length > 0 && cours.every(c => c.ajourne_directement);
+
+  return (
+    <div className="flex items-center gap-2 flex-wrap text-[11.5px]">
+      <span className="text-slate-500">Sur l'ensemble des cours :</span>
+      <button disabled={enCours} onClick={() => onLot('cours', codes, tousAjournes ? null : 'ajourne')}
+        title={tousAjournes
+          ? "Relever l'ajournement de tous les cours"
+          : "Ajourner les cours de l'unité en une fois"}
+        className={`px-2.5 py-1 rounded-lg border font-semibold flex items-center gap-1.5
+          ${tousAjournes
+    ? 'bg-amber-100 border-amber-300 text-amber-900'
+    : 'bg-white border-amber-300 text-amber-800 hover:bg-amber-50'}`}>
+        <IconAlertTriangle size={13} />
+        {tousAjournes ? 'Relever l’ajournement général' : 'Ajournement général'}
+      </button>
+      <button disabled={enCours}
+        onClick={() => { onLot('cours', codes, 'ajourne'); onDecision('refuse'); }}
+        title="Tous les cours tombent et l'unité est refusée — sans seconde session"
+        className={`px-2.5 py-1 rounded-lg border font-semibold flex items-center gap-1.5
+          ${decision === 'refuse'
+    ? 'bg-red-100 border-red-300 text-red-800'
+    : 'bg-white border-red-300 text-red-700 hover:bg-red-50'}`}>
+        <IconBan size={13} /> Refus général
+      </button>
+      {tousAjournes && (
+        <span className="text-amber-800">
+          Tous les cours sont à représenter — chaque acquis en cause demande sa justification.
+        </span>
+      )}
+    </div>
+  );
+}
+
 function Decision({ e, ue, onBord, acquis, cours, decision, onDecision, enCours, onAnnuler }) {
   const detail = ue.a_representer_detail || [];
   // Ce qui reste à justifier se lit sur les acquis affichés, non sur la liste
