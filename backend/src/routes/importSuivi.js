@@ -98,6 +98,7 @@ r.post('/', authRequired, roleRequired('admin', 'directeur', 'directeur_adjoint'
     unites: 0, etudiants: 0, rapproches: 0, inconnus: 0, hors_inscription: 0,
     collisions: 0, notes_s1: 0, notes_s2: 0, decisions: 0, ajournements: 0,
     ponderations: 0, acquis: 0, acquis_retires: 0, crees: 0, inscrits: 0,
+    s2_recopiees: 0,
   } };
 
   // ── Créer un dossier, inscrire à l'unité ─────────────────────────────────
@@ -170,7 +171,7 @@ r.post('/', authRequired, roleRequired('admin', 'directeur', 'directeur_adjoint'
     for (const u of unites) {
       const ueNum = Number(u.ue_num);
       const fiche = { ue_num: ueNum, etudiants: 0, rapproches: 0, crees: 0, inscrits: 0,
-        inconnus: [],
+        s2_recopiees: 0, inconnus: [],
         hors_inscription: [], collisions: [], notes_s1: 0, notes_s2: 0,
         decisions: 0, ajournements: 0, ponderations: 0, acquis: 0,
         acquis_hors_referentiel: [], acquis_retires: [], acquis_a_verifier: [],
@@ -358,15 +359,33 @@ r.post('/', authRequired, roleRequired('admin', 'directeur', 'directeur_adjoint'
           }
         }
 
-        // ── La seconde session — et seulement pour qui la présente ─────────
+        // ── LA SECONDE SESSION : CE QUI EN EST VRAIMENT ───────────────────
         //
-        // Aller lire la seconde session d'un étudiant qui a réussi en juin,
-        // c'est importer les cases d'un classeur qui recopie ses colonnes :
-        // on écrirait une note de septembre à quelqu'un qui n'y était pas.
-        const aPresente = e.s1?.decision && e.s1.decision !== 'reussi';
+        // LE BLOC S2 DU CLASSEUR N'EST PAS UN BLOC DE RÉSULTATS. Excel y
+        // RECOPIAIT les notes de juin pour tout ce qui n'était pas à
+        // représenter : c'était commode dans une feuille de calcul, où il faut
+        // bien que la moyenne finale trouve un nombre dans chaque case. Repris
+        // tel quel, il fabrique des notes de septembre pour des épreuves que
+        // personne n'a repassées.
+        //
+        // Deux conséquences, et elles sont l'une et l'autre nécessaires.
+        //
+        // 1. SEUL L'AJOURNÉ PRÉSENTE UNE SECONDE SESSION. Le refus ne l'ouvre
+        //    pas (art. 69 §2), la réussite non plus.
+        // 2. CHEZ L'AJOURNÉ, SEULS LES COURS À REPRÉSENTER ont une note de
+        //    septembre. Les autres gardent celle de juin — ce sont eux que la
+        //    colonne S2 recopie. Lucie n'a pas besoin de la copie : elle sait
+        //    lire la note de première session là où la seconde ne dit rien.
+        const aPresente = e.s1?.decision === 'ajourne';
+        const aRepresenter = new Set(e.s1?.a_representer || []);
         if (aPresente) {
           if (importerNotes) {
             for (const n of (e.s2?.notes || [])) {
+              // La note de seconde session d'un cours qui n'était pas à
+              // représenter est une recopie : on la laisse au classeur.
+              if (!aRepresenter.has(n.cours_code)) {
+                fiche.s2_recopiees++; rapport.total.s2_recopiees++; continue;
+              }
               if (!simulation) {
                 poseNote.run(t.id, an, ueNum, `s2|${n.cours_code}|${n.aa_code}`,
                   n.cours_code, n.valeur);

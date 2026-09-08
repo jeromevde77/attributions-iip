@@ -201,8 +201,11 @@ export default function ImportSuivi({ annee, onClose, onFini }) {
               <p className="text-[11.5px] text-slate-500 px-1">
                 Les notes du classeur sont exprimées dans l'échelle du poids de chaque acquis ;
                 elles sont ramenées sur 20. La décision du Conseil est reprise telle quelle —
-                rien n'est redélibéré. La seconde session n'est lue que pour les étudiants qui
-                l'ont présentée.
+                rien n'est redélibéré. <b>La seconde session n'est lue que chez les ajournés, et
+                seulement pour les cours qu'ils avaient à représenter</b> : le classeur recopiait
+                les notes de juin dans les autres colonnes pour que ses moyennes tombent juste,
+                et ces recopies ne sont pas des résultats de septembre. Lucie lit la note de
+                première session là où la seconde ne dit rien.
               </p>
             </>
           )}
@@ -220,6 +223,7 @@ export default function ImportSuivi({ annee, onClose, onFini }) {
                 {[['unités', rapport.total.unites], ['étudiants', rapport.total.rapproches],
                   ['dossiers créés', rapport.total.crees || 0],
                   ['inscriptions créées', rapport.total.inscrits || 0],
+                  ['recopies S2 écartées', rapport.total.s2_recopiees || 0],
                   ['notes 1re session', rapport.total.notes_s1],
                   ['notes 2e session', rapport.total.notes_s2],
                   ['décisions', rapport.total.decisions],
