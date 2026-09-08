@@ -1755,8 +1755,14 @@ r.get('/deliberation/plan', authRequired, (req, res) => {
       session: ses.session,
       s1_complete: ses.s1.complete,
       s1_ajournes: ses.s1.ajournes,
+      // LA CLÔTURE SE VOIT DEPUIS LA LISTE. Sans elle, on lit « complet,
+      // 48/48 décidés » et le bouton propose encore la première session : on
+      // en conclut que Lucie refuse la seconde, alors qu'elle attend un geste
+      // qu'aucun écran ne nommait à cet endroit.
+      s1_cloturee: ses.s1.cloturee,
       s2_decides: ses.s2.decides,
       seconde_possible: ses.seconde_possible,
+      seconde_attend: ses.seconde_attend,
     });
   }
 
