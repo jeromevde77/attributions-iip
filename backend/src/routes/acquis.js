@@ -4148,6 +4148,122 @@ r.get('/deliberation/:etudId/:ueNum', authRequired, (req, res) => {
  * Un seul appel, une seule transaction, un seul recalcul : l'étudiant revient
  * cohérent plutôt que reconstruit à mesure des allers-retours.
  */
+/**
+ * AJOURNER UN PAQUET D'ÉTUDIANTS D'UN SEUL GESTE.
+ *
+ * Après les réussites de plein droit, il reste souvent un bloc d'évidences :
+ * ceux qui n'ont rien présenté, ceux qui sont à zéro partout. Les passer un
+ * par un — ouvrir la fiche, cocher chaque acquis, retaper la même phrase —
+ * coûte une heure de Conseil pour une décision que personne ne discute, et
+ * c'est là qu'on se trompe de ligne.
+ *
+ * On ajourne donc en lot, avec UNE justification commune. Ce qui est ajourné :
+ * les acquis réellement en défaut de CHAQUE étudiant — jamais une liste
+ * uniforme, puisque deux étudiants n'échouent pas aux mêmes acquis. Ce que le
+ * Conseil a déjà levé par une faveur reste levé.
+ *
+ * La décision elle-même s'écrit comme n'importe quelle autre : dans
+ * deliberation_resultat sous sa session, et dans l'inscription pour le
+ * dossier. Le lot n'est pas un raccourci hors des règles ; c'est le même
+ * geste, répété.
+ */
+r.post('/deliberation/ue/:ueNum/ajourner-lot', authRequired,
+       roleRequired('admin', 'directeur', 'directeur_adjoint', 'editeur'), (req, res) => {
+  const ueNum = Number(req.params.ueNum);
+  const annee = req.body?.annee || anneeDeTravail(req);
+  const ses = Number(req.body?.session) === 2 ? 2 : 1;
+  const ids = Array.isArray(req.body?.etudiants) ? req.body.etudiants.map(Number) : [];
+  const motif = String(req.body?.motif || '').trim();
+  const simulation = req.body?.simulation === true;
+  const aussiCours = req.body?.cours !== false;
+
+  if (!ids.length) return res.status(400).json({ error: 'aucun étudiant sélectionné' });
+
+  const perim = getUserSections(req.user);
+  const ue = db.prepare(`SELECT section FROM ue WHERE ue_num = ?
+    ORDER BY (annee_scolaire = ?) DESC, annee_scolaire DESC LIMIT 1`).get(ueNum, annee) || {};
+  if (perim && ue.section && !perim.includes(ue.section)) {
+    return res.status(403).json({ error: 'unité hors de votre périmètre' });
+  }
+
+  // Une séance close ne se complète pas en douce : on la rouvre d'abord.
+  const close = !!(db.prepare(`SELECT cloturee FROM deliberation_seance
+    WHERE ue_num = ? AND annee_scolaire = ? AND session = ?`).get(ueNum, annee, ses)?.cloturee);
+  if (close) {
+    return res.status(409).json({
+      error: 'séance close',
+      detail: 'La séance est clôturée. Rouvrez-la pour reprendre la délibération.',
+    });
+  }
+
+  const poser = db.prepare(`
+    INSERT INTO deliberation_ajustement
+      (etudiant_id, annee_scolaire, ue_num, session, portee, code, action, maj_par)
+    VALUES (?,?,?,?,?,?,'ajourne',?)
+    ON CONFLICT(etudiant_id, annee_scolaire, ue_num, session, portee, code)
+    DO UPDATE SET action = 'ajourne', maj_le = CURRENT_TIMESTAMP, maj_par = excluded.maj_par`);
+  const poserMotif = db.prepare(`
+    INSERT INTO decision_motivation
+      (etudiant_id, annee_scolaire, ue_num, aa_code, motif, maj_le, maj_par)
+    VALUES (?,?,?,?,?, datetime('now'), ?)
+    ON CONFLICT(etudiant_id, annee_scolaire, ue_num, aa_code)
+    DO UPDATE SET motif = excluded.motif, maj_le = datetime('now'), maj_par = excluded.maj_par`);
+  const poserResultat = db.prepare(`
+    INSERT INTO deliberation_resultat
+      (etudiant_id, annee_scolaire, ue_num, session, resultat, points, decide_par)
+    VALUES (?,?,?,?,'ajourne',?,?)
+    ON CONFLICT(etudiant_id, annee_scolaire, ue_num, session)
+    DO UPDATE SET resultat = 'ajourne', points = excluded.points,
+      decide_le = CURRENT_TIMESTAMP, decide_par = excluded.decide_par`);
+
+  const rapport = { ue_num: ueNum, annee, session: ses, simulation,
+                    traites: 0, acquis: 0, cours: 0, motifs: 0, details: [] };
+
+  const faire = db.transaction(() => {
+    for (const id of ids) {
+      const d = delibererUE(id, ueNum, annee, ses);
+
+      // LES ACQUIS RÉELLEMENT EN DÉFAUT, de cet étudiant-là. Ceux qu'une faveur
+      // a levés sont acquis : on n'y touche pas.
+      const aas = (d.acquis || [])
+        .filter(a => !a.faveur && (a.na || (a.note != null && a.note < SEUIL_UE)))
+        .map(a => a.aa_code);
+      const cours = aussiCours ? (d.cours || [])
+        .filter(c => !c.faveur && (c.na || (c.note != null && c.note < SEUIL_UE)))
+        .map(c => c.cours_code) : [];
+
+      const e = db.prepare('SELECT nom, prenom FROM etudiant WHERE id = ?').get(id) || {};
+      rapport.details.push({ etudiant_id: id, nom: e.nom, prenom: e.prenom,
+                             acquis: aas.length, cours: cours.length, note: d.ue?.note ?? null });
+      rapport.traites++;
+      rapport.acquis += aas.length;
+      rapport.cours += cours.length;
+      if (motif) rapport.motifs += aas.length;
+
+      if (simulation) continue;
+
+      const par = req.user?.email || null;
+      for (const code of aas) poser.run(id, annee, ueNum, ses, 'aa', code, par);
+      for (const code of cours) poser.run(id, annee, ueNum, ses, 'cours', code, par);
+      if (motif) for (const code of aas) poserMotif.run(id, annee, ueNum, code, motif, par);
+
+      poserResultat.run(id, annee, ueNum, ses, d.ue?.note ?? null, par);
+
+      // Le dossier porte la décision de la session la plus avancée.
+      const fin = db.prepare(`SELECT resultat, points, mention FROM deliberation_resultat
+        WHERE etudiant_id = ? AND annee_scolaire = ? AND ue_num = ?
+          AND resultat IS NOT NULL AND resultat != ''
+        ORDER BY session DESC LIMIT 1`).get(id, annee, ueNum) || {};
+      db.prepare(`UPDATE etudiant_inscription SET resultat = ?, points = ?, mention = ?
+        WHERE etudiant_id = ? AND annee_scolaire = ? AND ue_num = ?`)
+        .run(fin.resultat ?? null, fin.points ?? null, fin.mention ?? null, id, annee, ueNum);
+    }
+  });
+
+  try { faire(); } catch (e) { return res.status(500).json({ error: e.message }); }
+  res.json({ ok: true, ...rapport });
+});
+
 r.put('/deliberation/ajustement/lot', authRequired,
       roleRequired('admin', 'directeur', 'directeur_adjoint', 'editeur'), (req, res) => {
   const { etudiant_id, annee_scolaire, ue_num, portee = 'cours', codes, action } = req.body || {};

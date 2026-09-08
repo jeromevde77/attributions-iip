@@ -54,6 +54,7 @@ export default function FeuilleDeliberation({ ueNum, annee, onClose }) {
   const [recherche, setRecherche] = useState('');
   const [idx, setIdx] = useState(0);
   const [tableau, setTableau] = useState(false);   // la vue d'ensemble
+  const [lot, setLot] = useState(false);           // l'ajournement en paquet
   const [bord, setBord] = useState(null);
   const [enCours, setEnCours] = useState(false);
   // La séance : les présences en ouverture, la visite des copies en clôture.
@@ -362,6 +363,26 @@ export default function FeuilleDeliberation({ ueNum, annee, onClose }) {
     finally { setEnCours(false); }
   }
 
+  /**
+   * Ajourner un paquet d'étudiants, avec une justification commune.
+   * Le serveur choisit, pour CHACUN, les acquis réellement en défaut : deux
+   * étudiants n'échouent pas aux mêmes.
+   */
+  async function ajournerLot(ids, motif, simulation) {
+    setEnCours(true); setErreur(null);
+    try {
+      const rep = await fetch(`/api/acquis/deliberation/ue/${ueNum}/ajourner-lot`, {
+        method: 'POST', headers: authHeaders(),
+        body: JSON.stringify({ annee, session, etudiants: ids, motif, simulation }),
+      });
+      const j = await rep.json();
+      if (!rep.ok) { setErreur(j.detail || j.error); return null; }
+      if (!simulation) await charger();
+      return j;
+    } catch (e) { setErreur(e.message); return null; }
+    finally { setEnCours(false); }
+  }
+
   async function rouvrirSeance(motif) {
     setEnCours(true); setErreur(null);
     try {
@@ -434,10 +455,21 @@ export default function FeuilleDeliberation({ ueNum, annee, onClose }) {
                 placeholder="Filtrer…"
                 className="border border-slate-300 rounded-lg pl-8 pr-2 py-1 text-[12px] w-36" />
             </div>
-            <button onClick={() => setTableau(t => !t)}
+            <button onClick={() => { setTableau(t => !t); setLot(false); }}
               className="px-2.5 py-1 text-[12px] rounded-lg border border-slate-300
                          text-slate-600 flex items-center gap-1.5">
               {tableau ? <><IconFileText size={14} /> Fiche</> : <><IconList size={14} /> Tableau</>}
+            </button>
+            {/* L'AJOURNEMENT EN PAQUET. Après les réussites de plein droit, il
+                reste souvent un bloc d'évidences — ceux qui n'ont rien
+                présenté. Les passer un par un coûte une heure de Conseil pour
+                une décision que personne ne discute. */}
+            <button onClick={() => { setLot(l => !l); setTableau(false); }}
+              title="Ajourner plusieurs étudiants d'un coup, avec une justification commune"
+              className={`px-2.5 py-1 text-[12px] rounded-lg border flex items-center gap-1.5
+                ${lot ? 'border-amber-500 bg-amber-50 text-amber-900 font-semibold'
+                      : 'border-slate-300 text-slate-600'}`}>
+              <IconList size={14} /> Ajourner en lot
             </button>
             <button onClick={onClose} className="text-slate-400 hover:text-slate-600">
               <IconX size={18} />
@@ -521,6 +553,9 @@ export default function FeuilleDeliberation({ ueNum, annee, onClose }) {
                             border-dashed rounded-xl">
               Aucun étudiant inscrit à cette unité pour {annee}.
             </div>
+          ) : lot ? (
+            <VueLot liste={liste} enCours={enCours} onAjourner={ajournerLot}
+              onOuvrir={e => { setIdx(liste.indexOf(e)); setLot(false); }} />
           ) : tableau ? (
             <VueTableau data={data} liste={liste}
               onOuvrir={e => { setIdx(liste.indexOf(e)); setTableau(false); }} />
@@ -1946,5 +1981,135 @@ function Case({ etat, bord }) {
         : 'text-emerald-700'}`}>
       {etat.na ? 'NA' : fmt(etat.note)}
     </td>
+  );
+}
+
+/* ═══ L'AJOURNEMENT EN PAQUET ══════════════════════════════════════════════
+ *
+ * Ce que le Conseil fait vraiment après les réussites de plein droit : il
+ * regarde la liste de ceux qui restent, y voit un bloc d'évidences — les
+ * absents, les zéros —, et les ajourne d'un même mouvement, pour un même
+ * motif. La revue un par un garde son sens pour les cas qui se discutent ;
+ * elle n'en avait aucun pour ceux-là, et c'est en la subissant qu'on se
+ * trompe de ligne.
+ *
+ * DEUX GARDE-FOUS. La justification est commune, mais les ACQUIS ajournés ne
+ * le sont pas : le serveur prend, pour chaque étudiant, ceux qui sont
+ * réellement en défaut — deux étudiants n'échouent pas aux mêmes. Et l'on
+ * voit le compte avant d'écrire.
+ */
+function VueLot({ liste, onAjourner, onOuvrir, enCours }) {
+  const [choisis, setChoisis] = useState(() => new Set());
+  const [motif, setMotif] = useState('');
+  const [apercu, setApercu] = useState(null);
+
+  const bascule = id => setChoisis(s => {
+    const n = new Set(s); n.has(id) ? n.delete(id) : n.add(id); return n;
+  });
+
+  // Les filtres qui font gagner du temps : ce sont EUX qu'on cherche, pas
+  // vingt cases à cocher à la main.
+  const zero = e => (e.ue?.note ?? null) === 0 || e.ue?.na;
+  const sous = (s) => liste.filter(e => !e.ue?.na && (e.ue?.note ?? 99) < s).map(e => e.id);
+  const poser = ids => setChoisis(new Set(ids));
+
+  const ids = [...choisis];
+  const pret = ids.length > 0 && motif.trim().length >= 5;
+
+  return (
+    <div className="space-y-3">
+      <div className="px-3 py-2 rounded-xl bg-amber-50 border border-amber-200">
+        <div className="text-[13px] font-semibold text-amber-900">Ajourner un paquet</div>
+        <p className="text-[11.5px] text-amber-800">
+          La justification est commune ; les acquis ajournés, non — chaque étudiant
+          se voit ajourner <b>ses</b> acquis en défaut. Ce qu'une faveur a levé reste levé.
+        </p>
+      </div>
+
+      <div className="flex flex-wrap items-center gap-2 text-[12px]">
+        <span className="text-slate-500">Sélection rapide :</span>
+        <button onClick={() => poser(liste.filter(zero).map(e => e.id))}
+          className="px-2.5 py-1 rounded-lg border border-slate-300 text-slate-600">
+          À zéro ou non évalués ({liste.filter(zero).length})
+        </button>
+        <button onClick={() => poser(sous(5))}
+          className="px-2.5 py-1 rounded-lg border border-slate-300 text-slate-600">
+          Sous 5/20 ({sous(5).length})
+        </button>
+        <button onClick={() => poser(sous(10))}
+          className="px-2.5 py-1 rounded-lg border border-slate-300 text-slate-600">
+          Sous 10/20 ({sous(10).length})
+        </button>
+        <button onClick={() => setChoisis(new Set())}
+          className="px-2.5 py-1 rounded-lg border border-slate-300 text-slate-500">
+          Tout décocher
+        </button>
+      </div>
+
+      <div className="border border-slate-200 rounded-xl divide-y divide-slate-100
+                      max-h-[38vh] overflow-y-auto">
+        {liste.map(e => (
+          <label key={e.id}
+            className="flex items-center gap-3 px-3 py-1.5 cursor-pointer hover:bg-slate-50">
+            <input type="checkbox" checked={choisis.has(e.id)} onChange={() => bascule(e.id)}
+              className="w-4 h-4 accent-amber-600 flex-none" />
+            <span className="flex-1 min-w-0">
+              <span className="text-[12.5px] font-semibold text-iip-blue">{e.nom}</span>
+              <span className="text-[12.5px] text-slate-600"> {e.prenom}</span>
+            </span>
+            <span className={`text-[12px] font-bold tabular-nums w-12 text-right
+              ${e.ue?.na ? 'text-slate-500' : (e.ue?.note ?? 0) < 10 ? 'text-red-700' : 'text-emerald-700'}`}>
+              {e.ue?.na ? 'NA' : fmt(e.ue?.note)}
+            </span>
+            <button onClick={ev => { ev.preventDefault(); onOuvrir(e); }}
+              className="text-[11px] text-slate-400 hover:text-iip-blue">fiche</button>
+          </label>
+        ))}
+      </div>
+
+      <label className="block text-[11.5px] text-slate-600">
+        Justification commune — elle sera portée sur chaque acquis ajourné, et
+        c'est elle que reprendra l'annexe 8
+        <textarea value={motif} onChange={e => setMotif(e.target.value)} rows={2}
+          placeholder="Ne s'est pas présenté aux évaluations de l'unité."
+          className="w-full mt-0.5 border border-slate-300 rounded-lg px-2 py-1.5 text-[12.5px]" />
+      </label>
+
+      {apercu && (
+        <div className="px-3 py-2 rounded-lg bg-slate-50 border border-slate-200 text-[12.5px]">
+          <b>{apercu.traites}</b> étudiant(s) · <b>{apercu.acquis}</b> acquis
+          et <b>{apercu.cours}</b> cours seront ajournés, avec la même justification.
+          <div className="mt-1 text-[11.5px] text-slate-500">
+            {apercu.details.slice(0, 8).map(d =>
+              `${d.nom} (${d.acquis} acquis)`).join(' · ')}
+            {apercu.details.length > 8 && ` … et ${apercu.details.length - 8} autre(s)`}
+          </div>
+        </div>
+      )}
+
+      <div className="flex items-center justify-between gap-3">
+        <span className="text-[12px] text-slate-500">
+          <b className="text-amber-800">{ids.length}</b> sélectionné(s)
+          {ids.length > 0 && motif.trim().length < 5 && ' — la justification est requise'}
+        </span>
+        <div className="flex gap-2">
+          <button disabled={!pret || enCours}
+            onClick={async () => setApercu(await onAjourner(ids, motif.trim(), true))}
+            className="px-3 py-1.5 text-[12.5px] rounded-lg border border-slate-300
+                       text-slate-600 disabled:opacity-40">
+            Simuler
+          </button>
+          <button disabled={!pret || enCours}
+            onClick={async () => {
+              const j = await onAjourner(ids, motif.trim(), false);
+              if (j) { setApercu(null); setChoisis(new Set()); }
+            }}
+            className="px-4 py-2 text-[12.5px] rounded-lg bg-amber-600 text-white
+                       font-semibold disabled:opacity-40">
+            {enCours ? 'Enregistrement…' : `Ajourner ${ids.length || ''}`}
+          </button>
+        </div>
+      </div>
+    </div>
   );
 }
