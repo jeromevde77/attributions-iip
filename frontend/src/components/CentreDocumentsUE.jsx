@@ -193,6 +193,12 @@ export default function CentreDocumentsUE({ ueNum, ueNom, annee, onClose }) {
                         justify-between gap-2">
           <span className="text-[11.5px] text-slate-500">
             {total ? `${total} pièce(s) à produire` : 'Rien de coché'}
+          {total ? (
+            <span className="block text-[11px] text-slate-400">
+              Le PDF porte le pied de page sur chaque feuille ; l'aperçu HTML, non —
+              le navigateur ne sait pas répéter un pied.
+            </span>
+          ) : null}
           </span>
           <div className="flex gap-2">
             <button onClick={onClose}
@@ -200,17 +206,17 @@ export default function CentreDocumentsUE({ ueNum, ueNom, annee, onClose }) {
               Fermer
             </button>
             <button onClick={() => produire('impression')} disabled={enCours || !total}
-              title="Ouvre les pièces dans un onglet, pour impression depuis le navigateur"
-              className="px-3 py-2 text-[12.5px] rounded-lg border border-iip-blue
-                         text-iip-blue font-semibold disabled:opacity-40
+              title="Aperçu HTML dans un onglet — sans pied de page répété"
+              className="px-3 py-2 text-[12.5px] rounded-lg border border-slate-300
+                         text-slate-600 disabled:opacity-40
                          flex items-center gap-1.5">
-              <IconPrinter size={14} /> Imprimer
+              <IconPrinter size={14} /> Aperçu HTML
             </button>
             <button onClick={() => produire('pdf')} disabled={enCours || !total}
-              title="Le pied de page figure alors sur CHAQUE feuille"
+              title="Pied de page sur chaque feuille, une pièce par page"
               className="px-4 py-2 text-[12.5px] rounded-lg bg-iip-blue text-white
                          font-semibold disabled:opacity-40 flex items-center gap-1.5">
-              <IconFileText size={14} /> Télécharger en PDF
+              <IconFileText size={14} /> PDF — à imprimer
             </button>
           </div>
         </div>
