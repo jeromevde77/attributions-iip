@@ -3654,6 +3654,20 @@ r.post('/deliberation/ue/:ueNum/documents', authRequired, (req, res) => {
     for (const m of (d.manques || [])) manques.push(`Procès-verbal : ${m}`);
   }
 
+  // L'IDENTITÉ DE L'ÉTUDIANT SE SIGNALE QUAND ELLE MANQUE.
+  //
+  // Toutes les pièces portent « Né(e) à …, le … ». Sans lieu ni date, elles
+  // s'impriment avec des pointillés — et rien ne le disait : on cherchait le
+  // défaut dans le document alors qu'il était au dossier. Le manque se nomme
+  // maintenant, à côté des autres, avec le nom de la personne.
+  const identiteManquante = e => {
+    const m = [];
+    if (!e.lieu_naissance) m.push('le lieu de naissance');
+    if (!e.date_naissance) m.push('la date de naissance');
+    if (m.length) manques.push(`${e.nom} ${e.prenom} : ${m.join(' et ')} — à compléter `
+      + 'à la fiche de l’étudiant');
+  };
+
   for (const e of etudiants) {
     if (e.resultat === 'reussi' && veut.reussite) {
       // L'attestation ne porte que CETTE unité : c'est cette séance qu'on
@@ -3662,6 +3676,7 @@ r.post('/deliberation/ue/:ueNum/documents', authRequired, (req, res) => {
       if (!u) { manques.push(`${e.nom} ${e.prenom} : unité non réussie au dossier`); continue; }
       pages.push(pageAttestation(e, u, annee, etab, req.body?.date_document || null, ident));
       if (u.manques?.length) manques.push(`${e.nom} ${e.prenom} : ${u.manques.join(', ')}`);
+      identiteManquante(e);
       nbR++;
     } else if ((e.resultat === 'ajourne' && veut.ajournement)
             || (e.resultat === 'refuse' && veut.refus)) {
@@ -3670,6 +3685,7 @@ r.post('/deliberation/ue/:ueNum/documents', authRequired, (req, res) => {
       // On reprend le CORPS, non le document entier : les pièces s'enchaînent
       // dans une seule enveloppe, chacune sur sa page.
       pages.push(d.corps);
+      identiteManquante(e);
       if (e.resultat === 'ajourne') nbA++; else nbX++;
     }
   }
