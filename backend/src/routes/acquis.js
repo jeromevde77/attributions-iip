@@ -3207,6 +3207,59 @@ r.get('/deliberation/ue/:ueNum', authRequired, (req, res) => {
  * la section au titre du suivi pédagogique, et la direction ou son
  * représentant. On ne coche que la présence : la composition, elle, se déduit.
  */
+/**
+ * NOM, PRÉNOM — ÉCRITS PAREIL POUR TOUT LE MONDE.
+ *
+ * Les professeurs venaient de la base, « NOM Prénom » ; la direction, d'un
+ * champ de configuration où elle s'écrit « Charles SOHET ». Le même conseil
+ * portait donc deux conventions à la fois — ordre inversé, casse différente —
+ * et cela se voyait sur chaque procès-verbal.
+ *
+ * Une seule règle désormais : le NOM en capitales — particules comprises, car
+ * « DE WILDE » et « VAN DEN BERGHE » s'écrivent ainsi sur les listes —, le
+ * prénom capitalisé, le nom d'abord.
+ */
+function capitaliser(mot) {
+  const m = String(mot || '').trim();
+  if (!m) return '';
+  // « Jean-Pierre », « M'Barek » : chaque segment prend sa majuscule.
+  return m.toLowerCase().replace(/(^|[-'’\s])([\p{L}])/gu,
+    (_, sep, c) => sep + c.toLocaleUpperCase('fr'));
+}
+
+export function nomPropre(nom, prenom) {
+  const N = String(nom || '').trim().toLocaleUpperCase('fr').split(/\s+/)
+    .filter(Boolean).join(' ');
+  const P = String(prenom || '').trim().split(/\s+/).filter(Boolean)
+    .map(capitaliser).join(' ');
+  return [N, P].filter(Boolean).join(' ');
+}
+
+/**
+ * Une identité donnée en une seule chaîne — « Charles SOHET », « SOHET
+ * Charles », « charles sohet » — ramenée à la même forme que les autres.
+ * Ce qui est TOUT EN CAPITALES est le nom ; à défaut, le dernier mot l'est,
+ * car c'est ainsi qu'on écrit une signature.
+ */
+export function nomPropreDepuisChaine(texte) {
+  const mots = String(texte || '').trim().split(/\s+/).filter(Boolean);
+  if (!mots.length) return '';
+  const capitales = mots.filter(m => m.length > 1 && m === m.toLocaleUpperCase('fr')
+    && /\p{L}/u.test(m));
+  if (capitales.length && capitales.length < mots.length) {
+    return nomPropre(capitales.join(' '),
+      mots.filter(m => !capitales.includes(m)).join(' '));
+  }
+  if (mots.length === 1) return nomPropre(mots[0], '');
+  // Rien en capitales : une particule marque alors le début du nom —
+  // « marie-claire de wilde » n'a pas pour nom « wilde ».
+  const PART = new Set(['de', 'du', 'des', 'le', 'la', 'van', 'von', 'den', 'der',
+    'di', 'da', 'el', 'ben', 'al', 'vander', 'vande']);
+  const i = mots.findIndex((m, k) => k < mots.length - 1 && PART.has(m.toLowerCase()));
+  if (i > 0) return nomPropre(mots.slice(i).join(' '), mots.slice(0, i).join(' '));
+  return nomPropre(mots[mots.length - 1], mots.slice(0, -1).join(' '));
+}
+
 function membresDuConseil(ueNum, annee) {
   const membres = [];
 
@@ -3223,7 +3276,7 @@ function membresDuConseil(ueNum, annee) {
         AND code_cours IS NOT NULL ORDER BY code_cours
     `).all(p.id, ueNum, annee).map(c => c.code_cours);
     membres.push({
-      cle: `prof:${p.id}`, nom: `${p.nom} ${p.prenom}`,
+      cle: `prof:${p.id}`, nom: nomPropre(p.nom, p.prenom),
       qualite: cours.length ? `Professeur · ${cours.join(', ')}` : 'Professeur',
       role: 'professeur', voix: 'deliberative',
     });
@@ -3249,8 +3302,13 @@ function membresDuConseil(ueNum, annee) {
     // fonction réellement occupée, que Lucie ne peut pas deviner : d'où un
     // réglage, dont le défaut suit le texte le plus étroit.
     membres.push({
-      cle: 'coordination', nom: sec?.responsable || `Coordination ${ue.section}`,
-      qualite: 'Coordination de section · suivi pédagogique', role: 'coordination',
+      cle: 'coordination',
+      nom: sec?.responsable ? nomPropreDepuisChaine(sec.responsable)
+                            : `Coordination ${ue.section}`,
+      // L'intitulé exact voulu par la direction : la coordination n'est pas
+      // seulement pédagogique, elle est aussi le référent social.
+      qualite: 'La coordination de section et référent social et pédagogique',
+      role: 'coordination',
       voix: coordinationDelibere() ? 'deliberative' : 'consultative',
     });
   }
@@ -3258,7 +3316,7 @@ function membresDuConseil(ueNum, annee) {
   let directeur = null;
   try { directeur = identiteEtablissement()?.directeur || null; } catch { /* défaut ci-dessous */ }
   membres.push({
-    cle: 'direction', nom: directeur || 'Direction',
+    cle: 'direction', nom: directeur ? nomPropreDepuisChaine(directeur) : 'Direction',
     qualite: 'Direction ou son représentant', role: 'direction',
     voix: 'deliberative',
   });
@@ -3293,6 +3351,86 @@ function etatQuorum(membres, presences) {
       m => m.voix === 'consultative' && presences[m.cle]).length,
   };
 }
+
+/**
+ * LA COMPOSITION DES CONSEILS, TOUTES UNITÉS À LA FOIS.
+ *
+ * On la consultait unité par unité, dans l'écran de délibération. Or elle sert
+ * ailleurs et pour tout le monde : convoquer, vérifier qu'une unité n'a pas de
+ * professeur attribué, joindre la liste au dossier. La sortir seize fois à la
+ * main revenait à ne pas la sortir.
+ *
+ * Une page par unité, dans l'ordre des numéros, avec la qualité de chacun et
+ * sa voix — le quorum ne se calcule que sur les délibératives, et c'est ce qui
+ * surprend le plus quand on lit un procès-verbal.
+ */
+r.get('/deliberation/conseils', authRequired, (req, res) => {
+  const annee = req.query.annee || anneeDeTravail(req);
+  const perim = getUserSections(req.user);
+  const section = req.query.section || null;
+
+  let unites = db.prepare(`
+    SELECT ue_num, ue_nom, section FROM ue WHERE annee_scolaire = ?
+    ORDER BY ue_num
+  `).all(annee);
+  if (perim) unites = unites.filter(u => !u.section || perim.includes(u.section));
+  if (section) unites = unites.filter(u => u.section === section);
+
+  const ident = identiteEtablissement();
+  const esc0 = t => String(t ?? '').replace(/[&<>"]/g,
+    x => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[x]));
+
+  const fiches = unites.map(u => {
+    const membres = membresDuConseil(u.ue_num, annee);
+    const votants = membres.filter(m => (m.voix || 'deliberative') === 'deliberative').length;
+    const requis = Math.ceil((votants * 2) / 3);
+    const sansProf = !membres.some(m => m.role === 'professeur');
+    return { ...u, membres, votants, requis, sansProf };
+  });
+
+  const pages = fiches.map(f => `<div class="attestation">
+    <div class="entete">
+      <div class="nom">${esc0(ident.nom || 'INSTITUT ILYA PRIGOGINE')}</div>
+      <div class="sous">Conseil des études — composition · ${esc0(annee)}</div>
+    </div>
+    <div class="titre-liste">UE ${f.ue_num} — ${esc0(f.ue_nom || '')}</div>
+    <div class="sous-liste">${esc0(f.section || 'section non renseignée')} ·
+      ${f.votants} voix délibérative(s) · quorum : ${f.requis}
+      <span class="ref">(deux tiers, RGE art. 25 §1)</span></div>
+    ${f.sansProf ? '<p class="neant">Aucun professeur n’est attribué à cette unité '
+      + 'pour cette année : le Conseil ne peut pas siéger.</p>' : ''}
+    <table class="doc">
+      <tr><th style="width:38%">Membre</th><th>Qualité</th><th style="width:22%">Voix</th></tr>
+      ${f.membres.map(m => `<tr>
+        <td>${esc0(m.nom)}</td>
+        <td>${esc0(m.qualite)}</td>
+        <td>${m.voix === 'consultative'
+          ? 'consultative <span class="ref">— ne compte pas au quorum</span>'
+          : 'délibérative'}</td>
+      </tr>`).join('')}
+    </table>
+    <div class="signature-liste">
+      <div>Le président du Conseil des études</div>
+      <div class="ligne-sign">${esc0(ident.directeur
+        ? nomPropreDepuisChaine(ident.directeur) : '')}</div>
+    </div>
+  </div>`);
+
+  if (!pages.length) {
+    return res.status(404).json({ error: `Aucune unité pour ${annee}.` });
+  }
+
+  res.json({
+    annee,
+    unites: fiches.map(f => ({ ue_num: f.ue_num, ue_nom: f.ue_nom, section: f.section,
+                               membres: f.membres.length, votants: f.votants,
+                               requis: f.requis, sans_professeur: f.sansProf })),
+    sans_professeur: fiches.filter(f => f.sansProf).map(f => f.ue_num),
+    html: envelopper(STYLE_LISTES + pages.join(''),
+                     `Conseils des études — ${annee}`),
+    nom: `Conseils_des_etudes_${String(annee).replace(/\W/g, '')}.html`,
+  });
+});
 
 r.get('/deliberation/ue/:ueNum/seance', authRequired, (req, res) => {
   const ueNum = Number(req.params.ueNum);

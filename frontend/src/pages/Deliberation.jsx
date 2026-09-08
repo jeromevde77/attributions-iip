@@ -46,6 +46,36 @@ export default function Deliberation() {
   const [importer, setImporter] = useState(null);   // ue_num en import de notes
   const [importSuivi, setImportSuivi] = useState(false); // le classeur de l'année
   const [annees, setAnnees] = useState(false);           // où sont les notes ?
+  const [conseils, setConseils] = useState(false);       // la composition, en lot
+
+  /** La composition des conseils, toutes unités — en PDF si le serveur le sait. */
+  async function sortirConseils() {
+    setConseils(true);
+    try {
+      const rep = await fetch(
+        `/api/acquis/deliberation/conseils?annee=${encodeURIComponent(annee)}`,
+        { headers: authHeaders() });
+      const j = await rep.json();
+      if (!rep.ok) { alert(j.error); return; }
+      const rp = await fetch('/api/impression/pdf', {
+        method: 'POST', headers: authHeaders(),
+        body: JSON.stringify({ html: j.html, nom: j.nom.replace(/\.html$/, ''),
+                               pagination: 'si-plusieurs' }),
+      });
+      if (rp.ok) {
+        const url = URL.createObjectURL(await rp.blob());
+        const a = document.createElement('a');
+        a.href = url; a.download = j.nom.replace(/\.html$/, '') + '.pdf';
+        document.body.appendChild(a); a.click(); a.remove();
+        setTimeout(() => URL.revokeObjectURL(url), 30000);
+        return;
+      }
+      // Sans capacité PDF, l'aperçu HTML reste imprimable.
+      const f = window.open('', '_blank');
+      if (f) { f.document.write(j.html); f.document.close(); }
+    } catch (e) { alert(e.message); }
+    finally { setConseils(false); }
+  }
   // La grille de toute l'unité montre les acquis de tous les collègues : elle
   // n'a de sens que pour qui les encode déjà tous. Le serveur applique la même
   // règle — le bouton caché ne serait pas une protection.
@@ -138,6 +168,15 @@ export default function Deliberation() {
               <IconFileSpreadsheet size={15} /> Classeur de suivi
             </button>
           )}
+          {/* LA COMPOSITION DES CONSEILS, EN LOT. On la consultait unité par
+              unité ; elle sert pourtant à convoquer, et à vérifier qu'aucune
+              unité n'est sans professeur attribué. */}
+          <button onClick={sortirConseils} disabled={conseils}
+            title="Une page par unité : membres, qualité, voix et quorum"
+            className="flex items-center gap-1.5 px-3 py-1.5 text-sm border border-slate-300
+                       text-slate-600 font-semibold rounded-lg disabled:opacity-40">
+            {conseils ? 'Préparation…' : 'Conseils des études'}
+          </button>
           {peutToutEncoder && (
             <button onClick={() => setAnnees(true)}
               title="Voir dans quelle année les notes ont été rangées, et les ramener"
