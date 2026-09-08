@@ -78,6 +78,13 @@ r.post('/', authRequired, roleRequired('admin', 'directeur', 'directeur_adjoint'
     ponderations: importerPonderations = true,
     notes: importerNotes = true,
     decisions: importerDecisions = true,
+    // CRÉER CE QUI MANQUE. Par défaut, non : un import ne doit pas peupler la
+    // base d'étudiants inventés sur une faute de frappe. Mais sur une base
+    // vide — une reprise, une remise à zéro —, exiger que les étudiants soient
+    // déjà là interdit tout simplement l'import : le classeur les porte, avec
+    // leur matricule, leur nom et leur prénom.
+    creer: creerManquants = false,
+    inscrire: inscrireManquants = false,
   } = req.body || {};
 
   const an = annee || anneeDeTravail(req);
@@ -90,8 +97,21 @@ r.post('/', authRequired, roleRequired('admin', 'directeur', 'directeur_adjoint'
   const rapport = { simulation, annee: an, unites: [], total: {
     unites: 0, etudiants: 0, rapproches: 0, inconnus: 0, hors_inscription: 0,
     collisions: 0, notes_s1: 0, notes_s2: 0, decisions: 0, ajournements: 0,
-    ponderations: 0, acquis: 0, acquis_retires: 0,
+    ponderations: 0, acquis: 0, acquis_retires: 0, crees: 0, inscrits: 0,
   } };
+
+  // ── Créer un dossier, inscrire à l'unité ─────────────────────────────────
+  const creerEtudiant = db.prepare(`
+    INSERT INTO etudiant (id_ecampus, nom, prenom) VALUES (?,?,?)
+    ON CONFLICT(id_ecampus) DO UPDATE SET
+      nom = COALESCE(NULLIF(etudiant.nom, ''), excluded.nom),
+      prenom = COALESCE(NULLIF(etudiant.prenom, ''), excluded.prenom)
+    RETURNING id`);
+  const creerSansMatricule = db.prepare(
+    'INSERT INTO etudiant (nom, prenom) VALUES (?,?) RETURNING id');
+  const inscrire = db.prepare(`
+    INSERT OR IGNORE INTO etudiant_inscription (etudiant_id, annee_scolaire, ue_num)
+    VALUES (?,?,?)`);
 
   // ── Les écritures ────────────────────────────────────────────────────────
   const posePoidsCours = db.prepare(`
@@ -149,7 +169,8 @@ r.post('/', authRequired, roleRequired('admin', 'directeur', 'directeur_adjoint'
   const executer = () => {
     for (const u of unites) {
       const ueNum = Number(u.ue_num);
-      const fiche = { ue_num: ueNum, etudiants: 0, rapproches: 0, inconnus: [],
+      const fiche = { ue_num: ueNum, etudiants: 0, rapproches: 0, crees: 0, inscrits: 0,
+        inconnus: [],
         hors_inscription: [], collisions: [], notes_s1: 0, notes_s2: 0,
         decisions: 0, ajournements: 0, ponderations: 0, acquis: 0,
         acquis_hors_referentiel: [], acquis_retires: [], acquis_a_verifier: [],
@@ -262,14 +283,46 @@ r.post('/', authRequired, roleRequired('admin', 'directeur', 'directeur_adjoint'
 
       for (const e of (u.etudiants || [])) {
         fiche.etudiants++;
-        const t = trouver(e);
+        let t = trouver(e);
         const nomComplet = `${e.matricule || ''} ${e.nom} ${e.prenom}`.trim();
+
+        // INCONNU — on le crée, si on nous l'a demandé. Jamais un homonyme
+        // ambigu : celui-là, c'est un dossier existant qu'il faut choisir, et
+        // en créer un second ferait précisément le doublon qu'on redoute.
+        if (!t && creerManquants && (e.nom || '').trim()) {
+          if (simulation) {
+            // « inscrit: false » même en simulation : c'est ainsi que le
+            // rapport annonce l'inscription qui suivra, au lieu de la taire.
+            t = { id: -1, methode: 'cree', inscrit: false, cree: true };
+          } else {
+            const mat = String(e.matricule || '').trim();
+            const ligne = mat
+              ? creerEtudiant.get(mat, e.nom || '', e.prenom || '')
+              : creerSansMatricule.get(e.nom || '', e.prenom || '');
+            t = { id: Number(ligne.id), methode: 'cree', inscrit: false, cree: true };
+          }
+          fiche.crees = (fiche.crees || 0) + 1;
+          rapport.total.crees++;
+        }
+
         if (!t || t.ambigu) {
           if (fiche.inconnus.length < 30) fiche.inconnus.push(nomComplet + (t?.ambigu ? ' (homonymes)' : ''));
           rapport.total.inconnus++;
           continue;
         }
         if (collision.has(t.id)) continue;   // signalé plus haut, jamais écrit
+
+        // PAS INSCRIT À CETTE UNITÉ — on l'inscrit, si on nous l'a demandé.
+        // Le classeur de suivi d'une unité EST la liste de ceux qui l'ont
+        // suivie : c'est une source d'inscription aussi légitime qu'une liste
+        // eCampus, et sur une base vide c'est la seule dont on dispose.
+        if (!t.inscrit && (inscrireManquants || t.cree)) {
+          if (!simulation && t.id > 0) inscrire.run(t.id, an, ueNum);
+          t = { ...t, inscrit: true };
+          fiche.inscrits = (fiche.inscrits || 0) + 1;
+          rapport.total.inscrits++;
+        }
+
         if (!t.inscrit) {
           // Reconnu, mais pas inscrit à cette unité cette année : une note
           // écrite là serait invisible partout. On le dit plutôt que de la
