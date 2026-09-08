@@ -3602,7 +3602,10 @@ export function documentAjournesParCours(ueNum, annee, session = 1) {
   });
 
   return {
-    corps: STYLE_LISTES + pages.join(''),
+    corps: pages.join(''),
+    // Le style se donne À PART : inséré dans le flux, il s'intercalait entre
+    // deux pièces et cassait le saut de page qui les sépare.
+    style: STYLE_LISTES,
     nb_listes: pages.length,
     nb_ajournes: ajournes.length,
     sans_cours: !cours.length,
@@ -3634,6 +3637,11 @@ r.post('/deliberation/ue/:ueNum/documents', authRequired, (req, res) => {
   `).all(annee, ueNum);
 
   const pages = [];
+  // Les styles propres à certaines pièces se rassemblent EN TÊTE du document :
+  // au milieu, un <style> sépare deux pièces sœurs et désamorce leur saut de
+  // page — la liste des ajournés se retrouvait alors sur la page de signature
+  // de la dernière notification.
+  const styles = [];
   const manques = [];
   let nbR = 0, nbA = 0, nbX = 0, nbPV = 0;
 
@@ -3672,7 +3680,7 @@ r.post('/deliberation/ue/:ueNum/documents', authRequired, (req, res) => {
   if (veut.listes) {
     const l = documentAjournesParCours(ueNum, annee, req.body?.session === 2 ? 2 : 1);
     if (l.sans_cours) manques.push("Listes : aucun cours n'est encodé pour cette unité");
-    else { pages.push(l.corps); nbL = l.nb_listes; }
+    else { styles.push(l.style || ''); pages.push(l.corps); nbL = l.nb_listes; }
   }
 
   if (!pages.length) {
@@ -3684,7 +3692,8 @@ r.post('/deliberation/ue/:ueNum/documents', authRequired, (req, res) => {
   }
 
   res.json({
-    html: envelopper(pages.join(''), `Documents de délibération — UE ${ueNum}`),
+    html: envelopper(styles.join('') + pages.join(''),
+                     `Documents de délibération — UE ${ueNum}`),
     nom: `Documents_UE${ueNum}_${String(annee).replace(/\W/g, '')}.html`,
     reussites: nbR, ajournements: nbA, refus: nbX, pv: nbPV, listes: nbL,
     pieces: pages.length, manques,
