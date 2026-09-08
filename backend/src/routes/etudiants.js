@@ -4045,18 +4045,61 @@ r.post('/completer', authRequired, roleRequired('admin', 'directeur', 'directeur
   if (!Array.isArray(lignes)) return res.status(400).json({ error: 'lignes requises' });
 
   const norm = v => String(v || '').replace(/[^0-9]/g, '');
+  // Comparaison des noms : sans accent, sans casse, sans ponctuation. « EL
+  // AZIZI », « El-Azizi » et « el azizi » sont la même personne.
+  const cle = t => String(t || '').normalize('NFD').replace(/[̀-ͯ]/g, '')
+    .toLowerCase().replace(/[^a-z0-9]/g, '');
+
+  const tous = db.prepare(
+    'SELECT id, nom, prenom, num_national, id_ecampus, date_naissance FROM etudiant').all();
   const parRN = {};
-  for (const e of db.prepare('SELECT id, nom, prenom, num_national FROM etudiant').all()) {
+  const parMat = {};
+  const parNom = {};
+  for (const e of tous) {
     const n = norm(e.num_national);
     if (n) parRN[n] = e;
+    const m = String(e.id_ecampus || '').trim();
+    if (m) parMat[m] = e;
+    const k = cle(e.nom) + '|' + cle(e.prenom);
+    if (k !== '|') (parNom[k] ||= []).push(e);
   }
+
+  /**
+   * RETROUVER LE DOSSIER — du plus sûr au moins sûr.
+   *
+   * Le rapprochement ne se faisait QUE sur le numéro national. Un étudiant
+   * dont Lucie n'a pas encore le numéro — c'est-à-dire précisément celui
+   * qu'on cherche à compléter — n'était jamais retrouvé : sa ligne partait
+   * en « inconnu » et rien n'était écrit. On tombe donc en cascade sur le
+   * matricule, puis sur l'identité, cette dernière seulement si elle ne
+   * désigne qu'une personne : deux homonymes valent mieux non rapprochés
+   * que mal rapprochés.
+   */
+  const retrouver = (l) => {
+    const n = norm(l.num_national);
+    if (n && parRN[n]) return { e: parRN[n], methode: 'numero_national' };
+    const m = String(l.id_ecampus || '').trim();
+    if (m && parMat[m]) return { e: parMat[m], methode: 'matricule' };
+    const k = cle(l.nom) + '|' + cle(l.prenom);
+    if (k !== '|' && parNom[k]) {
+      const c = parNom[k];
+      if (c.length === 1) return { e: c[0], methode: 'identite' };
+      // Homonymes : la date de naissance tranche, si la liste la porte.
+      const dn = String(l.date_naissance || '').trim();
+      const exact = dn ? c.filter(x => String(x.date_naissance || '').trim() === dn) : [];
+      if (exact.length === 1) return { e: exact[0], methode: 'identite' };
+      return { ambigu: c.length };
+    }
+    return null;
+  };
 
   const COMPLETABLES = ['lieu_naissance', 'nationalite', 'date_naissance', 'adresse',
                         'cp', 'localite', 'gsm', 'email_perso', 'email_ecole',
                         'titre', 'id_ecampus'];
 
   const rapport = { retrouves: 0, inconnus: [], modifications: [], champs: {},
-                    conflits_matricule: [] };
+                    conflits_matricule: [], ambigus: [],
+                    methodes: { numero_national: 0, matricule: 0, identite: 0 } };
 
   // LE MATRICULE APPARTIENT DÉJÀ À QUELQU'UN.
   //
@@ -4074,11 +4117,18 @@ r.post('/completer', authRequired, roleRequired('admin', 'directeur', 'directeur
 
   const appliquer = db.transaction(() => {
     for (const l of lignes) {
-      const n = norm(l.num_national);
-      if (!n) continue;
-      const e = parRN[n];
-      if (!e) { rapport.inconnus.push({ num_national: l.num_national, nom: l.nom }); continue; }
+      const t = retrouver(l);
+      if (t?.ambigu) {
+        rapport.ambigus.push({ nom: l.nom, prenom: l.prenom, homonymes: t.ambigu });
+        continue;
+      }
+      if (!t) {
+        rapport.inconnus.push({ num_national: l.num_national, nom: l.nom });
+        continue;
+      }
+      const e = t.e;
       rapport.retrouves++;
+      rapport.methodes[t.methode]++;
 
       const actuel = db.prepare('SELECT * FROM etudiant WHERE id = ?').get(e.id);
       const maj = {};
@@ -4135,6 +4185,7 @@ r.post('/completer', authRequired, roleRequired('admin', 'directeur', 'directeur
     ok: true, simulation: !!simulation,
     lignes_lues: lignes.length,
     nb_conflits: rapport.conflits_matricule.length,
+    nb_ambigus: rapport.ambigus.length,
     ...rapport,
     inconnus: rapport.inconnus.slice(0, 30),
     nb_inconnus: rapport.inconnus.length,
