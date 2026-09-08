@@ -90,6 +90,25 @@ function rapprocher(p) {
     if (a) return { id: a.id, methode: 'matricule' };
     const e = db.prepare('SELECT id FROM etudiant WHERE id_ecampus = ?').get(mat);
     if (e) return { id: e.id, methode: 'matricule' };
+    // LE MÊME MATRICULE ÉCRIT AUTREMENT. Les classeurs le portent tantôt en
+    // texte, tantôt en nombre : « 0012345 » d'un côté, « 12345 » de l'autre,
+    // parfois avec une espace insécable. Comparer les seuls chiffres évite de
+    // créer un doublon — ou de buter sur l'unicité du matricule.
+    const t = db.prepare(`
+      SELECT id FROM etudiant
+      WHERE TRIM(REPLACE(id_ecampus, CHAR(160), ' ')) = TRIM(?) LIMIT 1
+    `).get(mat);
+    if (t) return { id: t.id, methode: 'matricule' };
+    const nu = mat.replace(/\D/g, '').replace(/^0+/, '');
+    if (nu) {
+      const f = db.prepare(`
+        SELECT id FROM etudiant WHERE id_ecampus IS NOT NULL
+          AND TRIM(REPLACE(REPLACE(id_ecampus, ' ', ''), CHAR(160), '')) != ''
+          AND CAST(TRIM(REPLACE(REPLACE(id_ecampus, ' ', ''), CHAR(160), '')) AS INTEGER) = CAST(? AS INTEGER)
+        LIMIT 1
+      `).get(nu);
+      if (f) return { id: f.id, methode: 'matricule' };
+    }
   }
   const nom = normTxt(p.nom), prenom = normTxt(p.prenom), dn = normDate(p.date_naissance);
   if (nom && prenom && dn) {
@@ -121,10 +140,30 @@ r.post('/', authRequired, roleRequired('admin', 'editeur'), (req, res) => {
     doublons_pressentis: [],
   };
 
+  // LA CRÉATION NE DOIT PAS FAIRE TOMBER L'IMPORT.
+  //
+  // C'était un INSERT sec. Si le matricule existait déjà sous une forme que le
+  // rapprochement ne reconnaît pas — une espace insécable, un zéro de tête, une
+  // casse différente —, SQLite refusait la ligne (« UNIQUE constraint failed:
+  // etudiant.id_ecampus ») et TOUT l'import s'arrêtait là, sur un message que
+  // rien n'expliquait. Le matricule est unique : s'il est déjà pris, c'est le
+  // même étudiant. On complète sa fiche au lieu d'en créer une seconde.
   const insEtud = db.prepare(`
     INSERT INTO etudiant (id_ecampus, nom, prenom, titre, email_ecole, email_perso,
       date_naissance, num_national, rn_norm, gsm, adresse, localite, cp)
     VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)
+    ON CONFLICT(id_ecampus) DO UPDATE SET
+      titre          = COALESCE(etudiant.titre,          excluded.titre),
+      email_ecole    = COALESCE(etudiant.email_ecole,    excluded.email_ecole),
+      email_perso    = COALESCE(etudiant.email_perso,    excluded.email_perso),
+      date_naissance = COALESCE(etudiant.date_naissance, excluded.date_naissance),
+      num_national   = COALESCE(etudiant.num_national,   excluded.num_national),
+      rn_norm        = COALESCE(etudiant.rn_norm,        excluded.rn_norm),
+      gsm            = COALESCE(etudiant.gsm,            excluded.gsm),
+      adresse        = COALESCE(etudiant.adresse,        excluded.adresse),
+      localite       = COALESCE(etudiant.localite,       excluded.localite),
+      cp             = COALESCE(etudiant.cp,             excluded.cp)
+    RETURNING id
   `);
   const majEtud = db.prepare(`
     UPDATE etudiant SET
@@ -196,11 +235,11 @@ r.post('/', authRequired, roleRequired('admin', 'editeur'), (req, res) => {
           detail.crees++;
           rapport.methodes.cree++;
           if (!simulation) {
-            const info = insEtud.run(mat, p.nom || '', p.prenom || '', p.titre || null,
+            const ligne = insEtud.get(mat, p.nom || '', p.prenom || '', p.titre || null,
               p.email_ecole || null, p.email_perso || null, p.date_naissance || null,
               p.num_national || null, normRN(p.num_national) || null,
               p.gsm || null, p.adresse || null, p.localite || null, p.cp || null);
-            id = Number(info.lastInsertRowid);
+            id = Number(ligne.id);
           } else {
             id = -1;   // simulation : aucun identifiant réel
           }

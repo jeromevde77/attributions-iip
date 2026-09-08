@@ -582,7 +582,11 @@ r.post('/import-liste', authRequired, roleRequired('admin', 'editeur'), (req, re
 
   db.transaction(() => {
     for (const e of etudiants) {
-      upEtud.run(String(e.id_ecampus || '').trim(), e.nom || '', e.prenom || '',
+      // UN MATRICULE ABSENT EST NULL, NON UNE CHAÎNE VIDE. La chaîne vide est
+      // une valeur : deux étudiants sans matricule entraient en conflit sur
+      // l'unicité, et le second ÉCRASAIT le premier — deux personnes réduites
+      // à une fiche, sans un mot. SQLite, lui, autorise plusieurs NULL.
+      upEtud.run(String(e.id_ecampus || '').trim() || null, e.nom || '', e.prenom || '',
         e.email_ecole || null, e.email_perso || null, e.date_naissance || null,
         e.num_national || null, e.gsm || null, e.adresse || null,
         e.localite || null, e.cp || null, e.titre || null,
