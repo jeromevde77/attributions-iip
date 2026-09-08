@@ -260,6 +260,11 @@ export function envelopper(corps, titre = 'Attestations de réussite') {
     background-image:var(--sceau)}
   .cloture .paraphe{grid-column:3;width:46mm;
     background-image:var(--paraphe)}
+  /* LE FAC-SIMILÉ NE SUIT PAS LA FONCTION, IL SUIT LA PERSONNE. La signature
+     enregistrée est celle du titulaire : l'apposer sous le nom d'un suppléant
+     ou d'un désigné serait un faux. Ces pièces-là se signent à la main. */
+  .cloture.sans-paraphe .paraphe{background-image:none;
+    border-bottom:0.3mm solid #94a3b8;height:16mm;align-self:end}
   .cloture .legende{grid-column:3;grid-row:2;text-align:center;
     border-top:.4pt solid #94a3b8;padding-top:1mm;width:46mm}
   .cloture .qualite{font-size:8.5pt;color:#334}
