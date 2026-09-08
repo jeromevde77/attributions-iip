@@ -100,6 +100,7 @@ export function migrerSessions(dbx) {
             annee_scolaire TEXT    NOT NULL,
             session        INTEGER NOT NULL DEFAULT 1,
             date_seance    TEXT,
+            heure_seance   TEXT,
             visite_date    TEXT,
             visite_heure   TEXT,
             visite_local   TEXT,
@@ -120,6 +121,18 @@ export function migrerSessions(dbx) {
       console.log('[migration] deliberation_seance : session ajoutée');
     }
   } catch (e) { console.error('[migration] seance.session :', e.message); }
+
+  try {
+    // L'HEURE DE LA SÉANCE. La date était posée en douce au moment de clore —
+    // celle du jour, sans que personne puisse la corriger. Le PV porte pourtant
+    // la date ET l'heure de la délibération : elles se notent maintenant à
+    // l'ouverture, et se changent tant que la séance n'est pas close.
+    const cols = dbx.prepare('PRAGMA table_info(deliberation_seance)').all().map(c => c.name);
+    if (cols.length && !cols.includes('heure_seance')) {
+      dbx.exec('ALTER TABLE deliberation_seance ADD COLUMN heure_seance TEXT');
+      console.log('[migration] deliberation_seance : heure_seance ajoutée');
+    }
+  } catch (e) { console.error('[migration] seance.heure :', e.message); }
 
   try {
     // Le résultat de chaque session, conservé à côté du résultat final.
@@ -3144,6 +3157,7 @@ r.get('/deliberation/ue/:ueNum', authRequired, (req, res) => {
         ue_num         INTEGER NOT NULL,
         annee_scolaire TEXT    NOT NULL,
         date_seance    TEXT,
+        heure_seance   TEXT,
         visite_date    TEXT,
         visite_heure   TEXT,
         visite_local   TEXT,
@@ -3335,9 +3349,26 @@ r.put('/deliberation/ue/:ueNum/seance', authRequired,
   const ueNum = Number(req.params.ueNum);
   const annee = req.body?.annee || anneeDeTravail(req);
   const session = Number(req.body?.session) === 2 ? 2 : 1;
-  const { membres, date_seance, visite_date, visite_heure, visite_local, cloturee,
+  const { membres, date_seance, heure_seance, visite_date, visite_heure, visite_local, cloturee,
           session2_date, session2_heure, session2_local, session2_adresse,
           session2_cours } = req.body || {};
+
+  // LA DATE ET L'HEURE SE CORRIGENT TANT QUE LA SÉANCE EST OUVERTE — après,
+  // elles sont dans le procès-verbal signé et ne se retouchent plus : il faut
+  // annuler la délibération, ce qui rouvre la séance et se voit.
+  if ((date_seance || heure_seance) && !cloturee) {
+    const close = !!(db.prepare(`
+      SELECT cloturee FROM deliberation_seance
+      WHERE ue_num = ? AND annee_scolaire = ? AND session = ?
+    `).get(ueNum, annee, session)?.cloturee);
+    if (close) {
+      return res.status(409).json({
+        error: 'séance close',
+        detail: 'La séance est clôturée : sa date et son heure figurent au '
+              + 'procès-verbal. Annulez la délibération pour les corriger.',
+      });
+    }
+  }
 
   // LE QUORUM SE VÉRIFIE À LA CLÔTURE, ET NULLE PART AILLEURS.
   //
@@ -3379,12 +3410,14 @@ r.put('/deliberation/ue/:ueNum/seance', authRequired,
   db.transaction(() => {
     db.prepare(`
       INSERT INTO deliberation_seance
-        (ue_num, annee_scolaire, session, date_seance, visite_date, visite_heure, visite_local,
+        (ue_num, annee_scolaire, session, date_seance, heure_seance,
+         visite_date, visite_heure, visite_local,
          session2_date, session2_heure, session2_local, session2_adresse,
          cloturee, maj_le, maj_par)
-      VALUES (?,?,?,?,?,?,?,?,?,?,?,?, datetime('now'), ?)
+      VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?, datetime('now'), ?)
       ON CONFLICT(ue_num, annee_scolaire, session) DO UPDATE SET
         date_seance      = COALESCE(excluded.date_seance,      deliberation_seance.date_seance),
+        heure_seance     = COALESCE(excluded.heure_seance,     deliberation_seance.heure_seance),
         visite_date      = COALESCE(excluded.visite_date,      deliberation_seance.visite_date),
         visite_heure     = COALESCE(excluded.visite_heure,     deliberation_seance.visite_heure),
         visite_local     = COALESCE(excluded.visite_local,     deliberation_seance.visite_local),
@@ -3394,7 +3427,8 @@ r.put('/deliberation/ue/:ueNum/seance', authRequired,
         session2_adresse = COALESCE(excluded.session2_adresse, deliberation_seance.session2_adresse),
         cloturee     = MAX(excluded.cloturee, deliberation_seance.cloturee),
         maj_le = datetime('now'), maj_par = excluded.maj_par
-    `).run(ueNum, annee, session, date_seance || null, visite_date || null, visite_heure || null,
+    `).run(ueNum, annee, session, date_seance || null, heure_seance || null,
+      visite_date || null, visite_heure || null,
            visite_local || null, session2_date || null, session2_heure || null,
            session2_local || null, session2_adresse || null,
            cloturee ? 1 : 0, req.user?.email || null);
@@ -3845,7 +3879,8 @@ export function documentPV(ueNum, annee, session = 1) {
     <div>${ue.ue_per_etudiants ? `<b>${ue.ue_per_etudiants}</b> périodes`
                                : '<span class="manque">périodes à compléter</span>'}</div>
     <div>${session}<sup>${session === 1 ? 're' : 'e'}</sup> session ·
-      délibérée le <b>${esc(jour(seance.date_seance) || '……………')}</b></div>
+      délibérée le <b>${esc(jour(seance.date_seance) || '……………')}</b>${
+      seance.heure_seance ? ` à ${esc(seance.heure_seance)}` : ''}</div>
     ${integree ? `<div class="large">Section : ${esc(sec?.libelle || ue.section || '')}
       ${sec?.code_fwb ? `· code ${esc(sec.code_fwb)}` : ''}</div>` : ''}
   </div>
@@ -3881,7 +3916,8 @@ export function documentPV(ueNum, annee, session = 1) {
   <div class="info">
     <div class="ligne">Le présent procès-verbal comporte …… page(s).</div>
     <div class="ligne">Le ${esc(conseil)} a délibéré le
-      <b>${esc(jour(seance.date_seance) || '……………')}</b>.</div>
+      <b>${esc(jour(seance.date_seance) || '……………')}</b>${
+      seance.heure_seance ? ` à <b>${esc(seance.heure_seance)}</b>` : ''}.</div>
     <div class="ligne">Les résultats sont communiqués conformément au ROI de
       l'établissement le <b>${esc(jour(seance.visite_date) || '……………')}</b>${
       seance.visite_heure ? ` à ${esc(seance.visite_heure)}` : ''}${

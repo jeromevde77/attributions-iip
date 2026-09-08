@@ -487,8 +487,8 @@ export default function FeuilleDeliberation({ ueNum, annee, onClose }) {
 
           {etape === 'presences' ? (
             <Presences seance={seance} enCours={enCours}
-              onValider={membres => enregistrerSeance({
-                membres, date_seance: new Date().toISOString().slice(0, 10),
+              onValider={(membres, date_seance, heure_seance) => enregistrerSeance({
+                membres, date_seance, heure_seance,
               }).then(ok => ok && chargerAuto())} />
           ) : etape === 'auto' ? (
             <PleinDroit auto={auto} enCours={enCours}
@@ -627,8 +627,19 @@ function QuorumBandeau({ membres }) {
 function Presences({ seance, onValider, enCours }) {
   const [membres, setMembres] = useState(null);
   const [ajout, setAjout] = useState('');
+  // LA DATE ET L'HEURE DE LA SÉANCE. Elles étaient posées en douce à la
+  // clôture — celle du jour, que personne ne pouvait corriger. Le Conseil qui
+  // délibère un samedi et clôture le lundi voyait donc le lundi au PV.
+  const [date, setDate] = useState('');
+  const [heure, setHeure] = useState('');
 
   useEffect(() => { if (seance && !membres) setMembres(seance.membres); }, [seance, membres]);
+  useEffect(() => {
+    if (!seance?.seance) return;
+    setDate(d => d || seance.seance.date_seance || new Date().toISOString().slice(0, 10));
+    setHeure(h => h || seance.seance.heure_seance
+      || new Date().toTimeString().slice(0, 5));
+  }, [seance]);
 
   if (!membres) {
     return <div className="py-10 text-center text-[12.5px] text-slate-400">Chargement du Conseil…</div>;
@@ -646,6 +657,28 @@ function Presences({ seance, onValider, enCours }) {
           Cochez les présents avant d'ouvrir la délibération. La liste se déduit
           des attributions de l'unité ; elle est donc à jour de l'année en cours.
         </p>
+      </div>
+
+      <div className="border border-slate-200 rounded-xl p-3 space-y-2">
+        <div>
+          <div className="text-[13px] font-semibold text-iip-blue">Séance</div>
+          <p className="text-[11.5px] text-slate-500">
+            Date et heure de la délibération, telles qu'elles figureront au
+            procès-verbal. Elles restent modifiables jusqu'à la clôture.
+          </p>
+        </div>
+        <div className="grid grid-cols-2 gap-2">
+          <label className="text-[11.5px] text-slate-600">
+            Date
+            <input type="date" value={date} onChange={e => setDate(e.target.value)}
+              className="w-full mt-0.5 border border-slate-300 rounded-lg px-2 py-1.5 text-[12.5px]" />
+          </label>
+          <label className="text-[11.5px] text-slate-600">
+            Heure
+            <input type="time" value={heure} onChange={e => setHeure(e.target.value)}
+              className="w-full mt-0.5 border border-slate-300 rounded-lg px-2 py-1.5 text-[12.5px]" />
+          </label>
+        </div>
       </div>
 
       <QuorumBandeau membres={membres} />
@@ -699,7 +732,8 @@ function Presences({ seance, onValider, enCours }) {
         <span className="text-[12px] text-slate-500">
           <b className="text-iip-blue">{presents}</b> présent(s) sur {membres.length}
         </span>
-        <button disabled={enCours || !presents} onClick={() => onValider(membres)}
+        <button disabled={enCours || !presents || !date}
+          onClick={() => onValider(membres, date, heure)}
           className="px-4 py-2 text-[13px] rounded-lg bg-iip-blue text-white font-semibold
                      disabled:opacity-40">
           Ouvrir la délibération
@@ -775,6 +809,10 @@ function PleinDroit({ auto, onAppliquer, onPasser, enCours }) {
  */
 
 function Cloture({ seance, onClore, onRetour, onPV, enCours, nb, ajournes, coursSession2 }) {
+  // La séance elle-même : dernière occasion de corriger sa date et son heure,
+  // car la clôture les fige au procès-verbal.
+  const [dateS, setDateS] = useState(seance?.date_seance || '');
+  const [heureS, setHeureS] = useState(seance?.heure_seance || '');
   const [date, setDate] = useState(seance?.visite_date || '');
   const [heure, setHeure] = useState(seance?.visite_heure || '');
   const [local, setLocal] = useState(seance?.visite_local || '');
@@ -791,7 +829,7 @@ function Cloture({ seance, onClore, onRetour, onPV, enCours, nb, ajournes, cours
   const reporterPartout = () => setS2(l => l.length ? l.map(c => ({
     ...c, date: l[0].date, heure: l[0].heure, local: l[0].local })) : l);
   const [close, setClose] = useState(!!seance?.cloturee);
-  const complet = date && heure && local.trim();
+  const complet = date && heure && local.trim() && dateS;
 
   return (
     <div className="space-y-3 max-w-xl mx-auto py-4">
@@ -801,6 +839,28 @@ function Cloture({ seance, onClore, onRetour, onPV, enCours, nb, ajournes, cours
           Les {nb} étudiant(s) de cette unité ont été délibérés et leurs décisions
           sont enregistrées.
         </p>
+      </div>
+
+      <div className="border border-slate-200 rounded-xl p-4 space-y-3">
+        <div>
+          <div className="text-[13px] font-semibold text-iip-blue">Séance du Conseil</div>
+          <p className="text-[11.5px] text-slate-500">
+            La clôture fige cette date et cette heure au procès-verbal : c'est
+            le dernier moment pour les corriger.
+          </p>
+        </div>
+        <div className="grid grid-cols-2 gap-2">
+          <label className="text-[11.5px] text-slate-600">
+            Date de délibération
+            <input type="date" value={dateS} onChange={e => setDateS(e.target.value)}
+              className="w-full mt-0.5 border border-slate-300 rounded-lg px-2 py-1.5 text-[12.5px]" />
+          </label>
+          <label className="text-[11.5px] text-slate-600">
+            Heure
+            <input type="time" value={heureS} onChange={e => setHeureS(e.target.value)}
+              className="w-full mt-0.5 border border-slate-300 rounded-lg px-2 py-1.5 text-[12.5px]" />
+          </label>
+        </div>
       </div>
 
       <div className="border border-slate-200 rounded-xl p-4 space-y-3">
@@ -895,6 +955,7 @@ function Cloture({ seance, onClore, onRetour, onPV, enCours, nb, ajournes, cours
             <IconFileText size={14} /> Générer les documents
           </button>
           <button disabled={enCours || !complet} onClick={() => onClore({
+              date_seance: dateS, heure_seance: heureS || null,
               visite_date: date, visite_heure: heure, visite_local: local.trim(),
               session2_cours: s2,
               // La première date sert de repli pour ce qui n'est pas fixé.
@@ -902,7 +963,7 @@ function Cloture({ seance, onClore, onRetour, onPV, enCours, nb, ajournes, cours
               session2_heure: s2[0]?.heure || null,
               session2_local: s2[0]?.local || null })
               .then(ok => ok && setClose(true))}
-            title={complet ? '' : 'La date, l’heure et le local sont requis'}
+            title={complet ? '' : 'La date de délibération, et la date, l’heure et le local de visite des copies sont requis'}
             className="px-4 py-2 text-[13px] rounded-lg bg-emerald-600 text-white font-semibold
                        disabled:opacity-40">
             {close ? 'Enregistré' : 'Clore la délibération'}
