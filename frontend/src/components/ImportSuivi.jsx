@@ -21,7 +21,11 @@ export default function ImportSuivi({ annee, onClose, onFini }) {
   const [fichier, setFichier] = useState(null);
   const [unites, setUnites] = useState(null);
   const [choisies, setChoisies] = useState(new Set());
-  const [quoi, setQuoi] = useState({ ponderations: true, notes: true, decisions: true });
+  const [quoi, setQuoi] = useState({ ponderations: true, notes: true, decisions: true,
+    // Créer et inscrire restent DÉCOCHÉS par défaut : un import ne doit pas
+    // peupler la base d'étudiants inventés sur une faute de frappe. Mais sur
+    // une base vide, ce sont eux qui rendent l'import possible.
+    creer: false, inscrire: false });
   const [rapport, setRapport] = useState(null);
   const [applique, setApplique] = useState(false);
   const [erreur, setErreur] = useState(null);
@@ -172,7 +176,9 @@ export default function ImportSuivi({ annee, onClose, onFini }) {
 
               <div className="flex flex-wrap gap-4 px-1">
                 {[['ponderations', 'Pondérations'], ['notes', 'Notes'],
-                  ['decisions', 'Décisions du jury']].map(([k, l]) => (
+                  ['decisions', 'Décisions du jury'],
+                  ['creer', 'Créer les étudiants inconnus'],
+                  ['inscrire', 'Inscrire à l’unité ceux qui ne le sont pas']].map(([k, l]) => (
                   <label key={k} className="flex items-center gap-1.5 text-[12.5px] text-slate-700">
                     <input type="checkbox" checked={quoi[k]}
                       onChange={e => setQuoi(q => ({ ...q, [k]: e.target.checked }))}
@@ -181,6 +187,17 @@ export default function ImportSuivi({ annee, onClose, onFini }) {
                   </label>
                 ))}
               </div>
+              {(quoi.creer || quoi.inscrire) && (
+                <div className="mx-1 px-3 py-2 rounded-lg bg-amber-50 border border-amber-200
+                                text-[11.5px] text-amber-900">
+                  Le classeur devient une source d'inscription : chaque ligne inconnue
+                  crée un dossier — matricule, nom, prénom — et l'inscrit à l'unité.
+                  C'est ce qu'il faut sur une base vide ; ailleurs, une faute de frappe
+                  dans un nom y créera un doublon. <b>Simulez d'abord</b> : le rapport
+                  dit combien de dossiers seraient créés. Les homonymes ambigus ne sont
+                  jamais créés — c'est un dossier existant qu'il faut choisir.
+                </div>
+              )}
               <p className="text-[11.5px] text-slate-500 px-1">
                 Les notes du classeur sont exprimées dans l'échelle du poids de chaque acquis ;
                 elles sont ramenées sur 20. La décision du Conseil est reprise telle quelle —
@@ -201,6 +218,8 @@ export default function ImportSuivi({ annee, onClose, onFini }) {
               </div>
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-[12px]">
                 {[['unités', rapport.total.unites], ['étudiants', rapport.total.rapproches],
+                  ['dossiers créés', rapport.total.crees || 0],
+                  ['inscriptions créées', rapport.total.inscrits || 0],
                   ['notes 1re session', rapport.total.notes_s1],
                   ['notes 2e session', rapport.total.notes_s2],
                   ['décisions', rapport.total.decisions],
