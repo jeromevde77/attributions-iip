@@ -274,11 +274,24 @@ export default function Deliberation() {
                         : <span className="text-[11.5px] font-semibold text-emerald-700">complet</span>}
                     </span>
                     <span className="w-32 flex-none text-right">
-                      {u.echecs_non_motives > 0 && (
+                      {u.echecs_non_motives > 0 ? (
                         <span className="text-[11.5px] text-red-700 flex items-center gap-1 justify-end">
                           <IconAlertTriangle size={12} /> {u.echecs_non_motives} sans motivation
                         </span>
-                      )}
+                      ) : u.seconde_attend ? (
+                        /* CE QUI MANQUE, DIT LÀ OÙ ON LE CHERCHE. « Complet,
+                           48/48 décidés » et le bouton propose encore la
+                           première session : sans un mot, on en conclut que
+                           Lucie refuse la seconde. Elle attend la clôture. */
+                        <span title="La seconde session s'ouvre à la clôture de la première"
+                          className="text-[11.5px] text-sky-800 flex items-center gap-1 justify-end">
+                          <IconAlertTriangle size={12} /> à clôturer
+                        </span>
+                      ) : u.s1_cloturee && u.session === 1 ? (
+                        <span className="text-[11.5px] text-emerald-700 justify-end">
+                          S1 clôturée
+                        </span>
+                      ) : null}
                     </span>
                     {/* Deux gestes distincts, nommés : délibérer l'unité, ou
                         encoder l'un de ses cours. */}
@@ -289,7 +302,11 @@ export default function Deliberation() {
                     <button onClick={() => setUeNum(u.ue_num)}
                       title={u.session === 2
                         ? `Seconde session — ${u.s1_ajournes} ajourné(s) en première`
-                        : 'Première session'}
+                        : u.seconde_attend
+                          ? `Première session — toutes les décisions sont prises et `
+                            + `${u.s1_ajournes} étudiant(s) sont ajournés : clôturez la `
+                            + `séance pour ouvrir la seconde session`
+                          : 'Première session'}
                       className={`px-2 py-1 text-[11.5px] rounded-lg border font-semibold flex-none
                         ${u.session === 2
     ? 'border-amber-500 text-amber-800 bg-amber-50'
