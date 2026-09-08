@@ -176,3 +176,34 @@ ${piedHtml}
 }
 
 export default envelopperDocument;
+
+/**
+ * LE PIED, EN GABARIT CHROMIUM — un vrai pied de page, sur CHAQUE feuille.
+ *
+ * En HTML pur, un pied répété sur chaque page n'existe pas : `position: fixed`
+ * s'ancre au bas de la zone de contenu et se fait recouvrir par un tableau qui
+ * la dépasse, et `table-footer-group` se pose sous le texte au lieu du bas de
+ * la feuille. Les documents de délibération sortaient donc « en continu » :
+ * un seul pied, à la toute fin du lot.
+ *
+ * Chromium, lui, dispose du gabarit que le HTML n'a pas. Ce balisage lui est
+ * destiné : styles EN LIGNE — aucune feuille du document ne s'y applique —,
+ * tailles en points, et le logo en data-URI faute de quoi il ne se charge pas.
+ *
+ * @param {string|null} logo  image encodée en data-URI
+ * @param {string}      texte pied de l'établissement, déjà mis en forme
+ * @param {boolean}     numeroter  ajoute « n / total » sous le filet
+ */
+export function piedGabaritPdf(logo, texte, numeroter = false) {
+  const T = String(texte || '').trim();
+  return '<div style="width:100%;font-family:Arial,Helvetica,sans-serif;'
+       + 'padding:0 15mm;margin:0;">'
+       + (logo ? `<img src="${logo}" style="height:7mm;display:block;margin:0 0 1mm;opacity:.9">` : '')
+       + '<div style="border-top:0.5pt solid #C9A84C;padding-top:1.2mm;text-align:center">'
+       + `<div style="font-size:6pt;color:#888;line-height:1.3">${T}</div>`
+       + (numeroter
+          ? '<div style="font-size:6pt;color:#aaa;margin-top:0.6mm">'
+            + '<span class="pageNumber"></span> / <span class="totalPages"></span></div>'
+          : '')
+       + '</div></div>';
+}
