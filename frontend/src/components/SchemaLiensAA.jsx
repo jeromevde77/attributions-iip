@@ -38,6 +38,9 @@ export default function SchemaLiensAA({ ueNum, annee, onClose, onEnregistre }) {
   const [message, setMessage] = useState(null);
   const [enCours, setEnCours] = useState(false);
   const [lien, setLien] = useState(null);      // tracé en cours : { aa, x, y, cible }
+  // Ce que la souris désigne : { aa, cours }. Sert à faire ressortir la famille
+  // de liens concernée et à effacer les autres.
+  const [survol, setSurvol] = useState(null);
   const [integree, setIntegree] = useState(false);
   const svgRef = useRef(null);
 
@@ -151,9 +154,10 @@ export default function SchemaLiensAA({ ueNum, annee, onClose, onEnregistre }) {
     if (!(Number(poids[cle]) > 0)) setPoids(m => ({ ...m, [cle]: 1 }));
   }
 
+  // Au demi-point, et l'arrondi coupe court aux 4.499999 du calcul flottant.
   const majPoids = (cle, delta) => setPoids(m => {
     const v = Math.max(0, Math.min(100, (Number(m[cle]) || 0) + delta));
-    return { ...m, [cle]: v };
+    return { ...m, [cle]: Math.round(v * 2) / 2 };
   });
 
   /**
@@ -332,20 +336,41 @@ export default function SchemaLiensAA({ ueNum, annee, onClose, onEnregistre }) {
                     const p1 = layout.posA[a.aa_code], p2 = layout.posC[c.cours_code];
                     const x1 = p1.x + L, y1 = p1.y + H / 2, x2 = p2.x, y2 = p2.y + H / 2;
                     const mx = (x1 + x2) / 2;
+                    // CE QUE L'ON REGARDE DOIT SE VOIR.
+                    //
+                    // Une unité de six cours et quinze acquis dessine jusqu'à
+                    // quatre-vingt-dix courbes qui se croisent : suivre celle
+                    // qui nous intéresse devenait un travail d'œil. Survoler un
+                    // acquis, un cours ou un lien porte donc au premier plan la
+                    // seule famille de liens concernée ; les autres s'effacent
+                    // sans disparaître, pour qu'on garde le dessin d'ensemble.
+                    const concerne = !survol
+                      || survol.aa === a.aa_code
+                      || survol.cours === c.cours_code;
+                    const attenue = survol && !concerne;
                     return (
-                      <g key={cle}>
+                      <g key={cle} opacity={attenue ? 0.13 : 1}
+                        style={{ transition: 'opacity .12s' }}
+                        onMouseEnter={() => setSurvol({ aa: a.aa_code, cours: c.cours_code })}
+                        onMouseLeave={() => setSurvol(null)}>
+                        {/* Une piste large et transparente : on attrape le lien
+                            sans devoir viser le trait lui-même. */}
                         <path d={`M${x1},${y1} C${mx},${y1} ${mx},${y2} ${x2 - 8},${y2}`}
-                          fill="none" stroke="#0EA5E9" strokeWidth="1.6" markerEnd="url(#fl-aa)" />
-                        {/* Le poids, au milieu du lien : − retire un point, +
-                            en ajoute, et zéro défait le lien. */}
+                          fill="none" stroke="transparent" strokeWidth="14" />
+                        <path d={`M${x1},${y1} C${mx},${y1} ${mx},${y2} ${x2 - 8},${y2}`}
+                          fill="none" stroke={concerne && survol ? '#0369A1' : '#0EA5E9'}
+                          strokeWidth={concerne && survol ? 2.6 : 1.6}
+                          markerEnd="url(#fl-aa)" />
+                        {/* Le poids, au milieu du lien : − retire un demi-point,
+                            + en ajoute, et zéro défait le lien. */}
                         <g transform={`translate(${mx - 26}, ${(y1 + y2) / 2 - 11})`}>
                           <rect width="52" height="22" rx="11" fill="#EFF6FF" stroke="#93C5FD" />
                           <text x="10" y="15" fontSize="13" fill="#1D4ED8" style={{ cursor: 'pointer' }}
-                            onClick={() => majPoids(cle, -1)}>−</text>
+                            onClick={() => majPoids(cle, -0.5)}>−</text>
                           <text x="26" y="15" fontSize="12" fontWeight="700" fill="#1E3A8A"
                             textAnchor="middle">{v}</text>
                           <text x="38" y="15" fontSize="13" fill="#1D4ED8" style={{ cursor: 'pointer' }}
-                            onClick={() => majPoids(cle, 1)}>+</text>
+                            onClick={() => majPoids(cle, 0.5)}>+</text>
                         </g>
                       </g>
                     );
@@ -362,10 +387,17 @@ export default function SchemaLiensAA({ ueNum, annee, onClose, onEnregistre }) {
                   {data.cours.map(c => {
                     const p = layout.posC[c.cours_code];
                     const et = etatCours(c.cours_code);
+                    // Survoler le cours éclaire tous ses liens d'un coup :
+                    // c'est la question qu'on se pose le plus souvent devant ce
+                    // schéma — « celui-ci évalue quoi ? ».
                     return (
-                      <g key={c.cours_code}>
+                      <g key={c.cours_code}
+                        onMouseEnter={() => setSurvol({ cours: c.cours_code })}
+                        onMouseLeave={() => setSurvol(null)}>
                         <rect x={p.x} y={p.y} width={L} height={H} rx="8"
-                          fill="#F8FAFC" stroke="#1B2B4B" strokeWidth="1.2" />
+                          fill="#F8FAFC"
+                          stroke={survol?.cours === c.cours_code ? '#0369A1' : '#1B2B4B'}
+                          strokeWidth={survol?.cours === c.cours_code ? 2.2 : 1.2} />
                         <text x={p.x + 8} y={p.y + 14} fontSize="11" fontWeight="700" fill="#1B2B4B">
                           {c.cours_code}
                         </text>
@@ -382,12 +414,16 @@ export default function SchemaLiensAA({ ueNum, annee, onClose, onEnregistre }) {
                   {data.acquis.map(a => {
                     const p = layout.posA[a.aa_code];
                     const orphelin = orphelins.some(o => o.aa_code === a.aa_code);
+                    const vise = survol?.aa === a.aa_code;
                     return (
-                      <g key={a.aa_code}>
+                      <g key={a.aa_code}
+                        onMouseEnter={() => setSurvol({ aa: a.aa_code })}
+                        onMouseLeave={() => setSurvol(null)}>
                         <rect x={p.x} y={p.y} width={L} height={H} rx="8"
                           fill={orphelin ? '#FFFBEB' : '#F0F9FF'}
-                          stroke={orphelin ? '#F59E0B' : '#0EA5E9'}
-                          strokeWidth="1.2" strokeDasharray={orphelin ? '4 3' : ''} />
+                          stroke={vise ? '#0369A1' : (orphelin ? '#F59E0B' : '#0EA5E9')}
+                          strokeWidth={vise ? 2.2 : 1.2}
+                          strokeDasharray={orphelin ? '4 3' : ''} />
                         <text x={p.x + 8} y={p.y + 14} fontSize="11" fontWeight="700"
                           fill={orphelin ? '#92400E' : '#075985'}>{a.aa_code}</text>
                         <text x={p.x + 8} y={p.y + 26} fontSize="9" fill="#475569">

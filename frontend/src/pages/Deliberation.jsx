@@ -1,12 +1,13 @@
 import { useEffect, useState } from 'react';
 import { IconChevronRight, IconArrowLeft, IconBolt, IconAlertTriangle,
-  IconRotate, IconPrinter } from '@tabler/icons-react';
+  IconRotate, IconPrinter, IconFileSpreadsheet } from '@tabler/icons-react';
 import { authHeaders, getAnnee, getUser } from '../lib/api.js';
 import { estDirection } from '../lib/modules.js';
 import FeuilleDeliberation from '../components/FeuilleDeliberation.jsx';
 import EncodageCours from '../components/EncodageCours.jsx';
 import EncodageUE from '../components/EncodageUE.jsx';
 import ImportNotesUE from '../components/ImportNotesUE.jsx';
+import ImportSuivi from '../components/ImportSuivi.jsx';
 import SchemaLiensAA from '../components/SchemaLiensAA.jsx';
 import EncodageRapide from './EncodageRapide.jsx';
 import CentreDocumentsUE from '../components/CentreDocumentsUE.jsx';
@@ -42,6 +43,7 @@ export default function Deliberation() {
   // de son cours.
   const [encoderUE, setEncoderUE] = useState(null); // ue_num en saisie complète
   const [importer, setImporter] = useState(null);   // ue_num en import de notes
+  const [importSuivi, setImportSuivi] = useState(false); // le classeur de l'année
   // La grille de toute l'unité montre les acquis de tous les collègues : elle
   // n'a de sens que pour qui les encode déjà tous. Le serveur applique la même
   // règle — le bouton caché ne serait pas une protection.
@@ -123,11 +125,23 @@ export default function Deliberation() {
         </div>
         {/* La saisie rapide reste accessible, mais elle n'est plus le CHEMIN :
             on y va pour saisir vite, pas pour délibérer. */}
-        <button onClick={() => setRapide(true)}
-          className="flex items-center gap-1.5 px-3 py-1.5 text-sm border border-iip-blue
-                     text-iip-blue font-semibold rounded-lg">
-          <IconBolt size={15} /> Encodage rapide
-        </button>
+        <div className="flex items-center gap-2">
+          {/* L'IMPORT DU CLASSEUR PORTE SUR TOUTE L'ANNÉE, non sur une unité :
+              sa place est ici, en tête, et non dans la ligne d'une UE. */}
+          {peutToutEncoder && (
+            <button onClick={() => setImportSuivi(true)}
+              title="Reprendre pondérations, notes et décisions depuis le classeur de suivi"
+              className="flex items-center gap-1.5 px-3 py-1.5 text-sm border border-slate-300
+                         text-slate-600 font-semibold rounded-lg">
+              <IconFileSpreadsheet size={15} /> Classeur de suivi
+            </button>
+          )}
+          <button onClick={() => setRapide(true)}
+            className="flex items-center gap-1.5 px-3 py-1.5 text-sm border border-iip-blue
+                       text-iip-blue font-semibold rounded-lg">
+            <IconBolt size={15} /> Encodage rapide
+          </button>
+        </div>
       </div>
 
       {erreur && (
@@ -329,6 +343,11 @@ export default function Deliberation() {
           onClose={() => { setUeNum(null); charger(); }} />
       )}
 
+      {importSuivi && (
+        <ImportSuivi annee={annee}
+          onClose={() => setImportSuivi(false)} onFini={charger} />
+      )}
+
       {importer != null && (
         <ImportNotesUE ueNum={importer} annee={annee}
           onClose={() => { setImporter(null); charger(); }} />
@@ -336,7 +355,9 @@ export default function Deliberation() {
 
       {encoderUE != null && (
         <EncodageUE ueNum={encoderUE} annee={annee}
-          onClose={() => { setEncoderUE(null); charger(); }} />
+          onClose={() => { setEncoderUE(null); charger(); }}
+          onParametrer={peutToutEncoder
+            ? ue => { setEncoderUE(null); setParametrer(ue); } : null} />
       )}
 
       {encoder && (

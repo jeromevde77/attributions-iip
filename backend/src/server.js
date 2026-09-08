@@ -26,6 +26,7 @@ import capitalisationRoutes, { migrerCapitalisation } from './routes/capitalisat
 import assistantsRoutes from './routes/assistants.js';
 import rentreeRoutes, { migrerRentree } from './routes/rentree.js';
 import acquisRoutes, { migrerAA } from './routes/acquis.js';
+import importSuiviRoutes from './routes/importSuivi.js';
 import droitInscriptionRoutes, { migrerDroitInscription } from './routes/droitInscription.js';
 import importHistoriqueRoutes, { migrerHistorique } from './routes/importHistorique.js';
 import budgetRoutes, { migrerBudget } from './routes/budget.js';
@@ -2741,6 +2742,7 @@ app.use('/api/capitalisation', capitalisationRoutes);
 app.use('/api/assistants', assistantsRoutes);
 app.use('/api/rentree', rentreeRoutes);
 app.use('/api/acquis', acquisRoutes);
+app.use('/api/import-suivi', importSuiviRoutes);
 app.use('/api/due', dueRoutes);
 app.use('/api/diplomes', diplomesRoutes);
 app.use('/api/droit-inscription', droitInscriptionRoutes);
