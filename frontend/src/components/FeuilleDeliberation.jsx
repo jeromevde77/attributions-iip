@@ -471,6 +471,18 @@ export default function FeuilleDeliberation({ ueNum, annee, onClose }) {
                       : 'border-slate-300 text-slate-600'}`}>
               <IconList size={14} /> Ajourner en lot
             </button>
+            {/* LA CLÔTURE, ATTEIGNABLE DE PARTOUT. Elle ne l'était qu'au bout
+                de la revue — après le dernier étudiant. Or c'est elle qui
+                ouvre la seconde session, produit les documents et ferme le
+                procès-verbal : la chercher ne devrait pas demander de
+                reparcourir quatre-vingts fiches. */}
+            <button onClick={() => { setLot(false); setTableau(false); setEtape('cloture'); }}
+              title="Écran de clôture : visite des copies, dates de seconde session, documents"
+              className={`px-2.5 py-1 text-[12px] rounded-lg border flex items-center gap-1.5
+                ${etape === 'cloture' ? 'border-emerald-500 bg-emerald-50 text-emerald-900 font-semibold'
+                                      : 'border-slate-300 text-slate-600'}`}>
+              Clôture
+            </button>
             <button onClick={onClose} className="text-slate-400 hover:text-slate-600">
               <IconX size={18} />
             </button>
@@ -490,11 +502,26 @@ export default function FeuilleDeliberation({ ueNum, annee, onClose }) {
               onRouvrir={rouvrirSeance} />
           )}
 
+          {/* LA SECONDE SESSION S'OUVRE À LA CLÔTURE — encore faut-il pouvoir
+              y aller. L'écran de clôture ne s'atteignait qu'en parcourant tous
+              les étudiants jusqu'au dernier : ayant délibéré, on cherchait la
+              session 2 et l'on ne trouvait ni elle, ni le geste qui l'ouvre.
+              Le bandeau porte donc le chemin, non seulement la règle. */}
           {data?.etat_sessions?.seconde_attend && (
-            <div className="mx-5 mt-3 text-[12px] text-slate-500">
-              Toutes les décisions de première session sont encodées. La seconde session
-              s'ouvrira à la clôture de la séance : jusque-là, tout se décide en première
-              session, et les ajournements restent des ajournements.
+            <div className="px-3 py-2 rounded-xl bg-sky-50 border border-sky-200
+                            flex items-start justify-between gap-3">
+              <span className="text-[12px] text-sky-900">
+                Toutes les décisions de première session sont encodées, et
+                {' '}<b>{data.etat_sessions.s1?.ajournes ?? 0}</b> étudiant(s) sont ajournés.
+                La seconde session s'ouvrira à la <b>clôture de la séance</b> : jusque-là,
+                tout se décide en première session, et les ajournements restent des
+                ajournements.
+              </span>
+              <button onClick={() => { setLot(false); setTableau(false); setEtape('cloture'); }}
+                className="flex-none px-3 py-1.5 text-[12px] rounded-lg bg-iip-blue
+                           text-white font-semibold">
+                Aller à la clôture
+              </button>
             </div>
           )}
           {data?.etat_sessions?.seconde_possible && (
