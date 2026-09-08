@@ -368,12 +368,13 @@ export default function FeuilleDeliberation({ ueNum, annee, onClose }) {
    * Le serveur choisit, pour CHACUN, les acquis réellement en défaut : deux
    * étudiants n'échouent pas aux mêmes.
    */
-  async function ajournerLot(ids, motif, simulation) {
+  async function ajournerLot(ids, motif, simulation, coursParEtudiant) {
     setEnCours(true); setErreur(null);
     try {
       const rep = await fetch(`/api/acquis/deliberation/ue/${ueNum}/ajourner-lot`, {
         method: 'POST', headers: authHeaders(),
-        body: JSON.stringify({ annee, session, etudiants: ids, motif, simulation }),
+        body: JSON.stringify({ annee, session, etudiants: ids, motif, simulation,
+                               cours_par_etudiant: coursParEtudiant || undefined }),
       });
       const j = await rep.json();
       if (!rep.ok) { setErreur(j.detail || j.error); return null; }
@@ -2066,6 +2067,23 @@ function VueLot({ liste, onAjourner, onOuvrir, enCours }) {
   const [choisis, setChoisis] = useState(() => new Set());
   const [motif, setMotif] = useState('');
   const [apercu, setApercu] = useState(null);
+  // ON AJOURNE PAR COURS. Le Conseil ne raisonne pas en acquis : il regarde
+  // les cours, décide que celui-ci est à repasser et pas celui-là. Il faut
+  // donc les VOIR, et pouvoir en écarter un — d'où, par étudiant, la liste
+  // de ses cours en défaut, tous retenus par défaut.
+  const [ecartes, setEcartes] = useState({});   // { [id]: Set(cours_code) }
+
+  const enDefaut = e => (e.cours || [])
+    .filter(c => !c.faveur && (c.na || (c.note != null && c.note < 10)));
+
+  const retenus = e => enDefaut(e).map(c => c.cours_code)
+    .filter(c => !(ecartes[e.id] || new Set()).has(c));
+
+  const basculeCours = (id, code) => setEcartes(m => {
+    const s0 = new Set(m[id] || []);
+    s0.has(code) ? s0.delete(code) : s0.add(code);
+    return { ...m, [id]: s0 };
+  });
 
   const bascule = id => setChoisis(s => {
     const n = new Set(s); n.has(id) ? n.delete(id) : n.add(id); return n;
@@ -2078,6 +2096,11 @@ function VueLot({ liste, onAjourner, onOuvrir, enCours }) {
   const poser = ids => setChoisis(new Set(ids));
 
   const ids = [...choisis];
+  const parCours = Object.fromEntries(ids.map(id => {
+    const e = liste.find(x => x.id === id);
+    return [id, e ? retenus(e) : []];
+  }));
+  const nbCours = Object.values(parCours).reduce((n, l) => n + l.length, 0);
   const pret = ids.length > 0 && motif.trim().length >= 5;
 
   return (
@@ -2085,8 +2108,9 @@ function VueLot({ liste, onAjourner, onOuvrir, enCours }) {
       <div className="px-3 py-2 rounded-xl bg-amber-50 border border-amber-200">
         <div className="text-[13px] font-semibold text-amber-900">Ajourner un paquet</div>
         <p className="text-[11.5px] text-amber-800">
-          La justification est commune ; les acquis ajournés, non — chaque étudiant
-          se voit ajourner <b>ses</b> acquis en défaut. Ce qu'une faveur a levé reste levé.
+          On ajourne <b>par cours</b> : cochez les étudiants, et décochez au besoin l'un
+          de leurs cours. Les acquis suivent leur cours. La justification, elle, est
+          commune. Ce qu'une faveur a levé reste levé.
         </p>
       </div>
 
@@ -2111,24 +2135,56 @@ function VueLot({ liste, onAjourner, onOuvrir, enCours }) {
       </div>
 
       <div className="border border-slate-200 rounded-xl divide-y divide-slate-100
-                      max-h-[38vh] overflow-y-auto">
-        {liste.map(e => (
-          <label key={e.id}
-            className="flex items-center gap-3 px-3 py-1.5 cursor-pointer hover:bg-slate-50">
-            <input type="checkbox" checked={choisis.has(e.id)} onChange={() => bascule(e.id)}
-              className="w-4 h-4 accent-amber-600 flex-none" />
-            <span className="flex-1 min-w-0">
-              <span className="text-[12.5px] font-semibold text-iip-blue">{e.nom}</span>
-              <span className="text-[12.5px] text-slate-600"> {e.prenom}</span>
-            </span>
-            <span className={`text-[12px] font-bold tabular-nums w-12 text-right
-              ${e.ue?.na ? 'text-slate-500' : (e.ue?.note ?? 0) < 10 ? 'text-red-700' : 'text-emerald-700'}`}>
-              {e.ue?.na ? 'NA' : fmt(e.ue?.note)}
-            </span>
-            <button onClick={ev => { ev.preventDefault(); onOuvrir(e); }}
-              className="text-[11px] text-slate-400 hover:text-iip-blue">fiche</button>
-          </label>
-        ))}
+                      max-h-[46vh] overflow-y-auto">
+        {liste.map(e => {
+          const defauts = enDefaut(e);
+          const pris = choisis.has(e.id);
+          return (
+            <div key={e.id} className={`px-3 py-1.5 ${pris ? 'bg-amber-50/50' : ''}`}>
+              <label className="flex items-center gap-3 cursor-pointer">
+                <input type="checkbox" checked={pris} onChange={() => bascule(e.id)}
+                  className="w-4 h-4 accent-amber-600 flex-none" />
+                <span className="flex-1 min-w-0">
+                  <span className="text-[12.5px] font-semibold text-iip-blue">{e.nom}</span>
+                  <span className="text-[12.5px] text-slate-600"> {e.prenom}</span>
+                </span>
+                <span className={`text-[12px] font-bold tabular-nums w-12 text-right
+                  ${e.ue?.na ? 'text-slate-500'
+                    : (e.ue?.note ?? 0) < 10 ? 'text-red-700' : 'text-emerald-700'}`}>
+                  {e.ue?.na ? 'NA' : fmt(e.ue?.note)}
+                </span>
+                <button onClick={ev => { ev.preventDefault(); onOuvrir(e); }}
+                  className="text-[11px] text-slate-400 hover:text-iip-blue">fiche</button>
+              </label>
+
+              {/* LE DÉTAIL, SANS OUVRIR LA FICHE : les cours en défaut, avec
+                  leur note. Chacun se décoche — c'est le cours qu'on
+                  représente, et les acquis suivent le leur. */}
+              {pris && (
+                <div className="pl-7 pt-1 pb-0.5 flex flex-wrap gap-1.5">
+                  {!defauts.length && (
+                    <span className="text-[11px] text-slate-400">
+                      Aucun cours sous le seuil — rien ne sera ajourné pour lui.
+                    </span>
+                  )}
+                  {defauts.map(c => {
+                    const off = (ecartes[e.id] || new Set()).has(c.cours_code);
+                    return (
+                      <button key={c.cours_code}
+                        onClick={() => basculeCours(e.id, c.cours_code)}
+                        title={c.cours_nom || c.cours_code}
+                        className={`px-2 py-0.5 rounded-full border text-[11px] font-semibold
+                          ${off ? 'border-slate-300 text-slate-400 line-through'
+                                : 'border-amber-500 bg-amber-100 text-amber-900'}`}>
+                        {c.cours_code} · {c.na ? 'NA' : fmt(c.note)}
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+          );
+        })}
       </div>
 
       <label className="block text-[11.5px] text-slate-600">
@@ -2153,19 +2209,20 @@ function VueLot({ liste, onAjourner, onOuvrir, enCours }) {
 
       <div className="flex items-center justify-between gap-3">
         <span className="text-[12px] text-slate-500">
-          <b className="text-amber-800">{ids.length}</b> sélectionné(s)
+          <b className="text-amber-800">{ids.length}</b> sélectionné(s) ·
+          {' '}<b className="text-amber-800">{nbCours}</b> cours à représenter
           {ids.length > 0 && motif.trim().length < 5 && ' — la justification est requise'}
         </span>
         <div className="flex gap-2">
           <button disabled={!pret || enCours}
-            onClick={async () => setApercu(await onAjourner(ids, motif.trim(), true))}
+            onClick={async () => setApercu(await onAjourner(ids, motif.trim(), true, parCours))}
             className="px-3 py-1.5 text-[12.5px] rounded-lg border border-slate-300
                        text-slate-600 disabled:opacity-40">
             Simuler
           </button>
           <button disabled={!pret || enCours}
             onClick={async () => {
-              const j = await onAjourner(ids, motif.trim(), false);
+              const j = await onAjourner(ids, motif.trim(), false, parCours);
               if (j) { setApercu(null); setChoisis(new Set()); }
             }}
             className="px-4 py-2 text-[12.5px] rounded-lg bg-amber-600 text-white
