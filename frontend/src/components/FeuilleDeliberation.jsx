@@ -478,6 +478,18 @@ export default function FeuilleDeliberation({ ueNum, annee, onClose }) {
         </div>
 
         <div className="flex-1 overflow-y-auto p-4 space-y-3">
+          {/* LA RÉOUVERTURE SE PRÉSENTE OÙ ELLE SERT — EN TÊTE.
+              Elle n'existait que sur l'écran de clôture, qu'on n'atteint qu'en
+              parcourant tous les étudiants jusqu'au dernier. Sur une unité
+              close, ce chemin n'a aucun sens : on veut rouvrir, pas refaire la
+              revue. Et si la seconde session s'est ouverte entre-temps, la
+              feuille s'affiche en session 2 et la séance close de juin devient
+              inatteignable. Le bandeau la rend accessible dans tous les cas. */}
+          {seance?.seance?.cloturee && (
+            <BandeauReouverture session={session} enCours={enCours}
+              onRouvrir={rouvrirSeance} />
+          )}
+
           {data?.etat_sessions?.seconde_attend && (
             <div className="mx-5 mt-3 text-[12px] text-slate-500">
               Toutes les décisions de première session sont encodées. La seconde session
@@ -2110,6 +2122,47 @@ function VueLot({ liste, onAjourner, onOuvrir, enCours }) {
           </button>
         </div>
       </div>
+    </div>
+  );
+}
+
+/* ═══ Rouvrir une séance close, depuis n'importe où ═══════════════════════ */
+
+function BandeauReouverture({ session, onRouvrir, enCours }) {
+  const [ouvert, setOuvert] = useState(false);
+  const [motif, setMotif] = useState('');
+
+  return (
+    <div className="px-3 py-2 rounded-xl bg-slate-100 border border-slate-300 space-y-2">
+      <div className="flex items-center justify-between gap-3">
+        <span className="text-[12.5px] text-slate-700">
+          <b>Séance close</b> — {session === 2 ? 'seconde' : 'première'} session.
+          Les décisions ne peuvent plus être modifiées.
+        </span>
+        <button onClick={() => setOuvert(o => !o)}
+          className="flex-none px-2.5 py-1 text-[12px] rounded-lg border border-amber-500
+                     text-amber-900 font-semibold">
+          {ouvert ? 'Annuler' : 'Rouvrir la séance'}
+        </button>
+      </div>
+      {ouvert && (
+        <div className="space-y-2">
+          <p className="text-[11.5px] text-slate-600">
+            Rien n'est effacé : décisions, notes, présences et dates restent. Le motif
+            est conservé au dossier — un procès-verbal signé que l'on rouvre doit
+            pouvoir s'expliquer.
+          </p>
+          <input value={motif} onChange={e => setMotif(e.target.value)} autoFocus
+            placeholder="Pourquoi rouvrir ? (erreur matérielle, pièce reçue, recours accueilli…)"
+            className="w-full border border-slate-300 rounded-lg px-2 py-1.5 text-[12.5px]" />
+          <button onClick={() => onRouvrir(motif.trim())}
+            disabled={enCours || motif.trim().length < 5}
+            className="px-3 py-1.5 text-[12.5px] rounded-lg bg-amber-600 text-white
+                       font-semibold disabled:opacity-40">
+            {enCours ? 'Réouverture…' : 'Confirmer la réouverture'}
+          </button>
+        </div>
+      )}
     </div>
   );
 }
