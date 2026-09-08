@@ -406,7 +406,11 @@ export default function FeuilleDeliberation({ ueNum, annee, onClose }) {
         body: JSON.stringify({ annee, session, ...champs }),
       });
       const j = await rep.json();
-      if (!rep.ok) { setErreur(j.error); return false; }
+      if (!rep.ok) {
+        setErreur(j.detail ? `${j.error} ${j.detail}` : j.error);
+        await chargerSeance();   // le quorum renvoyé se voit à l'écran
+        return false;
+      }
       await chargerSeance();
       return true;
     } catch (e) { setErreur(e.message); return false; }
@@ -582,6 +586,8 @@ export default function FeuilleDeliberation({ ueNum, annee, onClose }) {
               onPasser={() => { figerOrdre(); setIdx(0); setEtape('fiche'); }} />
           ) : etape === 'cloture' ? (
             <Cloture seance={seance?.seance} enCours={enCours} nb={liste.length}
+              quorum={seance?.quorum} erreur={erreur}
+              onPresences={() => setEtape('presences')}
               ajournes={(data?.etudiants || []).filter(e => e.resultat === 'ajourne').length}
               onRetour={() => setEtape('fiche')} onPV={() => setDocuments(true)}
               coursSession2={seance?.session2 || []}
@@ -899,7 +905,7 @@ function PleinDroit({ auto, onAppliquer, onPasser, enCours }) {
  */
 
 function Cloture({ seance, onClore, onRetour, onPV, onRouvrir, enCours, nb, ajournes,
-                   coursSession2 }) {
+                   coursSession2, quorum, erreur, onPresences }) {
   const [motifR, setMotifR] = useState('');
   // La séance elle-même : dernière occasion de corriger sa date et son heure,
   // car la clôture les fige au procès-verbal.
@@ -932,6 +938,25 @@ function Cloture({ seance, onClore, onRetour, onPV, onRouvrir, enCours, nb, ajou
           sont enregistrées.
         </p>
       </div>
+
+      {/* LE QUORUM SE CONSTATE À LA CLÔTURE — autant le montrer AVANT de
+          cliquer. Et l'appel des présences se fait à l'étape « Présences »,
+          qu'on peut n'avoir jamais ouverte : le bouton y mène. */}
+      {quorum && !quorum.atteint && (
+        <div className="px-3 py-2 rounded-xl bg-amber-50 border border-amber-300
+                        flex items-start justify-between gap-3">
+          <span className="text-[12px] text-amber-900">
+            <b>Quorum non constaté</b> — {quorum.presents} présent(s) sur {quorum.membres}
+            {' '}à voix délibérative, il en faut {quorum.requis} (RGE art. 25 §1).
+            La clôture sera refusée tant que les présences ne sont pas enregistrées.
+          </span>
+          <button onClick={onPresences}
+            className="flex-none px-3 py-1.5 text-[12px] rounded-lg bg-amber-600
+                       text-white font-semibold">
+            Appel des présences
+          </button>
+        </div>
+      )}
 
       <div className="border border-slate-200 rounded-xl p-4 space-y-3">
         <div>

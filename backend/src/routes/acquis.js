@@ -3398,11 +3398,23 @@ r.put('/deliberation/ue/:ueNum/seance', authRequired,
     }
     const q = etatQuorum(tous, presences);
     if (!q.atteint) {
+      // AUCUNE PRÉSENCE ENREGISTRÉE N'EST PAS UN QUORUM MANQUANT — c'est une
+      // étape sautée. Dire « 0 présent sur 7 » à quelqu'un qui n'est jamais
+      // passé par l'appel des présences le laisse chercher un absent
+      // imaginaire ; il faut nommer le geste qui manque.
+      const aucune = !Object.values(presences).some(Boolean);
       return res.status(409).json({
-        error: `Quorum non atteint : ${q.presents} membre(s) présent(s) sur `
-             + `${q.membres} à voix délibérative, il en faut ${q.requis} `
-             + `(deux tiers, RGE art. 25 §1). La séance reste ouverte.`,
-        quorum: q,
+        error: aucune
+          ? 'Les présences du Conseil ne sont pas enregistrées : la clôture ne '
+            + 'peut pas constater le quorum.'
+          : `Quorum non atteint : ${q.presents} membre(s) présent(s) sur `
+            + `${q.membres} à voix délibérative, il en faut ${q.requis} `
+            + `(deux tiers, RGE art. 25 §1). La séance reste ouverte.`,
+        detail: aucune
+          ? 'Passez par l’étape « Présences » pour cocher les membres présents, '
+            + 'puis revenez clôturer.'
+          : undefined,
+        quorum: q, presences_absentes: aucune,
       });
     }
   }
