@@ -288,8 +288,15 @@ export default function Deliberation() {
                           <IconAlertTriangle size={12} /> à clôturer
                         </span>
                       ) : u.s1_cloturee && u.session === 1 ? (
-                        <span className="text-[11.5px] text-emerald-700 justify-end">
-                          S1 clôturée
+                        /* Close et pas de seconde session : c'est qu'aucun
+                           étudiant n'est ajourné. Autant le dire — sinon on
+                           lit « S1 clôturée » et l'on cherche la S2 qui
+                           n'a pas lieu d'être. */
+                        <span title={`${u.s1_ajournes} ajourné(s) en première session `
+                          + `sur ${u.decides} décision(s) : sans ajourné, il n'y a pas `
+                          + `de seconde session.`}
+                          className="text-[11.5px] text-emerald-700 justify-end">
+                          S1 close · {u.s1_ajournes ? `${u.s1_ajournes} ajourné(s)` : 'aucun ajourné'}
                         </span>
                       ) : null}
                     </span>

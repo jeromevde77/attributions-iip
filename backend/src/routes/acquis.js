@@ -3008,6 +3008,28 @@ export function sessionDeLUE(ueNum, annee) {
   `).all(ueNum, annee)) parSession[l.session] = l;
 
   const s1 = parSession[1] || { n: 0, ajournes: 0 };
+
+  // LE DOSSIER FAIT FOI QUAND LA TRACE MANQUE.
+  //
+  // Les ajournés se comptent dans deliberation_resultat — la trace par
+  // session. Mais toutes les décisions n'y sont pas passées : celles écrites
+  // avant que cette table existe, celles d'un import ancien, celles d'une
+  // reprise. L'unité affichait alors « aucun ajourné », donc pas de seconde
+  // session, alors que quarante-huit dossiers portaient « ajourné ».
+  //
+  // On complète donc par le résultat de l'inscription, qui est ce que Lucie
+  // montre partout ailleurs. Le maximum des deux, jamais leur somme : une même
+  // décision est souvent dans les deux tables, et l'additionner ferait croire
+  // à deux fois plus d'ajournés qu'il n'y en a.
+  const dossier = db.prepare(`
+    SELECT COUNT(*) AS decides,
+           SUM(CASE WHEN resultat = 'ajourne' THEN 1 ELSE 0 END) AS ajournes
+    FROM etudiant_inscription
+    WHERE annee_scolaire = ? AND ue_num = ? AND resultat IS NOT NULL AND resultat != ''
+  `).get(annee, ueNum);
+  const ajournesDossier = dossier.ajournes || 0;
+  s1.ajournes = Math.max(s1.ajournes, ajournesDossier);
+  s1.n = Math.max(s1.n, dossier.decides || 0);
   const s2 = parSession[2] || { n: 0, ajournes: 0 };
   const s1Faite = inscrits > 0 && s1.n >= inscrits;
 
@@ -3023,7 +3045,8 @@ export function sessionDeLUE(ueNum, annee) {
   return {
     session: secondeOuverte ? 2 : 1,
     inscrits,
-    s1: { decides: s1.n, ajournes: s1.ajournes, complete: s1Faite, cloturee: s1Close },
+    s1: { decides: s1.n, ajournes: s1.ajournes, complete: s1Faite, cloturee: s1Close,
+          ajournes_dossier: ajournesDossier },
     s2: { decides: s2.n },
     // Sans ajourné en première session, la seconde n'a pas lieu d'être ; sans
     // clôture, elle n'est pas encore ouverte.
