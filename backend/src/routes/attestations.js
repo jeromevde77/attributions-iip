@@ -355,8 +355,15 @@ export function envelopper(corps, titre = 'Attestations de réussite') {
 
   /* Chaque pièce commence sur une nouvelle feuille. La précédente s'arrête où
      elle veut : une attestation courte ne pousse plus la suivante contre elle,
-     et un procès-verbal long se pagine au lieu d'être coupé. */
-  .attestation + .attestation { break-before: page; page-break-before: always; }
+     et un procès-verbal long se pagine au lieu d'être coupé.
+
+     LE COMBINATEUR EST « ~ », NON « + ». Avec « + », il suffisait qu'un
+     <style> se glisse entre deux pièces — c'est ce que faisait le bloc des
+     listes d'ajournés — pour qu'elles ne soient plus sœurs IMMÉDIATES : le
+     saut ne s'appliquait pas, et la liste des ajournés commençait sur la page
+     de la signature de la dernière notification. « ~ » vise toute sœur qui
+     suit, quoi qu'il y ait entre les deux. */
+  .attestation ~ .attestation { break-before: page; page-break-before: always; }
 
   /* LE PIED : EN FLUX, À LA FIN DU DOCUMENT.
      Trois réglages ont été essayés avant celui-ci ; autant les consigner pour
