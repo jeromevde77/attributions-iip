@@ -10,9 +10,11 @@ import { Tableau, TableauEntete, Th, Td, Tr, Badge } from './ui.jsx';
  * naissance : on pouvait créer un étudiant, jamais le rectifier. Or ces données
  * figurent sur la fiche d'inscription et sur les attestations.
  *
- * L'import se rapproche par NUMÉRO NATIONAL, seul identifiant stable : eCampus
- * réattribue les matricules à chaque rentrée, et le nom seul ne distingue pas
- * deux homonymes.
+ * L'import se rapproche d'abord par NUMÉRO NATIONAL, seul identifiant vraiment
+ * stable — eCampus réattribue les matricules à chaque rentrée. À défaut, par le
+ * matricule, puis par le nom et le prénom, et dans ce dernier cas seulement si
+ * une seule personne répond : deux homonymes valent mieux non rapprochés que
+ * mal rapprochés.
  */
 const CHAMPS = [
   { k: 'titre', l: 'Titre', type: 'select', options: ['', 'Monsieur', 'Madame'] },
@@ -150,7 +152,7 @@ export default function IdentiteEtudiant({ etudId, onModifie }) {
 // se corrige colonne par colonne, faute de quoi le moindre intitulé inattendu
 // rendrait le classeur illisible.
 const CHAMPS_IMPORT = [
-  { k: 'num_national',   l: 'Numéro national', requis: true,
+  { k: 'num_national',   l: 'Numéro national',
     motifs: ['national', 'niss', 'registre'] },
   { k: 'nom',            l: 'Nom',             motifs: ['nometud', 'nom'] },
   { k: 'prenom',         l: 'Prénom',          motifs: ['preetud', 'prenom'] },
@@ -221,6 +223,9 @@ export function ComplementDossiers({ onTermine }) {
   const [corresp, setCorresp] = useState({});       // champ Lucie → en-tête
   const [rapport, setRapport] = useState(null);
   const [ecraser, setEcraser] = useState(false);
+  // De quoi identifier la personne : l'une des trois clés suffit.
+  const identifiable = !!(corresp.num_national || corresp.id_ecampus
+    || (corresp.nom && corresp.prenom));
   const [enCours, setEnCours] = useState(false);
   const [erreur, setErreur] = useState(null);
   const [avertissement, setAvertissement] = useState(null);
@@ -268,13 +273,18 @@ export function ComplementDossiers({ onTermine }) {
     // Les dates qu'on n'a pas su lire : les taire reviendrait à laisser croire
     // qu'elles ont été importées.
     const illisibles = [];
-    const colRN = corresp.num_national;
-    if (!colRN) throw new Error("Indiquez la colonne du numéro national : c'est elle qui "
-      + "rapproche les dossiers.");
+    // TROIS CLÉS, NON UNE SEULE. Le numéro national était exigé, et toute ligne
+    // qui n'en portait pas était jetée AVANT même d'être envoyée — c'est-à-dire
+    // précisément l'étudiant dont Lucie n'a pas encore le numéro, celui qu'on
+    // vient compléter. Le matricule, puis le nom et le prénom, prennent le
+    // relais ; le serveur écarte les homonymes qu'il ne peut pas départager.
+    if (!corresp.num_national && !corresp.id_ecampus && !(corresp.nom && corresp.prenom)) {
+      throw new Error("Indiquez au moins une colonne qui identifie la personne : le numéro "
+        + 'national, le matricule, ou le nom et le prénom.');
+    }
     const lignes = brut.map(r => {
-      const l = { num_national: r[colRN] };
+      const l = {};
       for (const ch of CHAMPS_IMPORT) {
-        if (ch.k === 'num_national') continue;
         const col = corresp[ch.k];
         if (!col) continue;
         const v = r[col];
@@ -287,7 +297,7 @@ export function ComplementDossiers({ onTermine }) {
         }
       }
       return l;
-    }).filter(x => x.num_national);
+    }).filter(x => x.num_national || x.id_ecampus || (x.nom && x.prenom));
 
     if (illisibles.length) {
       setAvertissement(`${illisibles.length} date(s) de naissance illisible(s) — elles ne seront `
@@ -301,7 +311,8 @@ export function ComplementDossiers({ onTermine }) {
     setEnCours(true); setErreur(null);
     try {
       const lignes = construire();
-      if (!lignes.length) throw new Error('Aucune ligne ne porte de numéro national.');
+      if (!lignes.length) throw new Error("Aucune ligne ne porte de quoi identifier la "
+        + 'personne : ni numéro national, ni matricule, ni nom et prénom.');
       const rep = await fetch('/api/etudiants/completer', {
         method: 'POST', headers: authHeaders(),
         body: JSON.stringify({
@@ -375,7 +386,7 @@ export function ComplementDossiers({ onTermine }) {
           </div>
 
           {/* Un aperçu vaut mieux qu'une promesse : on montre ce qui sera lu. */}
-          {corresp.num_national && (
+          {identifiable && (
             <div className="text-[11.5px] text-slate-600 bg-slate-50 rounded-lg p-2.5">
               <b>Première ligne telle qu'elle sera lue :</b>
               <div className="mt-1 space-y-0.5">
@@ -401,7 +412,8 @@ export function ComplementDossiers({ onTermine }) {
             </span>
           </label>
 
-          <button onClick={() => envoyer(true)} disabled={enCours || !corresp.num_national}
+          <button onClick={() => envoyer(true)} disabled={enCours || !identifiable}
+            title={identifiable ? '' : "Indiquez le numéro national, le matricule, ou le nom et le prénom"}
             className="px-4 py-2 text-sm bg-iip-blue text-white font-semibold rounded-lg
                        disabled:opacity-40">
             {enCours ? 'Analyse…' : 'Simuler'}
@@ -429,6 +441,30 @@ export function ComplementDossiers({ onTermine }) {
             </div>
           )}
 
+          {rapport.methodes && (
+            <div className="text-[12px] text-slate-600">
+              Rapprochés par : numéro national ({rapport.methodes.numero_national}),
+              matricule ({rapport.methodes.matricule}),
+              nom et prénom ({rapport.methodes.identite}).
+            </div>
+          )}
+
+          {rapport.nb_ambigus > 0 && (
+            <div className="px-3 py-2 rounded-lg bg-amber-50 border border-amber-200 text-[12px] text-amber-900">
+              <div className="flex items-center gap-1.5 font-semibold mb-1">
+                <IconAlertTriangle size={14} /> {rapport.nb_ambigus} homonyme(s) non tranché(s)
+              </div>
+              Plusieurs dossiers portent ces nom et prénom, et la liste ne donne ni numéro
+              national, ni matricule, ni date de naissance pour départager. Rien n'a été
+              écrit pour eux.
+              <div className="mt-1 text-[11.5px]">
+                {(rapport.ambigus || []).slice(0, 8).map((a, i) => (
+                  <span key={i}>{i > 0 && ' · '}{a.nom} {a.prenom}</span>
+                ))}
+              </div>
+            </div>
+          )}
+
           {rapport.nb_conflits > 0 && (
             <div className="px-3 py-2 rounded-lg bg-amber-50 border border-amber-300 text-[12px] text-amber-900">
               <div className="flex items-center gap-1.5 font-semibold mb-1">
@@ -453,7 +489,8 @@ export function ComplementDossiers({ onTermine }) {
               <div className="flex items-center gap-1.5 font-semibold mb-1">
                 <IconAlertTriangle size={14} /> {rapport.nb_inconnus} numéro(s) sans correspondance
               </div>
-              Ces personnes ne figurent pas dans Lucie, ou leur numéro national n'y est pas encodé.
+              Ces lignes n'ont pu être rattachées à aucun dossier : ni par le numéro
+              national, ni par le matricule, ni par le nom et le prénom.
               {rapport.inconnus.length > 0 && (
                 <div className="mt-1 text-[11px]">
                   {rapport.inconnus.slice(0, 8).map(i => i.nom || i.num_national).join(' · ')}
