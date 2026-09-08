@@ -9,8 +9,13 @@ WORKDIR /app
 # "chromium" lui-même s'est révélé incompatible avec le noyau de ce NAS (crash SIGTRAP au
 # démarrage), on utilise donc le binaire propre à Puppeteer, plus portable, mais il a besoin
 # des mêmes bibliothèques partagées que n'importe quel Chromium (liste standard Puppeteer).
+#
+# LES POLICES, ET CE QUI LES RÉSOUT. « fonts-liberation » ne suffit pas : sans
+# fontconfig, Chromium ne sait pas qu'Arial se substitue par Liberation Sans —
+# il retombe sur une police par défaut qu'il étire pour approcher les largeurs
+# demandées. C'est ce qui donnait ce texte élargi dans les PDF exportés.
 RUN apt-get update && apt-get install -y --no-install-recommends \
-    fonts-liberation \
+    fontconfig fonts-liberation fonts-dejavu-core \
     libnss3 libatk1.0-0 libatk-bridge2.0-0 libcups2 libdrm2 libxkbcommon0 \
     libxcomposite1 libxdamage1 libxfixes3 libxrandr2 libgbm1 libasound2 \
     libpangocairo-1.0-0 libpango-1.0-0 libcairo2 libgtk-3-0 libx11-xcb1 \
