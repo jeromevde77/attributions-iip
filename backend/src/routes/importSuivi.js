@@ -350,4 +350,155 @@ r.post('/', authRequired, roleRequired('admin', 'directeur', 'directeur_adjoint'
   res.json(rapport);
 });
 
+/**
+ * OÙ SONT LES NOTES ? — le diagnostic par année.
+ *
+ * L'année d'un import est celle choisie dans l'en-tête de Lucie au moment où
+ * on l'a lancé. Importer le classeur « TIM 25 » en ayant 2026-2027 à l'écran
+ * range donc les notes dans 2026-2027, sans un mot : elles sont bien en base,
+ * et introuvables là où on les cherche.
+ *
+ * Cette route dit, pour une unité ou pour toutes, ce que chaque année contient
+ * — notes, décisions, inscriptions. C'est le seul moyen de retrouver le fil
+ * sans ouvrir la base à la main.
+ */
+r.get('/etat-annees', authRequired, (req, res) => {
+  const ueNum = req.query.ue_num ? Number(req.query.ue_num) : null;
+  const cond = ueNum ? 'AND ue_num = ?' : '';
+  const args = ueNum ? [ueNum] : [];
+
+  const lignes = db.prepare(`
+    SELECT annee_scolaire AS annee, ue_num,
+           COUNT(*) AS notes,
+           COUNT(DISTINCT etudiant_id) AS etudiants
+    FROM etudiant_note_detail
+    WHERE type = 'aa' ${cond}
+    GROUP BY annee_scolaire, ue_num
+  `).all(...args);
+
+  const insc = db.prepare(`
+    SELECT annee_scolaire AS annee, ue_num,
+           COUNT(*) AS inscrits,
+           SUM(CASE WHEN resultat IS NOT NULL AND resultat != '' THEN 1 ELSE 0 END) AS decides
+    FROM etudiant_inscription
+    WHERE 1 = 1 ${cond}
+    GROUP BY annee_scolaire, ue_num
+  `).all(...args);
+
+  const par = {};
+  const clef = l => `${l.annee}|${l.ue_num}`;
+  for (const l of lignes) par[clef(l)] = { ...l, inscrits: 0, decides: 0 };
+  for (const l of insc) {
+    par[clef(l)] = { annee: l.annee, ue_num: l.ue_num, notes: 0, etudiants: 0,
+                     ...(par[clef(l)] || {}), inscrits: l.inscrits, decides: l.decides };
+  }
+
+  const noms = Object.fromEntries(db.prepare(
+    'SELECT DISTINCT ue_num, ue_nom FROM ue').all().map(u => [u.ue_num, u.ue_nom]));
+
+  const etat = Object.values(par)
+    .map(l => ({ ...l, ue_nom: noms[l.ue_num] || null,
+                 // Des notes sans inscrit dans la même année : le signe d'un
+                 // import rangé dans la mauvaise année.
+                 suspect: l.notes > 0 && l.inscrits === 0 }))
+    .sort((a, b) => (b.annee.localeCompare(a.annee)) || (a.ue_num - b.ue_num));
+
+  res.json({
+    annee_de_travail: anneeDeTravail(req),
+    ue_num: ueNum,
+    etat,
+    suspects: etat.filter(l => l.suspect).length,
+  });
+});
+
+/**
+ * DÉPLACER UNE UNITÉ D'UNE ANNÉE À L'AUTRE.
+ *
+ * Réparer un import rangé dans la mauvaise année ne devrait pas demander
+ * d'ouvrir la base. On déplace ce qui appartient à la délibération — notes,
+ * faveurs et ajournements, décisions par session, motivations — d'une année
+ * vers une autre, pour une unité.
+ *
+ * DEUX PRUDENCES. On ne déplace que pour les étudiants INSCRITS à l'unité dans
+ * l'année d'arrivée : écrire des notes chez quelqu'un qui n'y est pas inscrit
+ * recréerait le désordre qu'on répare. Et on n'écrase rien : si l'année
+ * d'arrivée porte déjà une note pour le même acquis, la ligne est laissée en
+ * place et signalée — à vous de trancher.
+ */
+r.post('/deplacer', authRequired, roleRequired('admin', 'directeur', 'directeur_adjoint'),
+       (req, res) => {
+  const ueNum = Number(req.body?.ue_num);
+  const de = String(req.body?.de || '').trim();
+  const vers = String(req.body?.vers || '').trim();
+  const simulation = req.body?.simulation !== false;
+  if (!ueNum || !de || !vers || de === vers) {
+    return res.status(400).json({ error: 'unité, année de départ et année d’arrivée requises' });
+  }
+
+  const perim = getUserSections(req.user);
+  const ue = db.prepare(`SELECT section FROM ue WHERE ue_num = ?
+    ORDER BY (annee_scolaire = ?) DESC LIMIT 1`).get(ueNum, vers) || {};
+  if (perim && ue.section && !perim.includes(ue.section)) {
+    return res.status(403).json({ error: 'unité hors de votre périmètre' });
+  }
+
+  const inscrits = new Set(db.prepare(
+    'SELECT etudiant_id FROM etudiant_inscription WHERE annee_scolaire = ? AND ue_num = ?')
+    .all(vers, ueNum).map(l => l.etudiant_id));
+
+  const rapport = { ue_num: ueNum, de, vers, simulation,
+                    notes: 0, ajustements: 0, decisions: 0, motivations: 0,
+                    non_inscrits: [], conflits: 0 };
+
+  // Les tables à déplacer, avec ce qui fait l'unicité d'une ligne dans chacune.
+  const TABLES = [
+    { t: 'etudiant_note_detail', cle: ['etudiant_id', 'ue_num', 'type', 'code'], compteur: 'notes' },
+    { t: 'deliberation_ajustement', cle: ['etudiant_id', 'ue_num', 'session', 'portee', 'code'],
+      compteur: 'ajustements' },
+    { t: 'deliberation_resultat', cle: ['etudiant_id', 'ue_num', 'session'], compteur: 'decisions' },
+    { t: 'decision_motivation', cle: ['etudiant_id', 'ue_num', 'aa_code'], compteur: 'motivations' },
+  ];
+
+  const noms = {};
+  for (const e of db.prepare('SELECT id, nom, prenom FROM etudiant').all()) {
+    noms[e.id] = `${e.nom} ${e.prenom}`;
+  }
+
+  const faire = db.transaction(() => {
+    for (const { t, cle, compteur } of TABLES) {
+      let lignes;
+      try {
+        lignes = db.prepare(
+          `SELECT rowid AS _r, * FROM ${t} WHERE annee_scolaire = ? AND ue_num = ?`).all(de, ueNum);
+      } catch { continue; }   // table absente sur cette base : on passe
+
+      const existe = db.prepare(`SELECT 1 FROM ${t} WHERE annee_scolaire = ? AND ue_num = ?`
+        + cle.filter(k => k !== 'ue_num').map(k => ` AND ${k} = ?`).join(''));
+
+      for (const l of lignes) {
+        if (!inscrits.has(l.etudiant_id)) {
+          const n = noms[l.etudiant_id] || `#${l.etudiant_id}`;
+          if (!rapport.non_inscrits.includes(n)) rapport.non_inscrits.push(n);
+          continue;
+        }
+        const args = cle.filter(k => k !== 'ue_num').map(k => l[k]);
+        if (existe.get(vers, ueNum, ...args)) { rapport.conflits++; continue; }
+        rapport[compteur]++;
+        if (!simulation) {
+          db.prepare(`UPDATE ${t} SET annee_scolaire = ? WHERE rowid = ?`).run(vers, l._r);
+        }
+      }
+    }
+    if (simulation) throw new Error('SIMULATION');
+  });
+
+  try { faire(); } catch (e) {
+    if (e.message !== 'SIMULATION') return res.status(500).json({ error: e.message });
+  }
+
+  res.json({ ok: true, ...rapport,
+             nb_non_inscrits: rapport.non_inscrits.length,
+             non_inscrits: rapport.non_inscrits.slice(0, 30) });
+});
+
 export default r;
