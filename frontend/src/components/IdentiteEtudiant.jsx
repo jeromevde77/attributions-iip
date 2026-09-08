@@ -429,6 +429,25 @@ export function ComplementDossiers({ onTermine }) {
             </div>
           )}
 
+          {rapport.nb_conflits > 0 && (
+            <div className="px-3 py-2 rounded-lg bg-amber-50 border border-amber-300 text-[12px] text-amber-900">
+              <div className="flex items-center gap-1.5 font-semibold mb-1">
+                <IconAlertTriangle size={14} /> {rapport.nb_conflits} matricule(s) déjà attribué(s)
+              </div>
+              eCampus réattribue les matricules chaque rentrée : ceux-ci appartiennent
+              encore à un autre dossier. Le reste de la ligne est complété ; seul le
+              matricule est laissé de côté, car le trancher relève de vous.
+              <div className="mt-1.5 space-y-0.5 text-[11.5px]">
+                {(rapport.conflits_matricule || []).slice(0, 8).map((c, i) => (
+                  <div key={i}>
+                    <b>{c.nom} {c.prenom}</b> — matricule {c.id_ecampus} détenu par {c.detenu_par}
+                  </div>
+                ))}
+                {rapport.nb_conflits > 8 && `… et ${rapport.nb_conflits - 8} autre(s)`}
+              </div>
+            </div>
+          )}
+
           {rapport.nb_inconnus > 0 && (
             <div className="px-3 py-2 rounded-lg bg-amber-50 border border-amber-200 text-[12px] text-amber-900">
               <div className="flex items-center gap-1.5 font-semibold mb-1">
