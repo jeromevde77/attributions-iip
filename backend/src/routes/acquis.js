@@ -4355,6 +4355,15 @@ r.post('/deliberation/ue/:ueNum/ajourner-lot', authRequired,
   const motif = String(req.body?.motif || '').trim();
   const simulation = req.body?.simulation === true;
   const aussiCours = req.body?.cours !== false;
+  // ON AJOURNE PAR COURS — c'est le cours qu'on représente.
+  //
+  // Le lot prenait tous les acquis en défaut de l'étudiant, sans qu'on puisse
+  // voir lesquels ni en écarter aucun. Or le Conseil ne raisonne pas ainsi :
+  // il regarde les cours, décide que celui-ci est à repasser et pas celui-là,
+  // et les acquis suivent. « coursParEtudiant » porte donc, pour chacun, la
+  // liste des cours retenus ; à défaut, ce sont tous ses cours en défaut.
+  const coursParEtudiant = (req.body && typeof req.body.cours_par_etudiant === 'object'
+    && req.body.cours_par_etudiant) || null;
 
   if (!ids.length) return res.status(400).json({ error: 'aucun étudiant sélectionné' });
 
@@ -4402,18 +4411,36 @@ r.post('/deliberation/ue/:ueNum/ajourner-lot', authRequired,
     for (const id of ids) {
       const d = delibererUE(id, ueNum, annee, ses);
 
-      // LES ACQUIS RÉELLEMENT EN DÉFAUT, de cet étudiant-là. Ceux qu'une faveur
-      // a levés sont acquis : on n'y touche pas.
+      // LES COURS EN DÉFAUT de cet étudiant-là — ou ceux que le Conseil a
+      // retenus, quand il en a choisi.
+      const enDefaut = (d.cours || [])
+        .filter(c => !c.faveur && (c.na || (c.note != null && c.note < SEUIL_UE)))
+        .map(c => c.cours_code);
+      const choisis = coursParEtudiant && Array.isArray(coursParEtudiant[id])
+        ? coursParEtudiant[id].filter(c => enDefaut.includes(c))
+        : enDefaut;
+      const cours = aussiCours ? choisis : [];
+
+      // LES ACQUIS SUIVENT LEURS COURS. Un acquis en défaut n'est ajourné que
+      // s'il est évalué dans l'un des cours retenus : ajourner l'acquis d'un
+      // cours qu'on ne représente pas obligerait l'étudiant à repasser une
+      // épreuve dont le Conseil vient de dire qu'elle est acquise.
+      // Un acquis en défaut qu'aucun cours retenu n'évalue reste ajourné pour
+      // lui-même lorsque le Conseil n'a rien choisi — sinon il serait perdu.
       const aas = (d.acquis || [])
         .filter(a => !a.faveur && (a.na || (a.note != null && a.note < SEUIL_UE)))
+        .filter(a => {
+          const evs = (a.evaluations || []).map(e => e.cours_code);
+          if (!evs.length) return !coursParEtudiant;
+          return evs.some(c => choisis.includes(c));
+        })
         .map(a => a.aa_code);
-      const cours = aussiCours ? (d.cours || [])
-        .filter(c => !c.faveur && (c.na || (c.note != null && c.note < SEUIL_UE)))
-        .map(c => c.cours_code) : [];
 
       const e = db.prepare('SELECT nom, prenom FROM etudiant WHERE id = ?').get(id) || {};
       rapport.details.push({ etudiant_id: id, nom: e.nom, prenom: e.prenom,
-                             acquis: aas.length, cours: cours.length, note: d.ue?.note ?? null });
+                             acquis: aas.length, cours: cours.length,
+                             cours_codes: choisis, cours_en_defaut: enDefaut,
+                             note: d.ue?.note ?? null });
       rapport.traites++;
       rapport.acquis += aas.length;
       rapport.cours += cours.length;
