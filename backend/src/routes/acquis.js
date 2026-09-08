@@ -108,6 +108,9 @@ export function migrerSessions(dbx) {
             session2_heure TEXT,
             session2_local TEXT,
             session2_adresse TEXT,
+            president_role TEXT,
+            president_nom  TEXT,
+            president_titre TEXT,
             cloturee       INTEGER NOT NULL DEFAULT 0,
             maj_le         TEXT DEFAULT CURRENT_TIMESTAMP,
             maj_par        TEXT,
@@ -319,11 +322,17 @@ export function structureUE(ueNum, annee) {
   // Il n'est jamais saisi. Les décimales sont conservées pour le calcul ;
   // seul l'affichage arrondit à l'unité.
   const totalPeriodes = cours.reduce((s, x) => s + Number(x.cours_per || 0), 0);
+  // À POIDS ÉGAUX SI LA MAISON L'A DIT. Sans ce court-circuit, le réglage
+  // n'aurait aucun effet visible : les périodes existent presque toujours, et
+  // c'est elles qui pesaient, quoi qu'on ait choisi.
+  const egalitaire = (() => {
+    try { return reglesDeliberation().cours_sans_poids === 'egal'; } catch { return false; }
+  })();
   const poidsCours = {};
   for (const x of cours) {
-    poidsCours[x.cours_code] = totalPeriodes
-      ? (Number(x.cours_per || 0) / totalPeriodes) * 100
-      : null;
+    poidsCours[x.cours_code] = egalitaire
+      ? (cours.length ? 100 / cours.length : null)
+      : (totalPeriodes ? (Number(x.cours_per || 0) / totalPeriodes) * 100 : null);
   }
 
   // La pondération EXPLICITE l'emporte, quand elle existe. Les classeurs de
@@ -898,6 +907,7 @@ export function documentMotivation(etudId, ueNum, annee) {
   // cherchait donc une note sous le code « C1 », n'en trouvait aucune, et
   // concluait qu'aucun acquis n'était en échec — la notification ne sortait
   // jamais. Elle ignorait de surcroît les ajournements posés par le Conseil.
+  const president = presidentDeLaSeance(ueNum, annee, 1);
   const d = delibererUE(etudId, ueNum, annee);
   const motifs = Object.fromEntries(db.prepare(`
     SELECT aa_code, motif FROM decision_motivation
@@ -1164,14 +1174,14 @@ export function documentMotivation(etudId, ueNum, annee) {
       local ${seance.visite_local ? `<b>${esc2(seance.visite_local)}</b>` : '…………'}</div>
   </div>
 
-  <div class="cloture">
+  <div class="cloture${president.signature ? '' : ' sans-paraphe'}">
     <div class="sceau"></div>
     <div class="paraphe"></div>
     <div class="lieu">Fait à ${esc2(ident.ville || 'Anderlecht')},
       le ${jour(seance.date_seance || new Date().toISOString())}</div>
     <div class="legende">
-      <div class="qualite">Pour le Conseil des études,<br>le Directeur</div>
-      <div class="nom">${esc2(ident.directeur || 'Charles SOHET')}</div>
+      <div class="qualite">Pour le Conseil des études,<br>${esc2(president.titre)}</div>
+      <div class="nom">${esc2(president.nom)}</div>
     </div>
   </div>
 </div>`;
@@ -1879,18 +1889,151 @@ const SEUIL_UE = 10;   // RDE, art. 78
  * que l'application appliquait sans le dire.
  */
 export function reglesAjournement() {
-  const defaut = { portee: 'cours', session2: 'par_cours' };
+  const r = reglesDeliberation();
+  return { portee: r.portee, session2: r.session2 };
+}
+
+/**
+ * LES RÈGLES DE DÉLIBÉRATION DE L'ÉTABLISSEMENT — et ce que le décret leur
+ * interdit.
+ *
+ * Lucie n'est pas écrite pour un seul institut. Ce qui varie d'une maison à
+ * l'autre se paramètre ; ce que le décret fixe ne se paramètre PAS, et il vaut
+ * mieux que l'écran le dise que de laisser croire à un choix qui n'existe pas.
+ *
+ * CE QUI SE PARAMÈTRE
+ *   portee          ce que le Conseil ajourne : le cours, l'acquis, ou l'unité
+ *                   entière — trois pratiques réelles.
+ *   session2        en portée « acquis » : une épreuve unique, ou une par cours.
+ *   seuil_aa        le seuil de MAÎTRISE d'un acquis. Le décret exige la
+ *                   maîtrise sans la chiffrer : une maison peut la placer plus
+ *                   haut que 10/20, jamais plus bas — en dessous, un acquis
+ *                   non maîtrisé passerait pour acquis.
+ *   auto_s1         proposer d'office l'ajournement dès qu'un acquis n'est pas
+ *                   maîtrisé en première session, selon la portée.
+ *   aa_sans_poids   quand les acquis d'un cours ne sont pas pondérés : poids
+ *                   égaux, ou l'unité se calcule sans eux (cours seuls).
+ *   cours_sans_poids  à défaut de pondération EXPLICITE : au prorata des
+ *                   périodes du dossier pédagogique (le défaut, et l'usage),
+ *                   ou à poids égaux — certaines maisons pèsent leurs cours
+ *                   pareillement quoi qu'en dise l'horaire.
+ *   arrondi         la note affichée : au centième, au demi-point, à l'entier.
+ *
+ * CE QUE LE DÉCRET FIXE, ET QUI NE SE PARAMÈTRE PAS
+ *   — la réussite d'une unité à 50 % (RGE art. 78 ; décret art. 58-59) ;
+ *   — l'absence de compensation : chaque acquis doit être maîtrisé ;
+ *   — l'ajourné qui échoue en seconde session est refusé (art. 69 §2) ;
+ *   — le refus n'ouvre pas de seconde session ;
+ *   — le quorum des deux tiers (RGE art. 25 §1).
+ */
+const REGLES_DEFAUT = {
+  portee: 'cours',
+  session2: 'par_cours',
+  seuil_aa: 10,
+  auto_s1: false,
+  aa_sans_poids: 'egal',
+  cours_sans_poids: 'periodes',
+  arrondi: 'centieme',
+};
+
+export function reglesDeliberation() {
   try {
     const row = db.prepare(
       "SELECT valeur FROM lucie_config WHERE cle = 'deliberation_ajournement'").get();
-    if (!row) return defaut;
-    const v = JSON.parse(row.valeur);
+    if (!row) return { ...REGLES_DEFAUT };
+    const v = JSON.parse(row.valeur) || {};
+    const seuil = Number(v.seuil_aa);
     return {
-      portee: v.portee === 'aa' ? 'aa' : 'cours',
+      portee: ['cours', 'aa', 'ue'].includes(v.portee) ? v.portee : 'cours',
       session2: v.session2 === 'unique' ? 'unique' : 'par_cours',
+      // JAMAIS SOUS 10/20 : en dessous, un acquis non maîtrisé passerait pour
+      // acquis, et l'unité se réussirait sans lui. Au-dessus, une maison peut
+      // être plus exigeante — le décret ne l'interdit pas.
+      seuil_aa: Number.isFinite(seuil) ? Math.min(20, Math.max(SEUIL_UE, seuil)) : SEUIL_UE,
+      auto_s1: v.auto_s1 === true,
+      aa_sans_poids: v.aa_sans_poids === 'cours_seuls' ? 'cours_seuls' : 'egal',
+      cours_sans_poids: v.cours_sans_poids === 'egal' ? 'egal' : 'periodes',
+      arrondi: ['entier', 'demi', 'centieme'].includes(v.arrondi) ? v.arrondi : 'centieme',
     };
-  } catch { return defaut; }
+  } catch { return { ...REGLES_DEFAUT }; }
 }
+
+/**
+ * QUI PRÉSIDE LE CONSEIL DES ÉTUDES.
+ *
+ * Le règlement des études confie la présidence à la direction. En son absence,
+ * la direction adjointe ; à défaut, un membre du personnel désigné — et celui-
+ * là n'est PAS dans la liste des membres de droit, puisqu'il n'y siège pas à
+ * ce titre.
+ *
+ * LA SIGNATURE NE SUIT PAS LA FONCTION, ELLE SUIT LA PERSONNE. Le fac-similé
+ * enregistré est celui d'une personne : l'apposer sous le nom d'une autre
+ * serait un faux. Il n'accompagne donc que le titulaire déclaré.
+ */
+const PRESIDENCE_DEFAUT = {
+  titulaire: { nom: 'SOHET Charles', titre: 'Directeur', signature: true },
+  suppleant: { nom: 'VANDECAUTER Nicolas', titre: 'Directeur adjoint', signature: false },
+  autre_autorise: true,
+};
+
+export function presidenceConseil() {
+  try {
+    const row = db.prepare(
+      "SELECT valeur FROM lucie_config WHERE cle = 'deliberation_presidence'").get();
+    if (!row) return JSON.parse(JSON.stringify(PRESIDENCE_DEFAUT));
+    const v = JSON.parse(row.valeur) || {};
+    const pers = (o, d) => ({
+      nom: o?.nom ? nomPropreDepuisChaine(o.nom) : d.nom,
+      titre: String(o?.titre || d.titre),
+      // La signature ne s'accorde qu'au titulaire : c'est la sienne qui est
+      // enregistrée. Un suppléant signe de sa main.
+      signature: o?.signature === true,
+    });
+    return {
+      titulaire: pers(v.titulaire, PRESIDENCE_DEFAUT.titulaire),
+      suppleant: pers(v.suppleant, PRESIDENCE_DEFAUT.suppleant),
+      autre_autorise: v.autre_autorise !== false,
+    };
+  } catch { return JSON.parse(JSON.stringify(PRESIDENCE_DEFAUT)); }
+}
+
+/**
+ * Le président EFFECTIF d'une séance : celui que la séance a désigné, ou le
+ * titulaire. Renvoie aussi s'il faut apposer le fac-similé.
+ */
+export function presidentDeLaSeance(ueNum, annee, session = 1) {
+  const p = presidenceConseil();
+  let choix = null;
+  try {
+    choix = db.prepare(`SELECT president_role, president_nom, president_titre
+      FROM deliberation_seance WHERE ue_num = ? AND annee_scolaire = ? AND session = ?`)
+      .get(ueNum, annee, session);
+  } catch { /* colonnes absentes : le titulaire préside */ }
+
+  if (choix?.president_role === 'suppleant') {
+    return { ...p.suppleant, role: 'suppleant' };
+  }
+  if (choix?.president_role === 'autre' && choix.president_nom) {
+    return {
+      nom: nomPropreDepuisChaine(choix.president_nom),
+      titre: choix.president_titre || 'Membre du personnel désigné',
+      // Jamais de fac-similé pour un désigné : la signature enregistrée n'est
+      // pas la sienne.
+      signature: false, role: 'autre',
+    };
+  }
+  return { ...p.titulaire, role: 'titulaire' };
+}
+
+/** Ce que le décret verrouille — pour l'écran de paramétrage, qui doit le dire. */
+export const VERROUS_DECRET = [
+  { regle: 'Réussite de l’unité à 50 %', ref: 'RGE art. 78 · décret art. 58-59' },
+  { regle: 'Aucune compensation : chaque acquis doit être maîtrisé', ref: 'RGE art. 77 §1, 78 §2' },
+  { regle: 'L’ajourné qui échoue en seconde session est refusé', ref: 'RGE art. 69 §2' },
+  { regle: 'Le refus n’ouvre pas de seconde session', ref: 'RGE art. 69 §2' },
+  { regle: 'Quorum des deux tiers du Conseil', ref: 'RGE art. 25 §1' },
+  { regle: 'La seconde session s’ouvre à la clôture de la première', ref: 'RGE art. 68-70' },
+];
 
 /**
  * La coordination de section délibère-t-elle, ou siège-t-elle en avis ?
@@ -2004,7 +2147,11 @@ export function coursAutorises(user, annee) {
 export function delibererUE(etudId, ueNum, annee, session = 1) {
   const structure = structureUE(ueNum, annee);
   const integree = estEpreuveIntegree(ueNum, annee);
-  const regles = reglesAjournement();
+  const regles = reglesDeliberation();
+  // Le seuil de MAÎTRISE d'un acquis, tel que l'établissement l'a fixé — au
+  // moins 10/20, jamais moins. Le seuil de RÉUSSITE de l'unité, lui, est celui
+  // du décret et ne se paramètre pas.
+  const SEUIL_AA = regles.seuil_aa;
 
   // Les couples (cours, acquis) et leur poids. La table de pondération fait
   // foi : c'est elle, et non la colonne cours_code de l'acquis, qui permet
@@ -2146,8 +2293,8 @@ export function delibererUE(etudId, ueNum, annee, session = 1) {
       }
       note = den ? Math.round((num / den) * 100) / 100 : null;
     }
-    const forcee = aaFaveur(code) || (ueFaveur && !na && note != null && note < SEUIL_UE);
-    const affichee = na ? null : (forcee ? SEUIL_UE : note);
+    const forcee = aaFaveur(code) || (ueFaveur && !na && note != null && note < SEUIL_AA);
+    const affichee = na ? null : (forcee ? SEUIL_AA : note);
     return {
       aa_code: code, description: descr[code] || null,
       evaluations: evals, note_calculee: note, note: affichee,
@@ -2162,7 +2309,8 @@ export function delibererUE(etudId, ueNum, annee, session = 1) {
         return m.length === 1 && evals.every(e => e.mention) ? m[0] : null;
       })(),
       ajourne_directement: aaAjourne(code),
-      echec: !na && affichee != null && affichee < SEUIL_UE,
+      echec: !na && affichee != null && affichee < SEUIL_AA,
+      seuil: SEUIL_AA,
     };
   });
   const noteAA = {};
@@ -2220,6 +2368,12 @@ export function delibererUE(etudId, ueNum, annee, session = 1) {
   const ajourne = cours.some(c => c.na) || acquis.some(a => a.na);
   const faveur = ueFaveur || cours.some(c => c.faveur) || acquis.some(a => a.faveur);
 
+  /** L'arrondi voulu par l'établissement — au centième par défaut. */
+  const arrondir = v => v == null ? null
+    : regles.arrondi === 'entier' ? Math.round(v)
+    : regles.arrondi === 'demi' ? Math.round(v * 2) / 2
+    : Math.round(v * 100) / 100;
+
   let noteUE = null;
   if (!ajourne) {
     if (faveur) {
@@ -2239,11 +2393,28 @@ export function delibererUE(etudId, ueNum, annee, session = 1) {
         num += a.note * w; den += 20 * w;
       }
       noteUE = den ? Math.round((num / den) * 20 * 100) / 100 : null;
+    } else if (regles.aa_sans_poids === 'cours_seuls' && !pondRows.length) {
+      // AUCUN ACQUIS N'EST PONDÉRÉ, et la maison a dit ce qu'elle voulait dans
+      // ce cas : l'unité se calcule sur les seules notes de cours. Peser des
+      // acquis dont personne n'a fixé l'importance revient à inventer une
+      // pondération et à la faire passer pour une décision.
+      let num = 0, den = 0;
+      for (const c of cours) {
+        if (c.na || c.note == null) continue;
+        const pc = c.poids_cours != null ? c.poids_cours
+          : (regles.cours_sans_poids === 'periodes' ? (c.periodes || 1) : 1);
+        num += c.note * pc; den += pc;
+      }
+      noteUE = den ? Math.round((num / den) * 100) / 100 : null;
     } else {
       let num = 0, den = 0;
       for (const p of paires) {
         const c = coursDe[p.cours_code];
-        const pc = c?.poids_cours;
+        // SANS PONDÉRATION DÉCLARÉE, l'établissement dit ce qu'il entend :
+        // des cours à poids égaux, ou pesés au prorata de leurs périodes —
+        // le dossier pédagogique les donne, et c'est souvent ce qu'on veut.
+        const pc = c?.poids_cours != null ? c.poids_cours
+          : (regles.cours_sans_poids === 'periodes' ? (c?.cours_per || 1) : 1);
         if (pc == null) continue;
         const v = noteDe(p.cours_code, p.aa_code);
         if (v == null) continue;                     // non évalué : hors dénominateur
@@ -2276,7 +2447,7 @@ export function delibererUE(etudId, ueNum, annee, session = 1) {
     cours: cours.map(c => ({ ...c,
       represente: session < 2 ? null : coursARepresenter.has(c.cours_code) })),
     ue: {
-      note: ajourne ? null : noteUE,
+      note: ajourne ? null : arrondir(noteUE),
       na: ajourne, faveur, faveur_ue: ueFaveur,
       echec: !ajourne && noteUE != null && noteUE < SEUIL_UE,
       a_representer: regles.portee === 'cours'
@@ -2317,15 +2488,31 @@ export function delibererUE(etudId, ueNum, annee, session = 1) {
         : cours.some(c => c.mention === 'PP') ? 'refuse'
         : cours.some(c => c.mention === 'NP') ? (session >= 2 ? 'refuse' : 'ajourne')
         : noteUE == null ? null
-        : (acquis.some(a => !a.na && a.note != null && a.note < SEUIL_UE)
+        : (acquis.some(a => !a.na && a.note != null && a.note < SEUIL_AA)
            || cours.some(c => !c.na && c.note != null && c.note < SEUIL_UE)
            || noteUE < SEUIL_UE) ? (session >= 2 ? 'refuse' : 'ajourne')
         : 'reussi',
       // Ce qui empêche la réussite, nommé : c'est de cela que la motivation
       // doit rendre compte, et c'est ce que la faveur lèverait.
       acquis_en_defaut: acquis
-        .filter(a => !a.na && !a.faveur && a.note != null && a.note < SEUIL_UE)
+        .filter(a => !a.na && !a.faveur && a.note != null && a.note < SEUIL_AA)
         .map(a => a.aa_code),
+      // LA PROPOSITION D'OFFICE, quand la maison l'a demandée : dès qu'un
+      // acquis n'est pas maîtrisé en première session, ce que le Conseil
+      // ajournerait selon sa portée — le cours qui l'évalue, l'acquis seul,
+      // ou l'unité entière. On PROPOSE : la décision reste au Conseil.
+      ajournement_propose: (!regles.auto_s1 || session >= 2) ? null : (() => {
+        const defaut = acquis.filter(a => !a.na && !a.faveur
+          && a.note != null && a.note < SEUIL_AA);
+        if (!defaut.length) return null;
+        if (regles.portee === 'ue') return { portee: 'ue', codes: ['*'] };
+        if (regles.portee === 'aa') {
+          return { portee: 'aa', codes: defaut.map(a => a.aa_code) };
+        }
+        const codes = [...new Set(defaut.flatMap(a =>
+          (a.evaluations || []).map(e => e.cours_code)))];
+        return { portee: 'cours', codes };
+      })(),
       // Les épreuves non présentées, pour que le Conseil les voie.
       mentions: cours.filter(c => c.mention)
         .map(c => ({ cours_code: c.cours_code, mention: c.mention })),
@@ -3222,7 +3409,13 @@ r.get('/deliberation/ue/:ueNum', authRequired, (req, res) => {
     // heure et son local, l'annexe 8 part avec des pointillés que le
     // secrétariat remplit à la main, cent fois.
     for (const col of ['session2_date TEXT', 'session2_heure TEXT',
-                       'session2_local TEXT', 'session2_adresse TEXT']) {
+                       'session2_local TEXT', 'session2_adresse TEXT',
+                       // QUI A PRÉSIDÉ CETTE SÉANCE-LÀ. La présidence se
+                       // constate séance par séance : le directeur peut être
+                       // absent un jour et présent le lendemain, et le
+                       // procès-verbal doit dire qui a effectivement présidé.
+                       'president_role TEXT', 'president_nom TEXT',
+                       'president_titre TEXT']) {
       try { db.exec(`ALTER TABLE deliberation_seance ADD COLUMN ${col}`); } catch { /* déjà là */ }
     }
   } catch (e) { console.error('[migration] deliberation_seance :', e.message); }
@@ -3393,6 +3586,65 @@ function etatQuorum(membres, presences) {
  * sa voix — le quorum ne se calcule que sur les délibératives, et c'est ce qui
  * surprend le plus quand on lit un procès-verbal.
  */
+/**
+ * LES RÈGLES DE DÉLIBÉRATION — ce qui se paramètre, et ce que le décret fixe.
+ *
+ * L'écran de paramétrage doit montrer les deux : à ne présenter que les choix,
+ * on laisse croire que tout se négocie ; à ne rien présenter, on laisse croire
+ * que rien ne s'adapte. Lucie n'est pas écrite pour un seul institut.
+ */
+r.get('/deliberation/regles', authRequired, (req, res) => {
+  res.json({
+    regles: reglesDeliberation(),
+    presidence: presidenceConseil(),
+    coordination_delibere: coordinationDelibere(),
+    verrous: VERROUS_DECRET,
+    seuil_ue: SEUIL_UE,
+  });
+});
+
+r.put('/deliberation/regles', authRequired,
+      roleRequired('admin', 'directeur', 'directeur_adjoint'), (req, res) => {
+  const poser = db.prepare(`INSERT INTO lucie_config (cle, valeur) VALUES (?,?)
+    ON CONFLICT(cle) DO UPDATE SET valeur = excluded.valeur`);
+
+  if (req.body?.regles) {
+    // On RELIT par reglesDeliberation après écriture : c'est elle qui borne le
+    // seuil et rejette une portée inconnue. Enregistrer d'abord, valider
+    // ensuite laisserait passer une valeur que le décret n'admet pas.
+    const v = req.body.regles || {};
+    const seuil = Number(v.seuil_aa);
+    poser.run('deliberation_ajournement', JSON.stringify({
+      portee: ['cours', 'aa', 'ue'].includes(v.portee) ? v.portee : 'cours',
+      session2: v.session2 === 'unique' ? 'unique' : 'par_cours',
+      seuil_aa: Number.isFinite(seuil) ? Math.min(20, Math.max(SEUIL_UE, seuil)) : SEUIL_UE,
+      auto_s1: v.auto_s1 === true,
+      aa_sans_poids: v.aa_sans_poids === 'cours_seuls' ? 'cours_seuls' : 'egal',
+      cours_sans_poids: v.cours_sans_poids === 'egal' ? 'egal' : 'periodes',
+      arrondi: ['entier', 'demi', 'centieme'].includes(v.arrondi) ? v.arrondi : 'centieme',
+    }));
+  }
+
+  if (req.body?.presidence) {
+    const p = req.body.presidence || {};
+    const pers = o => ({ nom: String(o?.nom || '').trim(),
+                         titre: String(o?.titre || '').trim(),
+                         signature: o?.signature === true });
+    poser.run('deliberation_presidence', JSON.stringify({
+      titulaire: pers(p.titulaire), suppleant: pers(p.suppleant),
+      autre_autorise: p.autre_autorise !== false,
+    }));
+  }
+
+  if (typeof req.body?.coordination_delibere === 'boolean') {
+    poser.run('deliberation_quorum',
+      JSON.stringify({ coordination_delibere: req.body.coordination_delibere }));
+  }
+
+  res.json({ ok: true, regles: reglesDeliberation(), presidence: presidenceConseil(),
+             coordination_delibere: coordinationDelibere() });
+});
+
 r.get('/deliberation/conseils', authRequired, (req, res) => {
   const annee = req.query.annee || anneeDeTravail(req);
   const perim = getUserSections(req.user);
@@ -3440,8 +3692,7 @@ r.get('/deliberation/conseils', authRequired, (req, res) => {
     </table>
     <div class="signature-liste">
       <div>Le président du Conseil des études</div>
-      <div class="ligne-sign">${esc0(ident.directeur
-        ? nomPropreDepuisChaine(ident.directeur) : '')}</div>
+      <div class="ligne-sign">${esc0(presidenceConseil().titulaire.nom)}</div>
     </div>
   </div>`);
 
@@ -3508,7 +3759,9 @@ r.get('/deliberation/ue/:ueNum/seance', authRequired, (req, res) => {
   const quorum = etatQuorum(membres,
     Object.fromEntries(membres.map(m => [m.cle, m.present])));
 
-  res.json({ ue_num: ueNum, annee, session, seance, membres, session2, quorum });
+  res.json({ ue_num: ueNum, annee, session, seance, membres, session2, quorum,
+             presidence: presidenceConseil(),
+             president: presidentDeLaSeance(ueNum, annee, session) });
 });
 
 r.put('/deliberation/ue/:ueNum/seance', authRequired,
@@ -3518,7 +3771,7 @@ r.put('/deliberation/ue/:ueNum/seance', authRequired,
   const session = Number(req.body?.session) === 2 ? 2 : 1;
   const { membres, date_seance, heure_seance, visite_date, visite_heure, visite_local, cloturee,
           session2_date, session2_heure, session2_local, session2_adresse,
-          session2_cours } = req.body || {};
+          session2_cours, president_role, president_nom, president_titre } = req.body || {};
 
   // LA DATE ET L'HEURE SE CORRIGENT TANT QUE LA SÉANCE EST OUVERTE — après,
   // elles sont dans le procès-verbal signé et ne se retouchent plus : il faut
@@ -3592,8 +3845,9 @@ r.put('/deliberation/ue/:ueNum/seance', authRequired,
         (ue_num, annee_scolaire, session, date_seance, heure_seance,
          visite_date, visite_heure, visite_local,
          session2_date, session2_heure, session2_local, session2_adresse,
+         president_role, president_nom, president_titre,
          cloturee, maj_le, maj_par)
-      VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?, datetime('now'), ?)
+      VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?, datetime('now'), ?)
       ON CONFLICT(ue_num, annee_scolaire, session) DO UPDATE SET
         date_seance      = COALESCE(excluded.date_seance,      deliberation_seance.date_seance),
         heure_seance     = COALESCE(excluded.heure_seance,     deliberation_seance.heure_seance),
@@ -3604,12 +3858,17 @@ r.put('/deliberation/ue/:ueNum/seance', authRequired,
         session2_heure   = COALESCE(excluded.session2_heure,   deliberation_seance.session2_heure),
         session2_local   = COALESCE(excluded.session2_local,   deliberation_seance.session2_local),
         session2_adresse = COALESCE(excluded.session2_adresse, deliberation_seance.session2_adresse),
+        president_role   = COALESCE(excluded.president_role,   deliberation_seance.president_role),
+        president_nom    = COALESCE(excluded.president_nom,    deliberation_seance.president_nom),
+        president_titre  = COALESCE(excluded.president_titre,  deliberation_seance.president_titre),
         cloturee     = MAX(excluded.cloturee, deliberation_seance.cloturee),
         maj_le = datetime('now'), maj_par = excluded.maj_par
     `).run(ueNum, annee, session, date_seance || null, heure_seance || null,
       visite_date || null, visite_heure || null,
            visite_local || null, session2_date || null, session2_heure || null,
            session2_local || null, session2_adresse || null,
+           ['titulaire', 'suppleant', 'autre'].includes(president_role) ? president_role : null,
+           president_nom || null, president_titre || null,
            cloturee ? 1 : 0, req.user?.email || null);
 
     // Une date de seconde session par cours.
@@ -3775,7 +4034,7 @@ export function documentAjournesParCours(ueNum, annee, session = 1) {
       ${corps}
       <div class="signature-liste">
         <div>Le président du Conseil des études</div>
-        <div class="ligne-sign">${esc0(ident.directeur || '')}</div>
+        <div class="ligne-sign">${esc0(presidentDeLaSeance(ueNum, annee, session).nom)}</div>
       </div>
     </div>`;
   });
@@ -4055,6 +4314,9 @@ export function documentPV(ueNum, annee, session = 1) {
   `).get(ueNum, annee) || {};
   const integree = estEpreuveIntegree(ueNum, annee);
   const regles = reglesAjournement();
+  // Qui a présidé CETTE séance : le titulaire, son suppléant, ou le membre du
+  // personnel désigné. Le fac-similé ne suit que le premier.
+  const president = presidentDeLaSeance(ueNum, annee, session);
   const sec = ue.section
     ? db.prepare('SELECT libelle, niveau, code_fwb FROM section WHERE code = ?').get(ue.section)
     : null;
@@ -4195,14 +4457,14 @@ export function documentPV(ueNum, annee, session = 1) {
       seance.session2_local ? `, local ${esc(seance.session2_local)}` : ''}.</div>` : ''}
   </div>
 
-  <div class="cloture">
+  <div class="cloture${president.signature ? '' : ' sans-paraphe'}">
     <div class="sceau"></div>
     <div class="paraphe"></div>
     <div class="lieu">Fait en un exemplaire à ${esc(ident.ville || 'Anderlecht')},
       le ${esc(jour(seance.date_seance) || '……………')}</div>
     <div class="legende">
-      <div class="qualite">Pour le ${esc(conseil)},<br>le Directeur</div>
-      <div class="nom">${esc(ident.directeur || 'Charles SOHET')}</div>
+      <div class="qualite">Pour le ${esc(conseil)},<br>${esc(president.titre)}</div>
+      <div class="nom">${esc(president.nom)}</div>
     </div>
   </div>
 </div>`;
