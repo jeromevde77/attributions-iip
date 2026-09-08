@@ -777,6 +777,25 @@ r.put('/decision', authRequired,
   // qui porte le RÉSULTAT FINAL — celui que lisent le parcours, les crédits et
   // les attestations. La seconde session s'ajoute et l'emporte.
   const ses = Number(req.body?.session) === 2 ? 2 : 1;
+
+  // ON N'ENREGISTRE PAS UNE SECONDE SESSION QUI N'A PAS EU LIEU. Tant que la
+  // séance de juin n'est pas close, la décision appartient à la première
+  // session — et l'y ranger par erreur transforme des ajournements en refus
+  // (art. 69 §2). Le client peut se tromper de session ; le serveur, non.
+  if (ses === 2) {
+    const s1Close = !!(db.prepare(`
+      SELECT cloturee FROM deliberation_seance
+      WHERE ue_num = ? AND annee_scolaire = ? AND session = 1
+    `).get(Number(ue_num), annee_scolaire)?.cloturee);
+    if (!s1Close) {
+      return res.status(409).json({
+        error: 'seconde session non ouverte',
+        detail: "La séance de première session n'est pas clôturée : la décision "
+              + 'ne peut pas être enregistrée en seconde session.',
+      });
+    }
+  }
+
   db.transaction(() => {
     db.prepare(`
       INSERT INTO deliberation_resultat
@@ -2942,9 +2961,19 @@ r.get('/ue/:ueNum/cours', authRequired, (req, res) => {
  * QUELLE SESSION RESTE-T-IL À DÉLIBÉRER ?
  *
  * On ne le demande pas : on le déduit. Tant que la première session n'a pas
- * été décidée pour tout le monde, c'est elle. Dès qu'elle l'est et qu'elle
- * laisse des ajournés, la seconde s'ouvre. Sans ajourné, il n'y a pas de
+ * été décidée pour tout le monde, c'est elle. Sans ajourné, il n'y a pas de
  * seconde session, et le bouton n'a pas à en proposer une.
+ *
+ * MAIS LA SECONDE NE S'OUVRE PAS À LA DERNIÈRE DÉCISION ENCODÉE : elle
+ * s'ouvre à la CLÔTURE de la séance de juin. La règle précédente basculait
+ * l'unité en session 2 à l'instant où le dernier ajournement était noté —
+ * si bien que le Conseil, en rouvrant sa propre feuille, se voyait proposer
+ * des refus (art. 69 §2 : l'ajourné qui échoue EN SECONDE session est
+ * refusé) pour les étudiants qu'il venait d'ajourner en première, et les
+ * notifications sortaient en annexe 9 au lieu de l'annexe 8.
+ *
+ * Tant que la séance de première session n'est pas close, on peut encore
+ * revenir sur une décision : c'est toujours la première session.
  */
 export function sessionDeLUE(ueNum, annee) {
   const inscrits = db.prepare(
@@ -2963,13 +2992,26 @@ export function sessionDeLUE(ueNum, annee) {
   const s2 = parSession[2] || { n: 0, ajournes: 0 };
   const s1Faite = inscrits > 0 && s1.n >= inscrits;
 
+  // La séance de première session est-elle close ? C'est elle qui fait passer
+  // l'unité en seconde session, non le simple encodage des décisions.
+  const s1Close = !!(db.prepare(`
+    SELECT cloturee FROM deliberation_seance
+    WHERE ue_num = ? AND annee_scolaire = ? AND session = 1
+  `).get(ueNum, annee)?.cloturee);
+
+  const secondeOuverte = s1Faite && s1.ajournes > 0 && s1Close;
+
   return {
-    session: s1Faite && s1.ajournes > 0 ? 2 : 1,
+    session: secondeOuverte ? 2 : 1,
     inscrits,
-    s1: { decides: s1.n, ajournes: s1.ajournes, complete: s1Faite },
+    s1: { decides: s1.n, ajournes: s1.ajournes, complete: s1Faite, cloturee: s1Close },
     s2: { decides: s2.n },
-    // Sans ajourné en première session, la seconde n'a pas lieu d'être.
-    seconde_possible: s1Faite && s1.ajournes > 0,
+    // Sans ajourné en première session, la seconde n'a pas lieu d'être ; sans
+    // clôture, elle n'est pas encore ouverte.
+    seconde_possible: secondeOuverte,
+    // Ce qui manque pour l'ouvrir, à dire à l'écran plutôt qu'à deviner.
+    seconde_attend: s1Faite && s1.ajournes > 0 && !s1Close
+      ? 'la clôture de la séance de première session' : null,
   };
 }
 
@@ -3655,6 +3697,16 @@ r.delete('/deliberation/ue/:ueNum', authRequired,
       WHERE annee_scolaire = ? AND ue_num = ?${cond}
         AND (resultat IS NOT NULL OR points IS NOT NULL OR mention IS NOT NULL)
     `).run(...args).changes;
+
+    // LA TRACE PAR SESSION S'EFFACE AUSSI. Elle ne l'était pas : on vidait le
+    // résultat de l'inscription en laissant dans deliberation_resultat la
+    // décision qu'on venait d'annuler. Comme le dossier reprend ensuite « la
+    // session la plus avancée », un refus effacé revenait de lui-même dès la
+    // décision suivante — et l'annulation ne servait à rien.
+    db.prepare(`
+      DELETE FROM deliberation_resultat
+      WHERE annee_scolaire = ? AND ue_num = ?${cond}
+    `).run(...args);
 
     ajustements = db.prepare(`
       DELETE FROM deliberation_ajustement

@@ -431,6 +431,13 @@ export default function FeuilleDeliberation({ ueNum, annee, onClose }) {
         </div>
 
         <div className="flex-1 overflow-y-auto p-4 space-y-3">
+          {data?.etat_sessions?.seconde_attend && (
+            <div className="mx-5 mt-3 text-[12px] text-slate-500">
+              Toutes les décisions de première session sont encodées. La seconde session
+              s'ouvrira à la clôture de la séance : jusque-là, tout se décide en première
+              session, et les ajournements restent des ajournements.
+            </div>
+          )}
           {data?.etat_sessions?.seconde_possible && (
         <div className="mx-5 mt-3 flex items-center gap-2 text-[12px]">
           <span className="text-slate-500">Session délibérée :</span>
