@@ -8,6 +8,7 @@ import EncodageCours from '../components/EncodageCours.jsx';
 import EncodageUE from '../components/EncodageUE.jsx';
 import ImportNotesUE from '../components/ImportNotesUE.jsx';
 import ImportSuivi from '../components/ImportSuivi.jsx';
+import DiagnosticAnnees from '../components/DiagnosticAnnees.jsx';
 import SchemaLiensAA from '../components/SchemaLiensAA.jsx';
 import EncodageRapide from './EncodageRapide.jsx';
 import CentreDocumentsUE from '../components/CentreDocumentsUE.jsx';
@@ -44,6 +45,7 @@ export default function Deliberation() {
   const [encoderUE, setEncoderUE] = useState(null); // ue_num en saisie complète
   const [importer, setImporter] = useState(null);   // ue_num en import de notes
   const [importSuivi, setImportSuivi] = useState(false); // le classeur de l'année
+  const [annees, setAnnees] = useState(false);           // où sont les notes ?
   // La grille de toute l'unité montre les acquis de tous les collègues : elle
   // n'a de sens que pour qui les encode déjà tous. Le serveur applique la même
   // règle — le bouton caché ne serait pas une protection.
@@ -134,6 +136,14 @@ export default function Deliberation() {
               className="flex items-center gap-1.5 px-3 py-1.5 text-sm border border-slate-300
                          text-slate-600 font-semibold rounded-lg">
               <IconFileSpreadsheet size={15} /> Classeur de suivi
+            </button>
+          )}
+          {peutToutEncoder && (
+            <button onClick={() => setAnnees(true)}
+              title="Voir dans quelle année les notes ont été rangées, et les ramener"
+              className="flex items-center gap-1.5 px-3 py-1.5 text-sm border border-slate-300
+                         text-slate-600 font-semibold rounded-lg">
+              Où sont les notes ?
             </button>
           )}
           <button onClick={() => setRapide(true)}
@@ -346,6 +356,9 @@ export default function Deliberation() {
       {importSuivi && (
         <ImportSuivi annee={annee}
           onClose={() => setImportSuivi(false)} onFini={charger} />
+      )}
+      {annees && (
+        <DiagnosticAnnees annee={annee} onClose={() => setAnnees(false)} onFini={charger} />
       )}
 
       {importer != null && (
