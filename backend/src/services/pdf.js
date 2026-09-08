@@ -96,12 +96,20 @@ export async function rendrePdf(html, options = {}) {
     marges = { top: '12mm', right: '15mm', bottom: '12mm', left: '15mm' },
     orientation = 'portrait',
     pagination = 'jamais',
+    // Gabarit de pied de page, à répéter sur CHAQUE feuille. C'est ce que le
+    // HTML seul ne sait pas faire — voir piedGabaritPdf() dans lib/document.
+    pied = null,
   } = options;
 
   const nav = await obtenirNavigateur();
   const page = await nav.newPage();
   try {
-    await page.setContent(html, { waitUntil: 'networkidle0', timeout: 120000 });
+    // Le pied du document, s'il est dans le flux, ferait doublon avec le
+    // gabarit répété : on le retire du rendu plutôt que de l'imprimer deux fois.
+    const contenu = pied
+      ? html.replace('</head>', '<style>.pied-lucie{display:none!important}</style></head>')
+      : html;
+    await page.setContent(contenu, { waitUntil: 'networkidle0', timeout: 120000 });
 
     // Le délai s'adapte au volume : une minute de base, plus une seconde par
     // page estimée. Mieux vaut un rendu long qu'une expiration à mi-course.
@@ -118,6 +126,20 @@ export async function rendrePdf(html, options = {}) {
       // le navigateur ajoute de lui-même à l'impression.
       displayHeaderFooter: false,
     };
+
+    // AVEC UN PIED, LE GABARIT PREND LA MAIN. La numérotation, quand elle est
+    // demandée, s'y intègre : deux pieds superposés n'auraient aucun sens.
+    if (pied) {
+      const avecNum = pagination === 'toujours'
+        || (pagination === 'si-plusieurs'
+            && compterPages(await page.pdf({ ...commun })) > 1);
+      return Buffer.from(await page.pdf({
+        ...commun,
+        displayHeaderFooter: true,
+        headerTemplate: '<span></span>',
+        footerTemplate: typeof pied === 'function' ? pied(avecNum) : pied,
+      }));
+    }
 
     if (pagination === 'jamais') return Buffer.from(await page.pdf(commun));
 

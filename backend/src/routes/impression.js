@@ -15,6 +15,9 @@ import db from '../db/index.js';
 import { authRequired, getUserSections } from '../middleware/auth.js';
 import { documentsPour, documentParCle, valeursParametre } from '../lib/documents.js';
 import { capacitePdf, rendrePdf } from '../services/pdf.js';
+import { piedGabaritPdf, BANDE_PIED_MM } from '../lib/document.js';
+import { LOGO_IIP_JPEG } from '../services/assets/logo_iip_jpeg.js';
+import { piedDocument } from './parametres.js';
 
 const r = express.Router();
 
@@ -134,11 +137,23 @@ r.post('/pdf', authRequired, async (req, res) => {
       capacite_absente: 'pdf', detail: cap.raison,
     });
   }
-  const { html, nom, pagination } = req.body || {};
+  const { html, nom, pagination, pied = true } = req.body || {};
   if (!html) return res.status(400).json({ error: 'document requis' });
 
   try {
-    const pdf = await rendrePdf(html, { pagination: pagination || 'si-plusieurs' });
+    // LE PIED SUR CHAQUE FEUILLE. En HTML il ne peut être qu'à la fin du
+    // document — d'où des lots « en continu », un seul pied pour cinquante
+    // pages. Le PDF, lui, dispose d'un vrai gabarit : on le lui donne, et la
+    // marge basse lui réserve sa hauteur.
+    const gabarit = pied
+      ? (avecNum => piedGabaritPdf(LOGO_IIP_JPEG, piedDocument(), avecNum))
+      : null;
+    const pdf = await rendrePdf(html, {
+      pagination: pagination || 'si-plusieurs',
+      pied: gabarit,
+      ...(pied ? { marges: { top: '12mm', right: '15mm',
+                             bottom: `${BANDE_PIED_MM}mm`, left: '15mm' } } : {}),
+    });
     const fichier = String(nom || 'document').replace(/[^A-Za-z0-9_.-]/g, '_');
     res.setHeader('Content-Type', 'application/pdf');
     res.setHeader('Content-Disposition', `attachment; filename="${fichier}.pdf"`);

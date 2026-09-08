@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { IconPrinter, IconX, IconAlertTriangle } from '@tabler/icons-react';
+import { IconPrinter, IconFileText, IconX, IconAlertTriangle } from '@tabler/icons-react';
 import { authHeaders } from '../lib/api.js';
 
 /**
@@ -34,7 +34,16 @@ export default function CentreDocumentsUE({ ueNum, ueNom, annee, onClose }) {
     })();
   }, [ueNum, annee]);
 
-  async function produire() {
+  /**
+   * @param {'impression'|'pdf'} sortie
+   *
+   * LE PDF N'EST PAS UN CONFORT. Un pied de page répété sur chaque feuille
+   * n'existe pas en HTML : le navigateur ne sait le poser qu'à la fin du
+   * document, si bien qu'un lot de cinquante pages n'en porte qu'un. Le PDF
+   * dispose d'un vrai gabarit de pied — c'est la seule sortie où chaque page
+   * est un document fini.
+   */
+  async function produire(sortie = 'impression') {
     setEnCours(true); setErreur(null);
     try {
       const rep = await fetch(`/api/acquis/deliberation/ue/${ueNum}/documents`, {
@@ -47,6 +56,26 @@ export default function CentreDocumentsUE({ ueNum, ueNom, annee, onClose }) {
         setErreur(`${j.pieces} pièce(s) produite(s), mais : `
           + j.manques.slice(0, 6).join(' · ')
           + (j.manques.length > 6 ? ` … et ${j.manques.length - 6} autres.` : ''));
+      }
+      if (sortie === 'pdf') {
+        const rp = await fetch('/api/impression/pdf', {
+          method: 'POST', headers: authHeaders(),
+          body: JSON.stringify({ html: j.html, nom: j.nom?.replace(/\.html$/, '')
+            || `Documents_UE${ueNum}`, pagination: 'si-plusieurs' }),
+        });
+        if (!rp.ok) {
+          const e = await rp.json().catch(() => ({}));
+          setErreur(e.error || 'Le PDF n’a pas pu être produit.');
+          return;
+        }
+        const blob = await rp.blob();
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url; a.download = (j.nom || 'documents').replace(/\.html$/, '') + '.pdf';
+        document.body.appendChild(a); a.click(); a.remove();
+        setTimeout(() => URL.revokeObjectURL(url), 30000);
+        if (!j.manques?.length) onClose();
+        return;
       }
       const f = window.open('', '_blank');
       if (!f) { setErreur('Le navigateur a bloqué la fenêtre d’impression.'); return; }
@@ -170,10 +199,18 @@ export default function CentreDocumentsUE({ ueNum, ueNom, annee, onClose }) {
               className="px-3 py-1.5 text-[12.5px] rounded-lg border border-slate-300 text-slate-600">
               Fermer
             </button>
-            <button onClick={produire} disabled={enCours || !total}
+            <button onClick={() => produire('impression')} disabled={enCours || !total}
+              title="Ouvre les pièces dans un onglet, pour impression depuis le navigateur"
+              className="px-3 py-2 text-[12.5px] rounded-lg border border-iip-blue
+                         text-iip-blue font-semibold disabled:opacity-40
+                         flex items-center gap-1.5">
+              <IconPrinter size={14} /> Imprimer
+            </button>
+            <button onClick={() => produire('pdf')} disabled={enCours || !total}
+              title="Le pied de page figure alors sur CHAQUE feuille"
               className="px-4 py-2 text-[12.5px] rounded-lg bg-iip-blue text-white
                          font-semibold disabled:opacity-40 flex items-center gap-1.5">
-              <IconPrinter size={14} /> Produire les documents
+              <IconFileText size={14} /> Télécharger en PDF
             </button>
           </div>
         </div>
