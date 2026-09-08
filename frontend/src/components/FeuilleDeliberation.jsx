@@ -362,6 +362,21 @@ export default function FeuilleDeliberation({ ueNum, annee, onClose }) {
     finally { setEnCours(false); }
   }
 
+  async function rouvrirSeance(motif) {
+    setEnCours(true); setErreur(null);
+    try {
+      const rep = await fetch(`/api/acquis/deliberation/ue/${ueNum}/rouvrir`, {
+        method: 'POST', headers: authHeaders(),
+        body: JSON.stringify({ annee, session, motif }),
+      });
+      const j = await rep.json();
+      if (!rep.ok) { setErreur(j.detail || j.error); return; }
+      await chargerSeance();
+      setEtape('fiche');
+    } catch (e) { setErreur(e.message); }
+    finally { setEnCours(false); }
+  }
+
   async function enregistrerSeance(champs) {
     setEnCours(true); setErreur(null);
     try {
@@ -499,6 +514,7 @@ export default function FeuilleDeliberation({ ueNum, annee, onClose }) {
               ajournes={(data?.etudiants || []).filter(e => e.resultat === 'ajourne').length}
               onRetour={() => setEtape('fiche')} onPV={() => setDocuments(true)}
               coursSession2={seance?.session2 || []}
+              onRouvrir={rouvrirSeance}
               onClore={champs => enregistrerSeance({ ...champs, cloturee: 1 })} />
           ) : !liste.length ? (
             <div className="py-10 text-center text-[12.5px] text-slate-400 border-2
@@ -808,7 +824,9 @@ function PleinDroit({ auto, onAppliquer, onPasser, enCours }) {
  * sans avoir dit quand et où. Trois champs, et l'affaire est close.
  */
 
-function Cloture({ seance, onClore, onRetour, onPV, enCours, nb, ajournes, coursSession2 }) {
+function Cloture({ seance, onClore, onRetour, onPV, onRouvrir, enCours, nb, ajournes,
+                   coursSession2 }) {
+  const [motifR, setMotifR] = useState('');
   // La séance elle-même : dernière occasion de corriger sa date et son heure,
   // car la clôture les fige au procès-verbal.
   const [dateS, setDateS] = useState(seance?.date_seance || '');
@@ -972,9 +990,32 @@ function Cloture({ seance, onClore, onRetour, onPV, enCours, nb, ajournes, cours
       </div>
 
       {close && (
-        <p className="text-[11.5px] text-emerald-800 text-center">
-          Séance close. Les documents peuvent être générés, imprimés, puis signés.
-        </p>
+        <div className="space-y-2">
+          <p className="text-[11.5px] text-emerald-800 text-center">
+            Séance close. Les documents peuvent être générés, imprimés, puis signés.
+          </p>
+          {/* UN CONSEIL SE RECONVOQUE. La clôture fige, c'est ce qu'on lui
+              demande — mais une erreur matérielle, une pièce arrivée après
+              coup ou un recours accueilli obligent à reprendre. La seule
+              issue était d'annuler la délibération, donc d'effacer TOUTES les
+              décisions pour en corriger une. */}
+          <div className="border border-slate-200 rounded-xl p-3 space-y-2">
+            <div className="text-[12px] text-slate-600">
+              Besoin de reprendre la délibération ? La séance se rouvre sans rien
+              effacer — décisions, notes et présences restent. Le motif est
+              conservé au dossier.
+            </div>
+            <input value={motifR} onChange={e => setMotifR(e.target.value)}
+              placeholder="Pourquoi rouvrir la séance ? (erreur matérielle, pièce reçue…)"
+              className="w-full border border-slate-300 rounded-lg px-2 py-1.5 text-[12.5px]" />
+            <button onClick={() => onRouvrir(motifR.trim())}
+              disabled={enCours || motifR.trim().length < 5}
+              className="px-3 py-1.5 text-[12.5px] rounded-lg border border-amber-500
+                         text-amber-900 font-semibold disabled:opacity-40">
+              Rouvrir la séance
+            </button>
+          </div>
+        </div>
       )}
     </div>
   );

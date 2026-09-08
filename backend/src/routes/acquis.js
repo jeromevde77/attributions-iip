@@ -3717,6 +3717,69 @@ r.post('/deliberation/ue/:ueNum/documents', authRequired, (req, res) => {
 });
 
 /**
+ * ROUVRIR UNE SÉANCE CLOSE — sans rien effacer.
+ *
+ * La clôture fige : c'est ce qu'on lui demande. Mais un Conseil se reconvoque
+ * — une erreur matérielle, une pièce arrivée après coup, un recours accueilli.
+ * La seule issue jusqu'ici était d'ANNULER la délibération, ce qui efface
+ * toutes les décisions : pour corriger un étudiant, on perdait les quatre-vingt
+ * autres. C'était refuser une chose légitime en n'offrant qu'une chose brutale.
+ *
+ * La réouverture rend la séance modifiable et ne touche à RIEN d'autre :
+ * décisions, notes, présences, dates restent. Elle se trace — qui, quand,
+ * pourquoi —, car un procès-verbal signé rouvert doit pouvoir s'expliquer.
+ */
+r.post('/deliberation/ue/:ueNum/rouvrir', authRequired,
+       roleRequired('admin', 'directeur', 'directeur_adjoint'), (req, res) => {
+  const ueNum = Number(req.params.ueNum);
+  const annee = req.body?.annee || anneeDeTravail(req);
+  const session = Number(req.body?.session) === 2 ? 2 : 1;
+  const motif = String(req.body?.motif || '').trim();
+
+  const perim = getUserSections(req.user);
+  const ue = db.prepare(`SELECT section FROM ue WHERE ue_num = ?
+    ORDER BY (annee_scolaire = ?) DESC, annee_scolaire DESC LIMIT 1`).get(ueNum, annee) || {};
+  if (perim && ue.section && !perim.includes(ue.section)) {
+    return res.status(403).json({ error: 'unité hors de votre périmètre' });
+  }
+
+  const seance = db.prepare(`SELECT id, cloturee FROM deliberation_seance
+    WHERE ue_num = ? AND annee_scolaire = ? AND session = ?`).get(ueNum, annee, session);
+  if (!seance) return res.status(404).json({ error: 'aucune séance pour cette unité' });
+  if (!seance.cloturee) return res.json({ ok: true, deja_ouverte: true });
+
+  // LE MOTIF EST EXIGÉ. Rouvrir un acte signé sans dire pourquoi, c'est
+  // exactement ce qu'un recours viendrait reprocher.
+  if (motif.length < 5) {
+    return res.status(400).json({
+      error: 'motif requis',
+      detail: 'Dites en une phrase pourquoi la séance est rouverte : cette mention '
+            + 'reste au dossier et justifie la reprise du procès-verbal.',
+    });
+  }
+
+  db.transaction(() => {
+    db.exec(`CREATE TABLE IF NOT EXISTS deliberation_reouverture (
+      id             INTEGER PRIMARY KEY AUTOINCREMENT,
+      ue_num         INTEGER NOT NULL,
+      annee_scolaire TEXT    NOT NULL,
+      session        INTEGER NOT NULL DEFAULT 1,
+      motif          TEXT,
+      le             TEXT DEFAULT CURRENT_TIMESTAMP,
+      par            TEXT
+    )`);
+    db.prepare(`INSERT INTO deliberation_reouverture
+      (ue_num, annee_scolaire, session, motif, par) VALUES (?,?,?,?,?)`)
+      .run(ueNum, annee, session, motif, req.user?.email || null);
+    db.prepare(`UPDATE deliberation_seance SET cloturee = 0,
+      maj_le = datetime('now'), maj_par = ? WHERE id = ?`)
+      .run(req.user?.email || null, seance.id);
+  })();
+
+  res.json({ ok: true, ue_num: ueNum, annee, session, motif });
+});
+
+/**
  * ANNULER UNE DÉLIBÉRATION — revenir à ce qui a été encodé.
  *
  * CE QUI EST EFFACÉ : les décisions portées sur les inscriptions (résultat,
