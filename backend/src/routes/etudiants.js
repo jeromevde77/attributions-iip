@@ -4055,7 +4055,22 @@ r.post('/completer', authRequired, roleRequired('admin', 'directeur', 'directeur
                         'cp', 'localite', 'gsm', 'email_perso', 'email_ecole',
                         'titre', 'id_ecampus'];
 
-  const rapport = { retrouves: 0, inconnus: [], modifications: [], champs: {} };
+  const rapport = { retrouves: 0, inconnus: [], modifications: [], champs: {},
+                    conflits_matricule: [] };
+
+  // LE MATRICULE APPARTIENT DÉJÀ À QUELQU'UN.
+  //
+  // eCampus réattribue les matricules à chaque rentrée : celui que la liste
+  // donne à Marie peut être, en base, encore celui de Luc. L'UPDATE butait
+  // alors sur l'unicité — « UNIQUE constraint failed: etudiant.id_ecampus » —
+  // et la transaction emportait TOUTE la complétion, y compris les lignes
+  // saines, sur un message que rien n'expliquait.
+  //
+  // On écarte le seul champ en cause, on complète le reste, et on dit à qui
+  // le matricule appartient : c'est un arbitrage humain, pas une erreur
+  // technique.
+  const matriculePris = db.prepare(
+    'SELECT id, nom, prenom FROM etudiant WHERE id_ecampus = ? AND id <> ?');
 
   const appliquer = db.transaction(() => {
     for (const l of lignes) {
@@ -4074,6 +4089,17 @@ r.post('/completer', authRequired, roleRequired('admin', 'directeur', 'directeur
         // demande explicite. Une liste importée n'est pas plus fiable que ce
         // qu'un secrétariat a corrigé à la main.
         if (actuel[k] != null && String(actuel[k]).trim() !== '' && !l.__ecraser) continue;
+        if (k === 'id_ecampus') {
+          const autre = matriculePris.get(String(v).trim(), e.id);
+          if (autre) {
+            rapport.conflits_matricule.push({
+              id: e.id, nom: actuel.nom, prenom: actuel.prenom,
+              id_ecampus: String(v).trim(),
+              detenu_par: `${autre.nom} ${autre.prenom}`, detenu_par_id: autre.id,
+            });
+            continue;
+          }
+        }
         maj[k] = String(v).trim();
         rapport.champs[k] = (rapport.champs[k] || 0) + 1;
       }
@@ -4091,12 +4117,24 @@ r.post('/completer', authRequired, roleRequired('admin', 'directeur', 'directeur
   });
 
   try { appliquer(); } catch (e) {
-    if (e.message !== 'SIMULATION') return res.status(500).json({ error: e.message });
+    if (e.message !== 'SIMULATION') {
+      // Une contrainte violée n'est pas un message à montrer tel quel : elle
+      // dit la table et la colonne, jamais ce qu'il faut faire.
+      const clair = /UNIQUE constraint failed: etudiant\.(\w+)/.exec(e.message);
+      return res.status(500).json({
+        error: clair
+          ? `La valeur « ${clair[1]} » d'une des lignes appartient déjà à un autre `
+            + "dossier. Rien n'a été modifié : corrigez la ligne en cause dans le "
+            + 'classeur, ou laissez cette colonne de côté.'
+          : e.message,
+      });
+    }
   }
 
   res.json({
     ok: true, simulation: !!simulation,
     lignes_lues: lignes.length,
+    nb_conflits: rapport.conflits_matricule.length,
     ...rapport,
     inconnus: rapport.inconnus.slice(0, 30),
     nb_inconnus: rapport.inconnus.length,
