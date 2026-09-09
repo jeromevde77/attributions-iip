@@ -28,6 +28,7 @@ import rentreeRoutes, { migrerRentree } from './routes/rentree.js';
 import acquisRoutes, { migrerAA } from './routes/acquis.js';
 import importSuiviRoutes from './routes/importSuivi.js';
 import doublonsEtudiantsRoutes from './routes/doublonsEtudiants.js';
+import horaireRoutes, { migrerHoraire } from './routes/horaire.js';
 import droitInscriptionRoutes, { migrerDroitInscription } from './routes/droitInscription.js';
 import importHistoriqueRoutes, { migrerHistorique } from './routes/importHistorique.js';
 import budgetRoutes, { migrerBudget } from './routes/budget.js';
@@ -2660,6 +2661,7 @@ try { migrerRentree(db); } catch (e) { console.error('[migration] rentree :', e.
 try { migrerAA(db); } catch (e) { console.error('[migration] aa :', e.message); }
 try { migrerDroitInscription(db); } catch (e) { console.error('[migration] droit inscription :', e.message); }
 try { migrerHistorique(db); } catch (e) { console.error('[migration] historique :', e.message); }
+try { migrerHoraire(db); } catch (e) { console.error('[migration] horaire :', e.message); }
 try { migrerBudget(db); } catch (e) { console.error('[migration] budget :', e.message); }
 try { migrerDemandes(db); } catch (e) { console.error('[migration] demandes :', e.message); }
 try { migrerSauvegardes(db); } catch (e) { console.error('[migration] sauvegardes :', e.message); }
@@ -2761,6 +2763,7 @@ app.use('/api/rentree', rentreeRoutes);
 app.use('/api/acquis', acquisRoutes);
 app.use('/api/import-suivi', importSuiviRoutes);
 app.use('/api/doublons-etudiants', doublonsEtudiantsRoutes);
+app.use('/api/horaire', horaireRoutes);
 app.use('/api/due', dueRoutes);
 app.use('/api/diplomes', diplomesRoutes);
 app.use('/api/droit-inscription', droitInscriptionRoutes);
