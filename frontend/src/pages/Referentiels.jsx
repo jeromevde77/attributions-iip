@@ -469,8 +469,14 @@ function UEModal({ ue, sections, onClose, onSaved }) {
   const sep = 'text-[10px] font-semibold uppercase tracking-widest text-gray-400 border-b border-gray-100 pb-1 mb-2 mt-1';
 
   return (
-    <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50" onClick={e => e.target === e.currentTarget && onClose()}>
-      <div className="bg-white rounded-xl shadow-2xl max-w-lg w-full border-t-4 border-iip-blue max-h-[90vh] overflow-hidden flex flex-col">
+    <div className="fixed inset-0 bg-black/50 flex items-start justify-center p-4 z-50 overflow-y-auto"
+      onClick={e => e.target === e.currentTarget && onClose()}>
+      {/* La hauteur se prend sur la FENÊTRE, marges comprises : « 90vh » plus
+          le rembourrage du cadre dépassait de l'écran, et la fiche d'une UE
+          est longue. On ancre en haut plutôt qu'au centre — une fenêtre
+          centrée qui grandit sort par les deux bords à la fois. */}
+      <div className="bg-white rounded-xl shadow-2xl max-w-lg w-full border-t-4 border-iip-blue
+                      max-h-[calc(100vh-2rem)] overflow-hidden flex flex-col">
         <div className="flex items-center justify-between px-5 py-3 border-b flex-shrink-0">
           <h2 className="font-title text-lg text-iip-blue">{isNew ? 'Nouvelle UE' : `Modifier UE ${ue.ue_num}`}</h2>
           <button onClick={onClose} className="text-gray-400 hover:text-red-500"><IconX size={20} /></button>
