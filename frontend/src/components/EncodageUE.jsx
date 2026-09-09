@@ -39,6 +39,12 @@ export default function EncodageUE({ ueNum, annee, onClose, onEnregistre, onPara
   const [data, setData] = useState(null);
   const [erreur, setErreur] = useState(null);
   const [session, setSession] = useState(1);
+  // L'écran s'ouvrait TOUJOURS sur la première session. On encodait septembre,
+  // on refermait, on rouvrait — et les notes de juin s'affichaient : rien
+  // n'était perdu, mais tout donnait à croire que l'enregistrement n'avait pas
+  // pris. La feuille s'ouvre désormais là où l'unité en est, tant que
+  // personne n'a choisi de session à la main.
+  const [choisie, setChoisie] = useState(false);
   const [recherche, setRecherche] = useState('');
   const [enAttente, setEnAttente] = useState(0);
   const [dernier, setDernier] = useState(null);
@@ -51,6 +57,9 @@ export default function EncodageUE({ ueNum, annee, onClose, onEnregistre, onPara
       const j = await rep.json();
       if (!rep.ok) throw new Error(j.error);
       setData(j);
+      if (!choisie && session !== 2 && (j.etat_session?.session === 2 || j.notes_s2 > 0)) {
+        setChoisie(true); setSession(2);
+      }
     } catch (e) { setErreur(e.message); }
   }
   useEffect(() => { charger(); /* eslint-disable-next-line */ }, [ueNum, annee, session]);
@@ -143,7 +152,7 @@ export default function EncodageUE({ ueNum, annee, onClose, onEnregistre, onPara
           <div className="flex items-center gap-2 flex-none">
             <div className="flex rounded-lg border border-slate-300 overflow-hidden">
               {[1, 2].map(s => (
-                <button key={s} onClick={() => setSession(s)}
+                <button key={s} onClick={() => { setChoisie(true); setSession(s); }}
                   className={`px-2.5 py-1 text-[12px] ${session === s
                     ? 'bg-iip-blue text-white font-semibold' : 'text-slate-600'}`}>
                   {s === 1 ? '1re' : '2e'} session
