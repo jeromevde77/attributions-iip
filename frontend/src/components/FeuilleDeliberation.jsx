@@ -108,8 +108,14 @@ export default function FeuilleDeliberation({ ueNum, annee, onClose }) {
   }
   // La séance suit la session : présences, date et visite des copies lui
   // appartiennent, et celles de juin ne valent pas pour septembre.
-  useEffect(() => { charger(); chargerSeance(); chargerReprise();
+  useEffect(() => { charger(); chargerSeance();
     /* eslint-disable-next-line */ }, [ueNum, annee, choixSession]);
+  // LA SESSION N'EST CONNUE QU'APRÈS LE CHARGEMENT : c'est le serveur qui la
+  // déduit. Interroger la reprise en même temps que le reste, c'était
+  // l'interroger toujours pour la première session — et taire la bannière sur
+  // une unité déjà passée en septembre.
+  useEffect(() => { if (data) chargerReprise();
+    /* eslint-disable-next-line */ }, [ueNum, annee, session, !!data]);
 
   /**
    * LA DÉLIBÉRATION QUE LE CLASSEUR PORTE DÉJÀ.
