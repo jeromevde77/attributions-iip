@@ -552,10 +552,23 @@ export default function Pilotage() {
   const selectedData = civil.find(y => y.annee_civile === selYear);
 
   // Données graphique multi-années
+  //
+  // L'USAGE DÉCLARÉ EST UNE SÉRIE À PART, et il le reste.
+  //
+  // La courbe traçait le seul usage CALCULÉ : sur une année dont la base n'a
+  // pas tout — 2025, dont le premier semestre n'est pas encodé —, elle montre
+  // une consommation basse qui n'a jamais eu lieu, et la barre dément le
+  // solde constaté saisi juste à côté.
+  //
+  // Le remède n'est pas de remplacer l'un par l'autre : ce serait perdre la
+  // mesure de ce qui manque. C'est de tracer les DEUX. La barre ambre dit ce
+  // que la direction constate, la bleue ce que la base établit, et l'écart
+  // entre elles se voit — c'est lui qui se refermera à mesure qu'on encode.
   const chartData = useMemo(() => civil.map(y => ({
     annee: y.annee_civile,
     'Dotation organique': y.dotation_organique,
     'Usage organique':    y.usage_organique,
+    'Usage constaté':     y.usage_implique ?? null,
     'Total enveloppes':   y.enveloppes.reduce((s, e) => s + (e.periodes_b || 0), 0),
     'Usage enveloppes':   y.enveloppes.reduce((s, e) => s + (e.usage || 0), 0),
   })), [civil]);
@@ -794,6 +807,9 @@ export default function Pilotage() {
                     <Legend iconType="circle" iconSize={8} wrapperStyle={{ fontSize: 12 }} />
                     <Bar dataKey="Dotation organique" fill="#1B2B4B" radius={[3, 3, 0, 0]} />
                     <Bar dataKey="Usage organique"    fill="#00AACC" radius={[3, 3, 0, 0]} />
+                    {/* Les années où la direction a constaté un solde : ce
+                        qu'elle déclare, à côté de ce que la base compte. */}
+                    <Bar dataKey="Usage constaté"     fill="#C9A84C" radius={[3, 3, 0, 0]} />
                   </BarChart>
                 </ResponsiveContainer>
               ) : (
