@@ -81,7 +81,7 @@ function DPImportModal({ annee, sections, onClose, onSaved }) {
           <button onClick={onClose} className="text-gray-400 hover:text-red-500"><IconX size={20} /></button>
         </div>
 
-        <div className="p-5 space-y-4 overflow-auto">
+        <div className="flex-1 min-h-0 overflow-y-auto p-5 space-y-4">
           {!resultats && (<>
             <div>
               <div className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-1">
@@ -397,7 +397,10 @@ function SectionModal({ section, onClose, onSaved, annee, isAdmin }) {
             </div>
           )}
 
-          <div className="flex justify-end gap-2 pt-2 border-t">
+          {/* Les boutons restent au bord : sur une fiche longue, « Enregistrer »
+              se trouvait tout en bas d'un défilement de deux écrans. */}
+          <div className="sticky bottom-0 -mx-5 -mb-5 px-5 py-3 bg-white border-t
+                          flex justify-end gap-2">
             <button type="button" onClick={onClose} className="px-4 py-2 text-sm text-gray-600">Annuler</button>
             <button type="submit" disabled={saving} className="bg-iip-gold hover:bg-iip-amber disabled:opacity-40 text-white text-sm px-5 py-2 rounded font-medium">
               {saving ? '…' : isNew ? 'Créer' : 'Enregistrer'}
@@ -473,7 +476,13 @@ function UEModal({ ue, sections, onClose, onSaved }) {
           <button onClick={onClose} className="text-gray-400 hover:text-red-500"><IconX size={20} /></button>
         </div>
 
-        <form onSubmit={submit} className="p-5 space-y-4 overflow-auto">
+        {/* LA FENÊTRE DÉBORDAIT EN HAUT ET EN BAS.
+            Le cadre est bien plafonné à 90 % de la hauteur, mais le formulaire
+            n'était pas contraint : sans « flex-1 min-h-0 », un enfant de
+            colonne flex garde sa hauteur naturelle et pousse le cadre au-delà
+            de l'écran — on ne voyait plus ni le titre ni les boutons, et la
+            fiche d'une UE est longue. Il défile maintenant à l'intérieur. */}
+        <form onSubmit={submit} className="flex-1 min-h-0 overflow-y-auto p-5 space-y-4">
 
           {/* ── 1. IDENTIFICATION OFFICIELLE (FWB) ── */}
           <div className={sep}>Identification officielle</div>
