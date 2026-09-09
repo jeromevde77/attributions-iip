@@ -26,6 +26,10 @@ export default function ImportSuivi({ annee, onClose, onFini }) {
     // peupler la base d'étudiants inventés sur une faute de frappe. Mais sur
     // une base vide, ce sont eux qui rendent l'import possible.
     creer: false, inscrire: false });
+  // LA MIGRATION D'UNE ANNÉE DÉJÀ DÉLIBÉRÉE. Décochée par défaut : elle écrit
+  // les décisions telles quelles, sans passer par le moteur d'acquis.
+  const [migration, setMigration] = useState(false);
+  const [justifDefaut, setJustifDefaut] = useState('');
   const [rapport, setRapport] = useState(null);
   const [applique, setApplique] = useState(false);
   const [erreur, setErreur] = useState(null);
@@ -59,6 +63,8 @@ export default function ImportSuivi({ annee, onClose, onFini }) {
         method: 'POST', headers: authHeaders(),
         body: JSON.stringify({
           annee, simulation, ...quoi,
+          migration,
+          justification_defaut: migration ? justifDefaut.trim() : '',
           unites: unites.filter(u => choisies.has(u.ue_num)),
         }),
       });
@@ -187,6 +193,49 @@ export default function ImportSuivi({ annee, onClose, onFini }) {
                   </label>
                 ))}
               </div>
+              {/* ── LA MIGRATION D'UNE ANNÉE DÉJÀ DÉLIBÉRÉE ──────────────── */}
+              <div className={`mx-1 px-3 py-2.5 rounded-xl border ${migration
+                ? 'border-violet-300 bg-violet-50' : 'border-slate-200'}`}>
+                <label className="flex items-start gap-2 text-[12.5px] text-slate-800">
+                  <input type="checkbox" checked={migration} className="mt-0.5 w-4 h-4 accent-iip-blue"
+                    onChange={e => setMigration(e.target.checked)} />
+                  <span>
+                    <b>Migration — l'année a déjà été délibérée</b>
+                    <span className="block text-[11.5px] text-slate-600">
+                      La décision ET la cote de l'unité sont reprises du classeur telles
+                      quelles. Le moteur d'acquis n'est pas consulté : c'est ce qui permet
+                      de reprendre une année entière sans la redélibérer.
+                    </span>
+                  </span>
+                </label>
+                {migration && (
+                  <div className="mt-2 pl-6 space-y-2">
+                    <p className="text-[11.5px] text-violet-900">
+                      Le jury a délibéré au niveau de l'unité, pas des acquis. Lucie écrit
+                      donc la cote du classeur sans la recalculer — un recalcul sur des
+                      notes d'activité incomplètes produirait des cotes fausses. Les
+                      justifications du classeur sont reprises telles quelles, marquées
+                      « reprise d'historique » : elles ne se confondent pas avec une
+                      motivation prise en séance ici.
+                    </p>
+                    <label className="block text-[11.5px] text-slate-700">
+                      Justification imposée là où le classeur n'en porte aucune
+                      <textarea value={justifDefaut} onChange={e => setJustifDefaut(e.target.value)}
+                        rows={2} placeholder="ex. Décision du jury de juin 2026 ; motivation non consignée au classeur, reprise d'historique du 09/09/2026."
+                        className="mt-1 w-full px-2 py-1.5 border border-slate-300 rounded-lg
+                                   text-[12px]" />
+                    </label>
+                    <p className="text-[11.5px] text-slate-500">
+                      Laissez vide pour n'imposer aucune mention : le rapport dira alors
+                      combien de décisions défavorables restent sans motif. Une décision
+                      défavorable non motivée est attaquable — mais une motivation
+                      inventée l'est davantage, aussi la mention imposée doit dire ce
+                      qu'elle est plutôt que ce que le jury aurait pensé.
+                    </p>
+                  </div>
+                )}
+              </div>
+
               {(quoi.creer || quoi.inscrire) && (
                 <div className="mx-1 px-3 py-2 rounded-lg bg-amber-50 border border-amber-200
                                 text-[11.5px] text-amber-900">
@@ -227,6 +276,10 @@ export default function ImportSuivi({ annee, onClose, onFini }) {
                   ['notes 1re session', rapport.total.notes_s1],
                   ['notes 2e session', rapport.total.notes_s2],
                   ['décisions', rapport.total.decisions],
+                  ['cotes d’unité reprises', rapport.total.cotes || 0],
+                  ['motifs repris', rapport.total.motifs || 0],
+                  ['motifs imposés', rapport.total.motifs_imposes || 0],
+                  ['sans motif', rapport.total.sans_motif || 0],
                   ['cours à représenter', rapport.total.ajournements],
                   ['acquis', rapport.total.acquis],
                   ['non rapprochés', rapport.total.inconnus + rapport.total.hors_inscription

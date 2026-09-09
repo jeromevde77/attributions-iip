@@ -35,6 +35,31 @@ import { envelopper, unitesReussies, pageAttestation } from './attestations.js';
 const r = Router();
 
 export function migrerSessions(dbx) {
+  // ── LA MOTIVATION A UNE PORTÉE, ET UNE PROVENANCE ────────────────────────
+  //
+  // `decision_motivation` est clée sur l'ACQUIS : une motivation par acquis
+  // non maîtrisé, ce qu'exige l'annexe 8. Mais les années reprises d'Excel ont
+  // été délibérées AU NIVEAU DE L'UNITÉ : leur justification ne vise aucun
+  // acquis en particulier. Faute de pouvoir le dire, on l'aurait rangée sous
+  // un acquis quelconque — c'est-à-dire qu'on aurait menti sur ce que le
+  // Conseil a motivé.
+  //
+  // Deux colonnes suffisent. `portee` distingue la motivation d'unité
+  // (aa_code « * ») de celle d'un acquis. `source` dit d'où elle vient : du
+  // Conseil, ou d'une reprise d'historique — et une motivation reprise ne doit
+  // jamais se faire passer pour une délibération tenue.
+  try {
+    const cols = dbx.prepare('PRAGMA table_info(decision_motivation)').all().map(c => c.name);
+    if (cols.length && !cols.includes('portee')) {
+      dbx.exec("ALTER TABLE decision_motivation ADD COLUMN portee TEXT DEFAULT 'aa'");
+      console.log('[migration] decision_motivation.portee ajoutée');
+    }
+    if (cols.length && !cols.includes('source')) {
+      dbx.exec("ALTER TABLE decision_motivation ADD COLUMN source TEXT DEFAULT 'conseil'");
+      console.log('[migration] decision_motivation.source ajoutée');
+    }
+  } catch (e) { console.error('[migration] decision_motivation :', e.message); }
+
   // Chaque migration dans son propre try : groupées, la première qui échoue
   // emportait les suivantes, et la table des résultats n'était jamais créée.
   try {

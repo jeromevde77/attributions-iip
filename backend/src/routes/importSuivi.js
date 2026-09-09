@@ -85,6 +85,26 @@ r.post('/', authRequired, roleRequired('admin', 'directeur', 'directeur_adjoint'
     // leur matricule, leur nom et leur prénom.
     creer: creerManquants = false,
     inscrire: inscrireManquants = false,
+    // ── LE MODE MIGRATION ────────────────────────────────────────────────
+    //
+    // Une année reprise d'Excel A DÉJÀ ÉTÉ DÉLIBÉRÉE. Le jury s'est réuni, il
+    // a décidé, et sa décision est dans le classeur avec la cote de l'unité.
+    // La rejouer dans Lucie n'est pas possible : la délibération s'est faite
+    // AU NIVEAU DE L'UNITÉ, alors que le moteur raisonne par acquis — et les
+    // notes d'activité ne sont renseignées qu'à 12 à 42 % selon l'unité. Le
+    // recalcul produirait des cotes fausses là où le classeur en porte de
+    // justes, ou bloquerait ligne par ligne.
+    //
+    // En migration, on n'appelle donc PAS le moteur : la décision ET la cote
+    // viennent du fichier, telles quelles. C'est un choix assumé, pas un
+    // contournement — et c'est pourquoi il porte un nom et se demande.
+    migration = false,
+    // La justification imposée là où le classeur n'en porte aucune. Une
+    // décision défavorable sans motif au dossier se défend mal ; à défaut de
+    // pouvoir reconstituer celle du jury, on écrit une mention qui dit ce
+    // qu'elle est — reprise d'historique —, et qui ne se confond pas avec une
+    // motivation du Conseil.
+    justification_defaut: justifDefaut = '',
   } = req.body || {};
 
   const an = annee || anneeDeTravail(req);
@@ -98,7 +118,7 @@ r.post('/', authRequired, roleRequired('admin', 'directeur', 'directeur_adjoint'
     unites: 0, etudiants: 0, rapproches: 0, inconnus: 0, hors_inscription: 0,
     collisions: 0, notes_s1: 0, notes_s2: 0, decisions: 0, ajournements: 0,
     ponderations: 0, acquis: 0, acquis_retires: 0, crees: 0, inscrits: 0,
-    s2_recopiees: 0,
+    s2_recopiees: 0, cotes: 0, motifs: 0, motifs_imposes: 0, sans_motif: 0,
   } };
 
   // ── Créer un dossier, inscrire à l'unité ─────────────────────────────────
@@ -151,6 +171,29 @@ r.post('/', authRequired, roleRequired('admin', 'directeur', 'directeur_adjoint'
     ON CONFLICT(etudiant_id, annee_scolaire, ue_num, session, portee, code)
     DO UPDATE SET action = excluded.action, maj_le = CURRENT_TIMESTAMP,
                   maj_par = excluded.maj_par`);
+  const poseMotifUE = db.prepare(`
+    INSERT INTO decision_motivation
+      (etudiant_id, annee_scolaire, ue_num, aa_code, motif, portee, source, maj_le, maj_par)
+    VALUES (?,?,?, '*', ?, 'ue', ?, datetime('now'), ?)
+    ON CONFLICT(etudiant_id, annee_scolaire, ue_num, aa_code) DO UPDATE SET
+      motif = excluded.motif, portee = 'ue', source = excluded.source,
+      maj_le = datetime('now'), maj_par = excluded.maj_par`);
+  const poseResultatCote = db.prepare(`
+    INSERT INTO deliberation_resultat
+      (etudiant_id, annee_scolaire, ue_num, session, resultat, points, decide_par)
+    VALUES (?,?,?,?,?,?,?)
+    ON CONFLICT(etudiant_id, annee_scolaire, ue_num, session) DO UPDATE SET
+      resultat = excluded.resultat, points = excluded.points,
+      decide_le = CURRENT_TIMESTAMP, decide_par = excluded.decide_par`);
+  const majInscriptionCote = db.prepare(`
+    UPDATE etudiant_inscription SET resultat = ?, points = ?
+    WHERE etudiant_id = ? AND annee_scolaire = ? AND ue_num = ?`);
+  const finalCote = db.prepare(`
+    SELECT resultat, points FROM deliberation_resultat
+    WHERE etudiant_id = ? AND annee_scolaire = ? AND ue_num = ?
+      AND resultat IS NOT NULL AND resultat != ''
+    ORDER BY session DESC LIMIT 1`);
+
   const poseResultat = db.prepare(`
     INSERT INTO deliberation_resultat
       (etudiant_id, annee_scolaire, ue_num, session, resultat, decide_par)
@@ -171,7 +214,8 @@ r.post('/', authRequired, roleRequired('admin', 'directeur', 'directeur_adjoint'
     for (const u of unites) {
       const ueNum = Number(u.ue_num);
       const fiche = { ue_num: ueNum, etudiants: 0, rapproches: 0, crees: 0, inscrits: 0,
-        s2_recopiees: 0, inconnus: [],
+        s2_recopiees: 0, cotes: 0, motifs: 0, motifs_imposes: 0, sans_motif: 0,
+        cotes_illisibles: [], inconnus: [],
         hors_inscription: [], collisions: [], notes_s1: 0, notes_s2: 0,
         decisions: 0, ajournements: 0, ponderations: 0, acquis: 0,
         acquis_hors_referentiel: [], acquis_retires: [], acquis_a_verifier: [],
@@ -344,6 +388,50 @@ r.post('/', authRequired, roleRequired('admin', 'directeur', 'directeur_adjoint'
             }
             fiche.notes_s1++; rapport.total.notes_s1++;
           }
+        }
+
+        // ── LA MIGRATION : LA DÉCISION ET LA COTE, TELLES QUELLES ─────────
+        //
+        // Aucun appel au moteur. La ligne du classeur devient la ligne de
+        // Lucie : sa décision, sa cote d'unité, sa justification. Ce qui
+        // manque est signalé et, si l'établissement l'a demandé, comblé par
+        // une mention qui dit ce qu'elle est.
+        if (migration && importerDecisions) {
+          for (const [ses, bloc] of [[1, e.s1], [2, e.s2]]) {
+            if (!bloc?.decision) continue;
+            const cote = bloc.note_ue == null || bloc.note_ue === ''
+              ? null : Number(String(bloc.note_ue).replace(',', '.'));
+            const note = Number.isFinite(cote) && cote >= 0 && cote <= 20 ? cote : null;
+            if (bloc.note_ue != null && bloc.note_ue !== '' && note == null) {
+              fiche.cotes_illisibles.push(
+                `${t.nom || ''} ${t.prenom || ''} (S${ses}) : « ${bloc.note_ue} »`);
+            }
+            if (!simulation) poseResultatCote.run(t.id, an, ueNum, ses, bloc.decision, note, par);
+            fiche.decisions++; rapport.total.decisions++;
+            if (note != null) { fiche.cotes++; rapport.total.cotes++; }
+
+            // LA JUSTIFICATION SUIT LA DÉCISION DÉFAVORABLE, et elle seule :
+            // motiver une réussite n'a pas de sens et encombrerait le dossier.
+            if (bloc.decision === 'ajourne' || bloc.decision === 'refuse') {
+              const ecrite = String(bloc.justification || '').trim();
+              if (ecrite) {
+                if (!simulation) poseMotifUE.run(t.id, an, ueNum, ecrite, 'historique', par);
+                fiche.motifs++; rapport.total.motifs++;
+              } else if (justifDefaut) {
+                if (!simulation) poseMotifUE.run(t.id, an, ueNum, justifDefaut, 'imposee', par);
+                fiche.motifs_imposes++; rapport.total.motifs_imposes++;
+              } else {
+                fiche.sans_motif++; rapport.total.sans_motif++;
+              }
+            }
+          }
+          // Le dossier porte la décision de la session la plus avancée, avec
+          // sa cote — c'est elle qui figurera sur l'attestation.
+          if (!simulation) {
+            const fin = finalCote.get(t.id, an, ueNum) || {};
+            majInscriptionCote.run(fin.resultat ?? null, fin.points ?? null, t.id, an, ueNum);
+          }
+          continue;   // la migration ne passe pas par la voie ordinaire
         }
 
         // ── La décision de première session, et ce qui reste à représenter ──
