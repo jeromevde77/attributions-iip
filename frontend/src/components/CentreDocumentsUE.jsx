@@ -21,6 +21,11 @@ export default function CentreDocumentsUE({ ueNum, ueNom, annee, onClose }) {
     grille: false, ajustements: false, motivations: false });
   const [erreur, setErreur] = useState(null);
   const [enCours, setEnCours] = useState(false);
+  // TROIS LECTURES. Juin, septembre — et le résultat de l'unité APRÈS LES DEUX
+  // SESSIONS. Les documents ne disaient même pas laquelle ils montraient : deux
+  // pièces voisines étaient indiscernables. Et en seconde session, ceux qui ont
+  // réussi ou été refusés en juin ne représentent rien : ils n'y figurent plus.
+  const [lecture, setLecture] = useState('1');
 
   useEffect(() => {
     (async () => {
@@ -49,7 +54,8 @@ export default function CentreDocumentsUE({ ueNum, ueNom, annee, onClose }) {
     try {
       const rep = await fetch(`/api/acquis/deliberation/ue/${ueNum}/documents`, {
         method: 'POST', headers: authHeaders(),
-        body: JSON.stringify({ annee, ...choix }),
+        body: JSON.stringify({ annee, ...choix,
+          session: lecture === '1' ? 1 : 2, total: lecture === 'T' }),
       });
       const j = await rep.json();
       if (!rep.ok) { setErreur(j.error); return; }
@@ -157,6 +163,25 @@ export default function CentreDocumentsUE({ ueNum, ueNom, annee, onClose }) {
         </div>
 
         <div className="flex-1 overflow-y-auto p-5 space-y-3">
+          <div>
+            <div className="text-[11.5px] text-slate-500 mb-1">Que montrent ces pièces ?</div>
+            <div className="flex rounded-lg border border-slate-300 overflow-hidden">
+              {[
+                { k: '1', l: '1re session', t: 'Tous les inscrits, décisions de juin' },
+                { k: '2', l: '2e session',
+                  t: 'Seulement les ajournés de juin : les autres ne représentent rien' },
+                { k: 'T', l: 'Après les 2 sessions',
+                  t: 'Le résultat final : septembre là où il a eu lieu, juin partout ailleurs' },
+              ].map(x => (
+                <button key={x.k} onClick={() => setLecture(x.k)} title={x.t}
+                  className={`flex-1 px-2 py-1.5 text-[12px] ${lecture === x.k
+                    ? 'bg-iip-blue text-white font-semibold' : 'text-slate-600'}`}>
+                  {x.l}
+                </button>
+              ))}
+            </div>
+          </div>
+
           {erreur && (
             <div className="px-3 py-2 rounded-lg bg-red-50 border border-red-200
                             text-[12px] text-red-800 flex items-start gap-1.5">
