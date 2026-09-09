@@ -4088,18 +4088,49 @@ export function documentAjournesParCours(ueNum, annee, session = 1) {
 
   // Les ajournés de la session : ceux dont le Conseil a arrêté « ajourné »,
   // et pour chacun les cours qu'il doit représenter.
+  //
+  // LA TRACE DE SÉANCE NE SUFFIT PAS À LES TROUVER. Une unité reprise du
+  // classeur porte souvent sa décision au seul dossier de l'étudiant : la
+  // liste ne trouvait alors personne et sortait « Néant » sur tous les cours,
+  // alors que la moitié de l'unité était à représenter. On complète donc par
+  // le dossier — pour la première session, celle qu'il décrit — comme partout
+  // ailleurs, et sans jamais recouvrir ce que la séance a dit.
   const ajournes = db.prepare(`
     SELECT e.id, e.nom, e.prenom, e.id_ecampus
     FROM deliberation_resultat r JOIN etudiant e ON e.id = r.etudiant_id
     WHERE r.ue_num = ? AND r.annee_scolaire = ? AND r.session = ? AND r.resultat = 'ajourne'
     ORDER BY e.nom, e.prenom
   `).all(ueNum, annee, session);
+  if (session < 2) {
+    const decides = new Set(db.prepare(`
+      SELECT etudiant_id FROM deliberation_resultat
+      WHERE ue_num = ? AND annee_scolaire = ? AND session = 1
+        AND resultat IS NOT NULL AND resultat != ''
+    `).all(ueNum, annee).map(l => l.etudiant_id));
+    for (const e of db.prepare(`
+      SELECT e.id, e.nom, e.prenom, e.id_ecampus
+      FROM etudiant_inscription i JOIN etudiant e ON e.id = i.etudiant_id
+      WHERE i.ue_num = ? AND i.annee_scolaire = ? AND i.resultat = 'ajourne'
+      ORDER BY e.nom, e.prenom
+    `).all(ueNum, annee)) {
+      if (!decides.has(e.id)) ajournes.push(e);
+    }
+    ajournes.sort((a, b) => (a.nom || '').localeCompare(b.nom || '')
+      || (a.prenom || '').localeCompare(b.prenom || ''));
+  }
+
+  // CE QUI EST À REPRÉSENTER DANS UN COURS. « Non acquis » ne le dit pas seul :
+  // un cours simplement raté — note sous le seuil, sans que le Conseil ait posé
+  // d'ajournement dessus — est à repasser tout autant, et il n'apparaissait
+  // nulle part. Le professeur recevait une liste vide pour un cours où la
+  // moitié de sa classe revient.
+  const aRepasser = c => c.na || (!c.faveur && c.note != null && c.note < SEUIL_UE);
 
   const parCours = {};
   for (const e of ajournes) {
     const d = delibererUE(e.id, ueNum, annee, session);
     for (const c of d.cours) {
-      if (!c.na) continue;
+      if (!aRepasser(c)) continue;
       (parCours[c.cours_code] ||= []).push({
         ...e,
         aas: (c.aas || []).map(a => (typeof a === 'string' ? a : a.aa_code)),
@@ -4364,7 +4395,15 @@ r.post('/deliberation/documents-lot', authRequired, (req, res) => {
     let a;
     try {
       a = assemblerDocumentsUE(ueNum, annee, veut, {
-        session: Number(req.body?.session) === 2 ? 2 : sessionDeLUE(ueNum, annee).session,
+        // LA SESSION EST CELLE QU'ON DOCUMENTE, PAS CELLE OÙ L'UNITÉ EN EST.
+        // Le lot prenait la session déduite de l'unité : dès que juin était
+        // clos, il documentait septembre — et sortait les ajournés d'une
+        // session qui n'a pas encore eu lieu, c'est-à-dire « Néant » partout,
+        // pendant que la même unité imprimée seule donnait la bonne liste.
+        // Deux chemins, deux résultats : c'est le chemin qui décidait, pas la
+        // demande. La règle est maintenant celle de l'unité seule — première
+        // session par défaut, seconde si on la demande.
+        session: Number(req.body?.session) === 2 ? 2 : 1,
         date_document: req.body?.date_document || null,
       });
     } catch (e) { manques.push(`UE ${ueNum} : ${e.message}`); continue; }
