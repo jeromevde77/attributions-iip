@@ -12,6 +12,7 @@ import DiagnosticAnnees from '../components/DiagnosticAnnees.jsx';
 import SchemaLiensAA from '../components/SchemaLiensAA.jsx';
 import EncodageRapide from './EncodageRapide.jsx';
 import CentreDocumentsUE from '../components/CentreDocumentsUE.jsx';
+import RepriseLot from '../components/RepriseLot.jsx';
 
 /**
  * Délibération — la porte d'entrée.
@@ -47,6 +48,7 @@ export default function Deliberation() {
   const [importSuivi, setImportSuivi] = useState(false); // le classeur de l'année
   const [annees, setAnnees] = useState(false);           // où sont les notes ?
   const [conseils, setConseils] = useState(false);       // la composition, en lot
+  const [repriseLot, setRepriseLot] = useState(false);   // reprendre le classeur en lot
 
   /** La composition des conseils, toutes unités — en PDF si le serveur le sait. */
   async function sortirConseils() {
@@ -177,6 +179,17 @@ export default function Deliberation() {
                        text-slate-600 font-semibold rounded-lg disabled:opacity-40">
             {conseils ? 'Préparation…' : 'Conseils des études'}
           </button>
+          {/* REPRENDRE EN LOT CE QUE LE CLASSEUR A DÉJÀ DÉLIBÉRÉ. Dispositif
+              transitoire : il porte sur une section entière, sa place est donc
+              ici et non dans la ligne d'une unité. */}
+          {peutToutEncoder && (
+            <button onClick={() => setRepriseLot(true)}
+              title="Reprendre d'un coup les délibérations déjà encodées dans le classeur"
+              className="flex items-center gap-1.5 px-3 py-1.5 text-sm border border-slate-300
+                         text-slate-600 font-semibold rounded-lg">
+              Reprendre le classeur
+            </button>
+          )}
           {peutToutEncoder && (
             <button onClick={() => setAnnees(true)}
               title="Voir dans quelle année les notes ont été rangées, et les ramener"
@@ -419,6 +432,10 @@ export default function Deliberation() {
       {importSuivi && (
         <ImportSuivi annee={annee}
           onClose={() => setImportSuivi(false)} onFini={charger} />
+      )}
+      {repriseLot && (
+        <RepriseLot annee={annee} section={sec?.section || null}
+          onClose={() => setRepriseLot(false)} onFini={charger} />
       )}
       {annees && (
         <DiagnosticAnnees annee={annee} onClose={() => setAnnees(false)} onFini={charger} />
