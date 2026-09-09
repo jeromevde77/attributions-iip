@@ -132,7 +132,8 @@ export default function EncodageUE({ ueNum, annee, onClose, onEnregistre, onPara
             </h3>
             <p className="text-[12px] text-slate-500">
               {data && `${data.cours.length} cours · ${colonnes.length} acquis · `}
-              {data && `${data.etudiants.length} étudiant(s) · `}{annee}
+              {data && `${data.etudiants.length} étudiant(s)${
+                data.a_representer ? ' à représenter' : ''} · `}{annee}
               {enAttente > 0 && <span className="text-amber-700"> · enregistrement…</span>}
               {!enAttente && dernier && (
                 <span className="text-emerald-700"> · <IconCheck size={11} className="inline" /> enregistré</span>
@@ -169,6 +170,25 @@ export default function EncodageUE({ ueNum, annee, onClose, onEnregistre, onPara
         )}
 
         <div className="flex-1 overflow-auto p-5 pt-3">
+          {/* CE QUE LA SECONDE SESSION ATTEND — et ce qu'elle n'attend pas.
+              Sans un mot, une feuille plus courte se lit comme une perte
+              d'étudiants ; et une colonne grisée, comme une panne. */}
+          {data?.a_representer && (
+            <div className="mb-3 px-3 py-2 rounded-lg bg-amber-50 border border-amber-200
+                            text-[12px] text-amber-900">
+              Seuls les <b>étudiants ajournés</b> figurent ici : les autres ne présentent pas
+              de seconde session. Et pour chacun, seules les colonnes des <b>cours qu'il avait
+              à représenter</b> sont ouvertes — les autres gardent la note de juin, que la
+              seconde session ne doit ni redemander ni effacer.
+            </div>
+          )}
+          {data?.a_representer && !data.etudiants.length && (
+            <div className="py-10 text-center text-[12.5px] text-slate-500 border-2
+                            border-dashed rounded-xl">
+              Aucun étudiant ajourné en première session : il n'y a pas de seconde session
+              à encoder pour cette unité.
+            </div>
+          )}
           {!data ? (
             <div className="py-10 text-center text-slate-400 text-sm">Chargement…</div>
           ) : data.sans_acquis ? (
@@ -254,6 +274,12 @@ export default function EncodageUE({ ueNum, annee, onClose, onEnregistre, onPara
                     </td>
                     {data.cours.filter(c => c.acquis?.length).flatMap(c => {
                       const m = mention(e, c.cours_code);
+                      // EN SECONDE SESSION, SEULS LES COURS À REPRÉSENTER.
+                      // Les autres gardent la note de juin : rouvrir leur
+                      // colonne, c'est inviter à la réécrire, et la seconde
+                      // session effacerait ce qu'elle devait laisser.
+                      const ferme = data.a_representer
+                        && !(data.a_representer[e.id] || []).includes(c.cours_code);
                       return [
                         ...c.acquis.map(a => {
                           const col = { ...a, cours: c };
@@ -262,7 +288,11 @@ export default function EncodageUE({ ueNum, annee, onClose, onEnregistre, onPara
                             <td key={`${e.id}|${c.cours_code}|${a.aa_code}`}
                               className="px-1 py-0.5 border-b border-slate-100 text-center">
                               <input type="number" step="1" min="0" max="20"
-                                defaultValue={v ?? ''} disabled={!!m}
+                                defaultValue={v ?? ''} disabled={!!m || ferme}
+                                title={ferme
+                                  ? 'Ce cours n’était pas à représenter : la note de première '
+                                    + 'session reste acquise'
+                                  : undefined}
                                 onBlur={ev => {
                                   if (String(ev.target.value) !== String(v ?? '')) {
                                     poser(e.id, c.cours_code, a.aa_code, ev.target.value);
@@ -276,7 +306,7 @@ export default function EncodageUE({ ueNum, annee, onClose, onEnregistre, onPara
                         }),
                         <td key={`${e.id}|${c.cours_code}|mention`}
                           className="px-1 py-0.5 border-b border-slate-100 text-center whitespace-nowrap">
-                          {['NP', 'PP'].map(x => (
+                          {!ferme && ['NP', 'PP'].map(x => (
                             <button key={x}
                               onClick={() => poserMention(e.id, c.cours_code, m === x ? null : x)}
                               title={x === 'NP'

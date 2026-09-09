@@ -2898,12 +2898,53 @@ r.get('/ue/:ueNum/feuille', authRequired,
     `).all(ueNum, c.cours_code),
   }));
 
-  const etudiants = db.prepare(`
+  let etudiants = db.prepare(`
     SELECT e.id, e.nom, e.prenom, e.id_ecampus
     FROM etudiant_inscription i JOIN etudiant e ON e.id = i.etudiant_id
     WHERE i.annee_scolaire = ? AND i.ue_num = ?
     ORDER BY e.nom, e.prenom
   `).all(annee, ueNum);
+
+  // ── EN SECONDE SESSION, SEULS CEUX QUI LA PRÉSENTENT ─────────────────────
+  //
+  // La feuille d'encodage listait tout le monde, quelle que soit la session.
+  // Or celui qui a réussi en juin ne repasse rien, et le refusé non plus : leur
+  // ligne n'attend aucune note. La montrer, c'est inviter à en écrire une —
+  // et l'on ne s'aperçoit qu'à la délibération qu'une note de septembre est
+  // apparue chez quelqu'un qui n'y était pas.
+  //
+  // Et pour ceux qui la présentent, tous les cours ne se repassent pas : seuls
+  // ceux que le Conseil a ajournés. Les autres gardent la note de juin, que la
+  // seconde session ne doit ni redemander ni effacer.
+  const aRepresenter = {};
+  if (session === 2) {
+    const ajournes = new Set(db.prepare(`
+      SELECT etudiant_id FROM deliberation_resultat
+      WHERE annee_scolaire = ? AND ue_num = ? AND session = 1 AND resultat = 'ajourne'
+    `).all(annee, ueNum).map(l => l.etudiant_id));
+    // Le dossier fait foi quand la trace par session est muette — même règle
+    // que pour l'ouverture de la seconde session.
+    for (const l of db.prepare(`
+      SELECT etudiant_id FROM etudiant_inscription
+      WHERE annee_scolaire = ? AND ue_num = ? AND resultat = 'ajourne'
+    `).all(annee, ueNum)) ajournes.add(l.etudiant_id);
+
+    etudiants = etudiants.filter(e => ajournes.has(e.id));
+
+    for (const e of etudiants) {
+      const poses = db.prepare(`
+        SELECT code FROM deliberation_ajustement
+        WHERE etudiant_id = ? AND annee_scolaire = ? AND ue_num = ?
+          AND session = 1 AND portee = 'cours' AND action = 'ajourne'
+      `).all(e.id, annee, ueNum).map(l => l.code);
+      // Sans ajustement posé — un import ancien, une reprise —, on retombe sur
+      // ce que la délibération de juin dit être en défaut : mieux vaut une
+      // colonne ouverte de trop qu'une épreuve qu'on ne peut pas encoder.
+      aRepresenter[e.id] = poses.length ? poses
+        : (delibererUE(e.id, ueNum, annee, 1).cours || [])
+            .filter(c => c.na || c.echec).map(c => c.cours_code);
+    }
+  }
 
   // Les notes sont rangées par « cours|acquis » : un même acquis coté dans deux
   // cours a deux notes, et chacune appartient à son cours. La note portant la
@@ -2932,6 +2973,9 @@ r.get('/ue/:ueNum/feuille', authRequired,
 
   res.json({
     ue, annee, session, cours, etudiants, notes, mentions,
+    // En seconde session : qui la présente, et pour quels cours. L'écran s'en
+    // sert pour n'ouvrir que les colonnes qui attendent une note.
+    a_representer: session === 2 ? aRepresenter : null,
     epreuve_integree: estEpreuveIntegree(ueNum, annee),
     sans_acquis: cours.every(c => !c.acquis.length),
   });
