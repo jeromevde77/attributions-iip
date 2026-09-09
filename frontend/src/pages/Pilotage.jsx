@@ -824,6 +824,60 @@ export default function Pilotage() {
                 ))}
               </div>
 
+              {/* ── LES DEUX MOITIÉS DE L'ANNÉE CIVILE ──────────────────────
+                  Janvier-juin est le second quadrimestre de l'année scolaire
+                  qui s'achève : une fois celle-ci close, cette moitié est
+                  JOUÉE. Septembre-décembre n'est qu'engagé. Le total des deux
+                  cache la question qu'on se pose en juillet : « la première
+                  moitié est derrière moi, combien me reste-t-il pour la
+                  rentrée ? » */}
+              {(d.usage_jan_juin > 0 || d.usage_sep_dec > 0) && (
+                <div className="px-4 py-3 border-b border-gray-100">
+                  <div className="text-[9px] font-semibold text-gray-400 uppercase
+                                  tracking-wider mb-2">
+                    L'année civile en deux moitiés
+                  </div>
+                  <div className="grid grid-cols-3 gap-3">
+                    <div className="rounded-lg border border-gray-200 px-3 py-2">
+                      <div className="text-[10px] text-gray-500">
+                        Janvier – juin {d.annee_civile}
+                      </div>
+                      <div className="text-lg font-bold text-iip-blue leading-tight">
+                        {fmt(d.usage_jan_juin)}
+                      </div>
+                      <div className="text-[10px] text-gray-400">
+                        Q2 de {d.scolaire_jan_juin} — consommé
+                      </div>
+                    </div>
+                    <div className="rounded-lg border border-gray-200 px-3 py-2">
+                      <div className="text-[10px] text-gray-500">
+                        Septembre – décembre {d.annee_civile}
+                      </div>
+                      <div className="text-lg font-bold text-iip-blue leading-tight">
+                        {fmt(d.usage_sep_dec)}
+                      </div>
+                      <div className="text-[10px] text-gray-400">
+                        Q1 de {d.scolaire_sep_dec} — engagé, encore mouvant
+                      </div>
+                    </div>
+                    <div className={`rounded-lg border px-3 py-2 ${
+                      d.solde_apres_jan_juin < 0
+                        ? 'border-red-200 bg-red-50' : 'border-emerald-200 bg-emerald-50'}`}>
+                      <div className="text-[10px] text-gray-600">
+                        Reste pour la rentrée
+                      </div>
+                      <div className={`text-lg font-bold leading-tight ${
+                        d.solde_apres_jan_juin < 0 ? 'text-red-700' : 'text-emerald-800'}`}>
+                        {fmt(d.solde_apres_jan_juin)}
+                      </div>
+                      <div className="text-[10px] text-gray-500">
+                        après décompte de janvier – juin
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
+
               {/* ── LE SOLDE CONSTATÉ, EN FACE DU CALCUL ────────────────────
                   Ce que la direction sait d'une année dont la base n'a pas
                   encore tout : « tout utilisé sauf cinq périodes ». Il ne
