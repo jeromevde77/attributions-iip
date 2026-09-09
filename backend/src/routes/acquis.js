@@ -2745,7 +2745,10 @@ r.get('/cours/:coursCode/feuille', authRequired, (req, res) => {
   }
 
   res.json({
-    cours: co, annee, session, acquis, etudiants, notes, mentions,
+    // Le professeur qui porte le cours : l'écran d'encodage doit le nommer,
+    // ne serait-ce que pour qu'on s'aperçoive qu'on a ouvert celui d'un autre.
+    cours: { ...co, professeurs: profsParCours(co.ue_num, annee)[co.cours_code] || '' },
+    annee, session, acquis, etudiants, notes, mentions,
     // L'épreuve est commune à l'unité : ce n'est pas ici qu'on encode.
     epreuve_integree: estEpreuveIntegree(co.ue_num, annee),
     // Sans acquis rattaché, la saisie par cours n'a rien à montrer : mieux

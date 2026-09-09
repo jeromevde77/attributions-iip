@@ -1,7 +1,8 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { IconX, IconAlertTriangle, IconSearch, IconFileSpreadsheet } from '@tabler/icons-react';
 import { authHeaders } from '../lib/api.js';
 import ImportAcquisCours from './ImportAcquisCours.jsx';
+import { naviguerGrille, caseGrille } from '../lib/grilleClavier.js';
 
 /**
  * Saisie des notes D'UN COURS — l'écran du professeur.
@@ -38,6 +39,9 @@ const tonNote = n => {
 };
 
 export default function EncodageCours({ coursCode, annee, onClose, onEnregistre, onParametrer }) {
+  // La grille se parcourt au clavier : le conteneur écoute, chaque case porte
+  // ses coordonnées (voir lib/grilleClavier.js).
+  const grille = useRef(null);
   const [data, setData] = useState(null);
   const [erreur, setErreur] = useState(null);
   const [session, setSession] = useState(1);
@@ -123,6 +127,7 @@ export default function EncodageCours({ coursCode, annee, onClose, onEnregistre,
             <p className="text-[12px] text-slate-500">
               {data && `UE ${data.cours.ue_num} · ${data.etudiants.length} étudiant(s) · `}
               {data && `${data.acquis.length} acquis · `}{annee}
+              {data?.cours?.professeurs ? ` · ${data.cours.professeurs}` : ''}
             </p>
           </div>
           <div className="flex items-center gap-2">
@@ -218,7 +223,8 @@ export default function EncodageCours({ coursCode, annee, onClose, onEnregistre,
               </div>
 
               <div className="overflow-x-auto">
-                <table className="text-[12px] border-collapse">
+                <table ref={grille} onKeyDown={ev => naviguerGrille(ev, grille.current)}
+                  className="text-[12px] border-collapse">
                   <thead>
                     <tr>
                       <th className="sticky left-0 bg-white text-left px-3 py-1.5
@@ -248,7 +254,7 @@ export default function EncodageCours({ coursCode, annee, onClose, onEnregistre,
                       .filter(e => !recherche.trim()
                         || `${e.nom} ${e.prenom} ${e.id_ecampus || ''}`.toLowerCase()
                              .includes(recherche.trim().toLowerCase()))
-                      .map(e => (
+                      .map((e, ligne) => (
                       <tr key={e.id} className="hover:bg-slate-50/60">
                         <td className="sticky left-0 bg-white px-3 py-1
                                        border-b border-r border-slate-100">
@@ -278,7 +284,7 @@ export default function EncodageCours({ coursCode, annee, onClose, onEnregistre,
                           </div>
                         </td>
 
-                        {data.acquis.map(a => {
+                        {data.acquis.map((a, nc) => {
                           const v = data.notes[e.id]?.[a.aa_code];
                           const men = data.mentions?.[e.id];
                           return (
@@ -291,7 +297,7 @@ export default function EncodageCours({ coursCode, annee, onClose, onEnregistre,
                                   {men}
                                 </span>
                               ) : (
-                                <input type="number" min="0" max="20" step="1"
+                                <input {...caseGrille(ligne, nc)}
                                   defaultValue={v ?? ''}
                                   key={`${e.id}-${a.aa_code}-${session}-${v ?? ''}`}
                                   onBlur={ev => {
