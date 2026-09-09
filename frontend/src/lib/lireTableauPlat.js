@@ -68,8 +68,19 @@ export const CHAMPS = [
     motifs: ['heurevisite', 'creneauvisite', 'creneau', 'plagevisite'] },
   { cle: 'visite_local', libelle: 'Visite des copies — local', requis: false,
     motifs: ['localvisite', 'local', 'lieuvisite', 'salle'] },
-  { cle: 'session2_date', libelle: 'Seconde session — date', requis: false,
-    motifs: ['datesecondesession', 'dates2', 'secondesession', 'datesession2'] },
+  { cle: 'session2_date', libelle: 'Épreuves de septembre — date', requis: false,
+    motifs: ['epreuvessecondesessiondate', 'epreuvesseptembredate',
+             'dateepreuvessecondesession', 'dateepreuvesseptembre', 'datesecondesession',
+             'dateepreuves2', 'dates2', 'epreuvessecondesession', 'epreuvesseptembre',
+             'secondesession', 'datesession2'] },
+  { cle: 'session2_heure', libelle: 'Épreuves de septembre — heure', requis: false,
+    motifs: ['epreuvessecondesessionheure', 'epreuvesseptembreheure',
+             'heureepreuvessecondesession', 'heureepreuvesseptembre',
+             'heuresecondesession', 'heuresession2', 'heures2'] },
+  { cle: 'session2_local', libelle: 'Épreuves de septembre — local', requis: false,
+    motifs: ['epreuvessecondesessionlocal', 'epreuvesseptembrelocal',
+             'localepreuvessecondesession', 'localepreuvesseptembre',
+             'localsecondesession', 'localsession2', 'locals2'] },
   { cle: 'president_nom', libelle: 'Présidence', requis: false,
     motifs: ['presidence', 'president', 'presidentjury', 'presidentdujury'] },
 ];
@@ -125,6 +136,15 @@ export function construirePlanning(lignes, colonnes) {
       visite_date: versISO(val(l, 'visite_date')),
       visite_heure: versHeure(val(l, 'visite_heure')),
       visite_local: String(val(l, 'visite_local') ?? '').trim() || null,
+      // LA DATE DES ÉPREUVES DE SEPTEMBRE, quand le planning la porte. Elle
+      // n'est pas la date de la délibération de seconde session : c'est le
+      // jour où l'ajourné REPASSE, et c'est elle que l'annexe 8 lui annonce.
+      // L'annexe la lit sur la séance de PREMIÈRE session — c'est là que le
+      // Conseil l'a fixée —, aussi la porte-t-on telle que le fichier la
+      // donne, sur la ligne où elle est écrite.
+      session2_date: versISO(val(l, 'session2_date')),
+      session2_heure: versHeure(val(l, 'session2_heure')),
+      session2_local: String(val(l, 'session2_local') ?? '').trim() || null,
     };
     const pres = String(val(l, 'president_nom') ?? '').trim();
     if (pres) {
