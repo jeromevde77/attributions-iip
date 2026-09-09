@@ -2922,14 +2922,40 @@ r.get('/ue/:ueNum/feuille', authRequired,
       SELECT etudiant_id FROM deliberation_resultat
       WHERE annee_scolaire = ? AND ue_num = ? AND session = 1 AND resultat = 'ajourne'
     `).all(annee, ueNum).map(l => l.etudiant_id));
-    // Le dossier fait foi quand la trace par session est muette — même règle
-    // que pour l'ouverture de la seconde session.
+
+    // LE DOSSIER NE COMPLÈTE LA TRACE QUE LÀ OÙ ELLE SE TAIT.
+    //
+    // Les deux sources étaient RÉUNIES : il suffisait qu'une seule dise
+    // « ajourné » pour que l'étudiant revienne en septembre. Un refusé de juin
+    // dont le dossier porte encore un ajournement d'un import antérieur — ou
+    // l'inverse — se retrouvait donc convoqué à une session qu'il ne présente
+    // pas, avec tous ses cours ouverts. Or le refus est définitif (RGE
+    // art. 69 §2) : ce n'est pas une épreuve de plus, c'est une porte fermée.
+    //
+    // La trace de la séance de juin fait foi dès qu'elle existe. Le dossier
+    // n'est consulté que pour ceux dont aucune décision de première session
+    // n'a été écrite — un classeur repris, une délibération jamais tenue ici.
+    const decideEnS1 = new Set(db.prepare(`
+      SELECT etudiant_id FROM deliberation_resultat
+      WHERE annee_scolaire = ? AND ue_num = ? AND session = 1
+        AND resultat IS NOT NULL AND resultat != ''
+    `).all(annee, ueNum).map(l => l.etudiant_id));
     for (const l of db.prepare(`
       SELECT etudiant_id FROM etudiant_inscription
       WHERE annee_scolaire = ? AND ue_num = ? AND resultat = 'ajourne'
-    `).all(annee, ueNum)) ajournes.add(l.etudiant_id);
+    `).all(annee, ueNum)) {
+      if (!decideEnS1.has(l.etudiant_id)) ajournes.add(l.etudiant_id);
+    }
 
     etudiants = etudiants.filter(e => ajournes.has(e.id));
+
+    // POURQUOI CET ÉTUDIANT EST-IL LÀ ? La question se pose devant l'écran, et
+    // jusqu'ici rien n'y répondait : on voyait une liste, sans savoir de quelle
+    // décision elle procédait. On dit donc, pour chacun, d'où vient
+    // l'ajournement — la séance de juin, ou le dossier faute de séance.
+    for (const e of etudiants) {
+      e.source_s2 = decideEnS1.has(e.id) ? 'seance' : 'dossier';
+    }
 
     for (const e of etudiants) {
       const poses = db.prepare(`

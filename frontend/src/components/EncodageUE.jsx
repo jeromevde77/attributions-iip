@@ -280,6 +280,17 @@ export default function EncodageUE({ ueNum, annee, onClose, onEnregistre, onPara
                                    whitespace-nowrap border-b border-slate-100">
                       <span className="font-medium text-slate-800">{e.nom}</span>{' '}
                       <span className="text-slate-500">{e.prenom}</span>
+                      {/* D'OÙ VIENT SA PRÉSENCE ICI. Devant une liste de
+                          seconde session, la première question est « pourquoi
+                          celui-là ? » — et rien n'y répondait. */}
+                      {e.source_s2 === 'dossier' && (
+                        <span title="Ajourné d'après le dossier : aucune décision de première
+                                     session n'a été enregistrée pour cette unité"
+                          className="ml-1.5 text-[9px] uppercase tracking-wide text-amber-700
+                                     bg-amber-50 border border-amber-200 rounded px-1 py-px">
+                          dossier
+                        </span>
+                      )}
                     </td>
                     {data.cours.filter(c => c.acquis?.length).flatMap(c => {
                       const m = mention(e, c.cours_code);
