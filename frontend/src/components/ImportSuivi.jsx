@@ -30,6 +30,10 @@ export default function ImportSuivi({ annee, onClose, onFini }) {
   // les décisions telles quelles, sans passer par le moteur d'acquis.
   const [migration, setMigration] = useState(false);
   const [justifDefaut, setJustifDefaut] = useState('');
+  // LES DATES DE LA SÉANCE, par unité. Elles ne sont pas dans le classeur :
+  // elles viennent du planning de délibération, et se déclarent donc ici.
+  const [seances, setSeances] = useState({});   // ue_num → { s1: {...}, s2: {...} }
+  const [clore, setClore] = useState(false);
   const [rapport, setRapport] = useState(null);
   const [applique, setApplique] = useState(false);
   const [erreur, setErreur] = useState(null);
@@ -65,7 +69,9 @@ export default function ImportSuivi({ annee, onClose, onFini }) {
           annee, simulation, ...quoi,
           migration,
           justification_defaut: migration ? justifDefaut.trim() : '',
-          unites: unites.filter(u => choisies.has(u.ue_num)),
+          unites: unites.filter(u => choisies.has(u.ue_num)).map(u => (migration
+            ? { ...u, seance: { ...(seances[u.ue_num] || {}), cloturer: clore } }
+            : u)),
         }),
       });
       const j = await rep.json();
@@ -236,6 +242,92 @@ export default function ImportSuivi({ annee, onClose, onFini }) {
                 )}
               </div>
 
+              {/* ── LES DATES DE LA SÉANCE, PAR UNITÉ ────────────────────────
+                  Une décision sans date n'est pas notifiable : c'est d'elle
+                  que court le délai de recours, c'est elle qui figure au
+                  procès-verbal, et la visite des copies est un droit qu'il
+                  faut pouvoir situer. Ces dates ne sont pas dans le classeur —
+                  elles viennent du planning —, donc on les déclare. */}
+              {migration && !!choisies.size && (
+                <div className="mx-1 rounded-xl border border-slate-200 overflow-hidden">
+                  <div className="px-3 py-2 bg-slate-50 border-b border-slate-200
+                                  flex items-center gap-2 flex-wrap">
+                    <span className="text-[12.5px] font-semibold text-iip-blue">
+                      Les séances — dates de délibération et de visite des copies
+                    </span>
+                    <span className="flex-1" />
+                    <label className="flex items-center gap-1.5 text-[11.5px] text-slate-700">
+                      <input type="checkbox" checked={clore} className="w-4 h-4 accent-iip-blue"
+                        onChange={e => setClore(e.target.checked)} />
+                      Clôturer les séances
+                    </label>
+                  </div>
+                  <div className="px-3 py-2 border-b border-slate-100 flex items-end gap-2 flex-wrap">
+                    <span className="text-[11.5px] text-slate-500 self-center">
+                      Reporter sur toutes les unités cochées :
+                    </span>
+                    {[['date_seance', 'Délibération', 'date'],
+                      ['visite_date', 'Visite des copies', 'date'],
+                      ['session2_date', '2e session', 'date']].map(([k, lib, type]) => (
+                      <label key={k} className="text-[11px] text-slate-600">
+                        {lib}
+                        <input type={type}
+                          onChange={ev => {
+                            const v = ev.target.value;
+                            setSeances(m => {
+                              const n = { ...m };
+                              for (const u of unites.filter(x => choisies.has(x.ue_num))) {
+                                const p0 = n[u.ue_num] || {};
+                                n[u.ue_num] = { ...p0, s1: { ...(p0.s1 || {}), [k]: v } };
+                              }
+                              return n;
+                            });
+                          }}
+                          className="block mt-0.5 px-2 py-1 border border-slate-300
+                                     rounded-lg text-[12px]" />
+                      </label>
+                    ))}
+                  </div>
+                  <div className="max-h-[26vh] overflow-y-auto divide-y divide-slate-100">
+                    {unites.filter(u => choisies.has(u.ue_num)).map(u => {
+                      const v = (seances[u.ue_num]?.s1) || {};
+                      const set = (k, val) => setSeances(m => {
+                        const p0 = m[u.ue_num] || {};
+                        return { ...m, [u.ue_num]: { ...p0, s1: { ...(p0.s1 || {}), [k]: val } } };
+                      });
+                      return (
+                        <div key={u.ue_num} className="px-3 py-1.5 flex items-center gap-2 flex-wrap">
+                          <span className="w-16 text-[12px] tabular-nums text-slate-500">
+                            UE {u.ue_num}
+                          </span>
+                          {[['date_seance', 'délibération', 'date'],
+                            ['heure_seance', 'heure', 'time'],
+                            ['visite_date', 'visite', 'date'],
+                            ['session2_date', '2e session', 'date']].map(([k, ph, type]) => (
+                            <label key={k} className="text-[10.5px] text-slate-500">
+                              {ph}
+                              <input type={type} value={v[k] || ''}
+                                onChange={e => set(k, e.target.value)}
+                                className="block px-1.5 py-0.5 border border-slate-300
+                                           rounded text-[11.5px]" />
+                            </label>
+                          ))}
+                          <input value={v.visite_local || ''} placeholder="local de la visite"
+                            onChange={e => set('visite_local', e.target.value)}
+                            className="flex-1 min-w-[120px] px-2 py-1 border border-slate-300
+                                       rounded text-[11.5px]" />
+                        </div>
+                      );
+                    })}
+                  </div>
+                  <div className="px-3 py-2 text-[11px] text-slate-500 bg-slate-50">
+                    Une unité laissée vide n'écrase rien : sa séance reste en l'état.
+                    {clore && ' Clôturer fige l’acte et fait courir le délai de recours — '
+                      + 'ne cochez que pour des séances réellement tenues.'}
+                  </div>
+                </div>
+              )}
+
               {(quoi.creer || quoi.inscrire) && (
                 <div className="mx-1 px-3 py-2 rounded-lg bg-amber-50 border border-amber-200
                                 text-[11.5px] text-amber-900">
@@ -280,6 +372,8 @@ export default function ImportSuivi({ annee, onClose, onFini }) {
                   ['motifs repris', rapport.total.motifs || 0],
                   ['motifs imposés', rapport.total.motifs_imposes || 0],
                   ['sans motif', rapport.total.sans_motif || 0],
+                  ['séances', rapport.total.seances || 0],
+                  ['séances sans date', rapport.total.seances_sans_date || 0],
                   ['cours à représenter', rapport.total.ajournements],
                   ['acquis', rapport.total.acquis],
                   ['non rapprochés', rapport.total.inconnus + rapport.total.hors_inscription
