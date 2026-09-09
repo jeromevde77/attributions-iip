@@ -3,6 +3,7 @@ import { useSearchParams } from 'react-router-dom';
 import Axe from '../components/Axe.jsx';
 import Attributions from './Attributions.jsx';
 import Planification from './Planification.jsx';
+import HoraireComparateur from './HoraireComparateur.jsx';
 import DUE from './DUE.jsx';
 import DatesUE from '../components/DatesUE.jsx';
 import StructureSection from './StructureSection.jsx';
@@ -57,6 +58,14 @@ export default function Organisation({ ongletInitial }) {
         // qu'il parle, et les titulaires y accèdent pour leurs propres unités.
         { key: 'due', label: "Descriptifs d'UE", sansMarge: true,
           rendu: <DUE /> },
+        // L'HORAIRE VIENT D'AILLEURS, ET PERSONNE NE LE RELIT. Les
+        // coordinations le bâtissent dans Hyperplanning à partir des
+        // attributions ; que l'horaire dépense bien ce qui a été accordé, et
+        // par les bonnes personnes, ne se vérifiait nulle part.
+        { key: 'horaire', label: 'Horaire ↔ attributions', sansMarge: true,
+          rendu: annee
+            ? <HoraireComparateur annee={annee} />
+            : <div className="text-sm text-slate-400 p-4">Chargement de l'année active…</div> },
         { key: 'planification', label: 'Horaires & planification', sansMarge: true,
           rendu: <Planification /> },
         { key: 'locaux', label: 'Locaux', futur: true,
