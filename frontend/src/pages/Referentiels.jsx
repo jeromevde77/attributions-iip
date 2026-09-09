@@ -325,13 +325,21 @@ function SectionModal({ section, onClose, onSaved, annee, isAdmin }) {
   }
 
   return (
-    <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50" onClick={e => e.target === e.currentTarget && onClose()}>
-      <div className="bg-white rounded-xl shadow-2xl max-w-md w-full border-t-4 border-iip-gold">
-        <div className="flex items-center justify-between px-5 py-3 border-b">
+    <div className="fixed inset-0 bg-black/50 flex items-start justify-center p-4 z-50 overflow-y-auto"
+      onClick={e => e.target === e.currentTarget && onClose()}>
+      {/* CETTE FENÊTRE N'AVAIT AUCUN PLAFOND DE HAUTEUR. Elle tenait tant que la
+          section n'avait qu'un code et un libellé ; depuis qu'elle porte la
+          COMPOSITION du programme — deux listes d'unités —, elle dépasse par le
+          haut ET par le bas, et ni le titre ni les boutons ne sont atteignables.
+          On la plafonne à la fenêtre, marges comprises, on l'ancre en haut, et
+          le formulaire défile à l'intérieur. */}
+      <div className="bg-white rounded-xl shadow-2xl max-w-md w-full border-t-4 border-iip-gold
+                      max-h-[calc(100vh-2rem)] overflow-hidden flex flex-col">
+        <div className="flex items-center justify-between px-5 py-3 border-b flex-shrink-0">
           <h2 className="font-title text-lg text-iip-gold">{isNew ? 'Nouvelle section' : `Modifier ${section.code}`}</h2>
           <button onClick={onClose} className="text-gray-400 hover:text-red-500 text-2xl"><IconX size={20} /></button>
         </div>
-        <form onSubmit={submit} className="p-5 space-y-3">
+        <form onSubmit={submit} className="flex-1 min-h-0 overflow-y-auto p-5 space-y-3">
           <div className="grid grid-cols-2 gap-3">
             <label className="block"><div className="text-xs text-gray-600 mb-0.5">Code *</div>
               <input value={form.code} onChange={e => set('code', e.target.value)} placeholder="ex: TIM"
@@ -609,7 +617,10 @@ function UEModal({ ue, sections, onClose, onSaved }) {
             </div>
           )}
 
-          <div className="flex justify-end gap-2 pt-2 border-t">
+          {/* Les boutons restent au bord : sur une fiche longue, « Enregistrer »
+              se trouvait tout en bas d'un défilement de deux écrans. */}
+          <div className="sticky bottom-0 -mx-5 -mb-5 px-5 py-3 bg-white border-t
+                          flex justify-end gap-2">
             <button type="button" onClick={onClose} className="px-4 py-2 text-sm text-gray-600">Annuler</button>
             <button type="submit" disabled={saving} className="bg-iip-blue hover:bg-iip-blue-dark disabled:opacity-40 text-white text-sm px-5 py-2 rounded font-medium">
               {saving ? '…' : isNew ? 'Créer' : 'Enregistrer'}
