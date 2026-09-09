@@ -1846,6 +1846,14 @@ export default function Etudiants() {
   // liste ; l'année et l'unité la complètent, et les trois se choisissent aussi
   // depuis la fiche ouverte. Une seule source de vérité : ce que la barre de la
   // fiche change, la liste derrière le change aussi. Rien ne se contredit.
+  // LES DIPLÔMÉS NE SONT PLUS DES ÉTUDIANTS EN COURS DE PARCOURS.
+  //
+  // Réussir l'épreuve intégrée, c'est être diplômé : elle ne se présente
+  // qu'une fois toutes les autres unités acquises. Les garder dans la liste
+  // fausse ce qu'on y cherche — les effectifs, les inscriptions à faire, les
+  // dossiers à suivre — et personne ne s'en aperçoit, parce qu'une liste trop
+  // longue ne se voit pas. On les sort par défaut, sans les perdre.
+  const [statut, setStatut] = useState('en_cours');
   const [anneeCohorte, setAnneeCohorte] = useState('');
   const [ueCohorte, setUeCohorte] = useState('');
   const [uesCohorte, setUesCohorte] = useState([]);
@@ -2047,6 +2055,7 @@ export default function Etudiants() {
       const params = new URLSearchParams();
       if (section) params.set('section', section);
       if (anneeCohorte) params.set('annee', anneeCohorte);
+      if (statut) params.set('statut', statut);
       if (ueCohorte) params.set('ue_num', ueCohorte);
       if (recherche) params.set('q', recherche);
       const rep = await fetch(`/api/etudiants?${params}`, { headers: authHeaders() });
@@ -2074,7 +2083,7 @@ export default function Etudiants() {
   }, []);
 
   useEffect(() => { charger(); /* eslint-disable-next-line */ },
-    [annee, section, anneeCohorte, ueCohorte]);
+    [annee, section, anneeCohorte, ueCohorte, statut]);
 
   // Les UE proposées suivent la section et l'année choisies : proposer les
   // quatre-vingts unités de l'établissement ne servirait personne.
@@ -2254,6 +2263,21 @@ export default function Etudiants() {
           <option value="">Toutes les sections</option>
           {sections.map(s => <option key={s.code} value={s.code}>{s.libelle}</option>)}
         </select>
+        <div className="flex rounded-lg border border-slate-300 overflow-hidden">
+          {[
+            { k: 'en_cours', l: 'En cours',
+              t: 'Les étudiants dont le parcours n’est pas achevé' },
+            { k: 'diplomes', l: 'Diplômés',
+              t: 'Ceux qui ont réussi leur épreuve intégrée : le diplôme est acquis' },
+            { k: 'tous', l: 'Tous', t: 'Les uns et les autres' },
+          ].map(x => (
+            <button key={x.k} onClick={() => setStatut(x.k)} title={x.t}
+              className={`px-3 py-2 text-[12.5px] ${statut === x.k
+                ? 'bg-iip-blue text-white font-semibold' : 'text-slate-600'}`}>
+              {x.l}
+            </button>
+          ))}
+        </div>
       </div>
 
       {erreurListe && (
@@ -2365,6 +2389,18 @@ export default function Etudiants() {
                   <td className="px-4 py-2.5 text-[11.5px] text-slate-500">{e.sections}</td>
                   <td className="px-4 py-2.5">
                     <BadgeNiveau niveau={e.niveau} libelle={e.niveau_libelle} />
+                    {/* Le diplôme se dit là où on lit le niveau : c'est la même
+                        question — où en est cette personne. */}
+                    {e.diplome && (
+                      <span title={`Épreuve intégrée réussie${
+                        e.diplome_annee ? ` en ${e.diplome_annee}` : ''}${
+                        e.diplome_ue ? ` (UE ${e.diplome_ue})` : ''} — diplôme acquis`}
+                        className="ml-1.5 text-[10px] font-semibold uppercase tracking-wide
+                                   text-emerald-800 bg-emerald-50 border border-emerald-200
+                                   rounded px-1.5 py-px">
+                        diplômé{e.diplome_annee ? ` ${e.diplome_annee.slice(-4)}` : ''}
+                      </span>
+                    )}
                   </td>
                   <td className="px-4 py-2.5 text-right font-medium text-iip-blue">{e.nb_ue}</td>
                   <td className="px-4 py-2.5 text-slate-300"><IconChevronRight size={16} /></td>

@@ -298,7 +298,7 @@ r.get('/', authRequired, (req, res) => {
   // encore faut-il pouvoir dire de QUELS étudiants il s'agit. « Les inscrits de
   // l'UE 246 en 2024-2025 » est la cohorte qu'on veut suivre — la liste
   // complète de l'établissement ne se parcourt pas.
-  const { section, q, ue_num: ueNum, annee: anneeFiltre } = req.query;
+  const { section, q, ue_num: ueNum, annee: anneeFiltre, statut } = req.query;
   const autorisees = perimetre(req);
   if (section && !sectionAutoriseeReq(req, section)) {
     return res.status(403).json({ error: 'Section hors de votre périmètre' });
@@ -336,16 +336,61 @@ r.get('/', authRequired, (req, res) => {
   const anneeActive = anneeDeTravail(req);
   const rows = db.prepare(sql).all(...params);
 
+  // ── QUI EST DIPLÔMÉ ──────────────────────────────────────────────────────
+  //
+  // Réussir l'épreuve intégrée, c'est être diplômé : elle ne se présente
+  // qu'une fois toutes les autres unités acquises, et sa réussite vaut donc
+  // pour tout le reste. Le critère est objectif, il n'y a rien à saisir.
+  //
+  // Un diplômé n'est plus un étudiant en cours de parcours : le laisser dans
+  // la liste fausse ce qu'on y cherche — les effectifs, les inscriptions à
+  // faire, les dossiers à suivre — et personne ne s'en aperçoit, parce qu'une
+  // liste trop longue ne se voit pas.
+  //
+  // DEUX SOURCES DISENT L'ÉPREUVE INTÉGRÉE, et il faut lire les deux : la
+  // table annuelle « ue_epreuve_integree » et l'ancienne colonne
+  // « ue.is_epreuve_integree ». Une seule d'entre elles est renseignée selon
+  // l'unité et l'année ; s'en tenir à une seule diplômait la moitié des gens.
+  const diplomes = new Map();
+  try {
+    const ei = new Set();
+    try {
+      for (const l of db.prepare(
+        'SELECT ue_num FROM ue_epreuve_integree WHERE actif = 1').all()) ei.add(l.ue_num);
+    } catch { /* table absente : la colonne suffira */ }
+    try {
+      for (const l of db.prepare(
+        'SELECT ue_num FROM ue WHERE is_epreuve_integree = 1').all()) ei.add(l.ue_num);
+    } catch { /* colonne absente */ }
+    if (ei.size) {
+      const dans = [...ei].map(() => '?').join(',');
+      for (const l of db.prepare(`
+        SELECT etudiant_id, MAX(annee_scolaire) AS annee, ue_num
+        FROM etudiant_inscription
+        WHERE resultat IN ('reussi','valorise') AND ue_num IN (${dans})
+        GROUP BY etudiant_id
+      `).all(...ei)) diplomes.set(l.etudiant_id, { annee: l.annee, ue_num: l.ue_num });
+    }
+  } catch (e) { console.error('[étudiants] diplômés :', e.message); }
+
   // Les PAE confirmés de l'année : une seule requête plutôt qu'une par ligne.
   const confirmes = new Set(db.prepare(
     'SELECT etudiant_id FROM etudiant_pae WHERE annee_scolaire = ? AND confirme_le IS NOT NULL'
   ).all(anneeActive).map(x => x.etudiant_id));
 
-  res.json(rows.map(r0 => {
+  const vus = rows.filter(r0 => {
+    if (statut === 'diplomes') return diplomes.has(r0.id);
+    if (statut === 'en_cours') return !diplomes.has(r0.id);
+    return true;                      // « tous », ou aucun filtre demandé
+  });
+
+  res.json(vus.map(r0 => {
     const n = niveauEtudiant(r0.id, anneeActive);
     const rat = sectionRattachement(r0.id, anneeActive);
+    const d = diplomes.get(r0.id) || null;
     return {
       ...r0, niveau: n.niveau, niveau_libelle: n.libelle,
+      diplome: !!d, diplome_annee: d?.annee || null, diplome_ue: d?.ue_num || null,
       // Tant que le programme n'est pas confirmé, il n'est qu'une proposition.
       pae_confirme: confirmes.has(r0.id),
       section_rattachement: rat.section,

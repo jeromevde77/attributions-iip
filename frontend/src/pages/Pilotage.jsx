@@ -475,6 +475,8 @@ function DotationComparaison({ civil }) {
   );
 }
 
+import StatsDeliberation from '../components/StatsDeliberation.jsx';
+
 export default function Pilotage() {
   const anneeActive = getAnnee();
   const [tab, setTab]               = useState('synthese'); // synthese | etp | dotation | config
@@ -1490,6 +1492,11 @@ export default function Pilotage() {
           ...(getUser()?.role === 'coordination' ? [] : [
             { key: 'repartition', label: 'Répartition des périodes', icon: IconCalendar, actif: tab === 'repartition', onClick: () => setTab('repartition') },
           ]),
+          // CE QUE LE CONSEIL A DÉCIDÉ, en chiffres. Ces taux se
+          // reconstituaient à la main pour le rapport d'activité alors qu'ils
+          // sont déjà en base.
+          { key: 'deliberation', label: 'Résultats', icon: IconChartBar,
+            actif: tab === 'deliberation', onClick: () => setTab('deliberation') },
           { key: 'config',   label: 'Configuration', icon: IconSettings, actif: tab === 'config',   onClick: () => setTab('config') },
         ] }]}
       />
@@ -1513,6 +1520,7 @@ export default function Pilotage() {
             {tab === 'synthese' && renderSynthese()}
             {tab === 'etp'      && renderETP()}
             {tab === 'dotation' && <DotationComparaison civil={civil} />}
+            {tab === 'deliberation' && <StatsDeliberation annee={anneeActive} />}
             {tab === 'config'   && renderConfig()}
           </>
         )}
