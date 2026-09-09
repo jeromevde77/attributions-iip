@@ -331,6 +331,33 @@ export default function ImportTableauPlat({ annee, onClose, onFini }) {
                       <div className="text-[12.5px] font-semibold mb-2 text-slate-800">
                         {applique ? 'Import appliqué' : 'Simulation — rien n’a été écrit'}
                       </div>
+                      {/* POURQUOI UNE UNITÉ N'A RIEN REÇU. Le serveur le dit,
+                          unité par unité — « inconnue en 2025-2026 », « hors de
+                          votre périmètre » — et l'écran ne le montrait pas : on
+                          lisait « 0 séance » sans savoir si le fichier était
+                          mauvais, l'année mal choisie, ou l'unité absente. Un
+                          import qui ne dit pas pourquoi il n'a rien fait est un
+                          import qu'on refait au hasard. */}
+                      {!!(rapport.unites || []).filter(u => u.ignoree).length && (
+                        <div className="mb-2 px-3 py-2 rounded-lg bg-red-50 border
+                                        border-red-200 text-[11.5px] text-red-800">
+                          <b>{rapport.unites.filter(u => u.ignoree).length} unité(s) écartée(s)
+                          — rien ne leur a été écrit :</b>
+                          <div className="mt-1 max-h-28 overflow-y-auto">
+                            {rapport.unites.filter(u => u.ignoree).map(u => (
+                              <div key={u.ue_num}>UE {u.ue_num} — {u.ignoree}</div>
+                            ))}
+                          </div>
+                          {rapport.unites.some(u => /inconnue en/.test(u.ignoree || '')) && (
+                            <div className="mt-1.5 pt-1.5 border-t border-red-200">
+                              « Inconnue en … » veut dire que l'unité n'existe pas dans
+                              l'année affichée en haut de Lucie. Vérifiez le sélecteur
+                              d'année : un planning de 2025-2026 importé en 2026-2027
+                              ne trouve rien.
+                            </div>
+                          )}
+                        </div>
+                      )}
                       <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-center">
                         {[['décisions', rapport.total.decisions],
                           ['cotes', rapport.total.cotes || 0],
