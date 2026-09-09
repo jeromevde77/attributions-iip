@@ -4186,6 +4186,269 @@ export function documentAjournesParCours(ueNum, annee, session = 1) {
 
 
 
+const STYLE_DOSSIER = `<style>
+  .grille { font-size: 7pt; width: 100%; border-collapse: collapse; table-layout: fixed; }
+  .grille th, .grille td { border: 0.25mm solid #cbd2dd; padding: 0.6mm 1mm; text-align: center; }
+  .grille th { background: #eef2f7; font-weight: 700; color: #1B2B4B; }
+  .grille td.nom { text-align: left; white-space: nowrap; max-width: 46mm;
+                   overflow: hidden; text-overflow: ellipsis; }
+  .grille .sep { border-left: 0.5mm solid #94a3b8; }
+  .grille .faible { color: #b91c1c; font-weight: 700; }
+  .grille .vide { color: #cbd2dd; }
+  .grille .dec { font-weight: 700; white-space: nowrap; }
+  .grille .dec-reussi { color: #15803d; } .grille .dec-ajourne { color: #b45309; }
+  .grille .dec-refuse { color: #b91c1c; }
+  .legende { font-size: 7.5pt; color: #5b6577; margin-top: 2mm; }
+</style>`;
+
+/**
+ * LA GRILLE DE LA DÉLIBÉRATION — ce que le Conseil avait sous les yeux.
+ *
+ * C'est la pièce qui manquait, et c'est la plus importante : tout le reste en
+ * découle. Le procès-verbal donne les décisions, les notifications les
+ * motivent — mais aucun document ne montrait les COTES sur lesquelles le
+ * Conseil a délibéré. Elles ne vivaient qu'à l'écran. Un recours, une
+ * inspection, une vérification six mois plus tard : il fallait rouvrir Lucie.
+ *
+ * Une ligne par étudiant, une colonne par acquis regroupée sous son cours, la
+ * note du cours, la note de l'unité, la décision. Ce qui est sous le seuil est
+ * signalé — c'est ce qu'on cherche du regard.
+ */
+export function pageGrilleDeliberation(ueNum, annee, session = 1) {
+  const ident = identiteEtablissement();
+  const esc0 = t => String(t ?? '').replace(/[&<>"]/g,
+    x => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[x]));
+  const n2 = v => (v == null ? '<span class="vide">—</span>'
+    : `<span class="${v < SEUIL_UE ? 'faible' : ''}">${Number(v).toFixed(1).replace('.', ',')}</span>`);
+
+  const ue = db.prepare(`SELECT ue_nom, section FROM ue WHERE ue_num = ?
+    ORDER BY (annee_scolaire = ?) DESC, annee_scolaire DESC LIMIT 1`).get(ueNum, annee) || {};
+  const etudiants = db.prepare(`
+    SELECT e.id, e.nom, e.prenom, e.id_ecampus
+    FROM etudiant_inscription i JOIN etudiant e ON e.id = i.etudiant_id
+    WHERE i.annee_scolaire = ? AND i.ue_num = ? ORDER BY e.nom, e.prenom
+  `).all(annee, ueNum);
+
+  if (!etudiants.length) {
+    return { corps: '', style: STYLE_DOSSIER, vide: true };
+  }
+
+  // La structure vient du premier étudiant : cours et acquis sont les mêmes
+  // pour tous, c'est le référentiel de l'unité.
+  const modele = delibererUE(etudiants[0].id, ueNum, annee, session);
+  const cours = (modele.cours || []).map(c => ({
+    cours_code: c.cours_code, cours_nom: c.cours_nom,
+    aas: (c.aas || []).map(a => (typeof a === 'string' ? a : a.aa_code)),
+  }));
+  const nbCol = cours.reduce((n, c) => n + c.aas.length + 1, 0);
+
+  const lignes = etudiants.map(e => {
+    const d = delibererUE(e.id, ueNum, annee, session);
+    const parAA = {};
+    for (const c of (d.cours || [])) {
+      for (const a of (d.acquis || [])) {
+        const ev = (a.evaluations || []).find(x => x.cours_code === c.cours_code);
+        if (ev) parAA[`${c.cours_code}|${a.aa_code}`] = ev.note ?? a.note;
+      }
+    }
+    const noteCours = Object.fromEntries((d.cours || []).map(c => [c.cours_code, c.note]));
+    const naCours = Object.fromEntries((d.cours || []).map(c => [c.cours_code, c.na]));
+    const dec = d.ue?.decision_proposee || null;
+    const arrete = db.prepare(`SELECT resultat FROM deliberation_resultat
+      WHERE etudiant_id = ? AND annee_scolaire = ? AND ue_num = ? AND session = ?`)
+      .get(e.id, annee, ueNum, session)?.resultat
+      || db.prepare(`SELECT resultat FROM etudiant_inscription
+        WHERE etudiant_id = ? AND annee_scolaire = ? AND ue_num = ?`)
+        .get(e.id, annee, ueNum)?.resultat || null;
+
+    const cells = cours.flatMap(c => [
+      ...c.aas.map((aa, i) => `<td class="${i === 0 ? 'sep' : ''}">`
+        + `${n2(parAA[`${c.cours_code}|${aa}`])}</td>`),
+      `<td><b>${naCours[c.cours_code] ? '<span class="faible">NA</span>'
+        : n2(noteCours[c.cours_code])}</b></td>`,
+    ]);
+    const LIB = { reussi: 'Réussi', ajourne: 'Ajourné', refuse: 'Refusé', absent: 'Absent' };
+    return `<tr>
+      <td class="nom">${esc0(e.nom)} ${esc0(e.prenom)}</td>
+      ${cells.join('')}
+      <td class="sep"><b>${n2(d.ue?.note)}</b></td>
+      <td class="dec dec-${arrete || dec || ''}">${LIB[arrete] || (dec ? `(${LIB[dec]})` : '—')}</td>
+    </tr>`;
+  });
+
+  const corps = `<div class="attestation">
+    <div class="entete">
+      <div class="nom">${esc0(ident.nom || 'INSTITUT ILYA PRIGOGINE')}</div>
+      <div class="sous">Grille de délibération —
+        ${session === 2 ? 'seconde' : 'première'} session · ${esc0(annee)}</div>
+    </div>
+    <div class="titre-liste">UE ${ueNum} — ${esc0(ue.ue_nom || '')}</div>
+    <div class="sous-liste">${esc0(ue.section || '')} · ${etudiants.length} étudiant(s) ·
+      ${cours.length} cours · ${nbCol - cours.length} acquis</div>
+    <table class="grille">
+      <tr>
+        <th rowspan="2" style="width:46mm">Étudiant</th>
+        ${cours.map(c => `<th class="sep" colspan="${c.aas.length + 1}">`
+          + `${esc0(c.cours_nom || c.cours_code)}</th>`).join('')}
+        <th class="sep" rowspan="2">Unité</th>
+        <th rowspan="2" style="width:18mm">Décision</th>
+      </tr>
+      <tr>
+        ${cours.flatMap(c => [
+          ...c.aas.map((aa, i) => `<th class="${i === 0 ? 'sep' : ''}">${esc0(aa)}</th>`),
+          '<th>cote</th>',
+        ]).join('')}
+      </tr>
+      ${lignes.join('')}
+    </table>
+    <div class="legende">
+      Les cotes sont sur 20. <b>NA</b> : non acquis — le Conseil a ajourné ce cours, ou
+      l'épreuve n'a pas été présentée. En rouge, ce qui est sous le seuil de
+      ${String(SEUIL_UE).replace('.', ',')}/20. Une décision entre parenthèses est
+      celle que le calcul propose : elle n'a pas encore été arrêtée par le Conseil.
+    </div>
+  </div>`;
+  return { corps, style: STYLE_DOSSIER, vide: false, etudiants: etudiants.length };
+}
+
+/**
+ * CE QUE LE CONSEIL A ACCORDÉ, ET CE QU'IL A IMPOSÉ.
+ *
+ * Les faveurs et les ajournements posés à la main sont les seules décisions
+ * qui s'écartent du calcul — donc les seules qui engagent vraiment le Conseil,
+ * et les seules qu'un recours viendra examiner. Elles étaient enregistrées
+ * (avec qui les a posées et quand) et n'apparaissaient sur aucun papier.
+ *
+ * Une faveur porte l'élément au seuil : elle se voit dans la note finale sans
+ * qu'on sache qu'elle a été accordée. C'est précisément ce qu'il faut tracer.
+ */
+export function pageAjustements(ueNum, annee, session = 1) {
+  const ident = identiteEtablissement();
+  const esc0 = t => String(t ?? '').replace(/[&<>"]/g,
+    x => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[x]));
+  const jour = d => {
+    const m = String(d ?? '').match(/^(\d{4})-(\d{2})-(\d{2})/);
+    return m ? `${m[3]}/${m[2]}/${m[1]}` : '';
+  };
+  const ue = db.prepare(`SELECT ue_nom, section FROM ue WHERE ue_num = ?
+    ORDER BY (annee_scolaire = ?) DESC, annee_scolaire DESC LIMIT 1`).get(ueNum, annee) || {};
+
+  const lignes = db.prepare(`
+    SELECT e.nom, e.prenom, a.portee, a.code, a.action, a.maj_le, a.maj_par
+    FROM deliberation_ajustement a JOIN etudiant e ON e.id = a.etudiant_id
+    WHERE a.ue_num = ? AND a.annee_scolaire = ? AND a.session = ?
+    ORDER BY a.action, e.nom, e.prenom, a.portee, a.code
+  `).all(ueNum, annee, session);
+
+  const PORTEE = { aa: 'Acquis', cours: 'Cours', ue: 'Unité entière' };
+  const corps = `<div class="attestation">
+    <div class="entete">
+      <div class="nom">${esc0(ident.nom || 'INSTITUT ILYA PRIGOGINE')}</div>
+      <div class="sous">Décisions du Conseil —
+        ${session === 2 ? 'seconde' : 'première'} session · ${esc0(annee)}</div>
+    </div>
+    <div class="titre-liste">UE ${ueNum} — ${esc0(ue.ue_nom || '')}</div>
+    <div class="sous-liste">Faveurs accordées et ajournements posés · ${esc0(annee)}</div>
+    ${lignes.length ? `<table class="doc">
+      <tr><th>Étudiant</th><th style="width:22mm">Décision</th><th style="width:24mm">Portée</th>
+          <th style="width:26mm">Élément</th><th style="width:22mm">Le</th><th>Par</th></tr>
+      ${lignes.map(l => `<tr>
+        <td>${esc0(l.nom)} ${esc0(l.prenom)}</td>
+        <td><b>${l.action === 'faveur' ? 'Faveur' : 'Ajournement'}</b></td>
+        <td>${PORTEE[l.portee] || esc0(l.portee)}</td>
+        <td>${l.code === '*' ? 'toute l’unité' : esc0(l.code)}</td>
+        <td>${jour(l.maj_le)}</td>
+        <td>${esc0(l.maj_par || '')}</td>
+      </tr>`).join('')}
+    </table>
+    <p class="fin">${lignes.filter(l => l.action === 'faveur').length} faveur(s) ·
+      ${lignes.filter(l => l.action === 'ajourne').length} ajournement(s) posé(s).</p>`
+    : '<p class="neant">Néant — le Conseil n’a posé aucune faveur ni aucun '
+      + 'ajournement : les décisions suivent le calcul.</p>'}
+    <div class="legende">
+      Une <b>faveur</b> porte l’élément visé exactement au seuil, jamais au-delà : elle
+      n’ajoute pas de points, elle lève un obstacle, et le règlement ne connaît pas la
+      compensation (RGE art. 77 §1 et 78 §2). Un <b>ajournement</b> posé rend l’élément
+      non acquis : c’est lui qui détermine ce qui est à représenter.
+    </div>
+    <div class="signature-liste">
+      <div>Le président du Conseil des études</div>
+      <div class="ligne-sign">${esc0(presidentDeLaSeance(ueNum, annee, session).nom)}</div>
+    </div>
+  </div>`;
+  return { corps, style: STYLE_DOSSIER, nb: lignes.length };
+}
+
+/**
+ * LE RECUEIL DES MOTIVATIONS.
+ *
+ * Chaque décision défavorable doit dire de quoi elle procède : c'est ce que
+ * portent les annexes 8 et 9, une par étudiant. Mais le Conseil, lui, a besoin
+ * de les relire ENSEMBLE — pour vérifier qu'aucune ne manque, et que deux
+ * situations semblables n'ont pas reçu deux motivations contradictoires. C'est
+ * aussi la pièce qu'on produit quand un recours conteste l'égalité de
+ * traitement.
+ */
+export function pageMotivations(ueNum, annee, session = 1) {
+  const ident = identiteEtablissement();
+  const esc0 = t => String(t ?? '').replace(/[&<>"]/g,
+    x => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[x]));
+  const ue = db.prepare(`SELECT ue_nom FROM ue WHERE ue_num = ?
+    ORDER BY (annee_scolaire = ?) DESC, annee_scolaire DESC LIMIT 1`).get(ueNum, annee) || {};
+
+  const lignes = db.prepare(`
+    SELECT e.id, e.nom, e.prenom, m.aa_code, m.motif
+    FROM decision_motivation m JOIN etudiant e ON e.id = m.etudiant_id
+    WHERE m.ue_num = ? AND m.annee_scolaire = ? AND m.motif IS NOT NULL AND m.motif != ''
+    ORDER BY e.nom, e.prenom, m.aa_code
+  `).all(ueNum, annee);
+
+  // CE QUI MANQUE COMPTE AUTANT que ce qui est écrit : un échec non motivé
+  // rend la décision attaquable, et c'est ici qu'on doit le voir.
+  const sansMotif = [];
+  for (const e of db.prepare(`
+    SELECT e.id, e.nom, e.prenom FROM etudiant_inscription i
+    JOIN etudiant e ON e.id = i.etudiant_id
+    WHERE i.annee_scolaire = ? AND i.ue_num = ? AND i.resultat IN ('ajourne','refuse')
+    ORDER BY e.nom, e.prenom`).all(annee, ueNum)) {
+    const d = delibererUE(e.id, ueNum, annee, session);
+    const m = d.ue?.motifs_manquants || [];
+    if (m.length) sansMotif.push({ ...e, aas: m });
+  }
+
+  const parEtud = {};
+  for (const l of lignes) (parEtud[`${l.nom} ${l.prenom}`] ||= []).push(l);
+
+  const corps = `<div class="attestation">
+    <div class="entete">
+      <div class="nom">${esc0(ident.nom || 'INSTITUT ILYA PRIGOGINE')}</div>
+      <div class="sous">Motivations des décisions —
+        ${session === 2 ? 'seconde' : 'première'} session · ${esc0(annee)}</div>
+    </div>
+    <div class="titre-liste">UE ${ueNum} — ${esc0(ue.ue_nom || '')}</div>
+    <div class="sous-liste">${lignes.length} motivation(s) enregistrée(s)${sansMotif.length
+      ? ` · ${sansMotif.length} étudiant(s) dont un échec n’est pas motivé` : ''}</div>
+    ${Object.keys(parEtud).length ? `<table class="doc">
+      <tr><th style="width:46mm">Étudiant</th><th style="width:24mm">Acquis</th>
+          <th>Motivation</th></tr>
+      ${Object.entries(parEtud).flatMap(([nom, ms]) => ms.map((m, i) => `<tr>
+        <td>${i === 0 ? esc0(nom) : ''}</td>
+        <td>${esc0(m.aa_code)}</td>
+        <td>${esc0(m.motif)}</td>
+      </tr>`)).join('')}
+    </table>` : '<p class="neant">Néant — aucune motivation n’est enregistrée.</p>'}
+    ${sansMotif.length ? `<div class="titre-liste">Échecs non motivés</div>
+    <div class="sous-liste">Une décision défavorable non motivée est attaquable
+      (RGE art. 79 ; décret du 16/04/1991, art. 59).</div>
+    <table class="doc">
+      <tr><th style="width:60mm">Étudiant</th><th>Acquis restant à motiver</th></tr>
+      ${sansMotif.map(e => `<tr><td>${esc0(e.nom)} ${esc0(e.prenom)}</td>
+        <td>${esc0(e.aas.join(', '))}</td></tr>`).join('')}
+    </table>` : ''}
+  </div>`;
+  return { corps, style: STYLE_DOSSIER, nb: lignes.length, sans_motif: sansMotif.length };
+}
+
 /**
  * ASSEMBLER LES PIÈCES D'UNE UNITÉ.
  *
@@ -4206,21 +4469,43 @@ function assemblerDocumentsUE(ueNum, annee, veut, opts = {}) {
     ORDER BY e.nom, e.prenom
   `).all(annee, ueNum);
 
+  // Chaque page porte SON TYPE : le lot peut alors les reclasser par pile —
+  // toutes les attestations ensemble — au lieu de suivre l'ordre des unités.
   const pages = [];
+  const pousser = (t, h) => pages.push({ t, h });
   // Les styles propres à certaines pièces se rassemblent EN TÊTE du document :
   // au milieu, un <style> sépare deux pièces sœurs et désamorce leur saut de
   // page — la liste des ajournés se retrouvait alors sur la page de signature
   // de la dernière notification.
   const styles = [];
   const manques = [];
-  let nbR = 0, nbA = 0, nbX = 0, nbPV = 0, nbC = 0;
+  let nbR = 0, nbA = 0, nbX = 0, nbPV = 0, nbC = 0, nbG = 0, nbAj = 0, nbM = 0;
 
   // LE PROCÈS-VERBAL EN TÊTE : c'est la pièce du Conseil, les notifications
   // sont ce qu'on en tire. Il suit la même charte, il s'imprime avec elles.
+  if (veut.grille) {
+    const g = pageGrilleDeliberation(ueNum, annee, session);
+    if (g.vide) manques.push('Grille : aucun étudiant inscrit à cette unité');
+    else { styles.push(g.style || ''); pousser('grille', g.corps); nbG = 1; }
+  }
+
+  if (veut.ajustements) {
+    const a = pageAjustements(ueNum, annee, session);
+    styles.push(a.style || ''); pousser('ajustements', a.corps); nbAj = 1;
+  }
+
+  if (veut.motivations) {
+    const m = pageMotivations(ueNum, annee, session);
+    styles.push(m.style || ''); pousser('motivations', m.corps); nbM = 1;
+    if (m.sans_motif) {
+      manques.push(`Motivations : ${m.sans_motif} étudiant(s) dont un échec n'est pas motivé`);
+    }
+  }
+
   if (veut.conseil) {
     const c = pageComposition(ueNum, annee);
     styles.push(c.style || '');
-    pages.push(c.corps);
+    pousser('conseil', c.corps);
     if (c.sans_professeur) {
       manques.push('Composition : aucun professeur attribué, '
         + 'le Conseil ne peut pas siéger');
@@ -4230,7 +4515,7 @@ function assemblerDocumentsUE(ueNum, annee, veut, opts = {}) {
 
   if (veut.pv) {
     const d = documentPV(ueNum, annee, session);
-    pages.push(d.corps);
+    pousser('pv', d.corps);
     nbPV = 1;
     for (const m of (d.manques || [])) manques.push(`Procès-verbal : ${m}`);
   }
@@ -4255,7 +4540,7 @@ function assemblerDocumentsUE(ueNum, annee, veut, opts = {}) {
       // notifie, non tout le parcours de l'étudiant.
       const u = unitesReussies(e.id, annee).find(x => Number(x.ue_num) === ueNum);
       if (!u) { manques.push(`${e.nom} ${e.prenom} : unité non réussie au dossier`); continue; }
-      pages.push(pageAttestation(e, u, annee, etab, opts.date_document || null, ident));
+      pousser('reussite', pageAttestation(e, u, annee, etab, opts.date_document || null, ident));
       if (u.manques?.length) manques.push(`${e.nom} ${e.prenom} : ${u.manques.join(', ')}`);
       identiteManquante(e);
       nbR++;
@@ -4265,7 +4550,7 @@ function assemblerDocumentsUE(ueNum, annee, veut, opts = {}) {
       if (d.erreur) { manques.push(`${e.nom} ${e.prenom} : ${d.erreur}`); continue; }
       // On reprend le CORPS, non le document entier : les pièces s'enchaînent
       // dans une seule enveloppe, chacune sur sa page.
-      pages.push(d.corps);
+      pousser(e.resultat === 'ajourne' ? 'ajournement' : 'refus', d.corps);
       identiteManquante(e);
       if (e.resultat === 'ajourne') nbA++; else nbX++;
     }
@@ -4277,12 +4562,12 @@ function assemblerDocumentsUE(ueNum, annee, veut, opts = {}) {
   if (veut.listes) {
     const l = documentAjournesParCours(ueNum, annee, session);
     if (l.sans_cours) manques.push("Listes : aucun cours n'est encodé pour cette unité");
-    else { styles.push(l.style || ''); pages.push(l.corps); nbL = l.nb_listes; }
+    else { styles.push(l.style || ''); pousser('listes', l.corps); nbL = l.nb_listes; }
   }
 
   return { pages, styles, manques,
            reussites: nbR, ajournements: nbA, refus: nbX, pv: nbPV, listes: nbL,
-           conseil: nbC };
+           conseil: nbC, grille: nbG, ajustements: nbAj, motivations: nbM };
 }
 
 r.post('/deliberation/ue/:ueNum/documents', authRequired, (req, res) => {
@@ -4295,6 +4580,9 @@ r.post('/deliberation/ue/:ueNum/documents', authRequired, (req, res) => {
     pv: req.body?.pv === true,
     listes: req.body?.listes === true,
     conseil: req.body?.conseil === true,
+    grille: req.body?.grille === true,
+    ajustements: req.body?.ajustements === true,
+    motivations: req.body?.motivations === true,
   };
 
   const a = assemblerDocumentsUE(ueNum, annee, veut, {
@@ -4311,11 +4599,12 @@ r.post('/deliberation/ue/:ueNum/documents', authRequired, (req, res) => {
   }
 
   res.json({
-    html: envelopper(a.styles.join('') + a.pages.join(''),
+    html: envelopper(a.styles.join('') + a.pages.map(p => p.h).join(''),
                      `Documents de délibération — UE ${ueNum}`),
     nom: `Documents_UE${ueNum}_${String(annee).replace(/\W/g, '')}.html`,
     reussites: a.reussites, ajournements: a.ajournements, refus: a.refus,
-    pv: a.pv, listes: a.listes, conseil: a.conseil,
+    pv: a.pv, listes: a.listes, conseil: a.conseil, grille: a.grille,
+    ajustements: a.ajustements, motivations: a.motivations,
     pieces: a.pages.length, manques: a.manques,
   });
 });
@@ -4378,15 +4667,20 @@ r.post('/deliberation/documents-lot', authRequired, (req, res) => {
     pv: req.body?.pv === true,
     listes: req.body?.listes === true,
     conseil: req.body?.conseil === true,
+    grille: req.body?.grille === true,
+    ajustements: req.body?.ajustements === true,
+    motivations: req.body?.motivations === true,
   };
   if (!nums.length) return res.status(400).json({ error: 'aucune unité sélectionnée' });
   if (!Object.values(veut).some(Boolean)) {
     return res.status(400).json({ error: 'aucune pièce demandée' });
   }
 
+  const groupement = req.body?.groupement === 'pile' ? 'pile' : 'unite';
   const perim = getUserSections(req.user);
   const pages = [], styles = [], manques = [], detail = [];
-  const total = { reussites: 0, ajournements: 0, refus: 0, pv: 0, listes: 0, conseil: 0 };
+  const total = { reussites: 0, ajournements: 0, refus: 0, pv: 0, listes: 0, conseil: 0,
+                  grille: 0, ajustements: 0, motivations: 0 };
 
   for (const ueNum of nums) {
     const ue = db.prepare(`SELECT section, ue_nom FROM ue WHERE ue_num = ?
@@ -4410,7 +4704,7 @@ r.post('/deliberation/documents-lot', authRequired, (req, res) => {
 
     for (const m of a.manques) manques.push(`UE ${ueNum} — ${m}`);
     for (const st of a.styles) if (st && !styles.includes(st)) styles.push(st);
-    pages.push(...a.pages);
+    for (const pg of a.pages) pages.push({ ...pg, ue: ueNum });
     for (const k of Object.keys(total)) total[k] += a[k] || 0;
     detail.push({ ue_num: ueNum, ue_nom: ue.ue_nom, pieces: a.pages.length,
                   reussites: a.reussites, ajournements: a.ajournements, refus: a.refus,
@@ -4425,11 +4719,22 @@ r.post('/deliberation/documents-lot', authRequired, (req, res) => {
     });
   }
 
+  // PAR UNITÉ, ON CLASSE ; PAR PILE, ON POSTE. Les deux usages existent et ne
+  // se déduisent pas l'un de l'autre : celui qui range un dossier veut tout
+  // ce qui concerne une unité ensemble ; celui qui plie et met sous enveloppe
+  // veut toutes les attestations à la suite. On choisit donc.
+  const ORDRE = ['grille', 'pv', 'conseil', 'ajustements', 'motivations',
+                 'reussite', 'ajournement', 'refus', 'listes'];
+  const ordonnees = groupement === 'pile'
+    ? [...pages].sort((x, y) => (ORDRE.indexOf(x.t) - ORDRE.indexOf(y.t))
+        || (x.ue - y.ue))
+    : pages;
+
   res.json({
-    html: envelopper(styles.join('') + pages.join(''),
+    html: envelopper(styles.join('') + ordonnees.map(p => p.h).join(''),
                      `Documents de délibération — ${nums.length} unité(s) · ${annee}`),
     nom: `Documents_${nums.length}UE_${String(annee).replace(/\W/g, '')}.html`,
-    ...total, pieces: pages.length, unites: detail, manques,
+    ...total, groupement, pieces: pages.length, unites: detail, manques,
   });
 });
 

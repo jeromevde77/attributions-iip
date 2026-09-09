@@ -17,6 +17,18 @@ import { authHeaders } from '../lib/api.js';
  * naissance » ne sert à rien si l'on ne sait pas chez qui.
  */
 const PIECES = [
+  // LE DOSSIER DE LA DÉLIBÉRATION — les pièces sur lesquelles le Conseil a
+  // travaillé, et non celles qu'il envoie. Elles n'existaient nulle part sur
+  // papier : un recours six mois plus tard obligeait à rouvrir Lucie.
+  { cle: 'grille', libelle: 'Grille de délibération',
+    aide: 'Les cotes acquis par acquis, la note d’unité et la décision',
+    ton: 'border-violet-300 bg-violet-50' },
+  { cle: 'ajustements', libelle: 'Faveurs et ajournements du Conseil',
+    aide: 'Ce que le Conseil a accordé ou imposé — avec qui et quand',
+    ton: 'border-violet-300 bg-violet-50' },
+  { cle: 'motivations', libelle: 'Recueil des motivations',
+    aide: 'Toutes les motivations, et les échecs qui n’en ont pas',
+    ton: 'border-violet-300 bg-violet-50' },
   { cle: 'pv', libelle: 'Procès-verbal de délibération',
     aide: 'Annexe 3 — ou 5 pour une épreuve intégrée', ton: 'border-iip-blue bg-iip-blue/5' },
   { cle: 'conseil', libelle: 'Composition du Conseil des études',
@@ -36,8 +48,11 @@ export default function CentreImpression({ annee, section = null, onClose }) {
   const [etat, setEtat] = useState(null);
   const [sec, setSec] = useState(section);
   const [choisies, setChoisies] = useState(() => new Set());
-  const [choix, setChoix] = useState({ pv: true, conseil: false, reussite: false,
+  const [choix, setChoix] = useState({ grille: false, ajustements: false,
+    motivations: false, pv: true, conseil: false, reussite: false,
     ajournement: false, refus: false, listes: false });
+  // Par unité on classe, par pile on poste : deux usages, deux ordres.
+  const [groupement, setGroupement] = useState('unite');
   const [erreur, setErreur] = useState(null);
   const [enCours, setEnCours] = useState(false);
   // LA SESSION SE CHOISIT, ELLE NE SE DÉDUIT PAS. Le lot prenait celle où
@@ -67,7 +82,8 @@ export default function CentreImpression({ annee, section = null, onClose }) {
     try {
       const rep = await fetch('/api/acquis/deliberation/documents-lot', {
         method: 'POST', headers: authHeaders(),
-        body: JSON.stringify({ annee, session, ue_nums: [...choisies], ...choix }),
+        body: JSON.stringify({ annee, session, groupement,
+                               ue_nums: [...choisies], ...choix }),
       });
       const j = await rep.json();
       if (!rep.ok) { setErreur(j.error); return; }
@@ -197,8 +213,25 @@ export default function CentreImpression({ annee, section = null, onClose }) {
               </div>
 
               <div>
-                <div className="text-[12.5px] font-semibold text-iip-blue mb-1.5">
-                  Les pièces à sortir
+                <div className="flex items-center justify-between gap-2 mb-1.5">
+                  <div className="text-[12.5px] font-semibold text-iip-blue">
+                    Les pièces à sortir
+                  </div>
+                  <div className="flex items-center gap-1.5">
+                    <span className="text-[11.5px] text-slate-500">Classement :</span>
+                    <div className="flex rounded-lg border border-slate-300 overflow-hidden">
+                      {[['unite', 'par unité'], ['pile', 'par pile']].map(([v, lib]) => (
+                        <button key={v} onClick={() => setGroupement(v)}
+                          title={v === 'unite'
+                            ? 'Tout ce qui concerne une unité reste ensemble — pour classer'
+                            : 'Toutes les attestations, puis tous les PV — pour plier et poster'}
+                          className={`px-2 py-1 text-[11.5px] ${groupement === v
+                            ? 'bg-iip-blue text-white font-semibold' : 'text-slate-600'}`}>
+                          {lib}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
                 </div>
                 <div className="grid gap-2 sm:grid-cols-2">
                   {PIECES.map(p => (

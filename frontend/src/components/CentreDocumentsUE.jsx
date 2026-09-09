@@ -17,7 +17,8 @@ import { authHeaders } from '../lib/api.js';
 export default function CentreDocumentsUE({ ueNum, ueNom, annee, onClose }) {
   const [etat, setEtat] = useState(null);      // le comptage
   const [choix, setChoix] = useState({ pv: true, reussite: true, ajournement: true,
-    refus: true, listes: false, conseil: false });
+    refus: true, listes: false, conseil: false,
+    grille: false, ajustements: false, motivations: false });
   const [erreur, setErreur] = useState(null);
   const [enCours, setEnCours] = useState(false);
 
@@ -112,6 +113,17 @@ export default function CentreDocumentsUE({ ueNum, ueNom, annee, onClose }) {
     // outil à part : c'est elle qui établit que le Conseil pouvait siéger.
     // Elle avait son propre bouton, loin d'ici — une séparation d'outil, pas
     // de métier.
+    // LE DOSSIER DE LA DÉLIBÉRATION : ce sur quoi le Conseil a travaillé.
+    { cle: 'grille', libelle: 'Grille de délibération',
+      aide: 'Les cotes acquis par acquis, la note d’unité et la décision',
+      nb: etat.reussites.length + etat.ajournements.length + etat.refus.length
+        + etat.sans_decision.length, noms: null, ton: 'border-violet-300 bg-violet-50' },
+    { cle: 'ajustements', libelle: 'Faveurs et ajournements du Conseil',
+      aide: 'Ce que le Conseil a accordé ou imposé — avec qui et quand',
+      nb: 1, noms: null, ton: 'border-violet-300 bg-violet-50' },
+    { cle: 'motivations', libelle: 'Recueil des motivations',
+      aide: 'Toutes les motivations, et les échecs qui n’en ont pas',
+      nb: 1, noms: null, ton: 'border-violet-300 bg-violet-50' },
     { cle: 'conseil', libelle: 'Composition du Conseil des études',
       aide: 'Membres, qualité, voix et quorum — RGE art. 22 et 25',
       nb: 1, noms: null, ton: 'border-sky-300 bg-sky-50' },
