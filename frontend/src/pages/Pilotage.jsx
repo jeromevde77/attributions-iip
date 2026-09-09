@@ -824,6 +824,58 @@ export default function Pilotage() {
                 ))}
               </div>
 
+              {/* ── LE SOLDE CONSTATÉ, EN FACE DU CALCUL ────────────────────
+                  Ce que la direction sait d'une année dont la base n'a pas
+                  encore tout : « tout utilisé sauf cinq périodes ». Il ne
+                  corrige pas le calcul, il le confronte — et l'écart entre les
+                  deux mesure ce qui reste à encoder. Le fondre dans le solde
+                  ferait disparaître cette information même. */}
+              {d.solde_constate != null && (
+                <div className="px-4 py-3 border-b border-gray-100 bg-amber-50/60">
+                  <div className="flex items-center gap-6 flex-wrap text-xs">
+                    <div>
+                      <div className="text-[9px] uppercase tracking-wider text-amber-700 mb-0.5">
+                        Solde constaté
+                      </div>
+                      <div className="text-lg font-bold text-amber-900 leading-tight">
+                        {fmt(d.solde_constate)}
+                      </div>
+                      <div className="text-[10px] text-amber-700">déclaré par la direction</div>
+                    </div>
+                    <div>
+                      <div className="text-[9px] uppercase tracking-wider text-gray-400 mb-0.5">
+                        Consommation qu'il implique
+                      </div>
+                      <div className="text-lg font-bold text-iip-blue leading-tight">
+                        {fmt(d.usage_implique)}
+                      </div>
+                      <div className="text-[10px] text-gray-400">
+                        dotation utilisable − solde constaté
+                      </div>
+                    </div>
+                    <div>
+                      <div className="text-[9px] uppercase tracking-wider text-gray-400 mb-0.5">
+                        Écart avec la base
+                      </div>
+                      <div className={`text-lg font-bold leading-tight ${
+                        Math.abs(d.ecart_encodage || 0) < 1 ? 'text-green-700' : 'text-orange-600'}`}>
+                        {sign(d.ecart_encodage)}{fmt(Math.abs(d.ecart_encodage))}
+                      </div>
+                      <div className="text-[10px] text-gray-400">
+                        {Math.abs(d.ecart_encodage || 0) < 1
+                          ? 'la base rend compte de l’année'
+                          : 'périodes non encodées dans Lucie'}
+                      </div>
+                    </div>
+                    {d.solde_constate_note && (
+                      <div className="flex-1 min-w-[200px] text-[11px] text-amber-900 italic">
+                        « {d.solde_constate_note} »
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
+
               {/* Enveloppes extérieures — 4 cartes sur une ligne */}
               {d.enveloppes.length > 0 && (
                 <div className="px-4 py-3 border-b border-gray-100">
@@ -1116,6 +1168,7 @@ export default function Pilotage() {
       await api.dotationCivilePut(editDot.annee_civile, {
         dotation_organique:            parseFloat(editDot.dotation_organique) || 0,
         usage_historique_organique:    editDot.usage_historique_organique !== '' ? parseFloat(editDot.usage_historique_organique) : null,
+        solde_constate:                editDot.solde_constate !== '' && editDot.solde_constate != null ? parseFloat(editDot.solde_constate) : null,
         periodes_eleves:               editDot.periodes_eleves !== '' ? parseFloat(editDot.periodes_eleves) : null,
         pep_reference:                 editDot.pep_reference !== '' ? parseFloat(editDot.pep_reference) : null,
         pep_annee_utilisee:            editDot.pep_annee_utilisee !== '' ? parseInt(editDot.pep_annee_utilisee) : null,
@@ -1174,7 +1227,7 @@ export default function Pilotage() {
         </div>
         <table className="w-full text-sm">
           <thead className="bg-gray-50 text-xs text-gray-500 uppercase tracking-wider">
-            <tr><th className="px-4 py-2 text-left">Année civile</th><th className="px-4 py-2 text-right">Dotation (pér. B)</th><th className="px-4 py-2 text-right">PEP</th><th className="px-4 py-2 text-right">PEP réf.</th><th className="px-4 py-2 text-right">PEP an. utilisée</th><th className="px-4 py-2 text-right">Usage historique</th><th className="px-4 py-2 text-left">Notes</th><th className="px-4 py-2" /></tr>
+            <tr><th className="px-4 py-2 text-left">Année civile</th><th className="px-4 py-2 text-right">Dotation (pér. B)</th><th className="px-4 py-2 text-right">PEP</th><th className="px-4 py-2 text-right">PEP réf.</th><th className="px-4 py-2 text-right">PEP an. utilisée</th><th className="px-4 py-2 text-right">Usage historique</th><th className="px-4 py-2 text-right" title="Ce que la direction constate : le solde réellement resté à la fin de l’année. Il ne remplace pas le calcul, il le confronte.">Solde constaté</th><th className="px-4 py-2 text-left">Notes</th><th className="px-4 py-2" /></tr>
           </thead>
           <tbody>
             {civil.map(y => editDot?.annee_civile === y.annee_civile ? (
@@ -1185,6 +1238,11 @@ export default function Pilotage() {
                 <td className="px-4 py-2"><input type="number" value={editDot.pep_reference ?? ''} onChange={e => setEditDot({ ...editDot, pep_reference: e.target.value })} placeholder="HOD" className="border border-gray-300 rounded px-2 py-1.5 h-9 text-sm w-28 text-right" /></td>
                 <td className="px-4 py-2"><input type="number" value={editDot.pep_annee_utilisee ?? ''} onChange={e => setEditDot({ ...editDot, pep_annee_utilisee: e.target.value })} placeholder="ex: 2023" className="border border-gray-300 rounded px-2 py-1.5 h-9 text-sm w-20 text-right" /></td>
                 <td className="px-4 py-2"><input type="number" value={editDot.usage_historique_organique ?? ''} onChange={e => setEditDot({ ...editDot, usage_historique_organique: e.target.value })} placeholder="calculé si vide" className="border border-gray-300 rounded px-2 py-1.5 h-9 text-sm w-28 text-right" /></td>
+                {/* LE SOLDE CONSTATÉ. « Tout utilisé sauf cinq périodes » est
+                    ce dont on se souvient d'une année ; la consommation, on ne
+                    l'a jamais soustraite. On saisit donc ce qu'on sait, et
+                    Lucie en déduit le reste. */}
+                <td className="px-4 py-2"><input type="number" step="0.01" value={editDot.solde_constate ?? ''} onChange={e => setEditDot({ ...editDot, solde_constate: e.target.value })} placeholder="ex. 5" title="Périodes restées inutilisées, telles que la direction les constate" className="border border-amber-300 bg-amber-50 rounded px-2 py-1.5 h-9 text-sm w-28 text-right" /></td>
                 <td className="px-4 py-2"><input value={editDot.notes || ''} onChange={e => setEditDot({ ...editDot, notes: e.target.value })} className="border border-gray-300 rounded px-2 py-1.5 h-9 text-sm w-full" /></td>
                 <td className="px-4 py-2 flex gap-1 justify-end">
                   <button onClick={saveDotation} disabled={saving} className="bg-iip-gold text-white text-xs px-2 py-1 rounded"><IconCheck size={14} /></button>
@@ -1199,10 +1257,13 @@ export default function Pilotage() {
                 <td className="px-4 py-2.5 text-right font-mono text-red-400">{y.pep_reference ? fmt(y.pep_reference) : <span className="text-gray-300">à saisir</span>}</td>
                 <td className="px-4 py-2.5 text-right text-gray-500 text-xs">{y.pep_annee_utilisee || '—'}</td>
                 <td className="px-4 py-2.5 text-right text-gray-400 text-xs">{y.source === 'historique' ? fmt(y.usage_organique) : '(calculé)'}</td>
+                <td className="px-4 py-2.5 text-right font-mono text-xs">{y.solde_constate != null
+                  ? <span className="text-amber-800 font-semibold" title={y.ecart_encodage != null && Math.abs(y.ecart_encodage) >= 1 ? `${fmt(Math.abs(y.ecart_encodage))} périodes non encodées dans Lucie` : 'la base rend compte de l’année'}>{fmt(y.solde_constate)}</span>
+                  : <span className="text-gray-300">—</span>}</td>
                 <td className="px-4 py-2.5 text-xs text-gray-400 max-w-xs truncate">{y.notes || ''}</td>
                 <td className="px-4 py-2.5">
                   <div className="flex gap-1 justify-end">
-                    <button onClick={() => setEditDot({ annee_civile: y.annee_civile, dotation_organique: y.dotation_organique, periodes_eleves: y.periodes_eleves ?? '', pep_reference: y.pep_reference ?? '', pep_annee_utilisee: y.pep_annee_utilisee ?? '', usage_historique_organique: y.source === 'historique' ? y.usage_organique : '', notes: y.notes || '' })} className="text-iip-gold hover:text-iip-amber text-xs border border-iip-gold/30 px-2 py-1 rounded">Modifier</button>
+                    <button onClick={() => setEditDot({ annee_civile: y.annee_civile, dotation_organique: y.dotation_organique, periodes_eleves: y.periodes_eleves ?? '', pep_reference: y.pep_reference ?? '', pep_annee_utilisee: y.pep_annee_utilisee ?? '', usage_historique_organique: y.source === 'historique' ? y.usage_organique : '', solde_constate: y.solde_constate ?? '', notes: y.notes || '' })} className="text-iip-gold hover:text-iip-amber text-xs border border-iip-gold/30 px-2 py-1 rounded">Modifier</button>
                     <button onClick={() => deleteYear(y.annee_civile)} className="text-red-400 hover:text-red-600 text-xs px-2 py-1"><IconTrash size={16} /></button>
                   </div>
                 </td>
