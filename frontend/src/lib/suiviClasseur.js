@@ -68,8 +68,17 @@ export const GEOMETRIE = {
     // Le bloc des notes de cours et des ajournements de première session,
     // en triplets « note /20 | NP | AJn ».
     ajournementsS1: { de: 'HN', a: 'IE' },
+    // LA COTE DE L'UNITÉ ET LA JUSTIFICATION DU JURY. Le classeur les porte
+    // à côté de la décision ; Lucie ne les lisait pas, faute d'en avoir eu
+    // l'usage tant qu'elle recalculait tout. Une année reprise d'Excel a été
+    // délibérée AU NIVEAU DE L'UNITÉ : ces deux colonnes sont alors la seule
+    // trace de ce que le jury a décidé, et de pourquoi.
+    noteS1: 'IH',
     decisionS1: 'II',
+    justifS1: 'IJ',
+    noteS2: 'WV',
     decisionS2: 'WW',
+    justifS2: 'WX',
     faveurS2: 'WU',
   },
   // Une feuille dont le nom n'est pas un numéro d'unité n'est pas une unité.
@@ -172,6 +181,8 @@ export function lireFeuilleUE(nomFeuille, cell) {
       nom, prenom,
       s1: {
         decision: d1,
+        note_ue: nombre(cell(G.col.noteS1, r)),
+        justification: txt(cell(G.col.justifS1, r)) || null,
         notes: notes(colsS1),
         // LES CROIX NE COMPTENT QUE SI LE JURY A AJOURNÉ. Une croix résiduelle
         // à côté d'une décision de réussite est un reste de travail, pas un
@@ -182,6 +193,8 @@ export function lireFeuilleUE(nomFeuille, cell) {
       },
       s2: {
         decision: dec(G.col.decisionS2),
+        note_ue: nombre(cell(G.col.noteS2, r)),
+        justification: txt(cell(G.col.justifS2, r)) || null,
         notes: notes(colsS2),
         faveur: /^(x|f|1|oui)$/i.test(txt(cell(G.col.faveurS2, r))),
       },
