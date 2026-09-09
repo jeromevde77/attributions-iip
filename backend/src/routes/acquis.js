@@ -4796,6 +4796,230 @@ r.post('/deliberation/ue/:ueNum/reprise-import', authRequired,
   res.json({ ok: true, ...rapport });
 });
 
+/**
+ * REPRENDRE TOUTE UNE SECTION D'UN COUP — et lui donner sa date.
+ *
+ * DISPOSITIF TRANSITOIRE, suite du précédent. Vingt-sept unités reprises une
+ * par une, c'est vingt-sept fois le même geste pour un travail déjà fait
+ * ailleurs. On les coche, on fixe LA date de séance, et les documents peuvent
+ * sortir.
+ *
+ * LA DATE EST DÉCLARÉE, PAS DEVINÉE. Le classeur ne dit pas quand le Conseil
+ * s'est réuni ; c'est vous qui la donnez, et elle ira telle quelle au
+ * procès-verbal. C'est un acte : la date d'une délibération fait courir le
+ * délai de recours (RGE art. 87-91).
+ *
+ * LA CLÔTURE RESTE UN CHOIX, ET ELLE A UN PRIX. Clore, c'est constater le
+ * quorum (RGE art. 25 §1) ; or les présences de ces séances-là n'ont jamais
+ * été encodées. Les inscrire toutes présentes, c'est écrire au procès-verbal
+ * que chacun y était. Le serveur ne le fait donc QUE sur demande explicite,
+ * et l'écran le dit en toutes lettres.
+ */
+function unitesRepriseSection(annee, section, sessionDemandee) {
+  const ues = section
+    ? db.prepare(`SELECT ue_num, ue_nom, section FROM ue
+        WHERE annee_scolaire = ? AND section = ? ORDER BY ue_num`).all(annee, section)
+    : db.prepare(`SELECT ue_num, ue_nom, section FROM ue
+        WHERE annee_scolaire = ? ORDER BY section, ue_num`).all(annee);
+
+  return ues.map(u => {
+    const etat = sessionDeLUE(u.ue_num, annee);
+    const session = sessionDemandee || etat.session;
+    let lignes = [];
+    try { lignes = repriseDepuisImport(u.ue_num, annee, session); } catch { lignes = []; }
+    const seance = db.prepare(`SELECT date_seance, heure_seance, cloturee
+      FROM deliberation_seance WHERE ue_num = ? AND annee_scolaire = ? AND session = ?`)
+      .get(u.ue_num, annee, session) || {};
+    return {
+      ue_num: u.ue_num, ue_nom: u.ue_nom, section: u.section, session,
+      total: lignes.length,
+      concordants: lignes.filter(l => l.statut === 'concordant').length,
+      divergents: lignes.filter(l => l.statut === 'divergent').length,
+      sans_decision: lignes.filter(l => l.statut === 'sans_decision').length,
+      date_seance: seance.date_seance || null,
+      cloturee: !!seance.cloturee,
+    };
+  });
+}
+
+r.get('/deliberation/reprise-lot', authRequired, (req, res) => {
+  const annee = req.query.annee || anneeDeTravail(req);
+  const section = req.query.section || null;
+  const session = req.query.session ? (Number(req.query.session) === 2 ? 2 : 1) : null;
+
+  const perim = getUserSections(req.user);
+  if (perim && section && !perim.includes(section)) {
+    return res.status(403).json({ error: 'section hors de votre périmètre' });
+  }
+  let unites;
+  try { unites = unitesRepriseSection(annee, section, session); }
+  catch (e) { return res.status(500).json({ error: e.message }); }
+  if (perim) unites = unites.filter(u => !u.section || perim.includes(u.section));
+
+  res.json({
+    annee, section,
+    sections: [...new Set(unites.map(u => u.section).filter(Boolean))].sort(),
+    // Celles qui n'ont RIEN d'importé n'ont rien à reprendre : on les garde
+    // dans la liste, mais l'écran les distingue.
+    unites,
+  });
+});
+
+r.post('/deliberation/reprise-lot', authRequired,
+       roleRequired('admin', 'directeur', 'directeur_adjoint'), (req, res) => {
+  const annee = req.body?.annee || anneeDeTravail(req);
+  const session = Number(req.body?.session) === 2 ? 2 : 1;
+  const simulation = req.body?.simulation === true;
+  const nums = Array.isArray(req.body?.ue_nums) ? req.body.ue_nums.map(Number) : [];
+  const dateSeance = String(req.body?.date_seance || '').trim();
+  const heureSeance = String(req.body?.heure_seance || '').trim() || null;
+  const visite = {
+    date: String(req.body?.visite_date || '').trim() || null,
+    heure: String(req.body?.visite_heure || '').trim() || null,
+    local: String(req.body?.visite_local || '').trim() || null,
+  };
+  const clore = req.body?.cloturer === true;
+  // Écrire « tous présents » sur un procès-verbal ne se déduit pas d'une case
+  // à cocher voisine : il faut le demander pour lui-même.
+  const tousPresents = req.body?.presences_tous === true;
+
+  if (!nums.length) return res.status(400).json({ error: 'aucune unité sélectionnée' });
+  if (!dateSeance) {
+    return res.status(400).json({
+      error: 'date de séance requise',
+      detail: 'La date figure au procès-verbal et fait courir le délai de recours : '
+            + 'elle doit être déclarée, elle ne se devine pas.',
+    });
+  }
+  if (clore && !tousPresents) {
+    return res.status(400).json({
+      error: 'présences requises pour clôturer',
+      detail: 'Clôturer, c’est constater le quorum. Les présences de ces séances '
+            + 'n’ont jamais été encodées : cochez « inscrire tous les membres du '
+            + 'Conseil comme présents » en connaissance de cause, ou laissez les '
+            + 'séances ouvertes et faites l’appel unité par unité.',
+    });
+  }
+
+  const perim = getUserSections(req.user);
+  const rapport = { annee, session, simulation, date_seance: dateSeance,
+                    unites: [], reprises: 0, etudiants: 0, closes: 0, ignorees: [] };
+
+  for (const ueNum of nums) {
+    const ue = db.prepare(`SELECT section, ue_nom FROM ue WHERE ue_num = ?
+      ORDER BY (annee_scolaire = ?) DESC, annee_scolaire DESC LIMIT 1`).get(ueNum, annee) || {};
+    if (perim && ue.section && !perim.includes(ue.section)) {
+      rapport.ignorees.push({ ue_num: ueNum, motif: 'hors périmètre' }); continue;
+    }
+    const seance = db.prepare(`SELECT id, cloturee FROM deliberation_seance
+      WHERE ue_num = ? AND annee_scolaire = ? AND session = ?`).get(ueNum, annee, session);
+    if (seance?.cloturee) {
+      rapport.ignorees.push({ ue_num: ueNum, ue_nom: ue.ue_nom, motif: 'séance close' }); continue;
+    }
+
+    let lignes;
+    try { lignes = repriseDepuisImport(ueNum, annee, session); }
+    catch (e) { rapport.ignorees.push({ ue_num: ueNum, motif: e.message }); continue; }
+    const retenues = lignes.filter(l => l.decision_importee);
+    if (!retenues.length) {
+      rapport.ignorees.push({ ue_num: ueNum, ue_nom: ue.ue_nom, motif: 'rien d’encodé' }); continue;
+    }
+
+    const membres = membresDuConseil(ueNum, annee);
+    const presences = Object.fromEntries(membres.map(m => [m.cle, true]));
+    const q = etatQuorum(membres, presences);
+    const fiche = {
+      ue_num: ueNum, ue_nom: ue.ue_nom, section: ue.section,
+      etudiants: retenues.length,
+      divergents: retenues.filter(l => l.statut === 'divergent').length,
+      sans_decision: lignes.length - retenues.length,
+      quorum: q, close: false,
+    };
+
+    if (!simulation) {
+      const par = req.user?.email || null;
+      try {
+        db.transaction(() => {
+          // 1. Les décisions du classeur, mises en forme.
+          for (const l of retenues) {
+            db.prepare(`INSERT INTO deliberation_resultat
+                (etudiant_id, annee_scolaire, ue_num, session, resultat, points, decide_par)
+              VALUES (?,?,?,?,?,?,?)
+              ON CONFLICT(etudiant_id, annee_scolaire, ue_num, session)
+              DO UPDATE SET resultat = excluded.resultat, points = excluded.points,
+                decide_le = CURRENT_TIMESTAMP, decide_par = excluded.decide_par`)
+              .run(l.etudiant_id, annee, ueNum, session, l.decision_importee, l.note ?? null, par);
+            for (const code of l.cours_a_poser) {
+              db.prepare(`INSERT INTO deliberation_ajustement
+                  (etudiant_id, annee_scolaire, ue_num, session, portee, code, action, maj_par)
+                VALUES (?,?,?,?,'cours',?,'ajourne',?)
+                ON CONFLICT(etudiant_id, annee_scolaire, ue_num, session, portee, code)
+                DO UPDATE SET action = 'ajourne', maj_le = CURRENT_TIMESTAMP,
+                  maj_par = excluded.maj_par`)
+                .run(l.etudiant_id, annee, ueNum, session, code, par);
+            }
+            const fin = db.prepare(`SELECT resultat, points, mention FROM deliberation_resultat
+              WHERE etudiant_id = ? AND annee_scolaire = ? AND ue_num = ?
+                AND resultat IS NOT NULL AND resultat != ''
+              ORDER BY session DESC LIMIT 1`).get(l.etudiant_id, annee, ueNum) || {};
+            db.prepare(`UPDATE etudiant_inscription SET resultat = ?, points = ?, mention = ?
+              WHERE etudiant_id = ? AND annee_scolaire = ? AND ue_num = ?`)
+              .run(fin.resultat ?? null, fin.points ?? null, fin.mention ?? null,
+                l.etudiant_id, annee, ueNum);
+          }
+
+          // 2. La séance et sa date — celle que vous avez déclarée.
+          db.prepare(`INSERT INTO deliberation_seance
+              (ue_num, annee_scolaire, session, date_seance, heure_seance,
+               visite_date, visite_heure, visite_local, cloturee, maj_le, maj_par)
+            VALUES (?,?,?,?,?,?,?,?,0, datetime('now'), ?)
+            ON CONFLICT(ue_num, annee_scolaire, session) DO UPDATE SET
+              date_seance  = excluded.date_seance,
+              heure_seance = COALESCE(excluded.heure_seance, deliberation_seance.heure_seance),
+              visite_date  = COALESCE(excluded.visite_date,  deliberation_seance.visite_date),
+              visite_heure = COALESCE(excluded.visite_heure, deliberation_seance.visite_heure),
+              visite_local = COALESCE(excluded.visite_local, deliberation_seance.visite_local),
+              maj_le = datetime('now'), maj_par = excluded.maj_par`)
+            .run(ueNum, annee, session, dateSeance, heureSeance,
+              visite.date, visite.heure, visite.local, par);
+          const sid = db.prepare(`SELECT id FROM deliberation_seance
+            WHERE ue_num = ? AND annee_scolaire = ? AND session = ?`)
+            .get(ueNum, annee, session).id;
+
+          // 3. Les présences, et la clôture — seulement si elle est demandée
+          //    et si le quorum est effectivement atteint.
+          if (tousPresents) {
+            for (const m of membres) {
+              db.prepare(`INSERT INTO deliberation_presence (seance_id, cle, nom, qualite, present)
+                VALUES (?,?,?,?,1)
+                ON CONFLICT(seance_id, cle) DO UPDATE SET
+                  nom = excluded.nom, qualite = excluded.qualite, present = 1`)
+                .run(sid, m.cle, m.nom, m.qualite || null);
+            }
+          }
+          if (clore && q.atteint) {
+            db.prepare(`UPDATE deliberation_seance SET cloturee = 1,
+              maj_le = datetime('now'), maj_par = ? WHERE id = ?`).run(par, sid);
+            fiche.close = true;
+          }
+        })();
+      } catch (e) {
+        rapport.ignorees.push({ ue_num: ueNum, ue_nom: ue.ue_nom, motif: e.message }); continue;
+      }
+    } else if (clore && q.atteint) fiche.close = true;
+
+    if (clore && !q.atteint) {
+      fiche.quorum_manquant = true;   // pas de conseil connu : la séance reste ouverte
+    }
+    rapport.unites.push(fiche);
+    rapport.reprises++;
+    rapport.etudiants += fiche.etudiants;
+    if (fiche.close) rapport.closes++;
+  }
+
+  res.json({ ok: true, ...rapport });
+});
+
 r.get('/deliberation/:etudId/:ueNum', authRequired, (req, res) => {
   const annee = req.query.annee || anneeDeTravail(req);
   try {
