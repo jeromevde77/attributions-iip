@@ -48,6 +48,18 @@ function chercheur(annee, ueNum) {
   `).all(annee, ueNum);
   const idsInscrits = new Set(inscrits.map(x => x.id));
 
+  // TOUTE LA BASE, INDEXÉE PAR NOM NORMALISÉ. La normalisation — accents,
+  // casse, espaces — ne se fait pas en SQL : on lit la table une fois, ce qui
+  // pour quelques milliers de dossiers ne coûte rien, et l'on garde l'index
+  // pour toutes les lignes du classeur.
+  const parNom = new Map();
+  for (const x of db.prepare('SELECT id, nom, prenom FROM etudiant').all()) {
+    const k = clean(x.nom);
+    if (!k) continue;
+    (parNom.get(k) || parNom.set(k, []).get(k)).push(x);
+  }
+  const partout = { all: nom => parNom.get(nom) || [] };
+
   return (l) => {
     const mat = String(l.matricule || '').trim();
     if (mat) {
@@ -60,6 +72,32 @@ function chercheur(annee, ueNum) {
         && (!prenom || clean(x.prenom).startsWith(prenom.slice(0, 5))));
       if (c.length === 1) return { id: c[0].id, methode: 'identité', inscrit: true };
       if (c.length > 1) return { ambigu: true };
+
+      // ── LE REVENANT ────────────────────────────────────────────────────────
+      //
+      // LE MATRICULE CHANGE D'UNE ANNÉE À L'AUTRE. Nejla BEN TOUMI est 24-00239
+      // en 2024-2025 et 25-00158 en 2025-2026 : cherché par matricule, on ne la
+      // trouve pas ; cherché parmi les inscrits de l'unité pour l'année
+      // importée, pas davantage, puisque c'est précisément cette inscription
+      // qu'on est en train de créer. L'import créait donc un second dossier —
+      // cent cinquante-deux fois sur la seule section TIM, tous les revenants.
+      //
+      // Deux dossiers, c'est un parcours coupé en deux : la valorisation d'une
+      // unité acquise l'an dernier ne se voit plus, et une attestation peut être
+      // délivrée sur la moitié de ce qui a été réussi.
+      //
+      // On cherche donc AUSSI dans toute la base, et l'on ne retient que le cas
+      // où un seul dossier répond : deux homonymes valent mieux non rapprochés
+      // que mal rapprochés. Le nouveau matricule sera RATTACHÉ à ce dossier,
+      // pas substitué : celui de l'an dernier figure sur les documents déjà
+      // délivrés et doit rester cherchable.
+      const base = partout.all(nom).filter(x => !prenom
+        || clean(x.prenom).startsWith(prenom.slice(0, 5)));
+      if (base.length === 1) {
+        return { id: base[0].id, methode: 'identité (autre année)',
+                 inscrit: idsInscrits.has(base[0].id), rattacher: mat || null };
+      }
+      if (base.length > 1) return { ambigu: true };
     }
     return null;
   };
@@ -119,7 +157,7 @@ r.post('/', authRequired, roleRequired('admin', 'directeur', 'directeur_adjoint'
     collisions: 0, notes_s1: 0, notes_s2: 0, decisions: 0, ajournements: 0,
     ponderations: 0, acquis: 0, acquis_retires: 0, crees: 0, inscrits: 0,
     s2_recopiees: 0, cotes: 0, motifs: 0, motifs_imposes: 0, sans_motif: 0,
-    seances: 0, seances_sans_date: 0,
+    seances: 0, seances_sans_date: 0, matricules_rattaches: 0,
   } };
 
   // ── Créer un dossier, inscrire à l'unité ─────────────────────────────────
@@ -134,6 +172,12 @@ r.post('/', authRequired, roleRequired('admin', 'directeur', 'directeur_adjoint'
   const inscrire = db.prepare(`
     INSERT OR IGNORE INTO etudiant_inscription (etudiant_id, annee_scolaire, ue_num)
     VALUES (?,?,?)`);
+  // LE NOUVEAU MATRICULE REJOINT LE DOSSIER, il ne le remplace pas : celui de
+  // l'an dernier figure sur les documents déjà délivrés et doit rester
+  // cherchable. C'est ce rattachement qui empêche le doublon de l'an prochain.
+  const rattacherMatricule = db.prepare(`
+    INSERT OR IGNORE INTO etudiant_matricule (etudiant_id, id_ecampus, annee, source)
+    VALUES (?,?,?,'suivi')`);
 
   // ── Les écritures ────────────────────────────────────────────────────────
   const posePoidsCours = db.prepare(`
@@ -391,6 +435,17 @@ r.post('/', authRequired, roleRequired('admin', 'directeur', 'directeur_adjoint'
           continue;
         }
         if (collision.has(t.id)) continue;   // signalé plus haut, jamais écrit
+
+        // Le revenant reconnu à son nom : on lui accroche son matricule de
+        // l'année importée, pour que la prochaine fois le rapprochement se
+        // fasse par matricule et non par homonymie.
+        if (t.rattacher) {
+          if (!simulation && t.id > 0) {
+            try { rattacherMatricule.run(t.id, t.rattacher, an); } catch { /* colonne absente */ }
+          }
+          fiche.matricules_rattaches = (fiche.matricules_rattaches || 0) + 1;
+          rapport.total.matricules_rattaches++;
+        }
 
         // PAS INSCRIT À CETTE UNITÉ — on l'inscrit, si on nous l'a demandé.
         // Le classeur de suivi d'une unité EST la liste de ceux qui l'ont

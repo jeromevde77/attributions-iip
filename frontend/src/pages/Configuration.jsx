@@ -436,6 +436,7 @@ function RegenererDonneesDev() {
   );
 }
 import Users from './Users.jsx';
+import DoublonsEtudiants from '../components/DoublonsEtudiants.jsx';
 import Annees from './Annees.jsx';
 import DatesUE from '../components/DatesUE.jsx';
 import Referentiels from './Referentiels.jsx';
@@ -1272,6 +1273,7 @@ export default function Configuration() {
     ]},
     { label: 'Paramétrage annuel', items: [
       { key: 'annees', label: 'Années', icon: IconCalendar },
+      { key: 'doublons', label: 'Dossiers dédoublés', icon: IconUsers },
       { key: 'dates-ue', label: 'Dates des UE', icon: IconCalendarEvent },
     ]},
     { label: 'Établissement', items: [
@@ -1315,6 +1317,11 @@ export default function Configuration() {
 
       {/* ── Onglet Années ── */}
       {tab === 'annees' && <Annees embedded />}
+
+      {/* ── Onglet Dossiers dédoublés ──
+          Le matricule change d'une année à l'autre : l'import d'une seconde
+          année créait un dossier de plus par revenant. On répare ici. */}
+      {tab === 'doublons' && <DoublonsEtudiants />}
 
       {/* ── Onglet Dates des UE (paramétrage annuel) ── */}
       {tab === 'dates-ue' && <DatesUE annee={anneeActive} />}
