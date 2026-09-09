@@ -18,10 +18,27 @@ import { CHAMPS, reconnaitreColonnes, construireUnites, construirePlanning, estP
  *
  * Les dates viennent du fichier — on ne retape pas ce qu'on a déjà.
  */
+/** Ce qui manque pour écrire, selon le document qu'on croit tenir. */
+function manquantsDe(colonnes, type) {
+  const requis = type === 'planning'
+    ? ['ue_num', 'session', 'date_seance']
+    : CHAMPS.filter(c => c.requis).map(c => c.cle);
+  return requis.filter(k => colonnes[k] == null)
+    .map(k => CHAMPS.find(x => x.cle === k)?.libelle || k);
+}
+
 export default function ImportTableauPlat({ annee, onClose, onFini }) {
   const [lignes, setLignes] = useState(null);      // [[cellules]] — en-têtes en 0
   const [colonnes, setColonnes] = useState({});
   const [manquants, setManquants] = useState([]);
+  // LE TYPE DE DOCUMENT EST UN ÉTAT, PAS UNE DÉDUCTION PERMANENTE.
+  //
+  // Il se devinait à chaque frappe : désigner une colonne « Nom » sur un
+  // planning le faisait basculer en tableau de décisions, sans un mot, et
+  // l'écran réclamait alors un prénom et une décision que le planning n'a
+  // pas. On le détecte une fois, à l'ouverture, et on l'affiche — il se
+  // change à la main, jamais tout seul.
+  const [type, setType] = useState('decisions');   // 'decisions' | 'planning'
   const [nomFichier, setNomFichier] = useState('');
   const [choisies, setChoisies] = useState(new Set());
   const [clore, setClore] = useState(false);
@@ -46,17 +63,13 @@ export default function ImportTableauPlat({ annee, onClose, onFini }) {
       const { colonnes: c } = reconnaitreColonnes(utiles[0]);
       // Le planning n'a ni nom ni prénom : ce ne sont donc pas des colonnes
       // manquantes, c'est un autre document. Les exiger le rendrait illisible.
-      const planning = estPlanning(c);
-      const requis = planning ? ['ue_num', 'session', 'date_seance'] : null;
+      const t = estPlanning(c) ? 'planning' : 'decisions';
       setLignes(utiles); setColonnes(c); setNomFichier(f.name);
-      setManquants(planning
-        ? requis.filter(k => c[k] == null)
-            .map(k => CHAMPS.find(x => x.cle === k)?.libelle || k)
-        : CHAMPS.filter(x => x.requis && c[x.cle] == null).map(x => x.libelle));
+      setType(t); setManquants(manquantsDe(c, t)); setChoisies(new Set());
     } catch (e) { setErreur(e.message); }
   }
 
-  const planning = lignes ? estPlanning(colonnes) : false;
+  const planning = type === 'planning';
   const { unites, rejets } = useMemo(
     () => (lignes && !manquants.length
       ? (planning ? construirePlanning(lignes, colonnes) : construireUnites(lignes, colonnes))
@@ -148,8 +161,23 @@ export default function ImportTableauPlat({ annee, onClose, onFini }) {
             </label>
           ) : (
             <>
-              <div className="text-[12px] text-slate-500">
-                <b className="text-slate-700">{nomFichier}</b> · {lignes.length - 1} ligne(s)
+              <div className="flex items-center gap-2 flex-wrap">
+                <span className="text-[12px] text-slate-500">
+                  <b className="text-slate-700">{nomFichier}</b> · {lignes.length - 1} ligne(s)
+                </span>
+                <span className="flex-1" />
+                <span className="text-[12px] text-slate-500">Ce fichier est :</span>
+                <div className="flex rounded-lg border border-slate-300 overflow-hidden">
+                  {[['decisions', 'un tableau de décisions'],
+                    ['planning', 'un planning de séances']].map(([v, lib]) => (
+                    <button key={v}
+                      onClick={() => { setType(v); setManquants(manquantsDe(colonnes, v)); }}
+                      className={`px-2.5 py-1 text-[12px] ${type === v
+                        ? 'bg-iip-blue text-white font-semibold' : 'text-slate-600'}`}>
+                      {lib}
+                    </button>
+                  ))}
+                </div>
               </div>
 
               {/* ── CE QUE LUCIE A COMPRIS DES COLONNES ──────────────────── */}
@@ -159,20 +187,23 @@ export default function ImportTableauPlat({ annee, onClose, onFini }) {
                   Les colonnes du fichier
                 </div>
                 <div className="p-3 grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
-                  {CHAMPS.map(c => (
+                  {CHAMPS.filter(c => !planning
+                    || !['nom', 'prenom', 'decision', 'note', 'justification', 'matricule']
+                      .includes(c.cle)).map(c => (
                     <label key={c.cle} className="text-[11px] text-slate-600">
-                      {c.libelle}{c.requis && <span className="text-red-600"> *</span>}
+                      {c.libelle}
+                      {manquantsDe({}, type).includes(c.libelle)
+                        && <span className="text-red-600"> *</span>}
                       <select value={colonnes[c.cle] ?? ''}
                         onChange={e => {
                           const v = e.target.value === '' ? null : Number(e.target.value);
                           const suite = { ...colonnes };
                           if (v == null) delete suite[c.cle]; else suite[c.cle] = v;
                           setColonnes(suite);
-                          setManquants(CHAMPS.filter(x => x.requis && suite[x.cle] == null)
-                            .map(x => x.libelle));
+                          setManquants(manquantsDe(suite, type));
                         }}
                         className={`block mt-0.5 w-full px-2 py-1 border rounded-lg text-[12px]
-                          ${c.requis && colonnes[c.cle] == null
+                          ${manquants.includes(c.libelle)
                             ? 'border-red-300 bg-red-50' : 'border-slate-300'}`}>
                         <option value="">— aucune —</option>
                         {entetes.map((h, i) => (
@@ -186,8 +217,11 @@ export default function ImportTableauPlat({ annee, onClose, onFini }) {
                   <div className="px-3 py-2 bg-red-50 border-t border-red-200
                                   text-[11.5px] text-red-800">
                     Colonnes indispensables non reconnues : <b>{manquants.join(', ')}</b>.
-                    Désignez-les ci-dessus — sans elles, une ligne ne peut pas être
-                    rattachée à un étudiant ni à une décision.
+                    Désignez-les ci-dessus.{type === 'decisions'
+                      ? ' Sans elles, une ligne ne peut pas être rattachée à un étudiant '
+                        + 'ni à une décision — et s’il s’agit en réalité du planning des '
+                        + 'séances, dites-le ci-dessus : il n’a pas d’étudiants.'
+                      : ' Un planning a besoin de l’unité, de la session et de la date.'}
                   </div>
                 )}
               </div>
