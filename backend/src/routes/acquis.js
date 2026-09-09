@@ -3024,6 +3024,27 @@ r.get('/ue/:ueNum/feuille', authRequired,
 
   res.json({
     ue, annee, session, cours, etudiants, notes, mentions,
+    // LES COTES CALCULÉES — pour que le professeur les VOIE en encodant.
+    //
+    // Il encodait des acquis sans jamais savoir ce qu'ils donnaient : la note
+    // du cours et celle de l'unité n'apparaissaient qu'à la délibération, dans
+    // un autre écran. Or c'est en encodant qu'on repère la note aberrante —
+    // celle qu'on vient de taper de travers.
+    //
+    // Elles sont RENVOYÉES, jamais reçues : une cote de cours est une somme
+    // pondérée d'acquis, une cote d'unité une somme pondérée de cours. Les
+    // laisser modifier, ce serait permettre d'écrire un total qui ne
+    // correspond à rien de ce qui est encodé.
+    cotes: Object.fromEntries(etudiants.map(e => {
+      const d = delibererUE(e.id, ueNum, annee, session);
+      return [e.id, {
+        cours: Object.fromEntries((d.cours || []).map(c => [c.cours_code,
+          c.na ? null : c.note])),
+        na: Object.fromEntries((d.cours || []).map(c => [c.cours_code, !!c.na])),
+        ue: d.ue?.na ? null : (d.ue?.note ?? null),
+        decision: d.ue?.decision_proposee || null,
+      }];
+    })),
     // OÙ L'UNITÉ EN EST VRAIMENT. La feuille s'ouvrait toujours sur la
     // première session : on encodait septembre, on refermait, on rouvrait — et
     // l'on retrouvait les notes de juin, à croire que rien n'avait été
