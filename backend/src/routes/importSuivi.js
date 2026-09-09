@@ -119,6 +119,7 @@ r.post('/', authRequired, roleRequired('admin', 'directeur', 'directeur_adjoint'
     collisions: 0, notes_s1: 0, notes_s2: 0, decisions: 0, ajournements: 0,
     ponderations: 0, acquis: 0, acquis_retires: 0, crees: 0, inscrits: 0,
     s2_recopiees: 0, cotes: 0, motifs: 0, motifs_imposes: 0, sans_motif: 0,
+    seances: 0, seances_sans_date: 0,
   } };
 
   // ── Créer un dossier, inscrire à l'unité ─────────────────────────────────
@@ -171,6 +172,40 @@ r.post('/', authRequired, roleRequired('admin', 'directeur', 'directeur_adjoint'
     ON CONFLICT(etudiant_id, annee_scolaire, ue_num, session, portee, code)
     DO UPDATE SET action = excluded.action, maj_le = CURRENT_TIMESTAMP,
                   maj_par = excluded.maj_par`);
+  // ── LA SÉANCE DE LA MIGRATION ────────────────────────────────────────────
+  //
+  // Les résultats ne sont pas toute la délibération. Une décision sans date
+  // n'est pas notifiable : c'est de la date que court le délai de recours
+  // (RGE art. 87-91), c'est elle qui figure au procès-verbal, et la visite des
+  // copies est un droit de l'étudiant qu'il faut pouvoir situer. Importer les
+  // décisions sans leur séance, c'était reprendre l'année en laissant tous ses
+  // documents inutilisables.
+  //
+  // Ces dates viennent du planning de délibération, non du classeur : elles
+  // sont donc DÉCLARÉES, par unité, et écrites telles quelles.
+  const poseSeance = db.prepare(`
+    INSERT INTO deliberation_seance
+      (ue_num, annee_scolaire, session, date_seance, heure_seance,
+       visite_date, visite_heure, visite_local,
+       session2_date, session2_heure, session2_local, session2_adresse,
+       president_role, president_nom, president_titre, cloturee, maj_le, maj_par)
+    VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?, datetime('now'), ?)
+    ON CONFLICT(ue_num, annee_scolaire, session) DO UPDATE SET
+      date_seance      = COALESCE(excluded.date_seance,      deliberation_seance.date_seance),
+      heure_seance     = COALESCE(excluded.heure_seance,     deliberation_seance.heure_seance),
+      visite_date      = COALESCE(excluded.visite_date,      deliberation_seance.visite_date),
+      visite_heure     = COALESCE(excluded.visite_heure,     deliberation_seance.visite_heure),
+      visite_local     = COALESCE(excluded.visite_local,     deliberation_seance.visite_local),
+      session2_date    = COALESCE(excluded.session2_date,    deliberation_seance.session2_date),
+      session2_heure   = COALESCE(excluded.session2_heure,   deliberation_seance.session2_heure),
+      session2_local   = COALESCE(excluded.session2_local,   deliberation_seance.session2_local),
+      session2_adresse = COALESCE(excluded.session2_adresse, deliberation_seance.session2_adresse),
+      president_role   = COALESCE(excluded.president_role,   deliberation_seance.president_role),
+      president_nom    = COALESCE(excluded.president_nom,    deliberation_seance.president_nom),
+      president_titre  = COALESCE(excluded.president_titre,  deliberation_seance.president_titre),
+      cloturee = MAX(excluded.cloturee, deliberation_seance.cloturee),
+      maj_le = datetime('now'), maj_par = excluded.maj_par`);
+
   const poseMotifUE = db.prepare(`
     INSERT INTO decision_motivation
       (etudiant_id, annee_scolaire, ue_num, aa_code, motif, portee, source, maj_le, maj_par)
@@ -215,7 +250,7 @@ r.post('/', authRequired, roleRequired('admin', 'directeur', 'directeur_adjoint'
       const ueNum = Number(u.ue_num);
       const fiche = { ue_num: ueNum, etudiants: 0, rapproches: 0, crees: 0, inscrits: 0,
         s2_recopiees: 0, cotes: 0, motifs: 0, motifs_imposes: 0, sans_motif: 0,
-        cotes_illisibles: [], inconnus: [],
+        seances: 0, seances_sans_date: [], cotes_illisibles: [], inconnus: [],
         hors_inscription: [], collisions: [], notes_s1: 0, notes_s2: 0,
         decisions: 0, ajournements: 0, ponderations: 0, acquis: 0,
         acquis_hors_referentiel: [], acquis_retires: [], acquis_a_verifier: [],
@@ -498,6 +533,34 @@ r.post('/', authRequired, roleRequired('admin', 'directeur', 'directeur_adjoint'
           majInscription.run(fin.resultat ?? null, t.id, an, ueNum);
         }
         rapport.total.etudiants++;
+      }
+
+      // ── LA SÉANCE DE L'UNITÉ ────────────────────────────────────────────
+      //
+      // Une fois par unité, non par étudiant : c'est le Conseil qui s'est
+      // réuni, pas chacun séparément. Ce qui n'est pas déclaré n'écrase rien.
+      if (migration && u.seance) {
+        for (const [ses, bloc] of [[1, u.seance.s1], [2, u.seance.s2]]) {
+          if (!bloc || !Object.values(bloc).some(v => String(v ?? '').trim())) continue;
+          const role = ['titulaire', 'suppleant', 'autre'].includes(bloc.president_role)
+            ? bloc.president_role : null;
+          if (!simulation) {
+            poseSeance.run(ueNum, an, ses,
+              bloc.date_seance || null, bloc.heure_seance || null,
+              bloc.visite_date || null, bloc.visite_heure || null, bloc.visite_local || null,
+              bloc.session2_date || null, bloc.session2_heure || null,
+              bloc.session2_local || null, bloc.session2_adresse || null,
+              role, bloc.president_nom || null, bloc.president_titre || null,
+              // LA CLÔTURE NE SE DÉDUIT PAS D'UNE DATE. Une séance close fige
+              // l'acte et ouvre le délai de recours : on la demande.
+              u.seance.cloturer === true ? 1 : 0, par);
+          }
+          fiche.seances++; rapport.total.seances++;
+          if (!bloc.date_seance) {
+            fiche.seances_sans_date.push(`S${ses}`);
+            rapport.total.seances_sans_date++;
+          }
+        }
       }
 
       rapport.unites.push(fiche);
