@@ -251,6 +251,22 @@ r.get('/civil', authRequired, (req, res) => {
       solde_organique: Math.round((yr.dotation_organique - orgUsage) * 100) / 100,
       pct_organique: yr.dotation_organique ? Math.round((orgUsage / yr.dotation_organique) * 1000) / 10 : null,
       source: yr.usage_historique_organique != null ? 'historique' : 'calcule',
+      // ── CE QUE LA DIRECTION CONSTATE, à côté de ce que Lucie calcule ────
+      //
+      // Le solde constaté ne corrige pas le calcul : il le CONFRONTE. L'écart
+      // entre les deux n'est pas une erreur à masquer, c'est la mesure de ce
+      // qui n'est pas encore encodé dans la base — et il se referme à mesure
+      // qu'on encode. Le fondre dans le solde calculé ferait disparaître
+      // précisément l'information qu'on cherche.
+      solde_constate: yr.solde_constate ?? null,
+      solde_constate_note: yr.solde_constate_note || null,
+      // La consommation qu'implique le solde déclaré, pour la comparer à
+      // celle que la base établit.
+      usage_implique: yr.solde_constate == null ? null
+        : Math.round(((yr.dotation_utilisable ?? yr.dotation_organique) - yr.solde_constate) * 100) / 100,
+      ecart_encodage: yr.solde_constate == null ? null
+        : Math.round((((yr.dotation_utilisable ?? yr.dotation_organique) - yr.solde_constate)
+                      - orgUsage) * 100) / 100,
       notes: yr.notes,
       enveloppes: envYear,
     };
@@ -301,12 +317,14 @@ r.put('/dotation-civile/:annee', authRequired, roleRequired('admin', 'editeur'),
   const y = parseInt(req.params.annee);
   if (!y || y < 2000 || y > 2100) return res.status(400).json({ error: 'Année civile invalide' });
   const { dotation_organique, usage_historique_organique, notes, periodes_eleves,
-          pep_reference, pep_annee_utilisee, pep_calculee, dotation_utilisable } = req.body;
+          pep_reference, pep_annee_utilisee, pep_calculee, dotation_utilisable,
+          solde_constate, solde_constate_note } = req.body;
   if (dotation_organique == null) return res.status(400).json({ error: 'dotation_organique requis' });
   db.prepare(`
     INSERT INTO dotation_civile (annee_civile, dotation_organique, usage_historique_organique, notes,
-      periodes_eleves, pep_reference, pep_annee_utilisee, pep_calculee, dotation_utilisable)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+      periodes_eleves, pep_reference, pep_annee_utilisee, pep_calculee, dotation_utilisable,
+      solde_constate, solde_constate_note)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     ON CONFLICT(annee_civile) DO UPDATE SET
       dotation_organique            = excluded.dotation_organique,
       usage_historique_organique    = excluded.usage_historique_organique,
@@ -315,10 +333,14 @@ r.put('/dotation-civile/:annee', authRequired, roleRequired('admin', 'editeur'),
       pep_reference                 = excluded.pep_reference,
       pep_annee_utilisee            = excluded.pep_annee_utilisee,
       pep_calculee                  = excluded.pep_calculee,
-      dotation_utilisable           = excluded.dotation_utilisable
+      dotation_utilisable           = excluded.dotation_utilisable,
+      solde_constate                = excluded.solde_constate,
+      solde_constate_note           = excluded.solde_constate_note
   `).run(y, dotation_organique, usage_historique_organique ?? null, notes ?? null,
          periodes_eleves ?? null, pep_reference ?? null, pep_annee_utilisee ?? null,
-         pep_calculee ?? null, dotation_utilisable ?? null);
+         pep_calculee ?? null, dotation_utilisable ?? null,
+         solde_constate === '' || solde_constate == null ? null : Number(solde_constate),
+         solde_constate_note ?? null);
   res.json({ ok: true });
 });
 

@@ -1724,6 +1724,22 @@ try {
     try { db.exec("ALTER TABLE dotation_civile ADD COLUMN pep_calculee         REAL"); } catch {}  // PEP pondérée Menu 5.5 (comparée à pep_reference pour ±8%)
     try { db.exec("ALTER TABLE dotation_civile ADD COLUMN dotation_utilisable  REAL"); } catch {}  // Dotation utilisable (après retraits intra-année)
 
+    // ── LE SOLDE CONSTATÉ ────────────────────────────────────────────────
+    //
+    // Ce que la direction SAIT d'une année, quand la base ne l'a pas encore.
+    // « En 2025, tout a été utilisé sauf cinq périodes » : voilà ce dont on se
+    // souvient — un SOLDE, pas une consommation. La soustraction inverse, on ne
+    // l'a jamais faite.
+    //
+    // Il ne remplace rien, à la différence d'usage_historique_organique qui
+    // masque le calcul et fait disparaître le détail par section. Lucie
+    // continue de compter ce qu'elle peut ; l'écran montre les deux, et
+    // L'ÉCART EST L'INFORMATION : il mesure ce qui n'est pas encore encodé, et
+    // il se réduit à mesure qu'on encode. Un chiffre déclaré qui écraserait le
+    // calcul empêcherait justement de voir ce progrès.
+    try { db.exec("ALTER TABLE dotation_civile ADD COLUMN solde_constate      REAL"); } catch {}
+    try { db.exec("ALTER TABLE dotation_civile ADD COLUMN solde_constate_note TEXT"); } catch {}
+
     // Seed complet depuis HOD IIP (1/06/2026) — Menu 7 (PEP brute) + Menu 5.5 (dotations et PEP pondérées)
     // Dérogations COVID : dotations 2022/2023/2024 ont utilisé PEP 2019 (A.Gt 27-10-2022)
     // usage_historique = dotation_utilisable - solde  (pour années sans données Lucie)
