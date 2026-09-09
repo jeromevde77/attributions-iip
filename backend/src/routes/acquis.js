@@ -2973,6 +2973,19 @@ r.get('/ue/:ueNum/feuille', authRequired,
 
   res.json({
     ue, annee, session, cours, etudiants, notes, mentions,
+    // OÙ L'UNITÉ EN EST VRAIMENT. La feuille s'ouvrait toujours sur la
+    // première session : on encodait septembre, on refermait, on rouvrait — et
+    // l'on retrouvait les notes de juin, à croire que rien n'avait été
+    // enregistré. Rien n'était perdu ; l'écran regardait ailleurs. Il faut
+    // qu'il sache de lui-même quelle session est en cours.
+    etat_session: sessionDeLUE(ueNum, annee),
+    // ET SURTOUT : Y A-T-IL DÉJÀ DES NOTES DE SEPTEMBRE ? La session déduite
+    // n'ouvre la seconde qu'une fois la séance de juin close — or on encode
+    // souvent avant de clôturer. Une note de seconde session déjà écrite est
+    // le signe le plus sûr que c'est là qu'on travaille.
+    notes_s2: db.prepare(`SELECT COUNT(*) AS n FROM etudiant_note_detail
+      WHERE annee_scolaire = ? AND ue_num = ? AND type = 'aa' AND code LIKE 's2|%'`)
+      .get(annee, ueNum).n,
     // En seconde session : qui la présente, et pour quels cours. L'écran s'en
     // sert pour n'ouvrir que les colonnes qui attendent une note.
     a_representer: session === 2 ? aRepresenter : null,
