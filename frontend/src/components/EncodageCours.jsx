@@ -18,10 +18,24 @@ import ImportAcquisCours from './ImportAcquisCours.jsx';
  */
 const SEUIL = 10;
 
-const tonNote = n => n == null || n === '' ? 'border-slate-300'
-  : Number(n) >= 14 ? 'border-emerald-300 bg-emerald-50'
-  : Number(n) >= SEUIL ? 'border-sky-300 bg-sky-50'
-  : 'border-amber-300 bg-amber-50';
+/**
+ * LA COULEUR D'UNE NOTE — la même que sur la feuille d'unité.
+ *
+ *   sous 10        rouge    l'acquis n'est pas maîtrisé
+ *   10 et 11       orange   au seuil, mais de justesse
+ *   12 et plus     vert     acquis
+ *
+ * Deux écrans qui peignent la même note de deux couleurs différentes
+ * apprennent à se méfier des deux.
+ */
+const tonNote = n => {
+  if (n == null || n === '') return 'border-slate-300';
+  const v = Number(n);
+  if (!Number.isFinite(v)) return 'border-slate-300';
+  if (v < SEUIL) return 'border-red-300 bg-red-50 text-red-900';
+  if (v < 12) return 'border-amber-300 bg-amber-50 text-amber-900';
+  return 'border-emerald-300 bg-emerald-50 text-emerald-900';
+};
 
 export default function EncodageCours({ coursCode, annee, onClose, onEnregistre, onParametrer }) {
   const [data, setData] = useState(null);

@@ -22,10 +22,38 @@ import { authHeaders } from '../lib/api.js';
  */
 const SEUIL = 10;
 
-const tonNote = n => (n == null || n === '' ? 'border-slate-300'
-  : Number(n) >= 14 ? 'border-emerald-300 bg-emerald-50'
-    : Number(n) >= SEUIL ? 'border-sky-300 bg-sky-50'
-      : 'border-amber-300 bg-amber-50');
+/**
+ * LA COULEUR D'UNE NOTE — trois états, et pas un de plus.
+ *
+ * L'échelle précédente séparait « bien » de « au seuil » et peignait l'échec
+ * en ambre, la couleur de l'attention. Or ce n'est pas ce que le professeur
+ * cherche du regard : il cherche ce qui est SOUS le seuil, et ce qui n'y est
+ * que de justesse — 10 ou 11, la note qu'un point de correction fait basculer.
+ *
+ *   sous 10        rouge    l'acquis n'est pas maîtrisé
+ *   10 et 11       orange   au seuil, mais de justesse
+ *   12 et plus     vert     acquis
+ */
+const tonNote = n => {
+  if (n == null || n === '') return 'border-slate-300';
+  const v = Number(n);
+  if (!Number.isFinite(v)) return 'border-slate-300';
+  if (v < SEUIL) return 'border-red-300 bg-red-50 text-red-900';
+  if (v < 12) return 'border-amber-300 bg-amber-50 text-amber-900';
+  return 'border-emerald-300 bg-emerald-50 text-emerald-900';
+};
+
+/** La même échelle, pour une cote qui s'affiche au lieu de s'éditer. */
+const tonCote = n => {
+  if (n == null) return 'text-slate-300';
+  const v = Number(n);
+  if (!Number.isFinite(v)) return 'text-slate-300';
+  if (v < SEUIL) return 'text-red-700 bg-red-50';
+  if (v < 12) return 'text-amber-800 bg-amber-50';
+  return 'text-emerald-800 bg-emerald-50';
+};
+
+const fmtCote = n => (n == null ? '—' : Number(n).toFixed(1).replace('.', ','));
 
 // Les cours se distinguent par une teinte d'en-tête : sans elle, quinze
 // colonnes d'acquis se ressemblent toutes et l'on ne sait plus où l'on est.
@@ -238,7 +266,7 @@ export default function EncodageUE({ ueNum, annee, onClose, onEnregistre, onPara
                 <tr>
                   <th className="sticky left-0 z-20 bg-white text-left px-2 pb-1" />
                   {data.cours.filter(c => c.acquis?.length).map((c, i) => (
-                    <th key={c.cours_code} colSpan={c.acquis.length + 1}
+                    <th key={c.cours_code} colSpan={c.acquis.length + 2}
                       className={`px-2 py-1 border rounded-t-lg text-left align-bottom
                                   ${TEINTES[i % TEINTES.length]}`}>
                       <div className="font-semibold text-iip-blue truncate max-w-[220px]">
@@ -249,6 +277,11 @@ export default function EncodageUE({ ueNum, annee, onClose, onEnregistre, onPara
                       </div>
                     </th>
                   ))}
+                  <th className="px-2 py-1 border rounded-t-lg align-bottom bg-slate-100
+                                 border-slate-300">
+                    <div className="font-semibold text-iip-blue">Unité</div>
+                    <div className="text-[10px] text-slate-500 font-normal">calculée</div>
+                  </th>
                 </tr>
                 <tr>
                   <th className="sticky left-0 z-20 bg-white text-left px-2 pb-1
@@ -265,12 +298,19 @@ export default function EncodageUE({ ueNum, annee, onClose, onEnregistre, onPara
                         )}
                       </th>
                     )),
+                    <th key={`${c.cours_code}|cote`}
+                      className={`px-1 pb-1 border-x text-[10px] font-bold text-iip-blue
+                                  ${TEINTES[i % TEINTES.length]}`}>
+                      note
+                    </th>,
                     <th key={`${c.cours_code}|mention`}
                       className={`px-1 pb-1 border-x text-[10px] text-slate-400 font-normal
                                   ${TEINTES[i % TEINTES.length]}`}>
                       épreuve
                     </th>,
                   ])}
+                  <th className="px-1 pb-1 border-x text-[10px] font-bold text-iip-blue
+                                 bg-slate-100">UE</th>
                 </tr>
               </thead>
               <tbody>
@@ -335,6 +375,25 @@ export default function EncodageUE({ ueNum, annee, onClose, onEnregistre, onPara
                             </td>
                           );
                         }),
+                        // LA NOTE DU COURS, CALCULÉE ET NON SAISIE. Le
+                        // professeur encodait ses acquis sans jamais voir ce
+                        // qu'ils donnaient : la cote n'apparaissait qu'à la
+                        // délibération, dans un autre écran. C'est pourtant en
+                        // encodant qu'on repère la note tapée de travers.
+                        <td key={`${e.id}|${c.cours_code}|cote`}
+                          className="px-1 py-0.5 border-b border-slate-100 text-center">
+                          <span title={data.cotes?.[e.id]?.na?.[c.cours_code]
+                            ? 'Non acquis — le Conseil a ajourné ce cours, ou l’épreuve '
+                              + 'n’a pas été présentée'
+                            : 'Note du cours, calculée depuis les acquis et leurs poids'}
+                            className={`inline-block min-w-[34px] px-1 py-0.5 rounded font-bold
+                              tabular-nums ${data.cotes?.[e.id]?.na?.[c.cours_code]
+                                ? 'text-red-700 bg-red-50'
+                                : tonCote(data.cotes?.[e.id]?.cours?.[c.cours_code])}`}>
+                            {data.cotes?.[e.id]?.na?.[c.cours_code]
+                              ? 'NA' : fmtCote(data.cotes?.[e.id]?.cours?.[c.cours_code])}
+                          </span>
+                        </td>,
                         <td key={`${e.id}|${c.cours_code}|mention`}
                           className="px-1 py-0.5 border-b border-slate-100 text-center whitespace-nowrap">
                           {!ferme && ['NP', 'PP'].map(x => (
@@ -354,6 +413,22 @@ export default function EncodageUE({ ueNum, annee, onClose, onEnregistre, onPara
                         </td>,
                       ];
                     })}
+                    {/* LA NOTE DE L'UNITÉ — vue, jamais saisie. Elle est la
+                        somme pondérée des cours ; la laisser modifier, ce
+                        serait permettre d'écrire un total qui ne correspond à
+                        aucune des notes encodées. Le professeur la voit, le
+                        Conseil la décide. */}
+                    <td className="px-1 py-0.5 border-b border-slate-100 text-center
+                                   bg-slate-50">
+                      <span title={data.cotes?.[e.id]?.ue == null
+                        ? 'Non calculable : un cours est non acquis, ou tout n’est pas encodé'
+                        : 'Note de l’unité, calculée depuis les cours et leurs poids — '
+                          + 'elle ne se saisit pas'}
+                        className={`inline-block min-w-[38px] px-1.5 py-0.5 rounded font-bold
+                          tabular-nums ${tonCote(data.cotes?.[e.id]?.ue)}`}>
+                        {fmtCote(data.cotes?.[e.id]?.ue)}
+                      </span>
+                    </td>
                   </tr>
                 ))}
               </tbody>
