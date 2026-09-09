@@ -2,7 +2,8 @@ import { useMemo, useState } from 'react';
 import * as XLSX from 'xlsx';
 import { IconX, IconAlertTriangle, IconUpload } from '@tabler/icons-react';
 import { authHeaders } from '../lib/api.js';
-import { CHAMPS, reconnaitreColonnes, construireUnites } from '../lib/lireTableauPlat.js';
+import { CHAMPS, reconnaitreColonnes, construireUnites, construirePlanning, estPlanning }
+  from '../lib/lireTableauPlat.js';
 
 /**
  * REPRENDRE UNE ANNÉE DEPUIS UN TABLEAU PLAT.
@@ -42,15 +43,25 @@ export default function ImportTableauPlat({ annee, onClose, onFini }) {
       const tab = XLSX.utils.sheet_to_json(fe, { header: 1, raw: true, defval: null });
       const utiles = tab.filter(l => (l || []).some(c => c != null && String(c).trim() !== ''));
       if (utiles.length < 2) throw new Error('Le fichier ne contient aucune ligne de données.');
-      const { colonnes: c, manquants: m } = reconnaitreColonnes(utiles[0]);
-      setLignes(utiles); setColonnes(c); setManquants(m); setNomFichier(f.name);
+      const { colonnes: c } = reconnaitreColonnes(utiles[0]);
+      // Le planning n'a ni nom ni prénom : ce ne sont donc pas des colonnes
+      // manquantes, c'est un autre document. Les exiger le rendrait illisible.
+      const planning = estPlanning(c);
+      const requis = planning ? ['ue_num', 'session', 'date_seance'] : null;
+      setLignes(utiles); setColonnes(c); setNomFichier(f.name);
+      setManquants(planning
+        ? requis.filter(k => c[k] == null)
+            .map(k => CHAMPS.find(x => x.cle === k)?.libelle || k)
+        : CHAMPS.filter(x => x.requis && c[x.cle] == null).map(x => x.libelle));
     } catch (e) { setErreur(e.message); }
   }
 
+  const planning = lignes ? estPlanning(colonnes) : false;
   const { unites, rejets } = useMemo(
-    () => (lignes && !manquants.length ? construireUnites(lignes, colonnes)
+    () => (lignes && !manquants.length
+      ? (planning ? construirePlanning(lignes, colonnes) : construireUnites(lignes, colonnes))
       : { unites: [], rejets: [] }),
-    [lignes, colonnes, manquants]);
+    [lignes, colonnes, manquants, planning]);
 
   // Tout est coché d'emblée — on vient reprendre une année, pas trier.
   useMemo(() => {
@@ -67,8 +78,10 @@ export default function ImportTableauPlat({ annee, onClose, onFini }) {
           annee, simulation, migration: true,
           // Le tableau ne porte ni pondérations ni notes d'acquis : il ne
           // porte que des décisions. Demander le reste ferait effacer.
-          ponderations: false, notes: false, decisions: true,
-          creer, inscrire: creer,
+          // Un PLANNING ne porte même pas de décision : il ne pose que des
+          // séances, et ne doit toucher à aucun résultat.
+          ponderations: false, notes: false, decisions: !planning,
+          creer: planning ? false : creer, inscrire: planning ? false : creer,
           justification_defaut: justifDefaut.trim(),
           unites: unites.filter(u => choisies.has(u.ue_num)).map(u => ({
             ue_num: u.ue_num, etudiants: u.etudiants,
@@ -97,11 +110,14 @@ export default function ImportTableauPlat({ annee, onClose, onFini }) {
                         flex-shrink-0">
           <div>
             <h3 className="text-[15px] font-semibold text-iip-blue">
-              Reprise d'historique — tableau de délibérations
+              Reprise d'historique{planning ? ' — planning des séances' : ' — tableau de délibérations'}
             </h3>
             <p className="text-[12px] text-slate-500">
-              Une ligne par étudiant, unité et session. Les décisions, les cotes et les
-              dates du jury sont reprises <b>telles quelles</b> : aucun recalcul.
+              {planning
+                ? <>Une ligne par unité et session : dates de délibération, créneaux et
+                    locaux de visite des copies. <b>Aucun résultat n'est touché.</b></>
+                : <>Une ligne par étudiant, unité et session. Les décisions, les cotes et
+                    les dates du jury sont reprises <b>telles quelles</b> : aucun recalcul.</>}
             </p>
           </div>
           <button onClick={onClose} className="text-slate-400 hover:text-slate-600">
@@ -125,7 +141,7 @@ export default function ImportTableauPlat({ annee, onClose, onFini }) {
                 Choisir le fichier de reprise
               </div>
               <div className="text-[11.5px] text-slate-500">
-                .xlsx ou .csv — une ligne par étudiant × unité × session
+                .xlsx ou .csv — le tableau des décisions, ou le planning des séances
               </div>
               <input type="file" accept=".xlsx,.xlsm,.csv" className="hidden"
                 onChange={e => lire(e.target.files?.[0])} />
@@ -205,8 +221,11 @@ export default function ImportTableauPlat({ annee, onClose, onFini }) {
                             })} />
                           <span className="w-16 tabular-nums text-slate-500">UE {u.ue_num}</span>
                           <span className="flex-1 text-slate-700">
-                            {u.resume.etudiants} étudiant(s) · {u.resume.s1} en 1re ·
-                            {' '}{u.resume.s2} en 2e
+                            {planning
+                              ? `${u.resume.seances} séance(s) : ${Object.keys(u.seance)
+                                  .map(k => k.toUpperCase()).join(', ')}`
+                              : `${u.resume.etudiants} étudiant(s) · ${u.resume.s1} en 1re · `
+                                + `${u.resume.s2} en 2e`}
                           </span>
                           <span className="text-[11.5px] text-slate-500 w-24 text-right">
                             {u.resume.cotes} cote(s)
@@ -243,16 +262,19 @@ export default function ImportTableauPlat({ annee, onClose, onFini }) {
 
                   {/* ── CE QUI S'ÉCRIT ───────────────────────────────────── */}
                   <div className="space-y-2 px-1">
-                    <label className="flex items-center gap-2 text-[12.5px] text-slate-700">
-                      <input type="checkbox" checked={creer} className="w-4 h-4 accent-iip-blue"
-                        onChange={e => setCreer(e.target.checked)} />
-                      Créer les étudiants inconnus et les inscrire aux unités
-                    </label>
+                    {!planning && (
+                      <label className="flex items-center gap-2 text-[12.5px] text-slate-700">
+                        <input type="checkbox" checked={creer} className="w-4 h-4 accent-iip-blue"
+                          onChange={e => setCreer(e.target.checked)} />
+                        Créer les étudiants inconnus et les inscrire aux unités
+                      </label>
+                    )}
                     <label className="flex items-center gap-2 text-[12.5px] text-slate-700">
                       <input type="checkbox" checked={clore} className="w-4 h-4 accent-iip-blue"
                         onChange={e => setClore(e.target.checked)} />
                       Clôturer les séances — elles ont réellement été tenues
                     </label>
+                    {!planning && (
                     <label className="block text-[11.5px] text-slate-700">
                       Justification imposée là où le fichier n'en porte aucune
                       <textarea value={justifDefaut} onChange={e => setJustifDefaut(e.target.value)}
@@ -260,12 +282,13 @@ export default function ImportTableauPlat({ annee, onClose, onFini }) {
                         placeholder="ex. Décision du jury ; motivation non consignée — reprise d'historique."
                         className="mt-1 w-full px-2 py-1.5 border border-slate-300 rounded-lg
                                    text-[12px]" />
-                    </label>
+                    </label>)}
+                    {!planning && (
                     <p className="text-[11px] text-slate-500">
                       Elle est marquée « imposée » et ne se confond pas avec une motivation
                       prise en séance. Laissez vide pour n'en imposer aucune : le rapport
                       comptera les décisions défavorables restées sans motif.
-                    </p>
+                    </p>)}
                   </div>
 
                   {rapport && (
@@ -303,7 +326,8 @@ export default function ImportTableauPlat({ annee, onClose, onFini }) {
                         justify-between gap-3 flex-shrink-0">
           <span className="text-[12px] text-slate-500">
             {lignes && !manquants.length
-              ? `${choisies.size} unité(s) · ${total} décision(s)` : ''}
+              ? (planning ? `${choisies.size} unité(s) · séances seules`
+                : `${choisies.size} unité(s) · ${total} décision(s)`) : ''}
           </span>
           <div className="flex gap-2">
             <button onClick={onClose}
