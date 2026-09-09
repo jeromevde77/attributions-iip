@@ -3884,11 +3884,7 @@ export function pageComposition(ueNum, annee) {
   const sansProf = !membres.some(m => m.role === 'professeur');
 
   const corps = `<div class="attestation">
-    <div class="entete">
-      <div class="nom">${esc0(ident.nom || 'INSTITUT ILYA PRIGOGINE')}</div>
-      <div class="sous">Conseil des études — composition · ${esc0(annee)}</div>
-    </div>
-    <div class="titre-liste">UE ${u.ue_num} — ${esc0(u.ue_nom || '')}</div>
+    ${enteteDelib(u.ue_num, annee, 1, 'Conseil des études — composition')}
     <div class="sous-liste">${esc0(u.section || 'section non renseignée')} ·
       ${votants} voix délibérative(s) · quorum : ${requis}
       <span class="ref">(deux tiers, RGE art. 25 §1)</span></div>
@@ -3910,7 +3906,7 @@ export function pageComposition(ueNum, annee) {
     </div>
   </div>`;
 
-  return { corps, style: STYLE_LISTES, membres: membres.length, votants, requis,
+  return { corps, style: STYLE_ENTETE_DELIB + STYLE_LISTES, membres: membres.length, votants, requis,
            sans_professeur: sansProf, ue_nom: u.ue_nom, section: u.section };
 }
 
@@ -4187,6 +4183,112 @@ r.get('/deliberation/ue/:ueNum/documents', authRequired, (req, res) => {
   });
 });
 
+/**
+ * LA MISE EN PAGE DE LA MAISON — pour les pièces de la délibération aussi.
+ *
+ * Les documents tirés de la délibération sortaient sur un en-tête à eux : le
+ * nom de l'établissement et une ligne de sous-titre, sans les filets dorés, sans
+ * la mention de la Communauté française, sans le cadre du titre. Posés à côté
+ * d'une attestation de réussite, ils n'avaient pas l'air de venir du même
+ * institut — et c'est le genre de détail qu'une inspection remarque.
+ *
+ * ET IL Y MANQUAIT L'ESSENTIEL : la session et sa date. Une pièce de
+ * délibération non datée n'est pas notifiable — c'est de la date que court le
+ * délai de recours (RGE art. 87-91) — et ne pas dire si l'on lit juin ou
+ * septembre rend deux documents voisins indiscernables.
+ *
+ * Un seul en-tête, donc, pour toutes les pièces : les filets dorés, l'identité
+ * de l'établissement, le titre encadré, puis la ligne qui dit l'unité, la
+ * session, la date de la séance et l'année scolaire.
+ */
+const STYLE_ENTETE_DELIB = `<style>
+  .delib-cf { text-align: center; padding: 3.5mm 6mm;
+    border-top: 0.3mm solid #C9A84C; border-bottom: 0.3mm solid #C9A84C; }
+  .delib-cf .cf { font-size: 8pt; letter-spacing: .7pt; color: #1B2B4B; font-weight: 600; }
+  .delib-cf .epa { font-size: 10.5pt; font-weight: 700; letter-spacing: .5pt;
+    color: #1B2B4B; margin-top: 1mm; }
+  .delib-cf .an { font-size: 8.5pt; margin-top: 1.2mm; color: #475569; }
+  .delib-etab { display: flex; justify-content: space-between; gap: 6mm;
+    padding: 3mm 0 2.5mm; border-bottom: 0.4pt solid #cbd5e1; font-size: 8pt;
+    color: #475569; }
+  .delib-etab .nom { font-weight: 600; color: #1B2B4B; font-size: 9pt; }
+  .delib-etab .ident { text-align: right; white-space: nowrap; }
+  /* LE TITRE DANS SON CADRE MARINE, comme les autres pièces de la maison. */
+  .delib-titre { border: 0.4mm solid #1B2B4B; border-radius: 1.5mm;
+    padding: 3mm 4mm; margin: 5mm 0 2mm; text-align: center; }
+  .delib-titre .quoi { font-size: 12pt; font-weight: 700; color: #1B2B4B;
+    letter-spacing: .3pt; }
+  .delib-titre .ue { font-size: 10pt; color: #1B2B4B; margin-top: 1mm; }
+  .delib-filet { width: 40mm; height: 0.3mm; background: #C9A84C; margin: 0 auto 3mm; }
+  /* LA SESSION ET SA DATE, en évidence : c'est ce qui manquait le plus. */
+  .delib-seance { display: flex; justify-content: center; gap: 4mm; flex-wrap: wrap;
+    font-size: 8.5pt; color: #1B2B4B; margin-bottom: 4mm; }
+  .delib-seance span { background: #eff6ff; border: 0.3mm solid #c7d7f0;
+    border-radius: 1.2mm; padding: 1mm 2.5mm; }
+  .delib-seance b { font-weight: 700; }
+  .delib-seance .manque { background: #fef3c7; border-color: #fcd34d; font-style: italic; }
+</style>`;
+
+/** L'en-tête commun. `quoi` est le nom de la pièce ; le reste s'en déduit. */
+function enteteDelib(ueNum, annee, session, quoi, { total = false } = {}) {
+  const e = t => String(t ?? '').replace(/[&<>"]/g,
+    x => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[x]));
+  let ident = {};
+  try { ident = identiteEtablissement() || {}; } catch { ident = {}; }
+  const ue = db.prepare(`
+    SELECT ue_nom, section FROM ue WHERE ue_num = ?
+    ORDER BY (annee_scolaire = ?) DESC, annee_scolaire DESC LIMIT 1
+  `).get(ueNum, annee) || {};
+  const sc = db.prepare(`
+    SELECT date_seance, heure_seance, cloturee FROM deliberation_seance
+    WHERE ue_num = ? AND annee_scolaire = ? AND session = ?
+  `).get(ueNum, annee, total ? 2 : session) || {};
+
+  const dateFr = (() => {
+    const d = String(sc.date_seance || '');
+    const m = d.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+    if (!m) return d || null;
+    const MOIS = ['janvier', 'février', 'mars', 'avril', 'mai', 'juin', 'juillet',
+      'août', 'septembre', 'octobre', 'novembre', 'décembre'];
+    const j = Number(m[3]);
+    return `${j === 1 ? '1er' : j} ${MOIS[Number(m[2]) - 1]} ${m[1]}`;
+  })();
+
+  const quelle = total
+    ? 'Résultat des deux sessions'
+    : (session === 2 ? 'Seconde session' : 'Première session');
+
+  return `<div class="delib-cf">
+    <div class="cf">COMMUNAUTÉ FRANÇAISE DE BELGIQUE</div>
+    <div class="epa">ENSEIGNEMENT POUR ADULTES</div>
+    <div class="an">Année scolaire ${e(String(annee).replace('-', '/'))}</div>
+  </div>
+  <div class="delib-etab">
+    <div>
+      <div class="nom">${e(ident.nom || 'INSTITUT ILYA PRIGOGINE')}</div>
+      <div>${e(ident.adresse || '')}</div>
+    </div>
+    <div class="ident">
+      ${ident.matricule ? `Matricule ${e(ident.matricule)}<br>` : ''}
+      ${ident.fase ? `FASE ${e(ident.fase)}` : ''}
+    </div>
+  </div>
+  <div class="delib-titre">
+    <div class="quoi">${e(String(quoi).toUpperCase())}</div>
+    <div class="ue">UE ${ueNum}${ue.ue_nom ? ` — ${e(ue.ue_nom)}` : ''}</div>
+  </div>
+  <div class="delib-filet"></div>
+  <div class="delib-seance">
+    <span><b>${e(quelle)}</b></span>
+    ${dateFr ? `<span>Séance du <b>${e(dateFr)}</b>${
+      sc.heure_seance ? ` à ${e(sc.heure_seance)}` : ''}</span>`
+      : '<span class="manque">Date de séance non fixée</span>'}
+    ${ue.section ? `<span>${e(ue.section)}</span>` : ''}
+    ${sc.cloturee ? '<span>Séance clôturée</span>'
+      : '<span class="manque">Séance non clôturée</span>'}
+  </div>`;
+}
+
 const STYLE_LISTES = `<style>
   .titre-liste { font-size: 13pt; font-weight: 700; color:#1B2B4B; margin: 5mm 0 0.5mm; }
   .sous-liste { font-size: 9pt; color:#5b6577; margin-bottom: 3mm; }
@@ -4293,14 +4395,10 @@ export function documentAjournesParCours(ueNum, annee, session = 1) {
       : '<p class="neant">Néant — aucun étudiant n’est à représenter dans ce cours.</p>';
 
     return `<div class="attestation">
-      <div class="entete">
-        <div class="nom">${esc0(ident.nom || 'INSTITUT ILYA PRIGOGINE')}</div>
-        <div class="sous">Liste des étudiants ajournés — ${session === 2 ? 'seconde' : 'première'} session</div>
-      </div>
+      ${enteteDelib(ueNum, annee, session, 'Étudiants ajournés — liste du cours')}
       <div class="titre-liste">${esc0(c.cours_nom || c.cours_code)}</div>
-      <div class="sous-liste">Cours ${esc0(c.cours_code)} · UE ${ueNum}
-        ${ue.ue_nom ? `— ${esc0(ue.ue_nom)}` : ''} · ${esc0(annee)}${
-          profs[c.cours_code] ? ` · ${esc0(profs[c.cours_code])}` : ''}</div>
+      <div class="sous-liste">Cours ${esc0(c.cours_code)}${
+        profs[c.cours_code] ? ` · ${esc0(profs[c.cours_code])}` : ''}</div>
       ${corps}
       <div class="signature-liste">
         <div>Le président du Conseil des études</div>
@@ -4313,7 +4411,7 @@ export function documentAjournesParCours(ueNum, annee, session = 1) {
     corps: pages.join(''),
     // Le style se donne À PART : inséré dans le flux, il s'intercalait entre
     // deux pièces et cassait le saut de page qui les sépare.
-    style: STYLE_LISTES,
+    style: STYLE_ENTETE_DELIB + STYLE_LISTES,
     nb_listes: pages.length,
     nb_ajournes: ajournes.length,
     sans_cours: !cours.length,
@@ -4353,8 +4451,21 @@ const STYLE_DOSSIER = `<style>
  * Une ligne par étudiant, une colonne par acquis regroupée sous son cours, la
  * note du cours, la note de l'unité, la décision. Ce qui est sous le seuil est
  * signalé — c'est ce qu'on cherche du regard.
+ *
+ * QUI FIGURE SUR LA GRILLE DÉPEND DE LA SESSION.
+ *
+ * En première session, tous les inscrits. En seconde, SEULEMENT LES AJOURNÉS :
+ * ceux qui ont réussi ou été refusés en juin ne représentent rien, et les faire
+ * paraître sur la grille de septembre avec leurs notes de juin laissait croire
+ * qu'ils avaient été délibérés une seconde fois. Le refus est définitif (RGE
+ * art. 69 §2) ; la réussite n'est pas rejugée.
+ *
+ * Et `total` donne la TROISIÈME LECTURE : le résultat de l'unité après les deux
+ * sessions, pour toute la promotion — la note et la décision de septembre là où
+ * il y en a une, celles de juin partout ailleurs. C'est cette page qu'on
+ * archive, et c'est elle qu'on relit un an après.
  */
-export function pageGrilleDeliberation(ueNum, annee, session = 1) {
+export function pageGrilleDeliberation(ueNum, annee, session = 1, { total = false } = {}) {
   const ident = identiteEtablissement();
   const esc0 = t => String(t ?? '').replace(/[&<>"]/g,
     x => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[x]));
@@ -4363,14 +4474,36 @@ export function pageGrilleDeliberation(ueNum, annee, session = 1) {
 
   const ue = db.prepare(`SELECT ue_nom, section FROM ue WHERE ue_num = ?
     ORDER BY (annee_scolaire = ?) DESC, annee_scolaire DESC LIMIT 1`).get(ueNum, annee) || {};
-  const etudiants = db.prepare(`
+  let etudiants = db.prepare(`
     SELECT e.id, e.nom, e.prenom, e.id_ecampus
     FROM etudiant_inscription i JOIN etudiant e ON e.id = i.etudiant_id
     WHERE i.annee_scolaire = ? AND i.ue_num = ? ORDER BY e.nom, e.prenom
   `).all(annee, ueNum);
 
+  // EN SECONDE SESSION, SEULS LES AJOURNÉS DE JUIN. La trace de la séance fait
+  // foi ; le dossier ne la complète que là où elle se tait — une unité reprise
+  // du classeur porte souvent sa décision au seul dossier de l'étudiant.
+  if (session === 2 && !total) {
+    const decideEnS1 = new Set(db.prepare(`
+      SELECT etudiant_id FROM deliberation_resultat
+      WHERE annee_scolaire = ? AND ue_num = ? AND session = 1
+        AND resultat IS NOT NULL AND resultat != ''
+    `).all(annee, ueNum).map(l => l.etudiant_id));
+    const ajournes = new Set(db.prepare(`
+      SELECT etudiant_id FROM deliberation_resultat
+      WHERE annee_scolaire = ? AND ue_num = ? AND session = 1 AND resultat = 'ajourne'
+    `).all(annee, ueNum).map(l => l.etudiant_id));
+    for (const l of db.prepare(`
+      SELECT etudiant_id FROM etudiant_inscription
+      WHERE annee_scolaire = ? AND ue_num = ? AND resultat = 'ajourne'
+    `).all(annee, ueNum)) {
+      if (!decideEnS1.has(l.etudiant_id)) ajournes.add(l.etudiant_id);
+    }
+    etudiants = etudiants.filter(e => ajournes.has(e.id));
+  }
+
   if (!etudiants.length) {
-    return { corps: '', style: STYLE_DOSSIER, vide: true };
+    return { corps: '', style: STYLE_ENTETE_DELIB + STYLE_DOSSIER, vide: true };
   }
 
   // La structure vient du premier étudiant : cours et acquis sont les mêmes
@@ -4385,7 +4518,13 @@ export function pageGrilleDeliberation(ueNum, annee, session = 1) {
   const nbCol = cours.reduce((n, c) => n + c.aas.length + 1, 0);
 
   const lignes = etudiants.map(e => {
-    const d = delibererUE(e.id, ueNum, annee, session);
+    // En lecture totale, la seconde session prime là où elle a eu lieu.
+    const sesLue = total
+      ? (db.prepare(`SELECT 1 AS x FROM deliberation_resultat
+           WHERE etudiant_id = ? AND annee_scolaire = ? AND ue_num = ? AND session = 2
+             AND resultat IS NOT NULL AND resultat != ''`).get(e.id, annee, ueNum) ? 2 : 1)
+      : session;
+    const d = delibererUE(e.id, ueNum, annee, sesLue);
     const parAA = {};
     for (const c of (d.cours || [])) {
       for (const a of (d.acquis || [])) {
@@ -4398,7 +4537,7 @@ export function pageGrilleDeliberation(ueNum, annee, session = 1) {
     const dec = d.ue?.decision_proposee || null;
     const arrete = db.prepare(`SELECT resultat FROM deliberation_resultat
       WHERE etudiant_id = ? AND annee_scolaire = ? AND ue_num = ? AND session = ?`)
-      .get(e.id, annee, ueNum, session)?.resultat
+      .get(e.id, annee, ueNum, sesLue)?.resultat
       || db.prepare(`SELECT resultat FROM etudiant_inscription
         WHERE etudiant_id = ? AND annee_scolaire = ? AND ue_num = ?`)
         .get(e.id, annee, ueNum)?.resultat || null;
@@ -4419,13 +4558,8 @@ export function pageGrilleDeliberation(ueNum, annee, session = 1) {
   });
 
   const corps = `<div class="attestation">
-    <div class="entete">
-      <div class="nom">${esc0(ident.nom || 'INSTITUT ILYA PRIGOGINE')}</div>
-      <div class="sous">Grille de délibération —
-        ${session === 2 ? 'seconde' : 'première'} session · ${esc0(annee)}</div>
-    </div>
-    <div class="titre-liste">UE ${ueNum} — ${esc0(ue.ue_nom || '')}</div>
-    <div class="sous-liste">${esc0(ue.section || '')} · ${etudiants.length} étudiant(s) ·
+    ${enteteDelib(ueNum, annee, session, 'Grille de délibération', { total })}
+    <div class="sous-liste">${etudiants.length} étudiant(s) ·
       ${cours.length} cours · ${nbCol - cours.length} acquis</div>
     <table class="grille">
       <tr>
@@ -4453,7 +4587,7 @@ export function pageGrilleDeliberation(ueNum, annee, session = 1) {
       celle que le calcul propose : elle n'a pas encore été arrêtée par le Conseil.
     </div>
   </div>`;
-  return { corps, style: STYLE_DOSSIER, vide: false, etudiants: etudiants.length };
+  return { corps, style: STYLE_ENTETE_DELIB + STYLE_DOSSIER, vide: false, etudiants: etudiants.length };
 }
 
 /**
@@ -4487,13 +4621,8 @@ export function pageAjustements(ueNum, annee, session = 1) {
 
   const PORTEE = { aa: 'Acquis', cours: 'Cours', ue: 'Unité entière' };
   const corps = `<div class="attestation">
-    <div class="entete">
-      <div class="nom">${esc0(ident.nom || 'INSTITUT ILYA PRIGOGINE')}</div>
-      <div class="sous">Décisions du Conseil —
-        ${session === 2 ? 'seconde' : 'première'} session · ${esc0(annee)}</div>
-    </div>
-    <div class="titre-liste">UE ${ueNum} — ${esc0(ue.ue_nom || '')}</div>
-    <div class="sous-liste">Faveurs accordées et ajournements posés · ${esc0(annee)}</div>
+    ${enteteDelib(ueNum, annee, session, 'Décisions du Conseil')}
+    <div class="sous-liste">Faveurs accordées et ajournements posés</div>
     ${lignes.length ? `<table class="doc">
       <tr><th>Étudiant</th><th style="width:22mm">Décision</th><th style="width:24mm">Portée</th>
           <th style="width:26mm">Élément</th><th style="width:22mm">Le</th><th>Par</th></tr>
@@ -4521,7 +4650,7 @@ export function pageAjustements(ueNum, annee, session = 1) {
       <div class="ligne-sign">${esc0(presidentDeLaSeance(ueNum, annee, session).nom)}</div>
     </div>
   </div>`;
-  return { corps, style: STYLE_DOSSIER, nb: lignes.length };
+  return { corps, style: STYLE_ENTETE_DELIB + STYLE_DOSSIER, nb: lignes.length };
 }
 
 /**
@@ -4565,12 +4694,7 @@ export function pageMotivations(ueNum, annee, session = 1) {
   for (const l of lignes) (parEtud[`${l.nom} ${l.prenom}`] ||= []).push(l);
 
   const corps = `<div class="attestation">
-    <div class="entete">
-      <div class="nom">${esc0(ident.nom || 'INSTITUT ILYA PRIGOGINE')}</div>
-      <div class="sous">Motivations des décisions —
-        ${session === 2 ? 'seconde' : 'première'} session · ${esc0(annee)}</div>
-    </div>
-    <div class="titre-liste">UE ${ueNum} — ${esc0(ue.ue_nom || '')}</div>
+    ${enteteDelib(ueNum, annee, session, 'Motivations des décisions')}
     <div class="sous-liste">${lignes.length} motivation(s) enregistrée(s)${sansMotif.length
       ? ` · ${sansMotif.length} étudiant(s) dont un échec n’est pas motivé` : ''}</div>
     ${Object.keys(parEtud).length ? `<table class="doc">
@@ -4591,7 +4715,7 @@ export function pageMotivations(ueNum, annee, session = 1) {
         <td>${esc0(e.aas.join(', '))}</td></tr>`).join('')}
     </table>` : ''}
   </div>`;
-  return { corps, style: STYLE_DOSSIER, nb: lignes.length, sans_motif: sansMotif.length };
+  return { corps, style: STYLE_ENTETE_DELIB + STYLE_DOSSIER, nb: lignes.length, sans_motif: sansMotif.length };
 }
 
 /**
@@ -4603,6 +4727,10 @@ export function pageMotivations(ueNum, annee, session = 1) {
  */
 function assemblerDocumentsUE(ueNum, annee, veut, opts = {}) {
   const session = opts.session === 2 ? 2 : 1;
+  // LA TROISIÈME LECTURE : le résultat de l'unité APRÈS LES DEUX SESSIONS. Ni
+  // juin ni septembre seuls, mais ce que l'étudiant a finalement obtenu — la
+  // seule page qu'on relit un an après.
+  const total = !!opts.total;
   const etab = db.prepare('SELECT * FROM etablissement LIMIT 1').get() || {};
   let ident = {};
   try { ident = identiteEtablissement() || {}; } catch { ident = {}; }
@@ -4629,7 +4757,7 @@ function assemblerDocumentsUE(ueNum, annee, veut, opts = {}) {
   // LE PROCÈS-VERBAL EN TÊTE : c'est la pièce du Conseil, les notifications
   // sont ce qu'on en tire. Il suit la même charte, il s'imprime avec elles.
   if (veut.grille) {
-    const g = pageGrilleDeliberation(ueNum, annee, session);
+    const g = pageGrilleDeliberation(ueNum, annee, session, { total });
     if (g.vide) manques.push('Grille : aucun étudiant inscrit à cette unité');
     else { styles.push(g.style || ''); pousser('grille', g.corps); nbG = 1; }
   }
@@ -4732,6 +4860,7 @@ r.post('/deliberation/ue/:ueNum/documents', authRequired, (req, res) => {
 
   const a = assemblerDocumentsUE(ueNum, annee, veut, {
     session: Number(req.body?.session) === 2 ? 2 : 1,
+    total: !!req.body?.total,
     date_document: req.body?.date_document || null,
   });
 
@@ -4843,6 +4972,7 @@ r.post('/deliberation/documents-lot', authRequired, (req, res) => {
         // demande. La règle est maintenant celle de l'unité seule — première
         // session par défaut, seconde si on la demande.
         session: Number(req.body?.session) === 2 ? 2 : 1,
+        total: !!req.body?.total,
         date_document: req.body?.date_document || null,
       });
     } catch (e) { manques.push(`UE ${ueNum} : ${e.message}`); continue; }

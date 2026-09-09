@@ -1,7 +1,7 @@
 import { Fragment, useCallback, useEffect, useMemo, useState } from 'react';
 import { RailLateral } from '../components/ui.jsx';
 import {
-  IconAlertTriangle, IconCheck, IconChecklist, IconChevronRight, IconClock, IconFileText, IconFolder, IconPlus, IconPrinter, IconSearch, IconTable, IconTrash, IconUpload, IconUser, IconWritingSign, IconWritingSignOff, IconX,
+  IconAlertTriangle, IconCheck, IconChecklist, IconChevronLeft, IconChevronRight, IconClock, IconFileText, IconFolder, IconPlus, IconPrinter, IconSearch, IconTable, IconTrash, IconUpload, IconUser, IconWritingSign, IconWritingSignOff, IconX,
 } from '@tabler/icons-react';
 import { authHeaders, getAnnee } from '../lib/api.js';
 import PreviewModal from '../components/PreviewModal.jsx';
@@ -1068,7 +1068,75 @@ function DossierApprenant({ etudId }) {
 
 
 // ── Fiche étudiant + PAE ──────────────────────────────────────────────────────
-function FicheEtudiant({ id, annee, onClose }) {
+/**
+ * LE PARCOURS D'UN DOSSIER À L'AUTRE.
+ *
+ * La fiche s'ouvrait sur un étudiant, se fermait, il fallait retrouver sa ligne
+ * dans la liste, cliquer la suivante. Pour vérifier trente PAE, c'était trente
+ * allers-retours. Deux flèches suffisaient — et le clavier, puisqu'on a les
+ * deux mains sur autre chose.
+ *
+ * ET IL FAUT POUVOIR DIRE DE QUI ON PARLE. « Les inscrits de l'UE 246 en
+ * 2024-2025 » est la cohorte qu'on veut suivre : la section, l'année et l'unité
+ * se choisissent depuis la fenêtre même, sans la fermer. Changer de cohorte
+ * n'emmène pas ailleurs — on reste sur le dossier ouvert s'il en fait encore
+ * partie, et sinon on prend le premier de la nouvelle liste.
+ */
+function BarreParcours({ position, onPrec, onSuiv, portee, onPortee, sections, ues, annees }) {
+  const { i = 0, n = 0 } = position || {};
+  const champ = `border border-slate-300 rounded-lg px-2 py-1 text-[12px] bg-white
+                 max-w-[190px]`;
+  return (
+    <div className="px-6 py-2 bg-slate-50 border-b border-slate-200
+                    flex items-center justify-between gap-3 flex-wrap">
+      <div className="flex items-center gap-2">
+        <button onClick={onPrec} disabled={i <= 1} title="Dossier précédent (flèche gauche)"
+          className="p-1.5 rounded-lg border border-slate-300 bg-white text-slate-600
+                     disabled:opacity-30">
+          <IconChevronLeft size={16} />
+        </button>
+        <span className="text-[12px] text-slate-600 tabular-nums w-20 text-center">
+          {n ? `${i} / ${n}` : '—'}
+        </span>
+        <button onClick={onSuiv} disabled={!n || i >= n} title="Dossier suivant (flèche droite)"
+          className="p-1.5 rounded-lg border border-slate-300 bg-white text-slate-600
+                     disabled:opacity-30">
+          <IconChevronRight size={16} />
+        </button>
+      </div>
+
+      <div className="flex items-center gap-2 flex-wrap">
+        <span className="text-[11px] text-slate-500">Parcourir</span>
+        <select className={champ} value={portee.section}
+          onChange={e => onPortee({ ...portee, section: e.target.value, ue_num: '' })}>
+          <option value="">Toutes les sections</option>
+          {(sections || []).map(x => (
+            <option key={x.code} value={x.code}>{x.libelle || x.code}</option>
+          ))}
+        </select>
+        <select className={champ} value={portee.annee}
+          onChange={e => onPortee({ ...portee, annee: e.target.value })}>
+          <option value="">Toutes les années</option>
+          {(annees || []).map(a => <option key={a} value={a}>{a}</option>)}
+        </select>
+        <select className={champ} value={portee.ue_num}
+          onChange={e => onPortee({ ...portee, ue_num: e.target.value })}
+          disabled={!ues?.length}
+          title={ues?.length ? '' : 'Choisissez d’abord une section'}>
+          <option value="">Toutes les UE</option>
+          {(ues || []).map(u => (
+            <option key={u.ue_num} value={u.ue_num}>
+              {u.ue_num} — {u.ue_nom || ''}
+            </option>
+          ))}
+        </select>
+      </div>
+    </div>
+  );
+}
+
+function FicheEtudiant({ id, annee, onClose, position, onPrec, onSuiv,
+                         portee, onPortee, sections, ues, annees }) {
   const [annexe2, setAnnexe2] = useState(false);
   const [motivation, setMotivation] = useState(false);
   const [data, setData] = useState(null);
@@ -1082,6 +1150,22 @@ function FicheEtudiant({ id, annee, onClose }) {
   const [enregistrement, setEnregistrement] = useState(false);
   const [paeConfirme, setPaeConfirme] = useState(false);
   const [sectionForcee, setSectionForcee] = useState('');
+
+  // LES FLÈCHES DU CLAVIER, mais jamais pendant qu'on écrit : dans un champ de
+  // saisie, la flèche déplace le curseur et c'est ce qu'on attend d'elle.
+  useEffect(() => {
+    const dansUnChamp = t => {
+      const b = (t?.tagName || '').toLowerCase();
+      return b === 'input' || b === 'textarea' || b === 'select' || t?.isContentEditable;
+    };
+    const au = ev => {
+      if (ev.metaKey || ev.ctrlKey || ev.altKey || dansUnChamp(ev.target)) return;
+      if (ev.key === 'ArrowLeft' && onPrec) { ev.preventDefault(); onPrec(); }
+      if (ev.key === 'ArrowRight' && onSuiv) { ev.preventDefault(); onSuiv(); }
+    };
+    window.addEventListener('keydown', au);
+    return () => window.removeEventListener('keydown', au);
+  }, [onPrec, onSuiv]);
 
   async function paeAuto() {
     if (!window.confirm('Inscrire automatiquement cet étudiant à toutes les UE accessibles en ' + annee + ' (y compris les inscriptions sous réserve) ?')) return;
@@ -1295,6 +1379,12 @@ function FicheEtudiant({ id, annee, onClose }) {
             <IconX size={22} />
           </button>
         </div>
+
+        {(onPrec || onSuiv) && (
+          <BarreParcours position={position} onPrec={onPrec} onSuiv={onSuiv}
+            portee={portee} onPortee={onPortee}
+            sections={sections} ues={ues} annees={annees} />
+        )}
 
         {/* Onglets */}
         <div className="flex border-b border-slate-200 px-6">
@@ -1752,6 +1842,14 @@ export default function Etudiants() {
   const [section, setSection] = useState('');
   const [sections, setSections] = useState([]);
   const [selId, setSelId] = useState(null);
+  // LA COHORTE QU'ON PARCOURT. La section existait déjà comme filtre de la
+  // liste ; l'année et l'unité la complètent, et les trois se choisissent aussi
+  // depuis la fiche ouverte. Une seule source de vérité : ce que la barre de la
+  // fiche change, la liste derrière le change aussi. Rien ne se contredit.
+  const [anneeCohorte, setAnneeCohorte] = useState('');
+  const [ueCohorte, setUeCohorte] = useState('');
+  const [uesCohorte, setUesCohorte] = useState([]);
+  const [anneesCohorte, setAnneesCohorte] = useState([]);
   const [chargement, setChargement] = useState(false);
   const [erreurListe, setErreurListe] = useState(null);
   const [importing, setImporting] = useState(false);
@@ -1948,6 +2046,8 @@ export default function Etudiants() {
     try {
       const params = new URLSearchParams();
       if (section) params.set('section', section);
+      if (anneeCohorte) params.set('annee', anneeCohorte);
+      if (ueCohorte) params.set('ue_num', ueCohorte);
       if (recherche) params.set('q', recherche);
       const rep = await fetch(`/api/etudiants?${params}`, { headers: authHeaders() });
       const j = await rep.json();
@@ -1973,7 +2073,36 @@ export default function Etudiants() {
       .then(r => r.json()).then(l => { if (Array.isArray(l)) setSections(l); }).catch(() => {});
   }, []);
 
-  useEffect(() => { charger(); /* eslint-disable-next-line */ }, [annee, section]);
+  useEffect(() => { charger(); /* eslint-disable-next-line */ },
+    [annee, section, anneeCohorte, ueCohorte]);
+
+  // Les UE proposées suivent la section et l'année choisies : proposer les
+  // quatre-vingts unités de l'établissement ne servirait personne.
+  useEffect(() => {
+    if (!section) { setUesCohorte([]); return; }
+    const p = new URLSearchParams({ section });
+    p.set('annee', anneeCohorte || annee || '');
+    fetch(`/api/ref/ue?${p}`, { headers: authHeaders() })
+      .then(r => (r.ok ? r.json() : []))
+      .then(l => setUesCohorte(Array.isArray(l) ? l : []))
+      .catch(() => setUesCohorte([]));
+  }, [section, anneeCohorte, annee]);
+
+  useEffect(() => {
+    fetch('/api/ref/annees', { headers: authHeaders() })
+      .then(r => (r.ok ? r.json() : []))
+      .then(l => setAnneesCohorte(
+        (Array.isArray(l) ? l : []).map(a => a.code || a).filter(Boolean)))
+      .catch(() => setAnneesCohorte([]));
+  }, []);
+
+  // Le dossier ouvert a disparu de la cohorte : on prend le premier plutôt que
+  // de laisser une fenêtre sur un étudiant qui n'y est plus.
+  useEffect(() => {
+    if (!selId || !etudiants.length) return;
+    if (!etudiants.some(x => x.id === selId)) setSelId(etudiants[0].id);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [etudiants]);
 
   const filtres = useMemo(() => {
     const q = recherche.toLowerCase();
@@ -2250,7 +2379,26 @@ export default function Etudiants() {
       )}
 
       {selId && (
-        <FicheEtudiant id={selId} annee={annee} onClose={() => setSelId(null)} />
+        <FicheEtudiant id={selId} annee={annee} onClose={() => setSelId(null)}
+          position={{ i: filtres.findIndex(x => x.id === selId) + 1, n: filtres.length }}
+          onPrec={() => {
+            const i = filtres.findIndex(x => x.id === selId);
+            if (i > 0) setSelId(filtres[i - 1].id);
+          }}
+          onSuiv={() => {
+            const i = filtres.findIndex(x => x.id === selId);
+            if (i >= 0 && i < filtres.length - 1) setSelId(filtres[i + 1].id);
+          }}
+          portee={{ section, annee: anneeCohorte, ue_num: ueCohorte }}
+          onPortee={p => {
+            // CHANGER DE COHORTE NE DOIT PAS FERMER LE DOSSIER OUVERT. On garde
+            // l'étudiant s'il fait encore partie de la nouvelle liste ; la
+            // liste se recharge, et l'effet ci-dessous recale au besoin.
+            setSection(p.section);
+            setAnneeCohorte(p.annee);
+            setUeCohorte(p.ue_num);
+          }}
+          sections={sections} ues={uesCohorte} annees={anneesCohorte} />
       )}
 
       {comparaison && <ComparaisonClasseur onClose={() => setComparaison(false)} />}

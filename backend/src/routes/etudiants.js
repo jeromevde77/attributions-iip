@@ -292,7 +292,13 @@ function sectionsDeLEtudiant(etudId, forcee) {
 
 // ── Liste des étudiants ───────────────────────────────────────────────────────
 r.get('/', authRequired, (req, res) => {
-  const { section, q } = req.query;
+  // SECTION, UNITÉ ET ANNÉE RESTREIGNENT LA LISTE.
+  //
+  // La fiche d'un étudiant se parcourt à la flèche, d'un dossier au suivant :
+  // encore faut-il pouvoir dire de QUELS étudiants il s'agit. « Les inscrits de
+  // l'UE 246 en 2024-2025 » est la cohorte qu'on veut suivre — la liste
+  // complète de l'établissement ne se parcourt pas.
+  const { section, q, ue_num: ueNum, annee: anneeFiltre } = req.query;
   const autorisees = perimetre(req);
   if (section && !sectionAutoriseeReq(req, section)) {
     return res.status(403).json({ error: 'Section hors de votre périmètre' });
@@ -318,6 +324,8 @@ r.get('/', authRequired, (req, res) => {
     sql += ` AND u.section IN (${autorisees.map(() => '?').join(',') || "''"})`;
     params.push(...autorisees);
   }
+  if (ueNum) { sql += ` AND i.ue_num = ?`; params.push(Number(ueNum)); }
+  if (anneeFiltre) { sql += ` AND i.annee_scolaire = ?`; params.push(anneeFiltre); }
   if (q) {
     sql += ` AND (e.nom LIKE ? OR e.prenom LIKE ? OR e.id_ecampus LIKE ?)`;
     const like = `%${q}%`;

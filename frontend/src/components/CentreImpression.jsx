@@ -58,7 +58,11 @@ export default function CentreImpression({ annee, section = null, onClose }) {
   // LA SESSION SE CHOISIT, ELLE NE SE DÉDUIT PAS. Le lot prenait celle où
   // chaque unité en était : dès que juin était clos il documentait septembre,
   // et sortait des listes vides. On documente une séance, et on dit laquelle.
+  // TROIS LECTURES, PAS DEUX. Juin, septembre — et le résultat de l'unité APRÈS
+  // LES DEUX SESSIONS, qui n'est ni l'un ni l'autre : c'est ce que l'étudiant a
+  // finalement obtenu, et c'est la page qu'on archive.
   const [session, setSession] = useState(1);
+  const [total, setTotal] = useState(false);
 
   useEffect(() => {
     (async () => {
@@ -82,7 +86,7 @@ export default function CentreImpression({ annee, section = null, onClose }) {
     try {
       const rep = await fetch('/api/acquis/deliberation/documents-lot', {
         method: 'POST', headers: authHeaders(),
-        body: JSON.stringify({ annee, session, groupement,
+        body: JSON.stringify({ annee, session, total, groupement,
                                ue_nums: [...choisies], ...choix }),
       });
       const j = await rep.json();
@@ -165,15 +169,28 @@ export default function CentreImpression({ annee, section = null, onClose }) {
                       : 'border-slate-300 text-slate-600'}`}>{x}</button>
                 ))}
                 <span className="mx-1 h-4 w-px bg-slate-200" />
-                <span className="text-[12px] text-slate-500">Séance :</span>
+                <span className="text-[12px] text-slate-500">Lecture :</span>
                 <div className="flex rounded-lg border border-slate-300 overflow-hidden">
-                  {[1, 2].map(x => (
-                    <button key={x} onClick={() => setSession(x)}
-                      className={`px-2 py-1 text-[12px] ${session === x
-                        ? 'bg-iip-blue text-white font-semibold' : 'text-slate-600'}`}>
-                      {x === 1 ? '1re' : '2e'} session
-                    </button>
-                  ))}
+                  {[
+                    { k: '1', l: '1re session', t: 'Tous les inscrits, décisions de juin' },
+                    { k: '2', l: '2e session',
+                      t: 'Seulement les ajournés de juin : les autres ne représentent rien' },
+                    { k: 'T', l: 'Après les 2 sessions',
+                      t: 'Le résultat final de l’unité : septembre là où il a eu lieu, juin partout ailleurs' },
+                  ].map(x => {
+                    const actif = x.k === 'T' ? total : (!total && session === Number(x.k));
+                    return (
+                      <button key={x.k} title={x.t}
+                        onClick={() => {
+                          if (x.k === 'T') { setTotal(true); setSession(2); }
+                          else { setTotal(false); setSession(Number(x.k)); }
+                        }}
+                        className={`px-2 py-1 text-[12px] ${actif
+                          ? 'bg-iip-blue text-white font-semibold' : 'text-slate-600'}`}>
+                        {x.l}
+                      </button>
+                    );
+                  })}
                 </div>
                 <span className="flex-1" />
                 <button onClick={() => setChoisies(new Set(unites.map(u => u.ue_num)))}
@@ -257,7 +274,8 @@ export default function CentreImpression({ annee, section = null, onClose }) {
         <div className="px-5 py-3 border-t border-slate-200 flex items-center
                         justify-between gap-3">
           <span className="text-[12px] text-slate-500">
-            {choisies.size} unité(s) · {session === 1 ? '1re' : '2e'} session ·
+            {choisies.size} unité(s) · {total ? 'après les 2 sessions'
+              : (session === 1 ? '1re session' : '2e session')} ·
             {' '}{Object.values(choix).filter(Boolean).length} type(s) de pièce
           </span>
           <div className="flex gap-2">
