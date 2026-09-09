@@ -17,7 +17,7 @@ import { authHeaders } from '../lib/api.js';
 export default function CentreDocumentsUE({ ueNum, ueNom, annee, onClose }) {
   const [etat, setEtat] = useState(null);      // le comptage
   const [choix, setChoix] = useState({ pv: true, reussite: true, ajournement: true,
-    refus: true, listes: false });
+    refus: true, listes: false, conseil: false });
   const [erreur, setErreur] = useState(null);
   const [enCours, setEnCours] = useState(false);
 
@@ -108,6 +108,13 @@ export default function CentreDocumentsUE({ ueNum, ueNom, annee, onClose }) {
     // Une liste par cours, même sans ajourné : une liste absente laisse croire
     // qu'on l'a oubliée, une liste « Néant » dit que le cours n'a personne à
     // revoir — et c'est une information pour le professeur.
+    // LA COMPOSITION DU CONSEIL EST UNE PIÈCE DE LA DÉLIBÉRATION, non un
+    // outil à part : c'est elle qui établit que le Conseil pouvait siéger.
+    // Elle avait son propre bouton, loin d'ici — une séparation d'outil, pas
+    // de métier.
+    { cle: 'conseil', libelle: 'Composition du Conseil des études',
+      aide: 'Membres, qualité, voix et quorum — RGE art. 22 et 25',
+      nb: 1, noms: null, ton: 'border-sky-300 bg-sky-50' },
     { cle: 'listes', libelle: 'Listes des ajournés par cours',
       aide: 'Une par cours, pour les professeurs — « Néant » si personne',
       nb: etat.nb_cours || 0, noms: null,

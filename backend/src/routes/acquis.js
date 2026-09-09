@@ -3728,6 +3728,58 @@ r.put('/deliberation/regles', authRequired,
              coordination_delibere: coordinationDelibere() });
 });
 
+/**
+ * LA COMPOSITION DU CONSEIL D'UNE UNITÉ — une pièce comme les autres.
+ *
+ * Elle vivait dans son propre bouton, à part des documents de délibération.
+ * C'était une séparation d'outil, pas de métier : le secrétariat qui sort un
+ * procès-verbal sort la composition avec, puisque c'est elle qui établit que
+ * le Conseil pouvait siéger. Elle rejoint donc les autres pièces, et se coche
+ * comme elles.
+ */
+export function pageComposition(ueNum, annee) {
+  const ident = identiteEtablissement();
+  const esc0 = t => String(t ?? '').replace(/[&<>"]/g,
+    x => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[x]));
+  const u = db.prepare(`SELECT ue_num, ue_nom, section FROM ue
+    WHERE ue_num = ? AND annee_scolaire = ?`).get(ueNum, annee)
+    || { ue_num: ueNum, ue_nom: '', section: null };
+  const membres = membresDuConseil(ueNum, annee);
+  const votants = membres.filter(m => (m.voix || 'deliberative') === 'deliberative').length;
+  const requis = Math.ceil((votants * 2) / 3);
+  const sansProf = !membres.some(m => m.role === 'professeur');
+
+  const corps = `<div class="attestation">
+    <div class="entete">
+      <div class="nom">${esc0(ident.nom || 'INSTITUT ILYA PRIGOGINE')}</div>
+      <div class="sous">Conseil des études — composition · ${esc0(annee)}</div>
+    </div>
+    <div class="titre-liste">UE ${u.ue_num} — ${esc0(u.ue_nom || '')}</div>
+    <div class="sous-liste">${esc0(u.section || 'section non renseignée')} ·
+      ${votants} voix délibérative(s) · quorum : ${requis}
+      <span class="ref">(deux tiers, RGE art. 25 §1)</span></div>
+    ${sansProf ? '<p class="neant">Aucun professeur n’est attribué à cette unité '
+      + 'pour cette année : le Conseil ne peut pas siéger.</p>' : ''}
+    <table class="doc">
+      <tr><th style="width:38%">Membre</th><th>Qualité</th><th style="width:22%">Voix</th></tr>
+      ${membres.map(m => `<tr>
+        <td>${esc0(m.nom)}</td>
+        <td>${esc0(m.qualite)}</td>
+        <td>${m.voix === 'consultative'
+          ? 'consultative <span class="ref">— ne compte pas au quorum</span>'
+          : 'délibérative'}</td>
+      </tr>`).join('')}
+    </table>
+    <div class="signature-liste">
+      <div>Le président du Conseil des études</div>
+      <div class="ligne-sign">${esc0(presidenceConseil().titulaire.nom)}</div>
+    </div>
+  </div>`;
+
+  return { corps, style: STYLE_LISTES, membres: membres.length, votants, requis,
+           sans_professeur: sansProf, ue_nom: u.ue_nom, section: u.section };
+}
+
 r.get('/deliberation/conseils', authRequired, (req, res) => {
   const annee = req.query.annee || anneeDeTravail(req);
   const perim = getUserSections(req.user);
@@ -3740,44 +3792,12 @@ r.get('/deliberation/conseils', authRequired, (req, res) => {
   if (perim) unites = unites.filter(u => !u.section || perim.includes(u.section));
   if (section) unites = unites.filter(u => u.section === section);
 
-  const ident = identiteEtablissement();
-  const esc0 = t => String(t ?? '').replace(/[&<>"]/g,
-    x => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[x]));
-
   const fiches = unites.map(u => {
-    const membres = membresDuConseil(u.ue_num, annee);
-    const votants = membres.filter(m => (m.voix || 'deliberative') === 'deliberative').length;
-    const requis = Math.ceil((votants * 2) / 3);
-    const sansProf = !membres.some(m => m.role === 'professeur');
-    return { ...u, membres, votants, requis, sansProf };
+    const f = pageComposition(u.ue_num, annee);
+    return { ...u, ...f, sansProf: f.sans_professeur };
   });
 
-  const pages = fiches.map(f => `<div class="attestation">
-    <div class="entete">
-      <div class="nom">${esc0(ident.nom || 'INSTITUT ILYA PRIGOGINE')}</div>
-      <div class="sous">Conseil des études — composition · ${esc0(annee)}</div>
-    </div>
-    <div class="titre-liste">UE ${f.ue_num} — ${esc0(f.ue_nom || '')}</div>
-    <div class="sous-liste">${esc0(f.section || 'section non renseignée')} ·
-      ${f.votants} voix délibérative(s) · quorum : ${f.requis}
-      <span class="ref">(deux tiers, RGE art. 25 §1)</span></div>
-    ${f.sansProf ? '<p class="neant">Aucun professeur n’est attribué à cette unité '
-      + 'pour cette année : le Conseil ne peut pas siéger.</p>' : ''}
-    <table class="doc">
-      <tr><th style="width:38%">Membre</th><th>Qualité</th><th style="width:22%">Voix</th></tr>
-      ${f.membres.map(m => `<tr>
-        <td>${esc0(m.nom)}</td>
-        <td>${esc0(m.qualite)}</td>
-        <td>${m.voix === 'consultative'
-          ? 'consultative <span class="ref">— ne compte pas au quorum</span>'
-          : 'délibérative'}</td>
-      </tr>`).join('')}
-    </table>
-    <div class="signature-liste">
-      <div>Le président du Conseil des études</div>
-      <div class="ligne-sign">${esc0(presidenceConseil().titulaire.nom)}</div>
-    </div>
-  </div>`);
+  const pages = fiches.map(f => f.corps);
 
   if (!pages.length) {
     return res.status(404).json({ error: `Aucune unité pour ${annee}.` });
@@ -3786,7 +3806,7 @@ r.get('/deliberation/conseils', authRequired, (req, res) => {
   res.json({
     annee,
     unites: fiches.map(f => ({ ue_num: f.ue_num, ue_nom: f.ue_nom, section: f.section,
-                               membres: f.membres.length, votants: f.votants,
+                               membres: f.membres, votants: f.votants,
                                requis: f.requis, sans_professeur: f.sansProf })),
     sans_professeur: fiches.filter(f => f.sansProf).map(f => f.ue_num),
     html: envelopper(STYLE_LISTES + pages.join(''),
@@ -4135,17 +4155,15 @@ export function documentAjournesParCours(ueNum, annee, session = 1) {
 
 
 
-r.post('/deliberation/ue/:ueNum/documents', authRequired, (req, res) => {
-  const ueNum = Number(req.params.ueNum);
-  const annee = req.body?.annee || anneeDeTravail(req);
-  const veut = {
-    reussite: req.body?.reussite !== false,
-    ajournement: req.body?.ajournement !== false,
-    refus: req.body?.refus !== false,
-    pv: req.body?.pv === true,
-    listes: req.body?.listes === true,
-  };
-
+/**
+ * ASSEMBLER LES PIÈCES D'UNE UNITÉ.
+ *
+ * Le corps de la route d'impression, sorti de la route : il sert désormais
+ * deux fois — pour une unité, et pour un lot d'unités. Une seule mécanique,
+ * donc une seule mise en page, un seul décompte, une seule liste de manques.
+ */
+function assemblerDocumentsUE(ueNum, annee, veut, opts = {}) {
+  const session = opts.session === 2 ? 2 : 1;
   const etab = db.prepare('SELECT * FROM etablissement LIMIT 1').get() || {};
   let ident = {};
   try { ident = identiteEtablissement() || {}; } catch { ident = {}; }
@@ -4164,12 +4182,23 @@ r.post('/deliberation/ue/:ueNum/documents', authRequired, (req, res) => {
   // de la dernière notification.
   const styles = [];
   const manques = [];
-  let nbR = 0, nbA = 0, nbX = 0, nbPV = 0;
+  let nbR = 0, nbA = 0, nbX = 0, nbPV = 0, nbC = 0;
 
   // LE PROCÈS-VERBAL EN TÊTE : c'est la pièce du Conseil, les notifications
   // sont ce qu'on en tire. Il suit la même charte, il s'imprime avec elles.
+  if (veut.conseil) {
+    const c = pageComposition(ueNum, annee);
+    styles.push(c.style || '');
+    pages.push(c.corps);
+    if (c.sans_professeur) {
+      manques.push('Composition : aucun professeur attribué, '
+        + 'le Conseil ne peut pas siéger');
+    }
+    nbC = 1;
+  }
+
   if (veut.pv) {
-    const d = documentPV(ueNum, annee, req.body?.session === 2 ? 2 : 1);
+    const d = documentPV(ueNum, annee, session);
     pages.push(d.corps);
     nbPV = 1;
     for (const m of (d.manques || [])) manques.push(`Procès-verbal : ${m}`);
@@ -4195,7 +4224,7 @@ r.post('/deliberation/ue/:ueNum/documents', authRequired, (req, res) => {
       // notifie, non tout le parcours de l'étudiant.
       const u = unitesReussies(e.id, annee).find(x => Number(x.ue_num) === ueNum);
       if (!u) { manques.push(`${e.nom} ${e.prenom} : unité non réussie au dossier`); continue; }
-      pages.push(pageAttestation(e, u, annee, etab, req.body?.date_document || null, ident));
+      pages.push(pageAttestation(e, u, annee, etab, opts.date_document || null, ident));
       if (u.manques?.length) manques.push(`${e.nom} ${e.prenom} : ${u.manques.join(', ')}`);
       identiteManquante(e);
       nbR++;
@@ -4215,25 +4244,153 @@ r.post('/deliberation/ue/:ueNum/documents', authRequired, (req, res) => {
   // envoie les unes aux étudiants et remet les autres aux professeurs.
   let nbL = 0;
   if (veut.listes) {
-    const l = documentAjournesParCours(ueNum, annee, req.body?.session === 2 ? 2 : 1);
+    const l = documentAjournesParCours(ueNum, annee, session);
     if (l.sans_cours) manques.push("Listes : aucun cours n'est encodé pour cette unité");
     else { styles.push(l.style || ''); pages.push(l.corps); nbL = l.nb_listes; }
   }
 
-  if (!pages.length) {
+  return { pages, styles, manques,
+           reussites: nbR, ajournements: nbA, refus: nbX, pv: nbPV, listes: nbL,
+           conseil: nbC };
+}
+
+r.post('/deliberation/ue/:ueNum/documents', authRequired, (req, res) => {
+  const ueNum = Number(req.params.ueNum);
+  const annee = req.body?.annee || anneeDeTravail(req);
+  const veut = {
+    reussite: req.body?.reussite !== false,
+    ajournement: req.body?.ajournement !== false,
+    refus: req.body?.refus !== false,
+    pv: req.body?.pv === true,
+    listes: req.body?.listes === true,
+    conseil: req.body?.conseil === true,
+  };
+
+  const a = assemblerDocumentsUE(ueNum, annee, veut, {
+    session: Number(req.body?.session) === 2 ? 2 : 1,
+    date_document: req.body?.date_document || null,
+  });
+
+  if (!a.pages.length) {
     return res.status(400).json({
       error: 'Aucun document à produire : les décisions ne sont pas encore '
            + 'enregistrées, ou aucune ne correspond aux pièces demandées.',
+      manques: a.manques,
+    });
+  }
+
+  res.json({
+    html: envelopper(a.styles.join('') + a.pages.join(''),
+                     `Documents de délibération — UE ${ueNum}`),
+    nom: `Documents_UE${ueNum}_${String(annee).replace(/\W/g, '')}.html`,
+    reussites: a.reussites, ajournements: a.ajournements, refus: a.refus,
+    pv: a.pv, listes: a.listes, conseil: a.conseil,
+    pieces: a.pages.length, manques: a.manques,
+  });
+});
+
+/**
+ * LE CENTRE D'IMPRESSION — plusieurs unités, un seul document.
+ *
+ * Les pièces se tiraient unité par unité. Une section, c'est vingt-sept fois
+ * la même fenêtre, vingt-sept fichiers à ouvrir, à imprimer, à ranger — et
+ * c'est là qu'une unité se perd. Le secrétariat ne travaille pas par unité,
+ * il travaille par pile : toutes les attestations, tous les procès-verbaux.
+ *
+ * On coche les unités, on coche les pièces, et tout sort dans une seule
+ * enveloppe, chaque pièce sur sa page, les unités dans l'ordre.
+ *
+ * LES MANQUES SONT NOMMÉS PAR UNITÉ. Sur un lot, « il manque une date de
+ * naissance » ne sert à rien si l'on ne sait pas chez qui : chaque manque
+ * porte donc son unité, et les unités qui n'ont rien produit sont dites.
+ */
+r.get('/deliberation/documents-lot', authRequired, (req, res) => {
+  const annee = req.query.annee || anneeDeTravail(req);
+  const section = req.query.section || null;
+  const perim = getUserSections(req.user);
+
+  let unites = db.prepare(`SELECT ue_num, ue_nom, section FROM ue
+    WHERE annee_scolaire = ? ORDER BY section, ue_num`).all(annee);
+  if (perim) unites = unites.filter(u => !u.section || perim.includes(u.section));
+  if (section) unites = unites.filter(u => u.section === section);
+
+  const etat = unites.map(u => {
+    const ses = sessionDeLUE(u.ue_num, annee);
+    const seance = db.prepare(`SELECT cloturee FROM deliberation_seance
+      WHERE ue_num = ? AND annee_scolaire = ? AND session = ?`)
+      .get(u.ue_num, annee, ses.session) || {};
+    const par = db.prepare(`SELECT resultat, COUNT(*) AS n FROM etudiant_inscription
+      WHERE annee_scolaire = ? AND ue_num = ? GROUP BY resultat`).all(annee, u.ue_num);
+    const n = r0 => par.find(x => x.resultat === r0)?.n || 0;
+    return {
+      ...u, session: ses.session,
+      cloturee: !!seance.cloturee,
+      reussites: n('reussi'), ajournements: n('ajourne'), refus: n('refuse'),
+      sans_decision: n(null),
+    };
+  });
+
+  res.json({
+    annee, section,
+    sections: [...new Set(etat.map(u => u.section).filter(Boolean))].sort(),
+    unites: etat,
+  });
+});
+
+r.post('/deliberation/documents-lot', authRequired, (req, res) => {
+  const annee = req.body?.annee || anneeDeTravail(req);
+  const nums = Array.isArray(req.body?.ue_nums) ? req.body.ue_nums.map(Number) : [];
+  const veut = {
+    reussite: req.body?.reussite === true,
+    ajournement: req.body?.ajournement === true,
+    refus: req.body?.refus === true,
+    pv: req.body?.pv === true,
+    listes: req.body?.listes === true,
+    conseil: req.body?.conseil === true,
+  };
+  if (!nums.length) return res.status(400).json({ error: 'aucune unité sélectionnée' });
+  if (!Object.values(veut).some(Boolean)) {
+    return res.status(400).json({ error: 'aucune pièce demandée' });
+  }
+
+  const perim = getUserSections(req.user);
+  const pages = [], styles = [], manques = [], detail = [];
+  const total = { reussites: 0, ajournements: 0, refus: 0, pv: 0, listes: 0, conseil: 0 };
+
+  for (const ueNum of nums) {
+    const ue = db.prepare(`SELECT section, ue_nom FROM ue WHERE ue_num = ?
+      ORDER BY (annee_scolaire = ?) DESC, annee_scolaire DESC LIMIT 1`).get(ueNum, annee) || {};
+    if (perim && ue.section && !perim.includes(ue.section)) continue;
+    let a;
+    try {
+      a = assemblerDocumentsUE(ueNum, annee, veut, {
+        session: Number(req.body?.session) === 2 ? 2 : sessionDeLUE(ueNum, annee).session,
+        date_document: req.body?.date_document || null,
+      });
+    } catch (e) { manques.push(`UE ${ueNum} : ${e.message}`); continue; }
+
+    for (const m of a.manques) manques.push(`UE ${ueNum} — ${m}`);
+    for (const st of a.styles) if (st && !styles.includes(st)) styles.push(st);
+    pages.push(...a.pages);
+    for (const k of Object.keys(total)) total[k] += a[k] || 0;
+    detail.push({ ue_num: ueNum, ue_nom: ue.ue_nom, pieces: a.pages.length,
+                  reussites: a.reussites, ajournements: a.ajournements, refus: a.refus,
+                  pv: a.pv, listes: a.listes, conseil: a.conseil });
+  }
+
+  if (!pages.length) {
+    return res.status(400).json({
+      error: 'Aucune pièce à produire pour les unités choisies : les décisions ne '
+           + 'sont pas enregistrées, ou aucune ne correspond aux pièces demandées.',
       manques,
     });
   }
 
   res.json({
     html: envelopper(styles.join('') + pages.join(''),
-                     `Documents de délibération — UE ${ueNum}`),
-    nom: `Documents_UE${ueNum}_${String(annee).replace(/\W/g, '')}.html`,
-    reussites: nbR, ajournements: nbA, refus: nbX, pv: nbPV, listes: nbL,
-    pieces: pages.length, manques,
+                     `Documents de délibération — ${nums.length} unité(s) · ${annee}`),
+    nom: `Documents_${nums.length}UE_${String(annee).replace(/\W/g, '')}.html`,
+    ...total, pieces: pages.length, unites: detail, manques,
   });
 });
 
