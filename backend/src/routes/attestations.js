@@ -59,12 +59,47 @@ export function migrerAttestations(dbx) {
 }
 
 const esc = s => String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;');
-const frDate = d => {
-  if (!d) return '………';
-  const [a, m, j] = String(d).slice(0, 10).split('-');
-  const mois = ['janvier', 'février', 'mars', 'avril', 'mai', 'juin', 'juillet',
+const MOIS_FR = ['janvier', 'février', 'mars', 'avril', 'mai', 'juin', 'juillet',
                 'août', 'septembre', 'octobre', 'novembre', 'décembre'];
-  return `${Number(j)}${Number(j) === 1 ? 'er' : ''} ${mois[Number(m) - 1] || ''} ${a}`;
+
+/**
+ * UNE DATE EN TOUTES LETTRES — quelle que soit la forme où elle est rangée.
+ *
+ * L'attestation affichait « le NaN 13 août 20 ». Le formatage supposait une
+ * date ISO et découpait sur les tirets ; or certains dossiers portent la date
+ * DÉJÀ écrite en français — « 13 août 2004 », reprise telle quelle d'un
+ * classeur. Le découpage rendait alors un jour introuvable (NaN), un mois vide,
+ * et l'année tronquée à dix caractères : la date tenait sur le document, fausse
+ * et illisible, sur une pièce que l'étudiant garde à vie.
+ *
+ * On accepte donc les quatre formes qui existent dans les dossiers — ISO,
+ * jour/mois/année, jour-mois-année, et le texte français déjà formé — et l'on
+ * n'imprime JAMAIS « NaN » : une date qu'on ne sait pas lire s'affiche en
+ * pointillés, ce qui se voit et se corrige, plutôt qu'en charabia qui se signe.
+ */
+const frDate = d => {
+  if (d == null || String(d).trim() === '') return '………';
+  const t = String(d).trim();
+
+  const enLettres = (j, m, a) => `${Number(j)}${Number(j) === 1 ? 'er' : ''} `
+    + `${MOIS_FR[Number(m) - 1]} ${a}`;
+
+  // 2004-08-13, éventuellement suivi d'une heure.
+  let x = t.match(/^(\d{4})-(\d{2})-(\d{2})/);
+  if (x && Number(x[2]) >= 1 && Number(x[2]) <= 12) return enLettres(x[3], x[2], x[1]);
+
+  // 13/08/2004 ou 13-08-2004 — l'ordre belge.
+  x = t.match(/^(\d{1,2})[/.-](\d{1,2})[/.-](\d{4})$/);
+  if (x && Number(x[2]) >= 1 && Number(x[2]) <= 12) return enLettres(x[1], x[2], x[3]);
+
+  // « 13 août 2004 » : déjà en toutes lettres, on la laisse telle quelle.
+  x = t.match(/^(\d{1,2})(?:er)?\s+([^\s]+)\s+(\d{4})$/i);
+  if (x && MOIS_FR.some(m => m.localeCompare(x[2], 'fr', { sensitivity: 'base' }) === 0)) {
+    return t;
+  }
+
+  // Illisible : des pointillés, jamais « NaN ».
+  return '………';
 };
 
 /** Les UE réussies par un étudiant pour une année, avec ce qu'exige le modèle. */
