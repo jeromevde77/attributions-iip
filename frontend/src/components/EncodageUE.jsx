@@ -275,6 +275,14 @@ export default function EncodageUE({ ueNum, annee, onClose, onEnregistre, onPara
                       <div className="text-[10px] text-slate-500 font-normal">
                         {c.cours_code}{c.cours_per ? ` · ${c.cours_per} pér.` : ''}
                       </div>
+                      {/* Qui porte le cours : le professeur se reconnaît dans
+                          sa colonne, et le Conseil sait à qui s'adresser. */}
+                      {c.professeurs && (
+                        <div className="text-[10px] text-iip-blue/80 font-normal italic
+                                        truncate max-w-[220px]" title={c.professeurs}>
+                          {c.professeurs}
+                        </div>
+                      )}
                     </th>
                   ))}
                   <th className="px-2 py-1 border rounded-t-lg align-bottom bg-slate-100

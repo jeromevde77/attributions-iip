@@ -974,7 +974,8 @@ export function documentMotivation(etudId, ueNum, annee) {
   for (const l of lignes) {
     for (const c of (coursDe[l.code] || [])) {
       let e0 = aRepresenter.find(x => x.cours_code === c.cours_code);
-      if (!e0) aRepresenter.push(e0 = { cours_code: c.cours_code, cours_nom: c.cours_nom, aas: [] });
+      if (!e0) aRepresenter.push(e0 = { cours_code: c.cours_code, cours_nom: c.cours_nom,
+        professeurs: c.professeurs || '', aas: [] });
       e0.aas.push(l.code);
     }
   }
@@ -2366,6 +2367,7 @@ export function delibererUE(etudId, ueNum, annee, session = 1) {
   for (const a of acquis) noteAA[a.aa_code] = a;
 
   // ── 2. Le COURS ──────────────────────────────────────────────────────────
+  const profsCoursUE = profsParCours(ueNum, annee);
   const cours = structure.map(c => {
     const siennes = paires.filter(p => p.cours_code === c.cours_code);
     // Ajourner un ACQUIS ajourne les cours qui l'évaluent : cet acquis n'y est
@@ -2396,6 +2398,7 @@ export function delibererUE(etudId, ueNum, annee, session = 1) {
     const affichee = na ? null : (forcee ? SEUIL_UE : note);
     return {
       cours_code: c.cours_code, cours_nom: c.cours_nom,
+      professeurs: profsCoursUE[c.cours_code] || '',
       poids_cours: c.poids_cours, poids_cours_affiche: c.poids_cours_affiche,
       aas: siennes.map(p => p.aa_code),
       note_calculee: note, note: affichee, na, faveur: forcee,
@@ -2505,7 +2508,8 @@ export function delibererUE(etudId, ueNum, annee, session = 1) {
       // Ce qu'il faut représenter, cours par cours et acquis par acquis :
       // c'est ce que l'annexe 8 doit énoncer à l'étudiant.
       a_representer_detail: cours.filter(c => c.na).map(c => ({
-        cours_code: c.cours_code, cours_nom: c.cours_nom, aas: c.aas,
+        cours_code: c.cours_code, cours_nom: c.cours_nom,
+        professeurs: c.professeurs || '', aas: c.aas,
       })),
       // La réussite de plein droit : tous les acquis et tous les cours au
       // seuil, sans qu'aucune faveur ni aucun ajournement n'ait été nécessaire.
@@ -2955,8 +2959,12 @@ r.get('/ue/:ueNum/feuille', authRequired,
   const parCours = {};
   for (const x of pond) (parCours[x.cours_code] ||= []).push(x);
 
+  // Qui porte chaque cours : le professeur doit se reconnaître dans la feuille,
+  // et le Conseil savoir à qui s'adresser sans quitter l'écran.
+  const profsCours = profsParCours(ueNum, annee);
   const cours = tousCours.map(c => ({
     ...c,
+    professeurs: profsCours[c.cours_code] || '',
     acquis: parCours[c.cours_code] || db.prepare(`
       SELECT aa_code, NULL AS poids, description FROM aa
       WHERE ue_num = ? AND cours_code = ? ORDER BY aa_num, aa_code
@@ -3516,6 +3524,7 @@ r.get('/deliberation/ue/:ueNum', authRequired, (req, res) => {
     colonnes_acquis: modele.acquis.map(a => ({ aa_code: a.aa_code, description: a.description })),
     colonnes_cours: modele.cours.map(c => ({
       cours_code: c.cours_code, cours_nom: c.cours_nom,
+      professeurs: c.professeurs || '',
       poids_cours_affiche: c.poids_cours_affiche ?? null,
     })),
     etudiants: lignes,
@@ -3649,6 +3658,39 @@ export function nomPropreDepuisChaine(texte) {
   const i = mots.findIndex((m, k) => k < mots.length - 1 && PART.has(m.toLowerCase()));
   if (i > 0) return nomPropre(mots.slice(i).join(' '), mots.slice(0, i).join(' '));
   return nomPropre(mots[mots.length - 1], mots.slice(0, -1).join(' '));
+}
+
+/**
+ * QUI PORTE CE COURS.
+ *
+ * Un code de cours ne dit rien à personne : « 282.2 » n'apprend ni de quoi il
+ * s'agite ni à qui s'adresser. Partout où la délibération descend au cours —
+ * la grille, les listes d'ajournés, la feuille d'encodage —, le nom du cours et
+ * son ou ses professeurs doivent être lisibles d'un coup d'œil. Une seule
+ * requête par unité, indexée par code.
+ */
+export function profsParCours(ueNum, annee) {
+  // Le moteur de délibération s'appelle une fois par étudiant : sans mémoire,
+  // une grille de cent lignes posait cent fois la même question à la base. La
+  // réponse ne change pas pendant la requête ; elle ne survit pas à la minute.
+  const cle = `${ueNum}|${annee}`;
+  const cache = (profsParCours._c ||= new Map());
+  const vu = cache.get(cle);
+  if (vu && Date.now() - vu.t < 60000) return vu.v;
+  const par = {};
+  for (const l of db.prepare(`
+    SELECT a.code_cours AS code, p.nom, p.prenom
+    FROM attribution a JOIN professeur p ON p.id = a.professeur_id
+    WHERE a.ue_num = ? AND a.annee_scolaire = ? AND a.code_cours IS NOT NULL
+      AND a.professeur_id IS NOT NULL
+    GROUP BY a.code_cours, p.id
+    ORDER BY p.nom, p.prenom
+  `).all(ueNum, annee)) {
+    (par[l.code] ||= []).push(nomPropre(l.nom, l.prenom));
+  }
+  const v = Object.fromEntries(Object.entries(par).map(([k, v2]) => [k, v2.join(', ')]));
+  cache.set(cle, { t: Date.now(), v });
+  return v;
 }
 
 function membresDuConseil(ueNum, annee) {
@@ -4177,6 +4219,7 @@ export function documentAjournesParCours(ueNum, annee, session = 1) {
     SELECT cours_code, cours_nom FROM cours
     WHERE ue_num = ? AND annee_scolaire = ? ORDER BY cours_num, cours_code
   `).all(ueNum, annee);
+  const profs = profsParCours(ueNum, annee);
 
   // Les ajournés de la session : ceux dont le Conseil a arrêté « ajourné »,
   // et pour chacun les cours qu'il doit représenter.
@@ -4256,7 +4299,8 @@ export function documentAjournesParCours(ueNum, annee, session = 1) {
       </div>
       <div class="titre-liste">${esc0(c.cours_nom || c.cours_code)}</div>
       <div class="sous-liste">Cours ${esc0(c.cours_code)} · UE ${ueNum}
-        ${ue.ue_nom ? `— ${esc0(ue.ue_nom)}` : ''} · ${esc0(annee)}</div>
+        ${ue.ue_nom ? `— ${esc0(ue.ue_nom)}` : ''} · ${esc0(annee)}${
+          profs[c.cours_code] ? ` · ${esc0(profs[c.cours_code])}` : ''}</div>
       ${corps}
       <div class="signature-liste">
         <div>Le président du Conseil des études</div>
@@ -4290,6 +4334,10 @@ const STYLE_DOSSIER = `<style>
   .grille .dec { font-weight: 700; white-space: nowrap; }
   .grille .dec-reussi { color: #15803d; } .grille .dec-ajourne { color: #b45309; }
   .grille .dec-refuse { color: #b91c1c; }
+  .grille .col-code { font-family: ui-monospace, monospace; font-weight: 400;
+                      font-size: 6pt; color: #5b6577; }
+  .grille .col-prof { font-weight: 400; font-size: 6pt; color: #1B2B4B;
+                      font-style: italic; }
   .legende { font-size: 7.5pt; color: #5b6577; margin-top: 2mm; }
 </style>`;
 
@@ -4328,8 +4376,10 @@ export function pageGrilleDeliberation(ueNum, annee, session = 1) {
   // La structure vient du premier étudiant : cours et acquis sont les mêmes
   // pour tous, c'est le référentiel de l'unité.
   const modele = delibererUE(etudiants[0].id, ueNum, annee, session);
+  const profs = profsParCours(ueNum, annee);
   const cours = (modele.cours || []).map(c => ({
     cours_code: c.cours_code, cours_nom: c.cours_nom,
+    profs: profs[c.cours_code] || '',
     aas: (c.aas || []).map(a => (typeof a === 'string' ? a : a.aa_code)),
   }));
   const nbCol = cours.reduce((n, c) => n + c.aas.length + 1, 0);
@@ -4381,7 +4431,10 @@ export function pageGrilleDeliberation(ueNum, annee, session = 1) {
       <tr>
         <th rowspan="2" style="width:46mm">Étudiant</th>
         ${cours.map(c => `<th class="sep" colspan="${c.aas.length + 1}">`
-          + `${esc0(c.cours_nom || c.cours_code)}</th>`).join('')}
+          + `${esc0(c.cours_nom || c.cours_code)}`
+          + `<div class="col-code">${esc0(c.cours_code)}</div>`
+          + (c.profs ? `<div class="col-prof">${esc0(c.profs)}</div>` : '')
+          + `</th>`).join('')}
         <th class="sep" rowspan="2">Unité</th>
         <th rowspan="2" style="width:18mm">Décision</th>
       </tr>

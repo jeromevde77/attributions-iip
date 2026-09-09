@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   IconX, IconSearch, IconAlertTriangle, IconChevronLeft, IconChevronRight,
   IconArrowUp, IconRepeat, IconList, IconFileText, IconMessage, IconBrush,
@@ -8,6 +8,7 @@ import { authHeaders } from '../lib/api.js';
 import TableauBordEtudiant from './TableauBordEtudiant.jsx';
 import { MOTIFS_ECHEC, composerMotif, decomposerMotif, texteDuMotif } from './motifsEchec.js';
 import CentreDocumentsUE from './CentreDocumentsUE.jsx';
+import { proposition } from '../lib/defautsSeance.js';
 
 /**
  * La FEUILLE DE DÉLIBÉRATION — un étudiant à la fois.
@@ -1087,6 +1088,58 @@ function Cloture({ seance, onClore, onRetour, onPV, onRouvrir, enCours, nb, ajou
   const [close, setClose] = useState(!!seance?.cloturee);
   const complet = date && heure && local.trim() && dateS;
 
+  // ── LE REMPLISSAGE PAR DÉFAUT ────────────────────────────────────────────
+  //
+  // Ces valeurs-là sont presque toujours les mêmes : la séance se tient le
+  // jour où on la saisit, la visite des copies deux jours ouvrables plus tard,
+  // la seconde session dix jours plus tard à huit heures. Les retaper vingt
+  // fois par session n'apportait rien. Un bouton les pose, et tout reste
+  // modifiable — la clôture ne fige que ce qu'on aura laissé.
+  const proposer = () => {
+    const p = proposition(seance);
+    if (!dateS) setDateS(p.date_seance);
+    if (!heureS) setHeureS(p.heure_seance);
+    if (!date) setDate(p.visite_date);
+    if (!heure) setHeure(p.visite_heure);
+    if (!local.trim()) setLocal(p.visite_local);
+    setS2(l => l.map(c => ({
+      ...c,
+      date: c.date || p.session2_date,
+      heure: c.heure || p.session2_heure,
+      local: c.local || p.session2_local,
+    })));
+  };
+  // Au premier affichage d'une séance encore vierge, la proposition est déjà
+  // là : « en un clic » veut d'abord dire « sans clic du tout » quand la
+  // séance est celle du jour.
+  const pose = useRef(false);
+  useEffect(() => {
+    if (pose.current || seance?.cloturee) return;
+    pose.current = true;
+    proposer();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [seance?.cloturee]);
+
+  // La liste des cours de seconde session arrive avec la séance, parfois après
+  // le premier rendu : ses lignes neuves reçoivent le défaut à leur tour.
+  useEffect(() => {
+    if (seance?.cloturee) return;
+    const p = proposition(seance);
+    setS2(l => {
+      const par = new Map(l.map(c => [c.cours_code, c]));
+      return (coursSession2 || []).map(c => {
+        const a = par.get(c.cours_code) || {};
+        return {
+          cours_code: c.cours_code, cours_nom: c.cours_nom,
+          date: a.date || c.date || p.session2_date,
+          heure: a.heure || c.heure || p.session2_heure,
+          local: a.local || c.local || p.session2_local,
+        };
+      });
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [coursSession2, seance?.cloturee]);
+
   return (
     <div className="space-y-3 max-w-xl mx-auto py-4">
       <div className="px-4 py-3 rounded-xl bg-emerald-50 border border-emerald-200">
@@ -1117,12 +1170,23 @@ function Cloture({ seance, onClore, onRetour, onPV, onRouvrir, enCours, nb, ajou
       )}
 
       <div className="border border-slate-200 rounded-xl p-4 space-y-3">
-        <div>
-          <div className="text-[13px] font-semibold text-iip-blue">Séance du Conseil</div>
-          <p className="text-[11.5px] text-slate-500">
-            La clôture fige cette date et cette heure au procès-verbal : c'est
-            le dernier moment pour les corriger.
-          </p>
+        <div className="flex items-start justify-between gap-3">
+          <div>
+            <div className="text-[13px] font-semibold text-iip-blue">Séance du Conseil</div>
+            <p className="text-[11.5px] text-slate-500">
+              La clôture fige cette date et cette heure au procès-verbal : c'est
+              le dernier moment pour les corriger.
+            </p>
+          </div>
+          <button onClick={proposer} disabled={enCours}
+            title={'Aujourd’hui pour la séance, la visite des copies à deux jours '
+                 + 'ouvrables (contacter le professeur), la seconde session à dix '
+                 + 'jours à 8h00 (contacter la coordination). Ne remplace aucun '
+                 + 'champ déjà rempli.'}
+            className="flex-none px-2.5 py-1 text-[11.5px] rounded-lg border
+                       border-iip-blue text-iip-blue font-semibold disabled:opacity-40">
+            Valeurs par défaut
+          </button>
         </div>
         <div className="grid grid-cols-2 gap-2">
           <label className="text-[11.5px] text-slate-600">
@@ -1339,9 +1403,22 @@ function Fiche({ e, data, onAjuster, onLot, onMotif, enCours, onBord,
                 Acquis d'apprentissage
               </th>
               {cours.map(c => (
-                <th key={c.cours_code} title={c.cours_nom || ''}
+                <th key={c.cours_code}
+                  title={[c.cours_nom, c.professeurs].filter(Boolean).join(' · ')}
                   className={`px-1 py-2 border-b border-slate-200 ${largeurCol}`}>
                   <div className="font-mono text-[11px] font-bold text-iip-blue">{c.cours_code}</div>
+                  {/* LE NOM DU COURS, PAS SEULEMENT SON CODE. « 282.2 » n'apprend
+                      rien à personne ; et le professeur qui le porte évite de
+                      chercher ailleurs à qui s'adresser. */}
+                  {c.cours_nom && (
+                    <div className="font-normal text-[9px] text-slate-600 leading-tight
+                                    line-clamp-2">{c.cours_nom}</div>
+                  )}
+                  {c.professeurs && (
+                    <div className="font-normal text-[9px] text-iip-blue/70 italic truncate">
+                      {c.professeurs}
+                    </div>
+                  )}
                   <div className="font-normal text-[9px] text-slate-400 truncate">
                     {c.poids_cours_affiche != null ? `${c.poids_cours_affiche} %` : '—'}
                   </div>
@@ -1742,6 +1819,9 @@ function AJustifier({ acquis, cours, onMotif, enCours, decision }) {
             <span key={c.cours_code} className="mr-2">
               <span className="font-mono font-bold">{c.cours_code}</span>
               {c.cours_nom ? ` · ${c.cours_nom}` : ''}
+              {c.professeurs ? (
+                <span className="italic text-iip-blue/70"> ({c.professeurs})</span>
+              ) : null}
             </span>
           ))}
         </div>
@@ -2143,6 +2223,9 @@ function Decision({ e, ue, onBord, acquis, cours, decision, onDecision, enCours,
               <div key={c.cours_code} className="pl-2">
                 <span className="font-mono font-semibold">{c.cours_code}</span>
                 {c.cours_nom ? ` · ${c.cours_nom}` : ''}
+                {c.professeurs ? (
+                  <span className="italic text-iip-blue/70"> ({c.professeurs})</span>
+                ) : null}
                 {c.aas?.length ? (
                   <span className="text-slate-500"> — acquis {c.aas.join(', ')}</span>
                 ) : null}
@@ -2176,10 +2259,20 @@ function VueTableau({ data, liste, onOuvrir }) {
                            font-bold text-iip-blue">{a.aa_code}</th>
             ))}
             {data.colonnes_cours.map(c => (
-              <th key={c.cours_code} title={c.cours_nom || ''}
-                className="px-1 py-1.5 border-b border-l border-slate-300 w-12
+              <th key={c.cours_code}
+                title={[c.cours_nom, c.professeurs].filter(Boolean).join(' · ')}
+                className="px-1 py-1.5 border-b border-l border-slate-300 w-16
                            bg-slate-50 text-[9.5px] font-bold text-slate-700">
-                {c.cours_code}
+                <div>{c.cours_code}</div>
+                {c.cours_nom && (
+                  <div className="font-normal text-[8.5px] text-slate-500 leading-tight
+                                  line-clamp-2">{c.cours_nom}</div>
+                )}
+                {c.professeurs && (
+                  <div className="font-normal text-[8.5px] text-iip-blue/70 italic truncate">
+                    {c.professeurs}
+                  </div>
+                )}
               </th>
             ))}
             <th className="px-2 py-1.5 border-b border-l-2 border-l-iip-blue/40
@@ -2356,7 +2449,8 @@ function VueLot({ liste, onAjourner, onOuvrir, enCours }) {
                     return (
                       <button key={c.cours_code}
                         onClick={() => basculeCours(e.id, c.cours_code)}
-                        title={c.cours_nom || c.cours_code}
+                        title={[c.cours_nom || c.cours_code, c.professeurs]
+                          .filter(Boolean).join(' · ')}
                         className={`px-2 py-0.5 rounded-full border text-[11px] font-semibold
                           ${off ? 'border-slate-300 text-slate-400 line-through'
                                 : 'border-amber-500 bg-amber-100 text-amber-900'}`}>
