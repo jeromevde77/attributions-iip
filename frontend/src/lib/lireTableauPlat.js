@@ -47,7 +47,7 @@ export const CHAMPS = [
   { cle: 'ue_num', libelle: 'Unité', requis: true,
     motifs: ['uenum', 'ue', 'nue', 'numerouе', 'numeroue', 'unite', 'uniteenseignement'] },
   { cle: 'session', libelle: 'Session', requis: true,
-    motifs: ['session', 'sess', 's'] },
+    motifs: ['session', 'deliberations1s2', 's1s2', 'sess', 's'] },
   { cle: 'matricule', libelle: 'Matricule', requis: false,
     motifs: ['matricule', 'idecampus', 'ecampus', 'numeroetudiant', 'matr'] },
   { cle: 'nom', libelle: 'Nom', requis: true, motifs: ['nom', 'nomeleve', 'nometudiant'] },
@@ -73,6 +73,76 @@ export const CHAMPS = [
   { cle: 'president_nom', libelle: 'Présidence', requis: false,
     motifs: ['presidence', 'president', 'presidentjury', 'presidentdujury'] },
 ];
+
+/**
+ * LE PLANNING N'EST PAS UN TABLEAU DE DÉCISIONS.
+ *
+ * Il porte une ligne par UNITÉ et session — date, créneau, local, présidence
+ * —, sans un seul étudiant. C'est l'autre moitié de la reprise : les
+ * décisions viennent de l'export, les séances viennent du planning. Les lire
+ * dans le même écran évite d'avoir à recopier douze dates à la main.
+ *
+ * On le reconnaît à ce qui lui manque : ni nom, ni prénom.
+ */
+export function estPlanning(colonnes) {
+  return colonnes.nom == null && colonnes.prenom == null;
+}
+
+/** Les séances d'un planning : une par unité et par session. */
+export function construirePlanning(lignes, colonnes) {
+  const val = (l, champ) => {
+    const i = colonnes[champ];
+    return i == null ? null : l[i];
+  };
+  const parUE = new Map();
+  const rejets = [];
+
+  for (let n = 1; n < lignes.length; n++) {
+    const l = lignes[n] || [];
+    const ueNum = Number(String(val(l, 'ue_num') ?? '').replace(/\D/g, ''));
+    if (!ueNum) continue;
+    const brut = String(val(l, 'session') ?? '').trim();
+    const ses = /2/.test(brut) ? 2 : (/1/.test(brut) ? 1 : null);
+    if (!ses) {
+      rejets.push({ ligne: n + 1, ue_num: ueNum, etudiant: '—',
+                    motif: brut ? `session « ${brut} » illisible` : 'session absente' });
+      continue;
+    }
+    const date = versISO(val(l, 'date_seance'));
+    if (!date) {
+      rejets.push({ ligne: n + 1, ue_num: ueNum, etudiant: '—',
+                    motif: 'date de délibération illisible' });
+      continue;
+    }
+    const u = parUE.get(ueNum) || { ue_num: ueNum, etudiants: [], seance: {} };
+    parUE.set(ueNum, u);
+    // Une unité peut figurer deux fois au planning — juin et septembre. La
+    // dernière ligne d'une même session l'emporte : un planning se corrige
+    // en le rééditant, et c'est la version du bas qui est la bonne.
+    u.seance[`s${ses}`] = {
+      date_seance: date,
+      heure_seance: versHeure(val(l, 'heure_seance')),
+      visite_date: versISO(val(l, 'visite_date')),
+      visite_heure: versHeure(val(l, 'visite_heure')),
+      visite_local: String(val(l, 'visite_local') ?? '').trim() || null,
+    };
+    const pres = String(val(l, 'president_nom') ?? '').trim();
+    if (pres) {
+      u.seance[`s${ses}`].president_nom = pres;
+      u.seance[`s${ses}`].president_role = 'autre';
+    }
+  }
+
+  const unites = [...parUE.values()].sort((a, b) => a.ue_num - b.ue_num).map(u => ({
+    ...u,
+    resume: {
+      etudiants: 0, s1: 0, s2: 0, cotes: 0, motifs: 0,
+      date_s1: u.seance.s1?.date_seance || u.seance.s2?.date_seance || null,
+      seances: Object.keys(u.seance).length,
+    },
+  }));
+  return { unites, rejets };
+}
 
 /** Le vocabulaire des décisions : celui du classeur, et celui de Lucie. */
 const DECISIONS = {
