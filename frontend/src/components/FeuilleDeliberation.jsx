@@ -67,6 +67,7 @@ export default function FeuilleDeliberation({ ueNum, annee, onClose }) {
   const [etape, setEtape] = useState('presences');   // presences | auto | fiche | cloture
   const [documents, setDocuments] = useState(false); // le centre d'impression
   const [auto, setAuto] = useState(null);           // les réussites de plein droit
+  const [reprise, setReprise] = useState(null);     // la délibération venue du classeur
   const [choixSession, setChoixSession] = useState(null); // null = celle que déduit le serveur
 
   // LA SESSION DÉLIBÉRÉE. Le serveur la déduit — première tant qu'elle n'est
@@ -107,8 +108,41 @@ export default function FeuilleDeliberation({ ueNum, annee, onClose }) {
   }
   // La séance suit la session : présences, date et visite des copies lui
   // appartiennent, et celles de juin ne valent pas pour septembre.
-  useEffect(() => { charger(); chargerSeance(); /* eslint-disable-next-line */ },
-    [ueNum, annee, choixSession]);
+  useEffect(() => { charger(); chargerSeance(); chargerReprise();
+    /* eslint-disable-next-line */ }, [ueNum, annee, choixSession]);
+
+  /**
+   * LA DÉLIBÉRATION QUE LE CLASSEUR PORTE DÉJÀ.
+   *
+   * On regarde, sans rien changer, si l'unité arrive d'Excel avec ses
+   * décisions. Si oui, l'écran le dit — c'est la seule façon que Jérôme ait
+   * de savoir qu'il n'a pas à repasser trois cents fiches en revue.
+   */
+  async function chargerReprise() {
+    try {
+      const rep = await fetch(
+        `/api/acquis/deliberation/ue/${ueNum}/reprise-import`
+        + `?annee=${encodeURIComponent(annee)}&session=${session}`,
+        { headers: authHeaders() });
+      const j = await rep.json();
+      if (rep.ok) setReprise(j);
+    } catch { /* l'aperçu n'est pas un bloquant */ }
+  }
+
+  async function appliquerReprise(simulation) {
+    setEnCours(true); setErreur(null);
+    try {
+      const rep = await fetch(`/api/acquis/deliberation/ue/${ueNum}/reprise-import`, {
+        method: 'POST', headers: authHeaders(),
+        body: JSON.stringify({ annee, session, simulation }),
+      });
+      const j = await rep.json();
+      if (!rep.ok) { setErreur(j.detail || j.error); return null; }
+      if (!simulation) { await charger(); await chargerReprise(); setEtape('cloture'); }
+      return j;
+    } catch (e) { setErreur(e.message); return null; }
+    finally { setEnCours(false); }
+  }
 
   /**
    * LES ÉTUDIANTS, DU MEILLEUR AU MOINS BON.
@@ -576,7 +610,33 @@ export default function FeuilleDeliberation({ ueNum, annee, onClose }) {
             </div>
           )}
 
-          {etape === 'presences' ? (
+          {/* CE QUI A DÉJÀ ÉTÉ DÉLIBÉRÉ AILLEURS SE DIT ICI. Une unité reprise
+              du classeur arrive décidée : sans cette bannière, rien ne le
+              signale et on repasse trois cents fiches en revue pour rien. */}
+          {reprise && (reprise.concordants + reprise.divergents) > 0
+            && etape !== 'reprise' && etape !== 'cloture' && (
+            <div className="px-3 py-2 rounded-lg bg-sky-50 border border-sky-200
+                            text-[12.5px] text-sky-900 flex items-center gap-3">
+              <div className="flex-1">
+                <b>Cette unité arrive délibérée du classeur.</b>{' '}
+                {reprise.concordants + reprise.divergents} décision(s) de session {session} y
+                sont déjà encodées{reprise.sans_decision
+                  ? `, ${reprise.sans_decision} étudiant(s) restent sans décision` : ''}.
+                Vous pouvez les reprendre d'un coup plutôt que de passer chaque fiche en revue.
+              </div>
+              <button onClick={() => setEtape('reprise')}
+                className="px-2.5 py-1.5 rounded-lg border border-sky-400 text-sky-800
+                           font-semibold text-[12px] whitespace-nowrap">
+                Reprendre l'encodage
+              </button>
+            </div>
+          )}
+
+          {etape === 'reprise' ? (
+            <Reprise reprise={reprise} session={session} enCours={enCours}
+              onAppliquer={() => appliquerReprise(false)}
+              onRetour={() => setEtape('fiche')} />
+          ) : etape === 'presences' ? (
             <Presences seance={seance} enCours={enCours}
               onValider={(membres, date_seance, heure_seance) => enregistrerSeance({
                 membres, date_seance, heure_seance,
@@ -841,6 +901,97 @@ function Presences({ seance, onValider, enCours }) {
 }
 
 /* ═══ Les réussites de plein droit ═════════════════════════════════════════ */
+
+/* ═══ La reprise d'une délibération déjà tenue ═════════════════════════════
+ *
+ * DISPOSITIF TRANSITOIRE, le temps que les années d'Excel soient reprises.
+ * Le classeur porte la décision : le Conseil s'est réuni, il a décidé, et
+ * cela a été encodé. Repasser les fiches une à une ne rejouerait pas la
+ * délibération — elle a eu lieu —, cela ne ferait que la recopier à la main.
+ *
+ * Ce que l'écran montre AVANT d'écrire quoi que ce soit : ce qui concorde,
+ * ce qui diverge, ce qui manque. La décision importée est reprise TELLE
+ * QUELLE, y compris quand Lucie en proposerait une autre : substituer un
+ * calcul à une délibération tenue, ce serait la refaire en cachette. Les
+ * écarts se lisent, ils ne se corrigent pas tout seuls.
+ */
+function Reprise({ reprise, session, onAppliquer, onRetour, enCours }) {
+  if (!reprise) return <div className="py-10 text-center text-[12.5px] text-slate-400">Lecture…</div>;
+  const aReprendre = reprise.concordants + reprise.divergents;
+  const divergents = (reprise.etudiants || []).filter(l => l.statut === 'divergent');
+  const sans = (reprise.etudiants || []).filter(l => l.statut === 'sans_decision');
+  return (
+    <div className="space-y-3 max-w-3xl mx-auto">
+      <div className="px-3 py-2 rounded-xl bg-sky-50 border border-sky-200">
+        <div className="text-[13px] font-semibold text-sky-900">
+          Reprendre la délibération encodée — session {session}
+        </div>
+        <p className="text-[11.5px] text-sky-800">
+          Les décisions viennent du classeur : elles sont reprises telles quelles.
+          Lucie y ajoute la cote de l'unité qu'elle calcule, et, pour les ajournés
+          dont le classeur ne dit pas ce qui est à représenter, les cours en défaut —
+          sans quoi la seconde session ne saurait pas quoi ouvrir.
+        </p>
+      </div>
+
+      <div className="grid grid-cols-3 gap-2 text-center">
+        {[['à reprendre', aReprendre, 'text-sky-800 bg-sky-50 border-sky-200'],
+          ['écarts avec le calcul', reprise.divergents, 'text-amber-900 bg-amber-50 border-amber-200'],
+          ['sans décision', reprise.sans_decision, 'text-slate-600 bg-slate-50 border-slate-200'],
+        ].map(([lib, n, cls]) => (
+          <div key={lib} className={`px-2 py-1.5 rounded-xl border ${cls}`}>
+            <div className="text-[17px] font-bold tabular-nums">{n}</div>
+            <div className="text-[11px]">{lib}</div>
+          </div>
+        ))}
+      </div>
+
+      {!!divergents.length && (
+        <div className="border border-amber-200 rounded-xl overflow-hidden">
+          <div className="px-3 py-1.5 bg-amber-50 text-[12px] text-amber-900 font-semibold">
+            Le classeur et le calcul ne disent pas la même chose — la décision du
+            classeur est conservée, ces cas se relisent
+          </div>
+          <div className="divide-y divide-slate-100 max-h-[26vh] overflow-y-auto">
+            {divergents.map(l => (
+              <div key={l.etudiant_id} className="px-3 py-1.5 flex items-center gap-2 text-[12.5px]">
+                <span className="flex-1 truncate">
+                  <b className="text-iip-blue">{l.nom}</b> {l.prenom}
+                </span>
+                <span className="text-[11.5px] text-slate-500">
+                  classeur <b className="text-slate-800">{l.decision_importee}</b>
+                  {' · '}Lucie <b className="text-amber-800">{l.decision_proposee}</b>
+                </span>
+                <span className="font-bold tabular-nums w-14 text-right">{fmt(l.note)}/20</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {!!sans.length && (
+        <div className="px-3 py-2 rounded-xl bg-slate-50 border border-slate-200
+                        text-[11.5px] text-slate-600">
+          {sans.length} étudiant(s) sans décision dans le classeur : ils ne sont pas
+          repris et restent à délibérer — {sans.slice(0, 8).map(l => l.nom).join(', ')}
+          {sans.length > 8 ? '…' : ''}
+        </div>
+      )}
+
+      <div className="flex items-center justify-end gap-2">
+        <button onClick={onRetour}
+          className="px-3 py-1.5 text-[12.5px] rounded-lg border border-slate-300 text-slate-600">
+          Passer — les revoir un à un
+        </button>
+        <button disabled={enCours || !aReprendre} onClick={onAppliquer}
+          className="px-4 py-2 text-[13px] rounded-lg bg-sky-700 text-white
+                     font-semibold disabled:opacity-40">
+          Reprendre ces {aReprendre} décisions
+        </button>
+      </div>
+    </div>
+  );
+}
 
 function PleinDroit({ auto, onAppliquer, onPasser, enCours }) {
   if (!auto) return <div className="py-10 text-center text-[12.5px] text-slate-400">Calcul…</div>;

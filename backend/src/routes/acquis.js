@@ -4614,6 +4614,188 @@ r.post('/deliberation/ue/:ueNum/plein-droit', authRequired,
   res.json({ ok: true, enregistres: faits.length, etudiants: faits });
 });
 
+/**
+ * REPRENDRE UNE DÉLIBÉRATION DÉJÀ TENUE — celle que le classeur porte.
+ *
+ * DISPOSITIF TRANSITOIRE. Les unités reprises d'Excel arrivent déjà
+ * délibérées : la séance a eu lieu, le Conseil a décidé, le classeur en garde
+ * la trace — décision par étudiant, et cours à représenter pour les ajournés.
+ * Rejouer cela fiche par fiche dans Lucie, c'est retaper à la main un travail
+ * qui existe, sur des dizaines d'étudiants et des dizaines d'unités.
+ *
+ * Ce que la reprise fait, et rien de plus : elle donne à la décision IMPORTÉE
+ * la forme qu'aurait eue la même décision prise ici — la cote de l'unité
+ * calculée par Lucie, portée dans deliberation_resultat sous sa session et
+ * dans le dossier de l'étudiant ; et, pour l'ajourné dont le classeur n'a rien
+ * dit, les cours en défaut posés comme cours à représenter, sans quoi la
+ * seconde session ne saurait pas ce qui s'y présente.
+ *
+ * CE QU'ELLE NE FAIT PAS : décider. La décision reste celle du classeur, même
+ * quand Lucie en proposerait une autre. Les écarts sont NOMMÉS dans le
+ * rapport — ils se relisent, ils ne se corrigent pas en silence : ce serait
+ * substituer un calcul à une délibération qui a eu lieu.
+ *
+ * La séance close ne se reprend pas : on la rouvre d'abord, comme le reste.
+ */
+function repriseDepuisImport(ueNum, annee, session) {
+  const inscrits = db.prepare(`
+    SELECT e.id, e.nom, e.prenom, e.id_ecampus, i.resultat AS dossier
+    FROM etudiant_inscription i JOIN etudiant e ON e.id = i.etudiant_id
+    WHERE i.annee_scolaire = ? AND i.ue_num = ? ORDER BY e.nom, e.prenom
+  `).all(annee, ueNum);
+
+  const resultatDe = db.prepare(`SELECT resultat, points FROM deliberation_resultat
+    WHERE etudiant_id = ? AND annee_scolaire = ? AND ue_num = ? AND session = ?`);
+  const coursPoses = db.prepare(`SELECT code FROM deliberation_ajustement
+    WHERE etudiant_id = ? AND annee_scolaire = ? AND ue_num = ? AND session = ?
+      AND portee = 'cours' AND action = 'ajourne'`);
+
+  const lignes = [];
+  for (const e of inscrits) {
+    const trace = resultatDe.get(e.id, annee, ueNum, session) || {};
+    // La décision importée se lit d'abord dans la trace de séance ; à défaut,
+    // en première session, dans le dossier — l'import n'a pas toujours écrit
+    // les deux, et le dossier fait foi tant qu'aucune séance ne l'a repris.
+    const importee = trace.resultat || (session < 2 ? e.dossier : null) || null;
+    if (session >= 2) {
+      // En seconde session, seul l'ajourné de juin se représente.
+      const s1 = resultatDe.get(e.id, annee, ueNum, 1) || {};
+      const ajourneEnS1 = (s1.resultat || e.dossier) === 'ajourne';
+      if (!ajourneEnS1) continue;
+    }
+
+    const d = delibererUE(e.id, ueNum, annee, session);
+    const proposee = d.ue?.decision_proposee ?? null;
+    const poses = coursPoses.all(e.id, annee, ueNum, session).map(l => l.code);
+    const enDefaut = (d.cours || [])
+      .filter(c => !c.faveur && (c.na || (c.note != null && c.note < SEUIL_UE)))
+      .map(c => c.cours_code);
+
+    lignes.push({
+      etudiant_id: e.id, nom: e.nom, prenom: e.prenom, id_ecampus: e.id_ecampus,
+      decision_importee: importee,
+      decision_proposee: proposee,
+      note: d.ue?.note ?? null,
+      cote_a_ecrire: trace.points == null,
+      cours_poses: poses,
+      cours_a_poser: importee === 'ajourne' && !poses.length ? enDefaut : [],
+      motifs_manquants: (d.ue?.motifs_manquants || []).length,
+      statut: !importee ? 'sans_decision'
+        : (proposee && proposee !== importee) ? 'divergent' : 'concordant',
+    });
+  }
+  return lignes;
+}
+
+r.get('/deliberation/ue/:ueNum/reprise-import', authRequired, (req, res) => {
+  const ueNum = Number(req.params.ueNum);
+  const annee = req.query.annee || anneeDeTravail(req);
+  const etat = sessionDeLUE(ueNum, annee);
+  const session = req.query.session ? (Number(req.query.session) === 2 ? 2 : 1) : etat.session;
+  let lignes;
+  try { lignes = repriseDepuisImport(ueNum, annee, session); }
+  catch (e) { return res.status(500).json({ error: e.message }); }
+  res.json({
+    ue_num: ueNum, annee, session,
+    cloturee: !!(db.prepare(`SELECT cloturee FROM deliberation_seance
+      WHERE ue_num = ? AND annee_scolaire = ? AND session = ?`)
+      .get(ueNum, annee, session)?.cloturee),
+    total: lignes.length,
+    concordants: lignes.filter(l => l.statut === 'concordant').length,
+    divergents: lignes.filter(l => l.statut === 'divergent').length,
+    sans_decision: lignes.filter(l => l.statut === 'sans_decision').length,
+    etudiants: lignes,
+  });
+});
+
+r.post('/deliberation/ue/:ueNum/reprise-import', authRequired,
+       roleRequired('admin', 'directeur', 'directeur_adjoint', 'editeur'), (req, res) => {
+  const ueNum = Number(req.params.ueNum);
+  const annee = req.body?.annee || anneeDeTravail(req);
+  const session = Number(req.body?.session) === 2 ? 2 : 1;
+  const simulation = req.body?.simulation === true;
+  const ids = Array.isArray(req.body?.etudiants) ? req.body.etudiants.map(Number) : null;
+  const poserCours = req.body?.poser_cours !== false;
+
+  const perim = getUserSections(req.user);
+  const ue = db.prepare(`SELECT section FROM ue WHERE ue_num = ?
+    ORDER BY (annee_scolaire = ?) DESC, annee_scolaire DESC LIMIT 1`).get(ueNum, annee) || {};
+  if (perim && ue.section && !perim.includes(ue.section)) {
+    return res.status(403).json({ error: 'unité hors de votre périmètre' });
+  }
+
+  const close = !!(db.prepare(`SELECT cloturee FROM deliberation_seance
+    WHERE ue_num = ? AND annee_scolaire = ? AND session = ?`)
+    .get(ueNum, annee, session)?.cloturee);
+  if (close) {
+    return res.status(409).json({
+      error: 'séance close',
+      detail: 'La séance est clôturée. Rouvrez-la pour reprendre la délibération.',
+    });
+  }
+
+  let lignes;
+  try { lignes = repriseDepuisImport(ueNum, annee, session); }
+  catch (e) { return res.status(500).json({ error: e.message }); }
+  const retenues = lignes.filter(l => l.decision_importee && (!ids || ids.includes(l.etudiant_id)));
+
+  const poserResultat = db.prepare(`
+    INSERT INTO deliberation_resultat
+      (etudiant_id, annee_scolaire, ue_num, session, resultat, points, decide_par)
+    VALUES (?,?,?,?,?,?,?)
+    ON CONFLICT(etudiant_id, annee_scolaire, ue_num, session)
+    DO UPDATE SET resultat = excluded.resultat, points = excluded.points,
+      decide_le = CURRENT_TIMESTAMP, decide_par = excluded.decide_par`);
+  const poserAjustement = db.prepare(`
+    INSERT INTO deliberation_ajustement
+      (etudiant_id, annee_scolaire, ue_num, session, portee, code, action, maj_par)
+    VALUES (?,?,?,?,'cours',?,'ajourne',?)
+    ON CONFLICT(etudiant_id, annee_scolaire, ue_num, session, portee, code)
+    DO UPDATE SET action = 'ajourne', maj_le = CURRENT_TIMESTAMP, maj_par = excluded.maj_par`);
+  const finalDe = db.prepare(`SELECT resultat, points, mention FROM deliberation_resultat
+    WHERE etudiant_id = ? AND annee_scolaire = ? AND ue_num = ?
+      AND resultat IS NOT NULL AND resultat != ''
+    ORDER BY session DESC LIMIT 1`);
+  const majDossier = db.prepare(`UPDATE etudiant_inscription
+    SET resultat = ?, points = ?, mention = ?
+    WHERE etudiant_id = ? AND annee_scolaire = ? AND ue_num = ?`);
+
+  const rapport = { ue_num: ueNum, annee, session, simulation,
+                    traites: 0, cotes: 0, cours_poses: 0,
+                    divergents: retenues.filter(l => l.statut === 'divergent'),
+                    ignores: lignes.filter(l => !l.decision_importee),
+                    etudiants: retenues };
+
+  if (!simulation) {
+    const par = req.user?.email || null;
+    try {
+      db.transaction(() => {
+        for (const l of retenues) {
+          poserResultat.run(l.etudiant_id, annee, ueNum, session,
+            l.decision_importee, l.note ?? null, par);
+          if (l.cote_a_ecrire) rapport.cotes++;
+          if (poserCours) {
+            for (const code of l.cours_a_poser) {
+              poserAjustement.run(l.etudiant_id, annee, ueNum, session, code, par);
+              rapport.cours_poses++;
+            }
+          }
+          const fin = finalDe.get(l.etudiant_id, annee, ueNum) || {};
+          majDossier.run(fin.resultat ?? null, fin.points ?? null, fin.mention ?? null,
+            l.etudiant_id, annee, ueNum);
+          rapport.traites++;
+        }
+      })();
+    } catch (e) { return res.status(500).json({ error: e.message }); }
+  } else {
+    rapport.traites = retenues.length;
+    rapport.cotes = retenues.filter(l => l.cote_a_ecrire).length;
+    rapport.cours_poses = retenues.reduce((n, l) => n + (poserCours ? l.cours_a_poser.length : 0), 0);
+  }
+
+  res.json({ ok: true, ...rapport });
+});
+
 r.get('/deliberation/:etudId/:ueNum', authRequired, (req, res) => {
   const annee = req.query.annee || anneeDeTravail(req);
   try {
