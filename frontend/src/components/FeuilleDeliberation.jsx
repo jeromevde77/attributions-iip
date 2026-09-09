@@ -1308,9 +1308,27 @@ function Fiche({ e, data, onAjuster, onLot, onMotif, enCours, onBord,
   // panneau de pilotage occupe la droite.
   const largeurCol = cours.length > 3 ? 'min-w-[58px]' : 'min-w-[72px]';
 
+  // CE QUE LA MAISON DÉLIBÈRE, ET DONC CE QU'ELLE REGARDE.
+  //
+  // Une colonne qui ne peut pas faire échouer l'unité n'a pas à occuper
+  // l'écran du Conseil : elle y attire l'œil, invite à un geste sans portée,
+  // et brouille la seule question qui se pose — l'unité est-elle acquise ?
+  // Une maison qui ne délibère que sur les acquis ne voit donc pas la ligne
+  // des cours, et réciproquement.
+  const regarde = e.ue?.regarde || { aa: true, cours: true };
+
   return (
     <div className="grid gap-3 lg:grid-cols-[minmax(0,1fr)_300px] items-start">
       <div className="space-y-3 min-w-0">
+      {!regarde.aa && !regarde.cours && (
+        <div className="px-3 py-2 rounded-xl bg-slate-50 border border-slate-200
+                        text-[12px] text-slate-600">
+          L'établissement délibère sur la <b>seule note d'unité</b>. Les acquis et les
+          cours restent consultables dans les documents, mais ils ne font pas la
+          décision — ils ne sont donc pas montrés ici.
+        </div>
+      )}
+      {(regarde.aa || regarde.cours) && (
       <div className="overflow-x-auto border border-slate-200 rounded-xl">
         <table className="border-collapse text-[12px] w-full">
           <thead>
@@ -1337,7 +1355,7 @@ function Fiche({ e, data, onAjuster, onLot, onMotif, enCours, onBord,
           </thead>
 
           <tbody>
-            {acquis.map(a => (
+            {regarde.aa && acquis.map(a => (
               <tr key={a.aa_code}>
                 <td className="sticky left-0 bg-white z-10 px-3 py-1.5 border-b border-r
                                border-slate-100">
@@ -1393,7 +1411,7 @@ function Fiche({ e, data, onAjuster, onLot, onMotif, enCours, onBord,
               <td className="sticky left-0 bg-slate-50 z-10 px-3 py-2 border-t border-r
                              border-slate-200 text-[11px] font-bold uppercase
                              tracking-wide text-slate-500">
-                Note du cours
+                {regarde.cours ? 'Note du cours' : 'Note du cours (indicative)'}
               </td>
               {cours.map(c => (
                 <td key={c.cours_code} className="border-t border-slate-200 px-1.5 py-1.5">
@@ -1415,6 +1433,15 @@ function Fiche({ e, data, onAjuster, onLot, onMotif, enCours, onBord,
           </tbody>
         </table>
       </div>
+      )}
+
+      {/* La note de l'unité, seule, quand c'est sur elle seule qu'on délibère. */}
+      {!regarde.aa && !regarde.cours && (
+        <div className="max-w-[220px]">
+          <TuileUE ue={ue} seuil={data.seuil} enCours={enCours}
+            onFaveur={() => onAjuster('ue', '*', ue.faveur_ue ? null : 'faveur')} />
+        </div>
+      )}
 
       {/* AJOURNER OU REFUSER TOUT — le geste le plus fréquent du Conseil.
           Une unité ratée l'est rarement à moitié. */}

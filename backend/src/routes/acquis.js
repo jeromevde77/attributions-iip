@@ -1952,6 +1952,22 @@ export function reglesAjournement() {
  *   — le quorum des deux tiers (RGE art. 25 §1).
  */
 const REGLES_DEFAUT = {
+  // ── SUR QUOI LE CONSEIL DÉLIBÈRE ────────────────────────────────────────
+  //
+  // La question n'est pas d'affichage, elle est de fond : c'est le NIVEAU
+  // auquel la maîtrise s'apprécie, et donc ce qui peut faire échouer une
+  // unité.
+  //
+  //   cours_aa   chaque acquis ET chaque cours au seuil — le plus exigeant
+  //   cours      les cours seuls ; un acquis faible ne bloque pas si son
+  //              cours tient
+  //   aa         les acquis seuls — la lecture de la promotion sociale, où
+  //              c'est l'acquis d'apprentissage qui est sanctionné
+  //   ue         la seule note d'unité
+  //
+  // L'unité est TOUJOURS exigée au seuil : c'est elle que l'attestation
+  // sanctionne (RGE art. 77 §1). Le paramètre dit ce qui s'y ajoute.
+  base: 'cours_aa',
   portee: 'cours',
   session2: 'par_cours',
   seuil_aa: 10,
@@ -1969,6 +1985,7 @@ export function reglesDeliberation() {
     const v = JSON.parse(row.valeur) || {};
     const seuil = Number(v.seuil_aa);
     return {
+      base: ['cours_aa', 'cours', 'aa', 'ue'].includes(v.base) ? v.base : 'cours_aa',
       portee: ['cours', 'aa', 'ue'].includes(v.portee) ? v.portee : 'cours',
       session2: v.session2 === 'unique' ? 'unique' : 'par_cours',
       // JAMAIS SOUS 10/20 : en dessous, un acquis non maîtrisé passerait pour
@@ -2173,6 +2190,13 @@ export function delibererUE(etudId, ueNum, annee, session = 1) {
   const structure = structureUE(ueNum, annee);
   const integree = estEpreuveIntegree(ueNum, annee);
   const regles = reglesDeliberation();
+  // Ce que la base de délibération fait entrer dans la décision. L'unité y
+  // est toujours ; le reste dépend du choix de la maison.
+  const regarde = {
+    aa: regles.base === 'cours_aa' || regles.base === 'aa',
+    cours: regles.base === 'cours_aa' || regles.base === 'cours',
+    ue: true,
+  };
   // Le seuil de MAÎTRISE d'un acquis, tel que l'établissement l'a fixé — au
   // moins 10/20, jamais moins. Le seuil de RÉUSSITE de l'unité, lui, est celui
   // du décret et ne se paramètre pas.
@@ -2509,14 +2533,25 @@ export function delibererUE(etudId, ueNum, annee, session = 1) {
       // non maîtrisé s'ajourne — l'étudiant le représente (RGE art. 79 §1).
       // En seconde, il n'y a plus rien à représenter : « l'étudiant qui échoue
       // en seconde session est refusé » (art. 69 §2).
+      //
+      // SUR QUOI L'ÉCHEC SE CONSTATE — c'est le paramètre « base ».
+      // L'unité est toujours exigée au seuil ; les acquis et les cours n'y
+      // sont opposés que si la maison délibère à ce niveau. Une école qui ne
+      // délibère que sur les acquis ne doit pas voir une unité bloquée par
+      // une note de cours, et réciproquement.
       decision_proposee: ajourne ? 'ajourne'
         : cours.some(c => c.mention === 'PP') ? 'refuse'
         : cours.some(c => c.mention === 'NP') ? (session >= 2 ? 'refuse' : 'ajourne')
         : noteUE == null ? null
-        : (acquis.some(a => !a.na && a.note != null && a.note < SEUIL_AA)
-           || cours.some(c => !c.na && c.note != null && c.note < SEUIL_UE)
+        : ((regarde.aa && acquis.some(a => !a.na && a.note != null && a.note < SEUIL_AA))
+           || (regarde.cours && cours.some(c => !c.na && c.note != null && c.note < SEUIL_UE))
            || noteUE < SEUIL_UE) ? (session >= 2 ? 'refuse' : 'ajourne')
         : 'reussi',
+      // Ce que le Conseil regarde, dit au client : les écrans s'y règlent, et
+      // les documents aussi. Une colonne qui ne fait pas la décision n'a pas à
+      // occuper la page.
+      base: regles.base,
+      regarde,
       // Ce qui empêche la réussite, nommé : c'est de cela que la motivation
       // doit rendre compte, et c'est ce que la faveur lèverait.
       acquis_en_defaut: acquis
@@ -2559,10 +2594,15 @@ export function delibererUE(etudId, ueNum, annee, session = 1) {
         return acquis.filter(a => aRendreCompte.has(a.aa_code) && !a.motif)
           .map(a => a.aa_code);
       })(),
+      // LA RÉUSSITE DE PLEIN DROIT suit la même base : elle ne peut pas être
+      // plus exigeante que la décision qu'elle anticipe, sinon le Conseil se
+      // verrait proposer d'examiner un dossier qu'il n'a rien à examiner.
       de_plein_droit: !ajourne && !faveur && !cours.some(c => c.mention)
-        && acquis.length > 0 && cours.length > 0
-        && acquis.every(a => a.note != null && a.note >= SEUIL_UE)
-        && cours.every(c => c.note != null && c.note >= SEUIL_UE),
+        && (!regarde.aa || (acquis.length > 0
+            && acquis.every(a => a.note != null && a.note >= SEUIL_AA)))
+        && (!regarde.cours || (cours.length > 0
+            && cours.every(c => c.note != null && c.note >= SEUIL_UE)))
+        && noteUE != null && noteUE >= SEUIL_UE,
     },
   };
 }
@@ -3743,7 +3783,13 @@ r.put('/deliberation/regles', authRequired,
     // ensuite laisserait passer une valeur que le décret n'admet pas.
     const v = req.body.regles || {};
     const seuil = Number(v.seuil_aa);
+    // On CONSERVE ce que la requête ne dit pas : l'écran des règles envoie
+    // parfois un seul champ, et réécrire l'objet entier remettrait les autres
+    // à leur valeur par défaut sans que personne l'ait demandé.
+    const a = reglesDeliberation();
     poser.run('deliberation_ajournement', JSON.stringify({
+      ...a,
+      base: ['cours_aa', 'cours', 'aa', 'ue'].includes(v.base) ? v.base : a.base,
       portee: ['cours', 'aa', 'ue'].includes(v.portee) ? v.portee : 'cours',
       session2: v.session2 === 'unique' ? 'unique' : 'par_cours',
       seuil_aa: Number.isFinite(seuil) ? Math.min(20, Math.max(SEUIL_UE, seuil)) : SEUIL_UE,
