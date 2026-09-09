@@ -2745,7 +2745,10 @@ r.get('/cours/:coursCode/feuille', authRequired, (req, res) => {
   }
 
   res.json({
-    cours: co, annee, session, acquis, etudiants, notes, mentions,
+    // Le professeur qui porte le cours : l'écran d'encodage doit le nommer,
+    // ne serait-ce que pour qu'on s'aperçoive qu'on a ouvert celui d'un autre.
+    cours: { ...co, professeurs: profsParCours(co.ue_num, annee)[co.cours_code] || '' },
+    annee, session, acquis, etudiants, notes, mentions,
     // L'épreuve est commune à l'unité : ce n'est pas ici qu'on encode.
     epreuve_integree: estEpreuveIntegree(co.ue_num, annee),
     // Sans acquis rattaché, la saisie par cours n'a rien à montrer : mieux
@@ -3693,6 +3696,67 @@ export function profsParCours(ueNum, annee) {
   return v;
 }
 
+/**
+ * DIRE CE QU'EST UN CODE.
+ *
+ * « 282.1 », « AA3 », « 282.1|AA3 » : les pièces du dossier de délibération
+ * imprimaient ces codes nus. Le Conseil qui relit son procès-verbal six mois
+ * plus tard, l'inspecteur qui l'ouvre, l'étudiant qui conteste — aucun d'eux
+ * ne sait de quoi il s'agit ni à qui s'adresser. Un code doit toujours arriver
+ * accompagné du nom du cours et de qui le porte.
+ *
+ * Renvoie une fonction : code → fragment HTML déjà échappé.
+ */
+function libelleDeCode(ueNum, annee) {
+  const e = t => String(t ?? '').replace(/[&<>"]/g,
+    x => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[x]));
+  const profs = profsParCours(ueNum, annee);
+  const cours = new Map(db.prepare(`
+    SELECT cours_code, cours_nom FROM cours WHERE ue_num = ? AND annee_scolaire = ?
+  `).all(ueNum, annee).map(c => [c.cours_code, c.cours_nom]));
+  const acquis = new Map(db.prepare(
+    'SELECT aa_code, cours_code, description FROM aa WHERE ue_num = ?'
+  ).all(ueNum).map(a => [a.aa_code, a]));
+  // Un acquis peut être évalué dans plusieurs cours : la pondération le dit
+  // mieux que la table des acquis, qui n'en porte qu'un.
+  const parPond = new Map();
+  for (const p of db.prepare(
+    'SELECT aa_code, cours_code FROM aa_ponderation WHERE ue_num = ?').all(ueNum)) {
+    (parPond.get(p.aa_code) || parPond.set(p.aa_code, []).get(p.aa_code)).push(p.cours_code);
+  }
+
+  const duCours = (code) => {
+    if (!code) return '';
+    const nom = cours.get(code);
+    const qui = profs[code];
+    return `<b>${e(nom || code)}</b> <span class="ref">(${e(code)}${
+      qui ? ` · ${e(qui)}` : ''})</span>`;
+  };
+
+  return (brut) => {
+    const code = String(brut ?? '').trim();
+    if (!code || code === '*') return 'toute l’unité';
+    // « s2|282.1|AA3 » comme « 282.1|AA3 » : l'acquis est le dernier segment,
+    // le cours l'avant-dernier quand il y en a un.
+    const parts = code.split('|');
+    const dernier = parts[parts.length - 1];
+    const avant = parts.length > 1 ? parts[parts.length - 2] : null;
+
+    if (cours.has(dernier) && !acquis.has(dernier)) return duCours(dernier);
+
+    const a = acquis.get(dernier);
+    const cs = avant && cours.has(avant) ? [avant]
+      : (parPond.get(dernier) || (a?.cours_code ? [a.cours_code] : []));
+    const tete = `<b>${e(dernier)}</b>${
+      a?.description ? ` — ${e(String(a.description).slice(0, 90))}` : ''}`;
+    if (!cs.length) return tete;
+    return `${tete}<br><span class="ref">${cs.map(c => {
+      const qui = profs[c];
+      return `${e(cours.get(c) || c)} (${e(c)}${qui ? ` · ${e(qui)}` : ''})`;
+    }).join(' · ')}</span>`;
+  };
+}
+
 function membresDuConseil(ueNum, annee) {
   const membres = [];
 
@@ -4436,6 +4500,8 @@ const STYLE_DOSSIER = `<style>
                       font-size: 6pt; color: #5b6577; }
   .grille .col-prof { font-weight: 400; font-size: 6pt; color: #1B2B4B;
                       font-style: italic; }
+  .doc td.elem { font-size: 8pt; line-height: 1.25; }
+  .doc td.elem .ref { color: #5b6577; font-size: 7pt; }
   .legende { font-size: 7.5pt; color: #5b6577; margin-top: 2mm; }
 </style>`;
 
@@ -4620,17 +4686,20 @@ export function pageAjustements(ueNum, annee, session = 1) {
   `).all(ueNum, annee, session);
 
   const PORTEE = { aa: 'Acquis', cours: 'Cours', ue: 'Unité entière' };
+  // « 282.1 » ne dit rien à personne : le code arrive accompagné du nom du
+  // cours et du professeur qui le porte.
+  const dire = libelleDeCode(ueNum, annee);
   const corps = `<div class="attestation">
     ${enteteDelib(ueNum, annee, session, 'Décisions du Conseil')}
     <div class="sous-liste">Faveurs accordées et ajournements posés</div>
     ${lignes.length ? `<table class="doc">
       <tr><th>Étudiant</th><th style="width:22mm">Décision</th><th style="width:24mm">Portée</th>
-          <th style="width:26mm">Élément</th><th style="width:22mm">Le</th><th>Par</th></tr>
+          <th>Élément</th><th style="width:22mm">Le</th><th>Par</th></tr>
       ${lignes.map(l => `<tr>
         <td>${esc0(l.nom)} ${esc0(l.prenom)}</td>
         <td><b>${l.action === 'faveur' ? 'Faveur' : 'Ajournement'}</b></td>
         <td>${PORTEE[l.portee] || esc0(l.portee)}</td>
-        <td>${l.code === '*' ? 'toute l’unité' : esc0(l.code)}</td>
+        <td class="elem">${dire(l.code)}</td>
         <td>${jour(l.maj_le)}</td>
         <td>${esc0(l.maj_par || '')}</td>
       </tr>`).join('')}
@@ -4692,17 +4761,18 @@ export function pageMotivations(ueNum, annee, session = 1) {
 
   const parEtud = {};
   for (const l of lignes) (parEtud[`${l.nom} ${l.prenom}`] ||= []).push(l);
+  const dire = libelleDeCode(ueNum, annee);
 
   const corps = `<div class="attestation">
     ${enteteDelib(ueNum, annee, session, 'Motivations des décisions')}
     <div class="sous-liste">${lignes.length} motivation(s) enregistrée(s)${sansMotif.length
       ? ` · ${sansMotif.length} étudiant(s) dont un échec n’est pas motivé` : ''}</div>
     ${Object.keys(parEtud).length ? `<table class="doc">
-      <tr><th style="width:46mm">Étudiant</th><th style="width:24mm">Acquis</th>
+      <tr><th style="width:42mm">Étudiant</th><th style="width:52mm">Acquis et cours</th>
           <th>Motivation</th></tr>
       ${Object.entries(parEtud).flatMap(([nom, ms]) => ms.map((m, i) => `<tr>
         <td>${i === 0 ? esc0(nom) : ''}</td>
-        <td>${esc0(m.aa_code)}</td>
+        <td class="elem">${dire(m.aa_code)}</td>
         <td>${esc0(m.motif)}</td>
       </tr>`)).join('')}
     </table>` : '<p class="neant">Néant — aucune motivation n’est enregistrée.</p>'}
@@ -4712,7 +4782,7 @@ export function pageMotivations(ueNum, annee, session = 1) {
     <table class="doc">
       <tr><th style="width:60mm">Étudiant</th><th>Acquis restant à motiver</th></tr>
       ${sansMotif.map(e => `<tr><td>${esc0(e.nom)} ${esc0(e.prenom)}</td>
-        <td>${esc0(e.aas.join(', '))}</td></tr>`).join('')}
+        <td class="elem">${e.aas.map(a => dire(a)).join('<br>')}</td></tr>`).join('')}
     </table>` : ''}
   </div>`;
   return { corps, style: STYLE_ENTETE_DELIB + STYLE_DOSSIER, nb: lignes.length, sans_motif: sansMotif.length };

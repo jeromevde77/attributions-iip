@@ -1,6 +1,7 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { IconX, IconAlertTriangle, IconSearch, IconCheck, IconLink } from '@tabler/icons-react';
 import { authHeaders } from '../lib/api.js';
+import { naviguerGrille, caseGrille } from '../lib/grilleClavier.js';
 
 /**
  * SAISIE DES NOTES DE TOUTE UNE UNITÉ.
@@ -64,6 +65,12 @@ const TEINTES = [
 ];
 
 export default function EncodageUE({ ueNum, annee, onClose, onEnregistre, onParametrer }) {
+  // LA GRILLE SE PARCOURT AU CLAVIER — le conteneur écoute les flèches, et
+  // chaque case porte ses coordonnées. Le compteur de colonne se remet à zéro
+  // à chaque ligne, pendant le rendu : c'est le plus simple, et il n'a de
+  // sens que là.
+  const grille = useRef(null);
+  let colonne = 0;
   const [data, setData] = useState(null);
   const [erreur, setErreur] = useState(null);
   const [session, setSession] = useState(1);
@@ -260,7 +267,8 @@ export default function EncodageUE({ ueNum, annee, onClose, onEnregistre, onPara
               {recherche ? 'Aucun étudiant ne correspond.' : 'Aucun étudiant inscrit à cette unité.'}
             </div>
           ) : (
-            <table className="text-[12px] border-separate border-spacing-0">
+            <table ref={grille} onKeyDown={ev => naviguerGrille(ev, grille.current)}
+              className="text-[12px] border-separate border-spacing-0">
               <thead>
                 {/* Les cours en bandeau, chacun couvrant ses acquis. */}
                 <tr>
@@ -322,7 +330,7 @@ export default function EncodageUE({ ueNum, annee, onClose, onEnregistre, onPara
                 </tr>
               </thead>
               <tbody>
-                {etudiants.map(e => (
+                {etudiants.map((e, ligne) => (
                   <tr key={e.id} className="hover:bg-slate-50/60">
                     <td className="sticky left-0 z-10 bg-white hover:bg-slate-50/60 px-2 py-0.5
                                    whitespace-nowrap border-b border-slate-100">
@@ -340,6 +348,7 @@ export default function EncodageUE({ ueNum, annee, onClose, onEnregistre, onPara
                         </span>
                       )}
                     </td>
+                    {(() => { colonne = 0; return null; })()}
                     {data.cours.filter(c => c.acquis?.length).flatMap(c => {
                       const m = mention(e, c.cours_code);
                       // EN SECONDE SESSION, SEULS LES COURS À REPRÉSENTER.
@@ -352,6 +361,7 @@ export default function EncodageUE({ ueNum, annee, onClose, onEnregistre, onPara
                         ...c.acquis.map(a => {
                           const col = { ...a, cours: c };
                           const v = note(e, col);
+                          const nc = colonne++;
                           return (
                             <td key={`${e.id}|${c.cours_code}|${a.aa_code}`}
                               className="px-1 py-0.5 border-b border-slate-100 text-center">
@@ -365,7 +375,7 @@ export default function EncodageUE({ ueNum, annee, onClose, onEnregistre, onPara
                                   suffisait alors à réécrire l'ancienne note dans
                                   l'autre session. La clé porte donc la session et
                                   la valeur : à donnée nouvelle, case neuve. */}
-                              <input type="number" step="1" min="0" max="20"
+                              <input {...caseGrille(ligne, nc)}
                                 key={`${session}|${v ?? ''}`}
                                 defaultValue={v ?? ''} disabled={!!m || ferme}
                                 title={ferme
