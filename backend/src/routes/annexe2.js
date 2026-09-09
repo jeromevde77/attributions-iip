@@ -42,12 +42,31 @@ const esc = s => String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;')
   } catch (e) { console.error('[annexe2] migration', e.message); }
 })();
 
+const MOIS_FR = ['janvier', 'février', 'mars', 'avril', 'mai', 'juin', 'juillet',
+                'août', 'septembre', 'octobre', 'novembre', 'décembre'];
+
+/**
+ * Une date au format du formulaire — jj-mm-aaaa —, quelle que soit la forme
+ * où le dossier la range. `new Date()` ne sait pas lire « 13/08/2004 » (il y
+ * voit une date américaine, ou rien) ni « 13 août 2004 » : le formulaire
+ * sortait alors vide sans qu'on sache pourquoi.
+ */
 const frDate = iso => {
-  if (!iso) return null;
-  const d = new Date(iso);
-  if (isNaN(d)) return null;
-  return `${String(d.getDate()).padStart(2, '0')}-${String(d.getMonth() + 1)
-    .padStart(2, '0')}-${d.getFullYear()}`;
+  if (iso == null || String(iso).trim() === '') return null;
+  const t = String(iso).trim();
+  const rendre = (j, m, a) => `${String(Number(j)).padStart(2, '0')}-`
+    + `${String(Number(m)).padStart(2, '0')}-${a}`;
+
+  let x = t.match(/^(\d{4})-(\d{2})-(\d{2})/);
+  if (x && Number(x[2]) >= 1 && Number(x[2]) <= 12) return rendre(x[3], x[2], x[1]);
+  x = t.match(/^(\d{1,2})[/.-](\d{1,2})[/.-](\d{4})$/);
+  if (x && Number(x[2]) >= 1 && Number(x[2]) <= 12) return rendre(x[1], x[2], x[3]);
+  x = t.match(/^(\d{1,2})(?:er)?\s+([^\s]+)\s+(\d{4})$/i);
+  if (x) {
+    const i = MOIS_FR.findIndex(m => m.localeCompare(x[2], 'fr', { sensitivity: 'base' }) === 0);
+    if (i >= 0) return rendre(x[1], i + 1, x[3]);
+  }
+  return null;
 };
 
 /**
