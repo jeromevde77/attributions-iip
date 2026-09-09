@@ -296,7 +296,18 @@ export default function EncodageUE({ ueNum, annee, onClose, onEnregistre, onPara
                           return (
                             <td key={`${e.id}|${c.cours_code}|${a.aa_code}`}
                               className="px-1 py-0.5 border-b border-slate-100 text-center">
+                              {/* LA CASE DOIT SE REMONTER QUAND LA DONNÉE CHANGE.
+                                  « defaultValue » n'est lu qu'au montage : la clé
+                                  ne portant ni la session ni la note, la case
+                                  gardait à l'écran ce qu'elle affichait avant le
+                                  rechargement — les notes de juin sous l'onglet
+                                  de septembre. Et « onBlur » comparait ce texte
+                                  périmé à la donnée fraîche : quitter la case
+                                  suffisait alors à réécrire l'ancienne note dans
+                                  l'autre session. La clé porte donc la session et
+                                  la valeur : à donnée nouvelle, case neuve. */}
                               <input type="number" step="1" min="0" max="20"
+                                key={`${session}|${v ?? ''}`}
                                 defaultValue={v ?? ''} disabled={!!m || ferme}
                                 title={ferme
                                   ? 'Ce cours n’était pas à représenter : la note de première '
