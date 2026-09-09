@@ -15,6 +15,7 @@ import CentreDocumentsUE from '../components/CentreDocumentsUE.jsx';
 import RepriseLot from '../components/RepriseLot.jsx';
 import CentreImpression from '../components/CentreImpression.jsx';
 import ImportTableauPlat from '../components/ImportTableauPlat.jsx';
+import ReglesDeliberation from '../components/ReglesDeliberation.jsx';
 
 /**
  * Délibération — la porte d'entrée.
@@ -51,6 +52,7 @@ export default function Deliberation() {
   const [annees, setAnnees] = useState(false);           // où sont les notes ?
   const [impression, setImpression] = useState(false);   // les pièces, plusieurs UE
   const [tableauPlat, setTableauPlat] = useState(false); // la reprise d'historique
+  const [regles, setRegles] = useState(false);           // les règles de l'établissement
   const [repriseLot, setRepriseLot] = useState(false);   // reprendre le classeur en lot
 
   // La grille de toute l'unité montre les acquis de tous les collègues : elle
@@ -143,6 +145,17 @@ export default function Deliberation() {
               className="flex items-center gap-1.5 px-3 py-1.5 text-sm border border-slate-300
                          text-slate-600 font-semibold rounded-lg">
               <IconFileSpreadsheet size={15} /> Classeur de suivi
+            </button>
+          )}
+          {/* LES RÈGLES DE LA MAISON. Elles existaient dans le code depuis
+              longtemps ; aucun écran ne les nommait, et on ne cherche pas un
+              réglage dont rien ne dit qu'il existe. */}
+          {peutToutEncoder && (
+            <button onClick={() => setRegles(true)}
+              title="Sur quoi le Conseil délibère, seuil de maîtrise, ajournement d'office"
+              className="flex items-center gap-1.5 px-3 py-1.5 text-sm border border-slate-300
+                         text-slate-600 font-semibold rounded-lg">
+              Règles de délibération
             </button>
           )}
           {/* LA REPRISE D'HISTORIQUE. Une année déjà délibérée n'arrive pas
@@ -407,6 +420,9 @@ export default function Deliberation() {
       {importSuivi && (
         <ImportSuivi annee={annee}
           onClose={() => setImportSuivi(false)} onFini={charger} />
+      )}
+      {regles && (
+        <ReglesDeliberation onClose={() => setRegles(false)} onFini={charger} />
       )}
       {tableauPlat && (
         <ImportTableauPlat annee={annee} onClose={() => setTableauPlat(false)} onFini={charger} />
