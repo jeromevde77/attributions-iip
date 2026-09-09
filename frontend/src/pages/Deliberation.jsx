@@ -14,6 +14,7 @@ import EncodageRapide from './EncodageRapide.jsx';
 import CentreDocumentsUE from '../components/CentreDocumentsUE.jsx';
 import RepriseLot from '../components/RepriseLot.jsx';
 import CentreImpression from '../components/CentreImpression.jsx';
+import ImportTableauPlat from '../components/ImportTableauPlat.jsx';
 
 /**
  * Délibération — la porte d'entrée.
@@ -49,6 +50,7 @@ export default function Deliberation() {
   const [importSuivi, setImportSuivi] = useState(false); // le classeur de l'année
   const [annees, setAnnees] = useState(false);           // où sont les notes ?
   const [impression, setImpression] = useState(false);   // les pièces, plusieurs UE
+  const [tableauPlat, setTableauPlat] = useState(false); // la reprise d'historique
   const [repriseLot, setRepriseLot] = useState(false);   // reprendre le classeur en lot
 
   // La grille de toute l'unité montre les acquis de tous les collègues : elle
@@ -141,6 +143,17 @@ export default function Deliberation() {
               className="flex items-center gap-1.5 px-3 py-1.5 text-sm border border-slate-300
                          text-slate-600 font-semibold rounded-lg">
               <IconFileSpreadsheet size={15} /> Classeur de suivi
+            </button>
+          )}
+          {/* LA REPRISE D'HISTORIQUE. Une année déjà délibérée n'arrive pas
+              sous la forme du classeur de suivi : c'est un tableau plat, une
+              ligne par décision, dates du jury comprises. */}
+          {peutToutEncoder && (
+            <button onClick={() => setTableauPlat(true)}
+              title="Reprendre une année déjà délibérée depuis un tableau de décisions"
+              className="flex items-center gap-1.5 px-3 py-1.5 text-sm border border-slate-300
+                         text-slate-600 font-semibold rounded-lg">
+              Reprise d'historique
             </button>
           )}
           {/* LE CENTRE D'IMPRESSION — plusieurs unités d'un coup. Les pièces
@@ -394,6 +407,9 @@ export default function Deliberation() {
       {importSuivi && (
         <ImportSuivi annee={annee}
           onClose={() => setImportSuivi(false)} onFini={charger} />
+      )}
+      {tableauPlat && (
+        <ImportTableauPlat annee={annee} onClose={() => setTableauPlat(false)} onFini={charger} />
       )}
       {impression && (
         <CentreImpression annee={annee} section={sec?.section || null}
