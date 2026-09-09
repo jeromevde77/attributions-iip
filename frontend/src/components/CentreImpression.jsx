@@ -40,6 +40,10 @@ export default function CentreImpression({ annee, section = null, onClose }) {
     ajournement: false, refus: false, listes: false });
   const [erreur, setErreur] = useState(null);
   const [enCours, setEnCours] = useState(false);
+  // LA SESSION SE CHOISIT, ELLE NE SE DÉDUIT PAS. Le lot prenait celle où
+  // chaque unité en était : dès que juin était clos il documentait septembre,
+  // et sortait des listes vides. On documente une séance, et on dit laquelle.
+  const [session, setSession] = useState(1);
 
   useEffect(() => {
     (async () => {
@@ -63,7 +67,7 @@ export default function CentreImpression({ annee, section = null, onClose }) {
     try {
       const rep = await fetch('/api/acquis/deliberation/documents-lot', {
         method: 'POST', headers: authHeaders(),
-        body: JSON.stringify({ annee, ue_nums: [...choisies], ...choix }),
+        body: JSON.stringify({ annee, session, ue_nums: [...choisies], ...choix }),
       });
       const j = await rep.json();
       if (!rep.ok) { setErreur(j.error); return; }
@@ -144,6 +148,17 @@ export default function CentreImpression({ annee, section = null, onClose }) {
                       ? 'border-iip-blue text-iip-blue font-semibold'
                       : 'border-slate-300 text-slate-600'}`}>{x}</button>
                 ))}
+                <span className="mx-1 h-4 w-px bg-slate-200" />
+                <span className="text-[12px] text-slate-500">Séance :</span>
+                <div className="flex rounded-lg border border-slate-300 overflow-hidden">
+                  {[1, 2].map(x => (
+                    <button key={x} onClick={() => setSession(x)}
+                      className={`px-2 py-1 text-[12px] ${session === x
+                        ? 'bg-iip-blue text-white font-semibold' : 'text-slate-600'}`}>
+                      {x === 1 ? '1re' : '2e'} session
+                    </button>
+                  ))}
+                </div>
                 <span className="flex-1" />
                 <button onClick={() => setChoisies(new Set(unites.map(u => u.ue_num)))}
                   className="text-[12px] text-iip-blue underline">tout cocher</button>
@@ -209,7 +224,8 @@ export default function CentreImpression({ annee, section = null, onClose }) {
         <div className="px-5 py-3 border-t border-slate-200 flex items-center
                         justify-between gap-3">
           <span className="text-[12px] text-slate-500">
-            {choisies.size} unité(s) · {Object.values(choix).filter(Boolean).length} type(s) de pièce
+            {choisies.size} unité(s) · {session === 1 ? '1re' : '2e'} session ·
+            {' '}{Object.values(choix).filter(Boolean).length} type(s) de pièce
           </span>
           <div className="flex gap-2">
             <button onClick={onClose}
