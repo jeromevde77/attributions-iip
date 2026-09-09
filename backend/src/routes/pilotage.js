@@ -94,10 +94,33 @@ function usageEnveloppe(anneeCivile) {
 
 // Calcul usage d'un pot pour une année civile depuis usageDB
 function usagePot(usageDB, y, potKey) {
+  const d = usagePotDetail(usageDB, y, potKey);
+  return Math.round((d.jan_juin + d.sep_dec) * 100) / 100;
+}
+
+/**
+ * L'ANNÉE CIVILE SE LIT EN DEUX MOITIÉS, ET ELLES N'ONT PAS LE MÊME STATUT.
+ *
+ * Une année civile chevauche deux années scolaires : janvier-juin est le
+ * second quadrimestre de l'année scolaire qui s'achève, septembre-décembre le
+ * premier de celle qui commence. En cours d'année civile, la première moitié
+ * est donc CONSOMMÉE — l'année scolaire est close, plus rien n'y bougera —
+ * tandis que la seconde est seulement ENGAGÉE, et se complétera encore.
+ *
+ * Les additionner en un seul « utilisé » cache la question que la direction
+ * se pose en juillet : « la première moitié est jouée, combien me reste-t-il
+ * pour la rentrée ? » Le total ne la dit pas ; les deux moitiés, si.
+ */
+function usagePotDetail(usageDB, y, potKey) {
   const { q2, q1 } = anneesCivile(y);
   const q2val = usageDB[q2]?.[potKey] || { q1: 0, q2: 0 };
   const q1val = usageDB[q1]?.[potKey] || { q1: 0, q2: 0 };
-  return Math.round((q2val.q2 + q1val.q1) * 100) / 100;
+  return {
+    jan_juin: Math.round(q2val.q2 * 100) / 100,   // Q2 de l'année scolaire close
+    sep_dec: Math.round(q1val.q1 * 100) / 100,    // Q1 de l'année scolaire ouverte
+    scolaire_jan_juin: q2,
+    scolaire_sep_dec: q1,
+  };
 }
 
 // ── Routes existantes (par année scolaire) ───────────────────────────────────
@@ -258,6 +281,21 @@ r.get('/civil', authRequired, (req, res) => {
       // qui n'est pas encore encodé dans la base — et il se referme à mesure
       // qu'on encode. Le fondre dans le solde calculé ferait disparaître
       // précisément l'information qu'on cherche.
+      // Les deux moitiés de l'année civile, et ce qu'elles laissent.
+      ...(() => {
+        const det = usagePotDetail(usageDB, y, 'organique');
+        const base = yr.dotation_utilisable ?? yr.dotation_organique;
+        return {
+          usage_jan_juin: det.jan_juin,
+          usage_sep_dec: det.sep_dec,
+          scolaire_jan_juin: det.scolaire_jan_juin,
+          scolaire_sep_dec: det.scolaire_sep_dec,
+          // Ce qui reste UNE FOIS LA PREMIÈRE MOITIÉ DÉCOMPTÉE : le budget de
+          // la rentrée, avant qu'elle ne soit encodée. Les dépassements
+          // d'enveloppes sont imputés là où ils tombent, donc au total.
+          solde_apres_jan_juin: Math.round((base - det.jan_juin - dotTotal) * 100) / 100,
+        };
+      })(),
       solde_constate: yr.solde_constate ?? null,
       solde_constate_note: yr.solde_constate_note || null,
       // La consommation qu'implique le solde déclaré, pour la comparer à
