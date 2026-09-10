@@ -718,7 +718,7 @@ export default function FeuilleDeliberation({ ueNum, annee, onClose }) {
               </div>
 
               <Fiche e={etud} data={data} onAjuster={ajuster} onLot={ajusterLot}
-                onMotif={poserMotif}
+                onMotif={poserMotif} session={session}
                 enCours={enCours} onBord={() => setBord(etud)}
                 decision={decisions[etud.id] || etud.ue?.decision_proposee || null}
                 onDecision={d => setDecisions(m => ({ ...m, [etud.id]: d }))}
@@ -1359,7 +1359,7 @@ function Cloture({ seance, onClore, onRetour, onPV, onRouvrir, enCours, nb, ajou
  */
 
 function Fiche({ e, data, onAjuster, onLot, onMotif, enCours, onBord,
-  decision, onDecision, onAnnuler }) {
+  decision, onDecision, onAnnuler, session }) {
   const ue = e.ue || {};
   const acquis = e.acquis || [];
   const cours = e.cours || [];
@@ -1538,7 +1538,7 @@ function Fiche({ e, data, onAjuster, onLot, onMotif, enCours, onBord,
       {/* Ce que le Conseil décide, et ce qu'il y a à représenter. */}
       <Decision e={e} ue={ue} onBord={onBord} acquis={acquis} cours={cours}
         decision={decision} onDecision={onDecision} enCours={enCours}
-        onAnnuler={onAnnuler} />
+        onAnnuler={onAnnuler} session={session} />
       </div>
 
       {/* LE PILOTAGE, à droite : de qui l'on parle, et où il en est. */}
@@ -2084,7 +2084,8 @@ function DecisionGenerale({ cours, enCours, onLot, onDecision, decision }) {
   );
 }
 
-function Decision({ e, ue, onBord, acquis, cours, decision, onDecision, enCours, onAnnuler }) {
+function Decision({ e, ue, onBord, acquis, cours, decision, onDecision, enCours,
+                    onAnnuler, session }) {
   const detail = ue.a_representer_detail || [];
   // Ce qui reste à justifier se lit sur les acquis affichés, non sur la liste
   // que le serveur a calculée à l'ouverture de la fiche.
@@ -2105,7 +2106,11 @@ function Decision({ e, ue, onBord, acquis, cours, decision, onDecision, enCours,
 
       <div className="p-3 space-y-2">
         <div className="flex items-center gap-2 flex-wrap">
-          {DECISIONS.map(d => {
+          {/* EN SECONDE SESSION, « AJOURNÉ » N'EXISTE PAS : il n'y a plus rien
+              à représenter, et « l'étudiant qui échoue en seconde session est
+              refusé » (RGE art. 69 §2). Le bouton disparaît plutôt que de rester
+              cliquable — une troisième session ne se propose pas. */}
+          {DECISIONS.filter(d => !(session >= 2 && d.cle === 'ajourne')).map(d => {
             const actif = decision === d.cle;
             return (
               <button key={d.cle} disabled={enCours}
