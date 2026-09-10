@@ -1,30 +1,28 @@
-import { useState } from 'react';
+import { useCallback, useState } from 'react';
+import { RailDessine, FournisseurRail } from './ui.jsx';
 
 /**
- * Enveloppe d'un axe de la structure en 7 : des onglets, et dans chacun un
+ * Enveloppe d'un axe de la structure en 7 : des rubriques, et dans chacune un
  * écran EXISTANT repris tel quel. La migration regroupe, elle ne réécrit rien.
  *
- * UN SEUL BANDEAU, ET IL TIENT SUR UNE LIGNE.
+ * TOUTE LA NAVIGATION DESCEND DANS LE RAIL — sauf le menu principal.
  *
- * Il y en avait trois empilés avant le moindre contenu : la barre du haut, le
- * titre de l'axe, puis l'écran qui redonnait son propre titre. « Étudiants »
- * s'écrivait trois fois sur la même page, et l'on descendait de cent cinquante
- * pixels pour arriver à la première donnée.
+ * Il y avait trois niveaux empilés : le menu des sept métiers en haut, la
+ * rangée d'onglets de l'axe juste dessous, et le rail de l'écran à gauche.
+ * Trois navigations pour dire où l'on est, deux d'entre elles à l'horizontale,
+ * et cent cinquante pixels consommés avant la première donnée.
  *
- * Le titre disparaît donc : la barre du haut dit déjà où l'on est, et elle le
- * dit en surbrillance. Restent les onglets — ce qui se choisit — et la
- * question de l'axe, posée en clair à droite : elle tient sur la même ligne
- * au lieu de coûter une bande à elle seule.
+ * Le menu principal reste horizontal : c'est lui qui dit dans quel MÉTIER on
+ * travaille, et il ne change pas d'un écran à l'autre. Tout le reste passe à
+ * la verticale, où une liste de rubriques se lit naturellement et où la place
+ * ne manque pas. Le rail porte donc, dans cet ordre : les rubriques de l'axe,
+ * puis les outils de l'écran ouvert — qui s'y inscrivent d'eux-mêmes, sans que
+ * leur code change.
  *
- * ET UN SEUL FOND. Le bandeau était blanc, le contenu gris : deux aplats
- * différents cousus par une bordure, d'où l'impression de deux espaces
- * juxtaposés. Ils partagent désormais le même fond, séparés par un simple
- * filet — la page redevient continue.
- *
- * Un onglet peut être marqué `futur` : il annonce sa place réservée sans
- * prétendre exister (pastille « À venir », contenu descriptif).
+ * Une rubrique peut être marquée `futur` : elle annonce sa place réservée sans
+ * prétendre exister.
  */
-export default function Axe({ titre, question, onglets, ongletInitial }) {
+export default function Axe({ titre, question, icone, onglets, ongletInitial }) {
   const visibles = onglets.filter(o => !o.masque);
   const [actif, setActif] = useState(
     ongletInitial && visibles.some(o => o.key === ongletInitial)
@@ -33,43 +31,45 @@ export default function Axe({ titre, question, onglets, ongletInitial }) {
   );
   const courant = visibles.find(o => o.key === actif) || visibles[0];
 
+  // Ce que l'écran ouvert apporte au rail. Il s'y inscrit en se montant et s'en
+  // retire en se démontant : le rail ne garde jamais les outils d'un écran
+  // qu'on vient de quitter.
+  const [outils, setOutils] = useState(null);
+  const inscrire = useCallback(secs => setOutils(secs), []);
+
+  const rubriques = {
+    label: 'Dans cet axe',
+    items: visibles.map(o => ({
+      key: o.key,
+      label: o.label + (o.futur ? '  ·  à venir' : ''),
+      icon: o.icone,
+      actif: actif === o.key,
+      onClick: () => setActif(o.key),
+    })),
+  };
+
   return (
-    <div>
-      <div className="bg-slate-50 border-b border-slate-200/80 px-5
-                      flex items-end justify-between gap-6">
-        <div className="flex gap-0.5 flex-wrap -mb-px" role="tablist" aria-label={titre}>
-          {visibles.map(o => (
-            <button key={o.key} onClick={() => setActif(o.key)} role="tab"
-              aria-selected={actif === o.key}
-              className={`px-3.5 py-2.5 text-[13px] border-b-2 transition-colors
-                duration-150 ${actif === o.key
-                  ? 'border-iip-turquoise text-iip-blue font-semibold'
-                  : 'border-transparent text-slate-500 hover:text-iip-blue'}`}>
-              {o.label}
-              {o.futur && (
-                <span className="ml-1.5 text-[9px] font-bold px-1.5 py-0.5 rounded-full
-                                 bg-amber-100 text-amber-800 align-[2px]">
-                  À VENIR
-                </span>
-              )}
-            </button>
-          ))}
-        </div>
-        {/* La question de l'axe : elle dit à quoi cet écran sert, ce qu'aucun
-            onglet ne dit. Elle s'efface sur un écran étroit, où la place va
-            d'abord à ce qui se clique. */}
-        {question && (
-          <p className="hidden lg:block pb-2.5 text-[12px] text-slate-400 italic
-                        whitespace-nowrap">{question}</p>
-        )}
-      </div>
-      <div className={courant?.sansMarge ? '' : 'p-4'}>
-        {courant?.futur ? (
-          <div className="border-2 border-dashed border-slate-200 rounded-xl p-8 text-center text-sm text-slate-500 m-4">
-            <div className="font-semibold text-slate-600 mb-1">{courant.label}</div>
-            {courant.description || 'Ce module a sa place réservée dans la structure et sera construit ici.'}
-          </div>
-        ) : courant?.rendu}
+    <div className="relative bg-slate-50" style={{ minHeight: 'calc(100vh - 64px)' }}>
+      <RailDessine icon={icone} titre={titre} sousTitre={question}
+        sections={[rubriques, ...(outils || [])]} />
+
+      {/* LA GOUTTIÈRE DU RAIL EST POSÉE PAR L'ÉCRAN, jamais ici. La décider
+          d'après ce que l'écran a inscrit ferait sauter la mise en page au
+          montage : l'inscription arrive après le premier rendu, et la page
+          se décalerait de soixante-quatre pixels sous les yeux. Les écrans
+          « sansMarge » portent donc tous leur `ml-16`, qu'ils aient un rail
+          propre ou non. */}
+      <div className={courant?.sansMarge ? '' : 'ml-16 p-4'}>
+        <FournisseurRail valeur={inscrire}>
+          {courant?.futur ? (
+            <div className="border-2 border-dashed border-slate-200 rounded-xl p-8
+                            text-center text-sm text-slate-500 m-4">
+              <div className="font-semibold text-slate-600 mb-1">{courant.label}</div>
+              {courant.description
+                || 'Ce module a sa place réservée dans la structure et sera construit ici.'}
+            </div>
+          ) : courant?.rendu}
+        </FournisseurRail>
       </div>
     </div>
   );

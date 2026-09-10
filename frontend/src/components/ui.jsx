@@ -1,3 +1,28 @@
+import { createContext, useContext, useEffect } from 'react';
+
+/**
+ * LE RAIL EST UN, ET IL APPARTIENT À L'AXE.
+ *
+ * Chaque écran posait son propre rail, et l'axe posait au-dessus une rangée
+ * d'onglets horizontaux : deux navigations pour le même endroit, l'une sous
+ * l'autre, plus le menu principal en haut. Trois niveaux empilés — et la
+ * verticale, qui est la place naturelle d'une liste de rubriques, restait à
+ * moitié vide pendant que l'horizontale débordait.
+ *
+ * Désormais : le menu principal reste horizontal — c'est lui qui dit dans quel
+ * MÉTIER on est —, et tout le reste descend dans le rail. Les rubriques de
+ * l'axe en tête, puis les outils de l'écran ouvert.
+ *
+ * Le contexte permet à un écran de CONTRIBUER ses outils au rail de l'axe sans
+ * rien changer à son code : il appelle `RailLateral` comme avant, et le
+ * composant s'inscrit au lieu de se dessiner. Hors d'un axe — un écran ouvert
+ * seul — il se dessine comme avant.
+ */
+const ContexteRail = createContext(null);
+export function FournisseurRail({ valeur, children }) {
+  return <ContexteRail.Provider value={valeur}>{children}</ContexteRail.Provider>;
+}
+
 // Composants UI partagés — système de design IIP harmonisé.
 // Couleurs : bleu marine #1B2B4B (iip-blue), turquoise #00AACC (iip-turquoise), rouge #C0392B (danger).
 // Police : Inter (définie globalement dans index.css).
@@ -100,6 +125,26 @@ export function KpiCard({ label, valeur, sous, ton = 'neutral' }) {
 //   extra      : noeud rendu sous l'en-tête (ex. déroulant année) — visible au survol
 //   sections   : [{ label?, items: [{ key, label, icon, actif, onClick }] }]
 export function RailLateral({ icon: HeaderIcon, titre, sousTitre, extra, sections = [] }) {
+  // DANS UN AXE, ON NE SE DESSINE PAS : ON S'INSCRIT. L'axe tient un seul rail
+  // et y place d'abord ses rubriques, puis ces outils-ci.
+  const inscrire = useContext(ContexteRail);
+  // La signature sert de comparaison : sans elle, chaque rendu de l'écran
+  // réinscrirait un tableau neuf et le rail se redessinerait sans fin.
+  const signature = JSON.stringify(sections.map(sec => [sec.label,
+    (sec.items || []).map(i => [i.key, i.label, !!i.actif, i.couleur || ''])]));
+  useEffect(() => {
+    if (!inscrire) return undefined;
+    inscrire(sections);
+    return () => inscrire(null);
+  }, [inscrire, signature, sousTitre]);   // eslint-disable-line react-hooks/exhaustive-deps
+  if (inscrire) return null;
+
+  return <RailDessine icon={HeaderIcon} titre={titre} sousTitre={sousTitre}
+    extra={extra} sections={sections} />;
+}
+
+/** Le rail tel qu'il se dessine — appelé par l'axe, ou par un écran isolé. */
+export function RailDessine({ icon: HeaderIcon, titre, sousTitre, extra, sections = [] }) {
   const reveal = 'whitespace-nowrap opacity-0 group-hover/rail:opacity-100 transition-opacity duration-150';
   return (
     <aside

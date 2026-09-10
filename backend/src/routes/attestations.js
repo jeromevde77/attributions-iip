@@ -121,7 +121,8 @@ export function unitesReussies(etudId, annee) {
     // Domaine et type d'enseignement : ceux de l'UE s'ils sont renseignés,
     // sinon ceux de sa section.
     const sec = ue.section
-      ? db.prepare('SELECT domaine, type_enseignement FROM section WHERE code = ?').get(ue.section)
+      ? db.prepare('SELECT libelle, domaine, type_enseignement FROM section WHERE code = ?')
+          .get(ue.section)
       : null;
 
     const cours = db.prepare(`
@@ -168,6 +169,10 @@ export function unitesReussies(etudId, annee) {
       type_enseignement: ue.type_enseignement || sec?.type_enseignement
         || 'Enseignement supérieur de type court',
       section: ue.section || null,
+      // LE LIBELLÉ DE LA SECTION, et pas seulement son code. Sur une
+      // attestation, « TIM » ne dit rien à qui la reçoit — ni à l'employeur,
+      // ni à l'administration qui la vérifiera.
+      section_libelle: sec?.libelle || null,
       periodes: totalPeriodes || null,
       periodes_cours: periodesCours || null,
       autonomie: autonomie || null,
@@ -525,6 +530,18 @@ export function pageAttestation(e, u, annee, etab, dateDoc = null, ident = ident
   <div class="filet"></div>
 
   <div class="carac">
+    <!-- LA SECTION, EN TÊTE DES CARACTÉRISTIQUES.
+         Elle figurait dans les données depuis toujours, et n'était imprimée
+         nulle part. Or une attestation vaut pour UNE unité d'une section
+         donnée : sans elle, la pièce dit ce que l'étudiant a réussi, mais pas
+         dans quelle formation — et c'est la première chose que cherche celui
+         qui la lit, avant même le nombre d'ECTS. -->
+    <div class="large">Section :
+      ${u.section_libelle || u.section
+        ? `<b>${esc(u.section_libelle || u.section)}</b>`
+          + (u.section_libelle && u.section
+              ? ` <span class="detail">(${esc(u.section)})</span>` : '')
+        : '<span class="manque">section à compléter</span>'}</div>
     <div>${esc(u.type_enseignement)}</div>
     <div>${u.domaine ? 'Domaine : ' + esc(u.domaine)
                      : '<span class="manque">Domaine à compléter</span>'}</div>

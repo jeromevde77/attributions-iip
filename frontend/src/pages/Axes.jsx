@@ -1,4 +1,5 @@
 import { Suspense, lazy } from 'react';
+import { IconHome, IconChecklist, IconSend } from '@tabler/icons-react';
 import Axe from '../components/Axe.jsx';
 import Accueil from './Accueil.jsx';
 import Etudiants from './Etudiants.jsx';
@@ -19,7 +20,7 @@ const Attente = () => <div className="p-6 text-sm text-slate-400">Chargement…<
 export function AxeAccueil() {
   return (
     <Axe
-      titre="Accueil"
+      titre="Accueil" icone={IconHome}
       question="« Qu'est-ce qui m'attend ? »"
       onglets={[
         { key: 'tableau', label: 'Tableau de bord', sansMarge: true, rendu: <Accueil /> },
@@ -33,7 +34,7 @@ export function AxeAccueil() {
 export function AxeEtudiants() {
   return (
     <Axe
-      titre="Étudiants"
+      titre="Étudiants" icone={IconChecklist}
       question="« Où en est cet étudiant ? »"
       onglets={[
         { key: 'pae', label: 'PAE & inscriptions', sansMarge: true,
@@ -65,7 +66,7 @@ export function AxeEtudiants() {
 export function AxeCommunication() {
   return (
     <Axe
-      titre="Communication"
+      titre="Communication" icone={IconSend}
       question="« Que dois-je produire ou envoyer ? »"
       onglets={[
         { key: 'listes', label: 'Listes & impressions', sansMarge: true,

@@ -130,7 +130,9 @@ export default function Deliberation() {
   const sec = plan?.sections.find(s => s.section === section) || null;
 
   return (
-    <div className="p-5 space-y-4">
+    // ml-16 : la gouttière du rail de l’axe. Cet écran n’a pas de rail propre,
+    // c’est donc à lui de la dégager — comme tous les écrans « sansMarge ».
+    <div className="ml-16 p-5 space-y-4">
       <div className="flex items-start justify-between gap-3 flex-wrap">
         <div>
           <h2 className="text-xl font-semibold text-iip-blue">Délibération</h2>
