@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   IconX, IconSearch, IconAlertTriangle, IconChevronLeft, IconChevronRight,
-  IconArrowUp, IconRepeat, IconList, IconFileText, IconMessage, IconBrush,
+  IconArrowUp, IconRepeat, IconList, IconFileText, IconMessage, IconBrush, IconGift,
   IconRotate, IconBan,
 } from '@tabler/icons-react';
 import { authHeaders } from '../lib/api.js';
@@ -1816,7 +1816,7 @@ function TuileSomme({ etat, seuil, onAjourner, onFaveur, motif, enCours,
     <div className={`rounded-lg border px-2 py-1 flex items-center gap-1.5
       ${indicatif ? 'opacity-50' : ''}
       ${na ? 'border-slate-300 bg-slate-100 text-slate-600'
-        : faveur ? 'border-amber-400 bg-amber-50 text-amber-900'
+        : faveur ? 'border-violet-400 bg-violet-50 text-violet-900'
         : echec ? 'border-red-500 border-2 bg-red-50 text-red-800'
         : note == null ? 'border-slate-200 bg-white text-slate-300'
         : 'border-emerald-300 bg-emerald-50 text-emerald-900'}`}>
@@ -1856,7 +1856,7 @@ function TuileSomme({ etat, seuil, onAjourner, onFaveur, motif, enCours,
             title={faveur ? 'Retirer la faveur'
               : `Lever en faveur — vaudra exactement ${seuil}`}
             className={`w-5 h-5 rounded-full flex items-center justify-center border
-              ${faveur ? 'bg-amber-400 border-amber-600 text-amber-950'
+              ${faveur ? 'bg-violet-400 border-violet-600 text-violet-950'
                        : 'bg-emerald-600 border-emerald-700 text-white'}`}>
             <IconArrowUp size={11} />
           </button>
@@ -1881,7 +1881,7 @@ function TuileUE({ ue, seuil, onFaveur, enCours }) {
   return (
     <div className={`rounded-lg border-2 px-2 py-1
       ${ue.na ? 'border-slate-400 bg-slate-100 text-slate-700'
-        : ue.faveur ? 'border-amber-500 bg-amber-100 text-amber-950'
+        : ue.faveur ? 'border-violet-500 bg-violet-100 text-violet-950'
         : echec ? 'border-red-600 bg-red-50 text-red-800'
         : 'border-emerald-500 bg-emerald-50 text-emerald-900'}`}>
       <div className="flex items-center gap-1.5">
@@ -1893,7 +1893,7 @@ function TuileUE({ ue, seuil, onFaveur, enCours }) {
             title={ue.faveur ? 'Retirer la faveur'
               : "Lever l'unité en faveur — elle vaudra exactement le seuil"}
             className={`w-6 h-6 rounded-full flex items-center justify-center border
-              ${ue.faveur ? 'bg-amber-400 border-amber-600 text-amber-950'
+              ${ue.faveur ? 'bg-violet-400 border-violet-600 text-violet-950'
                           : 'bg-emerald-600 border-emerald-700 text-white'}`}>
             <IconArrowUp size={13} />
           </button>
@@ -2278,9 +2278,14 @@ function Decision({ e, ue, onBord, acquis, cours, decision, onDecision, enCours,
                 : 'Accorder l’unité en faveur — la cote monte au seuil, jamais au-delà'}
               className={`px-3 py-1.5 text-[12.5px] font-semibold rounded-lg border
                 ${ue.faveur_ue
-                  ? 'bg-amber-500 border-amber-600 text-white'
-                  : 'bg-white border-amber-400 text-amber-800 hover:bg-amber-50'}`}>
-              <IconBrush size={13} className="inline align-[-2px] mr-1" />
+                  ? 'bg-violet-600 border-violet-700 text-white'
+                  : 'bg-white border-violet-400 text-violet-800 hover:bg-violet-50'}`}>
+              {/* UN CADEAU, NON UN PINCEAU — et violet, non orange. La faveur
+                  est un octroi : le Conseil donne l'unité. Le pinceau disait
+                  « repeindre », ce qui n'est ni le geste ni son sens. Et
+                  l'orange servait déjà aux cotes tout justes : deux choses
+                  différentes portaient la même couleur au même endroit. */}
+              <IconGift size={13} className="inline align-[-2px] mr-1" />
               {ue.faveur_ue ? 'Faveur accordée' : 'Faveur'}
             </button>
           )}
@@ -2481,7 +2486,7 @@ function VueTableau({ data, liste, onOuvrir }) {
                 <td className="border-b border-l-2 border-l-iip-blue/40 bg-iip-blue/5
                                px-2 text-center font-bold text-[12px]">
                   <span className={e.ue?.na ? 'text-slate-500'
-                    : e.ue?.faveur ? 'text-amber-700'
+                    : e.ue?.faveur ? 'text-violet-700'
                     : e.ue?.echec ? 'text-red-700' : 'text-emerald-700'}>
                     {e.ue?.na ? 'NA' : fmt(e.ue?.note)}
                   </span>
@@ -2501,7 +2506,7 @@ function Case({ etat, bord }) {
     <td className={`border-b border-slate-100 px-1 text-center text-[11px] font-semibold
       ${bord ? 'border-l border-slate-300 bg-slate-50/60' : ''}
       ${etat.na ? 'text-slate-500'
-        : etat.faveur ? 'bg-amber-100 text-amber-900'
+        : etat.faveur ? 'bg-violet-100 text-violet-900'
         : etat.echec ? 'bg-red-50 text-red-700 outline outline-1 outline-red-400'
         : 'text-emerald-700'}`}>
       {etat.na ? 'NA' : fmt(etat.note)}

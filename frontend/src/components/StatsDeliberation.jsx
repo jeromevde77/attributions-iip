@@ -229,11 +229,18 @@ export default function StatsDeliberation({ annee }) {
             </div>
           )}
 
-          <Tableau titre="Par unité d'enseignement" colonne="Unité" lignes={data.par_ue} />
-          <div className="grid gap-3 lg:grid-cols-2">
-            <Tableau titre="Par année d'études" colonne="Année" lignes={data.par_niveau} />
-            <Tableau titre="Par section" colonne="Section" lignes={data.par_section} />
-          </div>
+          {/* DU PLUS GÉNÉRAL AU PLUS FIN, UN BLOC APRÈS L'AUTRE.
+              La section d'abord — c'est l'échelle à laquelle on pilote —, puis
+              l'année d'études, puis l'unité, puis le cours pour qui veut aller
+              voir. Deux tableaux côte à côte obligeaient à lire en zigzag et
+              les colonnes ne s'alignaient plus d'un bloc à l'autre : on
+              comparait des chiffres qui ne se comparaient pas. */}
+          <Tableau titre="Par section" colonne="Section" lignes={data.par_section}
+            sous="L'échelle du pilotage : ce que la section produit, toutes unités confondues." />
+          <Tableau titre="Par année d'études" colonne="Année" lignes={data.par_niveau}
+            sous="La décomposition par bloc, à l'intérieur de la section." />
+          <Tableau titre="Par unité d'enseignement" colonne="Unité" lignes={data.par_ue}
+            sous="Le détail unité par unité — c'est le niveau où la décision se prend." />
 
           {/* LE COURS N'EST PAS DÉLIBÉRÉ : on ne lui donne donc pas les mêmes
               colonnes, pour qu'on ne lise pas ces chiffres comme des décisions. */}

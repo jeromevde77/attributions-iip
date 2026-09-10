@@ -3056,7 +3056,14 @@ r.post('/pae-promotion', authRequired,
     const aInscrire = propose.filter(u => !u.inscrite);
     const ligne = {
       ...e,
-      niveau: c.niveau || null,
+      // LE NIVEAU EST UN OBJET, non une chaîne : niveauEtudiant() renvoie
+      // { niveau, libelle, detail, annee }. L'écran le rendait tel quel et
+      // React refusait d'afficher un objet — l'écran entier tombait au moment
+      // même où l'on venait composer les programmes. On n'envoie que ce qui
+      // s'affiche.
+      niveau: c.niveau && typeof c.niveau === 'object'
+        ? (c.niveau.libelle || c.niveau.niveau || null)
+        : (c.niveau || null),
       total: propose.length,
       deja: propose.length - aInscrire.length,
       ues: aInscrire.map(u => ({
