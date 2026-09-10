@@ -651,6 +651,30 @@ export default function Editeur() {
     editorProps: { attributes: { class: 'editeur-content focus:outline-none' } },
   });
 
+  // ── LE CODE DU MODÈLE, À NU ────────────────────────────────────────────────
+  //
+  // L'éditeur visuel sait faire beaucoup, mais pas tout : un tableau à colonnes
+  // fixes, un style qu'aucun bouton ne pose, une balise que TipTap n'expose
+  // pas. Et quand un modèle sort de travers, la seule question utile est
+  // « qu'y a-t-il vraiment dedans ? » — à quoi l'éditeur visuel ne répondait
+  // pas. On peut donc voir et écrire le HTML directement.
+  //
+  // UNE MISE EN GARDE HONNÊTE : repasser en visuel fait relire le HTML par
+  // TipTap, qui ne garde que ce que son schéma connaît. Une balise exotique
+  // écrite à la main survit à l'enregistrement depuis le code, mais pas à un
+  // aller-retour par le mode visuel. C'est dit à l'écran, pas caché.
+  const [modeCode, setModeCode] = useState(false);
+  const [codeHtml, setCodeHtml] = useState('');
+
+  function versCode() {
+    setCodeHtml(editor?.getHTML() || '');
+    setModeCode(true);
+  }
+  function versVisuel() {
+    editor?.commands.setContent(codeHtml || '<p></p>');
+    setModeCode(false);
+  }
+
   function insererChamp(champ) {
     editor?.chain().focus().insertContent({ type: 'champ', attrs: { key: champ.key, label: champ.label } }).run();
   }
@@ -713,7 +737,9 @@ export default function Editeur() {
   async function sauvegarder() {
     if (!editor) return;
     setSaving(true);
-    const contenu = editor.getHTML();
+    // EN MODE CODE, C'EST LE CODE QUI FAIT FOI. Prendre editor.getHTML()
+    // enregistrerait la version d'avant la frappe, sans rien dire.
+    const contenu = modeCode ? codeHtml : editor.getHTML();
     const token = localStorage.getItem('token');
     try {
       if (templateId) {
@@ -745,6 +771,9 @@ export default function Editeur() {
 
       console.log('[Éditeur] setContent, longueur:', contenu.length);
       editor?.commands.setContent(contenu);
+      // Le code montre CE QUI EST EN BASE, pas ce que TipTap en a fait : c'est
+      // tout l'intérêt d'aller y voir quand un modèle sort de travers.
+      setCodeHtml(d.contenu || '');
       console.log('[Éditeur] setContent OK');
     } catch (e) {
       console.error('[chargerTemplate] ERREUR :', e);
@@ -755,6 +784,7 @@ export default function Editeur() {
   function nouveauTemplate() {
     setTemplateId(null); setNom('Nouveau template'); setFormat('A4P'); setMargins({ ...DEFAULT_MARGINS });
     editor?.commands.setContent('<p>Commencez votre document…</p>');
+    setCodeHtml('<p>Commencez votre document…</p>');
   }
 
   async function generer() {
@@ -915,20 +945,51 @@ export default function Editeur() {
           </select>
           <input type="number" value={ueNum} onChange={e => setUeNum(e.target.value)}
             placeholder="N° UE" className="w-20 border border-gray-300 rounded px-2 py-1.5 h-9 text-sm" />
+          <div className="flex rounded border border-gray-300 overflow-hidden h-9">
+            {[
+              { k: false, l: 'Visuel', t: 'Édition assistée' },
+              { k: true, l: 'Code', t: 'Le HTML du modèle, tel qu’il est enregistré' },
+            ].map(x => (
+              <button key={String(x.k)} title={x.t}
+                onClick={() => (x.k ? versCode() : versVisuel())}
+                className={`px-3 text-sm ${modeCode === x.k
+                  ? 'bg-iip-blue text-white font-medium' : 'bg-white text-gray-600'}`}>
+                {x.l}
+              </button>
+            ))}
+          </div>
           <button onClick={generer} disabled={generating}
             className="bg-iip-mauve hover:opacity-90 disabled:opacity-40 text-white text-sm px-4 py-1.5 h-9 rounded font-medium whitespace-nowrap">
             {generating ? '…' : <><IconPrinter size={15} className="inline align-[-2px] mr-1" />Générer PDF</>}
           </button>
         </div>
-        <Toolbar editor={editor} />
-        <div className="flex-1 overflow-auto bg-gray-200 py-6">
-          <div className="editeur-doc mx-auto">
-            <Regle fmt={format} margins={margins} onMarginChange={setMargins} />
-            <div className="editeur-page">
-              <EditorContent editor={editor} />
+        {!modeCode && <Toolbar editor={editor} />}
+        {modeCode ? (
+          <div className="flex-1 flex flex-col overflow-hidden bg-slate-50">
+            <div className="flex-none px-4 py-2 text-[11.5px] text-amber-900 bg-amber-50
+                            border-b border-amber-200">
+              Le HTML du modèle. « Enregistrer » écrit ce que vous voyez ici.
+              <b> Repasser en visuel</b> fait relire ce code par l'éditeur, qui ne
+              garde que ce qu'il sait représenter : une balise ou un attribut
+              inhabituel y survit à l'enregistrement depuis le code, mais pas à
+              l'aller-retour. Les champs s'écrivent <code>{'{{prof.nom}}'}</code>,
+              les boucles <code>{'{{#profs_ue}}…{{/profs_ue}}'}</code>.
+            </div>
+            <textarea value={codeHtml} onChange={e => setCodeHtml(e.target.value)}
+              spellCheck={false} wrap="off"
+              className="flex-1 w-full p-4 font-mono text-[12px] leading-relaxed
+                         bg-white text-slate-800 outline-none resize-none" />
+          </div>
+        ) : (
+          <div className="flex-1 overflow-auto bg-gray-200 py-6">
+            <div className="editeur-doc mx-auto">
+              <Regle fmt={format} margins={margins} onMarginChange={setMargins} />
+              <div className="editeur-page">
+                <EditorContent editor={editor} />
+              </div>
             </div>
           </div>
-        </div>
+        )}
         {editor && (
           <div className="flex-shrink-0 border-t border-gray-200 bg-white px-4 py-1 text-xs text-gray-400 text-right">
             {editor.storage.characterCount.words()} mots · {editor.storage.characterCount.characters()} caractères
