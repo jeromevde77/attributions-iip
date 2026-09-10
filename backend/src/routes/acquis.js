@@ -3190,12 +3190,30 @@ r.get('/ue/:ueNum/feuille', authRequired,
     // correspond à rien de ce qui est encodé.
     cotes: Object.fromEntries(etudiants.map(e => {
       const d = delibererUE(e.id, ueNum, annee, session);
+      // CE QUE LE CONSEIL A ARRÊTÉ, à côté de ce que le calcul propose. La
+      // feuille de correction en a besoin : après un changement de note, on
+      // veut voir d'un coup d'œil où la décision inscrite s'écarte de ce que
+      // le calcul dit maintenant — c'est cela qu'on vient corriger.
+      const arrete = db.prepare(`SELECT resultat FROM deliberation_resultat
+        WHERE etudiant_id = ? AND annee_scolaire = ? AND ue_num = ? AND session = ?`)
+        .get(e.id, annee, ueNum, session)?.resultat
+        || (session === 1 ? db.prepare(`SELECT resultat FROM etudiant_inscription
+          WHERE etudiant_id = ? AND annee_scolaire = ? AND ue_num = ?`)
+          .get(e.id, annee, ueNum)?.resultat : null) || null;
       return [e.id, {
         cours: Object.fromEntries((d.cours || []).map(c => [c.cours_code,
           c.na ? null : c.note])),
         na: Object.fromEntries((d.cours || []).map(c => [c.cours_code, !!c.na])),
+        // L'AJOURNEMENT POSÉ, distinct du « non acquis » qui s'en déduit :
+        // c'est lui qu'une case à cocher doit refléter, sans quoi décocher
+        // n'aurait aucun effet visible.
+        ajourne: Object.fromEntries((d.cours || []).map(c => [c.cours_code,
+          !!c.ajourne_directement])),
         ue: d.ue?.na ? null : (d.ue?.note ?? null),
+        ue_na: !!d.ue?.na,
+        faveur_ue: !!d.ue?.faveur_ue,
         decision: d.ue?.decision_proposee || null,
+        arrete,
       }];
     })),
     // OÙ L'UNITÉ EN EST VRAIMENT. La feuille s'ouvrait toujours sur la
