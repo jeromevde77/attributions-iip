@@ -1,130 +1,155 @@
-# Attributions IIP — v2
+# Lucie — Institut Ilya Prigogine
 
-Application web pour la gestion des attributions des professeurs à l'Institut Prigogine.
-Migration des classeurs Excel `Attributions.xlsm` + `BD_UE_COURS.xlsx` vers une application partageable.
+Application de gestion académique de l'IIP : attributions du personnel,
+programmes annuels des étudiants, encodage des notes, délibérations, procédures
+et production des pièces réglementaires.
 
-## 🎯 Pour démarrer
+Née de la migration des classeurs `Attributions.xlsm` et `BD_UE_COURS.xlsx`,
+elle couvre aujourd'hui la chaîne complète, de l'attribution d'un cours à
+l'attestation de réussite.
 
-| Document | À lire |
+> **Enseignement de promotion sociale (FWB).** Ce que fait l'application est
+> encadré par le décret du 16 avril 1991, le RGE/ROI de l'établissement et la
+> circulaire *Sanction des études*. Les règles métier ne sont pas des choix
+> d'implémentation : voir [`CLAUDE.md`](CLAUDE.md) §5 avant d'y toucher.
+
+---
+
+## Par où commencer
+
+| Fichier | Pour quoi |
 |---|---|
-| **`GUIDE-INSTALLATION-SYNOLOGY.md`** | **À LIRE EN PREMIER** — guide pas-à-pas pour déployer sur votre Synology |
-| `MAQUETTE-V2.html` | Ouvrir dans un navigateur pour visualiser l'interface avant installation (aucune installation requise) |
-| `CHANGELOG.md` | Détail des fonctionnalités v1 → v2 |
+| **[`CLAUDE.md`](CLAUDE.md)** | **Le contexte permanent** — règles de travail, modèle de calcul, règles métier, standards de design, pièges déjà rencontrés. À lire avant d'écrire du code. |
+| [`docs/contexte/`](docs/contexte/) | Les notes de fond : audit des documents, état de passation, conformité réglementaire. |
+| [`docs/CI-CD-SETUP.md`](docs/CI-CD-SETUP.md) | La chaîne de construction et de déploiement. |
+| [`docs/ROLLBACK.md`](docs/ROLLBACK.md) | Revenir en arrière quand une version pose problème. |
+| [`GUIDE-INSTALLATION-SYNOLOGY.md`](GUIDE-INSTALLATION-SYNOLOGY.md) | Première installation sur le NAS. |
 
-## 🚀 Démarrage rapide
+---
+
+## Les sept axes
+
+L'application s'organise par **métier**, non par table. Le menu principal porte
+les axes ; le rail latéral porte les rubriques de l'axe et les outils de l'écran.
+
+| Axe | La question à laquelle il répond |
+|---|---|
+| **Accueil** | « Qu'est-ce qui m'attend ? » — tableau de bord, échéancier réglementaire |
+| **Étudiants** | « Où en est cet étudiant ? » — PAE et inscriptions, délibération, procédures |
+| **Personnel** | attributions, dossiers, contrats, recrutement, EA12 |
+| **Organisation** | « Qu'organise-t-on cette année ? » — attributions, organisations d'UE, rentrée, descriptifs, horaires |
+| **Communication** | « Que dois-je produire ou envoyer ? » — listes, impressions, envois |
+| **Pilotage** | dotations, ETP, budget, répartition des périodes, statistiques de délibération |
+| **Configuration** | référentiels, années, établissement, modèles, sauvegardes |
+
+---
+
+## Ce que l'application sait faire
+
+### Délibération
+
+- Encodage **par acquis d'apprentissage**, par cours ou pour toute l'unité,
+  au clavier ou par classeur Excel aller-retour.
+- Feuille de délibération complète : acquis, cours, unité, décision, faveur.
+- **Feuille de correction** — toute l'unité sur une page, pour reprendre une
+  décision après un changement de note sans repasser devant chaque étudiant.
+  Les écarts entre décision arrêtée et calcul sont comptés et filtrables.
+- **Juin et septembre se règlent séparément** : chaque session a sa base de
+  délibération, et un niveau retiré reste affiché à titre indicatif.
+- Motivation par acquis, avec énoncé proposé quand la case reste vide et
+  confirmation unique à la clôture.
+- Quorum des deux tiers constaté à la clôture ; réouverture motivée et tracée.
+- Statistiques : par section, par année d'études, par unité, par cours.
+
+### Étudiants
+
+- Programmes annuels (PAE), prérequis et schéma de capitalisation.
+- **Passage à l'année suivante** pour une section entière : admissibilité,
+  composition des programmes sur les résultats, parcours individuels imprimables.
+- Détection et fusion des dossiers en double.
+- Aménagements, frais de scolarité, droit d'inscription, valorisations.
+
+### Pièces produites
+
+Attestations de réussite, notifications d'ajournement et de refus (annexes 8-9),
+procès-verbaux, grilles de délibération, listes, descriptifs d'unité, annexe 2,
+fiches d'inscription, décomptes de frais, contrats, EA12, diplômes.
+
+> ⚠️ **Chantier en cours.** Ces pièces se répartissent aujourd'hui sur neuf
+> enveloppes de mise en page différentes. L'unification est décrite dans
+> [`docs/contexte/audit-documents-impression.md`](docs/contexte/audit-documents-impression.md) —
+> **toute nouvelle pièce part de l'enveloppe générique**, on n'en crée pas une dixième.
+
+---
+
+## Environnement
+
+| | Branche | Image | Port | Base |
+|---|---|---|---|---|
+| **Production** | `main` | `:latest` | 10800 | réelle |
+| **Développement** | `develop` | `:dev` | 10801 | copie restaurée, volume séparé |
+
+Chaque poussée sur `develop` construit les images `:dev` ; chaque poussée sur
+`main` construit `:latest`. Le fichier **`VERSION`** à la racine alimente le
+badge affiché dans l'interface — le pousser **dans le même commit** que le code.
+
+**Rien ne part en production sans validation à l'écran sur le 10801.**
+
+### Démarrage local
 
 ```bash
-# Sur le Synology, dans /volume1/docker/attributions-app/
-cp .env.example .env && nano .env       # JWT_SECRET, HTTP_PORT, CORS_ORIGIN
-sudo docker compose up -d --build
-sudo docker compose exec backend npm run init-db
-sudo docker compose exec backend npm run import-excel
-sudo docker compose exec backend node scripts/seed-admin.js \
-    votre@email.be MotDePasse "Votre Nom"
+cd backend  && npm install && npm start     # Express + SQLite, port 3000
+cd frontend && npm install && npm run dev   # Vite
 ```
 
-Application accessible sur **http://nas-ip:8080**
+La base se crée seule au premier démarrage (`DB_PATH`, défaut
+`backend/data/attributions.db`).
 
-## ✨ Fonctionnalités v2
+### Restaurer des données réelles en dev
 
-### Pages utilisateur
-- **Tableau de bord** — KPIs, graphique de répartition par section, coût dotation, quadrimestres
-- **Attributions** — Grille type Excel avec :
-  - Édition inline des périodes/autonomie (calculs auto Total, Heures, Coût)
-  - Filtres (Section, Professeur, Contrat, Type, recherche libre)
-  - Création via formulaire structuré (UE → cours en cascade)
-  - Suppression avec confirmation
-  - Export Excel complet
-- **Planning hebdomadaire** — Grille 43 semaines avec édition inline et calcul de solde
-- **Professeurs** — Annuaire avec détail par enseignant (modal + liste de ses attributions)
-- **Pilotage** — Tableaux SUMIFS reproduits en SQL : par section×niveau, par section×statut, par section×ETP, DOC2-3 avec colonne Écart
-- **Utilisateurs** (admin only) — Création, changement de rôle, réinitialisation de mot de passe, désactivation
+Configuration → Sauvegardes → *Télécharger* en production, puis, sur le 10801,
+même écran, section « Restauration de la base ». Le fichier est validé, l'état
+courant sauvegardé, et l'ancienne base remise en place si la nouvelle s'avère
+illisible. **La route refuse de s'exécuter hors développement.**
 
-### Mécanique métier (= Excel)
-| Excel | Application |
-|---|---|
-| `VLOOKUP` vers BD_UE_COURS | JOIN SQL automatique |
-| `Total = Périodes + Autonomie` | Colonne calculée (GENERATED) |
-| `Heures = Total × 50/60` | Colonne calculée |
-| `Coût dotation = Total × 1.5 (SUP) ou × 1.25 (DS)` | Vue SQL |
-| `Coût Q1/Q2 = répartition 40/60% si Q1/Q2` | Vue SQL |
-| `Ancienneté CC = 360 si total>399, 180 si >39` | Vue SQL |
-| `SUMIFS Tableau_pilotage` | `GROUP BY` SQL |
-| `Charge HELB = Heures / 750 (MFP) ou 480 (MA) × 10` | Vue SQL |
+---
 
-## 🛡 Sécurité
-
-- Authentification JWT (expiration 12h)
-- Hash bcryptjs (10 rounds)
-- 3 rôles : admin, éditeur, consultation
-- Audit log automatique (toutes les modifs sont tracées)
-- En-têtes Helmet
-- HTTPS via reverse proxy DSM (voir guide)
-
-## 🗂 Structure du projet
+## Structure
 
 ```
-attributions-app/
-├── GUIDE-INSTALLATION-SYNOLOGY.md   ⭐ guide pas-à-pas
-├── MAQUETTE-V2.html                 ⭐ aperçu visuel
-├── CHANGELOG.md
-├── README.md                        (ce fichier)
-├── docker-compose.yml
-├── .env.example
-├── backend/                         Express + SQLite + JWT
-│   ├── Dockerfile
-│   ├── src/
-│   │   ├── server.js
-│   │   ├── db/{index.js, schema.sql}
-│   │   ├── middleware/auth.js
-│   │   └── routes/
-│   │       ├── auth.js              POST /login, GET /me
-│   │       ├── attributions.js      CRUD attributions
-│   │       ├── referentiels.js      UE, cours, profs, locaux
-│   │       ├── pilotage.js          Tableaux d'agrégation
-│   │       ├── planning.js          Planning hebdomadaire
-│   │       ├── exports.js           DOC2-3, Excel
-│   │       └── users.js             Gestion utilisateurs
-│   ├── scripts/
-│   │   ├── init-db.js
-│   │   ├── import-from-excel.js
-│   │   └── seed-admin.js
-│   └── data/
-│       ├── Attributions.xlsm        (à fournir)
-│       ├── BD_UE_COURS.xlsx         (à fournir)
-│       └── attributions.db          (créé automatiquement)
-└── frontend/                        React + Vite + Tailwind
-    ├── Dockerfile, nginx.conf
+├── CLAUDE.md                 le contexte permanent — à lire en premier
+├── VERSION                   alimente le badge de version
+├── docs/contexte/            audit, passation, conformité
+├── backend/                  Express + better-sqlite3 + JWT
+│   └── src/
+│       ├── db/schema.sql     le socle ; le reste des tables naît des migrations
+│       ├── lib/              enveloppe de document, catalogue, pied de page
+│       ├── routes/           ~64 routes métier
+│       └── services/         PDF, DOCX, courriel, modèles
+└── frontend/                 React + Vite + Tailwind
     └── src/
-        ├── App.jsx                  routing
-        ├── lib/api.js               wrapper fetch + JWT
-        ├── components/
-        │   └── AttributionForm.jsx  modale création
-        └── pages/
-            ├── Login.jsx
-            ├── Dashboard.jsx
-            ├── Attributions.jsx
-            ├── Planning.jsx
-            ├── Professeurs.jsx
-            ├── Pilotage.jsx
-            └── Users.jsx
+        ├── components/ui.jsx système de design partagé (rail, tuiles, tableaux)
+        ├── components/Axe.jsx la coquille d'un axe
+        └── pages/            ~42 écrans
 ```
 
-## 🧪 Données validées
+---
 
-Sur vos fichiers Excel réels :
-- 435 attributions importées
-- 131 professeurs
-- 120 UE, 236 cours, 259 AA
-- 514 lignes de planning hebdomadaire
-- 11 sections
-- Top calculs cohérents : Prof A 448 IIP, Prof B 419+61h, Prof C 413, Prof D 364
+## Sécurité
 
-## 📞 Support
+- Authentification JWT, mots de passe hachés (bcrypt).
+- Rôles : `admin`, `directeur`, `directeur_adjoint`, `editeur`, `secretariat`,
+  `consultation` — avec **périmètre par section**.
+- Journal des modifications.
+- **Aucun secret dans le dépôt ni dans un document.** Les jetons vivent dans
+  l'environnement du conteneur ou dans les secrets GitHub.
 
-En cas de problème, voir la section **Dépannage** de `GUIDE-INSTALLATION-SYNOLOGY.md`.
+---
 
-Pour signaler un comportement bizarre, vérifier d'abord les logs :
-```bash
-sudo docker compose logs backend
-```
+## Contribuer
+
+1. Lire [`CLAUDE.md`](CLAUDE.md).
+2. Travailler sur `develop`, jamais sur `main`.
+3. Vérifier — banc d'essai sur une base d'essai réelle, pas une affirmation.
+4. Faire valider à l'écran sur le 10801 **avant** de proposer le merge.
+5. Sauvegarder la base avant tout merge vers `main`.
