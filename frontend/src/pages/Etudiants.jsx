@@ -11,6 +11,7 @@ import Stages from '../components/Stages.jsx';
 import IdentiteEtudiant, { ComplementDossiers } from '../components/IdentiteEtudiant.jsx';
 import CentreImpression from '../components/CentreImpression.jsx';
 import CentrePAE from '../components/CentrePAE.jsx';
+import PassageAnnee from '../components/PassageAnnee.jsx';
 import ImportSurMesure from '../components/ImportSurMesure.jsx';
 import ImportSuivi from '../components/ImportSuivi.jsx';
 import Annexe2 from '../components/Annexe2.jsx';
@@ -1871,6 +1872,8 @@ export default function Etudiants() {
   const [complement, setComplement] = useState(false);
   const [centreImpression, setCentreImpression] = useState(false);
   const [centrePAE, setCentrePAE] = useState(false);
+  // Le passage d'année : toute une section, sur ses résultats.
+  const [passage, setPassage] = useState(false);
   const [comparaison, setComparaison] = useState(false);
   const [importSurMesure, setImportSurMesure] = useState(false);
   const [importSuivi, setImportSuivi] = useState(false);
@@ -2196,6 +2199,14 @@ export default function Etudiants() {
       { key: 'rapport-pae', label: 'Rapport PAE', icon: IconTable,
         onClick: () => setRapportPAE(true) },
     ] },
+    // LE PASSAGE D'ANNÉE PORTE SUR UNE SECTION ENTIÈRE, non sur une sélection :
+    // sa place n'est pas dans la barre qui n'apparaît qu'une fois des étudiants
+    // cochés. C'est le geste de fin de septembre, et il se trouve sans qu'on
+    // ait rien à préparer.
+    { label: 'Année suivante', items: [
+      { key: 'passage', label: "Composer les PAE de l'année suivante",
+        icon: IconChecklist, onClick: () => setPassage(true) },
+    ] },
     { label: 'Exporter', items: [
       { key: 'export-section', label: 'Export de la section',
         icon: IconTable,
@@ -2451,6 +2462,11 @@ export default function Etudiants() {
       {centrePAE && (
         <CentrePAE annee={annee} etudiants={[...selEtudiants]}
           onClose={() => setCentrePAE(false)} onTermine={charger} />
+      )}
+
+      {passage && (
+        <PassageAnnee annee={annee}
+          onClose={() => setPassage(false)} onTermine={charger} />
       )}
 
       {centreImpression && (

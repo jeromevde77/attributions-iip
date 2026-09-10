@@ -1640,15 +1640,21 @@ r.get('/:id/fiche-parcours', authRequired, (req, res) => {
 
 // ── Le document imprimable ─────────────────────────────────────────────────
 // Paysage, une page A4. Le schéma en haut, les unités réussies en bas.
-r.get('/:id/fiche-parcours/document', authRequired, (req, res) => {
-  const annee = req.query.annee || anneeDeTravail(req);
-  const etudId = Number(req.params.id);
-
+/**
+ * LE PARCOURS D'UN ÉTUDIANT, SUR UNE PAGE — extrait de sa route pour être
+ * produit AUSSI en lot. Composer les programmes d'une promotion sans pouvoir
+ * en remettre le parcours à chacun n'aurait servi qu'à moitié : c'est cette
+ * feuille que l'étudiant emporte.
+ *
+ * Elle porte le graphe des prérequis, ce qui est acquis, et le programme de
+ * l'année — ni cote d'échec ni décision : ce n'est pas un bulletin.
+ */
+export function documentParcours(etudId, annee) {
   const e = db.prepare('SELECT * FROM etudiant WHERE id = ?').get(etudId);
-  if (!e) return res.status(404).json({ error: 'étudiant introuvable' });
+  if (!e) return { erreur: 'étudiant introuvable', code: 404 };
 
   const { section } = sectionRattachement(etudId, annee);
-  if (!section) return res.status(400).json({ error: 'aucune section pour cet étudiant' });
+  if (!section) return { erreur: 'aucune section pour cet étudiant', code: 400 };
 
   // On réutilise le calcul de la route de données, sans le dupliquer.
   const acquis = new Map();
@@ -1838,7 +1844,16 @@ r.get('/:id/fiche-parcours/document', authRequired, (req, res) => {
         <td>${esc2(u.nom)}</td>
         <td>${esc2(u.annee || '')}</td>
         <td class="n">${u.mode === 'va' ? 'Valorisation'
-          : (u.points != null ? u.points + '/20' : '—')}</td>
+          : (() => {
+            // JAMAIS DE COTE SOUS DIX SUR UN DOCUMENT REMIS À L'ÉTUDIANT
+            // (circulaire Sanction des études). Ces unités sont réussies, donc
+            // la question ne devrait pas se poser — mais une reprise
+            // d'historique peut porter une décision de réussite et une cote
+            // incohérente, et c'est la pièce de l'étudiant qui l'afficherait.
+            if (u.points == null) return '—';
+            const n = Math.round(Number(u.points));
+            return n < 10 ? 'NA' : `${n}/20`;
+          })()}</td>
       </tr>`).join('')}
     </table>` : '<div class="vide">Aucune unité acquise à ce jour.</div>'}
   </div>
@@ -1896,7 +1911,59 @@ table.acquises td.n{text-align:right;white-space:nowrap;font-weight:600}
 .vide{font-size:7.5pt;color:#94a3b8;font-style:italic}`,
   });
 
-  res.json({ html, nom: `Parcours_${e.nom}_${e.prenom}_${annee}` });
+  return { html, corps, nom: `Parcours_${e.nom}_${e.prenom}_${annee}`,
+           etudiant: e, section, annee,
+           acquises: reussies.length, programme: inscritesListe.length };
+}
+
+r.get('/:id/fiche-parcours/document', authRequired, (req, res) => {
+  const d = documentParcours(Number(req.params.id),
+    req.query.annee || anneeDeTravail(req));
+  if (d.erreur) return res.status(d.code || 400).json({ error: d.erreur });
+  res.json({ html: d.html, nom: d.nom });
+});
+
+/**
+ * LES PARCOURS D'UNE PROMOTION, EN UN SEUL DOCUMENT.
+ *
+ * Le secrétariat n'imprime pas quarante fiches une par une. Chaque parcours
+ * occupe sa page ; on les enchaîne, et le tirage se fait en une fois.
+ */
+r.post('/parcours-lot', authRequired, (req, res) => {
+  const { annee, etudiants } = req.body || {};
+  if (!annee || !Array.isArray(etudiants) || !etudiants.length) {
+    return res.status(400).json({ error: 'annee et etudiants requis' });
+  }
+  if (etudiants.length > 300) {
+    return res.status(400).json({
+      error: 'Plus de 300 parcours en une fois : le document deviendrait '
+           + 'ingérable à l’impression. Procédez par groupes.',
+    });
+  }
+  const pages = [], manques = [];
+  for (const id of etudiants.map(Number)) {
+    const d = documentParcours(id, annee);
+    if (d.erreur) {
+      const e0 = db.prepare('SELECT nom, prenom FROM etudiant WHERE id = ?').get(id);
+      manques.push({ etudiant_id: id, nom: e0 ? `${e0.nom} ${e0.prenom}` : `#${id}`,
+                     raison: d.erreur });
+      continue;
+    }
+    pages.push(d);
+  }
+  if (!pages.length) {
+    return res.status(400).json({
+      error: 'Aucun parcours n’a pu être produit.', manques });
+  }
+  // La feuille de style est celle de la première page : elles sont identiques,
+  // et un <style> répété entre deux pages casse les sauts de page.
+  const html = pages[0].html.replace(
+    /(<body[^>]*>)([\s\S]*)(<\/body>)/i,
+    (_, o, corps0, f) => o + [corps0, ...pages.slice(1).map(p =>
+      `<div style="break-before:page;page-break-before:always"></div>${p.corps}`)
+    ].join('\n') + f);
+
+  res.json({ html, nom: `Parcours_${annee}`, pages: pages.length, manques });
 });
 
 r.get('/coherence-resultats', authRequired, (req, res) => {
@@ -2526,14 +2593,20 @@ r.patch('/inscription/:id', authRequired, roleRequired('admin', 'editeur'), (req
 // ── Générer le PAE pour une année ─────────────────────────────────────────────
 // Logique : UEs organisées cette année dont les prérequis sont satisfaits
 // (l'étudiant les a réussies l'année précédente ou elles n'ont pas de prérequis)
-r.get('/:id/pae', authRequired, (req, res) => {
-  const profId = Number(req.params.id);
-  const annee = req.query.annee;
-  const anneePrecedente = req.query.annee_precedente;
-  if (!annee) return res.status(400).json({ error: 'annee requise' });
-
+/**
+ * COMPOSER LE PROGRAMME D'UN ÉTUDIANT — extrait de sa route pour servir AUSSI
+ * en lot.
+ *
+ * Composer une promotion entière un dossier à la fois est intenable ; et
+ * réécrire ailleurs le jeu des prérequis, de l'épreuve intégrée et du point
+ * fixe intra-niveau serait pire — deux calculs pour la même chose finissent
+ * toujours par diverger, et c'est le programme d'un étudiant qui en pâtirait.
+ * Un seul calcul, appelé par la route comme par le lot.
+ */
+export function composerPAE(profId, annee, options = {}) {
+  const anneePrecedente = options.annee_precedente || null;
   const etudiant = db.prepare('SELECT * FROM etudiant WHERE id = ?').get(profId);
-  if (!etudiant) return res.status(404).json({ error: 'étudiant introuvable' });
+  if (!etudiant) return { erreur: 'étudiant introuvable', code: 404 };
 
   // UEs réussies explicitement (toutes années — un résultat encodé n'expire pas)
   const reussiesExplicites = new Set(
@@ -2574,7 +2647,7 @@ r.get('/:id/pae', authRequired, (req, res) => {
 
   // Sections de l'étudiant (dominantes) — override possible via ?section=
   const { sections: sectionsEtudiant, scores: sectionsScores } =
-    sectionsDeLEtudiant(profId, req.query.section);
+    sectionsDeLEtudiant(profId, options.section);
 
   // Carte des UE de la ou des sections : déterminantes et épreuve intégrée.
   // L'épreuve ne se présente qu'une fois tout le reste acquis — ou lorsqu'il
@@ -2762,7 +2835,7 @@ r.get('/:id/pae', authRequired, (req, res) => {
     'SELECT confirme_le, confirme_par FROM etudiant_pae WHERE etudiant_id = ? AND annee_scolaire = ?'
   ).get(profId, annee);
 
-  res.json({
+  return {
     etudiant,
     annee,
     pae_confirme: !!confirmation?.confirme_le,
@@ -2776,7 +2849,88 @@ r.get('/:id/pae', authRequired, (req, res) => {
     proposition: pae.filter(u => u.propose).map(u => u.ue_num),
     accessibles: pae.filter(u => u.accessible).length,
     reference: 'PAE — Plan Annuel de l\'Étudiant. Basé sur les prérequis de la section et les UE organisées.'
-  });
+  };
+}
+
+/**
+ * QUI PEUT PASSER À L'ANNÉE SUIVANTE — et qui attend encore quelque chose.
+ *
+ * Un programme ne se compose pas sur des résultats provisoires : inscrire un
+ * étudiant à la suite alors que sa seconde session n'est pas tranchée, c'est
+ * lui promettre une place qu'un refus de septembre lui reprendra.
+ *
+ * Une unité est ARRIVÉE À SON TERME pour un étudiant dans deux cas, et deux
+ * seulement : il l'a réussie en première session — plus rien ne l'attend — ou
+ * la session qui le concernait est close. La session qui le concerne est la
+ * seconde s'il a été ajourné en juin, la première sinon.
+ *
+ * LES ANNÉES REPRISES N'ONT PAS DE SÉANCE. Une année importée d'un classeur
+ * porte ses décisions mais aucune trace de clôture : exiger la séance y
+ * déclarerait tout le monde inadmissible. À défaut de séance, c'est la
+ * décision au dossier qui fait foi — et « ajourné » y signifie précisément
+ * que quelque chose reste à trancher.
+ */
+export function admissibilitePAE(etudId, annee) {
+  const unites = db.prepare(`
+    SELECT i.ue_num, i.resultat,
+           (SELECT ue_nom FROM ue u WHERE u.ue_num = i.ue_num
+             AND u.ue_nom IS NOT NULL ORDER BY u.annee_scolaire DESC LIMIT 1) AS ue_nom
+    FROM etudiant_inscription i
+    WHERE i.etudiant_id = ? AND i.annee_scolaire = ?
+    ORDER BY i.ue_num`).all(etudId, annee);
+
+  const attentes = [];
+  for (const u of unites) {
+    const dec = s => db.prepare(`SELECT resultat FROM deliberation_resultat
+      WHERE etudiant_id = ? AND annee_scolaire = ? AND ue_num = ? AND session = ?`)
+      .get(etudId, annee, u.ue_num, s)?.resultat || null;
+    const close = s => !!db.prepare(`SELECT cloturee FROM deliberation_seance
+      WHERE ue_num = ? AND annee_scolaire = ? AND session = ?`)
+      .get(u.ue_num, annee, s)?.cloturee;
+
+    const s1 = dec(1), s2 = dec(2);
+
+    // Réussi dès juin : rien ne l'attend, même si d'autres repassent en
+    // septembre. C'est le cas que Jérôme nomme « admis dès la première ».
+    if (s1 === 'reussi' || (!s1 && u.resultat === 'reussi')) continue;
+
+    const aucuneSeance = !db.prepare(`SELECT 1 FROM deliberation_seance
+      WHERE ue_num = ? AND annee_scolaire = ?`).get(u.ue_num, annee);
+
+    if (aucuneSeance) {
+      // Année reprise : la décision au dossier fait foi.
+      if (['reussi', 'refuse', 'absent'].includes(u.resultat)) continue;
+      attentes.push({ ...u, raison: u.resultat === 'ajourne'
+        ? 'ajourné, seconde session non tranchée'
+        : 'aucune décision au dossier' });
+      continue;
+    }
+
+    // La session qui le concerne : la seconde s'il a été ajourné en juin.
+    const ajourneS1 = s1 === 'ajourne' || (!s1 && u.resultat === 'ajourne');
+    const session = ajourneS1 ? 2 : 1;
+    if (!close(session)) {
+      attentes.push({ ...u, raison: `séance de session ${session} non clôturée` });
+      continue;
+    }
+    const finale = session === 2 ? (s2 || u.resultat) : (s1 || u.resultat);
+    if (!finale || finale === 'ajourne') {
+      attentes.push({ ...u, raison: session === 2
+        ? 'seconde session close sans décision arrêtée'
+        : 'aucune décision arrêtée' });
+    }
+  }
+
+  return { admissible: attentes.length === 0, unites: unites.length, attentes };
+}
+
+r.get('/:id/pae', authRequired, (req, res) => {
+  const annee = req.query.annee;
+  if (!annee) return res.status(400).json({ error: 'annee requise' });
+  const r0 = composerPAE(Number(req.params.id), annee, {
+    section: req.query.section, annee_precedente: req.query.annee_precedente });
+  if (r0.erreur) return res.status(r0.code || 400).json({ error: r0.erreur });
+  res.json(r0);
 });
 
 // ── Valider le PAE : synchroniser les inscriptions de l'année ────────────────
@@ -2831,6 +2985,122 @@ r.post('/:id/pae-valider', authRequired, roleRequired('admin', 'editeur'), (req,
   tx();
 
   res.json({ ok: true, annee, ajoutees, retirees, conservees, total: retenues.size });
+});
+
+// ── LES PROGRAMMES D'UNE PROMOTION, D'UN SEUL GESTE ─────────────────────────
+//
+// À la fin de septembre, tout est tranché et il faut composer le programme de
+// l'année suivante pour toute une section. Le faire dossier par dossier occupe
+// une semaine de secrétariat, et c'est une semaine pendant laquelle les
+// étudiants ne savent pas à quoi ils sont inscrits.
+//
+// Chaque étudiant reçoit SON programme, calculé sur SES résultats : les unités
+// réussies libèrent la suite, celles qui ne l'ont pas été reviennent au
+// programme — c'est le même calcul que la fiche individuelle, appelé en
+// boucle, et non un second calcul qui finirait par en différer.
+//
+// RIEN NE S'ÉCRIT SANS QU'ON AIT VU CE QUI SERA ÉCRIT : la simulation est le
+// mode par défaut, et l'écriture se demande.
+r.post('/pae-promotion', authRequired,
+       roleRequired('admin', 'directeur', 'directeur_adjoint', 'editeur'), (req, res) => {
+  const { section, annee_source, annee_cible, etudiants, simulation = true } = req.body || {};
+  if (!section || !annee_source || !annee_cible) {
+    return res.status(400).json({ error: 'section, annee_source et annee_cible requises' });
+  }
+  if (annee_source === annee_cible) {
+    return res.status(400).json({
+      error: "L'année de départ et l'année du programme sont les mêmes : le "
+           + "programme se compose sur les résultats de l'année écoulée.",
+    });
+  }
+  const perim = getUserSections(req.user);
+  if (perim && !perim.includes(section)) {
+    return res.status(403).json({ error: 'Cette section est hors de votre périmètre.' });
+  }
+
+  // Les étudiants de la section pour l'année écoulée : il n'existe pas
+  // d'inscription à une section, seulement des inscriptions aux unités qui la
+  // composent — c'est par elles qu'on passe, comme partout ailleurs.
+  const uesSection = db.prepare(
+    'SELECT DISTINCT ue_num FROM ue WHERE annee_scolaire = ? AND section = ?'
+  ).all(annee_source, section).map(x => x.ue_num);
+  if (!uesSection.length) {
+    return res.status(404).json({
+      error: `Aucune unité n'est enregistrée pour la section ${section} en `
+           + `${annee_source}.`,
+    });
+  }
+  const gens = db.prepare(`
+    SELECT DISTINCT e.id, e.nom, e.prenom, e.id_ecampus
+    FROM etudiant e JOIN etudiant_inscription i ON i.etudiant_id = e.id
+    WHERE i.annee_scolaire = ? AND i.ue_num IN (${uesSection.map(() => '?').join(',')})
+      AND e.actif = 1
+    ORDER BY e.nom, e.prenom`).all(annee_source, ...uesSection);
+
+  // Une sélection restreint ; son absence prend toute la promotion.
+  const retenus = Array.isArray(etudiants) && etudiants.length
+    ? new Set(etudiants.map(Number)) : null;
+
+  const prets = [], attente = [], rien = [];
+  for (const e of gens) {
+    if (retenus && !retenus.has(e.id)) continue;
+    const adm = admissibilitePAE(e.id, annee_source);
+    if (!adm.admissible) { attente.push({ ...e, attentes: adm.attentes }); continue; }
+
+    const c = composerPAE(e.id, annee_cible, { section });
+    if (c.erreur) { attente.push({ ...e, attentes: [{ raison: c.erreur }] }); continue; }
+
+    const propose = c.pae.filter(u => u.propose);
+    // DÉJÀ INSCRIT N'EST PAS À INSCRIRE : on ne recompte pas ce qui existe, et
+    // le rapport doit dire ce qui va réellement changer.
+    const aInscrire = propose.filter(u => !u.inscrite);
+    const ligne = {
+      ...e,
+      niveau: c.niveau || null,
+      total: propose.length,
+      deja: propose.length - aInscrire.length,
+      ues: aInscrire.map(u => ({
+        ue_num: u.ue_num, ue_nom: u.ue_nom, ue_niv: u.ue_niv,
+        epreuve_integree: !!u.epreuve_integree,
+        sous_reserve: !!u.propose_sous_reserve,
+        // Une unité non réussie qui revient au programme : c'est une reprise,
+        // et l'étudiant a le droit de le savoir avant de s'inscrire.
+        reprise: !!u.deja_suivie,
+      })),
+    };
+    // Un étudiant dont le programme serait vide n'est pas « prêt » : ou bien il
+    // a terminé son cursus, ou bien plus rien ne s'ouvre à lui. Dans les deux
+    // cas, c'est une décision humaine, pas une inscription.
+    if (!propose.length) rien.push({ ...e, raison: 'aucune unité ne s’ouvre' });
+    else prets.push(ligne);
+  }
+
+  let ecrits = 0, inscriptions = 0;
+  if (!simulation) {
+    const ins = db.prepare(`
+      INSERT OR IGNORE INTO etudiant_inscription
+        (etudiant_id, annee_scolaire, ue_num, date_inscription)
+      VALUES (?,?,?,?)`);
+    const jour = new Date().toISOString().slice(0, 10);
+    db.transaction(() => {
+      for (const l of prets) {
+        let n = 0;
+        for (const u of l.ues) n += ins.run(l.id, annee_cible, u.ue_num, jour).changes;
+        if (n) { ecrits++; inscriptions += n; }
+      }
+    })();
+  }
+
+  res.json({
+    section, annee_source, annee_cible, simulation: !!simulation,
+    promotion: gens.length,
+    prets, attente, sans_programme: rien,
+    total: {
+      prets: prets.length, attente: attente.length, sans_programme: rien.length,
+      inscriptions_a_creer: prets.reduce((n, l) => n + l.ues.length, 0),
+      etudiants_ecrits: ecrits, inscriptions_creees: inscriptions,
+    },
+  });
 });
 
 // ── PAE auto : inscrire d'un clic tout ce que l'étudiant peut avoir ──────────
