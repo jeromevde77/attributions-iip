@@ -12,6 +12,7 @@ import IdentiteEtudiant, { ComplementDossiers } from '../components/IdentiteEtud
 import CentreImpression from '../components/CentreImpression.jsx';
 import CentrePAE from '../components/CentrePAE.jsx';
 import PassageAnnee from '../components/PassageAnnee.jsx';
+import CentreEchanges from '../components/CentreEchanges.jsx';
 import ImportSurMesure from '../components/ImportSurMesure.jsx';
 import ImportSuivi from '../components/ImportSuivi.jsx';
 import Annexe2 from '../components/Annexe2.jsx';
@@ -1874,6 +1875,8 @@ export default function Etudiants() {
   const [centrePAE, setCentrePAE] = useState(false);
   // Le passage d'année : toute une section, sur ses résultats.
   const [passage, setPassage] = useState(false);
+  // Une seule porte pour les huit imports et les exports.
+  const [echanges, setEchanges] = useState(false);
   const [comparaison, setComparaison] = useState(false);
   const [importSurMesure, setImportSurMesure] = useState(false);
   const [importSuivi, setImportSuivi] = useState(false);
@@ -2207,38 +2210,13 @@ export default function Etudiants() {
       { key: 'passage', label: "Composer les PAE de l'année suivante",
         icon: IconChecklist, onClick: () => setPassage(true) },
     ] },
-    { label: 'Exporter', items: [
-      { key: 'export-section', label: 'Export de la section',
-        icon: IconTable,
-        onClick: () => {
-          if (!section) {
-            alert("Choisissez d'abord une section : l'export porte sur elle.");
-            return;
-          }
-          // Appel AUTHENTIFIÉ : un window.location ne transmettrait pas le
-          // jeton, et le serveur répondrait 401.
-          exporterSection();
-        } },
-    ] },
-    { label: 'Importer', items: [
-      { key: 'liste', label: 'Liste eCampus', icon: IconUpload,
-        onClick: () => setImportListe(true) },
-      { key: 'pae', label: 'Classeur PAE', icon: IconUpload,
-        onClick: () => setImportPAE(true) },
-      { key: 'complement', label: 'Compléter les dossiers', icon: IconUpload,
-        onClick: () => setComplement(true) },
-      { key: 'histo', label: "Reconstruire l'historique", icon: IconUpload,
-        onClick: () => setImportHisto(true) },
-      { key: 'comparer', label: 'Comparer un classeur', icon: IconUpload,
-        onClick: () => setComparaison(true) },
-      { key: 'suivi', label: 'Classeur de suivi (2 sessions)', icon: IconUpload,
-        onClick: () => setImportSuivi(true) },
-      { key: 'sur-mesure', label: 'Importateur sur mesure', icon: IconUpload,
-        onClick: () => setImportSurMesure(true) },
-    ] },
-    { label: 'Entretien', items: [
-      { key: 'purge', label: 'Vider des résultats', icon: IconTrash,
-        couleur: '#C0392B', onClick: () => setPurge(true) },
+    // TOUT CE QUI ENTRE ET TOUT CE QUI SORT, DERRIÈRE UNE PORTE.
+    // Le rail alignait huit imports dont quatre parlaient de « classeur » sans
+    // dire lequel : on ouvrait au jugé. Le centre les nomme et annonce le
+    // fichier attendu — la seule chose qui permette de choisir sans essayer.
+    { label: 'Données', items: [
+      { key: 'echanges', label: 'Importer / exporter', icon: IconUpload,
+        onClick: () => setEchanges(true) },
     ] },
   ];
 
@@ -2460,6 +2438,57 @@ export default function Etudiants() {
       {centrePAE && (
         <CentrePAE annee={annee} etudiants={[...selEtudiants]}
           onClose={() => setCentrePAE(false)} onTermine={charger} />
+      )}
+
+      {echanges && (
+        <CentreEchanges onClose={() => setEchanges(false)}
+          sorties={[
+            { cle: 'export-section', titre: 'Export de la section',
+              quoi: 'Le tableau des étudiants et de leurs inscriptions, pour Excel.',
+              attend: null,
+              onClick: () => {
+                if (!section) {
+                  alert("Choisissez d'abord une section : l'export porte sur elle.");
+                  return;
+                }
+                exporterSection();
+              } },
+          ]}
+          entrees={[
+            { cle: 'liste', titre: 'Liste eCampus',
+              quoi: 'Créer ou compléter les dossiers depuis la liste officielle.',
+              attend: "l'export eCampus (.xlsx)",
+              onClick: () => setImportListe(true) },
+            { cle: 'pae', titre: 'Classeur PAE',
+              quoi: 'Reprendre les programmes annuels déjà composés ailleurs.',
+              attend: 'un classeur PAE (.xlsx)',
+              onClick: () => setImportPAE(true) },
+            { cle: 'suivi', titre: 'Classeur de suivi',
+              quoi: 'Pondérations, notes et décisions des deux sessions d’une année.',
+              attend: 'Suivi_etudiants_XXX.xlsm',
+              onClick: () => setImportSuivi(true) },
+            { cle: 'histo', titre: "Reconstruire l'historique",
+              quoi: 'Une année déjà délibérée, reprise depuis un tableau de décisions.',
+              attend: 'un tableau plat, une ligne par décision',
+              onClick: () => setImportHisto(true) },
+            { cle: 'complement', titre: 'Compléter les dossiers',
+              quoi: 'Ajouter adresses, dates de naissance et pièces aux dossiers existants.',
+              attend: 'un classeur portant les matricules',
+              onClick: () => setComplement(true) },
+            { cle: 'comparer', titre: 'Comparer un classeur',
+              quoi: 'Voir ce qui diffère entre un fichier et la base, sans rien écrire.',
+              attend: "n'importe quel classeur d'étudiants",
+              onClick: () => setComparaison(true) },
+            { cle: 'sur-mesure', titre: 'Importateur sur mesure',
+              quoi: 'Un fichier dont la forme n’entre dans aucune des cases ci-dessus.',
+              attend: 'un classeur dont vous désignez les colonnes',
+              onClick: () => setImportSurMesure(true) },
+          ]}
+          risques={[
+            { cle: 'purge', titre: 'Vider des résultats',
+              quoi: 'Effacer les notes et décisions d’une année ou d’une unité.',
+              attend: null, onClick: () => setPurge(true) },
+          ]} />
       )}
 
       {passage && (
