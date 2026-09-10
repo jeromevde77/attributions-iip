@@ -1497,7 +1497,7 @@ function Fiche({ e, data, onAjuster, onLot, onMotif, enCours, onBord,
                 {/* Somme de la ligne : ce que l'acquis vaut pour l'unité. */}
                 <td className="border-x-2 border-iip-blue/50 bg-iip-blue/10 px-1.5 py-1">
                   <TuileSomme etat={a} seuil={data.seuil} enCours={enCours}
-                    decidee={decidee}
+                    decidee={decidee} sansAjournement={data.session >= 2}
                     onAjourner={() => onAjuster('aa', a.aa_code,
                       a.ajourne_directement ? null : 'ajourne')}
                     motif={a.motif} />
@@ -1520,6 +1520,7 @@ function Fiche({ e, data, onAjuster, onLot, onMotif, enCours, onBord,
                 <td key={c.cours_code} className="border-t border-slate-200 px-1.5 py-1.5">
                   <TuileSomme etat={c} seuil={data.seuil} enCours={enCours}
                     decidee={decidee} indicatif={!regarde.cours}
+                    sansAjournement={data.session >= 2}
                     onAjourner={() => onAjuster('cours', c.cours_code,
                       c.ajourne_directement ? null : 'ajourne')} />
                 </td>
@@ -1702,7 +1703,8 @@ function Chiffre({ libelle, valeur, suffixe, ton }) {
  * témoin : un point bleu quand le motif est écrit, un point rouge sinon.
  */
 function TuileSomme({ etat, seuil, onAjourner, onFaveur, motif, enCours,
-                      decidee = false, indicatif = false }) {
+                      decidee = false, indicatif = false,
+                      sansAjournement = false }) {
   const { na, faveur, note, mention } = etat;
   const echec = !na && note != null && note < seuil;
   // DÈS QUE LA DÉCISION EST POSÉE, CE QUI EST SOUS LE SEUIL N'EST PLUS UNE
@@ -1726,6 +1728,13 @@ function TuileSomme({ etat, seuil, onAjourner, onFaveur, motif, enCours,
         {enNA ? 'NA' : (mention || fmt(note))}
       </span>
       <span className="flex flex-col gap-0.5">
+        {/* PAS D'AJOURNEMENT EN SECONDE SESSION. Ajourner, c'est renvoyer à la
+            session suivante — et après septembre il n'y en a pas. Le règlement
+            le dit sans détour : « l'étudiant qui échoue en seconde session est
+            refusé » (RGE art. 69 §2). Le bouton proposait donc une décision
+            qui n'existe pas, et la double flèche laissait croire à une
+            troisième chance. */}
+        {!sansAjournement && (
         <button disabled={enCours} onClick={onAjourner}
           title={na ? "Lever l'ajournement" : 'Ajourner — à représenter'}
           className={`w-5 h-5 rounded-full flex items-center justify-center border
@@ -1733,6 +1742,7 @@ function TuileSomme({ etat, seuil, onAjourner, onFaveur, motif, enCours,
                  : 'bg-white border-slate-300 text-slate-500 hover:border-slate-500'}`}>
           <IconRepeat size={11} />
         </button>
+        )}
 
         {/* LA FAVEUR SE POSE À L'UNITÉ, ET NULLE PART AILLEURS.
             Elle a longtemps été offerte ici, sur l'acquis et sur le cours. La
@@ -1792,6 +1802,19 @@ function TuileUE({ ue, seuil, onFaveur, enCours }) {
       <div className="text-[8.5px] font-bold uppercase tracking-wide opacity-70 text-right">
         {ue.faveur ? 'faveur' : "note de l'unité"}
       </div>
+      {/* CE QUE L'ÉTUDIANT VERRA, dit ici pour qu'on n'ait pas à le deviner.
+          La tuile montre la cote de travail — celle sur laquelle le Conseil
+          délibère. Sur les documents de l'étudiant, la circulaire n'admet rien
+          sous dix : c'est « NA ». Et une unité levée en faveur y vaut le seuil,
+          non la moyenne qui l'avait fait échouer. Les deux chiffres diffèrent
+          légitimement ; ne montrer que le premier laissait croire à une erreur
+          au moment de relire les pièces. */}
+      {ue.cote_etudiant != null && String(ue.cote_etudiant) !== fmt(ue.note) && (
+        <div className="text-[9px] text-right border-t border-current/20 mt-0.5 pt-0.5
+                        opacity-80" title="La cote portée sur les documents de l'étudiant">
+          à l’étudiant : <b className="tabular-nums">{ue.cote_etudiant}</b>
+        </div>
+      )}
     </div>
   );
 }

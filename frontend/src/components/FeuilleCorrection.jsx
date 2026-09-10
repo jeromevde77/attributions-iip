@@ -272,13 +272,18 @@ export default function FeuilleCorrection({ ueNum, annee, onClose, onModifie }) 
                         className="px-1 pb-1 border-x text-[10px] font-bold text-slate-600">
                         cote
                       </th>,
-                      <th key={`${c.cours_code}|aj`} title="À représenter"
-                        className="px-1 pb-1 border-x text-[10px] font-bold text-amber-700">
-                        à repr.
-                      </th>,
+                      ...(session >= 2 ? [] : [
+                        <th key={`${c.cours_code}|aj`} title="À représenter"
+                          className="px-1 pb-1 border-x text-[10px] font-bold text-amber-700">
+                          à repr.
+                        </th>,
+                      ]),
                     ])}
                     <th className="px-1 pb-1 border-x-2 border-iip-blue/50 bg-iip-blue/10
                                    text-[10px] font-bold text-iip-blue">cote</th>
+                    <th title="La cote telle qu'elle figurera sur les documents de l'étudiant"
+                      className="px-1 pb-1 border-x bg-slate-50 text-[10px] font-bold
+                                 text-slate-600">à l'étudiant</th>
                     <th className="px-1 pb-1 border-x-2 border-iip-blue/50 bg-iip-blue/10
                                    text-[10px] font-bold text-iip-blue min-w-[210px]">
                       décision
@@ -338,6 +343,7 @@ export default function FeuilleCorrection({ ueNum, annee, onClose, onModifie }) 
                                 {k.na?.[c.cours_code] ? 'NA' : fmt(k.cours?.[c.cours_code])}
                               </span>
                             </td>,
+                            ...(session >= 2 ? [] : [
                             <td key={`${e.id}|${c.cours_code}|aj`}
                               className="px-1 py-0.5 border-b border-slate-100 text-center">
                               <button disabled={enAttente > 0}
@@ -353,6 +359,7 @@ export default function FeuilleCorrection({ ueNum, annee, onClose, onModifie }) 
                                 <IconRepeat size={11} />
                               </button>
                             </td>,
+                            ]),
                           ];
                         })}
 
@@ -362,6 +369,19 @@ export default function FeuilleCorrection({ ueNum, annee, onClose, onModifie }) 
                             font-bold tabular-nums ${k.ue_na ? 'text-red-700 bg-red-50'
                               : ton(k.ue)}`}>
                             {k.ue_na ? 'NA' : fmt(k.ue)}
+                          </span>
+                        </td>
+
+                        {/* CE QUE L'ÉTUDIANT LIRA. La cote de travail sert au
+                            Conseil ; celle-ci part sur ses documents, et la
+                            circulaire y interdit tout chiffre sous dix. Les
+                            deux se lisent côte à côte : c'est ainsi qu'on voit
+                            qu'une faveur a bien porté la cote au seuil. */}
+                        <td className="px-1 py-0.5 border-b border-x bg-slate-50 text-center">
+                          <span className={`inline-block min-w-[30px] px-1 py-0.5 rounded
+                            font-bold tabular-nums ${k.cote_etudiant === 'NA'
+                              ? 'text-red-700 bg-red-50' : 'text-slate-700'}`}>
+                            {k.cote_etudiant ?? '—'}
                           </span>
                         </td>
 
