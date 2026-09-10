@@ -1914,6 +1914,39 @@ const SEUIL_UE = 10;   // RDE, art. 78
  * Le repli est « par cours » : c'est la pratique la plus répandue, et celle
  * que l'application appliquait sans le dire.
  */
+/**
+ * L'ARRONDI DE LA MAISON, hors du moteur.
+ *
+ * Les documents affichent aussi des notes brutes — l'évaluation d'un acquis
+ * dans un cours, telle qu'elle a été encodée. Elles doivent suivre le même
+ * arrondi que le reste, sans quoi la grille mêle des centièmes et des unités
+ * sur la même ligne.
+ */
+/**
+ * LA COTE TELLE QU'ELLE PEUT ÊTRE REMISE À L'ÉTUDIANT.
+ *
+ * Un document destiné à l'étudiant ne porte JAMAIS une cote sous le seuil : la
+ * circulaire Sanction des études ne connaît que l'acquis et le non acquis, et
+ * un « 6/20 » sur une notification laisse croire à un demi-résultat qui
+ * n'existe pas. Sous dix, on écrit « NA ».
+ *
+ * La grille de délibération, elle, garde les chiffres des acquis : c'est une
+ * pièce interne, et c'est de ces chiffres que la motivation rend compte.
+ */
+export function coteEtudiant(v) {
+  if (v == null) return 'NA';
+  const r = arrondiMaison(v);
+  return r < SEUIL_UE ? 'NA' : String(r).replace('.', ',');
+}
+
+export function arrondiMaison(v, regles = null) {
+  if (v == null) return null;
+  const r = (regles || reglesDeliberation()).arrondi;
+  return r === 'entier' ? Math.round(v)
+    : r === 'demi' ? Math.round(v * 2) / 2
+    : Math.round(v * 100) / 100;
+}
+
 export function reglesAjournement() {
   const r = reglesDeliberation();
   return { portee: r.portee, session2: r.session2 };
@@ -1975,7 +2008,11 @@ const REGLES_DEFAUT = {
   auto_s1: false,
   aa_sans_poids: 'egal',
   cours_sans_poids: 'periodes',
-  arrondi: 'centieme',
+  // À L'UNITÉ, comme le Conseil délibère. Le centième était un défaut de
+  // programmeur : personne ne discute une cote au centième, et l'afficher
+  // ainsi donnait des grilles illisibles. Reste réglable — certaines maisons
+  // retiennent le demi-point.
+  arrondi: 'entier',
 };
 
 export function reglesDeliberation() {
@@ -2193,11 +2230,21 @@ export function delibererUE(etudId, ueNum, annee, session = 1) {
   const regles = reglesDeliberation();
   // Ce que la base de délibération fait entrer dans la décision. L'unité y
   // est toujours ; le reste dépend du choix de la maison.
-  const regarde = {
-    aa: regles.base === 'cours_aa' || regles.base === 'aa',
-    cours: regles.base === 'cours_aa' || regles.base === 'cours',
-    ue: true,
-  };
+  //
+  // EN SECONDE SESSION, SEULS LES ACQUIS COMPTENT. L'étudiant ne représente
+  // pas des cours, il représente les acquis qui lui manquaient — et ceux-ci
+  // sont transversaux : le même acquis s'évalue souvent dans deux cours.
+  // Opposer encore une note de cours en septembre ferait retomber l'étudiant
+  // sur une moyenne qui ne décrit plus rien : elle mêle ce qu'il vient de
+  // représenter et ce qu'il avait déjà acquis en juin. La note de cours reste
+  // calculée et affichée, mais à titre indicatif.
+  const regarde = session >= 2
+    ? { aa: true, cours: false, ue: true, indicatif_cours: true }
+    : {
+      aa: regles.base === 'cours_aa' || regles.base === 'aa',
+      cours: regles.base === 'cours_aa' || regles.base === 'cours',
+      ue: true,
+    };
   // Le seuil de MAÎTRISE d'un acquis, tel que l'établissement l'a fixé — au
   // moins 10/20, jamais moins. Le seuil de RÉUSSITE de l'unité, lui, est celui
   // du décret et ne se paramètre pas.
@@ -2300,6 +2347,24 @@ export function delibererUE(etudId, ueNum, annee, session = 1) {
       AND session = 1 AND portee = 'cours' AND action = 'ajourne'
   `).all(etudId, annee, ueNum).map(x => x.code));
 
+  // ── L'ARRONDI DE LA MAISON ────────────────────────────────────────────────
+  //
+  // Il ne s'appliquait qu'à la note d'unité : la grille affichait des acquis et
+  // des cours au centième sous une unité arrondie, ce qui ne ressemblait à rien
+  // et ne correspondait pas à ce que le Conseil retient.
+  //
+  // LA COTE RETENUE EST LA COTE ARRONDIE, et c'est elle qu'on compare au seuil :
+  // le Conseil délibère sur ce qu'il lit. Avec l'arrondi à l'unité, un 9,6
+  // devient donc un 10 et passe — conséquence assumée d'arrondir, et c'est
+  // pourquoi le réglage est explicite (Délibération → Règles de délibération).
+  //
+  // Le CALCUL garde toutes ses décimales : on arrondit le résultat, jamais les
+  // termes, sans quoi l'erreur s'accumulerait d'un niveau à l'autre.
+  const arrondir = v => v == null ? null
+    : regles.arrondi === 'entier' ? Math.round(v)
+    : regles.arrondi === 'demi' ? Math.round(v * 2) / 2
+    : Math.round(v * 100) / 100;
+
   const coursAjourne = c => ajust[`cours|${c}`] === 'ajourne';
   const coursFaveur = c => ajust[`cours|${c}`] === 'faveur';
   const aaAjourne = a => ajust[`aa|${a}`] === 'ajourne';
@@ -2341,7 +2406,7 @@ export function delibererUE(etudId, ueNum, annee, session = 1) {
         if (e.ajourne || e.note == null) continue;
         num += e.note * (e.poids || 0); den += (e.poids || 0);
       }
-      note = den ? Math.round((num / den) * 100) / 100 : null;
+      note = den ? arrondir(num / den) : null;
     }
     const forcee = aaFaveur(code) || (ueFaveur && !na && note != null && note < SEUIL_AA);
     const affichee = na ? null : (forcee ? SEUIL_AA : note);
@@ -2388,7 +2453,7 @@ export function delibererUE(etudId, ueNum, annee, session = 1) {
         if (v == null) continue;
         num += v * (p.poids || 0); den += (p.poids || 0);
       }
-      note = den ? Math.round((num / den) * 100) / 100 : null;
+      note = den ? arrondir(num / den) : null;
     }
     // Un cours dont UN acquis a été levé en faveur vaut le seuil, et rien de
     // plus : le Conseil ne peut aller au-delà quand un acquis n'est pas
@@ -2420,12 +2485,6 @@ export function delibererUE(etudId, ueNum, annee, session = 1) {
   const ajourne = cours.some(c => c.na) || acquis.some(a => a.na);
   const faveur = ueFaveur || cours.some(c => c.faveur) || acquis.some(a => a.faveur);
 
-  /** L'arrondi voulu par l'établissement — au centième par défaut. */
-  const arrondir = v => v == null ? null
-    : regles.arrondi === 'entier' ? Math.round(v)
-    : regles.arrondi === 'demi' ? Math.round(v * 2) / 2
-    : Math.round(v * 100) / 100;
-
   let noteUE = null;
   if (!ajourne) {
     if (faveur) {
@@ -2444,7 +2503,7 @@ export function delibererUE(etudId, ueNum, annee, session = 1) {
         const w = poidsAA[a.aa_code] || 1;
         num += a.note * w; den += 20 * w;
       }
-      noteUE = den ? Math.round((num / den) * 20 * 100) / 100 : null;
+      noteUE = den ? arrondir((num / den) * 20) : null;
     } else if (regles.aa_sans_poids === 'cours_seuls' && !pondRows.length) {
       // AUCUN ACQUIS N'EST PONDÉRÉ, et la maison a dit ce qu'elle voulait dans
       // ce cas : l'unité se calcule sur les seules notes de cours. Peser des
@@ -2457,7 +2516,7 @@ export function delibererUE(etudId, ueNum, annee, session = 1) {
           : (regles.cours_sans_poids === 'periodes' ? (c.periodes || 1) : 1);
         num += c.note * pc; den += pc;
       }
-      noteUE = den ? Math.round((num / den) * 100) / 100 : null;
+      noteUE = den ? arrondir(num / den) : null;
     } else {
       let num = 0, den = 0;
       for (const p of paires) {
@@ -2473,7 +2532,7 @@ export function delibererUE(etudId, ueNum, annee, session = 1) {
         num += v * (p.poids || 0) * pc;
         den += 20 * (p.poids || 0) * pc;
       }
-      noteUE = den ? Math.round((num / den) * 20 * 100) / 100 : null;
+      noteUE = den ? arrondir((num / den) * 20) : null;
     }
   }
 
@@ -2499,7 +2558,10 @@ export function delibererUE(etudId, ueNum, annee, session = 1) {
     cours: cours.map(c => ({ ...c,
       represente: session < 2 ? null : coursARepresenter.has(c.cours_code) })),
     ue: {
-      note: ajourne ? null : arrondir(noteUE),
+      note: ajourne ? null : noteUE,   // déjà arrondie ci-dessus
+      // La cote que le calcul donne, même sous un ajournement : c'est elle
+      // qu'on affiche quand le Conseil a finalement reçu l'étudiant.
+      note_calculee: noteUE,
       na: ajourne, faveur, faveur_ue: ueFaveur,
       echec: !ajourne && noteUE != null && noteUE < SEUIL_UE,
       a_representer: regles.portee === 'cours'
@@ -2543,7 +2605,13 @@ export function delibererUE(etudId, ueNum, annee, session = 1) {
       // sont opposés que si la maison délibère à ce niveau. Une école qui ne
       // délibère que sur les acquis ne doit pas voir une unité bloquée par
       // une note de cours, et réciproquement.
-      decision_proposee: ajourne ? 'ajourne'
+      //
+      // EN SECONDE SESSION, « AJOURNÉ » N'EXISTE PAS. Il n'y a plus rien à
+      // représenter : « l'étudiant qui échoue en seconde session est refusé »
+      // (RGE art. 69 §2). Cette première branche-ci l'oubliait : un cours resté
+      // à représenter proposait « ajourné » en septembre, c'est-à-dire une
+      // troisième session que le règlement ne connaît pas.
+      decision_proposee: ajourne ? (session >= 2 ? 'refuse' : 'ajourne')
         : cours.some(c => c.mention === 'PP') ? 'refuse'
         : cours.some(c => c.mention === 'NP') ? (session >= 2 ? 'refuse' : 'ajourne')
         : noteUE == null ? null
@@ -4291,6 +4359,10 @@ const STYLE_ENTETE_DELIB = `<style>
     border-radius: 1.2mm; padding: 1mm 2.5mm; }
   .delib-seance b { font-weight: 700; }
   .delib-seance .manque { background: #fef3c7; border-color: #fcd34d; font-style: italic; }
+  /* La seconde session porte sa couleur : sur une pile de cinquante pièces,
+     le titre seul ne distingue pas juin de septembre. */
+  .delib-seance .delib-s2 { background: #fff4e6; border-color: #f59e0b; color: #9a3412; }
+  .delib-seance .delib-total { background: #eef7ee; border-color: #4d9a5a; color: #1f5b2c; }
 </style>`;
 
 /** L'en-tête commun. `quoi` est le nom de la pièce ; le reste s'en déduit. */
@@ -4318,9 +4390,13 @@ function enteteDelib(ueNum, annee, session, quoi, { total = false } = {}) {
     return `${j === 1 ? '1er' : j} ${MOIS[Number(m[2]) - 1]} ${m[1]}`;
   })();
 
+  // LA SECONDE SESSION SE VOIT DE LOIN. Deux pièces voisines, l'une de juin
+  // l'autre de septembre, se confondaient sur la pile : le titre seul ne
+  // suffit pas quand on trie cinquante documents.
   const quelle = total
     ? 'Résultat des deux sessions'
     : (session === 2 ? 'Seconde session' : 'Première session');
+  const teinte = total ? 'delib-total' : (session === 2 ? 'delib-s2' : '');
 
   return `<div class="delib-cf">
     <div class="cf">COMMUNAUTÉ FRANÇAISE DE BELGIQUE</div>
@@ -4343,7 +4419,7 @@ function enteteDelib(ueNum, annee, session, quoi, { total = false } = {}) {
   </div>
   <div class="delib-filet"></div>
   <div class="delib-seance">
-    <span><b>${e(quelle)}</b></span>
+    <span class="${teinte}"><b>${e(quelle)}</b></span>
     ${dateFr ? `<span>Séance du <b>${e(dateFr)}</b>${
       sc.heure_seance ? ` à ${e(sc.heure_seance)}` : ''}</span>`
       : '<span class="manque">Date de séance non fixée</span>'}
@@ -4535,8 +4611,11 @@ export function pageGrilleDeliberation(ueNum, annee, session = 1, { total = fals
   const ident = identiteEtablissement();
   const esc0 = t => String(t ?? '').replace(/[&<>"]/g,
     x => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[x]));
+  // LA COTE S'ÉCRIT COMME ELLE EST RETENUE : « 14 » et non « 14,0 » quand la
+  // maison arrondit à l'unité, « 13,5 » quand elle retient le demi-point.
   const n2 = v => (v == null ? '<span class="vide">—</span>'
-    : `<span class="${v < SEUIL_UE ? 'faible' : ''}">${Number(v).toFixed(1).replace('.', ',')}</span>`);
+    : `<span class="${v < SEUIL_UE ? 'faible' : ''}">${
+        String(Math.round(Number(v) * 100) / 100).replace('.', ',')}</span>`);
 
   const ue = db.prepare(`SELECT ue_nom, section FROM ue WHERE ue_num = ?
     ORDER BY (annee_scolaire = ?) DESC, annee_scolaire DESC LIMIT 1`).get(ueNum, annee) || {};
@@ -4583,6 +4662,8 @@ export function pageGrilleDeliberation(ueNum, annee, session = 1, { total = fals
   }));
   const nbCol = cours.reduce((n, c) => n + c.aas.length + 1, 0);
 
+  const reglesGrille = reglesDeliberation();
+  const incoherences = [];
   const lignes = etudiants.map(e => {
     // En lecture totale, la seconde session prime là où elle a eu lieu.
     const sesLue = total
@@ -4595,11 +4676,14 @@ export function pageGrilleDeliberation(ueNum, annee, session = 1, { total = fals
     for (const c of (d.cours || [])) {
       for (const a of (d.acquis || [])) {
         const ev = (a.evaluations || []).find(x => x.cours_code === c.cours_code);
-        if (ev) parAA[`${c.cours_code}|${a.aa_code}`] = ev.note ?? a.note;
+        // La cote brute suit le même arrondi que le reste : une ligne ne mêle
+        // pas des centièmes et des unités.
+        if (ev) parAA[`${c.cours_code}|${a.aa_code}`] = arrondiMaison(ev.note ?? a.note, reglesGrille);
       }
     }
     const noteCours = Object.fromEntries((d.cours || []).map(c => [c.cours_code, c.note]));
     const naCours = Object.fromEntries((d.cours || []).map(c => [c.cours_code, c.na]));
+    const calcCours = Object.fromEntries((d.cours || []).map(c => [c.cours_code, c.note_calculee]));
     const dec = d.ue?.decision_proposee || null;
     const arrete = db.prepare(`SELECT resultat FROM deliberation_resultat
       WHERE etudiant_id = ? AND annee_scolaire = ? AND ue_num = ? AND session = ?`)
@@ -4607,18 +4691,55 @@ export function pageGrilleDeliberation(ueNum, annee, session = 1, { total = fals
       || db.prepare(`SELECT resultat FROM etudiant_inscription
         WHERE etudiant_id = ? AND annee_scolaire = ? AND ue_num = ?`)
         .get(e.id, annee, ueNum)?.resultat || null;
+    // Le Conseil a tranché : sa décision prime sur un ajournement resté au
+    // dossier. La contradiction se note pour être signalée sous la grille.
+    const recu = arrete === 'reussi' || arrete === 'valorise';
+    if (recu) {
+      for (const c of cours) {
+        if (naCours[c.cours_code]) {
+          incoherences.push(`${e.nom} ${e.prenom} — ${c.cours_code} porte encore `
+            + `un ajournement alors que l'unité est réussie`);
+        }
+      }
+    }
 
     const cells = cours.flatMap(c => [
       ...c.aas.map((aa, i) => `<td class="${i === 0 ? 'sep' : ''}">`
         + `${n2(parAA[`${c.cours_code}|${aa}`])}</td>`),
-      `<td><b>${naCours[c.cours_code] ? '<span class="faible">NA</span>'
-        : n2(noteCours[c.cours_code])}</b></td>`,
+      // « NA » NE SURVIT PAS À UNE RÉUSSITE ARRÊTÉE.
+      //
+      // Un cours porté « non acquis » sous un étudiant que le Conseil a déclaré
+      // reçu est une contradiction, pas une information : elle vient d'un
+      // ajournement posé puis dépassé — une décision corrigée, une seconde
+      // session réussie, une reprise d'historique. La grille montrait « NA » à
+      // côté de « Réussi », et c'est le genre de page qu'un recours épingle.
+      //
+      // La décision arrêtée fait foi : on affiche alors la note calculée, et
+      // l'incohérence se signale à part plutôt que de s'imprimer.
+      // SOUS LE SEUIL, UN COURS N'EST PAS ACQUIS — et cela s'écrit « NA », non
+      // par une cote. Un chiffre sous dix laisse croire à un demi-résultat ;
+      // la circulaire Sanction des études ne connaît que l'acquis et le non
+      // acquis. L'ACQUIS, lui, garde son chiffre : c'est sur lui que le Conseil
+      // délibère et c'est de lui que la motivation rend compte.
+      (() => {
+        const v = naCours[c.cours_code] ? calcCours[c.cours_code] : noteCours[c.cours_code];
+        const na = (naCours[c.cours_code] && !recu) || (v != null && v < SEUIL_UE);
+        return `<td><b>${na ? '<span class="faible">NA</span>' : n2(v)}</b></td>`;
+      })(),
     ]);
     const LIB = { reussi: 'Réussi', ajourne: 'Ajourné', refuse: 'Refusé', absent: 'Absent' };
     return `<tr>
       <td class="nom">${esc0(e.nom)} ${esc0(e.prenom)}</td>
       ${cells.join('')}
-      <td class="sep"><b>${n2(d.ue?.note)}</b></td>
+      ${(() => {
+        const v = d.ue?.note ?? (recu ? d.ue?.note_calculee : null);
+        // Sous une réussite arrêtée, l'unité ne s'écrit JAMAIS « NA » : ce
+        // serait imprimer la contradiction que l'on vient de signaler. Faute de
+        // cote calculable — l'ajournement resté au dossier l'en empêche — on
+        // écrit un tiret, et le bandeau dit pourquoi.
+        const na = !recu && (v == null || v < SEUIL_UE);
+        return `<td class="sep"><b>${na ? '<span class="faible">NA</span>' : n2(v)}</b></td>`;
+      })()}
       <td class="dec dec-${arrete || dec || ''}">${LIB[arrete] || (dec ? `(${LIB[dec]})` : '—')}</td>
     </tr>`;
   });
@@ -4651,9 +4772,20 @@ export function pageGrilleDeliberation(ueNum, annee, session = 1, { total = fals
       l'épreuve n'a pas été présentée. En rouge, ce qui est sous le seuil de
       ${String(SEUIL_UE).replace('.', ',')}/20. Une décision entre parenthèses est
       celle que le calcul propose : elle n'a pas encore été arrêtée par le Conseil.
+      Les cotes sont arrondies ${{
+        entier: 'à l’unité', demi: 'au demi-point',
+      }[reglesGrille.arrondi] || 'au centième'} — c'est l'arrondi retenu
+      par l'établissement, et c'est sur la cote arrondie que le seuil s'apprécie.
     </div>
+    ${incoherences.length ? `<div class="legende" style="color:#b45309">
+      <b>À corriger :</b> ${esc0(incoherences.slice(0, 8).join(' · '))}${
+        incoherences.length > 8 ? ` … et ${incoherences.length - 8} autre(s)` : ''}.
+      La décision du Conseil a été retenue ; l'ajournement resté au dossier
+      devrait être levé.
+    </div>` : ''}
   </div>`;
-  return { corps, style: STYLE_ENTETE_DELIB + STYLE_DOSSIER, vide: false, etudiants: etudiants.length };
+  return { corps, style: STYLE_ENTETE_DELIB + STYLE_DOSSIER, vide: false,
+           etudiants: etudiants.length, incoherences };
 }
 
 /**

@@ -54,7 +54,11 @@ const tonCote = n => {
   return 'text-emerald-800 bg-emerald-50';
 };
 
-const fmtCote = n => (n == null ? '—' : Number(n).toFixed(1).replace('.', ','));
+// LA COTE S'ÉCRIT COMME ELLE EST RETENUE. « toFixed(1) » imposait un décimal
+// à des cotes que la maison arrondit à l'unité : la colonne affichait « 14,0 »
+// là où le Conseil retient « 14 ». On écrit le nombre tel qu'il est.
+const fmtCote = n => (n == null ? '—'
+  : String(Math.round(Number(n) * 100) / 100).replace('.', ','));
 
 // Les cours se distinguent par une teinte d'en-tête : sans elle, quinze
 // colonnes d'acquis se ressemblent toutes et l'on ne sait plus où l'on est.

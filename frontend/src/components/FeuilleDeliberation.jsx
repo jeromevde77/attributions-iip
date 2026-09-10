@@ -203,6 +203,17 @@ export default function FeuilleDeliberation({ ueNum, annee, onClose }) {
     setOrdre(l.map(e => e.id));
   }
 
+  // L'ORDRE SE FIGE DÈS QU'ON ENTRE DANS LA REVUE, par quelque chemin qu'on y
+  // arrive. Il ne l'était qu'au bouton « Passer » et après la délibération
+  // d'office : entré autrement, l'ordre restait libre, et poser un ajournement
+  // — « Refus général », par exemple — recalculait le rang de l'étudiant, qui
+  // descendait dans la liste. Au même index, on se retrouvait DEVANT QUELQU'UN
+  // D'AUTRE, avec l'impression d'avoir été poussé au suivant.
+  useEffect(() => {
+    if (etape === 'fiche' && !ordre && data?.etudiants?.length) figerOrdre();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [etape, ordre, data]);
+
   const etud = liste[Math.min(idx, Math.max(liste.length - 1, 0))] || null;
 
   /**
@@ -718,7 +729,7 @@ export default function FeuilleDeliberation({ ueNum, annee, onClose }) {
               </div>
 
               <Fiche e={etud} data={data} onAjuster={ajuster} onLot={ajusterLot}
-                onMotif={poserMotif}
+                onMotif={poserMotif} session={session}
                 enCours={enCours} onBord={() => setBord(etud)}
                 decision={decisions[etud.id] || etud.ue?.decision_proposee || null}
                 onDecision={d => setDecisions(m => ({ ...m, [etud.id]: d }))}
@@ -1359,7 +1370,7 @@ function Cloture({ seance, onClore, onRetour, onPV, onRouvrir, enCours, nb, ajou
  */
 
 function Fiche({ e, data, onAjuster, onLot, onMotif, enCours, onBord,
-  decision, onDecision, onAnnuler }) {
+  decision, onDecision, onAnnuler, session }) {
   const ue = e.ue || {};
   const acquis = e.acquis || [];
   const cours = e.cours || [];
@@ -1380,6 +1391,9 @@ function Fiche({ e, data, onAjuster, onLot, onMotif, enCours, onBord,
   // Une maison qui ne délibère que sur les acquis ne voit donc pas la ligne
   // des cours, et réciproquement.
   const regarde = e.ue?.regarde || { aa: true, cours: true };
+  // La décision retenue : dès qu'elle est défavorable, les cases sous le seuil
+  // s'écrivent « NA » — ce n'est plus une cote qu'on discute.
+  const decidee = decision === 'ajourne' || decision === 'refuse';
 
   return (
     <div className="grid gap-3 lg:grid-cols-[minmax(0,1fr)_300px] items-start">
@@ -1424,9 +1438,18 @@ function Fiche({ e, data, onAjuster, onLot, onMotif, enCours, onBord,
                   </div>
                 </th>
               ))}
-              <th className="px-2 py-2 border-b border-l-2 border-l-iip-blue/40 bg-iip-blue/5
+              {/* LA COLONNE DES ACQUIS EST CE SUR QUOI ON DÉCIDE — et en
+                  seconde session, la seule qui compte. Elle se lit comme un
+                  bloc : un cadre l'entoure du haut de l'en-tête au bas de la
+                  note d'unité, au lieu d'un simple filet à gauche. */}
+              <th className="px-2 py-2 border-2 border-b-0 border-iip-blue/50
+                             rounded-t-lg bg-iip-blue/10
                              min-w-[104px] text-[10px] font-bold uppercase text-iip-blue">
                 Acquis / UE
+                {!regarde.cours && (
+                  <div className="font-bold normal-case tracking-normal text-[9.5px]
+                                  text-iip-blue/80">ce qui décide</div>
+                )}
               </th>
             </tr>
           </thead>
@@ -1472,12 +1495,11 @@ function Fiche({ e, data, onAjuster, onLot, onMotif, enCours, onBord,
                 })}
 
                 {/* Somme de la ligne : ce que l'acquis vaut pour l'unité. */}
-                <td className="border-b border-l-2 border-l-iip-blue/40 bg-iip-blue/5 px-1.5 py-1">
+                <td className="border-x-2 border-iip-blue/50 bg-iip-blue/10 px-1.5 py-1">
                   <TuileSomme etat={a} seuil={data.seuil} enCours={enCours}
+                    decidee={decidee}
                     onAjourner={() => onAjuster('aa', a.aa_code,
                       a.ajourne_directement ? null : 'ajourne')}
-                    onFaveur={() => onAjuster('aa', a.aa_code,
-                      a.faveur_directe ? null : 'faveur')}
                     motif={a.motif} />
                 </td>
               </tr>
@@ -1489,20 +1511,23 @@ function Fiche({ e, data, onAjuster, onLot, onMotif, enCours, onBord,
                              border-slate-200 text-[11px] font-bold uppercase
                              tracking-wide text-slate-500">
                 {regarde.cours ? 'Note du cours' : 'Note du cours (indicative)'}
+                {!regarde.cours && (
+                  <div className="font-normal normal-case tracking-normal text-[10px]
+                                  text-slate-400">à titre indicatif</div>
+                )}
               </td>
               {cours.map(c => (
                 <td key={c.cours_code} className="border-t border-slate-200 px-1.5 py-1.5">
                   <TuileSomme etat={c} seuil={data.seuil} enCours={enCours}
+                    decidee={decidee} indicatif={!regarde.cours}
                     onAjourner={() => onAjuster('cours', c.cours_code,
-                      c.ajourne_directement ? null : 'ajourne')}
-                    onFaveur={() => onAjuster('cours', c.cours_code,
-                      c.faveur_directe ? null : 'faveur')} />
+                      c.ajourne_directement ? null : 'ajourne')} />
                 </td>
               ))}
 
               {/* Le croisement des deux sommes : la note de l'unité. */}
-              <td className="border-t-2 border-t-iip-blue/40 border-l-2 border-l-iip-blue/40
-                             bg-iip-blue/10 px-1.5 py-1.5">
+              <td className="border-x-2 border-b-2 border-t border-iip-blue/50
+                             rounded-b-lg bg-iip-blue/15 px-1.5 py-1.5">
                 <TuileUE ue={ue} seuil={data.seuil} enCours={enCours}
                   onFaveur={() => onAjuster('ue', '*', ue.faveur_ue ? null : 'faveur')} />
               </td>
@@ -1538,7 +1563,8 @@ function Fiche({ e, data, onAjuster, onLot, onMotif, enCours, onBord,
       {/* Ce que le Conseil décide, et ce qu'il y a à représenter. */}
       <Decision e={e} ue={ue} onBord={onBord} acquis={acquis} cours={cours}
         decision={decision} onDecision={onDecision} enCours={enCours}
-        onAnnuler={onAnnuler} />
+        onAnnuler={onAnnuler} session={session}
+        onFaveurUE={() => onAjuster('ue', '*', ue.faveur_ue ? null : 'faveur')} />
       </div>
 
       {/* LE PILOTAGE, à droite : de qui l'on parle, et où il en est. */}
@@ -1675,19 +1701,29 @@ function Chiffre({ libelle, valeur, suffixe, ton }) {
  * pouvait plus justifier ce qu'on venait d'ajourner. La tuile n'en garde qu'un
  * témoin : un point bleu quand le motif est écrit, un point rouge sinon.
  */
-function TuileSomme({ etat, seuil, onAjourner, onFaveur, motif, enCours }) {
+function TuileSomme({ etat, seuil, onAjourner, onFaveur, motif, enCours,
+                      decidee = false, indicatif = false }) {
   const { na, faveur, note, mention } = etat;
   const echec = !na && note != null && note < seuil;
+  // DÈS QUE LA DÉCISION EST POSÉE, CE QUI EST SOUS LE SEUIL N'EST PLUS UNE
+  // COTE, C'EST UN NON-ACQUIS. Tant qu'on délibère, le chiffre aide — 6 et 9
+  // ne se motivent pas pareil. Une fois l'unité ajournée ou refusée, la cote
+  // n'a plus de rôle : c'est « NA » qui figurera partout ensuite.
+  const enNA = na || (decidee && echec);
   return (
     <div className={`rounded-lg border px-2 py-1 flex items-center gap-1.5
+      ${indicatif ? 'opacity-50' : ''}
       ${na ? 'border-slate-300 bg-slate-100 text-slate-600'
         : faveur ? 'border-amber-400 bg-amber-50 text-amber-900'
         : echec ? 'border-red-500 border-2 bg-red-50 text-red-800'
         : note == null ? 'border-slate-200 bg-white text-slate-300'
         : 'border-emerald-300 bg-emerald-50 text-emerald-900'}`}>
-      <span className="text-[15px] font-bold tabular-nums flex-1 text-right"
-        title={mention === 'NP' ? 'Note de présence' : mention === 'PP' ? 'Pas présenté' : ''}>
-        {na ? 'NA' : (mention || fmt(note))}
+      <span className={`text-[15px] font-bold tabular-nums flex-1 text-right
+        ${decidee && echec ? 'text-red-700' : ''}`}
+        title={mention === 'NP' ? 'Note de présence'
+          : mention === 'PP' ? 'Pas présenté'
+          : decidee && echec ? `Cote calculée : ${fmt(note)}/20 — non acquis` : ''}>
+        {enNA ? 'NA' : (mention || fmt(note))}
       </span>
       <span className="flex flex-col gap-0.5">
         <button disabled={enCours} onClick={onAjourner}
@@ -1698,12 +1734,14 @@ function TuileSomme({ etat, seuil, onAjourner, onFaveur, motif, enCours }) {
           <IconRepeat size={11} />
         </button>
 
-        {/* LEVER EN FAVEUR, ICI AUSSI. La faveur avait été ramenée à la seule
-            unité ; c'était une erreur. Le Conseil ne lève pas « une unité » :
-            il lève L'ACQUIS qui manque, ou LE COURS. C'est ce geste-là qui se
-            motive et se relit, et c'est le seul qui rende compte d'une réussite
-            accordée alors qu'un acquis précis n'était pas maîtrisé. */}
-        {(echec || faveur) && !na && onFaveur && (
+        {/* LA FAVEUR SE POSE À L'UNITÉ, ET NULLE PART AILLEURS.
+            Elle a longtemps été offerte ici, sur l'acquis et sur le cours. La
+            maison délibère autrement : c'est l'UNITÉ que le Conseil accorde ou
+            refuse, et la faveur est la décision de la donner malgré un acquis
+            manquant. Le bouton vit désormais avec les autres décisions, sous la
+            fiche. L'ajournement, lui, reste ici : c'est lui qui dit ce qui se
+            représente, et cela se pose bien élément par élément. */}
+        {false && (echec || faveur) && !na && onFaveur && (
           <button disabled={enCours} onClick={onFaveur}
             title={faveur ? 'Retirer la faveur'
               : `Lever en faveur — vaudra exactement ${seuil}`}
@@ -2084,7 +2122,8 @@ function DecisionGenerale({ cours, enCours, onLot, onDecision, decision }) {
   );
 }
 
-function Decision({ e, ue, onBord, acquis, cours, decision, onDecision, enCours, onAnnuler }) {
+function Decision({ e, ue, onBord, acquis, cours, decision, onDecision, enCours,
+                    onAnnuler, session, onFaveurUE }) {
   const detail = ue.a_representer_detail || [];
   // Ce qui reste à justifier se lit sur les acquis affichés, non sur la liste
   // que le serveur a calculée à l'ouverture de la fiche.
@@ -2105,7 +2144,28 @@ function Decision({ e, ue, onBord, acquis, cours, decision, onDecision, enCours,
 
       <div className="p-3 space-y-2">
         <div className="flex items-center gap-2 flex-wrap">
-          {DECISIONS.map(d => {
+          {/* LA FAVEUR EST UNE DÉCISION DE L'UNITÉ, pas une retouche de note.
+              Le Conseil accorde l'unité malgré un acquis manquant : la cote
+              monte au seuil, jamais au-delà (RGE art. 77 §1 et 78 §2). Elle vit
+              donc avec les autres décisions, et non plus dans chaque case. */}
+          {onFaveurUE && (
+            <button disabled={enCours} onClick={onFaveurUE}
+              title={ue.faveur_ue
+                ? 'Retirer la faveur accordée à l’unité'
+                : 'Accorder l’unité en faveur — la cote monte au seuil, jamais au-delà'}
+              className={`px-3 py-1.5 text-[12.5px] font-semibold rounded-lg border
+                ${ue.faveur_ue
+                  ? 'bg-amber-500 border-amber-600 text-white'
+                  : 'bg-white border-amber-400 text-amber-800 hover:bg-amber-50'}`}>
+              <IconBrush size={13} className="inline align-[-2px] mr-1" />
+              {ue.faveur_ue ? 'Faveur accordée' : 'Faveur'}
+            </button>
+          )}
+          {/* EN SECONDE SESSION, « AJOURNÉ » N'EXISTE PAS : il n'y a plus rien
+              à représenter, et « l'étudiant qui échoue en seconde session est
+              refusé » (RGE art. 69 §2). Le bouton disparaît plutôt que de rester
+              cliquable — une troisième session ne se propose pas. */}
+          {DECISIONS.filter(d => !(session >= 2 && d.cle === 'ajourne')).map(d => {
             const actif = decision === d.cle;
             return (
               <button key={d.cle} disabled={enCours}
