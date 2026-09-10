@@ -23,8 +23,10 @@ export function AxeAccueil() {
       titre="Accueil" icone={IconHome}
       question="« Qu'est-ce qui m'attend ? »"
       onglets={[
-        { key: 'tableau', label: 'Tableau de bord', sansMarge: true, rendu: <Accueil /> },
-        { key: 'echeancier', label: 'Échéancier', sansMarge: true, rendu: <Echeancier /> },
+        { key: 'tableau', label: 'Tableau de bord', sansMarge: true, railPropre: true,
+          rendu: <Accueil /> },
+        { key: 'echeancier', label: 'Échéancier', sansMarge: true, railPropre: true,
+          rendu: <Echeancier /> },
       ]}
     />
   );
@@ -37,7 +39,7 @@ export function AxeEtudiants() {
       titre="Étudiants" icone={IconChecklist}
       question="« Où en est cet étudiant ? »"
       onglets={[
-        { key: 'pae', label: 'PAE & inscriptions', sansMarge: true,
+        { key: 'pae', label: 'PAE & inscriptions', sansMarge: true, railPropre: true,
           rendu: <Etudiants /> },
         // La DÉLIBÉRATION prend la place de la saisie rapide, qu'elle contient.
         // On atteignait la feuille par un clic non annoncé sur un en-tête de
@@ -49,7 +51,7 @@ export function AxeEtudiants() {
         // L'onglet ouvre TOUTE la page Procédures — recours, fraude,
         // disciplinaire, examens, archives. L'appeler « Recours » annonçait un
         // cinquième de son contenu et cachait le reste.
-        { key: 'procedures', label: 'Procédures', sansMarge: true,
+        { key: 'procedures', label: 'Procédures', sansMarge: true, railPropre: true,
           rendu: <Suspense fallback={<Attente />}><Procedures /></Suspense> },
         { key: 'admission', label: 'Admission & inscription', futur: true,
           description: "Titres d'accès, valorisation des acquis, droit d'inscription et exemptions." },
@@ -69,7 +71,7 @@ export function AxeCommunication() {
       titre="Communication" icone={IconSend}
       question="« Que dois-je produire ou envoyer ? »"
       onglets={[
-        { key: 'listes', label: 'Listes & impressions', sansMarge: true,
+        { key: 'listes', label: 'Listes & impressions', sansMarge: true, railPropre: true,
           rendu: <Suspense fallback={<Attente />}><Listes /></Suspense> },
         { key: 'diffusion', label: 'Diffusion ciblée', futur: true,
           description: '« Envoyer à tous les professeurs de l\u2019UE 95 » — modèles, accusés de lecture, historique.' },
