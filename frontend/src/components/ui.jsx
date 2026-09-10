@@ -3,15 +3,30 @@
 // Police : Inter (définie globalement dans index.css).
 
 // En-tête de page standard : icône turquoise + titre bleu marine + sous-titre.
+//
+// IL TENAIT SUR DEUX LIGNES ET PESAIT UNE BANDE ENTIÈRE. Or l'axe est déjà
+// nommé dans la barre du haut et l'onglet dit lequel on regarde : ce titre-ci
+// n'est plus une annonce, c'est un repère. Il en prend la taille — et le
+// sous-titre passe SUR LA MÊME LIGNE quand la largeur le permet, séparé par un
+// point médian, au lieu de s'empiler dessous.
+//
+// Ce qui est gagné, ce sont les quarante pixels qui séparaient le haut de
+// l'écran de la première donnée, sur chacun des dix écrans qui l'emploient.
 export function PageHeader({ icon: Icon, titre, sous, actions }) {
   return (
-    <div className="flex items-start justify-between gap-4 mb-5">
-      <div className="flex items-center gap-3">
-        {Icon && <Icon size={24} className="text-iip-turquoise flex-shrink-0" stroke={1.8} />}
-        <div>
-          <h1 className="text-xl font-title text-iip-blue leading-tight">{titre}</h1>
-          {sous && <p className="text-[13px] text-gray-400 mt-0.5">{sous}</p>}
-        </div>
+    <div className="flex items-center justify-between gap-4 mb-3.5">
+      <div className="flex items-baseline gap-2.5 min-w-0">
+        {Icon && (
+          <Icon size={19} stroke={1.8}
+            className="text-iip-turquoise flex-shrink-0 self-center" />
+        )}
+        <h1 className="text-[17px] font-title text-iip-blue leading-tight
+                       flex-shrink-0">{titre}</h1>
+        {sous && (
+          <p className="text-[12.5px] text-slate-400 truncate hidden md:block">
+            <span className="mr-2 text-slate-300">·</span>{sous}
+          </p>
+        )}
       </div>
       {actions && <div className="flex items-center gap-2 flex-shrink-0">{actions}</div>}
     </div>

@@ -2247,12 +2247,10 @@ export default function Etudiants() {
       <RailLateral icon={IconChecklist} titre="Étudiants"
         sousTitre={`${filtres.length} étudiant(s)`} sections={RAIL} />
     <div className="ml-16 p-5 space-y-4 max-w-none">
-      <div className="flex items-center justify-between flex-wrap gap-3">
-        <div>
-          <h2 className="text-xl font-semibold text-iip-blue">Étudiants</h2>
-          <p className="text-sm text-slate-500">{filtres.length} étudiant(s)</p>
-        </div>
-      </div>
+      {/* Le titre et le compte vivaient ICI, alors que le rail les porte déjà
+          et que l'onglet le dit une troisième fois. Trois fois « Étudiants »
+          sur un même écran, et autant de hauteur perdue avant la première
+          ligne du tableau. */}
 
       {msgImport && (
         <div className={`px-4 py-2.5 rounded-lg text-sm flex items-center justify-between ${msgImport.type==='ok'
