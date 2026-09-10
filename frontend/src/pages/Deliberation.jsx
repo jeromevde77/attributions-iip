@@ -16,6 +16,7 @@ import RepriseLot from '../components/RepriseLot.jsx';
 import CentreImpression from '../components/CentreImpression.jsx';
 import ImportTableauPlat from '../components/ImportTableauPlat.jsx';
 import ReglesDeliberation from '../components/ReglesDeliberation.jsx';
+import FeuilleCorrection from '../components/FeuilleCorrection.jsx';
 
 /**
  * Délibération — la porte d'entrée.
@@ -54,6 +55,9 @@ export default function Deliberation() {
   const [tableauPlat, setTableauPlat] = useState(false); // la reprise d'historique
   const [regles, setRegles] = useState(false);           // les règles de l'établissement
   const [repriseLot, setRepriseLot] = useState(false);   // reprendre le classeur en lot
+  // LA FEUILLE DE CORRECTION : toute l'unité d'un coup, pour rattraper une
+  // note changée après coup sans repasser devant chaque étudiant.
+  const [corriger, setCorriger] = useState(null);        // ue_num en correction
 
   // La grille de toute l'unité montre les acquis de tous les collègues : elle
   // n'a de sens que pour qui les encode déjà tous. Le serveur applique la même
@@ -334,6 +338,14 @@ export default function Deliberation() {
                         Importer
                       </button>
                     )}
+                    {peutToutEncoder && u.decides > 0 && (
+                      <button onClick={() => setCorriger(u.ue_num)}
+                        title="Toute l'unité sur une feuille : reprendre une note et sa décision"
+                        className="px-2 py-1 text-[11.5px] rounded-lg border border-slate-300
+                                   text-slate-600 flex-none">
+                        Corriger
+                      </button>
+                    )}
                     {peutToutEncoder && (
                       <button onClick={() => setEncoderUE(u.ue_num)}
                         title="Tous les cours de l'unité dans une seule grille"
@@ -437,6 +449,12 @@ export default function Deliberation() {
       )}
       {annees && (
         <DiagnosticAnnees annee={annee} onClose={() => setAnnees(false)} onFini={charger} />
+      )}
+
+      {corriger != null && (
+        <FeuilleCorrection ueNum={corriger} annee={annee}
+          onClose={() => setCorriger(null)}
+          onModifie={charger} />
       )}
 
       {importer != null && (
