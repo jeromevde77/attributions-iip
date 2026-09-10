@@ -2013,6 +2013,20 @@ const REGLES_DEFAUT = {
   // L'unité est TOUJOURS exigée au seuil : c'est elle que l'attestation
   // sanctionne (RGE art. 77 §1). Le paramètre dit ce qui s'y ajoute.
   base: 'cours_aa',
+  // ── ET EN SECONDE SESSION ? ─────────────────────────────────────────────
+  //
+  // La question ne se pose pas dans les mêmes termes qu'en juin. L'étudiant ne
+  // représente pas des cours, il représente les acquis qui lui manquaient — et
+  // ceux-ci sont transversaux : le même acquis s'évalue souvent dans deux
+  // cours. Opposer encore une note de cours en septembre le fait retomber sur
+  // une moyenne qui ne décrit plus rien, puisqu'elle mêle ce qu'il vient de
+  // représenter et ce qu'il avait déjà acquis.
+  //
+  // C'est la lecture de la maison, et c'est le défaut. Mais une autre maison
+  // délibère autrement, et surtout : c'est un CHOIX, qui doit s'énoncer et se
+  // changer. Il était écrit en dur dans le calcul, où personne ne pouvait ni
+  // le voir ni le discuter.
+  base_s2: 'aa',
   portee: 'cours',
   session2: 'par_cours',
   seuil_aa: 10,
@@ -2035,6 +2049,7 @@ export function reglesDeliberation() {
     const seuil = Number(v.seuil_aa);
     return {
       base: ['cours_aa', 'cours', 'aa', 'ue'].includes(v.base) ? v.base : 'cours_aa',
+      base_s2: ['cours_aa', 'cours', 'aa', 'ue'].includes(v.base_s2) ? v.base_s2 : 'aa',
       portee: ['cours', 'aa', 'ue'].includes(v.portee) ? v.portee : 'cours',
       session2: v.session2 === 'unique' ? 'unique' : 'par_cours',
       // JAMAIS SOUS 10/20 : en dessous, un acquis non maîtrisé passerait pour
@@ -2242,20 +2257,25 @@ export function delibererUE(etudId, ueNum, annee, session = 1) {
   // Ce que la base de délibération fait entrer dans la décision. L'unité y
   // est toujours ; le reste dépend du choix de la maison.
   //
-  // EN SECONDE SESSION, SEULS LES ACQUIS COMPTENT. L'étudiant ne représente
-  // pas des cours, il représente les acquis qui lui manquaient — et ceux-ci
-  // sont transversaux : le même acquis s'évalue souvent dans deux cours.
-  // Opposer encore une note de cours en septembre ferait retomber l'étudiant
-  // sur une moyenne qui ne décrit plus rien : elle mêle ce qu'il vient de
-  // représenter et ce qu'il avait déjà acquis en juin. La note de cours reste
-  // calculée et affichée, mais à titre indicatif.
-  const regarde = session >= 2
-    ? { aa: true, cours: false, ue: true, indicatif_cours: true }
-    : {
-      aa: regles.base === 'cours_aa' || regles.base === 'aa',
-      cours: regles.base === 'cours_aa' || regles.base === 'cours',
-      ue: true,
-    };
+  // CHAQUE SESSION A SA BASE, ET LES DEUX SE RÈGLENT.
+  //
+  // La seconde était écrite en dur — « seuls les acquis comptent » — ce qui est
+  // bien la lecture de la maison, mais un choix tout de même, et un choix que
+  // personne ne pouvait ni voir ni changer. Il s'énonce désormais comme celui
+  // de juin, et à côté de lui.
+  //
+  // Un niveau qui sortait de la délibération d'une session à l'autre reste
+  // CALCULÉ ET AFFICHÉ, en tons plus clairs : le Conseil veut voir la note de
+  // cours de septembre sans qu'elle pèse sur la décision.
+  const baseSession = session >= 2 ? regles.base_s2 : regles.base;
+  const prend = (b, quoi) => b === 'cours_aa' || b === quoi;
+  const regarde = {
+    aa: prend(baseSession, 'aa'),
+    cours: prend(baseSession, 'cours'),
+    ue: true,
+    indicatif_cours: !prend(baseSession, 'cours') && prend(regles.base, 'cours'),
+    indicatif_aa: !prend(baseSession, 'aa') && prend(regles.base, 'aa'),
+  };
   // Le seuil de MAÎTRISE d'un acquis, tel que l'établissement l'a fixé — au
   // moins 10/20, jamais moins. Le seuil de RÉUSSITE de l'unité, lui, est celui
   // du décret et ne se paramètre pas.
@@ -4077,6 +4097,8 @@ r.put('/deliberation/regles', authRequired,
     poser.run('deliberation_ajournement', JSON.stringify({
       ...a,
       base: ['cours_aa', 'cours', 'aa', 'ue'].includes(v.base) ? v.base : a.base,
+      base_s2: ['cours_aa', 'cours', 'aa', 'ue'].includes(v.base_s2)
+        ? v.base_s2 : a.base_s2,
       portee: ['cours', 'aa', 'ue'].includes(v.portee) ? v.portee : 'cours',
       session2: v.session2 === 'unique' ? 'unique' : 'par_cours',
       seuil_aa: Number.isFinite(seuil) ? Math.min(20, Math.max(SEUIL_UE, seuil)) : SEUIL_UE,

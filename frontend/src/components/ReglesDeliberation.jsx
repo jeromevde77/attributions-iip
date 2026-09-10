@@ -72,6 +72,70 @@ function Jeton({ cle, dans, onBasculer }) {
   );
 }
 
+/**
+ * LA ZONE DE DÉLIBÉRATION — les niveaux qu'on y dépose peuvent faire échouer
+ * l'unité. Elle sert DEUX FOIS : une par session, car juin et septembre ne se
+ * délibèrent pas dans les mêmes termes.
+ */
+function ZoneBase({ valeur, onChange }) {
+  const sel = depuisBase(valeur);
+  const basculer = c => onChange(versBase({ ...sel, [c]: !sel[c] }));
+  const poser = (c, dedans) => {
+    if (sel[c] !== dedans) onChange(versBase({ ...sel, [c]: dedans }));
+  };
+  const dispos = Object.keys(NIVEAUX).filter(c => !sel[c]);
+  const dedans = Object.keys(NIVEAUX).filter(c => sel[c]);
+  return (
+    <div className="grid gap-3 sm:grid-cols-2">
+      <div onDragOver={e => e.preventDefault()}
+        onDrop={e => { e.preventDefault();
+          poser(e.dataTransfer.getData('text/plain'), false); }}
+        className="rounded-xl border border-slate-200 bg-slate-50 p-2.5 space-y-2">
+        <div className="text-[10.5px] uppercase tracking-wide text-slate-400">
+          Disponibles
+        </div>
+        {dispos.map(c => (
+          <Jeton key={c} cle={c} dans={false} onBasculer={basculer} />
+        ))}
+        {!dispos.length && (
+          <div className="text-[11px] text-slate-400 italic py-2">
+            Tout est dans la délibération.
+          </div>
+        )}
+      </div>
+
+      <div onDragOver={e => e.preventDefault()}
+        onDrop={e => { e.preventDefault();
+          poser(e.dataTransfer.getData('text/plain'), true); }}
+        className="rounded-xl border-2 border-iip-blue/40 bg-iip-blue/5 p-2.5 space-y-2">
+        <div className="text-[10.5px] uppercase tracking-wide text-iip-blue">
+          Le Conseil délibère sur
+        </div>
+        {/* L'UNITÉ NE SE RETIRE PAS. La montrer scellée vaut mieux
+            que de la taire : sans elle, on croirait pouvoir tout
+            enlever, et l'on chercherait pourquoi c'est refusé. */}
+        <div className="px-3 py-2 rounded-xl border border-iip-blue
+                        bg-iip-blue/10">
+          <span className="text-[12.5px] font-semibold text-iip-blue">
+            Unité <span className="text-[10px] font-normal">— toujours</span>
+          </span>
+          <span className="block text-[11px] text-slate-500">
+            la note de l'unité d'enseignement
+          </span>
+        </div>
+        {dedans.map(c => (
+          <Jeton key={c} cle={c} dans onBasculer={basculer} />
+        ))}
+        {!dedans.length && (
+          <div className="text-[11px] text-slate-400 italic py-2">
+            Déposez ici un niveau, ou laissez l'unité seule.
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
 export default function ReglesDeliberation({ onClose, onFini }) {
   const [etat, setEtat] = useState(null);
   const [r, setR] = useState(null);
@@ -150,67 +214,33 @@ export default function ReglesDeliberation({ onClose, onFini }) {
                   Ce qui s'y trouve peut faire échouer une unité. La note de l'unité y est
                   <b> toujours</b> : c'est elle que l'attestation sanctionne (RGE art. 77 §1).
                 </p>
-                {(() => {
-                  const sel = depuisBase(r.base);
-                  const basculer = c => set('base', versBase({ ...sel, [c]: !sel[c] }));
-                  const poser = (c, dedans) => {
-                    if (sel[c] !== dedans) set('base', versBase({ ...sel, [c]: dedans }));
-                  };
-                  const dispos = Object.keys(NIVEAUX).filter(c => !sel[c]);
-                  const dedans = Object.keys(NIVEAUX).filter(c => sel[c]);
-                  return (
-                    <div className="grid gap-3 sm:grid-cols-2">
-                      <div onDragOver={e => e.preventDefault()}
-                        onDrop={e => { e.preventDefault();
-                          poser(e.dataTransfer.getData('text/plain'), false); }}
-                        className="rounded-xl border border-slate-200 bg-slate-50 p-2.5 space-y-2">
-                        <div className="text-[10.5px] uppercase tracking-wide text-slate-400">
-                          Disponibles
-                        </div>
-                        {dispos.map(c => (
-                          <Jeton key={c} cle={c} dans={false} onBasculer={basculer} />
-                        ))}
-                        {!dispos.length && (
-                          <div className="text-[11px] text-slate-400 italic py-2">
-                            Tout est dans la délibération.
-                          </div>
-                        )}
-                      </div>
-
-                      <div onDragOver={e => e.preventDefault()}
-                        onDrop={e => { e.preventDefault();
-                          poser(e.dataTransfer.getData('text/plain'), true); }}
-                        className="rounded-xl border-2 border-iip-blue/40 bg-iip-blue/5 p-2.5 space-y-2">
-                        <div className="text-[10.5px] uppercase tracking-wide text-iip-blue">
-                          Le Conseil délibère sur
-                        </div>
-                        {/* L'UNITÉ NE SE RETIRE PAS. La montrer scellée vaut mieux
-                            que de la taire : sans elle, on croirait pouvoir tout
-                            enlever, et l'on chercherait pourquoi c'est refusé. */}
-                        <div className="px-3 py-2 rounded-xl border border-iip-blue
-                                        bg-iip-blue/10">
-                          <span className="text-[12.5px] font-semibold text-iip-blue">
-                            Unité <span className="text-[10px] font-normal">— toujours</span>
-                          </span>
-                          <span className="block text-[11px] text-slate-500">
-                            la note de l'unité d'enseignement
-                          </span>
-                        </div>
-                        {dedans.map(c => (
-                          <Jeton key={c} cle={c} dans onBasculer={basculer} />
-                        ))}
-                        {!dedans.length && (
-                          <div className="text-[11px] text-slate-400 italic py-2">
-                            Déposez ici un niveau, ou laissez l'unité seule.
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                  );
-                })()}
+                <ZoneBase valeur={r.base} onChange={v => set('base', v)} />
                 <div className="mt-2 px-3 py-2 rounded-lg bg-amber-50 border border-amber-200
                                 text-[11.5px] text-amber-900">
-                  <b>Ce que le Conseil verra :</b> {APERCU[r.base]}
+                  <b>Ce que le Conseil verra en juin :</b> {APERCU[r.base]}
+                </div>
+
+                {/* ── ET EN SEPTEMBRE ────────────────────────────────────────
+                    La seconde session ne se délibère pas dans les mêmes termes :
+                    l'étudiant ne représente pas des cours, il représente les
+                    acquis qui lui manquaient. Opposer encore une note de cours
+                    le fait retomber sur une moyenne qui mêle ce qu'il vient de
+                    représenter et ce qu'il avait déjà. C'était écrit en dur dans
+                    le calcul — donc invisible et indiscutable. */}
+                <div className="mt-4 pt-4 border-t border-slate-200">
+                  <div className="text-[13px] font-semibold text-amber-800">
+                    En seconde session
+                  </div>
+                  <p className="text-[11.5px] text-slate-500 mb-2">
+                    Septembre peut se délibérer autrement que juin. Un niveau retiré
+                    ici reste calculé et affiché, en tons plus clairs : le Conseil le
+                    voit sans qu'il pèse sur la décision.
+                  </p>
+                  <ZoneBase valeur={r.base_s2 || 'aa'} onChange={v => set('base_s2', v)} />
+                  <div className="mt-2 px-3 py-2 rounded-lg bg-amber-50 border border-amber-200
+                                  text-[11.5px] text-amber-900">
+                    <b>Ce que le Conseil verra en septembre :</b> {APERCU[r.base_s2 || 'aa']}
+                  </div>
                 </div>
               </div>
 
