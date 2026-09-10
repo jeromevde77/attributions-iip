@@ -1922,6 +1922,23 @@ const SEUIL_UE = 10;   // RDE, art. 78
  * arrondi que le reste, sans quoi la grille mêle des centièmes et des unités
  * sur la même ligne.
  */
+/**
+ * LA COTE TELLE QU'ELLE PEUT ÊTRE REMISE À L'ÉTUDIANT.
+ *
+ * Un document destiné à l'étudiant ne porte JAMAIS une cote sous le seuil : la
+ * circulaire Sanction des études ne connaît que l'acquis et le non acquis, et
+ * un « 6/20 » sur une notification laisse croire à un demi-résultat qui
+ * n'existe pas. Sous dix, on écrit « NA ».
+ *
+ * La grille de délibération, elle, garde les chiffres des acquis : c'est une
+ * pièce interne, et c'est de ces chiffres que la motivation rend compte.
+ */
+export function coteEtudiant(v) {
+  if (v == null) return 'NA';
+  const r = arrondiMaison(v);
+  return r < SEUIL_UE ? 'NA' : String(r).replace('.', ',');
+}
+
 export function arrondiMaison(v, regles = null) {
   if (v == null) return null;
   const r = (regles || reglesDeliberation()).arrondi;
@@ -2213,11 +2230,21 @@ export function delibererUE(etudId, ueNum, annee, session = 1) {
   const regles = reglesDeliberation();
   // Ce que la base de délibération fait entrer dans la décision. L'unité y
   // est toujours ; le reste dépend du choix de la maison.
-  const regarde = {
-    aa: regles.base === 'cours_aa' || regles.base === 'aa',
-    cours: regles.base === 'cours_aa' || regles.base === 'cours',
-    ue: true,
-  };
+  //
+  // EN SECONDE SESSION, SEULS LES ACQUIS COMPTENT. L'étudiant ne représente
+  // pas des cours, il représente les acquis qui lui manquaient — et ceux-ci
+  // sont transversaux : le même acquis s'évalue souvent dans deux cours.
+  // Opposer encore une note de cours en septembre ferait retomber l'étudiant
+  // sur une moyenne qui ne décrit plus rien : elle mêle ce qu'il vient de
+  // représenter et ce qu'il avait déjà acquis en juin. La note de cours reste
+  // calculée et affichée, mais à titre indicatif.
+  const regarde = session >= 2
+    ? { aa: true, cours: false, ue: true, indicatif_cours: true }
+    : {
+      aa: regles.base === 'cours_aa' || regles.base === 'aa',
+      cours: regles.base === 'cours_aa' || regles.base === 'cours',
+      ue: true,
+    };
   // Le seuil de MAÎTRISE d'un acquis, tel que l'établissement l'a fixé — au
   // moins 10/20, jamais moins. Le seuil de RÉUSSITE de l'unité, lui, est celui
   // du décret et ne se paramètre pas.
@@ -4332,6 +4359,10 @@ const STYLE_ENTETE_DELIB = `<style>
     border-radius: 1.2mm; padding: 1mm 2.5mm; }
   .delib-seance b { font-weight: 700; }
   .delib-seance .manque { background: #fef3c7; border-color: #fcd34d; font-style: italic; }
+  /* La seconde session porte sa couleur : sur une pile de cinquante pièces,
+     le titre seul ne distingue pas juin de septembre. */
+  .delib-seance .delib-s2 { background: #fff4e6; border-color: #f59e0b; color: #9a3412; }
+  .delib-seance .delib-total { background: #eef7ee; border-color: #4d9a5a; color: #1f5b2c; }
 </style>`;
 
 /** L'en-tête commun. `quoi` est le nom de la pièce ; le reste s'en déduit. */
@@ -4359,9 +4390,13 @@ function enteteDelib(ueNum, annee, session, quoi, { total = false } = {}) {
     return `${j === 1 ? '1er' : j} ${MOIS[Number(m[2]) - 1]} ${m[1]}`;
   })();
 
+  // LA SECONDE SESSION SE VOIT DE LOIN. Deux pièces voisines, l'une de juin
+  // l'autre de septembre, se confondaient sur la pile : le titre seul ne
+  // suffit pas quand on trie cinquante documents.
   const quelle = total
     ? 'Résultat des deux sessions'
     : (session === 2 ? 'Seconde session' : 'Première session');
+  const teinte = total ? 'delib-total' : (session === 2 ? 'delib-s2' : '');
 
   return `<div class="delib-cf">
     <div class="cf">COMMUNAUTÉ FRANÇAISE DE BELGIQUE</div>
@@ -4384,7 +4419,7 @@ function enteteDelib(ueNum, annee, session, quoi, { total = false } = {}) {
   </div>
   <div class="delib-filet"></div>
   <div class="delib-seance">
-    <span><b>${e(quelle)}</b></span>
+    <span class="${teinte}"><b>${e(quelle)}</b></span>
     ${dateFr ? `<span>Séance du <b>${e(dateFr)}</b>${
       sc.heure_seance ? ` à ${e(sc.heure_seance)}` : ''}</span>`
       : '<span class="manque">Date de séance non fixée</span>'}
@@ -4681,15 +4716,30 @@ export function pageGrilleDeliberation(ueNum, annee, session = 1, { total = fals
       //
       // La décision arrêtée fait foi : on affiche alors la note calculée, et
       // l'incohérence se signale à part plutôt que de s'imprimer.
-      `<td><b>${naCours[c.cours_code] && !recu
-        ? '<span class="faible">NA</span>'
-        : n2(naCours[c.cours_code] ? calcCours[c.cours_code] : noteCours[c.cours_code])}</b></td>`,
+      // SOUS LE SEUIL, UN COURS N'EST PAS ACQUIS — et cela s'écrit « NA », non
+      // par une cote. Un chiffre sous dix laisse croire à un demi-résultat ;
+      // la circulaire Sanction des études ne connaît que l'acquis et le non
+      // acquis. L'ACQUIS, lui, garde son chiffre : c'est sur lui que le Conseil
+      // délibère et c'est de lui que la motivation rend compte.
+      (() => {
+        const v = naCours[c.cours_code] ? calcCours[c.cours_code] : noteCours[c.cours_code];
+        const na = (naCours[c.cours_code] && !recu) || (v != null && v < SEUIL_UE);
+        return `<td><b>${na ? '<span class="faible">NA</span>' : n2(v)}</b></td>`;
+      })(),
     ]);
     const LIB = { reussi: 'Réussi', ajourne: 'Ajourné', refuse: 'Refusé', absent: 'Absent' };
     return `<tr>
       <td class="nom">${esc0(e.nom)} ${esc0(e.prenom)}</td>
       ${cells.join('')}
-      <td class="sep"><b>${n2(d.ue?.note)}</b></td>
+      ${(() => {
+        const v = d.ue?.note ?? (recu ? d.ue?.note_calculee : null);
+        // Sous une réussite arrêtée, l'unité ne s'écrit JAMAIS « NA » : ce
+        // serait imprimer la contradiction que l'on vient de signaler. Faute de
+        // cote calculable — l'ajournement resté au dossier l'en empêche — on
+        // écrit un tiret, et le bandeau dit pourquoi.
+        const na = !recu && (v == null || v < SEUIL_UE);
+        return `<td class="sep"><b>${na ? '<span class="faible">NA</span>' : n2(v)}</b></td>`;
+      })()}
       <td class="dec dec-${arrete || dec || ''}">${LIB[arrete] || (dec ? `(${LIB[dec]})` : '—')}</td>
     </tr>`;
   });
