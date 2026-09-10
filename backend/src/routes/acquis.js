@@ -2907,6 +2907,12 @@ r.post('/ue/:ueNum/notes/importer', authRequired,
     ON CONFLICT(etudiant_id, annee_scolaire, ue_num, type, code) DO UPDATE SET
       points = excluded.points, cours_code = excluded.cours_code, mention = NULL
   `);
+  const poserMentionNote = db.prepare(`
+    INSERT INTO etudiant_note_detail (etudiant_id, annee_scolaire, ue_num, type, code, cours_code, points, mention)
+    VALUES (?,?,?, 'aa', ?,?, 0, ?)
+    ON CONFLICT(etudiant_id, annee_scolaire, ue_num, type, code) DO UPDATE SET
+      points = 0, cours_code = excluded.cours_code, mention = excluded.mention
+  `);
 
   const rapport = {
     simulation, session: ses, annee: an, ue_num: ueNum,
@@ -2918,7 +2924,14 @@ r.post('/ue/:ueNum/notes/importer', authRequired,
   const executer = () => {
     for (const l of lignes) {
       rapport.total.etudiants++;
-      const t = trouver(l);
+      // L'IDENTIFIANT DU DOSSIER, QUAND LE FICHIER LE PORTE, PASSE AVANT TOUT.
+      // Le classeur exporté par Lucie l'emporte en dernière colonne : c'est la
+      // seule clé qui survive à deux homonymes, à un nom mal recopié et à un
+      // matricule changé d'une année à l'autre.
+      const t = (Number(l.etudiant_id) > 0
+        && db.prepare('SELECT id FROM etudiant WHERE id = ?').get(Number(l.etudiant_id))
+        ? { id: Number(l.etudiant_id), methode: 'identifiant' }
+        : trouver(l));
       if (!t) {
         rapport.total.inconnus++;
         if (rapport.inconnus.length < 20) {
@@ -2942,7 +2955,15 @@ r.post('/ue/:ueNum/notes/importer', authRequired,
       // chacun. Un classeur monté à la main, lui, tient une colonne par
       // COUPLE cours-acquis — c'est plus précis, et cela seul permet de coter
       // différemment un même acquis dans deux cours.
-      const posees0 = Array.isArray(l.notes)
+      //
+      // Et une troisième : le classeur que Lucie elle-même exporte, où chaque
+      // colonne porte son couple cours-acquis et où une case peut valoir une
+      // MENTION (NP, PP) au lieu d'un chiffre.
+      const posees0 = Array.isArray(l.acquis)
+        ? l.acquis.map(x => ({ cours: x.cours || (x.cours_code ? [x.cours_code] : null),
+          code: String(x.code || x.aa_code || '').trim().toUpperCase(),
+          val: x.note, mention: x.mention || null }))
+        : Array.isArray(l.notes)
         ? l.notes.map(x => ({ cours: x.cours_code ? [x.cours_code] : null,
           code: String(x.aa_code || '').trim().toUpperCase(), val: x.valeur }))
         : Object.entries(l.notes || {}).map(([c, v]) => ({
@@ -2950,6 +2971,19 @@ r.post('/ue/:ueNum/notes/importer', authRequired,
 
       let posees = 0;
       for (const x of posees0) {
+        // UNE MENTION N'EST PAS UNE NOTE : elle dit que l'épreuve n'a rien
+        // produit, et elle vaut pour tous les acquis du cours. On l'écrit
+        // telle quelle, avec un zéro — c'est ce que fait déjà l'écran.
+        if (x.mention) {
+          if (!acquisConnus.has(x.code)) continue;
+          for (const cc of (x.cours || coursDeAA[x.code] || [])) {
+            if (!simulation) {
+              poserMentionNote.run(t.id, an, ueNum, `s${ses}|${cc}|${x.code}`, cc, x.mention);
+            }
+            posees++;
+          }
+          continue;
+        }
         if (x.val === '' || x.val == null) continue;
         const n = Number(String(x.val).replace(',', '.')) / diviseur;
         if (!Number.isFinite(n) || n < 0 || n > 20) continue;

@@ -3,6 +3,8 @@ import { IconX, IconAlertTriangle, IconSearch, IconFileSpreadsheet } from '@tabl
 import { authHeaders } from '../lib/api.js';
 import ImportAcquisCours from './ImportAcquisCours.jsx';
 import { naviguerGrille, caseGrille } from '../lib/grilleClavier.js';
+import PanneauAcquis from './PanneauAcquis.jsx';
+import ClasseurNotes from './ClasseurNotes.jsx';
 
 /**
  * Saisie des notes D'UN COURS — l'écran du professeur.
@@ -154,6 +156,14 @@ export default function EncodageCours({ coursCode, annee, onClose, onEnregistre,
           </div>
         </div>
 
+        <div className="flex-1 flex overflow-hidden">
+        {/* L'ÉNONCÉ DES ACQUIS À CÔTÉ DE LA GRILLE : elle ne montre que des
+            codes, et l'énoncé ne vivait que dans une infobulle qu'il fallait
+            survoler colonne par colonne — ce que personne ne fait. */}
+        <PanneauAcquis colonnes={(data?.acquis || []).map(a => ({
+          cours_code: data?.cours?.cours_code, cours_nom: data?.cours?.cours_nom,
+          professeurs: data?.cours?.professeurs, aa_code: a.aa_code,
+          description: a.description, poids: a.poids }))} />
         <div className="flex-1 overflow-y-auto p-5 space-y-3">
           {erreur && (
             <div className="px-3 py-2 rounded-lg bg-red-50 border border-red-200
@@ -329,6 +339,22 @@ export default function EncodageCours({ coursCode, annee, onClose, onEnregistre,
               </p>
             </>
           )}
+        </div>
+        </div>
+
+        {/* LE CLASSEUR DU PROFESSEUR : il part, revient rempli, et se relit sur
+            les clés qu'il porte plutôt que sur l'ordre de ses lignes. */}
+        <div className="flex-none px-5 py-2.5 border-t border-slate-100 flex items-center
+                        justify-end gap-2">
+          <ClasseurNotes ueNum={data?.cours?.ue_num} annee={annee} session={session}
+            ueNom={data?.cours?.cours_nom}
+            colonnes={(data?.acquis || []).map(a => ({
+              cours_code: data?.cours?.cours_code, cours_nom: data?.cours?.cours_nom,
+              aa_code: a.aa_code, description: a.description, poids: a.poids }))}
+            etudiants={data?.etudiants || []}
+            note={(id, c) => data?.notes?.[id]?.[c.aa_code] ?? null}
+            mention={id => data?.mentions?.[id] || null}
+            onImporte={() => { charger(); onEnregistre?.(); }} />
         </div>
       </div>
 
