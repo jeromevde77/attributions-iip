@@ -178,8 +178,19 @@ export function unitesReussies(etudId, annee) {
       activites,
       acquis,
       // Le modèle demande un pourcentage ; les résultats sont sur 20.
-      pourcentage: i.points != null ? Math.round(Number(i.points) * 5) : null,
-      points: i.points,
+      //
+      // UNE UNITÉ RÉUSSIE NE PORTE JAMAIS MOINS DE CINQUANTE POUR CENT sur
+      // l'attestation. Deux situations y mènent, et toutes deux appellent la
+      // même réponse : l'unité a été OCTROYÉE EN FAVEUR — le Conseil a décidé
+      // qu'elle était acquise au seuil, et l'attestation doit dire dix, non la
+      // moyenne qui l'avait fait échouer —, ou une reprise d'historique a
+      // laissé une cote incohérente avec sa décision. Dans les deux cas,
+      // délivrer une attestation de réussite portant 40 % serait un document
+      // qui se contredit lui-même, et la circulaire Sanction des études ne
+      // l'admet pas.
+      pourcentage: i.points != null
+        ? Math.max(50, Math.round(Number(i.points) * 5)) : null,
+      points: i.points != null ? Math.max(10, Number(i.points)) : null,
       manques,
     };
   });

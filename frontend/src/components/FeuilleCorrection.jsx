@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import {
-  IconX, IconSearch, IconAlertTriangle, IconCheck, IconRepeat, IconBrush,
+  IconX, IconSearch, IconAlertTriangle, IconCheck, IconRepeat, IconGift,
 } from '@tabler/icons-react';
 import { authHeaders } from '../lib/api.js';
 import { naviguerGrille, caseGrille } from '../lib/grilleClavier.js';
@@ -37,6 +37,11 @@ const DECISIONS = [
   { cle: 'absent', l: 'Absent', c: 'bg-slate-500 border-slate-600' },
 ];
 const LIB = Object.fromEntries(DECISIONS.map(d => [d.cle, d.l]));
+
+/* Les SEULS traits verticaux de la grille : l'entrée d'un cours, et l'entrée
+   du bloc de l'unité. Tout le reste se lit à l'alignement. */
+const SEP = 'border-l border-slate-200';
+const SEP_UE = 'border-l-2 border-iip-blue/40';
 
 const fmt = n => (n == null ? '—'
   : String(Math.round(Number(n) * 100) / 100).replace('.', ','));
@@ -234,8 +239,14 @@ export default function FeuilleCorrection({ ueNum, annee, onClose, onModifie }) 
                   <tr>
                     <th className="sticky left-0 z-30 bg-white text-left px-2 pb-1
                                    min-w-[190px]" />
+                    {/* Le groupe couvre ses acquis, sa cote, et l'ajournement
+                        quand il existe — en seconde session il n'existe pas. Un
+                        colSpan figé décalait tout l'en-tête d'une colonne vers
+                        la droite : les titres ne surmontaient plus leurs propres
+                        chiffres. */}
                     {cours.map((c, i) => (
-                      <th key={c.cours_code} colSpan={c.acquis.length + 2}
+                      <th key={c.cours_code}
+                        colSpan={c.acquis.length + (session >= 2 ? 1 : 2)}
                         className={`px-2 py-1 border rounded-t-lg text-left align-bottom
                           ${i % 2 ? 'bg-slate-50 border-slate-200'
                                   : 'bg-iip-blue/5 border-iip-blue/20'}`}>
@@ -248,8 +259,8 @@ export default function FeuilleCorrection({ ueNum, annee, onClose, onModifie }) 
                         </div>
                       </th>
                     ))}
-                    <th colSpan={2}
-                      className="px-2 py-1 border-2 border-iip-blue/50 rounded-t-lg
+                    <th colSpan={3}
+                      className="px-2 py-1 border border-iip-blue/30 rounded-t-lg
                                  bg-iip-blue/10 align-bottom">
                       <div className="font-semibold text-iip-blue">Unité</div>
                       <div className="text-[10px] text-slate-500 font-normal">
@@ -261,31 +272,37 @@ export default function FeuilleCorrection({ ueNum, annee, onClose, onModifie }) 
                     <th className="sticky left-0 z-30 bg-white text-left px-2 pb-1
                                    text-[10px] font-bold uppercase tracking-wide
                                    text-slate-500">Étudiant</th>
+                    {/* UN TRAIT PAR GROUPE, NON PAR COLONNE. Border sur chaque
+                        case dessinait une grille de cahier : l'œil comptait des
+                        traits au lieu de lire des notes. Seule la frontière
+                        entre deux cours en garde un — c'est elle qui porte du
+                        sens. */}
                     {cours.flatMap(c => [
-                      ...c.acquis.map(a => (
+                      ...c.acquis.map((a, j) => (
                         <th key={`${c.cours_code}|${a.aa_code}`} title={a.description || ''}
-                          className="px-1 pb-1 border-x text-[10px] font-bold text-iip-blue">
+                          className={`px-1 pb-1 text-[10px] font-bold text-iip-blue
+                            ${j === 0 ? SEP : ''}`}>
                           {a.aa_code}
                         </th>
                       )),
                       <th key={`${c.cours_code}|cote`}
-                        className="px-1 pb-1 border-x text-[10px] font-bold text-slate-600">
+                        className="px-1 pb-1 text-[10px] font-bold text-slate-600">
                         cote
                       </th>,
                       ...(session >= 2 ? [] : [
                         <th key={`${c.cours_code}|aj`} title="À représenter"
-                          className="px-1 pb-1 border-x text-[10px] font-bold text-amber-700">
+                          className="px-1 pb-1 text-[10px] font-bold text-amber-700">
                           à repr.
                         </th>,
                       ]),
                     ])}
-                    <th className="px-1 pb-1 border-x-2 border-iip-blue/50 bg-iip-blue/10
-                                   text-[10px] font-bold text-iip-blue">cote</th>
+                    <th className={`px-1 pb-1 bg-iip-blue/10 text-[10px] font-bold
+                                    text-iip-blue ${SEP_UE}`}>cote</th>
                     <th title="La cote telle qu'elle figurera sur les documents de l'étudiant"
-                      className="px-1 pb-1 border-x bg-slate-50 text-[10px] font-bold
+                      className="px-1 pb-1 bg-slate-50 text-[10px] font-bold
                                  text-slate-600">à l'étudiant</th>
-                    <th className="px-1 pb-1 border-x-2 border-iip-blue/50 bg-iip-blue/10
-                                   text-[10px] font-bold text-iip-blue min-w-[210px]">
+                    <th className="px-1 pb-1 bg-iip-blue/10 text-[10px] font-bold
+                                   text-iip-blue min-w-[210px]">
                       décision
                     </th>
                   </tr>
@@ -315,12 +332,13 @@ export default function FeuilleCorrection({ ueNum, annee, onClose, onModifie }) 
                           const ferme = data.a_representer
                             && !(data.a_representer[e.id] || []).includes(c.cours_code);
                           return [
-                            ...c.acquis.map(a => {
+                            ...c.acquis.map((a, j) => {
                               const v = data.notes?.[e.id]?.[`${c.cours_code}|${a.aa_code}`];
                               const nc = colonne++;
                               return (
                                 <td key={`${e.id}|${c.cours_code}|${a.aa_code}`}
-                                  className="px-1 py-0.5 border-b border-slate-100 text-center">
+                                  className={`px-1 py-0.5 border-b border-slate-100
+                                    text-center ${j === 0 ? SEP : ''}`}>
                                   <input {...caseGrille(ligne, nc)}
                                     key={`${session}|${v ?? ''}`}
                                     defaultValue={v ?? ''} disabled={!!m || ferme}
@@ -337,7 +355,7 @@ export default function FeuilleCorrection({ ueNum, annee, onClose, onModifie }) 
                             }),
                             <td key={`${e.id}|${c.cours_code}|cote`}
                               className="px-1 py-0.5 border-b border-slate-100 text-center">
-                              <span className={`inline-block min-w-[30px] px-1 py-0.5 rounded
+                              <span className={`inline-block min-w-[30px] px-1 py-0.5
                                 font-bold tabular-nums ${k.na?.[c.cours_code]
                                   ? 'text-red-700 bg-red-50' : ton(k.cours?.[c.cours_code])}`}>
                                 {k.na?.[c.cours_code] ? 'NA' : fmt(k.cours?.[c.cours_code])}
@@ -363,9 +381,9 @@ export default function FeuilleCorrection({ ueNum, annee, onClose, onModifie }) 
                           ];
                         })}
 
-                        <td className="px-1 py-0.5 border-b border-x-2 border-iip-blue/50
-                                       bg-iip-blue/5 text-center">
-                          <span className={`inline-block min-w-[30px] px-1 py-0.5 rounded
+                        <td className={`px-1 py-0.5 border-b border-slate-100
+                                       bg-iip-blue/5 text-center ${SEP_UE}`}>
+                          <span className={`inline-block min-w-[30px] px-1 py-0.5
                             font-bold tabular-nums ${k.ue_na ? 'text-red-700 bg-red-50'
                               : ton(k.ue)}`}>
                             {k.ue_na ? 'NA' : fmt(k.ue)}
@@ -377,16 +395,16 @@ export default function FeuilleCorrection({ ueNum, annee, onClose, onModifie }) 
                             circulaire y interdit tout chiffre sous dix. Les
                             deux se lisent côte à côte : c'est ainsi qu'on voit
                             qu'une faveur a bien porté la cote au seuil. */}
-                        <td className="px-1 py-0.5 border-b border-x bg-slate-50 text-center">
-                          <span className={`inline-block min-w-[30px] px-1 py-0.5 rounded
+                        <td className="px-1 py-0.5 border-b border-slate-100 bg-slate-50
+                                       text-center">
+                          <span className={`inline-block min-w-[30px] px-1 py-0.5
                             font-bold tabular-nums ${k.cote_etudiant === 'NA'
                               ? 'text-red-700 bg-red-50' : 'text-slate-700'}`}>
                             {k.cote_etudiant ?? '—'}
                           </span>
                         </td>
 
-                        <td className="px-1 py-0.5 border-b border-x-2 border-iip-blue/50
-                                       bg-iip-blue/5">
+                        <td className="px-1 py-0.5 border-b border-slate-100 bg-iip-blue/5">
                           <div className="flex items-center gap-1 justify-center flex-wrap">
                             {DECISIONS
                               .filter(d => !(session >= 2 && d.cle === 'ajourne'))
@@ -416,9 +434,9 @@ export default function FeuilleCorrection({ ueNum, annee, onClose, onModifie }) 
                                 : 'Accorder l’unité en faveur — la cote monte au seuil'}
                               className={`px-1.5 py-0.5 text-[11px] font-semibold rounded
                                 border ${k.faveur_ue
-                                  ? 'bg-amber-500 border-amber-600 text-white'
-                                  : 'bg-white border-amber-300 text-amber-700'}`}>
-                              <IconBrush size={11} />
+                                  ? 'bg-violet-600 border-violet-700 text-white'
+                                  : 'bg-white border-violet-300 text-violet-700'}`}>
+                              <IconGift size={11} />
                             </button>
                           </div>
                         </td>

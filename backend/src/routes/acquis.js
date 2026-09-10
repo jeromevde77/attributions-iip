@@ -2569,6 +2569,28 @@ export function delibererUE(etudId, ueNum, annee, session = 1) {
     }
   }
 
+  // ── CE QUE L'ÉTUDIANT LIRA, À CHAQUE NIVEAU ─────────────────────────────
+  //
+  // Deux règles, et elles ne souffrent pas d'exception sur une pièce remise à
+  // l'étudiant.
+  //
+  // 1. JAMAIS DE COTE SOUS DIX (circulaire Sanction des études) : c'est « NA ».
+  //
+  // 2. UNE UNITÉ OCTROYÉE VAUT DIX, ET TOUT CE QU'ELLE CONTIENT AVEC ELLE.
+  //    Accorder l'unité en faveur, c'est décider qu'elle est acquise au seuil.
+  //    Laisser les acquis et les cours porter leurs cotes réelles rendait le
+  //    document incohérent avec lui-même : on y lisait 9, 8, 14 sous une unité
+  //    à 10, et n'importe quel lecteur — l'étudiant le premier — refaisait la
+  //    moyenne et trouvait 8. Le bulletin d'une unité octroyée porte donc dix
+  //    partout : c'est la décision du Conseil, dite d'une seule voix.
+  const octroi = faveur || ueFaveur;
+  for (const a of acquis) {
+    a.cote_etudiant = octroi ? String(SEUIL_AA) : coteEtudiant(a.na ? null : a.note);
+  }
+  for (const c of cours) {
+    c.cote_etudiant = octroi ? String(SEUIL_UE) : coteEtudiant(c.na ? null : c.note);
+  }
+
   return {
     ue_num: ueNum, annee, session, seuil: SEUIL_UE, epreuve_integree: integree,
     regles_ajournement: regles,
