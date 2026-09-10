@@ -1,5 +1,9 @@
 import { Suspense, lazy } from 'react';
-import { IconHome, IconChecklist, IconSend } from '@tabler/icons-react';
+import {
+  IconHome, IconChecklist, IconSend, IconLayoutDashboard, IconCalendarStats,
+  IconClipboardList, IconScale, IconShieldExclamation, IconDoorEnter,
+  IconUserCheck, IconRoute, IconFileText, IconFolder, IconNotes,
+} from '@tabler/icons-react';
 import Axe from '../components/Axe.jsx';
 import Accueil from './Accueil.jsx';
 import Etudiants from './Etudiants.jsx';
@@ -23,9 +27,11 @@ export function AxeAccueil() {
       titre="Accueil" icone={IconHome}
       question="« Qu'est-ce qui m'attend ? »"
       onglets={[
-        { key: 'tableau', label: 'Tableau de bord', sansMarge: true, railPropre: true,
+        { key: 'tableau', label: 'Tableau de bord', icone: IconLayoutDashboard,
+          sansMarge: true, railPropre: true,
           rendu: <Accueil /> },
-        { key: 'echeancier', label: 'Échéancier', sansMarge: true, railPropre: true,
+        { key: 'echeancier', label: 'Échéancier', icone: IconCalendarStats,
+          sansMarge: true, railPropre: true,
           rendu: <Echeancier /> },
       ]}
     />
@@ -39,25 +45,27 @@ export function AxeEtudiants() {
       titre="Étudiants" icone={IconChecklist}
       question="« Où en est cet étudiant ? »"
       onglets={[
-        { key: 'pae', label: 'PAE & inscriptions', sansMarge: true, railPropre: true,
+        { key: 'pae', label: 'PAE & inscriptions', icone: IconClipboardList,
+          sansMarge: true, railPropre: true,
           rendu: <Etudiants /> },
         // La DÉLIBÉRATION prend la place de la saisie rapide, qu'elle contient.
         // On atteignait la feuille par un clic non annoncé sur un en-tête de
         // colonne, dans l'écran de saisie : on arrivait au sens par
         // l'accessoire. L'onglet nomme désormais ce qu'on vient y faire, et la
         // saisie rapide s'y ouvre d'un bouton.
-        { key: 'deliberation', label: 'Délibération', sansMarge: true,
+        { key: 'deliberation', label: 'Délibération', icone: IconScale, sansMarge: true,
           rendu: <Deliberation /> },
         // L'onglet ouvre TOUTE la page Procédures — recours, fraude,
         // disciplinaire, examens, archives. L'appeler « Recours » annonçait un
         // cinquième de son contenu et cachait le reste.
-        { key: 'procedures', label: 'Procédures', sansMarge: true, railPropre: true,
+        { key: 'procedures', label: 'Procédures', icone: IconShieldExclamation,
+          sansMarge: true, railPropre: true,
           rendu: <Suspense fallback={<Attente />}><Procedures /></Suspense> },
-        { key: 'admission', label: 'Admission & inscription', futur: true,
+        { key: 'admission', label: 'Admission & inscription', icone: IconDoorEnter, futur: true,
           description: "Titres d'accès, valorisation des acquis, droit d'inscription et exemptions." },
-        { key: 'presences', label: 'Présences', futur: true,
+        { key: 'presences', label: 'Présences', icone: IconUserCheck, futur: true,
           description: 'Encodage, comptages réglementaires (1er/10e), justificatifs.' },
-        { key: 'parcours', label: 'Parcours & sanction', futur: true,
+        { key: 'parcours', label: 'Parcours & sanction', icone: IconRoute, futur: true,
           description: 'Notes, conseils des études, épreuve intégrée, attestations.' },
       ]}
     />
@@ -71,13 +79,14 @@ export function AxeCommunication() {
       titre="Communication" icone={IconSend}
       question="« Que dois-je produire ou envoyer ? »"
       onglets={[
-        { key: 'listes', label: 'Listes & impressions', sansMarge: true, railPropre: true,
+        { key: 'listes', label: 'Listes & impressions', icone: IconFileText,
+          sansMarge: true, railPropre: true,
           rendu: <Suspense fallback={<Attente />}><Listes /></Suspense> },
-        { key: 'diffusion', label: 'Diffusion ciblée', futur: true,
+        { key: 'diffusion', label: 'Diffusion ciblée', icone: IconSend, futur: true,
           description: '« Envoyer à tous les professeurs de l\u2019UE 95 » — modèles, accusés de lecture, historique.' },
-        { key: 'documents', label: 'Courriers & documents', futur: true,
+        { key: 'documents', label: 'Courriers & documents', icone: IconFolder, futur: true,
           description: "L'archive de tout ce que Lucie a généré : réimpression, production en lot." },
-        { key: 'reunions', label: 'Notes de réunion', futur: true,
+        { key: 'reunions', label: 'Notes de réunion', icone: IconNotes, futur: true,
           description: 'Décisions, diffusion aux absents, lien décision → action → échéance.' },
       ]}
     />

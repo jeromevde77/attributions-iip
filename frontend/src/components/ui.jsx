@@ -172,15 +172,36 @@ export function RailDessine({ icon: HeaderIcon, titre, sousTitre, extra, section
               const Ic = it.icon;
               return (
                 <button key={it.key} onClick={it.onClick} title={it.label}
-                  className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg text-[13px] mb-0.5 transition-colors duration-150
+                  className={`w-full flex items-start gap-3 px-3 py-2 rounded-lg text-[13px] mb-0.5 transition-colors duration-150
                     ${it.actif
                       ? 'bg-iip-turquoise text-white font-semibold'
                       : it.couleur
                         ? 'text-white font-medium hover:opacity-90'
                         : 'text-white/75 hover:bg-white/10 hover:text-white'}`}
                   style={!it.actif && it.couleur ? { background: it.couleur, color: 'white' } : {}}>
-                  {Ic && <Ic size={18} stroke={1.8} className="flex-shrink-0" style={!it.actif && it.couleur ? { color: 'white' } : {}} />}
-                  <span className={`text-left leading-tight ${reveal}`}>{it.label}</span>
+                  {Ic ? (
+                    <Ic size={18} stroke={1.8} className="flex-shrink-0 mt-px"
+                      style={!it.actif && it.couleur ? { color: 'white' } : {}} />
+                  ) : (
+                    /* FILET DE SÉCURITÉ : une entrée sans icône donnerait, rail
+                       replié, une ligne vide — invisible et impossible à viser,
+                       alors que le clic, lui, fonctionne toujours. À défaut
+                       d'icône, un point tient la place et se voit. */
+                    <span className="flex-shrink-0 w-[18px] flex justify-center mt-1.5"
+                      aria-hidden="true">
+                      <span className="w-1.5 h-1.5 rounded-full bg-current opacity-60" />
+                    </span>
+                  )}
+                  {/* REPLIÉ, LE LIBELLÉ RESTE SUR UNE LIGNE — sinon un intitulé
+                      long se replierait en quatre lignes invisibles et ferait
+                      un bouton haut de cinquante pixels dans un rail où l'on ne
+                      voit qu'une icône. OUVERT, il revient à la ligne : « Composer
+                      les PAE de l'année suivante » ne tient pas en deux cent
+                      quarante pixels, et débordait du rail. */}
+                  <span className={`text-left leading-tight min-w-0 flex-1
+                    group-hover/rail:whitespace-normal break-words ${reveal}`}>
+                    {it.label}
+                  </span>
                 </button>
               );
             })}

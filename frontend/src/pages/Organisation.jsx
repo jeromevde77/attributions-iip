@@ -1,6 +1,10 @@
 import { useEffect, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import Axe from '../components/Axe.jsx';
+import {
+  IconLayoutGrid, IconCalendar, IconSchool, IconSitemap, IconFileDescription,
+  IconClock, IconCalendarStats, IconBuilding, IconBooks,
+} from '@tabler/icons-react';
 import Attributions from './Attributions.jsx';
 import Planification from './Planification.jsx';
 import HoraireComparateur from './HoraireComparateur.jsx';
@@ -35,40 +39,41 @@ export default function Organisation({ ongletInitial }) {
 
   return (
     <Axe
-      titre="Organisation"
+      titre="Organisation" icone={IconBooks}
       question="« Qu'organise-t-on cette année ? »"
       ongletInitial={ongletDemande}
       onglets={[
-        { key: 'attributions', label: 'Attributions', sansMarge: true,
+        { key: 'attributions', label: 'Attributions', icone: IconLayoutGrid, sansMarge: true,
           rendu: <Attributions /> },
-        { key: 'organisations', label: "Organisations d'UE",
+        { key: 'organisations', label: "Organisations d'UE", icone: IconCalendar,
           rendu: annee
             ? <DatesUE annee={annee} />
             : <div className="text-sm text-slate-400 p-4">Chargement de l'année active…</div> },
-        { key: 'rentree', label: 'Rentrée', sansMarge: true,
+        { key: 'rentree', label: 'Rentrée', icone: IconSchool, sansMarge: true,
           rendu: annee
             ? <Rentree annee={annee} />
             : <div className="text-sm text-slate-400 p-4">Chargement de l'année active…</div> },
-        { key: 'structure', label: 'Schéma de capitalisation', sansMarge: true,
+        { key: 'structure', label: 'Schéma de capitalisation', icone: IconSitemap, sansMarge: true,
           rendu: annee
             ? <StructureSection annee={annee} />
             : <div className="text-sm text-slate-400 p-4">Chargement de l'année active…</div> },
         // Le descriptif d'unité était un Word recopié d'année en année. Il
         // trouve ici sa place : c'est bien de l'organisation de l'enseignement
         // qu'il parle, et les titulaires y accèdent pour leurs propres unités.
-        { key: 'due', label: "Descriptifs d'UE", sansMarge: true,
+        { key: 'due', label: "Descriptifs d'UE", icone: IconFileDescription, sansMarge: true,
           rendu: <DUE /> },
         // L'HORAIRE VIENT D'AILLEURS, ET PERSONNE NE LE RELIT. Les
         // coordinations le bâtissent dans Hyperplanning à partir des
         // attributions ; que l'horaire dépense bien ce qui a été accordé, et
         // par les bonnes personnes, ne se vérifiait nulle part.
-        { key: 'horaire', label: 'Horaire ↔ attributions', sansMarge: true,
+        { key: 'horaire', label: 'Horaire ↔ attributions', icone: IconClock, sansMarge: true,
           rendu: annee
             ? <HoraireComparateur annee={annee} />
             : <div className="text-sm text-slate-400 p-4">Chargement de l'année active…</div> },
-        { key: 'planification', label: 'Horaires & planification', sansMarge: true,
+        { key: 'planification', label: 'Horaires & planification', icone: IconCalendarStats,
+          sansMarge: true,
           rendu: <Planification /> },
-        { key: 'locaux', label: 'Locaux', futur: true,
+        { key: 'locaux', label: 'Locaux', icone: IconBuilding, futur: true,
           description: "Les locaux quitteront Configuration pour rejoindre le travail d'organisation." },
       ]}
     />

@@ -41,8 +41,12 @@ export default function Axe({ titre, question, icone, onglets, ongletInitial }) 
     label: 'Dans cet axe',
     items: visibles.map(o => ({
       key: o.key,
-      label: o.label + (o.futur ? '  ·  à venir' : ''),
-      icon: o.icone,
+      label: o.label + (o.futur ? ' — à venir' : ''),
+      // SANS ICÔNE, LE RAIL REPLIÉ N'A RIEN À MONTRER : le libellé y est
+      // masqué, et une rubrique sans icône devient une ligne vide qu'on ne
+      // peut ni lire ni viser. L'axe en fournit une par défaut, pour qu'un
+      // volet ajouté sans icône reste utilisable.
+      icon: o.icone || icone,
       actif: actif === o.key,
       onClick: () => setActif(o.key),
     })),
