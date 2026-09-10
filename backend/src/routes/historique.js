@@ -177,8 +177,30 @@ r.get('/backup', authRequired, roleRequired('admin'), (req, res) => {
 r.post('/restore',
   authRequired,
   roleRequired('admin'),
-  express.raw({ type: 'application/octet-stream', limit: '50mb' }),
+  // CINQUANTE MÉGAOCTETS NE SUFFISENT PLUS. La base grossit d'année en année —
+  // notes, historique de délibération, pièces — et un envoi qui dépasse le
+  // plafond est refusé par Express AVANT d'atteindre cette route : l'écran
+  // n'affiche alors aucun message utile, et l'on cherche la panne ailleurs.
+  // La limite doit être plus haute que la base ne le sera de longtemps.
+  express.raw({ type: 'application/octet-stream', limit: '600mb' }),
   async (req, res) => {
+    // LE BOUTON CACHÉ N'EST PAS UNE PROTECTION.
+    //
+    // L'écran ne montre la restauration qu'en développement — mais la route,
+    // elle, répondait partout. Or ce qu'elle fait est irréversible pour tout
+    // le monde : elle remplace la base entière par le contenu d'un fichier.
+    // Un appel direct, un onglet resté ouvert sur la mauvaise instance, un
+    // écran servi depuis un cache : il suffit d'une fois, et c'est l'année
+    // scolaire qui est écrasée par une copie de trois semaines. Le refus se
+    // pose ici, où il vaut vraiment.
+    if (process.env.NODE_ENV !== 'development') {
+      return res.status(403).json({
+        error: "La restauration est réservée à l'environnement de développement.",
+        detail: 'Elle remplacerait ici la base de production par le contenu du '
+              + 'fichier envoyé, sans retour possible depuis cet écran.',
+      });
+    }
+
     const buf = req.body;
     if (!buf || !buf.length) {
       return res.status(400).json({ error: 'Aucun fichier reçu.' });
@@ -189,8 +211,11 @@ r.post('/restore',
       return res.status(400).json({ error: 'Le fichier n\u2019est pas une base SQLite valide.' });
     }
 
-    const dataDir = resolve(__dirname, '../../data');
-    const dbPath = resolve(dataDir, 'attributions.db');
+    // La base est là où le reste de l'application la lit — DB_PATH fait foi,
+    // sinon le chemin par défaut. Le déduire deux fois différemment, c'est
+    // sauvegarder un fichier et en écraser un autre.
+    const dbPath = process.env.DB_PATH || resolve(__dirname, '../../data/attributions.db');
+    const dataDir = dirname(dbPath);
     const tmpPath = resolve(dataDir, `restore-tmp-${Date.now()}.db`);
 
     try {
