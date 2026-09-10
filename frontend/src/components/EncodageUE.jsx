@@ -1,6 +1,8 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { IconX, IconAlertTriangle, IconSearch, IconCheck, IconLink } from '@tabler/icons-react';
 import { authHeaders } from '../lib/api.js';
+import PanneauAcquis from './PanneauAcquis.jsx';
+import ClasseurNotes from './ClasseurNotes.jsx';
 import { naviguerGrille, caseGrille } from '../lib/grilleClavier.js';
 
 /**
@@ -217,6 +219,17 @@ export default function EncodageUE({ ueNum, annee, onClose, onEnregistre, onPara
           </div>
         )}
 
+        <div className="flex-1 flex overflow-hidden">
+          {/* L'ÉNONCÉ DES ACQUIS, À CÔTÉ DE LA GRILLE. Elle ne montre que des
+              codes ; le professeur qui corrige a l'énoncé sur sa copie, pas à
+              l'écran, et rien n'est plus facile que de coter la mauvaise
+              colonne quand on ne les distingue que par un numéro. */}
+          <PanneauAcquis colonnes={(data?.cours || [])
+            .filter(c => c.acquis?.length)
+            .flatMap(c => c.acquis.map(a => ({
+              cours_code: c.cours_code, cours_nom: c.cours_nom,
+              professeurs: c.professeurs, aa_code: a.aa_code,
+              description: a.description, poids: a.poids })))} />
         <div className="flex-1 overflow-auto p-5 pt-3">
           {/* CE QUE LA SECONDE SESSION ATTEND — et ce qu'elle n'attend pas.
               Sans un mot, une feuille plus courte se lit comme une perte
@@ -457,6 +470,7 @@ export default function EncodageUE({ ueNum, annee, onClose, onEnregistre, onPara
             </table>
           )}
         </div>
+        </div>
 
         <div className="flex-none px-5 py-2.5 border-t border-slate-100 flex items-center
                         justify-between gap-3">
@@ -464,10 +478,26 @@ export default function EncodageUE({ ueNum, annee, onClose, onEnregistre, onPara
             Chaque note s'enregistre seule, en quittant la case. <b>NP</b> vaut zéro sur tout le
             cours en gardant la seconde session ; <b>PP</b> est l'absence non justifiée.
           </p>
-          <button onClick={onClose}
-            className="px-3 py-1.5 text-[12.5px] rounded-lg border border-slate-300 text-slate-600">
-            Fermer
-          </button>
+          <div className="flex items-center gap-2 flex-none">
+            {/* TOUS LES PROFESSEURS N'ENCODENT PAS À L'ÉCRAN. Le classeur part,
+                revient rempli, et se relit sur les clés qu'il porte. */}
+            <ClasseurNotes ueNum={ueNum} annee={annee} session={session}
+              ueNom={data?.ue?.ue_nom}
+              colonnes={(data?.cours || []).filter(c => c.acquis?.length)
+                .flatMap(c => c.acquis.map(a => ({
+                  cours_code: c.cours_code, cours_nom: c.cours_nom,
+                  aa_code: a.aa_code, description: a.description, poids: a.poids })))}
+              etudiants={data?.etudiants || []}
+              note={(id, c) => data?.notes?.[id]?.[`${c.cours_code}|${c.aa_code}`] ?? null}
+              mention={(id, cc) => data?.mentions?.[id]?.[cc] || null}
+              ferme={(id, cc) => !!data?.a_representer
+                && !(data.a_representer[id] || []).includes(cc)}
+              onImporte={charger} />
+            <button onClick={onClose}
+              className="px-3 py-1.5 text-[12.5px] rounded-lg border border-slate-300 text-slate-600">
+              Fermer
+            </button>
+          </div>
         </div>
       </div>
     </div>
