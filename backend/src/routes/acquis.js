@@ -2562,6 +2562,16 @@ export function delibererUE(etudId, ueNum, annee, session = 1) {
       // La cote que le calcul donne, même sous un ajournement : c'est elle
       // qu'on affiche quand le Conseil a finalement reçu l'étudiant.
       note_calculee: noteUE,
+      // CE QUE L'ÉTUDIANT LIRA — et rien d'autre ne doit figurer sur ses
+      // documents. La circulaire Sanction des études n'admet aucune cote sous
+      // dix sur une pièce remise à l'étudiant : c'est « NA ». Et l'unité levée
+      // en faveur vaut EXACTEMENT LE SEUIL, non la moyenne qui l'avait fait
+      // échouer — écrire 8 sur une unité octroyée serait lu comme une erreur,
+      // et contredirait la décision du Conseil sur la pièce même qui la porte.
+      // Elle se calcule ici, une fois, pour que l'écran, la grille et les
+      // documents disent tous la même chose.
+      cote_etudiant: (faveur || ueFaveur) ? String(SEUIL_UE)
+        : coteEtudiant(ajourne ? null : noteUE),
       na: ajourne, faveur, faveur_ue: ueFaveur,
       echec: !ajourne && noteUE != null && noteUE < SEUIL_UE,
       a_representer: regles.portee === 'cours'
@@ -3212,6 +3222,13 @@ r.get('/ue/:ueNum/feuille', authRequired,
         ue: d.ue?.na ? null : (d.ue?.note ?? null),
         ue_na: !!d.ue?.na,
         faveur_ue: !!d.ue?.faveur_ue,
+        // LA COTE TELLE QUE L'ÉTUDIANT LA VERRA. Ce n'est pas la cote de
+        // travail : la circulaire Sanction des études interdit toute cote sous
+        // dix sur un document remis à l'étudiant — c'est « NA ». Et une unité
+        // accordée en faveur vaut le seuil, non la moyenne qui l'avait fait
+        // échouer : afficher 8 sur une unité octroyée serait un contresens que
+        // l'étudiant lirait comme une erreur.
+        cote_etudiant: d.ue?.cote_etudiant ?? 'NA',
         decision: d.ue?.decision_proposee || null,
         arrete,
       }];
