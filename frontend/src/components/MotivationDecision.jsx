@@ -284,6 +284,28 @@ export default function MotivationDecision({ etudId, annee, onClose }) {
                     </div>
                   )}
 
+                  {/* CE QUI PARTIRA SI PERSONNE N'ÉCRIT RIEN. La proposition
+                      s'affiche en gris parce qu'elle n'est pas encore une
+                      motivation : rien n'est enregistré tant qu'on n'y a pas
+                      touché. Un clic la reprend dans la zone de texte, où elle
+                      devient modifiable — et elle cesse alors d'être « restée
+                      telle que proposée » au moment de clôturer. */}
+                  {a.motif_propose && !(coches[a.aa_code] || []).length
+                    && !(motifs[a.aa_code] || '').trim() && (
+                    <button type="button"
+                      onClick={() => setMotifs(m => ({ ...m, [a.aa_code]: a.motif_propose }))}
+                      title="Reprendre cet énoncé pour le compléter ou le corriger"
+                      className="w-full text-left mb-1 px-2 py-1.5 rounded-lg border
+                                 border-dashed border-slate-300 bg-slate-50
+                                 text-[11.5px] text-slate-400 italic hover:text-slate-600
+                                 hover:border-slate-400">
+                      {a.motif_propose}
+                      <span className="block mt-0.5 not-italic text-[10px] text-slate-400">
+                        Proposé — rien n'est enregistré. Cliquez pour le reprendre.
+                      </span>
+                    </button>
+                  )}
+
                   <textarea rows={2} value={motifs[a.aa_code] || ''}
                     onChange={e => setMotifs(m => ({ ...m, [a.aa_code]: e.target.value }))}
                     placeholder={(coches[a.aa_code] || []).length

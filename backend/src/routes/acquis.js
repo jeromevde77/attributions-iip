@@ -31,6 +31,7 @@ import { identiteEtablissement } from './config.js';
 // d'ajournement ou de refus, procès-verbal — partagent une seule mise en page.
 // Le contenu légal diffère ; la charte, non.
 import { envelopper, unitesReussies, pageAttestation } from './attestations.js';
+import { motifPropose } from '../lib/motifPropose.js';
 
 const r = Router();
 
@@ -587,6 +588,9 @@ r.get('/motivation/:etudId/:ueNum', authRequired, (req, res) => {
       // comme un échec.
       non_maitrise: !a.faveur && (a.na || (a.note != null && a.note < SEUIL)),
       motif: motifs[a.aa_code] || '',
+      // L'énoncé que Lucie propose, tant que personne n'a rien écrit : l'écran
+      // l'affiche en gris, et il n'est enregistré nulle part.
+      motif_propose: a.motif_propose || '',
     };
   });
 
@@ -950,7 +954,13 @@ export function documentMotivation(etudId, ueNum, annee) {
   const lignes = d.acquis
     .filter(a => !a.faveur && enCause.has(a.aa_code))
     .map(a => ({ code: a.aa_code, description: a.description || '',
-                 motif: motifs[a.aa_code] || '' }));
+                 motif: motifs[a.aa_code] || '',
+                 // UNE ANNEXE NE PART PAS AVEC UN BLANC. À défaut de
+                 // motivation écrite, c'est la proposition qui est notifiée :
+                 // un énoncé général reste attaquable, une case vide est
+                 // indéfendable.
+                 propose: !motifs[a.aa_code] && !!a.motif_propose,
+                 motif_propose: a.motif_propose || '' }));
 
   if (!lignes.length) {
     return { code: 400,
@@ -1071,6 +1081,7 @@ export function documentMotivation(etudId, ueNum, annee) {
           ? `${esc2(l.description)}<br><span class="ref">${esc2(l.code)}</span>`
           : `<span class="code">${esc2(l.code)}</span>`}</td>
         <td>${l.motif ? esc2(l.motif)
+          : l.motif_propose ? esc2(l.motif_propose)
           : '<span class="vide">motivation à compléter</span>'}</td>
       </tr>`).join('')}
     </tbody>
@@ -2414,6 +2425,17 @@ export function delibererUE(etudId, ueNum, annee, session = 1) {
       aa_code: code, description: descr[code] || null,
       evaluations: evals, note_calculee: note, note: affichee,
       na, faveur: forcee, motif: motifs[code] || '',
+      // LA MOTIVATION PROPOSÉE, à côté de celle du Conseil et jamais à sa
+      // place. Un échec non motivé se perd au recours (RDE art. 88 §3), mais à
+      // quatre-vingts dossiers dans une soirée la case reste vide et l'annexe
+      // part avec un blanc — ce qui est pire qu'une phrase générale. On propose
+      // donc un énoncé défendable tel quel, SANS L'ÉCRIRE : la base reste vide
+      // tant que personne ne l'a repris, l'écran l'affiche en gris, et la
+      // clôture compte ce qui est resté tel quel et le nomme.
+      motif_propose: motifs[code] ? '' : motifPropose({
+        note: affichee, na, faveur: forcee, non_evalue: !na && affichee == null,
+        mention: (evals.find(x => x.mention) || {}).mention || null,
+      }, SEUIL_AA),
       // La faveur POSÉE SUR CET ACQUIS, distincte de celle qu'il hérite de
       // l'unité : c'est elle que le bouton retire, et elle seule.
       faveur_directe: aaFaveur(code),
@@ -4198,6 +4220,57 @@ r.get('/deliberation/ue/:ueNum/seance', authRequired, (req, res) => {
              president: presidentDeLaSeance(ueNum, annee, session) });
 });
 
+/**
+ * QUI PART AVEC UNE MOTIVATION QUE PERSONNE N'A ÉCRITE.
+ *
+ * On ne regarde que les étudiants dont la décision est défavorable — c'est la
+ * seule qui se motive — et, parmi leurs acquis en cause, ceux dont la case est
+ * restée vide. La proposition n'étant jamais enregistrée, « vide en base » et
+ * « resté à la proposition » sont la même chose : c'est ce qui rend le compte
+ * exact, et non approximatif.
+ */
+export function motivationsProposees(ueNum, annee, session = 1) {
+  const sortie = [];
+  const gens = db.prepare(`
+    SELECT e.id, e.nom, e.prenom FROM etudiant_inscription i
+    JOIN etudiant e ON e.id = i.etudiant_id
+    WHERE i.annee_scolaire = ? AND i.ue_num = ?
+    ORDER BY e.nom, e.prenom`).all(annee, Number(ueNum));
+
+  for (const e of gens) {
+    // La décision de CETTE session fait foi ; à défaut, celle du dossier.
+    const dec = db.prepare(`SELECT resultat FROM deliberation_resultat
+      WHERE etudiant_id = ? AND annee_scolaire = ? AND ue_num = ? AND session = ?`)
+      .get(e.id, annee, Number(ueNum), session)?.resultat
+      || db.prepare(`SELECT resultat FROM etudiant_inscription
+        WHERE etudiant_id = ? AND annee_scolaire = ? AND ue_num = ?`)
+        .get(e.id, annee, Number(ueNum))?.resultat;
+    if (!['ajourne', 'refuse'].includes(dec)) continue;
+
+    const d = delibererUE(e.id, Number(ueNum), annee, session);
+    const enCause = new Set(d.ue?.motifs_manquants || []);
+    if (!enCause.size) continue;
+    const acquis = (d.acquis || [])
+      .filter(a => enCause.has(a.aa_code) && a.motif_propose)
+      .map(a => ({ aa_code: a.aa_code, description: a.description || null,
+                   motif_propose: a.motif_propose }));
+    if (acquis.length) {
+      sortie.push({ etudiant_id: e.id, nom: e.nom, prenom: e.prenom,
+                    decision: dec, acquis });
+    }
+  }
+  return sortie;
+}
+
+/** Les voir sans clôturer : le Conseil veut relire avant de confirmer. */
+r.get('/deliberation/ue/:ueNum/motivations-proposees', authRequired, (req, res) => {
+  const annee = req.query.annee || anneeDeTravail(req);
+  const session = Number(req.query.session) === 2 ? 2 : 1;
+  const l = motivationsProposees(Number(req.params.ueNum), annee, session);
+  res.json({ ue_num: Number(req.params.ueNum), annee, session,
+             total: l.length, etudiants: l });
+});
+
 r.put('/deliberation/ue/:ueNum/seance', authRequired,
       roleRequired('admin', 'directeur', 'directeur_adjoint', 'editeur'), (req, res) => {
   const ueNum = Number(req.params.ueNum);
@@ -4271,9 +4344,53 @@ r.put('/deliberation/ue/:ueNum/seance', authRequired,
         quorum: q, presences_absentes: aucune,
       });
     }
+
+    // ── LES MOTIVATIONS RESTÉES TELLES QUE PROPOSÉES ────────────────────────
+    //
+    // Lucie propose un énoncé pour chaque acquis en échec, et cet énoncé part
+    // sur l'annexe de l'étudiant si personne n'écrit rien. C'est mieux qu'un
+    // blanc — mais ce n'est pas le Conseil qui a motivé, et la différence doit
+    // rester lisible.
+    //
+    // ON NE LA POSE QU'ICI. Une fenêtre à chaque étudiant serait cliquée sans
+    // être lue dès le troisième dossier, et une confirmation réflexe ne vaut
+    // pas mieux qu'une case vide — c'est même exactement ce qu'un recours
+    // attaque. La clôture est le moment où la décision s'arrête : c'est là
+    // qu'on demande, une fois, en nommant les dossiers.
+    const restes = motivationsProposees(ueNum, annee, session);
+    if (restes.length && !req.body?.motivations_proposees_acceptees) {
+      return res.status(409).json({
+        error: `${restes.length} étudiant(s) dont la motivation d'échec est `
+             + 'restée telle que Lucie l’a proposée.',
+        detail: 'Ces énoncés sont défendables, mais ils n’ont pas été rédigés '
+              + 'par le Conseil, et deux dossiers portant la même phrase '
+              + 's’affaiblissent l’un l’autre. Relisez-les, ou confirmez pour '
+              + 'les notifier tels quels.',
+        motivations_proposees: restes,
+      });
+    }
   }
 
   db.transaction(() => {
+    // La confirmation donnée, les propositions deviennent des motivations —
+    // mais marquées comme telles. « source » distingue pour toujours ce que le
+    // Conseil a rédigé de ce qui a été accepté en bloc : sans cette marque, un
+    // an plus tard, plus rien ne les distingue.
+    if (cloturee && req.body?.motivations_proposees_acceptees) {
+      const poser = db.prepare(`
+        INSERT INTO decision_motivation
+          (etudiant_id, annee_scolaire, ue_num, aa_code, motif, portee, source, maj_le, maj_par)
+        VALUES (?,?,?,?,?,'aa','propose',datetime('now'),?)
+        ON CONFLICT(etudiant_id, annee_scolaire, ue_num, aa_code) DO NOTHING`);
+      for (const e of motivationsProposees(ueNum, annee, session)) {
+        for (const a of e.acquis) {
+          if (a.motif_propose) {
+            poser.run(e.etudiant_id, annee, ueNum, a.aa_code, a.motif_propose,
+              req.user?.email || null);
+          }
+        }
+      }
+    }
     db.prepare(`
       INSERT INTO deliberation_seance
         (ue_num, annee_scolaire, session, date_seance, heure_seance,
@@ -4976,7 +5093,14 @@ export function pageMotivations(ueNum, annee, session = 1) {
     ORDER BY e.nom, e.prenom`).all(annee, ueNum)) {
     const d = delibererUE(e.id, ueNum, annee, session);
     const m = d.ue?.motifs_manquants || [];
-    if (m.length) sansMotif.push({ ...e, aas: m });
+    // Ce qui n'a pas été écrit porte tout de même un énoncé : celui que Lucie
+    // a proposé et que personne n'a repris. Le recueil doit le montrer — c'est
+    // ce qui est parti sur l'annexe de l'étudiant.
+    if (m.length) {
+      const parAA = Object.fromEntries((d.acquis || [])
+        .map(a => [a.aa_code, a.motif_propose || '']));
+      sansMotif.push({ ...e, aas: m, proposes: m.map(a => parAA[a] || '') });
+    }
   }
 
   const parEtud = {};
@@ -4996,13 +5120,19 @@ export function pageMotivations(ueNum, annee, session = 1) {
         <td>${esc0(m.motif)}</td>
       </tr>`)).join('')}
     </table>` : '<p class="neant">Néant — aucune motivation n’est enregistrée.</p>'}
-    ${sansMotif.length ? `<div class="titre-liste">Échecs non motivés</div>
-    <div class="sous-liste">Une décision défavorable non motivée est attaquable
-      (RGE art. 79 ; décret du 16/04/1991, art. 59).</div>
+    ${sansMotif.length ? `<div class="titre-liste">Motivations restées telles que proposées</div>
+    <div class="sous-liste">Ces motivations n’ont pas été rédigées par le Conseil :
+      elles reprennent l’énoncé proposé par défaut. Elles sont défendables, mais
+      deux dossiers portant la même phrase s’affaiblissent l’un l’autre — une
+      décision défavorable se motive au cas d’espèce (RGE art. 79 ; décret du
+      16/04/1991, art. 59).</div>
     <table class="doc">
-      <tr><th style="width:60mm">Étudiant</th><th>Acquis restant à motiver</th></tr>
-      ${sansMotif.map(e => `<tr><td>${esc0(e.nom)} ${esc0(e.prenom)}</td>
-        <td class="elem">${e.aas.map(a => dire(a)).join('<br>')}</td></tr>`).join('')}
+      <tr><th style="width:44mm">Étudiant</th><th style="width:40mm">Acquis</th>
+          <th>Énoncé proposé, notifié tel quel</th></tr>
+      ${sansMotif.flatMap(e => e.aas.map((a, i) => `<tr>
+        <td>${i === 0 ? `${esc0(e.nom)} ${esc0(e.prenom)}` : ''}</td>
+        <td class="elem">${dire(a)}</td>
+        <td>${esc0(e.proposes?.[i] || '')}</td></tr>`)).join('')}
     </table>` : ''}
   </div>`;
   return { corps, style: STYLE_ENTETE_DELIB + STYLE_DOSSIER, nb: lignes.length, sans_motif: sansMotif.length };

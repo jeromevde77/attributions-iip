@@ -52,6 +52,8 @@ function aJustifier(acquis = [], cours = [], decision = null) {
 export default function FeuilleDeliberation({ ueNum, annee, onClose }) {
   const [data, setData] = useState(null);
   const [erreur, setErreur] = useState(null);
+  // Ce que la clôture a trouvé de non rédigé, et ce qu'elle allait clôturer.
+  const [proposees, setProposees] = useState(null);
   const [recherche, setRecherche] = useState('');
   const [idx, setIdx] = useState(0);
   const [tableau, setTableau] = useState(false);   // la vue d'ensemble
@@ -460,6 +462,14 @@ export default function FeuilleDeliberation({ ueNum, annee, onClose }) {
       });
       const j = await rep.json();
       if (!rep.ok) {
+        // LES MOTIVATIONS RESTÉES TELLES QUE PROPOSÉES ne sont pas un refus :
+        // c'est la question qu'on ne pose qu'une fois, ici. On garde sous la
+        // main ce qu'on allait clôturer, pour n'avoir pas à tout ressaisir si
+        // la réponse est oui.
+        if (j.motivations_proposees) {
+          setProposees({ liste: j.motivations_proposees, champs, detail: j.detail });
+          return false;
+        }
         setErreur(j.detail ? `${j.error} ${j.detail}` : j.error);
         await chargerSeance();   // le quorum renvoyé se voit à l'écran
         return false;
@@ -748,6 +758,96 @@ export default function FeuilleDeliberation({ ueNum, annee, onClose }) {
         <CentreDocumentsUE ueNum={data.ue_num} ueNom={data.ue_nom} annee={annee}
           onClose={() => setDocuments(false)} />
       )}
+
+      {proposees && (
+        <MotivationsProposees liste={proposees.liste} detail={proposees.detail}
+          enCours={enCours}
+          onRelire={() => { setProposees(null); setEtape('fiche'); }}
+          onConfirmer={async () => {
+            const champs = proposees.champs;
+            setProposees(null);
+            const ok = await enregistrerSeance({
+              ...champs, motivations_proposees_acceptees: true });
+            if (ok) await charger();
+          }} />
+      )}
+    </div>
+  );
+}
+
+/* ═══ Ce que personne n'a rédigé ═══════════════════════════════════════════
+ *
+ * Lucie propose un énoncé pour chaque acquis en échec, et cet énoncé part sur
+ * l'annexe de l'étudiant si la case reste vide. C'est mieux qu'un blanc — un
+ * blanc est indéfendable — mais ce n'est pas le Conseil qui a motivé.
+ *
+ * LA QUESTION NE SE POSE QU'ICI, ET UNE SEULE FOIS. Une fenêtre à chaque
+ * étudiant serait cliquée sans être lue dès le troisième dossier, et une
+ * confirmation réflexe ne vaut pas mieux qu'une case vide : c'est même
+ * précisément ce qu'un recours attaque. La clôture est le moment où la
+ * décision s'arrête ; c'est donc là qu'on demande, en nommant les dossiers,
+ * et en montrant les phrases qui vont partir.
+ */
+function MotivationsProposees({ liste, detail, onRelire, onConfirmer, enCours }) {
+  const nbAcquis = liste.reduce((n, e) => n + e.acquis.length, 0);
+  return (
+    <div className="fixed inset-0 bg-black/50 flex items-start justify-center z-[70] p-4">
+      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl mt-16
+                      max-h-[82vh] overflow-hidden flex flex-col">
+        <div className="flex-none px-5 py-3 border-b border-slate-100">
+          <h3 className="text-[15px] font-semibold text-amber-900 flex items-center gap-2">
+            <IconAlertTriangle size={17} />
+            {liste.length} motivation(s) rédigée(s) par Lucie, non par le Conseil
+          </h3>
+          <p className="text-[12px] text-slate-600 mt-1">{detail}</p>
+        </div>
+
+        <div className="flex-1 overflow-y-auto px-5 py-3 space-y-3">
+          {liste.map(e => (
+            <div key={e.etudiant_id} className="border border-slate-200 rounded-xl p-3">
+              <div className="text-[13px] font-semibold text-iip-blue">
+                {e.nom} {e.prenom}
+                <span className="ml-2 text-[11px] font-normal text-slate-500">
+                  {e.decision === 'refuse' ? 'refusé' : 'ajourné'}
+                </span>
+              </div>
+              <ul className="mt-1.5 space-y-1.5">
+                {e.acquis.map(a => (
+                  <li key={a.aa_code} className="text-[11.5px]">
+                    <span className="inline-block px-1 py-px rounded bg-slate-100
+                                     border border-slate-300 font-bold text-[10px]">
+                      {a.aa_code}
+                    </span>{' '}
+                    <span className="text-slate-500 italic">{a.motif_propose}</span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          ))}
+        </div>
+
+        <div className="flex-none px-5 py-3 border-t border-slate-100 space-y-2">
+          <p className="text-[11px] text-slate-500">
+            Ces {nbAcquis} énoncé(s) sont défendables tels quels, mais deux dossiers
+            portant la même phrase s'affaiblissent l'un l'autre : une décision
+            défavorable se motive au cas d'espèce (RGE art. 79). Confirmées, elles
+            seront enregistrées comme <b>acceptées telles que proposées</b> — la
+            distinction reste au dossier.
+          </p>
+          <div className="flex items-center justify-end gap-2">
+            <button onClick={onRelire} disabled={enCours}
+              className="px-3 py-2 text-[12.5px] rounded-lg border border-slate-300
+                         text-slate-700 font-semibold">
+              Relire et rédiger
+            </button>
+            <button onClick={onConfirmer} disabled={enCours}
+              className="px-4 py-2 text-[12.5px] rounded-lg bg-amber-600 text-white
+                         font-semibold disabled:opacity-40">
+              Notifier telles quelles et clore
+            </button>
+          </div>
+        </div>
+      </div>
     </div>
   );
 }
