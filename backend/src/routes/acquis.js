@@ -4382,6 +4382,11 @@ const STYLE_ENTETE_DELIB = `<style>
   /* LE TITRE DANS SON CADRE MARINE, comme les autres pièces de la maison. */
   .delib-titre { border: 0.4mm solid #1B2B4B; border-radius: 1.5mm;
     padding: 3mm 4mm; margin: 5mm 0 2mm; text-align: center; }
+  /* LA SECTION, EN TÊTE DU CADRE : c'est la première chose qu'on cherche sur
+     une pile de documents, avant même le nom de la pièce. */
+  .delib-titre .sect { font-size: 8.5pt; font-weight: 700; letter-spacing: 1pt;
+    text-transform: uppercase; color: #8a6d2f; margin-bottom: 1.2mm;
+    padding-bottom: 1.2mm; border-bottom: 0.25mm solid #E4D6AE; }
   .delib-titre .quoi { font-size: 12pt; font-weight: 700; color: #1B2B4B;
     letter-spacing: .3pt; }
   .delib-titre .ue { font-size: 10pt; color: #1B2B4B; margin-top: 1mm; }
@@ -4409,6 +4414,19 @@ function enteteDelib(ueNum, annee, session, quoi, { total = false } = {}) {
     SELECT ue_nom, section FROM ue WHERE ue_num = ?
     ORDER BY (annee_scolaire = ?) DESC, annee_scolaire DESC LIMIT 1
   `).get(ueNum, annee) || {};
+  // LA SECTION SE LIT DANS LE CADRE DU TITRE, pas dans la ligne des mentions.
+  // Sur une pile de documents, c'est la première chose qu'on cherche : « de
+  // quelle section s'agit-il ? ». Reléguée parmi les autres pastilles, elle se
+  // confondait avec la date et la session. Le libellé complet vaut mieux que le
+  // code — « TIM » ne dit rien à qui n'est pas de la maison.
+  let sec = null;
+  try {
+    sec = ue.section
+      ? db.prepare('SELECT libelle FROM section WHERE code = ?').get(ue.section)?.libelle
+      : null;
+  } catch { /* table absente : le code suffira */ }
+  const sectionLisible = sec || ue.section || null;
+
   const sc = db.prepare(`
     SELECT date_seance, heure_seance, cloturee FROM deliberation_seance
     WHERE ue_num = ? AND annee_scolaire = ? AND session = ?
@@ -4448,6 +4466,7 @@ function enteteDelib(ueNum, annee, session, quoi, { total = false } = {}) {
     </div>
   </div>
   <div class="delib-titre">
+    ${sectionLisible ? `<div class="sect">${e(sectionLisible)}</div>` : ''}
     <div class="quoi">${e(String(quoi).toUpperCase())}</div>
     <div class="ue">UE ${ueNum}${ue.ue_nom ? ` — ${e(ue.ue_nom)}` : ''}</div>
   </div>
@@ -4457,7 +4476,7 @@ function enteteDelib(ueNum, annee, session, quoi, { total = false } = {}) {
     ${dateFr ? `<span>Séance du <b>${e(dateFr)}</b>${
       sc.heure_seance ? ` à ${e(sc.heure_seance)}` : ''}</span>`
       : '<span class="manque">Date de séance non fixée</span>'}
-    ${ue.section ? `<span>${e(ue.section)}</span>` : ''}
+
     ${sc.cloturee ? '<span>Séance clôturée</span>'
       : '<span class="manque">Séance non clôturée</span>'}
   </div>`;
