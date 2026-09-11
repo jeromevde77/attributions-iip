@@ -72,8 +72,11 @@ export default function CentreImpression({ annee, section = null, onClose }) {
     (async () => {
       setErreur(null);
       try {
+        // La session part avec la demande : les comptes affichés sont ceux de
+        // la session qu'on s'apprête à imprimer, non ceux de l'année entière.
         const rep = await fetch('/api/acquis/deliberation/documents-lot'
-          + `?annee=${encodeURIComponent(annee)}${sec ? `&section=${encodeURIComponent(sec)}` : ''}`,
+          + `?annee=${encodeURIComponent(annee)}&session=${total ? 2 : session}`
+          + `${sec ? `&section=${encodeURIComponent(sec)}` : ''}`,
           { headers: authHeaders() });
         const j = await rep.json();
         if (!rep.ok) throw new Error(j.error);
@@ -87,7 +90,9 @@ export default function CentreImpression({ annee, section = null, onClose }) {
         // de trois clics ; défaire un envoi ne se fait pas.
       } catch (e) { setErreur(e.message); }
     })();
-  }, [annee, sec]);
+    // Changer de session refait le comptage : sans cela, l'écran gardait les
+    // chiffres de la session précédente sous une étiquette nouvelle.
+  }, [annee, sec, session, total]);
 
   async function produire(sortie) {
     setEnCours(true); setErreur(null);

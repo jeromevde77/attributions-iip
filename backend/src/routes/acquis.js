@@ -6075,19 +6075,34 @@ r.get('/deliberation/documents-lot', authRequired, (req, res) => {
   if (perim) unites = unites.filter(u => !u.section || perim.includes(u.section));
   if (section) unites = unites.filter(u => u.section === section);
 
+  // LES COMPTES SONT CEUX DE LA SESSION QU'ON S'APPRÊTE À IMPRIMER.
+  //
+  // Ils venaient du dossier, sans filtre de session : l'écran annonçait donc
+  // l'état de l'ANNÉE — juin et septembre confondus — à côté d'une session
+  // déduite de l'unité, et non de celle qu'on avait choisie. Deux informations
+  // qui ne parlaient pas de la même chose sur la même ligne, et un lot de
+  // seconde session annoncé à dix-neuf refus quand il n'en portait que onze.
+  const session = Number(req.query.session) === 2 ? 2 : 1;
   const etat = unites.map(u => {
-    const ses = sessionDeLUE(u.ue_num, annee);
     const seance = db.prepare(`SELECT cloturee FROM deliberation_seance
       WHERE ue_num = ? AND annee_scolaire = ? AND session = ?`)
-      .get(u.ue_num, annee, ses.session) || {};
-    const par = db.prepare(`SELECT resultat, COUNT(*) AS n FROM etudiant_inscription
-      WHERE annee_scolaire = ? AND ue_num = ? GROUP BY resultat`).all(annee, u.ue_num);
-    const n = r0 => par.find(x => x.resultat === r0)?.n || 0;
+      .get(u.ue_num, annee, session) || {};
+
+    const inscrits = db.prepare(`SELECT etudiant_id FROM etudiant_inscription
+      WHERE annee_scolaire = ? AND ue_num = ?`).all(annee, u.ue_num);
+    const compte = { reussi: 0, ajourne: 0, refuse: 0, sans: 0 };
+    for (const i of inscrits) {
+      const d = decisionDeSession(i.etudiant_id, u.ue_num, annee, session);
+      if (d.resultat === 'reussi') compte.reussi++;
+      else if (d.resultat === 'ajourne') compte.ajourne++;
+      else if (d.resultat === 'refuse') compte.refuse++;
+      else compte.sans++;
+    }
     return {
-      ...u, session: ses.session,
+      ...u, session,
       cloturee: !!seance.cloturee,
-      reussites: n('reussi'), ajournements: n('ajourne'), refus: n('refuse'),
-      sans_decision: n(null),
+      reussites: compte.reussi, ajournements: compte.ajourne, refus: compte.refuse,
+      sans_decision: compte.sans,
     };
   });
 
