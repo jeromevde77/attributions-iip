@@ -580,7 +580,11 @@ r.get('/motivation/:etudId/:ueNum', authRequired, (req, res) => {
   // premier séparateur et lisait donc « C1 » comme code d'acquis — aucune note
   // ne correspondait, et il ignorait faveurs et ajournements. Deux calculs pour
   // la même unité, c'est un de trop : celui du Conseil fait foi.
-  const d = delibererUE(etudId, ueNum, annee);
+  //
+  // Et la session compte : sans elle, la fenêtre proposait de justifier les
+  // acquis de juin pendant qu'on délibérait septembre.
+  const d = delibererUE(etudId, ueNum, annee,
+    Number(req.query.session) === 2 ? 2 : 1);
 
   const motifs = Object.fromEntries(db.prepare(`
     SELECT aa_code, motif FROM decision_motivation
@@ -956,7 +960,15 @@ export function documentMotivation(etudId, ueNum, annee, session = 1) {
   // concluait qu'aucun acquis n'était en échec — la notification ne sortait
   // jamais. Elle ignorait de surcroît les ajournements posés par le Conseil.
   const president = presidentDeLaSeance(ueNum, annee, session);
-  const d = delibererUE(etudId, ueNum, annee);
+  // LA SESSION DESCEND JUSQU'AU CALCUL, sinon elle ne sert à rien.
+  //
+  // La fonction recevait « session » — pour le président, pour la date — mais
+  // appelait delibererUE sans elle : le calcul retombait donc sur sa valeur par
+  // défaut, la première session. La notification de septembre décrivait les
+  // acquis de juin, pendant que l'écran, qui transmet la session, en montrait
+  // d'autres. Un acquis rattrapé en seconde session restait « non maîtrisé »
+  // sur la pièce qui ouvre le recours.
+  const d = delibererUE(etudId, ueNum, annee, session);
   const motifs = Object.fromEntries(db.prepare(`
     SELECT aa_code, motif FROM decision_motivation
     WHERE etudiant_id = ? AND annee_scolaire = ? AND ue_num = ?
