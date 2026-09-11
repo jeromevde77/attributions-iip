@@ -63,6 +63,30 @@ Le stockage supporte les deux formes : `s1|cours|aa` pour l'encodage par cours,
 
 ---
 
+### La composition du Conseil, et qui préside
+
+Les membres se recomposent depuis les attributions à chaque ouverture. C'est
+juste pour ouvrir une séance, **insuffisant pour le jury d'épreuve intégrée** :
+le décret y veut au moins un chargé de cours de l'UE « Épreuve intégrée », au
+moins trois chargés de cours de la **section** — qu'aucune attribution ne
+rattache à l'unité — et de une à trois personnes étrangères à l'établissement.
+Ces membres-là s'ajoutent à la main.
+
+- **On siège à un titre**, choisi dans la liste du décret (`CATEGORIES_MEMBRE`),
+  et **la voix suit le titre** : seuls le délégué du Ministre et la coordination
+  siègent avec voix consultative. Avant, tout ajout comptait au quorum.
+- **La composition imprimée lit la séance**, non la théorie : elle ignorait les
+  membres ajoutés, qui figuraient pourtant au procès-verbal.
+- **Si la direction n'a pas siégé, la présidence se désigne** avant d'ouvrir.
+  Le délégué ne peut appartenir au Conseil de l'unité ni de la section
+  (décret art. 52 · AGCF art. 26) : la route `/deliberation/ue/:n/presidents`
+  écarte les chargés de cours concernés **en disant pourquoi**.
+- Un président désigné **signe de sa main** : aucun fac-similé. Et les
+  **attestations de réussite restent signées du Directeur** — l'attestation est
+  délivrée par l'établissement, le procès-verbal rend compte d'une séance.
+
+---
+
 ## 3. DÉLIBÉRATION — le Conseil des études
 
 **Où :** Étudiants → Délibération → section → UE → « Délibérer ».

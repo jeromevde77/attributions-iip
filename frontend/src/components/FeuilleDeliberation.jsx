@@ -666,8 +666,12 @@ export default function FeuilleDeliberation({ ueNum, annee, onClose }) {
               onRetour={() => setEtape('fiche')} />
           ) : etape === 'presences' ? (
             <Presences seance={seance} enCours={enCours}
-              onValider={(membres, date_seance, heure_seance) => enregistrerSeance({
+              ueNum={ueNum} annee={annee}
+              onValider={(membres, date_seance, heure_seance, president) => enregistrerSeance({
                 membres, date_seance, heure_seance,
+                president_role: president?.role || 'titulaire',
+                president_nom: president?.nom || null,
+                president_titre: president?.titre || null,
               }).then(ok => ok && chargerAuto())} />
           ) : etape === 'auto' ? (
             <PleinDroit auto={auto} enCours={enCours}
@@ -899,9 +903,16 @@ function QuorumBandeau({ membres }) {
   );
 }
 
-function Presences({ seance, onValider, enCours }) {
+function Presences({ seance, onValider, enCours, ueNum, annee }) {
   const [membres, setMembres] = useState(null);
-  const [ajout, setAjout] = useState('');
+  // L'AJOUT N'EST PLUS UN CHAMP LIBRE. « David Faber (externe) » atterrissait
+  // en entier dans le nom, la qualité valait « Membre invité » pour tout le
+  // monde, et la voix était délibérative d'office — un délégué du Ministre
+  // comptait donc au quorum. Le décret énumère les titres : on y puise.
+  const [ajout, setAjout] = useState({ nom: '', prenom: '', categorie: '', qualite: '' });
+  // La présidence : le titulaire préside, sauf s'il n'a pas siégé.
+  const [president, setPresident] = useState({ role: 'titulaire', nom: '', titre: '' });
+  const [eligibles, setEligibles] = useState(null);
   // LA DATE ET L'HEURE DE LA SÉANCE. Elles étaient posées en douce à la
   // clôture — celle du jour, que personne ne pouvait corriger. Le Conseil qui
   // délibère un samedi et clôture le lundi voyait donc le lundi au PV.
@@ -909,6 +920,13 @@ function Presences({ seance, onValider, enCours }) {
   const [heure, setHeure] = useState('');
 
   useEffect(() => { if (seance && !membres) setMembres(seance.membres); }, [seance, membres]);
+  useEffect(() => {
+    if (!ueNum || !annee) return;
+    fetch(`/api/acquis/deliberation/ue/${ueNum}/presidents?annee=${encodeURIComponent(annee)}`,
+      { headers: authHeaders() })
+      .then(r => r.ok ? r.json() : null).then(j => j && setEligibles(j))
+      .catch(() => { /* la séance vaut sans la liste : on retombe sur la saisie */ });
+  }, [ueNum, annee]);
   useEffect(() => {
     if (!seance?.seance) return;
     setDate(d => d || seance.seance.date_seance || new Date().toISOString().slice(0, 10));
@@ -921,6 +939,11 @@ function Presences({ seance, onValider, enCours }) {
   }
 
   const presents = membres.filter(m => m.present).length;
+  // Ouvrir sans président désigné produirait un procès-verbal au nom de
+  // quelqu'un qui n'a pas siégé : on bloque, et l'on dit pourquoi.
+  const presidenceIncomplete = membres.some(m => m.role === 'direction' && !m.present)
+    && (president.role === 'titulaire'
+        || (president.role === 'autre' && !president.nom));
   const ton = { professeur: 'text-slate-700', coordination: 'text-sky-800',
                 direction: 'text-iip-blue', ajoute: 'text-slate-600' };
 
@@ -987,28 +1010,110 @@ function Presences({ seance, onValider, enCours }) {
         ))}
       </div>
 
-      <div className="flex items-center gap-2">
-        <input value={ajout} onChange={e => setAjout(e.target.value)}
-          placeholder="Ajouter un membre (nom, qualité)…"
-          className="flex-1 border border-slate-300 rounded-lg px-2.5 py-1.5 text-[12.5px]" />
-        <button disabled={!ajout.trim()}
-          onClick={() => {
-            setMembres(l => [...l, { cle: `ajout:${Date.now()}`, nom: ajout.trim(),
-              qualite: 'Membre invité', role: 'ajoute', present: true }]);
-            setAjout('');
-          }}
-          className="px-3 py-1.5 text-[12.5px] rounded-lg border border-slate-300
-                     text-slate-600 disabled:opacity-40">
-          Ajouter
-        </button>
+      {/* AJOUTER UN MEMBRE — à son nom, et au titre auquel il siège. */}
+      <div className="border border-slate-200 rounded-xl p-2.5 space-y-2">
+        <div className="text-[11.5px] text-slate-500">
+          Ajouter un membre. Le titre détermine la voix : seuls le délégué du
+          Ministre et la coordination siègent avec voix consultative.
+        </div>
+        <div className="flex flex-wrap gap-2">
+          <input value={ajout.nom} onChange={e => setAjout(a => ({ ...a, nom: e.target.value }))}
+            placeholder="Nom" className="w-36 border border-slate-300 rounded-lg px-2 py-1.5 text-[12.5px]" />
+          <input value={ajout.prenom} onChange={e => setAjout(a => ({ ...a, prenom: e.target.value }))}
+            placeholder="Prénom" className="w-32 border border-slate-300 rounded-lg px-2 py-1.5 text-[12.5px]" />
+          <select value={ajout.categorie}
+            onChange={e => setAjout(a => ({ ...a, categorie: e.target.value }))}
+            className="flex-1 min-w-[220px] border border-slate-300 rounded-lg px-2 py-1.5 text-[12.5px]">
+            <option value="">À quel titre siège-t-il ?</option>
+            {(seance?.categories || []).map(c => (
+              <option key={c.cle} value={c.cle}>{c.label}</option>
+            ))}
+          </select>
+        </div>
+        <div className="flex items-center gap-2">
+          <input value={ajout.qualite}
+            onChange={e => setAjout(a => ({ ...a, qualite: e.target.value }))}
+            placeholder="Précision facultative (fonction, établissement d'origine…)"
+            className="flex-1 border border-slate-300 rounded-lg px-2 py-1.5 text-[12.5px]" />
+          <button disabled={!ajout.nom.trim() || !ajout.categorie}
+            onClick={() => {
+              const cat = (seance?.categories || []).find(c => c.cle === ajout.categorie);
+              setMembres(l => [...l, {
+                cle: `ajout:${Date.now()}`,
+                nom: [ajout.nom.trim(), ajout.prenom.trim()].filter(Boolean).join(' '),
+                prenom: ajout.prenom.trim() || null,
+                qualite: ajout.qualite.trim() || cat?.label || 'Membre désigné',
+                categorie: ajout.categorie,
+                voix: cat?.voix || 'deliberative',
+                role: 'ajoute', present: true,
+              }]);
+              setAjout({ nom: '', prenom: '', categorie: '', qualite: '' });
+            }}
+            className="px-3 py-1.5 text-[12.5px] rounded-lg border border-slate-300
+                       text-slate-600 disabled:opacity-40">
+            Ajouter
+          </button>
+        </div>
       </div>
+
+      {/* LA PRÉSIDENCE, quand le titulaire n'a pas siégé.
+          Le décret veut que le délégué du membre du personnel directeur
+          n'appartienne pas au Conseil de l'unité ni de la section, et que ce
+          soit lui qui préside. Un procès-verbal signé du titulaire absent
+          serait faux — d'où l'obligation de désigner. */}
+      {membres.some(m => m.role === 'direction' && !m.present) && (
+        <div className="border border-amber-300 bg-amber-50 rounded-xl p-2.5 space-y-2">
+          <div className="text-[12.5px] font-semibold text-amber-900">
+            Présidence à désigner
+          </div>
+          <p className="text-[11.5px] text-amber-800">
+            La direction n'a pas siégé. Le procès-verbal doit porter le nom de
+            qui a présidé. Le délégué ne peut appartenir au Conseil de cette
+            unité ni de cette section (décret art. 52 · AGCF art. 26) : les
+            chargés de cours concernés ne sont pas proposés.
+          </p>
+          <div className="flex flex-wrap gap-2">
+            <select value={president.role}
+              onChange={e => setPresident(p => ({ ...p, role: e.target.value }))}
+              className="border border-amber-300 rounded-lg px-2 py-1.5 text-[12.5px] bg-white">
+              <option value="suppleant">Le suppléant désigné</option>
+              <option value="autre">Un membre du personnel</option>
+            </select>
+            {president.role === 'autre' && (
+              <select value={president.nom}
+                onChange={e => setPresident(p => ({ ...p, nom: e.target.value }))}
+                className="flex-1 min-w-[220px] border border-amber-300 rounded-lg
+                           px-2 py-1.5 text-[12.5px] bg-white">
+                <option value="">Choisir…</option>
+                {(eligibles?.eligibles || []).map(p => (
+                  <option key={p.id} value={p.nom}>
+                    {p.nom}{p.mdp ? ' · MDP' : p.statut ? ` · ${p.statut}` : ''}
+                  </option>
+                ))}
+              </select>
+            )}
+          </div>
+          {president.role === 'autre' && (
+            <input value={president.titre}
+              onChange={e => setPresident(p => ({ ...p, titre: e.target.value }))}
+              placeholder="Titre porté au procès-verbal (ex. Directeur adjoint)"
+              className="w-full border border-amber-300 rounded-lg px-2 py-1.5 text-[12.5px]" />
+          )}
+          <p className="text-[11px] text-amber-700">
+            Un président désigné signe de sa main : aucun fac-similé n'est
+            apposé. Les attestations de réussite restent signées du Directeur.
+          </p>
+        </div>
+      )}
 
       <div className="flex items-center justify-between gap-3 pt-1">
         <span className="text-[12px] text-slate-500">
           <b className="text-iip-blue">{presents}</b> présent(s) sur {membres.length}
         </span>
-        <button disabled={enCours || !presents || !date}
-          onClick={() => onValider(membres, date, heure)}
+        <button disabled={enCours || !presents || !date || presidenceIncomplete}
+          title={presidenceIncomplete
+            ? 'Désignez qui a présidé : la direction n’a pas siégé.' : undefined}
+          onClick={() => onValider(membres, date, heure, president)}
           className="px-4 py-2 text-[13px] rounded-lg bg-iip-blue text-white font-semibold
                      disabled:opacity-40">
           Ouvrir la délibération

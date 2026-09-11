@@ -2126,6 +2126,91 @@ export function presidentDeLaSeance(ueNum, annee, session = 1) {
   return { ...p.titulaire, role: 'titulaire' };
 }
 
+/**
+ * À QUEL TITRE ON SIÈGE — et avec quelle voix.
+ *
+ * Annexe 1 de la circulaire « Sanction des études ». En secondaire, le Conseil
+ * réunit un membre du personnel de direction ou son délégué, les chargés de
+ * cours du groupe concerné, et des membres étrangers à l'établissement dont le
+ * règlement général des études fixe le nombre. En supérieur, le jury d'épreuve
+ * intégrée veut en outre au moins un chargé de cours de l'unité « Épreuve
+ * intégrée » et au moins trois chargés de cours de la section, dont un d'une
+ * unité déterminante.
+ *
+ * La voix ne se choisit donc pas : elle suit le titre. Seuls le délégué du
+ * Ministre — qui veille au déroulement régulier des opérations — et la
+ * coordination siègent avec voix consultative.
+ */
+export const CATEGORIES_MEMBRE = [
+  { cle: 'direction', label: 'Membre du personnel de direction ou son délégué',
+    voix: 'deliberative', ref: 'décret art. 32 al. 1 · art. 52 al. 1' },
+  { cle: 'charge_ue', label: "Chargé de cours de l'unité d'enseignement",
+    voix: 'deliberative', ref: 'décret art. 32 al. 1' },
+  { cle: 'charge_section', label: 'Chargé de cours de la section',
+    voix: 'deliberative', ref: 'AGCF 02.09.2015 art. 26' },
+  { cle: 'charge_ei', label: "Chargé de cours de l'unité « Épreuve intégrée »",
+    voix: 'deliberative', ref: 'AGCF 02.09.2015 art. 26' },
+  { cle: 'externe', label: "Personne étrangère à l'établissement",
+    voix: 'deliberative', ref: 'décret art. 32 al. 3 · art. 52 al. 1' },
+  { cle: 'delegue_ministre', label: 'Délégué mandaté par le Ministre',
+    voix: 'consultative', ref: 'décret art. 63 al. 2' },
+  { cle: 'coordination', label: 'Coordination · référent social et pédagogique',
+    voix: 'consultative', ref: 'RGE art. 22 al. 2' },
+];
+
+export function voixDeLaCategorie(cle) {
+  return CATEGORIES_MEMBRE.find(c => c.cle === cle)?.voix || 'deliberative';
+}
+
+/**
+ * QUI PEUT PRÉSIDER À LA PLACE DU TITULAIRE.
+ *
+ * Le décret est précis sur le délégué du membre du personnel directeur : il ne
+ * peut appartenir au Conseil des études de l'unité d'enseignement ou de la
+ * section concernée, et c'est lui qui assure la présidence. Proposer un chargé
+ * de cours de cette unité — ou de cette section — reviendrait donc à proposer
+ * une présidence irrégulière, sur un procès-verbal qu'un recours viendra lire.
+ *
+ * On rend la liste ET les écartés, avec la raison : un écran qui masque sans
+ * dire fait chercher un nom qu'on ne trouvera pas.
+ */
+r.get('/deliberation/ue/:ueNum/presidents', authRequired, (req, res) => {
+  const ueNum = Number(req.params.ueNum);
+  const annee = req.query.annee || anneeDeTravail(req);
+  const section = db.prepare(`SELECT section FROM ue WHERE ue_num = ?
+    ORDER BY (annee_scolaire = ?) DESC, annee_scolaire DESC LIMIT 1`)
+    .get(ueNum, annee)?.section || null;
+
+  const dansUE = new Set(db.prepare(`SELECT DISTINCT professeur_id AS id FROM attribution
+    WHERE ue_num = ? AND annee_scolaire = ? AND professeur_id IS NOT NULL`)
+    .all(ueNum, annee).map(l => l.id));
+  const dansSection = new Set(section ? db.prepare(`
+    SELECT DISTINCT a.professeur_id AS id FROM attribution a
+    JOIN ue u ON u.ue_num = a.ue_num AND u.annee_scolaire = a.annee_scolaire
+    WHERE u.section = ? AND a.annee_scolaire = ? AND a.professeur_id IS NOT NULL`)
+    .all(section, annee).map(l => l.id) : []);
+
+  // « statut » distingue EXP, CC et MDP : les membres du personnel d'abord,
+  // puisque c'est parmi eux que se prend un délégué de la direction.
+  const tous = db.prepare(`SELECT id, nom, prenom, statut FROM professeur
+    ORDER BY nom, prenom`).all();
+  const eligibles = [], ecartes = [];
+  for (const p of tous) {
+    const nom = nomPropre(p.nom, p.prenom);
+    if (dansUE.has(p.id)) {
+      ecartes.push({ id: p.id, nom, raison: "chargé de cours de cette unité" });
+    } else if (dansSection.has(p.id)) {
+      ecartes.push({ id: p.id, nom, raison: 'chargé de cours de cette section' });
+    } else {
+      eligibles.push({ id: p.id, nom, statut: p.statut || null,
+                       mdp: String(p.statut || '').toUpperCase() === 'MDP' });
+    }
+  }
+  eligibles.sort((a, b) => (b.mdp - a.mdp) || a.nom.localeCompare(b.nom, 'fr'));
+  res.json({ ue_num: ueNum, section, eligibles, ecartes,
+             reference: "décret 16.04.1991 art. 52 · AGCF 02.09.2015 art. 26" });
+});
+
 /** Ce que le décret verrouille — pour l'écran de paramétrage, qui doit le dire. */
 export const VERROUS_DECRET = [
   { regle: 'Réussite de l’unité à 50 %', ref: 'RGE art. 78 · décret art. 58-59' },
@@ -3938,6 +4023,14 @@ r.get('/deliberation/ue/:ueNum', authRequired, (req, res) => {
         PRIMARY KEY (seance_id, cle)
       );
     `);
+    // LA QUALITÉ D'UN MEMBRE N'EST PAS UN TEXTE LIBRE : le décret énumère les
+    // titres auxquels on siège, et la voix en découle. Un membre ajouté
+    // arrivait sous la mention « Membre invité », avec voix délibérative
+    // d'office — donc compté au quorum, quel qu'il soit.
+    for (const col of ['categorie TEXT', 'voix TEXT', 'prenom TEXT']) {
+      try { db.exec(`ALTER TABLE deliberation_presence ADD COLUMN ${col}`); }
+      catch { /* déjà là */ }
+    }
     // LA SECONDE SESSION se notifie avec l'ajournement : sans sa date, son
     // heure et son local, l'annexe 8 part avec des pointillés que le
     // secrétariat remplit à la main, cent fois.
@@ -4107,6 +4200,50 @@ function libelleDeCode(ueNum, annee) {
       return `${e(cours.get(c) || c)} (${e(c)}${qui ? ` · ${e(qui)}` : ''})`;
     }).join(' · ')}</span>`;
   };
+}
+
+/**
+ * LES MEMBRES TELS QUE LA SÉANCE LES A RETENUS.
+ *
+ * « membresDuConseil » recompose depuis les attributions : c'est juste pour
+ * ouvrir une séance, faux pour rendre compte de celle qui a eu lieu. Le jury
+ * d'épreuve intégrée, en particulier, réunit des chargés de cours de la
+ * SECTION qu'aucune attribution ne rattache à l'unité — ils sont ajoutés à la
+ * main, et la composition imprimée ne les voyait pas.
+ */
+export function membresDeLaSeance(ueNum, annee, session = 1) {
+  const base = membresDuConseil(ueNum, annee);
+  let poses = [];
+  try {
+    const sc = db.prepare(`SELECT id FROM deliberation_seance
+      WHERE ue_num = ? AND annee_scolaire = ? AND session = ?`).get(ueNum, annee, session);
+    if (sc) {
+      poses = db.prepare(`SELECT cle, nom, prenom, qualite, categorie, voix, present
+        FROM deliberation_presence WHERE seance_id = ?`).all(sc.id);
+    }
+  } catch { /* pas de séance : la composition théorique fait foi */ }
+  if (!poses.length) return base;
+
+  const parCle = Object.fromEntries(poses.map(l => [l.cle, l]));
+  const membres = base.map(m => (parCle[m.cle]
+    ? { ...m, nom: parCle[m.cle].nom || m.nom,
+        qualite: parCle[m.cle].qualite || m.qualite,
+        voix: parCle[m.cle].voix || m.voix,
+        present: !!parCle[m.cle].present }
+    : { ...m, present: true }));
+  for (const l of poses) {
+    if (membres.some(m => m.cle === l.cle)) continue;
+    membres.push({
+      cle: l.cle,
+      nom: [l.nom, l.prenom].filter(Boolean).join(' ').trim() || l.nom,
+      qualite: l.qualite
+        || CATEGORIES_MEMBRE.find(c => c.cle === l.categorie)?.label
+        || 'Membre désigné',
+      categorie: l.categorie || null, role: 'ajoute',
+      voix: l.voix || 'deliberative', present: !!l.present,
+    });
+  }
+  return membres;
 }
 
 function membresDuConseil(ueNum, annee) {
@@ -4287,14 +4424,14 @@ r.put('/deliberation/regles', authRequired,
  * le Conseil pouvait siéger. Elle rejoint donc les autres pièces, et se coche
  * comme elles.
  */
-export function pageComposition(ueNum, annee) {
+export function pageComposition(ueNum, annee, session = 1) {
   const ident = identiteEtablissement();
   const esc0 = t => String(t ?? '').replace(/[&<>"]/g,
     x => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[x]));
   const u = db.prepare(`SELECT ue_num, ue_nom, section FROM ue
     WHERE ue_num = ? AND annee_scolaire = ?`).get(ueNum, annee)
     || { ue_num: ueNum, ue_nom: '', section: null };
-  const membres = membresDuConseil(ueNum, annee);
+  const membres = membresDeLaSeance(ueNum, annee, session);
   const votants = membres.filter(m => (m.voix || 'deliberative') === 'deliberative').length;
   const requis = Math.ceil((votants * 2) / 3);
   const sansProf = !membres.some(m => m.role === 'professeur');
@@ -4373,7 +4510,8 @@ r.get('/deliberation/ue/:ueNum/seance', authRequired, (req, res) => {
   ).get(ueNum, annee, session) || null;
 
   const poses = seance ? Object.fromEntries(db.prepare(
-    'SELECT cle, present, nom, qualite FROM deliberation_presence WHERE seance_id = ?'
+    `SELECT cle, present, nom, prenom, qualite, categorie, voix
+     FROM deliberation_presence WHERE seance_id = ?`
   ).all(seance.id).map(l => [l.cle, l])) : {};
 
   // Les membres se recalculent à chaque ouverture : une attribution a pu
@@ -4386,8 +4524,13 @@ r.get('/deliberation/ue/:ueNum/seance', authRequired, (req, res) => {
   // Un membre ajouté à la main lors d'une séance précédente y reste.
   for (const [cle, l] of Object.entries(poses)) {
     if (!membres.some(m => m.cle === cle)) {
-      membres.push({ cle, nom: l.nom, qualite: l.qualite, role: 'ajoute',
-                     voix: 'deliberative', present: !!l.present });
+      membres.push({ cle, nom: l.nom, prenom: l.prenom || null,
+                     qualite: l.qualite, categorie: l.categorie || null,
+                     role: 'ajoute',
+                     // La voix telle qu'elle a été enregistrée : un délégué du
+                     // Ministre ne doit pas se retrouver au quorum parce qu'on
+                     // a rechargé la page.
+                     voix: l.voix || 'deliberative', present: !!l.present });
     }
   }
 
@@ -4409,6 +4552,10 @@ r.get('/deliberation/ue/:ueNum/seance', authRequired, (req, res) => {
     Object.fromEntries(membres.map(m => [m.cle, m.present])));
 
   res.json({ ue_num: ueNum, annee, session, seance, membres, session2, quorum,
+             // Les titres auxquels on siège, pour que l'écran n'invente pas sa
+             // propre liste et que la voix suive le décret des deux côtés.
+             categories: CATEGORIES_MEMBRE,
+             presidence: presidenceConseil(),
              presidence: presidenceConseil(),
              president: presidentDeLaSeance(ueNum, annee, session) });
 });
@@ -4636,13 +4783,20 @@ r.put('/deliberation/ue/:ueNum/seance', authRequired,
         'SELECT id FROM deliberation_seance WHERE ue_num = ? AND annee_scolaire = ? AND session = ?'
       ).get(ueNum, annee, session);
       const up = db.prepare(`
-        INSERT INTO deliberation_presence (seance_id, cle, nom, qualite, present)
-        VALUES (?,?,?,?,?)
+        INSERT INTO deliberation_presence
+          (seance_id, cle, nom, prenom, qualite, categorie, voix, present)
+        VALUES (?,?,?,?,?,?,?,?)
         ON CONFLICT(seance_id, cle) DO UPDATE SET
-          nom = excluded.nom, qualite = excluded.qualite, present = excluded.present`);
+          nom = excluded.nom, prenom = excluded.prenom,
+          qualite = excluded.qualite, categorie = excluded.categorie,
+          voix = excluded.voix, present = excluded.present`);
       for (const m of membres) {
         if (!m?.cle || !m?.nom) continue;
-        up.run(s.id, m.cle, m.nom, m.qualite || null, m.present ? 1 : 0);
+        // La voix suit le titre auquel on siège, non ce que l'écran a envoyé.
+        const voix = m.categorie ? voixDeLaCategorie(m.categorie)
+                                 : (m.voix === 'consultative' ? 'consultative' : 'deliberative');
+        up.run(s.id, m.cle, m.nom, m.prenom || null, m.qualite || null,
+          m.categorie || null, voix, m.present ? 1 : 0);
       }
     }
   })();
@@ -5389,7 +5543,9 @@ function assemblerDocumentsUE(ueNum, annee, veut, opts = {}) {
   }
 
   if (veut.conseil) {
-    const c = pageComposition(ueNum, annee);
+    // La composition imprimée est celle de la SESSION qu'on imprime : le jury
+    // de septembre n'est pas celui de juin.
+    const c = pageComposition(ueNum, annee, session);
     styles.push(c.style || '');
     pousser('conseil', c.corps);
     if (c.sans_professeur) {
