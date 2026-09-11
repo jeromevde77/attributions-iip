@@ -4658,10 +4658,32 @@ r.put('/deliberation/ue/:ueNum/seance', authRequired,
         'SELECT cle, present FROM deliberation_presence WHERE seance_id = ?'
       ).all(s.id).map(l => [l.cle, !!l.present])) : {};
     }
-    // Un membre ajouté à la main siège aussi : il compte.
+    // Un membre ajouté à la main siège aussi : il compte — MAIS DE SA VOIX.
+    // Elle était supposée délibérative, si bien qu'un délégué du Ministre,
+    // qui siège pour veiller au déroulement des opérations, aurait rempli le
+    // quorum des deux tiers à la place d'un membre du Conseil.
+    const voixPosee = {};
+    try {
+      const sv = db.prepare(`SELECT id FROM deliberation_seance
+        WHERE ue_num = ? AND annee_scolaire = ? AND session = ?`).get(ueNum, annee, session);
+      if (sv) {
+        for (const l of db.prepare(
+          'SELECT cle, voix, categorie FROM deliberation_presence WHERE seance_id = ?'
+        ).all(sv.id)) {
+          voixPosee[l.cle] = l.voix
+            || (l.categorie ? voixDeLaCategorie(l.categorie) : 'deliberative');
+        }
+      }
+    } catch { /* sans voix enregistrée, le corps du texte s'applique */ }
+    const voixEnvoyee = Object.fromEntries((req.body?.membres || [])
+      .filter(m => m?.cle)
+      .map(m => [m.cle, m.categorie ? voixDeLaCategorie(m.categorie)
+        : (m.voix === 'consultative' ? 'consultative' : 'deliberative')]));
     const tous = [...membres];
     for (const cle of Object.keys(presences)) {
-      if (!tous.some(m => m.cle === cle)) tous.push({ cle, voix: 'deliberative' });
+      if (!tous.some(m => m.cle === cle)) {
+        tous.push({ cle, voix: voixEnvoyee[cle] || voixPosee[cle] || 'deliberative' });
+      }
     }
     const q = etatQuorum(tous, presences);
     if (!q.atteint) {
