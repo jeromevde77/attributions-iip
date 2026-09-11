@@ -316,6 +316,11 @@ L'onglet Étudiants croise **deux axes** :
   différentes — construit la liste (`POST /api/perimetre/etudiants`) ;
 - la **sélection** la restreint à ceux qu'on coche.
 
+**Les quatre boutons y mènent**, avec leur contexte : depuis la délibération
+d'une unité, le centre s'ouvre sur cette unité et cette session ; depuis
+l'écran d'une section, sur cette section. On arrive là où l'on était, au lieu de
+refaire un choix qu'on venait de faire.
+
 **Un cours ne désigne que des personnes.** Les pièces de délibération sont des
 pièces d'unité : choisir un cours sert à trouver ceux qui le suivent, les
 documents sortent pour leur unité. L'écran le dit sous l'arbre du périmètre.

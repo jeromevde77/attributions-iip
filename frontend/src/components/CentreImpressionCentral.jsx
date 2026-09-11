@@ -51,13 +51,16 @@ function EnChantier({ quoi }) {
   );
 }
 
-function OngletEtudiants() {
+function OngletEtudiants({ perimetre = null }) {
   const annee = getAnnee();
   const [arbre, setArbre] = useState(null);
-  const [session, setSession] = useState(1);
-  const [sections, setSections] = useState(() => new Set());
-  const [ues, setUes] = useState(() => new Set());
-  const [cours, setCours] = useState(() => new Set());
+  // LE CONTEXTE SUIT LE BOUTON. Ouvrir le centre depuis la délibération d'une
+  // unité sans que cette unité soit déjà choisie ferait recommencer un travail
+  // qu'on venait de faire : on arrive là où l'on était.
+  const [session, setSession] = useState(perimetre?.session === 2 ? 2 : 1);
+  const [sections, setSections] = useState(() => new Set(perimetre?.sections || []));
+  const [ues, setUes] = useState(() => new Set(perimetre?.ue_nums || []));
+  const [cours, setCours] = useState(() => new Set(perimetre?.cours_codes || []));
   const [deplie, setDeplie] = useState(() => new Set());
   const [recherche, setRecherche] = useState('');
   const [liste, setListe] = useState(null);
@@ -323,7 +326,8 @@ function OngletEtudiants() {
   );
 }
 
-export default function CentreImpressionCentral({ ongletInitial = 'etudiants', onClose }) {
+export default function CentreImpressionCentral({ ongletInitial = 'etudiants',
+                                                  perimetre = null, onClose }) {
   const [onglet, setOnglet] = useState(ongletInitial);
 
   return (
@@ -355,7 +359,7 @@ export default function CentreImpressionCentral({ ongletInitial = 'etudiants', o
           ))}
         </div>
 
-        {onglet === 'etudiants' ? <OngletEtudiants />
+        {onglet === 'etudiants' ? <OngletEtudiants perimetre={perimetre} />
           : <EnChantier quoi={ONGLETS.find(o => o.cle === onglet)?.label.toLowerCase()} />}
       </div>
     </div>

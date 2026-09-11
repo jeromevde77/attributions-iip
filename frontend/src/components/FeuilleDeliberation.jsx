@@ -7,7 +7,8 @@ import {
 import { authHeaders } from '../lib/api.js';
 import TableauBordEtudiant from './TableauBordEtudiant.jsx';
 import { MOTIFS_ECHEC, composerMotif, decomposerMotif, texteDuMotif } from './motifsEchec.js';
-import CentreDocumentsUE from './CentreDocumentsUE.jsx';
+// Le centre commun, ouvert sur l'unité et la session qu'on vient de délibérer.
+import CentreImpressionCentral from './CentreImpressionCentral.jsx';
 import { proposition } from '../lib/defautsSeance.js';
 
 /**
@@ -770,7 +771,8 @@ export default function FeuilleDeliberation({ ueNum, annee, onClose }) {
       )}
 
       {documents && (
-        <CentreDocumentsUE ueNum={data.ue_num} ueNom={data.ue_nom} annee={annee}
+        <CentreImpressionCentral ongletInitial="etudiants"
+          perimetre={{ ue_nums: [data.ue_num], session }}
           onClose={() => setDocuments(false)} />
       )}
 

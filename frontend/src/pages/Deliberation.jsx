@@ -11,9 +11,8 @@ import ImportSuivi from '../components/ImportSuivi.jsx';
 import DiagnosticAnnees from '../components/DiagnosticAnnees.jsx';
 import SchemaLiensAA from '../components/SchemaLiensAA.jsx';
 import EncodageRapide from './EncodageRapide.jsx';
-import CentreDocumentsUE from '../components/CentreDocumentsUE.jsx';
+import CentreImpressionCentral from '../components/CentreImpressionCentral.jsx';
 import RepriseLot from '../components/RepriseLot.jsx';
-import CentreImpression from '../components/CentreImpression.jsx';
 import ImportTableauPlat from '../components/ImportTableauPlat.jsx';
 import ReglesDeliberation from '../components/ReglesDeliberation.jsx';
 import FeuilleCorrection from '../components/FeuilleCorrection.jsx';
@@ -440,7 +439,8 @@ export default function Deliberation() {
         <ImportTableauPlat annee={annee} onClose={() => setTableauPlat(false)} onFini={charger} />
       )}
       {impression && (
-        <CentreImpression annee={annee} section={sec?.section || null}
+        <CentreImpressionCentral ongletInitial="etudiants"
+          perimetre={sec?.section ? { sections: [sec.section] } : null}
           onClose={() => setImpression(false)} />
       )}
       {repriseLot && (
@@ -530,7 +530,8 @@ export default function Deliberation() {
       )}
 
       {docs && (
-        <CentreDocumentsUE ueNum={docs.ue_num} ueNom={docs.ue_nom} annee={annee}
+        <CentreImpressionCentral ongletInitial="etudiants"
+          perimetre={{ ue_nums: [docs.ue_num], session: docs.session }}
           onClose={() => setDocs(null)} />
       )}
 
