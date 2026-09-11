@@ -910,7 +910,7 @@ r.get('/echecs/:etudId', authRequired, (req, res) => {
  * Extrait de sa route pour être produit aussi EN LOT : le secrétariat n'imprime
  * pas les notifications une par une.
  */
-export function documentMotivation(etudId, ueNum, annee) {
+export function documentMotivation(etudId, ueNum, annee, session = 1) {
 
   const e = db.prepare('SELECT * FROM etudiant WHERE id = ?').get(etudId);
   if (!e) return { erreur: 'étudiant introuvable', code: 404 };
@@ -936,7 +936,7 @@ export function documentMotivation(etudId, ueNum, annee) {
   // cherchait donc une note sous le code « C1 », n'en trouvait aucune, et
   // concluait qu'aucun acquis n'était en échec — la notification ne sortait
   // jamais. Elle ignorait de surcroît les ajournements posés par le Conseil.
-  const president = presidentDeLaSeance(ueNum, annee, 1);
+  const president = presidentDeLaSeance(ueNum, annee, session);
   const d = delibererUE(etudId, ueNum, annee);
   const motifs = Object.fromEntries(db.prepare(`
     SELECT aa_code, motif FROM decision_motivation
@@ -992,13 +992,22 @@ export function documentMotivation(etudId, ueNum, annee) {
 
   const regles = reglesAjournement();
 
-  // La seconde session, telle que la séance l'a fixée — et cours par cours
-  // quand les professeurs ne repassent pas le même jour.
+  // DEUX SÉANCES, ET NON UNE — elles ne répondent pas à la même question.
+  //
   // Les dates de seconde session ont été fixées à la CLÔTURE DE LA PREMIÈRE :
-  // c'est cette séance-là qu'on lit, quelle que soit celle qu'on délibère.
-  const seance = db.prepare(
+  // c'est cette séance-là qu'on lit pour les annoncer, quelle que soit celle
+  // qu'on délibère.
+  const seanceS1 = db.prepare(
     'SELECT * FROM deliberation_seance WHERE ue_num = ? AND annee_scolaire = ? AND session = 1'
   ).get(ueNum, annee) || {};
+  // Mais la pièce, elle, porte la date de la séance QUI A PRONONCÉ la décision.
+  // Le même objet servait les deux usages : une motivation de seconde session
+  // se signait à la date de la délibération de juin, et une unité sans séance
+  // de première session se signait au jour de l'impression — une date qui
+  // n'était celle d'aucun Conseil, sur une pièce ouvrant un recours.
+  const seance = session === 1 ? seanceS1 : (db.prepare(
+    'SELECT * FROM deliberation_seance WHERE ue_num = ? AND annee_scolaire = ? AND session = ?'
+  ).get(ueNum, annee, session) || {});
   const s2 = Object.fromEntries(db.prepare(
     'SELECT * FROM deliberation_session2 WHERE ue_num = ? AND annee_scolaire = ?'
   ).all(ueNum, annee).map(l => [l.cours_code, l]));
@@ -1006,10 +1015,10 @@ export function documentMotivation(etudId, ueNum, annee) {
   const quand = (code) => {
     const l = s2[code] || {};
     return {
-      date: l.s2_date || seance.session2_date || null,
-      heure: l.s2_heure || seance.session2_heure || null,
-      local: l.s2_local || seance.session2_local || null,
-      adresse: l.s2_adresse || seance.session2_adresse || ident.adresse || '',
+      date: l.s2_date || seanceS1.session2_date || null,
+      heure: l.s2_heure || seanceS1.session2_heure || null,
+      local: l.s2_local || seanceS1.session2_local || null,
+      adresse: l.s2_adresse || seanceS1.session2_adresse || ident.adresse || '',
     };
   };
 
@@ -1181,17 +1190,17 @@ export function documentMotivation(etudId, ueNum, annee) {
   ${regles.portee === 'aa' && regles.session2 === 'unique' ? `
   <div class="info orange">
     <div class="titre">Seconde session</div>
-    <div class="ligne">Le ${seance.session2_date ? `<b>${jour(seance.session2_date)}</b>` : '………………'}
-      à ${seance.session2_heure ? `<b>${esc2(seance.session2_heure)}</b>` : '……h……'},
-      local ${seance.session2_local ? `<b>${esc2(seance.session2_local)}</b>` : '…………'}</div>
-    <div class="ligne">${esc2(seance.session2_adresse || ident.adresse || '')}</div>
+    <div class="ligne">Le ${seanceS1.session2_date ? `<b>${jour(seanceS1.session2_date)}</b>` : '………………'}
+      à ${seanceS1.session2_heure ? `<b>${esc2(seanceS1.session2_heure)}</b>` : '……h……'},
+      local ${seanceS1.session2_local ? `<b>${esc2(seanceS1.session2_local)}</b>` : '…………'}</div>
+    <div class="ligne">${esc2(seanceS1.session2_adresse || ident.adresse || '')}</div>
   </div>`
   // Quand chaque cours a sa date, le tableau la porte déjà : un bloc de plus
   // pour redire « voir le tableau » ne fait que pousser la signature à la
   // page suivante. Seule l'adresse reste à dire, en une ligne.
   : `<p class="champ" style="font-size:8pt;color:#475569">
        Les épreuves se tiennent à
-       ${esc2(seance.session2_adresse || ident.adresse || '……………')}.</p>`}
+       ${esc2(seanceS1.session2_adresse || ident.adresse || '……………')}.</p>`}
   `}
 
   ${estRefus ? '' : `
@@ -1215,7 +1224,7 @@ export function documentMotivation(etudId, ueNum, annee) {
     <div class="sceau"></div>
     <div class="paraphe"></div>
     <div class="lieu">Fait à ${esc2(ident.ville || 'Anderlecht')},
-      le ${jour(seance.date_seance || new Date().toISOString())}</div>
+      le ${seance.date_seance ? jour(seance.date_seance) : '………………'}</div>
     <div class="legende">
       <div class="qualite">Pour le Conseil des études,<br>${esc2(president.titre)}</div>
       <div class="nom">${esc2(president.nom)}</div>
@@ -1234,7 +1243,8 @@ export function documentMotivation(etudId, ueNum, annee) {
 r.get('/motivation/:etudId/:ueNum/document', authRequired, (req, res) => {
   const annee = req.query.annee;
   if (!annee) return res.status(400).json({ error: 'annee requise' });
-  const d = documentMotivation(Number(req.params.etudId), Number(req.params.ueNum), annee);
+  const d = documentMotivation(Number(req.params.etudId), Number(req.params.ueNum), annee,
+    req.query.session === '2' ? 2 : 1);
   if (d.erreur) return res.status(d.code || 400).json({ error: d.erreur });
   res.json({ html: d.html, nom: d.nom });
 });
@@ -5422,7 +5432,7 @@ function assemblerDocumentsUE(ueNum, annee, veut, opts = {}) {
       nbR++;
     } else if ((e.resultat === 'ajourne' && veut.ajournement)
             || (e.resultat === 'refuse' && veut.refus)) {
-      const d = documentMotivation(e.id, ueNum, annee);
+      const d = documentMotivation(e.id, ueNum, annee, session);
       if (d.erreur) { manques.push(`${e.nom} ${e.prenom} : ${d.erreur}`); continue; }
       // On reprend le CORPS, non le document entier : les pièces s'enchaînent
       // dans une seule enveloppe, chacune sur sa page.
