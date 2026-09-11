@@ -50,6 +50,9 @@ function aJustifier(acquis = [], cours = [], decision = null) {
 }
 
 export default function FeuilleDeliberation({ ueNum, annee, onClose }) {
+  // La correction administrative d'une séance close, distincte de sa
+  // réouverture : on répare une mention, on ne rejuge personne.
+  const [correction, setCorrection] = useState(false);
   const [data, setData] = useState(null);
   const [erreur, setErreur] = useState(null);
   // Ce que la clôture a trouvé de non rédigé, et ce qu'elle allait clôturer.
@@ -566,7 +569,13 @@ export default function FeuilleDeliberation({ ueNum, annee, onClose }) {
               inatteignable. Le bandeau la rend accessible dans tous les cas. */}
           {seance?.seance?.cloturee && (
             <BandeauReouverture session={session} enCours={enCours}
-              onRouvrir={rouvrirSeance} />
+              onRouvrir={rouvrirSeance} onCorriger={() => setCorrection(true)} />
+          )}
+
+          {correction && (
+            <CorrectionAdministrative ueNum={ueNum} annee={annee} session={session}
+              seance={seance} onFerme={() => setCorrection(false)}
+              onFait={chargerAuto} />
           )}
 
           {/* LA SECONDE SESSION S'OUVRE À LA CLÔTURE — encore faut-il pouvoir
@@ -2808,7 +2817,127 @@ function VueLot({ liste, onAjourner, onOuvrir, enCours }) {
 
 /* ═══ Rouvrir une séance close, depuis n'importe où ═══════════════════════ */
 
-function BandeauReouverture({ session, onRouvrir, enCours }) {
+/**
+ * CORRIGER LES MENTIONS ADMINISTRATIVES D'UNE SÉANCE CLOSE.
+ *
+ * Date, heure, visite des copies, présidence, membres. Rien d'autre : les
+ * décisions, les notes et les résultats ne passent pas par ici. La séance
+ * reste close, un motif écrit est exigé, et l'avant/après est conservé.
+ */
+function CorrectionAdministrative({ ueNum, annee, session, seance, onFerme, onFait }) {
+  const s = seance?.seance || {};
+  const [champs, setChamps] = useState({
+    date_seance: s.date_seance || '', heure_seance: s.heure_seance || '',
+    visite_date: s.visite_date || '', visite_heure: s.visite_heure || '',
+    visite_local: s.visite_local || '',
+    president_nom: s.president_nom || '', president_titre: s.president_titre || '',
+  });
+  const [membres, setMembres] = useState(() => (seance?.membres || []).map(m => ({ ...m })));
+  const [motif, setMotif] = useState('');
+  const [erreur, setErreur] = useState(null);
+  const [enCours, setEnCours] = useState(false);
+
+  async function envoyer() {
+    setEnCours(true); setErreur(null);
+    try {
+      const rep = await fetch(`/api/acquis/deliberation/ue/${ueNum}/seance/administratif`, {
+        method: 'PUT', headers: authHeaders(),
+        body: JSON.stringify({ annee, session, motif: motif.trim(), ...champs, membres }),
+      });
+      const j = await rep.json().catch(() => ({}));
+      if (!rep.ok) throw new Error(j.detail || j.error || 'Correction refusée.');
+      onFait();
+      onFerme();
+    } catch (e) { setErreur(e.message); } finally { setEnCours(false); }
+  }
+
+  const Ligne = ({ cle, label, type = 'text' }) => (
+    <label className="text-[11.5px] text-slate-600">
+      {label}
+      <input type={type} value={champs[cle]}
+        onChange={e => setChamps(c => ({ ...c, [cle]: e.target.value }))}
+        className="w-full mt-0.5 border border-slate-300 rounded-lg px-2 py-1.5 text-[12.5px]" />
+    </label>
+  );
+
+  return (
+    <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4">
+      <div className="bg-white rounded-xl w-[720px] max-w-full max-h-[90vh] overflow-auto p-5 space-y-3">
+        <div>
+          <h3 className="text-[15px] font-semibold text-iip-blue">
+            Corriger les mentions administratives
+          </h3>
+          <p className="text-[11.5px] text-slate-600">
+            La séance <b>reste close</b>. Les décisions, les notes et les résultats
+            ne sont pas touchés — pour les modifier, il faut rouvrir la séance.
+            La correction est conservée avec son motif, son auteur et son horodatage.
+          </p>
+        </div>
+
+        <div className="grid grid-cols-2 gap-2">
+          <Ligne cle="date_seance" label="Date de la séance" type="date" />
+          <Ligne cle="heure_seance" label="Heure" type="time" />
+          <Ligne cle="visite_date" label="Visite des copies — date" type="date" />
+          <Ligne cle="visite_heure" label="Visite des copies — heure" type="time" />
+          <Ligne cle="visite_local" label="Visite des copies — local" />
+          <div />
+          <Ligne cle="president_nom" label="Président de la séance (si désigné)" />
+          <Ligne cle="president_titre" label="Titre porté au procès-verbal" />
+        </div>
+
+        <div className="border border-slate-200 rounded-xl divide-y divide-slate-100">
+          {membres.map((m, i) => (
+            <div key={m.cle} className="flex items-center gap-2 px-2.5 py-1.5">
+              <input type="checkbox" checked={!!m.present}
+                onChange={e => setMembres(l => l.map((x, k) =>
+                  k === i ? { ...x, present: e.target.checked } : x))}
+                className="w-4 h-4 accent-iip-blue flex-none" />
+              <span className="flex-1 min-w-0">
+                <span className="text-[12.5px] font-semibold">{m.nom}</span>
+                <span className="block text-[11px] text-slate-500 truncate">{m.qualite}</span>
+              </span>
+              {m.voix === 'consultative' && (
+                <span className="text-[10px] px-2 py-0.5 rounded-full bg-sky-50
+                                 text-sky-800 border border-sky-200 flex-none">
+                  consultative
+                </span>
+              )}
+              {m.role === 'ajoute' && (
+                <button onClick={() => setMembres(l => l.filter((_, k) => k !== i))}
+                  className="flex-none text-[11px] text-red-700 border border-red-200
+                             rounded px-1.5 py-0.5">
+                  retirer
+                </button>
+              )}
+            </div>
+          ))}
+        </div>
+
+        <textarea value={motif} onChange={e => setMotif(e.target.value)} rows={2}
+          placeholder="Pourquoi cette correction ? (erreur de saisie, membre omis…)"
+          className="w-full border border-slate-300 rounded-lg px-2 py-1.5 text-[12.5px]" />
+
+        {erreur && (
+          <div className="px-3 py-2 rounded-lg bg-red-50 text-red-700 text-[12.5px]">{erreur}</div>
+        )}
+
+        <div className="flex justify-end gap-2">
+          <button onClick={onFerme}
+            className="px-3 py-1.5 text-[12.5px] rounded-lg border border-slate-300">
+            Annuler
+          </button>
+          <button onClick={envoyer} disabled={enCours || motif.trim().length < 3}
+            className="px-3 py-1.5 text-[12.5px] rounded-lg bg-iip-blue text-white
+                       font-semibold disabled:opacity-40">
+            Corriger
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function BandeauReouverture({ session, onRouvrir, onCorriger, enCours }) {
   const [ouvert, setOuvert] = useState(false);
   const [motif, setMotif] = useState('');
 
@@ -2819,11 +2948,23 @@ function BandeauReouverture({ session, onRouvrir, enCours }) {
           <b>Séance close</b> — {session === 2 ? 'seconde' : 'première'} session.
           Les décisions ne peuvent plus être modifiées.
         </span>
-        <button onClick={() => setOuvert(o => !o)}
-          className="flex-none px-2.5 py-1 text-[12px] rounded-lg border border-amber-500
-                     text-amber-900 font-semibold">
-          {ouvert ? 'Annuler' : 'Rouvrir la séance'}
-        </button>
+        <span className="flex-none flex items-center gap-2">
+          {/* CORRIGER N'EST PAS ROUVRIR. Une date mal tapée, un prénom, un
+              membre oublié : rien de cela ne rejuge un étudiant. Il fallait
+              pourtant annuler la délibération, donc repasser toutes les
+              décisions. Les deux gestes se présentent maintenant côte à côte,
+              et le moins grave est le premier. */}
+          <button onClick={onCorriger}
+            className="px-2.5 py-1 text-[12px] rounded-lg border border-slate-400
+                       text-slate-700">
+            Corriger l'administratif
+          </button>
+          <button onClick={() => setOuvert(o => !o)}
+            className="px-2.5 py-1 text-[12px] rounded-lg border border-amber-500
+                       text-amber-900 font-semibold">
+            {ouvert ? 'Annuler' : 'Rouvrir la séance'}
+          </button>
+        </span>
       </div>
       {ouvert && (
         <div className="space-y-2">

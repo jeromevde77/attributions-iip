@@ -81,6 +81,25 @@ Ces membres-là s'ajoutent à la main.
   Le délégué ne peut appartenir au Conseil de l'unité ni de la section
   (décret art. 52 · AGCF art. 26) : la route `/deliberation/ue/:n/presidents`
   écarte les chargés de cours concernés **en disant pourquoi**.
+#### Corriger l'administratif sans rouvrir la séance
+
+Une séance close refusait toute retouche : il fallait **annuler la
+délibération** — donc repasser toutes les décisions — pour corriger une date mal
+tapée ou un membre oublié. Deux actes étaient confondus : rejuger un étudiant
+est une délibération, écrire le bon prénom ne l'est pas.
+
+Le bandeau de séance close porte donc **deux** boutons : « Corriger
+l'administratif » et « Rouvrir la séance ». Le premier ne touche que la date et
+l'heure de séance, la visite des copies, la présidence et les membres. Les
+décisions, les notes et les résultats lui sont inaccessibles. La séance **reste
+close**, un motif écrit est exigé, et l'avant/après est conservé dans
+`seance_correction` avec l'auteur et l'horodatage.
+
+Une correction de composition **remplace** la liste : un membre ajouté par
+erreur peut être retiré, sans quoi on ne pourrait jamais défaire une faute.
+
+---
+
 #### Ce que les modèles officiels prévoient — vérifié sur les annexes
 
 Les fichiers `Sanction_études_avec_annexes.pdf` sont des **archives de pages

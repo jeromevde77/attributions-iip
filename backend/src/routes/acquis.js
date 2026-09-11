@@ -2180,6 +2180,126 @@ export function voixDeLaCategorie(cle) {
  * On rend la liste ET les écartés, avec la raison : un écran qui masque sans
  * dire fait chercher un nom qu'on ne trouvera pas.
  */
+/**
+ * CORRIGER L'ADMINISTRATIF D'UNE SÉANCE CLOSE — sans la rouvrir.
+ *
+ * Une séance close refusait toute retouche : il fallait annuler la
+ * délibération, donc repasser toutes les décisions, pour corriger une date mal
+ * tapée ou un membre oublié. On confondait deux actes. Rejuger un étudiant est
+ * une délibération ; écrire le bon prénom sur la composition n'en est pas une.
+ *
+ * Cette route ne touche donc QUE l'administratif — date et heure de séance,
+ * visite des copies, membres, présidence. Les décisions, les notes et les
+ * résultats lui sont inaccessibles : pour les changer, il faut toujours
+ * annuler la délibération, et cela se voit.
+ *
+ * Un motif écrit est exigé, et l'avant/après est conservé : c'est ce qu'un
+ * recours viendra lire. La séance reste close.
+ */
+(function migrationCorrections() {
+  try {
+    db.exec(`
+      CREATE TABLE IF NOT EXISTS seance_correction (
+        id             INTEGER PRIMARY KEY AUTOINCREMENT,
+        ue_num         INTEGER NOT NULL,
+        annee_scolaire TEXT    NOT NULL,
+        session        INTEGER NOT NULL DEFAULT 1,
+        avant          TEXT,
+        apres          TEXT,
+        motif          TEXT NOT NULL,
+        le             TEXT DEFAULT CURRENT_TIMESTAMP,
+        par            TEXT
+      );
+      CREATE INDEX IF NOT EXISTS idx_seance_corr
+        ON seance_correction(ue_num, annee_scolaire, session);
+    `);
+  } catch (e) { console.error('[migration] seance_correction :', e.message); }
+})();
+
+const CHAMPS_ADMIN = ['date_seance', 'heure_seance',
+  'visite_date', 'visite_heure', 'visite_local',
+  'president_role', 'president_nom', 'president_titre'];
+
+r.put('/deliberation/ue/:ueNum/seance/administratif', authRequired,
+      roleRequired('admin', 'directeur', 'directeur_adjoint'), (req, res) => {
+  const ueNum = Number(req.params.ueNum);
+  const annee = req.body?.annee || anneeDeTravail(req);
+  const session = Number(req.body?.session) === 2 ? 2 : 1;
+  const motif = String(req.body?.motif || '').trim();
+  if (motif.length < 3) {
+    return res.status(400).json({
+      error: 'motif requis',
+      detail: "Une correction après clôture s'écrit : c'est ce qu'un recours "
+            + 'viendra lire.',
+    });
+  }
+
+  const avant = db.prepare(`SELECT * FROM deliberation_seance
+    WHERE ue_num = ? AND annee_scolaire = ? AND session = ?`).get(ueNum, annee, session);
+  if (!avant) return res.status(404).json({ error: 'aucune séance à corriger' });
+
+  const champs = {};
+  for (const c of CHAMPS_ADMIN) if (c in (req.body || {})) {
+    champs[c] = req.body[c] === '' ? null : req.body[c];
+  }
+  const membres = Array.isArray(req.body?.membres) ? req.body.membres : null;
+  if (!Object.keys(champs).length && !membres) {
+    return res.status(400).json({ error: 'rien à corriger' });
+  }
+
+  const presAvant = db.prepare(`SELECT cle, nom, prenom, qualite, categorie, voix, present
+    FROM deliberation_presence WHERE seance_id = ?`).all(avant.id);
+
+  db.transaction(() => {
+    if (Object.keys(champs).length) {
+      const cols = Object.keys(champs);
+      db.prepare(`UPDATE deliberation_seance
+        SET ${cols.map(c => `${c} = ?`).join(', ')}, maj_le = datetime('now'), maj_par = ?
+        WHERE ue_num = ? AND annee_scolaire = ? AND session = ?`)
+        .run(...cols.map(c => champs[c]), req.user?.email || null, ueNum, annee, session);
+    }
+    if (membres) {
+      // Une correction de composition REMPLACE la liste : un membre retiré doit
+      // disparaître, sans quoi on ne pourrait jamais défaire un ajout erroné.
+      db.prepare('DELETE FROM deliberation_presence WHERE seance_id = ?').run(avant.id);
+      const up = db.prepare(`INSERT INTO deliberation_presence
+        (seance_id, cle, nom, prenom, qualite, categorie, voix, present)
+        VALUES (?,?,?,?,?,?,?,?)`);
+      for (const m of membres) {
+        if (!m?.cle || !m?.nom) continue;
+        up.run(avant.id, m.cle, m.nom, m.prenom || null, m.qualite || null,
+          m.categorie || null,
+          m.categorie ? voixDeLaCategorie(m.categorie)
+                      : (m.voix === 'consultative' ? 'consultative' : 'deliberative'),
+          m.present ? 1 : 0);
+      }
+    }
+    const apres = db.prepare(`SELECT * FROM deliberation_seance
+      WHERE ue_num = ? AND annee_scolaire = ? AND session = ?`).get(ueNum, annee, session);
+    const presApres = db.prepare(`SELECT cle, nom, prenom, qualite, categorie, voix, present
+      FROM deliberation_presence WHERE seance_id = ?`).all(avant.id);
+    db.prepare(`INSERT INTO seance_correction
+      (ue_num, annee_scolaire, session, avant, apres, motif, par) VALUES (?,?,?,?,?,?,?)`)
+      .run(ueNum, annee, session,
+        JSON.stringify({ seance: avant, membres: presAvant }),
+        JSON.stringify({ seance: apres, membres: presApres }),
+        motif, req.user?.email || null);
+  })();
+
+  res.json({ ok: true, ue_num: ueNum, session,
+             cloturee: !!avant.cloturee,
+             note: 'La séance reste close ; seules les mentions administratives '
+                 + 'ont été corrigées.' });
+});
+
+/** Les corrections faites après clôture — pour qu'elles se lisent. */
+r.get('/deliberation/ue/:ueNum/corrections', authRequired, (req, res) => {
+  const annee = req.query.annee || anneeDeTravail(req);
+  res.json(db.prepare(`SELECT id, session, motif, le, par, avant, apres
+    FROM seance_correction WHERE ue_num = ? AND annee_scolaire = ?
+    ORDER BY le DESC LIMIT 100`).all(Number(req.params.ueNum), annee));
+});
+
 r.get('/deliberation/ue/:ueNum/presidents', authRequired, (req, res) => {
   const ueNum = Number(req.params.ueNum);
   const annee = req.query.annee || anneeDeTravail(req);
