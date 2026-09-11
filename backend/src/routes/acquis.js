@@ -5893,7 +5893,13 @@ function assemblerDocumentsUE(ueNum, annee, veut, opts = {}) {
       return { ...e, resultat: d.resultat, points_session: d.points,
                source_decision: d.source };
     })
-    .filter(e => e.resultat);
+    .filter(e => e.resultat)
+    // COCHER DES PERSONNES DOIT AVOIR UN EFFET. Le lot ne savait travailler
+    // que par unité : on imprimait pour tous ses inscrits ou pour personne.
+    // Quand une sélection est donnée, elle restreint — les pièces collectives,
+    // elles, ne s'en trouvent pas changées : un procès-verbal reste celui de
+    // la séance entière, et non celui des trois étudiants qu'on a cochés.
+    .filter(e => !opts.etudiants || opts.etudiants.includes(e.id));
 
   // Chaque page porte SON TYPE : le lot peut alors les reclasser par pile —
   // toutes les attestations ensemble — au lieu de suivre l'ordre des unités.
@@ -6191,6 +6197,8 @@ r.post('/deliberation/documents-lot', authRequired, (req, res) => {
     let a;
     try {
       a = assemblerDocumentsUE(ueNum, annee, veut, {
+        etudiants: Array.isArray(req.body?.etudiants) && req.body.etudiants.length
+          ? req.body.etudiants.map(Number) : null,
         // LA SESSION EST CELLE QU'ON DOCUMENTE, PAS CELLE OÙ L'UNITÉ EN EST.
         // Le lot prenait la session déduite de l'unité : dès que juin était
         // clos, il documentait septembre — et sortait les ajournés d'une

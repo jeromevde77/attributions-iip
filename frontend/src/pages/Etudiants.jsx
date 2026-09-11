@@ -9,7 +9,9 @@ import SchemaCapitalisationVue from '../components/SchemaCapitalisation.jsx';
 import Amenagements from '../components/Amenagements.jsx';
 import Stages from '../components/Stages.jsx';
 import IdentiteEtudiant, { ComplementDossiers } from '../components/IdentiteEtudiant.jsx';
-import CentreImpression from '../components/CentreImpression.jsx';
+// LE CENTRE CENTRAL. Les boutons restent où on les cherche — là où l'on
+// travaille — mais mènent désormais au même endroit.
+import CentreImpressionCentral from '../components/CentreImpressionCentral.jsx';
 import CentrePAE from '../components/CentrePAE.jsx';
 import PassageAnnee from '../components/PassageAnnee.jsx';
 import CentreEchanges from '../components/CentreEchanges.jsx';
@@ -2508,7 +2510,7 @@ export default function Etudiants() {
       )}
 
       {centreImpression && (
-        <CentreImpression annee={annee} preselection={[...selEtudiants]}
+        <CentreImpressionCentral ongletInitial="etudiants"
           onClose={() => setCentreImpression(false)} />
       )}
 

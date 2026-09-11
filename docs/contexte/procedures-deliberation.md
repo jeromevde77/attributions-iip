@@ -302,6 +302,31 @@ pas sortir du modèle générique.
 
 ---
 
+#### Le centre d'impression central — Étudiants
+
+Dix-huit écrans produisaient des documents, chacun avec sa mécanique : la même
+pièce s'obtenait différemment selon le chemin pris. Les boutons **restent où on
+les cherche**, mais mènent à un écran unique à cinq onglets — Étudiants,
+Personnel, Pilotage, Organisation, Référentiels. Seul le premier est construit ;
+les autres attendent qu'on convienne de ce qu'on y met.
+
+L'onglet Étudiants croise **deux axes** :
+
+- le **périmètre** — une section, des unités, des cours pris dans des unités
+  différentes — construit la liste (`POST /api/perimetre/etudiants`) ;
+- la **sélection** la restreint à ceux qu'on coche.
+
+**Un cours ne désigne que des personnes.** Les pièces de délibération sont des
+pièces d'unité : choisir un cours sert à trouver ceux qui le suivent, les
+documents sortent pour leur unité. L'écran le dit sous l'arbre du périmètre.
+
+Le lot accepte désormais une liste d'étudiants (`etudiants`) : cocher des
+personnes restreint les pièces **nominatives**, sans toucher aux pièces
+collectives — un procès-verbal reste celui de la séance entière, non celui des
+trois dossiers cochés.
+
+---
+
 #### Un document par étudiant
 
 Les pièces nominatives — attestation, motivation d'ajournement ou de refus —
