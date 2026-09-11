@@ -58,6 +58,22 @@ Le stockage supporte les deux formes : `s1|cours|aa` pour l'encodage par cours,
 
 ---
 
+### Le calendrier, hors de la délibération
+
+Les dates d'épreuve, de visite des copies et de séance se posent depuis
+**Étudiants → Calendrier des sessions** : toute la section sur une page, les
+unités puis leurs cours, et une valeur applicable d'un coup à ce qui est coché.
+
+- **L'unité** porte la délibération et la visite des copies — le Conseil siège
+  par unité.
+- **Le cours** porte les épreuves des deux sessions : deux professeurs ne font
+  pas passer la leur le même jour.
+- Une **séance close** se corrige, mais seulement avec un **motif écrit**,
+  conservé dans `calendrier_correction`. Corriger une date n'est pas rouvrir
+  une délibération : la séance reste close.
+
+---
+
 ## 3. DÉLIBÉRATION — le Conseil des études
 
 **Où :** Étudiants → Délibération → section → UE → « Délibérer ».

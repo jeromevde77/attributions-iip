@@ -26,6 +26,7 @@ import capitalisationRoutes, { migrerCapitalisation } from './routes/capitalisat
 import assistantsRoutes from './routes/assistants.js';
 import rentreeRoutes, { migrerRentree } from './routes/rentree.js';
 import acquisRoutes, { migrerAA } from './routes/acquis.js';
+import calendrierRoutes from './routes/calendrier.js';
 import importSuiviRoutes from './routes/importSuivi.js';
 import doublonsEtudiantsRoutes from './routes/doublonsEtudiants.js';
 import horaireRoutes, { migrerHoraire } from './routes/horaire.js';
@@ -2762,6 +2763,7 @@ app.use('/api/capitalisation', capitalisationRoutes);
 app.use('/api/assistants', assistantsRoutes);
 app.use('/api/rentree', rentreeRoutes);
 app.use('/api/acquis', acquisRoutes);
+app.use('/api/calendrier', calendrierRoutes);
 app.use('/api/import-suivi', importSuiviRoutes);
 app.use('/api/doublons-etudiants', doublonsEtudiantsRoutes);
 app.use('/api/horaire', horaireRoutes);

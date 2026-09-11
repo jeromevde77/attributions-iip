@@ -12,6 +12,7 @@ import Echeancier from './Echeancier.jsx';
 
 const Listes = lazy(() => import('./Listes.jsx'));
 const Procedures = lazy(() => import('./Procedures.jsx'));
+const CalendrierSessions = lazy(() => import('../components/CalendrierSessions.jsx'));
 
 const Attente = () => <div className="p-6 text-sm text-slate-400">Chargement…</div>;
 
@@ -55,6 +56,13 @@ export function AxeEtudiants() {
         // saisie rapide s'y ouvre d'un bouton.
         { key: 'deliberation', label: 'Délibération', icone: IconScale, sansMarge: true,
           rendu: <Deliberation /> },
+        // LE CALENDRIER, HORS DE LA DÉLIBÉRATION. Les dates se posaient au fond
+        // de l'écran de délibération, unité par unité : fixer celui d'une
+        // section demandait d'ouvrir trente actes de Conseil pour y taper des
+        // dates. Elles ont leur page, et elle se lit d'un coup d'œil.
+        { key: 'calendrier', label: 'Calendrier des sessions', icone: IconCalendarStats,
+          sansMarge: true, railPropre: true,
+          rendu: <Suspense fallback={<Attente />}><CalendrierSessions /></Suspense> },
         // L'onglet ouvre TOUTE la page Procédures — recours, fraude,
         // disciplinaire, examens, archives. L'appeler « Recours » annonçait un
         // cinquième de son contenu et cachait le reste.
