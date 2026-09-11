@@ -2521,6 +2521,53 @@ export function coursAutorises(user, annee) {
  *   remplace pour ceux qui l'ont été. C'est ainsi que le résultat de seconde
  *   session est final : il s'ajoute, il n'efface pas.
  */
+/**
+ * LA DÉCISION DE CETTE SESSION-LÀ — non l'état du dossier.
+ *
+ * « etudiant_inscription » ne retient qu'un résultat par unité et par année :
+ * celui de la session la plus avancée. Les pièces le lisaient, si bien que le
+ * procès-verbal de septembre reprenait les réussites de juin avec leurs points
+ * de juin, et les attribuait au Jury qui avait siégé en septembre. La grille de
+ * délibération, elle, calcule par session — d'où l'écart que voyaient les
+ * étudiants.
+ *
+ * « deliberation_resultat » fait foi, filtrée sur la session. Repli sur le
+ * dossier UNIQUEMENT si cette unité n'a aucune décision enregistrée par session
+ * pour l'année : c'est le cas des dossiers repris d'un classeur, qu'on ne veut
+ * pas faire disparaître des pièces.
+ */
+export function decisionDeSession(etudId, ueNum, annee, session = 1) {
+  const l = db.prepare(`
+    SELECT resultat, points, mention FROM deliberation_resultat
+    WHERE etudiant_id = ? AND annee_scolaire = ? AND ue_num = ? AND session = ?
+  `).get(Number(etudId), annee, Number(ueNum), Number(session));
+  if (l) return { ...l, source: 'session' };
+
+  // LE REPLI SE JUGE ÉTUDIANT PAR ÉTUDIANT, non unité par unité.
+  //
+  // Jugé sur l'unité, il faisait disparaître des pièces les réussites de plein
+  // droit d'avant ce correctif : elles n'ont aucune ligne par session, alors
+  // que les ajournements de la même unité en ont — l'unité paraissait donc
+  // « couverte » et ces étudiants tombaient dans le vide. Un procès-verbal
+  // amputé de ses réussites est pire que le décalage qu'on corrige.
+  //
+  // Si CET étudiant a au moins une décision enregistrée par session pour cette
+  // unité, c'est elle qui fait foi et l'absence de ligne pour la session
+  // demandée signifie qu'il n'y a pas été jugé. Sinon, le dossier parle.
+  const sien = db.prepare(`
+    SELECT COUNT(*) AS n FROM deliberation_resultat
+    WHERE etudiant_id = ? AND annee_scolaire = ? AND ue_num = ?`)
+    .get(Number(etudId), annee, Number(ueNum)).n;
+  if (sien > 0) return { resultat: null, points: null, mention: null, source: null };
+
+  const i = db.prepare(`
+    SELECT resultat, points, mention FROM etudiant_inscription
+    WHERE etudiant_id = ? AND annee_scolaire = ? AND ue_num = ?
+  `).get(Number(etudId), annee, Number(ueNum));
+  return i ? { ...i, source: 'dossier' }
+           : { resultat: null, points: null, mention: null, source: null };
+}
+
 export function delibererUE(etudId, ueNum, annee, session = 1) {
   const structure = structureUE(ueNum, annee);
   const integree = estEpreuveIntegree(ueNum, annee);
@@ -5729,11 +5776,20 @@ function assemblerDocumentsUE(ueNum, annee, veut, opts = {}) {
   try { ident = identiteEtablissement() || {}; } catch { ident = {}; }
 
   const etudiants = db.prepare(`
-    SELECT e.*, i.resultat
+    SELECT e.*, i.resultat AS resultat_dossier
     FROM etudiant_inscription i JOIN etudiant e ON e.id = i.etudiant_id
     WHERE i.annee_scolaire = ? AND i.ue_num = ?
     ORDER BY e.nom, e.prenom
-  `).all(annee, ueNum);
+  `).all(annee, ueNum)
+    // La pièce porte la décision de LA SESSION qu'on imprime. Un étudiant que
+    // cette séance n'a pas jugé n'y figure pas : lui attribuer une décision
+    // prise ailleurs, c'est la prêter au Conseil qui siégeait ce jour-là.
+    .map(e => {
+      const d = decisionDeSession(e.id, ueNum, annee, session);
+      return { ...e, resultat: d.resultat, points_session: d.points,
+               source_decision: d.source };
+    })
+    .filter(e => e.resultat);
 
   // Chaque page porte SON TYPE : le lot peut alors les reclasser par pile —
   // toutes les attestations ensemble — au lieu de suivre l'ordre des unités.
@@ -5812,7 +5868,9 @@ function assemblerDocumentsUE(ueNum, annee, veut, opts = {}) {
     if (e.resultat === 'reussi' && veut.reussite) {
       // L'attestation ne porte que CETTE unité : c'est cette séance qu'on
       // notifie, non tout le parcours de l'étudiant.
-      const u = unitesReussies(e.id, annee).find(x => Number(x.ue_num) === ueNum);
+      const u = unitesReussies(e.id, annee,
+        e.points_session != null ? { [ueNum]: e.points_session } : null)
+        .find(x => Number(x.ue_num) === ueNum);
       if (!u) { manques.push(`${e.nom} ${e.prenom} : unité non réussie au dossier`); continue; }
       // La session imprimée décide du jury nommé : celui de septembre n'est
       // pas celui de juin.
@@ -6252,11 +6310,20 @@ export function documentPV(ueNum, annee, session = 1) {
   const etudiants = db.prepare(`
     SELECT e.id, e.nom, e.prenom, e.date_naissance,
            ${aLieu ? 'e.lieu_naissance' : 'NULL AS lieu_naissance'},
-           i.resultat, i.points
+           i.resultat AS resultat_dossier, i.points AS points_dossier
     FROM etudiant_inscription i JOIN etudiant e ON e.id = i.etudiant_id
     WHERE i.annee_scolaire = ? AND i.ue_num = ?
     ORDER BY e.nom, e.prenom
-  `).all(annee, ueNum);
+  `).all(annee, ueNum)
+    // LE PV RELATE UNE SÉANCE. Il listait tous les inscrits avec l'état de leur
+    // dossier : une réussite prononcée en juin reparaissait donc sur le
+    // procès-verbal de septembre, attribuée au Jury de septembre, avec ses
+    // points de juin. C'est le décalage que les étudiants constataient.
+    .map(e => {
+      const d = decisionDeSession(e.id, ueNum, annee, session);
+      return { ...e, resultat: d.resultat, points: d.points, mention: d.mention };
+    })
+    .filter(e => e.resultat);
 
   const esc = s => String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;')
     .replace(/>/g, '&gt;');
@@ -6472,13 +6539,28 @@ r.post('/deliberation/ue/:ueNum/plein-droit', authRequired,
   `).all(annee, ueNum);
 
   const maj = db.prepare('UPDATE etudiant_inscription SET resultat = ?, points = ? WHERE id = ?');
+  // UNE RÉUSSITE DE PLEIN DROIT EST UNE DÉCISION : elle doit s'inscrire dans la
+  // table par session comme les autres. Elle n'allait qu'au dossier, si bien
+  // qu'elle n'apparaissait dans aucun procès-verbal dès lors que celui-ci lit
+  // la session — et que la règle « la session la plus avancée l'emporte » ne
+  // pouvait pas jouer, faute de ligne à comparer.
+  const parSession = db.prepare(`
+    INSERT INTO deliberation_resultat
+      (etudiant_id, annee_scolaire, ue_num, session, resultat, points, mention, decide_par)
+    VALUES (?,?,?,?,'reussi',?,NULL,?)
+    ON CONFLICT(etudiant_id, annee_scolaire, ue_num, session) DO UPDATE SET
+      resultat = 'reussi', points = excluded.points,
+      decide_le = CURRENT_TIMESTAMP, decide_par = excluded.decide_par`);
+  const ses = Number(req.body?.session) === 2 ? 2 : 1;
   const faits = [];
   db.transaction(() => {
     for (const i of inscrits) {
       if (ids && !ids.includes(i.etudiant_id)) continue;
-      const d = delibererUE(i.etudiant_id, ueNum, annee);
+      const d = delibererUE(i.etudiant_id, ueNum, annee, ses);
       if (!d.ue.de_plein_droit) continue;
       maj.run('reussi', d.ue.note, i.id);
+      parSession.run(i.etudiant_id, annee, ueNum, ses, d.ue.note,
+        req.user?.email || null);
       faits.push({ etudiant_id: i.etudiant_id, note: d.ue.note });
     }
   })();

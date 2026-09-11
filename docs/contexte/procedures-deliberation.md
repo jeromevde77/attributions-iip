@@ -103,6 +103,41 @@ Deux pièges rencontrés en l'écrivant, qui valent d'être notés :
 - La cote d'une unité est celle **arrêtée par le Conseil** (`deliberation_resultat`,
   à défaut `etudiant_inscription`), jamais une note de cours.
 
+#### Une pièce porte la décision de SA session
+
+`etudiant_inscription` ne retient **qu'un résultat par unité et par année** :
+celui de la session la plus avancée. Les pièces le lisaient. Conséquences :
+
+- Le **procès-verbal de septembre** reprenait les réussites de juin, avec leurs
+  points de juin, et les attribuait au Jury qui avait siégé en septembre.
+- Une **attestation** tirée en première session portait les points de la
+  seconde, et inversement.
+- La **grille de délibération**, elle, calcule par session (`delibererUE(…,
+  session)`) : d'où l'écart que les étudiants constataient entre la grille et
+  leur attestation.
+
+`decisionDeSession(etudId, ueNum, annee, session)` lit désormais
+`deliberation_resultat` filtrée sur la session. **Un étudiant que cette séance
+n'a pas jugé ne figure plus sur ses pièces** : lui attribuer une décision prise
+ailleurs, c'est la prêter au Conseil qui siégeait ce jour-là. **Le repli se juge étudiant par
+étudiant** : si cet étudiant a au moins une décision par session pour cette
+unité, elle fait foi et son absence pour la session demandée signifie qu'il n'y
+a pas été jugé ; sinon le dossier parle. Jugé sur l'unité, le repli aurait fait
+disparaître les réussites de plein droit d'avant ce correctif — l'unité
+paraissait « couverte » par les ajournements et ces étudiants tombaient dans le
+vide.
+
+**La réussite de plein droit est une décision.** Elle n'allait qu'au dossier :
+elle n'apparaissait donc dans aucune table par session, et la règle « la session
+la plus avancée l'emporte » ne pouvait pas jouer, faute de ligne à comparer. Elle
+s'inscrit maintenant comme les autres, dans la session qui la prononce.
+
+> **Données anciennes.** Les réussites de plein droit déjà enregistrées n'ont
+> pas de ligne par session. Elles ne paraîtront sur aucun procès-verbal tant
+> qu'elles n'auront pas été reportées — à faire, en datant chaque décision.
+
+---
+
 #### Voir une pièce sans la produire — Configuration → Aperçu des pièces
 
 On ne jugeait une mise en page qu'en délibérant une unité réelle, donc en fin de
