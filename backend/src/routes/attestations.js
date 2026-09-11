@@ -77,7 +77,7 @@ const MOIS_FR = ['janvier', 'février', 'mars', 'avril', 'mai', 'juin', 'juillet
  * n'imprime JAMAIS « NaN » : une date qu'on ne sait pas lire s'affiche en
  * pointillés, ce qui se voit et se corrige, plutôt qu'en charabia qui se signe.
  */
-const frDate = d => {
+export const frDate = d => {
   if (d == null || String(d).trim() === '') return '………';
   const t = String(d).trim();
 

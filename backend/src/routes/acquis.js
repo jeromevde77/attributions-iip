@@ -30,7 +30,7 @@ import { identiteEtablissement } from './config.js';
 // Les trois pièces de la délibération — attestation de réussite, motivation
 // d'ajournement ou de refus, procès-verbal — partagent une seule mise en page.
 // Le contenu légal diffère ; la charte, non.
-import { envelopper, unitesReussies, pageAttestation } from './attestations.js';
+import { envelopper, unitesReussies, pageAttestation, frDate } from './attestations.js';
 import { motifPropose } from '../lib/motifPropose.js';
 
 const r = Router();
@@ -970,7 +970,22 @@ export function documentMotivation(etudId, ueNum, annee, session = 1) {
 
   const esc2 = s => String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;')
     .replace(/>/g, '&gt;');
-  const jour = d => d ? String(d).slice(0, 10).split('-').reverse().join('/') : '……………';
+  /**
+   * UNE DATE DE NAISSANCE COUPÉE À DIX CARACTÈRES.
+   *
+   * Ce formatage supposait une date ISO et tranchait à dix signes. Or certains
+   * dossiers portent la date DÉJÀ écrite en français, reprise d'un classeur :
+   * « 4 juin 2000 » devenait « 4 juin 200 ». Des motivations de refus sont
+   * sorties avec une année amputée, sur la pièce même qui identifie l'étudiant
+   * et ouvre son recours. L'attestation avait reçu un formatage robuste ;
+   * les motivations ne l'avaient jamais eu. Elles le partagent désormais.
+   */
+  const jourCourt = d => d ? String(d).slice(0, 10).split('-').reverse().join('/') : '……………';
+  const jour = d => {
+    const t = String(d ?? '').trim();
+    if (!t) return '……………';
+    return /^\d{4}-\d{2}-\d{2}/.test(t) ? jourCourt(t) : frDate(t);
+  };
   const genre = /^(mme|madame|mlle|mademoiselle|m\.?me)\b/i.test((e.titre || '').trim())
     ? 'F' : 'H';
 
@@ -991,6 +1006,11 @@ export function documentMotivation(etudId, ueNum, annee, session = 1) {
   }
 
   const regles = reglesAjournement();
+  // L'ORGANE PORTE SON NOM. Les annexes 8 et 9 écrivent « Conseil des études /
+  // Jury d'épreuve intégrée » : sur une épreuve intégrée, c'est le jury qui
+  // décide, et la pièce doit le dire.
+  const organe = estEpreuveIntegree(ueNum, annee)
+    ? "Jury d'épreuve intégrée" : 'Conseil des études';
 
   // DEUX SÉANCES, ET NON UNE — elles ne répondent pas à la même question.
   //
@@ -1064,7 +1084,7 @@ export function documentMotivation(etudId, ueNum, annee, session = 1) {
   </div>
 
   <p class="corps">
-    Nous, soussignés, Président-e et Membres du Conseil des études constitué par le
+    Nous, soussignés, Président-e et Membres du ${esc2(organe)} constitué par le
     Pouvoir organisateur de l'établissement précité en vue de la délivrance de
     l'attestation de réussite de l'unité d'enseignement susvisée, attestons que
   </p>
@@ -1230,10 +1250,13 @@ export function documentMotivation(etudId, ueNum, annee, session = 1) {
            / Le Jury d'épreuve intégrée » d'un côté, « La Directrice, / Le
            Directeur, » de l'autre. Lucie n'en portait qu'une, celle du
            président : la pièce sortait sans la signature que le modèle exige. -->
-      <div class="qualite">Pour le Conseil des études,<br>${esc2(president.titre)}</div>
-      <div class="nom">${esc2(president.nom)}</div>
-      <div class="qualite" style="margin-top:3mm">Le Directeur,</div>
-      <div class="nom">${esc2(identiteEtablissement()?.directeur || '……………………')}</div>
+      ${memePersonne(president.nom, identiteEtablissement()?.directeur)
+        ? `<div class="qualite">Pour le ${esc2(organe)},<br>le Directeur</div>
+           <div class="nom">${esc2(president.nom)}</div>`
+        : `<div class="qualite">Pour le ${esc2(organe)},<br>${esc2(president.titre)}</div>
+           <div class="nom">${esc2(president.nom)}</div>
+           <div class="qualite" style="margin-top:3mm">Le Directeur,</div>
+           <div class="nom">${esc2(identiteEtablissement()?.directeur || '……………………')}</div>`}
     </div>
   </div>
 </div>`;
@@ -2108,6 +2131,23 @@ export function presidenceConseil() {
  * Le président EFFECTIF d'une séance : celui que la séance a désigné, ou le
  * titulaire. Renvoie aussi s'il faut apposer le fac-similé.
  */
+/**
+ * LE PRÉSIDENT EST SOUVENT LE DIRECTEUR — ET ALORS IL NE SIGNE QU'UNE FOIS.
+ *
+ * Les modèles portent deux signatures : le Conseil ou le Jury d'un côté, le
+ * Directeur de l'autre. Quand c'est le Directeur qui a présidé, les deux se
+ * confondent, et la pièce sortait avec son nom deux fois, à deux lignes
+ * différentes. Une pièce qui fait signer deux fois la même personne se lit mal
+ * et se conteste facilement.
+ */
+function memePersonne(a, b) {
+  const cle = x => String(x ?? '').toLowerCase()
+    .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+    .replace(/[^a-z]+/g, ' ').trim().split(' ').sort().join(' ');
+  const ca = cle(a), cb = cle(b);
+  return !!ca && ca === cb;
+}
+
 export function presidentDeLaSeance(ueNum, annee, session = 1) {
   const p = presidenceConseil();
   let choix = null;
@@ -4389,6 +4429,9 @@ function membresDuConseil(ueNum, annee) {
     `).all(p.id, ueNum, annee).map(c => c.code_cours);
     membres.push({
       cle: `prof:${p.id}`, nom: nomPropre(p.nom, p.prenom),
+      // L'annexe 2 veut DEUX colonnes. Sans le prénom à part, la colonne
+      // « PRÉNOM » sortait vide et le nom complet s'entassait dans « NOM ».
+      nom_famille: p.nom || null, prenom: p.prenom || null,
       qualite: cours.length ? `Professeur · ${cours.join(', ')}` : 'Professeur',
       role: 'professeur', voix: 'deliberative',
     });
@@ -4579,7 +4622,7 @@ export function pageComposition(ueNum, annee, session = 1) {
   const integree = estEpreuveIntegree(ueNum, annee);
   const nomSeul = m => String(m.nom || '').trim();
   const corps = `<div class="attestation">
-    ${enteteDelib(u.ue_num, annee, 1,
+    ${enteteDelib(u.ue_num, annee, session,
       integree ? "Composition du jury d'épreuve intégrée"
                : 'Composition du Conseil des études de section')}
     <div class="carac">
@@ -4595,8 +4638,7 @@ export function pageComposition(ueNum, annee, session = 1) {
       <tr><th style="width:26%">NOM</th><th style="width:20%">PRÉNOM</th>
           <th>FONCTION / QUALITÉ</th><th style="width:22%">SIGNATURE</th></tr>
       ${membres.map(m => `<tr>
-        <td>${esc0(m.prenom ? nomSeul(m).replace(new RegExp(`\\s*${m.prenom}$`), '')
-                            : nomSeul(m))}</td>
+        <td>${esc0(m.nom_famille || nomSeul(m))}</td>
         <td>${esc0(m.prenom || '')}</td>
         <td>${esc0(m.qualite)}${m.voix === 'consultative'
           ? ' <span class="ref">(voix consultative)</span>' : ''}</td>
@@ -6280,10 +6322,13 @@ export function documentPV(ueNum, annee, session = 1) {
     <div class="legende">
       <!-- Annexe 5 : « Le Jury d'épreuve intégrée » d'un côté, « La Directrice,
            / Le Directeur, » de l'autre. La seconde manquait. -->
-      <div class="qualite">Pour le ${esc(conseil)},<br>${esc(president.titre)}</div>
-      <div class="nom">${esc(president.nom)}</div>
-      <div class="qualite" style="margin-top:3mm">Le Directeur,</div>
-      <div class="nom">${esc(ident.directeur || '……………………')}</div>
+      ${memePersonne(president.nom, ident.directeur)
+        ? `<div class="qualite">Pour le ${esc(conseil)},<br>le Directeur</div>
+           <div class="nom">${esc(president.nom)}</div>`
+        : `<div class="qualite">Pour le ${esc(conseil)},<br>${esc(president.titre)}</div>
+           <div class="nom">${esc(president.nom)}</div>
+           <div class="qualite" style="margin-top:3mm">Le Directeur,</div>
+           <div class="nom">${esc(ident.directeur || '……………………')}</div>`}
     </div>
   </div>
 </div>`;
