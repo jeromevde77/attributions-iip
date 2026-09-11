@@ -9,6 +9,8 @@
     "preview": "vite preview --host 0.0.0.0"
   },
   "dependencies": {
+    "@babel/core": "^8.0.5",
+    "@babel/preset-react": "^8.0.1",
     "@tabler/icons-react": "^3.44.0",
     "@tiptap/extension-character-count": "^3.23.6",
     "@tiptap/extension-color": "^3.23.6",
@@ -29,15 +31,15 @@
     "@tiptap/extension-underline": "^3.23.6",
     "@tiptap/react": "^3.23.6",
     "@tiptap/starter-kit": "^3.23.6",
+    "html2canvas": "^1.4.1",
+    "jspdf": "^2.5.2",
     "jszip": "^3.10.1",
     "mammoth": "^1.8.0",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
     "react-router-dom": "^6.27.0",
     "recharts": "^2.13.0",
-    "xlsx": "^0.18.5",
-    "jspdf": "^2.5.2",
-    "html2canvas": "^1.4.1"
+    "xlsx": "^0.18.5"
   },
   "devDependencies": {
     "@types/react": "^18.3.12",

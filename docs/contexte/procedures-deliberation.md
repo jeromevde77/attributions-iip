@@ -63,8 +63,11 @@ Le stockage supporte les deux formes : `s1|cours|aa` pour l'encodage par cours,
 Les dates d'épreuve, de visite des copies et de séance se posent depuis
 **Étudiants → Calendrier des sessions** : toute la section sur une page, les
 unités puis leurs cours, et une valeur applicable d'un coup à ce qui est coché.
-Les deux sessions sont l'une **sous** l'autre — première en bleu, seconde en
-gris —, parce que juin se règle en regardant septembre.
+Deux dispositions, au choix, retenu d'une visite à l'autre : **côte à côte**
+(par défaut) met juin et septembre sur la même ligne — replié, chaque unité ne
+montre que ses deux délibérations, ce qui tient sur un écran ; **empilée** met
+la première session en bleu au-dessus de la seconde en gris, et laisse plus de
+largeur pour saisir.
 
 - **L'unité** porte la délibération — le Conseil siège par unité, et il n'y a
   qu'une décision.

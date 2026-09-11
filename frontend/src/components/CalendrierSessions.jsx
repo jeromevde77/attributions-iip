@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   IconCalendarStats, IconChevronRight, IconChevronDown, IconAlertTriangle,
-  IconLock, IconWand, IconSearch, IconLayoutRows,
+  IconLock, IconWand, IconSearch, IconLayoutRows, IconColumns,
 } from '@tabler/icons-react';
 import { authHeaders, getAnnee } from '../lib/api.js';
 import { PageHeader, RailLateral } from './ui.jsx';
@@ -29,6 +29,7 @@ import { PageHeader, RailLateral } from './ui.jsx';
 
 /** Une case de saisie sobre, qui se remonte quand la donnée change. */
 function Case({ valeur, onPoser, type = 'date', classe = 'w-[118px]', titre, bloque }) {
+  const vide = valeur == null || valeur === '';
   return (
     <input
       type={type} defaultValue={valeur ?? ''} key={String(valeur ?? '')}
@@ -37,9 +38,14 @@ function Case({ valeur, onPoser, type = 'date', classe = 'w-[118px]', titre, blo
         const v = e.target.value;
         if (String(v) !== String(valeur ?? '')) onPoser(v);
       }}
-      className={`px-1.5 py-1 text-[12px] border border-slate-200 rounded
-                  focus:border-iip-blue focus:outline-none disabled:bg-slate-50
-                  disabled:text-slate-400 ${classe}`} />
+      // UN CHAMP VIDE DOIT SE VOIR VIDE. Certains navigateurs peuplent un
+      // champ date vierge de la date du jour, en gris : on lit alors une
+      // section entière délibérée aujourd'hui, là où la base ne porte rien.
+      // Le fond pâle dit « rien de posé » sans dépendre du navigateur.
+      className={`px-1.5 py-1 text-[12px] border rounded
+                  focus:border-iip-blue focus:outline-none disabled:text-slate-400
+                  ${vide ? 'border-dashed border-slate-300 bg-slate-50/70 text-slate-400'
+                         : 'border-slate-200'} ${classe}`} />
   );
 }
 
@@ -53,7 +59,7 @@ function Case({ valeur, onPoser, type = 'date', classe = 'w-[118px]', titre, blo
  * grande ». Une valeur ancienne hors liste reste affichée plutôt que d'être
  * silencieusement effacée.
  */
-function ChoixLocal({ valeur, onPoser, locaux, bloque }) {
+function ChoixLocal({ valeur, onPoser, locaux, bloque, classe = 'w-[118px]' }) {
   const connus = useMemo(() => new Set((locaux || []).map(l => l.nom)), [locaux]);
   const parType = useMemo(() => {
     const g = {};
@@ -63,8 +69,8 @@ function ChoixLocal({ valeur, onPoser, locaux, bloque }) {
   return (
     <select value={valeur ?? ''} disabled={bloque}
       onChange={e => onPoser(e.target.value)}
-      className="px-1 py-1 text-[12px] border border-slate-200 rounded w-[118px]
-                 focus:border-iip-blue focus:outline-none disabled:bg-slate-50">
+      className={`px-1 py-1 text-[12px] border border-slate-200 rounded
+                 focus:border-iip-blue focus:outline-none disabled:bg-slate-50 ${classe}`}>
       <option value="">local…</option>
       {valeur && !connus.has(valeur) && <option value={valeur}>{valeur} (hors liste)</option>}
       {parType.map(([type, liste]) => (
@@ -93,6 +99,164 @@ function champsLot(ses) {
     { cle: `${p}_visite_heure`, label: 'Visite des copies — heure', type: 'time', portee: 'cours' },
     { cle: `${p}_visite_local`, label: 'Visite des copies — local', type: 'local', portee: 'cours' },
   ];
+}
+
+
+
+/**
+ * POSER EN GROS, en vue côte à côte. La session s'y choisit explicitement :
+ * la couleur ne suffit plus à dire où la valeur ira, puisque la barre est
+ * commune aux deux.
+ */
+function BarrePose({ locaux, nbCoches, appliquerLot }) {
+  const [ses, setSes] = useState(1);
+  const champs = useMemo(() => champsLot(ses), [ses]);
+  const [cle, setCle] = useState('date_seance');
+  const [valeur, setValeur] = useState('');
+  const def = champs.find(c => c.cle === cle) || champs[0];
+  return (
+    <div className="flex flex-wrap items-center gap-2 mb-3 px-3 py-2 rounded-lg bg-slate-50
+                    border border-slate-200">
+      <span className="text-[12.5px] text-slate-500">Poser</span>
+      <select value={ses} onChange={e => {
+        const n = Number(e.target.value); setSes(n);
+        setCle(c => c.replace(/^s[12]/, n === 2 ? 's2' : 's1'));
+      }} className="px-2 py-1 text-[12px] border border-slate-300 rounded">
+        <option value={1}>1re session</option>
+        <option value={2}>2e session</option>
+      </select>
+      {def.type === 'local'
+        ? <ChoixLocal valeur={valeur} locaux={locaux} onPoser={setValeur} classe="w-[150px]" />
+        : <input type={def.type} value={valeur} onChange={e => setValeur(e.target.value)}
+            className="px-2 py-1 text-[12px] border border-slate-300 rounded w-[130px]" />}
+      <select value={cle} onChange={e => { setCle(e.target.value); setValeur(''); }}
+        className="px-2 py-1 text-[12px] border border-slate-300 rounded">
+        {champs.map(c => <option key={c.cle} value={c.cle}>{c.label}</option>)}
+      </select>
+      <button onClick={() => appliquerLot(ses, def, valeur)}
+        className="px-2.5 py-1 text-[12px] rounded border border-slate-300 text-slate-700
+                   hover:bg-white inline-flex items-center gap-1">
+        <IconWand size={13} /> Poser sur {nbCoches} cochée{nbCoches > 1 ? 's' : ''}
+      </button>
+    </div>
+  );
+}
+
+/**
+ * CÔTE À CÔTE — les deux sessions sur la même ligne.
+ *
+ * C'est la lecture naturelle d'un calendrier : l'unité 307, juin et
+ * septembre, d'un seul regard. Replié, chaque ligne ne porte que ses deux
+ * délibérations et tient sans peine ; déplié, les six cellules d'un cours
+ * demandent de la largeur — c'est le prix de cette vue, et la raison pour
+ * laquelle l'autre existe.
+ */
+function VueCoteACote({
+  ues, locaux, deplie, setDeplie, coches, setCoches, poserSeance, poserEpreuve,
+}) {
+  const fondS1 = 'bg-iip-blue/[0.05]';
+  const fondS2 = 'bg-slate-100/70';
+  return (
+    <div className="overflow-x-auto border border-slate-200 rounded-xl">
+      <table className="w-full text-[12.5px] min-w-[1180px]">
+        <thead>
+          <tr className="text-[11px]">
+            <th />
+            <th colSpan={3} className={`py-1 font-normal text-iip-blue ${fondS1}`}>
+              Première session
+            </th>
+            <th colSpan={3} className={`py-1 font-normal text-slate-600 ${fondS2}`}>
+              Seconde session
+            </th>
+          </tr>
+          <tr className="text-[11px] text-slate-500">
+            <th className="text-left font-normal py-1 px-2">Unité · cours</th>
+            {[fondS1, fondS2].map((f, i) => ['Épreuve', 'Visite', 'Délib.'].map(t => (
+              <th key={`${i}${t}`} className={`font-normal py-1 px-1 ${f}`}>{t}</th>
+            )))}
+          </tr>
+        </thead>
+        <tbody>
+          {ues.map(u => {
+            const ouvert = deplie.has(u.ue_num);
+            const seances = { 1: u.seance_s1 || {}, 2: u.seance_s2 || {} };
+            return [
+              <tr key={`u${u.ue_num}`} className="border-t border-slate-200">
+                <td className="py-1.5 px-2">
+                  <input type="checkbox" checked={coches.has(u.ue_num)}
+                    onChange={() => setCoches(c => {
+                      const n = new Set(c);
+                      n.has(u.ue_num) ? n.delete(u.ue_num) : n.add(u.ue_num);
+                      return n;
+                    })} className="align-middle mr-1.5" />
+                  <button onClick={() => setDeplie(d => {
+                    const n = new Set(d);
+                    n.has(u.ue_num) ? n.delete(u.ue_num) : n.add(u.ue_num);
+                    return n;
+                  })} className="align-middle text-slate-400 hover:text-slate-700"
+                    aria-label={ouvert ? 'Replier' : 'Déplier'}>
+                    {ouvert ? <IconChevronDown size={14} /> : <IconChevronRight size={14} />}
+                  </button>
+                  <span className="font-medium ml-0.5">{u.ue_num}</span>{' '}
+                  <span className="text-slate-500">{u.ue_nom}</span>
+                </td>
+                {[1, 2].map(ses => {
+                  const f = ses === 1 ? fondS1 : fondS2;
+                  const sc = seances[ses];
+                  return [
+                    <td key={`e${ses}`} className={`text-center text-[11px] text-slate-400 ${f}`}>·</td>,
+                    <td key={`v${ses}`} className={`text-center text-[11px] text-slate-400 ${f}`}>·</td>,
+                    <td key={`d${ses}`} className={`py-1 px-1 ${f}`}>
+                      <div className="flex gap-1">
+                        <Case valeur={sc.date_seance} classe="flex-1 min-w-0"
+                          onPoser={v => poserSeance(u.ue_num, ses, 'date_seance', v)} />
+                        <Case valeur={sc.heure_seance} type="time" classe="w-[72px] shrink-0"
+                          onPoser={v => poserSeance(u.ue_num, ses, 'heure_seance', v)} />
+                      </div>
+                      {!!sc.cloturee && (
+                        <span className="mt-0.5 inline-flex items-center gap-1 text-[10px] text-amber-700">
+                          <IconLock size={10} /> close
+                        </span>
+                      )}
+                    </td>,
+                  ];
+                })}
+              </tr>,
+              ...(ouvert ? (u.cours || []).map(c => (
+                <tr key={`c${u.ue_num}-${c.cours_code}`}>
+                  <td className="py-1 px-2 pl-8 text-slate-500 text-[12px]">
+                    {c.cours_code} {c.cours_nom}
+                  </td>
+                  {[1, 2].map(ses => {
+                    const p = ses === 2 ? 's2' : 's1';
+                    const f = ses === 1 ? fondS1 : fondS2;
+                    const d = (ses === 1 ? c.s1 : c.s2) || {};
+                    return ['', '_visite'].map(q => (
+                      <td key={`${ses}${q}`} className={`py-1 px-1 ${f}`}>
+                        <div className="flex gap-1">
+                          <Case valeur={d[`${p}${q}_date`]} classe="flex-1 min-w-0"
+                            onPoser={v => poserEpreuve(u.ue_num, c.cours_code, ses, `${p}${q}_date`, v)} />
+                          <Case valeur={d[`${p}${q}_heure`]} type="time" classe="w-[68px] shrink-0"
+                            onPoser={v => poserEpreuve(u.ue_num, c.cours_code, ses, `${p}${q}_heure`, v)} />
+                        </div>
+                        <ChoixLocal valeur={d[`${p}${q}_local`]} locaux={locaux} classe="w-full mt-1"
+                          onPoser={v => poserEpreuve(u.ue_num, c.cours_code, ses, `${p}${q}_local`, v)} />
+                      </td>
+                    )).concat(ses === 1
+                      ? [<td key="d1" className={f} />]
+                      : [<td key="d2" className={f} />]);
+                  })}
+                </tr>
+              )) : []),
+            ];
+          })}
+        </tbody>
+      </table>
+      {!ues.length && (
+        <p className="text-[12.5px] text-slate-400 p-3">Aucune unité pour cette section.</p>
+      )}
+    </div>
+  );
 }
 
 /**
@@ -141,8 +305,8 @@ function BlocSession({
 
       <table className="w-full text-[12.5px] table-fixed">
         <colgroup>
-          <col className="w-[34%]" /><col className="w-[22%]" />
-          <col className="w-[22%]" /><col className="w-[22%]" />
+          <col /><col className="w-[212px]" />
+          <col className="w-[212px]" /><col className="w-[212px]" />
         </colgroup>
         <thead>
           <tr className={`text-[11.5px] ${bleu ? 'text-iip-blue/80' : 'text-slate-500'}`}>
@@ -187,10 +351,12 @@ function BlocSession({
                 <td className="text-center text-[11px] text-slate-400">par cours</td>
                 <td className="text-center text-[11px] text-slate-400">par cours</td>
                 <td className="py-1 px-1">
-                  <Case valeur={s.date_seance} classe="w-full"
-                    onPoser={v => poserSeance(u.ue_num, ses, 'date_seance', v)} />
-                  <Case valeur={s.heure_seance} type="time" classe="w-full mt-1"
-                    onPoser={v => poserSeance(u.ue_num, ses, 'heure_seance', v)} />
+                  <div className="flex gap-1">
+                    <Case valeur={s.date_seance} classe="flex-1 min-w-0"
+                      onPoser={v => poserSeance(u.ue_num, ses, 'date_seance', v)} />
+                    <Case valeur={s.heure_seance} type="time" classe="w-[74px] shrink-0"
+                      onPoser={v => poserSeance(u.ue_num, ses, 'heure_seance', v)} />
+                  </div>
                 </td>
               </tr>,
               ...(ouvert ? (u.cours || []).map(c => {
@@ -204,24 +370,24 @@ function BlocSession({
                       )}
                     </td>
                     <td className="py-1 px-1">
-                      <Case valeur={d[`${p}_date`]} classe="w-full"
-                        onPoser={v => poserEpreuve(u.ue_num, c.cours_code, ses, `${p}_date`, v)} />
-                      <div className="flex gap-1 mt-1">
-                        <Case valeur={d[`${p}_heure`]} type="time" classe="w-1/2"
+                      <div className="flex gap-1">
+                        <Case valeur={d[`${p}_date`]} classe="flex-1 min-w-0"
+                          onPoser={v => poserEpreuve(u.ue_num, c.cours_code, ses, `${p}_date`, v)} />
+                        <Case valeur={d[`${p}_heure`]} type="time" classe="w-[74px] shrink-0"
                           onPoser={v => poserEpreuve(u.ue_num, c.cours_code, ses, `${p}_heure`, v)} />
-                        <ChoixLocal valeur={d[`${p}_local`]} locaux={locaux}
-                          onPoser={v => poserEpreuve(u.ue_num, c.cours_code, ses, `${p}_local`, v)} />
                       </div>
+                      <ChoixLocal valeur={d[`${p}_local`]} locaux={locaux} classe="w-full mt-1"
+                        onPoser={v => poserEpreuve(u.ue_num, c.cours_code, ses, `${p}_local`, v)} />
                     </td>
                     <td className="py-1 px-1">
-                      <Case valeur={d[`${p}_visite_date`]} classe="w-full"
-                        onPoser={v => poserEpreuve(u.ue_num, c.cours_code, ses, `${p}_visite_date`, v)} />
-                      <div className="flex gap-1 mt-1">
-                        <Case valeur={d[`${p}_visite_heure`]} type="time" classe="w-1/2"
+                      <div className="flex gap-1">
+                        <Case valeur={d[`${p}_visite_date`]} classe="flex-1 min-w-0"
+                          onPoser={v => poserEpreuve(u.ue_num, c.cours_code, ses, `${p}_visite_date`, v)} />
+                        <Case valeur={d[`${p}_visite_heure`]} type="time" classe="w-[74px] shrink-0"
                           onPoser={v => poserEpreuve(u.ue_num, c.cours_code, ses, `${p}_visite_heure`, v)} />
-                        <ChoixLocal valeur={d[`${p}_visite_local`]} locaux={locaux}
-                          onPoser={v => poserEpreuve(u.ue_num, c.cours_code, ses, `${p}_visite_local`, v)} />
                       </div>
+                      <ChoixLocal valeur={d[`${p}_visite_local`]} locaux={locaux} classe="w-full mt-1"
+                        onPoser={v => poserEpreuve(u.ue_num, c.cours_code, ses, `${p}_visite_local`, v)} />
                     </td>
                     <td />
                   </tr>
@@ -248,6 +414,10 @@ export default function CalendrierSessions() {
   const [recherche, setRecherche] = useState('');
   const [deplie, setDeplie] = useState(() => new Set());
   const [coches, setCoches] = useState(() => new Set());
+  // La disposition se choisit : côte à côte pour lire les deux sessions d'une
+  // unité d'un regard, empilée pour saisir au large. Le choix se retient.
+  const [dispo, setDispo] = useState(
+    () => localStorage.getItem('calendrier.dispo') || 'cote');
   // La demande de motif, quand une séance close est touchée : on ne l'invente
   // pas, et l'on ne l'impose pas non plus d'avance.
   const [aMotiver, setAMotiver] = useState(null);
@@ -369,6 +539,13 @@ export default function CalendrierSessions() {
             className="px-3 py-1.5 text-[12.5px] rounded-lg border border-slate-300 text-slate-600">
             {coches.size ? 'Tout décocher' : 'Tout cocher'}
           </button>
+          <button onClick={() => {
+            const n = dispo === 'cote' ? 'empile' : 'cote';
+            setDispo(n); localStorage.setItem('calendrier.dispo', n);
+          }} className="px-3 py-1.5 text-[12.5px] rounded-lg border border-slate-300
+                        text-slate-600 inline-flex items-center gap-1.5">
+            <IconColumns size={14} /> {dispo === 'cote' ? 'Sessions empilées' : 'Sessions côte à côte'}
+          </button>
         </div>
 
         {erreur && (
@@ -378,7 +555,15 @@ export default function CalendrierSessions() {
           </div>
         )}
 
-        {[1, 2].map(ses => (
+        {dispo === 'cote' && (
+          <BarrePose locaux={locaux} nbCoches={coches.size} appliquerLot={appliquerLot} />
+        )}
+
+        {dispo === 'cote' ? (
+          <VueCoteACote ues={ues} locaux={locaux}
+            deplie={deplie} setDeplie={setDeplie} coches={coches} setCoches={setCoches}
+            poserSeance={poserSeance} poserEpreuve={poserEpreuve} />
+        ) : [1, 2].map(ses => (
           <BlocSession key={ses} ses={ses} ues={ues} locaux={locaux}
             deplie={deplie} setDeplie={setDeplie}
             coches={coches} setCoches={setCoches}
