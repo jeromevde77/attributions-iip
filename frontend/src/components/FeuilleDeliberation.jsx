@@ -378,7 +378,9 @@ export default function FeuilleDeliberation({ ueNum, annee, onClose }) {
     setEnCours(true); setErreur(null);
     try {
       const rep = await fetch(`/api/acquis/deliberation/ue/${ueNum}/plein-droit`, {
-        method: 'POST', headers: authHeaders(), body: JSON.stringify({ annee }),
+        // La session compte : une réussite de plein droit s'inscrit dans la
+        // séance qui la prononce, comme toute autre décision.
+        method: 'POST', headers: authHeaders(), body: JSON.stringify({ annee, session }),
       });
       const j = await rep.json();
       if (!rep.ok) { setErreur(j.error); return; }

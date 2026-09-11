@@ -103,13 +103,22 @@ export const frDate = d => {
 };
 
 /** Les UE réussies par un étudiant pour une année, avec ce qu'exige le modèle. */
-export function unitesReussies(etudId, annee) {
+/**
+ * @param {object} [surcharge] points arrêtés pour UNE session, par ue_num.
+ *   Le dossier ne retient qu'un résultat par unité et par année : celui de la
+ *   session la plus avancée. Une attestation de première session y puiserait
+ *   donc les points de la seconde, et inversement une réussite prononcée en
+ *   juin reparaîtrait à l'identique sur les pièces de septembre. La grille de
+ *   délibération, elle, calcule par session — d'où l'écart constaté.
+ */
+export function unitesReussies(etudId, annee, surcharge = null) {
   const insc = db.prepare(`
     SELECT i.ue_num, i.points, i.annee_scolaire
     FROM etudiant_inscription i
     WHERE i.etudiant_id = ? AND i.annee_scolaire = ? AND i.resultat = 'reussi'
     ORDER BY i.ue_num
-  `).all(etudId, annee);
+  `).all(etudId, annee).map(i => (surcharge && surcharge[i.ue_num] !== undefined
+    ? { ...i, points: surcharge[i.ue_num] } : i));
 
   return insc.map(i => {
     // Le référentiel de l'année de l'inscription, à défaut le plus récent.
