@@ -81,6 +81,33 @@ Ces membres-là s'ajoutent à la main.
   Le délégué ne peut appartenir au Conseil de l'unité ni de la section
   (décret art. 52 · AGCF art. 26) : la route `/deliberation/ue/:n/presidents`
   écarte les chargés de cours concernés **en disant pourquoi**.
+#### Les modèles d'attestation ne sont pas un seul modèle
+
+La circulaire en prévoit plusieurs, et le bon dépend de l'unité :
+
+| Cas | Secondaire | Supérieur |
+|---|---|---|
+| UE ordinaire | annexe 10 | annexe 11 |
+| UE stage / activités professionnelles | annexe 12 | annexe 13 |
+| UE sur valorisation des acquis | annexe 14 | annexe 15 |
+| UE « épreuve intégrée » | **annexe 17** | annexe 18 |
+| Validation d'une UAA | annexe 16 | — |
+| Ambulancier (ATNUP) | **annexe 19** (après 01/09/2019) · annexe 20 (avant) | — |
+
+Lucie distinguait l'épreuve intégrée et le stage, mais **pas le niveau** : elle
+visait « les articles 52, 53 et 58 » et affichait ECTS et domaine, mentions du
+seul supérieur. Une section secondaire — ATNUP, par exemple — recevait une
+attestation fondée sur les mauvais articles. Le niveau se déduit désormais de
+`ue_niv`, à défaut de la présence d'ECTS et d'un domaine.
+
+**L'annexe 19 reste à faire, et ce n'est pas une attestation d'unité.** C'est une
+certification de **section** délivrée au titre de l'arrêté royal du 14 mai 2019,
+signée du seul directeur (« Je soussigné(e) … certifie que »), au texte fixe :
+288 périodes dont 86 de stage, et deux listes de formation imposées. Elle ne peut
+pas sortir du modèle générique.
+
+---
+
 #### Corriger l'administratif sans rouvrir la séance
 
 Une séance close refusait toute retouche : il fallait **annuler la

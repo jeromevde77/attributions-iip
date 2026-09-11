@@ -150,11 +150,28 @@ export function unitesReussies(etudId, annee) {
     const autonomie = Number(ue.ue_aut) || 0;
     const totalPeriodes = (Number(periodesCours) || 0) + autonomie;
 
+    /**
+     * SECONDAIRE ET SUPÉRIEUR N'ONT PAS LE MÊME MODÈLE.
+     *
+     * L'attestation visait « les articles 52, 53 et 58 » et affichait un nombre
+     * d'ECTS : ce sont les mentions du SUPÉRIEUR. Les modèles du secondaire —
+     * annexes 10, 12 et 17 — visent les articles 31, 32 et 37, ne portent aucun
+     * ECTS, et annoncent le classement (inférieur ou supérieur, de
+     * qualification ou de transition) là où le supérieur annonce le type court
+     * ou long. Une section secondaire recevait donc une attestation fondée sur
+     * les mauvais articles du décret.
+     */
+    const niv = String(ue.ue_niv || '').toUpperCase();
+    const superieur = /SUP|BES|BAC|ESTC|ESTL/.test(niv)
+      ? true
+      : /SEC|ESI|ESS/.test(niv) ? false
+      : !!(ue.ects || sec?.domaine);   // à défaut, l'ECTS et le domaine trahissent le supérieur
+
     // Ce qui manque rendrait l'attestation irrégulière : on l'annonce.
     const manques = [];
     if (!ue.ue_code_fwb) manques.push("le numéro de code approuvé par le Gouvernement");
-    if (!ue.ects) manques.push("le nombre d'ECTS");
-    if (!(ue.domaine || sec?.domaine)) manques.push("le domaine d'études");
+    if (superieur && !ue.ects) manques.push("le nombre d'ECTS");
+    if (superieur && !(ue.domaine || sec?.domaine)) manques.push("le domaine d'études");
     if (!periodesCours) manques.push("le total des périodes");
     if (!activites.length) manques.push("la répartition par activité d'enseignement");
     if (i.points == null) manques.push("le pourcentage obtenu");
@@ -163,10 +180,12 @@ export function unitesReussies(etudId, annee) {
       ue_num: i.ue_num,
       ue_nom: ue.ue_nom || `UE ${i.ue_num}`,
       code_fwb: ue.ue_code_fwb || null,
-      ects: ue.ects || null,
-      domaine: ue.domaine || sec?.domaine || null,
+      superieur,
+      ects: superieur ? (ue.ects || null) : null,
+      domaine: superieur ? (ue.domaine || sec?.domaine || null) : null,
       type_enseignement: ue.type_enseignement || sec?.type_enseignement
-        || 'Enseignement supérieur de type court',
+        || (superieur ? 'Enseignement supérieur de type court'
+                      : 'Enseignement secondaire de promotion sociale'),
       section: ue.section || null,
       periodes: totalPeriodes || null,
       periodes_cours: periodesCours || null,
@@ -526,13 +545,17 @@ export function pageAttestation(e, u, annee, etab, dateDoc = null,
 
   <div class="carac">
     <div>${esc(u.type_enseignement)}</div>
-    <div>${u.domaine ? 'Domaine : ' + esc(u.domaine)
-                     : '<span class="manque">Domaine à compléter</span>'}</div>
+    ${u.superieur
+      ? `<div>${u.domaine ? 'Domaine : ' + esc(u.domaine)
+                          : '<span class="manque">Domaine à compléter</span>'}</div>`
+      : ''}
     <div class="large">Code approuvé par le Gouvernement :
       ${u.code_fwb ? `<b>${esc(u.code_fwb)}</b>`
                    : '<span class="manque">à compléter au référentiel</span>'}</div>
-    <div>${u.ects ? `<b>${u.ects}</b> E.C.T.S.`
-                  : '<span class="manque">ECTS à compléter</span>'}</div>
+    ${u.superieur
+      ? `<div>${u.ects ? `<b>${u.ects}</b> E.C.T.S.`
+                       : '<span class="manque">ECTS à compléter</span>'}</div>`
+      : ''}
     <div>${u.periodes
       ? `<b>${u.periodes}</b> périodes`
         + (u.autonomie ? ` <span class="detail">(${u.periodes_cours} + ${u.autonomie} aut.)</span>` : '')
@@ -540,8 +563,9 @@ export function pageAttestation(e, u, annee, etab, dateDoc = null,
   </div>
 
   <p class="corps">
-    Conformément aux articles 52, 53 et 58 alinéa 1<sup>er</sup> du décret du 16 avril 1991
-    organisant l'enseignement pour adultes, ${u.epreuve_integree
+    Conformément aux articles ${u.superieur ? '52, 53 et 58' : '31, 32 et 37'}
+    alinéa 1<sup>er</sup> du décret du 16 avril 1991
+    organisant l'enseignement de promotion sociale, ${u.epreuve_integree
       ? "le Jury d'épreuve intégrée" : 'le Conseil des études'}, chargé de procéder
     à l'évaluation de l'unité d'enseignement susvisée, atteste que
   </p>
