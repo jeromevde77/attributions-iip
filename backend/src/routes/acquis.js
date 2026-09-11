@@ -6114,6 +6114,53 @@ r.post('/deliberation/documents-lot', authRequired, (req, res) => {
         || (x.ue - y.ue))
     : pages;
 
+  /**
+   * UN DOCUMENT PAR ÉTUDIANT, SUR TOUT LE LOT.
+   *
+   * Le groupement par pile sert à poster ; celui-ci sert à poster À QUELQU'UN.
+   * Un étudiant inscrit dans huit des onze unités tirées reçoit UNE enveloppe,
+   * non huit — ses pièces sont donc réunies À TRAVERS les unités, dans l'ordre
+   * des unités, et non par unité comme le veut le classement d'un dossier.
+   *
+   * Les pièces collectives — PV, composition, grille — restent ensemble : elles
+   * ne s'adressent à personne en particulier.
+   */
+  if (req.body?.separer === true) {
+    const tete = ordonnees.filter(p => !p.etudiant);
+    const parEtudiant = new Map();
+    for (const p of ordonnees) {
+      if (!p.etudiant) continue;
+      if (!parEtudiant.has(p.etudiant.id)) {
+        parEtudiant.set(p.etudiant.id, { etudiant: p.etudiant, pages: [] });
+      }
+      parEtudiant.get(p.etudiant.id).pages.push(p);
+    }
+    const slug = t => String(t || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+      .replace(/[^A-Za-z0-9]+/g, '_').replace(/^_|_$/g, '');
+    const documents = [...parEtudiant.values()]
+      .sort((a2, b2) => String(a2.etudiant.nom).localeCompare(String(b2.etudiant.nom), 'fr'))
+      .map(d => ({
+        etudiant_id: d.etudiant.id,
+        etudiant: `${d.etudiant.nom} ${d.etudiant.prenom || ''}`.trim(),
+        unites: [...new Set(d.pages.map(p => p.ue))],
+        pieces: d.pages.map(p => p.t),
+        nom: `${slug(d.etudiant.nom)}_${slug(d.etudiant.prenom)}_${String(annee).replace(/\W/g, '')}`,
+        html: envelopper(styles.join('')
+          + [...d.pages].sort((x, y) => x.ue - y.ue).map(p => p.h).join(''),
+          `${d.etudiant.nom} ${d.etudiant.prenom || ''} — ${annee}`),
+      }));
+    return res.json({
+      separes: true, documents,
+      collectif: tete.length ? {
+        nom: `Documents_${nums.length}UE_conseil`,
+        html: envelopper(styles.join('') + tete.map(p => p.h).join(''),
+                         `Pièces du Conseil — ${nums.length} unité(s)`),
+        pieces: tete.map(p => p.t),
+      } : null,
+      ...total, pieces: pages.length, unites: detail, manques,
+    });
+  }
+
   res.json({
     html: envelopper(styles.join('') + ordonnees.map(p => p.h).join(''),
                      `Documents de délibération — ${nums.length} unité(s) · ${annee}`),

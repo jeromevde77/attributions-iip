@@ -48,6 +48,10 @@ export default function CentreImpression({ annee, section = null, onClose }) {
   const [etat, setEtat] = useState(null);
   const [sec, setSec] = useState(section);
   const [choisies, setChoisies] = useState(() => new Set());
+  // Un étudiant inscrit dans huit des unités tirées reçoit UNE enveloppe, non
+  // huit : ses pièces sont réunies à travers les unités. Le choix se retient.
+  const [separer, setSeparer] = useState(
+    () => localStorage.getItem('impression.separer') === '1');
   const [choix, setChoix] = useState({ grille: false, ajustements: false,
     motivations: false, pv: true, conseil: false, reussite: false,
     ajournement: false, refus: false, listes: false });
@@ -86,7 +90,7 @@ export default function CentreImpression({ annee, section = null, onClose }) {
     try {
       const rep = await fetch('/api/acquis/deliberation/documents-lot', {
         method: 'POST', headers: authHeaders(),
-        body: JSON.stringify({ annee, session, total, groupement,
+        body: JSON.stringify({ annee, session, total, groupement, separer,
                                ue_nums: [...choisies], ...choix }),
       });
       const j = await rep.json();
@@ -96,6 +100,41 @@ export default function CentreImpression({ annee, section = null, onClose }) {
           + j.manques.slice(0, 6).join(' · ')
           + (j.manques.length > 6 ? ` … et ${j.manques.length - 6} autres.` : ''));
       }
+      /* SÉPARÉ : un fichier par étudiant, tirés l'un après l'autre — le service
+         de rendu traite un document à la fois, et les téléchargements sont
+         espacés faute de quoi le navigateur n'en retient qu'un. */
+      if (j.separes) {
+        const tout = [...(j.collectif ? [j.collectif] : []), ...j.documents];
+        if (sortie !== 'pdf') {
+          for (const d of tout) {
+            const f = window.open('', '_blank');
+            if (!f) { setErreur('Le navigateur a bloqué les fenêtres d’impression.'); return; }
+            f.document.write(d.html); f.document.close();
+          }
+          return;
+        }
+        let faits = 0;
+        for (const d of tout) {
+          const rp = await fetch('/api/impression/pdf', {
+            method: 'POST', headers: authHeaders(),
+            body: JSON.stringify({ html: d.html, nom: d.nom, pagination: 'si-plusieurs' }),
+          });
+          if (!rp.ok) {
+            setErreur(`${d.etudiant || d.nom} : le PDF n’a pas pu être produit `
+              + `(${faits} sur ${tout.length} déjà téléchargés).`);
+            return;
+          }
+          const url = URL.createObjectURL(await rp.blob());
+          const a2 = document.createElement('a');
+          a2.href = url; a2.download = `${d.nom}.pdf`;
+          document.body.appendChild(a2); a2.click(); a2.remove();
+          setTimeout(() => URL.revokeObjectURL(url), 30000);
+          faits++;
+          await new Promise(r => setTimeout(r, 350));
+        }
+        return;
+      }
+
       if (sortie === 'pdf') {
         const rp = await fetch('/api/impression/pdf', {
           method: 'POST', headers: authHeaders(),
@@ -234,7 +273,18 @@ export default function CentreImpression({ annee, section = null, onClose }) {
                   <div className="text-[12.5px] font-semibold text-iip-blue">
                     Les pièces à sortir
                   </div>
-                  <div className="flex items-center gap-1.5">
+                  <div className="flex items-center gap-2">
+                    <label className="flex items-center gap-1.5 text-[11.5px] text-slate-600
+                                      cursor-pointer"
+                      title="Chaque étudiant reçoit ses pièces réunies, toutes unités confondues">
+                      <input type="checkbox" checked={separer}
+                        onChange={e => {
+                          setSeparer(e.target.checked);
+                          localStorage.setItem('impression.separer', e.target.checked ? '1' : '0');
+                        }}
+                        className="w-3.5 h-3.5 accent-iip-blue" />
+                      Un document par étudiant
+                    </label>
                     <span className="text-[11.5px] text-slate-500">Classement :</span>
                     <div className="flex rounded-lg border border-slate-300 overflow-hidden">
                       {[['unite', 'par unité'], ['pile', 'par pile']].map(([v, lib]) => (
