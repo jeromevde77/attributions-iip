@@ -73,6 +73,15 @@ indiscutables. Il en reste sans doute : les nommer plutôt que les découvrir.
 - Le **seuil de réussite de l'unité** (10/20) : c'est le décret, il ne doit
   **pas** devenir réglable.
 - La règle de **report des notes** d'une session à l'autre : à vérifier.
+- La cote montrée à un **ajourné dont la moyenne d'unité dépasse dix** : elle
+  vaut aujourd'hui cette moyenne, alors que l'unité n'est pas acquise. À
+  trancher avec Charles.
+
+**Deux sources pour un même fait, c'est une source de moins.** L'épreuve
+intégrée s'écrivait dans `ue.is_epreuve_integree` (case du référentiel) et se
+lisait dans `ue_epreuve_integree` (table annuelle) : la case ne faisait rien,
+en silence. Les deux s'écrivent et se lisent désormais ensemble — la ligne
+annuelle l'emporte quand elle existe.
 
 ---
 
