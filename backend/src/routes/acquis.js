@@ -1226,8 +1226,14 @@ export function documentMotivation(etudId, ueNum, annee, session = 1) {
     <div class="lieu">Fait à ${esc2(ident.ville || 'Anderlecht')},
       le ${seance.date_seance ? jour(seance.date_seance) : '………………'}</div>
     <div class="legende">
+      <!-- Les annexes 8 et 9 portent DEUX signatures : « Le Conseil des études
+           / Le Jury d'épreuve intégrée » d'un côté, « La Directrice, / Le
+           Directeur, » de l'autre. Lucie n'en portait qu'une, celle du
+           président : la pièce sortait sans la signature que le modèle exige. -->
       <div class="qualite">Pour le Conseil des études,<br>${esc2(president.titre)}</div>
       <div class="nom">${esc2(president.nom)}</div>
+      <div class="qualite" style="margin-top:3mm">Le Directeur,</div>
+      <div class="nom">${esc2(identiteEtablissement()?.directeur || '……………………')}</div>
     </div>
   </div>
 </div>`;
@@ -4436,26 +4442,58 @@ export function pageComposition(ueNum, annee, session = 1) {
   const requis = Math.ceil((votants * 2) / 3);
   const sansProf = !membres.some(m => m.role === 'professeur');
 
+  // ANNEXE 2 — « Composition du Conseil des études DE SECTION / Composition du
+  // jury d'épreuve intégrée ». Le modèle porte l'intitulé de la SECTION et son
+  // numéro de code approuvé par le Gouvernement, un tableau NOM · PRÉNOM ·
+  // FONCTION/QUALITÉ · SIGNATURE — une signature manuscrite par membre —, le
+  // sceau, la date et le Directeur. Lucie titrait sur l'unité, fondait nom et
+  // prénom en une colonne, n'offrait aucune case de signature et faisait
+  // signer le président : quatre écarts au modèle sur une pièce que
+  // l'inspection demande.
+  const sec = (() => {
+    try {
+      return db.prepare('SELECT code, libelle, code_fwb FROM section WHERE code = ?')
+        .get(u.section) || {};
+    } catch { return {}; }
+  })();
+  const integree = estEpreuveIntegree(ueNum, annee);
+  const nomSeul = m => String(m.nom || '').trim();
   const corps = `<div class="attestation">
-    ${enteteDelib(u.ue_num, annee, 1, 'Conseil des études — composition')}
-    <div class="sous-liste">${esc0(u.section || 'section non renseignée')} ·
-      ${votants} voix délibérative(s) · quorum : ${requis}
-      <span class="ref">(deux tiers, RGE art. 25 §1)</span></div>
+    ${enteteDelib(u.ue_num, annee, 1,
+      integree ? "Composition du jury d'épreuve intégrée"
+               : 'Composition du Conseil des études de section')}
+    <div class="carac">
+      <div class="large">Intitulé de la section :
+        <b>${esc0(sec.libelle || u.section || '……………………')}</b></div>
+      <div class="large">Section approuvée par le Gouvernement sous le numéro de
+        code : ${sec.code_fwb ? `<b>${esc0(sec.code_fwb)}</b>`
+          : '<span class="manque">à compléter au référentiel</span>'}</div>
+    </div>
     ${sansProf ? '<p class="neant">Aucun professeur n’est attribué à cette unité '
       + 'pour cette année : le Conseil ne peut pas siéger.</p>' : ''}
     <table class="doc">
-      <tr><th style="width:38%">Membre</th><th>Qualité</th><th style="width:22%">Voix</th></tr>
+      <tr><th style="width:26%">NOM</th><th style="width:20%">PRÉNOM</th>
+          <th>FONCTION / QUALITÉ</th><th style="width:22%">SIGNATURE</th></tr>
       ${membres.map(m => `<tr>
-        <td>${esc0(m.nom)}</td>
-        <td>${esc0(m.qualite)}</td>
-        <td>${m.voix === 'consultative'
-          ? 'consultative <span class="ref">— ne compte pas au quorum</span>'
-          : 'délibérative'}</td>
+        <td>${esc0(m.prenom ? nomSeul(m).replace(new RegExp(`\\s*${m.prenom}$`), '')
+                            : nomSeul(m))}</td>
+        <td>${esc0(m.prenom || '')}</td>
+        <td>${esc0(m.qualite)}${m.voix === 'consultative'
+          ? ' <span class="ref">(voix consultative)</span>' : ''}</td>
+        <td class="sign"></td>
       </tr>`).join('')}
     </table>
-    <div class="signature-liste">
-      <div>Le président du Conseil des études</div>
-      <div class="ligne-sign">${esc0(presidenceConseil().titulaire.nom)}</div>
+    <div class="sous-liste">${votants} voix délibérative(s) · quorum :
+      ${requis} <span class="ref">(deux tiers, RGE art. 25 §1)</span></div>
+    <div class="cloture sans-paraphe">
+      <div class="sceau"></div>
+      <div class="paraphe"></div>
+      <div class="lieu">Fait à ${esc0(ident.ville || 'Anderlecht')},
+        le ………………………</div>
+      <div class="legende">
+        <div class="qualite">Le Directeur,</div>
+        <div class="nom">${esc0(ident.directeur || '……………………')}</div>
+      </div>
     </div>
   </div>`;
 
@@ -5004,6 +5042,10 @@ function enteteDelib(ueNum, annee, session, quoi, { total = false } = {}) {
 }
 
 const STYLE_LISTES = `<style>
+  /* La colonne SIGNATURE de l'annexe 2 : une case vide, assez haute pour
+     qu'on y signe à la main. Sans hauteur, la ligne se tasse et la case
+     devient inutilisable. */
+  .doc td.sign { height: 9mm; }
   .titre-liste { font-size: 13pt; font-weight: 700; color:#1B2B4B; margin: 5mm 0 0.5mm; }
   .sous-liste { font-size: 9pt; color:#5b6577; margin-bottom: 3mm; }
   .neant { font-size: 11pt; font-style: italic; color:#7a8699; text-align:center;
@@ -5607,7 +5649,7 @@ function assemblerDocumentsUE(ueNum, annee, veut, opts = {}) {
       // La session imprimée décide du jury nommé : celui de septembre n'est
       // pas celui de juin.
       pousser('reussite', pageAttestation(e, u, annee, etab,
-        opts.date_document || null, ident, session));
+        opts.date_document || null, ident));
       if (u.manques?.length) manques.push(`${e.nom} ${e.prenom} : ${u.manques.join(', ')}`);
       identiteManquante(e);
       nbR++;
@@ -6116,8 +6158,12 @@ export function documentPV(ueNum, annee, session = 1) {
     <div class="lieu">Fait en un exemplaire à ${esc(ident.ville || 'Anderlecht')},
       le ${esc(jour(seance.date_seance) || '……………')}</div>
     <div class="legende">
+      <!-- Annexe 5 : « Le Jury d'épreuve intégrée » d'un côté, « La Directrice,
+           / Le Directeur, » de l'autre. La seconde manquait. -->
       <div class="qualite">Pour le ${esc(conseil)},<br>${esc(president.titre)}</div>
       <div class="nom">${esc(president.nom)}</div>
+      <div class="qualite" style="margin-top:3mm">Le Directeur,</div>
+      <div class="nom">${esc(ident.directeur || '……………………')}</div>
     </div>
   </div>
 </div>`;

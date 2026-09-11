@@ -484,44 +484,8 @@ export function enseignantsDeLUE(ueNum, annee) {
   } catch { return []; }
 }
 
-/**
- * LE JURY QUI A DÉLIBÉRÉ — non ceux qui ont enseigné.
- *
- * L'attestation nommait les professeurs tirés des attributions. Pour une unité
- * ordinaire, cela se confond à peu près avec le Conseil ; pour un JURY
- * D'ÉPREUVE INTÉGRÉE, non : le décret y appelle des chargés de cours de la
- * section et des personnes étrangères à l'établissement, qu'aucune attribution
- * ne rattache à l'unité. Ils manquaient donc à la pièce que l'étudiant garde à
- * vie — tandis qu'un professeur absent, lui, y figurait.
- *
- * On lit donc les membres PRÉSENTS de la séance, comme le procès-verbal. À
- * défaut de séance enregistrée, les enseignants de l'unité font encore foi :
- * une attestation sans aucun nom serait pire.
- */
-function juryDeLUE(ueNum, annee, session = null) {
-  try {
-    const sc = db.prepare(`
-      SELECT id FROM deliberation_seance
-      WHERE ue_num = ? AND annee_scolaire = ?
-        ${session ? 'AND session = ?' : ''}
-      ORDER BY session DESC LIMIT 1`)
-      .get(...(session ? [ueNum, annee, session] : [ueNum, annee]));
-    if (!sc) return enseignantsDeLUE(ueNum, annee);
-    const lignes = db.prepare(`
-      SELECT nom, prenom, qualite, categorie FROM deliberation_presence
-      WHERE seance_id = ? AND present = 1
-      ORDER BY nom`).all(sc.id);
-    if (!lignes.length) return enseignantsDeLUE(ueNum, annee);
-    // Le nom a pu être saisi en entier dans « nom » : on n'invente pas de
-    // découpage, on affiche ce qui a été enregistré.
-    return lignes.map(l => ({ nom: l.nom, prenom: l.prenom || '',
-                              cours: l.qualite || null }));
-  } catch { return enseignantsDeLUE(ueNum, annee); }
-}
-
 export function pageAttestation(e, u, annee, etab, dateDoc = null,
-                                ident = identiteEtablissement(), session = null) {
-  const profs = juryDeLUE(u.ue_num, annee, session);
+                                ident = identiteEtablissement()) {
   // Le titre s'écrit tantôt « Mme », tantôt « Madame » : chercher la seule
   // abréviation produisait une attestation au masculin pour une étudiante.
   const genre = /^(mme|madame|mlle|mademoiselle|m\.?me)\b/i.test((e.titre || '').trim())
@@ -627,24 +591,21 @@ export function pageAttestation(e, u, annee, etab, dateDoc = null,
     du total des points.
   </div>
 
-  <!-- Ceux qui ont enseigné et évalué : le Conseil des études n'est pas une
-       abstraction, et l'attestation doit pouvoir dire qui le composait. -->
-  ${profs.length ? `
-  <div class="profs">
-    <div class="titre">${u.epreuve_integree ? "Le Jury d'épreuve intégrée"
-      : 'Le Conseil des études'}, pour cette unité</div>
-    <div class="liste">${profs.map(p => `<span class="p">`
-      + `<b>${esc(p.nom)} ${esc(p.prenom)}</b>`
-      + (p.cours ? ` <span class="c">${esc(p.cours)}</span>` : '')
-      + `</span>`).join('')}</div>
-  </div>` : ''}
+  <!-- AUCUN NOM DE MEMBRE ICI. Les modèles d'attestation — annexes 10 à 18 —
+       ne portent que la formule « Le Conseil des études » ou « Le Jury
+       d'épreuve intégrée », le sceau, la date et la signature du Directeur.
+       Lucie y ajoutait la liste des enseignants de l'unité : un ajout au
+       modèle, et de surcroît une liste fausse pour un jury d'épreuve intégrée,
+       qui comprend des chargés de cours de la section et des personnes
+       étrangères à l'établissement. La composition se dit sur sa propre
+       pièce — l'annexe 2. -->
 
   <!-- Sceau et signature. Le tableau à trois cases (conseil des études,
        sceau, direction) est remplacé par les pièces réelles. -->
   <div class="cloture">
     <div class="sceau"></div>
     <div class="paraphe"></div>
-    <div class="lieu">Fait à ${esc(ident.ville || 'Anderlecht')},
+    <div class="lieu">Fait en un exemplaire à ${esc(ident.ville || 'Anderlecht')},
       le ${frDate(dateDoc || new Date().toISOString())}</div>
     <div class="legende">
       <div class="qualite">Pour ${u.epreuve_integree

@@ -81,6 +81,32 @@ Ces membres-là s'ajoutent à la main.
   Le délégué ne peut appartenir au Conseil de l'unité ni de la section
   (décret art. 52 · AGCF art. 26) : la route `/deliberation/ue/:n/presidents`
   écarte les chargés de cours concernés **en disant pourquoi**.
+#### Ce que les modèles officiels prévoient — vérifié sur les annexes
+
+Les fichiers `Sanction_études_avec_annexes.pdf` sont des **archives de pages
+scannées**, non des PDF : l'extraction automatique en donne un texte fautif.
+Les constats ci-dessous viennent de la lecture des images.
+
+**Un seul document nomme les membres : l'annexe 2**, « Composition du Conseil
+des études **de section** / Composition du jury d'épreuve intégrée » —
+intitulé de la section, numéro de code approuvé, et un tableau
+NOM · PRÉNOM · FONCTION/QUALITÉ · **SIGNATURE** (manuscrite), clos par le
+sceau, la date et le Directeur. C'est une pièce **de section**, pas d'unité.
+
+Les autres se contentent de « Nous, soussignés, Président-e et Membres… » sans
+aucun nom : annexe 5 (PV d'une UE E.I.), annexes 8 et 9 (motivations), annexes
+10 à 18 (attestations de réussite). Toutes portent deux signatures — le Conseil
+ou le Jury d'un côté, **« La Directrice, / Le Directeur, »** de l'autre.
+
+Corrigé en conséquence : l'attestation ne nomme plus personne et porte « Fait
+en un exemplaire » ; le PV et les motivations portent la signature du
+Directeur à côté de celle du président ; la composition suit le format de
+l'annexe 2.
+
+**Reste un écart connu** : la composition se produit encore par unité alors que
+le modèle est par section. Le titre et le contenu suivent le modèle, le
+périmètre non.
+
 - **Trois pièces nommaient trois listes différentes.** Le procès-verbal lisait
   les présents, la composition recomposait depuis les attributions, et
   l'attestation de réussite nommait les enseignants de l'unité — donc, pour un
