@@ -2169,12 +2169,37 @@ export function coordinationDelibere() {
   } catch (e) { console.error('[migration] ue_epreuve_integree :', e.message); }
 })();
 
+/**
+ * DEUX SOURCES DISENT L'ÉPREUVE INTÉGRÉE, ET IL FAUT LIRE LES DEUX.
+ *
+ * La case cochée au référentiel écrit « ue.is_epreuve_integree » ; l'écran de
+ * paramétrage de l'unité écrit, lui, la table annuelle « ue_epreuve_integree ».
+ * Cette fonction ne lisait que la seconde : on cochait au référentiel, et rien
+ * ne se passait — ni à l'encodage, ni au calcul —, sans le moindre message.
+ * Une case qui ne fait rien est pire qu'une case absente.
+ *
+ * La ligne annuelle, quand elle existe, l'emporte : c'est le geste le plus
+ * précis — elle vise une unité POUR UNE ANNÉE, et peut donc aussi bien
+ * désactiver ce que le référentiel affirme. À défaut, le référentiel fait foi.
+ */
+/**
+ * Le code du bloc unique d'une épreuve intégrée. Ce n'est PAS un cours : c'est
+ * l'unité elle-même, et la note qu'il porte s'écrit sans cours.
+ */
+export const CODE_EPREUVE_UE = '__ue__';
+
 export function estEpreuveIntegree(ueNum, annee) {
   try {
     const l = db.prepare(
       'SELECT actif FROM ue_epreuve_integree WHERE ue_num = ? AND annee_scolaire = ?'
     ).get(Number(ueNum), annee);
-    return !!(l && l.actif);
+    if (l) return !!l.actif;
+  } catch { /* table absente : le référentiel suffira */ }
+  try {
+    const u = db.prepare(`
+      SELECT MAX(COALESCE(is_epreuve_integree, 0)) AS ei FROM ue
+      WHERE ue_num = ? AND annee_scolaire = ?`).get(Number(ueNum), annee);
+    return !!(u && u.ei);
   } catch { return false; }
 }
 
@@ -2917,6 +2942,12 @@ r.post('/ue/:ueNum/notes/importer', authRequired,
     return res.status(403).json({ error: 'unité hors de votre périmètre' });
   }
 
+  // ÉPREUVE INTÉGRÉE : LA NOTE N'APPARTIENT À AUCUN COURS. Le classeur porte
+  // bien un cours en tête de colonne — celui du bloc unique —, mais l'écrire
+  // reviendrait à coter un cours qui ne cote plus, et le calcul, qui cherche
+  // la note posée SANS cours, ne trouverait rien.
+  const integree = estEpreuveIntegree(ueNum, an);
+
   // Quels cours évaluent quel acquis — la pondération fait foi.
   const coursDeAA = {};
   for (const l of db.prepare(
@@ -3030,6 +3061,13 @@ r.post('/ue/:ueNum/notes/importer', authRequired,
         // telle quelle, avec un zéro — c'est ce que fait déjà l'écran.
         if (x.mention) {
           if (!acquisConnus.has(x.code)) continue;
+          if (integree) {
+            if (!simulation) {
+              poserMentionNote.run(t.id, an, ueNum, `s${ses}|${x.code}`, null, x.mention);
+            }
+            posees++;
+            continue;
+          }
           for (const cc of (x.cours || coursDeAA[x.code] || [])) {
             if (!simulation) {
               poserMentionNote.run(t.id, an, ueNum, `s${ses}|${cc}|${x.code}`, cc, x.mention);
@@ -3045,6 +3083,11 @@ r.post('/ue/:ueNum/notes/importer', authRequired,
 
         if (!acquisConnus.has(x.code)) {
           if (!vus.has('i' + x.code)) { vus.add('i' + x.code); rapport.acquis_inconnus.push(x.code); }
+          continue;
+        }
+        if (integree) {
+          if (!simulation) ecrire.run(t.id, an, ueNum, `s${ses}|${x.code}`, null, points);
+          posees++;
           continue;
         }
         const cours = x.cours || coursDeAA[x.code] || [];
@@ -3121,7 +3164,8 @@ r.get('/ue/:ueNum/feuille', authRequired,
   // Qui porte chaque cours : le professeur doit se reconnaître dans la feuille,
   // et le Conseil savoir à qui s'adresser sans quitter l'écran.
   const profsCours = profsParCours(ueNum, annee);
-  const cours = tousCours.map(c => ({
+  const integree = estEpreuveIntegree(ueNum, annee);
+  let cours = tousCours.map(c => ({
     ...c,
     professeurs: profsCours[c.cours_code] || '',
     acquis: parCours[c.cours_code] || db.prepare(`
@@ -3129,6 +3173,37 @@ r.get('/ue/:ueNum/feuille', authRequired,
       WHERE ue_num = ? AND cours_code = ? ORDER BY aa_num, aa_code
     `).all(ueNum, c.cours_code),
   }));
+
+  // ── L'ÉPREUVE INTÉGRÉE N'A QU'UNE GRILLE ────────────────────────────────
+  //
+  // Quand l'unité est évaluée par une épreuve commune, il n'y a plus de note
+  // par cours : les professeurs corrigent ensemble UNE copie, acquis par
+  // acquis, pour l'unité entière. La feuille servait pourtant toujours les
+  // colonnes de chaque cours — on encodait donc six fois la même note, ou
+  // l'on n'encodait rien, et le calcul (qui, lui, cherchait la note posée
+  // SANS cours) ne trouvait jamais de quoi coter.
+  //
+  // Un seul bloc, donc, portant tous les acquis de l'unité, avec le poids de
+  // chacun — la somme de ses poids dans les cours, exactement ce sur quoi le
+  // calcul pèse. Et la note s'écrit sans cours : « s1|acquis ».
+  const poidsUE = {};
+  for (const x of pond) poidsUE[x.aa_code] = (poidsUE[x.aa_code] || 0) + Number(x.poids || 0);
+  if (integree) {
+    const acquisUE = db.prepare(`
+      SELECT aa_code, description FROM aa WHERE ue_num = ? ORDER BY aa_num, aa_code
+    `).all(ueNum).map(a => ({ ...a, poids: poidsUE[a.aa_code] ?? null }));
+    cours = [{
+      cours_code: CODE_EPREUVE_UE,
+      cours_nom: 'Épreuve intégrée — unité entière',
+      cours_per: null,
+      integree: true,
+      // Tous les professeurs de l'unité : l'épreuve est la leur, pas celle
+      // d'un cours.
+      professeurs: [...new Set(Object.values(profsCours).filter(Boolean)
+        .flatMap(p => String(p).split(',').map(s => s.trim())).filter(Boolean))].join(', '),
+      acquis: acquisUE,
+    }];
+  }
 
   let etudiants = db.prepare(`
     SELECT e.id, e.nom, e.prenom, e.id_ecampus
@@ -3220,7 +3295,20 @@ r.get('/ue/:ueNum/feuille', authRequired,
     if (!avecSession && (session === 2 || code.startsWith('s2|') || code.startsWith('s1|'))) continue;
     const reste = avecSession ? code.slice(prefixe.length) : code;
     const sep = reste.indexOf('|');
-    if (sep < 0) continue;                       // note d'acquis sans cours
+    // Épreuve intégrée : la note est posée SANS cours. C'est elle — et elle
+    // seule — que la grille d'unité montre ; les notes par cours, restées d'un
+    // paramétrage antérieur, ne sont plus ce que le Conseil cote.
+    if (sep < 0) {
+      if (!integree) continue;                   // note d'acquis sans cours
+      const e0 = (notes[l.etudiant_id] ||= {});
+      const k = `${CODE_EPREUVE_UE}|${reste}`;
+      if (avecSession || e0[k] == null) e0[k] = l.points;
+      if (l.mention && avecSession) {
+        (mentions[l.etudiant_id] ||= {})[CODE_EPREUVE_UE] = l.mention;
+      }
+      continue;
+    }
+    if (integree) continue;                      // le cours ne cote plus
     const cle = reste;                           // « cours|acquis »
     const e = (notes[l.etudiant_id] ||= {});
     if (avecSession || e[cle] == null) e[cle] = l.points;
@@ -3255,9 +3343,16 @@ r.get('/ue/:ueNum/feuille', authRequired,
           WHERE etudiant_id = ? AND annee_scolaire = ? AND ue_num = ?`)
           .get(e.id, annee, ueNum)?.resultat : null) || null;
       return [e.id, {
-        cours: Object.fromEntries((d.cours || []).map(c => [c.cours_code,
-          c.na ? null : c.note])),
-        na: Object.fromEntries((d.cours || []).map(c => [c.cours_code, !!c.na])),
+        cours: Object.fromEntries([
+          ...(d.cours || []).map(c => [c.cours_code, c.na ? null : c.note]),
+          // Le bloc d'épreuve intégrée porte la cote de l'UNITÉ : il n'y a pas
+          // de note de cours à en tirer, l'épreuve a été la même pour tous.
+          ...(integree ? [[CODE_EPREUVE_UE, d.ue?.na ? null : (d.ue?.note ?? null)]] : []),
+        ]),
+        na: Object.fromEntries([
+          ...(d.cours || []).map(c => [c.cours_code, !!c.na]),
+          ...(integree ? [[CODE_EPREUVE_UE, !!d.ue?.na]] : []),
+        ]),
         // L'AJOURNEMENT POSÉ, distinct du « non acquis » qui s'en déduit :
         // c'est lui qu'une case à cocher doit refléter, sans quoi décocher
         // n'aurait aucun effet visible.
@@ -3292,8 +3387,16 @@ r.get('/ue/:ueNum/feuille', authRequired,
       .get(annee, ueNum).n,
     // En seconde session : qui la présente, et pour quels cours. L'écran s'en
     // sert pour n'ouvrir que les colonnes qui attendent une note.
-    a_representer: session === 2 ? aRepresenter : null,
-    epreuve_integree: estEpreuveIntegree(ueNum, annee),
+    a_representer: session === 2
+      ? (integree
+        // Une épreuve intégrée se représente entière : il n'y a pas de cours à
+        // rouvrir un par un.
+        ? Object.fromEntries(Object.entries(aRepresenter)
+          .map(([id, l]) => [id, l.length ? [CODE_EPREUVE_UE] : []]))
+        : aRepresenter)
+      : null,
+    epreuve_integree: integree,
+    code_epreuve_ue: CODE_EPREUVE_UE,
     sans_acquis: cours.every(c => !c.acquis.length),
   });
 });
@@ -3424,6 +3527,57 @@ r.post('/cours/:coursCode/acquis/importer', authRequired,
  * cela ne vise pas un acquis, cela vise l'épreuve. Tous les acquis que ce
  * cours évalue passent donc à zéro, avec la mention qui dit pourquoi.
  */
+/**
+ * NP / PP SUR UNE ÉPREUVE INTÉGRÉE.
+ *
+ * La route jumelle vise un cours. Ici il n'y en a pas : l'épreuve est celle de
+ * l'unité, et l'absence porte sur elle entière. Les acquis passent donc à zéro
+ * avec la mention, sous leur code SANS cours — la forme que lit le calcul
+ * quand l'unité est intégrée.
+ */
+r.put('/ue/:ueNum/epreuve', authRequired,
+      roleRequired('admin', 'directeur', 'directeur_adjoint', 'editeur'), (req, res) => {
+  const ueNum = Number(req.params.ueNum);
+  const { etudiant_id, annee_scolaire, session, mention } = req.body || {};
+  if (!etudiant_id || !annee_scolaire) {
+    return res.status(400).json({ error: 'étudiant et année requis' });
+  }
+  if (mention != null && !['NP', 'PP'].includes(mention)) {
+    return res.status(400).json({ error: 'mention attendue : NP, PP, ou rien pour effacer' });
+  }
+  if (!estEpreuveIntegree(ueNum, annee_scolaire)) {
+    return res.status(400).json({
+      error: "Cette unité n'est pas évaluée par une épreuve intégrée." });
+  }
+
+  const acquis = db.prepare('SELECT aa_code FROM aa WHERE ue_num = ?').all(ueNum)
+    .map(a => a.aa_code);
+  if (!acquis.length) {
+    return res.status(400).json({
+      error: "Aucun acquis n'est déclaré pour cette unité : il n'y a rien à coter." });
+  }
+
+  const prefixe = session === 1 || session === 2 ? `s${session}|` : 's1|';
+  const poser = db.prepare(`
+    INSERT INTO etudiant_note_detail
+      (etudiant_id, annee_scolaire, ue_num, type, code, points, mention)
+    VALUES (?,?,?, 'aa', ?, 0, ?)
+    ON CONFLICT(etudiant_id, annee_scolaire, ue_num, type, code) DO UPDATE SET
+      points = 0, mention = excluded.mention`);
+  const effacer = db.prepare(`DELETE FROM etudiant_note_detail
+    WHERE etudiant_id = ? AND annee_scolaire = ? AND ue_num = ? AND type = 'aa' AND code = ?`);
+
+  db.transaction(() => {
+    for (const aa of acquis) {
+      const code = `${prefixe}${aa}`;
+      if (mention) poser.run(etudiant_id, annee_scolaire, ueNum, code, mention);
+      else effacer.run(etudiant_id, annee_scolaire, ueNum, code);
+    }
+  })();
+
+  res.json({ ok: true, ue_num: ueNum, mention: mention || null, acquis: acquis.length });
+});
+
 r.put('/cours/:coursCode/epreuve', authRequired,
       roleRequired('admin', 'directeur', 'directeur_adjoint', 'editeur'), (req, res) => {
   const coursCode = req.params.coursCode;
@@ -3498,6 +3652,13 @@ r.put('/ue/:ueNum/epreuve-integree', authRequired, roleRequired('admin', 'editeu
     ON CONFLICT(ue_num, annee_scolaire) DO UPDATE SET
       actif = excluded.actif, maj_le = datetime('now'), maj_par = excluded.maj_par
   `).run(ueNum, annee, actif, req.user?.email || null);
+  // LES DEUX SOURCES DISENT LA MÊME CHOSE, ou l'une contredira l'autre : la
+  // diplomation et les attestations lisent le référentiel, l'encodage lit la
+  // table annuelle. On écrit donc les deux d'un même geste.
+  try {
+    db.prepare('UPDATE ue SET is_epreuve_integree = ? WHERE ue_num = ? AND annee_scolaire = ?')
+      .run(actif, ueNum, annee);
+  } catch { /* colonne absente : la table annuelle suffit */ }
   res.json({ ok: true, ue_num: ueNum, annee, actif: !!actif });
 });
 

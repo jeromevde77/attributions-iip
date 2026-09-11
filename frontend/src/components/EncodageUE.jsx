@@ -118,6 +118,11 @@ export default function EncodageUE({ ueNum, annee, onClose, onEnregistre, onPara
       `${e.nom} ${e.prenom} ${e.id_ecampus || ''}`.toLowerCase().includes(q));
   }, [data, recherche]);
 
+  // Le bloc unique d'une épreuve intégrée n'est pas un cours : sa note s'écrit
+  // sans cours, et c'est cette forme-là que le calcul lit.
+  const EI = data?.code_epreuve_ue || '__ue__';
+  const estEI = coursCode => !!data?.epreuve_integree && coursCode === EI;
+
   async function poser(etudId, coursCode, aaCode, valeur) {
     const v = valeur === '' ? null : Number(String(valeur).replace(',', '.'));
     if (v != null && (!Number.isFinite(v) || v < 0 || v > 20)) {
@@ -133,7 +138,8 @@ export default function EncodageUE({ ueNum, annee, onClose, onEnregistre, onPara
         method: 'PUT', headers: authHeaders(),
         body: JSON.stringify({
           etudiant_id: etudId, annee_scolaire: annee, ue_num: ueNum,
-          cours_code: coursCode, aa_code: aaCode, session, points: v,
+          cours_code: estEI(coursCode) ? null : coursCode,
+          aa_code: aaCode, session, points: v,
         }),
       });
       if (!rep.ok) {
@@ -152,7 +158,10 @@ export default function EncodageUE({ ueNum, annee, onClose, onEnregistre, onPara
   async function poserMention(etudId, coursCode, mention) {
     setEnAttente(n => n + 1);
     try {
-      const rep = await fetch(`/api/acquis/cours/${encodeURIComponent(coursCode)}/epreuve`, {
+      const url = estEI(coursCode)
+        ? `/api/acquis/ue/${ueNum}/epreuve`
+        : `/api/acquis/cours/${encodeURIComponent(coursCode)}/epreuve`;
+      const rep = await fetch(url, {
         method: 'PUT', headers: authHeaders(),
         body: JSON.stringify({ etudiant_id: etudId, annee_scolaire: annee, session, mention }),
       });
@@ -181,7 +190,9 @@ export default function EncodageUE({ ueNum, annee, onClose, onEnregistre, onPara
               UE {ueNum}{data?.ue?.ue_nom ? ` · ${data.ue.ue_nom}` : ''}
             </h3>
             <p className="text-[12px] text-slate-500">
-              {data && `${data.cours.length} cours · ${colonnes.length} acquis · `}
+              {data && (data.epreuve_integree
+                ? `épreuve intégrée · ${colonnes.length} acquis · `
+                : `${data.cours.length} cours · ${colonnes.length} acquis · `)}
               {data && `${data.etudiants.length} étudiant(s)${
                 data.a_representer ? ' à représenter' : ''} · `}{annee}
               {enAttente > 0 && <span className="text-amber-700"> · enregistrement…</span>}
@@ -234,6 +245,14 @@ export default function EncodageUE({ ueNum, annee, onClose, onEnregistre, onPara
           {/* CE QUE LA SECONDE SESSION ATTEND — et ce qu'elle n'attend pas.
               Sans un mot, une feuille plus courte se lit comme une perte
               d'étudiants ; et une colonne grisée, comme une panne. */}
+          {data?.epreuve_integree && (
+            <div className="mb-3 px-3 py-2 rounded-lg bg-violet-50 border border-violet-200
+                            text-[12px] text-violet-900">
+              Cette unité est évaluée par une <b>épreuve intégrée</b> : une seule grille,
+              les <b>acquis de l'unité entière</b>, une note commune. Il n'y a pas de note
+              par cours — <b>chaque cours de l'unité reçoit la note de l'unité</b>.
+            </div>
+          )}
           {data?.a_representer && (
             <div className="mb-3 px-3 py-2 rounded-lg bg-amber-50 border border-amber-200
                             text-[12px] text-amber-900">
@@ -252,7 +271,7 @@ export default function EncodageUE({ ueNum, annee, onClose, onEnregistre, onPara
           )}
           {!data ? (
             <div className="py-10 text-center text-slate-400 text-sm">Chargement…</div>
-          ) : data.sans_acquis ? (
+          ) : data.sans_acquis && !data.epreuve_integree ? (
             /* UN CUL-DE-SAC N'EST PAS UN MESSAGE.
                L'écran disait d'aller au paramétrage sans y conduire : il
                fallait fermer, retrouver l'unité, ouvrir le paramétrage. Le

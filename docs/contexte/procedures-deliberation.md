@@ -45,6 +45,14 @@ servent plus au calcul.
 **Où :** Étudiants → Délibération → UE → « Encoder par cours ».
 
 - Grille par cours : étudiants × AA de ce cours, notes /20.
+- **Épreuve intégrée : une seule grille**, celle de l'unité — ses acquis, une
+  note commune, aucun cours en colonne. La note s'écrit sans cours (`s1|aa`) et
+  chaque cours de l'unité reçoit ensuite la note de l'unité.
+- **Une unité cochée après coup** garde en base les notes déjà encodées par
+  cours (`s1|cours|aa`) : le calcul ne les lit plus, la grille ne les montre
+  plus. Il faut réencoder l'unité — et supprimer les anciennes ensuite, sans
+  quoi elles ressortiraient si la case était décochée. Vu sur l'UE 307
+  (Optométrie, 2025-2026), cochée alors que 19 étudiants étaient déjà cotés.
 - Enregistrement à la sortie du champ, pas de bouton global.
 - Sessions 1 et 2 distinguées.
 - Import depuis le classeur de suivi (`Repartition_AA_UE`).
