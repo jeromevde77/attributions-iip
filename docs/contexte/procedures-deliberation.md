@@ -81,6 +81,13 @@ Ces membres-là s'ajoutent à la main.
   Le délégué ne peut appartenir au Conseil de l'unité ni de la section
   (décret art. 52 · AGCF art. 26) : la route `/deliberation/ue/:n/presidents`
   écarte les chargés de cours concernés **en disant pourquoi**.
+- **Trois pièces nommaient trois listes différentes.** Le procès-verbal lisait
+  les présents, la composition recomposait depuis les attributions, et
+  l'attestation de réussite nommait les enseignants de l'unité — donc, pour un
+  jury d'épreuve intégrée, ni les chargés de cours de la section ni les
+  personnes étrangères, tandis qu'un professeur absent y figurait. Les trois
+  lisent désormais **les membres présents de la séance**, avec repli sur les
+  enseignants de l'unité quand aucune séance n'est enregistrée.
 - Un président désigné **signe de sa main** : aucun fac-similé. Et les
   **attestations de réussite restent signées du Directeur** — l'attestation est
   délivrée par l'établissement, le procès-verbal rend compte d'une séance.

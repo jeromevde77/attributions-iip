@@ -5582,7 +5582,10 @@ function assemblerDocumentsUE(ueNum, annee, veut, opts = {}) {
       // notifie, non tout le parcours de l'étudiant.
       const u = unitesReussies(e.id, annee).find(x => Number(x.ue_num) === ueNum);
       if (!u) { manques.push(`${e.nom} ${e.prenom} : unité non réussie au dossier`); continue; }
-      pousser('reussite', pageAttestation(e, u, annee, etab, opts.date_document || null, ident));
+      // La session imprimée décide du jury nommé : celui de septembre n'est
+      // pas celui de juin.
+      pousser('reussite', pageAttestation(e, u, annee, etab,
+        opts.date_document || null, ident, session));
       if (u.manques?.length) manques.push(`${e.nom} ${e.prenom} : ${u.manques.join(', ')}`);
       identiteManquante(e);
       nbR++;

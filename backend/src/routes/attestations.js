@@ -484,8 +484,44 @@ export function enseignantsDeLUE(ueNum, annee) {
   } catch { return []; }
 }
 
-export function pageAttestation(e, u, annee, etab, dateDoc = null, ident = identiteEtablissement()) {
-  const profs = enseignantsDeLUE(u.ue_num, annee);
+/**
+ * LE JURY QUI A DÉLIBÉRÉ — non ceux qui ont enseigné.
+ *
+ * L'attestation nommait les professeurs tirés des attributions. Pour une unité
+ * ordinaire, cela se confond à peu près avec le Conseil ; pour un JURY
+ * D'ÉPREUVE INTÉGRÉE, non : le décret y appelle des chargés de cours de la
+ * section et des personnes étrangères à l'établissement, qu'aucune attribution
+ * ne rattache à l'unité. Ils manquaient donc à la pièce que l'étudiant garde à
+ * vie — tandis qu'un professeur absent, lui, y figurait.
+ *
+ * On lit donc les membres PRÉSENTS de la séance, comme le procès-verbal. À
+ * défaut de séance enregistrée, les enseignants de l'unité font encore foi :
+ * une attestation sans aucun nom serait pire.
+ */
+function juryDeLUE(ueNum, annee, session = null) {
+  try {
+    const sc = db.prepare(`
+      SELECT id FROM deliberation_seance
+      WHERE ue_num = ? AND annee_scolaire = ?
+        ${session ? 'AND session = ?' : ''}
+      ORDER BY session DESC LIMIT 1`)
+      .get(...(session ? [ueNum, annee, session] : [ueNum, annee]));
+    if (!sc) return enseignantsDeLUE(ueNum, annee);
+    const lignes = db.prepare(`
+      SELECT nom, prenom, qualite, categorie FROM deliberation_presence
+      WHERE seance_id = ? AND present = 1
+      ORDER BY nom`).all(sc.id);
+    if (!lignes.length) return enseignantsDeLUE(ueNum, annee);
+    // Le nom a pu être saisi en entier dans « nom » : on n'invente pas de
+    // découpage, on affiche ce qui a été enregistré.
+    return lignes.map(l => ({ nom: l.nom, prenom: l.prenom || '',
+                              cours: l.qualite || null }));
+  } catch { return enseignantsDeLUE(ueNum, annee); }
+}
+
+export function pageAttestation(e, u, annee, etab, dateDoc = null,
+                                ident = identiteEtablissement(), session = null) {
+  const profs = juryDeLUE(u.ue_num, annee, session);
   // Le titre s'écrit tantôt « Mme », tantôt « Madame » : chercher la seule
   // abréviation produisait une attestation au masculin pour une étudiante.
   const genre = /^(mme|madame|mlle|mademoiselle|m\.?me)\b/i.test((e.titre || '').trim())
