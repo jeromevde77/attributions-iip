@@ -81,6 +81,35 @@ Ces membres-là s'ajoutent à la main.
   Le délégué ne peut appartenir au Conseil de l'unité ni de la section
   (décret art. 52 · AGCF art. 26) : la route `/deliberation/ue/:n/presidents`
   écarte les chargés de cours concernés **en disant pourquoi**.
+#### Le procès-verbal de délibération de section — annexes 6 et 7
+
+C'est l'acte par lequel le Conseil constate qu'un étudiant a terminé, et qui
+**fonde la délivrance du titre**. Lucie n'imprimait qu'une « Liste des étudiants
+diplômés », qui n'est aucun modèle de la circulaire : le diplôme reposait donc
+sur une pièce inexistante.
+
+Route `POST /api/diplomes/pv-section`. Deux modèles pour un même acte :
+**annexe 6** quand la section comporte une épreuve intégrée — colonnes Seuil
+(A/NA) et pourcentage de l'E.I., délibération du **Jury**, sixième alinéa
+autorisant à représenter l'épreuve — et **annexe 7** sinon, délibéré par le
+**Conseil**. Commun aux deux : les cinq mentions en alinéas, le nombre de pages,
+la communication au ROI, et « Fait en **deux** exemplaires ».
+
+Deux pièges rencontrés en l'écrivant, qui valent d'être notés :
+
+- `ue_det` est un **TEXTE valant `'x'`**, non un booléen. Écrit `= 1`, le filtre
+  ne retourne rien et la mention se calcule sur la seule épreuve intégrée, **en
+  silence**.
+- La cote d'une unité est celle **arrêtée par le Conseil** (`deliberation_resultat`,
+  à défaut `etudiant_inscription`), jamais une note de cours.
+
+**Reste à faire** : annexe 4 (PV d'une UE sur valorisation), annexes 14 et 15
+(attestations sur valorisation), annexe 16 (validation d'une U.A.A.), annexes 19
+et 20 (ambulancier ATNUP — certification de section signée du seul directeur, au
+texte imposé par l'arrêté royal du 14 mai 2019).
+
+---
+
 #### Les modèles d'attestation ne sont pas un seul modèle
 
 La circulaire en prévoit plusieurs, et le bon dépend de l'unité :

@@ -19,6 +19,7 @@ import { authRequired, roleRequired, getUserSections } from '../middleware/auth.
 import { anneeDeTravail } from '../helpers/annee.js';
 import { envelopper } from './attestations.js';
 import { identiteEtablissement } from './config.js';
+import { calculerMention } from '../lib/mention.js';
 
 const r = Router();
 
@@ -199,6 +200,203 @@ r.get('/candidats', authRequired, (req, res) => {
  * La liste porte les étudiants qu'on lui donne, dans l'ordre alphabétique, et
  * rien d'autre : c'est la direction qui a arrêté qui figure dessus.
  */
+
+/**
+ * LA COTE ARRÊTÉE PAR LE CONSEIL — non une note de cours.
+ *
+ * Reprise de la diplomation de « develop » plutôt que réécrite : deux
+ * fonctions pour une même question finiraient par diverger. La séance fait
+ * foi ; à défaut, le dossier, car une année reprise d'un classeur ne porte sa
+ * décision que là. Entre deux sessions, la plus avancée l'emporte.
+ */
+function coteArretee(etudId, ueNum) {
+  const t = db.prepare(`
+    SELECT points, annee_scolaire, session FROM deliberation_resultat
+    WHERE etudiant_id = ? AND ue_num = ? AND resultat = 'reussi' AND points IS NOT NULL
+    ORDER BY annee_scolaire DESC, session DESC LIMIT 1
+  `).get(etudId, ueNum);
+  if (t) {
+    return { cote: t.points, annee: t.annee_scolaire, session: t.session,
+             source: 'seance' };
+  }
+
+  const i = db.prepare(`
+    SELECT points, annee_scolaire FROM etudiant_inscription
+    WHERE etudiant_id = ? AND ue_num = ? AND resultat = 'reussi' AND points IS NOT NULL
+    ORDER BY annee_scolaire DESC LIMIT 1
+  `).get(etudId, ueNum);
+  if (i) {
+    return { cote: i.points, annee: i.annee_scolaire, session: null,
+             source: 'dossier' };
+  }
+
+  return { cote: null, annee: null, session: null, source: null };
+}
+
+/**
+ * ANNEXES 6 ET 7 — LE PROCÈS-VERBAL DE DÉLIBÉRATION D'UNE SECTION.
+ *
+ * C'est l'acte par lequel le Conseil constate qu'un étudiant a terminé, et qui
+ * FONDE la délivrance du titre. Lucie n'imprimait qu'une « Liste des étudiants
+ * diplômés », qui n'est aucun modèle de la circulaire : le diplôme reposait
+ * donc sur une pièce inexistante.
+ *
+ * Deux modèles pour un même acte, selon que la section comporte ou non une
+ * unité « épreuve intégrée » : l'annexe 6 en ajoute le seuil (A/NA) et le
+ * pourcentage, et c'est le Jury qui délibère plutôt que le Conseil. Le reste
+ * est commun — les six alinéas de mention, le nombre de pages, la
+ * communication des résultats au ROI, et « Fait en DEUX exemplaires ».
+ */
+const MENTIONS_PV = [
+  'La plus grande distinction', 'Grande distinction', 'Distinction',
+  'Satisfaction', 'Fruit',
+];
+
+export function pvDeSection(sectionCode, annee, lignes, { session = 1, lieu = null,
+                                                          date = null } = {}) {
+  const ident = identiteEtablissement();
+  const sec = db.prepare('SELECT code, libelle, code_fwb, niveau FROM section WHERE code = ?')
+    .get(sectionCode) || { code: sectionCode };
+  const requises = unitesDeLaSection(sectionCode, annee);
+  const ei = epreuveIntegreeDe(requises);
+  const avecEI = !!ei;
+  const organe = avecEI ? "Jury d'épreuve intégrée" : 'Conseil des études';
+
+  const parMention = {};
+  for (const l of lignes) {
+    if (!l.mention) continue;
+    (parMention[l.mention] = parMention[l.mention] || []).push(
+      `${(l.nom || '').toUpperCase()} ${l.prenom || ''}`.trim());
+  }
+  const aRepresenter = lignes.filter(l => l.a_representer)
+    .map(l => `${(l.nom || '').toUpperCase()} ${l.prenom || ''}`.trim());
+
+  const rangs = MENTIONS_PV.map((m, i) => `
+    <div class="alinea">${'abcde'[i]}) ${avecEI ? 'Conférons le grade / délivrons'
+      : 'Délivrons'} le certificat avec la mention « ${esc(m)} » à :
+      <span class="noms">${esc((parMention[m] || []).join(' · ')) || '—'}</span></div>`).join('');
+
+  const corps = `<div class="attestation">
+    <div class="entete">
+      <div class="nom">COMMUNAUTÉ FRANÇAISE DE BELGIQUE</div>
+      <div class="sous">ENSEIGNEMENT DE PROMOTION SOCIALE</div>
+      <div class="sous">ANNÉE SCOLAIRE / ANNÉE ACADÉMIQUE : ${esc(String(annee).replace('-', '/'))}</div>
+      <div class="sous">${esc(/SUP|BES|BAC/i.test(String(sec.niveau || ''))
+        ? 'ENSEIGNEMENT SUPÉRIEUR' : 'ENSEIGNEMENT SECONDAIRE')}</div>
+    </div>
+
+    <table class="doc etab-liste">
+      <tr><th>Établissement</th><td>${esc(ident.nom || '')}</td></tr>
+      <tr><th>Adresse</th><td>${esc(ident.adresse || '')}</td></tr>
+      <tr><th>Numéro de matricule</th><td>${esc(ident.matricule || '')}</td></tr>
+      <tr><th>Numéro FASE</th><td>${esc(ident.fase || '')}</td></tr>
+      <tr><th>Date de délibération de la ${session === 2 ? '2<sup>e</sup>' : '1<sup>re</sup>'} session</th>
+          <td>${esc(date ? enToutesLettres(date) : '……………………')}</td></tr>
+    </table>
+
+    <div class="titre-dip">PROCÈS-VERBAL DE DÉLIBÉRATION D'UNE SECTION</div>
+
+    <p class="corps">
+      Nous, soussignés, Président-e et Membres du ${esc(organe)} constitué par le
+      Pouvoir organisateur de l'établissement précité en vue de
+      ${avecEI ? "conférer le grade de / délivrer le certificat de"
+               : 'la délivrance du certificat de la section'} :
+    </p>
+
+    <div class="carac">
+      <div class="large">Intitulé de la section :
+        <b>${esc(sec.libelle || sec.code || '……………………')}</b></div>
+      <div class="large">Section approuvée par le Gouvernement sous le numéro de
+        code : ${sec.code_fwb ? `<b>${esc(sec.code_fwb)}</b>`
+          : '<span class="manque">à compléter au référentiel</span>'}</div>
+    </div>
+
+    <p class="corps">Après en avoir délibéré, avons pris les décisions suivantes :</p>
+
+    <table class="doc">
+      <thead><tr>
+        <th style="width:30%">Nom, prénom et initiales des autres prénoms,<br>
+          lieu et date de naissance (pays si pas la Belgique)</th>
+        ${avecEI ? `<th>Seuil de réussite de l'épreuve intégrée<sup>1</sup></th>
+        <th>% du total des points de l'épreuve intégrée</th>` : ''}
+        <th>Total général en %<sup>${avecEI ? '2' : '1'}</sup></th>
+        <th>Décision finale</th>
+        <th>Mention</th>
+      </tr></thead>
+      <tbody>${lignes.map(l => `<tr>
+        <td><b>${esc((l.nom || '').toUpperCase())} ${esc(l.prenom || '')}</b><br>
+          <span class="detail">${esc(l.lieu_naissance || '')}${
+            l.date_naissance ? `, ${esc(enToutesLettres(l.date_naissance))}` : ''}</span></td>
+        ${avecEI ? `<td class="c">${l.ei_atteint == null ? ''
+          : (l.ei_atteint ? 'A' : 'NA')}</td>
+        <td class="c">${l.ei_atteint && l.ei_pourcent != null
+          ? `${l.ei_pourcent} %` : ''}</td>` : ''}
+        <td class="c">${l.reussi && l.pourcent != null ? `${l.pourcent} %` : ''}</td>
+        <td class="c">${esc(l.decision || '')}</td>
+        <td class="c">${esc(l.mention || '')}</td>
+      </tr>`).join('') || `<tr><td colspan="${avecEI ? 6 : 4}" class="c vide">
+        Aucun étudiant.</td></tr>`}</tbody>
+    </table>
+    <p class="champ" style="font-size:7.5pt;color:#64748b">
+      ${avecEI ? `<sup>1</sup> Mentionner A pour atteint et NA pour non atteint.<br>
+        <sup>2</sup> Ne mentionner de pourcentage qu'en cas de A pour atteint.`
+        : `<sup>1</sup> Ne mentionner de pourcentage qu'en cas de « Réussite ».`}</p>
+
+    ${rangs}
+    ${avecEI ? `<div class="alinea">f) Autorisons les étudiants suivants à
+      représenter l'épreuve intégrée :
+      <span class="noms">${esc(aRepresenter.join(' · ')) || '—'}</span></div>` : ''}
+
+    <div class="info">
+      <div class="ligne">Le présent procès-verbal comporte …… page(s).</div>
+      <div class="ligne">Le ${esc(organe)} a délibéré le
+        <b>${esc(date ? enToutesLettres(date) : '……………………')}</b>.</div>
+      <div class="ligne">Les résultats sont communiqués conformément au ROI de
+        l'établissement le ……………………</div>
+    </div>
+
+    <div class="cloture sans-paraphe">
+      <div class="sceau"></div>
+      <div class="paraphe"></div>
+      <div class="lieu">Fait en deux exemplaires à ${esc(lieu || ident.ville || 'Anderlecht')},
+        le ${esc(date ? enToutesLettres(date) : '……………………')}</div>
+      <div class="legende">
+        <div class="qualite">Pour le ${esc(organe)},<br>le Directeur</div>
+        <div class="nom">${esc(ident.directeur || '……………………')}</div>
+      </div>
+    </div>
+  </div>`;
+
+  // Les classes propres au PV de section : ce module n'avait que de quoi
+  // composer une liste.
+  const style = `<style>
+    .titre-dip { text-align:center; font-size:13pt; font-weight:700; color:#1B2B4B;
+                 margin: 6mm 0 4mm; letter-spacing:.02em; }
+    table.doc.etab-liste th { width: 62mm; text-align:left; }
+    .corps { font-size: 9.5pt; line-height: 1.45; margin: 3mm 0; }
+    .carac { display:grid; grid-template-columns:1fr 1fr; gap:1mm 5mm;
+             font-size:9pt; margin: 2mm 0 3mm; }
+    .carac .large { grid-column: 1 / -1; }
+    .manque { color:#b45309; font-style:italic; }
+    .detail { color:#5b6577; font-size:8pt; }
+    .doc .c { text-align:center; }
+    .doc .vide { color:#7a8699; font-style:italic; }
+    .alinea { font-size:9pt; margin: 1.5mm 0; }
+    .alinea .noms { font-weight:600; color:#1B2B4B; }
+    .champ { margin: 1mm 0 3mm; }
+    .info { border:0.3mm solid #cbd5e1; border-radius:1.5mm; padding:2mm 3mm;
+            margin: 3mm 0; font-size:9pt; }
+    .info .ligne { margin: .8mm 0; }
+    .cloture { display:grid; grid-template-columns:auto 1fr auto; gap:4mm;
+               align-items:end; margin-top:6mm; font-size:9pt; break-inside:avoid; }
+    .cloture .sceau, .cloture .paraphe { height:16mm; }
+    .cloture .legende { text-align:center; }
+    .cloture .legende .nom { font-weight:700; color:#1B2B4B; }
+  </style>`;
+
+  return { corps, style, avec_epreuve_integree: avecEI, section: sec, organe };
+}
+
 r.post('/document', authRequired,
        roleRequired('admin', 'directeur', 'directeur_adjoint', 'editeur'), (req, res) => {
   const { section, annee, etudiants: ids, lieu, date } = req.body || {};
@@ -290,6 +488,83 @@ r.post('/document', authRequired,
         !e.lieu_naissance && 'lieu de naissance',
         !genre(e.titre) && 'genre',
       ].filter(Boolean).join(', ')}`),
+  });
+});
+
+/**
+ * Le PV de section, pour les étudiants qu'on lui donne. La direction arrête qui
+ * y figure : on ne devine pas une délibération.
+ */
+r.post('/pv-section', authRequired,
+       roleRequired('admin', 'directeur', 'directeur_adjoint', 'editeur'), (req, res) => {
+  const { section, annee, etudiants: ids, session, lieu, date } = req.body || {};
+  if (!section) return res.status(400).json({ error: 'section requise' });
+  if (!Array.isArray(ids) || !ids.length) {
+    return res.status(400).json({ error: 'aucun étudiant sélectionné' });
+  }
+  const an = annee || anneeDeTravail(req);
+  const perim = getUserSections(req.user);
+  if (perim && !perim.includes(section)) {
+    return res.status(403).json({ error: 'section hors de votre périmètre' });
+  }
+
+  const requises = unitesDeLaSection(section, an);
+  const ei = epreuveIntegreeDe(requises);
+  const marques = ids.map(() => '?').join(',');
+  const liste = db.prepare(`SELECT id, nom, prenom, titre, date_naissance, lieu_naissance
+    FROM etudiant WHERE id IN (${marques}) ORDER BY nom, prenom`).all(...ids);
+
+  // Les unités DÉTERMINANTES de la section, avec leurs périodes : ce sont
+  // elles qui pondèrent la mention.
+  // « ue_det » est un TEXTE qui vaut 'x' — non un booléen. Écrit « = 1 », le
+  // filtre n'aurait jamais rien retourné et la mention se serait calculée sur
+  // la seule épreuve intégrée, en silence.
+  const det = requises.length ? db.prepare(`
+    SELECT ue_num,
+           MAX(COALESCE(ue_tot_prf, COALESCE(ue_per_cours, 0) + COALESCE(ue_aut, 0))) AS periodes
+    FROM ue WHERE ue_num IN (${requises.map(() => '?').join(',')})
+      AND ue_det = 'x' GROUP BY ue_num`).all(...requises) : [];
+
+  const resultatUE = db.prepare(`SELECT resultat FROM etudiant_inscription
+    WHERE etudiant_id = ? AND ue_num = ? ORDER BY annee_scolaire DESC LIMIT 1`);
+
+  const lignes = liste.map(e => {
+    const determinantes = det.map(u => ({
+      ue_num: u.ue_num, periodes: u.periodes,
+      cote: coteArretee(e.id, u.ue_num).cote,
+    }));
+    const coteEI = ei ? coteArretee(e.id, ei).cote : null;
+    const m = calculerMention(determinantes, coteEI);
+    const resEI = ei ? resultatUE.get(e.id, ei)?.resultat : null;
+    return {
+      ...e,
+      ei_atteint: ei ? resEI === 'reussi' : null,
+      ei_pourcent: coteEI == null ? null : Math.round(Number(coteEI) * 5 * 10) / 10,
+      pourcent: m.pourcent,
+      reussi: !ei || resEI === 'reussi',
+      decision: !ei ? 'Réussite'
+        : resEI === 'reussi' ? 'Réussite' : resEI === 'ajourne' ? 'Ajournement' : 'Refus',
+      mention: (!ei || resEI === 'reussi') ? m.mention : null,
+      a_representer: ei && resEI === 'ajourne',
+      mention_complete: m.complet,
+    };
+  });
+
+  const d = pvDeSection(section, an, lignes,
+    { session: Number(session) === 2 ? 2 : 1, lieu, date });
+
+  res.json({
+    html: envelopper(d.corps + d.style, `PV de section — ${d.section.libelle || section}`),
+    nom: `PV_section_${String(section).replace(/\W/g, '')}_${String(an).replace(/\W/g, '')}.html`,
+    annexe: d.avec_epreuve_integree ? 6 : 7,
+    nb: lignes.length,
+    // Ce qui rendrait la pièce fausse, dit avant de l'imprimer.
+    manques: lignes.flatMap(l => [
+      !l.date_naissance && `${l.nom} ${l.prenom} : date de naissance`,
+      !l.lieu_naissance && `${l.nom} ${l.prenom} : lieu de naissance`,
+      !l.mention_complete && l.reussi
+        && `${l.nom} ${l.prenom} : mention calculée sur un parcours incomplet`,
+    ].filter(Boolean)),
   });
 });
 
