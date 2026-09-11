@@ -2607,6 +2607,17 @@ export function decisionDeSession(etudId, ueNum, annee, session = 1) {
     .get(Number(etudId), annee, Number(ueNum)).n;
   if (sien > 0) return { resultat: null, points: null, mention: null, source: null };
 
+  // ET LE REPLI N'APPARTIENT QU'À LA PREMIÈRE SESSION.
+  //
+  // Sans cette borne, une décision sans session enregistrée ressortait dans
+  // les DEUX : un lot de seconde session sortait donc les attestations de
+  // ceux qui avaient réussi en juin. Une décision non datée est nécessairement
+  // antérieure à l'enregistrement par session, et une seconde session suppose
+  // qu'une première ait eu lieu : c'est donc à la première qu'elle revient.
+  if (Number(session) !== 1) {
+    return { resultat: null, points: null, mention: null, source: null };
+  }
+
   const i = db.prepare(`
     SELECT resultat, points, mention FROM etudiant_inscription
     WHERE etudiant_id = ? AND annee_scolaire = ? AND ue_num = ?
