@@ -129,6 +129,64 @@ Deux pièges rencontrés en l'écrivant, qui valent d'être notés :
 - La cote d'une unité est celle **arrêtée par le Conseil** (`deliberation_resultat`,
   à défaut `etudiant_inscription`), jamais une note de cours.
 
+#### Un acquis maîtrisé ne se motive pas
+
+Les acquis d'un **cours** ajourné entraient tous dans la liste à motiver. Sur
+l'UE 286, le cours 286.2 est non acquis : `AA286.2` y entrait donc, alors que
+l'unité le donne à 10/20 — maîtrisé. La notification annonçait un acquis non
+maîtrisé qui l'était, avec un texte que **l'écran ne permettait pas de
+corriger** : il n'offre de justifier que les acquis en échec, si bien qu'une
+motivation écrite lors d'une session antérieure restait imprimée, hors
+d'atteinte.
+
+Un cours en échec fait entrer ses acquis **sauf ceux que l'unité tient pour
+acquis** : c'est la maîtrise de l'acquis qui se motive, non celle du cours, et
+l'annexe 9 parle d'acquis d'apprentissage.
+
+> **Reste ouvert.** `decision_motivation` a pour clé étudiant · année · unité ·
+> acquis, **sans session**. Un acquis échoué en juin pour absence et en
+> septembre pour maîtrise partielle partagent une seule ligne : la seconde
+> écrase la première en silence, et rien à l'écran ne dit qu'un texte date d'une
+> autre session.
+
+---
+
+#### Un poids de cours n'est pas un pourcentage
+
+La pondération explicite (`cours_ponderation`) se saisit comme une
+**répartition** : l'UE 286 pèse 4 et 6, l'UE 248 pèse 47, 31 et 22. La première
+somme 10, la seconde 100. Lues telles quelles, elles s'affichaient « 4 % » et
+« 6 % » — deux cours composant une unité et n'en totalisant que le dixième — et
+le contrôle de complétude, qui attend 100, les déclarait incomplètes.
+
+**Le calcul n'en était pas affecté** : il divise par la somme des poids employés
+(`numerateur += note × pc` / `maximum += 20 × pc`), donc 4 et 6 donnent le même
+résultat que 40 et 60. Les notes déjà arrêtées sont exactes ; c'est leur
+présentation qui mentait. Les poids sont désormais ramenés à 100 après
+application de la pondération explicite — sans effet sur une répartition qui y
+est déjà.
+
+---
+
+#### La seconde session se voit sur l'attestation — un écart assumé
+
+**Aucun modèle d'attestation ne mentionne la session** : les annexes 10 à 18
+n'en portent rien, c'est le procès-verbal qui l'établit, en en-tête. La mention
+ajoutée à la demande de l'établissement est donc **un écart au modèle**, de la
+même famille que la liste des membres du jury retirée le même jour.
+
+La différence assumée : ajouter un fait vrai n'est pas omettre une mention
+obligatoire. Le texte — *« Résultat obtenu à l'issue de la seconde session. »* —
+ne paraît qu'en session 2, en italique discret sous le pourcentage, et **se
+retire en supprimant ce seul bloc** dans `pageAttestation`.
+
+Les trois chemins qui délivrent des attestations la portent : le lot d'une
+séance reçoit la session, la fiche d'un étudiant et l'envoi groupé la déduisent
+de `deliberation_resultat` — sans quoi deux documents se contrediraient pour une
+même réussite.
+
+---
+
 #### Une pièce porte la décision de SA session
 
 `etudiant_inscription` ne retient **qu'un résultat par unité et par année** :
@@ -146,6 +204,12 @@ celui de la session la plus avancée. Les pièces le lisaient. Conséquences :
 `deliberation_resultat` filtrée sur la session. **Un étudiant que cette séance
 n'a pas jugé ne figure plus sur ses pièces** : lui attribuer une décision prise
 ailleurs, c'est la prêter au Conseil qui siégeait ce jour-là. **Le repli se juge étudiant par
+ailleurs, c'est la prêter au Conseil qui siégeait ce jour-là. **Le repli n'appartient qu'à la
+première session** : sans cette borne, une décision sans session enregistrée
+ressortait dans les deux, et un lot de seconde session sortait les attestations
+de ceux qui avaient réussi en juin. Une décision non datée est antérieure à
+l'enregistrement par session, et une seconde session suppose qu'une première ait
+eu lieu. **Le repli se juge aussi étudiant par
 étudiant** : si cet étudiant a au moins une décision par session pour cette
 unité, elle fait foi et son absence pour la session demandée signifie qu'il n'y
 a pas été jugé ; sinon le dossier parle. Jugé sur l'unité, le repli aurait fait

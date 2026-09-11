@@ -317,6 +317,8 @@ export function envelopper(corps, titre = 'Attestations de réussite') {
   .manque { color: #b45309; font-style: italic; }
 
   /* Les enseignants de l'unité, sous la mention du Conseil. */
+  .resultat .session2 { margin-top: 1.5mm; font-size: 8.5pt; font-style: italic;
+                        color: #5b6577; font-weight: 400; }
   .profs { margin: 2.5mm 0 0; font-size: 8pt; }
   .profs .titre { font-size: 7.5pt; font-weight: 700; color: #64748b;
                   text-transform: uppercase; letter-spacing: .2pt; margin-bottom: 1mm; }
@@ -620,8 +622,26 @@ export function pageAttestationValorisation(e, u, annee, etab, va,
 </div>`;
 }
 
+/**
+ * LA SESSION OÙ LA RÉUSSITE A ÉTÉ ACQUISE.
+ *
+ * Deux écrans délivrent des attestations sans passer par le lot d'une séance :
+ * la fiche d'un étudiant et l'envoi groupé. Sans cette lecture, leurs pièces
+ * tairaient la seconde session que celles du lot mentionnent — deux documents
+ * contradictoires pour une même réussite.
+ */
+function sessionDeReussite(etudId, ueNum, annee) {
+  try {
+    const l = db.prepare(`
+      SELECT session FROM deliberation_resultat
+      WHERE etudiant_id = ? AND annee_scolaire = ? AND ue_num = ? AND resultat = 'reussi'
+      ORDER BY session DESC LIMIT 1`).get(Number(etudId), annee, Number(ueNum));
+    return l ? l.session : null;
+  } catch { return null; }
+}
+
 export function pageAttestation(e, u, annee, etab, dateDoc = null,
-                                ident = identiteEtablissement()) {
+                                ident = identiteEtablissement(), session = null) {
   // Le titre s'écrit tantôt « Mme », tantôt « Madame » : chercher la seule
   // abréviation produisait une attestation au masculin pour une étudiante.
   const genre = /^(mme|madame|mlle|mademoiselle|m\.?me)\b/i.test((e.titre || '').trim())
@@ -742,6 +762,14 @@ export function pageAttestation(e, u, annee, etab, dateDoc = null,
     ${genre === 'F' ? 'elle obtient' : 'il obtient'}
     <span class="pct">${u.pourcentage != null ? u.pourcentage + ' %' : '………'}</span>
     du total des points.
+    ${Number(session) === 2 ? `
+    <!-- MENTION AJOUTÉE AU MODÈLE, à la demande de l'établissement.
+         Les annexes 10 à 18 ne portent aucune mention de session : c'est le
+         procès-verbal qui l'établit. Un fait vrai ajouté n'est pas une mention
+         obligatoire omise, mais c'est un écart — il se retire en supprimant ce
+         seul bloc. -->
+    <div class="session2">Résultat obtenu à l'issue de la seconde session.</div>`
+    : ''}
   </div>
 
   <!-- AUCUN NOM DE MEMBRE ICI. Les modèles d'attestation — annexes 10 à 18 —
@@ -787,7 +815,8 @@ r.get('/etudiant/:id/document', authRequired, (req, res) => {
 
   // Une attestation par unité, chacune sur sa propre page : ce sont des pièces
   // distinctes, remises séparément.
-  const pages = unites.map(u => pageAttestation(e, u, annee, etab, req.query.date_document, ident))
+  const pages = unites.map(u => pageAttestation(e, u, annee, etab, req.query.date_document,
+      ident, sessionDeReussite(e.id, u.ue_num, annee)))
     .join('<div class="saut"></div>');
 
   const html = envelopper(pages, `Attestations — ${e.nom} ${e.prenom}`);
@@ -926,7 +955,8 @@ r.post('/lot', authRequired, (req, res) => {
       etudiant_id: e.id,
       ue_num: u.ue_num,
       annee: p.annee_scolaire,
-      corps: pageAttestation(e, u, p.annee_scolaire, etab, date_document, ident),
+      corps: pageAttestation(e, u, p.annee_scolaire, etab, date_document, ident,
+        sessionDeReussite(e.id, u.ue_num, p.annee_scolaire)),
     });
   }
 

@@ -373,6 +373,25 @@ export function structureUE(ueNum, annee) {
     }
   } catch { /* table absente : on s'en tient aux périodes */ }
 
+  // UN POIDS N'EST PAS UN POURCENTAGE — il le devient en le rapportant au tout.
+  //
+  // La pondération explicite se saisit comme une répartition : l'UE 286 pèse
+  // 4 et 6, l'UE 248 pèse 47, 31 et 22. La première somme 10, la seconde 100.
+  // Lues telles quelles, elles s'affichaient « 4 % » et « 6 % » — deux cours
+  // qui composent une unité et ne totalisent que le dixième d'elle-même —, et
+  // le contrôle de complétude, qui attend 100, les déclarait incomplètes.
+  //
+  // Le CALCUL, lui, n'en était pas affecté : il divise par la somme des poids
+  // employés, donc 4 et 6 donnent le même résultat que 40 et 60. Les notes
+  // déjà arrêtées restent exactes ; c'est ce qu'on en montrait qui était faux.
+  const totalPoids = Object.values(poidsCours)
+    .reduce((s, v) => s + (Number(v) || 0), 0);
+  if (totalPoids > 0 && Math.abs(totalPoids - 100) > 0.01) {
+    for (const k of Object.keys(poidsCours)) {
+      if (poidsCours[k] != null) poidsCours[k] = (Number(poidsCours[k]) / totalPoids) * 100;
+    }
+  }
+
   return cours.map(c => {
     const lies = parCours[c.cours_code];
     const siens = (lies && lies.length
@@ -561,7 +580,11 @@ r.get('/motivation/:etudId/:ueNum', authRequired, (req, res) => {
   // premier séparateur et lisait donc « C1 » comme code d'acquis — aucune note
   // ne correspondait, et il ignorait faveurs et ajournements. Deux calculs pour
   // la même unité, c'est un de trop : celui du Conseil fait foi.
-  const d = delibererUE(etudId, ueNum, annee);
+  //
+  // Et la session compte : sans elle, la fenêtre proposait de justifier les
+  // acquis de juin pendant qu'on délibérait septembre.
+  const d = delibererUE(etudId, ueNum, annee,
+    Number(req.query.session) === 2 ? 2 : 1);
 
   const motifs = Object.fromEntries(db.prepare(`
     SELECT aa_code, motif FROM decision_motivation
@@ -937,19 +960,43 @@ export function documentMotivation(etudId, ueNum, annee, session = 1) {
   // concluait qu'aucun acquis n'était en échec — la notification ne sortait
   // jamais. Elle ignorait de surcroît les ajournements posés par le Conseil.
   const president = presidentDeLaSeance(ueNum, annee, session);
-  const d = delibererUE(etudId, ueNum, annee);
+  // LA SESSION DESCEND JUSQU'AU CALCUL, sinon elle ne sert à rien.
+  //
+  // La fonction recevait « session » — pour le président, pour la date — mais
+  // appelait delibererUE sans elle : le calcul retombait donc sur sa valeur par
+  // défaut, la première session. La notification de septembre décrivait les
+  // acquis de juin, pendant que l'écran, qui transmet la session, en montrait
+  // d'autres. Un acquis rattrapé en seconde session restait « non maîtrisé »
+  // sur la pièce qui ouvre le recours.
+  const d = delibererUE(etudId, ueNum, annee, session);
   const motifs = Object.fromEntries(db.prepare(`
     SELECT aa_code, motif FROM decision_motivation
     WHERE etudiant_id = ? AND annee_scolaire = ? AND ue_num = ?
   `).all(etudId, annee, ueNum).map(m => [m.aa_code, m.motif]));
 
-  // Ce dont il faut rendre compte : l'acquis sous le seuil, celui que le
-  // Conseil a ajourné, et ceux d'un COURS ajourné — c'est de leur maîtrise
-  // qu'il faut parler, même si la note prise ailleurs les sauvait.
-  // Celui qu'une faveur a levé, non — il est acquis.
+  // Ce dont il faut rendre compte : l'acquis sous le seuil, et celui que le
+  // Conseil a ajourné. Celui qu'une faveur a levé, non — il est acquis.
   const enCause = new Set(d.acquis
     .filter(a => a.na || (a.note != null && a.note < SEUIL_UE)).map(a => a.aa_code));
-  for (const c of d.cours) if (c.na) for (const code of (c.aas || [])) enCause.add(code);
+
+  // UN ACQUIS MAÎTRISÉ NE SE MOTIVE PAS, MÊME SI UN DE SES COURS A ÉCHOUÉ.
+  //
+  // Les acquis d'un cours ajourné entraient tous ici. Sur l'UE 286, le cours
+  // 286.2 est non acquis : AA286.2 y entrait donc, alors que l'unité le donne
+  // à 10 sur 20 — maîtrisé. La notification annonçait un acquis non maîtrisé
+  // qui l'était, et l'écran ne proposait pas de corriger le texte, puisqu'il
+  // n'offre de justifier que les acquis en échec : la motivation d'une session
+  // antérieure restait imprimée, hors d'atteinte.
+  //
+  // Un cours en échec fait donc entrer ses acquis SAUF ceux que l'unité tient
+  // pour acquis : c'est la maîtrise de l'acquis qui se motive, non celle du
+  // cours, et l'annexe 9 parle d'acquis d'apprentissage.
+  const maitrises = new Set(d.acquis
+    .filter(a => !a.na && a.note != null && a.note >= SEUIL_UE).map(a => a.aa_code));
+  for (const c of d.cours) {
+    if (!c.na) continue;
+    for (const code of (c.aas || [])) if (!maitrises.has(code)) enCause.add(code);
+  }
 
   const lignes = d.acquis
     .filter(a => !a.faveur && enCause.has(a.aa_code))
@@ -2598,6 +2645,17 @@ export function decisionDeSession(etudId, ueNum, annee, session = 1) {
     WHERE etudiant_id = ? AND annee_scolaire = ? AND ue_num = ?`)
     .get(Number(etudId), annee, Number(ueNum)).n;
   if (sien > 0) return { resultat: null, points: null, mention: null, source: null };
+
+  // ET LE REPLI N'APPARTIENT QU'À LA PREMIÈRE SESSION.
+  //
+  // Sans cette borne, une décision sans session enregistrée ressortait dans
+  // les DEUX : un lot de seconde session sortait donc les attestations de
+  // ceux qui avaient réussi en juin. Une décision non datée est nécessairement
+  // antérieure à l'enregistrement par session, et une seconde session suppose
+  // qu'une première ait eu lieu : c'est donc à la première qu'elle revient.
+  if (Number(session) !== 1) {
+    return { resultat: null, points: null, mention: null, source: null };
+  }
 
   const i = db.prepare(`
     SELECT resultat, points, mention FROM etudiant_inscription
@@ -5920,8 +5978,10 @@ function assemblerDocumentsUE(ueNum, annee, veut, opts = {}) {
       if (!u) { manques.push(`${e.nom} ${e.prenom} : unité non réussie au dossier`); continue; }
       // La session imprimée décide du jury nommé : celui de septembre n'est
       // pas celui de juin.
+      // La session est transmise : l'attestation le dit quand la réussite est
+      // acquise en seconde session.
       pousser('reussite', pageAttestation(e, u, annee, etab,
-        opts.date_document || null, ident), e);
+        opts.date_document || null, ident, session), e);
       if (u.manques?.length) manques.push(`${e.nom} ${e.prenom} : ${u.manques.join(', ')}`);
       identiteManquante(e);
       nbR++;
@@ -6061,19 +6121,34 @@ r.get('/deliberation/documents-lot', authRequired, (req, res) => {
   if (perim) unites = unites.filter(u => !u.section || perim.includes(u.section));
   if (section) unites = unites.filter(u => u.section === section);
 
+  // LES COMPTES SONT CEUX DE LA SESSION QU'ON S'APPRÊTE À IMPRIMER.
+  //
+  // Ils venaient du dossier, sans filtre de session : l'écran annonçait donc
+  // l'état de l'ANNÉE — juin et septembre confondus — à côté d'une session
+  // déduite de l'unité, et non de celle qu'on avait choisie. Deux informations
+  // qui ne parlaient pas de la même chose sur la même ligne, et un lot de
+  // seconde session annoncé à dix-neuf refus quand il n'en portait que onze.
+  const session = Number(req.query.session) === 2 ? 2 : 1;
   const etat = unites.map(u => {
-    const ses = sessionDeLUE(u.ue_num, annee);
     const seance = db.prepare(`SELECT cloturee FROM deliberation_seance
       WHERE ue_num = ? AND annee_scolaire = ? AND session = ?`)
-      .get(u.ue_num, annee, ses.session) || {};
-    const par = db.prepare(`SELECT resultat, COUNT(*) AS n FROM etudiant_inscription
-      WHERE annee_scolaire = ? AND ue_num = ? GROUP BY resultat`).all(annee, u.ue_num);
-    const n = r0 => par.find(x => x.resultat === r0)?.n || 0;
+      .get(u.ue_num, annee, session) || {};
+
+    const inscrits = db.prepare(`SELECT etudiant_id FROM etudiant_inscription
+      WHERE annee_scolaire = ? AND ue_num = ?`).all(annee, u.ue_num);
+    const compte = { reussi: 0, ajourne: 0, refuse: 0, sans: 0 };
+    for (const i of inscrits) {
+      const d = decisionDeSession(i.etudiant_id, u.ue_num, annee, session);
+      if (d.resultat === 'reussi') compte.reussi++;
+      else if (d.resultat === 'ajourne') compte.ajourne++;
+      else if (d.resultat === 'refuse') compte.refuse++;
+      else compte.sans++;
+    }
     return {
-      ...u, session: ses.session,
+      ...u, session,
       cloturee: !!seance.cloturee,
-      reussites: n('reussi'), ajournements: n('ajourne'), refus: n('refuse'),
-      sans_decision: n(null),
+      reussites: compte.reussi, ajournements: compte.ajourne, refus: compte.refuse,
+      sans_decision: compte.sans,
     };
   });
 
@@ -6157,6 +6232,53 @@ r.post('/deliberation/documents-lot', authRequired, (req, res) => {
     ? [...pages].sort((x, y) => (ORDRE.indexOf(x.t) - ORDRE.indexOf(y.t))
         || (x.ue - y.ue))
     : pages;
+
+  /**
+   * UN DOCUMENT PAR ÉTUDIANT, SUR TOUT LE LOT.
+   *
+   * Le groupement par pile sert à poster ; celui-ci sert à poster À QUELQU'UN.
+   * Un étudiant inscrit dans huit des onze unités tirées reçoit UNE enveloppe,
+   * non huit — ses pièces sont donc réunies À TRAVERS les unités, dans l'ordre
+   * des unités, et non par unité comme le veut le classement d'un dossier.
+   *
+   * Les pièces collectives — PV, composition, grille — restent ensemble : elles
+   * ne s'adressent à personne en particulier.
+   */
+  if (req.body?.separer === true) {
+    const tete = ordonnees.filter(p => !p.etudiant);
+    const parEtudiant = new Map();
+    for (const p of ordonnees) {
+      if (!p.etudiant) continue;
+      if (!parEtudiant.has(p.etudiant.id)) {
+        parEtudiant.set(p.etudiant.id, { etudiant: p.etudiant, pages: [] });
+      }
+      parEtudiant.get(p.etudiant.id).pages.push(p);
+    }
+    const slug = t => String(t || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+      .replace(/[^A-Za-z0-9]+/g, '_').replace(/^_|_$/g, '');
+    const documents = [...parEtudiant.values()]
+      .sort((a2, b2) => String(a2.etudiant.nom).localeCompare(String(b2.etudiant.nom), 'fr'))
+      .map(d => ({
+        etudiant_id: d.etudiant.id,
+        etudiant: `${d.etudiant.nom} ${d.etudiant.prenom || ''}`.trim(),
+        unites: [...new Set(d.pages.map(p => p.ue))],
+        pieces: d.pages.map(p => p.t),
+        nom: `${slug(d.etudiant.nom)}_${slug(d.etudiant.prenom)}_${String(annee).replace(/\W/g, '')}`,
+        html: envelopper(styles.join('')
+          + [...d.pages].sort((x, y) => x.ue - y.ue).map(p => p.h).join(''),
+          `${d.etudiant.nom} ${d.etudiant.prenom || ''} — ${annee}`),
+      }));
+    return res.json({
+      separes: true, documents,
+      collectif: tete.length ? {
+        nom: `Documents_${nums.length}UE_conseil`,
+        html: envelopper(styles.join('') + tete.map(p => p.h).join(''),
+                         `Pièces du Conseil — ${nums.length} unité(s)`),
+        pieces: tete.map(p => p.t),
+      } : null,
+      ...total, pieces: pages.length, unites: detail, manques,
+    });
+  }
 
   res.json({
     html: envelopper(styles.join('') + ordonnees.map(p => p.h).join(''),
