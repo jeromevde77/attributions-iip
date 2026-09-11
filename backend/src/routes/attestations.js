@@ -503,6 +503,109 @@ export function enseignantsDeLUE(ueNum, annee) {
   } catch { return []; }
 }
 
+
+/**
+ * ANNEXES 14 ET 15 — L'ATTESTATION DE RÉUSSITE PAR VALORISATION DES ACQUIS.
+ *
+ * Ce n'est pas l'attestation ordinaire à laquelle on aurait changé un mot. Le
+ * modèle est distinct : il s'intitule « Attestation de réussite VALORISATION de
+ * l'unité d'enseignement », vise l'article 8 du décret et son article 37
+ * alinéa 2 en secondaire, 58 alinéa 2 en supérieur, et dit que le Conseil a été
+ * « chargé de procéder à la valorisation de capacités, ACQUISES EN DEHORS de
+ * l'unité d'enseignement ». Il ne dit pas que l'étudiant « a suivi avec fruit »
+ * — il n'a pas suivi —, ni qu'il « termine ses études avec succès ».
+ *
+ * Une attestation ordinaire délivrée sur une valorisation affirmerait donc
+ * deux faits faux sur une pièce que l'étudiant garde à vie.
+ */
+export function pageAttestationValorisation(e, u, annee, etab, va,
+                                            dateDoc = null,
+                                            ident = identiteEtablissement()) {
+  const genre = /^(mme|madame|mlle|mademoiselle|m\.?me)\b/i.test((e.titre || '').trim())
+    ? 'F' : 'H';
+  const acquis = u.acquis?.length
+    ? `<ul class="acquis">${u.acquis.map(a => `<li>${esc(a.description || a.aa_code)}</li>`).join('')}</ul>`
+    : '<i style="color:#b45309">acquis d\'apprentissage à compléter au référentiel</i>';
+  const activites = u.activites?.length
+    ? u.activites.map(c => `${esc(c.cours_nom)} (${c.cours_per} périodes)`).join(' ;<br>')
+    : '<i style="color:#b45309">répartition par activité à compléter</i>';
+
+  return `<div class="attestation">
+  <div class="entete">
+    <div class="cf">COMMUNAUTÉ FRANÇAISE DE BELGIQUE</div>
+    <div class="epa">ENSEIGNEMENT DE PROMOTION SOCIALE</div>
+    <div class="annee">Année ${u.superieur ? 'académique' : 'scolaire'}
+      ${esc(String(annee).replace('-', '/'))}</div>
+  </div>
+
+  <div class="etab">
+    <div>
+      <div class="nom">${esc(ident.nom || 'Institut Ilya Prigogine')}</div>
+      <div>${esc(ident.adresse || '')}</div>
+    </div>
+    <div class="ident">
+      Matricule ${esc(ident.matricule || etab.num_ecot || '……………')}<br>
+      FASE ${esc(ident.fase || etab.num_fase || '……………')}
+    </div>
+  </div>
+
+  <h1>ATTESTATION DE RÉUSSITE VALORISATION DE L'UNITÉ D'ENSEIGNEMENT</h1>
+  <h2>${esc((u.ue_nom || '').toUpperCase())}</h2>
+  <div class="filet"></div>
+
+  <div class="carac">
+    <div>${esc(u.type_enseignement)}</div>
+    ${u.superieur ? `<div>${u.domaine ? 'Domaine : ' + esc(u.domaine) : ''}</div>` : ''}
+    <div class="large">Code approuvé par le Gouvernement :
+      ${u.code_fwb ? `<b>${esc(u.code_fwb)}</b>`
+                   : '<span class="manque">à compléter au référentiel</span>'}</div>
+    ${u.superieur && u.ects ? `<div>Elle comprend <b>${u.ects}</b> E.C.T.S.</div>` : ''}
+  </div>
+
+  <p class="corps">
+    Conformément à l'article 8 et à l'article ${u.superieur ? '58' : '37'}
+    alinéa 2 du décret du 16 avril 1991 organisant l'enseignement de promotion
+    sociale, le Conseil des études, chargé de procéder à la valorisation de
+    capacités, acquises en dehors de l'unité d'enseignement, pour l'unité
+    d'enseignement susvisée, atteste que
+  </p>
+
+  <div class="etudiant">
+    <div class="nom">${esc((e.nom || '').toUpperCase())} ${esc(e.prenom || '')}</div>
+    <div class="naissance">
+      Né${genre === 'F' ? 'e' : ''} à ${esc(e.lieu_naissance) || '………'},
+      le ${frDate(e.date_naissance)}
+    </div>
+  </div>
+
+  <p class="corps">maîtrise les acquis d'apprentissage de l'unité d'enseignement
+    susvisée, soit :</p>
+  ${acquis}
+
+  <p class="corps">comportant au total <b>${u.periodes || '………'}</b> périodes
+    d'activités d'enseignement réparties comme suit :</p>
+  <div class="activites">${activites}</div>
+
+  <p class="corps">
+    Le Conseil des études lui délivre la présente attestation pour laquelle
+    ${genre === 'F' ? 'elle obtient' : 'il obtient'}
+    <b>${va?.pourcentage != null ? `${Math.round(Number(va.pourcentage))} %`
+                                 : '………'}</b> du total des points.
+  </p>
+
+  <div class="cloture">
+    <div class="sceau"></div>
+    <div class="paraphe"></div>
+    <div class="lieu">Fait à ${esc(ident.ville || 'Anderlecht')},
+      le ${frDate(dateDoc || va?.decision_ce_date || new Date().toISOString())}</div>
+    <div class="legende">
+      <div class="qualite">Pour le Conseil des études,<br>le Directeur</div>
+      <div class="nom">${esc(ident.directeur || 'Charles SOHET')}</div>
+    </div>
+  </div>
+</div>`;
+}
+
 export function pageAttestation(e, u, annee, etab, dateDoc = null,
                                 ident = identiteEtablissement()) {
   // Le titre s'écrit tantôt « Mme », tantôt « Madame » : chercher la seule
@@ -849,6 +952,145 @@ r.post('/pdf', authRequired, async (req, res) => {
     console.error('[attestations/pdf]', e);
     res.status(500).json({ error: e.message });
   }
+});
+
+/**
+ * ANNEXE 4 — le procès-verbal de délibération de valorisation des acquis, et
+ * les attestations qui en découlent, pour une unité.
+ *
+ * Le tableau du modèle porte une colonne DISPENSE(S) : c'est la seule pièce où
+ * l'on dit ce qui a été dispensé, cours par cours ou acquis par acquis. Sans
+ * elle, une valorisation partielle serait indistinguable d'une complète.
+ */
+r.post('/valorisation/ue/:ueNum/documents', authRequired, (req, res) => {
+  const ueNum = Number(req.params.ueNum);
+  const annee = req.body?.annee;
+  if (!annee) return res.status(400).json({ error: 'annee requise' });
+  const ident = identiteEtablissement();
+  const etab = db.prepare('SELECT * FROM etablissement LIMIT 1').get() || {};
+
+  const vas = db.prepare(`
+    SELECT v.*, e.nom, e.prenom, e.titre, e.date_naissance, e.lieu_naissance
+    FROM etudiant_valorisation v JOIN etudiant e ON e.id = v.etudiant_id
+    WHERE v.ue_num = ? AND v.annee_scolaire = ?
+    ORDER BY e.nom, e.prenom`).all(ueNum, annee);
+  if (!vas.length) {
+    return res.status(400).json({
+      error: "Aucune valorisation enregistrée pour cette unité cette année." });
+  }
+
+  const ue = db.prepare(`SELECT * FROM ue WHERE ue_num = ?
+    ORDER BY (annee_scolaire = ?) DESC, annee_scolaire DESC LIMIT 1`).get(ueNum, annee) || {};
+  const niv = String(ue.ue_niv || '').toUpperCase();
+  const superieur = /SUP|BES|BAC|ESTC|ESTL/.test(niv) ? true
+    : /SEC|ESI|ESS/.test(niv) ? false : !!ue.ects;
+
+  const dit = v => v.type === 'complete' ? "Unité entière"
+    : v.cible_detail ? `${v.cible === 'aa' ? 'Acquis' : 'Cours'} : ${v.cible_detail}`
+      : v.type === 'admission' ? 'Admission' : 'Dispense partielle';
+
+  const lignes = vas.map(v => `<tr>
+    <td><b>${esc((v.nom || '').toUpperCase())} ${esc(v.prenom || '')}</b><br>
+      <span class="ref">${esc(v.lieu_naissance || '')}${
+        v.date_naissance ? `, ${frDate(v.date_naissance)}` : ''}</span></td>
+    <td class="c">${v.pourcentage != null ? 'Réussite' : 'Refus'}</td>
+    <td>${esc(dit(v))}</td>
+    <td class="c">${v.pourcentage != null
+      ? `${Math.round(Number(v.pourcentage))} %` : ''}</td>
+  </tr>`).join('');
+
+  const pv = `<div class="attestation">
+  <div class="entete">
+    <div class="cf">COMMUNAUTÉ FRANÇAISE DE BELGIQUE</div>
+    <div class="epa">ENSEIGNEMENT DE PROMOTION SOCIALE</div>
+    <div class="annee">Année scolaire / académique ${esc(String(annee).replace('-', '/'))}
+      · ${superieur ? 'Enseignement supérieur' : 'Enseignement secondaire'}</div>
+  </div>
+  <div class="etab">
+    <div><div class="nom">${esc(ident.nom || '')}</div><div>${esc(ident.adresse || '')}</div></div>
+    <div class="ident">Matricule ${esc(ident.matricule || '……')}<br>
+      FASE ${esc(ident.fase || '……')}</div>
+  </div>
+
+  <h1>PROCÈS-VERBAL DE DÉLIBÉRATION DE VALORISATION DES ACQUIS</h1>
+  <div class="filet"></div>
+
+  <p class="corps">
+    Nous, soussignés, Président-e et Membres du Conseil des études constitué en
+    vue d'évaluer la maîtrise des acquis d'apprentissage lorsque ceux-ci ont été
+    obtenus en dehors de l'unité d'enseignement :
+  </p>
+
+  <div class="carac">
+    <div class="large">Intitulé de l'unité d'enseignement :
+      <b>${esc(ue.ue_nom || `UE ${ueNum}`)}</b></div>
+    <div>${ue.ue_per_etudiants ? `<b>${ue.ue_per_etudiants}</b> périodes` : '…… périodes'}</div>
+    <div>Numéro de code : ${ue.ue_code_fwb ? `<b>${esc(ue.ue_code_fwb)}</b>`
+      : '<span class="manque">à compléter</span>'}</div>
+  </div>
+
+  <p class="corps">Après en avoir délibéré, avons pris les décisions suivantes :</p>
+
+  <table class="doc">
+    <thead><tr>
+      <th style="width:34%">Nom, prénom et initiales des autres prénoms,<br>
+        lieu et date de naissance (pays si pas la Belgique)</th>
+      <th style="width:14%">Réussite / Refus</th>
+      <th>Dispense(s)</th>
+      <th style="width:14%">Total des points en %<sup>1</sup></th>
+    </tr></thead>
+    <tbody>${lignes}</tbody>
+  </table>
+  <p style="font-size:7.5pt;color:#64748b"><sup>1</sup> À ne compléter qu'en cas
+    de « Réussite ».</p>
+
+  <div class="info">
+    <div class="ligne">Le présent procès-verbal comporte …… page(s).</div>
+    <div class="ligne">Le Conseil des études a délibéré le
+      <b>${esc(vas.find(v => v.decision_ce_date)
+        ? frDate(vas.find(v => v.decision_ce_date).decision_ce_date) : '……………')}</b>.</div>
+    <div class="ligne">Les résultats sont communiqués conformément au ROI de
+      l'établissement le ……………………</div>
+  </div>
+
+  <div class="cloture sans-paraphe">
+    <div class="sceau"></div>
+    <div class="paraphe"></div>
+    <div class="lieu">Fait en un exemplaire à ${esc(ident.ville || 'Anderlecht')},
+      le ${frDate(new Date().toISOString())}</div>
+    <div class="legende">
+      <div class="qualite">Pour le Conseil des études,<br>le Directeur</div>
+      <div class="nom">${esc(ident.directeur || '……………………')}</div>
+    </div>
+  </div>
+</div>`;
+
+  // Les attestations : seules les valorisations COMPLÈTES en produisent une.
+  // Une dispense partielle ne fait pas réussir l'unité — elle allège son
+  // évaluation, et l'attestation viendra de la délibération ordinaire.
+  const completes = vas.filter(v => v.type === 'complete' && v.pourcentage != null);
+  const unites = completes.length
+    ? Object.fromEntries(completes.map(v => [v.etudiant_id,
+        (unitesReussies(v.etudiant_id, annee) || []).find(x => Number(x.ue_num) === ueNum)]))
+    : {};
+  const attestations = completes
+    .filter(v => unites[v.etudiant_id])
+    .map(v => ({
+      etudiant_id: v.etudiant_id,
+      etudiant: `${v.nom} ${v.prenom || ''}`.trim(),
+      html: pageAttestationValorisation(v, { ...unites[v.etudiant_id], superieur },
+        annee, etab, v, req.body?.date_document || null, ident),
+    }));
+
+  res.json({
+    html: envelopper(pv, `Valorisation — UE ${ueNum}`),
+    nom: `Valorisation_UE${ueNum}_${String(annee).replace(/\W/g, '')}.html`,
+    annexe: 4,
+    attestations,
+    nb: vas.length,
+    manques: vas.filter(v => !v.date_naissance || !v.lieu_naissance)
+      .map(v => `${v.nom} ${v.prenom} : identité incomplète`),
+  });
 });
 
 export default r;

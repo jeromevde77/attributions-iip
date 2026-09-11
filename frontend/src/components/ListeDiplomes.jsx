@@ -61,10 +61,20 @@ export default function ListeDiplomes({ annee, onClose }) {
     });
   }
 
-  async function imprimer() {
+  /**
+   * DEUX PIÈCES, DEUX ACTES.
+   *
+   * La liste des diplômés n'est aucun modèle de la circulaire : c'est un
+   * document de travail. Le PROCÈS-VERBAL DE DÉLIBÉRATION DE SECTION —
+   * annexe 6 quand la section comporte une épreuve intégrée, annexe 7 sinon —
+   * est l'acte par lequel le Conseil constate qu'un étudiant a terminé, et
+   * c'est lui qui fonde la délivrance du titre. Il manquait.
+   */
+  async function imprimer(quoi = 'liste') {
     setEnCours(true); setErreur(null);
     try {
-      const rep = await fetch('/api/diplomes/document', {
+      const rep = await fetch(
+        quoi === 'pv' ? '/api/diplomes/pv-section' : '/api/diplomes/document', {
         method: 'POST', headers: authHeaders(),
         body: JSON.stringify({ section, annee, etudiants: [...choisis], lieu, date }),
       });
@@ -212,10 +222,19 @@ export default function ListeDiplomes({ annee, onClose }) {
               className="px-3 py-1.5 text-[12.5px] rounded-lg border border-slate-300 text-slate-600">
               Fermer
             </button>
-            <button onClick={imprimer} disabled={enCours || !choisis.size}
+            <button onClick={() => imprimer('liste')} disabled={enCours || !choisis.size}
+              title="Document de travail — ne figure pas dans la circulaire"
+              className="px-3 py-2 text-[12.5px] rounded-lg border border-slate-300
+                         text-slate-600 disabled:opacity-40 flex items-center gap-1.5">
+              <IconPrinter size={14} /> Liste des diplômés
+            </button>
+            {/* L'ACTE, et non le document de travail : c'est lui qui fonde le
+                titre, et c'est donc lui qui porte le bouton principal. */}
+            <button onClick={() => imprimer('pv')} disabled={enCours || !choisis.size}
+              title="Annexe 6 (section avec épreuve intégrée) ou 7 — l'acte qui fonde le titre"
               className="px-4 py-2 text-[12.5px] rounded-lg bg-iip-blue text-white font-semibold
                          disabled:opacity-40 flex items-center gap-1.5">
-              <IconPrinter size={14} /> Produire la liste
+              <IconPrinter size={14} /> Procès-verbal de section
             </button>
           </div>
         </div>

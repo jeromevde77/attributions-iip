@@ -103,10 +103,31 @@ Deux pièges rencontrés en l'écrivant, qui valent d'être notés :
 - La cote d'une unité est celle **arrêtée par le Conseil** (`deliberation_resultat`,
   à défaut `etudiant_inscription`), jamais une note de cours.
 
-**Reste à faire** : annexe 4 (PV d'une UE sur valorisation), annexes 14 et 15
-(attestations sur valorisation), annexe 16 (validation d'une U.A.A.), annexes 19
-et 20 (ambulancier ATNUP — certification de section signée du seul directeur, au
-texte imposé par l'arrêté royal du 14 mai 2019).
+#### La valorisation des acquis — annexes 4, 14 et 15
+
+`etudiant_valorisation` distinguait déjà les trois cas de la maison :
+**complète** (l'unité entière est valorisée), **partielle** (des cours ou des
+acquis sont dispensés, colonne `cible`) et **admission**.
+
+- **Annexe 4** — PV de délibération de valorisation, route
+  `POST /api/attestations/valorisation/ue/:n/documents`. Sa colonne
+  **Dispense(s)** est la seule place où l'on dit ce qui a été dispensé : sans
+  elle, une valorisation partielle serait indistinguable d'une complète.
+  « Fait en **un** exemplaire ».
+- **Annexes 14 et 15** — l'attestation par valorisation est un modèle
+  **distinct**, pas l'attestation ordinaire avec un mot changé : elle vise
+  l'article 8 et l'article 37 al. 2 (secondaire) ou 58 al. 2 (supérieur), et
+  elle **ne dit ni « a suivi avec fruit » ni « termine ses études »** — ce
+  serait faux. Seules les valorisations **complètes** en produisent une : une
+  dispense partielle n'emporte pas la réussite de l'unité.
+
+**Annexe 16 — sans objet à l'IIP.** Elle vise la validation d'une unité d'acquis
+d'apprentissage reprise à un profil de certification ; l'Institut n'en organise
+pas. C'est un choix constaté, non un oubli.
+
+**Reste à faire** : annexes 19 et 20 (ambulancier ATNUP — certification de
+section signée du seul directeur, au texte imposé par l'arrêté royal du 14 mai
+2019).
 
 ---
 
