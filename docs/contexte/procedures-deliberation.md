@@ -145,9 +145,13 @@ celui de la session la plus avancée. Les pièces le lisaient. Conséquences :
 `decisionDeSession(etudId, ueNum, annee, session)` lit désormais
 `deliberation_resultat` filtrée sur la session. **Un étudiant que cette séance
 n'a pas jugé ne figure plus sur ses pièces** : lui attribuer une décision prise
-ailleurs, c'est la prêter au Conseil qui siégeait ce jour-là. Repli sur le
-dossier uniquement si l'unité n'a **aucune** décision par session pour l'année —
-le cas des dossiers repris d'un classeur.
+ailleurs, c'est la prêter au Conseil qui siégeait ce jour-là. **Le repli se juge étudiant par
+étudiant** : si cet étudiant a au moins une décision par session pour cette
+unité, elle fait foi et son absence pour la session demandée signifie qu'il n'y
+a pas été jugé ; sinon le dossier parle. Jugé sur l'unité, le repli aurait fait
+disparaître les réussites de plein droit d'avant ce correctif — l'unité
+paraissait « couverte » par les ajournements et ces étudiants tombaient dans le
+vide.
 
 **La réussite de plein droit est une décision.** Elle n'allait qu'au dossier :
 elle n'apparaissait donc dans aucune table par session, et la règle « la session

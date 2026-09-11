@@ -2582,10 +2582,22 @@ export function decisionDeSession(etudId, ueNum, annee, session = 1) {
   `).get(Number(etudId), annee, Number(ueNum), Number(session));
   if (l) return { ...l, source: 'session' };
 
-  const parSession = db.prepare(`
+  // LE REPLI SE JUGE ÉTUDIANT PAR ÉTUDIANT, non unité par unité.
+  //
+  // Jugé sur l'unité, il faisait disparaître des pièces les réussites de plein
+  // droit d'avant ce correctif : elles n'ont aucune ligne par session, alors
+  // que les ajournements de la même unité en ont — l'unité paraissait donc
+  // « couverte » et ces étudiants tombaient dans le vide. Un procès-verbal
+  // amputé de ses réussites est pire que le décalage qu'on corrige.
+  //
+  // Si CET étudiant a au moins une décision enregistrée par session pour cette
+  // unité, c'est elle qui fait foi et l'absence de ligne pour la session
+  // demandée signifie qu'il n'y a pas été jugé. Sinon, le dossier parle.
+  const sien = db.prepare(`
     SELECT COUNT(*) AS n FROM deliberation_resultat
-    WHERE annee_scolaire = ? AND ue_num = ?`).get(annee, Number(ueNum)).n;
-  if (parSession > 0) return { resultat: null, points: null, mention: null, source: null };
+    WHERE etudiant_id = ? AND annee_scolaire = ? AND ue_num = ?`)
+    .get(Number(etudId), annee, Number(ueNum)).n;
+  if (sien > 0) return { resultat: null, points: null, mention: null, source: null };
 
   const i = db.prepare(`
     SELECT resultat, points, mention FROM etudiant_inscription
