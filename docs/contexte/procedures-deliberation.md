@@ -103,6 +103,25 @@ Deux pièges rencontrés en l'écrivant, qui valent d'être notés :
 - La cote d'une unité est celle **arrêtée par le Conseil** (`deliberation_resultat`,
   à défaut `etudiant_inscription`), jamais une note de cours.
 
+#### La seconde session se voit sur l'attestation — un écart assumé
+
+**Aucun modèle d'attestation ne mentionne la session** : les annexes 10 à 18
+n'en portent rien, c'est le procès-verbal qui l'établit, en en-tête. La mention
+ajoutée à la demande de l'établissement est donc **un écart au modèle**, de la
+même famille que la liste des membres du jury retirée le même jour.
+
+La différence assumée : ajouter un fait vrai n'est pas omettre une mention
+obligatoire. Le texte — *« Résultat obtenu à l'issue de la seconde session. »* —
+ne paraît qu'en session 2, en italique discret sous le pourcentage, et **se
+retire en supprimant ce seul bloc** dans `pageAttestation`.
+
+Les trois chemins qui délivrent des attestations la portent : le lot d'une
+séance reçoit la session, la fiche d'un étudiant et l'envoi groupé la déduisent
+de `deliberation_resultat` — sans quoi deux documents se contrediraient pour une
+même réussite.
+
+---
+
 #### Une pièce porte la décision de SA session
 
 `etudiant_inscription` ne retient **qu'un résultat par unité et par année** :

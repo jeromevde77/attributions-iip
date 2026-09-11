@@ -5874,8 +5874,10 @@ function assemblerDocumentsUE(ueNum, annee, veut, opts = {}) {
       if (!u) { manques.push(`${e.nom} ${e.prenom} : unité non réussie au dossier`); continue; }
       // La session imprimée décide du jury nommé : celui de septembre n'est
       // pas celui de juin.
+      // La session est transmise : l'attestation le dit quand la réussite est
+      // acquise en seconde session.
       pousser('reussite', pageAttestation(e, u, annee, etab,
-        opts.date_document || null, ident), e);
+        opts.date_document || null, ident, session), e);
       if (u.manques?.length) manques.push(`${e.nom} ${e.prenom} : ${u.manques.join(', ')}`);
       identiteManquante(e);
       nbR++;
