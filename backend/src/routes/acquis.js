@@ -962,13 +962,29 @@ export function documentMotivation(etudId, ueNum, annee, session = 1) {
     WHERE etudiant_id = ? AND annee_scolaire = ? AND ue_num = ?
   `).all(etudId, annee, ueNum).map(m => [m.aa_code, m.motif]));
 
-  // Ce dont il faut rendre compte : l'acquis sous le seuil, celui que le
-  // Conseil a ajourné, et ceux d'un COURS ajourné — c'est de leur maîtrise
-  // qu'il faut parler, même si la note prise ailleurs les sauvait.
-  // Celui qu'une faveur a levé, non — il est acquis.
+  // Ce dont il faut rendre compte : l'acquis sous le seuil, et celui que le
+  // Conseil a ajourné. Celui qu'une faveur a levé, non — il est acquis.
   const enCause = new Set(d.acquis
     .filter(a => a.na || (a.note != null && a.note < SEUIL_UE)).map(a => a.aa_code));
-  for (const c of d.cours) if (c.na) for (const code of (c.aas || [])) enCause.add(code);
+
+  // UN ACQUIS MAÎTRISÉ NE SE MOTIVE PAS, MÊME SI UN DE SES COURS A ÉCHOUÉ.
+  //
+  // Les acquis d'un cours ajourné entraient tous ici. Sur l'UE 286, le cours
+  // 286.2 est non acquis : AA286.2 y entrait donc, alors que l'unité le donne
+  // à 10 sur 20 — maîtrisé. La notification annonçait un acquis non maîtrisé
+  // qui l'était, et l'écran ne proposait pas de corriger le texte, puisqu'il
+  // n'offre de justifier que les acquis en échec : la motivation d'une session
+  // antérieure restait imprimée, hors d'atteinte.
+  //
+  // Un cours en échec fait donc entrer ses acquis SAUF ceux que l'unité tient
+  // pour acquis : c'est la maîtrise de l'acquis qui se motive, non celle du
+  // cours, et l'annexe 9 parle d'acquis d'apprentissage.
+  const maitrises = new Set(d.acquis
+    .filter(a => !a.na && a.note != null && a.note >= SEUIL_UE).map(a => a.aa_code));
+  for (const c of d.cours) {
+    if (!c.na) continue;
+    for (const code of (c.aas || [])) if (!maitrises.has(code)) enCause.add(code);
+  }
 
   const lignes = d.acquis
     .filter(a => !a.faveur && enCause.has(a.aa_code))

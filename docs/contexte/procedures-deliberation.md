@@ -103,6 +103,28 @@ Deux pièges rencontrés en l'écrivant, qui valent d'être notés :
 - La cote d'une unité est celle **arrêtée par le Conseil** (`deliberation_resultat`,
   à défaut `etudiant_inscription`), jamais une note de cours.
 
+#### Un acquis maîtrisé ne se motive pas
+
+Les acquis d'un **cours** ajourné entraient tous dans la liste à motiver. Sur
+l'UE 286, le cours 286.2 est non acquis : `AA286.2` y entrait donc, alors que
+l'unité le donne à 10/20 — maîtrisé. La notification annonçait un acquis non
+maîtrisé qui l'était, avec un texte que **l'écran ne permettait pas de
+corriger** : il n'offre de justifier que les acquis en échec, si bien qu'une
+motivation écrite lors d'une session antérieure restait imprimée, hors
+d'atteinte.
+
+Un cours en échec fait entrer ses acquis **sauf ceux que l'unité tient pour
+acquis** : c'est la maîtrise de l'acquis qui se motive, non celle du cours, et
+l'annexe 9 parle d'acquis d'apprentissage.
+
+> **Reste ouvert.** `decision_motivation` a pour clé étudiant · année · unité ·
+> acquis, **sans session**. Un acquis échoué en juin pour absence et en
+> septembre pour maîtrise partielle partagent une seule ligne : la seconde
+> écrase la première en silence, et rien à l'écran ne dit qu'un texte date d'une
+> autre session.
+
+---
+
 #### Un poids de cours n'est pas un pourcentage
 
 La pondération explicite (`cours_ponderation`) se saisit comme une
