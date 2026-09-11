@@ -3,6 +3,7 @@ import { useSearchParams } from 'react-router-dom';
 import { api, getAnnee } from '../lib/api.js';
 import { IconAdjustments, IconAward, IconBooks, IconBuilding, IconCalendar, IconCalendarEvent, IconChartBar, IconCheck, IconChevronRight, IconDownload, IconFileText, IconHistory, IconLink, IconScale, IconSettings, IconSparkles, IconUserShield, IconUsers, IconX, IconGavel, IconPlus, IconTrash, IconGripVertical, IconEdit, IconMail } from '@tabler/icons-react';
 import { PageHeader, RailLateral } from '../components/ui.jsx';
+import ApercuDocuments from '../components/ApercuDocuments.jsx';
 const Editeur = lazy(() => import('./Editeur.jsx'));
 const ConfigCourriels = lazy(() => import('../components/ConfigCourriels.jsx'));
 
@@ -1284,6 +1285,7 @@ export default function Configuration() {
     ]},
     { label: 'Modèles de documents', items: [
       { key: 'editeur', label: 'Éditeur', icon: IconEdit },
+      { key: 'apercu', label: 'Aperçu des pièces', icon: IconFileText },
       { key: 'contrat', label: 'Contrat', icon: IconFileText },
       { key: 'attestation', label: 'Attestation', icon: IconAward },
       { key: 'recrutement', label: 'Recrutement', icon: IconSettings },
@@ -1357,6 +1359,13 @@ export default function Configuration() {
         <Suspense fallback={<div className="p-8 text-center text-gray-400">Chargement…</div>}>
           <Editeur />
         </Suspense>
+      )}
+
+      {/* ── Aperçu des pièces officielles ──
+          L'éditeur sert à écrire un modèle ; celui-ci sert à VOIR une pièce
+          telle qu'elle sortira, sans avoir à délibérer une unité pour la juger. */}
+      {tab === 'apercu' && (
+        <ApercuDocuments onClose={() => setTab('editeur')} />
       )}
 
       {/* ── Onglet Recrutement ── */}

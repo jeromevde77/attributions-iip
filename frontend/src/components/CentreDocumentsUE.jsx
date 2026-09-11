@@ -26,6 +26,11 @@ export default function CentreDocumentsUE({ ueNum, ueNom, annee, onClose }) {
   // pièces voisines étaient indiscernables. Et en seconde session, ceux qui ont
   // réussi ou été refusés en juin ne représentent rien : ils n'y figurent plus.
   const [lecture, setLecture] = useState('1');
+  // UN DOCUMENT PAR ÉTUDIANT. Une attestation se range dans un dossier et se
+  // renvoie à une personne : un PDF unique de vingt attestations oblige à le
+  // découper à la main. Le choix se retient d'une fois à l'autre.
+  const [separer, setSeparer] = useState(
+    () => localStorage.getItem('documentsUE.separer') === '1');
 
   useEffect(() => {
     (async () => {
@@ -54,7 +59,7 @@ export default function CentreDocumentsUE({ ueNum, ueNom, annee, onClose }) {
     try {
       const rep = await fetch(`/api/acquis/deliberation/ue/${ueNum}/documents`, {
         method: 'POST', headers: authHeaders(),
-        body: JSON.stringify({ annee, ...choix,
+        body: JSON.stringify({ annee, ...choix, separer,
           session: lecture === '1' ? 1 : 2, total: lecture === 'T' }),
       });
       const j = await rep.json();
@@ -64,6 +69,49 @@ export default function CentreDocumentsUE({ ueNum, ueNom, annee, onClose }) {
           + j.manques.slice(0, 6).join(' · ')
           + (j.manques.length > 6 ? ` … et ${j.manques.length - 6} autres.` : ''));
       }
+      /**
+       * SÉPARÉ : un fichier par étudiant, tirés l'un après l'autre.
+       *
+       * En série, non en parallèle : le service de rendu traite un document à
+       * la fois, et vingt appels simultanés le mettraient à genoux. Les
+       * téléchargements sont espacés, faute de quoi le navigateur n'en retient
+       * qu'un et jette les autres sans rien dire.
+       */
+      if (j.separes) {
+        const tout = [...(j.collectif ? [j.collectif] : []), ...j.documents];
+        if (sortie !== 'pdf') {
+          for (const d of tout) {
+            const f = window.open('', '_blank');
+            if (!f) { setErreur('Le navigateur a bloqué les fenêtres d’impression.'); return; }
+            f.document.write(d.html); f.document.close();
+          }
+          if (!j.manques?.length) onClose();
+          return;
+        }
+        let rendus = 0;
+        for (const d of tout) {
+          const rp = await fetch('/api/impression/pdf', {
+            method: 'POST', headers: authHeaders(),
+            body: JSON.stringify({ html: d.html, nom: d.nom, pagination: 'si-plusieurs' }),
+          });
+          if (!rp.ok) {
+            setErreur(`${d.etudiant || d.nom} : le PDF n’a pas pu être produit `
+              + `(${rendus} sur ${tout.length} déjà téléchargés).`);
+            return;
+          }
+          const blob = await rp.blob();
+          const url = URL.createObjectURL(blob);
+          const a2 = document.createElement('a');
+          a2.href = url; a2.download = `${d.nom}.pdf`;
+          document.body.appendChild(a2); a2.click(); a2.remove();
+          setTimeout(() => URL.revokeObjectURL(url), 30000);
+          rendus++;
+          await new Promise(r => setTimeout(r, 350));
+        }
+        if (!j.manques?.length) onClose();
+        return;
+      }
+
       if (sortie === 'pdf') {
         const rp = await fetch('/api/impression/pdf', {
           method: 'POST', headers: authHeaders(),
@@ -245,6 +293,19 @@ export default function CentreDocumentsUE({ ueNum, ueNom, annee, onClose }) {
           ) : null}
           </span>
           <div className="flex gap-2">
+            <label className="flex items-center gap-2 mr-auto text-[12px] text-slate-600
+                              cursor-pointer">
+              <input type="checkbox" checked={separer}
+                onChange={e => {
+                  setSeparer(e.target.checked);
+                  localStorage.setItem('documentsUE.separer', e.target.checked ? '1' : '0');
+                }}
+                className="w-4 h-4 accent-iip-blue" />
+              Un document par étudiant
+              <span className="text-[11px] text-slate-400">
+                (les pièces du Conseil restent groupées)
+              </span>
+            </label>
             <button onClick={onClose}
               className="px-3 py-1.5 text-[12.5px] rounded-lg border border-slate-300 text-slate-600">
               Fermer
