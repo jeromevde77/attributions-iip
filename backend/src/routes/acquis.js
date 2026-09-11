@@ -373,6 +373,25 @@ export function structureUE(ueNum, annee) {
     }
   } catch { /* table absente : on s'en tient aux périodes */ }
 
+  // UN POIDS N'EST PAS UN POURCENTAGE — il le devient en le rapportant au tout.
+  //
+  // La pondération explicite se saisit comme une répartition : l'UE 286 pèse
+  // 4 et 6, l'UE 248 pèse 47, 31 et 22. La première somme 10, la seconde 100.
+  // Lues telles quelles, elles s'affichaient « 4 % » et « 6 % » — deux cours
+  // qui composent une unité et ne totalisent que le dixième d'elle-même —, et
+  // le contrôle de complétude, qui attend 100, les déclarait incomplètes.
+  //
+  // Le CALCUL, lui, n'en était pas affecté : il divise par la somme des poids
+  // employés, donc 4 et 6 donnent le même résultat que 40 et 60. Les notes
+  // déjà arrêtées restent exactes ; c'est ce qu'on en montrait qui était faux.
+  const totalPoids = Object.values(poidsCours)
+    .reduce((s, v) => s + (Number(v) || 0), 0);
+  if (totalPoids > 0 && Math.abs(totalPoids - 100) > 0.01) {
+    for (const k of Object.keys(poidsCours)) {
+      if (poidsCours[k] != null) poidsCours[k] = (Number(poidsCours[k]) / totalPoids) * 100;
+    }
+  }
+
   return cours.map(c => {
     const lies = parCours[c.cours_code];
     const siens = (lies && lies.length

@@ -103,6 +103,23 @@ Deux pièges rencontrés en l'écrivant, qui valent d'être notés :
 - La cote d'une unité est celle **arrêtée par le Conseil** (`deliberation_resultat`,
   à défaut `etudiant_inscription`), jamais une note de cours.
 
+#### Un poids de cours n'est pas un pourcentage
+
+La pondération explicite (`cours_ponderation`) se saisit comme une
+**répartition** : l'UE 286 pèse 4 et 6, l'UE 248 pèse 47, 31 et 22. La première
+somme 10, la seconde 100. Lues telles quelles, elles s'affichaient « 4 % » et
+« 6 % » — deux cours composant une unité et n'en totalisant que le dixième — et
+le contrôle de complétude, qui attend 100, les déclarait incomplètes.
+
+**Le calcul n'en était pas affecté** : il divise par la somme des poids employés
+(`numerateur += note × pc` / `maximum += 20 × pc`), donc 4 et 6 donnent le même
+résultat que 40 et 60. Les notes déjà arrêtées sont exactes ; c'est leur
+présentation qui mentait. Les poids sont désormais ramenés à 100 après
+application de la pondération explicite — sans effet sur une répartition qui y
+est déjà.
+
+---
+
 #### La seconde session se voit sur l'attestation — un écart assumé
 
 **Aucun modèle d'attestation ne mentionne la session** : les annexes 10 à 18
