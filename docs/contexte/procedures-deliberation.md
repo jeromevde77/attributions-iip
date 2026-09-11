@@ -137,6 +137,24 @@ pas sortir du modèle générique.
 
 ---
 
+#### Un document par étudiant
+
+Les pièces nominatives — attestation, motivation d'ajournement ou de refus —
+sortaient dans **une seule enveloppe**. C'est ce qu'il faut pour imprimer une
+pile, jamais pour classer un dossier : une attestation se range chez son
+étudiant et se renvoie à lui seul, et un PDF de vingt attestations se découpe à
+la main.
+
+Case « Un document par étudiant » au bas du centre de documents de l'unité, le
+choix retenu d'une fois à l'autre. Les pièces **collectives** — procès-verbal,
+composition, grille — restent groupées dans un fichier à part : elles
+n'appartiennent à personne en particulier. Les PDF sont tirés **en série**, avec
+un délai entre les téléchargements : le service de rendu traite un document à la
+fois, et un navigateur à qui l'on envoie vingt téléchargements d'un coup n'en
+retient qu'un.
+
+---
+
 #### Corriger l'administratif sans rouvrir la séance
 
 Une séance close refusait toute retouche : il fallait **annuler la

@@ -5738,7 +5738,13 @@ function assemblerDocumentsUE(ueNum, annee, veut, opts = {}) {
   // Chaque page porte SON TYPE : le lot peut alors les reclasser par pile —
   // toutes les attestations ensemble — au lieu de suivre l'ordre des unités.
   const pages = [];
-  const pousser = (t, h) => pages.push({ t, h });
+  // CHAQUE PIÈCE SAIT DE QUI ELLE PARLE. Sans cela, on ne peut plus séparer le
+  // lot : une attestation et une motivation se ressemblent trop pour qu'on
+  // devine, après coup, à quel dossier les ranger.
+  const pousser = (t, h, etu = null) => pages.push({
+    t, h,
+    etudiant: etu ? { id: etu.id, nom: etu.nom, prenom: etu.prenom } : null,
+  });
   // Les styles propres à certaines pièces se rassemblent EN TÊTE du document :
   // au milieu, un <style> sépare deux pièces sœurs et désamorce leur saut de
   // page — la liste des ajournés se retrouvait alors sur la page de signature
@@ -5811,7 +5817,7 @@ function assemblerDocumentsUE(ueNum, annee, veut, opts = {}) {
       // La session imprimée décide du jury nommé : celui de septembre n'est
       // pas celui de juin.
       pousser('reussite', pageAttestation(e, u, annee, etab,
-        opts.date_document || null, ident));
+        opts.date_document || null, ident), e);
       if (u.manques?.length) manques.push(`${e.nom} ${e.prenom} : ${u.manques.join(', ')}`);
       identiteManquante(e);
       nbR++;
@@ -5821,7 +5827,7 @@ function assemblerDocumentsUE(ueNum, annee, veut, opts = {}) {
       if (d.erreur) { manques.push(`${e.nom} ${e.prenom} : ${d.erreur}`); continue; }
       // On reprend le CORPS, non le document entier : les pièces s'enchaînent
       // dans une seule enveloppe, chacune sur sa page.
-      pousser(e.resultat === 'ajourne' ? 'ajournement' : 'refus', d.corps);
+      pousser(e.resultat === 'ajourne' ? 'ajournement' : 'refus', d.corps, e);
       identiteManquante(e);
       if (e.resultat === 'ajourne') nbA++; else nbX++;
     }
@@ -5867,6 +5873,51 @@ r.post('/deliberation/ue/:ueNum/documents', authRequired, (req, res) => {
       error: 'Aucun document à produire : les décisions ne sont pas encore '
            + 'enregistrées, ou aucune ne correspond aux pièces demandées.',
       manques: a.manques,
+    });
+  }
+
+  /**
+   * UN DOCUMENT PAR ÉTUDIANT, quand on le demande.
+   *
+   * Les pièces nominatives sortaient dans une seule enveloppe. C'est ce qu'il
+   * faut pour imprimer une pile, mais pas pour classer un dossier : une
+   * attestation se range chez son étudiant, et se renvoie à lui seul. Un PDF
+   * unique de vingt attestations oblige à le découper à la main.
+   *
+   * Les pièces collectives — procès-verbal, composition, grille — restent
+   * groupées en tête : elles n'appartiennent à personne en particulier.
+   */
+  if (req.body?.separer === true) {
+    const tete = a.pages.filter(p => !p.etudiant);
+    const parEtudiant = new Map();
+    for (const p of a.pages) {
+      if (!p.etudiant) continue;
+      const cle = p.etudiant.id;
+      if (!parEtudiant.has(cle)) parEtudiant.set(cle, { etudiant: p.etudiant, pages: [] });
+      parEtudiant.get(cle).pages.push(p);
+    }
+    const slug = t => String(t || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+      .replace(/[^A-Za-z0-9]+/g, '_').replace(/^_|_$/g, '');
+    const documents = [...parEtudiant.values()].map(d => ({
+      etudiant_id: d.etudiant.id,
+      etudiant: `${d.etudiant.nom} ${d.etudiant.prenom || ''}`.trim(),
+      pieces: d.pages.map(p => p.t),
+      nom: `UE${ueNum}_${slug(d.etudiant.nom)}_${slug(d.etudiant.prenom)}`,
+      html: envelopper(a.styles.join('') + d.pages.map(p => p.h).join(''),
+                       `${d.etudiant.nom} ${d.etudiant.prenom || ''} — UE ${ueNum}`),
+    }));
+    return res.json({
+      separes: true,
+      documents,
+      // Les pièces du Conseil restent ensemble, et ne sont pas vides pour rien.
+      collectif: tete.length ? {
+        nom: `Documents_UE${ueNum}_conseil`,
+        html: envelopper(a.styles.join('') + tete.map(p => p.h).join(''),
+                         `Pièces du Conseil — UE ${ueNum}`),
+        pieces: tete.map(p => p.t),
+      } : null,
+      reussites: a.reussites, ajournements: a.ajournements, refus: a.refus,
+      pieces: a.pages.length, manques: a.manques,
     });
   }
 
