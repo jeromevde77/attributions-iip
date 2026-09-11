@@ -1,7 +1,7 @@
 import { Fragment, useCallback, useEffect, useMemo, useState } from 'react';
 import { RailLateral } from '../components/ui.jsx';
 import {
-  IconAlertTriangle, IconCheck, IconChecklist, IconChevronLeft, IconChevronRight, IconClock, IconFileText, IconFolder, IconPlus, IconPrinter, IconSearch, IconTable, IconTrash, IconUpload, IconUser, IconWritingSign, IconWritingSignOff, IconX,
+  IconAlertTriangle, IconAward, IconCheck, IconChecklist, IconChevronLeft, IconChevronRight, IconClock, IconFileText, IconFolder, IconPlus, IconPrinter, IconSearch, IconTable, IconTrash, IconUpload, IconUser, IconWritingSign, IconWritingSignOff, IconX,
 } from '@tabler/icons-react';
 import { authHeaders, getAnnee } from '../lib/api.js';
 import PreviewModal from '../components/PreviewModal.jsx';
@@ -13,6 +13,7 @@ import CentreImpression from '../components/CentreImpression.jsx';
 import CentrePAE from '../components/CentrePAE.jsx';
 import PassageAnnee from '../components/PassageAnnee.jsx';
 import CentreEchanges from '../components/CentreEchanges.jsx';
+import CentreDiplomation from '../components/CentreDiplomation.jsx';
 import ImportSurMesure from '../components/ImportSurMesure.jsx';
 import ImportSuivi from '../components/ImportSuivi.jsx';
 import Annexe2 from '../components/Annexe2.jsx';
@@ -1877,6 +1878,8 @@ export default function Etudiants() {
   const [passage, setPassage] = useState(false);
   // Une seule porte pour les huit imports et les exports.
   const [echanges, setEchanges] = useState(false);
+  // Les titres de fin de cycle, pour une section entière.
+  const [diplomation, setDiplomation] = useState(false);
   const [comparaison, setComparaison] = useState(false);
   const [importSurMesure, setImportSurMesure] = useState(false);
   const [importSuivi, setImportSuivi] = useState(false);
@@ -2206,9 +2209,13 @@ export default function Etudiants() {
     // sa place n'est pas dans la barre qui n'apparaît qu'une fois des étudiants
     // cochés. C'est le geste de fin de septembre, et il se trouve sans qu'on
     // ait rien à préparer.
-    { label: 'Année suivante', items: [
+    // LA FIN DE CYCLE. Composer l'année suivante et délivrer les titres sont
+    // les deux gestes de la même semaine : ils vont ensemble.
+    { label: 'Fin de cycle', items: [
       { key: 'passage', label: "Composer les PAE de l'année suivante",
         icon: IconChecklist, onClick: () => setPassage(true) },
+      { key: 'diplomation', label: 'Diplômes et titres', icon: IconAward,
+        onClick: () => setDiplomation(true) },
     ] },
     // TOUT CE QUI ENTRE ET TOUT CE QUI SORT, DERRIÈRE UNE PORTE.
     // Le rail alignait huit imports dont quatre parlaient de « classeur » sans
@@ -2489,6 +2496,10 @@ export default function Etudiants() {
               quoi: 'Effacer les notes et décisions d’une année ou d’une unité.',
               attend: null, onClick: () => setPurge(true) },
           ]} />
+      )}
+
+      {diplomation && (
+        <CentreDiplomation annee={annee} onClose={() => setDiplomation(false)} />
       )}
 
       {passage && (

@@ -20,6 +20,7 @@ import { anneeDeTravail } from '../helpers/annee.js';
 import { envelopper } from './attestations.js';
 import { identiteEtablissement } from './config.js';
 import { calculerMention, reglesMention } from '../lib/mention.js';
+import { presidenceConseil } from './acquis.js';
 
 const r = Router();
 
@@ -275,16 +276,16 @@ function seanceClose(ueNum, annee, session) {
   return s ? !!s.cloturee : null;
 }
 
-r.get('/dossier', authRequired, (req, res) => {
-  const annee = req.query.annee || anneeDeTravail(req);
-  const section = req.query.section;
-  if (!section) return res.status(400).json({ error: 'section requise' });
-
-  const perim = getUserSections(req.user);
-  if (perim && !perim.includes(section)) {
-    return res.status(403).json({ error: 'section hors de votre périmètre' });
-  }
-
+/**
+ * LE DOSSIER DE DIPLOMATION D'UNE SECTION — extrait de sa route pour servir
+ * AUSSI à la production des pièces.
+ *
+ * Les pièces doivent reposer sur exactement ce que l'écran a montré. Les faire
+ * calculer une seconde fois, ailleurs, c'est accepter que les deux calculs
+ * divergent un jour — et ce jour-là, c'est un diplôme qui porte une mention
+ * que personne n'a vue.
+ */
+export function dossierDiplomation(section, annee) {
   const sec = db.prepare(`SELECT code, libelle, niveau, code_fwb, domaine,
     type_enseignement FROM section WHERE code = ?`).get(section) || { code: section };
   const requises = unitesDeLaSection(section, annee);
@@ -293,8 +294,9 @@ r.get('/dossier', authRequired, (req, res) => {
   const regles = reglesMention();
 
   if (!requises.length) {
-    return res.json({ annee, section: sec, requises: [], diplomables: [],
-      avertissement: "Aucune unité n'est rattachée à cette section." });
+    return { annee, section: sec, requises: [], determinantes: [], diplomables: [],
+      total: { diplomables: 0, provisoires: 0, sans_mention: 0 }, proposes: [],
+      avertissement: "Aucune unité n'est rattachée à cette section." };
   }
 
   const etudiants = db.prepare(`
@@ -366,7 +368,7 @@ r.get('/dossier', authRequired, (req, res) => {
     });
   }
 
-  res.json({
+  return {
     annee, section: sec,
     requises, epreuve_integree: ei,
     determinantes: det,
@@ -381,6 +383,247 @@ r.get('/dossier', authRequired, (req, res) => {
       sans_mention: diplomables.filter(d => !d.mention.mention).length,
     },
     proposes: diplomables.filter(d => d.annee_fin === annee).map(d => d.id),
+  };
+}
+
+r.get('/dossier', authRequired, (req, res) => {
+  const annee = req.query.annee || anneeDeTravail(req);
+  const section = req.query.section;
+  if (!section) return res.status(400).json({ error: 'section requise' });
+
+  const perim = getUserSections(req.user);
+  if (perim && !perim.includes(section)) {
+    return res.status(403).json({ error: 'section hors de votre périmètre' });
+  }
+  res.json(dossierDiplomation(section, annee));
+});
+
+/* ═══ LES PIÈCES DU TITRE ══════════════════════════════════════════════════
+ *
+ * Trois pièces, UNE SEULE SÉLECTION. Le diplôme, l'attestation de réussite de
+ * la section et la liste destinée à la Fédération portent les mêmes noms, les
+ * mêmes mentions et la même date — parce qu'elles sont produites du même
+ * appel, sur les mêmes dossiers.
+ *
+ * Les tirer séparément, comme on le faisait, c'était accepter qu'elles
+ * divergent : une correction faite d'un côté et pas de l'autre, et l'on
+ * délivre un diplôme qui ne figure pas sur la liste.
+ */
+
+/** « 15 juin 2026 » — la date telle qu'on l'écrit sur une pièce officielle. */
+function dateLongue(iso) {
+  const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(String(iso || ''));
+  if (!m) return String(iso || '');
+  return `${Number(m[3])} ${MOIS[Number(m[2]) - 1]} ${m[1]}`;
+}
+
+/**
+ * Remplir un modèle à variables.
+ *
+ * UNE VARIABLE INCONNUE NE S'EFFACE PAS. La remplacer par du vide produirait
+ * un document qui a l'air complet et ne l'est pas — « né·e à , le  ». On la
+ * laisse visible, entre crochets : sur une pièce officielle, un trou qui se
+ * voit vaut mieux qu'un trou qui ne se voit pas.
+ */
+function remplir(modele, valeurs) {
+  const manques = new Set();
+  const html = String(modele || '').replace(/\{\{\s*([a-z_0-9]+)\s*\}\}/gi, (_, cle) => {
+    const v = valeurs[cle];
+    if (v == null || v === '') { manques.add(cle); return `[${cle} à compléter]`; }
+    return String(v);
+  });
+  return { html, manques: [...manques] };
+}
+
+/** Le modèle de diplôme retenu : celui de la maison, sinon celui d'origine. */
+async function modeleDiplome() {
+  try {
+    const row = db.prepare(
+      "SELECT valeur FROM lucie_config WHERE cle = 'diplome_template'").get();
+    if (row?.valeur) return row.valeur;
+  } catch { /* configuration illisible : le modèle d'origine fera l'affaire */ }
+  const { genererTemplateDiplome } = await import('../services/diplome_template.js');
+  return genererTemplateDiplome();
+}
+
+/**
+ * L'ATTESTATION DE RÉUSSITE DE LA SECTION.
+ *
+ * À ne pas confondre avec l'attestation par UNITÉ, qui existe déjà : celle-ci
+ * sanctionne le cycle entier et détaille ce sur quoi la mention repose — les
+ * unités déterminantes et l'épreuve intégrée, avec leurs cotes. C'est la pièce
+ * qu'on produit quand on nous demande « sur quoi ce titre est-il fondé ? ».
+ *
+ * Elle emprunte l'enveloppe des attestations : l'audit en a relevé neuf
+ * concurrentes, on n'en crée pas une dixième.
+ */
+function attestationSection(d, ctx) {
+  const { section, annee, ident, dateDelib } = ctx;
+  const e0 = d.genre === 'F' ? 'e' : '';
+  const cote = v => v == null ? '………' : `${Math.round(Number(v))}/20`;
+
+  return `<div class="attestation piece">
+    <div class="entete">
+      <div class="cf">COMMUNAUTÉ FRANÇAISE DE BELGIQUE</div>
+      <div class="epa">ENSEIGNEMENT DE PROMOTION SOCIALE</div>
+    </div>
+    <div class="etab">
+      <div><b>${esc(ident.nom)}</b><br>${esc(ident.adresse)}</div>
+      <div class="ident">${ident.matricule ? `Matricule : ${esc(ident.matricule)}<br>` : ''}
+        ${ident.fase ? `FASE : ${esc(ident.fase)}` : ''}</div>
+    </div>
+
+    <div class="titre-piece">Attestation de réussite de section</div>
+    <div class="sous-piece">${esc(section.libelle || section.code)}</div>
+
+    <p class="corps">Le Conseil des études atteste que</p>
+    <div class="etudiant">
+      <div class="nom">${esc((d.nom || '').toUpperCase())} ${esc(d.prenom || '')}</div>
+      <div class="naissance">Né${e0} à ${esc(d.lieu_naissance) || '………'},
+        ${enToutesLettres(d.date_naissance)}</div>
+    </div>
+
+    <p class="corps indente">a satisfait aux conditions de sanction de la section
+      susvisée, ${d.par_epreuve
+        ? "ayant réussi l'épreuve intégrée qui la sanctionne"
+        : 'ayant acquis l’ensemble des unités qui la composent'}.</p>
+
+    <table class="doc">
+      <thead><tr><th style="width:16mm">UE</th><th>Unité d'enseignement</th>
+        <th style="width:22mm">Périodes</th><th style="width:20mm">Résultat</th></tr></thead>
+      <tbody>
+        ${d.determinantes.map(u => `<tr>
+          <td>${u.ue_num}</td><td>${esc(u.ue_nom || '')}
+            <span class="ref">unité déterminante</span></td>
+          <td class="n">${u.periodes || '—'}</td>
+          <td class="n">${cote(u.cote)}</td></tr>`).join('')}
+        ${d.epreuve ? `<tr class="ei">
+          <td>${d.epreuve.ue_num}</td><td>Épreuve intégrée</td>
+          <td class="n">—</td><td class="n">${cote(d.epreuve.cote)}</td></tr>` : ''}
+      </tbody>
+    </table>
+
+    <div class="resultat">
+      Résultat global : <span class="pct">${d.mention.pourcent != null
+        ? `${String(d.mention.pourcent).replace('.', ',')} %` : '………'}</span>
+      ${d.mention.mention ? `<br>Mention : <b>${esc(d.mention.mention)}</b>` : ''}
+    </div>
+
+    <div class="cloture">
+      <div class="lieu">Fait à ${esc(ident.ville)}, le ${dateLongue(dateDelib)}.</div>
+      <div class="sig"><div class="nom">${esc(ident.directeur)}</div>
+        <div class="role">Directeur</div></div>
+    </div>
+  </div>`;
+}
+
+const STYLE_SECTION = `<style>
+  .titre-piece { border: 0.4mm solid #1B2B4B; border-radius: 1.5mm; padding: 3mm 4mm;
+    margin: 5mm 0 1mm; text-align: center; font-size: 12pt; font-weight: 700;
+    color: #1B2B4B; letter-spacing: .3pt; }
+  .sous-piece { text-align: center; font-size: 9.5pt; color: #475569; margin-bottom: 4mm; }
+  table.doc td.n { text-align: right; white-space: nowrap; }
+  table.doc tr.ei td { background: #F8F5EC; font-weight: 600; }
+  table.doc .ref { display: block; font-size: 7pt; color: #8a6d2f; }
+  .resultat { margin-top: 4mm; padding: 2.5mm 4mm; border: 0.3mm solid #C9A84C;
+    border-radius: 1.5mm; text-align: right; font-size: 10pt; }
+  .resultat .pct { font-size: 13pt; font-weight: 700; color: #1B2B4B; }
+</style>`;
+
+/**
+ * LES PIÈCES, EN LOT.
+ *
+ * Rien n'est produit pour un dossier que la sélection n'a pas retenu : c'est la
+ * direction qui arrête qui reçoit un titre, pas une requête.
+ */
+r.post('/pieces', authRequired,
+       roleRequired('admin', 'directeur', 'directeur_adjoint', 'editeur'),
+       async (req, res) => {
+  const { section, annee, etudiants: ids, pieces, date_deliberation } = req.body || {};
+  if (!section) return res.status(400).json({ error: 'section requise' });
+  if (!Array.isArray(ids) || !ids.length) {
+    return res.status(400).json({ error: 'aucun étudiant sélectionné' });
+  }
+  const veut = Array.isArray(pieces) && pieces.length
+    ? pieces : ['diplome', 'attestation', 'liste'];
+  const an = annee || anneeDeTravail(req);
+
+  const perim = getUserSections(req.user);
+  if (perim && !perim.includes(section)) {
+    return res.status(403).json({ error: 'section hors de votre périmètre' });
+  }
+
+  // ON REPART DU DOSSIER, jamais de ce que le client a calculé : une mention
+  // envoyée par l'écran serait une mention qu'on ne peut pas défendre.
+  const dossier = dossierDiplomation(section, an);
+
+  const retenus = new Set(ids.map(Number));
+  const choisis = (dossier.diplomables || []).filter(d => retenus.has(d.id));
+  if (!choisis.length) {
+    return res.status(400).json({
+      error: 'Aucun des étudiants retenus ne figure parmi les diplômables.' });
+  }
+
+  const ident = identiteEtablissement();
+  const sec = dossier.section || {};
+  const dateDelib = date_deliberation || new Date().toISOString().slice(0, 10);
+  const presidence = (() => { try { return presidenceConseil(); } catch { return {}; } })();
+  const ctx = { section: sec, annee: an, ident, dateDelib };
+
+  const pages = [];
+  const styles = new Set();
+  const manques = [];
+
+  if (veut.includes('diplome')) {
+    const modele = await modeleDiplome();
+    const ectsTotal = dossier.requises.length
+      ? db.prepare(`SELECT SUM(n) AS t FROM (SELECT ue_num, MAX(ects) AS n FROM ue
+          WHERE ue_num IN (${dossier.requises.map(() => '?').join(',')})
+          GROUP BY ue_num)`).get(...dossier.requises)?.t : null;
+
+    for (const d of choisis) {
+      const { html, manques: m } = remplir(modele, {
+        nom_etudiant: d.nom, prenom_etudiant: d.prenom,
+        genre: d.genre === 'F' ? 'F' : d.genre === 'H' ? 'H' : '',
+        lieu_naissance: d.lieu_naissance, date_naissance: dateLongue(d.date_naissance),
+        annee: an, mention: d.mention.mention,
+        intitule_section: sec.libelle, code_section: sec.code_fwb || sec.code,
+        domaine: sec.domaine, grade_academique: sec.niveau || sec.libelle,
+        total_ects: ectsTotal, duree_annees: sec.duree_annees || 3,
+        date_deliberation: dateLongue(dateDelib),
+        ville_etab: ident.ville, directeur: ident.directeur,
+        president_jury: presidence?.titulaire?.nom || ident.directeur,
+        titulaire_nom: presidence?.titulaire?.nom || '',
+        article_titulaire: 'Le', date_approbation: sec.date_approbation,
+        logo_helb: '',
+      });
+      pages.push({ t: `Diplôme — ${d.nom} ${d.prenom}`, h: html, entier: true });
+      if (m.length) manques.push(`Diplôme de ${d.nom} ${d.prenom} : ${m.join(', ')}`);
+    }
+  }
+
+  if (veut.includes('attestation')) {
+    styles.add(STYLE_SECTION);
+    for (const d of choisis) {
+      pages.push({ t: `Attestation de section — ${d.nom} ${d.prenom}`,
+                   h: attestationSection(d, ctx) });
+    }
+  }
+
+  res.json({
+    section: sec.code, annee: an, date_deliberation: dateDelib,
+    pieces: pages.map(p => p.t),
+    // Le diplôme porte sa propre page complète (paysage, sans marge ni pied) :
+    // il ne s'enveloppe pas comme les autres et ne se mêle pas à elles.
+    diplomes: pages.filter(p => p.entier).map(p => p.h),
+    html: pages.some(p => !p.entier)
+      ? envelopper([...styles].join('') + pages.filter(p => !p.entier)
+        .map(p => p.h).join(''), `Titres — ${sec.libelle || sec.code}`)
+      : null,
+    nom: `Titres_${sec.code}_${String(an).replace('-', '')}`,
+    total: choisis.length,
+    provisoires: choisis.filter(d => d.provisoire).map(d => `${d.nom} ${d.prenom}`),
+    manques,
   });
 });
 
