@@ -61,13 +61,29 @@ const r = express.Router();
         par            TEXT
       );
     `);
+    // LA VISITE DES COPIES SUIT L'ÉPREUVE, DONC LE COURS. Elle était rangée
+    // sur l'unité — une seule date pour toute l'unité —, alors qu'on vient
+    // consulter la copie d'une épreuve, et que l'épreuve est celle d'un cours.
+    // Deux professeurs qui n'interrogent pas le même jour ne montrent pas les
+    // copies le même jour. Ce qui n'est pas fixé ici retombe sur l'unité :
+    // les notifications déjà imprimées continuent de dire quelque chose.
+    for (const [t, cols] of [
+      ['epreuve_session1', ['s1_visite_date', 's1_visite_heure', 's1_visite_local']],
+      ['deliberation_session2', ['s2_visite_date', 's2_visite_heure', 's2_visite_local']],
+    ]) {
+      for (const c of cols) {
+        try { db.exec(`ALTER TABLE ${t} ADD COLUMN ${c} TEXT`); } catch { /* déjà là */ }
+      }
+    }
   } catch (e) { console.error('[migration] calendrier :', e.message); }
 })();
 
 const CHAMPS_SEANCE = ['date_seance', 'heure_seance',
   'visite_date', 'visite_heure', 'visite_local'];
-const CHAMPS_S1 = ['s1_date', 's1_heure', 's1_local', 's1_adresse'];
-const CHAMPS_S2 = ['s2_date', 's2_heure', 's2_local', 's2_adresse'];
+const CHAMPS_S1 = ['s1_date', 's1_heure', 's1_local', 's1_adresse',
+  's1_visite_date', 's1_visite_heure', 's1_visite_local'];
+const CHAMPS_S2 = ['s2_date', 's2_heure', 's2_local', 's2_adresse',
+  's2_visite_date', 's2_visite_heure', 's2_visite_local'];
 
 /** L'unité est-elle dans le périmètre de celui qui regarde ? */
 function horsPerimetre(req, section) {

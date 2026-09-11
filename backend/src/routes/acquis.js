@@ -1002,6 +1002,30 @@ export function documentMotivation(etudId, ueNum, annee) {
   const s2 = Object.fromEntries(db.prepare(
     'SELECT * FROM deliberation_session2 WHERE ue_num = ? AND annee_scolaire = ?'
   ).all(ueNum, annee).map(l => [l.cours_code, l]));
+
+  /**
+   * LA VISITE DES COPIES A CHANGÉ DE NIVEAU, LA NOTIFICATION NON.
+   *
+   * Elle se posait sur l'unité ; elle se pose désormais sur le cours, parce
+   * qu'on vient consulter la copie d'une épreuve. Cette pièce ne montre
+   * encore qu'un bloc : tant qu'elle n'en montre pas un par cours, elle prend
+   * la visite de l'unité si elle existe, et à défaut la première visite posée
+   * au cours — plutôt que des pointillés là où une date existe en base.
+   */
+  const visiteCours = (() => {
+    if (seance.visite_date) return null;
+    const l = db.prepare(`
+      SELECT s1_visite_date AS d, s1_visite_heure AS h, s1_visite_local AS loc
+      FROM epreuve_session1
+      WHERE ue_num = ? AND annee_scolaire = ? AND s1_visite_date IS NOT NULL
+      ORDER BY s1_visite_date LIMIT 1`).get(ueNum, annee);
+    return l || null;
+  })();
+  const visite = {
+    date: seance.visite_date || visiteCours?.d || null,
+    heure: seance.visite_heure || visiteCours?.h || null,
+    local: seance.visite_local || visiteCours?.loc || null,
+  };
   // Ce qui n'est pas fixé pour un cours retombe sur la date de l'unité.
   const quand = (code) => {
     const l = s2[code] || {};
@@ -1206,9 +1230,9 @@ export function documentMotivation(etudId, ueNum, annee) {
 
   <div class="info">
     <div class="titre">Consultation de la copie</div>
-    <div class="ligne">Le ${seance.visite_date ? `<b>${jour(seance.visite_date)}</b>` : '………………'}
-      à ${seance.visite_heure ? `<b>${esc2(seance.visite_heure)}</b>` : '……h……'},
-      local ${seance.visite_local ? `<b>${esc2(seance.visite_local)}</b>` : '…………'}</div>
+    <div class="ligne">Le ${visite.date ? `<b>${jour(visite.date)}</b>` : '………………'}
+      à ${visite.heure ? `<b>${esc2(visite.heure)}</b>` : '……h……'},
+      local ${visite.local ? `<b>${esc2(visite.local)}</b>` : '…………'}</div>
   </div>
 
   <div class="cloture${president.signature ? '' : ' sans-paraphe'}">

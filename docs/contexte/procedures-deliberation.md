@@ -63,11 +63,21 @@ Le stockage supporte les deux formes : `s1|cours|aa` pour l'encodage par cours,
 Les dates d'épreuve, de visite des copies et de séance se posent depuis
 **Étudiants → Calendrier des sessions** : toute la section sur une page, les
 unités puis leurs cours, et une valeur applicable d'un coup à ce qui est coché.
+Les deux sessions sont l'une **sous** l'autre — première en bleu, seconde en
+gris —, parce que juin se règle en regardant septembre.
 
-- **L'unité** porte la délibération et la visite des copies — le Conseil siège
-  par unité.
-- **Le cours** porte les épreuves des deux sessions : deux professeurs ne font
-  pas passer la leur le même jour.
+- **L'unité** porte la délibération — le Conseil siège par unité, et il n'y a
+  qu'une décision.
+- **Le cours** porte l'épreuve **et la visite des copies**, dans les deux
+  sessions : on vient consulter la copie d'une épreuve, et deux professeurs
+  qui n'interrogent pas le même jour ne montrent pas les copies le même jour.
+  La visite était rangée sur l'unité ; elle est descendue au cours
+  (`s1_visite_*`, `s2_visite_*`). Les notifications ne montrent encore qu'un
+  bloc de visite : elles prennent celle de l'unité, à défaut la première posée
+  au cours. **Un bloc par cours reste à faire.**
+- **Le local se choisit** dans la liste des 55 locaux de l'Institut (table
+  `local`), groupée par type et annotée du nombre de places — il ne se tape
+  plus.
 - Une **séance close** se corrige, mais seulement avec un **motif écrit**,
   conservé dans `calendrier_correction`. Corriger une date n'est pas rouvrir
   une délibération : la séance reste close.
