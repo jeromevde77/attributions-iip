@@ -103,6 +103,25 @@ Deux pièges rencontrés en l'écrivant, qui valent d'être notés :
 - La cote d'une unité est celle **arrêtée par le Conseil** (`deliberation_resultat`,
   à défaut `etudiant_inscription`), jamais une note de cours.
 
+#### Voir une pièce sans la produire — Configuration → Aperçu des pièces
+
+On ne jugeait une mise en page qu'en délibérant une unité réelle, donc en fin de
+session et sur de vrais étudiants : au pire moment, et sans pouvoir essayer.
+
+**Deux familles, et l'écran le dit.** Les attestations reçoivent leurs données
+en paramètre : elles se rendent sur un dossier fictif — *SPÉCIMEN Camille*, un
+nom qui ne peut pas passer pour un vrai — et le niveau se commute entre
+secondaire et supérieur, ce qui permet de vérifier d'un clic que les articles du
+décret changent bien. Le PV, la composition et les motivations interrogent la
+base : ils demandent une **unité déjà délibérée**, plutôt que d'inventer une
+séance qui n'existe pas.
+
+`/api/apercu/catalogue` et `/api/apercu/:id`. **La route n'écrit rien** — aucun
+`INSERT`, aucun `UPDATE` : un aperçu qui laisserait une trace en base serait une
+pièce délivrée sans le savoir.
+
+---
+
 #### La valorisation des acquis — annexes 4, 14 et 15
 
 `etudiant_valorisation` distinguait déjà les trois cas de la maison :
