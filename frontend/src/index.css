@@ -292,3 +292,25 @@ table.grid-excel-soft td.num { text-align: right; font-variant-numeric: tabular-
 .version-badge-new {
   animation: version-pulse 1s ease-in-out infinite;
 }
+
+/* ═══ LA GOUTTIÈRE DU RAIL ════════════════════════════════════════════════
+ *
+ * Elle était écrite en dur — `ml-16` — dans une dizaine d'écrans. D'où deux
+ * pannes en une semaine : un écran qui l'oubliait passait SOUS le rail, un
+ * autre la posait en double et se décalait de cent vingt-huit pixels. Une
+ * règle recopiée dix fois n'est pas une règle, c'est dix occasions de se
+ * tromper.
+ *
+ * Le rail pose maintenant `--rail` ; les écrans consomment cette classe. Une
+ * seule source, et le contenu suit tout seul quand le rail s'épingle.
+ *
+ * Le repli `4rem` sert au cas où la classe serait employée sans rail monté :
+ * mieux vaut une gouttière inutile qu'un contenu recouvert.
+ */
+.gouttiere-rail {
+  margin-left: var(--rail, 4rem);
+  transition: margin-left 200ms ease-out;
+}
+@media (prefers-reduced-motion: reduce) {
+  .gouttiere-rail { transition: none; }
+}

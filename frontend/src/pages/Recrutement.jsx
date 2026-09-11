@@ -187,7 +187,7 @@ export default function Recrutement() {
             actif: false, onClick: () => { setPoste(null); charger(); } },
         ]}]}
       />
-      <div className="ml-16 p-4 md:p-6">
+      <div className="gouttiere-rail p-4 md:p-6">
         <FichePoste poste={poste} annee={annee} onBack={() => { setPoste(null); charger(); }} grille={grille} />
       </div>
     </div>
@@ -218,7 +218,7 @@ export default function Recrutement() {
           ]},
         ]}
       />
-      <div className="ml-16 p-4 md:p-6">
+      <div className="gouttiere-rail p-4 md:p-6">
 
         {vue === 'grille' && <EditeurGrille grille={grille} onSaved={chargerGrille} />}
         {vue === 'candidats' && <VueCandidatsGlobal

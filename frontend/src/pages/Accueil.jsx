@@ -133,7 +133,7 @@ export default function Accueil() {
         ]}
       />
 
-      <div className="ml-16 p-4 md:p-8">
+      <div className="gouttiere-rail p-4 md:p-8">
 
         {/* Bonjour */}
         <div className="mb-8">

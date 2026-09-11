@@ -154,7 +154,7 @@ export default function Echeancier() {
       <RailLateral icon={IconCalendarStats} titre="Échéancier"
         sousTitre={data?.annee} sections={sections} />
 
-      <div className="ml-16 px-3 md:px-6 py-4 space-y-4">
+      <div className="gouttiere-rail px-3 md:px-6 py-4 space-y-4">
         <div className="flex items-start justify-between gap-3 flex-wrap">
           <PageHeader icon={IconCalendarStats} titre="Échéancier"
             sous="Obligations réglementaires et jalons de l'année — circulaire 9760, décret du 16/04/1991, RGE, statut du 01/02/1993" />

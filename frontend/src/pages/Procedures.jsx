@@ -1852,7 +1852,7 @@ export default function Procedures() {
       />
 
       {/* ── Contenu (décalé du gutter du rail) ── */}
-      <div className="ml-16 p-6">
+      <div className="gouttiere-rail p-6">
         {outil === 'recours' && (
           <>
             <PageHeader icon={IconScale} titre="Outil de traitement des recours"

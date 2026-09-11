@@ -1501,7 +1501,7 @@ export default function Pilotage() {
         ] }]}
       />
 
-      <div className="ml-16 px-3 md:px-6 py-4 space-y-5">
+      <div className="gouttiere-rail px-3 md:px-6 py-4 space-y-5">
         <PageHeader icon={IconChartBar} titre="Pilotage des dotations"
           sous={`Année civile ${selYear} · Enveloppes extérieures · Comparaison pluriannuelle`} />
 

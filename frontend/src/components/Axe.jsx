@@ -57,14 +57,12 @@ export default function Axe({ titre, question, icone, onglets, ongletInitial }) 
       <RailDessine icon={icone} titre={titre} sousTitre={question}
         sections={[rubriques, ...(outils || [])]} />
 
-      {/* LA GOUTTIÈRE DU RAIL EST POSÉE ICI PAR DÉFAUT.
-          Je l'avais d'abord laissée à la charge de l'écran — et sept écrans
-          n'ont pas de rail propre, donc pas de `ml-16` : ils passaient sous le
-          rail, leur contenu tronqué à gauche. La régle s'inverse : l'axe
-          dégage la gouttière pour tout le monde, et seuls les écrans qui
-          posent DÉJÀ leur propre décalage le déclarent — c'est une propriété
-          du volet, connue au rendu, donc sans saut au montage. */}
-      <div className={courant?.railPropre ? '' : (courant?.sansMarge ? 'ml-16' : 'ml-16 p-4')}>
+      {/* LA GOUTTIÈRE DU RAIL EST POSÉE ICI PAR DÉFAUT, et sa largeur vient du
+          rail lui-même (classe « gouttiere-rail », variable --rail) : le
+          contenu suit quand on épingle, sans qu'aucun écran ait à le savoir.
+          Seuls les écrans qui posent DÉJÀ la leur le déclarent. */}
+      <div className={courant?.railPropre
+        ? '' : (courant?.sansMarge ? 'gouttiere-rail' : 'gouttiere-rail p-4')}>
         <FournisseurRail valeur={inscrire}>
           {courant?.futur ? (
             <div className="border-2 border-dashed border-slate-200 rounded-xl p-8

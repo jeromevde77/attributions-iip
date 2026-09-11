@@ -1,4 +1,6 @@
 import { createContext, useContext, useEffect } from 'react';
+import { IconPin, IconPinnedOff } from '@tabler/icons-react';
+import { useRailEpingle, basculerEpingle, LARGEUR_RAIL } from '../lib/railEpingle.js';
 
 /**
  * LE RAIL EST UN, ET IL APPARTIENT À L'AXE.
@@ -118,7 +120,8 @@ export function KpiCard({ label, valeur, sous, ton = 'neutral' }) {
 // Rail latéral « glissant » partagé.
 // Étroit (icônes seules) par défaut, s'élargit au survol PAR-DESSUS le contenu
 // (positionné en absolute) pour ne pas faire sauter la zone de travail centrale.
-// Le conteneur parent doit être `relative` et le contenu décalé de `ml-16`.
+// Le conteneur parent doit être `relative` ; le contenu porte la classe
+// `gouttiere-rail`, qui suit la largeur réelle du rail.
 //   icon       : composant icône d'en-tête (turquoise)
 //   titre      : titre de l'en-tête (blanc, visible au survol)
 //   sousTitre  : petite ligne sous le titre (optionnel)
@@ -145,16 +148,41 @@ export function RailLateral({ icon: HeaderIcon, titre, sousTitre, extra, section
 
 /** Le rail tel qu'il se dessine — appelé par l'axe, ou par un écran isolé. */
 export function RailDessine({ icon: HeaderIcon, titre, sousTitre, extra, sections = [] }) {
-  const reveal = 'whitespace-nowrap opacity-0 group-hover/rail:opacity-100 transition-opacity duration-150';
+  const epingle = useRailEpingle();
+
+  // LA GOUTTIÈRE EST POSÉE PAR LE RAIL, ET PAR LUI SEUL. Les écrans la
+  // consomment par la classe « gouttiere-rail » : c'est ainsi que le contenu
+  // suit quand on épingle, sans qu'aucun d'eux ait à le savoir.
+  useEffect(() => {
+    const r = document.documentElement;
+    r.style.setProperty('--rail', epingle ? LARGEUR_RAIL.ouvert : LARGEUR_RAIL.replie);
+    return () => r.style.removeProperty('--rail');
+  }, [epingle]);
+
+  // Épinglé, tout est lisible sans survoler : les libellés ne se révèlent plus,
+  // ils sont là.
+  const reveal = epingle
+    ? 'whitespace-normal'
+    : 'whitespace-nowrap opacity-0 group-hover/rail:opacity-100 '
+      + 'group-hover/rail:whitespace-normal transition-opacity duration-150';
+
   return (
     <aside
-      className="group/rail absolute left-0 top-0 h-full w-16 hover:w-60 z-20
-                 bg-iip-blue overflow-hidden transition-[width] duration-200 ease-out
-                 flex flex-col py-4 hover:shadow-xl hover:shadow-black/20">
+      className={`group/rail absolute left-0 top-0 h-full z-20 bg-iip-blue
+        overflow-hidden transition-[width] duration-200 ease-out flex flex-col py-4
+        ${epingle ? 'w-60' : 'w-16 hover:w-60 hover:shadow-xl hover:shadow-black/20'}`}>
       {/* En-tête */}
       <div className="flex items-center gap-3 px-4 mb-1 text-white flex-shrink-0">
         {HeaderIcon && <HeaderIcon size={22} className="text-iip-turquoise flex-shrink-0" />}
-        <span className={`text-[15px] font-semibold ${reveal}`}>{titre}</span>
+        <span className={`text-[15px] font-semibold flex-1 min-w-0 ${reveal}`}>{titre}</span>
+        {/* L'ÉPINGLE : le survol montre, l'épingle décide. Décaler la page au
+            survol la ferait sauter chaque fois qu'on frôle le bord gauche. */}
+        <button onClick={basculerEpingle}
+          title={epingle ? 'Replier le rail' : 'Garder le rail ouvert'}
+          className={`flex-none p-1 rounded-md text-white/50 hover:text-white
+            hover:bg-white/10 ${epingle ? '' : 'opacity-0 group-hover/rail:opacity-100'}`}>
+          {epingle ? <IconPinnedOff size={15} /> : <IconPin size={15} />}
+        </button>
       </div>
       {sousTitre && <div className={`px-4 h-4 text-[11px] text-white/40 ${reveal}`}>{sousTitre}</div>}
       {extra && <div className={`px-3 pt-2 ${reveal}`}>{extra}</div>}
@@ -199,7 +227,7 @@ export function RailDessine({ icon: HeaderIcon, titre, sousTitre, extra, section
                       les PAE de l'année suivante » ne tient pas en deux cent
                       quarante pixels, et débordait du rail. */}
                   <span className={`text-left leading-tight min-w-0 flex-1
-                    group-hover/rail:whitespace-normal break-words ${reveal}`}>
+                    break-words ${reveal}`}>
                     {it.label}
                   </span>
                 </button>

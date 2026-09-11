@@ -2342,7 +2342,7 @@ export default function Professeurs() {
           ]}] : []),
         ]}
       />
-      <div className="ml-16 p-4 md:p-6">
+      <div className="gouttiere-rail p-4 md:p-6">
       <div className="flex items-center justify-between mb-4 gap-3 flex-wrap">
         <h1 className="text-2xl font-title text-iip-gold">
           Membres du personnel <span className="text-base font-normal text-gray-400">({filtered.length})</span>

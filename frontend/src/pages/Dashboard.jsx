@@ -98,7 +98,7 @@ export default function Dashboard() {
         sousTitre={annee}
         sections={[{ items: TABS.map(([k, l]) => ({ key: k, label: l, icon: TAB_ICONS[k], actif: tab === k, onClick: () => setTab(k) })) }]}
       />
-      <div className="ml-16 flex flex-col min-w-0">
+      <div className="gouttiere-rail flex flex-col min-w-0">
         <div className="p-4 md:p-6 w-full space-y-6">
       <h1 className="text-2xl font-title text-iip-gold">Tableau de bord <span className="text-base font-normal text-gray-400">· {annee}</span></h1>
 

@@ -1308,7 +1308,7 @@ export default function Configuration() {
             actif: tab === t.key, onClick: () => setTab(t.key) })),
         }))}
       />
-      <div className="ml-16 px-3 md:px-6 py-4 space-y-6">
+      <div className="gouttiere-rail px-3 md:px-6 py-4 space-y-6">
         <PageHeader icon={IconSettings} titre="Configuration"
           sous="Référentiels, années, établissement, personnel et paramètres système" />
 
