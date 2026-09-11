@@ -80,7 +80,11 @@ export default function CentreImpression({ annee, section = null, onClose }) {
         setEtat(j);
         // Les unités closes sont celles dont les pièces sont signables : ce
         // sont elles qu'on vient chercher.
-        setChoisies(new Set(j.unites.filter(u => u.cloturee).map(u => u.ue_num)));
+        // RIEN N'EST COCHÉ À L'OUVERTURE. Toutes les unités closes l'étaient
+        // d'office : sur un écran qui produit des pièces nominatives et
+        // déclenche des téléchargements en série, un clic sur « Produire »
+        // avant d'avoir décoché sortait toute l'année. Choisir est l'affaire
+        // de trois clics ; défaire un envoi ne se fait pas.
       } catch (e) { setErreur(e.message); }
     })();
   }, [annee, sec]);
