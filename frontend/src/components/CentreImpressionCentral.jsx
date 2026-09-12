@@ -39,14 +39,159 @@ const PIECES = [
   { cle: 'grille', label: 'Grille de délibération', nominatif: false },
 ];
 
-function EnChantier({ quoi }) {
+/**
+ * LES RAPPORTS D'UN DOMAINE.
+ *
+ * Le catalogue vient du serveur : ajouter un rapport n'y ajoute pas d'écran.
+ * On voit d'abord ce qu'on emporte — cinquante lignes d'aperçu — avant de
+ * télécharger : un tableur qu'on découvre après coup se refait deux fois.
+ */
+function OngletRapports({ domaine }) {
+  const annee = getAnnee();
+  const [catalogue, setCatalogue] = useState(null);
+  const [choisi, setChoisi] = useState(null);
+  const [session, setSession] = useState(1);
+  const [apercu, setApercu] = useState(null);
+  const [erreur, setErreur] = useState(null);
+  const [enCours, setEnCours] = useState(false);
+
+  useEffect(() => {
+    fetch('/api/rapports/catalogue', { headers: authHeaders() })
+      .then(r => r.json()).then(j => setCatalogue(j.rapports || []))
+      .catch(e => setErreur(e.message));
+  }, []);
+
+  const liste = useMemo(
+    () => (catalogue || []).filter(r => r.domaine === domaine), [catalogue, domaine]);
+  useEffect(() => { setChoisi(null); setApercu(null); }, [domaine]);
+
+  const corps = (r) => JSON.stringify({
+    annee, ...(r.params.includes('session') ? { session } : {}),
+  });
+
+  async function voir(r) {
+    setChoisi(r); setApercu(null); setErreur(null); setEnCours(true);
+    try {
+      const rep = await fetch(`/api/rapports/${r.id}/apercu`, {
+        method: 'POST', headers: authHeaders(), body: corps(r),
+      });
+      const j = await rep.json();
+      if (!rep.ok) { setErreur(j.error); return; }
+      setApercu(j);
+    } catch (e) { setErreur(e.message); } finally { setEnCours(false); }
+  }
+
+  async function telecharger() {
+    if (!choisi) return;
+    setEnCours(true); setErreur(null);
+    try {
+      const rep = await fetch(`/api/rapports/${choisi.id}/xlsx`, {
+        method: 'POST', headers: authHeaders(), body: corps(choisi),
+      });
+      if (!rep.ok) {
+        const j = await rep.json().catch(() => ({}));
+        setErreur(j.error || 'Le tableur n’a pas pu être produit.');
+        return;
+      }
+      const url = URL.createObjectURL(await rep.blob());
+      const a = document.createElement('a');
+      a.href = url; a.download = `${choisi.id}.xlsx`;
+      document.body.appendChild(a); a.click(); a.remove();
+      setTimeout(() => URL.revokeObjectURL(url), 30000);
+    } catch (e) { setErreur(e.message); } finally { setEnCours(false); }
+  }
+
   return (
-    <div className="p-8 text-[13px] text-slate-500 max-w-xl">
-      <p className="mb-2 font-medium text-slate-700">Pas encore ici.</p>
-      <p>
-        Les documents de {quoi} s’impriment aujourd’hui depuis leur écran. Ils
-        rejoindront cet endroit — il reste à convenir de ce qu’on y met.
-      </p>
+    <div className="flex min-h-0 flex-1">
+      <div className="w-[340px] border-r border-slate-200 overflow-auto p-2 space-y-1">
+        {liste.map(r => (
+          <button key={r.id} onClick={() => voir(r)}
+            className={`w-full text-left px-2.5 py-2 rounded-lg border text-[12.5px]
+              ${choisi?.id === r.id ? 'border-iip-blue bg-iip-blue/5'
+                : 'border-transparent hover:bg-slate-50'}`}>
+            <span className="block text-slate-800">{r.libelle}</span>
+            <span className="block text-[11px] text-slate-500">{r.aide}</span>
+          </button>
+        ))}
+        {catalogue && !liste.length && (
+          <p className="p-4 text-[12.5px] text-slate-400">
+            Aucun rapport dans ce domaine pour l’instant.
+          </p>
+        )}
+        {!catalogue && <p className="p-4 text-[12px] text-slate-400">Chargement…</p>}
+      </div>
+
+      <div className="flex-1 flex flex-col min-h-0">
+        <div className="px-3 py-2 border-b border-slate-200 flex flex-wrap items-center gap-2">
+          <span className="text-[12.5px] text-slate-600">{annee}</span>
+          {choisi?.params?.includes('session') && (
+            <select value={session}
+              onChange={e => { setSession(Number(e.target.value)); setApercu(null); }}
+              className="px-2 py-1 text-[12px] border border-slate-300 rounded">
+              <option value={1}>1re session</option>
+              <option value={2}>2e session</option>
+            </select>
+          )}
+          <span className="flex-1" />
+          {apercu && (
+            <span className="text-[12px] text-slate-500">
+              {apercu.nb} ligne(s){apercu.tronque ? ' · 50 premières affichées' : ''}
+            </span>
+          )}
+          <button onClick={telecharger} disabled={!choisi || enCours}
+            className="px-3 py-1.5 text-[12.5px] rounded-lg bg-iip-blue text-white
+                       font-semibold disabled:opacity-40">
+            Télécharger le tableur
+          </button>
+        </div>
+
+        {erreur && (
+          <div className="m-3 px-3 py-2 rounded-lg bg-amber-50 text-amber-900 text-[12.5px]
+                          flex items-start gap-2">
+            <IconAlertTriangle size={15} className="flex-none mt-0.5" /> {erreur}
+          </div>
+        )}
+
+        <div className="flex-1 overflow-auto min-h-0">
+          {!choisi && (
+            <p className="p-6 text-[12.5px] text-slate-400">
+              Choisissez un rapport à gauche.
+            </p>
+          )}
+          {choisi && !apercu && !erreur && (
+            <p className="p-6 text-[12.5px] text-slate-400">
+              {enCours ? 'Calcul…' : '—'}
+            </p>
+          )}
+          {apercu && (
+            <table className="w-full text-[11.5px]">
+              <thead className="sticky top-0 bg-slate-50">
+                <tr>{apercu.colonnes.map(c => (
+                  <th key={c.cle} className="text-left font-medium text-slate-600
+                                             px-2 py-1.5 border-b border-slate-200">
+                    {c.entete}
+                  </th>))}</tr>
+              </thead>
+              <tbody>
+                {apercu.lignes.map((l, i) => (
+                  <tr key={i} className="border-b border-slate-50">
+                    {apercu.colonnes.map(c => (
+                      <td key={c.cle} className="px-2 py-1 text-slate-700">
+                        {l[c.cle] ?? ''}
+                      </td>))}
+                  </tr>
+                ))}
+                {!apercu.lignes.length && (
+                  <tr><td colSpan={apercu.colonnes.length}
+                    className="px-2 py-4 text-slate-400 text-center">
+                    Aucune donnée pour ces paramètres.
+                  </td></tr>
+                )}
+              </tbody>
+            </table>
+          )}
+        </div>
+      </div>
     </div>
   );
 }
@@ -359,8 +504,9 @@ export default function CentreImpressionCentral({ ongletInitial = 'etudiants',
           ))}
         </div>
 
-        {onglet === 'etudiants' ? <OngletEtudiants perimetre={perimetre} />
-          : <EnChantier quoi={ONGLETS.find(o => o.cle === onglet)?.label.toLowerCase()} />}
+        {onglet === 'etudiants'
+          ? <OngletEtudiants perimetre={perimetre} />
+          : <OngletRapports domaine={onglet} />}
       </div>
     </div>
   );

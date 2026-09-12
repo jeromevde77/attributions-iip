@@ -302,6 +302,42 @@ pas sortir du modèle générique.
 
 ---
 
+#### Les rapports — Personnel, Pilotage, Référentiels, Organisation
+
+**Pilotage était aveugle** : `pilotage.js`, `repartitionPeriodes.js`,
+`classement.js`, `statsDeliberation.js` calculaient sans jamais rien produire.
+Or ces chiffres servent DEHORS — dotation, Conseil de perfectionnement,
+inspection, comptabilité — et se recopiaient à la main.
+
+Treize rapports, en **tableur** : un rapport de pilotage se retrie, se recoupe,
+se transmet à qui le retravaillera ; un document figé obligerait à ressaisir.
+Les pièces réglementaires restent du ressort des annexes — `rapports.js` n'en
+produit aucune.
+
+| Domaine | Rapports |
+|---|---|
+| Pilotage | ETP par section · par unité · par établissement référent ; résultats de délibération **par session** ; emploi de la dotation |
+| Personnel | membres et leur charge ; temporaires et ancienneté ; attributions ligne à ligne |
+| Référentiels | unités ; grille de cours ; acquis d'apprentissage |
+| Organisation | calendrier des délibérations ; locaux |
+
+Chaque rapport déclare ses colonnes et sa requête : en ajouter un, c'est ajouter
+une entrée, non un écran. L'aperçu montre cinquante lignes avant téléchargement.
+
+**Pièges rencontrés, vérifiés sur une base d'essai** — quatorze requêtes
+exécutées pour de vrai, deux fautes trouvées :
+
+- la table `aa` **n'a pas d'année** : les acquis tiennent à l'unité, non à un
+  millésime ;
+- **deux définitions de `local` cohabitent** dans le dépôt — `equipement` au
+  singulier dans `schema.sql`, `equipements` dans les fondations locaux. Le
+  rapport lit `PRAGMA table_info` plutôt que de supposer ;
+- le taux de réussite se calcule sur les **délibérés**, non sur les inscrits :
+  rapporté aux inscrits, il ferait passer pour des échecs ceux que la séance n'a
+  pas jugés.
+
+---
+
 #### Le centre d'impression central — Étudiants
 
 Dix-huit écrans produisaient des documents, chacun avec sa mécanique : la même
