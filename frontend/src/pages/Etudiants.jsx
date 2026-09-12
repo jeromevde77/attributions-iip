@@ -2232,7 +2232,11 @@ export default function Etudiants() {
   return (
     <div className="relative bg-slate-50" style={{ minHeight: 'calc(100vh - 64px)' }}>
       <RailLateral icon={IconChecklist} titre="Étudiants"
-        sousTitre={`${filtres.length} étudiant(s)`} sections={RAIL} />
+        sousTitre={`${filtres.length} étudiant(s)`} sections={RAIL}
+        actions={[
+          { key: 'imprimer', label: 'Centre d’impression', icon: IconPrinter,
+            primaire: true, onClick: () => setCentreImpression(true) },
+        ]} />
     <div className="gouttiere-rail p-5 space-y-4 max-w-none">
       {/* Le titre et le compte vivaient ICI, alors que le rail les porte déjà
           et que l'onglet le dit une troisième fois. Trois fois « Étudiants »

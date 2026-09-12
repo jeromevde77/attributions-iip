@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect } from 'react';
+import { createContext, useContext, useEffect, useState } from 'react';
 import { IconPin, IconPinnedOff } from '@tabler/icons-react';
 import { useRailEpingle, basculerEpingle, LARGEUR_RAIL } from '../lib/railEpingle.js';
 
@@ -127,7 +127,8 @@ export function KpiCard({ label, valeur, sous, ton = 'neutral' }) {
 //   sousTitre  : petite ligne sous le titre (optionnel)
 //   extra      : noeud rendu sous l'en-tête (ex. déroulant année) — visible au survol
 //   sections   : [{ label?, items: [{ key, label, icon, actif, onClick }] }]
-export function RailLateral({ icon: HeaderIcon, titre, sousTitre, extra, sections = [] }) {
+export function RailLateral({ icon: HeaderIcon, titre, sousTitre, extra,
+                              sections = [], actions = [] }) {
   // DANS UN AXE, ON NE SE DESSINE PAS : ON S'INSCRIT. L'axe tient un seul rail
   // et y place d'abord ses rubriques, puis ces outils-ci.
   const inscrire = useContext(ContexteRail);
@@ -143,12 +144,27 @@ export function RailLateral({ icon: HeaderIcon, titre, sousTitre, extra, section
   if (inscrire) return null;
 
   return <RailDessine icon={HeaderIcon} titre={titre} sousTitre={sousTitre}
-    extra={extra} sections={sections} />;
+    extra={extra} sections={sections} actions={actions} />;
 }
 
 /** Le rail tel qu'il se dessine — appelé par l'axe, ou par un écran isolé. */
-export function RailDessine({ icon: HeaderIcon, titre, sousTitre, extra, sections = [] }) {
+export function RailDessine({ icon: HeaderIcon, titre, sousTitre, extra,
+                              sections = [], actions = [] }) {
   const epingle = useRailEpingle();
+  /**
+   * UNE SEULE BULLE, HORS DE LA ZONE QUI DÉFILE.
+   *
+   * Rendue dans chaque entrée, elle aurait été rognée : le rail porte
+   * « overflow-hidden » et le conteneur des rubriques défile, ce qui force le
+   * navigateur à couper ce qui dépasse. On retient donc le libellé survolé et
+   * sa hauteur, et on la dessine une fois, au niveau du rail.
+   */
+  const [survol, setSurvol] = useState(null);
+  const surviser = (e, label) => {
+    const r = e.currentTarget.getBoundingClientRect();
+    const p = e.currentTarget.closest('aside').getBoundingClientRect();
+    setSurvol({ label, y: r.top - p.top + r.height / 2 });
+  };
 
   // LA GOUTTIÈRE EST POSÉE PAR LE RAIL, ET PAR LUI SEUL. Les écrans la
   // consomment par la classe « gouttiere-rail » : c'est ainsi que le contenu
@@ -159,18 +175,26 @@ export function RailDessine({ icon: HeaderIcon, titre, sousTitre, extra, section
     return () => r.style.removeProperty('--rail');
   }, [epingle]);
 
-  // Épinglé, tout est lisible sans survoler : les libellés ne se révèlent plus,
-  // ils sont là.
-  const reveal = epingle
-    ? 'whitespace-normal'
-    : 'whitespace-nowrap opacity-0 group-hover/rail:opacity-100 '
-      + 'group-hover/rail:whitespace-normal transition-opacity duration-150';
+  /**
+   * LE RAIL NE BOUGE PLUS.
+   *
+   * Il s'élargissait au survol, par-dessus le contenu. Sur le calendrier des
+   * sessions ou une grille de délibération — les écrans les plus larges — il
+   * recouvrait précisément ce qu'on était en train de lire, et il affichait
+   * cinq libellés pour répondre à une seule question.
+   *
+   * Étroit et fixe, donc, avec une BULLE au survol : elle nomme une seule
+   * chose, celle qu'on vise, et ne déplace rien. L'épingle reste pour qui veut
+   * la liste sous les yeux en permanence — c'est un réglage, non un accident
+   * du curseur.
+   */
+  const reveal = epingle ? 'whitespace-normal' : 'hidden';
 
   return (
     <aside
       className={`group/rail absolute left-0 top-0 h-full z-20 bg-iip-blue
-        overflow-hidden transition-[width] duration-200 ease-out flex flex-col py-4
-        ${epingle ? 'w-60' : 'w-16 hover:w-60 hover:shadow-xl hover:shadow-black/20'}`}>
+        transition-[width] duration-200 ease-out flex flex-col py-4
+        ${epingle ? 'w-60' : 'w-16'}`}>
       {/* En-tête */}
       <div className="flex items-center gap-3 px-4 mb-1 text-white flex-shrink-0">
         {HeaderIcon && <HeaderIcon size={22} className="text-iip-turquoise flex-shrink-0" />}
@@ -199,8 +223,11 @@ export function RailDessine({ icon: HeaderIcon, titre, sousTitre, extra, section
             {sec.items.map(it => {
               const Ic = it.icon;
               return (
-                <button key={it.key} onClick={it.onClick} title={it.label}
-                  className={`w-full flex items-start gap-3 px-3 py-2 rounded-lg text-[13px] mb-0.5 transition-colors duration-150
+                <button key={it.key} onClick={it.onClick} aria-label={it.label}
+                  onMouseEnter={e => !epingle && surviser(e, it.label)}
+                  onMouseLeave={() => setSurvol(null)}
+                  className={`relative w-full flex items-start gap-3 px-3 py-2
+                    rounded-lg text-[13px] mb-0.5 transition-colors duration-150
                     ${it.actif
                       ? 'bg-iip-turquoise text-white font-semibold'
                       : it.couleur
@@ -236,6 +263,44 @@ export function RailDessine({ icon: HeaderIcon, titre, sousTitre, extra, section
           </div>
         ))}
       </div>
+
+      {/* LES ACTIONS, SOUS UN FILET.
+          Au-dessus, ce qui change d'un écran à l'autre ; en dessous, ce qui ne
+          change jamais — même place, même ordre, quel que soit l'écran, si bien
+          qu'on finit par y aller sans regarder. L'impression d'abord : on
+          imprime tous les jours, on importe quelques fois par an. */}
+      {!!actions.length && (
+        <div className="flex-shrink-0 px-2.5 pt-2 mt-1 border-t border-white/15 space-y-1">
+          {actions.map(a2 => {
+            const Ic = a2.icon;
+            return (
+              <button key={a2.key} onClick={a2.onClick} aria-label={a2.label}
+                onMouseEnter={e => !epingle && surviser(e, a2.label)}
+                onMouseLeave={() => setSurvol(null)}
+                className={`relative w-full flex items-center gap-3 px-3 py-2 rounded-lg
+                  text-[13px] transition-colors duration-150
+                  ${a2.primaire
+                    ? 'bg-white text-iip-blue font-semibold shadow-md shadow-black/20 hover:bg-white/90'
+                    : 'text-white/75 hover:bg-white/10 hover:text-white'}`}>
+                {Ic && <Ic size={19} stroke={1.8} className="flex-shrink-0" />}
+                <span className={`text-left leading-tight min-w-0 flex-1 ${reveal}`}>
+                  {a2.label}
+                </span>
+              </button>
+            );
+          })}
+        </div>
+      )}
+
+      {/* La bulle : une seule, au niveau du rail, hors de ce qui défile. */}
+      {survol && !epingle && (
+        <span style={{ top: survol.y }}
+          className="pointer-events-none absolute left-[calc(100%+8px)] -translate-y-1/2 z-50
+                     px-2 py-1 rounded-md bg-iip-blue-dark text-white text-[11.5px]
+                     whitespace-nowrap shadow-lg">
+          {survol.label}
+        </span>
+      )}
     </aside>
   );
 }

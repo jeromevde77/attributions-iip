@@ -2,6 +2,7 @@ import { useState, useEffect, useMemo, useRef, Fragment } from 'react';
 import { api, getAnnee, getUser} from '../lib/api.js';
 import { IconChartBar, IconHome, IconUsers, IconSettings, IconChevronRight, IconChevronDown, IconPrinter, IconRotateClockwise, IconCheck, IconX, IconTrash, IconCash, IconCalendar} from '@tabler/icons-react';
 import { PageHeader, Tabs, RailLateral } from '../components/ui.jsx';
+import CentreImpressionCentral from '../components/CentreImpressionCentral.jsx';
 import Budget from './Budget.jsx';
 import RepartitionPeriodes from './RepartitionPeriodes.jsx';
 import {
@@ -478,6 +479,7 @@ function DotationComparaison({ civil }) {
 import StatsDeliberation from '../components/StatsDeliberation.jsx';
 
 export default function Pilotage() {
+  const [centreImpression, setCentreImpression] = useState(false);
   const anneeActive = getAnnee();
   const [tab, setTab]               = useState('synthese'); // synthese | etp | dotation | config
   const [etpData, setEtpData]       = useState(null);
@@ -1470,6 +1472,10 @@ export default function Pilotage() {
   return (
     <div className="relative bg-slate-50" style={{ minHeight: 'calc(100vh - 64px)' }}>
       <RailLateral
+        actions={[
+          { key: 'imprimer', label: 'Centre d’impression', icon: IconPrinter,
+            primaire: true, onClick: () => setCentreImpression(true) },
+        ]}
         icon={IconChartBar}
         titre="Pilotage"
         extra={
@@ -1525,6 +1531,10 @@ export default function Pilotage() {
           </>
         )}
       </div>
+      {centreImpression && (
+        <CentreImpressionCentral ongletInitial="pilotage"
+          onClose={() => setCentreImpression(false)} />
+      )}
     </div>
   );
 }

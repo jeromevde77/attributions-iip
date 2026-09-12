@@ -302,6 +302,32 @@ pas sortir du modèle générique.
 
 ---
 
+#### Le rail — étroit, fixe, et une bulle au survol
+
+Il s'élargissait au survol, par-dessus le contenu. Sur le calendrier des
+sessions ou une grille de délibération — les écrans les plus larges — il
+recouvrait précisément ce qu'on lisait, et affichait cinq libellés pour répondre
+à une seule question.
+
+**Étroit et fixe**, donc, avec une **bulle** qui nomme une seule chose : celle
+qu'on vise. L'épingle reste, pour qui veut la liste sous les yeux en permanence —
+c'est un réglage, non un accident du curseur.
+
+Deux détails qui ont demandé du soin :
+
+- la bulle est **unique et rendue au niveau du rail**, hors du conteneur qui
+  défile : rendue dans chaque entrée, elle aurait été rognée ;
+- chaque entrée porte un **`aria-label`**, parce qu'un survol ne sert ni au
+  clavier ni à la synthèse vocale — et l'infobulle native du navigateur met une
+  seconde et demie à paraître, trop lent quand l'icône est tout ce qu'on a.
+
+**Les actions vivent sous un filet** : au-dessus ce qui change d'un écran à
+l'autre, en dessous ce qui ne change jamais. **L'impression d'abord** — on
+imprime tous les jours, on importe quelques fois par an — et le blanc lui est
+réservé, pour qu'elle reste le seul point d'appel du rail.
+
+---
+
 #### Les rapports — Personnel, Pilotage, Référentiels, Organisation
 
 **Pilotage était aveugle** : `pilotage.js`, `repartitionPeriodes.js`,
