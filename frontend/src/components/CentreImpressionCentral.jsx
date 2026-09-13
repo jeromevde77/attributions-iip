@@ -476,7 +476,7 @@ export default function CentreImpressionCentral({ ongletInitial = 'etudiants',
   const [onglet, setOnglet] = useState(ongletInitial);
 
   return (
-    <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4">
+    <div className="fixed inset-0 bg-[rgba(11,21,45,.32)] backdrop-blur-[3px] flex items-center justify-center z-50 p-4">
       <div className="bg-white rounded-xl w-[1180px] max-w-full h-[90vh] flex flex-col">
         <div className="px-4 py-3 border-b border-slate-200 flex items-center gap-3">
           <IconPrinter size={18} className="text-iip-blue" />

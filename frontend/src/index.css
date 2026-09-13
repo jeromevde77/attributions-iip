@@ -307,8 +307,72 @@ table.grid-excel-soft td.num { text-align: right; font-variant-numeric: tabular-
  * Le repli `4rem` sert au cas où la classe serait employée sans rail monté :
  * mieux vaut une gouttière inutile qu'un contenu recouvert.
  */
+/* ─────────────────────────────────────────────────────────────────────────
+   LES JETONS DES MENUS — deux modes, un seul jeu de noms.
+   Le rail et la barre du haut ne connaissent pas le mode : ils lisent ces
+   variables. Changer de parti se fait ici, et nulle part ailleurs.
+
+   LA COULEUR EST UNE DÉPENSE : « accent » ne sert qu'à ce qui doit attirer
+   l'œil — la rubrique ouverte, une alerte. Tout le reste est gris.
+   ───────────────────────────────────────────────────────────────────────── */
+:root, :root[data-mode="clair"] {
+  --menu-fond:        rgba(241, 243, 247, 0.86);
+  --menu-bord:        rgba(27, 43, 75, 0.10);
+  --menu-texte:       #1B2B4B;
+  --menu-texte-doux:  rgba(27, 43, 75, 0.55);
+  --menu-survol:      rgba(27, 43, 75, 0.06);
+  --menu-actif:       rgba(255, 255, 255, 0.95);
+  --menu-actif-bord:  rgba(27, 43, 75, 0.12);
+  --menu-filet:       rgba(27, 43, 75, 0.10);
+  --menu-ombre:       0 18px 45px -20px rgba(11, 21, 45, 0.28);
+  --menu-icone:       rgba(27, 43, 75, 0.60);
+  --menu-accent:      #0093B0;   /* turquoise assombri : lisible sur gris pâle */
+  --barre-fond:       #F4F6F9;   /* la barre du haut : opaque, elle ne flotte pas */
+  --champ-fond:       #FFFFFF;
+}
+:root[data-mode="sombre"] {
+  --menu-fond:        rgba(27, 43, 75, 0.88);
+  --menu-bord:        rgba(255, 255, 255, 0.10);
+  --menu-texte:       #FFFFFF;
+  --menu-texte-doux:  rgba(255, 255, 255, 0.45);
+  --menu-survol:      rgba(255, 255, 255, 0.10);
+  --menu-actif:       rgba(255, 255, 255, 0.15);
+  --menu-actif-bord:  rgba(255, 255, 255, 0.18);
+  --menu-filet:       rgba(255, 255, 255, 0.12);
+  --menu-ombre:       0 20px 50px -15px rgba(11, 21, 45, 0.55);
+  --menu-icone:       rgba(255, 255, 255, 0.70);
+  --menu-accent:      #00AACC;
+  --barre-fond:       #1B2B4B;
+  --champ-fond:       rgba(255,255,255,.08);
+}
+
+/* ─── LA BARRE DU HAUT — entière, mais du même monde que le rail ─────────
+   Elle ne flotte pas : deux panneaux détachés sur un écran, c'est un de trop,
+   et il faut un point fixe. Elle suit en revanche le mode. */
+.barre-haut { background: var(--barre-fond); border-color: var(--menu-bord);
+              color: var(--menu-texte); }
+.onglet-actif { background: var(--menu-actif); color: var(--menu-texte);
+                box-shadow: inset 0 0 0 1px var(--menu-actif-bord); }
+.onglet-dormant { color: var(--menu-texte-doux); }
+.onglet-dormant:hover { background: var(--menu-survol); color: var(--menu-texte); }
+.champ-barre { background: var(--champ-fond); color: var(--menu-texte);
+               border: 1px solid var(--menu-bord); }
+.pastille-version { background: var(--menu-actif); color: var(--menu-texte);
+                    box-shadow: inset 0 0 0 1px var(--menu-actif-bord); }
+
+/* EN MODE SOMBRE, UN LOGO MARINE DISPARAÎT. Ses traits marine s'éclaircissent,
+   le turquoise reste turquoise : c'est lui qui porte la marque. */
+:root[data-mode="sombre"] .logo-lucie text { fill: #FFFFFF; }
+:root[data-mode="sombre"] .logo-lucie [stroke="#1B2B4B"] { stroke: #FFFFFF; }
+:root[data-mode="sombre"] .logo-lucie [fill="#1B2B4B"] { fill: #FFFFFF; }
+
+/* LE RAIL FLOTTANT N'A PAS DE BARRE DE DÉFILEMENT VISIBLE : une barre grise en
+   travers d'un panneau translucide le ramènerait à une boîte de dialogue. */
+.rail-defile { scrollbar-width: none; -ms-overflow-style: none; }
+.rail-defile::-webkit-scrollbar { width: 0; height: 0; }
+
 .gouttiere-rail {
-  margin-left: var(--rail, 4rem);
+  margin-left: var(--rail, 5rem);
   transition: margin-left 200ms ease-out;
 }
 @media (prefers-reduced-motion: reduce) {

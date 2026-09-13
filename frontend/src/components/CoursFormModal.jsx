@@ -85,7 +85,7 @@ export default function CoursFormModal({ cours, ueNum, section, onClose, onSaved
   const lblZ = 'text-xs font-medium mb-1 text-gray-400';
 
   return (
-    <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50"
+    <div className="fixed inset-0 bg-[rgba(11,21,45,.32)] backdrop-blur-[3px] flex items-center justify-center p-4 z-50"
          onClick={e => e.target === e.currentTarget && onClose()}>
       <div className="bg-white rounded-xl shadow-2xl w-full max-w-lg border-t-4 border-iip-blue">
 

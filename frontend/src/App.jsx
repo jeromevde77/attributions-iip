@@ -266,7 +266,11 @@ function ProtectedLayout({ children }) {
           ⚠ ENVIRONNEMENT DE DÉVELOPPEMENT — DONNÉES FICTIVES ⚠
         </div>
       )}
-      <header className="bg-white border-b border-iip-gold/30 px-3 md:px-6 py-3 sticky top-0 z-20 shadow-sm">
+      {/* LA BARRE DU HAUT RESTE ENTIÈRE, d'un bord à l'autre : deux panneaux
+          détachés sur le même écran, c'est un panneau de trop — il faut un
+          point fixe, et c'est elle. Elle suit en revanche le mode des menus,
+          sans quoi l'on retomberait sur deux espaces qui ne se parlent pas. */}
+      <header className="barre-haut border-b px-3 md:px-6 py-3 sticky top-0 z-20 shadow-pose">
         <div className="flex items-center justify-between gap-3">
           {/* Burger mobile */}
           <button
@@ -277,7 +281,8 @@ function ProtectedLayout({ children }) {
           </button>
 
           <div className="flex-none">
-            <svg width="90" height="28" viewBox="0 0 140 44" xmlns="http://www.w3.org/2000/svg">
+            <svg className="logo-lucie" width="90" height="28" viewBox="0 0 140 44"
+              xmlns="http://www.w3.org/2000/svg">
               {/* Symbole L compact */}
               <g stroke="#1B2B4B" strokeOpacity=".06" fill="none" strokeWidth="1.2" strokeLinecap="round">
                 <line x1="5" y1="14" x2="12" y2="6"/><line x1="5" y1="14" x2="16" y2="23"/>
@@ -314,7 +319,8 @@ function ProtectedLayout({ children }) {
 
           {/* Sélecteur d'année */}
           <select value={anneeActive} onChange={e => changeAnnee(e.target.value)}
-            className="border border-iip-blue/30 rounded-lg px-2.5 py-1.5 h-9 text-sm font-semibold text-iip-blue bg-white focus:outline-none focus:ring-2 focus:ring-iip-turquoise/40 cursor-pointer">
+            className="champ-barre rounded-champ px-2.5 py-1.5 h-9 text-sm font-semibold
+              focus:outline-none focus:ring-2 focus:ring-iip-turquoise/40 cursor-pointer">
             {annees.map(a => <option key={a.code} value={a.code}>{a.code}</option>)}
             {annees.length === 0 && <option value={anneeActive}>{anneeActive}</option>}
           </select>
@@ -322,10 +328,9 @@ function ProtectedLayout({ children }) {
           <nav className="hidden md:flex gap-0.5 flex-1 ml-3">
             {nav.map(([to, lbl, Icon]) => (
               <NavLink key={to} to={to} end={to === '/'} className={({ isActive }) =>
-                `flex items-center gap-2 px-3 py-2 rounded-lg text-sm transition-colors duration-150 ${
-                  isActive
-                    ? 'bg-iip-turquoise/10 text-iip-blue font-semibold'
-                    : 'text-gray-600 hover:text-iip-blue hover:bg-gray-100'
+                `flex items-center gap-2 px-3 py-2 rounded-champ text-sm
+                 transition-colors duration-150 ease-ios ${
+                  isActive ? 'onglet-actif font-semibold' : 'onglet-dormant'
                 }`
               }>
                 <span className="relative flex-shrink-0">
@@ -349,7 +354,10 @@ function ProtectedLayout({ children }) {
               </span>
             )}
             <span
-              className={`relative bg-iip-blue text-white font-semibold px-2 py-0.5 rounded-md text-[11px] tracking-wide hidden md:inline ${versionIsNew ? 'version-badge-new' : ''}`}
+              /* SUR UNE BARRE MARINE, UNE PASTILLE MARINE DISPARAÎT : le badge
+                 prend la surface des menus, comme l'onglet actif. */
+              className={`relative pastille-version font-semibold px-2 py-0.5 rounded-champ
+                text-[11px] tracking-wide hidden md:inline ${versionIsNew ? 'version-badge-new' : ''}`}
               title={versionIsNew ? 'Nouvelle version déployée\u00a0!' : `Version ${versionNum}`}>
               v{versionNum}
               {versionIsNew && (
@@ -377,7 +385,7 @@ function ProtectedLayout({ children }) {
             {nav.map(([to, lbl, Icon]) => (
               <NavLink key={to} to={to} end={to === '/'} onClick={() => setMenuOpen(false)} className={({ isActive }) =>
                 `flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm font-medium ${
-                  isActive ? 'bg-iip-turquoise/10 text-iip-blue' : 'text-gray-700 hover:bg-gray-100'
+                  isActive ? 'onglet-actif' : 'onglet-dormant'
                 }`
               }>
                 {Icon && <Icon size={18} stroke={1.8} />}

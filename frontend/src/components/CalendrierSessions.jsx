@@ -575,7 +575,7 @@ export default function CalendrierSessions() {
             avec l'avant et l'après, parce que c'est ce qu'un recours viendra
             chercher. Corriger une date ne rouvre pas la délibération. */}
         {aMotiver && (
-          <div className="fixed inset-0 bg-black/30 flex items-center justify-center z-50">
+          <div className="fixed inset-0 bg-[rgba(11,21,45,.32)] backdrop-blur-[3px] flex items-center justify-center z-50">
             <div className="bg-white rounded-xl p-5 w-[520px] max-w-[92vw]">
               <h3 className="text-[15px] font-medium mb-1">Séance close</h3>
               <p className="text-[12.5px] text-slate-600 mb-3">

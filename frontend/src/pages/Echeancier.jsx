@@ -303,7 +303,7 @@ export default function Echeancier() {
 
       {/* Détail */}
       {detail && (
-        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4"
+        <div className="fixed inset-0 bg-[rgba(11,21,45,.32)] backdrop-blur-[3px] flex items-center justify-center z-50 p-4"
              onClick={() => setDetail(null)}>
           <div className="bg-white rounded-xl max-w-xl w-full" onClick={e => e.stopPropagation()}>
             <div className="px-5 py-3.5 border-b border-slate-200 flex items-start justify-between gap-3">

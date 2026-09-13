@@ -104,9 +104,9 @@ export default function EncodageDirect({ onClose, anneeDefaut, sectionDefaut }) 
   };
 
   return (
-    <div className="fixed inset-0 bg-black/40 flex items-start justify-center z-50 p-4"
+    <div className="fixed inset-0 bg-[rgba(11,21,45,.32)] backdrop-blur-[3px] flex items-start justify-center z-50 p-4"
       onClick={e => e.target === e.currentTarget && onClose()}>
-      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-5xl mt-8 p-5 space-y-4
+      <div className="bg-white rounded-fenetre shadow-dessus w-full max-w-5xl mt-8 p-5 space-y-4
                       max-h-[90vh] overflow-hidden flex flex-col">
         <div className="flex items-start justify-between">
           <div>

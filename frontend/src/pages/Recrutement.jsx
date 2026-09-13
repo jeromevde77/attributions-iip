@@ -1064,7 +1064,7 @@ function EntretienModal({ candidature, poste, annee, qIA, grille, onClose, onSav
   }, {});
 
   return (
-    <div className="fixed inset-0 bg-black/50 z-50 flex flex-col" onClick={onClose}>
+    <div className="fixed inset-0 bg-[rgba(11,21,45,.32)] backdrop-blur-[3px] z-50 flex flex-col" onClick={onClose}>
       <div className="flex items-center justify-between px-5 py-3 bg-white border-b border-gray-200 flex-shrink-0"
         onClick={e => e.stopPropagation()}>
         <div>
@@ -2052,7 +2052,7 @@ function FicheCandidat({ candidat, fonctions, grille, onClose, onSaved }) {
 
   return (
     <>
-    <div className="fixed inset-0 bg-black/40 z-50 flex items-start justify-center p-4 pt-8 overflow-auto" onClick={onClose}>
+    <div className="fixed inset-0 bg-[rgba(11,21,45,.32)] backdrop-blur-[3px] z-50 flex items-start justify-center p-4 pt-8 overflow-auto" onClick={onClose}>
       <div className="bg-white rounded-xl w-full max-w-2xl shadow-xl overflow-hidden" onClick={e => e.stopPropagation()}>
 
         {/* En-tête marine */}
@@ -2511,7 +2511,7 @@ function ModalAjoutQualification({ onClose, onAjouter, onFermer }) {
   };
 
   return (
-    <div className="fixed inset-0 bg-black/50 z-[70] flex items-center justify-center p-4"
+    <div className="fixed inset-0 bg-[rgba(11,21,45,.32)] backdrop-blur-[3px] z-[70] flex items-center justify-center p-4"
       onClick={onClose}>
       <div className="bg-white rounded-xl shadow-2xl w-full max-w-2xl max-h-[90vh] flex flex-col"
         onClick={e => e.stopPropagation()}>
@@ -2686,7 +2686,7 @@ function ModalAnalyseCv({ onClose, onResultat, candidatExistant = null }) {
   };
 
   return (
-    <div className="fixed inset-0 bg-black/50 z-[60] flex items-center justify-center p-4" onClick={onClose}>
+    <div className="fixed inset-0 bg-[rgba(11,21,45,.32)] backdrop-blur-[3px] z-[60] flex items-center justify-center p-4" onClick={onClose}>
       <div className="bg-white rounded-xl shadow-2xl w-full max-w-2xl max-h-[90vh] flex flex-col"
         onClick={e => e.stopPropagation()}>
 
@@ -2874,7 +2874,7 @@ function ModalNouveauCandidat({ onClose, onSaved }) {
 
   return (
     <>
-    <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4" onClick={onClose}>
+    <div className="fixed inset-0 bg-[rgba(11,21,45,.32)] backdrop-blur-[3px] z-50 flex items-center justify-center p-4" onClick={onClose}>
       <div className="bg-white rounded-xl w-full max-w-md shadow-xl" onClick={e => e.stopPropagation()}>
         <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100">
           <h3 className="text-base font-bold text-iip-blue">Nouveau candidat</h3>
@@ -3187,7 +3187,7 @@ function EntretienLibre({ candidat, grille, onClose, onSaved, onAutoSave }) {
   const next = () => idxCur < sections.length - 1 && setSection(sections[idxCur + 1]);
 
   return (
-    <div className="fixed inset-0 bg-black/50 z-50 flex flex-col" onClick={onClose}>
+    <div className="fixed inset-0 bg-[rgba(11,21,45,.32)] backdrop-blur-[3px] z-50 flex flex-col" onClick={onClose}>
       <div className="flex items-center justify-between px-4 py-3 bg-iip-blue flex-shrink-0"
         onClick={e => e.stopPropagation()}>
         <div className="flex items-center gap-3 min-w-0">

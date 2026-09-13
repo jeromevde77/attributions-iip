@@ -115,9 +115,9 @@ export default function ImportTableauPlat({ annee, onClose, onFini }) {
     .reduce((n, u) => n + u.resume.s1 + u.resume.s2, 0);
 
   return (
-    <div className="fixed inset-0 bg-black/40 flex items-start justify-center z-50 p-3 overflow-y-auto"
+    <div className="fixed inset-0 bg-[rgba(11,21,45,.32)] backdrop-blur-[3px] flex items-start justify-center z-50 p-3 overflow-y-auto"
       onClick={e => e.target === e.currentTarget && onClose()}>
-      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-[1040px] my-4
+      <div className="bg-white rounded-fenetre shadow-dessus w-full max-w-[1040px] my-4
                       max-h-[calc(100vh-2rem)] overflow-hidden flex flex-col">
         <div className="flex items-start justify-between gap-3 px-5 py-4 border-b border-slate-200
                         flex-shrink-0">

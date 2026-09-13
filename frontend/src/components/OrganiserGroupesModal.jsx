@@ -85,7 +85,7 @@ export default function OrganiserGroupesModal({ portee, section, ues, onClose, o
   }
 
   return (
-    <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-3 z-50"
+    <div className="fixed inset-0 bg-[rgba(11,21,45,.32)] backdrop-blur-[3px] flex items-center justify-center p-3 z-50"
       onClick={e => e.target === e.currentTarget && onClose()}>
       <div className="bg-white rounded-xl shadow-2xl w-full flex flex-col"
         style={{ maxWidth: 860, maxHeight: '92vh' }}>

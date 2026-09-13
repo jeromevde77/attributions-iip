@@ -190,9 +190,9 @@ export default function CentreDocumentsUE({ ueNum, ueNom, annee, onClose }) {
   const total = pieces.filter(p => choix[p.cle] && p.nb).reduce((n, p) => n + p.nb, 0);
 
   return (
-    <div className="fixed inset-0 bg-black/40 flex items-start justify-center z-50 p-4"
+    <div className="fixed inset-0 bg-[rgba(11,21,45,.32)] backdrop-blur-[3px] flex items-start justify-center z-50 p-4"
       onClick={e => e.target === e.currentTarget && onClose()}>
-      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg mt-16
+      <div className="bg-white rounded-fenetre shadow-dessus w-full max-w-lg mt-16
                       max-h-[88vh] overflow-hidden flex flex-col">
         <div className="flex-none px-5 py-3 border-b border-slate-100 flex items-start
                         justify-between gap-3">

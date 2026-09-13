@@ -67,7 +67,7 @@ function CopierSectionModal({ sections, anneeActive, isAdmin, onClose, onCopied 
   }
 
   return (
-    <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50"
+    <div className="fixed inset-0 bg-[rgba(11,21,45,.32)] backdrop-blur-[3px] flex items-center justify-center p-4 z-50"
          onClick={e => e.target === e.currentTarget && onClose()}>
       <div className="bg-white rounded-xl shadow-2xl w-full max-w-md border-t-4 border-indigo-600">
         <div className="flex items-center justify-between px-5 py-3 border-b">
@@ -2157,7 +2157,7 @@ export default function Attributions() {
         }
 
         return (
-        <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4" onClick={fermer}>
+        <div className="fixed inset-0 bg-[rgba(11,21,45,.32)] backdrop-blur-[3px] z-50 flex items-center justify-center p-4" onClick={fermer}>
           <div className="bg-white rounded-xl shadow-2xl w-full flex flex-col" style={{maxWidth: 680, maxHeight: '85vh'}} onClick={e => e.stopPropagation()}>
 
             {/* En-tête */}
@@ -2293,7 +2293,7 @@ export default function Attributions() {
       })()}
 
       {confirmDeleteSection && (
-        <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center">
+        <div className="fixed inset-0 bg-[rgba(11,21,45,.32)] backdrop-blur-[3px] z-50 flex items-center justify-center">
           <div className="bg-white rounded-xl shadow-2xl p-6 max-w-sm w-full space-y-4">
             <h3 className="font-semibold text-gray-800">Retirer la section</h3>
             <p className="text-sm text-gray-600">
@@ -2328,7 +2328,7 @@ export default function Attributions() {
       {showBulkCreate && <BulkCreateForm onClose={()=>setShowBulkCreate(false)} onCreated={load}/>}
       {showCopierSection && <CopierSectionModal sections={sections} anneeActive={getAnnee()} isAdmin={isAdmin} onClose={()=>setShowCopierSection(false)} onCopied={load}/>}
       {confirmViderSection && (
-        <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4">
+        <div className="fixed inset-0 bg-[rgba(11,21,45,.32)] backdrop-blur-[3px] z-50 flex items-center justify-center p-4">
           <div className="bg-white rounded-xl shadow-2xl max-w-md w-full p-6 space-y-4">
             <h3 className="font-semibold text-gray-800">⚠️ Supprimer toutes les attributions</h3>
             <p className="text-sm text-gray-600">
@@ -2362,7 +2362,7 @@ export default function Attributions() {
       {editRow && <CoursEditModal section={editRow.section} codeCours={editRow.code_cours} onClose={()=>setEditRow(null)} onChanged={load}/>}
 
       {rapportSectionChoix && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-40" onClick={e=>e.target===e.currentTarget&&setRapportSectionChoix(null)}>
+        <div className="fixed inset-0 bg-[rgba(11,21,45,.32)] backdrop-blur-[3px] flex items-center justify-center p-4 z-40" onClick={e=>e.target===e.currentTarget&&setRapportSectionChoix(null)}>
           <div className="bg-white rounded-xl shadow-2xl max-w-md w-full p-6 border-t-4 border-iip-mauve">
             <h2 className="text-lg font-title text-iip-mauve mb-1">Rapport — {rapportSectionChoix}</h2>
             <p className="text-sm text-gray-500 mb-4">Quel périmètre souhaitez-vous inclure&nbsp;?</p>
@@ -2388,7 +2388,7 @@ export default function Attributions() {
       )}
 
       {secDel && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-40" onClick={e=>e.target===e.currentTarget&&setSecDel(null)}>
+        <div className="fixed inset-0 bg-[rgba(11,21,45,.32)] backdrop-blur-[3px] flex items-center justify-center p-4 z-40" onClick={e=>e.target===e.currentTarget&&setSecDel(null)}>
           <div className="bg-white rounded-xl shadow-2xl max-w-lg w-full p-6 border-t-4 border-red-600 flex flex-col" style={{maxHeight:'85vh'}}>
             <h2 className="text-xl font-title text-red-700 mb-2">⚠️ Tout supprimer — section {secDel.section}</h2>
             <p className="text-sm text-gray-700 mb-2">
@@ -2431,7 +2431,7 @@ export default function Attributions() {
       )}
 
       {bulkDeleteModal && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-40" onClick={e=>e.target===e.currentTarget&&setBulkDeleteModal(null)}>
+        <div className="fixed inset-0 bg-[rgba(11,21,45,.32)] backdrop-blur-[3px] flex items-center justify-center p-4 z-40" onClick={e=>e.target===e.currentTarget&&setBulkDeleteModal(null)}>
           <div className="bg-white rounded-xl shadow-2xl max-w-md w-full p-6 border-t-4 border-red-600">
             <h2 className="text-xl font-title text-red-700 mb-3">⚠️ Suppression en masse</h2>
             <p className="text-sm text-gray-700 mb-4">

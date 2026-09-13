@@ -82,9 +82,9 @@ export default function Annexe2({ etudId, annee, onClose }) {
   const c = donnees?.credits;
 
   return (
-    <div className="fixed inset-0 bg-black/40 flex items-start justify-center z-50 p-4"
+    <div className="fixed inset-0 bg-[rgba(11,21,45,.32)] backdrop-blur-[3px] flex items-start justify-center z-50 p-4"
       onClick={e => e.target === e.currentTarget && onClose()}>
-      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl mt-12 max-h-[85vh] overflow-hidden flex flex-col">
+      <div className="bg-white rounded-fenetre shadow-dessus w-full max-w-2xl mt-12 max-h-[85vh] overflow-hidden flex flex-col">
         <div className="flex-none p-5 pb-3 border-b border-slate-100 flex items-start justify-between">
           <div>
             <h3 className="text-[15px] font-semibold text-iip-blue">

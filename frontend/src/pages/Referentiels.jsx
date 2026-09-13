@@ -70,7 +70,7 @@ function DPImportModal({ annee, sections, onClose, onSaved }) {
   const bloquant = !section && aCreer.length > 0;
 
   return (
-    <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50"
+    <div className="fixed inset-0 bg-[rgba(11,21,45,.32)] backdrop-blur-[3px] flex items-center justify-center p-4 z-50"
       onClick={e => e.target === e.currentTarget && onClose()}>
       <div className="bg-white rounded-xl shadow-2xl max-w-2xl w-full border-t-4 border-iip-turquoise max-h-[90vh] overflow-hidden flex flex-col">
         <div className="flex items-center justify-between px-5 py-3 border-b flex-shrink-0">
@@ -242,7 +242,7 @@ function EffectifsImportModal({ annee, onClose, onSaved }) {
   }
 
   return (
-    <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50" onClick={e => e.target === e.currentTarget && onClose()}>
+    <div className="fixed inset-0 bg-[rgba(11,21,45,.32)] backdrop-blur-[3px] flex items-center justify-center p-4 z-50" onClick={e => e.target === e.currentTarget && onClose()}>
       <div className="bg-white rounded-xl shadow-2xl max-w-2xl w-full p-6 flex flex-col" style={{ maxHeight: '85vh' }}>
         <h2 className="font-title text-lg text-iip-blue mb-1">Importer les effectifs étudiants — {annee}</h2>
         <p className="text-xs text-gray-500 mb-3">
@@ -325,7 +325,7 @@ function SectionModal({ section, onClose, onSaved, annee, isAdmin }) {
   }
 
   return (
-    <div className="fixed inset-0 bg-black/50 flex items-start justify-center p-4 z-50 overflow-y-auto"
+    <div className="fixed inset-0 bg-[rgba(11,21,45,.32)] backdrop-blur-[3px] flex items-start justify-center p-4 z-50 overflow-y-auto"
       onClick={e => e.target === e.currentTarget && onClose()}>
       {/* CETTE FENÊTRE N'AVAIT AUCUN PLAFOND DE HAUTEUR. Elle tenait tant que la
           section n'avait qu'un code et un libellé ; depuis qu'elle porte la
@@ -477,7 +477,7 @@ function UEModal({ ue, sections, onClose, onSaved }) {
   const sep = 'text-[10px] font-semibold uppercase tracking-widest text-gray-400 border-b border-gray-100 pb-1 mb-2 mt-1';
 
   return (
-    <div className="fixed inset-0 bg-black/50 flex items-start justify-center p-4 z-50 overflow-y-auto"
+    <div className="fixed inset-0 bg-[rgba(11,21,45,.32)] backdrop-blur-[3px] flex items-start justify-center p-4 z-50 overflow-y-auto"
       onClick={e => e.target === e.currentTarget && onClose()}>
       {/* La hauteur se prend sur la FENÊTRE, marges comprises : « 90vh » plus
           le rembourrage du cadre dépassait de l'écran, et la fiche d'une UE
@@ -664,7 +664,7 @@ function CatalogueUEModal({ section, onClose, onDone }) {
   }
 
   return (
-    <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50" onClick={e => e.target === e.currentTarget && onClose()}>
+    <div className="fixed inset-0 bg-[rgba(11,21,45,.32)] backdrop-blur-[3px] flex items-center justify-center p-4 z-50" onClick={e => e.target === e.currentTarget && onClose()}>
       <div className="bg-white rounded-xl shadow-2xl max-w-2xl w-full max-h-[85vh] flex flex-col border-t-4 border-iip-gold">
         <div className="flex items-center justify-between px-5 py-3 border-b flex-shrink-0">
           <div>

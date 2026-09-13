@@ -367,7 +367,7 @@ function ModalGroupe({ initial, annee, profs, ues, onSave, onClose }) {
   }
 
   return (
-    <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center">
+    <div className="fixed inset-0 bg-[rgba(11,21,45,.32)] backdrop-blur-[3px] z-50 flex items-center justify-center">
       <div className="bg-white rounded-xl shadow-2xl w-full max-w-md p-6 space-y-4">
         <div className="flex items-center justify-between">
           <h3 className="font-semibold text-gray-800">{initial?.id ? 'Modifier le groupe' : 'Nouveau groupe'}</h3>
@@ -455,7 +455,7 @@ function PanelCalendrier({ semaines, onUpdate, onClose }) {
   }
 
   return (
-    <div className="fixed inset-0 bg-black/40 z-50 flex items-start justify-end">
+    <div className="fixed inset-0 bg-[rgba(11,21,45,.32)] backdrop-blur-[3px] z-50 flex items-start justify-end">
       <div className="bg-white w-full max-w-2xl h-full overflow-auto shadow-2xl flex flex-col">
         <div className="flex items-center justify-between px-6 py-4 border-b bg-gray-50">
           <h3 className="font-semibold text-gray-800">Calendrier — ajuster les semaines</h3>
@@ -531,7 +531,7 @@ function ModalImport({ annee, onImported, onClose }) {
   }
 
   return (
-    <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center">
+    <div className="fixed inset-0 bg-[rgba(11,21,45,.32)] backdrop-blur-[3px] z-50 flex items-center justify-center">
       <div className="bg-white rounded-xl shadow-2xl w-full max-w-2xl max-h-[90vh] flex flex-col">
         <div className="flex items-center justify-between px-6 py-4 border-b">
           <h3 className="font-semibold text-gray-800">Import depuis les attributions — {annee}</h3>
@@ -665,7 +665,7 @@ function ModalIA({ annee, section, onApplied, onClose }) {
   const nbCellules = preview ? Object.values(preview.proposition).reduce((s, c) => s + Object.keys(c).length, 0) : 0;
 
   return (
-    <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center">
+    <div className="fixed inset-0 bg-[rgba(11,21,45,.32)] backdrop-blur-[3px] z-50 flex items-center justify-center">
       <div className="bg-white rounded-xl shadow-2xl w-full max-w-xl flex flex-col max-h-[90vh]">
         {/* Header */}
         <div className="flex items-center justify-between px-6 py-4 border-b">
@@ -805,7 +805,7 @@ function ModalSequence({ annee, section, groupes, onClose }) {
   const [onglet, setOnglet] = useState('prereqs'); // 'prereqs' | 'cours'
 
   return (
-    <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4">
+    <div className="fixed inset-0 bg-[rgba(11,21,45,.32)] backdrop-blur-[3px] z-50 flex items-center justify-center p-4">
       <div className="bg-white rounded-xl shadow-2xl w-full max-w-7xl h-[92vh] flex flex-col">
         {/* Header */}
         <div className="flex items-center justify-between px-6 py-4 border-b">
@@ -1259,7 +1259,7 @@ function ModalReset({ annee, section, onReset, onClose }) {
   }
 
   return (
-    <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center">
+    <div className="fixed inset-0 bg-[rgba(11,21,45,.32)] backdrop-blur-[3px] z-50 flex items-center justify-center">
       <div className="bg-white rounded-xl shadow-2xl w-full max-w-md flex flex-col">
         <div className="flex items-center justify-between px-6 py-4 border-b">
           <h3 className="font-semibold text-gray-800"><IconTrash size={15} className="inline align-[-2px] mr-1" /> Réinitialiser la planification</h3>

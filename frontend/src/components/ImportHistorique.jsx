@@ -163,9 +163,9 @@ export default function ImportHistorique({ onClose, onImporte }) {
   }
 
   return (
-    <div className="fixed inset-0 bg-black/40 flex items-start justify-center z-50 p-4 overflow-auto"
+    <div className="fixed inset-0 bg-[rgba(11,21,45,.32)] backdrop-blur-[3px] flex items-start justify-center z-50 p-4 overflow-auto"
       onClick={e => e.target === e.currentTarget && onClose()}>
-      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-3xl mt-8">
+      <div className="bg-white rounded-fenetre shadow-dessus w-full max-w-3xl mt-8">
         <div className="bg-iip-blue rounded-t-2xl px-5 py-4 flex items-start justify-between">
           <div>
             <div className="text-white font-bold text-[15px]">Reconstruire l'historique</div>

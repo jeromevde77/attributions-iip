@@ -1,6 +1,7 @@
 import { createContext, useContext, useEffect, useState } from 'react';
-import { IconPin, IconPinnedOff } from '@tabler/icons-react';
+import { IconPin, IconPinnedOff, IconSun, IconMoon } from '@tabler/icons-react';
 import { useRailEpingle, basculerEpingle, LARGEUR_RAIL } from '../lib/railEpingle.js';
+import { useMode, basculerMode } from '../lib/theme.js';
 
 /**
  * LE RAIL EST UN, ET IL APPARTIENT À L'AXE.
@@ -83,7 +84,7 @@ export function Tabs({ items, value, onChange }) {
 
 // Bouton harmonisé. variant : 'primary' | 'secondary' | 'accent' | 'danger' | 'danger-soft' | 'ghost'
 export function Btn({ variant = 'secondary', icon: Icon, children, className = '', ...props }) {
-  const base = 'inline-flex items-center gap-2 text-[13px] font-medium px-3.5 py-2 rounded-lg transition-colors duration-150 disabled:opacity-40 disabled:cursor-not-allowed';
+  const base = 'inline-flex items-center gap-2 text-[13px] font-medium px-3.5 py-2 rounded-champ transition-colors duration-150 ease-ios disabled:opacity-40 disabled:cursor-not-allowed';
   const variants = {
     primary:      'bg-iip-blue text-white hover:bg-iip-blue-dark',
     secondary:    'bg-white text-iip-blue border border-slate-300 hover:bg-slate-50',
@@ -109,7 +110,7 @@ export function KpiCard({ label, valeur, sous, ton = 'neutral' }) {
     bad: 'text-iip-danger',
   };
   return (
-    <div className="bg-white border border-slate-200 rounded-xl px-5 py-4">
+    <div className="bg-white border border-slate-200 rounded-carte shadow-pose px-5 py-4">
       <div className="text-[10px] text-gray-400 uppercase tracking-wider">{label}</div>
       <div className={`text-2xl font-semibold mt-1 ${tons[ton] || tons.neutral}`}>{valeur}</div>
       {sous && <div className="text-[11px] text-gray-400 mt-0.5">{sous}</div>}
@@ -151,6 +152,9 @@ export function RailLateral({ icon: HeaderIcon, titre, sousTitre, extra,
 export function RailDessine({ icon: HeaderIcon, titre, sousTitre, extra,
                               sections = [], actions = [] }) {
   const epingle = useRailEpingle();
+  // On ne s'abonne au mode que pour savoir quelle icône proposer — soleil ou
+  // lune : les couleurs, elles, viennent des jetons.
+  const mode = useMode();
   /**
    * UNE SEULE BULLE, HORS DE LA ZONE QUI DÉFILE.
    *
@@ -191,32 +195,63 @@ export function RailDessine({ icon: HeaderIcon, titre, sousTitre, extra,
   const reveal = epingle ? 'whitespace-normal' : 'hidden';
 
   return (
+    /* UN PANNEAU POSÉ SUR LA PAGE, ET NON UNE COLONNE COLLÉE AU BORD.
+     *
+     * Le rail occupait toute la hauteur de l'écran, d'un bord à l'autre : une
+     * bande pleine, du même bleu, qui faisait de la page deux territoires — « on
+     * dirait deux espaces différents ». Il devient un objet : détaché des bords,
+     * coins largement arrondis, HAUT DE CE QU'IL CONTIENT et centré
+     * verticalement, translucide sur ce qu'il recouvre, porté par une ombre
+     * douce. Six rubriques ne réclament pas quatre-vingts centimètres de bleu.
+     *
+     * SES COULEURS VIENNENT DES JETONS, jamais d'un bleu écrit en dur : c'est
+     * ce qui lui permet d'être gris pâle ou marine sans qu'il ait à le savoir. */
     <aside
-      className={`group/rail absolute left-0 top-0 h-full z-20 bg-iip-blue
-        transition-[width] duration-200 ease-out flex flex-col py-4
-        ${epingle ? 'w-60' : 'w-16'}`}>
-      {/* En-tête */}
-      <div className="flex items-center gap-3 px-4 mb-1 text-white flex-shrink-0">
-        {HeaderIcon && <HeaderIcon size={22} className="text-iip-turquoise flex-shrink-0" />}
+      /* POSÉ SUR LA FENÊTRE, NON SUR LA PAGE. En « absolute », le rail se
+         centrait sur la HAUTEUR DU CONTENU : sur un écran long, il descendait
+         sous le bas de la fenêtre et son pied devenait inatteignable. En
+         « fixed », il reste où l'œil le cherche, et il suit quand on défile.
+         Le décalage de deux rem le centre SOUS la barre du haut, non sur la
+         fenêtre entière : sans lui, il montait par-dessus le logo. */
+      className={`group/rail fixed left-3 top-[calc(50%+2rem)] -translate-y-1/2 z-10
+        max-h-[calc(100vh-9rem)] flex flex-col py-3
+        rounded-panneau border backdrop-blur-xl backdrop-saturate-150
+        transition-[width] duration-300 ease-ios
+        ${epingle ? 'w-[14.5rem]' : 'w-14'}`}
+      style={{ background: 'var(--menu-fond)', borderColor: 'var(--menu-bord)',
+               boxShadow: 'var(--menu-ombre)' }}>
+      {/* En-tête — replié, tout se centre : un libellé seulement masqué
+          laisserait l'icône décalée par rapport à la colonne du dessous. */}
+      <div className={`flex items-center gap-3 mb-1 flex-shrink-0
+        text-[color:var(--menu-texte)] ${epingle ? 'px-4' : 'justify-center'}`}>
+        {HeaderIcon && (
+          <HeaderIcon size={22} className="flex-shrink-0"
+            style={{ color: 'var(--menu-accent)' }} />
+        )}
         <span className={`text-[15px] font-semibold flex-1 min-w-0 ${reveal}`}>{titre}</span>
         {/* L'ÉPINGLE : le survol montre, l'épingle décide. Décaler la page au
             survol la ferait sauter chaque fois qu'on frôle le bord gauche. */}
         <button onClick={basculerEpingle}
           title={epingle ? 'Replier le rail' : 'Garder le rail ouvert'}
-          className={`flex-none p-1 rounded-md text-white/50 hover:text-white
-            hover:bg-white/10 ${epingle ? '' : 'opacity-0 group-hover/rail:opacity-100'}`}>
+          className={`flex-none p-1 rounded-champ hover:bg-[color:var(--menu-survol)]
+            ${epingle ? '' : 'hidden'}`}
+          style={{ color: 'var(--menu-texte-doux)' }}>
           {epingle ? <IconPinnedOff size={15} /> : <IconPin size={15} />}
         </button>
       </div>
-      {sousTitre && <div className={`px-4 h-4 text-[11px] text-white/40 ${reveal}`}>{sousTitre}</div>}
+      {sousTitre && (
+        <div className={`px-4 text-[11px] ${reveal}`}
+          style={{ color: 'var(--menu-texte-doux)' }}>{sousTitre}</div>
+      )}
       {extra && <div className={`px-3 pt-2 ${reveal}`}>{extra}</div>}
 
       {/* Sections */}
-      <div className="flex-1 overflow-y-auto overflow-x-hidden px-2.5 mt-2">
+      <div className="min-h-0 overflow-y-auto overflow-x-hidden rail-defile px-2 mt-1.5">
         {sections.map((sec, si) => (
           <div key={si} className="mb-3">
             {sec.label && (
-              <div className={`px-1.5 mt-2 mb-1 h-4 text-[10px] font-semibold uppercase tracking-wider text-white/40 ${reveal}`}>
+              <div className={`px-1.5 mt-2 mb-1 text-[10px] font-semibold uppercase
+                tracking-wider ${reveal}`} style={{ color: 'var(--menu-texte-doux)' }}>
                 {sec.label}
               </div>
             )}
@@ -226,17 +261,25 @@ export function RailDessine({ icon: HeaderIcon, titre, sousTitre, extra,
                 <button key={it.key} onClick={it.onClick} aria-label={it.label}
                   onMouseEnter={e => !epingle && surviser(e, it.label)}
                   onMouseLeave={() => setSurvol(null)}
-                  className={`relative w-full flex items-start gap-3 px-3 py-2
-                    rounded-lg text-[13px] mb-0.5 transition-colors duration-150
-                    ${it.actif
-                      ? 'bg-iip-turquoise text-white font-semibold'
-                      : it.couleur
-                        ? 'text-white font-medium hover:opacity-90'
-                        : 'text-white/75 hover:bg-white/10 hover:text-white'}`}
-                  style={!it.actif && it.couleur ? { background: it.couleur, color: 'white' } : {}}>
+                  className={`relative w-full flex items-start gap-3 py-2
+                    rounded-fenetre text-[13px] mb-0.5 transition-colors duration-150 ease-ios
+                    ${epingle ? 'px-2.5' : 'justify-center px-0'}
+                    ${it.actif ? 'font-semibold ring-1 ring-inset'
+                      : it.couleur ? 'font-medium hover:opacity-90'
+                        : 'hover:bg-[color:var(--menu-survol)]'}`}
+                  style={it.actif
+                    ? { background: 'var(--menu-actif)', color: 'var(--menu-texte)',
+                        '--tw-ring-color': 'var(--menu-actif-bord)' }
+                    : it.couleur ? { background: it.couleur, color: 'white' }
+                      : { color: 'var(--menu-texte-doux)' }}>
                   {Ic ? (
+                    /* L'ACCENT EST SUR L'ICÔNE, non sur toute la pastille : un
+                       aplat turquoise pleine largeur criait plus fort que le
+                       contenu de la page. */
                     <Ic size={18} stroke={1.8} className="flex-shrink-0 mt-px"
-                      style={!it.actif && it.couleur ? { color: 'white' } : {}} />
+                      style={it.actif ? { color: 'var(--menu-accent)' }
+                        : it.couleur ? { color: 'white' }
+                          : { color: 'var(--menu-icone)' }} />
                   ) : (
                     /* FILET DE SÉCURITÉ : une entrée sans icône donnerait, rail
                        replié, une ligne vide — invisible et impossible à viser,
@@ -270,19 +313,27 @@ export function RailDessine({ icon: HeaderIcon, titre, sousTitre, extra,
           qu'on finit par y aller sans regarder. L'impression d'abord : on
           imprime tous les jours, on importe quelques fois par an. */}
       {!!actions.length && (
-        <div className="flex-shrink-0 px-2.5 pt-2 mt-1 border-t border-white/15 space-y-1">
+        <div className="flex-shrink-0 px-2 pt-2 mt-1 border-t space-y-1"
+          style={{ borderColor: 'var(--menu-filet)' }}>
           {actions.map(a2 => {
             const Ic = a2.icon;
             return (
               <button key={a2.key} onClick={a2.onClick} aria-label={a2.label}
                 onMouseEnter={e => !epingle && surviser(e, a2.label)}
                 onMouseLeave={() => setSurvol(null)}
-                className={`relative w-full flex items-center gap-3 px-3 py-2 rounded-lg
-                  text-[13px] transition-colors duration-150
-                  ${a2.primaire
-                    ? 'bg-white text-iip-blue font-semibold shadow-md shadow-black/20 hover:bg-white/90'
-                    : 'text-white/75 hover:bg-white/10 hover:text-white'}`}>
-                {Ic && <Ic size={19} stroke={1.8} className="flex-shrink-0" />}
+                className={`relative w-full flex items-center gap-3 py-2 rounded-fenetre
+                  text-[13px] transition-colors duration-150 ease-ios
+                  ${epingle ? 'px-2.5' : 'justify-center px-0'}
+                  ${a2.primaire ? 'font-semibold ring-1 ring-inset'
+                    : 'hover:bg-[color:var(--menu-survol)]'}`}
+                style={a2.primaire
+                  ? { background: 'var(--menu-actif)', color: 'var(--menu-texte)',
+                      '--tw-ring-color': 'var(--menu-actif-bord)' }
+                  : { color: 'var(--menu-texte-doux)' }}>
+                {Ic && (
+                  <Ic size={19} stroke={1.8} className="flex-shrink-0"
+                    style={{ color: a2.primaire ? 'var(--menu-accent)' : 'var(--menu-icone)' }} />
+                )}
                 <span className={`text-left leading-tight min-w-0 flex-1 ${reveal}`}>
                   {a2.label}
                 </span>
@@ -292,12 +343,29 @@ export function RailDessine({ icon: HeaderIcon, titre, sousTitre, extra,
         </div>
       )}
 
+      {/* LE MODE SE CHANGE LÀ OÙ IL SE VOIT — c'est un réglage de confort, on
+          l'essaie, on juge, on garde ; il se retient d'un jour à l'autre. */}
+      <div className="flex-shrink-0 flex justify-center pt-2 mt-1 mx-2 border-t"
+        style={{ borderColor: 'var(--menu-filet)' }}>
+        <button onClick={basculerMode} aria-label="Changer le mode d'affichage"
+          onMouseEnter={e => !epingle && surviser(e,
+            mode === 'sombre' ? 'Menus en gris pâle' : 'Menus en marine')}
+          onMouseLeave={() => setSurvol(null)}
+          className="w-9 h-9 grid place-items-center rounded-fenetre
+            hover:bg-[color:var(--menu-survol)] transition-colors duration-150 ease-ios"
+          style={{ color: 'var(--menu-texte-doux)' }}>
+          {mode === 'sombre' ? <IconSun size={16} /> : <IconMoon size={16} />}
+        </button>
+      </div>
+
       {/* La bulle : une seule, au niveau du rail, hors de ce qui défile. */}
       {survol && !epingle && (
-        <span style={{ top: survol.y }}
-          className="pointer-events-none absolute left-[calc(100%+8px)] -translate-y-1/2 z-50
-                     px-2 py-1 rounded-md bg-iip-blue-dark text-white text-[11.5px]
-                     whitespace-nowrap shadow-lg">
+        <span style={{ top: survol.y, background: 'var(--menu-fond)',
+                       borderColor: 'var(--menu-bord)', color: 'var(--menu-texte)',
+                       boxShadow: 'var(--menu-ombre)' }}
+          className="pointer-events-none absolute left-[calc(100%+10px)] -translate-y-1/2 z-50
+                     px-2.5 py-1.5 rounded-champ border backdrop-blur-xl backdrop-saturate-150
+                     text-[11.5px] whitespace-nowrap">
           {survol.label}
         </span>
       )}

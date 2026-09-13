@@ -1523,7 +1523,7 @@ export default function Listes() {
       </div>
 
       {showOptionsRapport && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50" onClick={e=>e.target===e.currentTarget&&setShowOptionsRapport(false)}>
+        <div className="fixed inset-0 bg-[rgba(11,21,45,.32)] backdrop-blur-[3px] flex items-center justify-center p-4 z-50" onClick={e=>e.target===e.currentTarget&&setShowOptionsRapport(false)}>
           <div className="bg-white rounded-xl shadow-2xl max-w-lg w-full p-6 border-t-4 border-iip-gold max-h-[90vh] overflow-y-auto">
             <h2 className="text-lg font-title text-slate-800 mb-1">Paramétrer le rapport</h2>
             <p className="text-sm text-gray-500 mb-4">Choisissez les critères. Laissez « Tous » pour ne pas filtrer.</p>

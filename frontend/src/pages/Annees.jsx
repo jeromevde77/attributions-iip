@@ -142,7 +142,7 @@ export default function Annees({ embedded = false }) {
 
       {/* Formulaire création */}
       {showForm && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-40"
+        <div className="fixed inset-0 bg-[rgba(11,21,45,.32)] backdrop-blur-[3px] flex items-center justify-center p-4 z-40"
           onClick={e => e.target === e.currentTarget && setShowForm(false)}>
           <div className="bg-white rounded-xl shadow-2xl max-w-md w-full p-6 border-t-4 border-iip-gold">
             <h2 className="text-xl font-title text-iip-gold mb-4">Nouvelle année scolaire</h2>

@@ -1712,7 +1712,7 @@ function ArchivesProcedures({ onReprendreRecours, onReprendre }) {
 
       {/* Panneau de détail */}
       {detail && (
-        <div className="fixed inset-0 bg-black/40 z-50 flex items-start justify-end">
+        <div className="fixed inset-0 bg-[rgba(11,21,45,.32)] backdrop-blur-[3px] z-50 flex items-start justify-end">
           <div className="bg-white w-full max-w-xl h-full overflow-auto shadow-2xl flex flex-col">
             {/* Header */}
             <div className="flex items-center justify-between px-6 py-4 border-b border-gray-200 bg-gray-50">

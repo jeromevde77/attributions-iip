@@ -52,9 +52,9 @@ export default function DiagnosticAnnees({ annee, ueNum = null, onClose, onFini 
   const lignes = etat?.etat || [];
 
   return (
-    <div className="fixed inset-0 bg-black/40 flex items-start justify-center z-50 p-3"
+    <div className="fixed inset-0 bg-[rgba(11,21,45,.32)] backdrop-blur-[3px] flex items-start justify-center z-50 p-3"
       onClick={e => e.target === e.currentTarget && onClose()}>
-      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-[900px] mt-8
+      <div className="bg-white rounded-fenetre shadow-dessus w-full max-w-[900px] mt-8
                       max-h-[88vh] overflow-hidden flex flex-col">
         <div className="flex items-start justify-between gap-3 px-5 py-4 border-b border-slate-200">
           <div>

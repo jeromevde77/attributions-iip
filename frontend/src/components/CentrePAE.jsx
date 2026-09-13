@@ -97,9 +97,9 @@ export default function CentrePAE({ annee, etudiants, onClose, onTermine }) {
   const niveaux = [...new Set(ues.map(u => u.ue_niv).filter(Boolean))];
 
   return (
-    <div className="fixed inset-0 bg-black/40 flex items-start justify-center z-50 p-4"
+    <div className="fixed inset-0 bg-[rgba(11,21,45,.32)] backdrop-blur-[3px] flex items-start justify-center z-50 p-4"
       onClick={e => e.target === e.currentTarget && onClose()}>
-      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-3xl mt-8 max-h-[88vh] overflow-hidden flex flex-col">
+      <div className="bg-white rounded-fenetre shadow-dessus w-full max-w-3xl mt-8 max-h-[88vh] overflow-hidden flex flex-col">
 
         <div className="flex-none p-5 pb-3 border-b border-slate-100 flex items-start justify-between">
           <div>

@@ -154,7 +154,7 @@ export default function Users({ embedded = false }) {
 
 
       {showForm && (
-        <div className="fixed inset-0 bg-black/40 flex items-center justify-center p-4 z-30" onClick={() => setShowForm(false)}>
+        <div className="fixed inset-0 bg-[rgba(11,21,45,.32)] backdrop-blur-[3px] flex items-center justify-center p-4 z-30" onClick={() => setShowForm(false)}>
           <div className="bg-white rounded-xl shadow-2xl max-w-md w-full p-6" onClick={e => e.stopPropagation()}>
             <h2 className="text-xl font-title text-iip-gold mb-1">Compte sans fiche de personnel</h2>
             <p className="text-[12px] text-slate-500 mb-4">
@@ -236,7 +236,7 @@ export default function Users({ embedded = false }) {
         }} />
 
       {editingSections && (
-        <div className="fixed inset-0 bg-black/40 flex items-center justify-center p-4 z-30" onClick={() => setEditingSections(null)}>
+        <div className="fixed inset-0 bg-[rgba(11,21,45,.32)] backdrop-blur-[3px] flex items-center justify-center p-4 z-30" onClick={() => setEditingSections(null)}>
           <div className="bg-white rounded-xl shadow-2xl max-w-md w-full p-6" onClick={e => e.stopPropagation()}>
             <h2 className="text-xl font-title text-iip-gold mb-1">Périmètre — {editingSections.nom}</h2>
             <p className="text-xs text-gray-500 mb-4">Sections que cette coordination peut voir et gérer.</p>

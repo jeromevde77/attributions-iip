@@ -66,7 +66,7 @@ export default function BulkCreateForm({ onClose, onCreated }) {
   }
 
   return (
-    <div className="fixed inset-0 bg-black/40 flex items-center justify-center p-4 z-30" onClick={e => e.target === e.currentTarget && onClose()}>
+    <div className="fixed inset-0 bg-[rgba(11,21,45,.32)] backdrop-blur-[3px] flex items-center justify-center p-4 z-30" onClick={e => e.target === e.currentTarget && onClose()}>
       <div className="bg-white rounded-xl shadow-2xl max-w-4xl w-full max-h-[90vh] flex flex-col">
         <div className="border-b border-gray-200 p-5 flex items-center justify-between flex-shrink-0">
           <h2 className="text-xl font-title text-iip-gold">Créer toute une section</h2>

@@ -123,7 +123,7 @@ export default function WizardConfigCours({ cours: coursInit, ueNum, section, an
   };
 
   return (
-    <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-[60] p-4" onClick={e => e.target === e.currentTarget && onClose()}>
+    <div className="fixed inset-0 bg-[rgba(11,21,45,.32)] backdrop-blur-[3px] flex items-center justify-center z-[60] p-4" onClick={e => e.target === e.currentTarget && onClose()}>
       <div className="bg-white rounded-xl shadow-2xl w-full max-w-2xl max-h-[90vh] flex flex-col">
         {/* En-tête */}
         <div className="border-b border-gray-200 p-4">

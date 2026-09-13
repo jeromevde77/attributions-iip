@@ -488,8 +488,8 @@ export default function FeuilleDeliberation({ ueNum, annee, onClose }) {
 
   if (!data) {
     return (
-      <div className="fixed inset-0 bg-black/40 flex items-start justify-center z-50 p-4">
-        <div className="bg-white rounded-2xl shadow-2xl p-6 mt-20 text-[13px] text-slate-500">
+      <div className="fixed inset-0 bg-[rgba(11,21,45,.32)] backdrop-blur-[3px] flex items-start justify-center z-50 p-4">
+        <div className="bg-white rounded-fenetre shadow-dessus p-6 mt-20 text-[13px] text-slate-500">
           {erreur || 'Chargement…'}
         </div>
       </div>
@@ -497,9 +497,9 @@ export default function FeuilleDeliberation({ ueNum, annee, onClose }) {
   }
 
   return (
-    <div className="fixed inset-0 bg-black/40 flex items-start justify-center z-50 p-3"
+    <div className="fixed inset-0 bg-[rgba(11,21,45,.32)] backdrop-blur-[3px] flex items-start justify-center z-50 p-3"
       onClick={e => e.target === e.currentTarget && onClose()}>
-      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-[1400px] mt-4
+      <div className="bg-white rounded-fenetre shadow-dessus w-full max-w-[1400px] mt-4
                       max-h-[94vh] overflow-hidden flex flex-col">
 
         {/* L'en-tête ne défile pas : on doit toujours savoir de qui l'on parle. */}
@@ -808,8 +808,8 @@ export default function FeuilleDeliberation({ ueNum, annee, onClose }) {
 function MotivationsProposees({ liste, detail, onRelire, onConfirmer, enCours }) {
   const nbAcquis = liste.reduce((n, e) => n + e.acquis.length, 0);
   return (
-    <div className="fixed inset-0 bg-black/50 flex items-start justify-center z-[70] p-4">
-      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl mt-16
+    <div className="fixed inset-0 bg-[rgba(11,21,45,.32)] backdrop-blur-[3px] flex items-start justify-center z-[70] p-4">
+      <div className="bg-white rounded-fenetre shadow-dessus w-full max-w-2xl mt-16
                       max-h-[82vh] overflow-hidden flex flex-col">
         <div className="flex-none px-5 py-3 border-b border-slate-100">
           <h3 className="text-[15px] font-semibold text-amber-900 flex items-center gap-2">
@@ -2865,7 +2865,7 @@ function CorrectionAdministrative({ ueNum, annee, session, seance, onFerme, onFa
   );
 
   return (
-    <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4">
+    <div className="fixed inset-0 bg-[rgba(11,21,45,.32)] backdrop-blur-[3px] flex items-center justify-center z-50 p-4">
       <div className="bg-white rounded-xl w-[720px] max-w-full max-h-[90vh] overflow-auto p-5 space-y-3">
         <div>
           <h3 className="text-[15px] font-semibold text-iip-blue">

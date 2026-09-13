@@ -320,7 +320,7 @@ function RTDialog({ nomination, profId, ues, annee, onClose, onSaved }) {
   }
 
   return (
-    <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-[70]" onClick={e => e.target === e.currentTarget && onClose()}>
+    <div className="fixed inset-0 bg-[rgba(11,21,45,.32)] backdrop-blur-[3px] flex items-center justify-center z-[70]" onClick={e => e.target === e.currentTarget && onClose()}>
       <div className="bg-white rounded-xl shadow-2xl w-full max-w-md p-5">
         <h3 className="font-title text-lg text-iip-gold mb-1">Remise au travail</h3>
         <p className="text-sm text-gray-600 mb-3">

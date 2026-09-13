@@ -150,8 +150,8 @@ export default function FeuilleCorrection({ ueNum, annee, onClose, onModifie }) 
   let colonne = 0;
 
   return (
-    <div className="fixed inset-0 bg-black/40 flex items-start justify-center z-50 p-3">
-      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-[1700px] mt-4
+    <div className="fixed inset-0 bg-[rgba(11,21,45,.32)] backdrop-blur-[3px] flex items-start justify-center z-50 p-3">
+      <div className="bg-white rounded-fenetre shadow-dessus w-full max-w-[1700px] mt-4
                       h-[94vh] overflow-hidden flex flex-col">
 
         <div className="flex-none px-5 pt-4 pb-2 flex items-start justify-between gap-3">

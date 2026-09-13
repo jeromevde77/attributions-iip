@@ -17,6 +17,7 @@ l'application de gestion académique de l'Institut Ilya Prigogine (IIP).
 |---|---|
 | Technicien / développeur | **Jérôme** (Directeur IT & Facilities EPFC, ingénieur civil, 25 ans en sécurité IT) |
 | Analyste fonctionnel, décideur métier | **Charles Sohet**, directeur de l'IIP |
+| Conseillère qualité | **Amélie Verkest** — également chargée du développement des compétences du personnel. Elle observe, rapporte, et donne l'image de ce qui est fait et de ce qui doit l'être : c'est elle que sert la démarche qualité |
 | Utilisateurs | secrétariat (2 secrétaires + 1 adjoint), enseignants, direction |
 
 **Langue de travail : le français.** Style direct, exécutif. Les documents
@@ -209,6 +210,35 @@ nominatif ; date d'affichage et mode de publication en champs propres ; écrire
 
 ---
 
+## 5 bis. La démarche qualité — AEQES
+
+L'IIP relève de l'**AEQES** (enseignement supérieur). Psychomotricité a été
+évaluée ; une **évaluation institutionnelle** vient en **2028-2029**.
+
+- Cinq critères, dont l'**amélioration continue**, traités en *description →
+  évaluation → action*.
+- Un **dossier d'auto-évaluation** (19-20 000 mots hors annexes) dont la pièce
+  maîtresse est un **plan d'action priorisé assorti d'indicateurs**, couvrant
+  deux ans au minimum (action, responsable, priorité, échéance, indicateur).
+- Le dossier demande les **inscrits par section sur cinq ans**, les ETP par
+  catégorie, et une **vingtaine d'annexes**.
+- L'**évaluation continue** ne réévalue pas le programme : elle vérifie
+  **l'état de réalisation du plan d'action**.
+- Après visite : rapport, droit de réponse de trois semaines, **plan publié sur
+  le site de l'école** dans les six mois, point d'étape à mi-parcours.
+
+**Conséquence : la pièce centrale est l'ACTION**, pas la réunion. Réunions,
+retours d'étudiants et constats chiffrés en sont les *sources* ; le dossier et
+le plan publié, les *sorties*. **Une action est une échéance** : l'échéancier
+porte déjà responsable, rappels, base légale et une catégorie `qualite` — un
+seul registre, deux lentilles (l'Accueil montre *les miennes*, la Qualité
+*celles de la démarche*).
+
+**Ce qui n'est pas rattrapable :** ce qui n'est pas consigné en 2026-2027 ne
+sera pas récupérable en 2028. Détail dans `docs/contexte/qualite-aeqes.html`.
+
+---
+
 ## 6. Design — la façon de faire
 
 ### Documents
@@ -257,6 +287,27 @@ et 3 composants de tuile**. La stratégie tient en cinq chantiers, dans cet ordr
 - **Seul le menu principal est horizontal** : il dit dans quel métier on est.
   Tout le reste vit dans le **rail latéral** — les rubriques de l'axe d'abord,
   puis les outils de l'écran ouvert, qui s'y inscrivent d'eux-mêmes.
+- **Le rail est un panneau posé sur la page**, non une colonne collée au bord :
+  détaché de 12 px, coins arrondis, **haut de ce qu'il contient**, translucide,
+  porté par une ombre douce, et **en `position: fixed`** — en `absolute` il se
+  centrait sur la hauteur du CONTENU et son pied passait sous la fenêtre.
+- **Il reste étroit** : pas d'élargissement au survol, le libellé dans une
+  bulle. Une icône se mérite — ce qui ne tient pas dans une colonne d'icônes va
+  dans une fenêtre, pas dans le menu.
+- **Deux modes pour les menus**, un seul jeu de jetons (`--menu-*` dans
+  `index.css`, mode écrit sur `data-mode` par `lib/theme.js`) : **clair**, gris
+  pâle tenu par un filet, et **sombre**, marine. Un composant ne connaît jamais
+  le mode — il lit ses jetons. La bascule est en pied de rail.
+- **La couleur est une dépense** : dans les menus elle ne sert qu'à ce qui doit
+  être vu — la rubrique ouverte, une alerte. Une icône sans rien à signaler
+  reste grise, et l'accent va sur l'icône, non sur toute la pastille.
+- **La barre du haut reste entière**, d'un bord à l'autre : deux panneaux
+  détachés sur un écran, c'est un de trop — il faut un point fixe. Elle suit en
+  revanche le mode.
+- **Une seule échelle, et rien en dehors** (`tailwind.config.js`) : rayons
+  `champ` 8 / `carte` 14 / `fenetre` 22 / `panneau` 26 ; ombres `pose`,
+  `flottant`, `dessus` ; courbe `ease-ios`. Un seul voile de fenêtre : marine
+  translucide, flou léger.
 - **Une entrée de rail sans icône est invisible** une fois le rail replié.
 - **Un titre ne s'écrit qu'une fois** par écran.
 - Un libellé ne promet que ce que la modale fait réellement.

@@ -475,9 +475,9 @@ export default function Besoins({ annee: anneeProp }) {
       )}
 
       {envoi && (
-        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4"
+        <div className="fixed inset-0 bg-[rgba(11,21,45,.32)] backdrop-blur-[3px] flex items-center justify-center z-50 p-4"
              onClick={() => setEnvoi(null)}>
-          <div className="bg-white rounded-2xl shadow-xl w-full max-w-lg p-5 space-y-3"
+          <div className="bg-white rounded-fenetre shadow-dessus w-full max-w-lg p-5 space-y-3"
                onClick={e => e.stopPropagation()}>
             <div className="font-semibold text-iip-blue">
               Envoyer l'offre — {envoi.offre.intitule || envoi.offre.code_cours}
@@ -545,7 +545,7 @@ function Champ({ label, children }) {
 
 function Modale({ titre, onFermer, children }) {
   return (
-    <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4" onClick={onFermer}>
+    <div className="fixed inset-0 bg-[rgba(11,21,45,.32)] backdrop-blur-[3px] flex items-center justify-center z-50 p-4" onClick={onFermer}>
       <div className="bg-white rounded-xl max-w-2xl w-full max-h-[85vh] overflow-auto"
            onClick={e => e.stopPropagation()}>
         <div className="px-5 py-3.5 border-b border-slate-200 flex items-center justify-between sticky top-0 bg-white">

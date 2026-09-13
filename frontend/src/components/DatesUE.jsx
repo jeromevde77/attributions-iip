@@ -447,7 +447,7 @@ export default function DatesUE({ annee }) {
 
       {/* Aperçu des jalons */}
       {jalonsPour && (
-        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4"
+        <div className="fixed inset-0 bg-[rgba(11,21,45,.32)] backdrop-blur-[3px] flex items-center justify-center z-50 p-4"
              onClick={() => setJalonsPour(null)}>
           <div className="bg-white rounded-xl max-w-2xl w-full max-h-[80vh] overflow-auto"
                onClick={e => e.stopPropagation()}>

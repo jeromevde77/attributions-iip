@@ -489,9 +489,9 @@ function DepenseForm({ ligne, onEnregistrer, onAnnuler }) {
     taux_tva: ligne.taux_tva,
   });
   return (
-    <div className="fixed inset-0 bg-black/40 flex items-start justify-center z-50 p-4"
+    <div className="fixed inset-0 bg-[rgba(11,21,45,.32)] backdrop-blur-[3px] flex items-start justify-center z-50 p-4"
       onClick={e => e.target === e.currentTarget && onAnnuler()}>
-      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg mt-24 p-5 space-y-3">
+      <div className="bg-white rounded-fenetre shadow-dessus w-full max-w-lg mt-24 p-5 space-y-3">
         <div className="flex items-center gap-2">
           <IconCash size={18} className="text-iip-turquoise" />
           <span className="font-semibold text-iip-blue">Encoder une dépense</span>

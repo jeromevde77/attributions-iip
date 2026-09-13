@@ -404,9 +404,9 @@ function GrilleParcours({ etudId, peutEcrire }) {
       </div>
 
       {popover && (
-        <div className="fixed inset-0 z-[60] bg-black/30 flex items-center justify-center p-4"
+        <div className="fixed inset-0 z-[60] bg-[rgba(11,21,45,.32)] backdrop-blur-[3px] flex items-center justify-center p-4"
           onClick={() => { setPopover(null); setPts(''); setDetail(null); setDetailOuvert(false); }}>
-          <div className="bg-white rounded-2xl shadow-2xl p-5 w-80" onClick={e => e.stopPropagation()}>
+          <div className="bg-white rounded-fenetre shadow-dessus p-5 w-80" onClick={e => e.stopPropagation()}>
             <div className="font-semibold text-iip-blue mb-1">
               UE {popover.ue_num} — {popover.annee}
             </div>
@@ -1365,8 +1365,8 @@ function FicheEtudiant({ id, annee, onClose, position, onPrec, onSuiv,
   if (!data) return <div className="p-6 text-slate-400 text-sm">Chargement…</div>;
 
   return (
-    <div className="fixed inset-0 bg-black/40 flex items-start justify-center z-50 p-4 overflow-auto">
-      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-[1400px] mt-8">
+    <div className="fixed inset-0 bg-[rgba(11,21,45,.32)] backdrop-blur-[3px] flex items-start justify-center z-50 p-4 overflow-auto">
+      <div className="bg-white rounded-fenetre shadow-dessus w-full max-w-[1400px] mt-8">
         {/* En-tête */}
         <div className="bg-iip-blue rounded-t-2xl px-6 py-5 flex items-start justify-between">
           <div>
@@ -2519,9 +2519,9 @@ export default function Etudiants() {
       )}
 
       {complement && (
-        <div className="fixed inset-0 bg-black/40 flex items-start justify-center z-50 p-4"
+        <div className="fixed inset-0 bg-[rgba(11,21,45,.32)] backdrop-blur-[3px] flex items-start justify-center z-50 p-4"
           onClick={e => e.target === e.currentTarget && setComplement(false)}>
-          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-3xl mt-12 p-5
+          <div className="bg-white rounded-fenetre shadow-dessus w-full max-w-3xl mt-12 p-5
                           max-h-[85vh] overflow-y-auto">
             <div className="flex items-center justify-between mb-3">
               <span className="text-[15px] font-semibold text-iip-blue">

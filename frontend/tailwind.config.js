@@ -20,6 +20,23 @@ export default {
           danger:    '#C0392B'
         }
       },
+      // ─── L'ÉCHELLE, ET RIEN EN DEHORS ───────────────────────────────────
+      // Quatre rayons, trois élévations, une courbe. C'est cela — plus que les
+      // couleurs — qui sépare un système d'un assemblage.
+      borderRadius: {
+        champ:   '8px',    // champs de saisie, boutons
+        carte:   '14px',   // cartes, tableaux, encadrés
+        fenetre: '22px',   // fenêtres, pastilles
+        panneau: '26px',   // panneaux flottants (le rail)
+      },
+      boxShadow: {
+        pose:     '0 1px 2px rgba(11,21,45,.06)',
+        flottant: '0 20px 50px -18px rgba(11,21,45,.35)',
+        dessus:   '0 30px 70px -20px rgba(11,21,45,.45)',
+      },
+      transitionTimingFunction: {
+        ios: 'cubic-bezier(.32,.72,0,1)',
+      },
       fontFamily: {
         sans:  ['Inter', 'Aptos', 'system-ui', 'Arial', 'sans-serif'],
         title: ['Inter', 'Aptos', 'system-ui', 'Arial', 'sans-serif']

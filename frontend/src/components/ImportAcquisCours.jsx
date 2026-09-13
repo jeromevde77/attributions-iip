@@ -104,9 +104,9 @@ export default function ImportAcquisCours({ coursCode, coursNom, annee, onClose,
                 refusee: 'text-red-700' };
 
   return (
-    <div className="fixed inset-0 bg-black/40 flex items-start justify-center z-[60] p-4"
+    <div className="fixed inset-0 bg-[rgba(11,21,45,.32)] backdrop-blur-[3px] flex items-start justify-center z-[60] p-4"
       onClick={e => e.target === e.currentTarget && onClose()}>
-      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-3xl mt-10
+      <div className="bg-white rounded-fenetre shadow-dessus w-full max-w-3xl mt-10
                       max-h-[90vh] overflow-hidden flex flex-col">
         <div className="flex-none px-5 py-3 border-b border-slate-100 flex items-start
                         justify-between gap-3">

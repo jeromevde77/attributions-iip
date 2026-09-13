@@ -94,9 +94,9 @@ export default function ClasseurNotes({
       </button>
 
       {(erreur || apercu) && (
-        <div className="fixed inset-0 bg-black/40 flex items-start justify-center z-[60] p-4"
+        <div className="fixed inset-0 bg-[rgba(11,21,45,.32)] backdrop-blur-[3px] flex items-start justify-center z-[60] p-4"
           onClick={e => e.target === e.currentTarget && (setApercu(null), setErreur(''))}>
-          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-xl mt-20
+          <div className="bg-white rounded-fenetre shadow-dessus w-full max-w-xl mt-20
                           max-h-[80vh] overflow-hidden flex flex-col">
             <div className="flex-none px-5 py-3 border-b border-slate-100 flex items-start
                             justify-between gap-3">

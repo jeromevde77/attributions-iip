@@ -107,9 +107,9 @@ export default function MotivationDecision({ etudId, annee, onClose }) {
   // Le choix de l'unité, tant qu'elle n'est pas faite.
   if (!ueNum) {
     return (
-      <div className="fixed inset-0 bg-black/40 flex items-start justify-center z-50 p-4"
+      <div className="fixed inset-0 bg-[rgba(11,21,45,.32)] backdrop-blur-[3px] flex items-start justify-center z-50 p-4"
         onClick={e => e.target === e.currentTarget && onClose()}>
-        <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg mt-16 p-5 space-y-3">
+        <div className="bg-white rounded-fenetre shadow-dessus w-full max-w-lg mt-16 p-5 space-y-3">
           <div className="flex items-start justify-between">
             <h3 className="text-[15px] font-semibold text-iip-blue">
               Motiver une décision · {annee}
@@ -146,8 +146,8 @@ export default function MotivationDecision({ etudId, annee, onClose }) {
 
   if (!donnees) {
     return (
-      <div className="fixed inset-0 bg-black/40 flex items-start justify-center z-50 p-4">
-        <div className="bg-white rounded-2xl shadow-2xl p-6 mt-20 text-[13px] text-slate-500">
+      <div className="fixed inset-0 bg-[rgba(11,21,45,.32)] backdrop-blur-[3px] flex items-start justify-center z-50 p-4">
+        <div className="bg-white rounded-fenetre shadow-dessus p-6 mt-20 text-[13px] text-slate-500">
           Chargement…
         </div>
       </div>
@@ -160,9 +160,9 @@ export default function MotivationDecision({ etudId, annee, onClose }) {
   const estRefus = donnees.resultat === 'refuse';
 
   return (
-    <div className="fixed inset-0 bg-black/40 flex items-start justify-center z-50 p-4"
+    <div className="fixed inset-0 bg-[rgba(11,21,45,.32)] backdrop-blur-[3px] flex items-start justify-center z-50 p-4"
       onClick={e => e.target === e.currentTarget && onClose()}>
-      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-3xl mt-8 max-h-[88vh] overflow-hidden flex flex-col">
+      <div className="bg-white rounded-fenetre shadow-dessus w-full max-w-3xl mt-8 max-h-[88vh] overflow-hidden flex flex-col">
 
         <div className="flex-none p-5 pb-3 border-b border-slate-100 flex items-start justify-between">
           <div>

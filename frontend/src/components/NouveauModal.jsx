@@ -110,7 +110,7 @@ export default function NouveauModal({ onClose, onCreated }) {
 
   // ── Rendu ──────────────────────────────────────────────────────────────────
   if (result) return (
-    <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4" onClick={onClose}>
+    <div className="fixed inset-0 bg-[rgba(11,21,45,.32)] backdrop-blur-[3px] z-50 flex items-center justify-center p-4" onClick={onClose}>
       <div className="bg-white rounded-xl shadow-xl w-full max-w-sm p-6 text-center" onClick={e => e.stopPropagation()}>
         <div className="text-4xl mb-3">✅</div>
         <div className="text-lg font-bold text-iip-blue mb-1">
@@ -125,7 +125,7 @@ export default function NouveauModal({ onClose, onCreated }) {
   );
 
   return (
-    <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4" onClick={onClose}>
+    <div className="fixed inset-0 bg-[rgba(11,21,45,.32)] backdrop-blur-[3px] z-50 flex items-center justify-center p-4" onClick={onClose}>
       <div className="bg-white rounded-xl shadow-xl w-full max-w-lg" onClick={e => e.stopPropagation()}>
 
         {/* En-tête */}

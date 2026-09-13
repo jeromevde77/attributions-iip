@@ -403,7 +403,7 @@ export default function ProfFicheModal({ prof, onClose, onSaved }) {
 
   if (loading) {
     return (
-      <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-40">
+      <div className="fixed inset-0 bg-[rgba(11,21,45,.32)] backdrop-blur-[3px] flex items-center justify-center p-4 z-40">
         <div className="bg-white rounded-xl shadow-2xl px-8 py-6 text-gray-400">Chargement…</div>
       </div>
     );
@@ -412,7 +412,7 @@ export default function ProfFicheModal({ prof, onClose, onSaved }) {
   const charByCat = (cat) => charges.map((c, i) => ({ c, i })).filter(x => x.c.categorie === cat);
 
   return (
-    <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-40"
+    <div className="fixed inset-0 bg-[rgba(11,21,45,.32)] backdrop-blur-[3px] flex items-center justify-center p-4 z-40"
       onClick={e => e.target === e.currentTarget && onClose()}>
       <div className="bg-white rounded-xl shadow-2xl max-w-3xl w-full border-t-4 border-iip-gold overflow-hidden flex flex-col max-h-[92vh]">
         <div className="flex items-center justify-between px-5 py-3 border-b border-gray-100 flex-shrink-0">

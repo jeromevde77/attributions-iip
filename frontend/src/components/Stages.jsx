@@ -262,9 +262,9 @@ export default function Stages({ etudId, annee, peutEcrire = true }) {
 
       {/* Création d'un lieu, sans quitter la fiche */}
       {nouveauLieu && (
-        <div className="fixed inset-0 bg-black/40 flex items-start justify-center z-50 p-4"
+        <div className="fixed inset-0 bg-[rgba(11,21,45,.32)] backdrop-blur-[3px] flex items-start justify-center z-50 p-4"
           onClick={e => e.target === e.currentTarget && setNouveauLieu(null)}>
-          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl mt-16 p-5 space-y-3">
+          <div className="bg-white rounded-fenetre shadow-dessus w-full max-w-2xl mt-16 p-5 space-y-3">
             <div className="text-[15px] font-semibold text-iip-blue">Nouveau lieu de stage</div>
             <p className="text-[11.5px] text-slate-500">
               L'adresse complète figurera au supplément au diplôme de chaque étudiant accueilli.

@@ -749,7 +749,7 @@ function DetailModal({ profId, onClose, onEdit, onFiche }) {
   }
 
   if (!detail) return (
-    <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-30">
+    <div className="fixed inset-0 bg-[rgba(11,21,45,.32)] backdrop-blur-[3px] flex items-center justify-center z-30">
       <div className="bg-white rounded-xl p-8 text-gray-400">Chargement…</div>
     </div>
   );
@@ -805,9 +805,9 @@ function DetailModal({ profId, onClose, onEdit, onFiche }) {
   ];
 
   return (
-    <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-30"
+    <div className="fixed inset-0 bg-[rgba(11,21,45,.32)] backdrop-blur-[3px] flex items-center justify-center p-4 z-30"
       onClick={e => e.target === e.currentTarget && onClose()}>
-      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-6xl max-h-[92vh] flex flex-col overflow-hidden">
+      <div className="bg-white rounded-fenetre shadow-dessus w-full max-w-6xl max-h-[92vh] flex flex-col overflow-hidden">
 
         {/* ── Barre de titre ── */}
         <div className="flex items-center justify-between px-6 py-3 bg-iip-blue rounded-t-2xl flex-shrink-0">
@@ -1137,7 +1137,7 @@ function DetailModal({ profId, onClose, onEdit, onFiche }) {
         />
       )}
       {showContratModal && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+        <div className="fixed inset-0 bg-[rgba(11,21,45,.32)] backdrop-blur-[3px] flex items-center justify-center z-50">
           <div className="bg-white rounded-xl shadow-2xl w-full max-w-md p-6">
             <h3 className="text-lg font-title text-iip-gold mb-4 flex items-center gap-2">
               <IconFileText size={18}/> Générer le contrat de travail
