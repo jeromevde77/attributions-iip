@@ -1,0 +1,377 @@
+<title>Lucie vers Apple</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Newsreader:ital,opsz,wght@0,6..72,300;0,6..72,500;1,6..72,300&family=Inter:wght@400;500;600&display=swap">
+<style>
+  :root{
+    --marine:#1B2B4B;
+    --marine-clair:#2A3D63;
+    --turquoise:#00AACC;
+    --or:#C9A84C;
+    --fond:#F2F4F7;          /* neutre légèrement bleuté, comme l'app */
+    --papier:#FFFFFF;
+    --encre:#16233B;
+    --encre-douce:#5A6885;
+    --filet:rgba(27,43,75,.12);
+    --filet-fort:rgba(27,43,75,.22);
+    --ombre:0 20px 50px -18px rgba(11,21,45,.35);
+  }
+  @media (prefers-color-scheme: dark){
+    :root:not([data-theme="light"]){
+      --fond:#0E1626; --papier:#151F33; --encre:#E7ECF5; --encre-douce:#9BA9C4;
+      --filet:rgba(255,255,255,.12); --filet-fort:rgba(255,255,255,.22);
+      --marine:#1B2B4B; --ombre:0 20px 50px -18px rgba(0,0,0,.6);
+    }
+  }
+  :root[data-theme="dark"]{
+    --fond:#0E1626; --papier:#151F33; --encre:#E7ECF5; --encre-douce:#9BA9C4;
+    --filet:rgba(255,255,255,.12); --filet-fort:rgba(255,255,255,.22);
+    --ombre:0 20px 50px -18px rgba(0,0,0,.6);
+  }
+
+  *{box-sizing:border-box}
+  body{
+    background:var(--fond); color:var(--encre);
+    font-family:Inter,system-ui,-apple-system,"Segoe UI",sans-serif;
+    font-size:15px; line-height:1.6;
+    padding-block:56px; padding-left:24px; padding-right:24px;
+  }
+  .page{max-width:1000px;margin:0 auto;display:flex;flex-direction:column;gap:56px}
+
+  h1,h2,h3{font-family:Newsreader,Georgia,serif;font-weight:500;text-wrap:balance;margin:0}
+  h1{font-size:clamp(30px,4.4vw,46px);line-height:1.1;letter-spacing:-.01em}
+  h2{font-size:clamp(22px,2.6vw,28px);line-height:1.2}
+  h3{font-size:17px}
+  p{margin:0;max-width:66ch}
+  .chapo{font-family:Newsreader,Georgia,serif;font-size:19px;font-style:italic;font-weight:300;color:var(--encre-douce);max-width:60ch}
+  .oeil{font-size:11px;text-transform:uppercase;letter-spacing:.13em;color:var(--encre-douce);font-weight:600}
+  .note{font-size:13.5px;color:var(--encre-douce)}
+
+  header{display:flex;flex-direction:column;gap:14px;border-bottom:1px solid var(--filet);padding-bottom:28px}
+  section{display:flex;flex-direction:column;gap:18px}
+  .tete{display:flex;flex-direction:column;gap:6px}
+
+  /* ── L'écran maquette ─────────────────────────────────────────── */
+  .ecran{
+    position:relative;background:#F7F8FA;border:1px solid var(--filet-fort);
+    border-radius:16px;overflow:hidden;height:290px;
+    box-shadow:0 1px 2px rgba(11,21,45,.06);
+  }
+  :root[data-theme="dark"] .ecran,
+  :root:not([data-theme="light"]) .ecran{background:#F7F8FA}
+  .barre{
+    height:44px;background:var(--marine);display:flex;align-items:center;gap:18px;
+    padding:0 16px;color:#fff;font-size:12px
+  }
+  .barre.verre{
+    position:absolute;left:12px;right:12px;top:12px;height:44px;border-radius:16px;
+    background:rgba(27,43,75,.88);backdrop-filter:blur(16px) saturate(160%);
+    border:1px solid rgba(255,255,255,.12);box-shadow:var(--ombre);z-index:3
+  }
+  .barre b{font-weight:600}
+  .barre .onglet{opacity:.6}
+  .barre .onglet.on{opacity:1;font-weight:600}
+  .barre.verre .onglet.on{background:rgba(255,255,255,.16);padding:5px 11px;border-radius:999px;
+    box-shadow:inset 0 0 0 1px rgba(255,255,255,.16)}
+
+  .corps{position:relative;height:calc(100% - 44px)}
+  .corps.plein{height:100%}
+
+  /* le rail maquette */
+  .rail{
+    position:absolute;left:12px;top:50%;transform:translateY(-50%);
+    width:52px;padding:10px 0;display:flex;flex-direction:column;align-items:center;gap:8px;
+    background:rgba(27,43,75,.88);backdrop-filter:blur(16px) saturate(160%);
+    border:1px solid rgba(255,255,255,.10);border-radius:22px;box-shadow:var(--ombre);
+    transition:width .3s cubic-bezier(.32,.72,0,1);z-index:2
+  }
+  .rail .p{width:30px;height:30px;border-radius:12px;display:grid;place-items:center;
+    background:rgba(255,255,255,.06)}
+  .rail .p.on{background:rgba(255,255,255,.16);box-shadow:inset 0 0 0 1px rgba(255,255,255,.18)}
+  .rail .p i{display:block;width:14px;height:14px;border-radius:4px;background:rgba(255,255,255,.65)}
+  .rail .p.on i{background:var(--turquoise)}
+  .rail .sep{width:26px;height:1px;background:rgba(255,255,255,.14);margin:2px 0}
+
+  .zone{
+    position:absolute;top:14px;bottom:14px;right:14px;left:76px;
+    background:var(--papier);border:1px solid var(--filet);border-radius:14px;
+    padding:14px;transition:left .3s cubic-bezier(.32,.72,0,1)
+  }
+  :root[data-theme="dark"] .zone,:root:not([data-theme="light"]) .zone{background:#fff;border-color:rgba(27,43,75,.12)}
+  .zone .t{font-size:12.5px;font-weight:600;color:var(--marine)}
+  .zone .l{height:8px;border-radius:4px;background:rgba(27,43,75,.08);margin-top:10px}
+  .zone .l.court{width:45%}
+
+  /* les trois comportements */
+  .ecran[data-mode="recouvre"]:hover .rail{width:168px}
+  .ecran[data-mode="pousse"]:hover .rail{width:168px}
+  .ecran[data-mode="pousse"]:hover .zone{left:192px}
+  .ecran[data-mode="ouvert"] .rail{width:168px}
+  .ecran[data-mode="ouvert"] .zone{left:192px}
+  .rail .lib{display:none;font-size:11.5px;color:rgba(255,255,255,.8);white-space:nowrap}
+  .ecran[data-mode="ouvert"] .rail .lib,
+  .ecran:hover .rail .lib{display:block}
+  .rail.large .p{width:auto;align-self:stretch;margin:0 8px;padding:0 8px;height:30px;
+    display:flex;align-items:center;gap:9px;justify-content:center}
+  .ecran[data-mode="ouvert"] .rail .p,
+  .ecran:hover .rail .p{justify-content:flex-start}
+
+  .paire{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:18px}
+  .cas{display:flex;flex-direction:column;gap:10px}
+  .cas .verdict{font-size:13.5px;color:var(--encre-douce)}
+  .cas .verdict b{color:var(--encre);font-weight:600}
+
+  /* la fenêtre */
+  .fenetre{
+    position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);
+    width:260px;background:rgba(255,255,255,.92);backdrop-filter:blur(20px) saturate(160%);
+    border:1px solid rgba(27,43,75,.10);border-radius:22px;box-shadow:0 30px 70px -20px rgba(11,21,45,.45);
+    padding:16px;z-index:4
+  }
+  .fenetre h4{margin:0 0 6px;font-family:Newsreader,Georgia,serif;font-weight:500;font-size:16px;color:var(--marine)}
+  .fenetre p{font-size:12px;color:#5A6885;margin-bottom:12px}
+  .fenetre .b{display:flex;gap:8px;justify-content:flex-end}
+  .btn{font-size:12px;padding:7px 14px;border-radius:999px;border:0;font-family:inherit}
+  .btn.p{background:var(--marine);color:#fff}
+  .btn.s{background:rgba(27,43,75,.07);color:var(--marine)}
+  .voile{position:absolute;inset:0;background:rgba(11,21,45,.18);backdrop-filter:blur(2px);z-index:3}
+
+  /* l'échelle */
+  table{width:100%;border-collapse:collapse;font-size:13.5px}
+  th,td{text-align:left;padding:9px 10px;border-bottom:1px solid var(--filet);vertical-align:top}
+  th{font-size:11px;text-transform:uppercase;letter-spacing:.1em;color:var(--encre-douce);font-weight:600}
+  td code{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:12px;color:var(--marine);
+    background:rgba(27,43,75,.06);padding:1px 6px;border-radius:6px}
+  :root[data-theme="dark"] td code,:root:not([data-theme="light"]) td code{color:#9FD9E8;background:rgba(255,255,255,.08)}
+  .tableau{overflow-x:auto;border:1px solid var(--filet);border-radius:14px;background:var(--papier)}
+
+  .echantillons{display:flex;gap:14px;flex-wrap:wrap}
+  .ech{background:var(--papier);border:1px solid var(--filet);padding:16px 18px;min-width:120px;
+    font-size:12px;color:var(--encre-douce);text-align:center}
+  .ech b{display:block;color:var(--encre);font-size:13px;font-weight:600;margin-bottom:3px}
+
+  .decision{border-left:3px solid var(--turquoise);padding:2px 0 2px 16px;display:flex;
+    flex-direction:column;gap:6px}
+  footer{border-top:1px solid var(--filet);padding-top:22px;color:var(--encre-douce);font-size:13px}
+  @media (prefers-reduced-motion:reduce){*{transition:none!important}}
+</style>
+
+<div class="page">
+
+  <header>
+    <div class="oeil">Lucie · proposition de direction visuelle · 12 septembre 2026</div>
+    <h1>Ce que « à la Apple » veut dire,<br>écran par écran</h1>
+    <p class="chapo">Le rail flottant est fait et vérifié. Restent trois gestes qui décident si
+      Lucie ressemble à un système ou à un assemblage — et une question sur laquelle je ne
+      tranche pas à votre place.</p>
+    <p class="note">Les maquettes ci-dessous sont du vrai code, pas des images : survolez-les.
+      Elles emploient le marine #1B2B4B et le turquoise #00AACC de l'application.</p>
+  </header>
+
+  <!-- 1 ─────────────────────────────────────────────────────────── -->
+  <section>
+    <div class="tete">
+      <div class="oeil">Proposition 1 — à trancher</div>
+      <h2>Le rail ouvert doit-il passer sur le travail&nbsp;?</h2>
+    </div>
+    <p>Vous dites que le rail ne doit jamais recouvrir le contenu. Replié, c'est déjà le cas :
+      la page réserve une bande vide de 80&nbsp;px, le panneau en occupe 68. La question ne se
+      pose qu'à l'ouverture, et elle n'a pas de réponse évidente — chacune coûte quelque chose.</p>
+
+    <div class="paire">
+      <div class="cas">
+        <h3>A — il recouvre (aujourd'hui)</h3>
+        <div class="ecran" data-mode="recouvre">
+          <div class="corps plein">
+            <div class="rail large">
+              <div class="p"><i></i><span class="lib">PAE &amp; inscriptions</span></div>
+              <div class="p on"><i></i><span class="lib">Délibération</span></div>
+              <div class="p"><i></i><span class="lib">Calendrier</span></div>
+              <div class="sep"></div>
+              <div class="p"><i></i><span class="lib">Documents</span></div>
+            </div>
+            <div class="zone">
+              <div class="t">Grille de délibération</div>
+              <div class="l"></div><div class="l"></div><div class="l court"></div>
+            </div>
+          </div>
+        </div>
+        <p class="verdict"><b>Rien ne bouge.</b> On frôle le bord, on lit, on ressort : la grille
+          n'a pas tressailli. Mais le panneau passe sur deux colonnes de notes le temps du survol.</p>
+      </div>
+
+      <div class="cas">
+        <h3>B — il pousse le contenu</h3>
+        <div class="ecran" data-mode="pousse">
+          <div class="corps plein">
+            <div class="rail large">
+              <div class="p"><i></i><span class="lib">PAE &amp; inscriptions</span></div>
+              <div class="p on"><i></i><span class="lib">Délibération</span></div>
+              <div class="p"><i></i><span class="lib">Calendrier</span></div>
+              <div class="sep"></div>
+              <div class="p"><i></i><span class="lib">Documents</span></div>
+            </div>
+            <div class="zone">
+              <div class="t">Grille de délibération</div>
+              <div class="l"></div><div class="l"></div><div class="l court"></div>
+            </div>
+          </div>
+        </div>
+        <p class="verdict"><b>Jamais sur le travail.</b> C'est votre règle, tenue littéralement.
+          Le prix : la page se décale de 176&nbsp;px chaque fois qu'on passe près du bord gauche —
+          sur une grille, la ligne qu'on lisait part ailleurs.</p>
+      </div>
+
+      <div class="cas">
+        <h3>C — ouvert en permanence</h3>
+        <div class="ecran" data-mode="ouvert">
+          <div class="corps plein">
+            <div class="rail large">
+              <div class="p"><i></i><span class="lib">PAE &amp; inscriptions</span></div>
+              <div class="p on"><i></i><span class="lib">Délibération</span></div>
+              <div class="p"><i></i><span class="lib">Calendrier</span></div>
+              <div class="sep"></div>
+              <div class="p"><i></i><span class="lib">Documents</span></div>
+            </div>
+            <div class="zone">
+              <div class="t">Grille de délibération</div>
+              <div class="l"></div><div class="l"></div><div class="l court"></div>
+            </div>
+          </div>
+        </div>
+        <p class="verdict"><b>Aucune surprise, jamais.</b> Tout est lisible, rien ne se déplace.
+          Le prix : 176&nbsp;px de moins pour les grilles — et ce sont elles qui manquent de largeur.
+          C'est déjà ce que fait l'épingle, pour qui la veut.</p>
+      </div>
+    </div>
+
+    <div class="decision">
+      <p><b>Ce que je ferais :</b> garder A pour le survol — c'est un coup d'œil, il ne doit rien
+        déplacer — et laisser C à portée d'épingle, puisqu'elle existe et se retient d'un jour à
+        l'autre. Si la règle « jamais sur le contenu » l'emporte, c'est B, et j'accepte le
+        décalage.</p>
+    </div>
+  </section>
+
+  <!-- 2 ─────────────────────────────────────────────────────────── -->
+  <section>
+    <div class="tete">
+      <div class="oeil">Proposition 2</div>
+      <h2>Le menu principal, traité comme le rail</h2>
+    </div>
+    <p>Le rail est devenu un objet posé sur la page ; la barre du haut est restée une bande
+      pleine d'un bord à l'autre. Les deux navigations ne se répondent plus — et c'est
+      exactement le défaut que vous nommiez : deux espaces différents.</p>
+
+    <div class="paire">
+      <div class="cas">
+        <h3>Aujourd'hui</h3>
+        <div class="ecran">
+          <div class="barre">
+            <b>Lucie</b><span class="onglet">Accueil</span>
+            <span class="onglet on">Étudiants</span><span class="onglet">Professeurs</span>
+            <span class="onglet">Pilotage</span>
+          </div>
+          <div class="corps">
+            <div class="rail"><div class="p"><i></i></div><div class="p on"><i></i></div>
+              <div class="p"><i></i></div><div class="sep"></div><div class="p"><i></i></div></div>
+            <div class="zone"><div class="t">Grille de délibération</div>
+              <div class="l"></div><div class="l court"></div></div>
+          </div>
+        </div>
+        <p class="verdict">Une bande collée, un panneau flottant : deux langages sur le même écran.</p>
+      </div>
+
+      <div class="cas">
+        <h3>Proposé</h3>
+        <div class="ecran">
+          <div class="barre verre">
+            <b>Lucie</b><span class="onglet">Accueil</span>
+            <span class="onglet on">Étudiants</span><span class="onglet">Professeurs</span>
+            <span class="onglet">Pilotage</span>
+          </div>
+          <div class="corps plein">
+            <div class="rail" style="top:58%"><div class="p"><i></i></div><div class="p on"><i></i></div>
+              <div class="p"><i></i></div><div class="sep"></div><div class="p"><i></i></div></div>
+            <div class="zone" style="top:68px"><div class="t">Grille de délibération</div>
+              <div class="l"></div><div class="l court"></div></div>
+          </div>
+        </div>
+        <p class="verdict">Même verre, même rayon, même ombre — et le métier actif devient une
+          pastille claire, comme la rubrique active du rail. Deux objets d'une même famille.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- 3 ─────────────────────────────────────────────────────────── -->
+  <section>
+    <div class="tete">
+      <div class="oeil">Proposition 3</div>
+      <h2>Les fenêtres, au même rayon</h2>
+    </div>
+    <p>Lucie ouvre une trentaine de modales — encodage, import, motif de correction, choix de
+      pièces. Elles ont aujourd'hui leur propre rayon, leur propre ombre, et surgissent sans
+      transition. Le même verre, la même courbe d'ouverture, et l'arrière-plan qui recule
+      légèrement : c'est peu de code, et c'est ce qui se remarque le plus.</p>
+
+    <div class="ecran" style="height:250px">
+      <div class="corps plein">
+        <div class="rail"><div class="p"><i></i></div><div class="p on"><i></i></div>
+          <div class="p"><i></i></div></div>
+        <div class="zone"><div class="t">Calendrier des sessions</div>
+          <div class="l"></div><div class="l"></div><div class="l court"></div></div>
+        <div class="voile"></div>
+        <div class="fenetre">
+          <h4>Corriger une date au procès-verbal</h4>
+          <p>La séance de l'UE 12 est clôturée. Dites en une phrase pourquoi vous corrigez —
+            la mention reste au dossier.</p>
+          <div class="b"><button class="btn s">Annuler</button>
+            <button class="btn p">Corriger</button></div>
+        </div>
+      </div>
+    </div>
+    <p class="note">Boutons en pastille, titre en Newsreader comme les titres de pièces
+      imprimées : la fenêtre appartient au même monde que le document qu'elle produit.</p>
+  </section>
+
+  <!-- 4 ─────────────────────────────────────────────────────────── -->
+  <section>
+    <div class="tete">
+      <div class="oeil">Proposition 4 — la fondation</div>
+      <h2>Une seule échelle de rayons et d'élévations</h2>
+    </div>
+    <p>C'est ce qui sépare un système d'un assemblage, et c'est invisible tant que ce n'est pas
+      fait : aujourd'hui les cartes, les tableaux, les tuiles et les fenêtres n'ont ni le même
+      arrondi ni la même ombre. Quatre valeurs suffisent, et rien en dehors.</p>
+
+    <div class="echantillons">
+      <div class="ech" style="border-radius:8px"><b>8 px</b>champs, boutons</div>
+      <div class="ech" style="border-radius:14px"><b>14 px</b>cartes, tableaux</div>
+      <div class="ech" style="border-radius:22px"><b>22 px</b>fenêtres, pastilles</div>
+      <div class="ech" style="border-radius:26px;box-shadow:var(--ombre)"><b>26 px</b>panneaux flottants</div>
+    </div>
+
+    <div class="tableau">
+      <table>
+        <thead><tr><th>Niveau</th><th>Emploi</th><th>Ombre</th></tr></thead>
+        <tbody>
+          <tr><td><b>0 — posé</b></td><td>cartes, tableaux, tuiles</td>
+            <td><code>0 1px 2px rgba(11,21,45,.06)</code> + filet</td></tr>
+          <tr><td><b>1 — flottant</b></td><td>rail, barre du menu</td>
+            <td><code>0 20px 50px -18px rgba(11,21,45,.35)</code></td></tr>
+          <tr><td><b>2 — au-dessus</b></td><td>fenêtres, menus déroulants</td>
+            <td><code>0 30px 70px -20px rgba(11,21,45,.45)</code></td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p class="note">Une seule courbe pour tout ce qui bouge —
+      <code>cubic-bezier(.32,.72,0,1)</code>, celle d'iOS — et 300 ms. C'est elle, plus que les
+      couleurs, qui fait dire « c'est fluide ».</p>
+  </section>
+
+  <footer>
+    <p>Ordre proposé : trancher la question&nbsp;1 (une phrase suffit), puis 4, puis 2, puis 3 —
+      la fondation avant ce qui s'appuie dessus. Chacune est indépendante et vérifiable à
+      l'écran ; aucune ne touche au calcul ni aux documents.</p>
+  </footer>
+</div>
