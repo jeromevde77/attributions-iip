@@ -265,21 +265,24 @@ export function RailDessine({ icon: HeaderIcon, titre, sousTitre, extra,
                     rounded-fenetre text-[13px] mb-0.5 transition-colors duration-150 ease-ios
                     ${epingle ? 'px-2.5' : 'justify-center px-0'}
                     ${it.actif ? 'font-semibold ring-1 ring-inset'
-                      : it.couleur ? 'font-medium hover:opacity-90'
-                        : 'hover:bg-[color:var(--menu-survol)]'}`}
+                      : 'hover:bg-[color:var(--menu-survol)]'}`}
                   style={it.actif
                     ? { background: 'var(--menu-actif)', color: 'var(--menu-texte)',
                         '--tw-ring-color': 'var(--menu-actif-bord)' }
-                    : it.couleur ? { background: it.couleur, color: 'white' }
-                      : { color: 'var(--menu-texte-doux)' }}>
+                    : { color: 'var(--menu-texte-doux)' }}>
                   {Ic ? (
                     /* L'ACCENT EST SUR L'ICÔNE, non sur toute la pastille : un
                        aplat turquoise pleine largeur criait plus fort que le
                        contenu de la page. */
+                    /* « couleur » ne peint plus la pastille : un aplat vert
+                       à côté d'un aplat turquoise à côté d'un aplat marine
+                       faisait de Personnel un autre menu que celui d'Étudiants,
+                       pour des entrées qui n'avaient rien de plus à signaler
+                       que les autres. Elle ne teinte que le TRAIT de l'icône,
+                       et seulement quand quelque chose le mérite. */
                     <Ic size={18} stroke={1.8} className="flex-shrink-0 mt-px"
                       style={it.actif ? { color: 'var(--menu-accent)' }
-                        : it.couleur ? { color: 'white' }
-                          : { color: 'var(--menu-icone)' }} />
+                        : { color: it.couleur || 'var(--menu-icone)' }} />
                   ) : (
                     /* FILET DE SÉCURITÉ : une entrée sans icône donnerait, rail
                        replié, une ligne vide — invisible et impossible à viser,

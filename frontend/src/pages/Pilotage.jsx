@@ -1479,8 +1479,12 @@ export default function Pilotage() {
         icon={IconChartBar}
         titre="Pilotage"
         extra={
+          /* BLANC SUR BLANC. Ce sélecteur était écrit pour le rail marine :
+             texte blanc, fond blanc à 10 %, filet blanc. En mode clair il
+             devenait illisible sur le gris pâle. Il lit désormais les jetons,
+             comme tout ce qui vit dans un menu. */
           <select value={selYear} onChange={e => setSelYear(Number(e.target.value))}
-            className="w-full bg-white/10 text-white text-[13px] rounded-lg px-2 py-1.5 h-9 border border-white/20 focus:outline-none">
+            className="w-full champ-barre text-[13px] rounded-champ px-2 py-1.5 h-9 focus:outline-none">
             {civil.map(y => (
               <option key={y.annee_civile} value={y.annee_civile} className="text-gray-800">
                 {y.annee_civile}{y.pct_organique > 95 ? ' ⚠' : ''}

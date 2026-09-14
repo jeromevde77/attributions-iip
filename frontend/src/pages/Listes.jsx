@@ -1255,11 +1255,11 @@ export default function Listes() {
         sections={[
           { label: 'Documents', items: [
             { key: 'attestation', label: 'Attestation réussite', icon: IconFileText, actif: false,
-              couleur: '#16a34a', onClick: () => navigate('/attestation') },
+              onClick: () => navigate('/attestation') },
             // La liste réclamée par la Fédération en fin de cycle : elle se
             // tapait à la main dans un Word recopié d'année en année.
             { key: 'diplomes', label: 'Étudiants diplômés', icon: IconCertificate, actif: false,
-              couleur: '#C9A227', onClick: () => setDiplomes(true) },
+              onClick: () => setDiplomes(true) },
           ]},
           ...ordreGroupes.map(grp => ({
           label: GROUPES_LABEL[grp],

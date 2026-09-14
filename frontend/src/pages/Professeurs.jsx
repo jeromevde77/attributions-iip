@@ -2311,32 +2311,31 @@ export default function Professeurs() {
   return (
     <div className="relative bg-slate-50" style={{ minHeight: 'calc(100vh - 64px)' }}>
       <RailLateral
+        /* « NOUVEAU MEMBRE » ÉTAIT UN BLOC VERT PLEINE LARGEUR, hérité du rail
+           qui s'élargissait au survol : replié, son libellé restait là,
+           transparent mais présent, et aucun autre écran n'avait son pareil.
+           C'est une action de l'écran — elle descend sous le filet, à la même
+           place que sur tous les autres. */
         actions={[
+          ...(canEdit ? [{ key: 'nouveau', label: 'Nouveau membre', icon: IconUserPlus,
+            onClick: () => setEditProf({ ...EMPTY }) }] : []),
           { key: 'imprimer', label: 'Centre d’impression', icon: IconPrinter,
             primaire: true, onClick: () => setCentreImpression(true) },
         ]}
         icon={IconUsers}
         titre="Personnel"
         sousTitre={`${filtered.length} membre${filtered.length > 1 ? 's' : ''}`}
-        extra={canEdit && (
-          <button onClick={() => setEditProf({ ...EMPTY })}
-            title="Nouveau membre du personnel"
-            className="w-full flex items-center gap-2 bg-green-600 hover:opacity-90 text-white text-[13px] font-medium px-3 py-2 rounded-lg transition">
-            <IconUserPlus size={16} className="flex-shrink-0" />
-            <span className="whitespace-nowrap opacity-0 group-hover/rail:opacity-100 transition-opacity duration-150">Nouveau membre</span>
-          </button>
-        )}
         sections={[
           // LES FILTRES SONT PARTIS DANS LA RANGÉE DES FILTRES (voir plus bas).
           // Le rail ne porte plus que ce qui MÈNE AILLEURS : on ne confond plus
           // « restreindre la liste que je regarde » et « quitter cet écran ».
           ...((estDirection(getUser()) || getUser()?.acces_recrutement) ? [{ label: 'Engagement', items: [
             // Ordre logique : le besoin précède l'offre, qui précède le recrutement.
-            { key: 'nav-besoins', label: 'Besoins & offres', icon: IconTargetArrow, couleur: '#00AACC', actif: false, onClick: () => navigate('/besoins') },
-            { key: 'nav-recrutement', label: 'Recrutement', icon: IconBriefcase, couleur: '#16a34a', actif: false, onClick: () => navigate('/recrutement') },
+            { key: 'nav-besoins', label: 'Besoins & offres', icon: IconTargetArrow, actif: false, onClick: () => navigate('/besoins') },
+            { key: 'nav-recrutement', label: 'Recrutement', icon: IconBriefcase, actif: false, onClick: () => navigate('/recrutement') },
           ]}] : []),
           ...(estDirection(getUser()) ? [{ label: 'Carrière', items: [
-            { key: 'nav-classement', label: 'Classement & prioritaires', icon: IconFileDescription, couleur: '#1B2B4B', actif: false, onClick: () => navigate('/classement') },
+            { key: 'nav-classement', label: 'Classement & prioritaires', icon: IconFileDescription, actif: false, onClick: () => navigate('/classement') },
           ]}] : []),
         ]}
       />
