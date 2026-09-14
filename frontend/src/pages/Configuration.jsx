@@ -1264,36 +1264,62 @@ export default function Configuration() {
   //  · Paramétrage annuel — ce qui se rejoue chaque rentrée
   //  · Établissement / Système / Modèles — le reste
   const CONF_GROUPES = [
-    { label: 'Référentiel légal', items: [
-      { key: 'referentiels', label: 'Référentiels', icon: IconBooks },
-      { key: 'prerequis', label: 'Prérequis UE', icon: IconLink },
-      { key: 'ponderations', label: 'Pondération des AA', icon: IconScale },
-      { key: 'demandes', label: 'Demandes à valider', icon: IconCheck },
-      { key: 'sauvegardes', label: 'Sauvegardes', icon: IconDownload },
-      { key: 'procedures', label: 'Procédures', icon: IconGavel },
-    ]},
-    { label: 'Paramétrage annuel', items: [
-      { key: 'annees', label: 'Années', icon: IconCalendar },
-      { key: 'doublons', label: 'Dossiers dédoublés', icon: IconUsers },
-      { key: 'dates-ue', label: 'Dates des UE', icon: IconCalendarEvent },
-    ]},
+    /*
+     * L'ORDRE, ET IL N'ÉTAIT NULLE PART.
+     *
+     * Vingt-quatre entrées en cinq groupes, rangées au fil de ce qu'on
+     * ajoutait : « Sauvegardes » sous « Référentiel légal », deux icônes de
+     * personnes qui ne disent pas la même chose, deux calendriers, et
+     * « Historique & Sauvegarde » à côté de « Sauvegardes » — deux écrans
+     * différents portant presque le même nom.
+     *
+     * Le classement suit maintenant ce qu'on vient y faire, du plus permanent
+     * au plus technique : qui nous sommes, ce qu'on enseigne, comment on
+     * délibère, ce qu'on produit, qui entre, et enfin la machine.
+     */
     { label: 'Établissement', items: [
-      { key: 'etablissement', label: 'Établissement', icon: IconBuilding },
-      { key: 'personnel', label: 'Personnel', icon: IconUsers },
-      { key: 'users', label: 'Utilisateurs', icon: IconUserShield },
-      { key: 'roles', label: 'Rôles', icon: IconUserShield },
+      { key: 'etablissement', label: 'Identité et sections', icon: IconBuilding },
+      { key: 'annees', label: 'Années scolaires', icon: IconCalendar },
     ]},
-    { label: 'Modèles de documents', items: [
-      { key: 'editeur', label: 'Éditeur', icon: IconEdit },
+    // LE RÉFÉRENTIEL ET SES PRÉREQUIS NE SE SÉPARENT PAS : un prérequis est
+    // une arête du référentiel, pas un réglage à côté.
+    { label: 'Référentiel', items: [
+      { key: 'referentiels', label: 'Référentiels', icon: IconBooks },
+      { key: 'prerequis', label: "Prérequis d'UE", icon: IconLink },
+    ]},
+    // LA PONDÉRATION EST UNE RÈGLE DE DÉLIBÉRATION, et non un réglage
+    // général : c'est elle qui fabrique la note d'unité. Elle rejoint les
+    // délais et les procédures, qui décident du reste de la décision.
+    { label: 'Délibération', items: [
+      { key: 'ponderations', label: 'Pondération des acquis', icon: IconScale },
+      { key: 'procedures', label: 'Procédures et délais', icon: IconGavel },
+    ]},
+    { label: 'Documents', items: [
+      { key: 'editeur', label: 'Éditeur de modèles', icon: IconEdit },
       { key: 'apercu', label: 'Aperçu des pièces', icon: IconFileText },
       { key: 'contrat', label: 'Contrat', icon: IconFileText },
       { key: 'attestation', label: 'Attestation', icon: IconAward },
       { key: 'recrutement', label: 'Recrutement', icon: IconSettings },
     ]},
+    { label: 'Accès', items: [
+      { key: 'users', label: 'Utilisateurs', icon: IconUserShield },
+      { key: 'roles', label: 'Rôles et plafonds', icon: IconUserShield },
+      { key: 'personnel', label: 'Personnel', icon: IconUsers },
+    ]},
+    { label: 'Données', items: [
+      { key: 'dates-ue', label: "Dates des UE", icon: IconCalendarEvent },
+      { key: 'doublons', label: 'Dossiers dédoublés', icon: IconUsers },
+      { key: 'demandes', label: 'Demandes à valider', icon: IconCheck },
+    ]},
+    // DEUX NOMS POUR DEUX CHOSES. « Historique & Sauvegarde » conservait les
+    // états d'attributions avant modification ; « Sauvegardes » conserve la
+    // base entière. Presque le même mot pour deux gestes qui ne se
+    // remplacent pas — on les nomme donc pour ce qu'ils sont.
     { label: 'Système', items: [
       { key: 'parametres', label: 'Paramètres', icon: IconAdjustments },
       { key: 'courriels', label: 'Courriels', icon: IconMail },
-      { key: 'systeme', label: 'Historique & Sauvegarde', icon: IconHistory },
+      { key: 'systeme', label: 'Historique des modifications', icon: IconHistory },
+      { key: 'sauvegardes', label: 'Sauvegardes de la base', icon: IconDownload },
       { key: 'statistiques', label: 'Statistiques', icon: IconChartBar },
       { key: 'changelog', label: 'Nouveautés', icon: IconSparkles },
     ]},
