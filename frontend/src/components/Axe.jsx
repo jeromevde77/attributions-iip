@@ -1,4 +1,4 @@
-import { useCallback, useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 import { RailDessine, FournisseurRail } from './ui.jsx';
 
 /**
@@ -36,6 +36,14 @@ export default function Axe({ titre, question, icone, onglets, ongletInitial }) 
   // qu'on vient de quitter.
   const [outils, setOutils] = useState(null);
   const inscrire = useCallback(secs => setOutils(secs), []);
+  // ET SON VOLET, s'il en a un : ce qui ne tient pas en icônes — des listes
+  // déroulantes, un champ de recherche — vit DANS le rail plutôt que dans un
+  // second panneau collé contre lui.
+  const [voletTitre, setVoletTitre] = useState(null);
+  const [noeudVolet, setNoeudVolet] = useState(null);
+  const declarer = useCallback(t => setVoletTitre(t), []);
+  const panneau = useMemo(() => ({ declarer, noeud: noeudVolet }),
+    [declarer, noeudVolet]);
 
   const rubriques = {
     label: 'Dans cet axe',
@@ -55,7 +63,9 @@ export default function Axe({ titre, question, icone, onglets, ongletInitial }) 
   return (
     <div className="relative bg-slate-50" style={{ minHeight: 'calc(100vh - 64px)' }}>
       <RailDessine icon={icone} titre={titre} sousTitre={question}
-        sections={[rubriques, ...(outils || [])]} />
+        sections={[rubriques, ...(outils || [])]}
+        volet={voletTitre === null ? null : { titre: voletTitre }}
+        surNoeudVolet={setNoeudVolet} />
 
       {/* LA GOUTTIÈRE DU RAIL EST POSÉE ICI PAR DÉFAUT, et sa largeur vient du
           rail lui-même (classe « gouttiere-rail », variable --rail) : le
@@ -63,7 +73,7 @@ export default function Axe({ titre, question, icone, onglets, ongletInitial }) 
           Seuls les écrans qui posent DÉJÀ la leur le déclarent. */}
       <div className={courant?.railPropre
         ? '' : (courant?.sansMarge ? 'gouttiere-rail' : 'gouttiere-rail p-4')}>
-        <FournisseurRail valeur={inscrire}>
+        <FournisseurRail valeur={inscrire} panneau={panneau}>
           {courant?.futur ? (
             <div className="border-2 border-dashed border-slate-200 rounded-xl p-8
                             text-center text-sm text-slate-500 m-4">

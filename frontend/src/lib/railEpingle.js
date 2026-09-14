@@ -52,4 +52,4 @@ export function useRailEpingle() {
  * côté : le rail flotte, le contenu ne doit pas venir se coller au verre.
  *   replié : 0,75 + 3,5 + 0,75 = 5rem · ouvert : 0,75 + 14,5 + 0,75 = 16rem
  */
-export const LARGEUR_RAIL = { replie: '5rem', ouvert: '16rem' };
+export const LARGEUR_RAIL = { replie: '5rem', ouvert: '16rem', volet: '22.5rem' };

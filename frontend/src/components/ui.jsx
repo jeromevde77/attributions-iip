@@ -1,4 +1,5 @@
 import { createContext, useContext, useEffect, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { IconPin, IconPinnedOff, IconSun, IconMoon } from '@tabler/icons-react';
 import { useRailEpingle, basculerEpingle, LARGEUR_RAIL } from '../lib/railEpingle.js';
 import { useMode, basculerMode } from '../lib/theme.js';
@@ -22,8 +23,50 @@ import { useMode, basculerMode } from '../lib/theme.js';
  * seul — il se dessine comme avant.
  */
 const ContexteRail = createContext(null);
-export function FournisseurRail({ valeur, children }) {
-  return <ContexteRail.Provider value={valeur}>{children}</ContexteRail.Provider>;
+/**
+ * LE VOLET DU RAIL — pour les écrans qui ne tiennent pas dans une colonne
+ * d'icônes.
+ *
+ * Attributions affichait, collé au rail, un second panneau blanc « Filtres &
+ * actions » : sa propre flèche de repli, son propre style, ses propres
+ * boutons. Deux bandes verticales avant d'atteindre le tableau, et une
+ * info-bulle du rail qui venait recouvrir le texte du voisin. Deux menus l'un
+ * contre l'autre, c'en est un de trop.
+ *
+ * Ces écrans reçoivent donc un RAIL LARGE : le même objet flottant, la même
+ * ombre, le même rayon, mais une seconde colonne à l'intérieur. Les icônes de
+ * l'axe restent où l'œil les cherche, et ce qui ne tient pas en icône — des
+ * listes déroulantes, un champ de recherche — vit à côté d'elles, DANS le
+ * rail. Un seul panneau, une seule bordure.
+ */
+const ContextePanneau = createContext(null);
+export function FournisseurRail({ valeur, panneau, children }) {
+  return (
+    <ContexteRail.Provider value={valeur}>
+      <ContextePanneau.Provider value={panneau}>{children}</ContextePanneau.Provider>
+    </ContexteRail.Provider>
+  );
+}
+
+/**
+ * Un écran déclare son volet en montant ce composant, comme il déclare ses
+ * outils avec RailLateral : il ne dessine rien lui-même et ne sait pas où le
+ * rail se trouve.
+ */
+export function VoletRail({ titre, children }) {
+  const ctx = useContext(ContextePanneau);
+  // ON NE FAIT PAS REMONTER LE CONTENU, ON DESCEND LE CONTENEUR.
+  // Faire passer des éléments React par un contexte les recrée à chaque rendu,
+  // donc réinscrit, donc redessine — une boucle sans fin. Le rail annonce
+  // seulement qu'il tient un volet ; l'écran y projette son contenu, qui reste
+  // son contenu : son état, ses gestionnaires, ses rendus, chez lui.
+  useEffect(() => {
+    if (!ctx?.declarer) return undefined;
+    ctx.declarer(titre || '');
+    return () => ctx.declarer(null);
+  }, [ctx, titre]);
+  if (!ctx?.noeud) return null;
+  return createPortal(children, ctx.noeud);
 }
 
 // Composants UI partagés — système de design IIP harmonisé.
@@ -150,7 +193,8 @@ export function RailLateral({ icon: HeaderIcon, titre, sousTitre, extra,
 
 /** Le rail tel qu'il se dessine — appelé par l'axe, ou par un écran isolé. */
 export function RailDessine({ icon: HeaderIcon, titre, sousTitre, extra,
-                              sections = [], actions = [] }) {
+                              sections = [], actions = [], volet = null,
+                              surNoeudVolet = null }) {
   const epingle = useRailEpingle();
   // On ne s'abonne au mode que pour savoir quelle icône proposer — soleil ou
   // lune : les couleurs, elles, viennent des jetons.
@@ -175,9 +219,10 @@ export function RailDessine({ icon: HeaderIcon, titre, sousTitre, extra,
   // suit quand on épingle, sans qu'aucun d'eux ait à le savoir.
   useEffect(() => {
     const r = document.documentElement;
-    r.style.setProperty('--rail', epingle ? LARGEUR_RAIL.ouvert : LARGEUR_RAIL.replie);
+    r.style.setProperty('--rail', volet ? LARGEUR_RAIL.volet
+      : epingle ? LARGEUR_RAIL.ouvert : LARGEUR_RAIL.replie);
     return () => r.style.removeProperty('--rail');
-  }, [epingle]);
+  }, [epingle, volet]);
 
   /**
    * LE RAIL NE BOUGE PLUS.
@@ -214,12 +259,16 @@ export function RailDessine({ icon: HeaderIcon, titre, sousTitre, extra,
          Le décalage de deux rem le centre SOUS la barre du haut, non sur la
          fenêtre entière : sans lui, il montait par-dessus le logo. */
       className={`group/rail fixed left-3 top-[calc(50%+2rem)] -translate-y-1/2 z-10
-        max-h-[calc(100vh-9rem)] flex flex-col py-3
+        max-h-[calc(100vh-9rem)] flex py-0
         rounded-panneau border backdrop-blur-xl backdrop-saturate-150
         transition-[width] duration-300 ease-ios
-        ${epingle ? 'w-[14.5rem]' : 'w-14'}`}
+        ${volet ? 'w-[21.5rem]' : epingle ? 'w-[14.5rem]' : 'w-14'}`}
       style={{ background: 'var(--menu-fond)', borderColor: 'var(--menu-bord)',
                boxShadow: 'var(--menu-ombre)' }}>
+      {/* LA COLONNE DES ICÔNES — ce que tous les écrans ont en commun. */}
+      <div className={`flex flex-col py-3 min-h-0 flex-shrink-0
+        ${volet ? 'w-14 border-r' : 'flex-1'}`}
+        style={{ borderColor: 'var(--menu-filet)' }}>
       {/* En-tête — replié, tout se centre : un libellé seulement masqué
           laisserait l'icône décalée par rapport à la colonne du dessous. */}
       <div className={`flex items-center gap-3 mb-1 flex-shrink-0
@@ -360,6 +409,22 @@ export function RailDessine({ icon: HeaderIcon, titre, sousTitre, extra,
           {mode === 'sombre' ? <IconSun size={16} /> : <IconMoon size={16} />}
         </button>
       </div>
+
+      </div>
+
+      {/* LE VOLET — ce que cet écran-ci ne peut pas dire en icônes. */}
+      {volet && (
+        <div className="flex-1 min-w-0 flex flex-col py-3 px-3 min-h-0">
+          {volet.titre && (
+            <div className="px-1 pb-2 text-[10px] font-semibold uppercase tracking-wider
+                            flex-shrink-0"
+              style={{ color: 'var(--menu-texte-doux)' }}>{volet.titre}</div>
+          )}
+          <div ref={surNoeudVolet}
+            className="min-h-0 overflow-y-auto rail-defile text-[13px]"
+            style={{ color: 'var(--menu-texte)' }} />
+        </div>
+      )}
 
       {/* La bulle : une seule, au niveau du rail, hors de ce qui défile. */}
       {survol && !epingle && (

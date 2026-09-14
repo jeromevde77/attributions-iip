@@ -1,5 +1,6 @@
 import { useEffect, useState, useMemo } from 'react';
 import { estDirection } from '../lib/modules.js';
+import { VoletRail } from '../components/ui.jsx';
 import { createPortal } from 'react-dom';
 import { api, getAnnee, nomDoc, getUnite, setUnite as setUniteGlobal, perToH, hToPer } from '../lib/api.js';
 import PreviewModal from '../components/PreviewModal.jsx';
@@ -284,8 +285,6 @@ export default function Attributions() {
   const [activeUE, setActiveUE] = useState(null);     // key de la dernière UE cliquée (encadrée)
   const [newCoursForm, setNewCoursForm] = useState(null); // préremplissage AttributionForm pour nouveau cours
   const [viewMode, setViewMode] = useState('ue');
-  const [panneauOuvert, setPanneauOuvert] = useState(() => localStorage.getItem('attr_panneau') !== '0');
-  const togglePanneau = () => setPanneauOuvert(v => { const n = !v; localStorage.setItem('attr_panneau', n ? '1' : '0'); return n; });
   const [openUEs, setOpenUEs] = useState(new Set());
   const [openActs, setOpenActs] = useState(new Set()); // volets d'activité dépliés (clé: coursKey|activite_id)
 
@@ -1929,25 +1928,20 @@ export default function Attributions() {
         <button onClick={resetFilters} className="text-gray-600 hover:text-iip-orange text-sm px-2 py-1.5 h-9">Réinitialiser</button>
       </div>
 
-      {/* ── Desktop : panneau latéral épinglable (vue + filtres + actions) + tableau ── */}
-      <div className="hidden md:flex gap-4 items-start">
-        <aside className={`flex-shrink-0 self-start sticky top-2 bg-white border border-gray-200 rounded-lg flex flex-col max-h-[calc(100vh-80px)] overflow-hidden transition-[width] duration-200 ${panneauOuvert ? 'w-72' : 'w-12'}`}>
-          <div className="flex items-center justify-between px-2 py-2 border-b border-gray-100 flex-shrink-0">
-            {panneauOuvert && <span className="text-[13px] font-semibold text-iip-blue pl-1.5">Filtres &amp; actions</span>}
-            <button onClick={togglePanneau} title={panneauOuvert ? 'Replier le panneau' : 'Déplier le panneau'} className="p-1.5 rounded hover:bg-gray-100 text-gray-500">
-              {panneauOuvert ? <IconChevronLeft size={18}/> : <IconChevronRight size={18}/>}
-            </button>
-          </div>
-
-          {panneauOuvert ? (
-            <div className="flex-1 overflow-y-auto p-3 space-y-4">
+      {/* ── LE VOLET DU RAIL — et non un second panneau contre lui ──────────
+          Vue, filtres et actions vivaient dans un panneau blanc collé au rail :
+          deux bandes verticales avant le tableau, deux flèches de repli, deux
+          styles. Ils entrent DANS le rail, qui s'élargit pour eux. Un seul
+          objet flottant, et le tableau gagne la largeur du panneau. */}
+      <VoletRail titre="Vue, filtres et actions">
+        <div className="space-y-4">
               {/* Vue */}
               <div>
                 <div className="text-[10px] font-semibold uppercase tracking-wider text-gray-400 mb-1.5">Vue</div>
                 <div className="flex flex-col gap-1">
-                  <button onClick={()=>setViewMode('ue')} className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-[13px] font-medium transition ${viewMode==='ue'?'bg-iip-blue text-white':'text-gray-600 hover:bg-gray-100'}`}><IconFolder size={16}/>Par section</button>
-                  <button onClick={()=>setViewMode('flat')} className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-[13px] font-medium transition ${viewMode==='flat'?'bg-iip-blue text-white':'text-gray-600 hover:bg-gray-100'}`}><IconClipboardText size={16}/>Vue complète</button>
-                  <button onClick={()=>setViewMode('coord')} title="Vue simplifiée : UE et cours regroupés, sans organisation" className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-[13px] font-medium transition ${viewMode==='coord'?'bg-iip-blue text-white':'text-gray-600 hover:bg-gray-100'}`}><IconUsersGroup size={16}/>Coordination</button>
+                  <button onClick={()=>setViewMode('ue')} className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-[13px] font-medium transition ${viewMode==='ue'?'onglet-actif':'onglet-dormant'}`}><IconFolder size={16}/>Par section</button>
+                  <button onClick={()=>setViewMode('flat')} className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-[13px] font-medium transition ${viewMode==='flat'?'onglet-actif':'onglet-dormant'}`}><IconClipboardText size={16}/>Vue complète</button>
+                  <button onClick={()=>setViewMode('coord')} title="Vue simplifiée : UE et cours regroupés, sans organisation" className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-[13px] font-medium transition ${viewMode==='coord'?'onglet-actif':'onglet-dormant'}`}><IconUsersGroup size={16}/>Coordination</button>
                 </div>
                 {viewMode!=='flat' && <div className="flex gap-3 mt-1.5 text-xs px-1">
                   <button onClick={expandAll} className="text-gray-500 hover:text-iip-turquoise">Tout déplier</button>
@@ -2004,24 +1998,10 @@ export default function Attributions() {
                 <b>{data.length}</b> attr · {sectionGroups.length} sect · {totalUECount} UE · <b>{stats.total.toLocaleString('fr-BE')}</b> pér.<br/>
                 IIP <b className="text-iip-blue">{stats.iip.toLocaleString('fr-BE')}</b> · HELB <b className="text-iip-turquoise">{stats.helb.toLocaleString('fr-BE')}</b>
               </div>
-            </div>
-          ) : (
-            <div className="flex flex-col items-center gap-1 py-2">
-              <button onClick={()=>setViewMode('ue')} title="Par section" className={`p-2 rounded-lg ${viewMode==='ue'?'bg-iip-blue text-white':'text-gray-500 hover:bg-gray-100'}`}><IconFolder size={18}/></button>
-              <button onClick={()=>setViewMode('flat')} title="Vue complète" className={`p-2 rounded-lg ${viewMode==='flat'?'bg-iip-blue text-white':'text-gray-500 hover:bg-gray-100'}`}><IconClipboardText size={18}/></button>
-              <button onClick={togglePanneau} title="Filtres" className="p-2 rounded-lg text-gray-500 hover:bg-gray-100"><IconFilter size={18}/></button>
-              <button onClick={()=>{ const next = unite==='heures'?'periodes':'heures'; setUniteLocal(next); setUniteGlobal(next); window.dispatchEvent(new Event('unite-change')); }}
-                title={unite==='heures' ? 'Afficher en périodes' : 'Afficher en heures'}
-                className={`p-2 rounded-lg ${unite==='heures'?'bg-iip-turquoise/20 text-iip-turquoise':'text-gray-500 hover:bg-gray-100'}`}>
-                <IconClock size={18}/>
-              </button>
-              <button onClick={()=>setShowForm(true)} title="Nouvelle attribution" className="p-2 rounded-lg text-iip-blue hover:bg-gray-100"><IconPlus size={18}/></button>
-              <button onClick={()=>setShowAnnulation(true)} title="Annuler une modification"
-                className="p-2 rounded-lg text-gray-500 hover:bg-gray-100"><IconArrowBackUp size={18}/></button>
-            </div>
-          )}
-        </aside>
+        </div>
+      </VoletRail>
 
+      <div className="hidden md:block">
         <main className="flex-1 min-w-0">
 
       {/* VUE PAR SECTION/UE/COURS — tableau unique continu */}
