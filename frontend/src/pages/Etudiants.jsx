@@ -2194,15 +2194,11 @@ export default function Etudiants() {
   });
 
   const RAIL = [
-    { label: 'Documents', items: [
-      { key: 'impression',
-        label: selEtudiants.size
-          ? `Imprimer ${selEtudiants.size} sélectionné(s)`
-          : "Centre d'impression",
-        icon: IconPrinter,
-        couleur: selEtudiants.size ? '#00AACC' : undefined,
-        onClick: () => setCentreImpression(true) },
-      { key: 'rapport', label: 'Rapport de la liste', icon: IconPrinter,
+    // LE CENTRE D'IMPRESSION EST DÉJÀ LA BULLE DU HAUT. Il occupait EN PLUS une
+    // entrée du rail : deux icônes, une seule fenêtre. La bulle le porte, et
+    // elle seule ; c'est elle qui annonce la sélection en cours.
+    { label: 'Éditions', items: [
+      { key: 'rapport', label: 'Rapport de la liste', icon: IconFileText,
         onClick: ouvrirRapport },
       { key: 'rapport-pae', label: 'Rapport PAE', icon: IconTable,
         onClick: () => setRapportPAE(true) },
@@ -2234,7 +2230,11 @@ export default function Etudiants() {
       <RailLateral icon={IconChecklist} titre="Étudiants"
         sousTitre={`${filtres.length} étudiant(s)`} sections={RAIL}
         actions={[
-          { key: 'imprimer', label: 'Centre d’impression', icon: IconPrinter,
+          { key: 'imprimer',
+            label: selEtudiants.size
+              ? `Imprimer ${selEtudiants.size} sélectionné(s)`
+              : 'Centre d’impression',
+            icon: IconPrinter,
             primaire: true, onClick: () => setCentreImpression(true) },
         ]} />
     <div className="gouttiere-rail p-5 space-y-4 max-w-none">

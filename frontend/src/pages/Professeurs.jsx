@@ -2327,17 +2327,9 @@ export default function Professeurs() {
           </button>
         )}
         sections={[
-          { label: 'Contrat', items: [
-            { key: 'c-',     label: 'Tous contrats',  icon: IconUsers,        actif: fContrat === '',      onClick: () => setFContrat('') },
-            { key: 'c-IIP',  label: 'IIP seul',       icon: IconBuilding,     actif: fContrat === 'IIP',   onClick: () => setFContrat('IIP') },
-            { key: 'c-HELB', label: 'HELB seul',      icon: IconBuildingBank, actif: fContrat === 'HELB',  onClick: () => setFContrat('HELB') },
-            { key: 'c-mix',  label: 'IIP + HELB',     icon: IconFileDescription, actif: fContrat === 'mixte', onClick: () => setFContrat('mixte') },
-          ]},
-          { label: 'Charge', items: [
-            { key: 'ch-',    label: 'Toutes',         icon: IconUsers, actif: fCharge === '',     onClick: () => setFCharge('') },
-            { key: 'ch-av',  label: 'Avec charge',    icon: IconCheck, actif: fCharge === 'avec', onClick: () => setFCharge('avec') },
-            { key: 'ch-sa',  label: 'Sans charge',    icon: IconX,     actif: fCharge === 'sans', onClick: () => setFCharge('sans') },
-          ]},
+          // LES FILTRES SONT PARTIS DANS LA RANGÉE DES FILTRES (voir plus bas).
+          // Le rail ne porte plus que ce qui MÈNE AILLEURS : on ne confond plus
+          // « restreindre la liste que je regarde » et « quitter cet écran ».
           ...((estDirection(getUser()) || getUser()?.acces_recrutement) ? [{ label: 'Engagement', items: [
             // Ordre logique : le besoin précède l'offre, qui précède le recrutement.
             { key: 'nav-besoins', label: 'Besoins & offres', icon: IconTargetArrow, couleur: '#00AACC', actif: false, onClick: () => navigate('/besoins') },
@@ -2380,6 +2372,25 @@ export default function Professeurs() {
             className="border border-gray-300 rounded-lg px-2 py-1.5 h-9 text-sm focus:outline-none focus:border-iip-gold">
             <option value="">Toutes sections</option>
             {sectionsListe.map(s => <option key={s} value={s}>{s}</option>)}
+          </select>
+          {/* UN FILTRE N'EST PAS UNE DESTINATION.
+              Le contrat et la charge occupaient sept icônes du rail — sept
+              places prises, dans un rail où chaque icône doit se mériter, pour
+              restreindre une liste. Ils rejoignent la rangée des filtres, où
+              l'on voit d'un coup d'œil ce qui est appliqué et où « Réinitialiser »
+              les remet tous à zéro d'un geste. */}
+          <select value={fContrat} onChange={e => setFContrat(e.target.value)}
+            className="border border-gray-300 rounded-lg px-2 py-1.5 h-9 text-sm focus:outline-none focus:border-iip-gold">
+            <option value="">Tous contrats</option>
+            <option value="IIP">IIP seul</option>
+            <option value="HELB">HELB seul</option>
+            <option value="mixte">IIP + HELB</option>
+          </select>
+          <select value={fCharge} onChange={e => setFCharge(e.target.value)}
+            className="border border-gray-300 rounded-lg px-2 py-1.5 h-9 text-sm focus:outline-none focus:border-iip-gold">
+            <option value="">Toutes charges</option>
+            <option value="avec">Avec charge</option>
+            <option value="sans">Sans charge</option>
           </select>
           <label className="inline-flex items-center gap-1.5 text-sm text-gray-600 border border-gray-300 rounded-lg px-2.5 py-1.5 h-9 cursor-pointer hover:bg-gray-50">
             <input type="checkbox" checked={fAnc} onChange={e => setFAnc(e.target.checked)} />
