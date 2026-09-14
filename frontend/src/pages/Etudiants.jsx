@@ -2207,6 +2207,16 @@ export default function Etudiants() {
 
   useEchangesDuRail(useCallback(() => setEchanges(true), []));
 
+  // QUI PEUT SUPPRIMER. La route exige déjà « admin » ou « editeur » côté
+  // serveur — un bouton caché n'est pas une protection —, mais proposer à
+  // l'écran ce qui sera refusé par le serveur n'aide personne.
+  const peutSupprimer = (() => {
+    try {
+      const j = JSON.parse(atob((localStorage.getItem('token') || '').split('.')[1] || ''));
+      return ['admin', 'editeur', 'directeur', 'directeur_adjoint'].includes(j?.role);
+    } catch { return false; }
+  })();
+
   const RAIL = [
     // LE CENTRE D'IMPRESSION EST DÉJÀ LA BULLE DU HAUT, et il porte désormais
     // les deux rapports : trois icônes pour une seule porte, c'en était deux
@@ -2217,6 +2227,22 @@ export default function Etudiants() {
     // ait rien à préparer.
     // LA FIN DE CYCLE. Composer l'année suivante et délivrer les titres sont
     // les deux gestes de la même semaine : ils vont ensemble.
+    // SUPPRIMER A SA PROPRE PORTE, ET ELLE SE NOMME.
+    //
+    // La fenêtre existait — vider une UE, une session, une sélection — mais
+    // elle était rangée sous « Importer / exporter » : personne n'ouvre un
+    // menu d'imports pour supprimer, et personne ne l'avait trouvée. Une
+    // opération irréversible ne se cache pas dans un tiroir : elle se nomme.
+    //
+    // Elle ne supprime toujours rien sans avoir montré ce qu'elle va toucher
+    // — le compte des résultats, des notes, des reports, des inscriptions —
+    // puis sans une confirmation. C'est la seule entrée du rail dont l'icône
+    // porte une couleur, et c'est une brique : ici, la couleur est un
+    // avertissement, pas une décoration.
+    ...(peutSupprimer ? [{ label: 'Supprimer', items: [
+      { key: 'purge', label: 'Vider des résultats ou des inscriptions',
+        icon: IconTrash, couleur: '#9d4a38', onClick: () => setPurge(true) },
+    ] }] : []),
     { label: 'Fin de cycle', items: [
       { key: 'passage', label: "Composer les PAE de l'année suivante",
         icon: IconChecklist, onClick: () => setPassage(true) },
