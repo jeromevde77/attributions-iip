@@ -227,7 +227,7 @@ export default function Budget() {
           className="border border-slate-300 rounded-lg px-2 py-1.5 text-sm font-semibold text-iip-blue">
           {annees.map(a => <option key={a} value={a}>{a}</option>)}
         </select>
-        <div className="flex rounded-lg border border-slate-300 overflow-hidden">
+        <div className="segments">
           {[['section', 'Par section'], ['synthese', "Vue d'ensemble"]].map(([v, l]) => (
             <button key={v} onClick={() => setVue(v)}
               className={`px-3 py-1.5 text-[13px] ${vue === v

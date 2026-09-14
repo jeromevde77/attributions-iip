@@ -613,7 +613,7 @@ export default function FeuilleDeliberation({ ueNum, annee, onClose }) {
           {data?.etat_sessions?.seconde_possible && (
         <div className="flex items-center gap-2 text-[12px]">
           <span className="text-slate-500">Session délibérée :</span>
-          <div className="flex rounded-lg border border-slate-300 overflow-hidden">
+          <div className="segments">
             {[1, 2].map(n => (
               <button key={n} onClick={() => setChoixSession(n)}
                 className={`px-3 py-1 ${session === n

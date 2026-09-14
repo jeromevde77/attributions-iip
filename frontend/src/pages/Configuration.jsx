@@ -768,7 +768,7 @@ function GestionPrerequis() {
           <option value="">— Choisir une section —</option>
           {sections.map(s => <option key={s.code} value={s.code}>{s.code}</option>)}
         </select>
-        <div className="flex rounded-lg border border-gray-300 overflow-hidden h-9">
+        <div className="segments h-9">
           {[['schema', 'Schéma'], ['liste', 'Liste']].map(([v, l]) => (
             <button key={v} onClick={() => setVue(v)}
               className={`px-3 text-[13px] ${vue === v

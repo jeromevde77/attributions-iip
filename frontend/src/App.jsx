@@ -109,13 +109,34 @@ function PreviewBanner() {
   );
 }
 
+/** « Charles Sohet » → « CS ». Un seul mot, ses deux premières lettres. */
+/** Le rôle, en abrégé : la barre n'a pas la place d'un mot de dix-huit lettres. */
+const ROLE_COURT = {
+  admin: 'Adm.', directeur: 'Dir.', directeur_adjoint: 'Dir. adj.',
+  coordination: 'Coord.', secretariat: 'Secr.', professeur: 'Prof.',
+  consultation: 'Lect.', editeur: 'Édit.',
+};
+
+function initialesDe(u) {
+  const source = String(u?.nom || u?.email || '').trim();
+  const mots = source.split(/[\s@._-]+/).filter(Boolean);
+  if (!mots.length) return '?';
+  const lettres = mots.length > 1 ? mots[0][0] + mots[1][0] : mots[0].slice(0, 2);
+  return lettres.toLocaleUpperCase('fr');
+}
+
 function VoirCommePicker() {
   const [open, setOpen] = useState(false);
   const [profils, setProfils] = useState([]);
   const [err, setErr] = useState('');
   const u = getUser();
+  /* LE NOM TIENT EN DEUX LETTRES.
+     Écrit en entier, il occupait à lui seul un quart de la barre et forçait le
+     rôle et la déconnexion à s'empiler dessous, sur trois lignes. Les initiales
+     suffisent à dire qui est connecté — le nom complet reste dans l'info-bulle
+     et dans la liste « voir comme ». */
   if (!estDirection(u) || u?.preview) {
-    return <span className="text-gray-700 font-medium text-sm">{u?.nom || u?.email}</span>;
+    return <span className="pastille-compte" title={u?.nom || u?.email}>{initialesDe(u)}</span>;
   }
   const ouvrir = () => {
     setOpen(o => !o);
@@ -125,8 +146,8 @@ function VoirCommePicker() {
   return (
     <div className="relative">
       <button onClick={ouvrir} title="Voir Lucie comme un autre profil"
-        className="text-gray-700 font-medium text-sm hover:text-iip-blue flex items-center gap-1">
-        {u?.nom || u?.email} <span className="text-[10px] text-gray-400">▾</span>
+        className="pastille-compte hover:text-iip-blue flex items-center gap-1">
+        {initialesDe(u)} <span className="text-[10px] text-slate-400">▾</span>
       </button>
       {open && (
         <div className="absolute right-0 mt-1 w-64 bg-white border border-gray-200 rounded-lg shadow-xl z-50 max-h-80 overflow-auto">
@@ -444,14 +465,25 @@ function ProtectedLayout({ children }) {
                 </span>
               )}
             </span>
-            <div className="flex flex-col items-end leading-tight">
+            {/* LE COMPTE TIENT SUR UNE LIGNE.
+                Nom complet, rôle et « Déconnexion » s'empilaient sur trois
+                lignes et imposaient leur hauteur à toute la barre — donc au
+                rail, qui s'y raccroche, et à la zone de travail tout entière.
+                Les initiales, le rôle abrégé et la porte : trois objets de la
+                même hauteur, sur le même axe que le mode et la version. */}
+            <span className="flex items-center gap-2">
               <VoirCommePicker />
-              <span className="text-xs text-iip-turquoise font-semibold">{u?.role}</span>
+              <span className="text-[11px] text-iip-turquoise font-semibold uppercase tracking-wide
+                               hidden sm:inline" title={u?.role}>
+                {ROLE_COURT[u?.role] || u?.role}
+              </span>
               <button onClick={() => { api.logout(); navigate('/login'); }}
-                className="flex items-center gap-1 text-xs text-gray-400 hover:text-iip-danger transition mt-0.5">
-                <IconLogout size={13} /> Déconnexion
+                title="Se déconnecter" aria-label="Se déconnecter"
+                className="w-8 h-8 grid place-items-center rounded-champ text-slate-400
+                           hover:text-iip-blue hover:bg-slate-100 transition-colors duration-150">
+                <IconLogout size={16} />
               </button>
-            </div>
+            </span>
           </div>
         </div>
 

@@ -337,7 +337,7 @@ function OngletEtudiants({ perimetre = null }) {
       <div className="w-[340px] border-r border-slate-200 flex flex-col min-h-0">
         <div className="px-3 py-2 border-b border-slate-200">
           <div className="text-[13px] font-semibold text-iip-blue mb-1.5">Périmètre</div>
-          <div className="flex rounded-lg border border-slate-300 overflow-hidden w-full">
+          <div className="segments w-full">
             {[[1, '1re session'], [2, '2e session']].map(([v, lib]) => (
               <button key={v} onClick={() => setSession(v)}
                 className={`flex-1 px-2 py-1 text-[12px] ${session === v

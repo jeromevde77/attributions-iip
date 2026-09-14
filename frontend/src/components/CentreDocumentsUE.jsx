@@ -213,7 +213,7 @@ export default function CentreDocumentsUE({ ueNum, ueNom, annee, onClose }) {
         <div className="flex-1 overflow-y-auto p-5 space-y-3">
           <div>
             <div className="text-[12px] text-slate-500 mb-1">Que montrent ces pièces ?</div>
-            <div className="flex rounded-lg border border-slate-300 overflow-hidden">
+            <div className="segments">
               {[
                 { k: '1', l: '1re session', t: 'Tous les inscrits, décisions de juin' },
                 { k: '2', l: '2e session',

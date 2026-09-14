@@ -2299,7 +2299,7 @@ export default function Etudiants() {
           <option value="">Toutes les sections</option>
           {sections.map(s => <option key={s.code} value={s.code}>{s.libelle}</option>)}
         </select>
-        <div className="flex rounded-lg border border-slate-300 overflow-hidden">
+        <div className="segments">
           {[
             { k: 'en_cours', l: 'En cours',
               t: 'Les étudiants dont le parcours n’est pas achevé' },

@@ -141,7 +141,7 @@ export default function EncodageCours({ coursCode, annee, onClose, onEnregistre,
                          text-slate-600 flex items-center gap-1.5">
               <IconFileSpreadsheet size={14} /> Importer les acquis
             </button>
-            <div className="flex rounded-lg border border-slate-300 overflow-hidden">
+            <div className="segments">
               {[1, 2].map(s => (
                 <button key={s} onClick={() => setSession(s)}
                   className={`px-3 py-1 text-[12px] font-semibold ${session === s
@@ -274,7 +274,7 @@ export default function EncodageCours({ coursCode, annee, onClose, onEnregistre,
                         {/* NP / PP : la raison d'un zéro, posée sur l'épreuve
                             entière et non sur un acquis. */}
                         <td className="px-1 py-1 border-b border-r border-slate-100 text-center">
-                          <div className="inline-flex rounded-lg border border-slate-300 overflow-hidden">
+                          <div className="inline-segments">
                             {['NP', 'PP'].map(m => {
                               const actif = data.mentions?.[e.id] === m;
                               return (

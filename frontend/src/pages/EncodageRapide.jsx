@@ -294,7 +294,7 @@ export default function EncodageRapide() {
           className="border border-slate-300 rounded-lg px-2 py-1.5 text-sm">
           {sections.map(s => <option key={s.code} value={s.code}>{s.libelle || s.code}</option>)}
         </select>
-        <div className="flex rounded-lg border border-slate-300 overflow-hidden">
+        <div className="segments">
           {[['ue', 'Par UE'], ['annee', 'Par année']].map(([v, l]) => (
             <button key={v} onClick={() => setVue(v)}
               className={`px-3 py-1.5 text-[13px] ${vue === v

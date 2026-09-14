@@ -760,7 +760,7 @@ export default function Pilotage({ vue = 'tout' }) {
             Dotation détaillée par section et UE · {anneeActive}{anneePrec ? ` · Δ% vs ${anneePrec}` : ''}
           </div>
           <div className="flex items-center gap-2">
-            <div className="flex rounded-lg border border-gray-300 overflow-hidden text-xs">
+            <div className="segments text-xs">
               <button onClick={() => setRapportPaysage(false)} className={`px-2.5 py-1 ${!rapportPaysage ? 'bg-iip-blue text-white' : 'bg-white text-gray-500'}`}>Portrait</button>
               <button onClick={() => setRapportPaysage(true)} className={`px-2.5 py-1 ${rapportPaysage ? 'bg-iip-blue text-white' : 'bg-white text-gray-500'}`}>Paysage</button>
             </div>

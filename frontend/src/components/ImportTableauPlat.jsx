@@ -167,7 +167,7 @@ export default function ImportTableauPlat({ annee, onClose, onFini }) {
                 </span>
                 <span className="flex-1" />
                 <span className="text-[12px] text-slate-500">Ce fichier est :</span>
-                <div className="flex rounded-lg border border-slate-300 overflow-hidden">
+                <div className="segments">
                   {[['decisions', 'un tableau de décisions'],
                     ['planning', 'un planning de séances']].map(([v, lib]) => (
                     <button key={v}

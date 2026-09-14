@@ -218,7 +218,7 @@ export default function CentreImpression({ annee, section = null, onClose }) {
                 ))}
                 <span className="mx-1 h-4 w-px bg-slate-200" />
                 <span className="text-[12px] text-slate-500">Lecture :</span>
-                <div className="flex rounded-lg border border-slate-300 overflow-hidden">
+                <div className="segments">
                   {[
                     { k: '1', l: '1re session', t: 'Tous les inscrits, décisions de juin' },
                     { k: '2', l: '2e session',
@@ -295,7 +295,7 @@ export default function CentreImpression({ annee, section = null, onClose }) {
                       Un document par étudiant
                     </label>
                     <span className="text-[12px] text-slate-500">Classement :</span>
-                    <div className="flex rounded-lg border border-slate-300 overflow-hidden">
+                    <div className="segments">
                       {[['unite', 'par unité'], ['pile', 'par pile']].map(([v, lib]) => (
                         <button key={v} onClick={() => setGroupement(v)}
                           title={v === 'unite'

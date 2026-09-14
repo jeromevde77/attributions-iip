@@ -403,6 +403,47 @@ table.grid-excel-soft td.num { text-align: right; font-variant-numeric: tabular-
 .rail-defile { scrollbar-width: none; -ms-overflow-style: none; }
 .rail-defile::-webkit-scrollbar { width: 0; height: 0; }
 
+/* ═══ LES SEGMENTS — UN CHOIX EXCLUSIF, EN UN SEUL OBJET ══════════════════
+ *
+ * « En cours / Diplômés / Tous », « Portrait / Paysage », « 1re / 2e session » :
+ * le même objet, réécrit quinze fois à la main, et toujours de la même façon —
+ * une boîte arrondie, un filet, « overflow-hidden », et des boutons carrés
+ * dedans.
+ *
+ * ET C'EST LÀ QUE L'ARC SE CASSE. Le segment actif est un aplat rectangulaire
+ * posé dans une boîte arrondie : sa couleur va jusqu'au coin, l'arc du filet
+ * passe par-dessus, et l'œil voit un angle droit peint sous une courbe. La
+ * règle tient en une ligne : UN ENFANT PLEIN PREND LE RAYON DE SON PARENT,
+ * MOINS L'ÉPAISSEUR DU FILET — sinon il déborde de la courbe qui le contient.
+ *
+ * Tout est ici : la hauteur de contrôle, le rayon du champ, le filet, et les
+ * deux coins. Un écran n'a plus qu'à nommer l'objet. */
+.segments {
+  display: inline-flex; align-items: stretch;
+  height: 36px; border: 1px solid #cbd5e1; border-radius: 8px;
+  background: #fff; overflow: hidden;
+}
+.segments > * {
+  display: inline-flex; align-items: center; justify-content: center;
+  padding: 0 .75rem; font-size: 13px; line-height: 1;
+  transition: background-color 150ms, color 150ms;
+}
+.segments > :first-child { border-radius: 7px 0 0 7px; }
+.segments > :last-child  { border-radius: 0 7px 7px 0; }
+.segments > :only-child  { border-radius: 7px; }
+
+/* LA PASTILLE DU COMPTE — deux lettres, la taille d'un contrôle.
+   Le nom complet prenait un quart de la barre du haut et poussait le rôle et
+   la déconnexion sur deux lignes de plus : la barre grandissait, et avec elle
+   le rail et la zone de travail, qui s'y raccrochent. */
+.pastille-compte {
+  display: inline-flex; align-items: center; justify-content: center;
+  height: 2rem; min-width: 2rem; padding: 0 .5rem;
+  border-radius: 8px; font-size: 12px; font-weight: 700; letter-spacing: .02em;
+  color: var(--menu-texte, #1B2B4B); background: var(--menu-actif, #EEF2F7);
+  box-shadow: inset 0 0 0 1px var(--menu-actif-bord, #E2E8F0);
+}
+
 :root { --retrait-page: 1rem; }
 
 /* ═══ LE RETRAIT DE PAGE EST UN DÉFAUT, PAS UNE CONSIGNE ═══════════════════
@@ -426,7 +467,48 @@ main:not(:has(> .gouttiere-rail)) {
   transition: margin-left 200ms ease-out;
 }
 @media (prefers-reduced-motion: reduce) {
-  :root { --retrait-page: 1rem; }
+  /* ═══ LES SEGMENTS — UN CHOIX EXCLUSIF, EN UN SEUL OBJET ══════════════════
+ *
+ * « En cours / Diplômés / Tous », « Portrait / Paysage », « 1re / 2e session » :
+ * le même objet, réécrit quinze fois à la main, et toujours de la même façon —
+ * une boîte arrondie, un filet, « overflow-hidden », et des boutons carrés
+ * dedans.
+ *
+ * ET C'EST LÀ QUE L'ARC SE CASSE. Le segment actif est un aplat rectangulaire
+ * posé dans une boîte arrondie : sa couleur va jusqu'au coin, l'arc du filet
+ * passe par-dessus, et l'œil voit un angle droit peint sous une courbe. La
+ * règle tient en une ligne : UN ENFANT PLEIN PREND LE RAYON DE SON PARENT,
+ * MOINS L'ÉPAISSEUR DU FILET — sinon il déborde de la courbe qui le contient.
+ *
+ * Tout est ici : la hauteur de contrôle, le rayon du champ, le filet, et les
+ * deux coins. Un écran n'a plus qu'à nommer l'objet. */
+.segments {
+  display: inline-flex; align-items: stretch;
+  height: 36px; border: 1px solid #cbd5e1; border-radius: 8px;
+  background: #fff; overflow: hidden;
+}
+.segments > * {
+  display: inline-flex; align-items: center; justify-content: center;
+  padding: 0 .75rem; font-size: 13px; line-height: 1;
+  transition: background-color 150ms, color 150ms;
+}
+.segments > :first-child { border-radius: 7px 0 0 7px; }
+.segments > :last-child  { border-radius: 0 7px 7px 0; }
+.segments > :only-child  { border-radius: 7px; }
+
+/* LA PASTILLE DU COMPTE — deux lettres, la taille d'un contrôle.
+   Le nom complet prenait un quart de la barre du haut et poussait le rôle et
+   la déconnexion sur deux lignes de plus : la barre grandissait, et avec elle
+   le rail et la zone de travail, qui s'y raccrochent. */
+.pastille-compte {
+  display: inline-flex; align-items: center; justify-content: center;
+  height: 2rem; min-width: 2rem; padding: 0 .5rem;
+  border-radius: 8px; font-size: 12px; font-weight: 700; letter-spacing: .02em;
+  color: var(--menu-texte, #1B2B4B); background: var(--menu-actif, #EEF2F7);
+  box-shadow: inset 0 0 0 1px var(--menu-actif-bord, #E2E8F0);
+}
+
+:root { --retrait-page: 1rem; }
 
 /* ═══ LE RETRAIT DE PAGE EST UN DÉFAUT, PAS UNE CONSIGNE ═══════════════════
  *

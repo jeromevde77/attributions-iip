@@ -74,7 +74,7 @@ export default function Demandes() {
       )}
 
       <div className="flex gap-2 flex-wrap items-center">
-        <div className="flex rounded-lg border border-slate-300 overflow-hidden">
+        <div className="segments">
           {[['en_attente', 'En attente'], ['validee', 'Validées'], ['refusee', 'Refusées']].map(([v, l]) => (
             <button key={v} onClick={() => setStatut(v)}
               className={`px-3 py-1.5 text-[13px] ${statut === v

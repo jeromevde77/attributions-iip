@@ -462,7 +462,7 @@ export default function SchemaCapitalisation({
               </button>
 
               {modeLien && (
-                <div className="flex rounded-lg border border-slate-300 overflow-hidden">
+                <div className="segments">
                   {[['legal', 'Dossier pédagogique'], ['interne', 'Règle interne']].map(([v, l]) => (
                     <button key={v} onClick={() => setNatureLien(v)}
                       title={v === 'interne'

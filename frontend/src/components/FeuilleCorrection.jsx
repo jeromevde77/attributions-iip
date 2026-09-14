@@ -169,7 +169,7 @@ export default function FeuilleCorrection({ ueNum, annee, onClose, onModifie }) 
             </p>
           </div>
           <div className="flex items-center gap-2 flex-none">
-            <div className="flex rounded-lg border border-slate-300 overflow-hidden">
+            <div className="segments">
               {[1, 2].map(s => (
                 <button key={s} onClick={() => { setChoisie(true); setSession(s); }}
                   className={`px-2.5 py-1 text-[12px] ${session === s

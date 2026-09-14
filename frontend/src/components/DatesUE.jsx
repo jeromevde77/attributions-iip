@@ -285,7 +285,7 @@ export default function DatesUE({ annee }) {
         </div>
         <div>
           <label className="block text-[11px] font-semibold text-slate-500 uppercase tracking-wide mb-1">Vue</label>
-          <div className="flex rounded-lg border border-slate-300 overflow-hidden">
+          <div className="segments">
             {[['tableau', 'Tableau'], ['timeline', 'Ligne du temps']].map(([v, t]) => (
               <button key={v} onClick={() => setVue(v)}
                 className={`px-3 py-1.5 text-sm ${vue === v
