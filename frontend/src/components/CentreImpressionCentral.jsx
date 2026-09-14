@@ -394,38 +394,13 @@ function OngletEtudiants({ perimetre = null }) {
           </span>
         </div>
 
-        <div className="flex-1 overflow-auto min-h-0">
-          {rien && (
-            <p className="p-6 text-[12.5px] text-slate-400">
-              Choisissez un périmètre à gauche : une section, des unités, ou des
-              cours.
-            </p>
-          )}
-          {!rien && !etudiants.length && (
-            <p className="p-6 text-[12.5px] text-slate-400">
-              Aucun étudiant dans ce périmètre.
-            </p>
-          )}
-          {etudiants.map(e => (
-            <label key={e.id}
-              className={`flex items-center gap-2 px-3 py-1.5 border-b border-slate-100
-                          cursor-pointer ${e.decide ? '' : 'opacity-50'}`}>
-              <input type="checkbox" checked={coches.has(e.id)} disabled={!e.decide}
-                onChange={() => setCoches(s => bascule(s, e.id))}
-                className="w-4 h-4 accent-iip-blue" />
-              <span className="flex-1 min-w-0">
-                <span className="text-[12.5px] font-medium">{e.nom} {e.prenom}</span>
-                <span className="block text-[11px] text-slate-500">
-                  {e.decide
-                    ? `${e.reussites} réussite(s) · ${e.echecs} échec(s) sur ${e.unites.length} unité(s)`
-                    : 'aucune décision pour cette session'}
-                </span>
-              </span>
-            </label>
-          ))}
-        </div>
-
-        <div className="border-t border-slate-200 p-3 space-y-2">
+        {/* CE QU'ON PRODUIT SE DÉCIDE AVANT DE CHOISIR QUI.
+            Le choix des pièces et le bouton vivaient SOUS la liste : avec
+            seize étudiants on les voyait, avec deux cents il fallait
+            parcourir tout l'écran pour les atteindre, et le bouton
+            disparaissait à mesure que le travail grossissait. Ils passent
+            au-dessus : la liste peut alors s'allonger autant qu'elle veut. */}
+        <div className="border-b border-slate-200 p-3 space-y-2">
           <div className="flex flex-wrap gap-2">
             {PIECES.map(p => (
               <label key={p.cle}
@@ -467,6 +442,37 @@ function OngletEtudiants({ perimetre = null }) {
             </button>
           </div>
         </div>
+        <div className="flex-1 overflow-auto min-h-0">
+          {rien && (
+            <p className="p-6 text-[12.5px] text-slate-400">
+              Choisissez un périmètre à gauche : une section, des unités, ou des
+              cours.
+            </p>
+          )}
+          {!rien && !etudiants.length && (
+            <p className="p-6 text-[12.5px] text-slate-400">
+              Aucun étudiant dans ce périmètre.
+            </p>
+          )}
+          {etudiants.map(e => (
+            <label key={e.id}
+              className={`flex items-center gap-2 px-3 py-1.5 border-b border-slate-100
+                          cursor-pointer ${e.decide ? '' : 'opacity-50'}`}>
+              <input type="checkbox" checked={coches.has(e.id)} disabled={!e.decide}
+                onChange={() => setCoches(s => bascule(s, e.id))}
+                className="w-4 h-4 accent-iip-blue" />
+              <span className="flex-1 min-w-0">
+                <span className="text-[12.5px] font-medium">{e.nom} {e.prenom}</span>
+                <span className="block text-[11px] text-slate-500">
+                  {e.decide
+                    ? `${e.reussites} réussite(s) · ${e.echecs} échec(s) sur ${e.unites.length} unité(s)`
+                    : 'aucune décision pour cette session'}
+                </span>
+              </span>
+            </label>
+          ))}
+        </div>
+
       </div>
     </div>
   );
