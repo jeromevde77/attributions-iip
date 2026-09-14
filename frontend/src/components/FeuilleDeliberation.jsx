@@ -588,7 +588,7 @@ export default function FeuilleDeliberation({ ueNum, annee, onClose }) {
               session 2 et l'on ne trouvait ni elle, ni le geste qui l'ouvre.
               Le bandeau porte donc le chemin, non seulement la règle. */}
           {data?.etat_sessions?.seconde_attend && (
-            <div className="px-3 py-2 rounded-xl bg-sky-50 border border-sky-200
+            <div className="px-3 py-2 rounded-carte bg-sky-50 border border-sky-200
                             flex items-start justify-between gap-3">
               <span className="text-[12px] text-sky-900">
                 Toutes les décisions de première session sont encodées, et
@@ -604,8 +604,14 @@ export default function FeuilleDeliberation({ ueNum, annee, onClose }) {
               </button>
             </div>
           )}
+          {/* CE QUI EST DANS LA COLONNE SUIT LA COLONNE.
+              Deux blocs portaient une marge à eux (« mx-5 ») dans un conteneur
+              qui donne déjà son retrait à tout le monde : ils rentraient de
+              vingt pixels de plus que leurs voisins, et la pile de bandeaux
+              faisait un escalier. Le retrait est celui du conteneur, une fois
+              pour tous. */}
           {data?.etat_sessions?.seconde_possible && (
-        <div className="mx-5 mt-3 flex items-center gap-2 text-[12px]">
+        <div className="flex items-center gap-2 text-[12px]">
           <span className="text-slate-500">Session délibérée :</span>
           <div className="flex rounded-lg border border-slate-300 overflow-hidden">
             {[1, 2].map(n => (
@@ -626,7 +632,7 @@ export default function FeuilleDeliberation({ ueNum, annee, onClose }) {
       )}
 
       {data?.session === 2 && (
-        <div className="mx-5 mt-3 px-3 py-2 rounded-lg bg-amber-50 border border-amber-200
+        <div className="px-3 py-2 rounded-carte bg-amber-50 border border-amber-200
                         text-[12px] text-amber-900">
           <b>Seconde session.</b> Seuls les étudiants ajournés en première session sont
           présentés. Les cours qui n'étaient pas à représenter gardent leur note de
@@ -636,14 +642,14 @@ export default function FeuilleDeliberation({ ueNum, annee, onClose }) {
         </div>
       )}
       {erreur && (
-            <div className="px-3 py-2 rounded-lg bg-red-50 border border-red-200
+            <div className="px-3 py-2 rounded-carte bg-red-50 border border-red-200
                             text-[13px] text-red-800 flex items-center gap-2">
               <IconAlertTriangle size={14} /> {erreur}
             </div>
           )}
 
           {data.sans_structure && (
-            <div className="px-3 py-2 rounded-lg bg-amber-50 border border-amber-200
+            <div className="px-3 py-2 rounded-carte bg-amber-50 border border-amber-200
                             text-[13px] text-amber-900">
               Cette unité n'est pas paramétrée : ses acquis ne sont pas rattachés à
               des cours, ou aucun cours n'y est déclaré. Les notes ne peuvent pas se
@@ -656,7 +662,7 @@ export default function FeuilleDeliberation({ ueNum, annee, onClose }) {
               signale et on repasse trois cents fiches en revue pour rien. */}
           {reprise && (reprise.concordants + reprise.divergents) > 0
             && etape !== 'reprise' && etape !== 'cloture' && (
-            <div className="px-3 py-2 rounded-lg bg-sky-50 border border-sky-200
+            <div className="px-3 py-2 rounded-carte bg-sky-50 border border-sky-200
                             text-[13px] text-sky-900 flex items-center gap-3">
               <div className="flex-1">
                 <b>Cette unité arrive délibérée du classeur.</b>{' '}
