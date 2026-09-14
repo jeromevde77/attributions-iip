@@ -12,6 +12,7 @@ import IdentiteEtudiant, { ComplementDossiers } from '../components/IdentiteEtud
 // LE CENTRE CENTRAL. Les boutons restent où on les cherche — là où l'on
 // travaille — mais mènent désormais au même endroit.
 import CentreImpressionCentral from '../components/CentreImpressionCentral.jsx';
+import { useEchangesDuRail } from '../components/ui.jsx';
 import CentrePAE from '../components/CentrePAE.jsx';
 import PassageAnnee from '../components/PassageAnnee.jsx';
 import CentreEchanges from '../components/CentreEchanges.jsx';
@@ -2204,6 +2205,8 @@ export default function Etudiants() {
       description: "Unités inscrites, par étudiant", onClick: () => setRapportPAE(true) },
   ];
 
+  useEchangesDuRail(useCallback(() => setEchanges(true), []));
+
   const RAIL = [
     // LE CENTRE D'IMPRESSION EST DÉJÀ LA BULLE DU HAUT, et il porte désormais
     // les deux rapports : trois icônes pour une seule porte, c'en était deux
@@ -2224,24 +2227,16 @@ export default function Etudiants() {
     // Le rail alignait huit imports dont quatre parlaient de « classeur » sans
     // dire lequel : on ouvrait au jugé. Le centre les nomme et annonce le
     // fichier attendu — la seule chose qui permette de choisir sans essayer.
-    { label: 'Données', items: [
-      { key: 'echanges', label: 'Importer / exporter', icon: IconUpload,
-        onClick: () => setEchanges(true) },
-    ] },
+    // « Importer / exporter » ne se déclare plus ici : l'axe le pose sous le
+    // filet, à la même place que sur Personnel et Organisation. L'écran dit
+    // seulement COMMENT l'ouvrir.
   ];
 
   return (
     <div className="relative bg-slate-50" style={{ minHeight: 'calc(100vh - 64px)' }}>
       <RailLateral icon={IconChecklist} titre="Étudiants"
         sousTitre={`${filtres.length} étudiant(s)`} sections={RAIL}
-        actions={[
-          { key: 'imprimer',
-            label: selEtudiants.size
-              ? `Imprimer ${selEtudiants.size} sélectionné(s)`
-              : 'Centre d’impression',
-            icon: IconPrinter,
-            primaire: true, onClick: () => setCentreImpression(true) },
-        ]} />
+        impression="etudiants" pieces={EDITIONS} />
     <div className="gouttiere-rail p-5 space-y-4 max-w-none">
       {/* Le titre et le compte vivaient ICI, alors que le rail les porte déjà
           et que l'onglet le dit une troisième fois. Trois fois « Étudiants »
@@ -2518,10 +2513,6 @@ export default function Etudiants() {
           onClose={() => setPassage(false)} onTermine={charger} />
       )}
 
-      {centreImpression && (
-        <CentreImpressionCentral ongletInitial="etudiants" pieces={EDITIONS}
-          onClose={() => setCentreImpression(false)} />
-      )}
 
       {complement && (
         <div className="fixed inset-0 bg-[rgba(11,21,45,.32)] backdrop-blur-[3px] flex items-start justify-center z-50 p-4"

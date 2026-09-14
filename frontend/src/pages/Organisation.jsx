@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { lazy, Suspense, useEffect, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import Axe from '../components/Axe.jsx';
 import {
@@ -13,6 +13,8 @@ import DatesUE from '../components/DatesUE.jsx';
 import StructureSection from './StructureSection.jsx';
 import Rentree from './Rentree.jsx';
 import { authHeaders } from '../lib/api.js';
+
+const CalendrierSessions = lazy(() => import('../components/CalendrierSessions.jsx'));
 
 /**
  * Axe ORGANISATION — « Qu'organise-t-on cette année ? »
@@ -39,12 +41,18 @@ export default function Organisation({ ongletInitial }) {
 
   return (
     <Axe
-      titre="Organisation" icone={IconBooks}
+      titre="Organisation" icone={IconBooks} impression="organisation" echanges
       question="« Qu'organise-t-on cette année ? »"
       ongletInitial={ongletDemande}
       onglets={[
         { key: 'attributions', label: 'Attributions', icone: IconLayoutGrid, sansMarge: true,
           rendu: <Attributions /> },
+        // Les dates de session et de délibération, pour toute une section et
+        // d'un seul écran — venues d'Étudiants, où elles n'avaient rien à faire.
+        { key: 'calendrier', label: 'Calendrier des sessions', icone: IconCalendarStats,
+          sansMarge: true, railPropre: true,
+          rendu: <Suspense fallback={<div className="p-4 text-sm text-slate-400">Chargement…</div>}>
+                   <CalendrierSessions /></Suspense> },
         { key: 'organisations', label: "Organisations d'UE", icone: IconCalendar,
           rendu: annee
             ? <DatesUE annee={annee} />

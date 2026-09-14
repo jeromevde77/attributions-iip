@@ -1,6 +1,8 @@
-import { createContext, useContext, useEffect, useState } from 'react';
+import { createContext, lazy, Suspense, useContext, useEffect, useState } from 'react';
+
+const CentreImpressionCentral = lazy(() => import('./CentreImpressionCentral.jsx'));
 import { createPortal } from 'react-dom';
-import { IconPin, IconPinnedOff, IconSun, IconMoon } from '@tabler/icons-react';
+import { IconPin, IconPinnedOff, IconSun, IconMoon, IconPrinter } from '@tabler/icons-react';
 import { useRailEpingle, basculerEpingle, LARGEUR_RAIL } from '../lib/railEpingle.js';
 import { useMode, basculerMode } from '../lib/theme.js';
 
@@ -40,12 +42,30 @@ const ContexteRail = createContext(null);
  * rail. Un seul panneau, une seule bordure.
  */
 const ContextePanneau = createContext(null);
-export function FournisseurRail({ valeur, panneau, children }) {
+/**
+ * L'écran dit à l'axe COMMENT ouvrir son centre d'échanges ; l'axe décide OÙ
+ * le bouton se trouve. C'est ainsi que « Importer / exporter » est à la même
+ * place partout sans qu'aucun écran n'ait à savoir où est le rail.
+ */
+const ContexteEchanges = createContext(null);
+export function FournisseurRail({ valeur, panneau, echanges, children }) {
   return (
     <ContexteRail.Provider value={valeur}>
-      <ContextePanneau.Provider value={panneau}>{children}</ContextePanneau.Provider>
+      <ContexteEchanges.Provider value={echanges}>
+        <ContextePanneau.Provider value={panneau}>{children}</ContextePanneau.Provider>
+      </ContexteEchanges.Provider>
     </ContexteRail.Provider>
   );
+}
+
+/** Un écran déclare ici la porte de ses imports et exports. */
+export function useEchangesDuRail(ouvrir) {
+  const inscrire = useContext(ContexteEchanges);
+  useEffect(() => {
+    if (!inscrire) return undefined;
+    inscrire(() => ouvrir);
+    return () => inscrire(null);
+  }, [inscrire, ouvrir]);
 }
 
 /**
@@ -172,7 +192,8 @@ export function KpiCard({ label, valeur, sous, ton = 'neutral' }) {
 //   extra      : noeud rendu sous l'en-tête (ex. déroulant année) — visible au survol
 //   sections   : [{ label?, items: [{ key, label, icon, actif, onClick }] }]
 export function RailLateral({ icon: HeaderIcon, titre, sousTitre, extra,
-                              sections = [], actions = [] }) {
+                              sections = [], actions = [],
+                              impression = 'etudiants', pieces = null }) {
   // DANS UN AXE, ON NE SE DESSINE PAS : ON S'INSCRIT. L'axe tient un seul rail
   // et y place d'abord ses rubriques, puis ces outils-ci.
   const inscrire = useContext(ContexteRail);
@@ -188,13 +209,26 @@ export function RailLateral({ icon: HeaderIcon, titre, sousTitre, extra,
   if (inscrire) return null;
 
   return <RailDessine icon={HeaderIcon} titre={titre} sousTitre={sousTitre}
-    extra={extra} sections={sections} actions={actions} />;
+    extra={extra} sections={sections} actions={actions}
+    impression={impression} pieces={pieces} />;
 }
 
 /** Le rail tel qu'il se dessine — appelé par l'axe, ou par un écran isolé. */
 export function RailDessine({ icon: HeaderIcon, titre, sousTitre, extra,
                               sections = [], actions = [], volet = null,
-                              surNoeudVolet = null }) {
+                              surNoeudVolet = null, impression = 'etudiants',
+                              pieces = null }) {
+  /*
+   * LE CENTRE D'IMPRESSION EST PORTÉ PAR LE RAIL, ET PAR LUI SEUL.
+   *
+   * « On doit toujours pouvoir aller vers le centre d'impression. » Il était
+   * déclaré écran par écran : présent sur trois, absent sur les vingt autres.
+   * Un outil qu'on trouve ici et pas sur l'écran voisin n'est pas un outil,
+   * c'est une surprise — et une règle qui n'est juste que si l'on y pense est
+   * une règle fausse. Le rail le pose donc pour tous, en dernier sous le
+   * filet, à la même place et dans le même ordre.
+   */
+  const [centre, setCentre] = useState(false);
   const epingle = useRailEpingle();
   // On ne s'abonne au mode que pour savoir quelle icône proposer — soleil ou
   // lune : les couleurs, elles, viennent des jetons.
@@ -310,15 +344,29 @@ export function RailDessine({ icon: HeaderIcon, titre, sousTitre, extra,
                 <button key={it.key} onClick={it.onClick} aria-label={it.label}
                   onMouseEnter={e => !epingle && surviser(e, it.label)}
                   onMouseLeave={() => setSurvol(null)}
-                  className={`relative w-full flex items-start gap-3 py-2
-                    rounded-fenetre text-[13px] mb-0.5 transition-colors duration-150 ease-ios
-                    ${epingle ? 'px-2.5' : 'justify-center px-0'}
-                    ${it.actif ? 'font-semibold ring-1 ring-inset'
-                      : 'hover:bg-[color:var(--menu-survol)]'}`}
+                  /* UNE CASE CARRÉE, ET TOUTES DE LA MÊME TAILLE.
+                     Les entrées étaient des boutons pleine largeur alignés en
+                     haut (« items-start »), avec un « mt-px » sur l'icône : la
+                     hauteur suivait le libellé, invisible mais présent, et les
+                     icônes ne tombaient plus sur la même ligne d'un écran à
+                     l'autre. Replié, chaque entrée est désormais un carré de
+                     quarante, l'icône centrée dedans — ce qu'un rail d'icônes
+                     doit être.
+                     AU SURVOL, LA MÊME PASTILLE QUE L'ACTIVE, en plus discret :
+                     un fond blanc à coins largement arrondis, et non un simple
+                     grisé. On voit ce qu'on vise. */
+                  className={`relative flex text-[13px] mb-1
+                    transition-colors duration-150 ease-ios
+                    ${epingle
+                      ? 'w-full items-start gap-3 py-2 px-2.5 rounded-fenetre'
+                      : 'w-10 h-10 mx-auto items-center justify-center rounded-carte'}
+                    ${it.actif ? 'font-semibold ring-1 ring-inset' : 'hover:shadow-pose'}`}
                   style={it.actif
                     ? { background: 'var(--menu-actif)', color: 'var(--menu-texte)',
                         '--tw-ring-color': 'var(--menu-actif-bord)' }
-                    : { color: 'var(--menu-texte-doux)' }}>
+                    : { color: 'var(--menu-texte-doux)' }}
+                  onFocus={undefined}
+                  data-case-rail={epingle ? undefined : '1'}>
                   {Ic ? (
                     /* L'ACCENT EST SUR L'ICÔNE, non sur toute la pastille : un
                        aplat turquoise pleine largeur criait plus fort que le
@@ -329,7 +377,7 @@ export function RailDessine({ icon: HeaderIcon, titre, sousTitre, extra,
                        pour des entrées qui n'avaient rien de plus à signaler
                        que les autres. Elle ne teinte que le TRAIT de l'icône,
                        et seulement quand quelque chose le mérite. */
-                    <Ic size={18} stroke={1.8} className="flex-shrink-0 mt-px"
+                    <Ic size={19} stroke={1.8} className="flex-shrink-0"
                       style={it.actif ? { color: 'var(--menu-accent)' }
                         : { color: it.couleur || 'var(--menu-icone)' }} />
                   ) : (
@@ -337,7 +385,7 @@ export function RailDessine({ icon: HeaderIcon, titre, sousTitre, extra,
                        replié, une ligne vide — invisible et impossible à viser,
                        alors que le clic, lui, fonctionne toujours. À défaut
                        d'icône, un point tient la place et se voit. */
-                    <span className="flex-shrink-0 w-[18px] flex justify-center mt-1.5"
+                    <span className="flex-shrink-0 w-[19px] flex justify-center"
                       aria-hidden="true">
                       <span className="w-1.5 h-1.5 rounded-full bg-current opacity-60" />
                     </span>
@@ -364,10 +412,12 @@ export function RailDessine({ icon: HeaderIcon, titre, sousTitre, extra,
           change jamais — même place, même ordre, quel que soit l'écran, si bien
           qu'on finit par y aller sans regarder. L'impression d'abord : on
           imprime tous les jours, on importe quelques fois par an. */}
-      {!!actions.length && (
+      {true && (
         <div className="flex-shrink-0 px-2 pt-2 mt-1 border-t space-y-1"
           style={{ borderColor: 'var(--menu-filet)' }}>
-          {actions.map(a2 => {
+          {[...actions, { key: '__impression', label: 'Centre d\u2019impression',
+                          icon: IconPrinter, primaire: true,
+                          onClick: () => setCentre(true) }].map(a2 => {
             const Ic = a2.icon;
             return (
               <button key={a2.key} onClick={a2.onClick} aria-label={a2.label}
@@ -436,6 +486,12 @@ export function RailDessine({ icon: HeaderIcon, titre, sousTitre, extra,
                      text-[11.5px] whitespace-nowrap">
           {survol.label}
         </span>
+      )}
+      {centre && (
+        <Suspense fallback={null}>
+          <CentreImpressionCentral ongletInitial={impression} pieces={pieces}
+            onClose={() => setCentre(false)} />
+        </Suspense>
       )}
     </aside>
   );

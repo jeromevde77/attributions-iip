@@ -43,7 +43,7 @@ export function AxeAccueil() {
 export function AxeEtudiants() {
   return (
     <Axe
-      titre="Étudiants" icone={IconChecklist}
+      titre="Étudiants" icone={IconChecklist} impression="etudiants" echanges
       question="« Où en est cet étudiant ? »"
       onglets={[
         { key: 'pae', label: 'PAE & inscriptions', icone: IconClipboardList,
@@ -60,9 +60,10 @@ export function AxeEtudiants() {
         // de l'écran de délibération, unité par unité : fixer celui d'une
         // section demandait d'ouvrir trente actes de Conseil pour y taper des
         // dates. Elles ont leur page, et elle se lit d'un coup d'œil.
-        { key: 'calendrier', label: 'Calendrier des sessions', icone: IconCalendarStats,
-          sansMarge: true, railPropre: true,
-          rendu: <Suspense fallback={<Attente />}><CalendrierSessions /></Suspense> },
+        // LE CALENDRIER A REJOINT ORGANISATION. Fixer la date d'une épreuve,
+        // d'une visite des copies ou d'une délibération, c'est organiser
+        // l'année — pas suivre un étudiant. Et l'écran des dates d'UE y est
+        // déjà : les deux doivent se lire côte à côte.
         // L'onglet ouvre TOUTE la page Procédures — recours, fraude,
         // disciplinaire, examens, archives. L'appeler « Recours » annonçait un
         // cinquième de son contenu et cachait le reste.

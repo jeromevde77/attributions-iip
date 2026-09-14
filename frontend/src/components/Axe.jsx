@@ -1,4 +1,5 @@
 import { useCallback, useMemo, useState } from 'react';
+import { IconDatabaseImport } from '@tabler/icons-react';
 import { RailDessine, FournisseurRail } from './ui.jsx';
 
 /**
@@ -22,7 +23,8 @@ import { RailDessine, FournisseurRail } from './ui.jsx';
  * Une rubrique peut être marquée `futur` : elle annonce sa place réservée sans
  * prétendre exister.
  */
-export default function Axe({ titre, question, icone, onglets, ongletInitial }) {
+export default function Axe({ titre, question, icone, onglets, ongletInitial,
+                              impression = 'etudiants', echanges = false }) {
   const visibles = onglets.filter(o => !o.masque);
   const [actif, setActif] = useState(
     ongletInitial && visibles.some(o => o.key === ongletInitial)
@@ -45,6 +47,27 @@ export default function Axe({ titre, question, icone, onglets, ongletInitial }) 
   const panneau = useMemo(() => ({ declarer, noeud: noeudVolet }),
     [declarer, noeudVolet]);
 
+  /*
+   * LES DEUX OUTILS QUI SONT PARTOUT — ET QUI SONT POSÉS ICI, PAS PAR LES
+   * ÉCRANS.
+   *
+   * « On doit toujours pouvoir aller vers le centre d'impression. » Il était
+   * déclaré écran par écran : présent sur trois, absent sur les autres, et
+   * chacun le nommait à sa façon. Un outil qu'on trouve sur un écran et pas
+   * sur le voisin n'est pas un outil, c'est une surprise.
+   *
+   * L'axe le porte donc pour tous ses volets, sous le filet, à la même place
+   * et dans le même ordre — l'impression d'abord : on imprime tous les jours,
+   * on importe quelques fois par an.
+   */
+  const [portesEchanges, setPortesEchanges] = useState(null);
+  const outilsCommuns = [
+    ...(echanges && portesEchanges ? [{
+      key: 'echanges', label: 'Importer / exporter', icon: IconDatabaseImport,
+      onClick: portesEchanges,
+    }] : []),
+  ];
+
   const rubriques = {
     label: 'Dans cet axe',
     items: visibles.map(o => ({
@@ -65,7 +88,8 @@ export default function Axe({ titre, question, icone, onglets, ongletInitial }) 
       <RailDessine icon={icone} titre={titre} sousTitre={question}
         sections={[rubriques, ...(outils || [])]}
         volet={voletTitre === null ? null : { titre: voletTitre }}
-        surNoeudVolet={setNoeudVolet} />
+        surNoeudVolet={setNoeudVolet}
+        actions={outilsCommuns} impression={impression} />
 
       {/* LA GOUTTIÈRE DU RAIL EST POSÉE ICI PAR DÉFAUT, et sa largeur vient du
           rail lui-même (classe « gouttiere-rail », variable --rail) : le
@@ -73,7 +97,8 @@ export default function Axe({ titre, question, icone, onglets, ongletInitial }) 
           Seuls les écrans qui posent DÉJÀ la leur le déclarent. */}
       <div className={courant?.railPropre
         ? '' : (courant?.sansMarge ? 'gouttiere-rail' : 'gouttiere-rail p-4')}>
-        <FournisseurRail valeur={inscrire} panneau={panneau}>
+        <FournisseurRail valeur={inscrire} panneau={panneau}
+          echanges={setPortesEchanges}>
           {courant?.futur ? (
             <div className="border-2 border-dashed border-slate-200 rounded-xl p-8
                             text-center text-sm text-slate-500 m-4">

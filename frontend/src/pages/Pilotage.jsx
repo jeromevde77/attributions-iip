@@ -1471,11 +1471,8 @@ export default function Pilotage() {
   // ── Rendu ──────────────────────────────────────────────────────────────────
   return (
     <div className="relative bg-slate-50" style={{ minHeight: 'calc(100vh - 64px)' }}>
-      <RailLateral
-        actions={[
-          { key: 'imprimer', label: 'Centre d’impression', icon: IconPrinter,
-            primaire: true, onClick: () => setCentreImpression(true) },
-        ]}
+      <RailLateral impression="pilotage"
+
         icon={IconChartBar}
         titre="Pilotage"
         extra={
@@ -1535,9 +1532,7 @@ export default function Pilotage() {
           </>
         )}
       </div>
-      {centreImpression && (
-        <CentreImpressionCentral ongletInitial="pilotage"
-          onClose={() => setCentreImpression(false)} />
+ />
       )}
     </div>
   );

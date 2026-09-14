@@ -316,7 +316,7 @@ table.grid-excel-soft td.num { text-align: right; font-variant-numeric: tabular-
    l'œil — la rubrique ouverte, une alerte. Tout le reste est gris.
    ───────────────────────────────────────────────────────────────────────── */
 :root, :root[data-mode="clair"] {
-  --menu-fond:        rgba(241, 243, 247, 0.86);
+  --menu-fond:        rgba(241, 243, 247, 0.97);
   --menu-bord:        rgba(27, 43, 75, 0.10);
   --menu-texte:       #1B2B4B;
   --menu-texte-doux:  rgba(27, 43, 75, 0.55);
@@ -331,7 +331,7 @@ table.grid-excel-soft td.num { text-align: right; font-variant-numeric: tabular-
   --champ-fond:       #FFFFFF;
 }
 :root[data-mode="sombre"] {
-  --menu-fond:        rgba(27, 43, 75, 0.88);
+  --menu-fond:        rgba(27, 43, 75, 0.95);
   --menu-bord:        rgba(255, 255, 255, 0.10);
   --menu-texte:       #FFFFFF;
   --menu-texte-doux:  rgba(255, 255, 255, 0.45);
@@ -377,4 +377,18 @@ table.grid-excel-soft td.num { text-align: right; font-variant-numeric: tabular-
 }
 @media (prefers-reduced-motion: reduce) {
   .gouttiere-rail { transition: none; }
+}
+
+/* ═══ LA PASTILLE DE SURVOL DU RAIL ═══════════════════════════════════════
+ *
+ * Le survol n'était qu'un grisé à peine plus foncé que le rail : sur un fond
+ * déjà gris pâle, on ne voyait pas ce qu'on visait. C'est la même pastille que
+ * la rubrique ouverte, en plus discrète — un fond clair à coins largement
+ * arrondis, tenu par un filet. Elle ne peut pas s'écrire dans un style en
+ * ligne : un pseudo-état n'en fait pas partie.
+ */
+[data-case-rail]:hover {
+  background: var(--menu-actif);
+  box-shadow: inset 0 0 0 1px var(--menu-actif-bord);
+  color: var(--menu-texte);
 }

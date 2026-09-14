@@ -2310,7 +2310,7 @@ export default function Professeurs() {
 
   return (
     <div className="relative bg-slate-50" style={{ minHeight: 'calc(100vh - 64px)' }}>
-      <RailLateral
+      <RailLateral impression="personnel"
         /* « NOUVEAU MEMBRE » ÉTAIT UN BLOC VERT PLEINE LARGEUR, hérité du rail
            qui s'élargissait au survol : replié, son libellé restait là,
            transparent mais présent, et aucun autre écran n'avait son pareil.
@@ -2319,8 +2319,6 @@ export default function Professeurs() {
         actions={[
           ...(canEdit ? [{ key: 'nouveau', label: 'Nouveau membre', icon: IconUserPlus,
             onClick: () => setEditProf({ ...EMPTY }) }] : []),
-          { key: 'imprimer', label: 'Centre d’impression', icon: IconPrinter,
-            primaire: true, onClick: () => setCentreImpression(true) },
         ]}
         icon={IconUsers}
         titre="Personnel"
@@ -2515,9 +2513,7 @@ export default function Professeurs() {
         sujetMail={ficheHtml.sousTitre ? `${ficheHtml.sousTitre} — Institut Ilya Prigogine` : null}
         onClose={() => setFicheHtml(null)} />}
       </div>
-      {centreImpression && (
-        <CentreImpressionCentral ongletInitial="personnel"
-          onClose={() => setCentreImpression(false)} />
+ />
       )}
     </div>
   );
