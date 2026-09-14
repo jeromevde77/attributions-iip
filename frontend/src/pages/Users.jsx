@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { nomDepuisChaine } from '../lib/nom.js';
 import { getUser } from '../lib/api.js';
 import { IconPlus, IconKey, IconTrash, IconAlertTriangle } from '@tabler/icons-react';
 import { MODULES_ACCES, PLAFOND_ROLE, droitEffectif, LIBELLE_DROIT, estDirection} from '../lib/modules.js';

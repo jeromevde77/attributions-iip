@@ -296,7 +296,9 @@ export default function Recrutement() {
 function FichePoste({ poste, annee, onBack, grille }) {
   const [candidats, setCandidats]       = useState(poste.candidats || []);
   const [ajout, setAjout]               = useState(false);
-  const [genAnnonce, setGenAnnonce]     = useState(false);
+  /* « ModalAnnonce » n'a jamais existé et rien n'allumait cet état : une
+     fenêtre appelée par un composant absent, gardée par un drapeau que
+     personne ne lève. Restait une bombe à retardement dans le rendu. */
   const [onglet, setOnglet]             = useState('candidats');
   const [entretienCand, setEntretienCand] = useState(null); // candidature en cours d'entretien
   const [qIA, setQIA]                   = useState([]); // partagé grille↔entretien
@@ -446,9 +448,6 @@ function FichePoste({ poste, annee, onBack, grille }) {
         />
       )}
 
-      {genAnnonce && (
-        <ModalAnnonce poste={poste} annee={annee} onClose={() => setGenAnnonce(false)} />
-      )}
     </div>
   );
 }
@@ -1756,7 +1755,7 @@ function VueCandidatsGlobal({ candidats, fonctions, grille, onRecharger,
           </div>
           <span style="font-size:8pt;opacity:.8">${stLabel}</span>
         </div>
-        <div style="padding:8px 10px">${coords}${docsRemisBlock}${coursBlock}${entretienLibre}${entretiensCours}</div>
+        <div style="padding:8px 10px">${coords}${coursBlock}${entretienLibre}${entretiensCours}</div>
       </div>`;
     };
 

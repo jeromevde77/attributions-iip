@@ -126,7 +126,11 @@ const KINDS_CELLULE = [
   { val: 'absent',  label: 'Absent',   short: '–',  cls: 'bg-slate-50 text-slate-600 border-slate-200' },
 ];
 
-function GrilleParcours({ etudId, peutEcrire }) {
+/* L'ANNÉE EST UNE DONNÉE, PAS UNE SUPPOSITION. La grille affichait
+   « hors programme {annee} » en lisant une variable que personne ne lui
+   passait : la ligne entière tombait en erreur dès qu'une unité de la section
+   manquait au programme de l'année. */
+function GrilleParcours({ etudId, peutEcrire, annee }) {
   const [data, setData] = useState(null);
   const [popover, setPopover] = useState(null); // { annee, ue_num, verrou }
   const [pts, setPts] = useState('');
@@ -1143,7 +1147,7 @@ function BarreParcours({ position, onPrec, onSuiv, portee, onPortee, sections, u
 }
 
 function FicheEtudiant({ id, annee, onClose, position, onPrec, onSuiv,
-                         portee, onPortee, sections, ues, annees }) {
+                         portee, onPortee, sections, ues, annees, onModifie }) {
   const [annexe2, setAnnexe2] = useState(false);
   const [motivation, setMotivation] = useState(false);
   const [data, setData] = useState(null);
@@ -1547,7 +1551,7 @@ function FicheEtudiant({ id, annee, onClose, position, onPrec, onSuiv,
                 <SchemaCapitalisation etudId={id} annee={annee} />
               </div>
 
-              <GrilleParcours etudId={id} peutEcrire={true} />
+              <GrilleParcours etudId={id} peutEcrire={true} annee={annee} />
 
               <div className="border-t border-slate-200 mt-4 pt-4">
               {/* Ce qui suit est une PROPOSITION tant qu'elle n'est pas
@@ -1795,6 +1799,16 @@ function FicheEtudiant({ id, annee, onClose, position, onPrec, onSuiv,
 }
 
 // ── Page principale Étudiants ─────────────────────────────────────────────────
+/* LE VOCABULAIRE DES DÉCISIONS, EN CLAIR — et à portée de qui le lit.
+ * Cette table était écrite APRÈS le « return » du composant : du code jamais
+ * atteint, donc une constante jamais initialisée. La fiche d'un étudiant
+ * portant une décision tombait sur une erreur au lieu d'afficher « réussi ».
+ * Elle vit au niveau du module, comme toute table de libellés. */
+const LIBELLE_RES = {
+  reussi: 'réussi', echec: 'échec', absent: 'absent',
+  ajourne: 'ajourné', refuse: 'refusé', va: 'valorisé',
+};
+
 export default function Etudiants() {
   /**
    * Export Excel de la section : signalétique et résultats, réimportables.
@@ -2466,7 +2480,8 @@ export default function Etudiants() {
             setAnneeCohorte(p.annee);
             setUeCohorte(p.ue_num);
           }}
-          sections={sections} ues={uesCohorte} annees={anneesCohorte} />
+          sections={sections} ues={uesCohorte} annees={anneesCohorte}
+          onModifie={charger} />
       )}
 
       {comparaison && <ComparaisonClasseur onClose={() => setComparaison(false)} />}
@@ -2589,10 +2604,4 @@ export default function Etudiants() {
     </div>
   );
 
-// Le vocabulaire des décisions, en clair. « echec » vient des sessions,
-// « ajourne » et « refuse » des décisions d'unité.
-const LIBELLE_RES = {
-  reussi: 'réussi', echec: 'échec', absent: 'absent',
-  ajourne: 'ajourné', refuse: 'refusé', va: 'valorisé',
-};
 }

@@ -2408,8 +2408,11 @@ export default function Professeurs() {
           )}
           {selection.size > 0 && (
             <div className="flex items-center gap-2">
-              {/* Contrats PDF — un vrai PDF par prof, en ZIP */}
-              {peutGenererContrat(u) && (
+              {/* Contrats PDF — un vrai PDF par prof, en ZIP.
+                  « u » est l'utilisateur de la FICHE, une autre fonction : ici
+                  il n'existe pas, et sélectionner une ligne faisait tomber
+                  l'écran. C'est l'utilisateur connecté qu'il faut. */}
+              {peutGenererContrat(getUser()) && (
                 <button onClick={exporterContratsZip} disabled={contratsZipEnCours}
                   className="bg-green-700 hover:opacity-90 disabled:opacity-50 text-white text-sm px-3 py-1.5 h-9 rounded font-medium inline-flex items-center gap-1.5">
                   <IconFileText size={15}/> {contratsZipEnCours ? 'Préparation…' : `Contrats PDF (${selection.size})`}
